@@ -1,6 +1,6 @@
 //! # Offchain message reception workflow
 //!
-//! This module processes offchain messages received via the `receive` function. Offchain processing needs to handle
+//! This module processes offchain messages received via the [`receive`] function. Offchain processing needs to handle
 //! some complexity, including the possibility of reorgs reverting message effects, and the need to reprocess messages
 //! in that case. The state chart below summarizes the current behavior.
 //!
@@ -46,7 +46,7 @@
 //! # Message reception lifecycle and the TTL
 //!
 //! A reception expires once `now > anchor_block_timestamp + MAX_MSG_TTL`, where `MAX_MSG_TTL = MAX_TX_LIFETIME + 2h`.
-//! A transaction anchored at a given block can only be mined within `MAX_TX_LIFETIME` of that block, so once that
+//! A transaction anchored at a given block can only be mined within [`MAX_TX_LIFETIME`] of that block, so once that
 //! window (plus a safety margin of 2 hours) has elapsed the originating transaction can no longer appear, and it is
 //! safe to stop looking for it.
 //!
@@ -62,26 +62,30 @@
 //!
 //! # Implementation
 //!
-//! Each message received via `receive` is stored as a fact collection, content addressed.
+//! Each message received via [`receive`] is stored as a [fact collection](crate::facts::FactCollection), content
+//! addressed.
 //!
-//! The first recorded fact of said collection is an `OFFCHAIN_MESSAGE_RECEIVED` non-retractable fact, which persists
-//! in its payload an `OffchainMessage`. This represents an active reception process in the RECEIVED state from our
+//! The first recorded fact of said collection is an `OFFCHAIN_MESSAGE_RECEIVED` [non-retractable
+//! fact](crate::facts::record_non_retractable_fact), which persists
+//! in its payload an [`OffchainMessage`]. This represents an active reception process in the RECEIVED state from our
 //! state chart above.
 //!
-//! Once the message is processed it records an `OFFCHAIN_MESSAGE_PROCESSED` retractable fact associated to the block
+//! Once the message is processed it records an `OFFCHAIN_MESSAGE_PROCESSED` [retractable
+//! fact](crate::facts::record_retractable_fact) associated to the block
 //! where the transaction was found.
 //!
 //! Analyzing the recorded facts in combination with the TTL is all it takes to determine in which state of the
 //! reception process we are:
 //!
-//! - If the TTL has elapsed, we reached the end of the process and the fact collection can be deleted.
+//! - If the TTL has elapsed, we reached the end of the process and the [fact collection](crate::facts::FactCollection)
+//! can be deleted.
 //! - Otherwise:
 //!     - If there is an `OFFCHAIN_MESSAGE_PROCESSED` fact we are in PROCESSED state and there is nothing to do.
 //!     - If there is only an `OFFCHAIN_MESSAGE_RECEIVED` fact we are in RECEIVED state and we need to check if the
 //!       message transaction is now available onchain and exercise the RECEIVED->PROCESSED transition.
 //!
 //! The PROCESSED->RECEIVED transition is transparently handled by PXE: if a re-org caused the message transaction to
-//! fall off the chain, the OFFCHAIN_MESSAGE_PROCESSED fact disappears, taking us back to the RECEIVED state.
+//! fall off the chain, the [`OFFCHAIN_MESSAGE_PROCESSED`] fact disappears, taking us back to the RECEIVED state.
 //!
 //! Each time a contract's state is synchronized, Aztec.nr invokes the [`sync_inbox`] function, which is in charge of
 //! advancing the state of all active message reception processes. [`sync_inbox`] loads every active reception process
@@ -115,7 +119,7 @@ pub global MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL: u32 = 16;
 global MAX_MSG_TTL: u64 = MAX_TX_LIFETIME + 7200;
 
 /// Fact type id of the fact that stores the offchain message body inside a reception collection.
-global OFFCHAIN_MESSAGE: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_MESSAGE".as_bytes());
+global OFFCHAIN_MESSAGE_RECEIVED: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_MESSAGE_RECEIVED".as_bytes());
 
 /// Fact type id to mark an offchain message as processed.
 ///
@@ -134,7 +138,8 @@ global OFFCHAIN_MESSAGE_PROCESSED: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_M
 /// This function determines when each message in said inbox is ready for processing, when it can be safely disposed
 /// of, etc.
 ///
-/// The only current implementation of an `OffchainInboxSync` is [`sync_inbox`], which manages an inbox with expiration
+/// The only current implementation of an [`OffchainInboxSync`] is [`sync_inbox`], which manages an inbox with
+/// expiration
 /// based eviction and automatic transaction context resolution.
 pub type OffchainInboxSync = unconstrained fn(
 /* contract_address */AztecAddress, /* scope */ AztecAddress) -> EphemeralArray<OffchainMessageWithContext>;
@@ -165,7 +170,7 @@ pub unconstrained fn receive(
             msg.recipient,
             OFFCHAIN_RECEPTION_TYPE_ID,
             fact_collection_id(msg),
-            OFFCHAIN_MESSAGE,
+            OFFCHAIN_MESSAGE_RECEIVED,
             encode_message(msg),
         );
     });
@@ -174,7 +179,7 @@ pub unconstrained fn receive(
     set_contract_sync_cache_invalid(contract_address, messages.map(|msg| msg.recipient));
 }
 
-/// Serializes an `OffchainMessage` into a fact payload.
+/// Serializes an [`OffchainMessage`] into a fact payload.
 unconstrained fn encode_message(message: OffchainMessage) -> EphemeralArray<Field> {
     let fields = message.serialize();
     let payload: EphemeralArray<Field> = EphemeralArray::empty();
@@ -186,7 +191,7 @@ unconstrained fn encode_message(message: OffchainMessage) -> EphemeralArray<Fiel
 
 /// Reads the message body fact back out of a reception collection.
 unconstrained fn decode_message(reception: FactCollection) -> OffchainMessage {
-    let message_fact = reception.facts.find(|f: Fact| f.fact_type_id == OFFCHAIN_MESSAGE).unwrap();
+    let message_fact = reception.facts.find(|f: Fact| f.fact_type_id == OFFCHAIN_MESSAGE_RECEIVED).unwrap();
     let n = <OffchainMessage as Deserialize>::N;
     let mut fields = [0; <OffchainMessage as Deserialize>::N];
     for i in 0..n {
@@ -214,7 +219,7 @@ unconstrained fn mark_processed(reception: FactCollection, block_number: u32, bl
     );
 }
 
-/// Terminates a reception by deleting its fact collection.
+/// Terminates a reception by deleting its [fact collection](crate::facts::FactCollection).
 unconstrained fn terminate(reception: FactCollection) {
     delete_fact_collection(
         reception.contract_address,
@@ -299,13 +304,10 @@ pub struct OffchainMessage {
     pub anchor_block_timestamp: u64,
 }
 
-/// Fact-collection type id shared by every offchain message reception in the fact store.
+/// Fact-collection type id shared by every offchain message reception in the [fact store](crate::facts).
 global OFFCHAIN_RECEPTION_TYPE_ID: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_RECEPTION_TYPE_ID".as_bytes());
 
-/// Computes the fact-collection id that identifies a message's reception workflow in the fact store.
-///
-/// The id is a hash over the full serialized message. Re-delivering a byte-identical message therefore is idempotent,
-/// and a message differing in any of its fields triggers a completely new reception workflow.
+/// Computes the fact-collection id that identifies a message's reception workflow in the [fact store](crate::facts).
 fn fact_collection_id(message: OffchainMessage) -> Field {
     poseidon2_hash(message.serialize())
 }
