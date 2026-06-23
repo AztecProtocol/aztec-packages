@@ -11,8 +11,8 @@ podManagementPolicy: Parallel
 
 # global config for all Aztec nodes in an instalation
 global:
-  # Which rollup contract we want to follow from the registry
-  aztecRollupVersion: "canonical"
+  # -- Environment variables shared by all Aztec nodes. Overridden by node.env.
+  aztecEnv: {}
   # -- Network name - this is a predefined network - alpha-testnet, devnet
   aztecNetwork: ""
   # -- Custom network - (not recommended) - Only for custom testnet usecases, (must have deployed your own protocol contracts first)
@@ -51,6 +51,9 @@ hostNetwork: false
 # -- Number of replicas
 replicaCount: 1
 
+# -- Deployment strategy. Only used when statefulSet.enabled is false.
+deploymentStrategy: {}
+
 statefulSet:
   enabled: false
   volumeClaimTemplates: []
@@ -88,6 +91,8 @@ node:
   envFrom:
     configMapEnabled: false
     secretEnabled: false
+    configMaps: []
+    secrets: []
 
   configMap:
     envEnabled: false
@@ -135,6 +140,21 @@ node:
     # -- Failure threshold
     # 20 minutes default but this might not be enough if the node has to download a lot of blocks.
     failureThreshold: 40
+
+  readinessProbe:
+    enabled: true
+    exec:
+      command:
+        - /bin/sh
+        - -ec
+        - |
+          curl -sf -H 'content-type: application/json' --data '{"jsonrpc":"2.0","id":1,"method":"node_getWorldStateSyncStatus","params":[]}' "http://127.0.0.1:${AZTEC_PORT:-8080}" | jq -e '.result.treesAreSynched == true' > /dev/null
+    httpGet: null
+    periodSeconds: 15
+    timeoutSeconds: 2
+    initialDelaySeconds: 0
+    failureThreshold: 1
+    successThreshold: 1
 
   resources: {}
 
@@ -204,6 +224,7 @@ service:
     enabled: true
     nodePortEnabled: false
     publicIP: true
+    hostPortEnabled: true
     port: 40400
     announcePort: 40400
 
@@ -250,3 +271,6 @@ serviceAccount:
   name: ""
   # -- Annotations for the service account
   annotations: {}
+
+# -- Additional Kubernetes objects to render with this chart.
+extraObjects: []

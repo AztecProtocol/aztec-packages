@@ -1,5 +1,6 @@
 global:
-  aztecRollupVersion: "canonical"
+  aztecEnv:
+    ROLLUP_VERSION: "canonical"
   aztecNetwork: ""
   customAztecNetwork:
     enabled: false
@@ -95,6 +96,8 @@ bot:
 
     startCmd:
       - --bot
+    readinessProbe:
+      enabled: false
 
     hostNetwork: false
 

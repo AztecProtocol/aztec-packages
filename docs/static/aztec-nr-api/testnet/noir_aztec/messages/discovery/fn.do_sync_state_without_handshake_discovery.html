@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Function do_sync_state_without_handshake_discovery documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">do_sync_state_without_handshake_discovery</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module discovery</h2>
+<h3>Modules</h3><ul class="item-list">
+<li><a href="private_notes/index.html">private_notes</a></div></li>
+<li><a href="process_message/index.html">process_message</a></div></li>
+</ul>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.NoteHashAndNullifier.html">NoteHashAndNullifier</a></div></li>
+</ul>
+<h3>Type aliases</h3><ul class="item-list">
+<li><a href="type.ComputeNoteHash.html">ComputeNoteHash</a></div></li>
+<li><a href="type.ComputeNoteHashAndNullifier.html">ComputeNoteHashAndNullifier</a></div></li>
+<li><a href="type.ComputeNoteNullifier.html">ComputeNoteNullifier</a></div></li>
+<li><a href="type.CustomMessageHandler.html">CustomMessageHandler</a></div></li>
+<li><a href="type.CustomSyncHandler.html">CustomSyncHandler</a></div></li>
+</ul>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.do_sync_state.html">do_sync_state</a></div></li>
+<li><a href="fn.do_sync_state_without_handshake_discovery.html">do_sync_state_without_handshake_discovery</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">messages</a>::<a href="index.html">discovery</a></div>
+<h1>Function <span class="fn">do_sync_state_without_handshake_discovery</span></h1>
+<pre><code>pub unconstrained fn do_sync_state_without_handshake_discovery(
+    contract_address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    compute_note_hash: <a href="../../../noir_aztec/messages/discovery/type.ComputeNoteHash.html" class="type">ComputeNoteHash</a>,
+    compute_note_nullifier: <a href="../../../noir_aztec/messages/discovery/type.ComputeNoteNullifier.html" class="type">ComputeNoteNullifier</a>,
+    process_custom_message: <a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/messages/discovery/type.CustomMessageHandler.html" class="type">CustomMessageHandler</a>&gt;,
+    offchain_inbox_sync: <a href="../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../noir_aztec/messages/processing/offchain/type.OffchainInboxSync.html" class="type">OffchainInboxSync</a>&gt;,
+    scope: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+)</code></pre>
+
+<div class="comments">
+<p>Variant of <a href="../../../noir_aztec/messages/discovery/fn.do_sync_state.html"><code>do_sync_state</code></a> that skips handshake secret discovery. Used by the HandshakeRegistry to avoid
+infinite recursion (the registry discovers handshakes for other contracts, not for itself).</p></div>
+</main>
+</span>
+</body>
+</html>

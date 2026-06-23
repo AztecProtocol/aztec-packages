@@ -1,0 +1,44 @@
+// echo.schema.jsonc — the entire echo service, human-authored.
+{
+  "service": "Echo",
+
+  // Named byte aliases (nominal 32-byte types). Only bin32 today.
+  "aliases": {
+    "Fr": "bin32"
+  },
+
+  // Shared struct types, referenced by name from commands.
+  "types": {
+    "EchoInner": {
+      "values": "bytes[]",
+      "flag": "bool?"
+    }
+  },
+
+  // Error variant shared by every command.
+  "error": { "message": "string" },
+
+  // command -> { request, response }. Names are unprefixed; generated type
+  // names get the service prefix (EchoBytes), method names do not (bytes).
+  "commands": {
+    "Bytes":   { "request":  { "data": "bytes" },
+                 "response": { "data": "bytes" } },
+
+    "Fields":  { "request":  { "a": "u32", "b": "u64", "name": "string" },
+                 "response": { "a": "u32", "b": "u64", "name": "string" } },
+
+    "Nested":  { "request":  { "inner": "EchoInner" },
+                 "response": { "inner": "EchoInner" } },
+
+    "Aliases": { "request":  { "treeId": "u32", "hash": "Fr",
+                               "maybeHash": "Fr?", "hashes": "Fr[]" },
+                 "response": { "treeId": "u32", "hash": "Fr",
+                               "maybeHash": "Fr?", "hashes": "Fr[]" } },
+
+    "Blobs":   { "request":  { "maybeData": "bytes?", "parts": "bytes[2]" },
+                 "response": { "maybeData": "bytes?", "parts": "bytes[2]" } },
+
+    "Fail":    { "request":  { "message": "string" },
+                 "response": {} }
+  }
+}

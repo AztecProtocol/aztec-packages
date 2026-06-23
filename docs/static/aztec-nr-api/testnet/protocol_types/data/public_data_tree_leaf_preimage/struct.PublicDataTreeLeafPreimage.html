@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Struct PublicDataTreeLeafPreimage documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">PublicDataTreeLeafPreimage</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">protocol_types</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct PublicDataTreeLeafPreimage</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#structfield.next_index">next_index</a></li>
+<li><a href="#structfield.next_slot">next_slot</a></li>
+<li><a href="#structfield.slot">slot</a></li>
+<li><a href="#structfield.value">value</a></li>
+</ul>
+<h3>Trait implementations</h3>
+<ul class="sidebar-list">
+<li><a href="#impl-Deserialize-for-PublicDataTreeLeafPreimage">Deserialize</a></li>
+<li><a href="#impl-Empty-for-PublicDataTreeLeafPreimage">Empty</a></li>
+<li><a href="#impl-Eq-for-PublicDataTreeLeafPreimage">Eq</a></li>
+<li><a href="#impl-Hash-for-PublicDataTreeLeafPreimage">Hash</a></li>
+<li><a href="#impl-IndexedTreeLeafPreimage&lt;PublicDataTreeLeaf&gt;-for-PublicDataTreeLeafPreimage">IndexedTreeLeafPreimage&lt;PublicDataTreeLeaf&gt;</a></li>
+<li><a href="#impl-LeafPreimage-for-PublicDataTreeLeafPreimage">LeafPreimage</a></li>
+<li><a href="#impl-Serialize-for-PublicDataTreeLeafPreimage">Serialize</a></li>
+</ul>
+<h2>In module public_data_tree_leaf_preimage</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.PublicDataTreeLeafPreimage.html">PublicDataTreeLeafPreimage</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">protocol_types</a>::<a href="../index.html">data</a>::<a href="index.html">public_data_tree_leaf_preimage</a></div>
+<h1>Struct <span id="struct" class="struct">PublicDataTreeLeafPreimage</span></h1>
+<pre><code>pub struct PublicDataTreeLeafPreimage {
+    pub slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub value: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub next_slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+    pub next_index: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
+}
+</code></pre>
+<h2>Fields</h2>
+<div id="structfield.slot" class="struct-field"><code class="code-header">slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="structfield.value" class="struct-field"><code class="code-header">value: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="structfield.next_slot" class="struct-field"><code class="code-header">next_slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><div id="structfield.next_index" class="struct-field"><code class="code-header">next_index: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
+<div class="padded-description"></div><h2>Trait implementations</h2>
+<h3 id="impl-Deserialize-for-PublicDataTreeLeafPreimage"><code class="code-header">impl <a href="../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../protocol_types/data/public_data_tree_leaf_preimage/struct.PublicDataTreeLeafPreimage.html" class="struct">PublicDataTreeLeafPreimage</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 4]) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">stream_deserialize</span>&lt;let K: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(reader: &mut <a href="../../../serde/reader/struct.Reader.html" class="struct">Reader</a>&lt;K&gt;) -> Self</code>
+
+</div><h3 id="impl-Empty-for-PublicDataTreeLeafPreimage"><code class="code-header">impl <a href="../../../protocol_types/traits/trait.Empty.html" class="trait">Empty</a> for <a href="../../../protocol_types/data/public_data_tree_leaf_preimage/struct.PublicDataTreeLeafPreimage.html" class="struct">PublicDataTreeLeafPreimage</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">empty</span>() -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">is_empty</span>(self: Self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a>
+<div class="where-clause">where
+    Self: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+<code class="code-header">pub fn <span class="fn">assert_empty</span>&lt;let S: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self: Self, msg: <a href="../../../std/primitive.str.html" class="primitive">str</a>&lt;S&gt;)
+<div class="where-clause">where
+    Self: <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a></div></code>
+
+</div><h3 id="impl-Eq-for-PublicDataTreeLeafPreimage"><code class="code-header">impl <a href="../../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../../protocol_types/data/public_data_tree_leaf_preimage/struct.PublicDataTreeLeafPreimage.html" class="struct">PublicDataTreeLeafPreimage</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">eq</span>(_self: Self, _other: Self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h3 id="impl-Hash-for-PublicDataTreeLeafPreimage"><code class="code-header">impl <a href="../../../protocol_types/traits/trait.Hash.html" class="trait">Hash</a> for <a href="../../../protocol_types/data/public_data_tree_leaf_preimage/struct.PublicDataTreeLeafPreimage.html" class="struct">PublicDataTreeLeafPreimage</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">hash</span>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+</div><h3 id="impl-IndexedTreeLeafPreimage&lt;PublicDataTreeLeaf&gt;-for-PublicDataTreeLeafPreimage"><code class="code-header">impl <a href="../../../protocol_types/merkle_tree/leaf_preimage/trait.IndexedTreeLeafPreimage.html" class="trait">IndexedTreeLeafPreimage</a>&lt;<a href="../../../protocol_types/data/public_data_tree_leaf/struct.PublicDataTreeLeaf.html" class="struct">PublicDataTreeLeaf</a>&gt; for <a href="../../../protocol_types/data/public_data_tree_leaf_preimage/struct.PublicDataTreeLeafPreimage.html" class="struct">PublicDataTreeLeafPreimage</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">get_next_key</span>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+<code class="code-header">pub fn <span class="fn">points_to_infinity</span>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+<code class="code-header">pub fn <span class="fn">update_pointers</span>(self, next_slot: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>, next_index: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">update_value</span>(self, write: <a href="../../../protocol_types/data/public_data_tree_leaf/struct.PublicDataTreeLeaf.html" class="struct">PublicDataTreeLeaf</a>) -> Self</code>
+
+<code class="code-header">pub fn <span class="fn">build_insertion_leaf</span>(write: <a href="../../../protocol_types/data/public_data_tree_leaf/struct.PublicDataTreeLeaf.html" class="struct">PublicDataTreeLeaf</a>, low_leaf: Self) -> Self</code>
+
+</div><h3 id="impl-LeafPreimage-for-PublicDataTreeLeafPreimage"><code class="code-header">impl <a href="../../../protocol_types/merkle_tree/leaf_preimage/trait.LeafPreimage.html" class="trait">LeafPreimage</a> for <a href="../../../protocol_types/data/public_data_tree_leaf_preimage/struct.PublicDataTreeLeafPreimage.html" class="struct">PublicDataTreeLeafPreimage</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">get_key</span>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+<code class="code-header">pub fn <span class="fn">as_leaf</span>(self) -> <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+</div><h3 id="impl-Serialize-for-PublicDataTreeLeafPreimage"><code class="code-header">impl <a href="../../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../../protocol_types/data/public_data_tree_leaf_preimage/struct.PublicDataTreeLeafPreimage.html" class="struct">PublicDataTreeLeafPreimage</a></code></h3>
+
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 4]</code>
+
+<code class="code-header">pub fn <span class="fn">stream_serialize</span>&lt;let K: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../../../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;)</code>
+
+</div></main>
+</span>
+</body>
+</html>

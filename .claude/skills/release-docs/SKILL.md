@@ -11,9 +11,8 @@ for current info, updates version defaults, contract addresses, migration notes,
 builds the docs, cuts a versioned snapshot, and prepares changes on `next`.
 
 Supports **devnet**, **testnet**, and **mainnet** releases. The release type is
-auto-detected from the version string returned by the network (e.g. `devnet` in
-the version means devnet, `testnet` means testnet, `mainnet` means mainnet). If
-the version string does not self-identify its release type, ask the user to confirm.
+auto-detected from the version string (Step 1); if it does not self-identify, ask
+the user to confirm.
 
 ## Usage
 
@@ -79,14 +78,14 @@ returned by the RPC (e.g. the network is still running `4.1.3` but the user
 wants to prepare docs for `4.2.0`), this is a **pre-release** docs preparation.
 Ask the user to confirm the target version, then use that version instead of
 `nodeVersion` throughout the remaining steps. The git tag for the target version
-must still exist. Contract addresses from the RPC reflect the *current* network
+must still exist. Contract addresses from the RPC reflect the _current_ network
 state (the old version); they are still valid if the upgrade reuses the same
 contracts, but ask the user to confirm whether any addresses will change at
 upgrade time.
 
 **Run all work on the tag, not `next`.** Cut on the tag so the snapshot
 reflects what shipped. Then stash, switch to `next`, pop. Backport any newer
-docs from `next` into the snapshot as an explicit step *after* the cut.
+docs from `next` into the snapshot as an explicit step _after_ the cut.
 
 ### Unversioned root pages
 
@@ -116,10 +115,11 @@ VERSION=<version> bash -i <(curl -sL https://install.aztec.network/<version>)
 aztec get-canonical-sponsored-fpc-address
 ```
 
-Store the address for updating docs.
+Store the address and update it wherever it appears in the versioned docs.
 
-**Note:** The Sponsored FPC is only deployed on devnet. For mainnet and testnet releases,
+**Note:** The Sponsored FPC is deployed on testnet and devnet. For mainnet releases,
 mark the SponsoredFPC row as "Not deployed" in the L2 Contract Addresses table.
+If the Sponsored FPC address changes for a testnet release, send a reminder that the new address must be funded on testnet.
 
 ### Step 5: Update Version Configs
 
@@ -192,10 +192,9 @@ step (Step 10) will validate that API reference links resolve correctly.
 
 ### Step 7: Generate CLI Reference Docs
 
-Regenerate the CLI reference documentation from the installed CLI. The generation
-scripts scan `--help` output from each CLI binary, so the **installed aztec CLI
-must match the release version** (verified in Step 3). If the CLI is not the
-correct version, the generated docs will document the wrong command set.
+Regenerate the CLI reference from the installed CLI. The scripts scan `--help`
+output from each binary, so the **installed aztec CLI must match the release
+version** (Step 3) or the docs will document the wrong command set.
 
 ```bash
 cd docs
@@ -234,6 +233,7 @@ docs (Step 13), the generated content is included in the snapshot automatically.
 
 1. **Triage existing TBD items.** Not all items under `## TBD` necessarily belong
    to the current release. Review each entry and decide whether it:
+
    - Shipped in this release → move it under the new `## <new version>` heading
    - Targets a future major version → move it under a new `## Unreleased (v<next_major>)`
      heading (create this heading if it doesn't exist, placed between `## TBD` and
@@ -250,6 +250,7 @@ docs (Step 13), the generated content is included in the snapshot automatically.
 
 4. Check for missing migration items by analyzing the diff between the previous
    release tag and the new one:
+
    ```bash
    git diff v<old_version>..v<new_version> -- yarn-project/ noir-projects/
    ```
@@ -339,12 +340,22 @@ grep -r "<old_address>" docs/
 
 **For testnet releases:**
 
-There is no dedicated `getting_started_on_testnet.md` page. Instead:
+**File:** `docs/docs-developers/getting_started_on_testnet.md` (snapshotted into the
+versioned docs at cut time in Step 13)
+
+- Update `NODE_URL` to the testnet RPC endpoint, and keep it **identical** to the
+  RPC endpoint in `docs/docs/networks.md` (Step 9). These two are maintained
+  separately, so a `networks.md` RPC change that isn't mirrored here leaves the
+  guide's first command pointing at a dead host.
+- Update `SPONSORED_FPC_ADDRESS` from Step 4.
+- Update the install command and any hardcoded version references to the new version.
+- Review the page for correctness: CLI commands, FPC registration, fee payment
+  instructions, block explorer links.
+
+Also:
 
 - Update any testnet RPC URLs or addresses in operator docs under `docs/docs-operate/`
 - Review the testnet section of `docs/docs/networks.md` for accuracy
-- Check `docs/docs-developers/getting_started_on_devnet.md` for any testnet references
-  that also need updating
 
 ### Step 11: Run `yarn build` and Fix Issues
 
@@ -369,6 +380,17 @@ GitHub URLs which require the `v` prefix), while `#include_version_without_prefi
 the `v` to produce the bare version (used for install commands and npm packages). If you
 omit the `v`, all GitHub links and git tag references in the versioned docs will be broken.
 
+**`@aztec/viem` is versioned off the release line.** It mirrors upstream `viem` (e.g.
+`@aztec/viem@2.38.2`) and has no `5.0.0-rc.1`-style version on npm, so never rewrite it to
+the release version. CI won't catch a wrong pin: the import type-checks against the
+auto-linked workspace copy. Tutorials whose example code imports it (token/aave/uniswap
+bridges) must list `@aztec/viem` at its own version in their install command (readers may
+substitute plain `viem` at the same version). Find the pin:
+
+```bash
+grep -rh '"viem": "npm:@aztec/viem@' yarn-project/*/package.json | head -1
+```
+
 ```bash
 cd docs && <TAG_VAR>=<new_version> RELEASE_TYPE=<release_type> COMMIT_TAG=v<nodeVersion> yarn build
 ```
@@ -386,8 +408,8 @@ Iterate until the build passes.
 **For devnet releases:** Read through `docs/docs-developers/getting_started_on_devnet.md`
 one final time after all changes are complete.
 
-**For testnet releases:** Read through the testnet section of `docs/docs/networks.md`
-and any updated operator docs.
+**For testnet releases:** Read through `docs/docs-developers/getting_started_on_testnet.md`,
+the testnet section of `docs/docs/networks.md`, and any updated operator docs.
 
 In both cases verify:
 
@@ -395,6 +417,7 @@ In both cases verify:
 - Fee payment instructions are accurate
 - Block explorer links are correct
 - The SponsoredFPC address matches step 4
+- `NODE_URL` matches the RPC endpoint in `networks.md` (testnet/devnet)
 
 Present a summary of the review to the user for approval.
 

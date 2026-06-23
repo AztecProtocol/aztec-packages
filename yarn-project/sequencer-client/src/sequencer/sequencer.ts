@@ -186,6 +186,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   public async stop(): Promise<void> {
     this.log.info(`Stopping sequencer`);
     this.setState(SequencerState.STOPPING, undefined, { force: true });
+    this.lastCheckpointProposalJob?.interrupt();
     await this.publisherFactory.stopAll();
     await this.runningPromise?.stop();
     await this.lastCheckpointProposalJob?.awaitPendingSubmission();

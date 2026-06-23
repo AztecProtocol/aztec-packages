@@ -9,7 +9,7 @@ on:
         description: 'Comma-separated list of networks to check (default: all)'
         required: false
         type: string
-        default: 'testnet,mainnet,staging,next-net'
+        default: 'testnet,mainnet,staging-public,staging-internal,next-net'
 
 jobs:
   healthcheck:
@@ -25,7 +25,7 @@ jobs:
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           CI: "1"
         run: |
-          NETWORKS="${{ inputs.networks || 'next-net,staging,testnet,mainnet' }}"
+          NETWORKS="${{ inputs.networks || 'next-net,staging-public,staging-internal,testnet,mainnet' }}"
 
           PROMPT="Run a network healthcheck for: ${NETWORKS}.
 

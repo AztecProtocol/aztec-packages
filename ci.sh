@@ -39,10 +39,10 @@ function print_usage {
   echo_cmd "chonk-input-update"    "Spin up an EC2 instance to update pinned Chonk IVC inputs and push the diff."
   echo_cmd "release"               "Spin up an EC2 instance and run bootstrap release."
   echo_cmd "shell-new"             "Spin up an EC2 instance, clone the repo, and drop into a shell."
-  echo_cmd "shell"                 "Drop into a shell in the current running build instance container."
-  echo_cmd "shell-host"            "Drop into a shell in the current running build host."
+  echo_cmd "shell-container"       "Shell into a running build container. Optional filter tokens (e.g. 'pr-123 bench') select the instance; defaults to the current branch."
+  echo_cmd "shell-host"            "Shell into a running build host. Same instance selection as shell-container."
   echo_cmd "log"                   "Display the log of the given log ID."
-  echo_cmd "kill"                  "Terminate running EC2 instance with instance_name."
+  echo_cmd "kill"                  "Terminate running build instances matching the filter tokens (default: current branch)."
   echo_cmd "draft"                 "Mark the current PR as draft (no automatic CI runs when pushing)."
   echo_cmd "ready"                 "Mark the current PR as ready (enable automatic CI runs when pushing)."
   echo_cmd "pr-url"                "Print the URL of the current PR associated with the branch."
@@ -53,23 +53,69 @@ function print_usage {
 
 [ -n "$cmd" ] && shift
 
-instance_name=${INSTANCE_NAME:-$(echo -n "$BRANCH" | tr -c 'a-zA-Z0-9-' '_')_${arch}}
-[ -n "${INSTANCE_POSTFIX:-}" ] && instance_name+="_$INSTANCE_POSTFIX"
+# Connecting to a running build instance: discover by the Group=build-instance tag
+# and match filter tokens against the Name (which aws_instance_name builds as
+# <repo>_<ref>_<arch>[_<job>]), rather than reconstructing the exact name (which
+# varies by arch/job/count). This is what lets `shell-container pr-123 bench` etc. work.
 
-function get_ip_for_instance {
-  ip=$(aws ec2 describe-instances \
+# Echo running build instances as: <Name>\t<InstanceId>\t<PublicIp>\t<LaunchTime>
+function list_build_instances {
+  aws ec2 describe-instances \
     --region us-east-2 \
-    --filters "Name=tag:Name,Values=$instance_name" "Name=instance-state-name,Values=running" \
-    --query "Reservations[].Instances[0].PublicIpAddress" \
-    --output text)
+    --filters "Name=tag:Group,Values=build-instance" "Name=instance-state-name,Values=running" \
+    --query "Reservations[].Instances[].[Tags[?Key=='Name']|[0].Value, InstanceId, PublicIpAddress, LaunchTime]" \
+    --output text
 }
 
-function get_iid_for_instance {
-  iid=$(aws ec2 describe-instances \
-    --region us-east-2 \
-    --filters "Name=tag:Name,Values=$instance_name" "Name=instance-state-name,Values=running" \
-    --query "Reservations[].Instances[0].InstanceId" \
-    --output text | tr -d '\n\r' | xargs)
+# Echo running build instances whose Name matches every filter token (case-insensitive
+# substring). With no tokens, defaults to the current branch's canonical name.
+function filter_build_instances {
+  local filters=("$@") rows f
+  [ "${#filters[@]}" -eq 0 ] && filters=("$(aws_instance_name "$BRANCH" "$arch")")
+  rows=$(list_build_instances)
+  for f in "${filters[@]}"; do
+    # Sanitise the token the same way instance names are (e.g. a branch's '/' -> '_'),
+    # so passing a raw branch name like 'mv/f-669' still matches '..._mv_f-669_...'.
+    f=$(printf '%s' "$f" | tr -c 'a-zA-Z0-9-' '_')
+    rows=$(printf '%s\n' "$rows" | awk -v p="$f" 'index(tolower($1), tolower(p))')
+  done
+  printf '%s\n' "$rows" | sed '/^$/d'
+}
+
+# Resolve exactly one instance from the filter tokens; sets iid/ip/resolved_name.
+# 0 matches -> error + list everything; >1 -> interactive pick on a TTY, else error
+# listing the candidates so you can add a narrowing token (e.g. an arch or job id).
+function resolve_instance {
+  local matches chosen sel i
+  matches=$(filter_build_instances "$@")
+  if [ -z "$matches" ]; then
+    echo_stderr "No running build instance matches: ${*:-$BRANCH}"
+    echo_stderr "Running build instances:"
+    list_build_instances | awk '{print "  " $1}' | sort || true
+    exit 1
+  fi
+  if [ "$(printf '%s\n' "$matches" | wc -l)" -eq 1 ]; then
+    chosen=$matches
+  elif [ -t 0 ]; then
+    echo_stderr "Multiple build instances match '${*:-$BRANCH}':"
+    i=1
+    while IFS= read -r line; do
+      echo_stderr "  $i) $(printf '%s' "$line" | awk '{print $1}')"
+      i=$((i + 1))
+    done <<< "$matches"
+    read -r -p "select [1-$((i - 1))]: " sel
+    [[ "$sel" =~ ^[0-9]+$ ]] || { echo_stderr "Invalid selection."; exit 1; }
+    chosen=$(printf '%s\n' "$matches" | sed -n "${sel}p")
+    [ -z "$chosen" ] && echo_stderr "Invalid selection." && exit 1
+  else
+    echo_stderr "Multiple build instances match '${*}' — add a narrowing token (e.g. an arch or job id):"
+    printf '%s\n' "$matches" | awk '{print "  " $1}'
+    exit 1
+  fi
+  resolved_name=$(printf '%s' "$chosen" | awk '{print $1}')
+  iid=$(printf '%s' "$chosen" | awk '{print $2}')
+  ip=$(printf '%s' "$chosen" | awk '{print $3}')
+  echo_stderr "Connecting to $resolved_name ($iid)."
 }
 
 function get_latest_run_id {
@@ -91,16 +137,30 @@ function multi_job_run {
   export AWS_SHUTDOWN_TIME_ARM=${AWS_SHUTDOWN_TIME_ARM:-90}
   export DENOISE=1
   export DENOISE_WIDTH=32
+  # Only the first job (the amd64 full build) runs the dedicated bench box and uploads;
+  # the rest bench inline as a breakage check (see bootstrap.sh build_and_test). This
+  # de-races grind runs (e.g. merge-queue-heavy fires ~10 instances) that would otherwise
+  # all upload to the same bench cache key.
+  local bench_primary=${1%% *}
+  export bench_primary
   run() {
     [ -n "${4:-}" ] && export REF_NAME=$4
-    PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
+    local bench_upload=0
+    [ "$1" == "$bench_primary" ] && bench_upload=${BENCH_UPLOAD:-0}
+    # Timestamp the bootstrap_ec2 (instance request) sublog. denoise runs the command
+    # under pipefail and bootstrap_ec2 handles spot-eviction retry internally (exec), so
+    # piping through add_timestamps preserves its exit code. DENOISE_DISPLAY_NAME keeps
+    # the parent log's "Executing:" line free of the pipe.
+    PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 BENCH_UPLOAD=$bench_upload \
+      DENOISE_DISPLAY_NAME="bootstrap_ec2 './bootstrap.sh $3'" \
+      exec denoise "bootstrap_ec2 './bootstrap.sh $3' 2>&1 | add_timestamps"
   }
   export -f run
 
   parallel --colsep ' ' --jobs 100 --termseq 'TERM,10000' \
     --tagstring '{1}' \
     --line-buffered --halt now,fail=1 \
-    'run {1} {2} {3} {4}' ::: "$@" | DUP=1 cache_log "CI run" $RUN_ID
+    'run {1} {2} {3} {4}' ::: "$@" | add_timestamps | DUP=1 cache_log "CI run" $RUN_ID
 }
 
 # Jobs in the ci dashboards are grouped on a single line by RUN_ID.
@@ -112,27 +172,45 @@ case "$cmd" in
     ;;
   fast|docs|barretenberg|barretenberg-full)
     export CI_DASHBOARD="prs"
-    export JOB_ID="x-$cmd"
-    bootstrap_ec2 "./bootstrap.sh ci-$cmd"
+    # Route through multi_job_run (even for a single instance) so the runner-side
+    # orchestration — including the spot/instance request — is captured into a
+    # parent dashboard log, matching merge-queue. The job id stays "x-$cmd" so the
+    # GitHub status check name is unchanged.
+    multi_job_run "x-$cmd amd64 ci-$cmd"
+    ;;
+  bench)
+    # Launched by the build instance on uploadable runs to produce stable benchmark
+    # numbers on a dedicated instance of a FIXED type. AWS_INSTANCE pins the exact type
+    # (bypasses spot pool diversification) — that's what keeps numbers comparable. Spot
+    # vs on-demand is the same hardware, so we try spot first and fall back to on-demand
+    # (the default fleet behaviour); a mid-run spot reclaim is handled by bootstrap_ec2's
+    # internal on-demand retry. CI_DASHBOARD and PARENT_LOG_ID are inherited from the
+    # launching run so it nests as a sibling job.
+    # Timestamp the instance-request output. pipefail (in a subshell, since ci.sh doesn't
+    # set it globally) keeps bootstrap_ec2's exit code through add_timestamps — the
+    # launching build instance waits on this fatally.
+    ( set -o pipefail
+      AWS_INSTANCE=m6a.32xlarge JOB_ID=x-bench INSTANCE_POSTFIX=x-bench \
+        bootstrap_ec2 "./bootstrap.sh ci-bench" 2>&1 | add_timestamps )
     ;;
   socket-fix)
     export CI_DASHBOARD="prs"
     export JOB_ID="x-socket-fix"
     export INSTANCE_POSTFIX="socket-fix"
     export CPUS=16
-    bootstrap_ec2 "./bootstrap.sh ci-socket-fix $*"
+    # Capture the runner-side output (incl. instance request) to a parent dashboard
+    # log. No denoise here: this is an interactive debug mode where raw output matters.
+    PARENT_LOG_ID=$RUN_ID bootstrap_ec2 "./bootstrap.sh ci-socket-fix $*" 2>&1 | DUP=1 cache_log "CI run" $RUN_ID
     ;;
   full|full-no-test-cache)
     export CI_DASHBOARD="prs"
-    export JOB_ID="x-$cmd"
     export AWS_SHUTDOWN_TIME=75
-    bootstrap_ec2 "./bootstrap.sh ci-$cmd"
+    multi_job_run "x-$cmd amd64 ci-$cmd"
     ;;
   chonk-input-update)
     export CI_DASHBOARD="prs"
-    export JOB_ID="x-$cmd"
     export AWS_SHUTDOWN_TIME=90
-    bootstrap_ec2 "./bootstrap.sh ci-chonk-input-update"
+    multi_job_run "x-$cmd amd64 ci-chonk-input-update"
     ;;
   barretenberg-debug)
     export CI_DASHBOARD="nightly"
@@ -165,7 +243,7 @@ case "$cmd" in
       'a1-fast arm64 ci-fast'
     ;;
   merge-queue-heavy)
-    # Heavy merge queue with 10 parallel grind runs, used for merge-train/spartan and merge-train/spartan-v5 PRs.
+    # Heavy merge queue with 10 parallel grind runs, used for merge-train/spartan-v5 PRs.
     multi_job_run \
       'x'{1..10}'-full amd64 ci-full-no-test-cache' \
       'a1-fast arm64 ci-fast'
@@ -345,47 +423,51 @@ case "$cmd" in
     CI_USE_SSH=1 exec bootstrap_ec2 "$cmd"
     ;;
   shell-container)
-    # Drop into a shell in the current running build instance container.
+    # Drop into a zsh shell in a running build instance's container. Optional filter
+    # tokens select the instance, e.g.:
+    #   ci.sh shell-container                 # the current branch's instance
+    #   ci.sh shell-container pr-12345 bench  # the bench box for that merge-queue run
+    #   ci.sh shell-container pr-12345 arm64  # the arm build of that run
+    resolve_instance "$@"
+    container_cmd="docker start aztec_build &>/dev/null || true && docker exec -it --user aztec-dev aztec_build zsh"
     if [ "${CI_USE_SSH:-0}" -eq 1 ]; then
-      get_ip_for_instance
-      [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
-      [ "$#" -eq 0 ] && set -- "zsh" || true
-      ssh -tq -F $ci3/aws/build_instance_ssh_config ubuntu@$ip \
-        "docker start aztec_build &>/dev/null || true && docker exec -it --user aztec-dev aztec_build $@"
+      if [ -z "$ip" ] || [ "$ip" = "None" ]; then echo_stderr "No public IP for $resolved_name."; exit 1; fi
+      ssh -tq -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "$container_cmd"
     else
-      get_iid_for_instance
-      [ -z "$iid" ] || [ "$iid" = "None" ] && echo "No instance found: $instance_name" && exit 1
-      [ "$#" -eq 0 ] && set -- "zsh" || true
+      # SSM sessions run as the non-root ssm-user (which has passwordless sudo), so
+      # use sudo rather than runuser. Running docker as root is fine — the container
+      # itself drops to aztec-dev via --user.
       aws ssm start-session \
         --region us-east-2 \
         --target "$iid" \
         --document-name "AWS-StartInteractiveCommand" \
-        --parameters "{\"command\":[\"runuser -u ubuntu -- bash -c 'docker start aztec_build &>/dev/null || true && docker exec -it --user aztec-dev aztec_build $@'\"]}"
+        --parameters "{\"command\":[\"sudo bash -c '$container_cmd'\"]}"
     fi
     ;;
   shell-host)
-    # Drop into a shell in the current running build host.
+    # Drop into a shell on a running build host. Optional filter tokens select the
+    # instance (see shell-container).
+    resolve_instance "$@"
     if [ "${CI_USE_SSH:-0}" -eq 1 ]; then
-      get_ip_for_instance
-      [ -z "$ip" ] && echo "No instance found: $instance_name" && exit 1
+      if [ -z "$ip" ] || [ "$ip" = "None" ]; then echo_stderr "No public IP for $resolved_name."; exit 1; fi
       ssh -t -F $ci3/aws/build_instance_ssh_config ubuntu@$ip
     else
-      get_iid_for_instance
-      [ -z "$iid" ] || [ "$iid" = "None" ] && echo "No instance found: $instance_name" && exit 1
       aws ssm start-session \
         --region us-east-2 \
         --target "$iid"
     fi
     ;;
   kill)
-    existing_instance=$(aws ec2 describe-instances \
-      --region us-east-2 \
-      --filters "Name=tag:Name,Values=$instance_name" \
-      --query "Reservations[].Instances[?State.Name!='terminated'].InstanceId[]" \
-      --output text)
-    if [ -n "$existing_instance" ]; then
-      aws_terminate_instance $existing_instance
+    # Terminate ALL running build instances matching the filter tokens (default: the
+    # current branch). E.g. `ci.sh kill pr-12345` ends a whole merge-queue run.
+    kill_rows=$(filter_build_instances "$@")
+    if [ -z "$kill_rows" ]; then
+      echo "No running build instance matches: ${*:-$BRANCH}"
+      exit 0
     fi
+    echo "Terminating:"
+    printf '%s\n' "$kill_rows" | awk '{print "  " $1 " (" $2 ")"}'
+    printf '%s\n' "$kill_rows" | awk '{print $2}' | xargs aws ec2 terminate-instances --region us-east-2 --instance-ids >/dev/null
     ;;
 
   ###################
