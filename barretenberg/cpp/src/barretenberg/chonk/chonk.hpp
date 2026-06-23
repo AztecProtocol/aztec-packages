@@ -95,30 +95,6 @@ class Chonk {
         std::optional<StdlibFF> ecc_op_hash; // set only for kernels
     };
 
-    /**
-     * @brief Proof type determining recursive verification logic in kernel circuits.
-     *
-     * @details This enum has dual semantics depending on context:
-     *
-     * PROVER PERSPECTIVE (in `accumulate`): Type assigned to the circuit being accumulated.
-     * State machine transitions based on `num_circuits_accumulated`:
-     *   - OINK:     First app (circuit 0) - no prior accumulator, just Oink verification
-     *   - HN:       Apps 1..n-3, inner kernels, and reset kernels - full HyperNova folding verification
-     *   - HN_TAIL:  Circuit n-3 (last kernel before tail)
-     *   - HN_FINAL: Circuit n-2 (tail kernel) - final folding + decider verification
-     *   - MEGA:     Circuit n-1 (hiding kernel) - MegaZK proof, no folding
-     *
-     * VERIFIER PERSPECTIVE (in `complete_kernel_circuit_logic`): Type of the proof being verified.
-     *   - If verifying OINK proof → this kernel is the init kernel (circuit 1)
-     *   - If verifying HN proof → this kernel is an inner/reset kernel
-     *   - If verifying HN_TAIL proof → this kernel IS the tail kernel (circuit n-2)
-     *   - If verifying HN_FINAL proof → this kernel IS the hiding kernel (circuit n-1)
-     *
-     *
-     * See `get_queue_type()` for assignment logic and README.md#circuit-structure for overview.
-     */
-    enum class QUEUE_TYPE : uint8_t { OINK, HN, HN_TAIL, HN_FINAL, MEGA };
-
     using CircuitKind = bb::CircuitKind;
     using CircuitVerificationKey = bb::CircuitVerificationKey;
 
@@ -126,7 +102,6 @@ class Chonk {
         std::vector<FF> proof; // oink or HN
         std::shared_ptr<AppVerificationKey> app_honk_vk;
         std::shared_ptr<KernelVerificationKey> kernel_honk_vk;
-        QUEUE_TYPE type;
         CircuitKind kind = CircuitKind::App;
 
         [[nodiscard]] bool is_kernel() const { return kind == CircuitKind::Kernel; }
@@ -148,24 +123,17 @@ class Chonk {
         StdlibProof proof; // oink or HN
         std::shared_ptr<AppRecursiveVKAndHash> app_honk_vk_and_hash;
         std::shared_ptr<KernelRecursiveVKAndHash> kernel_honk_vk_and_hash;
-        QUEUE_TYPE type;
-        CircuitKind kind = CircuitKind::App;
+        CircuitKind kind = CircuitKind::None;
 
-        StdlibVerifierInputs(StdlibProof proof_,
-                             std::shared_ptr<AppRecursiveVKAndHash> app_vk_and_hash_,
-                             QUEUE_TYPE type_)
+        StdlibVerifierInputs(StdlibProof proof_, std::shared_ptr<AppRecursiveVKAndHash> app_vk_and_hash_)
             : proof(std::move(proof_))
             , app_honk_vk_and_hash(std::move(app_vk_and_hash_))
-            , type(type_)
             , kind(CircuitKind::App)
         {}
 
-        StdlibVerifierInputs(StdlibProof proof_,
-                             std::shared_ptr<KernelRecursiveVKAndHash> kernel_vk_and_hash_,
-                             QUEUE_TYPE type_)
+        StdlibVerifierInputs(StdlibProof proof_, std::shared_ptr<KernelRecursiveVKAndHash> kernel_vk_and_hash_)
             : proof(std::move(proof_))
             , kernel_honk_vk_and_hash(std::move(kernel_vk_and_hash_))
-            , type(type_)
             , kind(CircuitKind::Kernel)
         {}
 
@@ -188,9 +156,9 @@ class Chonk {
 
     std::vector<CircuitKind> circuit_kinds; // kind of every circuit in the IVC stack, in accumulation order
     size_t num_circuits;                    // total number of circuits to be accumulated in the IVC
-  public:
-    size_t num_circuits_accumulated = 0; // number of circuits accumulated so far
 
+    size_t num_circuits_accumulated = 0; // number of circuits accumulated so far
+  public:
     ProverAccumulator prover_accumulator; // accumulator carried between kernels (output of the previous kernel's batch)
     std::vector<ProverAccumulator>
         multilinear_batch_prover_accumulators; // sumcheck claims of the current group, awaiting the per-kernel batching
@@ -237,7 +205,7 @@ class Chonk {
         recursive_verification_and_consistency_checks(
             ClientCircuit& circuit,
             const StdlibVerifierInputs& verifier_inputs,
-            const std::optional<RecursiveVerifierAccumulator>& input_verifier_accumulator,
+            const std::optional<StdlibFF>& prev_stdlib_acc_hash,
             const std::optional<StdlibFF>& running_ecc_op_hash,
             const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript,
             bool explain_batch_merge_hash_repetition = false);
@@ -276,6 +244,37 @@ class Chonk {
      * current circuit is the last in the stack.
      */
     [[nodiscard]] CircuitKind next_kind() const;
+
+    /**
+     * @brief Whether the kernel currently being completed is the init kernel (the first kernel, which carries
+     * no accumulator from a previous kernel).
+     * @details Derived from the group queued for verification: the init kernel's group begins with the first
+     * app's proof, whereas every later kernel's group begins with the carried previous-kernel proof. Must be
+     * called once the stdlib verification queue holds the current kernel's group.
+     */
+    [[nodiscard]] bool is_init_kernel() const;
+
+    /**
+     * @brief Whether the circuit currently being accumulated/completed is the hiding kernel.
+     * @details Derived from the circuit kinds supplied at construction: the hiding kernel is the final circuit
+     * in the stack.
+     */
+    [[nodiscard]] bool is_hiding_kernel() const { return current_kind() == CircuitKind::HidingKernel; }
+
+    /**
+     * @brief Get the number of circuits accumulated by the IVC
+     *
+     */
+    size_t get_num_circuits_accumulated() const { return num_circuits_accumulated; }
+
+    /**
+     * @brief Set the num circuits accumulated for mocking an IVC state. Used when writing VKs.
+     *
+     */
+    void set_num_circuits_accumulated_for_mocking(const size_t num_circuits)
+    {
+        num_circuits_accumulated = num_circuits;
+    }
 
     ChonkProof prove();
 
@@ -338,7 +337,7 @@ class Chonk {
      * proof.
      *
      */
-    void accumulate_and_fold(ClientCircuit& circuit, QUEUE_TYPE queue_type, const CircuitVerificationKey& vk);
+    void accumulate_and_fold(ClientCircuit& circuit, const CircuitVerificationKey& vk);
 
     /**
      * @brief Generate multilinear batching proof for the current group of accumulators.
@@ -356,8 +355,6 @@ class Chonk {
                                       const std::shared_ptr<Transcript>& accumulation_transcript);
 
     void accumulate_hiding_kernel(ClientCircuit& circuit, const std::shared_ptr<MegaZKVerificationKey>& precomputed_vk);
-
-    QUEUE_TYPE get_queue_type() const;
 };
 
 } // namespace bb

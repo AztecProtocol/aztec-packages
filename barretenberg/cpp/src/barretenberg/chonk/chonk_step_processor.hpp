@@ -33,7 +33,7 @@ class ChonkStepProcessor {
     explicit ChonkStepProcessor(std::vector<CircuitKind> circuit_kinds);
 
     std::shared_ptr<Chonk> get_ivc() const { return ivc; }
-    size_t get_num_circuits_accumulated() const { return ivc->num_circuits_accumulated; }
+    size_t get_num_circuits_accumulated() const { return ivc->get_num_circuits_accumulated(); }
 
     void process_step(ChonkExecutionStep&& step, ChonkPrecomputedVkPolicy policy = ChonkPrecomputedVkPolicy::DEFAULT);
 

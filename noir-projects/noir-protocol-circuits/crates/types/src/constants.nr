@@ -1315,8 +1315,7 @@ pub global PROOF_TYPE_ROLLUP_HONK: u32 = 4;
 pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 5;
 // worktodo comment here where 6 is
 pub global PROOF_TYPE_HN_FINAL: u32 = 7;
-pub global PROOF_TYPE_HN_TAIL: u32 = 8;
-pub global PROOF_TYPE_CHONK: u32 = 9;
+pub global PROOF_TYPE_CHONK: u32 = 8;
 
 // TODO: Make it 1_u128 << 64 as Field without breaking TS constants generator
 pub global TWO_POW_64: Field = 18446744073709551616;

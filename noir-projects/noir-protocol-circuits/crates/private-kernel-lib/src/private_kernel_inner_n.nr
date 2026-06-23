@@ -16,7 +16,7 @@ pub fn execute<let N: u32>(
     inputs: PrivateKernelInnerNCircuitPrivateInputs<N>,
 ) -> PrivateKernelCircuitPublicInputs {
     if !::std::runtime::is_unconstrained() {
-        inputs.previous_kernel.verify(false);
+        inputs.previous_kernel.verify();
     }
     inputs.previous_kernel.validate_vk_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
 

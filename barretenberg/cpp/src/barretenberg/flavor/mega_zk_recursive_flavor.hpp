@@ -53,8 +53,6 @@ template <typename BuilderType> class MegaZKRecursiveFlavor_ {
     static constexpr bool HasMemory = MegaZKFlavor::HasMemory;
     static constexpr bool HasNonNativeField = MegaZKFlavor::HasNonNativeField;
     static constexpr bool HasEccOpQueue = MegaZKFlavor::HasEccOpQueue;
-    static constexpr bool UsesEtaPowers = MegaZKFlavor::UsesEtaPowers;
-    static constexpr bool UsesBetaPowers = MegaZKFlavor::UsesBetaPowers;
 
     // Reuse MegaZK's relation tuple (instantiated over the stdlib FF).
     using Relations = MegaZKFlavor::Relations_<FF>;

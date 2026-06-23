@@ -67,6 +67,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         ROM_READ,
         RAM_READ,
         RAM_WRITE,
+        ROM_LOGUP_TABLE, // single-value ROM table entry (LogUp scheme)
+        ROM_LOGUP_READ,  // single-value ROM read access (LogUp scheme)
     };
 
     enum NNF_SELECTORS {
@@ -207,6 +209,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     std::vector<uint32_t> memory_read_records;
     // Stores gate index of RAM writes (required by proving key)
     std::vector<uint32_t> memory_write_records;
+    // Stores gate index of ROM-LogUp rows (both table-entry and read-access)
+    std::vector<uint32_t> rom_logup_records;
     // Range constraints to be batched, keyed by target_range. See create_small_range_constraint() for details.
     std::map<uint64_t, RangeList> range_lists;
 

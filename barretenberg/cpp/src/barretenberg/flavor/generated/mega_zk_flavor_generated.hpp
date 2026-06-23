@@ -115,8 +115,6 @@ class MegaZKFlavor_Generated {
     static constexpr bool HasMemory = false;
     static constexpr bool HasNonNativeField = false;
     static constexpr bool HasEccOpQueue = true;
-    static constexpr bool UsesEtaPowers = false;
-    static constexpr bool UsesBetaPowers = false;
     static constexpr size_t NUM_COMMITTED_WITNESS_ENTITIES = NUM_WITNESS_ENTITIES + NUM_MASKING_ENTITIES;
     static constexpr size_t NUM_UNSHIFTED_ENTITIES = NUM_PRECOMPUTED_ENTITIES + NUM_COMMITTED_WITNESS_ENTITIES;
     static constexpr size_t NUM_ALL_ENTITIES = NUM_UNSHIFTED_ENTITIES + NUM_SHIFTED_ENTITIES;

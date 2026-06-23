@@ -20,5 +20,4 @@ export const MemoryRelation = relation({
     shiftedEntities: ["w_l", "w_r", "w_o", "w_4"],
     gateBlockName: "memory",
     subsets: { gate_selectors: ["q_memory"] },
-    usesChallenges: { etaPowers: true },
 });

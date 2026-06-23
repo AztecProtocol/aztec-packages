@@ -138,9 +138,9 @@ Chonk::Chonk(std::vector<CircuitKind> circuit_kinds)
     : circuit_kinds(std::move(circuit_kinds))
     , num_circuits(this->circuit_kinds.size())
 {
-    // Not BB_ASSERTs: the kinds arrive from msgpack (ChonkStart::kinds / folding stack). get_queue_type
-    // subtracts 3 from num_circuits; an unchecked value < 4 would underflow the unsigned arithmetic and
-    // silently mis-type the whole queue, so reject malformed stacks clearly in release/WASM too.
+    // Not BB_ASSERTs: the kinds arrive from msgpack (ChonkStart::kinds / folding stack). A stack with fewer
+    // than 4 circuits cannot hold the app + init/tail/hiding kernel structure the IVC requires, so reject
+    // malformed stacks clearly in release/WASM too.
     if (num_circuits < 4U) {
         throw_or_abort("Chonk: number of circuits must be at least 4, got " + std::to_string(num_circuits));
     }
@@ -194,12 +194,12 @@ void Chonk::instantiate_stdlib_verification_queue(ClientCircuit& circuit,
             auto stdlib_vk_and_hash = vkeys_provided
                                           ? std::get<std::shared_ptr<KernelRecursiveVKAndHash>>(input_keys[input_idx])
                                           : std::make_shared<KernelRecursiveVKAndHash>(circuit, entry.kernel_honk_vk);
-            stdlib_verification_queue.emplace_back(stdlib_proof, stdlib_vk_and_hash, entry.type);
+            stdlib_verification_queue.emplace_back(stdlib_proof, stdlib_vk_and_hash);
         } else {
             auto stdlib_vk_and_hash = vkeys_provided
                                           ? std::get<std::shared_ptr<AppRecursiveVKAndHash>>(input_keys[input_idx])
                                           : std::make_shared<AppRecursiveVKAndHash>(circuit, entry.app_honk_vk);
-            stdlib_verification_queue.emplace_back(stdlib_proof, stdlib_vk_and_hash, entry.type);
+            stdlib_verification_queue.emplace_back(stdlib_proof, stdlib_vk_and_hash);
         }
         ++input_idx;
         verification_queue.pop_front(); // the native data is not needed beyond this point
@@ -284,7 +284,7 @@ Chonk::PublicInputsResult Chonk::process_app_public_inputs(std::vector<StdlibFF>
  *
  * @param circuit
  * @param verifier_inputs {proof, vkey, type (Oink/HN)} A set of inputs for recursive verification
- * @param input_verifier_accumulator The accumulator from the previous step of recursive verification
+ * @param prev_stdlib_acc_hash The hash of the accumulator from the previous step of recursive verification
  * @param running_ecc_op_hash Running hash of ECC-op column commitments from prior steps in this kernel.
  * @param accumulation_recursive_transcript Transcript shared across recursive verification of the sumchecks of
  * K_{i-1} (kernel), A_{i,1} (app), .., A_{i, n} (app)
@@ -293,23 +293,12 @@ std::tuple<Chonk::RecursiveVerifierAccumulator, Chonk::PairingPoints, Chonk::Std
     recursive_verification_and_consistency_checks(
         ClientCircuit& circuit,
         const StdlibVerifierInputs& verifier_inputs,
-        const std::optional<RecursiveVerifierAccumulator>& input_verifier_accumulator,
+        const std::optional<StdlibFF>& prev_stdlib_acc_hash,
         const std::optional<StdlibFF>& running_ecc_op_hash,
         const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript,
         bool explain_batch_merge_hash_repetition)
 {
     BB_BENCH_NAME("Chonk::recursive_verification_and_consistency_checks");
-
-    // Compute prev_accum_hash before sumcheck (transcript state changes during verification)
-    std::optional<StdlibFF> prev_accum_hash;
-    if (verifier_inputs.is_kernel()) {
-        BB_ASSERT(input_verifier_accumulator.has_value(), "Previous accumulator expected for kernel circuit folding");
-        prev_accum_hash = input_verifier_accumulator->hash_with_origin_tagging(*accumulation_recursive_transcript);
-    }
-
-    if (verifier_inputs.type == QUEUE_TYPE::OINK) {
-        BB_ASSERT_EQ(input_verifier_accumulator.has_value(), false);
-    }
 
     // Step 1: Run sumcheck on the incoming instance to obtain its claim.
     RecursiveVerifierAccumulator claim;
@@ -326,7 +315,7 @@ std::tuple<Chonk::RecursiveVerifierAccumulator, Chonk::PairingPoints, Chonk::Std
 
         KernelWitnessCommitments witness_commitments = std::move(verifier_instance->witness_commitments);
         std::vector<StdlibFF> public_inputs = std::move(verifier_instance->public_inputs);
-        public_inputs_result = process_kernel_public_inputs(public_inputs, witness_commitments, prev_accum_hash);
+        public_inputs_result = process_kernel_public_inputs(public_inputs, witness_commitments, prev_stdlib_acc_hash);
 
         auto ecc_op_col_commitments = witness_commitments.get_ecc_op_wires().get_copy();
         ecc_op_col_commitments_vec.assign(ecc_op_col_commitments.begin(), ecc_op_col_commitments.end());
@@ -403,11 +392,11 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
         instantiate_stdlib_verification_queue(circuit);
     }
 
-    // Determine kernel type from queue contents
-    bool is_init_kernel = stdlib_verification_queue.front().type == QUEUE_TYPE::OINK;
-
-    bool is_hiding_kernel =
-        stdlib_verification_queue.size() == 1 && (stdlib_verification_queue.front().type == QUEUE_TYPE::HN_FINAL);
+    // Determine kernel type from circuit kinds and the queued group. The init kernel's group begins with the
+    // first app's proof; every later kernel's group begins with the carried previous-kernel proof. Whether
+    // this is the hiding kernel is read directly from the circuit kinds supplied at construction.
+    const bool is_init = is_init_kernel();
+    const bool is_hiding = is_hiding_kernel();
 
     // The ECC-op subtable for a kernel begins with an eq-and-reset to ensure that the preceding circuit's subtable
     // cannot affect the ECC-op accumulator for the kernel.
@@ -420,7 +409,7 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
     // init kernel) plus one sumcheck claim per proof in the group. A single-claim init kernel needs no batching -
     // its lone sumcheck claim is already the accumulator.
     const size_t group_size = stdlib_verification_queue.size();
-    const size_t num_claims = (is_init_kernel ? 0 : 1) + group_size;
+    const size_t num_claims = (is_init ? 0 : 1) + group_size;
     BB_ASSERT_LTE(num_claims, CHONK_MAX_CLAIMS_PER_KERNEL, "Per-kernel batch width exceeds the supported maximum");
 
     // Step 2: RECURSIVE VERIFIER - Run sumcheck on each proof in the group and collect the resulting claims in
@@ -430,10 +419,13 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
 
     // The accumulator carried in from the previous kernel is claim 0 of this kernel's batch. It is absent for the init
     // kernel, which only verifies app circuits.
-    std::optional<RecursiveVerifierAccumulator> current_stdlib_verifier_accumulator;
-    if (!is_init_kernel) {
-        current_stdlib_verifier_accumulator =
+    std::optional<RecursiveVerifierAccumulator> prev_stdlib_verifier_accumulator;
+    std::optional<StdlibFF> prev_stdlib_accum_hash;
+    if (!is_init) {
+        prev_stdlib_verifier_accumulator =
             RecursiveVerifierAccumulator::stdlib_from_native<RecursiveCurve>(&circuit, recursive_verifier_native_accum);
+        prev_stdlib_accum_hash =
+            prev_stdlib_verifier_accumulator->hash_with_origin_tagging(*accumulation_recursive_transcript);
     }
 
     // Claims fed into the batching sumcheck, held in memory: the carried accumulator followed by each proof's sumcheck
@@ -446,10 +438,10 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
         auto [claim, pairing_points, updated_ecc_hash] =
             recursive_verification_and_consistency_checks(circuit,
                                                           verifier_input,
-                                                          current_stdlib_verifier_accumulator,
+                                                          prev_stdlib_accum_hash,
                                                           running_ecc_op_hash,
                                                           accumulation_recursive_transcript,
-                                                          is_hiding_kernel);
+                                                          is_hiding);
         points_accumulator.push_back(pairing_points);
         running_ecc_op_hash = updated_ecc_hash;
         claims.emplace_back(std::move(claim));
@@ -460,8 +452,8 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
     // Prepend the previous kernel's accumulator as claim 0. This is done after the loop because verifying the kernel
     // proof above assigns the accumulator its transcript origin tag (via the propagated-hash consistency check), which
     // it must carry before being combined with the origin-tagged batching scalars.
-    if (current_stdlib_verifier_accumulator.has_value()) {
-        claims.insert(claims.begin(), current_stdlib_verifier_accumulator.value());
+    if (prev_stdlib_verifier_accumulator.has_value()) {
+        claims.insert(claims.begin(), prev_stdlib_verifier_accumulator.value());
     }
 
     BB_ASSERT_EQ(claims.size(), num_claims, "Collected claim count must equal the batch width");
@@ -486,7 +478,7 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
     }
 
     // Output differs based on kernel type: HidingKernelIO (no accum hash) vs KernelIO (with accum hash)
-    if (is_hiding_kernel) {
+    if (is_hiding) {
         // Perform decider verification
         BB_ASSERT_EQ(num_claims, 2U, "In the hiding kernel the number of claims should always be equal to 2");
         RecursiveDeciderVerifier decider_verifier(accumulation_recursive_transcript);
@@ -540,34 +532,6 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
 }
 
 /**
- * @brief Get queue type for the proof of a circuit about to be accumulated based on num circuits accumulated so far.
- */
-Chonk::QUEUE_TYPE Chonk::get_queue_type() const
-{
-    // first app
-    if (num_circuits_accumulated == 0) {
-        return QUEUE_TYPE::OINK;
-    }
-    // app (excluding first) or kernel (inner or reset)
-    if (num_circuits_accumulated + 3 < num_circuits) {
-        return QUEUE_TYPE::HN;
-    }
-    // last kernel prior to tail kernel
-    if (num_circuits_accumulated + 3 == num_circuits) {
-        return QUEUE_TYPE::HN_TAIL;
-    }
-    // tail kernel
-    if (num_circuits_accumulated + 2 == num_circuits) {
-        return QUEUE_TYPE::HN_FINAL;
-    }
-    // hiding kernel
-    if (num_circuits_accumulated + 1 == num_circuits) {
-        return QUEUE_TYPE::MEGA;
-    }
-    throw_or_abort("Chonk::get_queue_type: num_circuits_accumulated out of range");
-}
-
-/**
  * @brief Build the hiding kernel's ZK proving key and verification key (proving is deferred to prove()).
  */
 void Chonk::accumulate_hiding_kernel(ClientCircuit& circuit,
@@ -578,7 +542,7 @@ void Chonk::accumulate_hiding_kernel(ClientCircuit& circuit,
         num_circuits_accumulated, num_circuits, "Chonk: Attempting to accumulate more circuits than expected.");
     // throw, not BB_ASSERT: reachable from external step ordering, and a wrong position would feed
     // the wrong variant alternative into std::get below (std::bad_variant_access / mis-folding).
-    if (get_queue_type() != QUEUE_TYPE::MEGA) {
+    if (!is_hiding_kernel()) {
         throw_or_abort("Chonk::accumulate_hiding_kernel must be the final circuit in the IVC stack");
     }
 
@@ -632,7 +596,7 @@ HonkProof Chonk::instance_to_accumulator(ClientCircuit& circuit,
     return prover.export_proof();
 }
 
-void Chonk::accumulate_and_fold(ClientCircuit& circuit, QUEUE_TYPE queue_type, const CircuitVerificationKey& vk)
+void Chonk::accumulate_and_fold(ClientCircuit& circuit, const CircuitVerificationKey& vk)
 {
     BB_BENCH_NAME("Chonk::accumulate_and_fold");
 
@@ -653,7 +617,6 @@ void Chonk::accumulate_and_fold(ClientCircuit& circuit, QUEUE_TYPE queue_type, c
 
     HonkProof proof;
     VerifierInputs queue_entry;
-    queue_entry.type = queue_type;
     queue_entry.kind = kind;
     if (kind == CircuitKind::Kernel) {
         auto kernel_vk = std::get<std::shared_ptr<KernelVerificationKey>>(vk);
@@ -701,6 +664,13 @@ Chonk::CircuitKind Chonk::next_kind() const
     return next_idx < num_circuits ? circuit_kinds[next_idx] : CircuitKind::None;
 }
 
+bool Chonk::is_init_kernel() const
+{
+    BB_ASSERT(!stdlib_verification_queue.empty(),
+              "is_init_kernel: stdlib verification queue must hold the current kernel's group");
+    return stdlib_verification_queue.front().kind == CircuitKind::App;
+}
+
 /**
  * @brief Unified accumulation entry point. Dispatches on `current_kind()` to either folding (App / Kernel)
  * or the hiding-kernel path (HidingKernel — proving deferred to `prove()`). When the next circuit is a
@@ -713,26 +683,20 @@ void Chonk::accumulate(ClientCircuit& circuit, const CircuitVerificationKey& vk)
     BB_ASSERT_LT(
         num_circuits_accumulated, num_circuits, "Chonk: Attempting to accumulate more circuits than expected.");
     const CircuitKind kind = current_kind();
-    QUEUE_TYPE queue_type = get_queue_type();
 
     switch (kind) {
     case CircuitKind::HidingKernel: {
-        // throw, not BB_ASSERT: wrong position feeds the wrong variant into std::get (bad_variant_access).
-        if (queue_type != QUEUE_TYPE::MEGA) {
-            throw_or_abort("HidingKernel must be the final circuit in the IVC stack");
-        }
+        // The constructor guarantees the HidingKernel kind only at the final position; std::get below throws
+        // bad_variant_access if the caller supplies a non-MegaZK VK.
         accumulate_hiding_kernel(circuit, std::get<std::shared_ptr<MegaZKVerificationKey>>(vk));
         break;
     }
     case CircuitKind::App:
     case CircuitKind::Kernel: {
-        if (queue_type == QUEUE_TYPE::MEGA) {
-            throw_or_abort("App/Kernel cannot be the final circuit; use HidingKernel");
-        }
         // Capture before folding: accumulate_and_fold advances num_circuits_accumulated.
         const CircuitKind following_kind = next_kind();
 
-        accumulate_and_fold(circuit, queue_type, vk);
+        accumulate_and_fold(circuit, vk);
 
         // If the hiding kernel follows, the IVC is complete: prove the batch merge and run the decider on the
         // final accumulator (the output of the hiding kernel's batching). Both proofs are recursively verified
@@ -765,8 +729,10 @@ void Chonk::prove_multilinear_batching()
                  verification_queue.size(),
                  "Mismatch between collected prover claims and group size");
 
-    // The init kernel's group begins with the first app's oink proof and carries no accumulator.
-    const bool is_init_group = verification_queue.front().type == QUEUE_TYPE::OINK;
+    // The init kernel's group begins with the first app's proof and carries no accumulator; every later
+    // group begins with the carried previous-kernel proof. So the group is the init group iff its first
+    // entry is an app.
+    const bool is_init_group = verification_queue.front().kind == CircuitKind::App;
     const size_t num_claims = (is_init_group ? 0 : 1) + verification_queue.size();
     BB_ASSERT_LTE(num_claims, CHONK_MAX_CLAIMS_PER_KERNEL, "Per-kernel batch width exceeds the supported maximum");
 

@@ -12,7 +12,8 @@
 //   - Catalog variants compiled (run noir-projects/noir-protocol-circuits/bootstrap.sh)
 //
 // Usage:
-//   node scripts/refresh_reset_costs.js
+//   node scripts/refresh_reset_costs.js            # measure and rewrite the config
+//   node scripts/refresh_reset_costs.js --check     # measure only; exit 1 if any cost is stale
 
 const fs = require("fs");
 const path = require("path");
@@ -77,18 +78,38 @@ function serialize(config) {
 }
 
 function main() {
+  const checkOnly = process.argv.includes("--check");
   const config = JSON.parse(fs.readFileSync(CONFIG_FILE, "utf8"));
 
+  const stale = [];
   for (const group of Object.keys(GROUP_PREFIXES)) {
     for (const entry of config[group]) {
       const before = entry.cost;
       const after = measureCircuitSize(group, entry.dimensions);
       entry.cost = after;
       const delta = before === undefined ? "(new)" : after - before;
+      if (before !== after) {
+        stale.push(
+          `${group}/${entry.name} [${tagOf(entry.dimensions)}]: ${before} -> ${after}`,
+        );
+      }
       console.log(
         `${group}/${entry.name.padEnd(24)} [${tagOf(entry.dimensions)}] cost=${after} Δ=${delta}`,
       );
     }
+  }
+
+  if (checkOnly) {
+    if (stale.length) {
+      console.error(
+        `\nprivate_kernel_reset_config.json is stale (${stale.length} cost(s) drifted):\n` +
+          stale.map((s) => `  ${s}`).join("\n") +
+          `\n\nRun 'node scripts/refresh_reset_costs.js' and commit the result.`,
+      );
+      process.exit(1);
+    }
+    console.log(`\nAll reset costs are up to date.`);
+    return;
   }
 
   fs.writeFileSync(CONFIG_FILE, serialize(config));

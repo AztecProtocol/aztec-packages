@@ -60,8 +60,6 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
     static constexpr bool HasMemory = MegaFlavor::HasMemory;
     static constexpr bool HasNonNativeField = MegaFlavor::HasNonNativeField;
     static constexpr bool HasEccOpQueue = MegaFlavor::HasEccOpQueue;
-    static constexpr bool UsesEtaPowers = MegaFlavor::UsesEtaPowers;
-    static constexpr bool UsesBetaPowers = MegaFlavor::UsesBetaPowers;
 
     // define the tuple of Relations that comprise the Sumcheck relation
     // Reuse the Relations from Mega

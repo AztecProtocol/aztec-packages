@@ -75,6 +75,7 @@ template <typename Flavor> class OinkProver {
     Proof export_proof();
 
     static void add_ram_rom_memory_records_to_wire_4(ProverInstance& instance);
+    static void add_rom_logup_inverses_to_wire_4(ProverInstance& instance);
     static void compute_logderivative_inverses(ProverInstance& instance);
     static void compute_grand_product_polynomial(ProverInstance& instance);
 

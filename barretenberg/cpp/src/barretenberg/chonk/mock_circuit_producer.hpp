@@ -221,7 +221,8 @@ class PrivateFunctionExecutionMockCircuitProducer {
         const bool is_kernel = is_kernel_flags[circuit_counter++];
         const bool use_large_circuit = large_first_app && (circuit_counter == 1); // first circuit is size 2^19
         // Check if this is one of the trailing kernels (reset, tail, hiding)
-        const bool is_trailing_kernel = (ivc.num_circuits_accumulated >= ivc.get_num_circuits() - NUM_TRAILING_KERNELS);
+        const bool is_trailing_kernel =
+            (ivc.get_num_circuits_accumulated() >= ivc.get_num_circuits() - NUM_TRAILING_KERNELS);
 
         ClientCircuit circuit{ ivc.goblin.op_queue };
         // if the number of gates is specified we just add a number of arithmetic gates
@@ -307,7 +308,7 @@ class PrivateFunctionExecutionMockCircuitProducer {
     void construct_and_accumulate_next_circuit(Chonk& ivc, TestSettings settings = {}, bool check_circuit_sizes = false)
     {
         // If this is a mock hiding kernel, remove the settings and use a default (non-structured) trace
-        const bool is_hiding_kernel = ivc.num_circuits_accumulated == ivc.get_num_circuits() - 1;
+        const bool is_hiding_kernel = ivc.get_num_circuits_accumulated() == ivc.get_num_circuits() - 1;
         if (is_hiding_kernel) {
             settings = TestSettings{};
         }

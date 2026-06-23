@@ -1,6 +1,8 @@
 #include "ultra_circuit_checker.hpp"
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/relations/relation_types.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include <unordered_set>
 
@@ -99,6 +101,13 @@ template <typename Builder> bool UltraCircuitChecker::check(const Builder& build
         info("Failed tag check.");
         return false;
     }
+    // ROM-LogUp sum identity: the signed multiplicities and inverses summed across the trace must vanish.
+    // Subrelation 7 of MemoryRelation produces a per-row contribution that has been accumulated into
+    // memory_data.rom_logup_sum throughout the block iteration.
+    if (memory_data.rom_logup_sum != 0) {
+        info("Failed ROM-LogUp sum identity.");
+        return false;
+    }
 #endif
 
     return result;
@@ -117,6 +126,7 @@ bool UltraCircuitChecker::check_block(Builder& builder,
     params.eta = memory_data.eta; // used in Memory relation for RAM/ROM consistency
     params.eta_two = memory_data.eta_two;
     params.eta_three = memory_data.eta_three;
+    params.rom_logup_gamma = memory_data.rom_logup_gamma;
 
     auto report_fail = [&](const char* message, size_t row_idx) {
 #ifndef FUZZING_DISABLE_WARNINGS
@@ -152,7 +162,7 @@ bool UltraCircuitChecker::check_block(Builder& builder,
             return report_fail("Failed Elliptic relation at row idx = ", idx);
         }
 #ifndef ULTRA_FUZZ
-        result = result && check_relation<Memory>(values, params);
+        result = result && check_memory_relation_with_logup<Memory>(values, params, memory_data);
         if (!result) {
             return report_fail("Failed Memory relation at row idx = ", idx);
         }
@@ -252,13 +262,47 @@ template <typename Relation> bool UltraCircuitChecker::check_relation(auto& valu
     // Evaluate each subrelation in the relation
     Relation::accumulate(subrelation_evaluations, values, params, /*scaling_factor=*/1);
 
-    // Ensure each subrelation evaluates to zero
-    for (auto& eval : subrelation_evaluations) {
-        if (eval != 0) {
-            return false;
+    // Ensure each linearly-independent subrelation evaluates to zero per-row. Linearly-dependent subrelations
+    // are summed across the trace by the caller (see check_memory_relation_with_logup) and must not be
+    // checked per-row, since individual row contributions need not vanish.
+    bool result = true;
+    constexpr_for<0, std::tuple_size_v<SubrelationEvaluations>, 1>([&]<size_t I>() {
+        if constexpr (subrelation_is_linearly_independent<Relation, I>()) {
+            if (std::get<I>(subrelation_evaluations) != 0) {
+                result = false;
+            }
         }
+    });
+    return result;
+}
+
+// Memory relation has a linearly-dependent subrelation (#7, ROM-LogUp sum identity) whose contributions must
+// be summed across rows. This variant of `check_relation` runs Memory, checks the per-row linearly-independent
+// subrelations, and adds subrelation 7's per-row value to the supplied accumulator. The accumulator is checked
+// against zero at the end of `check_circuit`.
+template <typename Memory>
+bool UltraCircuitChecker::check_memory_relation_with_logup(auto& values, auto& params, MemoryCheckData& memory_data)
+{
+    using SubrelationEvaluations = typename Memory::SumcheckArrayOfValuesOverSubrelations;
+    SubrelationEvaluations subrelation_evaluations;
+    for (auto& eval : subrelation_evaluations) {
+        eval = 0;
     }
-    return true;
+    Memory::accumulate(subrelation_evaluations, values, params, /*scaling_factor=*/1);
+
+    bool result = true;
+    constexpr_for<0, std::tuple_size_v<SubrelationEvaluations>, 1>([&]<size_t I>() {
+        if constexpr (subrelation_is_linearly_independent<Memory, I>()) {
+            if (std::get<I>(subrelation_evaluations) != 0) {
+                result = false;
+            }
+        } else {
+            // Linearly-dependent: contribute to the cross-row accumulator. Currently only subrelation 7
+            // (ROM-LogUp sum identity) is linearly-dependent in MemoryRelation.
+            memory_data.rom_logup_sum += std::get<I>(subrelation_evaluations);
+        }
+    });
+    return result;
 }
 
 bool UltraCircuitChecker::check_lookup(auto& values, auto& lookup_hash_table)
@@ -329,6 +373,16 @@ void UltraCircuitChecker::populate_values(
             return (w_3 * eta_three + w_2 * eta_two + w_1 * eta);
         };
 
+    // The ROM-LogUp inverse helper at a row with index `w_1`, value `w_2`, and array id `q_c`.
+    // Mirrors `add_rom_logup_inverses_to_wire_4` in oink_prover.cpp; kept consistent so check_circuit can
+    // validate the memory relation without invoking the prover.
+    auto compute_rom_logup_inverse =
+        [](const FF& w_1, const FF& w_2, const FF& q_c, const FF& eta, const FF& eta_two, const FF& rom_logup_gamma)
+        -> FF {
+        const FF denom = rom_logup_gamma + w_1 + eta * w_2 + eta_two * q_c;
+        return denom.invert();
+    };
+
     // Set wire values. Wire 4 is treated specially since it may contain memory records
     values.w_l() = builder.get_variable(block.w_l()[idx]);
     values.w_r() = builder.get_variable(block.w_r()[idx]);
@@ -344,6 +398,14 @@ void UltraCircuitChecker::populate_values(
             compute_memory_record_term(
                 values.w_l(), values.w_r(), values.w_o(), memory_data.eta, memory_data.eta_two, memory_data.eta_three) +
             FF::one();
+    } else if (is_ram_rom_block && memory_data.rom_logup_gates.contains(idx)) {
+        values.w_4() =
+            compute_rom_logup_inverse(values.w_l(),
+                                      values.w_r(),
+                                      block.q_c()[idx], // q_c is a selector value (the array id), not a witness
+                                      memory_data.eta,
+                                      memory_data.eta_two,
+                                      memory_data.rom_logup_gamma);
     } else {
         values.w_4() = builder.get_variable(block.w_4()[idx]);
     }
@@ -368,6 +430,13 @@ void UltraCircuitChecker::populate_values(
                                                             memory_data.eta_two,
                                                             memory_data.eta_three) +
                                  FF::one();
+        } else if (is_ram_rom_block && memory_data.rom_logup_gates.contains(idx + 1)) {
+            values.w_4_shift() = compute_rom_logup_inverse(values.w_l_shift(),
+                                                           values.w_r_shift(),
+                                                           block.q_c()[idx + 1],
+                                                           memory_data.eta,
+                                                           memory_data.eta_two,
+                                                           memory_data.rom_logup_gamma);
         } else {
             values.w_4_shift() = builder.get_variable(block.w_4()[idx + 1]);
         }

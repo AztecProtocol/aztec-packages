@@ -3,7 +3,7 @@ use crate::{
     constants::{
         MEGA_KERNEL_VK_LENGTH_IN_FIELDS, PRIVATE_KERNEL_RESET_BLOCK_END,
         PRIVATE_KERNEL_RESET_TAIL_TO_PUBLIC_VK_INDEX, PRIVATE_KERNEL_RESET_TAIL_VK_INDEX,
-        PRIVATE_KERNEL_RESET_VK_INDEX, PROOF_TYPE_HN, PROOF_TYPE_HN_TAIL,
+        PRIVATE_KERNEL_RESET_VK_INDEX, PROOF_TYPE_HN,
     },
     proof::vk_data::VkData,
     utils::arrays::find_first_index,
@@ -47,12 +47,7 @@ impl PrivateKernelData {
         self.vk_data.validate_in_vk_tree(self.public_inputs.constants.vk_tree_root);
     }
 
-    pub fn verify(self, is_last_kernel: bool) {
-        let mut proof_type = PROOF_TYPE_HN;
-        if is_last_kernel {
-            proof_type = PROOF_TYPE_HN_TAIL;
-        }
-
+    pub fn verify(self) {
         // verify_proof_with_type sends the verification data to barretenberg, which adds to the circuit the required
         // constraints to recursively verify the proof. For recursive verification happening inside the kernels, barretenberg
         // only needs the vk, the proof type, and the purported vk hash. Then, barretenberg adds to the circuit:
@@ -75,7 +70,7 @@ impl PrivateKernelData {
             [],
             [],
             self.vk_data.vk.hash,
-            proof_type,
+            PROOF_TYPE_HN,
         );
     }
 }

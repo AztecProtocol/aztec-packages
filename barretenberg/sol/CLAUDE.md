@@ -31,7 +31,10 @@ Circuit-specific verification keys:
 
 - `honk-optimized.sol` - Hand-optimized assembly verifier (uses Blake circuit for testing)
 - `honk-optimized.sol.template` - Template used to generate honk-optimized.sol
-- `generate_offsets.py` - Helper for memory layout
+
+The memory layout (the `// {{ SECTION_START MEMORY_LAYOUT }}` block) is the source of truth in
+`generate_memory_offsets` in `cpp/.../acir_proofs/honk_optimized_common.hpp`; `bb write_solidity_verifier`
+regenerates it from there. Do not hand-edit those offset constants or maintain a separate generator.
 
 ### C++ Contract Templates (cpp/src/barretenberg/dsl/acir_proofs/)
 

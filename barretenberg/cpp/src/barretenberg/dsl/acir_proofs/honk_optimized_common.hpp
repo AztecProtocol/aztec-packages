@@ -221,7 +221,7 @@ struct MemoryLayoutConfig {
 // all differences (extra ZK proof elements, challenges, scratch space).
 inline std::string generate_memory_offsets(int log_n, const MemoryLayoutConfig& config)
 {
-    const int NUMBER_OF_SUBRELATIONS = 29;
+    const int NUMBER_OF_SUBRELATIONS = 31;
     const int NUMBER_OF_ALPHAS = NUMBER_OF_SUBRELATIONS - 1;
     const int START_POINTER = 0x1000;
 
@@ -337,6 +337,7 @@ inline std::string generate_memory_offsets(int log_n, const MemoryLayoutConfig& 
     const std::vector<std::string> challenges = { "ETA",
                                                   "ETA_TWO",
                                                   "ETA_THREE",
+                                                  "ROM_LOGUP_GAMMA",
                                                   "BETA",
                                                   "GAMMA",
                                                   "RHO",

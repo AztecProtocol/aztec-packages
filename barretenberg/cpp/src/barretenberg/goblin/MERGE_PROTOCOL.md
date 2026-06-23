@@ -543,7 +543,7 @@ The merge protocol's soundness relies on **consistency** between commitments use
 Each kernel processes a **verification queue** containing circuits to verify. The queue size determines the kernel type:
 - **Init kernel** ($i=0$, queue size 1): Verifies only app $A_0$ (OINK proof)
 - **Intermediate kernels** ($i > 0$, queue size 2): Verifies kernel $K_{i-1}$ and app $A_i$
-- **Tail kernel** (queue size 1): Verifies one circuit (HN_TAIL)
+- **Tail kernel** (queue size 1): Verifies one circuit (HN)
 - **Hiding kernel** (queue size 1): Verifies tail kernel (HN_FINAL)
 
 **For each entry in the verification queue (loop iterates `queue.size()` times):**

@@ -46,10 +46,6 @@ interface ResolvedLayout {
     // NUM_BUS_COLUMNS, indexed by the flavor's own bus ordering.
     builderBusIndices: number[];
     relationIds: Set<string>;
-    // ORed across the flavor's relations: does any relation read `params.eta*` / `params.beta_sqr,cube`?
-    // Used by oink to gate the FS sample and the extra multiplications.
-    usesEtaPowers: boolean;
-    usesBetaPowers: boolean;
     // One entry per gate selector in `get_gate_selectors()` order; a block with k selectors appears k times.
     gateBlockNames: string[];
 }
@@ -293,8 +289,6 @@ function resolveLayout(flavor: Flavor): ResolvedLayout {
             });
         })(),
         relationIds: new Set(flavor.relations.map((r) => r.id)),
-        usesEtaPowers: flavor.relations.some((r) => r.usesChallenges.etaPowers ?? false),
-        usesBetaPowers: flavor.relations.some((r) => r.usesChallenges.betaPowers ?? false),
         gateBlockNames: (() => {
             // selector → block (first relation declaring a selector wins); emit one block per
             // selector in `get_gate_selectors()` order. A block owning k selectors appears k times.
@@ -529,12 +523,6 @@ function emitGeneratedHeader(layout: ResolvedLayout): string {
         const present = layout.relationIds.has(id);
         lines.push(`    static constexpr bool ${cppName} = ${present ? "true" : "false"};`);
     }
-    // Aggregated challenge-usage bools — ORed across the flavor's relations from each relation's
-    // `usesChallenges` declaration in TS. Oink gates the FS sample / power computation on these,
-    // so adding a relation that reads `params.eta*` / `params.beta_sqr,cube` requires setting the
-    // matching flag on that relation's TS module — otherwise the param stays at zero here.
-    lines.push(`    static constexpr bool UsesEtaPowers               = ${layout.usesEtaPowers ? "true" : "false"};`);
-    lines.push(`    static constexpr bool UsesBetaPowers              = ${layout.usesBetaPowers ? "true" : "false"};`);
     // All prover-committed columns: witness + masking.
     lines.push("    static constexpr size_t NUM_COMMITTED_WITNESS_ENTITIES =");
     lines.push("        NUM_WITNESS_ENTITIES + NUM_MASKING_ENTITIES;");

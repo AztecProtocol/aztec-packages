@@ -233,7 +233,20 @@ function build {
       --joblog joblog.txt compile {}
   code=$?
   cat joblog.txt
-  return $code
+  [ "$code" -eq 0 ] || return $code
+
+  check_reset_costs
+}
+
+# Fails if any `cost` in private_kernel_reset_config.json no longer matches the gate count
+# `bb gates` reports for that variant's freshly-compiled artifact. Keeps the catalog the variant
+# selector reads in sync with the current bb + reset circuits. Run after the variants are compiled.
+function check_reset_costs {
+  set -euo pipefail
+  # The mock circuits reuse this script but have no reset variant catalog to check.
+  [ -f ./scripts/refresh_reset_costs.js ] || return 0
+  echo_stderr "Checking reset variant costs are up to date..."
+  denoise "BB=$BB node ./scripts/refresh_reset_costs.js --check"
 }
 
 function test_cmds {

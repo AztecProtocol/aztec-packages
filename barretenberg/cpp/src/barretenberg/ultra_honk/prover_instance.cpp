@@ -386,6 +386,10 @@ template <typename Flavor> void ProverInstance_<Flavor>::populate_memory_records
     for (auto& index : circuit.memory_write_records) {
         memory_write_records.emplace_back(index + ram_rom_offset);
     }
+    rom_logup_records.reserve(circuit.rom_logup_records.size());
+    for (auto& index : circuit.rom_logup_records) {
+        rom_logup_records.emplace_back(index + ram_rom_offset);
+    }
 }
 
 template class ProverInstance_<UltraFlavor>;

@@ -214,10 +214,19 @@ void process_hn_recursion_constraints(
                      "process_hn_recursion_constraints: stdlib_verification_queue size mismatch after instantiation");
 
         // Validate constraints against stdlib verification queue entries
+        size_t group_index = 0;
         for (auto [constraint, queue_entry] : zip_view(hn_recursion_data.first, ivc->stdlib_verification_queue)) {
-            // Validate ACIR constraint proof_type matches IVC queue type
-            BB_ASSERT(proof_type_to_chonk_queue_type(constraint.proof_type) == queue_entry.type,
-                      "process_hn_recursion_constraints: ACIR constraint proof_type does not match IVC queue type");
+            // Cross-check the ACIR proof_type and the queued proof's kind against the type/kind implied by the
+            // IVC's circuit kinds and the entry's position in the kernel's group. The IVC's circuit kinds (not
+            // the proof_type) drive the verification logic; this is defense-in-depth that the two agree.
+            BB_ASSERT_EQ(
+                static_cast<PROOF_TYPE>(constraint.proof_type),
+                expected_proof_type(*ivc, group_index),
+                "process_hn_recursion_constraints: ACIR proof_type disagrees with circuit-kinds-derived state");
+            BB_ASSERT_EQ(
+                queue_entry.kind,
+                expected_group_entry_kind(*ivc, group_index),
+                "process_hn_recursion_constraints: queue entry kind disagrees with circuit-kinds-derived position");
 
             // HN recursion constraints from Noir always have empty public_inputs - the public inputs are handled
             // entirely by the IVC (KernelIO/AppIO). If this changes in the future, we need to implement binding
@@ -240,6 +249,7 @@ void process_hn_recursion_constraints(
                           vk_num_public_inputs,
                           "process_hn_recursion_constraints: proof vector smaller than num_public_inputs - malformed "
                           "proof");
+            ++group_index;
         }
 
         // Complete the kernel circuit with all required recursive verifications, databus consistency checks etc.
