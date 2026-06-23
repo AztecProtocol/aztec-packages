@@ -273,6 +273,59 @@ function bench_10tps {
   fi
 }
 
+# One point of the Set A inclusion sweep (A-1223). Same scrape+upload path as
+# bench_10tps, but parameterized by TARGET_TPS and tagged with a shared
+# BENCH_SWEEP_ID so the 1/5/10 points group as one sweep (schema v4). Load is
+# all high-value at TARGET_TPS so the headline client-observed inclusion latency
+# reflects the full target rate. Each point runs in its own namespace.
+function bench_inclusion_point_cmds {
+  local tps=${TARGET_TPS:-10}
+  local test_duration=${TEST_DURATION_SECONDS:-600} # 10 mins
+  local timeout=${BENCH_TIMEOUT_SECONDS:-7200} # account for committee formation
+  local scenario="incl_${tps/./_}tps"
+  echo "$(hash):TIMEOUT=${timeout} BENCH_RUN_ID=${BENCH_RUN_ID:-} BENCH_OUTPUT=bench-out/n_tps.${scenario}.bench.json BENCH_SCENARIO=${scenario} LOW_VALUE_TPS=0 HIGH_VALUE_TPS=${tps} TEST_DURATION_SECONDS=${test_duration} $root/yarn-project/end-to-end/scripts/run_test.sh simple n_tps.test.ts"
+}
+
+function bench_inclusion_point {
+  rm -rf bench-out
+  mkdir -p bench-out
+
+  local env_file="$1"
+  source_network_env $env_file
+
+  local tps=${TARGET_TPS:-10}
+  echo_header "spartan inclusion-sweep point (${tps} TPS)"
+  gcp_auth
+  export_admin_api_key
+  export K8S_ENRICHER=${K8S_ENRICHER:-1}
+  export BENCH_RUN_ID="${BENCH_RUN_ID:-$(date -u +%Y%m%d)-incl-${tps}tps-${COMMIT_HASH:0:10}}"
+  bench_inclusion_point_cmds | parallelize 1
+
+  local metadata="/tmp/n_tps_timing_data.json"
+  local run_json="bench-out/bench-inclusion-${tps}tps-${BENCH_RUN_ID}.json"
+  if [[ -f "$metadata" ]]; then
+    local started=$(jq -r .startedAt < "$metadata")
+    local ended=$(jq -r .endedAt < "$metadata")
+    echo "Scraping inclusion-sweep point ${tps} TPS (run ${BENCH_RUN_ID}, started=${started} ended=${ended})"
+    NAMESPACE="$NAMESPACE" GCP_PROJECT_ID="${GCP_PROJECT_ID:-}" ./scripts/bench_10tps/bench_scrape.ts \
+      --run-id "$BENCH_RUN_ID" \
+      --started "$started" \
+      --ended "$ended" \
+      --target-tps "$tps" \
+      --sweep-id "${BENCH_SWEEP_ID:-}" \
+      --sweep-label "${BENCH_SWEEP_LABEL:-inclusion-sweep}" \
+      --workload sha256_hash_1024 \
+      --output "$run_json" \
+      --inclusion-records "$metadata" \
+      --wait-for-pending-zero \
+      --max-pending-wait-seconds "${BENCH_SCRAPE_MAX_PENDING_WAIT_SECONDS:-3600}" \
+      || echo "[bench_inclusion_point] scraper failed (non-fatal)"
+    network_bench_upload "$run_json" || echo "[network_bench] upload failed (non-fatal)"
+  else
+    echo "[bench_inclusion_point] no timing metadata at ${metadata}; skipping scraper"
+  fi
+}
+
 function network_bench_upload {
   local run_json=$1
   if [[ "${CI:-0}" != "1" ]]; then
@@ -417,7 +470,7 @@ case "$cmd" in
     run_network_tests "$1" "$2"
     ;;
 
-  network_tests|network_tests_1|network_tests_2|network_bench|proving_bench|block_capacity_bench|bench_10tps)
+  network_tests|network_tests_1|network_tests_2|network_bench|proving_bench|block_capacity_bench|bench_10tps|bench_inclusion_point)
     env_file="$1"
     $cmd "$env_file"
     ;;
