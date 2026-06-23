@@ -298,7 +298,7 @@ tests:
   # seals the one-before-last block as soon as one tx is available and snapshots the mempool, so late
   # txs still propagating over gossip spill into the next checkpoint. Flaky until the sequencer waits
   # for the last block's tx window.
-  - regex: "src/multi-node/consensus/mbps.parallel.test.ts.*redistributes checkpoint budget"
+  - regex: "src/multi-node/consensus/mbps/redistribution.parallel.test.ts.*redistributes checkpoint budget"
     owners:
       - *phil
 
