@@ -2,8 +2,8 @@
  * TypeScript counterpart of Noir's `BoundedVec<T, MaxLen>`.
  *
  * Carries the actual `data` plus `maxLength` so the ACVM serializer can pad the storage slot to `maxLength` elements.
- * `elementSize` is only needed when an element's wire width can't be derived from its mapping shape (a variable-width
- * element such as a packed note); for fixed-width elements the serializer takes the width from the shape and ignores it.
+ * `elementSize` is only needed for a variable-width element (e.g. a packed note) whose wire width can't be derived
+ * from its mapping shape; for fixed-width elements the serializer uses the shape and ignores it.
  */
 export class BoundedVec<T> {
   private constructor(

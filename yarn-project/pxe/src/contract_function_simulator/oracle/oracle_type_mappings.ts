@@ -556,9 +556,9 @@ export function ARRAY<T>(inner: TypeMapping<T>): TypeMapping<T[]> & { kind: 'arr
 }
 
 /**
- * Noir's fixed-length array `[T; maxLength]` in one slot: serializes `values` (each flattened via `element`) zero-padded
- * to exactly `maxLength * elementWidth` fields, and deserializes all `maxLength` elements back. An absent element is the
- * zero encoding, so the padding is derived from the shape.
+ * Noir's fixed-length array `[T; maxLength]` in one slot: serializes `values` (each flattened via `element`)
+ * zero-padded to exactly `maxLength * elementWidth` fields, and deserializes all `maxLength` elements back. An absent
+ * element is the zero encoding, so the padding is derived from the shape.
  */
 function FIXED_ARRAY<T>(element: TypeMapping<T>, maxLength: number): TypeMapping<T[]> {
   const elementWidth = fieldWidth(element.shape);
