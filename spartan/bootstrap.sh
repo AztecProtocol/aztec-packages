@@ -14,6 +14,7 @@ source ./scripts/gcp_auth.sh
 function build {
   denoise "helm lint ./aztec-bot/"
   denoise "helm lint ./aztec-chaos-scenarios/"
+  denoise "helm lint ./charts/otel-metrics-collector/"
   denoise "helm lint ./aztec-keystore/"
   denoise "helm lint ./aztec-node/ --set global.aztecImage.tag=lint"
   denoise "helm lint ./aztec-prover-stack/"

@@ -799,22 +799,15 @@ module "rpc_gateway" {
   RELEASE_PREFIX     = var.RELEASE_PREFIX
   CONSUMER_NAMESPACE = var.NAMESPACE
 
-  KONG_NAMESPACE                                   = var.RPC_GATEWAY_KONG_NAMESPACE != "" ? var.RPC_GATEWAY_KONG_NAMESPACE : var.NAMESPACE
-  KONG_HELM_RELEASE_NAME                           = var.RPC_GATEWAY_KONG_HELM_RELEASE_NAME
-  KONG_HELM_CHART_VERSION                          = var.RPC_GATEWAY_KONG_HELM_CHART_VERSION
-  KONG_INGRESS_CLASS                               = var.RPC_GATEWAY_KONG_INGRESS_CLASS
-  KONG_PROXY_SERVICE_TYPE                          = var.RPC_GATEWAY_KONG_PROXY_SERVICE_TYPE
-  KONG_PROXY_SERVICE_ANNOTATIONS                   = var.RPC_GATEWAY_KONG_PROXY_SERVICE_ANNOTATIONS
-  KONG_EXTRA_HELM_VALUES                           = var.RPC_GATEWAY_KONG_EXTRA_HELM_VALUES
-  KONG_SERVICE_MONITOR_ENABLED                     = var.RPC_GATEWAY_KONG_SERVICE_MONITOR_ENABLED
-  KONG_METRICS_SERVICE_ENABLED                     = var.RPC_GATEWAY_KONG_METRICS_SERVICE_ENABLED
-  KONG_METRICS_SERVICE_NAME                        = var.RPC_GATEWAY_KONG_METRICS_SERVICE_NAME
-  KONG_METRICS_SERVICE_TYPE                        = var.RPC_GATEWAY_KONG_METRICS_SERVICE_TYPE
-  KONG_METRICS_SERVICE_ANNOTATIONS                 = var.RPC_GATEWAY_KONG_METRICS_SERVICE_ANNOTATIONS
-  KONG_METRICS_SERVICE_LOAD_BALANCER_IP            = var.RPC_GATEWAY_KONG_METRICS_SERVICE_LOAD_BALANCER_IP
-  KONG_METRICS_SERVICE_LOAD_BALANCER_SOURCE_RANGES = var.RPC_GATEWAY_KONG_METRICS_SERVICE_LOAD_BALANCER_SOURCE_RANGES
-  KONG_METRICS_SERVICE_EXTERNAL_TRAFFIC_POLICY     = var.RPC_GATEWAY_KONG_METRICS_SERVICE_EXTERNAL_TRAFFIC_POLICY
-  KONG_OTEL_METRICS_GCP_SECRET_NAME                = var.RPC_GATEWAY_KONG_OTEL_METRICS_GCP_SECRET_NAME
+  KONG_NAMESPACE                 = var.RPC_GATEWAY_KONG_NAMESPACE != "" ? var.RPC_GATEWAY_KONG_NAMESPACE : var.NAMESPACE
+  KONG_HELM_RELEASE_NAME         = var.RPC_GATEWAY_KONG_HELM_RELEASE_NAME
+  KONG_HELM_CHART_VERSION        = var.RPC_GATEWAY_KONG_HELM_CHART_VERSION
+  KONG_INGRESS_CLASS             = var.RPC_GATEWAY_KONG_INGRESS_CLASS
+  KONG_PROXY_SERVICE_TYPE        = var.RPC_GATEWAY_KONG_PROXY_SERVICE_TYPE
+  KONG_PROXY_SERVICE_ANNOTATIONS = var.RPC_GATEWAY_KONG_PROXY_SERVICE_ANNOTATIONS
+  KONG_EXTRA_HELM_VALUES         = var.RPC_GATEWAY_KONG_EXTRA_HELM_VALUES
+  KONG_SERVICE_MONITOR_ENABLED   = var.RPC_GATEWAY_KONG_SERVICE_MONITOR_ENABLED
+  KONG_METRICS_SERVICE_ENABLED   = var.RPC_GATEWAY_KONG_OTEL_METRICS_GCP_SECRET_NAME != ""
 
   API_KEY_HEADER_NAME              = var.RPC_GATEWAY_API_KEY_HEADER_NAME
   ROUTES                           = local.rpc_gateway_routes
@@ -833,4 +826,40 @@ module "rpc_gateway" {
   GCP_MANAGED_CERTIFICATE_ENABLED = var.RPC_GATEWAY_GCP_MANAGED_CERTIFICATE_ENABLED
 
   depends_on = [helm_release.releases]
+}
+
+module "rpc_gateway_metrics_collector" {
+  count = var.RPC_GATEWAY_ENABLED && var.RPC_GATEWAY_KONG_OTEL_METRICS_GCP_SECRET_NAME != "" ? 1 : 0
+
+  source = "../modules/otel-metrics-collector"
+
+  providers = {
+    helm = helm.gke-cluster
+  }
+
+  NAMESPACE                               = module.rpc_gateway[0].metrics_service_namespace
+  RELEASE_NAME                            = "${var.RELEASE_PREFIX}-rpc-kong-otel-collector"
+  OTEL_COLLECTOR_ENDPOINT_GCP_SECRET_NAME = var.RPC_GATEWAY_KONG_OTEL_METRICS_GCP_SECRET_NAME
+  SCRAPE_CONFIGS = [
+    {
+      job_name        = "kong"
+      scrape_interval = "15s"
+      metrics_path    = "/metrics"
+      targets         = ["${module.rpc_gateway[0].metrics_service_name}.${module.rpc_gateway[0].metrics_service_namespace}.svc.cluster.local:${module.rpc_gateway[0].metrics_service_port}"]
+      labels = {
+        component = "kong"
+        network   = var.RELEASE_PREFIX
+      }
+    }
+  ]
+  RESOURCE_ATTRIBUTES = {
+    "service.name"    = "${var.RELEASE_PREFIX}-rpc-kong"
+    "network"         = var.RELEASE_PREFIX
+    "aztec.component" = "kong"
+  }
+  EXTERNAL_SECRET_STORE_NAME       = var.RPC_GATEWAY_EXTERNAL_SECRET_STORE_NAME
+  EXTERNAL_SECRET_STORE_KIND       = var.RPC_GATEWAY_EXTERNAL_SECRET_STORE_KIND
+  EXTERNAL_SECRET_REFRESH_INTERVAL = var.RPC_GATEWAY_EXTERNAL_SECRET_REFRESH_INTERVAL
+
+  depends_on = [module.rpc_gateway]
 }
