@@ -15,22 +15,6 @@ use crate::{
     },
 };
 
-/// A message delivered via the `offchain_receive` utility function.
-#[derive(Serialize, Deserialize)]
-pub struct OffchainMessage {
-    /// The encrypted message payload.
-    pub ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
-    /// The intended recipient of the message.
-    pub recipient: AztecAddress,
-    /// The hash of the transaction that produced this message. `Option::none` indicates a tx-less message.
-    pub tx_hash: Option<Field>,
-    /// Anchor block timestamp at message emission.
-    pub anchor_block_timestamp: u64,
-}
-
-/// Fact-collection type id shared by every offchain message reception in the fact store.
-global OFFCHAIN_RECEPTION_TYPE_ID: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_RECEPTION_TYPE_ID".as_bytes());
-
 /// Maximum number of offchain messages accepted by `offchain_receive` in a single call.
 pub global MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL: u32 = 16;
 
@@ -64,14 +48,6 @@ global OFFCHAIN_MESSAGE_PROCESSED: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_M
 /// based eviction and automatic transaction context resolution.
 pub type OffchainInboxSync = unconstrained fn(
 /* contract_address */AztecAddress, /* scope */ AztecAddress) -> EphemeralArray<OffchainMessageWithContext>;
-
-/// Computes the fact-collection id that identifies a message's reception workflow in the fact store.
-///
-/// The id is a hash over the full serialized message. Re-delivering a byte-identical message therefore is idempotent,
-/// and a message differing in any of its fields triggers a completely new reception workflow.
-fn fact_collection_id(message: OffchainMessage) -> Field {
-    poseidon2_hash(message.serialize())
-}
 
 /// Delivers offchain messages to the given contract's offchain inbox for subsequent processing.
 ///
@@ -223,6 +199,30 @@ pub unconstrained fn sync_inbox(
     });
 
     processable_messages
+}
+
+/// A message delivered via the `offchain_receive` utility function.
+#[derive(Serialize, Deserialize)]
+pub struct OffchainMessage {
+    /// The encrypted message payload.
+    pub ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
+    /// The intended recipient of the message.
+    pub recipient: AztecAddress,
+    /// The hash of the transaction that produced this message. `Option::none` indicates a tx-less message.
+    pub tx_hash: Option<Field>,
+    /// Anchor block timestamp at message emission.
+    pub anchor_block_timestamp: u64,
+}
+
+/// Fact-collection type id shared by every offchain message reception in the fact store.
+global OFFCHAIN_RECEPTION_TYPE_ID: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_RECEPTION_TYPE_ID".as_bytes());
+
+/// Computes the fact-collection id that identifies a message's reception workflow in the fact store.
+///
+/// The id is a hash over the full serialized message. Re-delivering a byte-identical message therefore is idempotent,
+/// and a message differing in any of its fields triggers a completely new reception workflow.
+fn fact_collection_id(message: OffchainMessage) -> Field {
+    poseidon2_hash(message.serialize())
 }
 
 mod test {
