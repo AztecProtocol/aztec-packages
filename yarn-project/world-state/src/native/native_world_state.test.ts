@@ -9,7 +9,7 @@ import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -32,7 +32,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 
 import type { WorldStateTreeMapSizes } from '../synchronizer/factory.js';
-import { assertSameState, compareChains, mockBlock, mockEmptyBlock } from '../test/utils.js';
+import { assertSameState, compareChains, mockBlock, mockEmptyBlock, updateBlockState } from '../test/utils.js';
 import { INITIAL_NULLIFIER_TREE_SIZE, INITIAL_PUBLIC_DATA_TREE_SIZE } from '../world-state-db/merkle_tree_db.js';
 import type { WorldStateStatusSummary } from './message.js';
 import { NativeWorldStateService, WORLD_STATE_DB_VERSION, WORLD_STATE_DIR } from './native_world_state.js';
@@ -1040,6 +1040,93 @@ describe('NativeWorldState', () => {
         expect(unwindStatus.summary.finalizedBlockNumber).toBe(2);
         expect(unwindStatus.summary.oldestHistoricalBlock).toBe(1);
       }
+    });
+  });
+
+  describe('Archive root divergence on empty blocks', () => {
+    let ws: NativeWorldStateService;
+
+    beforeEach(async () => {
+      ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, wsTreeMapSizes);
+    });
+
+    afterEach(async () => {
+      await ws.close();
+    });
+
+    const emptyMessages = () => Array(16).fill(0).map(Fr.zero);
+
+    // A *different* empty block at height 1: the same (empty) contents as the canonical block, but a different slot,
+    // so a different block-header hash — the proposer-race orphan from A-1235, not a tampered block.
+    const buildDifferentBlockOne = async (slotNumber: number) => {
+      const fork = await ws.fork();
+      const block = L2Block.empty();
+      block.header.globalVariables.blockNumber = BlockNumber(1);
+      block.header.globalVariables.slotNumber = SlotNumber(slotNumber);
+      const messages = emptyMessages();
+      await updateBlockState(block, messages, fork);
+      await fork.close();
+      return { block, messages };
+    };
+
+    // The canonical chain L1 finalized: block 1, then block 2 chained onto it (block 2's lastArchive == block 1's
+    // archive root). Built on a throwaway fork so it never touches the world state under test.
+    const buildCanonicalChain = async () => {
+      const fork = await ws.fork();
+      const { block: canonicalOne } = await mockEmptyBlock(BlockNumber(1), fork);
+      const { block: canonicalTwo, messages: canonicalTwoMessages } = await mockEmptyBlock(BlockNumber(2), fork);
+      await fork.close();
+      return { canonicalOne, canonicalTwo, canonicalTwoMessages };
+    };
+
+    // The core blind spot: two empty blocks at the same height with different headers are indistinguishable to the
+    // four-tree state reference, yet they are different blocks with different archive roots.
+    it('two empty blocks at the same height with different headers share a state reference but not an archive root', async () => {
+      const { canonicalOne } = await buildCanonicalChain();
+      const { block: orphanOne } = await buildDifferentBlockOne(99);
+
+      // The four non-archive trees are identical (empty blocks insert no leaves), so is_same_state_reference cannot
+      // tell the two blocks apart...
+      expect(orphanOne.header.state).toEqual(canonicalOne.header.state);
+      // ...yet they are genuinely different blocks, with different header hashes and different archive roots.
+      expect((await orphanOne.hash()).equals(await canonicalOne.hash())).toBe(false);
+      expect(orphanOne.archive.root.equals(canonicalOne.archive.root)).toBe(false);
+    });
+
+    // The seeding step: a self-consistent orphan block passes every check, so world state takes the wrong block and
+    // ends up on the orphan fork — it has no way, from this block alone, to know it is not the canonical block 1.
+    it('silently accepts a different empty block at the same height (how the wrong block gets in)', async () => {
+      const { canonicalOne } = await buildCanonicalChain();
+      const { block: orphanOne, messages: orphanMessages } = await buildDifferentBlockOne(99);
+
+      await expect(ws.handleL2BlockAndMessages(orphanOne, orphanMessages)).resolves.toBeDefined();
+
+      // World state is now on the orphan fork: its committed archive root is the orphan's, not canonical block 1's.
+      const archive = await ws.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE);
+      expect(Fr.fromBuffer(archive.root).equals(orphanOne.archive.root)).toBe(true);
+      expect(Fr.fromBuffer(archive.root).equals(canonicalOne.archive.root)).toBe(false);
+    });
+
+    // The fix: once world state has taken the orphan, the canonical successor (which chains off the real block 1)
+    // no longer matches world state's committed archive root, and the pre-append guard rejects it before committing.
+    it('rejects the canonical successor of a wrongly-synced orphan, catching the archive divergence (the fix)', async () => {
+      const { canonicalTwo, canonicalTwoMessages } = await buildCanonicalChain();
+      const { block: orphanOne, messages: orphanMessages } = await buildDifferentBlockOne(99);
+
+      // The orphan commits cleanly (it is a self-consistent block 1).
+      await expect(ws.handleL2BlockAndMessages(orphanOne, orphanMessages)).resolves.toBeDefined();
+      const archiveBefore = await ws.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE);
+
+      // canonicalTwo.lastArchive == canonicalOne's archive root, which no longer matches world state's committed
+      // (orphan) archive root, so the pre-append guard throws before committing.
+      await expect(ws.handleL2BlockAndMessages(canonicalTwo, canonicalTwoMessages)).rejects.toThrow(
+        /diverged from the canonical chain/,
+      );
+
+      // Clean rollback: the archive tree is untouched.
+      const archiveAfter = await ws.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE);
+      expect(archiveAfter.root).toEqual(archiveBefore.root);
+      expect(archiveAfter.size).toEqual(archiveBefore.size);
     });
   });
 

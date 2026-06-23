@@ -283,6 +283,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     });
 
     try {
+<<<<<<< HEAD
       const status = await this.instance.syncBlock({
         blockNumber: l2Block.number,
         blockHeaderHash: (await l2Block.hash()).toBuffer(),
@@ -293,6 +294,26 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
         blockStateRef: blockStateReference(l2Block.header.state),
       });
       return this.sanitizeAndCacheSummaryFromFull(status);
+=======
+      return await this.instance.call(
+        WorldStateMessageType.SYNC_BLOCK,
+        {
+          blockNumber: l2Block.number,
+          blockHeaderHash: (await l2Block.hash()).toBuffer(),
+          // Forwarded so the native sync verifies the archive root against canonical and rejects a divergent tree.
+          expectedArchiveRoot: l2Block.archive.root.toBuffer(),
+          expectedPreviousArchiveRoot: l2Block.header.lastArchive.root.toBuffer(),
+          paddedL1ToL2Messages: paddedL1ToL2Messages.map(serializeLeaf),
+          paddedNoteHashes: paddedNoteHashes.map(serializeLeaf),
+          paddedNullifiers: paddedNullifiers.map(serializeLeaf),
+          publicDataWrites: publicDataWrites.map(serializeLeaf),
+          blockStateRef: blockStateReference(l2Block.header.state),
+          canonical: true,
+        },
+        this.sanitizeAndCacheSummaryFromFull.bind(this),
+        this.deleteCachedSummary.bind(this),
+      );
+>>>>>>> 7a013ad350 (feat: merge-train/spartan-v5 (#24256))
     } catch (err) {
       this.deleteCachedSummary();
       this.worldStateInstrumentation.incCriticalErrors('synch_pending_block');
