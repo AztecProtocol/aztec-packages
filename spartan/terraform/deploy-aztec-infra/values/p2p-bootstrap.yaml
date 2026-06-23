@@ -2,6 +2,9 @@ nameOverride: "node"
 
 replicaCount: 1
 
+deploymentStrategy:
+  type: Recreate
+
 podDisruptionBudget:
   enabled: true
   minAvailable: 1

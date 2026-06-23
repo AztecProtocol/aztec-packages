@@ -24,8 +24,13 @@ namespace ipc {
  */
 class MpscShmClient : public IpcClient {
   public:
+    // client_id == kAutoClientId (the default for make_client / create_mpsc_shm)
+    // makes connect() atomically claim a free producer slot from the server's
+    // shared slot table, so callers don't have to coordinate unique ids. An
+    // explicit id pins a specific slot (used by tests).
     MpscShmClient(std::string base_name, size_t client_id)
         : base_name_(std::move(base_name))
+        , auto_claim_(client_id == kAutoClientId)
         , client_id_(client_id)
     {}
 
@@ -48,6 +53,14 @@ class MpscShmClient : public IpcClient {
 
         for (size_t attempt = 0; attempt < max_attempts; ++attempt) {
             try {
+                // Self-allocate a producer slot when no explicit id was given.
+                // The claim is held for the connection's lifetime and released by
+                // close()/destruction so the slot can be reused.
+                if (auto_claim_) {
+                    slot_claim_ = MpscSlotClaim::claim(base_name_ + "_req");
+                    client_id_ = slot_claim_->id();
+                }
+
                 // Connect as producer to the MPSC request system
                 producer_ = MpscProducer::connect(base_name_ + "_req", client_id_);
 
@@ -59,6 +72,7 @@ class MpscShmClient : public IpcClient {
             } catch (...) {
                 producer_.reset();
                 response_ring_.reset();
+                slot_claim_.reset();
                 if (attempt + 1 == max_attempts) {
                     return false;
                 }
@@ -112,6 +126,7 @@ class MpscShmClient : public IpcClient {
     {
         producer_.reset();
         response_ring_.reset();
+        slot_claim_.reset(); // release our producer slot for reuse
     }
 
     void wakeup() override
@@ -123,7 +138,9 @@ class MpscShmClient : public IpcClient {
 
   private:
     std::string base_name_;
+    bool auto_claim_;
     size_t client_id_;
+    std::optional<MpscSlotClaim> slot_claim_;
     std::optional<MpscProducer> producer_;
     std::optional<SpscShm> response_ring_;
 };

@@ -51,6 +51,9 @@ hostNetwork: false
 # -- Number of replicas
 replicaCount: 1
 
+# -- Deployment strategy. Only used when statefulSet.enabled is false.
+deploymentStrategy: {}
+
 statefulSet:
   enabled: false
   volumeClaimTemplates: []
