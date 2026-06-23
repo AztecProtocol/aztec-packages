@@ -87,6 +87,9 @@ tags:
     --rpcMaxBodySize <value>                                                 (default: 1mb)                                                ($RPC_MAX_BODY_SIZE)
           Maximum allowed batch size for JSON RPC batch requests.
 
+    --rpcLatencyMs <value>                                                   (default: 0)                                                  ($RPC_LATENCY_MS)
+          Artificial delay in milliseconds before processing JSON-RPC requests. Intended for local/dev UX testing. A batch request incurs a single delay. Defaults to 0 (disabled).
+
   ETHEREUM
 
     --l1-chain-id <value>                                                                                                                  ($L1_CHAIN_ID)

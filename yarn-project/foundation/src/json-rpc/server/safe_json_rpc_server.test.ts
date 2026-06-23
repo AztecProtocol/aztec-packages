@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import request from 'supertest';
 
 import { times } from '../../collection/array.js';
@@ -264,6 +265,77 @@ describe('SafeJsonRpcServer', () => {
     it('fails if no namespace is provided', async () => {
       const response = await send({ method: 'getNote', params: [1] });
       expectError(response, 400, 'Method not found: getNote');
+    });
+  });
+
+  describe('latency', () => {
+    // Distinctive value so we can isolate our artificial-delay setTimeout calls from any framework timers.
+    const LATENCY_MS = 137;
+
+    // Fakes only the artificial-latency timer: sleep's setTimeout for LATENCY_MS fires its callback
+    // synchronously (so the suite never actually waits), while every other timer (koa, supertest) runs for
+    // real. The returned spy still records every call, which is how we assert one delay per request / batch.
+    const fakeLatencyTimer = () => {
+      const realSetTimeout = globalThis.setTimeout;
+      return jest.spyOn(global, 'setTimeout').mockImplementation((fn, ms) => {
+        if (ms === LATENCY_MS) {
+          fn();
+          // sleep() ignores the handle; return a dummy so we don't schedule (or wait on) a real timer.
+          return 0 as unknown as ReturnType<typeof setTimeout>;
+        }
+        return realSetTimeout(fn, ms);
+      });
+    };
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('does not delay requests when rpcLatencyMs is 0', async () => {
+      server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema, { rpcLatencyMs: 0 });
+      const setTimeoutSpy = fakeLatencyTimer();
+
+      const response = await send({ method: 'count', params: [] });
+
+      expect(response.status).toBe(200);
+      expect(setTimeoutSpy.mock.calls.filter(([, ms]) => ms === LATENCY_MS)).toHaveLength(0);
+    });
+
+    it('delays a single request once when rpcLatencyMs > 0', async () => {
+      server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema, { rpcLatencyMs: LATENCY_MS });
+      const setTimeoutSpy = fakeLatencyTimer();
+
+      const response = await send({ method: 'count', params: [] });
+
+      expect(response.status).toBe(200);
+      expect(setTimeoutSpy.mock.calls.filter(([, ms]) => ms === LATENCY_MS)).toHaveLength(1);
+    });
+
+    it('delays a batch request only once, not once per item', async () => {
+      server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema, {
+        rpcLatencyMs: LATENCY_MS,
+        maxBatchSize: 10,
+      });
+      const setTimeoutSpy = fakeLatencyTimer();
+
+      const response = await sendBatch(
+        { jsonrpc, method: 'count', params: [], id: 1 },
+        { jsonrpc, method: 'getStatus', params: [], id: 2 },
+        { jsonrpc, method: 'count', params: [], id: 3 },
+      );
+
+      expect(response.status).toBe(200);
+      expect(setTimeoutSpy.mock.calls.filter(([, ms]) => ms === LATENCY_MS)).toHaveLength(1);
+    });
+
+    it('treats a negative rpcLatencyMs as no delay', async () => {
+      server = createSafeJsonRpcServer<TestStateApi>(testState, TestStateSchema, { rpcLatencyMs: -100 });
+      const setTimeoutSpy = fakeLatencyTimer();
+
+      const response = await send({ method: 'count', params: [] });
+
+      expect(response.status).toBe(200);
+      expect(setTimeoutSpy.mock.calls.filter(([, ms]) => typeof ms === 'number' && ms < 0)).toHaveLength(0);
     });
   });
 });
