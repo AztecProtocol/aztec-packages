@@ -29,7 +29,7 @@ describe('EventValidationRequest', () => {
 
     const request = EventValidationRequest.fromFields(serialized);
 
-    expect(request.contractAddress).toEqual(AztecAddress.fromBigInt(1n));
+    expect(request.contractAddress).toEqual(AztecAddress.fromBigIntUnsafe(1n));
     expect(request.eventTypeId).toEqual(new EventSelector(2));
     expect(request.randomness).toEqual(new Fr(3));
     expect(request.serializedEvent).toEqual([new Fr(4), new Fr(5)]);

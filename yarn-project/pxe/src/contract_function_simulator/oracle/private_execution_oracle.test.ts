@@ -21,8 +21,8 @@ import type { ContractStore } from '../../storage/contract_store/contract_store.
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
-import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_address_book_store.js';
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
+import type { TaggingSecretSourcesStore } from '../../storage/tagging_store/tagging_secret_sources_store.js';
 import { ExecutionNoteCache } from '../execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from '../execution_tagging_index_cache.js';
 import { HashedValuesCache } from '../hashed_values_cache.js';
@@ -37,7 +37,7 @@ describe('PrivateExecutionOracle', () => {
   beforeAll(async () => {
     contractAddress = await AztecAddress.random();
     callContext = new CallContext(
-      AztecAddress.fromField(Fr.MAX_FIELD_VALUE),
+      AztecAddress.fromFieldUnsafe(Fr.MAX_FIELD_VALUE),
       contractAddress,
       FunctionSelector.empty(),
       false,
@@ -88,7 +88,7 @@ describe('PrivateExecutionOracle', () => {
       aztecNode: mock<AztecNode>(),
       senderTaggingStore: mock<SenderTaggingStore>(),
       recipientTaggingStore: mock<RecipientTaggingStore>(),
-      senderAddressBookStore: mock<SenderAddressBookStore>(),
+      taggingSecretSourcesStore: mock<TaggingSecretSourcesStore>(),
       capsuleService: new CapsuleService(mock<CapsuleStore>(), []),
       privateEventStore: mock<PrivateEventStore>(),
       messageContextService: mock<MessageContextService>(),

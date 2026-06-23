@@ -163,7 +163,7 @@ export class EmbeddedWallet extends EmbeddedWalletBase {
     if (!address) {
       return null;
     }
-    const parsed = AztecAddress.fromString(address);
+    const parsed = AztecAddress.fromStringUnsafe(address);
     this.connectedAccount = parsed;
     return this.connectedAccount;
   }

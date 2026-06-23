@@ -42,7 +42,7 @@ describe('KeyStore', () => {
     expect(masterIncomingViewingSecretKey.equals(keys.masterIncomingViewingSecretKey)).toBe(true);
 
     // Arbitrary app contract address
-    const appAddress = AztecAddress.fromBigInt(624n);
+    const appAddress = AztecAddress.fromBigIntUnsafe(624n);
 
     const { pkMHash: obtainedNpkMHash, skApp: appNullifierHidingKey } = await keyStore.getKeyValidationRequest(
       computedMasterNullifierPublicKeyHash,

@@ -16,8 +16,8 @@ import { AvmSimulationTester } from '../fixtures/avm_simulation_tester.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 describe('AVM simulator apps tests: StorageProof', () => {
-  const deployer = AztecAddress.fromNumber(42);
-  const sender = AztecAddress.fromNumber(4200);
+  const deployer = AztecAddress.fromNumberUnsafe(42);
+  const sender = AztecAddress.fromNumberUnsafe(4200);
   let storageProver: ContractInstanceWithAddress;
   let worldStateService: NativeWorldStateService;
   let simTester: AvmSimulationTester;

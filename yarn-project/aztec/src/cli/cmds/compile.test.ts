@@ -70,6 +70,15 @@ function runCompile() {
   }
 }
 
+function runNargoCompile() {
+  const nargo = process.env.NARGO ?? 'nargo';
+  try {
+    execFileSync(nargo, ['compile'], { cwd: WORKSPACE, stdio: 'pipe' });
+  } catch (e: any) {
+    throw new Error(`nargo compile failed:\n${e.stderr?.toString() ?? e.message}`);
+  }
+}
+
 function runCodegen() {
   try {
     execFileSync('node', [CLI, 'codegen', 'target', '-o', 'codegen-output', '-f'], {
@@ -80,6 +89,30 @@ function runCodegen() {
     throw new Error(`codegen failed:\n${e.stderr?.toString() ?? e.message}`);
   }
 }
+
+// Regression test for https://github.com/AztecProtocol/aztec-packages/issues/24075: a bare `nargo compile` leaves
+// untranspiled artifacts in target/. `aztec compile` must still postprocess them (transpile + generate VKs).
+describe('aztec compile postprocesses pre-existing untranspiled artifacts', () => {
+  const CONTRACT_ARTIFACT = join(TARGET, 'simple_contract-SimpleContract.json');
+
+  beforeAll(() => {
+    cleanupArtifacts();
+    runNargoCompile();
+  }, 120_000);
+
+  afterAll(() => {
+    cleanupArtifacts();
+  });
+
+  it('transpiles artifacts left untranspiled by a bare nargo compile', () => {
+    const beforeAztecCompile = JSON.parse(readFileSync(CONTRACT_ARTIFACT, 'utf-8'));
+    expect(beforeAztecCompile.transpiled).toBeFalsy();
+
+    runCompile();
+    const afterAztecCompile = JSON.parse(readFileSync(CONTRACT_ARTIFACT, 'utf-8'));
+    expect(afterAztecCompile.transpiled).toBe(true);
+  }, 120_000);
+});
 
 // Validates that aztec compile warns when contract crates contain tests. We want tests to be in a separate `lib` crate.
 describe('aztec compile warns about tests in contract crates', () => {

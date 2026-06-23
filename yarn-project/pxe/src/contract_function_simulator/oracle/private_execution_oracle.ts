@@ -43,10 +43,9 @@ import { executePrivateFunction } from './private_execution.js';
 import { UtilityExecutionOracle, type UtilityExecutionOracleArgs } from './utility_execution_oracle.js';
 
 /** Args for PrivateExecutionOracle constructor. */
-export type PrivateExecutionOracleArgs = Omit<UtilityExecutionOracleArgs, 'contractAddress'> & {
+export type PrivateExecutionOracleArgs = UtilityExecutionOracleArgs & {
   argsHash: Fr;
   txContext: TxContext;
-  callContext: CallContext;
   executionCache: HashedValuesCache;
   noteCache: ExecutionNoteCache;
   taggingIndexCache: ExecutionTaggingIndexCache;
@@ -77,7 +76,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
   private readonly argsHash: Fr;
   private readonly txContext: TxContext;
-  private readonly callContext: CallContext;
   private readonly executionCache: HashedValuesCache;
   private readonly noteCache: ExecutionNoteCache;
   private readonly taggingIndexCache: ExecutionTaggingIndexCache;
@@ -90,12 +88,10 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   constructor(args: PrivateExecutionOracleArgs) {
     super({
       ...args,
-      contractAddress: args.callContext.contractAddress,
       log: args.log ?? createLogger('simulator:client_execution_context'),
     });
     this.argsHash = args.argsHash;
     this.txContext = args.txContext;
-    this.callContext = args.callContext;
     this.executionCache = args.executionCache;
     this.noteCache = args.noteCache;
     this.taggingIndexCache = args.taggingIndexCache;
@@ -181,9 +177,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * Returns the wallet-supplied default sender for tags, or `None` if no default was provided.
    */
   public getSenderForTags(): Promise<Option<AztecAddress>> {
-    return Promise.resolve(
-      this.defaultSenderForTags ? Option.some(this.defaultSenderForTags) : Option.none(AztecAddress.ZERO),
-    );
+    return Promise.resolve(this.defaultSenderForTags ? Option.some(this.defaultSenderForTags) : Option.none());
   }
 
   /**
@@ -203,7 +197,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.logger.warn(`Computing a tagging secret for invalid recipient ${recipient} - returning no secret`, {
         contractAddress: this.contractAddress,
       });
-      return Option.none(Fr.ZERO);
+      return Option.none();
     }
 
     return Option.some(extendedSecret.secret);
@@ -563,7 +557,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       aztecNode: this.aztecNode,
       senderTaggingStore: this.senderTaggingStore,
       recipientTaggingStore: this.recipientTaggingStore,
-      senderAddressBookStore: this.senderAddressBookStore,
+      taggingSecretSourcesStore: this.taggingSecretSourcesStore,
       capsuleService: this.capsuleService,
       privateEventStore: this.privateEventStore,
       messageContextService: this.messageContextService,

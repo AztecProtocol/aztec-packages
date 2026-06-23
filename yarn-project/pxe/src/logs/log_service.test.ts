@@ -14,7 +14,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import { LogRetrievalRequest, LogSource } from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
 import { AddressStore } from '../storage/address_store/address_store.js';
 import { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
-import { SenderAddressBookStore } from '../storage/tagging_store/sender_address_book_store.js';
+import { TaggingSecretSourcesStore } from '../storage/tagging_store/tagging_secret_sources_store.js';
 import { LogService } from './log_service.js';
 
 describe('LogService', () => {
@@ -23,7 +23,7 @@ describe('LogService', () => {
   let keyStore: KeyStore;
   let recipientTaggingStore: RecipientTaggingStore;
   let addressStore: AddressStore;
-  let senderAddressBookStore: SenderAddressBookStore;
+  let taggingSecretSourcesStore: TaggingSecretSourcesStore;
   let logService: LogService;
 
   describe('fetchLogsByTag', () => {
@@ -34,7 +34,7 @@ describe('LogService', () => {
       contractAddress = await AztecAddress.random();
       keyStore = new KeyStore(await openTmpStore('test'));
       recipientTaggingStore = new RecipientTaggingStore(await openTmpStore('test'));
-      senderAddressBookStore = new SenderAddressBookStore(await openTmpStore('test'));
+      taggingSecretSourcesStore = new TaggingSecretSourcesStore(await openTmpStore('test'));
       addressStore = new AddressStore(await openTmpStore('test'));
 
       aztecNode = mock<AztecNode>();
@@ -52,7 +52,7 @@ describe('LogService', () => {
         mock<L2TipsProvider>(),
         keyStore,
         recipientTaggingStore,
-        senderAddressBookStore,
+        taggingSecretSourcesStore,
         addressStore,
         'test',
       );

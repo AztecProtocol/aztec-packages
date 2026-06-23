@@ -15,8 +15,8 @@ import {
   NoteStore,
   PrivateEventStore,
   RecipientTaggingStore,
-  SenderAddressBookStore,
   SenderTaggingStore,
+  TaggingSecretSourcesStore,
 } from '@aztec/pxe/server';
 import {
   ExecutionNoteCache,
@@ -146,6 +146,7 @@ export interface TXESessionStateHandler {
 
   /** Executes a top-level utility function and commits the job. */
   executeUtilityFunction(
+    from: Option<AztecAddress>,
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     args: Fr[],
@@ -251,7 +252,7 @@ export class TXESession implements TXESessionStateHandler {
     private accountStore: TXEAccountStore,
     private senderTaggingStore: SenderTaggingStore,
     private recipientTaggingStore: RecipientTaggingStore,
-    private senderAddressBookStore: SenderAddressBookStore,
+    private taggingSecretSourcesStore: TaggingSecretSourcesStore,
     private capsuleStore: CapsuleStore,
     private privateEventStore: PrivateEventStore,
     private jobCoordinator: JobCoordinator,
@@ -302,7 +303,7 @@ export class TXESession implements TXESessionStateHandler {
     const noteStore = new NoteStore(store);
     const senderTaggingStore = new SenderTaggingStore(store);
     const recipientTaggingStore = new RecipientTaggingStore(store);
-    const senderAddressBookStore = new SenderAddressBookStore(store);
+    const taggingSecretSourcesStore = new TaggingSecretSourcesStore(store);
     const capsuleStore = new CapsuleStore(store);
     const keyStore = new KeyStore(store);
     const accountStore = new TXEAccountStore(store);
@@ -337,7 +338,7 @@ export class TXESession implements TXESessionStateHandler {
       accountStore,
       senderTaggingStore,
       recipientTaggingStore,
-      senderAddressBookStore,
+      taggingSecretSourcesStore,
       capsuleStore,
       privateEventStore,
       nextBlockTimestamp,
@@ -363,7 +364,7 @@ export class TXESession implements TXESessionStateHandler {
       accountStore,
       senderTaggingStore,
       recipientTaggingStore,
-      senderAddressBookStore,
+      taggingSecretSourcesStore,
       capsuleStore,
       privateEventStore,
       jobCoordinator,
@@ -537,6 +538,7 @@ export class TXESession implements TXESessionStateHandler {
   }
 
   async executeUtilityFunction(
+    from: Option<AztecAddress>,
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     args: Fr[],
@@ -545,6 +547,7 @@ export class TXESession implements TXESessionStateHandler {
     const handler = this.handlerAsTxe();
     return await this.withTopLevelCallTracking(async () => {
       const returnValues = await handler.executeUtilityFunction(
+        from?.value,
         targetContractAddress,
         functionSelector,
         args,
@@ -650,7 +653,7 @@ export class TXESession implements TXESessionStateHandler {
       this.accountStore,
       this.senderTaggingStore,
       this.recipientTaggingStore,
-      this.senderAddressBookStore,
+      this.taggingSecretSourcesStore,
       this.capsuleStore,
       this.privateEventStore,
       this.nextBlockTimestamp,
@@ -719,7 +722,7 @@ export class TXESession implements TXESessionStateHandler {
       aztecNode: this.stateMachine.node,
       senderTaggingStore: this.senderTaggingStore,
       recipientTaggingStore: this.recipientTaggingStore,
-      senderAddressBookStore: this.senderAddressBookStore,
+      taggingSecretSourcesStore: this.taggingSecretSourcesStore,
       capsuleService: new CapsuleService(this.capsuleStore, await this.keyStore.getAccounts()),
       privateEventStore: this.privateEventStore,
       contractSyncService: this.stateMachine.contractSyncService,
@@ -796,7 +799,13 @@ export class TXESession implements TXESessionStateHandler {
     ).syncNoteNullifiers(contractAddress, await this.keyStore.getAccounts());
 
     this.oracleHandler = new UtilityExecutionOracle({
-      contractAddress,
+      callContext: CallContext.from({
+        msgSender: AztecAddress.NULL_MSG_SENDER,
+        contractAddress,
+        // No specific function is being executed in this inlined utility context, hence the empty selector.
+        functionSelector: FunctionSelector.empty(),
+        isStaticCall: true,
+      }),
       authWitnesses: [],
       capsules: [],
       anchorBlockHeader,
@@ -806,7 +815,7 @@ export class TXESession implements TXESessionStateHandler {
       addressStore: this.addressStore,
       aztecNode: this.stateMachine.node,
       recipientTaggingStore: this.recipientTaggingStore,
-      senderAddressBookStore: this.senderAddressBookStore,
+      taggingSecretSourcesStore: this.taggingSecretSourcesStore,
       capsuleService: new CapsuleService(this.capsuleStore, await this.keyStore.getAccounts()),
       privateEventStore: this.privateEventStore,
       messageContextService: this.stateMachine.messageContextService,
@@ -898,7 +907,12 @@ export class TXESession implements TXESessionStateHandler {
       try {
         const simulator = new WASMSimulator();
         const oracle = new UtilityExecutionOracle({
-          contractAddress: call.to,
+          callContext: CallContext.from({
+            msgSender: AztecAddress.NULL_MSG_SENDER,
+            contractAddress: call.to,
+            functionSelector: call.selector,
+            isStaticCall: true,
+          }),
           authWitnesses: [],
           capsules: [],
           anchorBlockHeader: anchorBlock!,
@@ -908,7 +922,7 @@ export class TXESession implements TXESessionStateHandler {
           addressStore: this.addressStore,
           aztecNode: this.stateMachine.node,
           recipientTaggingStore: this.recipientTaggingStore,
-          senderAddressBookStore: this.senderAddressBookStore,
+          taggingSecretSourcesStore: this.taggingSecretSourcesStore,
           capsuleService: new CapsuleService(this.capsuleStore, scopes),
           privateEventStore: this.privateEventStore,
           messageContextService: this.stateMachine.messageContextService,

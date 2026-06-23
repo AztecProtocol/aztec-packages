@@ -35,8 +35,8 @@ describe('Accrued Substate', () => {
   let persistableState: PublicPersistableStateManager;
   let context: AvmContext;
 
-  const address = AztecAddress.fromNumber(1);
-  const sender = AztecAddress.fromNumber(42);
+  const address = AztecAddress.fromNumberUnsafe(1);
+  const sender = AztecAddress.fromNumberUnsafe(42);
   const value0 = new Fr(69); // noteHash or nullifier...
   const value0Offset = 100;
   const value1 = new Fr(420);

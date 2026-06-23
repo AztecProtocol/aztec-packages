@@ -9,8 +9,8 @@ import { NativeWorldStateService } from '@aztec/world-state';
 import { AvmSimulationTester } from '../fixtures/avm_simulation_tester.js';
 
 describe('AVM simulator apps tests: AvmTestContract', () => {
-  const deployer = AztecAddress.fromNumber(42);
-  const sender = AztecAddress.fromNumber(4200);
+  const deployer = AztecAddress.fromNumberUnsafe(42);
+  const sender = AztecAddress.fromNumberUnsafe(4200);
   let testContractAddress: AztecAddress;
   let instances: ContractInstanceWithAddress[];
   let worldStateService: NativeWorldStateService;
