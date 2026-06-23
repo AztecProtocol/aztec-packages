@@ -38,7 +38,7 @@ function test_cmds {
   local tests=(
     # List all standalone and nested tests, except for the ones listed above.
     src/e2e_!(prover)/*.test.ts
-    src/multi-node/single-node/*.test.ts
+    src/single-node/*.test.ts
     src/multi-node/consensus/*.test.ts
     src/multi-node/prune/*.test.ts
     src/multi-node/ha/*.test.ts
@@ -61,7 +61,7 @@ function test_cmds {
       e2e_cross_chain_messaging/l1_to_l2)
         test_prefix="$prefix:TIMEOUT=20m"
         ;;
-      multi-node/single-node/proving.parallel)
+      single-node/proving/long_proving_time)
         # The long-proving-time scenario waits out a multi-epoch prover delay.
         test_prefix="$prefix:TIMEOUT=15m"
         ;;
