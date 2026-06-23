@@ -1,8 +1,14 @@
 #!/usr/bin/env -S node --experimental-strip-types --no-warnings
 //
 // Scrape a completed bench-10tps run into a schema-conformant JSON payload.
-// Contract: bench_output.schema.json (v3). Invoked by the bench_10tps function
+// Contract: bench_output.schema.json (v4). Invoked by the bench_10tps function
 // in spartan/bootstrap.sh after n_tps.test.ts finishes.
+//
+// v4 adds two PromQL sections alongside the inclusion timeSeries:
+//   - provingInfra: prover-node hint-gen (tx re-execution) + proving-queue
+//     behaviour broken down by job_type.
+//   - saturation:   per-role ELU/CPU/memory, each as max (hottest pod) + avg.
+// Both scrape independently so one failing does not abort the others.
 //
 // Two independent scrape paths so one failing does not abort the other:
 //   1. Prometheus (port-forward to the cluster-shared metrics-prometheus-server)
@@ -56,6 +62,8 @@ type Args = {
   inclusionRecords: string | undefined;
   waitForPendingZero: boolean;
   maxPendingWaitSeconds: number;
+  sweepId: string | undefined;
+  sweepLabel: string | undefined;
 };
 
 function parseArgs(): Args {
@@ -94,6 +102,8 @@ function parseArgs(): Args {
           String(DEFAULT_MAX_PENDING_WAIT_SECONDS),
       ),
     ),
+    sweepId: get("--sweep-id", env.BENCH_SWEEP_ID ?? "") || undefined,
+    sweepLabel: get("--sweep-label", env.BENCH_SWEEP_LABEL ?? "") || undefined,
   };
 }
 
@@ -560,12 +570,145 @@ const TIME_SERIES_DEFS: Record<string, TimeSeriesDef> = {
   },
 };
 
-async function scrapeTimeSeries(
+// --- v4: per-role resource saturation (ELU / CPU / memory) ---
+// Roles are matched by pod-name prefix within the namespace. The proposer
+// rotates, so never hand-pick a pod: emit max() (hottest pod) AND avg() per role.
+const SATURATION_ROLES: Record<string, string> = {
+  validator: `${NAMESPACE}-validator.*`,
+  rpc: `${NAMESPACE}-rpc.*`,
+  fullNode: `${NAMESPACE}-full-node.*`,
+  proverNode: `${NAMESPACE}-prover-node.*`,
+  broker: `${NAMESPACE}-prover-broker.*`,
+  agent: `${NAMESPACE}-prover-agent.*`,
+};
+
+// OTel metric -> Prometheus name. ELU + heap come from
+// telemetry-client/src/nodejs_metrics_monitor.ts (nodejs.* prefix, NOT aztec_).
+// CPU comes from @opentelemetry/host-metrics (process.cpu.utilization), not the
+// nodejs monitor. NOTE: ELU and especially CPU may be telemetry-gated in the
+// bench env — if so these series come back empty (A-1222 acceptance: verify on
+// the live env and adjust the metric name / enable the exporter as needed).
+const SATURATION_METRICS: { key: string; metric: string; unit: string }[] = [
+  { key: "elu", metric: "nodejs_eventloop_utilization", unit: "ratio" },
+  { key: "cpu", metric: "process_cpu_utilization", unit: "ratio" },
+  { key: "mem", metric: "nodejs_memory_v8_heap_usage", unit: "bytes" },
+];
+
+function buildSaturationDefs(): Record<string, TimeSeriesDef> {
+  const defs: Record<string, TimeSeriesDef> = {};
+  for (const [role, podPattern] of Object.entries(SATURATION_ROLES)) {
+    const sel = `{k8s_namespace_name="${NAMESPACE}",k8s_pod_name=~"${podPattern}"}`;
+    const cap = role.charAt(0).toUpperCase() + role.slice(1);
+    for (const { key, metric, unit } of SATURATION_METRICS) {
+      // max() across pods = hottest pod; avg() = role average. Single series each.
+      defs[`${key}${cap}Max`] = { metric, unit, query: `max(${metric}${sel})` };
+      defs[`${key}${cap}Avg`] = { metric, unit, query: `avg(${metric}${sel})` };
+    }
+  }
+  return defs;
+}
+const SATURATION_DEFS = buildSaturationDefs();
+
+// --- v4: proving-infra (hint-gen on the prover-node + proving-queue by job_type) ---
+// "Hint generation" is the prover node re-executing the epoch's txs. There is no
+// `aztec.prover_node.execution.duration` metric; the re-execution is instrumented
+// as public_processor.* + prover_node.*_processing.duration on the prover-node
+// pod. Proving-queue behaviour is broken down by the aztec_proving_job_type label.
+const PROVER_NODE_SEL = `{k8s_namespace_name="${NAMESPACE}",k8s_pod_name=~"${NAMESPACE}-prover-node.*"}`;
+const JOB_TYPE = "aztec_proving_job_type";
+const proverNodeHist = (q: number, bucket: string) =>
+  `histogram_quantile(${q}, sum by (le)(rate(${bucket}${PROVER_NODE_SEL}[1m])))`;
+const queueByJobType = (metric: string) =>
+  `sum by (${JOB_TYPE})(${metric}${NS})`;
+const queueRateByJobType = (metric: string) =>
+  `sum by (${JOB_TYPE})(rate(${metric}${NS}[1m]))`;
+const queueHistByJobType = (q: number, bucket: string) =>
+  `histogram_quantile(${q}, sum by (le, ${JOB_TYPE})(rate(${bucket}${NS}[1m])))`;
+
+const PROVING_INFRA_DEFS: Record<string, TimeSeriesDef> = {
+  // Hint-gen: prover-node tx re-execution (the proving bottleneck at high TPS).
+  hintGenPublicTxDurationP50: {
+    metric: "aztec_public_processor_tx_duration",
+    unit: "ms",
+    query: proverNodeHist(0.5, "aztec_public_processor_tx_duration_bucket"),
+  },
+  hintGenPublicTxDurationP99: {
+    metric: "aztec_public_processor_tx_duration",
+    unit: "ms",
+    query: proverNodeHist(0.99, "aztec_public_processor_tx_duration_bucket"),
+  },
+  hintGenPublicPhaseDurationP50: {
+    metric: "aztec_public_processor_phase_duration",
+    unit: "ms",
+    query: proverNodeHist(0.5, "aztec_public_processor_phase_duration_bucket"),
+  },
+  hintGenBlockProcessingDurationP50: {
+    metric: "aztec_prover_node_block_processing_duration",
+    unit: "ms",
+    query: proverNodeHist(
+      0.5,
+      "aztec_prover_node_block_processing_duration_bucket",
+    ),
+  },
+  hintGenBlockProcessingDurationP99: {
+    metric: "aztec_prover_node_block_processing_duration",
+    unit: "ms",
+    query: proverNodeHist(
+      0.99,
+      "aztec_prover_node_block_processing_duration_bucket",
+    ),
+  },
+  hintGenCheckpointProcessingDurationP50: {
+    metric: "aztec_prover_node_checkpoint_processing_duration",
+    unit: "ms",
+    query: proverNodeHist(
+      0.5,
+      "aztec_prover_node_checkpoint_processing_duration_bucket",
+    ),
+  },
+  // Proving queue, broken down by job_type (one series per job type).
+  provingQueueSizeByJobType: {
+    metric: "aztec_proving_queue_size",
+    unit: "count",
+    query: queueByJobType("aztec_proving_queue_size"),
+  },
+  provingQueueActiveJobsByJobType: {
+    metric: "aztec_proving_queue_active_jobs_count",
+    unit: "count",
+    query: queueByJobType("aztec_proving_queue_active_jobs_count"),
+  },
+  provingQueueJobDurationP50ByJobType: {
+    metric: "aztec_proving_queue_job_duration",
+    unit: "ms",
+    query: queueHistByJobType(0.5, "aztec_proving_queue_job_duration_bucket"),
+  },
+  provingQueueJobDurationP99ByJobType: {
+    metric: "aztec_proving_queue_job_duration",
+    unit: "ms",
+    query: queueHistByJobType(0.99, "aztec_proving_queue_job_duration_bucket"),
+  },
+  // Rates of terminal job outcomes — the run #95 stall showed up as timeouts.
+  provingQueueTimedOutJobsByJobType: {
+    metric: "aztec_proving_queue_timed_out_jobs_count",
+    unit: "count",
+    query: queueRateByJobType("aztec_proving_queue_timed_out_jobs_count"),
+  },
+  provingQueueResolvedJobsByJobType: {
+    metric: "aztec_proving_queue_resolved_jobs_count",
+    unit: "count",
+    query: queueRateByJobType("aztec_proving_queue_resolved_jobs_count"),
+  },
+};
+
+// Scrape a map of slug -> PromQL def via query_range. One failing query emits an
+// empty series for that slug rather than aborting the whole section.
+async function scrapeDefs(
+  defs: Record<string, TimeSeriesDef>,
   startedAtEpoch: number,
   endedAtEpoch: number,
 ): Promise<Record<string, unknown>> {
   const out: Record<string, unknown> = {};
-  for (const [slug, def] of Object.entries(TIME_SERIES_DEFS)) {
+  for (const [slug, def] of Object.entries(defs)) {
     try {
       const series = await queryRange(def.query, startedAtEpoch, endedAtEpoch);
       out[slug] = {
@@ -577,7 +720,7 @@ async function scrapeTimeSeries(
         series,
       };
     } catch (err) {
-      log(`timeSeries.${slug} scrape failed, emitting empty series`, {
+      log(`series.${slug} scrape failed, emitting empty series`, {
         err: err instanceof Error ? err.message : String(err),
       });
       out[slug] = {
@@ -592,6 +735,9 @@ async function scrapeTimeSeries(
   }
   return out;
 }
+
+const scrapeTimeSeries = (startedAtEpoch: number, endedAtEpoch: number) =>
+  scrapeDefs(TIME_SERIES_DEFS, startedAtEpoch, endedAtEpoch);
 
 // --- gcloud log scrape ---
 
@@ -1668,6 +1814,8 @@ function assertShape(payload: Record<string, unknown>): void {
     "run",
     "summary",
     "timeSeries",
+    "provingInfra",
+    "saturation",
     "blocks",
     "events",
   ] as const;
@@ -1676,9 +1824,9 @@ function assertShape(payload: Record<string, unknown>): void {
       throw new Error(`output missing required top-level key: ${key}`);
     }
   }
-  if (payload.schemaVersion !== "3") {
+  if (payload.schemaVersion !== "4") {
     throw new Error(
-      `schemaVersion must be "3", got ${String(payload.schemaVersion)}`,
+      `schemaVersion must be "4", got ${String(payload.schemaVersion)}`,
     );
   }
   const run = payload.run as Record<string, unknown>;
@@ -1913,6 +2061,22 @@ async function main(): Promise<void> {
     log("Scraping Prometheus time-series");
     const timeSeries = await scrapeTimeSeries(startedAtEpoch, promEndEpoch);
 
+    // v4: proving-infra (hint-gen + queue by job_type) and per-role saturation.
+    // Independent of the inclusion timeSeries scrape so a failure here cannot
+    // drop inclusion data, and vice versa.
+    log("Scraping proving-infra series (hint-gen + queue by job_type)");
+    const provingInfra = await scrapeDefs(
+      PROVING_INFRA_DEFS,
+      startedAtEpoch,
+      promEndEpoch,
+    );
+    log("Scraping per-role saturation series (ELU/CPU/memory, max + avg)");
+    const saturation = await scrapeDefs(
+      SATURATION_DEFS,
+      startedAtEpoch,
+      promEndEpoch,
+    );
+
     log("Loading client-observed inclusion records");
     const inclusionRecords = await loadInclusionRecords(args.inclusionRecords);
     // Compute the headline inclusion-latency time series from per-tx records
@@ -1999,7 +2163,7 @@ async function main(): Promise<void> {
     });
 
     const payload = {
-      schemaVersion: "3",
+      schemaVersion: "4",
       run: {
         runId: args.runId,
         startedAt: args.startedAt,
@@ -2014,6 +2178,8 @@ async function main(): Promise<void> {
         gkeCluster: GKE_CLUSTER,
         ...(image !== undefined && { image }),
         targetTps: args.targetTps,
+        ...(args.sweepId !== undefined && { sweepId: args.sweepId }),
+        ...(args.sweepLabel !== undefined && { sweepLabel: args.sweepLabel }),
         testDurationSeconds: windowSec,
         workload: args.workload,
         ...(Object.keys(aztecConfig).length > 0 && { aztecConfig }),
@@ -2031,6 +2197,8 @@ async function main(): Promise<void> {
       },
       summary,
       timeSeries,
+      provingInfra,
+      saturation,
       blocks,
       events,
       sequencerStateSlots,

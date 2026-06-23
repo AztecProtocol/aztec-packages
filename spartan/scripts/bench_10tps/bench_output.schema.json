@@ -16,8 +16,8 @@
   "properties": {
     "schemaVersion": {
       "type": "string",
-      "const": "3",
-      "description": "Bump when breaking the schema. Old JSONs keep their previous version so the dashboard can render them side-by-side. v3: timeSeries entries carry `series: [{labels, points}]` instead of bare `points` to support per-pod / per-label data."
+      "const": "4",
+      "description": "Bump when breaking the schema. Old JSONs keep their previous version so the dashboard can render them side-by-side. v3: timeSeries entries carry `series: [{labels, points}]` instead of bare `points`. v4 (additive): adds optional `provingInfra` (hint-gen + proving-queue-by-job_type series) and `saturation` (per-role ELU/CPU/memory, max + avg) sections, plus `run.sweepId`/`run.sweepLabel` so a night's 1/5/10 TPS points group as one sweep. All v3 fields retained; a v3 run is unchanged apart from this version string."
     },
     "run": {
       "$ref": "#/$defs/runMeta"
@@ -29,6 +29,14 @@
     "timeSeries": {
       "$ref": "#/$defs/timeSeriesSection",
       "description": "PromQL query_range results. Continuous-sampled metrics keyed by unixEpoch; the dashboard normalises to time-within-run via unixEpoch - run.startedAt at render time so multiple runs can overlay on the same x-axis."
+    },
+    "provingInfra": {
+      "$ref": "#/$defs/metricSeriesMap",
+      "description": "v4. Proving-path series for the proving-infra view: prover-node hint-gen / tx re-execution (public_processor.* + prover_node.*_processing.duration scoped to the prover-node pod) and proving-queue behaviour broken down by job_type (aztec_proving_job_type label). Optional — empty/absent on inclusion-only runs."
+    },
+    "saturation": {
+      "$ref": "#/$defs/metricSeriesMap",
+      "description": "v4. Per-role resource saturation: ELU, CPU, and memory for each role (validator / rpc / fullNode / proverNode / broker / agent), each emitted as both the hottest pod (max across pods) and the role average (avg across pods). Never a single hand-picked pod. Optional — absent on older runs."
     },
     "blocks": {
       "type": "array",
@@ -63,12 +71,7 @@
     "runMeta": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "runId",
-        "startedAt",
-        "endedAt",
-        "namespace"
-      ],
+      "required": ["runId", "startedAt", "endedAt", "namespace"],
       "properties": {
         "runId": {
           "type": "string",
@@ -96,9 +99,7 @@
         },
         "namespace": {
           "type": "string",
-          "examples": [
-            "bench-10tps"
-          ]
+          "examples": ["bench-10tps"]
         },
         "gcpProject": {
           "type": "string",
@@ -120,15 +121,21 @@
           "type": "number",
           "minimum": 0
         },
+        "sweepId": {
+          "type": "string",
+          "description": "v4. Groups the runs of one sweep (e.g. a night's 1/5/10 TPS points) so the dashboard can plot them together. Shared across the points of a sweep; absent for standalone runs."
+        },
+        "sweepLabel": {
+          "type": "string",
+          "description": "v4. Human-readable label for the sweep this run belongs to (e.g. 'inclusion-sweep' or 'proving-sweep'). Optional."
+        },
         "testDurationSeconds": {
           "type": "integer",
           "minimum": 0
         },
         "workload": {
           "type": "string",
-          "examples": [
-            "sha256_hash_1024"
-          ]
+          "examples": ["sha256_hash_1024"]
         },
         "aztecConfig": {
           "type": "object",
@@ -167,11 +174,7 @@
                     "items": {
                       "type": "object",
                       "additionalProperties": false,
-                      "required": [
-                        "role",
-                        "podName",
-                        "nodeName"
-                      ],
+                      "required": ["role", "podName", "nodeName"],
                       "properties": {
                         "role": {
                           "type": "string"
@@ -205,9 +208,7 @@
             },
             "profile": {
               "type": "string",
-              "examples": [
-                "network-requirements"
-              ]
+              "examples": ["network-requirements"]
             }
           }
         },
@@ -239,40 +240,25 @@
               "description": "Maximum time the scraper was allowed to wait for validator pending TxPool depth to reach zero."
             },
             "pendingAtScrape": {
-              "type": [
-                "number",
-                "null"
-              ],
+              "type": ["number", "null"],
               "minimum": 0,
               "description": "Validator pending TxPool depth observed when scraping started, or null when the pending drain gate was disabled."
             },
             "pendingByRoleAtScrape": {
-              "type": [
-                "object",
-                "null"
-              ],
+              "type": ["object", "null"],
               "description": "Pending TxPool depth by pod role at scrape start. RPC/full-node pending can remain non-zero after validators drain, which indicates load that did not propagate to proposers before expiry.",
               "additionalProperties": false,
               "properties": {
                 "rpc": {
-                  "type": [
-                    "number",
-                    "null"
-                  ],
+                  "type": ["number", "null"],
                   "minimum": 0
                 },
                 "validator": {
-                  "type": [
-                    "number",
-                    "null"
-                  ],
+                  "type": ["number", "null"],
                   "minimum": 0
                 },
                 "fullNode": {
-                  "type": [
-                    "number",
-                    "null"
-                  ],
+                  "type": ["number", "null"],
                   "minimum": 0
                 }
               }
@@ -288,118 +274,66 @@
     "summary": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "headlineKpi",
-        "inclusionTpsMean",
-        "targetTps"
-      ],
+      "required": ["headlineKpi", "inclusionTpsMean", "targetTps"],
       "properties": {
         "headlineKpi": {
-          "type": [
-            "number",
-            "null"
-          ],
+          "type": ["number", "null"],
           "description": "inclusionTpsMean / targetTps. The single number on the dashboard top strip."
         },
         "targetTps": {
           "type": "number"
         },
         "inclusionTpsMean": {
-          "type": [
-            "number",
-            "null"
-          ],
+          "type": ["number", "null"],
           "description": "Inclusion throughput over the observed inclusion window. Uses exact block-log throughput when block records are available, otherwise falls back to the Prometheus inclusionTps mean."
         },
         "inclusionTpsPeak": {
-          "type": [
-            "number",
-            "null"
-          ],
+          "type": ["number", "null"],
           "description": "Peak sampled Prometheus rolling inclusion rate over the observed scrape window."
         },
         "inclusionLatencyP50Ms": {
-          "type": [
-            "number",
-            "null"
-          ]
+          "type": ["number", "null"]
         },
         "inclusionLatencyP95Ms": {
-          "type": [
-            "number",
-            "null"
-          ]
+          "type": ["number", "null"]
         },
         "inclusionLatencyP99Ms": {
-          "type": [
-            "number",
-            "null"
-          ]
+          "type": ["number", "null"]
         },
         "blockBuildDurationP50Ms": {
-          "type": [
-            "number",
-            "null"
-          ]
+          "type": ["number", "null"]
         },
         "blockBuildDurationP95Ms": {
-          "type": [
-            "number",
-            "null"
-          ]
+          "type": ["number", "null"]
         },
         "publicProcessorTxDurationP50Ms": {
-          "type": [
-            "number",
-            "null"
-          ]
+          "type": ["number", "null"]
         },
         "publicProcessorTxDurationP95Ms": {
-          "type": [
-            "number",
-            "null"
-          ]
+          "type": ["number", "null"]
         },
         "totalTxsMined": {
-          "type": [
-            "integer",
-            "null"
-          ],
+          "type": ["integer", "null"],
           "description": "Exact sum from per-block logs. Null when block logs were unavailable and inclusionTpsMean came from Prometheus."
         },
         "totalTxsFailed": {
-          "type": [
-            "integer",
-            "null"
-          ],
+          "type": ["integer", "null"],
           "description": "Exact sum from per-block logs. Null when block logs were unavailable."
         },
         "totalSilentSkipCount": {
-          "type": [
-            "integer",
-            "null"
-          ],
+          "type": ["integer", "null"],
           "description": "Sum of per-block silentlySkippedCount. > 0 means the post-process blob-field revert path fired during the run."
         },
         "totalSilentSkipDurationMs": {
-          "type": [
-            "integer",
-            "null"
-          ],
+          "type": ["integer", "null"],
           "description": "Sum of per-block silentlySkippedDurationMs. Wall-clock 'wasted' on silently-skipped txs across the run."
         },
         "reorgCount": {
-          "type": [
-            "integer",
-            "null"
-          ],
+          "type": ["integer", "null"],
           "description": "Count of `Chain pruned` events during the run."
         },
         "deepestReorgBlocks": {
-          "type": [
-            "integer",
-            "null"
-          ],
+          "type": ["integer", "null"],
           "description": "Max (fromBlock - toBlock) across reorg events. 0 if no reorgs."
         }
       }
@@ -510,14 +444,17 @@
         }
       }
     },
+    "metricSeriesMap": {
+      "type": "object",
+      "description": "v4. Open map of slug -> timeSeries, same per-series shape as timeSeriesSection but without a fixed slug list. Used for provingInfra and saturation, whose slugs are generated per role / job_type.",
+      "additionalProperties": {
+        "$ref": "#/$defs/timeSeries"
+      }
+    },
     "timeSeries": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "metric",
-        "source",
-        "series"
-      ],
+      "required": ["metric", "source", "series"],
       "properties": {
         "metric": {
           "type": "string",
@@ -525,19 +462,11 @@
         },
         "unit": {
           "type": "string",
-          "examples": [
-            "ms",
-            "tps",
-            "mana/s",
-            "count"
-          ]
+          "examples": ["ms", "tps", "mana/s", "count"]
         },
         "source": {
           "type": "string",
-          "enum": [
-            "promql",
-            "client_observed"
-          ],
+          "enum": ["promql", "client_observed"],
           "description": "Provenance: 'promql' = scraped via PromQL from cluster Prometheus; 'client_observed' = computed in this scraper from per-tx records emitted by n_tps.test.ts (e.g. headline tx_mined_delay)."
         },
         "query": {
@@ -560,10 +489,7 @@
     "seriesEntry": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "labels",
-        "points"
-      ],
+      "required": ["labels", "points"],
       "properties": {
         "labels": {
           "type": "object",
@@ -584,20 +510,14 @@
     "tsPoint": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "unixEpoch",
-        "value"
-      ],
+      "required": ["unixEpoch", "value"],
       "properties": {
         "unixEpoch": {
           "type": "integer",
           "description": "Seconds since unix epoch for this sample. Dashboards normalise to time-within-run via unixEpoch - run.startedAt at render time."
         },
         "value": {
-          "type": [
-            "number",
-            "null"
-          ],
+          "type": ["number", "null"],
           "description": "Metric value. null if Prom returned NaN / no data for this step."
         }
       }
@@ -605,11 +525,7 @@
     "blockRecord": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "blockNumber",
-        "blockNumberInTest",
-        "minedAt"
-      ],
+      "required": ["blockNumber", "blockNumberInTest", "minedAt"],
       "properties": {
         "blockNumber": {
           "type": "integer",
@@ -671,10 +587,7 @@
     "event": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "at",
-        "type"
-      ],
+      "required": ["at", "type"],
       "properties": {
         "at": {
           "type": "string",
@@ -682,10 +595,7 @@
         },
         "type": {
           "type": "string",
-          "enum": [
-            "chainPruned",
-            "slotSummary"
-          ]
+          "enum": ["chainPruned", "slotSummary"]
         },
         "source": {
           "type": "string",
@@ -761,13 +671,7 @@
     "sequencerStateSlot": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "slotNumber",
-        "startedAt",
-        "endedAt",
-        "totalMs",
-        "states"
-      ],
+      "required": ["slotNumber", "startedAt", "endedAt", "totalMs", "states"],
       "properties": {
         "slotNumber": {
           "type": "integer",

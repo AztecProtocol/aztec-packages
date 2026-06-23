@@ -286,8 +286,8 @@ function network_bench_upload {
 
   # Reject anything that's not the schema we've designed the index against.
   local schema=$(jq -r .schemaVersion "$run_json")
-  if [[ "$schema" != "3" ]]; then
-    echo "[network_bench] run JSON has schemaVersion '$schema', expected '3'; skipping upload"
+  if [[ "$schema" != "4" ]]; then
+    echo "[network_bench] run JSON has schemaVersion '$schema', expected '4'; skipping upload"
     return 0
   fi
 
@@ -304,6 +304,8 @@ function network_bench_upload {
     startedAt: .run.startedAt,
     endedAt: .run.endedAt,
     targetTps: .run.targetTps,
+    sweepId: .run.sweepId,
+    sweepLabel: .run.sweepLabel,
     workload: .run.workload,
     testDurationSeconds: .run.testDurationSeconds,
     namespace: .run.namespace,
