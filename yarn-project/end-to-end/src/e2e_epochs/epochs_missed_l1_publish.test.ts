@@ -11,8 +11,7 @@ import { SecretValue } from '@aztec/foundation/config';
 import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
 import { timeoutPromise } from '@aztec/foundation/timer';
-import { type L2Block, L2BlockSourceEvents } from '@aztec/stdlib/block';
-import type { L2Tips } from '@aztec/stdlib/block';
+import { type L2Block, L2BlockSourceEvents, type L2Tips } from '@aztec/stdlib/block';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 
 import { jest } from '@jest/globals';
