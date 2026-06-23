@@ -476,6 +476,24 @@ const DEFAULT_WEBGPU_BLOCKLIST: readonly string[] = [
 // for them only once MsmV2's srsOffset path is fixed.
 const DEFAULT_WEBGPU_BLOCKLIST_BATCH: readonly string[] = DEFAULT_WEBGPU_BLOCKLIST;
 
+// Expose the routing building-blocks so a measurement harness can compose
+// `__bridge_blocklist_override` variants at runtime (e.g. default-minus-wash-wires
+// to test whether the wire-size blocks — tuned on a higher-core machine — still
+// pay off here). CORRECTNESS_BLOCKLIST is the minimal safe set: the pair-tree-
+// hostile labels plus every n=2^17-1 (131071) entry the MsmV2 off-by-one corrupts.
+const CORRECTNESS_BLOCKLIST: readonly string[] = [
+  ...PAIR_TREE_HOSTILE_LABELS,
+  'Z_PERM@131071',
+  ...TRANSLATOR_RANGE_CONSTRAINT_BLOCK_ENTRIES,
+];
+(globalThis as any).__bridge_blocklists = {
+  default: DEFAULT_WEBGPU_BLOCKLIST,
+  correctness: CORRECTNESS_BLOCKLIST,
+  maskingResidual: MASKING_RESIDUAL_BLOCKLIST,
+  hostile: PAIR_TREE_HOSTILE_LABELS,
+  translator: TRANSLATOR_RANGE_CONSTRAINT_BLOCK_ENTRIES,
+};
+
 /**
  * Blocklist for an interactive WebGPU prove. Normally {@link DEFAULT_WEBGPU_BLOCKLIST};
  * but when the additive-masking experiment is armed (`globalThis.__bridge_mask_msms
@@ -1971,8 +1989,14 @@ async function runChonkModeMulti(
   // not fix those); everything else is delegated to the GPU. Batch mode falls
   // back to the per-MSM same-N path in the bridge when masking is on, so the
   // same residual list is correct there too.
-  const blocklist =
-    (globalThis as any).__bridge_mask_msms === true
+  // `__bridge_blocklist_override` (an array of "LABEL" / "LABEL@N" entries) lets a
+  // measurement harness screen arbitrary routing policies at runtime without a
+  // rebuild. ensureWarmBackend keys on the blocklist string, so changing the
+  // override transparently rebuilds the backend with the new routing.
+  const overrideBl = (globalThis as any).__bridge_blocklist_override;
+  const blocklist = Array.isArray(overrideBl)
+    ? (overrideBl as readonly string[])
+    : (globalThis as any).__bridge_mask_msms === true
       ? MASKING_RESIDUAL_BLOCKLIST
       : mode === 'batch'
         ? DEFAULT_WEBGPU_BLOCKLIST_BATCH
@@ -3712,6 +3736,32 @@ function setupChonkWebGpuPage(): void {
       const allOk = res.results.every(r => r.gpu?.verified && r.wasm?.verified && r.vkMatch);
       const allVerified = res.results.every(r => r.gpu?.verified && r.wasm?.verified);
       const allVk = res.results.every(r => r.vkMatch);
+      // Best-effort POST the per-example summary to the dev server's /results JSONL
+      // sink (CHONK_RESULTS_FILE), so a headless/remote driver — or the host running
+      // the server — can read structured results instead of scraping the page. A sink
+      // hiccup must never affect the run.
+      void fetch('/results', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ts: new Date().toISOString(),
+          kind: 'paired-sweep',
+          state: 'done',
+          adapter: adapter.textContent ?? '',
+          summary: { examples: res.results.length, allVerified, allVkMatch: allVk },
+          results: res.results.map(r => ({
+            flow: r.flow,
+            numCircuits: r.numCircuits,
+            gpuProveMs: r.gpu?.proveMs,
+            gpuVerified: r.gpu?.verified,
+            wasmProveMs: r.wasm?.proveMs,
+            wasmVerified: r.wasm?.verified,
+            speedup: r.speedup,
+            vkMatch: r.vkMatch,
+            error: r.error,
+          })),
+        }),
+      }).catch(() => {});
       append(
         `✓ Run all (GPU↔WASM): ${res.results.length} examples; all verified=${allVerified}; all VK match=${allVk}`,
         allOk ? 'ok' : 'err',
@@ -3955,7 +4005,7 @@ async function maybeAutorunChonkBench(): Promise<void> {
     return;
   }
   const flow = params.get('flow') || 'ecdsar1+transfer_1_recursions+sponsored_fpc';
-  const mode = (params.get('mode') || 'off-on') as 'off-on' | 'on-only' | 'off-only';
+  const mode = (params.get('mode') || 'off-on') as 'off-on' | 'on-only' | 'off-only' | 'paired-sweep';
   const target = params.get('target') || '';
   const runId =
     typeof crypto !== 'undefined' && 'randomUUID' in crypto
@@ -3996,6 +4046,51 @@ async function maybeAutorunChonkBench(): Promise<void> {
     } else if (mode === 'on-only') {
       const r = await runChonkSingleMode('webgpu', flow);
       row = { adapter: r.adapter, swiftshaderDetected: /swiftshader/i.test(r.adapter), on: r.result };
+    } else if (mode === 'paired-sweep') {
+      // Headless full sweep: prove EVERY dropdown example on GPU (warm + bridge
+      // reset) then WASM, and POST the per-example summary (prove/verify/verified,
+      // speedup, GPU↔WASM VK match) so it lands in the server's results JSONL.
+      let adapter = 'unavailable';
+      if ('gpu' in navigator) {
+        try {
+          const a = await (navigator as any).gpu.requestAdapter({ powerPreference: 'high-performance' });
+          const info = a ? (a.info ?? (await a.requestAdapterInfo?.())) : undefined;
+          adapter = info
+            ? `${info.vendor ?? '?'} / ${info.architecture ?? '?'} / ${info.device ?? '?'}`
+            : a
+              ? 'unknown'
+              : 'null';
+        } catch (e) {
+          adapter = `err: ${e instanceof Error ? e.message : String(e)}`;
+        }
+      }
+      const flowList = Array.from(document.querySelectorAll('#flow option')).map(o => (o as HTMLOptionElement).value);
+      const res = await runChonkPairedSweep(flowList, p => progress(`${p.mode}:${p.phase}:${p.flow}`, -1));
+      row = {
+        adapter,
+        swiftshaderDetected: /swiftshader/i.test(adapter),
+        kind: 'paired-sweep',
+        summary: {
+          examples: res.results.length,
+          allVerified: res.results.every(r => r.gpu?.verified && r.wasm?.verified),
+          allVkMatch: res.results.every(r => r.vkMatch),
+          gpuTotalMs: res.results.reduce((s, r) => s + (r.gpu?.proveMs ?? 0), 0),
+          wasmTotalMs: res.results.reduce((s, r) => s + (r.wasm?.proveMs ?? 0), 0),
+        },
+        results: res.results.map(r => ({
+          flow: r.flow,
+          numCircuits: r.numCircuits,
+          gpuProveMs: r.gpu?.proveMs,
+          gpuVerifyMs: r.gpu?.verifyMs,
+          gpuVerified: r.gpu?.verified,
+          wasmProveMs: r.wasm?.proveMs,
+          wasmVerifyMs: r.wasm?.verifyMs,
+          wasmVerified: r.wasm?.verified,
+          speedup: r.speedup,
+          vkMatch: r.vkMatch,
+          error: r.error,
+        })),
+      };
     } else {
       const r = await runChonkSingleMode('wasm', flow);
       row = { adapter: r.adapter, swiftshaderDetected: false, off: r.result };
