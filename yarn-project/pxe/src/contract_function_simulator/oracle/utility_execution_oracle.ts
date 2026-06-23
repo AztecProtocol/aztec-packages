@@ -51,7 +51,7 @@ import type { AddressStore } from '../../storage/address_store/address_store.js'
 import type { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
 import { FactCollectionKey, FactCollectionTypeKey } from '../../storage/fact_store/index.js';
-import type { Fact as FactFromStore, FactService, OriginBlock } from '../../storage/fact_store/index.js';
+import type { FactService, OriginBlock } from '../../storage/fact_store/index.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
@@ -60,8 +60,7 @@ import { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
 import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
 import type { EventValidationRequest } from '../noir-structs/event_validation_request.js';
-import type { Fact } from '../noir-structs/fact.js';
-import type { FactCollection } from '../noir-structs/fact_collection.js';
+import { type FactCollection, emptyFactCollection, toNoirFactCollection } from '../noir-structs/fact_collection.js';
 import type { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
 import type { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import type { NoteData } from '../noir-structs/note_data.js';
@@ -722,34 +721,6 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     }
   }
 
-  /** Builds the Noir-facing FACT_COLLECTION output (full identity plus facts as nested ephemeral arrays) from stored facts. */
-  #toFactCollectionOutput(
-    contractAddress: AztecAddress,
-    scope: AztecAddress,
-    factCollectionTypeId: Fr,
-    factCollectionId: Fr,
-    facts: FactFromStore[],
-  ): FactCollection {
-    return {
-      contractAddress,
-      scope,
-      factCollectionTypeId,
-      factCollectionId,
-      facts: EphemeralArray.fromValues(
-        this.ephemeralArrayService,
-        facts.map(
-          (fact: FactFromStore): Fact => ({
-            factTypeId: fact.factTypeId,
-            payload: EphemeralArray.fromValues(this.ephemeralArrayService, fact.payload),
-            originBlock: fact.originBlock
-              ? Option.some(fact.originBlock)
-              : Option.none<OriginBlock>({ blockNumber: 0, blockHash: Fr.ZERO }),
-          }),
-        ),
-      ),
-    };
-  }
-
   /**
    * Records a fact into a collection. A `Some` origin block makes the fact retractable (pruned on reorg of that
    * block), a `None` origin block makes it non-retractable, surviving reorgs.
@@ -805,7 +776,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
     return collection
       ? Option.some(
-          this.#toFactCollectionOutput(
+          toNoirFactCollection(
+            this.ephemeralArrayService,
             contractAddress,
             scope,
             factCollectionTypeId,
@@ -813,7 +785,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
             collection.facts,
           ),
         )
-      : Option.none(this.#toFactCollectionOutput(contractAddress, scope, factCollectionTypeId, factCollectionId, []));
+      : Option.none(emptyFactCollection(this.ephemeralArrayService));
   }
 
   /** Returns every fact collection of `factCollectionTypeId`. */
@@ -830,7 +802,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return EphemeralArray.fromValues(
       this.ephemeralArrayService,
       collections.map(collection =>
-        this.#toFactCollectionOutput(
+        toNoirFactCollection(
+          this.ephemeralArrayService,
           collection.key.contractAddress,
           collection.key.scope,
           collection.key.factCollectionTypeId,

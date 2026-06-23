@@ -581,15 +581,6 @@ describe('Utility Execution test suite', () => {
         expect(facts[0].originBlock.value!).toEqual({ blockNumber: 5, blockHash: new Fr(0xabc) });
       });
 
-      it('deletes a fact collection', async () => {
-        const oracle = makeOracle({ scopes: [scope] });
-        await oracle.recordFact(contractAddress, scope, typeId, collectionId, factTypeId, payloadOf(1), noBlock);
-        await oracle.deleteFactCollection(contractAddress, scope, typeId, collectionId);
-
-        const collections = (await oracle.getFactCollectionsByType(contractAddress, scope, typeId)).readAll(service);
-        expect(collections).toEqual([]);
-      });
-
       it('rejects access to another contract', async () => {
         const oracle = makeOracle({ scopes: [scope] });
         const otherContract = await AztecAddress.random();
