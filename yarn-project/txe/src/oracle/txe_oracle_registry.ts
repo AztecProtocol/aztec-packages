@@ -366,7 +366,6 @@ export const TXE_ORACLE_REGISTRY = {
       { name: 'argsLength', type: U32 },
       { name: 'args', type: ARRAY(FIELD) },
     ],
-    returnType: ARRAY(FIELD),
   }),
 
   aztec_avm_staticCall: makeEntry({
@@ -377,10 +376,9 @@ export const TXE_ORACLE_REGISTRY = {
       { name: 'argsLength', type: U32 },
       { name: 'args', type: ARRAY(FIELD) },
     ],
-    returnType: ARRAY(FIELD),
   }),
 
-  aztec_avm_successCopy: makeEntry({ returnType: FIELD }),
+  aztec_avm_successCopy: makeEntry({ returnType: BOOL }),
 
   aztec_avm_getContractInstanceDeployer: makeEntry({
     params: [{ name: 'address', type: AZTEC_ADDRESS }],
