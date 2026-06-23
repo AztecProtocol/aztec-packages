@@ -11,7 +11,7 @@ references:
 ---
 
 :::note Assumed token standard
-This page assumes the [AIP-20 fungible token standard](../../standards/aip-20.md), which exposes commitment-based transfers directly: the completer is an explicit argument to `initialize_transfer_commitment`, and completion debits a separately authorized account. The example `token_contract` in aztec-packages also supports both flows (the single-call `transfer_to_private` and the two-step `prepare_private_balance_increase` plus `finalize_transfer_to_private`), but its prepare step hardcodes the completer to the caller. A recipient who prepares a partial note there is the only party able to complete it, which rules out the third-party-sender flows this page describes.
+This page assumes the [AIP-20 fungible token standard](../../standards/aip-20.md), which exposes commitment-based transfers directly: the completer is an explicit argument to `initialize_transfer_commitment`, and completion debits a separately authorized account. The example `token_contract` in aztec-packages also supports a commitment-based flow (the two-step `prepare_private_balance_increase` plus `finalize_transfer_to_private`), but its prepare step takes no `completer` argument. It always sets the completer to `msg_sender`, the caller of `prepare_private_balance_increase`. The private relayer flow described on this page is still achievable there, but the chosen completer (for example, the relayer) must itself be the caller of `prepare`, rather than the recipient naming an arbitrary completer in a single self-issued call as AIP-20 allows.
 :::
 
 ## The problem
@@ -30,10 +30,10 @@ The term _payment endpoint_ in this page is application-level. Aztec's protocol 
 
 ## What lives where
 
-The trick is that the name never maps to an address at all. It maps to a pool of opaque commitments, and senders pay into a commitment. Concretely, for `alice.aztec`:
+The trick is that the name never maps to an address at all. It maps to a list of partial note commitments, and senders pay into a commitment. Concretely, for `alice.aztec`:
 
 1. **Alice's wallet creates partial notes ahead of time.** Each one is a commitment `H(alice_address, randomness_i)` with fresh randomness per note. Her address is inside the hash, blinded by the randomness, so the commitment reveals nothing about her.
-2. **The chain records a validity commitment.** Creating each partial note records `H(partial_commitment, completer)` in the nullifier tree. Also just a hash; no address is visible.
+2. **The chain records that the note can be completed, and by whom.** Creating each partial note writes a _validity commitment_ `H(partial_commitment, completer)` to the nullifier tree. This is not the partial note itself, it binds the partial note's commitment to its designated completer, and is what the token checks at completion to confirm the completer is legitimate. It is also just a hash, so no address is visible.
 3. **The lookup channel stores `alice.aztec → [c1, c2, c3, ...]`.** The _lookup channel_ is wherever the name resolves: an ENS text record, a JSON file Alice hosts, an onchain registry contract. The commitments are opaque `Field` values that can be stored as a plain array, and this mapping is the only thing senders ever read.
 4. **Alice's Private eXecution Environment (PXE) holds the preimages.** Her wallet knows which commitments are hers and watches for their completion logs, so payments land without any action from her.
 
@@ -50,7 +50,7 @@ With AIP-20, the recipient creates a partial note by calling `initialize_transfe
 fn initialize_transfer_commitment(to: AztecAddress, completer: AztecAddress) -> Field
 ```
 
-The completer is bound into a validity commitment `H(partial_commitment, completer)` recorded in the nullifier tree. Completion (`transfer_private_to_commitment` or `transfer_public_to_commitment`) sets the completer to the caller's `msg_sender` and checks that the matching validity commitment exists, so a partial note can only be finalized by the address set as its completer. Completion debits a separate, authorized `from` account, so the payer and the completer can be different parties.
+The completer is bound into a _validity commitment_ `H(partial_commitment, completer)` recorded in the nullifier tree. Despite the name, the nullifier tree is used here only as an append-only set whose entries can be checked for existence. The validity commitment uses its own domain separator, so it is not a note nullifier and consumes nothing. Completion (`transfer_private_to_commitment` or `transfer_public_to_commitment`) sets the completer to the caller's `msg_sender` and checks that the matching validity commitment exists, so a partial note can only be finalized by the address set as its completer. Completion debits a separate, authorized `from` account, so the payer and the completer can be different parties.
 
 Two properties make this useful as a payment endpoint:
 
@@ -109,8 +109,8 @@ Both private and public payments are supported: `transfer_private_to_commitment`
 
 Where the mapping "name → partial-note commitments" lives is independent of who completes the notes:
 
-- **Offchain.** A static file at `alice.example/aztec.json`, an ENS text record, IPFS, or any other lookup channel. The chain never sees the name or the pool size. Requires trust in the hosting and a way to authenticate the result.
-- **Onchain.** A registry contract with public storage mapping names to commitments. Censorship-resistant and allows atomic lookup-and-pay in a single transaction, but exposes the pool size, refill cadence, and the plaintext name.
+- **Offchain.** A static file at `alice.example/aztec.json`, an ENS text record, IPFS, or any other lookup channel. The chain never sees the name or the list size. Requires trust in the hosting and a way to authenticate the result.
+- **Onchain.** A registry contract with public storage mapping names to commitments. Censorship-resistant and allows atomic lookup-and-pay in a single transaction, but exposes the list size, refill cadence, and the plaintext name.
 
 The two choices are orthogonal. Either channel can hand out commitments created with any completer; only the lookup mechanism differs.
 
@@ -132,7 +132,7 @@ The pattern hides:
 
 - The recipient's Aztec address from senders.
 - The link between any two payments to the same name, as long as each payment consumes a different partial note.
-- The amount, in private→private completion, provided the commitment is not exposed to the observer. The completion log payload is plaintext but only discoverable by a party who can derive the tag, and the tag derives from the commitment. If the recipient's lookup channel hands out the same pool to every viewer, any observer who fetches the pool can derive tags and read completed amounts for that pool. Authenticated or sender-specific distribution narrows this exposure.
+- The amount, in private→private completion, provided the commitment is not exposed to the observer. The completion log payload is plaintext but only discoverable by a party who can derive the tag, and the tag derives from the commitment. If the recipient's lookup channel hands out the same list to every viewer, any observer who fetches the list can derive tags and read completed amounts from it. Authenticated or sender-specific distribution narrows this exposure.
 
 The pattern leaks:
 
@@ -141,11 +141,11 @@ The pattern leaks:
 - Anything the lookup channel itself reveals. An offchain channel can hide the existence of the name; an onchain registry cannot.
 - The recipient's refill cadence, if the transactions that create fresh partial notes are visible.
 
-A reused partial note breaks both the privacy property (linkable completions) and the discovery property (the recipient's wallet will miss the second completion). Endpoint pools must rotate; commitments must not be republished after consumption.
+A reused partial note breaks both the privacy property (linkable completions) and the discovery property (the recipient's wallet will miss the second completion). The published commitments must rotate; commitments must not be republished after consumption.
 
 ## What this does not solve
 
-This pattern is not a stealth-address scheme. It requires the recipient to create and publish a pool of commitments ahead of time, and to keep refilling it; senders draw from that pool. A stealth-address scheme, by contrast, lets a recipient publish a single meta-address once and stay otherwise passive, with each sender deriving a fresh one-time address non-interactively. Partial-note endpoints trade that recipient passivity for an explicit, recipient-controlled supply of payment slots.
+This pattern is not a stealth-address scheme. It requires the recipient to create and publish a list of commitments ahead of time, and to keep refilling it; senders draw from that list. A stealth-address scheme, by contrast, lets a recipient publish a single meta-address once and stay otherwise passive, with each sender deriving a fresh one-time address non-interactively. Partial-note endpoints trade that recipient passivity for an explicit, recipient-controlled supply of payment slots.
 
 ## Forward-looking note
 
