@@ -702,7 +702,6 @@ describe('Utility Execution test suite', () => {
         const logsByTag = new Map(expectedLogs.map(({ tag, log }) => [tag.value.toString(), log]));
         const expectedTags = expectedLogs.map(({ tag }) => tag.value.toString());
         const expectedPendingLogs = expectedLogs.map(({ pendingLogFields }) => pendingLogFields);
-        expect(expectedPendingLogs).toHaveLength(ALL_APP_TAGGING_SECRET_KINDS.length);
 
         aztecNode.getPrivateLogsByTags.mockImplementation(query => {
           return Promise.resolve(
@@ -724,7 +723,7 @@ describe('Utility Execution test suite', () => {
         );
         expect(queried).toEqual(expect.arrayContaining(expectedTags));
         const resultLogs = result.readAll(service).map(log => log.toFields());
-        expect(resultLogs).toHaveLength(expectedPendingLogs.length);
+        expect(resultLogs).toHaveLength(ALL_APP_TAGGING_SECRET_KINDS.length);
         expect(resultLogs).toEqual(expect.arrayContaining(expectedPendingLogs));
       });
     });
