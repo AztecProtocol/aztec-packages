@@ -28,7 +28,7 @@ import { PublicKeys, computeAddressSecret, hashPublicKey } from '@aztec/stdlib/k
 import {
   AppTaggingSecret,
   FlatPublicLogs,
-  MessageContext,
+  type MessageContext,
   type PendingTaggedLog,
   deriveAppSiloedSharedSecret,
 } from '@aztec/stdlib/logs';

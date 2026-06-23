@@ -24,7 +24,7 @@ import {
 } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { PublicKeys, deriveKeys, hashPublicKey } from '@aztec/stdlib/keys';
-import { AppTaggingSecret, AppTaggingSecretKind, MessageContext, SiloedTag } from '@aztec/stdlib/logs';
+import { AppTaggingSecret, AppTaggingSecretKind, SiloedTag } from '@aztec/stdlib/logs';
 import { Note, NoteDao } from '@aztec/stdlib/note';
 import { makeL2Tips, randomContractInstanceWithAddress } from '@aztec/stdlib/testing';
 import {
@@ -571,7 +571,11 @@ describe('Utility Execution test suite', () => {
         const response = await utilityExecutionOracle.getMessageContextsByTxHash(requests);
         const [responseValue] = response.readAll(service);
         expect(responseValue.isSome()).toBe(true);
-        expect(responseValue.value).toEqual(new MessageContext(txHash, [noteHash], firstNullifier));
+        expect(responseValue.value).toEqual({
+          txHash,
+          uniqueNoteHashesInTx: [noteHash],
+          firstNullifierInTx: firstNullifier,
+        });
       });
 
       it('sets null in response for tx effects beyond anchor block', async () => {

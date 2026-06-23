@@ -10,7 +10,7 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import {
   AppTaggingSecret,
   type LogResult,
-  PendingTaggedLog,
+  type PendingTaggedLog,
   SiloedTag,
   computeSharedTaggingSecret,
 } from '@aztec/stdlib/logs';
@@ -214,7 +214,10 @@ export class LogService {
       if (nullifiers.length === 0) {
         throw new Error(`Log for tx ${log.txHash} returned no nullifiers from the node`);
       }
-      return new PendingTaggedLog(log.logData, log.txHash, noteHashes, nullifiers[0]);
+      return {
+        log: log.logData,
+        context: { txHash: log.txHash, uniqueNoteHashesInTx: noteHashes, firstNullifierInTx: nullifiers[0] },
+      };
     });
   }
 
