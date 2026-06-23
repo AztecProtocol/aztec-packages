@@ -668,10 +668,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   public setCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], scope: AztecAddress): void {
-    if (!contractAddress.equals(this.contractAddress)) {
-      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
-      throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
-    }
+    this.#assertOwnContract(contractAddress);
     this.capsuleService.setCapsule(contractAddress, slot, capsule, this.jobId, scope);
   }
 
@@ -681,19 +678,13 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     tSize: number,
     scope: AztecAddress,
   ): Promise<Option<Fr[]>> {
-    if (!contractAddress.equals(this.contractAddress)) {
-      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
-      throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
-    }
+    this.#assertOwnContract(contractAddress);
     const values = await this.capsuleService.getCapsule(contractAddress, slot, this.jobId, scope, this.capsules);
     return values ? Option.some(values) : Option.none(new Array(tSize).fill(Fr.ZERO));
   }
 
   public deleteCapsule(contractAddress: AztecAddress, slot: Fr, scope: AztecAddress): void {
-    if (!contractAddress.equals(this.contractAddress)) {
-      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
-      throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
-    }
+    this.#assertOwnContract(contractAddress);
     this.capsuleService.deleteCapsule(contractAddress, slot, this.jobId, scope);
   }
 
@@ -704,16 +695,12 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     numEntries: number,
     scope: AztecAddress,
   ): Promise<void> {
-    if (!contractAddress.equals(this.contractAddress)) {
-      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
-      throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
-    }
+    this.#assertOwnContract(contractAddress);
     return this.capsuleService.copyCapsule(contractAddress, srcSlot, dstSlot, numEntries, this.jobId, scope);
   }
 
   /**
-   * Asserts the executing contract may access `contractAddress`'s fact store. Fact collections are isolated per
-   * contract, so a contract may only operate on its own facts.
+   * Asserts the executing contract may only access its own slice of PXE DB.
    */
   #assertOwnContract(contractAddress: AztecAddress): void {
     if (!contractAddress.equals(this.contractAddress)) {
