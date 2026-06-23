@@ -485,38 +485,72 @@ Known hits: `src/clientModules/docsgpt.js` (`heroDescription`),
 `developer_versioned_docs/version-v<new_version>/docs/aztec-js/wallet-sdk/{wallet,dapp}_integration.md`
 (`yarn add @aztec/*@<version>`).
 
-### Step 14: Review Recent Docs Updates on `next`
+### Step 14: Reconcile `next` Docs Changes Into the New Version
 
-After cutting versioned docs, check whether any recent documentation updates on
-`next` are relevant for the newly versioned pages but were missed during the cut.
+The new version is cut from the **release tag**, which is older than `next`. Any
+documentation work that merged into `next` after the tag was created may therefore be
+**absent** from the freshly cut snapshot. This is a commonly missed step,
+because the divergence is invisible if you only diff the working tree (which is
+checked out at the tag in Step 2) against the snapshot you just cut from it.
 
-1. Find recent docs commits on `next` that touch the source docs folders:
+Two distinct classes of change can be missed — **check both**:
+
+- **Source (current) docs** — `docs/docs-developers/`, `docs/docs-operate/`,
+  `docs/docs-participate/`, `docs/src/`. Edits here only reach a version when that
+  version is cut, so anything added on `next` since the tag is missing from the new
+  snapshot.
+- **Existing versioned snapshots on `next`** — fixes that were applied _directly_
+  to the previous version's snapshot (e.g.
+  `docs/developer_versioned_docs/version-<prev_version>/...`). These were carried
+  into the previous version on `next` but will not exist in a snapshot cut from the
+  tag, because the tag predates them.
+
+Always compare against `origin/next`, **not** the working tree, so the divergence
+is actually visible:
+
+1. List every docs commit on `next` that is **not** in the release tag — this is
+   the complete set of changes the new snapshot may be missing:
 
    ```bash
-   git log --oneline --no-merges -30 next -- docs/docs-developers/ docs/docs-operate/
+   git fetch origin
+   git log --oneline --no-merges v<new_version>..origin/next -- docs/
    ```
 
-2. For each substantive commit (skip version cuts, nightly auto-cuts, and
-   template-only changes), diff the source docs against the versioned copy:
+   Skip version cuts, nightly auto-cuts, and template-only changes; review the rest.
+
+2. See what `next` changed in the **source docs** relative to the tag, and port the
+   relevant changes into the new versioned snapshot:
 
    ```bash
-   diff -rq docs/docs-developers/ docs/developer_versioned_docs/version-v<new_version>/
-   diff -rq docs/docs-operate/ docs/network_versioned_docs/version-v<new_version>/
+   git diff v<new_version>..origin/next -- \
+     docs/docs-developers/ docs/docs-operate/ docs/docs-participate/ docs/src/
    ```
 
-3. For files that differ, check whether the source version reflects code changes
-   that shipped in the release tag. Compare API signatures, function names, and
-   trait definitions in the docs against the actual source code at the tag:
+3. See what `next` changed **directly in the previous versioned snapshot with the same major version number**, and
+   apply the equivalent fix to the same file in the new snapshot wherever that file
+   also exists there (`<prev_version>` is the previous version from
+   `developer_version_config.json` / `network_version_config.json`, including its
+   `v` prefix):
+
+   ```bash
+   git diff v<new_version>..origin/next -- \
+     docs/developer_versioned_docs/version-<prev_version>/ \
+     docs/network_versioned_docs/version-<prev_version>/
+   ```
+
+4. For files that differ, confirm the change is valid for the release version —
+   compare API signatures, function names, and trait definitions against the actual
+   source code at the tag. Skip changes that are nightly-only or introduce APIs not
+   present in the release:
 
    ```bash
    git show v<new_version>:<path_to_source_file>
    ```
 
-4. Backport any fixes that are relevant to the release version (e.g. corrected
-   API signatures, new SDK reference tables, additional error entries). Skip
-   changes that are nightly-only or introduce APIs not present in the release.
-
-5. Present a summary of what was found and what was backported to the user.
+5. Backport the relevant changes into
+   `docs/developer_versioned_docs/version-v<new_version>/` (and the network snapshot
+   where applicable). Present a summary of what was found, what was backported, and
+   what was intentionally skipped, for user confirmation.
 
 ### Step 15: Clean Up Old Versions
 
@@ -597,6 +631,10 @@ Check for stash conflicts. Then report to the user:
   adding migration note entries.
 - **Changes land on `next`**: All changes are stashed and moved to the `next` branch
   at the end, ready for a PR.
+- **Reconcile against `next` after cutting**: The new version is cut from the release
+  tag, which predates docs changes merged into `next`. After the cut, diff the tag
+  against `origin/next` and backport relevant changes — both to source docs **and** to
+  the previous versioned snapshot (see Step 14). This is the most commonly missed step.
 - **API ref docs**: Generated in Step 6 into `docs/static/typescript-api/` and
   `docs/static/aztec-nr-api/` with stable folder names (`mainnet`, `testnet`,
   `devnet`, `nightly`). The `#api_ref_version` macro resolves to the matching
