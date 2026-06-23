@@ -320,7 +320,7 @@ export const ORACLE_REGISTRY = {
       { name: 'factCollectionTypeId', type: FIELD },
       { name: 'factCollectionId', type: FIELD },
       { name: 'factTypeId', type: FIELD },
-      { name: 'payload', type: ARRAY(FIELD) },
+      { name: 'payload', type: EPHEMERAL_ARRAY(FIELD) },
       { name: 'originBlock', type: OPTION(ORIGIN_BLOCK) },
     ],
   }),

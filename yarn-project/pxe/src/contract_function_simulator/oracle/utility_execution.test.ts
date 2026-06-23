@@ -519,10 +519,11 @@ describe('Utility Execution test suite', () => {
       const collectionId = new Fr(20);
       const factTypeId = new Fr(30);
       const noBlock = Option.none<OriginBlock>();
+      const payloadOf = (value: number) => EphemeralArray.fromValues(service, [new Fr(value)]);
 
       it('records a fact and reads it back via getFactCollection', async () => {
         const oracle = makeOracle({ scopes: [scope] });
-        await oracle.recordFact(contractAddress, scope, typeId, collectionId, factTypeId, [new Fr(7)], noBlock);
+        await oracle.recordFact(contractAddress, scope, typeId, collectionId, factTypeId, payloadOf(7), noBlock);
 
         const result = await oracle.getFactCollection(contractAddress, scope, typeId, collectionId);
         expect(result.isSome()).toBe(true);
@@ -551,7 +552,7 @@ describe('Utility Execution test suite', () => {
         // ones come back.
         const ids = [1, 2, 3, 4, 5];
         for (const id of ids) {
-          await oracle.recordFact(contractAddress, scope, typeId, new Fr(id), factTypeId, [new Fr(100 + id)], noBlock);
+          await oracle.recordFact(contractAddress, scope, typeId, new Fr(id), factTypeId, payloadOf(100 + id), noBlock);
         }
 
         // Remove two of them; the rest must remain.
@@ -570,7 +571,7 @@ describe('Utility Execution test suite', () => {
       it('stores a retractable fact when given an origin block', async () => {
         const oracle = makeOracle({ scopes: [scope] });
         const originBlock = Option.some<OriginBlock>({ blockNumber: 5, blockHash: new Fr(0xabc) });
-        await oracle.recordFact(contractAddress, scope, typeId, collectionId, factTypeId, [new Fr(42)], originBlock);
+        await oracle.recordFact(contractAddress, scope, typeId, collectionId, factTypeId, payloadOf(42), originBlock);
 
         const result = await oracle.getFactCollection(contractAddress, scope, typeId, collectionId);
         expect(result.isSome()).toBe(true);
@@ -582,7 +583,7 @@ describe('Utility Execution test suite', () => {
 
       it('deletes a fact collection', async () => {
         const oracle = makeOracle({ scopes: [scope] });
-        await oracle.recordFact(contractAddress, scope, typeId, collectionId, factTypeId, [new Fr(1)], noBlock);
+        await oracle.recordFact(contractAddress, scope, typeId, collectionId, factTypeId, payloadOf(1), noBlock);
         await oracle.deleteFactCollection(contractAddress, scope, typeId, collectionId);
 
         const collections = (await oracle.getFactCollectionsByType(contractAddress, scope, typeId)).readAll(service);
@@ -593,7 +594,7 @@ describe('Utility Execution test suite', () => {
         const oracle = makeOracle({ scopes: [scope] });
         const otherContract = await AztecAddress.random();
         expect(() =>
-          oracle.recordFact(otherContract, scope, typeId, collectionId, factTypeId, [new Fr(1)], noBlock),
+          oracle.recordFact(otherContract, scope, typeId, collectionId, factTypeId, payloadOf(1), noBlock),
         ).toThrow(/not allowed to access/);
       });
 
@@ -601,7 +602,7 @@ describe('Utility Execution test suite', () => {
         const oracle = makeOracle({ scopes: [scope] });
         const otherScope = await AztecAddress.random();
         expect(() =>
-          oracle.recordFact(contractAddress, otherScope, typeId, collectionId, factTypeId, [new Fr(1)], noBlock),
+          oracle.recordFact(contractAddress, otherScope, typeId, collectionId, factTypeId, payloadOf(1), noBlock),
         ).toThrow(/not in the allowed scopes/);
       });
     });

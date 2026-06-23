@@ -5,13 +5,13 @@ use crate::facts::{FactCollection, OriginBlock};
 use crate::protocol::address::AztecAddress;
 
 #[oracle(aztec_utl_recordFact)]
-pub(crate) unconstrained fn record_fact_oracle<let N: u32>(
+pub(crate) unconstrained fn record_fact_oracle(
     contract_address: AztecAddress,
     scope: AztecAddress,
     fact_collection_type_id: Field,
     fact_collection_id: Field,
     fact_type_id: Field,
-    payload: [Field; N],
+    payload: EphemeralArray<Field>,
     origin_block: Option<OriginBlock>,
 ) {}
 

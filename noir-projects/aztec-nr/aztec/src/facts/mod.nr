@@ -35,13 +35,13 @@ pub struct FactCollection {
 
 /// Records a retractable fact into a collection: PXE prunes it if `origin_block` is reorg'd away. Re-recording an
 /// identical fact is a no-op.
-pub unconstrained fn record_retractable_fact<let N: u32>(
+pub unconstrained fn record_retractable_fact(
     contract_address: AztecAddress,
     scope: AztecAddress,
     fact_collection_type_id: Field,
     fact_collection_id: Field,
     fact_type_id: Field,
-    payload: [Field; N],
+    payload: EphemeralArray<Field>,
     origin_block: OriginBlock,
 ) {
     record_fact_oracle(
@@ -57,13 +57,13 @@ pub unconstrained fn record_retractable_fact<let N: u32>(
 
 /// Records a non-retractable fact into a collection: it survives reorgs and will persist until the fact collection
 /// itself is deleted. Re-recording an identical fact is a no-op.
-pub unconstrained fn record_non_retractable_fact<let N: u32>(
+pub unconstrained fn record_non_retractable_fact(
     contract_address: AztecAddress,
     scope: AztecAddress,
     fact_collection_type_id: Field,
     fact_collection_id: Field,
     fact_type_id: Field,
-    payload: [Field; N],
+    payload: EphemeralArray<Field>,
 ) {
     record_fact_oracle(
         contract_address,
@@ -118,6 +118,7 @@ pub unconstrained fn get_fact_collections_by_type(
 }
 
 mod test {
+    use crate::ephemeral::EphemeralArray;
     use crate::facts::{
         delete_fact_collection, get_fact_collection, get_fact_collections_by_type, OriginBlock,
         record_non_retractable_fact, record_retractable_fact,
@@ -136,6 +137,12 @@ mod test {
         (env, scope)
     }
 
+    unconstrained fn make_payload(value: Field) -> EphemeralArray<Field> {
+        let payload: EphemeralArray<Field> = EphemeralArray::empty();
+        payload.push(value);
+        payload
+    }
+
     #[test]
     unconstrained fn records_and_reads_a_fact() {
         let (env, scope) = setup();
@@ -147,7 +154,7 @@ mod test {
                 TYPE_ID,
                 COLLECTION_ID,
                 FACT_TYPE_ID,
-                [123],
+                make_payload(123),
             );
 
             let collection = get_fact_collection(contract_address, scope, TYPE_ID, COLLECTION_ID).unwrap();
@@ -175,7 +182,7 @@ mod test {
                 TYPE_ID,
                 COLLECTION_ID,
                 FACT_TYPE_ID,
-                [123],
+                make_payload(123),
             );
 
             let collections = get_fact_collections_by_type(contract_address, scope, TYPE_ID);
@@ -195,7 +202,7 @@ mod test {
                 TYPE_ID,
                 COLLECTION_ID,
                 FACT_TYPE_ID,
-                [123],
+                make_payload(123),
                 OriginBlock { block_number: 5, block_hash: 0xabc },
             );
 
@@ -219,7 +226,7 @@ mod test {
                 TYPE_ID,
                 COLLECTION_ID,
                 FACT_TYPE_ID,
-                [123],
+                make_payload(123),
             );
             delete_fact_collection(contract_address, scope, TYPE_ID, COLLECTION_ID);
 
@@ -243,7 +250,14 @@ mod test {
         let (env, scope) = setup();
         env.private_context(|context| {
             let other = AztecAddress::from_field(context.this_address().to_field() + 1);
-            record_non_retractable_fact(other, scope, TYPE_ID, COLLECTION_ID, FACT_TYPE_ID, [123]);
+            record_non_retractable_fact(
+                other,
+                scope,
+                TYPE_ID,
+                COLLECTION_ID,
+                FACT_TYPE_ID,
+                make_payload(123),
+            );
         });
     }
 }

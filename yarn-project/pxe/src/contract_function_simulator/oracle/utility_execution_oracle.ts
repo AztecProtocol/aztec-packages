@@ -760,14 +760,14 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     factCollectionTypeId: Fr,
     factCollectionId: Fr,
     factTypeId: Fr,
-    payload: Fr[],
+    payload: EphemeralArray<Fr>,
     originBlock: Option<OriginBlock>,
   ): Promise<void> {
     this.#assertOwnContract(contractAddress);
     return this.factService.recordFact(
       new FactCollectionKey(contractAddress, scope, factCollectionTypeId, factCollectionId),
       factTypeId,
-      payload,
+      payload.readAll(this.ephemeralArrayService),
       originBlock.isSome() ? originBlock.value : undefined,
       this.jobId,
     );
