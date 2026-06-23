@@ -273,8 +273,8 @@ mod test {
         let (env, scope) = setup();
         env.private_context(|context| {
             let contract_address = context.this_address();
-            record_default_fact(contract_address, scope);
-            record_default_fact(contract_address, scope);
+            record_fact(contract_address, scope);
+            record_fact(contract_address, scope);
 
             let collection = get_fact_collection(contract_address, scope, TYPE_ID, COLLECTION_ID).unwrap();
             assert_eq(collection.facts.len(), 1);
@@ -298,18 +298,18 @@ mod test {
         env.private_context(|context| {
             let contract_address = context.this_address();
 
-            record_default_fact(contract_address, scope);
-            let collection_pre_deletion =
+            record_fact(contract_address, scope);
+            let collection_before_delete =
                 get_fact_collection(contract_address, scope, TYPE_ID, COLLECTION_ID).unwrap();
-            assert_eq(collection.facts.len(), 1);
+            assert_eq(collection_before_delete.facts.len(), 1);
 
             delete_fact_collection(contract_address, scope, TYPE_ID, COLLECTION_ID);
-            let collection_deleted = get_fact_collection(contract_address, scope, TYPE_ID, COLLECTION_ID).unwrap();
-            assert_eq(collection.facts.len(), 0);
+            assert(get_fact_collection(contract_address, scope, TYPE_ID, COLLECTION_ID).is_none());
 
-            record_default_fact(contract_address, scope);
-            let collection = get_fact_collection(contract_address, scope, TYPE_ID, COLLECTION_ID).unwrap();
-            assert_eq(collection.facts.len(), 1);
+            record_fact(contract_address, scope);
+            let collection_after_recreate =
+                get_fact_collection(contract_address, scope, TYPE_ID, COLLECTION_ID).unwrap();
+            assert_eq(collection_after_recreate.facts.len(), 1);
         });
     }
 }
