@@ -13,8 +13,9 @@ $NODE "$CODEGEN/src/generate.ts" \
   --client \
   --out "$DIR/src/generated"
 
-(cd "$REPO_ROOT/ipc-runtime" && ./bootstrap.sh)
-(cd "$REPO_ROOT/ipc-runtime/ts" && yarn install --immutable && yarn build)
+# ipc-runtime is built by the Makefile (ipc-codegen depends on it) so its ts/dest
+# is ready for the file: link below; don't reinstall the shared ipc-runtime/ts
+# here — concurrent build units doing so corrupt its node_modules.
 rm -rf "$DIR/node_modules"
 (cd "$DIR" && npm install --no-package-lock --quiet)
 (cd "$DIR" && node_modules/.bin/tsc --noEmit)
