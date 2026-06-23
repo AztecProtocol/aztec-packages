@@ -121,7 +121,7 @@ pub(crate) unconstrained fn get_handshake_secrets(
         let secrets = get_shared_secrets(scope, eph_pks, contract_address);
         for j in 0..secrets.len() {
             let secret = secrets.get(j);
-            // Handshakes are mode-agnostic; emit one entry per on-chain tag domain for PXE to scan literally.
+            // Handshakes are mode-agnostic; emit one entry per on-chain tag domain for PXE to scan.
             provided_secrets.push(ProvidedSecret { secret, mode: OnchainDeliveryMode::onchain_unconstrained() });
             provided_secrets.push(ProvidedSecret { secret, mode: OnchainDeliveryMode::onchain_constrained() });
         }
