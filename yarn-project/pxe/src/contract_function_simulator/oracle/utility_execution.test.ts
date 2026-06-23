@@ -664,7 +664,7 @@ describe('Utility Execution test suite', () => {
     describe('getPendingTaggedLogs', () => {
       const service = new EphemeralArrayService();
 
-      it("queries logs for the provided secret's delivery mode", async () => {
+      it("uses the provided secret's delivery mode when querying pending log tags", async () => {
         const sharedSecret = Fr.random();
         const providedMode = AppTaggingSecretKind.CONSTRAINED;
         const providedSecrets = [new ProvidedSecret(sharedSecret, providedMode)];
