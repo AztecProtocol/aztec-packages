@@ -129,7 +129,7 @@ export abstract class BaseWallet implements Wallet {
   protected scopesFrom(from: AztecAddress | NoFrom, additionalScopes: AztecAddress[] = []): AztecAddress[] {
     const allScopes = from === NO_FROM ? additionalScopes : [from, ...additionalScopes];
     const scopeSet = new Set(allScopes.map(address => address.toString()));
-    return [...scopeSet].map(AztecAddress.fromString);
+    return [...scopeSet].map(AztecAddress.fromStringUnsafe);
   }
 
   /**

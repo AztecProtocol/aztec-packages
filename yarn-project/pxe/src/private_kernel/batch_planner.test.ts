@@ -12,7 +12,7 @@ import times from 'lodash.times';
 import { BatchPlanner } from './batch_planner.js';
 import { PrivateCircuitPublicInputsBuilder, PrivateKernelCircuitPublicInputsBuilder } from './hints/test_utils.js';
 
-const contractAddress = AztecAddress.fromBigInt(987654n);
+const contractAddress = AztecAddress.fromBigIntUnsafe(987654n);
 
 /**
  * Wraps a `PrivateCircuitPublicInputs` in a `PrivateCallExecutionResult` with the given children.

@@ -20,10 +20,14 @@ export const StandardContractSalt: Record<StandardContractName, Fr> = {
 };
 
 export const StandardContractAddress: Record<StandardContractName, AztecAddress> = {
-  AuthRegistry: AztecAddress.fromString('0x2df3bf0052304b37c59cfdb79eeeab7f05f8b1e197293e456dc9c7716e6fc654'),
-  MultiCallEntrypoint: AztecAddress.fromString('0x099e0fdbd90bed29103c75ae755dc43dc06e53c845dd25cf81ec05570a68c2fb'),
-  PublicChecks: AztecAddress.fromString('0x2da605de400a83f4c1750fdd1dba3a4b2977884a95549efd06f7a62ef6ae69c3'),
-  HandshakeRegistry: AztecAddress.fromString('0x215f91f8907b8d6406a9b209b88b3d8d01c764c81d3704af257a2de6f0cd908d'),
+  AuthRegistry: AztecAddress.fromStringUnsafe('0x2df3bf0052304b37c59cfdb79eeeab7f05f8b1e197293e456dc9c7716e6fc654'),
+  MultiCallEntrypoint: AztecAddress.fromStringUnsafe(
+    '0x099e0fdbd90bed29103c75ae755dc43dc06e53c845dd25cf81ec05570a68c2fb',
+  ),
+  PublicChecks: AztecAddress.fromStringUnsafe('0x2da605de400a83f4c1750fdd1dba3a4b2977884a95549efd06f7a62ef6ae69c3'),
+  HandshakeRegistry: AztecAddress.fromStringUnsafe(
+    '0x215f91f8907b8d6406a9b209b88b3d8d01c764c81d3704af257a2de6f0cd908d',
+  ),
 };
 
 export const StandardContractClassId: Record<StandardContractName, Fr> = {

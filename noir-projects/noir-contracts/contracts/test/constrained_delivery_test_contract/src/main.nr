@@ -8,6 +8,7 @@ pub contract ConstrainedDeliveryTest {
     use aztec::{
         macros::{events::event, functions::external, storage::storage},
         messages::delivery::MessageDelivery,
+        note::note_viewer_options::NoteViewerOptions,
         oracle::notes::get_next_tagging_index,
         protocol::{
             address::AztecAddress,
@@ -41,8 +42,8 @@ pub contract ConstrainedDeliveryTest {
     }
 
     #[external("private")]
-    fn emit_note(recipient: AztecAddress) {
-        self.storage.notes.at(recipient).insert(FieldNote { value: 1 }).deliver(MessageDelivery::onchain_constrained());
+    fn emit_note(recipient: AztecAddress, value: Field) {
+        self.storage.notes.at(recipient).insert(FieldNote { value }).deliver(MessageDelivery::onchain_constrained());
     }
 
     #[external("private")]
@@ -51,8 +52,8 @@ pub contract ConstrainedDeliveryTest {
     }
 
     #[external("private")]
-    fn emit_event(recipient: AztecAddress) {
-        self.emit(DeliveryEvent { value: 1 }).deliver_to(recipient, MessageDelivery::onchain_constrained());
+    fn emit_event(recipient: AztecAddress, value: Field) {
+        self.emit(DeliveryEvent { value }).deliver_to(recipient, MessageDelivery::onchain_constrained());
     }
 
     #[external("private")]
@@ -67,6 +68,13 @@ pub contract ConstrainedDeliveryTest {
     unconstrained fn get_app_siloed_secret(sender: AztecAddress, recipient: AztecAddress) -> Option<Field> {
         let registry = HandshakeRegistry::at(STANDARD_HANDSHAKE_REGISTRY_ADDRESS);
         self.call(registry.get_app_siloed_secret(sender, recipient))
+    }
+
+    /// Returns the values of all `FieldNote`s discovered for `owner`. The e2e test derives both the count and the
+    /// sum from this, confirming each delivered note was discovered and decrypted.
+    #[external("utility")]
+    unconstrained fn get_note_values(owner: AztecAddress) -> BoundedVec<Field, 10> {
+        self.storage.notes.at(owner).view_notes(NoteViewerOptions::new()).map(|note| note.value)
     }
 
     /// Test-only: emits a log under the constrained tag for `(secret, index)` WITHOUT the sequence nullifier. A landed

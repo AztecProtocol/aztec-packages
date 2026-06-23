@@ -39,7 +39,7 @@ export class LogRetrievalRequest {
   static fromFields(fields: Fr[] | FieldReader): LogRetrievalRequest {
     const reader = FieldReader.asReader(fields);
 
-    const contractAddress = AztecAddress.fromField(reader.readField());
+    const contractAddress = AztecAddress.fromFieldUnsafe(reader.readField());
     const tag = new Tag(reader.readField());
     const sourceNum = reader.readField().toNumber();
     if (!(sourceNum in LogSource)) {

@@ -144,7 +144,7 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   },
   feeRecipient: {
     env: 'FEE_RECIPIENT',
-    parseEnv: (val: string) => AztecAddress.fromString(val),
+    parseEnv: (val: string) => AztecAddress.fromStringUnsafe(val),
     description: 'Address to receive fees.',
   },
   acvmWorkingDirectory: {

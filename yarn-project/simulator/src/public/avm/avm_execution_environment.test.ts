@@ -6,7 +6,7 @@ import { initExecutionEnvironment } from './fixtures/initializers.js';
 import { allSameExcept } from './fixtures/utils.js';
 
 describe('Execution Environment', () => {
-  const newAddress = AztecAddress.fromNumber(123456);
+  const newAddress = AztecAddress.fromNumberUnsafe(123456);
   const calldata = new CallDataArray([new Fr(1n), new Fr(2n), new Fr(3n)]);
 
   it('New call should fork execution environment correctly', () => {

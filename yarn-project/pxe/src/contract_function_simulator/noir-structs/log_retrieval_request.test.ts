@@ -19,7 +19,7 @@ describe('LogRetrievalRequest', () => {
 
     const request = LogRetrievalRequest.fromFields(serialized);
 
-    expect(request.contractAddress).toEqual(AztecAddress.fromBigInt(1n));
+    expect(request.contractAddress).toEqual(AztecAddress.fromBigIntUnsafe(1n));
     expect(request.tag).toEqual(new Tag(new Fr(2)));
     expect(request.source).toEqual(LogSource.PUBLIC_AND_PRIVATE);
     expect(request.fromBlock).toBeUndefined();
@@ -39,7 +39,7 @@ describe('LogRetrievalRequest', () => {
 
     const request = LogRetrievalRequest.fromFields(serialized);
 
-    expect(request.contractAddress).toEqual(AztecAddress.fromBigInt(1n));
+    expect(request.contractAddress).toEqual(AztecAddress.fromBigIntUnsafe(1n));
     expect(request.tag).toEqual(new Tag(new Fr(2)));
     expect(request.source).toEqual(LogSource.PUBLIC);
     expect(request.fromBlock).toEqual(BlockNumber(10));
@@ -62,7 +62,7 @@ describe('LogRetrievalRequest', () => {
 
   it('accepts all valid LogSource values', () => {
     for (const source of [LogSource.PRIVATE, LogSource.PUBLIC, LogSource.PUBLIC_AND_PRIVATE]) {
-      const fields = new LogRetrievalRequest(AztecAddress.fromBigInt(1n), new Tag(new Fr(2)), source).toFields();
+      const fields = new LogRetrievalRequest(AztecAddress.fromBigIntUnsafe(1n), new Tag(new Fr(2)), source).toFields();
       const restored = LogRetrievalRequest.fromFields(fields);
       expect(restored.source).toEqual(source);
     }
@@ -70,7 +70,7 @@ describe('LogRetrievalRequest', () => {
 
   it('round-trips through toFields and fromFields', () => {
     const original = new LogRetrievalRequest(
-      AztecAddress.fromBigInt(42n),
+      AztecAddress.fromBigIntUnsafe(42n),
       new Tag(new Fr(99)),
       LogSource.PRIVATE,
       BlockNumber(5),
