@@ -4,8 +4,8 @@ use aztec::{
     messages::delivery::{
         constrained_delivery::VALIDATE_HANDSHAKE_SELECTOR,
         handshake::{
-            GET_APP_SILOED_SECRET_SELECTOR, GET_HANDSHAKES_SELECTOR, MAX_HANDSHAKES_PER_PAGE,
-            NON_INTERACTIVE_HANDSHAKE_SELECTOR,
+            GET_APP_SILOED_HANDSHAKE_SECRETS_SELECTOR, GET_APP_SILOED_SECRET_SELECTOR, GET_HANDSHAKES_SELECTOR,
+            MAX_HANDSHAKES_PER_PAGE, NON_INTERACTIVE_HANDSHAKE_SELECTOR,
         },
     },
     oracle::shared_secret::get_shared_secret,
@@ -54,6 +54,10 @@ unconstrained fn selectors_match_the_constrained_delivery_helper() {
     let recipient = AztecAddress::from_field(3);
 
     assert_eq(registry.get_app_siloed_secret(sender, recipient).selector, GET_APP_SILOED_SECRET_SELECTOR);
+    assert_eq(
+        registry.get_app_siloed_handshake_secrets(sender, recipient).selector,
+        GET_APP_SILOED_HANDSHAKE_SECRETS_SELECTOR,
+    );
     assert_eq(registry.non_interactive_handshake(sender, recipient).selector, NON_INTERACTIVE_HANDSHAKE_SELECTOR);
     assert_eq(registry.validate_handshake(sender, recipient, 0).selector, VALIDATE_HANDSHAKE_SELECTOR);
     assert_eq(registry.get_handshakes(recipient, 0).selector, GET_HANDSHAKES_SELECTOR);
@@ -64,7 +68,7 @@ unconstrained fn non_interactive_handshake_stores_handshake_for_sender_and_recip
     let (env, registry_address, sender, _, recipient) = setup();
     let registry = HandshakeRegistry::at(registry_address);
 
-    let returned_secret = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
+    let returned_secret = env.call_private(sender, registry.non_interactive_handshake(sender, recipient)).shared;
 
     let utility_secret = env
         .execute_utility_opts(
@@ -131,11 +135,11 @@ unconstrained fn rehandshake_replaces_previous_secret_and_returns_latest() {
     let (env, registry_address, sender, _, recipient) = setup();
     let registry = HandshakeRegistry::at(registry_address);
 
-    let secret_first = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
+    let secret_first = env.call_private(sender, registry.non_interactive_handshake(sender, recipient)).shared;
     let logs_first = txe_oracles::get_last_tx_effects().private_logs;
     assert_eq(logs_first.len(), 2);
 
-    let secret_second = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
+    let secret_second = env.call_private(sender, registry.non_interactive_handshake(sender, recipient)).shared;
     let logs_second = txe_oracles::get_last_tx_effects().private_logs;
     assert_eq(logs_second.len(), 2);
 
@@ -173,7 +177,7 @@ unconstrained fn rehandshake_revokes_previous_secret() {
     let (env, registry_address, sender, _, recipient) = setup();
     let registry = HandshakeRegistry::at(registry_address);
 
-    let secret_first = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
+    let secret_first = env.call_private(sender, registry.non_interactive_handshake(sender, recipient)).shared;
     let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
 
     env.call_private(sender, registry.validate_handshake(sender, recipient, secret_first));
@@ -210,8 +214,8 @@ unconstrained fn one_sender_can_have_active_handshakes_with_many_recipients() {
     let (env, registry_address, sender, recipient_a, recipient_b) = setup_with_two_recipients();
     let registry = HandshakeRegistry::at(registry_address);
 
-    let secret_a = env.call_private(sender, registry.non_interactive_handshake(sender, recipient_a));
-    let secret_b = env.call_private(sender, registry.non_interactive_handshake(sender, recipient_b));
+    let secret_a = env.call_private(sender, registry.non_interactive_handshake(sender, recipient_a)).shared;
+    let secret_b = env.call_private(sender, registry.non_interactive_handshake(sender, recipient_b)).shared;
 
     assert(secret_a != secret_b, "separate recipient handshakes should produce distinct secrets");
 
@@ -270,7 +274,7 @@ unconstrained fn validate_handshake_rejects_wrong_sender() {
     let (env, registry_address, sender, other_sender, recipient) = setup();
     let registry = HandshakeRegistry::at(registry_address);
 
-    let secret = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
+    let secret = env.call_private(sender, registry.non_interactive_handshake(sender, recipient)).shared;
     let _ = env.call_private(other_sender, registry.non_interactive_handshake(other_sender, recipient));
 
     env.call_private_opts(
@@ -285,7 +289,7 @@ unconstrained fn validate_handshake_rejects_wrong_recipient() {
     let (env, registry_address, sender, recipient_a, recipient_b) = setup_with_two_recipients();
     let registry = HandshakeRegistry::at(registry_address);
 
-    let secret = env.call_private(sender, registry.non_interactive_handshake(sender, recipient_a));
+    let secret = env.call_private(sender, registry.non_interactive_handshake(sender, recipient_a)).shared;
     let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient_b));
 
     env.call_private(sender, registry.validate_handshake(sender, recipient_b, secret));
@@ -322,7 +326,7 @@ unconstrained fn get_app_siloed_secret_differs_per_msg_sender() {
     let (env, registry_address, sender, other_sender, recipient) = setup();
     let registry = HandshakeRegistry::at(registry_address);
 
-    let sender_secret = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
+    let sender_secret = env.call_private(sender, registry.non_interactive_handshake(sender, recipient)).shared;
     let other_sender_secret = env
         .execute_utility_opts(
             ExecuteUtilityOptions::new().with_from(other_sender),
@@ -360,7 +364,7 @@ unconstrained fn validate_handshake_rejects_secret_siloed_for_different_msg_send
     let (env, registry_address, sender, other_sender, recipient) = setup();
     let registry = HandshakeRegistry::at(registry_address);
 
-    let sender_secret = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
+    let sender_secret = env.call_private(sender, registry.non_interactive_handshake(sender, recipient)).shared;
 
     env.call_private_opts(
         other_sender,
@@ -376,7 +380,7 @@ unconstrained fn validate_handshake_rejects_wrong_secret() {
     let (env, registry_address, sender, _, recipient) = setup();
     let registry = HandshakeRegistry::at(registry_address);
 
-    let secret = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
+    let secret = env.call_private(sender, registry.non_interactive_handshake(sender, recipient)).shared;
 
     env.call_private(sender, registry.validate_handshake(sender, recipient, secret + 1));
 }
@@ -394,7 +398,7 @@ unconstrained fn non_interactive_handshake_is_discovered_by_recipient() {
     let (env, registry_address, sender, _, recipient) = setup();
     let registry = HandshakeRegistry::at(registry_address);
 
-    let returned_secret = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
+    let returned_secret = env.call_private(sender, registry.non_interactive_handshake(sender, recipient)).shared;
 
     let discovered = env.execute_utility(registry.get_handshakes(recipient, 0));
 

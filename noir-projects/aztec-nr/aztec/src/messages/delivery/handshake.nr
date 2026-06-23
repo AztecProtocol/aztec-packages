@@ -28,6 +28,15 @@ pub struct HandshakePage {
     pub total_count: u32,
 }
 
+/// The app-siloed handshake secrets the registry returns for a `(sender, recipient)` pair: the shared secret (used
+/// for the discovery tag) and the sender-only secret (folded into the constrained-delivery sequence nullifier so only
+/// the sender can advance the sequence).
+#[derive(Deserialize, Eq, Serialize)]
+pub struct AppSiloedHandshakeSecrets {
+    pub shared: Field,
+    pub sender_only: Field,
+}
+
 pub(crate) global PROVIDED_SECRETS_ARRAY_BASE_SLOT: Field =
     sha256_to_field("AZTEC_NR::PROVIDED_SECRETS_ARRAY_BASE_SLOT".as_bytes());
 
@@ -42,13 +51,15 @@ pub global NON_INTERACTIVE_HANDSHAKE_SELECTOR: FunctionSelector =
     comptime { FunctionSelector::from_signature("non_interactive_handshake((Field),(Field))") };
 pub global GET_HANDSHAKES_SELECTOR: FunctionSelector =
     comptime { FunctionSelector::from_signature("get_handshakes((Field),u32)") };
+pub global GET_APP_SILOED_HANDSHAKE_SECRETS_SELECTOR: FunctionSelector =
+    comptime { FunctionSelector::from_signature("get_app_siloed_handshake_secrets((Field),(Field))") };
 
 /// Resolves the app-siloed handshake secret, bootstrapping when none exists.
 ///
 /// Resolves the secret for `(sender, recipient)`, creating it via the registry's `non_interactive_handshake`
 /// when no handshake exists yet.
 ///
-/// Returns `(secret, bootstrapped)`, where `bootstrapped` is true when this call created the handshake.
+/// Returns `(secrets, bootstrapped)`, where `bootstrapped` is true when this call created the handshake.
 ///
 /// ## Batching
 ///
@@ -61,27 +72,27 @@ pub(crate) fn get_or_create_app_siloed_handshake_secret(
     registry: AztecAddress,
     sender: AztecAddress,
     recipient: AztecAddress,
-) -> (Field, bool) {
+) -> (AppSiloedHandshakeSecrets, bool) {
     // Safety: the response only selects which path runs. On `None` we bootstrap via `non_interactive_handshake`,
     // whose constrained return value is the secret, so a forged empty response cannot fabricate one; it can only
     // trigger an unnecessary re-handshake that replaces the registry note. The caller must constrain the returned
-    // `(secret, bootstrapped)` pair against the selected tagging index before emitting a handshake-derived tag.
-    let maybe_secret: Option<Field> = unsafe {
+    // `(secrets, bootstrapped)` pair against the selected tagging index before emitting a handshake-derived tag.
+    let maybe_secrets: Option<AppSiloedHandshakeSecrets> = unsafe {
         let returns = call_utility_function(
             registry,
-            GET_APP_SILOED_SECRET_SELECTOR,
+            GET_APP_SILOED_HANDSHAKE_SECRETS_SELECTOR,
             [sender.to_field(), recipient.to_field()],
         );
         Deserialize::deserialize(returns)
     };
 
-    maybe_secret.map(|secret| (secret, false)).unwrap_or_else(|| {
+    maybe_secrets.map(|secrets| (secrets, false)).unwrap_or_else(|| {
         // Bootstrap: no handshake exists yet. The registry inserts a fresh note and returns the app-siloed
-        // secret to the caller. The constrained return is the source of truth for the secret, so no separate
+        // secrets to the caller. The constrained return is the source of truth, so no separate
         // `validate_handshake` is needed by constrained delivery.
         // TODO(F-660): dispatch to `perform_handshake(sender, recipient, handshake_type)` once interactive
         // handshakes are supported.
-        let secret: Field = context
+        let secrets: AppSiloedHandshakeSecrets = context
             .call_private_function(
                 registry,
                 NON_INTERACTIVE_HANDSHAKE_SELECTOR,
@@ -89,7 +100,7 @@ pub(crate) fn get_or_create_app_siloed_handshake_secret(
             )
             .get_preimage();
 
-        (secret, true)
+        (secrets, true)
     })
 }
 

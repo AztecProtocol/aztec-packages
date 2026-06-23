@@ -28,6 +28,7 @@ pub(crate) fn constrain_secret_and_emit_nullifier(
     sender: AztecAddress,
     recipient: AztecAddress,
     secret: Field,
+    sender_secret: Field,
     bootstrapped: bool,
     index: u32,
 ) {
@@ -37,10 +38,11 @@ pub(crate) fn constrain_secret_and_emit_nullifier(
         sender,
         recipient,
         secret,
+        sender_secret,
         bootstrapped,
         index,
     );
-    context.push_nullifier_unsafe(compute_constrained_msg_nullifier(sender, recipient, secret, index));
+    context.push_nullifier_unsafe(compute_constrained_msg_nullifier(sender, recipient, secret, sender_secret, index));
 }
 
 /// Anchors an untrusted `(secret, index)` to the registry before its constrained tag is emitted.
@@ -55,6 +57,7 @@ fn constrain_secret(
     sender: AztecAddress,
     recipient: AztecAddress,
     secret: Field,
+    sender_secret: Field,
     bootstrapped: bool,
     index: u32,
 ) {
@@ -69,7 +72,7 @@ fn constrain_secret(
             [sender.to_field(), recipient.to_field(), secret],
         );
     } else {
-        let prev_nullifier = compute_constrained_msg_nullifier(sender, recipient, secret, index - 1);
+        let prev_nullifier = compute_constrained_msg_nullifier(sender, recipient, secret, sender_secret, index - 1);
         context.assert_nullifier_exists(compute_nullifier_existence_request(prev_nullifier, caller));
     }
 }
@@ -82,10 +85,11 @@ pub(crate) fn compute_constrained_msg_nullifier(
     sender: AztecAddress,
     recipient: AztecAddress,
     secret: Field,
+    sender_secret: Field,
     index: u32,
 ) -> Field {
     poseidon2_hash_with_separator(
-        [sender.to_field(), recipient.to_field(), secret, index as Field],
+        [sender.to_field(), recipient.to_field(), secret, sender_secret, index as Field],
         DOM_SEP__CONSTRAINED_MSG_NULLIFIER,
     )
 }
@@ -103,12 +107,13 @@ mod test {
         sender: AztecAddress,
         recipient: AztecAddress,
         secret: Field,
+        sender_secret: Field,
         index: u32,
     ) {
         assert_eq(context.nullifiers.len(), 1);
         assert_eq(
             context.nullifiers.get(0).inner.value,
-            compute_constrained_msg_nullifier(sender, recipient, secret, index),
+            compute_constrained_msg_nullifier(sender, recipient, secret, sender_secret, index),
         );
     }
 
@@ -119,12 +124,22 @@ mod test {
         let sender = AztecAddress::from_field(2);
         let recipient = AztecAddress::from_field(4);
         let secret: Field = 1234;
+        let sender_secret: Field = 5678;
         let index: u32 = 0;
 
         env.private_context(|context| {
-            constrain_secret_and_emit_nullifier(context, registry, sender, recipient, secret, true, index);
+            constrain_secret_and_emit_nullifier(
+                context,
+                registry,
+                sender,
+                recipient,
+                secret,
+                sender_secret,
+                true,
+                index,
+            );
 
-            assert_current_nullifier_emitted(context, sender, recipient, secret, index);
+            assert_current_nullifier_emitted(context, sender, recipient, secret, sender_secret, index);
             assert_eq(context.private_call_requests.len(), 0);
             assert_eq(context.nullifier_read_requests.len(), 0);
         });
@@ -138,7 +153,7 @@ mod test {
         let recipient = AztecAddress::from_field(4);
 
         env.private_context(|context| {
-            constrain_secret_and_emit_nullifier(context, registry, sender, recipient, 1234, true, 1);
+            constrain_secret_and_emit_nullifier(context, registry, sender, recipient, 1234, 5678, true, 1);
         });
     }
 
@@ -149,6 +164,7 @@ mod test {
         let sender = AztecAddress::from_field(2);
         let recipient = AztecAddress::from_field(4);
         let secret: Field = 1234;
+        let sender_secret: Field = 5678;
         let index: u32 = 0;
 
         env.private_context(|context| {
@@ -160,9 +176,18 @@ mod test {
                 .returns([child_call_end_counter, empty_returns_hash])
                 .times(1);
 
-            constrain_secret_and_emit_nullifier(context, registry, sender, recipient, secret, false, index);
+            constrain_secret_and_emit_nullifier(
+                context,
+                registry,
+                sender,
+                recipient,
+                secret,
+                sender_secret,
+                false,
+                index,
+            );
 
-            assert_current_nullifier_emitted(context, sender, recipient, secret, index);
+            assert_current_nullifier_emitted(context, sender, recipient, secret, sender_secret, index);
             assert_eq(context.nullifier_read_requests.len(), 0);
             assert_eq(context.private_call_requests.len(), 1);
 
@@ -182,14 +207,24 @@ mod test {
         let sender = AztecAddress::from_field(2);
         let recipient = AztecAddress::from_field(4);
         let secret: Field = 1234;
+        let sender_secret: Field = 5678;
         let index: u32 = 3;
 
         env.private_context(|context| {
             let _ = OracleMock::mock("aztec_prv_isNullifierPending").returns(false).times(1);
 
-            constrain_secret_and_emit_nullifier(context, registry, sender, recipient, secret, false, index);
+            constrain_secret_and_emit_nullifier(
+                context,
+                registry,
+                sender,
+                recipient,
+                secret,
+                sender_secret,
+                false,
+                index,
+            );
 
-            assert_current_nullifier_emitted(context, sender, recipient, secret, index);
+            assert_current_nullifier_emitted(context, sender, recipient, secret, sender_secret, index);
             assert_eq(context.private_call_requests.len(), 0);
             assert_eq(context.nullifier_read_requests.len(), 1);
 
@@ -199,7 +234,7 @@ mod test {
                 read_request.inner.inner,
                 compute_siloed_nullifier(
                     context.this_address(),
-                    compute_constrained_msg_nullifier(sender, recipient, secret, index - 1),
+                    compute_constrained_msg_nullifier(sender, recipient, secret, sender_secret, index - 1),
                 ),
             );
         });

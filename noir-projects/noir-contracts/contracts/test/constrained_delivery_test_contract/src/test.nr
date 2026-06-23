@@ -82,3 +82,36 @@ unconstrained fn fails_at_index_above_zero_without_prior_nullifier() {
 
     let _ = env.call_private_opts(sender, authorizing(registry_address), test_contract.emit_event(recipient, 1));
 }
+
+/// A malicious recipient that knows the shared secret pre-emits the sender's next constrained nullifier from the same
+/// app contract. The shared secret is recoverable by the recipient from the handshake's public ephemeral key, so the
+/// **recipient** can compute the **sender's** next sequence nullifier and emit it first. Until the nullifier is bound
+/// to a
+/// sender-only secret this griefs the sequence: the sender's next send will on the duplicate nullifier. The test
+/// asserts the sender's second send succeeds.
+#[test]
+unconstrained fn malicious_recipient_cannot_grief_sender_sequence() {
+    let (env, registry_address, test_address, sender, recipient) = setup();
+    let test_contract = ConstrainedDeliveryTest::at(test_address);
+    let registry = HandshakeRegistry::at(registry_address);
+
+    // Honest sender's first constrained send: bootstraps the handshake and emits the index-0 nullifier.
+    env.call_private_opts(sender, authorizing(registry_address), test_contract.emit_event(recipient, 1));
+
+    // The recipient can reconstruct this app-siloed shared secret from the handshake's public ephemeral key.
+    let shared_secret = env
+        .execute_utility_opts(
+            ExecuteUtilityOptions::new().with_from(test_address),
+            registry.get_app_siloed_secret(sender, recipient),
+        )
+        .expect(f"first delivery should have stored a handshake");
+
+    // A holder of the shared secret pre-emits the sender's next (index 1) nullifier from the same app contract. The
+    // nullifier value and its siloing depend only on the `sender` arg and the app contract, not on the signer, so the
+    // signer is immaterial to the grief; we sign from `sender` to avoid TXE recipient-discovery sync in this test.
+    env.call_private(sender, test_contract.grief_emit_constrained_nullifier(sender, recipient, shared_secret, 1));
+
+    // The sender's next constrained send wants index 1. Without sender-only siloing of the nullifier
+    // this call's nullifier would collides with the grief and revert.
+    env.call_private_opts(sender, authorizing(registry_address), test_contract.emit_event(recipient, 2));
+}

@@ -12,8 +12,9 @@ pub contract ConstrainedDeliveryTest {
         oracle::notes::get_next_tagging_index,
         protocol::{
             address::AztecAddress,
-            constants::DOM_SEP__CONSTRAINED_MSG_LOG_TAG,
-            hash::{compute_log_tag, poseidon2_hash},
+            constants::{DOM_SEP__CONSTRAINED_MSG_LOG_TAG, DOM_SEP__CONSTRAINED_MSG_NULLIFIER},
+            hash::{compute_log_tag, poseidon2_hash, poseidon2_hash_with_separator},
+            traits::ToField,
         },
         standard_addresses::STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
         state_vars::{Owned, PrivateSet},
@@ -87,5 +88,18 @@ pub contract ConstrainedDeliveryTest {
             DOM_SEP__CONSTRAINED_MSG_LOG_TAG,
         );
         self.context.emit_private_log_unsafe(log_tag, BoundedVec::from_array([secret]));
+    }
+
+    /// Test-only: models a malicious party that knows only the shared secret emitting the constrained sequence
+    /// nullifier for `(sender, recipient, secret, index)`. This is exactly the value a recipient can compute, since
+    /// the shared secret is recoverable from the handshake's public ephemeral key. If the sequence nullifier is
+    /// bound to a sender-only secret the sender's real nullifier prevents griefing the sequence.
+    #[external("private")]
+    fn grief_emit_constrained_nullifier(sender: AztecAddress, recipient: AztecAddress, secret: Field, index: u32) {
+        let nullifier = poseidon2_hash_with_separator(
+            [sender.to_field(), recipient.to_field(), secret, index as Field],
+            DOM_SEP__CONSTRAINED_MSG_NULLIFIER,
+        );
+        self.context.push_nullifier_unsafe(nullifier);
     }
 }

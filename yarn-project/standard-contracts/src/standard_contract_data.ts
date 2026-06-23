@@ -26,7 +26,7 @@ export const StandardContractAddress: Record<StandardContractName, AztecAddress>
   ),
   PublicChecks: AztecAddress.fromStringUnsafe('0x1da099c6dff135d8e519a4e973f27c0e25cf0897d7cf968c7d38329f46df1056'),
   HandshakeRegistry: AztecAddress.fromStringUnsafe(
-    '0x215f91f8907b8d6406a9b209b88b3d8d01c764c81d3704af257a2de6f0cd908d',
+    '0x08112cdbb9286ad71c084784249cd7050b66a170774d1fdd815a085485b83ca1',
   ),
 };
 
@@ -34,7 +34,7 @@ export const StandardContractClassId: Record<StandardContractName, Fr> = {
   AuthRegistry: Fr.fromString('0x1034dc7a2f6e79bc30624e31aa1bcbfbf7771dcb18b1ce15996bf2ec8486ed34'),
   MultiCallEntrypoint: Fr.fromString('0x0c631fbcc97778edadd2cc20bc42a7f849a1933d363d93106a3a655856286f31'),
   PublicChecks: Fr.fromString('0x22c35afeea9f8bfc36b0fc9ba78bdd92769fd42f3926822cf85d4b0596e00999'),
-  HandshakeRegistry: Fr.fromString('0x278dcc5acdb19e5a7f0ae9b36c6a79bf25215a3e1bcad54caa47179a24d40289'),
+  HandshakeRegistry: Fr.fromString('0x2f26798bad7dfd02ae4facc413d18a182becaea4e1ee396523018fc257817baf'),
 };
 
 export const StandardContractClassIdPreimage: Record<
@@ -57,8 +57,8 @@ export const StandardContractClassIdPreimage: Record<
     publicBytecodeCommitment: Fr.fromString('0x013c4f854a5c87c9daf86c5f9bc07a42c2a061f1d924a5b3564ec7edc8e18cb7'),
   },
   HandshakeRegistry: {
-    artifactHash: Fr.fromString('0x006e70d1d4d34b07e89bf4aab8a59a4d7e66d469cae4164723d63e66828be903'),
-    privateFunctionsRoot: Fr.fromString('0x2e839c3fda7214a7ba230e564fe13c9bfed033132e731bf223321485f0b8068c'),
+    artifactHash: Fr.fromString('0x23a22700ce485c367fd16a767c25d0e317dcdbbfc99c7d4b62d39f5f0032e74b'),
+    privateFunctionsRoot: Fr.fromString('0x0763f8081167e5809885f2c7fe20da77a24070711177783d332eed1abb6a05c6'),
     publicBytecodeCommitment: Fr.fromString('0x0ce4c618c3ed7f3a20410e618c06bb701e150af7fe28a3e92f68e7733809f33e'),
   },
 };
@@ -96,13 +96,13 @@ export const StandardContractPrivateFunctions: Record<
       selector: FunctionSelector.fromField(
         Fr.fromString('0x00000000000000000000000000000000000000000000000000000000d12ace81'),
       ),
-      vkHash: Fr.fromString('0x2bf48dfeb80efd1b12ca08992ed1f900938764b1cca4afb50aad54096485e7dc'),
+      vkHash: Fr.fromString('0x0ed5d59a2bc1e5e2f101128b23e9b9498da46c9d782ba92c8189a58daaa76ef2'),
     },
     {
       selector: FunctionSelector.fromField(
         Fr.fromString('0x00000000000000000000000000000000000000000000000000000000db548fcf'),
       ),
-      vkHash: Fr.fromString('0x0eaa1eff3977b3636573dd23f2e32196b7b0f1b13b38d98e6c3c9b5774c40668'),
+      vkHash: Fr.fromString('0x1945c32345be651c37ad424f1ddb7eaf88703521d8aadebb0805b0383fe3aeac'),
     },
   ],
 };
