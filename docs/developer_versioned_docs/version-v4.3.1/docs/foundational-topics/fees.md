@@ -93,7 +93,7 @@ export class GasSettings {
 
 ## Fee payment
 
-A fee payer obtains Fee Juice by bridging Aztec tokens from Ethereum. The fee payer can be the account itself or a fee-paying contract (FPC), which functions similarly to a paymaster on Ethereum. On Aztec, Fee Juice is non-transferable and only deducted by the protocol to pay for fees.
+A fee payer obtains Fee Juice by bridging Aztec tokens from Ethereum. The fee payer can be the account itself or a fee-paying contract (FPC), which functions similarly to a paymaster on Ethereum. On Aztec, Fee Juice is held as a public balance, is non-transferable, and is only deducted by the protocol to pay for fees.
 
 ### Bridging Fee Juice from Ethereum
 
