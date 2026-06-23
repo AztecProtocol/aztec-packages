@@ -33,6 +33,11 @@ const VALIDATOR_COUNT = 5;
 const COMMITTEE_SIZE = VALIDATOR_COUNT - 2;
 const PUBLISHER_COUNT = 2;
 
+// Tests that a single AztecNodeService hosting multiple validator keys correctly signs attestations
+// and filters signing to only active committee members. One node, 5 validators staked, committee
+// size 3. Uses PIPELINING_SETUP_OPTS (ethSlot=4s, aztecSlot=12s) with no gossip (single in-process
+// node, no p2p). CI-excluded (commented out in bootstrap.sh test_cmds). Timeout 15 min.
+// Time-warp: cheatCodes.rollup.advanceToEpoch for validator set lag.
 describe('e2e_multi_validator_node', () => {
   // Each test starts its own multi-validator network and waits for checkpointed L2 transactions.
   jest.setTimeout(15 * 60 * 1000);
@@ -99,6 +104,7 @@ describe('e2e_multi_validator_node', () => {
     );
 
     // We jump to the next epoch such that the committee can be setup.
+    // REFACTOR: retryUntil polling getAttesterView should be replaced with a waitForValidatorActive helper
     await retryUntil(
       async () => {
         const view = await rollup.getAttesterView(validatorAddresses[0]);
@@ -133,6 +139,9 @@ describe('e2e_multi_validator_node', () => {
     ownerAddress = accountManager.address;
   };
 
+  // Deploys an account and contract, then reads the published checkpoint attestations from the
+  // archiver. Asserts that quorum (≥ 2/3+1) attestations were collected and that all signers
+  // belong to the staked validator set.
   it('should build blocks & attest with multiple validator keys', async () => {
     await deployOwnerAccount();
 
@@ -163,6 +172,9 @@ describe('e2e_multi_validator_node', () => {
     expect(signers.every(s => validatorAddresses.includes(s))).toBe(true);
   });
 
+  // Initiates withdrawal for two validators (reducing effective committee to 3), advances epochs
+  // past the validator-set lag, then deploys a contract and verifies that attestation signers are
+  // limited to the active committee (not the withdrawn validators).
   it('should attest ONLY with the correct validator keys', async () => {
     const rollupContract1 = getContract({
       address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),

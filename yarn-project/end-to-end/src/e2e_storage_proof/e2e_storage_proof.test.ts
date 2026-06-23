@@ -8,6 +8,9 @@ import { buildStorageProofCapsules, loadStorageProofArgs } from './fixtures/stor
 
 jest.setTimeout(300_000);
 
+// Tests that a Noir contract can verify an Ethereum storage proof (MPT proof) via oracle capsules.
+// Plain setup(1, { ...AUTOMINE_E2E_OPTS }) with 1 account. Deploys StorageProofTestContract, then
+// loads pre-computed proof args from fixtures/storage_proof.json and verifies on-chain.
 describe('Storage proof', () => {
   let ctx: EndToEndContext;
   let contract: StorageProofTestContract;
@@ -21,6 +24,9 @@ describe('Storage proof', () => {
     await teardown(ctx);
   });
 
+  // Loads pre-computed ethAddress/slotKey/slotContents/root from storage_proof.json, builds oracle
+  // capsules pointing to the contract, and calls contract.storage_proof() which verifies the MPT
+  // proof inside the circuit. Asserts execution succeeded.
   it('verifies a storage proof', async () => {
     const { ethAddress, slotKey, slotContents, root } = loadStorageProofArgs();
     const capsules = await buildStorageProofCapsules(contract.address);

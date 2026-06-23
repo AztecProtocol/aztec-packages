@@ -14,6 +14,10 @@ import { setup } from './fixtures/utils.js';
 
 const TIMEOUT = 600_000;
 
+// End-to-end tests for AVM (Aztec Virtual Machine) execution: assertions, storage, nullifiers,
+// nested calls, gas metering, contract instances, L2→L1 messages, and public-storage overrides.
+// Uses setup(1, AUTOMINE_E2E_OPTS) providing one node, automine sequencer, one funded account.
+// CI runs this as a separate job with TIMEOUT=30m and optionally dumps AVM circuit inputs.
 describe('e2e_avm_simulator', () => {
   jest.setTimeout(TIMEOUT);
 
@@ -33,9 +37,11 @@ describe('e2e_avm_simulator', () => {
 
   afterAll(() => teardown());
 
+  // Tests for the AvmTestContract, grouped by whether they need a fresh contract per test.
   describe('AvmTestContract', () => {
     // Read-only / non-mutating tests share a single deployment to keep slot-paced deploy txs
     // out of the per-test critical path under proposer pipelining.
+    // Shared single AvmTestContract instance for all non-mutating tests.
     describe('with shared deployment', () => {
       let avmContract: AvmTestContract;
       let avmContractInstance: ContractInstanceWithAddress;
@@ -46,6 +52,7 @@ describe('e2e_avm_simulator', () => {
         }));
       });
 
+      // Tests that assertion failures and intrinsic errors produce enriched messages with source locations.
       describe('Assertions & error enriching', () => {
         /**
          * Expect an error like:
@@ -58,7 +65,10 @@ describe('e2e_avm_simulator', () => {
          * let call = quote { $name($args) (/home/aztec-dev/aztec-packages/noir-projects/aztec-nr/aztec/src/macros/dispatch.nr:59:20)
          * at AvmTest.0xc3515746
          */
+        // Direct (non-nested) assertion failures on AvmTestContract.
         describe('Not nested', () => {
+          // Simulates assertion_failure() and expects an error message matching the Noir assert string
+          // and a stack trace that includes the inner helper and the AVM dispatcher.
           it('PXE processes user code assertions and recovers message (properly enriched)', async () => {
             await expect(
               avmContract.methods.assertion_failure().simulate({ from: defaultAccountAddress }),
@@ -71,23 +81,30 @@ describe('e2e_avm_simulator', () => {
               }),
             );
           });
+          // Simulates assert_nullifier_exists with a non-existent nullifier and expects
+          // "Nullifier doesn't exist!" in the error message.
           it('PXE processes user code assertions and recovers message (complex)', async () => {
             await expect(
               avmContract.methods.assert_nullifier_exists(123).simulate({ from: defaultAccountAddress }),
             ).rejects.toThrow("Assertion failed: Nullifier doesn't exist!");
           });
+          // Simulates divide_by_zero(0) and expects "Division by zero" in the error message.
           it('PXE processes intrinsic assertions and recovers message', async () => {
             await expect(
               avmContract.methods.divide_by_zero(0).simulate({ from: defaultAccountAddress }),
             ).rejects.toThrow('Division by zero');
           });
         });
+        // Assertion failures propagated through external (nested) contract calls.
         describe('Nested', () => {
+          // Calls external_call_to_assertion_failure which nests into another function that asserts false.
           it('PXE processes user code assertions and recovers message', async () => {
             await expect(
               avmContract.methods.external_call_to_assertion_failure().simulate({ from: defaultAccountAddress }),
             ).rejects.toThrow('Assertion failed: This assertion should fail!');
           });
+          // Calls external_call_to_divide_by_zero which nests into a divide-by-zero and expects
+          // "Division by zero" propagated through the nested call frame.
           it('PXE processes intrinsic assertions and recovers message', async () => {
             await expect(
               avmContract.methods.external_call_to_divide_by_zero().simulate({ from: defaultAccountAddress }),
@@ -96,7 +113,9 @@ describe('e2e_avm_simulator', () => {
         });
       });
 
+      // Tests that a private function can enqueue a public AVM function.
       describe('From private', () => {
+        // Simulates a tx that enqueues enqueue_public_from_private and asserts no revert reason.
         it('Should enqueue a public function correctly', async () => {
           const request = await avmContract.methods.enqueue_public_from_private().request();
           const simulation = await wallet.simulateTx(request, { from: defaultAccountAddress });
@@ -104,7 +123,10 @@ describe('e2e_avm_simulator', () => {
         });
       });
 
+      // Tests that gas used by AVM execution is reported in simulation results.
       describe('Gas metering', () => {
+        // Simulates add_args_return and checks that teardown-adjusted L2 gas is in a reasonable range
+        // and not a suspiciously round number.
         it('Tracks L2 gas usage on simulation', async () => {
           const request = await avmContract.methods.add_args_return(20n, 30n).request();
           const simulation = await wallet.simulateTx(request, { from: defaultAccountAddress });
@@ -119,7 +141,10 @@ describe('e2e_avm_simulator', () => {
         });
       });
 
+      // Tests AVM's ability to introspect its own contract instance fields.
       describe('Contract instance', () => {
+        // Calls test_get_contract_instance_matches with the known deployer, class id, and hashes,
+        // and asserts the tx succeeds.
         it('Works', async () => {
           const { receipt: tx } = await avmContract.methods
             .test_get_contract_instance_matches(
@@ -134,7 +159,10 @@ describe('e2e_avm_simulator', () => {
         });
       });
 
+      // Tests that L2→L1 message emission validates the recipient ethereum address.
       describe('L2 to L1 messages', () => {
+        // Sends raw_l2_to_l1_msg with Fr.MAX_FIELD_VALUE as recipient (not a valid Eth address)
+        // and expects a revert.
         it('Should fail if emitting to an invalid ethereum address', async () => {
           const recipient = Fr.MAX_FIELD_VALUE;
           await expect(
@@ -145,7 +173,11 @@ describe('e2e_avm_simulator', () => {
         });
       });
 
+      // Tests behavior of AVM nested calls: non-existent contracts, error recovery, and
+      // duplicate nullifier enforcement across contract boundaries.
       describe('Nested calls', () => {
+        // Calls nested_call_to_nothing which calls a non-deployed contract. Expects a "not deployed"
+        // error to propagate through the default rethrow policy.
         it('Nested call to non-existent contract reverts & rethrows by default', async () => {
           // The nested call reverts and by default caller rethrows
           await expect(
@@ -153,6 +185,8 @@ describe('e2e_avm_simulator', () => {
           ).rejects.toThrow(/not deployed/);
         });
 
+        // Calls nested_call_to_nothing_recovers which catches the nested failure and continues.
+        // Asserts the tx execution result is SUCCESS.
         it('Nested CALL instruction to non-existent contract returns failure, but caller can recover', async () => {
           // The nested call reverts (returns failure), but the caller doesn't HAVE to rethrow.
           const { receipt: tx } = await avmContract.methods
@@ -160,6 +194,8 @@ describe('e2e_avm_simulator', () => {
             .send({ from: defaultAccountAddress });
           expect(tx.executionResult).toEqual(TxExecutionResult.SUCCESS);
         });
+        // Calls create_same_nullifier_in_nested_call with the same contract address, expects a revert
+        // because both calls emit the same unsiloed nullifier under the same contract silo.
         it('Should NOT be able to emit the same unsiloed nullifier from the same contract', async () => {
           const nullifier = new Fr(1);
           await expect(
@@ -173,6 +209,7 @@ describe('e2e_avm_simulator', () => {
 
     // State-mutating tests get a fresh deployment per test to avoid cross-test leakage of
     // storage writes or persisted nullifiers.
+    // Each test deploys one or two fresh AvmTestContract instances in beforeEach.
     describe('with fresh deployment per test', () => {
       let avmContract: AvmTestContract;
       let secondAvmContract: AvmTestContract;
@@ -184,7 +221,9 @@ describe('e2e_avm_simulator', () => {
         ({ contract: secondAvmContract } = await AvmTestContract.deploy(wallet).send({ from: defaultAccountAddress }));
       });
 
+      // Tests AVM read/write to public storage slots (Field and Map).
       describe('Storage', () => {
+        // Calls set_storage_single(20), then simulates read_storage_single and expects 20.
         it('Modifies storage (Field)', async () => {
           await avmContract.methods.set_storage_single(20n).send({ from: defaultAccountAddress });
           expect(
@@ -192,6 +231,7 @@ describe('e2e_avm_simulator', () => {
           ).toEqual(20n);
         });
 
+        // Calls set_storage_map then add_storage_map, reads the result and expects 200.
         it('Modifies storage (Map)', async () => {
           const address = AztecAddress.fromBigInt(9090n);
           await avmContract.methods.set_storage_map(address, 100).send({ from: defaultAccountAddress });
@@ -201,6 +241,8 @@ describe('e2e_avm_simulator', () => {
           ).toEqual(200n);
         });
 
+        // Uses BatchCall to enqueue set_storage_map + add_storage_map in a single tx, then reads;
+        // confirms storage is shared across enqueued public calls within the same tx.
         it('Preserves storage across enqueued public calls', async () => {
           const address = AztecAddress.fromBigInt(9090n);
           // This will create 1 tx with 2 public calls in it.
@@ -215,8 +257,10 @@ describe('e2e_avm_simulator', () => {
         });
       });
 
+      // Tests nullifier emission and existence checking in various tx/call orderings.
       describe('Nullifiers', () => {
         // Nullifier will not yet be siloed by the kernel.
+        // Emits a nullifier and checks its existence within the same tx.
         it('Emit and check in the same tx', async () => {
           const { receipt: tx } = await avmContract.methods
             .emit_nullifier_and_check(123456)
@@ -225,6 +269,7 @@ describe('e2e_avm_simulator', () => {
         });
 
         // Nullifier will have been siloed by the kernel, but we check against the unsiloed one.
+        // Emits a nullifier in one tx, then in a second tx asserts_nullifier_exists using the unsiloed value.
         it('Emit and check in separate tx', async () => {
           const nullifier = new Fr(123456);
           let { receipt: tx } = await avmContract.methods
@@ -238,6 +283,8 @@ describe('e2e_avm_simulator', () => {
           expect(tx.executionResult).toEqual(TxExecutionResult.SUCCESS);
         });
 
+        // Uses BatchCall to emit in one enqueued call then assert in a second enqueued call,
+        // within a single tx.
         it('Emit and check in separate enqueued calls but same tx', async () => {
           const nullifier = new Fr(123456);
 
@@ -249,7 +296,9 @@ describe('e2e_avm_simulator', () => {
         });
       });
 
+      // Tests nullifier emission across same-contract and cross-contract nested call boundaries.
       describe('Nested calls', () => {
+        // Emits two different unsiloed nullifiers from the same contract via nested call.
         it('Should be able to emit different unsiloed nullifiers from the same contract', async () => {
           const nullifier = new Fr(1);
           const { receipt: tx } = await avmContract.methods
@@ -258,6 +307,7 @@ describe('e2e_avm_simulator', () => {
           expect(tx.executionResult).toEqual(TxExecutionResult.SUCCESS);
         });
 
+        // Two different contracts emit the same unsiloed nullifier; different silos mean no collision.
         it('Should be able to emit the same unsiloed nullifier from two different contracts', async () => {
           const nullifier = new Fr(1);
           const { receipt: tx } = await avmContract.methods
@@ -266,6 +316,7 @@ describe('e2e_avm_simulator', () => {
           expect(tx.executionResult).toEqual(TxExecutionResult.SUCCESS);
         });
 
+        // Two different contracts emit two different unsiloed nullifiers; no collision expected.
         it('Should be able to emit different unsiloed nullifiers from two different contracts', async () => {
           const nullifier = new Fr(1);
           const { receipt: tx } = await avmContract.methods
@@ -277,6 +328,7 @@ describe('e2e_avm_simulator', () => {
     });
   });
 
+  // Tests that simulation-level publicStorage overrides shadow real storage without mutating the chain.
   describe('publicDataOverrides', () => {
     // AvmTestContract: `single` is the first storage variable and lives at raw slot 1.
     const SINGLE_SLOT = new Fr(1n);
@@ -286,6 +338,8 @@ describe('e2e_avm_simulator', () => {
       ({ contract: avmContract } = await AvmTestContract.deploy(wallet).send({ from: defaultAccountAddress }));
     });
 
+    // Supplies an override for a never-written slot, simulates a read, and confirms the override value
+    // is returned while the on-chain slot remains zero.
     it('simulated read of an unwritten slot returns the override; real storage is untouched', async () => {
       const overrideValue = new Fr(0xdeadbeefn);
       const publicStorage: PublicStorageOverride[] = [
@@ -302,6 +356,8 @@ describe('e2e_avm_simulator', () => {
       expect(realValue.toBigInt()).toEqual(0n);
     });
 
+    // Writes a real value via a tx, then simulates with a different override and confirms the override
+    // wins in simulation while the real stored value is unchanged.
     it('simulated read returns the override when a slot was previously written by a real tx', async () => {
       const realValue = new Fr(100n);
       await avmContract.methods.set_storage_single(realValue).send({ from: defaultAccountAddress });
@@ -322,6 +378,7 @@ describe('e2e_avm_simulator', () => {
     });
   });
 
+  // Tests that the AvmInitializerTestContract correctly initializes immutable storage at deployment.
   describe('AvmInitializerTestContract', () => {
     let avmContract: AvmInitializerTestContract;
 
@@ -331,7 +388,9 @@ describe('e2e_avm_simulator', () => {
       }));
     });
 
+    // Tests that immutable storage set in the constructor is readable after deployment.
     describe('Storage', () => {
+      // Simulates read_storage_immutable and expects the constructor-set value of 42.
       it('Read immutable (initialized) storage (Field)', async () => {
         expect(
           (await avmContract.methods.read_storage_immutable().simulate({ from: defaultAccountAddress })).result,

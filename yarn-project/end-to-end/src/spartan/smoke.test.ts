@@ -24,6 +24,9 @@ import {
 
 const config = setupEnvironment(process.env);
 
+// Smoke checks for a live k8s deployment: node ENR reachable, committee forms within the validator-set lag
+// window, first checkpoint mined, Chaos Mesh injectable, and all spartan port-forward paths open.
+// Runs against the namespace set in NAMESPACE; port-forwards to RPC and Ethereum endpoints.
 describe('smoke test', () => {
   const logger = createLogger('e2e:spartan-test:smoke');
   let aztecNode: AztecNode;

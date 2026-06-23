@@ -88,6 +88,9 @@ async function waitForTriggerTx(node: AztecNode, txHash: TxHash): Promise<TxRece
   return receipt;
 }
 
+// Requires the docker-compose HA suite (run_test.sh ha): live Postgres (DATABASE_URL) and Web3Signer
+// sidecar. Uses setup() with PIPELINING_SETUP_OPTS; multiple in-proc AztecNodeService instances share the
+// Postgres slashing-protection DB and Web3Signer keystore.
 describe('HA Full Setup', () => {
   jest.setTimeout(20 * 60 * 1000); // 20 minutes
 

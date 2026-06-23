@@ -36,6 +36,11 @@ const NODE_COUNT = 4;
  * distinct proposers P1, P2. P1 is configured via the test-only `skipBroadcastCheckpointProposal` flag to suppress its
  * CheckpointProposal broadcast while still letting the held last block reach peers. P2 must (a) prune the orphan on
  * every archiver, and (b) build a fresh checkpoint for S2 that lands on L1.
+ *
+ * EpochsTestContext with 4 validator nodes, mockGossipSubNetwork, no prover. Timing: ethSlot=6s,
+ * aztecSlot=36s, epoch=4, proofSubmissionEpochs=1024, blockDurationMs=8000, inboxLag=2 (v5 always
+ * enforces the timetable, so the former enforceTimeTable/disableAnvilTestWatcher overrides are gone).
+ * L1 is time-warped to align with the target S1 build slot.
  */
 describe('e2e_epochs/epochs_orphan_block_prune', () => {
   let logger: Logger;
@@ -47,6 +52,10 @@ describe('e2e_epochs/epochs_orphan_block_prune', () => {
     await test?.teardown();
   });
 
+  // Finds two consecutive slots S1/S2 with distinct proposers. Suppresses P1's CheckpointProposal
+  // broadcast, waits for the orphan block to appear on all archivers, asserts L2PruneUncheckpointed
+  // fires on every node for slot S1, then verifies the rebuilt S2 checkpoint lands on L1 with a
+  // different archive root from the orphan.
   it('all nodes prune the orphan block and S2 rebuilds the checkpoint chain', async () => {
     // Build 4 distinct validators (V1..V4). One key per node, no overlap.
     const validators = times(NODE_COUNT, i => {
@@ -93,6 +102,9 @@ describe('e2e_epochs/epochs_orphan_block_prune', () => {
     // The L1 rollup contract only exposes proposers for epochs whose randao seed is "stable" (i.e. queryable on L1
     // right now). When we look too far into the future the contract reverts with `ValidatorSelection__EpochNotStable`.
     // We handle this by warping L1 forward one epoch at a time and retrying.
+    // REFACTOR: hand-rolled slot-search loop with per-epoch warp and EpochNotStable retry; a DSL
+    // helper like findConsecutiveSlotsWithDistinctProposers(minAhead, maxAttempts) would encapsulate
+    // the epoch-stable query, warp cadence, and candidate-advance logic.
     let S1: SlotNumber | undefined;
     let proposerOne: EthAddress | undefined;
     let proposerTwo: EthAddress | undefined;
@@ -197,6 +209,8 @@ describe('e2e_epochs/epochs_orphan_block_prune', () => {
     // standalone (because of skipBroadcastCheckpointProposal). Every node's proposed tip advances to a block whose
     // slotNumber === S1.
     logger.warn(`Waiting for proposed chain to reach slot ${S1} on all nodes (orphan tip from P1)`);
+    // REFACTOR: Promise.all over per-node retryUntil polling getChainTips; a waitForAllNodesToReach
+    // helper that takes a predicate over chain tips would avoid this hand-rolled fan-out pattern.
     await Promise.all(
       nodes.map((node, idx) =>
         retryUntil(

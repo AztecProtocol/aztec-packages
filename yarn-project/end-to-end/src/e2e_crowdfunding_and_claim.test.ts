@@ -17,7 +17,9 @@ import type { TestWallet } from './test-wallet/test_wallet.js';
 
 jest.setTimeout(400_000);
 
-// Tests crowdfunding via the Crowdfunding contract and claiming the reward token via the Claim contract
+// Tests crowdfunding via the Crowdfunding contract and claiming the reward token via the Claim contract.
+// Uses setup(3, AUTOMINE_E2E_OPTS) with one node, automine sequencer, three accounts (operator, 2 donors).
+// One test warps L1 time via cheatCodes.eth.warp to pass the deadline. jest.setTimeout(400s).
 describe('e2e_crowdfunding_and_claim', () => {
   const donationTokenMetadata = {
     name: 'Donation Token',
@@ -129,6 +131,8 @@ describe('e2e_crowdfunding_and_claim', () => {
     await teardown();
   });
 
+  // Happy path: donor1 donates via authwit, claims reward token via Claim contract, operator
+  // withdraws. Asserts DNT and RWT balances match expected values throughout.
   it('full donor flow', async () => {
     const donationAmount = 1000n;
 
@@ -182,11 +186,13 @@ describe('e2e_crowdfunding_and_claim', () => {
     expect(balanceDNTAfterWithdrawal).toEqual(donationAmount);
   });
 
+  // Attempts to claim the same UintNote that was consumed in the previous test; expects a revert.
   it('cannot claim twice', async () => {
     // The first claim was executed in the previous test
     await expect(claimContract.methods.claim(uintNote, donor1Address).send({ from: donor1Address })).rejects.toThrow();
   });
 
+  // donor2 donates, then donor1 tries to claim donor2's note; expects an owner check failure.
   it('cannot claim with a different address than the one that donated', async () => {
     const donationAmount = 1000n;
 
@@ -220,6 +226,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     // docs:end:local-tx-fails
   });
 
+  // Modifies an existing note's randomness to make it non-existent, then tries to claim; expects revert.
   it('cannot claim with a non-existent note', async () => {
     // We get a non-existent note by copy the UintNote and change the randomness to a random value
     const nonExistentNote = { ...uintNote };
@@ -230,6 +237,8 @@ describe('e2e_crowdfunding_and_claim', () => {
     ).rejects.toThrow();
   });
 
+  // Deploys a second Crowdfunding instance, donor1 donates to it, then attempts to claim that note
+  // via the original Claim contract (which only accepts notes from the original Crowdfunding). Expects revert.
   it('cannot claim with existing note which was not emitted by a different contract', async () => {
     // 1) Deploy another instance of the crowdfunding contract
     let otherCrowdfundingContract: CrowdfundingContract;
@@ -280,6 +289,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     ).rejects.toThrow();
   });
 
+  // donor2 donates, then tries to withdraw from the operator's position; expects "Not an operator" revert.
   it('cannot withdraw as a non-operator', async () => {
     const donationAmount = 500n;
 
@@ -304,6 +314,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     ).rejects.toThrow('Assertion failed: Not an operator');
   });
 
+  // Warps L1 time past the deadline via cheatCodes.eth.warp, then attempts to donate; expects revert.
   it('cannot donate after a deadline', async () => {
     const donationAmount = 1000n;
 
