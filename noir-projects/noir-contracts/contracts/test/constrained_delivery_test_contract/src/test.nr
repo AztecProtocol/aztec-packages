@@ -106,10 +106,10 @@ unconstrained fn malicious_recipient_cannot_grief_sender_sequence() {
         )
         .expect(f"first delivery should have stored a handshake");
 
-    // A holder of the shared secret pre-emits the sender's next (index 1) nullifier from the same app contract. The
-    // nullifier value and its siloing depend only on the `sender` arg and the app contract, not on the signer, so the
-    // signer is immaterial to the grief; we sign from `sender` to avoid TXE recipient-discovery sync in this test.
-    env.call_private(sender, test_contract.grief_emit_constrained_nullifier(sender, recipient, shared_secret, 1));
+    // The recipient pre-emits the sender's next (index 1) nullifier from the same app contract. The nullifier value
+    // depends only on the explicit args and its siloing on the app contract, not on the signer, so any account could
+    // sign this; we sign from the `recipient` to model the actual attacker.
+    env.call_private(recipient, test_contract.grief_emit_constrained_nullifier(sender, recipient, shared_secret, 1));
 
     // The sender's next constrained send wants index 1. Without sender-only siloing of the nullifier
     // this call's nullifier would collides with the grief and revert.
