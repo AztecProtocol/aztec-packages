@@ -1,14 +1,23 @@
 pub mod message;
 
 pub use message::OffchainMessage;
+use message::OFFCHAIN_RECEPTION_TYPE;
 
 use crate::{
     context::UtilityContext,
-    entities::{Entity, Fact},
     ephemeral::EphemeralArray,
+    facts::{
+        delete_fact_collection, Fact, FactCollection, get_fact_collections_by_type, OriginBlock,
+        record_non_retractable_fact, record_retractable_fact,
+    },
     messages::processing::{MessageContext, OffchainMessageWithContext},
     oracle::{contract_sync::set_contract_sync_cache_invalid, tx_resolution::{get_resolved_txs, ResolvedTx}},
-    protocol::{address::AztecAddress, constants::MAX_TX_LIFETIME, hash::sha256_to_field},
+    protocol::{
+        address::AztecAddress,
+        constants::MAX_TX_LIFETIME,
+        hash::sha256_to_field,
+        traits::{Deserialize, Serialize},
+    },
 };
 
 /// Maximum number of offchain messages accepted by `offchain_receive` in a single call.
@@ -20,9 +29,12 @@ pub global MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL: u32 = 16;
 /// (7200 == 2 hours)
 global MAX_MSG_TTL: u64 = MAX_TX_LIFETIME + 7200;
 
+/// Fact type id of the fact that stores the offchain message body inside a reception collection.
+global OFFCHAIN_MESSAGE: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_MESSAGE".as_bytes());
+
 /// Fact type id to mark an offchain message as processed.
 ///
-/// A reception is in "processed state" exactly when it carries a fact of this type.
+/// A reception is in "processed state" exactly when its collection carries a fact of this type.
 global OFFCHAIN_MESSAGE_PROCESSED: Field = sha256_to_field("AZTEC_NR::OFFCHAIN_MESSAGE_PROCESSED".as_bytes());
 
 /// A function that manages offchain-delivered messages for processing during sync.
@@ -59,10 +71,72 @@ pub unconstrained fn receive(
     contract_address: AztecAddress,
     messages: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL>,
 ) {
-    messages.for_each(|msg| { let _ = Entity::create_non_retractable(contract_address, msg.recipient, msg); });
+    messages.for_each(|msg| {
+        record_non_retractable_fact(
+            contract_address,
+            msg.recipient,
+            OFFCHAIN_RECEPTION_TYPE,
+            msg.fact_collection_id(),
+            OFFCHAIN_MESSAGE,
+            encode_message(msg),
+        );
+    });
 
     // Clear cache for message recipients so the next sync runs.
     set_contract_sync_cache_invalid(contract_address, messages.map(|msg| msg.recipient));
+}
+
+/// Serializes an `OffchainMessage` into a fact payload.
+unconstrained fn encode_message(message: OffchainMessage) -> EphemeralArray<Field> {
+    let fields = message.serialize();
+    let payload: EphemeralArray<Field> = EphemeralArray::empty();
+    for i in 0..fields.len() {
+        payload.push(fields[i]);
+    }
+    payload
+}
+
+/// Reads the message body fact back out of a reception collection.
+///
+/// Every collection returned by the store carries exactly one `OFFCHAIN_MESSAGE` fact: the collection only exists
+/// because `receive` recorded it, and that fact is non-retractable so it is never pruned.
+unconstrained fn decode_message(reception: FactCollection) -> OffchainMessage {
+    let message_fact = reception.facts.find(|f: Fact| f.fact_type_id == OFFCHAIN_MESSAGE).unwrap();
+    let n = <OffchainMessage as Deserialize>::N;
+    let mut fields = [0; <OffchainMessage as Deserialize>::N];
+    for i in 0..n {
+        fields[i] = message_fact.payload.get(i);
+    }
+    Deserialize::deserialize(fields)
+}
+
+/// Returns `true` if the reception has been marked processed.
+unconstrained fn is_processed(reception: FactCollection) -> bool {
+    reception.facts.any(|f: Fact| f.fact_type_id == OFFCHAIN_MESSAGE_PROCESSED)
+}
+
+/// Records the retractable processed marker for a reception, originated at the resolved block.
+unconstrained fn mark_processed(reception: FactCollection, block_number: u32, block_hash: Field) {
+    let empty_payload: EphemeralArray<Field> = EphemeralArray::empty();
+    record_retractable_fact(
+        reception.contract_address,
+        reception.scope,
+        reception.fact_collection_type_id,
+        reception.fact_collection_id,
+        OFFCHAIN_MESSAGE_PROCESSED,
+        empty_payload,
+        OriginBlock { block_number, block_hash },
+    );
+}
+
+/// Terminates a reception by deleting its fact collection.
+unconstrained fn terminate(reception: FactCollection) {
+    delete_fact_collection(
+        reception.contract_address,
+        reception.scope,
+        reception.fact_collection_type_id,
+        reception.fact_collection_id,
+    );
 }
 
 /// Step function to advance the reception workflow of an offchain message.
@@ -79,7 +153,8 @@ pub unconstrained fn receive(
 /// - Received-but-unresolved (or tx-less, which never resolves), or already processed: the TX that originated this
 ///   message is not yet available but might be in the future, so the message stays in the inbox for a future sync.
 unconstrained fn process_reception(
-    reception: Entity<OffchainMessage>,
+    reception: FactCollection,
+    message: OffchainMessage,
     maybe_resolved: Option<ResolvedTx>,
     now: u64,
 ) -> Option<OffchainMessageWithContext> {
@@ -94,22 +169,22 @@ unconstrained fn process_reception(
     // are "unterminated" with a block, but also are removed when a block is final.
     // This, in offchain reception's particular case, would make facts entirely unnecessary (at least at its present
     // functionality).
-    let expired = now > reception.body.anchor_block_timestamp + MAX_MSG_TTL;
-    let already_processed = reception.facts.any(|f: Fact| f.fact_type_id == OFFCHAIN_MESSAGE_PROCESSED);
+    let expired = now > message.anchor_block_timestamp + MAX_MSG_TTL;
+    let already_processed = is_processed(reception);
 
     if !already_processed & maybe_resolved.is_some() {
         let resolved = maybe_resolved.unwrap();
-        reception.log_retractable_fact(OFFCHAIN_MESSAGE_PROCESSED, [], resolved.block_number, resolved.block_hash);
+        mark_processed(reception, resolved.block_number, resolved.block_hash);
         let message_context = MessageContext {
             tx_hash: resolved.tx_hash,
             unique_note_hashes_in_tx: resolved.unique_note_hashes_in_tx,
             first_nullifier_in_tx: resolved.first_nullifier_in_tx,
         };
         Option::some(
-            OffchainMessageWithContext { message_ciphertext: reception.body.ciphertext, message_context },
+            OffchainMessageWithContext { message_ciphertext: message.ciphertext, message_context },
         )
     } else if expired {
-        reception.terminate();
+        terminate(reception);
         Option::none()
     } else {
         Option::none()
@@ -121,21 +196,22 @@ pub unconstrained fn sync_inbox(
     contract_address: AztecAddress,
     scope: AztecAddress,
 ) -> EphemeralArray<OffchainMessageWithContext> {
-    let active_receptions = Entity::<OffchainMessage>::read_all(contract_address, scope);
+    let receptions = get_fact_collections_by_type(contract_address, scope, OFFCHAIN_RECEPTION_TYPE);
 
-    // Ask PXE to resolve each message's originating tx. We pass the tx hashes in active-reception order, so the
-    // resolved txs come back aligned with the reception indices and can be matched back positionally.
-    let resolved_txs = get_resolved_txs(active_receptions.map(|reception: Entity<OffchainMessage>| {
-        reception.body.tx_hash.unwrap_or(0)
+    // Ask PXE to resolve each message's originating tx. We pass the tx hashes in reception order, so the resolved txs
+    // come back aligned with the reception indices and can be matched back positionally.
+    let resolved_txs = get_resolved_txs(receptions.map(|reception: FactCollection| {
+        decode_message(reception).tx_hash.unwrap_or(0)
     }));
 
-    assert_eq(resolved_txs.len(), active_receptions.len());
+    assert_eq(resolved_txs.len(), receptions.len());
 
     let processable_messages: EphemeralArray<OffchainMessageWithContext> = EphemeralArray::empty();
     let now = UtilityContext::new().timestamp();
 
-    active_receptions.for_each(|i, reception| {
-        let maybe_message = process_reception(reception, resolved_txs.get(i), now);
+    receptions.for_each(|i, reception| {
+        let message = decode_message(reception);
+        let maybe_message = process_reception(reception, message, resolved_txs.get(i), now);
         if maybe_message.is_some() {
             processable_messages.push(maybe_message.unwrap());
         }
@@ -146,8 +222,9 @@ pub unconstrained fn sync_inbox(
 
 mod test {
     use crate::{
-        entities::{Entity, EntityBody, Fact, get_entity},
         ephemeral::EphemeralArray,
+        facts::{Fact, FactCollection, get_fact_collection, get_fact_collections_by_type},
+        messages::processing::offchain::message::OFFCHAIN_RECEPTION_TYPE,
         oracle::random::random,
         protocol::address::AztecAddress,
         test::helpers::test_environment::TestEnvironment,
@@ -175,28 +252,31 @@ mod test {
         env.last_block_timestamp()
     }
 
-    /// Returns the entity ids of the reception entities currently active for the given scope.
+    /// Returns the collection ids of the receptions currently active for the given scope.
     unconstrained fn messages_in_inbox(contract_address: AztecAddress, scope: AztecAddress) -> EphemeralArray<Field> {
-        Entity::<OffchainMessage>::read_all(contract_address, scope).map(|e: Entity<OffchainMessage>| {
-            e.body.entity_id()
+        get_fact_collections_by_type(contract_address, scope, OFFCHAIN_RECEPTION_TYPE).map(|c: FactCollection| {
+            c.fact_collection_id
         })
     }
 
-    /// Returns `true` if a reception entity with the given entity id is currently active.
-    unconstrained fn is_in_inbox(contract_address: AztecAddress, scope: AztecAddress, msg_entity_id: Field) -> bool {
-        messages_in_inbox(contract_address, scope).any(|k: Field| k == msg_entity_id)
+    /// Returns `true` if a reception with the given collection id is currently active.
+    unconstrained fn is_in_inbox(contract_address: AztecAddress, scope: AztecAddress, collection_id: Field) -> bool {
+        messages_in_inbox(contract_address, scope).any(|k: Field| k == collection_id)
     }
 
-    /// Returns `true` if the reception entity with the given id has been marked processed.
-    unconstrained fn is_processed(contract_address: AztecAddress, scope: AztecAddress, msg_entity_id: Field) -> bool {
-        let facts = get_entity::<OffchainMessage>(
+    /// Returns `true` if the reception with the given collection id has been marked processed.
+    unconstrained fn is_processed(contract_address: AztecAddress, scope: AztecAddress, collection_id: Field) -> bool {
+        let maybe_collection = get_fact_collection(
             contract_address,
             scope,
-            OffchainMessage::entity_type_id(),
-            msg_entity_id,
-        )
-            .facts;
-        facts.any(|f: Fact| f.fact_type_id == OFFCHAIN_MESSAGE_PROCESSED)
+            OFFCHAIN_RECEPTION_TYPE,
+            collection_id,
+        );
+        if maybe_collection.is_some() {
+            maybe_collection.unwrap().facts.any(|f: Fact| f.fact_type_id == OFFCHAIN_MESSAGE_PROCESSED)
+        } else {
+            false
+        }
     }
 
     #[test]
@@ -228,7 +308,7 @@ mod test {
             let result = sync_inbox(address, scope);
 
             assert_eq(result.len(), 0); // context is None, not ready
-            assert(!is_in_inbox(address, scope, msg.entity_id()), "expired entity should be terminated");
+            assert(!is_in_inbox(address, scope, msg.fact_collection_id()), "expired reception should be terminated");
         });
     }
 
@@ -249,8 +329,8 @@ mod test {
             let result = sync_inbox(address, scope);
 
             assert_eq(result.len(), 0); // context is None, not ready
-            assert(is_in_inbox(address, scope, msg.entity_id()), "not expired entity should stay active");
-            assert(!is_processed(address, scope, msg.entity_id()), "should still be unprocessed");
+            assert(is_in_inbox(address, scope, msg.fact_collection_id()), "not expired reception should stay active");
+            assert(!is_processed(address, scope, msg.fact_collection_id()), "should still be unprocessed");
         });
     }
 
@@ -271,7 +351,7 @@ mod test {
             let result = sync_inbox(address, scope);
 
             assert_eq(result.len(), 0); // context is None, not ready
-            assert(!is_in_inbox(address, scope, msg.entity_id()), "expired entity should be terminated");
+            assert(!is_in_inbox(address, scope, msg.fact_collection_id()), "expired reception should be terminated");
         });
     }
 
@@ -291,8 +371,8 @@ mod test {
             let result = sync_inbox(address, scope);
 
             assert_eq(result.len(), 0); // not resolved, not ready
-            assert(is_in_inbox(address, scope, msg.entity_id()), "unresolved entity should stay active");
-            assert(!is_processed(address, scope, msg.entity_id()), "should still be unprocessed");
+            assert(is_in_inbox(address, scope, msg.fact_collection_id()), "unresolved reception should stay active");
+            assert(!is_processed(address, scope, msg.fact_collection_id()), "should still be unprocessed");
         });
     }
 
@@ -329,11 +409,17 @@ mod test {
 
             assert_eq(result.len(), 0); // all contexts are None
             assert(
-                !is_in_inbox(address, scope, expired_a.entity_id()),
-                "expired tx-bound entity should be terminated",
+                !is_in_inbox(address, scope, expired_a.fact_collection_id()),
+                "expired tx-bound reception should be terminated",
             );
-            assert(!is_in_inbox(address, scope, expired_b.entity_id()), "expired tx-less entity should be terminated");
-            assert(is_in_inbox(address, scope, survivor.entity_id()), "survivor entity should stay active");
+            assert(
+                !is_in_inbox(address, scope, expired_b.fact_collection_id()),
+                "expired tx-less reception should be terminated",
+            );
+            assert(
+                is_in_inbox(address, scope, survivor.fact_collection_id()),
+                "survivor reception should stay active",
+            );
             assert_eq(messages_in_inbox(address, scope).len(), 1);
         });
     }
@@ -363,12 +449,12 @@ mod test {
             let ctx = result.get(0).message_context;
             assert_eq(ctx.tx_hash, known_tx_hash);
 
-            // Entity stays active (not expired) and is now marked processed, with a Processed fact recorded.
+            // Reception stays active (not expired) and is now marked processed, with a Processed fact recorded.
             assert(
-                is_in_inbox(address, scope, msg.entity_id()),
-                "processed entity should stay active for reorg safety",
+                is_in_inbox(address, scope, msg.fact_collection_id()),
+                "processed reception should stay active for reorg safety",
             );
-            assert(is_processed(address, scope, msg.entity_id()), "should be processed");
+            assert(is_processed(address, scope, msg.fact_collection_id()), "should be processed");
         });
     }
 
@@ -388,17 +474,20 @@ mod test {
             let address = context.this_address();
             let first = sync_inbox(address, scope);
             assert_eq(first.len(), 1);
-            assert(is_processed(address, scope, msg.entity_id()), "should be processed");
+            assert(is_processed(address, scope, msg.fact_collection_id()), "should be processed");
         });
 
-        // Second sync with the same resolvable context the entity remains active (not expired).
+        // Second sync with the same resolvable context the reception remains active (not expired).
         env.utility_context(|context| {
             let address = context.this_address();
             let second = sync_inbox(address, scope);
 
             assert_eq(second.len(), 0); // already processed, not re-pushed
-            assert(is_in_inbox(address, scope, msg.entity_id()), "processed entity should still be active");
-            assert(is_processed(address, scope, msg.entity_id()), "should remain processed");
+            assert(
+                is_in_inbox(address, scope, msg.fact_collection_id()),
+                "processed reception should still be active",
+            );
+            assert(is_processed(address, scope, msg.fact_collection_id()), "should remain processed");
         });
     }
 
@@ -421,26 +510,26 @@ mod test {
 
             assert_eq(result.len(), 1);
             assert(
-                is_in_inbox(address, scope, msg.entity_id()),
-                "expired-but-resolved entity is processed, not terminated yet",
+                is_in_inbox(address, scope, msg.fact_collection_id()),
+                "expired-but-resolved reception is processed, not terminated yet",
             );
-            assert(is_processed(address, scope, msg.entity_id()), "should be processed");
+            assert(is_processed(address, scope, msg.fact_collection_id()), "should be processed");
         });
 
-        // Second sync: still expired and now processed, so the entity is terminated.
+        // Second sync: still expired and now processed, so the reception is terminated.
         env.utility_context(|context| {
             let address = context.this_address();
             let second = sync_inbox(address, scope);
 
             assert_eq(second.len(), 0); // already processed, not re-pushed
             assert(
-                !is_in_inbox(address, scope, msg.entity_id()),
-                "expired processed entity is terminated on the next sync",
+                !is_in_inbox(address, scope, msg.fact_collection_id()),
+                "expired processed reception is terminated on the next sync",
             );
         });
     }
 
-    // -- Idempotent re-delivery (first-write-wins entity creation) ---------
+    // -- Idempotent re-delivery (first-write-wins fact recording) ---------
 
     #[test]
     unconstrained fn redelivery_is_idempotent() {
@@ -456,7 +545,7 @@ mod test {
             let address = context.this_address();
             receive(address, BoundedVec::from_array([msg]));
 
-            assert(is_in_inbox(address, scope, msg.entity_id()), "reception should be active");
+            assert(is_in_inbox(address, scope, msg.fact_collection_id()), "reception should be active");
             assert_eq(messages_in_inbox(address, scope).len(), 1);
         });
     }
@@ -476,7 +565,7 @@ mod test {
         env.utility_context(|context| {
             let address = context.this_address();
             assert_eq(sync_inbox(address, scope).len(), 1);
-            assert(is_processed(address, scope, msg.entity_id()), "should be processed");
+            assert(is_processed(address, scope, msg.fact_collection_id()), "should be processed");
         });
 
         // Re-deliver the same message. The next sync recognizes it as already processed and does not re-push it.
@@ -484,9 +573,11 @@ mod test {
             let address = context.this_address();
             receive(address, BoundedVec::from_array([msg]));
 
-            assert(is_processed(address, scope, msg.entity_id()), "re-delivery must preserve the processed guard");
+            assert(
+                is_processed(address, scope, msg.fact_collection_id()),
+                "re-delivery must preserve the processed guard",
+            );
             assert_eq(sync_inbox(address, scope).len(), 0);
         });
     }
-
 }
