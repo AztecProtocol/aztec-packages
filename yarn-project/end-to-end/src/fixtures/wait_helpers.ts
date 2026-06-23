@@ -23,15 +23,17 @@ export type WaitForBlockOpts = {
  */
 export function waitForBlockNumber(node: AztecNode, target: number, opts: WaitForBlockOpts = {}): Promise<BlockNumber> {
   const tag = opts.tag ?? 'proposed';
+  // Wrap the matched value: retryUntil treats any falsy return as "keep polling", so a legitimate
+  // match of block 0 (e.g. a freshly-pruned tip) would otherwise loop until timeout.
   return retryUntil(
     async () => {
       const blockNumber = await node.getBlockNumber(tag);
-      return blockNumber >= target ? blockNumber : undefined;
+      return blockNumber >= target ? { blockNumber } : undefined;
     },
     `block ${tag} >= ${target}`,
     opts.timeout ?? 60,
     opts.interval ?? 1,
-  );
+  ).then(({ blockNumber }) => blockNumber);
 }
 
 /** Convenience for {@link waitForBlockNumber} on the proven tip. */
@@ -81,15 +83,18 @@ export function waitForNodeCheckpoint(
   const tag = opts.tag ?? 'checkpointed';
   const comparison = opts.comparison ?? 'gte';
   const matches = checkpointComparators[comparison];
+  // Wrap the matched value: retryUntil treats any falsy return as "keep polling", so a legitimate
+  // match of checkpoint 0 (e.g. proven 'eq' 0 or checkpointed 'lte' 1 after a prune) would otherwise
+  // loop until timeout instead of resolving.
   return retryUntil(
     async () => {
       const checkpointNumber = await node.getCheckpointNumber(tag);
-      return matches(checkpointNumber, target) ? checkpointNumber : undefined;
+      return matches(checkpointNumber, target) ? { checkpointNumber } : undefined;
     },
     `node checkpoint ${tag} ${comparison} ${target}`,
     opts.timeout ?? 30,
     opts.interval ?? 0.5,
-  );
+  ).then(({ checkpointNumber }) => checkpointNumber);
 }
 
 /** Convenience for {@link waitForNodeCheckpoint} on the proven tip. */
