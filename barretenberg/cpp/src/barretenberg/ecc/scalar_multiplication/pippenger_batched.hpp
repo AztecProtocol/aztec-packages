@@ -237,7 +237,6 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
             std::make_unique_for_overwrite<std::byte[]>(shared_arena_bytes); // NOLINT(cppcoreguidelines-avoid-c-arrays)
         shared_arena = std::span<std::byte>(shared_arena_owner.get(), shared_arena_bytes);
     }
-
     // Concurrent small-member dispatch: workers pull members off an atomic cursor and run
     // each with a thread-capped pipeline (max_threads=1, so the member never re-enters the
     // pool) out of a per-worker arena sized for the capped layout. The GLV-doubled buffer
@@ -251,7 +250,13 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
                 compute_arena_bytes_for_msm<Curve>(n_input[m], ext_glv, info_for(m), /*max_threads=*/1);
             small_arena_bytes = std::max(small_arena_bytes, bytes);
         }
-        const size_t num_workers = std::min(pool_width, small_members.size());
+        // The per-worker arenas are one contiguous block of `num_workers * small_arena_bytes`.
+        // Cap it at one MSM's budget so a wide batch doesn't hold many full arenas at once,
+        // matching the large-member path's single reused arena of the same budget.
+        const size_t workers_by_budget =
+            small_arena_bytes > 0 ? std::max<size_t>(1, round_parallel_detail::BATCH_MEM_BUDGET / small_arena_bytes)
+                                  : std::numeric_limits<size_t>::max();
+        const size_t num_workers = std::min({ pool_width, small_members.size(), workers_by_budget });
         std::unique_ptr<std::byte[]> small_arena_owner; // NOLINT(cppcoreguidelines-avoid-c-arrays)
         if (small_arena_bytes > 0) {
             small_arena_owner = std::make_unique_for_overwrite<std::byte[]>(
