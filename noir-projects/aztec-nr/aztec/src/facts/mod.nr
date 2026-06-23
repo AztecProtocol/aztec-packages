@@ -132,6 +132,7 @@ mod test {
     global TYPE_ID: Field = 42;
     global COLLECTION_ID: Field = 7;
     global FACT_TYPE_ID: Field = 99;
+    global PAYLOAD: Field = 123;
 
     unconstrained fn setup() -> (TestEnvironment, AztecAddress) {
         let mut env = TestEnvironment::new();
@@ -156,7 +157,7 @@ mod test {
                 TYPE_ID,
                 COLLECTION_ID,
                 FACT_TYPE_ID,
-                make_payload(123),
+                make_payload(PAYLOAD),
             );
 
             let collection = get_fact_collection(contract_address, scope, TYPE_ID, COLLECTION_ID).unwrap();
@@ -168,7 +169,7 @@ mod test {
 
             let fact = collection.facts.get(0);
             assert_eq(fact.fact_type_id, FACT_TYPE_ID);
-            assert_eq(fact.payload.get(0), 123);
+            assert_eq(fact.payload.get(0), PAYLOAD);
             assert(fact.origin_block.is_none());
         });
     }
@@ -184,7 +185,7 @@ mod test {
                 TYPE_ID,
                 COLLECTION_ID,
                 FACT_TYPE_ID,
-                make_payload(123),
+                make_payload(PAYLOAD),
             );
 
             let collections = get_fact_collections_by_type(contract_address, scope, TYPE_ID);
@@ -204,7 +205,7 @@ mod test {
                 TYPE_ID,
                 COLLECTION_ID,
                 FACT_TYPE_ID,
-                make_payload(123),
+                make_payload(PAYLOAD),
                 OriginBlock { block_number: 5, block_hash: 0xabc },
             );
 
@@ -228,7 +229,7 @@ mod test {
                 TYPE_ID,
                 COLLECTION_ID,
                 FACT_TYPE_ID,
-                make_payload(123),
+                make_payload(PAYLOAD),
             );
             delete_fact_collection(contract_address, scope, TYPE_ID, COLLECTION_ID);
 
@@ -258,7 +259,7 @@ mod test {
                 TYPE_ID,
                 COLLECTION_ID,
                 FACT_TYPE_ID,
-                make_payload(123),
+                make_payload(PAYLOAD),
             );
         });
     }
