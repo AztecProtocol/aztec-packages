@@ -76,8 +76,10 @@ pub unconstrained fn record_non_retractable_fact(
     );
 }
 
-/// Deletes a fact collection.
+/// Deletes a fact collection, removing all its facts from PXE storage.
 ///
+/// Collections must be eventually deleted to reclaim storage and to stop reprocessing past the lifespan of the
+//  workflows they enable.
 /// A no-op if no such collection exists.
 pub unconstrained fn delete_fact_collection(
     contract_address: AztecAddress,
