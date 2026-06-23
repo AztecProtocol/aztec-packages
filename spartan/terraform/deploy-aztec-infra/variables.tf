@@ -697,48 +697,214 @@ variable "BOT_L2_GAS_LIMIT" {
   default     = ""
 }
 
-# RPC ingress configuration (GKE-specific)
-variable "RPC_INGRESS_ENABLED" {
-  description = "Enable GKE ingress for RPC nodes"
+# RPC gateway configuration (Kong-backed, optional)
+variable "RPC_GATEWAY_ENABLED" {
+  description = "Enable the Kong RPC gateway for the utility RPC service. When false, no Kong/frontend/DNS resources are created."
   type        = bool
   default     = false
 }
 
-variable "RPC_INGRESS_HOSTS" {
-  description = "Hostnames for RPC ingress"
+variable "RPC_GATEWAY_HOSTS" {
+  description = "Hostnames served by the RPC gateway. Required when RPC_GATEWAY_ENABLED=true."
   type        = list(string)
   default     = []
 }
 
-variable "RPC_INGRESS_STATIC_IP_NAME" {
-  description = "Name of the GCP static IP resource for the ingress"
-  type        = string
-  default     = ""
-}
-
-variable "RPC_INGRESS_SSL_CERT_NAMES" {
-  description = "Names of the GCP managed SSL certificates for the ingress"
+variable "RPC_GATEWAY_API_KEY_SECRET_NAMES" {
+  description = "GCP Secret Manager secret names containing API keys allowed by the RPC gateway. Raw key values must not go here."
   type        = list(string)
   default     = []
 }
 
-variable "RPC_CLOUD_ARMOR_POLICY_NAME" {
-  description = "Name of a Cloud Armor security policy to attach to the RPC ingress BackendConfig. Leave empty to disable."
-  type        = string
-  default     = ""
+variable "RPC_GATEWAY_ALLOW_ANONYMOUS" {
+  description = "Whether the RPC gateway allows requests without a valid API key. Missing and invalid keys both use the anonymous consumer."
+  type        = bool
+  default     = false
 }
 
-variable "RPC_INGRESS_SESSION_AFFINITY" {
-  description = "Session affinity type for the RPC BackendConfig. One of NONE, CLIENT_IP, GENERATED_COOKIE. Leave empty for no affinity (GCE default)."
-  type        = string
-  default     = ""
-}
-
-variable "RPC_INGRESS_LOG_SAMPLE_RATE" {
-  description = "LB access-log sample rate for the RPC BackendConfig (0.0-1.0). When set, logs include the Cloud Armor matched rule priority. Leave null to disable logging (GCE default)."
+variable "RPC_GATEWAY_ANONYMOUS_RATE_LIMIT_MINUTE" {
+  description = "Per-client-IP anonymous request limit per minute when RPC_GATEWAY_ALLOW_ANONYMOUS=true. Kong local policy makes this per Kong pod."
   type        = number
-  nullable    = true
+  default     = 300
+}
+
+variable "RPC_GATEWAY_API_KEY_HEADER_NAME" {
+  description = "Header checked by Kong key-auth."
+  type        = string
+  default     = "x-aztec-api-key"
+}
+
+variable "RPC_GATEWAY_CONSUMERS" {
+  description = "Kong consumers keyed by team name. Each value must use exactly one credential source."
+  type = map(object({
+    username                       = string
+    gcp_secret_manager_secret_name = string
+    rate_limit_minute              = number
+  }))
+  default = {}
+}
+
+variable "RPC_GATEWAY_KONG_NAMESPACE" {
+  description = "Optional namespace for the Kong Helm release. Defaults to NAMESPACE."
+  type        = string
+  default     = ""
+}
+
+variable "RPC_GATEWAY_KONG_HELM_RELEASE_NAME" {
+  description = "Optional Helm release name for Kong. Defaults to RELEASE_PREFIX-rpc-kong."
+  type        = string
+  default     = ""
+}
+
+variable "RPC_GATEWAY_KONG_HELM_CHART_VERSION" {
+  description = "Kong ingress Helm chart version."
+  type        = string
+  default     = "0.24.0"
+}
+
+variable "RPC_GATEWAY_KONG_INGRESS_CLASS" {
+  description = "Optional ingress class watched by Kong. Defaults to RELEASE_PREFIX-rpc-kong."
+  type        = string
+  default     = ""
+}
+
+variable "RPC_GATEWAY_KONG_PROXY_SERVICE_TYPE" {
+  description = "Kong proxy Service type. With frontend enabled this should normally stay ClusterIP plus NEG annotation."
+  type        = string
+  default     = "ClusterIP"
+}
+
+variable "RPC_GATEWAY_KONG_PROXY_SERVICE_ANNOTATIONS" {
+  description = "Annotations applied to the Kong proxy Service."
+  type        = map(string)
+  default     = {}
+}
+
+variable "RPC_GATEWAY_KONG_EXTRA_HELM_VALUES" {
+  description = "Additional YAML values passed to the Kong Helm chart."
+  type        = list(string)
+  default     = []
+}
+
+variable "RPC_GATEWAY_KONG_SERVICE_MONITOR_ENABLED" {
+  description = "Whether Kong should create a ServiceMonitor."
+  type        = bool
+  default     = false
+}
+
+variable "RPC_GATEWAY_KONG_METRICS_SERVICE_ENABLED" {
+  description = "Whether to expose Kong's /metrics endpoint through a dedicated Service."
+  type        = bool
+  default     = false
+}
+
+variable "RPC_GATEWAY_KONG_METRICS_SERVICE_NAME" {
+  description = "Optional Kong metrics Service name. Defaults to RELEASE_PREFIX-kong-metrics."
+  type        = string
+  default     = ""
+}
+
+variable "RPC_GATEWAY_KONG_METRICS_SERVICE_TYPE" {
+  description = "Kong metrics Service type."
+  type        = string
+  default     = "ClusterIP"
+}
+
+variable "RPC_GATEWAY_KONG_METRICS_SERVICE_ANNOTATIONS" {
+  description = "Annotations applied to the Kong metrics Service."
+  type        = map(string)
+  default     = {}
+}
+
+variable "RPC_GATEWAY_KONG_METRICS_SERVICE_LOAD_BALANCER_IP" {
+  description = "Optional static IP assigned to the Kong metrics LoadBalancer Service."
+  type        = string
+  default     = ""
+}
+
+variable "RPC_GATEWAY_KONG_METRICS_SERVICE_LOAD_BALANCER_SOURCE_RANGES" {
+  description = "Optional source CIDRs allowed to reach the Kong metrics Service."
+  type        = list(string)
+  default     = []
+}
+
+variable "RPC_GATEWAY_KONG_METRICS_SERVICE_EXTERNAL_TRAFFIC_POLICY" {
+  description = "External traffic policy for the Kong metrics Service."
+  type        = string
   default     = null
+}
+
+variable "RPC_GATEWAY_KONG_OTEL_METRICS_GCP_SECRET_NAME" {
+  description = "GCP Secret Manager secret name containing the central OTLP/HTTP collector endpoint. When empty, no local Kong metrics collector is deployed."
+  type        = string
+  default     = ""
+}
+
+
+variable "RPC_GATEWAY_EXTERNAL_SECRET_STORE_NAME" {
+  description = "ExternalSecrets SecretStore or ClusterSecretStore name for RPC gateway consumer keys."
+  type        = string
+  default     = "gcp-secret-store"
+}
+
+variable "RPC_GATEWAY_EXTERNAL_SECRET_STORE_KIND" {
+  description = "ExternalSecrets store kind for RPC gateway consumer keys."
+  type        = string
+  default     = "ClusterSecretStore"
+}
+
+variable "RPC_GATEWAY_EXTERNAL_SECRET_REFRESH_INTERVAL" {
+  description = "ExternalSecret refresh interval for RPC gateway consumer keys."
+  type        = string
+  default     = "1m"
+}
+
+variable "RPC_GATEWAY_CREATE_DNS" {
+  description = "Whether to create A records for RPC_GATEWAY_HOSTS."
+  type        = bool
+  default     = true
+}
+
+variable "RPC_GATEWAY_DNS_ZONE_NAME" {
+  description = "Cloud DNS managed zone name for RPC gateway hosts."
+  type        = string
+  default     = "rpc-aztec-labs-com"
+}
+
+variable "RPC_GATEWAY_DNS_TTL" {
+  description = "TTL for RPC gateway DNS A records."
+  type        = number
+  default     = 300
+}
+
+variable "RPC_GATEWAY_FRONTEND_ENABLED" {
+  description = "Whether to create a GKE frontend Ingress in front of Kong."
+  type        = bool
+  default     = true
+}
+
+variable "RPC_GATEWAY_FRONTEND_STATIC_IP_ENABLED" {
+  description = "Whether to allocate a global static IP for the RPC gateway frontend."
+  type        = bool
+  default     = true
+}
+
+variable "RPC_GATEWAY_FRONTEND_STATIC_IP_NAME" {
+  description = "Optional global static IP name for the RPC gateway frontend. Defaults to RELEASE_PREFIX-rpc-frontend."
+  type        = string
+  default     = ""
+}
+
+variable "RPC_GATEWAY_FRONTEND_ALLOW_HTTP" {
+  description = "Whether the RPC gateway frontend should allow HTTP in addition to HTTPS."
+  type        = bool
+  default     = false
+}
+
+variable "RPC_GATEWAY_GCP_MANAGED_CERTIFICATE_ENABLED" {
+  description = "Whether to create a GKE ManagedCertificate for RPC_GATEWAY_HOSTS."
+  type        = bool
+  default     = true
 }
 
 variable "PROVER_FAILED_PROOF_STORE" {

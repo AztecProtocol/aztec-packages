@@ -2,7 +2,8 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
-#include "barretenberg/wsdb/wsdb_execute.hpp"
+#include "barretenberg/world_state/world_state.hpp"
+#include "barretenberg/wsdb/generated/wsdb_ipc_server.hpp"
 #include "barretenberg/wsdb/wsdb_ipc_server.hpp"
 
 #include "barretenberg/bb/deps/cli11.hpp"
@@ -17,21 +18,6 @@ namespace bb::wsdb {
 using namespace bb::world_state;
 using namespace bb::crypto::merkle_tree;
 
-namespace {
-
-struct WsdbApi {
-    WsdbCommand commands;
-    WsdbCommandResponse responses;
-    SERIALIZATION_FIELDS(commands, responses);
-};
-
-std::string get_wsdb_schema_as_json()
-{
-    return msgpack_schema_to_string(WsdbApi{});
-}
-
-} // namespace
-
 int parse_and_run_wsdb(int argc, char* argv[])
 {
     CLI::App app{ "aztec-wsdb: Standalone world state database server" };
@@ -41,10 +27,6 @@ int parse_and_run_wsdb(int argc, char* argv[])
     // Subcommand: msgpack
     // -----------------------------------------------------------------------
     CLI::App* msgpack_command = app.add_subcommand("msgpack", "Msgpack API interface.");
-
-    // msgpack schema
-    CLI::App* msgpack_schema_command =
-        msgpack_command->add_subcommand("schema", "Output a msgpack schema encoded as JSON to stdout.");
 
     // msgpack run
     CLI::App* msgpack_run_command =
@@ -107,11 +89,6 @@ int parse_and_run_wsdb(int argc, char* argv[])
     }
 
     try {
-        if (msgpack_schema_command->parsed()) {
-            std::cout << get_wsdb_schema_as_json() << std::endl;
-            return 0;
-        }
-
         if (msgpack_run_command->parsed()) {
             return execute_wsdb_server(input_path,
                                        data_dir,

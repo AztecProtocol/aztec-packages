@@ -29,7 +29,7 @@ The merge-train system is fully automated via GitHub Actions in `.github/workflo
 
 Merge-train branches influence CI mode:
 - `merge_group` events or `ci-merge-queue` label → `merge-queue` mode
-- If the merge-group event is for `merge-train/spartan` or `merge-train/spartan-v5` → upgraded to `merge-queue-heavy` mode (10 parallel grind runs instead of 4)
+- If the merge-group event is for `merge-train/spartan-v5` → upgraded to `merge-queue-heavy` mode (10 parallel grind runs instead of 4)
 - Target branch `merge-train/docs` → `ci-docs` mode
 - Target branch `merge-train/barretenberg` → `ci-barretenberg` mode
 

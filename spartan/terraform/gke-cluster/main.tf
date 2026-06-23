@@ -41,9 +41,10 @@ module "gke_cluster_private" {
 module "gke_cluster_public" {
   source = "./cluster"
 
-  cluster_name    = "aztec-gke-public"
-  project         = var.project
-  region          = var.region
-  zone            = var.zone
-  service_account = google_service_account.gke_sa.email
+  cluster_name             = "aztec-gke-public"
+  project                  = var.project
+  region                   = var.region
+  zone                     = var.zone
+  service_account          = google_service_account.gke_sa.email
+  enable_workload_identity = true
 }

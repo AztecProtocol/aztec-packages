@@ -36,3 +36,4 @@ environments/*
 !environments/bench-10tps.env
 *.tfvars
 !terraform/deploy-external-secrets/*.tfvars
+!terraform/deploy-rpc/modules/environment/alloy-*.tgz
