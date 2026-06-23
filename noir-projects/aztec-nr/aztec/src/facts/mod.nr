@@ -156,19 +156,23 @@ mod test {
         }
     }
 
+    unconstrained fn record_fact(contract_address: AztecAddress, scope: AztecAddress) {
+        record_non_retractable_fact(
+            contract_address,
+            scope,
+            TYPE_ID,
+            COLLECTION_ID,
+            FACT_TYPE_ID,
+            make_payload(PAYLOAD),
+        );
+    }
+
     #[test]
     unconstrained fn records_and_reads_a_fact() {
         let (env, scope) = setup();
         env.private_context(|context| {
             let contract_address = context.this_address();
-            record_non_retractable_fact(
-                contract_address,
-                scope,
-                TYPE_ID,
-                COLLECTION_ID,
-                FACT_TYPE_ID,
-                make_payload(PAYLOAD),
-            );
+            record_fact(contract_address, scope);
 
             let collection = get_fact_collection(contract_address, scope, TYPE_ID, COLLECTION_ID).unwrap();
             assert_eq(collection.contract_address, contract_address);
@@ -189,14 +193,7 @@ mod test {
         let (env, scope) = setup();
         env.private_context(|context| {
             let contract_address = context.this_address();
-            record_non_retractable_fact(
-                contract_address,
-                scope,
-                TYPE_ID,
-                COLLECTION_ID,
-                FACT_TYPE_ID,
-                make_payload(PAYLOAD),
-            );
+            record_fact(contract_address, scope);
 
             let collections = get_fact_collections_by_type(contract_address, scope, TYPE_ID);
             assert_eq(collections.len(), 1);
@@ -244,14 +241,7 @@ mod test {
         let (env, scope) = setup();
         env.private_context(|context| {
             let contract_address = context.this_address();
-            record_non_retractable_fact(
-                contract_address,
-                scope,
-                TYPE_ID,
-                COLLECTION_ID,
-                FACT_TYPE_ID,
-                make_payload(PAYLOAD),
-            );
+            record_fact(contract_address, scope);
             delete_fact_collection(contract_address, scope, TYPE_ID, COLLECTION_ID);
 
             let collections = get_fact_collections_by_type(contract_address, scope, TYPE_ID);
@@ -274,14 +264,52 @@ mod test {
         let (env, scope) = setup();
         env.private_context(|context| {
             let other = AztecAddress::from_field(context.this_address().to_field() + 1);
-            record_non_retractable_fact(
-                other,
-                scope,
-                TYPE_ID,
-                COLLECTION_ID,
-                FACT_TYPE_ID,
-                make_payload(PAYLOAD),
-            );
+            record_fact(other, scope);
+        });
+    }
+
+    #[test]
+    unconstrained fn re_recording_an_identical_fact_is_a_no_op() {
+        let (env, scope) = setup();
+        env.private_context(|context| {
+            let contract_address = context.this_address();
+            record_default_fact(contract_address, scope);
+            record_default_fact(contract_address, scope);
+
+            let collection = get_fact_collection(contract_address, scope, TYPE_ID, COLLECTION_ID).unwrap();
+            assert_eq(collection.facts.len(), 1);
+        });
+    }
+
+    #[test]
+    unconstrained fn deleting_a_non_existing_collection_is_a_no_op() {
+        let (env, scope) = setup();
+        env.private_context(|context| {
+            let contract_address = context.this_address();
+            delete_fact_collection(contract_address, scope, TYPE_ID, COLLECTION_ID);
+
+            assert(get_fact_collection(contract_address, scope, TYPE_ID, COLLECTION_ID).is_none());
+        });
+    }
+
+    #[test]
+    unconstrained fn recording_a_fact_after_delete_recreates_the_collection() {
+        let (env, scope) = setup();
+        env.private_context(|context| {
+            let contract_address = context.this_address();
+
+            record_default_fact(contract_address, scope);
+            let collection_pre_deletion =
+                get_fact_collection(contract_address, scope, TYPE_ID, COLLECTION_ID).unwrap();
+            assert_eq(collection.facts.len(), 1);
+
+            delete_fact_collection(contract_address, scope, TYPE_ID, COLLECTION_ID);
+            let collection_deleted = get_fact_collection(contract_address, scope, TYPE_ID, COLLECTION_ID).unwrap();
+            assert_eq(collection.facts.len(), 0);
+
+            record_default_fact(contract_address, scope);
+            let collection = get_fact_collection(contract_address, scope, TYPE_ID, COLLECTION_ID).unwrap();
+            assert_eq(collection.facts.len(), 1);
         });
     }
 }
