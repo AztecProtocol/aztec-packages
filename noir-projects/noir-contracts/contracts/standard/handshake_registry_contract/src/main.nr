@@ -12,7 +12,7 @@ global NON_INTERACTIVE_HANDSHAKE: u8 = 1;
 /// Registry for the constrained-delivery shared-secret handshake protocol.
 ///
 /// The registry establishes a master shared-secret point `S` between a sender and a recipient and stores one current
-/// note for each `(recipient, sender)` pair. `S` is independent of delivery mode: the recipient derives per-mode tags
+/// note for each `(recipient, sender)` pair. `S` is independent of delivery mode: the recipient should derive per-mode tags
 /// from it when scanning. The raw `S` never leaves the registry: app contracts call
 /// [`HandshakeRegistry::non_interactive_handshake`] to receive the secret already siloed to the caller, call
 /// [`HandshakeRegistry::get_app_siloed_secret`] offchain for an existing handshake, and use
