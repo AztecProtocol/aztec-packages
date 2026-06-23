@@ -1139,7 +1139,7 @@ export class TxPoolV2Impl {
         const publicStateSource = new DatabasePublicStateSource(db);
         const balance = await publicStateSource.storageRead(
           ProtocolContractAddress.FeeJuice,
-          await computeFeePayerBalanceStorageSlot(AztecAddress.fromString(feePayer)),
+          await computeFeePayerBalanceStorageSlot(AztecAddress.fromStringUnsafe(feePayer)),
         );
         return balance.toBigInt();
       },

@@ -9,7 +9,7 @@ describe('extractOffchainOutput', () => {
 
   const makeEffect = (data: Fr[], contractAddress?: AztecAddress): OffchainEffect => ({
     data,
-    contractAddress: contractAddress ?? AztecAddress.fromField(Fr.random()),
+    contractAddress: contractAddress ?? AztecAddress.fromFieldUnsafe(Fr.random()),
   });
 
   const makeMessageEffect = async (recipient?: AztecAddress, payload?: Fr[], contractAddress?: AztecAddress) =>

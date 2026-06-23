@@ -225,7 +225,7 @@ export const STR: TypeMapping<string> = {
 
 export const AZTEC_ADDRESS: TypeMapping<AztecAddress> = {
   serialization: { fn: v => [v.toField()] },
-  deserialization: { fn: ([reader]) => AztecAddress.fromField(reader.readField()) },
+  deserialization: { fn: ([reader]) => AztecAddress.fromFieldUnsafe(reader.readField()) },
   shape: ['scalar'],
 };
 
@@ -653,7 +653,7 @@ function FIXED_BOUNDED_VEC<T>(element: TypeMapping<T>, maxLength: number): TypeM
  * For the `None` case, the inner's slots must still be present on the wire as zero-padding (so `Some` and `None` have
  * identical size). That padding is derived entirely from `inner.shape`.
  *
- * @example Serializing `Option.some(AztecAddress.fromField(Fr(42)))` with `OPTION(AZTEC_ADDRESS)`:
+ * @example Serializing `Option.some(AztecAddress.fromFieldUnsafe(Fr(42)))` with `OPTION(AZTEC_ADDRESS)`:
  * ```
  * slot 0: Fr(1)    // discriminant: Some
  * slot 1: Fr(42)   // inner value

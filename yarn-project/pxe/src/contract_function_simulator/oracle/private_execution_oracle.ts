@@ -564,7 +564,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       aztecNode: this.aztecNode,
       senderTaggingStore: this.senderTaggingStore,
       recipientTaggingStore: this.recipientTaggingStore,
-      senderAddressBookStore: this.senderAddressBookStore,
+      taggingSecretSourcesStore: this.taggingSecretSourcesStore,
       capsuleService: this.capsuleService,
       privateEventStore: this.privateEventStore,
       messageContextService: this.messageContextService,

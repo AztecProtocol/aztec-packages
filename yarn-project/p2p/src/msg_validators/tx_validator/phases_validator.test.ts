@@ -427,7 +427,7 @@ describe('PhasesTxValidator', () => {
   });
 
   describe('rejectNullMsgSender validation', () => {
-    const nullMsgSender = AztecAddress.fromBigInt(NULL_MSG_SENDER_CONTRACT_ADDRESS);
+    const nullMsgSender = AztecAddress.fromBigIntUnsafe(NULL_MSG_SENDER_CONTRACT_ADDRESS);
     let rejectNullContract: AztecAddress;
     let rejectNullSelector: FunctionSelector;
     let noRejectNullContract: AztecAddress;

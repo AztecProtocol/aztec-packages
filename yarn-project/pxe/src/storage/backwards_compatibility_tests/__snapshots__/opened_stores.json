@@ -2,10 +2,6 @@
   "schemaVersion": 9,
   "stores": [
     {
-      "name": "address_book",
-      "kind": "map"
-    },
-    {
       "name": "capsules",
       "kind": "map"
     },
@@ -95,6 +91,14 @@
     },
     {
       "name": "pxe_l2_tips",
+      "kind": "map"
+    },
+    {
+      "name": "recipient_shared_secrets",
+      "kind": "multimap"
+    },
+    {
+      "name": "senders",
       "kind": "map"
     }
   ]

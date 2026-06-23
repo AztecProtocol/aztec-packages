@@ -9,7 +9,7 @@ import { CapsuleStore } from './capsule_store/capsule_store.js';
 import { ContractStore } from './contract_store/contract_store.js';
 import { NoteStore } from './note_store/note_store.js';
 import { PrivateEventStore } from './private_event_store/private_event_store.js';
-import { RecipientTaggingStore, SenderAddressBookStore, SenderTaggingStore } from './tagging_store/index.js';
+import { RecipientTaggingStore, SenderTaggingStore, TaggingSecretSourcesStore } from './tagging_store/index.js';
 
 /**
  * The set of sub-stores opened against a single `AztecAsyncKVStore` to back PXE state.
@@ -21,7 +21,7 @@ export type PxeStores = {
   noteStore: NoteStore;
   anchorBlockStore: AnchorBlockStore;
   senderTaggingStore: SenderTaggingStore;
-  senderAddressBookStore: SenderAddressBookStore;
+  taggingSecretSourcesStore: TaggingSecretSourcesStore;
   recipientTaggingStore: RecipientTaggingStore;
   capsuleStore: CapsuleStore;
   keyStore: KeyStore;
@@ -40,7 +40,7 @@ export function openPxeStores(store: AztecAsyncKVStore, initialBlockHash: BlockH
     noteStore: new NoteStore(store),
     anchorBlockStore: new AnchorBlockStore(store),
     senderTaggingStore: new SenderTaggingStore(store),
-    senderAddressBookStore: new SenderAddressBookStore(store),
+    taggingSecretSourcesStore: new TaggingSecretSourcesStore(store),
     recipientTaggingStore: new RecipientTaggingStore(store),
     capsuleStore: new CapsuleStore(store),
     keyStore: new KeyStore(store),

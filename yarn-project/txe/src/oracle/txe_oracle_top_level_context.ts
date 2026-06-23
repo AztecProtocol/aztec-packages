@@ -19,8 +19,8 @@ import {
   ORACLE_VERSION_MAJOR,
   PrivateEventStore,
   RecipientTaggingStore,
-  SenderAddressBookStore,
   SenderTaggingStore,
+  TaggingSecretSourcesStore,
   composeHooks,
   enrichPublicSimulationError,
 } from '@aztec/pxe/server';
@@ -107,7 +107,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     private accountStore: TXEAccountStore,
     private senderTaggingStore: SenderTaggingStore,
     private recipientTaggingStore: RecipientTaggingStore,
-    private senderAddressBookStore: SenderAddressBookStore,
+    private taggingSecretSourcesStore: TaggingSecretSourcesStore,
     private capsuleStore: CapsuleStore,
     private privateEventStore: PrivateEventStore,
     private nextBlockTimestamp: bigint,
@@ -252,7 +252,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   }
 
   private deploymentNullifier(address: AztecAddress): Promise<Fr> {
-    return siloNullifier(AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS), address.toField());
+    return siloNullifier(AztecAddress.fromNumberUnsafe(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS), address.toField());
   }
 
   async deploy(
@@ -449,7 +449,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       aztecNode: this.stateMachine.node,
       senderTaggingStore: this.senderTaggingStore,
       recipientTaggingStore: this.recipientTaggingStore,
-      senderAddressBookStore: this.senderAddressBookStore,
+      taggingSecretSourcesStore: this.taggingSecretSourcesStore,
       capsuleService: new CapsuleService(this.capsuleStore, scopes),
       privateEventStore: this.privateEventStore,
       contractSyncService: this.stateMachine.contractSyncService,
@@ -848,7 +848,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         addressStore: this.addressStore,
         aztecNode: this.stateMachine.node,
         recipientTaggingStore: this.recipientTaggingStore,
-        senderAddressBookStore: this.senderAddressBookStore,
+        taggingSecretSourcesStore: this.taggingSecretSourcesStore,
         capsuleService: new CapsuleService(this.capsuleStore, scopes),
         privateEventStore: this.privateEventStore,
         messageContextService: this.stateMachine.messageContextService,

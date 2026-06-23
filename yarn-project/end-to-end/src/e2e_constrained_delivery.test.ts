@@ -1,14 +1,23 @@
+import { type InitialAccountData, generateSchnorrAccounts } from '@aztec/accounts/testing';
+import { NO_FROM } from '@aztec/aztec.js/account';
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { BatchCall } from '@aztec/aztec.js/contracts';
+import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { HandshakeRegistryContract } from '@aztec/noir-contracts.js/HandshakeRegistry';
-import { ConstrainedDeliveryTestContract } from '@aztec/noir-test-contracts.js/ConstrainedDeliveryTest';
+import {
+  ConstrainedDeliveryTestContract,
+  type DeliveryEvent,
+} from '@aztec/noir-test-contracts.js/ConstrainedDeliveryTest';
 import { STANDARD_HANDSHAKE_REGISTRY_ADDRESS } from '@aztec/standard-contracts/handshake-registry/constants';
+import type { AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 
 import { jest } from '@jest/globals';
 
 import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
-import { ensureHandshakeRegistryPublished, setup } from './fixtures/setup.js';
+import { ensureHandshakeRegistryPublished, setup, setupPXEAndGetWallet } from './fixtures/setup.js';
+import { TestWallet } from './test-wallet/test_wallet.js';
 
 const ONCHAIN_CONSTRAINED = { inner: 3 };
 
@@ -41,14 +50,14 @@ describe('constrained delivery', () => {
   afterAll(() => teardown());
 
   it('reuses an existing standard-registry constrained handshake', async () => {
-    await contract.methods.emit_note(recipient).send({ from: sender });
+    await contract.methods.emit_note(recipient, 1).send({ from: sender });
 
     const { result: secretAfterFirstSend } = await contract.methods
       .get_app_siloed_secret(sender, recipient, ONCHAIN_CONSTRAINED)
       .simulate({ from: sender });
     expect(secretAfterFirstSend).toBeDefined();
 
-    await contract.methods.emit_event(recipient).send({ from: sender });
+    await contract.methods.emit_event(recipient, 1).send({ from: sender });
 
     const { result: secret } = await contract.methods
       .get_app_siloed_secret(sender, recipient, ONCHAIN_CONSTRAINED)
@@ -73,8 +82,8 @@ describe('constrained delivery', () => {
     // parallel sends to a single pair ever become supported. The working alternative is the batched test below.
     it.failing('cannot fan out constrained sends on the same sequence in parallel', async () => {
       await Promise.all([
-        contract.methods.emit_note(recipient).send({ from: sender }),
-        contract.methods.emit_note(recipient).send({ from: sender }),
+        contract.methods.emit_note(recipient, 1).send({ from: sender }),
+        contract.methods.emit_note(recipient, 1).send({ from: sender }),
       ]);
     });
 
@@ -106,8 +115,8 @@ describe('constrained delivery', () => {
         .send({ from: sender });
 
       await new BatchCall(wallet, [
-        contract.methods.emit_note(batchRecipient2),
-        contract.methods.emit_note(batchRecipient2),
+        contract.methods.emit_note(batchRecipient2, 1),
+        contract.methods.emit_note(batchRecipient2, 1),
       ]).send({ from: sender });
 
       const { result: secret } = await contract.methods
@@ -141,8 +150,8 @@ describe('constrained delivery', () => {
     // so the next index is 1, not 2. Confirms the constraint is in the utility read, not the batching mechanism.
     it('re-handshakes instead of reusing when BatchCall sends bootstrap a new recipient in the same tx', async () => {
       await new BatchCall(wallet, [
-        contract.methods.emit_note(batchRecipient4),
-        contract.methods.emit_note(batchRecipient4),
+        contract.methods.emit_note(batchRecipient4, 1),
+        contract.methods.emit_note(batchRecipient4, 1),
       ]).send({ from: sender });
 
       const { result: secret } = await contract.methods
@@ -153,5 +162,111 @@ describe('constrained delivery', () => {
       const { result: index } = await contract.methods.next_index_for_secret(secret).simulate({ from: sender });
       expect(index).toEqual(1n);
     });
+  });
+});
+
+// A constrained message sent by an account on one PXE is discovered and read by a recipient whose account lives on a
+// separate PXE, with no shared in-memory state: PXE B finds the message purely from on-chain logs plus the
+// HandshakeRegistry. The two PXEs share one node, following the e2e_2_pxes pattern.
+describe('cross-PXE constrained delivery', () => {
+  jest.setTimeout(300_000);
+
+  let aztecNode: AztecNode & AztecNodeDebug;
+  let walletSender: TestWallet;
+  let walletRecipient: TestWallet;
+  let sender: AztecAddress;
+  let recipient: AztecAddress;
+  let additionallyFundedAccounts: InitialAccountData[];
+  let contractSender: ConstrainedDeliveryTestContract;
+  let teardownSender: () => Promise<void>;
+  let teardownRecipient: () => Promise<void>;
+
+  beforeAll(async () => {
+    // PXE A holds the sender. The recipient is funded at genesis here but created and deployed on PXE B below.
+    ({
+      aztecNode,
+      additionallyFundedAccounts,
+      wallet: walletSender,
+      accounts: [sender],
+      teardown: teardownSender,
+    } = await setup(1, {
+      ...AUTOMINE_E2E_OPTS,
+      additionallyFundedAccounts: await generateSchnorrAccounts(1, 'schnorr'),
+    }));
+
+    // PXE B holds the recipient on the same node; the recipient account's keys live only here.
+    ({ wallet: walletRecipient, teardown: teardownRecipient } = await setupPXEAndGetWallet(
+      aztecNode,
+      aztecNode,
+      {},
+      undefined,
+      'pxe-b',
+    ));
+    const recipientAccount = await walletRecipient.createSchnorrAccount(
+      additionallyFundedAccounts[0].secret,
+      additionallyFundedAccounts[0].salt,
+    );
+    await (await recipientAccount.getDeployMethod()).send({ from: NO_FROM });
+    recipient = recipientAccount.address;
+
+    await ensureHandshakeRegistryPublished(walletSender, sender);
+    const { contract: deployed, instance } = await ConstrainedDeliveryTestContract.deploy(walletSender).send({
+      from: sender,
+    });
+    contractSender = deployed;
+
+    await ensureHandshakeRegistryPublished(walletRecipient, recipient);
+    await walletRecipient.registerContract(instance, ConstrainedDeliveryTestContract.artifact);
+  });
+
+  afterAll(async () => {
+    await teardownRecipient();
+    await teardownSender();
+  });
+
+  it('delivers multiple constrained events from PXE A that PXE B discovers', async () => {
+    // Distinct values prove PXE B decrypts each message's content, not merely that a tagged log arrived; delivering
+    // several on one sequence proves both the bootstrap send (index 0) and the reused-handshake sends are
+    // discovered. Constrained sends to one pair are strictly ordered, so they go one tx at a time.
+    const eventValues = [10n, 20n, 30n];
+    const blockNumbers: number[] = [];
+    for (const value of eventValues) {
+      const { receipt } = await contractSender.methods.emit_event(recipient, value).send({ from: sender });
+      blockNumbers.push(receipt.blockNumber!);
+    }
+
+    await walletRecipient.sync();
+
+    const events = await walletRecipient.getPrivateEvents<DeliveryEvent>(
+      ConstrainedDeliveryTestContract.events.DeliveryEvent,
+      {
+        contractAddress: contractSender.address,
+        fromBlock: BlockNumber(Math.min(...blockNumbers)),
+        toBlock: BlockNumber(Math.max(...blockNumbers) + 1),
+        scopes: [recipient],
+      },
+    );
+
+    const discovered = events.map(e => e.event.value);
+    expect(discovered.length).toBe(eventValues.length);
+    for (const value of eventValues) {
+      expect(discovered).toContainEqual(value);
+    }
+  });
+
+  it('delivers multiple constrained notes from PXE A that PXE B reads back', async () => {
+    // Same recipient and handshake as the events above, so these notes land at the following sequence indices.
+    const noteValues = [40n, 50n, 60n];
+    for (const value of noteValues) {
+      await contractSender.methods.emit_note(recipient, value).send({ from: sender });
+    }
+
+    await walletRecipient.sync();
+
+    const contractRecipient = ConstrainedDeliveryTestContract.at(contractSender.address, walletRecipient);
+    // Count proves every delivered note was discovered; the sum of distinct values proves each was decrypted.
+    const { result } = await contractRecipient.methods.get_note_values(recipient).simulate({ from: recipient });
+    const values: bigint[] = result.storage.slice(0, Number(result.len));
+    expect(values).toEqual(noteValues);
   });
 });
