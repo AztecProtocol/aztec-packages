@@ -8,6 +8,7 @@
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/flavor/mega_app_flavor.hpp"
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/mega_kernel_flavor.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/honk/library/grand_product_library.hpp"

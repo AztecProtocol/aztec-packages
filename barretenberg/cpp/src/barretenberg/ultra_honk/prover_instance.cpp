@@ -12,6 +12,7 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/flavor/mega_app_flavor.hpp"
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/mega_kernel_flavor.hpp"
 #include "barretenberg/honk/composer/composer_lib.hpp"
 #include "barretenberg/honk/composer/permutation_lib.hpp"

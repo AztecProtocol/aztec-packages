@@ -152,7 +152,7 @@ TEST_F(AvmRecursionConstraintTest, DISABLED_GateCountAndVKCheck)
     auto vk = std::make_shared<typename UltraFlavor::VerificationKey>(prover_instance->get_precomputed());
 
     static constexpr FF EXPECTED_OUTER_VK_HASH =
-        FF("0x195059523571dbadeae1b213250567e17b4994568b736b73a1aae2b0c65fd2cd");
+        FF("0x28f5195fba68d3a530560eef5c0ade56761c5b51e8c07436a672c57b7b7e7cd8");
     EXPECT_EQ(vk->hash(), EXPECTED_OUTER_VK_HASH)
         << "The VK hash of the outer circuit in the Goblinized AVM recursive verifier has changed. If this is "
            "expected, update the expected value in the test.";
@@ -166,8 +166,8 @@ class AvmRecursionInnerCircuitTests : public ::testing::Test {
     using FF = Builder::FF;
 
     static constexpr FF EXPECTED_INNER_VK_HASH =
-        FF("0x2be1149e37f087a8420d61586aed0d7db942f04937f2d3fa01bdf7f4cc62fb3c");
-    static constexpr size_t EXPECT_GATE_COUNT = 1203700;
+        FF("0x222aceaf07c4ffd9f4d2c87318ce3008375836c922e095587ed8ce91ae20b705");
+    static constexpr size_t EXPECT_GATE_COUNT = 550463;
 
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
@@ -234,7 +234,7 @@ TEST_F(AvmRecursionInnerCircuitTests, DISABLED_GateCountAndVKCheck)
     EXPECT_EQ(mega_vk->hash(), EXPECTED_INNER_VK_HASH)
         << "The VK hash of the inner circuit in the Goblinized AVM recursive verifier has changed. If this is "
            "expected, update the expected value in the test.";
-    EXPECT_EQ(inner_builder.num_gates(), EXPECT_GATE_COUNT);
+    EXPECT_EQ(inner_builder.get_num_finalized_gates_inefficient(), EXPECT_GATE_COUNT);
 }
 
 /**

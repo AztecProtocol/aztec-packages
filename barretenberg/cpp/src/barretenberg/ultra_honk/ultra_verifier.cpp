@@ -10,6 +10,8 @@
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/flavor/mega_avm_recursive_flavor.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
+#include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
 #include "barretenberg/honk/proof_length.hpp"
