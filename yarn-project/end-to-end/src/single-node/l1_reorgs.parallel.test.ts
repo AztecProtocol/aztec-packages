@@ -23,12 +23,12 @@ import { jest } from '@jest/globals';
 import 'jest-extended';
 import { keccak256, parseTransaction } from 'viem';
 
-import { sendL1ToL2Message } from '../../fixtures/l1_to_l2_messaging.js';
-import type { EndToEndContext } from '../../fixtures/utils.js';
-import { waitForNodeCheckpoint, waitForNodeProvenCheckpoint } from '../../fixtures/wait_helpers.js';
-import { waitForL1ToL2MessageSeen } from '../../shared/wait_for_l1_to_l2_message.js';
-import { proveInteraction } from '../../test-wallet/utils.js';
-import { FAST_REORG_TIMING, SingleNodeTestContext } from '../single_node_test_context.js';
+import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
+import type { EndToEndContext } from '../fixtures/utils.js';
+import { waitForNodeCheckpoint, waitForNodeProvenCheckpoint } from '../fixtures/wait_helpers.js';
+import { waitForL1ToL2MessageSeen } from '../shared/wait_for_l1_to_l2_message.js';
+import { proveInteraction } from '../test-wallet/utils.js';
+import { FAST_REORG_TIMING, SingleNodeTestContext } from './single_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 20);
 

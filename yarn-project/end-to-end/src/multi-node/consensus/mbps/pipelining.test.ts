@@ -1,5 +1,5 @@
 import type { Archiver } from '@aztec/archiver';
-import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
+import type { AztecNodeConfig } from '@aztec/aztec-node';
 import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import { waitForTx } from '@aztec/aztec.js/node';
@@ -10,15 +10,11 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { executeTimeout } from '@aztec/foundation/timer';
 import type { SequencerEvents } from '@aztec/sequencer-client';
 
-import type { EndToEndContext } from '../../../fixtures/utils.js';
 import type { TestWallet } from '../../../test-wallet/test_wallet.js';
 import { proveInteraction } from '../../../test-wallet/utils.js';
 import {
   type BlockProposedEvent,
-  MBPS_TIMING,
   MultiNodeTestContext,
-  type RegisteredValidator,
-  type TrackedSequencerEvent,
   buildMockGossipValidators,
 } from '../../multi_node_test_context.js';
 import { type MbpsFixture, NODE_COUNT, jest, waitForProvenCheckpoint } from './setup.js';

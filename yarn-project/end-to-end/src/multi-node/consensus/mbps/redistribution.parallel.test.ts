@@ -1,4 +1,4 @@
-import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
+import type { AztecNodeConfig } from '@aztec/aztec-node';
 import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import { waitForTx } from '@aztec/aztec.js/node';
@@ -13,7 +13,7 @@ import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 
 import type { TestWallet } from '../../../test-wallet/test_wallet.js';
 import { proveInteraction } from '../../../test-wallet/utils.js';
-import { MBPS_TIMING, MultiNodeTestContext, buildMockGossipValidators } from '../../multi_node_test_context.js';
+import { MultiNodeTestContext, buildMockGossipValidators } from '../../multi_node_test_context.js';
 import { type MbpsFixture, NODE_COUNT, jest } from './setup.js';
 
 describe('multi-node/consensus/mbps/redistribution', () => {
