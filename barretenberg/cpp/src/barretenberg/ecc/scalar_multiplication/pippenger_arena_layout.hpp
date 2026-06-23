@@ -80,8 +80,7 @@ template <typename Curve> struct ChunkOutput {
     uint8_t empty = 1;
 };
 
-// Pick the optimal window size `c`. Native uses a cost model
-// `rounds * (A*n + B*buckets)`; WASM uses a closed-form `target_load` formula.
+// Pick the optimal window size `c` for the MSM schedule.
 [[nodiscard]] inline uint32_t choose_window_bits(size_t num_points,
                                                  size_t num_bits,
                                                  size_t n_input,
@@ -90,28 +89,10 @@ template <typename Curve> struct ChunkOutput {
     constexpr uint32_t MAX_C = 20;
     uint32_t best = 2;
 
-#ifdef __wasm__
-    static_cast<void>(num_bits);
-    const size_t target_load = (n_input > 4096) ? (num_logical_threads * 2 / 3) : (num_logical_threads / 3);
-    if (target_load == 0 || num_points <= target_load) {
-        best = 2;
-    } else {
-        const size_t ratio = num_points / target_load;
-        const uint32_t lg = static_cast<uint32_t>(numeric::get_msb(ratio));
-        best = lg + 1;
-        if (best < 2) {
-            best = 2;
-        } else if (best >= MAX_C) {
-            best = MAX_C - 1;
-        }
-    }
-#else
     static_cast<void>(n_input);
-    static_cast<void>(num_logical_threads); // native cost model is thread-independent
-    // Native cost model: cost(c) = rounds * (A*n + B*buckets), minimized over c. Coefficients are
-    // scaled by 4 so fractional ratios are integers; A=4, B=12 (bucket:point cost ratio 12/4 = 3,
-    // empirically calibrated). c only changes the MSM's internal schedule, not the result, so there
-    // is no VK/correctness impact.
+    static_cast<void>(num_logical_threads);
+    // Choose c minimizing the modeled cost rounds * (A*n + B*buckets); B/A = 3 weights a bucket as
+    // ~3x a point (empirically calibrated).
     static constexpr uint64_t BAC_A = 4;
     static constexpr uint64_t BAC_B = 12;
     uint64_t best_cost = static_cast<uint64_t>(-1);
@@ -125,7 +106,6 @@ template <typename Curve> struct ChunkOutput {
             best = window_bits;
         }
     }
-#endif
 
     return best;
 }
