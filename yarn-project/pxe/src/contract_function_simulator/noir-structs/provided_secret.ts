@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { FieldReader } from '@aztec/foundation/serialize';
-import { AppTaggingSecretKind, appTaggingSecretKindFromDeliveryMode } from '@aztec/stdlib/logs';
+import { type AppTaggingSecretKind, appTaggingSecretKindFromDeliveryMode } from '@aztec/stdlib/logs';
 
 /** A tagging secret an app supplies explicitly to `getPendingTaggedLogs` when PXE cannot derive it internally. */
 export class ProvidedSecret {
