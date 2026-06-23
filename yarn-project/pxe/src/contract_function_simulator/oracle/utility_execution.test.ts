@@ -665,17 +665,19 @@ describe('Utility Execution test suite', () => {
       const service = new EphemeralArrayService();
 
       it("queries logs for the provided secret's delivery mode", async () => {
-        const providedSecret = Fr.random();
+        const sharedSecret = Fr.random();
         const providedMode = AppTaggingSecretKind.CONSTRAINED;
-        const providedSecrets = [new ProvidedSecret(providedSecret, providedMode)];
-        const expectedTag = await SiloedTag.compute({
-          extendedSecret: new AppTaggingSecret(providedSecret, contractAddress, providedMode),
+        const providedSecrets = [new ProvidedSecret(sharedSecret, providedMode)];
+        const constrainedModeTag = await SiloedTag.compute({
+          extendedSecret: new AppTaggingSecret(sharedSecret, contractAddress, providedMode),
           index: 0,
         });
-        const otherModeTag = await SiloedTag.compute({
-          extendedSecret: new AppTaggingSecret(providedSecret, contractAddress, AppTaggingSecretKind.UNCONSTRAINED),
+        const sameSecretUnconstrainedModeTag = await SiloedTag.compute({
+          extendedSecret: new AppTaggingSecret(sharedSecret, contractAddress, AppTaggingSecretKind.UNCONSTRAINED),
           index: 0,
         });
+        expect(constrainedModeTag.equals(sameSecretUnconstrainedModeTag)).toBe(false);
+
         const log = {
           logData: [Fr.random(), Fr.random()],
           blockNumber: anchorBlockHeader.globalVariables.blockNumber,
@@ -692,7 +694,7 @@ describe('Utility Execution test suite', () => {
           return Promise.resolve(
             query.tags.map(entry => {
               const tag = 'tag' in entry ? entry.tag : entry;
-              return tag.equals(expectedTag) ? [log] : [];
+              return tag.equals(constrainedModeTag) ? [log] : [];
             }),
           );
         });
@@ -705,12 +707,16 @@ describe('Utility Execution test suite', () => {
         const queried = aztecNode.getPrivateLogsByTags.mock.calls.flatMap(([query]) =>
           query.tags.map(entry => ('tag' in entry ? entry.tag.value.toString() : entry.value.toString())),
         );
-        expect(queried).toContain(expectedTag.value.toString());
-        expect(queried).not.toContain(otherModeTag.value.toString());
+        expect(queried).toContain(constrainedModeTag.value.toString());
+        expect(queried).not.toContain(sameSecretUnconstrainedModeTag.value.toString());
         const resultLogs = result.readAll(service).map(log => log.toFields());
-        expect(resultLogs).toEqual([
-          new PendingTaggedLog(log.logData, log.txHash, log.noteHashes, log.nullifiers[0]).toFields(),
-        ]);
+        const expectedConstrainedModeLogFields = new PendingTaggedLog(
+          log.logData,
+          log.txHash,
+          log.noteHashes,
+          log.nullifiers[0],
+        ).toFields();
+        expect(resultLogs).toEqual([expectedConstrainedModeLogFields]);
       });
     });
 
