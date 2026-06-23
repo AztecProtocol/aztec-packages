@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Module blob_data documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">blob_data</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#mod">Module blob_data</a></h2>
+<h3>Module items</h3>
+<ul class="sidebar-list">
+<li><a href="#structs">Structs</a></li>
+<li><a href="#functions">Functions</a></li>
+<li><a href="#globals">Globals</a></li>
+</ul>
+<h2>In module protocol</h2>
+<h3>Modules</h3><ul class="item-list">
+<li><a href="../abis/index.html">abis</a></div></li>
+<li><a href="../address/index.html">address</a></div></li>
+<li><a href="../blob_data/index.html">blob_data</a></div></li>
+<li><a href="../constants/index.html">constants</a></div></li>
+<li><a href="../contract_class_id/index.html">contract_class_id</a></div></li>
+<li><a href="../contract_instance/index.html">contract_instance</a></div></li>
+<li><a href="../data/index.html">data</a></div></li>
+<li><a href="../debug/index.html">debug</a></div></li>
+<li><a href="../delayed_public_mutable/index.html">delayed_public_mutable</a></div></li>
+<li><a href="../hash/index.html">hash</a></div></li>
+<li><a href="../logging/index.html">logging</a></div></li>
+<li><a href="../merkle_tree/index.html">merkle_tree</a></div></li>
+<li><a href="../messaging/index.html">messaging</a></div></li>
+<li><a href="../meta/index.html">meta</a></div></li>
+<li><a href="../point/index.html">point</a></div></li>
+<li><a href="../poseidon2/index.html">poseidon2</a></div></li>
+<li><a href="../proof/index.html">proof</a></div></li>
+<li><a href="../public_keys/index.html">public_keys</a></div></li>
+<li><a href="../scalar/index.html">scalar</a></div></li>
+<li><a href="../side_effect/index.html">side_effect</a></div></li>
+<li><a href="../storage/index.html">storage</a></div></li>
+<li><a href="../traits/index.html">traits</a></div></li>
+<li><a href="../utils/index.html">utils</a></div></li>
+<li><a href="../validate/index.html">validate</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">protocol</a>::blob_data</div>
+<h1>Module <span id="mod" class="module">blob_data</span></h1>
+<h2 id="structs">Structs</h2><ul class="item-list">
+<li><div class="item-name"><a href="struct.SpongeBlob.html" class="struct">SpongeBlob</a></div><div class="item-description">A Poseidon2 sponge used to accumulate data that will be added to blob(s).
+(More accurately called BlobSponge, but that's not as fun).</div></li>
+<li><div class="item-name"><a href="struct.TxEffect.html" class="struct">TxEffect</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="struct.TxEffectArrayLengths.html" class="struct">TxEffectArrayLengths</a></div><div class="item-description"></div></li>
+</ul>
+<h2 id="functions">Functions</h2><ul class="item-list">
+<li><div class="item-name"><a href="fn.create_block_end_blob_data.html" class="fn">create_block_end_blob_data</a></div><div class="item-description">Creates the data to be added to the blobs for a block. This is appended after the data for all txs in the block.
+It allows components outside the circuits to correctly retrieve the relevant fields from the checkpoint's blob data
+and to easily reconstruct the block header without needing to query other sources or rebuild the trees.</div></li>
+<li><div class="item-name"><a href="fn.create_block_end_marker.html" class="fn">create_block_end_marker</a></div><div class="item-description">Create the field that marks the end of a block. It's a concatenation of:
+<code>BLOCK_END_PREFIX</code> | <code>timestamp</code> | <code>block_number</code> | <code>num_txs</code></div></li>
+<li><div class="item-name"><a href="fn.create_block_end_state_field.html" class="fn">create_block_end_state_field</a></div><div class="item-description">Create the field that contains information about the end state of a block. It's a concatenation of:
+<code>l1_to_l2_message_next_available_leaf_index</code> | <code>note_hash_next_available_leaf_index</code> |
+<code>nullifier_next_available_leaf_index</code> | <code>public_data_next_available_leaf_index</code> | <code>total_mana_used</code></div></li>
+<li><div class="item-name"><a href="fn.create_checkpoint_end_marker.html" class="fn">create_checkpoint_end_marker</a></div><div class="item-description">Create the field that marks the end of a checkpoint. It's a concatenation of:
+<code>CHECKPOINT_END_PREFIX</code> | <code>num_blob_fields</code></div></li>
+<li><div class="item-name"><a href="fn.create_tx_start_marker.html" class="fn">create_tx_start_marker</a></div><div class="item-description">Create the first field that marks the start of a tx. It's a concatenation of:
+<code>TX_START_PREFIX</code> | <code>num_note_hashes</code> | <code>num_nullifiers</code> | <code>num_l2_to_l1_msgs</code> | <code>num_public_data_writes</code> |
+<code>num_private_logs</code> | <code>private_logs_length</code> | <code>public_logs_length</code> | <code>contract_class_log_length</code> | <code>revert_code</code> |
+<code>num_blob_fields</code></div></li>
+</ul>
+<h2 id="globals">Globals</h2><ul class="item-list">
+<li><div class="item-name"><a href="global.MAX_TX_BLOB_DATA_SIZE_IN_FIELDS.html" class="global">MAX_TX_BLOB_DATA_SIZE_IN_FIELDS</a></div><div class="item-description"></div></li>
+</ul>
+</main>
+</span>
+</body>
+</html>

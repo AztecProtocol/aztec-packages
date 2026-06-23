@@ -1,7 +1,12 @@
 import { type BlobClientConfig, blobClientConfigMapping } from '@aztec/blob-client/client/config';
 import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum/l1-reader';
 import { type L1TxUtilsConfig, l1TxUtilsConfigMappings } from '@aztec/ethereum/l1-tx-utils/config';
-import { type ConfigMappingsType, SecretValue, booleanConfigHelper } from '@aztec/foundation/config';
+import {
+  type ConfigMappingsType,
+  SecretValue,
+  booleanConfigHelper,
+  numberConfigHelper,
+} from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 import { parseEther } from 'viem';
@@ -90,6 +95,10 @@ export type SequencerPublisherConfig = L1TxUtilsConfig &
     fishermanMode?: boolean;
     sequencerPublisherAllowInvalidStates?: boolean;
     sequencerPublisherForwarderAddress?: EthAddress;
+    /** How long to wait for the previous L1 block before sending scheduled publisher txs anyway. */
+    sequencerPublisherPreviousL1BlockWaitTimeoutMs: number;
+    /** Poll interval while waiting for the previous L1 block before scheduled publisher txs. */
+    sequencerPublisherPreviousL1BlockWaitPollIntervalMs: number;
     /** Store for failed L1 transaction inputs (test networks only). Format: gs://bucket/path */
     l1TxFailedStore?: string;
     /** Min ETH balance below which a publisher gets funded. Undefined = funding disabled. */
@@ -169,6 +178,18 @@ export const sequencerPublisherConfigMappings: ConfigMappingsType<SequencerPubli
     env: `SEQ_PUBLISHER_FORWARDER_ADDRESS`,
     description: 'Address of the forwarder contract to wrap all L1 transactions through (for testing purposes only)',
     parseEnv: (val: string) => EthAddress.fromString(val),
+  },
+  sequencerPublisherPreviousL1BlockWaitTimeoutMs: {
+    env: `SEQ_PUBLISHER_PREVIOUS_L1_BLOCK_WAIT_TIMEOUT_MS`,
+    description:
+      'How long to wait for the previous L1 block before sending scheduled publisher txs anyway, in milliseconds.',
+    ...numberConfigHelper(8_000),
+  },
+  sequencerPublisherPreviousL1BlockWaitPollIntervalMs: {
+    env: `SEQ_PUBLISHER_PREVIOUS_L1_BLOCK_WAIT_POLL_INTERVAL_MS`,
+    description:
+      'Poll interval while waiting for the previous L1 block before scheduled publisher txs, in milliseconds.',
+    ...numberConfigHelper(500),
   },
   l1TxFailedStore: {
     env: 'L1_TX_FAILED_STORE',

@@ -13,8 +13,9 @@ import { BLS12Point } from '@aztec/foundation/curves/bls12';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { LoggerBindings } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
+import type { SerialQueue } from '@aztec/foundation/queue';
 import type { Tuple } from '@aztec/foundation/serialize';
-import { MerkleTreeCalculator, shaMerkleHash } from '@aztec/foundation/trees';
+import { MerkleTreeCalculator, type TreeNodeLocation, shaMerkleHash } from '@aztec/foundation/trees';
 import type { EthAddress } from '@aztec/stdlib/block';
 import type { PublicInputsAndRecursiveProof, ServerCircuitProver } from '@aztec/stdlib/interfaces/server';
 import { computeCheckpointOutHash } from '@aztec/stdlib/messaging';
@@ -31,7 +32,7 @@ import type { BlockHeader } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { buildBlobHints, toProofData } from './block-building-helpers.js';
-import { TopTreeProvingScheduler } from './top-tree-proving-scheduler.js';
+import { ProvingScheduler } from './proving-scheduler.js';
 import { TopTreeProvingState } from './top-tree-proving-state.js';
 
 /** Per-checkpoint data fed into the top tree. */
@@ -86,18 +87,18 @@ type OutHashHint = {
  * and each checkpoint's root rollup fires the moment its sub-tree's `blockProofs`
  * promise resolves. Later checkpoints can still be block-level proving in parallel.
  */
-export class TopTreeOrchestrator extends TopTreeProvingScheduler {
+export class TopTreeOrchestrator extends ProvingScheduler {
   private state: TopTreeProvingState | undefined;
   private cancelled = false;
 
   constructor(
-    prover: ServerCircuitProver,
+    protected readonly prover: ServerCircuitProver,
     private readonly proverId: EthAddress,
-    enqueueConcurrency: number,
+    deferredJobQueue: SerialQueue,
     _telemetryClient: TelemetryClient = getTelemetryClient(),
     bindings?: LoggerBindings,
   ) {
-    super(prover, enqueueConcurrency, 'prover-client:top-tree-orchestrator', bindings);
+    super(deferredJobQueue, 'prover-client:top-tree-orchestrator', bindings);
   }
 
   public getProverId(): EthAddress {
@@ -133,10 +134,9 @@ export class TopTreeOrchestrator extends TopTreeProvingScheduler {
     }
 
     const { promise: completionPromise, resolve, reject } = promiseWithResolvers<void>();
-    // The completion promise is awaited inside the try/catch below. Attach a no-op catch
-    // here as well so any spurious unhandled-rejection detection during cancellation
-    // (where reject() can fire synchronously before the await microtask installs a handler)
-    // is silenced.
+    // The completion promise is awaited below. Attach a no-op catch here as well so any
+    // spurious unhandled-rejection detection during cancellation (where reject() can fire
+    // synchronously before the await microtask installs a handler) is silenced.
     completionPromise.catch(() => {});
     const startBlobAccumulator = BatchedBlobAccumulator.newWithChallenges(finalBlobBatchingChallenges);
 
@@ -189,16 +189,13 @@ export class TopTreeOrchestrator extends TopTreeProvingScheduler {
       );
     }
 
-    try {
-      await completionPromise;
-      await this.state.finalizeBatchedBlob();
-      return this.state.getEpochProofResult();
-    } catch (err: any) {
-      if (this.cancelled) {
-        throw new TopTreeCancelledError();
-      }
-      throw err;
-    }
+    // The error type is stamped atomically at rejection time by the rejectionCallback above
+    // (TopTreeCancelledError iff cancel() drove the rejection). Re-deriving it here from the
+    // live `cancelled` flag would mask a genuine failure that lost a race with a late cancel
+    // (A-1035), so let the original error propagate untouched.
+    await completionPromise;
+    await this.state.finalizeBatchedBlob();
+    return this.state.getEpochProofResult();
   }
 
   /**
@@ -220,10 +217,6 @@ export class TopTreeOrchestrator extends TopTreeProvingScheduler {
 
   // --- internal: per-checkpoint enqueue path ---
 
-  protected override onRootRollupComplete(state: TopTreeProvingState) {
-    state.resolve();
-  }
-
   private enqueueCheckpointRoot(
     state: TopTreeProvingState,
     checkpointIndex: number,
@@ -235,26 +228,36 @@ export class TopTreeOrchestrator extends TopTreeProvingScheduler {
     outHashHint: OutHashHint,
     startBlobAccumulator: BatchedBlobAccumulator,
   ) {
-    void this.buildCheckpointRootInputs(blockProofs, cd, outHashHint, startBlobAccumulator).then(inputs => {
-      this.deferredProving(
-        state,
-        signal => {
-          if (inputs instanceof CheckpointRootSingleBlockRollupPrivateInputs) {
-            return this.prover.getCheckpointRootSingleBlockRollupProof(inputs, signal, state.epochNumber);
-          }
-          return this.prover.getCheckpointRootRollupProof(inputs, signal, state.epochNumber);
-        },
-        result => {
-          this.logger.debug(`Completed checkpoint root proof for checkpoint ${checkpointIndex}`);
-          const leafLocation = state.setCheckpointRootRollupProof(checkpointIndex, result);
-          if (state.totalNumCheckpoints === 1) {
-            this.enqueueEpochPadding(state);
-          } else {
-            this.checkAndEnqueueNextCheckpointMergeRollup(state, leafLocation);
-          }
-        },
-      );
-    });
+    void this.buildCheckpointRootInputs(blockProofs, cd, outHashHint, startBlobAccumulator).then(
+      inputs => {
+        this.deferredProving(
+          state,
+          signal => {
+            if (inputs instanceof CheckpointRootSingleBlockRollupPrivateInputs) {
+              return this.prover.getCheckpointRootSingleBlockRollupProof(inputs, signal, state.epochNumber);
+            }
+            return this.prover.getCheckpointRootRollupProof(inputs, signal, state.epochNumber);
+          },
+          result => {
+            this.logger.debug(`Completed checkpoint root proof for checkpoint ${checkpointIndex}`);
+            const leafLocation = state.setCheckpointRootRollupProof(checkpointIndex, result);
+            if (state.totalNumCheckpoints === 1) {
+              this.enqueueEpochPadding(state);
+            } else {
+              this.checkAndEnqueueNextCheckpointMergeRollup(state, leafLocation);
+            }
+          },
+        );
+      },
+      // Without this, an input-building failure rejects a discarded promise, state.reject() is
+      // never called, and prove() hangs forever on its completion promise (A-1036).
+      err => {
+        if (this.cancelled) {
+          return;
+        }
+        state.reject(`Building checkpoint root inputs for checkpoint ${checkpointIndex} failed: ${err}`);
+      },
+    );
   }
 
   private async buildCheckpointRootInputs(
@@ -284,6 +287,73 @@ export class TopTreeOrchestrator extends TopTreeProvingScheduler {
     return proofDatas.length === 1
       ? new CheckpointRootSingleBlockRollupPrivateInputs(proofDatas[0], hints)
       : new CheckpointRootRollupPrivateInputs([proofDatas[0], proofDatas[1]], hints);
+  }
+
+  // --- internal: top-tree proof orchestration (formerly TopTreeProvingScheduler) ---
+
+  private enqueueCheckpointMergeRollup(state: TopTreeProvingState, location: TreeNodeLocation) {
+    if (!state.verifyState() || !state.tryStartProvingCheckpointMerge(location)) {
+      return;
+    }
+    const inputs = state.getCheckpointMergeRollupInputs(location);
+    this.deferredProving(
+      state,
+      signal => this.prover.getCheckpointMergeRollupProof(inputs, signal, state.epochNumber),
+      result => {
+        state.setCheckpointMergeRollupProof(location, result);
+        this.checkAndEnqueueNextCheckpointMergeRollup(state, location);
+      },
+    );
+  }
+
+  private enqueueEpochPadding(state: TopTreeProvingState) {
+    if (!state.verifyState() || !state.tryStartProvingPaddingCheckpoint()) {
+      return;
+    }
+    const inputs = state.getPaddingCheckpointInputs();
+    this.deferredProving(
+      state,
+      signal => this.prover.getCheckpointPaddingRollupProof(inputs, signal, state.epochNumber),
+      result => {
+        state.setCheckpointPaddingProof(result);
+        this.checkAndEnqueueRootRollup(state);
+      },
+    );
+  }
+
+  private enqueueRootRollup(state: TopTreeProvingState) {
+    if (!state.verifyState() || !state.tryStartProvingRootRollup()) {
+      return;
+    }
+    const inputs = state.getRootRollupInputs();
+    this.deferredProving(
+      state,
+      signal => this.prover.getRootRollupProof(inputs, signal, state.epochNumber),
+      result => {
+        this.logger.verbose(`Completed root rollup for epoch ${state.epochNumber}`);
+        state.setRootRollupProof(result);
+        state.resolve();
+      },
+    );
+  }
+
+  private checkAndEnqueueNextCheckpointMergeRollup(state: TopTreeProvingState, currentLocation: TreeNodeLocation) {
+    if (!state.isReadyForCheckpointMerge(currentLocation)) {
+      return;
+    }
+    const parentLocation = state.getParentLocation(currentLocation);
+    if (parentLocation.level === 0) {
+      this.checkAndEnqueueRootRollup(state);
+    } else {
+      this.enqueueCheckpointMergeRollup(state, parentLocation);
+    }
+  }
+
+  private checkAndEnqueueRootRollup(state: TopTreeProvingState) {
+    if (!state.isReadyForRootRollup()) {
+      return;
+    }
+    this.enqueueRootRollup(state);
   }
 
   private async computeOutHashHints(checkpointData: CheckpointTopTreeData[]): Promise<OutHashHint[]> {

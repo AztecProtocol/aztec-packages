@@ -235,6 +235,21 @@ bool UltraCircuitChecker::check_block(Builder& builder,
     return result;
 };
 
+template <typename Relation, typename Builder, typename Block>
+bool UltraCircuitChecker::check_relation_at_row(Builder& builder, Block& block, size_t row_idx)
+{
+    auto values = init_empty_values<Builder>();
+    TagCheckData tag_data;
+    MemoryCheckData memory_data(builder);
+    populate_values(builder, block, values, tag_data, memory_data, row_idx);
+
+    Params params;
+    params.eta = memory_data.eta;
+    params.eta_two = memory_data.eta_two;
+    params.eta_three = memory_data.eta_three;
+    return check_relation<Relation>(values, params);
+}
+
 template <typename Relation> bool UltraCircuitChecker::check_relation(auto& values, auto& params)
 {
     // Define zero initialized array to store the evaluation of each sub-relation
@@ -633,4 +648,15 @@ template <typename Builder> bool UltraCircuitChecker::relaxed_check_memory_relat
 template bool UltraCircuitChecker::check<UltraCircuitBuilder_<UltraExecutionTraceBlocks>>(
     const UltraCircuitBuilder_<UltraExecutionTraceBlocks>& builder_in);
 template bool UltraCircuitChecker::check<MegaCircuitBuilder_<bb::fr>>(const MegaCircuitBuilder_<bb::fr>& builder_in);
+
+// Instantiations of check_relation_at_row for the Mega Poseidon2 boundary relations exercised by the compressed
+// internal-round soundness tests.
+template bool UltraCircuitChecker::check_relation_at_row<Poseidon2ExternalRelation<bb::fr>>(
+    MegaCircuitBuilder_<bb::fr>&, MegaTraceBlock&, size_t);
+template bool UltraCircuitChecker::check_relation_at_row<Poseidon2TransitionEntryRelation<bb::fr>>(
+    MegaCircuitBuilder_<bb::fr>&, MegaTraceBlock&, size_t);
+template bool UltraCircuitChecker::check_relation_at_row<Poseidon2QuadInternalRelation<bb::fr>>(
+    MegaCircuitBuilder_<bb::fr>&, MegaTraceBlock&, size_t);
+template bool UltraCircuitChecker::check_relation_at_row<Poseidon2QuadInternalTerminalRelation<bb::fr>>(
+    MegaCircuitBuilder_<bb::fr>&, MegaTraceBlock&, size_t);
 } // namespace bb

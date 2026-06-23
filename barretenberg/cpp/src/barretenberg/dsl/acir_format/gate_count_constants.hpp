@@ -44,7 +44,7 @@ template <typename Builder> inline constexpr size_t BLAKE2S = 2952 + ZERO_GATE +
 template <typename Builder> inline constexpr size_t BLAKE3 = 2158 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t KECCAK_PERMUTATION = 17387 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder>
-inline constexpr size_t POSEIDON2_PERMUTATION = (IsMegaBuilder<Builder> ? 27 : 73) + ZERO_GATE + MEGA_OFFSET<Builder>;
+inline constexpr size_t POSEIDON2_PERMUTATION = (IsMegaBuilder<Builder> ? 25 : 73) + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t MULTI_SCALAR_MUL = 3557 + ZERO_GATE;
 template <typename Builder> inline constexpr size_t EC_ADD = 76 + ZERO_GATE + MEGA_OFFSET<Builder>;
 template <typename Builder> inline constexpr size_t BLOCK_ROM_READ = 4 + ZERO_GATE + MEGA_OFFSET<Builder>;
@@ -89,18 +89,19 @@ constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(
     } else if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraRecursiveFlavor_<MegaCircuitBuilder>>) {
         switch (mode) {
         case PredicateTestCase::ConstantTrue:
-            return std::make_tuple(11869, 73);
+            return std::make_tuple(11479, 73);
         case PredicateTestCase::WitnessTrue:
         case PredicateTestCase::WitnessFalse:
-            return std::make_tuple(12926, 73);
+            return std::make_tuple(12536, 73);
+            return std::make_tuple(12536, 73);
         }
     } else if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraZKRecursiveFlavor_<MegaCircuitBuilder>>) {
         switch (mode) {
         case PredicateTestCase::ConstantTrue:
-            return std::make_tuple(14563, 77);
+            return std::make_tuple(14107, 77);
         case PredicateTestCase::WitnessTrue:
         case PredicateTestCase::WitnessFalse:
-            return std::make_tuple(15716, 77);
+            return std::make_tuple(15260, 77);
         }
     } else if constexpr (std::is_same_v<RecursiveFlavor, bb::MegaZKRecursiveFlavor_<UltraCircuitBuilder>>) {
         if (mode != PredicateTestCase::ConstantTrue) {
@@ -119,7 +120,7 @@ constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(
 // ========================================
 
 // Gate count for Chonk recursive verification (Ultra with RollupIO)
-inline constexpr size_t CHONK_RECURSION_GATES = 1373308;
+inline constexpr size_t CHONK_RECURSION_GATES = 1373965;
 
 // ========================================
 // Hypernova Recursion Constants
@@ -136,25 +137,25 @@ inline constexpr size_t MSM_ROWS_OFFSET = 2;
 
 // Init kernel: verifies its leading apps (first via an OINK proof, rest via HN); carries no accumulator, so K
 // apps reduce to K claims (no batching for K==1, width-K batching for K>=2).
-inline constexpr std::array<size_t, KERNEL_APP_COUNTS> INIT_KERNEL_GATE_COUNT = { 12610, 25141, 34847 };
+inline constexpr std::array<size_t, KERNEL_APP_COUNTS> INIT_KERNEL_GATE_COUNT = { 12182, 24189, 33483 };
 inline constexpr std::array<size_t, KERNEL_APP_COUNTS> INIT_KERNEL_ECC_ROWS = { 524, 1176, 1700 };
 inline constexpr std::array<size_t, KERNEL_APP_COUNTS> INIT_KERNEL_ULTRA_OPS = { 60, 131, 194 };
 
 // Inner kernel: verifies the previous kernel (HN) plus K apps (HN). The carried accumulator + previous kernel +
 // K apps reduce to a (K+2)-claim per-kernel batching.
-inline constexpr std::array<size_t, KERNEL_APP_COUNTS> INNER_KERNEL_GATE_COUNT = { 26472, 36178, 45968 };
+inline constexpr std::array<size_t, KERNEL_APP_COUNTS> INNER_KERNEL_GATE_COUNT = { 25454, 34748, 44122 };
 inline constexpr std::array<size_t, KERNEL_APP_COUNTS> INNER_KERNEL_ECC_ROWS = { 1242, 1832, 2356 };
 inline constexpr std::array<size_t, KERNEL_APP_COUNTS> INNER_KERNEL_ULTRA_OPS = { 140, 203, 266 };
 
 // Reset or Tail kernel: verifies a single previous-kernel HN proof, then a width-2 per-kernel
 // batching. Reset and tail kernels are structurally identical from the IVC's perspective.
-inline constexpr size_t RESET_TAIL_KERNEL_GATE_COUNT = 16622;
+inline constexpr size_t RESET_TAIL_KERNEL_GATE_COUNT = 16024;
 inline constexpr size_t RESET_TAIL_KERNEL_ECC_ROWS = 718;
 inline constexpr size_t RESET_TAIL_KERNEL_ULTRA_OPS = 73;
 
 // Hiding kernel: verifies the tail kernel (HN_FINAL), then a batch-merge recursive verifier sized for
 // CHONK_MAX_NUM_CIRCUITS plus a decider.
-inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 41228;
+inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 39638;
 inline constexpr size_t HIDING_KERNEL_ECC_ROWS = 5330;
 inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = 359;
 
@@ -163,7 +164,7 @@ inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = 359;
 // ========================================
 
 // Gate count for ECCVM recursive verifier (Ultra-arithmetized)
-inline constexpr size_t ECCVM_RECURSIVE_VERIFIER_GATE_COUNT = 234253;
+inline constexpr size_t ECCVM_RECURSIVE_VERIFIER_GATE_COUNT = 234909;
 
 // ========================================
 // Goblin AVM Recursive Verifier Constants

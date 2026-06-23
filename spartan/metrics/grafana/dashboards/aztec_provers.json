@@ -575,44 +575,16 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "AVG epoch proving duration"
+              "options": "AVG checkpoint proving duration"
             },
             "properties": [
               {
                 "id": "unit",
-                "value": "s"
+                "value": "ms"
               },
               {
                 "id": "custom.axisPlacement",
                 "value": "left"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Txs"
-            },
-            "properties": [
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "green",
-                      "value": null
-                    },
-                    {
-                      "color": "super-light-yellow",
-                      "value": 115
-                    },
-                    {
-                      "color": "dark-yellow",
-                      "value": 230
-                    }
-                  ]
-                }
               }
             ]
           }
@@ -646,9 +618,9 @@
             "uid": "${data_source}"
           },
           "editorMode": "code",
-          "expr": "rate(aztec_prover_node_job_duration_seconds_sum{k8s_namespace_name=\"$namespace\"}[$__rate_interval])/rate(aztec_prover_node_job_duration_seconds_count{k8s_namespace_name=\"$namespace\"}[$__rate_interval])",
+          "expr": "rate(aztec_prover_node_checkpoint_proving_duration_milliseconds_sum{k8s_namespace_name=\"$namespace\"}[$__rate_interval])/rate(aztec_prover_node_checkpoint_proving_duration_milliseconds_count{k8s_namespace_name=\"$namespace\"}[$__rate_interval])",
           "instant": false,
-          "legendFormat": "AVG epoch proving duration",
+          "legendFormat": "AVG checkpoint proving duration",
           "range": true,
           "refId": "A"
         },
@@ -658,10 +630,10 @@
             "uid": "${data_source}"
           },
           "editorMode": "builder",
-          "expr": "last_over_time(aztec_prover_node_job_transactions{k8s_namespace_name=\"$namespace\"}[$__rate_interval])\n",
+          "expr": "rate(aztec_prover_node_checkpoint_transactions_sum{k8s_namespace_name=\"$namespace\"}[$__rate_interval])/rate(aztec_prover_node_checkpoint_transactions_count{k8s_namespace_name=\"$namespace\"}[$__rate_interval])",
           "hide": false,
           "instant": false,
-          "legendFormat": "Txs",
+          "legendFormat": "Txs per checkpoint",
           "range": true,
           "refId": "B"
         },
@@ -679,7 +651,7 @@
           "refId": "C"
         }
       ],
-      "title": "Epoch proving",
+      "title": "Checkpoint proving",
       "type": "timeseries"
     },
     {
@@ -835,7 +807,7 @@
               }
             ]
           },
-          "unit": "Ξ"
+          "unit": "\u039e"
         },
         "overrides": []
       },
@@ -1172,7 +1144,7 @@
             "uid": "${prometheusDS}"
           },
           "editorMode": "code",
-          "expr": "sum(increase(aztec_prover_node_execution_duration_milliseconds_bucket{k8s_namespace_name=\"$namespace\"}[$__rate_interval])) by (le)",
+          "expr": "sum(increase(aztec_prover_node_checkpoint_processing_duration_milliseconds_bucket{k8s_namespace_name=\"$namespace\"}[$__rate_interval])) by (le)",
           "format": "heatmap",
           "interval": "",
           "legendFormat": "{{le}}",
@@ -1180,7 +1152,7 @@
           "refId": "A"
         }
       ],
-      "title": "Prover Node Execution Duration (Heatmap)",
+      "title": "Prover Node Checkpoint Processing Duration (Heatmap)",
       "type": "heatmap"
     },
     {
@@ -1574,12 +1546,214 @@
       "type": "timeseries"
     },
     {
+      "datasource": {
+        "default": true,
+        "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 68
+      },
+      "id": 42,
+      "options": {
+        "legend": {
+          "calcs": [
+            "last",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "9.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(aztec_prover_node_active_checkpoints{k8s_namespace_name=\"$namespace\"})",
+          "legendFormat": "Active checkpoints",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Active Checkpoints",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "default": true,
+        "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 68
+      },
+      "id": 43,
+      "options": {
+        "legend": {
+          "calcs": [
+            "last",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "9.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "aztec_prover_node_active_epoch_sessions{k8s_namespace_name=\"$namespace\"}",
+          "legendFormat": "{{aztec_epoch_session_kind}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Active Epoch Sessions by Kind",
+      "type": "timeseries"
+    },
+    {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 68
+        "y": 76
       },
       "id": 16,
       "panels": [],
@@ -1652,7 +1826,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 69
+        "y": 77
       },
       "id": 17,
       "options": {
@@ -1754,7 +1928,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 69
+        "y": 77
       },
       "id": 18,
       "options": {
@@ -1855,7 +2029,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 77
+        "y": 85
       },
       "id": 19,
       "interval": "20m",
@@ -1959,7 +2133,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 77
+        "y": 85
       },
       "id": 20,
       "options": {
@@ -2002,7 +2176,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 85
+        "y": 93
       },
       "id": 21,
       "panels": [],
@@ -2058,7 +2232,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 86
+        "y": 94
       },
       "id": 22,
       "interval": "20m",
@@ -2130,7 +2304,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 86
+        "y": 94
       },
       "id": 23,
       "maxDataPoints": 32,
@@ -2154,7 +2328,7 @@
           "color": "rgba(255,0,255,0.7)"
         },
         "filterValues": {
-          "le": 1e-9
+          "le": 1e-09
         },
         "legend": {
           "show": true
@@ -2259,7 +2433,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 94
+        "y": 102
       },
       "id": 24,
       "options": {
@@ -2301,7 +2475,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 102
+        "y": 110
       },
       "id": 25,
       "panels": [],
@@ -2341,7 +2515,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 103
+        "y": 111
       },
       "id": 26,
       "interval": "1m",
@@ -2411,7 +2585,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 103
+        "y": 111
       },
       "id": 28,
       "options": {
@@ -2513,7 +2687,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 111
+        "y": 119
       },
       "id": 29,
       "interval": "20m",
@@ -2582,7 +2756,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 119
+        "y": 127
       },
       "id": 30,
       "options": {
@@ -2629,7 +2803,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 127
+        "y": 135
       },
       "id": 37,
       "panels": [],
@@ -2691,7 +2865,7 @@
               }
             ]
           },
-          "unit": "Ξ"
+          "unit": "\u039e"
         },
         "overrides": []
       },
@@ -2699,7 +2873,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 128
+        "y": 136
       },
       "id": 38,
       "interval": "5m",
@@ -2798,7 +2972,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 128
+        "y": 136
       },
       "id": 39,
       "interval": "5m",
@@ -2896,7 +3070,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 136
+        "y": 144
       },
       "id": 40,
       "interval": "5m",
@@ -2955,7 +3129,7 @@
               }
             ]
           },
-          "unit": "Ξ"
+          "unit": "\u039e"
         },
         "overrides": []
       },
@@ -2963,7 +3137,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 136
+        "y": 144
       },
       "id": 41,
       "options": {

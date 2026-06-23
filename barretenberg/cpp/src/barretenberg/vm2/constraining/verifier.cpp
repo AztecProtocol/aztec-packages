@@ -91,7 +91,7 @@ bool AvmVerifier::verify_proof(const HonkProof& proof, const std::vector<std::ve
     // in the clear and on the committed columns.
     for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
         // Validate public input column size
-        if (public_inputs[i].size() != AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH) {
+        if (public_inputs[i].size() != AVM_PUBLIC_INPUTS_COLUMN_LENGTHS[i]) {
             vinfo("Public input size mismatch");
             return false;
         }

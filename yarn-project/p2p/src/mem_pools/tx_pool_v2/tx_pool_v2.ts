@@ -110,6 +110,10 @@ export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitte
     return this.#queue.put(() => this.#impl.prepareForSlot(slotNumber));
   }
 
+  unprotectTxs(txHashes: TxHash[], slotNumber: SlotNumber): Promise<void> {
+    return this.#queue.put(() => this.#impl.unprotectTxs(txHashes, slotNumber));
+  }
+
   handlePrunedBlocks(latestBlock: L2BlockId, options?: { deleteAllTxs?: boolean }): Promise<void> {
     return this.#queue.put(() => this.#impl.handlePrunedBlocks(latestBlock, options));
   }
@@ -124,12 +128,12 @@ export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitte
 
   // === Queries ===
 
-  getTxByHash(txHash: TxHash): Promise<Tx | undefined> {
-    return this.#queue.put(() => this.#impl.getTxByHash(txHash));
+  getTxByHash(txHash: TxHash, opts?: { includeProof?: boolean }): Promise<Tx | undefined> {
+    return this.#queue.put(() => this.#impl.getTxByHash(txHash, opts));
   }
 
-  getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
-    return this.#queue.put(() => this.#impl.getTxsByHash(txHashes));
+  getTxsByHash(txHashes: TxHash[], opts?: { includeProof?: boolean }): Promise<(Tx | undefined)[]> {
+    return this.#queue.put(() => this.#impl.getTxsByHash(txHashes, opts));
   }
 
   hasTxs(txHashes: TxHash[]): Promise<boolean[]> {

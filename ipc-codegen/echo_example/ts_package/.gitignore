@@ -1,0 +1,12 @@
+node_modules/
+dest/
+build/
+packages/
+package-lock.json
+package.json
+tsconfig.json
+src/generated/
+src/index.ts
+src/platform.ts
+src/bin.ts
+scripts/prepare_arch_packages.sh

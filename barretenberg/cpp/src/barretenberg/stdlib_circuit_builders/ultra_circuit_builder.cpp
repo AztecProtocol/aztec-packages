@@ -1950,23 +1950,29 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::read_ROM_array_pai
 }
 
 /**
- * @brief Poseidon2 external round gate, activates the q_poseidon2_external selector and relation
+ * @brief Poseidon2 external round gate, activates the q_poseidon2_external selector and relation.
+ *        Ultra has a dedicated `poseidon2_external` block; Mega overrides this to route external rounds
+ *        into its shared `poseidon2` block (see MegaCircuitBuilder_::create_poseidon2_external_gate).
  */
 template <typename FF>
 void UltraCircuitBuilder_<FF>::create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in)
 {
-    auto& block = this->blocks.poseidon2_external;
-    block.populate_wires(in.a, in.b, in.c, in.d);
-    block.q_m().emplace_back(0);
-    block.q_1().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0]);
-    block.q_2().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][1]);
-    block.q_3().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][2]);
-    block.q_c().emplace_back(0);
-    block.q_4().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][3]);
-    block.q_5().emplace_back(0);
-    block.set_gate_selector(GateKind::Poseidon2Ext, 1);
-    this->check_selector_length_consistency();
-    this->increment_num_gates();
+    if constexpr (requires { this->blocks.poseidon2_external; }) {
+        auto& block = this->blocks.poseidon2_external;
+        block.populate_wires(in.a, in.b, in.c, in.d);
+        block.q_m().emplace_back(0);
+        block.q_1().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0]);
+        block.q_2().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][1]);
+        block.q_3().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][2]);
+        block.q_c().emplace_back(0);
+        block.q_4().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][3]);
+        block.q_5().emplace_back(0);
+        block.set_gate_selector(GateKind::Poseidon2Ext, 1);
+        this->check_selector_length_consistency();
+        this->increment_num_gates();
+    } else {
+        throw_or_abort("create_poseidon2_external_gate base is Ultra-only (Mega overrides into its poseidon2 block)");
+    }
 }
 
 /**

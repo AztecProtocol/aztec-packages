@@ -1,6 +1,6 @@
 // === AUDIT STATUS ===
-// internal:    { status: Complete, auditors: [Sergei], commit: 777717f6af324188ecd6bb68c3c86ee7befef94d}
-// external_1:  { status: Complete, auditors: [@ed25519 (Spearbit)], commit: }
+// internal:    { status: not started, auditors: [], commit: }
+// external_1:  { status: not started, auditors: [], commit: }
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
@@ -189,9 +189,10 @@ void apply_mega_internal_rounds(MegaCircuitBuilder* builder,
     static_assert(Permutation::rounds_p % 4 == 0);
     constexpr size_t num_quad_rows = Permutation::rounds_p / 4; // 14 rows for rounds_p = 56
 
-    // Entry transition row (standard encoding): its wires share witness indices with the external
-    // block's propagate row, so they are the true external output. The relation forces the first
-    // compressed row's (w_r_shift, w_o_shift, w_4_shift) to state[0] at rounds start+1, +2, +3.
+    // Entry transition row (standard encoding): its wires are the first external group's output state,
+    // pinned by that group's last external round relation via w_shift (the rows are contiguous in the
+    // shared `poseidon2` block). The relation forces the first compressed row's
+    // (w_r_shift, w_o_shift, w_4_shift) to state[0] at rounds start+1, +2, +3.
     {
         poseidon2_transition_entry_gate_<FF> in{
             current_state[0].get_witness_index(),
@@ -289,14 +290,6 @@ void apply_mega_internal_rounds(MegaCircuitBuilder* builder,
     }
     // 1 terminal compressed row (covering rounds 52..55 relative)
     emit_quad_row(num_quad_rows - 1, /*is_terminal=*/true);
-
-    // Standard-transition bridge row: selector-unconstrained, holds state at round p_end in standard
-    // encoding. Shared witness indices with the first final-external gate below.
-    builder->create_unconstrained_gate(builder->blocks.poseidon2_quad_internal,
-                                       current_state[0].get_witness_index(),
-                                       current_state[1].get_witness_index(),
-                                       current_state[2].get_witness_index(),
-                                       current_state[3].get_witness_index());
 }
 
 } // namespace
@@ -329,7 +322,12 @@ typename Poseidon2Permutation<Builder>::State Poseidon2Permutation<Builder>::per
     apply_external_rounds(
         builder, current_state, current_native_state, /*begin=*/0, /*end=*/rounds_f_beginning, input_id);
 
-    propagate_current_state_to_next_row(builder, current_state, builder->blocks.poseidon2_external);
+    // Ultra needs an explicit landing row for the first external group's output. On Mega every poseidon2 gate lives
+    // in the single `poseidon2` block, so the transition-entry row emitted next is the external relation's
+    // w_shift target directly -- no separate propagate row.
+    if constexpr (!IsMegaBuilder<Builder>) {
+        propagate_current_state_to_next_row(builder, current_state, builder->blocks.poseidon2_external);
+    }
 
     // Internal rounds: Mega uses a K=4 compressed block; Ultra keeps the standard one-round layout.
     const size_t p_end = rounds_f_beginning + rounds_p;
@@ -343,7 +341,13 @@ typename Poseidon2Permutation<Builder>::State Poseidon2Permutation<Builder>::per
     // Remaining external rounds
     apply_external_rounds(builder, current_state, current_native_state, /*begin=*/p_end, /*end=*/NUM_ROUNDS, input_id);
 
-    propagate_current_state_to_next_row(builder, current_state, builder->blocks.poseidon2_external);
+    // Landing row for the final external round's output (the permutation result). On Mega it sits in the shared
+    // `poseidon2` block so the whole permutation remains contiguous.
+    if constexpr (IsMegaBuilder<Builder>) {
+        propagate_current_state_to_next_row(builder, current_state, builder->blocks.poseidon2);
+    } else {
+        propagate_current_state_to_next_row(builder, current_state, builder->blocks.poseidon2_external);
+    }
 
     return current_state;
 }

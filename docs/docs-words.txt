@@ -63,6 +63,7 @@ colour
 Colour
 CapsuleStore
 initializerless
+immutables
 colums
 Commiting
 comsumer
@@ -352,6 +353,7 @@ tskm
 tvsk
 txns
 unbrick
+uncheckpointed
 uncompressable
 undeflow
 Undercollateralized

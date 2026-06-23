@@ -14,10 +14,10 @@ locals {
   aztec_image_repository = join(":", slice(local.aztec_image_parts, 0, length(local.aztec_image_parts) - 1))
   aztec_image_tag        = local.aztec_image_parts[length(local.aztec_image_parts) - 1]
 
-  workload_name      = "${var.RELEASE_NAME}-aztec-node"
-  l1_secret_name     = "${var.RELEASE_NAME}-l1"
-  otel_secret_name   = "${var.RELEASE_NAME}-otel"
-  sticky_policy_name = "${var.RELEASE_PREFIX}-rpc-sticky-sessions"
+  workload_name        = "${var.RELEASE_NAME}-aztec-node"
+  l1_secret_name       = "${var.RELEASE_NAME}-l1"
+  otel_secret_name     = "${var.RELEASE_NAME}-otel"
+  upstream_policy_name = "${var.RELEASE_PREFIX}-rpc-upstream-policy"
 }
 
 resource "helm_release" "rpc" {
@@ -29,7 +29,7 @@ resource "helm_release" "rpc" {
   force_update     = true
   recreate_pods    = true
   reuse_values     = false
-  timeout          = 600
+  timeout          = 3600 # 1h to sync
   wait             = true
   wait_for_jobs    = true
   take_ownership   = true
@@ -150,6 +150,9 @@ resource "helm_release" "rpc" {
 
       node = {
         logLevel = "info"
+        startupProbe = {
+          failureThreshold = 120
+        }
         env = {
           OTEL_SERVICE_NAME = var.RELEASE_NAME
         }
@@ -194,7 +197,7 @@ resource "helm_release" "rpc" {
           port    = 8080
           type    = "ClusterIP"
           annotations = {
-            "konghq.com/upstream-policy" = local.sticky_policy_name
+            "konghq.com/upstream-policy" = local.upstream_policy_name
           }
         }
         admin = {

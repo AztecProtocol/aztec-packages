@@ -1,3 +1,4 @@
+import { MAX_PROCESSABLE_L2_GAS, MAX_TX_DA_GAS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { KeyStore } from '@aztec/key-store';
 import { WASMSimulator } from '@aztec/simulator/client';
@@ -5,7 +6,7 @@ import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2TipsProvider } from '@aztec/stdlib/block';
-import { GasFees, GasSettings } from '@aztec/stdlib/gas';
+import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { type BlockHeader, CallContext, type Capsule, TxContext } from '@aztec/stdlib/tx';
 
@@ -25,6 +26,7 @@ import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagg
 import { ExecutionNoteCache } from '../execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from '../execution_tagging_index_cache.js';
 import { HashedValuesCache } from '../hashed_values_cache.js';
+import { TransientArrayService } from '../transient_array_service.js';
 import { PrivateExecutionOracle, type PrivateExecutionOracleArgs } from './private_execution_oracle.js';
 
 describe('PrivateExecutionOracle', () => {
@@ -43,7 +45,10 @@ describe('PrivateExecutionOracle', () => {
     txContext = TxContext.from({
       chainId: new Fr(10),
       version: new Fr(20),
-      gasSettings: GasSettings.fallback({ maxFeesPerGas: new GasFees(10, 10) }),
+      gasSettings: GasSettings.fallback({
+        gasLimits: new Gas(MAX_TX_DA_GAS, MAX_PROCESSABLE_L2_GAS),
+        maxFeesPerGas: new GasFees(10, 10),
+      }),
     });
   });
 
@@ -92,6 +97,7 @@ describe('PrivateExecutionOracle', () => {
       jobId: 'test',
       scopes: [],
       simulator: new WASMSimulator(),
+      transientArrayService: new TransientArrayService(),
       ...overrides,
     });
   };

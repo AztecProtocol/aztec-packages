@@ -3,8 +3,8 @@ use aztec::{
     keys::getters::{get_nhk_app, get_public_keys, try_get_public_keys},
     macros::notes::custom_note,
     messages::{
+        delivery::{do_private_message_delivery, MessageDelivery},
         logs::partial_note::encode_partial_note_private_message,
-        message_delivery::{do_private_message_delivery, MessageDelivery},
     },
     note::{note_interface::{NoteHash, NoteType}, utils::{compute_note_hash, compute_note_nullifier}},
     oracle::random::random,

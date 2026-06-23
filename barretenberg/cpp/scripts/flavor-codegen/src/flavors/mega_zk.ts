@@ -1,5 +1,6 @@
 import { flavor } from "../flavor.js";
 import * as R from "../relations/index.js";
+import { megaPoseidon2Relations } from "./mega_poseidon2.js";
 
 // Chonk hiding-kernel flavor (`Chonk::accumulate_hiding_kernel`). Only `kernel_calldata` is
 // active — reads against the prior circuit's return_data, copy-constrained to kernel_calldata.
@@ -21,11 +22,8 @@ export const MegaZK = flavor({
       indicator: "kernel_calldata_indicator",
       selector: "q_l",
     }),
-    R.Poseidon2ExternalRelation,
-    R.Poseidon2InitialExternalRelation,
-    R.Poseidon2QuadInternalRelation,
-    R.Poseidon2QuadInternalTerminalRelation,
-    R.Poseidon2TransitionEntryRelation,
+    // All five poseidon2 gate kinds share the single `poseidon2` block (see mega_poseidon2.ts).
+    ...megaPoseidon2Relations,
   ],
   composites: {
     selectors: ["non_gate_selectors", "gate_selectors"],

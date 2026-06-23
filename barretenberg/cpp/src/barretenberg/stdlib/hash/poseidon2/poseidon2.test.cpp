@@ -29,11 +29,13 @@ template <typename Builder> class StdlibPoseidon2 : public testing::Test {
         size_t N_3 = N % 3;
 
         if constexpr (IsMegaBuilder<Builder>) {
-            // Mega uses the K=4 compressed encoding with a custom initial-linear-layer row.
+            // Mega uses the K=4 compressed encoding with a custom initial-linear-layer row. All five
+            // poseidon2 gate kinds share one block so each permutation's rows are contiguous; the
+            // external<->internal handoff binds via w_shift, with no separate transition rows.
             if (P_N == 1) {
-                return 28;
+                return 26;
             }
-            return (N_3 == 0) ? (30 * P_N - 2) : (30 * P_N - 5 + N_3);
+            return (N_3 == 0) ? (28 * P_N - 2) : (28 * P_N - 5 + N_3);
         }
 
         // Ultra uses the standard single-round encoding (73 gates).

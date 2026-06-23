@@ -586,7 +586,7 @@ describe('LibP2PService', () => {
         mockEpochCache,
       );
 
-      blockReceivedCallback = jest.fn().mockImplementation(() => Promise.resolve(true));
+      blockReceivedCallback = jest.fn().mockImplementation(() => Promise.resolve<boolean>(true));
       duplicateProposalCallback = jest.fn();
       service.registerBlockReceivedCallback(blockReceivedCallback as any);
       service.registerDuplicateProposalCallback(duplicateProposalCallback);
@@ -783,6 +783,29 @@ describe('LibP2PService', () => {
 
       // Verify message was rejected
       expect(reportMessageValidationResultSpy).toHaveBeenCalledWith('msg-1', MOCK_PEER_ID, TopicValidatorResult.Reject);
+    });
+
+    it('local validation failure releases the protections it created', async () => {
+      const header = makeBlockHeader(1, { slotNumber: targetSlot });
+      const proposal = await makeBlockProposal({ signer, blockHeader: header });
+      blockReceivedCallback.mockImplementationOnce(() => Promise.resolve(false));
+
+      await service.processBlockFromPeer(proposal.toBuffer(), 'msg-1', mockPeerId);
+
+      expect(mockTxPool.protectTxs).toHaveBeenCalledTimes(1);
+      // The failed proposal releases exactly the txs it protected, keyed to its slot.
+      expect(mockTxPool.unprotectTxs).toHaveBeenCalledTimes(1);
+      expect(mockTxPool.unprotectTxs).toHaveBeenCalledWith(proposal.txHashes, targetSlot);
+    });
+
+    it('successful local validation does not release protections', async () => {
+      const header = makeBlockHeader(1, { slotNumber: targetSlot });
+      const proposal = await makeBlockProposal({ signer, blockHeader: header });
+
+      await service.processBlockFromPeer(proposal.toBuffer(), 'msg-1', mockPeerId);
+
+      expect(mockTxPool.protectTxs).toHaveBeenCalledTimes(1);
+      expect(mockTxPool.unprotectTxs).not.toHaveBeenCalled();
     });
 
     // Regression for A-1013: payloads sharing (slot, position, archive) but differing on another
@@ -1204,6 +1227,294 @@ describe('LibP2PService', () => {
     });
   });
 
+  describe('oversized proposals (over the consensus maxBlocksPerCheckpoint)', () => {
+    let attestationPool: AttestationPool;
+    let mockTxPool: MockProxy<TxPoolV2>;
+    let mockEpochCache: MockProxy<EpochCacheInterface>;
+    let signer: Secp256k1Signer;
+    let blockReceivedCallback: jest.Mock;
+    let allNodesCheckpointReceivedCallback: jest.Mock;
+    let validatorCheckpointReceivedCallback: jest.Mock;
+    let duplicateProposalCallback: jest.Mock;
+    let oversizedProposalCallback: jest.Mock;
+
+    const targetSlot = SlotNumber(100);
+    const nextSlot = SlotNumber(101);
+    const MAX_BLOCKS = 5;
+    // 0-based index 5 is the 6th block, one over the consensus cap of 5, but below the hard ceiling.
+    const oversizedIndex = IndexWithinCheckpoint(MAX_BLOCKS);
+    const secondOversizedIndex = IndexWithinCheckpoint(MAX_BLOCKS + 1);
+
+    beforeEach(() => {
+      signer = Secp256k1Signer.random();
+      attestationPool = new AttestationPool(openTmpStore(true));
+      mockTxPool = mock<TxPoolV2>();
+      mockTxPool.protectTxs.mockResolvedValue([]);
+
+      mockEpochCache = mock<EpochCacheInterface>();
+      mockEpochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+      mockEpochCache.getTargetAndNextSlot.mockReturnValue({ targetSlot, nextSlot });
+      mockEpochCache.getTargetSlot.mockReturnValue(targetSlot);
+
+      mockPeerManager = mock<PeerManagerInterface>();
+      reportMessageValidationResultSpy = jest.fn();
+
+      service = createTestLibP2PServiceWithPools(
+        mockPeerManager,
+        reportMessageValidationResultSpy,
+        attestationPool,
+        mockTxPool,
+        mockEpochCache,
+        { maxBlocksPerCheckpoint: MAX_BLOCKS },
+      );
+
+      blockReceivedCallback = jest.fn().mockImplementation(() => Promise.resolve(true));
+      allNodesCheckpointReceivedCallback = jest.fn().mockImplementation(() => Promise.resolve([]));
+      validatorCheckpointReceivedCallback = jest.fn().mockImplementation(() => Promise.resolve([]));
+      duplicateProposalCallback = jest.fn();
+      oversizedProposalCallback = jest.fn();
+      service.registerBlockReceivedCallback(blockReceivedCallback as any);
+      service.registerAllNodesCheckpointReceivedCallback(allNodesCheckpointReceivedCallback as any);
+      service.registerValidatorCheckpointReceivedCallback(validatorCheckpointReceivedCallback as any);
+      service.registerDuplicateProposalCallback(duplicateProposalCallback);
+      service.registerOversizedProposalCallback(oversizedProposalCallback);
+    });
+
+    it('oversized block proposal: accepts (re-broadcast), stores as evidence, does NOT process, no penalty', async () => {
+      const proposal = await makeBlockProposal({
+        signer,
+        blockHeader: makeBlockHeader(1, { slotNumber: targetSlot }),
+        indexWithinCheckpoint: oversizedIndex,
+        archiveRoot: Fr.random(),
+      });
+
+      await service.processBlockFromPeer(proposal.toBuffer(), 'msg-1', mockPeerId);
+
+      // Accepted for re-broadcast as slashing evidence
+      expect(reportMessageValidationResultSpy).toHaveBeenCalledWith('msg-1', MOCK_PEER_ID, TopicValidatorResult.Accept);
+      // But never processed/attested, and the relaying peer is not penalized
+      expect(blockReceivedCallback).not.toHaveBeenCalled();
+      expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
+      // Stored in the pool as evidence and reported for slashing
+      const stored = await attestationPool.getBlockProposalByArchive(proposal.archive.toString());
+      expect(stored).toBeDefined();
+      expect(oversizedProposalCallback).toHaveBeenCalledWith({ slot: targetSlot, proposer: signer.address });
+    });
+
+    it('duplicate oversized block proposal: ignores, no penalty', async () => {
+      const proposal = await makeBlockProposal({
+        signer,
+        blockHeader: makeBlockHeader(1, { slotNumber: targetSlot }),
+        indexWithinCheckpoint: oversizedIndex,
+        archiveRoot: Fr.random(),
+      });
+      await service.processBlockFromPeer(proposal.toBuffer(), 'msg-1', mockPeerId);
+
+      reportMessageValidationResultSpy.mockClear();
+      blockReceivedCallback.mockClear();
+      mockPeerManager.penalizePeer.mockClear();
+      oversizedProposalCallback.mockClear();
+
+      await service.processBlockFromPeer(proposal.toBuffer(), 'msg-2', mockPeerId);
+
+      expect(reportMessageValidationResultSpy).toHaveBeenCalledWith('msg-2', MOCK_PEER_ID, TopicValidatorResult.Ignore);
+      expect(blockReceivedCallback).not.toHaveBeenCalled();
+      expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
+      // Nothing new was stored, so the oversized callback does not fire again
+      expect(oversizedProposalCallback).not.toHaveBeenCalled();
+    });
+
+    it('equivocating oversized block proposals: accepts and fires the duplicate-proposal callback, no penalty', async () => {
+      const first = await makeBlockProposal({
+        signer,
+        blockHeader: makeBlockHeader(1, { slotNumber: targetSlot }),
+        indexWithinCheckpoint: oversizedIndex,
+        archiveRoot: Fr.random(),
+      });
+      await service.processBlockFromPeer(first.toBuffer(), 'msg-1', mockPeerId);
+
+      reportMessageValidationResultSpy.mockClear();
+      blockReceivedCallback.mockClear();
+      mockPeerManager.penalizePeer.mockClear();
+
+      const second = await makeBlockProposal({
+        signer,
+        blockHeader: makeBlockHeader(1, { slotNumber: targetSlot }),
+        indexWithinCheckpoint: oversizedIndex,
+        archiveRoot: Fr.random(),
+      });
+      await service.processBlockFromPeer(second.toBuffer(), 'msg-2', mockPeerId);
+
+      // Equivocation at an illegal index is still equivocation: re-broadcast and flag the proposer,
+      // but never process the proposal or penalize the relaying peer
+      expect(reportMessageValidationResultSpy).toHaveBeenCalledWith('msg-2', MOCK_PEER_ID, TopicValidatorResult.Accept);
+      expect(duplicateProposalCallback).toHaveBeenCalledWith({
+        slot: targetSlot,
+        proposer: signer.address,
+        type: 'block',
+      });
+      // The oversized callback fires for every stored oversized proposal, alongside equivocation
+      expect(oversizedProposalCallback).toHaveBeenCalledTimes(2);
+      expect(blockReceivedCallback).not.toHaveBeenCalled();
+      expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
+    });
+
+    it('distinct oversized block proposals at different indices: each accepted and stored, no penalty', async () => {
+      const first = await makeBlockProposal({
+        signer,
+        blockHeader: makeBlockHeader(1, { slotNumber: targetSlot }),
+        indexWithinCheckpoint: oversizedIndex,
+        archiveRoot: Fr.random(),
+      });
+      await service.processBlockFromPeer(first.toBuffer(), 'msg-1', mockPeerId);
+
+      const second = await makeBlockProposal({
+        signer,
+        blockHeader: makeBlockHeader(2, { slotNumber: targetSlot }),
+        indexWithinCheckpoint: secondOversizedIndex,
+        archiveRoot: Fr.random(),
+      });
+      await service.processBlockFromPeer(second.toBuffer(), 'msg-2', mockPeerId);
+
+      expect(reportMessageValidationResultSpy).toHaveBeenCalledWith('msg-2', MOCK_PEER_ID, TopicValidatorResult.Accept);
+      expect(blockReceivedCallback).not.toHaveBeenCalled();
+      expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
+      const stored = await attestationPool.getBlockProposalByArchive(second.archive.toString());
+      expect(stored).toBeDefined();
+      // Both stored proposals are reported; the consumer dedups per (proposer, slot)
+      expect(oversizedProposalCallback).toHaveBeenCalledTimes(2);
+    });
+
+    it('oversized checkpoint terminal block: accepts checkpoint (re-broadcast), processes neither block nor checkpoint, no penalty', async () => {
+      const proposal = await makeCheckpointProposal({
+        signer,
+        checkpointHeader: makeCheckpointHeader(1, { slotNumber: targetSlot }),
+        lastBlock: {
+          blockHeader: makeBlockHeader(1, { slotNumber: targetSlot }),
+          indexWithinCheckpoint: oversizedIndex,
+        },
+        archiveRoot: Fr.random(),
+      });
+
+      await service.handleGossipedCheckpointProposal(proposal.toBuffer(), 'msg-1', mockPeerId);
+
+      // Checkpoint accepted for re-broadcast (carries the same signed evidence)
+      expect(reportMessageValidationResultSpy).toHaveBeenCalledWith('msg-1', MOCK_PEER_ID, TopicValidatorResult.Accept);
+      // Neither the embedded block nor the checkpoint is processed/attested
+      expect(blockReceivedCallback).not.toHaveBeenCalled();
+      expect(allNodesCheckpointReceivedCallback).not.toHaveBeenCalled();
+      expect(validatorCheckpointReceivedCallback).not.toHaveBeenCalled();
+      expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
+      // The oversized terminal block is retained as evidence and reported for slashing
+      const storedBlock = await attestationPool.getBlockProposalByArchive(
+        proposal.getBlockProposal()!.archive.toString(),
+      );
+      expect(storedBlock).toBeDefined();
+      expect(oversizedProposalCallback).toHaveBeenCalledWith({ slot: targetSlot, proposer: signer.address });
+    });
+
+    it('duplicate oversized checkpoint: ignores, processes neither, no penalty', async () => {
+      const proposal = await makeCheckpointProposal({
+        signer,
+        checkpointHeader: makeCheckpointHeader(1, { slotNumber: targetSlot }),
+        lastBlock: {
+          blockHeader: makeBlockHeader(1, { slotNumber: targetSlot }),
+          indexWithinCheckpoint: oversizedIndex,
+        },
+        archiveRoot: Fr.random(),
+      });
+      await service.handleGossipedCheckpointProposal(proposal.toBuffer(), 'msg-1', mockPeerId);
+
+      reportMessageValidationResultSpy.mockClear();
+      blockReceivedCallback.mockClear();
+      allNodesCheckpointReceivedCallback.mockClear();
+      validatorCheckpointReceivedCallback.mockClear();
+      mockPeerManager.penalizePeer.mockClear();
+      oversizedProposalCallback.mockClear();
+
+      await service.handleGossipedCheckpointProposal(proposal.toBuffer(), 'msg-2', mockPeerId);
+
+      // The terminal block is an exact duplicate, so nothing new was retained: ignored, not
+      // re-broadcast, not penalized, nothing processed, not reported again
+      expect(reportMessageValidationResultSpy).toHaveBeenCalledWith('msg-2', MOCK_PEER_ID, TopicValidatorResult.Ignore);
+      expect(blockReceivedCallback).not.toHaveBeenCalled();
+      expect(allNodesCheckpointReceivedCallback).not.toHaveBeenCalled();
+      expect(validatorCheckpointReceivedCallback).not.toHaveBeenCalled();
+      expect(mockPeerManager.penalizePeer).not.toHaveBeenCalled();
+      expect(oversizedProposalCallback).not.toHaveBeenCalled();
+    });
+
+    it('oversized block proposal at the per-position cap: rejects and penalizes the relaying peer', async () => {
+      // Fill the (slot, index) position to its cap directly in the pool.
+      for (let i = 0; i < 2; i++) {
+        const existing = await makeBlockProposal({
+          signer,
+          blockHeader: makeBlockHeader(1, { slotNumber: targetSlot }),
+          indexWithinCheckpoint: oversizedIndex,
+          archiveRoot: Fr.random(),
+        });
+        const { added } = await attestationPool.tryAddBlockProposal(existing);
+        expect(added).toBe(true);
+      }
+
+      const third = await makeBlockProposal({
+        signer,
+        blockHeader: makeBlockHeader(1, { slotNumber: targetSlot }),
+        indexWithinCheckpoint: oversizedIndex,
+        archiveRoot: Fr.random(),
+      });
+      await service.processBlockFromPeer(third.toBuffer(), 'msg-1', mockPeerId);
+
+      // A peer should not relay more than the cap per slot+index, even for an oversized proposal: reject
+      // and penalize the relaying peer, do not re-broadcast, do not process.
+      expect(reportMessageValidationResultSpy).toHaveBeenCalledWith('msg-1', MOCK_PEER_ID, TopicValidatorResult.Reject);
+      expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.HighToleranceError);
+      expect(blockReceivedCallback).not.toHaveBeenCalled();
+      const stored = await attestationPool.getBlockProposalByArchive(third.archive.toString());
+      expect(stored).toBeUndefined();
+      expect(oversizedProposalCallback).not.toHaveBeenCalled();
+    });
+
+    it('oversized checkpoint at the per-slot checkpoint cap: rejects and penalizes the relaying peer', async () => {
+      // Fill the slot's checkpoint-proposal cap directly in the pool (e.g. a proposer that equivocated
+      // two checkpoints before sending an oversized one).
+      for (let i = 0; i < 2; i++) {
+        const existing = await makeCheckpointProposal({
+          signer,
+          checkpointHeader: makeCheckpointHeader(1, { slotNumber: targetSlot }),
+          archiveRoot: Fr.random(),
+        });
+        const { added } = await attestationPool.tryAddCheckpointProposal(existing.toCore());
+        expect(added).toBe(true);
+      }
+
+      const oversized = await makeCheckpointProposal({
+        signer,
+        checkpointHeader: makeCheckpointHeader(1, { slotNumber: targetSlot }),
+        lastBlock: {
+          blockHeader: makeBlockHeader(1, { slotNumber: targetSlot }),
+          indexWithinCheckpoint: oversizedIndex,
+        },
+        archiveRoot: Fr.random(),
+      });
+      await service.handleGossipedCheckpointProposal(oversized.toBuffer(), 'msg-1', mockPeerId);
+
+      // The per-slot cap is about checkpoint proposals, not block proposals: reject and penalize the
+      // relaying peer. The oversized terminal block was added before the cap check, so it is still
+      // retained as evidence and reported for slashing.
+      expect(reportMessageValidationResultSpy).toHaveBeenCalledWith('msg-1', MOCK_PEER_ID, TopicValidatorResult.Reject);
+      expect(mockPeerManager.penalizePeer).toHaveBeenCalledWith(mockPeerId, PeerErrorSeverity.HighToleranceError);
+      expect(blockReceivedCallback).not.toHaveBeenCalled();
+      expect(allNodesCheckpointReceivedCallback).not.toHaveBeenCalled();
+      expect(validatorCheckpointReceivedCallback).not.toHaveBeenCalled();
+      const storedBlock = await attestationPool.getBlockProposalByArchive(
+        oversized.getBlockProposal()!.archive.toString(),
+      );
+      expect(storedBlock).toBeDefined();
+      expect(oversizedProposalCallback).toHaveBeenCalledWith({ slot: targetSlot, proposer: signer.address });
+    });
+  });
+
   // Regression for A-1013
   describe('validateAndStoreCheckpointAttestation', () => {
     let attestationPool: AttestationPool;
@@ -1589,8 +1900,16 @@ function createTestLibP2PService(options: CreateTestLibP2PServiceOptions): TestL
   } = options;
 
   epochCache.getL1Constants.mockReturnValue({
+    l1GenesisTime: 0n,
     slotDuration: 36,
+    ethereumSlotDuration: 12,
   } as any);
+
+  // Pin wall-clock time inside the pipelined receive window for the slot the proposal tests use
+  // (SlotNumber(100)). With genesis 0, S=36, E=12, slot 100 starts at 3600s, so its checkpoint
+  // receive window is [3552s, 3588s] and its attestation window is [3552s, 3612s]; 3570s sits inside
+  // both. The validators read `getEpochAndSlotNow().nowMs` as the current time.
+  epochCache.getEpochAndSlotNow.mockReturnValue({ nowMs: 3_570_000n } as any);
 
   const mempools = mock<MemPools>();
   mempools.attestationPool = attestationPool;

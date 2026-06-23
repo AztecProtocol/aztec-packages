@@ -1,4 +1,4 @@
-import type { InitialAccountData } from '@aztec/accounts/testing';
+import { type InitialAccountData, generateSchnorrAccounts } from '@aztec/accounts/testing';
 import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
@@ -6,6 +6,7 @@ import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
+import type { AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 
 import { expect, jest } from '@jest/globals';
 
@@ -19,23 +20,23 @@ const TIMEOUT = 300_000;
 describe('e2e_2_pxes', () => {
   jest.setTimeout(TIMEOUT);
 
-  let aztecNode: AztecNode;
+  let aztecNode: AztecNode & AztecNodeDebug;
   let walletA: TestWallet;
   let walletB: TestWallet;
   let accountAAddress: AztecAddress;
   let accountBAddress: AztecAddress;
-  let initialFundedAccounts: InitialAccountData[];
+  let additionallyFundedAccounts: InitialAccountData[];
   let logger: Logger;
   let teardownA: () => Promise<void>;
   let teardownB: () => Promise<void>;
 
   async function setupSecondaryPXE(
-    node: AztecNode,
+    node: AztecNode & AztecNodeDebug,
     fundedAccounts: InitialAccountData[],
     accountIndex: number,
     pxeName: string,
   ) {
-    const { wallet, teardown } = await setupPXEAndGetWallet(node, {}, undefined, pxeName);
+    const { wallet, teardown } = await setupPXEAndGetWallet(node, node, {}, undefined, pxeName);
     const accountManager = await wallet.createSchnorrAccount(
       fundedAccounts[accountIndex].secret,
       fundedAccounts[accountIndex].salt,
@@ -48,18 +49,22 @@ describe('e2e_2_pxes', () => {
   beforeEach(async () => {
     ({
       aztecNode,
-      initialFundedAccounts,
+      additionallyFundedAccounts,
       wallet: walletA,
       accounts: [accountAAddress],
       logger,
       teardown: teardownA,
-    } = await setup(1, { ...AUTOMINE_E2E_OPTS, numberOfInitialFundedAccounts: 3 }));
+      // accountA is the default initializerless account; accountB/C are created+deployed from these.
+    } = await setup(1, {
+      ...AUTOMINE_E2E_OPTS,
+      additionallyFundedAccounts: await generateSchnorrAccounts(3, 'schnorr'),
+    }));
 
     ({
       wallet: walletB,
       address: accountBAddress,
       teardown: teardownB,
-    } = await setupSecondaryPXE(aztecNode, initialFundedAccounts, 1, 'pxe-b'));
+    } = await setupSecondaryPXE(aztecNode, additionallyFundedAccounts, 1, 'pxe-b'));
 
     await walletA.registerSender(accountBAddress, 'accountB');
     await walletB.registerSender(accountAAddress, 'accountA');
@@ -188,7 +193,7 @@ describe('e2e_2_pxes', () => {
     const transferAmount2 = 323n;
 
     // setup an account that is shared across PXEs
-    const sharedAccount = initialFundedAccounts[2];
+    const sharedAccount = additionallyFundedAccounts[2];
     const sharedAccountOnAManager = await walletA.createSchnorrAccount(sharedAccount.secret, sharedAccount.salt);
     const sharedAccountOnADeployMethod = await sharedAccountOnAManager.getDeployMethod();
     await sharedAccountOnADeployMethod.send({ from: NO_FROM });
@@ -232,7 +237,7 @@ describe('e2e_2_pxes', () => {
       wallet: walletC,
       address: accountCAddress,
       teardown: teardownC,
-    } = await setupSecondaryPXE(aztecNode, initialFundedAccounts, 2, 'pxe-c');
+    } = await setupSecondaryPXE(aztecNode, additionallyFundedAccounts, 2, 'pxe-c');
     await walletC.registerContract(instance, TokenContract.artifact);
 
     // Transfer from A to C

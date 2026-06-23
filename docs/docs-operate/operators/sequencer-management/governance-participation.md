@@ -132,7 +132,7 @@ curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
   -d '{
     "jsonrpc":"2.0",
-    "method":"nodeAdmin_setConfig",
+    "method":"aztecAdmin_setConfig",
     "params":[{"governanceProposerPayload":"0x1234567890abcdef1234567890abcdef12345678"}],
     "id":1
   }'
@@ -146,7 +146,7 @@ docker exec -it aztec-sequencer curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
   -d '{
     "jsonrpc":"2.0",
-    "method":"nodeAdmin_setConfig",
+    "method":"aztecAdmin_setConfig",
     "params":[{"governanceProposerPayload":"0x1234567890abcdef1234567890abcdef12345678"}],
     "id":1
   }'
@@ -171,7 +171,7 @@ curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
   -d '{
     "jsonrpc":"2.0",
-    "method":"nodeAdmin_getConfig",
+    "method":"aztecAdmin_getConfig",
     "id":1
   }'
 ```
@@ -184,7 +184,7 @@ docker exec -it aztec-sequencer curl -X POST http://localhost:8880 \
   -H 'Content-Type: application/json' \
   -d '{
     "jsonrpc":"2.0",
-    "method":"nodeAdmin_getConfig",
+    "method":"aztecAdmin_getConfig",
     "id":1
   }'
 ```
@@ -230,11 +230,11 @@ cast call [GOVERNANCE_CONTRACT_ADDRESS] \
 
 # Query the latest proposal (count - 1, since proposals are zero-indexed)
 cast call [GOVERNANCE_CONTRACT_ADDRESS] \
-  "proposals(uint256)" $((PROPOSAL_COUNT - 1)) \
+  "getProposal(uint256)" $((PROPOSAL_COUNT - 1)) \
   --rpc-url [YOUR_RPC_URL]
 ```
 
-This returns the `CompressedProposal` struct data, which includes:
+This returns the `Proposal` struct data, which includes:
 - The payload address
 - Creation timestamp
 - Voting start and end times
@@ -390,7 +390,7 @@ Query the proposal to see the voting timeline:
 
 ```bash
 cast call [GOVERNANCE_CONTRACT_ADDRESS] \
-  "proposals(uint256)" [PROPOSAL_ID] \
+  "getProposal(uint256)" [PROPOSAL_ID] \
   --rpc-url [YOUR_RPC_URL]
 ```
 

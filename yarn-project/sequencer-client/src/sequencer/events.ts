@@ -5,12 +5,24 @@ import type { Action } from '../publisher/sequencer-publisher.js';
 import type { SequencerState } from './utils.js';
 
 export type SequencerEvents = {
+  /**
+   * Emitted on every sequencer state transition (including no-op transitions to the same state). The
+   * timing fields are anchored to the build frame of the slot being proposed for, not to wall-clock
+   * slot boundaries, because the proposer builds for `targetSlot` during the previous (build) slot.
+   *
+   * - `oldState` / `newState` are the previous and new {@link SequencerState}.
+   * - `secondsIntoBuildFrame` is the wall-clock seconds elapsed since the build-frame start of
+   *   `targetSlot` (`now − getBuildFrameStart(targetSlot)`). Undefined for lifecycle states with no
+   *   associated slot (e.g. IDLE/STOPPING). It can be negative if the transition happens before the
+   *   build frame opens.
+   * - `targetSlot` is the slot the checkpoint is being proposed for (the submission slot, one ahead of
+   *   the wall-clock build slot under pipelining). Undefined for lifecycle states with no slot.
+   */
   ['state-changed']: (args: {
     oldState: SequencerState;
     newState: SequencerState;
-    secondsIntoSlot?: number;
-    slot?: SlotNumber;
-    timeReferenceSlot?: SlotNumber;
+    secondsIntoBuildFrame?: number;
+    targetSlot?: SlotNumber;
   }) => void;
   /**
    * Emitted by the sequencer once it has decided it is going to attempt to build a

@@ -129,6 +129,9 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
 
     void finalize_circuit();
 
+    // Shadows UltraCircuitBuilder_::create_poseidon2_external_gate so Mega external rounds land in the
+    // shared `poseidon2` block alongside the internal rounds (keeping each permutation's rows contiguous).
+    void create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in);
     void create_poseidon2_initial_external_gate(const poseidon2_initial_external_gate_<FF>& in);
     void create_poseidon2_quad_internal_gate(const poseidon2_quad_internal_gate_<FF>& in);
     void create_poseidon2_transition_entry_gate(const poseidon2_transition_entry_gate_<FF>& in);

@@ -48,7 +48,7 @@ fi
 
 # Query node version
 RESPONSE=$(curl -sf -X POST -H 'Content-type: application/json' \
-  --data '{"jsonrpc":"2.0","id":1,"method":"node_getNodeInfo"}' \
+  --data '{"jsonrpc":"2.0","id":1,"method":"aztec_getNodeInfo"}' \
   "$RPC_URL" 2>&1) || {
   echo "ERROR: Could not reach node at $RPC_URL" >&2
   echo "Response: $RESPONSE" >&2

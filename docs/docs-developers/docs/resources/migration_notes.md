@@ -1,13 +1,203 @@
 ---
 title: Migration notes
 description: Read about migration notes from previous versions, which could solve problems while updating
-keywords: [local network, sandbox, aztec, notes, migration, updating, upgrading]
-tags: [migration, updating, sandbox, local network]
+keywords: [local network, aztec, notes, migration, updating, upgrading]
+tags: [migration, updating, local network]
 ---
 
 Aztec is in active development. Each version may introduce breaking changes that affect compatibility with previous versions. This page documents common errors and difficulties you might encounter when upgrading, along with guidance on how to resolve them.
 
 ## TBD
+
+### [Prover Node JSON-RPC] Prover API moved to the admin endpoint; `getL2Tips`/`getWorldStateSyncStatus` removed
+
+The prover node's JSON-RPC methods (`prover_*`) have moved off the public node RPC server and onto the admin RPC server. They now require the admin API key and are served on the admin port (8880) instead of the public port (8080).
+
+In addition, `prover_getL2Tips` and `prover_getWorldStateSyncStatus` have been removed from the prover API. They duplicated data already served by the node: use `aztec_getChainTips` (same shape as the old `getL2Tips`) and `aztec_getWorldStateSyncStatus` instead.
+
+If you call the prover RPC directly (e.g. via `curl`), point at the admin endpoint with the API key and use the remaining methods:
+
+- `prover_startProof` — schedule proving for an epoch
+- `prover_getJobs` — list proving jobs
+
+A client factory `createProverNodeAdminClient(url, versions?, fetch?, apiKey?)` is now exported from `@aztec/stdlib/interfaces/server`, and the CLI exposes `aztec prover start-proof --epoch <n> --admin-url <url> --api-key <key>` and `aztec prover get-jobs` (the API key defaults to `AZTEC_ADMIN_API_KEY`).
+
+### [Aztec.nr] `ContractInstance.contract_class_id` renamed to `original_contract_class_id`
+
+The `contract_class_id` field of the `ContractInstance` struct (returned by `get_contract_instance`) has been renamed to `original_contract_class_id`. The struct is the contract's *address preimage*, so this field is the class id the contract was deployed with: for contracts whose class was later updated via the `ContractInstanceRegistry`, it is NOT the class currently executing. The rename makes that explicit.
+
+**Migration:**
+
+```diff
+let instance = get_contract_instance(address);
+- let class_id = instance.contract_class_id;
++ let class_id = instance.original_contract_class_id;
+```
+
+Note that this value is not available during public execution, which only has access to the _current_ contract class.
+
+### [Aztec.nr] `get_contract_instance_class_id_avm` renamed to `get_contract_instance_current_class_id_avm`
+
+The AVM contract-instance class id getter has been renamed to make explicit that it returns the *current* class id, i.e. it reflects updates performed via the `ContractInstanceRegistry`.
+
+**Migration:**
+
+```diff
+- use aztec::oracle::get_contract_instance::get_contract_instance_class_id_avm;
++ use aztec::oracle::get_contract_instance::get_contract_instance_current_class_id_avm;
+
+- let class_id = get_contract_instance_class_id_avm(address);
++ let class_id = get_contract_instance_current_class_id_avm(address);
+```
+
+### [Aztec.nr] `for_each` visits elements in order; removing during iteration no longer supported
+
+`CapsuleArray::for_each` and `EphemeralArray::for_each` previously iterated backwards (from the last element to the first) so that the callback could safely remove the current element. They now visit elements in order, from first to last, as is usually expected in other languages. Structurally mutating the array (e.g. via `push` or `remove`) from inside the callback is no longer supported.
+
+For `EphemeralArray`, replace remove-during-iteration with `filter`:
+
+```diff
+- array.for_each(|index, value| {
+-     if should_remove(value) {
+-         array.remove(index);
+-     }
+- });
++ let kept = array.filter(|value| !should_remove(value));
+```
+
+`filter` collects the kept elements into a fresh array at a new slot. If the original slot matters (e.g. a `TransientArray` slot shared with other call frames), rebuild it from the filtered result:
+
+```noir
+let kept = array.filter(|value| !should_remove(value));
+let _ = array.clear();
+kept.for_each(|_index, value| array.push(value));
+```
+
+`EphemeralArray`'s are cheap and by nature not persistent though, so in most cases you probably can just work with the new copy instead of going through this hassle.
+
+`CapsuleArray` has no `filter`, so iterate manually, backwards. Removing the current element is safe in a backward loop because it only shifts elements at higher indices:
+
+```noir
+let mut i = array.len();
+while i > 0 {
+    i -= 1;
+    if should_remove(array.get(i)) {
+        array.remove(i);
+    }
+}
+```
+
+## 5.0.0-rc.1
+
+### [Aztec.js] Prefunded local network test accounts are now initializerless
+
+The genesis-funded test accounts in the local network (sandbox), returned by `getInitialTestAccountsData()`, are now initializerless Schnorr accounts (`schnorr_initializerless`). An initializerless account has no onchain deployment transaction: its address commits to the signing public key (through `immutables_hash`) and its contract state is materialized locally in the PXE, so these accounts are usable right away.
+
+Because their address is derived differently from a regular Schnorr account, register them with `createSchnorrInitializerlessAccount` rather than `createSchnorrAccount`.
+
+**Migration:**
+
+```diff
+const [alice] = await getInitialTestAccountsData();
+- await wallet.createSchnorrAccount(alice.secret, alice.salt);
++ await wallet.createSchnorrInitializerlessAccount(alice.secret, alice.salt);
+```
+
+### [Aztec.js] `AccountContract` interface adds `getImmutablesHash()`
+
+The `AccountContract` interface now declares `getImmutablesHash(): Promise<Fr | undefined>`, which returns the hash of the account's immutable instantiation parameters committed into its address, or `undefined` if the feature is not used. `getAccountContractAddress()` and `AccountManager.create()` call it to derive the address when an `immutablesHash` is not passed explicitly, so the address of an initializerless account is now resolved from the contract itself.
+
+Account contracts that extend `DefaultAccountContract` inherit a default implementation that returns `undefined` and need no changes.
+
+### [Aztec.js] Wallets validate declared gas limits against the network's per-tx admission limit
+
+Wallets now reject a transaction whose declared `gasLimits` exceed the network's per-tx admission limit (the node-advertised `txsLimits.gas`), throwing before the tx is sent — e.g. `Declared DA gas limit (X) exceeds the maximum this network allows per tx (Y)`. When you declare no gas limits, the wallet fills in the network's admission limits for you. This mirrors the node's inbound `GasLimitsValidator`, surfacing the rejection locally instead of on submission.
+
+**Impact**: Transactions that previously over-declared gas (and were silently skipped by the proposer) now fail fast with a descriptive error. Declare limits at or below `txsLimits.gas`, or declare none and let the wallet fill them in.
+
+### [Aztec.js] `estimateGas` / `estimatedGasPadding` simulate options and the `estimatedGas` result field removed
+
+The `estimateGas` and `estimatedGasPadding` fee options are gone, and the `estimatedGas` field on simulation results is replaced by `gasUsed` (the raw gas the simulation consumed). Apps that want explicit gas limits read `gasUsed` and pad it themselves; otherwise the wallet fills in the network's admission limits automatically.
+
+**Migration:**
+
+```diff
+- const { estimatedGas } = await contract.methods.foo(args).simulate({
+-   from,
+-   fee: { estimateGas: true, estimatedGasPadding: 0.1 },
+- });
+- const gasLimits = estimatedGas.gasLimits;
++ const { gasUsed } = await contract.methods.foo(args).simulate({ from, includeMetadata: true });
++ const gasLimits = gasUsed.totalGas.mul(1.1); // pad yourself
+```
+
+### [Aztec.js] `getGasLimits` moved to `@aztec/wallet-sdk` and is no longer exported from `@aztec/aztec.js`
+
+`getGasLimits` is no longer exported from `@aztec/aztec.js`. It now lives in `@aztec/wallet-sdk/base-wallet`, takes the simulated `gasUsed` and the network's per-tx admission limit, and clamps the padded estimates to it. If the simulated usage already exceeds the network limit, it throws immediately rather than returning a limit the node would reject.
+
+**Migration:**
+
+```diff
+- import { getGasLimits } from '@aztec/aztec.js';
+- const { gasLimits, teardownGasLimits } = getGasLimits(simulationResult, 0.1);
++ import { getGasLimits } from '@aztec/wallet-sdk/base-wallet';
++ const { txsLimits } = await node.getNodeInfo();
++ const { gasLimits, teardownGasLimits } = getGasLimits(simulationResult.gasUsed, Gas.from(txsLimits.gas), 0.1);
+```
+
+### [Aztec.js / PXE] `NodeInfo.txsLimits` is now required
+
+`NodeInfo` now carries a required `txsLimits` field: every node advertises the maximum gas a single tx may declare (`{ gas: { daGas, l2Gas } }`) and wallets rely on it for fallback gas limits. Clients built against this version cannot talk to nodes that predate the field.
+
+### [Aztec.js] `GasSettings.fallback` requires explicit `gasLimits`
+
+`GasSettings.fallback` no longer supplies a default value for `gasLimits`. Callers must pass the network's per-tx admission limit explicitly — read it from the node's `txsLimits.gas`.
+
+**Migration:**
+
+```diff
+- const settings = GasSettings.fallback({ maxFeesPerGas });
++ const { txsLimits } = await node.getNodeInfo();
++ const settings = GasSettings.fallback({ gasLimits: Gas.from(txsLimits.gas), maxFeesPerGas });
+```
+
+### [Aztec.js / stdlib] Removed legacy fallback gas constants
+
+The following exports have been removed from `@aztec/stdlib`:
+
+- `APPROXIMATE_MAX_DA_GAS_PER_BLOCK`
+- `FALLBACK_TEARDOWN_L2_GAS_LIMIT`
+- `FALLBACK_TEARDOWN_DA_GAS_LIMIT`
+
+**Impact**: Any code that imported these symbols must switch to the live node-advertised limits via the node's `txsLimits.gas`.
+
+### [Aztec.nr] `messages::message_delivery` module moved to `messages::delivery`
+
+The `message_delivery` module has been renamed to `delivery`. Update imports accordingly:
+
+```diff
+- use aztec::messages::message_delivery::MessageDelivery;
++ use aztec::messages::delivery::MessageDelivery;
+```
+
+### [Node JSON-RPC] Method prefixes changed to `aztec_*` and `aztecAdmin_*`
+
+All Aztec node JSON-RPC method prefixes have changed:
+
+- `node_*` → `aztec_*` (public node methods, port 8080)
+- `nodeAdmin_*` → `aztecAdmin_*` (admin methods, port 8880)
+- `nodeDebug_*` → `aztecDebug_*` (debug methods, port 8080, local-network or `--node-debug` only)
+- `p2p_*` namespace removed; P2P queries are on `aztec_*`: `getPeers`, `getCheckpointAttestationsForSlot`, `getProposalsForSlot`
+- New archiver sync helpers on `aztec_*`: `getL1Constants`, `getSyncedL2SlotNumber`, `getSyncedL2EpochNumber`, `getSyncedL1Timestamp`
+
+If you call the node RPC directly (e.g. via `curl` or a custom client), update all method names accordingly.
+Clients created via `createAztecNodeClient`, `createAztecNodeAdminClient`, and `createAztecNodeDebugClient` are updated automatically.
+
+### [Node RPC] `registerContractFunctionSignatures` moved to the debug API
+
+`registerContractFunctionSignatures` is no longer part of the main node JSON-RPC API (`aztec_` namespace). It is now a debug-only method exposed under the `aztecDebug_` namespace, which is only mounted when the node runs with debug endpoints enabled (`--node-debug`, always on in the in-process sandbox). This removes an unauthenticated write to node memory from prod-like nodes.
+
+Clients that registered public function signatures over `aztec_registerContractFunctionSignatures` should call `aztecDebug_registerContractFunctionSignatures` against a debug-enabled node instead. In the PXE, this is now driven by an optional debug client: pass a `nodeDebug` client (e.g. `createAztecNodeDebugClient(nodeUrl)`) when creating the PXE to keep named public-execution traces; when it is absent, signature registration is skipped. Client-side error enrichment from the contract ABI is unaffected.
 
 ### [Aztec.nr] `get_pending_tagged_logs` oracle interface updated (oracle version 28)
 
@@ -19,14 +209,16 @@ The `set_sender_for_tags` oracle has been removed. Contracts that used it to ove
 
 ```diff
 - use aztec::oracle::notes::set_sender_for_tags;
-+ use aztec::messages::message_delivery::MessageDelivery;
++ use aztec::messages::delivery::MessageDelivery;
 
 - unsafe { set_sender_for_tags(some_address) };
 - note.deliver(MessageDelivery::onchain_constrained());
 + note.deliver(MessageDelivery::onchain_constrained().with_sender(some_address));
 ```
 
-When `with_sender` is not called, `MessageDelivery` uses the wallet-supplied default sender.
+When `with_sender` is not called, `MessageDelivery` uses the wallet-supplied default sender. The wallet SDK supplies that default from the transaction's `from` address, with an optional `sendMessagesAs` override for flows that have no signing account (e.g. self-paid deploys, which `DeployAccountMethod` sets automatically).
+
+Account contracts therefore no longer need to call `set_sender_for_tags(self.address)` in their entrypoints: those calls have been removed from the standard Schnorr and ECDSA account contracts, and you can drop them — along with the old `get` → `set(self.address)` → work → `set(prev)` save/restore idiom in constructors — from any custom account contract.
 
 ### [Aztec.nr] `MessageDelivery` API syntax change
 
@@ -87,11 +279,11 @@ When `with_sender` is not called, `MessageDelivery` uses the wallet-supplied def
 
 ### [Protocol] Remaining protocol-contract addresses compacted to 1-3
 
-After the `auth_registry`, `public_checks`, and `multi_call_entrypoint` demotions freed up address slots `1`, `4`, and `6`, the three remaining protocol contracts have been compacted into the lowest slots: `ContractClassRegistry` moves from `3` to `1`, `ContractInstanceRegistry` stays at `2`, and `FeeJuice` moves from `5` to `3`. Code that hardcoded the previous values must be updated. `MAX_PROTOCOL_CONTRACTS` is unchanged (still `11`); only the assigned addresses moved.
+After the `auth_registry`, `multi_call_entrypoint`, and `public_checks` demotions freed up address slots `1`, `4`, and `6`, the three remaining protocol contracts have been compacted into the lowest slots: `ContractClassRegistry` moves from `3` to `1`, `ContractInstanceRegistry` stays at `2`, and `FeeJuice` moves from `5` to `3`. Code that hardcoded the previous values must be updated. `MAX_PROTOCOL_CONTRACTS` is unchanged (still `11`); only the assigned addresses moved.
 
 ### [Aztec.nr] `multi_call_entrypoint` demoted from protocol contract
 
-`multi_call_entrypoint` is no longer a protocol contract; its address is derived from its artifact rather than hardcoded at `6`, and PXE no longer auto-registers it. It is now a standard contract that PXE *preloads*: both `createPXE` and `EmbeddedWallet` preload the standard MultiCallEntrypoint automatically (and `EmbeddedWallet` additionally preloads `AuthRegistry`). **If you use the standard PXE or `EmbeddedWallet`, no changes are needed** — multicall keeps working out of the box.
+`multi_call_entrypoint` is no longer a protocol contract; its address is derived from its artifact rather than hardcoded at `4`, and PXE no longer auto-registers it. It is now a standard contract that PXE _preloads_: both `createPXE` and `EmbeddedWallet` preload the standard MultiCallEntrypoint automatically (and `EmbeddedWallet` additionally preloads `AuthRegistry`). **If you use the standard PXE or `EmbeddedWallet`, no changes are needed** — multicall keeps working out of the box.
 
 To preload a different set of standard contracts (for example to also preload `PublicChecks`, which is not preloaded by default), a wallet or app passes its own `preloadedContractsProvider` through the wallet's PXE options:
 
@@ -112,7 +304,7 @@ const wallet = await EmbeddedWallet.create(node, {
 });
 ```
 
-The provider *replaces* the default list (it is not additive), so include every standard contract you want available.
+The provider _replaces_ the default list (it is not additive), so include every standard contract you want available.
 
 ### [Aztec.nr] `public_checks` demoted from protocol contract
 
@@ -207,6 +399,7 @@ type LogResult = {
   blockHash: BlockHash;
   blockTimestamp: UInt64;
   txHash: TxHash;
+  txIndexWithinBlock: number;
   logIndexWithinTx: number;
   noteHashes?: Fr[]; // present only when includeEffects is set
   nullifiers?: Fr[]; // all nullifiers of the tx, not just the first
@@ -333,7 +526,7 @@ If you need to customize source or block range, construct the struct manually wi
 
 Ships together with immutables hash changes (shown below).
 
-Per [AZIP-8](https://github.com/AztecProtocol/governance/blob/main/AZIPs/azip-8.md), `PublicKeys` no longer carries the four master public keys as elliptic curve points. Three of them (`npk_m`, `ovpk_m`, `tpk_m`) are now exposed only as their poseidon2 hash digests; only `ivpk_m` (the master incoming viewing key) remains a point because address derivation needs it as a curve point.
+Per [AZIP-8](https://github.com/AztecProtocol/governance/blob/main/AZIPs/azip-8.md), `PublicKeys` no longer carries its master public keys as elliptic curve points. All of them except `ivpk_m` (`npk_m`, `ovpk_m`, `tpk_m`, and the new `mspk_m` and `fbpk_m`) are now exposed only as their poseidon2 hash digests; only `ivpk_m` (the master incoming viewing key) remains a point because address derivation needs it as a curve point.
 
 **This is a hard fork:** every contract address and account address derived from a non-default `PublicKeys` changes.
 
@@ -350,13 +543,13 @@ The same field-rename applies to `.ovpk_m` and `.tpk_m`: these are now `.ovpk_m_
 
 **Custom account contracts.** Wallets that ship their own Noir account contracts must recompile. Macro-generated calldata extraction and the `request_nsk_app` / `request_ovsk_app` paths use the hash form natively.
 
-**TS / wallet author migration.** The `PublicKeys` constructor signature changes from four `Point`s to `(npkMHash: Fr, ivpkM: Point, ovpkMHash: Fr, tpkMHash: Fr)`. `KeyValidationRequest` carries `pkMHash: Fr` instead of `pkM: Point`. `KeyStore.getMasterSecretKey` now takes a `pkMHash: Fr` rather than a `Point`. Callers using the auto-generated TS binding pick this up automatically; callers that hand-roll the arg buffer must update.
+**TS / wallet author migration.** The `PublicKeys` constructor signature changes from four `Point`s to `(npkMHash: Fr, ivpkM: Point, ovpkMHash: Fr, tpkMHash: Fr, mspkMHash: Fr, fbpkMHash: Fr)` (the new `mspk_m` message-signing and `fbpk_m` fallback keys are also exposed as hashes). `KeyValidationRequest` carries `pkMHash: Fr` instead of `pkM: Point`. `KeyStore.getMasterSecretKey` now takes a `pkMHash: Fr` rather than a `Point`. Callers using the auto-generated TS binding pick this up automatically; callers that hand-roll the arg buffer must update.
 
 **Wallet UI.** Any panel that displayed `masterNullifierPublicKey`, `masterOutgoingViewingPublicKey`, or `masterTaggingPublicKey` as Grumpkin points will no longer compile against the new `PublicKeys` class. The points themselves are no longer in `ContractInstancePublished` and cannot be recovered from the onchain record. Switch to displaying the hashes (`npkMHash`, `ovpkMHash`, `tpkMHash`) or drop the display.
 
-**PXE storage migration.** `DatabaseVersionManager` deletes pre-v6 databases on first open: users will see registered accounts, contacts, address aliases, and synced notes wiped. Wallets should surface a "your local state was reset, please re-register accounts and re-sync" path. There is no forward migration because the address derived from a given secret changes (the new `public_keys_hash` is over four single-key digests, not four raw points). Previous addresses are not recoverable from the same secret; assets and notes attached to them are inaccessible at the protocol level.
+**PXE storage migration.** `DatabaseVersionManager` deletes pre-v6 databases on first open: users will see registered accounts, contacts, address aliases, and synced notes wiped. Wallets should surface a "your local state was reset, please re-register accounts and re-sync" path. There is no forward migration because the address derived from a given secret changes (the new `public_keys_hash` is over single-key digests, not raw points). Previous addresses are not recoverable from the same secret; assets and notes attached to them are inaccessible at the protocol level.
 
-**Indexer / event-decoder migration.** The `ContractInstancePublished` private log payload is now 13 fields:
+**Indexer / event-decoder migration.** The `ContractInstancePublished` private log payload is now 15 fields:
 
 ```text
 [ MAGIC, address, version, salt, class_id, init_hash,
@@ -365,6 +558,8 @@ The same field-rename applies to `.ovpk_m` and `.tpk_m`: these are now `.ovpk_m_
   ivpk_m.x, ivpk_m.y,
   ovpk_m_hash,
   tpk_m_hash,
+  mspk_m_hash,
+  fbpk_m_hash,
   deployer ]
 ```
 
@@ -386,7 +581,7 @@ salted_initialization_hash = poseidon2(DOM_SEP__SALTED_INITIALIZATION_HASH, [sal
 - You parse the `ContractInstancePublished` private log directly. The event payload has an extra field, with `immutables_hash` inserted between `initialization_hash` and the public-keys block:
 
   ```
-  [tag, address, version, salt, classId, initialization_hash, immutables_hash, ...publicKeys(5), deployer]
+  [tag, address, version, salt, classId, initialization_hash, immutables_hash, ...publicKeys(7), deployer]
   ```
 
 - You call `ContractInstanceRegistry.publish_for_public_execution` directly. The function now takes 6 arguments instead of 5, with `immutables_hash` inserted between `initialization_hash` and `public_keys`:
@@ -425,6 +620,21 @@ If you were already using `emit_private_log_vec_unsafe` / `emit_raw_note_log_vec
 
 - context.emit_raw_note_log_vec_unsafe(tag, log, note_hash_counter);
 + context.emit_raw_note_log_unsafe(tag, log, note_hash_counter);
+```
+
+If you were manually padding an array and passing a shorter length, build a `BoundedVec` from just the meaningful fields instead:
+
+```diff
+- let padded = payload.concat([0; PRIVATE_LOG_CIPHERTEXT_LEN - 2]);
+- context.emit_private_log_unsafe(tag, padded, 2);
++ context.emit_private_log_unsafe(tag, BoundedVec::from_array(payload));
+```
+
+If you were passing the full array, wrap it with `BoundedVec::from_array`:
+
+```diff
+- context.emit_private_log_unsafe(tag, ciphertext, ciphertext.len());
++ context.emit_private_log_unsafe(tag, BoundedVec::from_array(ciphertext));
 ```
 
 ### [bb.js / accounts / aztec.nr] Schnorr signatures switched to Poseidon2
@@ -574,7 +784,7 @@ await deploy.send({ from: bob }); // throws: deployer is locked to alice
 + const deploy = MyContract.deploy(wallet, ...args, { publicKeys });
 ```
 
-`ContractDeployer.deploy(...)` now takes the instantiation argument as its first parameter (pass `{}` to use defaults and rely on lazy locking from `from`):
+`ContractDeployer.deploy(...)` now takes the constructor args first and the instantiation options as its second argument (pass `{}` for the instantiation to use defaults and rely on lazy locking from `from`):
 
 ```diff
 - const cd = new ContractDeployer(artifact, wallet);
@@ -630,6 +840,8 @@ If you relied on a bundled bare-name binary for general use:
 - Or install Foundry / nargo separately via `foundryup` / `noirup`.
 
 If you set `Noir: Nargo Path` in the VS Code Noir extension to `$HOME/.aztec/current/bin/nargo`, change it to `$HOME/.aztec/current/bin/aztec-nargo` (the symlink is a drop-in for `nargo`). See the [Noir VSCode Extension guide](../aztec-nr/installation.md) for details.
+
+The installer also no longer adds `$HOME/.aztec/current/node_modules/.bin` to your shell `PATH`, so the ~40 transitive npm bins it used to leak (`jest`, `tsc`, `tsserver`, ...) are gone and no longer shadow your own installs. If you installed an earlier version, your shell profile (`~/.bashrc` / `~/.zshrc`) may still contain the old `PATH` line — re-run the installer once to replace it, open a fresh shell, and confirm `$HOME/.aztec/current/node_modules/.bin` no longer appears in `echo $PATH`.
 
 ### [Stdlib] `SimulationOverrides.contracts` entries no longer carry an artifact
 
@@ -702,14 +914,6 @@ pxe.proveTx(txRequest, { scopes });
 // When from === NO_FROM (e.g. self-paid account deploy), supply the tag sender explicitly:
 pxe.proveTx(txRequest, { scopes, senderForTags: deployedAddress });
 ```
-
-### [Aztec.nr] `set_sender_for_tags` is now scoped to the calling contract
-
-`set_sender_for_tags` previously persisted through nested calls. It is now scoped to the contract that calls it: nested calls, siblings, and parents are unaffected and always start from the initial default. This closes a silent note-discovery DoS vector where any nested callee could overwrite the tag sender for legitimate contracts called below it.
-
-The wallet SDK now supplies the default sender-for-tags from the transaction's `from` address, with an optional `sendMessagesAs` override for flows that don't have a signing account (e.g. self-paid deploys, which `DeployAccountMethod` sets automatically). Account contracts therefore no longer need to call `set_sender_for_tags(self.address)` in their entrypoints; those calls have been removed from the standard schnorr and ECDSA account contracts, and you can drop the equivalent call in any custom account contract.
-
-The save/restore idiom previously used in account-contract constructors (`get` → `set(self.address)` → work → `set(prev)`) is also no longer needed and has been removed: the override never leaks out of the constructor, so there is nothing to restore.
 
 ### [Aztec Node] Unified `getBlock` / `getCheckpoint` RPC API
 
@@ -817,24 +1021,6 @@ If your code asks for `includeAttestations` / `includeL1PublishInfo` and might l
 
 Confirmed checkpoints previously reported `feeAssetPriceModifier = 0n` regardless of the value observed on L1, because the archiver dropped the field on checkpoint confirmation. The field is now persisted and returned correctly on `CheckpointResponse`. Any wallet or indexer logic that special-cased `0n` as a sentinel for "no modifier" will need to be updated; it is now a valid value in its own right.
 
-### [CLI] `aztec-up` no longer exposes transitive npm bins on PATH
-
-The `aztec-up` installer used to add `$HOME/.aztec/current/node_modules/.bin` to your shell `PATH`, which put ~40 transitive npm bins (`jest`, `tsc`, `tsserver`, `semver`, `uuid`, `json5`, ...) onto your interactive shell and silently shadowed your own installed versions of those tools. Only the seven `@aztec/*`-owned bins (`aztec`, `aztec-wallet`, `bb`, `bb-cli`, `blob-client`, `noir-codegen`, `txe`) are now exposed.
-
-If you had an Aztec version installed before this release, your shell profile (`~/.bashrc` or `~/.zshrc`) still contains the old `PATH` line. Re-run the installer once (replacing `[VERSION]` with whichever toolchain version you're on, e.g. `4.2.0`) to replace it:
-
-```bash
-VERSION=[VERSION] bash -i <(curl -sL https://install.aztec.network)
-```
-
-Open a fresh shell and confirm the leak is gone:
-
-```bash
-echo $PATH
-```
-
-`$HOME/.aztec/current/node_modules/.bin` should no longer appear in the output. You'll also see your own `jest`, `tsc`, etc. again instead of the ones bundled with the Aztec toolchain.
-
 ### [Protocol] Domain separators introduced for merkle-node, block-headers, and blob hashes
 
 Several protocol hashes that previously used bare `poseidon2_hash` are now domain-separated via `poseidon2_hash_with_separator`. This is a security hardening change — it prevents a value produced by one hash context from being reinterpreted in another (e.g. a sibling path from one tree being transported to another).
@@ -872,33 +1058,6 @@ Regenerate these values from a fresh build of this release — do not copy them 
 `poseidon2HashWithSeparator` is exported from `@aztec/foundation/crypto/poseidon`; the `DomainSeparator` enum and the matching `DOM_SEP__*` constants are defined in `@aztec/constants`. The new entries listed above are additions — existing separator names are unchanged.
 
 For TypeScript consumers, `@aztec/stdlib/hash` exports ready-made helpers that wrap the right separator: `computeMerkleHash` (append-only), `computeNullifierMerkleHash`, and `computePublicDataMerkleHash`. Prefer these over calling `poseidon2HashWithSeparator` directly so the separator choice stays colocated with the tree.
-
-### [Aztec.nr] `emit_private_log_unsafe` / `emit_raw_note_log_unsafe` are deprecated
-
-`emit_private_log_unsafe` and `emit_raw_note_log_unsafe` are deprecated and will be removed in a future release. Migrate to the new `emit_private_log_vec_unsafe` / `emit_raw_note_log_vec_unsafe` functions, which take a `BoundedVec<Field, PRIVATE_LOG_CIPHERTEXT_LEN>` instead of the `(log: [Field; PRIVATE_LOG_CIPHERTEXT_LEN], length: u32)` pair.
-
-```diff
-- context.emit_private_log_unsafe(tag, log, length);
-+ context.emit_private_log_vec_unsafe(tag, bounded_vec_log);
-- context.emit_raw_note_log_unsafe(tag, log, length, note_hash_counter);
-+ context.emit_raw_note_log_vec_unsafe(tag, bounded_vec_log, note_hash_counter);
-```
-
-If you were manually padding an array and passing a shorter length, you can now create a `BoundedVec` from just the meaningful fields:
-
-```diff
-- let padded = payload.concat([0; PRIVATE_LOG_CIPHERTEXT_LEN - 2]);
-- context.emit_private_log_unsafe(tag, padded, 2);
-+ let log = BoundedVec::from_array(payload);
-+ context.emit_private_log_vec_unsafe(tag, log);
-```
-
-If you were passing the full array, wrap it with `BoundedVec::from_array`:
-
-```diff
-- context.emit_private_log_unsafe(tag, ciphertext, ciphertext.len());
-+ context.emit_private_log_vec_unsafe(tag, BoundedVec::from_array(ciphertext));
-```
 
 ### [aztec-nr] Nullifier membership witness oracle returns split types
 
@@ -957,7 +1116,21 @@ The empire slashing model has been removed. Only the tally-based slashing model 
 
 `slashMinPenaltyPercentage` and `slashMaxPenaltyPercentage` removed from `SlasherConfig`.
 
-## Unreleased (v5)
+### [Aztec Node] `getTxByHash`, `getTxsByHash` and `getPendingTxs` no longer return tx proofs by default
+
+`AztecNode.getTxByHash`, `AztecNode.getTxsByHash` and `AztecNode.getPendingTxs` (also exposed on the P2P API) now take an optional `GetTxByHashOptions` argument with an `includeProof` flag. The proof is stripped from returned txs unless `includeProof: true` is passed, cutting roughly 35-52KB per tx over the wire.
+
+**Migration:**
+
+```diff
+- const tx = await node.getTxByHash(txHash);
++ const tx = await node.getTxByHash(txHash, { includeProof: true });
+
+- const txs = await node.getPendingTxs(limit, after);
++ const txs = await node.getPendingTxs(limit, after, { includeProof: true });
+```
+
+**Impact**: Callers that read the proof off returned txs (eg to re-broadcast or validate them) must now pass `{ includeProof: true }` explicitly; by default the returned txs carry an empty proof.
 
 ### [aztec.js] `DeployMethod.send()` always returns `{ contract, receipt, instance }`
 

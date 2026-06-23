@@ -1806,7 +1806,7 @@ bool StaticAnalyzer_<FF, CircuitBuilder>::variable_only_in_ecc_op_materializatio
         }
         const void* arithmetic_block_ptr = static_cast<const void*>(&circuit_builder.blocks.arithmetic);
         const void* ecc_op_block_ptr = static_cast<const void*>(&circuit_builder.blocks.ecc_op);
-        const void* poseidon2_external_block_ptr = static_cast<const void*>(&circuit_builder.blocks.poseidon2_external);
+        const void* poseidon2_block_ptr = static_cast<const void*>(&circuit_builder.blocks.poseidon2);
         bool has_ecc_op_row = false;
         bool has_materialization_row = false;
         for (const auto& [block_ptr, gate_idx] : it->second) {
@@ -1814,9 +1814,13 @@ bool StaticAnalyzer_<FF, CircuitBuilder>::variable_only_in_ecc_op_materializatio
                 has_ecc_op_row = true;
                 continue;
             }
-            if (block_ptr == poseidon2_external_block_ptr) {
-                has_materialization_row = true;
-                continue;
+            if (block_ptr == poseidon2_block_ptr) {
+                const auto& block = *static_cast<const bb::MegaTraceBlock*>(block_ptr);
+                if (!read_gate_selector(block, GateKind::Poseidon2Ext, gate_idx).is_zero() ||
+                    !read_gate_selector(block, GateKind::Poseidon2ExtInitial, gate_idx).is_zero()) {
+                    has_materialization_row = true;
+                    continue;
+                }
             }
             if (block_ptr == arithmetic_block_ptr) {
                 auto& block = *const_cast<bb::MegaTraceBlock*>(static_cast<const bb::MegaTraceBlock*>(block_ptr));

@@ -130,7 +130,7 @@ export class GrumpkinCrs {
   async init(): Promise<void> {
     mkdirSync(this.path, { recursive: true });
 
-    const g1FileSize = await stat(this.path + '/grumpkin_g1.flat.dat')
+    const g1FileSize = await stat(this.path + '/grumpkin_g1_v2.flat.dat')
       .then(stats => stats.size)
       .catch(() => 0);
 
@@ -143,7 +143,7 @@ export class GrumpkinCrs {
     const crs = new NetGrumpkinCrs(this.numPoints);
     const stream = await crs.streamG1Data();
 
-    await finished(Readable.fromWeb(stream as any).pipe(createWriteStream(this.path + '/grumpkin_g1.flat.dat')));
+    await finished(Readable.fromWeb(stream as any).pipe(createWriteStream(this.path + '/grumpkin_g1_v2.flat.dat')));
     writeFileSync(this.path + '/grumpkin_size', String(crs.numPoints));
   }
 
@@ -152,6 +152,6 @@ export class GrumpkinCrs {
    * @returns The points data.
    */
   getG1Data(): Uint8Array {
-    return readFileSync(this.path + '/grumpkin_g1.flat.dat');
+    return readFileSync(this.path + '/grumpkin_g1_v2.flat.dat');
   }
 }

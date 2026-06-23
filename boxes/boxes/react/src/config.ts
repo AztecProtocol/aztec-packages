@@ -21,7 +21,7 @@ export class PrivateEnv {
       );
     }
 
-    await wallet.createSchnorrAccount(accountData.secret, accountData.salt, accountData.signingKey);
+    await wallet.createSchnorrInitializerlessAccount(accountData.secret, accountData.salt, accountData.signingKey);
     this.wallet = wallet;
     this.defaultAccountAddress = accountData.address;
   }

@@ -23,7 +23,7 @@ use aztec::macros::aztec;
 pub contract PodRacing {
     use aztec::{
         macros::{functions::{external, initializer, only_self}, storage::storage},
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         note::note_getter_options::NoteGetterOptions,
     };
     use aztec::protocol::address::AztecAddress;

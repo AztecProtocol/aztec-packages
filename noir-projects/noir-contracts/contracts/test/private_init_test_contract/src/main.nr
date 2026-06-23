@@ -6,7 +6,7 @@ use aztec::macros::aztec;
 pub contract PrivateInitTest {
     use aztec::{
         macros::{functions::{external, initializer, noinitcheck}, storage::storage},
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         protocol::address::AztecAddress,
         state_vars::{Owned, PrivateMutable},
     };

@@ -1,4 +1,4 @@
-import { Archiver, L1ToL2MessagesNotReadyError, createArchiver } from '@aztec/archiver';
+import { Archiver, createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, BatchChonkVerifier, QueuedIVCVerifier } from '@aztec/bb-prover';
 import { TestCircuitVerifier } from '@aztec/bb-prover/test';
 import { type BlobClientInterface, createBlobClientWithFileStores } from '@aztec/blob-client/client';
@@ -10,7 +10,13 @@ import { getPublicClient, makeL1HttpTransport } from '@aztec/ethereum/client';
 import { RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
 import { type L1ContractAddresses, pickL1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
-import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import {
+  BlockNumber,
+  CheckpointNumber,
+  type CheckpointProposalHash,
+  EpochNumber,
+  SlotNumber,
+} from '@aztec/foundation/branded-types';
 import { chunkBy, compactArray, pick, unique } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -20,7 +26,6 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { count } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
-import { isErrorClass } from '@aztec/foundation/types';
 import { type KeyStore, KeystoreManager, loadKeystores, mergeKeystores } from '@aztec/node-keystore';
 import { trySnapshotSync, uploadSnapshot } from '@aztec/node-lib/actions';
 import { createForwarderL1TxUtilsFromSigners, createL1TxUtilsFromSigners } from '@aztec/node-lib/factories';
@@ -35,14 +40,12 @@ import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type ProverNode, type ProverNodeDeps, createProverNode } from '@aztec/prover-node';
 import { createKeyStoreForProver } from '@aztec/prover-node/config';
 import {
-  AutomineSequencer,
   FeeProviderImpl,
   GlobalVariableBuilder,
   SequencerClient,
   type SequencerPublisher,
-  createAutomineSequencer,
 } from '@aztec/sequencer-client';
-import { PublicContractsDB, PublicProcessorFactory } from '@aztec/simulator/server';
+import { AutomineSequencer, createAutomineSequencer } from '@aztec/sequencer-client/automine';
 import {
   AttestationsBlockWatcher,
   AttestedInvalidProposalWatcher,
@@ -54,7 +57,6 @@ import {
   createSlasher,
 } from '@aztec/slasher';
 import { STANDARD_MULTI_CALL_ENTRYPOINT_ADDRESS } from '@aztec/standard-contracts/multi-call-entrypoint';
-import { CollectionLimitsConfig, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type BlockData,
@@ -65,6 +67,7 @@ import {
   type CommitteeAttestation,
   type DataInBlock,
   type L2BlockSource,
+  type L2BlockTag,
   type L2Tips,
   type NormalizedBlockParameter,
   inspectBlockParameter,
@@ -83,7 +86,7 @@ import type {
   ProtocolContractAddresses,
 } from '@aztec/stdlib/contract';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
-import { GasFees, type ManaUsageEstimate } from '@aztec/stdlib/gas';
+import { GasFees, type ManaUsageEstimate, getNetworkTxGasLimits } from '@aztec/stdlib/gas';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import type {
   AztecNode,
@@ -93,11 +96,13 @@ import type {
   BlockIncludeOptions,
   BlockResponse,
   BlocksIncludeOptions,
-  ChainTip,
-  ChainTips,
   CheckpointIncludeOptions,
   CheckpointParameter,
   CheckpointResponse,
+  CheckpointTag,
+  GetTxByHashOptions,
+  PeerInfo,
+  ProposalsForSlot,
 } from '@aztec/stdlib/interfaces/client';
 import { AztecNodeAdminConfigSchema } from '@aztec/stdlib/interfaces/client';
 import {
@@ -111,14 +116,9 @@ import {
 } from '@aztec/stdlib/interfaces/server';
 import type { DebugLogStore, LogResult, PrivateLogsQuery, PublicLogsQuery } from '@aztec/stdlib/logs';
 import { InMemoryDebugLogStore, NullDebugLogStore } from '@aztec/stdlib/logs';
-import {
-  InboxLeaf,
-  type L1ToL2MessageSource,
-  type L2ToL1MembershipWitness,
-  appendL1ToL2MessagesToTree,
-} from '@aztec/stdlib/messaging';
+import { InboxLeaf, type L1ToL2MessageSource, type L2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
+import type { CheckpointAttestation } from '@aztec/stdlib/p2p';
 import type { Offense } from '@aztec/stdlib/slashing';
-import { MIN_EXECUTION_TIME } from '@aztec/stdlib/timetable';
 import type { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import {
@@ -173,7 +173,7 @@ import {
 } from './block_response_helpers.js';
 import { type AztecNodeConfig, createKeyStoreForValidator } from './config.js';
 import { NodeMetrics } from './node_metrics.js';
-import { applyPublicDataOverrides } from './public_data_overrides.js';
+import { NodePublicCallsSimulator } from './node_public_calls_simulator.js';
 
 /**
  * The aztec node.
@@ -184,6 +184,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   private isUploadingSnapshot = false;
   // Saved minTxsPerBlock used by `pauseSequencer` to restore production-sequencer config on resume.
   private sequencerPausedMinTxsPerBlock: number | undefined;
+  private readonly nodePublicCallsSimulator: NodePublicCallsSimulator;
 
   public readonly tracer: Tracer;
 
@@ -203,6 +204,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     protected readonly l1ChainId: number,
     protected readonly version: number,
     protected readonly globalVariableBuilder: GlobalVariableBuilderInterface,
+    protected readonly rollupContract: RollupContract | undefined,
     protected readonly feeProvider: FeeProvider,
     protected readonly epochCache: EpochCacheInterface,
     protected readonly packageVersion: string,
@@ -218,6 +220,22 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   ) {
     this.metrics = new NodeMetrics(telemetry, 'AztecNodeService');
     this.tracer = telemetry.getTracer('AztecNodeService');
+
+    // The node never represents a proposer's payout addresses, so the simulator zeroes coinbase and
+    // fee recipient. The signature context only needs chain id + rollup address (see signature_utils).
+    this.nodePublicCallsSimulator = new NodePublicCallsSimulator({
+      blockSource: this.blockSource,
+      worldStateSynchronizer: this.worldStateSynchronizer,
+      l1ToL2MessageSource: this.l1ToL2MessageSource,
+      contractDataSource: this.contractDataSource,
+      globalVariableBuilder: this.globalVariableBuilder,
+      rollupContract: this.rollupContract,
+      epochCache: this.epochCache,
+      signatureContext: { chainId: this.l1ChainId, rollupAddress: this.config.rollupAddress },
+      config: this.config,
+      telemetry: this.telemetry,
+      log: this.log.createChild('public-calls-simulator'),
+    });
 
     this.log.info(`Aztec Node version: ${this.packageVersion}`);
     this.log.info(`Aztec Node started on chain 0x${l1ChainId.toString(16)}`, pickL1ContractAddresses(config));
@@ -240,30 +258,43 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return status.syncSummary;
   }
 
-  public async getChainTips(): Promise<ChainTips> {
-    const { proposed, checkpointed, proven, finalized } = await this.blockSource.getL2Tips();
-    return { proposed, checkpointed, proven, finalized };
+  public getChainTips(): Promise<L2Tips> {
+    return this.blockSource.getL2Tips();
+  }
+
+  public getL1Constants() {
+    return this.blockSource.getL1Constants();
+  }
+
+  public getSyncedL2SlotNumber() {
+    return this.blockSource.getSyncedL2SlotNumber();
+  }
+
+  public getSyncedL2EpochNumber() {
+    return this.blockSource.getSyncedL2EpochNumber();
+  }
+
+  public getSyncedL1Timestamp() {
+    return this.blockSource.getL1Timestamp();
   }
 
   public getCheckpointsData(query: CheckpointsQuery) {
     return this.blockSource.getCheckpointsData(query);
   }
 
-  public async getBlockNumber(tip?: ChainTip): Promise<BlockNumber> {
+  public async getBlockNumber(tip?: L2BlockTag): Promise<BlockNumber> {
     if (tip === undefined || tip === 'proposed') {
       return this.blockSource.getBlockNumber();
     }
     return (await this.blockSource.getBlockNumber({ tag: tip })) ?? BlockNumber.ZERO;
   }
 
-  public async getCheckpointNumber(tip?: ChainTip): Promise<CheckpointNumber> {
+  public async getCheckpointNumber(tip?: CheckpointTag): Promise<CheckpointNumber> {
     const tips = await this.blockSource.getL2Tips();
     switch (tip) {
       case undefined:
       case 'checkpointed':
         return tips.checkpointed.checkpoint.number;
-      case 'proposed':
-        return tips.proposedCheckpoint.checkpoint.number;
       case 'proven':
         return tips.proven.checkpoint.number;
       case 'finalized':
@@ -271,8 +302,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     }
   }
 
-  private isChainTip(value: unknown): value is ChainTip {
-    return value === 'proposed' || value === 'checkpointed' || value === 'proven' || value === 'finalized';
+  private isCheckpointTag(value: unknown): value is CheckpointTag {
+    return value === 'checkpointed' || value === 'proven' || value === 'finalized';
   }
 
   /**
@@ -320,10 +351,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   /**
    * Resolves a {@link CheckpointParameter} into a concrete `{ number }` or `{ slot }` query.
    *
-   * Tag-based parameters (`'proposed'`, `'checkpointed'`, `'proven'`, `'finalized'`) are
-   * translated up-front to the corresponding tip's checkpoint number via {@link L2BlockSource.getL2Tips}.
-   * After resolution the unified {@link getCheckpoint} flow can perform a single
-   * confirmed→proposed lookup against either store.
+   * Tag-based parameters (`'checkpointed'`, `'proven'`, `'finalized'`) are translated up-front to the
+   * corresponding tip's checkpoint number via {@link L2BlockSource.getL2Tips}. After resolution the
+   * unified {@link getCheckpoint} flow can perform a single confirmed→proposed lookup against either
+   * store.
    */
   private async resolveCheckpointParameter(
     param: CheckpointParameter,
@@ -331,11 +362,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     if (typeof param === 'number') {
       return { number: param as CheckpointNumber };
     }
-    if (this.isChainTip(param)) {
+    if (this.isCheckpointTag(param)) {
       const tips = await this.blockSource.getL2Tips();
       switch (param) {
-        case 'proposed':
-          return { number: tips.proposedCheckpoint.checkpoint.number };
         case 'checkpointed':
           return { number: tips.checkpointed.checkpoint.number };
         case 'proven':
@@ -498,6 +527,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   ): Promise<AztecNodeService> {
     const config = { ...inputConfig }; // Copy the config so we dont mutate the input object
     const log = deps.logger ?? createLogger('node');
+
+    // Initialise the bb.js sync WASM singleton here, before any subsystem runs.
+    const { BarretenbergSync } = await import('@aztec/bb.js');
+    await BarretenbergSync.initSingleton();
+
     const packageVersion = getPackageVersion();
     const telemetry = deps.telemetry ?? getTelemetryClient();
     const dateProvider = deps.dateProvider ?? new DateProvider();
@@ -564,9 +598,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     Object.assign(config, l1ContractsAddresses);
 
     const rollupContract = new RollupContract(publicClient, config.rollupAddress.toString());
-    const [l1GenesisTime, slotDuration, rollupVersionFromRollup, rollupManaLimit] = await Promise.all([
+    const [l1GenesisTime, slotDuration, epochDuration, rollupVersionFromRollup, rollupManaLimit] = await Promise.all([
       rollupContract.getL1GenesisTime(),
       rollupContract.getSlotDuration(),
+      rollupContract.getEpochDuration(),
       rollupContract.getVersion(),
       rollupContract.getManaLimit().then(Number),
     ] as const);
@@ -589,10 +624,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     // Track started resources so we can clean up on partial failure during node creation.
     const started: { stop?(): Promise<void> | void }[] = [];
     try {
-      // Default the orphan-prune grace window from the block build duration when unset, so the archiver
-      // waits roughly one build slot for a proposed checkpoint to arrive before pruning a block-only tip.
-      config.orphanProposedBlockPruneGraceSeconds ??=
-        config.blockDurationMs !== undefined ? Math.ceil(config.blockDurationMs / 1000) : MIN_EXECUTION_TIME;
+      config.skipOrphanProposedBlockPruning ||= !!config.useAutomineSequencer;
+
+      AztecNodeService.checkConfigMatchesRollup(config, {
+        slotDuration: Number(slotDuration),
+        epochDuration: Number(epochDuration),
+      });
 
       // Create world-state first so we can retrieve the initial header before constructing the archiver.
       const nativeWs = await createWorldState(config, options.genesis);
@@ -601,12 +638,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       const archiver = await createArchiver(
         config,
         { blobClient, epochCache, telemetry, dateProvider },
-        {
-          blockUntilSync: !config.skipArchiverInitialSync,
-          // The non-pipelined automine sequencer publishes each checkpoint in-slot, so it never
-          // leaves orphan proposed blocks; pruning would race its local push. See pruneOrphanProposedBlocks.
-          enableOrphanProposedBlockPruning: !config.useAutomineSequencer,
-        },
+        { blockUntilSync: !config.skipArchiverInitialSync },
         initialHeader,
         initialBlockHash,
       );
@@ -648,7 +680,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         slotDuration: Number(slotDuration),
       };
 
-      const globalVariableBuilder = new GlobalVariableBuilder(dateProvider, publicClient, globalVariableBuilderConfig);
+      const globalVariableBuilder = new GlobalVariableBuilder(publicClient, globalVariableBuilderConfig);
       const feeProvider = new FeeProviderImpl(dateProvider, publicClient, globalVariableBuilderConfig);
 
       const proverOnly = config.enableProverNode && config.disableValidator;
@@ -671,6 +703,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         initialBlockHash,
       );
       started.push(p2pClient);
+      archiver.setCheckpointProposalPresence(p2pClient);
 
       // We'll accumulate sentinel watchers here
       const watchers: Watcher[] = [];
@@ -923,6 +956,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
               ethereumSlotDuration: config.ethereumSlotDuration,
               rollupManaLimit,
             },
+            autoSettle: config.automineEnableProveEpoch,
             log,
           });
         } else {
@@ -1003,6 +1037,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         ethereumChain.chainInfo.id,
         config.rollupVersion,
         globalVariableBuilder,
+        rollupContract,
         feeProvider,
         epochCache,
         packageVersion,
@@ -1024,6 +1059,32 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         await tryStop(resource);
       }
       throw err;
+    }
+  }
+
+  /**
+   * Verifies the node's configured L1 timing matches the rollup contract it is pointed at, for the fields the
+   * node's own config carries. Each comparison is guarded against an undefined config value, so a config that
+   * does not carry a field is not checked. Throws a single error listing every mismatch. Runs in the shared
+   * startup path for every node role.
+   */
+  private static checkConfigMatchesRollup(
+    config: AztecNodeConfig,
+    rollup: { slotDuration: number; epochDuration: number },
+  ): void {
+    const mismatches: string[] = [];
+    if (config.aztecSlotDuration !== undefined && config.aztecSlotDuration !== rollup.slotDuration) {
+      mismatches.push(`aztecSlotDuration is ${config.aztecSlotDuration} but the rollup reports ${rollup.slotDuration}`);
+    }
+    if (config.aztecEpochDuration !== undefined && config.aztecEpochDuration !== rollup.epochDuration) {
+      mismatches.push(
+        `aztecEpochDuration is ${config.aztecEpochDuration} but the rollup reports ${rollup.epochDuration}`,
+      );
+    }
+    if (mismatches.length > 0) {
+      throw new Error(
+        `The node's configured L1 timing does not match the rollup contract it is pointed at: ${mismatches.join('; ')}`,
+      );
     }
   }
 
@@ -1082,14 +1143,22 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   }
 
   public async getNodeInfo(): Promise<NodeInfo> {
-    const [nodeVersion, rollupVersion, chainId, enr, contractAddresses, protocolContractAddresses] = await Promise.all([
-      this.getNodeVersion(),
-      this.getVersion(),
-      this.getChainId(),
-      this.getEncodedEnr(),
-      this.getL1ContractAddresses(),
-      this.getProtocolContractAddresses(),
-    ]);
+    const [nodeVersion, rollupVersion, chainId, enr, contractAddresses, protocolContractAddresses, l1Constants] =
+      await Promise.all([
+        this.getNodeVersion(),
+        this.getVersion(),
+        this.getChainId(),
+        this.getEncodedEnr(),
+        this.getL1ContractAddresses(),
+        this.getProtocolContractAddresses(),
+        this.blockSource.getL1Constants(),
+      ]);
+
+    // Gas limits a single tx may declare on this network, derived from network-wide constants only (the
+    // timetable's blocks-per-checkpoint and the network-minimum per-block multipliers) — never this node's
+    // local caps or configured multipliers, which can make the node stricter at block-building time but
+    // cannot define what the network accepts for relay. Clients read txsLimits to set fallback gas limits.
+    const maxTxGas = getNetworkTxGasLimits(this.config, l1Constants);
 
     const nodeInfo: NodeInfo = {
       nodeVersion,
@@ -1099,6 +1168,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       l1ContractAddresses: contractAddresses,
       protocolContractAddresses: protocolContractAddresses,
       realProofs: !!this.config.realProofs,
+      txsLimits: { gas: { daGas: maxTxGas.daGas, l2Gas: maxTxGas.l2Gas } },
     };
 
     return nodeInfo;
@@ -1114,7 +1184,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   }
 
   public async getMaxPriorityFees(): Promise<GasFees> {
-    for await (const tx of this.p2pClient.iteratePendingTxs()) {
+    for await (const tx of this.p2pClient.iteratePendingTxs({ includeProof: false })) {
       return tx.getGasSettings().maxPriorityFeesPerGas;
     }
 
@@ -1216,8 +1286,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       if (options?.includePendingTx) {
         // The tx may have left the pool since we checked its status (mined or dropped); in that case we
         // leave `tx` unset and still return a pending receipt.
-        const pendingTx = await this.p2pClient.getTxByHashFromPool(txHash);
-        tx = pendingTx && !options.includeProof ? pendingTx.withoutProof() : pendingTx;
+        tx = await this.p2pClient.getTxByHashFromPool(txHash, { includeProof: !!options.includeProof });
       }
       receipt = new PendingTxReceipt(txHash, tx);
     } else {
@@ -1305,30 +1374,50 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
    * @param after - The last known pending tx. Used for pagination
    * @returns - The pending txs.
    */
-  public getPendingTxs(limit?: number, after?: TxHash): Promise<Tx[]> {
-    return this.p2pClient!.getPendingTxs(limit, after);
+  public getPendingTxs(limit?: number, after?: TxHash, options?: GetTxByHashOptions): Promise<Tx[]> {
+    return this.p2pClient!.getPendingTxs(limit, after, options);
   }
 
   public getPendingTxCount(): Promise<number> {
     return this.p2pClient!.getPendingTxCount();
   }
 
-  /**
-   * Method to retrieve a single tx from the mempool or unfinalized chain.
-   * @param txHash - The transaction hash to return.
-   * @returns - The tx if it exists.
-   */
-  public getTxByHash(txHash: TxHash): Promise<Tx | undefined> {
-    return Promise.resolve(this.p2pClient!.getTxByHashFromPool(txHash));
+  public getPeers(includePending?: boolean): Promise<PeerInfo[]> {
+    return this.p2pClient!.getPeers(includePending);
+  }
+
+  public getCheckpointAttestationsForSlot(
+    slot: SlotNumber,
+    proposalPayloadHash?: CheckpointProposalHash,
+  ): Promise<CheckpointAttestation[]> {
+    return this.p2pClient!.getCheckpointAttestationsForSlot(slot, proposalPayloadHash);
+  }
+
+  public getProposalsForSlot(slot: SlotNumber): Promise<ProposalsForSlot> {
+    return this.p2pClient!.getProposalsForSlot(slot);
   }
 
   /**
-   * Method to retrieve txs from the mempool or unfinalized chain.
+   * Method to retrieve a single tx from the mempool or unfinalized chain. The tx's proof is only loaded and returned
+   * when `includeProof` is set.
    * @param txHash - The transaction hash to return.
+   * @param options - Options for the returned tx (eg whether to include its proof).
+   * @returns - The tx if it exists.
+   */
+  public getTxByHash(txHash: TxHash, options?: GetTxByHashOptions): Promise<Tx | undefined> {
+    return this.p2pClient!.getTxByHashFromPool(txHash, { includeProof: !!options?.includeProof });
+  }
+
+  /**
+   * Method to retrieve txs from the mempool or unfinalized chain. The txs' proofs are only loaded and returned when
+   * `includeProof` is set.
+   * @param txHash - The transaction hash to return.
+   * @param options - Options for the returned txs (eg whether to include their proofs).
    * @returns - The txs if it exists.
    */
-  public async getTxsByHash(txHashes: TxHash[]): Promise<Tx[]> {
-    return compactArray(await Promise.all(txHashes.map(txHash => this.getTxByHash(txHash))));
+  public async getTxsByHash(txHashes: TxHash[], options?: GetTxByHashOptions): Promise<Tx[]> {
+    const txs = await this.p2pClient!.getTxsByHashFromPool(txHashes, { includeProof: !!options?.includeProof });
+    return compactArray(txs);
   }
 
   public async findLeavesIndexes(
@@ -1559,126 +1648,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   @trackSpan('AztecNodeService.simulatePublicCalls', (tx: Tx) => ({
     [Attributes.TX_HASH]: tx.getTxHash().toString(),
   }))
-  public async simulatePublicCalls(
+  public simulatePublicCalls(
     tx: Tx,
     skipFeeEnforcement = false,
     overrides?: SimulationOverrides,
   ): Promise<PublicSimulationOutput> {
-    // Check total gas limit for simulation
-    const gasSettings = tx.data.constants.txContext.gasSettings;
-    const txGasLimit = gasSettings.gasLimits.l2Gas;
-    const teardownGasLimit = gasSettings.teardownGasLimits.l2Gas;
-    if (txGasLimit + teardownGasLimit > this.config.rpcSimulatePublicMaxGasLimit) {
-      throw new BadRequestError(
-        `Transaction total gas limit ${
-          txGasLimit + teardownGasLimit
-        } (${txGasLimit} + ${teardownGasLimit}) exceeds maximum gas limit ${
-          this.config.rpcSimulatePublicMaxGasLimit
-        } for simulation`,
-      );
-    }
-
-    const txHash = tx.getTxHash();
-    const l2Tips = await this.blockSource.getL2Tips();
-    const latestBlockNumber = l2Tips.proposed.number;
-    const blockNumber = BlockNumber.add(latestBlockNumber, 1);
-
-    // If sequencer is not initialized, we just set these values to zero for simulation.
-    const coinbase = EthAddress.ZERO;
-    const feeRecipient = AztecAddress.ZERO;
-
-    const newGlobalVariables = await this.globalVariableBuilder.buildGlobalVariables(
-      blockNumber,
-      coinbase,
-      feeRecipient,
-    );
-
-    const publicProcessorFactory = new PublicProcessorFactory(
-      this.contractDataSource,
-      new DateProvider(),
-      this.telemetry,
-      this.log.getBindings(),
-    );
-
-    this.log.verbose(`Simulating public calls for tx ${txHash}`, {
-      globalVariables: newGlobalVariables.toInspect(),
-      txHash,
-      blockNumber,
-    });
-
-    // Ensure world-state has caught up with the latest block we loaded from the archiver
-    await this.worldStateSynchronizer.syncImmediate(latestBlockNumber);
-
-    // If we detect the next block would start a new checkpoint, then insert L1-to-L2 messages into
-    // the world state tree so simulation can take them into account. We detect if the next block would
-    // start a new checkpoint by checking if the proposed checkpoint's block number matches the latest block number,
-    // which means the next block would be the first block of the next checkpoint.
-    const targetCheckpoint = CheckpointNumber(
-      (l2Tips.proposedCheckpoint.checkpoint.number ?? CheckpointNumber.ZERO) + 1,
-    );
-    const nextCheckpointMessages: Fr[] | undefined =
-      l2Tips.proposedCheckpoint.block.number === l2Tips.proposed.number
-        ? await this.l1ToL2MessageSource.getL1ToL2Messages(targetCheckpoint).catch(err => {
-            if (isErrorClass(err, L1ToL2MessagesNotReadyError)) {
-              this.log.warn(
-                `L1-to-L2 messages for checkpoint ${targetCheckpoint} are not ready yet (simulating without them)`,
-              );
-            } else {
-              this.log.error(
-                `Failed to get L1-to-L2 messages for checkpoint ${targetCheckpoint} (simulating without them)`,
-                err,
-              );
-            }
-            return undefined;
-          })
-        : undefined;
-
-    // Request a new fork of the world state at the latest block number, and apply any overrides and next checkpoint messages to it before simulation
-    await using merkleTreeFork = await this.worldStateSynchronizer.fork(latestBlockNumber);
-
-    if (nextCheckpointMessages !== undefined) {
-      this.log.debug(
-        `Appending ${nextCheckpointMessages.length} L1-to-L2 messages to the world state tree for the next checkpoint`,
-        { checkpointNumber: l2Tips.proposedCheckpoint.checkpoint.number + 1 },
-      );
-      await appendL1ToL2MessagesToTree(merkleTreeFork, nextCheckpointMessages);
-    }
-    await applyPublicDataOverrides(merkleTreeFork, overrides?.publicStorage);
-
-    const config = PublicSimulatorConfig.from({
-      skipFeeEnforcement,
-      collectDebugLogs: true,
-      collectHints: false,
-      collectCallMetadata: true,
-      collectStatistics: false,
-      collectionLimits: CollectionLimitsConfig.from({
-        maxDebugLogMemoryReads: this.config.rpcSimulatePublicMaxDebugLogMemoryReads,
-      }),
-    });
-
-    const contractsDB = new PublicContractsDB(this.contractDataSource, this.log.getBindings());
-    if (overrides?.contracts) {
-      contractsDB.addContracts(Object.values(overrides.contracts).map(({ instance }) => instance));
-    }
-    const processor = publicProcessorFactory.create(merkleTreeFork, newGlobalVariables, config, contractsDB);
-
-    // REFACTOR: Consider merging ProcessReturnValues into ProcessedTx
-    const [processedTxs, failedTxs, _usedTxs, returns, debugLogs] = await processor.process([tx]);
-    // REFACTOR: Consider returning the error rather than throwing
-    if (failedTxs.length) {
-      this.log.warn(`Simulated tx ${txHash} fails: ${failedTxs[0].error}`, { txHash });
-      throw failedTxs[0].error;
-    }
-
-    const [processedTx] = processedTxs;
-    return new PublicSimulationOutput(
-      processedTx.revertReason,
-      processedTx.globalVariables,
-      processedTx.txEffect,
-      returns,
-      processedTx.gasUsed,
-      debugLogs,
-    );
+    return this.nodePublicCallsSimulator.simulate(tx, skipFeeEnforcement, overrides);
   }
 
   public async isValidTx(
@@ -1692,6 +1667,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     const { ts: nextSlotTimestamp } = this.epochCache.getEpochAndSlotInNextL1Slot();
     const blockNumber = BlockNumber((await this.blockSource.getBlockNumber()) + 1);
     const l1Constants = await this.blockSource.getL1Constants();
+    // Enforce the same network admission limit the node advertises in getNodeInfo (network-wide, not this
+    // node's local caps), so a tx the wallet sized against txsLimits is not rejected here.
+    const networkTxGasLimits = getNetworkTxGasLimits(this.config, l1Constants);
     const validator = createTxValidatorForAcceptingTxsOverRPC(
       db,
       this.contractDataSource,
@@ -1707,10 +1685,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         ],
         gasFees: await this.getCurrentMinFees(),
         skipFeeEnforcement,
+        isSimulation,
         txsPermitted: !this.config.disableTransactions,
-        rollupManaLimit: l1Constants.rollupManaLimit,
-        maxBlockL2Gas: this.config.validateMaxL2BlockGas,
-        maxBlockDAGas: this.config.validateMaxDABlockGas,
+        maxTxL2Gas: networkTxGasLimits.l2Gas,
+        maxTxDAGas: networkTxGasLimits.daGas,
       },
       this.log.getBindings(),
     );
@@ -2052,6 +2030,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     } finally {
       this.sequencer.updateConfig({ minTxsPerBlock: originalMinTxsPerBlock });
     }
+  }
+
+  public async prove(upToCheckpoint?: CheckpointNumber): Promise<CheckpointNumber> {
+    if (!this.automineSequencer) {
+      throw new BadRequestError('Cannot prove checkpoint: no automine sequencer is running');
+    }
+    return await this.automineSequencer.prove(upToCheckpoint);
   }
 
   /**

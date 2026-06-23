@@ -47,17 +47,17 @@ function handle_squash_merge {
 }
 
 function handle_benchmarks {
-  if [ "${SHOULD_UPLOAD_BENCHMARKS:-0}" -eq 0 ]; then
+  if [ "${BENCH_UPLOAD:-0}" -eq 0 ]; then
     return
   fi
   # Handle benchmarks download (internal only)
   echo "Downloading benchmarks..."
   if ./ci.sh gh-bench && [ -f "./bench-out/bench.json" ] && [ "$(cat ./bench-out/bench.json)" != "[]" ]; then
     echo "Benchmarks downloaded successfully"
-    echo "SHOULD_UPLOAD_BENCHMARKS=1" >> $GITHUB_ENV
+    echo "BENCH_UPLOAD=1" >> $GITHUB_ENV
   else
     echo "No benchmarks to upload"
-    echo "SHOULD_UPLOAD_BENCHMARKS=0" >> $GITHUB_ENV
+    echo "BENCH_UPLOAD=0" >> $GITHUB_ENV
   fi
 }
 

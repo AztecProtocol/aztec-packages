@@ -18,7 +18,10 @@ source "$own_dir/pinned_chonk_inputs.sh"
 
 script_dir="$root/barretenberg/cpp/scripts"
 bb_preset="${BB_BUILD_PRESET:-${NATIVE_PRESET:-clang20}}"
-bb="$root/barretenberg/cpp/$($script_dir/preset-build-dir "$bb_preset")/bin/bb"
+# Use the AVM-enabled binary. Deploy flows route through the public hiding kernel
+# (AVM recursion); only bb-avm derives its VK correctly. Non-AVM bb both fails to
+# capture those flows and would false-pass the post-capture VK check.
+bb="$root/barretenberg/cpp/$($script_dir/preset-build-dir "$bb_preset")/bin/bb-avm"
 export bb_preset
 export bb
 
@@ -33,8 +36,8 @@ function usage {
 
 function require_bb {
   if [[ ! -x "$bb" ]]; then
-    echo_stderr "ERROR: bb binary not found at $bb"
-    echo_stderr "Build it first, or set BB_BUILD_PRESET/NATIVE_PRESET to the preset containing bin/bb."
+    echo_stderr "ERROR: bb-avm binary not found at $bb"
+    echo_stderr "Build it first, or set BB_BUILD_PRESET/NATIVE_PRESET to the preset containing bin/bb-avm."
     return 1
   fi
 }
@@ -62,6 +65,11 @@ function capture_inputs {
   cd "$root"
   ./bootstrap.sh pull_submodules
   make yarn-project
+  # The capture's getBBConfig defaults to bin/bb-avm but silently falls back to non-AVM
+  # proving when it is absent, baking stale public-path VKs (e.g. the public hiding kernel
+  # used by deploy flows) into the fixtures. Build just that binary so the capture uses AVM
+  # (cmake_build forwards --target; build_preset would ignore it and rebuild the whole preset).
+  barretenberg/cpp/bootstrap.sh cmake_build "$bb_preset" --target bb-avm
   cd "$root/yarn-project/end-to-end"
   ./bootstrap.sh build_bench_capture
 }
@@ -140,10 +148,37 @@ function cmd_check {
   fi
 }
 
+# Verify every freshly captured flow's embedded VKs against bb-avm before pinning.
+# Mirrors cmd_check, but over the live capture dir rather than a downloaded pin.
+function verify_captured_flows {
+  local capture_dir=${1:?capture dir required}
+  export work_dir="$capture_dir"
+  local exit_code=0
+  mapfile -t flows < <(list_chonk_input_flow_dirs "$capture_dir")
+  if [[ ${#flows[@]} -eq 0 ]]; then
+    echo_stderr "ERROR: no captured Chonk flows found under $capture_dir to verify."
+    return 1
+  fi
+  parallel --joblog "$capture_dir/joblog.log" -v --line-buffer --tag check_circuit_vks {} ::: "${flows[@]}" || true
+  extract_parallel_exit_code "$capture_dir/joblog.log" || exit_code=$?
+  return "$exit_code"
+}
+
 function cmd_update {
   capture_inputs
+
+  # Gate the upload on a full VK check: a capture that baked in a stale VK (e.g. a
+  # public-path flow proven without AVM) fails here instead of shipping as a broken pin.
+  local capture_dir exit_code=0
+  capture_dir="$(chonk_capture_dir)"
+  verify_captured_flows "$capture_dir" || exit_code=$?
+  if [[ $exit_code -ne 0 ]]; then
+    echo_stderr "ERROR: captured Chonk inputs failed VK verification (exit ${exit_code}); not pinning."
+    return "$exit_code"
+  fi
+
   local new_hash
-  new_hash="$(upload_and_pin_chonk_inputs "$(chonk_capture_dir)" | tail -1)"
+  new_hash="$(upload_and_pin_chonk_inputs "$capture_dir" | tail -1)"
   echo "Pinned Chonk inputs refreshed to ${new_hash}."
 }
 

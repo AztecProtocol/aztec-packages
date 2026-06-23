@@ -78,7 +78,6 @@ describe('e2e_gov_proposal', () => {
       aztecSlotDuration: AZTEC_SLOT_DURATION,
       aztecProofSubmissionEpochs: 128, // no pruning
       minTxsPerBlock: TXS_PER_BLOCK,
-      enforceTimeTable: true,
       automineL1Setup: true, // speed up setup
       // Force the L1 sync to fetch blobs rather than promote the locally-proposed checkpoint.
       // The "should vote even when unable to build blocks" test relies on the blob client being the
@@ -222,7 +221,8 @@ describe('e2e_gov_proposal', () => {
     ((aztecNodeAdmin as AztecNodeService).getBlobClient() as HttpBlobClient).setDisabled(true);
     await sleep(1000);
     const lastBlockSynced = await aztecNode!.getBlockNumber();
-    logger.warn(`blob client is disabled (last block synced is ${lastBlockSynced})`);
+    const lastCheckpointOnL1 = await rollup.getCheckpointNumber();
+    logger.warn(`blob client is disabled`, { lastBlockSynced, lastCheckpointOnL1 });
 
     // And send a tx which shouldnt be syncable but does move the block forward.
     // Under proposer pipelining the proposer builds in slot N-1 and the L1 propose mines in slot N, so a single
@@ -235,20 +235,38 @@ describe('e2e_gov_proposal', () => {
     ).rejects.toThrow(TimeoutError);
     logger.warn(`Test tx timed out as expected`);
 
-    // Check that the block number has indeed increased on L1 so sequencers cant pass the sync check.
+    // Check that the checkpoint number has indeed increased on L1 so sequencers cant pass the sync check.
     // Allow another slot for any in-flight L1 propose to mine, since the work loop above hits its wait timeout the
     // moment the tx misses L2 sync, not the moment the L1 tx lands.
-    await retryUntil(
-      async () => (await monitor.run().then(b => b.checkpointNumber)) > lastBlockSynced,
+    const checkpointAfterBlobDisable = await retryUntil(
+      async () => {
+        const snapshot = await monitor.run();
+        return snapshot.checkpointNumber > lastCheckpointOnL1 ? snapshot : undefined;
+      },
       'L1 checkpoint to advance after disabling blob client',
       AZTEC_SLOT_DURATION + 5,
       1,
     );
-    expect(await monitor.run().then(b => b.checkpointNumber)).toBeGreaterThan(lastBlockSynced);
-    logger.warn(`L2 block number has increased on L1`);
+    expect(checkpointAfterBlobDisable.checkpointNumber).toBeGreaterThan(lastCheckpointOnL1);
+    logger.warn(`L1 checkpoint number has increased`, {
+      checkpointNumber: checkpointAfterBlobDisable.checkpointNumber,
+      l2SlotNumber: checkpointAfterBlobDisable.l2SlotNumber,
+    });
 
-    // Start voting!
     await aztecNodeAdmin!.setConfig({ governanceProposerPayload: newGovernanceProposerAddress });
+
+    // The checkpoint that advanced L1 may have a pipelined successor still waiting for the disabled blob client.
+    // Wait through the target slot end plus the two-L1-slot sync tolerance before starting the vote-only round.
+    const voteOnlySlot = SlotNumber(Number(checkpointAfterBlobDisable.l2SlotNumber) + 2);
+    logger.warn(`Waiting until slot ${voteOnlySlot} before starting vote-only round`);
+    await retryUntil(
+      async () => ((await rollup.getSlotNumber()) >= voteOnlySlot ? true : undefined),
+      'stale pipelined checkpoint to expire after disabling blob client',
+      AZTEC_SLOT_DURATION * 4,
+      1,
+    );
+
+    // Select the voting round.
     const { round, roundDuration, nextRoundBeginsAtSlot } = await setupVotingRound();
 
     // And wait until the round is over. Add one extra slot to absorb pipelining catch-up after the L1 warp in

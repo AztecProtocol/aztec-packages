@@ -72,6 +72,16 @@
  * 4684      | reverted                                    | reverted (0/1)       | -                         | -                | -             | tx_context #[PUBLIC_INPUTS_READ_REVERTED]
  *
  */
+
+/* NOTE ON NON-MALLEABILITY OF ACCUMULATED-DATA OUTPUT ARRAYS:
+ * Accumulated-data output arrays are written by one-way lookups (#[WRITE_*_TO_PUBLIC_INPUTS]);
+ * the AVM constrains only the active prefix [0, length), leaving [length, MAX) unconstrained.
+ * This is safe because every rollup consumer is length-bounded — the out_hash (UnbalancedMerkleTree,
+ * num_non_empty_leaves) and the DA blob (create_tx_blob_data) both ignore the tail, and trees use
+ * the AVM end snapshots. validate_avm_accumulated_data_padding (public_tx_base_inputs_validator.nr)
+ * additionally zero-pads the tail defensively (non-malleability safeguard).
+ */
+
 namespace public_inputs;
 
 pol constant sel; // 1 for rows [0, AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH)

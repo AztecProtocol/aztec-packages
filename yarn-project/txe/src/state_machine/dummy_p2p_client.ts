@@ -9,6 +9,7 @@ import type {
   P2PConfig,
   P2PDuplicateAttestationCallback,
   P2PDuplicateProposalCallback,
+  P2POversizedProposalCallback,
   P2PSyncState,
   PeerId,
   ReqRespSubProtocol,
@@ -171,6 +172,10 @@ export class DummyP2P implements P2P {
     return Promise.resolve({ blockProposals: [], checkpointProposals: [] });
   }
 
+  public hasCheckpointProposalForSlot(_slot: SlotNumber): Promise<boolean> {
+    return Promise.resolve(false);
+  }
+
   public getL2BlockHash(_number: number): Promise<string | undefined> {
     throw new Error('DummyP2P does not implement "getL2BlockHash"');
   }
@@ -231,6 +236,10 @@ export class DummyP2P implements P2P {
 
   public registerDuplicateProposalCallback(_callback: P2PDuplicateProposalCallback): void {
     throw new Error('DummyP2P does not implement "registerDuplicateProposalCallback"');
+  }
+
+  public registerOversizedProposalCallback(_callback: P2POversizedProposalCallback): void {
+    throw new Error('DummyP2P does not implement "registerOversizedProposalCallback"');
   }
 
   public registerDuplicateAttestationCallback(_callback: P2PDuplicateAttestationCallback): void {

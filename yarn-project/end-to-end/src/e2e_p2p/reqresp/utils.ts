@@ -42,10 +42,8 @@ export async function createReqrespTest(options: ReqrespOptions = {}): Promise<P
       ethereumSlotDuration: 8,
       aztecSlotDuration: 36,
       blockDurationMs: 6000,
-      l1PublishingTime: 8,
       minTxsPerBlock: 1,
       maxTxsPerBlock: 2,
-      enforceTimeTable: true,
       aztecProofSubmissionEpochs: 1024, // effectively do not reorg
       ...(disableStatusHandshake ? { p2pDisableStatusHandshake: true } : {}),
       listenAddress: '127.0.0.1',

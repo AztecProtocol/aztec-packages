@@ -146,7 +146,11 @@ locals {
     "global.aztecImage.pullPolicy"                             = local.is_kind ? "IfNotPresent" : "Always"
     "global.useGcloudLogging"                                  = true
     "global.aztecNetwork"                                      = var.NETWORK
+    "global.allowOverridingNetworkConfig"                      = var.ALLOW_OVERRIDING_NETWORK_CONFIG
+    "global.aztecSlotDuration"                                 = var.AZTEC_SLOT_DURATION
+    "global.aztecEpochDuration"                                = var.AZTEC_EPOCH_DURATION
     "global.customAztecNetwork.registryContractAddress"        = var.REGISTRY_CONTRACT_ADDRESS
+    "global.aztecEnv.ROLLUP_VERSION"                           = var.ROLLUP_VERSION
     "global.customAztecNetwork.feeAssetHandlerContractAddress" = var.FEE_ASSET_HANDLER_CONTRACT_ADDRESS
     "global.customAztecNetwork.l1ChainId"                      = var.L1_CHAIN_ID
     "global.otelCollectorEndpoint"                             = var.OTEL_COLLECTOR_ENDPOINT
@@ -249,7 +253,6 @@ locals {
     "validator.node.env.SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT"                 = var.SEQ_L1_PUBLISHING_TIME_ALLOWANCE_IN_SLOT
     "validator.node.env.SEQ_BUILD_CHECKPOINT_IF_EMPTY"                            = var.SEQ_BUILD_CHECKPOINT_IF_EMPTY
     "validator.node.env.AZTEC_EPOCHS_LAG"                                         = var.AZTEC_EPOCHS_LAG
-    "validator.node.env.SEQ_ENFORCE_TIME_TABLE"                                   = var.SEQ_ENFORCE_TIME_TABLE
     "validator.node.env.P2P_TX_POOL_DELETE_TXS_AFTER_REORG"                       = var.P2P_TX_POOL_DELETE_TXS_AFTER_REORG
     "validator.node.env.L1_PRIORITY_FEE_BUMP_PERCENTAGE"                          = var.VALIDATOR_L1_PRIORITY_FEE_BUMP_PERCENTAGE
     "validator.node.env.L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE"                    = var.VALIDATOR_L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE
@@ -776,7 +779,6 @@ module "rpc_gateway" {
   FRONTEND_STATIC_IP_NAME         = var.RPC_GATEWAY_FRONTEND_STATIC_IP_NAME
   FRONTEND_ALLOW_HTTP             = var.RPC_GATEWAY_FRONTEND_ALLOW_HTTP
   GCP_MANAGED_CERTIFICATE_ENABLED = var.RPC_GATEWAY_GCP_MANAGED_CERTIFICATE_ENABLED
-  GCP_MANAGED_CERTIFICATE_NAME    = var.RPC_GATEWAY_GCP_MANAGED_CERTIFICATE_NAME
 
   depends_on = [helm_release.releases]
 }

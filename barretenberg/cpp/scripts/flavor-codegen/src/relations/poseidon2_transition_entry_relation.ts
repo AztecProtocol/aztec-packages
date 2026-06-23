@@ -15,6 +15,6 @@ export const Poseidon2TransitionEntryRelation = relation({
         { name: "q_poseidon2_transition_entry", kind: "precomputed" },
     ],
     shiftedEntities: ["w_r", "w_o", "w_4"],
-    gateBlockName: "poseidon2_quad_internal",
+    gateBlockName: "poseidon2",
     subsets: { gate_selectors: ["q_poseidon2_transition_entry"] },
 });

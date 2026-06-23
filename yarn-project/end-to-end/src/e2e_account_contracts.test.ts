@@ -1,5 +1,5 @@
 import { EcdsaKAccountContract } from '@aztec/accounts/ecdsa';
-import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
+import { SchnorrAccountContract, SchnorrInitializerlessAccountContract } from '@aztec/accounts/schnorr';
 import {
   type Account,
   type AccountContract,
@@ -63,14 +63,14 @@ const itShouldBehaveLikeAnAccountContract = (
 
       ({ logger, teardown, aztecNode } = await setup(0, {
         ...AUTOMINE_E2E_OPTS,
-        initialFundedAccounts: [accountData],
+        additionallyFundedAccounts: [accountData],
       }));
       wallet = await TestWalletInternals.create(aztecNode);
 
       const accountManager = await wallet.createAccount({ secret, contract, salt });
       completeAddress = await accountManager.getCompleteAddress();
+
       if (await accountManager.hasInitializer()) {
-        // The account is pre-funded and can pay for its own fee.
         const deployMethod = await accountManager.getDeployMethod();
         await deployMethod.send({ from: NO_FROM });
       }
@@ -111,6 +111,10 @@ const itShouldBehaveLikeAnAccountContract = (
 describe('e2e_account_contracts', () => {
   describe('schnorr account', () => {
     itShouldBehaveLikeAnAccountContract(() => new SchnorrAccountContract(GrumpkinScalar.random()));
+  });
+
+  describe('schnorr initializerless account', () => {
+    itShouldBehaveLikeAnAccountContract(() => new SchnorrInitializerlessAccountContract(GrumpkinScalar.random()));
   });
 
   describe('ecdsa stored-key account', () => {

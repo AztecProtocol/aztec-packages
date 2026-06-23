@@ -25,13 +25,13 @@ class ECCVMHardcodedVKAndHash {
     using BF = curve::Grumpkin::BaseField;
 
     // Precomputed VK hash (hash of all commitments below). Update via ECCVMTests::FixedVK if commitments change.
-    static BF vk_hash() { return BF(uint256_t("0x103f7a122fe63075eb8b9c6019cbd3cbe55b5775400799b12c63b31643515ff3")); }
+    static BF vk_hash() { return BF(uint256_t("0x032ece6c493f6e74ca8847127f189f8e759021e53df9820a88985e41e400fde2")); }
 
     static std::vector<Commitment> get_all()
     {
         return { // lagrange_first (at row NUM_DISABLED_ROWS_IN_SUMCHECK)
-                 Commitment(uint256_t("0x040948748b49a15e319d8ae97062ce125445f612bbf4265776490dafe4a75aa7"),
-                            uint256_t("0x0674e7fcc6e6685f250a218ab444bef48b9772e3fb32425d579c4430f919828b")),
+                 Commitment(uint256_t("0x1227d829cc03e51a2cc68ca0e08381c02b78c484f4092a10584ef78381a31968"),
+                            uint256_t("0x10b233eb875fed8834f6235ed737946b68c0c7ed258053cd943dcc69212d90d6")),
 
                  // lagrange_second (hiding op row)
                  Commitment(uint256_t("0x1976c760e4bde34db58394888baeda91f57bcdddf60aec28b721b10aac55f555"),
@@ -42,8 +42,8 @@ class ECCVMHardcodedVKAndHash {
                             uint256_t("0x0d04425c0f370a7aaace3cf41f9b2380079c95fa26f9f83b5fd5e26813dbd289")),
 
                  // lagrange_last (at dyadic_size - 1)
-                 Commitment(uint256_t("0x07099c9989bd2212d634a00180d59f1dd1279c5c3d220583ad4acfbfb180ae60"),
-                            uint256_t("0x2fa02a4987281b3b310bb8d9724c36a20eec491acfd3be7e7f3dcf8d8bec8848"))
+                 Commitment(uint256_t("0x23a271e0e1d99d2a526cc8c06df7edf7c86e9cb985e577affb5a64b9daf24401"),
+                            uint256_t("0x12a74c457ae1f9bd6076c308f47a006deb82adfd576be1266cde1cdc0d008cd1"))
         };
     }
 };

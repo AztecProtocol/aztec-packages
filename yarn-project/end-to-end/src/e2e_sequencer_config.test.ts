@@ -1,10 +1,10 @@
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
-import { NO_FROM } from '@aztec/aztec.js/account';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { TxReceipt } from '@aztec/aztec.js/tx';
 import { Bot, type BotConfig, BotStore, getBotDefaultConfig } from '@aztec/bot';
-import { MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT } from '@aztec/constants';
+import { MAX_TX_DA_GAS } from '@aztec/constants';
 import type { Logger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
@@ -39,7 +39,7 @@ describe('e2e_sequencer_config', () => {
         ...PIPELINING_SETUP_OPTS,
         maxL2BlockGas: manaTarget * 2,
         manaTarget: BigInt(manaTarget),
-        initialFundedAccounts: [botAccount],
+        additionallyFundedAccounts: [botAccount],
       }));
       config = {
         ...getBotDefaultConfig(),
@@ -51,13 +51,7 @@ describe('e2e_sequencer_config', () => {
         minFeePadding: PIPELINED_FEE_PADDING,
       };
       wallet = await EmbeddedWallet.create(aztecNode, { ephemeral: true });
-      const accountManager = await wallet.createSchnorrAccount(
-        botAccount.secret,
-        botAccount.salt,
-        botAccount.signingKey,
-      );
-      const deployMethod = await accountManager.getDeployMethod();
-      await deployMethod.send({ from: NO_FROM });
+      await wallet.createSchnorrInitializerlessAccount(botAccount.secret, botAccount.salt, botAccount.signingKey);
       bot = await Bot.create(config, wallet, aztecNode, undefined, new BotStore(await openTmpStore('bot')));
     });
 
@@ -88,7 +82,7 @@ describe('e2e_sequencer_config', () => {
       expect(totalManaUsed).toBeGreaterThan(0n);
       bot.updateConfig({
         l2GasLimit: Number(totalManaUsed),
-        daGasLimit: MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT,
+        daGasLimit: MAX_TX_DA_GAS,
       });
 
       // Set the maxL2BlockGas to the total mana used
@@ -101,10 +95,18 @@ describe('e2e_sequencer_config', () => {
       expect(receipt2).toBeDefined();
       expect(receipt2.hasExecutionSucceeded()).toBe(true);
 
+      const checkpointedBeforeLimitReduction = await aztecNode.getBlockNumber('checkpointed');
+
       // Set the maxL2BlockGas to the total mana used - 1
       sequencer!.updateConfig({
         maxL2BlockGas: Number(totalManaUsed) - 1,
       });
+
+      await retryUntil(
+        async () => (await aztecNode.getBlockNumber('checkpointed')) > checkpointedBeforeLimitReduction,
+        'checkpoint after lowering maxL2BlockGas',
+        PIPELINING_SETUP_OPTS.aztecSlotDuration * 4,
+      );
 
       // Try to run a tx and expect it to fail
       await expect(bot.run()).rejects.toThrow(/Timeout awaiting isMined/);
