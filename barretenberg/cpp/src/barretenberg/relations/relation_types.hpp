@@ -14,6 +14,17 @@ concept IsField = std::same_as<T, bb::fr> /* || std::same_as<T, grumpkin::fr> */
 
 namespace bb {
 
+/**
+ * @brief True for the accumulator type used by the sumcheck PROVER, as opposed to either verifier.
+ * @details The prover accumulates relation contributions into Univariates (which expose ::LENGTH); both the native
+ * and in-circuit verifiers accumulate into scalars (no ::LENGTH). Prover-only relation fast paths (data-dependent
+ * skips, alternate multiply orders) are guarded on this concept so they never alter the verifier's computation,
+ * which would change the verification key. Defined once here so the prover/verifier distinction inside the shared
+ * `accumulate` has a single, intent-revealing definition.
+ */
+template <typename Accumulator>
+concept IsProverAccumulator = requires { Accumulator::LENGTH; };
+
 template <typename T>
 concept HasSubrelationLinearlyIndependentMember = requires(T) {
     { std::get<0>(T::SUBRELATION_LINEARLY_INDEPENDENT) } -> std::convertible_to<bool>;

@@ -115,20 +115,15 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
 
         // add round constants which are loaded in selectors
 
-        // The sbox input (w_i + c_i) is degree 1. In the prover (Accumulator is a Univariate, so it
-        // has ::LENGTH) the first square is taken in coefficient basis (3 muls) and only then
-        // promoted to the length-7 Lagrange accumulator. Both verifiers accumulate into scalars
-        // (Accumulator = FF, no ::LENGTH) and keep the original promote-then-square path, so their
-        // computation -- and the in-circuit verifier's constraint system -- is unchanged.
+        // The sbox input (w_i + c_i) is degree 1. We square it in the coefficient basis (x_m.sqr()) before
+        // promoting to the Lagrange accumulator: squaring the narrow degree-1 representation is cheaper for the
+        // prover than promoting to the wide univariate and squaring there. For the verifiers the coefficient basis
+        // is the scalar field, so this is the same operation as promote-then-square -- no prover/verifier branch is
+        // needed and the verification key is unchanged (guarded by RelationVkPinning).
         auto sbox = [](const auto& x_m) {
             const Accumulator x(x_m);
-            if constexpr (requires { Accumulator::LENGTH; }) {
-                const Accumulator t2(x_m.sqr()); // x^2
-                return t2.sqr() * x;             // x^4 * x = x^5
-            } else {
-                const auto t2 = x.sqr(); // x^2
-                return t2.sqr() * x;     // x^4 * x = x^5
-            }
+            const Accumulator t2(x_m.sqr()); // x^2
+            return t2.sqr() * x;             // x^4 * x = x^5
         };
         // apply s-box round
         auto u1 = sbox(w_1 + c_1);

@@ -94,19 +94,15 @@ template <typename FF_> class Poseidon2TransitionEntryRelationImpl {
         const auto q_o = CoeffAcc(in[AllEntities::EntityId::q_o]);
         const auto q_sel = CoeffAcc(in[AllEntities::EntityId::q_poseidon2_transition_entry]);
 
-        // The pow5 input is degree 1. In the prover (Accumulator is a Univariate, so it has ::LENGTH)
-        // the first square is taken in coefficient basis (3 muls) before promoting to the length-7
-        // Lagrange accumulator. Both verifiers accumulate into scalars (Accumulator = FF, no ::LENGTH)
-        // and keep the original promote-then-square path, so their constraints are unchanged.
+        // The pow5 input is degree 1. We square it in the coefficient basis (x_m.sqr()) before promoting to the
+        // Lagrange accumulator: squaring the narrow degree-1 representation is cheaper for the prover than promoting
+        // to the wide univariate and squaring there. For the verifiers the coefficient basis is the scalar field,
+        // so this is the same operation as promote-then-square -- no prover/verifier branch is needed and the
+        // verification key is unchanged (guarded by RelationVkPinning).
         auto pow5 = [](const auto& x_m) -> Accumulator {
             const Accumulator x(x_m);
-            if constexpr (requires { Accumulator::LENGTH; }) {
-                const Accumulator sq(x_m.sqr());
-                return sq.sqr() * x;
-            } else {
-                const auto sq = x.sqr();
-                return sq.sqr() * x;
-            }
+            const Accumulator sq(x_m.sqr());
+            return sq.sqr() * x;
         };
 
         // u_0 = (w_l + q_l)^5

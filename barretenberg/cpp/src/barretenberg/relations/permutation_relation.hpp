@@ -114,6 +114,24 @@ template <typename FF_> class UltraPermutationRelationImpl {
     }
 
     /**
+     * @brief Whether a one-hot-gated subrelation can contribute on this edge.
+     * @details Subrelations scaled by a one-hot selector (lagrange_first/last) are zero wherever that selector
+     * vanishes -- almost every edge under folding. On the prover (Accumulator is a Univariate, so it has ::LENGTH)
+     * we test the gate's edge and skip the accumulation when it is zero. The verifiers accumulate into scalars (no
+     * ::LENGTH) and always treat the subrelation as active: they must not branch on witness values, and keep the
+     * straight-line audited computation.
+     */
+    template <typename Accumulator, typename GateCoefficientAccumulator>
+    static bool subrelation_is_active(const GateCoefficientAccumulator& gate)
+    {
+        if constexpr (IsProverAccumulator<Accumulator>) {
+            return !gate.is_zero();
+        } else {
+            return true;
+        }
+    }
+
+    /**
      * @brief Compute contribution of the permutation relation for a given edge (internal function)
      *
      * @details This relation confirms faithful calculation of the grand
@@ -189,7 +207,7 @@ template <typename FF_> class UltraPermutationRelationImpl {
         // the VK.
         Accumulator numerator;
         Accumulator denominator;
-        if constexpr (requires { Accumulator::LENGTH; }) {
+        if constexpr (IsProverAccumulator<Accumulator>) {
             numerator = Accumulator(t1 * t2);
             numerator *= Accumulator(t3 * t4);
             denominator = Accumulator(t5 * t6);
@@ -216,7 +234,7 @@ template <typename FF_> class UltraPermutationRelationImpl {
         // values). lagrange_first/last are one-hot and vanish on almost every edge pair under folding; when both are
         // zero the public-input term collapses to z_perm_shift and the (z_perm + L_first) factor to z_perm, and
         // subrelations (2),(3) vanish -- the same accumulator value as the general path below, skipping ~12 muls.
-        if constexpr (requires { Accumulator::LENGTH; }) {
+        if constexpr (IsProverAccumulator<Accumulator>) {
             if (lagrange_first_m.is_zero() && lagrange_last_m.is_zero()) {
                 const Accumulator public_input_term(z_perm_shift_m);
                 std::get<0>(accumulators) += ((Accumulator(z_perm_m) * numerator) - (public_input_term * denominator));
@@ -231,16 +249,20 @@ template <typename FF_> class UltraPermutationRelationImpl {
         std::get<0>(accumulators) +=
             ((Accumulator(z_perm_m + lagrange_first_m) * numerator) - (public_input_term * denominator));
 
-        // Contribution (2)
+        // Contribution (2): gated by lagrange_last (zero on all but the last row).
         using ShortAccumulator = std::tuple_element_t<1, ContainerOverSubrelations>;
-
-        std::get<1>(accumulators) += ShortAccumulator((lagrange_last_m * z_perm_shift_m) * scaling_factor);
+        if (subrelation_is_active<Accumulator>(lagrange_last_m)) {
+            std::get<1>(accumulators) += ShortAccumulator((lagrange_last_m * z_perm_shift_m) * scaling_factor);
+        }
 
         // Contribution (3): Enforce z_perm starts at 0. The grand product initialization relies on
         // z_perm[0] = 0 so that (z_perm + L_first) evaluates to 1 at the first row.
         // Without this constraint, a cheating prover could set z_perm[0] to a non-zero value.
+        // Gated by lagrange_first (zero on all but the first row).
         using InitAccumulator = std::tuple_element_t<2, ContainerOverSubrelations>;
-        std::get<2>(accumulators) += InitAccumulator((lagrange_first_m * z_perm_m) * scaling_factor);
+        if (subrelation_is_active<Accumulator>(lagrange_first_m)) {
+            std::get<2>(accumulators) += InitAccumulator((lagrange_first_m * z_perm_m) * scaling_factor);
+        }
     };
 };
 
