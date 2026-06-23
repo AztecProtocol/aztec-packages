@@ -93,7 +93,6 @@ constexpr std::tuple<size_t, size_t> HONK_RECURSION_CONSTANTS(
         case PredicateTestCase::WitnessTrue:
         case PredicateTestCase::WitnessFalse:
             return std::make_tuple(12536, 73);
-            return std::make_tuple(12536, 73);
         }
     } else if constexpr (std::is_same_v<RecursiveFlavor, bb::UltraZKRecursiveFlavor_<MegaCircuitBuilder>>) {
         switch (mode) {
