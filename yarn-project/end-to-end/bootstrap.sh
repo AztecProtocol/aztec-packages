@@ -40,6 +40,8 @@ function test_cmds {
     src/e2e_!(prover)/*.test.ts
     src/single-node/*.test.ts
     src/multi-node/consensus/*.test.ts
+    src/multi-node/consensus/block_building/*.test.ts
+    src/multi-node/consensus/mbps/*.test.ts
     src/multi-node/prune/*.test.ts
     src/multi-node/ha/*.test.ts
     src/multi-node/slashing/*.test.ts
