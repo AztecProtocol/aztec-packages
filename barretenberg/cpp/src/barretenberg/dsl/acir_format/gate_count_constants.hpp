@@ -1,9 +1,11 @@
 #pragma once
 
+#include "barretenberg/constants.hpp"
 #include "barretenberg/dsl/acir_format/test_class_predicate.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+#include <array>
 #include <cstddef>
 #include <tuple>
 #include <type_traits>
@@ -123,28 +125,37 @@ inline constexpr size_t CHONK_RECURSION_GATES = 1373308;
 // Hypernova Recursion Constants
 // ========================================
 
-// MSM rows offset
+// Kernel gate counts, ecc row and ultra ops indexed by (number of apps the kernel verifies - 1), i.e. index i holds the
+// count for i+1 apps (1..MAX_APPS_PER_KERNEL)
+inline constexpr size_t KERNEL_APP_COUNTS = bb::MAX_APPS_PER_KERNEL;
+
+// Fixed start/end offset added to the ECCVM 'msm' section row count for any circuit (see
+// EccvmRowTracker::get_num_msm_rows). It is a one-time cost over the whole op queue rather than a per-kernel cost,
+// so the per-kernel ECC-row constants below store the measured row count with this offset removed.
 inline constexpr size_t MSM_ROWS_OFFSET = 2;
 
-// Init kernel gate counts (verifies OINK proof)
+// Init kernel: verifies its leading apps (first via an OINK proof, rest via HN); carries no accumulator, so K
+// apps reduce to K claims (no batching for K==1, width-K batching for K>=2).
+inline constexpr std::array<size_t, KERNEL_APP_COUNTS> INIT_KERNEL_GATE_COUNT = { 12610, 25141, 34847 };
+inline constexpr std::array<size_t, KERNEL_APP_COUNTS> INIT_KERNEL_ECC_ROWS = { 524, 1176, 1700 };
+inline constexpr std::array<size_t, KERNEL_APP_COUNTS> INIT_KERNEL_ULTRA_OPS = { 60, 131, 194 };
 
-inline constexpr size_t INIT_KERNEL_GATE_COUNT = 12610;
-inline constexpr size_t INIT_KERNEL_ECC_ROWS = 524 + MSM_ROWS_OFFSET;
-inline constexpr size_t INIT_KERNEL_ULTRA_OPS = 60;
+// Inner kernel: verifies the previous kernel (HN) plus K apps (HN). The carried accumulator + previous kernel +
+// K apps reduce to a (K+2)-claim per-kernel batching.
+inline constexpr std::array<size_t, KERNEL_APP_COUNTS> INNER_KERNEL_GATE_COUNT = { 26472, 36178, 45968 };
+inline constexpr std::array<size_t, KERNEL_APP_COUNTS> INNER_KERNEL_ECC_ROWS = { 1242, 1832, 2356 };
+inline constexpr std::array<size_t, KERNEL_APP_COUNTS> INNER_KERNEL_ULTRA_OPS = { 140, 203, 266 };
 
-// Inner kernel gate counts (verifies HN proof for previous kernel + HN for app)
-inline constexpr size_t INNER_KERNEL_GATE_COUNT_HN = 26472;
-inline constexpr size_t INNER_KERNEL_ECC_ROWS = 1242 + MSM_ROWS_OFFSET;
-inline constexpr size_t INNER_KERNEL_ULTRA_OPS = 140;
+// Reset or Tail kernel: verifies a single previous-kernel HN proof, then a width-2 per-kernel
+// batching. Reset and tail kernels are structurally identical from the IVC's perspective.
+inline constexpr size_t RESET_TAIL_KERNEL_GATE_COUNT = 16622;
+inline constexpr size_t RESET_TAIL_KERNEL_ECC_ROWS = 718;
+inline constexpr size_t RESET_TAIL_KERNEL_ULTRA_OPS = 73;
 
-// Tail kernel gate counts (verifies HN_TAIL proof)
-inline constexpr size_t TAIL_KERNEL_GATE_COUNT = 16622;
-inline constexpr size_t TAIL_KERNEL_ECC_ROWS = 718 + MSM_ROWS_OFFSET;
-inline constexpr size_t TAIL_KERNEL_ULTRA_OPS = 73;
-
-// Hiding kernel gate counts (verifies HN_FINAL proof)
+// Hiding kernel: verifies the tail kernel (HN_FINAL), then a batch-merge recursive verifier sized for
+// CHONK_MAX_NUM_CIRCUITS plus a decider.
 inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 41228;
-inline constexpr size_t HIDING_KERNEL_ECC_ROWS = 5330 + MSM_ROWS_OFFSET;
+inline constexpr size_t HIDING_KERNEL_ECC_ROWS = 5330;
 inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = 359;
 
 // ========================================

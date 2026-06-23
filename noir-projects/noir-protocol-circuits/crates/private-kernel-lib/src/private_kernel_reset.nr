@@ -195,10 +195,8 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
 
         let previous_public_inputs = self.previous_kernel.public_inputs;
 
-        // A subsequent kernel will recursively verify this inner reset's output, so PROOF_TYPE_HN
-        // (not HN_TAIL) is the right proof type. See `execute_as_terminal` for the terminal caller.
         if !::std::runtime::is_unconstrained() {
-            self.previous_kernel.verify(false);
+            self.previous_kernel.verify();
             self.previous_kernel.validate_vk_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         }
 
@@ -222,18 +220,17 @@ impl<let NoteHashPendingReadHintsLen: u32, let NoteHashSettledReadHintsLen: u32,
         output
     }
 
-    /// Terminal reset entry point used by the `reset_tail` / `reset_tail_to_public` circuits. Uses
-    /// PROOF_TYPE_HN_TAIL for the recursive verify since this is the last reset kernel in the chain.
-    /// Inlined rather than delegating to `execute` because routing the `is_last_kernel` flag through
-    /// a call boundary defeats Noir's constant-folding of `verify(...)` and costs ~3k constraints
-    /// per variant.
+    /// Terminal reset entry point used by the `reset_tail` / `reset_tail_to_public` circuits. Unlike
+    /// the non-terminal `execute`, this variant performs note-hash/nullifier/private-log siloing (the
+    /// `execute` path static-asserts the siloing amounts are zero). The recursive verification of the
+    /// previous kernel is identical to the non-terminal case.
     pub fn execute_as_terminal<let NoteHashPendingReadAmount: u32, let NoteHashSettledReadAmount: u32, let NullifierPendingReadAmount: u32, let NullifierSettledReadAmount: u32, let KeyValidationAmount: u32, let TransientDataSquashingAmount: u32, let NoteHashSiloingAmount: u32, let NullifierSiloingAmount: u32, let PrivateLogSiloingAmount: u32>(
         self,
     ) -> PrivateKernelCircuitPublicInputs {
         let previous_public_inputs = self.previous_kernel.public_inputs;
 
         if !::std::runtime::is_unconstrained() {
-            self.previous_kernel.verify(true);
+            self.previous_kernel.verify();
             self.previous_kernel.validate_vk_in_vk_tree(ALLOWED_PREVIOUS_CIRCUITS);
         }
 

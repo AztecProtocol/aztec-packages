@@ -983,7 +983,6 @@ void add_blackbox_func_call_to_acir_format(Acir::Opcode::BlackBoxFuncCall const&
                             break;
                         case OINK:
                         case HN:
-                        case HN_TAIL:
                         case HN_FINAL:
                             af.hn_recursion_constraints.push_back(c);
                             af.original_opcode_indices.hn_recursion_constraints.push_back(opcode_index);
