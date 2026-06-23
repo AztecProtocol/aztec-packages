@@ -15,7 +15,7 @@ import type { SlashingProtectionDatabase } from '@aztec/validator-ha-signer/type
 import { privateKeyToAccount } from 'viem/accounts';
 
 import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
-import { SingleNodeTestContext, type SingleNodeTestOpts } from './single_node_test_context.js';
+import { SingleNodeTestContext, type SingleNodeTestOpts } from '../single-node/single_node_test_context.js';
 
 export {
   WORLD_STATE_CHECKPOINT_HISTORY,
@@ -30,7 +30,7 @@ export {
   type BlockProposedEvent,
   type TrackedSequencerEvent,
   type SingleNodeTestOpts,
-} from './single_node_test_context.js';
+} from '../single-node/single_node_test_context.js';
 
 /** Options for {@link MultiNodeTestContext.setup} — superset of {@link SingleNodeTestOpts}. */
 export type MultiNodeTestOpts = SingleNodeTestOpts;
