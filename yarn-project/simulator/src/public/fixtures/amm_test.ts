@@ -25,8 +25,8 @@ export async function ammTest(
 ) {
   const timer = new Timer();
 
-  const admin = AztecAddress.fromNumber(42);
-  const sender = AztecAddress.fromNumber(111);
+  const admin = AztecAddress.fromNumberUnsafe(42);
+  const sender = AztecAddress.fromNumberUnsafe(111);
 
   logger.debug(`Deploying tokens`);
   const token0 = await setUpToken(tester, tokenArtifact, admin, expectToBeTrue, /*seed=*/ 0);

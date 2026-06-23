@@ -41,7 +41,7 @@ export class TaggingSecretSourcesStore {
 
   getSenders(): Promise<AztecAddress[]> {
     return this.#store.transactionAsync(async () => {
-      return (await toArray(this.#senders.keysAsync())).map(AztecAddress.fromString);
+      return (await toArray(this.#senders.keysAsync())).map(AztecAddress.fromStringUnsafe);
     });
   }
 

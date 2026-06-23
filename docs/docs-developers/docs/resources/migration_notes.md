@@ -9,6 +9,26 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.js] Unchecked `AztecAddress` constructors renamed with an `Unsafe` suffix
+
+The synchronous `AztecAddress` constructors that build an address from a raw value do not verify that the value is a valid address (the x-coordinate of a point on the Grumpkin curve, which is what allows it to be encrypted to). An invalid value is accepted silently and only fails later, when a transaction is sent. To make this obvious at the call site, they now carry an `Unsafe` suffix:
+
+| Before | After |
+| --- | --- |
+| `AztecAddress.fromField` | `AztecAddress.fromFieldUnsafe` |
+| `AztecAddress.fromBigInt` | `AztecAddress.fromBigIntUnsafe` |
+| `AztecAddress.fromNumber` | `AztecAddress.fromNumberUnsafe` |
+| `AztecAddress.fromString` | `AztecAddress.fromStringUnsafe` |
+
+**Migration:**
+
+```diff
+- const address = AztecAddress.fromBigInt(123n);
++ const address = AztecAddress.fromBigIntUnsafe(123n);
+```
+
+For a random, genuinely valid address in tests use `AztecAddress.random()`, and to check an untrusted value use `address.isValid()`. The serialization constructors `fromBuffer` and `fromFields` keep their names (they are part of the (de)serialization interface and read addresses from already-validated data), but their docs now note that they perform no validation either.
+
 ### Cross-contract utility calls now have a `msg_sender`
 
 A utility function called by another contract (utility to utility, or private to utility) can read the calling contract's address via `self.msg_sender()`, mirroring private and public functions. A top-level utility call (e.g. invoked directly by a wallet or dapp) has no caller: `self.msg_sender()` panics, and `self.context.maybe_msg_sender()` returns `Option::none()`.

@@ -225,7 +225,7 @@ export function mapAztecAddressToNoir(address: AztecAddress): NoirAztecAddress {
  * @returns The aztec address.
  */
 export function mapAztecAddressFromNoir(address: NoirAztecAddress): AztecAddress {
-  return AztecAddress.fromField(mapFieldFromNoir(address.inner));
+  return AztecAddress.fromFieldUnsafe(mapFieldFromNoir(address.inner));
 }
 
 /**

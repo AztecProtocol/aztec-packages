@@ -79,7 +79,7 @@ export function GameLobby({ wallet, account, onGameJoined }: GameLobbyProps) {
         return;
       }
 
-      const contractAddr = AztecAddress.fromString(joinContractAddress);
+      const contractAddr = AztecAddress.fromStringUnsafe(joinContractAddress);
       const contract = await attachToContract(
         wallet,
         contractAddr

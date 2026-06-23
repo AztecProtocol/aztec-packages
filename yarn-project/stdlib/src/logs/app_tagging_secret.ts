@@ -85,13 +85,13 @@ export class AppTaggingSecret {
     if (parts.length === 2) {
       // TODO(F-680): Remove legacy two-part parsing after stored tagging keys are migrated.
       const [secretStr, appStr] = parts;
-      return new AppTaggingSecret(Fr.fromString(secretStr), AztecAddress.fromString(appStr));
+      return new AppTaggingSecret(Fr.fromString(secretStr), AztecAddress.fromStringUnsafe(appStr));
     }
     if (parts.length === 3) {
       const [kindStr, secretStr, appStr] = parts;
       return new AppTaggingSecret(
         Fr.fromString(secretStr),
-        AztecAddress.fromString(appStr),
+        AztecAddress.fromStringUnsafe(appStr),
         appTaggingSecretKindFromString(kindStr),
       );
     }

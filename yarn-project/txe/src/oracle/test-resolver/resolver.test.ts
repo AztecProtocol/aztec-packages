@@ -37,9 +37,9 @@ const TEST_REGISTRY: Record<string, OracleRegistryEntry> = {
 };
 
 const TEST_FIXTURES: Record<string, OracleTestScenario[]> = {
-  test_single: [{ inputs: { slot: new Fr(10), addr: AztecAddress.fromNumber(1) }, output: new Fr(42) }],
+  test_single: [{ inputs: { slot: new Fr(10), addr: AztecAddress.fromNumberUnsafe(1) }, output: new Fr(42) }],
   test_multi: [
-    { scenario: 'some', inputs: {}, output: Option.some(AztecAddress.fromNumber(7)) },
+    { scenario: 'some', inputs: {}, output: Option.some(AztecAddress.fromNumberUnsafe(7)) },
     { scenario: 'none', inputs: {}, output: Option.none() },
   ],
   test_labeled: [
@@ -60,7 +60,7 @@ describe('OracleTestResolver', () => {
   });
 
   it('resolves an oracle with a single scenario', async () => {
-    const result = await callOracle('test_single', [toHex(new Fr(10)), toHex(AztecAddress.fromNumber(1))]);
+    const result = await callOracle('test_single', [toHex(new Fr(10)), toHex(AztecAddress.fromNumberUnsafe(1))]);
     expect(result.values).toHaveLength(1);
     expect(result.values[0]).toBe(toHex(new Fr(42)));
   });
@@ -90,9 +90,9 @@ describe('OracleTestResolver', () => {
   });
 
   it('throws when inputs do not match the fixture', async () => {
-    await expect(callOracle('test_single', [toHex(new Fr(777)), toHex(AztecAddress.fromNumber(1))])).rejects.toThrow(
-      'Input mismatch',
-    );
+    await expect(
+      callOracle('test_single', [toHex(new Fr(777)), toHex(AztecAddress.fromNumberUnsafe(1))]),
+    ).rejects.toThrow('Input mismatch');
   });
 
   it('labels the input-mismatch error with the scenario name', async () => {
@@ -126,7 +126,7 @@ describe('OracleTestResolver', () => {
   it('tracks uncalled fixtures', async () => {
     expect(resolver.getUncalledFixtures()).toContain('test_single');
 
-    await callOracle('test_single', [toHex(new Fr(10)), toHex(AztecAddress.fromNumber(1))]);
+    await callOracle('test_single', [toHex(new Fr(10)), toHex(AztecAddress.fromNumberUnsafe(1))]);
 
     expect(resolver.getUncalledFixtures()).not.toContain('test_single');
   });

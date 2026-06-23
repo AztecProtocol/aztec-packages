@@ -535,7 +535,7 @@ describe('Private Execution test suite', () => {
         anchorBlockHeader,
         functionName: 'constructor',
         contractAddress: instance.address,
-        msgSender: AztecAddress.fromNumber(1234),
+        msgSender: AztecAddress.fromNumberUnsafe(1234),
       });
       const result = executionResult.entrypoint.nestedExecutionResults[0];
 

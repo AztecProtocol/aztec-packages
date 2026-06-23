@@ -53,7 +53,7 @@ const TEST_VALUE_IMPLS: TestValueImpl[] = [
   scalar(BIGINT, seed => BigInt(seed)),
   scalar(BYTE, seed => seed),
   scalar(BOOL, seed => seed % 2 !== 0),
-  scalar(AZTEC_ADDRESS, seed => AztecAddress.fromNumber(seed)),
+  scalar(AZTEC_ADDRESS, seed => AztecAddress.fromNumberUnsafe(seed)),
   scalar(FUNCTION_SELECTOR, seed => FunctionSelector.fromField(new Fr(seed))),
   scalar(NOTE_SELECTOR, seed => NoteSelector.fromField(new Fr(seed))),
   scalar(BLOCK_HASH, seed => new BlockHash(new Fr(seed))),
