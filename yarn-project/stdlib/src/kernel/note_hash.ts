@@ -65,7 +65,7 @@ export class ScopedNoteHash implements Ordered {
 
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
-    return new ScopedNoteHash(reader.readObject(NoteHash), AztecAddress.fromField(reader.readField()));
+    return new ScopedNoteHash(reader.readObject(NoteHash), AztecAddress.fromFieldUnsafe(reader.readField()));
   }
 
   isEmpty() {

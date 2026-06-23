@@ -19,10 +19,6 @@ use crate::macros::oracle_testing::{generate_oracle_tests, generate_oracle_tests
         // TODO: implement once we support more complex types
         quote { emit_public_log_opcode },
         quote { returndata_copy_opcode },
-        // TODO: requires fix on registry
-        quote { call_opcode },
-        quote { call_static_opcode },
-        quote { success_copy_opcode },
     ],
 )]
 pub mod avm;

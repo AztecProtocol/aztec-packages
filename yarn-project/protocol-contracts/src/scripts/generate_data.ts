@@ -132,7 +132,9 @@ function generateSalts(names: string[]) {
 }
 
 function generateContractAddresses(names: string[]) {
-  const addresses = names.map(name => `${name}: AztecAddress.fromBigInt(${contractAddressMapping[name]}n)`).join(',\n');
+  const addresses = names
+    .map(name => `${name}: AztecAddress.fromBigIntUnsafe(${contractAddressMapping[name]}n)`)
+    .join(',\n');
   return `
     export const ProtocolContractAddress: Record<ProtocolContractName, AztecAddress> = {
       ${addresses}
@@ -143,7 +145,7 @@ function generateContractAddresses(names: string[]) {
 function generateDerivedAddresses(names: string[], contractData: ContractData[]) {
   return `
     export const ProtocolContractDerivedAddress = {
-      ${contractData.map((d, i) => `${names[i]}: AztecAddress.fromString('${d.address.toString()}')`).join(',\n')}
+      ${contractData.map((d, i) => `${names[i]}: AztecAddress.fromStringUnsafe('${d.address.toString()}')`).join(',\n')}
     };
   `;
 }
@@ -200,7 +202,7 @@ async function generateProtocolContractsList(names: string[], contractData: Cont
 
   return `
     export const ProtocolContractsList = new ProtocolContracts([
-      ${list.map(address => `AztecAddress.fromString('${address.toString()}')`).join(',\n')}
+      ${list.map(address => `AztecAddress.fromStringUnsafe('${address.toString()}')`).join(',\n')}
     ]);
 
     export const protocolContractsHash = Fr.fromString('${(await new ProtocolContracts(list).hash()).toString()}');
@@ -257,7 +259,7 @@ async function main() {
     const artifact = await copyArtifact(srcName, destName);
     await generateDeclarationFile(destName);
     contractDataList.push(
-      await computeContractData(artifact, AztecAddress.fromBigInt(BigInt(contractAddressMapping[destName]))),
+      await computeContractData(artifact, AztecAddress.fromBigIntUnsafe(BigInt(contractAddressMapping[destName]))),
     );
   }
 

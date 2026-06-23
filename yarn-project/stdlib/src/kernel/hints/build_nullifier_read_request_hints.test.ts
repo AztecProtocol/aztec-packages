@@ -17,7 +17,7 @@ describe('buildNullifierReadRequestHints', () => {
   /**
    * Create fixtures.
    */
-  const contractAddress = AztecAddress.fromBigInt(112233n);
+  const contractAddress = AztecAddress.fromBigIntUnsafe(112233n);
 
   const innerNullifier = (index: number) => index + 1;
 

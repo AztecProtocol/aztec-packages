@@ -4,6 +4,7 @@ import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
+  PRIVATE_CONTEXT_INPUTS_LENGTH,
   PRIVATE_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -23,6 +24,7 @@ import {
   type OracleRegistryEntry,
   type ParamTypes,
   STR,
+  type SlotShape,
   TAGGING_SECRET_SOURCE,
   type TypeMapping,
   U32,
@@ -44,19 +46,20 @@ import {
 import type { ForeignCallArgs, ForeignCallResult } from '../utils/encoding.js';
 
 const GAS_SETTINGS: TypeMapping<GasSettings> = {
-  serialization: { fn: v => v.toFields() },
   deserialization: {
     fn: ([reader]) => GasSettings.fromFields(reader.readFieldArray(GAS_SETTINGS_LENGTH)),
-    slots: 1,
   },
+  shape: [{ len: GAS_SETTINGS_LENGTH }],
 };
 
 const PRIVATE_CONTEXT_INPUTS: TypeMapping<PrivateContextInputs> = {
   serialization: { fn: v => v.toFields() },
+  shape: Array<SlotShape>(PRIVATE_CONTEXT_INPUTS_LENGTH).fill('scalar'),
 };
 
 const COMPLETE_ADDRESS: TypeMapping<CompleteAddress> = {
   serialization: { fn: v => [v.address.toField(), ...v.publicKeys.toFields()] },
+  shape: Array<SlotShape>(8).fill('scalar'), // address + 7 public-key fields
 };
 
 const TXE_TX_EFFECTS: TypeMapping<{
@@ -92,6 +95,17 @@ const TXE_TX_EFFECTS: TypeMapping<{
       ] as (Fr | Fr[])[];
     },
   },
+  // txHash, padded note hashes + count, padded nullifiers + count, flattened private-log storage + lengths + count.
+  shape: [
+    'scalar',
+    { len: MAX_NOTE_HASHES_PER_TX },
+    'scalar',
+    { len: MAX_NULLIFIERS_PER_TX },
+    'scalar',
+    { len: MAX_PRIVATE_LOGS_PER_TX * PRIVATE_LOG_SIZE_IN_FIELDS },
+    { len: MAX_PRIVATE_LOGS_PER_TX },
+    'scalar',
+  ],
 };
 
 const TXE_OFFCHAIN_EFFECTS: TypeMapping<{ effects: Fr[][] }> = {
@@ -110,6 +124,12 @@ const TXE_OFFCHAIN_EFFECTS: TypeMapping<{ effects: Fr[][] }> = {
       return [rawArrayStorage, effectLengths, new Fr(effects.length)] as (Fr | Fr[])[];
     },
   },
+  // Flattened effect storage, per-effect lengths, then the effect count.
+  shape: [
+    { len: MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY * MAX_OFFCHAIN_EFFECT_LEN },
+    { len: MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY },
+    'scalar',
+  ],
 };
 
 const TXE_CALL_CONTEXT: TypeMapping<{ txHash: Fr; anchorBlockTimestamp: bigint }> = {
@@ -119,15 +139,18 @@ const TXE_CALL_CONTEXT: TypeMapping<{ txHash: Fr; anchorBlockTimestamp: bigint }
       return [new Fr(isSome), txHash, new Fr(anchorBlockTimestamp)];
     },
   },
+  shape: ['scalar', 'scalar', 'scalar'], // discriminant, txHash, anchor block timestamp
 };
 
 const CONTRACT_INSTANCE_MEMBER: TypeMapping<{ member: Fr; exists: boolean }> = {
   serialization: { fn: ({ member, exists }) => [member, new Fr(exists)] },
+  shape: ['scalar', 'scalar'],
 };
 
 const EVENT_SELECTOR: TypeMapping<EventSelector> = {
   serialization: { fn: v => [v.toField()] },
-  deserialization: { fn: ([reader]) => EventSelector.fromField(reader.readField()), slots: 1 },
+  deserialization: { fn: ([reader]) => EventSelector.fromField(reader.readField()) },
+  shape: ['scalar'],
 };
 
 const TXE_PRIVATE_EVENTS: TypeMapping<Fr[][]> = {
@@ -145,6 +168,12 @@ const TXE_PRIVATE_EVENTS: TypeMapping<Fr[][]> = {
       return [rawArrayStorage, eventLengths, new Fr(events.length)] as (Fr | Fr[])[];
     },
   },
+  // Flattened event storage, per-event lengths, then the event count.
+  shape: [
+    { len: MAX_PRIVATE_EVENTS_PER_TXE_QUERY * MAX_PRIVATE_EVENT_LEN },
+    { len: MAX_PRIVATE_EVENTS_PER_TXE_QUERY },
+    'scalar',
+  ],
 };
 
 export const TXE_ORACLE_REGISTRY = {
@@ -342,7 +371,6 @@ export const TXE_ORACLE_REGISTRY = {
       { name: 'argsLength', type: U32 },
       { name: 'args', type: ARRAY(FIELD) },
     ],
-    returnType: ARRAY(FIELD),
   }),
 
   aztec_avm_staticCall: makeEntry({
@@ -353,10 +381,9 @@ export const TXE_ORACLE_REGISTRY = {
       { name: 'argsLength', type: U32 },
       { name: 'args', type: ARRAY(FIELD) },
     ],
-    returnType: ARRAY(FIELD),
   }),
 
-  aztec_avm_successCopy: makeEntry({ returnType: FIELD }),
+  aztec_avm_successCopy: makeEntry({ returnType: BOOL }),
 
   aztec_avm_getContractInstanceDeployer: makeEntry({
     params: [{ name: 'address', type: AZTEC_ADDRESS }],

@@ -29,7 +29,7 @@ export async function enrichSimulationError(err: SimulationError, contractStore:
 
   await Promise.all(
     [...mentionedFunctions.entries()].map(async ([contractAddress, fnSelectors]) => {
-      const parsedContractAddress = AztecAddress.fromString(contractAddress);
+      const parsedContractAddress = AztecAddress.fromStringUnsafe(contractAddress);
       const contract = await contractStore.getContract(parsedContractAddress);
       if (contract) {
         err.enrichWithContractName(parsedContractAddress, contract.name);

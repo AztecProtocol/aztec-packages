@@ -101,7 +101,7 @@ describe('e2e_reload_keystore', () => {
   let publisherKey: EthPrivateKey;
 
   const initialCoinbase = EthAddress.fromNumber(42);
-  const initialFeeRecipient = AztecAddress.fromNumber(42);
+  const initialFeeRecipient = AztecAddress.fromNumberUnsafe(42);
 
   const artifact = StatefulTestContractArtifact;
 
@@ -200,7 +200,7 @@ describe('e2e_reload_keystore', () => {
     // Write updated keystore and reload
     // Each validator gets its own new coinbase so we can verify per-validator updates.
     const newCoinbases = VALIDATOR_KEY_INDICES.map((_, i) => EthAddress.fromNumber(100 + i));
-    const newFeeRecipients = VALIDATOR_KEY_INDICES.map((_, i) => AztecAddress.fromNumber(100 + i));
+    const newFeeRecipients = VALIDATOR_KEY_INDICES.map((_, i) => AztecAddress.fromNumberUnsafe(100 + i));
 
     // Build updated keystore: all 4 validators (including the previously-excluded validator 4)
     const updatedKeystore = {

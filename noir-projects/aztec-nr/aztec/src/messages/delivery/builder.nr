@@ -19,8 +19,7 @@ use super::tag_secret_derivation::TagSecretDerivation;
 /// ## Construction
 ///
 /// The fields are private and there is no public constructor: a `MessageDelivery` can only be produced by a
-/// [`MessageDeliveryBuilder`] that enforces valid configurations, so invalid field combinations cannot be
-/// represented to the consumer.
+/// [`MessageDeliveryBuilder`].
 pub struct MessageDelivery {
     mode: DeliveryMode,
     tag_secret_derivation: TagSecretDerivation,
@@ -143,10 +142,6 @@ impl MessageDelivery {
     }
 
     /// Delivers the message on-chain, guaranteeing the recipient will receive the correct content.
-    ///
-    /// >**WARNING**: this delivery mode is [currently NOT fully
-    /// constrained](https://github.com/AztecProtocol/aztec-packages/issues/14565). The log's tag is unconstrained,
-    /// meaning a malicious sender could manipulate it to prevent the recipient from finding the message.
     ///
     /// ## Use Cases
     ///

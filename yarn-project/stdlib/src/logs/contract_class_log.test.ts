@@ -37,7 +37,7 @@ describe('ContractClassLog', () => {
   it('number of emitted blob fields is correct', () => {
     const smallLogFields = [new Fr(1), new Fr(2), new Fr(3)];
     const smallLog = new ContractClassLog(
-      AztecAddress.fromField(Fr.ONE),
+      AztecAddress.fromFieldUnsafe(Fr.ONE),
       ContractClassLogFields.fromEmittedFields(smallLogFields),
       smallLogFields.length,
     );
@@ -47,7 +47,7 @@ describe('ContractClassLog', () => {
       Fr.random(),
     );
     const largeLog = new ContractClassLog(
-      AztecAddress.fromField(Fr.ONE),
+      AztecAddress.fromFieldUnsafe(Fr.ONE),
       ContractClassLogFields.fromEmittedFields(largeLogFields),
       largeLogFields.length,
     );

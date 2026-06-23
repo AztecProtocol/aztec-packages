@@ -83,7 +83,7 @@ export class WalletDB {
 
     return accountAddresses.map(addressStr => ({
       alias: aliasesByAddress.get(addressStr) ?? '',
-      item: AztecAddress.fromString(addressStr),
+      item: AztecAddress.fromStringUnsafe(addressStr),
     }));
   }
 
@@ -92,7 +92,7 @@ export class WalletDB {
     for await (const [alias, item] of this.aliases.entriesAsync({ start: 'senders:', end: 'senders:\uffff' })) {
       result.push({
         alias: alias.slice('senders:'.length),
-        item: AztecAddress.fromString(item.toString()),
+        item: AztecAddress.fromStringUnsafe(item.toString()),
       });
     }
     return result;

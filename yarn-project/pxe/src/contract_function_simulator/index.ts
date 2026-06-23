@@ -40,6 +40,7 @@ export {
   type InputSlot,
   type MaybePromise,
   type OutputSlot,
+  type SlotShape,
   type TypeMapping,
 } from './oracle/oracle_type_mappings.js';
 export { ExecutionNoteCache } from './execution_note_cache.js';

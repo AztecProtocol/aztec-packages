@@ -12,7 +12,7 @@ describe('Public TX simulator apps tests: gadgets', () => {
     { useCppSimulator: false, simulatorName: 'TS Simulator' },
     { useCppSimulator: true, simulatorName: 'Cpp Simulator' },
   ])('Public TX simulator apps tests: gadgets (via $simulatorName)', ({ useCppSimulator }) => {
-    const deployer = AztecAddress.fromNumber(42);
+    const deployer = AztecAddress.fromNumberUnsafe(42);
 
     let worldStateService: NativeWorldStateService;
     let tester: PublicTxSimulationTester;

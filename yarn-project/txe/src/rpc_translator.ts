@@ -448,7 +448,7 @@ export class RPCTranslator {
     return callTxeHandler({
       oracle: 'aztec_utl_getKeyValidationRequest',
       inputs,
-      handler: ([pkMHash]) => this.handlerAsUtility().getKeyValidationRequest(pkMHash),
+      handler: ([pkMHash, keyIndex]) => this.handlerAsUtility().getKeyValidationRequest(pkMHash, keyIndex),
     });
   }
 

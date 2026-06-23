@@ -44,9 +44,9 @@ export interface IAvmExecutionOracle {
   getContractInstanceImmutablesHash(address: AztecAddress): Promise<{ member: Fr; exists: boolean }>;
   returndataSize(): Promise<Fr>;
   returndataCopy(rdOffset: number, copySize: number): Promise<Fr[]>;
-  call(l2Gas: number, daGas: number, address: AztecAddress, argsLength: number, args: Fr[]): Promise<Fr[]>;
-  staticCall(l2Gas: number, daGas: number, address: AztecAddress, argsLength: number, args: Fr[]): Promise<Fr[]>;
-  successCopy(): Promise<Fr>;
+  call(l2Gas: number, daGas: number, address: AztecAddress, argsLength: number, args: Fr[]): Promise<void>;
+  staticCall(l2Gas: number, daGas: number, address: AztecAddress, argsLength: number, args: Fr[]): Promise<void>;
+  successCopy(): Promise<boolean>;
 }
 
 /**

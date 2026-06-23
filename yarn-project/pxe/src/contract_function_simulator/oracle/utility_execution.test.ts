@@ -4,8 +4,17 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import type { KeyStore } from '@aztec/key-store';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
-import { WASMSimulator } from '@aztec/simulator/client';
-import { FunctionCall, FunctionSelector, FunctionType, encodeArguments } from '@aztec/stdlib/abi';
+import { type CircuitSimulator, WASMSimulator } from '@aztec/simulator/client';
+import { HandshakeRegistryArtifact } from '@aztec/standard-contracts/handshake-registry';
+import { STANDARD_HANDSHAKE_REGISTRY_ADDRESS } from '@aztec/standard-contracts/handshake-registry/constants';
+import {
+  type ContractArtifact,
+  FunctionCall,
+  FunctionSelector,
+  FunctionType,
+  encodeArguments,
+  getFunctionArtifactByName,
+} from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash, type L2TipsProvider } from '@aztec/stdlib/block';
 import {
@@ -17,7 +26,7 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { PublicKeys, deriveKeys, hashPublicKey } from '@aztec/stdlib/keys';
 import { AppTaggingSecret, AppTaggingSecretKind, MessageContext, SiloedTag } from '@aztec/stdlib/logs';
 import { Note, NoteDao } from '@aztec/stdlib/note';
-import { makeL2Tips } from '@aztec/stdlib/testing';
+import { makeL2Tips, randomContractInstanceWithAddress } from '@aztec/stdlib/testing';
 import {
   BlockHeader,
   CallContext,
@@ -42,8 +51,8 @@ import type { ContractStore } from '../../storage/contract_store/contract_store.
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
-import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_address_book_store.js';
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
+import type { TaggingSecretSourcesStore } from '../../storage/tagging_store/tagging_secret_sources_store.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
@@ -62,7 +71,7 @@ describe('Utility Execution test suite', () => {
   let aztecNode: ReturnType<typeof mock<AztecNode>>;
   let senderTaggingStore: ReturnType<typeof mock<SenderTaggingStore>>;
   let recipientTaggingStore: ReturnType<typeof mock<RecipientTaggingStore>>;
-  let senderAddressBookStore: ReturnType<typeof mock<SenderAddressBookStore>>;
+  let taggingSecretSourcesStore: ReturnType<typeof mock<TaggingSecretSourcesStore>>;
   let capsuleStore: ReturnType<typeof mock<CapsuleStore>>;
   let privateEventStore: ReturnType<typeof mock<PrivateEventStore>>;
   let contractSyncService: ReturnType<typeof mock<ContractSyncService>>;
@@ -86,7 +95,7 @@ describe('Utility Execution test suite', () => {
     aztecNode = mock<AztecNode>();
     senderTaggingStore = mock<SenderTaggingStore>();
     recipientTaggingStore = mock<RecipientTaggingStore>();
-    senderAddressBookStore = mock<SenderAddressBookStore>();
+    taggingSecretSourcesStore = mock<TaggingSecretSourcesStore>();
     capsuleStore = mock<CapsuleStore>();
     privateEventStore = mock<PrivateEventStore>();
     contractSyncService = mock<ContractSyncService>();
@@ -98,7 +107,8 @@ describe('Utility Execution test suite', () => {
     senderTaggingStore.getLastUsedIndex.mockResolvedValue(undefined);
     senderTaggingStore.getTxHashesOfPendingIndexes.mockResolvedValue([]);
     senderTaggingStore.storePendingIndexes.mockResolvedValue();
-    senderAddressBookStore.getSenders.mockResolvedValue([]);
+    taggingSecretSourcesStore.getSenders.mockResolvedValue([]);
+    taggingSecretSourcesStore.getSharedSecrets.mockResolvedValue([]);
 
     l2TipsStore.getL2Tips.mockResolvedValue(makeL2Tips(anchorBlockHeader.globalVariables.blockNumber));
     aztecNode.getPrivateLogsByTags.mockImplementation(query => Promise.resolve(query.tags.map(() => [])));
@@ -119,7 +129,7 @@ describe('Utility Execution test suite', () => {
       l2TipsStore,
       senderTaggingStore,
       recipientTaggingStore,
-      senderAddressBookStore,
+      taggingSecretSourcesStore,
       capsuleStore,
       privateEventStore,
       simulator,
@@ -436,6 +446,88 @@ describe('Utility Execution test suite', () => {
       });
     });
 
+    // Pins the production oracle's default-authorization allowlist for cross-contract utility reads of the
+    // standard HandshakeRegistry: only get_handshakes and get_app_siloed_secret are allowed, everything else is
+    // denied.
+    describe('cross-contract utility authorization', () => {
+      const prepareNestedUtilityCall = async (
+        targetContractAddress: AztecAddress,
+        contractArtifact: ContractArtifact,
+        functionName: string,
+      ) => {
+        const functionArtifact = {
+          ...getFunctionArtifactByName(contractArtifact, functionName),
+          contractName: contractArtifact.name,
+        };
+        const selector = await FunctionSelector.fromNameAndParameters(functionName, functionArtifact.parameters);
+        const callerInstance = await randomContractInstanceWithAddress({}, contractAddress);
+        const targetInstance = await randomContractInstanceWithAddress({}, targetContractAddress);
+
+        contractStore.getFunctionArtifactWithDebugMetadata.mockResolvedValue(functionArtifact);
+        contractStore.getContractInstance.mockImplementation(address => {
+          if (address.equals(contractAddress)) {
+            return Promise.resolve(callerInstance);
+          }
+          if (address.equals(targetContractAddress)) {
+            return Promise.resolve(targetInstance);
+          }
+          return Promise.reject(new Error(`Unexpected contract instance lookup for ${address}`));
+        });
+
+        return selector;
+      };
+
+      const makeNestedSimulator = () => {
+        const nestedSimulator = mock<CircuitSimulator>();
+        nestedSimulator.executeUserCircuit.mockResolvedValue({ partialWitness: new Map(), returnWitness: new Map() });
+        return nestedSimulator;
+      };
+
+      let nestedSimulator: ReturnType<typeof makeNestedSimulator>;
+      // The standard HandshakeRegistry reads the oracle default-authorizes, mapped to the args each is called with.
+      let defaultAuthorizedHandshakeRegistryReads: Map<string, Fr[]>;
+
+      beforeEach(() => {
+        nestedSimulator = makeNestedSimulator();
+        utilityExecutionOracle = makeOracle({ simulator: nestedSimulator });
+        defaultAuthorizedHandshakeRegistryReads = new Map<string, Fr[]>([
+          ['get_handshakes', []],
+          ['get_app_siloed_secret', [Fr.random(), Fr.random(), new Fr(3)]],
+        ]);
+      });
+
+      afterEach(() => {
+        contractSyncService.ensureContractSynced.mockClear();
+        nestedSimulator.executeUserCircuit.mockClear();
+      });
+
+      it.each(HandshakeRegistryArtifact.functions.map(fn => fn.name))(
+        'authorizes %s only if it is in the standard HandshakeRegistry read allowlist',
+        async name => {
+          const selector = await prepareNestedUtilityCall(
+            STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
+            HandshakeRegistryArtifact,
+            name,
+          );
+
+          if (defaultAuthorizedHandshakeRegistryReads.has(name)) {
+            const args = defaultAuthorizedHandshakeRegistryReads.get(name) ?? [];
+            await expect(
+              utilityExecutionOracle.callUtilityFunction(STANDARD_HANDSHAKE_REGISTRY_ADDRESS, selector, args),
+            ).resolves.toEqual([]);
+            expect(contractSyncService.ensureContractSynced).toHaveBeenCalled();
+            expect(nestedSimulator.executeUserCircuit).toHaveBeenCalled();
+          } else {
+            await expect(
+              utilityExecutionOracle.callUtilityFunction(STANDARD_HANDSHAKE_REGISTRY_ADDRESS, selector, []),
+            ).rejects.toThrow('Cross-contract utility call denied: No execution hooks configured');
+            expect(contractSyncService.ensureContractSynced).not.toHaveBeenCalled();
+            expect(nestedSimulator.executeUserCircuit).not.toHaveBeenCalled();
+          }
+        },
+      );
+    });
+
     describe('getMessageContextsByTxHash', () => {
       const service = new EphemeralArrayService();
 
@@ -611,7 +703,7 @@ describe('Utility Execution test suite', () => {
         addressStore,
         aztecNode,
         recipientTaggingStore,
-        senderAddressBookStore,
+        taggingSecretSourcesStore,
         capsuleService: new CapsuleService(capsuleStore, scopes),
         privateEventStore,
         messageContextService,

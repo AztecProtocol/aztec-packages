@@ -1,6 +1,7 @@
 import type { PrivateEventFilter } from '@aztec/aztec.js/wallet';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
@@ -82,8 +83,8 @@ import { NoteStore } from './storage/note_store/note_store.js';
 import { openPxeStores } from './storage/open_pxe_stores.js';
 import { PrivateEventStore } from './storage/private_event_store/private_event_store.js';
 import { RecipientTaggingStore } from './storage/tagging_store/recipient_tagging_store.js';
-import { SenderAddressBookStore } from './storage/tagging_store/sender_address_book_store.js';
 import { SenderTaggingStore } from './storage/tagging_store/sender_tagging_store.js';
+import { TaggingSecretSourcesStore } from './storage/tagging_store/tagging_secret_sources_store.js';
 import { persistSenderTaggingIndexRangesForTx } from './tagging/index.js';
 
 export type PackedPrivateEvent = InTx & {
@@ -203,7 +204,7 @@ export class PXE {
     private capsuleStore: CapsuleStore,
     private anchorBlockStore: AnchorBlockStore,
     private senderTaggingStore: SenderTaggingStore,
-    private senderAddressBookStore: SenderAddressBookStore,
+    private taggingSecretSourcesStore: TaggingSecretSourcesStore,
     private recipientTaggingStore: RecipientTaggingStore,
     private addressStore: AddressStore,
     private privateEventStore: PrivateEventStore,
@@ -269,7 +270,7 @@ export class PXE {
       noteStore,
       anchorBlockStore,
       senderTaggingStore,
-      senderAddressBookStore,
+      taggingSecretSourcesStore,
       recipientTaggingStore,
       capsuleStore,
       keyStore,
@@ -320,7 +321,7 @@ export class PXE {
       capsuleStore,
       anchorBlockStore,
       senderTaggingStore,
-      senderAddressBookStore,
+      taggingSecretSourcesStore,
       recipientTaggingStore,
       addressStore,
       privateEventStore,
@@ -367,7 +368,7 @@ export class PXE {
       l2TipsStore: this.l2TipsStore,
       senderTaggingStore: this.senderTaggingStore,
       recipientTaggingStore: this.recipientTaggingStore,
-      senderAddressBookStore: this.senderAddressBookStore,
+      taggingSecretSourcesStore: this.taggingSecretSourcesStore,
       capsuleStore: this.capsuleStore,
       privateEventStore: this.privateEventStore,
       simulator: this.simulator,
@@ -681,7 +682,7 @@ export class PXE {
       return sender;
     }
 
-    const wasAdded = await this.senderAddressBookStore.addSender(sender);
+    const wasAdded = await this.taggingSecretSourcesStore.addSender(sender);
 
     if (wasAdded) {
       this.log.info(`Added sender:\n ${sender.toString()}`);
@@ -700,7 +701,7 @@ export class PXE {
    * @returns Senders registered in this PXE.
    */
   public getSenders(): Promise<AztecAddress[]> {
-    return this.senderAddressBookStore.getSenders();
+    return this.taggingSecretSourcesStore.getSenders();
   }
 
   /**
@@ -708,12 +709,56 @@ export class PXE {
    * @param sender - The address of the sender to remove.
    */
   public async removeSender(sender: AztecAddress): Promise<void> {
-    const wasRemoved = await this.senderAddressBookStore.removeSender(sender);
+    const wasRemoved = await this.taggingSecretSourcesStore.removeSender(sender);
 
     if (wasRemoved) {
       this.log.info(`Removed sender:\n ${sender.toString()}`);
     } else {
       this.log.info(`Sender:\n "${sender.toString()}"\n not registered in PXE.`);
+    }
+  }
+
+  /**
+   * Registers a pre-shared tagging secret scoped to a recipient, used to discover private logs tagged with it.
+   *
+   * Unlike a registered sender (whose shared secret is derived via ECDH), this is the shared secret point itself,
+   * provided directly. It is scoped to a recipient because the per-app derivation of the final tagging secret requires
+   * no further private information i.e. there is no ECDH step - reuse of such secrets by multiple recipients could lead
+   * to a privacy loss as they'd all be able to find each others' tags.
+   */
+  public async registerSharedSecret(recipient: AztecAddress, secret: Point): Promise<void> {
+    if (!(await recipient.isValid())) {
+      throw new Error(
+        `Recipient ${recipient} is not valid: it does not correspond to a point on the Grumpkin curve. Cannot register a shared secret for it.`,
+      );
+    }
+
+    if (secret.isZero() || !secret.isOnCurve()) {
+      throw new Error(`Shared secret ${secret} is not a valid non-zero point on the Grumpkin curve.`);
+    }
+
+    const wasAdded = await this.taggingSecretSourcesStore.addSharedSecret(recipient, secret);
+
+    if (wasAdded) {
+      this.log.info(`Added shared secret for recipient:\n ${recipient.toString()}`);
+      // Wipe the entire sync cache: the new secret's tagged logs could contain notes/events for any contract, so
+      // all contracts must re-sync to discover them. Queued to avoid wiping while a job is in flight.
+      await this.#putInJobQueue(() => Promise.resolve(this.contractSyncService.wipe()));
+    } else {
+      this.log.info(`Shared secret already registered for recipient:\n ${recipient.toString()}`);
+    }
+  }
+
+  /**
+   * Removes a pre-shared tagging secret registered in this PXE.
+   */
+  public async removeSharedSecret(recipient: AztecAddress, secret: Point): Promise<void> {
+    const wasRemoved = await this.taggingSecretSourcesStore.removeSharedSecret(recipient, secret);
+
+    if (wasRemoved) {
+      this.log.info(`Removed shared secret for recipient:\n ${recipient.toString()}`);
+    } else {
+      this.log.info(`Shared secret not registered for recipient:\n ${recipient.toString()}`);
     }
   }
 
