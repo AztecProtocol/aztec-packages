@@ -1,3 +1,93 @@
+//! # Offchain message reception workflow
+//!
+//! This module processes offchain messages received via the `receive` function. Offchain processing needs to handle
+//! some complexity, including the possibility of reorgs reverting message effects, and the need to reprocess messages
+//! in that case. The state chart below summarizes the current behavior.
+//!
+//! ```text
+//!                   offchain_receive()
+//!                         |
+//!                         v
+//!                   +-----------+     tx found onchain        +-----------+
+//!                   |           | --------------------------> |           |
+//!     (self-loop)   | RECEIVED  |                             | PROCESSED |   (self-loop)
+//!  not resolved &   |           | <-------------------------- |           |   processed &  ====> discover notes,
+//! events, etc
+//!  not expired      |           |   tx block re-orged         |           |   not expired
+//!                   +-----------+                             +-----------+
+//!                         |                                         |
+//!                         |  TTL expired                            |  TTL expired
+//!                         v                                         v
+//!                   +---------------------------------------------------------+
+//!                   |               TERMINATED (process ends)                 |
+//!                   +---------------------------------------------------------+
+//! ```
+//!
+//! ## States
+//!
+//! - **Received**: the message is persisted but its originating transaction has not been found onchain yet (or the
+//!   message is tx-less; see below). While the reception process is in this state, it keeps looking for the
+//    transaction onchain.
+//! - **Processed**: the message has been handed off for processing. If there weren't reorgs, reaching this state would
+//!   be equivalent to terminating the reception process. Since reorgs are a possibility, this state is not terminal.
+//! - **Terminated**: the message has reached its TTL which means nothing else can we done with it. This is the
+//!   terminal state of this process.
+//!
+//! ## Transitions (each evaluated by [`process_reception`] on a single [`sync_inbox`] pass)
+//!
+//! - **Received -> Processed**: the originating transaction is found onchain. The message (packaged with its
+//!   transaction context) is queued to have its actual contents processed (which can lead for example to the discovery
+//!   of notes and events).
+//! - **Processed -> Received**: the block where the message transaction was originally found is re-orged out.
+//! - **Received -> Terminated**: the message TTL has elapsed (see below), so the message is no longer processable.
+//! - **Processed -> Terminated**: the message TTL has elapsed (see below), so the effects of its processing are
+//!   permanent.
+//!
+//! # Message reception lifecycle and the TTL
+//!
+//! A reception expires once `now > anchor_block_timestamp + MAX_MSG_TTL`, where `MAX_MSG_TTL = MAX_TX_LIFETIME + 2h`.
+//! A transaction anchored at a given block can only be mined within `MAX_TX_LIFETIME` of that block, so once that
+//! window (plus a safety margin of 2 hours) has elapsed the originating transaction can no longer appear, and it is
+//! safe to stop looking for it.
+//!
+//! Already-processed receptions reuse the same TTL: we could instead wait for the block that included the transaction
+//! to finalize, but we currently do not have the primitives to reliably get that information.
+//!
+//! # Current limitations, future plans
+//!
+//! - **Tx-less messages** never resolve, so they never reach `Processed` and are only ever removed by expiry. This
+//!   will be supported in the future.
+//! - Already-processed receptions linger longer than needed in the inbox. As discussed, we need access to block
+//!   finality to properly implement that case, which will be added in the future.
+//!
+//! # Implementation
+//!
+//! Each message received via `receive` is stored as a fact collection, content addressed.
+//!
+//! The first recorded fact of said collection is an `OFFCHAIN_MESSAGE_RECEIVED` non-retractable fact, which persists
+//! in its payload an `OffchainMessage`. This represents an active reception process in the RECEIVED state from our
+//! state chart above.
+//!
+//! Once the message is processed it records an `OFFCHAIN_MESSAGE_PROCESSED` retractable fact associated to the block
+//! where the transaction was found.
+//!
+//! Analyzing the recorded facts in combination with the TTL is all it takes to determine in which state of the
+//! reception process we are:
+//!
+//! - If the TTL has elapsed, we reached the end of the process and the fact collection can be deleted.
+//! - Otherwise:
+//!     - If there is an `OFFCHAIN_MESSAGE_PROCESSED` fact we are in PROCESSED state and there is nothing to do.
+//!     - If there is only an `OFFCHAIN_MESSAGE_RECEIVED` fact we are in RECEIVED state and we need to check if the
+//!       message transaction is now available onchain and exercise the RECEIVED->PROCESSED transition.
+//!
+//! The PROCESSED->RECEIVED transition is transparently handled by PXE: if a re-org caused the message transaction to
+//! fall off the chain, the OFFCHAIN_MESSAGE_PROCESSED fact disappears, taking us back to the RECEIVED state.
+//!
+//! Each time a contract's state is synchronized, Aztec.nr invokes the [`sync_inbox`] function, which is in charge of
+//! advancing the state of all active message reception processes. [`sync_inbox`] loads every active reception process
+//! advances it by one step via [`process_reception`], which implements the rest of reception state machine as
+//! described above.
+
 use crate::{
     context::UtilityContext,
     ephemeral::EphemeralArray,
@@ -134,19 +224,11 @@ unconstrained fn terminate(reception: FactCollection) {
     );
 }
 
-/// Step function to advance the reception workflow of an offchain message.
+/// Advances a single reception by one step of its state machine. See the module-level documentation for the states,
+/// transitions, and expiry rules.
 ///
-/// The reception workflow can be in one of the following states:
-///
-/// - Received and resolved: the TX that originated the message has been found by PXE, giving the context needed to
-///   process the message. The message then gets processed, but the workflow remains active because a re-org might undo
-//    its effects.
-///
-/// - Expired: the message's effective expiration (`anchor_block_timestamp + MAX_MSG_TTL`) has passed and it is not
-///   being handed off now, so we terminate the reception to stop tracking it.
-///
-/// - Received-but-unresolved (or tx-less, which never resolves), or already processed: the TX that originated this
-///   message is not yet available but might be in the future, so the message stays in the inbox for a future sync.
+/// Returns `Some` with the message and its resolved context when this step processes the message (the
+/// `Received -> Processed` transition), and `None` otherwise.
 unconstrained fn process_reception(
     reception: FactCollection,
     message: OffchainMessage,
