@@ -56,8 +56,9 @@ import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagg
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
+import type { EmbeddedCurvePoint } from '../noir-structs/embedded_curve_point.js';
 import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
-import { ProvidedSecret } from '../noir-structs/provided_secret.js';
+import type { ProvidedSecret } from '../noir-structs/provided_secret.js';
 import { TransientArrayService } from '../transient_array_service.js';
 import { UtilityExecutionOracle, type UtilityExecutionOracleArgs } from './utility_execution_oracle.js';
 
@@ -627,7 +628,7 @@ describe('Utility Execution test suite', () => {
         const oracleA = makeOracle({ contractAddress: contractAddressA });
         const oracleB = makeOracle({ contractAddress: contractAddressB });
 
-        const ephPksArray = EphemeralArray.fromValues(service, [ephPk]);
+        const ephPksArray = EphemeralArray.fromValues<EmbeddedCurvePoint>(service, [ephPk]);
         const responseA = await oracleA.getSharedSecrets(owner, ephPksArray, contractAddressA);
         const [secretA] = responseA.readAll(service);
 
@@ -646,7 +647,7 @@ describe('Utility Execution test suite', () => {
         const { masterIncomingViewingSecretKey: ownerIvskM } = await deriveKeys(ownerSecretKey);
         keyStore.getMasterSecretKey.mockResolvedValue(ownerIvskM);
 
-        const ephPksArray = EphemeralArray.fromValues(service, [ephPk]);
+        const ephPksArray = EphemeralArray.fromValues<EmbeddedCurvePoint>(service, [ephPk]);
         const wrongAddress = await AztecAddress.random();
         await expect(utilityExecutionOracle.getSharedSecrets(owner, ephPksArray, wrongAddress)).rejects.toThrow(
           /expected/,
@@ -668,8 +669,8 @@ describe('Utility Execution test suite', () => {
         });
 
         const providedSecret = Fr.random();
-        const providedSecrets = EphemeralArray.fromValues(service, [
-          new ProvidedSecret(providedSecret, AppTaggingSecretKind.UNCONSTRAINED),
+        const providedSecrets = EphemeralArray.fromValues<ProvidedSecret>(service, [
+          { secret: providedSecret, mode: AppTaggingSecretKind.UNCONSTRAINED },
         ]);
 
         await utilityExecutionOracle.getPendingTaggedLogs(owner, providedSecrets);

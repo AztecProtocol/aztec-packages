@@ -1,8 +1,9 @@
 /**
  * TypeScript counterpart of Noir's `BoundedVec<T, MaxLen>`.
  *
- * Carries the actual `data` plus wire-format metadata (`maxLength`, `elementSize`) so the ACVM
- * serializer can pad the storage slot to exactly `maxLength * elementSize` fields.
+ * Carries the actual `data` plus `maxLength` so the ACVM serializer can pad the storage slot to `maxLength` elements.
+ * `elementSize` is only needed when an element's wire width can't be derived from its mapping shape (a variable-width
+ * element such as a packed note); for fixed-width elements the serializer takes the width from the shape and ignores it.
  */
 export class BoundedVec<T> {
   private constructor(
@@ -15,16 +16,11 @@ export class BoundedVec<T> {
    * Construct a BoundedVec with data.
    *
    * @param data - Actual elements. Length must be `<= maxLength`.
-   * @param maxLength - Maximum capacity declared at the Noir call site.
-   *   The storage slot is padded to this many elements.
-   * @param elementSize - Number of Fr fields each element contributes when serialized.
-   *   `1` for scalar elements (u8, Field) — this is the default.
-   *   `> 1` for compound elements (e.g. a packed note that spans multiple fields).
-   *
-   * @example A bounded vec of bytes (elementSize defaults to 1):
-   * ```ts
-   * BoundedVec.from({ data: plaintext, maxLength: ciphertext.maxLength })
-   * ```
+   * @param maxLength - Maximum capacity declared at the Noir call site. The storage slot is padded to this many
+   *   elements.
+   * @param elementSize - Number of Fr fields each element contributes when serialized. Only consulted for
+   *   variable-width elements whose width isn't statically known from their shape (e.g. a packed note spanning
+   *   `packedHintedNoteLength` fields); fixed-width elements derive it from the shape, so it can be omitted.
    *
    * @example A bounded vec of packed notes, each spanning `packedHintedNoteLength` fields:
    * ```ts
@@ -41,16 +37,6 @@ export class BoundedVec<T> {
     elementSize?: number;
   }): BoundedVec<T> {
     return new BoundedVec<T>(data, maxLength, elementSize);
-  }
-
-  /**
-   * Construct an empty BoundedVec, typically used as a shape template for `Option.empty(...)`.
-   *
-   * @param maxLength - Maximum capacity declared at the Noir call site.
-   * @param elementSize - Number of Fr fields each element contributes when serialized (default 1).
-   */
-  static empty<T>({ maxLength, elementSize = 1 }: { maxLength: number; elementSize?: number }): BoundedVec<T> {
-    return new BoundedVec<T>([], maxLength, elementSize);
   }
 
   equals(other: BoundedVec<T>, innerEquals: (a: T, b: T) => boolean): boolean {

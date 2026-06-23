@@ -16,7 +16,8 @@ import { PrivateContextInputs } from '@aztec/stdlib/kernel';
 import {
   AppTaggingSecret,
   AppTaggingSecretKind,
-  type ContractClassLog,
+  ContractClassLog,
+  ContractClassLogFields,
   type TaggingIndexRange,
 } from '@aztec/stdlib/logs';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
@@ -35,6 +36,7 @@ import type { ExecutionNoteCache } from '../execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from '../execution_tagging_index_cache.js';
 import type { HashedValuesCache } from '../hashed_values_cache.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
+import type { ContractClassLogData } from '../noir-structs/contract_class_log_data.js';
 import type { NoteData } from '../noir-structs/note_data.js';
 import { Option } from '../noir-structs/option.js';
 import { pickNotes } from '../pick_notes.js';
@@ -469,10 +471,15 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * Emit a contract class log.
    * This fn exists because we only carry a poseidon hash through the kernels, and need to
    * keep the preimage in ts for later.
-   * @param log - The contract class log to be emitted.
+   * @param logData - The contract class log to be emitted.
    * @param counter - The contract class log's counter.
    */
-  public notifyCreatedContractClassLog(log: ContractClassLog, counter: number) {
+  public notifyCreatedContractClassLog(logData: ContractClassLogData, counter: number) {
+    const log = ContractClassLog.from({
+      contractAddress: logData.contractAddress,
+      fields: new ContractClassLogFields(logData.fields),
+      emittedLength: logData.emittedLength,
+    });
     this.contractClassLogs.push(new CountedContractClassLog(log, counter));
     const text = log.toBuffer().toString('hex');
     this.logger.verbose(
