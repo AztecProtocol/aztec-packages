@@ -148,7 +148,7 @@ bool MpscConsumer::unlink(const std::string& name, size_t num_producers)
     return true;
 }
 
-int MpscConsumer::wait_for_data(uint64_t timeout_ns)
+int MpscConsumer::wait_for_data(uint64_t timeout_ns, const std::function<bool()>& also_ready)
 {
     size_t num_rings = rings_.size();
 
@@ -160,6 +160,12 @@ int MpscConsumer::wait_for_data(uint64_t timeout_ns)
             previous_had_data_ = true; // Found data - enable spinning on next call
             return static_cast<int>(idx);
         }
+    }
+
+    // No ring data, but the caller may already have a completion to drain — don't
+    // spin or block in that case.
+    if (also_ready && also_ready()) {
+        return -1;
     }
 
     // Adaptive spinning: only spin if previous call found data
@@ -180,6 +186,12 @@ int MpscConsumer::wait_for_data(uint64_t timeout_ns)
     // Phase 2: Spin phase (only if previous call found data)
     if (spin_duration > 0) {
         uint64_t start = mono_ns_now();
+        // notify() (a completion wake) bumps the doorbell seq but adds no ring
+        // data, so the ring scan below would spin right through it. Watch the seq
+        // too: any change (a publish OR a notify) breaks the spin so the
+        // post-spin predicate check runs promptly — without this, every
+        // low-concurrency request eats the full spin before its response is sent.
+        uint32_t spin_seq = doorbell_->seq.load(std::memory_order_acquire);
         // NOLINTNEXTLINE(cppcoreguidelines-avoid-do-while)
         do {
             for (size_t i = 0; i < num_rings; i++) {
@@ -189,6 +201,9 @@ int MpscConsumer::wait_for_data(uint64_t timeout_ns)
                     previous_had_data_ = true; // Found data during spin
                     return static_cast<int>(idx);
                 }
+            }
+            if (also_ready && doorbell_->seq.load(std::memory_order_acquire) != spin_seq) {
+                break; // a completion may be ready — fall through to the predicate check
             }
             IPC_PAUSE();
         } while ((mono_ns_now() - start) < spin_duration);
@@ -225,6 +240,15 @@ int MpscConsumer::wait_for_data(uint64_t timeout_ns)
             previous_had_data_ = true; // Found data before blocking
             return static_cast<int>(idx);
         }
+    }
+
+    // Same arm-value protocol, extended to the completion predicate: notify()
+    // bumps the doorbell seq we latched above, so a completion posted between
+    // this check and the futex_wait returns EAGAIN rather than sleeping; one
+    // posted before this check is caught right here.
+    if (also_ready && also_ready()) {
+        previous_had_data_ = false;
+        return -1;
     }
 
     futex_wait_timeout(reinterpret_cast<volatile uint32_t*>(&doorbell_->seq), seq, remaining_timeout);
@@ -267,6 +291,27 @@ void MpscConsumer::wakeup_all()
     for (auto& ring : rings_) {
         ring.wakeup_all();
     }
+}
+
+bool MpscConsumer::has_data() const
+{
+    for (const auto& ring : rings_) {
+        if (ring.available() > 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void MpscConsumer::notify()
+{
+    // Mirror MpscProducer::publish's doorbell ring: bump seq (release) BEFORE the
+    // wake so a consumer that armed its futex against the old value sees the
+    // change and returns instead of sleeping. wakeup_all's bare futex_wake is not
+    // enough here — without a seq bump a wake landing in the consumer's pre-sleep
+    // window is lost.
+    doorbell_->seq.fetch_add(1, std::memory_order_release);
+    futex_wake(reinterpret_cast<volatile uint32_t*>(&doorbell_->seq), 1);
 }
 
 // ----- MpscProducer Implementation -----
