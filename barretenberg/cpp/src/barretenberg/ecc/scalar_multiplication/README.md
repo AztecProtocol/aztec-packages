@@ -1,200 +1,134 @@
 # Pippenger Multi-Scalar Multiplication (MSM)
 
-This directory computes the multi-scalar multiplication
+Computes $\text{MSM}(\vec{s}, \vec{P}) = \sum_{i=0}^{n-1} s_i \cdot P_i$ over BN254 / Grumpkin.
 
-$$\mathrm{MSM}(\vec{s}, \vec{P}) \;=\; \sum_{i=0}^{n-1} s_i \cdot P_i,$$
+Two implementations live behind one facade:
 
-the dominant cost of an ECC-based proving system. The default implementation is **legacy**
-(`legacy` namespace): it parallelises an MSM by partitioning the points across threads, accumulating
-per-thread bucket sets, and reducing them. The **round-parallel** implementation parallelises the
-other axis — it distributes a single MSM's windows (rounds) across the thread pool, so each worker
-runs whole windows independently. The round-parallel implementation is opt-in via `BB_MSM_NEW` (or
-the API override), so the two can be A/B compared.
-
-## Cost model
-
-Fix a window width $c$ (`window_bits`). The scalar bit-length $q$ is split into
-
-$$r = \left\lceil \frac{q + 2}{c} \right\rceil \quad\text{windows (rounds),}$$
-
-and each window accumulates points into $2^{\,c-1}$ signed buckets (the $-1$ is the Booth-recoding
-halving, below). Per window the prover pays one bucket scatter over all $n$ points plus a reduction
-over the buckets, so the native cost model is
-
-$$\mathrm{cost}(c) \;=\; r \cdot \bigl(n + \kappa \cdot 2^{\,c-1}\bigr), \qquad \kappa = 15,$$
-
-minimised by brute force over $c \in [2, 20)$ in `choose_window_bits`. The constant $\kappa$
-(`BUCKET_ACC_COST`) is an empirically tuned weight for a bucket-reduction step relative to one
-scatter addition. Larger $c$ cuts the round count $r$ but grows the bucket array $2^{c-1}$ — the
-cost model picks the balance. With $c \approx \log_2 n$ this yields $O\!\bigl(n q / \log n\bigr)$
-versus $O(n q)$ for naive per-point scalar multiplication.
-
-On WASM (`#ifdef __wasm__` branch) `choose_window_bits` skips the brute-force search and derives $c$
-from a closed-form `target_load` heuristic instead.
-
-## Parameters
-
-| Symbol | Code identifier | Meaning | Bound |
-|---|---|---|---|
-| $n$ | `n_input` | number of (scalar, point) pairs | $< 2^{29}$ (`SCHEDULE_INDEX_MASK`) |
-| $q$ | `NUM_BITS` | scalar bit-length (post-GLV: half-width) | $\le 254$ (BN254 $\mathbb{F}_r$) |
-| $c$ | `window_bits` | bits per window | $2 \le c < 20$ |
-| $r$ | `num_windows` | number of windows / rounds | $\lceil (q+2)/c \rceil \le 128$ (`MAX_SCHEDULE_WINDOWS`) |
-| — | `BUCKET_ACC_COST` | $\kappa$, bucket-step cost weight | $15$ |
-| $T$ | `num_threads` | logical workers | machine-dependent |
-
-The $+2$ on the bit budget in `build_window_schedule` accommodates the carry-less top bit of the
-Constantine signed-Booth recoder.
+- **Round-parallel rewrite** (`scalar_multiplication_fast.{hpp,cpp}` + `pippenger_*.hpp`) — the default.
+- **Legacy** (`legacy::MSM` in `scalar_multiplication.{hpp,cpp}`, byte-identical to the pre-rewrite code) — selected by
+  setting the `BB_MSM_LEGACY` env var. Scheduled for removal once the rewrite has soaked.
 
 ## Entry points
 
-The public facade in `scalar_multiplication.hpp` (`namespace bb::scalar_multiplication`) dispatches
-to `legacy::` by default and to the round-parallel implementation when `use_legacy_msm()` returns
-false. Opt into the round-parallel path with the `BB_MSM_NEW` environment variable or
-`set_legacy_msm_override(false)`. `BB_MSM_LEGACY` forces legacy explicitly.
-
-| Facade | `handle_edge_cases` | Use when |
+| Facade call | Routes to | Safety |
 |---|---|---|
-| `pippenger()` | `true` | general points (may collide / be infinity) |
-| `pippenger_unsafe()` | `false` | points known linearly independent (e.g. SRS) |
-| `MSM<Curve>::msm()` | arg, default `false` | single MSM, returns `AffineElement` |
-| `MSM<Curve>::batch_multi_scalar_mul()` | `true` | many MSMs over one shared point set |
+| `pippenger(scalars, points, handle_edge_cases=true)` | `pippenger_fast` | ✓ safe |
+| `pippenger_unsafe(scalars, points)` | `pippenger_round_parallel` | ⚠ requires linearly independent points |
+| `MSM<Curve>::msm(...)` | `MSM_fast<Curve>::msm` | per `handle_edge_cases` flag |
+| `MSM<Curve>::batch_multi_scalar_mul(...)` | `MSM_fast<Curve>::batch_multi_scalar_mul` | per `handle_edge_cases` flag |
 
-`handle_edge_cases = false` selects the fast affine path, which uses batched affine addition and
-**assumes no point-at-infinity and no equal-x collision within a bucket**. `handle_edge_cases = true`
-routes to a Jacobian path (`pippenger_round_parallel_jacobian_fast`) that handles those cases at
-higher per-operation cost. Each facade entry also takes a `dedup_hint` (below).
+"Unsafe" means the batched-affine path assumes no two points added pairwise are equal, inverse, or infinity.
+Bucket collisions of equal/inverse points make the shared Montgomery inversion hit zero. Use the safe path
+(Jacobian arithmetic throughout, `pippenger_round_parallel_jacobian_fast`) for caller-controlled points;
+SRS points are linearly independent so commitments use the unsafe path. The `dedup_hint` flag opts an MSM
+into the duplicate-scalar pre-pass (Phase A below); hints are set by provers on duplicate-heavy polynomials
+(Honk wires, `z_perm`).
 
-The implementation layer (`scalar_multiplication_fast.hpp`) mirrors these as `pippenger_fast`,
-`pippenger_unsafe_fast`, and `MSM_fast<Curve>`; the engine is `pippenger_round_parallel`.
+Inputs smaller than `MIN_PTS_PER_THREAD_FOR_PIPPENGER (24)` points per worker bypass everything and run
+multi-threaded Straus (`pippenger_fallbacks.hpp`).
 
-## Algorithm
+## Round-parallel algorithm
 
-`pippenger_round_parallel` runs in phases. Phase 1–3 are the per-MSM prologue; Stages 1–7 are the
-per-window pipeline, dispatched across `num_threads` workers.
+One window = one signed-digit position of width `c` bits. Windows are processed in batches sized so the
+working set stays inside `BATCH_MEM_BUDGET` (32 MiB); every stage inside a batch is fully parallel across
+`T = min(num_cpus, n / MIN_BATCH_CAPACITY)` tasks.
 
-### Phase 1 — scalar transform and optional GLV split
+**Phase 1 — scalar profile.** Convert scalars out of Montgomery form (in place for non-GLV, restored at the
+end; into a scratch buffer for GLV) and record each scalar's MSB. The MSB histogram gives
+`effective_num_bits` (window count tracks the largest *actual* scalar, not the field width) and the
+zero count (small active counts bail to the Straus fallback).
 
-`pippenger_round_parallel` converts the input scalars out of Montgomery form (bucket indexing needs
-the integer representation) and records the per-scalar most-significant-bit in `msb_per_scalar`,
-which feeds the adaptive window range.
+**GLV split.** For `n ≤ GLV_SMALL_N_THRESHOLD` (2^13 native / 2^16 WASM) or when the batch driver supplies a
+pre-doubled table, each scalar splits as `k = k1 − λ·k2` giving `2n` half-width (128-bit) working scalars
+against `[P, φP]` pairs — half the windows for double the points.
 
-When $n \le$ `GLV_SMALL_N_THRESHOLD` ($2^{13}$ native, $2^{16}$ WASM) each scalar $s_i$ is
-GLV-decomposed into two half-width scalars $s_i = s_i^{(0)} + \lambda\, s_i^{(1)} \pmod r$ against the
-endomorphism $\phi$, doubling the point count to $\{P_i, \phi P_i\}$ but halving $q$ and hence the
-window count $r$. Above the threshold the $2n$ point-count cost outweighs the saving, so the split
-is skipped. A batched caller may pass `external_glv_doubled` to share the doubled SRS prefix across
-MSMs instead of recomputing it.
+**Per batch of windows:**
 
-### Phase 2 — small-N fallback
+1. **Digit extraction** — Constantine-style carry-less signed-Booth recoding (`pippenger_constantine.hpp`,
+   SIMD ×4). Each (scalar, window) yields a signed digit in `[-2^(c-1), 2^(c-1)]`; per-(task, window)
+   histograms count digit magnitudes.
+2. **Bucket histogram** — in-place exclusive prefix sums turn per-task counts into scatter cursors.
+3. **Bucket offsets** — per-window prefix sum over bucket counts → `bucket_start` ranges.
+4. **Digit scatter** — re-decode digits and write `sign | scalar_idx` entries into the per-window schedule,
+   bucket-contiguous (a counting sort; bucket magnitude is implicit in the `bucket_start` range an entry
+   lands in).
+5. **Chunk partition** — split each window's schedule into `T` equal chunks by schedule index (not bucket
+   boundary; a bucket straddling two chunks contributes two partials that Stage 7's algebra absorbs).
+6. **6a: bucket partials** — each task walks its chunk in sub-chunks of `SUBCHUNK_ENTRIES_CAP (2048)`
+   entries: gather points by schedule index (software-prefetched 16 ahead — the gather is a random 64-byte
+   load over the SRS span), then `tree_reduce_in_place` pairs same-bucket neighbours level by level, batching
+   independent affine additions through one Montgomery inversion per `BATCH_CAPACITY (256)` pairs. Surviving
+   per-bucket partials land in a dense per-(task, window) array.
+   **6b: cross-task reduce** — re-partition by bucket range, merge the ≤ T partials per bucket, then
+   `recursive_affine_bucket_reduce_strided` (Mitschabaude-style, ZPrize 2022) computes each window's
+   `Σ_d d·B_d` with batched affine adds/doubles shared across all windows in the batch.
+7. **Window combine** — Horner walk high → low window: double `c` times, add the window sum.
 
-If, after dropping zero scalars (`n_active`), each worker would receive fewer than
-`MIN_PTS_PER_THREAD_FOR_PIPPENGER` ($=24$) points, the Pippenger scaffolding (digit extraction,
-histograms, bucket scratch) costs more than it saves. `pippenger_round_parallel` then delegates to
-`trivial_msm_threaded` (parallel Straus windowed double-and-add with GLV), which is robust to all
-edge cases.
+This stage split is why bucket counts are cheap here: Stage 6b (the only per-bucket-cost stage) measures
+1-3% of MSM wall clock, while every extra *window* costs a full pass of Stages 1+4+6a over all n points.
+The window-size model in `choose_window_bits` encodes exactly that trade
+(`cost = rounds · (4·n + 12·buckets)` — coefficients scaled by 4 so the bucket:point ratio 12/4 = 3 stays integer).
 
-### Phase 3 — window schedule and pipeline
+### Dedup pre-pass (Phase A, hint-gated)
 
-`choose_window_bits` picks $c$ and `build_window_schedule` produces a `WindowSchedule`: a uniform
-layout of `num_windows` windows, each $c$ bits wide except the final remainder window, with
-`bit_base[w]` $= \sum_{k<w} c_k$. The per-window bucket count is not stored — the schedule is uniform,
-so the widest window's count is always $2^{c-1}+1$, computed where needed.
+After the first batch's Stage 4, each task hash-scans its bucket range of window 0's schedule for groups of
+entries with byte-identical scalars (only scalars with `msb ≥ c` — shorter ones have nothing to save).
+Each cluster's points are tree-reduced into one combined point (`extra_points`), the cluster representative's
+schedule entries get redirected to it, and the other members are skipped — later batches skip them during
+Stage 1/4 directly via `redirect_lookup`. Caps (`DEDUP_MAX_CLUSTERS` 16384, `DEDUP_MAX_MEMBERS` 32768)
+bound memory; capped-out clusters silently fall through to the normal path. See `pippenger_dedup.hpp`.
 
-The signed-Booth (Constantine) recoder maps each $c$-bit slice into the signed range
-$[-(2^{c-1}-1),\, 2^{c-1}-1]$. A point with a negative digit $-d$ is accumulated into bucket $d$ with
-its negation, so only $2^{c-1}$ buckets per window are needed rather than $2^c$ — the source of the
-$2^{c-1}$ in the cost model. The recoder lives in `pippenger_constantine.hpp`.
+### Arena
 
-### Stages 1–4 — bucket scatter (counting sort)
+All scratch lives in one per-MSM arena (`MsmArena`), sized up front by `compute_arena_bytes_for_msm`,
+which takes the maximum over every reachable `effective_num_bits` layout — the live pipeline picks its
+window size *after* seeing the data, so the sizer must dominate every choice the pipeline can make.
+Zones: **P** (whole-MSM state: scalar profile, GLV buffers, window sums, dedup tables),
+**W** (per-worker slabs; Stage 6 scratch and Phase A scratch overlay the same bytes because those parallel
+phases never coexist), **S** (per-batch swing: schedules, histogram/cursor slab, dense partials).
+`PerWorkerArenaLayout` is the single source of truth shared by the sizer, the live allocator, and the
+arena regression tests. The batch driver (`pippenger_batched.hpp`) allocates one max-sized arena and one
+shared GLV-doubled SRS prefix for a whole `batch_commit`.
 
-Per window $w$, the points are scattered into buckets by their signed digit. This is a counting sort
-built per worker:
+## Tuning constants
 
-1. **Stage 1 — digit extraction.** Each thread decodes the signed digits for its scalar slice and
-   tallies a per-(thread, window, digit) histogram.
-2. **Stage 2 — histogram.** Per-window per-digit totals plus per-thread within-digit offsets.
-3. **Stage 3 — prefix sum.** A per-window serial prefix sum over `bucket_start` turns the totals into
-   bucket base offsets.
-4. **Stage 4 — scatter.** Each thread writes its points' schedule entries `(sign | scalar_idx)` into
-   the sorted slots. The bucket magnitude is recovered from the schedule position later, so each entry
-   stores only the sign bit and the scalar index, which must fit the 29-bit schedule payload
-   (`SCHEDULE_INDEX_MASK`) — capping $n$ at $2^{29}$.
-
-### Stages 6a–6b — bucket reduction
-
-After the scatter, bucket $k$ in window $w$ holds $B_k^{(w)} = \sum_{\{i:\, d_i^{(w)} = k\}} P_i$, and
-the window's contribution is the weighted sum
-
-$$R^{(w)} \;=\; \sum_{k=1}^{2^{c-1}} k \cdot B_k^{(w)} \;=\; \sum_{k=1}^{2^{c-1}} \Bigl(\sum_{m \ge k} B_m^{(w)}\Bigr),$$
-
-evaluated as a running suffix sum (high digit to low).
-
-- **Stage 6a** runs per thread: each worker reduces the contiguous schedule range it owns into
-  per-thread bucket partials, using batched affine addition (`BATCH_CAPACITY` $= 256$ independent
-  additions per Montgomery batch inversion; 6M per addition, 7M per doubling, $M$ = field
-  multiplication). Sub-chunks that straddle a thread boundary emit seam-overflow partials.
-- **Stage 6b** is a cross-thread reduction: the bucket range is partitioned evenly across rebalanced
-  tasks, and each task sums the contributing threads' Stage 6a partials (plus merged seam overflow)
-  into the window result $R^{(w)}$.
-
-The affine path assumes linear independence; collisions and infinities are handled only on the
-Jacobian path selected by `handle_edge_cases = true`.
-
-### Stage 7 — cross-window combine
-
-The window results are combined MSB-first by Horner's rule, doubling by `window_bits_per_window[w]`
-between adjacent windows:
-
-$$\mathrm{MSM} \;=\; \Bigl(\!\cdots\bigl(R^{(0)} \cdot 2^{c_1} + R^{(1)}\bigr)\cdot 2^{c_2} \cdots\Bigr) + R^{(r-1)}.$$
-
-## Duplicate stripping (Phase A)
-
-Witness commitments and permutation polynomials contain many repeated base points. When the caller
-sets `dedup_hint`, `pippenger_round_parallel` runs **Phase A** at most once per MSM, on window 0: it
-detects clusters of equal points and consolidates each cluster's scalars onto a single
-representative, writing the consolidated points to `extra_points`. The detection is bounded by
-`DEDUP_MAX_CLUSTERS` ($16384$) and `DEDUP_MAX_MEMBERS` ($32768$); inputs exceeding the caps fall back
-to the normal (non-deduped) path. Dedup adds ~5% overhead on random inputs, so it is opt-in and off
-by default. The machinery is in `pippenger_dedup.hpp`.
-
-## Memory: the single arena
-
-To bound peak memory and avoid WASM heap fragmentation, all per-MSM scratch is carved from one
-contiguous buffer sized at runtime by `compute_arena_bytes_for_msm` to fit `BATCH_MEM_BUDGET`
-(~32 MiB). The buffer is a local `unique_ptr` allocated per MSM and freed on return (or supplied by a
-batched caller via `external_arena`). It has three zones:
-
-- **Zone P** — per-MSM prologue (`msb_per_scalar`, GLV scalars/points) and dedup state, retained
-  through the last Stage 6a.
-- **Zone W** — per-worker slabs. Stage 6a, Stage 6b, and Phase A overlay the same per-worker bytes
-  because their `parallel_for` invocations never run concurrently on one worker; the
-  windows-per-batch-dependent Stage 6 tail sits immediately after the union. `pippenger_arena_layout.hpp`
-  is the single source of truth for this byte walk (the sizer, the live allocator, and the test all
-  call `PerWorkerArenaLayout`), which removes a class of arena-drift bugs that arose when those copies
-  disagreed.
-- **Zone S** — the point schedule.
-
-The number of windows processed per batch (`windows_per_batch`) is solved from the per-window byte
-cost so the slab fits the budget (`solve_wpb`).
+| Constant | Value | Where | Why |
+|---|---|---|---|
+| `BAC_A` / `BAC_B` | 4 / 12 | `choose_window_bits` | cost = rounds·(BAC_A·n + BAC_B·buckets); bucket ≈ 3 point-visits (12/4), empirically calibrated |
+| `GLV_SMALL_N_THRESHOLD` | 2^13 native / 2^16 WASM | dispatch | above this, the 2× point gather outweighs halved windows |
+| `MIN_PTS_PER_THREAD_FOR_PIPPENGER` | 24 | dispatch | below this Straus wins |
+| `BATCH_CAPACITY` | 256 | batched affine adds | one inversion per 256 pairs; 16 KB pair buffer stays in L1 |
+| `SUBCHUNK_ENTRIES_CAP` | 2048 | Stage 6a | bounds per-task scratch independent of n |
+| `BATCH_MEM_BUDGET` | 32 MiB | windows-per-batch solve | WASM-friendly resident-scratch ceiling |
+| `GATHER_PREFETCH_DIST` | 16 | Stage 6a gather | hides DRAM latency the branchy gather loop can't overlap on its own |
 
 ## File structure
 
-| File | Contents |
-|---|---|
-| `scalar_multiplication.hpp` | public facade + `legacy::` namespace + `use_legacy_msm` dispatch |
-| `scalar_multiplication_fast.hpp` / `.cpp` | round-parallel engine (`pippenger_round_parallel`) and `MSM_fast` |
-| `pippenger_arena_layout.hpp` | `WindowSchedule`, `choose_window_bits`, `build_window_schedule`, `PerWorkerArenaLayout`, arena sizing constants |
-| `pippenger_constantine.hpp` | signed-Booth window recoder (scalar + SIMD x4) |
-| `pippenger_dedup.hpp` | Phase A duplicate-stripping pre-pass |
-| `pippenger_batched.hpp` | shared-SRS batched-commit driver |
-| `pippenger_fallbacks.hpp` | `trivial_msm` / `trivial_msm_threaded` small-N Straus paths |
-| `process_buckets.*` | bucket index sorting helpers |
+```
+scalar_multiplication/
+├── scalar_multiplication.hpp/.cpp   # facade (BB_MSM_LEGACY dispatch) + legacy::MSM implementation
+├── scalar_multiplication_fast.hpp   # round-parallel public API (MSM_fast, pippenger_fast, ...)
+├── scalar_multiplication_fast.cpp   # phases/stages 1-7, arena zones, jacobian-safe path
+├── pippenger_arena_layout.hpp       # window-size model, schedule builder, arena layout/sizing helpers
+├── pippenger_constantine.hpp        # signed-Booth window recoder (scalar + SIMD x4)
+├── pippenger_dedup.hpp              # schedule encoding bits + Phase A duplicate-scalar machinery
+├── pippenger_batched.hpp            # multi-MSM batch driver (shared arena + GLV table)
+├── pippenger_fallbacks.hpp          # trivial/Straus small-N drivers
+├── process_buckets.hpp/.cpp         # legacy radix sort (legacy::MSM only)
+├── bitvector.hpp                    # legacy bucket-exists bitmap (legacy::MSM only)
+└── README.md
+```
+
+## Benchmarks
+
+`pippenger_bench` covers single MSMs (2^10..2^20, including the GLV small-N region), sparsity/duplicate
+profiles, batch commits, and Chonk-shaped batch scenarios. Run on the remote bencher
+(`scripts/benchmark_remote.sh pippenger_bench`); per-stage timing is visible through the `BB_BENCH`
+stage markers (`MSM::Stage*`).
 
 ## References
 
-1. N. Pippenger, *On the Evaluation of Powers and Monomials*, SIAM J. Comput. 9(2), 1980.
-2. A. D. Booth, *A Signed Binary Multiplication Technique*, Quarterly J. of Mechanics and Applied Math 4(2), 1951 (origin of the signed-digit recoding).
-3. D. Hankerson, A. Menezes, S. Vanstone, *Guide to Elliptic Curve Cryptography*, Springer 2004 (windowed / signed-window scalar multiplication).
-4. Constantine — pairing-friendly-curve & MSM implementation, https://github.com/mratsim/constantine.
-</content>
+1. Pippenger, N. (1976). "On the evaluation of powers and related problems"
+2. Bernstein, D.J. et al. "Faster batch forgery identification" (batch inversion)
+3. Botrel, Ratsimbazafy — Constantine's `signedWindowEncoding` (carry-less Booth recoding)
+4. Mitschabaude — ZPrize 2022 batch-affine bucket reduction

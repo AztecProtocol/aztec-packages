@@ -40,7 +40,8 @@ typename Curve::Element trivial_msm(PolynomialSpan<const typename Curve::ScalarF
  */
 template <typename Curve>
 typename Curve::Element trivial_msm_threaded(PolynomialSpan<const typename Curve::ScalarField> scalars_span,
-                                             std::span<const typename Curve::AffineElement> all_points) noexcept
+                                             std::span<const typename Curve::AffineElement> all_points,
+                                             size_t max_threads) noexcept
 {
     using Element = typename Curve::Element;
     using AffineElement = typename Curve::AffineElement;
@@ -74,14 +75,14 @@ typename Curve::Element trivial_msm_threaded(PolynomialSpan<const typename Curve
         return Curve::Group::point_at_infinity;
     }
 
-    // Cap at `bb::get_num_cpus()` (one task per logical CPU):
-    //   1. Want one task per OS worker, not oversubscribed — straus_msm slices
-    //      have non-trivial fixed cost so dynamic-claim averaging isn't worth the
-    //      extra dispatch tax at the trivial-MSM_fast sizes this function handles.
-    //   2. `bb::get_num_cpus() <= 1` is the chonk-batch-verifier serial gate; the
-    //      `<= 1` early-return below preserves that contract regardless of pool.
-    const size_t max_threads = bb::get_num_cpus();
-    const size_t num_threads = std::min(n_active, max_threads);
+    // One task per OS worker, not lmul-oversubscribed — straus_msm slices have
+    // non-trivial fixed cost so dynamic-claim averaging isn't worth the extra
+    // dispatch tax at the trivial-MSM_fast sizes this function handles. A caller's
+    // max_threads cap (or `bb::get_num_cpus() <= 1`, the chonk-batch-verifier
+    // serial gate) routes through the `<= 1` early-return below, keeping capped
+    // calls off the thread pool entirely.
+    const size_t pool_threads = max_threads == 0 ? bb::get_num_cpus() : std::min(max_threads, bb::get_num_cpus());
+    const size_t num_threads = std::min(n_active, pool_threads);
     if (num_threads <= 1) {
         std::span<const AffineElement> pts(compact_points.data(), n_active);
         std::span<const ScalarField> scs(compact_scalars.data(), n_active);
