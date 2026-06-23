@@ -66,6 +66,9 @@ pub unconstrained fn receive(
     contract_address: AztecAddress,
     messages: BoundedVec<OffchainMessage, MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL>,
 ) {
+    // Offchain reception facts are scoped to the recipient. Note that because offchain messages have no integrity or
+    // authenticity checks it is not possible to verify that this is indeed the intended recipient. In this case we're
+    // assuming a cooperative environment, which is on par with other offchain delivery expectations.
     messages.for_each(|msg| {
         record_non_retractable_fact(
             contract_address,
