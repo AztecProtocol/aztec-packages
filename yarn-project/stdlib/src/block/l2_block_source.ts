@@ -446,8 +446,8 @@ export type CheckpointEquivocationDetectedEvent = {
   type: 'checkpointEquivocationDetected';
   slotNumber: SlotNumber;
   checkpointNumber: CheckpointNumber;
-  /** Archive root from the L1-confirmed checkpoint; may be raw bytes if the malicious header was out of range. */
-  l1ArchiveRoot: Fr | Buffer32;
+  /** Archive root from the L1-confirmed checkpoint, as raw bytes (may be out of range for a malicious header). */
+  l1ArchiveRoot: Buffer32;
   proposedArchiveRoot: Fr;
 };
 
@@ -461,8 +461,8 @@ export type DescendentOfInvalidAttestationsCheckpointEvent = {
   type: 'descendentOfInvalidAttestationsCheckpointDetected';
   /** The descendant checkpoint being rejected. */
   checkpoint: CheckpointInfo;
-  /** Archive root of the rejected ancestor this descendant builds on; may be raw bytes if out of range. */
-  ancestorArchiveRoot: Fr | Buffer32;
+  /** Archive root of the rejected ancestor this descendant builds on, as raw bytes (may be out of range). */
+  ancestorArchiveRoot: Buffer32;
   /** Checkpoint number of the rejected ancestor. */
   ancestorCheckpointNumber: CheckpointNumber;
 };

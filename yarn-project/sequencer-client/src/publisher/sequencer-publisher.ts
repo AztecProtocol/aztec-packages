@@ -858,7 +858,7 @@ export class SequencerPublisher {
         checkpointNumber,
         forcePendingCheckpointNumber: CheckpointNumber(checkpointNumber - 1),
         // The rollback target is checkpoint N-1 (the last valid checkpoint), whose archive is always in
-        // range, so narrowing the raw `Fr | Buffer32` back to `Fr` here is safe.
+        // range, so converting the raw `Buffer32` back to `Fr` here is safe.
         lastArchive: Fr.fromBuffer(validationResult.checkpoint.lastArchive.toBuffer()),
         reason,
       };

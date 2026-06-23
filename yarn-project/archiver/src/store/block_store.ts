@@ -86,15 +86,12 @@ export type RejectedCheckpoint = {
   /** Checkpoint number this entry represents. */
   checkpointNumber: CheckpointNumber;
   /**
-   * Archive root produced by this rejected checkpoint (matched against descendants' `lastArchiveRoot`).
-   * `Fr | Buffer32` so a checkpoint rejected for an out-of-range archive root is still recordable.
+   * Archive root produced by this rejected checkpoint (matched against descendants' `lastArchiveRoot`), as raw
+   * bytes — a checkpoint rejected for an out-of-range archive root has a root that does not fit in `Fr`.
    */
-  archiveRoot: Fr | Buffer32;
-  /**
-   * `lastArchiveRoot` from this checkpoint's header (the ancestor it built on). `Fr | Buffer32` because a
-   * rejected checkpoint can build on an out-of-range archive root.
-   */
-  parentArchiveRoot: Fr | Buffer32;
+  archiveRoot: Buffer32;
+  /** `lastArchiveRoot` from this checkpoint's header (the ancestor it built on), as raw bytes (may be out of range). */
+  parentArchiveRoot: Buffer32;
   /** Slot number of the rejected checkpoint. */
   slotNumber: SlotNumber;
   /** L1 publication data for the rejected checkpoint (block number, hash, timestamp). */
@@ -1522,16 +1519,9 @@ export class BlockStore {
   private rejectedCheckpointFromStorage(stored: RejectedCheckpointStorage): RejectedCheckpoint {
     return {
       checkpointNumber: CheckpointNumber(stored.checkpointNumber),
-      // The archive root may be out of the BN254 field; keep it as Buffer32 in that case rather than throwing.
-      archiveRoot:
-        BigInt(`0x${stored.archiveRoot.toString('hex')}`) < Fr.MODULUS
-          ? Fr.fromBuffer(stored.archiveRoot)
-          : Buffer32.fromBuffer(stored.archiveRoot),
-      // The parent archive root may also be out of the BN254 field; keep it as Buffer32 in that case.
-      parentArchiveRoot:
-        BigInt(`0x${stored.parentArchiveRoot.toString('hex')}`) < Fr.MODULUS
-          ? Fr.fromBuffer(stored.parentArchiveRoot)
-          : Buffer32.fromBuffer(stored.parentArchiveRoot),
+      // Archive roots are stored as raw bytes and may be out of the BN254 field; keep them as Buffer32.
+      archiveRoot: Buffer32.fromBuffer(stored.archiveRoot),
+      parentArchiveRoot: Buffer32.fromBuffer(stored.parentArchiveRoot),
       slotNumber: SlotNumber(stored.slotNumber),
       l1: L1PublishedData.fromBuffer(stored.l1),
       reason: stored.reason,

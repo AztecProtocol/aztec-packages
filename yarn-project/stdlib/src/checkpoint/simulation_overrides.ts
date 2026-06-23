@@ -5,6 +5,7 @@ import {
   type SimulationOverridesPlan,
 } from '@aztec/ethereum/contracts';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import type { Logger } from '@aztec/foundation/log';
 
 import type { CoordinationSignatureContext } from '../p2p/signature_utils.js';
@@ -90,7 +91,7 @@ export async function buildCheckpointSimulationOverridesPlan(
       slotNumber: header.slotNumber,
       payloadDigest: computeCheckpointPayloadDigest({
         header,
-        archiveRoot: archive.root,
+        archiveRoot: Buffer32.fromField(archive.root),
         feeAssetPriceModifier,
         signatureContext: input.signatureContext,
       }),

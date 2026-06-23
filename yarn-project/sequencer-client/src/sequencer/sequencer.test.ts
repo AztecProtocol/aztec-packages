@@ -8,6 +8,7 @@ import {
   IndexWithinCheckpoint,
   SlotNumber,
 } from '@aztec/foundation/branded-types';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { omit, times, timesParallel } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -114,8 +115,8 @@ describe('sequencer', () => {
     checkpoint: {
       checkpointNumber: CheckpointNumber(1),
       timestamp: 0n,
-      archive: Fr.ZERO,
-      lastArchive: Fr.ZERO,
+      archive: Buffer32.ZERO,
+      lastArchive: Buffer32.ZERO,
       slotNumber: SlotNumber(1),
     },
     committee: [],
@@ -947,8 +948,8 @@ describe('sequencer', () => {
         checkpoint: {
           checkpointNumber: CheckpointNumber(1),
           timestamp: 1000n,
-          archive: Fr.random(),
-          lastArchive: Fr.random(),
+          archive: Buffer32.fromField(Fr.random()),
+          lastArchive: Buffer32.fromField(Fr.random()),
           slotNumber: SlotNumber(newSlotNumber),
         },
         committee: [validator2],

@@ -1,5 +1,6 @@
 import type { EpochCache, EpochCommitteeInfo } from '@aztec/epoch-cache';
 import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type {
@@ -38,8 +39,8 @@ describe('AttestationsBlockWatcher', () => {
 
     // Set up common test data
     checkpointInfo = {
-      archive: Fr.random(),
-      lastArchive: Fr.random(),
+      archive: Buffer32.fromField(Fr.random()),
+      lastArchive: Buffer32.fromField(Fr.random()),
       slotNumber: SlotNumber(1),
       checkpointNumber: CheckpointNumber(1),
       timestamp: BigInt(Math.floor(Date.now() / 1000)),
@@ -125,8 +126,8 @@ describe('AttestationsBlockWatcher', () => {
     // an invalidCheckpointDetected (own attestations) and a descendentOfInvalidAttestationsCheckpointDetected
     // (extends a rejected ancestor) for the same checkpoint.
     const childCheckpointInfo: CheckpointInfo = {
-      archive: Fr.random(),
-      lastArchive: Fr.fromBuffer(checkpointInfo.archive.toBuffer()), // Parent archive (the rejected ancestor)
+      archive: Buffer32.fromField(Fr.random()),
+      lastArchive: checkpointInfo.archive, // Parent archive (the rejected ancestor)
       slotNumber: SlotNumber(2),
       checkpointNumber: CheckpointNumber(2),
       timestamp: BigInt(Math.floor(Date.now() / 1000)),
@@ -202,8 +203,8 @@ describe('AttestationsBlockWatcher', () => {
     handler.mockClear();
 
     const descendantCheckpointInfo: CheckpointInfo = {
-      archive: Fr.random(),
-      lastArchive: Fr.fromBuffer(checkpointInfo.archive.toBuffer()),
+      archive: Buffer32.fromField(Fr.random()),
+      lastArchive: checkpointInfo.archive,
       slotNumber: SlotNumber(2),
       checkpointNumber: CheckpointNumber(2),
       timestamp: BigInt(Math.floor(Date.now() / 1000)),
@@ -236,8 +237,8 @@ describe('AttestationsBlockWatcher', () => {
     // descendant (D2) that both has its own invalid attestations and extends an earlier descendant (D1)
     // is reported through two events; the watcher slashes its proposer for each offense independently.
     const d2: CheckpointInfo = {
-      archive: Fr.random(),
-      lastArchive: Fr.random(),
+      archive: Buffer32.fromField(Fr.random()),
+      lastArchive: Buffer32.fromField(Fr.random()),
       slotNumber: SlotNumber(3),
       checkpointNumber: CheckpointNumber(3),
       timestamp: BigInt(Math.floor(Date.now() / 1000)),
@@ -273,7 +274,7 @@ describe('AttestationsBlockWatcher', () => {
     await watcher.handleDescendantOfInvalid({
       type: 'descendentOfInvalidAttestationsCheckpointDetected',
       checkpoint: d2,
-      ancestorArchiveRoot: Fr.random(),
+      ancestorArchiveRoot: Buffer32.fromField(Fr.random()),
       ancestorCheckpointNumber: CheckpointNumber(1),
     });
 
@@ -292,8 +293,8 @@ describe('AttestationsBlockWatcher', () => {
     epochCache.getProposerFromEpochCommittee.mockReturnValue(undefined);
 
     const descendant: CheckpointInfo = {
-      archive: Fr.random(),
-      lastArchive: Fr.random(),
+      archive: Buffer32.fromField(Fr.random()),
+      lastArchive: Buffer32.fromField(Fr.random()),
       slotNumber: SlotNumber(2),
       checkpointNumber: CheckpointNumber(2),
       timestamp: BigInt(Math.floor(Date.now() / 1000)),
@@ -301,7 +302,7 @@ describe('AttestationsBlockWatcher', () => {
     await watcher.handleDescendantOfInvalid({
       type: 'descendentOfInvalidAttestationsCheckpointDetected',
       checkpoint: descendant,
-      ancestorArchiveRoot: Fr.random(),
+      ancestorArchiveRoot: Buffer32.fromField(Fr.random()),
       ancestorCheckpointNumber: CheckpointNumber(1),
     });
 

@@ -1,4 +1,4 @@
-import { Buffer32 } from '@aztec/foundation/buffer';
+import type { Buffer32 } from '@aztec/foundation/buffer';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 
 import { encodeCheckpointPayloadToSign } from '../p2p/consensus_payload.js';
@@ -16,13 +16,13 @@ import type { CheckpointHeader } from '../rollup/checkpoint_header.js';
  * The result is the same `bytes32` that gets stored in `tempCheckpointLogs[checkpointNumber].payloadDigest`,
  * so this helper is also reused when constructing simulation state overrides for pipelined proposals.
  *
- * Accepts either a validated `CheckpointHeader` (via `header`) or a raw header hash (via `headerHash`), and
- * an archive root as `Fr` or raw `Buffer32`. The raw-hash/raw-archive form lets the archiver verify the
- * digest of a malicious, possibly out-of-range, checkpoint without converting it into an `Fr`/`CheckpointHeader`.
+ * Accepts either a validated `CheckpointHeader` (via `header`) or a raw header hash (via `headerHash`). The
+ * archive root is always taken as raw `Buffer32` bytes, so the raw-hash form lets the archiver verify the
+ * digest of a malicious, possibly out-of-range, checkpoint without converting it into a `CheckpointHeader`.
  */
 export function computeCheckpointPayloadDigest(
   args: {
-    archiveRoot: Fr | Buffer32;
+    archiveRoot: Buffer32;
     feeAssetPriceModifier: bigint;
     signatureContext: CoordinationSignatureContext;
   } & ({ header: CheckpointHeader } | { headerHash: Fr }),

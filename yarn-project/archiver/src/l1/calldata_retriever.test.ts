@@ -359,7 +359,7 @@ describe('CalldataRetriever', () => {
     it('should validate payloadDigest', async () => {
       const header = makeViemHeader();
       const attestations = makeViemCommitteeAttestations();
-      const archiveRoot = Fr.random();
+      const archiveRoot = Buffer32.fromField(Fr.random());
       const archive = archiveRoot.toString() as Hex;
       const feeAssetPriceModifier = BigInt(-1);
 

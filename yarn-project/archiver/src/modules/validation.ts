@@ -1,8 +1,7 @@
 import type { EpochCache } from '@aztec/epoch-cache';
 import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import type { Buffer32 } from '@aztec/foundation/buffer';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { compactArray } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/curves/bn254';
 import type { Logger } from '@aztec/foundation/log';
 import {
   type AttestationInfo,
@@ -32,23 +31,15 @@ export type CheckpointForValidation = {
   attestations: CommitteeAttestation[];
 };
 
-/** Builds the CheckpointInfo identifying a (possibly out-of-range) raw checkpoint. */
+/** Builds the CheckpointInfo identifying a (possibly out-of-range) raw checkpoint. Archive roots stay as raw bytes. */
 function toCheckpointInfo(checkpoint: CheckpointForValidation, header: L1CheckpointHeader): CheckpointInfo {
   return {
     archive: checkpoint.archiveRoot,
-    lastArchive: lastArchiveRootToFr(header.lastArchiveRoot),
+    lastArchive: Buffer32.fromString(header.lastArchiveRoot),
     slotNumber: SlotNumber.fromBigInt(header.slotNumber),
     checkpointNumber: checkpoint.checkpointNumber,
     timestamp: header.timestamp,
   };
-}
-
-/**
- * Returns the `lastArchiveRoot` as an `Fr`. `lastArchiveRoot` is forced equal to the on-chain tip archive,
- * which is always field-reduced once it has been stored, so this is in range in practice; we reduce defensively.
- */
-function lastArchiveRootToFr(lastArchiveRoot: `0x${string}`): Fr {
-  return Fr.fromBufferReduce(Buffer.from(lastArchiveRoot.slice(2).padStart(64, '0'), 'hex'));
 }
 
 /**

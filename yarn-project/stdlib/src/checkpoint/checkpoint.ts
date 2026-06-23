@@ -6,6 +6,7 @@ import {
   IndexWithinCheckpoint,
   SlotNumber,
 } from '@aztec/foundation/branded-types';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { pick, sum } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeSignedBigInt, serializeToBuffer } from '@aztec/foundation/serialize';
@@ -119,8 +120,8 @@ export class Checkpoint {
 
   public toCheckpointInfo(): CheckpointInfo {
     return {
-      archive: this.archive.root,
-      lastArchive: this.header.lastArchiveRoot,
+      archive: Buffer32.fromField(this.archive.root),
+      lastArchive: Buffer32.fromField(this.header.lastArchiveRoot),
       slotNumber: this.header.slotNumber,
       checkpointNumber: this.number,
       timestamp: this.header.timestamp,

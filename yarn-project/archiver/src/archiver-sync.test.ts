@@ -906,9 +906,9 @@ describe('Archiver Sync', () => {
           type: L2BlockSourceEvents.DescendentOfInvalidAttestationsCheckpointDetected,
           checkpoint: expect.objectContaining({
             checkpointNumber: 3,
-            archive: validCp3.archive.root,
+            archive: Buffer32.fromField(validCp3.archive.root),
           }),
-          ancestorArchiveRoot: badCp2.archive.root,
+          ancestorArchiveRoot: Buffer32.fromField(badCp2.archive.root),
           ancestorCheckpointNumber: 2,
         }),
       );

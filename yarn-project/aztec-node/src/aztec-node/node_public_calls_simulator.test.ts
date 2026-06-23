@@ -8,6 +8,7 @@ import {
   IndexWithinCheckpoint,
   SlotNumber,
 } from '@aztec/foundation/branded-types';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { unfreeze } from '@aztec/foundation/types';
@@ -441,8 +442,8 @@ function makeInvalidStatus(firstInvalid: CheckpointNumber): ValidateCheckpointRe
   return {
     valid: false,
     checkpoint: {
-      archive: Fr.random(),
-      lastArchive: Fr.random(),
+      archive: Buffer32.fromField(Fr.random()),
+      lastArchive: Buffer32.fromField(Fr.random()),
       slotNumber: SlotNumber(10),
       checkpointNumber: firstInvalid,
       timestamp: 0n,

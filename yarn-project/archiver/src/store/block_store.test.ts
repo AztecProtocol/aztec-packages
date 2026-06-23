@@ -6,6 +6,7 @@ import {
   IndexWithinCheckpoint,
   SlotNumber,
 } from '@aztec/foundation/branded-types';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { sleep } from '@aztec/foundation/sleep';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -2898,10 +2899,12 @@ describe('BlockStore', () => {
   });
 
   describe('rejected checkpoints', () => {
-    const makeEntry = (overrides: { archiveRoot?: Fr; l1BlockNumber?: number; checkpointNumber?: number } = {}) => ({
+    const makeEntry = (
+      overrides: { archiveRoot?: Buffer32; l1BlockNumber?: number; checkpointNumber?: number } = {},
+    ) => ({
       checkpointNumber: CheckpointNumber(overrides.checkpointNumber ?? 1),
-      archiveRoot: overrides.archiveRoot ?? Fr.random(),
-      parentArchiveRoot: Fr.random(),
+      archiveRoot: overrides.archiveRoot ?? Buffer32.fromField(Fr.random()),
+      parentArchiveRoot: Buffer32.fromField(Fr.random()),
       slotNumber: SlotNumber(1),
       l1: makeL1PublishedData(overrides.l1BlockNumber ?? 100),
       reason: 'invalid-attestations' as const,
@@ -2930,7 +2933,7 @@ describe('BlockStore', () => {
     });
 
     it('updates an existing entry when re-added with the same archive root', async () => {
-      const archiveRoot = Fr.random();
+      const archiveRoot = Buffer32.fromField(Fr.random());
       await blockStore.addRejectedCheckpoint(makeEntry({ archiveRoot, l1BlockNumber: 100 }));
       await blockStore.addRejectedCheckpoint(makeEntry({ archiveRoot, l1BlockNumber: 110 }));
 

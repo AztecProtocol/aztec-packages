@@ -1,6 +1,5 @@
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { SlotNumber } from '@aztec/foundation/branded-types';
-import { Buffer32 } from '@aztec/foundation/buffer';
 import { sha256ToField } from '@aztec/foundation/crypto/sha256';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -164,9 +163,4 @@ export function toCheckpointHeader(header: L1CheckpointHeader): CheckpointHeader
 /** Builds a random in-range {@link L1CheckpointHeader} for testing. */
 export function randomL1CheckpointHeader(overrides: Partial<L1CheckpointHeader> = {}): L1CheckpointHeader {
   return { ...toL1CheckpointHeader(CheckpointHeader.random()), ...overrides };
-}
-
-/** Returns the raw 32-byte big-endian representation of an {@link Fr} or {@link Buffer32}. */
-export function archiveRootToBuffer32(archive: Fr | Buffer32): Buffer32 {
-  return archive instanceof Buffer32 ? archive : Buffer32.fromField(archive);
 }

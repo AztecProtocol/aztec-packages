@@ -6,6 +6,7 @@ import {
   IndexWithinCheckpoint,
   SlotNumber,
 } from '@aztec/foundation/branded-types';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { timesAsync } from '@aztec/foundation/collection';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -982,8 +983,8 @@ describe('CheckpointProposalJob', () => {
         valid: false,
         reason: 'invalid-attestation',
         checkpoint: {
-          archive: Fr.random(),
-          lastArchive: Fr.random(),
+          archive: Buffer32.fromField(Fr.random()),
+          lastArchive: Buffer32.fromField(Fr.random()),
           slotNumber: SlotNumber(1),
           checkpointNumber: CheckpointNumber(1),
           timestamp: 0n,
@@ -1019,8 +1020,8 @@ describe('CheckpointProposalJob', () => {
         valid: false,
         reason: 'invalid-attestation',
         checkpoint: {
-          archive: Fr.random(),
-          lastArchive: Fr.random(),
+          archive: Buffer32.fromField(Fr.random()),
+          lastArchive: Buffer32.fromField(Fr.random()),
           slotNumber: SlotNumber(1),
           checkpointNumber: CheckpointNumber(1),
           timestamp: 0n,
@@ -1052,8 +1053,8 @@ describe('CheckpointProposalJob', () => {
         valid: false,
         reason: 'invalid-attestation',
         checkpoint: {
-          archive: Fr.random(),
-          lastArchive: Fr.random(),
+          archive: Buffer32.fromField(Fr.random()),
+          lastArchive: Buffer32.fromField(Fr.random()),
           slotNumber: SlotNumber(1),
           checkpointNumber: CheckpointNumber(1),
           timestamp: 0n,

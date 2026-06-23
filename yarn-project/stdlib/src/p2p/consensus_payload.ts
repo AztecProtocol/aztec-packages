@@ -29,7 +29,7 @@ import {
  * or header hash (the bytes are taken verbatim). Mirrors `ConsensusPayload.getPayloadToSign`.
  */
 export function encodeCheckpointPayloadToSign(
-  archiveRoot: Fr | Buffer32,
+  archiveRoot: Buffer32,
   headerHash: Fr,
   feeAssetPriceModifier: bigint,
 ): Buffer {
@@ -80,7 +80,11 @@ export class ConsensusPayload implements Signable {
   }
 
   getPayloadToSign(): Buffer {
-    return encodeCheckpointPayloadToSign(this.archive, this.header.hash(), this.feeAssetPriceModifier);
+    return encodeCheckpointPayloadToSign(
+      Buffer32.fromField(this.archive),
+      this.header.hash(),
+      this.feeAssetPriceModifier,
+    );
   }
 
   /**

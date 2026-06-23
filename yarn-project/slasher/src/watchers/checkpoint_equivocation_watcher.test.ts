@@ -1,5 +1,6 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import {
@@ -32,7 +33,7 @@ describe('CheckpointEquivocationWatcher', () => {
     type: L2BlockSourceEvents.CheckpointEquivocationDetected,
     slotNumber: SlotNumber(10),
     checkpointNumber: CheckpointNumber(2),
-    l1ArchiveRoot: Fr.random(),
+    l1ArchiveRoot: Buffer32.fromField(Fr.random()),
     proposedArchiveRoot: Fr.random(),
     ...overrides,
   });
