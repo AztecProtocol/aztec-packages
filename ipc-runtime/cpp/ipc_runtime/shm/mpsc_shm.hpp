@@ -28,7 +28,65 @@ struct alignas(64) MpscDoorbell {
     // Producer-written (written by producers in publish()). Consumers wait on
     // this seq with a futex; producers bump it and wake unconditionally.
     alignas(64) std::atomic<uint32_t> seq;
-    std::array<uint8_t, 60> _pad0;
+    // Number of producer slots (= num_producers). Written once by the consumer at
+    // create(); read by clients to bound the slot-claim scan. Kept here (offset 4)
+    // so `seq` stays at offset 0 and the doorbell mapping/wakeup path is unchanged.
+    std::atomic<uint32_t> num_slots;
+    std::array<uint8_t, 56> _pad0;
+};
+static_assert(sizeof(MpscDoorbell) == 64, "MpscDoorbell layout must stay 64 bytes (seq at offset 0)");
+
+// The per-slot owner table follows the doorbell in the same shared mapping: one
+// std::atomic<uint32_t> per producer slot, holding the owning client's pid (0 =
+// free). Clients claim a slot here on connect (see MpscSlotClaim); the consumer
+// never reads it (it just round-robin-polls all rings). Total mapping size is
+// sizeof(MpscDoorbell) + num_slots * sizeof(std::atomic<uint32_t>).
+inline std::atomic<uint32_t>* mpsc_slot_owners(MpscDoorbell* doorbell)
+{
+    return reinterpret_cast<std::atomic<uint32_t>*>(reinterpret_cast<char*>(doorbell) + sizeof(MpscDoorbell));
+}
+
+/**
+ * @brief RAII claim on a free producer slot, taken by a client on connect.
+ *
+ * Maps the MPSC doorbell region and atomically claims the lowest-indexed slot
+ * that is free, or owned by a dead process (reclaimed). The claimed index is the
+ * client's producer/response ring id. The slot is released (set free) on
+ * destruction. This is what makes connect() self-allocating: callers no longer
+ * have to coordinate unique client ids out of band (the previous default of 0
+ * silently aliased every client onto one ring pair).
+ *
+ * Dead-owner reclaim uses kill(pid, 0); a crashed client can't run its own
+ * release, so its slot is reclaimed by the next claimant. This only prevents
+ * live clients from aliasing onto one slot; it does not guarantee recovery from
+ * stale in-flight requests left by a crashed owner.
+ */
+class MpscSlotClaim {
+  public:
+    // Claim a slot on `name`'s doorbell (`name` is the MPSC base, e.g. "<path>_req").
+    // Throws std::runtime_error if the doorbell is absent (server not up) or full.
+    static MpscSlotClaim claim(const std::string& name);
+
+    MpscSlotClaim(MpscSlotClaim&& other) noexcept;
+    MpscSlotClaim& operator=(MpscSlotClaim&& other) noexcept;
+    MpscSlotClaim(const MpscSlotClaim&) = delete;
+    MpscSlotClaim& operator=(const MpscSlotClaim&) = delete;
+    ~MpscSlotClaim();
+
+    size_t id() const { return id_; }
+
+  private:
+    MpscSlotClaim(int fd, void* map, size_t len, size_t id)
+        : fd_(fd)
+        , map_(map)
+        , len_(len)
+        , id_(id)
+    {}
+
+    int fd_ = -1;
+    void* map_ = nullptr;
+    size_t len_ = 0;
+    size_t id_ = 0;
 };
 
 /**
