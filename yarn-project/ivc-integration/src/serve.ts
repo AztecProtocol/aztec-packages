@@ -91,6 +91,19 @@ async function measureJsHeapMb(): Promise<number> {
 }
 
 /**
+ * WASM thread count for the backend. Defaults to 16 (the M-series benchmark
+ * baseline) but is runtime-overridable via `globalThis.__bridge_threads` so a
+ * harness can sweep parallelism without a rebuild — and, importantly, so a
+ * low-core client (e.g. a phone with 8 cores) can avoid the 16-on-8
+ * oversubscription that triggers a pthread-startup `null function` crash. The
+ * autorun reads a `?threads=N` URL param into this global before init.
+ */
+function bridgeThreads(): number {
+  const v = (globalThis as any).__bridge_threads;
+  return typeof v === 'number' && v >= 1 ? Math.floor(v) : 16;
+}
+
+/**
  * Run ChonkApi::prove once on `bytecodes` + `witnessStack` + `vks`, measuring
  * the prove and verify wall times. Spins up a fresh Barretenberg singleton
  * (with WebGPU MSM either off or on per `webgpuMsm`) so the comparison is
@@ -152,7 +165,7 @@ async function runChonkOnce(
     baseLog(m);
   };
   const bb = await Barretenberg.initSingleton({
-    threads: 16,
+    threads: bridgeThreads(),
     logger: capturingLog,
     webgpuMsm,
     msmCsvMode,
@@ -1734,7 +1747,7 @@ async function runChonkMedian(
     // single-run singleton can't bleed the wrong webgpuMsm setting in.
     await Barretenberg.destroySingleton();
     const bb = await Barretenberg.initSingleton({
-      threads: 16,
+      threads: bridgeThreads(),
       logger: () => {},
       webgpuMsm: side.webgpu,
       webgpuMsmBlocklist: side.webgpu ? webgpuBlocklist() : undefined,
@@ -1937,7 +1950,7 @@ function ensureWarmBackend(
     }
     const t0 = performance.now();
     const bb = await Barretenberg.initSingleton({
-      threads: 16,
+      threads: bridgeThreads(),
       logger: warmMemLogger,
       webgpuMsm: webgpu,
       webgpuMsmBlocklist: webgpu ? blocklist : undefined,
@@ -4007,10 +4020,42 @@ async function maybeAutorunChonkBench(): Promise<void> {
   const flow = params.get('flow') || 'ecdsar1+transfer_1_recursions+sponsored_fpc';
   const mode = (params.get('mode') || 'off-on') as 'off-on' | 'on-only' | 'off-only' | 'paired-sweep';
   const target = params.get('target') || '';
+  // `?threads=N` lowers the WASM thread count before any backend init — a low-core
+  // client (phone) must not run the 16-thread default or pthread startup races crash
+  // it with `RuntimeError: null function`. Set the global bridgeThreads() reads.
+  const threadsParam = parseInt(params.get('threads') || '', 10);
+  if (Number.isFinite(threadsParam) && threadsParam >= 1) {
+    (globalThis as any).__bridge_threads = threadsParam;
+    logger.info(`[autorun] thread override: ${threadsParam}`);
+  }
   const runId =
     typeof crypto !== 'undefined' && 'randomUUID' in crypto
       ? crypto.randomUUID()
       : `run-${performance.now()}-${Math.floor(performance.now() * 1000) % 1000000}`;
+
+  // Capture console.warn/error + uncaught errors into a ring buffer so a remote
+  // device's failure (e.g. a WebGPU-bridge device-request / shader-compile error
+  // that precedes a `null function` trap) is POSTed back, not lost to a console we
+  // can't see. Bridge diagnostics (`[mask]`, device/shader errors) go through these.
+  const consoleLog: string[] = [];
+  const capture = (tag: string, args: unknown[]): void => {
+    if (consoleLog.length < 200) {
+      consoleLog.push(
+        `${tag} ${args.map(a => (a instanceof Error ? `${a.message}` : String(a))).join(' ')}`.slice(0, 400),
+      );
+    }
+  };
+  for (const lvl of ['warn', 'error', 'log'] as const) {
+    const orig = console[lvl].bind(console);
+    console[lvl] = (...args: unknown[]) => {
+      capture(lvl, args);
+      orig(...args);
+    };
+  }
+  window.addEventListener('error', e => capture('onerror', [e.message, e.filename, e.lineno]));
+  window.addEventListener('unhandledrejection', e =>
+    capture('unhandledrejection', [String((e as PromiseRejectionEvent).reason)]),
+  );
 
   // Best-effort JSONL sink POST — a sink hiccup must never abort the bench.
   const post = (path: string, payload: Record<string, unknown>): void => {
@@ -4033,7 +4078,134 @@ async function maybeAutorunChonkBench(): Promise<void> {
 
     progress('proving-off', 10);
     let row: Record<string, unknown>;
-    if (mode === 'off-on') {
+    if (mode === ('gpu-smoke' as typeof mode)) {
+      // Raw-WebGPU device-loss probe — no bb.js, no MSM. Runs escalating busy-loop
+      // compute dispatches to map the Adreno/Android GPU watchdog (TDR): how long a
+      // single submit can run before the driver resets the device with
+      // VK_ERROR_DEVICE_LOST. A lost device is dead, so we RECREATE it after each
+      // loss and keep probing — yielding a full OK/LOST profile, not just the first
+      // failure. `?levels=` overrides the iteration-count ladder (comma-separated).
+      const log: string[] = [];
+      const BU = (globalThis as any).GPUBufferUsage;
+      const MM = (globalThis as any).GPUMapMode;
+      const gpu = (navigator as any).gpu;
+      const N = 65536; // f32 elements (256 KB), 1024 workgroups of 64
+      const levelsParam = (params.get('levels') || '')
+        .split(',')
+        .map(s => parseFloat(s.trim()))
+        .filter(v => Number.isFinite(v) && v >= 1);
+      const levels = levelsParam.length
+        ? levelsParam
+        : [1e6, 3e6, 5e6, 6e6, 7e6, 8e6, 9e6, 1e7, 1.1e7, 1.2e7, 1.4e7, 1.6e7, 2e7, 3e7];
+
+      let device: any = null;
+      let curLost = false;
+      const newDevice = async (): Promise<void> => {
+        const adapter = await gpu.requestAdapter({ powerPreference: 'high-performance' });
+        if (log.length === 0) {
+          const info = adapter?.info ?? {};
+          log.push(`adapter: ${info.vendor ?? '?'}/${info.architecture ?? '?'}/${info.device ?? '?'}`);
+          log.push(
+            `limits: maxBuf=${adapter?.limits?.maxBufferSize} maxWGStorage=${adapter?.limits?.maxComputeWorkgroupStorageSize} maxInvoc=${adapter?.limits?.maxComputeInvocationsPerWorkgroup}`,
+          );
+        }
+        device = await adapter.requestDevice();
+        curLost = false;
+        void device.lost.then((d: any) => {
+          curLost = true;
+          log.push(`  device.lost: reason=${d.reason} message=${(d.message || '').split('\n')[0]}`);
+        });
+      };
+      await newDevice();
+
+      const results: { iters: number; ms: number; ok: boolean }[] = [];
+      let lastOkMs = 0;
+      let firstLostMs = 0;
+      for (const iters of levels) {
+        if (curLost || !device) await newDevice();
+        try {
+          const buf = device.createBuffer({ size: N * 4, usage: BU.STORAGE | BU.COPY_SRC });
+          const readBuf = device.createBuffer({ size: N * 4, usage: BU.COPY_DST | BU.MAP_READ });
+          const mod = device.createShaderModule({
+            code: `@group(0) @binding(0) var<storage, read_write> data: array<f32>;
+@compute @workgroup_size(64) fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
+  let i = gid.x; var acc = data[i];
+  for (var k = 0u; k < ${Math.floor(iters)}u; k = k + 1u) { acc = acc * 1.0000001 + 1.0; }
+  data[i] = acc; }`,
+          });
+          const pipe = device.createComputePipeline({ layout: 'auto', compute: { module: mod, entryPoint: 'main' } });
+          const bg = device.createBindGroup({
+            layout: pipe.getBindGroupLayout(0),
+            entries: [{ binding: 0, resource: { buffer: buf } }],
+          });
+          const t0 = performance.now();
+          const enc = device.createCommandEncoder();
+          const pass = enc.beginComputePass();
+          pass.setPipeline(pipe);
+          pass.setBindGroup(0, bg);
+          pass.dispatchWorkgroups(N / 64);
+          pass.end();
+          enc.copyBufferToBuffer(buf, 0, readBuf, 0, 16);
+          device.queue.submit([enc.finish()]);
+          await readBuf.mapAsync(MM.READ, 0, 16);
+          readBuf.unmap();
+          const ms = performance.now() - t0;
+          results.push({ iters, ms, ok: true });
+          lastOkMs = Math.max(lastOkMs, ms);
+          log.push(`iters=${iters.toExponential(1)}: OK ${ms.toFixed(0)}ms`);
+          buf.destroy();
+          readBuf.destroy();
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          results.push({ iters, ms: -1, ok: false });
+          if (firstLostMs === 0) firstLostMs = lastOkMs;
+          log.push(`iters=${iters.toExponential(1)}: LOST ${msg.split('\n')[0]}`);
+          curLost = true;
+          await new Promise(r => setTimeout(r, 300)); // let device.lost settle
+        }
+      }
+      const maxOk = results.filter(r => r.ok).reduce((m, r) => Math.max(m, r.ms), 0);
+      log.push(`SUMMARY: longest surviving single dispatch ≈ ${maxOk.toFixed(0)}ms`);
+      row = { kind: 'gpu-smoke', maxOkMs: maxOk, results, log };
+    } else if (mode === ('diag' as typeof mode)) {
+      // Capability probe only — no proving. Reports UA + WASM feature support so a
+      // device that crashes the WASM prove (e.g. `null function`) can be diagnosed.
+      const wasmFeature = async (bytes: number[]): Promise<boolean> => {
+        try {
+          return (await WebAssembly.instantiate(new Uint8Array(bytes))) != null;
+        } catch {
+          return false;
+        }
+      };
+      // Minimal modules per feature (magic+version + the feature-specific section).
+      const simd = await wasmFeature([
+        0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11,
+      ]);
+      const threads = typeof SharedArrayBuffer !== 'undefined';
+      const excns = await wasmFeature([
+        0, 97, 115, 109, 1, 0, 0, 0, 1, 4, 1, 96, 0, 0, 3, 2, 1, 0, 10, 6, 1, 4, 0, 6, 64, 11, 11,
+      ]);
+      let gpu = 'no navigator.gpu';
+      if ('gpu' in navigator) {
+        try {
+          const a = await (navigator as any).gpu.requestAdapter();
+          gpu = a ? 'adapter ok' : 'requestAdapter null';
+        } catch (e) {
+          gpu = `err: ${e instanceof Error ? e.message : String(e)}`;
+        }
+      }
+      row = {
+        kind: 'diag',
+        userAgent: navigator.userAgent,
+        crossOriginIsolated: (globalThis as any).crossOriginIsolated === true,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+        deviceMemoryGb: (navigator as any).deviceMemory,
+        wasmSimd: simd,
+        wasmThreads: threads,
+        wasmExceptions: excns,
+        webgpu: gpu,
+      };
+    } else if (mode === 'off-on') {
       const r = await runChonkWebGpuBench(flow);
       row = {
         adapter: r.adapter,
@@ -4103,7 +4275,7 @@ async function maybeAutorunChonkBench(): Promise<void> {
   } catch (e) {
     clearInterval(heartbeat);
     const error = e instanceof Error ? `${e.message}\n${e.stack ?? ''}` : String(e);
-    post('/results', { state: 'error', mode, error });
+    post('/results', { state: 'error', mode, error, consoleLog });
     logger.error(`[autorun] error runId=${runId}: ${error}`);
   }
 }
