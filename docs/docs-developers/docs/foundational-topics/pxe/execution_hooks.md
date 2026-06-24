@@ -23,7 +23,7 @@ const pxe = await createPXE(node, config, {
         : { authorized: false, reason: "Unknown target" };
     },
     // When no onchain handshake is registered for the recipient, fall back to a non-interactive handshake.
-    resolveTaggingSecret: async () => ({ type: "non-interactive-handshake" }),
+    resolveTaggingSecretStrategy: async () => ({ type: "non-interactive-handshake" }),
   },
 });
 ```
@@ -74,22 +74,22 @@ Pass an `authorizeUtilityCall` hook when [creating the PXE](#configuring-hooks).
 
 When the hook is absent, cross-contract utility calls are denied. See [Cross-contract utility call denied](../../aztec-nr/debugging.md#cross-contract-utility-call-denied) for the resulting error.
 
-## `resolveTaggingSecret`
+## `resolveTaggingSecretStrategy`
 
-Called as a fallback for message delivery: a registered onchain handshake's secret is reused directly, so this hook only fires when the sender-recipient pair has none yet. The wallet returns a concrete `TaggingSecretSource` (and any material the chosen derivation needs); see [Tagging secret source](../../aztec-nr/framework-description/note_delivery.md#tagging-secret-source) for the variants, the trade-offs, and the defaults in each environment.
+Called as a fallback for message delivery: a registered onchain handshake's secret is reused directly, so this hook only fires when the sender-recipient pair has none yet. The wallet returns a concrete `TaggingSecretStrategy` (and any material the chosen derivation needs); see [Tagging secret strategy](../../aztec-nr/framework-description/note_delivery.md#tagging-secret-strategy) for the variants, the trade-offs, and the defaults in each environment.
 
 ### In Noir tests
 
-When testing in Noir, leaving the source unset makes `TestEnvironment` fall back to the bare PXE default. Set a source when creating the environment to exercise a specific one; it affects message delivery in private executions:
+When testing in Noir, leaving the strategy unset makes `TestEnvironment` fall back to the bare PXE default. Set a strategy when creating the environment to exercise a specific one; it affects message delivery in private executions:
 
 ```rust
 let env = TestEnvironment::new_opts(
-    TestEnvironmentOptions::new().with_tagging_secret_source(TaggingSecretSource::non_interactive_handshake()),
+    TestEnvironmentOptions::new().with_tagging_secret_strategy(TaggingSecretStrategy::non_interactive_handshake()),
 );
 ```
 
 ### In production
 
-Pass a `resolveTaggingSecret` hook when [creating the PXE](#configuring-hooks). It receives a `TaggingSecretSourceRequest` with the executing contract's address and the message's sender, recipient, and delivery mode (`'constrained'` or `'unconstrained'`), so a wallet can apply per-application or per-recipient policies, or surface the decision to the user, instead of returning a fixed value.
+Pass a `resolveTaggingSecretStrategy` hook when [creating the PXE](#configuring-hooks). It receives a `TaggingSecretStrategyRequest` with the executing contract's address and the message's sender, recipient, and delivery mode (`'constrained'` or `'unconstrained'`), so a wallet can apply per-application or per-recipient policies, or surface the decision to the user, instead of returning a fixed value.
 
 When the hook is absent, the PXE applies a privacy-safe default: unconstrained delivery uses an address-derived (Diffie-Hellman) shared secret, which leaves no onchain trace, while constrained delivery fails rather than silently revealing the recipient through a non-interactive handshake.

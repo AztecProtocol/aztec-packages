@@ -1,5 +1,6 @@
 import { MAX_PROCESSABLE_L2_GAS, MAX_TX_DA_GAS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 import type { KeyStore } from '@aztec/key-store';
 import { WASMSimulator } from '@aztec/simulator/client';
 import { FunctionSelector } from '@aztec/stdlib/abi';
@@ -9,14 +10,17 @@ import type { L2TipsProvider } from '@aztec/stdlib/block';
 import { SerializableContractInstance } from '@aztec/stdlib/contract';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { AppTaggingSecretKind } from '@aztec/stdlib/logs';
+import { AppTaggingSecret, AppTaggingSecretKind } from '@aztec/stdlib/logs';
 import { type BlockHeader, CallContext, type Capsule, TxContext } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
-import type { ResolveTaggingSecret, TaggingSecretSource } from '../../hooks/resolve_tagging_secret.js';
+import type {
+  ResolveTaggingSecretStrategy,
+  TaggingSecretStrategy,
+} from '../../hooks/resolve_tagging_secret_strategy.js';
 import type { MessageContextService } from '../../messages/message_context_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
@@ -74,7 +78,7 @@ describe('PrivateExecutionOracle', () => {
     });
   });
 
-  describe('resolveTaggingSecret', () => {
+  describe('resolveTaggingStrategy', () => {
     let sender: AztecAddress;
     let recipient: AztecAddress;
 
@@ -88,32 +92,59 @@ describe('PrivateExecutionOracle', () => {
       const secret = Fr.random();
       jest.spyOn(oracle, 'getAppTaggingSecret').mockResolvedValue(Option.some(secret));
 
-      await expect(oracle.resolveTaggingSecret(sender, recipient, AppTaggingSecretKind.UNCONSTRAINED)).resolves.toEqual(
-        { type: 'shared-secret', secret },
-      );
+      await expect(
+        oracle.resolveTaggingStrategy(sender, recipient, AppTaggingSecretKind.UNCONSTRAINED),
+      ).resolves.toEqual({ type: 'unconstrained-secret', secret });
     });
 
     it('fails constrained delivery when no hooks are configured', async () => {
       const oracle = makeOracle();
 
-      await expect(oracle.resolveTaggingSecret(sender, recipient, AppTaggingSecretKind.CONSTRAINED)).rejects.toThrow(
-        /requires a configured resolveTaggingSecret hook/,
+      await expect(oracle.resolveTaggingStrategy(sender, recipient, AppTaggingSecretKind.CONSTRAINED)).rejects.toThrow(
+        /requires a configured resolveTaggingSecretStrategy hook/,
       );
     });
 
-    it('returns the source reported by the wallet hook', async () => {
-      const source: TaggingSecretSource = { type: 'non-interactive-handshake' };
-      const resolveTaggingSecret = jest.fn<ResolveTaggingSecret>().mockResolvedValue(source);
-      const oracle = makeOracle({ hooks: { resolveTaggingSecret } });
-      const contractClassId = Fr.random();
-      jest
-        .spyOn(oracle, 'getContractInstance')
-        .mockResolvedValue(await SerializableContractInstance.random({ currentContractClassId: contractClassId }));
+    it('resolves a non-interactive-handshake strategy', async () => {
+      const { oracle } = await makeHookedOracle({ type: 'non-interactive-handshake' }, Fr.random());
 
-      await expect(oracle.resolveTaggingSecret(sender, recipient, AppTaggingSecretKind.CONSTRAINED)).resolves.toEqual(
-        source,
+      await expect(oracle.resolveTaggingStrategy(sender, recipient, AppTaggingSecretKind.CONSTRAINED)).resolves.toEqual(
+        {
+          type: 'non-interactive-handshake',
+        },
       );
-      expect(resolveTaggingSecret).toHaveBeenCalledWith({
+    });
+
+    it('resolves an address-derived strategy to the unconstrained secret', async () => {
+      const { oracle } = await makeHookedOracle({ type: 'address-derived' }, Fr.random());
+      const secret = Fr.random();
+      jest.spyOn(oracle, 'getAppTaggingSecret').mockResolvedValue(Option.some(secret));
+
+      await expect(
+        oracle.resolveTaggingStrategy(sender, recipient, AppTaggingSecretKind.UNCONSTRAINED),
+      ).resolves.toEqual({ type: 'unconstrained-secret', secret });
+    });
+
+    it('app-silos a raw arbitrary-secret point before handing it to the contract', async () => {
+      const point = await Point.random();
+      const { oracle } = await makeHookedOracle({ type: 'arbitrary-secret', secret: point }, Fr.random());
+
+      const expected = await AppTaggingSecret.compute(point, contractAddress, recipient);
+      await expect(
+        oracle.resolveTaggingStrategy(sender, recipient, AppTaggingSecretKind.UNCONSTRAINED),
+      ).resolves.toEqual({ type: 'unconstrained-secret', secret: expected.secret });
+    });
+
+    it('passes the correct message context to the hook', async () => {
+      const contractClassId = Fr.random();
+      const { oracle, resolveTaggingSecretStrategy } = await makeHookedOracle(
+        { type: 'non-interactive-handshake' },
+        contractClassId,
+      );
+
+      await oracle.resolveTaggingStrategy(sender, recipient, AppTaggingSecretKind.CONSTRAINED);
+
+      expect(resolveTaggingSecretStrategy).toHaveBeenCalledWith({
         contractAddress,
         contractClassId,
         sender,
@@ -121,6 +152,15 @@ describe('PrivateExecutionOracle', () => {
         deliveryMode: AppTaggingSecretKind.CONSTRAINED,
       });
     });
+
+    const makeHookedOracle = async (strategy: TaggingSecretStrategy, contractClassId: Fr) => {
+      const resolveTaggingSecretStrategy = jest.fn<ResolveTaggingSecretStrategy>().mockResolvedValue(strategy);
+      const oracle = makeOracle({ hooks: { resolveTaggingSecretStrategy } });
+      jest
+        .spyOn(oracle, 'getContractInstance')
+        .mockResolvedValue(await SerializableContractInstance.random({ currentContractClassId: contractClassId }));
+      return { oracle, resolveTaggingSecretStrategy };
+    };
   });
 
   const makeOracle = (overrides: Partial<PrivateExecutionOracleArgs> = {}): PrivateExecutionOracle => {

@@ -47,10 +47,10 @@ import { NoteValidationRequest } from '../noir-structs/note_validation_request.j
 import { Option } from '../noir-structs/option.js';
 import { ProvidedSecret } from '../noir-structs/provided_secret.js';
 import {
-  type TaggingSecretSource,
-  taggingSecretSourceFromFields,
-  taggingSecretSourceToFields,
-} from '../noir-structs/tagging_secret_source.js';
+  type ResolvedTaggingStrategy,
+  resolvedTaggingStrategyFromFields,
+  resolvedTaggingStrategyToFields,
+} from '../noir-structs/resolved_tagging_strategy.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 import { packAsHintedNote } from './note_packing_utils.js';
@@ -171,13 +171,13 @@ export const DELIVERY_MODE: TypeMapping<AppTaggingSecretKind> = {
   shape: BYTE.shape,
 };
 
-export const TAGGING_SECRET_SOURCE: TypeMapping<TaggingSecretSource> = {
-  serialization: { fn: source => taggingSecretSourceToFields(source) },
+export const RESOLVED_TAGGING_STRATEGY: TypeMapping<ResolvedTaggingStrategy> = {
+  serialization: { fn: resolved => resolvedTaggingStrategyToFields(resolved) },
   deserialization: {
     fn: ([kindReader, secretReader]) =>
-      taggingSecretSourceFromFields(kindReader.readField().toNumber(), secretReader.readField()),
-    slots: 2,
+      resolvedTaggingStrategyFromFields(kindReader.readField().toNumber(), secretReader.readField()),
   },
+  shape: ['scalar', 'scalar'],
 };
 
 export const BIGINT: TypeMapping<bigint> = {

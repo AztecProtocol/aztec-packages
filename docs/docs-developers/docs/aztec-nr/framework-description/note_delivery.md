@@ -161,31 +161,32 @@ Ask yourself: **"Is the sender incentivized to deliver this note correctly?"**
 - **Yes, but they cannot or prefer not to contact them offchain or you don't want to implement offchain delivery** Use `ONCHAIN_UNCONSTRAINED`
 - **No, the sender might not deliver correctly** Use `ONCHAIN_CONSTRAINED`
 
-## Tagging secret source
+## Tagging secret strategy
 
 Onchain delivery tags every message so the recipient can find it efficiently (see [note discovery](#note-discovery-and-the-sender) below). Computing a tag requires a secret shared between sender and recipient, and there is more than one way for the two parties to come to share it. When an onchain handshake has been registered for the pair, the secret derived from it is reused directly. Otherwise the wallet decides how to proceed, since it knows which secrets it holds and how it wants to reach the recipient.
 
-The wallet's answer is a concrete **tagging secret source**. There are two sources today:
+The wallet's answer is a **tagging secret strategy**: it expresses *which* secret to use, and the PXE performs any Diffie-Hellman key exchange and app-siloing before handing the ready-to-use secret to the contract. Wallets therefore never reimplement that derivation. There are three strategies today:
 
 - **Non-interactive handshake**: the secret comes from a handshake published onchain that the recipient can derive. This reveals information about the recipient, but lets them discover the message without any prior sender-recipient coordination. Works for both constrained and unconstrained delivery.
-- **Shared secret**: a secret the two parties already share offchain, having coordinated out of band to agree on it (for example derived via Diffie-Hellman from each other's address keys). It leaves no onchain trace, but because nothing onchain proves the recipient knows it, it is only sound for unconstrained delivery.
+- **Address-derived secret**: the PXE derives the secret from the sender's and recipient's address keys via Diffie-Hellman. The wallet supplies no material, only the choice. It leaves no onchain trace, but the recipient only finds the message if they registered the sender in their PXE. Unconstrained delivery only.
+- **Arbitrary secret**: a raw secret point the two parties already share offchain, having coordinated out of band to agree on it. The wallet supplies the point and the PXE app-silos it. It leaves no onchain trace, but no onchain handshake backs the secret. Unconstrained delivery only.
 
-| | Non-interactive handshake | Shared secret |
-|---|---|---|
-| Onchain footprint when establishing | A handshake revealing information about the recipient | None |
-| Unconstrained delivery to an unknown recipient | Found without sender-recipient coordination | Found only if the recipient can derive the same secret |
-| Constrained delivery | Supported | Not sound: nothing proves the recipient knows the secret |
+| | Non-interactive handshake | Address-derived secret | Arbitrary secret |
+|---|---|---|---|
+| Onchain footprint when establishing | A handshake revealing information about the recipient | None | None |
+| Who provides the material | The onchain registry | Nobody (PXE computes it) | The wallet (a raw point) |
+| Constrained delivery | Supported | Not sound: not backed by an onchain handshake | Not sound: not backed by an onchain handshake |
 
 ### Defaults
 
-When no `resolveTaggingSecret` hook is configured, the PXE applies a privacy-safe default:
+When no `resolveTaggingSecretStrategy` hook is configured, the PXE applies a privacy-safe default:
 
 - **Unconstrained delivery**: an address-derived (Diffie-Hellman) shared secret. It leaves no onchain trace, but the recipient only finds the message if they registered the sender in their PXE.
 - **Constrained delivery**: fails, rather than silently revealing the recipient through a non-interactive handshake.
 
-### Configuring the source
+### Configuring the strategy
 
-Wallets provide the source through the `resolveTaggingSecret` [execution hook](../../foundational-topics/pxe/execution_hooks.md) when creating their PXE. The hook receives the message context (executing contract, sender, recipient and delivery mode), so a wallet can answer per message instead of with a fixed value. That page also covers how to configure a source in Noir tests.
+Wallets provide the strategy through the `resolveTaggingSecretStrategy` [execution hook](../../foundational-topics/pxe/execution_hooks.md) when creating their PXE. The hook receives the message context (executing contract, sender, recipient and delivery mode), so a wallet can answer per message instead of with a fixed value. That page also covers how to configure a strategy in Noir tests.
 
 ## Note Discovery and the Sender
 
@@ -195,7 +196,7 @@ When a note is delivered, recipients need to discover it among all the encrypted
 
 The "sender" for note discovery is **not the contract calling `.deliver()`**. Instead, it's the **account contract** that initiated the transaction.
 
-When your wallet submits a transaction, it tells PXE which address to use as the sender for tags (typically the originating account). The tag recipients use to find their notes is computed from a secret shared between the sender and recipient, and there is [more than one way to establish that secret](#tagging-secret-source), chosen by the wallet. Contracts can override the sender at message delivery via the `with_sender` builder method, which works for both constrained and unconstrained delivery, e.g. `MessageDelivery::onchain_constrained().with_sender(address)`.
+When your wallet submits a transaction, it tells PXE which address to use as the sender for tags (typically the originating account). The tag recipients use to find their notes is computed from a secret shared between the sender and recipient, and there is [more than one way to establish that secret](#tagging-secret-strategy), chosen by the wallet. Contracts can override the sender at message delivery via the `with_sender` builder method, which works for both constrained and unconstrained delivery, e.g. `MessageDelivery::onchain_constrained().with_sender(address)`.
 
 **Example:** If Alice uses her account contract to call a token contract that mints tokens to Bob, the "sender for tags" is Alice's account contract address, not the token contract address.
 
@@ -203,7 +204,7 @@ When your wallet submits a transaction, it tells PXE which address to use as the
 
 When the tag is derived from an address-based shared secret, you cannot compute it for a sender you haven't registered in advance, so you cannot receive those notes from an unknown sender. Handshake protocols let the two parties agree on the secret another way and lift this restriction.
 
-See [You cannot receive address-secret tagged notes from an unknown sender](../../foundational-topics/advanced/storage/note_discovery.md#you-cannot-receive-address-secret-tagged-notes-from-an-unknown-sender) in the note discovery documentation for the approaches and workarounds.
+See [You cannot receive address-derived tagged notes from an unknown sender](../../foundational-topics/advanced/storage/note_discovery.md#you-cannot-receive-address-derived-tagged-notes-from-an-unknown-sender) in the note discovery documentation for the approaches and workarounds.
 
 ## Delivering to Someone Other Than the Note Owner
 

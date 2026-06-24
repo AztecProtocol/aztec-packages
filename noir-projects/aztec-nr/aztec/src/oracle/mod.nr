@@ -41,10 +41,10 @@ pub mod contract_sync;
 pub mod public_call;
 #[generate_oracle_tests_excluding(
     @[
-        quote { resolve_tagging_secret_oracle }, // TODO: implement once we support more complex types
+        quote { resolve_tagging_strategy_oracle }, // TODO: implement once we support more complex types
     ],
 )]
-pub mod resolve_tagging_secret;
+pub mod resolve_tagging_strategy;
 #[generate_oracle_tests]
 pub mod tx_phase;
 pub mod execution;

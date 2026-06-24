@@ -846,6 +846,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
 
     if (!targetContractAddress.equals(this.contractAddress)) {
+      // Standard handshake registry reads are authorized by default; every other cross-contract call needs the hook.
       if (!(await isStandardHandshakeRegistryUtilityRead(targetContractAddress, functionSelector))) {
         const [callerInstance, targetInstance] = await Promise.all([
           this.getContractInstance(this.contractAddress),
@@ -1019,6 +1020,12 @@ async function doesSelectorHaveSignature(functionSelector: FunctionSelector, sig
   return functionSelector.equals(await FunctionSelector.fromSignature(signature));
 }
 
+/**
+ * Whether a cross-contract utility call targets one of the standard handshake registry's read functions.
+ *
+ * These reads are authorized by PXE for every wallet, without consulting the `authorizeUtilityCall` hook, so that
+ * wallets don't need to know the handshake registry exists in order to deliver and discover messages through it.
+ */
 async function isStandardHandshakeRegistryUtilityRead(
   targetContractAddress: AztecAddress,
   functionSelector: FunctionSelector,

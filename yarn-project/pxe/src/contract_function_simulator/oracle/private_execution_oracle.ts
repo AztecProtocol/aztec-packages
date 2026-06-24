@@ -28,7 +28,10 @@ import {
   type TxContext,
 } from '@aztec/stdlib/tx';
 
-import type { TaggingSecretSource } from '../../hooks/resolve_tagging_secret.js';
+import type {
+  ResolveTaggingSecretStrategy,
+  TaggingSecretStrategy,
+} from '../../hooks/resolve_tagging_secret_strategy.js';
 import { NoteService } from '../../notes/note_service.js';
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import { syncSenderTaggingIndexes } from '../../tagging/index.js';
@@ -38,6 +41,7 @@ import type { HashedValuesCache } from '../hashed_values_cache.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
 import type { NoteData } from '../noir-structs/note_data.js';
 import { Option } from '../noir-structs/option.js';
+import type { ResolvedTaggingStrategy } from '../noir-structs/resolved_tagging_strategy.js';
 import { pickNotes } from '../pick_notes.js';
 import type { IPrivateExecutionOracle } from './interfaces.js';
 import { executePrivateFunction } from './private_execution.js';
@@ -182,48 +186,75 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   }
 
   /**
-   * Resolves the {@link TaggingSecretSource} for a message via the wallet's `resolveTaggingSecret` hook. When no hook
-   * is configured, applies a privacy-safe default.
+   * Resolves the tagging strategy for a message via the wallet's {@link ResolveTaggingSecretStrategy} hook, applying
+   * any ECDH key exchange and app-siloing so the contract receives a ready-to-use {@link ResolvedTaggingStrategy}.
+   * When no hook is configured, applies a privacy-safe default.
    */
-  public async resolveTaggingSecret(
+  public async resolveTaggingStrategy(
     sender: AztecAddress,
     recipient: AztecAddress,
     deliveryMode: AppTaggingSecretKind,
-  ): Promise<TaggingSecretSource> {
-    const hook = this.hooks?.resolveTaggingSecret;
+  ): Promise<ResolvedTaggingStrategy> {
+    const hook = this.hooks?.resolveTaggingSecretStrategy;
+    let strategy: TaggingSecretStrategy;
     if (hook) {
       const { currentContractClassId } = await this.getContractInstance(this.contractAddress);
-      return hook({
+      strategy = await hook({
         contractAddress: this.contractAddress,
         contractClassId: currentContractClassId,
         sender,
         recipient,
         deliveryMode,
       });
+    } else {
+      strategy = this.#defaultTaggingSecretStrategy(deliveryMode, recipient);
     }
-    return this.#defaultTaggingSecretSource(sender, recipient, deliveryMode);
+    return this.#resolveTaggingSecretStrategy(strategy, sender, recipient);
   }
 
-  /** The privacy-safe tagging secret source used when no `resolveTaggingSecret` hook is configured. */
-  async #defaultTaggingSecretSource(
+  /** Resolves a wallet-provided {@link TaggingSecretStrategy} into the app-siloed secret handed to the contract. */
+  async #resolveTaggingSecretStrategy(
+    strategy: TaggingSecretStrategy,
     sender: AztecAddress,
     recipient: AztecAddress,
-    deliveryMode: AppTaggingSecretKind,
-  ): Promise<TaggingSecretSource> {
+  ): Promise<ResolvedTaggingStrategy> {
+    switch (strategy.type) {
+      case 'non-interactive-handshake':
+        return { type: 'non-interactive-handshake' };
+      case 'address-derived':
+        return this.#addressDerivedSecret(sender, recipient);
+      case 'arbitrary-secret': {
+        // App-silo the raw arbitrary secret point here so wallets never replicate the derivation.
+        const appTaggingSecret = await AppTaggingSecret.compute(strategy.secret, this.contractAddress, recipient);
+        return { type: 'unconstrained-secret', secret: appTaggingSecret.secret };
+      }
+    }
+  }
+
+  /** The privacy-safe tagging secret strategy used when no {@link ResolveTaggingSecretStrategy} hook is configured. */
+  #defaultTaggingSecretStrategy(deliveryMode: AppTaggingSecretKind, recipient: AztecAddress): TaggingSecretStrategy {
     if (deliveryMode === AppTaggingSecretKind.CONSTRAINED) {
-      // Constrained delivery has no "safe" default: a non-interactive handshake would reveal the recipient on-chain,
+      // Constrained delivery has no "safe" default: a non-interactive handshake would reveal the recipient onchain,
       // and an interactive handshake always needs a wallet interaction (i.e. a configured hook). With no hook there is
       // nothing safe to fall back to, so we always fail.
-      throw new Error(`Constrained delivery to ${recipient} requires a configured resolveTaggingSecret hook.`);
+      throw new Error(`Constrained delivery to ${recipient} requires a configured resolveTaggingSecretStrategy hook.`);
     }
 
-    // Unconstrained default: an address-derived (Diffie-Hellman) shared secret, which leaves no on-chain trace. Callers
-    // must validate the recipient in-circuit before reaching here, so an invalid one is unexpected.
+    // Unconstrained default: an address-derived (Diffie-Hellman) shared secret, which leaves no onchain trace.
+    return { type: 'address-derived' };
+  }
+
+  /**
+   * The app-siloed, recipient-directional secret derived from the sender's and recipient's address keys via ECDH,
+   * ready to hand to the contract. Resolves the `address-derived` strategy (which the unconstrained default also
+   * selects). Callers must validate the recipient in-circuit before reaching here, so an invalid one is unexpected.
+   */
+  async #addressDerivedSecret(sender: AztecAddress, recipient: AztecAddress): Promise<ResolvedTaggingStrategy> {
     const secret = await this.getAppTaggingSecret(sender, recipient);
     if (!secret.isSome()) {
-      throw new Error(`Cannot derive a default tagging secret for invalid recipient ${recipient}`);
+      throw new Error(`Cannot derive an address-derived tagging secret for invalid recipient ${recipient}`);
     }
-    return { type: 'shared-secret', secret: secret.value };
+    return { type: 'unconstrained-secret', secret: secret.value };
   }
 
   /**

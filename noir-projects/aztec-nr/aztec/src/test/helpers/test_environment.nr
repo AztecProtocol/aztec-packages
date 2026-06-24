@@ -13,7 +13,6 @@ use crate::{
     event::{event_interface::EventInterface, EventMessage},
     hash::hash_args,
     messages::{
-        delivery::TaggingSecretSource,
         discovery::{
             ComputeNoteHash, ComputeNoteNullifier, CustomMessageHandler, process_message::process_message_plaintext,
         },
@@ -24,7 +23,7 @@ use crate::{
     },
     note::{note_interface::{NoteHash, NoteType}, NoteMessage},
     oracle::version::assert_compatible_oracle_version,
-    test::helpers::{txe_oracles, utils::ContractDeployment},
+    test::helpers::{tagging_secret_strategy::TaggingSecretStrategy, txe_oracles, utils::ContractDeployment},
     utils::array::subarray,
 };
 
@@ -89,27 +88,27 @@ pub struct TestEnvironment {
 /// methods setting each value, e.g.:
 /// ```noir
 /// let env = TestEnvironment::new_opts(
-///     TestEnvironmentOptions::new().with_tagging_secret_source(TaggingSecretSource::non_interactive_handshake()),
+///     TestEnvironmentOptions::new().with_tagging_secret_strategy(TaggingSecretStrategy::non_interactive_handshake()),
 /// );
 /// ```
 pub struct TestEnvironmentOptions {
-    tagging_secret_source: Option<TaggingSecretSource>,
+    tagging_secret_strategy: Option<TaggingSecretStrategy>,
 }
 
 impl TestEnvironmentOptions {
     /// Creates a new `TestEnvironmentOptions` with default values, i.e. the same as if using
     /// [`TestEnvironment::new`] instead of [`TestEnvironment::new_opts`].
     pub fn new() -> Self {
-        Self { tagging_secret_source: Option::none() }
+        Self { tagging_secret_strategy: Option::none() }
     }
 
-    /// Sets the [`TaggingSecretSource`](crate::messages::delivery::TaggingSecretSource) that the wallet reports through
-    /// the oracle in [`resolve_tagging_secret`](crate::oracle::resolve_tagging_secret), affecting message delivery in
+    /// Sets the [`TaggingSecretStrategy`] the wallet reports through the
+    /// [`resolve_tagging_strategy`](crate::oracle::resolve_tagging_strategy) oracle, affecting message delivery in
     /// private executions.
     ///
     /// If not set, the wallet hook is left unconfigured and the private execution environment applies its own default.
-    pub fn with_tagging_secret_source(&mut self, source: TaggingSecretSource) -> Self {
-        self.tagging_secret_source = Option::some(source);
+    pub fn with_tagging_secret_strategy(&mut self, strategy: TaggingSecretStrategy) -> Self {
+        self.tagging_secret_strategy = Option::some(strategy);
         *self
     }
 }
@@ -610,15 +609,17 @@ impl TestEnvironment {
     /// ### Sample usage
     /// ```noir
     /// let env = TestEnvironment::new_opts(
-    ///     TestEnvironmentOptions::new().with_tagging_secret_source(TaggingSecretSource::non_interactive_handshake()),
+    ///     TestEnvironmentOptions::new().with_tagging_secret_strategy(
+    ///         TaggingSecretStrategy::non_interactive_handshake(),
+    ///     ),
     /// );
     /// ```
     pub unconstrained fn new_opts(options: TestEnvironmentOptions) -> Self {
         assert_compatible_oracle_version();
         txe_oracles::assert_compatible_txe_oracle_version();
 
-        // Forward the configured source to the wallet, clearing it (None) when unset.
-        txe_oracles::set_tagging_secret_source(options.tagging_secret_source);
+        // Forward the configured strategy to the wallet, clearing it (None) when unset.
+        txe_oracles::set_tagging_secret_strategy(options.tagging_secret_strategy);
 
         Self {
             // Use an offset to avoid secret collision with account secrets. Without this, when

@@ -5,7 +5,7 @@ export type {
 } from './authorize_utility_call.js';
 export { type ExecutionHooks, composeHooks } from './execution_hooks.js';
 export {
-  type ResolveTaggingSecret,
-  type TaggingSecretSource,
-  type TaggingSecretSourceRequest,
-} from './resolve_tagging_secret.js';
+  type ResolveTaggingSecretStrategy,
+  type TaggingSecretStrategy,
+  type TaggingSecretStrategyRequest,
+} from './resolve_tagging_secret_strategy.js';

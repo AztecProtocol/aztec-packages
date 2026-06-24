@@ -20,8 +20,8 @@ import {
   PrivateEventStore,
   RecipientTaggingStore,
   SenderTaggingStore,
-  type TaggingSecretSource,
   TaggingSecretSourcesStore,
+  type TaggingSecretStrategy,
   composeHooks,
   enrichPublicSimulationError,
 } from '@aztec/pxe/server';
@@ -116,7 +116,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     private version: Fr,
     private chainId: Fr,
     private authwits: Map<string, AuthWitness>,
-    private taggingSecretSource: TaggingSecretSource | undefined,
+    private taggingSecretStrategy: TaggingSecretStrategy | undefined,
     private readonly artifactResolver: TXEArtifactResolver,
     private readonly rootPath: string,
     private readonly packageName: string,
@@ -349,8 +349,8 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     this.authwits.set(authWitness.requestHash.toString(), authWitness);
   }
 
-  setTaggingSecretSource(source: Option<TaggingSecretSource>): void {
-    this.taggingSecretSource = source.value;
+  setTaggingSecretStrategy(strategy: Option<TaggingSecretStrategy>): void {
+    this.taggingSecretStrategy = strategy.value;
   }
 
   async mineBlock(options: { nullifiers?: Fr[] } = {}) {
@@ -438,7 +438,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     const simulator = new WASMSimulator();
 
     const transientArrayService = new TransientArrayService();
-    const taggingSecretSource = this.taggingSecretSource;
+    const taggingSecretStrategy = this.taggingSecretStrategy;
     const privateExecutionOracle = new PrivateExecutionOracle({
       argsHash,
       txContext,
@@ -476,8 +476,9 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
           isStaticCall ? 'private view' : 'private',
           authorizedUtilityCallTargets,
         ),
-        // Only configure the hook when a source was explicitly set, so that otherwise the default tagging secret source is exercised.
-        resolveTaggingSecret: taggingSecretSource ? () => Promise.resolve(taggingSecretSource) : undefined,
+        // Only configure the hook when a strategy was explicitly set, so that otherwise the default tagging secret
+        // strategy is exercised.
+        resolveTaggingSecretStrategy: taggingSecretStrategy ? () => Promise.resolve(taggingSecretStrategy) : undefined,
       }),
       transientArrayService,
     });
@@ -896,9 +897,9 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     }
   }
 
-  close(): [bigint, Map<string, AuthWitness>, TaggingSecretSource | undefined] {
+  close(): [bigint, Map<string, AuthWitness>, TaggingSecretStrategy | undefined] {
     this.logger.debug('Exiting Top Level Context');
-    return [this.nextBlockTimestamp, this.authwits, this.taggingSecretSource];
+    return [this.nextBlockTimestamp, this.authwits, this.taggingSecretStrategy];
   }
 
   private async getLastBlockNumber(): Promise<BlockNumber> {

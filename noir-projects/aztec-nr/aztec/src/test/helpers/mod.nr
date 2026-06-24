@@ -13,9 +13,10 @@ pub mod test_environment;
         quote { private_call_new_flow_oracle }, // TODO: implement once we support more complex types
         quote { public_call_new_flow_oracle }, // TODO: implement once we support more complex types
         quote { set_private_txe_context_oracle }, // TODO: implement once we support more complex types
-        quote { set_tagging_secret_source }, // TODO: implement once we support more complex types
+        quote { set_tagging_secret_strategy }, // TODO: implement once we support more complex types
     ],
 )]
 pub mod txe_oracles;
 pub mod authwit;
+pub mod tagging_secret_strategy;
 pub mod utils;

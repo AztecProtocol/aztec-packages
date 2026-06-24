@@ -41,8 +41,8 @@ import {
   PROVIDED_SECRET,
   PUBLIC_DATA_WITNESS,
   PUBLIC_KEYS_AND_PARTIAL_ADDRESS,
+  RESOLVED_TAGGING_STRATEGY,
   STR,
-  TAGGING_SECRET_SOURCE,
   TX_EFFECT,
   TX_HASH,
   type TypeMapping,
@@ -63,7 +63,7 @@ export {
   BYTE,
   CONTRACT_CLASS_LOG_INPUT,
   DELIVERY_MODE,
-  TAGGING_SECRET_SOURCE,
+  RESOLVED_TAGGING_STRATEGY,
   EPHEMERAL_ARRAY,
   EVENT_VALIDATION_REQUEST,
   FIELD,
@@ -512,13 +512,13 @@ export const ORACLE_REGISTRY = {
 
   aztec_prv_getSenderForTags: makeEntry({ returnType: OPTION(AZTEC_ADDRESS) }),
 
-  aztec_prv_resolveTaggingSecret: makeEntry({
+  aztec_prv_resolveTaggingStrategy: makeEntry({
     params: [
       { name: 'sender', type: AZTEC_ADDRESS },
       { name: 'recipient', type: AZTEC_ADDRESS },
       { name: 'deliveryMode', type: DELIVERY_MODE },
     ],
-    returnType: TAGGING_SECRET_SOURCE,
+    returnType: RESOLVED_TAGGING_STRATEGY,
   }),
 } satisfies Record<string, OracleRegistryEntry>;
 

@@ -1,5 +1,5 @@
 import type { AuthorizeUtilityCall } from './authorize_utility_call.js';
-import type { ResolveTaggingSecret } from './resolve_tagging_secret.js';
+import type { ResolveTaggingSecretStrategy } from './resolve_tagging_secret_strategy.js';
 
 /**
  * Hooks that PXE invokes during client-side simulation to gate or steer operations that the protocol
@@ -29,7 +29,7 @@ import type { ResolveTaggingSecret } from './resolve_tagging_secret.js';
  *         : { authorized: false, reason: 'Unknown target' };
  *     },
  *     // When there's no established way to reach the recipient, fall back to a non-interactive handshake.
- *     resolveTaggingSecret: async () => ({ type: 'non-interactive-handshake' }),
+ *     resolveTaggingSecretStrategy: async () => ({ type: 'non-interactive-handshake' }),
  *   },
  * });
  * ```
@@ -40,9 +40,9 @@ export interface ExecutionHooks {
   /**
    * Resolves a message's tagging secret when none is already established for the sender/recipient pair, letting the
    * wallet apply per-recipient policy. PXE applies a privacy-safe default when absent.
-   * See {@link ResolveTaggingSecret} for the request shape and defaults.
+   * See {@link ResolveTaggingSecretStrategy} for the request shape and defaults.
    */
-  resolveTaggingSecret?: ResolveTaggingSecret;
+  resolveTaggingSecretStrategy?: ResolveTaggingSecretStrategy;
 }
 
 /**

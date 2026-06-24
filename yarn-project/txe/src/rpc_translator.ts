@@ -211,11 +211,11 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_txe_setTaggingSecretSource(...inputs: ForeignCallArgs) {
+  aztec_txe_setTaggingSecretStrategy(...inputs: ForeignCallArgs) {
     return callTxeHandler({
-      oracle: 'aztec_txe_setTaggingSecretSource',
+      oracle: 'aztec_txe_setTaggingSecretStrategy',
       inputs,
-      handler: ([source]) => this.handlerAsTxe().setTaggingSecretSource(source),
+      handler: ([strategy]) => this.handlerAsTxe().setTaggingSecretStrategy(strategy),
     });
   }
 
@@ -1084,12 +1084,12 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_prv_resolveTaggingSecret(...inputs: ForeignCallArgs) {
+  aztec_prv_resolveTaggingStrategy(...inputs: ForeignCallArgs) {
     return callTxeHandler({
-      oracle: 'aztec_prv_resolveTaggingSecret',
+      oracle: 'aztec_prv_resolveTaggingStrategy',
       inputs,
       handler: ([sender, recipient, deliveryMode]) =>
-        this.handlerAsPrivate().resolveTaggingSecret(sender, recipient, deliveryMode),
+        this.handlerAsPrivate().resolveTaggingStrategy(sender, recipient, deliveryMode),
     });
   }
 
