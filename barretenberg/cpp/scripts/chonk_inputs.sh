@@ -18,10 +18,8 @@ source "$own_dir/pinned_chonk_inputs.sh"
 
 script_dir="$root/barretenberg/cpp/scripts"
 bb_preset="${BB_BUILD_PRESET:-${NATIVE_PRESET:-clang20}}"
-# Use the AVM-enabled binary. Deploy flows route through the public hiding kernel
-# (AVM recursion); only bb-avm derives its VK correctly. Non-AVM bb both fails to
-# capture those flows and would false-pass the post-capture VK check.
-bb="$root/barretenberg/cpp/$($script_dir/preset-build-dir "$bb_preset")/bin/bb-avm"
+# Re-derives each circuit's VK from its bytecode and compares it to the precomputed VK in ivc-inputs.msgpack
+bb="$("$script_dir/find-bb")"
 export bb_preset
 export bb
 
@@ -36,8 +34,8 @@ function usage {
 
 function require_bb {
   if [[ ! -x "$bb" ]]; then
-    echo_stderr "ERROR: bb-avm binary not found at $bb"
-    echo_stderr "Build it first, or set BB_BUILD_PRESET/NATIVE_PRESET to the preset containing bin/bb-avm."
+    echo_stderr "ERROR: bb binary not found at $bb"
+    echo_stderr "Build it first, or set BB_BUILD_PRESET/NATIVE_PRESET to the preset containing bin/bb."
     return 1
   fi
 }
@@ -148,7 +146,7 @@ function cmd_check {
   fi
 }
 
-# Verify every freshly captured flow's embedded VKs against bb-avm before pinning.
+# Verify every freshly captured flow's embedded VKs against the current bb before pinning.
 # Mirrors cmd_check, but over the live capture dir rather than a downloaded pin.
 function verify_captured_flows {
   local capture_dir=${1:?capture dir required}
@@ -167,8 +165,8 @@ function verify_captured_flows {
 function cmd_update {
   capture_inputs
 
-  # Gate the upload on a full VK check: a capture that baked in a stale VK (e.g. a
-  # public-path flow proven without AVM) fails here instead of shipping as a broken pin.
+  # Gate the upload on a full VK check: a capture that baked in a stale VK fails here
+  # instead of shipping as a broken pin.
   local capture_dir exit_code=0
   capture_dir="$(chonk_capture_dir)"
   verify_captured_flows "$capture_dir" || exit_code=$?
