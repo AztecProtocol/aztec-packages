@@ -297,6 +297,21 @@ case "$cmd" in
     [ "${SKIP_NETWORK_DEPLOY:-0}" = "1" ] && skip_network_deploy=1
     bootstrap_ec2 "SKIP_NETWORK_DEPLOY=$skip_network_deploy ./bootstrap.sh ci-network-bench-10tps $*"
     ;;
+  network-inclusion-sweep)
+    # Args: <env_file> <namespace> [docker_image]
+    # Runs one inclusion-sweep point (Set A) at TARGET_TPS against an existing
+    # network, tagged with BENCH_SWEEP_ID. The workflow deploys/tears down each
+    # point's namespace separately, so this is normally called with
+    # SKIP_NETWORK_DEPLOY=1. TARGET_TPS / BENCH_SWEEP_ID / BENCH_SWEEP_LABEL come
+    # from the caller's env and are threaded into the remote command.
+    export CI_DASHBOARD="network"
+    export JOB_ID="x-${2:?namespace is required}-network-inclusion-sweep" CPUS=16
+    export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-180}
+    export INSTANCE_POSTFIX="n-incl-sweep"
+    skip_network_deploy=0
+    [ "${SKIP_NETWORK_DEPLOY:-0}" = "1" ] && skip_network_deploy=1
+    bootstrap_ec2 "TARGET_TPS=${TARGET_TPS:-10} BENCH_SWEEP_ID=${BENCH_SWEEP_ID:-} BENCH_SWEEP_LABEL=${BENCH_SWEEP_LABEL:-inclusion-sweep} SKIP_NETWORK_DEPLOY=$skip_network_deploy ./bootstrap.sh ci-network-inclusion-sweep $*"
+    ;;
   network-teardown)
     # Args: <scenario> <namespace>
     export CI_DASHBOARD="network"
