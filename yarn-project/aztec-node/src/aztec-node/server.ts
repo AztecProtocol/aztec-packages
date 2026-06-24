@@ -37,13 +37,11 @@ import {
   BlockHash,
   type BlockParameter,
   type CheckpointsQuery,
-  type CommitteeAttestation,
   type DataInBlock,
   type L2BlockSource,
   type L2BlockTag,
   type L2Tips,
 } from '@aztec/stdlib/block';
-import { type CheckpointData, L1PublishedData, type PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type {
   ContractClassPublic,
   ContractDataSource,
@@ -113,16 +111,9 @@ import {
 } from '@aztec/telemetry-client';
 import { NodeKeystoreAdapter, ValidatorClient } from '@aztec/validator-client';
 
-import { normalizeBlockParameter, resolveCheckpointParameter } from '../modules/block_parameter.js';
+import { NodeBlockProvider } from '../modules/node_block_provider.js';
 import { NodeWorldStateQueries } from '../modules/node_world_state_queries.js';
 import { Sentinel } from '../sentinel/sentinel.js';
-import {
-  blockResponseFromBlockData,
-  blockResponseFromL2Block,
-  checkpointResponseFromCheckpointData,
-  checkpointResponseFromPublishedCheckpoint,
-  projectProposedToCheckpointResponse,
-} from './block_response_helpers.js';
 import type { AztecNodeConfig } from './config.js';
 import { NodeMetrics } from './node_metrics.js';
 import { NodePublicCallsSimulator } from './node_public_calls_simulator.js';
@@ -174,6 +165,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   private sequencerPausedMinTxsPerBlock: number | undefined;
   private readonly nodePublicCallsSimulator: NodePublicCallsSimulator;
   private readonly worldStateQueries: NodeWorldStateQueries;
+  private readonly blockProvider: NodeBlockProvider;
 
   public readonly tracer: Tracer;
 
@@ -262,6 +254,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       log: this.log.createChild('world-state-queries'),
     });
 
+    this.blockProvider = new NodeBlockProvider(this.blockSource);
+
     this.log.info(`Aztec Node version: ${this.packageVersion}`);
     this.log.info(`Aztec Node started on chain 0x${this.l1ChainId.toString(16)}`, pickL1ContractAddresses(this.config));
 
@@ -327,123 +321,38 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     }
   }
 
-  /** Fetches checkpoint-level L1 and attestation data for use as block response context. */
-  async #getCheckpointContext(
-    checkpointNumber: CheckpointNumber,
-  ): Promise<{ l1?: L1PublishedData; attestations?: CommitteeAttestation[] } | undefined> {
-    const checkpoint = await this.blockSource.getCheckpointData({ number: checkpointNumber });
-    if (!checkpoint) {
-      return undefined;
-    }
-    return { l1: checkpoint.l1, attestations: checkpoint.attestations };
-  }
-
-  public async getBlock<Opts extends BlockIncludeOptions = {}>(
+  public getBlock<Opts extends BlockIncludeOptions = {}>(
     param: BlockParameter,
     options: Opts = {} as Opts,
   ): Promise<BlockResponse<Opts> | undefined> {
-    const query = normalizeBlockParameter(param);
-    const wantTxs = !!options.includeTransactions;
-    const wantContext = !!options.includeL1PublishInfo || !!options.includeAttestations;
-
-    if (wantTxs) {
-      const block = await this.blockSource.getBlock(query);
-      if (!block) {
-        return undefined;
-      }
-      const ctx = wantContext ? await this.#getCheckpointContext(block.checkpointNumber) : undefined;
-      return (await blockResponseFromL2Block(block, options, ctx)) as BlockResponse<Opts>;
-    }
-    const data = await this.blockSource.getBlockData(query);
-    if (!data) {
-      return undefined;
-    }
-    const ctx = wantContext ? await this.#getCheckpointContext(data.checkpointNumber) : undefined;
-    return blockResponseFromBlockData(data, options, ctx) as BlockResponse<Opts>;
+    return this.blockProvider.getBlock(param, options);
   }
 
   public getBlockData(param: BlockParameter): Promise<BlockData | undefined> {
-    const query = normalizeBlockParameter(param);
-    return this.blockSource.getBlockData(query);
+    return this.blockProvider.getBlockData(param);
   }
 
-  public async getBlocks<Opts extends BlocksIncludeOptions = {}>(
+  public getBlocks<Opts extends BlocksIncludeOptions = {}>(
     from: BlockNumber,
     limit: number,
     options: Opts = {} as Opts,
   ): Promise<BlockResponse<Opts>[]> {
-    const wantTxs = !!options.includeTransactions;
-    const wantContext = !!options.includeL1PublishInfo || !!options.includeAttestations;
-    const onlyCheckpointed = !!options.onlyCheckpointed;
-    if (wantTxs) {
-      const blocks = await this.blockSource.getBlocks({ from, limit, onlyCheckpointed });
-      const ctxByCheckpoint = await this.#getCheckpointContextsForBlocks(wantContext ? blocks : []);
-      return (await Promise.all(
-        blocks.map(block => blockResponseFromL2Block(block, options, ctxByCheckpoint.get(block.checkpointNumber))),
-      )) as BlockResponse<Opts>[];
-    }
-    const dataItems = await this.blockSource.getBlocksData({ from, limit, onlyCheckpointed });
-    const ctxByCheckpoint = await this.#getCheckpointContextsForBlocks(wantContext ? dataItems : []);
-    return (await Promise.all(
-      dataItems.map(data => blockResponseFromBlockData(data, options, ctxByCheckpoint.get(data.checkpointNumber))),
-    )) as BlockResponse<Opts>[];
+    return this.blockProvider.getBlocks(from, limit, options);
   }
 
-  /** Fetches checkpoint context for a set of blocks, deduplicating shared checkpoints. */
-  async #getCheckpointContextsForBlocks(
-    blocks: { checkpointNumber: CheckpointNumber }[],
-  ): Promise<Map<CheckpointNumber, { l1?: L1PublishedData; attestations?: CommitteeAttestation[] } | undefined>> {
-    const unique = Array.from(new Set(blocks.map(b => b.checkpointNumber)));
-    const entries = await Promise.all(unique.map(async n => [n, await this.#getCheckpointContext(n)] as const));
-    return new Map(entries);
-  }
-
-  public async getCheckpoint<Opts extends CheckpointIncludeOptions = {}>(
+  public getCheckpoint<Opts extends CheckpointIncludeOptions = {}>(
     param: CheckpointParameter,
     options: Opts = {} as Opts,
   ): Promise<CheckpointResponse<Opts> | undefined> {
-    const query = await resolveCheckpointParameter(param, this.blockSource);
-
-    // Try the confirmed store first.
-    const confirmed = options.includeBlocks
-      ? await this.blockSource.getCheckpoint(query)
-      : await this.blockSource.getCheckpointData(query);
-    if (confirmed) {
-      return (await (options.includeBlocks
-        ? checkpointResponseFromPublishedCheckpoint(confirmed as PublishedCheckpoint, options)
-        : checkpointResponseFromCheckpointData(confirmed as CheckpointData, options))) as CheckpointResponse<Opts>;
-    }
-
-    // Fall back to the proposed store.
-    const proposed = await this.blockSource.getProposedCheckpointData(query);
-    if (proposed) {
-      if (options.includeAttestations || options.includeL1PublishInfo) {
-        throw new BadRequestError(
-          `Options includeL1PublishInfo or includeAttestations cannot be satisfied for a proposed checkpoint`,
-        );
-      }
-      const blocks = options.includeBlocks
-        ? await this.blockSource.getBlocks({ from: proposed.startBlock, limit: proposed.blockCount })
-        : undefined;
-      return (await projectProposedToCheckpointResponse(proposed, options, blocks)) as CheckpointResponse<Opts>;
-    }
-
-    return undefined;
+    return this.blockProvider.getCheckpoint(param, options);
   }
 
-  public async getCheckpoints<Opts extends CheckpointIncludeOptions = {}>(
+  public getCheckpoints<Opts extends CheckpointIncludeOptions = {}>(
     from: CheckpointNumber,
     limit: number,
     options: Opts = {} as Opts,
   ): Promise<CheckpointResponse<Opts>[]> {
-    if (options.includeBlocks) {
-      const checkpoints = await this.blockSource.getCheckpoints({ from, limit });
-      return (await Promise.all(
-        checkpoints.map(cp => checkpointResponseFromPublishedCheckpoint(cp, options)),
-      )) as CheckpointResponse<Opts>[];
-    }
-    const datas = await this.blockSource.getCheckpointsData({ from, limit });
-    return datas.map(d => checkpointResponseFromCheckpointData(d, options)) as CheckpointResponse<Opts>[];
+    return this.blockProvider.getCheckpoints(from, limit, options);
   }
 
   /**
