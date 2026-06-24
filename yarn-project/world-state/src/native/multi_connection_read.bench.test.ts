@@ -10,7 +10,7 @@ import { NativeWorldStateService } from './native_world_state.js';
  *
  * Models the AVM proving topology: one aztec-wsdb process with N independent
  * client connections, each issuing SEQUENTIAL reads (a single in-flight request
- * at a time, like a synchronous aztec-vm-sim). This differs from
+ * at a time, like a synchronous bb-avm-sim). This differs from
  * parallel_read.bench.test.ts, which pipelines N in-flight reads down a SINGLE
  * connection — here the load is spread across N request/response rings, which is
  * what the simulator pool actually does.

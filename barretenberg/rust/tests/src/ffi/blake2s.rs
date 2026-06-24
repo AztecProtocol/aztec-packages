@@ -1,6 +1,6 @@
 //! Blake2s hash tests using FfiBackend
 //!
-//! Parallels barretenberg/ts/src/barretenberg/blake2s.test.ts
+//! Parallels barretenberg/ts/bb.js/src/barretenberg/blake2s.test.ts
 
 #[cfg(test)]
 use barretenberg_rs::{backends::FfiBackend, BarretenbergApi, Fr};

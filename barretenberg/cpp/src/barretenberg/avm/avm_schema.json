@@ -1,0 +1,24 @@
+{
+  "service": "Avm",
+  "error": {
+    "message": "string"
+  },
+  "commands": {
+    "Simulate": {
+      "request": {
+        "inputs": "bytes"
+      },
+      "response": {
+        "result": "bytes"
+      }
+    },
+    "SimulateWithHints": {
+      "request": {
+        "inputs": "bytes"
+      },
+      "response": {
+        "result": "bytes"
+      }
+    }
+  }
+}

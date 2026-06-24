@@ -17,7 +17,7 @@
     "@aztec/stdlib": "link:../yarn-project/stdlib",
     "@aztec/entrypoints": "link:../yarn-project/entrypoints",
     "@aztec/foundation": "link:../yarn-project/foundation",
-    "@aztec/bb.js": "link:../barretenberg/ts",
+    "@aztec/bb.js": "link:../barretenberg/ts/bb.js",
     "@aztec/key-store": "link:../yarn-project/key-store",
     "@aztec/kv-store": "link:../yarn-project/kv-store",
     "@aztec/pxe": "link:../yarn-project/pxe",
