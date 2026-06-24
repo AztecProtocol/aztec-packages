@@ -84,7 +84,7 @@ fn hash_of_genesis_block_header() {
     header.state.partial.note_hash_tree.root =
         0x2590f2aab19dd791700b4a43d3f52bb88ef2409a3731da8e848663559202e4c6;
     header.state.partial.nullifier_tree.root =
-        0x1bcda34f33b87d40db8bb8ee1378ef7123c16c197da1ded6ea47659230559f42;
+        0x132caf30afb5b34880b23510423c2452308997b379d62b2e6c3cf578398b3799;
     header.state.partial.nullifier_tree.next_available_leaf_index = 128;
     header.state.partial.public_data_tree.root =
         0x1bef38b621017d3c7416663d0cd81369424560710526a3fbaaec13e356b9d084;

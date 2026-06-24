@@ -32,7 +32,7 @@ describe('L2Block', () => {
       '0x2590f2aab19dd791700b4a43d3f52bb88ef2409a3731da8e848663559202e4c6',
     );
     emptyBlockHeader.state.partial.nullifierTree.root = Fr.fromString(
-      '0x1bcda34f33b87d40db8bb8ee1378ef7123c16c197da1ded6ea47659230559f42',
+      '0x132caf30afb5b34880b23510423c2452308997b379d62b2e6c3cf578398b3799',
     );
     emptyBlockHeader.state.partial.nullifierTree.nextAvailableLeafIndex = 128;
     emptyBlockHeader.state.partial.publicDataTree.root = Fr.fromString(

@@ -25,7 +25,7 @@ describe('Mainnet compatibility', () => {
       /* initial public data leaves */ [],
     );
     expect(genesisArchiveRoot).toEqual(
-      Fr.fromHexString('0x063786f95f1ae8ebd17b22cb07d7ba122cefae9b0ecb975f5dc3e6e576a5bddc'),
+      Fr.fromHexString('0x0134ef108dc9939cdf8de66244143f4c623885fc4759c5dc80d044f2b763cfb9'),
     );
   });
 });

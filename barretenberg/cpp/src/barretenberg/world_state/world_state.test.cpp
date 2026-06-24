@@ -174,12 +174,12 @@ TEST_F(WorldStateTest, GetInitialTreeInfoForAllTrees)
     // sorted ascending because the indexed nullifier tree requires its prefilled leaves to be unique and strictly
     // increasing. The genesis archive root and block header hash below depend on these values.
     std::vector<bb::fr> prefilled_nullifiers = {
-        bb::fr("0x005c0a9bddf634b60b266dddcd84552e9b7845b43d5d1a938d996e6709793839"),
+        bb::fr("0x073b5e41abe9d7f8466bca9c81c9572b558f953bbd70081317f6a80ac65f3dd5"),
         bb::fr("0x0d99507b7ecac720c73bf197a0e7366a5ed80c1c1b0afe8ff8c6ecc7b5a7aefe"),
         bb::fr("0x0eb50b367fb754d3a7d1238bfc105cc9b391a02e187be69038876ae9a502e877"),
-        bb::fr("0x0eef0cc0fb564969f5f28dfb46ec3c271dd4cf4af1d355abf8d89ff9f6265000"),
+        bb::fr("0x1c0bf82e0c51834780e61ef091b17e3a1d39ae891db7a70bfdb5221f134996ac"),
         bb::fr("0x1cea539e01abaa5db980e7ff52ef0d2a7772310306ac625783ae435756ee326d"),
-        bb::fr("0x237d1818f0030cf4062b26f367a2c8ba0faa6dfaa7349d8df1b6c237d0985568"),
+        bb::fr("0x2f6b3398423fcf94df051af0f2b7dcbaded1493c8b1df185efc2d74227602835"),
     };
     WorldState ws(thread_pool_size,
                   data_dir,
@@ -196,7 +196,7 @@ TEST_F(WorldStateTest, GetInitialTreeInfoForAllTrees)
         // leaves rather than being appended), so the tree size stays 128 but the root reflects the seeded values.
         EXPECT_EQ(info.meta.size, 128);
         EXPECT_EQ(info.meta.depth, tree_heights.at(MerkleTreeId::NULLIFIER_TREE));
-        EXPECT_EQ(info.meta.root, bb::fr("0x1bcda34f33b87d40db8bb8ee1378ef7123c16c197da1ded6ea47659230559f42"));
+        EXPECT_EQ(info.meta.root, bb::fr("0x132caf30afb5b34880b23510423c2452308997b379d62b2e6c3cf578398b3799"));
     }
 
     {
