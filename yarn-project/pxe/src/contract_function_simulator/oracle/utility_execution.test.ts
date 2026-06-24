@@ -521,7 +521,7 @@ describe('Utility Execution test suite', () => {
           } else {
             await expect(
               utilityExecutionOracle.callUtilityFunction(STANDARD_HANDSHAKE_REGISTRY_ADDRESS, selector, []),
-            ).rejects.toThrow('Cross-contract utility call denied: No execution hooks configured');
+            ).rejects.toThrow('Cross-contract utility call denied: No authorizeUtilityCall hook configured');
             expect(contractSyncService.ensureContractSynced).not.toHaveBeenCalled();
             expect(nestedSimulator.executeUserCircuit).not.toHaveBeenCalled();
           }
