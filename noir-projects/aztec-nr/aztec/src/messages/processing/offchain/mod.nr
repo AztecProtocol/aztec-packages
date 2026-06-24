@@ -5,16 +5,16 @@
 //! in that case. The state chart below summarizes the current behavior.
 //!
 //! ```text
-//!                   offchain_receive()
+//!                   offchain_receive() (process starts)
 //!                         |
 //!                         v
-//!                   +-----------+     tx found onchain        +-----------+
-//!                   |           | --------------------------> |           |
-//!     (self-loop)   | RECEIVED  |                             | PROCESSED |   (self-loop)
-//!  not resolved &   |           | <-------------------------- |           |   processed &  ====> discover notes,
-//! events, etc
-//!  not expired      |           |   tx block re-orged         |           |   not expired
-//!                   +-----------+                             +-----------+
+//!                     +-----------+     tx found onchain        +-----------+
+//!                ---- |           | --------------------------> |           |
+//!  tx not found  |    |           |                             |           |     discover notes,
+//!                |--> | RECEIVED  |                             | PROCESSED | ~~> events, etc
+//!                     |           | <-------------------------- |           |
+//!                     |           |   tx block re-orged         |           |
+//!                     +-----------+                             +-----------+
 //!                         |                                         |
 //!                         |  TTL expired                            |  TTL expired
 //!                         v                                         v
@@ -25,12 +25,12 @@
 //!
 //! ## States
 //!
-//! - **Received**: the message is persisted but its originating transaction has not been found onchain yet (or the
+//! - **Received**: the message is stored but its originating transaction has not been found onchain yet (or the
 //!   message is tx-less; see below). While the reception process is in this state, it keeps looking for the
 //    transaction onchain.
 //! - **Processed**: the message has been handed off for processing. If there weren't reorgs, reaching this state would
 //!   be equivalent to terminating the reception process. Since reorgs are a possibility, this state is not terminal.
-//! - **Terminated**: the message has reached its TTL which means nothing else can we done with it. This is the
+//! - **Terminated**: the message has reached its TTL which means nothing else can be done with it. This is the
 //!   terminal state of this process.
 //!
 //! ## Transitions (each evaluated by [`process_reception`] on a single [`sync_inbox`] pass)
@@ -55,42 +55,45 @@
 //!
 //! # Current limitations, future plans
 //!
-//! - **Tx-less messages** never resolve, so they never reach `Processed` and are only ever removed by expiry. This
-//!   will be supported in the future.
+//! - **Tx-less messages** never reach `Processed` and are only ever removed by expiry. This will be supported in the
+//!   future.
 //! - Already-processed receptions linger longer than needed in the inbox. As discussed, we need access to block
-//!   finality to properly implement that case, which will be added in the future.
+//!   finality information to properly implement that case, which will be added in the future.
 //!
 //! # Implementation
 //!
-//! Each message received via [`receive`] is stored as a [fact collection](crate::facts::FactCollection), content
-//! addressed.
+//! Each new message ([`OffchainMessage`]) received via [`receive`] creates a
+//! [fact collection](crate::facts::FactCollection) of type `OFFCHAIN_RECEPTION_TYPE_ID`. The fact collection is
+//! identified by a hash of the `OffchainMessage`, which makes duplicate calls to `receive` idempotent.
+//
+//! Upon reception, an `OFFCHAIN_MESSAGE_RECEIVED` [non-retractable fact](crate::facts::record_non_retractable_fact) is
+//! recorded. The fact's payload is the `OffchainMessage` itself, which persists it to be subsequently processed.
+//! A fact collection with just an `OFFCHAIN_MESSAGE_RECEIVED` fact represents an active reception process in the
+//! RECEIVED state from our state chart above.
 //!
-//! The first recorded fact of said collection is an `OFFCHAIN_MESSAGE_RECEIVED` [non-retractable
-//! fact](crate::facts::record_non_retractable_fact), which persists
-//! in its payload an [`OffchainMessage`]. This represents an active reception process in the RECEIVED state from our
-//! state chart above.
+//! Each time a contract's state synchronization function ([`sync_state`]) triggers, Aztec.nr invokes the
+//! [`sync_inbox`] function, which is in charge of advancing the state of all active message reception processes.
+//! [`sync_inbox`] loads every active reception process by fetching fact collections of type
+//! `OFFCHAIN_RECEPTION_TYPE_ID`. It then advances each reception process by one step via [`process_reception`], which
+//! implements the rest of reception state machine described above. The reception is thus stepwise processed.
 //!
-//! Once the message is processed it records an `OFFCHAIN_MESSAGE_PROCESSED` [retractable
-//! fact](crate::facts::record_retractable_fact) associated to the block
-//! where the transaction was found.
+//! When stepping, if the transaction to the message is found onchain, an `OFFCHAIN_MESSAGE_PROCESSED` [retractable
+//! fact](crate::facts::record_retractable_fact) associated to the block where the transaction was found is recorded.
+//! Note that since this fact is retractable, a reorg dropping said block would result in the fact being automatically
+//! removed by PXE, effectively pushing the reception process back to `RECEIVED` state.
 //!
-//! Analyzing the recorded facts in combination with the TTL is all it takes to determine in which state of the
-//! reception process we are:
+//! To determine in which state of the reception process we are we just need to analyze the recorded facts available
+//! in combination with the TTL:
 //!
 //! - If the TTL has elapsed, we reached the end of the process and the [fact collection](crate::facts::FactCollection)
-//! can be deleted.
+//! can (and should) be deleted.
 //! - Otherwise:
 //!     - If there is an `OFFCHAIN_MESSAGE_PROCESSED` fact we are in PROCESSED state and there is nothing to do.
-//!     - If there is only an `OFFCHAIN_MESSAGE_RECEIVED` fact we are in RECEIVED state and we need to check if the
-//!       message transaction is now available onchain and exercise the RECEIVED->PROCESSED transition.
+//!     - If there is only an `OFFCHAIN_MESSAGE_RECEIVED` fact we are in RECEIVED state, so we need to check if the
+//!       message transaction is now available onchain, and if so, exercise the RECEIVED->PROCESSED transition.
 //!
 //! The PROCESSED->RECEIVED transition is transparently handled by PXE: if a re-org caused the message transaction to
 //! fall off the chain, the [`OFFCHAIN_MESSAGE_PROCESSED`] fact disappears, taking us back to the RECEIVED state.
-//!
-//! Each time a contract's state is synchronized, Aztec.nr invokes the [`sync_inbox`] function, which is in charge of
-//! advancing the state of all active message reception processes. [`sync_inbox`] loads every active reception process
-//! advances it by one step via [`process_reception`], which implements the rest of reception state machine as
-//! described above.
 
 use crate::{
     context::UtilityContext,
