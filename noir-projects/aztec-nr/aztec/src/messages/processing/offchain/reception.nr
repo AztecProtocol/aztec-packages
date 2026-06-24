@@ -285,7 +285,7 @@ unconstrained fn to_payload(message: OffchainMessage) -> EphemeralArray<Field> {
     payload
 }
 
-pub(crate) mod test {
+mod test {
     use crate::{
         messages::processing::offchain::{OffchainMessage, receive, sync_inbox},
         oracle::random::random,
@@ -294,18 +294,14 @@ pub(crate) mod test {
     };
     use super::{MAX_MSG_TTL, OffchainReception};
 
-    pub(crate) unconstrained fn setup() -> (TestEnvironment, AztecAddress) {
+    unconstrained fn setup() -> (TestEnvironment, AztecAddress) {
         let mut env = TestEnvironment::new();
         let scope = env.create_light_account();
         (env, scope)
     }
 
     /// Creates an `OffchainMessage` with dummy ciphertext and the given scope as recipient.
-    pub(crate) fn make_msg(
-        recipient: AztecAddress,
-        tx_hash: Option<Field>,
-        anchor_block_timestamp: u64,
-    ) -> OffchainMessage {
+    fn make_msg(recipient: AztecAddress, tx_hash: Option<Field>, anchor_block_timestamp: u64) -> OffchainMessage {
         OffchainMessage { ciphertext: BoundedVec::new(), recipient, tx_hash, anchor_block_timestamp }
     }
 

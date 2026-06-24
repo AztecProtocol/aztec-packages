@@ -96,10 +96,22 @@ pub struct OffchainMessage {
 }
 
 mod test {
-    use crate::{oracle::random::random, test::helpers::test_environment::TestEnvironment};
+    use crate::{
+        oracle::random::random, protocol::address::AztecAddress, test::helpers::test_environment::TestEnvironment,
+    };
     use super::{MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL, OffchainMessage, receive, sync_inbox};
     use super::reception::{MAX_MSG_TTL, OffchainReception};
-    use super::reception::test::{make_msg, setup};
+
+    unconstrained fn setup() -> (TestEnvironment, AztecAddress) {
+        let mut env = TestEnvironment::new();
+        let scope = env.create_light_account();
+        (env, scope)
+    }
+
+    /// Creates an `OffchainMessage` with dummy ciphertext and the given scope as recipient.
+    fn make_msg(recipient: AztecAddress, tx_hash: Option<Field>, anchor_block_timestamp: u64) -> OffchainMessage {
+        OffchainMessage { ciphertext: BoundedVec::new(), recipient, tx_hash, anchor_block_timestamp }
+    }
 
     /// Advances the TXE block timestamp by `offset` seconds and returns the resulting timestamp.
     unconstrained fn advance_by(env: TestEnvironment, offset: u64) -> u64 {
