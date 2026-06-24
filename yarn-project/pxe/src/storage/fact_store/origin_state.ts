@@ -20,8 +20,8 @@ export enum OriginState {
 /** The two chain-tip block numbers needed to classify an origin block (`finalized <= proven` always holds). */
 export type TipBlockNumbers = { provenBlockNumber: number; finalizedBlockNumber: number };
 
-/** A retractable fact's origin block, annotated with that block's current chain state. */
-export type RetractableFactOrigin = { blockNumber: number; blockHash: Fr; blockState: OriginState };
+/** A retractable fact's origin block (the record-input coordinates) annotated with that block's current chain state. */
+export type RetractableFactOrigin = OriginBlock & { blockState: OriginState };
 
 /** A fact enriched with origin-block state. `originBlock` is undefined for a non-retractable fact. */
 export type AnnotatedFact = { factTypeId: Fr; payload: Fr[]; originBlock: RetractableFactOrigin | undefined };
