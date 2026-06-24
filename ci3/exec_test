@@ -69,10 +69,13 @@ if [ -s "$ELU_MONITOR_FILE" ]; then
 fi
 
 # Upload per-test timing data to S3 if present (written by e2e tests, absent for C++/Rust/Noir).
-# Object lands at s3://aztec-ci-artifacts/logs/e2e-timings/<RUN_ID>/<NAME>.log.gz (gzipped JSONL).
+# Keyed by the job's CI_LOG_ID (the decimal id in a job's dashboard URL) and the individual test's
+# log id (E2E_LOG_ID, passed by run_test_cmd; same id as the test's log at ci.aztec-labs.com/<id>),
+# so a test log maps directly to its timing file.
+# Object lands at s3://aztec-ci-artifacts/logs/e2e-timings/<CI_LOG_ID>/<LOG_ID>.log.gz (gzipped JSONL).
 if [ -s "$E2E_TIMING_FILE" ]; then
   echo "E2E timing file: $E2E_TIMING_FILE ($(wc -l < "$E2E_TIMING_FILE") lines, $(wc -c < "$E2E_TIMING_FILE") bytes)"
-  cat "$E2E_TIMING_FILE" | gzip | cache_s3_transfer_to e2e-timings "${RUN_ID:-unknown}/${NAME:-unknown}"
+  cat "$E2E_TIMING_FILE" | gzip | cache_s3_transfer_to e2e-timings "${CI_LOG_ID:-unknown}/${E2E_LOG_ID:-${NAME:-unknown}}"
   rm -f "$E2E_TIMING_FILE"
 fi
 
