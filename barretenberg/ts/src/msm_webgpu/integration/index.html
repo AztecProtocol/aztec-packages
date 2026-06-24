@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MsmV2 Integration Docs</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext x='2' y='13' font-size='13' font-family='monospace'%3E%CE%BC%3C/text%3E%3C/svg%3E">
+
+<!-- KaTeX -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+
+<!-- Computer Modern fonts (BaKoMa) for the TikZ-rendered SVG diagrams.
+     Pulled in at page level so they're available to inlined SVGs; an
+     <img>-embedded SVG is sandboxed and can't load its own fonts. -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/node-tikzjax@1.0.5/css/fonts.css">
+
+<!-- highlight.js (theme swapped on toggle; bundle includes common languages) -->
+<link id="hljs-css" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+<!-- marked + mermaid -->
+<script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+
+<style>
+:root {
+  --bg: #0d1117;
+  --bg-2: #161b22;
+  --bg-3: #1c2229;
+  --border: #30363d;
+  --text: #e6edf3;
+  --text-muted: #8b949e;
+  --accent: #58a6ff;
+  --accent-soft: rgba(88, 166, 255, 0.10);
+  --code-bg: #161b22;
+  --danger: #f85149;
+}
+[data-theme="light"] {
+  --bg: #ffffff;
+  --bg-2: #f6f8fa;
+  --bg-3: #eaeef2;
+  --border: #d0d7de;
+  --text: #1f2328;
+  --text-muted: #59636e;
+  --accent: #0969da;
+  --accent-soft: rgba(9, 105, 218, 0.08);
+  --code-bg: #f6f8fa;
+  --danger: #cf222e;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+html, body { margin: 0; padding: 0; height: 100%; background: var(--bg); }
+body {
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+header {
+  position: sticky; top: 0; z-index: 50;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  height: 56px;
+  gap: 20px;
+}
+.brand {
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+nav.tabs { display: flex; gap: 4px; flex: 1; overflow-x: auto; }
+nav.tabs button {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  padding: 6px 14px;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 0.1s, color 0.1s;
+}
+nav.tabs button:hover { background: var(--bg-3); color: var(--text); }
+nav.tabs button.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.theme-toggle {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+}
+.theme-toggle:hover { color: var(--text); background: var(--bg-3); }
+
+main {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 24px;
+  gap: 32px;
+}
+aside.toc {
+  position: sticky;
+  top: 72px;
+  align-self: start;
+  height: calc(100vh - 88px);
+  overflow-y: auto;
+  padding: 24px 0;
+  font-size: 13px;
+}
+aside.toc h3 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin: 0 0 12px;
+  font-weight: 600;
+}
+aside.toc ul { list-style: none; margin: 0; padding: 0; }
+aside.toc li { margin: 1px 0; }
+aside.toc a {
+  color: var(--text-muted);
+  text-decoration: none;
+  display: block;
+  padding: 4px 10px;
+  border-radius: 4px;
+  border-left: 2px solid transparent;
+  line-height: 1.4;
+}
+aside.toc a:hover { color: var(--text); background: var(--bg-2); }
+aside.toc a.active {
+  color: var(--accent);
+  border-left-color: var(--accent);
+  background: var(--accent-soft);
+}
+aside.toc li.lvl-3 a { padding-left: 22px; font-size: 12.5px; }
+
+article.content {
+  max-width: 880px;
+  padding: 24px 0 96px;
+  min-width: 0;
+}
+article h1, article h2, article h3, article h4 { scroll-margin-top: 72px; }
+article h1 {
+  font-size: 30px;
+  margin: 0 0 12px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
+}
+article h2 {
+  font-size: 22px;
+  margin: 36px 0 12px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+}
+article h3 {
+  font-size: 17px;
+  margin: 28px 0 8px;
+  font-weight: 600;
+}
+article h4 {
+  font-size: 15px;
+  margin: 20px 0 6px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+article p { margin: 12px 0; }
+article a { color: var(--accent); text-decoration: none; }
+article a:hover { text-decoration: underline; }
+
+article code {
+  background: var(--code-bg);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", monospace;
+  font-size: 0.87em;
+  border: 1px solid var(--border);
+}
+article pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  font-size: 13px;
+  line-height: 1.55;
+}
+article pre code { background: transparent; padding: 0; border: none; font-size: inherit; }
+
+article table {
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 13.5px;
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+article th, article td {
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+  text-align: left;
+  vertical-align: top;
+}
+article th { background: var(--bg-2); font-weight: 600; }
+article tr:nth-child(even) td { background: var(--bg-2); }
+article td code, article th code { background: var(--bg-3); }
+
+article blockquote {
+  border-left: 3px solid var(--accent);
+  padding: 8px 16px;
+  margin: 12px 0;
+  color: var(--text-muted);
+  background: var(--accent-soft);
+  border-radius: 0 4px 4px 0;
+}
+article hr { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+article ul, article ol { padding-left: 24px; }
+article li { margin: 4px 0; }
+article li > p { margin: 4px 0; }
+
+.katex-display {
+  margin: 16px 0 !important;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 8px 0;
+}
+.katex { font-size: 1.05em; }
+
+article img,
+article svg.inlined-diagram {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 24px auto 8px;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 12px;
+  border: 1px solid var(--border);
+  box-sizing: border-box;
+}
+[data-theme="dark"] article img,
+[data-theme="dark"] article svg.inlined-diagram { background: #fafafa; }
+
+/* Diagrams that paint their own dark background (e.g. tensor_cube.svg)
+   should sit flush with that background — no white padding frame. */
+article svg.inlined-diagram.dark-fig,
+[data-theme="dark"] article svg.inlined-diagram.dark-fig {
+  background: #0f192d;
+  padding: 0;
+  border-color: #0f192d;
+}
+article p > img + em,
+article p:has(> img) + p > em:first-child:last-child {
+  display: block;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+  margin-top: -4px;
+  font-style: italic;
+}
+
+.mermaid {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 20px;
+  margin: 16px 0;
+  text-align: center;
+  overflow-x: auto;
+}
+
+.error {
+  border: 1px solid var(--danger);
+  background: rgba(248, 81, 73, 0.08);
+  color: var(--danger);
+  padding: 14px 18px;
+  border-radius: 6px;
+  margin: 24px 0;
+}
+.error code {
+  background: rgba(248, 81, 73, 0.12);
+  border-color: rgba(248, 81, 73, 0.3);
+  color: inherit;
+}
+.error a { color: var(--danger); text-decoration: underline; }
+
+.loading {
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 24px 0;
+}
+
+@media (max-width: 900px) {
+  main { grid-template-columns: 1fr; }
+  aside.toc { display: none; }
+  header { padding: 0 12px; gap: 8px; }
+  nav.tabs button { padding: 6px 10px; font-size: 12px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">MsmV2 Integration</div>
+  <nav class="tabs" id="tabs"></nav>
+  <button class="theme-toggle" id="theme-toggle" title="Toggle theme">◐</button>
+</header>
+
+<main>
+  <aside class="toc">
+    <h3>On this page</h3>
+    <ul id="toc-list"></ul>
+  </aside>
+  <article class="content" id="content"></article>
+</main>
+
+<script>
+const DOCS = [
+  { id: 'readme',    file: 'README.md',    label: 'README' },
+  { id: 'status',    file: 'STATUS.md',    label: 'STATUS' },
+  { id: 'flow',      file: 'FLOW.md',      label: 'FLOW' },
+  { id: 'algorithm', file: 'ALGORITHM.md', label: 'ALGORITHM' },
+  { id: 'roadmap',   file: 'ROADMAP.md',   label: 'ROADMAP' },
+  { id: 'changelog', file: 'CHANGELOG.md', label: 'CHANGELOG' },
+];
+
+// --- Tabs ---
+const tabsEl = document.getElementById('tabs');
+DOCS.forEach(doc => {
+  const btn = document.createElement('button');
+  btn.textContent = doc.label;
+  btn.dataset.id = doc.id;
+  btn.addEventListener('click', () => loadDoc(doc.id));
+  tabsEl.appendChild(btn);
+});
+
+// --- Theme ---
+const themeToggle = document.getElementById('theme-toggle');
+const hljsCss = document.getElementById('hljs-css');
+function setTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  hljsCss.href = theme === 'dark'
+    ? 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css'
+    : 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css';
+  localStorage.setItem('msmv2-theme', theme);
+  if (window.mermaid) {
+    mermaid.initialize({ startOnLoad: false, theme: theme === 'dark' ? 'dark' : 'default', securityLevel: 'loose' });
+  }
+}
+themeToggle.addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  setTheme(cur === 'dark' ? 'light' : 'dark');
+  if (currentDocId) loadDoc(currentDocId, false);
+});
+setTheme(localStorage.getItem('msmv2-theme') || 'dark');
+
+// --- Markdown rendering pipeline ---
+// 1. Hide code blocks (so math regex doesn't match inside `$ ls` etc.)
+// 2. Extract math → placeholders
+// 3. Restore code blocks
+// 4. marked.parse
+// 5. Replace math placeholders with KaTeX-rendered HTML
+function renderMarkdown(md) {
+  const code = [];
+  md = md.replace(/```[\s\S]*?```/g, m => { code.push(m); return `@@CODE${code.length-1}@@`; });
+  md = md.replace(/`[^`\n]+`/g, m => { code.push(m); return `@@CODE${code.length-1}@@`; });
+
+  const math = [];
+  md = md.replace(/\$\$([\s\S]+?)\$\$/g, (_, body) => {
+    math.push({ display: true, body: body.trim() });
+    return `\n\n@@MATH${math.length-1}@@\n\n`;
+  });
+  md = md.replace(/\$([^\$\n]+?)\$/g, (_, body) => {
+    math.push({ display: false, body });
+    return `@@MATH${math.length-1}@@`;
+  });
+
+  md = md.replace(/@@CODE(\d+)@@/g, (_, n) => code[+n]);
+
+  let html = marked.parse(md, { gfm: true, breaks: false });
+
+  html = html.replace(/@@MATH(\d+)@@/g, (_, n) => {
+    const m = math[+n];
+    try {
+      return katex.renderToString(m.body, { displayMode: m.display, throwOnError: false, strict: 'ignore' });
+    } catch (e) {
+      return `<span class="error">[math: ${e.message}]</span>`;
+    }
+  });
+  return html;
+}
+
+function slugify(text) {
+  return text.toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+}
+
+function postProcess(container) {
+  // Assign unique IDs to headings and build TOC.
+  const tocItems = [];
+  const used = new Set();
+  container.querySelectorAll('h1, h2, h3').forEach(h => {
+    let slug = slugify(h.textContent);
+    if (!slug) slug = 'section';
+    if (used.has(slug)) {
+      let i = 2;
+      while (used.has(`${slug}-${i}`)) i++;
+      slug = `${slug}-${i}`;
+    }
+    used.add(slug);
+    h.id = slug;
+    if (h.tagName === 'H2' || h.tagName === 'H3') {
+      tocItems.push({ level: +h.tagName.slice(1), text: h.textContent, slug });
+    }
+  });
+
+  const tocList = document.getElementById('toc-list');
+  tocList.innerHTML = '';
+  tocItems.forEach(item => {
+    const li = document.createElement('li');
+    li.className = `lvl-${item.level}`;
+    const a = document.createElement('a');
+    a.href = '#' + item.slug;
+    a.textContent = item.text;
+    a.dataset.slug = item.slug;
+    li.appendChild(a);
+    tocList.appendChild(li);
+  });
+
+  // Convert mermaid blocks: <pre><code class="language-mermaid">...</code></pre>
+  // → <div class="mermaid">...</div>
+  container.querySelectorAll('pre code.language-mermaid').forEach(code => {
+    const div = document.createElement('div');
+    div.className = 'mermaid';
+    div.textContent = code.textContent;
+    code.parentElement.replaceWith(div);
+  });
+
+  // Syntax-highlight remaining code blocks.
+  container.querySelectorAll('pre code').forEach(block => {
+    if (!block.parentElement.classList.contains('mermaid')) {
+      try { hljs.highlightElement(block); } catch (e) { /* ignore */ }
+    }
+  });
+
+  // Render mermaid diagrams.
+  const mermaidNodes = container.querySelectorAll('.mermaid');
+  if (mermaidNodes.length && window.mermaid) {
+    mermaid.run({ nodes: mermaidNodes }).catch(err => console.warn('mermaid:', err));
+  }
+}
+
+// Replace `<img src="*.svg">` with the inline SVG content. Needed
+// because TikZ-rendered SVGs reference Computer Modern fonts via a
+// stylesheet that `<img>`-embedded SVGs can't load (the embed is
+// sandboxed). Inlined into the DOM, the SVG inherits the page's CSS,
+// including the BaKoMa @font-face rules pulled in at the head.
+async function inlineSvgImages(container) {
+  const imgs = [...container.querySelectorAll('img[src$=".svg"]')];
+  await Promise.all(imgs.map(async img => {
+    try {
+      const r = await fetch(img.src, { cache: 'force-cache' });
+      if (!r.ok) return;
+      const text = await r.text();
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = text;
+      const svg = wrapper.querySelector('svg');
+      if (!svg) return;
+      svg.classList.add('inlined-diagram');
+      // If the SVG paints its own dark background (sample the top-left
+      // pixel of the first <path fill="..."> in the document, looking
+      // for an explicit `#0f...` navy), flag it so CSS strips the
+      // padding frame.
+      const firstFill = (svg.querySelector('[fill]')?.getAttribute('fill') || '').toLowerCase();
+      if (firstFill === '#0f192d' || firstFill === '#0e1729' || firstFill === '#0f1a2d') {
+        svg.classList.add('dark-fig');
+      }
+      if (img.alt) svg.setAttribute('aria-label', img.alt);
+      img.replaceWith(svg);
+    } catch (e) {
+      // Leave the <img> in place if anything fails; the alt-text +
+      // broken-image icon at least signals that the diagram exists.
+      console.warn('inlineSvgImages: ' + img.src + ': ' + (e?.message || e));
+    }
+  }));
+}
+
+// --- Scroll-spy for TOC ---
+let scrollSpyObs = null;
+function setupScrollSpy(container) {
+  if (scrollSpyObs) scrollSpyObs.disconnect();
+  const headings = Array.from(container.querySelectorAll('h2, h3'));
+  if (!headings.length) return;
+  const links = new Map();
+  document.querySelectorAll('#toc-list a').forEach(a => links.set(a.dataset.slug, a));
+
+  scrollSpyObs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        links.forEach(a => a.classList.remove('active'));
+        const a = links.get(e.target.id);
+        if (a) a.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-72px 0px -75% 0px' });
+  headings.forEach(h => scrollSpyObs.observe(h));
+}
+
+// --- Doc loading ---
+let currentDocId = null;
+async function loadDoc(id, pushHash = true) {
+  const doc = DOCS.find(d => d.id === id);
+  if (!doc) return;
+  currentDocId = id;
+
+  tabsEl.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.id === id));
+
+  if (pushHash) {
+    history.replaceState(null, '', '#' + id);
+  }
+
+  const contentEl = document.getElementById('content');
+  contentEl.innerHTML = '<p class="loading">Loading…</p>';
+
+  let md;
+  try {
+    const r = await fetch(doc.file, { cache: 'no-cache' });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    md = await r.text();
+  } catch (e) {
+    contentEl.innerHTML = `
+      <div class="error">
+        <strong>Couldn't load ${doc.file}.</strong>
+        ${e.message ? `<br><em>(${e.message})</em>` : ''}
+        <p>If you opened this page as a <code>file://</code> URL, the browser
+        blocks the <code>fetch()</code> for local files. Run the bundled
+        <code>serve.sh</code> next to <code>index.html</code>, or any local
+        HTTP server, then reload over <code>http://localhost:…</code>:</p>
+        <pre><code>./integration/serve.sh
+# then open the URL it prints</code></pre>
+      </div>`;
+    return;
+  }
+
+  contentEl.innerHTML = renderMarkdown(md);
+  postProcess(contentEl);
+  await inlineSvgImages(contentEl);
+  setupScrollSpy(contentEl);
+  window.scrollTo(0, 0);
+}
+
+// Initial load. Hash without slash = doc id; hash with `#flow-…` is treated
+// as an in-page anchor on whichever doc is currently active.
+const initialDoc = location.hash.slice(1);
+const initial = DOCS.find(d => d.id === initialDoc) ? initialDoc : 'readme';
+loadDoc(initial, false);
+
+window.addEventListener('hashchange', () => {
+  const id = location.hash.slice(1);
+  // Only switch docs when the hash matches a known doc id; in-page anchors
+  // are left to the browser's default scroll behavior.
+  if (id && DOCS.find(d => d.id === id) && id !== currentDocId) loadDoc(id, false);
+});
+</script>
+</body>
+</html>

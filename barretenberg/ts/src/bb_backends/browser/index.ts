@@ -21,6 +21,14 @@ export async function createAsyncBackend(
         logger,
         memory: options.memory,
         useWorker,
+        webgpuMsm: options.webgpuMsm,
+        msmCsvMode: options.msmCsvMode,
+        msmDistributionMode: options.msmDistributionMode,
+        msmTraceMode: options.msmTraceMode,
+        benchTrace: options.benchTrace,
+        benchTraceMaxDepth: options.benchTraceMaxDepth,
+        benchTraceDenylist: options.benchTraceDenylist,
+        webgpuMsmBlocklist: options.webgpuMsmBlocklist,
       });
       return new Barretenberg(wasm, options);
     }
