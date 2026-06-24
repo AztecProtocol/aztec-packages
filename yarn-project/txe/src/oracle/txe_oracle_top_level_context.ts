@@ -435,7 +435,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       argsHash,
       txContext,
       // The TXE does not run the init kernel's salt binding, so no tx-request salt is in scope.
-      salt: Fr.ZERO,
+      txRequestSalt: Fr.ZERO,
       callContext,
       anchorBlockHeader: blockHeader,
       utilityExecutor,

@@ -73,7 +73,7 @@ describe('PrivateExecutionOracle', () => {
     return new PrivateExecutionOracle({
       argsHash: Fr.ZERO,
       txContext,
-      salt: Fr.ZERO,
+      txRequestSalt: Fr.ZERO,
       callContext,
       anchorBlockHeader: mock<BlockHeader>(),
       utilityExecutor: () => Promise.resolve(),

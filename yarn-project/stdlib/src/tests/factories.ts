@@ -692,7 +692,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     anchorBlockHeader: makeBlockHeader(seed + 0xd00),
     txContext: makeTxContext(seed + 0x1400),
     isFeePayer: false,
-    salt: fr(seed + 0x1500),
+    txRequestSalt: fr(seed + 0x1500),
   });
 }
 

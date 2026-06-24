@@ -11,7 +11,7 @@ export class PrivateContextInputs {
     public anchorBlockHeader: BlockHeader,
     public txContext: TxContext,
     public startSideEffectCounter: number,
-    public salt: Fr,
+    public txRequestSalt: Fr,
   ) {}
 
   public static empty(): PrivateContextInputs {
@@ -24,7 +24,7 @@ export class PrivateContextInputs {
       this.anchorBlockHeader,
       this.txContext,
       this.startSideEffectCounter,
-      this.salt,
+      this.txRequestSalt,
     ]);
   }
 }

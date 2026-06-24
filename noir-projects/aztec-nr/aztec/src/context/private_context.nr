@@ -499,7 +499,7 @@ impl PrivateContext {
             tx_context: self.inputs.tx_context,
             expected_non_revertible_side_effect_counter: self.expected_non_revertible_side_effect_counter,
             expected_revertible_side_effect_counter: self.expected_revertible_side_effect_counter,
-            salt: self.inputs.salt,
+            tx_request_salt: self.inputs.tx_request_salt,
         }
     }
 

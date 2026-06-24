@@ -46,7 +46,7 @@ import { UtilityExecutionOracle, type UtilityExecutionOracleArgs } from './utili
 export type PrivateExecutionOracleArgs = Omit<UtilityExecutionOracleArgs, 'contractAddress'> & {
   argsHash: Fr;
   txContext: TxContext;
-  salt: Fr;
+  txRequestSalt: Fr;
   callContext: CallContext;
   executionCache: HashedValuesCache;
   noteCache: ExecutionNoteCache;
@@ -78,7 +78,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
   private readonly argsHash: Fr;
   private readonly txContext: TxContext;
-  private readonly salt: Fr;
+  private readonly txRequestSalt: Fr;
   private readonly callContext: CallContext;
   private readonly executionCache: HashedValuesCache;
   private readonly noteCache: ExecutionNoteCache;
@@ -97,7 +97,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     });
     this.argsHash = args.argsHash;
     this.txContext = args.txContext;
-    this.salt = args.salt;
+    this.txRequestSalt = args.txRequestSalt;
     this.callContext = args.callContext;
     this.executionCache = args.executionCache;
     this.noteCache = args.noteCache;
@@ -114,7 +114,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.anchorBlockHeader,
       this.txContext,
       this.initialSideEffectCounter,
-      this.salt,
+      this.txRequestSalt,
     );
   }
 
@@ -552,7 +552,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     const privateExecutionOracle = new PrivateExecutionOracle({
       argsHash,
       txContext: derivedTxContext,
-      salt: this.salt,
+      txRequestSalt: this.txRequestSalt,
       callContext: derivedCallContext,
       anchorBlockHeader: this.anchorBlockHeader,
       utilityExecutor: this.utilityExecutor,

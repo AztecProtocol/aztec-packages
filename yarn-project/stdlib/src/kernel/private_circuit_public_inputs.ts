@@ -147,7 +147,7 @@ export class PrivateCircuitPublicInputs {
     /**
      * The tx request salt, set by the framework so the init kernel can bind this proof to the tx request.
      */
-    public salt: Fr,
+    public txRequestSalt: Fr,
   ) {}
 
   /**
@@ -286,7 +286,7 @@ export class PrivateCircuitPublicInputs {
       this.l2ToL1Msgs.isEmpty() &&
       this.privateLogs.isEmpty() &&
       this.contractClassLogsHashes.isEmpty() &&
-      this.salt.isZero()
+      this.txRequestSalt.isZero()
     );
   }
 
@@ -320,7 +320,7 @@ export class PrivateCircuitPublicInputs {
       fields.l2ToL1Msgs,
       fields.privateLogs,
       fields.contractClassLogsHashes,
-      fields.salt,
+      fields.txRequestSalt,
     ] as const;
   }
 
@@ -355,7 +355,7 @@ export class PrivateCircuitPublicInputs {
       this.l2ToL1Msgs,
       this.privateLogs,
       this.contractClassLogsHashes,
-      this.salt,
+      this.txRequestSalt,
     ]);
   }
 

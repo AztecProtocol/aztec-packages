@@ -152,8 +152,8 @@ impl PrivateCallDataValidator {
         // different salt, yielding a different `P` and replaying the transaction.
         assert_eq(
             tx_request.salt,
-            this_call.salt,
-            "salt in private call does not match the value in tx_request",
+            this_call.tx_request_salt,
+            "tx_request_salt in private call does not match the salt in tx_request",
         );
     }
 
