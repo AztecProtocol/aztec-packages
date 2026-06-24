@@ -19,7 +19,7 @@ pub struct TxRequest {
     // The data of the first function call in the transaction.
     pub function_data: FunctionData,
     // A salt to make the hash of `TxRequest` difficult to predict. The hash is always injected by the init kernel as
-    // the transaction's first nullifier (the protocol nullifier), which anchors the note-nonce computation.
+    // the transaction's first nullifier (the protocol nullifier), which seeds the note-hash nonce computation.
     pub salt: Field,
 }
 

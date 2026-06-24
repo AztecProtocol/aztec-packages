@@ -74,7 +74,7 @@ impl PrivateKernelCircuitOutputComposer {
         let mut validation_requests = PrivateValidationRequests::empty();
         let mut end = PrivateAccumulatedData::empty();
 
-        // The protocol nullifier is the tx's note-nonce anchor: unsquashable (`note_hash == 0`),
+        // The protocol nullifier seeds the note-hash nonce computation: unsquashable (`note_hash == 0`),
         // non-revertible (counter 1, so it sorts to index 0), and globally unique (`tx_request.hash()`
         // includes the salt).
         let scoped_protocol_nullifier = create_protocol_nullifier(inputs.tx_request);
