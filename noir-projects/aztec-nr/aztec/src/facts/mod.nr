@@ -238,7 +238,11 @@ mod test {
             let collection = get_fact_collection(contract_address, scope, TYPE_ID, COLLECTION_ID).unwrap();
             assert_eq(collection.facts.len(), 1);
 
-            let origin = collection.facts.get(0).origin_block.unwrap();
+            let fact = collection.facts.get(0);
+            assert_eq(fact.fact_type_id, FACT_TYPE_ID);
+            assert_payload(fact.payload);
+
+            let origin = fact.origin_block.unwrap();
             assert_eq(origin.block_number, origin_block_number);
             assert_eq(origin.block_hash, 0xabc);
             // TXE finalizes every mined block, so an origin at the latest block is Finalized.

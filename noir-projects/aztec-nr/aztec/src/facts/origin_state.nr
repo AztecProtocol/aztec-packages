@@ -51,3 +51,23 @@ impl Deserialize for OriginState {
         Self::from_u8(reader.read() as u8)
     }
 }
+
+mod test {
+    use crate::protocol::traits::{Deserialize, Serialize};
+    use super::OriginState;
+
+    #[test]
+    fn origin_state_roundtrips_through_serialization() {
+        let pending = OriginState::pending();
+        let proven = OriginState::proven();
+        let finalized = OriginState::finalized();
+        assert(OriginState::deserialize(pending.serialize()) == pending);
+        assert(OriginState::deserialize(proven.serialize()) == proven);
+        assert(OriginState::deserialize(finalized.serialize()) == finalized);
+    }
+
+    #[test(should_fail_with = "unrecognized origin state")]
+    fn deserializing_invalid_state_fails() {
+        let _ = OriginState::deserialize([99]);
+    }
+}
