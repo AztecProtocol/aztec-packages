@@ -256,10 +256,14 @@ template <typename Flavor> class SumcheckProverRound {
 
     /**
      * @brief Return the evaluations of the round univariate \f$ \tilde{S}_{i}(X_{i}) \f$ at \f$ X_i = 0,\ldots,D \f$.
-     * @details The work is split into fixed-size chunks handed out to threads via a work-stealing scheduler, which
-     * balances the per-row cost variance that selector-gated relation skipping introduces. Two cases:
-     * - Row-skipping flavors (ECCVM/Translator) accumulate only over the live edge ranges from `compute_edge_ranges`.
-     * - Dense flavors (AVM/Ultra/Mega/MultilinearBatching) accumulate over the single contiguous active range.
+     * @details Work is split into fixed-size chunks handed to threads by a work-stealing scheduler, which balances
+     * the per-row cost variance that selector-gated relation skipping introduces. `make_edge_chunks` selects, at
+     * compile time, which edges the round visits and the scheduler that covers them -- the canonical taxonomy for
+     * the rest of this file:
+     * - Row-skipping flavors (ECCVM/Translator): only the live edge ranges from `compute_edge_ranges`, scheduled by
+     *   a `ListedEdgeChunks` manifest.
+     * - Dense flavors (AVM/Ultra/Mega/MultilinearBatching): the single contiguous active range, scheduled by
+     *   `ContiguousEdgeChunks`.
      * Per-relation accumulators are then batched into the round univariate (unmasked; masking happens later in
      * sumcheck). See `accumulate_edge_chunks` for the per-edge accumulation and `batch_over_relations` for the
      * batching.
@@ -289,9 +293,8 @@ template <typename Flavor> class SumcheckProverRound {
         return span / rows_per_chunk + (span % rows_per_chunk > 0 ? 1 : 0);
     }
 
-    // Work-stealing chunk scheduler for a single contiguous edge range. Chunk bounds are computed
-    // arithmetically in `pop()`, so it allocates nothing -- preferred for the large, dense ranges of
-    // AVM/Ultra/Mega where materializing every chunk up front would be wasteful.
+    // Work-stealing scheduler over a single contiguous edge range (the dense-flavor case, see
+    // `compute_univariate`). `pop()` computes chunk bounds arithmetically, so it allocates nothing.
     struct ContiguousEdgeChunks {
         const size_t begin;
         const size_t end;
@@ -324,9 +327,9 @@ template <typename Flavor> class SumcheckProverRound {
         }
     };
 
-    // Work-stealing chunk scheduler for an arbitrary manifest of contiguous ranges. Flattens the ranges
-    // into a chunk list up front -- used for the small, irregular row-skip manifests (ECCVM/Translator),
-    // where the materialization cost is bounded and a single arithmetic stride can't express the gaps.
+    // Work-stealing scheduler over a manifest of contiguous ranges (the row-skipping case, see
+    // `compute_univariate`). The ranges are flattened into a chunk list up front, since a single arithmetic
+    // stride can't express the gaps between them; the manifest is small, so the materialization cost is bounded.
     struct ListedEdgeChunks {
         std::vector<EdgeRange> chunks;
         std::atomic<size_t> next_chunk{ 0 };
@@ -364,9 +367,9 @@ template <typename Flavor> class SumcheckProverRound {
         }
     };
 
-    // Build the work-stealing scheduler for the round's active edges. Row-skipping flavors (ECCVM/Translator) get a
-    // manifest of live edge ranges; dense flavors (Ultra/Mega/AVM/MultilinearBatching) get the single contiguous
-    // active range. Returns one of two scheduler types, selected at compile time.
+    // Build the work-stealing scheduler for the round's active edges (see `compute_univariate` for the taxonomy):
+    // a `ListedEdgeChunks` manifest when the flavor skips rows, else a single-range `ContiguousEdgeChunks`. The
+    // scheduler type is selected at compile time.
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
     auto make_edge_chunks(ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials)
     {
@@ -430,8 +433,8 @@ template <typename Flavor> class SumcheckProverRound {
     static constexpr bool CAN_SKIP_ROWS =
         isRowSkippable<Flavor, ProverPolynomialsOrPartiallyEvaluatedMultivariates&, size_t>;
 
-    // True when the round univariate is computed over a manifest of relation-active edge ranges (ECCVM/Translator)
-    // rather than the whole contiguous active range (Ultra/Mega/AVM/MultilinearBatching).
+    // True when the round univariate is computed over a manifest of relation-active edge ranges (the row-skipping
+    // case in `compute_univariate`) rather than the whole contiguous active range -- i.e. either row-skip predicate.
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
     static constexpr bool USES_ROW_MANIFEST =
         HAS_STATIC_ROW_SKIP_MANIFEST<ProverPolynomialsOrPartiallyEvaluatedMultivariates> ||
