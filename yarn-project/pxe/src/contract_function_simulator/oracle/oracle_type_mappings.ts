@@ -518,10 +518,15 @@ export const PENDING_TAGGED_LOG: TypeMapping<PendingTaggedLog> = STRUCT<PendingT
   { name: 'context', type: MESSAGE_CONTEXT },
 ]);
 
-export const PROVIDED_SECRET: TypeMapping<ProvidedSecret> = STRUCT<ProvidedSecret>([
-  { name: 'secret', type: FIELD },
-  { name: 'mode', type: DELIVERY_MODE },
-]);
+export const PROVIDED_SECRET: TypeMapping<ProvidedSecret> = {
+  deserialization: {
+    fn: ([reader]) => ({
+      secret: reader.readField(),
+      mode: appTaggingSecretKindFromDeliveryMode(BYTE.deserialization!.fn([reader])),
+    }),
+  },
+  shape: [{ len: 2 }],
+};
 
 // ─── Combinator Type Mappings ────────────────────────────────────────────────
 
