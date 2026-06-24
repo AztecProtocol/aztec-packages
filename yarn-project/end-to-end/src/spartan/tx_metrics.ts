@@ -161,6 +161,7 @@ export class TxInclusionMetrics {
   private mempoolMinedDelay:
     | { txP50: number; txP95: number; attestationP50: number; attestationP95: number }
     | undefined;
+  private inclusionOutcome: { mined: number; failed: number } | undefined;
 
   constructor(
     private aztecNode: AztecNode,
@@ -342,6 +343,11 @@ export class TxInclusionMetrics {
     this.mempoolMinedDelay = { txP50, txP95, attestationP50, attestationP95 };
   }
 
+  /** Mined vs failed counts for the high-value lane — recorded instead of asserting strict 1:1 inclusion. */
+  public recordInclusionOutcome(mined: number, failed: number): void {
+    this.inclusionOutcome = { mined, failed };
+  }
+
   toGithubActionBenchmarkJSON(): Array<{ name: string; unit: string; value: number; range?: number; extra?: string }> {
     const data: Array<{ name: string; unit: string; value: number; range?: number; extra?: string }> = [];
     for (const group of this.groups) {
@@ -420,6 +426,16 @@ export class TxInclusionMetrics {
         { name: 'mempool/tx_mined_delay_p95', unit: 'ms', value: this.mempoolMinedDelay.txP95 },
         { name: 'mempool/attestation_mined_delay_p50', unit: 'ms', value: this.mempoolMinedDelay.attestationP50 },
         { name: 'mempool/attestation_mined_delay_p95', unit: 'ms', value: this.mempoolMinedDelay.attestationP95 },
+      );
+    }
+
+    if (this.inclusionOutcome) {
+      const { mined, failed } = this.inclusionOutcome;
+      const total = mined + failed;
+      data.push(
+        { name: 'inclusion/mined_count', unit: 'count', value: mined },
+        { name: 'inclusion/failed_count', unit: 'count', value: failed },
+        { name: 'inclusion/success_ratio', unit: 'ratio', value: total > 0 ? mined / total : 0 },
       );
     }
 
