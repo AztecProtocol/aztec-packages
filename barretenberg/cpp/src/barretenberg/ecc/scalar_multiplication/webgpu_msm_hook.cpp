@@ -832,7 +832,6 @@ WASM_EXPORT void bb_native_pippenger_bn254_load(const uint8_t* points, const uin
 WASM_EXPORT void bb_native_pippenger_bn254_run(uint32_t num_threads, uint8_t* result)
 {
     using Curve = bb::curve::BN254;
-    using MSM = bb::scalar_multiplication::legacy::MSM<Curve>;
     namespace marshalling = bb::scalar_multiplication::webgpu_marshalling;
 
     std::memset(result, 0, 64);
@@ -844,23 +843,16 @@ WASM_EXPORT void bb_native_pippenger_bn254_run(uint32_t num_threads, uint8_t* re
     if (num_threads != 0) {
         bb::set_parallel_for_concurrency(num_threads);
     }
-    // batch_multi_scalar_mul_native — the in-tree multithreaded affine Pippenger
-    // (handle_edge_cases = false: assumes linearly independent points). This is
-    // the exact algorithm pippenger_unsafe runs, but it bypasses the
-    // BBERG_WEBGPU_MSM_HOOK delegation. pippenger_unsafe -> MSM::msm ->
-    // batch_multi_scalar_mul would route a BN254 MSM into the WebGPU bridge when
-    // the runtime flag is on (see bb_set_webgpu_msm_enabled), which this
-    // comparison harness deliberately leaves off — its purpose is to time the
-    // native Pippenger in isolation. batch_multi_scalar_mul_native exists for
-    // exactly this dev-harness use (see its declaration in
-    // scalar_multiplication.hpp). It restores the scalars to Montgomery form
-    // before returning, so repeated runs over the same loaded g_bench_scalars
-    // are safe.
+    // The production-default fast Pippenger: `pippenger_unsafe` dispatches to
+    // `pippenger_unsafe_fast` (the Constantine-based rewrite) unless BB_MSM_LEGACY
+    // is set. `unsafe` assumes linearly independent points (true for distinct SRS
+    // points), matching what the prover runs for commitments. The fast path
+    // converts scalars out of Montgomery form internally and restores them before
+    // returning, so repeated runs over the same loaded g_bench_scalars are safe.
     const std::span<const Curve::AffineElement> points_span(g_bench_points);
-    const std::span<Curve::ScalarField> scalars_span(g_bench_scalars);
-    std::array<std::span<const Curve::AffineElement>, 1> points_batch{ points_span };
-    std::array<std::span<Curve::ScalarField>, 1> scalars_batch{ scalars_span };
-    const Curve::AffineElement aff = MSM::batch_multi_scalar_mul(points_batch, scalars_batch, false)[0];
+    const std::span<const Curve::ScalarField> scalars_span(g_bench_scalars);
+    const bb::PolynomialSpan<const Curve::ScalarField> scalars(0, scalars_span);
+    const Curve::AffineElement aff(bb::scalar_multiplication::pippenger_unsafe<Curve>(scalars, points_span));
     if (num_threads != 0) {
         bb::set_parallel_for_concurrency(saved_concurrency);
     }
@@ -874,16 +866,15 @@ WASM_EXPORT void bb_native_pippenger_bn254_run(uint32_t num_threads, uint8_t* re
 // ---------------------------------------------------------------------------
 // True-batch native Pippenger harness exports.
 //
-// The single-MSM `bb_native_pippenger_bn254_run` wraps `batch_multi_scalar_mul_native`
-// with batch_size = 1. The Chonk W_L/W_R/W_O and translator range-constraint
-// batches go through that same `batch_multi_scalar_mul_native` but with B
-// MSMs in one call — the native implementation distributes work across all
-// B × n point/scalar pairs in a single `parallel_for`, amortizing the
-// per-MSM Pippenger setup over the whole batch. Calling _run B times in a
-// row serializes those setups, so the WebGPU dev page was comparing the
-// wrong WASM path. These _batch_* exports take ONE shared n-point vector
-// plus B scalar vectors and call `batch_multi_scalar_mul_native` with B
-// spans, which is the apples-to-apples target for `BatchMsmV2`.
+// The single-MSM `bb_native_pippenger_bn254_run` runs one MSM via the fast
+// `pippenger_unsafe`. The Chonk W_L/W_R/W_O and translator range-constraint
+// batches go through the fast `MSM::batch_multi_scalar_mul` with B MSMs in one
+// call — the implementation distributes work across all B × n point/scalar
+// pairs in a single `parallel_for`, amortizing the per-MSM Pippenger setup over
+// the whole batch. Calling _run B times in a row serializes those setups, so
+// the WebGPU dev page would otherwise compare the wrong WASM path. These
+// _batch_* exports take ONE shared n-point vector plus B scalar vectors, which
+// is the apples-to-apples target for `BatchMsmV2`.
 namespace {
 std::vector<bb::curve::BN254::AffineElement> g_bench_batch_points;
 // Flat B × n scalars buffer; sliced into B spans at run() time.
@@ -921,12 +912,12 @@ WASM_EXPORT void bb_native_pippenger_bn254_batch_load(const uint8_t* points,
     }
 }
 
-// Run `batch_multi_scalar_mul_native` with B spans pointing at slices of the
-// shared scalar buffer. Writes B × 64 LE result bytes (slot 0 first).
+// Run the fast `MSM::batch_multi_scalar_mul` with B PolynomialSpans pointing at
+// slices of the shared scalar buffer. Writes B × 64 LE result bytes (slot 0 first).
 WASM_EXPORT void bb_native_pippenger_bn254_batch_run(uint32_t num_threads, uint8_t* results_out)
 {
     using Curve = bb::curve::BN254;
-    using MSM = bb::scalar_multiplication::legacy::MSM<Curve>;
+    using MSM = bb::scalar_multiplication::MSM<Curve>;
     namespace marshalling = bb::scalar_multiplication::webgpu_marshalling;
 
     const uint32_t B = g_bench_batch_size;
@@ -941,16 +932,18 @@ WASM_EXPORT void bb_native_pippenger_bn254_batch_run(uint32_t num_threads, uint8
         bb::set_parallel_for_concurrency(num_threads);
     }
 
-    // Build B point spans (all identical, pointing at the shared g_bench_batch_points)
-    // and B scalar spans (each a non-overlapping slice of g_bench_batch_scalars).
-    std::vector<std::span<const Curve::AffineElement>> points_batch(B);
-    std::vector<std::span<Curve::ScalarField>> scalars_batch(B);
+    // B scalar PolynomialSpans, each a non-overlapping slice of the shared
+    // g_bench_batch_scalars, all multiplying the shared g_bench_batch_points.
+    // MSM::batch_multi_scalar_mul dispatches to the fast (MSM_fast) batch entry
+    // unless BB_MSM_LEGACY is set, and restores Montgomery form before returning.
     const std::span<const Curve::AffineElement> shared_points(g_bench_batch_points);
+    std::vector<bb::PolynomialSpan<Curve::ScalarField>> scalars_batch;
+    scalars_batch.reserve(B);
     for (uint32_t b = 0; b < B; ++b) {
-        points_batch[b] = shared_points;
-        scalars_batch[b] = std::span<Curve::ScalarField>(g_bench_batch_scalars.data() + static_cast<size_t>(b) * n, n);
+        const std::span<Curve::ScalarField> slice(g_bench_batch_scalars.data() + static_cast<size_t>(b) * n, n);
+        scalars_batch.emplace_back(0, slice);
     }
-    const std::vector<Curve::AffineElement> affs = MSM::batch_multi_scalar_mul(points_batch, scalars_batch, false);
+    const std::vector<Curve::AffineElement> affs = MSM::batch_multi_scalar_mul(shared_points, scalars_batch, false, {});
 
     if (num_threads != 0) {
         bb::set_parallel_for_concurrency(saved_concurrency);
