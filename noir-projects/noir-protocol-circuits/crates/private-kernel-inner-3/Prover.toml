@@ -6845,7 +6845,7 @@ expected_revertible_side_effect_counter = "0x00000000000000000000000000000000000
 min_revertible_side_effect_counter = "0x0000000000000000000000000000000000000000000000000000000000000000"
 is_fee_payer = false
 expiration_timestamp = "0x000000000000000000000000000000000000000000000000000000006a3547d0"
-salt = "0x1fea540fc1b531ddddb4e44785db3f8f746cac2338be77f9d54c3a9475cf5d5b"
+tx_request_salt = "0x1fea540fc1b531ddddb4e44785db3f8f746cac2338be77f9d54c3a9475cf5d5b"
 
   [app_public_inputs_0.call_context]
   is_static_call = true
@@ -8586,7 +8586,7 @@ expected_revertible_side_effect_counter = "0x00000000000000000000000000000000000
 min_revertible_side_effect_counter = "0x0000000000000000000000000000000000000000000000000000000000000000"
 is_fee_payer = false
 expiration_timestamp = "0x000000000000000000000000000000000000000000000000000000006a3547d0"
-salt = "0x1fea540fc1b531ddddb4e44785db3f8f746cac2338be77f9d54c3a9475cf5d5b"
+tx_request_salt = "0x1fea540fc1b531ddddb4e44785db3f8f746cac2338be77f9d54c3a9475cf5d5b"
 
   [app_public_inputs_1.call_context]
   is_static_call = false
@@ -10327,7 +10327,7 @@ expected_revertible_side_effect_counter = "0x00000000000000000000000000000000000
 min_revertible_side_effect_counter = "0x0000000000000000000000000000000000000000000000000000000000000000"
 is_fee_payer = false
 expiration_timestamp = "0x000000000000000000000000000000000000000000000000000000006a3547d0"
-salt = "0x1fea540fc1b531ddddb4e44785db3f8f746cac2338be77f9d54c3a9475cf5d5b"
+tx_request_salt = "0x1fea540fc1b531ddddb4e44785db3f8f746cac2338be77f9d54c3a9475cf5d5b"
 
   [app_public_inputs_2.call_context]
   is_static_call = false

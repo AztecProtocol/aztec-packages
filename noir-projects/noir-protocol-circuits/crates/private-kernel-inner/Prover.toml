@@ -6337,7 +6337,7 @@ expected_revertible_side_effect_counter = "0x00000000000000000000000000000000000
 min_revertible_side_effect_counter = "0x0000000000000000000000000000000000000000000000000000000000000000"
 is_fee_payer = false
 expiration_timestamp = "0x000000000000000000000000000000000000000000000000000000006a3547d0"
-salt = "0x2deeb4d4a9cfc5a97e7403c4d21745f34e0c7971e29c38ac4a473bacbd10cac2"
+tx_request_salt = "0x2deeb4d4a9cfc5a97e7403c4d21745f34e0c7971e29c38ac4a473bacbd10cac2"
 
   [app_public_inputs.call_context]
   is_static_call = true

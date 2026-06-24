@@ -586,7 +586,7 @@ expected_revertible_side_effect_counter = "0x00000000000000000000000000000000000
 min_revertible_side_effect_counter = "0x0000000000000000000000000000000000000000000000000000000000000004"
 is_fee_payer = true
 expiration_timestamp = "0x000000000000000000000000000000000000000000000000000000006a3547c4"
-salt = "0x1e9128a18fc35bea7debe31b2441e502db9b69ac8eb0be5ad47ed7315f3eb381"
+tx_request_salt = "0x1e9128a18fc35bea7debe31b2441e502db9b69ac8eb0be5ad47ed7315f3eb381"
 
   [app_public_inputs_0.call_context]
   is_static_call = false
@@ -2327,7 +2327,7 @@ expected_revertible_side_effect_counter = "0x00000000000000000000000000000000000
 min_revertible_side_effect_counter = "0x0000000000000000000000000000000000000000000000000000000000000000"
 is_fee_payer = false
 expiration_timestamp = "0x000000000000000000000000000000000000000000000000000000006a3547c4"
-salt = "0x1e9128a18fc35bea7debe31b2441e502db9b69ac8eb0be5ad47ed7315f3eb381"
+tx_request_salt = "0x1e9128a18fc35bea7debe31b2441e502db9b69ac8eb0be5ad47ed7315f3eb381"
 
   [app_public_inputs_1.call_context]
   is_static_call = false
