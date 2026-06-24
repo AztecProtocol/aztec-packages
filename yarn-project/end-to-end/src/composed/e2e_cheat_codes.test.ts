@@ -7,6 +7,23 @@ import { createAztecNodeDebugClient } from '@aztec/stdlib/interfaces/client';
 
 const { AZTEC_NODE_URL = 'http://localhost:8080', ETHEREUM_HOSTS = 'http://localhost:8545' } = process.env;
 
+async function retryOnFutureTimestampRace(fn: () => Promise<void>) {
+  const maxAttempts = 5;
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await fn();
+      return;
+    } catch (err) {
+      lastError = err;
+      if (!(err instanceof Error) || !err.message.includes('is not in the future')) {
+        throw err;
+      }
+    }
+  }
+  throw lastError;
+}
+
 // Unlike the non-composed e2e_cheat_codes.test.ts these tests are testing that the AztecNodeDebug endpoints get
 // correctly exposed on the node.
 // Runs against a pre-started docker-compose network (AZTEC_NODE_URL + ETHEREUM_HOSTS); no in-proc setup().
@@ -53,17 +70,19 @@ describe('e2e_cheat_codes', () => {
   });
 
   it('warpL2TimeAtLeastBy with sub-slot duration auto-adjusts to next slot', async () => {
-    const blockBefore = await aztecNode.getBlock(await aztecNode.getBlockNumber());
-    const timestampBefore = Number(blockBefore!.header.globalVariables.timestamp);
+    await retryOnFutureTimestampRace(async () => {
+      const blockBefore = await aztecNode.getBlock(await aztecNode.getBlockNumber());
+      const timestampBefore = Number(blockBefore!.header.globalVariables.timestamp);
 
-    // Duration of 1 second is less than a slot, but should still succeed via auto-adjust.
-    await cheatCodes.warpL2TimeAtLeastBy(nodeDebug, 1);
+      // Duration of 1 second is less than a slot, but should still succeed via auto-adjust.
+      await cheatCodes.warpL2TimeAtLeastBy(nodeDebug, 1);
 
-    const blockNumber = await aztecNode.getBlockNumber();
-    const block = await aztecNode.getBlock(blockNumber);
-    expect(block).toBeDefined();
-    const timestampAfter = Number(block!.header.globalVariables.timestamp);
-    expect(timestampAfter).toBeGreaterThan(timestampBefore);
+      const blockNumber = await aztecNode.getBlockNumber();
+      const block = await aztecNode.getBlock(blockNumber);
+      expect(block).toBeDefined();
+      const timestampAfter = Number(block!.header.globalVariables.timestamp);
+      expect(timestampAfter).toBeGreaterThan(timestampBefore);
+    });
   });
 
   it('warpL2TimeAtLeastBy with zero duration throws', async () => {
@@ -76,26 +95,15 @@ describe('e2e_cheat_codes', () => {
     // and that warp can land between our `lastBlockTimestamp()` read and the cheat code's internal
     // re-read, racing `currentL1 + 1` into the past. Retry on that specific race with a fresh target;
     // a subsequent slot-jump within the retry window is improbable enough that a small cap suffices.
-    const maxAttempts = 5;
-    let lastError: unknown;
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    await retryOnFutureTimestampRace(async () => {
       const currentL1Timestamp = Number(await cheatCodes.eth.lastBlockTimestamp());
       const targetTimestamp = currentL1Timestamp + 1;
-      try {
-        await cheatCodes.warpL2TimeAtLeastTo(nodeDebug, targetTimestamp);
-        const blockNumber = await aztecNode.getBlockNumber();
-        const block = await aztecNode.getBlock(blockNumber);
-        expect(block).toBeDefined();
-        expect(Number(block!.header.globalVariables.timestamp)).toBeGreaterThanOrEqual(targetTimestamp);
-        return;
-      } catch (err) {
-        lastError = err;
-        if (!(err instanceof Error) || !err.message.includes('is not in the future')) {
-          throw err;
-        }
-      }
-    }
-    throw lastError;
+      await cheatCodes.warpL2TimeAtLeastTo(nodeDebug, targetTimestamp);
+      const blockNumber = await aztecNode.getBlockNumber();
+      const block = await aztecNode.getBlock(blockNumber);
+      expect(block).toBeDefined();
+      expect(Number(block!.header.globalVariables.timestamp)).toBeGreaterThanOrEqual(targetTimestamp);
+    });
   });
 
   it('warpL2TimeAtLeastTo with past timestamp throws', async () => {
