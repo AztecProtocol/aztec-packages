@@ -8,21 +8,21 @@ import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { retryUntil } from '@aztec/foundation/retry';
 import { executeTimeout } from '@aztec/foundation/timer';
-import type { SequencerEvents } from '@aztec/sequencer-client';
 
-import type { TestWallet } from '../../../test-wallet/test_wallet.js';
-import { proveInteraction } from '../../../test-wallet/utils.js';
-import {
-  type BlockProposedEvent,
-  MultiNodeTestContext,
-  buildMockGossipValidators,
-} from '../../multi_node_test_context.js';
+import type { TestWallet } from '../../test-wallet/test_wallet.js';
+import { proveInteraction } from '../../test-wallet/utils.js';
+import { MultiNodeTestContext, buildMockGossipValidators } from '../multi_node_test_context.js';
 import { MBPS_TIMING, type MbpsFixture, NODE_COUNT, jest, waitForProvenCheckpoint } from './setup.js';
 
 const PIPELINE_TX_COUNT = 34;
 const PIPELINE_EXPECTED_BLOCKS_PER_CHECKPOINT = 8;
 
-describe('multi-node/consensus/mbps/pipelining', () => {
+// Blob/checkpoint promotion under stressed multi-block production: a node with promotion disabled
+// fetches blobs while promotion-enabled peers fetch zero (the getBlobSidecar spy), and a
+// high-block-count checkpoint built under adverse gossip latency still proves. The MBPS and pipelining
+// offset assertions live in their behavior-named homes (production tests, pipeline_prune) and are not
+// re-checked here.
+describe('multi-node/block-production/blob_promotion', () => {
   let fixture: MbpsFixture;
 
   afterEach(async () => {
@@ -86,9 +86,10 @@ describe('multi-node/consensus/mbps/pipelining', () => {
 
   /**
    * Waits until the archiver's checkpointed chain tip has reached `targetBlockNumber`, then retrieves all
-   * checkpoints, checks that one has the target block count, and returns its number.
+   * checkpoints and returns the number of the first one with at least `targetBlockCount` blocks. Used to
+   * pick a high-block-count checkpoint to assert proving against, not to re-assert MBPS itself.
    */
-  async function assertPipelineMultipleBlocksPerSlot(
+  async function findMultiBlockCheckpoint(
     targetBlockCount: number,
     targetBlockNumber: BlockNumber,
   ): Promise<CheckpointNumber> {
@@ -108,39 +109,17 @@ describe('multi-node/consensus/mbps/pipelining', () => {
       checkpoints: checkpoints.map(pc => pc.checkpoint.getStats()),
     });
 
-    let expectedBlockNumber = checkpoints[0].checkpoint.blocks[0].number;
-    let multiBlockCheckpointNumber: CheckpointNumber | undefined;
-
-    for (const checkpoint of checkpoints) {
-      const blockCount = checkpoint.checkpoint.blocks.length;
-      if (blockCount >= targetBlockCount && multiBlockCheckpointNumber === undefined) {
-        multiBlockCheckpointNumber = checkpoint.checkpoint.number;
-      }
-      logger.warn(`Checkpoint ${checkpoint.checkpoint.number} has ${blockCount} blocks`, {
-        checkpoint: checkpoint.checkpoint.getStats(),
-      });
-
-      for (let i = 0; i < blockCount; i++) {
-        const block = checkpoint.checkpoint.blocks[i];
-        expect(block.indexWithinCheckpoint).toBe(i);
-        expect(block.checkpointNumber).toBe(checkpoint.checkpoint.number);
-        expect(block.number).toBe(expectedBlockNumber);
-        expectedBlockNumber++;
-      }
-    }
-
-    expect(multiBlockCheckpointNumber).toBeDefined();
-    return multiBlockCheckpointNumber!;
+    const multiBlockCheckpoint = checkpoints.find(pc => pc.checkpoint.blocks.length >= targetBlockCount);
+    expect(multiBlockCheckpoint).toBeDefined();
+    return multiBlockCheckpoint!.checkpoint.number;
   }
 
-  // Pre-proves TX_COUNT txs, starts sequencers, waits for all txs to be mined. Asserts a
-  // MBPS checkpoint with ≥EXPECTED_BLOCKS_PER_CHECKPOINT blocks. Asserts every block's header
-  // slot equals build-slot+1 (pipelining offset). Verifies node-0 fetches blobs (promotion
-  // disabled) while nodes 1-3 skip blob fetching (promotion enabled). Waits for the checkpoint
-  // to be proven.
-  it('pipelining builds blocks using slot plus 1 proposer and proves them', async () => {
+  // Pre-proves TX_COUNT txs under adverse gossip latency, starts sequencers, waits for all txs to be
+  // mined, then verifies node-0 (promotion disabled) fetches blobs while nodes 1-3 (promotion enabled)
+  // skip blob fetching entirely, and that a high-block-count checkpoint built under load still proves.
+  it('promotion-disabled node fetches blobs while peers skip them, and the checkpoint proves', async () => {
     fixture = await setupPipeline();
-    const { test, context, logger, archiver, nodes, contract, from } = fixture;
+    const { test, context, logger, nodes, contract, from } = fixture;
 
     // Spy on getBlobSidecar on all validator nodes before sequencers start, so we check that nodes
     // promote their proposed checkpoints and don't source data from blobs if they don't need to.
@@ -150,20 +129,6 @@ describe('multi-node/consensus/mbps/pipelining', () => {
       logger.warn(`Installed getBlobSidecar spy on validator node ${i}`);
       return spy;
     });
-
-    // Subscribe to block-proposed events to capture build slots
-    const blockProposedEvents: BlockProposedEvent[] = [];
-    const sequencers = nodes.map(n => n.getSequencer()!);
-    for (const sequencer of sequencers) {
-      sequencer.getSequencer().on('block-proposed', (args: Parameters<SequencerEvents['block-proposed']>[0]) => {
-        logger.warn(`block-proposed event: blockNumber=${args.blockNumber}, slot=${args.slot}`, args);
-        blockProposedEvents.push({
-          blockNumber: args.blockNumber,
-          slot: args.slot,
-          buildSlot: args.buildSlot,
-        });
-      });
-    }
 
     const initialCheckpointNumber = await fixture.rollup.getCheckpointNumber();
     logger.warn(`Initial checkpoint number: ${initialCheckpointNumber}`);
@@ -176,6 +141,7 @@ describe('multi-node/consensus/mbps/pipelining', () => {
     logger.warn(`Sent ${txHashes.length} transactions`, { txs: txHashes });
 
     // Start the sequencers
+    const sequencers = nodes.map(n => n.getSequencer()!);
     await Promise.all(sequencers.map(s => s.start()));
     logger.warn(`Started all sequencers`);
 
@@ -187,15 +153,12 @@ describe('multi-node/consensus/mbps/pipelining', () => {
     );
     logger.warn(`All txs have been mined`);
 
-    // Verify MBPS works with pipelining; target the highest block number across mined receipts
+    // Pick a high-block-count checkpoint to assert proving against; target the highest mined block.
     const maxMinedBlockNumber = BlockNumber(Math.max(...receipts.map(r => r.blockNumber ?? 0)));
-    const multiBlockCheckpoint = await assertPipelineMultipleBlocksPerSlot(
+    const multiBlockCheckpoint = await findMultiBlockCheckpoint(
       PIPELINE_EXPECTED_BLOCKS_PER_CHECKPOINT,
       maxMinedBlockNumber,
     );
-
-    // Verify the pipelining offset: build slot N vs submission slot N+1
-    await test.assertProposerPipelining(archiver, blockProposedEvents, logger);
 
     // Verify blob fetching behavior: node 0 has promotion disabled so it must fetch blobs,
     // while all other nodes should promote their proposed checkpoints and skip blob fetching entirely.
@@ -209,7 +172,7 @@ describe('multi-node/consensus/mbps/pipelining', () => {
       }
     }
 
-    // Verify proving still works end-to-end with pipelined proposers
+    // Verify proving still works end-to-end with pipelined proposers under stressed production.
     await waitForProvenCheckpoint(fixture, multiBlockCheckpoint);
   });
 });

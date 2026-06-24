@@ -32,7 +32,7 @@ type PublishedEvent = Parameters<SequencerEvents['checkpoint-published']>[0];
 // epoch=default 6, proofSubmissionEpochs=1 (overridden per test via setupTest), blockDurationMs=6s,
 // inboxLag=2 (v5 always enforces the timetable, so the former enforceTimeTable/disableAnvilTestWatcher
 // overrides are gone). The Delayer is used to steer proof tx timing.
-describe('multi-node/consensus/proof_at_boundary', () => {
+describe('multi-node/block-production/proof_boundary', () => {
   let context: EndToEndContext;
   let logger: Logger;
 

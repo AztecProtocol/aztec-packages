@@ -23,19 +23,20 @@ import { TxStatus } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 
-import { sendL1ToL2Message } from '../../../fixtures/l1_to_l2_messaging.js';
-import type { EndToEndContext } from '../../../fixtures/utils.js';
-import { waitForBlockNumber, waitForTxs } from '../../../fixtures/wait_helpers.js';
-import type { TestWallet } from '../../../test-wallet/test_wallet.js';
-import { proveInteraction } from '../../../test-wallet/utils.js';
+import { sendL1ToL2Message } from '../../fixtures/l1_to_l2_messaging.js';
+import type { EndToEndContext } from '../../fixtures/utils.js';
+import { waitForBlockNumber, waitForTxs } from '../../fixtures/wait_helpers.js';
+import type { TestWallet } from '../../test-wallet/test_wallet.js';
+import { proveInteraction } from '../../test-wallet/utils.js';
 import {
   type BlockProposedEvent,
   MBPS_TIMING,
+  MV_CONSENSUS_TIMING,
   MultiNodeTestContext,
   type RegisteredValidator,
   type TrackedSequencerEvent,
   buildMockGossipValidators,
-} from '../../multi_node_test_context.js';
+} from '../multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 20);
 
@@ -224,6 +225,7 @@ export {
   proveInteraction,
   type BlockProposedEvent,
   MBPS_TIMING,
+  MV_CONSENSUS_TIMING,
   MultiNodeTestContext,
   type RegisteredValidator,
   type TrackedSequencerEvent,

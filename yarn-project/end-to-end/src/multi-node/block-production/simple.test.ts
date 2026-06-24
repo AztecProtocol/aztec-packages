@@ -8,25 +8,26 @@ import { timesAsync } from '@aztec/foundation/collection';
 import { executeTimeout } from '@aztec/foundation/timer';
 import type { TestContract } from '@aztec/noir-test-contracts.js/Test';
 
-import type { EndToEndContext } from '../../../fixtures/utils.js';
-import { waitForTxs } from '../../../fixtures/wait_helpers.js';
-import { proveInteraction } from '../../../test-wallet/utils.js';
+import type { EndToEndContext } from '../../fixtures/utils.js';
+import { waitForTxs } from '../../fixtures/wait_helpers.js';
+import { proveInteraction } from '../../test-wallet/utils.js';
 import {
   MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
   MV_CONSENSUS_TIMING,
   MultiNodeTestContext,
   type RegisteredValidator,
   buildMockGossipValidators,
-} from '../../multi_node_test_context.js';
-import { NODE_COUNT, jest } from './setup.js';
+} from '../multi_node_test_context.js';
+import { jest } from './setup.js';
 
+const NODE_COUNT = 3;
 const TX_COUNT_SIMPLE = 8;
 
 // Verifies that 3 validator nodes can build blocks without sequencer errors. Lightweight RPC-only
 // initial node (skipInitialSequencer), mockGossipSubNetwork, no prover. Timing: ethSlot=12s,
 // aztecSlot=36s, epoch=default 6, proofSubmissionEpochs=1024, blockDurationMs=6s. Pre-proved txs sent
 // from the hardcoded genesis-funded account (no on-chain account deploy needed).
-describe('multi-node/consensus/block_building/simple', () => {
+describe('multi-node/block-production/simple', () => {
   let context: EndToEndContext;
   let logger: Logger;
 

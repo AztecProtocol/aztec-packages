@@ -9,11 +9,11 @@ import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { getSlotAtTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 
-import { waitForTxs } from '../../../fixtures/wait_helpers.js';
-import { proveInteraction } from '../../../test-wallet/utils.js';
+import { waitForTxs } from '../../fixtures/wait_helpers.js';
+import { proveInteraction } from '../../test-wallet/utils.js';
 import { type MbpsFixture, jest, setupMbps, waitForProvenCheckpoint } from './setup.js';
 
-describe('multi-node/consensus/mbps/deploy_and_call', () => {
+describe('multi-node/block-production/deploy_and_call_ordering', () => {
   let fixture: MbpsFixture;
 
   afterEach(async () => {

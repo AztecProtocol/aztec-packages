@@ -12,12 +12,12 @@ import { sleep } from '@aztec/foundation/sleep';
 import { executeTimeout } from '@aztec/foundation/timer';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 
-import type { TestWallet } from '../../../test-wallet/test_wallet.js';
-import { proveInteraction } from '../../../test-wallet/utils.js';
-import { MultiNodeTestContext, buildMockGossipValidators } from '../../multi_node_test_context.js';
+import type { TestWallet } from '../../test-wallet/test_wallet.js';
+import { proveInteraction } from '../../test-wallet/utils.js';
+import { MultiNodeTestContext, buildMockGossipValidators } from '../multi_node_test_context.js';
 import { type MbpsFixture, NODE_COUNT, jest } from './setup.js';
 
-describe('multi-node/consensus/mbps/redistribution', () => {
+describe('multi-node/block-production/redistribution', () => {
   /**
    * Number of txs fed one-by-one during the early sub-slots (blocks 0 and 1), one per block.
    * They are sent at the start of each sub-slot so each early block picks up exactly one, leaving

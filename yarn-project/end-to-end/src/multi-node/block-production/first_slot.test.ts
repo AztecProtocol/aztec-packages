@@ -37,7 +37,7 @@ const TX_COUNT = 8;
 // the pipelined proposer's first build window targets the epoch's first slot. Verifies that
 // blocks are built on both the first and second slots of the new epoch.
 // Uses MultiNodeTestContext with mockGossipSubNetwork, no initial sequencer, no prover node.
-describe('multi-node/consensus/first_slot', () => {
+describe('multi-node/block-production/first_slot', () => {
   let context: EndToEndContext;
   let logger: Logger;
 

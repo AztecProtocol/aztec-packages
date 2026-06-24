@@ -10,16 +10,18 @@ import { sleepUntil } from '@aztec/foundation/sleep';
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { getSlotAtTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 
-import type { EndToEndContext } from '../../../fixtures/utils.js';
-import { proveInteraction } from '../../../test-wallet/utils.js';
+import type { EndToEndContext } from '../../fixtures/utils.js';
+import { proveInteraction } from '../../test-wallet/utils.js';
 import {
   MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
   MV_CONSENSUS_TIMING,
   MultiNodeTestContext,
   type RegisteredValidator,
   buildMockGossipValidators,
-} from '../../multi_node_test_context.js';
-import { NODE_COUNT, jest } from './setup.js';
+} from '../multi_node_test_context.js';
+import { jest } from './setup.js';
+
+const NODE_COUNT = 3;
 
 // Multi-block-per-slot test under pipelining. Exercises a full checkpoint (4 blocks × 2 txs) and verifies the
 // checkpoint tx lands on the 2nd L1 block of its target slot.
@@ -66,7 +68,7 @@ const BLOCK_DURATION_MS = 6000;
 // CHECKPOINTS_TO_CHECK consecutive checkpoints at or after the target slot each have at least
 // BLOCKS_PER_CHECKPOINT-1 blocks and that the checkpoint tx lands in the 1st or 2nd L1 block of the
 // target slot. mockGossipSubNetwork, no initial sequencer, no prover node.
-describe('multi-node/consensus/block_building/high_tps', () => {
+describe('multi-node/block-production/high_tps', () => {
   let context: EndToEndContext;
   let logger: Logger;
 
