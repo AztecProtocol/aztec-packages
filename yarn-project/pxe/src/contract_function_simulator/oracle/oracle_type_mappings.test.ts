@@ -20,6 +20,7 @@ import {
   MEMBERSHIP_WITNESS,
   OPTION,
   POINT,
+  PROVIDED_SECRET,
   type SlotShape,
   type TypeMapping,
   U32,
@@ -91,6 +92,18 @@ describe('oracle type mappings', () => {
 
     it('rejects an invalid value', () => {
       expect(() => deserialize(DELIVERY_MODE, new Fr(1))).toThrow('Unrecognized delivery mode for tagging');
+    });
+  });
+
+  describe('PROVIDED_SECRET', () => {
+    it('deserializes a secret and delivery mode from a two-field slot', () => {
+      const provided = PROVIDED_SECRET.deserialization!.fn([new FieldReader([new Fr(42), new Fr(3)])]);
+      expect(provided.secret).toEqual(new Fr(42));
+      expect(provided.mode).toBe(AppTaggingSecretKind.CONSTRAINED);
+    });
+
+    it('declares the two-field wire shape', () => {
+      expect(PROVIDED_SECRET.shape).toEqual([{ len: 2 }]);
     });
   });
 

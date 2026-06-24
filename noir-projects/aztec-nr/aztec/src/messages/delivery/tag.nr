@@ -59,7 +59,6 @@ fn derive_handshake_log_tag(
         STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
         sender,
         recipient,
-        mode,
     );
 
     // Safety: the returned index is untrusted and is constrained before the tag is emitted.

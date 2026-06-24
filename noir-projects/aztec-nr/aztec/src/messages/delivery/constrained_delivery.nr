@@ -9,7 +9,6 @@
 //! See [`constrain_secret`] for how a send is anchored to the registry,
 
 use crate::context::PrivateContext;
-use crate::messages::delivery::OnchainDeliveryMode;
 use crate::nullifier::utils::compute_nullifier_existence_request;
 
 use crate::protocol::{
@@ -21,7 +20,7 @@ use crate::protocol::{
 // registry's test suite compares this against its macro-generated `HandshakeRegistry::at(...).method(...).selector`
 // value so signature drift fails in tests.
 pub global VALIDATE_HANDSHAKE_SELECTOR: FunctionSelector =
-    comptime { FunctionSelector::from_signature("validate_handshake((Field),(Field),(u8),Field)") };
+    comptime { FunctionSelector::from_signature("validate_handshake((Field),(Field),Field)") };
 
 pub(crate) fn constrain_secret_and_emit_nullifier(
     context: &mut PrivateContext,
@@ -60,8 +59,6 @@ fn constrain_secret(
     index: u32,
 ) {
     let caller = context.this_address();
-    let mode = OnchainDeliveryMode::onchain_constrained();
-    let mode_field = mode.to_field();
 
     if bootstrapped {
         assert(index == 0, "freshly bootstrapped secret must start at index 0");
@@ -69,7 +66,7 @@ fn constrain_secret(
         let _ = context.call_private_function(
             registry,
             VALIDATE_HANDSHAKE_SELECTOR,
-            [sender.to_field(), recipient.to_field(), mode_field, secret],
+            [sender.to_field(), recipient.to_field(), secret],
         );
     } else {
         let prev_nullifier = compute_constrained_msg_nullifier(sender, recipient, secret, index - 1);
@@ -96,7 +93,6 @@ pub(crate) fn compute_constrained_msg_nullifier(
 mod test {
     use crate::context::PrivateContext;
     use crate::hash::hash_args;
-    use crate::messages::delivery::OnchainDeliveryMode;
     use crate::protocol::{address::AztecAddress, hash::compute_siloed_nullifier, traits::{FromField, ToField}};
     use crate::test::helpers::test_environment::TestEnvironment;
     use super::{compute_constrained_msg_nullifier, constrain_secret_and_emit_nullifier, VALIDATE_HANDSHAKE_SELECTOR};
@@ -175,15 +171,7 @@ mod test {
             assert_eq(request.call_context.contract_address, registry);
             assert_eq(request.call_context.function_selector, VALIDATE_HANDSHAKE_SELECTOR);
             assert(!request.call_context.is_static_call);
-            assert_eq(
-                request.args_hash,
-                hash_args([
-                    sender.to_field(),
-                    recipient.to_field(),
-                    OnchainDeliveryMode::onchain_constrained().to_field(),
-                    secret,
-                ]),
-            );
+            assert_eq(request.args_hash, hash_args([sender.to_field(), recipient.to_field(), secret]));
         });
     }
 

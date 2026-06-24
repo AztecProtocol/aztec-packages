@@ -1027,7 +1027,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 }
 
 const STANDARD_HANDSHAKE_REGISTRY_GET_HANDSHAKES_SIGNATURE = 'get_handshakes((Field),u32)';
-const STANDARD_HANDSHAKE_REGISTRY_GET_APP_SILOED_SECRET_SIGNATURE = 'get_app_siloed_secret((Field),(Field),(u8))';
+const STANDARD_HANDSHAKE_REGISTRY_GET_APP_SILOED_SECRET_SIGNATURE = 'get_app_siloed_secret((Field),(Field))';
 
 async function doesSelectorHaveSignature(functionSelector: FunctionSelector, signature: string): Promise<boolean> {
   return functionSelector.equals(await FunctionSelector.fromSignature(signature));
