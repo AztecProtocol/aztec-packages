@@ -162,9 +162,15 @@ impl OffchainReception {
             .map(|collection: FactCollection| OffchainReception { collection })
     }
 
-    /// Decodes and returns the message this reception carries.
-    pub(crate) unconstrained fn message(self) -> OffchainMessage {
-        read_message(self.collection)
+    /// Reads and returns the message this reception carries, decoding it from its fact collection.
+    pub(crate) unconstrained fn read_message(self) -> OffchainMessage {
+        let message_fact = self.collection.facts.find(|f: Fact| f.fact_type_id == OFFCHAIN_MESSAGE_RECEIVED).unwrap();
+        let n = <OffchainMessage as Deserialize>::N;
+        let mut fields = [0; <OffchainMessage as Deserialize>::N];
+        for i in 0..n {
+            fields[i] = message_fact.payload.get(i);
+        }
+        Deserialize::deserialize(fields)
     }
 
     /// Computes the fact-collection id that identifies a message's reception machine in the [fact store](crate::facts).
@@ -187,7 +193,7 @@ impl OffchainReception {
     ) -> Option<OffchainMessageWithContext> {
         // TODO(@mverzilli): we could annotate retractable facts as "final" when their corresponding blocks are below
         // the final tip. Then we could use that as termination condition instead of relying on timestamp arithmetics.
-        let message = self.message();
+        let message = self.read_message();
         let expired = now > message.anchor_block_timestamp + MAX_MSG_TTL;
         let already_processed = self.is_processed();
 
@@ -248,15 +254,4 @@ unconstrained fn to_payload(message: OffchainMessage) -> EphemeralArray<Field> {
         payload.push(fields[i]);
     }
     payload
-}
-
-/// Reads the message body fact back out of a reception collection.
-unconstrained fn read_message(collection: FactCollection) -> OffchainMessage {
-    let message_fact = collection.facts.find(|f: Fact| f.fact_type_id == OFFCHAIN_MESSAGE_RECEIVED).unwrap();
-    let n = <OffchainMessage as Deserialize>::N;
-    let mut fields = [0; <OffchainMessage as Deserialize>::N];
-    for i in 0..n {
-        fields[i] = message_fact.payload.get(i);
-    }
-    Deserialize::deserialize(fields)
 }

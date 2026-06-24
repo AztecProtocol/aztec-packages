@@ -66,7 +66,7 @@ pub unconstrained fn sync_inbox(
     // Ask PXE to resolve each message's originating tx. We pass the tx hashes in reception order, so the resolved txs
     // come back aligned with the reception indices and can be matched back positionally.
     let resolved_txs = get_resolved_txs(active_receptions.map(|reception: OffchainReception| {
-        reception.message().tx_hash.unwrap_or(0)
+        reception.read_message().tx_hash.unwrap_or(0)
     }));
 
     let processable_messages: EphemeralArray<OffchainMessageWithContext> = EphemeralArray::empty();
