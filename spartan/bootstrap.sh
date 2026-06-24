@@ -299,7 +299,15 @@ function bench_inclusion_point {
   export_admin_api_key
   export K8S_ENRICHER=${K8S_ENRICHER:-1}
   export BENCH_RUN_ID="${BENCH_RUN_ID:-$(date -u +%Y%m%d)-incl-${tps}tps-${COMMIT_HASH:0:10}}"
-  bench_inclusion_point_cmds | parallelize 1
+  # Capture the load-test exit code but do NOT abort: a degraded point (e.g. a
+  # higher-TPS point that misses its target, or any failed assertion) still
+  # produced inclusion records worth scraping. We always scrape below, then
+  # re-surface the failure at the end so the job status still reflects it.
+  local test_rc=0
+  bench_inclusion_point_cmds | parallelize 1 || test_rc=$?
+  if [[ "$test_rc" -ne 0 ]]; then
+    echo "[bench_inclusion_point] load test exited ${test_rc}; scraping captured data anyway"
+  fi
 
   local metadata="/tmp/n_tps_timing_data.json"
   local run_json="bench-out/bench-inclusion-${tps}tps-${BENCH_RUN_ID}.json"
@@ -324,6 +332,9 @@ function bench_inclusion_point {
   else
     echo "[bench_inclusion_point] no timing metadata at ${metadata}; skipping scraper"
   fi
+
+  # Re-surface the load-test failure (if any) now that data has been scraped.
+  return "$test_rc"
 }
 
 function network_bench_upload {
