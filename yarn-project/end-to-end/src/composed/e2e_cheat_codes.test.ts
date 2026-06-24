@@ -53,17 +53,33 @@ describe('e2e_cheat_codes', () => {
   });
 
   it('warpL2TimeAtLeastBy with sub-slot duration auto-adjusts to next slot', async () => {
-    const blockBefore = await aztecNode.getBlock(await aztecNode.getBlockNumber());
-    const timestampBefore = Number(blockBefore!.header.globalVariables.timestamp);
-
-    // Duration of 1 second is less than a slot, but should still succeed via auto-adjust.
-    await cheatCodes.warpL2TimeAtLeastBy(nodeDebug, 1);
-
-    const blockNumber = await aztecNode.getBlockNumber();
-    const block = await aztecNode.getBlock(blockNumber);
-    expect(block).toBeDefined();
-    const timestampAfter = Number(block!.header.globalVariables.timestamp);
-    expect(timestampAfter).toBeGreaterThan(timestampBefore);
+    // A 1-second duration is less than a slot, but should still succeed via auto-adjust. As with the sibling
+    // `warpL2TimeAtLeastTo with target in current slot` test, the sequencer running in this composed test advances
+    // L1 by a full slot when it proposes a block. That warp can land between `warpL2TimeAtLeastBy`'s base-timestamp
+    // read and `warpL2TimeAtLeastTo`'s internal re-read, racing the sub-slot target into the past. Retry on that
+    // specific race with a freshly-sampled base; a subsequent slot-jump within the retry window is improbable
+    // enough that a small cap suffices.
+    const maxAttempts = 5;
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const blockBefore = await aztecNode.getBlock(await aztecNode.getBlockNumber());
+      const timestampBefore = Number(blockBefore!.header.globalVariables.timestamp);
+      try {
+        await cheatCodes.warpL2TimeAtLeastBy(nodeDebug, 1);
+        const blockNumber = await aztecNode.getBlockNumber();
+        const block = await aztecNode.getBlock(blockNumber);
+        expect(block).toBeDefined();
+        const timestampAfter = Number(block!.header.globalVariables.timestamp);
+        expect(timestampAfter).toBeGreaterThan(timestampBefore);
+        return;
+      } catch (err) {
+        lastError = err;
+        if (!(err instanceof Error) || !err.message.includes('is not in the future')) {
+          throw err;
+        }
+      }
+    }
+    throw lastError;
   });
 
   it('warpL2TimeAtLeastBy with zero duration throws', async () => {
