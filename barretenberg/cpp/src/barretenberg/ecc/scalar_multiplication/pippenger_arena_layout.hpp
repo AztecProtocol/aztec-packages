@@ -59,7 +59,9 @@ struct VariableWindowSchedule {
     size_t num_windows = 0;
     std::array<uint8_t, VAR_WINDOW_MAX_WINDOWS> window_bits_per_window{}; // window_bits_w for each w
     std::array<uint16_t, VAR_WINDOW_MAX_WINDOWS> bit_base{};              // B_w = Σ_{k<w} c_k, B_0 = 0
-    std::array<uint16_t, VAR_WINDOW_MAX_WINDOWS> num_buckets{};           // 2^(window_bits_w - 1) + 1
+    // 2^(window_bits_w - 1) + 1. uint32_t: window_bits = 17 gives 65537, one past uint16_t, and the
+    // cost model can pick window_bits up to 18 for very large MSMs (n approaching the 2^26 SRS cap).
+    std::array<uint32_t, VAR_WINDOW_MAX_WINDOWS> num_buckets{};
 };
 
 // Per-chunk recursive-affine bucket-reduce output (Stage 6b output cell).
@@ -130,7 +132,7 @@ inline VariableWindowSchedule build_var_window_schedule(size_t num_bits, size_t 
         const size_t window_bits_w = std::min<size_t>(window_bits, bits_remaining);
         sched.bit_base[w] = static_cast<uint16_t>(bit_offset);
         sched.window_bits_per_window[w] = static_cast<uint8_t>(window_bits_w);
-        sched.num_buckets[w] = static_cast<uint16_t>((size_t{ 1 } << (window_bits_w - 1)) + 1);
+        sched.num_buckets[w] = static_cast<uint32_t>((size_t{ 1 } << (window_bits_w - 1)) + 1);
         bit_offset += window_bits_w;
         bits_remaining -= window_bits_w;
         ++w;
