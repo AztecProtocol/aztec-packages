@@ -331,7 +331,7 @@ grep -r "<old_address>" docs/
 
 **For devnet releases:**
 
-**File:** `docs/docs-developers/getting_started_on_devnet.md`
+**File:** `docs/docs-developers/getting_started_on_local_network.md`
 
 - Update `SPONSORED_FPC_ADDRESS` in the environment variables section
 - Update `NODE_URL` if the RPC URL changed
@@ -545,7 +545,7 @@ Iterate until the build passes.
 
 ### Step 14: Review Getting Started Page
 
-**For devnet releases:** Read through `docs/docs-developers/getting_started_on_devnet.md`
+**For devnet releases:** Read through `docs/docs-developers/getting_started_on_local_network.md`
 one final time after all changes are complete.
 
 **For testnet releases:** Read through `docs/docs-developers/getting_started_on_testnet.md`,
