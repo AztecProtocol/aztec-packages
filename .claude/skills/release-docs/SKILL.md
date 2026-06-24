@@ -142,7 +142,7 @@ For example, for a devnet release of `4.1.0-devnet.1`, update `"devnet": "v4.1.0
 The preprocessor (`include_version.js`) reads defaults from this config file, so
 updating it is sufficient — you no longer need to edit hardcoded defaults in JS.
 
-**Network/operator docs** are updated separately in Step 13 after the version
+**Network/operator docs** are updated separately in Step 11 after the version
 snapshot is created (the config update requires the versioned docs directory to exist).
 
 ### Step 6: Generate API Reference Docs
@@ -188,7 +188,7 @@ This creates/updates the API docs in:
 
 If generation fails, check that the tag has the required source code, that
 submodules are initialized, and that dependencies have been built. The build
-step (Step 10) will validate that API reference links resolve correctly.
+step (Step 13) will validate that API reference links resolve correctly.
 
 ### Step 7: Generate CLI Reference Docs
 
@@ -225,7 +225,7 @@ yarn generate:node-api-reference
 This updates `docs/docs-operate/operators/reference/node-api-reference.md`.
 
 The file is auto-generated — do not hand-edit it. When cutting network versioned
-docs (Step 13), the generated content is included in the snapshot automatically.
+docs (Step 11), the generated content is included in the snapshot automatically.
 
 ### Step 8: Update Migration Notes
 
@@ -341,7 +341,7 @@ grep -r "<old_address>" docs/
 **For testnet releases:**
 
 **File:** `docs/docs-developers/getting_started_on_testnet.md` (snapshotted into the
-versioned docs at cut time in Step 13)
+versioned docs at cut time in Step 11)
 
 - Update `NODE_URL` to the testnet RPC endpoint, and keep it **identical** to the
   RPC endpoint in `docs/docs/networks.md` (Step 9). These two are maintained
@@ -357,71 +357,7 @@ Also:
 - Update any testnet RPC URLs or addresses in operator docs under `docs/docs-operate/`
 - Review the testnet section of `docs/docs/networks.md` for accuracy
 
-### Step 11: Run `yarn build` and Fix Issues
-
-**Run after Step 13.** Docusaurus validates `lastVersion` against existing
-versioned dirs, so the build fails if the config points to a version that
-hasn't been cut yet. Actual order: 5–10, 13 (cut), then 11 (build), 12.
-
-**`rc` tags are still mainnet.** Always pass `RELEASE_TYPE=mainnet` explicitly
-for rc-suffixed mainnet builds. The API-doc generation scripts fall back to
-`testnet` for `rc` strings when `RELEASE_TYPE` is unset.
-
-Set the environment variables matching the release type so the build preprocessor
-resolves version placeholders correctly:
-
-- **Devnet**: `DEVNET_TAG=<new_version> RELEASE_TYPE=devnet`
-- **Testnet**: `TESTNET_TAG=<new_version> RELEASE_TYPE=testnet`
-- **Mainnet**: `MAINNET_TAG=<new_version> RELEASE_TYPE=mainnet`
-
-**IMPORTANT:** `COMMIT_TAG` must include the `v` prefix (e.g., `v4.2.0-aztecnr-rc.2`).
-The `#include_aztec_version` macro outputs `COMMIT_TAG` as-is (used for git tags and
-GitHub URLs which require the `v` prefix), while `#include_version_without_prefix` strips
-the `v` to produce the bare version (used for install commands and npm packages). If you
-omit the `v`, all GitHub links and git tag references in the versioned docs will be broken.
-
-**`@aztec/viem` is versioned off the release line.** It mirrors upstream `viem` (e.g.
-`@aztec/viem@2.38.2`) and has no `5.0.0-rc.1`-style version on npm, so never rewrite it to
-the release version. CI won't catch a wrong pin: the import type-checks against the
-auto-linked workspace copy. Tutorials whose example code imports it (token/aave/uniswap
-bridges) must list `@aztec/viem` at its own version in their install command (readers may
-substitute plain `viem` at the same version). Find the pin:
-
-```bash
-grep -rh '"viem": "npm:@aztec/viem@' yarn-project/*/package.json | head -1
-```
-
-```bash
-cd docs && <TAG_VAR>=<new_version> RELEASE_TYPE=<release_type> COMMIT_TAG=v<nodeVersion> yarn build
-```
-
-Fix any issues reported by the build:
-
-- Broken redirect targets (from `validate_redirect_targets.sh`)
-- Broken API reference links (from `validate_api_ref_links.sh`)
-- Spellcheck errors
-
-Iterate until the build passes.
-
-### Step 12: Review Getting Started Page
-
-**For devnet releases:** Read through `docs/docs-developers/getting_started_on_devnet.md`
-one final time after all changes are complete.
-
-**For testnet releases:** Read through `docs/docs-developers/getting_started_on_testnet.md`,
-the testnet section of `docs/docs/networks.md`, and any updated operator docs.
-
-In both cases verify:
-
-- CLI commands use the correct version and flags
-- Fee payment instructions are accurate
-- Block explorer links are correct
-- The SponsoredFPC address matches step 4
-- `NODE_URL` matches the RPC endpoint in `networks.md` (testnet/devnet)
-
-Present a summary of the review to the user for approval.
-
-### Step 13: Cut Versioned Docs
+### Step 11: Cut Versioned Docs
 
 Create a versioned snapshot of the developer docs:
 
@@ -485,7 +421,7 @@ Known hits: `src/clientModules/docsgpt.js` (`heroDescription`),
 `developer_versioned_docs/version-v<new_version>/docs/aztec-js/wallet-sdk/{wallet,dapp}_integration.md`
 (`yarn add @aztec/*@<version>`).
 
-### Step 14: Reconcile `next` Docs Changes Into the New Version
+### Step 12: Reconcile `next` Docs Changes Into the New Version
 
 The new version is cut from the **release tag**, which is older than `next`. Any
 documentation work that merged into `next` after the tag was created may therefore be
@@ -528,7 +464,7 @@ is actually visible:
 
 3. See what `next` changed **directly in the previous versioned snapshot with the same major version number**, and
    apply the equivalent fix to the same file in the new snapshot wherever that file
-   also exists there. Steps 5 and 13 have already overwritten the local version
+   also exists there. Steps 5 and 11 have already overwritten the local version
    configs with the new version, so resolve `<prev_version>` (the previous version
    for this release type, including its `v` prefix) from `origin/next`, **not** the
    working tree:
@@ -560,6 +496,71 @@ is actually visible:
    where applicable). Present a summary of what was found, what was backported, and
    what was intentionally skipped, for user confirmation.
 
+### Step 13: Run `yarn build` and Fix Issues
+
+**Run after the cut (Step 11).** Docusaurus validates `lastVersion` against
+existing versioned dirs, so a build before the snapshot exists fails — the
+config points to a version that hasn't been cut yet. Running it here, after
+Step 12's reconcile, also validates the backported content.
+
+**`rc` tags are still mainnet.** Always pass `RELEASE_TYPE=mainnet` explicitly
+for rc-suffixed mainnet builds. The API-doc generation scripts fall back to
+`testnet` for `rc` strings when `RELEASE_TYPE` is unset.
+
+Set the environment variables matching the release type so the build preprocessor
+resolves version placeholders correctly:
+
+- **Devnet**: `DEVNET_TAG=<new_version> RELEASE_TYPE=devnet`
+- **Testnet**: `TESTNET_TAG=<new_version> RELEASE_TYPE=testnet`
+- **Mainnet**: `MAINNET_TAG=<new_version> RELEASE_TYPE=mainnet`
+
+**IMPORTANT:** `COMMIT_TAG` must include the `v` prefix (e.g., `v4.2.0-aztecnr-rc.2`).
+The `#include_aztec_version` macro outputs `COMMIT_TAG` as-is (used for git tags and
+GitHub URLs which require the `v` prefix), while `#include_version_without_prefix` strips
+the `v` to produce the bare version (used for install commands and npm packages). If you
+omit the `v`, all GitHub links and git tag references in the versioned docs will be broken.
+
+**`@aztec/viem` is versioned off the release line.** It mirrors upstream `viem` (e.g.
+`@aztec/viem@2.38.2`) and has no `5.0.0-rc.1`-style version on npm, so never rewrite it to
+the release version. CI won't catch a wrong pin: the import type-checks against the
+auto-linked workspace copy. Tutorials whose example code imports it (token/aave/uniswap
+bridges) must list `@aztec/viem` at its own version in their install command (readers may
+substitute plain `viem` at the same version). Find the pin:
+
+```bash
+grep -rh '"viem": "npm:@aztec/viem@' yarn-project/*/package.json | head -1
+```
+
+```bash
+cd docs && <TAG_VAR>=<new_version> RELEASE_TYPE=<release_type> COMMIT_TAG=v<nodeVersion> yarn build
+```
+
+Fix any issues reported by the build:
+
+- Broken redirect targets (from `validate_redirect_targets.sh`)
+- Broken API reference links (from `validate_api_ref_links.sh`)
+- Spellcheck errors
+
+Iterate until the build passes.
+
+### Step 14: Review Getting Started Page
+
+**For devnet releases:** Read through `docs/docs-developers/getting_started_on_devnet.md`
+one final time after all changes are complete.
+
+**For testnet releases:** Read through `docs/docs-developers/getting_started_on_testnet.md`,
+the testnet section of `docs/docs/networks.md`, and any updated operator docs.
+
+In both cases verify:
+
+- CLI commands use the correct version and flags
+- Fee payment instructions are accurate
+- Block explorer links are correct
+- The SponsoredFPC address matches step 4
+- `NODE_URL` matches the RPC endpoint in `networks.md` (testnet/devnet)
+
+Present a summary of the review to the user for approval.
+
 ### Step 15: Clean Up Old Versions
 
 #### Developer docs
@@ -590,7 +591,7 @@ release types automatically.
 
 #### Network/operator docs (mainnet and testnet only)
 
-If a network version was cut in Step 13, use the old network version recorded
+If a network version was cut in Step 11, use the old network version recorded
 at the start of that step.
 
 **If this is the first network release for this release type** (no previous
@@ -634,7 +635,9 @@ Check for stash conflicts. Then report to the user:
   release hasn't been tagged yet.
 - **CLI version must match**: The `aztec` CLI must match the network version to get
   the correct canonical FPC address.
-- **Build must pass**: Don't cut versioned docs until `yarn build` succeeds.
+- **Cut before building**: The authoritative `yarn build` runs *after* the cut
+  (Step 13) — it validates `lastVersion` against the new versioned dir, so it
+  cannot run before the snapshot exists. Don't ship until that post-cut build passes.
 - **User confirmation required**: Ask before deleting old versioned docs and before
   adding migration note entries.
 - **Changes land on `next`**: All changes are stashed and moved to the `next` branch
@@ -642,7 +645,7 @@ Check for stash conflicts. Then report to the user:
 - **Reconcile against `next` after cutting**: The new version is cut from the release
   tag, which predates docs changes merged into `next`. After the cut, diff the tag
   against `origin/next` and backport relevant changes — both to source docs **and** to
-  the previous versioned snapshot (see Step 14). This is the most commonly missed step.
+  the previous versioned snapshot (see Step 12). This is the most commonly missed step.
 - **API ref docs**: Generated in Step 6 into `docs/static/typescript-api/` and
   `docs/static/aztec-nr-api/` with stable folder names (`mainnet`, `testnet`,
   `devnet`, `nightly`). The `#api_ref_version` macro resolves to the matching
