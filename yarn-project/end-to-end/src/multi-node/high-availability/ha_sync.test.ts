@@ -40,7 +40,7 @@ const TX_COUNT = 6;
  * checkpoint lands on L1. Uses MultiNodeTestContext with mockGossipSubNetwork and pxeOpts
  * syncChainTip='proposed'.
  */
-describe('multi-node/ha/ha_sync', () => {
+describe('multi-node/high-availability/ha_sync', () => {
   let context: EndToEndContext;
   let logger: Logger;
   let rollup: RollupContract;

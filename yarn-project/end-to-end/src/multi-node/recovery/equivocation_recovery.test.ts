@@ -41,7 +41,7 @@ const NODE_COUNT = 4;
  *
  * Uses MultiNodeTestContext with mockGossipSubNetwork, no initial sequencer, and slasherEnabled.
  */
-describe('multi-node/slashing/equivocation', () => {
+describe('multi-node/recovery/equivocation_recovery', () => {
   let logger: Logger;
   let test: MultiNodeTestContext;
   let nodes: AztecNodeService[];

@@ -16,8 +16,12 @@ export const slashingQuorum = 3;
 export const slashingRoundSize = 4;
 export const aztecEpochDuration = 2;
 
-export const baseHarnessOpts = {
-  numberOfValidators: NUM_VALIDATORS,
+/**
+ * The shared per-test slashing config for the offense-detection suites (`duplicate_proposal`,
+ * `duplicate_attestation`). Spread into a {@link MultiNodeTestContext.setup} call alongside
+ * {@link SLASHER_ENABLED_MULTI_VALIDATOR_OPTS} and `initialValidators` (from `buildMockGossipValidators`).
+ */
+export const baseSlashingOpts = {
   anvilSlotsInAnEpoch: 4,
   listenAddress: '127.0.0.1',
   aztecEpochDuration,

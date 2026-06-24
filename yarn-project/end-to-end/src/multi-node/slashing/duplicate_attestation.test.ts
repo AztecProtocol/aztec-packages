@@ -4,9 +4,20 @@ import { EthAddress } from '@aztec/aztec.js/addresses';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { OffenseType } from '@aztec/slasher';
 
-import { advanceToEpochBeforeProposer, awaitCommitteeExists, awaitOffenseDetected } from '../../../e2e_p2p/shared.js';
-import { ValidatorRegistrationHarness } from '../../validator_registration_harness.js';
-import { AZTEC_SLOT_DURATION, aztecEpochDuration, baseHarnessOpts, slashingRoundSize, slashingUnit } from './setup.js';
+import { advanceToEpochBeforeProposer, awaitCommitteeExists, awaitOffenseDetected } from '../../e2e_p2p/shared.js';
+import {
+  MultiNodeTestContext,
+  SLASHER_ENABLED_MULTI_VALIDATOR_OPTS,
+  buildMockGossipValidators,
+} from '../multi_node_test_context.js';
+import {
+  AZTEC_SLOT_DURATION,
+  NUM_VALIDATORS,
+  aztecEpochDuration,
+  baseSlashingOpts,
+  slashingRoundSize,
+  slashingUnit,
+} from './setup.js';
 
 /**
  * Test that slashing occurs when a validator sends duplicate attestations (equivocation).
@@ -27,26 +38,27 @@ import { AZTEC_SLOT_DURATION, aztecEpochDuration, baseHarnessOpts, slashingRound
  * (from the malicious proposers attesting to multiple proposals). We verify specifically that the duplicate
  * attestation offense is recorded.
  *
- * Setup: MultiNodeTestContext via ValidatorRegistrationHarness on the in-memory mock-gossip bus (no real
- * libp2p). 4 validators, ethSlot=8s, aztecSlot=24s, epoch=2, proofSubEpochs=1024, minTxsPerBlock=0, inboxLag=2
- * (v5 always enforces the timetable).
+ * Setup: MultiNodeTestContext on the in-memory mock-gossip bus (no real libp2p). 4 validators, ethSlot=8s,
+ * aztecSlot=24s, epoch=2, proofSubEpochs=1024, minTxsPerBlock=0, inboxLag=2 (v5 always enforces the timetable).
  */
-describe('multi-node/slashing/equivocation/duplicate_attestation', () => {
-  let harness: ValidatorRegistrationHarness;
+describe('multi-node/slashing/duplicate_attestation', () => {
+  let test: MultiNodeTestContext;
   let nodes: AztecNodeService[];
 
   beforeEach(async () => {
-    harness = await ValidatorRegistrationHarness.create({
-      ...baseHarnessOpts,
+    test = await MultiNodeTestContext.setup({
+      ...SLASHER_ENABLED_MULTI_VALIDATOR_OPTS,
+      ...baseSlashingOpts,
       slashDuplicateAttestationPenalty: slashingUnit,
+      initialValidators: buildMockGossipValidators(NUM_VALIDATORS),
     });
   });
 
   afterEach(async () => {
-    await harness.teardown();
+    await test.teardown();
   });
 
-  const cheatCodes = () => harness.context.context.cheatCodes;
+  const cheatCodes = () => test.context.cheatCodes;
 
   const debugRollup = async () => {
     await cheatCodes().rollup.debugRollup();
@@ -57,19 +69,19 @@ describe('multi-node/slashing/equivocation/duplicate_attestation', () => {
   // the offending attester is the shared key's address. Also exercises DUPLICATE_PROPOSAL as a side effect
   // but asserts specifically that DUPLICATE_ATTESTATION is recorded.
   it('slashes validator who sends duplicate attestations', async () => {
-    const { rollup } = await harness.getContracts();
+    const { rollup } = await test.getSlashingContracts();
 
     // Jump forward to an epoch in the future such that the validator set is not empty
     await cheatCodes().rollup.advanceToEpoch(EpochNumber(4));
     await debugRollup();
 
-    harness.logger.warn('Creating nodes');
+    test.logger.warn('Creating nodes');
 
     // Use validator index 0 for the "malicious" proposer validator key
     const maliciousProposerIndex = 0;
-    const maliciousProposerAddress = harness.addressAt(maliciousProposerIndex);
+    const maliciousProposerAddress = test.addressAt(maliciousProposerIndex);
 
-    harness.logger.warn(`Malicious proposer address: ${maliciousProposerAddress.toString()}`);
+    test.logger.warn(`Malicious proposer address: ${maliciousProposerAddress.toString()}`);
 
     // Create two nodes with the SAME validator key but DIFFERENT coinbase addresses
     // This will cause them to create proposals with different content for the same slot
@@ -77,8 +89,8 @@ describe('multi-node/slashing/equivocation/duplicate_attestation', () => {
     const coinbase1 = EthAddress.random();
     const coinbase2 = EthAddress.random();
 
-    harness.logger.warn(`Creating malicious proposer node 1 with coinbase ${coinbase1.toString()}`);
-    const maliciousNode1 = await harness.createValidatorNode(maliciousProposerIndex, {
+    test.logger.warn(`Creating malicious proposer node 1 with coinbase ${coinbase1.toString()}`);
+    const maliciousNode1 = await test.createValidatorNodeAt(maliciousProposerIndex, {
       coinbase: coinbase1,
       attestToEquivocatedProposals: true, // Attest to all proposals - creates duplicate attestations
       broadcastEquivocatedProposals: true, // Don't abort checkpoint building on duplicate block proposals
@@ -88,8 +100,8 @@ describe('multi-node/slashing/equivocation/duplicate_attestation', () => {
       skipPushProposedBlocksToArchiver: true,
     });
 
-    harness.logger.warn(`Creating malicious proposer node 2 with coinbase ${coinbase2.toString()}`);
-    const maliciousNode2 = await harness.createValidatorNode(maliciousProposerIndex, {
+    test.logger.warn(`Creating malicious proposer node 2 with coinbase ${coinbase2.toString()}`);
+    const maliciousNode2 = await test.createValidatorNodeAt(maliciousProposerIndex, {
       coinbase: coinbase2,
       attestToEquivocatedProposals: true, // Attest to all proposals - creates duplicate attestations
       broadcastEquivocatedProposals: true, // Don't abort checkpoint building on duplicate block proposals
@@ -100,13 +112,13 @@ describe('multi-node/slashing/equivocation/duplicate_attestation', () => {
     });
 
     // Create honest nodes with unique validator keys (indices 1 and 2)
-    harness.logger.warn('Creating honest nodes');
-    const honestNode1 = await harness.createValidatorNode(1, { dontStartSequencer: true });
-    const honestNode2 = await harness.createValidatorNode(2, { dontStartSequencer: true });
+    test.logger.warn('Creating honest nodes');
+    const honestNode1 = await test.createValidatorNodeAt(1, { dontStartSequencer: true });
+    const honestNode2 = await test.createValidatorNodeAt(2, { dontStartSequencer: true });
 
     nodes = [maliciousNode1, maliciousNode2, honestNode1, honestNode2];
 
-    await awaitCommitteeExists({ rollup, logger: harness.logger });
+    await awaitCommitteeExists({ rollup, logger: test.logger });
 
     // Find an epoch where the malicious proposer is selected, stopping one epoch before
     // so we have time to start sequencers before the target epoch arrives
@@ -115,11 +127,11 @@ describe('multi-node/slashing/equivocation/duplicate_attestation', () => {
       epochCache,
       cheatCodes: cheatCodes().rollup,
       targetProposer: maliciousProposerAddress,
-      logger: harness.logger,
+      logger: test.logger,
     });
 
     // Start all sequencers while still one epoch before the target
-    harness.logger.warn('Starting all sequencers');
+    test.logger.warn('Starting all sequencers');
     await Promise.all(nodes.map(n => n.getSequencer()!.start()));
 
     // Now warp to one slot before the target epoch — sequencers are already running. The helper
@@ -128,24 +140,24 @@ describe('multi-node/slashing/equivocation/duplicate_attestation', () => {
     // build for the malicious slot begins. Without that margin the duplicate proposals serialize
     // past the slot boundary and receivers reject them as late, so the malicious nodes never get to
     // attest to both and no duplicate attestation is produced.
-    harness.logger.warn(`Advancing to one slot before target epoch ${targetEpoch} (target slot ${targetSlot})`);
+    test.logger.warn(`Advancing to one slot before target epoch ${targetEpoch} (target slot ${targetSlot})`);
     await cheatCodes().rollup.advanceToEpoch(targetEpoch, { offset: -AZTEC_SLOT_DURATION });
 
     // Wait for offenses to be detected
     // We expect BOTH duplicate proposal AND duplicate attestation offenses
     // The malicious proposer nodes create duplicate proposals (same key, different coinbase)
     // The malicious proposer nodes also create duplicate attestations (attestToEquivocatedProposals enabled)
-    harness.logger.warn('Waiting for duplicate attestation offense to be detected...');
+    test.logger.warn('Waiting for duplicate attestation offense to be detected...');
     const offenses = await awaitOffenseDetected({
       epochDuration: aztecEpochDuration,
-      logger: harness.logger,
+      logger: test.logger,
       nodeAdmin: honestNode1, // Use honest node to check for offenses
       slashingRoundSize,
       waitUntilOffenseCount: 2, // Wait for both duplicate proposal and duplicate attestation
       timeoutSeconds: AZTEC_SLOT_DURATION * 16,
     });
 
-    harness.logger.warn(`Collected offenses`, { offenses });
+    test.logger.warn(`Collected offenses`, { offenses });
 
     // Verify we have detected the duplicate attestation offense
     const duplicateAttestationOffenses = offenses.filter(
@@ -155,8 +167,8 @@ describe('multi-node/slashing/equivocation/duplicate_attestation', () => {
       offense => offense.offenseType === OffenseType.DUPLICATE_PROPOSAL,
     );
 
-    harness.logger.info(`Found ${duplicateAttestationOffenses.length} duplicate attestation offenses`);
-    harness.logger.info(`Found ${duplicateProposalOffenses.length} duplicate proposal offenses`);
+    test.logger.info(`Found ${duplicateAttestationOffenses.length} duplicate attestation offenses`);
+    test.logger.info(`Found ${duplicateProposalOffenses.length} duplicate proposal offenses`);
 
     // We should have at least one duplicate attestation offense
     expect(duplicateAttestationOffenses.length).toBeGreaterThan(0);
@@ -172,12 +184,12 @@ describe('multi-node/slashing/equivocation/duplicate_attestation', () => {
     for (const offense of duplicateAttestationOffenses) {
       const offenseSlot = SlotNumber(Number(offense.epochOrSlot));
       const committeeInfo = await epochCache.getCommittee(offenseSlot);
-      harness.logger.info(
+      test.logger.info(
         `Offense slot ${offenseSlot}: committee includes attester ${maliciousProposerAddress.toString()}`,
       );
       expect(committeeInfo.committee?.map(addr => addr.toString())).toContain(maliciousProposerAddress.toString());
     }
 
-    harness.logger.warn('Duplicate attestation offense correctly detected and recorded');
+    test.logger.warn('Duplicate attestation offense correctly detected and recorded');
   });
 });

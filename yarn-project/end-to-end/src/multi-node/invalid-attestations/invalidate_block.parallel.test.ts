@@ -46,7 +46,7 @@ const BASE_ANVIL_PORT = getAnvilPort();
 // checkpoints, then verifies the next good proposer invalidates them and the chain progresses.
 // Slasher is enabled. Uses MultiNodeTestContext with mockGossipSubNetwork, no initial sequencer, no
 // prover node; ports are port-bumped per test via anvilPortOffset to support parallel execution.
-describe('multi-node/slashing/invalidate_block', () => {
+describe('multi-node/invalid-attestations/invalidate_block', () => {
   let context: EndToEndContext;
   let logger: Logger;
   let l1Client: ExtendedViemWalletClient;

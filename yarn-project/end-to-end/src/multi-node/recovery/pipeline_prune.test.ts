@@ -47,7 +47,7 @@ const TX_COUNT = 34;
  * network conditions. Relocated from the dissolved `mbps.pipeline.parallel` file. Uses MultiNodeTestContext
  * with mockGossipSubNetwork and no initial sequencer.
  */
-describe('multi-node/prune/pipeline_prune', () => {
+describe('multi-node/recovery/pipeline_prune', () => {
   let context: EndToEndContext;
   let logger: Logger;
   let archiver: Archiver;

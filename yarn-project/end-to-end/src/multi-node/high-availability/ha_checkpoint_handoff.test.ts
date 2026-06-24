@@ -66,12 +66,8 @@ const VALIDATOR_COUNT = 4;
  * `findConsecutiveSamePairSlots` recovers from `ValidatorSelection__EpochNotStable` by warping forward one epoch, and
  * the test warps to one L1 slot before S1's build slot before starting the sequencers. Routing of S1→builder and
  * S2→peer uses the test-only `pauseProposingForSlots` hook.
- *
- * Proposed category: `multi-node` (epochs/) — 4 validators on the mock gossip bus (mirrors
- * `epochs_orphan_block_prune` / `epochs_simple_block_building`). See the inline REFACTOR markers for hand-rolled
- * coordination a DSL helper should replace.
  */
-describe('multi-node/ha/ha_checkpoint_handoff', () => {
+describe('multi-node/high-availability/ha_checkpoint_handoff', () => {
   let context: EndToEndContext;
   let logger: Logger;
   let rollup: RollupContract;

@@ -1,17 +1,21 @@
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
+import { RollupContract, type SlashingProposerContract } from '@aztec/ethereum/contracts';
 import type { Operator } from '@aztec/ethereum/deploy-aztec-l1-contracts';
+import type { ViemClient } from '@aztec/ethereum/types';
 import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
+import { SlasherAbi } from '@aztec/l1-artifacts';
 import type { L2Tips } from '@aztec/stdlib/block';
 import type { AztecNode, BlockResponse } from '@aztec/stdlib/interfaces/client';
 import { createSharedSlashingProtectionDb } from '@aztec/validator-ha-signer/factory';
 import type { SlashingProtectionDatabase } from '@aztec/validator-ha-signer/types';
 
+import { type GetContractReturnType, getAddress, getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
@@ -43,7 +47,7 @@ export type RegisteredValidator = Operator & { privateKey: `0x${string}` };
  * keyed from `getPrivateKeyFromIndex(i + 3)` (indices 0..2 are reserved for the setup account,
  * bootstrap node, and prover node, matching the `P2PNetworkTest` convention). This replaces the
  * `times(N, i => ({ attester, withdrawer, privateKey, bn254SecretKey }))` block copy-pasted in every
- * direct multi-validator test, and backs {@link ValidatorRegistrationHarness.buildValidators}.
+ * direct multi-validator test.
  */
 export function buildMockGossipValidators(count: number): RegisteredValidator[] {
   return times(count, i => {
@@ -66,6 +70,25 @@ export const MOCK_GOSSIP_MULTI_VALIDATOR_OPTS = {
   aztecProofSubmissionEpochs: 1024,
   numberOfAccounts: 0,
 } as const;
+
+/**
+ * The `setup` preset for a slasher-enabled committee on the in-memory mock-gossip bus, used by the
+ * offense-detection tests (`slashing/`). Mirrors {@link MOCK_GOSSIP_MULTI_VALIDATOR_OPTS} but turns
+ * the slasher on; spread alongside `initialValidators` (from {@link buildMockGossipValidators}) and
+ * the per-test slashing-round/penalty config.
+ */
+export const SLASHER_ENABLED_MULTI_VALIDATOR_OPTS = {
+  mockGossipSubNetwork: true,
+  skipInitialSequencer: true,
+  slasherEnabled: true,
+} as const;
+
+/** The slasher and slashing-proposer L1 contracts a slashing test interacts with. */
+export type SlashingContracts = {
+  rollup: RollupContract;
+  slasherContract: GetContractReturnType<typeof SlasherAbi, ViemClient>;
+  slashingProposer: SlashingProposerContract | undefined;
+};
 
 /** The per-offense penalty knobs a slashing test tunes; all default to a single `unit`. */
 export type SlashingPenalties = {
@@ -178,6 +201,18 @@ export async function setupHaPairs(
  * parent so the single-node-topology tests share them.
  */
 export class MultiNodeTestContext extends SingleNodeTestContext {
+  /**
+   * The validators registered on-chain at genesis (from `opts.initialValidators`). Tests spawn nodes
+   * for whichever validators they want online via {@link createValidatorNodeAt}; the rest stay
+   * registered-but-offline. Empty for single-validator-less topologies.
+   */
+  public validators: RegisteredValidator[] = [];
+
+  public override async setup(opts: MultiNodeTestOpts = {}) {
+    this.validators = (opts.initialValidators as RegisteredValidator[] | undefined) ?? [];
+    await super.setup(opts);
+  }
+
   public createValidatorNode(
     privateKeys: `0x${string}`[],
     opts: Partial<AztecNodeConfig> & {
@@ -187,6 +222,45 @@ export class MultiNodeTestContext extends SingleNodeTestContext {
   ) {
     this.logger.warn('Creating and syncing a validator node...');
     return this.createNode({ ...opts, disableValidator: false, validatorPrivateKeys: new SecretValue(privateKeys) });
+  }
+
+  /** Returns the validator registered at on-chain index `index` (0-based into {@link validators}). */
+  public validatorAt(index: number): RegisteredValidator {
+    return this.validators[index];
+  }
+
+  /** The L1 attester address of the validator registered at `index`. */
+  public addressAt(index: number): EthAddress {
+    return this.validators[index].attester;
+  }
+
+  /** The L1 signing key of the validator registered at `index`. */
+  public privateKeyAt(index: number): `0x${string}` {
+    return this.validators[index].privateKey;
+  }
+
+  /**
+   * Spawns a validator node on the mock-gossip bus signing with the validator registered at `index`.
+   * Pass the same `index` to two calls (with different `coinbase`) to model an equivocating proposer
+   * that shares a key across two nodes.
+   */
+  public createValidatorNodeAt(
+    index: number,
+    opts: Partial<AztecNodeConfig> & { dontStartSequencer?: boolean } = {},
+  ): Promise<AztecNodeService> {
+    return this.createValidatorNode([this.privateKeyAt(index)], opts);
+  }
+
+  /** Resolves the rollup, slasher, and slashing-proposer L1 contracts a slashing test interacts with. */
+  public async getSlashingContracts(): Promise<SlashingContracts> {
+    const rollup = this.rollup;
+    const slasherContract = getContract({
+      address: getAddress((await rollup.getSlasherAddress()).toString()),
+      abi: SlasherAbi,
+      client: this.l1Client,
+    });
+    const slashingProposer = await rollup.getSlashingProposer();
+    return { rollup, slasherContract, slashingProposer };
   }
 
   /**
