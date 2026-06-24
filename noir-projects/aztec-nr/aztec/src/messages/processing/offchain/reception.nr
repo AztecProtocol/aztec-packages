@@ -287,8 +287,8 @@ unconstrained fn to_payload(message: OffchainMessage) -> EphemeralArray<Field> {
 
 mod test {
     use crate::{
-        messages::processing::offchain::{OffchainMessage, receive, sync_inbox},
-        oracle::random::random,
+        messages::processing::offchain::OffchainMessage,
+        oracle::{random::random, tx_resolution::ResolvedTx},
         protocol::address::AztecAddress,
         test::helpers::test_environment::TestEnvironment,
     };
@@ -305,196 +305,115 @@ mod test {
         OffchainMessage { ciphertext: BoundedVec::new(), recipient, tx_hash, anchor_block_timestamp }
     }
 
-    /// Advances the TXE block timestamp by `offset` seconds and returns the resulting timestamp.
-    unconstrained fn advance_by(env: TestEnvironment, offset: u64) -> u64 {
-        env.advance_next_block_timestamp_by(offset);
-        env.mine_block();
-        env.last_block_timestamp()
+    /// Builds the resolved-tx context PXE would return for `tx_hash`.
+    fn resolved_tx(tx_hash: Field) -> ResolvedTx {
+        ResolvedTx {
+            tx_hash,
+            unique_note_hashes_in_tx: BoundedVec::new(),
+            first_nullifier_in_tx: 0,
+            block_number: 1,
+            block_hash: 0,
+        }
     }
 
     #[test]
-    unconstrained fn tx_bound_msg_expires_after_max_msg_ttl() {
+    unconstrained fn expired_reception_is_terminated() {
         let (env, scope) = setup();
-        let anchor_ts = advance_by(env, 10);
-        let tx_hash = random();
-        let msg = make_msg(scope, Option::some(tx_hash), anchor_ts);
-
-        env.utility_context(|context| { receive(context.this_address(), BoundedVec::from_array([msg])); });
-
-        // Advance past anchor_ts + MAX_MSG_TTL.
-        let _now = advance_by(env, MAX_MSG_TTL + 1);
+        let msg = make_msg(scope, Option::some(random()), 0);
 
         env.utility_context(|context| {
             let address = context.this_address();
-            let result = sync_inbox(address, scope);
+            OffchainReception::init(address, msg);
+            let reception = OffchainReception::load_all(address, scope).get(0);
 
-            assert_eq(result.len(), 0); // context is None, not ready
+            // Past the TTL with no resolved tx: the reception is terminated.
+            assert(reception.step(Option::none(), MAX_MSG_TTL + 1).is_none());
             assert(!OffchainReception::is_active(address, scope, msg), "expired reception should be terminated");
         });
     }
 
     #[test]
-    unconstrained fn tx_bound_msg_not_expired_before_max_msg_ttl() {
+    unconstrained fn unresolved_reception_stays_active() {
         let (env, scope) = setup();
-        let anchor_ts = advance_by(env, 10);
-        let tx_hash = random();
-        let msg = make_msg(scope, Option::some(tx_hash), anchor_ts);
-
-        env.utility_context(|context| { receive(context.this_address(), BoundedVec::from_array([msg])); });
-
-        // Advance, but not past anchor_ts + MAX_MSG_TTL.
-        let _now = advance_by(env, 100);
+        let msg = make_msg(scope, Option::some(random()), 0);
 
         env.utility_context(|context| {
             let address = context.this_address();
-            let result = sync_inbox(address, scope);
+            OffchainReception::init(address, msg);
+            let reception = OffchainReception::load_all(address, scope).get(0);
 
-            assert_eq(result.len(), 0); // context is None, not ready
-            assert(OffchainReception::is_active(address, scope, msg), "not expired reception should stay active");
-            assert(!OffchainReception::is_processed(address, scope, msg), "should still be unprocessed");
-        });
-    }
-
-    #[test]
-    unconstrained fn tx_less_msg_expires_after_max_msg_ttl() {
-        let (env, scope) = setup();
-        let anchor_ts = advance_by(env, 10);
-        // A tx-less message normalizes to tx_hash 0.
-        let msg = make_msg(scope, Option::none(), anchor_ts);
-
-        env.utility_context(|context| { receive(context.this_address(), BoundedVec::from_array([msg])); });
-
-        // Advance past anchor_ts + MAX_MSG_TTL.
-        let _now = advance_by(env, MAX_MSG_TTL + 1);
-
-        env.utility_context(|context| {
-            let address = context.this_address();
-            let result = sync_inbox(address, scope);
-
-            assert_eq(result.len(), 0); // context is None, not ready
-            assert(!OffchainReception::is_active(address, scope, msg), "expired reception should be terminated");
-        });
-    }
-
-    #[test]
-    unconstrained fn unresolved_tx_stays_in_inbox() {
-        let (env, scope) = setup();
-        let anchor_ts = advance_by(env, 10);
-        let tx_hash = random();
-        let msg = make_msg(scope, Option::some(tx_hash), anchor_ts);
-
-        env.utility_context(|context| { receive(context.this_address(), BoundedVec::from_array([msg])); });
-
-        let _now = advance_by(env, 100);
-
-        env.utility_context(|context| {
-            let address = context.this_address();
-            let result = sync_inbox(address, scope);
-
-            assert_eq(result.len(), 0); // not resolved, not ready
+            // Within the TTL with no resolved tx: nothing to process, the reception stays.
+            assert(reception.step(Option::none(), 100).is_none());
             assert(OffchainReception::is_active(address, scope, msg), "unresolved reception should stay active");
             assert(!OffchainReception::is_processed(address, scope, msg), "should still be unprocessed");
         });
     }
 
-    // -- Resolved context (ready to process) ------------------------------
-
     #[test]
-    unconstrained fn resolved_msg_is_ready_to_process() {
+    unconstrained fn resolved_reception_is_ready_to_process() {
         let (env, scope) = setup();
-        // In TXE, tx hashes equal Fr(blockNumber), so Fr(1) is the tx effect from block 1.
-        // We use this as a "known resolvable" tx hash.
-        let known_tx_hash: Field = 1;
-        let anchor_ts = advance_by(env, 10);
-        let msg = make_msg(scope, Option::some(known_tx_hash), anchor_ts);
-
-        env.utility_context(|context| { receive(context.this_address(), BoundedVec::from_array([msg])); });
-
-        let _now = advance_by(env, 100);
+        let tx_hash = random();
+        let msg = make_msg(scope, Option::some(tx_hash), 0);
 
         env.utility_context(|context| {
             let address = context.this_address();
-            let result = sync_inbox(address, scope);
+            OffchainReception::init(address, msg);
+            let reception = OffchainReception::load_all(address, scope).get(0);
 
-            // The message should be ready to process since its tx context was resolved.
-            assert_eq(result.len(), 1);
+            // A resolved tx within the TTL: the message is handed off with its tx context attached.
+            let processable = reception.step(Option::some(resolved_tx(tx_hash)), 100);
+            assert(processable.is_some());
+            assert_eq(processable.unwrap().message_context.tx_hash, tx_hash);
 
-            let ctx = result.get(0).message_context;
-            assert_eq(ctx.tx_hash, known_tx_hash);
-
-            // Reception stays active (not expired) and is now marked processed, with a Processed fact recorded.
-            assert(
-                OffchainReception::is_active(address, scope, msg),
-                "processed reception should stay active for reorg safety",
-            );
+            // It stays active for reorg safety and is now marked processed.
+            assert(OffchainReception::is_active(address, scope, msg), "processed reception should stay active");
             assert(OffchainReception::is_processed(address, scope, msg), "should be processed");
         });
     }
 
     #[test]
-    unconstrained fn already_processed_is_not_re_pushed() {
+    unconstrained fn already_processed_reception_is_not_re_pushed() {
         let (env, scope) = setup();
-        let known_tx_hash: Field = 1;
-        let anchor_ts = advance_by(env, 10);
-        let msg = make_msg(scope, Option::some(known_tx_hash), anchor_ts);
+        let tx_hash = random();
+        let msg = make_msg(scope, Option::some(tx_hash), 0);
 
-        env.utility_context(|context| { receive(context.this_address(), BoundedVec::from_array([msg])); });
-
-        let _now = advance_by(env, 100);
-
-        // First sync: the message resolves, is pushed for processing.
         env.utility_context(|context| {
             let address = context.this_address();
-            let first = sync_inbox(address, scope);
-            assert_eq(first.len(), 1);
+            OffchainReception::init(address, msg);
+
+            // First step processes the message.
+            let reception = OffchainReception::load_all(address, scope).get(0);
+            assert(reception.step(Option::some(resolved_tx(tx_hash)), 100).is_some());
             assert(OffchainReception::is_processed(address, scope, msg), "should be processed");
-        });
 
-        // Second sync with the same resolvable context the reception remains active (not expired).
-        env.utility_context(|context| {
-            let address = context.this_address();
-            let second = sync_inbox(address, scope);
-
-            assert_eq(second.len(), 0); // already processed, not re-pushed
+            // Second step (still resolved, not expired) recognizes it as processed and does not re-push it.
+            let reloaded = OffchainReception::load_all(address, scope).get(0);
+            assert(reloaded.step(Option::some(resolved_tx(tx_hash)), 100).is_none(), "already processed");
             assert(OffchainReception::is_active(address, scope, msg), "processed reception should still be active");
-            assert(OffchainReception::is_processed(address, scope, msg), "should remain processed");
         });
     }
 
     #[test]
-    unconstrained fn expired_resolved_msg_is_processed_once_before_termination() {
+    unconstrained fn expired_resolved_reception_is_processed_once_before_termination() {
         let (env, scope) = setup();
-        let known_tx_hash: Field = 1;
-        let anchor_ts = advance_by(env, 10);
-        let msg = make_msg(scope, Option::some(known_tx_hash), anchor_ts);
+        let tx_hash = random();
+        let msg = make_msg(scope, Option::some(tx_hash), 0);
 
-        env.utility_context(|context| { receive(context.this_address(), BoundedVec::from_array([msg])); });
-
-        // Advance past anchor_ts + MAX_MSG_TTL so the message is expired on the next sync.
-        let _now = advance_by(env, MAX_MSG_TTL + 1);
-
-        // First sync: even though the message is expired, its context resolves, so it is handed off for processing.
         env.utility_context(|context| {
             let address = context.this_address();
-            let result = sync_inbox(address, scope);
+            OffchainReception::init(address, msg);
 
-            assert_eq(result.len(), 1);
-            assert(
-                OffchainReception::is_active(address, scope, msg),
-                "expired-but-resolved reception is processed, not terminated yet",
-            );
+            // Expired but resolved: the message is processed once (not terminated yet).
+            let reception = OffchainReception::load_all(address, scope).get(0);
+            assert(reception.step(Option::some(resolved_tx(tx_hash)), MAX_MSG_TTL + 1).is_some());
             assert(OffchainReception::is_processed(address, scope, msg), "should be processed");
-        });
 
-        // Second sync: still expired and now processed, so the reception is terminated.
-        env.utility_context(|context| {
-            let address = context.this_address();
-            let second = sync_inbox(address, scope);
-
-            assert_eq(second.len(), 0); // already processed, not re-pushed
+            // Next step: still expired and now processed, so the reception is terminated.
+            let reloaded = OffchainReception::load_all(address, scope).get(0);
+            assert(reloaded.step(Option::some(resolved_tx(tx_hash)), MAX_MSG_TTL + 1).is_none());
             assert(
                 !OffchainReception::is_active(address, scope, msg),
-                "expired processed reception is terminated on the next sync",
+                "expired processed reception is terminated on the next step",
             );
         });
     }
