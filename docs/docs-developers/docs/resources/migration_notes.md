@@ -80,6 +80,8 @@ The account entrypoint no longer takes a `cancellable` flag. It now always emits
 
 The init kernel also injects a protocol nullifier `H(tx_request)` that protects against replay, but that hash covers the fee settings, so it changes when fees change. The `tx_nonce` nullifier is the only one that stays fixed across a fee bump, which is what makes cancellation (resubmitting at a higher fee) work.
 
+Note that this nullifier is now emitted on every account-initiated transaction (previously only when `cancellable` was set), so each such transaction pays the data-availability cost of one extra nullifier.
+
 **Aztec.nr:** `AccountActions::entrypoint` drops its `cancellable` parameter. Account contracts that wrap it must update both the call and their own `entrypoint` function signature.
 
 ```diff

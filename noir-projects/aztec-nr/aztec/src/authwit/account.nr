@@ -59,6 +59,9 @@ impl AccountActions<&mut PrivateContext> {
     /// nullifier that survives a fee bump (and hence the only one usable for cancellation), which is why the
     /// entrypoint always emits it.
     ///
+    /// This adds one nullifier to every account-initiated transaction, a small data-availability cost now paid
+    /// unconditionally (previously only when the removed `cancellable` flag was set).
+    ///
     pub fn entrypoint(self, app_payload: AppPayload, fee_payment_method: u8) {
         let valid_fn = self.is_valid_impl;
 
