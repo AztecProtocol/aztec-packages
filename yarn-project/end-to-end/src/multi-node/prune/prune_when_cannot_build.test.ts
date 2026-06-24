@@ -6,8 +6,8 @@ import { retryUntil } from '@aztec/foundation/retry';
 
 import { jest } from '@jest/globals';
 
-import type { EndToEndContext } from '../fixtures/utils.js';
-import { EpochsTestContext } from './epochs_test.js';
+import type { EndToEndContext } from '../../fixtures/utils.js';
+import { MultiNodeTestContext } from '../multi_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -18,7 +18,7 @@ jest.setTimeout(1000 * 60 * 10);
 // `prune()` despite being unable to propose.
 //
 // Timing: ethSlot=8s, aztecSlot=2×8=16s, epoch=8, proofSubmissionEpochs=1.
-describe('e2e_epochs/epochs_prune_when_cannot_build', () => {
+describe('multi-node/prune/prune_when_cannot_build', () => {
   let context: EndToEndContext;
   let logger: Logger;
   let rollup: RollupContract;
@@ -26,10 +26,10 @@ describe('e2e_epochs/epochs_prune_when_cannot_build', () => {
 
   let L2_SLOT_DURATION_IN_S: number;
 
-  let test: EpochsTestContext;
+  let test: MultiNodeTestContext;
 
   beforeEach(async () => {
-    test = await EpochsTestContext.setup({
+    test = await MultiNodeTestContext.setup({
       startProverNode: false, // Nothing ever proves epoch 0, so its pending chain stays unproven and becomes prunable.
       ethereumSlotDuration: 8,
       aztecEpochDuration: 8, // Long enough to land a few checkpoints in epoch 0.
