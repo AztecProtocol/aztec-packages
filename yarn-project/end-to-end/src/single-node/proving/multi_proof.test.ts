@@ -1,7 +1,5 @@
 import type { Logger } from '@aztec/aztec.js/log';
-import { RollupContract } from '@aztec/ethereum/contracts';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
-import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 
@@ -20,7 +18,6 @@ jest.setTimeout(1000 * 60 * 10);
 // all land at the same L1 block.
 describe('single-node/proving/multi_proof', () => {
   let context: EndToEndContext;
-  let rollup: RollupContract;
   let constants: L1RollupConstants;
   let logger: Logger;
 
@@ -32,7 +29,7 @@ describe('single-node/proving/multi_proof', () => {
     // Don't start prover node during setup - we'll create and manage all prover nodes in the test
     // This ensures we can apply delay patches before any prover starts proving
     test = await SingleNodeTestContext.setup({ startProverNode: false });
-    ({ context, rollup, constants, logger, L1_BLOCK_TIME_IN_S } = test);
+    ({ context, constants, logger, L1_BLOCK_TIME_IN_S } = test);
   });
 
   afterEach(async () => {
@@ -89,19 +86,7 @@ describe('single-node/proving/multi_proof', () => {
     logger.info(`Starting epoch 1 with length ${firstEpochLength} after L2 block ${firstEpochLastBlockNum}`);
 
     // Wait until all three provers have submitted proofs
-    // REFACTOR: hand-rolled retryUntil polling loop over Promise.all per-prover submission check;
-    // a DSL helper like waitForAllProversToSubmit(proverIds, epoch) would centralise this pattern.
-    await retryUntil(
-      async () => {
-        const haveSubmitted = await Promise.all(
-          proverIds.map(proverId => rollup.getHasSubmittedProof(EpochNumber(0), firstEpochLength, proverId)),
-        );
-        logger.info(`Proof submissions: ${haveSubmitted.join(', ')}`);
-        return haveSubmitted.every(submitted => submitted);
-      },
-      'Provers have submitted proofs',
-      120,
-    );
+    await test.waitForAllProversToSubmit(EpochNumber(0), firstEpochLength);
 
     const provenBlockNumber = await context.aztecNode.getBlockNumber('proven');
     expect(provenBlockNumber).toEqual(firstEpochLastBlockNum);

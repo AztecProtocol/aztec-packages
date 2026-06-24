@@ -2,7 +2,6 @@ import type { AztecNodeService } from '@aztec/aztec-node';
 import type { TestAztecNodeService } from '@aztec/aztec-node/test';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { retryUntil } from '@aztec/foundation/retry';
 import { OffenseType } from '@aztec/slasher';
 
 import { advanceToEpochBeforeProposer, awaitCommitteeExists, awaitOffenseDetected } from '../../e2e_p2p/shared.js';
@@ -152,16 +151,10 @@ describe('multi-node/slashing/duplicate_proposal', () => {
     // Poll every node for DUPLICATE_PROPOSAL offenses, retrying briefly so any node that detected
     // the duplicate after the initial offense was collected has time to flush it through the
     // slasher's offenses-collector.
-    const proposalOffenses = await retryUntil(
-      async () => {
-        const allOffenses = (await Promise.all(nodes.map(n => n.getSlashOffenses('all')))).flat();
-        const filtered = allOffenses.filter(o => o.offenseType === OffenseType.DUPLICATE_PROPOSAL);
-        if (filtered.length > 0) {
-          return filtered;
-        }
-      },
-      'duplicate proposal offense',
-      AZTEC_SLOT_DURATION * 4,
+    const proposalOffenses = await test.waitForOffenseOnNodes(
+      nodes,
+      o => o.offenseType === OffenseType.DUPLICATE_PROPOSAL,
+      { mode: 'any', timeout: AZTEC_SLOT_DURATION * 4 },
     );
 
     test.logger.warn(`Collected duplicate proposal offenses`, { proposalOffenses });

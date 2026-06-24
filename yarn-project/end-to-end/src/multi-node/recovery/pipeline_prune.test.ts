@@ -1,15 +1,12 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import type { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
-import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { waitForTx } from '@aztec/aztec.js/node';
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { timesAsync } from '@aztec/foundation/collection';
-import { retryUntil } from '@aztec/foundation/retry';
 import { executeTimeout } from '@aztec/foundation/timer';
 import type { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { SequencerEvents } from '@aztec/sequencer-client';
@@ -19,7 +16,7 @@ import { jest } from '@jest/globals';
 
 import type { EndToEndContext } from '../../fixtures/utils.js';
 import type { TestWallet } from '../../test-wallet/test_wallet.js';
-import { proveInteraction } from '../../test-wallet/utils.js';
+import { proveAndSendTxs } from '../../test-wallet/utils.js';
 import {
   type BlockProposedEvent,
   MBPS_TIMING,
@@ -107,55 +104,6 @@ describe('multi-node/recovery/pipeline_prune', () => {
     logger.warn(`Test setup completed.`, { validators: validators.map(v => v.attester.toString()) });
   }
 
-  /**
-   * Waits until the archiver's checkpointed chain tip has reached `targetBlockNumber`, then retrieves all checkpoints,
-   * checks that one has the target block count, and returns its number.
-   */
-  async function assertMultipleBlocksPerSlot(
-    targetBlockCount: number,
-    targetBlockNumber: BlockNumber,
-    logger: Logger,
-  ): Promise<CheckpointNumber> {
-    await retryUntil(
-      async () => {
-        const checkpointed = await archiver.getBlockNumber({ tag: 'checkpointed' });
-        return checkpointed !== undefined && checkpointed >= targetBlockNumber;
-      },
-      `archiver checkpointed block ${targetBlockNumber}`,
-      10,
-      0.1,
-    );
-
-    const checkpoints = await archiver.getCheckpoints({ from: CheckpointNumber(1), limit: 50 });
-    logger.warn(`Retrieved ${checkpoints.length} checkpoints from archiver`, {
-      checkpoints: checkpoints.map(pc => pc.checkpoint.getStats()),
-    });
-
-    let expectedBlockNumber = checkpoints[0].checkpoint.blocks[0].number;
-    let multiBlockCheckpointNumber: CheckpointNumber | undefined;
-
-    for (const checkpoint of checkpoints) {
-      const blockCount = checkpoint.checkpoint.blocks.length;
-      if (blockCount >= targetBlockCount && multiBlockCheckpointNumber === undefined) {
-        multiBlockCheckpointNumber = checkpoint.checkpoint.number;
-      }
-      logger.warn(`Checkpoint ${checkpoint.checkpoint.number} has ${blockCount} blocks`, {
-        checkpoint: checkpoint.checkpoint.getStats(),
-      });
-
-      for (let i = 0; i < blockCount; i++) {
-        const block = checkpoint.checkpoint.blocks[i];
-        expect(block.indexWithinCheckpoint).toBe(i);
-        expect(block.checkpointNumber).toBe(checkpoint.checkpoint.number);
-        expect(block.number).toBe(expectedBlockNumber);
-        expectedBlockNumber++;
-      }
-    }
-
-    expect(multiBlockCheckpointNumber).toBeDefined();
-    return multiBlockCheckpointNumber!;
-  }
-
   afterEach(async () => {
     jest.restoreAllMocks();
     await test?.teardown();
@@ -169,16 +117,18 @@ describe('multi-node/recovery/pipeline_prune', () => {
     await setupTest({ syncChainTip: 'checkpointed', minTxsPerBlock: 1, maxTxsPerBlock: 2 });
 
     const blockProposedEvents: BlockProposedEvent[] = [];
-    const sequencers = nodes.map(n => n.getSequencer()!);
+    const sequencers = test.getSequencers(nodes);
 
     // Pre-prove and send transactions
-    const txs = await timesAsync(TX_COUNT, i =>
-      proveInteraction(context.wallet, contract.methods.emit_nullifier(new Fr(i + 1)), { from }),
+    const txHashes = await proveAndSendTxs(
+      context.wallet,
+      TX_COUNT,
+      i => contract.methods.emit_nullifier(new Fr(i + 1)),
+      { from },
     );
-    const txHashes = await Promise.all(txs.map(tx => tx.send({ wait: NO_WAIT })));
     logger.warn(`Sent ${txHashes.length} transactions`, { txs: txHashes });
 
-    await Promise.all(sequencers.map(s => s.start()));
+    await test.startSequencers(nodes);
     logger.warn(`Started all sequencers`);
 
     // Assert that at least 1 checkpoint has been reached
@@ -240,7 +190,10 @@ describe('multi-node/recovery/pipeline_prune', () => {
 
     // Verify MBPS works with pipelining; target the highest block number across mined receipts
     const maxMinedBlockNumber = BlockNumber(Math.max(...receipts.map(r => r.blockNumber ?? 0)));
-    await assertMultipleBlocksPerSlot(EXPECTED_BLOCKS_PER_CHECKPOINT, maxMinedBlockNumber, logger);
+    await test.assertMultipleBlocksPerSlot(EXPECTED_BLOCKS_PER_CHECKPOINT, {
+      targetBlock: maxMinedBlockNumber,
+      archiver,
+    });
 
     // Verify the pipelining offset: build slot N vs submission slot N+1
     await test.assertProposerPipelining(archiver, blockProposedEvents, logger);

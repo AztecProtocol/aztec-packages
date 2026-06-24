@@ -441,9 +441,8 @@ describe('multi-node/invalid-attestations/invalidate_block', () => {
 
     // Warp to one L1 block before warpSlot, so the sequencers have a full L2 slot to boot and settle
     // pipelining before the build window for warpSlot+1 opens at the end of warpSlot.
-    const warpTo = getTimestampForSlot(warpSlot, test.constants) - BigInt(test.L1_BLOCK_TIME_IN_S);
-    logger.warn(`Warping L1 to ${warpTo}, one L1 block before slot ${warpSlot}`, { warpSlot, badSlot1, badSlot2 });
-    await test.context.cheatCodes.eth.warp(Number(warpTo), { resetBlockInterval: true });
+    logger.warn(`Warping L1 to one L1 block before slot ${warpSlot}`, { warpSlot, badSlot1, badSlot2 });
+    await test.warpToBuildWindowForSlot(warpSlot);
 
     // Start all sequencers with default (good) config and wait for the first checkpoint to land,
     // so the chain is moving before we apply the bad config to the proposers of the bad slots.
@@ -677,10 +676,8 @@ describe('multi-node/invalid-attestations/invalidate_block', () => {
     // window for P1, so the first proposer job that can observe the malicious config is the
     // intended checkpoint, not an earlier slot owned by the same validator.
     const buildSlot = SlotNumber.add(badSlot1, -1);
-    const buildSlotStart = getTimestampForSlot(buildSlot, test.constants);
-    const warpTo = buildSlotStart - BigInt(test.L1_BLOCK_TIME_IN_S);
-    logger.warn(`Warping L1 to timestamp ${warpTo} (one L1 block before build slot ${buildSlot})`);
-    await test.context.cheatCodes.eth.warp(Number(warpTo), { resetBlockInterval: true });
+    logger.warn(`Warping L1 to one L1 block before build slot ${buildSlot}`);
+    await test.warpToBuildWindowForSlot(buildSlot);
 
     await Promise.all(sequencers.map(s => s.start()));
     logger.warn(`Started all sequencers after warping to the target build window`);

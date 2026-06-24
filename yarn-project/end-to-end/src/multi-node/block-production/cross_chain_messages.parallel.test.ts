@@ -1,5 +1,4 @@
 import { EthAddress } from '@aztec/aztec.js/addresses';
-import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { generateClaimSecret } from '@aztec/aztec.js/ethereum';
 import { Fr } from '@aztec/aztec.js/fields';
 import { isL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
@@ -11,8 +10,8 @@ import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 
 import { sendL1ToL2Message } from '../../fixtures/l1_to_l2_messaging.js';
 import { waitForBlockNumber, waitForTxs } from '../../fixtures/wait_helpers.js';
-import { proveInteraction } from '../../test-wallet/utils.js';
-import { type MbpsFixture, assertMultipleBlocksPerSlot, jest, setupMbps, waitForProvenCheckpoint } from './setup.js';
+import { proveAndSendTxs } from '../../test-wallet/utils.js';
+import { type MbpsFixture, jest, setupMbps, waitForProvenCheckpoint } from './setup.js';
 
 const TX_COUNT = 10;
 
@@ -35,27 +34,22 @@ describe('multi-node/block-production/cross_chain_messages', () => {
     const { test, context, logger, archiver, nodes, wallet, from } = fixture;
 
     // Start sequencers first, then deploy cross-chain contract (needs running sequencer to mine).
-    await Promise.all(nodes.map(n => n.getSequencer()!.start()));
+    await test.startSequencers(nodes);
     logger.warn(`Started all sequencers`);
 
     logger.warn(`Deploying cross-chain test contract`);
     const { contract: crossChainContract } = await TestContract.deploy(wallet).send({ from });
     logger.warn(`Cross-chain test contract deployed at ${crossChainContract.address}`);
 
-    // Pre-prove all L2→L1 message transactions
+    // Pre-prove and send all L2→L1 message transactions at once
     const l2ToL1Recipient = EthAddress.fromString(context.deployL1ContractsValues.l1Client.account.address);
     logger.warn(`Pre-proving ${TX_COUNT} L2→L1 message transactions`);
-    const txs = await timesAsync(TX_COUNT, () =>
-      proveInteraction(
-        wallet,
-        crossChainContract.methods.create_l2_to_l1_message_arbitrary_recipient_public(Fr.random(), l2ToL1Recipient),
-        { from },
-      ),
+    const txHashes = await proveAndSendTxs(
+      wallet,
+      TX_COUNT,
+      () => crossChainContract.methods.create_l2_to_l1_message_arbitrary_recipient_public(Fr.random(), l2ToL1Recipient),
+      { from },
     );
-    logger.warn(`Pre-proved ${txs.length} L2→L1 message transactions`);
-
-    // Send all transactions at once
-    const txHashes = await Promise.all(txs.map(tx => tx.send({ wait: NO_WAIT })));
     logger.warn(`Sent ${txHashes.length} L2→L1 message transactions`);
 
     // Wait until all txs are mined
@@ -73,7 +67,10 @@ describe('multi-node/block-production/cross_chain_messages', () => {
 
     // Mirror the sibling MBPS tests: we may lose one sub-slot to pipelined overhead, so accept >= 2
     // blocks per checkpoint rather than the legacy 3-block expectation.
-    const multiBlockCheckpoint = await assertMultipleBlocksPerSlot(fixture, 2);
+    const multiBlockCheckpoint = await fixture.test.assertMultipleBlocksPerSlot(2, {
+      wait: true,
+      archiver: fixture.archiver,
+    });
 
     // Verify L2→L1 messages are in the blocks
     const checkpoints = await archiver.getCheckpoints({ from: CheckpointNumber(1), limit: 50 });
@@ -102,7 +99,7 @@ describe('multi-node/block-production/cross_chain_messages', () => {
     const { test, context, logger, nodes, contract, wallet, from } = fixture;
 
     // Start sequencers first, then deploy cross-chain contract (needs running sequencer to mine).
-    await Promise.all(nodes.map(n => n.getSequencer()!.start()));
+    await test.startSequencers(nodes);
     logger.warn(`Started all sequencers`);
 
     logger.warn(`Deploying cross-chain test contract`);
@@ -129,15 +126,14 @@ describe('multi-node/block-production/cross_chain_messages', () => {
     });
     logger.warn(`Seeded ${l1ToL2Messages.length} L1→L2 messages`);
 
-    // Pre-prove filler txs (using unique nullifiers to avoid conflicts)
+    // Pre-prove and send all filler txs at once (using unique nullifiers to avoid conflicts)
     logger.warn(`Pre-proving ${FILLER_TX_COUNT} filler txs to advance the chain`);
-    const fillerTxs = await timesAsync(FILLER_TX_COUNT, i =>
-      proveInteraction(wallet, contract.methods.emit_nullifier(new Fr(1000 + i)), { from }),
+    const fillerTxHashes = await proveAndSendTxs(
+      wallet,
+      FILLER_TX_COUNT,
+      i => contract.methods.emit_nullifier(new Fr(1000 + i)),
+      { from },
     );
-    logger.warn(`Pre-proved ${fillerTxs.length} filler txs`);
-
-    // Send all filler txs at once (without waiting for them to be mined)
-    const fillerTxHashes = await Promise.all(fillerTxs.map(tx => tx.send({ wait: NO_WAIT })));
     logger.warn(`Sent ${fillerTxHashes.length} filler txs`);
 
     // Wait for filler txs to be mined first - this ensures the chain has advanced enough for messages to be ready
@@ -160,32 +156,32 @@ describe('multi-node/block-production/cross_chain_messages', () => {
     );
     logger.warn(`All ${l1ToL2Messages.length} L1→L2 messages are ready`);
 
-    // Pre-prove all consume transactions (to avoid nonce conflicts when sending in parallel)
+    // Pre-prove and send all consume transactions at once (proving up front avoids nonce conflicts)
     logger.warn(`Pre-proving ${l1ToL2Messages.length} consume transactions`);
-    const consumeTxs = await timesAsync(l1ToL2Messages.length, i => {
-      const { content, secret, globalLeafIndex } = l1ToL2Messages[i];
-      return proveInteraction(
-        wallet,
-        crossChainContract.methods.consume_message_from_arbitrary_sender_public(
+    const consumeTxHashes = await proveAndSendTxs(
+      wallet,
+      l1ToL2Messages.length,
+      i => {
+        const { content, secret, globalLeafIndex } = l1ToL2Messages[i];
+        return crossChainContract.methods.consume_message_from_arbitrary_sender_public(
           content,
           secret,
           ethAccount,
           globalLeafIndex,
-        ),
-        { from },
-      );
-    });
-    logger.warn(`Pre-proved ${consumeTxs.length} consume transactions`);
-
-    // Send all consume transactions at once
-    const consumeTxHashes = await Promise.all(consumeTxs.map(tx => tx.send({ wait: NO_WAIT })));
+        );
+      },
+      { from },
+    );
     logger.warn(`Sent ${consumeTxHashes.length} consume transactions`);
 
     // Wait for all consume txs to be mined
     await waitForTxs(context.aztecNode, consumeTxHashes, { timeout });
     logger.warn(`All ${consumeTxHashes.length} L1→L2 messages consumed`);
 
-    const multiBlockCheckpoint = await assertMultipleBlocksPerSlot(fixture, 2);
+    const multiBlockCheckpoint = await fixture.test.assertMultipleBlocksPerSlot(2, {
+      wait: true,
+      archiver: fixture.archiver,
+    });
     await waitForProvenCheckpoint(fixture, multiBlockCheckpoint);
   });
 });

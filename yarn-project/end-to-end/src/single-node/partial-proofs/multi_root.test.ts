@@ -22,6 +22,7 @@ import { type TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 
 import { type Hex, decodeEventLog } from 'viem';
 
+import { waitForL2ToL1Witness } from '../../fixtures/wait_helpers.js';
 import { SingleNodeTestContext, jest } from './setup.js';
 
 // Suite: verifies the AZIP-14 partial-proof multi-root Outbox design. Drives an EpochTestSettler
@@ -222,14 +223,7 @@ describe('single-node/partial-proofs/multi_root', () => {
 
     // Consume msg2 against the smallest covering root the node picks (K=2).
     {
-      // REFACTOR: hand-rolled retryUntil waiting for L2ToL1 membership witness availability; a
-      // DSL helper like waitForL2ToL1MembershipWitness(txHash, leaf) would encapsulate the retry.
-      const witness = await retryUntil(
-        () => node.getL2ToL1MembershipWitness(sends[1].receipt.txHash, sends[1].leaf),
-        'K=2 membership witness',
-        30,
-        1,
-      );
+      const witness = await waitForL2ToL1Witness(node, sends[1].receipt.txHash, sends[1].leaf);
       expect(witness).toBeDefined();
       expect(witness.epochNumber).toBe(epoch);
       expect(witness.numCheckpointsInEpoch).toBe(2);
@@ -251,12 +245,7 @@ describe('single-node/partial-proofs/multi_root', () => {
     // the second consume reverts due to the shared bitmap.
     {
       // K=1 path (default node choice).
-      const witnessK1 = await retryUntil(
-        () => node.getL2ToL1MembershipWitness(sends[0].receipt.txHash, sends[0].leaf),
-        'K=1 membership witness',
-        30,
-        1,
-      );
+      const witnessK1 = await waitForL2ToL1Witness(node, sends[0].receipt.txHash, sends[0].leaf);
       expect(witnessK1.numCheckpointsInEpoch).toBe(1);
       expect(witnessK1.root.toString()).toBe(root1.toString());
       await expectConsumeSucceeds(sends[0].msg, sends[0].leaf, witnessK1, epoch);
@@ -287,12 +276,7 @@ describe('single-node/partial-proofs/multi_root', () => {
 
     // Replay protection: consuming msg2 again (now under any covering root) reverts.
     {
-      const witness = await retryUntil(
-        () => node.getL2ToL1MembershipWitness(sends[1].receipt.txHash, sends[1].leaf),
-        'replay membership witness',
-        30,
-        1,
-      );
+      const witness = await waitForL2ToL1Witness(node, sends[1].receipt.txHash, sends[1].leaf);
       await expect(
         outbox.consume(
           sends[1].msg,
@@ -317,12 +301,7 @@ describe('single-node/partial-proofs/multi_root', () => {
       const root4 = computeEpochOutHash(messagesPerCheckpoint.slice(0, 4));
       await retryUntil(async () => !(await outbox.getRoots(epoch))[3].isZero(), 'K=4 root visible', 10, 0.1);
 
-      const witness = await retryUntil(
-        () => node.getL2ToL1MembershipWitness(sends[3].receipt.txHash, sends[3].leaf),
-        'K=4 membership witness',
-        30,
-        1,
-      );
+      const witness = await waitForL2ToL1Witness(node, sends[3].receipt.txHash, sends[3].leaf);
       expect(witness.numCheckpointsInEpoch).toBe(4);
       expect(witness.root.toString()).toBe(root4.toString());
       await expectConsumeSucceeds(sends[3].msg, sends[3].leaf, witness, epoch);

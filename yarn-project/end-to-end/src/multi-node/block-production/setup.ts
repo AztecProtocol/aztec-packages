@@ -31,8 +31,10 @@ import { proveInteraction } from '../../test-wallet/utils.js';
 import {
   type BlockProposedEvent,
   MBPS_TIMING,
+  MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
   MV_CONSENSUS_TIMING,
   MultiNodeTestContext,
+  type MultiNodeTestOpts,
   type RegisteredValidator,
   type TrackedSequencerEvent,
   buildMockGossipValidators,
@@ -48,6 +50,50 @@ export const NODE_COUNT = 4;
 // - Checkpoint 1: Block 1 (0 txs), Block 2 (2 txs), Block 3 (2 txs)
 // - Checkpoint 2: Block 1 (2 txs), Block 2 (2 txs), Block 3 (2 txs)
 export const TX_COUNT = 10;
+
+/** The validator cluster + context produced by {@link setupBlockProduction}. */
+export type BlockProductionFixture = {
+  test: MultiNodeTestContext;
+  context: EndToEndContext;
+  logger: Logger;
+  validators: RegisteredValidator[];
+  nodes: AztecNodeService[];
+  from: AztecAddress;
+};
+
+/**
+ * Stands up the `block-production` validator cluster shared by the `MV_CONSENSUS_TIMING` tests
+ * (`simple`, `high_tps`): builds `nodeCount` mock-gossip validators, sets up the context with the
+ * consensus timing profile, spawns one validator node per validator, and returns the cluster. The
+ * per-test divergence (`fakeProcessingDelayPerTxMs`, `txDelayerMaxInclusionTimeIntoSlot`,
+ * min/maxTxsPerBlock, whether sequencers start eagerly, contract type) passes through `opts`. Mirrors
+ * how {@link setupMbps} factors out the MBPS setup; the test still registers its own contract.
+ */
+export async function setupBlockProduction(opts: {
+  nodeCount: number;
+  setupOpts?: Partial<MultiNodeTestOpts>;
+  nodeOpts?: Partial<AztecNodeConfig> & { dontStartSequencer?: boolean };
+}): Promise<BlockProductionFixture> {
+  const validators = buildMockGossipValidators(opts.nodeCount);
+
+  const test = await MultiNodeTestContext.setup({
+    ...MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
+    ...MV_CONSENSUS_TIMING,
+    initialValidators: validators,
+    ...opts.setupOpts,
+  });
+
+  const { context, logger } = test;
+  const from = context.accounts[0]; // auto-created by setup
+
+  logger.warn(`Initial setup complete. Starting ${opts.nodeCount} validator nodes.`);
+  const nodes = await asyncMap(validators, ({ privateKey }) =>
+    test.createValidatorNode([privateKey], { ...opts.nodeOpts }),
+  );
+  logger.warn(`Started ${opts.nodeCount} validator nodes.`, { validators: validators.map(v => v.attester.toString()) });
+
+  return { test, context, logger, validators, nodes, from };
+}
 
 /** State shared by the MBPS-timing `it`s (handles 4 validators + prover + a wallet pointed at node 0). */
 export type MbpsFixture = {
@@ -106,10 +152,7 @@ export async function setupMbps(opts: {
     test.createValidatorNode([privateKey], { dontStartSequencer: true }),
   );
   logger.warn(`Started ${NODE_COUNT} validator nodes.`, { validators: validators.map(v => v.attester.toString()) });
-  const { failEvents } = test.watchSequencerEvents(
-    nodes.map(n => n.getSequencer()!),
-    i => ({ validator: validators[i].attester }),
-  );
+  const { failEvents } = test.watchNodeSequencerEvents(nodes);
 
   // Point the wallet at a validator node. The initial node-0 has all validator keys in its config,
   // so it rejects block proposals from validators thinking they come from itself. By redirecting
@@ -122,56 +165,6 @@ export async function setupMbps(opts: {
   logger.warn(`Test setup completed.`, { validators: validators.map(v => v.attester.toString()) });
 
   return { test, context, logger, rollup, archiver, validators, nodes, contract, wallet, from, failEvents };
-}
-
-/** Retrieves all checkpoints from the archiver, checks that one has the target block count, and returns its number. */
-export async function assertMultipleBlocksPerSlot(
-  fixture: MbpsFixture,
-  targetBlockCount: number,
-): Promise<CheckpointNumber> {
-  const { test, archiver, logger } = fixture;
-  // Wait for the first validator's archiver to index a checkpoint with the target block count.
-  // waitForTx polls the initial setup node, but this archiver belongs to nodes[0] (the first
-  // validator). They sync L1 independently, so there's a race window of ~200-400ms.
-  const waitTimeout = test.L2_SLOT_DURATION_IN_S * 3;
-  await retryUntil(
-    async () => {
-      const checkpoints = await archiver.getCheckpoints({ from: CheckpointNumber(1), limit: 50 });
-      return checkpoints.some(pc => pc.checkpoint.blocks.length >= targetBlockCount) || undefined;
-    },
-    `checkpoint with at least ${targetBlockCount} blocks`,
-    waitTimeout,
-    0.5,
-  );
-
-  const checkpoints = await archiver.getCheckpoints({ from: CheckpointNumber(1), limit: 50 });
-  logger.warn(`Retrieved ${checkpoints.length} checkpoints from archiver`, {
-    checkpoints: checkpoints.map(pc => pc.checkpoint.getStats()),
-  });
-
-  let expectedBlockNumber = checkpoints[0].checkpoint.blocks[0].number;
-  let multiBlockCheckpointNumber: CheckpointNumber | undefined;
-
-  for (const checkpoint of checkpoints) {
-    const blockCount = checkpoint.checkpoint.blocks.length;
-    if (blockCount >= targetBlockCount && multiBlockCheckpointNumber === undefined) {
-      multiBlockCheckpointNumber = checkpoint.checkpoint.number;
-    }
-    logger.warn(`Checkpoint ${checkpoint.checkpoint.number} has ${blockCount} blocks`, {
-      checkpoint: checkpoint.checkpoint.getStats(),
-    });
-
-    for (let i = 0; i < blockCount; i++) {
-      const block = checkpoint.checkpoint.blocks[i];
-      expect(block.indexWithinCheckpoint).toBe(i);
-      expect(block.checkpointNumber).toBe(checkpoint.checkpoint.number);
-      expect(block.number).toBe(expectedBlockNumber);
-      expectedBlockNumber++;
-    }
-  }
-
-  expect(multiBlockCheckpointNumber).toBeDefined();
-  return multiBlockCheckpointNumber!;
 }
 
 /** Waits until a specific multi-block checkpoint is proven, verifying that proving succeeds with MBPS blocks. */

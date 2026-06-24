@@ -1,20 +1,18 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
-import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Delayer } from '@aztec/ethereum/l1-tx-utils';
 import type { ChainMonitor } from '@aztec/ethereum/test';
-import { timesAsync } from '@aztec/foundation/collection';
 import type { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 
 import type { EndToEndContext } from '../../fixtures/utils.js';
-import { proveInteraction } from '../../test-wallet/utils.js';
+import { proveAndSendTxs } from '../../test-wallet/utils.js';
 import { FAST_REORG_TIMING, SingleNodeTestContext } from '../single_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 20);
@@ -80,12 +78,12 @@ export class L1ReorgsTest {
   /** Pre-proves and sends `count` txs to generate L2 activity for multi-block checkpoints. */
   public async sendTransactions(count: number, offset = 0): Promise<TxHash[]> {
     this.logger.warn(`Pre-proving ${count} transactions`);
-    const txs = await timesAsync(count, i =>
-      proveInteraction(this.context.wallet, this.contract.methods.emit_nullifier(new Fr(offset + i + 1)), {
-        from: this.from,
-      }),
+    const txHashes = await proveAndSendTxs(
+      this.context.wallet,
+      count,
+      i => this.contract.methods.emit_nullifier(new Fr(offset + i + 1)),
+      { from: this.from },
     );
-    const txHashes = await Promise.all(txs.map(tx => tx.send({ wait: NO_WAIT })));
     this.logger.warn(`Sent ${txHashes.length} transactions`);
     return txHashes;
   }

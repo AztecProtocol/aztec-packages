@@ -1,19 +1,14 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
-import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
-import type { ChainMonitorEventMap } from '@aztec/ethereum/test';
 import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { timesAsync } from '@aztec/foundation/collection';
-import { AbortError } from '@aztec/foundation/error';
 import { sleep } from '@aztec/foundation/sleep';
-import { executeTimeout } from '@aztec/foundation/timer';
 import type { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { SequencerState } from '@aztec/sequencer-client';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 
 import { jest } from '@jest/globals';
 
-import { proveInteraction } from '../../test-wallet/utils.js';
+import { proveAndSendTxs } from '../../test-wallet/utils.js';
 import { SingleNodeTestContext } from '../single_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
@@ -128,10 +123,12 @@ describe('single-node/misc/missed_l1_slot', () => {
     // Pre-prove a batch of txs and send them so blocks have content while building checkpoints.
     // Done before waiting for the early checkpoint so that mbps is exercised by the time we pause.
     logger.info(`Pre-proving ${TX_COUNT} transactions`);
-    const txs = await timesAsync(TX_COUNT, i =>
-      proveInteraction(context.wallet, contract.methods.emit_nullifier(new Fr(i + 1)), { from }),
+    const txHashes = await proveAndSendTxs(
+      context.wallet,
+      TX_COUNT,
+      i => contract.methods.emit_nullifier(new Fr(i + 1)),
+      { from },
     );
-    const txHashes = await Promise.all(txs.map(tx => tx.send({ wait: NO_WAIT })));
     logger.info(`Sent ${txHashes.length} transactions`);
 
     // Step 1: Wait for a checkpoint published in the first half of its L2 slot.
@@ -140,42 +137,20 @@ describe('single-node/misc/missed_l1_slot', () => {
     // slot (e.g. in the last L1 slot of L2 slot N), slotFromL1Sync would already be N and the
     // bug would not be exercised.
     logger.info('Waiting for a checkpoint published in the first half of its L2 slot...');
-    // REFACTOR: raw on-off subscription to ChainMonitor 'checkpoint' event; replace with a
-    // DSL helper that waits for the first checkpoint satisfying a predicate (e.g. inFirstHalfOfSlot).
-    const checkpointEvent = await executeTimeout(
-      signal =>
-        new Promise<ChainMonitorEventMap['checkpoint'][0]>((res, rej) => {
-          const handleCheckpoint = (...[ev]: ChainMonitorEventMap['checkpoint']) => {
-            // Skip the genesis checkpoint.
-            if (ev.checkpointNumber === 0) {
-              return;
-            }
-            const slotStart = getTimestampForSlot(ev.l2SlotNumber, constants);
-            // Half-slot cutoff keeps slotFromL1Sync at N-1 with comfortable margin: at the cutoff
-            // the next L1 block lands at slotStart + L2_SLOT_DURATION/2 + L1_BLOCK_TIME, which is
-            // still well within slot N (since L1 < L2/2).
-            const cutoff = slotStart + BigInt(Math.floor(L2_SLOT_DURATION / 2));
-            if (ev.timestamp < cutoff) {
-              logger.info(
-                `Checkpoint ${ev.checkpointNumber} in slot ${ev.l2SlotNumber} at L1 timestamp ${ev.timestamp}`,
-                { slotStart, cutoff },
-              );
-              res(ev);
-              monitor.off('checkpoint', handleCheckpoint);
-            } else {
-              logger.info(
-                `Skipping checkpoint ${ev.checkpointNumber}: published at ${ev.timestamp} (cutoff ${cutoff})`,
-              );
-            }
-          };
-          signal.onabort = () => {
-            monitor.off('checkpoint', handleCheckpoint);
-            rej(new AbortError());
-          };
-          monitor.on('checkpoint', handleCheckpoint);
-        }),
-      120_000,
-      'Wait for early checkpoint',
+    const checkpointEvent = await monitor.waitForCheckpoint(
+      ev => {
+        // Skip the genesis checkpoint.
+        if (ev.checkpointNumber === 0) {
+          return false;
+        }
+        const slotStart = getTimestampForSlot(ev.l2SlotNumber, constants);
+        // Half-slot cutoff keeps slotFromL1Sync at N-1 with comfortable margin: at the cutoff the
+        // next L1 block lands at slotStart + L2_SLOT_DURATION/2 + L1_BLOCK_TIME, which is still well
+        // within slot N (since L1 < L2/2).
+        const cutoff = slotStart + BigInt(Math.floor(L2_SLOT_DURATION / 2));
+        return ev.timestamp < cutoff;
+      },
+      { timeout: 120_000 },
     );
 
     const checkpointSlotNumber = checkpointEvent.l2SlotNumber;
@@ -220,28 +195,11 @@ describe('single-node/misc/missed_l1_slot', () => {
       `Waiting for sequencer to reach INITIALIZING_CHECKPOINT for target slot ${targetSlotForBugFixCycle} ` +
         `(build slot ${nextSlotNumber}) during mining pause...`,
     );
-    // REFACTOR: raw on-off subscription to sequencer 'state-changed' event; a DSL helper that
-    // waits for a specific (state, slot) pair would eliminate the manual Promise + signal cleanup.
-    await executeTimeout(
-      signal =>
-        new Promise<void>((res, rej) => {
-          const stateListener = (args: { newState: SequencerState; targetSlot?: SlotNumber }) => {
-            if (
-              args.newState === SequencerState.INITIALIZING_CHECKPOINT &&
-              args.targetSlot === targetSlotForBugFixCycle
-            ) {
-              sequencer.off('state-changed', stateListener);
-              res();
-            }
-          };
-          signal.onabort = () => {
-            sequencer.off('state-changed', stateListener);
-            rej(new AbortError());
-          };
-          sequencer.on('state-changed', stateListener);
-        }),
-      L2_SLOT_DURATION * 3 * 1000,
-      `Wait for sequencer INITIALIZING_CHECKPOINT at target slot ${targetSlotForBugFixCycle}`,
+    await test.waitForSequencerEvent(
+      sequencer,
+      'state-changed',
+      args => args.newState === SequencerState.INITIALIZING_CHECKPOINT && args.targetSlot === targetSlotForBugFixCycle,
+      { timeout: L2_SLOT_DURATION * 3 * 1000 },
     );
 
     logger.info(

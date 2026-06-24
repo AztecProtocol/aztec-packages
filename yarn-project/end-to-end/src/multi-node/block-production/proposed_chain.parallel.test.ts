@@ -1,19 +1,10 @@
-import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import { SlotNumber } from '@aztec/foundation/branded-types';
-import { timesAsync } from '@aztec/foundation/collection';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TxStatus } from '@aztec/stdlib/tx';
 
-import { proveInteraction } from '../../test-wallet/utils.js';
-import {
-  type MbpsFixture,
-  TX_COUNT,
-  assertMultipleBlocksPerSlot,
-  jest,
-  setupMbps,
-  waitForProvenCheckpoint,
-} from './setup.js';
+import { proveAndSendTxs, proveInteraction } from '../../test-wallet/utils.js';
+import { type MbpsFixture, TX_COUNT, jest, setupMbps, waitForProvenCheckpoint } from './setup.js';
 
 // Production of a multi-block proposed slot: txs anchor to the proposed tip and the wallet syncs to it,
 // and a non-validator re-executes then cold-syncs the checkpointed multi-block slot. Both share the
@@ -31,14 +22,14 @@ describe('multi-node/block-production/proposed_chain', () => {
   // non-decreasing. Asserts ≥2 blocks per checkpoint and waits for the MBPS checkpoint to be proven.
   it('builds multiple blocks per slot with transactions anchored to proposed blocks', async () => {
     fixture = await setupMbps({ syncChainTip: 'proposed', minTxsPerBlock: 1, maxTxsPerBlock: 1 });
-    const { context, logger, rollup, nodes, contract, wallet, from } = fixture;
+    const { test, context, logger, rollup, nodes, contract, wallet, from } = fixture;
 
     // Record the current checkpoint number before starting sequencers
     const initialCheckpointNumber = await rollup.getCheckpointNumber();
     logger.warn(`Initial checkpoint number: ${initialCheckpointNumber}`);
 
     // Start the sequencers
-    await Promise.all(nodes.map(n => n.getSequencer()!.start()));
+    await test.startSequencers(nodes);
     logger.warn(`Started all sequencers`);
 
     // Now send the txs and wait for them to be mined one at a time
@@ -64,7 +55,10 @@ describe('multi-node/block-production/proposed_chain', () => {
     logger.warn(`All txs have been mined`);
 
     // We are fine with at least 2 blocks per checkpoint, since we may lose one sub-slot if assembling a tx is slow
-    const multiBlockCheckpoint = await assertMultipleBlocksPerSlot(fixture, 2);
+    const multiBlockCheckpoint = await fixture.test.assertMultipleBlocksPerSlot(2, {
+      wait: true,
+      archiver: fixture.archiver,
+    });
     await waitForProvenCheckpoint(fixture, multiBlockCheckpoint);
   });
 
@@ -82,17 +76,16 @@ describe('multi-node/block-production/proposed_chain', () => {
       skipPushProposedBlocksToArchiver: false,
     });
 
-    await Promise.all(nodes.map(n => n.getSequencer()!.start()));
+    await test.startSequencers(nodes);
     logger.warn(`Started all sequencers`);
 
     logger.warn(`Pre-proving ${TX_COUNT / 2} transactions`);
-    const txs = await timesAsync(TX_COUNT / 2, i => {
-      const nullifier = new Fr(i + 100);
-      return proveInteraction(context.wallet, contract.methods.emit_nullifier(nullifier), { from });
-    });
-    logger.warn(`Pre-proved ${txs.length} transactions`);
-
-    const sentTxHashes = await Promise.all(txs.map(tx => tx.send({ wait: NO_WAIT })));
+    const sentTxHashes = await proveAndSendTxs(
+      context.wallet,
+      TX_COUNT / 2,
+      i => contract.methods.emit_nullifier(new Fr(i + 100)),
+      { from },
+    );
     logger.warn(`Sent ${sentTxHashes.length} transactions`);
 
     const nonValidatorArchiver = nonValidatorNode.getBlockSource();
@@ -155,7 +148,10 @@ describe('multi-node/block-production/proposed_chain', () => {
       0.5,
     );
 
-    const multiBlockCheckpoint = await assertMultipleBlocksPerSlot(fixture, 2);
+    const multiBlockCheckpoint = await fixture.test.assertMultipleBlocksPerSlot(2, {
+      wait: true,
+      archiver: fixture.archiver,
+    });
     await waitForProvenCheckpoint(fixture, multiBlockCheckpoint);
   });
 });

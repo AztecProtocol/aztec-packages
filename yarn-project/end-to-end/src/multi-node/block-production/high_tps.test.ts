@@ -1,25 +1,17 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
-import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import type { Logger } from '@aztec/aztec.js/log';
 import { waitForTx } from '@aztec/aztec.js/node';
-import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { chunkBy, timesAsync } from '@aztec/foundation/collection';
+import { chunkBy } from '@aztec/foundation/collection';
 import { sleepUntil } from '@aztec/foundation/sleep';
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { getSlotAtTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 
 import type { EndToEndContext } from '../../fixtures/utils.js';
-import { proveInteraction } from '../../test-wallet/utils.js';
-import {
-  MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
-  MV_CONSENSUS_TIMING,
-  MultiNodeTestContext,
-  type RegisteredValidator,
-  buildMockGossipValidators,
-} from '../multi_node_test_context.js';
-import { jest } from './setup.js';
+import { proveAndSendTxs } from '../../test-wallet/utils.js';
+import type { MultiNodeTestContext, RegisteredValidator } from '../multi_node_test_context.js';
+import { jest, setupBlockProduction } from './setup.js';
 
 const NODE_COUNT = 3;
 
@@ -79,29 +71,19 @@ describe('multi-node/block-production/high_tps', () => {
   let from: AztecAddress;
 
   beforeEach(async () => {
-    validators = buildMockGossipValidators(NODE_COUNT);
-
-    test = await MultiNodeTestContext.setup({
-      ...MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
-      ...MV_CONSENSUS_TIMING,
-      initialValidators: validators,
-      fakeProcessingDelayPerTxMs: TX_DURATION_MS,
-      attestationPropagationTime: 1,
-      minTxsPerBlock: 1,
-      maxTxsPerBlock: 100,
-    });
-
-    ({ context, logger } = test);
-    from = context.accounts[0]; // auto-created by setup
-
     // Start the validator nodes. Note the txDelayerMaxInclusionTimeIntoSlot is set to 1s,
     // so the tx delayer will simulate the network not accepting a tx for the next block
     // unless it is sent within the first second of the L1 slot.
-    logger.warn(`Initial setup complete. Starting ${NODE_COUNT} validator nodes.`);
-    nodes = await asyncMap(validators, ({ privateKey }) =>
-      test.createValidatorNode([privateKey], { dontStartSequencer: true, txDelayerMaxInclusionTimeIntoSlot: 1 }),
-    );
-    logger.warn(`Started ${NODE_COUNT} validator nodes.`, { validators: validators.map(v => v.attester.toString()) });
+    ({ test, context, logger, validators, nodes, from } = await setupBlockProduction({
+      nodeCount: NODE_COUNT,
+      setupOpts: {
+        fakeProcessingDelayPerTxMs: TX_DURATION_MS,
+        attestationPropagationTime: 1,
+        minTxsPerBlock: 1,
+        maxTxsPerBlock: 100,
+      },
+      nodeOpts: { dontStartSequencer: true, txDelayerMaxInclusionTimeIntoSlot: 1 },
+    }));
 
     // Register spam contract for sending txs.
     contract = await test.registerSpamContract(context.wallet);
@@ -119,14 +101,12 @@ describe('multi-node/block-production/high_tps', () => {
   // count, per-block tx count, and L1 submission offset. Expects zero fail events.
   it('builds high-tps blocks without any errors', async () => {
     // Pre-prove and send all txs so the proposer has a full backlog ready in the pool when it starts building.
-    const txs = await timesAsync(TX_COUNT_HIGH, i =>
-      proveInteraction(context.wallet, contract.methods.spam(i, 1n, false), { from }),
-    );
-    const txHashes = await Promise.all(txs.map(tx => tx.send({ wait: NO_WAIT })));
+    const txHashes = await proveAndSendTxs(context.wallet, TX_COUNT_HIGH, i => contract.methods.spam(i, 1n, false), {
+      from,
+    });
     logger.warn(`Sent ${txHashes.length} transactions`, { txs: txHashes });
 
-    const sequencers = nodes.map(node => node.getSequencer()!);
-    const { failEvents } = test.watchSequencerEvents(sequencers, i => ({ validator: validators[i].attester }));
+    const { failEvents } = test.watchNodeSequencerEvents(nodes);
 
     // Wait until `ethereumSlotDuration + blockDuration` seconds before the L2 target slot boundary before
     // starting the sequencers. The sequencer's timetable treats the build window for slot N as starting at
@@ -151,7 +131,7 @@ describe('multi-node/block-production/high_tps', () => {
     // such as test.waitUntilBuildWindowForSlot(targetSlot) that encapsulates lead-time arithmetic.
     await sleepUntil(startSequencersAt, context.dateProvider.nowAsDate());
 
-    await Promise.all(sequencers.map(sequencer => sequencer.start()));
+    await test.startSequencers(nodes);
     logger.warn(`Started all sequencers`);
 
     // Wait until all txs are mined.

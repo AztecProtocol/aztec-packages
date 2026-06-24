@@ -1,16 +1,14 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeConfig } from '@aztec/aztec-node';
-import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import { waitForTx } from '@aztec/aztec.js/node';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
-import { timesAsync } from '@aztec/foundation/collection';
 import { retryUntil } from '@aztec/foundation/retry';
 import { executeTimeout } from '@aztec/foundation/timer';
 
 import type { TestWallet } from '../../test-wallet/test_wallet.js';
-import { proveInteraction } from '../../test-wallet/utils.js';
+import { proveAndSendTxs } from '../../test-wallet/utils.js';
 import { MultiNodeTestContext, buildMockGossipValidators } from '../multi_node_test_context.js';
 import { MBPS_TIMING, type MbpsFixture, NODE_COUNT, jest, waitForProvenCheckpoint } from './setup.js';
 
@@ -76,10 +74,7 @@ describe('multi-node/block-production/blob_promotion', () => {
     const contract = await test.registerTestContract(wallet);
     logger.warn(`Test setup completed.`, { validators: validators.map(v => v.attester.toString()) });
 
-    const { failEvents } = test.watchSequencerEvents(
-      nodes.map(n => n.getSequencer()!),
-      i => ({ validator: validators[i].attester }),
-    );
+    const { failEvents } = test.watchNodeSequencerEvents(nodes);
 
     return { test, context, logger, rollup, archiver, validators, nodes, contract, wallet, from, failEvents };
   }
@@ -134,15 +129,16 @@ describe('multi-node/block-production/blob_promotion', () => {
     logger.warn(`Initial checkpoint number: ${initialCheckpointNumber}`);
 
     // Pre-prove and send transactions
-    const txs = await timesAsync(PIPELINE_TX_COUNT, i =>
-      proveInteraction(context.wallet, contract.methods.emit_nullifier(new Fr(i + 1)), { from }),
+    const txHashes = await proveAndSendTxs(
+      context.wallet,
+      PIPELINE_TX_COUNT,
+      i => contract.methods.emit_nullifier(new Fr(i + 1)),
+      { from },
     );
-    const txHashes = await Promise.all(txs.map(tx => tx.send({ wait: NO_WAIT })));
     logger.warn(`Sent ${txHashes.length} transactions`, { txs: txHashes });
 
     // Start the sequencers
-    const sequencers = nodes.map(n => n.getSequencer()!);
-    await Promise.all(sequencers.map(s => s.start()));
+    await test.startSequencers(nodes);
     logger.warn(`Started all sequencers`);
 
     // Wait until all txs are mined

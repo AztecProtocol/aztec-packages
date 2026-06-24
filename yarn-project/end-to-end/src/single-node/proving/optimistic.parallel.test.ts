@@ -292,7 +292,10 @@ describe('single-node/proving/optimistic', () => {
       logger.info(`After reorg: checkpoint ${afterReorgCheckpoint} (was ${checkpointBeforeReorg})`);
 
       // Verify node detects the reorg.
-      await waitForNodeCheckpoint(node, afterReorgCheckpoint, { comparison: 'lte', timeout: 30 });
+      await waitForNodeCheckpoint(node, afterReorgCheckpoint, {
+        compare: (actual, target) => actual <= target,
+        timeout: 30,
+      });
 
       // Verify the prover-node observes the prune. `markPruned()` fires reactively when
       // the L2BlockStream emits the prune; the SlotWatcher then reaps the (now pruned)
@@ -406,7 +409,10 @@ describe('single-node/proving/optimistic', () => {
       await context.cheatCodes.eth.reorgWithReplacement(reorgDepth);
 
       // The node detects the prune and drops back below the reorged-out checkpoint.
-      await waitForNodeCheckpoint(node, originalCheckpoint, { comparison: 'lt', timeout: 60 });
+      await waitForNodeCheckpoint(node, originalCheckpoint, {
+        compare: (actual, target) => actual < target,
+        timeout: 60,
+      });
       logger.info(`Node observed the reorg removing checkpoint ${originalCheckpoint}`);
 
       // The tx returns to the mempool and is remined into a fresh checkpoint. Poll for a
@@ -507,7 +513,10 @@ describe('single-node/proving/optimistic', () => {
       logger.info(`After reorg: checkpoint ${afterReorgCheckpoint} (was ${checkpointBeforeReorg})`);
 
       // Verify node detects the reorg.
-      await waitForNodeCheckpoint(node, afterReorgCheckpoint, { comparison: 'lte', timeout: 30 });
+      await waitForNodeCheckpoint(node, afterReorgCheckpoint, {
+        compare: (actual, target) => actual <= target,
+        timeout: 30,
+      });
 
       // The survivor must still be in the epoch we reorged within — otherwise the reorg removed
       // the only in-epoch checkpoint and the test isn't exercising mid-epoch removal.
@@ -596,7 +605,10 @@ describe('single-node/proving/optimistic', () => {
       expect(survivor.header.slotNumber).toBeLessThan(epochEndSlot);
 
       // Verify node detects the reorg.
-      await waitForNodeCheckpoint(node, afterReorgCheckpoint, { comparison: 'lte', timeout: 30 });
+      await waitForNodeCheckpoint(node, afterReorgCheckpoint, {
+        compare: (actual, target) => actual <= target,
+        timeout: 30,
+      });
 
       // Wait for the next epoch to start, then for proof to land with the surviving checkpoints.
       await test.waitUntilEpochStarts(epoch + 1);

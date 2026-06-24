@@ -160,10 +160,7 @@ describe('multi-node/recovery/proposal_failure_recovery', () => {
     );
 
     // Warp L1 to one L1 block before slotZero begins. Pipelining will then engage during slotZero.
-    const slotZeroStart = getTimestampForSlot(slotZero, test.constants);
-    const warpTo = slotZeroStart - BigInt(test.L1_BLOCK_TIME_IN_S);
-    logger.warn(`Warping L1 to timestamp ${warpTo} (one L1 block before slot ${slotZero})`);
-    await test.context.cheatCodes.eth.warp(Number(warpTo), { resetBlockInterval: true });
+    await test.warpToBuildWindowForSlot(slotZero);
 
     // Check that the chain is empty
     const node = nodes[0];
@@ -171,15 +168,14 @@ describe('multi-node/recovery/proposal_failure_recovery', () => {
     expect(blockNumber).toEqual(0);
 
     // Start all sequencers.
-    const sequencers = nodes.map(n => n.getSequencer()!);
-    const { failEvents } = test.watchSequencerEvents(sequencers, i => ({ validator: `V${i + 1}` }));
+    const { failEvents } = test.watchNodeSequencerEvents(nodes, i => ({ validator: `V${i + 1}` }));
 
     // The proposerTwo pipelined-discard event (the most direct signal that pipelined slotTwo work was
-    // thrown away because parent slotOne did not land) is captured by watchSequencerEvents above and
+    // thrown away because parent slotOne did not land) is captured by watchNodeSequencerEvents above and
     // tolerated in the final fail-event filter.
     const proposerTwoNodeIndex = validators.findIndex(v => v.attester.equals(proposerTwo));
 
-    await Promise.all(sequencers.map(s => s.start()));
+    await test.startSequencers(nodes);
     logger.warn('All sequencers started');
 
     const slotAdvanceTimeout = test.L2_SLOT_DURATION_IN_S * 3;
@@ -360,16 +356,13 @@ describe('multi-node/recovery/proposal_failure_recovery', () => {
     // then engage during S1-1 and the proposer for S1 builds + would broadcast its CheckpointProposal — except we
     // just suppressed it.
     const buildSlot = SlotNumber(S1 - 1);
-    const targetTs = getTimestampForSlot(buildSlot, test.constants) - BigInt(test.L1_BLOCK_TIME_IN_S);
-    logger.warn(`Warping L1 to timestamp ${targetTs} (one L1 block before build slot ${buildSlot} for S1=${S1})`);
-    await test.context.cheatCodes.eth.warp(Number(targetTs), { resetBlockInterval: true });
+    await test.warpToBuildWindowForSlot(buildSlot);
 
     expect(await nodes[0].getBlockNumber()).toEqual(0);
 
-    const sequencers = nodes.map(n => n.getSequencer()!);
-    const { failEvents } = test.watchSequencerEvents(sequencers, i => ({ validator: `V${i + 1}` }));
+    const { failEvents } = test.watchNodeSequencerEvents(nodes, i => ({ validator: `V${i + 1}` }));
 
-    await Promise.all(sequencers.map(s => s.start()));
+    await test.startSequencers(nodes);
     logger.warn('All sequencers started');
 
     const slotAdvanceTimeout = test.L2_SLOT_DURATION_IN_S * 3;
@@ -378,24 +371,11 @@ describe('multi-node/recovery/proposal_failure_recovery', () => {
     // standalone (because of skipBroadcastCheckpointProposal). Every node's proposed tip advances to a block whose
     // slotNumber === S1.
     logger.warn(`Waiting for proposed chain to reach slot ${S1} on all nodes (orphan tip from P1)`);
-    // REFACTOR: Promise.all over per-node retryUntil polling getChainTips; a waitForAllNodesToReach
-    // helper that takes a predicate over chain tips would avoid this hand-rolled fan-out pattern.
-    await Promise.all(
-      nodes.map((node, idx) =>
-        retryUntil(
-          async () => {
-            const tips = await node.getChainTips();
-            if (tips.proposed.number === 0) {
-              return false;
-            }
-            const block = await node.getBlock(tips.proposed.number);
-            return !!block && block.header.globalVariables.slotNumber === S1;
-          },
-          `node ${idx} proposed advanced to slot ${S1}`,
-          slotAdvanceTimeout,
-          0.5,
-        ),
-      ),
+    await test.waitForAllNodesToReachBlockAtSlot(
+      S1,
+      'proposed',
+      block => block.header.globalVariables.slotNumber === S1,
+      { timeout: slotAdvanceTimeout, interval: 0.5 },
     );
 
     // Capture each node's pre-prune block-1 archive root for the staleness check in (3).

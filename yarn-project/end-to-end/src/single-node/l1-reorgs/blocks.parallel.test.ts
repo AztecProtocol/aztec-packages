@@ -158,7 +158,7 @@ describe('single-node/l1-reorgs/blocks', () => {
     // And check that the old node has processed the reorg as well
     logger.warn(`Testing old node after reorg`);
     await waitForNodeProvenCheckpoint(node, initialProvenCheckpoint, {
-      comparison: 'eq',
+      compare: (actual, target) => actual === target,
       timeout: L2_SLOT_DURATION_IN_S * 4,
     });
     await logState('old-node-synced');
@@ -237,7 +237,10 @@ describe('single-node/l1-reorgs/blocks', () => {
     proverDelayer.cancelNextTx();
 
     // Expect pending chain to advance, so there's something to be pruned
-    await waitForNodeCheckpoint(node, initialCheckpoint, { comparison: 'gt', timeout: L2_SLOT_DURATION_IN_S * 4 });
+    await waitForNodeCheckpoint(node, initialCheckpoint, {
+      compare: (actual, target) => actual > target,
+      timeout: L2_SLOT_DURATION_IN_S * 4,
+    });
 
     // Wait until the end of the proof submission window for the first unproven epoch
     const firstUnprovenCheckpoint = CheckpointNumber(initialProvenCheckpoint + 1);
@@ -257,7 +260,10 @@ describe('single-node/l1-reorgs/blocks', () => {
 
     // Wait for the node to prune
     const syncTimeout = L2_SLOT_DURATION_IN_S * 2;
-    await waitForNodeCheckpoint(node, initialProvenCheckpoint + 1, { comparison: 'lte', timeout: syncTimeout });
+    await waitForNodeCheckpoint(node, initialProvenCheckpoint + 1, {
+      compare: (actual, target) => actual <= target,
+      timeout: syncTimeout,
+    });
     expect(monitor.provenCheckpointNumber).toEqual(initialProvenCheckpoint);
     expect(await node.getCheckpointNumber('proven')).toEqual(initialProvenCheckpoint);
 
@@ -302,7 +308,10 @@ describe('single-node/l1-reorgs/blocks', () => {
     await context.sequencer!.stop();
     logger.warn(`Sequencer stopped`);
     // Wait for node to sync to the checkpoint.
-    await waitForNodeCheckpoint(node, CHECKPOINT_NUMBER, { comparison: 'eq', timeout: 10 });
+    await waitForNodeCheckpoint(node, CHECKPOINT_NUMBER, {
+      compare: (actual, target) => actual === target,
+      timeout: 10,
+    });
     logger.warn(`Reached checkpoint ${CHECKPOINT_NUMBER}`);
 
     // Verify multi-block checkpoints were built before we do the reorg
@@ -317,7 +326,10 @@ describe('single-node/l1-reorgs/blocks', () => {
 
     // And expect the node to prune the block
     const expectedCheckpointNumber = CHECKPOINT_NUMBER - 1;
-    await waitForNodeCheckpoint(node, expectedCheckpointNumber, { comparison: 'eq', timeout: 30 });
+    await waitForNodeCheckpoint(node, expectedCheckpointNumber, {
+      compare: (actual, target) => actual === target,
+      timeout: 30,
+    });
   });
 
   // Cancels the next sequencer L1 tx (blocking CHECKPOINT_NUMBER from landing), waits for
@@ -336,7 +348,10 @@ describe('single-node/l1-reorgs/blocks', () => {
     await test.waitUntilCheckpointNumber(prevCheckpointNumber, L2_SLOT_DURATION_IN_S * 10);
     expect(monitor.checkpointNumber).toEqual(prevCheckpointNumber);
     // Wait for node to sync to the checkpoint
-    await waitForNodeCheckpoint(node, prevCheckpointNumber, { comparison: 'eq', timeout: 5 });
+    await waitForNodeCheckpoint(node, prevCheckpointNumber, {
+      compare: (actual, target) => actual === target,
+      timeout: 5,
+    });
 
     // Verify multi-block checkpoints were built before we do the reorg
     await test.assertMultipleBlocksPerSlot(2);
@@ -388,6 +403,9 @@ describe('single-node/l1-reorgs/blocks', () => {
     await blobClient.sendBlobsToFilestore(blobs);
 
     // And wait for the node to see the new block
-    await waitForNodeCheckpoint(node, CHECKPOINT_NUMBER, { comparison: 'eq', timeout: 20 });
+    await waitForNodeCheckpoint(node, CHECKPOINT_NUMBER, {
+      compare: (actual, target) => actual === target,
+      timeout: 20,
+    });
   });
 });

@@ -12,6 +12,7 @@ import { bufferToHex } from '@aztec/foundation/string';
 import { SlasherAbi } from '@aztec/l1-artifacts';
 import type { L2Tips } from '@aztec/stdlib/block';
 import type { AztecNode, BlockResponse } from '@aztec/stdlib/interfaces/client';
+import type { Offense } from '@aztec/stdlib/slashing';
 import { createSharedSlashingProtectionDb } from '@aztec/validator-ha-signer/factory';
 import type { SlashingProtectionDatabase } from '@aztec/validator-ha-signer/types';
 
@@ -19,7 +20,11 @@ import { type GetContractReturnType, getAddress, getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
 import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
-import { SingleNodeTestContext, type SingleNodeTestOpts } from '../single-node/single_node_test_context.js';
+import {
+  SingleNodeTestContext,
+  type SingleNodeTestOpts,
+  type TrackedSequencerEvent,
+} from '../single-node/single_node_test_context.js';
 
 export {
   WORLD_STATE_CHECKPOINT_HISTORY,
@@ -303,6 +308,17 @@ export class MultiNodeTestContext extends SingleNodeTestContext {
     });
   }
 
+  /** Waits until every node's checkpointed checkpoint tip reaches `target`. */
+  public waitForAllNodesToReachCheckpoint(
+    target: CheckpointNumber,
+    opts: { nodes?: AztecNode[]; timeout?: number; interval?: number } = {},
+  ): Promise<void> {
+    return this.waitForAllNodes(tips => tips.checkpointed.checkpoint.number >= target, {
+      ...opts,
+      description: `checkpointed checkpoint >= ${target}`,
+    });
+  }
+
   /**
    * Waits until every node's `proposed` or `checkpointed` tip points at a block whose slot
    * satisfies `match` (defaults to "slot equals `slot`"). Polls the block referenced by the tip.
@@ -370,6 +386,45 @@ export class MultiNodeTestContext extends SingleNodeTestContext {
     }
     throw new Error(
       `Could not find ${count} consecutive slots matching the proposer predicate after ${maxAttempts} attempts`,
+    );
+  }
+
+  /**
+   * Watches the sequencers of `nodes` via {@link SingleNodeTestContext.watchSequencerEvents}, pulling
+   * the {@link SequencerClient} off each node first. `getMetadata` tags each captured event; it
+   * defaults to `{ validator: this.validators[i].attester }`. Pass an override for tests that label
+   * their nodes differently (e.g. `['A','B','C'][i]`).
+   */
+  public watchNodeSequencerEvents(
+    nodes: AztecNodeService[],
+    getMetadata: (i: number) => Record<string, any> = i => ({ validator: this.validators[i].attester }),
+  ): { failEvents: TrackedSequencerEvent[]; stateChanges: TrackedSequencerEvent[] } {
+    return this.watchSequencerEvents(this.getSequencers(nodes), getMetadata);
+  }
+
+  /**
+   * Waits until matching slash offenses have converged across `nodes`, polling `getSlashOffenses`.
+   * With `opts.mode === 'all'` (the default) every node must record a matching offense; with `'any'`
+   * a single node suffices. Resolves with all matching offenses collected across the polled nodes.
+   */
+  public waitForOffenseOnNodes(
+    nodes: AztecNodeService[],
+    match: (offense: Offense) => boolean,
+    opts: { mode?: 'all' | 'any'; timeout?: number; interval?: number } = {},
+  ): Promise<Offense[]> {
+    const mode = opts.mode ?? 'all';
+    const timeout = opts.timeout ?? this.L2_SLOT_DURATION_IN_S * 4;
+    const interval = opts.interval ?? 0.5;
+    return retryUntil(
+      async () => {
+        const perNode = await Promise.all(nodes.map(node => node.getSlashOffenses('all').then(os => os.filter(match))));
+        const converged =
+          mode === 'all' ? perNode.every(matches => matches.length > 0) : perNode.some(m => m.length > 0);
+        return converged ? perNode.flat() : undefined;
+      },
+      `offense on ${mode} node(s)`,
+      timeout,
+      interval,
     );
   }
 }

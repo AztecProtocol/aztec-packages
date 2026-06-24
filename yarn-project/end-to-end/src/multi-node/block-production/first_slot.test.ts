@@ -1,14 +1,10 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { getTimestampRangeForEpoch } from '@aztec/aztec.js/block';
-import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import type { Logger } from '@aztec/aztec.js/log';
 import { waitForTx } from '@aztec/aztec.js/node';
-import { INITIAL_L2_BLOCK_NUM } from '@aztec/aztec.js/protocol';
 import { asyncMap } from '@aztec/foundation/async-map';
-import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { timesAsync } from '@aztec/foundation/collection';
-import { retryUntil } from '@aztec/foundation/retry';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { executeTimeout } from '@aztec/foundation/timer';
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
@@ -16,7 +12,8 @@ import { getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 import { jest } from '@jest/globals';
 
 import type { EndToEndContext } from '../../fixtures/utils.js';
-import { proveInteraction } from '../../test-wallet/utils.js';
+import { waitForBlocksAtSlots } from '../../fixtures/wait_helpers.js';
+import { proveAndSendTxs } from '../../test-wallet/utils.js';
 import {
   MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
   MV_CONSENSUS_TIMING,
@@ -93,16 +90,14 @@ describe('multi-node/block-production/first_slot', () => {
   it('builds blocks on the first two slots of the epoch', async () => {
     // Create and submit txs for the first two slots of the epoch
     // We set maxTxsPerBlock to 1, so two txs mean two consecutive blocks
-    const txs = await timesAsync(TX_COUNT, i =>
-      proveInteraction(context.wallet, contract.methods.spam(i, 1n, false), { from }),
-    );
-    const txHashes = await Promise.all(txs.map(tx => tx.send({ wait: NO_WAIT })));
+    const txHashes = await proveAndSendTxs(context.wallet, TX_COUNT, i => contract.methods.spam(i, 1n, false), {
+      from,
+    });
     logger.warn(`Sent ${txHashes.length} transactions`, {
       txs: txHashes,
     });
 
-    const sequencers = nodes.map(node => node.getSequencer()!);
-    const { failEvents } = test.watchSequencerEvents(sequencers, i => ({ validator: validators[i].attester }));
+    const { failEvents } = test.watchNodeSequencerEvents(nodes);
 
     // Jump to the beginning of two epochs from now
     const currentEpoch = (await test.monitor.run()).l2EpochNumber;
@@ -120,7 +115,7 @@ describe('multi-node/block-production/first_slot', () => {
     });
 
     // Start the sequencers
-    await Promise.all(sequencers.map(sequencer => sequencer.start()));
+    await test.startSequencers(nodes);
     logger.warn(`Started all sequencers`);
 
     // Wait until all txs are mined
@@ -132,19 +127,7 @@ describe('multi-node/block-production/first_slot', () => {
     const [firstSlot] = getSlotRangeForEpoch(epoch, test.constants);
     const secondSlot = SlotNumber(firstSlot + 1);
     logger.warn(`Waiting until blocks are synced for slots ${firstSlot} and ${secondSlot}`);
-    // REFACTOR: hand-rolled poll checking block slots; replace with a helper such as
-    // waitUntilBlocksForSlots(nodes[0], [firstSlot, secondSlot], timeout).
-    await retryUntil(
-      async () => {
-        const blocks = await nodes[0].getBlocks(BlockNumber(INITIAL_L2_BLOCK_NUM), 10);
-        const slots = blocks.map(block => block.header.getSlot());
-        logger.info(`Fetched blocks ${blocks.map(b => b.number).join(', ')} with slots ${slots.join(', ')}`);
-        return slots.includes(firstSlot) && slots.includes(secondSlot);
-      },
-      'waiting for blocks',
-      20,
-      1,
-    );
+    await waitForBlocksAtSlots(nodes[0], [firstSlot, secondSlot]);
 
     test.assertNoFailuresFromSequencers(failEvents);
   });

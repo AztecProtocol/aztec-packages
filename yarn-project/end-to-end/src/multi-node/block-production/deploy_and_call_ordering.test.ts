@@ -1,12 +1,11 @@
 import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
-import { waitUntilL1Timestamp } from '@aztec/ethereum/l1-tx-utils';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { executeTimeout } from '@aztec/foundation/timer';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
-import { getSlotAtTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
+import { getSlotAtTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 
 import { waitForTxs } from '../../fixtures/wait_helpers.js';
@@ -59,28 +58,15 @@ describe('multi-node/block-production/deploy_and_call_ordering', () => {
     logger.warn(`Pre-proved both txs`);
 
     // Start the sequencers
-    await Promise.all(nodes.map(n => n.getSequencer()!.start()));
+    await test.startSequencers(nodes);
     logger.warn(`Started all sequencers`);
 
     // Wait until one L1 slot before the start of the next L2 slot.
     // This ensures both txs land in the pending pool right before the proposer starts building.
-    // REFACTOR: manual slot-timing arithmetic and waitUntilL1Timestamp call; replace with a helper
-    // such as test.waitUntilBuildWindowForNextSlot() that encapsulates this pattern.
-    // REFACTOR: This should go into a shared "waitUntilNextSlotStartsBuilding" utility
     const currentL1Block = await test.l1Client.getBlock({ blockTag: 'latest' });
-    const currentTimestamp = currentL1Block.timestamp;
-    const currentSlot = getSlotAtTimestamp(currentTimestamp, test.constants);
+    const currentSlot = getSlotAtTimestamp(currentL1Block.timestamp, test.constants);
     const nextSlot = SlotNumber(currentSlot + 1);
-    const nextSlotTimestamp = getTimestampForSlot(nextSlot, test.constants);
-    const targetTimestamp = nextSlotTimestamp - BigInt(test.L1_BLOCK_TIME_IN_S);
-    logger.warn(`Waiting until L1 timestamp ${targetTimestamp} (one L1 slot before L2 slot ${nextSlot})`, {
-      currentTimestamp,
-      currentSlot,
-      nextSlot,
-      nextSlotTimestamp,
-      targetTimestamp,
-    });
-    await waitUntilL1Timestamp(test.l1Client, targetTimestamp, undefined, test.L2_SLOT_DURATION_IN_S * 3);
+    await test.waitForBuildWindowForSlot(nextSlot, { timeout: test.L2_SLOT_DURATION_IN_S * 3 });
 
     // Send the deploy tx first and give it time to propagate to all validators,
     // then send the call tx. Priority fees are a safety net, but arrival ordering

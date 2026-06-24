@@ -3,8 +3,6 @@ import { EthAddress } from '@aztec/aztec.js/addresses';
 import type { Logger } from '@aztec/aztec.js/log';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { retryUntil } from '@aztec/foundation/retry';
-import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { OffenseType } from '@aztec/stdlib/slashing';
 
@@ -164,70 +162,39 @@ describe('multi-node/recovery/equivocation_recovery', () => {
     logger.warn(`Expected proposer for submission slot`, { submissionSlot, proposerAttester });
 
     // Warp to one L1 slot before the target L2 slot so pipelining's build window engages.
-    const slotStartTimestamp = getTimestampForSlot(targetSlot, test.constants);
-    const warpTo = slotStartTimestamp - BigInt(test.L1_BLOCK_TIME_IN_S);
-    logger.warn(`Warping to L1 timestamp ${warpTo} (one L1 slot before L2 slot ${targetSlot})`);
-    await test.context.cheatCodes.eth.warp(Number(warpTo), { resetBlockInterval: true });
+    await test.warpToBuildWindowForSlot(targetSlot);
 
     // Start all sequencers now that the clock is warped.
-    const sequencers = nodes.slice(0, 3).map(n => n.getSequencer()!);
-    const { failEvents } = test.watchSequencerEvents(sequencers, i => ({ validator: ['A', 'B', 'C'][i] }));
-    await Promise.all(sequencers.map(s => s.start()));
+    const sequencerNodes = nodes.slice(0, 3);
+    const { failEvents } = test.watchNodeSequencerEvents(sequencerNodes, i => ({ validator: ['A', 'B', 'C'][i] }));
+    await test.startSequencers(sequencerNodes);
     logger.warn('All sequencers started');
 
     // Wait until each of B, C, D sees a proposed block for submissionSlot with coinbase B or C.
     // This confirms the gossip-only equivocating proposal from B or C has propagated.
-    // REFACTOR: This is candidate for a "wait until all nodes see a block with these properties" helper in the test context.
+    const observerNodes = [nodeB, nodeC, nodeD];
     const gossipTimeout = test.L2_SLOT_DURATION_IN_S * 4;
-    await Promise.all(
-      [nodeB, nodeC, nodeD].map(async (node, idx) => {
-        const nodeName = ['B', 'C', 'D'][idx];
-        let observedCoinbase: EthAddress | undefined;
-        await retryUntil(
-          async () => {
-            const block = await node.getBlock('proposed');
-            if (!block) {
-              return false;
-            }
-            const slot = block.header.globalVariables.slotNumber;
-            const cb = block.header.globalVariables.coinbase;
-            if (slot === submissionSlot && (cb.equals(coinbaseB) || cb.equals(coinbaseC))) {
-              observedCoinbase = cb;
-              return true;
-            }
-            return false;
-          },
-          `${nodeName} sees gossip-only proposed block for slot ${submissionSlot}`,
-          gossipTimeout,
-          0.5,
-        );
-        logger.warn(`Node ${nodeName} observed gossip-only coinbase for slot ${submissionSlot}`, { observedCoinbase });
-      }),
+    await test.waitForAllNodesToReachBlockAtSlot(
+      submissionSlot,
+      'proposed',
+      block =>
+        block.header.globalVariables.slotNumber === submissionSlot &&
+        (block.header.globalVariables.coinbase.equals(coinbaseB) ||
+          block.header.globalVariables.coinbase.equals(coinbaseC)),
+      { nodes: observerNodes, timeout: gossipTimeout, interval: 0.5 },
     );
 
     // Now wait until each of B, C, D has a checkpointed block for submissionSlot with coinbaseA.
     // This confirms A's L1-confirmed checkpoint has overridden the gossip-only proposal.
-    // REFACTOR: This is candidate for a "wait until all nodes see a block with these properties" helper in the test context.
     const overrideTimeout = test.L2_SLOT_DURATION_IN_S * 4;
     logger.warn(`Waiting for L1-sync override on B, C, D (timeout=${overrideTimeout}s)`);
-    await Promise.all(
-      [nodeB, nodeC, nodeD].map(async (node, idx) => {
-        const nodeName = ['B', 'C', 'D'][idx];
-        await retryUntil(
-          async () => {
-            const block = await node.getBlock('checkpointed');
-            if (!block) {
-              return false;
-            }
-            const slot = block.header.globalVariables.slotNumber;
-            const cb = block.header.globalVariables.coinbase;
-            return slot >= submissionSlot && cb.equals(coinbaseA);
-          },
-          `${nodeName} checkpointed block for slot ${submissionSlot} with coinbaseA`,
-          overrideTimeout,
-          0.5,
-        );
-      }),
+    await test.waitForAllNodesToReachBlockAtSlot(
+      submissionSlot,
+      'checkpointed',
+      block =>
+        block.header.globalVariables.slotNumber >= submissionSlot &&
+        block.header.globalVariables.coinbase.equals(coinbaseA),
+      { nodes: observerNodes, timeout: overrideTimeout, interval: 0.5 },
     );
 
     // Assert no spurious failures on B, C.
@@ -264,20 +231,11 @@ describe('multi-node/recovery/equivocation_recovery', () => {
     expect(test.monitor.checkpointNumber).toBeGreaterThanOrEqual(healTarget);
     logger.warn(`Network healed: checkpoint ${test.monitor.checkpointNumber}`);
 
-    // REFACTOR: This is candidate for a "wait until all nodes sync to a chain tip with these properties" helper in the test context.
-    await Promise.all(
-      [nodeB, nodeC, nodeD].map((node, idx) =>
-        retryUntil(
-          async () => {
-            const tips = await node.getChainTips();
-            return tips.checkpointed.checkpoint.number >= healTarget;
-          },
-          `${'BCD'[idx]} synced to checkpoint ${healTarget}`,
-          healTimeout,
-          0.5,
-        ),
-      ),
-    );
+    await test.waitForAllNodesToReachCheckpoint(healTarget, {
+      nodes: observerNodes,
+      timeout: healTimeout,
+      interval: 0.5,
+    });
 
     // Every observing validator should have recorded the equivocation offense. A has been stopped
     // above and D is a non-validator (no slasher), so we poll only B and C.
@@ -285,20 +243,13 @@ describe('multi-node/recovery/equivocation_recovery', () => {
       proposerAttester,
       submissionSlot,
     });
-    const matchesOffense = (o: { offenseType: OffenseType; validator: { toString(): string }; epochOrSlot: bigint }) =>
-      o.offenseType === OffenseType.DUPLICATE_PROPOSAL &&
-      o.validator.toString() === proposerAttester.toString() &&
-      o.epochOrSlot === BigInt(submissionSlot);
-    await retryUntil(
-      async () => {
-        const found = await Promise.all(
-          [nodeB, nodeC].map(async n => (await n.getSlashOffenses('all')).some(matchesOffense)),
-        );
-        return found.every(Boolean);
-      },
-      `DUPLICATE_PROPOSAL offense on every observing node`,
-      test.L2_SLOT_DURATION_IN_S * 4,
-      0.5,
+    await test.waitForOffenseOnNodes(
+      [nodeB, nodeC],
+      o =>
+        o.offenseType === OffenseType.DUPLICATE_PROPOSAL &&
+        o.validator.toString() === proposerAttester.toString() &&
+        o.epochOrSlot === BigInt(submissionSlot),
+      { mode: 'all', timeout: test.L2_SLOT_DURATION_IN_S * 4, interval: 0.5 },
     );
   });
 });

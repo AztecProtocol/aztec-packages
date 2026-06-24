@@ -1,21 +1,17 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
-import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { timesAsync } from '@aztec/foundation/collection';
-import { retryUntil } from '@aztec/foundation/retry';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
-import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 
 import { jest } from '@jest/globals';
 
 import type { EndToEndContext } from '../../fixtures/utils.js';
 import { TestWallet } from '../../test-wallet/test_wallet.js';
-import { proveInteraction } from '../../test-wallet/utils.js';
+import { proveAndSendTxs } from '../../test-wallet/utils.js';
 import {
   MV_REORG_TIMING,
   MultiNodeTestContext,
@@ -114,41 +110,31 @@ describe('multi-node/high-availability/ha_sync', () => {
     logger.warn(`Initial state: checkpoint ${initialCheckpointNumber}, checkpointed block ${initialCheckpointedBlock}`);
 
     // Pre-prove and send transactions.
-    const txs = await timesAsync(TX_COUNT, i =>
-      proveInteraction(context.wallet, contract.methods.emit_nullifier(new Fr(i + 1)), { from }),
+    const txHashes = await proveAndSendTxs(
+      context.wallet,
+      TX_COUNT,
+      i => contract.methods.emit_nullifier(new Fr(i + 1)),
+      { from },
     );
-    const txHashes = await Promise.all(txs.map(tx => tx.send({ wait: NO_WAIT })));
     logger.warn(`Sent ${txHashes.length} transactions.`);
 
     // Warp to 1 L1 slot before the start of the following L2 slot, so sequencers start cleanly.
     // We don't warp to the next L2 slot because we may already be less than 1 L1 slot before it.
     const currentSlot = await rollup.getSlotNumber();
     const nextSlot = SlotNumber(currentSlot + 2);
-    const nextSlotTimestamp = getTimestampForSlot(nextSlot, test.constants);
-    await context.cheatCodes.eth.warp(Number(nextSlotTimestamp) - test.L1_BLOCK_TIME_IN_S, {
-      resetBlockInterval: true,
-    });
+    await test.warpToBuildWindowForSlot(nextSlot);
     logger.warn(`Warped to 1 L1 slot before L2 slot ${nextSlot}.`);
 
     // Start the sequencers on all nodes.
-    await Promise.all(nodes.map(n => n.getSequencer()!.start()));
+    await test.startSequencers(nodes);
     logger.warn(`Started all sequencers.`);
 
     // Wait until all nodes have proposed blocks strictly beyond the checkpointed tip.
     // This ensures we're checking blocks produced by validators via P2P proposals,
     // not blocks synced from L1 checkpoints during setup.
-    // REFACTOR: hand-rolled poll over all archivers checking proposed > checkpointed; replace with
-    // a test-context helper such as waitUntilAllNodesProposedBeyondCheckpointed(nodes, timeout).
-    await retryUntil(
-      async () => {
-        const tips = await Promise.all(allArchivers.map(a => a.getL2Tips()));
-        return tips.every(
-          t => t.proposed.number > initialCheckpointedBlock && t.proposed.number > t.checkpointed.block.number,
-        );
-      },
-      'all nodes to sync proposed blocks beyond checkpointed tip',
-      test.L2_SLOT_DURATION_IN_S * 5,
-      0.5,
+    await test.waitForAllNodes(
+      tips => tips.proposed.number > initialCheckpointedBlock && tips.proposed.number > tips.checkpointed.block.number,
+      { nodes, timeout: test.L2_SLOT_DURATION_IN_S * 5, interval: 0.5 },
     );
 
     logger.warn(`All nodes synced proposed blocks beyond checkpointed tip`);

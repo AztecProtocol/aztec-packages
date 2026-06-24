@@ -500,6 +500,45 @@ export class SingleNodeTestContext {
     await waitUntilL1Timestamp(this.l1Client, oneSlotBefore, undefined, proofSubmissionWindowDuration * 2);
   }
 
+  /**
+   * Timestamp one L1 block before L2 `slot` begins — the instant a pipelined proposer starts
+   * building for that slot. `opts.lead` overrides the default one-L1-block lead (e.g. when a test
+   * needs an extra block-duration margin to guarantee sub-slot 1 is reachable).
+   */
+  public buildWindowTimestampForSlot(slot: SlotNumber, opts: { lead?: number } = {}): bigint {
+    const lead = opts.lead ?? this.L1_BLOCK_TIME_IN_S;
+    return getTimestampForSlot(slot, this.constants) - BigInt(lead);
+  }
+
+  /**
+   * Warps the L1 clock to the build window of `slot` (one L1 block before the slot begins) with
+   * `resetBlockInterval`, so a pipelined proposer engages cleanly when its sequencer starts.
+   * @returns The slot warped to.
+   */
+  public async warpToBuildWindowForSlot(slot: SlotNumber): Promise<SlotNumber> {
+    const target = this.buildWindowTimestampForSlot(slot);
+    this.logger.info(`Warping L1 to build window of slot ${slot}`, { slot, target });
+    await this.context.cheatCodes.eth.warp(Number(target), { resetBlockInterval: true });
+    return slot;
+  }
+
+  /**
+   * Waits (in wall-clock, without warping) until the L1 clock reaches the build window of `slot`.
+   * For production-sequencer tests that can't warp. `opts.lead` extends the lead beyond the default
+   * one L1 block; `opts.timeout` bounds the wait (defaults to three L2 slots).
+   * @returns The slot waited for.
+   */
+  public async waitForBuildWindowForSlot(
+    slot: SlotNumber,
+    opts: { lead?: number; timeout?: number } = {},
+  ): Promise<SlotNumber> {
+    const target = this.buildWindowTimestampForSlot(slot, { lead: opts.lead });
+    const timeout = opts.timeout ?? this.L2_SLOT_DURATION_IN_S * 3;
+    this.logger.info(`Waiting until L1 reaches build window of slot ${slot}`, { slot, target });
+    await waitUntilL1Timestamp(this.l1Client, target, undefined, timeout);
+    return slot;
+  }
+
   /** Waits for the aztec node to sync to the target block number. */
   public async waitForNodeToSync(blockNumber: BlockNumber, type: 'proven' | 'finalized' | 'historic') {
     const waitTime = ARCHIVER_POLL_INTERVAL + WORLD_STATE_BLOCK_CHECK_INTERVAL;
@@ -519,6 +558,30 @@ export class SingleNodeTestContext {
         synched = syncState.oldestHistoricBlockNumber >= blockNumber;
       }
     }
+  }
+
+  /**
+   * Waits until every prover node has submitted a proof for `epoch` (of length `epochLength`
+   * checkpoints) on L1. Polls `rollup.getHasSubmittedProof` for each prover registered in
+   * {@link proverNodes}.
+   */
+  public async waitForAllProversToSubmit(
+    epoch: EpochNumber,
+    epochLength: number,
+    opts: { timeout?: number } = {},
+  ): Promise<void> {
+    const proverIds = this.proverNodes.map(node => node.getProverNode()!.getProverId());
+    await retryUntil(
+      async () => {
+        const haveSubmitted = await Promise.all(
+          proverIds.map(proverId => this.rollup.getHasSubmittedProof(epoch, epochLength, proverId)),
+        );
+        this.logger.info(`Proof submissions: ${haveSubmitted.join(', ')}`);
+        return haveSubmitted.every(submitted => submitted);
+      },
+      'Provers have submitted proofs',
+      opts.timeout ?? 120,
+    );
   }
 
   /** Registers the SpamContract on the given wallet. */
@@ -572,9 +635,52 @@ export class SingleNodeTestContext {
     expect(result).toBe(expectedSuccess);
   }
 
-  /** Verifies at least one checkpoint has the target number of blocks (for MBPS validation). */
-  public async assertMultipleBlocksPerSlot(targetBlockCount: number) {
-    const archiver = (this.context.aztecNode as AztecNodeService).getBlockSource() as Archiver;
+  /**
+   * Verifies that at least one checkpoint has `targetBlockCount` blocks and that block numbering is
+   * contiguous within every checkpoint (MBPS validation).
+   *
+   * Two optional wait modes (both poll before reading checkpoints):
+   *  - `opts.wait`: waits until some checkpoint reaches `targetBlockCount` blocks (the proposed-tip
+   *    MBPS setup case), and
+   *  - `opts.targetBlock`: waits until the archiver's checkpointed tip reaches that block number
+   *    (the pipeline-prune recovery case).
+   *
+   * Reads from `opts.archiver` when given (e.g. a specific validator node's block source); otherwise
+   * from the initial node's archiver.
+   * @returns The number of the first checkpoint with at least `targetBlockCount` blocks.
+   */
+  public async assertMultipleBlocksPerSlot(
+    targetBlockCount: number,
+    opts: { wait?: boolean; targetBlock?: BlockNumber; archiver?: Archiver; timeout?: number } = {},
+  ): Promise<CheckpointNumber> {
+    const archiver = opts.archiver ?? ((this.context.aztecNode as AztecNodeService).getBlockSource() as Archiver);
+    const waitTimeout = opts.timeout ?? this.L2_SLOT_DURATION_IN_S * 3;
+
+    if (opts.targetBlock !== undefined) {
+      const targetBlock = opts.targetBlock;
+      await retryUntil(
+        async () => {
+          const checkpointed = await archiver.getBlockNumber({ tag: 'checkpointed' });
+          return checkpointed !== undefined && checkpointed >= targetBlock;
+        },
+        `archiver checkpointed block ${targetBlock}`,
+        10,
+        0.1,
+      );
+    }
+
+    if (opts.wait) {
+      await retryUntil(
+        async () => {
+          const found = await archiver.getCheckpoints({ from: CheckpointNumber(1), limit: 50 });
+          return found.some(pc => pc.checkpoint.blocks.length >= targetBlockCount) || undefined;
+        },
+        `checkpoint with at least ${targetBlockCount} blocks`,
+        waitTimeout,
+        0.5,
+      );
+    }
+
     const checkpoints = await archiver.getCheckpoints({ from: CheckpointNumber(1), limit: 50 });
 
     this.logger.warn(`Retrieved ${checkpoints.length} checkpoints from archiver`, {
@@ -582,11 +688,13 @@ export class SingleNodeTestContext {
     });
 
     let expectedBlockNumber = checkpoints[0].checkpoint.blocks[0].number;
-    let targetFound = false;
+    let multiBlockCheckpointNumber: CheckpointNumber | undefined;
 
     for (const checkpoint of checkpoints) {
       const blockCount = checkpoint.checkpoint.blocks.length;
-      targetFound = targetFound || blockCount >= targetBlockCount;
+      if (blockCount >= targetBlockCount && multiBlockCheckpointNumber === undefined) {
+        multiBlockCheckpointNumber = checkpoint.checkpoint.number;
+      }
 
       this.logger.verbose(`Checkpoint ${checkpoint.checkpoint.number} has ${blockCount} blocks`, {
         checkpoint: checkpoint.checkpoint.getStats(),
@@ -601,7 +709,8 @@ export class SingleNodeTestContext {
       }
     }
 
-    expect(targetFound).toBe(true);
+    expect(multiBlockCheckpointNumber).toBeDefined();
+    return multiBlockCheckpointNumber!;
   }
 
   /**
@@ -753,6 +862,38 @@ export class SingleNodeTestContext {
       timeout,
       `wait for sequencer event ${String(event)}`,
     );
+  }
+
+  /** Returns the {@link SequencerClient} of each given node, throwing if any node has no sequencer. */
+  public getSequencers(nodes: AztecNodeService[]): SequencerClient[] {
+    return nodes.map(node => {
+      const sequencer = node.getSequencer();
+      if (!sequencer) {
+        throw new Error('Node has no sequencer');
+      }
+      return sequencer;
+    });
+  }
+
+  /** Starts the sequencer on each given node in parallel. */
+  public async startSequencers(nodes: AztecNodeService[]): Promise<void> {
+    await Promise.all(this.getSequencers(nodes).map(sequencer => sequencer.start()));
+  }
+
+  /**
+   * Resolves once `sequencer` is in `state`, returning immediately if it is already there. Use to
+   * flush in-flight work (e.g. wait for `IDLE` so pending L1 publishes have been issued) before
+   * sampling chain state. Builds on {@link waitForSequencerEvent} for the not-yet-there path.
+   */
+  public async waitForSequencerState(
+    sequencer: Sequencer,
+    state: SequencerState,
+    opts: { timeout?: number } = {},
+  ): Promise<void> {
+    if (sequencer.status().state === state) {
+      return;
+    }
+    await this.waitForSequencerEvent(sequencer, 'state-changed', args => args.newState === state, opts);
   }
 
   public assertNoFailuresFromSequencers(failEvents: TrackedSequencerEvent[]) {

@@ -7,7 +7,6 @@ import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/bra
 import { retryUntil } from '@aztec/foundation/retry';
 import type { BlockData } from '@aztec/stdlib/block';
 import type { CheckpointData, ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
-import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 
 import { jest } from '@jest/globals';
 
@@ -230,16 +229,13 @@ describe('multi-node/high-availability/ha_checkpoint_handoff', () => {
     // Under proposer pipelining the proposer for proposal slot S1 builds during wall-clock slot S1-1.
     // Warp to 1 L1 slot before the build slot (S1-1) so the builder starts cleanly.
     const buildSlotForS1 = SlotNumber(slotS1 - 1);
-    const buildSlotTimestamp = getTimestampForSlot(buildSlotForS1, test.constants);
-    await context.cheatCodes.eth.warp(Number(buildSlotTimestamp) - test.L1_BLOCK_TIME_IN_S, {
-      resetBlockInterval: true,
-    });
+    await test.warpToBuildWindowForSlot(buildSlotForS1);
     logger.warn(`Warped to 1 L1 slot before L2 build slot ${buildSlotForS1} (proposal slot ${slotS1}).`);
 
     expect(await builder.getBlockNumber()).toEqual(0);
 
     // Start the sequencers on all nodes.
-    await Promise.all(nodes.map(n => n.getSequencer()!.start()));
+    await test.startSequencers(nodes);
     logger.warn(`Started all sequencers.`);
 
     // The builder always records its own proposed S1 checkpoint locally (its sequencer pushes it to the

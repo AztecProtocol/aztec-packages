@@ -36,9 +36,10 @@ describe('single-node/proving/empty_blocks', () => {
     context.sequencer?.updateConfig({ minTxsPerBlock: 1 });
     await test.waitUntilEpochStarts(1);
 
-    // REFACTOR: raw sleep to flush pending L1 txs; replace with a helper that waits for the
-    // sequencer to finish all in-flight L1 publishes (e.g. waitForSequencerIdle).
-    // Sleep to make sure any pending checkpoints are published
+    // Sleep to make sure any pending checkpoints are published. We deliberately keep the fixed
+    // sleep rather than waiting for the sequencer to reach IDLE: the sequencer is typically already
+    // idle here, so an IDLE wait would return immediately and not give the in-flight L1 publish time
+    // to land. The window we need is the publish settling, not the sequencer becoming idle.
     await sleep(L1_BLOCK_TIME_IN_S * 1000);
     const checkpointNumberAtEndOfEpoch0 = await rollup.getCheckpointNumber();
     logger.info(`Starting epoch 1 after checkpoint ${checkpointNumberAtEndOfEpoch0}`);

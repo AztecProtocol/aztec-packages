@@ -3,17 +3,13 @@ import type { AztecNodeConfig } from '@aztec/aztec-node';
 import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import { waitForTx } from '@aztec/aztec.js/node';
-import { waitUntilL1Timestamp } from '@aztec/ethereum/l1-tx-utils';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
-import { timesAsync } from '@aztec/foundation/collection';
 import { retryUntil } from '@aztec/foundation/retry';
-import { sleep } from '@aztec/foundation/sleep';
 import { executeTimeout } from '@aztec/foundation/timer';
-import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 
 import type { TestWallet } from '../../test-wallet/test_wallet.js';
-import { proveInteraction } from '../../test-wallet/utils.js';
+import { proveTxs, startMempoolFeeder } from '../../test-wallet/utils.js';
 import { MultiNodeTestContext, buildMockGossipValidators } from '../multi_node_test_context.js';
 import { type MbpsFixture, NODE_COUNT, jest } from './setup.js';
 
@@ -118,19 +114,16 @@ describe('multi-node/block-production/redistribution', () => {
 
     // Pre-prove all transactions up front.
     logger.warn(`Pre-proving ${TOTAL_TX_COUNT} transactions`);
-    const provenTxs = await timesAsync(TOTAL_TX_COUNT, i =>
-      proveInteraction(wallet, contract.methods.emit_nullifier(new Fr(i + 1)), { from }),
-    );
+    const provenTxs = await proveTxs(wallet, TOTAL_TX_COUNT, i => contract.methods.emit_nullifier(new Fr(i + 1)), {
+      from,
+    });
     logger.warn(`Pre-proved ${provenTxs.length} transactions`);
 
-    // Warp to just before the next L2 slot so sequencers start building promptly.
+    // Warp to just before the next L2 slot so sequencers start building promptly (one L1 slot before
+    // the L2 slot = the sequencer's build start). Uses the wait form since this test does not warp.
     const currentSlot = await rollup.getSlotNumber();
     const nextSlot = SlotNumber(currentSlot + 1);
-    const slotStartTimestamp = getTimestampForSlot(nextSlot, test.constants);
-    // Warp to one L1 slot before the L2 slot starts (= the sequencer's build start).
-    const warpTo = slotStartTimestamp - BigInt(test.L1_BLOCK_TIME_IN_S);
-    logger.warn(`Warping to L1 timestamp ${warpTo} (one L1 slot before L2 slot ${nextSlot})`);
-    await waitUntilL1Timestamp(test.l1Client, warpTo, undefined, 60);
+    await test.waitForBuildWindowForSlot(nextSlot, { timeout: 60 });
 
     // Send first early tx to the mempool before starting sequencers, so the first block isn't empty.
     // With skipInitialSequencer, there are no pre-existing blocks, and sequencers build block 1
@@ -140,7 +133,7 @@ describe('multi-node/block-production/redistribution', () => {
     const earlyTxHashes = [await provenTxs[0].send({ wait: NO_WAIT })];
 
     // Start sequencers.
-    await Promise.all(nodes.map(n => n.getSequencer()!.start()));
+    await test.startSequencers(nodes);
     logger.warn(`Started all sequencers`);
 
     // Wait for the first early tx to be proposed before sending the next.
@@ -245,21 +238,22 @@ describe('multi-node/block-production/redistribution', () => {
     const INITIAL_TX_COUNT = 4;
     let nullifierCounter = 200;
     logger.warn(`Pre-proving ${INITIAL_TX_COUNT} initial transactions`);
-    const initialProvenTxs = await timesAsync(INITIAL_TX_COUNT, () =>
-      proveInteraction(wallet, contract.methods.emit_nullifier(new Fr(nullifierCounter++)), { from }),
+    const initialProvenTxs = await proveTxs(
+      wallet,
+      INITIAL_TX_COUNT,
+      () => contract.methods.emit_nullifier(new Fr(nullifierCounter++)),
+      { from },
     );
     logger.warn(`Pre-proved ${initialProvenTxs.length} transactions`);
 
-    // Warp to just before the next L2 slot so sequencers start building promptly.
+    // Warp to just before the next L2 slot so sequencers start building promptly (one L1 slot before
+    // the L2 slot start). Uses the wait form since this test does not warp.
     const currentSlot = await rollup.getSlotNumber();
     const nextSlot = SlotNumber(currentSlot + 1);
-    const slotStartTimestamp = getTimestampForSlot(nextSlot, test.constants);
-    const warpTo = slotStartTimestamp - BigInt(test.L1_BLOCK_TIME_IN_S);
-    logger.warn(`Warping to L1 timestamp ${warpTo} (one L1 slot before L2 slot ${nextSlot})`);
-    await waitUntilL1Timestamp(test.l1Client, warpTo, undefined, 60);
+    await test.waitForBuildWindowForSlot(nextSlot, { timeout: 60 });
 
     // Start sequencers and send the initial batch.
-    await Promise.all(nodes.map(n => n.getSequencer()!.start()));
+    await test.startSequencers(nodes);
     logger.warn(`Started all sequencers`);
 
     logger.warn(`Sending ${initialProvenTxs.length} initial transactions`);
@@ -267,27 +261,12 @@ describe('multi-node/block-production/redistribution', () => {
     logger.warn(`Sent initial transactions`);
 
     // Background loop: keep the mempool topped up so proposers always have txs to include.
-    let done = false;
-    const keepMempoolFull = async () => {
-      while (!done) {
-        try {
-          const pendingCount = await nodes[0].getPendingTxCount();
-          if (pendingCount < 3) {
-            const tx = await proveInteraction(wallet, contract.methods.emit_nullifier(new Fr(nullifierCounter++)), {
-              from,
-            });
-            await tx.send({ wait: NO_WAIT });
-            logger.verbose(`Topped up mempool (was ${pendingCount}, nullifier=${nullifierCounter - 1})`);
-          }
-        } catch (err) {
-          logger.verbose(`Mempool top-up error (will retry): ${err}`);
-        }
-        await sleep(1000);
-      }
-    };
-    // REFACTOR: hand-rolled background sleep loop keeping the mempool above a threshold; replace
-    // with a shared test utility such as startMempoolFeeder(wallet, contract, from, minPending).
-    void keepMempoolFull();
+    await using _feeder = startMempoolFeeder(
+      wallet,
+      nodes[0],
+      () => contract.methods.emit_nullifier(new Fr(nullifierCounter++)),
+      { from, minPending: 3, logger },
+    );
 
     // Build a lookup from attester address to validator index for proposer identification.
     const attesterToIndex = new Map<string, number>();
@@ -353,7 +332,6 @@ describe('multi-node/block-production/redistribution', () => {
       1,
     );
 
-    done = true;
     logger.warn(
       `Test passed: observed checkpoints from both high-multiplier and normal-multiplier proposers. ` +
         `High-multiplier proposers packed >1 tx per block; normal proposers respected the fair-share ` +
