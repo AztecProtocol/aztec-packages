@@ -274,16 +274,23 @@ function bench_10tps {
 }
 
 # One point of the Set A inclusion sweep (A-1223). Same scrape+upload path as
-# bench_10tps, but parameterized by TARGET_TPS and tagged with a shared
-# BENCH_SWEEP_ID so the 1/5/10 points group as one sweep (schema v4). Load is
-# all high-value at TARGET_TPS so the headline client-observed inclusion latency
-# reflects the full target rate. Each point runs in its own namespace.
+# bench_10tps, and the same load model: a fixed 1 TPS of high-value txs (the
+# measured inclusion lane) plus (TARGET_TPS - 1) TPS of low-value background
+# traffic to bring total load to the target. So inclusion latency is always
+# measured for a properly-paying user's tx while the network runs at TARGET_TPS.
+# Tagged with a shared BENCH_SWEEP_ID so the 1/5/10 points group as one sweep
+# (schema v4). Each point runs in its own namespace.
 function bench_inclusion_point_cmds {
   local tps=${TARGET_TPS:-10}
+  local high_value_tps=1
+  # Low-value lane makes up the difference to the target; clamp at 0 for a 1 TPS
+  # target. awk handles any fractional TARGET_TPS.
+  local low_value_tps
+  low_value_tps=$(awk "BEGIN{l=${tps}-${high_value_tps}; if(l<0)l=0; print l}")
   local test_duration=${TEST_DURATION_SECONDS:-600} # 10 mins
   local timeout=${BENCH_TIMEOUT_SECONDS:-7200} # account for committee formation
   local scenario="incl_${tps/./_}tps"
-  echo "$(hash):TIMEOUT=${timeout} BENCH_RUN_ID=${BENCH_RUN_ID:-} BENCH_OUTPUT=bench-out/n_tps.${scenario}.bench.json BENCH_SCENARIO=${scenario} LOW_VALUE_TPS=0 HIGH_VALUE_TPS=${tps} TEST_DURATION_SECONDS=${test_duration} $root/yarn-project/end-to-end/scripts/run_test.sh simple n_tps.test.ts"
+  echo "$(hash):TIMEOUT=${timeout} BENCH_RUN_ID=${BENCH_RUN_ID:-} BENCH_OUTPUT=bench-out/n_tps.${scenario}.bench.json BENCH_SCENARIO=${scenario} LOW_VALUE_TPS=${low_value_tps} HIGH_VALUE_TPS=${high_value_tps} TEST_DURATION_SECONDS=${test_duration} $root/yarn-project/end-to-end/scripts/run_test.sh simple n_tps.test.ts"
 }
 
 function bench_inclusion_point {
