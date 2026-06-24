@@ -10,8 +10,8 @@
 /// used to provide helpful error messages if a contract calls an oracle that doesn't exist. We don't throw immediately
 /// if AZTEC_NR_MINOR > PXE_MINOR because if a contract is updated to use a newer Aztec.nr dependency without actually
 /// using any of the new oracles then there is no reason to throw.
-export const ORACLE_VERSION_MAJOR = 30;
-export const ORACLE_VERSION_MINOR = 1;
+export const ORACLE_VERSION_MAJOR = 31;
+export const ORACLE_VERSION_MINOR = 0;
 
 /// This hash is computed from the `ORACLE_REGISTRY` declaration (each oracle's name, ordered parameter names and
 /// types, and return type) and is used to detect when the oracle interface changes. When it does, you need to either:
