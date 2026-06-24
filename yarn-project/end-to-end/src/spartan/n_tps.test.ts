@@ -214,14 +214,25 @@ describe('sustained N TPS test', () => {
       walletCount: testWallets?.length ?? 0,
       endpointCount: endpoints?.length ?? 0,
     });
-    for (const { cleanup } of testWallets!) {
-      await cleanup();
+    // Teardown must not fail the suite: the benchmark result is already captured
+    // by this point, so a cleanup error (dead PXE, missing chaos-mesh CRDs, etc.)
+    // should be logged, not thrown — otherwise it turns a successful run red.
+    try {
+      for (const { cleanup } of testWallets ?? []) {
+        await cleanup();
+      }
+    } catch (err) {
+      logger.warn(`Failed to clean up wallets: ${err}`, { err });
     }
 
-    endpoints.forEach(e => e.process?.kill());
+    endpoints?.forEach(e => e.process?.kill());
     promProcess?.process?.kill();
 
-    await uninstallChaosMesh(CHAOS_MESH_NAME, config.NAMESPACE, logger);
+    try {
+      await uninstallChaosMesh(CHAOS_MESH_NAME, config.NAMESPACE, logger);
+    } catch (err) {
+      logger.warn(`Failed to uninstall Chaos Mesh: ${err}`, { err });
+    }
   });
 
   beforeAll(async () => {
@@ -726,13 +737,21 @@ describe('sustained N TPS test', () => {
     logger.info(`Transaction inclusion summary: ${successCount} succeeded, ${failureCount} failed`);
     logger.info('Inclusion time stats', inclusionStats);
 
+    // A total submission failure (nothing sent when load was requested) is still
+    // a hard error — it means the run is broken, not just degraded.
     if (totalHighValueSent === 0 && highValueTps > 0) {
       throw new Error('No high-value txs were sent; check earlier submission errors');
     }
-    if (successCount !== totalHighValueSent) {
-      const message = `Only ${successCount}/${totalHighValueSent} high-value txs were included; ${failureCount} failed`;
-      throw new Error(message);
-    }
+    // Otherwise record mined-vs-failed as a metric rather than asserting strict
+    // 1:1 inclusion. A degraded point (e.g. a TPS target the network can't fully
+    // include) should report its numbers, not fail the run — the inclusion
+    // success ratio is itself the headline result we want to track over time.
+    metrics.recordInclusionOutcome(successCount, failureCount);
+    logger.info('Recorded inclusion outcome', {
+      mined: successCount,
+      failed: failureCount,
+      sent: totalHighValueSent,
+    });
   });
 });
 
