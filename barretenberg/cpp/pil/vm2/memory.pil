@@ -283,11 +283,11 @@ diff = limb[0] + limb[1] * 2**16 + limb[2] * 2**32;
 // Range check each limb to 16 bits, proving diff is in [0, 2^48).
 // Only checked on active non-last rows (sel_rng_chk gating).
 #[RANGE_CHECK_LIMB_0]
-sel_rng_chk { limb[0] } in precomputed.sel_range_16 { precomputed.idx };
+sel_rng_chk { limb[0] } in precomputed.sel_range_16_active { precomputed.idx };
 #[RANGE_CHECK_LIMB_1]
-sel_rng_chk { limb[1] } in precomputed.sel_range_16 { precomputed.idx };
+sel_rng_chk { limb[1] } in precomputed.sel_range_16_active { precomputed.idx };
 #[RANGE_CHECK_LIMB_2]
-sel_rng_chk { limb[2] } in precomputed.sel_range_16 { precomputed.idx };
+sel_rng_chk { limb[2] } in precomputed.sel_range_16_active { precomputed.idx };
 
 ////////////////////////////////////////////////
 // Memory Initialization

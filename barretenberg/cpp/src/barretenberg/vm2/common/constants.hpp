@@ -23,7 +23,9 @@ constexpr std::array<std::size_t, AVM_NUM_PUBLIC_INPUT_COLUMNS> AVM_PUBLIC_INPUT
     AVM_PUBLIC_INPUTS_COLUMN_3_LENGTH,
 };
 
-// Also used for op_id in the circuit trace
+// The AND/OR/XOR values double as op_id in the circuit trace. A keccak SIMD-64 operation (which
+// packs two independent U64 lanes into one U128 bitwise row) reuses the same op_id and is flagged
+// separately via BitwiseEvent::simd_64.
 enum class BitwiseOperation : uint8_t {
     AND = AVM_BITWISE_AND_OP_ID,
     OR = AVM_BITWISE_OR_OP_ID,

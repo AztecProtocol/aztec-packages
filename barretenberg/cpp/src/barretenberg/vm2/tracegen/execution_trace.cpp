@@ -1264,11 +1264,11 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         // Internal Call Stack
         .add<InteractionType::Permutation, perm_internal_call_push_call_stack_settings>()
         .add<InteractionType::LookupGeneric, lookup_internal_call_unwind_call_stack_settings>()
-        // Gas
-        .add<InteractionType::LookupIntoIndexedByRow, lookup_gas_addressing_gas_read_settings>()
+        // Gas.
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_gas_addressing_gas_read_settings>(
+            C::precomputed_sel_range_16)
         .add<InteractionType::LookupGeneric, lookup_gas_is_out_of_gas_l2_settings>(C::gt_sel)
         .add<InteractionType::LookupGeneric, lookup_gas_is_out_of_gas_da_settings>(C::gt_sel)
-        .add<InteractionType::LookupIntoIndexedByRow, lookup_execution_dyn_l2_factor_bitwise_settings>()
         // Gas - ToRadix BE
         .add<InteractionType::LookupGeneric, lookup_execution_check_radix_gt_256_settings>(C::gt_sel)
         .add<InteractionType::LookupIntoIndexedByRow, lookup_execution_get_p_limbs_settings>()
@@ -1308,7 +1308,7 @@ const InteractionDefinition ExecutionTraceBuilder::interactions =
         .add<InteractionType::LookupIntoIndexedByRow, lookup_send_l2_to_l1_msg_write_l2_to_l1_msg_settings>()
         // Dispatching to other sub-traces
         .add<InteractionType::LookupGeneric, lookup_execution_dispatch_to_alu_settings>()
-        .add<InteractionType::LookupGeneric, lookup_execution_dispatch_to_bitwise_settings>()
+        .add<InteractionType::LookupGeneric, lookup_execution_dispatch_to_bitwise_settings>(C::bitwise_sel)
         .add<InteractionType::Permutation, perm_execution_dispatch_to_cd_copy_settings>()
         .add<InteractionType::Permutation, perm_execution_dispatch_to_rd_copy_settings>()
         .add<InteractionType::LookupGeneric, lookup_execution_dispatch_to_cast_settings>()

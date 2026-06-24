@@ -932,8 +932,7 @@ pub global AVM_SUBTRACE_ID_TO_RADIX: u32 = 2 * AVM_SUBTRACE_ID_ECC;
 pub global AVM_DYN_GAS_ID_CALLDATACOPY: u32 = 1;
 pub global AVM_DYN_GAS_ID_RETURNDATACOPY: u32 = 2 * AVM_DYN_GAS_ID_CALLDATACOPY;
 pub global AVM_DYN_GAS_ID_TORADIX: u32 = 2 * AVM_DYN_GAS_ID_RETURNDATACOPY;
-pub global AVM_DYN_GAS_ID_BITWISE: u32 = 2 * AVM_DYN_GAS_ID_TORADIX;
-pub global AVM_DYN_GAS_ID_EMITPUBLICLOG: u32 = 2 * AVM_DYN_GAS_ID_BITWISE;
+pub global AVM_DYN_GAS_ID_EMITPUBLICLOG: u32 = 2 * AVM_DYN_GAS_ID_TORADIX;
 pub global AVM_DYN_GAS_ID_SSTORE: u32 = 2 * AVM_DYN_GAS_ID_EMITPUBLICLOG;
 
 // Execution Opcode IDs
@@ -1188,7 +1187,7 @@ pub global AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH: u32 = AVM_PUBLIC_INPUTS_CO
 
 // AVM_V2_PROOF_LENGTH_IN_FIELDS must be updated when AVM circuit changes.
 // Run barretenberg/cpp/scripts/bump_avm_proof_length.sh, to regenerate the constants
-pub global AVM_V2_PROOF_LENGTH_IN_FIELDS: u32 = 15280;
+pub global AVM_V2_PROOF_LENGTH_IN_FIELDS: u32 = 15357;
 
 // GAS DEFAULTS
 pub global DA_BYTES_PER_FIELD: u32 = 32;
@@ -1292,7 +1291,6 @@ pub global AVM_TORADIXBE_BASE_L2_GAS: u32 = 24;
 pub global AVM_CALLDATACOPY_DYN_L2_GAS: u32 = 6;
 pub global AVM_RETURNDATACOPY_DYN_L2_GAS: u32 = 6;
 pub global AVM_TORADIXBE_DYN_L2_GAS: u32 = 3;
-pub global AVM_BITWISE_DYN_L2_GAS: u32 = 3; // One row per byte
 pub global AVM_EMITPUBLICLOG_DYN_L2_GAS: u32 = 3;
 
 // Base DA Gas

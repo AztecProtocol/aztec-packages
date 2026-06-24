@@ -1023,10 +1023,7 @@ void Execution::and_op(ContextInterface& context, MemoryAddress a_addr, MemoryAd
     const MemoryValue a = memory.get(a_addr);
     const MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
-
-    // Dynamic gas consumption for bitwise is dependent on the tag, FF tags are valid here but
-    // will result in an exception in the bitwise subtrace.
-    get_gas_tracker().consume_gas({ .l2_gas = get_tag_bytes(a.get_tag()), .da_gas = 0 });
+    get_gas_tracker().consume_gas();
 
     try {
         MemoryValue c = bitwise.and_op(a, b);
@@ -1060,10 +1057,7 @@ void Execution::or_op(ContextInterface& context, MemoryAddress a_addr, MemoryAdd
     const MemoryValue a = memory.get(a_addr);
     const MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
-
-    // Dynamic gas consumption for bitwise is dependent on the tag, FF tags are valid here but
-    // will result in an exception in the bitwise subtrace.
-    get_gas_tracker().consume_gas({ .l2_gas = get_tag_bytes(a.get_tag()), .da_gas = 0 });
+    get_gas_tracker().consume_gas();
 
     try {
         MemoryValue c = bitwise.or_op(a, b);
@@ -1095,10 +1089,7 @@ void Execution::xor_op(ContextInterface& context, MemoryAddress a_addr, MemoryAd
     const MemoryValue a = memory.get(a_addr);
     const MemoryValue b = memory.get(b_addr);
     set_and_validate_inputs(opcode, { a, b });
-
-    // Dynamic gas consumption for bitwise is dependent on the tag, FF tags are valid here but
-    // will result in an exception in the bitwise subtrace.
-    get_gas_tracker().consume_gas({ .l2_gas = get_tag_bytes(a.get_tag()), .da_gas = 0 });
+    get_gas_tracker().consume_gas();
 
     try {
         MemoryValue c = bitwise.xor_op(a, b);

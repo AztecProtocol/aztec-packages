@@ -18,7 +18,7 @@ struct lookup_public_data_check_clk_diff_range_lo_settings_ {
     static constexpr std::string_view RELATION_NAME = "public_data_check";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
     static constexpr Column SRC_SELECTOR = Column::public_data_check_not_end;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
+    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16_active;
     static constexpr Column COUNTS = Column::lookup_public_data_check_clk_diff_range_lo_counts;
     static constexpr Column INVERSES = Column::lookup_public_data_check_clk_diff_range_lo_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -40,7 +40,7 @@ struct lookup_public_data_check_clk_diff_range_hi_settings_ {
     static constexpr std::string_view RELATION_NAME = "public_data_check";
     static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
     static constexpr Column SRC_SELECTOR = Column::public_data_check_not_end;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
+    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16_active;
     static constexpr Column COUNTS = Column::lookup_public_data_check_clk_diff_range_hi_counts;
     static constexpr Column INVERSES = Column::lookup_public_data_check_clk_diff_range_hi_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {

@@ -174,9 +174,12 @@ const InteractionDefinition MemoryTraceBuilder::interactions =
              perm_to_radix_mem_write_mem_settings
              // Others.
              >(Column::memory_sel)
-        .add<InteractionType::LookupIntoIndexedByRow, lookup_memory_range_check_limb_0_settings>()
-        .add<InteractionType::LookupIntoIndexedByRow, lookup_memory_range_check_limb_1_settings>()
-        .add<InteractionType::LookupIntoIndexedByRow, lookup_memory_range_check_limb_2_settings>()
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_memory_range_check_limb_0_settings>(
+            Column::precomputed_sel_range_16)
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_memory_range_check_limb_1_settings>(
+            Column::precomputed_sel_range_16)
+        .add<InteractionType::LookupIntoIndexedByRow, lookup_memory_range_check_limb_2_settings>(
+            Column::precomputed_sel_range_16)
         .add<InteractionType::LookupIntoIndexedByRow, lookup_memory_tag_max_bits_settings>()
         .add<InteractionType::LookupGeneric, lookup_memory_range_check_write_tagged_value_settings>(
             Column::range_check_sel);

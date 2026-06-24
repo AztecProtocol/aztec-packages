@@ -52,6 +52,9 @@ void PrecomputedTraceBuilder::process_bitwise(TraceContainer& trace)
     // 256 per input (a and b), and 3 different bitwise ops
     constexpr auto num_rows = 256 * 256;
     static_assert(num_rows <= PRECOMPUTED_TRACE_SIZE);
+    static_assert(num_rows == (1U << 16),
+                  "bitwise table must span 2^16 rows for sel_range_16 to be a sound outer selector for "
+                  "the committed sel_bitwise granular selector (see precomputed.pil)");
     trace.reserve_column(C::precomputed_bitwise_input_a, num_rows);
     trace.reserve_column(C::precomputed_bitwise_input_b, num_rows);
     trace.reserve_column(C::precomputed_bitwise_output_and, num_rows);
@@ -374,11 +377,14 @@ void PrecomputedTraceBuilder::process_memory_tag_range(TraceContainer& trace)
 void PrecomputedTraceBuilder::process_addressing_gas(TraceContainer& trace)
 {
     constexpr uint32_t num_rows = 1 << 16; // 65536
-    trace.reserve_column(C::precomputed_sel_addressing_gas, num_rows);
+
+    static_assert(num_rows == (1U << 16),
+                  "addressing-gas table must span 2^16 rows for sel_range_16 to be a sound outer selector for "
+                  "the committed sel_addressing_gas granular selector (see precomputed.pil)");
+    // sel_addressing_gas is committed and populated by the lookup builder (toggled on used rows), not here.
     trace.reserve_column(C::precomputed_addressing_gas, num_rows);
 
     for (uint32_t i = 0; i < num_rows; i++) {
-        trace.set(C::precomputed_sel_addressing_gas, i, 1);
         trace.set(C::precomputed_addressing_gas, i, compute_addressing_gas(static_cast<uint16_t>(i)));
     }
 }

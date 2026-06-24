@@ -526,31 +526,19 @@ const std::unordered_map<ExecutionOpCode, ExecInstructionSpec>& get_exec_instruc
                                  .add_output(/*c*/) } },
         { ExecutionOpCode::AND,
           { .num_addresses = 3,
-            .gas_cost = { .opcode_gas = AVM_AND_BASE_L2_GAS,
-                          .base_da = 0,
-                          .dyn_l2 = AVM_BITWISE_DYN_L2_GAS,
-                          .dyn_da = 0 },
-            .dyn_gas_id = AVM_DYN_GAS_ID_BITWISE,
+            .gas_cost = { .opcode_gas = AVM_AND_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
             .register_info = RegisterInfo()
                                  .add_inputs({ /*a*/ RegisterInfo::ANY_TAG, /*b*/ RegisterInfo::ANY_TAG })
                                  .add_output(/*c*/) } },
         { ExecutionOpCode::OR,
           { .num_addresses = 3,
-            .gas_cost = { .opcode_gas = AVM_OR_BASE_L2_GAS,
-                          .base_da = 0,
-                          .dyn_l2 = AVM_BITWISE_DYN_L2_GAS,
-                          .dyn_da = 0 },
-            .dyn_gas_id = AVM_DYN_GAS_ID_BITWISE,
+            .gas_cost = { .opcode_gas = AVM_OR_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
             .register_info = RegisterInfo()
                                  .add_inputs({ /*a*/ RegisterInfo::ANY_TAG, /*b*/ RegisterInfo::ANY_TAG })
                                  .add_output(/*c*/) } },
         { ExecutionOpCode::XOR,
           { .num_addresses = 3,
-            .gas_cost = { .opcode_gas = AVM_XOR_BASE_L2_GAS,
-                          .base_da = 0,
-                          .dyn_l2 = AVM_BITWISE_DYN_L2_GAS,
-                          .dyn_da = 0 },
-            .dyn_gas_id = AVM_DYN_GAS_ID_BITWISE,
+            .gas_cost = { .opcode_gas = AVM_XOR_BASE_L2_GAS, .base_da = 0, .dyn_l2 = 0, .dyn_da = 0 },
             .register_info = RegisterInfo()
                                  .add_inputs({ /*a*/ RegisterInfo::ANY_TAG, /*b*/ RegisterInfo::ANY_TAG })
                                  .add_output(/*c*/) } },

@@ -1,6 +1,5 @@
 #pragma once
 
-#include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/simulation/events/bitwise_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_def.hpp"
