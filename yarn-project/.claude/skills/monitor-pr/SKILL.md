@@ -12,7 +12,7 @@ A self-paced monitoring loop over a single PR. Each iteration takes a status sna
 
 This skill **composes** its siblings rather than re-deriving them:
 - Fix CI failures the way `/fix-pr` does (delegating identification to the `identify-ci-failures`
-  subagent, then root-causing with `flaky-test-fixer-by-claude` when a test is the failure).
+  subagent, then root-causing the failure — preferring a real fix over a skip or flake flag).
 - Resolve conflicts the way `/rebase-pr` does.
 
 ## Usage
@@ -89,9 +89,8 @@ never has to rediscover the failures:
 - Each failing check: its **name**, **bucket**, and **log link/hash** from the `FAILED_CHECKS`
   block.
 - The repro command for affected tests, and the instruction to pull logs the way `/fix-pr` does
-  (via the `identify-ci-failures` subagent) and root-cause real test failures with
-  `flaky-test-fixer-by-claude` — prefer a genuine fix over a skip/flake flag; only re-run a job
-  when a failure is clearly infra/flaky.
+  (via the `identify-ci-failures` subagent) and root-cause real test failures — prefer a genuine
+  fix over a skip/flake flag; only re-run a job when a failure is clearly infra/flaky.
 
 Bake these instructions into the fixer's prompt:
 - Check out the PR branch, verify locally (`yarn build` + affected tests) before pushing.
@@ -166,5 +165,4 @@ When the PR is green and conflict-free:
 - `check-pr.sh` (this directory) — the status-snapshot script.
 - `/fix-pr` — CI-failure identification and fixing methodology.
 - `/rebase-pr` — conflict resolution and post-rebase verification.
-- `flaky-test-fixer-by-claude` — root-causing failing/flaky tests.
 - `CLAUDE.md` — base-branch routing and repo guardrails.
