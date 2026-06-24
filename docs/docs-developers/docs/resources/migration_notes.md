@@ -42,8 +42,8 @@ In `TestEnvironment`, use `execute_utility_opts` with the new `ExecuteUtilityOpt
 ```rust
 let secret = env.execute_utility_opts(
     ExecuteUtilityOptions::new().with_from(caller),
-    Registry::at(registry_address).get_app_siloed_secret(sender, recipient, mode),
-);
+    Registry::at(registry_address).get_app_siloed_secret(sender, recipient),
+).map(|secrets| secrets.shared);
 ```
 
 ### [Prover Node JSON-RPC] Prover API moved to the admin endpoint; `getL2Tips`/`getWorldStateSyncStatus` removed

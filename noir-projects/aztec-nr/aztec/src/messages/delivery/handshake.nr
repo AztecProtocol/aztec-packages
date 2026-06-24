@@ -51,8 +51,6 @@ pub global NON_INTERACTIVE_HANDSHAKE_SELECTOR: FunctionSelector =
     comptime { FunctionSelector::from_signature("non_interactive_handshake((Field),(Field))") };
 pub global GET_HANDSHAKES_SELECTOR: FunctionSelector =
     comptime { FunctionSelector::from_signature("get_handshakes((Field),u32)") };
-pub global GET_APP_SILOED_HANDSHAKE_SECRETS_SELECTOR: FunctionSelector =
-    comptime { FunctionSelector::from_signature("get_app_siloed_handshake_secrets((Field),(Field))") };
 
 /// Resolves the app-siloed handshake secret, bootstrapping when none exists.
 ///
@@ -80,7 +78,7 @@ pub(crate) fn get_or_create_app_siloed_handshake_secret(
     let maybe_secrets: Option<AppSiloedHandshakeSecrets> = unsafe {
         let returns = call_utility_function(
             registry,
-            GET_APP_SILOED_HANDSHAKE_SECRETS_SELECTOR,
+            GET_APP_SILOED_SECRET_SELECTOR,
             [sender.to_field(), recipient.to_field()],
         );
         Deserialize::deserialize(returns)

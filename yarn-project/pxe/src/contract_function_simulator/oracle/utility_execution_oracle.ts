@@ -1018,7 +1018,6 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 const STANDARD_HANDSHAKE_REGISTRY_DEFAULT_AUTHORIZED_READ_SIGNATURES = [
   'get_handshakes((Field),u32)',
   'get_app_siloed_secret((Field),(Field))',
-  'get_app_siloed_handshake_secrets((Field),(Field))',
 ];
 
 async function doesSelectorHaveSignature(functionSelector: FunctionSelector, signature: string): Promise<boolean> {

@@ -47,7 +47,8 @@ unconstrained fn rehandshake_replaces_registry_secret_for_future_delivery() {
             ExecuteUtilityOptions::new().with_from(test_address),
             registry.get_app_siloed_secret(sender, recipient),
         )
-        .expect(f"first delivery should have stored a handshake");
+        .expect(f"first delivery should have stored a handshake")
+        .shared;
 
     let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
     let second_secret = env
@@ -55,7 +56,8 @@ unconstrained fn rehandshake_replaces_registry_secret_for_future_delivery() {
             ExecuteUtilityOptions::new().with_from(test_address),
             registry.get_app_siloed_secret(sender, recipient),
         )
-        .expect(f"re-handshake should have stored a replacement handshake");
+        .expect(f"re-handshake should have stored a replacement handshake")
+        .shared;
     assert(first_secret != second_secret, "re-handshake should produce a distinct secret");
 
     env.call_private_opts(sender, authorizing(registry_address), test_contract.emit_event(recipient, 1));
@@ -76,7 +78,8 @@ unconstrained fn fails_at_index_above_zero_without_prior_nullifier() {
             ExecuteUtilityOptions::new().with_from(test_address),
             registry.get_app_siloed_secret(sender, recipient),
         )
-        .expect(f"handshake should be siloed for the test contract");
+        .expect(f"handshake should be siloed for the test contract")
+        .shared;
 
     env.call_private(sender, test_contract.emit_constrained_log_without_nullifier(secret, 0));
 
@@ -103,7 +106,8 @@ unconstrained fn malicious_recipient_cannot_grief_sender_sequence() {
             ExecuteUtilityOptions::new().with_from(test_address),
             registry.get_app_siloed_secret(sender, recipient),
         )
-        .expect(f"first delivery should have stored a handshake");
+        .expect(f"first delivery should have stored a handshake")
+        .shared;
 
     // The recipient pre-emits the sender's next (indqex 1) nullifier from the same app contract. The nullifier value
     // depends only on the explicit args and its siloing on the app contract, not on the signer, so any account could
