@@ -86,9 +86,8 @@ unconstrained fn fails_at_index_above_zero_without_prior_nullifier() {
 /// A malicious recipient that knows the shared secret pre-emits the sender's next constrained nullifier from the same
 /// app contract. The shared secret is recoverable by the recipient from the handshake's public ephemeral key, so the
 /// **recipient** can compute the **sender's** next sequence nullifier and emit it first. Until the nullifier is bound
-/// to a
-/// sender-only secret this griefs the sequence: the sender's next send will on the duplicate nullifier. The test
-/// asserts the sender's second send succeeds.
+/// to a sender-only secret this griefs the sequence: the sender's next send will on the duplicate nullifier.
+/// The test asserts the sender's second send succeeds.
 #[test]
 unconstrained fn malicious_recipient_cannot_grief_sender_sequence() {
     let (env, registry_address, test_address, sender, recipient) = setup();
@@ -106,7 +105,7 @@ unconstrained fn malicious_recipient_cannot_grief_sender_sequence() {
         )
         .expect(f"first delivery should have stored a handshake");
 
-    // The recipient pre-emits the sender's next (index 1) nullifier from the same app contract. The nullifier value
+    // The recipient pre-emits the sender's next (indqex 1) nullifier from the same app contract. The nullifier value
     // depends only on the explicit args and its siloing on the app contract, not on the signer, so any account could
     // sign this; we sign from the `recipient` to model the actual attacker.
     env.call_private(recipient, test_contract.grief_emit_constrained_nullifier(sender, recipient, shared_secret, 1));
