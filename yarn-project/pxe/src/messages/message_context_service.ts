@@ -1,7 +1,7 @@
 import { uniqueBy } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { MessageContext } from '@aztec/stdlib/logs';
+import type { MessageContext } from '@aztec/stdlib/logs';
 import { type IndexedTxEffect, TxHash } from '@aztec/stdlib/tx';
 
 /** Resolves transaction hashes into the context needed to process messages. */
@@ -56,7 +56,11 @@ export class MessageContextService {
         throw new Error(`Tx effect for ${txHash} has no nullifiers`);
       }
 
-      return new MessageContext(data.txHash, data.noteHashes, data.nullifiers[0]);
+      return {
+        txHash: data.txHash,
+        uniqueNoteHashesInTx: data.noteHashes,
+        firstNullifierInTx: data.nullifiers[0],
+      };
     });
   }
 }

@@ -3,7 +3,7 @@ import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { uniqueBy } from '@aztec/foundation/collection';
 import { Aes128 } from '@aztec/foundation/crypto/aes128';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import type { Point } from '@aztec/foundation/curves/grumpkin';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 import { LogLevels, type Logger, createLogger } from '@aztec/foundation/log';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import type { KeyStore } from '@aztec/key-store';
@@ -27,7 +27,8 @@ import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { PublicKeys, computeAddressSecret, hashPublicKey } from '@aztec/stdlib/keys';
 import {
   AppTaggingSecret,
-  MessageContext,
+  FlatPublicLogs,
+  type MessageContext,
   type PendingTaggedLog,
   deriveAppSiloedSharedSecret,
 } from '@aztec/stdlib/logs';
@@ -40,7 +41,6 @@ import {
   type Capsule,
   type IndexedTxEffect,
   type OffchainEffect,
-  TxEffect,
   type TxHash,
 } from '@aztec/stdlib/tx';
 
@@ -62,6 +62,7 @@ import type { RecipientTaggingStore } from '../../storage/tagging_store/recipien
 import type { TaggingSecretSourcesStore } from '../../storage/tagging_store/tagging_secret_sources_store.js';
 import { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
+import type { EmbeddedCurvePoint } from '../noir-structs/embedded_curve_point.js';
 import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
 import type { EventValidationRequest } from '../noir-structs/event_validation_request.js';
 import type { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
@@ -70,12 +71,12 @@ import type { NoteData } from '../noir-structs/note_data.js';
 import type { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import { Option } from '../noir-structs/option.js';
 import type { ProvidedSecret } from '../noir-structs/provided_secret.js';
-import { UtilityContext } from '../noir-structs/utility_context.js';
+import type { TxEffectData } from '../noir-structs/tx_effect_data.js';
+import type { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
 import type { TransientArrayService } from '../transient_array_service.js';
 import { buildACIRCallback } from './acir_callback.js';
 import type { IMiscOracle, IUtilityExecutionOracle } from './interfaces.js';
-import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
 /** Args for UtilityExecutionOracle constructor. */
 export type UtilityExecutionOracleArgs = {
@@ -195,7 +196,11 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   public getUtilityContext(): UtilityContext {
-    return new UtilityContext(this.anchorBlockHeader, this.callContext.contractAddress, this.callContext.msgSender);
+    return {
+      blockHeader: this.anchorBlockHeader,
+      contractAddress: this.callContext.contractAddress,
+      msgSender: this.callContext.msgSender,
+    };
   }
 
   /**
@@ -487,7 +492,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       await this.anchorBlockHeader.hash(),
     );
 
-    return new MessageLoadOracleInputs(messageIndex, siblingPath);
+    return { index: messageIndex, siblingPath };
   }
 
   /**
@@ -659,7 +664,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * Fetches the effects of a transaction by its hash. Returns null if the tx is not found or is beyond the anchor
    * block.
    */
-  public async getTxEffect(txHash: TxHash): Promise<Option<TxEffect>> {
+  public async getTxEffect(txHash: TxHash): Promise<Option<TxEffectData>> {
     if (txHash.hash.isZero()) {
       throw new Error('Invalid tx hash passed into aztec_utl_getTxEffect oracle handler');
     }
@@ -669,7 +674,16 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       return Option.none();
     }
 
-    return Option.some(receipt.txEffect);
+    const txEffect = receipt.txEffect;
+    return Option.some({
+      ...txEffect,
+      publicLogs: FlatPublicLogs.fromLogs(txEffect.publicLogs),
+      contractClassLogs: txEffect.contractClassLogs.map(log => ({
+        contractAddress: log.contractAddress,
+        fields: log.fields.toFields(),
+        emittedLength: log.emittedLength,
+      })),
+    });
   }
 
   public setCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], scope: AztecAddress): void {
@@ -752,7 +766,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    */
   public async getSharedSecrets(
     address: AztecAddress,
-    ephPks: EphemeralArray<Point>,
+    ephPks: EphemeralArray<EmbeddedCurvePoint>,
     contractAddress: AztecAddress,
   ): Promise<EphemeralArray<Fr>> {
     if (!contractAddress.equals(this.contractAddress)) {
@@ -767,7 +781,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 
     const ephPkPoints = ephPks.readAll(this.ephemeralArrayService);
     const secrets = await Promise.all(
-      ephPkPoints.map(ephPk => deriveAppSiloedSharedSecret(addressSecret, ephPk, this.contractAddress)),
+      ephPkPoints.map(({ x, y }) => deriveAppSiloedSharedSecret(addressSecret, new Point(x, y), this.contractAddress)),
     );
 
     return EphemeralArray.fromValues(this.ephemeralArrayService, secrets);

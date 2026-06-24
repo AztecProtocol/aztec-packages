@@ -12,7 +12,7 @@ import { type IndexedTxEffect, TxEffect } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
 
-import { EventValidationRequest } from '../contract_function_simulator/noir-structs/event_validation_request.js';
+import type { EventValidationRequest } from '../contract_function_simulator/noir-structs/event_validation_request.js';
 import { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 import { EventService } from './event_service.js';
 
@@ -84,14 +84,14 @@ describe('validateAndStoreEvents', () => {
       txEffectsMap?: Map<string, IndexedTxEffect>;
     } = {},
   ) {
-    const request = new EventValidationRequest(
+    const request: EventValidationRequest = {
       contractAddress,
-      eventSelector,
+      eventTypeId: eventSelector,
       randomness,
-      overrides.eventContent ?? eventContent,
-      overrides.eventCommitment ?? eventCommitment,
-      txEffect.txHash,
-    );
+      serializedEvent: overrides.eventContent ?? eventContent,
+      eventCommitment: overrides.eventCommitment ?? eventCommitment,
+      txHash: txEffect.txHash,
+    };
 
     const map = overrides.txEffectsMap ?? defaultTxEffectsMap();
     await eventService.validateAndStoreEvents([request], recipient, map);
