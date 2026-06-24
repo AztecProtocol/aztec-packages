@@ -678,6 +678,15 @@ locals {
   }, local.validator_releases)
 }
 
+# The p2p bootstrap release used to be an entry in the helm_releases map (applied
+# via helm_release.releases["p2p_bootstrap"]). It is now its own resource so it can
+# be applied before the other releases. Tell Terraform it is the same release to
+# avoid destroying and recreating the running bootstrap node.
+moved {
+  from = helm_release.releases["p2p_bootstrap"]
+  to   = helm_release.p2p_bootstrap[0]
+}
+
 resource "helm_release" "p2p_bootstrap" {
   count = var.DEPLOY_INTERNAL_BOOTNODE ? 1 : 0
 
