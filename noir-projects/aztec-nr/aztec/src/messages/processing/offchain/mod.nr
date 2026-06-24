@@ -96,10 +96,17 @@ pub struct OffchainMessage {
 }
 
 mod test {
-    use crate::oracle::random::random;
+    use crate::{oracle::random::random, test::helpers::test_environment::TestEnvironment};
     use super::{MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL, OffchainMessage, receive, sync_inbox};
     use super::reception::{MAX_MSG_TTL, OffchainReception};
-    use super::reception::test::{advance_by, is_in_inbox, is_processed, make_msg, messages_in_inbox, setup};
+    use super::reception::test::{make_msg, setup};
+
+    /// Advances the TXE block timestamp by `offset` seconds and returns the resulting timestamp.
+    unconstrained fn advance_by(env: TestEnvironment, offset: u64) -> u64 {
+        env.advance_next_block_timestamp_by(offset);
+        env.mine_block();
+        env.last_block_timestamp()
+    }
 
     #[test]
     unconstrained fn empty_inbox_returns_empty_result() {
@@ -109,7 +116,7 @@ mod test {
             let result = sync_inbox(address, scope);
 
             assert_eq(result.len(), 0);
-            assert_eq(messages_in_inbox(address, scope).len(), 0);
+            assert_eq(OffchainReception::load_all(address, scope).len(), 0);
         });
     }
 
@@ -146,18 +153,15 @@ mod test {
 
             assert_eq(result.len(), 0); // all contexts are None
             assert(
-                !is_in_inbox(address, scope, OffchainReception::id_for(expired_a)),
+                !OffchainReception::is_active(address, scope, expired_a),
                 "expired tx-bound reception should be terminated",
             );
             assert(
-                !is_in_inbox(address, scope, OffchainReception::id_for(expired_b)),
+                !OffchainReception::is_active(address, scope, expired_b),
                 "expired tx-less reception should be terminated",
             );
-            assert(
-                is_in_inbox(address, scope, OffchainReception::id_for(survivor)),
-                "survivor reception should stay active",
-            );
-            assert_eq(messages_in_inbox(address, scope).len(), 1);
+            assert(OffchainReception::is_active(address, scope, survivor), "survivor reception should stay active");
+            assert_eq(OffchainReception::load_all(address, scope).len(), 1);
         });
     }
 
@@ -177,8 +181,8 @@ mod test {
             let address = context.this_address();
             receive(address, BoundedVec::from_array([msg]));
 
-            assert(is_in_inbox(address, scope, OffchainReception::id_for(msg)), "reception should be active");
-            assert_eq(messages_in_inbox(address, scope).len(), 1);
+            assert(OffchainReception::is_active(address, scope, msg), "reception should be active");
+            assert_eq(OffchainReception::load_all(address, scope).len(), 1);
         });
     }
 
@@ -197,7 +201,7 @@ mod test {
         env.utility_context(|context| {
             let address = context.this_address();
             assert_eq(sync_inbox(address, scope).len(), 1);
-            assert(is_processed(address, scope, OffchainReception::id_for(msg)), "should be processed");
+            assert(OffchainReception::is_processed(address, scope, msg), "should be processed");
         });
 
         // Re-deliver the same message. The next sync recognizes it as already processed and does not re-push it.
@@ -206,7 +210,7 @@ mod test {
             receive(address, BoundedVec::from_array([msg]));
 
             assert(
-                is_processed(address, scope, OffchainReception::id_for(msg)),
+                OffchainReception::is_processed(address, scope, msg),
                 "re-delivery must preserve the processed guard",
             );
             assert_eq(sync_inbox(address, scope).len(), 0);
