@@ -32,7 +32,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import type { FieldsOf } from '@aztec/foundation/types';
 import { displayDebugLogs } from '@aztec/pxe/client/lazy';
-import type { PXE, PackedPrivateEvent } from '@aztec/pxe/server';
+import { type PXE, type PackedPrivateEvent, isSenderSource } from '@aztec/pxe/server';
 import {
   type ContractArtifact,
   type EventMetadataDefinition,
@@ -155,8 +155,8 @@ export abstract class BaseWallet implements Wallet {
    * @returns The aliased collection of AztecAddresses that form this wallet's address book
    */
   async getAddressBook(): Promise<Aliased<AztecAddress>[]> {
-    const senders: AztecAddress[] = await this.pxe.getSenders();
-    return senders.map(sender => ({ item: sender, alias: '' }));
+    const sources = await this.pxe.getTaggingSecretSources();
+    return sources.filter(isSenderSource).map(source => ({ item: source.address, alias: '' }));
   }
 
   /**
@@ -346,8 +346,9 @@ export abstract class BaseWallet implements Wallet {
     }
   }
 
-  registerSender(address: AztecAddress, _alias: string = ''): Promise<AztecAddress> {
-    return this.pxe.registerSender(address);
+  async registerSender(address: AztecAddress, _alias: string = ''): Promise<AztecAddress> {
+    await this.pxe.registerTaggingSecretSource({ kind: 'sender', address });
+    return address;
   }
 
   async registerContract(

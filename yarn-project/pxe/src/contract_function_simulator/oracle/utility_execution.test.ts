@@ -108,7 +108,7 @@ describe('Utility Execution test suite', () => {
     senderTaggingStore.getTxHashesOfPendingIndexes.mockResolvedValue([]);
     senderTaggingStore.storePendingIndexes.mockResolvedValue();
     taggingSecretSourcesStore.getSenders.mockResolvedValue([]);
-    taggingSecretSourcesStore.getSharedSecrets.mockResolvedValue([]);
+    taggingSecretSourcesStore.getSharedSecretsForRecipient.mockResolvedValue([]);
 
     l2TipsStore.getL2Tips.mockResolvedValue(makeL2Tips(anchorBlockHeader.globalVariables.blockNumber));
     aztecNode.getPrivateLogsByTags.mockImplementation(query => Promise.resolve(query.tags.map(() => [])));
