@@ -12,10 +12,7 @@ import {
 import { SimulationError } from '@aztec/stdlib/errors';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
 import type { GlobalVariables, Tx } from '@aztec/stdlib/tx';
-import { WorldStateRevisionWithHandle } from '@aztec/stdlib/world-state';
 import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
-
-import { strict as assert } from 'assert';
 
 import { ExecutorMetrics } from '../executor_metrics.js';
 import type { ExecutorMetricsInterface } from '../executor_metrics_interface.js';
@@ -62,14 +59,8 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
       txHash,
     });
 
-    // Using the "as WorldStateRevisionWithHandle" is a bit of a "trust me bro", hence the assert.
-    let wsRevision = this.merkleTree.getRevision();
-    assert(
-      wsRevision instanceof WorldStateRevisionWithHandle,
-      'CppPublicTxSimulator a real NativeWorldStateInstance with a handle to the C++ WorldState object',
-    );
-    const wsCppHandle = (wsRevision as WorldStateRevisionWithHandle).handle;
-    wsRevision = wsRevision.toWorldStateRevision(); // for msgpack serialization, we don't include the handle in the type
+    const wsRevision = this.merkleTree.getRevision();
+    const wsdbIpcPath = this.merkleTree.getIpcPath();
 
     this.log.trace(`Running C++ simulation with world state revision ${JSON.stringify(wsRevision)}`);
 
@@ -99,7 +90,7 @@ export class CppPublicTxSimulator extends PublicTxSimulator implements PublicTxS
     this.simulationPromise = avmSimulate(
       inputBuffer,
       contractProvider,
-      wsCppHandle,
+      wsdbIpcPath,
       this.log.level,
       undefined,
       this.cancellationToken,

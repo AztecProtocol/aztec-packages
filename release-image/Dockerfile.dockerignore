@@ -5,6 +5,12 @@
 !/barretenberg/ts/dest/
 !/barretenberg/ts/build/
 !/barretenberg/ts/package.json
+!/ipc-runtime/ts/dest/
+!/ipc-runtime/ts/package.json
+!/wsdb/ts/dest/
+!/wsdb/ts/build/
+!/wsdb/ts/package.json
+!/wsdb/ts/packages/
 !/noir/noir-repo/target/release/nargo
 !/noir/noir-repo/target/release/acvm
 !/noir/packages/

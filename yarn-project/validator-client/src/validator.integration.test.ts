@@ -125,7 +125,7 @@ describe('ValidatorClient Integration', () => {
       worldStateDbMapSizeKb: 1024 * 1024,
       worldStateCheckpointHistory: 0,
     };
-    const worldStateDb = await NativeWorldStateService.tmp(rollupAddress, true, genesis);
+    const worldStateDb = await NativeWorldStateService.tmp(true, genesis);
     const archiver = await createNoopL1Archiver(
       archiverStore,
       { ...l1Constants, genesisArchiveRoot },
@@ -395,6 +395,13 @@ describe('ValidatorClient Integration', () => {
     // Get genesis block header from world state (archiver.getBlockHeader(0) returns undefined by design)
     genesisBlockHeader = proposer.worldStateDb.getInitialHeader();
     logger.warn(`Setup complete`);
+
+    // Re-anchor the clock AFTER setup. setBuildTimeForSlot above runs before the
+    // (IPC-backed, multi-second) world-state spawns; reexecution's deadline is the
+    // slot end, so without this the real wall-clock spent spawning aztec-wsdb can
+    // push us past the deadline before the test body runs. Reset here so each test
+    // validates with a full slot budget regardless of setup duration.
+    setBuildTimeForSlot(slotNumber);
   });
 
   afterEach(async () => {
