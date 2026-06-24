@@ -1,6 +1,6 @@
 ---
 name: crypto-docs
-description: Principles for writing and reviewing cryptography/protocol documentation in barretenberg — PROTOCOL.md spec files, algorithm/implementation notes, and doc-comments on prover/verifier code. Use when authoring or editing a protocol spec, a design/algorithm note, or substantial math-bearing doc-comments, or when asked to review such a doc for clarity and consistency.
+description: Principles for writing and reviewing cryptography/protocol documentation in barretenberg — PROTOCOL.md spec files, algorithm/implementation notes, and doc-comments on prover/verifier code. Use when authoring or editing a protocol spec, a design/algorithm note, a substantial math-bearing doc-comment, or an optimization/cost-rationale comment in prover/verifier/relation code, or when asked to review such a doc or comment for clarity and consistency.
 ---
 
 # Writing crypto/protocol docs
@@ -94,6 +94,9 @@ crypto-specific points:
 - **One source of truth for the algebra.** Keep the derivation in the spec and cross-reference it
   from comments (`see PROTOCOL.md §4.1`) instead of re-deriving; re-derived algebra in a comment is
   what drifts.
+- **Keep a comment at its call site's altitude.** A comment explains the code it sits on. A property
+  of code defined elsewhere is documented at that definition and referenced, not re-explained here —
+  re-explained, it rots silently when the other code changes.
 - **Match the spec's notation** so code, comment, and spec share one symbol set.
 - **Put protocol-level math in a block comment at the entry point** (the prover/verifier class or
   round method), not scattered line-by-line.

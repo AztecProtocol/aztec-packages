@@ -115,11 +115,8 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
 
         // add round constants which are loaded in selectors
 
-        // The sbox input (w_i + c_i) is degree 1. We square it in the coefficient basis (x_m.sqr()) before
-        // promoting to the Lagrange accumulator: squaring the narrow degree-1 representation is cheaper for the
-        // prover than promoting to the wide univariate and squaring there. For the verifiers the coefficient basis
-        // is the scalar field, so this is the same operation as promote-then-square -- no prover/verifier branch is
-        // needed and the verification key is unchanged (guarded by RelationVkPinning).
+        // Square the degree-1 sbox input in the coefficient basis before promoting -- see
+        // UnivariateCoefficientBasis::sqr.
         auto sbox = [](const auto& x_m) {
             const Accumulator x(x_m);
             const Accumulator t2(x_m.sqr()); // x^2

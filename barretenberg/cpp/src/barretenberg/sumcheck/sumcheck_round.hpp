@@ -784,10 +784,9 @@ template <typename Flavor> class SumcheckProverRound {
 
         constexpr size_t num_relations_in_tuple = std::tuple_size_v<TupleOfTuplesOfUnivariates>;
         // Batching runs every round at a fixed cost independent of the round size, so for flavors with many
-        // high-degree subrelations (ECCVM: ~86 subrelations extended to length 24) it becomes a serial per-round
-        // floor dominating the geometrically shrinking sumcheck tail. Such flavors opt into parallel batching
-        // (ParallelizesRelationBatching); other flavors batch serially, where thread dispatch would cost more
-        // than it saves.
+        // high-degree subrelations (ECCVM) it becomes a serial per-round floor dominating the geometrically
+        // shrinking sumcheck tail. Such flavors opt into parallel batching (ParallelizesRelationBatching); other
+        // flavors batch serially, where thread dispatch would cost more than it saves.
         if constexpr (ParallelizesRelationBatching<Flavor>) {
             // One relation per slot; sum in relation order afterwards so the result is schedule-independent.
             std::array<ExtendedUnivariate, num_relations_in_tuple> per_relation_results;

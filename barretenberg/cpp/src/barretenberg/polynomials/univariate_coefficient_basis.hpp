@@ -197,6 +197,13 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateCoef
         return res;
     }
 
+    /**
+     * @brief Square a degree-1 monomial into its degree-2 product, in the coefficient basis.
+     * @details Squaring here -- before promoting the result to a Lagrange-basis Univariate -- costs fewer field
+     * muls than promoting the degree-1 input to the wide Univariate and squaring it pointwise. When Fr is the
+     * scalar field (the verifier accumulator), this is identical to promote-then-square, so the same call serves
+     * prover and verifier with no branch.
+     */
     UnivariateCoefficientBasis<Fr, 3, false> sqr() const
         requires(LENGTH == 2)
     {

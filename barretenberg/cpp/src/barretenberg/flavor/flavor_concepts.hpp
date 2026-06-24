@@ -63,9 +63,9 @@ concept IsKeccakFlavor = IsAnyOf<T, UltraKeccakFlavor, UltraKeccakZKFlavor>;
 template <typename T>
 concept isMultilinearBatchingFlavor = IsMultilinearBatchingFlavorImpl<T>::value || IsMultilinearBatchingRecursiveFlavorImpl<T>::value;
 
-// Sumcheck-prover opt-in: batch each relation's subrelation accumulators in parallel rather than serially.
-// Worthwhile only for flavors with many high-degree subrelations (ECCVM), where the fixed per-round batching cost
-// becomes a serial floor; flavors that don't declare the flag default to the serial loop.
+// Sumcheck-prover opt-in: a flavor declares PARALLELIZE_RELATION_BATCHING to batch each relation's subrelation
+// accumulators in parallel rather than serially. See the batching loop in sumcheck_round.hpp for when it pays off;
+// flavors that don't declare the flag default to the serial loop.
 template <typename T> concept ParallelizesRelationBatching = requires { requires T::PARALLELIZE_RELATION_BATCHING; };
 
 // Short-monomial flavors that expose the codegen'd array layout -- a `Generated` member (the generated

@@ -200,11 +200,8 @@ template <typename FF_> class UltraPermutationRelationImpl {
         auto t8 = sigma_4_m * beta_m;
         t8 += w_4_plus_gamma;
 
-        // Each factor t1..t8 is a degree-1 coefficient-basis monomial. The prover multiplies them pairwise with the
-        // LENGTH-2 Karatsuba (into degree-2 products) then promotes -- fewer muls than promoting all four and
-        // chaining. Both verifiers evaluate at a point (no Accumulator::LENGTH) and keep the chained product: that
-        // is the audited gate sequence, and pairwise grouping would reorder the in-circuit multiplications and move
-        // the VK.
+        // t1..t8 are degree-1 coefficient-basis monomials. The prover pairs them as (t1*t2)(t3*t4): Karatsuba
+        // on the degree-1 pairs reduces the naive 36 muls (chaining 6 pointwise length-6 products) to 24.
         Accumulator numerator;
         Accumulator denominator;
         if constexpr (IsProverAccumulator<Accumulator>) {

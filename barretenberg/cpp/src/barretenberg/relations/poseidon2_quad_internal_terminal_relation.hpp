@@ -58,11 +58,8 @@ template <typename FF_> class Poseidon2QuadInternalTerminalRelationImpl {
 
         const auto q_sel = CoeffAcc(in[AllEntities::EntityId::q_poseidon2_quad_internal_terminal]);
 
-        // The pow5 input is degree 1. We square it in the coefficient basis (x_m.sqr()) before promoting to the
-        // Lagrange accumulator: squaring the narrow degree-1 representation is cheaper for the prover than promoting
-        // to the wide univariate and squaring there. For the verifiers the coefficient basis is the scalar field,
-        // so this is the same operation as promote-then-square -- no prover/verifier branch is needed and the
-        // verification key is unchanged (guarded by RelationVkPinning).
+        // Square the degree-1 pow5 input in the coefficient basis before promoting -- see
+        // UnivariateCoefficientBasis::sqr.
         auto pow5 = [](const auto& x_m) -> Accumulator {
             const Accumulator x(x_m);
             const Accumulator sq(x_m.sqr());
