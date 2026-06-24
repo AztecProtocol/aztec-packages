@@ -1,8 +1,10 @@
 import { MAX_TX_LIFETIME } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
+import { sleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { MAX_RPC_LEN } from '@aztec/stdlib/interfaces/api-limit';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import {
   type AppTaggingSecret,
@@ -19,6 +21,7 @@ import { mkdir, writeFile } from 'fs/promises';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import path from 'path';
 
+import { BenchmarkedNodeFactory } from '../../contract_function_simulator/benchmarked_node.js';
 import { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
 import {
   INITIAL_CONSTRAINED_PROBE_LEN,
@@ -29,15 +32,22 @@ import {
 /**
  * Benchmark for constrained recipient tag-sync.
  *
- * Measures the per-sync tag-query cost of `syncTaggedPrivateLogs` for constrained secrets. Constrained streams are
- * gapless, so the scan probes a small initial window (`INITIAL_CONSTRAINED_PROBE_LEN`) and stops at the first missing
- * tag instead of always fetching the full `UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN` (=20) window. The headline metric is
- * the total number of tags queried across the node (`getPrivateLogsByTags`) calls; at steady state (no new logs) it
- * drops from a full window per secret to a single tag.
+ * Measures the per-sync cost of `syncTaggedPrivateLogs` for constrained secrets. Constrained streams are gapless, so
+ * the scan probes a small initial window (`INITIAL_CONSTRAINED_PROBE_LEN`) and grows one such step at a time, stopping
+ * at the first missing tag instead of fetching the full `UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN` (=20) window.
  *
- * The "first-miss optimum" column is the theoretical floor a first-miss scan targets ("new logs + one miss" per
- * secret); the reduction column shows how close each scenario gets to it. An unconstrained row is included as a
- * control: it cannot first-miss (windowed scan), so its optimum equals its cost.
+ * Metrics, per scenario:
+ * - `tag-queries`: total tags queried — the throughput win. At steady state it drops from a full window per secret to
+ *   a single tag; a secret with K new logs costs exactly K + 1 (the "first-miss optimum" floor, reduction 1.0x).
+ * - `rpc-round-trips`: sequential blocking waits on the node (parallel `Promise.all` chunks within a round count as
+ *   one), via `BenchmarkedNodeFactory`. This is the latency cost: fixed-step trades fewer tags for more round-trips,
+ *   so it grows ~linearly with K during catch-up while tag-queries stay at the floor.
+ * - `node-calls`: total `getPrivateLogsByTags` invocations. Equals `rpc-round-trips` at <=100 secrets, but above that
+ *   a round fans out into `ceil(tags / MAX_RPC_LEN)` parallel chunks, so node-calls overstates the real latency.
+ * - `rpc-blocking-time`: wall-clock the caller blocks on the node, under a modeled `MODELED_NODE_RPC_LATENCY_MS` per
+ *   call. Demonstrates the parallelism: a 1000-secret round is many calls but ~one round-trip of blocking time.
+ *
+ * An unconstrained row is included as a control: it cannot first-miss (windowed scan), so its optimum equals its cost.
  */
 
 const logger = createLogger('pxe:tagging:bench');
@@ -48,6 +58,10 @@ const CURRENT_TIMESTAMP = BigInt(Math.floor(Date.now() / 1000));
 const ANCHOR_BLOCK_HEADER = BlockHeader.random({ blockNumber: ANCHOR_BLOCK_NUMBER, timestamp: CURRENT_TIMESTAMP });
 const AGED_TIMESTAMP = CURRENT_TIMESTAMP - BigInt(MAX_TX_LIFETIME) - 1000n;
 const JOB_ID = 'bench-job';
+
+// Models per-call node RPC latency so round-trip blocking time is meaningful against an otherwise-instant mock node.
+// The round-trip *count* is independent of this value; only `rpc-blocking-time` scales with it.
+const MODELED_NODE_RPC_LATENCY_MS = 5;
 
 /** One benchmark measurement in the GitHub-action benchmark JSON shape. */
 type BenchResult = { name: string; value: number; unit: string };
@@ -96,6 +110,24 @@ const SCENARIOS: Scenario[] = [
     secretCount: 100,
     priorCursor: 0,
     newLogs: UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN,
+  },
+  // Deep catch-up (the negative case): round-trips grow linearly with K (one per probe step) while tag-queries stay at
+  // the K + 1 floor. node-calls == round-trips here since each round's <=100 tags fit one RPC chunk.
+  ...[50, 100].map(newLogs => ({
+    label: `constrained/catch-up-${newLogs}/secrets=100`,
+    kind: AppTaggingSecretKind.CONSTRAINED,
+    secretCount: 100,
+    priorCursor: 0,
+    newLogs,
+  })),
+  // Chunked regime: at 1000 secrets a round fans out into ceil(1000 / MAX_RPC_LEN) parallel chunks, so node-calls is
+  // ~10x the round-trips — the case where raw call count overstates latency.
+  {
+    label: `constrained/catch-up-5/secrets=1000`,
+    kind: AppTaggingSecretKind.CONSTRAINED,
+    secretCount: 1000,
+    priorCursor: 0,
+    newLogs: 5,
   },
   // Control: unconstrained steady state is unaffected by the optimization (windowed scan cannot first-miss).
   {
@@ -149,14 +181,19 @@ describe('syncTaggedPrivateLogs constrained-sync bench', () => {
       }
     }
 
-    aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) =>
-      Promise.resolve(extractTags(query).map(tag => (hitTags.has(tag.toString()) ? [makeFinalizedLog()] : []))),
-    );
+    aztecNode.getPrivateLogsByTags.mockImplementation(async (query: PrivateLogsQuery) => {
+      await sleep(MODELED_NODE_RPC_LATENCY_MS);
+      return extractTags(query).map(tag => (hitTags.has(tag.toString()) ? [makeFinalizedLog()] : []));
+    });
+
+    // Wrap the node so we capture round-trips and blocking time the same way the client_flows app benches do. The
+    // Proxy delegates to the underlying mock, so `mock.calls` still records every query for tag counting.
+    const benchmarkedNode = BenchmarkedNodeFactory.create(aztecNode);
 
     const timer = new Timer();
     const logs = await syncTaggedPrivateLogs(
       secrets,
-      aztecNode,
+      benchmarkedNode,
       taggingStore,
       ANCHOR_BLOCK_HEADER,
       FINALIZED_BLOCK_NUMBER,
@@ -168,11 +205,26 @@ describe('syncTaggedPrivateLogs constrained-sync bench', () => {
     const tagQueries = calls.reduce((sum, [query]) => sum + extractTags(query).length, 0);
     const nodeCalls = calls.length;
 
+    // Round-trips and blocking time from the same instrumentation the app benches use. `syncTaggedPrivateLogs` only
+    // ever calls `getPrivateLogsByTags`, so every round-trip is that method.
+    const { roundTrips } = benchmarkedNode.getStats();
+    const rpcRoundTrips = roundTrips.roundTrips;
+    const rpcBlockingTimeMs = roundTrips.totalBlockingTime;
+
     // First-miss floor: each secret pays `newLogs` hits + 1 miss. Unconstrained cannot first-miss, so its floor is
     // its current cost.
     const firstMissOptimum = kind === AppTaggingSecretKind.CONSTRAINED ? secretCount * (newLogs + 1) : tagQueries;
 
-    return { ...scenario, logsFound: logs.length, tagQueries, nodeCalls, syncMs, firstMissOptimum };
+    return {
+      ...scenario,
+      logsFound: logs.length,
+      tagQueries,
+      nodeCalls,
+      rpcRoundTrips,
+      rpcBlockingTimeMs,
+      syncMs,
+      firstMissOptimum,
+    };
   }
 
   it('measures tag-query cost per sync', async () => {
@@ -184,27 +236,37 @@ describe('syncTaggedPrivateLogs constrained-sync bench', () => {
         `${row.label.padEnd(42)} tag-queries=${String(row.tagQueries).padStart(6)} ` +
           `first-miss-optimum=${String(row.firstMissOptimum).padStart(6)} ` +
           `reduction=${(row.tagQueries / row.firstMissOptimum).toFixed(1)}x ` +
-          `node-calls=${String(row.nodeCalls).padStart(4)} logs=${String(row.logsFound).padStart(5)} ` +
+          `round-trips=${String(row.rpcRoundTrips).padStart(4)} node-calls=${String(row.nodeCalls).padStart(4)} ` +
+          `blocking=${row.rpcBlockingTimeMs.toFixed(0).padStart(4)}ms logs=${String(row.logsFound).padStart(5)} ` +
           `time=${row.syncMs.toFixed(1)}ms`,
       );
 
-      // Pin behavior as an executable assertion, not just a printout.
+      // Pin behavior as an executable assertion, not just a printout. Timings are reported only (they vary run to run).
       if (scenario.kind === AppTaggingSecretKind.CONSTRAINED) {
         // Fixed-step probing is tag-optimal: K hits plus 1 terminating miss, rounded up to whole probe steps. At
         // INITIAL_CONSTRAINED_PROBE_LEN = 1 this equals the first-miss floor (reduction = 1.0x), and at steady state
         // (K = 0) it collapses to a single initial probe per secret.
         const stepsToFirstMiss = Math.ceil((scenario.newLogs + 1) / INITIAL_CONSTRAINED_PROBE_LEN);
         expect(row.tagQueries).toBe(scenario.secretCount * stepsToFirstMiss * INITIAL_CONSTRAINED_PROBE_LEN);
+        // One sequential round-trip per probe step — the negative-case cost, independent of chunking.
+        expect(row.rpcRoundTrips).toBe(stepsToFirstMiss);
+        // node-calls = round-trips x chunks per round. Each round queries `secretCount * P` tags split into
+        // MAX_RPC_LEN chunks, so node-calls equals round-trips only while a round fits one chunk, and fans out above.
+        const chunksPerRound = Math.ceil((scenario.secretCount * INITIAL_CONSTRAINED_PROBE_LEN) / MAX_RPC_LEN);
+        expect(row.nodeCalls).toBe(stepsToFirstMiss * chunksPerRound);
       } else if (scenario.newLogs === 0) {
-        // Unconstrained steady state: still the full window (control for the optimization).
+        // Unconstrained steady state: still the full window (control for the optimization), drained in one round.
         expect(row.tagQueries).toBe(scenario.secretCount * UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN);
+        expect(row.rpcRoundTrips).toBe(1);
       }
       expect(row.logsFound).toBe(scenario.secretCount * scenario.newLogs);
     }
 
     const results: BenchResult[] = rows.flatMap(row => [
       { name: `TagSync/${row.label}/tag-queries`, value: row.tagQueries, unit: 'tag-queries' },
+      { name: `TagSync/${row.label}/rpc-round-trips`, value: row.rpcRoundTrips, unit: 'round_trips' },
       { name: `TagSync/${row.label}/node-calls`, value: row.nodeCalls, unit: 'calls' },
+      { name: `TagSync/${row.label}/rpc-blocking-time`, value: Number(row.rpcBlockingTimeMs.toFixed(2)), unit: 'ms' },
       { name: `TagSync/${row.label}/sync-time`, value: Number(row.syncMs.toFixed(2)), unit: 'ms' },
     ]);
 
