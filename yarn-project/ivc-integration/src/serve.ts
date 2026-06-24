@@ -1755,9 +1755,18 @@ async function runChonkMedian(
     // Fresh, single instance for this whole mode. destroy any leftover first so a stale
     // single-run singleton can't bleed the wrong webgpuMsm setting in.
     await Barretenberg.destroySingleton();
+    // Diagnostic: `__bridge_median_real_logger` swaps the no-op logger for one that
+    // runs a regex on every C++ log line (the same per-line work the warm-backend's
+    // warmMemLogger does), to isolate whether that per-line logging tax — heavier in
+    // WASM mode (it logs every MSM in-process) than WebGPU (MSMs offloaded) — is what
+    // inflates WASM in the page's button path. Everything else stays identical.
+    const realLogger = (m: string): void => {
+      void /\(mem:\s*([\d.]+)\s*MiB\)/.exec(m);
+    };
+    const useRealLogger = (globalThis as any).__bridge_median_real_logger === true;
     const bb = await Barretenberg.initSingleton({
       threads: bridgeThreads(),
-      logger: () => {},
+      logger: useRealLogger ? realLogger : () => {},
       webgpuMsm: side.webgpu,
       webgpuMsmBlocklist: side.webgpu ? webgpuBlocklist() : undefined,
     });
@@ -2312,6 +2321,17 @@ async function runChonkPairedSweep(
   }
   const firstReady = flows.map(f => inputs.get(f)).find((v): v is Inputs => v !== undefined && !('error' in v));
 
+  // Pass-ordering A/B: by default the GPU pass runs first (cold machine) and the WASM
+  // pass second (heat-soaked after minutes of proving), which biases the comparison in
+  // the GPU's favour because sustained 16-thread WASM thermally throttles. Setting
+  // `globalThis.__sweep_wasm_first` runs WASM first/cold and the GPU pass last/hot to
+  // expose how much of the apparent GPU win is just this ordering artifact.
+  let wasmByFlowEarly: Map<string, PairedPassEntry> | undefined;
+  if ((globalThis as any).__sweep_wasm_first === true) {
+    await disposeWarmBackend();
+    wasmByFlowEarly = await runWasmPass();
+  }
+
   // GPU pass. Preferred: ONE warm GPU backend, resetting the bridge between flows
   // (`__bridge_reset` clears the cached per-flow MsmV2 instances + rebuilds the SRS
   // pool on the SAME device — isolating each flow without rebuilding the ~13s WASM
@@ -2422,7 +2442,10 @@ async function runChonkPairedSweep(
   }
 
   // WASM pass — ONE warm backend reused across all examples (correct + fast).
-  const runWasmPass = async (): Promise<Map<string, PairedPassEntry>> => {
+  // Declared as a hoisted function so it can run BEFORE the GPU pass when
+  // `globalThis.__sweep_wasm_first` is set (an A/B to expose the pass-ordering /
+  // thermal bias: the second pass always runs on a heat-soaked machine).
+  async function runWasmPass(): Promise<Map<string, PairedPassEntry>> {
     const out = new Map<string, PairedPassEntry>();
     onProgress?.({ flowIndex: 0, flowCount: flows.length, flow: flows[0], mode: 'wasm', phase: 'warmup' });
     const { bb } = await ensureWarmBackend(false, undefined);
@@ -2474,11 +2497,12 @@ async function runChonkPairedSweep(
       }
     }
     return out;
-  };
+  }
 
   let wasmByFlow: Map<string, PairedPassEntry>;
   try {
-    wasmByFlow = await runWasmPass();
+    // `__sweep_wasm_first` was handled before the GPU pass; reuse it rather than re-running.
+    wasmByFlow = wasmByFlowEarly ?? (await runWasmPass());
   } catch (err) {
     // A backend build/teardown failure (not a caught per-prove throw) — drop the
     // warm backend so a possibly-corrupt instance isn't reused, then rethrow.
