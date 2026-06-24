@@ -591,7 +591,8 @@ const SATURATION_ROLES: Record<string, string> = {
 const SATURATION_METRICS: { key: string; metric: string; unit: string }[] = [
   { key: "elu", metric: "nodejs_eventloop_utilization", unit: "ratio" },
   { key: "cpu", metric: "process_cpu_utilization", unit: "ratio" },
-  { key: "mem", metric: "nodejs_memory_v8_heap_usage", unit: "bytes" },
+  // OTel exports the v8 heap gauge with a `_bytes` unit suffix.
+  { key: "mem", metric: "nodejs_memory_v8_heap_usage_bytes", unit: "bytes" },
 ];
 
 function buildSaturationDefs(): Record<string, TimeSeriesDef> {
@@ -630,24 +631,33 @@ const PROVING_INFRA_DEFS: Record<string, TimeSeriesDef> = {
   hintGenPublicTxDurationP50: {
     metric: "aztec_public_processor_tx_duration",
     unit: "ms",
-    query: proverNodeHist(0.5, "aztec_public_processor_tx_duration_bucket"),
+    query: proverNodeHist(
+      0.5,
+      "aztec_public_processor_tx_duration_milliseconds_bucket",
+    ),
   },
   hintGenPublicTxDurationP99: {
     metric: "aztec_public_processor_tx_duration",
     unit: "ms",
-    query: proverNodeHist(0.99, "aztec_public_processor_tx_duration_bucket"),
+    query: proverNodeHist(
+      0.99,
+      "aztec_public_processor_tx_duration_milliseconds_bucket",
+    ),
   },
   hintGenPublicPhaseDurationP50: {
     metric: "aztec_public_processor_phase_duration",
     unit: "ms",
-    query: proverNodeHist(0.5, "aztec_public_processor_phase_duration_bucket"),
+    query: proverNodeHist(
+      0.5,
+      "aztec_public_processor_phase_duration_milliseconds_bucket",
+    ),
   },
   hintGenBlockProcessingDurationP50: {
     metric: "aztec_prover_node_block_processing_duration",
     unit: "ms",
     query: proverNodeHist(
       0.5,
-      "aztec_prover_node_block_processing_duration_bucket",
+      "aztec_prover_node_block_processing_duration_milliseconds_bucket",
     ),
   },
   hintGenBlockProcessingDurationP99: {
@@ -655,7 +665,7 @@ const PROVING_INFRA_DEFS: Record<string, TimeSeriesDef> = {
     unit: "ms",
     query: proverNodeHist(
       0.99,
-      "aztec_prover_node_block_processing_duration_bucket",
+      "aztec_prover_node_block_processing_duration_milliseconds_bucket",
     ),
   },
   hintGenCheckpointProcessingDurationP50: {
@@ -663,7 +673,7 @@ const PROVING_INFRA_DEFS: Record<string, TimeSeriesDef> = {
     unit: "ms",
     query: proverNodeHist(
       0.5,
-      "aztec_prover_node_checkpoint_processing_duration_bucket",
+      "aztec_prover_node_checkpoint_processing_duration_milliseconds_bucket",
     ),
   },
   // Proving queue, broken down by job_type (one series per job type).
@@ -680,12 +690,18 @@ const PROVING_INFRA_DEFS: Record<string, TimeSeriesDef> = {
   provingQueueJobDurationP50ByJobType: {
     metric: "aztec_proving_queue_job_duration",
     unit: "ms",
-    query: queueHistByJobType(0.5, "aztec_proving_queue_job_duration_bucket"),
+    query: queueHistByJobType(
+      0.5,
+      "aztec_proving_queue_job_duration_milliseconds_bucket",
+    ),
   },
   provingQueueJobDurationP99ByJobType: {
     metric: "aztec_proving_queue_job_duration",
     unit: "ms",
-    query: queueHistByJobType(0.99, "aztec_proving_queue_job_duration_bucket"),
+    query: queueHistByJobType(
+      0.99,
+      "aztec_proving_queue_job_duration_milliseconds_bucket",
+    ),
   },
   // Rates of terminal job outcomes — the run #95 stall showed up as timeouts.
   provingQueueTimedOutJobsByJobType: {
