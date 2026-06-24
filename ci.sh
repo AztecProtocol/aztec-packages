@@ -42,6 +42,7 @@ function print_usage {
   echo_cmd "shell"                 "Drop into a shell in the current running build instance container."
   echo_cmd "shell-host"            "Drop into a shell in the current running build host."
   echo_cmd "log"                   "Display the log of the given log ID."
+  echo_cmd "e2e-timings"           "Download per-test e2e timing JSONL for a run: e2e-timings <run_id> <folder>."
   echo_cmd "kill"                  "Terminate running EC2 instance with instance_name."
   echo_cmd "draft"                 "Mark the current PR as draft (no automatic CI runs when pushing)."
   echo_cmd "ready"                 "Mark the current PR as ready (enable automatic CI runs when pushing)."
@@ -422,6 +423,27 @@ case "$cmd" in
         exit 1
       fi
     fi
+    ;;
+
+  e2e-timings)
+    # Download all per-test e2e timing files for a CI run and gunzip them into a folder.
+    # Usage: ./ci.sh e2e-timings <run_id> <folder>
+    run_id="${1:-}"
+    folder="${2:-}"
+    if [ -z "$run_id" ] || [ -z "$folder" ]; then
+      echo "usage: $(basename $0) e2e-timings <run_id> <folder>"
+      exit 1
+    fi
+    mkdir -p "$folder"
+    aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp --recursive \
+      "s3://aztec-ci-artifacts/logs/e2e-timings/${run_id}/" "$folder/"
+    for f in "$folder"/*.log.gz; do
+      [ -e "$f" ] || continue
+      out="${f%.log.gz}.jsonl"
+      gunzip -c "$f" > "$out"
+      rm -f "$f"
+    done
+    echo "Downloaded e2e timings for run $run_id into $folder/"
     ;;
 
   #################

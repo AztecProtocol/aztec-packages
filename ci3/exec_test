@@ -46,6 +46,10 @@ export VERBOSE=1
 # ELU monitor file path (e2e tests write event loop data here, uploaded after test finishes).
 export ELU_MONITOR_FILE=$HOME/.elu_monitor_$$.log
 
+# Per-test timing file (e2e tests write JSONL here, uploaded to S3 after test finishes).
+# $$ is this exec_test pid, so it is unique per parallel test command.
+export E2E_TIMING_FILE=$HOME/.e2e_timing_$$.log
+
 # Run the test with timestamps via process substitution (preserves exit code)
 set +e
 if [ "${ISOLATE:-0}" -eq 1 ]; then
@@ -62,6 +66,14 @@ if [ -s "$ELU_MONITOR_FILE" ]; then
   echo "ELU file: $ELU_MONITOR_FILE ($(wc -l < "$ELU_MONITOR_FILE") lines, $(wc -c < "$ELU_MONITOR_FILE") bytes)"
   cat "$ELU_MONITOR_FILE" | cache_log "elufile:${NAME:-unknown}"
   rm -f "$ELU_MONITOR_FILE"
+fi
+
+# Upload per-test timing data to S3 if present (written by e2e tests, absent for C++/Rust/Noir).
+# Object lands at s3://aztec-ci-artifacts/logs/e2e-timings/<RUN_ID>/<NAME>.log.gz (gzipped JSONL).
+if [ -s "$E2E_TIMING_FILE" ]; then
+  echo "E2E timing file: $E2E_TIMING_FILE ($(wc -l < "$E2E_TIMING_FILE") lines, $(wc -c < "$E2E_TIMING_FILE") bytes)"
+  cat "$E2E_TIMING_FILE" | gzip | cache_s3_transfer_to e2e-timings "${RUN_ID:-unknown}/${NAME:-unknown}"
+  rm -f "$E2E_TIMING_FILE"
 fi
 
 exit $code
