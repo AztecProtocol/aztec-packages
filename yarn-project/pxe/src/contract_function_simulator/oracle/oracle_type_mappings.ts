@@ -20,7 +20,7 @@ import { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
-import type { ContractInstance, PartialAddress } from '@aztec/stdlib/contract';
+import type { ContractInstancePreimage, PartialAddress } from '@aztec/stdlib/contract';
 import { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import type { PublicKeys } from '@aztec/stdlib/keys';
 import {
@@ -241,7 +241,7 @@ export const KEY_VALIDATION_REQUEST: TypeMapping<KeyValidationRequest> = {
   shape: ['scalar', 'scalar'],
 };
 
-export const CONTRACT_INSTANCE: TypeMapping<ContractInstance> = {
+export const CONTRACT_INSTANCE: TypeMapping<ContractInstancePreimage> = {
   serialization: {
     fn: v => [
       v.salt,

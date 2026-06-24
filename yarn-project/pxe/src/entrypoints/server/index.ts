@@ -9,4 +9,6 @@ export { NoteService } from '../../notes/note_service.js';
 export { ORACLE_VERSION_MAJOR, ORACLE_VERSION_MINOR } from '../../oracle_version.js';
 export { type PXECreationOptions } from '../pxe_creation_options.js';
 export { JobCoordinator } from '../../job_coordinator/job_coordinator.js';
-export { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
+export { ContractSyncService } from '../../contract/contract_sync_service.js';
+export { ContractClassService } from '../../contract/contract_class_service.js';
+export { AnchoredContractData } from '../../contract_function_simulator/anchored_contract_data.js';

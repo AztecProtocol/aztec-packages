@@ -9,6 +9,33 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [PXE] `pxe.updateContract` removed and `pxe.registerContract` no longer takes an artifact
+
+Registering classes and instances are now separate, unvalidated operations. `registerContractClass(artifact)` registers a class, `registerContract(instance)` registers an instance and no longer takes an artifact. `registerContract` does not check that PXE knows the contract's artifact: a missing artifact surfaces only when the contract is later simulated.
+
+**Migration:**
+
+- `pxe.registerContract` now takes the instance directly (its address preimage) and returns the derived address. Register the class separately via `registerContractClass`:
+
+```diff
+- await pxe.registerContract({ instance, artifact });
++ await pxe.registerContractClass(artifact);
++ await pxe.registerContract(instance);
+```
+
+  If you were calling it without an artifact, just drop the wrapping object: `pxe.registerContract({ instance })` becomes `pxe.registerContract(instance)`. The `wallet.registerContract(instance, artifact?, secretKey?)` convenience is unchanged and performs both registrations for you.
+
+- To make a new class's code available after an on-chain upgrade, register the new artifact instead of calling `updateContract`:
+
+```diff
+- await pxe.updateContract(address, newArtifact);
++ await pxe.registerContractClass(newArtifact);
+```
+
+  The new class is used automatically once the upgrade takes effect on chain; no further PXE action is needed. Registering it beforehand is harmless: until the update activates, the node still resolves the contract's current class to the previous one, so it keeps running its old code.
+
+- `pxe.getContractInstance(address)` and `wallet.getContractMetadata(address).instance` now return the contract's **address preimage**, which no longer includes `currentContractClassId`.
+
 ### [Aztec.js] Unchecked `AztecAddress` constructors renamed with an `Unsafe` suffix
 
 The synchronous `AztecAddress` constructors that build an address from a raw value do not verify that the value is a valid address (the x-coordinate of a point on the Grumpkin curve, which is what allows it to be encrypted to). An invalid value is accepted silently and only fails later, when a transaction is sent. To make this obvious at the call site, they now carry an `Unsafe` suffix:

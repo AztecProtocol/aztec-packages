@@ -530,10 +530,16 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.scopes,
     );
 
-    const targetArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(
+    const targetArtifact = await this.anchoredContractData.getFunctionArtifactWithDebugMetadata(
       targetContractAddress,
       functionSelector,
     );
+    if (!targetArtifact) {
+      throw new Error(
+        `Cannot call ${targetContractAddress}:${functionSelector}: the contract is not registered. ` +
+          `Register it via wallet.registerContract(...).`,
+      );
+    }
 
     const derivedTxContext = this.txContext.clone();
 
@@ -550,7 +556,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       executionCache: this.executionCache,
       noteCache: this.noteCache,
       taggingIndexCache: this.taggingIndexCache,
-      contractStore: this.contractStore,
+      anchoredContractData: this.anchoredContractData,
       noteStore: this.noteStore,
       keyStore: this.keyStore,
       addressStore: this.addressStore,
@@ -653,7 +659,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   }
 
   public getDebugFunctionName() {
-    return this.contractStore.getDebugFunctionName(this.contractAddress, this.callContext.functionSelector);
+    return this.anchoredContractData.getDebugFunctionName(this.contractAddress, this.callContext.functionSelector);
   }
 
   protected override get callerContext() {

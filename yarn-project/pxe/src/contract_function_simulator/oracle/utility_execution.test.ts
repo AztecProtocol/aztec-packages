@@ -42,7 +42,8 @@ import {
 import { mock } from 'jest-mock-extended';
 import type { _MockProxy } from 'jest-mock-extended/lib/Mock.js';
 
-import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
+import type { ContractClassService } from '../../contract/contract_class_service.js';
+import type { ContractSyncService } from '../../contract/contract_sync_service.js';
 import { MessageContextService } from '../../messages/message_context_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
@@ -53,6 +54,7 @@ import type { PrivateEventStore } from '../../storage/private_event_store/privat
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import type { TaggingSecretSourcesStore } from '../../storage/tagging_store/tagging_secret_sources_store.js';
+import { AnchoredContractData } from '../anchored_contract_data.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
@@ -65,6 +67,7 @@ describe('Utility Execution test suite', () => {
   const simulator = new WASMSimulator();
 
   let contractStore: ReturnType<typeof mock<ContractStore>>;
+  let contractClassService: ReturnType<typeof mock<ContractClassService>>;
   let noteStore: ReturnType<typeof mock<NoteStore>>;
   let keyStore: ReturnType<typeof mock<KeyStore>>;
   let addressStore: ReturnType<typeof mock<AddressStore>>;
@@ -89,6 +92,8 @@ describe('Utility Execution test suite', () => {
 
   beforeEach(async () => {
     contractStore = mock<ContractStore>();
+    contractClassService = mock<ContractClassService>();
+    contractClassService.getCurrentClassId.mockResolvedValue(new Fr(42));
     noteStore = mock<NoteStore>();
     keyStore = mock<KeyStore>();
     addressStore = mock<AddressStore>();
@@ -122,6 +127,7 @@ describe('Utility Execution test suite', () => {
     });
     acirSimulator = new ContractFunctionSimulator({
       contractStore,
+      contractClassService,
       noteStore,
       keyStore,
       addressStore,
@@ -697,7 +703,7 @@ describe('Utility Execution test suite', () => {
         authWitnesses: [],
         capsules: [],
         anchorBlockHeader,
-        contractStore,
+        anchoredContractData: new AnchoredContractData(contractStore, contractClassService, anchorBlockHeader),
         noteStore,
         keyStore,
         addressStore,

@@ -11,7 +11,12 @@ import {
 } from '@aztec/stdlib/abi';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type ContractInstanceWithAddress, ContractInstanceWithAddressSchema } from '@aztec/stdlib/contract';
+import {
+  type ContractInstancePreimageWithAddress,
+  ContractInstancePreimageWithAddressSchema,
+  type ContractInstanceWithAddress,
+  ContractInstanceWithAddressSchema,
+} from '@aztec/stdlib/contract';
 import { Gas, ManaUsageEstimate } from '@aztec/stdlib/gas';
 import { LogCursor, refineTxHashAndRange } from '@aztec/stdlib/logs';
 import {
@@ -229,8 +234,8 @@ export enum ContractInitializationStatus {
  * Contract metadata including deployment and registration status.
  */
 export type ContractMetadata = {
-  /** The contract instance */
-  instance?: ContractInstanceWithAddress;
+  /** The contract instance preimage and address. */
+  instance?: ContractInstancePreimageWithAddress;
   /** Whether the contract has been initialized. */
   initializationStatus: ContractInitializationStatus;
   /** Whether the contract instance is publicly deployed on-chain */
@@ -410,7 +415,7 @@ export const PublicEventSchema: z.ZodType<PublicEvent<AbiDecoded>> = zodFor<Publ
 );
 
 export const ContractMetadataSchema = z.object({
-  instance: optional(ContractInstanceWithAddressSchema),
+  instance: optional(ContractInstancePreimageWithAddressSchema),
   initializationStatus: z.nativeEnum(ContractInitializationStatus),
   isContractPublished: z.boolean(),
   isContractUpdated: z.boolean(),

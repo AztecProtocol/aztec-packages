@@ -12,6 +12,7 @@ import { BlockHeader } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
 
+import type { ContractClassService } from '../contract/contract_class_service.js';
 import type { ContractStore } from '../storage/contract_store/contract_store.js';
 import { PrivateKernelOracle } from './private_kernel_oracle.js';
 
@@ -21,7 +22,13 @@ describe('PrivateKernelOracle', () => {
 
   beforeEach(() => {
     node = mock<AztecNode>();
-    oracle = new PrivateKernelOracle(mock<ContractStore>(), mock<KeyStore>(), node, BlockHeader.empty());
+    oracle = new PrivateKernelOracle(
+      mock<ContractStore>(),
+      mock<ContractClassService>(),
+      mock<KeyStore>(),
+      node,
+      BlockHeader.empty(),
+    );
   });
 
   describe('getUpdatedClassIdHints', () => {

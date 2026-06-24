@@ -24,7 +24,8 @@ import { TxHash } from '@aztec/stdlib/tx';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { BlockSynchronizerConfig } from '../config/index.js';
-import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
+import type { ContractClassService } from '../contract/contract_class_service.js';
+import type { ContractSyncService } from '../contract/contract_sync_service.js';
 import { AnchorBlockStore } from '../storage/anchor_block_store/anchor_block_store.js';
 import { NoteStore } from '../storage/note_store/note_store.js';
 import { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
@@ -47,6 +48,7 @@ describe('BlockSynchronizer', () => {
   let getBlock: NodeGetBlockMock;
   let blockStream: MockProxy<L2BlockStream>;
   let contractSyncService: MockProxy<ContractSyncService>;
+  let contractClassService: MockProxy<ContractClassService>;
 
   const TestSynchronizer = class extends BlockSynchronizer {
     protected override createBlockStream(): L2BlockStream {
@@ -63,6 +65,7 @@ describe('BlockSynchronizer', () => {
       privateEventStore,
       tipsStore,
       contractSyncService,
+      contractClassService,
       config,
     );
   };
@@ -110,6 +113,7 @@ describe('BlockSynchronizer', () => {
     noteStore = new NoteStore(store);
     privateEventStore = new PrivateEventStore(store);
     contractSyncService = mock<ContractSyncService>();
+    contractClassService = mock<ContractClassService>();
     synchronizer = createSynchronizer();
   });
 
@@ -146,6 +150,15 @@ describe('BlockSynchronizer', () => {
 
     const obtainedHeader = await anchorBlockStore.getBlockHeader();
     expect(obtainedHeader.equals(block.header)).toBe(true);
+  });
+
+  it('wipes the contract sync and contract class caches when the anchor block changes', async () => {
+    const block = await L2Block.random(BlockNumber(1));
+    await serveBlockDataByHash(block);
+    await synchronizer.handleBlockStreamEvent(await proposedEvent(block));
+
+    expect(contractSyncService.wipe).toHaveBeenCalled();
+    expect(contractClassService.wipe).toHaveBeenCalled();
   });
 
   it('updates anchor block on a reorg', async () => {
@@ -628,6 +641,7 @@ describe('BlockSynchronizer', () => {
         privateEventStore,
         tipsStore,
         contractSyncService,
+        contractClassService,
         { syncChainTip: 'proposed' },
       );
     });

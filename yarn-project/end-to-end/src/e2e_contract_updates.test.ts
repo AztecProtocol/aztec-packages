@@ -174,10 +174,16 @@ describe('e2e_contract_updates', () => {
     ).rejects.toThrow('New update delay is too low');
   });
 
-  it('should not allow to instantiate a contract with an updated class before the update happens', async () => {
-    await expect(wallet.registerContract(instance, UpdatedContract.artifact)).rejects.toThrow(
-      'Could not update contract to a class different from the current one',
-    );
+  it('permits registering the updated artifact before the update, but still runs the original class', async () => {
+    // Registration performs no validation, so the updated artifact can be registered before the upgrade activates.
+    await expect(wallet.registerContract(instance, UpdatedContract.artifact)).resolves.toBeDefined();
+
+    // The node still resolves the contract's current class to the original until the update is enacted, so a call
+    // against the updated class's (no-arg) set_public_value selector does not resolve against the deployed class.
+    const updatedContract = UpdatedContract.at(contract.address, wallet);
+    await expect(
+      updatedContract.methods.set_public_value().simulate({ from: defaultAccountAddress }),
+    ).rejects.toThrow();
   });
 
   // UpdatableContract's `set_public_value(Field)` and UpdatedContract's `set_public_value()`

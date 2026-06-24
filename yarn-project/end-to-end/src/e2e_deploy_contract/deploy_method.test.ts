@@ -52,7 +52,7 @@ describe('e2e_deploy_contract deploy method', () => {
     );
     // docs:start:verify_deployment
     const metadata = await wallet.getContractMetadata(contract.address);
-    const classMetadata = await wallet.getContractClassMetadata(metadata.instance!.currentContractClassId);
+    const classMetadata = await wallet.getContractClassMetadata(metadata.instance!.originalContractClassId);
     const isPublished = classMetadata.isContractClassPubliclyRegistered;
     // docs:end:verify_deployment
     expect(isPublished).toBeTrue();

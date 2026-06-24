@@ -14,7 +14,8 @@ import { BlockHeader, CallContext, HashedValues, TxContext, TxExecutionRequest }
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
-import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
+import type { ContractClassService } from '../../contract/contract_class_service.js';
+import type { ContractSyncService } from '../../contract/contract_sync_service.js';
 import type { MessageContextService } from '../../messages/message_context_service.js';
 import { ORACLE_VERSION_MAJOR, ORACLE_VERSION_MINOR } from '../../oracle_version.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
@@ -26,6 +27,7 @@ import type { PrivateEventStore } from '../../storage/private_event_store/privat
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import type { TaggingSecretSourcesStore } from '../../storage/tagging_store/tagging_secret_sources_store.js';
+import { AnchoredContractData } from '../anchored_contract_data.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import { TransientArrayService } from '../transient_array_service.js';
 import { buildACIRCallback } from './acir_callback.js';
@@ -35,6 +37,7 @@ describe('Oracle Version Check test suite', () => {
   const simulator = new WASMSimulator();
 
   let contractStore: ReturnType<typeof mock<ContractStore>>;
+  let contractClassService: ReturnType<typeof mock<ContractClassService>>;
   let noteStore: ReturnType<typeof mock<NoteStore>>;
   let keyStore: ReturnType<typeof mock<KeyStore>>;
   let addressStore: ReturnType<typeof mock<AddressStore>>;
@@ -90,16 +93,20 @@ describe('Oracle Version Check test suite', () => {
       originalContractClassId: new Fr(42),
       address: contractAddress,
     } as ContractInstanceWithAddress);
-    contractStore.getFunctionArtifactWithDebugMetadata.mockImplementation(async (address, selector) => {
-      const artifact = await contractStore.getFunctionArtifact(address, selector);
+    contractStore.getFunctionArtifactWithDebugMetadata.mockImplementation(async (classId, selector) => {
+      const artifact = await contractStore.getFunctionArtifact(classId, selector);
       if (!artifact) {
-        throw new Error(`Function not found: ${selector.toString()} in contract ${address}`);
+        throw new Error(`Function not found: ${selector.toString()} in contract class ${classId}`);
       }
       return { ...artifact, debug: undefined };
     });
 
+    contractClassService = mock<ContractClassService>();
+    contractClassService.getCurrentClassId.mockResolvedValue(new Fr(42));
+
     acirSimulator = new ContractFunctionSimulator({
       contractStore,
+      contractClassService,
       noteStore,
       keyStore,
       addressStore,
@@ -202,7 +209,7 @@ describe('Oracle Version Check test suite', () => {
         authWitnesses: [],
         capsules: [],
         anchorBlockHeader,
-        contractStore,
+        anchoredContractData: new AnchoredContractData(contractStore, contractClassService, anchorBlockHeader),
         noteStore,
         keyStore,
         addressStore,

@@ -12,17 +12,17 @@ import { type BlockHeader, CallContext, type Capsule, TxContext } from '@aztec/s
 
 import { mock } from 'jest-mock-extended';
 
-import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
+import type { ContractSyncService } from '../../contract/contract_sync_service.js';
 import type { MessageContextService } from '../../messages/message_context_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
-import type { ContractStore } from '../../storage/contract_store/contract_store.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import type { TaggingSecretSourcesStore } from '../../storage/tagging_store/tagging_secret_sources_store.js';
+import type { AnchoredContractData } from '../anchored_contract_data.js';
 import { ExecutionNoteCache } from '../execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from '../execution_tagging_index_cache.js';
 import { HashedValuesCache } from '../hashed_values_cache.js';
@@ -81,7 +81,7 @@ describe('PrivateExecutionOracle', () => {
       executionCache: HashedValuesCache.create([]),
       noteCache: new ExecutionNoteCache(Fr.ZERO),
       taggingIndexCache: new ExecutionTaggingIndexCache(),
-      contractStore: mock<ContractStore>(),
+      anchoredContractData: mock<AnchoredContractData>(),
       noteStore: mock<NoteStore>(),
       keyStore: mock<KeyStore>(),
       addressStore: mock<AddressStore>(),
