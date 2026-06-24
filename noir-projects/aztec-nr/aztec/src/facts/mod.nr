@@ -8,6 +8,9 @@ use crate::oracle::fact_store::{
 };
 use crate::protocol::{address::AztecAddress, traits::{Deserialize, Serialize}};
 
+mod origin_state;
+pub use origin_state::OriginState;
+
 /// The block a retractable fact originates from.
 #[derive(Deserialize, Eq, Serialize)]
 pub struct OriginBlock {
@@ -15,12 +18,20 @@ pub struct OriginBlock {
     pub block_hash: Field,
 }
 
+/// A retractable fact's origin block, annotated by PXE with the block's current chain state.
+#[derive(Deserialize, Eq, Serialize)]
+pub struct RetractableFactOrigin {
+    pub block_number: u32,
+    pub block_hash: Field,
+    pub block_state: OriginState,
+}
+
 /// A single immutable fact in a collection.
 #[derive(Deserialize, Serialize)]
 pub struct Fact {
     pub fact_type_id: Field,
     pub payload: EphemeralArray<Field>,
-    pub origin_block: Option<OriginBlock>,
+    pub origin_block: Option<RetractableFactOrigin>,
 }
 
 /// A fact collection as returned by the store.
@@ -123,7 +134,7 @@ pub unconstrained fn get_fact_collections_by_type(
 mod test {
     use crate::ephemeral::EphemeralArray;
     use crate::facts::{
-        delete_fact_collection, get_fact_collection, get_fact_collections_by_type, OriginBlock,
+        delete_fact_collection, get_fact_collection, get_fact_collections_by_type, OriginBlock, OriginState,
         record_non_retractable_fact, record_retractable_fact,
     };
     use crate::protocol::address::AztecAddress;
@@ -209,8 +220,9 @@ mod test {
     }
 
     #[test]
-    unconstrained fn records_a_retractable_fact() {
+    unconstrained fn records_a_retractable_fact_finalized_at_latest_block() {
         let (env, scope) = setup();
+        let origin_block_number = env.last_block_number();
         env.private_context(|context| {
             let contract_address = context.this_address();
             record_retractable_fact(
@@ -220,19 +232,43 @@ mod test {
                 COLLECTION_ID,
                 FACT_TYPE_ID,
                 make_payload(PAYLOAD),
-                OriginBlock { block_number: 5, block_hash: 0xabc },
+                OriginBlock { block_number: origin_block_number, block_hash: 0xabc },
             );
 
             let collection = get_fact_collection(contract_address, scope, TYPE_ID, COLLECTION_ID).unwrap();
             assert_eq(collection.facts.len(), 1);
 
-            let fact = collection.facts.get(0);
-            assert_eq(fact.fact_type_id, FACT_TYPE_ID);
-            assert_payload(fact.payload);
+            let origin = collection.facts.get(0).origin_block.unwrap();
+            assert_eq(origin.block_number, origin_block_number);
+            assert_eq(origin.block_hash, 0xabc);
+            // TXE finalizes every mined block, so an origin at the latest block is Finalized.
+            assert(origin.block_state == OriginState::finalized(), "origin block should be finalized");
+        });
+    }
 
-            let origin_block = fact.origin_block.unwrap();
-            assert_eq(origin_block.block_number, 5);
-            assert_eq(origin_block.block_hash, 0xabc);
+    #[test]
+    unconstrained fn retractable_fact_above_proven_tip_is_pending() {
+        let (env, scope) = setup();
+        let future_block_number = env.last_block_number() + 100;
+        env.private_context(|context| {
+            let contract_address = context.this_address();
+            record_retractable_fact(
+                contract_address,
+                scope,
+                TYPE_ID,
+                COLLECTION_ID,
+                FACT_TYPE_ID,
+                make_payload(PAYLOAD),
+                OriginBlock { block_number: future_block_number, block_hash: 0xabc },
+            );
+
+            let origin = get_fact_collection(contract_address, scope, TYPE_ID, COLLECTION_ID)
+                .unwrap()
+                .facts
+                .get(0)
+                .origin_block
+                .unwrap();
+            assert(origin.block_state == OriginState::pending(), "future origin block should be pending");
         });
     }
 
