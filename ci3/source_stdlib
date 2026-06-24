@@ -46,6 +46,24 @@ function get_num_cpus_max {
   echo $jobs
 }
 
+# Given a comma-separated CPU list, print the comma-separated set of NUMA node ids those
+# CPUs belong to (sorted, unique). Empty if the box exposes no NUMA topology. Used to bind
+# a pinned bench's memory to the same node(s) as its cores (--cpuset-mems / numactl), so
+# memory-bandwidth-bound work doesn't stream from a remote node.
+function cpu_numa_nodes {
+  local cpu_list="${1:-}"
+  [ -z "$cpu_list" ] && return
+  local cpu d nodes=()
+  for cpu in ${cpu_list//,/ }; do
+    for d in /sys/devices/system/cpu/cpu$cpu/node*; do
+      [ -e "$d" ] || continue
+      nodes+=("${d##*/node}")
+    done
+  done
+  [ "${#nodes[@]}" -eq 0 ] && return
+  printf '%s\n' "${nodes[@]}" | sort -un | paste -sd,
+}
+
 function aws_get_meta_data {
   curl -fs -H "X-aws-ec2-metadata-token: $AWS_TOKEN" http://169.254.169.254/latest/meta-data/$1 || true
 }

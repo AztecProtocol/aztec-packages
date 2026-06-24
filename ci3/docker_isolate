@@ -26,8 +26,14 @@ if [ -n "${NAME:-}" ]; then
   docker rm -f $name &>/dev/null || true
 fi
 
-# For pinning to given CPUs.
-[ -n "${CPU_LIST:-}" ] && cpuset_arg="--cpuset-cpus=$CPU_LIST"
+# For pinning to given CPUs, and binding memory to the same NUMA node(s) so that
+# memory-bandwidth-bound work (e.g. the MSM/commitment phases of proving) doesn't stream
+# from a remote node — the main source of run-to-run variance on the bench box.
+if [ -n "${CPU_LIST:-}" ]; then
+  cpuset_arg="--cpuset-cpus=$CPU_LIST"
+  mems=$(cpu_numa_nodes "$CPU_LIST")
+  [ -n "$mems" ] && cpuset_mems_arg="--cpuset-mems=$mems"
+fi
 
 # Env vars to inject into the container.
 arg_env_vars=()
@@ -60,6 +66,7 @@ cid=$(docker run -d \
   ${name_arg:-} \
   ${network_arg:-} \
   ${cpuset_arg:-} \
+  ${cpuset_mems_arg:-} \
   --cpus=$CPUS \
   --memory=$MEM \
   --user $(id -u):$(id -g) \

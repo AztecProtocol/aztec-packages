@@ -21,6 +21,11 @@ function isolate_bench_cpus {
     sudo sh -c "echo 0 > /sys/devices/system/cpu/cpu$cpu/online" 2>/dev/null || true
   done
 
+  # Each bench's memory is bound to its CPUs' NUMA node (--cpuset-mems / numactl), so the
+  # kernel's automatic page migration only adds jitter to the memory-bandwidth-bound
+  # phases. Turn it off for the run.
+  sudo sh -c "echo 0 > /proc/sys/kernel/numa_balancing" 2>/dev/null || true
+
   export BENCH_CPU_COUNT=$physical
   echo "Benchmark CPU isolation: CPUs 0-$((physical - 1)) ($physical cores, hyperthreads off) for benchmarks."
 }
@@ -33,6 +38,7 @@ function unisolate_bench_cpus {
   for cpu in $(seq 1 $((total_cpus - 1))); do
     sudo sh -c "echo 1 > /sys/devices/system/cpu/cpu$cpu/online" 2>/dev/null || true
   done
+  sudo sh -c "echo 1 > /proc/sys/kernel/numa_balancing" 2>/dev/null || true
   echo "All CPUs re-enabled. Online CPUs: $(nproc)"
 }
 

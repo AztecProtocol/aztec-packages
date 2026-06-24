@@ -52,7 +52,15 @@ if [ "${ISOLATE:-0}" -eq 1 ]; then
   docker_isolate "timeout -v $TIMEOUT bash -c '$test_cmd'" &> >(add_timestamps)
 else
   [ "${ONLY_TERM_PARENT:-0}" -eq 1 ] && fg_arg="--foreground"
-  taskset -c $CPU_LIST timeout ${fg_arg:-} -v $TIMEOUT bash -c "$test_cmd" &> >(add_timestamps)
+  # Bind memory to the CPU list's NUMA node(s), matching the docker path's --cpuset-mems,
+  # so memory-bandwidth-bound work doesn't stream from a remote node. Needs numactl; if it
+  # (or NUMA topology) is absent, fall back to plain taskset.
+  mems=$(cpu_numa_nodes "$CPU_LIST")
+  if [ -n "$mems" ] && command -v numactl &>/dev/null; then
+    numactl --membind=$mems taskset -c $CPU_LIST timeout ${fg_arg:-} -v $TIMEOUT bash -c "$test_cmd" &> >(add_timestamps)
+  else
+    taskset -c $CPU_LIST timeout ${fg_arg:-} -v $TIMEOUT bash -c "$test_cmd" &> >(add_timestamps)
+  fi
 fi
 code=$?
 set -e
