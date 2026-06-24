@@ -64,8 +64,9 @@ import { findHighestIndexes } from './utils/find_highest_indexes.js';
  *   one is already on-chain.
  * - Because the sequence is gapless, the scan stops at the first missing index: that gap proves the sequence has
  *   ended and no further logs exist. We exploit this by probing only a small initial window
- *   (`INITIAL_CONSTRAINED_PROBE_LEN`) and growing to the full window only when every probed index has a log, so a
- *   steady-state sync with no new logs costs a single tag instead of the whole window.
+ *   (`INITIAL_CONSTRAINED_PROBE_LEN`) and growing by another such step each round while every probed index has a
+ *   log, stopping at the first miss. A steady-state sync with no new logs costs a single tag instead of the whole
+ *   window, and a sync with K new logs costs exactly K + 1 tags (K hits plus the terminating miss).
  * - The upper bound is the same as unconstrained: `highestFinalizedIndex + WINDOW_LEN`. Advancing the probe is
  *   decoupled from persisting the finalized cursor, so unfinalized logs at the top of the run are still fetched
  *   while only the finalized prefix is persisted.
@@ -245,8 +246,9 @@ async function processConstrainedResults(
   // Advancing the probe is decoupled from persisting the cursor: keep scanning as long as the probe was entirely hits
   // (no gap) and there is room before the protocol bound, even if none of those hits is finalized yet. Gating this on
   // finalization would drop logs in unfinalized blocks, which sit at the top of the contiguous run. The bound
-  // re-anchors to any finalized index found this round. Once the small initial probe is fully consumed, this jumps to
-  // the full window, so later rounds behave exactly as before.
+  // re-anchors to any finalized index found this round. Because the stream is gapless, we only need to fetch up to the
+  // first missing tag, so the probe grows by another INITIAL_CONSTRAINED_PROBE_LEN step each round (capped at the
+  // bound) rather than jumping to the full window: a secret with K new logs costs exactly K + 1 tags.
   const probeFullyConsumed = firstMissingIndex >= pending.end;
   const boundEnd =
     highestFinalizedIndex !== undefined
@@ -257,7 +259,7 @@ async function processConstrainedResults(
     return {
       secret: pending.secret,
       start: pending.end,
-      end: boundEnd,
+      end: Math.min(boundEnd, pending.end + INITIAL_CONSTRAINED_PROBE_LEN),
       boundEnd,
     };
   }
@@ -318,7 +320,8 @@ type PendingSecret = {
   start: number;
   end: number;
   // Highest index this secret may probe this sync (highest finalized index + WINDOW_LEN + 1, the protocol bound on how
-  // far ahead of finalized a log can sit). Distinct from `end`, which for constrained secrets starts as a small probe.
+  // far ahead of finalized a log can sit). Distinct from `end`, which for constrained secrets advances by
+  // INITIAL_CONSTRAINED_PROBE_LEN per round up to this bound.
   boundEnd: number;
 };
 

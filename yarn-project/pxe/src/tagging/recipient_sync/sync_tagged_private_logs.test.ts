@@ -268,7 +268,7 @@ describe('syncTaggedPrivateLogs', () => {
       expect(await taggingStore.getHighestAgedIndex(secret, JOB_ID)).toBeUndefined();
     });
 
-    it('fully drains a contiguous run that spans multiple windows', async () => {
+    it('fully drains a long contiguous run one probe at a time', async () => {
       const [secret] = await makeSecrets(1, AppTaggingSecretKind.CONSTRAINED);
       const finalizedBlockNumber = BlockNumber(10);
       const logBlockTimestamp = CURRENT_TIMESTAMP - BigInt(MAX_TX_LIFETIME) - 1000n;
@@ -289,11 +289,12 @@ describe('syncTaggedPrivateLogs', () => {
         JOB_ID,
       );
 
-      // Every log in the run is returned and the cursor lands on the last index, even though the run is longer than a
-      // single window, so the scan has to advance across more than one round to drain it.
+      // The whole run is returned and the cursor lands on the last index, even though the run is longer than a single
+      // window. With INITIAL_CONSTRAINED_PROBE_LEN = 1 the scan advances one index per round, so it takes one round
+      // per log plus a final round for the terminating miss.
       expect(logs).toHaveLength(totalLogs);
       expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBe(totalLogs - 1);
-      expect(aztecNode.getPrivateLogsByTags.mock.calls.length).toBeGreaterThan(1);
+      expect(aztecNode.getPrivateLogsByTags.mock.calls.length).toBe(totalLogs + 1);
     });
 
     it('persists cursor only up to finalized block', async () => {
@@ -365,6 +366,39 @@ describe('syncTaggedPrivateLogs', () => {
       expect(logs).toHaveLength(2);
       // Nothing finalized, so the durable cursor must not advance.
       expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBeUndefined();
+    });
+
+    // Pins the committed P=1 behavior: a fully-consumed probe advances by one INITIAL_CONSTRAINED_PROBE_LEN step,
+    // not the whole window.
+    it('catch-up probes one step at a time, not the full window', async () => {
+      const [secret] = await makeSecrets(1, AppTaggingSecretKind.CONSTRAINED);
+      const finalizedBlockNumber = BlockNumber(10);
+      const agedTimestamp = CURRENT_TIMESTAMP - BigInt(MAX_TX_LIFETIME) - 1000n;
+
+      // Recipient already synced index 0; exactly one new finalized log sits at index 1.
+      await taggingStore.updateHighestFinalizedIndex(secret, 0, JOB_ID);
+      const newLogTag = await computeSiloedTagForIndex(secret, 1);
+      mockNodeWithLogs([newLogTag], Number(finalizedBlockNumber), agedTimestamp);
+
+      const logs = await syncTaggedPrivateLogs(
+        [secret],
+        aztecNode,
+        taggingStore,
+        ANCHOR_BLOCK_HEADER,
+        finalizedBlockNumber,
+        JOB_ID,
+      );
+
+      expect(logs).toHaveLength(1);
+      expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBe(1);
+
+      // Round 1 probes index 1 (the hit); round 2 probes only index 2 (the terminating miss) — a single
+      // INITIAL_CONSTRAINED_PROBE_LEN step, not the full window. The old full-window fallback queried indexes
+      // 2..(1 + WINDOW_LEN) in round 2.
+      const calls = aztecNode.getPrivateLogsByTags.mock.calls;
+      expect(calls).toHaveLength(2);
+      expect(extractTags(calls[0][0])).toEqual([await computeSiloedTagForIndex(secret, 1)]);
+      expect(extractTags(calls[1][0])).toEqual([await computeSiloedTagForIndex(secret, 2)]);
     });
   });
 

@@ -189,15 +189,15 @@ describe('syncTaggedPrivateLogs constrained-sync bench', () => {
       );
 
       // Pin behavior as an executable assertion, not just a printout.
-      if (scenario.newLogs === 0) {
-        if (scenario.kind === AppTaggingSecretKind.CONSTRAINED) {
-          // Constrained steady state: the first missing tag ends the scan, so we query only the initial probe.
-          expect(row.tagQueries).toBe(scenario.secretCount * INITIAL_CONSTRAINED_PROBE_LEN);
-        } else {
-          // Unconstrained steady state: still the full window (control for the optimization).
-          expect(row.tagQueries).toBe(scenario.secretCount * UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN);
-        }
-        expect(row.logsFound).toBe(0);
+      if (scenario.kind === AppTaggingSecretKind.CONSTRAINED) {
+        // Fixed-step probing is tag-optimal: K hits plus 1 terminating miss, rounded up to whole probe steps. At
+        // INITIAL_CONSTRAINED_PROBE_LEN = 1 this equals the first-miss floor (reduction = 1.0x), and at steady state
+        // (K = 0) it collapses to a single initial probe per secret.
+        const stepsToFirstMiss = Math.ceil((scenario.newLogs + 1) / INITIAL_CONSTRAINED_PROBE_LEN);
+        expect(row.tagQueries).toBe(scenario.secretCount * stepsToFirstMiss * INITIAL_CONSTRAINED_PROBE_LEN);
+      } else if (scenario.newLogs === 0) {
+        // Unconstrained steady state: still the full window (control for the optimization).
+        expect(row.tagQueries).toBe(scenario.secretCount * UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN);
       }
       expect(row.logsFound).toBe(scenario.secretCount * scenario.newLogs);
     }
