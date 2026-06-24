@@ -2651,6 +2651,9 @@ function hideProgress(): void {
     const tree = qp.get('use_tree_reduce') === '1';
     const debugSmvp = qp.get('debug_smvp') === '1';
     const debugTreeOut = qp.get('debug_tree_output') === '1';
+    // Echoed back into every posted row so a multi-device driver can attribute the
+    // result to the device that produced it (matches the chonk page's ?target=).
+    const target = qp.get('target') ?? undefined;
     // Flags are NOT set here — they'd fire during warmup and abort the
     // page before the real run executes. We set them after waitForRun
     // (= SRS + warmup complete) just before clicking Run.
@@ -2730,6 +2733,7 @@ function hideProgress(): void {
             ? 'done'
             : 'error';
       await client.postResults({
+        target,
         state,
         params,
         results,
@@ -2743,6 +2747,7 @@ function hideProgress(): void {
       const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
       log('err', `[autorun] FATAL: ${msg}`);
       await client.postResults({
+        target,
         state: 'error',
         params: { logN: autorunLogN, tree, page: 'msm-autorun' },
         results: null,

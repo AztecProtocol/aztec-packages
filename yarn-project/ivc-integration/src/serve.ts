@@ -4254,8 +4254,38 @@ async function maybeAutorunChonkBench(): Promise<void> {
         vksMatch: r.vksMatch,
       };
     } else if (mode === 'on-only') {
-      const r = await runChonkSingleMode('webgpu', flow);
-      row = { adapter: r.adapter, swiftshaderDetected: /swiftshader/i.test(r.adapter), on: r.result };
+      // Config-correct WebGPU prove: route through runChonkModeMulti('webgpu', …) — the same
+      // warm-backend path as the page's WebGPU button (ensureWarmBackend(true) rebuilds with
+      // webgpuMsm:true) — so the config-blind singleton can't hand us a stale WASM backend and
+      // silently run "WebGPU" on the CPU. It verifies each prove; gpuPeakMb>0 confirms the GPU
+      // was actually exercised.
+      let adapter = 'unavailable';
+      if ('gpu' in navigator) {
+        try {
+          const a = await (navigator as any).gpu.requestAdapter({ powerPreference: 'high-performance' });
+          const info = a ? ((a as any).info ?? (await (a as any).requestAdapterInfo?.())) : undefined;
+          adapter = info
+            ? `${info.vendor ?? '?'} / ${info.architecture ?? '?'} / ${info.device ?? '?'}`
+            : a
+              ? 'unknown'
+              : 'null';
+        } catch (e) {
+          adapter = `err: ${e instanceof Error ? e.message : String(e)}`;
+        }
+      }
+      const m = await runChonkModeMulti('webgpu', flow, 1, p =>
+        progress(`webgpu:${p.phase}`, p.total ? Math.round((p.done / p.total) * 100) : -1),
+      );
+      row = {
+        adapter,
+        swiftshaderDetected: /swiftshader/i.test(adapter),
+        on: {
+          proveMs: m.medianTotal,
+          verified: m.allVerified,
+          gpuPeakMb: m.gpuPeakMb,
+          wasmHeapPeakMb: m.wasmHeapPeakMb,
+        },
+      };
     } else if (mode === 'paired-sweep') {
       // Headless full sweep: prove EVERY dropdown example on GPU (warm + bridge
       // reset) then WASM, and POST the per-example summary (prove/verify/verified,
@@ -4302,8 +4332,26 @@ async function maybeAutorunChonkBench(): Promise<void> {
         })),
       };
     } else {
-      const r = await runChonkSingleMode('wasm', flow);
-      row = { adapter: r.adapter, swiftshaderDetected: false, off: r.result };
+      // Pure-WASM e2e. Route through runChonkModeMulti('wasm', …) — the same
+      // config-correct warm-backend path the interactive "WASM" button uses, which
+      // calls ensureWarmBackend(false) to destroy+rebuild the backend WASM-only.
+      // Calling runChonkSingleMode('wasm') here instead inherits the config-blind
+      // singleton (left webgpuMsm:true by the eager page-load warm-up), so the WASM
+      // prove's MSMs still dispatch to the WebGPU bridge and lose the GPU device on
+      // Adreno phones. One prove (iters=1).
+      const m = await runChonkModeMulti('wasm', flow, 1, p =>
+        progress(`wasm:${p.phase}`, p.total ? Math.round((p.done / p.total) * 100) : -1),
+      );
+      row = {
+        adapter: 'n/a (wasm)',
+        swiftshaderDetected: false,
+        off: {
+          proveMs: m.medianTotal,
+          verified: m.allVerified,
+          wasmHeapPeakMb: m.wasmHeapPeakMb,
+          jsHeapMb: m.jsHeapMb,
+        },
+      };
     }
     progress('done', 100);
 

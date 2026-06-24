@@ -1,0 +1,39 @@
+{
+  "_note": [
+    "Device registry for scripts/bench.mjs. Keys are friendly device ids passed to --devices.",
+    "driver=cdp  -> driven over the Chrome DevTools Protocol (the Mac, via the 9222 reverse tunnel).",
+    "driver=adb  -> driven over the tunneled adb server (the phones); matched to a live serial by `match`.",
+    "`match` is a JS regex tested against marketName|modelName|model from `adb devices`; serials are NOT",
+    "hard-coded because they vary. Run `node scripts/bench.mjs devices` to see live models and fix any",
+    "mismatched `match` / `label` here. `threads` feeds the autorun ?threads= override (phones must not run",
+    "the 16-thread WASM default or pthread startup races crash them). caps.webgpuMsm records what we know:",
+    "ok | unknown | device-lost (the bench skips GPU MSM on device-lost unless --force)."
+  ],
+  "mac": {
+    "driver": "cdp",
+    "cdpUrl": "http://127.0.0.1:9222",
+    "label": "MacBook M4 Pro (Apple / Metal)",
+    "caps": { "webgpuMsm": "ok" }
+  },
+  "s23": {
+    "driver": "adb",
+    "match": "SM-S911|Galaxy S23\\b|\\bS23\\b",
+    "label": "Galaxy S23 (Adreno 740)",
+    "threads": 4,
+    "caps": { "webgpuMsm": "device-lost" }
+  },
+  "s26u": {
+    "driver": "adb",
+    "match": "S26 Ultra|SM-S94|SM-S95",
+    "label": "Galaxy S26 Ultra",
+    "threads": 6,
+    "caps": { "webgpuMsm": "unknown" }
+  },
+  "pixel10": {
+    "driver": "adb",
+    "match": "Pixel 10",
+    "label": "Pixel 10",
+    "threads": 6,
+    "caps": { "webgpuMsm": "unknown" }
+  }
+}
