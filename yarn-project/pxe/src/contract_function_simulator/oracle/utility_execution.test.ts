@@ -24,7 +24,7 @@ import {
 } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { PublicKeys, deriveKeys, hashPublicKey } from '@aztec/stdlib/keys';
-import { AppTaggingSecret, AppTaggingSecretKind, PendingTaggedLog, SiloedTag } from '@aztec/stdlib/logs';
+import { AppTaggingSecret, AppTaggingSecretKind, SiloedTag } from '@aztec/stdlib/logs';
 import { Note, NoteDao } from '@aztec/stdlib/note';
 import { makeL2Tips, randomContractInstanceWithAddress } from '@aztec/stdlib/testing';
 import {
@@ -708,14 +708,17 @@ describe('Utility Execution test suite', () => {
         );
         expect(queried).toContain(constrainedModeTag.value.toString());
         expect(queried).not.toContain(sameSecretUnconstrainedModeTag.value.toString());
-        const resultLogs = result.readAll(service).map(log => log.toFields());
-        const expectedConstrainedModeLogFields = new PendingTaggedLog(
-          log.logData,
-          log.txHash,
-          log.noteHashes,
-          log.nullifiers[0],
-        ).toFields();
-        expect(resultLogs).toEqual([expectedConstrainedModeLogFields]);
+        const resultLogs = result.readAll(service);
+        expect(resultLogs).toEqual([
+          {
+            log: log.logData,
+            context: {
+              txHash: log.txHash,
+              uniqueNoteHashesInTx: log.noteHashes,
+              firstNullifierInTx: log.nullifiers[0],
+            },
+          },
+        ]);
       });
     });
 
