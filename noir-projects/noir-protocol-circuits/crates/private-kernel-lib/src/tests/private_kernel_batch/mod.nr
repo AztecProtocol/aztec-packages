@@ -1096,6 +1096,56 @@ fn batch_2_static_call_restrictions_apply_to_next_slot_fails() {
 }
 
 #[test]
+fn batch_2_is_private_only_matches_sequential() {
+    assert_batch_n_is_private_only_matches_sequential::<2>();
+}
+
+#[test]
+fn batch_2_fee_payer_midbatch_matches_sequential() {
+    assert_batch_n_fee_payer_midbatch_matches_sequential::<2>();
+}
+
+#[test]
+fn batch_2_public_teardown_midbatch_matches_sequential() {
+    assert_batch_n_public_teardown_midbatch_matches_sequential::<2>();
+}
+
+#[test]
+fn batch_2_min_revertible_midbatch_matches_sequential() {
+    assert_batch_n_min_revertible_midbatch_matches_sequential::<2>();
+}
+
+#[test]
+fn batch_2_protocol_nullifier_matches_sequential() {
+    assert_batch_n_protocol_nullifier_matches_sequential::<2>();
+}
+
+#[test]
+fn batch_2_expiration_timestamp_min_matches_sequential() {
+    assert_batch_n_expiration_timestamp_min_matches_sequential::<2>();
+}
+
+#[test]
+fn inner_2_accumulates_side_effects_after_previous_kernel() {
+    assert_inner_n_accumulates_side_effects_after_previous_kernel::<2>();
+}
+
+#[test]
+fn inner_2_with_previous_side_effects_matches_sequential_kernels() {
+    assert_inner_n_with_previous_side_effects_matches_sequential_kernels::<2>();
+}
+
+#[test]
+fn inner_2_linear_chain_consumes_all_calls() {
+    assert_inner_n_linear_chain_consumes_all_calls::<2>();
+}
+
+#[test]
+fn inner_2_linear_chain_matches_sequential_kernels() {
+    assert_inner_n_linear_chain_matches_sequential_kernels::<2>();
+}
+
+#[test]
 fn batch_3_accumulates_side_effects_across_slots() {
     assert_batch_n_accumulates_side_effects_across_slots::<3>();
 }
@@ -1175,30 +1225,34 @@ fn batch_3_static_call_restrictions_apply_to_next_slot_fails() {
     assert_batch_n_static_call_restrictions_apply_to_next_slot_fails::<3>();
 }
 
-#[test(should_fail_with = "private calls must be processed in increasing side_effect_counter order")]
-fn inner_non_increasing_side_effect_order_is_rejected() {
-    let (inputs, hints) = non_side_effect_ordered_inner_scenario();
-    drive_inner_with_hints(inputs, hints);
+#[test]
+fn batch_3_is_private_only_matches_sequential() {
+    assert_batch_n_is_private_only_matches_sequential::<3>();
 }
 
 #[test]
-fn inner_2_accumulates_side_effects_after_previous_kernel() {
-    assert_inner_n_accumulates_side_effects_after_previous_kernel::<2>();
+fn batch_3_fee_payer_midbatch_matches_sequential() {
+    assert_batch_n_fee_payer_midbatch_matches_sequential::<3>();
 }
 
 #[test]
-fn inner_2_with_previous_side_effects_matches_sequential_kernels() {
-    assert_inner_n_with_previous_side_effects_matches_sequential_kernels::<2>();
+fn batch_3_public_teardown_midbatch_matches_sequential() {
+    assert_batch_n_public_teardown_midbatch_matches_sequential::<3>();
 }
 
 #[test]
-fn inner_2_linear_chain_consumes_all_calls() {
-    assert_inner_n_linear_chain_consumes_all_calls::<2>();
+fn batch_3_min_revertible_midbatch_matches_sequential() {
+    assert_batch_n_min_revertible_midbatch_matches_sequential::<3>();
 }
 
 #[test]
-fn inner_2_linear_chain_matches_sequential_kernels() {
-    assert_inner_n_linear_chain_matches_sequential_kernels::<2>();
+fn batch_3_protocol_nullifier_matches_sequential() {
+    assert_batch_n_protocol_nullifier_matches_sequential::<3>();
+}
+
+#[test]
+fn batch_3_expiration_timestamp_min_matches_sequential() {
+    assert_batch_n_expiration_timestamp_min_matches_sequential::<3>();
 }
 
 #[test]
@@ -1219,6 +1273,272 @@ fn inner_3_linear_chain_consumes_all_calls() {
 #[test]
 fn inner_3_linear_chain_matches_sequential_kernels() {
     assert_inner_n_linear_chain_matches_sequential_kernels::<3>();
+}
+
+#[test]
+fn batch_4_accumulates_side_effects_across_slots() {
+    assert_batch_n_accumulates_side_effects_across_slots::<4>();
+}
+
+#[test]
+fn batch_4_linear_chain_consumes_all_calls() {
+    assert_batch_n_linear_chain_consumes_all_calls::<4>();
+}
+
+#[test]
+fn batch_4_linear_chain_matches_sequential_kernels() {
+    assert_batch_n_linear_chain_matches_sequential_kernels::<4>();
+}
+
+#[test]
+fn batch_4_depth_first_child_keeps_sibling_on_stack() {
+    assert_batch_n_depth_first_child_keeps_sibling_on_stack::<4>();
+}
+
+#[test]
+fn batch_4_depth_first_with_sibling_matches_sequential_kernels() {
+    assert_batch_n_depth_first_with_sibling_matches_sequential_kernels::<4>();
+}
+
+#[test]
+fn batch_4_with_everything_non_empty_matches_sequential_kernels() {
+    assert_batch_n_with_everything_non_empty_matches_sequential_kernels::<4>();
+}
+
+#[test(should_fail_with = "call_context does not match call request")]
+fn batch_4_fourth_call_must_match_third_call_stack_fails() {
+    assert_batch_n_last_call_must_match_previous_call_stack_fails::<4>();
+}
+
+#[test(should_fail_with = "args_hash does not match call request")]
+fn batch_4_second_call_must_match_first_call_stack_fails() {
+    assert_batch_n_second_call_must_match_first_call_stack_fails::<4>();
+}
+
+#[test(should_fail_with = "note_hash_read_requests length out of bounds")]
+fn batch_4_second_call_claimed_lengths_are_validated() {
+    assert_batch_n_second_call_claimed_lengths_are_validated::<4>();
+}
+
+#[test(should_fail_with = "Counter must be greater than previous counter")]
+fn batch_4_fourth_call_side_effect_counters_are_validated() {
+    assert_batch_n_last_call_side_effect_counters_are_validated::<4>();
+}
+
+#[test(should_fail_with = "anchor block header mismatch")]
+fn batch_4_second_call_must_match_previous_kernel_header() {
+    assert_batch_n_second_call_must_match_previous_kernel_header::<4>();
+}
+
+#[test(should_fail_with = "Cannot overwrite non-empty fee_payer")]
+fn batch_4_fee_payer_conflict_fails() {
+    assert_batch_n_fee_payer_conflict_fails::<4>();
+}
+
+#[test(should_fail_with = "Public teardown call request already set")]
+fn batch_4_public_teardown_conflict_fails() {
+    assert_batch_n_public_teardown_conflict_fails::<4>();
+}
+
+#[test(should_fail_with = "cannot overwrite non-zero min_revertible_side_effect_counter")]
+fn batch_4_min_revertible_side_effect_counter_conflict_fails() {
+    assert_batch_n_min_revertible_side_effect_counter_conflict_fails::<4>();
+}
+
+#[test(should_fail_with = "nested private call of a static call must be static")]
+fn batch_4_static_call_requires_static_nested_private_call_fails() {
+    assert_batch_n_static_call_requires_static_nested_private_call_fails::<4>();
+}
+
+#[test(should_fail_with = "note_hashes must be empty for static calls")]
+fn batch_4_static_call_restrictions_apply_to_next_slot_fails() {
+    assert_batch_n_static_call_restrictions_apply_to_next_slot_fails::<4>();
+}
+
+#[test]
+fn batch_4_is_private_only_matches_sequential() {
+    assert_batch_n_is_private_only_matches_sequential::<4>();
+}
+
+#[test]
+fn batch_4_fee_payer_midbatch_matches_sequential() {
+    assert_batch_n_fee_payer_midbatch_matches_sequential::<4>();
+}
+
+#[test]
+fn batch_4_public_teardown_midbatch_matches_sequential() {
+    assert_batch_n_public_teardown_midbatch_matches_sequential::<4>();
+}
+
+#[test]
+fn batch_4_min_revertible_midbatch_matches_sequential() {
+    assert_batch_n_min_revertible_midbatch_matches_sequential::<4>();
+}
+
+#[test]
+fn batch_4_protocol_nullifier_matches_sequential() {
+    assert_batch_n_protocol_nullifier_matches_sequential::<4>();
+}
+
+#[test]
+fn batch_4_expiration_timestamp_min_matches_sequential() {
+    assert_batch_n_expiration_timestamp_min_matches_sequential::<4>();
+}
+
+#[test]
+fn inner_4_accumulates_side_effects_after_previous_kernel() {
+    assert_inner_n_accumulates_side_effects_after_previous_kernel::<4>();
+}
+
+#[test]
+fn inner_4_with_previous_side_effects_matches_sequential_kernels() {
+    assert_inner_n_with_previous_side_effects_matches_sequential_kernels::<4>();
+}
+
+#[test]
+fn inner_4_linear_chain_consumes_all_calls() {
+    assert_inner_n_linear_chain_consumes_all_calls::<4>();
+}
+
+#[test]
+fn inner_4_linear_chain_matches_sequential_kernels() {
+    assert_inner_n_linear_chain_matches_sequential_kernels::<4>();
+}
+
+#[test]
+fn batch_5_accumulates_side_effects_across_slots() {
+    assert_batch_n_accumulates_side_effects_across_slots::<5>();
+}
+
+#[test]
+fn batch_5_linear_chain_consumes_all_calls() {
+    assert_batch_n_linear_chain_consumes_all_calls::<5>();
+}
+
+#[test]
+fn batch_5_linear_chain_matches_sequential_kernels() {
+    assert_batch_n_linear_chain_matches_sequential_kernels::<5>();
+}
+
+#[test]
+fn batch_5_depth_first_child_keeps_sibling_on_stack() {
+    assert_batch_n_depth_first_child_keeps_sibling_on_stack::<5>();
+}
+
+#[test]
+fn batch_5_depth_first_with_sibling_matches_sequential_kernels() {
+    assert_batch_n_depth_first_with_sibling_matches_sequential_kernels::<5>();
+}
+
+#[test]
+fn batch_5_with_everything_non_empty_matches_sequential_kernels() {
+    assert_batch_n_with_everything_non_empty_matches_sequential_kernels::<5>();
+}
+
+#[test(should_fail_with = "call_context does not match call request")]
+fn batch_5_fifth_call_must_match_fourth_call_stack_fails() {
+    assert_batch_n_last_call_must_match_previous_call_stack_fails::<5>();
+}
+
+#[test(should_fail_with = "args_hash does not match call request")]
+fn batch_5_second_call_must_match_first_call_stack_fails() {
+    assert_batch_n_second_call_must_match_first_call_stack_fails::<5>();
+}
+
+#[test(should_fail_with = "note_hash_read_requests length out of bounds")]
+fn batch_5_second_call_claimed_lengths_are_validated() {
+    assert_batch_n_second_call_claimed_lengths_are_validated::<5>();
+}
+
+#[test(should_fail_with = "Counter must be greater than previous counter")]
+fn batch_5_fifth_call_side_effect_counters_are_validated() {
+    assert_batch_n_last_call_side_effect_counters_are_validated::<5>();
+}
+
+#[test(should_fail_with = "anchor block header mismatch")]
+fn batch_5_second_call_must_match_previous_kernel_header() {
+    assert_batch_n_second_call_must_match_previous_kernel_header::<5>();
+}
+
+#[test(should_fail_with = "Cannot overwrite non-empty fee_payer")]
+fn batch_5_fee_payer_conflict_fails() {
+    assert_batch_n_fee_payer_conflict_fails::<5>();
+}
+
+#[test(should_fail_with = "Public teardown call request already set")]
+fn batch_5_public_teardown_conflict_fails() {
+    assert_batch_n_public_teardown_conflict_fails::<5>();
+}
+
+#[test(should_fail_with = "cannot overwrite non-zero min_revertible_side_effect_counter")]
+fn batch_5_min_revertible_side_effect_counter_conflict_fails() {
+    assert_batch_n_min_revertible_side_effect_counter_conflict_fails::<5>();
+}
+
+#[test(should_fail_with = "nested private call of a static call must be static")]
+fn batch_5_static_call_requires_static_nested_private_call_fails() {
+    assert_batch_n_static_call_requires_static_nested_private_call_fails::<5>();
+}
+
+#[test(should_fail_with = "note_hashes must be empty for static calls")]
+fn batch_5_static_call_restrictions_apply_to_next_slot_fails() {
+    assert_batch_n_static_call_restrictions_apply_to_next_slot_fails::<5>();
+}
+
+#[test]
+fn batch_5_is_private_only_matches_sequential() {
+    assert_batch_n_is_private_only_matches_sequential::<5>();
+}
+
+#[test]
+fn batch_5_fee_payer_midbatch_matches_sequential() {
+    assert_batch_n_fee_payer_midbatch_matches_sequential::<5>();
+}
+
+#[test]
+fn batch_5_public_teardown_midbatch_matches_sequential() {
+    assert_batch_n_public_teardown_midbatch_matches_sequential::<5>();
+}
+
+#[test]
+fn batch_5_min_revertible_midbatch_matches_sequential() {
+    assert_batch_n_min_revertible_midbatch_matches_sequential::<5>();
+}
+
+#[test]
+fn batch_5_protocol_nullifier_matches_sequential() {
+    assert_batch_n_protocol_nullifier_matches_sequential::<5>();
+}
+
+#[test]
+fn batch_5_expiration_timestamp_min_matches_sequential() {
+    assert_batch_n_expiration_timestamp_min_matches_sequential::<5>();
+}
+
+#[test]
+fn inner_5_accumulates_side_effects_after_previous_kernel() {
+    assert_inner_n_accumulates_side_effects_after_previous_kernel::<5>();
+}
+
+#[test]
+fn inner_5_with_previous_side_effects_matches_sequential_kernels() {
+    assert_inner_n_with_previous_side_effects_matches_sequential_kernels::<5>();
+}
+
+#[test]
+fn inner_5_linear_chain_consumes_all_calls() {
+    assert_inner_n_linear_chain_consumes_all_calls::<5>();
+}
+
+#[test]
+fn inner_5_linear_chain_matches_sequential_kernels() {
+    assert_inner_n_linear_chain_matches_sequential_kernels::<5>();
+}
+
+#[test(should_fail_with = "private calls must be processed in increasing side_effect_counter order")]
+fn inner_non_increasing_side_effect_order_is_rejected() {
+    let (inputs, hints) = non_side_effect_ordered_inner_scenario();
+    drive_inner_with_hints(inputs, hints);
 }
 
 #[test(should_fail_with = "cannot pop more nested calls than exist")]
@@ -1324,66 +1644,6 @@ fn init_app_segment_tampered_rejected() {
     output.end.private_call_stack.array[0] = pending;
 
     validate_init(inputs, output, hints);
-}
-
-#[test]
-fn batch_2_is_private_only_matches_sequential() {
-    assert_batch_n_is_private_only_matches_sequential::<2>();
-}
-
-#[test]
-fn batch_3_is_private_only_matches_sequential() {
-    assert_batch_n_is_private_only_matches_sequential::<3>();
-}
-
-#[test]
-fn batch_2_fee_payer_midbatch_matches_sequential() {
-    assert_batch_n_fee_payer_midbatch_matches_sequential::<2>();
-}
-
-#[test]
-fn batch_3_fee_payer_midbatch_matches_sequential() {
-    assert_batch_n_fee_payer_midbatch_matches_sequential::<3>();
-}
-
-#[test]
-fn batch_2_public_teardown_midbatch_matches_sequential() {
-    assert_batch_n_public_teardown_midbatch_matches_sequential::<2>();
-}
-
-#[test]
-fn batch_3_public_teardown_midbatch_matches_sequential() {
-    assert_batch_n_public_teardown_midbatch_matches_sequential::<3>();
-}
-
-#[test]
-fn batch_2_min_revertible_midbatch_matches_sequential() {
-    assert_batch_n_min_revertible_midbatch_matches_sequential::<2>();
-}
-
-#[test]
-fn batch_3_min_revertible_midbatch_matches_sequential() {
-    assert_batch_n_min_revertible_midbatch_matches_sequential::<3>();
-}
-
-#[test]
-fn batch_2_protocol_nullifier_matches_sequential() {
-    assert_batch_n_protocol_nullifier_matches_sequential::<2>();
-}
-
-#[test]
-fn batch_3_protocol_nullifier_matches_sequential() {
-    assert_batch_n_protocol_nullifier_matches_sequential::<3>();
-}
-
-#[test]
-fn batch_2_expiration_timestamp_min_matches_sequential() {
-    assert_batch_n_expiration_timestamp_min_matches_sequential::<2>();
-}
-
-#[test]
-fn batch_3_expiration_timestamp_min_matches_sequential() {
-    assert_batch_n_expiration_timestamp_min_matches_sequential::<3>();
 }
 
 // The batched validator accepts the non-canonical global ordering [A, B, C] then [D]: kernel 1

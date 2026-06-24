@@ -50,7 +50,7 @@ static_assert(ChonkProof::JOINT_PROOF_LENGTH == 478,
               "and run `yarn remake-constants`");
 static_assert(MegaAppFlavor::VerificationKey::calc_num_data_types() == 151,
               "MEGA_APP_VK_LENGTH_IN_FIELDS changed - update constants.nr");
-static_assert(MegaKernelFlavor::VerificationKey::calc_num_data_types() == 143,
+static_assert(MegaKernelFlavor::VerificationKey::calc_num_data_types() == 151,
               "MEGA_KERNEL_VK_LENGTH_IN_FIELDS changed - update constants.nr");
 static_assert(MegaZKFlavor::VerificationKey::calc_num_data_types() == 119,
               "MEGA_ZK_VK_LENGTH_IN_FIELDS changed - update constants.nr");

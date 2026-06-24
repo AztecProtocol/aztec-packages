@@ -239,7 +239,11 @@ Chonk::PublicInputsResult Chonk::process_kernel_public_inputs(std::vector<Stdlib
 
     const std::array app_calldata_commitments{ &witness_commitments.first_app_calldata(),
                                                &witness_commitments.second_app_calldata(),
-                                               &witness_commitments.third_app_calldata() };
+                                               &witness_commitments.third_app_calldata(),
+                                               &witness_commitments.fourth_app_calldata(),
+                                               &witness_commitments.fifth_app_calldata() };
+    static_assert(std::tuple_size_v<decltype(app_calldata_commitments)> == MAX_APPS_PER_KERNEL,
+                  "app_calldata_commitments must list one commitment per app bus column");
     for (size_t idx = 0; idx < MAX_APPS_PER_KERNEL; ++idx) {
         bool app_return_data_match =
             kernel_input.app_return_data[idx].get_value() == app_calldata_commitments[idx]->get_value();

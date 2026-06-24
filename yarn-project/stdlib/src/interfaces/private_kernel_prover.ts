@@ -5,9 +5,13 @@ import type {
   PrivateKernelCircuitPublicInputs,
   PrivateKernelInit2CircuitPrivateInputs,
   PrivateKernelInit3CircuitPrivateInputs,
+  PrivateKernelInit4CircuitPrivateInputs,
+  PrivateKernelInit5CircuitPrivateInputs,
   PrivateKernelInitCircuitPrivateInputs,
   PrivateKernelInner2CircuitPrivateInputs,
   PrivateKernelInner3CircuitPrivateInputs,
+  PrivateKernelInner4CircuitPrivateInputs,
+  PrivateKernelInner5CircuitPrivateInputs,
   PrivateKernelInnerCircuitPrivateInputs,
   PrivateKernelResetCircuitPrivateInputs,
   PrivateKernelResetTailCircuitPrivateInputs,
@@ -84,6 +88,48 @@ export interface PrivateKernelProver {
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>>;
 
   /**
+   * Creates a proof output for a batched first iteration that processes four app calls in a single
+   * private kernel circuit.
+   *
+   * @param privateKernelInputsInit4 - The batched private data structure for the initial iteration.
+   * @returns A Promise resolving to a ProofOutput object containing public inputs and the kernel proof.
+   */
+  generateInit4Output(
+    privateKernelInputsInit4: PrivateKernelInit4CircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>>;
+
+  /**
+   * Executes the batched first kernel iteration (four app calls) without generating a proof.
+   *
+   * @param privateKernelInputsInit4 - The batched private data structure for the initial iteration.
+   * @returns A Promise resolving to a ProofOutput object containing public inputs and an empty kernel proof.
+   */
+  simulateInit4(
+    privateKernelInputsInit4: PrivateKernelInit4CircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>>;
+
+  /**
+   * Creates a proof output for a batched first iteration that processes five app calls in a single
+   * private kernel circuit.
+   *
+   * @param privateKernelInputsInit5 - The batched private data structure for the initial iteration.
+   * @returns A Promise resolving to a ProofOutput object containing public inputs and the kernel proof.
+   */
+  generateInit5Output(
+    privateKernelInputsInit5: PrivateKernelInit5CircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>>;
+
+  /**
+   * Executes the batched first kernel iteration (five app calls) without generating a proof.
+   *
+   * @param privateKernelInputsInit5 - The batched private data structure for the initial iteration.
+   * @returns A Promise resolving to a ProofOutput object containing public inputs and an empty kernel proof.
+   */
+  simulateInit5(
+    privateKernelInputsInit5: PrivateKernelInit5CircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>>;
+
+  /**
    * Creates a proof output for a given previous kernel data and private call data for an inner iteration.
    *
    * @param privateKernelInputsInner - The private input data structure for the inner iteration.
@@ -143,6 +189,48 @@ export interface PrivateKernelProver {
    */
   simulateInner3(
     privateKernelInputsInner3: PrivateKernelInner3CircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>>;
+
+  /**
+   * Creates a proof output for a batched inner iteration that processes four app calls in a single
+   * private kernel circuit.
+   *
+   * @param privateKernelInputsInner4 - The batched private data structure for the inner iteration.
+   * @returns A Promise resolving to a ProofOutput object containing public inputs and the kernel proof.
+   */
+  generateInner4Output(
+    privateKernelInputsInner4: PrivateKernelInner4CircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>>;
+
+  /**
+   * Executes the batched inner kernel iteration (four app calls) without generating a proof.
+   *
+   * @param privateKernelInputsInner4 - The batched private data structure for the inner iteration.
+   * @returns A Promise resolving to a ProofOutput object containing public inputs and an empty kernel proof.
+   */
+  simulateInner4(
+    privateKernelInputsInner4: PrivateKernelInner4CircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>>;
+
+  /**
+   * Creates a proof output for a batched inner iteration that processes five app calls in a single
+   * private kernel circuit.
+   *
+   * @param privateKernelInputsInner5 - The batched private data structure for the inner iteration.
+   * @returns A Promise resolving to a ProofOutput object containing public inputs and the kernel proof.
+   */
+  generateInner5Output(
+    privateKernelInputsInner5: PrivateKernelInner5CircuitPrivateInputs,
+  ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>>;
+
+  /**
+   * Executes the batched inner kernel iteration (five app calls) without generating a proof.
+   *
+   * @param privateKernelInputsInner5 - The batched private data structure for the inner iteration.
+   * @returns A Promise resolving to a ProofOutput object containing public inputs and an empty kernel proof.
+   */
+  simulateInner5(
+    privateKernelInputsInner5: PrivateKernelInner5CircuitPrivateInputs,
   ): Promise<PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>>;
 
   /**

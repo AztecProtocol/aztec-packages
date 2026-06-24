@@ -387,16 +387,20 @@ template <typename Params> class MultilinearBatchingTests : public ::testing::Te
 
 // Cover every supported batch width, 2 .. CHONK_MAX_CLAIMS_PER_KERNEL, in both the native and recursive verifier.
 // the static_assert flags when bumping CHONK_MAX_CLAIMS_PER_KERNEL leaves a width uncovered
-static_assert(CHONK_MAX_CLAIMS_PER_KERNEL == 5,
+static_assert(CHONK_MAX_CLAIMS_PER_KERNEL == 7,
               "Update TestConfigs to cover every width in 2 .. CHONK_MAX_CLAIMS_PER_KERNEL.");
 using TestConfigs = ::testing::Types<Config<false, 2>,
                                      Config<false, 3>,
                                      Config<false, 4>,
                                      Config<false, 5>,
+                                     Config<false, 6>,
+                                     Config<false, 7>,
                                      Config<true, 2>,
                                      Config<true, 3>,
                                      Config<true, 4>,
-                                     Config<true, 5>>;
+                                     Config<true, 5>,
+                                     Config<true, 6>,
+                                     Config<true, 7>>;
 
 TYPED_TEST_SUITE(MultilinearBatchingTests, TestConfigs);
 

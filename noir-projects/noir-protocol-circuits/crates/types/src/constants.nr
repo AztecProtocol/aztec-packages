@@ -139,13 +139,17 @@ pub global PRIVATE_KERNEL_RESET_TAIL_TO_PUBLIC_VK_INDEX: u32 = 37;
 pub global PRIVATE_KERNEL_RESET_BLOCK_END: u32 = 43;
 // Important: Do not define indexes between 23 and 42 except via the three reset families above.
 // Indices 43-64 are intentionally unallocated; add new non-reset kernel indices at 65+.
-pub global PRIVATE_KERNEL_INIT_3_VK_INDEX: u32 = 65;
-pub global PRIVATE_KERNEL_INIT_2_VK_INDEX: u32 = 66;
-pub global PRIVATE_KERNEL_INNER_2_VK_INDEX: u32 = 67;
-pub global PRIVATE_KERNEL_INNER_3_VK_INDEX: u32 = 68;
+pub global PRIVATE_KERNEL_INIT_2_VK_INDEX: u32 = 65;
+pub global PRIVATE_KERNEL_INIT_3_VK_INDEX: u32 = 66;
+pub global PRIVATE_KERNEL_INIT_4_VK_INDEX: u32 = 67;
+pub global PRIVATE_KERNEL_INIT_5_VK_INDEX: u32 = 68;
+pub global PRIVATE_KERNEL_INNER_2_VK_INDEX: u32 = 69;
+pub global PRIVATE_KERNEL_INNER_3_VK_INDEX: u32 = 70;
+pub global PRIVATE_KERNEL_INNER_4_VK_INDEX: u32 = 71;
+pub global PRIVATE_KERNEL_INNER_5_VK_INDEX: u32 = 72;
 
 // Maximum number of apps absorbed by a single private kernel iteration.
-pub global MAX_APPS_PER_KERNEL: u32 = 3;
+pub global MAX_APPS_PER_KERNEL: u32 = 5;
 
 // SIDE EFFECT RELATED CONSTANTS
 // Global indices allow us to uniquely index side effects in PrivateCircuitPublicInputs
@@ -663,7 +667,7 @@ pub global CHONK_PROOF_LENGTH: u32 = CHONK_HIDING_OINK_LENGTH
 
 pub global ULTRA_VK_LENGTH_IN_FIELDS: u32 = 115; // size of an Ultra verification key
 pub global MEGA_APP_VK_LENGTH_IN_FIELDS: u32 = 151; // size of a MegaApp verification key
-pub global MEGA_KERNEL_VK_LENGTH_IN_FIELDS: u32 = 143; // size of a MegaKernel verification key
+pub global MEGA_KERNEL_VK_LENGTH_IN_FIELDS: u32 = 151; // size of a MegaKernel verification key
 pub global MEGA_ZK_VK_LENGTH_IN_FIELDS: u32 = 119; // size of a MegaZK verification key
 // CHONK: "Client Honk" - An UltraHonk variant with incremental folding and delayed non-native arithmetic.
 pub global CHONK_VK_LENGTH_IN_FIELDS: u32 = MEGA_ZK_VK_LENGTH_IN_FIELDS; // size of a chonk verification key

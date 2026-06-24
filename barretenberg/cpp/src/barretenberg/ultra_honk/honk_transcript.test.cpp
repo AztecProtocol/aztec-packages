@@ -107,10 +107,11 @@ template <typename Flavor> class HonkTranscriptTests : public ::testing::Test {
             manifest_expected.add_entry(round, "ECC_OP_WIRE_4", data_types_per_G);
         }
         // Bus list is flavor-specific: MegaZK keeps only kernel_calldata (the hiding kernel's
-        // sole bus); MegaFlavor carries the full five-bus set.
-        constexpr std::array<const char*, 5> ALL_BUSES = {
-            "KERNEL_CALLDATA", "FIRST_APP_CALLDATA", "SECOND_APP_CALLDATA", "THIRD_APP_CALLDATA", "RETURN_DATA"
-        };
+        // sole bus); MegaFlavor carries the full seven-bus set.
+        constexpr std::array<const char*, 7> ALL_BUSES = { "KERNEL_CALLDATA",     "FIRST_APP_CALLDATA",
+                                                           "SECOND_APP_CALLDATA", "THIRD_APP_CALLDATA",
+                                                           "FOURTH_APP_CALLDATA", "FIFTH_APP_CALLDATA",
+                                                           "RETURN_DATA" };
         if constexpr (Flavor::HasDataBus) {
             for (size_t i = 0; i < Flavor::NUM_BUS_COLUMNS; ++i) {
                 manifest_expected.add_entry(round, ALL_BUSES[i], data_types_per_G);

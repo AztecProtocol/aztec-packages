@@ -26,9 +26,10 @@ template <typename F> static TranscriptManifest build_expected_folding_manifest(
     constexpr bool has_lookup = std::is_same_v<F, bb::MegaAppFlavor>;
 
     // Databus columns this flavor commits, in builder order, derived from the flavor's bus indices.
-    constexpr std::array<const char*, 5> ALL_BUSES = {
-        "KERNEL_CALLDATA", "FIRST_APP_CALLDATA", "SECOND_APP_CALLDATA", "THIRD_APP_CALLDATA", "RETURN_DATA"
-    };
+    constexpr std::array<const char*, 7> ALL_BUSES = { "KERNEL_CALLDATA",     "FIRST_APP_CALLDATA",
+                                                       "SECOND_APP_CALLDATA", "THIRD_APP_CALLDATA",
+                                                       "FOURTH_APP_CALLDATA", "FIFTH_APP_CALLDATA",
+                                                       "RETURN_DATA" };
     std::vector<std::string> buses;
     for (size_t builder_idx : F::BUILDER_BUS_INDICES) {
         buses.emplace_back(ALL_BUSES[builder_idx]);
