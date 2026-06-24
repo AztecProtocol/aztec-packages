@@ -13,6 +13,16 @@ bench_cmds_file=$1
 function isolate_bench_cpus {
   [ "$CI" -eq 0 ] && return
 
+  # The non-docker (taskset) bench path binds memory with numactl, which the build image
+  # doesn't ship. Install it once here. (docker/ISOLATE benches bind memory via the
+  # daemon's --cpuset-mems and don't need it; exec_test falls back to plain taskset if this
+  # fails.)
+  if ! command -v numactl &>/dev/null; then
+    sudo apt-get install -y -qq numactl 2>/dev/null \
+      || { sudo apt-get update -qq && sudo apt-get install -y -qq numactl; } \
+      || true
+  fi
+
   # CPU layout assumption: physical cores are 0..N/2-1, hyperthreads are N/2..N-1.
   local total_cpus=$(nproc)
   local physical=$((total_cpus / 2))
