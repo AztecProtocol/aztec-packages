@@ -1,12 +1,9 @@
 export {
   ORACLE_REGISTRY,
   makeEntry,
-  type HandlersForPrefix,
   type NamedValue,
   type OracleRegistryEntry,
   type ParamTypes,
-  type RegistryParam,
-  type StripOraclePrefix,
 } from './oracle/oracle_registry.js';
 export {
   ARRAY,
@@ -49,7 +46,7 @@ export { pickNotes } from './pick_notes.js';
 export type { IMiscOracle, IUtilityExecutionOracle, IPrivateExecutionOracle } from './oracle/interfaces.js';
 export type { NoteData } from './noir-structs/note_data.js';
 export type { ResolvedTaggingStrategy } from './noir-structs/resolved_tagging_strategy.js';
-export { MessageLoadOracleInputs } from './oracle/message_load_oracle_inputs.js';
+export type { MessageLoadOracleInputs } from './oracle/message_load_oracle_inputs.js';
 export { MessageContextService } from '../messages/message_context_service.js';
 export { UtilityExecutionOracle } from './oracle/utility_execution_oracle.js';
 export { PrivateExecutionOracle } from './oracle/private_execution_oracle.js';
@@ -58,12 +55,15 @@ export { executePrivateFunction, extractPrivateCircuitPublicInputs } from './ora
 export { generateSimulatedProvingResult } from './contract_function_simulator.js';
 export { packAsHintedNote } from './oracle/note_packing_utils.js';
 export { BoundedVec } from './noir-structs/bounded_vec.js';
+export type { ContractClassLogData } from './noir-structs/contract_class_log_data.js';
+export type { EmbeddedCurvePoint } from './noir-structs/embedded_curve_point.js';
 export { EphemeralArray } from './noir-structs/ephemeral_array.js';
 export { Option } from './noir-structs/option.js';
-export { UtilityContext } from './noir-structs/utility_context.js';
+export type { UtilityContext } from './noir-structs/utility_context.js';
 export { EventValidationRequest } from './noir-structs/event_validation_request.js';
-export { LogRetrievalRequest } from './noir-structs/log_retrieval_request.js';
-export { LogRetrievalResponse } from './noir-structs/log_retrieval_response.js';
+export type { LogRetrievalRequest } from './noir-structs/log_retrieval_request.js';
+export type { LogRetrievalResponse } from './noir-structs/log_retrieval_response.js';
 export { NoteValidationRequest } from './noir-structs/note_validation_request.js';
-export { ProvidedSecret } from './noir-structs/provided_secret.js';
+export type { TxEffectData } from './noir-structs/tx_effect_data.js';
+export type { ProvidedSecret } from './noir-structs/provided_secret.js';
 export { TransientArrayService } from './transient_array_service.js';

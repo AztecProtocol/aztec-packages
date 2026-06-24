@@ -11,7 +11,11 @@ import { makeBlockHeader, randomPrivateLogResult } from '@aztec/stdlib/testing';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { LogRetrievalRequest, LogSource } from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
+import {
+  type LogRetrievalRequest,
+  LogSource,
+} from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
+import { Option } from '../contract_function_simulator/noir-structs/option.js';
 import { AddressStore } from '../storage/address_store/address_store.js';
 import { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
 import { TaggingSecretSourcesStore } from '../storage/tagging_store/tagging_secret_sources_store.js';
@@ -61,7 +65,7 @@ describe('LogService', () => {
     it('returns empty arrays if no logs are found', async () => {
       aztecNode.getPrivateLogsByTags.mockResolvedValue([[]]);
       aztecNode.getPublicLogsByTags.mockResolvedValue([[]]);
-      const request = new LogRetrievalRequest(contractAddress, tag);
+      const request = makeLogRetrievalRequest(contractAddress, tag);
       const responses = await logService.fetchLogsByTag(contractAddress, [request]);
       expect(responses).toEqual([[]]);
     });
@@ -73,7 +77,7 @@ describe('LogService', () => {
       aztecNode.getPublicLogsByTags.mockResolvedValue([[scopedLog1, scopedLog2]]);
       aztecNode.getPrivateLogsByTags.mockResolvedValue([[]]);
 
-      const request = new LogRetrievalRequest(contractAddress, tag);
+      const request = makeLogRetrievalRequest(contractAddress, tag);
       const responses = await logService.fetchLogsByTag(contractAddress, [request]);
 
       expect(responses[0]).toHaveLength(2);
@@ -88,7 +92,7 @@ describe('LogService', () => {
       aztecNode.getPublicLogsByTags.mockResolvedValue([[]]);
       aztecNode.getPrivateLogsByTags.mockResolvedValue([[scopedLog1, scopedLog2]]);
 
-      const request = new LogRetrievalRequest(contractAddress, tag);
+      const request = makeLogRetrievalRequest(contractAddress, tag);
       const responses = await logService.fetchLogsByTag(contractAddress, [request]);
 
       expect(responses[0]).toHaveLength(2);
@@ -103,7 +107,7 @@ describe('LogService', () => {
       aztecNode.getPublicLogsByTags.mockResolvedValue([[publicLog]]);
       aztecNode.getPrivateLogsByTags.mockResolvedValue([[privateLog]]);
 
-      const request = new LogRetrievalRequest(contractAddress, tag);
+      const request = makeLogRetrievalRequest(contractAddress, tag);
       const responses = await logService.fetchLogsByTag(contractAddress, [request]);
 
       expect(responses[0]).toHaveLength(2);
@@ -113,8 +117,8 @@ describe('LogService', () => {
 
     it('rejects a batch where at least one request targets a different contract', async () => {
       const differentContract = await AztecAddress.random();
-      const validRequest = new LogRetrievalRequest(contractAddress, tag);
-      const invalidRequest = new LogRetrievalRequest(differentContract, Tag.random());
+      const validRequest = makeLogRetrievalRequest(contractAddress, tag);
+      const invalidRequest = makeLogRetrievalRequest(differentContract, Tag.random());
 
       await expect(logService.fetchLogsByTag(contractAddress, [validRequest, invalidRequest])).rejects.toThrow(
         /Got a log retrieval request from/,
@@ -133,9 +137,9 @@ describe('LogService', () => {
       aztecNode.getPrivateLogsByTags.mockResolvedValue([[], [privateLog2], []]);
 
       const requests = [
-        new LogRetrievalRequest(contractAddress, tag1),
-        new LogRetrievalRequest(contractAddress, tag2),
-        new LogRetrievalRequest(contractAddress, tag3),
+        makeLogRetrievalRequest(contractAddress, tag1),
+        makeLogRetrievalRequest(contractAddress, tag2),
+        makeLogRetrievalRequest(contractAddress, tag3),
       ];
 
       const responses = await logService.fetchLogsByTag(contractAddress, requests);
@@ -167,7 +171,12 @@ describe('LogService', () => {
         aztecNode.getPublicLogsByTags.mockResolvedValue([[logAtBoundary]]);
         aztecNode.getPrivateLogsByTags.mockResolvedValue([[]]);
 
-        const request = new LogRetrievalRequest(contractAddress, tag, LogSource.PUBLIC_AND_PRIVATE, BlockNumber(10));
+        const request = makeLogRetrievalRequest(
+          contractAddress,
+          tag,
+          LogSource.PUBLIC_AND_PRIVATE,
+          Option.some(BlockNumber(10)),
+        );
         const responses = await logService.fetchLogsByTag(contractAddress, [request]);
 
         expect(aztecNode.getPublicLogsByTags).toHaveBeenCalledWith(
@@ -183,12 +192,12 @@ describe('LogService', () => {
         aztecNode.getPublicLogsByTags.mockResolvedValue([[logBeforeBoundary]]);
         aztecNode.getPrivateLogsByTags.mockResolvedValue([[]]);
 
-        const request = new LogRetrievalRequest(
+        const request = makeLogRetrievalRequest(
           contractAddress,
           tag,
           LogSource.PUBLIC_AND_PRIVATE,
           undefined,
-          BlockNumber(10),
+          Option.some(BlockNumber(10)),
         );
         const responses = await logService.fetchLogsByTag(contractAddress, [request]);
 
@@ -205,12 +214,12 @@ describe('LogService', () => {
         aztecNode.getPublicLogsByTags.mockResolvedValue([[logInRange]]);
         aztecNode.getPrivateLogsByTags.mockResolvedValue([[]]);
 
-        const request = new LogRetrievalRequest(
+        const request = makeLogRetrievalRequest(
           contractAddress,
           tag,
           LogSource.PUBLIC_AND_PRIVATE,
-          BlockNumber(10),
-          BlockNumber(20),
+          Option.some(BlockNumber(10)),
+          Option.some(BlockNumber(20)),
         );
         const responses = await logService.fetchLogsByTag(contractAddress, [request]);
 
@@ -228,7 +237,7 @@ describe('LogService', () => {
 
         aztecNode.getPublicLogsByTags.mockResolvedValue([[publicLog]]);
 
-        const request = new LogRetrievalRequest(contractAddress, tag, LogSource.PUBLIC);
+        const request = makeLogRetrievalRequest(contractAddress, tag, LogSource.PUBLIC);
         const responses = await logService.fetchLogsByTag(contractAddress, [request]);
 
         expect(responses[0]).toHaveLength(1);
@@ -241,7 +250,7 @@ describe('LogService', () => {
 
         aztecNode.getPrivateLogsByTags.mockResolvedValue([[privateLog]]);
 
-        const request = new LogRetrievalRequest(contractAddress, tag, LogSource.PRIVATE);
+        const request = makeLogRetrievalRequest(contractAddress, tag, LogSource.PRIVATE);
         const responses = await logService.fetchLogsByTag(contractAddress, [request]);
 
         expect(responses[0]).toHaveLength(1);
@@ -263,9 +272,9 @@ describe('LogService', () => {
         aztecNode.getPrivateLogsByTags.mockResolvedValue([[privateLog2], [privateLog3]]);
 
         const requests = [
-          new LogRetrievalRequest(contractAddress, tag1, LogSource.PUBLIC),
-          new LogRetrievalRequest(contractAddress, tag2, LogSource.PRIVATE),
-          new LogRetrievalRequest(contractAddress, tag3, LogSource.PUBLIC_AND_PRIVATE),
+          makeLogRetrievalRequest(contractAddress, tag1, LogSource.PUBLIC),
+          makeLogRetrievalRequest(contractAddress, tag2, LogSource.PRIVATE),
+          makeLogRetrievalRequest(contractAddress, tag3, LogSource.PUBLIC_AND_PRIVATE),
         ];
 
         const responses = await logService.fetchLogsByTag(contractAddress, requests);
@@ -296,3 +305,13 @@ describe('LogService', () => {
     });
   });
 });
+
+function makeLogRetrievalRequest(
+  contractAddress: AztecAddress,
+  tag: Tag,
+  source: LogSource = LogSource.PUBLIC_AND_PRIVATE,
+  fromBlock: Option<BlockNumber> = Option.none(),
+  toBlock: Option<BlockNumber> = Option.none(),
+): LogRetrievalRequest {
+  return { contractAddress, tag, source, fromBlock, toBlock };
+}

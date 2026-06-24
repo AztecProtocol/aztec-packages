@@ -189,6 +189,11 @@ fn resolve_tag_secret_derivation(
         // TODO(F-699): Resolve wallet-default by first reusing an existing handshake for `(sender, recipient, mode)`
         // without consulting wallet policy. If none exists, consult the wallet delivery privacy preference before
         // choosing address-secret delivery or creating a non-interactive handshake.
+        //
+        // Once the privacy preference is oracle-driven, add integration coverage that reuses one mode-agnostic
+        // handshake secret for both constrained and unconstrained onchain delivery tags. Today unconstrained
+        // handshake-derived delivery is rejected, so PXE unit tests cover provided-secret expansion across both tag
+        // domains.
         if mode == DeliveryMode::onchain_constrained() {
             TagSecretDerivation::non_interactive_handshake()
         } else {
