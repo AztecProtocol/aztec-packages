@@ -38,17 +38,16 @@ function test_cmds {
   local tests=(
     # List all standalone and nested tests, except for the ones listed above.
     src/e2e_!(prover)/*.test.ts
-    src/single-node/*.test.ts
     src/single-node/proving/*.test.ts
-    src/single-node/reorg-recovery/*.test.ts
+    src/single-node/l1-reorgs/*.test.ts
+    src/single-node/recovery/*.test.ts
     src/single-node/partial-proofs/*.test.ts
-    src/multi-node/consensus/*.test.ts
-    src/multi-node/consensus/block_building/*.test.ts
-    src/multi-node/consensus/mbps/*.test.ts
-    src/multi-node/prune/*.test.ts
-    src/multi-node/ha/*.test.ts
+    src/single-node/misc/*.test.ts
+    src/multi-node/block-production/*.test.ts
+    src/multi-node/recovery/*.test.ts
+    src/multi-node/invalid-attestations/*.test.ts
+    src/multi-node/high-availability/*.test.ts
     src/multi-node/slashing/*.test.ts
-    src/multi-node/slashing/equivocation/*.test.ts
     src/e2e_p2p/reqresp/*.test.ts
     src/e2e_!(block_building|avm_simulator).test.ts
   )

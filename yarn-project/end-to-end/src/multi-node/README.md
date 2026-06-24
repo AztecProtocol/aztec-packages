@@ -16,12 +16,11 @@ SingleNodeTestContext            ../single-node/single_node_test_context.ts — 
   │   ChainMonitor, and the epoch / checkpoint / proof-window / reorg waiters and assertion helpers.
   │   DEFAULT inboxLag: 2 (the intended value when pipelining).
   └─ MultiNodeTestContext        multi_node_test_context.ts — extends the parent with the N-validator
-        topology: createValidatorNode, the all-node convergence helpers (waitForAllNodes*,
-        findSlotsWithProposers), and the multi-validator presets/helpers below.
+        topology: createValidatorNode, the per-validator registration accessors
+        (validatorAt/addressAt/privateKeyAt/createValidatorNodeAt) and slasher contracts
+        (getSlashingContracts) the slashing tests use, the all-node convergence helpers
+        (waitForAllNodes*, findSlotsWithProposers), and the multi-validator presets/helpers below.
 ```
-
-`ValidatorRegistrationHarness` (`validator_registration_harness.ts`) composes a `MultiNodeTestContext`
-and adds on-chain validator registration + the slasher contracts the slashing/sentinel tests need.
 
 ## Shared presets / helpers
 
@@ -40,23 +39,27 @@ On `multi_node_test_context.ts`:
   skipInitialSequencer: true, startProverNode: false, aztecProofSubmissionEpochs: 1024,
   numberOfAccounts: 0 }`. Tests that want a prover (MBPS/HA-sync) leave `startProverNode` explicit;
   `ha_sync` does NOT use this preset because it keeps its initial sequencer (no `skipInitialSequencer`).
+- `SLASHER_ENABLED_MULTI_VALIDATOR_OPTS` — `{ mockGossipSubNetwork: true, skipInitialSequencer: true,
+  slasherEnabled: true }`, the offense-detection preset used by `slashing/` (spread alongside
+  `slashing/setup.ts`'s `baseSlashingOpts` and `initialValidators`).
 - `defaultSlashingPenalties(unit?)` / `withOnlyOffense(offense, unit?)` — build the 10 per-offense
   `slash*Penalty` knobs; `withOnlyOffense` zeroes all but the named offense (replaces the manual
   ~9-line zero-out in the slashing tests). Applied only where it is behavior-preserving and clarifies
   intent — tests that rely on the config penalty defaults leave the knobs unset.
 - `setupHaPairs(test, validators, { baseOpts, coinbases })` — stands up two HA pairs (nodes[0]/[1] share
   keys pk1+pk2, nodes[2]/[3] share pk3+pk4) with a per-pair shared slashing-protection DB and distinct
-  per-node coinbases. Used by both `ha/` tests; the per-test divergence (publishing on/off,
-  buildCheckpointIfEmpty) is passed through `baseOpts`.
+  per-node coinbases. Used by both `high-availability/` tests; the per-test divergence (publishing
+  on/off, buildCheckpointIfEmpty) is passed through `baseOpts`.
 
 ## Subfolder map
 
 | Folder | Base | Contents |
 |---|---|---|
-| `consensus/` | `MultiNodeTestContext` + MV preset | Multi-validator block/checkpoint production: `first_slot`, `proof_at_boundary.parallel`; subfolders: `block_building/` (`simple`, `high_tps`), `mbps/` (`proposed_anchor`, `l2_to_l1`, `l1_to_l2`, `non_validator_sync`, `deploy_and_call`, `pipelining`, `redistribution.parallel`). |
-| `prune/` | `MultiNodeTestContext` + MV preset | Prune-and-recover: `missed_l1_publish`, `orphan_block_prune`, `pipeline_prune.parallel`. |
-| `ha/` | `MultiNodeTestContext` + `setupHaPairs` | HA-pair sync / handoff: `ha_sync`, `ha_checkpoint_handoff`. |
-| `slashing/` | `ValidatorRegistrationHarness` (or `MultiNodeTestContext` for `equivocation`/`invalidate_block`) | Slasher offenses: `equivocation`, `invalidate_block.parallel`; subfolder: `equivocation/` (`duplicate_proposal`, `duplicate_attestation`). |
+| `block-production/` | `MultiNodeTestContext` + MV/MBPS preset (`setup.ts`) | Happy-path committee production: `simple`, `high_tps`, `first_slot`, `proof_boundary.parallel`, `proposed_chain.parallel`, `cross_chain_messages.parallel`, `deploy_and_call_ordering`, `blob_promotion`, `redistribution.parallel`. |
+| `recovery/` | `MultiNodeTestContext` + MV preset | Chain detects a bad/withheld/conflicting proposal then recovers: `proposal_failure_recovery.parallel`, `pipeline_prune`, `equivocation_recovery`. |
+| `invalid-attestations/` | `MultiNodeTestContext` | Invalid-checkpoint detection/removal + chain progress: `invalidate_block.parallel`. |
+| `high-availability/` | `MultiNodeTestContext` + `setupHaPairs` | HA-pair sync / handoff: `ha_sync`, `ha_checkpoint_handoff`. |
+| `slashing/` | `MultiNodeTestContext` (`SLASHER_ENABLED_MULTI_VALIDATOR_OPTS` + `setup.ts`) | Pure offense detection: `duplicate_proposal`, `duplicate_attestation`. |
 
 `.parallel.test.ts` files are split per-`it` by CI, so a multi-`it` merge does not grow wall-clock.
 

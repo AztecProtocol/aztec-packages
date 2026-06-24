@@ -20,9 +20,10 @@ cross-folder import direction is intentional.
 
 | Path | Contents |
 |---|---|
-| `proving/` | Three proving scenarios split from `proving.parallel`: `multiple` (consecutive epochs proven + world-state pruning), `empty_blocks` (proof submitted even with no txs), `long_proving_time` (prover delay spanning multiple epochs). |
-| `reorg-recovery/` | `manual_rollback` (exercises `rollbackTo` admin API) and `sync_after_reorg` (regression for new-node sync past an unpruned reorg window). |
+| `proving/` | Epoch/proof lifecycle: `world_state_pruning` (post-finalization world-state pruning), `empty_blocks` (proof submitted even with no txs), `long_proving_time` (prover delay spanning multiple epochs), `multi_proof` (multiple prover nodes prove one epoch), `optimistic.parallel` (checkpoint-driven proving with reorg cases), `proof_fails.parallel` (proof-submission failure paths), `cross_chain_public_message` (prover/sequencer state-root regression), `upload_failed_proof` (failed-proving-job upload + rerun). |
 | `partial-proofs/` | `multi_root` (AZIP-14 partial-proof multi-root Outbox design, manually driven via `EpochTestSettler`) and `single_root` (prover-node `startProof` path). |
-| *(flat)* | `l1_reorgs.parallel`, `missed_l1_slot`, `multi_proof`, `optimistic_proving.parallel`, `proof_fails.parallel`, `proof_public_cross_chain`, `upload_failed_proof`. |
+| `l1-reorgs/` | L1-reorg behavior split along its `describe` blocks: `blocks.parallel` (5 its: prune/restore L2 blocks on proof removed/added, prune pending-chain blocks, see new blocks) and `messages.parallel` (2 its: L1→L2 messages updated / missed-message inserted). Shared `SingleNodeTestContext` + `FAST_REORG_TIMING` + delayer setup in `setup.ts`. |
+| `recovery/` | Reorg + pending-chain recovery: `manual_rollback` (`rollbackTo` admin API), `sync_after_reorg` (new-node sync past an unpruned reorg window), `prune_when_cannot_build` (failed-sync prune fallback on a single solo sequencer). |
+| `misc/` | Genuine single-node outliers: `missed_l1_slot` (sequencer sync/timetable regression). |
 
 `.parallel.test.ts` files are split per-`it` by CI into independent jobs.
