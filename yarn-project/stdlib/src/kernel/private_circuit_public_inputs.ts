@@ -145,7 +145,8 @@ export class PrivateCircuitPublicInputs {
      */
     public contractClassLogsHashes: ClaimedLengthArray<CountedLogHash, typeof MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
     /**
-     * The tx request salt, set by the framework so the init kernel can bind this proof to the tx request.
+     * The tx request's salt. Keeps `tx_request.hash()` (the protocol nullifier) unpredictable, and lets the init
+     * kernel bind this proof to a specific tx request (it asserts this equals `tx_request.salt`).
      */
     public txRequestSalt: Fr,
   ) {}
