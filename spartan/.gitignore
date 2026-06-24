@@ -36,5 +36,6 @@ environments/*
 !environments/mbps-pipeline.env
 !environments/bench-10tps.env
 !environments/bench-inclusion-sweep.env
+!environments/bench-inclusion-sweep-smoke.env
 *.tfvars
 !terraform/deploy-external-secrets/*.tfvars
