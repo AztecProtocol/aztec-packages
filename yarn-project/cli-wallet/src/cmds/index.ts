@@ -378,6 +378,7 @@ export function injectCommands(
       artifactPath,
       contractAddress,
       wait,
+      alias,
       CLIFeeArgs.parse(options, log, db),
       authWitnesses,
       parseWaitForStatus(waitForStatusStr),

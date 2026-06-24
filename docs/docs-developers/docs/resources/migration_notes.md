@@ -74,38 +74,9 @@ while i > 0 {
 }
 ```
 
-### [Aztec.nr / Aztec.js] Account entrypoint always emits the tx nonce nullifier; `cancellable` removed
+### [Protocol] `PrivateCircuitPublicInputs` and `PrivateContextInputs` gain a `tx_request_salt` field
 
-The account entrypoint no longer takes a `cancellable` flag. It now always emits a nullifier derived from the app payload's `tx_nonce`, so every transaction is replay-protected and cancellable by default. Re-proving the same payload collides on this nullifier, and a replacement transaction that reuses the same `tx_nonce` (for example with a higher priority fee) conflicts with the original, so only one can be mined.
-
-The init kernel also injects a protocol nullifier `H(tx_request)` that protects against replay, but that hash covers the fee settings, so it changes when fees change. The `tx_nonce` nullifier is the only one that stays fixed across a fee bump, which is what makes cancellation (resubmitting at a higher fee) work.
-
-Note that this nullifier is now emitted on every account-initiated transaction (previously only when `cancellable` was set), so each such transaction pays the data-availability cost of one extra nullifier.
-
-**Aztec.nr:** `AccountActions::entrypoint` drops its `cancellable` parameter. Account contracts that wrap it must update both the call and their own `entrypoint` function signature.
-
-```diff
-- fn entrypoint(app_payload: AppPayload, fee_payment_method: u8, cancellable: bool) {
-+ fn entrypoint(app_payload: AppPayload, fee_payment_method: u8) {
-      let actions = AccountActions::init(self.context, is_valid_impl);
--     actions.entrypoint(app_payload, fee_payment_method, cancellable);
-+     actions.entrypoint(app_payload, fee_payment_method);
-  }
-```
-
-**Aztec.js:** `DefaultAccountEntrypointOptions.cancellable` is removed. Drop it from any options you pass; cancellation is now always available. Provide a unique `txNonce` per transaction (it defaults to a random value) so independent transactions do not collide on the nonce nullifier.
-
-```diff
-const executionOptions: DefaultAccountEntrypointOptions = {
-  txNonce,
-- cancellable: true,
-  feePaymentMethodOptions,
-};
-```
-
-### [Protocol] `PrivateCircuitPublicInputs` and `PrivateContextInputs` gain a `salt` field
-
-The init kernel now always injects the protocol nullifier (`H(tx_request)`) as the transaction's first nullifier and binds the entry-point proof to the tx request's `salt`. To support this, `PrivateCircuitPublicInputs` and `PrivateContextInputs` each carry a new `salt` field (set by the framework), and the `first_nullifier_hint` input to the init kernel is removed. This is handled automatically by the framework and PXE; contracts using the standard entrypoint need no changes beyond recompiling against the new protocol circuits.
+The init kernel now always injects the protocol nullifier (`H(tx_request)`) as the transaction's first nullifier and binds the entry-point proof to the tx request's salt. To support this, `PrivateCircuitPublicInputs` and `PrivateContextInputs` each carry a new `tx_request_salt` field (set by the framework), and the `first_nullifier_hint` input to the init kernel is removed. This is handled automatically by the framework and PXE; contracts using the standard entrypoint need no changes beyond recompiling against the new protocol circuits.
 
 ### [Aztec.js] Prefunded local network test accounts are now initializerless
 

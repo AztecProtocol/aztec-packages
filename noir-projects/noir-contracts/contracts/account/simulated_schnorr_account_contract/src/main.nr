@@ -63,9 +63,9 @@ pub contract SimulatedSchnorrAccount {
     // @dev: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts
     #[external("private")]
     #[allow_phase_change]
-    fn entrypoint(app_payload: AppPayload, fee_payment_method: u8) {
+    fn entrypoint(app_payload: AppPayload, fee_payment_method: u8, cancellable: bool) {
         let actions = AccountActions::init(self.context, is_valid_impl);
-        actions.entrypoint(app_payload, fee_payment_method);
+        actions.entrypoint(app_payload, fee_payment_method, cancellable);
     }
 
     #[external("private")]

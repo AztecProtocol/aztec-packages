@@ -361,6 +361,7 @@ export class EmbeddedWallet extends BaseWallet {
       const account = await this.accountContracts.createStubAccount(completeAddress, type);
       const executionOptions: DefaultAccountEntrypointOptions = {
         txNonce: Fr.random(),
+        cancellable: this.cancellableTransactions,
         // If from is an address, feeOptions include the way the account contract should handle the fee payment
         feePaymentMethodOptions: feeOptions.accountFeePaymentMethodOptions!,
       };
