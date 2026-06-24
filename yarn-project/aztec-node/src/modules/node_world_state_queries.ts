@@ -10,7 +10,6 @@ import {
   type BlockParameter,
   type DataInBlock,
   type L2BlockSource,
-  type NormalizedBlockParameter,
   inspectBlockParameter,
 } from '@aztec/stdlib/block';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
@@ -25,13 +24,13 @@ import {
 } from '@aztec/stdlib/trees';
 import type { TxHash } from '@aztec/stdlib/tx';
 
+import { normalizeBlockParameter } from './block_parameter.js';
+
 /** Dependencies required to build a {@link NodeWorldStateQueries}. */
 export interface NodeWorldStateQueriesDeps {
   worldStateSynchronizer: WorldStateSynchronizer;
   blockSource: L2BlockSource;
   l1ToL2MessageSource: L1ToL2MessageSource;
-  /** Normalizes a {@link BlockParameter} into its object form. Owned by `AztecNodeService` (see `server.ts`). */
-  normalizeBlockParameter: (param: BlockParameter) => NormalizedBlockParameter;
   log?: Logger;
 }
 
@@ -44,14 +43,12 @@ export class NodeWorldStateQueries {
   private readonly worldStateSynchronizer: WorldStateSynchronizer;
   private readonly blockSource: L2BlockSource;
   private readonly l1ToL2MessageSource: L1ToL2MessageSource;
-  private readonly normalizeBlockParameter: (param: BlockParameter) => NormalizedBlockParameter;
   private readonly log: Logger;
 
   constructor(deps: NodeWorldStateQueriesDeps) {
     this.worldStateSynchronizer = deps.worldStateSynchronizer;
     this.blockSource = deps.blockSource;
     this.l1ToL2MessageSource = deps.l1ToL2MessageSource;
-    this.normalizeBlockParameter = deps.normalizeBlockParameter;
     this.log = deps.log ?? createLogger('node:world-state-queries');
   }
 
@@ -278,7 +275,7 @@ export class NodeWorldStateQueries {
    * @returns An instance of a committed MerkleTreeOperations
    */
   public async getWorldState(block: BlockParameter) {
-    const query = this.normalizeBlockParameter(block);
+    const query = normalizeBlockParameter(block);
 
     // When the request anchors on a specific block hash, resolve it against the archiver up front and
     // drive the world-state sync to that exact block number and hash. Resolving against the archiver
@@ -333,7 +330,7 @@ export class NodeWorldStateQueries {
 
   /** Resolves any {@link BlockParameter} variant to a concrete block number. */
   public async resolveBlockNumber(block: BlockParameter): Promise<BlockNumber> {
-    const query = this.normalizeBlockParameter(block);
+    const query = normalizeBlockParameter(block);
     const blockNumber = await this.blockSource.getBlockNumber(query);
     if (blockNumber === undefined) {
       if ('hash' in query) {

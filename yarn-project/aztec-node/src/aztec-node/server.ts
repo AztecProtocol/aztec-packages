@@ -36,14 +36,12 @@ import {
   type BlockData,
   BlockHash,
   type BlockParameter,
-  BlockTag,
   type CheckpointsQuery,
   type CommitteeAttestation,
   type DataInBlock,
   type L2BlockSource,
   type L2BlockTag,
   type L2Tips,
-  type NormalizedBlockParameter,
 } from '@aztec/stdlib/block';
 import { type CheckpointData, L1PublishedData, type PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type {
@@ -115,6 +113,7 @@ import {
 } from '@aztec/telemetry-client';
 import { NodeKeystoreAdapter, ValidatorClient } from '@aztec/validator-client';
 
+import { normalizeBlockParameter, resolveCheckpointParameter } from '../modules/block_parameter.js';
 import { NodeWorldStateQueries } from '../modules/node_world_state_queries.js';
 import { Sentinel } from '../sentinel/sentinel.js';
 import {
@@ -260,7 +259,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       worldStateSynchronizer: this.worldStateSynchronizer,
       blockSource: this.blockSource,
       l1ToL2MessageSource: this.l1ToL2MessageSource,
-      normalizeBlockParameter: param => this.normalizeBlockParameter(param),
       log: this.log.createChild('world-state-queries'),
     });
 
@@ -329,88 +327,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     }
   }
 
-  private isCheckpointTag(value: unknown): value is CheckpointTag {
-    return value === 'checkpointed' || value === 'proven' || value === 'finalized';
-  }
-
-  /**
-   * Normalizes a {@link BlockParameter} (which may be a bare value) into a
-   * {@link NormalizedBlockParameter} object form. Performs no chain-tip resolution — tag
-   * lookups are deferred to the underlying block source.
-   */
-  private normalizeBlockParameter(param: BlockParameter): NormalizedBlockParameter {
-    if (BlockHash.isBlockHash(param)) {
-      return { hash: param };
-    }
-    if (typeof param === 'number') {
-      return { number: param as BlockNumber };
-    }
-    if (typeof param === 'string') {
-      if (this.isBlockTag(param)) {
-        return { tag: param === 'latest' ? 'proposed' : param };
-      }
-      throw new BadRequestError(`Invalid BlockParameter tag: ${param}`);
-    }
-    if (typeof param === 'object' && param !== null) {
-      if ('number' in param) {
-        return { number: param.number };
-      }
-      if ('hash' in param) {
-        return { hash: param.hash };
-      }
-      if ('archive' in param) {
-        return { archive: param.archive };
-      }
-      if ('tag' in param) {
-        if (this.isBlockTag(param.tag)) {
-          return { tag: param.tag };
-        }
-        throw new BadRequestError(`Invalid BlockParameter tag: ${param.tag}`);
-      }
-    }
-    throw new BadRequestError(`Invalid BlockParameter: ${JSON.stringify(param)}`);
-  }
-
-  private isBlockTag(value: string): value is BlockTag {
-    return BlockTag.includes(value as BlockTag);
-  }
-
-  /**
-   * Resolves a {@link CheckpointParameter} into a concrete `{ number }` or `{ slot }` query.
-   *
-   * Tag-based parameters (`'checkpointed'`, `'proven'`, `'finalized'`) are translated up-front to the
-   * corresponding tip's checkpoint number via {@link L2BlockSource.getL2Tips}. After resolution the
-   * unified {@link getCheckpoint} flow can perform a single confirmed→proposed lookup against either
-   * store.
-   */
-  private async resolveCheckpointParameter(
-    param: CheckpointParameter,
-  ): Promise<{ number: CheckpointNumber } | { slot: SlotNumber }> {
-    if (typeof param === 'number') {
-      return { number: param as CheckpointNumber };
-    }
-    if (this.isCheckpointTag(param)) {
-      const tips = await this.blockSource.getL2Tips();
-      switch (param) {
-        case 'checkpointed':
-          return { number: tips.checkpointed.checkpoint.number };
-        case 'proven':
-          return { number: tips.proven.checkpoint.number };
-        case 'finalized':
-          return { number: tips.finalized.checkpoint.number };
-      }
-    }
-    if (typeof param === 'object' && param !== null) {
-      if ('number' in param) {
-        return { number: param.number };
-      }
-      if ('slot' in param) {
-        return { slot: param.slot };
-      }
-    }
-    throw new BadRequestError(`Invalid CheckpointParameter: ${JSON.stringify(param)}`);
-  }
-
   /** Fetches checkpoint-level L1 and attestation data for use as block response context. */
   async #getCheckpointContext(
     checkpointNumber: CheckpointNumber,
@@ -426,7 +342,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     param: BlockParameter,
     options: Opts = {} as Opts,
   ): Promise<BlockResponse<Opts> | undefined> {
-    const query = this.normalizeBlockParameter(param);
+    const query = normalizeBlockParameter(param);
     const wantTxs = !!options.includeTransactions;
     const wantContext = !!options.includeL1PublishInfo || !!options.includeAttestations;
 
@@ -447,7 +363,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   }
 
   public getBlockData(param: BlockParameter): Promise<BlockData | undefined> {
-    const query = this.normalizeBlockParameter(param);
+    const query = normalizeBlockParameter(param);
     return this.blockSource.getBlockData(query);
   }
 
@@ -486,7 +402,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     param: CheckpointParameter,
     options: Opts = {} as Opts,
   ): Promise<CheckpointResponse<Opts> | undefined> {
-    const query = await this.resolveCheckpointParameter(param);
+    const query = await resolveCheckpointParameter(param, this.blockSource);
 
     // Try the confirmed store first.
     const confirmed = options.includeBlocks
