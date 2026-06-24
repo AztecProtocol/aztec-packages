@@ -25,7 +25,7 @@ import { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import type { Logger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { PXEConfig, PXECreationOptions } from '@aztec/pxe/client/lazy';
-import { type PXE, isSenderSource } from '@aztec/pxe/server';
+import type { PXE } from '@aztec/pxe/server';
 import type { ContractArtifact, EventMetadataDefinition, FunctionCall } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type ContractInstanceWithAddress, getContractClassFromArtifact } from '@aztec/stdlib/contract';
@@ -137,7 +137,7 @@ export class EmbeddedWallet extends BaseWallet {
 
   override async getAddressBook(): Promise<Aliased<AztecAddress>[]> {
     const sources = await this.pxe.getTaggingSecretSources();
-    const senders = sources.filter(isSenderSource).map(source => source.address);
+    const senders = sources.flatMap(source => (source.kind === 'sender' ? [source.address] : []));
     const storedSenders = await this.walletDB.listSenders();
     for (const storedSender of storedSenders) {
       if (senders.findIndex(sender => sender.equals(storedSender.item)) === -1) {

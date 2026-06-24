@@ -32,7 +32,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import type { FieldsOf } from '@aztec/foundation/types';
 import { displayDebugLogs } from '@aztec/pxe/client/lazy';
-import { type PXE, type PackedPrivateEvent, isSenderSource } from '@aztec/pxe/server';
+import type { PXE, PackedPrivateEvent } from '@aztec/pxe/server';
 import {
   type ContractArtifact,
   type EventMetadataDefinition,
@@ -156,7 +156,7 @@ export abstract class BaseWallet implements Wallet {
    */
   async getAddressBook(): Promise<Aliased<AztecAddress>[]> {
     const sources = await this.pxe.getTaggingSecretSources();
-    return sources.filter(isSenderSource).map(source => ({ item: source.address, alias: '' }));
+    return sources.flatMap(source => (source.kind === 'sender' ? [{ item: source.address, alias: '' }] : []));
   }
 
   /**
