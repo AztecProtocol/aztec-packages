@@ -385,7 +385,7 @@ For **mainnet** and **testnet** releases, also cut and configure the network/ope
 
 **Before cutting**, read `docs/network_version_config.json` and record the
 current version for this release type. This is the old network version needed
-for cleanup in Step 15. Save this value — the config will be overwritten next.
+for cleanup in Step 16. Save this value — the config will be overwritten next.
 
 ```bash
 cat docs/network_version_config.json
@@ -561,7 +561,39 @@ In both cases verify:
 
 Present a summary of the review to the user for approval.
 
-### Step 15: Clean Up Old Versions
+### Step 15: Functional Validation — Run the Guides, Tutorials, and Examples
+
+`yarn build` (Step 13) only checks links and spelling — not whether the documented
+commands run. Before shipping, exercise the new version against a real local network.
+
+**Run this in a subagent** (long-running, install-heavy). Validate the **cut snapshot**
+content (`developer_versioned_docs/version-v<new_version>/`), not `next`. Tasks:
+
+1. **Start a local network on the new version:**
+
+   ```bash
+   VERSION=<new_version> bash -i <(curl -sL https://install.aztec.network)
+   aztec --version              # must equal <new_version>
+   aztec start --local-network  # background; wait until ready
+   ```
+
+2. **Walk the guides and tutorials as written**, executing every documented command:
+   the getting-started guides (`getting_started_on_local_network.md` local,
+   `getting_started_on_testnet.md` testnet) and every tutorial under
+   `docs/tutorials/{contract,js}_tutorials/`. Record any drift (renamed command,
+   changed flag, stale address, different output).
+
+3. **Run the Aztec.js examples** in `docs/examples/ts/`: type-check all via
+   `bootstrap.sh`, execute the runner-supported set via `aztecjs_runner/run.sh`, and list
+   skipped examples with reasons. To test against the published release (not the workspace
+   copies auto-linked in `lib.sh`), temporarily rewrite each example's `@aztec/*` config
+   dep to `npm:@aztec/*@<new_version>`, keeping special pins like `@aztec/viem`.
+
+Report pass/fail per guide/tutorial/example with the exact doc line for each failure. Fix
+drift in snapshot **and** source, then re-run Step 13 and the affected check. If the
+validation can't run (sandbox lacks this RC, infra down), say so and list what was skipped.
+
+### Step 16: Clean Up Old Versions
 
 #### Developer docs
 
@@ -612,7 +644,7 @@ scripts/update_docs_versions.sh network
 Verify that `network_version_config.json` and `network_versions.json` no longer
 reference the old version.
 
-### Step 16: Move Changes to `next` Branch
+### Step 17: Move Changes to `next` Branch
 
 ```bash
 git stash
@@ -638,6 +670,9 @@ Check for stash conflicts. Then report to the user:
 - **Cut before building**: The authoritative `yarn build` runs *after* the cut
   (Step 13) — it validates `lastVersion` against the new versioned dir, so it
   cannot run before the snapshot exists. Don't ship until that post-cut build passes.
+- **Functionally validate before shipping**: run the guides, tutorials, and Aztec.js
+  examples on a real local network of the new version (Step 15) — the build only checks
+  links and spelling, not whether the documented commands work.
 - **User confirmation required**: Ask before deleting old versioned docs and before
   adding migration note entries.
 - **Changes land on `next`**: All changes are stashed and moved to the `next` branch
