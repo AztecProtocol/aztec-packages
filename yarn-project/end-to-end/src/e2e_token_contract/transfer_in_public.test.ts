@@ -18,6 +18,9 @@ const qosAlerts: AlertConfig[] = [
   },
 ];
 
+// Covers the transfer_in_public entry point on Token contract: direct, self, authwit-delegated, authwit
+// cancellation (two flows), and bad-account validation. Also conditionally checks Grafana QoS alerts when
+// CHECK_ALERTS=true. Setup: single node with AutomineSequencer, Token deployed with initial mint.
 describe('e2e_token_contract transfer public', () => {
   const t = new TokenContractTest('transfer_in_public');
   let { asset, tokenSim, wallet, adminAddress, account1Address, badAccount } = t;
@@ -42,6 +45,7 @@ describe('e2e_token_contract transfer public', () => {
     await t.tokenSim.check();
   });
 
+  // Transfers half of admin's public balance to account1 and verifies via TokenSimulator.
   it('transfer less than balance', async () => {
     const { result: balance0 } = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
     const amount = balance0 / 2n;
@@ -51,6 +55,7 @@ describe('e2e_token_contract transfer public', () => {
     tokenSim.transferPublic(adminAddress, account1Address, amount);
   });
 
+  // Transfers half of admin's public balance to themselves; verifies balance is unchanged via TokenSimulator.
   it('transfer to self', async () => {
     const { result: balance } = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
     const amount = balance / 2n;
@@ -60,6 +65,8 @@ describe('e2e_token_contract transfer public', () => {
     tokenSim.transferPublic(adminAddress, adminAddress, amount);
   });
 
+  // Sets a public authwit allowing account1 to transfer admin's tokens, executes, verifies TokenSimulator,
+  // then confirms replay reverts with unauthorized.
   it('transfer on behalf of other', async () => {
     const { result: balance0 } = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
     const amount = balance0 / 2n;
@@ -88,7 +95,10 @@ describe('e2e_token_contract transfer public', () => {
     ).rejects.toThrow(/unauthorized/);
   });
 
+  // Error paths for transfer_in_public: overflow, nonce, no approval, over-balance via authwit, wrong
+  // caller (two variants), authwit cancellation (two flows), and bad-account authwit validation.
   describe('failure cases', () => {
+    // Attempts to transfer more than public balance; expects U128_UNDERFLOW_ERROR.
     it('transfer more than balance', async () => {
       const { result: balance0 } = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
       const amount = balance0 + 1n;
@@ -100,6 +110,7 @@ describe('e2e_token_contract transfer public', () => {
       ).rejects.toThrow(U128_UNDERFLOW_ERROR);
     });
 
+    // Self-transfer with nonce=1; expects the invalid-nonce assertion.
     it('transfer on behalf of self with non-zero nonce', async () => {
       const { result: balance0 } = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
       const amount = balance0 - 1n;
@@ -113,6 +124,7 @@ describe('e2e_token_contract transfer public', () => {
       );
     });
 
+    // Calls transfer_in_public from account1 without an authwit; expects unauthorized.
     it('transfer on behalf of other without "approval"', async () => {
       const { result: balance0 } = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
       const amount = balance0 + 1n;
@@ -124,6 +136,8 @@ describe('e2e_token_contract transfer public', () => {
       ).rejects.toThrow(/unauthorized/);
     });
 
+    // Approves a transfer exceeding balance via authwit; expects U128_UNDERFLOW_ERROR and verifies balances
+    // unchanged.
     it('transfer more than balance on behalf of other', async () => {
       const { result: balance0 } = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
       const { result: balance1 } = await asset.methods
@@ -155,6 +169,7 @@ describe('e2e_token_contract transfer public', () => {
       ).toEqual(balance1);
     });
 
+    // Approves adminAddress as caller but executes from account1; expects unauthorized, balances unchanged.
     it('transfer on behalf of other, wrong designated caller', async () => {
       const { result: balance0 } = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
       const { result: balance1 } = await asset.methods
@@ -185,6 +200,8 @@ describe('e2e_token_contract transfer public', () => {
       ).toEqual(balance1);
     });
 
+    // Duplicate of the preceding test — identical logic and title, likely a test authoring mistake.
+    // Approves adminAddress as caller but executes from account1; expects unauthorized, balances unchanged.
     it('transfer on behalf of other, wrong designated caller', async () => {
       const { result: balance0 } = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
       const { result: balance1 } = await asset.methods
@@ -214,6 +231,8 @@ describe('e2e_token_contract transfer public', () => {
       ).toEqual(balance1);
     });
 
+    // Grants a public authwit to account1, then revokes it via setPublicAuthWit(false), then confirms
+    // the transfer simulation reverts with unauthorized (uses fixed method call form for simulate).
     it('transfer on behalf of other, cancelled authwit', async () => {
       const { result: balance0 } = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
       const amount = balance0 / 2n;
@@ -243,6 +262,8 @@ describe('e2e_token_contract transfer public', () => {
       ).rejects.toThrow(/unauthorized/);
     });
 
+    // Same grant-and-revoke flow as 'cancelled authwit' but simulates via the action object directly rather
+    // than re-constructing the method call — verifies both call forms produce unauthorized.
     it('transfer on behalf of other, cancelled authwit, flow 2', async () => {
       const { result: balance0 } = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
       const amount = balance0 / 2n;
@@ -268,6 +289,8 @@ describe('e2e_token_contract transfer public', () => {
       await expect(action.simulate({ from: account1Address })).rejects.toThrow(/unauthorized/);
     });
 
+    // Uses the InvalidAccount contract as the 'from' address; expects unauthorized because the bad contract
+    // returns a malformed authwit validation value.
     it('transfer on behalf of other, invalid spend_public_authwit on "from"', async () => {
       const authwitNonce = Fr.random();
 

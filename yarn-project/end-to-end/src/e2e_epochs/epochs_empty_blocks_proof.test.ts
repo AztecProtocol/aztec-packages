@@ -10,6 +10,10 @@ import { EpochsTestContext } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 15);
 
+// Single-node epoch suite (default EpochsTestContext, no extra validator nodes). Starts a prover
+// node (fake proofs). Sets minTxsPerBlock=1 after setup so blocks are empty, then verifies that
+// the prover still submits a proof for those empty-block checkpoints within the proof submission
+// window.
 describe('e2e_epochs/epochs_empty_blocks_proof', () => {
   let context: EndToEndContext;
   let rollup: RollupContract;
@@ -30,10 +34,15 @@ describe('e2e_epochs/epochs_empty_blocks_proof', () => {
     await test.teardown();
   });
 
+  // Raises minTxsPerBlock to 1 so the sequencer cannot build blocks, advances to epoch 1,
+  // then waits for the prover to submit a proof for the empty checkpoint. Asserts that the
+  // monitor's checkpointNumber matches the proven target, confirming the proof landed on L1.
   it('submits proof even if there are no txs to build a block', async () => {
     context.sequencer?.updateConfig({ minTxsPerBlock: 1 });
     await test.waitUntilEpochStarts(1);
 
+    // REFACTOR: raw sleep to flush pending L1 txs; replace with a helper that waits for the
+    // sequencer to finish all in-flight L1 publishes (e.g. waitForSequencerIdle).
     // Sleep to make sure any pending checkpoints are published
     await sleep(L1_BLOCK_TIME_IN_S * 1000);
     const checkpointNumberAtEndOfEpoch0 = await rollup.getCheckpointNumber();

@@ -22,6 +22,9 @@ import type { TestWallet } from '../test-wallet/test_wallet.js';
 
 jest.setTimeout(15 * 60 * 1000);
 
+// Node and PXE persistence tests. Uses setup() directly with PIPELINING_SETUP_OPTS; excluded from the
+// compose glob for unknown reasons (migrate-later candidate). Spawns and tears down node/PXE with
+// varying combinations of persisted vs empty data directories to cover five restart scenarios.
 describe('Aztec persistence', () => {
   /**
    * These tests check that the Aztec Node and PXE can be shutdown and restarted without losing data.

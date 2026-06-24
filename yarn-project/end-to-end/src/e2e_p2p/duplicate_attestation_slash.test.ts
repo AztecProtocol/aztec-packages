@@ -49,6 +49,11 @@ const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'duplicate-attestation-sl
  * NOTE: This test triggers BOTH duplicate proposal (from malicious proposers sharing a key) AND duplicate attestation
  * (from the malicious proposers attesting to multiple proposals). We verify specifically that the duplicate
  * attestation offense is recorded.
+ *
+ * Setup: P2PNetworkTest with mockGossipSubNetwork:true (in-memory bus, NOT real libp2p). 4 validators,
+ * ethSlot=8s, aztecSlot=24s, epoch=2, proofSubEpochs=1024, minTxsPerBlock=0, inboxLag=2 (v5 always enforces
+ * the timetable, so the former enforceTimeTable/l1PublishingTime overrides are gone).
+ * Candidate for relocation to e2e_slashing/.
  */
 describe('e2e_p2p_duplicate_attestation_slash', () => {
   let t: P2PNetworkTest;
@@ -107,6 +112,10 @@ describe('e2e_p2p_duplicate_attestation_slash', () => {
     await t.ctx.cheatCodes.rollup.debugRollup();
   };
 
+  // Two malicious nodes share a validator key and both attest to each other's proposals
+  // (attestToEquivocatedProposals:true). Honest nodes detect the DUPLICATE_ATTESTATION offense and verify
+  // the offending attester is the shared key's address. Also exercises DUPLICATE_PROPOSAL as a side effect
+  // but asserts specifically that DUPLICATE_ATTESTATION is recorded.
   it('slashes validator who sends duplicate attestations', async () => {
     const { rollup } = await t.getContracts();
 

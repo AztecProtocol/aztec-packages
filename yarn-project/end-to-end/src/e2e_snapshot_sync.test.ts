@@ -22,6 +22,10 @@ const L1_BLOCK_TIME_IN_S = process.env.L1_BLOCK_TIME ? parseInt(process.env.L1_B
 const L2_TARGET_BLOCK_NUM = 3;
 const TARGET_CHECKPOINT_NUMBER = CheckpointNumber(3);
 
+// Verifies the node snapshot upload/download sync path. Uses PIPELINING_SETUP_OPTS (prod sequencer,
+// ethSlot=8s default or L1_BLOCK_TIME override, aztecSlot=2×ethSlot, epochDuration=64, no prover node).
+// The suite runs sequentially: it1 waits for checkpoints, it2 creates a snapshot, it3/it4 sync new nodes
+// from one or multiple snapshot URLs, including fallback from a corrupted snapshot.
 describe('e2e_snapshot_sync', () => {
   let context: EndToEndContext;
   let monitor: ChainMonitor;
@@ -78,19 +82,30 @@ describe('e2e_snapshot_sync', () => {
     expect(worldState.latestBlockNumber).toBeGreaterThanOrEqual(blockNumber);
   };
 
+  // Polls ChainMonitor until checkpointNumber exceeds TARGET_CHECKPOINT_NUMBER (3), establishing
+  // enough chain history for the subsequent snapshot tests.
   it('waits until a few checkpoints have been mined', async () => {
     log.warn(`Waiting for checkpoints to be mined`);
+    // REFACTOR: hand-rolled poll on ChainMonitor.checkpointNumber; EpochsTestContext.waitUntilCheckpointNumber
+    // or a shared helper should replace this retryUntil.
     await retryUntil(() => monitor.checkpointNumber > TARGET_CHECKPOINT_NUMBER, 'checkpoints-mined', 90, 1);
     log.warn(`Checkpoint height is now ${monitor.checkpointNumber}.`);
   });
 
+  // Triggers a snapshot upload via aztecNodeAdmin.startSnapshotUpload(), then polls until at least
+  // one file appears in the snapshot directory.
   it('creates a snapshot', async () => {
     log.warn(`Creating snapshot`);
     await context.aztecNodeAdmin.startSnapshotUpload(snapshotLocation);
+    // REFACTOR: hand-rolled poll waiting for snapshot files to appear; a helper like
+    // waitForSnapshotUpload(adminNode, snapshotDir) should replace this.
     await retryUntil(() => readdir(snapshotDir).then(files => files.length > 0), 'snapshot-created', 90, 1);
     log.warn(`Snapshot created`);
   });
 
+  // Starts a new non-validator node with syncMode='snapshot' pointing at the local snapshot URL; asserts
+  // the node syncs to at least L2_TARGET_BLOCK_NUM and that both the original and new node see the same
+  // block hash leaf in the archive tree.
   it('downloads snapshot when syncing new node', async () => {
     log.warn(`Syncing brand new node with snapshot sync`);
     const node = await createNonValidatorNode('1', { snapshotsUrls: [snapshotLocation], syncMode: 'snapshot' });
@@ -114,6 +129,9 @@ describe('e2e_snapshot_sync', () => {
     await node.stop();
   });
 
+  // Creates three snapshot locations: highest L1 block but corrupted (snapshot1), lowest L1 block (snapshot2),
+  // and the original valid middle-height snapshot (snapshot3). Syncs a new node with all three URLs and
+  // asserts it falls back past the corrupt snapshot to the next-best valid one (snapshot3).
   it('downloads snapshot from multiple sources', async () => {
     log.warn(`Setting up multiple snapshot locations with different L1 block heights`);
 

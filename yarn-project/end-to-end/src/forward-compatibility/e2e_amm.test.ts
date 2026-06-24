@@ -38,6 +38,9 @@ const TIMEOUT = 300_000;
 
 const { REMOTE_WALLET_URL = 'http://localhost:8081' } = process.env;
 
+// Forward-compatibility AMM test. Connects to a wallet service started from an older Aztec release
+// (REMOTE_WALLET_URL) via JSON-RPC, then deploys and exercises AMM contracts compiled with the current
+// Noir version. CI-excluded; requires both release binaries to be available.
 describe('forward-compatibility: AMM', () => {
   jest.setTimeout(TIMEOUT);
 

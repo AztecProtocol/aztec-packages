@@ -24,6 +24,12 @@ import { jest } from '@jest/globals';
 import { PIPELINED_FEE_PADDING, PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
 import { getPrivateKeyFromIndex, setup } from './fixtures/utils.js';
 
+// Tests the transaction bot implementations (transfer bot, AMM bot, cross-chain bot).
+// Uses setup(0, PIPELINING_SETUP_OPTS + aztecProofSubmissionEpochs:640) with one node, production
+// sequencer (ethereumSlotDuration=4s, aztecSlotDuration=12s, proofSubEpochs=640, minTxsPerBlock=0;
+// aztecEpochDuration is the setup() default). The bridge-resume, setup-via-bridging, and
+// cross-chain-bot subsuites actively drive L1 cross-chain bridging: fee-juice portal deposits,
+// advanceInboxInProgress, and L2→L1 messages via CrossChainBot.
 describe('e2e_bot', () => {
   let wallet: EmbeddedWallet;
   let aztecNode: AztecNode;
@@ -56,6 +62,7 @@ describe('e2e_bot', () => {
   let privateKeyIndex = 10;
   const getPrivateKey = () => new SecretValue(bufferToHex(getPrivateKeyFromIndex(privateKeyIndex++)!));
 
+  // Tests the default Token-transfer Bot: send transfers, hardcoded-gas mode, and contract reuse.
   describe('transaction-bot', () => {
     let bot: Bot;
     beforeAll(async () => {
@@ -68,6 +75,7 @@ describe('e2e_bot', () => {
       bot = await Bot.create(config, wallet, aztecNode, undefined, new BotStore(await openTmpStore('bot')));
     });
 
+    // Runs bot.run() once and asserts recipient private and public balances each increase by 1.
     it('sends token transfers from the bot', async () => {
       const { recipient: recipientBefore } = await bot.getBalances();
 
@@ -77,6 +85,7 @@ describe('e2e_bot', () => {
       expect(recipientAfter.publicBalance - recipientBefore.publicBalance).toEqual(1n);
     });
 
+    // Updates bot config to use max DA and L2 gas limits (no simulation), runs, asserts balances +1.
     it('sends token transfers with hardcoded gas and no simulation', async () => {
       bot.updateConfig({ daGasLimit: MAX_TX_DA_GAS, l2GasLimit: MAX_PROCESSABLE_L2_GAS });
       const { recipient: recipientBefore } = await bot.getBalances();
@@ -87,6 +96,8 @@ describe('e2e_bot', () => {
       expect(recipientAfter.publicBalance - recipientBefore.publicBalance).toEqual(1n);
     });
 
+    // Creates a second Bot instance with the same config and asserts it resolves the same
+    // sender address and token contract as the first.
     it('reuses the same token contract', async () => {
       const { defaultAccountAddress, token } = bot;
       const bot2 = await Bot.create(config, wallet, aztecNode, undefined, new BotStore(await openTmpStore('bot')));
@@ -94,6 +105,7 @@ describe('e2e_bot', () => {
       expect(bot2.token.address.toString()).toEqual(token.address.toString());
     });
 
+    // Creates a bot using PrivateTokenContract variant and verifies only private balance changes.
     it('sends token from the bot using PrivateToken', async () => {
       const easyBot = await Bot.create(
         { ...config, contract: SupportedTokenContracts.PrivateTokenContract },
@@ -111,6 +123,9 @@ describe('e2e_bot', () => {
     });
   });
 
+  // Tests that a partially-completed fee-juice bridge claim is persisted in BotStore and
+  // reused (not re-bridged) on a subsequent Bot.create call. Also verifies that a different
+  // recipient address invalidates the stored claim. Actively drives L1 (fee juice bridging).
   describe('bridge resume', () => {
     let store: BotStore;
 
@@ -122,6 +137,8 @@ describe('e2e_bot', () => {
       await store.close();
     });
 
+    // First Bot.create call fails at deploy (mocked) after saving a bridge claim. Second call
+    // succeeds without re-bridging (saveBridgeClaim not called again).
     it('reuses prior bridge claims', async () => {
       using saveSpy = jest.spyOn(store, 'saveBridgeClaim');
       const config: BotConfig = {
@@ -165,6 +182,8 @@ describe('e2e_bot', () => {
       }
     });
 
+    // Changes the sender salt between attempts; asserts a new bridge claim is triggered even though
+    // the prior claim is in the store.
     it('does not reuse prior bridge claims if recipient address changes', async () => {
       using saveSpy = jest.spyOn(store, 'saveBridgeClaim');
       const config: BotConfig = {
@@ -208,6 +227,8 @@ describe('e2e_bot', () => {
     });
   });
 
+  // Tests the AmmBot: swaps a random token direction and verifies one private balance decreased
+  // and one increased.
   describe('amm-bot', () => {
     let bot: AmmBot;
     beforeAll(async () => {
@@ -219,6 +240,8 @@ describe('e2e_bot', () => {
       bot = await AmmBot.create(config, wallet, aztecNode, undefined, new BotStore(await openTmpStore('bot')));
     });
 
+    // Runs the AMM bot once and asserts one of the two private token balances decreased and
+    // the other increased (direction is random).
     it('swaps tokens from the bot', async () => {
       const balancesBefore = await bot.getBalances();
       await expect(bot.run()).resolves.toBeDefined();
@@ -239,6 +262,8 @@ describe('e2e_bot', () => {
     });
   });
 
+  // Tests that Bot.create succeeds after the inbox drifts away from the rollup contract.
+  // Actively drives L1 via advanceInboxInProgress.
   describe('setup via bridging funds cross-chain', () => {
     beforeAll(() => {
       config = {
@@ -254,12 +279,15 @@ describe('e2e_bot', () => {
 
     // See 'can consume L1 to L2 message in %s after inbox drifts away from the rollup'
     // in end-to-end/src/e2e_cross_chain_messaging/l1_to_l2.test.ts for context on this test.
+    // Advances inbox 4 slots then creates Bot; verifies it completes setup without error.
     it('creates bot after inbox drift', async () => {
       await cheatCodes.rollup.advanceInboxInProgress(4);
       await Bot.create(config, wallet, aztecNode, aztecNodeAdmin, new BotStore(await openTmpStore('bot')));
     }, 300_000);
   });
 
+  // Tests the CrossChainBot: seeds L1→L2 messages and on each tick consumes one while seeding
+  // a replacement. Actively drives L1 portal contracts.
   describe('cross-chain-bot', () => {
     let bot: CrossChainBot;
 
@@ -282,6 +310,8 @@ describe('e2e_bot', () => {
       );
     }, 600_000);
 
+    // Runs the cross-chain bot once; asserts a MinedTxReceipt is returned and the mined block
+    // contains at least one non-zero L2→L1 message.
     it('sends L2→L1 and consumes L1→L2 messages', async () => {
       const result = await bot.run();
       expect(result).toBeDefined();
@@ -297,6 +327,8 @@ describe('e2e_bot', () => {
       expect(l2ToL1Msgs.length).toBeGreaterThanOrEqual(1);
     }, 300_000);
 
+    // Second bot.run() tick; asserts the result is defined, confirming the pipeline replenishment
+    // from the first tick allows a second immediate consumption.
     it('replenishes the seeding pipeline across ticks', async () => {
       // Tick 2: the first tick consumed one message. This tick should seed a
       // replacement and still have a ready message to consume.
