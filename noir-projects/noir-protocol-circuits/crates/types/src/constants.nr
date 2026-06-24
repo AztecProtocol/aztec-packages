@@ -469,12 +469,12 @@ pub global PRIVATE_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = CALL_CONTEXT_LENGTH
     + (COUNTED_LOG_HASH_LENGTH * MAX_CONTRACT_CLASS_LOGS_PER_CALL + 1)
     + BLOCK_HEADER_LENGTH
     + TX_CONTEXT_LENGTH
-    + 1 /* salt */;
+    + 1 /* tx_request_salt */;
 pub global PRIVATE_CONTEXT_INPUTS_LENGTH: u32 = CALL_CONTEXT_LENGTH
     + BLOCK_HEADER_LENGTH
     + TX_CONTEXT_LENGTH
     + 1 /* start_side_effect_counter */
-    + 1 /* salt */;
+    + 1 /* tx_request_salt */;
 pub global FEE_RECIPIENT_LENGTH: u32 = 2;
 
 // TODO: Leila's considering moving this into a noir file within bb
