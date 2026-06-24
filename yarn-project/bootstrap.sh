@@ -249,6 +249,7 @@ function bench_cmds {
   echo "$hash BENCH_OUTPUT=bench-out/sim.bench.json yarn-project/scripts/run_test.sh simulator/src/public/public_tx_simulator/apps_tests/bench.test.ts"
   echo "$hash BENCH_OUTPUT=bench-out/native_world_state.bench.json yarn-project/scripts/run_test.sh world-state/src/native/native_bench.test.ts"
   echo "$hash BENCH_OUTPUT=bench-out/kv_store.bench.json yarn-project/scripts/run_test.sh kv-store/src/bench/map_bench.test.ts"
+  echo "$hash BENCH_OUTPUT=bench-out/tag_sync.bench.json yarn-project/scripts/run_test.sh pxe/src/tagging/recipient_sync/sync_tagged_private_logs.bench.test.ts"
   echo "$hash BENCH_OUTPUT=bench-out/tx_pool_v2.bench.json yarn-project/scripts/run_test.sh p2p/src/mem_pools/tx_pool_v2/tx_pool_v2_bench.test.ts"
   echo "$hash BENCH_OUTPUT=bench-out/tx_validator.bench.json yarn-project/scripts/run_test.sh p2p/src/msg_validators/tx_validator/tx_validator_bench.test.ts"
   echo "$hash:ISOLATE=1:CPUS=16:MEM=32g:TIMEOUT=1800 BENCH_OUTPUT=bench-out/p2p_client_batch_tx_requester.bench.json yarn-project/scripts/run_test.sh p2p/src/client/test/p2p_client.batch_tx_requester.bench.test.ts"

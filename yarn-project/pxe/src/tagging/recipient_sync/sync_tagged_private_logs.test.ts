@@ -17,7 +17,11 @@ import { BlockHeader } from '@aztec/stdlib/tx';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
-import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN, syncTaggedPrivateLogs } from '../index.js';
+import {
+  INITIAL_CONSTRAINED_PROBE_LEN,
+  UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN,
+  syncTaggedPrivateLogs,
+} from '../index.js';
 
 const FAR_FUTURE_BLOCK_NUMBER = BlockNumber(100);
 const CURRENT_TIMESTAMP = BigInt(Math.floor(Date.now() / 1000));
@@ -264,7 +268,7 @@ describe('syncTaggedPrivateLogs', () => {
       expect(await taggingStore.getHighestAgedIndex(secret, JOB_ID)).toBeUndefined();
     });
 
-    it('continues when all indexes in the batch have logs', async () => {
+    it('fully drains a contiguous run that spans multiple windows', async () => {
       const [secret] = await makeSecrets(1, AppTaggingSecretKind.CONSTRAINED);
       const finalizedBlockNumber = BlockNumber(10);
       const logBlockTimestamp = CURRENT_TIMESTAMP - BigInt(MAX_TX_LIFETIME) - 1000n;
@@ -285,8 +289,11 @@ describe('syncTaggedPrivateLogs', () => {
         JOB_ID,
       );
 
+      // Every log in the run is returned and the cursor lands on the last index, even though the run is longer than a
+      // single window, so the scan has to advance across more than one round to drain it.
       expect(logs).toHaveLength(totalLogs);
-      expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(2);
+      expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBe(totalLogs - 1);
+      expect(aztecNode.getPrivateLogsByTags.mock.calls.length).toBeGreaterThan(1);
     });
 
     it('persists cursor only up to finalized block', async () => {
@@ -322,15 +329,50 @@ describe('syncTaggedPrivateLogs', () => {
         JOB_ID,
       );
 
+      // The unfinalized logs (4, 5) are returned to the caller, but the durable cursor only advances to the finalized
+      // prefix (3): probe advancement is decoupled from cursor persistence.
       expect(logs).toHaveLength(6);
       expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBe(3);
-      expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(1);
     });
 
-    it('respects pre-existing finalized index', async () => {
+    it('advances the probe past an unfinalized-only first probe', async () => {
       const [secret] = await makeSecrets(1, AppTaggingSecretKind.CONSTRAINED);
-      const existingFinalizedIndex = 5;
-      await taggingStore.updateHighestFinalizedIndex(secret, existingFinalizedIndex, JOB_ID);
+      const finalizedBlockNumber = BlockNumber(5);
+      const recentTimestamp = CURRENT_TIMESTAMP - 5000n;
+
+      // Indexes 0 and 1 are hits in an unfinalized block (8 > finalized 5); index 2 is the gap. With the small initial
+      // probe, index 0 is probed alone and is unfinalized, so the scan must still advance to discover index 1 — gating
+      // advancement on finalization (as an earlier design did) would drop it.
+      const unfinalizedTags = await Promise.all([0, 1].map(i => computeSiloedTagForIndex(secret, i)));
+      aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) => {
+        const tags = extractTags(query);
+        return Promise.resolve(
+          tags.map((t: SiloedTag) =>
+            unfinalizedTags.find(tag => tag.equals(t)) ? [makeLog(8, recentTimestamp, t.value)] : [],
+          ),
+        );
+      });
+
+      const logs = await syncTaggedPrivateLogs(
+        [secret],
+        aztecNode,
+        taggingStore,
+        ANCHOR_BLOCK_HEADER,
+        finalizedBlockNumber,
+        JOB_ID,
+      );
+
+      expect(logs).toHaveLength(2);
+      // Nothing finalized, so the durable cursor must not advance.
+      expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBeUndefined();
+    });
+  });
+
+  describe('constrained vs unconstrained probing', () => {
+    it('constrained steady-state probes only INITIAL_CONSTRAINED_PROBE_LEN tags', async () => {
+      const [secret] = await makeSecrets(1, AppTaggingSecretKind.CONSTRAINED);
+      const finalizedIndex = 8;
+      await taggingStore.updateHighestFinalizedIndex(secret, finalizedIndex, JOB_ID);
 
       aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) =>
         Promise.resolve(query.tags.map(() => [])),
@@ -338,16 +380,38 @@ describe('syncTaggedPrivateLogs', () => {
 
       await syncTaggedPrivateLogs([secret], aztecNode, taggingStore, ANCHOR_BLOCK_HEADER, BlockNumber(10), JOB_ID);
 
+      // Gapless stream: the first missing tag ends the scan, so steady state probes just the initial window.
       const calledTags = extractTags(aztecNode.getPrivateLogsByTags.mock.calls[0][0]);
+      const expectedTags = await Promise.all(
+        Array.from({ length: INITIAL_CONSTRAINED_PROBE_LEN }, (_, i) =>
+          computeSiloedTagForIndex(secret, finalizedIndex + 1 + i),
+        ),
+      );
+      expect(calledTags).toEqual(expectedTags);
+    });
 
-      const expectedStart = existingFinalizedIndex + 1;
-      const expectedEnd = existingFinalizedIndex + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN;
+    it('unconstrained steady-state probes the full window', async () => {
+      const [secret] = await makeSecrets(1, AppTaggingSecretKind.UNCONSTRAINED);
+      const cursor = 8;
+      await taggingStore.updateHighestAgedIndex(secret, cursor, JOB_ID);
+      await taggingStore.updateHighestFinalizedIndex(secret, cursor, JOB_ID);
+
+      aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) =>
+        Promise.resolve(query.tags.map(() => [])),
+      );
+
+      await syncTaggedPrivateLogs([secret], aztecNode, taggingStore, ANCHOR_BLOCK_HEADER, BlockNumber(10), JOB_ID);
+
+      // Unconstrained streams can have gaps, so the full window is always probed — the same cursor that costs one tag
+      // for a constrained secret costs a full window here.
+      const calledTags = extractTags(aztecNode.getPrivateLogsByTags.mock.calls[0][0]);
+      const expectedStart = cursor + 1;
+      const expectedEnd = cursor + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN;
       const expectedTags = await Promise.all(
         Array.from({ length: expectedEnd - expectedStart + 1 }, (_, i) =>
           computeSiloedTagForIndex(secret, expectedStart + i),
         ),
       );
-
       expect(calledTags).toEqual(expectedTags);
     });
   });

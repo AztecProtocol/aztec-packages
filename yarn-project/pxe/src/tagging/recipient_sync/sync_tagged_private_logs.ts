@@ -7,7 +7,7 @@ import { AppTaggingSecretKind, SiloedTag } from '@aztec/stdlib/logs';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
-import { UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../constants.js';
+import { INITIAL_CONSTRAINED_PROBE_LEN, UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN } from '../constants.js';
 import { getAllPrivateLogsByTags } from '../get_all_logs_by_tags.js';
 import { findHighestIndexes } from './utils/find_highest_indexes.js';
 
@@ -62,9 +62,13 @@ import { findHighestIndexes } from './utils/find_highest_indexes.js';
  * - The lower bound is `highestFinalizedIndex + 1`. The `highestAgedIndex` mechanism is unnecessary because
  *   the nullifier chain prevents out-of-order index usage: no device can fill in a lower index after a higher
  *   one is already on-chain.
- * - The scan stops at the first gap in the index sequence. If all indexes in the batch have logs, the window
- *   advances. If a gap is found, the sequence has ended and no further logs exist.
- * - The upper bound is the same as unconstrained: `highestFinalizedIndex + WINDOW_LEN`.
+ * - Because the sequence is gapless, the scan stops at the first missing index: that gap proves the sequence has
+ *   ended and no further logs exist. We exploit this by probing only a small initial window
+ *   (`INITIAL_CONSTRAINED_PROBE_LEN`) and growing to the full window only when every probed index has a log, so a
+ *   steady-state sync with no new logs costs a single tag instead of the whole window.
+ * - The upper bound is the same as unconstrained: `highestFinalizedIndex + WINDOW_LEN`. Advancing the probe is
+ *   decoupled from persisting the finalized cursor, so unfinalized logs at the top of the run are still fetched
+ *   while only the finalized prefix is persisted.
  *
  * # Batching across secrets
  *
@@ -147,9 +151,16 @@ function getIndexRangesForSecrets(
           : await taggingStore.getHighestAgedIndex(secret, jobId);
       const start = highestIndexBeforeStart === undefined ? 0 : highestIndexBeforeStart + 1;
 
-      const end = (currentHighestFinalizedIndex ?? 0) + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1;
+      const boundEnd = (currentHighestFinalizedIndex ?? 0) + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1;
 
-      return { secret, start, end };
+      // Constrained streams are gapless, so probe a small initial window and stop at the first missing tag instead of
+      // always fetching the full window. Unconstrained secrets can have gaps, so they still scan the whole window.
+      const end =
+        secret.kind === AppTaggingSecretKind.CONSTRAINED
+          ? Math.min(boundEnd, start + INITIAL_CONSTRAINED_PROBE_LEN)
+          : boundEnd;
+
+      return { secret, start, end, boundEnd };
     }),
   );
 }
@@ -223,21 +234,32 @@ async function processConstrainedResults(
     firstMissingIndex++;
   }
 
-  // Finalize any logs before the gap. The nullifier for a constrained-delivery log is emitted in the same
-  // transaction, guaranteeing the log cannot disappear once included, so we persist the highest finalized
-  // index even when a gap stops the scan. This lets the next sync round skip already-finalized indexes.
+  // Persist the highest finalized index found. The nullifier for a constrained-delivery log is emitted in the same
+  // transaction, guaranteeing the log cannot disappear once included, so we persist even when a gap stops the scan.
+  // This lets the next sync round skip already-finalized indexes.
   const { highestFinalizedIndex } = findHighestIndexes(logsWithIndexes, currentTimestamp, finalizedBlockNumber);
-
   if (highestFinalizedIndex !== undefined) {
     await taggingStore.updateHighestFinalizedIndex(pending.secret, highestFinalizedIndex, jobId);
+  }
 
-    if (firstMissingIndex >= pending.end) {
-      return {
-        secret: pending.secret,
-        start: pending.end,
-        end: highestFinalizedIndex + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1,
-      };
-    }
+  // Advancing the probe is decoupled from persisting the cursor: keep scanning as long as the probe was entirely hits
+  // (no gap) and there is room before the protocol bound, even if none of those hits is finalized yet. Gating this on
+  // finalization would drop logs in unfinalized blocks, which sit at the top of the contiguous run. The bound
+  // re-anchors to any finalized index found this round. Once the small initial probe is fully consumed, this jumps to
+  // the full window, so later rounds behave exactly as before.
+  const probeFullyConsumed = firstMissingIndex >= pending.end;
+  const boundEnd =
+    highestFinalizedIndex !== undefined
+      ? Math.max(pending.boundEnd, highestFinalizedIndex + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1)
+      : pending.boundEnd;
+
+  if (probeFullyConsumed && pending.end < boundEnd) {
+    return {
+      secret: pending.secret,
+      start: pending.end,
+      end: boundEnd,
+      boundEnd,
+    };
   }
 
   return undefined;
@@ -282,10 +304,12 @@ async function processUnconstrainedResults(
 
   // For the next iteration we want to look only at indexes for which we have not yet fetched logs while
   // ensuring that we do not look further than WINDOW_LEN ahead of the highest finalized index.
+  const end = highestFinalizedIndex + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1;
   return {
     secret: pending.secret,
     start: pending.end,
-    end: highestFinalizedIndex + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1,
+    end,
+    boundEnd: end,
   };
 }
 
@@ -293,6 +317,9 @@ type PendingSecret = {
   secret: AppTaggingSecret;
   start: number;
   end: number;
+  // Highest index this secret may probe this sync (highest finalized index + WINDOW_LEN + 1, the protocol bound on how
+  // far ahead of finalized a log can sit). Distinct from `end`, which for constrained secrets starts as a small probe.
+  boundEnd: number;
 };
 
 type LogWithIndex = {
