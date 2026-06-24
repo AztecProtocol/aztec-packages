@@ -680,6 +680,15 @@ describe('sustained N TPS test', () => {
         await metrics.recordMinedTx(receipt);
         results.push({ success: true, txHash });
       } catch (error) {
+        // Once a tx has been observed in a block we count it as included, even if
+        // waitForTx then threw because a reorg dropped it back to pending or the
+        // pool evicted it. Inclusion is a first-sighting event here; we don't care
+        // what happens to the tx afterwards.
+        if (metrics.wasMined(txHash)) {
+          logger.info(`${txName} was mined (ignoring post-inclusion reorg/drop)`, { txName, txHash });
+          results.push({ success: true, txHash });
+          return;
+        }
         const receipt = await aztecNode.getTxReceipt(TxHash.fromString(txHash)).catch(() => undefined);
         logger.error(`${txName} was not included`, {
           txName,
