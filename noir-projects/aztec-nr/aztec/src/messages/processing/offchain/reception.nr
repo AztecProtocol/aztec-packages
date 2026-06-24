@@ -1,7 +1,97 @@
 //! The state machine of a single offchain message reception process.
 //!
-//! See the [module documentation](super) for the reception state machine that [`OffchainReception`]
-//! implements.
+//! Offchain processing needs to handle some complexity, including the possibility of reorgs reverting message effects,
+//! and the need to reprocess messages in that case. The state chart below summarizes the current behavior.
+//!
+//! ```text
+//!                   offchain_receive() (process starts)
+//!                         |
+//!                         v
+//!                     +-----------+     tx found onchain        +-----------+
+//!                ---- |           | --------------------------> |           |
+//!  tx not found  |    |           |                             |           |     discover notes,
+//!                |--> | RECEIVED  |                             | PROCESSED | ~~> events, etc
+//!                     |           | <-------------------------- |           |
+//!                     |           |   tx block re-orged         |           |
+//!                     +-----------+                             +-----------+
+//!                         |                                         |
+//!                         |  TTL expired                            |  TTL expired
+//!                         v                                         v
+//!                   +---------------------------------------------------------+
+//!                   |               TERMINATED (process ends)                 |
+//!                   +---------------------------------------------------------+
+//! ```
+//!
+//! ## States
+//!
+//! - **Received**: the message is stored but its originating transaction has not been found onchain yet (or the
+//!   message is tx-less; see below). While the reception process is in this state, it keeps looking for the
+//    transaction onchain.
+//! - **Processed**: the message has been handed off for processing. If there weren't reorgs, reaching this state would
+//!   be equivalent to terminating the reception process. Since reorgs are a possibility, this state is not terminal.
+//! - **Terminated**: the message has reached its TTL which means nothing else can be done with it. This is the
+//!   terminal state of this process.
+//!
+//! ## Transitions (each evaluated by [`OffchainReception::step`])
+//!
+//! - **Received -> Processed**: the originating transaction is found onchain. The message (packaged with its
+//!   transaction context) is queued to have its actual contents processed (which can lead for example to the discovery
+//!   of notes and events).
+//! - **Processed -> Received**: the block where the message transaction was originally found is re-orged out.
+//! - **Received -> Terminated**: the message TTL has elapsed (see below), so the message is no longer processable.
+//! - **Processed -> Terminated**: the message TTL has elapsed (see below), so the effects of its processing are
+//!   permanent.
+//!
+//! # Message reception lifecycle and the TTL
+//!
+//! A reception expires once `now > anchor_block_timestamp + MAX_MSG_TTL`, where `MAX_MSG_TTL = MAX_TX_LIFETIME + 2h`.
+//! A transaction anchored at a given block can only be mined within
+//! [`MAX_TX_LIFETIME`](crate::protocol::constants::MAX_TX_LIFETIME) of that block, so once that
+//! window (plus a safety margin of 2 hours) has elapsed the originating transaction can no longer appear, and it is
+//! safe to stop looking for it.
+//!
+//! Already-processed receptions reuse the same TTL: we could instead wait for the block that included the transaction
+//! to finalize, but we currently do not have the primitives to reliably get that information.
+//!
+//! # Current limitations, future plans
+//!
+//! - Tx-less messages never reach `Processed` and are only ever removed by expiry. This will be supported in the
+//!   future.
+//! - Already-processed receptions stay active longer than needed. As discussed, we need access to block finality
+//!   information to properly implement that case, which will be added in the future.
+//!
+//! # Implementation
+//!
+//! [`OffchainReception::init`] creates a [fact collection](crate::facts::FactCollection) of type
+//! `OFFCHAIN_RECEPTION_TYPE_ID`. The fact collection is identified by a hash of the `OffchainMessage` it tracks, which
+//! makes duplicate calls to `init` idempotent.
+//!
+//! Upon reception, an `OFFCHAIN_MESSAGE_RECEIVED` [non-retractable fact](crate::facts::record_non_retractable_fact) is
+//! recorded. The fact's payload is the `OffchainMessage` itself, which persists it to be subsequently processed.
+//! A fact collection with just an `OFFCHAIN_MESSAGE_RECEIVED` fact represents an active reception process in the
+//! RECEIVED state from our state chart above.
+//!
+//! The message reception state machine is driven externally, advancing one step at a time each time
+//! [`OffchainReception::step`] is invoked. [`OffchainReception::step`] implements the rest of the reception state
+//! machine described above.
+//!
+//! When stepping, if the transaction to the message is found onchain, an `OFFCHAIN_MESSAGE_PROCESSED` [retractable
+//! fact](crate::facts::record_retractable_fact) associated to the block where the transaction was found is recorded.
+//! Note that since this fact is retractable, a reorg dropping said block would result in the fact being automatically
+//! removed by PXE, effectively pushing the reception process back to `RECEIVED` state.
+//!
+//! To determine in which state of the reception process we are we just need to analyze the recorded facts available
+//! in combination with the TTL:
+//!
+//! - If the TTL has elapsed, we reached the end of the process and the [fact collection](crate::facts::FactCollection)
+//! can (and should) be deleted.
+//! - Otherwise:
+//!     - If there is an `OFFCHAIN_MESSAGE_PROCESSED` fact we are in PROCESSED state and there is nothing to do.
+//!     - If there is only an `OFFCHAIN_MESSAGE_RECEIVED` fact we are in RECEIVED state, so we need to check if the
+//!       message transaction is now available onchain, and if so, exercise the RECEIVED->PROCESSED transition.
+//!
+//! The PROCESSED->RECEIVED transition is transparently handled by PXE: if a re-org caused the message transaction to
+//! fall off the chain, the `OFFCHAIN_MESSAGE_PROCESSED` fact disappears, taking us back to the RECEIVED state.
 
 use crate::{
     ephemeral::EphemeralArray,
@@ -72,17 +162,17 @@ impl OffchainReception {
             .map(|collection: FactCollection| OffchainReception { collection })
     }
 
+    /// Decodes and returns the message this reception carries.
+    pub(crate) unconstrained fn message(self) -> OffchainMessage {
+        read_message(self.collection)
+    }
+
     /// Computes the fact-collection id that identifies a message's reception machine in the [fact store](crate::facts).
     ///
     /// The id is a hash of the message, which makes duplicate receptions of the same message collapse onto a single
     /// reception.
     pub(crate) fn id_for(message: OffchainMessage) -> Field {
         poseidon2_hash(message.serialize())
-    }
-
-    /// Decodes and returns the message this reception carries.
-    pub(crate) unconstrained fn message(self) -> OffchainMessage {
-        read_message(self.collection)
     }
 
     /// Advances this reception by one step of its state machine. See the [module documentation](super) for the
