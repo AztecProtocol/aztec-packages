@@ -197,7 +197,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     recipient: AztecAddress,
     deliveryMode: AppTaggingSecretKind,
   ): Promise<ResolvedTaggingStrategy> {
-    const hook = this.hooks?.resolveTaggingSecretStrategy;
+    const hook: ResolveTaggingSecretStrategy | undefined = this.hooks?.resolveTaggingSecretStrategy;
     let strategy: TaggingSecretStrategy;
     if (hook) {
       const { currentContractClassId } = await this.getContractInstance(this.contractAddress);
