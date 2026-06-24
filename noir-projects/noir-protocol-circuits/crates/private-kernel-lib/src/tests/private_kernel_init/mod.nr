@@ -12,7 +12,7 @@ use types::{
         transaction::tx_request::TxRequest,
     },
     address::AztecAddress,
-    hash::{compute_siloed_nullifier, create_protocol_nullifier},
+    hash::compute_protocol_nullifier,
 };
 
 struct TestBuilder {
@@ -86,11 +86,8 @@ impl TestBuilder {
         }
         let mut accumulated_data = private_call.to_private_accumulated_data();
 
-        let scoped_protocol_nullifier = create_protocol_nullifier(self.tx_request);
-        let protocol_nullifier = compute_siloed_nullifier(
-            scoped_protocol_nullifier.contract_address,
-            scoped_protocol_nullifier.innermost().value,
-        );
+        let (scoped_protocol_nullifier, protocol_nullifier) =
+            compute_protocol_nullifier(self.tx_request);
         if self.first_nullifier_hint == protocol_nullifier {
             accumulated_data.nullifiers.length = 1;
             accumulated_data.nullifiers.array[0] = scoped_protocol_nullifier;

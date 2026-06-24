@@ -1,9 +1,7 @@
 use super::TestBuilder;
 use protocol_test_utils::assert_claimed_length_array_eq;
 use types::{
-    address::AztecAddress,
-    constants::DEFAULT_UPDATE_DELAY,
-    hash::{compute_siloed_nullifier, create_protocol_nullifier},
+    address::AztecAddress, constants::DEFAULT_UPDATE_DELAY, hash::compute_protocol_nullifier,
     traits::Empty,
 };
 
@@ -44,11 +42,8 @@ fn with_everything_empty_except_for_first_nullifier_hint() {
 fn with_protocol_nullifier_injected() {
     let mut builder = TestBuilder::new();
 
-    let scoped_protocol_nullifier = create_protocol_nullifier(builder.tx_request);
-    let protocol_nullifier = compute_siloed_nullifier(
-        scoped_protocol_nullifier.contract_address,
-        scoped_protocol_nullifier.innermost().value,
-    );
+    let (scoped_protocol_nullifier, protocol_nullifier) =
+        compute_protocol_nullifier(builder.tx_request);
     builder.first_nullifier_hint = protocol_nullifier;
 
     let pi = builder.execute();
@@ -62,11 +57,8 @@ fn with_protocol_nullifier_injected() {
 fn with_nullifiers_emitted_and_protocol_nullifier_injected() {
     let mut builder = TestBuilder::new();
 
-    let scoped_protocol_nullifier = create_protocol_nullifier(builder.tx_request);
-    let protocol_nullifier = compute_siloed_nullifier(
-        scoped_protocol_nullifier.contract_address,
-        scoped_protocol_nullifier.innermost().value,
-    );
+    let (scoped_protocol_nullifier, protocol_nullifier) =
+        compute_protocol_nullifier(builder.tx_request);
     builder.first_nullifier_hint = protocol_nullifier;
 
     builder.private_call.append_nullifiers(1);

@@ -7,7 +7,7 @@ use protocol_test_utils::FixtureBuilder;
 use types::{
     abis::{private_call_request::PrivateCallRequest, transaction::tx_request::TxRequest},
     constants::PRIVATE_KERNEL_INIT_VK_INDEX,
-    hash::{compute_siloed_nullifier, create_protocol_nullifier},
+    hash::compute_protocol_nullifier,
     traits::Empty,
 };
 
@@ -46,14 +46,12 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
     }
 
     pub fn with_protocol_nullifier(&mut self) {
-        let protocol_nullifier = create_protocol_nullifier(self.tx_request);
-        self.output.nullifiers.push(protocol_nullifier);
-        self.previous_kernel.nullifiers.push(protocol_nullifier);
+        let (scoped_protocol_nullifier, siloed_protocol_nullifier) =
+            compute_protocol_nullifier(self.tx_request);
+        self.output.nullifiers.push(scoped_protocol_nullifier);
+        self.previous_kernel.nullifiers.push(scoped_protocol_nullifier);
 
-        self.first_nullifier_hint = compute_siloed_nullifier(
-            protocol_nullifier.contract_address,
-            protocol_nullifier.innermost().value,
-        );
+        self.first_nullifier_hint = siloed_protocol_nullifier;
     }
 
     pub fn with_previous_kernel_vk_index(&mut self, vk_index: u32) {

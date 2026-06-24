@@ -133,6 +133,15 @@ pub fn create_protocol_nullifier(tx_request: TxRequest) -> Scoped<Counted<Nullif
     )
 }
 
+/// Returns the scoped protocol nullifier (as injected at slot 0 of `end.nullifiers` by the init
+/// kernel) together with its siloed field representation (as compared against
+/// `first_nullifier_hint` to decide whether injection should occur).
+pub fn compute_protocol_nullifier(tx_request: TxRequest) -> (Scoped<Counted<Nullifier>>, Field) {
+    let scoped = create_protocol_nullifier(tx_request);
+    let siloed = compute_siloed_nullifier(scoped.contract_address, scoped.innermost().value);
+    (scoped, siloed)
+}
+
 pub fn compute_log_tag(raw_tag: Field, dom_sep: u32) -> Field {
     poseidon2_hash_with_separator([raw_tag], dom_sep)
 }

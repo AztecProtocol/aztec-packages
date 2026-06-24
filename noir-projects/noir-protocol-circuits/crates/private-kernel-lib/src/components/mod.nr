@@ -1,5 +1,6 @@
 pub(crate) mod previous_kernel_for_tail_validator;
 pub(crate) mod private_call_data_validator;
+pub(crate) mod private_kernel_batch_validator;
 pub(crate) mod private_kernel_circuit_output_composer;
 pub(crate) mod private_kernel_circuit_output_validator;
 pub(crate) mod reset_output_composer;
