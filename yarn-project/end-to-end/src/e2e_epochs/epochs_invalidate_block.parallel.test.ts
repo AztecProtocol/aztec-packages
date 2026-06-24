@@ -877,4 +877,39 @@ describe('e2e_epochs/epochs_invalidate_block', () => {
       disableConfig: { shuffleAttestationOrdering: false },
     });
   });
+
+  // A checkpoint with invalid attestations must be rejected from L1 calldata, before its blob is fetched.
+  // The attack forces the bad checkpoint to be reachable only from L1 calldata — no blob, no local blocks
+  // anywhere — so the proposer that later invalidates it can only have rejected it from calldata. Had the
+  // archiver fetched the blob first, the missing blob would have stalled its sync and nothing would ever be
+  // invalidated. Recovering from a checkpoint whose blob is genuinely unavailable is out of scope (A-1260).
+  it('proposer invalidates a non-broadcast checkpoint whose blob is withheld', async () => {
+    // Drop every node's blob store so the bad checkpoint's blob never reaches the shared filestore. Reads
+    // (getBlobSidecar) are untouched, so previously-stored good checkpoints stay fetchable; only this
+    // checkpoint's blob is missing. jest.restoreAllMocks() in afterEach restores the original method.
+    const blobSpies = nodes.map(node =>
+      jest.spyOn(node.getBlobClient()!, 'sendBlobsToFilestore').mockResolvedValue(false),
+    );
+
+    await runInvalidationTest({
+      // skipCollectingAttestations makes the checkpoint invalid; skipBroadcastProposals withholds the p2p
+      // proposal so peers only see it on L1; skipPushProposedBlocksToArchiver denies even the proposer's own
+      // archiver a local copy — otherwise it could promote that copy, skip the blob fetch, detect the bad
+      // attestations and invalidate without ever exercising the calldata-first path, masking a regression.
+      attackConfig: {
+        skipCollectingAttestations: true,
+        skipBroadcastProposals: true,
+        skipPushProposedBlocksToArchiver: true,
+      },
+      disableConfig: {
+        skipCollectingAttestations: false,
+        skipBroadcastProposals: false,
+        skipPushProposedBlocksToArchiver: false,
+      },
+    });
+
+    // The bad checkpoint's blob upload was intercepted, so it never reached the shared store: the
+    // invalidation above proves a proposer rejected it from L1 calldata without ever fetching its blob.
+    expect(blobSpies.some(spy => spy.mock.calls.length > 0)).toBe(true);
+  });
 });
