@@ -1,5 +1,21 @@
-// Request a high-performance GPU device. Enables the optional "timestamp-query"
-// feature when the adapter supports it, so per-pass timings can be collected.
+// Opt-in (default OFF) for the "timestamp-query" device feature, which backs all
+// per-pass GPU profiling. Timestamps are TELEMETRY ONLY — proving never reads
+// them — and on Apple Metal they are actively dangerous to leave on: every
+// timestamp QuerySet draws from a small fixed per-device counter-sample-buffer
+// pool (see Profiler / MsmV2), and the MSM bridge allocates one QuerySet per
+// cached MsmV2 instance. Across a warm proving session (LRU churn + per-prove
+// instance rebuilds) the pool exhausts; `createQuerySet` then fails with "Cannot
+// allocate sample buffer", which marks the QuerySet — and therefore the whole
+// CommandBuffer carrying its `timestampWrites` — invalid, so `queue.submit` drops
+// that MSM's compute passes. The commitment reads back stale, and every Nth proof
+// on the device verifies false (observed as a perfect every-other-prove failure on
+// Metal-3). Requesting the feature only when a measurement harness sets
+// `globalThis.__webgpu_profile_timestamps = true` before the device is created
+// keeps every QuerySet path disabled by default, so production proving never
+// allocates a counter sample buffer and stays correct across unbounded warm reuse.
+export const ENABLE_TIMESTAMPS_FLAG = '__webgpu_profile_timestamps';
+
+// Request a high-performance GPU device.
 //
 // Explicitly requests the adapter's MAX for `maxComputeWorkgroupStorageSize`
 // so workgroup-shared scratch can scale with hardware support.
@@ -17,7 +33,8 @@ export const get_device = async (): Promise<GPUDevice> => {
   }
 
   const requiredFeatures: GPUFeatureName[] = [];
-  if (adapter.features.has('timestamp-query')) {
+  const wantTimestamps = (globalThis as { [ENABLE_TIMESTAMPS_FLAG]?: boolean })[ENABLE_TIMESTAMPS_FLAG] === true;
+  if (wantTimestamps && adapter.features.has('timestamp-query')) {
     requiredFeatures.push('timestamp-query');
   }
 
