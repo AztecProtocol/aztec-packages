@@ -34,8 +34,8 @@ function build {
 function test_cmds {
   # The recursive example proves a circuit embedding a full in-circuit Honk verifier in WASM; on the
   # default 2-CPU budget that prove+verify lands ~140-340s and intermittently trips the jest timeout.
-  # A 4-CPU budget roughly halves it; TIMEOUT is the outer ci3 wrapper, above the jest per-test cap.
-  echo "$hash:CPUS=4:TIMEOUT=900s barretenberg/docs/bootstrap.sh test"
+  # A 4-CPU budget roughly halves it, back well under the per-test cap.
+  echo "$hash:CPUS=4 barretenberg/docs/bootstrap.sh test"
 }
 
 function test {
