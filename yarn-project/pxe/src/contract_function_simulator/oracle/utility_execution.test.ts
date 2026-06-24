@@ -24,7 +24,13 @@ import {
 } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { PublicKeys, deriveKeys, hashPublicKey } from '@aztec/stdlib/keys';
-import { AppTaggingSecret, AppTaggingSecretKind, MessageContext, SiloedTag } from '@aztec/stdlib/logs';
+import {
+  AppTaggingSecret,
+  AppTaggingSecretKind,
+  MessageContext,
+  PendingTaggedLog,
+  SiloedTag,
+} from '@aztec/stdlib/logs';
 import { Note, NoteDao } from '@aztec/stdlib/note';
 import { makeL2Tips, randomContractInstanceWithAddress } from '@aztec/stdlib/testing';
 import {
@@ -492,7 +498,7 @@ describe('Utility Execution test suite', () => {
         utilityExecutionOracle = makeOracle({ simulator: nestedSimulator });
         defaultAuthorizedHandshakeRegistryReads = new Map<string, Fr[]>([
           ['get_handshakes', []],
-          ['get_app_siloed_secret', [Fr.random(), Fr.random(), new Fr(3)]],
+          ['get_app_siloed_secret', [Fr.random(), Fr.random()]],
         ]);
       });
 
@@ -658,29 +664,59 @@ describe('Utility Execution test suite', () => {
     describe('getPendingTaggedLogs', () => {
       const service = new EphemeralArrayService();
 
-      it('searches tags derived from provided secrets', async () => {
-        // Capture every tag the node is queried with so we can assert the provided secret was searched.
-        const queriedTags: Fr[] = [];
-        aztecNode.getPrivateLogsByTags.mockImplementation(query => {
-          for (const entry of query.tags) {
-            queriedTags.push('tag' in entry ? entry.tag.value : entry.value);
-          }
-          return Promise.resolve(query.tags.map(() => []));
-        });
-
-        const providedSecret = Fr.random();
-        const providedSecrets = EphemeralArray.fromValues(service, [
-          new ProvidedSecret(providedSecret, AppTaggingSecretKind.UNCONSTRAINED),
-        ]);
-
-        await utilityExecutionOracle.getPendingTaggedLogs(owner, providedSecrets);
-
-        // The first-window tag of the provided secret must appear among the tags queried against the node.
-        const expectedTag = await SiloedTag.compute({
-          extendedSecret: new AppTaggingSecret(providedSecret, contractAddress, AppTaggingSecretKind.UNCONSTRAINED),
+      it("uses the provided secret's delivery mode when querying pending log tags", async () => {
+        const sharedSecret = Fr.random();
+        const providedMode = AppTaggingSecretKind.CONSTRAINED;
+        const providedSecrets = [new ProvidedSecret(sharedSecret, providedMode)];
+        const constrainedModeTag = await SiloedTag.compute({
+          extendedSecret: new AppTaggingSecret(sharedSecret, contractAddress, providedMode),
           index: 0,
         });
-        expect(queriedTags.map(tag => tag.toString())).toContain(expectedTag.value.toString());
+        const sameSecretUnconstrainedModeTag = await SiloedTag.compute({
+          extendedSecret: new AppTaggingSecret(sharedSecret, contractAddress, AppTaggingSecretKind.UNCONSTRAINED),
+          index: 0,
+        });
+        expect(constrainedModeTag.equals(sameSecretUnconstrainedModeTag)).toBe(false);
+
+        const log = {
+          logData: [Fr.random(), Fr.random()],
+          blockNumber: anchorBlockHeader.globalVariables.blockNumber,
+          blockHash: await anchorBlockHeader.hash(),
+          blockTimestamp: anchorBlockHeader.globalVariables.timestamp,
+          txHash: TxHash.random(),
+          txIndexWithinBlock: 0,
+          logIndexWithinTx: 0,
+          noteHashes: [Fr.random()],
+          nullifiers: [Fr.random()],
+        };
+
+        aztecNode.getPrivateLogsByTags.mockImplementation(query => {
+          return Promise.resolve(
+            query.tags.map(entry => {
+              const tag = 'tag' in entry ? entry.tag : entry;
+              return tag.equals(constrainedModeTag) ? [log] : [];
+            }),
+          );
+        });
+
+        const result = await utilityExecutionOracle.getPendingTaggedLogs(
+          owner,
+          EphemeralArray.fromValues(service, providedSecrets),
+        );
+
+        const queried = aztecNode.getPrivateLogsByTags.mock.calls.flatMap(([query]) =>
+          query.tags.map(entry => ('tag' in entry ? entry.tag.value.toString() : entry.value.toString())),
+        );
+        expect(queried).toContain(constrainedModeTag.value.toString());
+        expect(queried).not.toContain(sameSecretUnconstrainedModeTag.value.toString());
+        const resultLogs = result.readAll(service).map(log => log.toFields());
+        const expectedConstrainedModeLogFields = new PendingTaggedLog(
+          log.logData,
+          log.txHash,
+          log.noteHashes,
+          log.nullifiers[0],
+        ).toFields();
+        expect(resultLogs).toEqual([expectedConstrainedModeLogFields]);
       });
     });
 
