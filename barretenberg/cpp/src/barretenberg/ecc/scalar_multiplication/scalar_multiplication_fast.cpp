@@ -82,9 +82,9 @@ template <typename AffineElement>
 // Constantine signed-Booth window recoder (scalar + SIMD x4 paths) lives in
 // pippenger_constantine.hpp.
 
-// `choose_window_bits` and `build_var_window_schedule` are defined inline in
+// `choose_window_bits` and `build_window_schedule` are defined inline in
 // `pippenger_arena_layout.hpp` so the test suite can build identical schedules.
-// `VAR_WINDOW_MAX_WINDOWS` and `VariableWindowSchedule` likewise live there.
+// `MAX_SCHEDULE_WINDOWS` and `WindowSchedule` likewise live there.
 
 // Sentinel value for `msb_per_scalar[i]` when scalar i is zero. uint8_t fits the 254 valid msb
 // positions (0..253) plus this sentinel; matching `msb_hist` bin layout uses bin 0 = zero count
@@ -405,6 +405,18 @@ void reduce_chunk(ThreadScratch<Curve>& s,
 
         const uint32_t bucket_u32 = static_cast<uint32_t>(bucket);
         for (size_t i = run_lo; i < run_hi; ++i) {
+            // The schedule read is sequential but the point fetch below is a
+            // data-dependent random 64-byte load over the SRS span; the loop is branchy
+            // enough that hardware runahead alone does not sustain full memory-level
+            // parallelism. Prefetching 16 entries ahead recovers 4-10% of MSM wall at
+            // n >= 2^18 (EC2 bencher, 16 threads), neutral below. The clamp keeps the
+            // address inside `points` for dedup-redirect entries whose payload indexes
+            // the smaller extra_points array (harmless wrong-but-mapped line).
+            if (i + round_parallel_detail::GATHER_PREFETCH_DIST < chunk_hi) {
+                const size_t pf_idx = std::min<size_t>(
+                    schedule[i + round_parallel_detail::GATHER_PREFETCH_DIST] & SCHEDULE_INDEX_MASK, points.size() - 1);
+                __builtin_prefetch(points.data() + pf_idx, 0, 3);
+            }
             const uint32_t e = schedule[i];
             if ((e & DEDUP_SKIP_BIT) != 0) {
                 continue; // non-rep: skip, don't consume a curr_pts slot
@@ -937,11 +949,30 @@ template <typename Curve>
  *
  * No batched-affine path, no modular inversions, no count-sort.
  */
+// Dispatch `body` across `num_threads` pool workers, running inline when
+// single-threaded. The inline branch is what makes a thread-capped
+// (max_threads=1) pipeline safe to call from inside a pool worker: the pool is
+// not re-entrant (a worker that re-enters bb::parallel_for lazily constructs
+// its own thread-local pool), so the capped path must never reach it.
+template <typename F> inline void msm_parallel_for(size_t num_threads, F&& body) noexcept
+{
+    if (num_threads <= 1) {
+        if constexpr (std::is_invocable_v<F&, const ThreadChunk&>) {
+            body(ThreadChunk{ 0, 1 });
+        } else {
+            body(size_t{ 0 });
+        }
+        return;
+    }
+    bb::parallel_for(num_threads, std::forward<F>(body));
+}
+
 template <typename Curve>
 [[gnu::noinline]] typename Curve::Element pippenger_round_parallel_jacobian_fast(
     std::span<const typename Curve::ScalarField> scalars,
     std::span<const typename Curve::AffineElement> points,
-    size_t min_pts_per_thread_override) noexcept
+    size_t min_pts_per_thread_override,
+    size_t max_threads) noexcept
 {
     using Element = typename Curve::Element;
     using ScalarField = typename Curve::ScalarField;
@@ -989,8 +1020,8 @@ template <typename Curve>
 #endif
     const size_t MIN_PTS_PER_THREAD =
         (min_pts_per_thread_override == 0) ? MIN_PTS_PER_THREAD_DEFAULT : min_pts_per_thread_override;
-    const size_t max_threads = get_num_cpus();
-    size_t num_threads = std::min(std::max<size_t>(1, n / MIN_PTS_PER_THREAD), max_threads);
+    const size_t hw_threads = max_threads == 0 ? get_num_cpus() : std::min(max_threads, get_num_cpus());
+    size_t num_threads = std::min(std::max<size_t>(1, n / MIN_PTS_PER_THREAD), hw_threads);
     if (num_threads == 0) {
         num_threads = 1;
     }
@@ -1075,7 +1106,7 @@ template <typename Curve>
     if (num_threads == 1) {
         thread_body(0);
     } else {
-        bb::parallel_for(num_threads, thread_body);
+        round_parallel_detail::msm_parallel_for(num_threads, thread_body);
     }
 
     Element total = per_thread_results[0];
@@ -1116,10 +1147,14 @@ template <typename Curve>
 // (no affine arena needed). Exposed (declared in `scalar_multiplication_fast.hpp`)
 // so the test suite can exercise the same sizer the live allocator uses.
 template <typename Curve>
-size_t compute_arena_bytes_for_msm(size_t n_input, bool external_glv_provided, bool dedup_active) noexcept
+size_t compute_arena_bytes_for_msm(size_t n_input,
+                                   bool external_glv_provided,
+                                   bool dedup_active,
+                                   size_t max_threads) noexcept
 {
     using ScalarField = typename Curve::ScalarField;
     constexpr size_t FULL_NUM_BITS = ScalarField::modulus.get_msb() + 1;
+    const size_t hw_threads = max_threads == 0 ? bb::get_num_cpus() : std::min(max_threads, bb::get_num_cpus());
 
     if (n_input < 4) {
         return 0; // trivial path
@@ -1138,13 +1173,13 @@ size_t compute_arena_bytes_for_msm(size_t n_input, bool external_glv_provided, b
     using round_parallel_detail::SUBCHUNK_ENTRIES_CAP;
 
     // window-bits selection uses the ideal per-window oversubscription factor (not the dispatch lmul).
-    const size_t num_logical_threads_for_c = bb::get_num_cpus() * window_bits_tuning_oversub_factor(n_input);
+    const size_t num_logical_threads_for_c = hw_threads * window_bits_tuning_oversub_factor(n_input);
     const size_t window_bits =
         round_parallel_detail::choose_window_bits(n, NUM_BITS, n_input, num_logical_threads_for_c);
     const size_t num_windows = (NUM_BITS + 2 + window_bits - 1) / window_bits;
     const size_t num_buckets = (size_t{ 1 } << (window_bits - 1)) + 1;
 
-    const size_t desired_threads = std::max<size_t>(1, bb::get_num_cpus());
+    const size_t desired_threads = std::max<size_t>(1, hw_threads);
     const size_t max_threads_for_min_batch = n / MIN_BATCH_CAPACITY;
     const size_t min_threads_allowed =
         std::max<size_t>(1, (desired_threads + MIN_AFFINE_THREAD_RATIO - 1) / MIN_AFFINE_THREAD_RATIO);
@@ -1169,7 +1204,7 @@ size_t compute_arena_bytes_for_msm(size_t n_input, bool external_glv_provided, b
         round_parallel_detail::compute_global_max_overflow_per_window(n, num_threads, SUBCHUNK_ENTRIES_CAP);
 
     const bool inline_glv_double = use_glv && !external_glv_provided;
-    const size_t profile_threads = std::max<size_t>(1, bb::get_num_cpus());
+    const size_t profile_threads = std::max<size_t>(1, hw_threads);
     const size_t phase_one_prologue_bytes =
         round_parallel_detail::compute_phase_one_prologue_bytes(n, use_glv, inline_glv_double, profile_threads);
 
@@ -1192,8 +1227,8 @@ size_t compute_arena_bytes_for_msm(size_t n_input, bool external_glv_provided, b
     const size_t worker_union_bytes = union_layout.per_worker_union_bytes;
 
     const size_t fixed_overhead = (worker_union_bytes * worker_total_for_budget) +
-                                  (size_t{ 96 } * round_parallel_detail::VAR_WINDOW_MAX_WINDOWS) // window_sums_storage
-                                  + (size_t{ 8 } * (num_threads + 1)) // rebalanced_bucket_lo_partition
+                                  round_parallel_detail::window_sums_storage_bytes<Curve>() +
+                                  (size_t{ 8 } * (num_threads + 1)) // rebalanced_bucket_lo_partition
                                   + phase_one_prologue_bytes;
 
     // wpb fallback when fixed_overhead has eaten the BATCH_MEM_BUDGET headroom: the inline
@@ -1211,13 +1246,10 @@ size_t compute_arena_bytes_for_msm(size_t n_input, bool external_glv_provided, b
     const size_t dedup_bytes = dedup_active ? ((size_t{ 4 } * n) + (size_t{ sizeof(typename Curve::AffineElement) } *
                                                                     round_parallel_detail::DEDUP_MAX_CLUSTERS))
                                             : size_t{ 0 };
-    auto arena_bytes_for_window_layout = [&](size_t bit_budget) {
-        const size_t wb = round_parallel_detail::choose_window_bits(n, bit_budget, n_input, num_logical_threads_for_c);
-        const auto layout_sched = round_parallel_detail::build_var_window_schedule(bit_budget, wb);
-        size_t B_eff_layout = (size_t{ 1 } << (wb - 1)) + 1;
-        for (size_t w = 0; w < layout_sched.num_windows; ++w) {
-            B_eff_layout = std::max(B_eff_layout, static_cast<size_t>(layout_sched.num_buckets[w]));
-        }
+    auto arena_bytes_for_window_layout = [&](size_t bit_budget, size_t wb) {
+        const auto layout_sched = round_parallel_detail::build_window_schedule(bit_budget, wb);
+        // Uniform schedule: the widest window's bucket count is the per-window cap.
+        const size_t B_eff_layout = (size_t{ 1 } << (wb - 1)) + 1;
         const size_t dense_stride_layout = round_parallel_detail::compute_dense_stride(B_eff_layout, num_threads);
         const size_t per_window_bytes_layout = round_parallel_detail::compute_per_window_bytes<Curve>(
             num_threads, B_eff_layout, n, dense_stride_layout, worker_total_for_budget);
@@ -1238,14 +1270,27 @@ size_t compute_arena_bytes_for_msm(size_t n_input, bool external_glv_provided, b
     // first-touch cost regardless of how much of the arena the small MSM_fast actually uses.
     size_t arena_bytes = fixed_overhead + (windows_per_batch * per_window_bytes) + 32768 + dedup_bytes;
 
-    // The live pipeline shrinks NUM_BITS to the observed max scalar bit before choosing
-    // window_bits. GLV MSMs and large non-GLV MSMs can therefore select a different
-    // schedule/zone layout than the full-bit pre-sizer. Keep the common Chonk wire/IPA
-    // non-GLV sizes on the original tight path.
-    if (use_glv || n_input >= (size_t{ 1 } << 17)) {
-        for (size_t bit_budget = 1; bit_budget <= NUM_BITS; ++bit_budget) {
-            arena_bytes = std::max(arena_bytes, arena_bytes_for_window_layout(bit_budget));
-        }
+    // The live pipeline chooses window_bits from the *effective* (nonzero) scalar count and the
+    // observed bit budget after Phase 1: c = choose_window_bits(n_active, effective_num_bits) with
+    // n_active <= n and effective_num_bits <= NUM_BITS. Fewer active points => smaller c => more
+    // windows => a larger arena (most sharply once fixed_overhead has eaten the batch budget and
+    // every window runs in a single batch). Size for the worst reachable c so the bound holds for
+    // any scalar density, with no extra scalar scan.
+    //
+    // For a fixed c, bit_budget = NUM_BITS maximizes the window count (effective_num_bits <=
+    // NUM_BITS) and 2^(c-1)+1 caps B_eff, so arena_bytes_for_window_layout(NUM_BITS, c) dominates
+    // every live (effective_num_bits, c) layout. The reachable c span is [2, c_max]: choose is
+    // non-decreasing in the point count (n_active <= n bounds it above), but the ceil() in the round
+    // count makes it non-monotonic in the bit budget by ±1, so c_max is the max over bit budgets,
+    // not simply choose(n, NUM_BITS).
+    size_t c_max_reachable = window_bits;
+    for (size_t bit_budget = 1; bit_budget <= NUM_BITS; ++bit_budget) {
+        c_max_reachable = std::max(c_max_reachable,
+                                   static_cast<size_t>(round_parallel_detail::choose_window_bits(
+                                       n, bit_budget, n_input, num_logical_threads_for_c)));
+    }
+    for (size_t wb = 2; wb <= c_max_reachable; ++wb) {
+        arena_bytes = std::max(arena_bytes, arena_bytes_for_window_layout(NUM_BITS, wb));
     }
     return arena_bytes;
 }
@@ -1263,9 +1308,10 @@ template <typename Curve>
 // google-readability-function-size)
 typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename Curve::ScalarField> scalars_span,
                                                  std::span<const typename Curve::AffineElement> all_points,
-                                                 bool dedup_hint,
+                                                 size_t dedup_info,
                                                  std::span<const typename Curve::AffineElement> external_glv_doubled,
-                                                 std::span<std::byte> external_arena) noexcept
+                                                 std::span<std::byte> external_arena,
+                                                 size_t max_threads) noexcept
 {
     using Element = typename Curve::Element;
     using AffineElement = typename Curve::AffineElement;
@@ -1281,12 +1327,12 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     // MIN_PTS_PER_THREAD_FOR_PIPPENGER points — pippenger_fast's per-window scaffolding loses
     // to straus_msm at this density. Caller-supplied GLV doubling is wasted at this size,
     // but the overhead is negligible.
+    const size_t hw_threads = max_threads == 0 ? bb::get_num_cpus() : std::min(max_threads, bb::get_num_cpus());
     {
-        const size_t max_threads = bb::get_num_cpus();
-        const size_t num_threads_dispatch = std::max<size_t>(1, std::min(n_input, max_threads));
+        const size_t num_threads_dispatch = std::max<size_t>(1, std::min(n_input, hw_threads));
         const size_t pts_per_thread = (n_input + num_threads_dispatch - 1) / num_threads_dispatch;
         if (pts_per_thread < MIN_PTS_PER_THREAD_FOR_PIPPENGER) {
-            return trivial_msm_threaded<Curve>(scalars_span, all_points);
+            return trivial_msm_threaded<Curve>(scalars_span, all_points, hw_threads);
         }
     }
 
@@ -1330,7 +1376,10 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     // skip the O(n) tagging cost. The small-n bail above (pts_per_thread <
     // MIN_PTS_PER_THREAD_FOR_PIPPENGER) already shed every case where dedup wouldn't fit
     // — n ≥ MIN_PTS_PER_THREAD_FOR_PIPPENGER * 1 = 24 here.
-    const bool dedup_active = dedup_hint;
+    const bool dedup_active = dedup_info != 0;
+    // dedup_info >= 2 carries a caller-measured duplicate count (e.g. an adjacent-run
+    // count from grand-product construction); 1 means hinted with no estimate.
+    const size_t dedup_count_estimate = dedup_info >= 2 ? dedup_info : 0;
 
     // ---------------------------------------------------------------------------------------
     // Arena setup (pre-Phase-1).
@@ -1344,7 +1393,8 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     // We size the buffer using `compute_arena_bytes_for_msm`, whose conservative bound
     // dominates the inline-tight (P + W + S) sum for any wpb we choose below.
     // ---------------------------------------------------------------------------------------
-    const size_t arena_total_bytes = compute_arena_bytes_for_msm<Curve>(n_input, external_glv_provided, dedup_active);
+    const size_t arena_total_bytes =
+        compute_arena_bytes_for_msm<Curve>(n_input, external_glv_provided, dedup_active, hw_threads);
     round_parallel_detail::MsmArena arena(arena_total_bytes, external_arena);
 
     // ---------------------------------------------------------------------------------------
@@ -1360,7 +1410,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     // — see `dedup_finalize_parallel`.
     // ---------------------------------------------------------------------------------------
     using round_parallel_detail::MSB_ZERO_SENTINEL;
-    const size_t profile_threads = std::max<size_t>(1, bb::get_num_cpus());
+    const size_t profile_threads = std::max<size_t>(1, hw_threads);
     auto msb_per_scalar = arena.template alloc<uint8_t>(n);
     auto per_thread_msb_hist = arena.template alloc<std::array<uint32_t, 256>>(profile_threads);
     // MsmArena::alloc returns uninitialised memory; the histograms must be zero-initialised so
@@ -1381,54 +1431,57 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
         }
     }
 
-    if (use_glv) {
-        // Convert each input scalar from-Mont into a stack local, GLV-split it, store both
-        // 128-bit halves and their msb into the profile buffer. input_scalars is read-only on
-        // this path so the user's buffer is preserved (no Montgomery restore needed). Inline
-        // path additionally GLV-doubles the points in the same parallel pass; external path
-        // aliases the caller-supplied doubled buffer.
-        const BaseField beta = inline_glv_double ? BaseField::cube_root_of_unity() : BaseField{};
-        bb::parallel_for(bb::get_num_cpus(), [&](const ThreadChunk& chunk) {
-            auto& th_hist = per_thread_msb_hist[chunk.thread_index];
-            for (size_t i : chunk.range(n_input)) {
-                const ScalarField canonical = input_scalars[i].from_montgomery_form_reduced();
-                const auto split = ScalarField::split_into_endomorphism_scalars(canonical);
-                const auto& k1 = split.first;
-                const auto& k2 = split.second;
-                glv_scalars_storage[2 * i].data[0] = k1[0];
-                glv_scalars_storage[2 * i].data[1] = k1[1];
-                glv_scalars_storage[2 * i].data[2] = 0;
-                glv_scalars_storage[2 * i].data[3] = 0;
-                glv_scalars_storage[(2 * i) + 1].data[0] = k2[0];
-                glv_scalars_storage[(2 * i) + 1].data[1] = k2[1];
-                glv_scalars_storage[(2 * i) + 1].data[2] = 0;
-                glv_scalars_storage[(2 * i) + 1].data[3] = 0;
-                if (inline_glv_double) {
-                    glv_points_storage[2 * i] = input_points[i];
-                    glv_points_storage[(2 * i) + 1].x = input_points[i].x * beta;
-                    glv_points_storage[(2 * i) + 1].y = -input_points[i].y;
+    {
+        BB_BENCH_NAME("MSM_fast::Phase1_from_montgomery");
+        if (use_glv) {
+            // Convert each input scalar from-Mont into a stack local, GLV-split it, store both
+            // 128-bit halves and their msb into the profile buffer. input_scalars is read-only on
+            // this path so the user's buffer is preserved (no Montgomery restore needed). Inline
+            // path additionally GLV-doubles the points in the same parallel pass; external path
+            // aliases the caller-supplied doubled buffer.
+            const BaseField beta = inline_glv_double ? BaseField::cube_root_of_unity() : BaseField{};
+            round_parallel_detail::msm_parallel_for(hw_threads, [&](const ThreadChunk& chunk) {
+                auto& th_hist = per_thread_msb_hist[chunk.thread_index];
+                for (size_t i : chunk.range(n_input)) {
+                    const ScalarField canonical = input_scalars[i].from_montgomery_form_reduced();
+                    const auto split = ScalarField::split_into_endomorphism_scalars(canonical);
+                    const auto& k1 = split.first;
+                    const auto& k2 = split.second;
+                    glv_scalars_storage[2 * i].data[0] = k1[0];
+                    glv_scalars_storage[2 * i].data[1] = k1[1];
+                    glv_scalars_storage[2 * i].data[2] = 0;
+                    glv_scalars_storage[2 * i].data[3] = 0;
+                    glv_scalars_storage[(2 * i) + 1].data[0] = k2[0];
+                    glv_scalars_storage[(2 * i) + 1].data[1] = k2[1];
+                    glv_scalars_storage[(2 * i) + 1].data[2] = 0;
+                    glv_scalars_storage[(2 * i) + 1].data[3] = 0;
+                    if (inline_glv_double) {
+                        glv_points_storage[2 * i] = input_points[i];
+                        glv_points_storage[(2 * i) + 1].x = input_points[i].x * beta;
+                        glv_points_storage[(2 * i) + 1].y = -input_points[i].y;
+                    }
+                    round_parallel_detail::record_msb(
+                        round_parallel_detail::msb_of_2limb(k1[0], k1[1]), msb_per_scalar[2 * i], th_hist);
+                    round_parallel_detail::record_msb(
+                        round_parallel_detail::msb_of_2limb(k2[0], k2[1]), msb_per_scalar[(2 * i) + 1], th_hist);
                 }
-                round_parallel_detail::record_msb(
-                    round_parallel_detail::msb_of_2limb(k1[0], k1[1]), msb_per_scalar[2 * i], th_hist);
-                round_parallel_detail::record_msb(
-                    round_parallel_detail::msb_of_2limb(k2[0], k2[1]), msb_per_scalar[(2 * i) + 1], th_hist);
-            }
-        });
-        points =
-            inline_glv_double ? std::span<const AffineElement>(glv_points_storage.data(), n) : external_glv_doubled;
-        scalars = glv_scalars_storage;
-    } else {
-        // Non-GLV path: in-place from-Mont (later restored in the Stage-7 epilogue).
-        bb::parallel_for(bb::get_num_cpus(), [&](const ThreadChunk& chunk) {
-            auto& th_hist = per_thread_msb_hist[chunk.thread_index];
-            for (size_t i : chunk.range(n_input)) {
-                input_scalars[i].self_from_montgomery_form_reduced();
-                round_parallel_detail::record_msb(
-                    round_parallel_detail::msb_of_4limb(input_scalars[i].data), msb_per_scalar[i], th_hist);
-            }
-        });
-        scalars = input_scalars;
-        points = input_points;
+            });
+            points =
+                inline_glv_double ? std::span<const AffineElement>(glv_points_storage.data(), n) : external_glv_doubled;
+            scalars = glv_scalars_storage;
+        } else {
+            // Non-GLV path: in-place from-Mont (later restored in the Stage-7 epilogue).
+            round_parallel_detail::msm_parallel_for(hw_threads, [&](const ThreadChunk& chunk) {
+                auto& th_hist = per_thread_msb_hist[chunk.thread_index];
+                for (size_t i : chunk.range(n_input)) {
+                    input_scalars[i].self_from_montgomery_form_reduced();
+                    round_parallel_detail::record_msb(
+                        round_parallel_detail::msb_of_4limb(input_scalars[i].data), msb_per_scalar[i], th_hist);
+                }
+            });
+            scalars = input_scalars;
+            points = input_points;
+        }
     }
 
     std::array<uint64_t, 256> msb_hist{};
@@ -1445,25 +1498,24 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     // re-Mont-form them in parallel before dispatching.
     // ---------------------------------------------------------------------------------------
     {
-        const size_t max_threads_dispatch = bb::get_num_cpus();
-        const size_t threads_for_dispatch = std::max<size_t>(1, std::min(n_active_early, max_threads_dispatch));
+        const size_t threads_for_dispatch = std::max<size_t>(1, std::min(n_active_early, hw_threads));
         const size_t pts_per_thread = (n_active_early + threads_for_dispatch - 1) / threads_for_dispatch;
         if (pts_per_thread < MIN_PTS_PER_THREAD_FOR_PIPPENGER) {
-            bb::parallel_for(bb::get_num_cpus(), [&](const ThreadChunk& chunk) {
+            round_parallel_detail::msm_parallel_for(hw_threads, [&](const ThreadChunk& chunk) {
                 for (size_t i : chunk.range(n)) {
                     scalars[i].self_to_montgomery_form();
                 }
             });
             std::span<const ScalarField> scalars_const(scalars.data(), n);
             PolynomialSpan<const ScalarField> ps(0, scalars_const);
-            return trivial_msm_threaded<Curve>(ps, points);
+            return trivial_msm_threaded<Curve>(ps, points, hw_threads);
         }
     }
 
     // ---------------------------------------------------------------------------------------
     // Phase 3 — pick the window layout, build the schedule, run the pipeline, sum into the result.
     // ---------------------------------------------------------------------------------------
-    const size_t num_logical_threads_for_c = bb::get_num_cpus() * window_bits_tuning_oversub_factor(n_input);
+    const size_t num_logical_threads_for_c = hw_threads * window_bits_tuning_oversub_factor(n_input);
 
     // Shrink the bit budget to the highest non-empty msb_hist bin so num_windows is determined
     // by the actual data, not the conservative GLV / FULL_NUM_BITS bound.
@@ -1478,8 +1530,37 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     if (effective_num_bits == 0 || effective_num_bits > NUM_BITS) {
         effective_num_bits = NUM_BITS;
     }
+    // Drive window selection by the count of *nonzero* working scalars (n_active_early), not the
+    // nominal size n. The native cost model rounds*(num_points + BUCKET_ACC_COST*buckets) charges
+    // num_points for bucket accumulation, which only touches nonzero scalars; feeding nominal n for
+    // a sparse MSM (e.g. a chonk commit at ~20% density) inflates that term ~5x and overshoots c.
+    // Using the effective count picks the right window for sparse and dense MSMs alike.
+    // Dedup-hinted MSMs lose roughly another half of their active points to the duplicate
+    // pre-pass (measured on Honk wires: ~48% of nonzero coefficients are cluster non-reps),
+    // but Phase A runs after the window is chosen — discount up front so the pick matches
+    // the points that actually reach the buckets.
+    // Estimate the post-dedup count from the zero fraction: on wire-style polynomials
+    // the duplicate mass roughly tracks the zero mass (both come from trace padding and
+    // value reuse), while dense hinted polynomials (z_perm: no zeros, ~16% real repeats)
+    // lose far less. A blanket halving over-discounts those and drops their window 2-3
+    // bits below optimum at n ~ 2^19. Clamp the estimate to [15%, 50%] of the active set.
+    size_t n_for_window = n_active_early;
+    if (dedup_active) {
+        // Prefer a caller-measured duplicate count (dedup_info >= 2, e.g. the adjacent-run
+        // count recorded when the polynomial was built); otherwise estimate from the zero
+        // fraction, clamped to [15%, 50%] of the active set.
+        const size_t zeros = n - n_active_early;
+        size_t dup_est = std::clamp(zeros, (n_active_early * 3) / 20, n_active_early / 2);
+        if (dedup_count_estimate != 0) {
+            // Cap a caller-measured count at 90% of the active set: the count is only an estimate
+            // of what the dedup pre-pass will actually fold (short scalars are skipped), so keep a
+            // 10% floor of effective points to avoid choosing a window for a near-empty MSM.
+            dup_est = std::min(dedup_count_estimate, (n_active_early * 9) / 10);
+        }
+        n_for_window = std::max<size_t>(1, n_active_early - dup_est);
+    }
     const size_t window_bits =
-        round_parallel_detail::choose_window_bits(n, effective_num_bits, n_input, num_logical_threads_for_c);
+        round_parallel_detail::choose_window_bits(n_for_window, effective_num_bits, n_input, num_logical_threads_for_c);
     const size_t num_buckets = (size_t{ 1 } << (window_bits - 1)) + 1;
 
     // Schedule-based dedup state. The two arrays are allocated from the per-MSM_fast arena
@@ -1495,9 +1576,9 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     // Variable-window split was removed from the production path after Chonk traces showed
     // it regressing this rewrite. Keep the schedule uniform and run one region over all
     // non-zero scalars.
-    const auto sched = round_parallel_detail::build_var_window_schedule(effective_num_bits, window_bits);
+    const auto sched = round_parallel_detail::build_window_schedule(effective_num_bits, window_bits);
     BB_ASSERT_LTE(sched.num_windows,
-                  round_parallel_detail::VAR_WINDOW_MAX_WINDOWS,
+                  round_parallel_detail::MAX_SCHEDULE_WINDOWS,
                   "window schedule exceeds compile-time max window count");
 
     using round_parallel_detail::BATCH_CAPACITY;
@@ -1505,11 +1586,11 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     using round_parallel_detail::MIN_BATCH_CAPACITY;
     using round_parallel_detail::SUBCHUNK_ENTRIES_CAP;
 
-    // Thread count: aim for `lmul × physical_cpus` logical tasks so the rpmsm pool can
-    // FIFO-balance heterogeneous P/E cores; cap at `n / MIN_BATCH_CAPACITY` so each chunk
-    // can saturate the batched-affine drains. `bb::get_num_cpus() <= 1` is the chonk
-    // batch-verifier's signal that outer parallelism owns all cores — run sequentially.
-    const size_t desired_threads = std::max<size_t>(1, bb::get_num_cpus());
+    // Thread count: one parallel_for task per available core, capped at
+    // `n / MIN_BATCH_CAPACITY` so each task's chunk stays large enough to saturate the
+    // batched-affine drains. `bb::get_num_cpus() <= 1` is the chonk batch-verifier's
+    // signal that outer parallelism owns all cores — run sequentially.
+    const size_t desired_threads = std::max<size_t>(1, hw_threads);
     const size_t max_threads_for_min_batch = std::max<size_t>(1, n / MIN_BATCH_CAPACITY);
     const size_t num_threads = std::min(desired_threads, max_threads_for_min_batch);
 
@@ -1525,11 +1606,9 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     // exactly. Anyone adding an arena buffer must update both the alloc and the corresponding
     // term in those formulas, otherwise windows_per_batch drifts off the BATCH_MEM_BUDGET.
 
-    // Per-(w, t) slot stride must fit the widest schedule window.
-    size_t B_eff = num_buckets;
-    for (size_t w = 0; w < sched.num_windows; ++w) {
-        B_eff = std::max(B_eff, static_cast<size_t>(sched.num_buckets[w]));
-    }
+    // Per-(w, t) slot stride must fit the widest schedule window. The schedule is uniform, so the
+    // widest window's bucket count is the per-window cap computed above.
+    const size_t B_eff = num_buckets;
 
     const size_t worker_total_for_budget = num_threads;
     const size_t dense_stride_est = round_parallel_detail::compute_dense_stride(B_eff, num_threads);
@@ -1562,8 +1641,8 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     const size_t worker_union_bytes_for_budget = budget_layout.per_worker_union_bytes;
 
     const size_t fixed_overhead = (worker_union_bytes_for_budget * worker_total_for_budget) +
-                                  (size_t{ 96 } * round_parallel_detail::VAR_WINDOW_MAX_WINDOWS) // window_sums_storage
-                                  + (size_t{ 8 } * (num_threads + 1)) // rebalanced_bucket_lo_partition
+                                  round_parallel_detail::window_sums_storage_bytes<Curve>() +
+                                  (size_t{ 8 } * (num_threads + 1)) // rebalanced_bucket_lo_partition
                                   + phase_one_prologue_bytes;
 
     // Solve `wpb · per_window_bytes ≤ BATCH_MEM_BUDGET − fixed_overhead`.
@@ -1585,12 +1664,11 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
         (global_max_chunk_len + SUBCHUNK_ENTRIES_CAP - 1) / SUBCHUNK_ENTRIES_CAP;
     const size_t chunk_capacity = std::max(SUBCHUNK_ENTRIES_CAP, 2 * global_max_overflow_per_window);
 
-    // Per-OS-thread scratch. The rpmsm pool dispatches `num_threads` logical tasks across
-    // `worker_total = num_threads = physical_cpus` OS threads. Tasks on the same
-    // OS thread run sequentially (FIFO claim), so they share scratch — every field in
-    // ThreadScratch is overwritten fresh at task start, never read across tasks. Indexing
-    // by `worker_id` (rather than `tid`) keeps memory linear in physical_cpus instead of
-    // num_threads = lmul × physical_cpus.
+    // Per-task scratch. Every parallel_for stage below runs `num_threads` tasks, and
+    // `thread_scratch` holds one slot per task index, so no two concurrent tasks ever
+    // share a slot. Every field is overwritten fresh at task start; nothing is read
+    // across tasks. Phase A scratch overlays the same arena bytes (see Zone W below)
+    // because the Phase A and Stage 6 parallel phases never run concurrently.
     const size_t worker_total = num_threads;
     std::vector<round_parallel_detail::ThreadScratch<Curve>> thread_scratch(worker_total);
     std::vector<round_parallel_detail::PhaseAScratch<Curve>> phase_a_scratch;
@@ -1662,9 +1740,9 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
 
     // Zone P extra (post-decision permanent state): window_sums + dedup state. Sized
     // with the strict alignment a bump cursor would apply.
-    constexpr size_t VAR_WINDOW_WINDOW_SUMS_CAP = round_parallel_detail::VAR_WINDOW_MAX_WINDOWS;
+    constexpr size_t WINDOW_SUMS_CAP = round_parallel_detail::MAX_SCHEDULE_WINDOWS;
     size_t bytes_P_extra_layout = 0;
-    layout_add(bytes_P_extra_layout, sizeof(Element) * VAR_WINDOW_WINDOW_SUMS_CAP, alignof(Element));
+    layout_add(bytes_P_extra_layout, round_parallel_detail::window_sums_storage_bytes<Curve>(), alignof(Element));
     if (dedup_active) {
         layout_add(bytes_P_extra_layout, sizeof(uint32_t) * n, alignof(uint32_t));
         layout_add(bytes_P_extra_layout,
@@ -1924,8 +2002,8 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     auto orig_thread_hi = zone_S_alloc.template operator()<size_t>(windows_per_batch * num_threads);
 
     // Zone P: window_sums (Stage 7 accumulator — survives the whole MSM_fast).
-    auto window_sums = zone_P_alloc.template operator()<typename Curve::Element>(VAR_WINDOW_WINDOW_SUMS_CAP);
-    std::fill_n(window_sums.begin(), VAR_WINDOW_WINDOW_SUMS_CAP, Curve::Group::point_at_infinity);
+    auto window_sums = zone_P_alloc.template operator()<typename Curve::Element>(WINDOW_SUMS_CAP);
+    std::fill_n(window_sums.begin(), WINDOW_SUMS_CAP, Curve::Group::point_at_infinity);
 
     // Zone P: dedup state — written by Phase A and read through Stage 6a of every batch,
     // so it must outlive every batch.
@@ -1938,7 +2016,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
             zone_P_alloc.template operator()<AffineElement>(round_parallel_detail::DEDUP_MAX_CLUSTERS);
         BB_BENCH_NAME("MSM_fast::dedup/redirect_invalid_fill");
         uint32_t* const rl = dedup_state.redirect_lookup.data();
-        bb::parallel_for(bb::get_num_cpus(), [&](const ThreadChunk& chunk) {
+        round_parallel_detail::msm_parallel_for(hw_threads, [&](const ThreadChunk& chunk) {
             for (size_t i : chunk.range(n)) {
                 rl[i] = round_parallel_detail::DEDUP_INVALID_EXTRA;
             }
@@ -2150,10 +2228,15 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
                 }
             }
         };
-        if (dedup_known_for_batch) {
-            bb::parallel_for(num_threads, [&](size_t tid) { stage1_digit_extract.template operator()<true>(tid); });
-        } else {
-            bb::parallel_for(num_threads, [&](size_t tid) { stage1_digit_extract.template operator()<false>(tid); });
+        {
+            BB_BENCH_NAME("MSM_fast::Stage1_digit_extract");
+            if (dedup_known_for_batch) {
+                round_parallel_detail::msm_parallel_for(
+                    num_threads, [&](size_t tid) { stage1_digit_extract.template operator()<true>(tid); });
+            } else {
+                round_parallel_detail::msm_parallel_for(
+                    num_threads, [&](size_t tid) { stage1_digit_extract.template operator()<false>(tid); });
+            }
         }
 
         // Stage 2 (bucket histogram): per-window per-digit totals + per-thread within-digit
@@ -2166,26 +2249,29 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
         // `bucket_start_all[w][d+1]` (one cell past where Stage 3 will read), so Stage 3 can
         // prefix-sum in place without a separate `bucket_total_counts` buffer. The size_t
         // bucket_start cell widens the uint32_t total implicitly.
-        bb::parallel_for(num_threads, [&](size_t tid) {
-            const size_t d_start = tid * B_R / num_threads;
-            const size_t d_end = (tid + 1) * B_R / num_threads;
-            for (size_t w = 0; w < windows_in_batch; ++w) {
-                size_t* const bucket_start_w = bucket_start_all.data() + (w * (bucket_stride + 1));
-                for (size_t d = d_start; d < d_end; ++d) {
-                    if (d == 0) {
-                        continue;
+        {
+            BB_BENCH_NAME("MSM_fast::Stage2_bucket_histogram");
+            round_parallel_detail::msm_parallel_for(num_threads, [&](size_t tid) {
+                const size_t d_start = tid * B_R / num_threads;
+                const size_t d_end = (tid + 1) * B_R / num_threads;
+                for (size_t w = 0; w < windows_in_batch; ++w) {
+                    size_t* const bucket_start_w = bucket_start_all.data() + (w * (bucket_stride + 1));
+                    for (size_t d = d_start; d < d_end; ++d) {
+                        if (d == 0) {
+                            continue;
+                        }
+                        uint32_t running = 0;
+                        for (size_t t = 0; t < num_threads; ++t) {
+                            const size_t k = (((w * num_threads) + t) * bucket_stride) + d;
+                            const uint32_t cnt = digit_cursors[k];
+                            digit_cursors[k] = running;
+                            running += cnt;
+                        }
+                        bucket_start_w[d + 1] = running;
                     }
-                    uint32_t running = 0;
-                    for (size_t t = 0; t < num_threads; ++t) {
-                        const size_t k = (((w * num_threads) + t) * bucket_stride) + d;
-                        const uint32_t cnt = digit_cursors[k];
-                        digit_cursors[k] = running;
-                        running += cnt;
-                    }
-                    bucket_start_w[d + 1] = running;
                 }
-            }
-        });
+            });
+        }
 
         // Stage 3 (bucket offsets / prefix sum): per-window serial prefix sum in place.
         // Stage 2 already deposited each digit's per-window total at bucket_start[d+1];
@@ -2206,7 +2292,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
                     build_bucket_offsets_for_window(w);
                 }
             } else {
-                bb::parallel_for(offset_threads, [&](size_t tid) {
+                round_parallel_detail::msm_parallel_for(offset_threads, [&](size_t tid) {
                     for (size_t w = tid; w < windows_in_batch; w += offset_threads) {
                         build_bucket_offsets_for_window(w);
                     }
@@ -2340,10 +2426,15 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
             }
         };
 
-        if (dedup_known_for_batch) {
-            bb::parallel_for(num_threads, [&](size_t tid) { stage4_emit.template operator()<true>(tid); });
-        } else {
-            bb::parallel_for(num_threads, [&](size_t tid) { stage4_emit.template operator()<false>(tid); });
+        {
+            BB_BENCH_NAME("MSM_fast::Stage4_digit_scatter");
+            if (dedup_known_for_batch) {
+                round_parallel_detail::msm_parallel_for(
+                    num_threads, [&](size_t tid) { stage4_emit.template operator()<true>(tid); });
+            } else {
+                round_parallel_detail::msm_parallel_for(
+                    num_threads, [&](size_t tid) { stage4_emit.template operator()<false>(tid); });
+            }
         }
 
         // Phase A: schedule-based dedup detection on window 0. Each thread owns a
@@ -2384,7 +2475,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
                 BB_BENCH_NAME("MSM_fast::PhaseA_dedup_detect_hash");
                 const size_t* const w0_bucket_start = bucket_start_all.data();
                 std::atomic<size_t> dedup_cluster_count{ 0 };
-                bb::parallel_for(num_threads, [&, w0_bucket_start](size_t tid) noexcept {
+                round_parallel_detail::msm_parallel_for(num_threads, [&, w0_bucket_start](size_t tid) noexcept {
                     const size_t b_lo = 1 + ((tid * (B_R - 1)) / num_threads);
                     const size_t b_hi = 1 + (((tid + 1) * (B_R - 1)) / num_threads);
                     const uint32_t cid_lo = static_cast<uint32_t>(tid) * cids_per_thread;
@@ -2456,14 +2547,15 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
             const size_t bs_stride = bucket_stride + 1;
             const size_t br = B_R;
             const size_t cap_R = n;
-            bb::parallel_for(num_threads, [&, rl_data, bs_stride, br, cap_R](size_t tid) noexcept {
-                for (size_t w = tid; w < windows_in_batch; w += num_threads) {
-                    uint32_t* sched_w = schedule.data() + (w * cap_R);
-                    size_t* bucket_start_w = bucket_start_all.data() + (w * bs_stride);
-                    round_parallel_detail::dedup_patch_schedule_window<Curve>(sched_w, bucket_start_w, br, rl_data);
-                    partition_chunks_for_window(w);
-                }
-            });
+            round_parallel_detail::msm_parallel_for(
+                num_threads, [&, rl_data, bs_stride, br, cap_R](size_t tid) noexcept {
+                    for (size_t w = tid; w < windows_in_batch; w += num_threads) {
+                        uint32_t* sched_w = schedule.data() + (w * cap_R);
+                        size_t* bucket_start_w = bucket_start_all.data() + (w * bs_stride);
+                        round_parallel_detail::dedup_patch_schedule_window<Curve>(sched_w, bucket_start_w, br, rl_data);
+                        partition_chunks_for_window(w);
+                    }
+                });
             chunk_partition_done = true;
         }
 
@@ -2785,16 +2877,23 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
                 }
             };
 
-            bb::parallel_for(num_threads, bucket_partials_per_thread_lambda);
-            bb::parallel_for(num_threads, bucket_reduce_cross_thread_lambda);
+            {
+                BB_BENCH_NAME("MSM_fast::Stage6a_bucket_partials");
+                round_parallel_detail::msm_parallel_for(num_threads, bucket_partials_per_thread_lambda);
+            }
+            {
+                BB_BENCH_NAME("MSM_fast::Stage6b_reduce_cross_thread");
+                round_parallel_detail::msm_parallel_for(num_threads, bucket_reduce_cross_thread_lambda);
+            }
         }
 
         // Stage 7 (cross-window combine): per-window reduce of `num_threads` per-thread partials.
         // (Algebraic identity: `Σ_t (L_t + (lo_t − 1) · R_t) = window's bucket sum`,
         // with the per-chunk contributions already accumulated above.)
         {
+            BB_BENCH_NAME("MSM_fast::Stage7_combine");
             const size_t reduce_threads = std::min(num_threads, windows_in_batch);
-            bb::parallel_for(reduce_threads, [&](size_t rid) {
+            round_parallel_detail::msm_parallel_for(reduce_threads, [&](size_t rid) {
                 const size_t lo = rid * windows_in_batch / reduce_threads;
                 const size_t hi = (rid + 1) * windows_in_batch / reduce_threads;
                 for (size_t w = lo; w < hi; ++w) {
@@ -2831,7 +2930,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     // GLV path leaves input_scalars untouched (it reads via from_montgomery_form_reduced into
     // a temporary). Non-GLV path mutated in place above and must restore.
     if (!use_glv) {
-        bb::parallel_for(bb::get_num_cpus(), [&](const ThreadChunk& chunk) {
+        round_parallel_detail::msm_parallel_for(hw_threads, [&](const ThreadChunk& chunk) {
             for (size_t i : chunk.range(n_input)) {
                 input_scalars[i].self_to_montgomery_form();
             }
@@ -2844,21 +2943,21 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
 template <typename Curve>
 typename Curve::Element pippenger_unsafe_fast(PolynomialSpan<const typename Curve::ScalarField> scalars,
                                               std::span<const typename Curve::AffineElement> points,
-                                              bool dedup_hint) noexcept
+                                              size_t dedup_info) noexcept
 {
-    return pippenger_round_parallel<Curve>(scalars, points, dedup_hint);
+    return pippenger_round_parallel<Curve>(scalars, points, dedup_info);
 }
 
 template <typename Curve>
 typename Curve::Element pippenger_fast(PolynomialSpan<const typename Curve::ScalarField> scalars,
                                        std::span<const typename Curve::AffineElement> points,
                                        bool handle_edge_cases,
-                                       bool dedup_hint) noexcept
+                                       size_t dedup_info) noexcept
 {
     using Element = typename Curve::Element;
     using ScalarField = typename Curve::ScalarField;
     if (!handle_edge_cases) {
-        return pippenger_round_parallel<Curve>(scalars, points, dedup_hint);
+        return pippenger_round_parallel<Curve>(scalars, points, dedup_info);
     }
     // Edge-case-handling path: route through the Jacobian fast-path. It uses
     // Jacobian additions throughout, so point-at-infinity and equal-x bucket
@@ -2895,7 +2994,7 @@ typename Curve::Element pippenger_fast(PolynomialSpan<const typename Curve::Scal
         }
     });
     const Element result =
-        round_parallel_detail::pippenger_round_parallel_jacobian_fast<Curve>(scalar_slice, point_slice, 0);
+        round_parallel_detail::pippenger_round_parallel_jacobian_fast<Curve>(scalar_slice, point_slice, 0, 0);
     bb::parallel_for(bb::get_num_cpus(), [&](const ThreadChunk& chunk) {
         for (size_t i : chunk.range(n_used)) {
             mutable_scalars[i].self_to_montgomery_form();
@@ -2908,9 +3007,9 @@ template <typename Curve>
 typename Curve::AffineElement MSM_fast<Curve>::msm(std::span<const typename Curve::AffineElement> points,
                                                    PolynomialSpan<const typename Curve::ScalarField> scalars,
                                                    bool handle_edge_cases,
-                                                   bool dedup_hint) noexcept
+                                                   size_t dedup_info) noexcept
 {
-    return AffineElement(pippenger_fast<Curve>(scalars, points, handle_edge_cases, dedup_hint));
+    return AffineElement(pippenger_fast<Curve>(scalars, points, handle_edge_cases, dedup_info));
 }
 
 #include "./pippenger_batched.hpp"
@@ -2919,36 +3018,38 @@ typename Curve::AffineElement MSM_fast<Curve>::msm(std::span<const typename Curv
 template curve::BN254::Element pippenger_unsafe_fast<curve::BN254>(
     PolynomialSpan<const curve::BN254::ScalarField> scalars,
     std::span<const curve::BN254::AffineElement> points,
-    bool dedup_hint) noexcept;
+    size_t dedup_info) noexcept;
 template curve::Grumpkin::Element pippenger_unsafe_fast<curve::Grumpkin>(
     PolynomialSpan<const curve::Grumpkin::ScalarField> scalars,
     std::span<const curve::Grumpkin::AffineElement> points,
-    bool dedup_hint) noexcept;
+    size_t dedup_info) noexcept;
 template curve::BN254::Element pippenger_fast<curve::BN254>(PolynomialSpan<const curve::BN254::ScalarField> scalars,
                                                             std::span<const curve::BN254::AffineElement> points,
                                                             bool handle_edge_cases,
-                                                            bool dedup_hint) noexcept;
+                                                            size_t dedup_info) noexcept;
 template curve::Grumpkin::Element pippenger_fast<curve::Grumpkin>(
     PolynomialSpan<const curve::Grumpkin::ScalarField> scalars,
     std::span<const curve::Grumpkin::AffineElement> points,
     bool handle_edge_cases,
-    bool dedup_hint) noexcept;
+    size_t dedup_info) noexcept;
 template class MSM_fast<curve::BN254>;
 template class MSM_fast<curve::Grumpkin>;
 
 template curve::BN254::Element pippenger_round_parallel<curve::BN254>(
     PolynomialSpan<const curve::BN254::ScalarField> scalars,
     std::span<const curve::BN254::AffineElement> points,
-    bool dedup_hint,
+    size_t dedup_info,
     std::span<const curve::BN254::AffineElement> external_glv_doubled,
-    std::span<std::byte> external_arena) noexcept;
+    std::span<std::byte> external_arena,
+    size_t max_threads) noexcept;
 
 template curve::Grumpkin::Element pippenger_round_parallel<curve::Grumpkin>(
     PolynomialSpan<const curve::Grumpkin::ScalarField> scalars,
     std::span<const curve::Grumpkin::AffineElement> points,
-    bool dedup_hint,
+    size_t dedup_info,
     std::span<const curve::Grumpkin::AffineElement> external_glv_doubled,
-    std::span<std::byte> external_arena) noexcept;
+    std::span<std::byte> external_arena,
+    size_t max_threads) noexcept;
 
 template curve::BN254::Element trivial_msm<curve::BN254>(
     PolynomialSpan<const curve::BN254::ScalarField> scalars_span,
@@ -2960,24 +3061,28 @@ template curve::Grumpkin::Element trivial_msm<curve::Grumpkin>(
 
 template curve::BN254::Element trivial_msm_threaded<curve::BN254>(
     PolynomialSpan<const curve::BN254::ScalarField> scalars_span,
-    std::span<const curve::BN254::AffineElement> all_points) noexcept;
+    std::span<const curve::BN254::AffineElement> all_points,
+    size_t max_threads) noexcept;
 
 template curve::Grumpkin::Element trivial_msm_threaded<curve::Grumpkin>(
     PolynomialSpan<const curve::Grumpkin::ScalarField> scalars_span,
-    std::span<const curve::Grumpkin::AffineElement> all_points) noexcept;
+    std::span<const curve::Grumpkin::AffineElement> all_points,
+    size_t max_threads) noexcept;
 
 namespace round_parallel_detail {
 template curve::BN254::Element pippenger_round_parallel_jacobian_fast<curve::BN254>(
     std::span<const curve::BN254::ScalarField> scalars,
     std::span<const curve::BN254::AffineElement> points,
-    size_t min_pts_per_thread_override) noexcept;
+    size_t min_pts_per_thread_override,
+    size_t max_threads) noexcept;
 
 template curve::Grumpkin::Element pippenger_round_parallel_jacobian_fast<curve::Grumpkin>(
     std::span<const curve::Grumpkin::ScalarField> scalars,
     std::span<const curve::Grumpkin::AffineElement> points,
-    size_t min_pts_per_thread_override) noexcept;
+    size_t min_pts_per_thread_override,
+    size_t max_threads) noexcept;
 } // namespace round_parallel_detail
 
-template size_t compute_arena_bytes_for_msm<curve::BN254>(size_t, bool, bool) noexcept;
+template size_t compute_arena_bytes_for_msm<curve::BN254>(size_t, bool, bool, size_t) noexcept;
 
 } // namespace bb::scalar_multiplication
