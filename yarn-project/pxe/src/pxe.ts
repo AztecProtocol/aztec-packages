@@ -191,20 +191,15 @@ export type PXECreateArgs = {
 /**
  * A source from which PXE derives the tagging secrets it scans for to discover incoming private logs.
  *
- * - `sender`: an external address whose logs we want to find. PXE derives a shared secret from it via ECDH against
- *   every account registered in this PXE (present and future), so registering one sender applies it to all of them.
- *   The address itself is not secret, so unlike `arbitrary-secret` it can be reused freely across recipients.
+ * - `address-derived`: derives a shared secret via ECDH from an external `sender` address against every account
+ *   registered in this PXE (present and future), so registering one sender applies it to all of them. The address is
+ *   not secret, so unlike `arbitrary-secret` it can be reused freely across recipients.
  * - `arbitrary-secret`: a shared secret point provided directly, scoped to a single recipient. It bypasses ECDH, so it
  *   must not be reused across recipients (each would then be able to find the others' tags).
  */
 export type TaggingSecretSource =
-  | { kind: 'sender'; address: AztecAddress }
+  | { kind: 'address-derived'; sender: AztecAddress }
   | { kind: 'arbitrary-secret'; recipient: AztecAddress; secret: Point };
-
-/** Narrows a {@link TaggingSecretSource} to the `sender` variant. */
-export const isSenderSource = (
-  source: TaggingSecretSource,
-): source is Extract<TaggingSecretSource, { kind: 'sender' }> => source.kind === 'sender';
 
 /**
  * Private eXecution Environment (PXE) is a library used by wallets to simulate private phase of transactions and to
@@ -688,8 +683,8 @@ export class PXE {
     let wasAdded: boolean;
 
     switch (source.kind) {
-      case 'sender':
-        wasAdded = await this.#registerSender(source.address);
+      case 'address-derived':
+        wasAdded = await this.#registerSender(source.sender);
         break;
       case 'arbitrary-secret':
         wasAdded = await this.#registerArbitrarySecret(source.recipient, source.secret);
@@ -711,13 +706,13 @@ export class PXE {
    */
   public async removeTaggingSecretSource(source: TaggingSecretSource): Promise<void> {
     switch (source.kind) {
-      case 'sender': {
-        const { address } = source;
-        const wasRemoved = await this.taggingSecretSourcesStore.removeSender(address);
+      case 'address-derived': {
+        const { sender } = source;
+        const wasRemoved = await this.taggingSecretSourcesStore.removeSender(sender);
         this.log.info(
           wasRemoved
-            ? `Removed sender:\n ${address.toString()}`
-            : `Sender:\n "${address.toString()}"\n not registered in PXE.`,
+            ? `Removed sender:\n ${sender.toString()}`
+            : `Sender:\n "${sender.toString()}"\n not registered in PXE.`,
         );
         break;
       }
@@ -739,19 +734,28 @@ export class PXE {
   }
 
   /**
-   * Retrieves all the tagging secret sources registered in this PXE: every sender plus every directly-registered
-   * `arbitrary-secret` (each scoped to its recipient). See {@link TaggingSecretSource}.
+   * Retrieves the tagging secret sources registered in this PXE. Without a filter it returns every source (every sender
+   * plus every directly-registered `arbitrary-secret`); pass `{ kind }` to narrow to a single variant. See
+   * {@link TaggingSecretSource}.
    */
-  public async getTaggingSecretSources(): Promise<TaggingSecretSource[]> {
+  public getTaggingSecretSources<K extends TaggingSecretSource['kind']>(filter: {
+    kind: K;
+  }): Promise<Extract<TaggingSecretSource, { kind: K }>[]>;
+  public getTaggingSecretSources(): Promise<TaggingSecretSource[]>;
+  public async getTaggingSecretSources(filter?: {
+    kind?: TaggingSecretSource['kind'];
+  }): Promise<TaggingSecretSource[]> {
     const [senders, secrets] = await Promise.all([
       this.taggingSecretSourcesStore.getSenders(),
       this.taggingSecretSourcesStore.getAllSharedSecrets(),
     ]);
 
-    return [
-      ...senders.map((address): TaggingSecretSource => ({ kind: 'sender', address })),
+    const sources: TaggingSecretSource[] = [
+      ...senders.map((sender): TaggingSecretSource => ({ kind: 'address-derived', sender })),
       ...secrets.map(({ recipient, secret }): TaggingSecretSource => ({ kind: 'arbitrary-secret', recipient, secret })),
     ];
+
+    return filter?.kind ? sources.filter(source => source.kind === filter.kind) : sources;
   }
 
   /** Registers a sender, skipping addresses that belong to a local account. Returns whether it was newly added. */

@@ -15,9 +15,9 @@ The PXE methods for registering tagging-secret sources (registered senders and d
 
 | Before | After |
 | --- | --- |
-| `pxe.registerSender(address)` | `pxe.registerTaggingSecretSource({ kind: 'sender', address })` |
-| `pxe.removeSender(address)` | `pxe.removeTaggingSecretSource({ kind: 'sender', address })` |
-| `pxe.getSenders()` | `pxe.getTaggingSecretSources()` (filter to `kind === 'sender'`; the exported `isSenderSource` guard does this) |
+| `pxe.registerSender(address)` | `pxe.registerTaggingSecretSource({ kind: 'address-derived', sender: address })` |
+| `pxe.removeSender(address)` | `pxe.removeTaggingSecretSource({ kind: 'address-derived', sender: address })` |
+| `pxe.getSenders()` | `pxe.getTaggingSecretSources({ kind: 'address-derived' })` |
 | `pxe.registerSharedSecret(recipient, secret)` | `pxe.registerTaggingSecretSource({ kind: 'arbitrary-secret', recipient, secret })` |
 | `pxe.removeSharedSecret(recipient, secret)` | `pxe.removeTaggingSecretSource({ kind: 'arbitrary-secret', recipient, secret })` |
 
