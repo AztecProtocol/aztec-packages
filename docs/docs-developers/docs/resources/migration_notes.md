@@ -74,7 +74,6 @@ while i > 0 {
 }
 ```
 
-||||||| parent of f708bc9b8e (docs: migration notes for the note-nonce/cancellable changes; clarify tx_request salt comment)
 ### [Aztec.nr / Aztec.js] Account entrypoint always emits the tx nonce nullifier; `cancellable` removed
 
 The account entrypoint no longer takes a `cancellable` flag. It now always emits a nullifier derived from the app payload's `tx_nonce`, so every transaction is replay-protected and cancellable by default. Re-proving the same payload collides on this nullifier, and a replacement transaction that reuses the same `tx_nonce` (for example with a higher priority fee) conflicts with the original, so only one can be mined.
