@@ -98,13 +98,13 @@ export const REORG_TIMING_BASE = {
 } as const;
 
 /**
- * Timing-only profile shared by the fast single-node L1-reorg tests (the six `optimistic_proving`
- * reorg blocks and `l1_reorgs`). Extends {@link REORG_TIMING_BASE} with mainnet-style 32-slot anvil
- * epochs and a 4s L1 slot. Note: `ethereumSlotDuration` stays at 4 here (not unified to
- * {@link MV_REORG_TIMING}'s 6) — at eth=6 the proof-submission-window timing in `l1_reorgs`'
- * proof-removal/proof-restore reorg assertions starves and times out, so the 4s L1 slot is
- * load-bearing for the single-node reorg path. Tests that need a different epoch length (e.g. 8 for
- * the "with replacement" case) override `aztecEpochDuration` after the spread.
+ * Timing-only profile shared by the fast single-node L1-reorg tests (`proving/optimistic`'s reorg
+ * cases and `l1-reorgs/`). Extends {@link REORG_TIMING_BASE} with mainnet-style 32-slot anvil epochs
+ * and a 4s L1 slot. Note: `ethereumSlotDuration` stays at 4 here (not unified to
+ * {@link MV_REORG_TIMING}'s 6) — at eth=6 the proof-submission-window timing in the
+ * proof-removal/proof-restore reorg assertions in `l1-reorgs/blocks` starves and times out, so the 4s
+ * L1 slot is required for the single-node reorg path. Tests that need a different epoch length (e.g. 8
+ * for the "with replacement" case) override `aztecEpochDuration` after the spread.
  */
 export const FAST_REORG_TIMING = {
   ...REORG_TIMING_BASE,
@@ -114,8 +114,9 @@ export const FAST_REORG_TIMING = {
 
 /**
  * Timing-only profile naming the 36s/6s reorg-and-prune cadence copied verbatim across the
- * multi-validator prune/HA/equivocation tests (`orphan_block_prune`, `missed_l1_publish`,
- * `equivocation`, `ha_sync`, `ha_checkpoint_handoff`). The multi-validator analogue of
+ * multi-validator recovery and high-availability tests (`recovery/proposal_failure_recovery`,
+ * `recovery/equivocation_recovery`, `high-availability/ha_sync`,
+ * `high-availability/ha_checkpoint_handoff`). The multi-validator analogue of
  * {@link FAST_REORG_TIMING}, adding the 0.5s attestation-propagation budget those committee tests
  * need. Timing-only: committee size, `aztecProofSubmissionEpochs`, and the slasher block stay
  * per-test. Spread BEFORE per-test overrides so a test can still bump e.g. `aztecEpochDuration`.
@@ -127,8 +128,8 @@ export const MV_REORG_TIMING = {
 } as const;
 
 /**
- * Timing-only profile naming the 36s/12s multi-validator consensus/pipelining cadence copied across
- * `block_building` (simple + high_tps), `first_slot`, and `proof_at_boundary`. Uses
+ * Timing-only profile naming the 36s/12s multi-validator block-production cadence copied across
+ * `block-production/` (`simple`, `high_tps`, `first_slot`, and `proof_boundary`). Uses
  * `aztecSlotDurationInL1Slots: 3` rather than an explicit `aztecSlotDuration: 36` so the L2 slot stays
  * coupled to `ethereumSlotDuration` if a test overrides eth. Deliberately omits
  * `attestationPropagationTime` (per-scenario: default 2, 0.5, or 1) — set it per test. Spread BEFORE
@@ -141,8 +142,9 @@ export const MV_CONSENSUS_TIMING = {
 } as const;
 
 /**
- * Timing-only profile naming the 72s wide-slot multi-block-per-slot cadence copied across the MBPS
- * consensus/prune tests (`mbps.parallel`'s `setupMbps`, `mbps/pipelining`, `pipeline_prune`). A-914:
+ * Timing-only profile naming the 72s wide-slot multi-block-per-slot cadence copied across the
+ * block-production and recovery tests (`block-production/`'s `setupMbps`, `block-production/blob_promotion`,
+ * `recovery/pipeline_prune`). A-914:
  * pipelined MBPS needs this 72s/12s cadence (not the tighter 36s/4s), otherwise non-proposer nodes hit
  * `CheckpointNumberNotSequentialError` when the pipelined proposer races ahead of L1 confirmation. The
  * larger `perBlockAllocationMultiplier` lets each of the several blocks per slot fit non-trivial txs.

@@ -30,7 +30,8 @@ jest.setTimeout(1000 * 60 * 20);
  * sets `startProverNode: false` and spins up the prover via `test.createProverNode()` partway through the epoch.
  *
  * L1 reorgs are driven by `cheatCodes.eth.reorgWithReplacement` and treated as `other-active L1` per the rubric — NOT
- * cross-chain bridging — so the file stays `single-node` (mirrors `epochs_partial_proof` / `epochs_sync_after_reorg`).
+ * cross-chain bridging — so the file stays `single-node` (mirrors `partial-proofs/single_root` and
+ * `recovery/sync_after_reorg`).
  * Block production is paused/resumed mid-test via the `skipPublishingCheckpointsPercent` node-admin config, and the
  * `checkpoint reorg during proving` describe gates top-tree proving with the prover's `beforeTopTreeProve` session hook.
  * Anvil runs on interval mining; time advances naturally (the reorgs and `waitUntilNextEpochStarts` do the warping).

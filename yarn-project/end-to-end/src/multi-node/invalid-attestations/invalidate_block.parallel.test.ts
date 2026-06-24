@@ -139,7 +139,7 @@ describe('multi-node/invalid-attestations/invalidate_block', () => {
       l1Client as unknown as ViemPublicDebugClient,
       VALIDATOR_COUNT,
       undefined,
-      createLogger('e2e:epochs_invalidate_block:calldata'),
+      createLogger('e2e:invalidate_block:calldata'),
       EthAddress.fromString(rollupContract.address),
     );
     const { attestations } = await calldataRetriever.getCheckpointFromRollupTx(

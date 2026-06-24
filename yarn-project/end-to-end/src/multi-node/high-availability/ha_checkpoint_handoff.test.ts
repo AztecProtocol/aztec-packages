@@ -157,8 +157,8 @@ describe('multi-node/high-availability/ha_checkpoint_handoff', () => {
         : haPairs.find(pair => pair.addresses.includes(proposer.toString().toLowerCase()));
 
     // REFACTOR: hand-rolled slot-search loop with manual epoch arithmetic and warp-on-EpochNotStable retry
-    // (same pattern as epochs_invalidate_block / epochs_orphan_block_prune) — a shared "find slots matching a
-    // proposer predicate, warping past EpochNotStable" helper should replace it.
+    // (same pattern as invalid-attestations/invalidate_block and recovery/proposal_failure_recovery) — a shared
+    // "find slots matching a proposer predicate, warping past EpochNotStable" helper should replace it.
     let candidate = Number(test.epochCache.getEpochAndSlotNow().slot) + 4;
     const maxAttempts = 200;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
