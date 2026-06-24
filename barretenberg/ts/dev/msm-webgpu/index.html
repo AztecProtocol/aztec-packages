@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>BN254 MSM: WebGPU vs barretenberg WASM</title>
+    <style>
+      body {
+        font-family: ui-sans-serif, system-ui, sans-serif;
+        max-width: 880px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+        line-height: 1.45;
+      }
+      h1 { font-size: 1.5rem; }
+      .controls { display: flex; gap: 0.75rem; align-items: center; margin: 1rem 0; }
+      input[type="number"] { width: 9ch; padding: 0.25rem 0.4rem; }
+      button { padding: 0.4rem 0.9rem; cursor: pointer; }
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+      #log {
+        background: #0b1020;
+        color: #e6e6e6;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12px;
+        padding: 0.75rem;
+        border-radius: 6px;
+        white-space: pre-wrap;
+        overflow-x: auto;
+        min-height: 12rem;
+      }
+      .ok { color: #6ee7b7; }
+      .err { color: #fca5a5; }
+      .warn { color: #fde68a; }
+      #srs-progress {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12px;
+        margin: 0.5rem 0;
+        padding: 0.4rem 0.75rem;
+        background: #111827;
+        color: #e6e6e6;
+        border-radius: 6px;
+        white-space: pre;
+        overflow-x: auto;
+        display: none;
+      }
+      #srs-progress.visible { display: block; }
+      #srs-progress .bar-fill { color: #6ee7b7; }
+      #srs-progress .bar-empty { color: #4b5563; }
+      details { margin: 0.75rem 0; }
+      code { background: #f1f5f9; padding: 0.05rem 0.3rem; border-radius: 3px; }
+      #results {
+        display: none;
+        margin: 0.75rem 0;
+        overflow-x: auto;
+      }
+      #results.visible { display: block; }
+      #results table {
+        border-collapse: collapse;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12px;
+        min-width: 100%;
+      }
+      #results th, #results td {
+        border: 1px solid #d1d5db;
+        padding: 0.35rem 0.6rem;
+        text-align: right;
+        white-space: nowrap;
+      }
+      #results th {
+        background: #f1f5f9;
+        font-weight: 600;
+      }
+      #results td.samples {
+        text-align: left;
+        color: #6b7280;
+      }
+      #results .ok { color: #047857; }
+      #results .err { color: #b91c1c; font-weight: 600; }
+      /* Dim grey for the (xx.x%) suffix next to a timing — readable but visually
+         secondary so the eye lands on the ms value first. */
+      #results .pct { color: #94a3b8; font-weight: 400; }
+      /* Top-3 highlight per column in the profile breakdown table. Warm tones
+         in descending intensity — top1 sticks out most. */
+      #results td.top1 { background: #fde68a; font-weight: 600; }
+      #results td.top2 { background: #fef3c7; }
+      #results td.top3 { background: #fefce8; }
+      #results .legend { padding: 0.05rem 0.3rem; border-radius: 3px; margin: 0 0.15rem; }
+      #results .legend.top1 { background: #fde68a; font-weight: 600; }
+      #results .legend.top2 { background: #fef3c7; }
+      #results .legend.top3 { background: #fefce8; }
+    </style>
+  </head>
+  <body>
+    <h1>BN254 MSM: WebGPU vs barretenberg WASM</h1>
+    <p>
+      Runs an MSM of the first <em>n</em> = 2<sup>log₂(n)</sup> points
+      of the public BN254 G1 SRS against fresh random Fr scalars and
+      times two implementations on the same input:
+      <strong>(1) WebGPU MSM</strong> via this repo's
+      <code>MsmV2</code> pair-tree pipeline, and
+      <strong>(2) barretenberg WASM Pippenger
+      multi-threaded</strong> (the threaded WASM with all hardware
+      threads). The WASM path calls the
+      <code>bb_native_pippenger_bn254_*</code> exports, which skip the
+      <code>BBERG_WEBGPU_MSM_HOOK</code> delegation so we measure the
+      in-tree Pippenger and not the bridge round-trip.
+    </p>
+    <p>
+      At log₂(n) = 16 the GPU result is cross-checked against
+      <code>bn254.G1.ProjectivePoint.msm</code> from
+      <code>@noble/curves</code> for correctness; at all sizes the
+      both implementations are cross-checked against each other. The
+      SRS (up to 2<sup>20</sup> points) is fetched from
+      <code>crs.aztec-cdn.foundation</code> on first page load,
+      decompressed in JS, and cached in IndexedDB — cold pull is slow
+      (~2.5 min); reloads are instant. Multi-threaded WASM requires
+      cross-origin isolation (COOP/COEP set by the dev server) for
+      <code>SharedArrayBuffer</code>.
+    </p>
+    <div class="controls">
+      <label>log<sub>2</sub>(n) =
+        <input id="logn" type="number" min="10" max="20" step="1" value="16" />
+      </label>
+      <span id="n-display">(n = 65536)</span>
+      <label>MT threads =
+        <input id="mt-threads" type="number" min="1" max="32" step="1" />
+      </label>
+      <label><input id="noble" type="checkbox" /> noble check (slow)</label>
+    </div>
+    <div class="controls">
+      <button id="probe-gpu">Probe GPU (smallest WebGPU touch)</button>
+      <button id="run-sanity">Quick sanity check (WebGPU only)</button>
+      <button id="run">Run</button>
+      <button id="run-bench">Run × 5 (benchmark)</button>
+      <button id="run-profile">Profile (× 40)</button>
+      <button id="run-trace">Trace → Perfetto (WebGPU only)</button>
+      <label><input id="profile-per-batch" type="checkbox" /> per-batch breakdown</label>
+      <button id="run-sweep">Sweep 2^10…2^20</button>
+      <button id="run-batch" title="Batched same-N MSM via BatchMsmV2 (WebGPU only). For each B in {3, 10}, runs the batch path and a B-solo MsmV2 baseline, cross-checks every per-slot result, and reports the speedup.">Batch MSM (B=3, 10)</button>
+      <button id="run-batch-sweep" title="Sweeps log₂(n) ∈ {15, 16, 17, 18} × B ∈ {3, 10} for the batch MSM, reporting WebGPU-batch / WebGPU-solo-serial / WASM-MT serial times at each size. Use this after the single-size Batch MSM button to see how the batch-vs-WASM speedup scales with n.">Batch sweep 2^15…2^18</button>
+      <button id="stop" disabled>Stop</button>
+      <button id="toggle-coi">Enable WASM (reload with COI)</button>
+      <span id="status"></span>
+    </div>
+    <p style="font-size: 0.85rem; color: #6b7280; margin: 0.25rem 0 0.75rem;">
+      <strong>Default mode is WebGPU-only.</strong> Setting COOP/COEP
+      unconditionally was observed to break the WebGPU MSM in this dev
+      page, so the dev server only emits those headers when the URL
+      carries <code>?coi=1</code>. Without cross-origin isolation,
+      <code>SharedArrayBuffer</code> is unavailable and the threaded
+      barretenberg WASM can't load — so the WASM-using buttons (Run,
+      Run × 5, Sweep) are disabled. Click
+      <em>Enable WASM (reload with COI)</em> to reload with the
+      headers turned on.
+    </p>
+    <p style="font-size: 0.85rem; color: #6b7280; margin: 0.25rem 0 0.75rem;">
+      <strong>Recommended order on a fresh load</strong>:
+      (1) <em>Quick sanity check</em> first — runs one WebGPU MSM at
+      log₂(n)=16 with no WASM, no workers, no bigint pippenger. If that
+      hangs, the problem is WebGPU or the SRS, and stopping here saves
+      you from spawning anything heavier.
+      (2) Click <em>Enable WASM</em> (the page reloads with COI). Then
+      <em>Run</em> at log₂(n)=16 — adds WASM (boots ~4 pthread workers)
+      and runs all three paths once. Hit <em>Stop</em> at any time to
+      terminate the workers.
+      (3) Bump sizes / <em>Sweep</em> only after the smaller paths look
+      healthy.
+    </p>
+    <p style="font-size: 0.85rem; color: #6b7280; margin: 0.25rem 0 0.75rem;">
+      Notes: <code>navigator.hardwareConcurrency</code> on this machine
+      reports <span id="hw-threads">?</span>; the threaded WASM forks one
+      OS thread per "MT threads" slot. The WASM boots lazily on first
+      use and stays alive until <em>Stop</em> destroys it. The noble
+      check is off by default because its bigint Pippenger blocks the
+      main thread for many seconds (no yields possible).
+    </p>
+    <div id="srs-progress"></div>
+    <div id="results"></div>
+    <div id="log"></div>
+    <details>
+      <summary>What this is testing</summary>
+      <p>
+        <strong>Inputs</strong>: the first <em>n</em> G1 points of the
+        public BN254 SRS (real prover bases — same source that
+        <code>bb.js</code> hands to the WASM prover), and <em>n</em>
+        random Fr scalars from <code>crypto.getRandomValues</code>.
+      </p>
+      <p>
+        <strong>GPU side</strong>: pack points into the
+        <code>[x_0|y_0|x_1|y_1|...]</code> interleaved LE-32 layout the
+        port expects (matches the C++ <code>marshal_points</code>
+        marshalling — see <code>webgpu_msm_marshalling.hpp</code>),
+        scalars into <code>n × 32</code> LE bytes, then build an
+        <code>MsmV2Pool</code> + <code>MsmV2</code> and run it.
+      </p>
+      <p>
+        <strong>Noble reference (correctness, log₂(n) = 16 only)</strong>:
+        noble's <code>ProjectivePoint.msm(...)</code> Pippenger over
+        the same points and scalars; comparison is on the affine
+        <code>(x, y)</code> pair. Skipped at larger sizes because the
+        bigint Pippenger takes minutes per call.
+      </p>
+      <p>
+        <strong>WASM Pippenger (timing, MT)</strong>: copies the byte
+        buffers into the WASM heap (<code>bbmalloc</code> +
+        <code>writeMemory</code>) and decodes them into the native
+        point/scalar vectors via
+        <code>bb_native_pippenger_bn254_load</code> — all untimed. The
+        timed call is
+        <code>bb_native_pippenger_bn254_run(num_threads, result)</code>,
+        which runs <code>batch_multi_scalar_mul_native</code> over the loaded inputs
+        with <code>num_threads = navigator.hardwareConcurrency</code>.
+        Only Pippenger compute is measured; input-buffer population is
+        excluded from the wall-time.
+      </p>
+    </details>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
