@@ -1896,16 +1896,10 @@ interface ModeMultiResult {
 // instance — otherwise the config-blind initSingleton would hand it this
 // non-bench backend.
 let warmKey: string | undefined;
+// Always 0 now: the warm backend runs a no-op logger (a per-line `(mem: X MiB)`
+// scraper biased WASM timings — see ensureWarmBackend), so the heap high-water is
+// unavailable here. Reported as 0; recover via a post-prove memory read if needed.
 let warmHeapPeakMb = 0;
-// Bound once at init; the only logger the warm backend ever gets, so it must read
-// into module state (reset per run) rather than a per-call closure.
-const warmMemLogger = (m: string): void => {
-  const mm = /\(mem:\s*([\d.]+)\s*MiB\)/.exec(m);
-  if (mm) {
-    const v = parseFloat(mm[1]);
-    if (v > warmHeapPeakMb) warmHeapPeakMb = v;
-  }
-};
 
 function warmConfigKey(webgpu: boolean, blocklist?: readonly string[]): string {
   return `${webgpu}|${(blocklist ?? []).join(',')}`;
@@ -1949,9 +1943,18 @@ function ensureWarmBackend(
       warmKey = undefined;
     }
     const t0 = performance.now();
+    // A no-op logger is REQUIRED for fair timing. Attaching a per-line logger
+    // (e.g. the old warmMemLogger, which ran a regex on every C++ log line to
+    // track the WASM heap peak) inflates the WASM prove by ~19% (~1.2s) because
+    // WASM logs every MSM in-process, while the WebGPU path offloads MSMs to the
+    // bridge and logs them via console — so the per-line tax falls almost entirely
+    // on WASM and made the page's headline speedup look ~10-25% when the true
+    // WASM-vs-WebGPU result is parity (measured isolation, 2026-06). The WASM
+    // heap-peak readout is therefore unavailable here; recover it, if needed, via a
+    // single post-prove memory-size read rather than a per-line logger.
     const bb = await Barretenberg.initSingleton({
       threads: bridgeThreads(),
-      logger: warmMemLogger,
+      logger: () => {},
       webgpuMsm: webgpu,
       webgpuMsmBlocklist: webgpu ? blocklist : undefined,
     });
@@ -2015,9 +2018,9 @@ async function runChonkModeMulti(
         ? DEFAULT_WEBGPU_BLOCKLIST_BATCH
         : DEFAULT_WEBGPU_BLOCKLIST;
   // Reuse the warm backend if this mode's config matches the live one; otherwise
-  // it's torn down and rebuilt. The `(mem: X MiB)` high-water is captured by the
-  // backend's bound `warmMemLogger` into module state — reset here so it reflects
-  // only this click's N runs (the shared linear memory only grows).
+  // it's torn down and rebuilt. warmHeapPeakMb stays 0 (the per-line mem logger was
+  // removed to keep WASM timings fair); reset here regardless so a future post-prove
+  // readout would reflect only this click's N runs (the shared linear memory grows).
   warmHeapPeakMb = 0;
   const { bb, initMs, reused } = await ensureWarmBackend(webgpu, webgpu ? blocklist : undefined);
   const win = window as any;
