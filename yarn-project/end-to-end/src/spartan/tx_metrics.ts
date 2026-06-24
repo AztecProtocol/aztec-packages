@@ -250,6 +250,16 @@ export class TxInclusionMetrics {
     }
   }
 
+  /**
+   * Whether this tx was ever observed in a block (by the block-watcher or a mined receipt).
+   * Idempotent first-sighting semantics: a later reorg / pool eviction never clears it, so callers
+   * can treat "ever mined" as included regardless of what happens to the tx afterwards.
+   */
+  public wasMined(txHash: string): boolean {
+    const d = this.data.get(txHash);
+    return !!d && d.minedAtMs !== -1;
+  }
+
   /** Per-tx inclusion records for a group. Used to serialise out for downstream tooling. */
   getInclusionRecords(group?: string): TxInclusionData[] {
     const out: TxInclusionData[] = [];
