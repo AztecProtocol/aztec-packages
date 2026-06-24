@@ -865,11 +865,7 @@ function packElements<T>(element: TypeMapping<T>, values: T[]): Fr[] {
  */
 function unpackElements<T>(element: TypeMapping<T>, reader: FieldReader, count: number): T[] {
   const elementWidth = fieldWidth(element.shape);
-  const elements: T[] = [];
-  for (let i = 0; i < count; i++) {
-    elements.push(deserializeElement(element, reader.readFieldArray(elementWidth)));
-  }
-  return elements;
+  return Array.from({ length: count }, () => deserializeElement(element, reader.readFieldArray(elementWidth)));
 }
 
 /** Builds the zero-filled slots for a `None`, matching a `Some`'s wire shape (variable slots sized from `size`). */

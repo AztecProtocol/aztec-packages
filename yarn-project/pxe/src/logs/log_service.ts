@@ -148,8 +148,8 @@ export class LogService {
   ): Map<RangeKey, { fromBlock?: BlockNumber; toBlock?: BlockNumber; entries: typeof entries }> {
     const groups = new Map<RangeKey, { fromBlock?: BlockNumber; toBlock?: BlockNumber; entries: typeof entries }>();
     for (const entry of entries) {
-      const fromBlock = entry.request.fromBlock.isSome() ? entry.request.fromBlock.value : undefined;
-      const toBlock = entry.request.toBlock.isSome() ? entry.request.toBlock.value : undefined;
+      const fromBlock = entry.request.fromBlock.value;
+      const toBlock = entry.request.toBlock.value;
       const key = rangeKey(fromBlock, toBlock);
       const existing = groups.get(key);
       if (existing) {
