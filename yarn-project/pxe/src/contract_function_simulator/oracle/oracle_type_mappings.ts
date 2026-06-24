@@ -36,7 +36,7 @@ import {
 import { NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import { BlockHeader, TxEffect, TxHash } from '@aztec/stdlib/tx';
 
-import type { OriginBlock } from '../../storage/fact_store/index.js';
+import type { OriginBlock, RetractableFactOrigin } from '../../storage/fact_store/index.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
 import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
 import { EventValidationRequest } from '../noir-structs/event_validation_request.js';
@@ -389,12 +389,17 @@ export const ORIGIN_BLOCK: TypeMapping<OriginBlock> = {
   },
 };
 
+/** Read-side origin of a retractable fact: block coordinates plus PXE-computed chain state. Output only. */
+export const RETRACTABLE_FACT_ORIGIN: TypeMapping<RetractableFactOrigin> = {
+  serialization: { fn: o => [new Fr(o.blockNumber), o.blockHash, new Fr(o.blockState)] },
+};
+
 export const FACT: TypeMapping<Fact> = {
   serialization: {
     fn: f => [
       f.factTypeId,
       f.payload.materializeSlot(v => FIELD.serialization!.fn(v).flat() as Fr[]),
-      ...OPTION(ORIGIN_BLOCK).serialization!.fn(f.originBlock),
+      ...OPTION(RETRACTABLE_FACT_ORIGIN).serialization!.fn(f.originBlock),
     ],
   },
 };

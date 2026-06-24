@@ -757,8 +757,10 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     factCollectionId: Fr,
   ): Promise<Option<FactCollection>> {
     this.#assertOwnContract(contractAddress);
+    const tips = await this.l2TipsStore.getL2Tips();
     const collection = await this.factService.getFactCollection(
       new FactCollectionKey(contractAddress, scope, factCollectionTypeId, factCollectionId),
+      tips,
       this.jobId,
     );
     return collection
@@ -782,8 +784,10 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     factCollectionTypeId: Fr,
   ): Promise<EphemeralArray<FactCollection>> {
     this.#assertOwnContract(contractAddress);
+    const tips = await this.l2TipsStore.getL2Tips();
     const collections = await this.factService.getFactCollectionsByType(
       new FactCollectionTypeKey(contractAddress, scope, factCollectionTypeId),
+      tips,
       this.jobId,
     );
     return EphemeralArray.fromValues(

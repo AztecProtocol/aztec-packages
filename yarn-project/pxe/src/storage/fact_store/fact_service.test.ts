@@ -1,13 +1,27 @@
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { L2TipId, L2Tips } from '@aztec/stdlib/block';
 
 import { FactService } from './fact_service.js';
 import { FactStore } from './fact_store.js';
 import { FactCollectionKey, FactCollectionTypeKey } from './fact_store_keys.js';
+import { OriginState } from './origin_state.js';
 
 describe('FactService', () => {
+  const tipId = (n: number): L2TipId => ({
+    block: { number: BlockNumber(n), hash: '' },
+    checkpoint: { number: CheckpointNumber(0), hash: '' },
+  });
+  const makeTips = (finalized: number, proven: number): L2Tips => ({
+    proposed: { number: BlockNumber(proven), hash: '' },
+    checkpointed: tipId(proven),
+    proven: tipId(proven),
+    finalized: tipId(finalized),
+  });
+
   let kv: AztecAsyncKVStore;
   let store: FactStore;
 
@@ -34,7 +48,7 @@ describe('FactService', () => {
     const service = new FactService(store, [allowedScope]);
     await service.recordFact(factCollectionKey, factTypeId, [factPayload], undefined, jobId);
 
-    const collection = await service.getFactCollection(factCollectionKey, jobId);
+    const collection = await service.getFactCollection(factCollectionKey, makeTips(0, 0), jobId);
     expect(collection?.facts).toEqual([{ factTypeId, payload: [factPayload], originBlock: undefined }]);
   });
 
@@ -42,7 +56,7 @@ describe('FactService', () => {
     const service = new FactService(store, [allowedScope]);
     await service.recordFact(factCollectionKey, factTypeId, [factPayload], undefined, jobId);
 
-    const collections = await service.getFactCollectionsByType(factCollectionTypeKey, jobId);
+    const collections = await service.getFactCollectionsByType(factCollectionTypeKey, makeTips(0, 0), jobId);
     expect(collections).toEqual([
       { key: factCollectionKey, facts: [{ factTypeId, payload: [factPayload], originBlock: undefined }] },
     ]);
@@ -53,7 +67,7 @@ describe('FactService', () => {
     await service.recordFact(factCollectionKey, factTypeId, [factPayload], undefined, jobId);
     await service.deleteFactCollection(factCollectionKey, jobId);
 
-    expect(await service.getFactCollection(factCollectionKey, jobId)).toBeUndefined();
+    expect(await service.getFactCollection(factCollectionKey, makeTips(0, 0), jobId)).toBeUndefined();
   });
 
   it('rejects a disallowed scope on recordFact', () => {
@@ -68,15 +82,32 @@ describe('FactService', () => {
     expect(() => service.deleteFactCollection(disallowedCollectionKey, jobId)).toThrow(/not in the allowed scopes/);
   });
 
-  it('rejects a disallowed scope on getFactCollection', () => {
+  it('rejects a disallowed scope on getFactCollection', async () => {
     const service = new FactService(store, [allowedScope]);
-    expect(() => service.getFactCollection(disallowedCollectionKey, jobId)).toThrow(/not in the allowed scopes/);
-  });
-
-  it('rejects a disallowed scope on getFactCollectionsByType', () => {
-    const service = new FactService(store, [allowedScope]);
-    expect(() => service.getFactCollectionsByType(disallowedCollectionTypeKey, jobId)).toThrow(
+    await expect(service.getFactCollection(disallowedCollectionKey, makeTips(0, 0), jobId)).rejects.toThrow(
       /not in the allowed scopes/,
     );
+  });
+
+  it('rejects a disallowed scope on getFactCollectionsByType', async () => {
+    const service = new FactService(store, [allowedScope]);
+    await expect(service.getFactCollectionsByType(disallowedCollectionTypeKey, makeTips(0, 0), jobId)).rejects.toThrow(
+      /not in the allowed scopes/,
+    );
+  });
+
+  it('annotates a retractable fact with its origin block state', async () => {
+    const service = new FactService(store, [allowedScope]);
+    const blockHash = new Fr(123);
+    await service.recordFact(factCollectionKey, factTypeId, [factPayload], { blockNumber: 4, blockHash }, jobId);
+
+    const collection = await service.getFactCollection(factCollectionKey, makeTips(5, 10), jobId);
+    expect(collection?.facts).toEqual([
+      {
+        factTypeId,
+        payload: [factPayload],
+        originBlock: { blockNumber: 4, blockHash, blockState: OriginState.Finalized },
+      },
+    ]);
   });
 });
