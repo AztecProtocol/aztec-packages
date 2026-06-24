@@ -68,8 +68,7 @@ fn derive_handshake_log_tag(
         STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
         sender,
         recipient,
-        secrets.shared,
-        secrets.sender_only,
+        secrets,
         bootstrapped,
         index,
     );

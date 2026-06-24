@@ -9,6 +9,7 @@
 //! See [`constrain_secret`] for how a send is anchored to the registry,
 
 use crate::context::PrivateContext;
+use crate::messages::delivery::handshake::AppSiloedHandshakeSecrets;
 use crate::nullifier::utils::compute_nullifier_existence_request;
 
 use crate::protocol::{
@@ -20,15 +21,14 @@ use crate::protocol::{
 // registry's test suite compares this against its macro-generated `HandshakeRegistry::at(...).method(...).selector`
 // value so signature drift fails in tests.
 pub global VALIDATE_HANDSHAKE_SELECTOR: FunctionSelector =
-    comptime { FunctionSelector::from_signature("validate_handshake((Field),(Field),Field,Field)") };
+    comptime { FunctionSelector::from_signature("validate_handshake((Field),(Field),(Field,Field))") };
 
 pub(crate) fn constrain_secret_and_emit_nullifier(
     context: &mut PrivateContext,
     registry: AztecAddress,
     sender: AztecAddress,
     recipient: AztecAddress,
-    secret: Field,
-    sender_secret: Field,
+    secrets: AppSiloedHandshakeSecrets,
     bootstrapped: bool,
     index: u32,
 ) {
@@ -37,12 +37,11 @@ pub(crate) fn constrain_secret_and_emit_nullifier(
         registry,
         sender,
         recipient,
-        secret,
-        sender_secret,
+        secrets,
         bootstrapped,
         index,
     );
-    context.push_nullifier_unsafe(compute_constrained_msg_nullifier(sender, recipient, secret, sender_secret, index));
+    context.push_nullifier_unsafe(compute_constrained_msg_nullifier(sender, recipient, secrets, index));
 }
 
 /// Anchors an untrusted `(secret, index)` to the registry before its constrained tag is emitted.
@@ -56,8 +55,7 @@ fn constrain_secret(
     registry: AztecAddress,
     sender: AztecAddress,
     recipient: AztecAddress,
-    secret: Field,
-    sender_secret: Field,
+    secrets: AppSiloedHandshakeSecrets,
     bootstrapped: bool,
     index: u32,
 ) {
@@ -69,10 +67,10 @@ fn constrain_secret(
         let _ = context.call_private_function(
             registry,
             VALIDATE_HANDSHAKE_SELECTOR,
-            [sender.to_field(), recipient.to_field(), secret, sender_secret],
+            [sender.to_field(), recipient.to_field(), secrets.shared, secrets.sender_only],
         );
     } else {
-        let prev_nullifier = compute_constrained_msg_nullifier(sender, recipient, secret, sender_secret, index - 1);
+        let prev_nullifier = compute_constrained_msg_nullifier(sender, recipient, secrets, index - 1);
         context.assert_nullifier_exists(compute_nullifier_existence_request(prev_nullifier, caller));
     }
 }
@@ -84,12 +82,11 @@ fn constrain_secret(
 pub(crate) fn compute_constrained_msg_nullifier(
     sender: AztecAddress,
     recipient: AztecAddress,
-    secret: Field,
-    sender_secret: Field,
+    secrets: AppSiloedHandshakeSecrets,
     index: u32,
 ) -> Field {
     poseidon2_hash_with_separator(
-        [sender.to_field(), recipient.to_field(), secret, sender_secret, index as Field],
+        [sender.to_field(), recipient.to_field(), secrets.shared, secrets.sender_only, index as Field],
         DOM_SEP__CONSTRAINED_MSG_NULLIFIER,
     )
 }
@@ -97,6 +94,7 @@ pub(crate) fn compute_constrained_msg_nullifier(
 mod test {
     use crate::context::PrivateContext;
     use crate::hash::hash_args;
+    use crate::messages::delivery::handshake::AppSiloedHandshakeSecrets;
     use crate::protocol::{address::AztecAddress, hash::compute_siloed_nullifier, traits::{FromField, ToField}};
     use crate::test::helpers::test_environment::TestEnvironment;
     use super::{compute_constrained_msg_nullifier, constrain_secret_and_emit_nullifier, VALIDATE_HANDSHAKE_SELECTOR};
@@ -106,14 +104,13 @@ mod test {
         context: &mut PrivateContext,
         sender: AztecAddress,
         recipient: AztecAddress,
-        secret: Field,
-        sender_secret: Field,
+        secrets: AppSiloedHandshakeSecrets,
         index: u32,
     ) {
         assert_eq(context.nullifiers.len(), 1);
         assert_eq(
             context.nullifiers.get(0).inner.value,
-            compute_constrained_msg_nullifier(sender, recipient, secret, sender_secret, index),
+            compute_constrained_msg_nullifier(sender, recipient, secrets, index),
         );
     }
 
@@ -123,23 +120,13 @@ mod test {
         let registry = AztecAddress::from_field(1);
         let sender = AztecAddress::from_field(2);
         let recipient = AztecAddress::from_field(4);
-        let secret: Field = 1234;
-        let sender_secret: Field = 5678;
+        let secrets = AppSiloedHandshakeSecrets { shared: 1234, sender_only: 5678 };
         let index: u32 = 0;
 
         env.private_context(|context| {
-            constrain_secret_and_emit_nullifier(
-                context,
-                registry,
-                sender,
-                recipient,
-                secret,
-                sender_secret,
-                true,
-                index,
-            );
+            constrain_secret_and_emit_nullifier(context, registry, sender, recipient, secrets, true, index);
 
-            assert_current_nullifier_emitted(context, sender, recipient, secret, sender_secret, index);
+            assert_current_nullifier_emitted(context, sender, recipient, secrets, index);
             assert_eq(context.private_call_requests.len(), 0);
             assert_eq(context.nullifier_read_requests.len(), 0);
         });
@@ -151,9 +138,10 @@ mod test {
         let registry = AztecAddress::from_field(1);
         let sender = AztecAddress::from_field(2);
         let recipient = AztecAddress::from_field(4);
+        let secrets = AppSiloedHandshakeSecrets { shared: 1234, sender_only: 5678 };
 
         env.private_context(|context| {
-            constrain_secret_and_emit_nullifier(context, registry, sender, recipient, 1234, 5678, true, 1);
+            constrain_secret_and_emit_nullifier(context, registry, sender, recipient, secrets, true, 1);
         });
     }
 
@@ -163,8 +151,7 @@ mod test {
         let registry = AztecAddress::from_field(1);
         let sender = AztecAddress::from_field(2);
         let recipient = AztecAddress::from_field(4);
-        let secret: Field = 1234;
-        let sender_secret: Field = 5678;
+        let secrets = AppSiloedHandshakeSecrets { shared: 1234, sender_only: 5678 };
         let index: u32 = 0;
 
         env.private_context(|context| {
@@ -176,18 +163,9 @@ mod test {
                 .returns([child_call_end_counter, empty_returns_hash])
                 .times(1);
 
-            constrain_secret_and_emit_nullifier(
-                context,
-                registry,
-                sender,
-                recipient,
-                secret,
-                sender_secret,
-                false,
-                index,
-            );
+            constrain_secret_and_emit_nullifier(context, registry, sender, recipient, secrets, false, index);
 
-            assert_current_nullifier_emitted(context, sender, recipient, secret, sender_secret, index);
+            assert_current_nullifier_emitted(context, sender, recipient, secrets, index);
             assert_eq(context.nullifier_read_requests.len(), 0);
             assert_eq(context.private_call_requests.len(), 1);
 
@@ -199,7 +177,7 @@ mod test {
             assert_eq(
                 request.args_hash,
                 hash_args(
-                    [sender.to_field(), recipient.to_field(), secret, sender_secret],
+                    [sender.to_field(), recipient.to_field(), secrets.shared, secrets.sender_only],
                 ),
             );
         });
@@ -211,25 +189,15 @@ mod test {
         let registry = AztecAddress::from_field(1);
         let sender = AztecAddress::from_field(2);
         let recipient = AztecAddress::from_field(4);
-        let secret: Field = 1234;
-        let sender_secret: Field = 5678;
+        let secrets = AppSiloedHandshakeSecrets { shared: 1234, sender_only: 5678 };
         let index: u32 = 3;
 
         env.private_context(|context| {
             let _ = OracleMock::mock("aztec_prv_isNullifierPending").returns(false).times(1);
 
-            constrain_secret_and_emit_nullifier(
-                context,
-                registry,
-                sender,
-                recipient,
-                secret,
-                sender_secret,
-                false,
-                index,
-            );
+            constrain_secret_and_emit_nullifier(context, registry, sender, recipient, secrets, false, index);
 
-            assert_current_nullifier_emitted(context, sender, recipient, secret, sender_secret, index);
+            assert_current_nullifier_emitted(context, sender, recipient, secrets, index);
             assert_eq(context.private_call_requests.len(), 0);
             assert_eq(context.nullifier_read_requests.len(), 1);
 
@@ -239,7 +207,7 @@ mod test {
                 read_request.inner.inner,
                 compute_siloed_nullifier(
                     context.this_address(),
-                    compute_constrained_msg_nullifier(sender, recipient, secret, sender_secret, index - 1),
+                    compute_constrained_msg_nullifier(sender, recipient, secrets, index - 1),
                 ),
             );
         });

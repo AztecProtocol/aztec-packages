@@ -2,17 +2,17 @@
 use protocol_types::{address::AztecAddress, traits::FromField};
 
 pub global STANDARD_AUTH_REGISTRY_ADDRESS: AztecAddress = AztecAddress::from_field(
-    0x0b720766c4e9b131677f2f1ebc7d24d7d9920817aca9cc2096449d1f4e402519,
+    0x051808a630f7fdd5a0a2ec1dd49930ce8cec93d8461f29955ff3d94ca66f0651,
 );
 
 pub global STANDARD_MULTI_CALL_ENTRYPOINT_ADDRESS: AztecAddress = AztecAddress::from_field(
-    0x2d36181eb546630adce36ee63d433e572b6489c9b529abd7d02a0fc5024fa485,
+    0x079d9de7111fcddd5744541b717b7f3afe728272af71fe76a9ccab6b3122ce48,
 );
 
 pub global STANDARD_PUBLIC_CHECKS_ADDRESS: AztecAddress = AztecAddress::from_field(
-    0x07dc17481fc391774ef06da49bd0a5e686fa57ceb01acf5bea77b68263dca2e8,
+    0x0be698e4a821fee5082dfcbbd89e606c68be30de3294a10e82043d3f952d5d51,
 );
 
 pub global STANDARD_HANDSHAKE_REGISTRY_ADDRESS: AztecAddress = AztecAddress::from_field(
-    0x01b7f365a1b4be01d1beae5c8b0367c146850844e86a07a0a13b851931ec311b,
+    0x1c426f56672754c47197fd2870b087af33d4356a756590a22e47d56ebaf72b1d,
 );

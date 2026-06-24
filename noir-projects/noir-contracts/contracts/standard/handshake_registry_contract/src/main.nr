@@ -100,8 +100,8 @@ pub contract HandshakeRegistry {
         AppSiloedHandshakeSecrets { shared: note.siloed_for(caller), sender_only: note.nullifier_secret_for(caller) }
     }
 
-    /// Asserts that `app_siloed_secret` and `sender_only_secret` match the stored handshake from `sender` to
-    /// `recipient`, for the caller (`msg_sender()`).
+    /// Asserts that `secrets` match the stored handshake from `sender` to `recipient`, for the caller
+    /// (`msg_sender()`).
     ///
     /// Apps that receive handshake secrets from an untrusted source call this once to validate those secrets
     /// against the registry's latest stored handshake.
@@ -110,18 +110,13 @@ pub contract HandshakeRegistry {
     /// If no stored handshake for `(sender, recipient)` silos to the provided secrets under the calling contract's
     /// address.
     #[external("private")]
-    fn validate_handshake(
-        sender: AztecAddress,
-        recipient: AztecAddress,
-        app_siloed_secret: Field,
-        sender_only_secret: Field,
-    ) {
+    fn validate_handshake(sender: AztecAddress, recipient: AztecAddress, secrets: AppSiloedHandshakeSecrets) {
         let caller = self.msg_sender();
         let replacement_note_message = self.storage.handshakes.at(recipient).at(sender).get_note();
         let note = replacement_note_message.get_note();
 
-        assert(note.siloed_for(caller) == app_siloed_secret, "no matching handshake");
-        assert(note.nullifier_secret_for(caller) == sender_only_secret, "no matching handshake");
+        assert(note.siloed_for(caller) == secrets.shared, "no matching handshake");
+        assert(note.nullifier_secret_for(caller) == secrets.sender_only, "no matching handshake");
 
         // `PrivateMutable::get_note` proves the current note by nullifying and recreating it. Deliver the
         // replacement to the sender so later validation calls can prove the same current handshake again.
