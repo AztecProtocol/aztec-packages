@@ -2,9 +2,7 @@ import type { Logger } from '@aztec/aztec.js/log';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
-import { executeTimeout } from '@aztec/foundation/timer';
 import type { TestProverNode } from '@aztec/prover-node/test';
 import { getEpochAtSlot, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
@@ -629,60 +627,64 @@ describe('multi-node/single-node/optimistic_proving', () => {
 
     it('handles a reorg arriving while the top of the epoch is proving', async () => {
       // Gate top-tree proving so it deterministically blocks until we release it. This
-      // gives us a window where the session is parked at the top-tree boundary (all
-      // sub-trees proven, root prove not yet started), and we can fire the reorg
+      // gives us a window where the session is mid-proof, and we can fire the reorg
       // precisely during that window. We use the session's `beforeTopTreeProve` hook
       // rather than monkey-patching the orchestrator factory.
       const proverNode = test.proverNodes[0].getProverNode() as TestProverNode;
-      const provingGate = promiseWithResolvers<void>();
-      // Resolves with the gated epoch once a session is actually parked inside the gate.
-      // Firing the reorg only after this settles guarantees the session is blocked at the
-      // top-tree boundary — not racing real proving — so the prune deterministically takes
-      // the cancel-and-recreate path instead of failing a half-run sub-tree.
-      const gateEntered = promiseWithResolvers<EpochNumber>();
-      // The hook fires from inside `beforeProve`, by which point the session has already
-      // transitioned from `awaiting-checkpoints` to `awaiting-root`; query that state to
-      // find the gateable session. Only gate sessions with at least 2 checkpoints —
-      // reorging the last checkpoint of a single-checkpoint epoch leaves nothing to prove,
-      // the session is cancelled without replacement, and the test's "wait for fewer
-      // checkpoints" check never converges. Sessions with one checkpoint just pass through.
-      const findGateableEpoch = () => {
-        const job = proverNode.sessionManager.getJobs().find(j => j.status === 'awaiting-root');
-        const session = job && proverNode.sessionManager.getFullSession(job.epochNumber);
-        return session && session.getCheckpoints().length >= 2 ? job!.epochNumber : undefined;
-      };
+      let releaseProvingGate: () => void = () => {};
+      const provingGate = new Promise<void>(resolve => {
+        releaseProvingGate = resolve;
+      });
+
+      // Capture the session the hook actually gates so the test reorgs the right epoch.
+      // The `beforeTopTreeProve` hook takes no session argument, so we identify the calling
+      // session by state: `EpochSession.beforeProve` flips the state to `awaiting-root`
+      // *before* awaiting this hook (see epoch-session.ts), so the gating session is the
+      // live full session sitting in `awaiting-root`. Matching on `awaiting-checkpoints`
+      // never fires — that state is already gone by the time the hook runs.
+      let gatedSession: ReturnType<TestProverNode['sessionManager']['allSessions']>[number] | undefined;
+      // Only gate sessions with at least 2 checkpoints — reorging the last checkpoint
+      // of a single-checkpoint epoch leaves nothing to prove, the session is cancelled
+      // without replacement, and the test's "wait for fewer checkpoints" check never
+      // converges. Sessions with one checkpoint just pass through.
+      const findGateableSession = () =>
+        proverNode.sessionManager
+          .allSessions()
+          .find(s => s.getKind() === 'full' && s.getState() === 'awaiting-root' && s.getCheckpoints().length >= 2);
       proverNode.setSessionHooks({
         beforeTopTreeProve: async () => {
-          const epoch = findGateableEpoch();
-          if (epoch === undefined) {
+          const session = findGateableSession();
+          if (!session) {
             return;
           }
-          logger.warn(`Top-tree proving gated for epoch ${epoch} — waiting for test to release`);
-          gateEntered.resolve(epoch);
-          await provingGate.promise;
-          logger.warn('Proving gate released');
+          // First gateable session to hit the gate is the one we reorg; later recreated
+          // sessions (over the surviving prefix) also reach this hook but the gate is
+          // already resolved by then, so they sail through after release.
+          gatedSession ??= session;
+          logger.warn('Top-tree proving gated — waiting for test to release', { epoch: session.getEpochNumber() });
+          await provingGate;
+          logger.warn('Proving gate released', { epoch: session.getEpochNumber() });
         },
       });
 
-      // Wait until a session with at least 2 checkpoints is actually parked inside the
-      // gate. The session manager opens one full session at a time, starting with the
-      // lowest unproven epoch; small epochs pass through (see hook above) and we keep
-      // waiting until a gateable epoch lands.
-      const gatedEpoch = await executeTimeout(
-        () => gateEntered.promise,
-        L2_SLOT_DURATION_IN_S * 12 * 1000,
+      // Wait for a gateable session (>= 2 checkpoints) to actually block at the gate. The
+      // session manager opens one full session at a time, starting with the lowest unproven
+      // epoch; small epochs pass through (see hook above) and we keep proving until a
+      // gateable epoch lands and parks itself on `provingGate`. The hook records the session
+      // the moment it blocks, so polling `gatedSession` tells us the gate is engaged.
+      const inFlightSession = await retryUntil(
+        () => Promise.resolve(gatedSession),
         'gateable session blocks at proving gate',
+        L2_SLOT_DURATION_IN_S * 12,
+        0.5,
       );
-      logger.info(`Job for epoch ${gatedEpoch} is blocked inside proving — firing reorg now`);
+      const gatedEpoch = inFlightSession.getEpochNumber();
+      logger.info(`Session for epoch ${gatedEpoch} is blocked inside proving — firing reorg now`);
 
-      // Capture the in-flight session and the last checkpoint of the gated epoch —
-      // we'll reorg that checkpoint out and verify the prover recovers with the
-      // surviving prefix. We take the session's own checkpoint list rather than
-      // `monitor.checkpointNumber` because the global high may sit in a later epoch.
-      const inFlightSession = proverNode.sessionManager.getFullSession(gatedEpoch);
-      if (!inFlightSession) {
-        throw new Error(`No in-flight session for epoch ${gatedEpoch}`);
-      }
+      // The gated session's own checkpoint list gives us the last checkpoint of the gated
+      // epoch — we'll reorg that checkpoint out and verify the prover recovers with the
+      // surviving prefix. We take the session's own list rather than `monitor.checkpointNumber`
+      // because the global high may sit in a later epoch.
       const trackedBeforeReorg = inFlightSession.getCheckpoints().length;
       const epochEndCheckpoint = inFlightSession.getCheckpoints()[trackedBeforeReorg - 1].checkpoint.number;
       logger.info(`Reorging last checkpoint ${epochEndCheckpoint} of gated epoch ${gatedEpoch}`);
@@ -735,7 +737,7 @@ describe('multi-node/single-node/optimistic_proving', () => {
       // Release the gate. The cancelled top tree #1 short-circuits with
       // TopTreeCancelledError, the finalize loop restarts with the surviving sub-trees,
       // and a fresh top tree submits a valid proof for checkpoints 1..afterReorgCheckpoint.
-      provingGate.resolve();
+      releaseProvingGate();
 
       // The in-flight epoch should now be proven on L1
       await test.waitUntilProvenCheckpointNumber(afterReorgCheckpoint, 240);
