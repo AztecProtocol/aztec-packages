@@ -54,6 +54,11 @@ impl AccountActions<&mut PrivateContext> {
     /// collides with the original. `tx_nonce` is part of the signed `AppPayload`, while gas is not, so cancellation
     /// does not require a new signature.
     ///
+    /// The init kernel separately injects the protocol nullifier `P = H(tx_request)`, which also prevents replay but
+    /// covers the gas settings, so `P` changes when fees change. `H(tx_nonce)` is therefore the only replay-protection
+    /// nullifier that survives a fee bump (and hence the only one usable for cancellation), which is why the
+    /// entrypoint always emits it.
+    ///
     pub fn entrypoint(self, app_payload: AppPayload, fee_payment_method: u8) {
         let valid_fn = self.is_valid_impl;
 

@@ -78,6 +78,8 @@ while i > 0 {
 
 The account entrypoint no longer takes a `cancellable` flag. It now always emits a nullifier derived from the app payload's `tx_nonce`, so every transaction is replay-protected and cancellable by default. Re-proving the same payload collides on this nullifier, and a replacement transaction that reuses the same `tx_nonce` (for example with a higher priority fee) conflicts with the original, so only one can be mined.
 
+The init kernel also injects a protocol nullifier `H(tx_request)` that protects against replay, but that hash covers the fee settings, so it changes when fees change. The `tx_nonce` nullifier is the only one that stays fixed across a fee bump, which is what makes cancellation (resubmitting at a higher fee) work.
+
 **Aztec.nr:** `AccountActions::entrypoint` drops its `cancellable` parameter. Account contracts that wrap it must update both the call and their own `entrypoint` function signature.
 
 ```diff
