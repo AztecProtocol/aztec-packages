@@ -48,8 +48,22 @@ const MAX_SAME_N_SLOTS = 10;
 //   - B ≥ 4 at n=2^18 — known MEM_BUDGET regression (batch 0.74× of solo).
 // Activated only when the chonk page sets `__bridge_batch_enabled = true`
 // for the duration of one prove.
-const BATCH_MSM_V2_MIN_B = 4;
-const BATCH_MSM_V2_MAX_N = 1 << 17;
+const BATCH_MSM_V2_MIN_B_DEFAULT = 4;
+// Runtime-overridable so a measurement harness can A/B the B≥3 wire-group routing
+// (W_L/W_R/W_O are B=3) without a rebuild. `globalThis.__bridge_batch_min_b`.
+const batchMinB = (): number => {
+  const v = (globalThis as any).__bridge_batch_min_b;
+  return typeof v === 'number' && v >= 1 ? v : BATCH_MSM_V2_MIN_B_DEFAULT;
+};
+const BATCH_MSM_V2_MAX_N_DEFAULT = 1 << 17;
+// Runtime-overridable so a harness can test routing the large same-N wire groups
+// (e.g. storage_proof's W_L/W_R/W_O at n≈383516) through BatchMsmV2's concatenated
+// `prepareAll` instead of the serial per-MSM path (which pays ~130ms of histogram
+// backpressure per MSM at that size). `globalThis.__bridge_batch_max_n`.
+const batchMaxN = (): number => {
+  const v = (globalThis as any).__bridge_batch_max_n;
+  return typeof v === 'number' && v >= 1 ? v : BATCH_MSM_V2_MAX_N_DEFAULT;
+};
 // Distinct (n, B) BatchMsmV2 instances kept across the prove. Each instance
 // re-uploads the SRS to its own pool (BatchMsmV2 owns the upload — see
 // BATCH_MSM_DESIGN.md "API"), so the cost is one re-upload + Montgomery
@@ -1191,8 +1205,8 @@ export class WebGpuMsmHost {
     if (batchEnabled && hasSameNCollision) {
       const reasons: string[] = [];
       if (!uniformN) reasons.push(`mixed-n (sizes=${[...nCounts.keys()].join(',')})`);
-      if (batchCount < BATCH_MSM_V2_MIN_B) reasons.push(`B=${batchCount} < ${BATCH_MSM_V2_MIN_B}`);
-      if (n0 > BATCH_MSM_V2_MAX_N) reasons.push(`n=${n0} > ${BATCH_MSM_V2_MAX_N}`);
+      if (batchCount < batchMinB()) reasons.push(`B=${batchCount} < ${batchMinB()}`);
+      if (n0 > batchMaxN()) reasons.push(`n=${n0} > ${batchMaxN()}`);
       if (!allEqualSrsOff)
         reasons.push(
           `srsOff mismatch (offsets=${Array.from({ length: batchCount }, (_, i) => descs[i * 5 + 1]).join(',')})`,
@@ -1207,8 +1221,8 @@ export class WebGpuMsmHost {
     if (
       batchEnabled &&
       uniformN &&
-      batchCount >= BATCH_MSM_V2_MIN_B &&
-      n0 <= BATCH_MSM_V2_MAX_N &&
+      batchCount >= batchMinB() &&
+      n0 <= batchMaxN() &&
       allEqualSrsOff &&
       this.srsBytes !== null
     ) {

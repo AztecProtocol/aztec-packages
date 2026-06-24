@@ -507,6 +507,15 @@ const CORRECTNESS_BLOCKLIST: readonly string[] = [
   translator: TRANSLATOR_RANGE_CONSTRAINT_BLOCK_ENTRIES,
 };
 
+// Default the page's WebGPU proves to the Tier-2 BatchMsmV2 same-N path: the wire
+// commit groups (W_L/W_R/W_O, B=3) and any same-N B≥3 group run one concatenated
+// `prepareAll` instead of N serial per-MSM histogram round-trips. On 16-thread Metal
+// the e2e effect is within run-to-run noise (GPU MSM is at parity with WASM Pippenger
+// — see WEBGPU_MSM_ATTRIBUTION.md), but it is the better-pipelined routing and a clear
+// win on lower-core devices' batch path. Opt out by setting these false before a prove.
+if ((globalThis as any).__bridge_batch_enabled === undefined) (globalThis as any).__bridge_batch_enabled = true;
+if ((globalThis as any).__bridge_batch_min_b === undefined) (globalThis as any).__bridge_batch_min_b = 3;
+
 /**
  * Blocklist for an interactive WebGPU prove. Normally {@link DEFAULT_WEBGPU_BLOCKLIST};
  * but when the additive-masking experiment is armed (`globalThis.__bridge_mask_msms
@@ -2058,8 +2067,10 @@ async function runChonkModeMulti(
     await disposeWarmBackend();
     throw err;
   } finally {
-    // Leave the backend warm for the next click; only clear the per-run batch gate.
-    if (mode === 'batch') win.__bridge_batch_enabled = false;
+    // Leave the backend warm for the next click. Batch routing is the page default
+    // (set at module load), so restore that rather than forcing it off — the explicit
+    // 'batch' button only needs to not leave a stale `false` behind.
+    if (mode === 'batch') win.__bridge_batch_enabled = true;
   }
   // peakGpuBytes persists in the bridge module across runs, so this reads the
   // whole-mode peak. WASM mode never touches the bridge → 0.
