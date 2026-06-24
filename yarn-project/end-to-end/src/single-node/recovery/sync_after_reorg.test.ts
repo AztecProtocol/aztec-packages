@@ -11,7 +11,7 @@ import { SingleNodeTestContext, jest } from './setup.js';
 // (ethSlot=8s/12s CI, aztecSlot=16s/24s, epoch=6, proofSubmissionEpochs=1). The test stops the
 // sequencer mid-run, advances into epoch 2 via waitUntilEpochStarts, then creates a second node and
 // verifies it syncs cleanly despite the reorg window.
-describe('multi-node/single-node/reorg-recovery/sync_after_reorg', () => {
+describe('single-node/recovery/sync_after_reorg', () => {
   let context: EndToEndContext;
   let logger: Logger;
 

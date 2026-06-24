@@ -10,10 +10,10 @@ import { TxExecutionResult } from '@aztec/stdlib/tx';
 
 import { expect, jest } from '@jest/globals';
 
-import type { EndToEndContext } from '../fixtures/utils.js';
-import { waitForNodeCheckpoint } from '../fixtures/wait_helpers.js';
-import { proveInteraction } from '../test-wallet/utils.js';
-import { FAST_REORG_TIMING, SingleNodeTestContext } from './single_node_test_context.js';
+import type { EndToEndContext } from '../../fixtures/utils.js';
+import { waitForNodeCheckpoint } from '../../fixtures/wait_helpers.js';
+import { proveInteraction } from '../../test-wallet/utils.js';
+import { FAST_REORG_TIMING, SingleNodeTestContext } from '../single_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 20);
 
@@ -34,11 +34,8 @@ jest.setTimeout(1000 * 60 * 20);
  * Block production is paused/resumed mid-test via the `skipPublishingCheckpointsPercent` node-admin config, and the
  * `checkpoint reorg during proving` describe gates top-tree proving with the prover's `beforeTopTreeProve` session hook.
  * Anvil runs on interval mining; time advances naturally (the reorgs and `waitUntilNextEpochStarts` do the warping).
- *
- * Proposed category: `single-node` (epochs/). Heavy hand-rolled coordination throughout — see the inline REFACTOR
- * markers below for the raw-async sites a DSL helper should replace.
  */
-describe('multi-node/single-node/optimistic_proving', () => {
+describe('single-node/proving/optimistic', () => {
   let context: EndToEndContext;
   let rollup: RollupContract;
   let logger: Logger;

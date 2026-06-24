@@ -33,7 +33,7 @@ import { SingleNodeTestContext, jest } from './setup.js';
 // override was removed and a perBlockAllocationMultiplier=1.3 was added so the first block of the
 // now-up-to-5-block checkpoint has enough DA budget for the TestContract deploy tx). The test actively
 // calls the Outbox L1 contract to consume L2-to-L1 messages → cross-chain.
-describe('multi-node/single-node/partial-proofs/multi_root', () => {
+describe('single-node/partial-proofs/multi_root', () => {
   let test: SingleNodeTestContext;
   let logger: Logger;
   let node: AztecNode;

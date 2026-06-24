@@ -9,7 +9,7 @@ import { SingleNodeTestContext, jest } from './setup.js';
 // Starts a prover node (fake proofs) on the default setup, raises minTxsPerBlock=1 so blocks are
 // empty, then verifies the prover still submits a proof for those empty-block checkpoints within the
 // proof submission window.
-describe('multi-node/single-node/proving/empty_blocks', () => {
+describe('single-node/proving/empty_blocks', () => {
   let context: EndToEndContext;
   let rollup: RollupContract;
   let logger: Logger;

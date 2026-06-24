@@ -17,8 +17,8 @@ import { RootRollupPublicInputs } from '@aztec/stdlib/rollup';
 
 import { jest } from '@jest/globals';
 
-import type { EndToEndContext } from '../fixtures/utils.js';
-import { SingleNodeTestContext } from './single_node_test_context.js';
+import type { EndToEndContext } from '../../fixtures/utils.js';
+import { SingleNodeTestContext } from '../single_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -27,7 +27,7 @@ jest.setTimeout(1000 * 60 * 10);
 // aztecSlot=2×8=16s, epoch=8, proofSubmissionEpochs=1 (default), blockDurationMs=3s,
 // cancelTxOnTimeout=false, inboxLag=2 (v5 always enforces the timetable, so the former enforceTimeTable
 // override is gone). Prover Delayer steers proof tx timing.
-describe('multi-node/single-node/proof_fails', () => {
+describe('single-node/proving/proof_fails', () => {
   let context: EndToEndContext;
   let l1Client: ViemClient;
   let rollup: RollupContract;

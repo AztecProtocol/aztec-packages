@@ -7,18 +7,18 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { jest } from '@jest/globals';
 
 import type { EndToEndContext } from '../../fixtures/utils.js';
-import { MultiNodeTestContext } from '../multi_node_test_context.js';
+import { SingleNodeTestContext } from '../single_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
-// Single-sequencer suite for the failed-sync prune fallback (A-1260). The proposer cannot build while
+// Single-sequencer suite for the failed-sync prune fallback. The proposer cannot build while
 // its sync is paused, so the only way the pending chain can be wound back to proven is the
 // `Sequencer.tryVoteAndPruneWhenCannotBuild` path. With no prover node, epoch 0 never proves, so once
 // its proof-submission window closes the chain becomes prunable and the proposer's fallback must call
 // `prune()` despite being unable to propose.
 //
 // Timing: ethSlot=8s, aztecSlot=2×8=16s, epoch=8, proofSubmissionEpochs=1.
-describe('multi-node/prune/prune_when_cannot_build', () => {
+describe('single-node/recovery/prune_when_cannot_build', () => {
   let context: EndToEndContext;
   let logger: Logger;
   let rollup: RollupContract;
@@ -26,10 +26,10 @@ describe('multi-node/prune/prune_when_cannot_build', () => {
 
   let L2_SLOT_DURATION_IN_S: number;
 
-  let test: MultiNodeTestContext;
+  let test: SingleNodeTestContext;
 
   beforeEach(async () => {
-    test = await MultiNodeTestContext.setup({
+    test = await SingleNodeTestContext.setup({
       startProverNode: false, // Nothing ever proves epoch 0, so its pending chain stays unproven and becomes prunable.
       ethereumSlotDuration: 8,
       aztecEpochDuration: 8, // Long enough to land a few checkpoints in epoch 0.

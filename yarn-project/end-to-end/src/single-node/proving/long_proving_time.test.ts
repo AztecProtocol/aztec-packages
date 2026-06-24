@@ -11,7 +11,7 @@ const MAX_JOB_COUNT = 20;
 // epochs concurrently (proverNodeMaxPendingJobs=20, proverBrokerMaxEpochsToKeepResultsFor=10) without
 // the broker rejecting in-flight jobs as stale. (v5: previously capped at one job at a time with
 // proverNodeMaxPendingJobs=1; now exercises concurrent multi-epoch proving.)
-describe('multi-node/single-node/proving/long_proving_time', () => {
+describe('single-node/proving/long_proving_time', () => {
   let logger: Logger;
   let monitor: ChainMonitor;
 

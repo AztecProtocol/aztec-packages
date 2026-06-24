@@ -8,7 +8,7 @@ import { SingleNodeTestContext, jest } from './setup.js';
 // with a very long epoch. This one is the only coverage of the prover-node `startProof` path (the
 // multi-root suite hand-drives an EpochTestSettler with no prover), so it keeps its own setup
 // rather than folding into the multi-root beforeEach.
-describe('multi-node/single-node/partial-proofs/single_root', () => {
+describe('single-node/partial-proofs/single_root', () => {
   let logger: Logger;
   let monitor: ChainMonitor;
 

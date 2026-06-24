@@ -8,7 +8,7 @@ import { SingleNodeTestContext, WORLD_STATE_CHECKPOINT_HISTORY, jest } from './s
 // are pruned after finalization. SingleNodeTestContext defaults: single node, prod-seq, interval
 // mining, ethSlot=8s (12s CI), aztecSlot=16s (24s CI), epoch=6, proofSubmissionEpochs=1, fake prover.
 // TARGET_PROVEN_EPOCHS env var controls iteration count. Assumes one block per checkpoint.
-describe('multi-node/single-node/proving/multiple', () => {
+describe('single-node/proving/world_state_pruning', () => {
   let rollup: RollupContract;
   let logger: Logger;
 
