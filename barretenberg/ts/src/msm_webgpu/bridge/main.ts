@@ -225,7 +225,11 @@ export class WebGpuMsmHost {
   // largest n seen). A masked run over zeros yields masked = (0+R) mod r = R.
   private zeroScalars: Uint8Array | null = null;
 
-  // BatchMsmV2 instances keyed by `(n << 16) | B`. Each holds its own
+  // BatchMsmV2 instances keyed by `n * 65536 + B` — a plain integer, NOT a
+  // bitwise `(n << 16) | B` pack: JS `<<` is a 32-bit signed op, so `n << 16`
+  // overflows for n ≥ 32768 and keeps only n's low 16 bits, collapsing distinct
+  // sizes (e.g. 65535/131071/196607) onto one key and handing back a wrong-`n`
+  // cached instance. Each holds its own
   // MsmV2Pool with a private SRS upload, plus a single MsmV2 configured
   // with `batchSize = B`. Activated by `__bridge_batch_enabled === true`
   // for the duration of one chonk page run; insertion order == LRU order.
@@ -1469,7 +1473,7 @@ export class WebGpuMsmHost {
       throw new Error('WebGPU bridge: SRS bytes missing for BatchMsmV2');
     }
     const SCALAR_BYTES = 32;
-    const key = (n << 16) | (B & 0xffff);
+    const key = n * 65536 + B;
     let batch = this.batchInstances.get(key);
     const cacheHit = !!batch;
     if (batch) {
