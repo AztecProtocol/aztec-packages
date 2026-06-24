@@ -41,6 +41,15 @@ export default class TimingEnvironment extends CustomEnvironment {
     // Start times keyed by hook type (beforeAll/beforeEach/afterAll/afterEach).
     this.hookStarts = {};
     this.testStarts = new Map();
+    // Guards against double-flushing (we flush on both the teardown event and the teardown method).
+    this.flushed = false;
+  }
+
+  // Flush on the teardown method too: the jest lifecycle always calls this, whereas the 'teardown'
+  // event is not reliably delivered when a test run is interrupted. Whichever fires first wins.
+  async teardown() {
+    this.finalizeAndFlush();
+    await super.teardown();
   }
 
   async handleTestEvent(event, state) {
@@ -184,6 +193,10 @@ export default class TimingEnvironment extends CustomEnvironment {
 
   /** Finalizes the suite-scoped record (untagged fn spans + beforeAll/afterAll) and writes all JSONL. */
   finalizeAndFlush() {
+    if (this.flushed || !this.timingFile) {
+      return;
+    }
+    this.flushed = true;
     const suite = {
       setupFnMs: 0,
       beforeHooksMs: this.suiteRecord.beforeHooksMs,
