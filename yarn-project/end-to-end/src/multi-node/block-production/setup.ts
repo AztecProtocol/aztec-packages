@@ -109,7 +109,7 @@ async function buildValidatorCluster(opts: {
  * min/maxTxsPerBlock, whether sequencers start eagerly, contract type) passes through `opts`. Mirrors
  * how {@link setupBlockProductionWithProver} factors out the prover-backed setup; the test still registers its own contract.
  */
-export async function setupSimpleBlockProduction(opts: {
+export function setupSimpleBlockProduction(opts: {
   nodeCount: number;
   setupOpts?: Partial<MultiNodeTestOpts>;
   nodeOpts?: Partial<AztecNodeConfig> & { dontStartSequencer?: boolean };
