@@ -32,7 +32,10 @@ function build {
 }
 
 function test_cmds {
-  echo "$hash barretenberg/docs/bootstrap.sh test"
+  # The recursive example proves a circuit embedding a full in-circuit Honk verifier in WASM; on the
+  # default 2-CPU budget that prove+verify lands ~140-340s and intermittently trips the jest timeout.
+  # A 4-CPU budget roughly halves it, back well under the per-test cap.
+  echo "$hash:CPUS=4 barretenberg/docs/bootstrap.sh test"
 }
 
 function test {

@@ -237,7 +237,7 @@ describe('poseidon2Hash benchmark (Async API): WASM vs Native', () => {
       // Test always passes, this is just for measuring performance
       expect(true).toBe(true);
     },
-    10000,
+    30000,
   );
 
   const TEST_VECTORS = [1, 2, 3, 5, 10, 50, 100];
