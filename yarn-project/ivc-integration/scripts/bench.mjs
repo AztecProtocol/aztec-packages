@@ -35,6 +35,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const registry = JSON.parse(readFileSync(path.join(__dirname, 'devices.json'), 'utf8'));
 const HISTORY = '/tmp/zac-webgpu/bench-history.jsonl';
 const DEFAULT_FLOW = 'ecdsar1+transfer_1_recursions+sponsored_fpc';
+// Page server port the devices load from. Override with PAGE_PORT when the default
+// 8080 -L forward is wedged on the Mac and a virgin local port is forwarded instead
+// (the box server still listens on 8080; the Mac maps e.g. 9080 -> box:8080).
+const PAGE_PORT = Number(process.env.PAGE_PORT) || 8080;
+// Host the devices load the page from. Defaults to 127.0.0.1 (IPv4, per SETUP.md),
+// but if only the IPv6 `localhost` (::1) forward is live on the Mac, set PAGE_HOST=localhost.
+const PAGE_HOST = process.env.PAGE_HOST || '127.0.0.1';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const nowMs = () => Date.now();
@@ -53,7 +60,7 @@ const chonkServerHint = 'start the chonk page: (cd yarn-project/ivc-integration 
 
 const BENCHES = {
   chonk: {
-    port: 8080,
+    port: PAGE_PORT,
     pagePath: '/',
     results: chonkSink.results,
     progress: chonkSink.progress,
@@ -70,7 +77,7 @@ const BENCHES = {
     render: renderChonk,
   },
   probe: {
-    port: 8080,
+    port: PAGE_PORT,
     pagePath: '/',
     results: chonkSink.results,
     progress: chonkSink.progress,
@@ -108,10 +115,11 @@ const BENCHES = {
   },
 };
 
-// 127.0.0.1 (not localhost) on both paths: the Mac's SSH `-L` forward and the
-// phone's `adb reverse` both bind IPv4 loopback; `localhost` risks an IPv6 miss.
+// Devices load from PAGE_HOST:port — default 127.0.0.1 (IPv4): the Mac's `-L`
+// forward and the phone's `adb reverse` bind IPv4 loopback, so `localhost` risks an
+// IPv6 (::1) miss. Override PAGE_HOST/PAGE_PORT only to route around a wedged forward.
 function urlFor(port, pagePath, params) {
-  return `http://127.0.0.1:${port}${pagePath}?${params.toString()}`;
+  return `http://${PAGE_HOST}:${port}${pagePath}?${params.toString()}`;
 }
 
 // ─── device resolution ──────────────────────────────────────────────────────
