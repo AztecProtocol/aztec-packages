@@ -8,7 +8,8 @@ import {
 import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { DateProvider } from '@aztec/foundation/timer';
+import { createLogger } from '@aztec/foundation/log';
+import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncMap } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { RevertCode } from '@aztec/stdlib/avm';
@@ -24,6 +25,7 @@ import {
   PublicDataTreeLeafPreimage,
 } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, Tx, TxEffect, TxHash, type TxValidator } from '@aztec/stdlib/tx';
+import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -32,6 +34,7 @@ import { GasLimitsValidator, MaxFeePerGasValidator } from '../../msg_validators/
 import { AllowedSetupCallsMetaValidator } from '../../msg_validators/tx_validator/phases_validator.js';
 import type { TxMetaData } from './tx_metadata.js';
 import { AztecKVTxPoolV2 } from './tx_pool_v2.js';
+import { type MinedTxInfo, TxPoolV2Impl } from './tx_pool_v2_impl.js';
 
 // Tx type alias for cleaner type annotations
 type MockTx = Awaited<ReturnType<typeof mockTx>>;
@@ -1543,6 +1546,81 @@ describe('TxPoolV2', () => {
       // Should not throw when processing an empty block
       await pool.handleMinedBlock(makeEmptyBlock(slot1Header));
       expectNoCallbacks();
+    });
+
+    describe('pending-to-mined delay', () => {
+      // The wrapper feeds onTxsMined's delays into MEMPOOL_TX_MINED_DELAY. We construct the impl
+      // directly with a spy callback + controllable clock so we can assert the emitted delay, which
+      // is the behaviour the histogram records.
+      const makeImpl = async (onTxsMined: (m: MinedTxInfo[]) => void, dateProvider: DateProvider) => {
+        const implStore = await openTmpStore('impl-p2p');
+        const implArchive = await openTmpStore('impl-archive');
+        const impl = new TxPoolV2Impl(
+          implStore,
+          implArchive,
+          {
+            l2BlockSource: mockL2BlockSource,
+            worldStateSynchronizer: mockWorldState,
+            createTxValidator: () => Promise.resolve(alwaysValidValidator),
+            checkAllowedSetupCalls: () => Promise.resolve(true),
+            blockMinFeesProvider: { getCurrentMinFees: () => Promise.resolve(GasFees.empty()) },
+          },
+          { onTxsAdded: () => {}, onTxsRemoved: () => {}, onTxsMined },
+          getTelemetryClient(),
+          {},
+          dateProvider,
+          createLogger('test:tx-pool-mined-delay'),
+        );
+        const cleanup = async () => {
+          await implStore.delete();
+          await implArchive.delete();
+        };
+        return { impl, cleanup };
+      };
+
+      it('reports now - receivedAt for a tx that was pending in the pool', async () => {
+        const minedCalls: MinedTxInfo[][] = [];
+        const dateProvider = new TestDateProvider();
+        const { impl, cleanup } = await makeImpl(m => minedCalls.push(m), dateProvider);
+        try {
+          const tx = await mockTx(1);
+          await impl.addPendingTxs([tx], {}); // receivedAt stamped at "now"
+          dateProvider.advanceTime(5); // 5s in the pool before it's mined
+
+          await impl.handleMinedBlock(makeBlock([tx], slot1Header));
+
+          expect(minedCalls).toHaveLength(1);
+          const minedTxs = minedCalls[0];
+          expect(minedTxs).toHaveLength(1);
+          expect(minedTxs[0].txHash).toBe(hashOf(tx));
+          // 5s advance dominates; real elapsed during the test is a few ms.
+          expect(minedTxs[0].minedDelayMs).toBeGreaterThanOrEqual(5000);
+          expect(minedTxs[0].minedDelayMs).toBeLessThan(6000);
+        } finally {
+          await cleanup();
+        }
+      });
+
+      it('leaves the delay undefined when receivedAt is unknown (hydrated/restart tx)', async () => {
+        const minedCalls: MinedTxInfo[][] = [];
+        const dateProvider = new TestDateProvider();
+        const { impl, cleanup } = await makeImpl(m => minedCalls.push(m), dateProvider);
+        try {
+          const tx = await mockTx(1);
+          await impl.addPendingTxs([tx], {});
+          // Simulate a tx whose receive time was lost (e.g. rebuilt from the DB on restart).
+          impl.getPoolReadAccess().getMetadata(hashOf(tx))!.receivedAt = 0;
+
+          await impl.handleMinedBlock(makeBlock([tx], slot1Header));
+
+          expect(minedCalls).toHaveLength(1);
+          const minedTxs = minedCalls[0];
+          expect(minedTxs[0].txHash).toBe(hashOf(tx));
+          expect(minedTxs[0].minedDelayMs).toBeUndefined();
+        } finally {
+          await cleanup();
+        }
+      });
     });
 
     it('deletes pending transactions with conflicting nullifiers', async () => {
