@@ -10,10 +10,15 @@ import { GasFees } from '@aztec/stdlib/gas';
 
 import { waitForTxs } from '../../fixtures/wait_helpers.js';
 import { proveInteraction } from '../../test-wallet/utils.js';
-import { type MbpsFixture, jest, setupMbps, waitForProvenCheckpoint } from './setup.js';
+import {
+  type BlockProductionWithProverFixture,
+  jest,
+  setupBlockProductionWithProver,
+  waitForProvenCheckpoint,
+} from './setup.js';
 
 describe('multi-node/block-production/deploy_and_call_ordering', () => {
-  let fixture: MbpsFixture;
+  let fixture: BlockProductionWithProverFixture;
 
   afterEach(async () => {
     jest.restoreAllMocks();
@@ -25,7 +30,7 @@ describe('multi-node/block-production/deploy_and_call_ordering', () => {
   // waits for both to be checkpointed. Asserts deploy block < call block and both belong to the
   // same checkpoint. Waits for that checkpoint to be proven.
   it('deploys a contract and calls it in separate blocks within a slot', async () => {
-    fixture = await setupMbps({
+    fixture = await setupBlockProductionWithProver({
       syncChainTip: 'checkpointed',
       minTxsPerBlock: 1,
       maxTxsPerBlock: 1,

@@ -9,7 +9,7 @@ import type { EndToEndContext } from '../../fixtures/utils.js';
 import { waitForTxs } from '../../fixtures/wait_helpers.js';
 import { proveAndSendTxs } from '../../test-wallet/utils.js';
 import type { MultiNodeTestContext, RegisteredValidator } from '../multi_node_test_context.js';
-import { jest, setupBlockProduction } from './setup.js';
+import { jest, setupSimpleBlockProduction } from './setup.js';
 
 const NODE_COUNT = 3;
 const TX_COUNT_SIMPLE = 8;
@@ -31,7 +31,7 @@ describe('multi-node/block-production/simple', () => {
   beforeEach(async () => {
     // Setup context with no initial sequencer (lightweight RPC-only node).
     // The hardcoded account is funded via genesis without needing on-chain deployment.
-    ({ test, context, logger, validators, nodes, from } = await setupBlockProduction({
+    ({ test, context, logger, validators, nodes, from } = await setupSimpleBlockProduction({
       nodeCount: NODE_COUNT,
       nodeOpts: { minTxsPerBlock: 1, maxTxsPerBlock: 1 },
     }));

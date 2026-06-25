@@ -12,7 +12,7 @@ import { jest } from '@jest/globals';
 import type { EndToEndContext } from '../../fixtures/utils.js';
 import {
   MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
-  MULTI_VALIDATOR_CONSENSUS_TIMING,
+  MULTI_VALIDATOR_BLOCK_PRODUCTION_TIMING,
   MultiNodeTestContext,
   type MultiNodeTestOpts,
   type RegisteredValidator,
@@ -49,7 +49,7 @@ describe('multi-node/block-production/proof_boundary', () => {
 
     test = await MultiNodeTestContext.setup({
       ...MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
-      ...MULTI_VALIDATOR_CONSENSUS_TIMING,
+      ...MULTI_VALIDATOR_BLOCK_PRODUCTION_TIMING,
       initialValidators: validators,
       ...overrides,
     });

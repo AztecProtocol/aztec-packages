@@ -19,9 +19,9 @@ import type { TestWallet } from '../../test-wallet/test_wallet.js';
 import { proveAndSendTxs } from '../../test-wallet/utils.js';
 import {
   type BlockProposedEvent,
-  MBPS_TIMING,
   MultiNodeTestContext,
   type RegisteredValidator,
+  WIDE_SLOT_TIMING,
   buildMockGossipValidators,
 } from '../multi_node_test_context.js';
 
@@ -67,7 +67,7 @@ describe('multi-node/recovery/pipeline_prune', () => {
     validators = buildMockGossipValidators(NODE_COUNT);
 
     test = await MultiNodeTestContext.setup({
-      ...MBPS_TIMING,
+      ...WIDE_SLOT_TIMING,
       numberOfAccounts: 0,
       initialValidators: validators,
       mockGossipSubNetwork: true,

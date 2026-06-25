@@ -10,7 +10,13 @@ import { executeTimeout } from '@aztec/foundation/timer';
 import type { TestWallet } from '../../test-wallet/test_wallet.js';
 import { proveAndSendTxs } from '../../test-wallet/utils.js';
 import { MultiNodeTestContext, buildMockGossipValidators } from '../multi_node_test_context.js';
-import { MBPS_TIMING, type MbpsFixture, NODE_COUNT, jest, waitForProvenCheckpoint } from './setup.js';
+import {
+  type BlockProductionWithProverFixture,
+  NODE_COUNT,
+  WIDE_SLOT_TIMING,
+  jest,
+  waitForProvenCheckpoint,
+} from './setup.js';
 
 const PIPELINE_TX_COUNT = 34;
 const PIPELINE_EXPECTED_BLOCKS_PER_CHECKPOINT = 8;
@@ -21,7 +27,7 @@ const PIPELINE_EXPECTED_BLOCKS_PER_CHECKPOINT = 8;
 // offset assertions live in their behavior-named homes (production tests, pipeline_prune) and are not
 // re-checked here.
 describe('multi-node/block-production/blob_promotion', () => {
-  let fixture: MbpsFixture;
+  let fixture: BlockProductionWithProverFixture;
 
   afterEach(async () => {
     jest.restoreAllMocks();
@@ -29,15 +35,15 @@ describe('multi-node/block-production/blob_promotion', () => {
   });
 
   /**
-   * Sets up the pipelining MBPS context: same MBPS timing profile as {@link setupMbps} plus 500ms mock
+   * Sets up the pipelining wide-slot context: same timing profile as {@link setupBlockProductionWithProver} plus 500ms mock
    * gossip latency, a tighter `maxTxsPerCheckpoint`, and node-0 with checkpoint promotion disabled so
    * the blob-promotion behavior of the other nodes can be asserted against it.
    */
-  async function setupPipeline(): Promise<MbpsFixture> {
+  async function setupBlobPromotion(): Promise<BlockProductionWithProverFixture> {
     const validators = buildMockGossipValidators(NODE_COUNT);
 
     const test = await MultiNodeTestContext.setup({
-      ...MBPS_TIMING,
+      ...WIDE_SLOT_TIMING,
       numberOfAccounts: 0,
       initialValidators: validators,
       mockGossipSubNetwork: true,
@@ -113,7 +119,7 @@ describe('multi-node/block-production/blob_promotion', () => {
   // mined, then verifies node-0 (promotion disabled) fetches blobs while nodes 1-3 (promotion enabled)
   // skip blob fetching entirely, and that a high-block-count checkpoint built under load still proves.
   it('promotion-disabled node fetches blobs while peers skip them, and the checkpoint proves', async () => {
-    fixture = await setupPipeline();
+    fixture = await setupBlobPromotion();
     const { test, context, logger, nodes, contract, from } = fixture;
 
     // Spy on getBlobSidecar on all validator nodes before sequencers start, so we check that nodes

@@ -4,13 +4,19 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { TxStatus } from '@aztec/stdlib/tx';
 
 import { proveAndSendTxs, proveInteraction } from '../../test-wallet/utils.js';
-import { type MbpsFixture, TX_COUNT, jest, setupMbps, waitForProvenCheckpoint } from './setup.js';
+import {
+  type BlockProductionWithProverFixture,
+  TX_COUNT,
+  jest,
+  setupBlockProductionWithProver,
+  waitForProvenCheckpoint,
+} from './setup.js';
 
 // Production of a multi-block proposed slot: txs anchor to the proposed tip and the wallet syncs to it,
 // and a non-validator re-executes then cold-syncs the checkpointed multi-block slot. Both share the
 // proposed-tip MBPS setup (PXE in 'proposed' mode) from setup.ts.
 describe('multi-node/block-production/proposed_chain', () => {
-  let fixture: MbpsFixture;
+  let fixture: BlockProductionWithProverFixture;
 
   afterEach(async () => {
     jest.restoreAllMocks();
@@ -21,7 +27,7 @@ describe('multi-node/block-production/proposed_chain', () => {
   // the previous tx (PXE in 'proposed' mode). Verifies tx anchor block numbers are monotonically
   // non-decreasing. Asserts ≥2 blocks per checkpoint and waits for the MBPS checkpoint to be proven.
   it('builds multiple blocks per slot with transactions anchored to proposed blocks', async () => {
-    fixture = await setupMbps({ syncChainTip: 'proposed', minTxsPerBlock: 1, maxTxsPerBlock: 1 });
+    fixture = await setupBlockProductionWithProver({ syncChainTip: 'proposed', minTxsPerBlock: 1, maxTxsPerBlock: 1 });
     const { test, context, logger, rollup, nodes, contract, wallet, from } = fixture;
 
     // Record the current checkpoint number before starting sequencers
@@ -67,7 +73,7 @@ describe('multi-node/block-production/proposed_chain', () => {
   // tip. Verifies block effects are valid, then starts a second sync-only node and confirms it
   // syncs the multi-block slot from scratch.
   it('builds multiple blocks per slot and non-validators re-execute and sync multi-block slots', async () => {
-    fixture = await setupMbps({ syncChainTip: 'proposed', minTxsPerBlock: 1, maxTxsPerBlock: 1 });
+    fixture = await setupBlockProductionWithProver({ syncChainTip: 'proposed', minTxsPerBlock: 1, maxTxsPerBlock: 1 });
     const { test, context, logger, nodes, contract, from } = fixture;
 
     logger.warn(`Creating non-validator reexecuting node`);

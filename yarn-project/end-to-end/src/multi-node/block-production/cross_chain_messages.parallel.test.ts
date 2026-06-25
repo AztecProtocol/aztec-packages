@@ -11,7 +11,12 @@ import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { sendL1ToL2Message } from '../../fixtures/l1_to_l2_messaging.js';
 import { waitForBlockNumber, waitForTxs } from '../../fixtures/wait_helpers.js';
 import { proveAndSendTxs } from '../../test-wallet/utils.js';
-import { type MbpsFixture, jest, setupMbps, waitForProvenCheckpoint } from './setup.js';
+import {
+  type BlockProductionWithProverFixture,
+  jest,
+  setupBlockProductionWithProver,
+  waitForProvenCheckpoint,
+} from './setup.js';
 
 const TX_COUNT = 10;
 
@@ -19,7 +24,7 @@ const TX_COUNT = 10;
 // produced blocks, and L1→L2 messages become ready after inbox lag and their consume txs mine. Both
 // run the shared MBPS pipelining context (4 validators + prover) from setup.ts.
 describe('multi-node/block-production/cross_chain_messages', () => {
-  let fixture: MbpsFixture;
+  let fixture: BlockProductionWithProverFixture;
 
   afterEach(async () => {
     jest.restoreAllMocks();
@@ -30,7 +35,7 @@ describe('multi-node/block-production/cross_chain_messages', () => {
   // for all to be mined, then asserts the total L2→L1 message count across all blocks ≥ TX_COUNT,
   // a MBPS checkpoint exists, and that checkpoint is proven.
   it('builds multiple blocks per slot with L2 to L1 messages', async () => {
-    fixture = await setupMbps({ syncChainTip: 'proposed', minTxsPerBlock: 1, maxTxsPerBlock: 2 });
+    fixture = await setupBlockProductionWithProver({ syncChainTip: 'proposed', minTxsPerBlock: 1, maxTxsPerBlock: 2 });
     const { test, context, logger, archiver, nodes, wallet, from } = fixture;
 
     // Start sequencers first, then deploy cross-chain contract (needs running sequencer to mine).
@@ -90,7 +95,7 @@ describe('multi-node/block-production/cross_chain_messages', () => {
     // skipInitialSequencer the chain won't move on its own, and a one-shot burst of filler txs lands
     // within a single checkpoint — so let the sequencer keep building (empty) blocks each slot to drive
     // the chain forward until the messages are ready.
-    fixture = await setupMbps({
+    fixture = await setupBlockProductionWithProver({
       syncChainTip: 'proposed',
       minTxsPerBlock: 0,
       maxTxsPerBlock: 1,

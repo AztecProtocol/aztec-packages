@@ -30,13 +30,13 @@ import type { TestWallet } from '../../test-wallet/test_wallet.js';
 import { proveInteraction } from '../../test-wallet/utils.js';
 import {
   type BlockProposedEvent,
-  MBPS_TIMING,
   MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
-  MULTI_VALIDATOR_CONSENSUS_TIMING,
+  MULTI_VALIDATOR_BLOCK_PRODUCTION_TIMING,
   MultiNodeTestContext,
   type MultiNodeTestOpts,
   type RegisteredValidator,
   type TrackedSequencerEvent,
+  WIDE_SLOT_TIMING,
   buildMockGossipValidators,
 } from '../multi_node_test_context.js';
 
@@ -51,8 +51,8 @@ export const NODE_COUNT = 4;
 // - Checkpoint 2: Block 1 (2 txs), Block 2 (2 txs), Block 3 (2 txs)
 export const TX_COUNT = 10;
 
-/** The validator cluster + context produced by {@link setupBlockProduction}. */
-export type BlockProductionFixture = {
+/** The validator cluster + context produced by {@link setupSimpleBlockProduction}. */
+export type SimpleBlockProductionFixture = {
   test: MultiNodeTestContext;
   context: EndToEndContext;
   logger: Logger;
@@ -61,42 +61,8 @@ export type BlockProductionFixture = {
   from: AztecAddress;
 };
 
-/**
- * Stands up the `block-production` validator cluster shared by the `MULTI_VALIDATOR_CONSENSUS_TIMING` tests
- * (`simple`, `high_tps`): builds `nodeCount` mock-gossip validators, sets up the context with the
- * consensus timing profile, spawns one validator node per validator, and returns the cluster. The
- * per-test divergence (`fakeProcessingDelayPerTxMs`, `txDelayerMaxInclusionTimeIntoSlot`,
- * min/maxTxsPerBlock, whether sequencers start eagerly, contract type) passes through `opts`. Mirrors
- * how {@link setupMbps} factors out the MBPS setup; the test still registers its own contract.
- */
-export async function setupBlockProduction(opts: {
-  nodeCount: number;
-  setupOpts?: Partial<MultiNodeTestOpts>;
-  nodeOpts?: Partial<AztecNodeConfig> & { dontStartSequencer?: boolean };
-}): Promise<BlockProductionFixture> {
-  const validators = buildMockGossipValidators(opts.nodeCount);
-
-  const test = await MultiNodeTestContext.setup({
-    ...MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
-    ...MULTI_VALIDATOR_CONSENSUS_TIMING,
-    initialValidators: validators,
-    ...opts.setupOpts,
-  });
-
-  const { context, logger } = test;
-  const from = context.accounts[0]; // auto-created by setup
-
-  logger.warn(`Initial setup complete. Starting ${opts.nodeCount} validator nodes.`);
-  const nodes = await asyncMap(validators, ({ privateKey }) =>
-    test.createValidatorNode([privateKey], { ...opts.nodeOpts }),
-  );
-  logger.warn(`Started ${opts.nodeCount} validator nodes.`, { validators: validators.map(v => v.attester.toString()) });
-
-  return { test, context, logger, validators, nodes, from };
-}
-
-/** State shared by the MBPS-timing `it`s (handles 4 validators + prover + a wallet pointed at node 0). */
-export type MbpsFixture = {
+/** State shared by the wide-slot `it`s (handles 4 validators + prover + a wallet pointed at node 0). */
+export type BlockProductionWithProverFixture = {
   test: MultiNodeTestContext;
   context: EndToEndContext;
   logger: Logger;
@@ -110,48 +76,84 @@ export type MbpsFixture = {
   failEvents: TrackedSequencerEvent[];
 };
 
+/** Shared spine: builds N mock-gossip validators, sets up the context, spawns one node per validator. */
+async function buildValidatorCluster(opts: {
+  nodeCount: number;
+  setupOpts: Partial<MultiNodeTestOpts>;
+  nodeOpts?: Partial<AztecNodeConfig> & { dontStartSequencer?: boolean };
+}): Promise<SimpleBlockProductionFixture> {
+  const validators = buildMockGossipValidators(opts.nodeCount);
+
+  const test = await MultiNodeTestContext.setup({
+    ...opts.setupOpts,
+    initialValidators: validators,
+  });
+
+  const { context, logger } = test;
+  const from = context.accounts[0];
+
+  logger.warn(`Initial setup complete. Starting ${opts.nodeCount} validator nodes.`);
+  const nodes = await asyncMap(validators, ({ privateKey }) =>
+    test.createValidatorNode([privateKey], { ...opts.nodeOpts }),
+  );
+  logger.warn(`Started ${opts.nodeCount} validator nodes.`, { validators: validators.map(v => v.attester.toString()) });
+
+  return { test, context, logger, validators, nodes, from };
+}
+
 /**
- * Creates validators and sets up an MBPS test context with the pipelining timing profile and a prover
+ * Stands up the `block-production` validator cluster shared by the `MULTI_VALIDATOR_BLOCK_PRODUCTION_TIMING` tests
+ * (`simple`, `high_tps`): builds `nodeCount` mock-gossip validators, sets up the context with the
+ * block-production timing profile, spawns one validator node per validator, and returns the cluster. The
+ * per-test divergence (`fakeProcessingDelayPerTxMs`, `txDelayerMaxInclusionTimeIntoSlot`,
+ * min/maxTxsPerBlock, whether sequencers start eagerly, contract type) passes through `opts`. Mirrors
+ * how {@link setupBlockProductionWithProver} factors out the prover-backed setup; the test still registers its own contract.
+ */
+export async function setupSimpleBlockProduction(opts: {
+  nodeCount: number;
+  setupOpts?: Partial<MultiNodeTestOpts>;
+  nodeOpts?: Partial<AztecNodeConfig> & { dontStartSequencer?: boolean };
+}): Promise<SimpleBlockProductionFixture> {
+  return buildValidatorCluster({
+    nodeCount: opts.nodeCount,
+    setupOpts: { ...MOCK_GOSSIP_MULTI_VALIDATOR_OPTS, ...MULTI_VALIDATOR_BLOCK_PRODUCTION_TIMING, ...opts.setupOpts },
+    nodeOpts: opts.nodeOpts,
+  });
+}
+
+/**
+ * Creates validators and sets up a wide-slot test context with the pipelining timing profile and a prover
  * node, then starts (paused) validator nodes and points the wallet at node 0. Mirrors the per-test
  * setup from the dissolved `mbps.parallel` file.
  */
-export async function setupMbps(opts: {
+export async function setupBlockProductionWithProver(opts: {
   syncChainTip: 'proposed' | 'checkpointed';
   minTxsPerBlock?: number;
   maxTxsPerBlock?: number;
   buildCheckpointIfEmpty?: boolean;
   skipPushProposedBlocksToArchiver?: boolean;
-}): Promise<MbpsFixture> {
+}): Promise<BlockProductionWithProverFixture> {
   const { syncChainTip = 'checkpointed', ...setupOpts } = opts;
 
-  const validators = buildMockGossipValidators(NODE_COUNT);
-
-  // MBPS_TIMING is the wide 72s/12s pipelining cadence (see A-914 on why the tighter 36s/4s breaks
+  // WIDE_SLOT_TIMING is the wide 72s/12s pipelining cadence (see A-914 on why the tighter 36s/4s breaks
   // non-proposer nodes); the JSDoc on the profile carries the full rationale.
-  const test = await MultiNodeTestContext.setup({
-    ...MBPS_TIMING,
-    numberOfAccounts: 0,
-    initialValidators: validators,
-    mockGossipSubNetwork: true,
-    startProverNode: true,
-    // Additional options (minTxsPerBlock, maxTxsPerBlock, etc.)
-    ...setupOpts,
-    // PXE options for chain tip syncing
-    pxeOpts: { syncChainTip },
-    skipInitialSequencer: true,
-    inboxLag: 2,
+  const { test, context, logger, validators, nodes, from } = await buildValidatorCluster({
+    nodeCount: NODE_COUNT,
+    setupOpts: {
+      ...WIDE_SLOT_TIMING,
+      numberOfAccounts: 0,
+      mockGossipSubNetwork: true,
+      startProverNode: true,
+      ...setupOpts,
+      pxeOpts: { syncChainTip },
+      skipInitialSequencer: true,
+      inboxLag: 2,
+    },
+    nodeOpts: { dontStartSequencer: true },
   });
 
-  const { context, logger, rollup } = test;
+  const { rollup } = test;
   const wallet = context.wallet as TestWallet;
-  const from = context.accounts[0]; // auto-created by setup
-
-  // Start the validator nodes
-  logger.warn(`Initial setup complete. Starting ${NODE_COUNT} validator nodes.`);
-  const nodes = await asyncMap(validators, ({ privateKey }) =>
-    test.createValidatorNode([privateKey], { dontStartSequencer: true }),
-  );
-  logger.warn(`Started ${NODE_COUNT} validator nodes.`, { validators: validators.map(v => v.attester.toString()) });
   const { failEvents } = test.watchNodeSequencerEvents(nodes);
 
   // Point the wallet at a validator node. The initial node-0 has all validator keys in its config,
@@ -167,8 +169,11 @@ export async function setupMbps(opts: {
   return { test, context, logger, rollup, archiver, validators, nodes, contract, wallet, from, failEvents };
 }
 
-/** Waits until a specific multi-block checkpoint is proven, verifying that proving succeeds with MBPS blocks. */
-export async function waitForProvenCheckpoint(fixture: MbpsFixture, targetCheckpoint: CheckpointNumber) {
+/** Waits until a specific multi-block checkpoint is proven, verifying that proving succeeds with multiple-blocks-per-slot. */
+export async function waitForProvenCheckpoint(
+  fixture: BlockProductionWithProverFixture,
+  targetCheckpoint: CheckpointNumber,
+) {
   const { test, nodes, logger, failEvents } = fixture;
   test.assertNoFailuresFromSequencers(failEvents);
 
@@ -217,8 +222,8 @@ export {
   type TestWallet,
   proveInteraction,
   type BlockProposedEvent,
-  MBPS_TIMING,
-  MULTI_VALIDATOR_CONSENSUS_TIMING,
+  WIDE_SLOT_TIMING,
+  MULTI_VALIDATOR_BLOCK_PRODUCTION_TIMING,
   MultiNodeTestContext,
   type RegisteredValidator,
   type TrackedSequencerEvent,

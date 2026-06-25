@@ -34,8 +34,8 @@ export {
   REORG_TIMING_BASE,
   FAST_REORG_TIMING,
   MULTI_VALIDATOR_REORG_TIMING,
-  MULTI_VALIDATOR_CONSENSUS_TIMING,
-  MBPS_TIMING,
+  MULTI_VALIDATOR_BLOCK_PRODUCTION_TIMING,
+  WIDE_SLOT_TIMING,
   type BlockProposedEvent,
   type TrackedSequencerEvent,
   type SingleNodeTestOpts,
@@ -64,7 +64,7 @@ export function buildMockGossipValidators(count: number): RegisteredValidator[] 
 
 /**
  * The shared `setup` cluster for the multi-validator tests that run a tight committee on the
- * in-memory mock-gossip bus without a prover (consensus / prune tests). Spread into the `setup`
+ * in-memory mock-gossip bus without a prover (block-production / recovery tests). Spread into the `setup`
  * call alongside `initialValidators` (from {@link buildMockGossipValidators}). Tests that want a
  * prover (MBPS / HA-sync) leave `startProverNode` explicit rather than adopting this preset's `false`.
  */

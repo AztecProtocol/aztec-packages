@@ -135,22 +135,22 @@ export const MULTI_VALIDATOR_REORG_TIMING = {
  * `attestationPropagationTime` (per-scenario: default 2, 0.5, or 1) — set it per test. Spread BEFORE
  * per-test overrides.
  */
-export const MULTI_VALIDATOR_CONSENSUS_TIMING = {
+export const MULTI_VALIDATOR_BLOCK_PRODUCTION_TIMING = {
   ethereumSlotDuration: 12,
   aztecSlotDurationInL1Slots: 3,
   blockDurationMs: 6000,
 } as const;
 
 /**
- * Timing-only profile naming the 72s wide-slot multi-block-per-slot cadence copied across the
- * block-production and recovery tests (`block-production/`'s `setupMbps`, `block-production/blob_promotion`,
+ * Timing-only profile naming the 72s wide-slot multiple-blocks-per-slot cadence copied across the
+ * block-production and recovery tests (`block-production/`'s `setupBlockProductionWithProver`, `block-production/blob_promotion`,
  * `recovery/pipeline_prune`). A-914:
- * pipelined MBPS needs this 72s/12s cadence (not the tighter 36s/4s), otherwise non-proposer nodes hit
+ * pipelined multiple-blocks-per-slot needs this 72s/12s cadence (not the tighter 36s/4s), otherwise non-proposer nodes hit
  * `CheckpointNumberNotSequentialError` when the pipelined proposer races ahead of L1 confirmation. The
  * larger `perBlockAllocationMultiplier` lets each of the several blocks per slot fit non-trivial txs.
  * Spread BEFORE per-test overrides (e.g. `mockGossipSubNetworkLatency`, `maxTxsPerCheckpoint`).
  */
-export const MBPS_TIMING = {
+export const WIDE_SLOT_TIMING = {
   ethereumSlotDuration: 12,
   aztecSlotDuration: 72,
   blockDurationMs: 5500,

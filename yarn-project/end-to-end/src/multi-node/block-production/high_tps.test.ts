@@ -11,7 +11,7 @@ import { getSlotAtTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-hel
 import type { EndToEndContext } from '../../fixtures/utils.js';
 import { proveAndSendTxs } from '../../test-wallet/utils.js';
 import type { MultiNodeTestContext, RegisteredValidator } from '../multi_node_test_context.js';
-import { jest, setupBlockProduction } from './setup.js';
+import { jest, setupSimpleBlockProduction } from './setup.js';
 
 const NODE_COUNT = 3;
 
@@ -74,7 +74,7 @@ describe('multi-node/block-production/high_tps', () => {
     // Start the validator nodes. Note the txDelayerMaxInclusionTimeIntoSlot is set to 1s,
     // so the tx delayer will simulate the network not accepting a tx for the next block
     // unless it is sent within the first second of the L1 slot.
-    ({ test, context, logger, validators, nodes, from } = await setupBlockProduction({
+    ({ test, context, logger, validators, nodes, from } = await setupSimpleBlockProduction({
       nodeCount: NODE_COUNT,
       setupOpts: {
         fakeProcessingDelayPerTxMs: TX_DURATION_MS,
