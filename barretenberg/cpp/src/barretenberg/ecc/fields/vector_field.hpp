@@ -113,7 +113,9 @@ template <class Params> inline constexpr bool has_simd_mont_mul_v = has_simd_mon
 // vector_field.hpp stays Params-agnostic at the type level; the trait body
 // has no member access, only `: std::true_type`.
 class Bn254FrParams;
+class Bn254FqParams;
 template <> struct has_simd_mont_mul<Bn254FrParams> : std::true_type {};
+template <> struct has_simd_mont_mul<Bn254FqParams> : std::true_type {};
 
 template <class Params> struct alignas(32) VectorField {
     using Field = field<Params>;
