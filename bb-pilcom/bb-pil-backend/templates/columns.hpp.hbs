@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -28,10 +29,10 @@ namespace bb::{{snakeCase name}} {
 // clang-format on
 
 // All columns minus shifts.
-enum class Column { {{shoutySnakeCase name}}_UNSHIFTED_ENTITIES };
+enum class Column : uint16_t { {{shoutySnakeCase name}}_UNSHIFTED_ENTITIES };
 
 // C++ doesn't allow enum extension, so we'll have to cast.
-enum class ColumnAndShifts {
+enum class ColumnAndShifts : uint16_t {
     {{shoutySnakeCase name}}_ALL_ENTITIES,
     SENTINEL_DO_NOT_USE,
 };

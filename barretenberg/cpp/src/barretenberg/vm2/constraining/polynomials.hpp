@@ -1,6 +1,5 @@
 #pragma once
 
-#include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/constraining/flavor.hpp"
 #include "barretenberg/vm2/constraining/prover.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
@@ -18,7 +17,7 @@ void resize_inverses(AvmFlavor::ProverPolynomials& prover_polynomials,
                      Column dst_selector_col);
 
 // Computes the proving key from the polynomials.
-// TODO: This doesn't need to be a shared_ptr, but BB requires it.
+// Remark: This doesn't need to be a shared_ptr, but BB requires it.
 std::shared_ptr<AvmProver::ProvingKey> proving_key_from_polynomials(AvmProver::ProverPolynomials& polynomials);
 
 } // namespace bb::avm2::constraining

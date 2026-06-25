@@ -352,7 +352,7 @@ TEST(GasConstrainingTest, DynGasFactorToRadix)
               { C::gt_res, num_limbs > num_p_limbs ? 1 : 0 },
           } });
 
-    precomputed_builder.process_misc(trace, 257);
+    precomputed_builder.process_misc(trace, NUM_RADIXES);
     precomputed_builder.process_to_radix_safe_limbs(trace);
 
     check_interaction<ExecutionTraceBuilder,
@@ -402,7 +402,7 @@ TEST(GasConstrainingTest, DynGasFactorInvalidRadix)
               { C::gt_res, num_limbs > num_p_limbs ? 1 : 0 },
           } });
 
-    precomputed_builder.process_misc(trace, 257);
+    precomputed_builder.process_misc(trace, NUM_RADIXES);
     precomputed_builder.process_to_radix_safe_limbs(trace);
 
     check_interaction<ExecutionTraceBuilder,
@@ -450,7 +450,7 @@ TEST(GasConstrainingTest, DynGasFactorToRadixInvalidRadixLt2)
                                    { C::gt_res, 1 }, // 20 > 0
                                } });
 
-    precomputed_builder.process_misc(trace, 257);
+    precomputed_builder.process_misc(trace, NUM_RADIXES);
     precomputed_builder.process_to_radix_safe_limbs(trace);
 
     // To Radix fails because radix < 2, but the lookup constraints must still satisfied for the gas relation to hold.
