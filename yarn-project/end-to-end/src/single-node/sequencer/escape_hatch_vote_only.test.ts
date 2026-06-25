@@ -43,7 +43,8 @@ jest.setTimeout(1000 * 60 * 5);
 // committee with pipelining opts (ethSlot=12s, aztecSlot=36s, epoch=4, proofSubEpochs=15). The
 // beforeEach deploys a custom EscapeHatch L1 contract and wires it into the rollup. Timing driven by
 // cheatCodes.rollup.advanceToEpoch + retryUntil waits.
-// Setup: plain setup(1, { ...PIPELINING_SETUP_OPTS, overridden slots, aztecTargetCommitteeSize=4 }).
+// Setup: setupBlockProducer (no prover node) with { ...PIPELINING_SETUP_OPTS, overridden slots,
+// aztecTargetCommitteeSize=4 }.
 describe('single-node/sequencer/escape_hatch_vote_only', () => {
   let logger: Logger;
   let test: SingleNodeTestContext;

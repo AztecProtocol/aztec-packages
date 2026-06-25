@@ -45,9 +45,10 @@ jest.setTimeout(1000 * 60 * 5);
 
 // Tests that a single sequencer node running a 16-validator committee can propose blocks while
 // simultaneously casting governance votes, and can cast votes even when block building is disabled.
-// Setup: plain setup(1, { ...PIPELINING_SETUP_OPTS, ethSlot=8s, aztecSlot=16s, committee=16,
-// proofSubEpochs=128 }) (v5 always enforces the timetable, so the former enforceTimeTable override is
-// gone). Uses cheatCodes.eth.warp + retryUntil for timing.
+// Setup: setupBlockProducer (no prover node) with { ...PIPELINING_SETUP_OPTS, ethSlot=8s,
+// aztecSlot=16s, committee=16, aztecProofSubmissionEpochs=128 } — the high proof-submission window
+// pins blocks against pruning (v5 always enforces the timetable, so the former enforceTimeTable
+// override is gone). Uses cheatCodes.eth.warp + retryUntil for timing.
 describe('single-node/sequencer/gov_proposal', () => {
   let logger: Logger;
   let test: SingleNodeTestContext;

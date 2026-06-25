@@ -35,8 +35,9 @@ import type { SingleNodeTestContext } from '../single_node_test_context.js';
 
 // Tests block building mechanics under the production sequencer with pipelining:
 // multi-tx blocks, double-spend rejection, log ordering, regressions, and L1 reorgs.
-// Uses setup() with PIPELINING_SETUP_OPTS (ethereumSlotDuration=4s, aztecSlotDuration=12s,
-// minTxsPerBlock=0; aztecEpochDuration and aztecProofSubmissionEpochs are setup() defaults).
+// Uses setupBlockProducer (no prover node) with PIPELINING_SETUP_OPTS (ethereumSlotDuration=4s,
+// aztecSlotDuration=12s, minTxsPerBlock=0). The factory pins aztecProofSubmissionEpochs=1024 so
+// unproven blocks survive; the `reorgs` describe overrides it to 1 to exercise pruning.
 // The `reorgs` describe uses RollupCheatCodes (advanceToNextEpoch, markAsProven, advanceToEpoch)
 // — other-active L1, not cross-chain bridging. CI job has TIMEOUT=25m.
 describe('single-node/block-building/block_building', () => {
@@ -58,7 +59,7 @@ describe('single-node/block-building/block_building', () => {
   });
 
   // Tests assembling blocks with multiple simultaneous transactions under pipelining.
-  // setup(2, PIPELINING_SETUP_OPTS) with fast polling intervals; minTxsPerBlock set per test.
+  // setupBlockProducer with PIPELINING_SETUP_OPTS and fast polling intervals; minTxsPerBlock set per test.
   describe('multi-txs block', () => {
     beforeAll(async () => {
       test = await setupBlockProducer({
@@ -313,7 +314,7 @@ describe('single-node/block-building/block_building', () => {
   });
 
   // Tests that duplicate nullifiers are rejected, both within the same block and across blocks.
-  // setup(1, PIPELINING_SETUP_OPTS), one node, production sequencer.
+  // setupBlockProducer with PIPELINING_SETUP_OPTS, one node, production sequencer.
   describe('double-spends', () => {
     let contract: TestContract;
 
@@ -449,7 +450,7 @@ describe('single-node/block-building/block_building', () => {
   });
 
   // Verifies that private encrypted logs and unencrypted logs emitted from nested calls are ordered
-  // correctly in the block. setup(1, PIPELINING_SETUP_OPTS).
+  // correctly in the block. setupBlockProducer with PIPELINING_SETUP_OPTS.
   describe('logs in nested calls are ordered as expected', () => {
     // This test was originally written for e2e_nested, but it was refactored
     // to not use TestContract.
@@ -523,7 +524,7 @@ describe('single-node/block-building/block_building', () => {
     }, 60_000);
   });
 
-  // Regression tests for specific sequencer bugs; each creates its own setup().
+  // Regression tests for specific sequencer bugs; each creates its own context via setupBlockProducer.
   describe('regressions', () => {
     afterEach(async () => {
       if (test) {

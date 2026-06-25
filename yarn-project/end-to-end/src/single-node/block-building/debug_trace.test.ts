@@ -22,9 +22,10 @@ import type { SingleNodeTestContext } from '../single_node_test_context.js';
 // Tests that the sequencer can successfully process blocks when L1 block proposals are forwarded
 // via a proxy contract (Forwarder). Also tests that a corrupted first propose call (failing with
 // allowFailure:true) followed by a valid second call still produces blocks.
-// Uses setup(2, {ethereumSlotDuration:4, aztecSlotDuration:12, proofSubEpochs:640, minTxsPerBlock:0,
-// aztecEpochDuration=default}) — production sequencer, anvil interval mining. The L1 interaction is
-// Forwarder/Multicall3/Rollup contract interception for block-proposal routing, not cross-chain bridging.
+// Uses setupBlockProducer (no prover node) with numberOfAccounts:2, ethereumSlotDuration:4,
+// aztecSlotDuration:12, aztecProofSubmissionEpochs:640, minTxsPerBlock:0 — production sequencer,
+// anvil interval mining. The L1 interaction is Forwarder/Multicall3/Rollup contract interception
+// for block-proposal routing, not cross-chain bridging.
 describe('single-node/block-building/debug_trace', () => {
   jest.setTimeout(5 * 60 * 1000); // 5 minutes
 
