@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Working directory independent.
-cd $(git rev-parse --show-toplevel)/yarn-project/l1-artifacts
+cd $(git rev-parse --show-toplevel)/l1-contracts/l1-artifacts
 
 # Contracts name list (all assumed to be in l1-contracts).
 # This script writes into the src/ folder:
@@ -52,8 +52,8 @@ combined_errors_abi=$(
     .[0].abi + .[1].abi
     | unique_by({type: .type, name: .name, inputs_len: (.inputs | length)})
   ' \
-    ../../l1-contracts/out/Errors.sol/Errors.json \
-    ../../l1-contracts/out/libraries/Errors.sol/Errors.json
+    ../out/Errors.sol/Errors.json \
+    ../out/libraries/Errors.sol/Errors.json
 )
 
 # Start from clean.
@@ -79,7 +79,7 @@ abis=""
 
 for contract_name in "${contracts[@]}"; do
   # Append compressed abi to abis collection
-  abis="$abis:$(jq -c '.abi' "../../l1-contracts/out/${contract_name}.sol/${contract_name}.json")"
+  abis="$abis:$(jq -c '.abi' "../out/${contract_name}.sol/${contract_name}.json")"
 
   # Generate <ContractName>Abi.ts
   (
@@ -93,7 +93,7 @@ for contract_name in "${contracts[@]}"; do
       .abi + $errs
       | unique_by({type: .type, name: .name, inputs_len: (.inputs | length)})
     ' \
-      "../../l1-contracts/out/${contract_name}.sol/${contract_name}.json"
+      "../out/${contract_name}.sol/${contract_name}.json"
     echo " as const;"
   ) >"src/${contract_name}Abi.ts"
 
@@ -104,7 +104,7 @@ for contract_name in "${contracts[@]}"; do
     echo " */"
     echo -n "export const ${contract_name}Bytecode = \""
     jq -j '.bytecode.object' \
-      "../../l1-contracts/out/${contract_name}.sol/${contract_name}.json"
+      "../out/${contract_name}.sol/${contract_name}.json"
     echo "\";"
 
     echo "/**"
@@ -112,7 +112,7 @@ for contract_name in "${contracts[@]}"; do
     echo " */"
     echo -n "export const ${contract_name}LinkReferences = "
     jq -j '.bytecode.linkReferences' \
-      "../../l1-contracts/out/${contract_name}.sol/${contract_name}.json"
+      "../out/${contract_name}.sol/${contract_name}.json"
     echo " as const;"
   ) >"src/${contract_name}Bytecode.ts"
 
@@ -127,7 +127,7 @@ done
   echo " * Rollup storage."
   echo " */"
   echo -n "export const RollupStorage = "
-  jq -j '.storage' "../../l1-contracts/out/Rollup.sol/storage.json"
+  jq -j '.storage' "../out/Rollup.sol/storage.json"
   echo " as const;"
 ) >"src/RollupStorage.ts"
 
@@ -140,7 +140,7 @@ echo "export * from './RollupStorage.js';" >>"src/index.ts"
   echo " * Escape hatch storage."
   echo " */"
   echo -n "export const EscapeHatchStorage = "
-  jq -j '.storage' "../../l1-contracts/out/EscapeHatch.sol/storage.json"
+  jq -j '.storage' "../out/EscapeHatch.sol/storage.json"
   echo " as const;"
 ) >"src/EscapeHatchStorage.ts"
 

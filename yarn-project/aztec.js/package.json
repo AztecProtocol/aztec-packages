@@ -98,7 +98,7 @@
     "@aztec/entrypoints": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
-    "@aztec/l1-artifacts": "workspace:^",
+    "@aztec/l1-artifacts": "portal:../../l1-contracts/l1-artifacts",
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/standard-contracts": "workspace:^",
     "@aztec/stdlib": "workspace:^",
