@@ -1,0 +1,43 @@
+# Bench profile: deterministic, guaranteed RPC sizing for benchmarking.
+# request=limit (Guaranteed QoS) reserves the cores; a >1.93-core request keeps
+# RPC off the 2-core pool: one pod per dedicated 4-core node, on-demand.
+#
+# NOTE: the prod profile carries a `preferredDuringScheduling` affinity for
+# cores=2 (so RPC normally favours the small pool). That preference is
+# intentionally omitted here — the bench needs RPC on adequately-sized nodes.
+nodeSelector:
+  local-ssd: "false"
+  node-type: "network"
+
+replicaCount: 1
+
+node:
+  resources:
+    requests:
+      cpu: "3.5"
+      memory: "8Gi"
+    limits:
+      cpu: "3.5"
+      memory: "8Gi"
+persistence:
+  enabled: true
+
+statefulSet:
+  enabled: true
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 16Gi
+
+service:
+  p2p:
+    enabled: true
+    nodePortEnabled: false
+  admin:
+    enabled: true
+  headless:
+    enabled: false
