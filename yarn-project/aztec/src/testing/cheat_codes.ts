@@ -45,9 +45,15 @@ export class CheatCodes {
    * @param targetTimestamp - The target timestamp to warp to (in seconds)
    */
   async warpL2TimeAtLeastTo(node: AztecNode & AztecNodeDebug, targetTimestamp: bigint | number) {
-    const targetBigInt = BigInt(targetTimestamp);
     const currentTimestamp = BigInt(await this.eth.lastBlockTimestamp());
+    await this.#warpL2TimeAtLeastTo(node, BigInt(targetTimestamp), currentTimestamp);
+  }
 
+  // `currentTimestamp` is the caller's already-observed L1 timestamp used only for the future-check guard. Callers
+  // that derive `targetBigInt` from an L1 read must pass that same read here: re-reading L1 would let a live
+  // sequencer's slot warp land between the two reads and push `targetBigInt` into the past, throwing spuriously even
+  // though the slot/mine logic below uses fresh rollup state and would have advanced time correctly.
+  async #warpL2TimeAtLeastTo(node: AztecNode & AztecNodeDebug, targetBigInt: bigint, currentTimestamp: bigint) {
     if (targetBigInt <= currentTimestamp) {
       throw new Error(
         `warpL2TimeAtLeastTo: target timestamp ${targetBigInt} is not in the future (current L1 timestamp is ${currentTimestamp}).`,
@@ -124,6 +130,6 @@ export class CheatCodes {
     const latestL2Timestamp = latestBlockData ? BigInt(latestBlockData.header.globalVariables.timestamp) : 0n;
     const baseTimestamp = latestL2Timestamp > currentL1Timestamp ? latestL2Timestamp : currentL1Timestamp;
     const targetTimestamp = baseTimestamp + BigInt(duration);
-    await this.warpL2TimeAtLeastTo(node, targetTimestamp);
+    await this.#warpL2TimeAtLeastTo(node, targetTimestamp, currentL1Timestamp);
   }
 }
