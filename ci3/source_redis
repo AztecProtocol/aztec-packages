@@ -43,7 +43,7 @@ if [ -z "${DASHBOARD_URL:-}" ]; then
   # We override to localhost if we're running local redis.
   export DASHBOARD_URL="http://ci.aztec-labs.com"
 
-  if command -v docker &>/dev/null && docker ps | grep -q "ci-redis"; then
+  if [ "$CI" -eq 0 ] && command -v docker &>/dev/null && docker ps 2>/dev/null | grep -q "ci-redis"; then
     if [ -z "$(docker ps -q --filter "name=^/ci-dashboard$")" ]; then
       echo_stderr "Building local ci dashboard..."
       (cd $ci3/dashboard && docker build -t aztecprotocol/ci-dashboard:latest .) &>/dev/null
@@ -81,7 +81,11 @@ function redis_cli {
 }
 
 function redis_setexz {
-  gzip | redis_cli -x SETEX $1 $2 &>/dev/null
+  if [ "$CI_REDIS_AVAILABLE" -ne 1 ]; then
+    cat >/dev/null
+    return 0
+  fi
+  gzip | redis_cli -x SETEX "$1" "$2" &>/dev/null
 }
 
 function redis_getz {
