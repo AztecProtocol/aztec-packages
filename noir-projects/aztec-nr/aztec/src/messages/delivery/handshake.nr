@@ -28,13 +28,15 @@ pub struct HandshakePage {
     pub total_count: u32,
 }
 
-/// The app-siloed handshake secrets the registry returns for a `(sender, recipient)` pair: the shared secret (used
-/// for the discovery tag) and the sender-only secret (folded into the constrained-delivery sequence nullifier so only
-/// the sender can advance the sequence).
+/// The app-siloed handshake secrets the registry returns for a `(sender, recipient)` pair.
 #[derive(Deserialize, Eq, Serialize)]
 pub struct AppSiloedHandshakeSecrets {
-    /// The shared secret (used for the discovery tag)
+    /// The app-siloed shared secret, used to derive the recipient's discovery tag. The recipient can reconstruct
+    /// it from the handshake's public ephemeral key via ECDH.
     pub shared: Field,
+    /// The app-siloed sender-only secret, folded into the constrained-delivery sequence nullifier so only the
+    /// sender can advance a sequence. The recipient cannot reconstruct it: it derives from a random secret stored
+    /// only in the sender's handshake note and never transmitted.
     pub sender_only: Field,
 }
 

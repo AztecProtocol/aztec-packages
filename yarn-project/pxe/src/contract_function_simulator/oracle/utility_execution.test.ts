@@ -1,4 +1,3 @@
-import { BackendType, Barretenberg } from '@aztec/bb.js';
 import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
 import { Fr } from '@aztec/foundation/curves/bn254';
@@ -89,14 +88,6 @@ describe('Utility Execution test suite', () => {
   let ownerCompleteAddress: CompleteAddress;
   let anchorBlockHeader: BlockHeader;
   const ownerSecretKey = Fr.fromHexString('2dcc5485a58316776299be08c78fa3788a1a7961ae30dc747fb1be17692a8d32');
-
-  beforeAll(async () => {
-    await Barretenberg.initSingleton({ backend: BackendType.Wasm, skipSrsInit: true, threads: 1 });
-  });
-
-  afterAll(async () => {
-    await Barretenberg.destroySingleton();
-  });
 
   const buildNote = (amount: bigint) => {
     return new Note([new Fr(amount)]);

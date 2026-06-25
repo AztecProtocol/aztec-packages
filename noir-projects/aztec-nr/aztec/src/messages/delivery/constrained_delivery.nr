@@ -41,7 +41,7 @@ pub(crate) fn constrain_secret_and_emit_nullifier(
         bootstrapped,
         index,
     );
-    context.push_nullifier_unsafe(compute_constrained_msg_nullifier(sender, recipient, secrets, index));
+    context.push_nullifier_unsafe(compute_constrained_msg_nullifier(sender, recipient, secrets.sender_only, index));
 }
 
 /// Anchors an untrusted `(secret, index)` to the registry before its constrained tag is emitted.
@@ -70,23 +70,24 @@ fn constrain_secret(
             [sender.to_field(), recipient.to_field(), secrets.shared, secrets.sender_only],
         );
     } else {
-        let prev_nullifier = compute_constrained_msg_nullifier(sender, recipient, secrets, index - 1);
+        let prev_nullifier = compute_constrained_msg_nullifier(sender, recipient, secrets.sender_only, index - 1);
         context.assert_nullifier_exists(compute_nullifier_existence_request(prev_nullifier, caller));
     }
 }
 
 /// Computes a constrained send's sequence nullifier.
 ///
-/// Every constrained send emits this nullifier so the next send under the same `(sender, recipient, secret)` sequence
-/// can prove its predecessor exists.
+/// Every constrained send emits this nullifier so the next send under the same sequence can prove its predecessor
+/// exists. The nullifier folds in the app-siloed sender-only secret rather than the shared secret, so a recipient
+/// who can reconstruct the shared secret cannot forge a sender's nullifier and grief the sequence.
 pub(crate) fn compute_constrained_msg_nullifier(
     sender: AztecAddress,
     recipient: AztecAddress,
-    secrets: AppSiloedHandshakeSecrets,
+    sender_only_secret: Field,
     index: u32,
 ) -> Field {
     poseidon2_hash_with_separator(
-        [sender.to_field(), recipient.to_field(), secrets.shared, secrets.sender_only, index as Field],
+        [sender.to_field(), recipient.to_field(), sender_only_secret, index as Field],
         DOM_SEP__CONSTRAINED_MSG_NULLIFIER,
     )
 }
@@ -110,8 +111,23 @@ mod test {
         assert_eq(context.nullifiers.len(), 1);
         assert_eq(
             context.nullifiers.get(0).inner.value,
-            compute_constrained_msg_nullifier(sender, recipient, secrets, index),
+            compute_constrained_msg_nullifier(sender, recipient, secrets.sender_only, index),
         );
+    }
+
+    #[test]
+    unconstrained fn nullifier_is_bound_to_sender_only_secret() {
+        let sender = AztecAddress::from_field(2);
+        let recipient = AztecAddress::from_field(4);
+        let index: u32 = 1;
+
+        // The sender's real nullifier folds in a sender-only secret the recipient cannot learn.
+        let real = compute_constrained_msg_nullifier(sender, recipient, 5678, index);
+        // Any value a party lacking that secret substitutes yields a different nullifier, so it cannot pre-emit
+        // (grief) the sender's sequence.
+        let forged = compute_constrained_msg_nullifier(sender, recipient, 1234, index);
+
+        assert(real != forged, "sequence nullifier must be bound to the sender-only secret");
     }
 
     #[test]
@@ -207,7 +223,7 @@ mod test {
                 read_request.inner.inner,
                 compute_siloed_nullifier(
                     context.this_address(),
-                    compute_constrained_msg_nullifier(sender, recipient, secrets, index - 1),
+                    compute_constrained_msg_nullifier(sender, recipient, secrets.sender_only, index - 1),
                 ),
             );
         });

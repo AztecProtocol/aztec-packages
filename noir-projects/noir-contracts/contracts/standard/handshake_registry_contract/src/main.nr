@@ -80,9 +80,10 @@ pub contract HandshakeRegistry {
         let (eph_sk, eph_pk) = generate_positive_ephemeral_key_pair();
         let s_raw = derive_ecdh_shared_secret(eph_sk, recipient_point.inner);
 
-        // A fresh random secret known only to the sender, backing the sender-only secret folded into
-        // constrained-delivery nullifiers. Safety: an uncooperative sender could pick a non-random value, but the
-        // secret only protects the sender's own ability to advance their sequence, so they only harm themselves.
+        // Safety: an uncooperative sender could pick a non-random value, but the sender-only secret only protects
+        // the sender's own ability to advance their sequence, so a bad value only harms themselves. It is a fresh
+        // random secret known only to the sender, backing the sender-only secret folded into constrained-delivery
+        // nullifiers.
         let sender_secret = unsafe { random() };
         let note = HandshakeNote::new(s_raw, NON_INTERACTIVE_HANDSHAKE, recipient, sender_secret);
 
@@ -101,8 +102,7 @@ pub contract HandshakeRegistry {
         let ciphertext = AES128::encrypt([eph_pk.x], recipient, self.context.this_address());
         self.context.emit_private_log_unsafe(log_tag, BoundedVec::from_array(ciphertext));
 
-        let caller = self.msg_sender();
-        AppSiloedHandshakeSecrets { shared: note.siloed_for(caller), sender_only: note.nullifier_secret_for(caller) }
+        note.app_siloed_secrets_for(self.msg_sender())
     }
 
     /// Asserts that `secrets` match the stored handshake from `sender` to `recipient`, for the caller
@@ -116,12 +116,10 @@ pub contract HandshakeRegistry {
     /// address.
     #[external("private")]
     fn validate_handshake(sender: AztecAddress, recipient: AztecAddress, secrets: AppSiloedHandshakeSecrets) {
-        let caller = self.msg_sender();
         let replacement_note_message = self.storage.handshakes.at(recipient).at(sender).get_note();
         let note = replacement_note_message.get_note();
 
-        assert(note.siloed_for(caller) == secrets.shared, "no matching handshake");
-        assert(note.nullifier_secret_for(caller) == secrets.sender_only, "no matching handshake");
+        assert(note.app_siloed_secrets_for(self.msg_sender()) == secrets, "no matching handshake");
 
         // `PrivateMutable::get_note` proves the current note by nullifying and recreating it. Deliver the
         // replacement to the sender so later validation calls can prove the same current handshake again.
@@ -145,13 +143,7 @@ pub contract HandshakeRegistry {
 
         if handshake.is_initialized() {
             let note = handshake.view_note();
-            let caller = self.msg_sender();
-            Option::some(
-                AppSiloedHandshakeSecrets {
-                    shared: note.siloed_for(caller),
-                    sender_only: note.nullifier_secret_for(caller),
-                },
-            )
+            Option::some(note.app_siloed_secrets_for(self.msg_sender()))
         } else {
             Option::none()
         }
