@@ -89,14 +89,14 @@ Stable releases target roughly one per month, typically mid-month. Dates are not
 
 ## Governance parameters
 
-| Parameter               | Alpha (Mainnet) | Testnet   |
-| ----------------------- | --------------- | --------- |
-| **Proposer Quorum**     | 600/1000        | 60/100    |
-| **Voting Delay**        | 3 days          | 12 hours  |
-| **Voting Duration**     | 7 days          | 24 hours  |
-| **Execution Delay**     | 30 days         | 12 hours  |
-| **Slashing Quorum**     | 65%             | 33%       |
-| **Slashing Round Size** | 128 epochs      | 64 epochs |
+| Parameter               | Alpha (Mainnet)      | Testnet              |
+| ----------------------- | -------------------- | -------------------- |
+| **Proposer Quorum**     | 600/1000             | 60/100               |
+| **Voting Delay**        | 3 days               | 12 hours             |
+| **Voting Duration**     | 7 days               | 24 hours             |
+| **Execution Delay**     | 30 days              | 12 hours             |
+| **Slashing Quorum**     | 65%                  | 33%                  |
+| **Slashing Round Size** | 4 epochs (128 slots) | 4 epochs (128 slots) |
 
 ---
 
