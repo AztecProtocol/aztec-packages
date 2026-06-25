@@ -48,7 +48,7 @@ export type FactCollectionWithOriginState = { key: FactCollectionKey; facts: Fac
  * Classifies an origin block by number against the chain tips. A surviving retractable fact's origin block is
  * guaranteed canonical (a reorg would have pruned the fact), so a number comparison is sufficient.
  */
-export function classifyOriginState(blockNumber: number, tips: TipBlockNumbers): OriginBlockState {
+export function classifyOriginBlockState(blockNumber: number, tips: TipBlockNumbers): OriginBlockState {
   if (blockNumber <= tips.finalizedBlockNumber) {
     return OriginBlockState.Finalized;
   }
@@ -64,7 +64,7 @@ export function toFactWithOriginState(fact: Fact, tips: TipBlockNumbers): FactWi
     ? {
         blockNumber: fact.originBlock.blockNumber,
         blockHash: fact.originBlock.blockHash,
-        blockState: classifyOriginState(fact.originBlock.blockNumber, tips),
+        blockState: classifyOriginBlockState(fact.originBlock.blockNumber, tips),
       }
     : undefined;
   return { factTypeId: fact.factTypeId, payload: fact.payload, originBlock };

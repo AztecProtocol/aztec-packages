@@ -4,7 +4,7 @@ export { FactCollectionKey, FactCollectionTypeKey, type OriginBlock } from './fa
 export type { Fact } from './stored_fact.js';
 export {
   OriginBlockState,
-  classifyOriginState,
+  classifyOriginBlockState,
   anchoredTipBlockNumbers,
   toFactWithOriginState,
   type TipBlockNumbers,

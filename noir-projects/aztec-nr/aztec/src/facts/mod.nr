@@ -9,7 +9,7 @@ use crate::oracle::fact_store::{
 use crate::protocol::{address::AztecAddress, traits::{Deserialize, Serialize}};
 
 mod origin_state;
-pub use origin_state::OriginState;
+pub use origin_state::OriginBlockState;
 
 /// The block a retractable fact originates from.
 #[derive(Deserialize, Eq, Serialize)]
@@ -23,7 +23,7 @@ pub struct OriginBlock {
 pub struct RetractableFactOrigin {
     pub block_number: u32,
     pub block_hash: Field,
-    pub block_state: OriginState,
+    pub block_state: OriginBlockState,
 }
 
 /// A single immutable fact in a collection.

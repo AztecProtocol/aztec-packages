@@ -5,26 +5,26 @@ import type { L2TipId, L2Tips } from '@aztec/stdlib/block';
 import {
   OriginBlockState,
   anchoredTipBlockNumbers,
-  classifyOriginState,
+  classifyOriginBlockState,
   toFactWithOriginState,
 } from './origin_state.js';
 
-describe('classifyOriginState', () => {
+describe('classifyOriginBlockState', () => {
   const tips = { provenBlockNumber: 10, finalizedBlockNumber: 5 };
 
   it('classifies a block at or below the finalized tip as Finalized', () => {
-    expect(classifyOriginState(5, tips)).toBe(OriginBlockState.Finalized);
-    expect(classifyOriginState(3, tips)).toBe(OriginBlockState.Finalized);
+    expect(classifyOriginBlockState(5, tips)).toBe(OriginBlockState.Finalized);
+    expect(classifyOriginBlockState(3, tips)).toBe(OriginBlockState.Finalized);
   });
 
   it('classifies a block above finalized but at or below proven as Proven', () => {
-    expect(classifyOriginState(6, tips)).toBe(OriginBlockState.Proven);
-    expect(classifyOriginState(10, tips)).toBe(OriginBlockState.Proven);
+    expect(classifyOriginBlockState(6, tips)).toBe(OriginBlockState.Proven);
+    expect(classifyOriginBlockState(10, tips)).toBe(OriginBlockState.Proven);
   });
 
   it('classifies a block above the proven tip as Pending', () => {
-    expect(classifyOriginState(11, tips)).toBe(OriginBlockState.Pending);
-    expect(classifyOriginState(12, tips)).toBe(OriginBlockState.Pending);
+    expect(classifyOriginBlockState(11, tips)).toBe(OriginBlockState.Pending);
+    expect(classifyOriginBlockState(12, tips)).toBe(OriginBlockState.Pending);
   });
 });
 
@@ -76,6 +76,6 @@ describe('anchoredTipBlockNumbers', () => {
 
   it('reports an origin block above the anchor as Pending', () => {
     const tips = anchoredTipBlockNumbers(makeL2Tips(5, 10), 6);
-    expect(classifyOriginState(7, tips)).toBe(OriginBlockState.Pending);
+    expect(classifyOriginBlockState(7, tips)).toBe(OriginBlockState.Pending);
   });
 });
