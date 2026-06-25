@@ -613,12 +613,7 @@ export async function setup(
       wallet.setMinFeePadding(opts.walletMinFeePadding);
     }
 
-    const cheatCodes = await CheatCodes.create(
-      config.l1RpcUrls,
-      aztecNodeService,
-      dateProvider,
-      aztecNodeService.getAutomineSequencer(),
-    );
+    const cheatCodes = await CheatCodes.create(config.l1RpcUrls, aztecNodeService, dateProvider);
 
     if (
       (opts.aztecTargetCommitteeSize && opts.aztecTargetCommitteeSize > 0) ||
