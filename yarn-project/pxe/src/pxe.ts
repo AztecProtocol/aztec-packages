@@ -189,6 +189,19 @@ export type PXECreateArgs = {
 };
 
 /**
+ * A source from which PXE derives the tagging secrets it scans for to discover incoming private logs.
+ *
+ * - `address-derived`: derives a shared secret via ECDH from an external `sender` address against every account
+ *   registered in this PXE (present and future), so registering one sender applies it to all of them. The address is
+ *   not secret, so unlike `arbitrary-secret` it can be reused freely across recipients.
+ * - `arbitrary-secret`: a shared secret point provided directly, scoped to a single recipient. It bypasses ECDH, so it
+ *   must not be reused across recipients (each would then be able to find the others' tags).
+ */
+export type TaggingSecretSource =
+  | { kind: 'address-derived'; sender: AztecAddress }
+  | { kind: 'arbitrary-secret'; recipient: AztecAddress; secret: Point };
+
+/**
  * Private eXecution Environment (PXE) is a library used by wallets to simulate private phase of transactions and to
  * manage private state of users.
  */
@@ -660,73 +673,114 @@ export class PXE {
   }
 
   /**
-   * Registers a sender in this PXE.
+   * Registers a source from which this PXE derives the tagging secrets it scans for to discover incoming private logs.
+   * See {@link TaggingSecretSource} for the meaning of each variant. Does nothing if the source is already registered.
    *
-   * After registering a new sender, the PXE will sync private logs that are tagged with this sender's address.
-   * Will do nothing if the address is already registered.
-   *
-   * @param sender - Address of the sender to register.
-   * @returns The address of the sender.
-   * TODO: It's strange that we return the address here and I (benesjan) think we should drop the return value.
+   * After a new source is added we clear the cache tracking which contracts have finished syncing, so every contract
+   * re-syncs against the new source's logs (whose notes/events could belong to any contract). Already-discovered
+   * notes/events are not discarded.
    */
-  public async registerSender(sender: AztecAddress): Promise<AztecAddress> {
-    if (!(await sender.isValid())) {
+  public async registerTaggingSecretSource(source: TaggingSecretSource): Promise<void> {
+    let wasAdded: boolean;
+
+    switch (source.kind) {
+      case 'address-derived':
+        wasAdded = await this.#registerSender(source.sender);
+        break;
+      case 'arbitrary-secret':
+        wasAdded = await this.#registerArbitrarySecret(source.recipient, source.secret);
+        break;
+      default: {
+        const _: never = source;
+        throw new Error('Unhandled tagging secret source kind');
+      }
+    }
+
+    if (wasAdded) {
+      // Queued to avoid wiping while a job is in flight.
+      await this.#putInJobQueue(() => Promise.resolve(this.contractSyncService.wipe()));
+    }
+  }
+
+  /**
+   * Removes a previously registered tagging secret source. Does nothing if it was not registered.
+   */
+  public async removeTaggingSecretSource(source: TaggingSecretSource): Promise<void> {
+    switch (source.kind) {
+      case 'address-derived': {
+        const { sender } = source;
+        const wasRemoved = await this.taggingSecretSourcesStore.removeSender(sender);
+        this.log.info(
+          wasRemoved
+            ? `Removed sender:\n ${sender.toString()}`
+            : `Sender:\n "${sender.toString()}"\n not registered in PXE.`,
+        );
+        break;
+      }
+      case 'arbitrary-secret': {
+        const { recipient, secret } = source;
+        const wasRemoved = await this.taggingSecretSourcesStore.removeSharedSecret(recipient, secret);
+        this.log.info(
+          wasRemoved
+            ? `Removed shared secret for recipient:\n ${recipient.toString()}`
+            : `Shared secret not registered for recipient:\n ${recipient.toString()}`,
+        );
+        break;
+      }
+      default: {
+        const _: never = source;
+        throw new Error('Unhandled tagging secret source kind');
+      }
+    }
+  }
+
+  /**
+   * Retrieves the tagging secret sources registered in this PXE. Without a filter it returns every source; pass
+   * `{ kind }` to narrow to a single variant. See {@link TaggingSecretSource}.
+   */
+  public getTaggingSecretSources<K extends TaggingSecretSource['kind']>(filter: {
+    kind: K;
+  }): Promise<Extract<TaggingSecretSource, { kind: K }>[]>;
+  public getTaggingSecretSources(): Promise<TaggingSecretSource[]>;
+  public async getTaggingSecretSources(filter?: {
+    kind?: TaggingSecretSource['kind'];
+  }): Promise<TaggingSecretSource[]> {
+    const [senders, secrets] = await Promise.all([
+      this.taggingSecretSourcesStore.getSenders(),
+      this.taggingSecretSourcesStore.getAllSharedSecrets(),
+    ]);
+
+    const sources: TaggingSecretSource[] = [
+      ...senders.map((sender): TaggingSecretSource => ({ kind: 'address-derived', sender })),
+      ...secrets.map(({ recipient, secret }): TaggingSecretSource => ({ kind: 'arbitrary-secret', recipient, secret })),
+    ];
+
+    return filter?.kind ? sources.filter(source => source.kind === filter.kind) : sources;
+  }
+
+  /** Registers a sender, skipping addresses that belong to a local account. Returns whether it was newly added. */
+  async #registerSender(address: AztecAddress): Promise<boolean> {
+    if (!(await address.isValid())) {
       throw new Error(
-        `Address ${sender} is not valid: it does not correspond to a point on the Grumpkin curve. Cannot register it as a sender.`,
+        `Address ${address} is not valid: it does not correspond to a point on the Grumpkin curve. Cannot register it as a sender.`,
       );
     }
 
     const accounts = await this.keyStore.getAccounts();
-    if (accounts.some(a => a.equals(sender))) {
-      this.log.info(`Sender:\n "${sender.toString()}"\n already registered.`);
-      return sender;
+    if (accounts.some(a => a.equals(address))) {
+      this.log.info(`Sender:\n "${address.toString()}"\n already registered.`);
+      return false;
     }
 
-    const wasAdded = await this.taggingSecretSourcesStore.addSender(sender);
-
-    if (wasAdded) {
-      this.log.info(`Added sender:\n ${sender.toString()}`);
-      // Wipe the entire sync cache: the new sender's tagged logs could contain notes/events for any contract, so
-      // all contracts must re-sync to discover them. Queued to avoid wiping while a job is in flight.
-      await this.#putInJobQueue(() => Promise.resolve(this.contractSyncService.wipe()));
-    } else {
-      this.log.info(`Sender:\n "${sender.toString()}"\n already registered.`);
-    }
-
-    return sender;
+    const wasAdded = await this.taggingSecretSourcesStore.addSender(address);
+    this.log.info(
+      wasAdded ? `Added sender:\n ${address.toString()}` : `Sender:\n "${address.toString()}"\n already registered.`,
+    );
+    return wasAdded;
   }
 
-  /**
-   * Retrieves senders registered in this PXE.
-   * @returns Senders registered in this PXE.
-   */
-  public getSenders(): Promise<AztecAddress[]> {
-    return this.taggingSecretSourcesStore.getSenders();
-  }
-
-  /**
-   * Removes a sender registered in this PXE.
-   * @param sender - The address of the sender to remove.
-   */
-  public async removeSender(sender: AztecAddress): Promise<void> {
-    const wasRemoved = await this.taggingSecretSourcesStore.removeSender(sender);
-
-    if (wasRemoved) {
-      this.log.info(`Removed sender:\n ${sender.toString()}`);
-    } else {
-      this.log.info(`Sender:\n "${sender.toString()}"\n not registered in PXE.`);
-    }
-  }
-
-  /**
-   * Registers a pre-shared tagging secret scoped to a recipient, used to discover private logs tagged with it.
-   *
-   * Unlike a registered sender (whose shared secret is derived via ECDH), this is the shared secret point itself,
-   * provided directly. It is scoped to a recipient because the per-app derivation of the final tagging secret requires
-   * no further private information i.e. there is no ECDH step - reuse of such secrets by multiple recipients could lead
-   * to a privacy loss as they'd all be able to find each others' tags.
-   */
-  public async registerSharedSecret(recipient: AztecAddress, secret: Point): Promise<void> {
+  /** Registers a directly-provided shared secret scoped to a recipient. Returns whether it was newly added. */
+  async #registerArbitrarySecret(recipient: AztecAddress, secret: Point): Promise<boolean> {
     if (!(await recipient.isValid())) {
       throw new Error(
         `Recipient ${recipient} is not valid: it does not correspond to a point on the Grumpkin curve. Cannot register a shared secret for it.`,
@@ -738,28 +792,12 @@ export class PXE {
     }
 
     const wasAdded = await this.taggingSecretSourcesStore.addSharedSecret(recipient, secret);
-
-    if (wasAdded) {
-      this.log.info(`Added shared secret for recipient:\n ${recipient.toString()}`);
-      // Wipe the entire sync cache: the new secret's tagged logs could contain notes/events for any contract, so
-      // all contracts must re-sync to discover them. Queued to avoid wiping while a job is in flight.
-      await this.#putInJobQueue(() => Promise.resolve(this.contractSyncService.wipe()));
-    } else {
-      this.log.info(`Shared secret already registered for recipient:\n ${recipient.toString()}`);
-    }
-  }
-
-  /**
-   * Removes a pre-shared tagging secret registered in this PXE.
-   */
-  public async removeSharedSecret(recipient: AztecAddress, secret: Point): Promise<void> {
-    const wasRemoved = await this.taggingSecretSourcesStore.removeSharedSecret(recipient, secret);
-
-    if (wasRemoved) {
-      this.log.info(`Removed shared secret for recipient:\n ${recipient.toString()}`);
-    } else {
-      this.log.info(`Shared secret not registered for recipient:\n ${recipient.toString()}`);
-    }
+    this.log.info(
+      wasAdded
+        ? `Added shared secret for recipient:\n ${recipient.toString()}`
+        : `Shared secret already registered for recipient:\n ${recipient.toString()}`,
+    );
+    return wasAdded;
   }
 
   /**

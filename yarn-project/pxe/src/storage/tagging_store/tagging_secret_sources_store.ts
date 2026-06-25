@@ -78,11 +78,22 @@ export class TaggingSecretSourcesStore {
   }
 
   /** Returns the pre-shared tagging secrets registered for a given recipient. */
-  getSharedSecrets(recipient: AztecAddress): Promise<Point[]> {
+  getSharedSecretsForRecipient(recipient: AztecAddress): Promise<Point[]> {
     return this.#store.transactionAsync(async () => {
       return (await toArray(this.#sharedSecretsByRecipient.getValuesAsync(recipient.toString()))).map(secret =>
         Point.fromString(secret),
       );
+    });
+  }
+
+  /** Returns every registered pre-shared tagging secret, each paired with the recipient it is scoped to. */
+  getAllSharedSecrets(): Promise<{ recipient: AztecAddress; secret: Point }[]> {
+    return this.#store.transactionAsync(async () => {
+      const entries = await toArray(this.#sharedSecretsByRecipient.entriesAsync());
+      return entries.map(([recipient, secret]) => ({
+        recipient: AztecAddress.fromStringUnsafe(recipient),
+        secret: Point.fromString(secret),
+      }));
     });
   }
 
