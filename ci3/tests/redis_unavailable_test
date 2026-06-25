@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+export CI=1
+export CI_REDIS_AVAILABLE=0
+export DASHBOARD_URL="http://example.invalid"
+
+source "$script_dir/../source_redis"
+
+printf 'CI booting...\n' | redis_setexz no-redis-test 1
