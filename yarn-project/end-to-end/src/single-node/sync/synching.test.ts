@@ -65,10 +65,11 @@ import * as fs from 'fs';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import { getContract } from 'viem';
 
-import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
-import { mintTokensToPrivate } from './fixtures/token_utils.js';
-import { type EndToEndContext, setup, setupPXEAndGetWallet } from './fixtures/utils.js';
-import { TestWallet } from './test-wallet/test_wallet.js';
+import { PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
+import { mintTokensToPrivate } from '../../fixtures/token_utils.js';
+import { type EndToEndContext, setupPXEAndGetWallet } from '../../fixtures/utils.js';
+import { TestWallet } from '../../test-wallet/test_wallet.js';
+import { setupBlockProducer } from '../setup.js';
 
 const AZTEC_GENERATE_TEST_DATA = !!process.env.AZTEC_GENERATE_TEST_DATA;
 const START_TIME = 1893456000; // 2030 01 01 00 00
@@ -316,7 +317,7 @@ const variants: VariantDefinition[] = [
 // describes replay that data for sync benchmarks and prune/reorg tests. Uses PIPELINING_SETUP_OPTS.
 // All inner describe blocks are describe.skip and are not run in CI; only the outer it.each runs
 // when AZTEC_GENERATE_TEST_DATA is set.
-describe('e2e_synching', () => {
+describe('single-node/sync/synching', () => {
   // WARNING: Running this with AZTEC_GENERATE_TEST_DATA is VERY slow, and will build a whole slew
   //          of fixtures including multiple blocks with many transaction in.
   it.each(variants)(
@@ -336,22 +337,26 @@ describe('e2e_synching', () => {
       // The setup is in here and not at the `before` since we are doing different setups depending on what mode we are running in.
       // We require that at least 200 eth blocks have passed from the START_TIME before we see the first L2 block
       // This is to keep the setup more stable, so as long as the setup is less than 100 L1 txs, changing the setup should not break the setup
-      const {
-        teardown,
-        sequencer,
-        aztecNode,
-        wallet,
-        accounts: [defaultAccountAddress],
-        additionallyFundedAccounts,
-        cheatCodes,
-      } = await setup(1, {
+      const test = await setupBlockProducer({
         ...PIPELINING_SETUP_OPTS,
+        numberOfAccounts: 1,
+        // Preserve the raw-setup proof-submission window (1) the prune/reorg math here was tuned against
+        // rather than setupBlockProducer's high default, which would shift the prune timeliness window.
+        aztecProofSubmissionEpochs: 1,
         l1StartTime: START_TIME,
         l2StartTime: START_TIME + 200 * ETHEREUM_SLOT_DURATION,
         // These accounts are created+deployed as regular schnorr accounts (see deployAccounts), so fund them
         // at their regular addresses.
         additionallyFundedAccounts: await generateSchnorrAccounts(variant.txCount + 1, 'schnorr'),
       });
+      const {
+        sequencer,
+        aztecNode,
+        wallet,
+        accounts: [defaultAccountAddress],
+        additionallyFundedAccounts,
+        cheatCodes,
+      } = test.context;
       variant.setWallet(wallet);
 
       // Deploy a token, such that we could use it
@@ -403,7 +408,7 @@ describe('e2e_synching', () => {
       );
 
       await variant.writeCheckpoints(checkpoints);
-      await teardown();
+      await test.teardown();
     },
     240_400_000,
   );
@@ -417,8 +422,15 @@ describe('e2e_synching', () => {
       return;
     }
 
+    const test = await setupBlockProducer({
+      ...PIPELINING_SETUP_OPTS,
+      // Preserve the raw-setup proof-submission window (1) the prune/reorg math here was tuned against
+      // rather than setupBlockProducer's high default, which would shift the prune timeliness window.
+      aztecProofSubmissionEpochs: 1,
+      l1StartTime: START_TIME,
+      additionallyFundedAccounts: await generateSchnorrAccounts(10, 'schnorr'),
+    });
     const {
-      teardown,
       logger,
       deployL1ContractsValues,
       config,
@@ -428,11 +440,7 @@ describe('e2e_synching', () => {
       wallet,
       additionallyFundedAccounts,
       dateProvider,
-    } = await setup(0, {
-      ...PIPELINING_SETUP_OPTS,
-      l1StartTime: START_TIME,
-      additionallyFundedAccounts: await generateSchnorrAccounts(10, 'schnorr'),
-    });
+    } = test.context;
 
     await (aztecNode as any).stop();
     await (sequencer as any).stop();
@@ -503,7 +511,7 @@ describe('e2e_synching', () => {
       variant,
     );
 
-    await teardown();
+    await test.teardown();
   };
 
   // Skipped in CI. Replays pre-generated fixture checkpoints via SequencerPublisher.enqueueProposeCheckpoint,

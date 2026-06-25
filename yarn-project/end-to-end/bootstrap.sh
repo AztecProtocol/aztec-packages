@@ -32,16 +32,18 @@ function test_cmds {
   else
     echo "$prefix:NAME=e2e_prover_full_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/full"
   fi
-  echo "$prefix:TIMEOUT=25m:NAME=e2e_block_building $(set_dump_avm e2e_block_building) $run_test_script simple e2e_block_building"
   echo "$prefix:TIMEOUT=30m:NAME=e2e_avm_simulator $(set_dump_avm e2e_avm_simulator) $run_test_script simple src/e2e_avm_simulator.test.ts"
 
   local tests=(
     # List all standalone and nested tests, except for the ones listed above.
     src/e2e_!(prover)/*.test.ts
+    src/single-node/block-building/*.test.ts
     src/single-node/proving/*.test.ts
     src/single-node/l1-reorgs/*.test.ts
     src/single-node/recovery/*.test.ts
     src/single-node/partial-proofs/*.test.ts
+    src/single-node/sequencer/*.test.ts
+    src/single-node/sync/*.test.ts
     src/single-node/misc/*.test.ts
     src/multi-node/block-production/*.test.ts
     src/multi-node/recovery/*.test.ts
@@ -51,7 +53,7 @@ function test_cmds {
     src/multi-node/governance/*.test.ts
     src/p2p/*.test.ts
     src/p2p/reqresp/*.test.ts
-    src/e2e_!(block_building|avm_simulator).test.ts
+    src/e2e_!(avm_simulator).test.ts
   )
   for test in "${tests[@]}"; do
     # Derive a CI test name from the path: drop the leading "src/" and trailing ".test.ts".
@@ -67,6 +69,11 @@ function test_cmds {
         ;;
       e2e_cross_chain_messaging/l1_to_l2)
         test_prefix="$prefix:TIMEOUT=20m"
+        ;;
+      single-node/block-building/block_building)
+        # Block-building covers the full multi-tx / reorg surface and dumps AVM circuit inputs
+        # (via set_dump_avm in the loop below) for downstream avm_check_circuit.
+        test_prefix="$prefix:TIMEOUT=25m"
         ;;
       single-node/proving/long_proving_time)
         # The long-proving-time scenario waits out a multi-epoch prover delay.
@@ -228,14 +235,15 @@ function avm_check_circuit_cmds {
   # small and the AVM can run check-circuit with limited resources.
   local prefix="$hash:ISOLATE=1:TIMEOUT=30s"
 
-  # Find all .bin files in the dump directory (handles nested dirs)
-  for input_file in "$default_avm_inputs_dump_dir"/*/*.bin "$default_avm_inputs_dump_dir"/*/*/*.bin; do
+  # Find all .bin files in the dump directory (handles nested dirs, e.g. the 3-segment
+  # single-node/block-building/block_building dump path needs the 4-level glob).
+  for input_file in "$default_avm_inputs_dump_dir"/*/*.bin "$default_avm_inputs_dump_dir"/*/*/*.bin "$default_avm_inputs_dump_dir"/*/*/*/*.bin; do
     # Skip if no matches (glob didn't expand)
     [ -e "$input_file" ] || continue
 
     # Extract test name and tx hash for the command name
-    # e.g., dumped-avm-circuit-inputs/e2e_block_building/avm-circuit-inputs-tx-0x1234.bin
-    # -> avm_cc_e2e_block_building_0x1234
+    # e.g., dumped-avm-circuit-inputs/single-node/block-building/block_building/avm-circuit-inputs-tx-0x1234.bin
+    # -> avm_cc_single-node_block-building_block_building_0x1234
     local rel_path="${input_file#$default_avm_inputs_dump_dir/}"
     local test_dir=$(dirname "$rel_path")
     local filename=$(basename "$input_file" .bin)
