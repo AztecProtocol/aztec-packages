@@ -620,12 +620,12 @@ export async function generateSimulatedProvingResult(
     siloedNullifiers,
     minRevertibleSideEffectCounter,
   );
+  // The protocol nullifier is the nonce generator and the tx's first nullifier. It is injected by the
+  // init kernel (at counter 1, index 0) rather than emitted by any private call, so it is absent from
+  // the executed nullifiers above. Mirror the kernel here by prepending it as the first non-revertible
+  // nullifier.
   const nonceGenerator = privateExecutionResult.firstNullifier;
-  if (nonRevertibleNullifiers.length === 0) {
-    nonRevertibleNullifiers.push(nonceGenerator);
-  } else if (!nonRevertibleNullifiers[0].equals(nonceGenerator)) {
-    throw new Error('The first non revertible nullifier should be equal to the nonce generator. This is a bug!');
-  }
+  nonRevertibleNullifiers.unshift(nonceGenerator);
 
   if (isPrivateOnlyTx) {
     // We must make the note hashes unique by using the
