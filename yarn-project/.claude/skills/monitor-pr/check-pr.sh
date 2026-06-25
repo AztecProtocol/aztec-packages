@@ -43,6 +43,19 @@ BASE_REF="$(jq -r '.baseRefName'    <<<"$VIEW_JSON")"
 MERGEABLE="$(jq -r '.mergeable'     <<<"$VIEW_JSON")"
 MERGE_STATE="$(jq -r '.mergeStateStatus' <<<"$VIEW_JSON")"
 
+# GitHub computes mergeability lazily: a freshly-pushed or long-untouched PR briefly reports
+# mergeable=UNKNOWN. Querying is what kicks off the computation, so re-poll a few times rather than
+# reporting UNKNOWN -- which the caller would treat as "no conflict" and could conclude over a PR
+# whose conflict status was never actually determined.
+ATTEMPT=0
+while [ "$MERGEABLE" = "UNKNOWN" ] && [ "$ATTEMPT" -lt 5 ]; do
+  ATTEMPT=$((ATTEMPT + 1))
+  sleep 2
+  RECHECK_JSON="$(gh pr view "$PR_NUM" --repo "$REPO" --json mergeable,mergeStateStatus 2>/dev/null)" || break
+  MERGEABLE="$(jq -r '.mergeable'         <<<"$RECHECK_JSON")"
+  MERGE_STATE="$(jq -r '.mergeStateStatus' <<<"$RECHECK_JSON")"
+done
+
 echo "PR=$PR_NUM"
 echo "STATE=$STATE"
 echo "HEAD=$HEAD_REF"
