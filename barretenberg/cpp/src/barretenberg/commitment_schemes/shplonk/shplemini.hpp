@@ -60,7 +60,7 @@ template <typename Curve> class ShpleminiProver_ {
             libra_opening_claims = compute_libra_opening_claims(gemini_r, libra_polynomials, transcript);
         }
 
-        // Currently, only used in ECCVM.
+        // Currently, only used in the joint BatchedHonkTranslator PCS.
         std::vector<OpeningClaim> sumcheck_round_claims;
 
         if (!sumcheck_round_univariates.empty()) {
@@ -191,12 +191,9 @@ template <typename Curve, bool HasZK = false, bool HasGeminiMasking = HasZK> cla
      * in case of commited sumcheck)
      * \f]
      *
-     * The output triple is either fed to the corresponding \ref bb::KZG< Curve_ >::reduce_verify_batch_opening_claim
-     * "KZG method" or \ref bb::IPA< Curve_ >::reduce_verify_batch_opening_claim "IPA method". In the case of KZG, we
-     * reduce
-     * \f$ 6 \f$ batch_mul calls needed for the verification of the multivariate evaluation claims to the single
-     * batch_mul described above. In the case of IPA, the total number of batch_mul calls needed to verify the
-     * multivariate evaluation claims is reduced by \f$ 5 \f$.
+     * The output triple is fed to the corresponding \ref bb::KZG< Curve_ >::reduce_verify_batch_opening_claim
+     * "KZG method". This reduces the \f$ 6 \f$ batch_mul calls needed for the verification of the multivariate
+     * evaluation claims to the single batch_mul described above.
      *
      */
     template <typename Transcript>
@@ -340,7 +337,7 @@ template <typename Curve, bool HasZK = false, bool HasGeminiMasking = HasZK> cla
                 libra_evaluations, gemini_evaluation_challenge, multivariate_challenge, libra_univariate_evaluation);
         }
 
-        // Used in ECCVM and BatchedHonkTranslator. The nu power offset in batch_sumcheck_round_claims
+        // Used in the joint BatchedHonkTranslator PCS. The nu power offset in batch_sumcheck_round_claims
         // assumes ZK claims (NUM_SMALL_IPA_OPENING_CLAIMS) precede sumcheck round claims in the batching order.
         if (committed_sumcheck) {
             if constexpr (!HasZK) {

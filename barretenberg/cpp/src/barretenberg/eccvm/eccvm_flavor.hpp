@@ -18,7 +18,6 @@
 #include "barretenberg/flavor/flavor_macros.hpp"
 #include "barretenberg/flavor/partially_evaluated_multivariates.hpp"
 #include "barretenberg/flavor/relation_definitions.hpp"
-#include "barretenberg/flavor/repeated_commitments_data.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 #include "barretenberg/relations/ecc_vm/ecc_bools_relation.hpp"
@@ -85,38 +84,6 @@ class ECCVMFlavor {
     // The total number of witness entities not including shifts.
     // Includes gemini_masking_poly for ZK (NUM_WITNESS_ENTITIES = 87 + NUM_MASKING_POLYNOMIALS)
     static constexpr size_t NUM_WITNESS_ENTITIES = 88;
-    // The number of entities in ShiftedEntities.
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 26;
-    // The number of entities in DerivedWitnessEntities that are not going to be shifted.
-    static constexpr size_t NUM_DERIVED_WITNESS_ENTITIES_NON_SHIFTED = 1;
-    // Indices into the Shplemini commitments vector that identify which "to-be-shifted" witness commitments in the
-    // unshifted block are duplicated in the shifted block, so their scalar muls can be merged.
-    //
-    // Shplemini's remove_repeated_commitments uses offset = HasZK ? 2 : 1. For ECCVM (HasZK=true), offset=2
-    // accounts for the Shplonk:Q commitment and the gemini_masking_poly that precede the Precomputed+Witness
-    // block in the commitments vector. The indices below are therefore relative to the start of
-    // {PrecomputedEntities + WitnessEntities} (i.e. they exclude MaskingEntities, which is covered by the offset).
-    //
-    // original_start: index of the first to-be-shifted entity within {Precomputed + Witness}
-    //               = NUM_PRECOMPUTED + NUM_WIRE_NON_SHIFTED (= NUM_WITNESS - NUM_DERIVED_NON_SHIFTED - NUM_SHIFTED)
-    // duplicate_start: index where the shifted copies begin = NUM_PRECOMPUTED + NUM_WITNESS
-    static constexpr size_t NUM_WIRE_NON_SHIFTED =
-        NUM_WITNESS_ENTITIES - NUM_DERIVED_WITNESS_ENTITIES_NON_SHIFTED - NUM_SHIFTED_ENTITIES;
-    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
-        RepeatedCommitmentsData(NUM_PRECOMPUTED_ENTITIES + NUM_WIRE_NON_SHIFTED,
-                                NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES,
-                                NUM_SHIFTED_ENTITIES);
-
-    // Pin entity counts and REPEATED_COMMITMENTS indices so that any layout change triggers a compile error.
-    // The to-be-shifted witnesses must form a contiguous block starting at NUM_WIRE_NON_SHIFTED within WitnessEntities.
-    static_assert(NUM_WIRE_NON_SHIFTED == 61, "WireNonShiftedEntities size changed — update REPEATED_COMMITMENTS");
-    static_assert(NUM_MASKING_POLYNOMIALS == 1, "MaskingEntities size changed — review REPEATED_COMMITMENTS offset");
-    static_assert(REPEATED_COMMITMENTS.first.original_start == 65,
-                  "REPEATED_COMMITMENTS original_start changed — verify Shplemini offset convention");
-    static_assert(REPEATED_COMMITMENTS.first.duplicate_start == 92,
-                  "REPEATED_COMMITMENTS duplicate_start changed — verify Shplemini offset convention");
-    static_assert(REPEATED_COMMITMENTS.first.count == 26, "REPEATED_COMMITMENTS count changed");
-
     using GrandProductRelations = std::tuple<ECCVMSetRelation<FF>>;
     // define the tuple of Relations that comprise the Sumcheck relation
     template <typename FF>

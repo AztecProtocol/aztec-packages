@@ -938,66 +938,6 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
     }
 
     /**
-     * @brief A method that produces an IPA opening claim from a Shplemini accumulator containing vectors of commitments
-     * and scalars and a Shplonk evaluation challenge.
-     *
-     * @details Compute the commitment \f$ C \f$ that will be used to prove that Shplonk batching is performed correctly
-     * (it is an MSM) and check the evaluation claims of the batched univariate polynomials. The check is done by
-     * verifying that the polynomial corresponding to \f$ C \f$ evaluates to \f$ 0 \f$ at the Shplonk challenge point
-     * \f$ z \f$.
-     *
-     * @note This function is basically just a wrapper around an MSM.
-     *
-     */
-    static OpeningClaim<Curve> reduce_batch_opening_claim(const BatchOpeningClaim<Curve>& batch_opening_claim)
-    {
-        // Extract batch_mul arguments from the accumulator
-        const auto& commitments = batch_opening_claim.commitments;
-        auto scalars = batch_opening_claim.scalars; // mutable copy: batch_mul temporarily modifies scalars
-        const Fr& shplonk_eval_challenge = batch_opening_claim.evaluation_point;
-        // Compute \f$ C = \sum \text{commitments}_i \cdot \text{scalars}_i \f$
-        GroupElement shplonk_output_commitment = GroupElement::batch_mul(commitments, scalars);
-        // Output an opening claim, which in practice will be verified by the IPA opening protocol
-        return { { shplonk_eval_challenge, Fr(0) }, shplonk_output_commitment };
-    }
-
-    /**
-     * @brief Natively verify the IPA opening claim obtained from a Shplemini accumulator
-     *
-     * @param batch_opening_claim
-     * @param vk
-     * @param transcript
-     * @return bool
-     */
-    static bool reduce_verify_batch_opening_claim(const BatchOpeningClaim<Curve>& batch_opening_claim,
-                                                  const VK& vk,
-                                                  auto& transcript)
-        requires(!Curve::is_stdlib_type)
-    {
-        const auto opening_claim = reduce_batch_opening_claim(batch_opening_claim);
-        add_claim_to_hash_buffer(opening_claim, transcript);
-        return reduce_verify_internal_native(vk, opening_claim, transcript);
-    }
-
-    /**
-     * @brief Recursively verify the IPA opening claim obtained from a Shplemini accumulator
-     *
-     * @param batch_opening_claim
-     * @param vk
-     * @param transcript
-     * @return VerifierAccumulator
-     */
-    static VerifierAccumulator reduce_verify_batch_opening_claim(const BatchOpeningClaim<Curve>& batch_opening_claim,
-                                                                 [[maybe_unused]] const std::shared_ptr<VK>& vk,
-                                                                 auto& transcript)
-        requires(Curve::is_stdlib_type)
-    {
-        const auto opening_claim = reduce_batch_opening_claim(batch_opening_claim);
-        add_claim_to_hash_buffer(opening_claim, transcript);
-        return reduce_verify_internal_recursive(opening_claim, transcript);
-    }
-
-    /**
      * @brief Evaluates the polynomial created from the challenge scalars u_challenges_inv at a challenge r.
      * @details This polynomial is defined as challenge_poly(X) = ∏_{i ∈ [k]} (1 + u_{len-i}^{-1}.X^{2^{i-1}}),
      * so the evaluation is just ∏_{i ∈ [k]} (1 + u_{len-i}^{-1}.r^{2^{i-1}}).
