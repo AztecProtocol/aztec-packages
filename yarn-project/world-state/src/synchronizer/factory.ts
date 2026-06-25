@@ -73,7 +73,6 @@ export async function createWorldState(
         bindings,
       )
     : await NativeWorldStateService.tmp(
-        config.rollupAddress,
         !['true', '1'].includes(process.env.DEBUG_WORLD_STATE!),
         genesis,
         instrumentation,

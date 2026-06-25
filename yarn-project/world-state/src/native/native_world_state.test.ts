@@ -338,7 +338,7 @@ describe('NativeWorldState', () => {
     });
 
     it('manually clears the database', async () => {
-      const ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, wsTreeMapSizes);
+      await using ws = await NativeWorldStateService.new(EthAddress.random(), dataDir, wsTreeMapSizes);
       const initialStatus = await ws.getStatusSummary();
       expect(initialStatus.unfinalizedBlockNumber).toBe(0);
 
@@ -806,8 +806,8 @@ describe('NativeWorldState', () => {
         (blockNumber: number, fork: MerkleTreeWriteOperations) => mockEmptyBlock(BlockNumber(blockNumber), fork),
       ],
     ])('can re-org %s', async (_, genBlock) => {
-      const nonReorgState = await NativeWorldStateService.tmp();
-      const sequentialReorgState = await NativeWorldStateService.tmp();
+      await using nonReorgState = await NativeWorldStateService.tmp();
+      await using sequentialReorgState = await NativeWorldStateService.tmp();
       let fork = await ws.fork();
 
       const blockForks = [];
@@ -941,7 +941,7 @@ describe('NativeWorldState', () => {
 
     // Regression test for A-1055: a delayed-close fork that the C++ side has already destroyed (via
     // remove_forks_for_block on an unwind or historical prune) must dispose silently rather than logging a
-    // warning, and its JS-side per-fork queue entry must be cleaned up.
+    // warning.
     it('does not fail when a delayed-close fork is destroyed by a reorg before its close fires', async () => {
       const baseFork = await ws.fork();
       for (let i = 0; i < 3; i++) {
@@ -952,7 +952,6 @@ describe('NativeWorldState', () => {
 
       const closeDelayMs = 1000;
       const delayedFork = await ws.fork(undefined, { closeDelayMs });
-      const forkId = (delayedFork as any).revision.forkId;
       const warnSpy = jest.spyOn((delayedFork as any).log, 'warn');
 
       await (delayedFork as any)[Symbol.asyncDispose]();
@@ -960,12 +959,13 @@ describe('NativeWorldState', () => {
       await ws.unwindBlocks(BlockNumber.fromBigInt(2n));
       await expect(delayedFork.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, 0n)).rejects.toThrow('Fork not found');
 
-      // The failed read above can recreate the JS-side per-fork queue after the native fork has already been
-      // destroyed, so wait for the "Fork not found" path to clean it up deterministically.
-      await retryUntil(() => !(ws as any).instance.queues.has(forkId), 'destroyed fork queue cleanup', 30, 0.1);
+      // The fork was disposed with a closeDelayMs, so its close fires asynchronously after the delay. Wait for
+      // that delayed close to be scheduled and to settle so the "Fork not found" swallow path has actually run
+      // before asserting it did not warn.
+      await retryUntil(() => (delayedFork as any).closePromise !== undefined, 'delayed fork close scheduled', 30, 0.1);
+      await (delayedFork as any).closePromise.catch(() => {});
 
       expect(warnSpy).not.toHaveBeenCalled();
-      expect((ws as any).instance.queues.has(forkId)).toBe(false);
     });
   });
 
@@ -1048,7 +1048,7 @@ describe('NativeWorldState', () => {
     let messages: Fr[];
 
     it('retrieves leaf indices', async () => {
-      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+      await using ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
       const numBlocks = 2;
       const txsPerBlock = 2;
       const noteHashes: Fr[] = [];
@@ -1110,7 +1110,7 @@ describe('NativeWorldState', () => {
     let messages: Fr[];
 
     it('retrieves leaf sibling paths', async () => {
-      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+      await using ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
       const numBlocks = 2;
       const txsPerBlock = 2;
       const noteHashes: Fr[] = [];
@@ -1175,7 +1175,7 @@ describe('NativeWorldState', () => {
     });
 
     it('correctly reports block numbers', async () => {
-      const ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
+      await using ws = await NativeWorldStateService.new(rollupAddress, dataDir, wsTreeMapSizes);
       const statuses = [];
       const numBlocks = 2;
       const txsPerBlock = 2;

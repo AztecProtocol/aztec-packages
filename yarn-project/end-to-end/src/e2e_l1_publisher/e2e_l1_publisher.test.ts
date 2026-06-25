@@ -239,7 +239,7 @@ describe('L1Publisher integration', () => {
       ethereumSlotDuration: config.ethereumSlotDuration,
     };
 
-    builderDb = await NativeWorldStateService.tmp(EthAddress.fromString(rollupAddress));
+    builderDb = await NativeWorldStateService.tmp();
     blocks = [];
     // World-state derives block 0's hash from its initial header (which depends on prefilled state and
     // genesisTimestamp), not from the static GENESIS_BLOCK_HEADER_HASH constant. The mock must report the
