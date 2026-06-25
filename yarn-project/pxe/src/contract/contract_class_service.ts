@@ -16,7 +16,7 @@ import type { ContractStore } from '../storage/contract_store/contract_store.js'
 export class ContractClassService {
   /**
    * Class ids are cached per `(address, anchorHash)`. This avoid unnecessary network roundtrips in scenarios where
-   * multiple exeuctions are done on the same anchor block (e.g. simulation followed by witgen), or when the same
+   * multiple executions are done on the same anchor block (e.g. simulation followed by witgen), or when the same
    * contract is invoked multiple times in an execution (e.g. authwit checks).
    * It also means the callers don't need to worry about caching this service's return values, simplifying callsites.
    */
