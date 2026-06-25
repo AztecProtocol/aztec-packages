@@ -12,5 +12,7 @@ export const UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN = 20;
 // Number of tags probed per constrained secret per round: both the initial probe size and the step the probe grows by
 // each round until the first missing tag. Constrained delivery is gapless, so a single missing tag proves the stream
 // has ended. At steady state (no new logs) this turns a full WINDOW_LEN probe into one tag, and a secret with K new
-// logs costs exactly K + 1 tags instead of the whole window.
+// logs costs exactly K + 1 tags instead of the whole window. Larger values trade more steady-state tags (P per secret)
+// for fewer sequential round-trips during catch-up (a probe of P resolves K < P new logs in a single round), so 1 is
+// the right default while idle secrets dominate.
 export const INITIAL_CONSTRAINED_PROBE_LEN = 1;
