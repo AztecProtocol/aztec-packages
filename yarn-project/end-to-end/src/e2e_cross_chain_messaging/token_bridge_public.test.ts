@@ -6,6 +6,10 @@ import { jest } from '@jest/globals';
 import { L1_DIRECT_WRITE_ACCOUNT_INDEX, NO_L1_TO_L2_MSG_ERROR, PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
+// Public L1→L2 token deposit and L2→L1 withdrawal via the TokenBridge. Uses CrossChainMessagingTest
+// with startProverNode=true (prod sequencer, pipelining preset: ethSlot=4s, aztecSlot=12s), fake
+// in-proc prover node, and CrossChainTestHarness for full L1↔L2 portal/bridge lifecycle. Setup and
+// teardown happen per-test (beforeEach/afterEach) because the test creates fresh bridge state each run.
 describe('e2e_cross_chain_messaging token_bridge_public', () => {
   // Pipelining slows wall-clock chain progress (12s slots); waitForProven via advanceToEpochProven
   // needs more than the default 300s per-test budget.
@@ -39,6 +43,9 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
     await t.teardown();
   });
 
+  // Full round-trip: mint on L1, publicly deposit via TokenPortal, wait for message, claim_public on
+  // L2, authorize bridge to burn, withdraw to L1, advance to epoch proven, consume Outbox on L1.
+  // Asserts L1 balance is restored after the round-trip.
   it('Publicly deposit funds from L1 -> L2 and withdraw back to L1', async () => {
     const l1TokenBalance = 1000000n;
     const bridgeAmount = 100n;
@@ -94,6 +101,8 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
     // Advance the epoch until the tx is proven since the messages are inserted to the outbox when the epoch is proven.
     await t.advanceToEpochProven(l2TxReceipt);
 
+    // REFACTOR: hand-rolled retryUntil polling for L2→L1 membership witness; replace with a
+    // waitForL2ToL1MessageWitness(node, txHash, leaf) helper shared across bridge tests.
     const l2ToL1MessageResult = await retryUntil(
       () => aztecNode.getL2ToL1MembershipWitness(l2TxReceipt.txHash, l2ToL1Message),
       'l2 to l1 membership witness',
@@ -113,6 +122,8 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount + withdrawAmount);
   }, 900_000);
 
+  // User2 tries to claim to their own address (fails), then correctly claims to ownerAddress.
+  // Asserts only ownerAddress receives the tokens, user2 gets nothing, and the message is consumed.
   it('Someone else can mint funds to me on my behalf (publicly)', async () => {
     const l1TokenBalance = 1000000n;
     const bridgeAmount = 100n;

@@ -17,6 +17,10 @@ import { TestWallet } from './test-wallet/test_wallet.js';
 
 const TIMEOUT = 300_000;
 
+// Tests multi-PXE isolation: one node with two separate PXE instances attached, each holding different
+// account keys. Exercises note decryption scoping, contract registration ordering, and deferred-note
+// reprocessing when a contract is registered late. setup(1, AUTOMINE_E2E_OPTS) provides one node with
+// automine sequencer; a second PXE is attached via setupPXEAndGetWallet.
 describe('e2e_2_pxes', () => {
   jest.setTimeout(TIMEOUT);
 
@@ -75,6 +79,8 @@ describe('e2e_2_pxes', () => {
     await teardownA();
   });
 
+  // Deploys a Token on PXE A, mints initial balance, transfers A→B via PXE A, then B→A via PXE B.
+  // Asserts balances visible on each PXE match expectations after each step.
   it('transfers funds from user A to B via PXE A followed by transfer from B to A via PXE B', async () => {
     const initialBalance = 987n;
     const transferAmount1 = 654n;
@@ -125,6 +131,8 @@ describe('e2e_2_pxes', () => {
   const getChildStoredValue = (child: { address: AztecAddress }, node: AztecNode) =>
     node.getPublicStorageAt('latest', child.address, new Fr(1));
 
+  // Deploys a Child contract via PXE A, registers it on PXE B, then calls a public write from PXE B.
+  // Asserts the stored value is visible through the shared node regardless of which PXE was used.
   it('user calls a public function on a contract deployed by a different user using a different PXE', async () => {
     const childCompleteAddress = await deployChildContractViaServerA();
 
@@ -143,10 +151,16 @@ describe('e2e_2_pxes', () => {
     expect(storedValueOnA).toEqual(newValueToSet);
   });
 
+<<<<<<< HEAD
   // TODO(F-741): `expectTokenBalance(walletB, token, accountAAddress, 0n)` throws
   // "No public key registered". Handshake discovery (get_shared_secrets) needs the scope's
   // keys, which this PXE lacks for a foreign account.
   it.skip('private state is "zero" when PXE does not have the account secret key', async () => {
+=======
+  // Mints private balances for two accounts, each on their own PXE. Verifies that querying
+  // the balance for account A from PXE B returns 0 (key not registered), and vice versa.
+  it('private state is "zero" when PXE does not have the account secret key', async () => {
+>>>>>>> origin/v5-next
     const userABalance = 100n;
     const userBBalance = 150n;
 
@@ -170,6 +184,8 @@ describe('e2e_2_pxes', () => {
     await expectTokenBalance(walletA, token, accountBAddress, 0n, logger);
   });
 
+  // Transfers tokens to PXE B's account before B has registered the contract. Then B registers
+  // the contract and asserts it can now see its balance from the deferred notes.
   it('permits sending funds to a user before they have registered the contract', async () => {
     const initialBalance = 987n;
     const transferAmount1 = 654n;
@@ -190,6 +206,9 @@ describe('e2e_2_pxes', () => {
     await expectTokenBalance(walletB, token, accountBAddress, transferAmount1, logger);
   });
 
+  // A shared account is registered on both PXEs. Tokens are sent through the shared account before
+  // PXE B registers the contract. Verifies deferred-note reprocessing correctly applies nullifiers
+  // and reconciles balances after late contract registration.
   it('permits sending funds to a user, and spending them, before they have registered the contract', async () => {
     const initialBalance = 987n;
     const transferAmount1 = 654n;
@@ -229,6 +248,8 @@ describe('e2e_2_pxes', () => {
     await expectTokenBalance(walletB, token, sharedAccountAddress, transferAmount1 - transferAmount2, logger);
   });
 
+  // Sets up a third PXE (C) that has no knowledge of sender A. Transfers tokens A→C, confirms C
+  // sees 0 balance. Then registers A as a sender on C and confirms the balance is immediately visible.
   it('balance updates automatically after sender is registered', async () => {
     const initialBalance = 500n;
     const transferAmount = 200n;

@@ -8,6 +8,8 @@ import { cleanupReqrespTest, createReqrespDataDir, createReqrespTest, runReqresp
 // TODO: DELETE THIS FILE
 // This is a temporary copy of reqresp.test.ts with status handshake disabled
 // Delete this file once we have settled on the cause of the reqresp flakes.
+// Identical to reqresp.test.ts except p2pDisableStatusHandshake:true. Created to isolate flake root
+// cause. Should be deleted once the investigation is complete. dup:reqresp/reqresp.test.ts
 
 const DATA_DIR = createReqrespDataDir();
 
@@ -15,6 +17,9 @@ const DATA_DIR = createReqrespDataDir();
 // publish exceeds the default 5 min jest test timeout. Allow 15 min.
 jest.setTimeout(15 * 60 * 1000);
 
+// Same setup as reqresp.test.ts (6 validators, real libp2p, ethSlot=8s, aztecSlot=36s,
+// enforceTimeTable, proofSubEpochs=1024, epoch=64, inboxLag=2) but with p2pDisableStatusHandshake:true.
+// Temporary copy pending flake investigation. See reqresp.test.ts for full description.
 describe('e2e_p2p_reqresp_tx_no_handshake', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
@@ -39,6 +44,8 @@ describe('e2e_p2p_reqresp_tx_no_handshake', () => {
      *
      * Note: we do not attempt to let this node produce a block, as it will not have received any transactions
      *       from the other pxes.
+     *
+     * Identical to reqresp.test.ts but with status handshake disabled for flake investigation.
      */
     nodes = await runReqrespTxTest({ t, dataDir: DATA_DIR, disableStatusHandshake: true });
   });

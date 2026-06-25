@@ -34,6 +34,8 @@ function waitForSequencerIdle(sequencer: Sequencer, timeout = 30000): Promise<vo
     return Promise.resolve();
   }
 
+  // REFACTOR: raw sequencer event listener with manual timer; replace with a shared
+  // waitForSequencerState(sequencer, SequencerState.IDLE) helper in the e2e fixtures.
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       sequencer.off('state-changed', handler);
@@ -52,6 +54,9 @@ function waitForSequencerIdle(sequencer: Sequencer, timeout = 30000): Promise<vo
   });
 }
 
+// Gas estimation accuracy and FPC teardown gas prediction. Uses FeesTest (prod sequencer, pipelining
+// preset: ethSlot=4s, aztecSlot=12s, inboxLag=2, minTxsPerBlock=0), fake in-proc prover node, and
+// GasBridgingTestHarness for L1↔L2 fee-juice bridging (the FPC setup bridges fee juice to BananaFPC).
 describe('e2e_fees gas_estimation', () => {
   // FeesTest.setup + applyFPCSetup + applyFundAliceWithBananas chains many dependent txs which run
   // at the pipelined cadence, exceeding the default 5 min hook window.
@@ -122,6 +127,11 @@ describe('e2e_fees gas_estimation', () => {
       teardownGasLimits: inspect(estimatedGas.teardownGasLimits),
     });
 
+  // Simulates a public token transfer with includeMetadata=true and derives zero-padded gas limits from
+  // the reported gasUsed (v5: the old estimateGas=true / estimatedGasPadding=0 flow was replaced by
+  // simulate(includeMetadata) + estimateGasLimits, which yields gasLimits == manaUsed), then sends two
+  // copies — one with the estimated gas limits, one without. Asserts the estimated tx and the default tx
+  // pay the same fee, and that the estimated teardown gas is zero for a Fee Juice payment (no teardown work).
   it('estimates gas with Fee Juice payment method', async () => {
     const sim = await makeTransferRequest().simulate({
       from: aliceAddress,
@@ -159,6 +169,8 @@ describe('e2e_fees gas_estimation', () => {
     expect(estimatedFee).toEqual(withEstimate.transactionFee!);
   });
 
+  // Same flow but with a public FPC payment method. Asserts the estimated teardown gas limits are
+  // smaller than the default and that the estimated tx fee is lower than the unestimated tx fee.
   it('estimates gas with public payment method', async () => {
     const gasSettingsForEstimation = new GasSettings(
       new Gas(GAS_ESTIMATION_DA_GAS_LIMIT, GAS_ESTIMATION_L2_GAS_LIMIT),
@@ -200,6 +212,10 @@ describe('e2e_fees gas_estimation', () => {
     expect(estimatedFee).toEqual(withEstimate.transactionFee!);
   });
 
+  // Deploys a BananaCoin contract, simulating with includeMetadata=true and deriving zero-padded gas
+  // limits from gasUsed (v5: replaces the old estimateGas=true flow — see note above), then sends two
+  // deployments — one with estimated limits, one with defaults. Asserts both pay the same fee and
+  // estimated teardown is zero.
   it('estimates gas for public contract initialization with Fee Juice payment method', async () => {
     const deployMethod = () => BananaCoin.deploy(wallet, aliceAddress, 'TKN', 'TKN', 8);
     const deployOpts = (limits?: Pick<GasSettings, 'gasLimits' | 'teardownGasLimits'>) => {
