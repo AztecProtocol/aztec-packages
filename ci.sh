@@ -180,17 +180,21 @@ case "$cmd" in
     ;;
   bench)
     # Launched by the build instance on uploadable runs to produce stable benchmark
-    # numbers on a dedicated instance of a FIXED type. AWS_INSTANCE pins the exact type
-    # (bypasses spot pool diversification) — that's what keeps numbers comparable. Spot
-    # vs on-demand is the same hardware, so we try spot first and fall back to on-demand
-    # (the default fleet behaviour); a mid-run spot reclaim is handled by bootstrap_ec2's
-    # internal on-demand retry. CI_DASHBOARD and PARENT_LOG_ID are inherited from the
-    # launching run so it nests as a sibling job.
+    # numbers on a dedicated, FIXED-type instance. AWS_INSTANCE pins the exact type
+    # (bypasses spot pool diversification) — that's what keeps numbers comparable. We use
+    # bare metal (m6a.metal): a sub-host instance (e.g. m6a.32xlarge) shares its physical
+    # host with other tenants, and a memory-heavy neighbour steals memory bandwidth, which
+    # showed up as bimodal variance in the bandwidth-bound proving phases (MSM commitments)
+    # while compute phases stayed flat. Metal is sole-tenant, so there's no neighbour.
+    # Spot vs on-demand is the same hardware, so we try spot first and fall back to
+    # on-demand (the default fleet behaviour); a mid-run spot reclaim is handled by
+    # bootstrap_ec2's internal on-demand retry. CI_DASHBOARD and PARENT_LOG_ID are
+    # inherited from the launching run so it nests as a sibling job.
     # Timestamp the instance-request output. pipefail (in a subshell, since ci.sh doesn't
     # set it globally) keeps bootstrap_ec2's exit code through add_timestamps — the
     # launching build instance waits on this fatally.
     ( set -o pipefail
-      AWS_INSTANCE=m6a.32xlarge JOB_ID=x-bench INSTANCE_POSTFIX=x-bench \
+      AWS_INSTANCE=m6a.metal JOB_ID=x-bench INSTANCE_POSTFIX=x-bench \
         bootstrap_ec2 "./bootstrap.sh ci-bench" 2>&1 | add_timestamps )
     ;;
   socket-fix)
