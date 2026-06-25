@@ -184,7 +184,11 @@ export type SetupOptions = {
   mockGossipSubNetwork?: boolean;
   /** Whether to add simulated latency to the mock gossipsub network (in ms) */
   mockGossipSubNetworkLatency?: number;
-  /** Whether to enable anvil automine during deployment of L1 contracts (consider defaulting this to true). */
+  /**
+   * Whether to mine the L1 setup txs (Multicall3 + rollup contract deployment) under anvil automine
+   * instead of waiting on the block interval. Defaults to `true` (set in `setupInner`); only suites
+   * that assert on genesis-relative L1 timing need to opt out with `false`.
+   */
   automineL1Setup?: boolean;
   /** How many accounts to seed and unlock in anvil. */
   anvilAccounts?: number;
@@ -325,7 +329,12 @@ export async function setup(
 ): Promise<EndToEndContext> {
   const setupStart = performance.now();
   try {
-    return await setupInner(numberOfAccounts, opts, pxeOpts, chain);
+    const ctx = await setupInner(numberOfAccounts, opts, pxeOpts, chain);
+    if (process.env.EXIT_E2E_AFTER_SETUP) {
+      ctx.logger.info('EXIT_E2E_AFTER_SETUP is set; aborting before the test body runs');
+      throw new Error('EXIT_E2E_AFTER_SETUP');
+    }
+    return ctx;
   } finally {
     recordFnSpan('setup', performance.now() - setupStart);
   }
@@ -338,10 +347,16 @@ async function setupInner(
   chain: Chain,
 ): Promise<EndToEndContext> {
   assertContractArtifactsVersion();
+  const logger = getLogger();
   let anvil: Anvil | undefined;
   try {
     opts.aztecTargetCommitteeSize ??= 0;
     opts.slasherEnabled ??= false;
+    // Mine the L1 setup txs (Multicall3 + rollup contract deployment) immediately instead of
+    // waiting on anvil's block interval — this is the dominant cost of e2e setup. Suites that
+    // assert on genesis-relative L1 timing can opt out by passing `automineL1Setup: false`.
+    opts.automineL1Setup ??= true;
+    logger.trace('Starting e2e test setup');
 
     const config: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), ...opts };
     // use initialValidators for the node config
@@ -356,8 +371,6 @@ async function setupInner(
     config.listenAddress = '127.0.0.1';
 
     config.minTxPoolAgeMs = opts.minTxPoolAgeMs ?? 0;
-
-    const logger = getLogger();
 
     // Create a temp directory for any services that need it and cleanup later
     const directoryToCleanup = path.join(tmpdir(), randomBytes(8).toString('hex'));
@@ -382,6 +395,7 @@ async function setupInner(
       anvil = res.anvil;
       config.l1RpcUrls = [res.rpcUrl];
     }
+    logger.trace('Started anvil and L1 RPC client');
 
     // Enable logging metrics to a local file named after the test suite
     if (isMetricsLoggingRequested()) {
@@ -398,6 +412,7 @@ async function setupInner(
     if (opts.l1StartTime) {
       await ethCheatCodes.warp(opts.l1StartTime, { resetBlockInterval: true });
     }
+    logger.trace('Initialized L1 cheat codes and applied state/time overrides');
 
     let publisherPrivKeyHex: `0x${string}` | undefined = undefined;
     let publisherHdAccount: HDAccount | PrivateKeyAccount | undefined = undefined;
@@ -425,6 +440,7 @@ async function setupInner(
     if (config.coinbase === undefined) {
       config.coinbase = EthAddress.fromString(publisherHdAccount.address);
     }
+    logger.trace('Resolved L1 publisher account');
 
     // The accounts setup creates itself: `numberOfAccounts` initializerless accounts, generated here and
     // funded at genesis so they are immediately usable.
@@ -438,6 +454,7 @@ async function setupInner(
       const sponsoredFPCAddress = await getSponsoredFPCAddress();
       addressesToFund.push(sponsoredFPCAddress);
     }
+    logger.trace('Generated test accounts to fund at genesis');
 
     const genesisTimestamp = BigInt(Math.floor(Date.now() / 1000));
     const { genesisArchiveRoot, genesis, fundingNeeded } = await getGenesisValues(
@@ -446,6 +463,7 @@ async function setupInner(
       opts.genesisPublicData,
       genesisTimestamp,
     );
+    logger.trace('Computed genesis values');
 
     const wasAutomining = await ethCheatCodes.isAutoMining();
     const enableAutomine = opts.automineL1Setup && !wasAutomining && isAnvilTestChain(chain.id);
@@ -461,6 +479,7 @@ async function setupInner(
     // Force viem to refresh its nonce cache to avoid "nonce too low" errors in subsequent transactions
     // This is necessary because deployMulticall3 sends multiple transactions and viem may cache a stale nonce
     await l1Client.getTransactionCount({ address: l1Client.account.address });
+    logger.trace('Deployed Multicall3');
 
     const deployL1ContractsValues: DeployAztecL1ContractsReturnType = await deployAztecL1Contracts(
       config.l1RpcUrls[0],
@@ -515,13 +534,16 @@ async function setupInner(
     if (opts.l2StartTime) {
       await ethCheatCodes.warp(opts.l2StartTime, { resetBlockInterval: true });
     }
+    logger.trace('Deployed L1 rollup contracts');
 
     // Use metricsPort-based telemetry if provided, otherwise use the regular telemetry client
     const telemetryClient = opts.metricsPort
       ? await getEndToEndTestTelemetryClient(opts.metricsPort)
       : await getTelemetryClient(opts.telemetryConfig);
+    logger.trace('Created telemetry client');
 
     await setupSharedBlobStorage(config);
+    logger.trace('Set up shared blob storage');
 
     logger.verbose('Creating and synching an aztec node', config);
 
@@ -530,12 +552,14 @@ async function setupInner(
       config.acvmWorkingDirectory = acvmConfig.acvmWorkingDirectory;
       config.acvmBinaryPath = acvmConfig.acvmBinaryPath;
     }
+    logger.trace('Resolved ACVM config');
 
     const bbConfig = await getBBConfig(logger);
     if (bbConfig) {
       config.bbBinaryPath = bbConfig.bbBinaryPath;
       config.bbWorkingDirectory = bbConfig.bbWorkingDirectory;
     }
+    logger.trace('Resolved Barretenberg config');
 
     let mockGossipSubNetwork: MockGossipSubNetwork | undefined;
     let p2pClientDeps: P2PClientDeps | undefined = undefined;
@@ -585,6 +609,7 @@ async function setupInner(
           ...(opts.mockGossipSubNetwork ? {} : { p2pEnabled: false, bootstrapNodes: [] as string[] }),
         }
       : config;
+    logger.trace('Prepared aztec node config');
 
     const aztecNodeService = await withLoggerBindings({ actor: 'node-0' }, () =>
       createAztecNodeService(
@@ -594,6 +619,7 @@ async function setupInner(
       ),
     );
     const sequencerClient = aztecNodeService.getSequencer();
+    logger.trace('Created and synced aztec node');
 
     let proverNode: AztecNodeService | undefined = undefined;
     if (opts.startProverNode) {
@@ -617,6 +643,7 @@ async function setupInner(
         { dateProvider, p2pClientDeps, telemetry: telemetryClient },
         { genesis },
       ));
+      logger.trace('Created prover node');
     }
 
     const sequencerDelayer = sequencerClient?.getDelayer();
@@ -637,8 +664,10 @@ async function setupInner(
     if (opts.walletMinFeePadding !== undefined) {
       wallet.setMinFeePadding(opts.walletMinFeePadding);
     }
+    logger.trace('Created PXE and test wallet');
 
     const cheatCodes = await CheatCodes.create(config.l1RpcUrls, aztecNodeService, dateProvider);
+    logger.trace('Created cheat codes');
 
     if (
       (opts.aztecTargetCommitteeSize && opts.aztecTargetCommitteeSize > 0) ||
@@ -652,6 +681,7 @@ async function setupInner(
       );
       await cheatCodes.rollup.setupEpoch();
       await cheatCodes.rollup.debugRollup();
+      logger.trace('Advanced chain to set up validator committee');
     }
 
     let accounts: AztecAddress[] = [];
@@ -663,6 +693,7 @@ async function setupInner(
       await createFundedInitializerlessAccounts(wallet, defaultAccounts);
       accounts = defaultAccounts.map(a => a.address);
     }
+    logger.trace('Created funded test accounts');
 
     // Advancing past genesis needs a running sequencer to build the empty block; advancePastGenesis is
     // already false when skipInitialSequencer is set.
@@ -678,6 +709,7 @@ async function setupInner(
     } else if (opts.skipInitialSequencer) {
       logger.info('Sequencer not started on initial node, skipping block progression');
     }
+    logger.trace('Advanced chain past genesis');
 
     // Now we restore the original minTxsPerBlock setting if we changed it.
     if (sequencerClient) {
@@ -690,6 +722,7 @@ async function setupInner(
         config.buildCheckpointIfEmpty = originalBuildCheckpointIfEmpty;
       }
     }
+    logger.trace('Restored sequencer config');
 
     const teardown = async () => {
       const teardownStart = performance.now();
