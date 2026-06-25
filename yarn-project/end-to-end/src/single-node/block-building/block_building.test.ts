@@ -571,7 +571,7 @@ describe('single-node/block-building/block_building', () => {
 
     // Floods 24 Token.mint_to_public txs while the sequencer is building blocks and asserts all land.
     it('can simulate public txs while building a block', async () => {
-      test = await setupBlockProducer({ ...PIPELINING_SETUP_OPTS, minTxsPerBlock: 1 });
+      test = await setupBlockProducer({ ...PIPELINING_SETUP_OPTS, numberOfAccounts: 1, minTxsPerBlock: 1 });
       ({
         logger,
         aztecNode,
@@ -611,7 +611,7 @@ describe('single-node/block-building/block_building', () => {
     // tree next available leaf index is a multiple of 64.
     // Injects a fakeThrowAfterProcessingTxCount=2 to force AVM failure, verifies nullifier tree alignment.
     it('clears up all nullifiers if tx processing fails', async () => {
-      test = await setupBlockProducer({ ...PIPELINING_SETUP_OPTS, minTxsPerBlock: 1 });
+      test = await setupBlockProducer({ ...PIPELINING_SETUP_OPTS, numberOfAccounts: 1, minTxsPerBlock: 1 });
       ({
         logger,
         aztecNode,
@@ -675,7 +675,12 @@ describe('single-node/block-building/block_building', () => {
       // Keep aztecProofSubmissionEpochs at 1 (rather than setupBlockProducer's high default) so the
       // reorg test's advance past getProofSubmissionDeadlineEpoch(epoch 2, { proofSubmissionEpochs: 1 })
       // actually crosses the on-chain submission window and triggers the prune-and-reinclude reorg.
-      test = await setupBlockProducer({ ...PIPELINING_SETUP_OPTS, minTxsPerBlock: 1, aztecProofSubmissionEpochs: 1 });
+      test = await setupBlockProducer({
+        ...PIPELINING_SETUP_OPTS,
+        numberOfAccounts: 1,
+        minTxsPerBlock: 1,
+        aztecProofSubmissionEpochs: 1,
+      });
       ({
         aztecNode,
         logger,
