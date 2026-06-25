@@ -85,8 +85,7 @@ inline void batch_invert(const VectorFieldPushSpan<Params>& in, VectorFieldPushS
         out_e = state * out_e;
         state = state * in_e;
     });
-
-    out.adopt_cursor(in); // out now reports the same size() / tail() as in
+    // map_accumulate already adopted out's cursor from in, so out reports the same size() / tail().
 }
 
 } // namespace bb

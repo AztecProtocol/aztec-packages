@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <span>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 
 // Packed, SIMD-native storage of field elements for the fast-Pippenger rewrite.
@@ -107,7 +108,10 @@ template <typename Params> struct VectorFieldPushSpan {
     // shared backing, so there is nothing there to clobber.
     [[nodiscard]] bool aliases(const VectorFieldPushSpan& other) const noexcept
     {
-        return num_full_vectors() != 0 && shares_backing(other);
+        // A span always aliases itself, whatever its fill level: this catches batch_invert(span, span)
+        // on a tail-only (1..W-1 element) span, which shares_backing() alone misses because the tail
+        // lives in each span's own `partial`, not the shared backing.
+        return this == &other || (num_full_vectors() != 0 && shares_backing(other));
     }
 
     // Rewind to empty so the borrowed storage can be refilled; leaves the backing memory untouched.
@@ -170,6 +174,18 @@ template <typename Params> struct VectorAffineElementPushSpan {
 };
 
 namespace detail {
+// Stamp the shape (count / lane) of `first` onto `span`, but only if `span` is writable. zip_for_each
+// walks every span in lockstep with the first, so afterwards each output span should report the first's
+// extent. Const (input) spans are skipped; re-stamping a non-const input is a no-op (it already has that
+// extent). This folds the easy-to-forget manual adopt_cursor into zip_for_each itself.
+template <typename Span, typename First>
+[[gnu::always_inline]] inline void adopt_shape_if_writable(Span& span, const First& first) noexcept
+{
+    if constexpr (!std::is_const_v<Span>) {
+        span.adopt_cursor(first);
+    }
+}
+
 template <typename Tuple, typename Kernel, size_t... I>
 [[gnu::always_inline]] inline void zip_for_each_impl(Tuple& spans,
                                                      Kernel kernel,
@@ -184,6 +200,8 @@ template <typename Tuple, typename Kernel, size_t... I>
     for (size_t t = 0; t < ntail; ++t) {
         kernel(std::get<I>(spans).tail_elem(t)...);
     }
+    // Output spans inherit the first span's extent automatically — no manual adopt_cursor at call sites.
+    (adopt_shape_if_writable(std::get<I>(spans), first), ...);
 }
 } // namespace detail
 
@@ -193,8 +211,8 @@ template <typename Tuple, typename Kernel, size_t... I>
 // plain field arithmetic over generic parameters — outputs auto&, inputs const auto& — so it never
 // mentions lanes, indices, or the bulk/tail split, and the same kernel serves SIMD and scalar builds.
 // The element count comes from the first span, so pass a filled input first. Nothing is converted
-// (spans are read and written in place); output spans keep whatever count they had, so the caller
-// finalizes them afterward (e.g. via adopt_cursor).
+// (spans are read and written in place); each output span automatically adopts the first span's extent
+// (count / tail) when the walk finishes, so the caller need not adopt_cursor afterward.
 template <typename... Args> [[gnu::always_inline]] inline void zip_for_each(Args&&... args)
 {
     static_assert(sizeof...(Args) >= 2, "zip_for_each needs at least one span and a kernel");
@@ -238,6 +256,7 @@ template <bool Reverse, typename Params, typename Step>
             step(tail_acc, in.tail_elem(t), out.tail_elem(t));
         }
     }
+    out.adopt_cursor(in); // result reports the same size() / tail() as the input — callers need not adopt
     return { bulk_acc, tail_acc };
 }
 

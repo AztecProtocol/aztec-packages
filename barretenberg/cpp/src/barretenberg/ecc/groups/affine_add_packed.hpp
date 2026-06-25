@@ -46,10 +46,6 @@ inline void batch_affine_add(const VectorAffineElementPushSpan<Params>& lhs,
                      dy = y2 - y1;
                      xsum = x1 + x2;
                  });
-    // give dx the element count that batch_invert will read. this is necessary because the `count` is only updated by
-    // `push`, not by directly writing in the indexed slots, which is what is done by the above lambda.
-    s.dx.adopt_cursor(lhs.x);
-    // compute the inverses of dx and put them in inv
     batch_invert(s.dx, s.inv);
 
     // x3 and y3 are both computed before either output is written, so out may alias lhs / rhs.
@@ -68,7 +64,6 @@ inline void batch_affine_add(const VectorAffineElementPushSpan<Params>& lhs,
             ox = x3;
             oy = y3;
         });
-    out.adopt_cursor(lhs);
 }
 
 // Working buffers for batch_affine_double, one VectorFieldPushSpan each: the per-element denominators
@@ -102,8 +97,6 @@ inline void batch_affine_double(const VectorAffineElementPushSpan<Params>& in,
         const auto xx = x * x;
         num = xx + xx + xx;
     });
-    s.den.adopt_cursor(in.x); // give den the element count batch_invert reads
-
     batch_invert(s.den, s.inv);
 
     // x3 and y3 are both computed before either output is written, so out may alias in.
@@ -120,7 +113,6 @@ inline void batch_affine_double(const VectorAffineElementPushSpan<Params>& in,
                      ox = x3;
                      oy = y3;
                  });
-    out.adopt_cursor(in);
 }
 
 } // namespace bb::group_elements
