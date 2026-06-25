@@ -65,6 +65,11 @@ import type { NoteData } from '../noir-structs/note_data.js';
 import { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import { Option } from '../noir-structs/option.js';
 import type { ProvidedSecret } from '../noir-structs/provided_secret.js';
+import {
+  type ResolvedTaggingStrategy,
+  resolvedTaggingStrategyFromFields,
+  resolvedTaggingStrategyToFields,
+} from '../noir-structs/resolved_tagging_strategy.js';
 import type { TxEffectData } from '../noir-structs/tx_effect_data.js';
 import type { UtilityContext } from '../noir-structs/utility_context.js';
 import type { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
@@ -200,6 +205,15 @@ export const DELIVERY_MODE: TypeMapping<AppTaggingSecretKind> = {
     fn: readers => appTaggingSecretKindFromDeliveryMode(BYTE.deserialization!.fn(readers)),
   },
   shape: BYTE.shape,
+};
+
+export const RESOLVED_TAGGING_STRATEGY: TypeMapping<ResolvedTaggingStrategy> = {
+  serialization: { fn: resolved => resolvedTaggingStrategyToFields(resolved) },
+  deserialization: {
+    fn: ([kindReader, secretReader]) =>
+      resolvedTaggingStrategyFromFields(kindReader.readField().toNumber(), secretReader.readField()),
+  },
+  shape: ['scalar', 'scalar'],
 };
 
 export const BIGINT: TypeMapping<bigint> = {

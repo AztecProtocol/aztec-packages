@@ -8,3 +8,4 @@ mod utility_context;
 mod notes;
 mod time;
 mod misc;
+mod resolve_tagging_strategy;

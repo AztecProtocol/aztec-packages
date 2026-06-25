@@ -45,6 +45,7 @@ export { HashedValuesCache } from './hashed_values_cache.js';
 export { pickNotes } from './pick_notes.js';
 export type { IMiscOracle, IUtilityExecutionOracle, IPrivateExecutionOracle } from './oracle/interfaces.js';
 export type { NoteData } from './noir-structs/note_data.js';
+export type { ResolvedTaggingStrategy } from './noir-structs/resolved_tagging_strategy.js';
 export type { MessageLoadOracleInputs } from './oracle/message_load_oracle_inputs.js';
 export { MessageContextService } from '../messages/message_context_service.js';
 export { UtilityExecutionOracle } from './oracle/utility_execution_oracle.js';
