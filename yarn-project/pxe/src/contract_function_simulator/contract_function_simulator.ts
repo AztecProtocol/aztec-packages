@@ -243,6 +243,7 @@ export class ContractFunctionSimulator {
     const privateExecutionOracle = new PrivateExecutionOracle({
       argsHash: request.firstCallArgsHash,
       txContext: request.txContext,
+      txRequestSalt: request.salt,
       callContext,
       anchorBlockHeader,
       utilityExecutor: async (call, execScopes) => {
