@@ -23,10 +23,18 @@ command -v gh  >/dev/null 2>&1 || die "gh not found on PATH"
 command -v git >/dev/null 2>&1 || die "git not found on PATH"
 command -v jq  >/dev/null 2>&1 || die "jq not found on PATH"
 
-# Resolve the PR. With no argument, ask gh for the PR tied to the current branch.
-VIEW_JSON="$(gh pr view ${PR:+$PR} --repo "$REPO" \
-  --json number,state,headRefName,baseRefName,mergeable,mergeStateStatus 2>/dev/null)" \
-  || die "could not resolve PR (pass a PR number, or check out the PR branch). repo=$REPO arg='${PR}'"
+# Resolve the PR. With an explicit number, query that PR in $REPO. With no argument, let gh infer
+# both the repo and the PR from the current checkout -- gh rejects an empty positional when --repo
+# is set, so --repo must be omitted in that mode.
+if [ -n "$PR" ]; then
+  VIEW_JSON="$(gh pr view "$PR" --repo "$REPO" \
+    --json number,state,headRefName,baseRefName,mergeable,mergeStateStatus 2>/dev/null)" \
+    || die "could not resolve PR #$PR in $REPO (check the number)."
+else
+  VIEW_JSON="$(gh pr view \
+    --json number,state,headRefName,baseRefName,mergeable,mergeStateStatus 2>/dev/null)" \
+    || die "could not resolve a PR for the current branch (pass a PR number, or check out the PR branch)."
+fi
 
 PR_NUM="$(jq -r '.number'           <<<"$VIEW_JSON")"
 STATE="$(jq -r '.state'             <<<"$VIEW_JSON")"

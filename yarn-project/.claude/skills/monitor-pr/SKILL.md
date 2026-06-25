@@ -35,8 +35,27 @@ If no PR number is given, the loop targets the PR for the currently checked-out 
   agent, which lacks this session's context for judging which changes belong to the task).
 - **Conventional-commit messages** (`fix:`, `refactor:`, …). **No `Co-Authored-By: Claude` trailer**
   and no "Generated with Claude Code" footer — the git author is the author of record.
+- **Bounded — the loop must be able to give up.** This runs unattended; a failure the fixer cannot
+  resolve would otherwise re-dispatch a fixer every iteration forever, churning commits and tokens.
+  Track progress across iterations in a state file and **stop + escalate to the human** when stuck
+  (see "Step 0" and "Giving up" below). Never loop indefinitely on a failure that is not improving.
 
 ## Iteration workflow
+
+### Step 0 — Load loop state
+
+Each firing of `/monitor-pr <PR>` is a **cold turn** — nothing carries over from the previous
+iteration except what you persist. To detect lack of progress (and stop instead of looping forever),
+keep a small JSON state file across iterations, in your session scratchpad dir, named
+`monitor-pr-<PR>.json`:
+
+```json
+{ "iterations": 0, "lastHeadSha": "", "fixAttempts": { "<check name>": 0 } }
+```
+
+At the start of every iteration: read it (treat a missing file as the zero state above) and increment
+`iterations`. You will update `lastHeadSha` and `fixAttempts` in Step 2, and write the file back
+before rescheduling in Step 3.
 
 ### Step 1 — Snapshot the PR status
 
@@ -67,9 +86,22 @@ Pick exactly one branch based on the snapshot, in this priority order:
 
 **A. CI still `PENDING`** → do nothing this round. Go to Step 3 and reschedule.
 
-**B. CI `FAIL`** → dispatch a **new fixer agent** (see "Dispatching the fixer" below). Wait for it
-to finish (it commits as new commits and pushes, which restarts CI), then go to Step 3. Do not also
-fix in this session — the fixer owns the edits.
+**B. CI `FAIL`** → before dispatching, run two guards against the state file:
+
+- **Stale-CI guard.** If the failing run is for an *older* commit than the current `origin/<head>`
+  tip (compare the run's head SHA — from the check's run, or just `git rev-parse origin/<head>`
+  against `lastHeadSha`), a previous fixer's push has not re-triggered CI yet. Treat this as
+  `PENDING` (case A): do nothing, reschedule. This prevents dispatching a second fixer for a
+  failure that is already being re-tested.
+- **Give-up guard.** For each currently-failing check, look at `fixAttempts[<check name>]`. If a
+  check has already had **2** fix attempts and is still failing on a *newer* head SHA than when it
+  was last attempted, the loop is not making progress on it — **stop and escalate** (see "Giving
+  up").
+
+Otherwise dispatch a **new fixer agent** (see "Dispatching the fixer" below). After it pushes,
+increment `fixAttempts[<check name>]` for each check it addressed and set `lastHeadSha` to the new
+`origin/<head>` tip. Wait for it to finish (it commits as new commits and pushes, which restarts
+CI), then go to Step 3. Do not also fix in this session — the fixer owns the edits.
 
 **C. Conflicts present** (`MERGEABLE=CONFLICTING` or `MERGE_STATE=DIRTY`), CI not failing →
 resolve them yourself the way `/rebase-pr` does, choosing rebase vs. merge by the rule below, then
@@ -120,11 +152,29 @@ gh pr checkout <PR>          # if not already on the branch
 
 Either way: stage named files only, and never amend existing commits.
 
+### Giving up (stop without success)
+
+The loop is meant to be unattended, so it must recognize when it is stuck and hand back to the human
+rather than spinning. **Stop and report (do NOT reschedule)** when any of these hold:
+
+- **Per-check stall.** A failing check has reached **2** fix attempts (`fixAttempts[<name>] >= 2`)
+  and still fails on a newer head SHA than the last attempt — the fixer cannot resolve it.
+- **Global cap.** `iterations` reaches **12** (~2 hours at the 10-minute cadence) without reaching
+  green-and-conflict-free.
+
+When giving up, report like Step 4 but framed as *unresolved*: PR number, what is still failing (the
+stuck check names + their log links) or still conflicting, how many iterations/fix attempts were
+spent, and a one-line ask for the human to take over. Then **omit `ScheduleWakeup`** and `TaskStop`
+any Monitor you armed. Do not delete the state file — it is the record of what was tried.
+
 ### Step 3 — Reschedule (the ~10-minute loop)
 
 This skill self-paces using the same dynamic-loop contract as the `loop` skill. As the **last
 action of the turn** (after writing a one-line status of what you observed and did):
 
+0. **Persist the state file** (`monitor-pr-<PR>.json`) with this iteration's updated `iterations`,
+   `lastHeadSha`, and `fixAttempts` — otherwise the next cold turn cannot tell whether progress is
+   being made and the give-up guards never fire.
 1. Optionally arm a **Monitor** (`persistent: true`) as the primary wake signal — e.g. poll
    `gh pr checks <PR>` and emit a line when any check leaves `pending`, or when the run finishes.
    Arm it once; on later iterations call `TaskList` first and skip if it's already running. With a
@@ -151,6 +201,8 @@ When the PR is green and conflict-free:
 
 - **Loop until green AND conflict-free**, then stop — green alone is not done if the PR still
   conflicts, and vice versa.
+- **Bounded — give up when stuck.** Persist `monitor-pr-<PR>.json` across cold turns; stop and
+  escalate after 2 failed fix attempts on the same check or 12 iterations. Never loop forever.
 - **Self-pace via `ScheduleWakeup`** every ~10 min (`prompt: /monitor-pr <PR>`); a `persistent`
   Monitor on `gh pr checks` is the idiomatic faster wake signal. Stopping = simply not rescheduling.
 - **New commits only, never amend** — for both the dispatched fixer and your own conflict commits.
