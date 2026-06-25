@@ -281,10 +281,9 @@ function avm_check_circuit {
 
 # Generates e2e test commands using contract artifacts from a prior release version.
 # Only includes simple (jest-based) tests since compose/docker tests don't use the legacy jest resolver.
-# Excludes prover, block_building, and epochs tests (not relevant for contract artifact compat; epochs
-# tests are known-flaky and provide no additional backwards-compat coverage). Also excludes
-# kernelless_simulation, which asserts on the exact number of nullifiers emitted and breaks whenever
-# contracts add/remove nullifier emissions across versions (unrelated to the compat contract surface).
+# Excludes kernelless_simulation, which asserts on the exact number of nullifiers emitted and breaks
+# whenever contracts add/remove nullifier emissions across versions (unrelated to the compat contract
+# surface).
 function compat_test_cmds {
   local version=${1:?version is required}
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
@@ -292,10 +291,10 @@ function compat_test_cmds {
   local compat_env="CONTRACT_ARTIFACTS_VERSION=$version"
 
   local tests=(
-    src/e2e_!(prover|block_building|epochs)/*.test.ts
+    src/e2e_*/*.test.ts
     src/p2p/*.test.ts
     src/p2p/reqresp/*.test.ts
-    src/e2e_!(block_building|prover_*|kernelless_simulation).test.ts
+    src/e2e_!(kernelless_simulation).test.ts
   )
   for test in "${tests[@]}"; do
     local name
