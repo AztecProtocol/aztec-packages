@@ -11,7 +11,7 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ### [PXE] Sender and shared-secret registration unified into `TaggingSecretSource`
 
-The PXE methods for registering tagging-secret sources (registered senders and directly-provided shared secrets) have been replaced by a single set that takes a `TaggingSecretSource` discriminated union. `registerSender`/`getSenders`/`removeSender` and `registerSharedSecret`/`removeSharedSecret` are gone; use `registerTaggingSecretSource`/`removeTaggingSecretSource`/`getTaggingSecretSources` instead. The `Wallet` interface (`wallet.registerSender`, `getAddressBook`) is unchanged, so this only affects code that talks to a `PXE` instance directly.
+The PXE methods for registering tagging-secret sources have been replaced by a single set that takes a `TaggingSecretSource` discriminated union. `registerSender`/`getSenders`/`removeSender` and `registerSharedSecret`/`removeSharedSecret` are gone; use `registerTaggingSecretSource`/`removeTaggingSecretSource`/`getTaggingSecretSources` instead. The `Wallet` interface (`wallet.registerSender`, `getAddressBook`) is unchanged, so this only affects code that talks to a `PXE` instance directly.
 
 | Before | After |
 | --- | --- |

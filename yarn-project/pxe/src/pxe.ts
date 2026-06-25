@@ -676,8 +676,9 @@ export class PXE {
    * Registers a source from which this PXE derives the tagging secrets it scans for to discover incoming private logs.
    * See {@link TaggingSecretSource} for the meaning of each variant. Does nothing if the source is already registered.
    *
-   * After a new source is added the entire sync cache is wiped, since its tagged logs could contain notes/events for
-   * any contract and all contracts must re-sync to discover them.
+   * After a new source is added we clear the cache tracking which contracts have finished syncing, so every contract
+   * re-syncs against the new source's logs (whose notes/events could belong to any contract). Already-discovered
+   * notes/events are not discarded.
    */
   public async registerTaggingSecretSource(source: TaggingSecretSource): Promise<void> {
     let wasAdded: boolean;
@@ -734,9 +735,8 @@ export class PXE {
   }
 
   /**
-   * Retrieves the tagging secret sources registered in this PXE. Without a filter it returns every source (every sender
-   * plus every directly-registered `arbitrary-secret`); pass `{ kind }` to narrow to a single variant. See
-   * {@link TaggingSecretSource}.
+   * Retrieves the tagging secret sources registered in this PXE. Without a filter it returns every source; pass
+   * `{ kind }` to narrow to a single variant. See {@link TaggingSecretSource}.
    */
   public getTaggingSecretSources<K extends TaggingSecretSource['kind']>(filter: {
     kind: K;
