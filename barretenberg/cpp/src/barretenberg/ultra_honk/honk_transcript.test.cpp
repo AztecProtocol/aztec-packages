@@ -118,11 +118,11 @@ template <typename Flavor> class HonkTranscriptTests : public ::testing::Test {
             }
         }
 
-        // eta is only sampled when the flavor consumes it (memory or log-derivative lookup);
-        // flavors without either (e.g. MegaZK) skip the challenge entirely, and the W_4 commit
-        // stays in the same Fiat-Shamir round as the prior wire/bus commitments.
-        if constexpr (Flavor::HasLogDerivLookup || Flavor::HasMemory) {
-            manifest_expected.add_challenge(round, "eta");
+        // eta and the ROM-LogUp offset rom_logup_gamma are sampled only when the flavor carries the
+        // memory relation; flavors without it (e.g. MegaZK) skip the challenges entirely, and the W_4 commit stays in
+        // the same Fiat-Shamir round as the prior wire/bus commitments.
+        if constexpr (Flavor::HasMemory) {
+            manifest_expected.add_challenge(round, std::array{ "eta", "rom_logup_gamma" });
             round++;
         }
         if constexpr (Flavor::HasLogDerivLookup) {

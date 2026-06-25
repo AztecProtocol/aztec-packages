@@ -47,11 +47,11 @@ on:
         description: "Source tag that triggered this deploy"
         required: false
         type: string
-      notify_on_failure:
-        description: "Whether this workflow should send its own failure notification"
+      skip_notify_on_failure:
+        description: "Whether this workflow should skip its own failure notification"
         required: false
         type: boolean
-        default: true
+        default: false
   workflow_dispatch:
     inputs:
       network:
@@ -60,7 +60,8 @@ on:
         type: choice
         options:
           - next-net
-          - staging
+          - staging-public
+          - staging-internal
           - testnet
           - mainnet
       semver:
@@ -97,11 +98,6 @@ on:
         description: "Source tag that triggered this deploy"
         required: false
         type: string
-      notify_on_failure:
-        description: "Whether this workflow should send its own failure notification"
-        required: false
-        type: boolean
-        default: true
 
 concurrency:
   group: deploy-network-${{ inputs.network }}-${{ inputs.namespace || inputs.network }}-${{ inputs.aztec_docker_image || inputs.semver }}-${{ github.ref || github.ref_name }}
@@ -254,8 +250,6 @@ jobs:
           VALIDATOR_HA_DOCKER_IMAGE: ${{ inputs.ha_docker_image || '' }}
         run: |
           echo "Deploying network: ${{ inputs.network }}"
-          echo "Using image: $AZTEC_DOCKER_IMAGE"
-          echo "Using prover image: $PROVER_AGENT_DOCKER_IMAGE"
           echo "Using branch/ref: ${{ steps.checkout-ref.outputs.ref }}"
 
           cd spartan
@@ -280,7 +274,6 @@ jobs:
             echo "| Item | Value |"
             echo "|------|-------|"
             echo "| Network | \`${{ inputs.network }}\` |"
-            echo "| Docker Image | \`${{ env.AZTEC_DOCKER_IMAGE }}\` |"
             echo "| Ref | \`${{ steps.checkout-ref.outputs.ref }}\` |"
             if [[ -n "${{ inputs.source_tag }}" ]]; then
               echo "| Source Tag | [\`${{ inputs.source_tag }}\`](https://github.com/${{ github.repository }}/releases/tag/${{ inputs.source_tag }}) |"
@@ -288,7 +281,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Notify Slack and dispatch ClaudeBox on failure
-        if: failure() && inputs.notify_on_failure
+        if: failure() && !inputs.skip_notify_on_failure
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           GH_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
@@ -299,8 +292,12 @@ jobs:
           fi
 
           CHANNEL="#alerts-${{ inputs.network }}"
+          # staging-internal deploy failures are routed to the staging-public alerts channel.
+          if [ "${{ inputs.network }}" = "staging-internal" ]; then
+            CHANNEL="#alerts-staging-public"
+          fi
           RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          TEXT="Deploy Network workflow FAILED for *${{ inputs.network }}* (image ${{ env.AZTEC_DOCKER_IMAGE }}): <${RUN_URL}|View Run> (🤖)"
+          TEXT="Deploy Network workflow FAILED for *${{ inputs.network }}*: <${RUN_URL}|View Run> (🤖)"
 
           # Post to Slack and capture timestamp for permalink
           RESP=$(curl -sS -X POST https://slack.com/api/chat.postMessage \
@@ -318,11 +315,10 @@ jobs:
           fi
 
           # Dispatch ClaudeBox to investigate the failure
-          PROMPT="Deployment of ${{ inputs.network }} (image ${{ env.AZTEC_DOCKER_IMAGE }}) failed. \
+          PROMPT="Deployment of ${{ inputs.network }} failed. \
           Follow .claude/claudebox/deploy-investigation.md to investigate. \
           GitHub Actions run: ${RUN_URL}. \
           Network: ${{ inputs.network }}. \
-          Docker image: ${{ env.AZTEC_DOCKER_IMAGE }}. \
           Git ref: ${{ steps.checkout-ref.outputs.ref }}. \
           Namespace: ${{ inputs.namespace || inputs.network }}. \
           Deploy contracts: ${{ inputs.deploy_contracts }}."

@@ -24,6 +24,18 @@ typename BatchMergeVerifier_<Curve, MaxMergeSize>::ReductionResult BatchMergeVer
     // A collision happens with probability 2^{-127}
     const FF binding_hash = std::get<0>(Transcript::Codec::split_challenge(hash));
 
+    constexpr size_t COMMITMENT_FIELD_COUNT = Transcript::Codec::template calc_num_fields<Commitment>();
+    constexpr size_t NUM_SUBTABLES_OFFSET = (MAX_MERGE_SIZE * NUM_WIRES + NUM_WIRES) * COMMITMENT_FIELD_COUNT;
+    BB_ASSERT_LT(NUM_SUBTABLES_OFFSET, proof.size(), "BatchMergeVerifier: proof too short to read NUM_SUBTABLES");
+    const FF num_subtables_for_duplicate_scope = proof[NUM_SUBTABLES_OFFSET];
+    const size_t selected_hash_idx = [&]() {
+        if constexpr (IsRecursive) {
+            return static_cast<size_t>(static_cast<uint64_t>(num_subtables_for_duplicate_scope.get_value())) - 1;
+        } else {
+            return static_cast<size_t>(static_cast<uint64_t>(num_subtables_for_duplicate_scope)) - 1;
+        }
+    }();
+
     // -------------------------------------------------------------------------
     // Step 1: Receive commitments to columns to be merged
     // -------------------------------------------------------------------------
@@ -34,7 +46,25 @@ typename BatchMergeVerifier_<Curve, MaxMergeSize>::ReductionResult BatchMergeVer
             subtable_cols[idx][col] = transcript->template receive_from_prover<Commitment>(
                 "COLUMN_" + std::to_string(col) + "_" + std::to_string(idx));
         }
-        calculated_hashes.push_back(transcript->template get_challenge<FF>("HASH_" + std::to_string(idx)));
+        const auto get_hash_challenge = [&]() {
+            if constexpr (IsRecursive) {
+                auto* builder = subtable_cols[idx][0].get_context();
+                BB_ASSERT(builder != nullptr, "BatchMergeVerifier: recursive HASH challenge needs a builder context");
+                if (idx == selected_hash_idx) {
+                    // BOOMERANG_DUPLICATE_PROVENANCE: See
+                    // barretenberg/cpp/src/barretenberg/boomerang_value_detection/WITNESS_DUPLICATE_DETECTION.md. The
+                    // selected transcript HASH_i Poseidon2 witnesses intentionally rehash the Chonk running ECC-op
+                    // hash chain.
+                    auto duplicate_binding_scope = builder->scoped_duplicate_cryptographic_binding(
+                        batch_merge_ecc_op_hash_binding_local_id(DuplicateCryptographicBindingRole::TRANSCRIPT_HASH));
+                    return transcript->template get_challenge<FF>("HASH_" + std::to_string(idx));
+                }
+                return transcript->template get_challenge<FF>("HASH_" + std::to_string(idx));
+            } else {
+                return transcript->template get_challenge<FF>("HASH_" + std::to_string(idx));
+            }
+        };
+        calculated_hashes.push_back(get_hash_challenge());
     }
 
     // -------------------------------------------------------------------------

@@ -125,7 +125,6 @@ export class P2PNetworkTest {
       slasherEnabled: initialValidatorConfig.slasherEnabled ?? true,
       aztecTargetCommitteeSize: numberOfValidators,
       metricsPort: metricsPort,
-      numberOfInitialFundedAccounts: 2,
       startProverNode,
     };
 
@@ -368,17 +367,16 @@ export class P2PNetworkTest {
       address: await getAccountContractAddress(contract, secret, salt),
     };
 
-    // Generate regular Schnorr accounts for tests that need deployable accounts (e.g. add_rollup).
-    const regularAccounts = await generateSchnorrAccounts(this.setupOptions.numberOfInitialFundedAccounts ?? 2);
+    // Generate funded (initializerless) Schnorr accounts for tests that create accounts from them (e.g. add_rollup).
+    const fundedAccounts = await generateSchnorrAccounts(2);
 
     this.context = await setup(
       0,
       {
         ...this.setupOptions,
         fundSponsoredFPC: true,
-        skipAccountDeployment: true,
         skipInitialSequencer: true,
-        initialFundedAccounts: [...regularAccounts, this.hardcodedAccountData],
+        additionallyFundedAccounts: [...fundedAccounts, this.hardcodedAccountData],
         slasherEnabled: this.setupOptions.slasherEnabled ?? this.deployL1ContractsArgs.slasherEnabled ?? false,
         aztecTargetCommitteeSize: 0,
         l1ContractsArgs: this.deployL1ContractsArgs,
@@ -389,7 +387,7 @@ export class P2PNetworkTest {
     this.ctx = this.context;
 
     const sponsoredFPCAddress = await getSponsoredFPCAddress();
-    const initialFundedAccounts = [...this.context.initialFundedAccounts.map(a => a.address), sponsoredFPCAddress];
+    const initialFundedAccounts = [...this.context.additionallyFundedAccounts.map(a => a.address), sponsoredFPCAddress];
 
     const { genesis } = await getGenesisValues(
       initialFundedAccounts,
@@ -433,6 +431,7 @@ export class P2PNetworkTest {
     timeoutSeconds = 30,
     checkIntervalSeconds = 0.1,
     topics: TopicType[] = [TopicType.tx],
+    minMeshPeerCount = 1,
   ) {
     const nodeCount = expectedNodeCount ?? nodes.length;
     const minPeerCount = nodeCount - 1;
@@ -459,11 +458,13 @@ export class P2PNetworkTest {
 
     this.logger.warn('All nodes connected to P2P mesh');
 
-    // Wait for GossipSub mesh to form for all specified topics.
-    // We only require at least 1 mesh peer per node because GossipSub
-    // stops grafting once it reaches Dlo peers and won't fill the mesh to all available peers.
+    // Wait for the GossipSub mesh to form for all specified topics. By default we only require at
+    // least 1 mesh peer per node, since GossipSub stops grafting once it reaches Dlo peers and won't
+    // fill the mesh to every available peer. Callers that need a proposal to reach the whole
+    // committee within a slot (e.g. quorum-from-genesis tests) raise `minMeshPeerCount` so the mesh
+    // is fully formed — a single mesh peer can leave some committee members unreached at first.
     for (const topic of topics) {
-      this.logger.warn(`Waiting for GossipSub mesh to form for ${topic} topic...`);
+      this.logger.warn(`Waiting for GossipSub mesh (>= ${minMeshPeerCount} peers per node) for ${topic} topic...`);
       await Promise.all(
         nodes.map(async (node, index) => {
           const p2p = node.getP2P();
@@ -471,15 +472,15 @@ export class P2PNetworkTest {
             async () => {
               const meshPeers = await p2p.getGossipMeshPeerCount(topic);
               this.logger.debug(`Node ${index} has ${meshPeers} gossip mesh peers for ${topic} topic`);
-              return meshPeers >= 1 ? true : undefined;
+              return meshPeers >= minMeshPeerCount ? true : undefined;
             },
-            `Node ${index} to have gossip mesh peers for ${topic} topic`,
+            `Node ${index} to have >= ${minMeshPeerCount} gossip mesh peers for ${topic} topic`,
             timeoutSeconds,
             checkIntervalSeconds,
           );
         }),
       );
-      this.logger.warn(`All nodes have gossip mesh peers for ${topic} topic`);
+      this.logger.warn(`All nodes have >= ${minMeshPeerCount} gossip mesh peers for ${topic} topic`);
     }
   }
 

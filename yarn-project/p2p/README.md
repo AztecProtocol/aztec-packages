@@ -116,7 +116,10 @@ Per-peer limit exceeded: `HighToleranceError` + `RATE_LIMIT_EXCEEDED` status. Gl
 |-------|-------|--------|
 | > -50 | Healthy | Normal |
 | -100 < score <= -50 | Disconnect | GOODBYE sent + disconnect on next heartbeat |
-| <= -100 | Banned | GOODBYE sent + disconnect on next heartbeat |
+| <= -100 | Banned | GOODBYE sent + disconnect on next heartbeat; banned for `P2P_PEER_BAN_DURATION_SECONDS` (default 24h) |
+
+Once a peer is banned its score is pinned at the ban level for the configured duration (it does not decay-recover),
+and only lifts when the window expires. See [Gossipsub Scoring](src/services/gossipsub/README.md#ban-duration) for details.
 
 ### Protocol Summary
 

@@ -3,13 +3,14 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 import { ungzip } from 'pako';
 
-import { AztecClientBackend, BackendType, Barretenberg } from '../index.js';
+import { AztecClientBackend, BackendType, Barretenberg, CircuitKind } from '../index.js';
 
 interface RawStep {
   bytecode: Buffer;
   witness: Buffer;
   vk: Buffer;
   functionName: string;
+  kind: CircuitKind;
 }
 
 const TEST_TIMEOUT_MS = 30 * 60 * 1000;
@@ -56,8 +57,11 @@ function loadPinnedFlow(flowDir: string) {
     witnesses: steps.map(step => ungzip(step.witness)),
     vks: steps.map(step => new Uint8Array(step.vk)),
     names: steps.map(step => step.functionName),
+    kinds: steps.map(step => step.kind),
   };
 }
+
+type PinnedFlow = ReturnType<typeof loadPinnedFlow>;
 
 function getWasmFlowLimit(): number {
   const parsed = Number(process.env.CHONK_PINNED_IVC_WASM_FLOW_LIMIT ?? DEFAULT_WASM_FLOW_LIMIT);
@@ -71,17 +75,20 @@ const backendCases = [
     backendType: BackendType.NativeUnixSocket,
     threads: 16,
     selectFlows: (flows: string[]) => flows,
+    preloadInputs: false,
   },
   {
     label: 'wasm',
     backendType: BackendType.Wasm,
     threads: 1,
     selectFlows: (flows: string[]) => flows.slice(0, Math.max(1, wasmFlowLimit)),
+    preloadInputs: true,
   },
 ] as const;
 
 describe('Chonk pinned IVC inputs through bb.js', () => {
   let flows: string[];
+  const preloadedFlows = new Map<string, PinnedFlow>();
   let bbPath: string | undefined;
 
   beforeAll(() => {
@@ -102,6 +109,15 @@ describe('Chonk pinned IVC inputs through bb.js', () => {
     if (flows.length === 0) {
       throw new Error(`No pinned ivc-inputs.msgpack files found under ${pinnedRoot}`);
     }
+    // Treat disk fixtures as setup-only for cases that run after native backend teardown.
+    for (const backendCase of backendCases) {
+      if (!backendCase.preloadInputs) {
+        continue;
+      }
+      for (const flowDir of backendCase.selectFlows(flows)) {
+        preloadedFlows.set(flowDir, loadPinnedFlow(flowDir));
+      }
+    }
   }, TEST_TIMEOUT_MS);
 
   it.each(backendCases)(
@@ -115,8 +131,10 @@ describe('Chonk pinned IVC inputs through bb.js', () => {
 
       try {
         for (const flowDir of backendCase.selectFlows(flows)) {
-          const { bytecodes, witnesses, vks, names } = loadPinnedFlow(flowDir);
-          const backend = new AztecClientBackend(bytecodes, barretenberg, names);
+          const { bytecodes, witnesses, vks, names, kinds } = backendCase.preloadInputs
+            ? preloadedFlows.get(flowDir)!
+            : loadPinnedFlow(flowDir);
+          const backend = new AztecClientBackend(bytecodes, barretenberg, names, kinds);
           const { proof, vk } = await backend.prove(witnesses, vks);
           const verified = await backend.verify(proof, vk);
           expect(verified).toBe(true);

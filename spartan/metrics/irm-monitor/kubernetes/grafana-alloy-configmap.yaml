@@ -12,7 +12,7 @@ data:
       forward_to = [prometheus.remote_write.grafana_cloud.receiver]
       job_name   = "irm-monitor"
       metrics_path = "/metrics"
-      scrape_interval = "30s"
+      scrape_interval = "60s"
     }
 
     // Remote write to Grafana Cloud

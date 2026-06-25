@@ -1,5 +1,4 @@
-import type { HandlersForPrefix } from './oracle_registry.js';
-import type { ORACLE_REGISTRY } from './oracle_registry.js';
+import type { HandlersForPrefix, ORACLE_REGISTRY } from './oracle_registry.js';
 
 /**
  * Miscellaneous oracle methods, not very Aztec-specific and expected to be available in all scenarios in which aztec-nr

@@ -145,21 +145,27 @@ Ultra permutation rows
 ```
 
 Mega keeps the same permutation but uses custom rows for the initial external linear layer and
-compresses all 56 internal rounds into K=4 rows.
+compresses all 56 internal rounds into K=4 rows. All five gate kinds share the single `poseidon2`
+block, so each permutation's rows are contiguous: the external and terminal round relations
+constrain their successor row's wires via `w_shift`, so each round's output lands on the next row
+directly across the external↔internal boundary.
 
 ```text
-Mega permutation rows
+Mega permutation rows (all in the `poseidon2` block)
 
-1      poseidon2_external           q_poseidon2_external_initial
-4 + 1  poseidon2_external           first external rounds + propagate
-1      poseidon2_quad_internal      q_poseidon2_transition_entry
-13     poseidon2_quad_internal      q_poseidon2_quad_internal
-1      poseidon2_quad_internal      q_poseidon2_quad_internal_terminal
-1      poseidon2_quad_internal      selector-unconstrained standard bridge
-4 + 1  poseidon2_external           final external rounds + propagate
+1      q_poseidon2_external_initial
+4      first external rounds
+1      q_poseidon2_transition_entry
+13     q_poseidon2_quad_internal
+1      q_poseidon2_quad_internal_terminal
+4 + 1  final external rounds + output row
 --
-27 rows
+25 rows
 ```
+
+The trailing selector-unconstrained row holds the permutation output: the last external round's
+relation pins its wires via `w_shift`. See the [Soundness Argument](#soundness-argument) section
+for the boundary-handoff argument.
 
 The stdlib hash also has one fixed-witness IV row outside the permutation when it starts from
 the sponge IV.
@@ -274,14 +280,18 @@ first quad row
 terminal quad row
     (s0^52, s0^53, s0^54, s0^55)
        |
-       | q_poseidon2_quad_internal_terminal
+       | q_poseidon2_quad_internal_terminal (w_shift binds the next row)
        v
-standard bridge row
+first final-external row
     (s0^56, s1^56, s2^56, s3^56)
        |
        v
-final external rounds
+remaining final external rounds
 ```
+
+The terminal relation's `w_shift` lands directly on the first final-external row (the rows are
+contiguous in the `poseidon2` block), so the full standard state at round 56 is exactly that
+external round's input.
 
 ## Compressed Block Subrelations
 
@@ -291,7 +301,7 @@ Every subrelation in the compressed block enforces the Poseidon2 internal-round 
 |---|---|---|
 | **Entry** | full standard state at row-start | first three `state[0]` values of the first compressed row |
 | **Interior** | `state[0]` chain on this row and the next | four-round output, with the next row's `state[1..3]` checked through the same linear encoding |
-| **Terminal** | `state[0]` chain on this row, full standard state on the next bridge row | four-round output matched directly against the bridge row |
+| **Terminal** | `state[0]` chain on this row, full standard state on the next (first final-external) row | four-round output matched directly against that row |
 
 The interior and terminal boundaries share a four-round closed form that we cover first.
 
@@ -419,10 +429,11 @@ $u_2 = (w_o' + c_2)^5$ and fixes $w_4'$. Each subrelation has coefficient $-1$ o
 wire it solves for, so the first compressed row is uniquely determined by the standard entry
 state and the fixed round constants.
 
-### Terminal: Final Quad Row to Bridge Row
+### Terminal: Final Quad Row to First Final-External Row
 
-The terminal row's successor is the standard bridge row carrying $(s_0^{(4)}, s_1^{(4)},
-s_2^{(4)}, s_3^{(4)})$. The four subrelations match the closed-form output directly:
+The terminal row's successor is the first final-external round's row, which carries the full
+standard state $(s_0^{(4)}, s_1^{(4)}, s_2^{(4)}, s_3^{(4)})$. The four subrelations match the
+closed-form output directly:
 
 $$
 \begin{aligned}
@@ -433,13 +444,12 @@ A_3 &: \operatorname{out}_3 - w_4' = 0.
 \end{aligned}
 $$
 
-The bridge row's wire indices are reused by the first final-external-round gate, so the same
-four witnesses feed the next standard-encoded block.
+Because the rows are contiguous in the `poseidon2` block, the shift lands on the real consumer:
+the same four witnesses are the input to the first final-external-round gate.
 
 This boundary has no hidden degrees of freedom: the successor is a full standard-encoded row,
-and each equation has coefficient $-1$ on a distinct shifted bridge wire. Once the current
-terminal quad row determines `out`, the four bridge wires $(w_l', w_r', w_o', w_4')$ are
-uniquely determined.
+and each equation has coefficient $-1$ on a distinct shifted wire. Once the current terminal quad
+row determines `out`, the four successor wires $(w_l', w_r', w_o', w_4')$ are uniquely determined.
 
 ### Interior: Quad Row to Quad Row
 
@@ -527,14 +537,14 @@ The non-interior transitions close the chain:
 
 | Transition | Why the prover has no freedom |
 |----------|-------------------------------|
-| External output -> entry row | Standard state wires share witness indices with the external propagate row. |
+| First external group -> entry row | The entry row's wires are the group's output state, pinned by the last external round's relation via `w_shift` (the rows are contiguous in the `poseidon2` block). |
 | Entry row -> first quad row | The entry transition is triangular in `(w_r', w_o', w_4')`, after shared witness indices fix `w_l'`. |
-| Final quad row -> bridge row | The terminal transition directly fixes all four shifted bridge wires. |
-| Bridge row -> final external rows | Bridge witnesses share witness indices with the final external rows. |
+| Final quad row -> first final-external row | The terminal transition directly fixes all four shifted wires of the successor, which is the first final-external round's row. |
 
 Thus the compressed block has no independent witness channel: each committed `state[0]` value
 is fixed by the previous state, and each uncommitted `state[1..3]` value is fixed implicitly by
-an invertible encoding. The terminal bridge then materializes the unique final full state.
+an invertible encoding. The terminal transition then materializes the unique final full state on
+the first final-external row.
 
 ## Witness Materialization
 

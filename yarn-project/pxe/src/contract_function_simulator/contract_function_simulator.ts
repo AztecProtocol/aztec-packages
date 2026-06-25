@@ -1,3 +1,4 @@
+import { CircuitKind } from '@aztec/bb.js';
 import {
   AVM_EMITNOTEHASH_BASE_L2_GAS,
   AVM_EMITNULLIFIER_BASE_L2_GAS,
@@ -107,10 +108,11 @@ import type { BenchmarkedNode } from './benchmarked_node.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from './execution_tagging_index_cache.js';
 import { HashedValuesCache } from './hashed_values_cache.js';
-import { Oracle } from './oracle/oracle.js';
+import { buildACIRCallback } from './oracle/acir_callback.js';
 import { executePrivateFunction } from './oracle/private_execution.js';
 import { PrivateExecutionOracle } from './oracle/private_execution_oracle.js';
 import { UtilityExecutionOracle } from './oracle/utility_execution_oracle.js';
+import { TransientArrayService } from './transient_array_service.js';
 
 /** Options for ContractFunctionSimulator.run. */
 export type ContractSimulatorRunOpts = {
@@ -233,6 +235,11 @@ export class ContractFunctionSimulator {
     const noteCache = new ExecutionNoteCache(protocolNullifier);
     const taggingIndexCache = new ExecutionTaggingIndexCache();
 
+    // One shared transient store for the whole execution tree rooted at this transaction. Threaded into every child
+    // private oracle and inherited by nested utility frames, so that frames of the same contract see each other's
+    // transient arrays, then discarded when run() returns.
+    const transientArrayService = new TransientArrayService();
+
     const privateExecutionOracle = new PrivateExecutionOracle({
       argsHash: request.firstCallArgsHash,
       txContext: request.txContext,
@@ -266,6 +273,7 @@ export class ContractFunctionSimulator {
       simulator: this.simulator,
       l2TipsStore: this.l2TipsStore,
       hooks: this.hooks,
+      transientArrayService,
     });
 
     const setupTime = simulatorSetupTimer.ms();
@@ -364,6 +372,8 @@ export class ContractFunctionSimulator {
       simulator: this.simulator,
       hooks: this.hooks,
       utilityExecutor,
+      // Execution-tree root (top-level utility run or contract sync): own store; nested frames inherit it.
+      transientArrayService: new TransientArrayService(),
     });
 
     try {
@@ -374,7 +384,7 @@ export class ContractFunctionSimulator {
 
       const initialWitness = toACVMWitness(0, call.args);
       const acirExecutionResult = await this.simulator
-        .executeUserCircuit(initialWitness, entryPointArtifact, new Oracle(oracle).toACIRCallback())
+        .executeUserCircuit(initialWitness, entryPointArtifact, buildACIRCallback(oracle))
         .catch((err: Error) => {
           err.message = resolveAssertionMessageFromError(err, entryPointArtifact);
           throw new ExecutionError(
@@ -544,6 +554,7 @@ export async function generateSimulatedProvingResult(
       bytecode: execution.acir,
       vk: execution.vk,
       witness: execution.partialWitness,
+      kind: CircuitKind.App,
     });
   }
 

@@ -10,7 +10,9 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/memory_profile.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/flavor/mega_app_flavor.hpp"
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
+#include "barretenberg/flavor/mega_kernel_flavor.hpp"
 #include "barretenberg/honk/composer/composer_lib.hpp"
 #include "barretenberg/honk/composer/permutation_lib.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
@@ -274,7 +276,12 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
     auto bus_inverses = polynomials.get_databus_inverses();     // [bus0_inv, bus1_inv, ...]
     auto bus_indicators = polynomials.get_databus_indicators(); // [bus0_indicator, bus1_indicator, ...]
     bb::constexpr_for<0, Flavor::NUM_BUS_COLUMNS, 1>([&]<size_t bus_idx>() {
-        const size_t bus_size = circuit.get_bus_vector(bus_idx).size();
+        // Map the flavor's local bus index to the builder's `get_bus_vector` slot (kernel_calldata=0,
+        // first/second/third_app_calldata=1/2/3, return_data=4). For full MegaFlavor this is the identity;
+        // for other flavors (e.g. MegaAppFlavor with only `return_data`) the mapping shifts so the right
+        // builder bus is read.
+        constexpr size_t builder_bus_idx = Flavor::BUILDER_BUS_INDICES[bus_idx];
+        const size_t bus_size = circuit.get_bus_vector(builder_bus_idx).size();
         max_databus_column_size = std::max(max_databus_column_size, bus_size);
 
         auto& values_poly = bus_data[2 * bus_idx];
@@ -332,7 +339,8 @@ void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     size_t max_bus_size = 0;
     auto bus_data = polynomials.get_databus_entities();
     bb::constexpr_for<0, Flavor::NUM_BUS_COLUMNS, 1>([&]<size_t bus_idx>() {
-        const auto& bus_vec = circuit.get_bus_vector(bus_idx);
+        constexpr size_t builder_bus_idx = Flavor::BUILDER_BUS_INDICES[bus_idx];
+        const auto& bus_vec = circuit.get_bus_vector(builder_bus_idx);
         max_bus_size = std::max(max_bus_size, bus_vec.size());
         auto& values_poly = bus_data[2 * bus_idx];
         auto& read_counts_poly = bus_data[(2 * bus_idx) + 1];
@@ -351,7 +359,8 @@ void ProverInstance_<Flavor>::construct_databus_polynomials(Circuit& circuit)
     // Populate per-bus indicator polynomials: 1 on the bus's data rows, 0 elsewhere (default).
     auto indicators = polynomials.get_databus_indicators();
     for (size_t bus_idx = 0; bus_idx < Flavor::NUM_BUS_COLUMNS; ++bus_idx) {
-        const size_t bus_size = circuit.get_bus_vector(bus_idx).size();
+        const size_t builder_bus_idx = Flavor::BUILDER_BUS_INDICES[bus_idx];
+        const size_t bus_size = circuit.get_bus_vector(builder_bus_idx).size();
         auto& indicator = indicators[bus_idx];
         for (size_t i = 0; i < bus_size; ++i) {
             indicator.at(NUM_DISABLED_ROWS_IN_SUMCHECK + i) = 1;
@@ -377,6 +386,10 @@ template <typename Flavor> void ProverInstance_<Flavor>::populate_memory_records
     for (auto& index : circuit.memory_write_records) {
         memory_write_records.emplace_back(index + ram_rom_offset);
     }
+    rom_logup_records.reserve(circuit.rom_logup_records.size());
+    for (auto& index : circuit.rom_logup_records) {
+        rom_logup_records.emplace_back(index + ram_rom_offset);
+    }
 }
 
 template class ProverInstance_<UltraFlavor>;
@@ -390,5 +403,7 @@ template class ProverInstance_<UltraKeccakZKFlavor>;
 template class ProverInstance_<MegaFlavor>;
 template class ProverInstance_<MegaZKFlavor>;
 template class ProverInstance_<MegaAvmFlavor>;
+template class ProverInstance_<MegaAppFlavor>;
+template class ProverInstance_<MegaKernelFlavor>;
 
 } // namespace bb

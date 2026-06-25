@@ -1,8 +1,11 @@
 #include "barretenberg/boomerang_value_detection/graph.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
+#include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
+
+#include <unordered_set>
 
 using namespace bb;
 using namespace bb::stdlib;
@@ -24,6 +27,69 @@ template <size_t N> void fix_field_array(std::array<field_ct, N>& arr)
         elem.fix_witness();
     }
 }
+
+namespace {
+auto& engine = numeric::get_debug_randomness();
+
+constexpr std::array<uint32_t, 8> H_INIT = { 0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+                                             0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19 };
+
+struct Sha256ChainedInput {
+    std::array<uint32_t, 16> block1;
+    std::array<uint32_t, 16> block2;
+};
+
+Sha256ChainedInput make_random_sha256_chained_input()
+{
+    Sha256ChainedInput input;
+    for (auto& word : input.block1) {
+        word = engine.get_random_uint32();
+    }
+    for (auto& word : input.block2) {
+        word = engine.get_random_uint32();
+    }
+    return input;
+}
+
+void build_sha256_chained_circuit(Builder& builder, const Sha256ChainedInput& input)
+{
+    std::array<field_ct, 8> h_init;
+    for (size_t i = 0; i < h_init.size(); i++) {
+        h_init[i] = witness_ct(&builder, H_INIT[i]);
+    }
+    fix_field_array(h_init);
+
+    std::array<field_ct, 16> block1;
+    std::array<field_ct, 16> block2;
+    for (size_t i = 0; i < block1.size(); i++) {
+        block1[i] = witness_ct(&builder, input.block1[i]);
+        block2[i] = witness_ct(&builder, input.block2[i]);
+    }
+    fix_field_array(block1);
+    fix_field_array(block2);
+
+    auto h_mid = SHA256<Builder>::sha256_block(h_init, block1);
+    auto output = SHA256<Builder>::sha256_block(h_mid, block2);
+    fix_field_array(output);
+}
+
+std::unordered_set<fr> get_sha256_rerun_varying_duplicate_values(const Sha256ChainedInput& baseline_input)
+{
+    Builder baseline_builder;
+    build_sha256_chained_circuit(baseline_builder, baseline_input);
+    StaticAnalyzer baseline_graph(baseline_builder);
+    baseline_graph.fill_witness_duplicate_map();
+
+    Builder rerun_builder_0;
+    build_sha256_chained_circuit(rerun_builder_0, make_random_sha256_chained_input());
+    Builder rerun_builder_1;
+    build_sha256_chained_circuit(rerun_builder_1, make_random_sha256_chained_input());
+    Builder rerun_builder_2;
+    build_sha256_chained_circuit(rerun_builder_2, make_random_sha256_chained_input());
+
+    return baseline_graph.get_rerun_varying_duplicate_values({ &rerun_builder_0, &rerun_builder_1, &rerun_builder_2 });
+}
+} // namespace
 
 /**
  * @brief Test SHA256 compression circuit graph analysis (single block)
@@ -113,4 +179,26 @@ TEST(boomerang_stdlib_sha256, test_graph_for_sha256_block_chained)
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.get_variables_in_one_gate();
     EXPECT_EQ(variables_in_one_gate.size(), 0);
+}
+
+TEST(boomerang_stdlib_sha256, duplicate_witnesses_are_rerun_varying)
+{
+    Sha256ChainedInput input;
+    for (size_t i = 0; i < input.block1.size(); i++) {
+        input.block1[i] = static_cast<uint32_t>(i);
+        input.block2[i] = static_cast<uint32_t>(i + input.block1.size());
+    }
+    const auto rerun_varying_filter_values = get_sha256_rerun_varying_duplicate_values(input);
+    EXPECT_FALSE(rerun_varying_filter_values.empty());
+
+    auto builder = Builder();
+    build_sha256_chained_circuit(builder, input);
+
+    StaticAnalyzer graph(builder);
+    graph.fill_witness_duplicate_map({}, WitnessDuplicateFilterMode::TRIAGE_VALUE_FILTERS, rerun_varying_filter_values);
+    const auto& duplicate_map = graph.get_witness_duplicate_map();
+    EXPECT_LE(duplicate_map.size(), 2U);
+    for (const auto& [value, _] : duplicate_map) {
+        EXPECT_FALSE(rerun_varying_filter_values.contains(value));
+    }
 }

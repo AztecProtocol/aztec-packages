@@ -4,6 +4,7 @@
 // external_2:  { status: not started, auditors: [], commit: }
 // =====================
 
+#include "barretenberg/chonk/circuit_input.hpp"
 #include "barretenberg/dsl/acir_format/acir_format.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include <cstdint>
@@ -38,9 +39,10 @@ struct PrivateExecutionStepRaw {
     std::vector<uint8_t> vk;
     // Represents the function name.
     std::string function_name;
+    CircuitKind kind = CircuitKind::None;
 
     // Unrolled from SERIALIZATION_FIELDS for custom name for function_name.
-    void msgpack(auto pack_fn) { pack_fn(NVP(bytecode, witness, vk), "functionName", function_name); };
+    void msgpack(auto pack_fn) { pack_fn(NVP(bytecode, witness, vk), "functionName", function_name, NVP(kind)); };
     void self_decompress();
     static std::vector<PrivateExecutionStepRaw> load_and_decompress(const std::filesystem::path& input_path);
     static std::vector<PrivateExecutionStepRaw> load(const std::filesystem::path& input_path);
@@ -69,6 +71,7 @@ struct PrivateExecutionSteps {
     std::vector<acir_format::AcirProgram> folding_stack; ///< ACIR programs with witnesses
     std::vector<std::string> function_names;             ///< Function names for logging
     std::vector<std::vector<uint8_t>> precomputed_vks;   ///< Serialized precomputed VKs (performance)
+    std::vector<CircuitKind> kinds;                      ///< Per-step CircuitKind
 
     /**
      * @brief Creates a Chonk instance and accumulates each circuit in the folding stack.

@@ -517,7 +517,6 @@ pub global PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = TX_CONSTANT_DATA_L
     + AZTEC_ADDRESS_LENGTH
     + 1 /* expiration_timestamp */
     + 1 /* is private only */
-    + 1 /* claimed_first_nullifier */
     + 1 /* claimed_revertible_counter */;
 
 pub global PRIVATE_TO_PUBLIC_ACCUMULATED_DATA_LENGTH: u32 = MAX_NOTE_HASHES_PER_TX
@@ -654,7 +653,7 @@ pub global NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HON
 pub global CHONK_HIDING_OINK_LENGTH: u32 = 48;
 pub global CHONK_MERGE_PROOF_SIZE: u32 = 42;
 pub global CHONK_ECCVM_PROOF_LENGTH: u32 = 612;
-pub global CHONK_JOINT_PROOF_LENGTH: u32 = 477;
+pub global CHONK_JOINT_PROOF_LENGTH: u32 = 478;
 pub global CHONK_PROOF_LENGTH: u32 = CHONK_HIDING_OINK_LENGTH
     + HIDING_KERNEL_IO_PUBLIC_INPUTS_SIZE
     + CHONK_MERGE_PROOF_SIZE
@@ -663,8 +662,9 @@ pub global CHONK_PROOF_LENGTH: u32 = CHONK_HIDING_OINK_LENGTH
     + CHONK_JOINT_PROOF_LENGTH;
 
 pub global ULTRA_VK_LENGTH_IN_FIELDS: u32 = 115; // size of an Ultra verification key
-pub global MEGA_VK_LENGTH_IN_FIELDS: u32 = 163; // size of a Mega verification key
-pub global MEGA_ZK_VK_LENGTH_IN_FIELDS: u32 = 115; // size of a MegaZK verification key
+pub global MEGA_APP_VK_LENGTH_IN_FIELDS: u32 = 151; // size of a MegaApp verification key
+pub global MEGA_KERNEL_VK_LENGTH_IN_FIELDS: u32 = 143; // size of a MegaKernel verification key
+pub global MEGA_ZK_VK_LENGTH_IN_FIELDS: u32 = 119; // size of a MegaZK verification key
 // CHONK: "Client Honk" - An UltraHonk variant with incremental folding and delayed non-native arithmetic.
 pub global CHONK_VK_LENGTH_IN_FIELDS: u32 = MEGA_ZK_VK_LENGTH_IN_FIELDS; // size of a chonk verification key
 // VK is composed of
@@ -1153,12 +1153,28 @@ pub global AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX: u32 = AVM_PUBLIC_INPUTS_AV
 // End reverted
 pub global AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX: u32 = AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX + 1;
 
-// AVM's max public input column size (aka total number of rows)
+// AVM's max public input column size (aka total number of rows). This is the length of column 0,
+// which is the longest column, and also the extent of the public_inputs `sel` selector.
 pub global AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH: u32 = AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX + 1;
 pub global AVM_NUM_PUBLIC_INPUT_COLUMNS: u32 = 4;
+
+// Per-column lengths: the exact number of rows used by each public input column, equal to
+// (last row index that writes the column) + 1. Column 0 spans the full table; columns 1-3 are
+// shorter, so the recursive verifier avoids hashing / MLE-evaluating their trailing zeros.
+// IMPORTANT: revisit these if the column layout (see public_inputs.pil / to_columns) changes
+// which column holds its last written cell.
+pub global AVM_PUBLIC_INPUTS_COLUMN_0_LENGTH: u32 = AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH; // last: reverted
+pub global AVM_PUBLIC_INPUTS_COLUMN_1_LENGTH: u32 = AVM_PUBLIC_INPUTS_TRANSACTION_FEE_ROW_IDX; // last: public_data_writes value
+pub global AVM_PUBLIC_INPUTS_COLUMN_2_LENGTH: u32 =
+    AVM_PUBLIC_INPUTS_AVM_ACCUMULATED_DATA_PUBLIC_LOGS_ROW_IDX; // last: accumulated l2_to_l1 contract_address
+pub global AVM_PUBLIC_INPUTS_COLUMN_3_LENGTH: u32 =
+    AVM_PUBLIC_INPUTS_PUBLIC_TEARDOWN_CALL_REQUEST_ROW_IDX + 1; // last: teardown calldata_hash
+
 // Combined size of the AVM's public input columns concatenated together
-pub global AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH: u32 =
-    AVM_NUM_PUBLIC_INPUT_COLUMNS * AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH;
+pub global AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH: u32 = AVM_PUBLIC_INPUTS_COLUMN_0_LENGTH
+    + AVM_PUBLIC_INPUTS_COLUMN_1_LENGTH
+    + AVM_PUBLIC_INPUTS_COLUMN_2_LENGTH
+    + AVM_PUBLIC_INPUTS_COLUMN_3_LENGTH;
 
 // AVM_V2_PROOF_LENGTH_IN_FIELDS must be updated when AVM circuit changes.
 // Run barretenberg/cpp/scripts/bump_avm_proof_length.sh, to regenerate the constants
@@ -1299,8 +1315,7 @@ pub global PROOF_TYPE_ROLLUP_HONK: u32 = 4;
 pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 5;
 // worktodo comment here where 6 is
 pub global PROOF_TYPE_HN_FINAL: u32 = 7;
-pub global PROOF_TYPE_HN_TAIL: u32 = 8;
-pub global PROOF_TYPE_CHONK: u32 = 9;
+pub global PROOF_TYPE_CHONK: u32 = 8;
 
 // TODO: Make it 1_u128 << 64 as Field without breaking TS constants generator
 pub global TWO_POW_64: Field = 18446744073709551616;

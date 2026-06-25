@@ -1,5 +1,7 @@
+use crate::components::previous_kernel_for_tail_validator::validate_previous_kernel_for_tail;
 use super::TestBuilder;
 use protocol_test_utils::{assert_array_eq, pad_end};
+use types::{address::AztecAddress, traits::FromField};
 
 #[test]
 fn squashing_and_siloing_and_ordering() {
@@ -73,12 +75,11 @@ fn squashing_and_siloing_and_ordering() {
 }
 
 #[test]
-fn siloing_for_private_only_tx_without_accumulated_nullifiers() {
+fn siloing_for_private_only_tx_with_only_protocol_nullifier() {
     let mut builder = TestBuilder::new();
 
-    builder.previous_kernel.claimed_first_nullifier = 13579;
-
     builder.previous_kernel.is_private_only = true;
+    builder.previous_kernel.set_protocol_nullifier();
 
     builder.previous_kernel.append_note_hashes(1);
 
@@ -86,7 +87,6 @@ fn siloing_for_private_only_tx_without_accumulated_nullifiers() {
 
     let pi = builder.execute_with_siloing();
 
-    // Even though no nullifiers are present, the note hash can still be uniquified (with the claimed first nullifier).
     let unique_note_hash = builder.compute_output_unique_siloed_note_hash(note_hash, 0);
     assert_array_eq(pi.end.note_hashes.array, [unique_note_hash]);
 }
@@ -145,56 +145,82 @@ fn siloing_before_min_revertible_side_effect_counter_is_set() {
     );
 }
 
-#[test(should_fail_with = "Note hashes have been siloed in a previous reset")]
-fn siloing_note_hashes_again_fails() {
+// The note-nonce base must be the tx's first *surviving* nullifier, never a squashed one.
+//
+// Case B (no protocol nullifier injected): the first emitted nullifier `N0` is part of a transient
+// (note_hash, nullifier) pair, so this terminal reset squashes it and it is never inserted into the
+// nullifier tree. The surviving note hash must take its nonce from the surviving nullifier `N1`,
+// which is tree-inserted and therefore globally unique. A nonce derived from the never-inserted `N0`
+// would let two txs emit-and-squash the same `N0` and produce colliding unique note hashes for
+// identical note content (Faerie-Gold).
+#[test]
+fn note_nonce_derives_from_surviving_first_nullifier() {
     let mut builder = TestBuilder::new();
 
-    // The note hash at index 0 is siloed.
-    builder.previous_kernel.append_siloed_note_hashes(1);
-    // The rest of the note hashes are not siloed.
+    // Private-only, so all note hashes are uniquified with nonces (no revertible carve-out).
+    builder.previous_kernel.is_private_only = true;
+
+    // C0 (will be squashed) and C1 (survivor).
     builder.previous_kernel.append_note_hashes(2);
-
-    let _ = builder.execute_with_siloing();
-}
-
-#[test(should_fail_with = "Nullifiers have been siloed in a previous reset")]
-fn siloing_nullifiers_again() {
-    let mut builder = TestBuilder::new();
-
-    // The first 2 nullifiers are siloed.
-    builder.previous_kernel.append_siloed_nullifiers(2);
-    // The rest of the nullifiers are not siloed.
+    // N0 is the tx's first nullifier (no protocol nullifier injected); N1 survives.
     builder.previous_kernel.append_nullifiers(2);
 
+    let note_hashes = builder.previous_kernel.note_hashes.storage();
     let nullifiers = builder.previous_kernel.nullifiers.storage();
 
+    // Make (C0, N0) a transient pair: the first nullifier N0 nullifies C0.
+    builder.nullify_pending_note_hash(0, 0);
+
     let pi = builder.execute_with_siloing();
 
-    let siloed_nullifiers = builder.compute_output_nullifiers([nullifiers[2], nullifiers[3]]);
+    // N0 is squashed out: only N1 remains in the output (so only N1 is tree-inserted).
     assert_array_eq(
         pi.end.nullifiers.array,
-        [nullifiers[0], nullifiers[1], siloed_nullifiers[0], siloed_nullifiers[1]],
+        builder.compute_output_nullifiers([nullifiers[1]]),
     );
+    assert_eq(pi.end.nullifiers.length, 1);
+
+    // The survivor C1's nonce derives from the surviving first nullifier N1, NOT the squashed N0.
+    assert_array_eq(
+        pi.end.note_hashes.array,
+        [builder.compute_output_unique_siloed_note_hash_with_first_nullifier(
+            note_hashes[1],
+            0,
+            nullifiers[1],
+        )],
+    );
+    assert_eq(pi.end.note_hashes.length, 1);
 }
 
-#[test(should_fail_with = "Private logs have been siloed in a previous reset")]
-fn siloing_private_logs_again() {
+// The note-nonce base (`output.end.nullifiers[0]`) must never be an empty slot. If every nullifier
+// is squashed while a note hash survives, the post-squash output has zero nullifiers and index 0 is
+// empty, which would give a degenerate (zero) nonce base shared across txs.
+//
+// The reset itself does NOT reject this - it would happily uniquify the survivor against the empty
+// slot. The guarantee lives entirely in the tail: `validate_previous_kernel_for_tail` asserts
+// `end.nullifiers.length != 0` on the post-squash output. This test pins that boundary by running
+// the reset and then the tail check exactly as `private_kernel_reset_tail` does, and asserting the
+// tail rejects the 0-survivor output. (No nullifier padding is supplied, so the output length is
+// truly zero; supplying padding would instead yield a real, tree-inserted nonce base.)
+#[test(should_fail_with = "TX must create at least one nullifier")]
+fn terminal_reset_squashing_every_nullifier_is_rejected_by_tail() {
     let mut builder = TestBuilder::new();
 
-    // The first 2 logs are siloed.
-    builder.previous_kernel.append_siloed_private_logs(2);
-    // The rest of the logs are not siloed.
-    builder.previous_kernel.append_private_logs(2);
+    builder.previous_kernel.is_private_only = true;
+    builder.previous_kernel.set_fee_payer(AztecAddress::from_field(234234));
 
-    let private_logs = builder.previous_kernel.private_logs.storage();
+    // C0 (will be squashed) and C1 (survivor).
+    builder.previous_kernel.append_note_hashes(2);
+    // N0 is the tx's only nullifier.
+    builder.previous_kernel.append_nullifiers(1);
 
-    let pi = builder.execute_with_siloing();
+    // Make (C0, N0) a transient pair, so the terminal reset squashes the only nullifier.
+    builder.nullify_pending_note_hash(0, 0);
 
-    let siloed_logs = builder.compute_output_private_logs([private_logs[2], private_logs[3]]);
-    assert_array_eq(
-        pi.end.private_logs.array,
-        [private_logs[0], private_logs[1], siloed_logs[0], siloed_logs[1]],
-    );
+    let output = builder.execute_with_siloing();
+
+    // The reset accepted a 0-nullifier output; the tail is what rejects it.
+    validate_previous_kernel_for_tail(output, false);
 }
 
 #[test(should_fail_with = "Propagated note hash does not match")]

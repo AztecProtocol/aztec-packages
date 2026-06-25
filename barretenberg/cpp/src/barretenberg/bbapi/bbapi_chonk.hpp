@@ -13,14 +13,12 @@
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 
-#ifndef __wasm__
+#ifdef BB_HAS_BATCH_VERIFIER_SERVICE
 #include "barretenberg/chonk/batch_verifier_types.hpp"
 #include "barretenberg/chonk/chonk_batch_verifier.hpp"
 #include "barretenberg/chonk/chonk_proof.hpp"
-#include <condition_variable>
+#include <atomic>
 #include <mutex>
-#include <queue>
-#include <thread>
 #endif
 
 #include <string>
@@ -47,10 +45,12 @@ struct ChonkStart {
         void msgpack(auto&& pack_fn) { pack_fn(); }
         bool operator==(const Response&) const = default;
     };
-    // Number of circuits to be accumulated.
-    uint32_t num_circuits;
+    // Kind of every circuit to be accumulated, in accumulation order. The IVC needs the full stack layout
+    // upfront so the prover can tell, while accumulating a circuit, whether a kernel follows (which triggers
+    // the group's multilinear batching proof).
+    std::vector<CircuitKind> kinds;
     Response execute(BBApiRequest& request) &&;
-    SERIALIZATION_FIELDS(num_circuits);
+    SERIALIZATION_FIELDS(kinds);
     bool operator==(const ChonkStart&) const = default;
 };
 
@@ -74,8 +74,10 @@ struct ChonkLoad {
 
     /** @brief Circuit to be loaded with its bytecode and verification key */
     CircuitInput circuit;
+    /** @brief CircuitKind tag selecting the per-kind slim flavor (App / Kernel / HidingKernel). */
+    CircuitKind kind = CircuitKind::None;
     Response execute(BBApiRequest& request) &&;
-    SERIALIZATION_FIELDS(circuit);
+    SERIALIZATION_FIELDS(circuit, kind);
     bool operator==(const ChonkLoad&) const = default;
 };
 
@@ -130,7 +132,10 @@ struct ChonkProve {
 
 /**
  * @struct ChonkVerify
- * @brief Verify a Chonk proof with its verification key
+ * @brief Verify a Chonk proof with its verification key.
+ *
+ * @note valid=true proves that the supplied proof is consistent with the supplied VK. Callers that need canonical
+ * protocol-circuit binding must choose the VK from the protocol artifact selected by the transaction/public inputs.
  */
 struct ChonkVerify {
     static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkVerify";
@@ -213,10 +218,10 @@ struct ChonkComputeVk {
     };
 
     CircuitInputNoVK circuit;
-    /** @brief Existing wire flag selecting the hiding-kernel VK role. */
-    bool use_zk_flavor = false;
+    // CircuitKind tag selecting the per-kind slim flavor (App / Kernel / HidingKernel).
+    CircuitKind kind = CircuitKind::None;
     Response execute([[maybe_unused]] const BBApiRequest& request = {}) &&;
-    SERIALIZATION_FIELDS(circuit, use_zk_flavor);
+    SERIALIZATION_FIELDS(circuit, kind);
     bool operator==(const ChonkComputeVk&) const = default;
 };
 
@@ -244,11 +249,11 @@ struct ChonkCheckPrecomputedVk {
 
     /** @brief Circuit with its precomputed verification key */
     CircuitInput circuit;
-    /** @brief Existing wire flag selecting the hiding-kernel VK role. */
-    bool use_zk_flavor = false;
+    /** @brief CircuitKind tag selecting the per-kind flavor (App / Kernel / HidingKernel). */
+    CircuitKind kind = CircuitKind::None;
 
     Response execute(const BBApiRequest& request = {}) &&;
-    SERIALIZATION_FIELDS(circuit, use_zk_flavor);
+    SERIALIZATION_FIELDS(circuit, kind);
     bool operator==(const ChonkCheckPrecomputedVk&) const = default;
 };
 
@@ -287,7 +292,7 @@ struct ChonkStats {
 
 /**
  * @struct ChonkBatchVerify
- * @brief Batch-verify multiple Chonk proofs with a single IPA SRS MSM
+ * @brief Batch-verify multiple Chonk proofs with batched IPA SRS MSMs.
  */
 struct ChonkBatchVerify {
     static constexpr const char MSGPACK_SCHEMA_NAME[] = "ChonkBatchVerify";
@@ -350,7 +355,7 @@ struct ChonkDecompressProof {
     bool operator==(const ChonkDecompressProof&) const = default;
 };
 
-#ifndef __wasm__
+#ifdef BB_HAS_BATCH_VERIFIER_SERVICE
 /**
  * @brief FIFO-streaming batch verification service for Chonk proofs.
  *
@@ -372,23 +377,25 @@ class ChonkBatchVerifierService {
                uint32_t batch_size,
                const std::string& fifo_path);
     void enqueue(VerifyRequest request);
+    void fail_request(uint64_t request_id, std::string error_message);
     void stop();
-    bool is_running() const { return running_; }
+    bool is_running() const { return running_.load(); }
 
   private:
-    void writer_loop(const std::string& fifo_path);
+    bool write_result(VerifyResult result);
+    bool ensure_fifo_open();
+    void close_fifo_locked();
+    bool fail_fifo_locked(const std::string& message);
 
     ChonkBatchVerifier verifier_;
 
-    std::mutex result_mutex_;
-    std::condition_variable result_cv_;
-    std::queue<VerifyResult> result_queue_;
-    bool writer_shutdown_ = false;
-    std::thread writer_thread_;
-
-    bool running_ = false;
+    std::mutex fifo_mutex_;
+    std::string fifo_path_;
+    int fifo_fd_ = -1;
+    std::atomic_bool running_ = false;
+    std::atomic_bool fifo_failed_ = false;
 };
-#endif // __wasm__
+#endif // BB_HAS_BATCH_VERIFIER_SERVICE
 
 /**
  * @struct ChonkBatchVerifierStart

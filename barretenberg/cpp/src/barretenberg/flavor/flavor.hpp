@@ -50,15 +50,18 @@ class MegaFlavor;
 class MegaZKFlavor;
 class MegaAvmFlavor;
 class TranslatorFlavor;
+class TranslatorShortMonomialFlavor;
+class ECCVMShortMonomialFlavor;
 class ECCVMRecursiveFlavor;
 class TranslatorRecursiveFlavor;
-class MultilinearBatchingRecursiveFlavor;
 
 template <typename BuilderType> class UltraRecursiveFlavor_;
 template <typename BuilderType> class UltraZKRecursiveFlavor_;
 template <typename BuilderType> class MegaRecursiveFlavor_;
 template <typename BuilderType> class MegaZKRecursiveFlavor_;
 template <typename BuilderType> class MegaAvmRecursiveFlavor_;
+class MegaAppRecursiveFlavor;
+class MegaKernelRecursiveFlavor;
 namespace avm2 {
 class AvmRecursiveFlavor;
 }

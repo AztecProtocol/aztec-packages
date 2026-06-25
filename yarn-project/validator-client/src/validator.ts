@@ -11,7 +11,7 @@ import { RunningPromise } from '@aztec/foundation/running-promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { KeystoreManager } from '@aztec/node-keystore';
-import type { DuplicateAttestationInfo, DuplicateProposalInfo, P2P, PeerId } from '@aztec/p2p';
+import type { DuplicateAttestationInfo, DuplicateProposalInfo, OversizedProposalInfo, P2P, PeerId } from '@aztec/p2p';
 import { AuthRequest, AuthResponse, BlockProposalValidator, ReqRespSubProtocol } from '@aztec/p2p';
 import {
   OffenseType,
@@ -42,6 +42,7 @@ import {
   type CoordinationSignatureContext,
 } from '@aztec/stdlib/p2p';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
+import { ConsensusTimetable } from '@aztec/stdlib/timetable';
 import type { BlockHeader, Tx } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
 import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
@@ -57,6 +58,7 @@ import { EventEmitter } from 'events';
 import type { TypedDataDefinition } from 'viem';
 
 import type { FullNodeCheckpointsBuilder } from './checkpoint_builder.js';
+import { DEFAULT_MAX_GOSSIP_CLOCK_DISPARITY_MS } from './config.js';
 import { ValidationService } from './duties/validation_service.js';
 import { HAKeyStore } from './key_store/ha_key_store.js';
 import type { ExtendedValidatorKeyStore } from './key_store/interface.js';
@@ -131,6 +133,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   private proposersOfInvalidBlocks = FifoSet.withLimit<string>(MAX_PROPOSERS_OF_INVALID_BLOCKS);
   private slotsWithInvalidProposals = FifoSet.withLimit<SlotNumber>(MAX_TRACKED_INVALID_PROPOSAL_SLOTS);
   private invalidCheckpointProposalOffenseKeys = FifoSet.withLimit<string>(MAX_TRACKED_INVALID_CHECKPOINT_PROPOSALS);
+  private oversizedProposalOffenseKeys = FifoSet.withLimit<string>(MAX_TRACKED_INVALID_CHECKPOINT_PROPOSALS);
   private badAttestationOffenseKeys = FifoSet.withLimit<string>(MAX_TRACKED_BAD_ATTESTATIONS);
   private slotsWithProposalEquivocation = FifoSet.withLimit<SlotNumber>(MAX_TRACKED_INVALID_PROPOSAL_SLOTS);
 
@@ -246,7 +249,11 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     slashingProtectionDb?: SlashingProtectionDatabase,
   ) {
     const metrics = new ValidatorMetrics(telemetry);
-    const blockProposalValidator = new BlockProposalValidator(epochCache, {
+    const consensusTimetable = new ConsensusTimetable({
+      l1Constants: epochCache.getL1Constants(),
+      blockDuration: config.blockDurationMs / 1000,
+    });
+    const blockProposalValidator = new BlockProposalValidator(epochCache, consensusTimetable, {
       txsPermitted: !config.disableTransactions,
       maxTxsPerBlock: config.validateMaxTxsPerBlock,
       maxBlocksPerCheckpoint: config.maxBlocksPerCheckpoint,
@@ -255,6 +262,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         chainId: config.l1ChainId,
         rollupAddress: config.rollupAddress,
       },
+      clockDisparityMs: config.maxGossipClockDisparityMs ?? DEFAULT_MAX_GOSSIP_CLOCK_DISPARITY_MS,
     });
     const proposalHandler = new ProposalHandler(
       checkpointsBuilder,
@@ -264,6 +272,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       txProvider,
       blockProposalValidator,
       epochCache,
+      consensusTimetable,
       config,
       blobClient,
       reexecutionTracker,
@@ -428,6 +437,11 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         this.handleDuplicateProposal(info);
       });
 
+      // Oversized proposal handler - triggers slashing for proposals beyond the per-checkpoint block limit
+      this.p2pClient.registerOversizedProposalCallback((info: OversizedProposalInfo) => {
+        this.handleOversizedProposal(info);
+      });
+
       // Duplicate attestation handler - triggers slashing for attestation equivocation
       this.p2pClient.registerDuplicateAttestationCallback((info: DuplicateAttestationInfo) => {
         this.handleDuplicateAttestation(info);
@@ -564,7 +578,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
 
     // Ignore proposals from ourselves (may happen in HA setups)
     if (proposer && this.getValidatorAddresses().some(addr => addr.equals(proposer))) {
-      this.log.debug(`Ignoring block proposal from self for slot ${proposalSlotNumber}`, {
+      this.log.debug(`Not attesting to block proposal from self for slot ${proposalSlotNumber}`, {
         proposer: proposer.toString(),
         proposalSlotNumber,
       });
@@ -837,6 +851,36 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
         amount: this.config.slashAttestInvalidCheckpointProposalPenalty,
         offenseType: OffenseType.ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL,
         epochOrSlot: BigInt(slotNumber),
+      },
+    ]);
+  }
+
+  /**
+   * Handle detection of an oversized block proposal: one whose index within its checkpoint lands at or
+   * beyond the consensus per-checkpoint block limit. A single signed proposal at an illegal index is
+   * self-contained evidence, so emit an invalid-block-proposal slash event for the proposer, deduped per
+   * (proposer, slot) since the p2p layer reports every oversized proposal it stores.
+   */
+  private handleOversizedProposal(info: OversizedProposalInfo): void {
+    const { slot, proposer } = info;
+    const offenseType = OffenseType.BROADCASTED_INVALID_BLOCK_PROPOSAL;
+    if (!this.oversizedProposalOffenseKeys.addIfAbsent(`${proposer.toString()}:${offenseType}:${slot}`)) {
+      return;
+    }
+
+    this.log.info(`Detected oversized block proposal offense from ${proposer.toString()} at slot ${slot}`, {
+      proposer: proposer.toString(),
+      slot,
+      amount: this.config.slashBroadcastedInvalidBlockPenalty,
+      offenseType: getOffenseTypeName(offenseType),
+    });
+
+    this.emit(WANT_TO_SLASH_EVENT, [
+      {
+        validator: proposer,
+        amount: this.config.slashBroadcastedInvalidBlockPenalty,
+        offenseType,
+        epochOrSlot: BigInt(slot),
       },
     ]);
   }

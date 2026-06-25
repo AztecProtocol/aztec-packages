@@ -9,6 +9,8 @@ import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { Mega } from "./flavors/mega.js";
+import { MegaApp } from "./flavors/mega_app.js";
+import { MegaKernel } from "./flavors/mega_kernel.js";
 import { MegaZK } from "./flavors/mega_zk.js";
 import { Ultra } from "./flavors/ultra.js";
 import { UltraZK } from "./flavors/ultra_zk.js";
@@ -39,11 +41,11 @@ interface ResolvedLayout {
     repeatedCommitments: { original: number; duplicate: number }[];
     hasDataBus: boolean;
     numBusColumns: number;
+    // Per-flavor-bus, the index into the builder's `circuit.get_bus_vector(idx)` slots
+    // (kernel_calldata=0, first/second/third_app_calldata=1/2/3, return_data=4). Length =
+    // NUM_BUS_COLUMNS, indexed by the flavor's own bus ordering.
+    builderBusIndices: number[];
     relationIds: Set<string>;
-    // ORed across the flavor's relations: does any relation read `params.eta*` / `params.beta_sqr,cube`?
-    // Used by oink to gate the FS sample and the extra multiplications.
-    usesEtaPowers: boolean;
-    usesBetaPowers: boolean;
     // One entry per gate selector in `get_gate_selectors()` order; a block with k selectors appears k times.
     gateBlockNames: string[];
 }
@@ -270,9 +272,23 @@ function resolveLayout(flavor: Flavor): ResolvedLayout {
         repeatedCommitments,
         hasDataBus: numBusColumns > 0,
         numBusColumns,
+        builderBusIndices: (() => {
+            // Selector → builder bus_idx (kernel_calldata=0, first_app=1, second_app=2,
+            // third_app=3, return_data=4). Order of buses in this flavor comes from the
+            // `databus_selectors` subset.
+            const sel_to_idx = new Map<string, number>([
+                ["q_l", 0], ["q_r", 1], ["q_o", 2], ["q_4", 3], ["q_m", 4],
+            ]);
+            const sels = subsets.get("databus_selectors") ?? [];
+            return sels.map((sel) => {
+                const idx = sel_to_idx.get(sel);
+                if (idx === undefined) {
+                    throw new Error(`flavor-codegen: databus selector '${sel}' has no builder bus_idx mapping`);
+                }
+                return idx;
+            });
+        })(),
         relationIds: new Set(flavor.relations.map((r) => r.id)),
-        usesEtaPowers: flavor.relations.some((r) => r.usesChallenges.etaPowers ?? false),
-        usesBetaPowers: flavor.relations.some((r) => r.usesChallenges.betaPowers ?? false),
         gateBlockNames: (() => {
             // selector → block (first relation declaring a selector wins); emit one block per
             // selector in `get_gate_selectors()` order. A block owning k selectors appears k times.
@@ -497,17 +513,16 @@ function emitGeneratedHeader(layout: ResolvedLayout): string {
     lines.push(`    static constexpr size_t NUM_SHIFTED_ENTITIES     = ${layout.numShifted};`);
     lines.push(`    static constexpr bool HasDataBus                 = ${layout.hasDataBus ? "true" : "false"};`);
     lines.push(`    static constexpr size_t NUM_BUS_COLUMNS          = ${layout.numBusColumns};`);
+    if (layout.numBusColumns > 0) {
+        lines.push(
+            `    static constexpr std::array<size_t, NUM_BUS_COLUMNS> BUILDER_BUS_INDICES = { ${layout.builderBusIndices.join(", ")} };`
+        );
+    }
     // Per-relation capability bools (see `RELATION_CAPABILITY_BOOLS` in flavor-codegen/main.ts).
     for (const { id, cppName } of RELATION_CAPABILITY_BOOLS) {
         const present = layout.relationIds.has(id);
         lines.push(`    static constexpr bool ${cppName} = ${present ? "true" : "false"};`);
     }
-    // Aggregated challenge-usage bools — ORed across the flavor's relations from each relation's
-    // `usesChallenges` declaration in TS. Oink gates the FS sample / power computation on these,
-    // so adding a relation that reads `params.eta*` / `params.beta_sqr,cube` requires setting the
-    // matching flag on that relation's TS module — otherwise the param stays at zero here.
-    lines.push(`    static constexpr bool UsesEtaPowers               = ${layout.usesEtaPowers ? "true" : "false"};`);
-    lines.push(`    static constexpr bool UsesBetaPowers              = ${layout.usesBetaPowers ? "true" : "false"};`);
     // All prover-committed columns: witness + masking.
     lines.push("    static constexpr size_t NUM_COMMITTED_WITNESS_ENTITIES =");
     lines.push("        NUM_WITNESS_ENTITIES + NUM_MASKING_ENTITIES;");
@@ -745,7 +760,7 @@ function generate(flavor: Flavor, repoRoot: string): { path: string; layout: Res
 function main(): void {
     const repoRoot = path.resolve(__dirname, "..", "..", "..", "..", "..");
 
-    for (const flavorValue of [Mega, MegaZK, Ultra, UltraZK]) {
+    for (const flavorValue of [Mega, MegaApp, MegaKernel, MegaZK, Ultra, UltraZK]) {
         const { path: outFile, layout } = generate(flavorValue, repoRoot);
         process.stdout.write(
             `flavor-codegen: emitted ${path.relative(repoRoot, outFile)} ` +

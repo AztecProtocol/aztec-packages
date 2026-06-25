@@ -4,9 +4,9 @@ import { SerialQueue } from '@aztec/foundation/queue';
 import { sleep } from '@aztec/foundation/sleep';
 
 /**
- * Minimal surface a deferred-proving state must expose. Both `EpochProvingState` /
- * `CheckpointProvingState` / `BlockProvingState` (used by `ProvingOrchestrator`) and
- * `TopTreeProvingState` (used by `TopTreeOrchestrator`) satisfy it.
+ * Minimal surface a deferred-proving state must expose. Both `CheckpointProvingState` /
+ * `BlockProvingState` (used by `CheckpointSubTreeOrchestrator`) and `TopTreeProvingState`
+ * (used by `TopTreeOrchestrator`) satisfy it.
  */
 export interface ProvingStateLike {
   /** Returns false once the state has been cancelled or otherwise invalidated. */
@@ -19,7 +19,16 @@ export interface ProvingStateLike {
  * Common scheduling infrastructure shared by every orchestrator that drives broker
  * proving jobs:
  *
- *   - One `SerialQueue` (`deferredJobQueue`) acting as the enqueue-throttle.
+ *   - A shared `SerialQueue` (`deferredJobQueue`) that serialises the *act of handing a
+ *     job to the broker*, one initiation per event-loop tick. Each queue task kicks off
+ *     `safeJob` (which submits to the broker) without awaiting it, then yields with
+ *     `sleep(0)`; the next task therefore runs on the following macrotask. This does NOT
+ *     cap how many broker jobs are concurrently in flight — the broker's own queue absorbs
+ *     that. What it bounds is the burst rate: a sub-tree that synchronously discovers
+ *     thousands of ready jobs can't flood the broker (and monopolise the event loop) in a
+ *     single tick. The queue is owned by the `ProverClient` and shared across every
+ *     orchestrator (every sub-tree and top-tree across every concurrent epoch session), so
+ *     this pacing is applied once globally rather than once-per-orchestrator.
  *   - A list of `AbortController`s (`pendingProvingJobs`) so a `cancel()` can abort
  *     in-flight broker jobs when needed.
  *   - A `deferredProving<T>(state, request, callback, isCancelled?)` method that wraps
@@ -28,23 +37,20 @@ export interface ProvingStateLike {
  *
  * Subclasses own their own concrete proving state and define `cancelInternal()` for
  * the rest of the cleanup work (closing world-state forks, marking sub-trees
- * cancelled, etc.). `stop()` lives on the base class and follows the standard pattern
- * of grabbing the old queue, calling `cancelInternal()` (which recreates the queue),
- * and awaiting the old queue's drain.
+ * cancelled, etc.). Because the queue is shared, neither `cancel()` nor `stop()` touch
+ * it — they only abort this orchestrator's in-flight broker jobs. Queued-but-unrun jobs
+ * for a cancelled orchestrator no-op via the guards in `deferredProving`.
  */
 export abstract class ProvingScheduler {
   protected pendingProvingJobs: AbortController[] = [];
   protected logger: Logger;
-  private deferredJobQueue: SerialQueue;
 
   constructor(
-    private readonly enqueueConcurrency: number,
+    private readonly deferredJobQueue: SerialQueue,
     loggerName = 'prover-client:proving-scheduler',
     bindings?: LoggerBindings,
   ) {
     this.logger = createLogger(loggerName, bindings);
-    this.deferredJobQueue = new SerialQueue();
-    this.deferredJobQueue.start(this.enqueueConcurrency);
   }
 
   /** Number of broker jobs currently in flight. */
@@ -53,16 +59,14 @@ export abstract class ProvingScheduler {
   }
 
   /**
-   * Drains the deferred-job queue, recreates it (so the subclass can be reused), and
-   * optionally aborts every in-flight broker job. Aborting is the right choice on
+   * Optionally aborts every in-flight broker job. Aborting is the right choice on
    * reorg-driven cancel (where the in-flight inputs are no longer valid) and the
    * wrong choice on shutdown (where leaving jobs in the broker queue lets a restart
-   * pick them up).
+   * pick them up). The shared queue is not touched — queued-but-unrun jobs belonging
+   * to this orchestrator no-op once their controller is aborted (or once their state
+   * is marked invalid by the subclass).
    */
   protected resetSchedulerState(abortJobs: boolean): void {
-    void this.deferredJobQueue.cancel();
-    this.deferredJobQueue = new SerialQueue();
-    this.deferredJobQueue.start(this.enqueueConcurrency);
     if (abortJobs) {
       for (const controller of this.pendingProvingJobs) {
         controller.abort();
@@ -78,14 +82,12 @@ export abstract class ProvingScheduler {
   protected abstract cancelInternal(): void;
 
   /**
-   * Standard stop: grab the old queue, cancel (which recreates the queue), then
-   * await the old queue's drain so any final job tear-down has unwound before we
-   * return.
+   * Standard stop: cancel this orchestrator's work. The shared queue is owned by the
+   * `ProverClient` and outlives every orchestrator, so it is not drained here.
    */
-  public async stop(): Promise<void> {
-    const oldQueue = this.deferredJobQueue;
+  public stop(): Promise<void> {
     this.cancelInternal();
-    await oldQueue.cancel();
+    return Promise.resolve();
   }
 
   /**
@@ -147,9 +149,11 @@ export abstract class ProvingScheduler {
     };
 
     void this.deferredJobQueue.put(async () => {
+      // Kick off the broker submission without awaiting it — awaiting here would serialise all
+      // proving (one job at a time) and kill parallelism. The `sleep(0)` yields the event loop
+      // so the next queued job initiates on the following macrotask, pacing bursts rather than
+      // bounding in-flight broker concurrency (the broker's own queue handles that).
       void safeJob();
-      // Yield to the macrotask queue so Node has a chance to interleave other work
-      // between enqueues.
       await sleep(0);
     });
   }

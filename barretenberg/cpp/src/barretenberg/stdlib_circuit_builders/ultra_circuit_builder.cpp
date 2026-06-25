@@ -23,6 +23,20 @@
 
 namespace bb {
 
+namespace {
+
+enum class LookupKeyMode : uint64_t { ONE_KEY = 0, TWO_KEY = 1 };
+constexpr uint64_t NO_SECOND_LOOKUP_KEY_IDENTITY = 0;
+
+// BOOMERANG_DUPLICATE_PROVENANCE: See
+// barretenberg/cpp/src/barretenberg/boomerang_value_detection/WITNESS_DUPLICATE_DETECTION.md.
+inline DuplicateProvenanceLocalId builder_duplicate_provenance_local_id(std::initializer_list<uint64_t> identities)
+{
+    return duplicate_provenance_local_id(identities);
+}
+
+} // namespace
+
 template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::finalize_circuit()
 {
     /**
@@ -129,7 +143,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_big_mul_add_gate(const mul_qua
     blocks.arithmetic.q_c().emplace_back(in.const_scaling);
     blocks.arithmetic.q_4().emplace_back(in.d_scaling);
     blocks.arithmetic.q_5().emplace_back(0);
-    blocks.arithmetic.set_gate_selector(include_next_gate_w_4 ? 2 : 1);
+    blocks.arithmetic.set_gate_selector(GateKind::Arith, include_next_gate_w_4 ? 2 : 1);
     check_selector_length_consistency();
     this->increment_num_gates();
 }
@@ -155,7 +169,42 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_big_add_gate(const add_quad_<F
     blocks.arithmetic.q_c().emplace_back(in.const_scaling);
     blocks.arithmetic.q_4().emplace_back(in.d_scaling);
     blocks.arithmetic.q_5().emplace_back(0);
-    blocks.arithmetic.set_gate_selector(include_next_gate_w_4 ? 2 : 1);
+    blocks.arithmetic.set_gate_selector(GateKind::Arith, include_next_gate_w_4 ? 2 : 1);
+    check_selector_length_consistency();
+    this->increment_num_gates();
+}
+
+/**
+ * @brief Create a bilinear / batched-eq gate.
+ * @details Two row-modes (selected by `in.mode`), both sharing the arithmetic block via the
+ * `q_bilinear_batched_eq` selector (1 = BILINEAR, 2 = BATCHED_EQ). See
+ * relations/bilinear_or_batched_eq_check_relation.hpp for the full identity. The relation absorbs the BATCHED_EQ-mode
+ * factor of 2 (q_cp · (q_cp − 1) = 2), and the BILINEAR-mode gate q_cp · (2 − q_cp) is 1 at q_cp = 1, so the caller
+ * passes all selectors raw — no halving here.
+ *
+ * @param in Witness indices, row-mode tag, and the selector coefficients for the chosen mode.
+ */
+template <typename ExecutionTrace>
+void UltraCircuitBuilder_<ExecutionTrace>::create_bilinear_batched_eq_gate(const bilinear_batched_eq_gate_<FF>& in)
+{
+    this->assert_valid_variables({ in.a, in.b, in.c, in.d });
+    blocks.arithmetic.populate_wires(in.a, in.b, in.c, in.d);
+
+    // BILINEAR: q_m·a·b + q_5·a·c + q_l·a + q_r·b + q_o·c + q_4·d + q_c = 0 (two products sharing wire a,
+    //           on the pairs (a, b) and (a, c) via q_m and q_5; q_l..q_4 the per-wire linear coefficients,
+    //           q_c the constant; wire d appears only in its linear term).
+    // BATCHED_EQ:     q_l·a + q_r·b + q_c = 0 and q_o·c + q_4·d + q_m = 0 (q_m repurposed as the 2nd
+    //           constant; q_5 unused). Selectors are written raw; only the q_bilinear_batched_eq gate
+    //           selector value distinguishes the two modes.
+    blocks.arithmetic.q_m().emplace_back(in.q_m);
+    blocks.arithmetic.q_1().emplace_back(in.q_l);
+    blocks.arithmetic.q_2().emplace_back(in.q_r);
+    blocks.arithmetic.q_3().emplace_back(in.q_o);
+    blocks.arithmetic.q_4().emplace_back(in.q_4);
+    blocks.arithmetic.q_c().emplace_back(in.q_c);
+    blocks.arithmetic.q_5().emplace_back(in.mode == BilinearBatchedEqMode::Bilinear ? in.q_5 : FF(0));
+    blocks.arithmetic.set_gate_selector(GateKind::BilinearBatchedEq,
+                                        in.mode == BilinearBatchedEqMode::Bilinear ? 1 : 2);
     check_selector_length_consistency();
     this->increment_num_gates();
 }
@@ -178,7 +227,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_bool_gate(const uint32_t varia
     blocks.arithmetic.q_c().emplace_back(0);
     blocks.arithmetic.q_4().emplace_back(0);
     blocks.arithmetic.q_5().emplace_back(0);
-    blocks.arithmetic.set_gate_selector(1);
+    blocks.arithmetic.set_gate_selector(GateKind::Arith, 1);
     check_selector_length_consistency();
     this->increment_num_gates();
 }
@@ -202,7 +251,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_arithmetic_gate(const arithmet
     blocks.arithmetic.q_c().emplace_back(in.q_c);
     blocks.arithmetic.q_4().emplace_back(0);
     blocks.arithmetic.q_5().emplace_back(0);
-    blocks.arithmetic.set_gate_selector(1);
+    blocks.arithmetic.set_gate_selector(GateKind::Arith, 1);
     check_selector_length_consistency();
     this->increment_num_gates();
 }
@@ -333,7 +382,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::fix_witness(const uint32_t witness_in
     blocks.arithmetic.q_c().emplace_back(-witness_value);
     blocks.arithmetic.q_4().emplace_back(0);
     blocks.arithmetic.q_5().emplace_back(0);
-    blocks.arithmetic.set_gate_selector(1);
+    blocks.arithmetic.set_gate_selector(GateKind::Arith, 1);
     check_selector_length_consistency();
     this->increment_num_gates();
 }
@@ -454,6 +503,36 @@ plookup::ReadData<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_gates_f
     const size_t num_lookups = read_values[ColumnIdx::C1].size();
     plookup::ReadData<uint32_t> read_data;
 
+    auto key_identity = [&](uint32_t witness_index) {
+        const uint64_t real_index = static_cast<uint64_t>(this->real_variable_index[witness_index]);
+        const auto& provenance = this->get_duplicate_provenance();
+        auto provenance_it = provenance.find(static_cast<uint32_t>(real_index));
+        if (provenance_it != provenance.end()) {
+            return this->get_duplicate_provenance_interned_identity(provenance_it->second);
+        }
+        return builder_duplicate_provenance_local_id({ DUPLICATE_PROVENANCE_RAW_IDENTITY_TAG, real_index });
+    };
+    const auto lhs_identity = key_identity(key_a_index);
+    const auto rhs_identity = key_b_index.has_value() ? key_identity(*key_b_index)
+                                                      : DuplicateProvenanceLocalId{ NO_SECOND_LOOKUP_KEY_IDENTITY };
+    const auto accumulator_provenance_key = [&](ColumnIdx column, size_t row) {
+        auto local_id = builder_duplicate_provenance_local_id(
+            { static_cast<uint64_t>(id),
+              static_cast<uint64_t>(key_b_index.has_value() ? LookupKeyMode::TWO_KEY : LookupKeyMode::ONE_KEY) });
+        append_duplicate_provenance_identity(local_id, lhs_identity);
+        append_duplicate_provenance_identity(local_id, rhs_identity);
+        append_duplicate_provenance_identity(local_id, static_cast<uint64_t>(column));
+        append_duplicate_provenance_identity(local_id, static_cast<uint64_t>(row));
+        return UltraCircuitBuilder_<ExecutionTrace>::make_duplicate_provenance(
+            DuplicateProvenanceCategory::LOOKUP_TABLE, std::move(local_id));
+    };
+    const auto tag_accumulator_if_untagged = [&](uint32_t witness_index, const DuplicateProvenance& key) {
+        const uint32_t real_index = this->real_variable_index[witness_index];
+        if (!this->get_duplicate_provenance().contains(real_index)) {
+            this->tag_duplicate_provenance(witness_index, key);
+        }
+    };
+
     for (size_t i = 0; i < num_lookups; ++i) {
         const bool is_first_lookup = (i == 0);
         const bool is_last_lookup = (i == num_lookups - 1);
@@ -479,6 +558,14 @@ plookup::ReadData<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_gates_f
 
         create_lookup_gate(
             first_idx, second_idx, third_idx, table, read_values.lookup_entries[i], col1_step, col2_step, col3_step);
+
+        if (!is_first_lookup) {
+            tag_accumulator_if_untagged(first_idx, accumulator_provenance_key(ColumnIdx::C1, i));
+        }
+        if (!(is_first_lookup && key_b_index.has_value())) {
+            tag_accumulator_if_untagged(second_idx, accumulator_provenance_key(ColumnIdx::C2, i));
+        }
+        tag_accumulator_if_untagged(third_idx, accumulator_provenance_key(ColumnIdx::C3, i));
     }
     return read_data;
 }
@@ -565,6 +652,15 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_limbed_range_
         const auto limb_idx = this->add_variable(bb::fr(sublimbs.back()));
         sublimb_indices.emplace_back(limb_idx);
         create_small_range_constraint(limb_idx, last_limb_range);
+    }
+
+    const uint64_t input_identity = static_cast<uint64_t>(this->real_variable_index[variable_index]);
+    for (size_t i = 0; i < sublimb_indices.size(); ++i) {
+        this->tag_duplicate_provenance(
+            sublimb_indices[i],
+            UltraCircuitBuilder_<ExecutionTrace>::make_duplicate_provenance(
+                DuplicateProvenanceCategory::RANGE_DECOMPOSITION,
+                builder_duplicate_provenance_local_id({ input_identity, num_bits, target_range_bitnum, i })));
     }
 
     // Prove that the limbs reconstruct the original value by processing limbs in groups of 3.
@@ -884,6 +980,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint_with_edges(
  * | RAM timestamp check          | 1     | 1   | 0   | 0   | 1   | 0   | --- |
  * | ROM consistency check        | 1     | 1   | 1   | 0   | 0   | 0   | --- |
  * | RAM consistency check        | 1     | 0   | 0   | 1   | 0   | 0   | 0   |
+ * | ROM LogUp table entry        | 1     | 0   | 1   | 0   | 0   | 0   | 0   |
+ * | ROM LogUp read access        | 1     | 0   | 0   | 0   | 1   | 0   | 0   |
  *
  * @param type
  */
@@ -976,6 +1074,36 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_memory_selectors(const MEMORY_S
         block.q_5().emplace_back(0);
         block.q_m().emplace_back(1); // validate record witness is correctly computed
         block.q_c().emplace_back(1); // read/write flag stored in q_c
+        check_selector_length_consistency();
+        break;
+    }
+    case MEMORY_SELECTORS::ROM_LOGUP_TABLE: {
+        // Single-value ROM table entry under the LogUp scheme. The row holds
+        // (index, value, multiplicity, inverse) and contributes -m_i * inv to the LogUp sum.
+        // Pattern: q_2 = 1 alone (combined with q_1 = 0) uniquely identifies this gate within
+        // the q_memory-gated context (ROM_CONSISTENCY_CHECK shares q_2 but also sets q_1).
+        block.q_1().emplace_back(0);
+        block.q_2().emplace_back(1);
+        block.q_3().emplace_back(0);
+        block.q_4().emplace_back(0);
+        block.q_5().emplace_back(0);
+        block.q_m().emplace_back(0);
+        block.q_c().emplace_back(0);
+        check_selector_length_consistency();
+        break;
+    }
+    case MEMORY_SELECTORS::ROM_LOGUP_READ: {
+        // Single-value ROM read access under the LogUp scheme. The row holds
+        // (index, value, +1, inverse) and contributes +inv to the LogUp sum.
+        // Pattern: q_4 = 1 alone (combined with q_1 = 0) uniquely identifies this gate within
+        // the q_memory-gated context (RAM_TIMESTAMP_CHECK shares q_4 but also sets q_1).
+        block.q_1().emplace_back(0);
+        block.q_2().emplace_back(0);
+        block.q_3().emplace_back(0);
+        block.q_4().emplace_back(1);
+        block.q_5().emplace_back(0);
+        block.q_m().emplace_back(0);
+        block.q_c().emplace_back(0);
         check_selector_length_consistency();
         break;
     }
@@ -1531,7 +1659,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.q_4().emplace_back(0);
     block.q_5().emplace_back(0);
     block.q_c().emplace_back(-addconst0 * linear_term_scale_factor);
-    block.set_gate_selector(3);
+    block.set_gate_selector(GateKind::Arith, 3);
 
     block.q_m().emplace_back(0);
     block.q_1().emplace_back(0);
@@ -1540,7 +1668,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.q_4().emplace_back(0);
     block.q_5().emplace_back(0);
     block.q_c().emplace_back(-addconst1);
-    block.set_gate_selector(2);
+    block.set_gate_selector(GateKind::Arith, 2);
 
     block.q_m().emplace_back(0);
     block.q_1().emplace_back(-x_mulconst2);
@@ -1549,7 +1677,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.q_4().emplace_back(0);
     block.q_5().emplace_back(0);
     block.q_c().emplace_back(-addconst2);
-    block.set_gate_selector(1);
+    block.set_gate_selector(GateKind::Arith, 1);
 
     block.q_m().emplace_back(0);
     block.q_1().emplace_back(-x_mulconst3);
@@ -1558,7 +1686,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.q_4().emplace_back(0);
     block.q_5().emplace_back(0);
     block.q_c().emplace_back(-addconst3);
-    block.set_gate_selector(1);
+    block.set_gate_selector(GateKind::Arith, 1);
 
     check_selector_length_consistency();
 
@@ -1660,7 +1788,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.q_4().emplace_back(0);
     block.q_5().emplace_back(0);
     block.q_c().emplace_back(-addconst0 * linear_term_scale_factor);
-    block.set_gate_selector(3);
+    block.set_gate_selector(GateKind::Arith, 3);
 
     block.q_m().emplace_back(0);
     block.q_1().emplace_back(0);
@@ -1669,7 +1797,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.q_4().emplace_back(0);
     block.q_5().emplace_back(0);
     block.q_c().emplace_back(-addconst1);
-    block.set_gate_selector(2);
+    block.set_gate_selector(GateKind::Arith, 2);
 
     block.q_m().emplace_back(0);
     block.q_1().emplace_back(-x_mulconst2);
@@ -1678,7 +1806,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.q_4().emplace_back(0);
     block.q_5().emplace_back(0);
     block.q_c().emplace_back(-addconst2);
-    block.set_gate_selector(1);
+    block.set_gate_selector(GateKind::Arith, 1);
 
     block.q_m().emplace_back(0);
     block.q_1().emplace_back(-x_mulconst3);
@@ -1687,7 +1815,7 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     block.q_4().emplace_back(0);
     block.q_5().emplace_back(0);
     block.q_c().emplace_back(-addconst3);
-    block.set_gate_selector(1);
+    block.set_gate_selector(GateKind::Arith, 1);
 
     check_selector_length_consistency();
 
@@ -1822,23 +1950,29 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::read_ROM_array_pai
 }
 
 /**
- * @brief Poseidon2 external round gate, activates the q_poseidon2_external selector and relation
+ * @brief Poseidon2 external round gate, activates the q_poseidon2_external selector and relation.
+ *        Ultra has a dedicated `poseidon2_external` block; Mega overrides this to route external rounds
+ *        into its shared `poseidon2` block (see MegaCircuitBuilder_::create_poseidon2_external_gate).
  */
 template <typename FF>
 void UltraCircuitBuilder_<FF>::create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in)
 {
-    auto& block = this->blocks.poseidon2_external;
-    block.populate_wires(in.a, in.b, in.c, in.d);
-    block.q_m().emplace_back(0);
-    block.q_1().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0]);
-    block.q_2().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][1]);
-    block.q_3().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][2]);
-    block.q_c().emplace_back(0);
-    block.q_4().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][3]);
-    block.q_5().emplace_back(0);
-    block.set_gate_selector(GateKind::Poseidon2Ext, 1);
-    this->check_selector_length_consistency();
-    this->increment_num_gates();
+    if constexpr (requires { this->blocks.poseidon2_external; }) {
+        auto& block = this->blocks.poseidon2_external;
+        block.populate_wires(in.a, in.b, in.c, in.d);
+        block.q_m().emplace_back(0);
+        block.q_1().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0]);
+        block.q_2().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][1]);
+        block.q_3().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][2]);
+        block.q_c().emplace_back(0);
+        block.q_4().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][3]);
+        block.q_5().emplace_back(0);
+        block.set_gate_selector(GateKind::Poseidon2Ext, 1);
+        this->check_selector_length_consistency();
+        this->increment_num_gates();
+    } else {
+        throw_or_abort("create_poseidon2_external_gate base is Ultra-only (Mega overrides into its poseidon2 block)");
+    }
 }
 
 /**

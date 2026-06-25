@@ -26,6 +26,7 @@ import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { mockCheckpointAndMessages } from '@aztec/stdlib/testing';
+import { ConsensusTimetable } from '@aztec/stdlib/timetable';
 import { BlockHeader } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
@@ -71,7 +72,7 @@ describe('Archiver Sync', () => {
   // beforeEach default instance and by tests that need a second archiver with a different config.
   const buildArchiver = async (
     storeName: string,
-    configOverrides: { enableOrphanProposedBlockPruning?: boolean } = {},
+    configOverrides: { skipOrphanProposedBlockPruning?: boolean } = {},
   ): Promise<{ archiver: Archiver; synchronizer: ArchiverL1Synchronizer; archiverStore: ArchiverDataStores }> => {
     const store = createArchiverDataStores(await openTmpStore(storeName), GENESIS_BLOCK_HEADER_HASH);
 
@@ -89,8 +90,10 @@ describe('Archiver Sync', () => {
       maxAllowedEthClientDriftSeconds: 300,
       ethereumAllowNoDebugHosts: true,
       skipHistoricalLogsCheck: true,
-      orphanProposedBlockPruneGraceSeconds: 2,
-      enableOrphanProposedBlockPruning: true,
+      checkpointProposalSyncGrace: 4,
+      orphanPruneNoProposalTolerance: 1,
+      skipOrphanProposedBlockPruning: false,
+      blockDuration: 2,
       ...configOverrides,
     };
 
@@ -2072,11 +2075,15 @@ describe('Archiver Sync', () => {
       // Proposed checkpoint should still be set
       expect(await archiverStore.blocks.getLastProposedCheckpoint()).toBeDefined();
 
-      // Proposed tip should be ahead of the checkpointed tip
+      // Proposed checkpoint should lead the checkpointed tip
       const tips = await archiver.getL2Tips();
-      expect(tips.proposedCheckpoint.checkpoint.number).toEqual(CheckpointNumber(2));
+      const proposedCheckpointResult = await archiver.getProposedCheckpointData();
+      expect(proposedCheckpointResult).toBeDefined();
+      expect(proposedCheckpointResult!.checkpointNumber).toEqual(CheckpointNumber(2));
       expect(tips.checkpointed.checkpoint.number).toEqual(CheckpointNumber(1));
-      expect(tips.proposedCheckpoint.block.number).toBeGreaterThan(tips.checkpointed.block.number);
+      const proposedCheckpointLastBlock =
+        proposedCheckpointResult!.startBlock + proposedCheckpointResult!.blockCount - 1;
+      expect(proposedCheckpointLastBlock).toBeGreaterThan(tips.checkpointed.block.number);
     }, 15_000);
 
     it('prunes blocks and clears stale pending checkpoint when slot ends', async () => {
@@ -2139,11 +2146,9 @@ describe('Archiver Sync', () => {
       expect(await archiver.getBlockNumber()).toEqual(lastBlockInCheckpoint1);
       expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
 
-      // Proposed checkpoint should be cleared, so proposed tip falls back to checkpointed tip
+      // Proposed checkpoint should be cleared, so no proposed checkpoint leads the checkpointed tip
       expect(await archiverStore.blocks.getLastProposedCheckpoint()).toBeUndefined();
-      const tips = await archiver.getL2Tips();
-      expect(tips.proposedCheckpoint.checkpoint.number).toEqual(tips.checkpointed.checkpoint.number);
-      expect(tips.proposedCheckpoint.block.number).toEqual(tips.checkpointed.block.number);
+      expect(await archiver.getProposedCheckpointData()).toBeUndefined();
     }, 15_000);
   });
 
@@ -2152,8 +2157,10 @@ describe('Archiver Sync', () => {
 
     // Slot the orphan block targets. With slotDuration=24, slot S starts at l1GenesisTime + S*24.
     const orphanSlot = SlotNumber(1);
-    // Grace period configured for these tests (see the `config` object above).
-    const graceSeconds = 2;
+    // Sync grace, local tolerance, and block duration configured for these tests (see the `config` object above).
+    const checkpointProposalSyncGrace = 4;
+    const orphanPruneNoProposalTolerance = 1;
+    const blockDuration = 2;
 
     beforeEach(() => {
       pruneSpy = jest.fn();
@@ -2164,9 +2171,20 @@ describe('Archiver Sync', () => {
       archiver.events.off(L2BlockSourceEvents.L2PruneUncheckpointed, pruneSpy);
     });
 
-    // Wall-clock time (seconds) at which the orphan tip becomes prunable: start(orphanSlot) + grace.
-    const pruneDeadline = () => now + Number(orphanSlot) * l1Constants.slotDuration + graceSeconds;
-    const pruneDeadlineForSlot = (slot: SlotNumber) => now + Number(slot) * l1Constants.slotDuration + graceSeconds;
+    const makeTimetable = () => new ConsensusTimetable({ l1Constants, blockDuration, checkpointProposalSyncGrace });
+
+    const noProposalPruneDeadlineForSlot = (slot: SlotNumber) =>
+      Math.ceil(makeTimetable().getCheckpointProposalReceiveDeadline(slot) + orphanPruneNoProposalTolerance);
+    const noProposalPruneDeadline = () => noProposalPruneDeadlineForSlot(orphanSlot);
+
+    const syncedPruneDeadlineForSlot = (slot: SlotNumber) => makeTimetable().getCheckpointProposalSyncedDeadline(slot);
+    const syncedPruneDeadline = () => syncedPruneDeadlineForSlot(orphanSlot);
+
+    const setHasCheckpointProposal = (hasCheckpointProposal: boolean) => {
+      archiver.setCheckpointProposalPresence({
+        hasCheckpointProposalForSlot: jest.fn<() => Promise<boolean>>().mockResolvedValue(hasCheckpointProposal),
+      });
+    };
 
     // Syncs checkpoint 1 (slot 0), then writes uncheckpointed blocks for slot 1 (checkpoint 2) straight
     // into the store as a block-only tip with no matching proposed checkpoint. L1 is held at slot 1 so
@@ -2207,20 +2225,20 @@ describe('Archiver Sync', () => {
       feeAssetPriceModifier: 0n,
     });
 
-    it('does not prune before the grace window elapses', async () => {
+    it('does not prune without a checkpoint proposal exactly at the receive deadline plus tolerance', async () => {
       const { lastProvisional } = await setupOrphanTip();
 
-      dateProvider.setTime((pruneDeadline() - 1) * 1000);
+      dateProvider.setTime(noProposalPruneDeadline() * 1000);
       await archiver.syncImmediate();
 
       expect(pruneSpy).not.toHaveBeenCalled();
       expect(await archiver.getBlockNumber()).toEqual(lastProvisional);
     }, 15_000);
 
-    it('prunes the orphan tip once the grace window elapses', async () => {
+    it('prunes without a checkpoint proposal once the receive deadline plus tolerance elapses', async () => {
       const { lastBlockInCp1, provisionalBlocks } = await setupOrphanTip();
 
-      dateProvider.setTime((pruneDeadline() + 1) * 1000);
+      dateProvider.setTime((noProposalPruneDeadline() + 1) * 1000);
       await archiver.syncImmediate();
 
       expect(pruneSpy).toHaveBeenCalledWith(
@@ -2234,20 +2252,56 @@ describe('Archiver Sync', () => {
       expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
     }, 15_000);
 
-    it('does not prune the orphan tip when pruning is disabled (automine)', async () => {
-      // The non-pipelined automine sequencer disables orphan pruning: it publishes each checkpoint
-      // in-slot, so an uncheckpointed tip is only the transient gap between its addBlock and
-      // addProposedCheckpoint, which pruning must not touch. The same scenario that prunes in the
-      // test above must be a no-op when pruning is off, even well past the grace window.
+    it('does not prune with a checkpoint proposal at the no-proposal deadline', async () => {
+      const { lastProvisional } = await setupOrphanTip();
+      setHasCheckpointProposal(true);
+
+      dateProvider.setTime((noProposalPruneDeadline() + 1) * 1000);
+      await archiver.syncImmediate();
+
+      expect(pruneSpy).not.toHaveBeenCalled();
+      expect(await archiver.getBlockNumber()).toEqual(lastProvisional);
+    }, 15_000);
+
+    it('does not prune with a checkpoint proposal exactly at the synced deadline', async () => {
+      const { lastProvisional } = await setupOrphanTip();
+      setHasCheckpointProposal(true);
+
+      dateProvider.setTime(syncedPruneDeadline() * 1000);
+      await archiver.syncImmediate();
+
+      expect(pruneSpy).not.toHaveBeenCalled();
+      expect(await archiver.getBlockNumber()).toEqual(lastProvisional);
+    }, 15_000);
+
+    it('prunes with a checkpoint proposal once the synced deadline elapses', async () => {
+      const { lastBlockInCp1, provisionalBlocks } = await setupOrphanTip();
+      setHasCheckpointProposal(true);
+
+      dateProvider.setTime((syncedPruneDeadline() + 1) * 1000);
+      await archiver.syncImmediate();
+
+      expect(pruneSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: L2BlockSourceEvents.L2PruneUncheckpointed,
+          slotNumber: orphanSlot,
+          blocks: expect.arrayContaining(provisionalBlocks.map(b => expect.objectContaining({ number: b.number }))),
+        }),
+      );
+      expect(await archiver.getBlockNumber()).toEqual(lastBlockInCp1);
+      expect(await archiver.getCheckpointNumber()).toEqual(CheckpointNumber(1));
+    }, 15_000);
+
+    it('does not prune the orphan tip when orphan pruning is skipped', async () => {
       const { archiver: noPruneArchiver } = await buildArchiver('archiver_orphan_no_prune', {
-        enableOrphanProposedBlockPruning: false,
+        skipOrphanProposedBlockPruning: true,
       });
       const noPruneSpy = jest.fn();
       noPruneArchiver.events.on(L2BlockSourceEvents.L2PruneUncheckpointed, noPruneSpy);
       try {
         const { lastProvisional } = await setupOrphanTip(noPruneArchiver);
 
-        dateProvider.setTime((pruneDeadline() + 100) * 1000);
+        dateProvider.setTime((syncedPruneDeadline() + 100) * 1000);
         await noPruneArchiver.syncImmediate();
 
         expect(noPruneSpy).not.toHaveBeenCalled();
@@ -2263,7 +2317,7 @@ describe('Archiver Sync', () => {
 
       await archiver.addProposedCheckpoint(makeProposedCheckpoint(lastBlockInCp1, provisionalBlocks.length));
 
-      dateProvider.setTime((pruneDeadline() + 100) * 1000);
+      dateProvider.setTime((syncedPruneDeadline() + 100) * 1000);
       await archiver.syncImmediate();
 
       expect(pruneSpy).not.toHaveBeenCalled();
@@ -2275,7 +2329,7 @@ describe('Archiver Sync', () => {
       const { lastBlockInCp1, lastProvisional, provisionalBlocks } = await setupOrphanTip();
 
       // Past the grace window: without the matching checkpoint the next sync would prune the tip.
-      dateProvider.setTime((pruneDeadline() + 100) * 1000);
+      dateProvider.setTime((syncedPruneDeadline() + 100) * 1000);
 
       // Queue the proposed checkpoint. The triggered sync drains the inbound queue (storing the
       // checkpoint) before running the orphan prune, so the prune sees it and stands down. If the
@@ -2305,7 +2359,7 @@ describe('Archiver Sync', () => {
         await archiver.addBlock(block);
       }
 
-      dateProvider.setTime((pruneDeadlineForSlot(orphanSuffixSlot) + 1) * 1000);
+      dateProvider.setTime((noProposalPruneDeadlineForSlot(orphanSuffixSlot) + 1) * 1000);
       await archiver.syncImmediate();
 
       expect(pruneSpy).toHaveBeenCalledWith(

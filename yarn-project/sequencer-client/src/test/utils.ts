@@ -8,6 +8,8 @@ import { Signature } from '@aztec/foundation/eth-signature';
 import type { P2P } from '@aztec/p2p';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { CommitteeAttestation, L2Block } from '@aztec/stdlib/block';
+import { DEFAULT_BLOCK_DURATION_MS } from '@aztec/stdlib/config';
+import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { BlockProposal, CheckpointAttestation, CheckpointProposal, ConsensusPayload } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import {
@@ -15,12 +17,41 @@ import {
   makeAppendOnlyTreeSnapshot,
   mockTxForRollup,
 } from '@aztec/stdlib/testing';
+import {
+  DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME,
+  DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME,
+  DEFAULT_MIN_BLOCK_DURATION,
+  DEFAULT_P2P_PROPAGATION_TIME,
+  ProposerTimetable,
+} from '@aztec/stdlib/timetable';
 import { BlockHeader, GlobalVariables, type Tx, makeProcessedTxFromPrivateOnlyTx } from '@aztec/stdlib/tx';
 
 import type { MockProxy } from 'jest-mock-extended';
 
 // Re-export mock classes from their dedicated file
 export { MockCheckpointBuilder, MockCheckpointsBuilder } from './mock_checkpoint_builder.js';
+
+/**
+ * Builds a {@link ProposerTimetable} for tests from a millisecond block duration and optional budgets,
+ * filling unset budgets with the shared `DEFAULT_*` values the sequencer config layer applies. Mirrors how
+ * the sequencer constructs its timetable so tests exercise the same budget resolution.
+ */
+export function makeProposerTimetable(opts: {
+  l1Constants: Pick<L1RollupConstants, 'l1GenesisTime' | 'slotDuration' | 'ethereumSlotDuration'>;
+  blockDurationMs?: number;
+  minBlockDuration?: number;
+  p2pPropagationTime?: number;
+  checkpointProposalPrepareTime?: number;
+}): ProposerTimetable {
+  return new ProposerTimetable({
+    l1Constants: opts.l1Constants,
+    blockDuration: (opts.blockDurationMs ?? DEFAULT_BLOCK_DURATION_MS) / 1000,
+    minBlockDuration: opts.minBlockDuration ?? DEFAULT_MIN_BLOCK_DURATION,
+    p2pPropagationTime: opts.p2pPropagationTime ?? DEFAULT_P2P_PROPAGATION_TIME,
+    checkpointProposalPrepareTime: opts.checkpointProposalPrepareTime ?? DEFAULT_CHECKPOINT_PROPOSAL_PREPARE_TIME,
+    checkpointProposalInitTime: DEFAULT_CHECKPOINT_PROPOSAL_INIT_TIME,
+  });
+}
 
 /**
  * Creates a mock transaction with a specific seed for deterministic testing

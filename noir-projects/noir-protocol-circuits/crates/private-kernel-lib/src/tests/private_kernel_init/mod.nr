@@ -114,8 +114,6 @@ impl TestBuilder {
 
         assert_eq(pi.is_private_only, self.is_private_only);
 
-        assert_eq(pi.claimed_first_nullifier, self.first_nullifier_hint);
-
         assert_eq(pi.claimed_revertible_counter, self.revertible_counter_hint);
     }
 }

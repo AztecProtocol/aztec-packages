@@ -19,7 +19,7 @@ export const Poseidon2QuadInternalRelation = relation({
         { name: "q_poseidon2_quad_internal", kind: "precomputed" },
     ],
     shiftedEntities: ["w_l", "w_r", "w_o", "w_4"],
-    gateBlockName: "poseidon2_quad_internal",
+    gateBlockName: "poseidon2",
     subsets: {
         gate_selectors: ["q_poseidon2_quad_internal"],
         // q_5 carries the next quad's third round constant; flagged non_gate to align with

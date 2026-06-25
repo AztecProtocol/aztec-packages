@@ -1,6 +1,7 @@
+import { CircuitKind } from '@aztec/bb.js';
 import { MAX_APPS_PER_KERNEL } from '@aztec/constants';
 import { uniqueBy } from '@aztec/foundation/collection';
-import { vkAsFieldsMegaHonk } from '@aztec/foundation/crypto/keys';
+import { vkAsFields } from '@aztec/foundation/crypto/keys';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { pushTestData } from '@aztec/foundation/testing';
@@ -145,6 +146,7 @@ export class PrivateKernelExecutionProver {
             bytecode: output.bytecode,
             witness: output.outputWitness,
             vk: output.verificationKey.keyAsBytes,
+            kind: CircuitKind.Kernel,
             timings: {
               witgen: witgenTimer.ms(),
             },
@@ -231,6 +233,7 @@ export class PrivateKernelExecutionProver {
       bytecode: tailOutput.bytecode,
       witness: tailOutput.outputWitness,
       vk: tailOutput.verificationKey.keyAsBytes,
+      kind: CircuitKind.Kernel,
       timings: {
         witgen: witgenTimer.ms(),
       },
@@ -262,6 +265,7 @@ export class PrivateKernelExecutionProver {
         bytecode: hidingOutput.bytecode,
         witness: hidingOutput.outputWitness,
         vk: hidingOutput.verificationKey.keyAsBytes,
+        kind: CircuitKind.HidingKernel,
         timings: {
           witgen: witgenTimer.ms(),
         },
@@ -271,7 +275,11 @@ export class PrivateKernelExecutionProver {
     if (profileMode == 'gates' || profileMode == 'full') {
       for (const entry of executionSteps) {
         const gateCountTimer = new Timer();
-        const gateCount = await this.proofCreator.computeGateCountForCircuit(entry.bytecode, entry.functionName);
+        const gateCount = await this.proofCreator.computeGateCountForCircuit(
+          entry.bytecode,
+          entry.functionName,
+          entry.kind,
+        );
         entry.gateCount = gateCount;
         entry.timings.gateCount = gateCountTimer.ms();
       }
@@ -367,6 +375,7 @@ export class PrivateKernelExecutionProver {
       bytecode: next.acir,
       witness: next.partialWitness,
       vk: next.vk,
+      kind: CircuitKind.App,
       timings: {
         witgen: next.profileResult?.timings.witgen ?? 0,
         oracles: next.profileResult?.timings.oracles,
@@ -400,8 +409,8 @@ export class PrivateKernelExecutionProver {
   ) {
     const { contractAddress, functionSelector } = publicInputs.callContext;
 
-    const vkAsFields = await vkAsFieldsMegaHonk(vkAsBuffer);
-    const vk = await VerificationKeyAsFields.fromKey(vkAsFields);
+    const vkFields = await vkAsFields(vkAsBuffer, CircuitKind.App);
+    const vk = await VerificationKeyAsFields.fromKey(vkFields);
 
     const { currentContractClassId, publicKeys, saltedInitializationHash } =
       await this.oracle.getContractAddressPreimage(contractAddress);
@@ -570,6 +579,7 @@ export class PrivateKernelExecutionProver {
       bytecode: output.bytecode,
       witness: output.outputWitness,
       vk: output.verificationKey.keyAsBytes,
+      kind: CircuitKind.Kernel,
       timings: {
         witgen: witgenTimer.ms(),
       },

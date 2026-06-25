@@ -1,6 +1,9 @@
 #include "barretenberg/vm2/tracegen/public_inputs_trace.hpp"
 
+#include <array>
+
 #include "barretenberg/aztec/aztec_constants.hpp"
+#include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 
 namespace bb::avm2::tracegen {
@@ -20,16 +23,21 @@ void PublicInputsTraceBuilder::process_public_inputs(TraceContainer& trace, cons
 
     auto cols = public_inputs.to_columns();
 
-    trace.reserve_column(C::public_inputs_cols_0_, AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
-    trace.reserve_column(C::public_inputs_cols_1_, AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
-    trace.reserve_column(C::public_inputs_cols_2_, AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
-    trace.reserve_column(C::public_inputs_cols_3_, AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH);
+    // Each public input column has its own length (cols is jagged). Write only the used rows of each
+    // committed column; the remaining trace rows default to zero, which is what the public input
+    // consistency check (hashing + MLE) in the verifier expects.
+    constexpr std::array<C, AVM_NUM_PUBLIC_INPUT_COLUMNS> public_input_columns = {
+        C::public_inputs_cols_0_,
+        C::public_inputs_cols_1_,
+        C::public_inputs_cols_2_,
+        C::public_inputs_cols_3_,
+    };
 
-    for (uint32_t row = 0; row < AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH; row++) {
-        trace.set(C::public_inputs_cols_0_, row, cols[0][row]);
-        trace.set(C::public_inputs_cols_1_, row, cols[1][row]);
-        trace.set(C::public_inputs_cols_2_, row, cols[2][row]);
-        trace.set(C::public_inputs_cols_3_, row, cols[3][row]);
+    for (size_t i = 0; i < AVM_NUM_PUBLIC_INPUT_COLUMNS; i++) {
+        trace.reserve_column(public_input_columns[i], AVM_PUBLIC_INPUTS_COLUMN_LENGTHS[i]);
+        for (uint32_t row = 0; row < AVM_PUBLIC_INPUTS_COLUMN_LENGTHS[i]; row++) {
+            trace.set(public_input_columns[i], row, cols[i][row]);
+        }
     }
 }
 

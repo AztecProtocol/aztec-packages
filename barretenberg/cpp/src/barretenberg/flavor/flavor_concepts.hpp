@@ -3,9 +3,22 @@
 // Establish concepts for testing flavor attributes
 #include "barretenberg/common/type_traits.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders_fwd.hpp"
+#include <cstddef>
 #include <string>
+#include <type_traits>
 namespace bb {
+class TranslatorShortMonomialFlavor;
+
 // clang-format off
+
+class ECCVMShortMonomialFlavor;
+
+// Recognise any instantiation of the multilinear batching flavors, independent of NumClaims.
+template <typename T> struct IsMultilinearBatchingFlavorImpl : std::false_type {};
+template <size_t NumClaims> struct IsMultilinearBatchingFlavorImpl<MultilinearBatchingFlavor_<NumClaims>> : std::true_type {};
+
+template <typename T> struct IsMultilinearBatchingRecursiveFlavorImpl : std::false_type {};
+template <size_t NumClaims> struct IsMultilinearBatchingRecursiveFlavorImpl<MultilinearBatchingRecursiveFlavor_<NumClaims>> : std::true_type {};
 
 #ifdef STARKNET_GARAGA_FLAVORS
 template <typename T>
@@ -21,7 +34,8 @@ concept IsUltraOrMegaHonk = IsUltraHonk<T> || IsAnyOf<T, MegaFlavor, MegaZKFlavo
 // hence requiring an adjustment to the round univariates via the RowDisablingPolynomial.
 // This is not the case for Translator, where randomness resides in different parts of the trace and the locations will
 // be reflected via Translator relations.
-template <typename T> concept IsTranslatorFlavor = IsAnyOf<T, TranslatorFlavor, TranslatorRecursiveFlavor>;
+template <typename T>
+concept IsTranslatorFlavor = IsAnyOf<T, TranslatorFlavor, TranslatorShortMonomialFlavor, TranslatorRecursiveFlavor>;
 template <typename T> concept UseRowDisablingPolynomial = !IsTranslatorFlavor<T>;
 
 
@@ -36,19 +50,21 @@ concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder
                                        MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
                                        MegaZKRecursiveFlavor_<UltraCircuitBuilder>,
                                        MegaAvmRecursiveFlavor_<UltraCircuitBuilder>,
+                                       MegaAppRecursiveFlavor,
+                                       MegaKernelRecursiveFlavor,
                                        TranslatorRecursiveFlavor,
                                        ECCVMRecursiveFlavor,
-                                       MultilinearBatchingRecursiveFlavor,
-                                       avm2::AvmRecursiveFlavor>;
+                                       avm2::AvmRecursiveFlavor> ||
+                                       IsMultilinearBatchingRecursiveFlavorImpl<T>::value;
 
 template <typename T>
 concept IsKeccakFlavor = IsAnyOf<T, UltraKeccakFlavor, UltraKeccakZKFlavor>;
 
 template <typename T>
-concept isMultilinearBatchingFlavor =IsAnyOf<T, MultilinearBatchingFlavor>;
+concept isMultilinearBatchingFlavor = IsMultilinearBatchingFlavorImpl<T>::value || IsMultilinearBatchingRecursiveFlavorImpl<T>::value;
 
 // This concept is relevant for the Sumcheck Prover, where the logic differs between BN254 and Grumpkin
-template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor, ECCVMRecursiveFlavor, SumcheckTestFlavorGrumpkinZK>;
+template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor, ECCVMShortMonomialFlavor, ECCVMRecursiveFlavor, SumcheckTestFlavorGrumpkinZK>;
 
 // Flavors whose Sumcheck round univariates are committed (sent as commitment + evals at 0,1)
 // rather than sent in the clear. The committed data is later verified via Shplemini.

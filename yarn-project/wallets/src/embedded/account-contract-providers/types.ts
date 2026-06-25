@@ -13,6 +13,7 @@ import type { AccountType } from '../wallet_db.js';
  */
 export interface AccountContractsProvider {
   getSchnorrAccountContract(signingKey: Fq): Promise<AccountContract>;
+  getSchnorrInitializerlessAccountContract(signingKey: Fq): Promise<AccountContract>;
   getEcdsaRAccountContract(signingKey: Buffer): Promise<AccountContract>;
   getEcdsaKAccountContract(signingKey: Buffer): Promise<AccountContract>;
   getStubAccountContractArtifact(type: AccountType): Promise<ContractArtifact>;

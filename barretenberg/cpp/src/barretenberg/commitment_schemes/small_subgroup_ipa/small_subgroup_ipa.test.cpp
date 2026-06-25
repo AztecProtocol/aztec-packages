@@ -20,6 +20,11 @@ template <typename Flavor> class SmallSubgroupIPATest : public ::testing::Test {
     static constexpr size_t log_circuit_size = 7;
     static constexpr size_t circuit_size = 1ULL << log_circuit_size;
 
+    // Number of sumcheck challenges in a padded transcript: Grumpkin (committed sumcheck) runs at the fixed
+    // CONST_ECCVM_LOG_N, whose Libra concatenation is what fits the subgroup; BN254 pads to CONST_PROOF_SIZE_LOG_N.
+    static constexpr size_t num_sumcheck_challenges =
+        std::is_same_v<Curve, curve::Grumpkin> ? CONST_ECCVM_LOG_N : CONST_PROOF_SIZE_LOG_N;
+
     FF evaluation_challenge;
 
     void SetUp() override { evaluation_challenge = FF::random_element(); }
@@ -196,7 +201,7 @@ TYPED_TEST(SmallSubgroupIPATest, LibraEvaluationsConsistency)
 
     ZKData zk_sumcheck_data(this->log_circuit_size, prover_transcript, ck);
 
-    std::vector<FF> multivariate_challenge = this->generate_random_vector(CONST_PROOF_SIZE_LOG_N);
+    std::vector<FF> multivariate_challenge = this->generate_random_vector(this->num_sumcheck_challenges);
 
     const FF claimed_inner_product =
         Prover::compute_claimed_inner_product(zk_sumcheck_data, multivariate_challenge, this->log_circuit_size);
@@ -233,7 +238,7 @@ TYPED_TEST(SmallSubgroupIPATest, LibraEvaluationsConsistencyFailure)
 
     ZKData zk_sumcheck_data(this->log_circuit_size, prover_transcript, ck);
 
-    std::vector<FF> multivariate_challenge = this->generate_random_vector(CONST_PROOF_SIZE_LOG_N);
+    std::vector<FF> multivariate_challenge = this->generate_random_vector(this->num_sumcheck_challenges);
 
     const FF claimed_inner_product =
         Prover::compute_claimed_inner_product(zk_sumcheck_data, multivariate_challenge, this->log_circuit_size);
@@ -389,7 +394,7 @@ TYPED_TEST(SmallSubgroupIPATest, EvaluationChallengeInSubgroupThrows)
         FF::random_element(), FF::random_element(), FF::random_element(), FF::random_element()
     };
 
-    std::vector<FF> multivariate_challenge = this->generate_random_vector(CONST_PROOF_SIZE_LOG_N);
+    std::vector<FF> multivariate_challenge = this->generate_random_vector(this->num_sumcheck_challenges);
     FF dummy_inner_product = FF::random_element();
 
     // The check should throw/abort because the evaluation challenge is in the subgroup

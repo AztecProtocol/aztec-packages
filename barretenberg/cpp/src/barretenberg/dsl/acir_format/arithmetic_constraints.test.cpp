@@ -1,11 +1,13 @@
 #include "arithmetic_constraints.hpp"
 #include "acir_format.hpp"
 
+#include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/gate_count_constants.hpp"
 #include "barretenberg/dsl/acir_format/test_class.hpp"
 #include "barretenberg/dsl/acir_format/utils.hpp"
 
+#include <algorithm>
 #include <cstdint>
 #include <gtest/gtest.h>
 #include <vector>
@@ -217,10 +219,11 @@ class ArithmeticConstraintsTestingFunctions {
         }
         expression.q_c = result.to_buffer();
 
-        // Construct the big quad constraint
+        // Construct the big quad constraint via the standard arithmetic path (is_mega = false).
         Acir::Opcode::AssertZero acir_assert_zero{ .value = expression };
         AcirFormat dummy_acir_format;
-        assert_zero_to_quad_constraints(acir_assert_zero, dummy_acir_format, 0);
+        std::vector<BatchedEqEntry> batched_eq_assert_zeros;
+        assert_zero_to_constraints(acir_assert_zero, dummy_acir_format, 0, batched_eq_assert_zeros, /*is_mega=*/false);
 
         // Check that the construction worked as expected
         size_t EXPECTED_NUM_GATES = expected_num_gates();
@@ -393,8 +396,9 @@ TEST(AssertZeroConstraintTest, UnsatisfiableCircuitWithNonZeroConstantOnly)
     Acir::Expression expr{ .q_c = bb::fr::one().to_buffer() };
     Acir::Opcode::AssertZero assert_zero{ .value = expr };
     AcirFormat af;
+    std::vector<BatchedEqEntry> batched_eq_assert_zeros;
     EXPECT_THROW_WITH_MESSAGE(
-        assert_zero_to_quad_constraints(assert_zero, af, 0),
+        assert_zero_to_constraints(assert_zero, af, 0, batched_eq_assert_zeros, /*is_mega=*/false),
         "circuit is unsatisfiable. An AssertZero opcode contains no variables but has a non-zero constant");
 }
 
@@ -405,6 +409,259 @@ TEST(AssertZeroConstraintTest, SatisfiableCircuitWithZeroConstantOnly)
     Acir::Expression expr{ .q_c = bb::fr::zero().to_buffer() };
     Acir::Opcode::AssertZero assert_zero{ .value = expr };
     AcirFormat af;
-    EXPECT_THROW_WITH_MESSAGE(assert_zero_to_quad_constraints(assert_zero, af, 0),
-                              "split_into_mul_quad_gates: resulted in zero gates");
+    std::vector<BatchedEqEntry> batched_eq_assert_zeros;
+    EXPECT_THROW_WITH_MESSAGE(
+        assert_zero_to_constraints(assert_zero, af, 0, batched_eq_assert_zeros, /*is_mega=*/false),
+        "split_into_mul_quad_gates: resulted in zero gates");
+}
+
+template <size_t num_bilinear> class BilinearConstraintTestingFunctions {
+  public:
+    using Builder = MegaCircuitBuilder;
+    using AcirConstraint = std::vector<BilinearConstraint>;
+
+    class InvalidWitness {
+      public:
+        enum class Target : uint8_t { None, InvalidateConstant, InvalidateWitness };
+        static std::vector<Target> get_all()
+        {
+            return { Target::None, Target::InvalidateConstant, Target::InvalidateWitness };
+        }
+        static std::vector<std::string> get_labels() { return { "None", "InvalidateConstant", "InvalidateWitness" }; }
+    };
+
+    static ProgramMetadata generate_metadata() { return ProgramMetadata{}; }
+
+    static void generate_constraints(AcirConstraint& constraint, WitnessVector& witness_values)
+    {
+        std::vector<Acir::Opcode> opcodes;
+
+        // M bilinear gates whose two products share wire a:
+        //   q_m·a·b + q_5·a·c + q_l·a + q_r·b + q_o·c + q_4·e + q_c = 0
+        // Wires a, b, c carry the products; d is the linear-only fourth wire. The i-th gate carries min(i, 4) linear
+        // terms (placed on a, b, c, d in turn) and we solve for c so the identity holds.
+        for (size_t i = 0; i < num_bilinear; ++i) {
+            const size_t num_linear = std::min(i, size_t{ 4 });
+            bb::fr q_m = bb::fr::random_element();
+            bb::fr q_5 = bb::fr::random_element();
+            bb::fr q_l = num_linear > 0 ? bb::fr::random_element() : bb::fr::zero();
+            bb::fr q_r = num_linear > 1 ? bb::fr::random_element() : bb::fr::zero();
+            bb::fr q_o = num_linear > 2 ? bb::fr::random_element() : bb::fr::zero();
+            bb::fr q_4 = num_linear > 3 ? bb::fr::random_element() : bb::fr::zero();
+            bb::fr q_c = bb::fr::random_element();
+            bb::fr a = bb::fr::random_element();
+            bb::fr b = bb::fr::random_element();
+            bb::fr d = bb::fr::random_element(); // linear-only fourth wire (used only when num_linear > 3)
+            // c·(q_5·a + q_o) = −(q_m·a·b + q_l·a + q_r·b + q_4·e + q_c)
+            bb::fr c = -(q_m * a * b + q_l * a + q_r * b + q_4 * d + q_c) * (q_5 * a + q_o).invert();
+            uint32_t ai = add_to_witness_and_track_indices(witness_values, a);
+            uint32_t bi = add_to_witness_and_track_indices(witness_values, b);
+            uint32_t ci = add_to_witness_and_track_indices(witness_values, c);
+            Acir::Expression expr;
+            expr.mul_terms.push_back(std::make_tuple(q_m.to_buffer(), Acir::Witness(ai), Acir::Witness(bi)));
+            expr.mul_terms.push_back(std::make_tuple(q_5.to_buffer(), Acir::Witness(ai), Acir::Witness(ci)));
+            if (num_linear > 0) {
+                expr.linear_combinations.push_back(std::make_tuple(q_l.to_buffer(), Acir::Witness(ai)));
+            }
+            if (num_linear > 1) {
+                expr.linear_combinations.push_back(std::make_tuple(q_r.to_buffer(), Acir::Witness(bi)));
+            }
+            if (num_linear > 2) {
+                expr.linear_combinations.push_back(std::make_tuple(q_o.to_buffer(), Acir::Witness(ci)));
+            }
+            if (num_linear > 3) {
+                uint32_t di = add_to_witness_and_track_indices(witness_values, d);
+                expr.linear_combinations.push_back(std::make_tuple(q_4.to_buffer(), Acir::Witness(di)));
+            }
+            expr.q_c = q_c.to_buffer();
+            opcodes.push_back(Acir::Opcode{ .value = Acir::Opcode::AssertZero{ .value = expr } });
+        }
+
+        Acir::Circuit circuit = build_acir_circuit(opcodes);
+        AcirFormat af = circuit_serde_to_acir_format(circuit, /*is_mega=*/true);
+
+        // M shared-wire two-product AssertZeros classify to M BILINEAR rows; nothing else is produced.
+        BB_ASSERT_EQ(af.bilinear_constraints.size(), num_bilinear, "generate_constraints: expected M bilinear rows.");
+        BB_ASSERT(af.batched_eq_check_constraints.empty());
+        BB_ASSERT(af.quad_constraints.empty());
+        BB_ASSERT(af.big_quad_constraints.empty());
+
+        constraint = af.bilinear_constraints;
+    }
+
+    static std::pair<AcirConstraint, WitnessVector> invalidate_witness(AcirConstraint constraint,
+                                                                       WitnessVector witness_values,
+                                                                       const typename InvalidWitness::Target& target)
+    {
+        switch (target) {
+        case InvalidWitness::Target::None:
+            break;
+        case InvalidWitness::Target::InvalidateConstant:
+            constraint[0].q_c += bb::fr::one();
+            break;
+        case InvalidWitness::Target::InvalidateWitness:
+            witness_values[constraint[0].a] += bb::fr::one();
+            break;
+        }
+        return { constraint, witness_values };
+    }
+};
+
+template <typename Params>
+class BilinearConstraintTest : public ::testing::Test,
+                               public TestClass<BilinearConstraintTestingFunctions<Params::value>> {
+  protected:
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
+};
+
+using BilinearConfigs = testing::Types<std::integral_constant<size_t, 1>,
+                                       std::integral_constant<size_t, 2>,
+                                       std::integral_constant<size_t, 3>,
+                                       std::integral_constant<size_t, 5>>;
+
+TYPED_TEST_SUITE(BilinearConstraintTest, BilinearConfigs);
+
+TYPED_TEST(BilinearConstraintTest, GenerateVKFromConstraints)
+{
+    TestFixture::template test_vk_independence<MegaFlavor>();
+}
+
+TYPED_TEST(BilinearConstraintTest, Tampering)
+{
+    TestFixture::test_tampering();
+}
+
+template <size_t num_batched_eq> class BatchedEqCheckConstraintTestingFunctions {
+  public:
+    using Builder = MegaCircuitBuilder;
+    using AcirConstraint = std::vector<BatchedEqCheckConstraint>;
+
+    class InvalidWitness {
+      public:
+        enum class Target : uint8_t {
+            None,
+            InvalidateConstantFirstHalf,
+            InvalidateWitnessFirstHalf,
+            InvalidateConstantSecondHalf,
+            InvalidateWitnessSecondHalf
+        };
+        static std::vector<Target> get_all()
+        {
+            if constexpr (num_batched_eq == 1) {
+                return { Target::None, Target::InvalidateConstantFirstHalf, Target::InvalidateWitnessFirstHalf };
+            } else {
+                return { Target::None,
+                         Target::InvalidateConstantFirstHalf,
+                         Target::InvalidateWitnessFirstHalf,
+                         Target::InvalidateConstantSecondHalf,
+                         Target::InvalidateWitnessSecondHalf };
+            }
+        }
+        static std::vector<std::string> get_labels()
+        {
+            if constexpr (num_batched_eq == 1) {
+                return { "None", "InvalidateConstantFirstHalf", "InvalidateWitnessFirstHalf" };
+            } else {
+                return { "None",
+                         "InvalidateConstantFirstHalf",
+                         "InvalidateWitnessFirstHalf",
+                         "InvalidateConstantSecondHalf",
+                         "InvalidateWitnessSecondHalf" };
+            }
+        }
+    };
+
+    static ProgramMetadata generate_metadata() { return ProgramMetadata{}; }
+
+    static void generate_constraints(AcirConstraint& constraint, WitnessVector& witness_values)
+    {
+        std::vector<Acir::Opcode> opcodes;
+
+        // N linear "equality" AssertZeros. The i-th equality uses min(i, 2) witnesses, floored at 1 (a
+        // batched-eq needs at least one witness)
+        for (size_t i = 0; i < num_batched_eq; ++i) {
+            const size_t num_witnesses = std::max(size_t{ 1 }, std::min(i, size_t{ 2 }));
+            bb::fr c1 = bb::fr::random_element();
+            bb::fr w1 = bb::fr::random_element();
+            Acir::Expression expr;
+            if (num_witnesses == 1) {
+                uint32_t w1i = add_to_witness_and_track_indices(witness_values, w1);
+                expr.linear_combinations.push_back(std::make_tuple(c1.to_buffer(), Acir::Witness(w1i)));
+                expr.q_c = (-(c1 * w1)).to_buffer();
+            } else {
+                bb::fr c2 = bb::fr::random_element();
+                bb::fr q_c = bb::fr::random_element();
+                // c2·w2 = −(c1·w1 + q_c)
+                bb::fr w2 = -(c1 * w1 + q_c) * c2.invert();
+                uint32_t w1i = add_to_witness_and_track_indices(witness_values, w1);
+                uint32_t w2i = add_to_witness_and_track_indices(witness_values, w2);
+                expr.linear_combinations.push_back(std::make_tuple(c1.to_buffer(), Acir::Witness(w1i)));
+                expr.linear_combinations.push_back(std::make_tuple(c2.to_buffer(), Acir::Witness(w2i)));
+                expr.q_c = q_c.to_buffer();
+            }
+            opcodes.push_back(Acir::Opcode{ .value = Acir::Opcode::AssertZero{ .value = expr } });
+        }
+
+        Acir::Circuit circuit = build_acir_circuit(opcodes);
+        AcirFormat af = circuit_serde_to_acir_format(circuit, /*is_mega=*/true);
+
+        // N linear AssertZeros pair greedily into ceil(N/2) BATCHED_EQ rows; nothing else is produced.
+        BB_ASSERT_EQ(af.batched_eq_check_constraints.size(),
+                     (num_batched_eq + 1) / 2,
+                     "generate_constraints: expected ceil(N/2) batched-eq rows.");
+        BB_ASSERT(af.bilinear_constraints.empty());
+        BB_ASSERT(af.quad_constraints.empty());
+        BB_ASSERT(af.big_quad_constraints.empty());
+
+        constraint = af.batched_eq_check_constraints;
+    }
+
+    static std::pair<AcirConstraint, WitnessVector> invalidate_witness(AcirConstraint constraint,
+                                                                       WitnessVector witness_values,
+                                                                       const typename InvalidWitness::Target& target)
+    {
+        switch (target) {
+        case InvalidWitness::Target::None:
+            break;
+        case InvalidWitness::Target::InvalidateConstantFirstHalf:
+            constraint[0].q_c += bb::fr::one();
+            break;
+        case InvalidWitness::Target::InvalidateWitnessFirstHalf:
+            witness_values[constraint[0].a] += bb::fr::one();
+            break;
+        case InvalidWitness::Target::InvalidateConstantSecondHalf:
+            constraint[0].q_m += bb::fr::one();
+            break;
+        case InvalidWitness::Target::InvalidateWitnessSecondHalf:
+            witness_values[constraint[0].c] += bb::fr::one();
+            break;
+        }
+        return { constraint, witness_values };
+    }
+};
+
+template <typename Params>
+class BatchedEqCheckConstraintTest : public ::testing::Test,
+                                     public TestClass<BatchedEqCheckConstraintTestingFunctions<Params::value>> {
+  protected:
+    static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
+};
+
+using BatchedEqConfigs = testing::Types<std::integral_constant<size_t, 1>,
+                                        std::integral_constant<size_t, 2>,
+                                        std::integral_constant<size_t, 3>,
+                                        std::integral_constant<size_t, 4>,
+                                        std::integral_constant<size_t, 5>,
+                                        std::integral_constant<size_t, 7>>;
+
+TYPED_TEST_SUITE(BatchedEqCheckConstraintTest, BatchedEqConfigs);
+
+TYPED_TEST(BatchedEqCheckConstraintTest, GenerateVKFromConstraints)
+{
+    TestFixture::template test_vk_independence<MegaFlavor>();
+}
+
+TYPED_TEST(BatchedEqCheckConstraintTest, Tampering)
+{
+    TestFixture::test_tampering();
 }

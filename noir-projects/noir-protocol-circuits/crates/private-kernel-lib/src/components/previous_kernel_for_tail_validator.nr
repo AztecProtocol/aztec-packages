@@ -1,6 +1,5 @@
 mod validate_accumulated_items;
 mod validate_unsquashable_note_hash_nullifier_ordering;
-mod validate_siloed_values;
 
 use types::{
     abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
@@ -8,7 +7,6 @@ use types::{
     traits::Empty,
 };
 use validate_accumulated_items::validate_accumulated_items;
-use validate_siloed_values::validate_siloed_values;
 use validate_unsquashable_note_hash_nullifier_ordering::validate_unsquashable_note_hash_nullifier_ordering;
 
 /// Validate the previous kernel for a private tail, either to_rollup or to_public.
@@ -83,25 +81,15 @@ pub fn validate_previous_kernel_for_tail(
         assert(is_private_only, "Must be private only to be processed in tail");
     }
 
-    // --- claimed_first_nullifier ---
+    // --- first nullifier ---
 
     assert(
         previous_kernel_public_inputs.end.nullifiers.length != 0,
         "TX must create at least one nullifier",
     );
 
-    let claimed_first_nullifier = previous_kernel_public_inputs.claimed_first_nullifier;
-
-    let first_nullifier = previous_kernel_public_inputs.end.nullifiers.array[0];
-    assert_eq(
-        claimed_first_nullifier,
-        // Note: we assert that this first_nullifier is siloed within `validate_siloed_values` below,
-        // by asserting that the contract_address is 0.
-        first_nullifier.innermost().value,
-        "First nullifier claim was not satisfied",
-    );
-
     if is_for_public {
+        let first_nullifier = previous_kernel_public_inputs.end.nullifiers.array[0];
         assert(
             first_nullifier.inner.counter < min_revertible_side_effect_counter,
             "First nullifier must be non revertible",
@@ -109,8 +97,6 @@ pub fn validate_previous_kernel_for_tail(
     }
 
     // --- end & public_teardown_call_request ---
-    let note_hashes = previous_kernel_public_inputs.end.note_hashes;
-    let nullifiers = previous_kernel_public_inputs.end.nullifiers;
     let private_logs = previous_kernel_public_inputs.end.private_logs;
     let contract_class_logs_hashes = previous_kernel_public_inputs.end.contract_class_logs_hashes;
     let l2_to_l1_msgs = previous_kernel_public_inputs.end.l2_to_l1_msgs;
@@ -119,10 +105,6 @@ pub fn validate_previous_kernel_for_tail(
     let public_teardown_call_request = previous_kernel_public_inputs.public_teardown_call_request;
 
     validate_accumulated_items(previous_kernel_public_inputs, is_for_public);
-
-    validate_siloed_values(note_hashes, "note hashes");
-    validate_siloed_values(nullifiers, "nullifiers");
-    validate_siloed_values(private_logs, "private logs");
 
     l2_to_l1_msgs.for_each(|msg| msg.innermost().recipient.validate());
 

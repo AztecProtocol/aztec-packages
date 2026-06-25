@@ -275,6 +275,13 @@ tests:
     owners:
       - *sean
 
+  # Asserts all late txs land in the checkpoint's last block, but the proposer seals the last block as
+  # soon as one tx is available and snapshots the mempool, so late txs still propagating over gossip
+  # spill into the next checkpoint. Flaky until the sequencer waits for the last block's tx window.
+  - regex: "src/e2e_epochs/epochs_mbps_redistribution.test.ts"
+    owners:
+      - *phil
+
   # Blanket flake patterns for unstable p2p, epoch, and l1 tx utils tests
   # This is a temporary measure while team bandwidth is constrained
   # Replaced many specific patterns - see https://github.com/AztecProtocol/aztec-packages/pull/17962 for historical context
@@ -371,7 +378,7 @@ tests:
     owners:
       - *palla
 
-  - regex: "yarn-project/end-to-end/scripts/run_test.sh ha src/composed/ha/e2e_ha_full.test.ts"
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh ha src/composed/ha/e2e_ha_full.parallel.test.ts"
     owners:
       - *spyros
 
@@ -403,5 +410,15 @@ tests:
   # the test's wait timeout — same family as #23501.
   - regex: "src/e2e_p2p/duplicate_proposal_slash.test.ts"
     error_regex: "TimeoutError: Timeout awaiting duplicate proposal offense"
+    owners:
+      - *palla
+
+  # http://ci.aztec-labs.com/620b664d9d37ad65
+  # Wall-clock-deadline flake under CI CPU contention: the public processor can be
+  # descheduled past its block-build deadline before processing a single tx, so
+  # re-execution applies 0 txs and the validator rejects a block the test expects
+  # accepted. Scoped to that end-state-mismatch signature; not a logic regression.
+  - regex: "validator-client/src/validator.integration.test.ts"
+    error_regex: "✕ rejects block that would exceed checkpoint mana limit"
     owners:
       - *palla

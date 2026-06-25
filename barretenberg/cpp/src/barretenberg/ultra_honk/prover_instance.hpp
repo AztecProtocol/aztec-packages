@@ -53,6 +53,7 @@ template <typename Flavor_> class ProverInstance_ {
 
     std::vector<uint32_t> memory_read_records;
     std::vector<uint32_t> memory_write_records;
+    std::vector<uint32_t> rom_logup_records;
 
     size_t dyadic_size() const { return metadata.dyadic_size; }
     size_t log_dyadic_size() const { return numeric::get_msb(dyadic_size()); }

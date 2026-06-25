@@ -27,5 +27,4 @@ export const LogDerivLookupRelation = relation({
         gate_selectors: ["q_lookup"],
         tables: ["table_1", "table_2", "table_3", "table_4"],
     },
-    usesChallenges: { etaPowers: true, betaPowers: true },
 });

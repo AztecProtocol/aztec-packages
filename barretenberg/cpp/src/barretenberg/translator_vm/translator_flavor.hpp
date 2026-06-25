@@ -21,10 +21,17 @@
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_tuple_helpers.hpp"
 #include "barretenberg/relations/translator_vm/translator_decomposition_relation.hpp"
+#include "barretenberg/relations/translator_vm/translator_decomposition_short_relation.hpp"
 #include "barretenberg/relations/translator_vm/translator_delta_range_constraint_relation.hpp"
+#include "barretenberg/relations/translator_vm/translator_delta_range_constraint_short_relation.hpp"
 #include "barretenberg/relations/translator_vm/translator_extra_relations.hpp"
+#include "barretenberg/relations/translator_vm/translator_extra_short_relations.hpp"
 #include "barretenberg/relations/translator_vm/translator_non_native_field_relation.hpp"
+#include "barretenberg/relations/translator_vm/translator_non_native_field_short_relation.hpp"
 #include "barretenberg/relations/translator_vm/translator_permutation_relation.hpp"
+#include "barretenberg/relations/translator_vm/translator_permutation_short_relation.hpp"
+#include "barretenberg/relations/translator_vm/translator_shiftable_first_coeff_zero_relation.hpp"
+#include "barretenberg/relations/translator_vm/translator_shiftable_first_coeff_zero_short_relation.hpp"
 #include "barretenberg/translator_vm/translator_circuit_builder.hpp"
 #include "barretenberg/translator_vm/translator_fixed_vk.hpp"
 #include "barretenberg/translator_vm/translator_selectors.hpp"
@@ -132,7 +139,8 @@ class TranslatorFlavor {
                                   TranslatorAccumulatorTransferRelation<FF>,
                                   TranslatorDecompositionRelation<FF>,
                                   TranslatorNonNativeFieldRelation<FF>,
-                                  TranslatorZeroConstraintsRelation<FF>>;
+                                  TranslatorZeroConstraintsRelation<FF>,
+                                  TranslatorShiftableFirstCoeffZeroRelation<FF>>;
     using Relations = Relations_<FF>;
 
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
@@ -1267,6 +1275,40 @@ class TranslatorFlavor {
                polynomials.lagrange_last[edge_idx] == 0 && polynomials.lagrange_last[edge_idx + 1] == 0;
     }
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;
+};
+
+class TranslatorShortMonomialFlavor : public TranslatorFlavor {
+  public:
+    using FF = TranslatorFlavor::FF;
+    using Curve = TranslatorFlavor::Curve;
+
+    static constexpr bool USE_SHORT_MONOMIALS = true;
+
+    using GrandProductRelations = std::tuple<TranslatorPermutationShortRelation<FF>>;
+    template <typename FF_>
+    using Relations_ = std::tuple<TranslatorPermutationShortRelation<FF_>,
+                                  TranslatorDeltaRangeConstraintShortRelation<FF_>,
+                                  TranslatorOpcodeConstraintShortRelation<FF_>,
+                                  TranslatorAccumulatorTransferShortRelation<FF_>,
+                                  TranslatorDecompositionShortRelation<FF_>,
+                                  TranslatorNonNativeFieldShortRelation<FF_>,
+                                  TranslatorZeroConstraintsShortRelation<FF_>,
+                                  TranslatorShiftableFirstCoeffZeroShortRelation<FF_>>;
+    using Relations = Relations_<FF>;
+
+    static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
+    using SubrelationSeparators = std::array<FF, NUM_SUBRELATIONS - 1>;
+    static constexpr size_t MAX_PARTIAL_RELATION_LENGTH = compute_max_partial_relation_length<Relations>();
+    static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 2;
+    static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
+
+    template <size_t LENGTH> using ProverUnivariates = TranslatorFlavor::ProverUnivariates<LENGTH>;
+    using ExtendedEdges = ProverUnivariates<MAX_PARTIAL_RELATION_LENGTH>;
+
+    static_assert(MAX_PARTIAL_RELATION_LENGTH == TranslatorFlavor::MAX_PARTIAL_RELATION_LENGTH);
+    static_assert(BATCHED_RELATION_PARTIAL_LENGTH == TranslatorFlavor::BATCHED_RELATION_PARTIAL_LENGTH);
+    static_assert(BATCHED_RELATION_PARTIAL_LENGTH == Curve::LIBRA_UNIVARIATES_LENGTH);
+    static_assert(NUM_SUBRELATIONS == TranslatorFlavor::NUM_SUBRELATIONS);
 };
 
 // Guard against drift between the runtime PCS entity lists and their compile-time counts;

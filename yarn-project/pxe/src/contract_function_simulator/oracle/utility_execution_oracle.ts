@@ -15,6 +15,7 @@ import {
   toACVMWitness,
   witnessMapToFields,
 } from '@aztec/simulator/client';
+import { STANDARD_HANDSHAKE_REGISTRY_ADDRESS } from '@aztec/standard-contracts/handshake-registry/constants';
 import { type FunctionCall, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -70,9 +71,10 @@ import { Option } from '../noir-structs/option.js';
 import type { ProvidedSecret } from '../noir-structs/provided_secret.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
+import type { TransientArrayService } from '../transient_array_service.js';
+import { buildACIRCallback } from './acir_callback.js';
 import type { IMiscOracle, IUtilityExecutionOracle } from './interfaces.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
-import { Oracle } from './oracle.js';
 
 /** Args for UtilityExecutionOracle constructor. */
 export type UtilityExecutionOracleArgs = {
@@ -100,6 +102,7 @@ export type UtilityExecutionOracleArgs = {
   hooks?: ExecutionHooks;
   /** Needed to trigger contract synchronization before nested cross-contract calls. */
   utilityExecutor: (call: FunctionCall, scopes: AztecAddress[]) => Promise<void>;
+  transientArrayService: TransientArrayService;
 };
 
 /**
@@ -113,6 +116,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   private aztecnrLogger: Logger | undefined;
   private offchainEffects: OffchainEffect[] = [];
   private readonly ephemeralArrayService = new EphemeralArrayService();
+  protected readonly transientArrayService: TransientArrayService;
 
   // We store oracle version to be able to show a nice error message when an oracle handler is missing.
   private contractOracleVersion: { major: number; minor: number } | undefined;
@@ -163,6 +167,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.simulator = args.simulator;
     this.hooks = args.hooks;
     this.utilityExecutor = args.utilityExecutor;
+    this.transientArrayService = args.transientArrayService;
   }
 
   public assertCompatibleOracleVersion(major: number, minor: number): void {
@@ -355,7 +360,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     if (!completeAddress) {
       throw new Error(
         `No public key registered for address ${account}.
-        Register it by calling pxe.addAccount(...).\nSee docs for context: https://docs.aztec.network/developers/resources/debugging/aztecnr-errors#simulation-error-no-public-key-registered-for-address-0x0-register-it-by-calling-pxeregisterrecipient-or-pxeregisteraccount`,
+        Register it by calling wallet.registerSender(...).\nSee docs for context: https://docs.aztec.network/errors/14`,
       );
     }
     return completeAddress;
@@ -796,6 +801,34 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.ephemeralArrayService.clear(slot);
   }
 
+  public pushTransient(slot: Fr, elements: Fr[]): number {
+    return this.transientArrayService.push(this.contractAddress, slot, elements);
+  }
+
+  public popTransient(slot: Fr): Fr[] {
+    return this.transientArrayService.pop(this.contractAddress, slot);
+  }
+
+  public getTransient(slot: Fr, index: number): Fr[] {
+    return this.transientArrayService.get(this.contractAddress, slot, index);
+  }
+
+  public setTransient(slot: Fr, index: number, elements: Fr[]): void {
+    this.transientArrayService.set(this.contractAddress, slot, index, elements);
+  }
+
+  public getTransientLen(slot: Fr): number {
+    return this.transientArrayService.len(this.contractAddress, slot);
+  }
+
+  public removeTransient(slot: Fr, index: number): void {
+    this.transientArrayService.remove(this.contractAddress, slot, index);
+  }
+
+  public clearTransient(slot: Fr): void {
+    this.transientArrayService.clear(this.contractAddress, slot);
+  }
+
   public emitOffchainEffect(data: Fr[]): Promise<void> {
     this.offchainEffects.push({ data, contractAddress: this.contractAddress });
     return Promise.resolve();
@@ -813,32 +846,39 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
 
     if (!targetContractAddress.equals(this.contractAddress)) {
-      const [callerInstance, targetInstance] = await Promise.all([
-        this.getContractInstance(this.contractAddress),
-        this.getContractInstance(targetContractAddress),
-      ]);
-      const request: UtilityCallAuthorizationRequest = {
-        caller: this.contractAddress,
-        callerClassId: callerInstance.currentContractClassId,
-        target: targetContractAddress,
-        targetClassId: targetInstance.currentContractClassId,
-        functionSelector,
-        functionName: targetArtifact.name,
-        args,
-        callerContext: this.callerContext,
-      };
+      // The HandshakeRegistry is called during every contract's sync to discover handshake secrets.
+      // It is a standard contract that only reads its own state, so it is always authorized.
+      const isHandshakeRegistryRead =
+        targetContractAddress.equals(STANDARD_HANDSHAKE_REGISTRY_ADDRESS) &&
+        functionSelector.equals(await FunctionSelector.fromSignature('get_handshakes((Field),u32)'));
+      if (!isHandshakeRegistryRead) {
+        const [callerInstance, targetInstance] = await Promise.all([
+          this.getContractInstance(this.contractAddress),
+          this.getContractInstance(targetContractAddress),
+        ]);
+        const request: UtilityCallAuthorizationRequest = {
+          caller: this.contractAddress,
+          callerClassId: callerInstance.currentContractClassId,
+          target: targetContractAddress,
+          targetClassId: targetInstance.currentContractClassId,
+          functionSelector,
+          functionName: targetArtifact.name,
+          args,
+          callerContext: this.callerContext,
+        };
 
-      const response = this.hooks
-        ? await this.hooks.authorizeUtilityCall(request)
-        : { authorized: false, reason: 'No execution hooks configured' };
+        const response = this.hooks
+          ? await this.hooks.authorizeUtilityCall(request)
+          : { authorized: false, reason: 'No execution hooks configured' };
 
-      if (!response.authorized) {
-        const reason = response.reason ? `: ${response.reason}` : '';
-        throw new Error(
-          `Cross-contract utility call denied${reason}. ${this.contractAddress} attempted to call ` +
-            `${targetContractAddress}:${functionSelector} (${targetArtifact.name}). ` +
-            `See https://docs.aztec.network/errors/11`,
-        );
+        if (!response.authorized) {
+          const reason = response.reason ? `: ${response.reason}` : '';
+          throw new Error(
+            `Cross-contract utility call denied${reason}. ${this.contractAddress} attempted to call ` +
+              `${targetContractAddress}:${functionSelector} (${targetArtifact.name}). ` +
+              `See https://docs.aztec.network/errors/11`,
+          );
+        }
       }
 
       await this.contractSyncService.ensureContractSynced(
@@ -878,12 +918,13 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       hooks: this.hooks,
       utilityExecutor: this.utilityExecutor,
       log: this.logger,
+      // Shared across the whole execution tree: nested utility frames inherit the caller's transient-array store.
+      transientArrayService: this.transientArrayService,
     });
 
     const initialWitness = toACVMWitness(0, args);
-    const acvmCallback = new Oracle(nestedOracle);
     const acirExecutionResult = await this.simulator
-      .executeUserCircuit(initialWitness, targetArtifact, acvmCallback.toACIRCallback())
+      .executeUserCircuit(initialWitness, targetArtifact, buildACIRCallback(nestedOracle))
       .catch((err: Error) => {
         err.message = resolveAssertionMessageFromError(err, targetArtifact);
         throw new ExecutionError(

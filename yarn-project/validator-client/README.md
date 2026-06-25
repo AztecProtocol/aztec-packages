@@ -226,6 +226,8 @@ This is useful for monitoring network health without participating in consensus.
 
 L1 enforces gas and blob capacity per checkpoint. The node enforces these during block building to avoid L1 rejection. Three dimensions are metered: L2 gas (mana), DA gas, and blob fields. DA gas maps to blob fields today (`daGas = blobFields * 32`) but both are tracked independently.
 
+The full per-tx → per-block → per-checkpoint limits hierarchy, including how the per-block budgets relate to the network admission limits, is documented in [`stdlib/src/gas/README.md`](../stdlib/src/gas/README.md) under "Gas and Data Limits".
+
 ### Checkpoint limits
 
 | Dimension | Source | Budget |

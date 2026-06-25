@@ -365,6 +365,51 @@ export const ORACLE_REGISTRY = {
     params: [{ name: 'slot', type: FIELD }],
   }),
 
+  aztec_utl_pushTransient: makeEntry({
+    params: [
+      { name: 'slot', type: FIELD },
+      { name: 'elements', type: ARRAY(FIELD) },
+    ],
+    returnType: U32,
+  }),
+
+  aztec_utl_popTransient: makeEntry({
+    params: [{ name: 'slot', type: FIELD }],
+    returnType: ARRAY(FIELD),
+  }),
+
+  aztec_utl_getTransient: makeEntry({
+    params: [
+      { name: 'slot', type: FIELD },
+      { name: 'index', type: U32 },
+    ],
+    returnType: ARRAY(FIELD),
+  }),
+
+  aztec_utl_setTransient: makeEntry({
+    params: [
+      { name: 'slot', type: FIELD },
+      { name: 'index', type: U32 },
+      { name: 'elements', type: ARRAY(FIELD) },
+    ],
+  }),
+
+  aztec_utl_getTransientLen: makeEntry({
+    params: [{ name: 'slot', type: FIELD }],
+    returnType: U32,
+  }),
+
+  aztec_utl_removeTransient: makeEntry({
+    params: [
+      { name: 'slot', type: FIELD },
+      { name: 'index', type: U32 },
+    ],
+  }),
+
+  aztec_utl_clearTransient: makeEntry({
+    params: [{ name: 'slot', type: FIELD }],
+  }),
+
   aztec_prv_setHashPreimage: makeEntry({
     params: [
       { name: 'values', type: ARRAY(FIELD) },
@@ -458,27 +503,6 @@ export const ORACLE_REGISTRY = {
 
   aztec_prv_getSenderForTags: makeEntry({ returnType: OPTION(AZTEC_ADDRESS) }),
 } satisfies Record<string, OracleRegistryEntry>;
-
-/**
- * Deserializes oracle inputs, calls the handler with typed params, and serializes the result.
- */
-export async function callHandler<K extends keyof typeof ORACLE_REGISTRY>({
-  oracle,
-  inputs,
-  handler,
-}: {
-  oracle: K;
-  inputs: InputSlot[];
-  handler: (
-    params: ParamTypes<ReturnType<(typeof ORACLE_REGISTRY)[K]['deserializeParams']>>,
-  ) => MaybePromise<Parameters<(typeof ORACLE_REGISTRY)[K]['serializeReturn']>[0]>;
-}): Promise<OutputSlot[]> {
-  const entry = ORACLE_REGISTRY[oracle] as OracleRegistryEntry;
-  const named = entry.deserializeParams(inputs);
-  const positional = named.map(p => p.value);
-  const result = await handler(positional as any);
-  return entry.serializeReturn(result);
-}
 
 // ─── Registry Infrastructure ─────────────────────────────────────────────────
 

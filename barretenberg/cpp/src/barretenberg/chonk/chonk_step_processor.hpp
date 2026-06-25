@@ -10,7 +10,6 @@
 namespace bb {
 
 enum class ChonkPrecomputedVkPolicy : uint8_t { DEFAULT, CHECK, RECOMPUTE };
-enum class ChonkVkFlavor : uint8_t { MEGA, MEGA_ZK };
 
 struct ChonkVkData {
     std::vector<uint8_t> bytes;
@@ -26,14 +25,15 @@ struct ChonkExecutionStep {
     std::string name;
     acir_format::AcirProgram program;
     std::vector<uint8_t> precomputed_vk;
+    CircuitKind kind = CircuitKind::App;
 };
 
 class ChonkStepProcessor {
   public:
-    explicit ChonkStepProcessor(size_t num_circuits);
+    explicit ChonkStepProcessor(std::vector<CircuitKind> circuit_kinds);
 
     std::shared_ptr<Chonk> get_ivc() const { return ivc; }
-    size_t get_num_circuits_accumulated() const { return ivc->num_circuits_accumulated; }
+    size_t get_num_circuits_accumulated() const { return ivc->get_num_circuits_accumulated(); }
 
     void process_step(ChonkExecutionStep&& step, ChonkPrecomputedVkPolicy policy = ChonkPrecomputedVkPolicy::DEFAULT);
 
@@ -44,11 +44,11 @@ class ChonkStepProcessor {
     std::shared_ptr<Chonk> ivc;
 };
 
-ChonkVkData compute_chonk_vk(acir_format::AcirProgram& program, ChonkVkFlavor flavor);
+ChonkVkData compute_chonk_vk(acir_format::AcirProgram& program, CircuitKind kind);
 
 ChonkVkCheckResult check_precomputed_chonk_vk(acir_format::AcirProgram& program,
                                               const std::vector<uint8_t>& precomputed_vk,
-                                              ChonkVkFlavor flavor);
+                                              CircuitKind kind);
 
 std::shared_ptr<Chonk::MegaZKVerificationKey> deserialize_chonk_vk(const std::vector<uint8_t>& vk);
 

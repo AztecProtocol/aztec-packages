@@ -31,10 +31,13 @@ jobs:
               base_branch="v5-next"
             fi
 
-            # Skip if this is a merge commit (check for multiple parents)
+            # Skip if this is a merge commit (multiple parents) -- unless its
+            # message references a PR (#123). A feature PR merged into the train
+            # carries that reference ("Merge pull request #123 ..."); our own
+            # mechanical base->train merges ("Merge branch 'next' into ...") do not.
             parent_count=$(git rev-list --parents -n 1 "${{ github.sha }}" | wc -w)
-            if [[ $parent_count -gt 2 ]]; then
-              echo "Skipping: This is a merge commit."
+            if [[ $parent_count -gt 2 ]] && ! git show -s --format=%B "${{ github.sha }}" | grep -qE '#[0-9]+'; then
+              echo "Skipping: This is a merge commit with no PR reference."
               exit 0
             fi
 

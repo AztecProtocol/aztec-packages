@@ -1,4 +1,4 @@
-import { AztecClientBackend, BackendType, Barretenberg } from '@aztec/bb.js';
+import { AztecClientBackend, BackendType, Barretenberg, CircuitKind } from '@aztec/bb.js';
 import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
@@ -38,8 +38,8 @@ describe.each([BackendType.Wasm, BackendType.NativeUnixSocket])('Client IVC Inte
     // 3. Run the tail kernel to finish the client IVC chain.
     // 4. Run the hiding kernel.
     it('Should generate a verifiable client IVC proof from a simple mock tx via bb.js, verified by bb', async () => {
-      const [bytecodes, witnessStack, , vks] = await generateTestingIVCStack(1, 0);
-      const backend = new AztecClientBackend(bytecodes, barretenberg);
+      const [bytecodes, witnessStack, , vks, circuitKinds] = await generateTestingIVCStack(1, 0);
+      const backend = new AztecClientBackend(bytecodes, barretenberg, [], circuitKinds);
       const { proof, vk } = await backend.prove(witnessStack, vks);
       const verified = await backend.verify(proof, vk);
       expect(verified).toBe(true);
@@ -54,16 +54,16 @@ describe.each([BackendType.Wasm, BackendType.NativeUnixSocket])('Client IVC Inte
     // 6. Run the tail kernel to finish the client IVC chain
     // 7. Run the hiding kernel.
     it('Should generate a verifiable client IVC proof from a complex mock tx', async () => {
-      const [bytecodes, witnessStack, , vks] = await generateTestingIVCStack(1, 1);
-      const backend = new AztecClientBackend(bytecodes, barretenberg);
+      const [bytecodes, witnessStack, , vks, circuitKinds] = await generateTestingIVCStack(1, 1);
+      const backend = new AztecClientBackend(bytecodes, barretenberg, [], circuitKinds);
       const { proof, vk } = await backend.prove(witnessStack, vks);
       const verified = await backend.verify(proof, vk);
       expect(verified).toBe(true);
     });
 
     it('Should compress and decompress a client IVC proof, producing a smaller proof', async () => {
-      const [bytecodes, witnessStack, , vks] = await generateTestingIVCStack(1, 0);
-      const ivcBackend = new AztecClientBackend(bytecodes, barretenberg);
+      const [bytecodes, witnessStack, , vks, circuitKinds] = await generateTestingIVCStack(1, 0);
+      const ivcBackend = new AztecClientBackend(bytecodes, barretenberg, [], circuitKinds);
       const { proof, vk, compressedProof } = await ivcBackend.prove(witnessStack, vks, { compress: true });
 
       expect(compressedProof).toBeDefined();
@@ -88,9 +88,10 @@ describe.each([BackendType.Wasm, BackendType.NativeUnixSocket])('Client IVC Inte
       ]
         .map(base64 => Buffer.from(base64, 'base64'))
         .map((arr: Uint8Array) => ungzip(arr));
+      const circuitKinds = [CircuitKind.App, CircuitKind.Kernel, CircuitKind.Kernel, CircuitKind.HidingKernel];
 
       // Initialize AztecClientBackend with the given bytecodes
-      const backend = new AztecClientBackend(bytecodes, barretenberg);
+      const backend = new AztecClientBackend(bytecodes, barretenberg, [], circuitKinds);
 
       // Compute the numbers of gates in each circuit
       const gateNumbers = await backend.gates();

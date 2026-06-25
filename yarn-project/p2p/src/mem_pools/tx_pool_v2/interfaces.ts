@@ -171,6 +171,17 @@ export interface TxPoolV2 extends TypedEventEmitter<TxPoolV2Events> {
   prepareForSlot(slotNumber: SlotNumber): Promise<void>;
 
   /**
+   * Releases the protections a failed block proposal created and restores the txs to pending.
+   * Only clears protection entries still recorded at exactly the given slot: a tx that another,
+   * still-live proposal raised to a higher slot via {@link protectTxs} keeps its protection, and
+   * mined txs (which carry no protection entry) are left untouched. Restored txs are re-validated
+   * and resolved against nullifier conflicts before re-entering the pending indices.
+   * @param txHashes - Hashes of the proposal's txs to release.
+   * @param slotNumber - The slot the failed proposal targeted; protection is released only for this slot.
+   */
+  unprotectTxs(txHashes: TxHash[], slotNumber: SlotNumber): Promise<void>;
+
+  /**
    * Handles pruned blocks during a reorg.
    * Un-mines all transactions mined in blocks beyond the given latest block
    * and validates them before returning to pending.
@@ -192,11 +203,11 @@ export interface TxPoolV2 extends TypedEventEmitter<TxPoolV2Events> {
    */
   handleFinalizedBlock(block: BlockHeader): Promise<void>;
 
-  /** Gets a transaction by its hash */
-  getTxByHash(txHash: TxHash): Promise<Tx | undefined>;
+  /** Gets a transaction by its hash. Set `includeProof: false` to skip loading the proof from the DB. */
+  getTxByHash(txHash: TxHash, opts?: { includeProof?: boolean }): Promise<Tx | undefined>;
 
-  /** Gets multiple transactions by their hashes */
-  getTxsByHash(txHashes: TxHash[]): Promise<(Tx | undefined)[]>;
+  /** Gets multiple transactions by their hashes. Set `includeProof: false` to skip loading proofs from the DB. */
+  getTxsByHash(txHashes: TxHash[], opts?: { includeProof?: boolean }): Promise<(Tx | undefined)[]>;
 
   /** Checks if transactions exist in the pool */
   hasTxs(txHashes: TxHash[]): Promise<boolean[]>;

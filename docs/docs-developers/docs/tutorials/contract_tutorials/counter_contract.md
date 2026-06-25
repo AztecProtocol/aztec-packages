@@ -1,5 +1,5 @@
 ---
-title: Counter Contract
+title: Counter contract
 description: Code-along tutorial for creating a simple counter contract on Aztec.
 sidebar_position: 0
 references: ["docs/examples/contracts/counter_contract/src/main.nr"]
@@ -7,7 +7,7 @@ references: ["docs/examples/contracts/counter_contract/src/main.nr"]
 
 import Image from "@theme/IdealImage";
 
-In this guide, we will create our first Aztec.nr smart contract. We will build a simple private counter, where you can keep your own private counter - so no one knows what ID you are at or when you increment! This contract will get you started with the basic setup and syntax of Aztec.nr, but doesn't showcase all of the awesome stuff Aztec is capable of.
+In this guide, we will create our first Aztec.nr smart contract. We will build a simple private counter, where each account keeps its own counter as encrypted private state, so the count stays known only to you. This contract will get you started with the basic setup and syntax of Aztec.nr, but doesn't showcase all of the awesome stuff Aztec is capable of.
 
 This tutorial is compatible with the Aztec version `#include_aztec_version`. Install the correct version with `VERSION=#include_version_without_prefix bash -i <(curl -sL https://install.aztec.network/#include_version_without_prefix)`. Or if you'd like to use a different version, you can find the relevant tutorial by clicking the version dropdown at the top of the page.
 
@@ -62,6 +62,14 @@ Go to `counter_contract/src/main.nr`, and replace the boilerplate code with this
 
 This defines a contract called `Counter`.
 
+:::note Clear the scaffold's placeholder test
+The scaffolded `counter_test/src/lib.nr` imports the default contract name (`Main`) we just renamed to `Counter`, so it now fails to compile. Tests aren't used in this tutorial, so replace its contents with a single-line stub to keep `aztec compile` clean:
+
+```rust
+// Tests are out of scope for this tutorial. See https://docs.aztec.network/aztec-nr/testing_contracts for examples.
+```
+:::
+
 ## Imports
 
 We need to define some imports.
@@ -79,7 +87,7 @@ pub contract Counter {
 - `macros::{functions::{external, initializer}, storage::storage}`
   Imports the macros needed to define function types (`external`, `initializer`) and the `storage` macro for declaring contract storage structures.
 
-- `messages::message_delivery::MessageDelivery`
+- `messages::delivery::MessageDelivery`
   Imports `MessageDelivery` for specifying how note delivery should be handled (e.g., constrained onchain delivery).
 
 - `oracle::logging::debug_log_format`
@@ -104,11 +112,11 @@ Add this below the imports. It declares the storage variables for our contract. 
 
 Now we’ve got a mechanism for storing our private state, we can start using it to ensure the privacy of balances.
 
-Let’s create a constructor method to run on deployment that assigns an initial count to a specified owner. This function is called `initialize`, but behaves like a constructor. It is the `#[initializer]` decorator that specifies that this function behaves like a constructor. Write this:
+Let’s create a constructor method to run on deployment that assigns an initial count to a specified owner. We name it `constructor` here, but the name is arbitrary; it is the `#[initializer]` decorator that marks it to run once when the contract is deployed. Write this:
 
 #include_code constructor /docs/examples/contracts/counter_contract/src/main.nr rust
 
-This function accesses the counters from storage. It adds the `headstart` value to the `owner`'s counter using `at().add()`, then calls `.deliver(MessageDelivery::onchain_constrained())` to ensure the note is delivered onchain.
+This function accesses the counters from storage. It adds the `initial_value` to the `owner`'s counter using `at().add()`, then calls `.deliver(MessageDelivery::onchain_constrained())` to ensure the note is delivered onchain.
 
 We have annotated this and other functions with `#[external("private")]` which are ABI macros so the compiler understands it will handle private inputs.
 
@@ -118,7 +126,7 @@ Now let's implement an `increment` function to increase the counter.
 
 #include_code increment /docs/examples/contracts/counter_contract/src/main.nr rust
 
-The `increment` function works similarly to the `initialize` function. It logs a debug message, then adds 1 to the owner's counter and delivers the note onchain.
+The `increment` function works similarly to the `constructor`. It logs a debug message, then adds 1 to the `owner`'s counter and delivers the note onchain.
 
 ## Getting a counter
 
@@ -152,8 +160,8 @@ aztec codegen -o src/artifacts target
 
 You can now use the artifact and/or the TS class in your Aztec.js!
 
-## Next Steps
+## Next steps
 
-### Optional: Learn more about concepts mentioned here
+### Optional: learn more about concepts mentioned here
 
 - [Functions and annotations like `#[external("private")]`](../../aztec-nr/framework-description/functions/function_transforms.md#private-functions)

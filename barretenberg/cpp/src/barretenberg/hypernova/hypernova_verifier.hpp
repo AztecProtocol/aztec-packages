@@ -6,6 +6,7 @@
 #pragma once
 
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/mega_recursive_flavor.hpp"
 #include "barretenberg/flavor/verifier_commitments.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_claims.hpp"
 #include "barretenberg/multilinear_batching/multilinear_batching_verifier.hpp"
@@ -32,15 +33,13 @@ template <typename Flavor_> class HypernovaFoldingVerifier {
     using OinkVerifier = bb::OinkVerifier<Flavor>;
     using SumcheckVerifier = bb::SumcheckVerifier<Flavor>;
     using MegaSumcheckOutput = SumcheckOutput<Flavor>;
-    using BatchingFlavor =
-        std::conditional_t<IsRecursiveFlavor<Flavor>, MultilinearBatchingRecursiveFlavor, MultilinearBatchingFlavor>;
-    using MultilinearBatchingVerifier = bb::MultilinearBatchingVerifier<BatchingFlavor>;
+    using BatchingVerifier = bb::MultilinearBatchingVerifier<IsRecursiveFlavor<Flavor>>;
     using VerifierInstance = VerifierInstance_<Flavor>;
 
     using Proof = std::conditional_t<IsRecursiveFlavor<Flavor>, stdlib::Proof<MegaCircuitBuilder>, HonkProof>;
 
-    static constexpr size_t NUM_UNSHIFTED_ENTITIES = MegaFlavor::NUM_UNSHIFTED_ENTITIES;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = MegaFlavor::NUM_SHIFTED_ENTITIES;
+    static constexpr size_t NUM_UNSHIFTED_ENTITIES = Flavor::NUM_UNSHIFTED_ENTITIES;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = Flavor::NUM_SHIFTED_ENTITIES;
 
     HypernovaFoldingVerifier(std::shared_ptr<Transcript> transcript)
         : transcript(std::move(transcript)) {};

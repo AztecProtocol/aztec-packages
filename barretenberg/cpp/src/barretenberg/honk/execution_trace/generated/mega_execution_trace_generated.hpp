@@ -24,33 +24,25 @@ struct MegaTraceBlockData {
     MegaTraceBlock ecc_op{};
     MegaTraceBlock pub_inputs{};
     MegaTraceBlock lookup{ GateKind::Lookup };
-    MegaTraceBlock arithmetic{ GateKind::Arith };
+    MegaTraceBlock arithmetic{ GateKind::Arith, GateKind::BilinearBatchedEq };
     MegaTraceBlock delta_range{ GateKind::DeltaRange };
     MegaTraceBlock elliptic{ GateKind::Elliptic };
     MegaTraceBlock memory{ GateKind::Memory };
     MegaTraceBlock nnf{ GateKind::Nnf };
     MegaTraceBlock busread{ GateKind::BusRead };
-    MegaTraceBlock poseidon2_external{ GateKind::Poseidon2Ext, GateKind::Poseidon2ExtInitial };
-    MegaTraceBlock poseidon2_quad_internal{ GateKind::Poseidon2QuadInt,
-                                            GateKind::Poseidon2QuadIntTerminal,
-                                            GateKind::Poseidon2TransitionEntry };
+    MegaTraceBlock poseidon2{ GateKind::Poseidon2Ext,
+                              GateKind::Poseidon2ExtInitial,
+                              GateKind::Poseidon2QuadInt,
+                              GateKind::Poseidon2QuadIntTerminal,
+                              GateKind::Poseidon2TransitionEntry };
 
-    static constexpr size_t NUM_BLOCKS = 11;
+    static constexpr size_t NUM_BLOCKS = 10;
 
     std::vector<std::string_view> get_labels() const
     {
         return {
-            "ecc_op",
-            "pub_inputs",
-            "lookup",
-            "arithmetic",
-            "delta_range",
-            "elliptic",
-            "memory",
-            "nnf",
-            "busread",
-            "poseidon2_external",
-            "poseidon2_quad_internal",
+            "ecc_op",   "pub_inputs", "lookup", "arithmetic", "delta_range",
+            "elliptic", "memory",     "nnf",    "busread",    "poseidon2",
         };
     }
 
@@ -66,8 +58,7 @@ struct MegaTraceBlockData {
             &memory,
             &nnf,
             &busread,
-            &poseidon2_external,
-            &poseidon2_quad_internal,
+            &poseidon2,
         });
     }
 
@@ -83,8 +74,7 @@ struct MegaTraceBlockData {
             &memory,
             &nnf,
             &busread,
-            &poseidon2_external,
-            &poseidon2_quad_internal,
+            &poseidon2,
         });
     }
 
@@ -100,8 +90,7 @@ struct MegaTraceBlockData {
         info("memory                  : ", this->memory.size());
         info("nnf                     : ", this->nnf.size());
         info("busread                 : ", this->busread.size());
-        info("poseidon2_external      : ", this->poseidon2_external.size());
-        info("poseidon2_quad_internal : ", this->poseidon2_quad_internal.size());
+        info("poseidon2               : ", this->poseidon2.size());
     }
 
     bool operator==(const MegaTraceBlockData& other) const = default;

@@ -6,9 +6,11 @@ import { L1TokenManager, L1TokenPortalManager } from '@aztec/aztec.js/ethereum';
 import { Fr } from '@aztec/aztec.js/fields';
 import { createLogger } from '@aztec/aztec.js/log';
 import { createAztecNodeClient, waitForNode } from '@aztec/aztec.js/node';
+import { CheatCodes } from '@aztec/aztec/testing';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import { retryUntil } from '@aztec/foundation/retry';
+import { DateProvider } from '@aztec/foundation/timer';
 import {
   FeeAssetHandlerAbi,
   FeeAssetHandlerBytecode,
@@ -40,7 +42,8 @@ const setupLocalNetwork = async () => {
   const node = createAztecNodeClient(AZTEC_NODE_URL);
   await waitForNode(node);
   const wallet = await TestWallet.create(node);
-  return { node, wallet };
+  const cheatCodes = await CheatCodes.create(ETHEREUM_HOSTS.split(','), node, new DateProvider());
+  return { cheatCodes, node, wallet };
 };
 
 async function deployTestERC20(): Promise<EthAddress> {
@@ -68,7 +71,9 @@ async function addMinter(l1TokenContract: EthAddress, l1TokenHandler: EthAddress
     abi: TestERC20Abi,
     client: l1Client,
   });
-  await contract.write.addMinter([l1TokenHandler.toString()]);
+  await l1Client.waitForTransactionReceipt({
+    hash: await contract.write.addMinter([l1TokenHandler.toString()]),
+  });
 }
 
 // To run these tests against a local network:
@@ -84,7 +89,7 @@ async function addMinter(l1TokenContract: EthAddress, l1TokenHandler: EthAddress
 describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
   it('Deploys tokens & bridges to L1 & L2, mints & publicly bridges tokens', async () => {
     const logger = createLogger('aztec:token-bridge-tutorial');
-    const { wallet, node } = await setupLocalNetwork();
+    const { cheatCodes, wallet, node } = await setupLocalNetwork();
     const [ownerAztecAddress] = await registerInitialLocalNetworkAccountsInWallet(wallet);
     const l1ContractAddresses = (await node.getNodeInfo()).l1ContractAddresses;
     logger.info('L1 Contract Addresses:');
@@ -135,10 +140,16 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
     await l2TokenContract.methods.set_minter(l2BridgeContract.address, true).send({ from: ownerAztecAddress });
 
     // Initialize L1 portal contract
-    await l1Portal.write.initialize(
-      [l1ContractAddresses.registryAddress.toString(), l1TokenContract.toString(), l2BridgeContract.address.toString()],
-      {},
-    );
+    await l1Client.waitForTransactionReceipt({
+      hash: await l1Portal.write.initialize(
+        [
+          l1ContractAddresses.registryAddress.toString(),
+          l1TokenContract.toString(),
+          l2BridgeContract.address.toString(),
+        ],
+        {},
+      ),
+    });
     logger.info('L1 portal contract initialized');
 
     const l1PortalManager = new L1TokenPortalManager(
@@ -203,19 +214,27 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
     const { receipt: l2TxReceipt } = await l2BridgeContract.methods
       .exit_to_l1_public(EthAddress.fromString(ownerEthAddress), withdrawAmount, EthAddress.ZERO, authwitNonce)
       .send({ from: ownerAztecAddress });
+    const l2ExitBlock = await retryUntil(() => node.getBlock(l2TxReceipt.blockNumber!), 'L2 exit block', 120, 1);
+    const result = await retryUntil(
+      () => node.getL2ToL1MembershipWitness(l2TxReceipt.txHash, l2ToL1Message),
+      'l2 to l1 membership witness',
+      120,
+      1,
+    );
+    await cheatCodes.rollup.markAsProven(l2ExitBlock.checkpointNumber);
+    await cheatCodes.eth.mine();
+    await retryUntil(
+      async () => (await node.getBlockNumber('proven')) >= l2TxReceipt.blockNumber!,
+      'mark L2 exit checkpoint proven',
+      120,
+      1,
+    );
     await waitForProven(node, l2TxReceipt, { provenTimeout: 500 });
 
     const { result: newL2Balance } = await l2TokenContract.methods
       .balance_of_public(ownerAztecAddress)
       .simulate({ from: ownerAztecAddress });
     logger.info(`New L2 balance of ${ownerAztecAddress} is ${newL2Balance}`);
-
-    const result = await retryUntil(
-      () => node.getL2ToL1MembershipWitness(l2TxReceipt.txHash, l2ToL1Message),
-      'l2 to l1 membership witness',
-      60,
-      1,
-    );
 
     await l1PortalManager.withdrawFunds(
       withdrawAmount,

@@ -354,12 +354,15 @@ int parse_and_run_cli_command(int argc, char* argv[])
             ->group(advanced_group);
     };
 
-    const auto add_use_zk_flavor_flag = [&](CLI::App* subcommand) {
+    const auto add_circuit_kind_option = [&](CLI::App* subcommand) {
         return subcommand
-            ->add_flag("--use_zk_flavor",
-                       flags.use_zk_flavor,
-                       "Chonk-only: derive the VK against MegaZKFlavor rather than MegaFlavor. "
-                       "Set this for the IVC hiding kernel (the only Chonk circuit proven as MegaZK).")
+            ->add_option("--circuit_kind",
+                         flags.circuit_kind,
+                         "Chonk-only: which Mega flavor to derive the VK against. One of: "
+                         "'app' (MegaAppFlavor), 'kernel' (MegaKernelFlavor), 'hiding' (MegaZKFlavor "
+                         "for the IVC hiding kernel). Required for `bb write_vk --scheme chonk` — the "
+                         "caller must know the kind because it determines the VK shape.")
+            ->check(CLI::IsMember({ "app", "kernel", "hiding" }).name("is_member"))
             ->group(advanced_group);
     };
 
@@ -553,7 +556,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_ipa_accumulation_flag(write_vk);
     remove_zk_option(write_vk);
     add_output_format_option(write_vk);
-    add_use_zk_flavor_flag(write_vk);
+    add_circuit_kind_option(write_vk);
 
     /***************************************************************************************************************
      * Subcommand: verify
@@ -579,7 +582,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
      ***************************************************************************************************************/
     std::filesystem::path batch_verify_proofs_dir{ "./proofs" };
     CLI::App* batch_verify =
-        app.add_subcommand("batch_verify", "Batch-verify multiple Chonk proofs with a single IPA SRS MSM.");
+        app.add_subcommand("batch_verify", "Batch-verify multiple Chonk proofs with batched IPA SRS MSMs.");
 
     add_help_extended_flag(batch_verify);
     add_scheme_option(batch_verify);

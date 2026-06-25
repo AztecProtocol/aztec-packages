@@ -12,10 +12,12 @@
 #include "barretenberg/honk/execution_trace/gate_data.hpp"
 #include "barretenberg/public_input_component/public_component_key.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include "duplicate_provenance.hpp"
 #include "pairing_points_tagging.hpp"
 #include <utility>
 
 #include <algorithm>
+#include <optional>
 #include <span>
 #include <unordered_map>
 
@@ -259,7 +261,111 @@ template <typename FF_> class CircuitBuilderBase {
   protected:
     std::unordered_map<uint32_t, std::string> variable_names;
 
+    // BOOMERANG_DUPLICATE_PROVENANCE: See
+    // barretenberg/cpp/src/barretenberg/boomerang_value_detection/WITNESS_DUPLICATE_DETECTION.md. Analyzer-only. Maps a
+    // real variable index to the provenance group its producer guarantees is constraint-forced-equal (see
+    // duplicate_provenance.hpp and WITNESS_DUPLICATE_DETECTION.md). NOT part of the proving path or serialization;
+    // picked up by the defaulted copy ctor / operator==.
+    std::unordered_map<uint32_t, DuplicateProvenance> witness_duplicate_provenance;
+    std::unordered_map<DuplicateProvenance, uint64_t, DuplicateProvenanceHasher> witness_duplicate_provenance_ids;
+    uint64_t next_witness_duplicate_provenance_id = 0;
+    std::optional<DuplicateProvenanceLocalId> active_duplicate_cryptographic_binding_scope;
+
   public:
+    /**
+     * @brief Build a 64-bit duplicate-provenance group key from a category and a producer-scoped local id.
+     * @details Two witnesses sharing a key are asserted by their producer to be forced equal by constraints.
+     */
+    static DuplicateProvenance make_duplicate_provenance(DuplicateProvenanceCategory category,
+                                                         DuplicateProvenanceLocalId local_id)
+    {
+        return DuplicateProvenance{ .category = category, .local_id = std::move(local_id) };
+    }
+
+    static DuplicateProvenance make_duplicate_provenance(DuplicateProvenanceCategory category,
+                                                         std::initializer_list<uint64_t> local_id)
+    {
+        return make_duplicate_provenance(category, DuplicateProvenanceLocalId(local_id));
+    }
+
+    static DuplicateProvenance make_duplicate_provenance(DuplicateProvenanceCategory category, uint64_t local_id)
+    {
+        return make_duplicate_provenance(category, DuplicateProvenanceLocalId{ local_id });
+    }
+
+    /**
+     * @brief Tag a witness with a duplicate-provenance group key.
+     * @details Keyed by the witness's real variable index. Producers must honor the soundness contract: same key
+     * implies the constraints force the witnesses equal. Analyzer-only; no effect on proving.
+     */
+    void tag_duplicate_provenance(uint32_t witness_index, const DuplicateProvenance& group_key)
+    {
+        witness_duplicate_provenance[real_variable_index[witness_index]] = group_key;
+    }
+
+    const std::unordered_map<uint32_t, DuplicateProvenance>& get_duplicate_provenance() const
+    {
+        return witness_duplicate_provenance;
+    }
+
+    uint64_t get_duplicate_provenance_id(const DuplicateProvenance& group_key)
+    {
+        auto [it, inserted] =
+            witness_duplicate_provenance_ids.try_emplace(group_key, next_witness_duplicate_provenance_id);
+        if (inserted) {
+            ++next_witness_duplicate_provenance_id;
+        }
+        return it->second;
+    }
+
+    DuplicateProvenanceLocalId get_duplicate_provenance_interned_identity(const DuplicateProvenance& group_key)
+    {
+        return duplicate_provenance_interned_identity(get_duplicate_provenance_id(group_key));
+    }
+
+    class ScopedDuplicateCryptographicBinding {
+      public:
+        ScopedDuplicateCryptographicBinding(CircuitBuilderBase& builder, DuplicateProvenanceLocalId scope)
+            : builder(builder)
+            , previous_scope(std::move(builder.active_duplicate_cryptographic_binding_scope))
+        {
+            builder.active_duplicate_cryptographic_binding_scope = std::move(scope);
+        }
+
+        ScopedDuplicateCryptographicBinding(const ScopedDuplicateCryptographicBinding&) = delete;
+        ScopedDuplicateCryptographicBinding& operator=(const ScopedDuplicateCryptographicBinding&) = delete;
+
+        ScopedDuplicateCryptographicBinding(ScopedDuplicateCryptographicBinding&& other) noexcept
+            : builder(other.builder)
+            , previous_scope(std::move(other.previous_scope))
+            , active(other.active)
+        {
+            other.active = false;
+        }
+
+        ~ScopedDuplicateCryptographicBinding()
+        {
+            if (active) {
+                builder.active_duplicate_cryptographic_binding_scope = std::move(previous_scope);
+            }
+        }
+
+      private:
+        CircuitBuilderBase& builder;
+        std::optional<DuplicateProvenanceLocalId> previous_scope;
+        bool active = true;
+    };
+
+    ScopedDuplicateCryptographicBinding scoped_duplicate_cryptographic_binding(DuplicateProvenanceLocalId scope)
+    {
+        return ScopedDuplicateCryptographicBinding(*this, std::move(scope));
+    }
+
+    const std::optional<DuplicateProvenanceLocalId>& get_duplicate_cryptographic_binding_scope() const
+    {
+        return active_duplicate_cryptographic_binding_scope;
+    }
+
     /**
      * @brief Assign a name to a variable (equivalence class)
      * @details Should be one name per equivalence class

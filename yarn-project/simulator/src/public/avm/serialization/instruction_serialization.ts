@@ -136,6 +136,16 @@ export function getOperandSize(operandType: OperandType): number {
   return OPERAND_SPEC.get(operandType)![0];
 }
 
+/**
+ * Returns the total byte size of an instruction given its wire format (including the opcode byte).
+ *
+ * @param wireFormat array of operand types
+ * @returns byte size of the instruction
+ */
+export function getInstructionSize(wireFormat: OperandType[]): number {
+  return wireFormat.reduce((size, operand) => size + getOperandSize(operand), 0);
+}
+
 function readUintBE(buf: Buffer, offset: number, totalBytes: number): bigint {
   let value: bigint = 0n;
   for (let i = 0; i < totalBytes; ++i) {

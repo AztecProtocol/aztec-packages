@@ -26,10 +26,15 @@ static constexpr uint32_t UNINITIALIZED_MEMORY_RECORD = UINT32_MAX;
  * @note See `relations/memory_relation.hpp` for more details.
  */
 struct RomRecord {
+    enum AccessType {
+        TABLE_ENTRY, // row written by set_ROM_element / set_ROM_element_pair
+        READ,        // row written by read_ROM_array / read_ROM_array_pair
+    };
     uint32_t index_witness = 0; // Witness value of the index in the particular ROM block that contains this row.
     uint32_t value_column1_witness = 0;
     uint32_t value_column2_witness = 0;
     uint32_t index = 0;
+    AccessType access_type = AccessType::READ;
     uint32_t record_witness = 0; // Record, a.k.a. "fingerprint" of the row.
     size_t gate_index = 0;       // Index in the memory block where the ROM gate will live.
     bool operator<(const RomRecord& other) const
@@ -40,7 +45,8 @@ struct RomRecord {
     {
         return index_witness == other.index_witness && value_column1_witness == other.value_column1_witness &&
                value_column2_witness == other.value_column2_witness && index == other.index &&
-               record_witness == other.record_witness && gate_index == other.gate_index;
+               access_type == other.access_type && record_witness == other.record_witness &&
+               gate_index == other.gate_index;
     }
 };
 
@@ -94,10 +100,13 @@ struct RomTranscript {
     // + The value in the memory slot
     // + The actual index value
     std::vector<RomRecord> records;
+    // Whether this ROM array uses the LogUp scheme (single-value tables) or the sorted-trace scheme
+    // (value-pair tables). Set on the first set/read call; once set, the array commits to that scheme.
+    bool use_logup = false;
     // Used to check that the state hasn't changed in tests
     bool operator==(const RomTranscript& other) const noexcept
     {
-        return (state == other.state && records == other.records);
+        return (state == other.state && records == other.records && use_logup == other.use_logup);
     }
 };
 
@@ -234,6 +243,31 @@ template <typename ExecutionTrace> class RomRamLogic_ {
      * @param gate_offset_from_public_inputs Required to track the gate position of where we're adding extra gates
      */
     void process_ROM_array(CircuitBuilder* builder, const size_t rom_id);
+
+    // ---- ROM LogUp scheme (single-value tables only) ----
+
+    /**
+     * @brief Emit a ROM-LogUp gate (table entry or read access) at circuit construction time.
+     *
+     * @details Populates wires (index_witness, value_witness, zero_idx, inverse_placeholder) and tags the row
+     * with `rom_id` via the q_c selector (folded into the LogUp fingerprint so reads bind to their array). On
+     * a table entry, the w_o wire is repointed at a witness holding the read count `m_i` by
+     * `process_ROM_logup_array` during finalization; on a read it stays bound to `zero_idx()` (the relation
+     * reads the implicit `+1` multiplicity from the selector, not the wire). The inverse wire is a
+     * placeholder; the prover fills it in oink once `eta`/`rom_logup_gamma` are known. Records the gate index in
+     * `builder->rom_logup_records`.
+     */
+    void create_ROM_logup_gate(CircuitBuilder* builder, RomRecord& record, const size_t rom_id, const bool is_read);
+
+    /**
+     * @brief Finalize a LogUp-style ROM array.
+     *
+     * @details Emits no gates. Asserts every cell is initialized, then points each table row's w_o wire at
+     * a fresh witness holding that row's read count. Both the table-row gate indices and the read counts
+     * are derived from `records` via each record's `access_type`.
+     */
+    void process_ROM_logup_array(CircuitBuilder* builder, const size_t rom_id);
+
     /**
      * @brief Process all of the ROM arrays.
      */

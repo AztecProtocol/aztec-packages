@@ -1,3 +1,4 @@
+import { Fr } from '@aztec/foundation/curves/bn254';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
 import { strict as assert } from 'assert';
@@ -10,6 +11,7 @@ import {
   MAX_OPCODE_VALUE,
   Opcode,
   OperandType,
+  getInstructionSize,
   getOperandSize,
 } from '../avm/serialization/instruction_serialization.js';
 import { deployAndExecuteCustomBytecode, deployCustomBytecode } from './custom_bytecode_tester.js';
@@ -182,7 +184,7 @@ export async function invalidTagValueTest(tester: PublicTxSimulationTester) {
     new Return(/*addressing_mode=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 0),
   ]);
 
-  const tagOffset = getTagOffsetInInstruction(Set.wireFormat8);
+  const tagOffset = getOperandOffsetInInstruction(Set.wireFormat8, OperandType.TAG);
   assert(bytecode[tagOffset].valueOf() == TypeTag.UINT32.valueOf(), 'Set instruction tag should be UINT32 in test');
   bytecode[tagOffset] = TypeTag.INVALID;
 
@@ -202,7 +204,7 @@ export async function invalidTagValueAndInstructionTruncatedTest(tester: PublicT
 
   // Truncate the bytecode.
   bytecode = bytecode.subarray(0, -5);
-  const tagOffset = getTagOffsetInInstruction(Set.wireFormat128);
+  const tagOffset = getOperandOffsetInInstruction(Set.wireFormat128, OperandType.TAG);
   assert(bytecode[tagOffset].valueOf() == TypeTag.UINT128.valueOf(), 'Set instruction tag should be UINT128 in test');
   bytecode[tagOffset] = 0x6f; // Invalid tag value.
 
@@ -348,18 +350,53 @@ export async function castTruncationTest(tester: PublicTxSimulationTester) {
   return await deployAndExecuteCustomBytecode(bytecode, tester, txLabel);
 }
 
+// Exercise a SET_FF instruction whose 32-byte FF immediate encodes a value larger than the
+// field modulus (here Fr.MODULUS + 25). Both the TS and C++ deserializers reduce the immediate
+// modulo Fr.MODULUS (see readUint254BE), so the resolved value is 25, the instruction is accepted,
+// and execution succeeds. We build a valid SET_FF first (its constructor rejects values >=
+// Fr.MODULUS) and then overwrite the immediate bytes directly.
+export async function setFieldOverflowTest(tester: PublicTxSimulationTester) {
+  const bytecode = encodeToBytecode([
+    // Zero U32 at offset 0 — used as the Return copy-size slot.
+    new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 0, TypeTag.UINT32, /*value=*/ 0).as(Opcode.SET_8, Set.wireFormat8),
+    // Placeholder FF immediate (25); overwritten below with Fr.MODULUS + 25.
+    new Set(/*addressing_mode=*/ 0, /*dstOffset=*/ 1, TypeTag.FIELD, /*value=*/ 25n).as(
+      Opcode.SET_FF,
+      Set.wireFormatFF,
+    ),
+    new Return(/*addressing_mode=*/ 0, /*copySizeOffset=*/ 0, /*returnOffset=*/ 0),
+  ]);
+
+  // Locate the FF immediate: it lives in the second instruction (the SET_FF), so its absolute
+  // offset is the size of the leading SET_8 instruction plus the FF operand offset within SET_FF.
+  const setFFInstructionOffset = getInstructionSize(Set.wireFormat8);
+  const ffOffset = setFFInstructionOffset + getOperandOffsetInInstruction(Set.wireFormatFF, OperandType.FF);
+
+  // Overwrite the 32-byte FF immediate (big-endian) with a value that overflows the field.
+  const overflowingValue = Fr.MODULUS + 25n;
+  let value = overflowingValue;
+  for (let i = getOperandSize(OperandType.FF) - 1; i >= 0; --i) {
+    bytecode[ffOffset + i] = Number(value & 0xffn);
+    value >>= 8n;
+  }
+
+  const txLabel = 'SetFieldOverflow';
+  return await deployAndExecuteCustomBytecode(bytecode, tester, txLabel);
+}
+
 /**
- * Returns the offset of the tag in an instruction.
- * @details Loops over the wire format operand type entries until it finds the tag.
- * Returns the byte offset of the tag based on each operand size that is passed.
+ * Returns the byte offset of the first operand of the given type within an instruction.
+ * @details Loops over the wire format operand type entries, accumulating each operand size,
+ * until it finds the requested operand type.
  *
  * @param wireFormat array of operand types
- * @returns byte offset of the tag
+ * @param operandType the operand type to locate
+ * @returns byte offset of the operand
  */
-function getTagOffsetInInstruction(wireFormat: OperandType[]): number {
+function getOperandOffsetInInstruction(wireFormat: OperandType[], operandType: OperandType): number {
   let offset = 0;
   for (const operand of wireFormat) {
-    if (operand === OperandType.TAG) {
+    if (operand === operandType) {
       break;
     }
     offset += getOperandSize(operand);

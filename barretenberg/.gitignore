@@ -13,3 +13,9 @@ bench-out
 rust/barretenberg-rs/src/generated_types.rs
 rust/barretenberg-rs/src/api.rs
 ts/src/cbind/generated/
+
+# Codegen output dirs (ipc-codegen emits into a `generated/` subdir under each consumer)
+**/generated/
+# ...but these are committed source dirs, not codegen output:
+!cpp/src/barretenberg/flavor/generated/
+!cpp/src/barretenberg/honk/execution_trace/generated/

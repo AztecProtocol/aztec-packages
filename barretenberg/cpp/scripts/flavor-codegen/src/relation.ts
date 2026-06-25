@@ -1,4 +1,4 @@
-import type { EntityDecl, EntityName, Relation, RelationChallengeUsage, SubsetMap } from "./types.js";
+import type { EntityDecl, EntityName, Relation, SubsetMap } from "./types.js";
 
 interface RelationInput {
     id: string;
@@ -10,10 +10,6 @@ interface RelationInput {
     cppExtraTemplateArgs?: readonly string[];
     structural?: boolean;
     gateBlockName?: string;
-    // See `Relation.usesChallenges` in types.ts. Optional; defaults to all-false. Adding a new
-    // relation that reads `params.eta*` / `params.beta_sqr,cube` MUST set the matching flag here,
-    // otherwise oink leaves the parameter at zero in flavors that don't already pull it in.
-    usesChallenges?: RelationChallengeUsage;
 }
 
 export function relation(input: RelationInput): Relation {
@@ -22,10 +18,6 @@ export function relation(input: RelationInput): Relation {
     validateShiftedSubset(input.cppName, input.entities, shiftedEntities);
     const subsets = freezeSubsets(input.subsets ?? {});
     validateSubsetMembership(input.cppName, input.entities, subsets);
-    const usesChallenges: RelationChallengeUsage = Object.freeze({
-        etaPowers: input.usesChallenges?.etaPowers ?? false,
-        betaPowers: input.usesChallenges?.betaPowers ?? false,
-    });
     return {
         id: input.id,
         cppName: input.cppName,
@@ -36,7 +28,6 @@ export function relation(input: RelationInput): Relation {
         cppExtraTemplateArgs: Object.freeze([...(input.cppExtraTemplateArgs ?? [])]),
         structural,
         gateBlockName: input.gateBlockName,
-        usesChallenges,
     };
 }
 

@@ -87,34 +87,6 @@ fn mismatch_linked_note_hash_in_output() {
     builder.validate_siloing();
 }
 
-#[test(should_fail_with = "The contract_address of a siloed nullifier should be set to 0")]
-fn non_zero_contract_address_in_output() {
-    let mut builder = TestBuilder::new();
-
-    builder.previous_kernel.append_nullifiers(2);
-    builder.output.append_siloed_nullifiers(2);
-
-    // Copy the contract address of the nullifier to the output.
-    let mut nullifier = builder.output.nullifiers.get(1);
-    nullifier.contract_address = builder.previous_kernel.nullifiers.get(1).contract_address;
-    builder.output.nullifiers.set(1, nullifier);
-
-    builder.validate_siloing();
-}
-
-#[test(should_fail_with = "Nullifiers have been siloed in a previous reset")]
-fn previous_nullifiers_already_siloed() {
-    let mut builder = TestBuilder::new();
-
-    // 2 nullifiers are already siloed.
-    builder.previous_kernel.append_siloed_nullifiers(2);
-    builder.previous_kernel.append_nullifiers(1);
-
-    builder.output.append_siloed_nullifiers(3);
-
-    builder.validate_siloing();
-}
-
 #[test]
 fn with_padded_nullifiers() {
     let mut builder = TestBuilder::new();

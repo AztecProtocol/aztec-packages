@@ -33,6 +33,8 @@ export type {
 
 export { toChonkProof } from './cbind/generated/api_types.js';
 
+export { CircuitKind } from './cbind/circuit_kind.js';
+
 // Export curve constants for use in foundation
 export {
   BN254_FQ_MODULUS,

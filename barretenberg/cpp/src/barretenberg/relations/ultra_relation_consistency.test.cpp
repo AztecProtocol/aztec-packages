@@ -414,6 +414,7 @@ TEST_F(UltraRelationConsistency, MemoryRelation)
         const auto& eta = parameters.eta;
         const auto& eta_two = parameters.eta_two;
         const auto& eta_three = parameters.eta_three;
+        const auto& rom_logup_gamma = parameters.rom_logup_gamma;
 
         SumcheckArrayOfValuesOverSubrelations expected_values;
 
@@ -497,6 +498,17 @@ TEST_F(UltraRelationConsistency, MemoryRelation)
         expected_values[3] *= q_memory;
         expected_values[4] *= q_memory;
         expected_values[5] *= q_memory;
+
+        /**
+         * ROM LogUp Sub-Relations
+         */
+        auto q_logup_table = q_2 * (q_1 * FF(-1) + FF(1));
+        auto q_logup_read = q_4 * (q_1 * FF(-1) + FF(1));
+        auto denom = rom_logup_gamma + w_1 + w_2 * eta + q_c * eta_two;
+        // Subrelation 6: inverse correctness (per-row).
+        expected_values[6] = q_memory * (q_logup_table + q_logup_read) * (w_4 * denom - FF(1));
+        // Subrelation 7: LogUp sum (linearly dependent, no scaling factor).
+        expected_values[7] = q_memory * (q_logup_read - q_logup_table * w_3) * w_4;
 
         validate_relation_execution<Relation>(expected_values, input_elements, parameters);
     };

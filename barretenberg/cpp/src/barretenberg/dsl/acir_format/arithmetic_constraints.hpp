@@ -24,6 +24,54 @@ using namespace bb::stdlib;
 using QuadConstraint = mul_quad_<bb::fr>;
 
 /**
+ * @brief Bilinear constraint — BILINEAR mode of the bilinear_batched_eq gate (see
+ * bilinear_or_batched_eq_check_relation.hpp).
+ *
+ * @details Represents the shared-wire two-product shape
+ * \f$ q_m \cdot a \cdot b + q_5 \cdot a \cdot c + q_l \cdot a + q_r \cdot b + q_o \cdot c + q_4 \cdot d
+ * + q_c = 0 \f$, i.e. two products sharing wire `a`. Wire `d` carries only a linear term. Present only in
+ * Mega circuits.
+ */
+struct BilinearConstraint {
+    uint32_t a;
+    uint32_t b;
+    uint32_t c;
+    uint32_t d;
+    bb::fr q_m; // first product (a·b) selector
+    bb::fr q_l;
+    bb::fr q_r;
+    bb::fr q_o;
+    bb::fr q_4;
+    bb::fr q_5; // second product (a·c) selector
+    bb::fr q_c;
+
+    friend bool operator==(BilinearConstraint const& lhs, BilinearConstraint const& rhs) = default;
+};
+
+/**
+ * @brief BatchedEq constraint — BATCHED_EQ mode of the bilinear_batched_eq gate (see
+ * bilinear_or_batched_eq_check_relation.hpp).
+ *
+ * @details Represents the two independent equalities \f$ q_l \cdot a + q_r \cdot b + q_c = 0 \f$
+ * (batched-eq-half-1) and \f$ q_o \cdot c + q_4 \cdot d + q_m = 0 \f$ (batched-eq-half-2).  Present only in Mega
+ * circuits.
+ */
+struct BatchedEqCheckConstraint {
+    uint32_t a;
+    uint32_t b;
+    uint32_t c;
+    uint32_t d;
+    bb::fr q_l;
+    bb::fr q_r;
+    bb::fr q_o;
+    bb::fr q_4;
+    bb::fr q_c; // batched-eq-half-1 constant
+    bb::fr q_m; // batched-eq-half-2 constant
+
+    friend bool operator==(BatchedEqCheckConstraint const& lhs, BatchedEqCheckConstraint const& rhs) = default;
+};
+
+/**
  * @brief Constraint representing a polynomial of degree 1 or 2 that does not fit into a standard UltraHonk arithmetic
  * constraint of width 4
  *
@@ -62,6 +110,14 @@ template <typename Builder>
 void check_mul_add_gate(Builder& builder,
                         const QuadConstraint& mul_quad,
                         const typename Builder::FF next_wire_w4 = Builder::FF::zero());
+
+/**
+ * @brief Check that a bilinear batched-eq gate is valid.
+ *
+ */
+template <typename Builder>
+void check_bilinear_batched_eq_gate(Builder& builder,
+                                    const bilinear_batched_eq_gate_<typename Builder::FF>& bilinear_batched_eq);
 
 /**
  * @brief Create a simple width-4 Ultra arithmetic gate constraint representing the equation
@@ -106,5 +162,22 @@ template <typename Builder> void create_quad_constraint(Builder& builder, QuadCo
  */
 // clang-format on
 template <typename Builder> void create_big_quad_constraint(Builder& builder, BigQuadConstraint& big_constraint);
+
+/**
+ * @brief Emit a BILINEAR-mode bilinear_batched_eq gate row
+ *
+ * @details Translates the BilinearConstraint into the builder's bilinear_batched_eq gate (mode = Bilinear)
+ * and emits it.
+ */
+template <typename Builder> void create_bilinear_constraint(Builder& builder, const BilinearConstraint& constraint);
+
+/**
+ * @brief Emit a BATCHED_EQ-mode bilinear_batched_eq gate row described by `constraint` on `builder`.
+ *
+ * @details Translates the BatchedEqCheckConstraint into the builder's bilinear_batched_eq gate (mode = BatchedEq) and
+ * emits it.
+ */
+template <typename Builder>
+void create_batched_eq_check_constraint(Builder& builder, const BatchedEqCheckConstraint& constraint);
 
 } // namespace acir_format

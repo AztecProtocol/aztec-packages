@@ -10,12 +10,7 @@ import { jest } from '@jest/globals';
 
 import { sendThroughAuthwitProxy } from './fixtures/authwit_proxy.js';
 import { AUTOMINE_E2E_OPTS, DUPLICATE_NULLIFIER_ERROR } from './fixtures/fixtures.js';
-import {
-  type EndToEndContext,
-  ensureAccountContractsPublished,
-  ensureAuthRegistryPublished,
-  setup,
-} from './fixtures/utils.js';
+import { type EndToEndContext, ensureAuthRegistryPublished, setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 
 const TIMEOUT = 300_000;
@@ -37,7 +32,6 @@ describe('e2e_authwit_tests', () => {
       wallet,
       accounts: [account1Address, account2Address],
     } = await setup(2, { ...AUTOMINE_E2E_OPTS }));
-    await ensureAccountContractsPublished(wallet, [account1Address, account2Address]);
     await ensureAuthRegistryPublished(wallet, account1Address);
 
     ({ contract: auth } = await AuthWitTestContract.deploy(wallet).send({ from: account1Address }));

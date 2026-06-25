@@ -7,6 +7,7 @@
  *
  * All tests exercise the full BatchChonkVerifier TS class (not raw bb.js).
  */
+import { BatchChonkVerifier } from '@aztec/bb-prover';
 import { AztecClientBackend, BackendType, Barretenberg } from '@aztec/bb.js';
 import { createLogger } from '@aztec/foundation/log';
 
@@ -30,8 +31,8 @@ describe('Batch Chonk Verifier Queue', () => {
     await bb.initSRSChonk();
 
     logger.info('Generating proof for tests...');
-    const [bytecodes, witnesses, , vks] = await generateTestingIVCStack(1, 0);
-    const backend = new AztecClientBackend(bytecodes, bb);
+    const [bytecodes, witnesses, , vks, circuitKinds] = await generateTestingIVCStack(1, 0);
+    const backend = new AztecClientBackend(bytecodes, bb, [], circuitKinds);
     const { proofFields, vk: generatedVk } = await backend.prove(witnesses, vks);
     validProofFields = proofFields;
     invalidProofFields = corruptProofFields(validProofFields);
@@ -209,6 +210,18 @@ describe('Batch Chonk Verifier Queue', () => {
     expect(results2[0].valid).toBe(true);
     expect(results2[1].valid).toBe(false);
     expect(results2[2].valid).toBe(true);
+  });
+
+  it('stop drains proof requests accepted before shutdown', async () => {
+    const verifier = await BatchChonkVerifier.newForTesting({ bbChonkVerifyConcurrency: 1 }, [vk], 8);
+    const promises = Array.from({ length: 4 }, () => verifier.enqueueProof(0, validProofFields));
+
+    const stopPromise = verifier.stop();
+    const results = await Promise.all(promises);
+    await stopPromise;
+
+    expect(results).toHaveLength(4);
+    expect(results.every(r => r.valid)).toBe(true);
   });
 
   // -- Random bisection patterns --

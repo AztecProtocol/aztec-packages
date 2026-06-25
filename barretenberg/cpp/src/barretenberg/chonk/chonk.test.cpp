@@ -44,13 +44,9 @@ class ChonkTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
-    using Flavor = Chonk::Flavor;
-    using FF = typename Flavor::FF;
-    using Commitment = Flavor::Commitment;
-    using VerificationKey = Flavor::VerificationKey;
+    using FF = Chonk::FF;
+    using Commitment = Chonk::Commitment;
     using Builder = Chonk::ClientCircuit;
-    using ProverInstance = Chonk::ProverInstance;
-    using VerifierInstance = Chonk::VerifierInstance;
     using DeciderProver = Chonk::DeciderProver;
     using CircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
     using ChonkVerifier = ChonkNativeVerifier;
@@ -124,10 +120,10 @@ class ChonkTests : public ::testing::Test {
         auto [proof, vk] = run_ivc(/*num_app_circuits=*/2, settings, [](Chonk& ivc, size_t idx) {
             if (idx == 1) {
                 auto& app_entry = ivc.verification_queue[1];
-                ASSERT_FALSE(app_entry.is_kernel) << "Expected second queue entry to be an app";
+                ASSERT_FALSE(app_entry.is_kernel()) << "Expected second queue entry to be an app";
 
                 using AppIOSerde = bb::stdlib::recursion::honk::AppIOSerde;
-                size_t num_public_inputs = app_entry.honk_vk->num_public_inputs;
+                size_t num_public_inputs = app_entry.num_public_inputs();
                 AppIOSerde app_io = AppIOSerde::from_proof(app_entry.proof, num_public_inputs);
 
                 // Set P0 to [x]₁ (the first SRS point after [1]) and P1 to [1]₁
@@ -155,10 +151,10 @@ class ChonkTests : public ::testing::Test {
         auto [proof, vk] = run_ivc(/*num_app_circuits=*/4, settings, [field_to_tamper](Chonk& ivc, size_t idx) {
             if (idx == 3) {
                 auto& kernel_entry = ivc.verification_queue[0];
-                ASSERT_TRUE(kernel_entry.is_kernel) << "Expected first queue entry to be a kernel";
+                ASSERT_TRUE(kernel_entry.is_kernel()) << "Expected first queue entry to be a kernel";
 
                 using KernelIOSerde = bb::stdlib::recursion::honk::KernelIOSerde;
-                size_t num_public_inputs = kernel_entry.honk_vk->num_public_inputs;
+                size_t num_public_inputs = kernel_entry.num_public_inputs();
                 KernelIOSerde kernel_io = KernelIOSerde::from_proof(kernel_entry.proof, num_public_inputs);
 
                 // Tamper with the specified field
@@ -192,57 +188,6 @@ class ChonkTests : public ::testing::Test {
         EXPECT_FALSE(verify_chonk(proof, vk));
     }
 
-    /**
-     * @brief Helper function to test HidingKernelIO field propagation consistency
-     * @details Accumulates circuits, extracts the specified field from Tail kernel's proof,
-     * generates the final proof (which creates HidingKernel), and verifies the field
-     * propagated correctly to the HidingKernel's proof.
-     *
-     * Note: This test does not perform proof tampering. Changing the public inputs of HidingKernel
-     * would lead to wrong challenges throughout the proof, so instead we verify that the expected
-     * input from the Tail kernel matches the expected output in the HidingKernel.
-     */
-    static void test_kernel_return_data_propagation()
-    {
-        using HidingKernelIOSerde = bb::stdlib::recursion::honk::HidingKernelIOSerde;
-        using KernelIOSerde = bb::stdlib::recursion::honk::KernelIOSerde;
-
-        const size_t NUM_APP_CIRCUITS = 2;
-        const size_t NUM_TOTAL_CIRCUITS =
-            NUM_APP_CIRCUITS + static_cast<size_t>(ceil(static_cast<double>(NUM_APP_CIRCUITS) / MAX_APPS_PER_KERNEL)) +
-            /*num_trailing_kernels*/ 3;
-        TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
-
-        // Extract tail kernel IO before the hiding kernel consumes the verification queue.
-        KernelIOSerde tail_io;
-        auto [proof, vk_and_hash] = run_ivc(
-            /*num_app_circuits=*/NUM_APP_CIRCUITS, settings, [&tail_io, &NUM_TOTAL_CIRCUITS](Chonk& ivc, size_t idx) {
-                // With 2 apps the layout is [app, kernel, app, kernel, reset, tail, hiding].
-                if (idx == NUM_TOTAL_CIRCUITS - 2) {
-                    for (auto& it : std::ranges::reverse_view(ivc.verification_queue)) {
-                        if (it.is_kernel) {
-                            size_t num_public_inputs = it.honk_vk->num_public_inputs;
-                            ASSERT_EQ(num_public_inputs, KernelIOSerde::PUBLIC_INPUTS_SIZE)
-                                << "Tail kernel should use KernelIO format";
-                            ASSERT_GT(it.proof.size(), num_public_inputs) << "Tail kernel proof too small";
-                            tail_io = KernelIOSerde::from_proof(it.proof, num_public_inputs);
-                            break;
-                        }
-                    }
-                }
-            });
-
-        size_t hiding_kernel_pub_inputs = vk_and_hash->vk->num_public_inputs;
-        ASSERT_EQ(hiding_kernel_pub_inputs, HidingKernelIOSerde::PUBLIC_INPUTS_SIZE)
-            << "HidingKernel should use HidingKernelIO format";
-        HidingKernelIOSerde hiding_io =
-            HidingKernelIOSerde::from_proof(proof.hiding_oink_proof, hiding_kernel_pub_inputs);
-
-        EXPECT_EQ(tail_io.kernel_return_data, hiding_io.kernel_return_data)
-            << "kernel_return_data mismatch: Tail has " << tail_io.kernel_return_data << " but HidingKernel has "
-            << hiding_io.kernel_return_data;
-    }
-
   private:
     static std::pair<ChonkProof, std::shared_ptr<MegaZKFlavor::VKAndHash>> run_ivc_impl(
         CircuitProducer& circuit_producer,
@@ -251,7 +196,7 @@ class ChonkTests : public ::testing::Test {
         bool check_circuit_sizes)
     {
         const size_t num_circuits = circuit_producer.total_num_circuits;
-        Chonk ivc{ num_circuits };
+        Chonk ivc{ circuit_producer.circuit_kinds() };
 
         for (size_t idx = 0; idx < num_circuits; ++idx) {
             circuit_producer.construct_and_accumulate_next_circuit(ivc, settings, check_circuit_sizes);
@@ -319,7 +264,7 @@ TEST_F(ChonkTests, BadProofFailure)
 
         CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
         const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-        Chonk ivc{ NUM_CIRCUITS };
+        Chonk ivc{ circuit_producer.circuit_kinds() };
         TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
 
         // Construct and accumulate a set of mocked private function execution circuits
@@ -334,7 +279,7 @@ TEST_F(ChonkTests, BadProofFailure)
     {
         CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
         const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-        Chonk ivc{ NUM_CIRCUITS };
+        Chonk ivc{ circuit_producer.circuit_kinds() };
 
         // Construct and accumulate a set of mocked private function execution circuits
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
@@ -342,7 +287,7 @@ TEST_F(ChonkTests, BadProofFailure)
 
             if (idx == 2) {
                 tamper_with_proof(ivc.verification_queue[0].proof,
-                                  ivc.verification_queue[0].honk_vk->num_public_inputs); // tamper with first proof
+                                  ivc.verification_queue[0].num_public_inputs()); // tamper with first proof
             }
         }
         auto proof = ivc.prove();
@@ -353,7 +298,7 @@ TEST_F(ChonkTests, BadProofFailure)
     {
         CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
         const size_t NUM_CIRCUITS = circuit_producer.total_num_circuits;
-        Chonk ivc{ NUM_CIRCUITS };
+        Chonk ivc{ circuit_producer.circuit_kinds() };
 
         // Construct and accumulate a set of mocked private function execution circuits
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
@@ -361,7 +306,7 @@ TEST_F(ChonkTests, BadProofFailure)
 
             if (idx == 1) {
                 tamper_with_proof(ivc.verification_queue[1].proof,
-                                  ivc.verification_queue[1].honk_vk->num_public_inputs); // tamper with second proof
+                                  ivc.verification_queue[1].num_public_inputs()); // tamper with second proof
             }
         }
         auto proof = ivc.prove();
@@ -504,23 +449,14 @@ INSTANTIATE_TEST_SUITE_P(All,
                          });
 
 /**
- * @brief Test that kernel_return_data is consistently propagated from Tail kernel to HidingKernel proof
- * @details kernel_return_data commitment is placed in the Tail kernel's public inputs and must be
- * propagated unchanged to the HidingKernel's public inputs.
- */
-TEST_F(ChonkTests, KernelReturnDataPropagationConsistency)
-{
-    ChonkTests::test_kernel_return_data_propagation();
-}
-
-/**
  * @brief Demonstrates that the HN accumulator chain cannot be broken
  *
- * @details We construct a Chonk instance using a first app with 1 << SMALL_LOG_2_NUM_GATES gates, accumulate it to get
- * a valid accumulator, then construct another Chonk instance where we accumulate a first app with 1 <<
- * (SMALL_LOG_2_NUM_GATES + 1) gates but substitute the accumulator after the first accumulation. We then check
- * that the final proof fails verification, demonstrating that the accumulator is bound to the circuits that were
- * accumulated and cannot be substituted with an accumulator from a different execution trace.
+ * @details We construct a Chonk instance using a first app with 1 << SMALL_LOG_2_NUM_GATES gates, accumulate this app
+ * and another MAX_APPS_PER_KERNEL - 1 to get a valid accumulator, then construct another Chonk instance where we
+ * accumulate a first app with 1 << (SMALL_LOG_2_NUM_GATES + 1) gates but substitute the accumulator after
+ * MAX_APPS_PER_KERNEL accumulations. We then check that the final proof fails verification, demonstrating that the
+ * accumulator is bound to the circuits that were accumulated and cannot be substituted with an accumulator from a
+ * different execution trace.
  */
 TEST_F(ChonkTests, AccumulatorBinding)
 {
@@ -529,21 +465,23 @@ TEST_F(ChonkTests, AccumulatorBinding)
     TestSettings settings_one{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
 
     // ── Step 1: Run a parallel VALID IVC to capture a valid accumulator ──────
-    // We need a valid accumulator after the first app (circuit_index=0).
 
-    const size_t num_app_circuits = 5;
+    // We need to have more than MAX_APPS_PER_KERNEL apps to reach a kernel
+    const size_t num_app_circuits = MAX_APPS_PER_KERNEL + 1;
     CircuitProducer producer_one(num_app_circuits);
     const size_t num_circuits = producer_one.total_num_circuits;
-    Chonk chonk_one{ num_circuits };
+    Chonk chonk_one{ producer_one.circuit_kinds() };
 
-    // Accumulate only the first circuit (app_0) to capture the valid accumulator
-    producer_one.construct_and_accumulate_next_circuit(chonk_one, settings_one);
-    auto valid_accumulator_after_app0 = chonk_one.prover_accumulator;
+    // Accumulate the first MAX_APPS_PER_KERNEL apps and the kernel
+    for (size_t idx = 0; idx < MAX_APPS_PER_KERNEL + 1; idx++) {
+        producer_one.construct_and_accumulate_next_circuit(chonk_one, settings_one);
+    }
+    auto valid_accumulator = chonk_one.prover_accumulator;
 
     // ── Step 2: Run the IVC with an INVALID first app + accumulator substitution ─
 
     MockDatabusProducer mock_databus;
-    Chonk invalid_chonk{ num_circuits };
+    Chonk invalid_chonk{ producer_one.circuit_kinds() };
     CircuitProducer producer_two(num_app_circuits);
     TestSettings settings_two{ .log2_num_gates = SMALL_LOG_2_NUM_GATES + 1 };
 
@@ -551,12 +489,13 @@ TEST_F(ChonkTests, AccumulatorBinding)
         producer_two.construct_and_accumulate_next_circuit(invalid_chonk, settings_two);
 
         // *** ACCUMULATOR SUBSTITUTION ***
-        // After the first app is accumulated, replace prover_accumulator with another one.
-        if (circuit_idx == 0) {
-            BB_ASSERT_NEQ(valid_accumulator_after_app0.non_shifted_commitment,
+        // After MAX_APPS_PER_KERNEL apps and a kernel have been accumulated, replace the prover accumulator with the
+        // one from the parallel (valid but distinct) IVC.
+        if (circuit_idx == MAX_APPS_PER_KERNEL) {
+            BB_ASSERT_NEQ(valid_accumulator.non_shifted_commitment,
                           invalid_chonk.prover_accumulator.non_shifted_commitment,
                           "Accumulators should be different.");
-            invalid_chonk.prover_accumulator = valid_accumulator_after_app0;
+            invalid_chonk.prover_accumulator = valid_accumulator;
         }
     }
 
@@ -587,7 +526,7 @@ TEST_F(ChonkTests, SmallAppProvingMemory)
 
     CircuitProducer circuit_producer(NUM_APP_CIRCUITS);
     const size_t num_circuits = circuit_producer.total_num_circuits;
-    Chonk ivc{ num_circuits };
+    Chonk ivc{ circuit_producer.circuit_kinds() };
     TestSettings settings{ .log2_num_gates = LOG2_NUM_GATES };
 
     for (size_t j = 0; j < num_circuits; ++j) {

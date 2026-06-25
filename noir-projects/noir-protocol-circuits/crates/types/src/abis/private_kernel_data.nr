@@ -1,9 +1,9 @@
 use crate::{
     abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
     constants::{
-        MEGA_VK_LENGTH_IN_FIELDS, PRIVATE_KERNEL_RESET_BLOCK_END,
+        MEGA_KERNEL_VK_LENGTH_IN_FIELDS, PRIVATE_KERNEL_RESET_BLOCK_END,
         PRIVATE_KERNEL_RESET_TAIL_TO_PUBLIC_VK_INDEX, PRIVATE_KERNEL_RESET_TAIL_VK_INDEX,
-        PRIVATE_KERNEL_RESET_VK_INDEX, PROOF_TYPE_HN, PROOF_TYPE_HN_TAIL,
+        PRIVATE_KERNEL_RESET_VK_INDEX, PROOF_TYPE_HN,
     },
     proof::vk_data::VkData,
     utils::arrays::find_first_index,
@@ -11,7 +11,7 @@ use crate::{
 
 pub struct PrivateKernelData {
     pub public_inputs: PrivateKernelCircuitPublicInputs,
-    pub vk_data: VkData<MEGA_VK_LENGTH_IN_FIELDS>,
+    pub vk_data: VkData<MEGA_KERNEL_VK_LENGTH_IN_FIELDS>,
 }
 
 impl PrivateKernelData {
@@ -47,12 +47,7 @@ impl PrivateKernelData {
         self.vk_data.validate_in_vk_tree(self.public_inputs.constants.vk_tree_root);
     }
 
-    pub fn verify(self, is_last_kernel: bool) {
-        let mut proof_type = PROOF_TYPE_HN;
-        if is_last_kernel {
-            proof_type = PROOF_TYPE_HN_TAIL;
-        }
-
+    pub fn verify(self) {
         // verify_proof_with_type sends the verification data to barretenberg, which adds to the circuit the required
         // constraints to recursively verify the proof. For recursive verification happening inside the kernels, barretenberg
         // only needs the vk, the proof type, and the purported vk hash. Then, barretenberg adds to the circuit:
@@ -75,13 +70,13 @@ impl PrivateKernelData {
             [],
             [],
             self.vk_data.vk.hash,
-            proof_type,
+            PROOF_TYPE_HN,
         );
     }
 }
 
 pub struct PrivateKernelDataWithoutPublicInputs {
-    pub vk_data: VkData<MEGA_VK_LENGTH_IN_FIELDS>,
+    pub vk_data: VkData<MEGA_KERNEL_VK_LENGTH_IN_FIELDS>,
 }
 
 impl PrivateKernelDataWithoutPublicInputs {

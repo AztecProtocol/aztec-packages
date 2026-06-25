@@ -20,6 +20,7 @@ const BLOCK_COUNT = 3;
 const EPOCH_DURATION = 2;
 const ETHEREUM_SLOT_DURATION = 4;
 const AZTEC_SLOT_DURATION = 8;
+const BLOCK_DURATION_MS = 2000;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'validators-sentinel-'));
 
@@ -43,6 +44,7 @@ describe('e2e_p2p_validators_sentinel', () => {
         aztecTargetCommitteeSize: NUM_VALIDATORS,
         aztecSlotDuration: AZTEC_SLOT_DURATION,
         ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+        blockDurationMs: BLOCK_DURATION_MS,
         aztecProofSubmissionEpochs: 1024, // effectively do not reorg
         listenAddress: '127.0.0.1',
         minTxsPerBlock: 0,

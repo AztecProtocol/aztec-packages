@@ -35,7 +35,7 @@ echo "Waiting for L2 blocks (slot=${slot_duration}s, epoch=${epoch_duration} slo
 echo "Expected first block after ~${expected_wait}s from genesis, max wait ${max_wait}s from now"
 
 rpc_pod="${namespace}-rpc-aztec-node-0"
-block_number_request="{\"jsonrpc\":\"2.0\",\"method\":\"node_getBlockNumber\",\"params\":[],\"id\":1}"
+block_number_request="{\"jsonrpc\":\"2.0\",\"method\":\"aztec_getBlockNumber\",\"params\":[],\"id\":1}"
 elapsed=0
 while [ $elapsed -lt $max_wait ]; do
   block_number=$(kubectl --request-timeout=10s exec -n "$namespace" "$rpc_pod" -- \

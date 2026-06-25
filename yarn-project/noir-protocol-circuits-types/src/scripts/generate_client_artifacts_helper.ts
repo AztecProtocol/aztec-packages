@@ -64,9 +64,6 @@ function generateArtifactNames() {
 //   private_kernel_reset_tail_to_public_4_4_..._4    ->  private_kernel_reset_tail_to_public_simulated_4_4_..._4
 // Order matters: the longest prefix must be checked first so `_tail_to_public` doesn't get
 // truncated to `_tail` (or to plain `_reset`) by an earlier match.
-// TODO(https://github.com/AztecProtocol/aztec-packages-private/issues/147): rename the simulated
-// variants to use a `_simulated` suffix at the source (in `generate_variants.js`) so this prefix
-// table and `generateSimulatedArtifactName` collapse to plain `${name}_simulated`.
 const RESET_SIMULATED_PREFIXES: Array<[string, string]> = [
   ['private_kernel_reset_tail_to_public', 'private_kernel_reset_tail_to_public_simulated'],
   ['private_kernel_reset_tail', 'private_kernel_reset_tail_simulated'],
@@ -94,7 +91,7 @@ function generateCircuitArtifactImportFunction() {
     .map(artifactName => {
       // Cannot assert this import as it's incompatible with bundlers like vite
       // https://github.com/vitejs/vite/issues/19095#issuecomment-2566074352
-      // Even if now supported by al major browsers, the MIME type is replaced with
+      // Even if now supported by all major browsers, the MIME type is replaced with
       // "text/javascript"
       // In the meantime, this lazy import is INCOMPATIBLE WITH NODEJS
       return `case '${artifactName}': {
@@ -144,7 +141,7 @@ function generateVkImportFunction() {
   const cases = Object.values(ClientCircuitArtifactNames).map(artifactName => {
     // Cannot assert this import as it's incompatible with bundlers like vite
     // https://github.com/vitejs/vite/issues/19095#issuecomment-2566074352
-    // Even if now supported by al major browsers, the MIME type is replaced with
+    // Even if now supported by all major browsers, the MIME type is replaced with
     // "text/javascript"
     // In the meantime, this lazy import is INCOMPATIBLE WITH NODEJS
     return `case '${artifactName}': {

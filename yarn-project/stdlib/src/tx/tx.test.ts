@@ -20,6 +20,13 @@ describe('Tx', () => {
     expect(Tx.fromBuffer(buf)).toEqual(tx);
   });
 
+  it('convert to and from separate tx and proof buffers', async () => {
+    const tx = await mockTx();
+    const restored = Tx.fromBuffers(tx.withoutProof().toBuffer(), tx.chonkProof.toBuffer());
+    expect(restored).toEqual(tx);
+    expect(restored.chonkProof.isEmpty()).toBe(false);
+  });
+
   it('convert to and from json', async () => {
     const tx = await mockTx();
     const json = jsonStringify(tx);

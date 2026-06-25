@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - next
-      - public-next
   workflow_dispatch:
 
 concurrency:
@@ -15,14 +14,15 @@ jobs:
   update-public-next-pr-body:
     name: Update next to public-next PR body
     runs-on: ubuntu-latest
+    if: github.repository == 'AztecProtocol/aztec-packages-private'
     permissions:
       contents: read
       pull-requests: write
     steps:
-      - name: Checkout public-next workflow scripts
+      - name: Checkout automation from next
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
-          ref: public-next
+          ref: next
           fetch-depth: 0
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 

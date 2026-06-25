@@ -17,8 +17,8 @@ on:
         type: string
         default: "1.0"
   schedule:
-    # Run daily at 2 AM UTC
-    - cron: "0 2 * * *"
+    # Run daily at 4 AM UTC
+    - cron: "0 4 * * *"
 
 concurrency:
   group: ensure-funded-environments
@@ -26,6 +26,7 @@ concurrency:
 
 jobs:
   discover:
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.build-matrix.outputs.matrix }}
@@ -49,7 +50,8 @@ jobs:
         run: |
           # Static environments
           static='[
-            {"environment":"staging"},
+            {"environment":"staging-public"},
+            {"environment":"staging-internal"},
             {"environment":"next-net"},
             {"environment":"testnet"}
           ]'
@@ -63,6 +65,7 @@ jobs:
 
   fund:
     needs: discover
+    if: ${{ github.event_name != 'schedule' || github.repository == 'AztecProtocol/aztec-packages' }}
     strategy:
       # we can only run one funding operation at a time because all jobs fund from the same address
       max-parallel: 1

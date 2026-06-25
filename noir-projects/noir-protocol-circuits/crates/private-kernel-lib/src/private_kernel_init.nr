@@ -58,7 +58,7 @@ pub struct PrivateKernelInitCircuitPrivateInputs {
 /// - Establishes the `tx_context` (chain ID, version, protocol contracts, etc.)
 /// - Initializes the accumulated data arrays for note hashes, nullifiers, read requests, and other side effects from
 ///   the private call
-/// - Sets up the hints `is_private_only`, `claimed_first_nullifier`, `claimed_revertible_counter` for the transaction
+/// - Sets up the hints `is_private_only`, `claimed_revertible_counter` for the transaction
 ///
 /// The output feeds into subsequent Private Kernel Inner circuits if there are more private calls,
 /// into Private Kernel Reset if any resettable data array becomes too large and cannot accept more items,

@@ -20,6 +20,8 @@ using namespace acir_format;
 
 namespace {
 
+using AcirComponentsCheckBuilder = UltraCircuitBuilder;
+
 Acir::Witness make_witness(uint32_t witness_idx)
 {
     return Acir::Witness{ .value = witness_idx };
@@ -119,9 +121,9 @@ class WitnessFactory {
 
 std::vector<acir_components_check::Error> run_components_check(const Acir::Circuit& circuit)
 {
-    auto constraints = circuit_serde_to_acir_format(circuit);
+    auto constraints = circuit_serde_to_acir_format(circuit, IsMegaBuilder<AcirComponentsCheckBuilder>);
     AcirProgram program{ .constraints = constraints, .witness = {} };
-    auto builder = create_circuit<bb::UltraCircuitBuilder>(program);
+    auto builder = create_circuit<AcirComponentsCheckBuilder>(program);
     acir_components_check::ComponentsChecker checker(circuit, builder);
     return checker.check();
 }
@@ -164,9 +166,9 @@ size_t count_acir_components_for_witnesses(const Acir::Circuit& circuit, const s
 
 size_t count_circuit_components_for_witnesses(const Acir::Circuit& circuit, const std::vector<uint32_t>& witnesses)
 {
-    auto constraints = circuit_serde_to_acir_format(circuit);
+    auto constraints = circuit_serde_to_acir_format(circuit, IsMegaBuilder<AcirComponentsCheckBuilder>);
     AcirProgram program{ .constraints = constraints, .witness = {} };
-    auto builder = create_circuit<bb::UltraCircuitBuilder>(program);
+    auto builder = create_circuit<AcirComponentsCheckBuilder>(program);
 
     cdg::UltraStaticAnalyzer analyzer(builder);
     auto connected_components = analyzer.find_connected_components();
@@ -529,9 +531,9 @@ TEST_F(AcirComponentsCheckTest, DetectsSplitComponents)
                           } } },
     });
 
-    auto constraints = circuit_serde_to_acir_format(circuit);
+    auto constraints = circuit_serde_to_acir_format(circuit, IsMegaBuilder<AcirComponentsCheckBuilder>);
     AcirProgram program{ .constraints = constraints, .witness = {} };
-    auto builder = create_circuit<bb::UltraCircuitBuilder>(program);
+    auto builder = create_circuit<AcirComponentsCheckBuilder>(program);
     // Corrupt the circuit
     builder.real_variable_index[2] = builder.zero_idx();
 
@@ -554,9 +556,9 @@ TEST_F(AcirComponentsCheckTest, DetectsUnconstrainedWitnesses)
                           } } },
     });
 
-    auto constraints = circuit_serde_to_acir_format(circuit);
+    auto constraints = circuit_serde_to_acir_format(circuit, IsMegaBuilder<AcirComponentsCheckBuilder>);
     AcirProgram program{ .constraints = constraints, .witness = {} };
-    auto builder = create_circuit<bb::UltraCircuitBuilder>(program);
+    auto builder = create_circuit<AcirComponentsCheckBuilder>(program);
     // Corrupt the circuit
     builder.real_variable_index.resize(9);
 

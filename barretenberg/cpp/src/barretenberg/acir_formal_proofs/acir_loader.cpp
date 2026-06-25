@@ -29,14 +29,14 @@ std::vector<uint8_t> readFile(std::string filename)
 AcirToSmtLoader::AcirToSmtLoader(std::string filename)
 {
     this->instruction_name = filename;
-    this->constraint_system = acir_format::circuit_buf_to_acir_format(readFile(filename));
+    this->constraint_system = acir_format::circuit_buf_to_acir_format(readFile(filename), IS_MEGA_BUILDER);
     this->circuit_buf = this->get_circuit_builder().export_circuit();
 }
 
-bb::UltraCircuitBuilder AcirToSmtLoader::get_circuit_builder()
+AcirToSmtLoader::Builder AcirToSmtLoader::get_circuit_builder()
 {
     acir_format::AcirProgram program{ .constraints = this->constraint_system, .witness = {} };
-    auto builder = acir_format::create_circuit<bb::UltraCircuitBuilder>(program);
+    auto builder = acir_format::create_circuit<AcirToSmtLoader::Builder>(program);
     builder.set_variable_name(0, "a");
     builder.set_variable_name(1, "b");
     builder.set_variable_name(2, "c");

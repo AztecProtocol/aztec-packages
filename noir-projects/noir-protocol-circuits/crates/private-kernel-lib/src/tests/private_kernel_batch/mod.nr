@@ -39,7 +39,6 @@ fn assert_private_kernel_public_inputs_eq(
     assert_eq(actual.fee_payer, expected.fee_payer);
     assert_eq(actual.expiration_timestamp, expected.expiration_timestamp);
     assert_eq(actual.is_private_only, expected.is_private_only);
-    assert_eq(actual.claimed_first_nullifier, expected.claimed_first_nullifier);
     assert_eq(actual.claimed_revertible_counter, expected.claimed_revertible_counter);
 }
 

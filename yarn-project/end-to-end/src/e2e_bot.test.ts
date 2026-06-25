@@ -1,9 +1,7 @@
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
-import { NO_FROM } from '@aztec/aztec.js/account';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { MinedTxReceipt, type TxReceipt } from '@aztec/aztec.js/tx';
-import { DeployAccountMethod } from '@aztec/aztec.js/wallet';
 import type { CheatCodes } from '@aztec/aztec/testing';
 import {
   AmmBot,
@@ -14,7 +12,7 @@ import {
   SupportedTokenContracts,
   getBotDefaultConfig,
 } from '@aztec/bot';
-import { MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS } from '@aztec/constants';
+import { MAX_PROCESSABLE_L2_GAS, MAX_TX_DA_GAS } from '@aztec/constants';
 import { SecretValue } from '@aztec/foundation/config';
 import { bufferToHex } from '@aztec/foundation/string';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -40,7 +38,7 @@ describe('e2e_bot', () => {
     const setupResult = await setup(0, {
       ...PIPELINING_SETUP_OPTS,
       aztecProofSubmissionEpochs: 640,
-      initialFundedAccounts: [botAccount],
+      additionallyFundedAccounts: [botAccount],
     });
     ({
       teardown,
@@ -50,9 +48,7 @@ describe('e2e_bot', () => {
       config: { l1RpcUrls },
     } = setupResult);
     wallet = await EmbeddedWallet.create(aztecNode, { ephemeral: true });
-    const accountManager = await wallet.createSchnorrAccount(botAccount.secret, botAccount.salt, botAccount.signingKey);
-    const deployMethod = await accountManager.getDeployMethod();
-    await deployMethod.send({ from: NO_FROM });
+    await wallet.createSchnorrInitializerlessAccount(botAccount.secret, botAccount.salt, botAccount.signingKey);
   });
 
   afterAll(() => teardown());
@@ -82,7 +78,7 @@ describe('e2e_bot', () => {
     });
 
     it('sends token transfers with hardcoded gas and no simulation', async () => {
-      bot.updateConfig({ daGasLimit: MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, l2GasLimit: MAX_PROCESSABLE_L2_GAS });
+      bot.updateConfig({ daGasLimit: MAX_TX_DA_GAS, l2GasLimit: MAX_PROCESSABLE_L2_GAS });
       const { recipient: recipientBefore } = await bot.getBalances();
 
       await bot.run();
@@ -151,19 +147,19 @@ describe('e2e_bot', () => {
       };
 
       {
-        using deploy = jest.spyOn(DeployAccountMethod.prototype, 'send');
-
-        deploy.mockImplementation(() => {
+        using sendTx = jest.spyOn(EmbeddedWallet.prototype, 'sendTx');
+        // Fail the fee juice top-up tx, which runs after the bridge claim has been persisted.
+        sendTx.mockImplementation(() => {
           throw new Error('test error');
         });
 
         await expect(Bot.create(config, wallet, aztecNode, aztecNodeAdmin, store)).rejects.toThrow('test error');
-        expect(deploy).toHaveBeenCalledOnce();
         expect(saveSpy).toHaveBeenCalledOnce();
       }
 
       {
         saveSpy.mockClear();
+        // The persisted claim is reused for the top-up, so no new claim is bridged or saved.
         await expect(Bot.create(config, wallet, aztecNode, aztecNodeAdmin, store)).resolves.toBeDefined();
         expect(saveSpy).not.toHaveBeenCalled();
       }
@@ -193,8 +189,8 @@ describe('e2e_bot', () => {
       };
 
       {
-        using deploy = jest.spyOn(DeployAccountMethod.prototype, 'send');
-        deploy.mockImplementation(() => {
+        using sendTx = jest.spyOn(EmbeddedWallet.prototype, 'sendTx');
+        sendTx.mockImplementation(() => {
           throw new Error('test error');
         });
         await expect(Bot.create(config, wallet, aztecNode, aztecNodeAdmin, store)).rejects.toThrow('test error');
@@ -203,7 +199,8 @@ describe('e2e_bot', () => {
       {
         saveSpy.mockClear();
 
-        // same private key, but different salt derives a different L2 address
+        // same private key, but different salt derives a different L2 address, so the persisted claim does
+        // not apply and a fresh claim is bridged and saved
         config.senderSalt = config.senderSalt!.add(Fr.ONE);
         await expect(Bot.create(config, wallet, aztecNode, aztecNodeAdmin, store)).resolves.toBeDefined();
         expect(saveSpy).toHaveBeenCalledOnce();

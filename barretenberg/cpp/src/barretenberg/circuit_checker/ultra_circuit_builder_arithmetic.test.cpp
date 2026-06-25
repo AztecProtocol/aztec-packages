@@ -551,7 +551,7 @@ TEST_F(UltraCircuitBuilderArithmetic, QArith3Gate)
         builder.blocks.arithmetic.q_4().emplace_back(q_4);
         builder.blocks.arithmetic.q_5().emplace_back(0);
         builder.blocks.arithmetic.q_c().emplace_back(q_c);
-        builder.blocks.arithmetic.set_gate_selector(3);
+        builder.blocks.arithmetic.set_gate_selector(GateKind::Arith, 3);
         builder.check_selector_length_consistency();
         builder.increment_num_gates();
 
@@ -564,7 +564,7 @@ TEST_F(UltraCircuitBuilderArithmetic, QArith3Gate)
         builder.blocks.arithmetic.q_4().emplace_back(0);
         builder.blocks.arithmetic.q_5().emplace_back(0);
         builder.blocks.arithmetic.q_c().emplace_back(0);
-        builder.blocks.arithmetic.set_gate_selector(1);
+        builder.blocks.arithmetic.set_gate_selector(GateKind::Arith, 1);
         builder.check_selector_length_consistency();
         builder.increment_num_gates();
 

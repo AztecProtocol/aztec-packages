@@ -1,7 +1,7 @@
 import type { Archiver } from '@aztec/archiver';
 import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
-import type { EthCheatCodes } from '@aztec/ethereum/test';
-import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { type EthCheatCodes, RollupCheatCodes } from '@aztec/ethereum/test';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -10,6 +10,7 @@ import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { TestDateProvider } from '@aztec/foundation/timer';
 import { isErrorClass } from '@aztec/foundation/types';
 import type { P2PClient as ConcreteP2PClient, P2P } from '@aztec/p2p';
+import { settleEpochOutbox } from '@aztec/prover-client/test';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CommitteeAttestationsAndSigners, type L2Block, type L2BlockSource } from '@aztec/stdlib/block';
 import { getPreviousCheckpointOutHashes } from '@aztec/stdlib/checkpoint';
@@ -65,7 +66,10 @@ export type AutomineSequencerDeps = {
    * Archiver used to push locally-built blocks and proposed checkpoints into the in-memory
    * store, force an immediate L1 sync after publishing, and roll back state during reorgs.
    */
-  archiver: Pick<Archiver, 'rollbackTo' | 'addBlock' | 'addProposedCheckpoint' | 'syncImmediate'>;
+  archiver: Pick<
+    Archiver,
+    'rollbackTo' | 'addBlock' | 'addProposedCheckpoint' | 'syncImmediate' | 'removeUncheckpointedBlocksAfter'
+  >;
   /** L1 tx utils whose cached nonces must be reset after an L1 reorg. */
   l1TxUtils: Pick<L1TxUtils, 'resetNonce'>[];
   /**
@@ -75,6 +79,14 @@ export type AutomineSequencerDeps = {
   stopExtras?: () => Promise<void>;
   /** How often to poll the mempool for new txs while running. Defaults to 50ms. */
   pollIntervalMs?: number;
+  /**
+   * When true, run a loop that synthetically settles epochs (writes outbox roots and advances the
+   * proven tip) as checkpoints land, replacing the standalone `EpochTestSettler`. Local-network only;
+   * e2e tests leave this off and drive proving explicitly.
+   */
+  autoSettle?: boolean;
+  /** How often the auto-settle / clock-reconcile loop runs while {@link autoSettle} is enabled. Defaults to 200ms. */
+  settlePollIntervalMs?: number;
   log?: Logger;
 };
 
@@ -106,6 +118,8 @@ export class AutomineSequencer {
   private stopped = false;
   private paused = false;
   private mempoolPoller?: RunningPromise;
+  /** Loop that settles epochs and reconciles the clock while {@link AutomineSequencerDeps.autoSettle} is set. */
+  private settler?: RunningPromise;
   private publisher?: SequencerPublisher;
   private attestorAddress?: EthAddress;
 
@@ -115,11 +129,22 @@ export class AutomineSequencer {
   /** Last L2 slot we published a checkpoint for (-1 means none yet). */
   private lastBuiltSlot: number = -1;
 
+  /** Lazily-built cheat codes for synthetic epoch settlement (outbox roots + proven tip). */
+  private rollupCheatCodes?: RollupCheatCodes;
+
   constructor(deps: AutomineSequencerDeps) {
     this.deps = deps;
     this.log = deps.log ?? createLogger('sequencer:automine');
     this.queue = new SerialQueue();
     this.pollIntervalMs = deps.pollIntervalMs ?? 50;
+  }
+
+  /** Cheat codes for the rollup, built from the same EthCheatCodes the sequencer uses for time control. */
+  private getRollupCheatCodes(): RollupCheatCodes {
+    this.rollupCheatCodes ??= new RollupCheatCodes(this.deps.ethCheatCodes, {
+      rollupAddress: this.deps.config.rollupAddress,
+    });
+    return this.rollupCheatCodes;
   }
 
   /**
@@ -149,6 +174,13 @@ export class AutomineSequencer {
     // notification. Tests can also call `buildIfPending()` directly to skip the poll wait.
     this.mempoolPoller = new RunningPromise(() => this.maybeEnqueueBuild(), this.log, this.pollIntervalMs);
     this.mempoolPoller.start();
+
+    // Local-network only: settle epochs and reconcile the clock to L1 as checkpoints land. Both run
+    // through the same serial queue as builds/warps, so they never interleave with a checkpoint build.
+    if (this.deps.autoSettle) {
+      this.settler = new RunningPromise(() => this.maybeSettle(), this.log, this.deps.settlePollIntervalMs ?? 200);
+      this.settler.start();
+    }
   }
 
   /**
@@ -163,6 +195,7 @@ export class AutomineSequencer {
     this.stopped = true;
     this.running = false;
     await this.mempoolPoller?.stop();
+    await this.settler?.stop();
     await this.queue.end();
     await this.deps.stopExtras?.();
     this.log.info('AutomineSequencer stopped');
@@ -271,6 +304,50 @@ export class AutomineSequencer {
     return this.queue.syncPoint();
   }
 
+  /**
+   * Synthetically "proves" the L2 chain up to `upToCheckpoint` (default: the latest checkpointed
+   * checkpoint). For every epoch newly covered — including a partial final epoch — the epoch out hash
+   * is written into the L1 Outbox so the L2-to-L1 messages in those checkpoints become consumable,
+   * then the rollup's proven tip is advanced to the target. There is no real proof; this is the
+   * local-network equivalent of an epoch proof landing on L1.
+   *
+   * Clamps the target down to the latest checkpointed checkpoint and no-ops when it is already proven.
+   * Runs inside the serial queue so it never interleaves with a build or warp.
+   *
+   * @returns The proven checkpoint after the call (the target, or the existing proven tip on no-op).
+   */
+  public prove(upToCheckpoint?: CheckpointNumber): Promise<CheckpointNumber> {
+    return this.queue.put(() => this.runProve(upToCheckpoint));
+  }
+
+  /**
+   * Auto-settle tick (local-network only). Proving up to the latest checkpointed checkpoint also
+   * reconciles the clock at the head of {@link runProve}, so this single tick keeps both the
+   * proven tip and the date provider current even when no build is happening.
+   */
+  private async maybeSettle(): Promise<void> {
+    if (!this.running) {
+      return;
+    }
+    try {
+      await this.prove();
+    } catch (err) {
+      this.log.warn('Automine auto-settle tick failed', { err: err instanceof Error ? err.message : String(err) });
+    }
+  }
+
+  /**
+   * Advances the injected date provider to the latest *mined* L1 timestamp when it has fallen behind
+   * (e.g. an unrelated L1 tx mined a block between our builds). Never advances to the pending, un-mined
+   * timestamp. Keeps node-side consumers of `dateProvider.now()` aligned with L1 without our own builds.
+   */
+  private async reconcileDateProvider(): Promise<void> {
+    const lastTsMs = (await this.deps.ethCheatCodes.lastBlockTimestamp()) * 1000;
+    if (lastTsMs > this.deps.dateProvider.now()) {
+      this.deps.dateProvider.setTime(lastTsMs);
+    }
+  }
+
   /** Called from the mempool poller. Enqueues a build if there are pending txs. */
   private async maybeEnqueueBuild(): Promise<void> {
     if (!this.running || this.paused || this.buildQueued) {
@@ -290,11 +367,19 @@ export class AutomineSequencer {
     }
   }
 
-  /** Builds one checkpoint with a single block, publishes it, syncs the date provider. */
+  /**
+   * Builds and publishes one checkpoint, returning the built block — or `undefined` when there was
+   * nothing to build or the propose failed. A failed propose mines no checkpoint on L1 (it reverts
+   * inside the multicall or is never sent), so recovery is purely local: the optimistic archiver insert
+   * is rolled back, the block's txs return to the pending pool, and the L1 nonce is reset. No L1 reorg
+   * is performed, and the build is not retried inline — once the txs are back in the pending pool the
+   * mempool poller re-enqueues a build on its next tick (see {@link maybeEnqueueBuild}).
+   */
   private async runBuild({ allowEmpty }: { allowEmpty: boolean }): Promise<L2Block | undefined> {
     if (!this.running || !this.publisher || !this.attestorAddress) {
       return undefined;
     }
+    await this.reconcileDateProvider();
 
     const txCount = await this.deps.p2pClient.getPendingTxCount();
     // For mempool-driven builds, wait for at least `minTxsPerBlock` pending txs (or 1 if not set)
@@ -324,7 +409,10 @@ export class AutomineSequencer {
       await this.deps.ethCheatCodes.setNextBlockTimestamp(slotBoundaryTs);
     }
 
-    const tips = await this.deps.l2BlockSource.getL2Tips();
+    const [tips, proposedCheckpoint] = await Promise.all([
+      this.deps.l2BlockSource.getL2Tips(),
+      this.deps.l2BlockSource.getProposedCheckpointData(),
+    ]);
     const syncedToBlockNumber = tips.proposed.number;
 
     // Ensure world state has processed the archiver's tip before forking. Without this,
@@ -334,7 +422,8 @@ export class AutomineSequencer {
     await this.deps.worldState.syncImmediate(BlockNumber(syncedToBlockNumber));
 
     const nextBlockNumber = BlockNumber(syncedToBlockNumber + 1);
-    const checkpointNumber = CheckpointNumber(tips.proposedCheckpoint.checkpoint.number + 1);
+    const parentCheckpointNumber = proposedCheckpoint?.checkpointNumber ?? tips.checkpointed.checkpoint.number;
+    const checkpointNumber = CheckpointNumber(parentCheckpointNumber + 1);
     const targetEpoch = getEpochAtSlot(SlotNumber(targetSlot), this.deps.l1Constants);
 
     this.log.verbose(`Building automine checkpoint`, {
@@ -377,7 +466,8 @@ export class AutomineSequencer {
       this.log.getBindings(),
     );
 
-    const pendingTxs = this.deps.p2pClient.iterateEligiblePendingTxs();
+    // Block building only executes txs, and automine publishes straight to L1, so the proofs are never needed.
+    const pendingTxs = this.deps.p2pClient.iterateEligiblePendingTxs({ includeProof: false });
 
     const buildResult = await this.tryBuildBlock(
       checkpointBuilder,
@@ -419,15 +509,16 @@ export class AutomineSequencer {
     // offset — automine is the deliberate non-pipelined exception and builds/publishes in place.
     const result = await this.publisher.sendRequests(SlotNumber(targetSlot));
 
-    const successful = result?.successfulActions?.find(a => a === 'propose');
-    if (!successful) {
-      this.log.error('Propose action did not succeed under automine', {
+    const proposeSucceeded = !!result?.successfulActions?.some(action => action === 'propose');
+    if (!proposeSucceeded) {
+      this.log.warn('Automine propose did not succeed; rolled back optimistic insert, will rebuild from the poller', {
         slot: targetSlot,
         checkpointNumber,
         successful: result?.successfulActions,
         failed: result?.failedActions,
       });
-      throw new Error(`AutomineSequencer: propose did not succeed for slot ${targetSlot}`);
+      await this.rollbackOptimisticInsert(syncedToBlockNumber);
+      return undefined;
     }
 
     // Force one full L1-sync cycle synchronously. The local addBlock/addProposedCheckpoint
@@ -438,6 +529,17 @@ export class AutomineSequencer {
     // Sync the date provider to the L1 block timestamp we just mined.
     const newL1Ts = await this.deps.ethCheatCodes.lastBlockTimestamp();
     this.deps.dateProvider.setTime(newL1Ts * 1000);
+
+    // A successful propose is validated on-chain against the mined L1 block's slot, so the mined slot
+    // should equal our target; warn (without rolling back — the checkpoint is on L1) if it ever differs.
+    const minedSlot = Number(getSlotAtTimestamp(BigInt(newL1Ts), this.deps.l1Constants));
+    if (minedSlot !== targetSlot) {
+      this.log.warn(`Automine checkpoint mined in slot ${minedSlot} but targeted ${targetSlot}`, {
+        minedSlot,
+        targetSlot,
+        checkpointNumber,
+      });
+    }
 
     this.lastBuiltSlot = targetSlot;
 
@@ -453,12 +555,30 @@ export class AutomineSequencer {
   }
 
   /**
+   * Undoes an optimistic archiver insert (uncheckpointed block + proposed checkpoint) without reorging
+   * L1: removes the uncheckpointed block and evicts the proposed checkpoint that referenced it, so the
+   * proposed tip drops back to `toBlockNumber`. `p2pClient.sync()` then observes the lowered tip and
+   * restores the block's txs to the pending pool; `worldState.syncImmediate()` drops any applied effects;
+   * and the L1 nonce is reset (a reverted-but-mined propose consumes one) so the build can be retried.
+   *
+   * Note: `archiver.rollbackTo` is NOT usable here — it is checkpoint-granular and no-ops on a
+   * proposed-only tip (the inserted checkpoint is not yet in the checkpointed set).
+   */
+  private async rollbackOptimisticInsert(toBlockNumber: BlockNumber): Promise<void> {
+    await this.deps.archiver.removeUncheckpointedBlocksAfter(toBlockNumber);
+    await this.deps.p2pClient.sync();
+    await this.deps.worldState.syncImmediate();
+    this.deps.l1TxUtils.forEach(utils => utils.resetNonce());
+  }
+
+  /**
    * Warps L1 timestamp to (or past) `targetTimestampSec`, rounded up to the next aztec-slot
    * boundary, by queuing an empty-checkpoint build at that slot. Mines exactly one L1 block
    * (the propose tx auto-mined under anvil's automine mode), with the timestamp pre-set so
    * the mined block lands on the slot boundary.
    */
   private async runWarp(targetTimestampSec: number): Promise<void> {
+    await this.reconcileDateProvider();
     const currentL1Ts = await this.deps.ethCheatCodes.lastBlockTimestamp();
     if (targetTimestampSec <= currentL1Ts) {
       this.log.debug(`Warp target ${targetTimestampSec} is not in the future of current L1 ts ${currentL1Ts}`);
@@ -534,6 +654,78 @@ export class AutomineSequencer {
       targetCheckpoint,
       targetL1Block,
     });
+  }
+
+  /**
+   * Writes outbox roots for every epoch newly covered up to `maybeCheckpoint` and advances the proven
+   * tip. Settles each fully-covered epoch in full and the final epoch only up to the target checkpoint
+   * (a partial epoch, which the AZIP-14 Outbox supports via per-`numCheckpointsInEpoch` roots).
+   */
+  private async runProve(upToCheckpoint?: CheckpointNumber): Promise<CheckpointNumber> {
+    await this.reconcileDateProvider();
+    const rollupCheatCodes = this.getRollupCheatCodes();
+    const tips = await this.deps.l2BlockSource.getL2Tips();
+    const checkpointedTip = tips.checkpointed.checkpoint.number;
+
+    // Never prove beyond what the archiver has actually checkpointed; default to that tip.
+    const target = CheckpointNumber(Math.min(upToCheckpoint ?? checkpointedTip, checkpointedTip));
+
+    const { proven } = await rollupCheatCodes.getTips();
+    if (target <= proven) {
+      this.log.debug(`Checkpoint ${target} already proven`, { target, proven, checkpointedTip });
+      return proven;
+    }
+
+    const startEpoch = await this.getEpochOfCheckpoint(CheckpointNumber(proven + 1));
+    const endEpoch = await this.getEpochOfCheckpoint(target);
+    if (startEpoch === undefined || endEpoch === undefined) {
+      this.log.warn(`Cannot resolve epoch range to prove up to checkpoint ${target}`, {
+        target,
+        proven,
+        startEpoch,
+        endEpoch,
+      });
+      return proven;
+    }
+
+    for (let epoch = startEpoch; epoch <= endEpoch; epoch++) {
+      const lastCovered = await settleEpochOutbox({
+        rollupCheatCodes,
+        l2BlockSource: this.deps.l2BlockSource,
+        epoch: EpochNumber(epoch),
+        maxCheckpoint: epoch === endEpoch ? target : undefined,
+        log: this.log,
+      });
+      if (lastCovered === undefined) {
+        // An epoch in (proven, target] with no checkpointed blocks — expected when warps skip a whole
+        // epoch. Logged so it's distinguishable from the archiver failing to serve the epoch's blocks.
+        this.log.debug(`No checkpointed blocks to settle for epoch ${epoch} while proving to ${target}`, {
+          epoch,
+          target,
+        });
+      }
+    }
+
+    await rollupCheatCodes.markAsProven(target);
+    // Settlement is a direct L1 storage write that mines no block, unlike a real epoch proof landing
+    // on L1. The archiver's L1 sync short-circuits while the L1 block hash is unchanged, so it would
+    // never re-read the proven tip until the next build/warp mines a block. Mine one empty L1 block so
+    // the block hash advances, then force an immediate sync that observes the new proven checkpoint.
+    await this.deps.ethCheatCodes.mineEmptyBlock();
+    await this.deps.archiver.syncImmediate();
+
+    this.log.verbose(`Proved up to checkpoint ${target}`, { target, proven, startEpoch, endEpoch });
+    return target;
+  }
+
+  /** Resolves the epoch a checkpoint belongs to from its slot, or undefined if the archiver lacks it. */
+  private async getEpochOfCheckpoint(checkpointNumber: CheckpointNumber): Promise<number | undefined> {
+    const checkpointData = await this.deps.l2BlockSource.getCheckpointData({ number: checkpointNumber });
+    if (!checkpointData) {
+      return undefined;
+    }
+    const slot = SlotNumber(Number(checkpointData.header.slotNumber));
+    return Number(getEpochAtSlot(slot, this.deps.l1Constants));
   }
 
   /**

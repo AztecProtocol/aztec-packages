@@ -4,11 +4,12 @@ import { ContractDeployer } from '@aztec/aztec.js/deployment';
 import { Fr } from '@aztec/aztec.js/fields';
 import { type AztecNode, waitForTx } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
+import type { CheatCodes } from '@aztec/aztec/testing';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import type { EthPrivateKey } from '@aztec/node-keystore';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
-import type { SequencerClient } from '@aztec/sequencer-client';
+import { type SequencerClient, type SequencerEvents, SequencerState } from '@aztec/sequencer-client';
 import type { TestSequencer, TestSequencerClient } from '@aztec/sequencer-client/test';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import type { ValidatorClient } from '@aztec/validator-client';
@@ -32,12 +33,64 @@ const VALIDATOR_COUNT = 4;
 const COMMITTEE_SIZE = VALIDATOR_COUNT;
 const INITIAL_KEYSTORE_COUNT = 3;
 
+async function waitForSequencerIdleAfter(
+  sequencer: TestSequencer,
+  action: () => Promise<unknown>,
+  timeout = 30_000,
+): Promise<void> {
+  let settled = false;
+  let resolveIdle!: () => void;
+  let rejectIdle!: (err: Error) => void;
+  const idlePromise = new Promise<void>((resolve, reject) => {
+    resolveIdle = resolve;
+    rejectIdle = reject;
+  });
+
+  let cleanup = () => {};
+  const finish = (complete: () => void) => {
+    if (settled) {
+      return;
+    }
+    settled = true;
+    cleanup();
+    complete();
+  };
+
+  const handler = (args: Parameters<SequencerEvents['state-changed']>[0]) => {
+    if (args.newState === SequencerState.IDLE) {
+      finish(resolveIdle);
+    }
+  };
+
+  const timer = setTimeout(
+    () => finish(() => rejectIdle(new Error('Timeout waiting for sequencer IDLE state'))),
+    timeout,
+  );
+  cleanup = () => {
+    clearTimeout(timer);
+    sequencer.off('state-changed', handler);
+  };
+
+  sequencer.on('state-changed', handler);
+  try {
+    await action();
+    if (sequencer.status().state === SequencerState.IDLE) {
+      finish(resolveIdle);
+    }
+    await idlePromise;
+  } catch (err) {
+    finish(() => {});
+    throw err;
+  }
+}
+
 describe('e2e_reload_keystore', () => {
   jest.setTimeout(540_000);
 
   let teardown: () => Promise<void>;
   let aztecNode: AztecNode;
   let aztecNodeAdmin: AztecNodeAdmin | undefined;
+  let cheatCodes: CheatCodes;
   let wallet: Wallet;
   let ownerAddress: AztecAddress;
   let keyStoreDirectory: string;
@@ -89,6 +142,7 @@ describe('e2e_reload_keystore', () => {
       teardown,
       aztecNode,
       aztecNodeAdmin,
+      cheatCodes,
       wallet,
       accounts: [ownerAddress],
       sequencer: sequencerClient,
@@ -113,8 +167,8 @@ describe('e2e_reload_keystore', () => {
 
   it('should reload keystore, add a new validator, and use updated coinbase in blocks', async () => {
     // Access the sequencer's validator client to inspect keystore state
-    const sequencer = (sequencerClient! as TestSequencerClient).getSequencer();
-    const validatorClient: ValidatorClient = (sequencer as TestSequencer).validatorClient;
+    const sequencer = (sequencerClient! as TestSequencerClient).getSequencer() as TestSequencer;
+    const validatorClient: ValidatorClient = sequencer.validatorClient;
 
     // Verify initial keystore state and block production
     // Only the first 3 validators should be loaded
@@ -181,7 +235,7 @@ describe('e2e_reload_keystore', () => {
     // Directly ask the publisher factory to create a publisher for validator 4.
     // This exercises the full chain: keystore lookup → publisher filter → L1 signer match.
     // If the publisher key weren't in the L1TxUtils pool, this would throw.
-    const publisherFactory = (sequencer as TestSequencer).publisherFactory;
+    const publisherFactory = sequencer.publisherFactory;
     const validator4Attestor = EthAddress.fromString(validatorAddresses[3]);
     const { attestorAddress: returnedAttestor, publisher: validator4Publisher } =
       await publisherFactory.create(validator4Attestor);
@@ -193,6 +247,9 @@ describe('e2e_reload_keystore', () => {
     // Verify block production uses new coinbases (not old)
     // Send a tx and confirm the block uses one of the new per-validator coinbases.
     // Whichever validator is the proposer, its coinbase must be from the reloaded keystore.
+    // A checkpoint job may already be waiting for txs with the old coinbase, so let it expire before sending.
+    await waitForSequencerIdleAfter(sequencer, () => cheatCodes.rollup.advanceToNextSlot());
+
     const allNewCoinbasesLower = newCoinbases.map(c => c.toString().toLowerCase());
 
     const { txHash: sentTx2 } = await deployer

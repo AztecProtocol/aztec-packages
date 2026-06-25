@@ -13,7 +13,7 @@ std::vector<curve::Grumpkin::AffineElement> get_grumpkin_g1_data(const std::file
 {
     std::filesystem::create_directories(path);
 
-    auto g1_path = path / "grumpkin_g1.flat.dat";
+    auto g1_path = path / "grumpkin_g1_v2.flat.dat";
     auto lock_path = path / "crs.lock";
     // Acquire exclusive lock to prevent simultaneous generation/writes
     FileLockGuard lock(lock_path.string());

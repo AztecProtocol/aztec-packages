@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Global ORACLE_VERSION_MAJOR documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">ORACLE_VERSION_MAJOR</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module version</h2>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.assert_compatible_oracle_version.html">assert_compatible_oracle_version</a></div></li>
+</ul>
+<h3>Globals</h3><ul class="item-list">
+<li><a href="global.ORACLE_VERSION_MAJOR.html">ORACLE_VERSION_MAJOR</a></div></li>
+<li><a href="global.ORACLE_VERSION_MINOR.html">ORACLE_VERSION_MINOR</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">oracle</a>::<a href="index.html">version</a></div>
+<h1>Global <span class="global">ORACLE_VERSION_MAJOR</span></h1>
+<pre><code>pub global ORACLE_VERSION_MAJOR: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>;</code></pre>
+
+<div class="comments">
+<p>The oracle version constants are used to check that the oracle interface is in sync between PXE and Aztec.nr.
+We version the oracle interface as <code>major.minor</code> where:</p>
+<ul>
+<li><code>major</code> = backward-breaking changes (must match exactly between PXE and Aztec.nr)</li>
+<li><code>minor</code> = oracle additions (non-breaking; PXE minor &gt;= contract minor)</li>
+</ul>
+<p>The TypeScript counterparts are in <code>oracle_version.ts</code>.</p>
+<p>@dev Whenever a contract function or Noir test is run, the <code>aztec_misc_assertCompatibleOracleVersion</code> oracle is
+called. If the major version is incompatible, an error is thrown immediately. The minor version is recorded by
+the PXE and used to provide helpful error messages if a contract calls an oracle that doesn't exist. We don't throw
+immediately if AZTEC_NR_MINOR &gt; PXE_MINOR because if a contract is updated to use a newer Aztec.nr dependency
+without actually using any of the new oracles then there is no reason to throw.</p>
+</div>
+</main>
+</span>
+</body>
+</html>

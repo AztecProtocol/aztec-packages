@@ -1,4 +1,4 @@
-import { MEGA_VK_LENGTH_IN_FIELDS } from '@aztec/constants';
+import { MEGA_KERNEL_VK_LENGTH_IN_FIELDS } from '@aztec/constants';
 import { pushTestData } from '@aztec/foundation/testing';
 import type { WitnessMap } from '@aztec/noir-acvm_js';
 import { abiDecode, abiEncode } from '@aztec/noir-noirc_abi';
@@ -304,7 +304,7 @@ export function convertHidingKernelToRollupInputsToWitnessMapWithAbi(
 ): WitnessMap {
   const mapped: HidingKernelToRollupInputType = {
     previous_kernel_public_inputs: mapPrivateToRollupKernelCircuitPublicInputsToNoir(inputs.previousKernelPublicInputs),
-    previous_kernel_vk_data: mapVkDataToNoir(inputs.previousKernelVkData, MEGA_VK_LENGTH_IN_FIELDS),
+    previous_kernel_vk_data: mapVkDataToNoir(inputs.previousKernelVkData, MEGA_KERNEL_VK_LENGTH_IN_FIELDS),
   };
   return abiEncode(abi, mapped);
 }
@@ -315,7 +315,7 @@ export function convertHidingKernelPublicInputsToWitnessMapWithAbi(
 ): WitnessMap {
   const mapped: HidingKernelToPublicInputType = {
     previous_kernel_public_inputs: mapPrivateToPublicKernelCircuitPublicInputsToNoir(inputs.previousKernelPublicInputs),
-    previous_kernel_vk_data: mapVkDataToNoir(inputs.previousKernelVkData, MEGA_VK_LENGTH_IN_FIELDS),
+    previous_kernel_vk_data: mapVkDataToNoir(inputs.previousKernelVkData, MEGA_KERNEL_VK_LENGTH_IN_FIELDS),
   };
   return abiEncode(abi, mapped);
 }

@@ -26,6 +26,7 @@ import {
   MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
   MAX_PRIVATE_LOGS_PER_CALL,
   MAX_PRIVATE_LOGS_PER_TX,
+  MAX_PROCESSABLE_L2_GAS,
   MAX_PROTOCOL_CONTRACTS,
   MAX_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
@@ -232,7 +233,12 @@ export function makeTxContext(seed: number = 1): TxContext {
  * Creates a default instance of gas settings. No seed value is used to ensure we allocate a sensible amount of gas for testing.
  */
 export function makeGasSettings() {
-  return GasSettings.fallback({ maxFeesPerGas: new GasFees(10, 10) });
+  return GasSettings.fallback({
+    // Arbitrary daGas pinned to the pre-existing fixture value so avm_inputs.testdata.bin (consumed by
+    // the C++ vm2 tests) stays byte-stable; teardown derives to the same values the old fallback produced.
+    gasLimits: new Gas(196_608, MAX_PROCESSABLE_L2_GAS),
+    maxFeesPerGas: new GasFees(10, 10),
+  });
 }
 
 /**
@@ -1732,10 +1738,6 @@ export function makeL2Tips(
   return {
     proposed: { number: bn, hash },
     checkpointed: {
-      block: { number: bn, hash },
-      checkpoint: { number: cpn, hash: cph },
-    },
-    proposedCheckpoint: {
       block: { number: bn, hash },
       checkpoint: { number: cpn, hash: cph },
     },

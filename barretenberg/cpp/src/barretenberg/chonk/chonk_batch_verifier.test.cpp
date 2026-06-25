@@ -1,6 +1,7 @@
 #ifndef __wasm__
 #include "chonk_batch_verifier.hpp"
 #include "barretenberg/chonk/chonk.hpp"
+#include "barretenberg/chonk/chonk_verifier.hpp"
 #include "barretenberg/chonk/mock_circuit_producer.hpp"
 #include "barretenberg/common/test.hpp"
 
@@ -11,6 +12,8 @@
 #include <numeric>
 #include <random>
 #include <set>
+#include <stdexcept>
+#include <thread>
 
 using namespace bb;
 
@@ -27,12 +30,30 @@ class ChonkBatchVerifierTests : public ::testing::Test {
     {
         CircuitProducer circuit_producer(num_app_circuits);
         const size_t num_circuits = circuit_producer.total_num_circuits;
-        Chonk ivc{ num_circuits };
+        Chonk ivc{ circuit_producer.circuit_kinds() };
         TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
         for (size_t j = 0; j < num_circuits; ++j) {
             circuit_producer.construct_and_accumulate_next_circuit(ivc, settings);
         }
         return { ivc.prove(), ivc.get_hiding_kernel_vk_and_hash() };
+    }
+
+    static void tamper_ipa_g_zero(ChonkProof& proof)
+    {
+        using IpaCommitment = curve::Grumpkin::AffineElement;
+        using IpaScalar = curve::Grumpkin::ScalarField;
+
+        constexpr size_t commitment_size = FrCodec::template calc_num_fields<IpaCommitment>();
+        constexpr size_t scalar_size = FrCodec::template calc_num_fields<IpaScalar>();
+        constexpr size_t g_zero_offset = 2 * CONST_ECCVM_LOG_N * commitment_size;
+        static_assert(g_zero_offset + commitment_size + scalar_size == IPA_PROOF_LENGTH);
+        ASSERT_LE(g_zero_offset + commitment_size, proof.ipa_proof.size());
+
+        IpaCommitment wrong_g_zero = IpaCommitment::one() * IpaScalar(7);
+        auto wrong_g_zero_fields = FrCodec::serialize_to_fields<IpaCommitment>(wrong_g_zero);
+        std::copy(wrong_g_zero_fields.begin(),
+                  wrong_g_zero_fields.end(),
+                  proof.ipa_proof.begin() + static_cast<std::ptrdiff_t>(g_zero_offset));
     }
 
     /**
@@ -148,6 +169,146 @@ TEST_F(ChonkBatchVerifierTests, TamperedProofBisected)
     EXPECT_TRUE(good->verified()) << "good proof should verify, error=" << good->error_message;
     EXPECT_FALSE(bad->verified()) << "bad proof should fail";
     EXPECT_GT(bad->batch_failure_count, 0u) << "bisection should have occurred";
+}
+
+TEST_F(ChonkBatchVerifierTests, TamperedIpaGZeroRejected)
+{
+    BB_DISABLE_ASSERTS();
+
+    auto [good_proof, vk] = generate_chonk_proof();
+    auto bad_proof = good_proof;
+    tamper_ipa_g_zero(bad_proof);
+
+    ChonkNativeVerifier direct_verifier(vk);
+    EXPECT_FALSE(direct_verifier.verify(bad_proof));
+
+    ResultCollector collector;
+    ChonkBatchVerifier verifier;
+    verifier.start(
+        { vk }, /*num_cores=*/2, /*batch_size=*/2, [&](VerifyResult r) { collector.on_result(std::move(r)); });
+
+    verifier.enqueue(VerifyRequest{ .request_id = 1, .vk_index = 0, .proof = std::move(good_proof) });
+    verifier.enqueue(VerifyRequest{ .request_id = 2, .vk_index = 0, .proof = std::move(bad_proof) });
+
+    collector.wait_for(2);
+    verifier.stop();
+
+    std::sort(collector.results.begin(), collector.results.end(), [](auto& a, auto& b) {
+        return a.request_id < b.request_id;
+    });
+    ASSERT_EQ(collector.results.size(), 2);
+    EXPECT_TRUE(collector.results[0].verified()) << collector.results[0].error_message;
+    EXPECT_FALSE(collector.results[1].verified());
+}
+
+TEST_F(ChonkBatchVerifierTests, RejectsDuplicateRequestId)
+{
+    auto [proof, vk] = generate_chonk_proof();
+
+    ResultCollector collector;
+    ChonkBatchVerifier verifier;
+    verifier.start(
+        { vk }, /*num_cores=*/1, /*batch_size=*/4, [&](VerifyResult r) { collector.on_result(std::move(r)); });
+
+    verifier.enqueue(VerifyRequest{ .request_id = 9, .vk_index = 0, .proof = proof });
+    EXPECT_THROW_OR_ABORT(verifier.enqueue(VerifyRequest{ .request_id = 9, .vk_index = 0, .proof = proof }),
+                          ".*duplicate request_id.*");
+
+    collector.wait_for(1);
+    verifier.stop();
+}
+
+TEST_F(ChonkBatchVerifierTests, RejectsEnqueueAfterStop)
+{
+    auto [proof, vk] = generate_chonk_proof();
+
+    ResultCollector collector;
+    ChonkBatchVerifier verifier;
+    verifier.start(
+        { vk }, /*num_cores=*/1, /*batch_size=*/1, [&](VerifyResult r) { collector.on_result(std::move(r)); });
+    verifier.stop();
+
+    EXPECT_THROW_OR_ABORT(verifier.enqueue(VerifyRequest{ .request_id = 1, .vk_index = 0, .proof = std::move(proof) }),
+                          ".*not running.*");
+}
+
+TEST_F(ChonkBatchVerifierTests, ConcurrentStopIsIdempotent)
+{
+    auto [proof, vk] = generate_chonk_proof();
+
+    ResultCollector collector;
+    ChonkBatchVerifier verifier;
+    verifier.start(
+        { vk }, /*num_cores=*/1, /*batch_size=*/4, [&](VerifyResult r) { collector.on_result(std::move(r)); });
+    verifier.enqueue(VerifyRequest{ .request_id = 1, .vk_index = 0, .proof = std::move(proof) });
+
+    std::thread stop_a([&] { verifier.stop(); });
+    std::thread stop_b([&] { verifier.stop(); });
+    stop_a.join();
+    stop_b.join();
+
+    ASSERT_EQ(collector.results.size(), 1);
+    EXPECT_TRUE(collector.results[0].verified());
+}
+
+TEST_F(ChonkBatchVerifierTests, RejectsDoubleStart)
+{
+    auto [proof, vk] = generate_chonk_proof();
+    (void)proof;
+
+    ResultCollector collector;
+    ChonkBatchVerifier verifier;
+    verifier.start(
+        { vk }, /*num_cores=*/1, /*batch_size=*/1, [&](VerifyResult r) { collector.on_result(std::move(r)); });
+    EXPECT_THROW_OR_ABORT(verifier.start({ vk }, /*num_cores=*/1, /*batch_size=*/1, [](VerifyResult) {}),
+                          ".*already started.*");
+    verifier.stop();
+}
+
+TEST_F(ChonkBatchVerifierTests, WrongProofSizeReturnsFailedResult)
+{
+    auto [proof, vk] = generate_chonk_proof();
+    proof.joint_proof.push_back(bb::fr(1));
+
+    ResultCollector collector;
+    ChonkBatchVerifier verifier;
+    verifier.start(
+        { vk }, /*num_cores=*/1, /*batch_size=*/1, [&](VerifyResult r) { collector.on_result(std::move(r)); });
+
+    verifier.enqueue(VerifyRequest{ .request_id = 12, .vk_index = 0, .proof = std::move(proof) });
+    collector.wait_for(1);
+    verifier.stop();
+
+    ASSERT_EQ(collector.results.size(), 1);
+    EXPECT_FALSE(collector.results[0].verified());
+    EXPECT_NE(collector.results[0].error_message.find("wrong size"), std::string::npos);
+}
+
+TEST_F(ChonkBatchVerifierTests, CallbackExceptionDoesNotKillVerifier)
+{
+    auto [proof, vk] = generate_chonk_proof();
+
+    std::mutex mutex;
+    std::condition_variable cv;
+    size_t callback_count = 0;
+
+    ChonkBatchVerifier verifier;
+    verifier.start({ vk }, /*num_cores=*/1, /*batch_size=*/1, [&](VerifyResult) {
+        {
+            std::lock_guard lock(mutex);
+            callback_count++;
+        }
+        cv.notify_one();
+        throw std::runtime_error("callback failed");
+    });
+
+    verifier.enqueue(VerifyRequest{ .request_id = 1, .vk_index = 0, .proof = std::move(proof) });
+
+    {
+        std::unique_lock lock(mutex);
+        ASSERT_TRUE(cv.wait_for(lock, std::chrono::seconds(120), [&] { return callback_count == 1; }));
+    }
+    verifier.stop();
 }
 
 /**

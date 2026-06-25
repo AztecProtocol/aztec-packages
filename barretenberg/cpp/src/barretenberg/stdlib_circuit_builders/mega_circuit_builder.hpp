@@ -11,6 +11,7 @@
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/honk/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/op_queue/ecc_op_queue.hpp"
+#include "barretenberg/stdlib_circuit_builders/duplicate_provenance.hpp"
 #include "databus.hpp"
 #include "ultra_circuit_builder.hpp"
 
@@ -34,6 +35,12 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     uint32_t add_accum_op_idx;
     uint32_t mul_accum_op_idx;
     uint32_t equality_op_idx;
+
+    // BOOMERANG_DUPLICATE_PROVENANCE: See
+    // barretenberg/cpp/src/barretenberg/boomerang_value_detection/WITNESS_DUPLICATE_DETECTION.md. Monotonic per-circuit
+    // count of ecc-op slots materialized into the ecc_op block (one per populate_ecc_op_wires call). Used as the
+    // structural serialization-slot identity for ECC_OP_TABLE duplicate-provenance tagging.
+    uint64_t ecc_op_slot_count = 0;
 
     // Functions for adding ECC op queue "gates"
     ecc_op_tuple queue_ecc_add_accum(const g1::affine_element& point);
@@ -122,6 +129,9 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
 
     void finalize_circuit();
 
+    // Shadows UltraCircuitBuilder_::create_poseidon2_external_gate so Mega external rounds land in the
+    // shared `poseidon2` block alongside the internal rounds (keeping each permutation's rows contiguous).
+    void create_poseidon2_external_gate(const poseidon2_external_gate_<FF>& in);
     void create_poseidon2_initial_external_gate(const poseidon2_initial_external_gate_<FF>& in);
     void create_poseidon2_quad_internal_gate(const poseidon2_quad_internal_gate_<FF>& in);
     void create_poseidon2_transition_entry_gate(const poseidon2_transition_entry_gate_<FF>& in);

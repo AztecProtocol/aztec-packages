@@ -1,9 +1,11 @@
 #include "mock_verifier_inputs.hpp"
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa_utils.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/multilinear_batching_flavor.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 #include "barretenberg/vm2/constraining/flavor.hpp"
 
@@ -70,32 +72,28 @@ template <typename Flavor> HonkProof create_mock_sumcheck_proof()
     return proof;
 }
 
-HonkProof create_mock_multilinear_batch_proof()
+HonkProof create_mock_multilinear_batch_proof(size_t num_claims)
 {
-    using Flavor = MultilinearBatchingFlavor;
-    HonkProof proof;
+    std::optional<HonkProof> proof;
+    constexpr_for<2, CHONK_MAX_CLAIMS_PER_KERNEL + 1, 1>([&]<size_t NumClaims>() {
+        if (num_claims == NumClaims) {
+            proof = create_mock_sumcheck_proof<MultilinearBatchingFlavor_<NumClaims>>();
+        }
+    });
+    BB_ASSERT(proof.has_value(), "Unmatched num_claims in create_mock_multilinear_batch_proof");
 
-    // Sumcheck proof
-    HonkProof sumcheck_proof = create_mock_sumcheck_proof<Flavor>();
-
-    proof.insert(proof.end(), sumcheck_proof.begin(), sumcheck_proof.end());
-
-    return proof;
+    return proof.value();
 }
 
-template <typename Flavor, class PublicInputs> HonkProof create_mock_hyper_nova_proof(bool include_fold)
+template <typename Flavor, class PublicInputs> HonkProof create_mock_sumcheck_to_accumulator_proof()
 {
     HonkProof oink_proof = create_mock_oink_proof<Flavor, PublicInputs>(/*acir_public_inputs_size=*/0);
     HonkProof sumcheck_proof = create_mock_sumcheck_proof<Flavor>();
-    HonkProof multilinear_batch_proof;
-    if (include_fold) {
-        multilinear_batch_proof = create_mock_multilinear_batch_proof();
-    }
+
     HonkProof proof;
-    proof.reserve(oink_proof.size() + sumcheck_proof.size() + multilinear_batch_proof.size());
+    proof.reserve(oink_proof.size() + sumcheck_proof.size());
     proof.insert(proof.end(), oink_proof.begin(), oink_proof.end());
     proof.insert(proof.end(), sumcheck_proof.begin(), sumcheck_proof.end());
-    proof.insert(proof.end(), multilinear_batch_proof.begin(), multilinear_batch_proof.end());
 
     return proof;
 }
@@ -610,6 +608,7 @@ template HonkProof create_mock_oink_proof<avm2::AvmFlavor, stdlib::recursion::ho
     const size_t);
 
 template HonkProof create_mock_pcs_proof<MegaFlavor>();
+template HonkProof create_mock_pcs_proof<MegaKernelFlavor>();
 template HonkProof create_mock_pcs_proof<TranslatorFlavor>();
 
 template HonkProof create_mock_decider_proof<MegaFlavor>();
@@ -641,8 +640,11 @@ construct_arbitrary_valid_honk_proof_and_vk<UltraZKFlavor, stdlib::recursion::ho
 template std::pair<HonkProof, std::shared_ptr<UltraFlavor::VerificationKey>>
 construct_arbitrary_valid_honk_proof_and_vk<UltraFlavor, stdlib::recursion::honk::RollupIO>(const size_t);
 
-template HonkProof create_mock_hyper_nova_proof<MegaFlavor, stdlib::recursion::honk::AppIO>(bool);
-template HonkProof create_mock_hyper_nova_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>(bool);
+template HonkProof create_mock_sumcheck_to_accumulator_proof<MegaFlavor, stdlib::recursion::honk::AppIO>();
+template HonkProof create_mock_sumcheck_to_accumulator_proof<MegaFlavor, stdlib::recursion::honk::KernelIO>();
+template HonkProof create_mock_sumcheck_to_accumulator_proof<MegaAppFlavor,
+                                                             stdlib::recursion::honk::DefaultIO<MegaCircuitBuilder>>();
+template HonkProof create_mock_sumcheck_to_accumulator_proof<MegaKernelFlavor, stdlib::recursion::honk::KernelIO>();
 
 template HonkProof create_mock_chonk_proof<UltraCircuitBuilder>(const size_t);
 template HonkProof create_mock_chonk_proof<MegaCircuitBuilder>(const size_t);
@@ -651,6 +653,12 @@ template std::shared_ptr<MegaFlavor::VerificationKey> create_mock_honk_vk<MegaFl
     const size_t, const size_t);
 template std::shared_ptr<MegaFlavor::VerificationKey> create_mock_honk_vk<MegaFlavor,
                                                                           stdlib::recursion::honk::KernelIO>(
+    const size_t, const size_t);
+template std::shared_ptr<MegaAppFlavor::VerificationKey> create_mock_honk_vk<MegaAppFlavor,
+                                                                             stdlib::recursion::honk::AppIO>(
+    const size_t, const size_t);
+template std::shared_ptr<MegaKernelFlavor::VerificationKey> create_mock_honk_vk<MegaKernelFlavor,
+                                                                                stdlib::recursion::honk::KernelIO>(
     const size_t, const size_t);
 template std::shared_ptr<MegaFlavor::VerificationKey> create_mock_honk_vk<
     MegaFlavor,

@@ -48,6 +48,30 @@ template <typename FF> struct mul_quad_ {
     FF const_scaling;
 };
 
+// Bilinear / batched-eq gate (Mega flavors only; see relations/bilinear_or_batched_eq_check_relation.hpp).
+// Two row-modes, each populating a different set of wires + selectors:
+//   - Bilinear: enforces  q_m·a·b + q_5·a·c + q_l·a + q_r·b + q_o·c + q_4·d + q_c = 0.
+//               Wires are (a, b, c, d): two products sharing wire a, on the pairs (a, b) and (a, c), a
+//               linear term on each wire, and a constant. Wire d appears only in its linear term.
+//   - BatchedEq:     enforces  q_l·a + q_r·b + q_c       = 0  (batched-eq-half-1)
+//                    and       q_o·c + q_4·d + q_m       = 0  (batched-eq-half-2).
+enum class BilinearBatchedEqMode : uint8_t { Bilinear, BatchedEq };
+
+template <typename FF> struct bilinear_batched_eq_gate_ {
+    BilinearBatchedEqMode mode;
+    uint32_t a;
+    uint32_t b;
+    uint32_t c;
+    uint32_t d;
+    FF q_l;
+    FF q_r;
+    FF q_o;
+    FF q_4;
+    FF q_c; // batched-eq-half-1 constant in BatchedEq mode
+    FF q_m; // first product (a·b) selector in Bilinear mode; batched-eq-half-2 constant in BatchedEq mode
+    FF q_5; // second product (a·c) selector in Bilinear mode; unused (0) in BatchedEq mode
+};
+
 // Arithmetic gate with standard selector naming: q_m*a*b + q_l*a + q_r*b + q_o*c + q_c = 0
 template <typename FF> struct arithmetic_triple_ {
     uint32_t a;

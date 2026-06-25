@@ -8,7 +8,11 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_flavor.hpp"
 #include "barretenberg/ext/starknet/flavor/ultra_starknet_zk_flavor.hpp"
+#include "barretenberg/flavor/mega_app_flavor.hpp"
+#include "barretenberg/flavor/mega_app_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_avm_recursive_flavor.hpp"
+#include "barretenberg/flavor/mega_kernel_flavor.hpp"
+#include "barretenberg/flavor/mega_kernel_recursive_flavor.hpp"
 #include "barretenberg/flavor/mega_zk_recursive_flavor.hpp"
 #include "barretenberg/flavor/ultra_keccak_zk_flavor.hpp"
 #include "barretenberg/flavor/ultra_zk_recursive_flavor.hpp"
@@ -109,15 +113,18 @@ template <typename Flavor> void OinkVerifier<Flavor>::receive_wire_commitments()
  */
 template <typename Flavor> void OinkVerifier<Flavor>::receive_lookup_counts_and_w4_commitments()
 {
-    // `Flavor::UsesEtaPowers` is true iff some relation reads `params.eta_two` / `params.eta_three`.
-    // When false, skip the FS sample and the squared/cubed powers — the verifier and prover stay
-    // in lockstep on the FS state, and the in-circuit recursive verifier avoids dangling
-    // witnesses (eta_two/eta_three) that the static analyzer would flag.
-    if constexpr (Flavor::UsesEtaPowers) {
-        auto eta = transcript->template get_challenge<FF>("eta");
+    // The memory relation is the sole consumer of the eta powers and the ROM-LogUp offset
+    // `rom_logup_gamma`, so `Flavor::HasMemory` gates their FS samples and the power computation.
+    // When false, skip them — prover and verifier stay in lockstep on the FS state, and the
+    // in-circuit recursive verifier avoids dangling witnesses (eta_two/eta_three/rom_logup_gamma)
+    // that the static analyzer would flag.
+    if constexpr (Flavor::HasMemory) {
+        auto [eta, rom_logup_gamma] =
+            transcript->template get_challenges<FF>(std::array<std::string, 2>{ "eta", "rom_logup_gamma" });
         verifier_instance->relation_parameters.eta = eta;
         verifier_instance->relation_parameters.eta_two = eta * eta;
         verifier_instance->relation_parameters.eta_three = verifier_instance->relation_parameters.eta_two * eta;
+        verifier_instance->relation_parameters.rom_logup_gamma = rom_logup_gamma;
     }
 
     // Get commitments to lookup argument polynomials and fourth wire
@@ -139,10 +146,10 @@ template <typename Flavor> void OinkVerifier<Flavor>::receive_logderiv_commitmen
     auto [beta, gamma] = transcript->template get_challenges<FF>(std::array<std::string, 2>{ "beta", "gamma" });
     verifier_instance->relation_parameters.beta = beta;
     verifier_instance->relation_parameters.gamma = gamma;
-    // `Flavor::UsesBetaPowers` is true iff some relation reads `params.beta_sqr` / `params.beta_cube`.
-    // When false, skip the extra multiplications to avoid leaving the squared/cubed witnesses
-    // dangling in the in-circuit recursive verifier.
-    if constexpr (Flavor::UsesBetaPowers) {
+    // The log-derivative lookup relation is the sole consumer of the squared/cubed beta powers, so
+    // `Flavor::HasLogDerivLookup` gates their computation. When false, skip the extra multiplications
+    // to avoid leaving the squared/cubed witnesses dangling in the in-circuit recursive verifier.
+    if constexpr (Flavor::HasLogDerivLookup) {
         verifier_instance->relation_parameters.beta_sqr = beta * beta;
         verifier_instance->relation_parameters.beta_cube = verifier_instance->relation_parameters.beta_sqr * beta;
     }
@@ -199,5 +206,9 @@ template class OinkVerifier<MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
 template class OinkVerifier<MegaAvmRecursiveFlavor_<UltraCircuitBuilder>>;
 template class OinkVerifier<UltraZKRecursiveFlavor_<UltraCircuitBuilder>>;
 template class OinkVerifier<UltraZKRecursiveFlavor_<MegaCircuitBuilder>>;
+template class OinkVerifier<MegaAppFlavor>;
+template class OinkVerifier<MegaKernelFlavor>;
+template class OinkVerifier<MegaAppRecursiveFlavor>;
+template class OinkVerifier<MegaKernelRecursiveFlavor>;
 
 } // namespace bb

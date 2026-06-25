@@ -190,6 +190,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
     // Enqueue the request and wait for the response. The per-fork queue is cleaned up in `finally` even on
     // error, so the JS-side queues map cannot outlive the native fork (e.g. when the native fork was already
     // destroyed by an unwind/historical-prune and DELETE_FORK rejects with "Fork not found").
+    let shouldDeleteForkQueue = false;
     try {
       const response = await requestQueue.execute(
         async () => {
@@ -208,8 +209,11 @@ export class NativeWorldState implements NativeWorldStateInstance {
         committedOnly,
       );
       return response;
+    } catch (err: any) {
+      shouldDeleteForkQueue = forkId !== 0 && err?.message === 'Fork not found';
+      throw err;
     } finally {
-      if (messageType === WorldStateMessageType.DELETE_FORK) {
+      if (messageType === WorldStateMessageType.DELETE_FORK || shouldDeleteForkQueue) {
         await requestQueue.stop();
         this.queues.delete(forkId);
       }
