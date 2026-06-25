@@ -48,6 +48,7 @@ function test_cmds {
     src/multi-node/invalid-attestations/*.test.ts
     src/multi-node/high-availability/*.test.ts
     src/multi-node/slashing/*.test.ts
+    src/multi-node/governance/*.test.ts
     src/e2e_p2p/reqresp/*.test.ts
     src/e2e_!(block_building|avm_simulator).test.ts
   )
@@ -60,7 +61,7 @@ function test_cmds {
     # Per-test bash TIMEOUT overrides — keep in sync with the test file's jest.setTimeout.
     local test_prefix="$prefix"
     case "$name" in
-      e2e_p2p/add_rollup)
+      multi-node/governance/add_rollup)
         test_prefix="$prefix:TIMEOUT=20m"
         ;;
       e2e_cross_chain_messaging/l1_to_l2)

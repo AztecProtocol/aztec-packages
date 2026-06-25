@@ -39,12 +39,12 @@ import path from 'path';
 import { type Hex, decodeEventLog, encodeFunctionData, getAddress, getContract } from 'viem';
 import { foundry } from 'viem/chains';
 
-import { shouldCollectMetrics } from '../fixtures/fixtures.js';
-import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
-import { ATTESTER_PRIVATE_KEYS_START_INDEX, createNodes, createProverNode } from '../fixtures/setup_p2p_test.js';
-import { setupSharedBlobStorage } from '../fixtures/utils.js';
-import { TestWallet } from '../test-wallet/test_wallet.js';
-import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES } from './p2p_network.js';
+import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES } from '../../e2e_p2p/p2p_network.js';
+import { shouldCollectMetrics } from '../../fixtures/fixtures.js';
+import { sendL1ToL2Message } from '../../fixtures/l1_to_l2_messaging.js';
+import { ATTESTER_PRIVATE_KEYS_START_INDEX, createNodes, createProverNode } from '../../fixtures/setup_p2p_test.js';
+import { setupSharedBlobStorage } from '../../fixtures/utils.js';
+import { TestWallet } from '../../test-wallet/test_wallet.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_VALIDATORS = 4;
@@ -68,7 +68,7 @@ jest.setTimeout(1000 * 60 * 20);
  * vote executes, nodes migrate to the new rollup. Exercises L1→L2 (Inbox) and L2→L1 (Outbox) bridging on
  * both the old and new rollup.
  */
-describe('e2e_p2p_add_rollup', () => {
+describe('multi-node/governance/add_rollup', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
   let proverAztecNode: AztecNodeService;

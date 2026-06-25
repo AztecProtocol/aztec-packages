@@ -185,10 +185,6 @@ tests:
     error_regex: "ContractFunctionExecutionError: The contract function"
     owners:
       - *mitch
-  - regex: "e2e_p2p/valid_epoch_pruned_slash.test.ts"
-    owners:
-      - *mitch
-      - *palla
   - regex: "archiver/src/archiver/archiver.test.ts"
     error_regex: "Received number of calls: 1"
     owners:
@@ -383,7 +379,7 @@ tests:
   # p2p checkpoint-attestation-validator's acceptance window, getting rejected
   # before the slasher's gossip callback fires. The slasher then never records
   # ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL and the test times out.
-  - regex: "src/e2e_slashing/attested_invalid_proposal.test.ts"
+  - regex: "src/multi-node/slashing/attested_invalid_proposal.parallel.test.ts"
     error_regex: "Timeout awaiting honest validator slash offenses for invalid proposal attestation"
     owners:
       - *palla
