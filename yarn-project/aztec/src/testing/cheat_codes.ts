@@ -3,7 +3,8 @@ import type { DateProvider } from '@aztec/foundation/timer';
 import type { AztecNode, AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 
 /**
- * A class that provides utility functions for interacting with the chain.
+ * Wrapper for Aztec Debug API.
+ * @deprecated use the AztecNode debug API directly.
  */
 export class CheatCodes {
   constructor(
