@@ -7,7 +7,7 @@ mod test;
 pub contract ConstrainedDeliveryTest {
     use aztec::{
         macros::{events::event, functions::external, storage::storage},
-        messages::delivery::{MessageDelivery, OnchainDeliveryMode},
+        messages::delivery::MessageDelivery,
         note::note_viewer_options::NoteViewerOptions,
         oracle::notes::get_next_tagging_index,
         protocol::{
@@ -65,13 +65,9 @@ pub contract ConstrainedDeliveryTest {
     /// Test reads go through this wrapper so the registry sees this contract as
     /// [HandshakeRegistry::get_app_siloed_secret]'s msg_sender.
     #[external("utility")]
-    unconstrained fn get_app_siloed_secret(
-        sender: AztecAddress,
-        recipient: AztecAddress,
-        mode: OnchainDeliveryMode,
-    ) -> Option<Field> {
+    unconstrained fn get_app_siloed_secret(sender: AztecAddress, recipient: AztecAddress) -> Option<Field> {
         let registry = HandshakeRegistry::at(STANDARD_HANDSHAKE_REGISTRY_ADDRESS);
-        self.call(registry.get_app_siloed_secret(sender, recipient, mode))
+        self.call(registry.get_app_siloed_secret(sender, recipient))
     }
 
     /// Returns the values of all `FieldNote`s discovered for `owner`. The e2e test derives both the count and the

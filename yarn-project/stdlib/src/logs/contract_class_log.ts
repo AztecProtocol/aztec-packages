@@ -138,15 +138,6 @@ export class ContractClassLog {
     );
   }
 
-  static fromFields(fields: Fr[] | FieldReader) {
-    const reader = FieldReader.asReader(fields);
-    return new ContractClassLog(
-      reader.readObject(AztecAddress),
-      reader.readObject(ContractClassLogFields),
-      reader.readU32(),
-    );
-  }
-
   getEmittedFields() {
     return this.fields.getEmittedFields(this.emittedLength);
   }
