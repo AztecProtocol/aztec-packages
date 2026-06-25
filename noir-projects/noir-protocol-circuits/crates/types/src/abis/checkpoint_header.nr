@@ -74,7 +74,6 @@ impl CheckpointHeader {
         let total_mana_used_bytes: [u8; 32] = self.total_mana_used.to_be_bytes();
         let accumulated_fees_bytes: [u8; 32] = self.accumulated_fees.to_be_bytes();
 
-<<<<<<< HEAD
         last_archive_root_bytes
             .concat(block_headers_hash_bytes)
             .concat(blobs_hash_bytes)
@@ -87,58 +86,7 @@ impl CheckpointHeader {
             .concat(gas_fees_per_da_gas_bytes)
             .concat(gas_fees_per_l2_gas_bytes)
             .concat(total_mana_used_bytes)
-=======
-        let mut offset = 0;
-        for i in 0..32 {
-            offset = 0;
-            bytes[i] = last_archive_root_bytes[i];
-            offset += last_archive_root_bytes.len();
-            bytes[i + offset] = block_headers_hash_bytes[i];
-            offset += block_headers_hash_bytes.len();
-            bytes[i + offset] = blobs_hash_bytes[i];
-            offset += blobs_hash_bytes.len();
-            bytes[i + offset] = in_hash_bytes[i];
-            offset += in_hash_bytes.len();
-            bytes[i + offset] = epoch_out_hash_bytes[i];
-            offset += epoch_out_hash_bytes.len();
-            bytes[i + offset] = slot_number_bytes[i];
-            offset += slot_number_bytes.len();
-        }
-
-        let mut timestamp = self.timestamp;
-        offset += 8;
-        for i in 0..8 {
-            bytes[offset - 1 - i] = timestamp as u8;
-            timestamp = timestamp >> 8;
-        }
-
-        for i in 0..20 {
-            bytes[i + offset] = coinbase_bytes[i];
-        }
-        offset += coinbase_bytes.len();
-
-        for i in 0..32 {
-            bytes[i + offset] = fee_recipient_bytes[i];
-        }
-        offset += fee_recipient_bytes.len();
-
-        for i in 0..16 {
-            bytes[i + offset] = gas_fees_per_da_gas_bytes[i];
-            bytes[i + offset + 16] = gas_fees_per_l2_gas_bytes[i];
-        }
-        offset += gas_fees_per_da_gas_bytes.len() + gas_fees_per_l2_gas_bytes.len();
-
-        for i in 0..32 {
-            bytes[i + offset] = total_mana_used_bytes[i];
-        }
-        offset += total_mana_used_bytes.len();
-
-        for i in 0..32 {
-            bytes[i + offset] = accumulated_fees_bytes[i];
-        }
-
-        bytes
->>>>>>> origin/public-v5-next
+            .concat(accumulated_fees_bytes)
     }
 }
 

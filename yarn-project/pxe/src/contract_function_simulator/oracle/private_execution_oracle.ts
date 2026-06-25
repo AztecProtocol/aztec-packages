@@ -46,11 +46,7 @@ import { UtilityExecutionOracle, type UtilityExecutionOracleArgs } from './utili
 export type PrivateExecutionOracleArgs = UtilityExecutionOracleArgs & {
   argsHash: Fr;
   txContext: TxContext;
-<<<<<<< HEAD
   txRequestSalt: Fr;
-  callContext: CallContext;
-=======
->>>>>>> origin/public-v5-next
   executionCache: HashedValuesCache;
   noteCache: ExecutionNoteCache;
   taggingIndexCache: ExecutionTaggingIndexCache;
@@ -81,11 +77,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
   private readonly argsHash: Fr;
   private readonly txContext: TxContext;
-<<<<<<< HEAD
   private readonly txRequestSalt: Fr;
-  private readonly callContext: CallContext;
-=======
->>>>>>> origin/public-v5-next
   private readonly executionCache: HashedValuesCache;
   private readonly noteCache: ExecutionNoteCache;
   private readonly taggingIndexCache: ExecutionTaggingIndexCache;
@@ -102,11 +94,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     });
     this.argsHash = args.argsHash;
     this.txContext = args.txContext;
-<<<<<<< HEAD
     this.txRequestSalt = args.txRequestSalt;
-    this.callContext = args.callContext;
-=======
->>>>>>> origin/public-v5-next
     this.executionCache = args.executionCache;
     this.noteCache = args.noteCache;
     this.taggingIndexCache = args.taggingIndexCache;
