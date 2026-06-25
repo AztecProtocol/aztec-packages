@@ -391,24 +391,18 @@ export const UTILITY_CONTEXT: TypeMapping<UtilityContext> = STRUCT<UtilityContex
   { name: 'msgSender', type: AZTEC_ADDRESS },
 ]);
 
-// TODO: `call_private_function.nr` returns `[Field; 2]`, so this has to be a single array slot. If the oracle returned
-// a struct/tuple instead (destructured to 2 scalars), this could be `STRUCT`.
-export const CALL_PRIVATE_RESULT: TypeMapping<{ endSideEffectCounter: Fr; returnsHash: Fr }> = {
-  serialization: { fn: v => [[v.endSideEffectCounter, v.returnsHash]] },
-  shape: [{ len: 2 }],
-};
+export const CALL_PRIVATE_RESULT: TypeMapping<{ endSideEffectCounter: Fr; returnsHash: Fr }> = STRUCT([
+  { name: 'endSideEffectCounter', type: FIELD },
+  { name: 'returnsHash', type: FIELD },
+]);
 
-// TODO: `getPublicKeysAndPartialAddress` returns `Option<[Field; 8]>`, so this has to be a single array slot. If the
-// oracle returned `(PublicKeys, PartialAddress)` destructured instead, this could be `STRUCT`.
 export const PUBLIC_KEYS_AND_PARTIAL_ADDRESS: TypeMapping<{
   publicKeys: PublicKeys;
   partialAddress: PartialAddress;
-}> = {
-  serialization: {
-    fn: v => [[...v.publicKeys.toFields(), v.partialAddress]],
-  },
-  shape: [{ len: 8 }], // a single slot of 7 public-key fields + partial address
-};
+}> = STRUCT([
+  { name: 'publicKeys', type: PUBLIC_KEYS },
+  { name: 'partialAddress', type: FIELD },
+]);
 
 export const CONTRACT_CLASS_LOG: TypeMapping<ContractClassLogData> = STRUCT([
   { name: 'contractAddress', type: AZTEC_ADDRESS },
