@@ -4,7 +4,7 @@ import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { jest } from '@jest/globals';
 import 'jest-extended';
 
-import { P2PInactivityTest } from './inactivity_slash_test.js';
+import { InactivityTest } from './inactivity_setup.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -12,17 +12,16 @@ const SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD = 1;
 
 // Verifies the basic inactivity slash path: one of 6 validators has its sequencer stopped; after
 // slashInactivityConsecutiveEpochThreshold=1 epoch of inactivity the sentinel detects the offense and
-// the validator is slashed on L1. Uses P2PInactivityTest (real libp2p, 6 nodes, fake prover, ethSlot
-// varies by CI env, epoch=2, proofSubEpochs=1024, sentinelEnabled).
-describe('e2e_p2p_inactivity_slash', () => {
-  let test: P2PInactivityTest;
+// the validator is slashed on L1. Uses MultiNodeTestContext on the mock-gossip bus (6 nodes, fake
+// prover, ethSlot varies by CI env, epoch=2, proofSubEpochs=1024, sentinelEnabled).
+describe('multi-node/slashing/inactivity_slash', () => {
+  let test: InactivityTest;
 
   beforeAll(async () => {
-    test = await P2PInactivityTest.create('e2e_p2p_inactivity_slash', {
+    test = await InactivityTest.setup({
       slashInactivityConsecutiveEpochThreshold: SLASH_INACTIVITY_CONSECUTIVE_EPOCH_THRESHOLD,
       inactiveNodeCount: 1,
-      keepInitialNode: false,
-    }).then(t => t.setup());
+    });
   });
 
   afterAll(async () => {

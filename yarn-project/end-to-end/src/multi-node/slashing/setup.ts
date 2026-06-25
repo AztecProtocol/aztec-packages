@@ -10,8 +10,13 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { pluralize } from '@aztec/foundation/string';
 import { getRoundForOffense } from '@aztec/slasher';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
+import type { TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
+
+import { submitTxsTo } from '../../shared/submit-transactions.js';
+import type { TestWallet } from '../../test-wallet/test_wallet.js';
+import type { MultiNodeTestContext } from '../multi_node_test_context.js';
 
 const TEST_TIMEOUT = 600_000; // 10 minutes
 
@@ -349,6 +354,22 @@ export async function getMinedSlot(node: AztecNodeService, txHash: { toString():
     throw new Error(`Block ${receipt.blockNumber} not found`);
   }
   return Number(block.header.getSlot());
+}
+
+/**
+ * Submits `numTxs` account-deployment transactions through `node`, paying with the funded hardcoded
+ * account (`context.accounts[0]`). Repoints the context wallet at `node` so the txs land in that node's
+ * mempool. The mock-gossip equivalent of the old `submitTransactions(logger, node, numTxs, fundedAccount)`
+ * helper, which built a fresh wallet from the funded account.
+ */
+export function submitTxsThroughNode(
+  test: MultiNodeTestContext,
+  node: AztecNodeService,
+  numTxs: number,
+): Promise<TxHash[]> {
+  const wallet = test.context.wallet as TestWallet;
+  wallet.updateNode(node);
+  return submitTxsTo(wallet, test.context.accounts[0], numTxs, test.logger);
 }
 
 export { jest };

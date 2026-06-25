@@ -8,23 +8,23 @@ import { OffenseType } from '@aztec/slasher';
 import { jest } from '@jest/globals';
 import 'jest-extended';
 
-import { P2PInactivityTest } from './inactivity_slash_test.js';
+import { InactivityTest } from './inactivity_setup.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
 // Verifies that consecutive-epoch threshold is respected: 2 validators are offline, but one is re-enabled
-// after the first epoch. Only the permanently-offline validator should be slashed. Uses P2PInactivityTest
-// (real libp2p, 6 nodes, fake prover, epoch=2, proofSubEpochs=1024, threshold=3 consecutive epochs).
-describe('e2e_p2p_inactivity_slash_with_consecutive_epochs', () => {
-  let test: P2PInactivityTest;
+// after the first epoch. Only the permanently-offline validator should be slashed. Uses MultiNodeTestContext
+// on the mock-gossip bus (6 nodes, fake prover, epoch=2, proofSubEpochs=1024, threshold=3 consecutive epochs).
+describe('multi-node/slashing/inactivity_slash_with_consecutive_epochs', () => {
+  let test: InactivityTest;
 
   const slashInactivityConsecutiveEpochThreshold = 3;
 
   beforeAll(async () => {
-    test = await P2PInactivityTest.create('e2e_p2p_inactivity_slash_with_consecutive_epochs', {
+    test = await InactivityTest.setup({
       slashInactivityConsecutiveEpochThreshold,
       inactiveNodeCount: 2,
-    }).then(t => t.setup());
+    });
   });
 
   afterAll(async () => {
@@ -43,11 +43,11 @@ describe('e2e_p2p_inactivity_slash_with_consecutive_epochs', () => {
       slashingOffsetInRounds,
       slashingRoundSizeInEpochs,
       aztecSlotDuration,
-    } = test.ctx.aztecNodeConfig;
+    } = test.config;
 
-    const initialEpoch = Number(test.test.monitor.l2EpochNumber) + 1;
+    const initialEpoch = Number(test.monitor.l2EpochNumber) + 1;
     test.logger.warn(`Waiting until end of epoch ${initialEpoch} to reenable validator ${reenabledValidator}`);
-    await test.test.monitor.waitUntilL2Slot(SlotNumber(initialEpoch * aztecEpochDuration));
+    await test.monitor.waitUntilL2Slot(SlotNumber(initialEpoch * aztecEpochDuration));
 
     test.logger.warn(`Re-enabling offline validator ${reenabledValidator}`);
     const reenabledNode = test.nodes.at(-1)!;

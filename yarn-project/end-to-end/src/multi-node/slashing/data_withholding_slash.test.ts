@@ -3,30 +3,25 @@ import { waitForTx } from '@aztec/aztec.js/node';
 import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { OffenseType } from '@aztec/slasher';
-import { Tx, TxHash } from '@aztec/stdlib/tx';
+import { Tx } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
 
-import { shouldCollectMetrics } from '../fixtures/fixtures.js';
-import { createNodes } from '../fixtures/setup_p2p_test.js';
-import { P2PNetworkTest } from './p2p_network.js';
-import { awaitCommitteeExists, awaitOffenseDetected, submitTransactions } from './shared.js';
+import {
+  MultiNodeTestContext,
+  SLASHER_ENABLED_MULTI_VALIDATOR_OPTS,
+  buildMockGossipValidators,
+} from '../multi_node_test_context.js';
+import { awaitCommitteeExists, awaitOffenseDetected, getMinedSlot, submitTxsThroughNode } from './setup.js';
 
 const TEST_TIMEOUT = 1_000_000;
 jest.setTimeout(TEST_TIMEOUT);
 
-// Don't set this above 9 — each node uses a distinct anvil seed for its publisher account.
 const NUM_VALIDATORS = 4;
-const BOOT_NODE_UDP_PORT = 4500;
 const COMMITTEE_SIZE = NUM_VALIDATORS;
 const ETHEREUM_SLOT_DURATION = 4;
 const AZTEC_SLOT_DURATION = ETHEREUM_SLOT_DURATION * 3;
 const TOLERANCE_SLOTS = 3;
-
-const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'data-withholding-slash-'));
 
 /**
  * Verifies the per-slot data-withholding slash path (A-523).
@@ -51,12 +46,12 @@ const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'data-withholding-slash-'
  *   8. With slashSelfAllowed the offense reaches quorum; A, B, C are slashed on L1. D is
  *      not slashed because it never attested.
  *
- * Setup: P2PNetworkTest with real libp2p (no mockGossipSubNetwork). 4 validators, ethSlot=4s,
- * aztecSlot=12s, epoch=2, proofSubEpochs=1024, minTxsPerBlock=1, inboxLag=2, slashSelfAllowed.
+ * Setup: MultiNodeTestContext on the in-memory mock-gossip bus (no real libp2p). 4 validators,
+ * ethSlot=4s, aztecSlot=12s, epoch=2, proofSubEpochs=1024, minTxsPerBlock=1, inboxLag=2, slashSelfAllowed.
  * Uses jest.spyOn to suppress tx gossip and stub proposal handlers on specific nodes.
  */
-describe('e2e_p2p_data_withholding_slash', () => {
-  let t: P2PNetworkTest;
+describe('multi-node/slashing/data_withholding_slash', () => {
+  let test: MultiNodeTestContext;
   let nodes: AztecNodeService[] = [];
 
   const slashingUnit = BigInt(1e18);
@@ -68,60 +63,44 @@ describe('e2e_p2p_data_withholding_slash', () => {
   // hit quorum before the offense expires.
   const slashingRoundSize = 4;
   const aztecEpochDuration = 2;
+  const slashingAmount = slashingUnit * 3n;
 
   beforeEach(async () => {
-    t = await P2PNetworkTest.create({
-      testName: 'e2e_p2p_data_withholding_slash',
-      numberOfNodes: 0,
-      numberOfValidators: NUM_VALIDATORS,
-      basePort: BOOT_NODE_UDP_PORT,
-      metricsPort: shouldCollectMetrics(),
-      initialConfig: {
-        anvilSlotsInAnEpoch: 4,
-        listenAddress: '127.0.0.1',
-        aztecEpochDuration,
-        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
-        aztecSlotDuration: AZTEC_SLOT_DURATION,
-        aztecTargetCommitteeSize: COMMITTEE_SIZE,
-        // Long proof submission window so the legacy L1-prune path is irrelevant.
-        aztecProofSubmissionEpochs: 1024,
-        slashInactivityConsecutiveEpochThreshold: 32,
-        slashingQuorum,
-        slashingRoundSizeInEpochs: slashingRoundSize / aztecEpochDuration,
-        slashAmountSmall: slashingUnit,
-        slashAmountMedium: slashingUnit * 2n,
-        slashAmountLarge: slashingUnit * 3n,
-        slashSelfAllowed: true,
-        slashDataWithholdingToleranceSlots: TOLERANCE_SLOTS,
-        minTxsPerBlock: 1,
-        inboxLag: 2,
-      },
+    test = await MultiNodeTestContext.setup({
+      ...SLASHER_ENABLED_MULTI_VALIDATOR_OPTS,
+      anvilSlotsInAnEpoch: 4,
+      listenAddress: '127.0.0.1',
+      aztecEpochDuration,
+      ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+      aztecSlotDuration: AZTEC_SLOT_DURATION,
+      aztecTargetCommitteeSize: COMMITTEE_SIZE,
+      // Long proof submission window so the legacy L1-prune path is irrelevant.
+      aztecProofSubmissionEpochs: 1024,
+      slashInactivityConsecutiveEpochThreshold: 32,
+      slashingQuorum,
+      slashingRoundSizeInEpochs: slashingRoundSize / aztecEpochDuration,
+      slashAmountSmall: slashingUnit,
+      slashAmountMedium: slashingUnit * 2n,
+      slashAmountLarge: slashingUnit * 3n,
+      slashSelfAllowed: true,
+      slashDataWithholdingToleranceSlots: TOLERANCE_SLOTS,
+      slashDataWithholdingPenalty: slashingAmount,
+      minTxsPerBlock: 1,
+      inboxLag: 2,
+      initialValidators: buildMockGossipValidators(NUM_VALIDATORS),
     });
-
-    await t.setup();
-    await t.applyBaseSetup();
   });
 
   afterEach(async () => {
-    if (nodes.length > 0) {
-      await t.stopNodes(nodes);
-    }
-    await t.teardown();
-    for (let i = 0; i < NUM_VALIDATORS; i++) {
-      fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
-    }
+    await test.teardown();
   });
 
-  // Configures a 4-node real-libp2p network with a malicious proposer (tx gossip suppressed), two blind
+  // Configures a 4-node mock-gossip network with a malicious proposer (tx gossip suppressed), two blind
   // attesters (accept any proposal without re-execution), and one honest node that refuses to attest. After
   // the tolerance window the watchers detect DATA_WITHHOLDING offenses for the three attesters (A, B, C)
   // and assert only D — the honest non-attester — is not slashed.
   it('slashes attesters that attest to proposals containing withheld transactions', async () => {
-    if (!t.bootstrapNodeEnr) {
-      throw new Error('Bootstrap node ENR is not available');
-    }
-
-    const { rollup } = await t.getContracts();
+    const { rollup } = await test.getSlashingContracts();
 
     // Jump to an epoch where the validator set is non-empty. The validator set rotates per
     // epoch and sometimes lands empty for early epochs, so advance epoch-by-epoch until we
@@ -129,13 +108,13 @@ describe('e2e_p2p_data_withholding_slash', () => {
     let epoch = EpochNumber(4);
     await retryUntil(
       async () => {
-        await t.ctx.cheatCodes.rollup.advanceToEpoch(epoch);
+        await test.context.cheatCodes.rollup.advanceToEpoch(epoch);
         const committee = await rollup.getCurrentEpochCommittee();
         if (committee?.length === NUM_VALIDATORS) {
-          t.logger.warn(`Found valid committee of ${committee.length} at epoch ${epoch}`);
+          test.logger.warn(`Found valid committee of ${committee.length} at epoch ${epoch}`);
           return true;
         }
-        t.logger.warn(`Epoch ${epoch} has ${committee?.length ?? 0} committee members, advancing`);
+        test.logger.warn(`Epoch ${epoch} has ${committee?.length ?? 0} committee members, advancing`);
         epoch = EpochNumber(epoch + 1);
         return false;
       },
@@ -149,32 +128,17 @@ describe('e2e_p2p_data_withholding_slash', () => {
       rollup.getEjectionThreshold(),
       rollup.getLocalEjectionThreshold(),
     ]);
-    const slashingAmount = slashingUnit * 3n;
     const biggestEjection = ejectionThreshold > localEjectionThreshold ? ejectionThreshold : localEjectionThreshold;
     expect(activationThreshold - slashingAmount).toBeLessThan(biggestEjection);
 
-    t.ctx.aztecNodeConfig.slashDataWithholdingPenalty = slashingAmount;
-    t.ctx.aztecNodeConfig.minTxsPerBlock = 1;
+    test.logger.warn('Creating nodes');
+    nodes = await Promise.all([0, 1, 2, 3].map(index => test.createValidatorNodeAt(index)));
 
-    t.logger.warn('Creating nodes');
-    nodes = await createNodes(
-      t.ctx.aztecNodeConfig,
-      t.ctx.dateProvider,
-      t.bootstrapNodeEnr,
-      NUM_VALIDATORS,
-      BOOT_NODE_UDP_PORT,
-      t.genesis,
-      DATA_DIR,
-      shouldCollectMetrics(),
-    );
-
-    await t.waitForP2PMeshConnectivity(nodes, NUM_VALIDATORS);
-
-    await awaitCommitteeExists({ rollup, logger: t.logger });
+    await awaitCommitteeExists({ rollup, logger: test.logger });
 
     // The validator watchers floor processing at their boot slot. Advance past it so the tx
     // checkpoint lands in a slot the watcher will actually process.
-    await t.ctx.cheatCodes.rollup.advanceToEpoch(EpochNumber(8));
+    await test.context.cheatCodes.rollup.advanceToEpoch(EpochNumber(8));
 
     // Assign roles. With minTxsPerBlock=1 and tx gossip suppressed on the proposer, only the
     // proposer can ever build a block, so we just wait for it to be designated proposer.
@@ -183,7 +147,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
     const blindAttester1Address = blindAttester1.getSequencer()!.validatorAddresses![0];
     const blindAttester2Address = blindAttester2.getSequencer()!.validatorAddresses![0];
     const honestAddress = honestNode.getSequencer()!.validatorAddresses![0];
-    t.logger.warn(
+    test.logger.warn(
       `Proposer ${proposerAddress}, blind attesters ${blindAttester1Address}/${blindAttester2Address}, honest ${honestAddress}`,
     );
 
@@ -193,7 +157,7 @@ describe('e2e_p2p_data_withholding_slash', () => {
     const originalPropagate = proposerP2pService.propagate.bind(proposerP2pService);
     jest.spyOn(proposerP2pService, 'propagate').mockImplementation(((msg: any) => {
       if (msg instanceof Tx) {
-        t.logger.info(`Suppressing outbound tx gossip from proposer ${proposerAddress}`);
+        test.logger.info(`Suppressing outbound tx gossip from proposer ${proposerAddress}`);
         return Promise.resolve();
       }
       return originalPropagate(msg);
@@ -224,11 +188,11 @@ describe('e2e_p2p_data_withholding_slash', () => {
     // 4. Send the tx directly to the proposer; it propagates into the local mempool and stays
     //    there (gossip suppressed). Combined with `minTxsPerBlock: 1`, only the proposer can
     //    build a block, so the tx sits in the mempool until the proposer is next selected.
-    t.logger.warn(`Submitting tx through proposer ${proposerAddress}`);
-    const [txHash] = await submitTransactions(t.logger, proposerNode, 1, t.fundedAccount);
+    test.logger.warn(`Submitting tx through proposer ${proposerAddress}`);
+    const [txHash] = await submitTxsThroughNode(test, proposerNode, 1);
     await waitForTx(proposerNode, txHash, { timeout: AZTEC_SLOT_DURATION * 6 * 1000 });
     const checkpointSlot = await getMinedSlot(proposerNode, txHash);
-    t.logger.warn(`Tx ${txHash} mined at checkpoint slot ${checkpointSlot}`);
+    test.logger.warn(`Tx ${txHash} mined at checkpoint slot ${checkpointSlot}`);
 
     // 5. After the tolerance window, every non-proposer's watcher should fire for the 3
     //    attesters (proposer A self-signs, plus blind attesters B and C).
@@ -237,8 +201,8 @@ describe('e2e_p2p_data_withholding_slash', () => {
       .sort();
 
     const offenses = await awaitOffenseDetected({
-      epochDuration: t.ctx.aztecNodeConfig.aztecEpochDuration,
-      logger: t.logger,
+      epochDuration: aztecEpochDuration,
+      logger: test.logger,
       nodeAdmin: honestNode,
       slashingRoundSize,
       waitUntilOffenseCount: 3,
@@ -255,16 +219,3 @@ describe('e2e_p2p_data_withholding_slash', () => {
     expect(offenses.map(o => o.validator.toString())).not.toContain(honestAddress.toString());
   });
 });
-
-/** Returns the slot at which a tx was included, by querying the node's tx receipt. */
-async function getMinedSlot(node: AztecNodeService, txHash: TxHash): Promise<number> {
-  const receipt = await node.getTxReceipt(txHash);
-  if (!receipt.blockNumber) {
-    throw new Error(`Tx ${txHash} has no block number on receipt`);
-  }
-  const block = await node.getBlock(receipt.blockNumber);
-  if (!block) {
-    throw new Error(`Block ${receipt.blockNumber} not found`);
-  }
-  return Number(block.header.getSlot());
-}
