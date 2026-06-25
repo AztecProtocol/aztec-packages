@@ -10,18 +10,19 @@ import { FIELDS_PER_BLOB } from '@aztec/constants';
 import { AvmGadgetsTestContract } from '@aztec/noir-test-contracts.js/AvmGadgetsTest';
 import { AvmTestContract } from '@aztec/noir-test-contracts.js/AvmTest';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
-import { type Sequencer, type SequencerClient, type SequencerEvents, SequencerState } from '@aztec/sequencer-client';
+import { type Sequencer, SequencerState } from '@aztec/sequencer-client';
 import { L2Block } from '@aztec/stdlib/block';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
-import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
-import { setup } from './fixtures/utils.js';
+import { PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
+import { setupBlockProducer } from '../setup.js';
+import type { SingleNodeTestContext } from '../single_node_test_context.js';
 
 // Verifies that a block can contain transactions whose combined side effects span multiple EIP-4844
 // blobs. Uses PIPELINING_SETUP_OPTS (prod seq, ethereumSlotDuration=4s, aztecSlotDuration=12s,
 // minTxsPerBlock=0) with setConfig({minTxsPerBlock:3}) to pack all txs into one block. Asserts
 // that the resulting block encodes into >1 blob and that every side-effect type is represented.
-describe('e2e_multiple_blobs', () => {
+describe('single-node/block-building/multiple_blobs', () => {
   let contract: TestContract;
   let logger: Logger;
   let wallet: Wallet;
@@ -29,53 +30,23 @@ describe('e2e_multiple_blobs', () => {
   let aztecNode: AztecNode;
   let aztecNodeAdmin: AztecNodeAdmin;
   let sequencer: Sequencer;
-  let teardown: () => Promise<void>;
-
-  // REFACTOR: hand-rolled state-changed on/off subscription with a manual timeout — a
-  // waitForSequencerState(IDLE, timeout) DSL helper should replace it.
-  function waitForSequencerIdle(timeout = 30000): Promise<void> {
-    if (sequencer.status().state === SequencerState.IDLE) {
-      return Promise.resolve();
-    }
-
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        sequencer.off('state-changed', handler);
-        reject(new Error('Timeout waiting for sequencer IDLE state'));
-      }, timeout);
-
-      const handler = (args: Parameters<SequencerEvents['state-changed']>[0]) => {
-        if (args.newState === SequencerState.IDLE) {
-          clearTimeout(timer);
-          sequencer.off('state-changed', handler);
-          resolve();
-        }
-      };
-
-      sequencer.on('state-changed', handler);
-    });
-  }
+  let test: SingleNodeTestContext;
 
   beforeAll(async () => {
-    let maybeAztecNodeAdmin: AztecNodeAdmin | undefined;
-    let maybeSequencer: SequencerClient | undefined;
+    test = await setupBlockProducer({ ...PIPELINING_SETUP_OPTS, numberOfAccounts: 1 });
     ({
       logger,
       wallet,
       accounts: [defaultAccountAddress],
       aztecNode,
-      aztecNodeAdmin: maybeAztecNodeAdmin,
-      sequencer: maybeSequencer,
-      wallet,
-      teardown,
-    } = await setup(1, { ...PIPELINING_SETUP_OPTS }));
-    aztecNodeAdmin = maybeAztecNodeAdmin!;
-    sequencer = maybeSequencer!.getSequencer();
+      aztecNodeAdmin,
+    } = test.context);
+    sequencer = test.context.sequencer!.getSequencer();
 
     ({ contract } = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }));
   });
 
-  afterAll(() => teardown());
+  afterAll(() => test.teardown());
 
   // Sets minTxsPerBlock=3, sends 3 txs simultaneously (2 contract-class publishes + 1 BatchCall
   // with many side effects), waits for them to land in the same block, encodes the block as blob
@@ -84,7 +55,7 @@ describe('e2e_multiple_blobs', () => {
     // Increase the minimum number of txs per block so that all txs will be mined in the same block.
     const TX_COUNT = 3;
     await aztecNodeAdmin.setConfig({ minTxsPerBlock: TX_COUNT });
-    await waitForSequencerIdle();
+    await test.waitForSequencerState(sequencer, SequencerState.IDLE);
 
     const provenTxs = [
       // 2 contract deployment txs.

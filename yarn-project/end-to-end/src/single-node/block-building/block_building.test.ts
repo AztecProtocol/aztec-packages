@@ -16,7 +16,6 @@ import { sleep } from '@aztec/foundation/sleep';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
-import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import { getAllFunctionAbis } from '@aztec/stdlib/abi';
 import { getProofSubmissionDeadlineEpoch } from '@aztec/stdlib/epoch-helpers';
@@ -28,10 +27,11 @@ import { TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
 import { jest } from '@jest/globals';
 import 'jest-extended';
 
-import { DUPLICATE_NULLIFIER_ERROR, PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
-import { setup } from './fixtures/utils.js';
-import { TestWallet } from './test-wallet/test_wallet.js';
-import { proveInteraction } from './test-wallet/utils.js';
+import { DUPLICATE_NULLIFIER_ERROR, PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
+import { TestWallet } from '../../test-wallet/test_wallet.js';
+import { proveInteraction } from '../../test-wallet/utils.js';
+import { setupBlockProducer } from '../setup.js';
+import type { SingleNodeTestContext } from '../single_node_test_context.js';
 
 // Tests block building mechanics under the production sequencer with pipelining:
 // multi-tx blocks, double-spend rejection, log ordering, regressions, and L1 reorgs.
@@ -39,7 +39,7 @@ import { proveInteraction } from './test-wallet/utils.js';
 // minTxsPerBlock=0; aztecEpochDuration and aztecProofSubmissionEpochs are setup() defaults).
 // The `reorgs` describe uses RollupCheatCodes (advanceToNextEpoch, markAsProven, advanceToEpoch)
 // — other-active L1, not cross-chain bridging. CI job has TIMEOUT=25m.
-describe('e2e_block_building', () => {
+describe('single-node/block-building/block_building', () => {
   jest.setTimeout(20 * 60 * 1000); // 20 minutes
 
   let logger: Logger;
@@ -51,7 +51,7 @@ describe('e2e_block_building', () => {
   let aztecNode: AztecNode;
   let aztecNodeAdmin: AztecNodeAdmin;
   let _sequencer: TestSequencerClient;
-  let teardown: () => Promise<void>;
+  let test: SingleNodeTestContext;
 
   afterEach(() => {
     jest.restoreAllMocks();
@@ -61,23 +61,22 @@ describe('e2e_block_building', () => {
   // setup(2, PIPELINING_SETUP_OPTS) with fast polling intervals; minTxsPerBlock set per test.
   describe('multi-txs block', () => {
     beforeAll(async () => {
-      let sequencerClient: SequencerClient | undefined;
+      test = await setupBlockProducer({
+        ...PIPELINING_SETUP_OPTS,
+        numberOfAccounts: 2,
+        archiverPollingIntervalMS: 200,
+        sequencerPollingIntervalMS: 200,
+        worldStateBlockCheckIntervalMS: 200,
+        blockCheckIntervalMS: 200,
+      });
       ({
-        teardown,
         logger,
         aztecNode,
         aztecNodeAdmin,
         wallet,
         accounts: [ownerAddress, minterAddress],
-        sequencer: sequencerClient,
-      } = await setup(2, {
-        ...PIPELINING_SETUP_OPTS,
-        archiverPollingIntervalMS: 200,
-        sequencerPollingIntervalMS: 200,
-        worldStateBlockCheckIntervalMS: 200,
-        blockCheckIntervalMS: 200,
-      }));
-      _sequencer = sequencerClient! as TestSequencerClient;
+      } = test.context);
+      _sequencer = test.context.sequencer! as TestSequencerClient;
     });
 
     beforeEach(async () => {
@@ -95,7 +94,7 @@ describe('e2e_block_building', () => {
       jest.restoreAllMocks();
     });
 
-    afterAll(() => teardown());
+    afterAll(() => test.teardown());
 
     // Under pipelining, the proposer divides each slot into fixed sub-slots of length `blockDurationMs`.
     // Each sub-slot owns the budget for exactly one L2 block; the block builder enforces the sub-slot
@@ -317,20 +316,19 @@ describe('e2e_block_building', () => {
   // setup(1, PIPELINING_SETUP_OPTS), one node, production sequencer.
   describe('double-spends', () => {
     let contract: TestContract;
-    let teardown: () => Promise<void>;
 
     beforeAll(async () => {
+      test = await setupBlockProducer({ ...PIPELINING_SETUP_OPTS, numberOfAccounts: 1 });
       ({
-        teardown,
         logger,
         wallet,
         accounts: [ownerAddress],
-      } = await setup(1, { ...PIPELINING_SETUP_OPTS }));
+      } = test.context);
       ({ contract } = await TestContract.deploy(wallet).send({ from: ownerAddress }));
       logger.info(`Test contract deployed at ${contract.address}`);
     });
 
-    afterAll(() => teardown());
+    afterAll(() => test.teardown());
 
     // Regressions for https://github.com/AztecProtocol/aztec-packages/issues/2502
     // Note that the order in which the TX are processed is not guaranteed.
@@ -459,18 +457,18 @@ describe('e2e_block_building', () => {
     let ownerAddress: AztecAddress;
 
     beforeAll(async () => {
+      test = await setupBlockProducer({ ...PIPELINING_SETUP_OPTS, numberOfAccounts: 1 });
       ({
-        teardown,
         logger,
         wallet,
         accounts: [ownerAddress],
-      } = await setup(1, { ...PIPELINING_SETUP_OPTS }));
+      } = test.context);
 
       logger.info(`Deploying test contract`);
       ({ contract: testContract } = await TestContract.deploy(wallet).send({ from: ownerAddress }));
     }, 300_000);
 
-    afterAll(() => teardown());
+    afterAll(() => test.teardown());
 
     // Sends emit_array_as_encrypted_log, retrieves ExampleEvent private logs and a raw siloed log,
     // and asserts ordering and field values are correct.
@@ -528,19 +526,20 @@ describe('e2e_block_building', () => {
   // Regression tests for specific sequencer bugs; each creates its own setup().
   describe('regressions', () => {
     afterEach(async () => {
-      if (teardown) {
-        await teardown();
+      if (test) {
+        await test.teardown();
       }
     });
 
     // Regression for https://github.com/AztecProtocol/aztec-packages/issues/7918
     // Waits for block number >= 3 with buildCheckpointIfEmpty=true to confirm empty checkpoints are built.
     it('publishes two empty blocks', async () => {
-      ({ teardown, wallet, logger, aztecNode } = await setup(0, {
+      test = await setupBlockProducer({
         ...PIPELINING_SETUP_OPTS,
         minTxsPerBlock: 0,
         buildCheckpointIfEmpty: true,
-      }));
+      });
+      ({ wallet, logger, aztecNode } = test.context);
 
       // Under pipelining, with `aztecSlotDuration=12s`, each empty checkpoint contains one empty
       // block and lands roughly every 12s. Allow up to 60s for three empty blocks to appear.
@@ -551,16 +550,16 @@ describe('e2e_block_building', () => {
     // Regression for https://github.com/AztecProtocol/aztec-packages/issues/7537
     // Deploys an account on block 1 with minTxsPerBlock=0 to verify the first block can accept txs.
     it('sends a tx on the first block', async () => {
-      const context = await setup(0, {
+      test = await setupBlockProducer({
         ...PIPELINING_SETUP_OPTS,
         minTxsPerBlock: 0,
         additionallyFundedAccounts: await generateSchnorrAccounts(1, 'schnorr'),
       });
-      ({ teardown, logger, aztecNode, wallet } = context);
+      ({ logger, aztecNode, wallet } = test.context);
       // REFACTOR: sleep-based wait; replace with a waitForBlock(1) or equivalent readiness helper
       await sleep(1000);
 
-      const [accountData] = context.additionallyFundedAccounts;
+      const [accountData] = test.context.additionallyFundedAccounts;
 
       const accountManager = await (wallet as TestWallet).createSchnorrAccount(accountData.secret, accountData.salt);
       const deployMethod = await accountManager.getDeployMethod();
@@ -571,14 +570,14 @@ describe('e2e_block_building', () => {
 
     // Floods 24 Token.mint_to_public txs while the sequencer is building blocks and asserts all land.
     it('can simulate public txs while building a block', async () => {
+      test = await setupBlockProducer({ ...PIPELINING_SETUP_OPTS, minTxsPerBlock: 1 });
       ({
-        teardown,
         logger,
         aztecNode,
         wallet,
         aztecNodeAdmin,
         accounts: [ownerAddress],
-      } = await setup(1, { ...PIPELINING_SETUP_OPTS, minTxsPerBlock: 1 }));
+      } = test.context);
 
       logger.info('Deploying token contract');
       const { contract: token } = await TokenContract.deploy(wallet, ownerAddress, 'TokenName', 'TokenSymbol', 18).send(
@@ -611,21 +610,20 @@ describe('e2e_block_building', () => {
     // tree next available leaf index is a multiple of 64.
     // Injects a fakeThrowAfterProcessingTxCount=2 to force AVM failure, verifies nullifier tree alignment.
     it('clears up all nullifiers if tx processing fails', async () => {
-      const context = await setup(1, { ...PIPELINING_SETUP_OPTS, minTxsPerBlock: 1 });
+      test = await setupBlockProducer({ ...PIPELINING_SETUP_OPTS, minTxsPerBlock: 1 });
       ({
-        teardown,
         logger,
         aztecNode,
         wallet,
         accounts: [ownerAddress],
-      } = context);
+      } = test.context);
 
       const { contract: testContract } = await TestContract.deploy(wallet).send({ from: ownerAddress });
       logger.warn(`Test contract deployed at ${testContract.address}`);
 
       // We want the sequencer to wait until both txs have arrived (so minTxsPerBlock=2), but agree to build
       // a block with 1 tx only. We also want to simulate an AVM failure in tx processing for only one of the txs.
-      context.sequencer?.updateConfig({
+      test.context.sequencer?.updateConfig({
         minTxsPerBlock: 2,
         minValidTxsPerBlock: 1,
         fakeThrowAfterProcessingTxCount: 2,
@@ -654,7 +652,7 @@ describe('e2e_block_building', () => {
 
       logger.warn(`At least one tx has been mined`, { minedTxHash: minedTxHash.toString() });
       const minedReceipt = await aztecNode.getTxReceipt(minedTxHash);
-      const block = await context.aztecNode.getBlock(minedReceipt.blockNumber!);
+      const block = await test.context.aztecNode.getBlock(minedReceipt.blockNumber!);
       expect(block).toBeDefined();
 
       logger.warn(`Mined block is ${block!.header.getBlockNumber()}`, { state: block!.header.state.partial });
@@ -671,17 +669,19 @@ describe('e2e_block_building', () => {
     let cheatCodes: CheatCodes;
     let ownerAddress: AztecAddress;
     let initialBlockNumber: BlockNumber;
-    let teardown: () => Promise<void>;
 
     beforeEach(async () => {
+      // Keep aztecProofSubmissionEpochs at 1 (rather than setupBlockProducer's high default) so the
+      // reorg test's advance past getProofSubmissionDeadlineEpoch(epoch 2, { proofSubmissionEpochs: 1 })
+      // actually crosses the on-chain submission window and triggers the prune-and-reinclude reorg.
+      test = await setupBlockProducer({ ...PIPELINING_SETUP_OPTS, minTxsPerBlock: 1, aztecProofSubmissionEpochs: 1 });
       ({
-        teardown,
         aztecNode,
         logger,
         wallet,
         cheatCodes,
         accounts: [ownerAddress],
-      } = await setup(1, { ...PIPELINING_SETUP_OPTS, minTxsPerBlock: 1 }));
+      } = test.context);
 
       ({ contract } = await StatefulTestContract.deploy(wallet, ownerAddress, 1).send({ from: ownerAddress }));
       initialBlockNumber = await aztecNode.getBlockNumber();
@@ -698,7 +698,7 @@ describe('e2e_block_building', () => {
       await retryUntil(async () => (await aztecNode.getBlockNumber('proven')) >= bn, 'wait-proven', 60, 1);
     });
 
-    afterEach(() => teardown());
+    afterEach(() => test.teardown());
 
     // Advances epoch, marks proven, sends two txs, then advances past the proof-submission window
     // causing a reorg. Waits for tx1 to be pruned then re-included at the same block number.

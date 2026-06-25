@@ -8,7 +8,6 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Logger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
-import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
@@ -16,7 +15,9 @@ import { jest } from '@jest/globals';
 import 'jest-extended';
 import { type Hex, decodeFunctionData, encodeFunctionData, multicall3Abi } from 'viem';
 
-import { getPrivateKeyFromIndex, setup } from './fixtures/utils.js';
+import { getPrivateKeyFromIndex } from '../../fixtures/utils.js';
+import { setupBlockProducer } from '../setup.js';
+import type { SingleNodeTestContext } from '../single_node_test_context.js';
 
 // Tests that the sequencer can successfully process blocks when L1 block proposals are forwarded
 // via a proxy contract (Forwarder). Also tests that a corrupted first propose call (failing with
@@ -24,7 +25,7 @@ import { getPrivateKeyFromIndex, setup } from './fixtures/utils.js';
 // Uses setup(2, {ethereumSlotDuration:4, aztecSlotDuration:12, proofSubEpochs:640, minTxsPerBlock:0,
 // aztecEpochDuration=default}) — production sequencer, anvil interval mining. The L1 interaction is
 // Forwarder/Multicall3/Rollup contract interception for block-proposal routing, not cross-chain bridging.
-describe('e2e_debug_trace_transaction', () => {
+describe('single-node/block-building/debug_trace', () => {
   jest.setTimeout(5 * 60 * 1000); // 5 minutes
 
   let logger: Logger;
@@ -32,25 +33,16 @@ describe('e2e_debug_trace_transaction', () => {
   let aztecNodeAdmin: AztecNodeAdmin;
   let sequencer: TestSequencerClient;
   let publisherManager: PublisherManager;
-  let teardown: () => Promise<void>;
   let config: AztecNodeConfig;
   let forwarderAddress: EthAddress;
   let l1Client: ExtendedViemWalletClient;
+  let test: SingleNodeTestContext;
 
   const coinbase = EthAddress.random();
 
   beforeAll(async () => {
-    let sequencerClient: SequencerClient | undefined;
-    let maybeAztecNodeAdmin: AztecNodeAdmin | undefined;
-
-    ({
-      teardown,
-      aztecNode,
-      logger,
-      aztecNodeAdmin: maybeAztecNodeAdmin,
-      sequencer: sequencerClient,
-      config,
-    } = await setup(2, {
+    test = await setupBlockProducer({
+      numberOfAccounts: 2,
       archiverPollingIntervalMS: 200,
       sequencerPollingIntervalMS: 200,
       worldStateBlockCheckIntervalMS: 200,
@@ -62,10 +54,10 @@ describe('e2e_debug_trace_transaction', () => {
       ethereumSlotDuration: 4,
       aztecProofSubmissionEpochs: 640,
       inboxLag: 2,
-    }));
-    sequencer = sequencerClient! as TestSequencerClient;
+    });
+    ({ aztecNode, logger, aztecNodeAdmin, config } = test.context);
+    sequencer = test.context.sequencer! as TestSequencerClient;
     publisherManager = sequencer.publisherManager;
-    aztecNodeAdmin = maybeAztecNodeAdmin!;
 
     logger.info('Deploying Forwarder contract to L1');
     l1Client = createExtendedL1Client(config.l1RpcUrls, bufferToHex(getPrivateKeyFromIndex(0)!));
@@ -84,7 +76,7 @@ describe('e2e_debug_trace_transaction', () => {
     jest.restoreAllMocks();
   });
 
-  afterAll(() => teardown());
+  afterAll(() => test.teardown());
 
   // In this test we deploy a simple forwarder contract to L1, this serves as an additional proxy
   // Intercepts sendAndMonitorTransaction to forward the Multicall3 call via the Forwarder proxy.
