@@ -331,7 +331,7 @@ tests:
     owners:
       - *palla
 
-  - regex: "e2e_block_building"
+  - regex: "src/single-node/block-building/block_building.test.ts"
     error_regex: "✕ processes txs until hitting timetable"
     owners:
       - *palla
@@ -390,7 +390,7 @@ tests:
 
   # http://ci.aztec-labs.com/98d59d04f85223f8
   # Build-cache flake: module not found during Jest startup
-  - regex: "src/e2e_sequencer/gov_proposal.parallel.test.ts"
+  - regex: "src/single-node/sequencer/gov_proposal.parallel.test.ts"
     error_regex: "Cannot find module '@aztec/sequencer-client/config'"
     owners:
       - *palla
