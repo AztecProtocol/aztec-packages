@@ -22,12 +22,13 @@ For Claude Code, create a `CLAUDE.md` file in your project root. For Codex, crea
 ```markdown
 # Aztec Project
 
-## Critical: Use `aztec` CLI, not `nargo` directly
+## Critical: Use the `aztec` CLI, not `nargo` or `bb` directly
 
-This is an Aztec smart contract project. Always use the `aztec` CLI wrapper instead of calling `nargo` directly:
+This is an Aztec smart contract project. Always use the `aztec` CLI wrapper instead of calling `nargo` or `bb` (the Barretenberg prover) directly:
 
 - **Compile**: `aztec compile` (NOT `nargo compile`). Using `nargo compile` alone produces incomplete artifacts.
 - **Test**: `aztec test` (NOT `nargo test`).
+- **Prove**: NEVER call `bb` directly. Proof generation is handled for you by the PXE through the `aztec` CLI and `aztec.js`. There is no contract-development workflow that runs `bb` by hand.
 - **Other nargo commands** like `aztec-nargo fmt` and `aztec-nargo doc` are fine to use directly. The Aztec installer exposes the bundled `nargo` as `aztec-nargo`; bare `nargo` resolves to your own install (if any), not the bundled one.
 
 ## Error Handling
@@ -57,7 +58,7 @@ This prevents the two most common AI mistakes: using `nargo compile`/`nargo test
 
 ### Why this matters
 
-LLMs have extensive training data for `nargo` (the standalone Noir compiler) but limited exposure to the `aztec` CLI wrapper. Without explicit instructions, they default to `nargo compile`, which produces artifacts missing the AVM transpilation step.
+LLMs have extensive training data for `nargo` (the standalone Noir compiler) and `bb` (the Barretenberg prover CLI) but limited exposure to the `aztec` CLI wrapper. Without explicit instructions, they default to `nargo compile` (which produces artifacts missing the AVM transpilation step) or reach for `bb` to generate proofs. In an Aztec project, compilation and proving both go through the `aztec` tooling.
 
 ## MCP servers
 
