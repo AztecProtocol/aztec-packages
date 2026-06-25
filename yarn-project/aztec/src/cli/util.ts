@@ -1,18 +1,13 @@
 import type { AztecNodeConfig } from '@aztec/aztec-node';
 import type { AccountManager } from '@aztec/aztec.js/wallet';
-import { getNetworkConfig } from '@aztec/cli/config';
-import { RegistryContract } from '@aztec/ethereum/contracts';
-import type { ViemClient } from '@aztec/ethereum/types';
-import type { ConfigMappingsType, NetworkNames } from '@aztec/foundation/config';
+import type { ConfigMappingsType } from '@aztec/foundation/config';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
-import { type LogFn, createLogger } from '@aztec/foundation/log';
+import type { LogFn } from '@aztec/foundation/log';
 import type { ProverConfig } from '@aztec/stdlib/interfaces/server';
-import { type VersionCheck, getPackageVersion } from '@aztec/stdlib/update-checker';
 import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import chalk from 'chalk';
 import type { Command } from 'commander';
-import type { Hex } from 'viem';
 
 import { type AztecStartOption, aztecStartOptions } from './aztec_start_options.js';
 
@@ -49,6 +44,24 @@ export function shutdown(logFn: LogFn, exitCode: ExitCode, cb?: Array<() => Prom
 
 export function isShuttingDown(): boolean {
   return shutdownPromise !== undefined;
+}
+
+/**
+ * Stops the node's subsystems (via the registered signal handlers) without exiting the process, leaving
+ * the HTTP health server listening so K8s liveness/readiness probes keep passing. Unlike {@link shutdown}
+ * this deliberately does not latch `shutdownPromise` or call `process.exit`; instead it re-arms
+ * SIGTERM/SIGINT so a later K8s pod deletion still terminates the wound-down pod with a clean exit.
+ */
+export async function softShutdown(logFn: LogFn, signalHandlers: Array<() => Promise<void>>): Promise<void> {
+  logFn('Canonical rollup upgrade detected: stopping subsystems, health server stays up.', {
+    exitCode: ExitCode.ROLLUP_UPGRADE,
+  });
+  await Promise.allSettled(signalHandlers.map(fn => fn()));
+  for (const sig of ['SIGTERM', 'SIGINT'] as const) {
+    process.removeAllListeners(sig);
+    process.once(sig, () => process.exit(ExitCode.ROLLUP_UPGRADE));
+  }
+  logFn('Subsystems stopped due to rollup upgrade. Health server remains active.');
 }
 
 export const installSignalHandlers = (logFn: LogFn, cb?: Array<() => Promise<void>>) => {
@@ -289,60 +302,6 @@ export async function preloadCrsDataForServerSideProving(
     const { Crs, GrumpkinCrs } = await import('@aztec/bb.js');
     await Promise.all([Crs.new(2 ** 25, undefined, log), GrumpkinCrs.new(2 ** 18, undefined, log)]);
   }
-}
-
-export async function setupVersionChecker(
-  network: NetworkNames,
-  followsCanonicalRollup: boolean,
-  publicClient: ViemClient,
-  signalHandlers: Array<() => Promise<void>>,
-  cacheDir?: string,
-): Promise<void> {
-  const networkConfig = await getNetworkConfig(network, cacheDir);
-  if (!networkConfig) {
-    return;
-  }
-
-  const { VersionChecker } = await import('@aztec/stdlib/update-checker');
-
-  const logger = createLogger('version_check');
-  const registry = new RegistryContract(publicClient, networkConfig.registryAddress as Hex);
-
-  const checks: Array<VersionCheck> = [];
-  checks.push({
-    name: 'node',
-    currentVersion: getPackageVersion(),
-    getLatestVersion: async () => {
-      const cfg = await getNetworkConfig(network, cacheDir);
-      return cfg?.nodeVersion;
-    },
-  });
-
-  if (followsCanonicalRollup) {
-    const getLatestVersion = async () => {
-      const version = (await registry.getRollupVersions()).at(-1);
-      return version !== undefined ? String(version) : undefined;
-    };
-    const currentVersion = await getLatestVersion();
-    if (currentVersion !== undefined) {
-      checks.push({
-        name: 'rollup',
-        currentVersion,
-        getLatestVersion,
-      });
-    }
-  }
-
-  const checker = new VersionChecker(checks, 600_000, logger);
-  checker.on('newVersion', ({ name, latestVersion, currentVersion }) => {
-    if (isShuttingDown()) {
-      return;
-    }
-
-    logger.warn(`New ${name} version available`, { latestVersion, currentVersion });
-  });
-  checker.start();
-  signalHandlers.push(() => checker.stop());
 }
 
 export function stringifyConfig(config: object): string {
