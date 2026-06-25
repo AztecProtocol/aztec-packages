@@ -62,7 +62,7 @@ import { RPCTranslator, UnavailableOracleError } from './rpc_translator.js';
 import { TXEArchiver } from './state_machine/archiver.js';
 import { TXEStateMachine } from './state_machine/index.js';
 import { getSingleTxBlockRequestHash, insertTxEffectIntoWorldTrees, makeTXEBlock } from './utils/block_creation.js';
-import { defaultTaggingSecretStrategyHook } from './utils/default_tagging_secret_strategy.js';
+import { testDefaultTaggingSecretStrategyHook } from './utils/default_tagging_secret_strategy.js';
 import type { ForeignCallArgs, ForeignCallResult } from './utils/encoding.js';
 import { makeTxEffect } from './utils/tx_effect_creation.js';
 import { TXEAccountStore } from './utils/txe_account_store.js';
@@ -739,7 +739,7 @@ export class TXESession implements TXESessionStateHandler {
       messageContextService: this.stateMachine.messageContextService,
       simulator: new WASMSimulator(),
       hooks: composeHooks({
-        resolveTaggingSecretStrategy: defaultTaggingSecretStrategyHook(taggingSecretStrategy),
+        resolveTaggingSecretStrategy: testDefaultTaggingSecretStrategyHook(taggingSecretStrategy),
       }),
       transientArrayService,
     });

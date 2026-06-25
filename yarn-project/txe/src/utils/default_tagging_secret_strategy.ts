@@ -8,7 +8,7 @@ import { AppTaggingSecretKind } from '@aztec/stdlib/logs';
  * - constrained delivery -> non-interactive handshake
  * - unconstrained delivery -> address-derived
  */
-export function defaultTaggingSecretStrategyHook(
+export function testDefaultTaggingSecretStrategyHook(
   explicit: TaggingSecretStrategy | undefined,
 ): ResolveTaggingSecretStrategy {
   if (explicit) {
