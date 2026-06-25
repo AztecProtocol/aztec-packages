@@ -19,6 +19,10 @@ import { ensureAuthRegistryPublished, setup } from './fixtures/utils.js';
 import { LendingAccount, LendingSimulator, TokenSimulator } from './simulators/index.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 
+// Covers the full lifecycle of the Lending contract (deposit, borrow, repay, withdraw) in both
+// private (🥸) and public paths, with and without authorization witnesses. Uses a single automine
+// node; LendingSimulator tracks expected state and verifies after each test. Note that the
+// lendingSim.progressSlots calls advance slot time on the simulator (not L1 time directly).
 describe('e2e_lending_contract', () => {
   jest.setTimeout(100_000);
   let wallet: TestWallet;
@@ -133,6 +137,8 @@ describe('e2e_lending_contract', () => {
     lendingSim.observeBlockTimestamp(Number(block!.header.globalVariables.timestamp));
   };
 
+  // Mints collateral and stable-coin tokens to lendingAccount in both public and private,
+  // records the mints in the simulator, and sets the price feed to 2e9.
   it('Mint assets for later usage', async () => {
     await priceFeedContract.methods.set_price(0n, 2n * 10n ** 9n).send({ from: defaultAccountAddress });
 
@@ -154,6 +160,8 @@ describe('e2e_lending_contract', () => {
     lendingSim.collateralAsset.mintPublic(lendingAccount.address, 10000n);
   });
 
+  // Calls lending.init() to set price feed, LTV, and asset addresses; reads the block timestamp
+  // to initialize lendingSim.time so it matches the on-chain accumulator.
   it('Initialize the contract', async () => {
     logger.info('Initializing contract');
     const { receipt } = await lendingContract.methods
@@ -166,7 +174,10 @@ describe('e2e_lending_contract', () => {
     lendingSim.time = Number(block!.header.globalVariables.timestamp);
   });
 
+  // Covers private and public deposit paths into the lending collateral pool.
   describe('Deposits', () => {
+    // Creates a transfer_to_public authwit, advances slots, calls deposit_private for own account,
+    // and updates simulator state.
     it('Depositing 🥸 : 💰 -> 🏦', async () => {
       const activationThreshold = 420n;
       const authwitNonce = Fr.random();
@@ -201,6 +212,8 @@ describe('e2e_lending_contract', () => {
       lendingSim.depositPrivate(lendingAccount.address, await lendingAccount.key(), activationThreshold);
     });
 
+    // Creates a transfer_to_public authwit, calls deposit_private on behalf of a public recipient,
+    // and updates simulator state with the public key.
     it('Depositing 🥸 on behalf of recipient: 💰 -> 🏦', async () => {
       const activationThreshold = 421n;
       const authwitNonce = Fr.random();
@@ -235,6 +248,7 @@ describe('e2e_lending_contract', () => {
       lendingSim.depositPrivate(lendingAccount.address, lendingAccount.address.toField(), activationThreshold);
     });
 
+    // Sets a public authwit for transfer_in_public, calls deposit_public, and updates simulator.
     it('Depositing: 💰 -> 🏦', async () => {
       const activationThreshold = 211n;
 
@@ -273,7 +287,9 @@ describe('e2e_lending_contract', () => {
     });
   });
 
+  // Covers private and public borrow paths from the lending pool.
   describe('Borrow', () => {
+    // Advances slots, calls borrow_private using the lendingAccount secret, and updates simulator.
     it('Borrow 🥸 : 🏦 -> 🍌', async () => {
       const borrowAmount = 69n;
       await lendingSim.progressSlots(SLOT_JUMP, dateProvider, aztecNode);
@@ -292,6 +308,8 @@ describe('e2e_lending_contract', () => {
       lendingSim.borrow(await lendingAccount.key(), lendingAccount.address, borrowAmount);
     });
 
+    // Advances slots, calls borrow_public using the lendingAccount public address, and updates
+    // simulator state.
     it('Borrow: 🏦 -> 🍌', async () => {
       const borrowAmount = 69n;
       await lendingSim.progressSlots(SLOT_JUMP, dateProvider, aztecNode);
@@ -311,7 +329,10 @@ describe('e2e_lending_contract', () => {
     });
   });
 
+  // Covers private and public repayment paths back to the lending pool.
   describe('Repay', () => {
+    // Creates a burn_private authwit, advances slots, calls repay_private for private debt, and
+    // updates simulator.
     it('Repay 🥸 : 🍌 -> 🏦', async () => {
       const repayAmount = 20n;
       const authwitNonce = Fr.random();
@@ -336,6 +357,8 @@ describe('e2e_lending_contract', () => {
       lendingSim.repayPrivate(lendingAccount.address, await lendingAccount.key(), repayAmount);
     });
 
+    // Creates a burn_private authwit, calls repay_private on behalf of the public account, and
+    // updates simulator for the public debt path.
     it('Repay 🥸  on behalf of public: 🍌 -> 🏦', async () => {
       const repayAmount = 21n;
       const authwitNonce = Fr.random();
@@ -367,6 +390,8 @@ describe('e2e_lending_contract', () => {
       lendingSim.repayPrivate(lendingAccount.address, lendingAccount.address.toField(), repayAmount);
     });
 
+    // Sets a public authwit for burn_public, advances slots, calls repay_public, and updates
+    // simulator.
     it('Repay: 🍌 -> 🏦', async () => {
       const repayAmount = 20n;
       const authwitNonce = Fr.random();
@@ -399,7 +424,9 @@ describe('e2e_lending_contract', () => {
     });
   });
 
+  // Covers public and private withdrawal paths and over-withdrawal failure.
   describe('Withdraw', () => {
+    // Advances slots, calls withdraw_public to retrieve public collateral, and updates simulator.
     it('Withdraw: 🏦 -> 💰', async () => {
       const withdrawAmount = 42n;
       await lendingSim.progressSlots(SLOT_JUMP, dateProvider, aztecNode);
@@ -418,6 +445,8 @@ describe('e2e_lending_contract', () => {
       lendingSim.withdraw(lendingAccount.address.toField(), lendingAccount.address, withdrawAmount);
     });
 
+    // Advances slots, calls withdraw_private to retrieve private collateral using secret, and
+    // updates simulator.
     it('Withdraw 🥸 : 🏦 -> 💰', async () => {
       const withdrawAmount = 42n;
       await lendingSim.progressSlots(SLOT_JUMP, dateProvider, aztecNode);
@@ -436,7 +465,9 @@ describe('e2e_lending_contract', () => {
       lendingSim.withdraw(await lendingAccount.key(), lendingAccount.address, withdrawAmount);
     });
 
+    // Negative path: attempting to withdraw more collateral than available must revert.
     describe('failure cases', () => {
+      // Simulates withdraw_public with an impossibly large amount and expects a revert.
       it('withdraw more than possible to revert', async () => {
         // Withdraw more than possible to test the revert.
         logger.info('Withdraw: trying to withdraw more than possible');

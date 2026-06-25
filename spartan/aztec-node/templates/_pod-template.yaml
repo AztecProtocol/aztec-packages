@@ -221,6 +221,8 @@ spec:
           value: "{{ .Values.node.proverRealProofs }}"
         - name: SENTINEL_ENABLED
           value: "{{ .Values.node.sentinel.enabled }}"
+        - name: OFFENSE_COLLECTION_ENABLED
+          value: "{{ .Values.node.offenseCollection.enabled }}"
         {{- if .Values.node.slash.validatorsAlways }}
         - name: SLASH_VALIDATORS_ALWAYS
           value: {{ join "," .Values.node.slash.validatorsAlways | quote }}

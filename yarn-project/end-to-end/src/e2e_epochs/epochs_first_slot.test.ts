@@ -31,10 +31,12 @@ const NODE_COUNT = 8;
 const COMMITTEE_SIZE = 3;
 const TX_COUNT = 8;
 
-// Spawns NODE_COUNT validator nodes, connected via a mocked gossip sub network, but sets
-// committee size to 3. Warps to immediately before the beginning of an epoch, and checks
-// that the first slot of the epoch is mined without any errors.
-// Regression test for https://github.com/AztecProtocol/aztec-packages/issues/15414
+// Regression test for https://github.com/AztecProtocol/aztec-packages/issues/15414.
+// Eight validator nodes share a mocked gossip bus with a committee size of 3. Sends 8 txs
+// (one per sub-slot, maxTxsPerBlock=1), then warps L1 to just before an epoch boundary so
+// the pipelined proposer's first build window targets the epoch's first slot. Verifies that
+// blocks are built on both the first and second slots of the new epoch.
+// Uses EpochsTestContext with mockGossipSubNetwork, no initial sequencer, no prover node.
 describe('e2e_epochs/epochs_first_slot', () => {
   let context: EndToEndContext;
   let logger: Logger;
@@ -96,6 +98,9 @@ describe('e2e_epochs/epochs_first_slot', () => {
     await test.teardown();
   });
 
+  // Pre-proves 8 txs and sends them without waiting. Warps to one L1 block before the first slot
+  // of an epoch that is two epochs ahead. Starts all sequencers and waits for all txs to be mined.
+  // Asserts that blocks with the epoch's first and second slot numbers are present in the archiver.
   it('builds blocks on the first two slots of the epoch', async () => {
     // Create and submit txs for the first two slots of the epoch
     // We set maxTxsPerBlock to 1, so two txs mean two consecutive blocks
@@ -138,6 +143,8 @@ describe('e2e_epochs/epochs_first_slot', () => {
     const [firstSlot] = getSlotRangeForEpoch(epoch, test.constants);
     const secondSlot = SlotNumber(firstSlot + 1);
     logger.warn(`Waiting until blocks are synced for slots ${firstSlot} and ${secondSlot}`);
+    // REFACTOR: hand-rolled poll checking block slots; replace with a helper such as
+    // waitUntilBlocksForSlots(nodes[0], [firstSlot, secondSlot], timeout).
     await retryUntil(
       async () => {
         const blocks = await nodes[0].getBlocks(BlockNumber(INITIAL_L2_BLOCK_NUM), 10);

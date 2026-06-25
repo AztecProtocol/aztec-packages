@@ -16,6 +16,12 @@ import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { proveInteraction } from '../test-wallet/utils.js';
 import { FeesTest } from './fees_test.js';
 
+// Fee oracle and wallet fee-padding behaviour under L1 base-fee spikes and governance fee-config bumps.
+// Uses FeesTest with a custom timing preset (ethSlot=4s, aztecSlot=12s, inboxLag=2, minTxsPerBlock=0,
+// aztecProofSubmissionEpochs=640, manaTarget=4M, walletMinFeePadding=30) and fake in-proc prover node.
+// No token bridging involved — all L1 interaction is L1 base-fee cheat codes and Rollup oracle calls.
+// (Category: single-node despite using FeesTest, since no cross-chain token transfer or fee-juice
+// portal bridging occurs in any test body — L1 is active only for oracle updates.)
 describe('e2e_fees fee settings', () => {
   let aztecNode: AztecNode;
   let cheatCodes: CheatCodes;
@@ -61,6 +67,7 @@ describe('e2e_fees fee settings', () => {
     await t.teardown();
   });
 
+  // Tests that wallet fee padding correctly handles L2 fee spikes driven by L1 base-fee changes.
   describe('setting max fee per gas', () => {
     // Drive an organic L2 fee bump via an L1 base-fee spike. On mainnet, L1 base fees fluctuate
     // organically with L1 demand and dominate `feePerL2Gas` (the rollup's L1 gas oracle samples
@@ -114,6 +121,8 @@ describe('e2e_fees fee settings', () => {
       );
       t.logger.info(`Targeting L1 base fee ${targetL1BaseFee} (current ${currentL1BaseFee})`);
 
+      // REFACTOR: hand-rolled retryUntil loop that mines L1 blocks and rotates the oracle; replace with
+      // a helper on RollupCheatCodes that abstracts the L1-base-fee-spike + oracle-rotation retry.
       return await retryUntil(
         async () => {
           await cheatCodes.eth.setNextBlockBaseFeePerGas(targetL1BaseFee);
@@ -140,6 +149,8 @@ describe('e2e_fees fee settings', () => {
     // Pick a baseline from the post-checkpoint chain state. The prove step itself is
     // made deterministic by prepareTxsWithMockedMinFees below.
     const getCurrentMinFeesAfterCheckpoint = async (checkpointedBlock: BlockNumber) => {
+      // REFACTOR: hand-rolled retryUntil polling for a checkpointed block number; replace with a
+      // waitUntilCheckpointedBlockNumber(node, blockNumber) helper in the e2e fixture utilities.
       return await retryUntil(
         async () => {
           const currentCheckpointedBlock = await aztecNode.getBlockNumber('checkpointed');
@@ -189,6 +200,9 @@ describe('e2e_fees fee settings', () => {
       }
     };
 
+    // Prepares two txs at the same stable fee snapshot (one with no padding, one with default 30x
+    // padding), then spikes the L1 base fee so the L2 oracle rotates upward. Asserts the no-padding
+    // tx is rejected for insufficient fee while the padded tx mines successfully.
     it('handles min fee spikes with default padding', async () => {
       const stableMinFees = await getCurrentMinFeesAfterCheckpoint(testContractDeployBlock);
       const { txWithNoPadding, txWithDefaultPadding } = await prepareTxsWithMockedMinFees(stableMinFees, stableMinFees);
@@ -216,6 +230,9 @@ describe('e2e_fees fee settings', () => {
       await expect(txWithDefaultPadding.send()).resolves.toBeDefined();
     });
 
+    // Prepares one tx against a synthetically higher fee snapshot and another against a lower one,
+    // then spikes L2 fees between the lower and higher values. Asserts both mine, proving the higher
+    // snapshot correctly covers the post-spike fee without relying on the default padding.
     it('reproduces the stale fee snapshot race deterministically', async () => {
       // The previous test bumped the proving cost, setting FeeLib's provingCostLastUpdate.
       // Clear the 30-day cooldown so bumpL2Fees below can land.
@@ -249,6 +266,9 @@ describe('e2e_fees fee settings', () => {
       await expect(txWithDefaultPadding.send()).resolves.toBeDefined();
     });
 
+    // Regression test for A-1057: a governance fee-config bump between proposer build and L1 submit
+    // invalidates the pipelined checkpoint. Asserts the chain skips the bad slot and resumes producing
+    // checkpoints, and that a fresh tx prepared after the bump mines under default padding.
     // Regression test for A-1057. Under pipelining, the proposer for slot N starts building the
     // checkpoint header (and bakes `manaMinFee` into `gasFees.feePerL2Gas`) during slot N-1. If
     // governance executes `setProvingCostPerMana` or `updateManaTarget` between that build and the
@@ -275,6 +295,8 @@ describe('e2e_fees fee settings', () => {
       // `checkpointed` tip must strictly advance.
       const RECOVERY_TARGET = CheckpointNumber.add(checkpointBefore, 3);
       const RECOVERY_BUDGET_SECONDS = AZTEC_SLOT_DURATION * 6;
+      // REFACTOR: hand-rolled retryUntil polling for checkpoint number; replace with a
+      // waitForCheckpointNumber(node, target) helper from EpochsTestContext or a shared utility.
       await retryUntil(
         async () => (await aztecNode.getCheckpointNumber('checkpointed')) >= RECOVERY_TARGET,
         `chain advances at least ${RECOVERY_TARGET - checkpointBefore} checkpoints past governance bump`,

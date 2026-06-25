@@ -1,6 +1,8 @@
 import { AUTOMINE_E2E_OPTS, U128_OVERFLOW_ERROR } from '../fixtures/fixtures.js';
 import { TokenContractTest } from './token_contract_test.js';
 
+// Covers public and private minting on Token contract, including minter role enforcement and overflow checks.
+// Setup: single node with AutomineSequencer, 3 accounts deployed, Token contract deployed (no initial mint).
 describe('e2e_token_contract minting', () => {
   const t = new TokenContractTest('minting');
   let { asset, tokenSim, adminAddress, account1Address } = t;
@@ -19,7 +21,9 @@ describe('e2e_token_contract minting', () => {
     await t.tokenSim.check();
   });
 
+  // Public mint path: success and overflow/permission failure cases.
   describe('Public', () => {
+    // Mints 10000 tokens publicly as admin-minter and verifies balance and total supply via TokenSimulator.
     it('as minter', async () => {
       const amount = 10000n;
       await asset.methods.mint_to_public(adminAddress, amount).send({ from: adminAddress });
@@ -33,7 +37,9 @@ describe('e2e_token_contract minting', () => {
       );
     });
 
+    // Error paths for public mint.
     describe('failure cases', () => {
+      // Attempts mint_to_public from account1 (not a minter); expects 'caller is not minter'.
       it('as non-minter', async () => {
         const amount = 10000n;
         await expect(
@@ -41,6 +47,7 @@ describe('e2e_token_contract minting', () => {
         ).rejects.toThrow('Assertion failed: caller is not minter');
       });
 
+      // Mints an amount that would overflow the recipient's u128 public balance; expects U128_OVERFLOW_ERROR.
       it('mint <u128 but recipient balance >u128', async () => {
         const amount = 2n ** 128n - tokenSim.balanceOfPublic(adminAddress);
         await expect(
@@ -48,6 +55,7 @@ describe('e2e_token_contract minting', () => {
         ).rejects.toThrow(U128_OVERFLOW_ERROR);
       });
 
+      // Mints an amount that would overflow total supply across accounts; expects U128_OVERFLOW_ERROR.
       it('mint <u128 but such that total supply >u128', async () => {
         const amount = 2n ** 128n - tokenSim.balanceOfPublic(adminAddress);
         await expect(
@@ -57,7 +65,9 @@ describe('e2e_token_contract minting', () => {
     });
   });
 
+  // Private mint path: success and overflow/permission failure cases.
   describe('Private', () => {
+    // Mints 10000 tokens privately as admin-minter and verifies balance and total supply via TokenSimulator.
     it('as minter', async () => {
       const amount = 10000n;
       await asset.methods.mint_to_private(adminAddress, amount).send({ from: adminAddress });
@@ -71,7 +81,9 @@ describe('e2e_token_contract minting', () => {
       );
     });
 
+    // Error paths for private mint.
     describe('failure cases', () => {
+      // Attempts mint_to_private from account1 (not a minter); expects 'caller is not minter'.
       it('as non-minter', async () => {
         const amount = 10000n;
         await expect(
@@ -79,7 +91,7 @@ describe('e2e_token_contract minting', () => {
         ).rejects.toThrow('Assertion failed: caller is not minter');
       });
 
-      // This test is expected to fail at the ABI encoder rather than during contract logic.
+      // Passes an overflowed u128 to mint_to_private; expected to fail at ABI encoding, not contract logic.
       // We keep the test to be defensive as it is the only e2e test with overflowed inputs.
       it('mint >u128 tokens to overflow', async () => {
         const overflowAmount = 2n ** 128n;
@@ -88,6 +100,7 @@ describe('e2e_token_contract minting', () => {
         ).rejects.toThrow('does not fit in u128');
       });
 
+      // Mints an amount that would overflow the recipient's private u128 balance; expects U128_OVERFLOW_ERROR.
       it('mint <u128 but recipient balance >u128', async () => {
         const amount = 2n ** 128n - tokenSim.balanceOfPrivate(adminAddress);
         await expect(
@@ -95,6 +108,7 @@ describe('e2e_token_contract minting', () => {
         ).rejects.toThrow(U128_OVERFLOW_ERROR);
       });
 
+      // Mints an amount that would overflow total supply (private path); expects U128_OVERFLOW_ERROR.
       it('mint <u128 but such that total supply >u128', async () => {
         const amount = 2n ** 128n - tokenSim.balanceOfPrivate(adminAddress);
         await expect(

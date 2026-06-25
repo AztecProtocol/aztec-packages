@@ -11,6 +11,10 @@ const DATA_DIR = createReqrespDataDir();
 // publish exceeds the default 5 min jest test timeout. Allow 15 min.
 jest.setTimeout(15 * 60 * 1000);
 
+// Tests the reqresp tx-collection path over real libp2p: 6 validators, ethSlot=8s, aztecSlot=36s,
+// blockDurationMs=6s, enforceTimeTable, min=1/max=2 txs, proofSubEpochs=1024, epoch=64 (stable committee),
+// inboxLag=2. Non-proposer nodes have tx gossip disabled so they must request the tx over reqresp.
+// Also verifies multi-blocks-per-slot (mbps) checkpoint is produced. jest.setTimeout=15m.
 describe('e2e_p2p_reqresp_tx', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
@@ -35,6 +39,8 @@ describe('e2e_p2p_reqresp_tx', () => {
      *
      * Note: we do not attempt to let this node produce a block, as it will not have received any transactions
      *       from the other pxes.
+     *
+     * Delegates to runReqrespTxTest in utils.ts; see that helper for the full flow.
      */
     nodes = await runReqrespTxTest({ t, dataDir: DATA_DIR });
   });

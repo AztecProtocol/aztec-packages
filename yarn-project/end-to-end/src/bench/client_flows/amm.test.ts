@@ -38,6 +38,8 @@ interface RoundTripData {
   roundTrips: RoundTripStats | undefined;
 }
 
+// AMM interaction round-trip benchmark. Uses ClientFlowsBenchmark with BENCHMARK_CONFIG; profiles
+// add-liquidity and swap flows across account types and fee-payment methods; emits BENCH_OUTPUT JSON.
 describe('AMM benchmark', () => {
   const roundTripData: RoundTripData[] = [];
   const t = new ClientFlowsBenchmark('amm');

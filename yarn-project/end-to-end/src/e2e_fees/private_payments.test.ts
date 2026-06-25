@@ -15,6 +15,10 @@ import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { proveInteraction } from '../test-wallet/utils.js';
 import { FeesTest } from './fees_test.js';
 
+// Private fee payment via BananaCoin FPC (PrivateFeePaymentMethod). Uses FeesTest (prod sequencer,
+// pipelining preset: ethSlot=4s, aztecSlot=12s, inboxLag=2, minTxsPerBlock=0, aztecEpochDuration=4,
+// aztecProofSubmissionEpochs=640), fake in-proc prover node, and GasBridgingTestHarness for L1↔L2
+// fee-juice bridging. Auto-proving is disabled after setup so tests control epoch advancement.
 describe('e2e_fees private_payment', () => {
   // FeesTest.setup + applyFPCSetup + applyFundAliceWithBananas chains many dependent txs which run at the
   // ~24s/tx pipelined cadence, exceeding the default 5 min hook window.
@@ -79,6 +83,8 @@ describe('e2e_fees private_payment', () => {
     ]);
   });
 
+  // Alice transfers private bananas to Bob using PrivateFeePaymentMethod. Verifies sequencer rewards
+  // on L1 equal fee minus prover fee and burn, and Alice's banana balance decreases by fee + transfer.
   it('pays fees for tx that dont run public app logic', async () => {
     /**
      * PRIVATE SETUP (1 nullifier for tx)
@@ -155,6 +161,8 @@ describe('e2e_fees private_payment', () => {
     );
   });
 
+  // Alice mints private bananas to herself while paying via FPC. Asserts the FPC banana public
+  // balance increases by the fee and Alice's private balance increases net of the fee.
   it('pays fees for tx that creates notes in private', async () => {
     /**
      * PRIVATE SETUP
@@ -199,6 +207,8 @@ describe('e2e_fees private_payment', () => {
     );
   });
 
+  // Alice transfers bananas from public to private (creating a note via public app logic) while paying
+  // via FPC. Asserts both private and public balances change correctly and the FPC receives its fee.
   it('pays fees for tx that creates notes in public', async () => {
     /**
      * PRIVATE SETUP
@@ -247,6 +257,8 @@ describe('e2e_fees private_payment', () => {
     );
   });
 
+  // A BatchCall combines a private transfer and a public-to-private shield in one tx while paying via
+  // FPC. Verifies all four balance deltas (Alice private, Alice public, Bob private, FPC public).
   it('pays fees for tx that creates notes in both private and public', async () => {
     const amountTransferredInPrivate = 1n;
     const amountTransferredToPrivate = 2n;
@@ -302,6 +314,8 @@ describe('e2e_fees private_payment', () => {
     );
   });
 
+  // Deploys a BananaFPC with no fee-juice funding, then tries to use it as a fee payer.
+  // Asserts the tx is rejected with "Insufficient fee payer balance" before execution.
   it('rejects txs that dont have enough balance to cover gas costs', async () => {
     // deploy a copy of bananaFPC but don't fund it!
     const { contract: bankruptFPC } = await FPCContract.deploy(wallet, bananaCoin.address, aliceAddress).send({
@@ -321,6 +335,8 @@ describe('e2e_fees private_payment', () => {
   });
 
   // TODO(#7694): Remove this test once the lacking feature in TXE is implemented.
+  // Passes max_fee=1 (effectively zero) to PrivateFeePaymentMethod so the funded amount check fires.
+  // Asserts simulation throws "max fee not enough to cover tx fee".
   it('insufficient funded amount is correctly handled', async () => {
     // We call arbitrary `private_get_name(...)` function just to check the correct error is triggered.
     await expect(

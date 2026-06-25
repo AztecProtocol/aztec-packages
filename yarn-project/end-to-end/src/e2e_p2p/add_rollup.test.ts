@@ -61,6 +61,12 @@ jest.setTimeout(1000 * 60 * 20);
  * The sequencers proposer a proposal, the proposal is executed and the new rollup is added to the registry
  * The nodes are then updated to use the new rollup and we send transactions to try cross-chain in both directions
  * ensuring that it also works on the new rollup.
+ *
+ * Setup: P2PNetworkTest (real libp2p, 4 validator nodes + 1 prover node). SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES
+ * (ethSlot=4s, aztecSlot=12s, proofSubEpochs=640) with governanceProposerRoundSize=10, minTxsPerBlock=0,
+ * inboxLag=2. Full governance upgrade flow: validators signal a new rollup payload over real p2p, governance
+ * vote executes, nodes migrate to the new rollup. Exercises L1→L2 (Inbox) and L2→L1 (Outbox) bridging on
+ * both the old and new rollup.
  */
 describe('e2e_p2p_add_rollup', () => {
   let t: P2PNetworkTest;
@@ -107,6 +113,9 @@ describe('e2e_p2p_add_rollup', () => {
     }
   });
 
+  // Runs the full upgrade lifecycle: deploy a new rollup, have validators signal it over real p2p gossip,
+  // reach governance quorum, execute the proposal, migrate all validator nodes to the new rollup, then
+  // verify L1↔L2 cross-chain messaging works on both the old and new rollup.
   it('Should cast votes to add new rollup to registry', async () => {
     // create the bootstrap node for the network
     if (!t.bootstrapNodeEnr) {
@@ -241,6 +250,7 @@ describe('e2e_p2p_add_rollup', () => {
     await waitL1Block();
 
     t.logger.info('Creating nodes');
+    // REFACTOR: sleep(4000) below is a hand-rolled connectivity wait; replace with t.waitForP2PMeshConnectivity
     nodes = await createNodes(
       { ...t.ctx.aztecNodeConfig, governanceProposerPayload: newPayloadAddress },
       t.ctx.dateProvider,
@@ -436,6 +446,7 @@ describe('e2e_p2p_add_rollup', () => {
       t.ctx.aztecNodeConfig.l1RpcUrls,
     );
 
+    // REFACTOR: while(true) polling loop with sleep is hand-rolled; replace with retryUntil
     let govData;
     while (true) {
       govData = await govInfo();
