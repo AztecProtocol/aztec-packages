@@ -120,8 +120,6 @@ mod test {
     use std::test::OracleMock;
 
     global SENDER: AztecAddress = AztecAddress::from_field(1);
-    // A valid recipient (its address is on the curve), so path B reaches the wallet strategy oracle rather than the
-    // invalid-recipient short circuit. See `oracle::resolve_tagging_strategy` for the validity convention.
     global RECIPIENT: AztecAddress = AztecAddress::from_field(8);
 
     #[test]

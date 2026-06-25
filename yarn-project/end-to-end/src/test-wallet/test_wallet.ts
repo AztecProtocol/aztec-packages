@@ -28,6 +28,7 @@ import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
+import { AppTaggingSecretKind } from '@aztec/stdlib/logs';
 import type { NoteDao } from '@aztec/stdlib/note';
 import {
   type BlockHeader,
@@ -78,7 +79,21 @@ export class TestWallet extends BaseWallet {
       proverEnabled: overridePXEConfig?.proverEnabled ?? false,
       ...overridePXEConfig,
     });
-    const pxe = await createPXE(nodeRef, pxeConfig, options);
+    // Account constructors deliver the public-key note via constrained delivery, which needs a tagging secret
+    // strategy. Every test wallet defaults to a non-interactive handshake (unconstrained keeps the address-derived
+    // default); callers can override per-field via `options.hooks`.
+    const pxe = await createPXE(nodeRef, pxeConfig, {
+      ...options,
+      hooks: {
+        resolveTaggingSecretStrategy: ({ deliveryMode }) =>
+          Promise.resolve(
+            deliveryMode === AppTaggingSecretKind.CONSTRAINED
+              ? { type: 'non-interactive-handshake' }
+              : { type: 'address-derived' },
+          ),
+        ...options.hooks,
+      },
+    });
     const wallet = new TestWallet(pxe, nodeRef);
     await wallet.initStubClasses();
     return wallet;
