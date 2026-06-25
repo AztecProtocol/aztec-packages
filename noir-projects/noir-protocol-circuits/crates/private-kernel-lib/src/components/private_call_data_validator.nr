@@ -147,6 +147,14 @@ impl PrivateCallDataValidator {
             this_call.tx_context,
             "tx_context in private call does not match the value in tx_request",
         );
+        // Binds the entry-point proof to the tx request's salt. The salt feeds the protocol nullifier
+        // (`P = H(tx_request)`), so without this a third party could rebind the same proof to a
+        // different salt, yielding a different `P` and replaying the transaction.
+        assert_eq(
+            tx_request.salt,
+            this_call.tx_request_salt,
+            "tx_request_salt in private call does not match the salt in tx_request",
+        );
     }
 
     /// For Inner only.
