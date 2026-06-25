@@ -36,7 +36,7 @@
     },
     "saturation": {
       "$ref": "#/$defs/metricSeriesMap",
-      "description": "v4. Per-role resource saturation: ELU, CPU, and memory for each role (validator / rpc / fullNode / proverNode / broker / agent), each emitted as both the hottest pod (max across pods) and the role average (avg across pods). Never a single hand-picked pod. Optional — absent on older runs."
+      "description": "v4. Per-role resource saturation: ELU, CPU, memory, and event-loop delay (mean, raw nanoseconds) for each role (validator / rpc / fullNode / proverNode / broker / agent), each emitted as both the hottest pod (max across pods) and the role average (avg across pods). Never a single hand-picked pod. Optional — absent on older runs."
     },
     "blocks": {
       "type": "array",
@@ -306,10 +306,36 @@
         "blockBuildDurationP95Ms": {
           "type": ["number", "null"]
         },
+        "blockBuildAvgTxsPerBlock": {
+          "type": ["number", "null"],
+          "description": "Mean successfulCount over non-empty blocks in the inclusion window. Context for the per-tx build figures below."
+        },
+        "blockBuildPerTxMsAggregate": {
+          "type": ["number", "null"],
+          "description": "Block build cost per tx: sum(buildDurationMs) / sum(txs) over non-empty blocks. Single headline 'build-ms per tx'."
+        },
+        "blockBuildMarginalMsPerTx": {
+          "type": ["number", "null"],
+          "description": "Marginal build cost of one tx: OLS slope of buildDurationMs vs txCount across non-empty blocks (buildMs = fixed + marginal*txCount). Null if < 2 blocks or uniform tx counts."
+        },
+        "blockBuildFixedOverheadMsPerBlock": {
+          "type": ["number", "null"],
+          "description": "Fixed per-block build overhead: OLS intercept of buildDurationMs vs txCount. The load-sensitive component independent of tx count."
+        },
         "publicProcessorTxDurationP50Ms": {
           "type": ["number", "null"]
         },
         "publicProcessorTxDurationP95Ms": {
+          "type": ["number", "null"]
+        },
+        "mempoolTxMinedDelayP50Ms": {
+          "type": ["number", "null"],
+          "description": "Pool-side pending-to-mined delay (aztec_mempool_tx_mined_delay, now - receivedAt at the mined transition), across all pool txs. Distinct from the client-observed inclusionLatency* (high-value lane only)."
+        },
+        "mempoolTxMinedDelayP95Ms": {
+          "type": ["number", "null"]
+        },
+        "mempoolTxMinedDelayP99Ms": {
           "type": ["number", "null"]
         },
         "totalTxsMined": {

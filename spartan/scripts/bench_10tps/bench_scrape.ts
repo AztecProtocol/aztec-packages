@@ -402,6 +402,37 @@ const TIME_SERIES_DEFS: Record<string, TimeSeriesDef> = {
       "aztec_node_receive_tx_duration_milliseconds_bucket",
     ),
   },
+  // Pool-side pending->mined delay measured inside the tx pool
+  // (aztec_mempool_tx_mined_delay, recorded as now - receivedAt at the mined
+  // transition). This is the node's own view of how long txs sat in the mempool
+  // before being mined, across ALL pool txs. Distinct from txMinedDelay* below,
+  // which is the client-observed inclusion latency for the high-value lane only.
+  // No aztec_pool_name filter needed: the attestation pool uses a different
+  // metric name (aztec_mempool_attestations_mined_delay).
+  mempoolTxMinedDelayP50: {
+    metric: "aztec_mempool_tx_mined_delay_milliseconds",
+    unit: "ms",
+    query: histQuantile(
+      0.5,
+      "aztec_mempool_tx_mined_delay_milliseconds_bucket",
+    ),
+  },
+  mempoolTxMinedDelayP95: {
+    metric: "aztec_mempool_tx_mined_delay_milliseconds",
+    unit: "ms",
+    query: histQuantile(
+      0.95,
+      "aztec_mempool_tx_mined_delay_milliseconds_bucket",
+    ),
+  },
+  mempoolTxMinedDelayP99: {
+    metric: "aztec_mempool_tx_mined_delay_milliseconds",
+    unit: "ms",
+    query: histQuantile(
+      0.99,
+      "aztec_mempool_tx_mined_delay_milliseconds_bucket",
+    ),
+  },
   // Pending mempool size sliced by pod role. Three single-series slugs make cross-run
   // overlay clean: pod names are unstable (replica counts and restart suffixes
   // change between runs) but role is stable. Each query filters to TxPool to
@@ -612,6 +643,14 @@ const SATURATION_METRICS: { key: string; metric: string; unit: string }[] = [
   { key: "cpu", metric: "process_cpu_utilization", unit: "ratio" },
   // OTel exports the v8 heap gauge with a `_bytes` unit suffix.
   { key: "mem", metric: "nodejs_memory_v8_heap_usage_bytes", unit: "bytes" },
+  // Event-loop delay (mean of the per-scrape distribution), raw nanoseconds. The
+  // max-across-pods series surfaces the role's most event-loop-blocked pod — e.g.
+  // the prover node, whose synchronous hint-gen blocks its main thread for seconds.
+  {
+    key: "eventLoopDelay",
+    metric: "nodejs_eventloop_delay_mean_nanoseconds",
+    unit: "ns",
+  },
 ];
 
 function buildSaturationDefs(): Record<string, TimeSeriesDef> {
@@ -1717,6 +1756,51 @@ type SummaryArgs = {
   inclusionRecords: InclusionRecord[];
 };
 
+type BlockBuildPerTx = {
+  blockBuildAvgTxsPerBlock: number | null;
+  blockBuildPerTxMsAggregate: number | null;
+  blockBuildMarginalMsPerTx: number | null;
+  blockBuildFixedOverheadMsPerBlock: number | null;
+};
+
+// Decomposes block build time into a fixed per-block overhead and a marginal
+// per-tx cost via an ordinary least-squares fit of build-ms against tx count
+// over non-empty blocks (buildMs = fixed + marginal * txCount). The marginal
+// slope is the (load-invariant) cost of adding one tx to a block; the intercept
+// is the per-block overhead that grows with block size / system load. The
+// aggregate is the simpler sum(buildMs)/sum(tx) — a single "build-ms per tx"
+// headline. The OLS slope needs >= 2 blocks with differing tx counts, so
+// marginal/fixed are null for a run with too few or uniform-width blocks.
+function blockBuildPerTx(blocks: BlockRecord[]): BlockBuildPerTx {
+  const pts = blocks
+    .filter(
+      (b) => b.successfulCount > 0 && Number.isFinite(b.buildDurationSeconds),
+    )
+    .map((b) => ({ x: b.successfulCount, y: b.buildDurationSeconds * 1000 }));
+  if (pts.length === 0) {
+    return {
+      blockBuildAvgTxsPerBlock: null,
+      blockBuildPerTxMsAggregate: null,
+      blockBuildMarginalMsPerTx: null,
+      blockBuildFixedOverheadMsPerBlock: null,
+    };
+  }
+  const n = pts.length;
+  const sx = pts.reduce((s, p) => s + p.x, 0);
+  const sy = pts.reduce((s, p) => s + p.y, 0);
+  const sxx = pts.reduce((s, p) => s + p.x * p.x, 0);
+  const sxy = pts.reduce((s, p) => s + p.x * p.y, 0);
+  const denom = n * sxx - sx * sx;
+  const marginal = n >= 2 && denom !== 0 ? (n * sxy - sx * sy) / denom : null;
+  const fixed = marginal !== null ? (sy - marginal * sx) / n : null;
+  return {
+    blockBuildAvgTxsPerBlock: sx / n,
+    blockBuildPerTxMsAggregate: sx > 0 ? sy / sx : null,
+    blockBuildMarginalMsPerTx: marginal,
+    blockBuildFixedOverheadMsPerBlock: fixed,
+  };
+}
+
 async function buildSummary(a: SummaryArgs): Promise<Record<string, unknown>> {
   // inclusionTps is single-series; series[0] holds all points.
   const inclusionPoints = (
@@ -1780,7 +1864,15 @@ async function buildSummary(a: SummaryArgs): Promise<Record<string, unknown>> {
     log("No inclusion records loaded; summary.inclusionLatencyP* will be null");
   }
 
-  const [buildP50, buildP95, ppTxP50, ppTxP95] = await Promise.all([
+  const [
+    buildP50,
+    buildP95,
+    ppTxP50,
+    ppTxP95,
+    mempoolMinedP50,
+    mempoolMinedP95,
+    mempoolMinedP99,
+  ] = await Promise.all([
     safeInstant(
       oneShotQuantile(
         0.5,
@@ -1804,6 +1896,19 @@ async function buildSummary(a: SummaryArgs): Promise<Record<string, unknown>> {
         0.95,
         "aztec_public_processor_tx_duration_milliseconds_bucket",
       ),
+    ),
+    // Pool-side pending->mined delay (now - receivedAt at the mined transition),
+    // across all pool txs. Companion to the time series of the same name; lets
+    // the dashboard trend it and compare against the client-observed
+    // inclusionLatency* (high-value lane only).
+    safeInstant(
+      oneShotQuantile(0.5, "aztec_mempool_tx_mined_delay_milliseconds_bucket"),
+    ),
+    safeInstant(
+      oneShotQuantile(0.95, "aztec_mempool_tx_mined_delay_milliseconds_bucket"),
+    ),
+    safeInstant(
+      oneShotQuantile(0.99, "aztec_mempool_tx_mined_delay_milliseconds_bucket"),
     ),
   ]);
 
@@ -1824,8 +1929,12 @@ async function buildSummary(a: SummaryArgs): Promise<Record<string, unknown>> {
     inclusionLatencyP99Ms: inclLatP99,
     blockBuildDurationP50Ms: buildP50,
     blockBuildDurationP95Ms: buildP95,
+    ...blockBuildPerTx(inclusionBlocks),
     publicProcessorTxDurationP50Ms: ppTxP50,
     publicProcessorTxDurationP95Ms: ppTxP95,
+    mempoolTxMinedDelayP50Ms: mempoolMinedP50,
+    mempoolTxMinedDelayP95Ms: mempoolMinedP95,
+    mempoolTxMinedDelayP99Ms: mempoolMinedP99,
     totalTxsMined,
     totalTxsFailed: hasInclusionBlockRecords
       ? inclusionBlocks.reduce((s, b) => s + b.failedCount, 0)
