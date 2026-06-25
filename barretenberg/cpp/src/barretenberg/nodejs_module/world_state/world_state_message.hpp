@@ -248,6 +248,8 @@ struct SyncBlockRequest {
     block_number_t blockNumber;
     StateReference blockStateRef;
     bb::fr blockHeaderHash;
+    bb::fr expectedArchiveRoot;
+    bb::fr expectedPreviousArchiveRoot;
     std::vector<bb::fr> paddedNoteHashes, paddedL1ToL2Messages;
     std::vector<crypto::merkle_tree::NullifierLeafValue> paddedNullifiers;
     std::vector<crypto::merkle_tree::PublicDataLeafValue> publicDataWrites;
@@ -255,6 +257,8 @@ struct SyncBlockRequest {
     SERIALIZATION_FIELDS(blockNumber,
                          blockStateRef,
                          blockHeaderHash,
+                         expectedArchiveRoot,
+                         expectedPreviousArchiveRoot,
                          paddedNoteHashes,
                          paddedL1ToL2Messages,
                          paddedNullifiers,

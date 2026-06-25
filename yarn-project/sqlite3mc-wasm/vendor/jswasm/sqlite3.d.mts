@@ -1,4 +1,4 @@
-// Type declaration for the sqlite3mc bundler-friendly ES module.
+// Type declaration for the sqlite3mc ES module.
 // sqlite3mc is API-compatible with @sqlite.org/sqlite-wasm, so we reuse its
 // Sqlite3Static type directly.
 import type { Sqlite3Static } from '@sqlite.org/sqlite-wasm';

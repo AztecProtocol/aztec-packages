@@ -5,6 +5,9 @@ import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client'
 import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import { type EndToEndContext, setup } from '../fixtures/utils.js';
 
+// Tests that slasher configuration can be updated at runtime via the node admin API.
+// Single node with no accounts (setup(0)), PIPELINING_SETUP_OPTS (ethSlot=4s, aztecSlot=12s),
+// slasher enabled with custom inactivity config. No block building exercised.
 describe('e2e_slasher_config', () => {
   let aztecNodeAdmin: AztecNodeAdmin | undefined;
   let aztecNode: AztecNode;
@@ -25,6 +28,9 @@ describe('e2e_slasher_config', () => {
 
   afterAll(() => teardown());
 
+  // Reads the initial slasher config from the running node's slasher client, calls setConfig() via
+  // the admin API to update slashInactivityTargetPercentage, and asserts the new value is reflected
+  // while slashInactivityPenalty remains unchanged.
   it('should update slasher config', async () => {
     const slasherClient = (aztecNode as TestAztecNodeService).slasherClient as SlasherClientInterface;
     expect(slasherClient).toBeDefined();

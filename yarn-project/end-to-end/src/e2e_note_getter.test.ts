@@ -16,6 +16,9 @@ function boundedVecToArray<T>(boundedVec: NoirBoundedVec<T>): T[] {
   return boundedVec.storage.slice(0, Number(boundedVec.len));
 }
 
+// Covers the NoteGetter contract's filtering capabilities (EQ, NEQ, LT, GT, LTE, GTE comparators
+// and sub-field property selectors) and the TestContract's note status filter (active vs nullified).
+// Single automine node, one funded account, contracts deployed per describe block.
 describe('e2e_note_getter', () => {
   let wallet: Wallet;
   let defaultAddress: AztecAddress;
@@ -31,6 +34,8 @@ describe('e2e_note_getter', () => {
 
   afterAll(() => teardown());
 
+  // Verifies all six Comparator variants (EQ, NEQ, LT, GT, LTE, GTE) against a set of notes with
+  // values 0-9 plus a duplicate 5.
   describe('comparators', () => {
     let contract: NoteGetterContract;
 
@@ -38,6 +43,8 @@ describe('e2e_note_getter', () => {
       ({ contract } = await NoteGetterContract.deploy(wallet).send({ from: defaultAddress }));
     });
 
+    // Inserts 10 notes (0-9) plus a duplicate 5. Runs all 6 comparator queries in parallel and
+    // asserts each returns the expected set of values.
     it('inserts notes from 0-9, then makes multiple queries specifying the total suite of comparators', async () => {
       await Promise.all(
         Array(10)
@@ -78,6 +85,8 @@ describe('e2e_note_getter', () => {
     });
   });
 
+  // Verifies that the sub-field property selector correctly extracts individual u8 sub-values
+  // packed into a single Field (using LSB offset/length convention).
   describe('sub-field property selector', () => {
     let contract: NoteGetterContract;
 
@@ -95,6 +104,7 @@ describe('e2e_note_getter', () => {
       ]);
     });
 
+    // Queries notes where high==1 (offset=1, length=1) and expects [(1,10),(1,20)].
     it('filters by high sub-field', async () => {
       // high occupies offset=1, length=1 in the packed Field (second LSB)
       const { result } = await contract.methods
@@ -111,6 +121,7 @@ describe('e2e_note_getter', () => {
       );
     });
 
+    // Queries notes where low==10 (offset=0, length=1) and expects [(1,10),(2,10)].
     it('filters by low sub-field', async () => {
       // low occupies offset=0, length=1 in the packed Field (LSB)
       const { result } = await contract.methods
@@ -127,6 +138,7 @@ describe('e2e_note_getter', () => {
       );
     });
 
+    // Queries notes where low>10 and expects [(1,20),(3,30)].
     it('filters with GT comparator on sub-field', async () => {
       // low > 10 should match (1,20) and (3,30)
       const { result } = await contract.methods
@@ -144,6 +156,8 @@ describe('e2e_note_getter', () => {
     });
   });
 
+  // Verifies the NoteStatus filter: activeOrNullified=false returns only live notes; =true returns
+  // both active and nullified notes.
   describe('status filter', () => {
     let contract: TestContract;
     let owner: AztecAddress;
@@ -188,14 +202,17 @@ describe('e2e_note_getter', () => {
       ).rejects.toThrow(expectedError);
     }
 
+    // Note filter with activeOrNullified=false: only live notes are visible.
     describe('active note only', () => {
       const activeOrNullified = false;
 
+      // Creates a note and asserts it is returned by both call_view_notes and call_get_notes.
       it('returns active notes', async () => {
         await contract.methods.call_create_note(VALUE, owner, storageSlot, makeTxHybrid).send({ from: defaultAddress });
         await assertNoteIsReturned(storageSlot, VALUE, activeOrNullified);
       });
 
+      // Creates then destroys a note; expects both note-query methods to throw (no live note).
       it('does not return nullified notes', async () => {
         await contract.methods.call_create_note(VALUE, owner, storageSlot, makeTxHybrid).send({ from: defaultAddress });
         await contract.methods.call_destroy_note(owner, storageSlot).send({ from: defaultAddress });
@@ -204,14 +221,18 @@ describe('e2e_note_getter', () => {
       });
     });
 
+    // Note filter with activeOrNullified=true: both live and nullified notes are returned.
     describe('active and nullified notes', () => {
       const activeOrNullified = true;
 
+      // Creates a note and asserts it is returned when including nullified notes.
       it('returns active notes', async () => {
         await contract.methods.call_create_note(VALUE, owner, storageSlot, makeTxHybrid).send({ from: defaultAddress });
         await assertNoteIsReturned(storageSlot, VALUE, activeOrNullified);
       });
 
+      // Creates then destroys a note; asserts that the nullified note is still returned with
+      // activeOrNullified=true.
       it('returns nullified notes', async () => {
         await contract.methods.call_create_note(VALUE, owner, storageSlot, makeTxHybrid).send({ from: defaultAddress });
         await contract.methods.call_destroy_note(owner, storageSlot).send({ from: defaultAddress });
@@ -219,6 +240,8 @@ describe('e2e_note_getter', () => {
         await assertNoteIsReturned(storageSlot, VALUE, activeOrNullified);
       });
 
+      // Creates two notes at the same slot, destroys one; asserts that call_view_notes_many and
+      // call_get_notes_many both return exactly two values (both active and nullified).
       it('returns both active and nullified notes', async () => {
         // We store two notes with two different values in the same storage slot, and then delete one of them. Note that
         // we can't be sure which one was deleted since we're just deleting based on the storage slot.

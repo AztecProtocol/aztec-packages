@@ -60,6 +60,8 @@ export type AztecNodeConfig = ArchiverConfig &
     debugForceTxProofVerification: boolean;
     /** Whether to enable the prover node as a subsystem. */
     enableProverNode: boolean;
+    /** Whether to run the slashing watchers to collect offenses even if not a validator. */
+    enableOffenseCollection: boolean;
     /**
      * Test-only: use the deterministic AutomineSequencer instead of the production Sequencer.
      * Requires `aztecTargetCommitteeSize === 0` on the deployed rollup and anvil-backed L1.
@@ -109,6 +111,11 @@ export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
   enableProverNode: {
     env: 'ENABLE_PROVER_NODE',
     description: 'Whether to enable the prover node as a subsystem.',
+    ...booleanConfigHelper(false),
+  },
+  enableOffenseCollection: {
+    env: 'OFFENSE_COLLECTION_ENABLED',
+    description: 'Whether to run the slashing watchers to collect offenses even if not a validator.',
     ...booleanConfigHelper(false),
   },
   useAutomineSequencer: {

@@ -40,6 +40,11 @@ const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'broadcasted-invalid-bloc
  * 4. Wait for the committee to be formed
  * 5. Send a transaction that will trigger a block proposal
  * 6. Expect that the invalid proposer gets slashed
+ *
+ * Setup: P2PNetworkTest with mockGossipSubNetwork:true (in-memory bus, NOT real libp2p). 4 validators,
+ * ethSlot=4s, aztecSlot=8s, epoch=2, proofSubEpochs=1024 (no pruning), minTxsPerBlock=0, inboxLag=2.
+ * Uses P2PNetworkTest only for L1/validator-registration harness; transport is mock gossip.
+ * Candidate for relocation to e2e_slashing/.
  */
 describe('e2e_p2p_broadcasted_invalid_block_proposal_slash', () => {
   let t: P2PNetworkTest;
@@ -94,6 +99,10 @@ describe('e2e_p2p_broadcasted_invalid_block_proposal_slash', () => {
     await t.ctx.cheatCodes.rollup.debugRollup();
   };
 
+  // Verifies the BROADCASTED_INVALID_BLOCK_PROPOSAL slash path: one node sends bad block proposals while
+  // honest nodes detect the offense, collect it across the committee, and trigger an on-chain slash.
+  // The test waits for P2P mesh formation, finds a slot where the malicious node is proposer, then
+  // confirms the slash amount and attester address are recorded on L1.
   it('slashes validator who broadcasts invalid block proposal', async () => {
     const { rollup } = await t.getContracts();
 

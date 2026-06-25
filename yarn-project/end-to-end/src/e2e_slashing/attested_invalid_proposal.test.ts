@@ -156,6 +156,11 @@ async function advanceToEpochBeforePipelinedTargetSlot({
   throw new Error(`Target proposer ${targetProposer.toString()} not found after ${maxAttempts} epoch attempts`);
 }
 
+// Tests slashing of a validator that attests to an invalid checkpoint proposal. Uses P2PNetworkTest
+// with mockGossipSubNetwork: true (in-memory gossip bus, no real libp2p). Three validator nodes are
+// created via createNode from setup_p2p_test.ts. Timing: ethSlot=4s, aztecSlot=36s, epoch=2,
+// committee=3. RollupCheatCodes.advanceToEpoch drives progress; retryUntil waits for attestations
+// and offenses.
 describe('e2e_slashing_attested_invalid_proposal', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[] = [];
@@ -293,6 +298,7 @@ describe('e2e_slashing_attested_invalid_proposal', () => {
       targetSlot,
     });
 
+    // REFACTOR: retryUntil polling pendingTxCount should be replaced with a waitForPendingTxCount helper
     await retryUntil(
       async () => {
         const pendingTxCount = await badProposerNode.getPendingTxCount();
@@ -456,6 +462,9 @@ describe('e2e_slashing_attested_invalid_proposal', () => {
     };
   }
 
+  // Runs createInvalidProposalSlashingScenario with broadcastInvalidCheckpointProposalOnly=true so
+  // the bad proposer broadcasts a bad checkpoint proposal but no bad block proposal. Asserts the lazy
+  // attester receives an ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL offense; bad proposer is not slashed.
   it('slashes a lazy attester for an invalid checkpoint proposal', async () => {
     await createInvalidProposalSlashingScenario({
       badProposerConfig: {
@@ -466,6 +475,10 @@ describe('e2e_slashing_attested_invalid_proposal', () => {
     });
   });
 
+  // Runs createInvalidProposalSlashingScenario with broadcastEquivocatedProposals=true so the bad
+  // proposer equivocates. Asserts lazy attester is initially slashed; then broadcasts a delayed
+  // equivocated proposal and verifies the attestation offense is cleared and a DUPLICATE_PROPOSAL
+  // offense replaces it on the honest node.
   it('slashes a lazy attester for an invalid checkpoint and clears it on delayed equivocation', async () => {
     const {
       rollup,
