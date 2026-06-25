@@ -2,6 +2,7 @@ import type { Logger } from '@aztec/aztec.js/log';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
 import { executeTimeout } from '@aztec/foundation/timer';
 import type { TestProverNode } from '@aztec/prover-node/test';
@@ -675,18 +676,12 @@ describe('e2e_epochs/epochs_optimistic_proving', () => {
       // precisely during that window. We use the session's `beforeTopTreeProve` hook
       // rather than monkey-patching the orchestrator factory.
       const proverNode = test.proverNodes[0].getProverNode() as TestProverNode;
-      let releaseProvingGate: () => void = () => {};
-      const provingGate = new Promise<void>(resolve => {
-        releaseProvingGate = resolve;
-      });
+      const provingGate = promiseWithResolvers<void>();
       // Resolves with the gated epoch once a session is actually parked inside the gate.
       // Firing the reorg only after this settles guarantees the session is blocked at the
       // top-tree boundary — not racing real proving — so the prune deterministically takes
       // the cancel-and-recreate path instead of failing a half-run sub-tree.
-      let signalGateEntered: (epoch: EpochNumber) => void = () => {};
-      const gateEntered = new Promise<EpochNumber>(resolve => {
-        signalGateEntered = resolve;
-      });
+      const gateEntered = promiseWithResolvers<EpochNumber>();
       // The hook fires from inside `beforeProve`, by which point the session has already
       // transitioned from `awaiting-checkpoints` to `awaiting-root`; query that state to
       // find the gateable session. Only gate sessions with at least 2 checkpoints —
@@ -705,8 +700,8 @@ describe('e2e_epochs/epochs_optimistic_proving', () => {
             return;
           }
           logger.warn(`Top-tree proving gated for epoch ${epoch} — waiting for test to release`);
-          signalGateEntered(epoch);
-          await provingGate;
+          gateEntered.resolve(epoch);
+          await provingGate.promise;
           logger.warn('Proving gate released');
         },
       });
@@ -716,7 +711,7 @@ describe('e2e_epochs/epochs_optimistic_proving', () => {
       // lowest unproven epoch; small epochs pass through (see hook above) and we keep
       // waiting until a gateable epoch lands.
       const gatedEpoch = await executeTimeout(
-        () => gateEntered,
+        () => gateEntered.promise,
         L2_SLOT_DURATION_IN_S * 12 * 1000,
         'gateable session blocks at proving gate',
       );
@@ -782,7 +777,7 @@ describe('e2e_epochs/epochs_optimistic_proving', () => {
       // Release the gate. The cancelled top tree #1 short-circuits with
       // TopTreeCancelledError, the finalize loop restarts with the surviving sub-trees,
       // and a fresh top tree submits a valid proof for checkpoints 1..afterReorgCheckpoint.
-      releaseProvingGate();
+      provingGate.resolve();
 
       // The in-flight epoch should now be proven on L1
       await test.waitUntilProvenCheckpointNumber(afterReorgCheckpoint, 240);
