@@ -1101,6 +1101,20 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return await this.automineSequencer.prove(upToCheckpoint);
   }
 
+  public async warpL2TimeAtLeastTo(targetTimestamp: number): Promise<void> {
+    if (!this.automineSequencer) {
+      throw new BadRequestError('Cannot warp L2 time: no automine sequencer is running');
+    }
+    await this.automineSequencer.warpTo(targetTimestamp);
+  }
+
+  public async warpL2TimeAtLeastBy(duration: number): Promise<void> {
+    if (!this.automineSequencer) {
+      throw new BadRequestError('Cannot warp L2 time: no automine sequencer is running');
+    }
+    await this.automineSequencer.warpBy(duration);
+  }
+
   /**
    * Returns a committed world-state view at `block`, driving sync first. Delegates to
    * {@link NodeWorldStateQueries.getWorldState}; kept as a protected method so subclasses and tests can
