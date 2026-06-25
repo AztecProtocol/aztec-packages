@@ -151,16 +151,12 @@ describe('e2e_2_pxes', () => {
     expect(storedValueOnA).toEqual(newValueToSet);
   });
 
-<<<<<<< HEAD
+  // Mints private balances for two accounts, each on their own PXE. Verifies that querying
+  // the balance for account A from PXE B returns 0 (key not registered), and vice versa.
   // TODO(F-741): `expectTokenBalance(walletB, token, accountAAddress, 0n)` throws
   // "No public key registered". Handshake discovery (get_shared_secrets) needs the scope's
   // keys, which this PXE lacks for a foreign account.
   it.skip('private state is "zero" when PXE does not have the account secret key', async () => {
-=======
-  // Mints private balances for two accounts, each on their own PXE. Verifies that querying
-  // the balance for account A from PXE B returns 0 (key not registered), and vice versa.
-  it('private state is "zero" when PXE does not have the account secret key', async () => {
->>>>>>> origin/v5-next
     const userABalance = 100n;
     const userBBalance = 150n;
 
