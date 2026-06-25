@@ -14,8 +14,6 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ContractInstancePreimageWithAddress,
   ContractInstancePreimageWithAddressSchema,
-  type ContractInstanceWithAddress,
-  ContractInstanceWithAddressSchema,
 } from '@aztec/stdlib/contract';
 import { Gas, ManaUsageEstimate } from '@aztec/stdlib/gas';
 import { LogCursor, refineTxHashAndRange } from '@aztec/stdlib/logs';
@@ -281,10 +279,10 @@ export type Wallet = {
   getAddressBook(): Promise<Aliased<AztecAddress>[]>;
   getAccounts(): Promise<Aliased<AztecAddress>[]>;
   registerContract(
-    instance: ContractInstanceWithAddress,
+    instance: ContractInstancePreimageWithAddress,
     artifact?: ContractArtifact,
     secretKey?: Fr,
-  ): Promise<ContractInstanceWithAddress>;
+  ): Promise<ContractInstancePreimageWithAddress>;
   /**
    * Registers a contract class artifact in the local PXE without binding it to any instance.
    * Useful for simulation flows that need the artifact available locally before any on-chain
@@ -583,8 +581,8 @@ const WalletMethodSchemas = {
     output: z.array(z.object({ alias: z.string(), item: schemas.AztecAddress })),
   }),
   registerContract: z.function({
-    input: z.tuple([ContractInstanceWithAddressSchema, optional(ContractArtifactSchema), optional(schemas.Fr)]),
-    output: ContractInstanceWithAddressSchema,
+    input: z.tuple([ContractInstancePreimageWithAddressSchema, optional(ContractArtifactSchema), optional(schemas.Fr)]),
+    output: ContractInstancePreimageWithAddressSchema,
   }),
   registerContractClass: z.function({ input: z.tuple([ContractArtifactSchema]), output: z.void() }),
   simulateTx: z.function({

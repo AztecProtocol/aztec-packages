@@ -7,7 +7,7 @@ import { EventSelector, FunctionCall, FunctionSelector, FunctionType } from '@az
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
-import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import type { ContractInstancePreimageWithAddress } from '@aztec/stdlib/contract';
 import { PublicKeys } from '@aztec/stdlib/keys';
 import {
   DroppedTxReceipt,
@@ -134,12 +134,11 @@ describe('WalletSchema', () => {
       fileMap: {},
       storageLayout: {},
     };
-    const mockInstance: ContractInstanceWithAddress = {
+    const mockInstance: ContractInstancePreimageWithAddress = {
       address: await AztecAddress.random(),
       version: 2,
       salt: Fr.random(),
       deployer: await AztecAddress.random(),
-      currentContractClassId: Fr.random(),
       originalContractClassId: Fr.random(),
       initializationHash: Fr.random(),
       immutablesHash: Fr.random(),
@@ -148,7 +147,6 @@ describe('WalletSchema', () => {
     const result = await context.client.registerContract(mockInstance, mockArtifact, Fr.random());
     expect(result).toEqual({
       address: expect.any(AztecAddress),
-      currentContractClassId: expect.any(Fr),
       deployer: expect.any(AztecAddress),
       initializationHash: expect.any(Fr),
       immutablesHash: expect.any(Fr),
@@ -335,12 +333,11 @@ describe('WalletSchema', () => {
       returnTypes: [],
     });
 
-    const mockInstance: ContractInstanceWithAddress = {
+    const mockInstance: ContractInstancePreimageWithAddress = {
       address: address2,
       version: 2,
       salt: Fr.random(),
       deployer: await AztecAddress.random(),
-      currentContractClassId: Fr.random(),
       originalContractClassId: Fr.random(),
       initializationHash: Fr.random(),
       immutablesHash: Fr.random(),
@@ -471,11 +468,14 @@ class MockWallet implements Wallet {
     return [{ alias: 'account1', item: await AztecAddress.random() }];
   }
 
-  async registerContract(_instanceData: any, _artifact?: any, _secretKey?: Fr): Promise<ContractInstanceWithAddress> {
+  async registerContract(
+    _instanceData: any,
+    _artifact?: any,
+    _secretKey?: Fr,
+  ): Promise<ContractInstancePreimageWithAddress> {
     return {
       version: 2,
       address: await AztecAddress.random(),
-      currentContractClassId: Fr.random(),
       deployer: await AztecAddress.random(),
       initializationHash: Fr.random(),
       immutablesHash: Fr.random(),
