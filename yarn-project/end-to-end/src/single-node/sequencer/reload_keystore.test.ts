@@ -20,8 +20,10 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { privateKeyToAccount } from 'viem/accounts';
 
-import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
-import { getPrivateKeyFromIndex, setup } from '../fixtures/utils.js';
+import { PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
+import { getPrivateKeyFromIndex } from '../../fixtures/utils.js';
+import { setupBlockProducer } from '../setup.js';
+import type { SingleNodeTestContext } from '../single_node_test_context.js';
 
 const VALIDATOR_KEY_INDICES = [0, 2, 4, 5];
 const PUBLISHER_KEY_INDEX = 3;
@@ -91,10 +93,10 @@ async function waitForSequencerIdleAfter(
 // One node with 4 validators staked, committee size 4. Initially only 3 validators are in the
 // keystore; after reload all 4 are active with new coinbases. Uses PIPELINING_SETUP_OPTS
 // (ethSlot=4s, aztecSlot=12s) with minTxsPerBlock=1, maxTxsPerBlock=1.
-describe('e2e_reload_keystore', () => {
+describe('single-node/sequencer/reload_keystore', () => {
   jest.setTimeout(540_000);
 
-  let teardown: () => Promise<void>;
+  let test: SingleNodeTestContext;
   let aztecNode: AztecNode;
   let aztecNodeAdmin: AztecNodeAdmin | undefined;
   let cheatCodes: CheatCodes;
@@ -145,22 +147,23 @@ describe('e2e_reload_keystore', () => {
       bn254SecretKey: new SecretValue(new Fr(i + 1).toBigInt()),
     }));
 
+    test = await setupBlockProducer({
+      ...PIPELINING_SETUP_OPTS,
+      numberOfAccounts: 1,
+      initialValidators,
+      aztecTargetCommitteeSize: COMMITTEE_SIZE,
+      keyStoreDirectory,
+      minTxsPerBlock: 1,
+      maxTxsPerBlock: 1,
+    });
     ({
-      teardown,
       aztecNode,
       aztecNodeAdmin,
       cheatCodes,
       wallet,
       accounts: [ownerAddress],
       sequencer: sequencerClient,
-    } = await setup(1, {
-      ...PIPELINING_SETUP_OPTS,
-      initialValidators,
-      aztecTargetCommitteeSize: COMMITTEE_SIZE,
-      keyStoreDirectory,
-      minTxsPerBlock: 1,
-      maxTxsPerBlock: 1,
-    }));
+    } = test.context);
 
     if (!aztecNodeAdmin) {
       throw new Error('Aztec node admin API must be available for this test');
@@ -168,7 +171,7 @@ describe('e2e_reload_keystore', () => {
   });
 
   afterAll(async () => {
-    await teardown?.();
+    await test?.teardown();
     await rm(keyStoreDirectory, { recursive: true, force: true });
   });
 

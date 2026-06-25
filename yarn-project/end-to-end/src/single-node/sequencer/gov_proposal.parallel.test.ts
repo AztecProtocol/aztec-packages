@@ -28,8 +28,10 @@ import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client'
 import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
 
-import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
-import { getPrivateKeyFromIndex, setup } from '../fixtures/utils.js';
+import { PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
+import { getPrivateKeyFromIndex } from '../../fixtures/utils.js';
+import { setupBlockProducer } from '../setup.js';
+import type { SingleNodeTestContext } from '../single_node_test_context.js';
 
 const ETHEREUM_SLOT_DURATION = 8;
 const AZTEC_SLOT_DURATION = 16;
@@ -46,9 +48,9 @@ jest.setTimeout(1000 * 60 * 5);
 // Setup: plain setup(1, { ...PIPELINING_SETUP_OPTS, ethSlot=8s, aztecSlot=16s, committee=16,
 // proofSubEpochs=128 }) (v5 always enforces the timetable, so the former enforceTimeTable override is
 // gone). Uses cheatCodes.eth.warp + retryUntil for timing.
-describe('e2e_gov_proposal', () => {
+describe('single-node/sequencer/gov_proposal', () => {
   let logger: Logger;
-  let teardown: () => Promise<void>;
+  let test: SingleNodeTestContext;
   let wallet: Wallet;
   let defaultAccountAddress: AztecAddress;
   let aztecNode: AztecNode | undefined;
@@ -70,9 +72,9 @@ describe('e2e_gov_proposal', () => {
       return { attester: address, withdrawer: address, privateKey };
     });
 
-    let accounts: AztecAddress[] = [];
-    const context = await setup(1, {
+    test = await setupBlockProducer({
       ...PIPELINING_SETUP_OPTS,
+      numberOfAccounts: 1,
       anvilAccounts: 100,
       aztecTargetCommitteeSize: COMMITTEE_SIZE,
       initialValidators: validators.map(v => ({ ...v, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) })),
@@ -95,18 +97,8 @@ describe('e2e_gov_proposal', () => {
       skipPromoteProposedCheckpointDuringL1Sync: true,
     });
 
-    ({
-      teardown,
-      logger,
-      wallet,
-      aztecNode,
-      aztecNodeAdmin,
-      deployL1ContractsValues,
-      cheatCodes,
-      dateProvider,
-      accounts,
-    } = context);
-    defaultAccountAddress = accounts[0];
+    ({ logger, wallet, aztecNode, aztecNodeAdmin, deployL1ContractsValues, cheatCodes, dateProvider } = test.context);
+    defaultAccountAddress = test.context.accounts[0];
 
     // Get contract wrappers
     const { l1Client, l1ContractAddresses } = deployL1ContractsValues;
@@ -133,7 +125,7 @@ describe('e2e_gov_proposal', () => {
     await cheatCodes.rollup.advanceToEpoch(EpochNumber(4));
   });
 
-  afterEach(() => teardown());
+  afterEach(() => test.teardown());
 
   /** Sets up voting for the next round by warping to the beginning of the round */
   const setupVotingRound = async () => {

@@ -2,31 +2,33 @@ import type { TestAztecNodeService } from '@aztec/aztec-node/test';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
-import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
-import { type EndToEndContext, setup } from '../fixtures/utils.js';
+import { PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
+import { setupBlockProducer } from '../setup.js';
+import type { SingleNodeTestContext } from '../single_node_test_context.js';
 
 // Tests that slasher configuration can be updated at runtime via the node admin API.
-// Single node with no accounts (setup(0)), PIPELINING_SETUP_OPTS (ethSlot=4s, aztecSlot=12s),
+// Single node with no accounts, PIPELINING_SETUP_OPTS (ethSlot=4s, aztecSlot=12s),
 // slasher enabled with custom inactivity config. No block building exercised.
-describe('e2e_slasher_config', () => {
+describe('single-node/sequencer/slasher_config', () => {
   let aztecNodeAdmin: AztecNodeAdmin | undefined;
   let aztecNode: AztecNode;
-  let teardown: EndToEndContext['teardown'];
+  let test: SingleNodeTestContext;
 
   beforeAll(async () => {
-    ({ aztecNodeAdmin, aztecNode, teardown } = await setup(0, {
+    test = await setupBlockProducer({
       ...PIPELINING_SETUP_OPTS,
       anvilSlotsInAnEpoch: 4,
       slashInactivityTargetPercentage: 1,
       slashInactivityPenalty: 42n,
-    }));
+    });
+    ({ aztecNodeAdmin, aztecNode } = test.context);
 
     if (!aztecNodeAdmin) {
       throw new Error('Aztec node admin API must be available for this test');
     }
   });
 
-  afterAll(() => teardown());
+  afterAll(() => test.teardown());
 
   // Reads the initial slasher config from the running node's slasher client, calls setConfig() via
   // the admin API to update slashInactivityTargetPercentage, and asserts the new value is reflected

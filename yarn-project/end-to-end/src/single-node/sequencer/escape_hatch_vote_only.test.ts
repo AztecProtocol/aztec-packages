@@ -20,8 +20,10 @@ import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { jest } from '@jest/globals';
 import { privateKeyToAccount } from 'viem/accounts';
 
-import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
-import { getPrivateKeyFromIndex, setup } from '../fixtures/utils.js';
+import { PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
+import { getPrivateKeyFromIndex } from '../../fixtures/utils.js';
+import { setupBlockProducer } from '../setup.js';
+import type { SingleNodeTestContext } from '../single_node_test_context.js';
 
 const OPEN_THE_HATCH = true;
 
@@ -42,9 +44,9 @@ jest.setTimeout(1000 * 60 * 5);
 // beforeEach deploys a custom EscapeHatch L1 contract and wires it into the rollup. Timing driven by
 // cheatCodes.rollup.advanceToEpoch + retryUntil waits.
 // Setup: plain setup(1, { ...PIPELINING_SETUP_OPTS, overridden slots, aztecTargetCommitteeSize=4 }).
-describe('e2e_escape_hatch_vote_only', () => {
+describe('single-node/sequencer/escape_hatch_vote_only', () => {
   let logger: Logger;
-  let teardown: () => Promise<void>;
+  let test: SingleNodeTestContext;
   let aztecNodeAdmin: AztecNodeAdmin | undefined;
   let deployL1ContractsValues: DeployAztecL1ContractsReturnType;
   let cheatCodes: CheatCodes;
@@ -66,8 +68,9 @@ describe('e2e_escape_hatch_vote_only', () => {
       return { attester: address, withdrawer: address, privateKey };
     });
 
-    const context = await setup(1, {
+    test = await setupBlockProducer({
       ...PIPELINING_SETUP_OPTS,
+      numberOfAccounts: 1,
       anvilAccounts: 10,
       aztecTargetCommitteeSize: COMMITTEE_SIZE,
       initialValidators: validators.map(v => ({ ...v, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) })),
@@ -88,14 +91,13 @@ describe('e2e_escape_hatch_vote_only', () => {
     });
 
     ({
-      teardown,
       logger,
       aztecNodeAdmin,
       deployL1ContractsValues,
       cheatCodes,
       ethCheatCodes,
       sequencer: sequencerClient,
-    } = context);
+    } = test.context);
 
     const { l1Client, l1ContractAddresses } = deployL1ContractsValues;
     rollup = RollupContract.getFromL1ContractsValues(deployL1ContractsValues);
@@ -149,7 +151,7 @@ describe('e2e_escape_hatch_vote_only', () => {
     });
   });
 
-  afterEach(() => teardown());
+  afterEach(() => test.teardown());
 
   // Verifies that when the escape hatch is open the sequencer casts governance votes every slot without
   // building blocks or checkpoints, and that no failure events are emitted in the vote-only window.
