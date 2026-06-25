@@ -6,6 +6,7 @@ import {
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Schnorr } from '@aztec/foundation/crypto/schnorr';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import { LogLevels, type Logger, applyStringFormatting, createLogger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import type { KeyStore } from '@aztec/key-store';
@@ -68,6 +69,7 @@ import {
   PublicCallRequest,
 } from '@aztec/stdlib/kernel';
 import { hashPublicKey } from '@aztec/stdlib/keys';
+import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/stdlib/messaging';
 import { ChonkProof } from '@aztec/stdlib/proofs';
 import { makeGlobalVariables } from '@aztec/stdlib/testing';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
@@ -353,7 +355,27 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     this.taggingSecretStrategy = strategy.value;
   }
 
-  async mineBlock(options: { nullifiers?: Fr[] } = {}) {
+  async sendL1ToL2Message(content: Fr, secretHash: Fr, sender: EthAddress, recipient: AztecAddress): Promise<Fr> {
+    // The message tree grows by a fixed chunk per block, so the next free slot is simply the current tree size.
+    const { size } = await this.stateMachine.synchronizer
+      .getCommitted()
+      .getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE);
+    const leafIndex = new Fr(size);
+
+    const message = new L1ToL2Message(
+      new L1Actor(sender, this.chainId.toNumber()),
+      new L2Actor(recipient, this.version.toNumber()),
+      content,
+      secretHash,
+      leafIndex,
+    );
+
+    await this.mineBlock({ l1ToL2Messages: [message.hash()] });
+
+    return leafIndex;
+  }
+
+  async mineBlock(options: { nullifiers?: Fr[]; l1ToL2Messages?: Fr[] } = {}) {
     const blockNumber = await this.getNextBlockNumber();
 
     const txEffect = TxEffect.empty();
@@ -361,7 +383,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     txEffect.txHash = new TxHash(new Fr(blockNumber));
 
     const forkedWorldTrees = await this.stateMachine.synchronizer.nativeWorldStateService.fork();
-    await insertTxEffectIntoWorldTrees(txEffect, forkedWorldTrees);
+    await insertTxEffectIntoWorldTrees(txEffect, forkedWorldTrees, options.l1ToL2Messages ?? []);
 
     const globals = makeGlobalVariables(undefined, {
       blockNumber,
@@ -375,7 +397,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     this.logger.info(`Created block ${blockNumber} with timestamp ${block.header.globalVariables.timestamp}`);
 
-    await this.stateMachine.handleL2Block(block);
+    await this.stateMachine.handleL2Block(block, options.l1ToL2Messages ?? []);
   }
 
   async privateCallNewFlow(
