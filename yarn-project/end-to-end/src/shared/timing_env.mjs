@@ -3,7 +3,7 @@ import { basename } from 'node:path';
 
 import CustomEnvironment from '../../../foundation/src/jest/env.mjs';
 
-// Per-test e2e timing environment. Gated entirely on the E2E_TIMING_FILE env var: when unset, this
+// Per-test e2e timing environment. Gated entirely on the TEST_TIMING_FILE env var: when unset, this
 // behaves exactly like the base CustomEnvironment (it only delegates). When set, it records, per test
 // worker process, the time spent in jest before/after hooks and the test body, and merges in the
 // function-level time captured by setup.ts/teardown.ts via a collector shared on `this.global`.
@@ -15,7 +15,7 @@ export default class TimingEnvironment extends CustomEnvironment {
   constructor(config, context) {
     super(config, context);
 
-    this.timingFile = process.env.E2E_TIMING_FILE;
+    this.timingFile = process.env.TEST_TIMING_FILE;
     if (!this.timingFile) {
       return;
     }
@@ -245,6 +245,12 @@ export default class TimingEnvironment extends CustomEnvironment {
 
   /** Flattens metadata onto a record and serializes to a single JSON line. */
   toLine(record) {
-    return JSON.stringify({ suite: this.suite, ...record, ...this.meta });
+    const obj = { suite: this.suite, ...record, ...this.meta };
+    for (const key of Object.keys(obj)) {
+      if (key.endsWith('Ms') && typeof obj[key] === 'number') {
+        obj[key] = Math.round(obj[key]);
+      }
+    }
+    return JSON.stringify(obj);
   }
 }

@@ -42,7 +42,7 @@ function print_usage {
   echo_cmd "shell"                 "Drop into a shell in the current running build instance container."
   echo_cmd "shell-host"            "Drop into a shell in the current running build host."
   echo_cmd "log"                   "Display the log of the given log ID."
-  echo_cmd "e2e-timings"           "Download per-test e2e timing JSONL for a job: e2e-timings <ci_log_id> <folder>."
+  echo_cmd "test-timings"          "Download per-test timing JSONL for a job: test-timings <ci_log_id> <folder>."
   echo_cmd "kill"                  "Terminate running EC2 instance with instance_name."
   echo_cmd "draft"                 "Mark the current PR as draft (no automatic CI runs when pushing)."
   echo_cmd "ready"                 "Mark the current PR as ready (enable automatic CI runs when pushing)."
@@ -425,27 +425,27 @@ case "$cmd" in
     fi
     ;;
 
-  e2e-timings)
-    # Download all per-test e2e timing files for a CI job and gunzip them into a folder.
+  test-timings)
+    # Download all per-test timing files for a CI job and gunzip them into a folder.
     # ci_log_id is the job's top-level log id (the decimal id in its ci.aztec-labs.com URL).
     # Each downloaded file is named after the test's individual log id (ci.aztec-labs.com/<log_id>).
-    # Usage: ./ci.sh e2e-timings <ci_log_id> <folder>
+    # Usage: ./ci.sh test-timings <ci_log_id> <folder>
     ci_log_id="${1:-}"
     folder="${2:-}"
     if [ -z "$ci_log_id" ] || [ -z "$folder" ]; then
-      echo "usage: $(basename $0) e2e-timings <ci_log_id> <folder>"
+      echo "usage: $(basename $0) test-timings <ci_log_id> <folder>"
       exit 1
     fi
     mkdir -p "$folder"
     aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp --recursive \
-      "s3://aztec-ci-artifacts/logs/e2e-timings/${ci_log_id}/" "$folder/"
+      "s3://aztec-ci-artifacts/logs/test-timings/${ci_log_id}/" "$folder/"
     for f in "$folder"/*.log.gz; do
       [ -e "$f" ] || continue
       out="${f%.log.gz}.jsonl"
       gunzip -c "$f" > "$out"
       rm -f "$f"
     done
-    echo "Downloaded e2e timings for job $ci_log_id into $folder/"
+    echo "Downloaded test timings for job $ci_log_id into $folder/"
     ;;
 
   #################

@@ -48,7 +48,7 @@ export ELU_MONITOR_FILE=$HOME/.elu_monitor_$$.log
 
 # Per-test timing file (e2e tests write JSONL here, uploaded to S3 after test finishes).
 # $$ is this exec_test pid, so it is unique per parallel test command.
-export E2E_TIMING_FILE=$HOME/.e2e_timing_$$.log
+export TEST_TIMING_FILE=$HOME/.test_timing_$$.log
 
 # Run the test with timestamps via process substitution (preserves exit code)
 set +e
@@ -70,13 +70,17 @@ fi
 
 # Upload per-test timing data to S3 if present (written by e2e tests, absent for C++/Rust/Noir).
 # Keyed by the job's CI_LOG_ID (the decimal id in a job's dashboard URL) and the individual test's
-# log id (E2E_LOG_ID, passed by run_test_cmd; same id as the test's log at ci.aztec-labs.com/<id>),
+# log id (LOG_ID, passed by run_test_cmd; same id as the test's log at ci.aztec-labs.com/<id>),
 # so a test log maps directly to its timing file.
-# Object lands at s3://aztec-ci-artifacts/logs/e2e-timings/<CI_LOG_ID>/<LOG_ID>.log.gz (gzipped JSONL).
-if [ -s "$E2E_TIMING_FILE" ]; then
-  echo "E2E timing file: $E2E_TIMING_FILE ($(wc -l < "$E2E_TIMING_FILE") lines, $(wc -c < "$E2E_TIMING_FILE") bytes)"
-  cat "$E2E_TIMING_FILE" | gzip | cache_s3_transfer_to e2e-timings "${CI_LOG_ID:-unknown}/${E2E_LOG_ID:-${NAME:-unknown}}"
-  rm -f "$E2E_TIMING_FILE"
+# Object lands at s3://aztec-ci-artifacts/logs/test-timings/<CI_LOG_ID>/<LOG_ID>.log.gz (gzipped JSONL).
+if [ -s "$TEST_TIMING_FILE" ]; then
+  if [ -z "${CI_LOG_ID:-}" ] || [ -z "${LOG_ID:-}" ]; then
+    echo "Warning: not uploading test timings; CI_LOG_ID or LOG_ID missing (CI_LOG_ID='${CI_LOG_ID:-}' LOG_ID='${LOG_ID:-}')."
+  else
+    echo "Test timing file: $TEST_TIMING_FILE ($(wc -l <"$TEST_TIMING_FILE") lines, $(wc -c <"$TEST_TIMING_FILE") bytes)"
+    cat "$TEST_TIMING_FILE" | gzip | cache_s3_transfer_to test-timings "${CI_LOG_ID}/${LOG_ID}"
+  fi
+  rm -f "$TEST_TIMING_FILE"
 fi
 
 exit $code

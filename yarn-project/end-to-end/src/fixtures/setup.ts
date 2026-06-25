@@ -302,7 +302,7 @@ function assertContractArtifactsVersion() {
 
 /**
  * Records a function-level timing span into the shared collector installed by the e2e timing
- * environment. No-op unless E2E_TIMING_FILE is set (the env only installs the collector then). The
+ * environment. No-op unless TEST_TIMING_FILE is set (the env only installs the collector then). The
  * span is tagged with the name of the currently running test so the env can attribute it to the
  * right line; `null` during beforeAll/afterAll lands it on the suite-scoped line.
  */

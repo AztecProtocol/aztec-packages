@@ -199,9 +199,9 @@ function run_test {
   # Reset timer and run the test in background (for prompt signal handling) using exec_test.
   SECONDS=0
   set +e
-  # Pass this attempt's log id so exec_test can name the test's e2e timing file after it
+  # Pass this attempt's log id so exec_test can name the test's timing file after it
   # (matching the test's log at ci.aztec-labs.com/<log_key>). Tracks rotate_log on retries.
-  E2E_LOG_ID=$log_key $ci3/exec_test "$cmd" >> "$tmp_file" 2>&1 &
+  LOG_ID=$log_key $ci3/exec_test "$cmd" >> "$tmp_file" 2>&1 &
   test_pid=$!
   wait $test_pid
   code=$?
