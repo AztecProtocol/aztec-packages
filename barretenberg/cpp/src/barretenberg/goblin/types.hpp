@@ -18,11 +18,10 @@ struct GoblinAccumulationOutput {
 };
 
 struct GoblinProof {
-
-    HonkProof merge_proof;
-    HonkProof eccvm_proof;
-    HonkProof ipa_proof;
-    HonkProof translator_proof;
+    HonkProof merge_proof;      // Merge proof on the shared Goblin transcript
+    HonkProof eccvm_proof;      // ECCVM proof on the shared Goblin transcript
+    HonkProof ipa_proof;        // TripleIPA proof on a separate transcript
+    HonkProof translator_proof; // Translator proof on the shared Goblin transcript
 
     size_t size() const
     {

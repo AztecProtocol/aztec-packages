@@ -69,6 +69,7 @@ SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(ZKSumcheckData<Flavor>& z
     interpolation_domain = zk_sumcheck_data.interpolation_domain;
     concatenated_polynomial = zk_sumcheck_data.libra_concatenated_monomial_form;
     concatenated_lagrange_form = zk_sumcheck_data.libra_concatenated_lagrange_form;
+    witness_commitments[0] = zk_sumcheck_data.libra_concatenation_commitment;
 
     label_prefix = "Libra:";
     // Extract the evaluation domain computed by ZKSumcheckData
@@ -106,6 +107,7 @@ SmallSubgroupIPAProver<Flavor>::SmallSubgroupIPAProver(TranslationData<typename 
         interpolation_domain = translation_data.interpolation_domain;
         concatenated_polynomial = translation_data.masked_concatenated_polynomial;
         concatenated_lagrange_form = translation_data.concatenated_polynomial_lagrange;
+        witness_commitments[0] = translation_data.masked_concatenated_commitment;
 
         // Construct the challenge polynomial in Lagrange basis, compute its monomial coefficients
         compute_eccvm_challenge_polynomial(evaluation_challenge_x, batching_challenge_v);
@@ -157,7 +159,8 @@ template <typename Flavor> void SmallSubgroupIPAProver<Flavor>::prove()
     compute_grand_sum_polynomial();
 
     // Send masked commitment [A + Z_H * R] to the verifier, where R is of degree 2
-    transcript->send_to_verifier(label_prefix + "grand_sum_commitment", commitment_key.commit(grand_sum_polynomial));
+    witness_commitments[1] = commitment_key.commit(grand_sum_polynomial);
+    transcript->send_to_verifier(label_prefix + "grand_sum_commitment", witness_commitments[1]);
 
     // Compute C(X)
     compute_grand_sum_identity_polynomial();
@@ -166,8 +169,8 @@ template <typename Flavor> void SmallSubgroupIPAProver<Flavor>::prove()
     compute_grand_sum_identity_quotient();
 
     // Send commitment [Q] to the verifier
-    transcript->send_to_verifier(label_prefix + "quotient_commitment",
-                                 commitment_key.commit(grand_sum_identity_quotient));
+    witness_commitments[2] = commitment_key.commit(grand_sum_identity_quotient);
+    transcript->send_to_verifier(label_prefix + "quotient_commitment", witness_commitments[2]);
 }
 
 /**

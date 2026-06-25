@@ -364,59 +364,55 @@ HonkProof create_mock_eccvm_proof()
     // 9. Libra quotient commitment
     populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments=*/1);
 
-    // 10. Gemini fold commitments
-    populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof,
-                                                                  /*num_commitments=*/CONST_ECCVM_LOG_N - 1);
-
-    // 11. Gemini evaluations
-    populate_field_elements<FF>(proof, CONST_ECCVM_LOG_N);
-
-    // 12. NUM_SMALL_IPA_TRANSCRIPT_EVALS libra evals
+    // 10. NUM_SMALL_IPA_TRANSCRIPT_EVALS libra evals
     populate_field_elements<FF>(proof, NUM_SMALL_IPA_TRANSCRIPT_EVALS);
 
-    // 13. Shplonk
+    // 11. Translator concatenated masking term commitment
     populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments=*/1);
 
-    // 14. Translator concatenated masking term commitment
+    // 12. Translator op evaluation
+    populate_field_elements<FF>(proof, 1);
+
+    // 13. Translator Px evaluation
+    populate_field_elements<FF>(proof, 1);
+
+    // 14. Translator Py evaluation
+    populate_field_elements<FF>(proof, 1);
+
+    // 15. Translator z1 evaluation
+    populate_field_elements<FF>(proof, 1);
+
+    // 16. Translator z2 evaluation
+    populate_field_elements<FF>(proof, 1);
+
+    // 17. Translator concatenated masking term evaluation
+    populate_field_elements<FF>(proof, 1);
+
+    // 18. Translator grand sum commitment
     populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments=*/1);
 
-    // 15. Translator op evaluation
-    populate_field_elements<FF>(proof, 1);
-
-    // 16. Translator Px evaluation
-    populate_field_elements<FF>(proof, 1);
-
-    // 17. Translator Py evaluation
-    populate_field_elements<FF>(proof, 1);
-
-    // 18. Translator z1 evaluation
-    populate_field_elements<FF>(proof, 1);
-
-    // 19. Translator z2 evaluation
-    populate_field_elements<FF>(proof, 1);
-
-    // 20. Translator concatenated masking term evaluation
-    populate_field_elements<FF>(proof, 1);
-
-    // 21. Translator grand sum commitment
+    // 19. Translator quotient commitment
     populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments=*/1);
 
-    // 22. Translator quotient commitment
+    // 20. Translator concatenation evaluation
+    populate_field_elements<FF>(proof, 1);
+
+    // 21. Translator grand sum shift evaluation
+    populate_field_elements<FF>(proof, 1);
+
+    // 22. Translator grand sum evaluation
+    populate_field_elements<FF>(proof, 1);
+
+    // 23. Translator quotient evaluation
+    populate_field_elements<FF>(proof, 1);
+
+    // 24. TripleIPA pow-tensor masking commitment
     populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments=*/1);
 
-    // 23. Translator concatenation evaluation
+    // 25. TripleIPA pow-tensor masking evaluation
     populate_field_elements<FF>(proof, 1);
 
-    // 24. Translator grand sum shift evaluation
-    populate_field_elements<FF>(proof, 1);
-
-    // 25. Translator grand sum evaluation
-    populate_field_elements<FF>(proof, 1);
-
-    // 26. Translator quotient evaluation
-    populate_field_elements<FF>(proof, 1);
-
-    // 27. Shplonk
+    // 26. Shplonk
     populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments=*/1);
 
     BB_ASSERT_EQ(proof.size(), ECCVMFlavor::PROOF_LENGTH);
@@ -439,6 +435,28 @@ HonkProof create_mock_ipa_proof()
     populate_field_elements<curve::BN254::BaseField>(proof, 1);
 
     BB_ASSERT_EQ(proof.size(), IPA_PROOF_LENGTH);
+
+    return proof;
+}
+
+HonkProof create_mock_triple_ipa_proof()
+{
+    using FF = ECCVMFlavor::FF;
+    HonkProof proof;
+
+    // TripleIPA cross sums
+    populate_field_elements<FF>(proof, 3);
+
+    // TripleIPA L and R round commitments
+    populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments=*/2 * CONST_ECCVM_LOG_N);
+
+    // TripleIPA G_0 commitment
+    populate_field_elements_for_mock_commitments<curve::Grumpkin>(proof, /*num_commitments=*/1);
+
+    // TripleIPA a_0 evaluation
+    populate_field_elements<FF>(proof, 1);
+
+    BB_ASSERT_EQ(proof.size(), ECCVMFlavor::TRIPLE_IPA_PROOF_LENGTH);
 
     return proof;
 }
@@ -555,14 +573,14 @@ template <typename Builder> HonkProof create_mock_chonk_proof(const size_t acir_
         create_mock_oink_proof<MegaZKFlavor, stdlib::recursion::honk::HidingKernelIO<Builder>>(acir_public_inputs_size);
     Goblin::MergeProof merge_proof = create_mock_merge_proof();
     HonkProof eccvm_proof{ create_mock_eccvm_proof() };
-    HonkProof ipa_proof = create_mock_ipa_proof();
+    HonkProof triple_ipa_proof{ create_mock_triple_ipa_proof() };
     // Batched joint proof: Translator Oink + joint sumcheck + joint PCS
     HonkProof joint_proof = create_mock_batched_joint_proof();
 
     ChonkProof chonk_proof{ std::move(hiding_oink),
                             std::move(merge_proof),
                             std::move(eccvm_proof),
-                            std::move(ipa_proof),
+                            std::move(triple_ipa_proof),
                             std::move(joint_proof) };
     return chonk_proof.to_field_elements();
 }

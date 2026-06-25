@@ -19,6 +19,7 @@
 #include <cstddef>
 #include <fstream>
 #include <ranges>
+#include <vector>
 namespace bb {
 
 /* Span class with a start index offset.
@@ -447,6 +448,23 @@ template <typename Fr>
 void add_scaled_batch(Polynomial<Fr>& dst,
                       std::span<const PolynomialSpan<const Fr>> sources,
                       std::span<const Fr> scalars);
+
+template <typename Fr>
+void add_scaled_batch(Polynomial<Fr>& dst, std::span<const Polynomial<Fr>> sources, std::span<const Fr> scalars)
+{
+    std::vector<PolynomialSpan<const Fr>> source_spans;
+    source_spans.reserve(sources.size());
+    for (const auto& source : sources) {
+        source_spans.emplace_back(source);
+    }
+    add_scaled_batch(dst, std::span<const PolynomialSpan<const Fr>>(source_spans), scalars);
+}
+
+template <typename Fr>
+void add_scaled_batch(Polynomial<Fr>& dst, const std::vector<Polynomial<Fr>>& sources, std::span<const Fr> scalars)
+{
+    add_scaled_batch(dst, std::span<const Polynomial<Fr>>(sources), scalars);
+}
 
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
 template <typename Fr> std::shared_ptr<Fr[]> _allocate_aligned_memory(size_t n_elements)

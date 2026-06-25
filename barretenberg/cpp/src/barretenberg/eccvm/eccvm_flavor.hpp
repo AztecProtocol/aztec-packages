@@ -157,6 +157,12 @@ class ECCVMFlavor {
     static constexpr size_t num_frs_comm = FrCodec::calc_num_fields<Commitment>();
     static constexpr size_t num_frs_fq = FrCodec::calc_num_fields<FF>();
 
+    static constexpr size_t TRIPLE_IPA_PROOF_LENGTH =
+        /* TripleIPA cross sums (cross_F_shift, cross_F_P, cross_shift_P) */ (3 * num_frs_fq) +
+        /* TripleIPA L and R round commitments */ (2 * CONST_ECCVM_LOG_N * num_frs_comm) +
+        /* TripleIPA G_0 commitment */ (num_frs_comm) +
+        /* TripleIPA a_0 evaluation */ (num_frs_fq);
+
     // Proof length formula
     static constexpr size_t PROOF_LENGTH =
         /* 1. NUM_WITNESS_ENTITIES commitments */ ((NUM_WITNESS_ENTITIES + NUM_MASKING_POLYNOMIALS) * num_frs_comm) +
@@ -170,29 +176,26 @@ class ECCVMFlavor {
         /* 7. Libra claimed evaluation */ (num_frs_fq) +
         /* 8. Libra grand sum commitment */ (num_frs_comm) +
         /* 9. Libra quotient commitment */ (num_frs_comm) +
-        /* 10. CONST_ECCVM_LOG_N - 1 Gemini Fold commitments */
-        ((CONST_ECCVM_LOG_N - 1) * num_frs_comm) +
-        /* 11. CONST_ECCVM_LOG_N Gemini a evaluations */
-        (CONST_ECCVM_LOG_N * num_frs_fq) +
-        /* 12. NUM_SMALL_IPA_TRANSCRIPT_EVALS libra evals */
+        /* 10. NUM_SMALL_IPA_TRANSCRIPT_EVALS libra evals */
         (NUM_SMALL_IPA_TRANSCRIPT_EVALS * num_frs_fq) +
-        /* 13. Shplonk Q commitment */ (num_frs_comm) +
-        /* 14. Translator concatenated masking term commitment */ (num_frs_comm) +
-        /* 15 Translator op evaluation */ (num_frs_fq) +
-        /* 16 Translator Px evaluation */ (num_frs_fq) +
-        /* 17 Translator Py evaluation */ (num_frs_fq) +
-        /* 18 Translator z1 evaluation */ (num_frs_fq) +
-        /* 19 Translator z2 evaluation */ (num_frs_fq) +
-        /* 20 Translator concatenated masking term evaluation */ (num_frs_fq) +
-        /* 21 Translator grand sum commitment */ (num_frs_comm) +
-        /* 22 Translator quotient commitment */ (num_frs_comm) +
-        /* 23 Translator concatenation eval */ (num_frs_fq) +
-        /* 24 Translator grand sum shift eval */ (num_frs_fq) +
-        /* 25 Translator grand sum eval */ (num_frs_fq) +
-        /* 26 Translator quotient eval */ (num_frs_fq) +
-        /* 27 Shplonk Q commitment */ (num_frs_comm);
+        /* 11. Translator concatenated masking term commitment */ (num_frs_comm) +
+        /* 12. Translator op evaluation */ (num_frs_fq) +
+        /* 13. Translator Px evaluation */ (num_frs_fq) +
+        /* 14. Translator Py evaluation */ (num_frs_fq) +
+        /* 15. Translator z1 evaluation */ (num_frs_fq) +
+        /* 16. Translator z2 evaluation */ (num_frs_fq) +
+        /* 17. Translator concatenated masking term evaluation */ (num_frs_fq) +
+        /* 18. Translator grand sum commitment */ (num_frs_comm) +
+        /* 19. Translator quotient commitment */ (num_frs_comm) +
+        /* 20. Translator concatenation eval */ (num_frs_fq) +
+        /* 21. Translator grand sum shift eval */ (num_frs_fq) +
+        /* 22. Translator grand sum eval */ (num_frs_fq) +
+        /* 23. Translator quotient eval */ (num_frs_fq) +
+        /* 24. TripleIPA pow-tensor masking commitment */ (num_frs_comm) +
+        /* 25. TripleIPA pow-tensor masking evaluation */ (num_frs_fq) +
+        /* 26. Shplonk Q commitment (single TripleIPA Shplonk reduction) */ (num_frs_comm);
 
-    // The sub-protocol `compute_translation_opening_claims` outputs an opening claim for the batched univariate
+    // The translation opening-claim step outputs an opening claim for the batched univariate
     // evaluation of `op`, `Px`, `Py`, `z1`, and `z2`, and an array of opening claims for the evaluations of the
     // SmallSubgroupIPA witness polynomials.
     static constexpr size_t NUM_TRANSLATION_OPENING_CLAIMS = NUM_SMALL_IPA_OPENING_CLAIMS + 1;

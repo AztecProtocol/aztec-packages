@@ -134,7 +134,7 @@ TEST_F(ChonkBatchVerifierTests, TamperedProofBisected)
     auto [good_proof, vk1] = generate_chonk_proof();
     auto [bad_proof, vk2] = generate_chonk_proof();
 
-    // Corrupt the IPA proof portion
+    // Corrupt the TripleIPA proof portion so the accumulator discharge fails.
     ASSERT_FALSE(bad_proof.ipa_proof.empty());
     bad_proof.ipa_proof[0] = bad_proof.ipa_proof[0] + bb::fr(1);
 
@@ -362,7 +362,7 @@ TEST_F(ChonkBatchVerifierTests, RandomMixedBatches)
         for (size_t i = 0; i < total; ++i) {
             proofs.push_back(good_proof_template);
             if (bad_indices.count(i)) {
-                proofs.back().ipa_proof[0] = proofs.back().ipa_proof[0] + bb::fr(1);
+                proofs.back().eccvm_proof[0] = proofs.back().eccvm_proof[0] + bb::fr(1);
             }
         }
 

@@ -128,14 +128,18 @@ TEST_F(GoblinAvmRecursiveVerifierTests, Basic)
     auto transcript = std::make_shared<Transcript>();
     GoblinAvmStdlibProof stdlib_proof(builder, proof);
     bb::GoblinAvmRecursiveVerifier verifier{ transcript, stdlib_proof, recursive_table_commitments };
-    auto output = verifier.reduce_to_pairing_check_and_ipa_opening();
+    auto output = verifier.reduce_to_pairing_check_and_triple_ipa_opening();
+
+    // This test exercises the GoblinAvm recursive verifier circuit, not TripleIPA propagation. Use a random valid
+    // ordinary IPA (claim, proof) pair to satisfy the UltraRollupHonk IO shape.
+    auto [ipa_claim, ipa_proof] = IPA<stdlib::grumpkin<OuterBuilder>>::create_random_valid_ipa_claim_and_proof(builder);
 
     stdlib::recursion::honk::RollupIO inputs;
     inputs.pairing_inputs = output.translator_pairing_points;
-    inputs.ipa_claim = output.ipa_claim;
+    inputs.ipa_claim = ipa_claim;
     inputs.set_public();
 
-    builder.ipa_proof = output.ipa_proof.get_value();
+    builder.ipa_proof = ipa_proof;
 
     info("Recursive Verifier: num gates = ", builder.num_gates());
 
@@ -180,18 +184,8 @@ TEST_F(GoblinAvmRecursiveVerifierTests, ECCVMFailure)
     auto transcript = std::make_shared<Transcript>();
     GoblinAvmStdlibProof stdlib_proof(builder, proof);
     bb::GoblinAvmRecursiveVerifier verifier{ transcript, stdlib_proof, recursive_table_commitments };
-    auto goblin_rec_verifier_output = verifier.reduce_to_pairing_check_and_ipa_opening();
+    [[maybe_unused]] auto goblin_rec_verifier_output = verifier.reduce_to_pairing_check_and_triple_ipa_opening();
     EXPECT_FALSE(CircuitChecker::check(builder));
-
-    srs::init_file_crs_factory(bb::srs::bb_crs_path());
-    auto crs_factory = srs::get_grumpkin_crs_factory();
-    VerifierCommitmentKey<curve::Grumpkin> grumpkin_verifier_commitment_key(1 << CONST_ECCVM_LOG_N, crs_factory);
-    OpeningClaim<curve::Grumpkin> native_claim = goblin_rec_verifier_output.ipa_claim.get_native_opening_claim();
-    auto native_ipa_transcript = std::make_shared<NativeTranscript>(goblin_rec_verifier_output.ipa_proof.get_value());
-
-    bool native_result =
-        IPA<curve::Grumpkin>::reduce_verify(grumpkin_verifier_commitment_key, native_claim, native_ipa_transcript);
-    EXPECT_FALSE(native_result);
 }
 
 /**
@@ -218,7 +212,7 @@ TEST_F(GoblinAvmRecursiveVerifierTests, TranslatorFailure)
         auto transcript = std::make_shared<Transcript>();
         GoblinAvmStdlibProof stdlib_proof(builder, proof);
         bb::GoblinAvmRecursiveVerifier verifier{ transcript, stdlib_proof, recursive_table_commitments };
-        auto goblin_rec_verifier_output = verifier.reduce_to_pairing_check_and_ipa_opening();
+        auto goblin_rec_verifier_output = verifier.reduce_to_pairing_check_and_triple_ipa_opening();
 
         // Circuit is correct but pairing check should fail
         EXPECT_TRUE(CircuitChecker::check(builder));
@@ -238,7 +232,7 @@ TEST_F(GoblinAvmRecursiveVerifierTests, TranslatorFailure)
         auto transcript = std::make_shared<Transcript>();
         GoblinAvmStdlibProof stdlib_proof(builder, tampered_proof);
         bb::GoblinAvmRecursiveVerifier verifier{ transcript, stdlib_proof, recursive_table_commitments };
-        [[maybe_unused]] auto goblin_rec_verifier_output = verifier.reduce_to_pairing_check_and_ipa_opening();
+        [[maybe_unused]] auto goblin_rec_verifier_output = verifier.reduce_to_pairing_check_and_triple_ipa_opening();
         EXPECT_FALSE(CircuitChecker::check(builder));
     }
 }
@@ -258,7 +252,7 @@ TEST_F(GoblinAvmRecursiveVerifierTests, TranslationEvaluationsFailure)
     auto transcript = std::make_shared<Transcript>();
     GoblinAvmStdlibProof stdlib_proof(builder, proof);
     bb::GoblinAvmRecursiveVerifier verifier{ transcript, stdlib_proof, recursive_table_commitments };
-    [[maybe_unused]] auto goblin_rec_verifier_output = verifier.reduce_to_pairing_check_and_ipa_opening();
+    [[maybe_unused]] auto goblin_rec_verifier_output = verifier.reduce_to_pairing_check_and_triple_ipa_opening();
 
     EXPECT_FALSE(CircuitChecker::check(builder));
 }

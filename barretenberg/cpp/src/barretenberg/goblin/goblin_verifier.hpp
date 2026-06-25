@@ -49,27 +49,24 @@ template <typename Curve> class GoblinVerifier_ {
 
     /**
      * @brief Result of Goblin verification with mode-specific semantics
-     * @details Native mode: Pairing checks performed immediately (fail-fast), only IPA verification deferred
-     *          Recursive mode: Both pairing and IPA verification deferred for batched verification
+     * @details Native mode: Pairing checks are performed immediately (fail-fast), TripleIPA verification is deferred.
+     *          Recursive mode: Pairing and TripleIPA verification are deferred for aggregation.
      */
+    using DeferredTripleIpaOpening = typename ECCVMVerifier::DeferredTripleIpaOpening;
+
     struct ReductionResult {
         using PairingPoints = MergeVerifier::PairingPoints;
-        using IPAClaim = OpeningClaim<typename ECCVMVerifier::Curve>;
-        using IPAProof = std::conditional_t<IsRecursive, stdlib::Proof<UltraCircuitBuilder>, HonkProof>;
-
-        PairingPoints merge_pairing_points;      // KZG pairing points from Merge
-        PairingPoints translator_pairing_points; // KZG pairing points from Translator
-        IPAClaim ipa_claim;                      // IPA opening claim from ECCVM (Grumpkin curve)
-        IPAProof ipa_proof;                      // IPA proof for verifying the claim
-        bool all_checks_passed = false;          // Native: includes pairing checks (already performed)
-                                                 // Recursive: excludes pairing (deferred for batching)
-                                                 // Both: excludes IPA verification (always deferred)
+        PairingPoints merge_pairing_points;          // KZG pairing points from Merge
+        PairingPoints translator_pairing_points;     // KZG pairing points from Translator
+        DeferredTripleIpaOpening triple_ipa_opening; // Compact TripleIPA verifier input and proof from ECCVM
+        bool all_checks_passed = false;              // Native: includes pairing checks (already performed)
+                                                     // Recursive: excludes pairing (deferred for batching)
     };
 
     /**
      * @brief Construct a Goblin verifier
      * @param transcript Shared transcript for Fiat-Shamir
-     * @param proof The complete Goblin proof containing Merge, ECCVM, IPA, and Translator proofs
+     * @param proof The complete Goblin proof containing Merge, ECCVM, TripleIPA, and Translator proofs
      * @param merge_commitments The input commitments for the Merge verifier (t and T_prev tables)
      */
     GoblinVerifier_(std::shared_ptr<Transcript> transcript,
@@ -81,22 +78,23 @@ template <typename Curve> class GoblinVerifier_ {
     {}
 
     /**
-     * @brief Reduce Goblin proof to pairing check and IPA opening claim
+     * @brief Reduce Goblin proof to pairing checks and a TripleIPA claim
      * @details Orchestrates three sub-verifiers in sequence: Merge → ECCVM → Translator
      *   - Merge: reduces to KZG pairing check
-     *   - ECCVM: reduces to IPA opening claim (Grumpkin curve)
+     *   - ECCVM: reconstructs a compact TripleIPA claim (Grumpkin curve)
      *   - Translator: reduces to KZG pairing check
      *
      * Pairing points from Merge and Translator are aggregated. In native mode, performs immediate pairing
-     * checks for early rejections. IPA verification is always deferred.
+     * checks for early rejections. TripleIPA verification is always deferred to the caller.
      *
      * @return ReductionResult with all_checks_passed indicating:
-     *   - Native: reduction checks + pairing checks passed, IPA verification still needed
-     *   - Recursive: reduction checks only (pairing and IPA both deferred)
+     *   - Native: reduction checks + pairing checks passed, TripleIPA verification still needed
+     *   - Recursive: reduction checks only (pairing and TripleIPA verification both deferred)
      *
-     * @warning Caller must verify ipa_claim using ipa_proof (deferred in both modes)
+     * @warning Caller must reduce or verify triple_ipa_opening, then verify or accumulate the resulting accumulator.
      */
-    [[nodiscard("Verification result must be accumulated")]] ReductionResult reduce_to_pairing_check_and_ipa_opening();
+    [[nodiscard("Verification result must be accumulated")]] ReductionResult
+    reduce_to_pairing_check_and_triple_ipa_opening();
 
   private:
     std::shared_ptr<Transcript> transcript;

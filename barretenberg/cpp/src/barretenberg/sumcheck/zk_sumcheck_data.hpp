@@ -24,6 +24,7 @@ namespace bb {
 template <typename Flavor> struct ZKSumcheckData {
     using Curve = typename Flavor::Curve;
     using FF = typename Curve::ScalarField;
+    using Commitment = typename Curve::AffineElement;
 
     static constexpr size_t SUBGROUP_SIZE = Curve::SUBGROUP_SIZE;
 
@@ -44,6 +45,7 @@ template <typename Flavor> struct ZKSumcheckData {
     // to compute product in lagrange basis
     Polynomial<FF> libra_concatenated_lagrange_form;
     Polynomial<FF> libra_concatenated_monomial_form;
+    Commitment libra_concatenation_commitment;
 
     std::vector<Polynomial<FF>> libra_univariates{};
     size_t log_circuit_size{ 0 };
@@ -74,8 +76,8 @@ template <typename Flavor> struct ZKSumcheckData {
 
         // If prover_instance is provided, commit to the concatenated and masked libra polynomial
         if (commitment_key.initialized()) {
-            auto libra_commitment = commitment_key.commit(libra_concatenated_monomial_form);
-            transcript->send_to_verifier("Libra:concatenation_commitment", libra_commitment);
+            libra_concatenation_commitment = commitment_key.commit(libra_concatenated_monomial_form);
+            transcript->send_to_verifier("Libra:concatenation_commitment", libra_concatenation_commitment);
         }
         // Compute the total sum of the Libra polynomials
         std::tie(libra_total_sum, libra_scaling_factor) = compute_libra_total_sum(libra_univariates, constant_term);

@@ -205,7 +205,10 @@ typename ShpleminiTest<Flavor>::Fr ShpleminiTest<Flavor>::run_forged_small_ipa_p
     return forged_inner_product;
 }
 
-using TestSettings = ::testing::Types<BN254Settings, GrumpkinSettings>;
+// Shplemini's multilinear opening is a production flow only over BN254 (KZG) — UltraHonk/MegaHonk/Translator/AVM.
+// The Grumpkin (IPA) instantiation exercised Shplemini -> IPA, which ECCVM replaced with the TripleIPA; ECCVM
+// only uses Shplemini's `compute_sumcheck_round_claims` helper, covered by the eccvm integration tests.
+using TestSettings = ::testing::Types<BN254Settings>;
 
 TYPED_TEST_SUITE(ShpleminiTest, TestSettings);
 

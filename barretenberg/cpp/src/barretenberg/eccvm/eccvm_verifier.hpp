@@ -5,10 +5,12 @@
 // =====================
 
 #pragma once
+#include "barretenberg/commitment_schemes/triple_ipa/triple_ipa.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/eccvm_recursive_flavor.hpp"
 #include "barretenberg/stdlib/proof/proof.hpp"
+#include "barretenberg/sumcheck/sumcheck_output.hpp"
 
 namespace bb {
 
@@ -29,19 +31,56 @@ template <typename Flavor> class ECCVMVerifier_ {
     using VerifierCommitmentKey = Flavor::VerifierCommitmentKey;
     using Proof = Flavor::Proof;
     using PCS = IPA<Curve, CONST_ECCVM_LOG_N>;
-    using TranslatorInputData = TranslatorInputData_<FF>;
-
     static constexpr bool IsRecursive = Curve::is_stdlib_type;
     using Builder = std::conditional_t<IsRecursive, typename Flavor::CircuitBuilder, void>;
+    using TripleIPA = bb::TripleIPA<Curve, CONST_ECCVM_LOG_N>;
+    using TripleIpaAccumulator = typename TripleIPA::VerifierAccumulator;
+    using TripleIpaClaim = typename TripleIPA::TripleIpaClaim;
+    using TripleIpaProof = std::conditional_t<IsRecursive, stdlib::Proof<UltraCircuitBuilder>, HonkProof>;
+    using TranslatorInputData = TranslatorInputData_<FF>;
+
+    struct DeferredTripleIpaOpening {
+        using Accumulator = TripleIpaAccumulator;
+
+        TripleIpaClaim claim;
+        TripleIpaProof proof;
+
+        TripleIpaAccumulator reduce_to_accumulator() const
+            requires(!IsRecursive)
+        {
+            auto transcript = std::make_shared<NativeTranscript>(proof);
+            return TripleIPA::reduce_to_accumulator(claim, transcript);
+        }
+
+        TripleIpaAccumulator reduce_verify() const
+            requires(IsRecursive)
+        {
+            auto transcript = std::make_shared<UltraStdlibTranscript>(proof);
+            return TripleIPA::reduce_verify(claim, transcript);
+        }
+    };
+
+    static bool verify_accumulator(const TripleIpaAccumulator& accumulator)
+        requires(!IsRecursive)
+    {
+        auto ipa_vk = ECCVMFlavor::VerifierCommitmentKey{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+        return TripleIPA::verify_accumulator(ipa_vk, accumulator);
+    }
+
+    static bool batch_verify_accumulators(std::span<const TripleIpaAccumulator> accumulators)
+        requires(!IsRecursive)
+    {
+        auto ipa_vk = ECCVMFlavor::VerifierCommitmentKey{ ECCVMFlavor::ECCVM_FIXED_SIZE };
+        return TripleIPA::batch_verify_accumulators(ipa_vk, accumulators);
+    }
 
     /**
-     * @brief Result of reducing ECCVM proof to IPA opening claim
-     * @details Contains IPA opening claim for deferred verification and status of internal checks. The IPA claim
-     * must be verified externally. Individual check results are logged via vinfo().
+     * @brief Result of reducing ECCVM proof to a compact TripleIPA claim.
+     * @details Individual check results are logged via vinfo(). The TripleIPA proof is carried separately.
      */
     struct ReductionResult {
-        OpeningClaim<Curve> ipa_claim;    // IPA opening claim for deferred verification
-        bool reduction_succeeded = false; // Aggregate of sumcheck, consistency, and translation masking checks
+        TripleIpaClaim triple_ipa_claim;
+        bool reduction_succeeded = false;
     };
 
     // Unified constructor for both native and recursive verification
@@ -67,17 +106,15 @@ template <typename Flavor> class ECCVMVerifier_ {
     }
 
     /**
-     * @brief Reduce the ECCVM proof to an IPA opening claim
+     * @brief Reduce the ECCVM proof to a compact TripleIPA verifier claim.
      * @details The ECCVM proves correct execution of elliptic curve operations accumulated in the op queue. This method
-     * verifies the ECCVM proof's internal checks (sumcheck, translation masking consistency, etc.) and reduces all
-     * polynomial opening claims to a single IPA opening claim via Shplemini and Shplonk. This method does NOT perform
-     * the final IPA verification - it returns an IPA claim that must be verified externally.
+     * verifies ECCVM internal checks (sumcheck, consistency, etc.) and reconstructs the public TripleIPA claim. The
+     * TripleIPA proof is carried separately by callers and reduced/accumulated downstream.
      *
-     * @return ReductionResult containing:
-     *   - ipa_claim: IPA opening claim to be verified externally (in root rollup or natively)
-     *   - reduction_succeeded: true if sumcheck, consistency, and masking checks passed
+     * @return ReductionResult containing the TripleIPA claim and whether sumcheck, consistency, and masking checks
+     * passed.
      */
-    [[nodiscard("Verification result must be checked")]] ReductionResult reduce_to_ipa_opening();
+    [[nodiscard("Verification result must be checked")]] ReductionResult reduce_to_triple_ipa_claim();
 
     /**
      * @brief Get the data required by the TranslatorVerifier
@@ -92,7 +129,20 @@ template <typename Flavor> class ECCVMVerifier_ {
     std::shared_ptr<Transcript> get_transcript() const { return transcript; }
 
   private:
-    void compute_translation_opening_claims(const std::vector<Commitment>& translation_commitments);
+    // The verifier-side PCS pipeline mirrors the prover: collect all univariate opening claims, reduce them with one
+    // Shplonk, then combine the reduced univariate claim with the sumcheck multilinear claims into a TripleIPA claim.
+    bool append_libra_opening_claims(const std::array<Commitment, NUM_SMALL_IPA_COMMITMENTS>& libra_commitments,
+                                     const std::vector<FF>& multilinear_challenge,
+                                     const FF& claimed_libra_evaluation);
+    void append_translation_opening_claims(const std::vector<Commitment>& translation_commitments);
+    void append_sumcheck_round_opening_claims(const std::vector<Commitment>& sumcheck_round_commitments,
+                                              const std::vector<std::array<FF, 3>>& sumcheck_round_evaluations,
+                                              const std::vector<FF>& multilinear_challenge);
+    void append_pow_masking_opening_claim();
+    OpeningClaim<Curve> reduce_univariate_opening_claims();
+    TripleIpaClaim compute_triple_ipa_claim(VerifierCommitments& commitments,
+                                            SumcheckOutput<Flavor>& sumcheck_output,
+                                            const OpeningClaim<Curve>& univariate_opening_claim);
     void compute_accumulated_result();
 
     std::shared_ptr<VerificationKey> key;
@@ -104,11 +154,7 @@ template <typename Flavor> class ECCVMVerifier_ {
     // Builder pointer (only used for recursive, nullptr for native)
     std::conditional_t<IsRecursive, Builder*, void*> builder = nullptr;
 
-    // Final ShplonkVerifier consumes an array consisting of Translation Opening Claims and a
-    // `multivariate_to_univariate_opening_claim`
-    static constexpr size_t NUM_OPENING_CLAIMS = ECCVMFlavor::NUM_TRANSLATION_OPENING_CLAIMS + 1;
-    std::array<OpeningClaim<Curve>, NUM_OPENING_CLAIMS> opening_claims;
-
+    std::vector<OpeningClaim<Curve>> univariate_opening_claims;
     TranslationEvaluations_<FF> translation_evaluations;
 
     // Translation evaluation and batching challenges. Propagated to TranslatorVerifier via get_translator_input_data()
@@ -124,5 +170,8 @@ template <typename Flavor> class ECCVMVerifier_ {
 // Type aliases
 using ECCVMVerifier = ECCVMVerifier_<ECCVMFlavor>;
 using ECCVMRecursiveVerifier = ECCVMVerifier_<ECCVMRecursiveFlavor>;
+// Retained for call sites that name the TripleIPA verifier explicitly; the ECCVM verifier always uses it.
+using ECCVMTripleIpaVerifier = ECCVMVerifier;
+using ECCVMTripleIpaRecursiveVerifier = ECCVMRecursiveVerifier;
 
 } // namespace bb

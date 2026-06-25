@@ -259,11 +259,9 @@ ChonkBatchVerify::Response ChonkBatchVerify::execute(const BBApiRequest& /*reque
 
         using VerificationKey = Chonk::MegaZKVerificationKey;
 
-        // Phase 1: Run all non-IPA verification for each proof, collecting IPA claims
-        std::vector<OpeningClaim<curve::Grumpkin>> ipa_claims;
-        std::vector<std::shared_ptr<NativeTranscript>> ipa_transcripts;
-        ipa_claims.reserve(proofs.size());
-        ipa_transcripts.reserve(proofs.size());
+        // Phase 1: Run all non-IPA verification for each proof, collecting deferred TripleIPA claims and proofs.
+        std::vector<bb::ChonkNativeVerifier::TripleIpaReductionResult> reduced_results;
+        reduced_results.reserve(proofs.size());
 
         for (size_t i = 0; i < proofs.size(); ++i) {
             if (!has_expected_vk_size<VerificationKey>(vks[i], "ChonkBatchVerify")) {
@@ -285,17 +283,20 @@ ChonkBatchVerify::Response ChonkBatchVerify::execute(const BBApiRequest& /*reque
 
             auto vk_and_hash = std::make_shared<ChonkNativeVerifier::VKAndHash>(hiding_kernel_vk);
             ChonkNativeVerifier verifier(vk_and_hash);
-            auto result = verifier.reduce_to_ipa_claim(std::move(proofs[i]));
+            auto result = verifier.reduce_to_triple_ipa_opening(std::move(proofs[i]));
             if (!result.all_checks_passed) {
                 return { .valid = false };
             }
-            ipa_claims.push_back(std::move(result.ipa_claim));
-            ipa_transcripts.push_back(std::make_shared<NativeTranscript>(std::move(result.ipa_proof)));
+            reduced_results.push_back(std::move(result));
         }
 
-        // Phase 2: Batch IPA verification
-        auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
-        const bool verified = IPA<curve::Grumpkin>::batch_reduce_verify(ipa_vk, ipa_claims, ipa_transcripts);
+        // Phase 2: Reduce all deferred TripleIPA claims to accumulators and discharge them with one combined SRS-MSM.
+        std::vector<bb::ECCVMVerifier::DeferredTripleIpaOpening::Accumulator> ipa_accumulators;
+        ipa_accumulators.reserve(reduced_results.size());
+        for (const auto& result : reduced_results) {
+            ipa_accumulators.push_back(result.triple_ipa_opening.reduce_to_accumulator());
+        }
+        const bool verified = bb::ECCVMVerifier::batch_verify_accumulators(ipa_accumulators);
 
         return { .valid = verified };
     } catch (const std::exception& e) {
