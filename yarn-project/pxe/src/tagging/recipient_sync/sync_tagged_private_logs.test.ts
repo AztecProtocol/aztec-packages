@@ -268,7 +268,7 @@ describe('syncTaggedPrivateLogs', () => {
       expect(await taggingStore.getHighestAgedIndex(secret, JOB_ID)).toBeUndefined();
     });
 
-    it('fully drains a long contiguous run one probe at a time', async () => {
+    it('fully drains a long contiguous run beyond the window', async () => {
       const [secret] = await makeSecrets(1, AppTaggingSecretKind.CONSTRAINED);
       const finalizedBlockNumber = BlockNumber(10);
       const logBlockTimestamp = CURRENT_TIMESTAMP - BigInt(MAX_TX_LIFETIME) - 1000n;
@@ -290,11 +290,12 @@ describe('syncTaggedPrivateLogs', () => {
       );
 
       // The whole run is returned and the cursor lands on the last index, even though the run is longer than a single
-      // window. With INITIAL_CONSTRAINED_PROBE_LEN = 1 the scan advances one index per round, so it takes one round
-      // per log plus a final round for the terminating miss.
+      // window: boundEnd re-anchors to each finalized index found, so the doubling probe keeps advancing past one
+      // window until the terminating miss.
       expect(logs).toHaveLength(totalLogs);
       expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBe(totalLogs - 1);
-      expect(aztecNode.getPrivateLogsByTags.mock.calls.length).toBe(totalLogs + 1);
+      // Doubling drains the run in far fewer rounds than one-per-log.
+      expect(aztecNode.getPrivateLogsByTags.mock.calls.length).toBeLessThan(totalLogs);
     });
 
     it('persists cursor only up to finalized block', async () => {
@@ -368,17 +369,18 @@ describe('syncTaggedPrivateLogs', () => {
       expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBeUndefined();
     });
 
-    // Pins the committed P=1 behavior: a fully-consumed probe advances by one INITIAL_CONSTRAINED_PROBE_LEN step,
-    // not the whole window.
-    it('catch-up probes one step at a time, not the full window', async () => {
+    // Pins the probe schedule: the probe doubles each round (1, 2, 4, ...) until the first miss, so K-deep
+    // catch-up resolves in ~log2(K) round-trips instead of K + 1. With 3 new logs the windows are [1], [2,3],
+    // [4,5,6,7] - round 3 (probe length 4) contains the terminating miss at index 4.
+    it('doubling catch-up grows the probe geometrically and stops at the first miss', async () => {
       const [secret] = await makeSecrets(1, AppTaggingSecretKind.CONSTRAINED);
       const finalizedBlockNumber = BlockNumber(10);
       const agedTimestamp = CURRENT_TIMESTAMP - BigInt(MAX_TX_LIFETIME) - 1000n;
 
-      // Recipient already synced index 0; exactly one new finalized log sits at index 1.
+      // Recipient already synced index 0; three new finalized logs sit at indexes 1..3.
       await taggingStore.updateHighestFinalizedIndex(secret, 0, JOB_ID);
-      const newLogTag = await computeSiloedTagForIndex(secret, 1);
-      mockNodeWithLogs([newLogTag], Number(finalizedBlockNumber), agedTimestamp);
+      const hitTags = await Promise.all([1, 2, 3].map(i => computeSiloedTagForIndex(secret, i)));
+      mockNodeWithLogs(hitTags, Number(finalizedBlockNumber), agedTimestamp);
 
       const logs = await syncTaggedPrivateLogs(
         [secret],
@@ -389,16 +391,50 @@ describe('syncTaggedPrivateLogs', () => {
         JOB_ID,
       );
 
-      expect(logs).toHaveLength(1);
-      expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBe(1);
+      expect(logs).toHaveLength(3);
+      expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBe(3);
 
-      // Round 1 probes index 1 (the hit); round 2 probes only index 2 (the terminating miss) — a single
-      // INITIAL_CONSTRAINED_PROBE_LEN step, not the full window. The old full-window fallback queried indexes
-      // 2..(1 + WINDOW_LEN) in round 2.
+      // Probe windows double each round: [1], then [2,3], then [4,5,6,7] where index 4 is the terminating miss.
       const calls = aztecNode.getPrivateLogsByTags.mock.calls;
-      expect(calls).toHaveLength(2);
-      expect(extractTags(calls[0][0])).toEqual([await computeSiloedTagForIndex(secret, 1)]);
-      expect(extractTags(calls[1][0])).toEqual([await computeSiloedTagForIndex(secret, 2)]);
+      expect(calls).toHaveLength(3);
+      expect(extractTags(calls[0][0])).toEqual(await Promise.all([1].map(i => computeSiloedTagForIndex(secret, i))));
+      expect(extractTags(calls[1][0])).toEqual(await Promise.all([2, 3].map(i => computeSiloedTagForIndex(secret, i))));
+      expect(extractTags(calls[2][0])).toEqual(
+        await Promise.all([4, 5, 6, 7].map(i => computeSiloedTagForIndex(secret, i))),
+      );
+    });
+
+    // Pins the effective per-round query cap for the doubling probe: it ramps 1, 2, 4, 8, 16 and then saturates at
+    // WINDOW_LEN (=20) per round rather than growing without bound, because a probe can never reach more than WINDOW_LEN
+    // past the finalized frontier (the `boundEnd` cap, which the stored-intent `Math.min` mirrors). With 100 new logs
+    // the per-round probe sizes are [1, 2, 4, 8, 16, 20, 20, 20, 20].
+    it('doubling caps the probe at WINDOW_LEN on deep catch-up', async () => {
+      const [secret] = await makeSecrets(1, AppTaggingSecretKind.CONSTRAINED);
+      const finalizedBlockNumber = BlockNumber(10);
+      const agedTimestamp = CURRENT_TIMESTAMP - BigInt(MAX_TX_LIFETIME) - 1000n;
+
+      // Recipient already synced index 0; a deep run of 100 new finalized logs sits at indexes 1..100.
+      const newLogs = 100;
+      await taggingStore.updateHighestFinalizedIndex(secret, 0, JOB_ID);
+      const hitTags = await Promise.all(
+        Array.from({ length: newLogs }, (_, i) => computeSiloedTagForIndex(secret, i + 1)),
+      );
+      mockNodeWithLogs(hitTags, Number(finalizedBlockNumber), agedTimestamp);
+
+      const logs = await syncTaggedPrivateLogs(
+        [secret],
+        aztecNode,
+        taggingStore,
+        ANCHOR_BLOCK_HEADER,
+        finalizedBlockNumber,
+        JOB_ID,
+      );
+
+      expect(logs).toHaveLength(newLogs);
+      // Geometric ramp, then saturation at WINDOW_LEN: no round ever queries more than 20 tags.
+      const callSizes = aztecNode.getPrivateLogsByTags.mock.calls.map(([q]) => extractTags(q).length);
+      expect(callSizes).toEqual([1, 2, 4, 8, 16, 20, 20, 20, 20]);
+      expect(Math.max(...callSizes)).toBe(UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN);
     });
   });
 

@@ -64,9 +64,9 @@ import { findHighestIndexes } from './utils/find_highest_indexes.js';
  *   one is already on-chain.
  * - Because the sequence is gapless, the scan stops at the first missing index: that gap proves the sequence has
  *   ended and no further logs exist. We exploit this by probing only a small initial window
- *   (`INITIAL_CONSTRAINED_PROBE_LEN`) and growing by another such step each round while every probed index has a
+ *   (`INITIAL_CONSTRAINED_PROBE_LEN`) and doubling it each round (capped at the window) while every probed index has a
  *   log, stopping at the first miss. A steady-state sync with no new logs costs a single tag instead of the whole
- *   window, and a sync with K new logs costs exactly K + 1 tags (K hits plus the terminating miss).
+ *   window, and a secret K logs behind catches up in ~log2(K) round-trips instead of one round per log.
  * - The upper bound is the same as unconstrained: `highestFinalizedIndex + WINDOW_LEN`. Advancing the probe is
  *   decoupled from persisting the finalized cursor, so unfinalized logs at the top of the run are still fetched
  *   while only the finalized prefix is persisted.
@@ -161,7 +161,10 @@ function getIndexRangesForSecrets(
           ? Math.min(boundEnd, start + INITIAL_CONSTRAINED_PROBE_LEN)
           : boundEnd;
 
-      return { secret, start, end, boundEnd };
+      // Only constrained secrets grow their probe round to round; unconstrained always scans the full window.
+      const probeLen = secret.kind === AppTaggingSecretKind.CONSTRAINED ? INITIAL_CONSTRAINED_PROBE_LEN : undefined;
+
+      return { secret, start, end, boundEnd, probeLen };
     }),
   );
 }
@@ -247,20 +250,27 @@ async function processConstrainedResults(
   // (no gap) and there is room before the protocol bound, even if none of those hits is finalized yet. Gating this on
   // finalization would drop logs in unfinalized blocks, which sit at the top of the contiguous run. The bound
   // re-anchors to any finalized index found this round. Because the stream is gapless, we only need to fetch up to the
-  // first missing tag, so the probe grows by another INITIAL_CONSTRAINED_PROBE_LEN step each round (capped at the
-  // bound) rather than jumping to the full window: a secret with K new logs costs exactly K + 1 tags.
+  // first missing tag, so the probe advances by the growth policy below (capped at the bound) rather than jumping to
+  // the full window.
   const probeFullyConsumed = firstMissingIndex >= pending.end;
   const boundEnd =
     highestFinalizedIndex !== undefined
       ? Math.max(pending.boundEnd, highestFinalizedIndex + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1)
       : pending.boundEnd;
 
+  // Double the probe each round so a secret K logs behind resolves in ~log2(K) round-trips instead of one per log. The
+  // queried range is already bounded by boundEnd (a probe can never reach more than WINDOW_LEN past the finalized
+  // frontier); the cap on the stored length just keeps it from growing unbounded once the probe saturates the window.
+  const currentProbeLen = pending.probeLen ?? INITIAL_CONSTRAINED_PROBE_LEN;
+  const nextProbeLen = Math.min(currentProbeLen * 2, UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN);
+
   if (probeFullyConsumed && pending.end < boundEnd) {
     return {
       secret: pending.secret,
       start: pending.end,
-      end: Math.min(boundEnd, pending.end + INITIAL_CONSTRAINED_PROBE_LEN),
+      end: Math.min(boundEnd, pending.end + nextProbeLen),
       boundEnd,
+      probeLen: nextProbeLen,
     };
   }
 
@@ -320,9 +330,12 @@ type PendingSecret = {
   start: number;
   end: number;
   // Highest index this secret may probe this sync (highest finalized index + WINDOW_LEN + 1, the protocol bound on how
-  // far ahead of finalized a log can sit). Distinct from `end`, which for constrained secrets advances by
-  // INITIAL_CONSTRAINED_PROBE_LEN per round up to this bound.
+  // far ahead of finalized a log can sit). Distinct from `end`, which for constrained secrets advances by doubling the
+  // probe each round up to this bound.
   boundEnd: number;
+  // Intended constrained probe length for the round that produced `end`; the next round doubles it (capped at
+  // WINDOW_LEN). Only set/read for constrained secrets - unconstrained secrets always scan the full window.
+  probeLen?: number;
 };
 
 type LogWithIndex = {

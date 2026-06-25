@@ -31,28 +31,31 @@ import {
  * Benchmark for constrained recipient tag-sync.
  *
  * Measures the per-sync cost of `syncTaggedPrivateLogs` for constrained secrets. Constrained streams are gapless, so
- * the scan probes a small initial window (`INITIAL_CONSTRAINED_PROBE_LEN`) and grows one such step at a time, stopping
- * at the first missing tag instead of fetching the full `UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN` (=20) window.
+ * the scan probes a small initial window (`INITIAL_CONSTRAINED_PROBE_LEN`) and doubles it each round (capped at the
+ * `UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN` (=20) window), stopping at the first missing tag instead of fetching the
+ * full window. This validates the shipped doubling policy; the fixed-step sweep that motivated choosing it lives in the
+ * PR description (reproducible from this branch's pre-doubling history).
  *
  * Metrics, per scenario:
  * - `tag-queries`: total tags queried, the throughput win. At steady state it drops from a full window per secret to a
- *   single tag; a secret with K new logs costs exactly K + 1 (the "first-miss optimum" floor, reduction 1.0x).
+ *   single tag; a secret K logs behind costs a little above the K + 1 first-miss floor (the doubling probe overshoots
+ *   slightly to cut round-trips). The floor is reported as the reduction baseline.
  * - `rpc-round-trips`: sequential blocking waits on the node (parallel `Promise.all` calls within a round count as one),
- *   via `BenchmarkedNodeFactory`. The latency axis: fixed-step trades fewer tags for more round-trips, so it grows
- *   ~linearly with K during catch-up while tag-queries stay at the floor. Depends only on K and P, not on secret count.
- *   A round's tags are chunked at MAX_RPC_LEN (=100) into parallel calls internally, but those overlap, so a wide round
- *   is still one round-trip; that is why round-trips, not raw call count, is the latency axis.
+ *   via `BenchmarkedNodeFactory`. The latency axis: doubling grows the probe geometrically, so round-trips rise only
+ *   ~log2(K) during catch-up while tag-queries stay near the floor. Depends only on K, not on secret count. A round's
+ *   tags are chunked at MAX_RPC_LEN (=100) into parallel calls internally, but those overlap, so a wide round is still
+ *   one round-trip; that is why round-trips, not raw call count, is the latency axis.
  * - `rpc-blocking-time`: measured wall-clock the caller blocks on the node, under a modeled `MODELED_NODE_RPC_LATENCY_MS`
  *   per call plus a little per-round overhead. Parallel calls within a round overlap, so it tracks round-trips (a
  *   1000-secret round is many parallel chunks but ~one round-trip of blocking time). Reported only (varies run to run).
  *
  * Scenario labels: `steady-state` is no new logs (K = 0); `catch-up-K` is K new contiguous logs per secret since the
- * last sync; `secrets=N` is N secrets synced together in one batched pass. Because round-trips depend only on K and P
- * (not N), the light catch-up scenarios run at both 100 and 1000 secrets to show tag-queries scale with N while
- * round-trips do not. The `mixed` row is the realistic active sync (999 idle secrets + 1 deep straggler at K = 100): it
- * isolates that tag-queries stay dominated by the idle majority while a single straggler alone sets the round-trip count
- * (round-trips therefore match catch-up-100). The `unconstrained` row is the control: it cannot first-miss (windowed
- * scan), so its cost is fixed.
+ * last sync; `secrets=N` is N secrets synced together in one batched pass. Because round-trips depend only on K (not N),
+ * the light catch-up scenarios run at both 100 and 1000 secrets to show tag-queries scale with N while round-trips do
+ * not. The `mixed` row is the realistic active sync (999 idle secrets + 1 deep straggler at K = 100): it isolates that
+ * tag-queries stay dominated by the idle majority while a single straggler alone sets the round-trip count (round-trips
+ * therefore match catch-up-100). The `unconstrained` row is the control: it cannot first-miss (windowed scan), so its
+ * cost is fixed.
  */
 
 const logger = createLogger('pxe:tagging:bench');
@@ -97,6 +100,42 @@ function newLogsPerSecret(scenario: Scenario): number[] {
   return Array.from({ length: scenario.secretCount }, (_, i) =>
     scenario.deepCohort && i < scenario.deepCohort.count ? scenario.deepCohort.newLogs : scenario.newLogs,
   );
+}
+
+/**
+ * Mirrors `processConstrainedResults` for a single secret with `k` new contiguous logs (`priorCursor = 0`): the probe
+ * starts at `INITIAL_CONSTRAINED_PROBE_LEN`, doubles each round (capped at WINDOW_LEN), and the queried range is bounded
+ * by the WINDOW_LEN-ahead-of-finalized frontier. Returns the total tags queried and the sequential round-trip count.
+ * Single source for the expected tag-query / round-trip assertions.
+ */
+function probeSchedule(k: number): { tags: number; rounds: number } {
+  let start = 1; // priorCursor (0) + 1
+  let highestFinalized = 0; // priorCursor
+  let probeLen = INITIAL_CONSTRAINED_PROBE_LEN;
+  let tags = 0;
+  let rounds = 0;
+  for (;;) {
+    const boundEnd = highestFinalized + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1;
+    const end = Math.min(boundEnd, start + probeLen);
+    if (end <= start) {
+      break;
+    }
+    tags += end - start;
+    rounds++;
+    // Hits occupy indexes 1..k; the round stops at the first index in [start, end) without a log.
+    const lastHit = Math.min(end - 1, k);
+    const fullyConsumed = lastHit === end - 1;
+    if (lastHit >= start) {
+      highestFinalized = lastHit;
+    }
+    // Stop on the first miss, or once the queried range has reached the (re-anchored) bound.
+    if (!fullyConsumed || end >= highestFinalized + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1) {
+      break;
+    }
+    start = end;
+    probeLen = Math.min(probeLen * 2, UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN);
+  }
+  return { tags, rounds };
 }
 
 const SCENARIOS: Scenario[] = [
@@ -252,19 +291,15 @@ describe('syncTaggedPrivateLogs constrained-sync bench', () => {
           `blocking=${row.rpcBlockingTimeMs.toFixed(0).padStart(4)}ms logs=${String(row.logsFound).padStart(5)}`,
       );
 
-      // Pin behavior as an executable assertion, not just a printout. Timings are reported only (they vary run to run).
+      // Pin behavior as an executable assertion, not just a printout. Timings are reported only (vary run to run).
       const perSecretNewLogs = newLogsPerSecret(scenario);
       if (scenario.kind === AppTaggingSecretKind.CONSTRAINED) {
-        // Fixed-step probing is tag-optimal: each secret pays its K hits plus 1 terminating miss, rounded up to whole
-        // probe steps. At INITIAL_CONSTRAINED_PROBE_LEN = 1 this equals the first-miss floor (reduction = 1.0x), and at
-        // steady state (K = 0) it collapses to a single initial probe per secret.
-        const stepsPerSecret = perSecretNewLogs.map(k => Math.ceil((k + 1) / INITIAL_CONSTRAINED_PROBE_LEN));
-        expect(row.tagQueries).toBe(
-          stepsPerSecret.reduce((sum, steps) => sum + steps * INITIAL_CONSTRAINED_PROBE_LEN, 0),
-        );
-        // Tags are batched across all secrets per round, so the round-trip count is the deepest secret's: one sequential
-        // round-trip per probe step, independent of chunking and secret count.
-        expect(row.rpcRoundTrips).toBe(Math.max(...stepsPerSecret));
+        // `probeSchedule` mirrors the real doubling scan: a secret K logs behind resolves in ~log2(K) round-trips at a
+        // little above the K + 1 tag floor. Tags are batched across all secrets per round, so the round-trip count is
+        // the deepest secret's.
+        const sched = perSecretNewLogs.map(k => probeSchedule(k));
+        expect(row.tagQueries).toBe(sched.reduce((sum, s) => sum + s.tags, 0));
+        expect(row.rpcRoundTrips).toBe(Math.max(...sched.map(s => s.rounds)));
       } else if (scenario.newLogs === 0) {
         // Unconstrained steady state: still the full window (control for the optimization), drained in one round.
         expect(row.tagQueries).toBe(scenario.secretCount * UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN);
