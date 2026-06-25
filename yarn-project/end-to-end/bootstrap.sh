@@ -36,7 +36,7 @@ function test_cmds {
 
   local tests=(
     # List all standalone and nested tests, except for the ones listed above.
-    src/e2e_!(prover)/*.test.ts
+    src/e2e_*/*.test.ts
     src/single-node/block-building/*.test.ts
     src/single-node/proving/*.test.ts
     src/single-node/l1-reorgs/*.test.ts
