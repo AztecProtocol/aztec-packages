@@ -162,7 +162,7 @@ export const MEMPOOL_TX_ADDED_COUNT: MetricDefinition = {
 };
 export const MEMPOOL_TX_MINED_DELAY: MetricDefinition = {
   name: 'aztec.mempool.tx_mined_delay',
-  description: 'Delay between transaction added and evicted from the mempool',
+  description: 'Delay (ms) from a transaction being received into the pool to being mined',
   unit: 'ms',
   valueType: ValueType.INT,
 };
