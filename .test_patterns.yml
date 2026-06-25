@@ -286,7 +286,7 @@ tests:
   # Blanket flake patterns for unstable p2p, epoch, and l1 tx utils tests
   # This is a temporary measure while team bandwidth is constrained
   # Replaced many specific patterns - see https://github.com/AztecProtocol/aztec-packages/pull/17962 for historical context
-  - regex: "src/e2e_p2p/.*\\.test\\.ts"
+  - regex: "src/p2p/.*\\.test\\.ts"
     flake_group_id: e2e-p2p-epoch-flakes
     owners:
       - *phil

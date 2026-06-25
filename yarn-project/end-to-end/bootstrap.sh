@@ -49,7 +49,8 @@ function test_cmds {
     src/multi-node/high-availability/*.test.ts
     src/multi-node/slashing/*.test.ts
     src/multi-node/governance/*.test.ts
-    src/e2e_p2p/reqresp/*.test.ts
+    src/p2p/*.test.ts
+    src/p2p/reqresp/*.test.ts
     src/e2e_!(block_building|avm_simulator).test.ts
   )
   for test in "${tests[@]}"; do
@@ -284,12 +285,22 @@ function compat_test_cmds {
 
   local tests=(
     src/e2e_!(prover|block_building|epochs)/*.test.ts
-    src/e2e_p2p/reqresp/*.test.ts
+    src/p2p/*.test.ts
+    src/p2p/reqresp/*.test.ts
     src/e2e_!(block_building|prover_*|kernelless_simulation).test.ts
   )
   for test in "${tests[@]}"; do
-    local name=${test#*e2e_}
-    name=e2e_${name%.test.ts}
+    local name
+    if [[ "$test" == src/p2p/* ]]; then
+      # The p2p/ folder has no `e2e_` prefix to strip; flatten its path into an e2e_p2p_<file> name
+      # (matching the historical e2e_p2p/<file> names) by dropping "src/", ".test.ts", and slashes.
+      name=${test#src/}
+      name=e2e_${name%.test.ts}
+      name=${name//\//_}
+    else
+      name=${test#*e2e_}
+      name=e2e_${name%.test.ts}
+    fi
 
     if [[ "$test" == *.parallel.test.ts ]]; then
       while IFS= read -r test_name; do

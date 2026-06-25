@@ -39,11 +39,11 @@ import path from 'path';
 import { type Hex, decodeEventLog, encodeFunctionData, getAddress, getContract } from 'viem';
 import { foundry } from 'viem/chains';
 
-import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES } from '../../e2e_p2p/p2p_network.js';
 import { shouldCollectMetrics } from '../../fixtures/fixtures.js';
 import { sendL1ToL2Message } from '../../fixtures/l1_to_l2_messaging.js';
 import { ATTESTER_PRIVATE_KEYS_START_INDEX, createNodes, createProverNode } from '../../fixtures/setup_p2p_test.js';
 import { setupSharedBlobStorage } from '../../fixtures/utils.js';
+import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES } from '../../p2p/p2p_network.js';
 import { TestWallet } from '../../test-wallet/test_wallet.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
