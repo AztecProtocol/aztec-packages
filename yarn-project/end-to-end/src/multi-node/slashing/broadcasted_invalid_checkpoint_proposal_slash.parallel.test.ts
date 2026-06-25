@@ -17,22 +17,20 @@ import {
 import { TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
 
-import { P2PNetworkTest } from '../e2e_p2p/p2p_network.js';
-import { advanceToEpochBeforeProposer, awaitCommitteeExists } from '../e2e_p2p/shared.js';
-import { shouldCollectMetrics } from '../fixtures/fixtures.js';
-import { ATTESTER_PRIVATE_KEYS_START_INDEX, createNode, createNodes } from '../fixtures/setup_p2p_test.js';
-import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
+import { getPrivateKeyFromIndex } from '../../fixtures/utils.js';
+import {
+  MultiNodeTestContext,
+  SLASHER_ENABLED_MULTI_VALIDATOR_OPTS,
+  buildMockGossipValidators,
+} from '../multi_node_test_context.js';
+import { advanceToEpochBeforeProposer, awaitCommitteeExists } from './setup.js';
 
 const TEST_TIMEOUT = 1_000_000;
 
 jest.setTimeout(TEST_TIMEOUT);
 
 const NUM_VALIDATORS = 2;
-const BOOT_NODE_UDP_PORT = 4900;
 const COMMITTEE_SIZE = NUM_VALIDATORS;
 const ETHEREUM_SLOT_DURATION = 4;
 const AZTEC_EPOCH_DURATION = 2;
@@ -43,12 +41,12 @@ const SLASHING_ROUND_SIZE = 8;
 const TERMINAL_BLOCK_INDEX = IndexWithinCheckpoint(1);
 const HIGHER_BLOCK_INDEX = IndexWithinCheckpoint(2);
 
-const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'broadcasted-invalid-checkpoint-proposal-slash-'));
-
 type SlashOffense = Awaited<ReturnType<AztecNodeService['getSlashOffenses']>>[number];
 
+// Validators are keyed from `getPrivateKeyFromIndex(i + 3)` (the `buildMockGossipValidators` convention),
+// so the signer for validator `index` is derived from the same key its node signs proposals with.
 function getAttesterSigner(validatorIndex: number) {
-  const privateKey = getPrivateKeyFromIndex(ATTESTER_PRIVATE_KEYS_START_INDEX + validatorIndex)!;
+  const privateKey = getPrivateKeyFromIndex(validatorIndex + 3)!;
   return new Secp256k1Signer(Buffer32.fromBuffer(privateKey));
 }
 
@@ -225,104 +223,79 @@ async function makeInvalidCheckpointProposals({
   return { earlierBlock, terminalBlock, higherBlock, checkpoint };
 }
 
-// Tests slashing of a validator that broadcasts an invalid checkpoint proposal. Uses P2PNetworkTest
-// with mockGossipSubNetwork: true (in-memory gossip bus, no real libp2p). Nodes created via
-// createNode/createNodes from setup_p2p_test.ts. Timing: ethSlot=4s, aztecSlot=8s, epoch=2,
-// committee=2. Three it() cases cover: checkpoint truncated below own block, mismatched header
-// (live sequencer path), and valid checkpoint with delayed higher-index block.
-describe('e2e_slashing_broadcasted_invalid_checkpoint_proposal_slash', () => {
-  let t: P2PNetworkTest;
+// Tests slashing of a validator that broadcasts an invalid checkpoint proposal. Uses MultiNodeTestContext
+// on the in-memory mock-gossip bus (no real libp2p). Nodes created via createValidatorNodeAt. Timing:
+// ethSlot=4s, aztecSlot=8s, epoch=2, committee=2. Three it() cases cover: checkpoint truncated below
+// own block, mismatched header (live sequencer path), and valid checkpoint with delayed higher-index
+// block.
+describe('multi-node/slashing/broadcasted_invalid_checkpoint_proposal_slash', () => {
+  let test: MultiNodeTestContext;
   let nodes: AztecNodeService[] = [];
 
   const slashingUnit = BigInt(1e14);
 
   beforeEach(async () => {
-    t = await P2PNetworkTest.create({
-      testName: 'e2e_slashing_broadcasted_invalid_checkpoint_proposal_slash',
-      numberOfNodes: 0,
-      numberOfValidators: NUM_VALIDATORS,
-      basePort: BOOT_NODE_UDP_PORT,
-      metricsPort: shouldCollectMetrics(),
-      initialConfig: {
-        anvilSlotsInAnEpoch: 4,
-        listenAddress: '127.0.0.1',
-        aztecEpochDuration: AZTEC_EPOCH_DURATION,
-        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
-        aztecSlotDuration: AZTEC_SLOT_DURATION,
-        blockDurationMs: BLOCK_DURATION_MS,
-        aztecTargetCommitteeSize: COMMITTEE_SIZE,
-        aztecProofSubmissionEpochs: 1024,
-        minTxsPerBlock: 0,
-        inboxLag: 2,
-        mockGossipSubNetwork: true,
-        slashingQuorum: SLASHING_QUORUM,
-        slashingRoundSizeInEpochs: SLASHING_ROUND_SIZE / AZTEC_EPOCH_DURATION,
-        slashAmountSmall: slashingUnit,
-        slashAmountMedium: slashingUnit * 2n,
-        slashAmountLarge: slashingUnit * 3n,
-        slashDataWithholdingPenalty: 0n,
-        slashInactivityPenalty: 0n,
-        slashBroadcastedInvalidBlockPenalty: 0n,
-        slashBroadcastedInvalidCheckpointProposalPenalty: slashingUnit,
-        slashDuplicateProposalPenalty: 0n,
-        slashDuplicateAttestationPenalty: 0n,
-        slashProposeInvalidAttestationsPenalty: 0n,
-        slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty: 0n,
-        slashAttestInvalidCheckpointProposalPenalty: 0n,
-        slashUnknownPenalty: 0n,
-        slashSelfAllowed: true,
-      },
+    test = await MultiNodeTestContext.setup({
+      ...SLASHER_ENABLED_MULTI_VALIDATOR_OPTS,
+      anvilSlotsInAnEpoch: 4,
+      listenAddress: '127.0.0.1',
+      aztecEpochDuration: AZTEC_EPOCH_DURATION,
+      ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+      aztecSlotDuration: AZTEC_SLOT_DURATION,
+      blockDurationMs: BLOCK_DURATION_MS,
+      aztecTargetCommitteeSize: COMMITTEE_SIZE,
+      aztecProofSubmissionEpochs: 1024,
+      minTxsPerBlock: 0,
+      inboxLag: 2,
+      slashingQuorum: SLASHING_QUORUM,
+      slashingRoundSizeInEpochs: SLASHING_ROUND_SIZE / AZTEC_EPOCH_DURATION,
+      slashAmountSmall: slashingUnit,
+      slashAmountMedium: slashingUnit * 2n,
+      slashAmountLarge: slashingUnit * 3n,
+      slashDataWithholdingPenalty: 0n,
+      slashInactivityPenalty: 0n,
+      slashBroadcastedInvalidBlockPenalty: 0n,
+      slashBroadcastedInvalidCheckpointProposalPenalty: slashingUnit,
+      slashDuplicateProposalPenalty: 0n,
+      slashDuplicateAttestationPenalty: 0n,
+      slashProposeInvalidAttestationsPenalty: 0n,
+      slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty: 0n,
+      slashAttestInvalidCheckpointProposalPenalty: 0n,
+      slashUnknownPenalty: 0n,
+      slashSelfAllowed: true,
+      initialValidators: buildMockGossipValidators(NUM_VALIDATORS),
     });
-
-    await t.setup();
-    await t.applyBaseSetup();
   });
 
   afterEach(async () => {
-    await t.stopNodes(nodes);
-    if (t.monitor) {
-      await t.teardown();
-    }
-    for (let i = 0; i < NUM_VALIDATORS; i++) {
-      fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
-    }
+    await test.teardown();
   });
 
   const setupNodeAndValidator = async () => {
-    const { rollup } = await t.getContracts();
+    const { rollup } = await test.getSlashingContracts();
 
-    await t.ctx.cheatCodes.rollup.advanceToEpoch(EpochNumber(4));
-    await t.ctx.cheatCodes.rollup.debugRollup();
+    await test.context.cheatCodes.rollup.advanceToEpoch(EpochNumber(4));
+    await test.context.cheatCodes.rollup.debugRollup();
 
-    const node = await createNode(
-      {
-        ...t.ctx.aztecNodeConfig,
-        dontStartSequencer: true,
-        minTxsPerBlock: 0,
-        slashBroadcastedInvalidCheckpointProposalPenalty: slashingUnit,
-        slashSelfAllowed: true,
-      },
-      t.ctx.dateProvider,
-      BOOT_NODE_UDP_PORT + 1,
-      t.bootstrapNodeEnr,
-      0,
-      t.genesis,
-      `${DATA_DIR}-0`,
-      shouldCollectMetrics(),
-    );
+    const node = await test.createValidatorNodeAt(0, {
+      dontStartSequencer: true,
+      minTxsPerBlock: 0,
+      slashBroadcastedInvalidCheckpointProposalPenalty: slashingUnit,
+      slashSelfAllowed: true,
+    });
     nodes = [node];
 
     await retryUntil(() => node.isReady(), 'node ready', 30, 0.5);
-    await awaitCommitteeExists({ rollup, logger: t.logger });
+    await awaitCommitteeExists({ rollup, logger: test.logger });
 
     const currentSlot = await rollup.getSlotNumber();
     expect(currentSlot).toBeGreaterThan(2);
 
     const signer = getAttesterSigner(0);
-    const validator = t.validators[0].attester.toString();
+    const validator = test.addressAt(0).toString();
     const signatureContext: CoordinationSignatureContext = {
-      chainId: t.ctx.aztecNodeConfig.l1ChainId,
-      rollupAddress: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+      chainId: test.context.config.l1ChainId,
+      rollupAddress: test.context.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
     };
 
     return { node, currentSlot, signer, validator, signatureContext };
@@ -372,69 +345,52 @@ describe('e2e_slashing_broadcasted_invalid_checkpoint_proposal_slash', () => {
   // proposer broadcasts a checkpoint whose header does not match its own block. Honest nodes observe
   // the offense via awaitAnyBroadcastedInvalidCheckpointOffense.
   it('slashes a validator that broadcasts a checkpoint with a mismatched header', async () => {
-    const { rollup } = await t.getContracts();
+    const { rollup } = await test.getSlashingContracts();
 
-    await t.ctx.cheatCodes.rollup.advanceToEpoch(EpochNumber(4));
-    await t.ctx.cheatCodes.rollup.debugRollup();
+    await test.context.cheatCodes.rollup.advanceToEpoch(EpochNumber(4));
+    await test.context.cheatCodes.rollup.debugRollup();
 
-    const invalidProposerNodes = await createNodes(
-      {
-        ...t.ctx.aztecNodeConfig,
+    const invalidProposerNodes = [
+      await test.createValidatorNodeAt(0, {
         broadcastInvalidCheckpointProposalOnly: true,
         dontStartSequencer: true,
         minTxsPerBlock: 0,
         slashBroadcastedInvalidCheckpointProposalPenalty: slashingUnit,
         slashSelfAllowed: true,
-      },
-      t.ctx.dateProvider,
-      t.bootstrapNodeEnr,
-      1,
-      BOOT_NODE_UDP_PORT,
-      t.genesis,
-      DATA_DIR,
-      shouldCollectMetrics(),
-      0,
-    );
-    const honestNodes = await createNodes(
-      {
-        ...t.ctx.aztecNodeConfig,
-        dontStartSequencer: true,
-        minTxsPerBlock: 0,
-        slashBroadcastedInvalidCheckpointProposalPenalty: slashingUnit,
-        slashSelfAllowed: true,
-      },
-      t.ctx.dateProvider,
-      t.bootstrapNodeEnr,
-      NUM_VALIDATORS - 1,
-      BOOT_NODE_UDP_PORT,
-      t.genesis,
-      DATA_DIR,
-      shouldCollectMetrics(),
-      1,
+      }),
+    ];
+    const honestNodes = await Promise.all(
+      Array.from({ length: NUM_VALIDATORS - 1 }, (_, i) =>
+        test.createValidatorNodeAt(i + 1, {
+          dontStartSequencer: true,
+          minTxsPerBlock: 0,
+          slashBroadcastedInvalidCheckpointProposalPenalty: slashingUnit,
+          slashSelfAllowed: true,
+        }),
+      ),
     );
     nodes = [...invalidProposerNodes, ...honestNodes];
 
-    await t.waitForP2PMeshConnectivity(nodes, NUM_VALIDATORS);
-    await awaitCommitteeExists({ rollup, logger: t.logger });
+    await awaitCommitteeExists({ rollup, logger: test.logger });
 
     const invalidProposer = invalidProposerNodes[0].getSequencer()!.validatorAddresses![0];
     const epochCache = (honestNodes[0] as TestAztecNodeService).epochCache;
     const { targetEpoch } = await advanceToEpochBeforeProposer({
       epochCache,
-      cheatCodes: t.ctx.cheatCodes.rollup,
+      cheatCodes: test.context.cheatCodes.rollup,
       targetProposer: invalidProposer,
-      logger: t.logger,
+      logger: test.logger,
     });
 
     await Promise.all(nodes.map(node => node.getSequencer()!.start()));
-    await t.ctx.cheatCodes.rollup.advanceToEpoch(targetEpoch, { offset: -AZTEC_SLOT_DURATION });
+    await test.context.cheatCodes.rollup.advanceToEpoch(targetEpoch, { offset: -AZTEC_SLOT_DURATION });
 
     const offenses = await awaitAnyBroadcastedInvalidCheckpointOffense({
       nodes: honestNodes,
       validator: invalidProposer.toString(),
     });
 
-    t.logger.warn(`Collected broadcasted invalid checkpoint proposal offenses`, { offenses });
+    test.logger.warn(`Collected broadcasted invalid checkpoint proposal offenses`, { offenses });
     expect(offenses.length).toBeGreaterThan(0);
     for (const offense of offenses) {
       expect(offense.validator.toString()).toEqual(invalidProposer.toString());
