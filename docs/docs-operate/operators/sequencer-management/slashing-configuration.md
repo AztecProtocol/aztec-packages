@@ -42,17 +42,17 @@ Round N: Proposers vote on offenses from Round N-2
 ```
 
 **Key parameters**:
-- **Round Size**: 128 L2 slots (approximately 1.28 hours at 36 seconds per slot)
+- **Round Size**: 128 L2 slots (approximately 2.6 hours at 72 seconds per slot)
 - **Slashing Offset**: 2 rounds (proposers in round N vote on offenses from round N-2)
-- **Execution Delay**: 28 rounds (~3 days)
-- **Grace Period**: First 128 slots (configurable per node)
+- **Execution Delay**: 2 rounds on the v5 testnet (~5 hours; mainnet uses 28 rounds, ~3 days)
+- **Grace Period**: First 64 slots after the rollup becomes canonical on the v5 testnet (~1.3 hours; mainnet uses 1,200 slots, ~1 day); configurable per node via `SLASH_GRACE_PERIOD_L2_SLOTS`
 
 ### Slashing Amounts
 
 The L1 contract defines three fixed slashing tiers that can be configured for different offenses. These amounts are set on L1 deployment and can only be changed via governance.
 
 :::info Network Configuration
-On the current network, **all offenses are currently configured to slash 2,000 tokens (1% of the Activation Threshold - the minimum stake required to join the validator set)**. With the ejection threshold at 98%, validators can be slashed a maximum of **3 times** (totaling 3% of their Activation Threshold) before being automatically ejected from the validator set.
+On the v5 testnet, slashing uses the AZIP-16 full-stake preset: **100,000 tokens for small offenses and 250,000 tokens for medium and large offenses**, against a 200,000 token Activation Threshold (the minimum stake required to join the validator set). The medium and large amount exceeds the stake, so those offenses slash the validator's entire stake. A validator is ejected when a slash would drop its stake below the rollup's local ejection threshold (199,000 tokens on testnet). Because even the smallest slash (100,000 tokens) drops a validator that joined at the Activation Threshold below that line, a single offense of any tier ejects the validator. (Mainnet uses smaller amounts, 2,000 and 5,000 tokens, with a 190,000 token local ejection threshold.) See [Ejection from the validator set](#ejection-from-the-validator-set) for details.
 :::
 
 ## Slashable offenses
@@ -248,7 +248,7 @@ When slashing rounds become executable (after the execution delay):
 
 The slashing vetoer is an independent security group that can pause slashing to protect validators from unfair slashing due to software bugs.
 
-**Execution Delay**: All slashing proposals have a ~3 day execution delay (28 rounds on testnet) during which the vetoer can review and potentially block execution.
+**Execution Delay**: All slashing proposals have an execution delay during which the vetoer can review and potentially block execution: ~5 hours on the v5 testnet (2 rounds), and ~3 days on mainnet (28 rounds).
 
 **Temporary Disable**: The vetoer can disable all slashing for up to 3 days if needed, with the ability to extend this period.
 
@@ -256,11 +256,11 @@ The slashing vetoer is an independent security group that can pause slashing to 
 
 ## Ejection from the Validator Set
 
-If a validator's stake falls below the ejection threshold after being slashed, they are automatically exited from the validator set.
+If a slash would drop a validator's stake below the rollup's **local ejection threshold**, the validator's entire remaining stake is withdrawn instead of just the slashed amount: the slash is burned and the remainder is sent to their registered withdrawer address after the exit delay.
 
-**Ejection Threshold**: 98% of Activation Threshold
+**Local Ejection Threshold**: 199,000 tokens on the v5 testnet, just below the 200,000 token Activation Threshold. This is a per-rollup parameter; mainnet uses 190,000 tokens (95% of the Activation Threshold).
 
-This means a validator can be slashed up to **3 times** (at 1% per slash, totaling 3%) before being automatically ejected. Their remaining stake is sent to their registered withdrawer address.
+With the testnet's full-stake slash amounts (100,000 tokens for small offenses, 250,000 for medium and large), a validator that joined at the Activation Threshold is ejected by its first offense of any tier, since even a 100,000 token slash drops its stake below the 199,000 token local ejection threshold. A separate protocol-level ejection threshold (100,000 tokens, 50% of the Activation Threshold) applies to all stake withdrawals at the GSE level, but with these parameters the local ejection threshold is the one that triggers ejection from slashing.
 
 ## Monitoring Slashing Activity
 
@@ -338,7 +338,7 @@ cast call [SLASHING_PROPOSER_ADDRESS] \
 **Symptom**: Your configured penalties don't result in slashing on L1.
 
 **Solutions**:
-1. For the current network, all penalties should be set to `2000000000000000000000` (2000 tokens, 1%)
+1. On the v5 testnet, penalties use the AZIP-16 full-stake preset: `100000000000000000000000` (100,000 tokens) for small offenses and `250000000000000000000000` (250,000 tokens) for medium and large
 2. Verify your penalty configuration matches the default values shown in the Environment Variables section
 
 ## Best Practices
