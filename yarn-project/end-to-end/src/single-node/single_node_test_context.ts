@@ -1,6 +1,6 @@
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { Archiver } from '@aztec/archiver';
-import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
+import { type AztecNodeConfig, AztecNodeService, createAztecNodeService } from '@aztec/aztec-node';
 import { getAccountContractAddress } from '@aztec/aztec.js/account';
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { getTimestampRangeForEpoch } from '@aztec/aztec.js/block';
@@ -392,7 +392,7 @@ export class SingleNodeTestContext {
     const p2pEnabled = resolvedConfig.p2pEnabled || mockGossipSubNetwork !== undefined;
     const p2pIp = resolvedConfig.p2pIp ?? (p2pEnabled ? '127.0.0.1' : undefined);
     const node = await withLoggerBindings({ actor: `${actorPrefix}-${nodeIndex}` }, () =>
-      AztecNodeService.createAndSync(
+      createAztecNodeService(
         {
           ...resolvedConfig,
           dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
