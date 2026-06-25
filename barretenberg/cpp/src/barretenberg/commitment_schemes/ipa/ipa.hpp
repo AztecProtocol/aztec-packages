@@ -240,6 +240,12 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         GroupElement L_i;
         GroupElement R_i;
         std::size_t round_size = poly_length;
+
+        // Each round folds the running SRS by the short 127-bit challenge u (G_vec_lo·u + G_vec_hi),
+        // so batch_mul stays on a short scalar rather than the 254-bit inverse u⁻¹. The witness
+        // folds by u⁻¹ in step, so ⟨a, G⟩ is preserved. The factors accumulate to ∏u on the SRS and
+        // ∏u⁻¹ on the witness; step 7 divides them out of G_0 and a_0 before they are sent.
+        Fr challenge_product = Fr::one();
         // Step 6.
         // Perform IPA reduction rounds.
         for (size_t round_idx = 0; round_idx < log_poly_length; ++round_idx) {
@@ -287,37 +293,42 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
                 throw_or_abort("IPA round challenge is zero");
             }
             const Fr round_challenge_inv = round_challenge.invert();
+            challenge_product *= round_challenge;
 
             // Step 6.e
-            // G_vec_new = G_vec_lo + G_vec_hi * round_challenge_inv
-            auto G_hi_by_inverse_challenge = GroupElement::batch_mul_with_endomorphism(
+            // Fold the SRS by the short challenge: G_vec_new = round_challenge * G_vec_lo + G_vec_hi.
+            auto G_lo_by_challenge = GroupElement::batch_mul_with_endomorphism(
+                std::span{ G_vec_local.begin(), G_vec_local.begin() + static_cast<std::ptrdiff_t>(round_size) },
+                round_challenge);
+            GroupElement::batch_affine_add(
                 std::span{ G_vec_local.begin() + static_cast<std::ptrdiff_t>(round_size),
                            G_vec_local.begin() + static_cast<std::ptrdiff_t>(round_size * 2) },
-                round_challenge_inv);
-            GroupElement::batch_affine_add(
-                std::span{ G_vec_local.begin(), G_vec_local.begin() + static_cast<std::ptrdiff_t>(round_size) },
-                G_hi_by_inverse_challenge,
+                G_lo_by_challenge,
                 G_vec_local);
             // Steps 6.e and 6.f
-            // Update the vectors a_vec, b_vec.
-            // a_vec_new = a_vec_lo + a_vec_hi * round_challenge
-            // b_vec_new = b_vec_lo + b_vec_hi * round_challenge_inv
+            // Fold a by the inverse challenge so ⟨a, G⟩ is preserved under the SRS fold above; b
+            // folds by the challenge (the reciprocal factor), reducing ⟨a, b⟩ for the next round.
+            // a_vec_new = round_challenge_inv * a_vec_lo + a_vec_hi
+            // b_vec_new = round_challenge * b_vec_lo + b_vec_hi
             parallel_for_heuristic(
                 round_size,
                 [&](size_t idx) {
                     BB_BENCH_TRACY_NAME("IPA::fold_vecs");
-                    a_vec.at(idx) += round_challenge * a_vec[round_size + idx];
-                    b_vec.at(idx) += round_challenge_inv * b_vec[round_size + idx];
+                    a_vec.at(idx) = round_challenge_inv * a_vec[idx] + a_vec[round_size + idx];
+                    b_vec.at(idx) = round_challenge * b_vec[idx] + b_vec[round_size + idx];
                 },
                 thread_heuristics::FF_ADDITION_COST * 2 + thread_heuristics::FF_MULTIPLICATION_COST * 2);
         }
 
         // Step 7.
+        // Divide the accumulated scale factors out before sending: the SRS carries ∏ u_i
+        // (challenge_product) and the witness its inverse.
+        const Fr challenge_product_inv = challenge_product.invert();
         // Send G_0 to the verifier.
-        transcript->send_to_verifier("IPA:G_0", G_vec_local[0]);
+        transcript->send_to_verifier("IPA:G_0", Commitment(G_vec_local[0] * challenge_product_inv));
         // Step 8.
         // Send a_0 to the verifier.
-        transcript->send_to_verifier("IPA:a_0", a_vec[0]);
+        transcript->send_to_verifier("IPA:a_0", a_vec[0] * challenge_product);
     }
     /**
      * @brief Add the opening claim to the hash buffer.
