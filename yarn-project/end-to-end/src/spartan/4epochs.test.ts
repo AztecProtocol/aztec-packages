@@ -21,6 +21,9 @@ import { ChainHealth, type ServiceEndpoint, getEthereumEndpoint, getRPCEndpoint,
 
 const config = { ...setupEnvironment(process.env) };
 
+// Sustained token transfer load across 4 full epochs against a live k8s deployment. Verifies that
+// the cluster can advance through multiple epoch boundaries while continuously processing transfers,
+// and that the proven chain advances past the 4-epoch mark.
 describe('token transfer test', () => {
   jest.setTimeout(10 * 60 * 4000); // 40 minutes
 

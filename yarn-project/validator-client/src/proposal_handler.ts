@@ -13,6 +13,7 @@ import {
 import { pick } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { TimeoutError } from '@aztec/foundation/error';
+import { FifoSet } from '@aztec/foundation/fifo-set';
 import type { LogData } from '@aztec/foundation/log';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
@@ -152,7 +153,49 @@ type BlockProposalSlotValidationResult =
   | { isValid: true }
   | { isValid: false; reason: 'block_proposal_beyond_checkpoint' | 'checkpoint_proposal_equivocation' };
 
-/** Handles block and checkpoint proposals for both validator and non-validator nodes. */
+const MAX_TRACKED_INVALID_PROPOSAL_SLOTS = 1000;
+
+/** Block-proposal validation failures that constitute a slashable invalid-block offense. */
+export const SLASHABLE_BLOCK_PROPOSAL_VALIDATION_RESULT: BlockProposalValidationFailureReason[] = [
+  'state_mismatch',
+  'failed_txs',
+  'global_variables_mismatch',
+  'invalid_proposal',
+  'parent_block_wrong_slot',
+  'in_hash_mismatch',
+];
+
+/** Checkpoint-proposal validation failures that constitute a slashable invalid-checkpoint offense. */
+export const SLASHABLE_CHECKPOINT_PROPOSAL_VALIDATION_RESULT: Record<
+  CheckpointProposalValidationFailureReason,
+  boolean
+> = {
+  // enabled
+  ['invalid_fee_asset_price_modifier']: true,
+  ['checkpoint_header_mismatch']: true,
+  // These late mismatches should normally be caught by earlier checks, but if reached after validating the local
+  // checkpoint inputs, the proposer-signed payload disagrees with deterministic recomputation.
+  ['archive_mismatch']: true,
+  ['out_hash_mismatch']: true,
+  ['no_blocks_for_slot']: true,
+  ['too_many_blocks_in_checkpoint']: true,
+  ['checkpoint_validation_failed']: true,
+  ['last_block_archive_mismatch']: true,
+
+  // disabled
+  ['invalid_signature']: false,
+  ['last_block_not_found']: false,
+  ['block_fetch_error']: false,
+  ['checkpoint_already_published']: false,
+};
+
+/**
+ * Handles block and checkpoint proposals for both validator and non-validator nodes. Also tracks which slots
+ * had a slashable invalid proposal or a proposal equivocation, exposing them via the
+ * `InvalidProposalSlotSource` interface consumed by the attested-invalid-proposal slashing watcher. The
+ * tracking is populated as a side effect of validating/re-executing proposals, so any node that re-executes
+ * proposals (the default) can serve it — not only validators.
+ */
 export class ProposalHandler {
   public readonly tracer: Tracer;
 
@@ -174,6 +217,12 @@ export class ProposalHandler {
   private p2pClient?: Pick<P2P, 'getProposalsForSlot'>;
 
   private checkpointProposalValidationFailureCallback?: CheckpointProposalValidationFailureCallback;
+
+  /** Slots at which a slashable invalid block or checkpoint proposal was observed. */
+  private readonly slotsWithInvalidProposals = FifoSet.withLimit<SlotNumber>(MAX_TRACKED_INVALID_PROPOSAL_SLOTS);
+
+  /** Slots at which a proposal equivocation was observed; suppresses attested-to-invalid-proposal slashing. */
+  private readonly slotsWithProposalEquivocation = FifoSet.withLimit<SlotNumber>(MAX_TRACKED_INVALID_PROPOSAL_SLOTS);
 
   constructor(
     private checkpointsBuilder: FullNodeCheckpointsBuilder,
@@ -221,6 +270,26 @@ export class ProposalHandler {
     this.reexecutionTracker.recordOutcome(slot, archive, 'valid', checkpointNumber);
   }
 
+  /** Whether a slashable invalid block or checkpoint proposal was observed at the given slot (InvalidProposalSlotSource). */
+  public hasInvalidProposals(slotNumber: SlotNumber): boolean {
+    return this.slotsWithInvalidProposals.has(slotNumber);
+  }
+
+  /** Whether a proposal equivocation was observed at the given slot (InvalidProposalSlotSource). */
+  public hasProposalEquivocation(slotNumber: SlotNumber): boolean {
+    return this.slotsWithProposalEquivocation.has(slotNumber);
+  }
+
+  /** Records a slot as having a slashable invalid proposal, for offense observers (sentinel/slasher watchers). */
+  public markInvalidProposalSlot(slotNumber: SlotNumber): void {
+    this.slotsWithInvalidProposals.add(slotNumber);
+  }
+
+  /** Records a slot as having a proposal equivocation, which suppresses attested-to-invalid-proposal slashing. */
+  public markProposalEquivocation(slotNumber: SlotNumber): void {
+    this.slotsWithProposalEquivocation.add(slotNumber);
+  }
+
   /**
    * Registers handlers for block and checkpoint proposals on the p2p client.
    * Records the p2p client so validation can inspect retained proposals.
@@ -256,6 +325,18 @@ export class ProposalHandler {
           });
           return true;
         } else {
+          // Track invalid proposals / equivocations so offense observers (the attested-invalid-proposal
+          // watcher) work on non-validator nodes too. Validators populate these via their own handlers.
+          // Skip invalid-proposal marking while the escape hatch is open, matching the validator path,
+          // which intentionally disables invalid-block slashing then.
+          if (result.reason === 'checkpoint_proposal_equivocation') {
+            this.markProposalEquivocation(slotNumber);
+          } else if (
+            SLASHABLE_BLOCK_PROPOSAL_VALIDATION_RESULT.includes(result.reason) &&
+            !(await this.epochCache.isEscapeHatchOpenAtSlot(slotNumber))
+          ) {
+            this.markInvalidProposalSlot(slotNumber);
+          }
           this.log.warn(
             `Non-validator block proposal ${blockNumber} at slot ${slotNumber} failed processing with ${result.reason}`,
             { blockNumber: result.blockNumber, slotNumber, reason: result.reason },
@@ -269,6 +350,11 @@ export class ProposalHandler {
     };
 
     p2pClient.registerBlockProposalHandler(blockHandler);
+
+    // p2p detects duplicate (equivocated) proposals without routing them through the handlers above, so mark
+    // the slot as equivocated here. This suppresses false-positive attested-to-invalid-proposal slashing on
+    // non-validator offense collectors. Validators overwrite this with their own richer handler.
+    p2pClient.registerDuplicateProposalCallback(info => this.markProposalEquivocation(info.slot));
 
     // All-nodes checkpoint proposal handler: validates, caches, and sets proposed checkpoint for pipelining.
     // Runs for all nodes (validators and non-validators). Validators get the cached result in the
@@ -318,6 +404,12 @@ export class ProposalHandler {
 
         const result = await this.handleCheckpointProposal(proposal, proposalInfo);
         if (!result.isValid) {
+          // Track invalid checkpoint proposals so offense observers (the attested-invalid-proposal watcher)
+          // work on non-validator nodes too. This handler runs for all nodes; validators also mark via the
+          // failure callback below (idempotent).
+          if (SLASHABLE_CHECKPOINT_PROPOSAL_VALIDATION_RESULT[result.reason]) {
+            this.markInvalidProposalSlot(proposal.slotNumber);
+          }
           await this.checkpointProposalValidationFailureCallback?.(proposal, result, proposalInfo);
         } else if (this.archiver) {
           const set = await this.setProposedCheckpoint(proposal);

@@ -15,7 +15,7 @@ import { type IndexedTxEffect, TxEffect, TxHash } from '@aztec/stdlib/tx';
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
-import { NoteValidationRequest } from '../contract_function_simulator/noir-structs/note_validation_request.js';
+import type { NoteValidationRequest } from '../contract_function_simulator/noir-structs/note_validation_request.js';
 import { NoteStore } from '../storage/note_store/note_store.js';
 import { NoteService } from './note_service.js';
 
@@ -253,18 +253,17 @@ describe('NoteService', () => {
        */
       setSyncedBlockNumber(blockNumber);
 
-      buildRequest = (overrides = {}) =>
-        new NoteValidationRequest(
-          overrides.contractAddress ?? contractAddress,
-          overrides.owner ?? owner,
-          overrides.storageSlot ?? storageSlot,
-          overrides.randomness ?? randomness,
-          overrides.noteNonce ?? noteNonce,
-          overrides.content ?? content,
-          overrides.noteHash ?? noteHash,
-          overrides.nullifier ?? nullifier,
-          overrides.txHash ?? txHash,
-        );
+      buildRequest = (overrides = {}) => ({
+        contractAddress: overrides.contractAddress ?? contractAddress,
+        owner: overrides.owner ?? owner,
+        storageSlot: overrides.storageSlot ?? storageSlot,
+        randomness: overrides.randomness ?? randomness,
+        noteNonce: overrides.noteNonce ?? noteNonce,
+        content: overrides.content ?? content,
+        noteHash: overrides.noteHash ?? noteHash,
+        nullifier: overrides.nullifier ?? nullifier,
+        txHash: overrides.txHash ?? txHash,
+      });
 
       aztecNode.findLeavesIndexes.mockImplementation((_queryBlockParam, _treeId, leaves) => {
         // By default the notes are not yet nullified.

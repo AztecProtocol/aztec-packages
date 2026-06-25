@@ -25,6 +25,9 @@ import { FeesTest } from './fees_test.js';
 // ~24s/tx pipelined cadence, exceeding the default 5 min hook window.
 jest.setTimeout(15 * 60 * 1000);
 
+// Fee payment during account contract initialization. Uses FeesTest (prod sequencer, pipelining preset:
+// ethSlot=4s, aztecSlot=12s, inboxLag=2, minTxsPerBlock=0), 1 account, fake in-proc prover node, and
+// GasBridgingTestHarness for L1↔L2 fee-juice bridging via FeeJuicePortal.
 describe('e2e_fees account_init', () => {
   const t = new FeesTest('account_init', 1);
 
@@ -86,7 +89,10 @@ describe('e2e_fees account_init', () => {
     await initBalances();
   });
 
+  // Scenarios where the newly created account itself covers its own deployment fee.
   describe('account pays its own fee', () => {
+    // Alice bridges fee juice to Bob's undeployed address via FeeJuicePortal, then Bob deploys his account
+    // paying from that bridged balance. Asserts the balance decreases by exactly the transaction fee.
     it('pays natively in the Fee Juice after Alice bridges funds', async () => {
       const mintAmount = await t.feeJuiceBridgeTestHarness.l1TokenManager.getMintAmount();
       await t.mintAndBridgeFeeJuice(aliceAddress, bobsAddress);
@@ -99,6 +105,8 @@ describe('e2e_fees account_init', () => {
       await expect(t.getGasBalanceFn(bobsAddress)).resolves.toEqual([bobsInitialGas - tx.transactionFee!]);
     });
 
+    // Bob claims fee juice atomically in the same account-deployment tx via
+    // FeeJuicePaymentMethodWithClaim. No pre-bridging required from Alice.
     it('pays natively in the Fee Juice by bridging funds themselves', async () => {
       const claim = await t.feeJuiceBridgeTestHarness.prepareTokensOnL1(bobsAddress);
       const paymentMethod = new FeeJuicePaymentMethodWithClaim(bobsAddress, claim);
@@ -110,6 +118,8 @@ describe('e2e_fees account_init', () => {
       await expect(t.getGasBalanceFn(bobsAddress)).resolves.toEqual([claim.claimAmount - tx.transactionFee!]);
     });
 
+    // Alice mints bananas to Bob's undeployed address; Bob deploys through the BananaCoin FPC using
+    // PrivateFeePaymentMethod. Asserts the refund note reduces Bob's banana balance by the actual fee.
     it('pays privately through an FPC', async () => {
       // Alice mints bananas to Bob
       const mintedBananas = await t.feeJuiceBridgeTestHarness.l1TokenManager.getMintAmount();
@@ -141,6 +151,8 @@ describe('e2e_fees account_init', () => {
       await expect(t.getGasBalanceFn(bananaFPC.address)).resolves.toEqual([fpcsInitialGas - actualFee]);
     });
 
+    // Bob deploys using PublicFeePaymentMethod: Alice mints bananas to Bob's public balance, then Bob
+    // deploys with the FPC deducting from that public balance. Asserts the FPC received the fee.
     it('pays publicly through an FPC', async () => {
       const mintedBananas = await t.feeJuiceBridgeTestHarness.l1TokenManager.getMintAmount();
       await bananaCoin.methods.mint_to_public(bobsAddress, mintedBananas).send({ from: aliceAddress });
@@ -172,7 +184,10 @@ describe('e2e_fees account_init', () => {
     });
   });
 
+  // Scenarios where a third party (Alice) sponsors the deployment fee for Bob's account.
   describe('another account pays the fee', () => {
+    // Alice mints bananas to Bob, then deploys Bob's account on his behalf paying from her own fee-juice
+    // balance. Bob's account is then used immediately to send a private FPC-paid tx.
     it('pays natively in the Fee Juice', async () => {
       // bob generates the private keys for his account on his own
       const bobsPublicKeys = (await deriveKeys(bobsSecretKey)).publicKeys;

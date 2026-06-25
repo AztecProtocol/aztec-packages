@@ -206,6 +206,8 @@ _prodlike: &prodlike
   #---------------------------------------------------------------------------
   # Enable sentinel monitoring.
   SENTINEL_ENABLED: true
+  # Enable offense collection (watchers + read-only slasher) on non-validator nodes.
+  OFFENSE_COLLECTION_ENABLED: true
 
 # Network presets selected via NETWORK env var; individual values can still be overridden.
 networks:

@@ -5,6 +5,10 @@ import { TokenContract, type Transfer } from '@aztec/noir-contracts.js/Token';
 import { AUTOMINE_E2E_OPTS } from '../fixtures/fixtures.js';
 import { TokenContractTest } from './token_contract_test.js';
 
+// Covers the top-level transfer() entry point on Token contract (private-to-private), including transfer to
+// non-deployed accounts and private Transfer event emission. Note: the describe title collides with
+// transfer_in_private.test.ts — the tested contract methods differ (transfer vs transfer_in_private).
+// Setup: single node with AutomineSequencer, 3 accounts, Token deployed with initial mint.
 describe('e2e_token_contract transfer private', () => {
   const t = new TokenContractTest('transfer_private');
   let { asset, adminAddress, wallet, account1Address, tokenSim } = t;
@@ -24,6 +28,8 @@ describe('e2e_token_contract transfer private', () => {
     await t.tokenSim.check();
   });
 
+  // Transfers half of admin's private balance to account1, verifies via TokenSimulator, and asserts that
+  // the private Transfer event is emitted and readable in the recipient's scope.
   it('transfer less than balance', async () => {
     const { result: balance0 } = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
     const amount = balance0 / 2n;
@@ -53,6 +59,8 @@ describe('e2e_token_contract transfer private', () => {
     });
   });
 
+  // Transfers to a randomly generated non-deployed address. Because the recipient's keys aren't in the PXE,
+  // the note can't be decrypted; TokenSimulator models this as a transfer to AztecAddress.ZERO.
   it('transfer less than balance to non-deployed account', async () => {
     const { result: balance0 } = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
     const amount = balance0 / 2n;
@@ -68,6 +76,7 @@ describe('e2e_token_contract transfer private', () => {
     tokenSim.transferPrivate(adminAddress, AztecAddress.ZERO, amount);
   });
 
+  // Transfers half of admin's balance to themselves and verifies the balance is unchanged.
   it('transfer to self', async () => {
     const { result: balance0 } = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
     const amount = balance0 / 2n;
@@ -76,7 +85,9 @@ describe('e2e_token_contract transfer private', () => {
     tokenSim.transferPrivate(adminAddress, adminAddress, amount);
   });
 
+  // Error paths for transfer().
   describe('failure cases', () => {
+    // Attempts to transfer more than private balance; expects 'Balance too low'.
     it('transfer more than balance', async () => {
       const { result: balance0 } = await asset.methods
         .balance_of_private(adminAddress)

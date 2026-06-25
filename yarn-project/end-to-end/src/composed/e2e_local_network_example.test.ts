@@ -32,6 +32,9 @@ const { AZTEC_NODE_URL = 'http://localhost:8080' } = process.env;
 //
 // 3. Run the tests:
 //    yarn test:e2e e2e_local_network_example.test.ts
+// End-to-end example of connecting to the --local-network quickstart. Runs against a pre-started
+// docker-compose stack (AZTEC_NODE_URL); demonstrates account loading, token deployment, and transfers
+// using only the public aztec.js npm API.
 describe('e2e_local_network_example', () => {
   it('local network example works', async () => {
     ////////////// CREATE THE CLIENT INTERFACE AND CONTACT THE LOCAL NETWORK //////////////

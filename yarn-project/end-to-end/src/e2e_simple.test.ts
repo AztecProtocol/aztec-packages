@@ -14,6 +14,9 @@ import 'jest-extended';
 import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
+// Basic smoke tests for the production sequencer + prover node path. Uses PIPELINING_SETUP_OPTS
+// (prod sequencer, ethSlot=4s, aztecSlot=12s, epochDuration=4, fake prover via startProverNode).
+// Exercises block-data queries and waits for a deployed tx to reach proven status.
 describe('e2e_simple', () => {
   jest.setTimeout(20 * 60 * 1000); // 20 minutes
 
@@ -27,6 +30,7 @@ describe('e2e_simple', () => {
     jest.restoreAllMocks();
   });
 
+  // Suite exercising node block-data API and end-to-end deploy+prove flow with a fake prover.
   describe('A simple test', () => {
     const artifact = StatefulTestContractArtifact;
 
@@ -52,6 +56,7 @@ describe('e2e_simple', () => {
 
     afterAll(() => teardown());
 
+    // Fetches block 0 by number and by hash; asserts the returned blocks match and contain no txEffects.
     it('returns initial block data', async () => {
       const initialHeader = (await aztecNode.getBlockData(BlockNumber.ZERO))?.header;
       expect(initialHeader).toBeDefined();
@@ -66,6 +71,8 @@ describe('e2e_simple', () => {
       expect(initialBlockByNumber!.body.txEffects.length).toBe(0);
     });
 
+    // Deploys StatefulTestContract via ContractDeployer and waits for the tx to reach proven status
+    // using waitForProven, exercising the full sequencer→prover-node→L1 proof submission path.
     it('deploys a contract', async () => {
       const deployer = new ContractDeployer(artifact, wallet);
 
