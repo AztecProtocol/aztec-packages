@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Copies select Foundry artifacts from l1-contracts to yarn-project/l1-artifacts/l1-contracts.
-# This makes yarn-project self-contained for runtime contract deployment.
+# Copies select Foundry artifacts from the parent l1-contracts into l1-contracts/l1-artifacts/l1-contracts.
+# This produces a self-contained, publishable foundry subtree for runtime contract deployment.
 #
 # We use cp -p to preserve timestamps - forge cache uses timestamps to detect changes.
 # See release-image/Dockerfile.dockerignore for the canonical list of what's needed.
 
-cd $(git rev-parse --show-toplevel)/yarn-project/l1-artifacts
+cd $(git rev-parse --show-toplevel)/l1-contracts/l1-artifacts
 
-src="../../l1-contracts"
+src=".."
 
 [ -d "$src/out" ] || { echo "Error: l1-contracts/out not found. Build l1-contracts first."; exit 1; }
 

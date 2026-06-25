@@ -19,9 +19,6 @@
       "path": "../kv-store"
     },
     {
-      "path": "../l1-artifacts"
-    },
-    {
       "path": "../stdlib"
     },
     {

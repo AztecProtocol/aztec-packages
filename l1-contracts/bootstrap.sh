@@ -108,9 +108,25 @@ function build_verifier {
   fi
 }
 
+# Generates the TypeScript L1 artifacts package (@aztec/l1-artifacts): ABIs, bytecode and storage
+# layouts compiled to dest/, plus the self-contained foundry bundle under l1-artifacts/l1-contracts
+# used by the runtime forge deploy path. Consumed by yarn-project via a portal link.
+# Must run after build_verifier: generate reads out/ including the compiled HonkVerifier.
+function build_artifacts {
+  echo_header "l1-contracts build_artifacts"
+
+  local artifact=l1-contracts-ts-$hash.tar.gz
+  if ! cache_download $artifact; then
+    (cd l1-artifacts && yarn build)
+
+    cache_upload $artifact l1-artifacts/dest l1-artifacts/src l1-artifacts/l1-contracts
+  fi
+}
+
 function build {
   build_src
   build_verifier
+  build_artifacts
 }
 
 function test_cmds {
@@ -482,6 +498,24 @@ function coverage_serve {
   python3 -m http.server --directory "coverage" 8000
 }
 
+# Publishes the @aztec/l1-artifacts npm package (TS ABIs/bytecode + the bundled foundry subtree used
+# by the runtime forge deploy path). yarn-project consumes this via portal in-repo and via the
+# published version downstream, so it must publish before yarn-project's release (whose smoke test
+# installs packages that depend on @aztec/l1-artifacts@<version>).
+function release_l1_artifacts_npm {
+  echo_header "l1-contracts release l1-artifacts npm"
+  local version=${REF_NAME#v}
+
+  # Strip the platform-specific solc binary from the bundled foundry copy before npm publish, and
+  # rewrite solc="./solc-X.Y.Z" to solc_version="X.Y.Z" so forge auto-downloads the correct binary
+  # via SVM on the end-user's machine.
+  local bundle="l1-artifacts/l1-contracts"
+  rm -f "$bundle"/solc-*
+  sed -i 's|^solc = "\./solc-\(.*\)"|solc_version = "\1"|' "$bundle/foundry.toml"
+
+  (cd l1-artifacts && retry "deploy_npm $version")
+}
+
 function release {
   echo_header "l1-contracts release"
   local branch=$(dist_tag)
@@ -490,6 +524,7 @@ function release {
   fi
 
   release_git_push $branch $REF_NAME ${REF_NAME#v}
+  release_l1_artifacts_npm
 }
 
 case "$cmd" in

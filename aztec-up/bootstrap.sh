@@ -113,6 +113,9 @@ EOF
       echo $root/ipc-runtime/ts
       echo $root/barretenberg/ts
       wsdb_package_dirs
+      # l1-artifacts lives under l1-contracts, so it isn't enumerated by yarn-project's get_projects;
+      # publish it explicitly or @aztec/aztec's portal dependency can't resolve from the local registry.
+      echo $root/l1-contracts/l1-artifacts
       $root/noir/bootstrap.sh get_projects
       $root/yarn-project/bootstrap.sh get_projects
     } | DRY_RUN= parallel --tag --line-buffer --halt now,fail=1 "retry 'cd {} && dump_fail \"deploy_npm $version\" >/dev/null'"

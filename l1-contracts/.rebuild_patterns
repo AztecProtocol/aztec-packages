@@ -3,3 +3,6 @@
 ^l1-contracts/script/.*\.sol$
 ^l1-contracts/bootstrap.sh
 ^l1-contracts/foundry.toml
+^l1-contracts/l1-artifacts/scripts/.*
+^l1-contracts/l1-artifacts/package.json
+^l1-contracts/l1-artifacts/tsconfig.json
