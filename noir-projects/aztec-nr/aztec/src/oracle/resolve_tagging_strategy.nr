@@ -6,7 +6,7 @@ use crate::protocol::address::AztecAddress;
 ///
 /// Consulted only when no onchain handshake has been registered for the `(sender, recipient)` pair yet; the secret
 /// from a registered handshake is reused without asking the wallet. PXE applies the wallet's tagging secret
-/// strategy (any Diffie-Hellman key exchange and app-siloing) and returns the ready-to-use [`ResolvedTaggingStrategy`].
+/// strategy (performing app-siloing as needed) and returns the ready-to-use [`ResolvedTaggingStrategy`].
 ///
 /// An invalid recipient has no shared secret to derive. Unconstrained delivery returns a random secret (an
 /// undiscoverable tag) rather than letting a malformed recipient abort the send; constrained delivery instead fails,

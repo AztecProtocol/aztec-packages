@@ -6,8 +6,7 @@ import type { AppTaggingSecretKind } from '@aztec/stdlib/logs';
 /**
  * How a message's tagging secret is chosen: the wallet's strategy, returned by the `resolveTaggingSecretStrategy` hook
  * when no onchain handshake has been registered for the sender/recipient pair. This is intent (plus, for an arbitrary
- * secret, the raw material); PXE resolves it into the secret it hands the contract, performing any ECDH key exchange
- * and app-siloing.
+ * secret, the raw material); PXE resolves it into the secret it hands the contract.
  */
 export type TaggingSecretStrategy =
   | {
@@ -42,8 +41,6 @@ export type TaggingSecretStrategyRequest = {
 };
 
 /**
- * Hook returning the {@link TaggingSecretStrategy} for an outgoing message. Lets a wallet apply per-application or
- * per-recipient policy; when absent, PXE applies a privacy-safe default. See {@link TaggingSecretStrategy} for the
- * variants and trade-offs.
+ * Hook returning the {@link TaggingSecretStrategy} for an outgoing message.
  */
 export type ResolveTaggingSecretStrategy = (request: TaggingSecretStrategyRequest) => Promise<TaggingSecretStrategy>;

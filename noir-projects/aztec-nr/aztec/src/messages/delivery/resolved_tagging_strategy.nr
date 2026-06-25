@@ -26,7 +26,7 @@ impl ResolvedTaggingStrategy {
     fn from_parts(kind: u8, secret: Field) -> Self {
         let resolved = Self { kind, secret };
         assert(
-            (kind == NON_INTERACTIVE_HANDSHAKE) | (kind == UNCONSTRAINED_SECRET),
+            ((kind == NON_INTERACTIVE_HANDSHAKE) & (secret == 0)) | (kind == UNCONSTRAINED_SECRET),
             f"unrecognized resolved tagging strategy kind: {kind}",
         );
         resolved
@@ -63,5 +63,10 @@ mod test {
     #[test(should_fail_with = "unrecognized resolved tagging strategy kind")]
     fn deserializing_invalid_kind_fails() {
         let _ = ResolvedTaggingStrategy::deserialize([99, 0]);
+    }
+
+    #[test(should_fail_with = "unrecognized resolved tagging strategy kind")]
+    fn deserializing_handshake_with_nonzero_secret_fails() {
+        let _ = ResolvedTaggingStrategy::deserialize([1, 123]);
     }
 }

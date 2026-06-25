@@ -854,9 +854,10 @@ export class TXESession implements TXESessionStateHandler {
     // them, the top level context does most of its work as it goes: it creates empty blocks (via `advanceBlocksBy`
     // and `deploy`), creates blocks with transactions (via `privateCallNewFlow` and `publicCallNewFlow`), adds
     // accounts to PXE (via `addAccount`), etc. This is a slight inconsistency in the working model of this class, but
-    // is not too bad. The `close` call below therefore only hands back the session-scoped values that top-level
-    // cheatcodes may have mutated (next block timestamp, authwits, tagging secret strategy). The oracle handler is
-    // discarded on every state transition, so the session must seed these values into the contexts it creates later.
+    // is not too bad. The `close` call below therefore only hands back the session-scoped values that a test
+    // sets directly at the top level, outside any contract execution (e.g. via `advanceTimestampBy`,
+    // `addAuthWitness`, `setTaggingSecretStrategy`). The oracle handler is discarded on every state transition,
+    // so the session must seed these values into the contexts it creates later.
 
     // TODO: persisting authwits this way is quite unfortunate: they create a temporary utility context that would
     // otherwise reset them, so we'd not be able to pass more than one per execution. Ideally authwits would be passed

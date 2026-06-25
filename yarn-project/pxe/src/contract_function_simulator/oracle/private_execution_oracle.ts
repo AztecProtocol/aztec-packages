@@ -188,8 +188,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   }
 
   /**
-   * Resolves the tagging strategy for a message via the wallet's {@link ResolveTaggingSecretStrategy} hook, applying
-   * any ECDH key exchange and app-siloing so the contract receives a ready-to-use {@link ResolvedTaggingStrategy}.
+   * Resolves the tagging strategy for a message via the wallet's {@link ResolveTaggingSecretStrategy} hook. The contract receives a ready-to-use {@link ResolvedTaggingStrategy}.
    * When no hook is configured, applies a privacy-safe default.
    */
   public async resolveTaggingStrategy(
@@ -220,6 +219,9 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     sender: AztecAddress,
     recipient: AztecAddress,
   ): Promise<ResolvedTaggingStrategy> {
+    // PXE only performs the derivation; it does not reject a strategy that is unsound for the delivery mode (e.g. an
+    // address-derived or arbitrary-secret strategy for constrained delivery). That soundness check belongs in the
+    // Noir circuit, which constrains the resolved strategy against the delivery mode.
     switch (strategy.type) {
       case 'non-interactive-handshake':
         return { type: 'non-interactive-handshake' };
@@ -248,8 +250,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
   /**
    * The app-siloed, recipient-directional secret derived from the sender's and recipient's address keys via ECDH,
-   * ready to hand to the contract. Resolves the `address-derived` strategy (which the unconstrained default also
-   * selects). Callers must validate the recipient in-circuit before reaching here, so an invalid one is unexpected.
+   * ready to hand to the contract. Callers must validate the recipient in-circuit before reaching here, so an invalid one is unexpected.
    */
   async #addressDerivedSecret(sender: AztecAddress, recipient: AztecAddress): Promise<ResolvedTaggingStrategy> {
     const secret = await this.getAppTaggingSecret(sender, recipient);

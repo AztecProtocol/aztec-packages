@@ -40,7 +40,8 @@ impl TaggingSecretStrategy {
     fn from_parts(kind: u8, secret: EmbeddedCurvePoint) -> Self {
         let strategy = Self { kind, secret };
         assert(
-            (kind == NON_INTERACTIVE_HANDSHAKE) | (kind == ADDRESS_DERIVED) | (kind == ARBITRARY_SECRET),
+            (((kind == NON_INTERACTIVE_HANDSHAKE) | (kind == ADDRESS_DERIVED)) & secret.is_infinite())
+                | (kind == ARBITRARY_SECRET),
             f"unrecognized tagging secret strategy kind: {kind}",
         );
         strategy
@@ -82,5 +83,15 @@ mod test {
     #[test(should_fail_with = "unrecognized tagging secret strategy kind")]
     fn deserializing_invalid_kind_fails() {
         let _ = TaggingSecretStrategy::deserialize([99, 0, 0]);
+    }
+
+    #[test(should_fail_with = "unrecognized tagging secret strategy kind")]
+    fn deserializing_handshake_with_noninfinite_point_fails() {
+        let _ = TaggingSecretStrategy::deserialize([1, 7, 11]);
+    }
+
+    #[test(should_fail_with = "unrecognized tagging secret strategy kind")]
+    fn deserializing_address_derived_with_noninfinite_point_fails() {
+        let _ = TaggingSecretStrategy::deserialize([3, 7, 11]);
     }
 }

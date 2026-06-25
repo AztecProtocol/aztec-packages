@@ -165,9 +165,9 @@ Ask yourself: **"Is the sender incentivized to deliver this note correctly?"**
 
 Onchain delivery tags every message so the recipient can find it efficiently (see [note discovery](#note-discovery-and-the-sender) below). Computing a tag requires a secret shared between sender and recipient, and there is more than one way for the two parties to come to share it. When an onchain handshake has been registered for the pair, the secret derived from it is reused directly. Otherwise the wallet decides how to proceed, since it knows which secrets it holds and how it wants to reach the recipient.
 
-The wallet's answer is a **tagging secret strategy**: it expresses *which* secret to use, and the PXE performs any Diffie-Hellman key exchange and app-siloing before handing the ready-to-use secret to the contract. Wallets therefore never reimplement that derivation. There are three strategies today:
+The wallet's answer is a **tagging secret strategy**: it expresses *which* secret to use, and if necessary, PXE performs a [Diffie-Hellman key exchange](https://www.geeksforgeeks.org/computer-networks/diffie-hellman-key-exchange-and-perfect-forward-secrecy/) and/or app-siloing before handing the ready-to-use secret to the contract. Wallets therefore never reimplement that derivation. There are three strategies today:
 
-- **Non-interactive handshake**: the secret comes from a handshake published onchain that the recipient can derive. This reveals information about the recipient, but lets them discover the message without any prior sender-recipient coordination. Works for both constrained and unconstrained delivery.
+- **Non-interactive handshake**: the secret comes from a handshake published onchain that the recipient can derive. A non-recipient can at most learn that a sender did a handshake with the recipient, not the message itself, but the recipient discovers it without any prior coordination. Works for both constrained and unconstrained delivery.
 - **Address-derived secret**: the PXE derives the secret from the sender's and recipient's address keys via Diffie-Hellman. The wallet supplies no material, only the choice. It leaves no onchain trace, but the recipient only finds the message if they registered the sender in their PXE. Unconstrained delivery only.
 - **Arbitrary secret**: a raw secret point the two parties already share offchain, having coordinated out of band to agree on it. The wallet supplies the point and the PXE app-silos it. It leaves no onchain trace, but no onchain handshake backs the secret. Unconstrained delivery only.
 
@@ -196,7 +196,7 @@ When a note is delivered, recipients need to discover it among all the encrypted
 
 The "sender" for note discovery is **not the contract calling `.deliver()`**. Instead, it's the **account contract** that initiated the transaction.
 
-When your wallet submits a transaction, it tells PXE which address to use as the sender for tags (typically the originating account). The tag recipients use to find their notes is computed from a secret shared between the sender and recipient, and there is [more than one way to establish that secret](#tagging-secret-strategy), chosen by the wallet. Contracts can override the sender at message delivery via the `with_sender` builder method, which works for both constrained and unconstrained delivery, e.g. `MessageDelivery::onchain_constrained().with_sender(address)`.
+When your wallet submits a transaction, it tells PXE which address to use as the sender for tags (typically the originating account). Recipients compute the tag to find their notes from a secret shared between the sender and recipient, and there is [more than one way to establish that secret](#tagging-secret-strategy), chosen by the wallet. Contracts can override the sender at message delivery via the `with_sender` builder method, which works for both constrained and unconstrained delivery, e.g. `MessageDelivery::onchain_constrained().with_sender(address)`.
 
 **Example:** If Alice uses her account contract to call a token contract that mints tokens to Bob, the "sender for tags" is Alice's account contract address, not the token contract address.
 

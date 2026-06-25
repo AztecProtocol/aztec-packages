@@ -5,7 +5,7 @@ tags: [pxe, wallets]
 description: How wallets use PXE execution hooks to apply custom policies during client-side simulation.
 ---
 
-Execution hooks are callbacks that the PXE invokes during client-side simulation when an operation needs a decision from the wallet. They let the wallet apply its own policies before execution proceeds, such as prompting the user, consulting a dynamic allowlist, or inspecting call arguments. All hooks are optional, and when a hook is absent the PXE applies a safe default.
+Execution hooks are callbacks that the PXE invokes during client-side simulation when an operation needs a decision from the wallet. They let the wallet apply its own policies before execution proceeds, such as prompting the user, consulting a dynamic allowlist, or inspecting call arguments. All hooks are optional; when a hook is absent, the PXE applies a conservative default: for example it avoids privacy leaks (such as revealing a message's recipient onchain) unless specifically told otherwise.
 
 ## Configuring hooks
 
@@ -92,4 +92,4 @@ let env = TestEnvironment::new_opts(
 
 Pass a `resolveTaggingSecretStrategy` hook when [creating the PXE](#configuring-hooks). It receives a `TaggingSecretStrategyRequest` with the executing contract's address and the message's sender, recipient, and delivery mode (`'constrained'` or `'unconstrained'`), so a wallet can apply per-application or per-recipient policies, or surface the decision to the user, instead of returning a fixed value.
 
-When the hook is absent, the PXE applies a privacy-safe default: unconstrained delivery uses an address-derived (Diffie-Hellman) shared secret, which leaves no onchain trace, while constrained delivery fails rather than silently revealing the recipient through a non-interactive handshake.
+When the hook is absent, the PXE applies a privacy-safe default: unconstrained delivery uses an [address-derived shared secret](../../aztec-nr/framework-description/note_delivery.md#tagging-secret-strategy), which leaves no onchain trace, while constrained delivery fails rather than silently revealing the recipient through a [non-interactive handshake](../../aztec-nr/framework-description/note_delivery.md#tagging-secret-strategy).

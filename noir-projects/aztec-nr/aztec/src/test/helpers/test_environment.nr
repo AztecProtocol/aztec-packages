@@ -96,8 +96,7 @@ pub struct TestEnvironmentOptions {
 }
 
 impl TestEnvironmentOptions {
-    /// Creates a new `TestEnvironmentOptions` with default values, i.e. the same as if using
-    /// [`TestEnvironment::new`] instead of [`TestEnvironment::new_opts`].
+    /// Creates a new `TestEnvironmentOptions` with default values.
     pub fn new() -> Self {
         Self { tagging_secret_strategy: Option::none() }
     }
@@ -618,7 +617,7 @@ impl TestEnvironment {
         assert_compatible_oracle_version();
         txe_oracles::assert_compatible_txe_oracle_version();
 
-        // Forward the configured strategy to the wallet, clearing it (None) when unset.
+        // Forward the configured strategy to the wallet.
         txe_oracles::set_tagging_secret_strategy(options.tagging_secret_strategy);
 
         Self {
