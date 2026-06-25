@@ -15,6 +15,10 @@ jest.setTimeout(300_000);
 
 // Regression for https://github.com/AztecProtocol/aztec-packages/issues/12366
 // Similar to e2e_fees/account_init but with no automine
+// Disabled (.notest.ts): this regression was covered by fixes applied at each "wait for two blocks"
+// site in the codebase; keeping the file as reference for the original race scenario. Uses FeesTest
+// with prod sequencer (ethSlot=4s, aztecSlot=8s, inboxLag default, minTxsPerBlock=0) and
+// GasBridgingTestHarness for L1↔L2 fee-juice bridging. Single account, fake in-proc prover node.
 describe('e2e_fees bridging_race', () => {
   const ETHEREUM_SLOT_DURATION = 4;
   const AZTEC_SLOT_DURATION = ETHEREUM_SLOT_DURATION * 2;
@@ -50,6 +54,10 @@ describe('e2e_fees bridging_race', () => {
     bobsAddress = bobsAccountManager.address;
   });
 
+  // Reproduces a timing race where an L1→L2 fee-juice bridge message lands just before the end of an
+  // L2 slot, causing the archiver to miss it. The fix was to wait for the archiver to see the message
+  // before waiting for the required two-block confirmation. The sleep injected into approve() simulates
+  // the near-slot-boundary timing.
   it('Alice bridges funds to Bob', async () => {
     // Tweak the token manager so the bridging happens immediately before the end of the current L2 slot
     // This caused the message to be "not in state" when tried to be used
@@ -59,6 +67,8 @@ describe('e2e_fees bridging_race', () => {
       await origApprove(amount, address, addressName);
       const sleepTime = (Number(t.chainMonitor.checkpointTimestamp) + AZTEC_SLOT_DURATION) * 1000 - Date.now() - 500;
       logger.info(`Sleeping for ${sleepTime}ms until near end of L2 slot before sending L1 fee juice to L2 inbox`);
+      // REFACTOR: hand-rolled slot-boundary sleep; replace with a timing helper that derives the remaining
+      // slot time from the chain monitor's slot boundaries rather than computing it inline.
       await sleep(sleepTime);
     };
 

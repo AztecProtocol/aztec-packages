@@ -434,25 +434,25 @@ Note: The `Owned` wrapper requires calling `.at(owner)` to access the underlying
 
 #### `get_notes`
 
-Retrieves notes the account has access to. You can optionally provide filtering options. Returns `RetrievedNote` instances:
+Retrieves notes the account has access to. You can optionally provide filtering options. Returns `ConfirmedNote` instances:
 
 #include_code private_set_get_notes /noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr rust
 
 #### `pop_notes`
 
-This function pops (gets, removes and returns) the notes the account has access to. Unlike `get_notes`, this immediately nullifies the notes and returns them directly (not wrapped in `RetrievedNote`):
+This function pops (gets, removes and returns) the notes the account has access to. Unlike `get_notes`, this immediately nullifies the notes and returns them directly (not wrapped in `ConfirmedNote`):
 
 #include_code private_set_pop_notes /noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr rust
 
 #### `remove`
 
-Will remove a note from the `PrivateSet` if it previously has been read from storage. Takes a `RetrievedNote` as returned by `get_notes`:
+Will remove a note from the `PrivateSet` if it previously has been read from storage. Takes a `ConfirmedNote` as returned by `get_notes`:
 
 ```rust
 let options = NoteGetterOptions::new();
-let retrieved_notes = self.storage.balances.at(owner).get_notes(options);
+let confirmed_notes = self.storage.balances.at(owner).get_notes(options);
 // ... select a note to remove ...
-self.storage.balances.at(owner).remove(retrieved_notes.get(0));
+self.storage.balances.at(owner).remove(confirmed_notes.get(0));
 ```
 
 Note that if you obtained the note via `get_notes`, it's much better to use `pop_notes`, as `pop_notes` results in significantly fewer constraints due to avoiding an extra hash and read request check.

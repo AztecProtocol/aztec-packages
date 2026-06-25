@@ -153,6 +153,7 @@ import {
   FullNodeCheckpointsBuilder as CheckpointsBuilder,
   FullNodeCheckpointsBuilder,
   NodeKeystoreAdapter,
+  ProposalHandler,
   ValidatorClient,
   createProposalHandler,
   createValidatorClient,
@@ -683,10 +684,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       const globalVariableBuilder = new GlobalVariableBuilder(publicClient, globalVariableBuilderConfig);
       const feeProvider = new FeeProviderImpl(dateProvider, publicClient, globalVariableBuilderConfig);
 
-      const proverOnly = config.enableProverNode && config.disableValidator;
-      if (proverOnly) {
-        log.info('Starting in prover-only mode: skipping validator, sequencer, sentinel, and slasher subsystems');
-      }
+      const collectOffenses = !config.disableValidator || config.enableOffenseCollection;
 
       // create the tx pool and the p2p client, which will need the l2 block source
       const p2pClient = await createP2PClient(
@@ -726,6 +724,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
       let validatorClient: ValidatorClient | undefined;
 
+      // The proposal handler (validator-owned or standalone) tracks invalid-proposal/equivocation slots and
+      // feeds the attested-invalid-proposal watcher, so the watcher works on non-validator nodes too.
+      let proposalHandler: ProposalHandler | undefined;
+
       // Tracks successful checkpoint re-execution by a checkpoint proposal handler.
       const reexecutionTracker = new CheckpointReexecutionTracker();
 
@@ -754,7 +756,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
           const vc = validatorClient;
           const getValidatorAddresses = () => vc.getValidatorAddresses().map(a => a.toString());
-          validatorClient.getProposalHandler().register(p2pClient, true, archiver, getValidatorAddresses);
+          proposalHandler = validatorClient.getProposalHandler();
+          proposalHandler.register(p2pClient, true, archiver, getValidatorAddresses);
 
           if (!options.dontStartSequencer) {
             await validatorClient.registerHandlers();
@@ -769,7 +772,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       if (!validatorClient) {
         const reexecute = !!config.alwaysReexecuteBlockProposals;
         log.info(`Setting up proposal handler` + (reexecute ? ' with reexecution of proposals' : ''));
-        createProposalHandler(config, {
+        proposalHandler = createProposalHandler(config, {
           checkpointsBuilder: validatorCheckpointsBuilder,
           worldState: worldStateSynchronizer,
           epochCache,
@@ -780,7 +783,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
           dateProvider,
           telemetry,
           reexecutionTracker,
-        }).register(p2pClient, reexecute, archiver);
+        });
+        proposalHandler.register(p2pClient, reexecute, archiver);
       }
 
       // Start world state and wait for it to sync to the archiver.
@@ -789,19 +793,18 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       // Start p2p. Note that it depends on world state to be running.
       await p2pClient.start();
 
-      let validatorsSentinel: Awaited<ReturnType<typeof createSentinel>> | undefined;
       let dataWithholdingWatcher: DataWithholdingWatcher | undefined;
       let attestationsBlockWatcher: AttestationsBlockWatcher | undefined;
       let attestedInvalidProposalWatcher: AttestedInvalidProposalWatcher | undefined;
       let broadcastedInvalidCheckpointProposalWatcher: BroadcastedInvalidCheckpointProposalWatcher | undefined;
       let checkpointEquivocationWatcher: CheckpointEquivocationWatcher | undefined;
 
-      if (!proverOnly) {
-        validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, reexecutionTracker, config);
-        if (validatorsSentinel) {
-          watchers.push(validatorsSentinel);
-        }
+      const validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, reexecutionTracker, config);
+      if (validatorsSentinel) {
+        watchers.push(validatorsSentinel);
+      }
 
+      if (collectOffenses) {
         dataWithholdingWatcher = new DataWithholdingWatcher(
           epochCache,
           archiver,
@@ -821,10 +824,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         );
         watchers.push(broadcastedInvalidCheckpointProposalWatcher);
 
-        if (validatorClient) {
+        // The proposal handler (validator-owned or standalone) is the source of invalid-proposal/equivocation
+        // slots, so the watcher runs on non-validator offense collectors too.
+        if (proposalHandler) {
           attestedInvalidProposalWatcher = new AttestedInvalidProposalWatcher(
             p2pClient,
-            validatorClient,
+            proposalHandler,
             archiver,
             epochCache,
             config,
@@ -872,9 +877,10 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       let sequencer: SequencerClient | undefined;
       let automineSequencer: AutomineSequencer | undefined;
       let slasherClient: SlasherClientInterface | undefined;
-      if (!config.disableValidator && validatorClient) {
-        // We create a slasher only if we have a sequencer, since all slashing actions go through the sequencer publisher
-        // as they are executed when the node is selected as proposer.
+
+      // The slasher can run standalone to collect offenses for non-validators; it only writes to L1 when a
+      // proposer is elected (which requires a sequencer), so running it read-only on a non-validator is safe.
+      if (collectOffenses) {
         const validatorAddresses = keyStoreManager
           ? NodeKeystoreAdapter.fromKeyStoreManager(keyStoreManager).getAddresses()
           : [];
@@ -891,7 +897,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         );
         await slasherClient.start();
         started.push(slasherClient);
+      }
 
+      if (!config.disableValidator && validatorClient) {
         const l1TxUtils = config.sequencerPublisherForwarderAddress
           ? await createForwarderL1TxUtilsFromSigners(
               publicClient,

@@ -31,6 +31,11 @@ const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'late-prover-'));
 
 jest.setTimeout(1000 * 60 * 10);
 
+// Tests the reqresp BLOCK_TXS path for a prover that joins after a block has already been mined. The
+// prover learns the block via L1/archiver sync but never received the proposal or txs via gossip.
+// It must fetch the missing txs from peers over reqresp. Setup: P2PNetworkTest real libp2p, 4 validators,
+// SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES (ethSlot=4s, aztecSlot=12s, epoch=4, proofSubEpochs=640),
+// minTxsPerBlock=1, inboxLag=2. Late prover node created after transactions are already mined.
 describe('e2e_p2p_late_prover_tx_collection', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[] = [];
@@ -70,6 +75,9 @@ describe('e2e_p2p_late_prover_tx_collection', () => {
     fs.rmSync(`${DATA_DIR}-late-prover`, { recursive: true, force: true, maxRetries: 3 });
   });
 
+  // Mines a block with 2 txs via 4 validators, then starts a prover node late (after gossip has already
+  // propagated). Waits for the prover to sync the block from L1 and connect to peers, then drives
+  // txCollection.collectFastForBlock directly and asserts all block txs are collected over reqresp.
   it("lets a late-joining prover collect a mined block's txs from dumb peers when it has no local proposal", async () => {
     if (!t.bootstrapNodeEnr) {
       throw new Error('Bootstrap node ENR is not available');

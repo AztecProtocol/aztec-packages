@@ -17,6 +17,10 @@ import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
+// Verifies that a block can contain transactions whose combined side effects span multiple EIP-4844
+// blobs. Uses PIPELINING_SETUP_OPTS (prod seq, ethereumSlotDuration=4s, aztecSlotDuration=12s,
+// minTxsPerBlock=0) with setConfig({minTxsPerBlock:3}) to pack all txs into one block. Asserts
+// that the resulting block encodes into >1 blob and that every side-effect type is represented.
 describe('e2e_multiple_blobs', () => {
   let contract: TestContract;
   let logger: Logger;
@@ -27,6 +31,8 @@ describe('e2e_multiple_blobs', () => {
   let sequencer: Sequencer;
   let teardown: () => Promise<void>;
 
+  // REFACTOR: hand-rolled state-changed on/off subscription with a manual timeout — a
+  // waitForSequencerState(IDLE, timeout) DSL helper should replace it.
   function waitForSequencerIdle(timeout = 30000): Promise<void> {
     if (sequencer.status().state === SequencerState.IDLE) {
       return Promise.resolve();
@@ -71,6 +77,9 @@ describe('e2e_multiple_blobs', () => {
 
   afterAll(() => teardown());
 
+  // Sets minTxsPerBlock=3, sends 3 txs simultaneously (2 contract-class publishes + 1 BatchCall
+  // with many side effects), waits for them to land in the same block, encodes the block as blob
+  // data, and asserts numBlobs > 1 and every side-effect type is non-zero.
   it('includes multiple txs in a block that produces multiple blobs', async () => {
     // Increase the minimum number of txs per block so that all txs will be mined in the same block.
     const TX_COUNT = 3;
@@ -101,6 +110,8 @@ describe('e2e_multiple_blobs', () => {
 
     // Send them simultaneously to be picked up by the sequencer
     const sendResults = await Promise.all(provenTxs.map(tx => tx.send({ from: defaultAccountAddress, wait: NO_WAIT })));
+    // REFACTOR: Promise.all over individual waitForTx calls; a waitForTxs batch helper would
+    // consolidate this into a single polling loop.
     // Wait for all to be mined
     const receipts = await Promise.all(
       sendResults.map(({ txHash }) => {

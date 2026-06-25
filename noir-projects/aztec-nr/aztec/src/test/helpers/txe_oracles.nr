@@ -19,7 +19,7 @@ use crate::protocol::{
 /// [`oracle::version`](crate::oracle::version), which covers oracles used during contract execution by PXE.
 ///
 /// The TypeScript counterparts are in `yarn-project/txe/src/txe_oracle_version.ts`.
-pub global TXE_ORACLE_VERSION_MAJOR: Field = 1;
+pub global TXE_ORACLE_VERSION_MAJOR: Field = 2;
 pub global TXE_ORACLE_VERSION_MINOR: Field = 0;
 
 /// Asserts that the TXE oracle interface version is compatible.
@@ -108,12 +108,14 @@ pub unconstrained fn set_private_txe_context(
 }
 
 pub unconstrained fn execute_utility_function<let M: u32, let N: u32, let T: u32>(
+    from: Option<AztecAddress>,
     contract_address: AztecAddress,
     function_selector: FunctionSelector,
     args: [Field; M],
     authorized_utility_call_targets: [AztecAddress; T],
 ) -> [Field; N] {
     execute_utility_function_oracle(
+        from,
         contract_address,
         function_selector,
         args,
@@ -277,6 +279,7 @@ unconstrained fn public_call_new_flow_oracle<let M: u32, let N: u32>(
 
 #[oracle(aztec_txe_executeUtilityFunction)]
 unconstrained fn execute_utility_function_oracle<let M: u32, let N: u32, let T: u32>(
+    from: Option<AztecAddress>,
     contract_address: AztecAddress,
     function_selector: FunctionSelector,
     args: [Field; M],

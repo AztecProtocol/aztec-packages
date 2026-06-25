@@ -26,6 +26,7 @@ import {
   endOfTxRange,
   fieldHex,
   incKey,
+  tagHexForLog,
 } from './log_store_codec.js';
 
 /**
@@ -100,7 +101,7 @@ export class LogStore {
           let publicLogIndexWithinTx = 0;
 
           for (const log of txEffect.privateLogs) {
-            const tagHex = fieldHex(log.fields[0]);
+            const tagHex = tagHexForLog(log.fields);
             const key = encodeKey(tagHex, blockNumber, txIndexWithinBlock, privateLogIndexWithinTx);
             const value = encodeValue({
               txHash,
@@ -115,7 +116,7 @@ export class LogStore {
 
           for (const log of txEffect.publicLogs) {
             const contractHex = fieldHex(log.contractAddress);
-            const tagHex = fieldHex(log.fields[0]);
+            const tagHex = tagHexForLog(log.fields);
             const key = encodeKey(
               encodePublicPrefix(contractHex, tagHex),
               blockNumber,

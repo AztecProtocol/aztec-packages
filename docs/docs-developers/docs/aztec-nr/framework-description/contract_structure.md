@@ -98,7 +98,7 @@ pub contract MyContract {
     };
     use uint_note::UintNote;
 
-    // The storage struct can have any name, but is typically called `Storage`. It must have the `#[storage]` macro applied to it.
+    // The storage struct must be named `Storage` and must have the `#[storage]` macro applied to it.
     // This struct must also have a generic type called C or Context.
     #[storage]
     struct Storage<Context> {

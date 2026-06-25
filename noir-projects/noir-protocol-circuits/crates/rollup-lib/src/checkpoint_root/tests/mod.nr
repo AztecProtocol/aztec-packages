@@ -396,6 +396,12 @@ impl TestBuilder {
             left.accumulated_mana_used + right.accumulated_mana_used
         };
 
+        let accumulated_fees = if self.is_single_block {
+            left.accumulated_fees
+        } else {
+            left.accumulated_fees + right.accumulated_fees
+        };
+
         let out_hash = if self.is_single_block {
             left.out_hash
         } else {
@@ -425,6 +431,7 @@ impl TestBuilder {
             fee_recipient: left.constants.fee_recipient,
             gas_fees: left.constants.gas_fees,
             total_mana_used,
+            accumulated_fees,
         }
     }
 }

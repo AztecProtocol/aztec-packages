@@ -41,6 +41,9 @@ class SchnorrHardcodedKeyAccountContract extends DefaultAccountContract {
   }
 }
 
+// Guide-level test demonstrating a custom Schnorr account contract implementation. Uses setup() with
+// AUTOMINE_E2E_OPTS; runs fully in-proc. Sits in the compose suite by glob inclusion, not by need —
+// migrate-later candidate for the single-node category.
 describe('guides/writing_an_account_contract', () => {
   let context: Awaited<ReturnType<typeof setup>>;
 

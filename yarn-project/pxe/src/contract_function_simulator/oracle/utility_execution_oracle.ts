@@ -36,6 +36,7 @@ import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import {
   type BlockHeader,
+  CallContext,
   type Capsule,
   type IndexedTxEffect,
   type OffchainEffect,
@@ -78,7 +79,7 @@ import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
 /** Args for UtilityExecutionOracle constructor. */
 export type UtilityExecutionOracleArgs = {
-  contractAddress: AztecAddress;
+  callContext: CallContext;
   /** List of transient auth witnesses to be used during this simulation */
   authWitnesses: AuthWitness[];
   capsules: Capsule[]; // TODO(#12425): Rename to transientCapsules
@@ -121,7 +122,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   // We store oracle version to be able to show a nice error message when an oracle handler is missing.
   private contractOracleVersion: { major: number; minor: number } | undefined;
 
-  protected readonly contractAddress: AztecAddress;
+  protected readonly callContext: CallContext;
   protected readonly authWitnesses: AuthWitness[];
   protected readonly capsules: Capsule[];
   protected readonly anchorBlockHeader: BlockHeader;
@@ -145,7 +146,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   protected readonly utilityExecutor: (call: FunctionCall, scopes: AztecAddress[]) => Promise<void>;
 
   constructor(args: UtilityExecutionOracleArgs) {
-    this.contractAddress = args.contractAddress;
+    this.callContext = args.callContext;
     this.authWitnesses = args.authWitnesses;
     this.capsules = args.capsules;
     this.anchorBlockHeader = args.anchorBlockHeader;
@@ -194,7 +195,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   public getUtilityContext(): UtilityContext {
-    return new UtilityContext(this.anchorBlockHeader, this.contractAddress);
+    return new UtilityContext(this.anchorBlockHeader, this.callContext.contractAddress, this.callContext.msgSender);
   }
 
   /**
@@ -896,7 +897,12 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
 
     const nestedOracle = new UtilityExecutionOracle({
-      contractAddress: targetContractAddress,
+      callContext: CallContext.from({
+        msgSender: this.contractAddress,
+        contractAddress: targetContractAddress,
+        functionSelector,
+        isStaticCall: true,
+      }),
       authWitnesses: this.authWitnesses,
       capsules: this.capsules,
       anchorBlockHeader: this.anchorBlockHeader,
@@ -1004,5 +1010,10 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   /** The execution context of the current call. */
   protected get callerContext(): 'private' | 'private view' | 'utility' {
     return 'utility';
+  }
+
+  /** The address of the contract whose function is being executed, from the call context. */
+  protected get contractAddress(): AztecAddress {
+    return this.callContext.contractAddress;
   }
 }

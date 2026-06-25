@@ -61,7 +61,7 @@ contract HandleRewardsTest is RewardLibBase {
 
     args.args.proverId = makeAddr("prover2");
     args.end = args.start + 1;
-    args.fees = _fees(2, sequencer);
+    _setHeaders(2, sequencer);
     _addFeeHeaders(1);
 
     vm.record();
@@ -93,7 +93,7 @@ contract HandleRewardsTest is RewardLibBase {
 
     args.args.proverId = makeAddr("prover2");
     args.end = args.start + checkpointCount - 1;
-    args.fees = _fees(checkpointCount, sequencer);
+    _setHeaders(checkpointCount, sequencer);
     _addFeeHeaders(checkpointCount - 1);
 
     uint256 initialSequencerRewards = wrapper.getSequencerRewards(sequencer);

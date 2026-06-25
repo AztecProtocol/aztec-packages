@@ -11,6 +11,8 @@ import { setup } from './fixtures/utils.js';
 
 const TIMEOUT = 300_000;
 
+// Smoke test for the partial-note pattern: minting tokens into a private note via the
+// Token contract's mint_to_private path. Single node with AutomineSequencer.
 describe('partial notes', () => {
   jest.setTimeout(TIMEOUT);
 
@@ -41,6 +43,8 @@ describe('partial notes', () => {
 
   afterAll(() => teardown());
 
+  // Calls mintTokensToPrivate to mint INITIAL_TOKEN_BALANCE tokens to the liquidity provider's
+  // private balance via the partial-note flow, then asserts the private balance equals the mint amount.
   it('mint to private', async () => {
     await mintTokensToPrivate(token0, adminAddress, liquidityProviderAddress, INITIAL_TOKEN_BALANCE);
     expect(

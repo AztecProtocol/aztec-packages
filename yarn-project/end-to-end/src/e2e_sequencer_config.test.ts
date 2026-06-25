@@ -15,6 +15,9 @@ import 'jest-extended';
 import { PIPELINED_FEE_PADDING, PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
+// Verifies sequencer runtime configuration (maxL2BlockGas / manaTarget) via a live Bot. Uses
+// PIPELINING_SETUP_OPTS (prod sequencer, ethSlot=4s, aztecSlot=12s) with no accounts pre-deployed;
+// the bot creates its own account inline.
 describe('e2e_sequencer_config', () => {
   jest.setTimeout(20 * 60 * 1000); // 20 minutes
 
@@ -30,6 +33,7 @@ describe('e2e_sequencer_config', () => {
     jest.restoreAllMocks();
   });
 
+  // Suite exercising sequencer.updateConfig() at runtime to assert mana/gas limits are respected.
   describe('Sequencer config', () => {
     // Sane targets < 64 bits.
     const manaTarget = 200e6;
@@ -57,6 +61,7 @@ describe('e2e_sequencer_config', () => {
 
     afterAll(() => teardown());
 
+    // Asserts that the sequencer client's maxL2BlockGas property reflects the value passed to setup().
     it('properly sets config', () => {
       if (!sequencer) {
         throw new Error('Sequencer not found');
@@ -64,6 +69,8 @@ describe('e2e_sequencer_config', () => {
       expect(sequencer.maxL2BlockGas).toBe(manaTarget * 2);
     });
 
+    // Runs a bot tx to measure actual mana used, then sets maxL2BlockGas to exactly that value
+    // (success expected), then to that value minus one (Timeout awaiting isMined expected).
     it('respects maxL2BlockGas', async () => {
       sequencer!.updateConfig({
         maxTxsPerBlock: 1,
