@@ -33,6 +33,7 @@ pub struct HandshakePage {
 /// the sender can advance the sequence).
 #[derive(Deserialize, Eq, Serialize)]
 pub struct AppSiloedHandshakeSecrets {
+    /// The shared secret (used for the discovery tag)
     pub shared: Field,
     pub sender_only: Field,
 }

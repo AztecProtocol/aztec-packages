@@ -34,6 +34,7 @@ pub contract HandshakeRegistry {
             delivery::{handshake::{AppSiloedHandshakeSecrets, HandshakePage, MAX_HANDSHAKES_PER_PAGE}, MessageDelivery},
             encryption::{aes128::AES128, message_encryption::MessageEncryption},
         },
+        oracle::random::random,
         protocol::{
             address::AztecAddress, constants::DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG, hash::compute_log_tag,
             traits::ToField,
@@ -65,8 +66,8 @@ pub contract HandshakeRegistry {
     ///    via their own ECDH (`recipient_isk * eph_pk`). `eph_pk.y` is fixed positive by the
     ///    [`generate_positive_ephemeral_key_pair`] convention, so only `eph_pk.x` is transmitted.
     /// 3. Returns the app-siloed handshake secrets for `msg_sender()`, allowing the caller to fold "handshake + first
-    ///    tag" into one call without a second hop into the registry. The sender-only secret derives from `eph_sk`
-    ///    (retained in the note), so the recipient, who only sees `eph_pk`, cannot reconstruct it.
+    ///    tag" into one call without a second hop into the registry. The sender-only secret derives from a fresh
+    ///    random secret (retained in the note), so the recipient, who only sees `eph_pk`, cannot reconstruct it.
     ///
     /// # Panics
     /// If `recipient` is not a valid curve point. There are no upstream side effects in this call frame to
@@ -79,7 +80,11 @@ pub contract HandshakeRegistry {
         let (eph_sk, eph_pk) = generate_positive_ephemeral_key_pair();
         let s_raw = derive_ecdh_shared_secret(eph_sk, recipient_point.inner);
 
-        let note = HandshakeNote::new(s_raw, NON_INTERACTIVE_HANDSHAKE, recipient, eph_sk);
+        // A fresh random secret known only to the sender, backing the sender-only secret folded into
+        // constrained-delivery nullifiers. Safety: an uncooperative sender could pick a non-random value, but the
+        // secret only protects the sender's own ability to advance their sequence, so they only harm themselves.
+        let sender_secret = unsafe { random() };
+        let note = HandshakeNote::new(s_raw, NON_INTERACTIVE_HANDSHAKE, recipient, sender_secret);
 
         // The recipient is not involved in this note's delivery: they discover the handshake via the encrypted log
         // emitted below, not via the sender's note. We deliver onchain unconstrained rather than offchain so the
@@ -125,10 +130,10 @@ pub contract HandshakeRegistry {
 
     /// Returns the app-siloed secrets for an existing handshake.
     ///
-    /// This is the existing-handshake retrieval surface. It returns secrets siloed to `msg_sender`, never raw `S` or
-    /// `eph_sk`; a different caller receives different app-siloed values for the same registry note. Siloing by
-    /// `self.msg_sender()` means a hostile contract cannot read another app's siloed secrets: whatever arguments a
-    /// caller passes, it only ever learns values siloed to its own address. Contracts should still call
+    /// This is the existing-handshake retrieval surface. It returns secrets siloed to `msg_sender`, never the raw `S`
+    /// or the sender-only secret; a different caller receives different app-siloed values for the same registry note.
+    /// Siloing by `self.msg_sender()` means a hostile contract cannot read another app's siloed secrets: whatever
+    /// arguments a caller passes, it only ever learns values siloed to its own address. Contracts should still call
     /// [HandshakeRegistry::validate_handshake] when they need a constrained proof that supplied app-siloed secrets
     /// match the current handshake.
     #[external("utility")]
