@@ -1,4 +1,3 @@
-import type { AztecNodeService } from '@aztec/aztec-node';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import { L1TxUtils, createL1TxUtils } from '@aztec/ethereum/l1-tx-utils';
@@ -35,7 +34,6 @@ jest.setTimeout(1000 * 60 * 10);
  */
 describe('multi-node/governance/upgrade_governance_proposer', () => {
   let test: MultiNodeTestContext;
-  let nodes: AztecNodeService[];
   let l1TxUtils: L1TxUtils;
 
   beforeEach(async () => {
@@ -135,7 +133,8 @@ describe('multi-node/governance/upgrade_governance_proposer', () => {
     const govBefore = await govInfo();
 
     test.logger.info('Creating nodes');
-    nodes = await Promise.all(
+    // Nodes are torn down by test.teardown(); they only need to be running to signal the payload.
+    await Promise.all(
       Array.from({ length: NUM_VALIDATORS }, (_, i) =>
         test.createValidatorNodeAt(i, { governanceProposerPayload: newPayloadAddress }),
       ),
