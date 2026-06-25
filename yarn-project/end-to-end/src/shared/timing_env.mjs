@@ -8,9 +8,10 @@ import CustomEnvironment from '../../../foundation/src/jest/env.mjs';
 // worker process, the time spent in jest before/after hooks and the test body, and merges in the
 // function-level time captured by setup.ts/teardown.ts via a collector shared on `this.global`.
 //
-// Output is one JSONL file per worker process (the env runs once per worker). Each line is either:
-//   - a per-test line (`name` set): beforeEach hooks, the it() body, afterEach hooks; or
-//   - a single suite-scoped line (`name: null`): beforeAll/afterAll hooks for the whole file.
+// Output is one JSONL file per worker process (the env runs once per worker). Each line carries a
+// `type` discriminator and is one of:
+//   - `type: 'test'` (`name` set): beforeEach hooks, the it() body, afterEach hooks for one test; or
+//   - `type: 'suite'` (`name: null`): the suite-scoped beforeAll/afterAll hooks for the whole file.
 export default class TimingEnvironment extends CustomEnvironment {
   constructor(config, context) {
     super(config, context);
@@ -88,6 +89,7 @@ export default class TimingEnvironment extends CustomEnvironment {
       case 'test_start': {
         const name = this.fullTestName(event.test);
         const record = {
+          type: 'test',
           name,
           status: 'passed',
           setupFnMs: 0,
@@ -220,6 +222,7 @@ export default class TimingEnvironment extends CustomEnvironment {
     }
     lines.push(
       this.toLine({
+        type: 'suite',
         name: null,
         status: 'passed',
         setupFnMs: suite.setupFnMs,
