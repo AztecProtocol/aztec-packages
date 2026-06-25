@@ -219,6 +219,12 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         // Set initial vector a to the witness coefficients and load vector G.
         // Ensure the witness copy is fully formed.
         auto a_vec = witness.full();
+        // This IPA is compile-time fixed to `poly_length = 2^log_poly_length`; the reduction loop
+        // runs `log_poly_length` rounds over `round_size = poly_length`. A witness of any other
+        // length makes the rounds index past `a_vec` (heap corruption), so require an exact match.
+        BB_ASSERT_EQ(a_vec.size(),
+                     poly_length,
+                     "IPA witness length must equal the compile-time poly_length (2^log_poly_length)");
         std::span<Commitment> srs_elements = ck.get_monomial_points();
         if (poly_length > srs_elements.size()) {
             throw_or_abort("potential bug: Not enough SRS points for IPA!");
@@ -241,53 +247,44 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
         GroupElement R_i;
         std::size_t round_size = poly_length;
 
-        // Each round folds the running SRS by the short 127-bit challenge u (G_vec_lo·u + G_vec_hi),
-        // so batch_mul stays on a short scalar rather than the 254-bit inverse u⁻¹. The witness
-        // folds by u⁻¹ in step, so ⟨a, G⟩ is preserved. The factors accumulate to ∏u on the SRS and
-        // ∏u⁻¹ on the witness; step 7 divides them out of G_0 and a_0 before they are sent.
+        // The verifier's IPA fold is the classical G' = G_lo + u⁻¹·G_hi. The prover computes an
+        // equivalent rescaled fold G' = u·G_lo + G_hi, so each round's batch_mul multiplies by the
+        // raw 127-bit challenge (short-scalar schedule) instead of the full-width inverse u⁻¹. This
+        // scales the running SRS by ∏u and the running witness by its inverse; the final G_0 and a_0
+        // are unscaled below, so the transcript — and the verifier — are byte-identical to the
+        // classical fold.
         Fr challenge_product = Fr::one();
-        // Step 6.
-        // Perform IPA reduction rounds.
-        for (size_t round_idx = 0; round_idx < log_poly_length; ++round_idx) {
-            round_size /= 2;
+        // Step 6. IPA reduction rounds, processed in fused pairs: the first round defers its SRS
+        // fold and the second round's L/R run against the pre-fold SRS, then both folds apply at
+        // once via batch_two_round_fold. The proof is identical to folding every round.
+        // See ipa/ELEMENT_IMPL_FOLD.md ("Use in IPA").
 
-            // Run scalar products in parallel.
-            // Cross inner products are the U-coefficients of the L/R commitments. The caller supplies b_vec, so this
-            // same IPA core works for both classical evaluation vectors and TripleIPA tensors.
+        // Cross inner products are the U-coefficients of the L/R commitments. The caller supplies b_vec, so this
+        // same IPA core works for both classical evaluation vectors and TripleIPA tensors.
+        // `half` is the lo/hi split point of the current (folded) a_vec/b_vec.
+        const auto compute_inner_prods = [&](size_t half) {
             auto inner_prods = parallel_for_heuristic(
-                round_size,
+                half,
                 std::pair{ Fr::zero(), Fr::zero() },
                 [&](size_t idx, std::pair<Fr, Fr>& inner_prod_left_right) {
                     BB_BENCH_TRACY_NAME("IPA::inner_product");
                     // Compute inner_prod_L := < a_vec_lo, b_vec_hi >
-                    inner_prod_left_right.first += a_vec[idx] * b_vec[round_size + idx];
+                    inner_prod_left_right.first += a_vec[idx] * b_vec[half + idx];
                     // Compute inner_prod_R := < a_vec_hi, b_vec_lo >
-                    inner_prod_left_right.second += a_vec[round_size + idx] * b_vec[idx];
+                    inner_prod_left_right.second += a_vec[half + idx] * b_vec[idx];
                 },
                 thread_heuristics::FF_ADDITION_COST * 2 + thread_heuristics::FF_MULTIPLICATION_COST * 2);
             // Sum inner product contributions computed in parallel and unpack the std::pair.
-            auto [inner_prod_L, inner_prod_R] = sum_pairs(inner_prods);
+            return sum_pairs(inner_prods);
+        };
 
-            // Step 6.a (using letters, because doxygen automatically converts the sublist counters to letters :( )
-            // L_i = < a_vec_lo, G_vec_hi > + inner_prod_L * aux_generator
-            L_i = scalar_multiplication::pippenger_unsafe<Curve>({ 0, { &a_vec.at(0), round_size } },
-                                                                 { &G_vec_local[round_size], round_size });
-            L_i += aux_generator * inner_prod_L;
-
-            // Step 6.b
-            // R_i = < a_vec_hi, G_vec_lo > + inner_prod_R * aux_generator
-            R_i = scalar_multiplication::pippenger_unsafe<Curve>({ 0, { &a_vec.at(round_size), round_size } },
-                                                                 { &G_vec_local[0], round_size });
-            R_i += aux_generator * inner_prod_R;
-
-            // Step 6.c
-            // Send L_i and R_i to the verifier.
+        // Steps 6.c and 6.d for one round: send L_i/R_i, receive the round challenge, and
+        // fold a_vec/b_vec (steps 6.f and 6.g). Returns the round challenge.
+        const auto finish_round = [&](size_t round_idx, size_t half) {
             const std::string index = std::to_string(log_poly_length - round_idx - 1);
             transcript->send_to_verifier("IPA:L_" + index, Commitment(L_i));
             transcript->send_to_verifier("IPA:R_" + index, Commitment(R_i));
 
-            // Step 6.d
-            // Receive the challenge from the verifier.
             const Fr round_challenge = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
             if (round_challenge.is_zero()) {
                 throw_or_abort("IPA round challenge is zero");
@@ -295,34 +292,92 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
             const Fr round_challenge_inv = round_challenge.invert();
             challenge_product *= round_challenge;
 
-            // Step 6.e
-            // Fold the SRS by the short challenge: G_vec_new = round_challenge * G_vec_lo + G_vec_hi.
-            auto G_lo_by_challenge = GroupElement::batch_mul_with_endomorphism(
-                std::span{ G_vec_local.begin(), G_vec_local.begin() + static_cast<std::ptrdiff_t>(round_size) },
-                round_challenge);
-            GroupElement::batch_affine_add(
-                std::span{ G_vec_local.begin() + static_cast<std::ptrdiff_t>(round_size),
-                           G_vec_local.begin() + static_cast<std::ptrdiff_t>(round_size * 2) },
-                G_lo_by_challenge,
-                G_vec_local);
-            // Steps 6.e and 6.f
-            // Fold a by the inverse challenge so ⟨a, G⟩ is preserved under the SRS fold above; b
-            // folds by the challenge (the reciprocal factor), reducing ⟨a, b⟩ for the next round.
-            // a_vec_new = round_challenge_inv * a_vec_lo + a_vec_hi
-            // b_vec_new = round_challenge * b_vec_lo + b_vec_hi
+            // a_vec_new = a_vec_lo * round_challenge_inv + a_vec_hi
+            // b_vec_new = b_vec_lo * round_challenge + b_vec_hi
             parallel_for_heuristic(
-                round_size,
+                half,
                 [&](size_t idx) {
                     BB_BENCH_TRACY_NAME("IPA::fold_vecs");
-                    a_vec.at(idx) = round_challenge_inv * a_vec[idx] + a_vec[round_size + idx];
-                    b_vec.at(idx) = round_challenge * b_vec[idx] + b_vec[round_size + idx];
+                    a_vec.at(idx) = round_challenge_inv * a_vec[idx] + a_vec[half + idx];
+                    b_vec.at(idx) = round_challenge * b_vec[idx] + b_vec[half + idx];
                 },
                 thread_heuristics::FF_ADDITION_COST * 2 + thread_heuristics::FF_MULTIPLICATION_COST * 2);
+            return round_challenge;
+        };
+
+        size_t round_idx = 0;
+        while (round_idx < log_poly_length) {
+            const size_t half = round_size / 2;
+
+            // === First round of the pair (or a lone final round). ===
+            auto [inner_prod_L, inner_prod_R] = compute_inner_prods(half);
+
+            // Step 6.a
+            // L_i = < a_vec_lo, G_vec_hi > + inner_prod_L * aux_generator
+            L_i = scalar_multiplication::pippenger_unsafe<Curve>({ 0, { &a_vec.at(0), half } },
+                                                                 { &G_vec_local[half], half });
+            L_i += aux_generator * inner_prod_L;
+
+            // Step 6.b
+            // R_i = < a_vec_hi, G_vec_lo > + inner_prod_R * aux_generator
+            R_i = scalar_multiplication::pippenger_unsafe<Curve>({ 0, { &a_vec.at(half), half } },
+                                                                 { &G_vec_local[0], half });
+            R_i += aux_generator * inner_prod_R;
+
+            const Fr u1 = finish_round(round_idx, half);
+
+            if (round_idx + 1 == log_poly_length) {
+                // Lone final round of the odd round count: a single point remains (half == 1), so
+                // fold it directly. G_vec_new = u1·G_vec_lo + G_vec_hi.
+                G_vec_local[0] = Commitment(G_vec_local[0] * u1 + G_vec_local[1]);
+                round_size = half;
+                ++round_idx;
+                continue;
+            }
+
+            // === Second round of the pair: L/R against the pre-fold SRS. ===
+            // With H = u1·G_lo + G_hi deferred, the half-size SRS splits over quarters of G:
+            //   H_lo[i] = u1·G[i] + G[i+2q],  H_hi[i] = u1·G[i+q] + G[i+3q],  q = round_size/4,
+            // so < s, H_lo > = < u1·s, G[0:q] > + < s, G[2q:3q] > and similarly for H_hi.
+            const size_t quarter = half / 2;
+            auto [inner_prod_L2, inner_prod_R2] = compute_inner_prods(quarter);
+
+            // u1·a_vec[0:2q], reused by both L and R.
+            std::vector<Fr> a_scaled(half);
+            parallel_for_heuristic(
+                half, [&](size_t idx) { a_scaled[idx] = u1 * a_vec[idx]; }, thread_heuristics::FF_MULTIPLICATION_COST);
+
+            // L_i = < a_vec_lo, H_hi > + inner_prod_L * aux_generator
+            L_i = scalar_multiplication::pippenger_unsafe<Curve>({ 0, { &a_scaled[0], quarter } },
+                                                                 { &G_vec_local[quarter], quarter });
+            L_i += scalar_multiplication::pippenger_unsafe<Curve>({ 0, { &a_vec.at(0), quarter } },
+                                                                  { &G_vec_local[3 * quarter], quarter });
+            L_i += aux_generator * inner_prod_L2;
+
+            // R_i = < a_vec_hi, H_lo > + inner_prod_R * aux_generator
+            R_i = scalar_multiplication::pippenger_unsafe<Curve>({ 0, { &a_scaled[quarter], quarter } },
+                                                                 { &G_vec_local[0], quarter });
+            R_i += scalar_multiplication::pippenger_unsafe<Curve>({ 0, { &a_vec.at(quarter), quarter } },
+                                                                  { &G_vec_local[2 * quarter], quarter });
+            R_i += aux_generator * inner_prod_R2;
+
+            const Fr u2 = finish_round(round_idx + 1, quarter);
+
+            // Step 6.e, fused: G_vec_new[i] = u1·u2·G[i] + u1·G[i+q] + u2·G[i+2q] + G[i+3q].
+            // Round challenges are 127-bit limbs (transcript split_challenge); batch_two_round_fold
+            // BB_ASSERTs that precondition.
+            auto G_folded = GroupElement::batch_two_round_fold(
+                std::span<const Commitment>{ G_vec_local.data(), 4 * quarter }, u1, u2);
+            parallel_for_heuristic(
+                quarter, [&](size_t idx) { G_vec_local[idx] = G_folded[idx]; }, thread_heuristics::FF_COPY_COST * 2);
+
+            round_size = quarter;
+            round_idx += 2;
         }
 
         // Step 7.
-        // Divide the accumulated scale factors out before sending: the SRS carries ∏ u_i
-        // (challenge_product) and the witness its inverse.
+        // Unscale the rescaled fold outputs back to the classical transcript values: the running SRS
+        // carries a factor of challenge_product = ∏ u_i and the running witness its inverse.
         const Fr challenge_product_inv = challenge_product.invert();
         // Send G_0 to the verifier.
         transcript->send_to_verifier("IPA:G_0", Commitment(G_vec_local[0] * challenge_product_inv));

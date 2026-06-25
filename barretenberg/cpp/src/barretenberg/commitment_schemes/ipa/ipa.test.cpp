@@ -27,6 +27,17 @@ class IPATest : public CommitmentTest<Curve> {
 
     static constexpr size_t n = 1UL << log_n;
 
+    // IPA round challenges are 127-bit limbs in production (transcript split_challenge). The mock
+    // transcript bypasses that, so mask explicitly to honor batch_two_round_fold's precondition.
+    static uint256_t random_127_bit_challenge()
+    {
+        uint256_t c = Fr::random_element();
+        c.data[2] = 0;
+        c.data[3] = 0;
+        c.data[1] &= 0x7FFFFFFFFFFFFFFFULL;
+        return c;
+    }
+
     static void SetUpTestSuite()
     {
         ck = create_commitment_key<CK>(n);
@@ -162,7 +173,7 @@ TEST_F(IPATest, ChallengesAreZero)
 
     // Generate a random element vector with challenges
     for (size_t i = 0; i < num_challenges; i++) {
-        random_vector[i] = Fr::random_element();
+        random_vector[i] = random_127_bit_challenge();
     }
 
     // Compute opening proofs several times, where each time a different challenge is equal to zero. Should cause
@@ -192,28 +203,29 @@ TEST_F(IPATest, ChallengesAreZero)
 // This test checks that if the vector \vec{a_new} becomes zero after one round, it doesn't break IPA.
 TEST_F(IPATest, AIsZeroAfterOneRound)
 {
-    // generate a random polynomial of degree < n / 2
+    // initialize a mock transcript with 127-bit challenges (production challenges are 127-bit limbs;
+    // the fused SRS fold asserts that). Index 0 is the generator challenge, index 1 the first
+    // folding challenge u.
+    auto transcript = std::make_shared<MockTranscript>();
+    const size_t num_challenges = log_n + 1;
+    std::vector<uint256_t> random_vector(num_challenges);
+    for (size_t i = 0; i < num_challenges; i++) {
+        random_vector[i] = random_127_bit_challenge();
+    }
+    const Fr u = Fr(random_vector[1]);
+
+    // Build the witness so a folds to zero after round 1: with a' = u^-1 a_lo + a_hi, set
+    // a_hi = -u^-1 a_lo, giving a' = 0.
+    const Fr neg_u_inv = -u.invert();
     auto poly = Polynomial(n);
     for (size_t i = 0; i < n / 2; i++) {
         poly.at(i) = Fr::random_element();
-        poly.at(i + (n / 2)) = poly[i];
+        poly.at(i + (n / 2)) = neg_u_inv * poly[i];
     }
     auto [x, eval] = this->random_eval(poly);
     auto commitment = ck.commit(poly);
     const OpeningPair<Curve> opening_pair = { x, eval };
     const OpeningClaim<Curve> opening_claim{ opening_pair, commitment };
-
-    // initialize an empty mock transcript
-    auto transcript = std::make_shared<MockTranscript>();
-    const size_t num_challenges = log_n + 1;
-    std::vector<uint256_t> random_vector(num_challenges);
-
-    // Generate a random element vector with challenges
-    for (size_t i = 0; i < num_challenges; i++) {
-        random_vector[i] = Fr::random_element();
-    }
-    // Substitute the first folding challenge with -1
-    random_vector[1] = -Fr::one();
 
     // Put the challenges in the transcript
     transcript->initialize(random_vector);

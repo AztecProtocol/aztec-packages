@@ -237,6 +237,24 @@ The full statement splits into a cheap and an expensive half:
    $$ G_{\mathrm{fold}} \stackrel{?}{=} \bigl\langle\, \mathrm{coeffs}\bigl(h_{\vec{\alpha}}(X)\bigr),\ \vec{G} \,\bigr\rangle, $$
    where $h_{\vec{\alpha}}$ is built by `IPA::construct_poly_from_u_challenges_inv` from $(\alpha_0^{-1},\dots,\alpha_{k-1}^{-1})$.
 
+### 4.3 Prover-side fold (transcript-invariant)
+
+§4 and §4.1 give the fold as the verifier reconstructs it. The prover produces the identical $L_r$, $R_r$, and final $G_0$, $a_0$ by two optimisations the verifier never sees.
+
+**Short-challenge rescaling.** An inner product is unchanged when a scalar moves from one argument to the other: for any nonzero $\lambda$,
+
+$$\langle \lambda^{-1}\vec{a},\, \lambda\vec{G}\rangle = \langle \vec{a},\vec{G}\rangle, \qquad \langle \lambda^{-1}\vec{a},\, \lambda\vec{b}\rangle = \langle \vec{a},\vec{b}\rangle.$$
+
+Taking $\lambda = \alpha_r$ each round moves the inverse off the SRS and onto the witness, so the prover folds
+
+$$\vec{G}^{(r+1)} = \alpha_r\bigl(\vec{G}^{(r)}_{\mathrm{lo}} + \alpha_r^{-1}\vec{G}^{(r)}_{\mathrm{hi}}\bigr) = \alpha_r\,\vec{G}^{(r)}_{\mathrm{lo}} + \vec{G}^{(r)}_{\mathrm{hi}}, \qquad \vec{a}^{(r+1)} = \alpha_r^{-1}\bigl(\vec{a}^{(r)}_{\mathrm{lo}} + \alpha_r\,\vec{a}^{(r)}_{\mathrm{hi}}\bigr) = \alpha_r^{-1}\vec{a}^{(r)}_{\mathrm{lo}} + \vec{a}^{(r)}_{\mathrm{hi}}$$
+
+(and $\vec{b}^{(r+1)} = \alpha_r\,\vec{b}^{(r)}_{\mathrm{lo}} + \vec{b}^{(r)}_{\mathrm{hi}}$) — the §4 fold scaled by $\alpha_r$ on the SRS/tensor and $\alpha_r^{-1}$ on the witness. The SRS scalar-multiply is then by the raw 127-bit $\alpha_r$ instead of the 254-bit $\alpha_r^{-1}$, while every message ($\langle \vec{a},\vec{G}\rangle$, $\langle \vec{a},\vec{b}\rangle$, $L_r$, $R_r$) is unchanged by the identity above. The accumulated $\prod_r \alpha_r$ (SRS) and $\prod_r \alpha_r^{-1}$ (witness) are divided back out of the single $G_0$, $a_0$ before they are sent.
+
+**Fused pairs.** Consecutive rounds are folded two at a time on one shared doubling chain by `batch_two_round_fold`: the first round's SRS fold is deferred, and the second round's $L$/$R$ are computed against the un-folded SRS.
+
+Implementation: `IPA::compute_opening_proof_internal` (`ipa.hpp`). The fused fold's group arithmetic and cost model are in [`ipa/ELEMENT_IMPL_FOLD.md`](../ipa/ELEMENT_IMPL_FOLD.md).
+
 ## 5. Deferral: the `NativeAccumulator`
 
 `reduce_to_accumulator` performs everything up to and including check (1) and returns
