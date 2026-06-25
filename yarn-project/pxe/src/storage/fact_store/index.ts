@@ -5,6 +5,7 @@ export type { Fact } from './stored_fact.js';
 export {
   OriginState,
   classifyOriginState,
+  cappedTipBlockNumbers,
   annotateFact,
   type TipBlockNumbers,
   type RetractableFactOrigin,

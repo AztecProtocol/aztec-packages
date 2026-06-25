@@ -1,6 +1,8 @@
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import type { L2TipId, L2Tips } from '@aztec/stdlib/block';
 
-import { OriginState, annotateFact, classifyOriginState } from './origin_state.js';
+import { OriginState, annotateFact, cappedTipBlockNumbers, classifyOriginState } from './origin_state.js';
 
 describe('classifyOriginState', () => {
   const tips = { provenBlockNumber: 10, finalizedBlockNumber: 5 };
@@ -39,5 +41,36 @@ describe('annotateFact', () => {
   it('leaves a non-retractable fact without an origin block', () => {
     const annotated = annotateFact({ factTypeId, payload, originBlock: undefined }, tips);
     expect(annotated).toEqual({ factTypeId, payload, originBlock: undefined });
+  });
+});
+
+describe('cappedTipBlockNumbers', () => {
+  const tipId = (n: number): L2TipId => ({
+    block: { number: BlockNumber(n), hash: '' },
+    checkpoint: { number: CheckpointNumber(0), hash: '' },
+  });
+  const makeL2Tips = (finalized: number, proven: number): L2Tips => ({
+    proposed: { number: BlockNumber(proven), hash: '' },
+    checkpointed: tipId(proven),
+    proven: tipId(proven),
+    finalized: tipId(finalized),
+  });
+
+  it('passes the tips through unchanged when the anchor is at or above the proven tip', () => {
+    expect(cappedTipBlockNumbers(makeL2Tips(5, 10), 20)).toEqual({ provenBlockNumber: 10, finalizedBlockNumber: 5 });
+    expect(cappedTipBlockNumbers(makeL2Tips(5, 10), 10)).toEqual({ provenBlockNumber: 10, finalizedBlockNumber: 5 });
+  });
+
+  it('caps the proven tip at the anchor while leaving an already-lower finalized tip alone', () => {
+    expect(cappedTipBlockNumbers(makeL2Tips(5, 10), 7)).toEqual({ provenBlockNumber: 7, finalizedBlockNumber: 5 });
+  });
+
+  it('caps both tips at the anchor when the anchor is below the finalized tip', () => {
+    expect(cappedTipBlockNumbers(makeL2Tips(5, 10), 3)).toEqual({ provenBlockNumber: 3, finalizedBlockNumber: 3 });
+  });
+
+  it('reports an origin block above the anchor as Pending', () => {
+    const tips = cappedTipBlockNumbers(makeL2Tips(5, 10), 6);
+    expect(classifyOriginState(7, tips)).toBe(OriginState.Pending);
   });
 });

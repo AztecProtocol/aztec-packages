@@ -1,4 +1,5 @@
 import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { L2Tips } from '@aztec/stdlib/block';
 
 import type { FactCollectionKey, OriginBlock } from './fact_store_keys.js';
 import type { Fact } from './stored_fact.js';
@@ -19,6 +20,21 @@ export enum OriginState {
 
 /** The two chain-tip block numbers needed to classify an origin block (`finalized <= proven` always holds). */
 export type TipBlockNumbers = { provenBlockNumber: number; finalizedBlockNumber: number };
+
+/**
+ * Projects the live chain tips to the block numbers used for classification, capped at the anchor block.
+ *
+ * A utility execution reads against a fixed anchor block, and every other node query in the oracle is bounded by it.
+ * Capping the proven/finalized tips at the anchor keeps origin-state consistent with that view and deterministic
+ * across runs: an origin block at or before the anchor classifies exactly as it would against the live tips, while an
+ * origin block above the anchor is reported `Pending` rather than trusting tips that look past the anchor.
+ */
+export function cappedTipBlockNumbers(tips: L2Tips, anchorBlockNumber: number): TipBlockNumbers {
+  return {
+    provenBlockNumber: Math.min(tips.proven.block.number, anchorBlockNumber),
+    finalizedBlockNumber: Math.min(tips.finalized.block.number, anchorBlockNumber),
+  };
+}
 
 /** A retractable fact's origin block (the record-input coordinates) annotated with that block's current chain state. */
 export type RetractableFactOrigin = OriginBlock & { blockState: OriginState };

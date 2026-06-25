@@ -389,7 +389,7 @@ export const ORIGIN_BLOCK: TypeMapping<OriginBlock> = {
   },
 };
 
-/** Read-side origin of a retractable fact: block coordinates plus PXE-computed chain state. Output only. */
+/** Read-side origin of a retractable fact. */
 export const RETRACTABLE_FACT_ORIGIN: TypeMapping<RetractableFactOrigin> = {
   serialization: { fn: o => [new Fr(o.blockNumber), o.blockHash, new Fr(o.blockState)] },
 };

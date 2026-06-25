@@ -2,9 +2,7 @@ use crate::protocol::{traits::{Deserialize, Serialize}, utils::reader::Reader};
 
 /// Chain state of a retractable fact's origin block, mirroring the L2 chain tips.
 ///
-/// Noir has no enums, so this wraps a `u8` discriminant. `pending` means the origin block is above the proven tip
-/// (still reorg-able), `proven` means it has a proof on L1 but is not yet finalized (confidence, not safety), and
-/// `finalized` means it is L1-finalized and therefore irreversible — the only retraction-proof state.
+/// Note: Noir has no enums, so this wraps a `u8` discriminant.
 #[derive(Serialize)]
 pub struct OriginState {
     inner: u8,
@@ -23,6 +21,21 @@ impl OriginState {
         Self { inner: 3 }
     }
 
+    /// Whether the origin block is still above the proven tip (reorg-able).
+    pub fn is_pending(self) -> bool {
+        self == Self::pending()
+    }
+
+    /// Whether the origin block is proven but not yet finalized.
+    pub fn is_proven(self) -> bool {
+        self == Self::proven()
+    }
+
+    /// Whether the origin block is finalized, the only retraction-proof state.
+    pub fn is_finalized(self) -> bool {
+        self == Self::finalized()
+    }
+
     fn from_u8(inner: u8) -> Self {
         let state = Self { inner };
         assert(state.is_valid(), "unrecognized origin state");
@@ -30,7 +43,7 @@ impl OriginState {
     }
 
     fn is_valid(self) -> bool {
-        (self == Self::pending()) | (self == Self::proven()) | (self == Self::finalized())
+        self.is_pending() | self.is_proven() | self.is_finalized()
     }
 }
 
@@ -55,6 +68,21 @@ impl Deserialize for OriginState {
 mod test {
     use crate::protocol::traits::{Deserialize, Serialize};
     use super::OriginState;
+
+    #[test]
+    fn query_functions_identify_each_state() {
+        assert(OriginState::pending().is_pending());
+        assert(!OriginState::pending().is_proven());
+        assert(!OriginState::pending().is_finalized());
+
+        assert(OriginState::proven().is_proven());
+        assert(!OriginState::proven().is_pending());
+        assert(!OriginState::proven().is_finalized());
+
+        assert(OriginState::finalized().is_finalized());
+        assert(!OriginState::finalized().is_pending());
+        assert(!OriginState::finalized().is_proven());
+    }
 
     #[test]
     fn origin_state_roundtrips_through_serialization() {

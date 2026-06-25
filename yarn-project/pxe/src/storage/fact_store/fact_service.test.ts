@@ -1,25 +1,17 @@
-import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2TipId, L2Tips } from '@aztec/stdlib/block';
 
 import { FactService } from './fact_service.js';
 import { FactStore } from './fact_store.js';
 import { FactCollectionKey, FactCollectionTypeKey } from './fact_store_keys.js';
-import { OriginState } from './origin_state.js';
+import { OriginState, type TipBlockNumbers } from './origin_state.js';
 
 describe('FactService', () => {
-  const tipId = (n: number): L2TipId => ({
-    block: { number: BlockNumber(n), hash: '' },
-    checkpoint: { number: CheckpointNumber(0), hash: '' },
-  });
-  const makeTips = (finalized: number, proven: number): L2Tips => ({
-    proposed: { number: BlockNumber(proven), hash: '' },
-    checkpointed: tipId(proven),
-    proven: tipId(proven),
-    finalized: tipId(finalized),
+  const makeTips = (finalized: number, proven: number): TipBlockNumbers => ({
+    finalizedBlockNumber: finalized,
+    provenBlockNumber: proven,
   });
 
   let kv: AztecAsyncKVStore;

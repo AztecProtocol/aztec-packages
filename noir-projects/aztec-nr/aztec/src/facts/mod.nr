@@ -18,7 +18,7 @@ pub struct OriginBlock {
     pub block_hash: Field,
 }
 
-/// A retractable fact's origin block, annotated by PXE with the block's current chain state.
+/// A retractable fact's origin block.
 #[derive(Deserialize, Eq, Serialize)]
 pub struct RetractableFactOrigin {
     pub block_number: u32,
@@ -134,7 +134,7 @@ pub unconstrained fn get_fact_collections_by_type(
 mod test {
     use crate::ephemeral::EphemeralArray;
     use crate::facts::{
-        delete_fact_collection, get_fact_collection, get_fact_collections_by_type, OriginBlock, OriginState,
+        delete_fact_collection, get_fact_collection, get_fact_collections_by_type, OriginBlock,
         record_non_retractable_fact, record_retractable_fact,
     };
     use crate::protocol::address::AztecAddress;
@@ -246,7 +246,7 @@ mod test {
             assert_eq(origin.block_number, origin_block_number);
             assert_eq(origin.block_hash, 0xabc);
             // TXE finalizes every mined block, so an origin at the latest block is Finalized.
-            assert(origin.block_state == OriginState::finalized(), "origin block should be finalized");
+            assert(origin.block_state.is_finalized(), "origin block should be finalized");
         });
     }
 
@@ -272,7 +272,7 @@ mod test {
                 .get(0)
                 .origin_block
                 .unwrap();
-            assert(origin.block_state == OriginState::pending(), "future origin block should be pending");
+            assert(origin.block_state.is_pending(), "future origin block should be pending");
         });
     }
 

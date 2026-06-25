@@ -1,6 +1,5 @@
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2Tips } from '@aztec/stdlib/block';
 
 import { assertAllowedScope } from '../allowed_scopes.js';
 import type { FactStore } from './fact_store.js';
@@ -43,7 +42,7 @@ export class FactService {
 
   async getFactCollection(
     factCollectionKey: FactCollectionKey,
-    tips: L2Tips,
+    tips: TipBlockNumbers,
     jobId: string,
   ): Promise<AnnotatedFactCollection | undefined> {
     assertAllowedScope(factCollectionKey.scope, this.allowedScopes);
@@ -56,7 +55,7 @@ export class FactService {
 
   async getFactCollectionsByType(
     factCollectionTypeKey: FactCollectionTypeKey,
-    tips: L2Tips,
+    tips: TipBlockNumbers,
     jobId: string,
   ): Promise<AnnotatedFactCollection[]> {
     assertAllowedScope(factCollectionTypeKey.scope, this.allowedScopes);
@@ -64,11 +63,7 @@ export class FactService {
     return collections.map(collection => ({ key: collection.key, facts: this.#annotate(collection.facts, tips) }));
   }
 
-  #annotate(facts: Fact[], tips: L2Tips): AnnotatedFact[] {
-    const tipBlockNumbers: TipBlockNumbers = {
-      provenBlockNumber: tips.proven.block.number,
-      finalizedBlockNumber: tips.finalized.block.number,
-    };
-    return facts.map(fact => annotateFact(fact, tipBlockNumbers));
+  #annotate(facts: Fact[], tips: TipBlockNumbers): AnnotatedFact[] {
+    return facts.map(fact => annotateFact(fact, tips));
   }
 }
