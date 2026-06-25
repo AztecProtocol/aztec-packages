@@ -31,7 +31,7 @@ import { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
 import { FactService, FactStore } from '../../storage/fact_store/index.js';
-import type { OriginBlock } from '../../storage/fact_store/index.js';
+import { type OriginBlock, OriginBlockState } from '../../storage/fact_store/index.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
@@ -569,6 +569,11 @@ describe('Utility Execution test suite', () => {
       });
 
       it('stores a retractable fact when given an origin block', async () => {
+        // Pin the anchor above the origin block so it classifies deterministically as finalized.
+        anchorBlockHeader = BlockHeader.empty({
+          globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(100) }),
+        });
+        l2TipsStore.getL2Tips.mockResolvedValue(makeL2Tips(100));
         const oracle = makeOracle({ scopes: [scope] });
         const originBlock = Option.some<OriginBlock>({ blockNumber: 5, blockHash: new Fr(0xabc) });
         await oracle.recordFact(contractAddress, scope, typeId, collectionId, factTypeId, payloadOf(42), originBlock);
@@ -578,7 +583,11 @@ describe('Utility Execution test suite', () => {
         const facts = result.value!.facts.readAll(service);
         expect(facts).toHaveLength(1);
         expect(facts[0].originBlock.isSome()).toBe(true);
-        expect(facts[0].originBlock.value!).toEqual({ blockNumber: 5, blockHash: new Fr(0xabc) });
+        expect(facts[0].originBlock.value!).toEqual({
+          blockNumber: 5,
+          blockHash: new Fr(0xabc),
+          blockState: OriginBlockState.Finalized,
+        });
       });
 
       it('rejects access to another contract', async () => {
