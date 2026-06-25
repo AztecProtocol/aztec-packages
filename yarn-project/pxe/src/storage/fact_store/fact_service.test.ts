@@ -6,7 +6,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { FactService } from './fact_service.js';
 import { FactStore } from './fact_store.js';
 import { FactCollectionKey, FactCollectionTypeKey } from './fact_store_keys.js';
-import { OriginState, type TipBlockNumbers } from './origin_state.js';
+import { OriginBlockState, type TipBlockNumbers } from './origin_state.js';
 
 describe('FactService', () => {
   const makeTips = (finalized: number, proven: number): TipBlockNumbers => ({
@@ -98,7 +98,7 @@ describe('FactService', () => {
       {
         factTypeId,
         payload: [factPayload],
-        originBlock: { blockNumber: 4, blockHash, blockState: OriginState.Finalized },
+        originBlock: { blockNumber: 4, blockHash, blockState: OriginBlockState.Finalized },
       },
     ]);
   });
