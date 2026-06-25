@@ -22,13 +22,21 @@ export function setupWithProver(opts: SingleNodeTestOpts = {}): Promise<SingleNo
  * "effectively never reorg" preset): with the context's default window of `1` and no prover producing
  * proofs, unproven blocks get pruned out from under the test after an epoch — so the high window keeps the
  * blocks alive. Also defaults the PXE to `syncChainTip: 'proposed'` (rather than the context's
- * `'checkpointed'`) since these tests assert on freshly proposed, not-yet-checkpointed blocks. Both can be
- * overridden via `opts` / `opts.pxeOpts`.
+ * `'checkpointed'`) since these tests assert on freshly proposed, not-yet-checkpointed blocks.
+ *
+ * Defaults `aztecEpochDuration` to `32` (the production default). These tests were written against the raw
+ * `setup()` helper, which deployed with the 32-slot production epoch; the context's own default of `6`
+ * lands an epoch boundary mid-test, where proposer selection changes and the propose for the boundary slot
+ * silently reverts (no checkpoint lands, the chain stops advancing). The 32-slot epoch keeps the boundary
+ * out past the short runs these tests need. All three (`startProverNode`, the proof window, the epoch) and
+ * `pxeOpts` can be overridden via `opts` — tests that need a shorter epoch (e.g. governance signalling) set
+ * their own.
  */
 export function setupBlockProducer(opts: SingleNodeTestOpts = {}): Promise<SingleNodeTestContext> {
   return SingleNodeTestContext.setup({
     startProverNode: false,
     aztecProofSubmissionEpochs: 1024,
+    aztecEpochDuration: 32,
     ...opts,
     pxeOpts: { syncChainTip: 'proposed', ...opts.pxeOpts },
   });
