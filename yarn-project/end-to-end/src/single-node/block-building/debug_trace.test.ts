@@ -23,9 +23,9 @@ import type { SingleNodeTestContext } from '../single_node_test_context.js';
 // via a proxy contract (Forwarder). Also tests that a corrupted first propose call (failing with
 // allowFailure:true) followed by a valid second call still produces blocks.
 // Uses setupBlockProducer (no prover node) with numberOfAccounts:2, ethereumSlotDuration:4,
-// aztecSlotDuration:12, aztecProofSubmissionEpochs:640, minTxsPerBlock:0 — production sequencer,
-// anvil interval mining. The L1 interaction is Forwarder/Multicall3/Rollup contract interception
-// for block-proposal routing, not cross-chain bridging.
+// aztecSlotDuration:12, aztecEpochDuration:32, aztecProofSubmissionEpochs:640, minTxsPerBlock:0 —
+// production sequencer, anvil interval mining. The L1 interaction is Forwarder/Multicall3/Rollup
+// contract interception for block-proposal routing, not cross-chain bridging.
 describe('single-node/block-building/debug_trace', () => {
   jest.setTimeout(5 * 60 * 1000); // 5 minutes
 
@@ -53,6 +53,11 @@ describe('single-node/block-building/debug_trace', () => {
       coinbase: coinbase,
       aztecSlotDuration: 12,
       ethereumSlotDuration: 4,
+      // Pin the production-default epoch length so the test never crosses an epoch boundary while
+      // it polls for new blocks. SingleNodeTestContext.setup defaults this to 6, which puts an epoch
+      // boundary at slot 6; the proposer-corruption test intercepts every propose and runs long
+      // enough to reach it, where the proposer selection changes and the propose silently reverts.
+      aztecEpochDuration: 32,
       aztecProofSubmissionEpochs: 640,
       inboxLag: 2,
     });
