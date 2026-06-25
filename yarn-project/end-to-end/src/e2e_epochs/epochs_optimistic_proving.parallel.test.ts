@@ -3,6 +3,7 @@ import { RollupContract } from '@aztec/ethereum/contracts';
 import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { retryUntil } from '@aztec/foundation/retry';
+import { executeTimeout } from '@aztec/foundation/timer';
 import type { TestProverNode } from '@aztec/prover-node/test';
 import { getEpochAtSlot, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
@@ -669,7 +670,8 @@ describe('e2e_epochs/epochs_optimistic_proving', () => {
 
     it('handles a reorg arriving while the top of the epoch is proving', async () => {
       // Gate top-tree proving so it deterministically blocks until we release it. This
-      // gives us a window where the session is mid-proof, and we can fire the reorg
+      // gives us a window where the session is parked at the top-tree boundary (all
+      // sub-trees proven, root prove not yet started), and we can fire the reorg
       // precisely during that window. We use the session's `beforeTopTreeProve` hook
       // rather than monkey-patching the orchestrator factory.
       const proverNode = test.proverNodes[0].getProverNode() as TestProverNode;
@@ -677,38 +679,47 @@ describe('e2e_epochs/epochs_optimistic_proving', () => {
       const provingGate = new Promise<void>(resolve => {
         releaseProvingGate = resolve;
       });
-      // Only gate sessions with at least 2 checkpoints — reorging the last checkpoint
-      // of a single-checkpoint epoch leaves nothing to prove, the session is cancelled
-      // without replacement, and the test's "wait for fewer checkpoints" check never
-      // converges. Sessions with one checkpoint just pass through.
-      const sessionHasMultipleCheckpoints = async () => {
-        const job = (await proverNode.getJobs()).find(j => j.status === 'awaiting-checkpoints');
+      // Resolves with the gated epoch once a session is actually parked inside the gate.
+      // Firing the reorg only after this settles guarantees the session is blocked at the
+      // top-tree boundary — not racing real proving — so the prune deterministically takes
+      // the cancel-and-recreate path instead of failing a half-run sub-tree.
+      let signalGateEntered: (epoch: EpochNumber) => void = () => {};
+      const gateEntered = new Promise<EpochNumber>(resolve => {
+        signalGateEntered = resolve;
+      });
+      // The hook fires from inside `beforeProve`, by which point the session has already
+      // transitioned from `awaiting-checkpoints` to `awaiting-root`; query that state to
+      // find the gateable session. Only gate sessions with at least 2 checkpoints —
+      // reorging the last checkpoint of a single-checkpoint epoch leaves nothing to prove,
+      // the session is cancelled without replacement, and the test's "wait for fewer
+      // checkpoints" check never converges. Sessions with one checkpoint just pass through.
+      const findGateableEpoch = () => {
+        const job = proverNode.sessionManager.getJobs().find(j => j.status === 'awaiting-root');
         const session = job && proverNode.sessionManager.getFullSession(job.epochNumber);
-        return !!session && session.getCheckpoints().length >= 2;
+        return session && session.getCheckpoints().length >= 2 ? job!.epochNumber : undefined;
       };
       proverNode.setSessionHooks({
         beforeTopTreeProve: async () => {
-          if (!(await sessionHasMultipleCheckpoints())) {
+          const epoch = findGateableEpoch();
+          if (epoch === undefined) {
             return;
           }
-          logger.warn('Top-tree proving gated — waiting for test to release');
+          logger.warn(`Top-tree proving gated for epoch ${epoch} — waiting for test to release`);
+          signalGateEntered(epoch);
           await provingGate;
           logger.warn('Proving gate released');
         },
       });
 
-      // Wait for a session with at least 2 checkpoints to hit the gate. The session
-      // manager opens one full session at a time, starting with the lowest unproven
-      // epoch; small epochs pass through (see hook above) and we keep polling until a
-      // gateable epoch lands. `getJobs()` tells us which epoch is actually blocked.
-      await retryUntil(
-        sessionHasMultipleCheckpoints,
+      // Wait until a session with at least 2 checkpoints is actually parked inside the
+      // gate. The session manager opens one full session at a time, starting with the
+      // lowest unproven epoch; small epochs pass through (see hook above) and we keep
+      // waiting until a gateable epoch lands.
+      const gatedEpoch = await executeTimeout(
+        () => gateEntered,
+        L2_SLOT_DURATION_IN_S * 12 * 1000,
         'gateable session blocks at proving gate',
-        L2_SLOT_DURATION_IN_S * 12,
-        0.5,
       );
-      const gatedJob = (await proverNode.getJobs()).find(j => j.status === 'awaiting-checkpoints')!;
-      const gatedEpoch = gatedJob.epochNumber;
       logger.info(`Job for epoch ${gatedEpoch} is blocked inside proving — firing reorg now`);
 
       // Capture the in-flight session and the last checkpoint of the gated epoch —
