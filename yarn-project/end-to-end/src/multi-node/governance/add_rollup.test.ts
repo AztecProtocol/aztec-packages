@@ -151,18 +151,21 @@ describe('multi-node/governance/add_rollup', () => {
     const nextRoundTimestamp = await rollup.getTimestampForSlot(nextRoundSlot);
     await context.cheatCodes.eth.warp(Number(nextRoundTimestamp));
 
-    // Recompute the funded-account set the context used at genesis (the additionally-funded accounts plus
-    // the sponsored FPC). Deploying the new rollup with a genesis archive root derived from the same set
-    // and timestamp makes the new rollup's genesis equal the context's genesis, so the fake prover and
-    // validator nodes (which run on `context.genesis`) can prove and sync the new rollup.
+    // Build the new rollup's genesis from the same funded-account set the context used (the additionally
+    // funded accounts plus the sponsored FPC), so the second bridging step can fund `fundedAccounts[1]`.
+    // The new rollup's on-chain version is `uint32(keccak256(abi.encode(config, genesisState)))`, so its
+    // genesisArchiveRoot MUST differ from the context's primary rollup, otherwise `Registry.addRollup`
+    // reverts with `Registry__RollupAlreadyRegistered` (the version collides) and the governance proposal
+    // fails to execute. We offset the genesis timestamp by 1s, which changes the archive root (and thus the
+    // version) without altering the funded set. The migrated nodes/prover are repointed at this genesis
+    // (see `test.context.genesis = newGenesis` below) so the fake prover can still prove its checkpoints.
     const sponsoredFPCAddress = await getSponsoredFPCAddress();
     const genesisFundedAddresses = [...fundedAccounts.map(a => a.address), sponsoredFPCAddress];
-    const { genesisArchiveRoot, fundingNeeded } = await getGenesisValues(
-      genesisFundedAddresses,
-      undefined,
-      undefined,
-      context.genesis!.genesisTimestamp,
-    );
+    const {
+      genesisArchiveRoot,
+      fundingNeeded,
+      genesis: newGenesis,
+    } = await getGenesisValues(genesisFundedAddresses, undefined, undefined, context.genesis!.genesisTimestamp + 1n);
 
     const { rollup: newRollup } = await deployRollupForUpgrade(
       deployerPrivateKey,
@@ -544,12 +547,18 @@ describe('multi-node/governance/add_rollup', () => {
       )),
     };
 
-    // Config for the new rollup: same genesis as the context (so the fake prover, which runs on
-    // `context.genesis`, can prove the new rollup), pointed at the new rollup version.
+    // Config for the new rollup: pointed at the new rollup version.
     const newConfig = {
       rollupVersion: Number(newVersion),
       governanceProposerPayload: EthAddress.ZERO,
     };
+
+    // Repoint the context at the new rollup's genesis before spawning the migrated nodes. Both
+    // `createValidatorNodeAt` and `createProverNode` read `context.genesis` at call time, so the migrated
+    // validator and fake-prover nodes initialize their world state from `newGenesis` (whose archive root
+    // matches the new rollup) and can sync and prove the new rollup's checkpoints. The original nodes were
+    // already torn down above, so this does not affect them.
+    test.context.genesis = newGenesis;
 
     await sleep(4000);
 
