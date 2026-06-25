@@ -43,54 +43,45 @@ pub global NON_INTERACTIVE_HANDSHAKE_SELECTOR: FunctionSelector =
 pub global GET_HANDSHAKES_SELECTOR: FunctionSelector =
     comptime { FunctionSelector::from_signature("get_handshakes((Field),u32)") };
 
-/// Resolves the app-siloed handshake secret, bootstrapping when none exists.
+/// Reads the existing app-siloed handshake secret for `(sender, recipient)` from the registry.
 ///
-/// Resolves the secret for `(sender, recipient)`, creating it via the registry's `non_interactive_handshake`
-/// when no handshake exists yet.
-///
-/// Returns `(secret, bootstrapped)`, where `bootstrapped` is true when this call created the handshake.
+/// Returns `None` when no handshake has been registered for the pair yet, in which case the caller decides how to
+/// source a tagging secret (see [`super::tag::derive_log_tag`]).
 ///
 /// ## Batching
 ///
-/// The reuse-vs-bootstrap decision is a utility call that reads committed state. If no handshake exists yet,
-/// multiple sends in the same transaction can't see each other's pending bootstrap, so each one creates its own
-/// handshake (a fresh secret on a separate sequence) rather than reusing one. A brand-new recipient therefore needs
-/// one landed transaction to establish the handshake before further sends can be batched onto it.
-pub(crate) fn get_or_create_app_siloed_handshake_secret(
+/// This reads committed state, so within a single transaction multiple sends cannot see each other's pending
+/// handshake. A brand-new recipient therefore needs one landed transaction to establish the handshake before further
+/// sends can be batched onto it.
+pub(crate) unconstrained fn get_existing_app_siloed_handshake_secret(
+    registry: AztecAddress,
+    sender: AztecAddress,
+    recipient: AztecAddress,
+) -> Option<Field> {
+    let returns = call_utility_function(
+        registry,
+        GET_APP_SILOED_SECRET_SELECTOR,
+        [sender.to_field(), recipient.to_field()],
+    );
+    Deserialize::deserialize(returns)
+}
+
+/// Establishes a non-interactive handshake for `(sender, recipient)` and returns its app-siloed secret.
+///
+/// The registry inserts a fresh handshake note and returns the app-siloed secret. The constrained return value is the
+/// source of truth for the secret, so constrained delivery anchoring a freshly bootstrapped secret needs no separate
+/// `validate_handshake`.
+pub(crate) fn create_non_interactive_handshake(
     context: &mut PrivateContext,
     registry: AztecAddress,
     sender: AztecAddress,
     recipient: AztecAddress,
-) -> (Field, bool) {
-    // Safety: the response only selects which path runs. On `None` we bootstrap via `non_interactive_handshake`,
-    // whose constrained return value is the secret, so a forged empty response cannot fabricate one; it can only
-    // trigger an unnecessary re-handshake that replaces the registry note. The caller must constrain the returned
-    // `(secret, bootstrapped)` pair against the selected tagging index before emitting a handshake-derived tag.
-    let maybe_secret: Option<Field> = unsafe {
-        let returns = call_utility_function(
-            registry,
-            GET_APP_SILOED_SECRET_SELECTOR,
-            [sender.to_field(), recipient.to_field()],
-        );
-        Deserialize::deserialize(returns)
-    };
-
-    maybe_secret.map(|secret| (secret, false)).unwrap_or_else(|| {
-        // Bootstrap: no handshake exists yet. The registry inserts a fresh note and returns the app-siloed
-        // secret to the caller. The constrained return is the source of truth for the secret, so no separate
-        // `validate_handshake` is needed by constrained delivery.
-        // TODO(F-660): dispatch to `perform_handshake(sender, recipient, handshake_type)` once interactive
-        // handshakes are supported.
-        let secret: Field = context
-            .call_private_function(
-                registry,
-                NON_INTERACTIVE_HANDSHAKE_SELECTOR,
-                [sender.to_field(), recipient.to_field()],
-            )
-            .get_preimage();
-
-        (secret, true)
-    })
+) -> Field {
+    // TODO(F-660): dispatch to `perform_handshake(sender, recipient, handshake_type)` once interactive handshakes
+    // are supported.
+    context
+        .call_private_function(registry, NON_INTERACTIVE_HANDSHAKE_SELECTOR, [sender.to_field(), recipient.to_field()])
+        .get_preimage()
 }
 
 /// Fetches discovered handshakes from the HandshakeRegistry and derives app-siloed tagging secrets for each,

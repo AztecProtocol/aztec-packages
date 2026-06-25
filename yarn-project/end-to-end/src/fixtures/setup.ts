@@ -47,6 +47,7 @@ import { ARTIFACT_VERSION_BEFORE_INJECTION } from '@aztec/stdlib/abi';
 import { type ContractInstanceWithAddress, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import type { AztecNodeAdmin, AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
+import { AppTaggingSecretKind } from '@aztec/stdlib/logs';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import type { GenesisData } from '@aztec/stdlib/world-state';
 import {
@@ -607,6 +608,18 @@ export async function setup(
       // In-process node implements the debug API, so register public function signatures for named traces.
       nodeDebug: aztecNodeService,
       ...opts.pxeCreationOptions,
+      hooks: {
+        // Constrained delivery has no privacy-safe default and would otherwise fail, so the test wallet opts into a
+        // non-interactive handshake. Unconstrained delivery keeps the address-derived default. Tests can override
+        // either hook per-field via `pxeCreationOptions.hooks`.
+        resolveTaggingSecretStrategy: ({ deliveryMode }) =>
+          Promise.resolve(
+            deliveryMode === AppTaggingSecretKind.CONSTRAINED
+              ? { type: 'non-interactive-handshake' }
+              : { type: 'address-derived' },
+          ),
+        ...opts.pxeCreationOptions?.hooks,
+      },
     });
 
     if (opts.walletMinFeePadding !== undefined) {

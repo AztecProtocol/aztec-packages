@@ -89,6 +89,7 @@ import { ForkCheckpoint } from '@aztec/world-state/native';
 import { DEFAULT_ADDRESS, MAX_PRIVATE_EVENTS_PER_TXE_QUERY, MAX_PRIVATE_EVENT_LEN } from '../constants.js';
 import type { TXEStateMachine } from '../state_machine/index.js';
 import { getSingleTxBlockRequestHash, insertTxEffectIntoWorldTrees, makeTXEBlock } from '../utils/block_creation.js';
+import { defaultTaggingSecretStrategyHook } from '../utils/default_tagging_secret_strategy.js';
 import type { TXEAccountStore } from '../utils/txe_account_store.js';
 import type { TXEArtifactResolver } from '../utils/txe_artifact_resolver.js';
 import { TXEPublicContractDataSource } from '../utils/txe_public_contract_data_source.js';
@@ -476,9 +477,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
           isStaticCall ? 'private view' : 'private',
           authorizedUtilityCallTargets,
         ),
-        // Only configure the hook when a strategy was explicitly set, so that otherwise the default tagging secret
-        // strategy is exercised.
-        resolveTaggingSecretStrategy: taggingSecretStrategy ? () => Promise.resolve(taggingSecretStrategy) : undefined,
+        resolveTaggingSecretStrategy: defaultTaggingSecretStrategyHook(taggingSecretStrategy),
       }),
       transientArrayService,
     });
