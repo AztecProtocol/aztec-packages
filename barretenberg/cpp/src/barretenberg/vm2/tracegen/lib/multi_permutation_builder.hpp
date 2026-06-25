@@ -1,14 +1,13 @@
 #pragma once
 
 #include <array>
-#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 #include "barretenberg/common/tuple.hpp"
-#include "barretenberg/common/utils.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/map.hpp"
 #include "barretenberg/vm2/common/stringify.hpp"
@@ -47,8 +46,8 @@ template <typename... PermutationSettings_> class MultiPermutationBuilder : publ
         // Set the destination selector for each permutation.
         (set_destination_selector<PermutationSettings_>(trace), ...);
 
-        // Set all the dummy inverses or whatever else is needed.
-        (PermutationBuilder<PermutationSettings_>().process(trace), ...);
+        // Standard permutation processing for each permutation should be done here if we were to
+        // support a strict mode or re-introduce a non-empty PermutationBuilder::process().
     }
 
     template <typename PermutationSettings> void set_destination_selector(TraceContainer& trace)
@@ -64,7 +63,7 @@ template <typename... PermutationSettings_> class MultiPermutationBuilder : publ
                                          "): " + column_values_to_string(src_values, PermutationSettings::SRC_COLUMNS));
             }
             // Get one of the available rows for the tuple.
-            // TODO: This could be done in parallel, with only a lock on the row vector.
+            // Potential optimization: This could be done in parallel, with only a lock on the row vector.
             auto& possible_dst_rows = index_it->second;
             uint32_t dst_row = possible_dst_rows.back();
             trace.set(PermutationSettings::DST_SELECTOR, dst_row, 1);

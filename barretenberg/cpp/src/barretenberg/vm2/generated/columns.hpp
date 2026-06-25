@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -28,10 +29,10 @@ namespace bb::avm2 {
 // clang-format on
 
 // All columns minus shifts.
-enum class Column { AVM2_UNSHIFTED_ENTITIES };
+enum class Column : uint16_t { AVM2_UNSHIFTED_ENTITIES };
 
 // C++ doesn't allow enum extension, so we'll have to cast.
-enum class ColumnAndShifts {
+enum class ColumnAndShifts : uint16_t {
     AVM2_ALL_ENTITIES,
     SENTINEL_DO_NOT_USE,
 };

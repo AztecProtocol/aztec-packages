@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cassert>
+#include <cstdint>
 
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 
