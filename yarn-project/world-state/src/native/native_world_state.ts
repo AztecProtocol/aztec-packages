@@ -294,6 +294,9 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
         {
           blockNumber: l2Block.number,
           blockHeaderHash: (await l2Block.hash()).toBuffer(),
+          // Forwarded so the native sync verifies the archive root against canonical and rejects a divergent tree.
+          expectedArchiveRoot: l2Block.archive.root.toBuffer(),
+          expectedPreviousArchiveRoot: l2Block.header.lastArchive.root.toBuffer(),
           paddedL1ToL2Messages: paddedL1ToL2Messages.map(serializeLeaf),
           paddedNoteHashes: paddedNoteHashes.map(serializeLeaf),
           paddedNullifiers: paddedNullifiers.map(serializeLeaf),

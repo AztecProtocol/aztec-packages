@@ -37,6 +37,11 @@ const TIMEOUT = REAL_PROOFS ? 45 * 60 * 1000 : 15 * 60 * 1000;
 // prover-node startup) doesn't time out.
 jest.setTimeout(TIMEOUT);
 
+// End-to-end proof pipeline: client proves transactions, submits to node, sequencer builds blocks,
+// prover node generates epoch proofs, and L1 verifies them. FullProverTest uses real BB proofs when
+// FAKE_PROOFS=0 (CI_FULL only); fake proofs otherwise. Setup: PIPELINING_SETUP_OPTS (ethSlot=4s,
+// aztecSlot=12s). Timeout is 45 min real / 15 min fake. Time-warp: cheatCodes.rollup.advanceToNextEpoch.
+// jest.setTimeout(TIMEOUT) is 45 min for real proofs, 15 min for fake proofs.
 describe('full_prover', () => {
   const COINBASE_ADDRESS = EthAddress.random();
   const t = new FullProverTest('full_prover', 1, COINBASE_ADDRESS, REAL_PROOFS);

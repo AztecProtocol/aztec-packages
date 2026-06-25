@@ -14,6 +14,10 @@ import type { TestWallet } from './test-wallet/test_wallet.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
+// Verifies that the production sequencer (prod seq, PIPELINING_SETUP_OPTS: ethereumSlotDuration=4s,
+// aztecSlotDuration=12s, minTxsPerBlock=0) can produce multiple blocks with batches of transactions
+// in real wall-time (no automine). Exercises the proposer pipelining path with a pre-registered
+// validator (initialValidators) that matches the publisher private key.
 describe('e2e_l1_with_wall_time', () => {
   let logger: Logger;
   let teardown: () => Promise<void>;
@@ -51,9 +55,13 @@ describe('e2e_l1_with_wall_time', () => {
 
   afterEach(() => teardown?.());
 
+  // Submits deploymentsPerBlock txs in 4 sequential rounds, waits for each batch to be mined,
+  // and asserts all tx hashes are eventually confirmed.
   it('should produce blocks with a bunch of transactions', async () => {
     for (let i = 0; i < numberOfBlocks; i++) {
       const txHashes = await submitTxsTo(wallet, defaultAccountAddress, deploymentsPerBlock, logger);
+      // REFACTOR: Promise.all over individual waitForTx calls; a waitForTxs batch helper would
+      // consolidate this into a single polling loop.
       await Promise.all(
         txHashes.map((hash, j) => {
           logger.info(`Waiting for tx ${i}-${j}: ${hash.toString()} to be mined`);

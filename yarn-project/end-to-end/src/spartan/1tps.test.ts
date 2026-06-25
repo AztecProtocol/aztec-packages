@@ -21,6 +21,8 @@ import {
 import { type ServiceEndpoint, getRPCEndpoint, setupEnvironment } from './utils.js';
 
 const config = { ...setupEnvironment(process.env) };
+// 1 TPS sustained transfer test against a live k8s deployment. Not yet wired into CI (see TODO above).
+// Sends token transfers at roughly 1 tx/s and verifies inclusion.
 describe('token transfer test', () => {
   jest.setTimeout(10 * 60 * 2000); // 20 minutes
 

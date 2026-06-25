@@ -12,6 +12,9 @@ import { expectTokenBalance, mintTokensToPrivate } from './fixtures/token_utils.
 import { setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 
+// Tests the Escrow contract: withdrawing to a recipient, access-control enforcement, and
+// multi-key batch operations. Uses setup(2, AUTOMINE_E2E_OPTS) with one node, automine sequencer,
+// and two funded accounts (owner, recipient). A fresh escrow and token are deployed in beforeEach.
 describe('e2e_escrow_contract', () => {
   let wallet: TestWallet;
 
@@ -61,6 +64,8 @@ describe('e2e_escrow_contract', () => {
 
   afterEach(() => teardown(), 30_000);
 
+  // Calls escrowContract.withdraw(token, 30, recipient) as owner and asserts recipient balance
+  // increases by 30 and escrow decreases from 100 to 70.
   it('withdraws funds from the escrow contract', async () => {
     await expectTokenBalance(wallet, token, owner, 0n, logger);
     await expectTokenBalance(wallet, token, recipient, 0n, logger);
@@ -77,6 +82,7 @@ describe('e2e_escrow_contract', () => {
     await expectTokenBalance(wallet, token, escrowContract.address, 70n, logger);
   });
 
+  // Simulates withdraw from recipient (non-owner) and expects a rejection (owner check).
   it('refuses to withdraw funds as a non-owner', async () => {
     await expect(
       escrowContract.methods
@@ -86,6 +92,8 @@ describe('e2e_escrow_contract', () => {
     ).rejects.toThrow();
   });
 
+  // Mints 50 to owner, then uses BatchCall to transfer 10 from owner and withdraw 20 from escrow
+  // in the same tx. Asserts recipient ends up with 30 total.
   it('moves funds using multiple keys on the same tx (#1010)', async () => {
     logger.info(`Minting funds in token contract to ${owner}`);
     const mintAmount = 50n;

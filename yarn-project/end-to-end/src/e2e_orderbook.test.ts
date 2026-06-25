@@ -20,6 +20,10 @@ const TIMEOUT = 300_000;
 //
 // We keep this test around because it's the only TS test where we have async completion of a partial note (partial
 // note created in one tx and completed in another).
+//
+// Exercises the Orderbook contract's create_order / fulfill_order flow. Uses a single node with AutomineSequencer
+// and three accounts (admin, maker, taker). Each step lands in its own block; the partial note opened by
+// create_order is completed in fulfill_order's block.
 describe('Orderbook', () => {
   jest.setTimeout(TIMEOUT);
 
@@ -64,9 +68,13 @@ describe('Orderbook', () => {
 
   afterAll(() => teardown());
 
+  // Happy-path sequence: create an order (opening a partial note), then fulfill it (completing that note
+  // in the next tx). Two sequential it() blocks intentionally share state through `orderId`.
   describe('full flow - happy path', () => {
     let orderId: FieldLike;
 
+    // Maker creates an authwit authorising the orderbook to escrow bidAmount of token0, calls
+    // create_order, then asserts the OrderCreated event was emitted and the orderbook holds bidAmount.
     it('creates an order', async () => {
       const nonceForAuthwits = Fr.random();
 
@@ -117,6 +125,8 @@ describe('Orderbook', () => {
     });
 
     // Note that this test case depends on the previous one.
+    // Taker creates an authwit for finalize_transfer_to_private_from_private, calls fulfill_order,
+    // then asserts the OrderFulfilled event and final private balances for both maker and taker.
     it('fulfills an order', async () => {
       const nonceForAuthwits = Fr.random();
 

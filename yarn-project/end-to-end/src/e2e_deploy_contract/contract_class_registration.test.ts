@@ -24,6 +24,10 @@ import { jest } from '@jest/globals';
 import { AUTOMINE_E2E_OPTS, DUPLICATE_NULLIFIER_ERROR } from '../fixtures/fixtures.js';
 import { DeployTest, type StatefulContractCtorArgs } from './deploy_test.js';
 
+// Tests low-level contract class and instance registration: publishing class bytecode, deploying
+// instances via wallet or a contract deployer, and init-check enforcement. DeployTest wraps
+// setup(0, { ...AUTOMINE_E2E_OPTS, fundSponsoredFPC, skipAccountDeployment }) with 1 account.
+// jest.setTimeout is 900s because serial publish/deploy chains exceed the default 5 min hook budget.
 describe('e2e_deploy_contract contract class registration', () => {
   // Pipelined cadence (~24s/dependent-tx) inflates the chained deploy/publish setup beyond the default 5 min
   // hook window. Many of the publishInstance helpers serially register multiple contracts/instances per case.

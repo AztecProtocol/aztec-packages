@@ -5,6 +5,9 @@ import { AUTOMINE_E2E_OPTS } from '../fixtures/fixtures.js';
 import { mintNotes } from '../fixtures/token_utils.js';
 import { TokenContractTest } from './token_contract_test.js';
 
+// Verifies that the Token contract's private transfer function correctly handles note consolidation across
+// recursive calls (consuming many notes via two levels of recursion). Also checks that private Transfer
+// events are emitted and readable. Setup: single node with AutomineSequencer, 3 accounts, Token deployed.
 describe('e2e_token_contract private transfer recursion', () => {
   const t = new TokenContractTest('odd_transfer_private');
   let { asset, wallet, adminAddress, account1Address, node } = t;
@@ -19,6 +22,8 @@ describe('e2e_token_contract private transfer recursion', () => {
     await t.teardown();
   });
 
+  // Mints 16 separate notes of 10 tokens each, transfers the full balance to account1, then verifies that
+  // all 16 notes were nullified, one new note was created, and the Transfer event is readable.
   it('transfer full balance', async () => {
     // We insert 16 notes, which is large enough to guarantee that the token will need to do two recursive calls to
     // itself to consume them all (since it retrieves 2 notes on the first pass and 8 in each subsequent pass).
@@ -55,6 +60,9 @@ describe('e2e_token_contract private transfer recursion', () => {
     });
   });
 
+  // Mints 4 notes, transfers less than the total (forcing partial note use), and verifies that the correct
+  // number of nullifiers and note hashes are produced, the sender has the expected change, and the Transfer
+  // event is readable.
   it('transfer less than full balance and get change', async () => {
     const noteAmounts = [10n, 10n, 10n, 10n];
     const expectedChange = 3n; // This will result in one of the notes being partially used
@@ -96,7 +104,9 @@ describe('e2e_token_contract private transfer recursion', () => {
     });
   });
 
+  // Error path for recursive private transfer.
   describe('failure cases', () => {
+    // Attempts to transfer more than the available private balance; expects 'Balance too low'.
     it('transfer more than balance', async () => {
       const { result: balance0 } = await asset.methods
         .balance_of_private(adminAddress)

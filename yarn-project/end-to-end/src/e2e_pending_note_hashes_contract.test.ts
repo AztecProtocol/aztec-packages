@@ -14,6 +14,9 @@ import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 
+// Verifies the kernel's pending-note-hash squashing logic: notes created and nullified in the same tx
+// are not persisted to the tree. Uses a single node with AutomineSequencer; contracts are deployed
+// per-test via deployContract().
 describe('e2e_pending_note_hashes_contract', () => {
   let aztecNode: AztecNode;
   let wallet: TestWallet;
@@ -90,6 +93,8 @@ describe('e2e_pending_note_hashes_contract', () => {
     return contract;
   };
 
+  // Inserts a note and reads it back within the same nested-call chain; asserts the tx succeeds,
+  // confirming the simulator can access pending (not-yet-persisted) notes within a single tx.
   it('Aztec.nr function can "get" notes it just "inserted"', async () => {
     const mintAmount = 65n;
 
@@ -101,6 +106,8 @@ describe('e2e_pending_note_hashes_contract', () => {
       .send({ from: owner });
   });
 
+  // Creates one note and nullifies it in the same tx; asserts both the note hash and its nullifier
+  // are squashed (zeroed) in the mined block, and the private log count is zero.
   it('Squash! Aztec.nr function can "create" and "nullify" note in the same TX', async () => {
     // Kernel will squash the noteHash and its nullifier.
     // Realistic way to describe this test is "Mint note A, then burn note A in the same transaction"
@@ -148,6 +155,8 @@ describe('e2e_pending_note_hashes_contract', () => {
     await expectNoteLogsSquashedExcept(1);
   });
 
+  // Same as above but the insert emits two private logs; asserts all are squashed along with the note
+  // hash and nullifier.
   it('Squash! Aztec.nr function can "create" and "nullify" note in the same TX with 2 note logs', async () => {
     // Kernel will squash the noteHash and its nullifier and both note logs
     // Realistic way to describe this test is "Mint note A, then burn note A in the same transaction"
@@ -171,6 +180,8 @@ describe('e2e_pending_note_hashes_contract', () => {
     await expectNoteLogsSquashedExcept(0);
   });
 
+  // Creates two notes and nullifies both in the same tx; asserts both note hashes, both nullifiers,
+  // and both private logs are squashed.
   it('Squash! Aztec.nr function can "create" 2 notes and "nullify" both in the same TX', async () => {
     // Kernel will squash both noteHashes and their nullifier.
     // Realistic way to describe this test is "Mint notes A and B, then burn both in the same transaction"
@@ -194,6 +205,8 @@ describe('e2e_pending_note_hashes_contract', () => {
     await expectNoteLogsSquashedExcept(0);
   });
 
+  // Creates two notes but only nullifies one in the same tx; asserts exactly one note hash persists
+  // and its counterpart is squashed, leaving one private log.
   it('Squash! Aztec.nr function can "create" 2 notes and "nullify" 1 in the same TX (kernel will squash one note + nullifier)', async () => {
     // Kernel will squash one noteHash and its nullifier.
     // The other note will become persistent!
@@ -218,6 +231,8 @@ describe('e2e_pending_note_hashes_contract', () => {
     await expectNoteLogsSquashedExcept(1);
   });
 
+  // Same as the previous test but both notes share the same inner hash (static randomness); verifies
+  // that only one of the two identical-hash notes is squashed, and the other persists.
   it('Squash! Aztec.nr function can "create" 2 notes with the same note hash and "nullify" 1 in the same TX', async () => {
     // Kernel will squash one noteHash and its nullifier, where two notes with the same inner hash exist.
     // The other note will become persistent!
@@ -242,6 +257,8 @@ describe('e2e_pending_note_hashes_contract', () => {
     await expectNoteLogsSquashedExcept(1);
   });
 
+  // Creates a persistent note in tx1; in tx2 creates another note and nullifies both. Asserts the
+  // pending note's hash and its nullifier are squashed while the persistent note's nullifier persists.
   it('Squash! Aztec.nr function can nullify a pending note and a persistent in the same TX', async () => {
     // Create 1 note in isolated TX.
     // Then, in a separate TX, create 1 new note and nullify BOTH notes.
@@ -281,6 +298,8 @@ describe('e2e_pending_note_hashes_contract', () => {
     await expectNoteLogsSquashedExcept(0);
   });
 
+  // Creates a note in tx1; in tx2 nullifies it and calls get_note. Asserts the nullifier persists
+  // (the note was already in the tree) and get_note correctly returns nothing.
   it('get_notes function filters a nullified note created in a previous transaction', async () => {
     // Create a note in an isolated transaction.
     // In a subsequent transaction, we nullify the note and a call to 'get note' should
@@ -311,6 +330,8 @@ describe('e2e_pending_note_hashes_contract', () => {
     await expectNullifiersSquashedExcept(1);
   });
 
+  // Emits more notes than MAX_NOTE_HASHES_PER_TX across nested calls by recycling (create+nullify each note),
+  // forcing the kernel reset circuit; asserts the tx succeeds without hitting the data structure limit.
   it('Should handle overflowing the kernel data structures in nested calls', async () => {
     // This test verifies that a transaction can emit more notes than MAX_NOTE_HASHES_PER_TX without failing, since
     // the notes are nullified and will be squashed by the kernel reset circuit.

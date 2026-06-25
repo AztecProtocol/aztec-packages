@@ -14,6 +14,11 @@ import { MNEMONIC, PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
 import { getLogger, setup, startAnvil } from './fixtures/utils.js';
 import { MockStateView, diffInBps } from './shared/mock_state_view.js';
 
+// Covers the on-chain fee-asset price oracle convergence mechanism. Starts its own Anvil instance,
+// deploys a MockStateView (etched at the real StateView address), then runs a single node with
+// PIPELINING_SETUP_OPTS (prod seq, ethereumSlotDuration=4s, aztecSlotDuration=12s, minTxsPerBlock=0).
+// Verifies that the rollup's getEthPerFeeAsset converges toward the oracle price across checkpoints
+// via retryUntil polling.
 describe('FeeAssetPriceOracle E2E', () => {
   jest.setTimeout(15 * 60 * 1000);
 
@@ -74,6 +79,8 @@ describe('FeeAssetPriceOracle E2E', () => {
     delete process.env.ETHEREUM_HOSTS;
   });
 
+  // Sets the oracle price up 2.5% then polls rollup.getEthPerFeeAsset until it matches within 1 bps.
+  // Then moves the oracle price down 0.5% and polls again. Asserts final price tracked both moves.
   it('on-chain price converges toward oracle price over multiple checkpoints', async () => {
     // Move the price up 2.5% (2 moves of 1% and another smaller)
     // Wait until we are within 1 bps or the price
@@ -89,6 +96,8 @@ describe('FeeAssetPriceOracle E2E', () => {
     const initialOnChainPrice = await rollup.getEthPerFeeAsset();
     logger.info(`Initial on-chain price: ${initialOnChainPrice}, target oracle price: ${targetOraclePrice}`);
 
+    // REFACTOR: hand-rolled retryUntil polling loop waiting for price convergence; a DSL helper for
+    // "wait until rollup price is within N bps of oracle" would make the intent clearer.
     await retryUntil(
       async () => {
         const currentPrice = await rollup.getEthPerFeeAsset();
@@ -105,6 +114,7 @@ describe('FeeAssetPriceOracle E2E', () => {
     await mockStateView.setEthPerFeeAsset(targetOraclePrice2);
     logger.info(`Set uniswap price to ${targetOraclePrice2}`);
 
+    // REFACTOR: second hand-rolled retryUntil polling loop for price convergence; same as above.
     await retryUntil(
       async () => {
         const currentPrice = await rollup.getEthPerFeeAsset();

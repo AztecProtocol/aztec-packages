@@ -19,6 +19,8 @@ const AMOUNT_PER_NOTE = 1_000_000;
 
 const MINIMUM_NOTES_FOR_RECURSION_LEVEL = [0, 2, 10];
 
+// Token transfer round-trip benchmark. Uses ClientFlowsBenchmark with BENCHMARK_CONFIG; profiles private
+// token transfer flows at varying note-recursion depths for multiple account/fee-method combinations.
 describe('Transfer benchmark', () => {
   const t = new ClientFlowsBenchmark('transfers');
   // The wallet used by the admin to interact

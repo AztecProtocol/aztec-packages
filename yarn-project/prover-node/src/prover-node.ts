@@ -30,7 +30,6 @@ import {
   type ITxProvider,
   type ProverNodeApi,
   type Service,
-  type WorldStateSyncStatus,
   type WorldStateSynchronizer,
   tryStop,
 } from '@aztec/stdlib/interfaces/server';
@@ -209,17 +208,6 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
       throw new Error('SessionManager not yet constructed — start() must be called first.');
     }
     return this.sessionManager;
-  }
-
-  /** Returns world state status. */
-  public async getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {
-    const { syncSummary } = await this.worldState.status();
-    return syncSummary;
-  }
-
-  /** Returns archiver status. */
-  public getL2Tips() {
-    return this.l2BlockSource.getL2Tips();
   }
 
   /** Returns the underlying prover instance. */
