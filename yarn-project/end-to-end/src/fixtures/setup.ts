@@ -1,5 +1,5 @@
 import { type InitialAccountData, generateSchnorrAccounts } from '@aztec/accounts/testing';
-import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
+import { type AztecNodeConfig, AztecNodeService, createAztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import type { ContractMethod } from '@aztec/aztec.js/contracts';
 import { publishContractClass, publishInstance } from '@aztec/aztec.js/deployment';
@@ -562,7 +562,7 @@ export async function setup(
       : config;
 
     const aztecNodeService = await withLoggerBindings({ actor: 'node-0' }, () =>
-      AztecNodeService.createAndSync(
+      createAztecNodeService(
         initialNodeConfig,
         { dateProvider, telemetry: telemetryClient, p2pClientDeps },
         { genesis, dontStartSequencer: opts.skipInitialSequencer },
@@ -815,7 +815,7 @@ export function createAndSyncProverNode(
   options: { genesis?: GenesisData; dontStart?: boolean },
 ): Promise<{ proverNode: AztecNodeService }> {
   return withLoggerBindings({ actor: 'prover-0' }, async () => {
-    const proverNode = await AztecNodeService.createAndSync(
+    const proverNode = await createAztecNodeService(
       {
         ...baseConfig,
         ...configOverrides,

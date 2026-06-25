@@ -1,5 +1,5 @@
 import { type InitialAccountData, generateSchnorrAccounts } from '@aztec/accounts/testing';
-import { AztecNodeService } from '@aztec/aztec-node';
+import { AztecNodeService, createAztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { type Logger, createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
@@ -226,7 +226,7 @@ export class FullProverTest {
       this.context.genesis!.genesisTimestamp,
     );
 
-    const proverNodeConfig: Parameters<typeof AztecNodeService.createAndSync>[0] = {
+    const proverNodeConfig: Parameters<typeof createAztecNodeService>[0] = {
       ...config,
       enableProverNode: true,
       disableValidator: true,
@@ -251,7 +251,7 @@ export class FullProverTest {
       validatorPrivateKeys: new SecretValue([]),
     };
 
-    this.proverAztecNode = await AztecNodeService.createAndSync(
+    this.proverAztecNode = await createAztecNodeService(
       proverNodeConfig,
       { dateProvider: this.context.dateProvider, p2pClientDeps: { rpcTxProviders: [this.aztecNode] } },
       { genesis },
