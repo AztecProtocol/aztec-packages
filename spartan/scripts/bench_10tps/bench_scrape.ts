@@ -383,6 +383,25 @@ const TIME_SERIES_DEFS: Record<string, TimeSeriesDef> = {
     unit: "tps",
     query: `sum(rate(aztec_node_receive_tx_count${NS}[1m]))`,
   },
+  // Duration of the RPC node's receiveTx handler (aztec.node.receive_tx.duration,
+  // a histogram). This is the tx-ingest cost on the submission path — the metric
+  // to watch when RPC ingress is the bottleneck (climbs as the RPC saturates).
+  ingressTxDurationP50: {
+    metric: "aztec_node_receive_tx_duration_milliseconds",
+    unit: "ms",
+    query: histQuantile(
+      0.5,
+      "aztec_node_receive_tx_duration_milliseconds_bucket",
+    ),
+  },
+  ingressTxDurationP99: {
+    metric: "aztec_node_receive_tx_duration_milliseconds",
+    unit: "ms",
+    query: histQuantile(
+      0.99,
+      "aztec_node_receive_tx_duration_milliseconds_bucket",
+    ),
+  },
   // Pending mempool size sliced by pod role. Three single-series slugs make cross-run
   // overlay clean: pod names are unstable (replica counts and restart suffixes
   // change between runs) but role is stable. Each query filters to TxPool to
