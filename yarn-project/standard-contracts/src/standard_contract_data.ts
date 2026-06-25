@@ -20,17 +20,17 @@ export const StandardContractSalt: Record<StandardContractName, Fr> = {
 };
 
 export const StandardContractAddress: Record<StandardContractName, AztecAddress> = {
-  AuthRegistry: AztecAddress.fromString('0x0aa7da8bcba8fe32d529a88b9ed88bbbd92bec786030bfe994069078a72c81f5'),
-  MultiCallEntrypoint: AztecAddress.fromString('0x1fc54b9700679a1a646109cec4b80a20b8b8b51eb57c4b4f024d68d891459d09'),
-  PublicChecks: AztecAddress.fromString('0x2841f0c768709c41248713f64fcce28dcdb31c75cc65d7144cfee81c31d6e82a'),
-  HandshakeRegistry: AztecAddress.fromString('0x041b57f2e7316dff3b3b3aa5ec5f9cc781da576caf4b3779e92e8b273ded3d49'),
+  AuthRegistry: AztecAddress.fromString('0x121b380530ef1288e225c0a488e251b9c0885e901cce54cfaf6a656c6ce71ee3'),
+  MultiCallEntrypoint: AztecAddress.fromString('0x23212a0909c36fc67bb6c665f214056e70e0dafa08c8843dea020d5266e2c481'),
+  PublicChecks: AztecAddress.fromString('0x2d3638feb097069a8d396763c5296639070bb9a1fb7ad10c484b318670a65de9'),
+  HandshakeRegistry: AztecAddress.fromString('0x2d80be56b07bd8bfdbc6eb21c957b311464a3e42ee01b5bdb74038630fb87b32'),
 };
 
 export const StandardContractClassId: Record<StandardContractName, Fr> = {
-  AuthRegistry: Fr.fromString('0x13042ef20d04be7c8dd0a73d0e223422f3f354971c90cbd531b60a452b6eec8a'),
-  MultiCallEntrypoint: Fr.fromString('0x1a99b3c16d91abfbcd8180f2bb20ee50a28f70ad1387c9cdf0a2dfaf16556e72'),
-  PublicChecks: Fr.fromString('0x197114e7c7faf9690c897705b1afffa0dc56373d64fe3cc2a1e74073b1e95a69'),
-  HandshakeRegistry: Fr.fromString('0x13877d703cd5fe3f26eb26a3e4c8ef61c2783c5d2776df2515d6e255b978f681'),
+  AuthRegistry: Fr.fromString('0x210a4a97465a43d80507535f4735513c9bac1eedae6bef88031e8755a813aa36'),
+  MultiCallEntrypoint: Fr.fromString('0x1c68efc2fc600da0dd4cd2ccb8a6cb48726e4d08755a82e3063e1d4707b86353'),
+  PublicChecks: Fr.fromString('0x130cc4b6505f5e1164d14b830e735f560fcabf2b15004ad160ad30c7aed4cea6'),
+  HandshakeRegistry: Fr.fromString('0x004d37ed9d34827b2e9c2c176fafe0325f2d07485494b85f4b2fe9f8a30a32b2'),
 };
 
 export const StandardContractClassIdPreimage: Record<
@@ -38,22 +38,22 @@ export const StandardContractClassIdPreimage: Record<
   { artifactHash: Fr; privateFunctionsRoot: Fr; publicBytecodeCommitment: Fr }
 > = {
   AuthRegistry: {
-    artifactHash: Fr.fromString('0x1c319bd046bbf2386f8f75dadf91c5cd1b0a6f7feac9637ed0a567f51f32ade2'),
+    artifactHash: Fr.fromString('0x0b5abe1ce24f0b039f8fb8aa6e9dbbd120aff7707979cffba1a56ded264ac8ed'),
     privateFunctionsRoot: Fr.fromString('0x17b584350f4c3ccafd8f688729afb9feab8976114fb40012e9dee65022c072a4'),
     publicBytecodeCommitment: Fr.fromString('0x2545f39893766508ce37bb5cea5e4dcab04c6f7f79f3089b1c076876e9d268b2'),
   },
   MultiCallEntrypoint: {
-    artifactHash: Fr.fromString('0x1999d4c4102d083917a16047bdffe2825f16f0ebf3af5dc1670de5abd85ff212'),
+    artifactHash: Fr.fromString('0x2e2df1c295bdfae29435cb2bf9da7e4709fdf80c63d7414919d46187b2616de2'),
     privateFunctionsRoot: Fr.fromString('0x0e68dfbb256e80b08b3aef47aca1f2669e97a9c6259787893c1223ac083ad5d5'),
     publicBytecodeCommitment: Fr.fromString('0x0ce4c618c3ed7f3a20410e618c06bb701e150af7fe28a3e92f68e7733809f33e'),
   },
   PublicChecks: {
-    artifactHash: Fr.fromString('0x2a6108541277cf042e4f1583bcc572a042c2327709460f8377fa55674ebc1754'),
+    artifactHash: Fr.fromString('0x0e4888c3639f02775e26b0084a1e0040cff627ab62876088afc41bc48e83c5fe'),
     privateFunctionsRoot: Fr.fromString('0x202860adb1b8975971eeaf571aaaa88a27f4035290d58532ae7d60b0dfaad54c'),
     publicBytecodeCommitment: Fr.fromString('0x013c4f854a5c87c9daf86c5f9bc07a42c2a061f1d924a5b3564ec7edc8e18cb7'),
   },
   HandshakeRegistry: {
-    artifactHash: Fr.fromString('0x1a4e5dce4b9606d5cddf7ee264da2262223139ef9e98d042a806b282d7b4aca4'),
+    artifactHash: Fr.fromString('0x02033739142e7834ed142786a40300b582265a885591736a827e1e5948665113'),
     privateFunctionsRoot: Fr.fromString('0x0de4de94f6ec6d3aefc28afd86aee259ab8e36e2c394221632b34b091946d7cb'),
     publicBytecodeCommitment: Fr.fromString('0x0ce4c618c3ed7f3a20410e618c06bb701e150af7fe28a3e92f68e7733809f33e'),
   },

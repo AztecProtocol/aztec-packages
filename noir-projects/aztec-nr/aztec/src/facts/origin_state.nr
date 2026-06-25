@@ -4,11 +4,11 @@ use crate::protocol::{traits::{Deserialize, Serialize}, utils::reader::Reader};
 ///
 /// Note: Noir has no enums, so this wraps a `u8` discriminant.
 #[derive(Serialize)]
-pub struct OriginState {
+pub struct OriginBlockState {
     inner: u8,
 }
 
-impl OriginState {
+impl OriginBlockState {
     pub fn pending() -> Self {
         Self { inner: 1 }
     }
@@ -47,13 +47,13 @@ impl OriginState {
     }
 }
 
-impl Eq for OriginState {
+impl Eq for OriginBlockState {
     fn eq(self, other: Self) -> bool {
         self.inner == other.inner
     }
 }
 
-impl Deserialize for OriginState {
+impl Deserialize for OriginBlockState {
     let N: u32 = <u8 as Deserialize>::N;
 
     fn deserialize(fields: [Field; Self::N]) -> Self {
@@ -67,35 +67,35 @@ impl Deserialize for OriginState {
 
 mod test {
     use crate::protocol::traits::{Deserialize, Serialize};
-    use super::OriginState;
+    use super::OriginBlockState;
 
     #[test]
     fn query_functions_identify_each_state() {
-        assert(OriginState::pending().is_pending());
-        assert(!OriginState::pending().is_proven());
-        assert(!OriginState::pending().is_finalized());
+        assert(OriginBlockState::pending().is_pending());
+        assert(!OriginBlockState::pending().is_proven());
+        assert(!OriginBlockState::pending().is_finalized());
 
-        assert(OriginState::proven().is_proven());
-        assert(!OriginState::proven().is_pending());
-        assert(!OriginState::proven().is_finalized());
+        assert(OriginBlockState::proven().is_proven());
+        assert(!OriginBlockState::proven().is_pending());
+        assert(!OriginBlockState::proven().is_finalized());
 
-        assert(OriginState::finalized().is_finalized());
-        assert(!OriginState::finalized().is_pending());
-        assert(!OriginState::finalized().is_proven());
+        assert(OriginBlockState::finalized().is_finalized());
+        assert(!OriginBlockState::finalized().is_pending());
+        assert(!OriginBlockState::finalized().is_proven());
     }
 
     #[test]
     fn origin_state_roundtrips_through_serialization() {
-        let pending = OriginState::pending();
-        let proven = OriginState::proven();
-        let finalized = OriginState::finalized();
-        assert(OriginState::deserialize(pending.serialize()) == pending);
-        assert(OriginState::deserialize(proven.serialize()) == proven);
-        assert(OriginState::deserialize(finalized.serialize()) == finalized);
+        let pending = OriginBlockState::pending();
+        let proven = OriginBlockState::proven();
+        let finalized = OriginBlockState::finalized();
+        assert(OriginBlockState::deserialize(pending.serialize()) == pending);
+        assert(OriginBlockState::deserialize(proven.serialize()) == proven);
+        assert(OriginBlockState::deserialize(finalized.serialize()) == finalized);
     }
 
     #[test(should_fail_with = "unrecognized origin state")]
     fn deserializing_invalid_state_fails() {
-        let _ = OriginState::deserialize([99]);
+        let _ = OriginBlockState::deserialize([99]);
     }
 }

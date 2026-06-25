@@ -5,10 +5,10 @@ import { assertAllowedScope } from '../allowed_scopes.js';
 import type { FactStore } from './fact_store.js';
 import type { FactCollectionKey, FactCollectionTypeKey, OriginBlock } from './fact_store_keys.js';
 import {
-  type AnnotatedFact,
-  type AnnotatedFactCollection,
+  type FactCollectionWithOriginState,
+  type FactWithOriginState,
   type TipBlockNumbers,
-  annotateFact,
+  toFactWithOriginState,
 } from './origin_state.js';
 import type { Fact } from './stored_fact.js';
 
@@ -44,7 +44,7 @@ export class FactService {
     factCollectionKey: FactCollectionKey,
     tips: TipBlockNumbers,
     jobId: string,
-  ): Promise<AnnotatedFactCollection | undefined> {
+  ): Promise<FactCollectionWithOriginState | undefined> {
     assertAllowedScope(factCollectionKey.scope, this.allowedScopes);
     const collection = await this.factStore.getFactCollection(factCollectionKey, jobId);
     if (!collection) {
@@ -57,13 +57,13 @@ export class FactService {
     factCollectionTypeKey: FactCollectionTypeKey,
     tips: TipBlockNumbers,
     jobId: string,
-  ): Promise<AnnotatedFactCollection[]> {
+  ): Promise<FactCollectionWithOriginState[]> {
     assertAllowedScope(factCollectionTypeKey.scope, this.allowedScopes);
     const collections = await this.factStore.getFactCollectionsByType(factCollectionTypeKey, jobId);
     return collections.map(collection => ({ key: collection.key, facts: this.#annotate(collection.facts, tips) }));
   }
 
-  #annotate(facts: Fact[], tips: TipBlockNumbers): AnnotatedFact[] {
-    return facts.map(fact => annotateFact(fact, tips));
+  #annotate(facts: Fact[], tips: TipBlockNumbers): FactWithOriginState[] {
+    return facts.map(fact => toFactWithOriginState(fact, tips));
   }
 }

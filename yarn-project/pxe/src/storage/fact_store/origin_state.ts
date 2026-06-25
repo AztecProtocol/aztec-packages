@@ -5,14 +5,13 @@ import type { FactCollectionKey, OriginBlock } from './fact_store_keys.js';
 import type { Fact } from './stored_fact.js';
 
 /**
- * Chain state of a retractable fact's origin block, mirroring the L2 chain tips. The numeric values are the wire
- * discriminants shared with the Noir `OriginState` wrapper.
+ * Chain state of a retractable fact's origin block, mirroring the L2 chain tips.
  *
- * - `Pending`: above the proven tip; still reorg-able.
- * - `Proven`: proof on L1 but not yet finalized — confidence, not safety.
- * - `Finalized`: L1-finalized and therefore irreversible (the only retraction-proof state).
+ * - `Pending`: above the proven tip.
+ * - `Proven`: proof on L1 but not yet finalized.
+ * - `Finalized`: L1-finalized.
  */
-export enum OriginState {
+export enum OriginBlockState {
   Pending = 1,
   Proven = 2,
   Finalized = 3,
@@ -29,43 +28,43 @@ export type TipBlockNumbers = { provenBlockNumber: number; finalizedBlockNumber:
  * across runs: an origin block at or before the anchor classifies exactly as it would against the live tips, while an
  * origin block above the anchor is reported `Pending` rather than trusting tips that look past the anchor.
  */
-export function cappedTipBlockNumbers(tips: L2Tips, anchorBlockNumber: number): TipBlockNumbers {
+export function anchoredTipBlockNumbers(tips: L2Tips, anchorBlockNumber: number): TipBlockNumbers {
   return {
     provenBlockNumber: Math.min(tips.proven.block.number, anchorBlockNumber),
     finalizedBlockNumber: Math.min(tips.finalized.block.number, anchorBlockNumber),
   };
 }
 
-/** A retractable fact's origin block (the record-input coordinates) annotated with that block's current chain state. */
-export type RetractableFactOrigin = OriginBlock & { blockState: OriginState };
+/** A retractable fact's origin block annotated with that block's current chain state. */
+export type RetractableFactOrigin = OriginBlock & { blockState: OriginBlockState };
 
 /** A fact enriched with origin-block state. `originBlock` is undefined for a non-retractable fact. */
-export type AnnotatedFact = { factTypeId: Fr; payload: Fr[]; originBlock: RetractableFactOrigin | undefined };
+export type FactWithOriginState = { factTypeId: Fr; payload: Fr[]; originBlock: RetractableFactOrigin | undefined };
 
 /** A fact collection whose facts carry origin-block state. */
-export type AnnotatedFactCollection = { key: FactCollectionKey; facts: AnnotatedFact[] };
+export type FactCollectionWithOriginState = { key: FactCollectionKey; facts: FactWithOriginState[] };
 
 /**
  * Classifies an origin block by number against the chain tips. A surviving retractable fact's origin block is
  * guaranteed canonical (a reorg would have pruned the fact), so a number comparison is sufficient.
  */
-export function classifyOriginState(blockNumber: number, tips: TipBlockNumbers): OriginState {
+export function classifyOriginBlockState(blockNumber: number, tips: TipBlockNumbers): OriginBlockState {
   if (blockNumber <= tips.finalizedBlockNumber) {
-    return OriginState.Finalized;
+    return OriginBlockState.Finalized;
   }
   if (blockNumber <= tips.provenBlockNumber) {
-    return OriginState.Proven;
+    return OriginBlockState.Proven;
   }
-  return OriginState.Pending;
+  return OriginBlockState.Pending;
 }
 
 /** Enriches a stored fact with the chain state of its origin block (when retractable). */
-export function annotateFact(fact: Fact, tips: TipBlockNumbers): AnnotatedFact {
+export function toFactWithOriginState(fact: Fact, tips: TipBlockNumbers): FactWithOriginState {
   const originBlock: RetractableFactOrigin | undefined = fact.originBlock
     ? {
         blockNumber: fact.originBlock.blockNumber,
         blockHash: fact.originBlock.blockHash,
-        blockState: classifyOriginState(fact.originBlock.blockNumber, tips),
+        blockState: classifyOriginBlockState(fact.originBlock.blockNumber, tips),
       }
     : undefined;
   return { factTypeId: fact.factTypeId, payload: fact.payload, originBlock };
