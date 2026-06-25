@@ -9,8 +9,7 @@ distributor, `Registry.addRollup(v5)` + `updateRewardDistributor(new)`, `GSE.add
 ## Profile
 
 ```bash
-forge clean && FOUNDRY_PROFILE=production forge build   # mainnet
-forge clean && forge build                              # testnet
+forge clean && FOUNDRY_PROFILE=production forge build
 ```
 
 ## Deploy
@@ -24,9 +23,7 @@ forge script script/deploy/DeployRollupForUpgradeV5.s.sol \
   --broadcast --verify --batch-size 8 # drop these flags to simulate
 ```
 
-Mainnet is blocked until the final genesis roots land
-([GK-696](https://linear.app/aztec-labs/issue/GK-696)); `DANGEROUSLY_DEPLOY_TO_MAINNET=true`
-overrides. Output: one `JSON DEPLOY RESULT: {...}` line with every address.
+Output: one `JSON DEPLOY RESULT: {...}` line with every address.
 
 ## Tests
 
