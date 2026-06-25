@@ -13,7 +13,7 @@ import type { EndToEndContext } from '../../fixtures/utils.js';
 import { TestWallet } from '../../test-wallet/test_wallet.js';
 import { proveAndSendTxs } from '../../test-wallet/utils.js';
 import {
-  MV_REORG_TIMING,
+  MULTI_VALIDATOR_REORG_TIMING,
   MultiNodeTestContext,
   type RegisteredValidator,
   buildMockGossipValidators,
@@ -55,7 +55,7 @@ describe('multi-node/high-availability/ha_sync', () => {
     // needs to publish checkpoints during setup (account deployment). We disable publishing
     // per-validator-node below.
     test = await MultiNodeTestContext.setup({
-      ...MV_REORG_TIMING,
+      ...MULTI_VALIDATOR_REORG_TIMING,
       numberOfAccounts: 1,
       initialValidators: validators,
       mockGossipSubNetwork: true,

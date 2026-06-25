@@ -11,7 +11,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 
 import {
   MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
-  MV_REORG_TIMING,
+  MULTI_VALIDATOR_REORG_TIMING,
   MultiNodeTestContext,
   buildMockGossipValidators,
   withOnlyOffense,
@@ -66,7 +66,7 @@ describe('multi-node/recovery/equivocation_recovery', () => {
     const slashingUnit = BigInt(1e14);
     test = await MultiNodeTestContext.setup({
       ...MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
-      ...MV_REORG_TIMING,
+      ...MULTI_VALIDATOR_REORG_TIMING,
       initialValidators: validators,
       aztecTargetCommitteeSize: 4,
       // Enable the slasher so we can assert the equivocating proposer is detected for slashing.

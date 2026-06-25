@@ -14,7 +14,7 @@ import { jest } from '@jest/globals';
 
 import {
   MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
-  MV_REORG_TIMING,
+  MULTI_VALIDATOR_REORG_TIMING,
   MultiNodeTestContext,
   type RegisteredValidator,
   buildMockGossipValidators,
@@ -30,7 +30,7 @@ const NODE_COUNT = 4;
  * blocks, and the next proposer rebuilds a fresh checkpoint that lands on L1.
  *
  * Both scenarios share the same 4-validator mock-gossip cluster (one key per node, no prover) on the
- * MV reorg cadence (ethSlot=6s, aztecSlot=36s, epoch=4, proofSubmissionEpochs=1024, blockDurationMs=8000,
+ * multi-validator reorg cadence (ethSlot=6s, aztecSlot=36s, epoch=4, proofSubmissionEpochs=1024, blockDurationMs=8000,
  * inboxLag=2 — v5 always enforces the timetable). Each test warps L1 to align with its target build slot.
  */
 describe('multi-node/recovery/proposal_failure_recovery', () => {
@@ -45,7 +45,7 @@ describe('multi-node/recovery/proposal_failure_recovery', () => {
 
     test = await MultiNodeTestContext.setup({
       ...MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
-      ...MV_REORG_TIMING,
+      ...MULTI_VALIDATOR_REORG_TIMING,
       initialValidators: validators,
       aztecTargetCommitteeSize: NODE_COUNT,
     });

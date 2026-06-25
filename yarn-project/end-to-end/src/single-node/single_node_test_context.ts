@@ -87,7 +87,7 @@ export type BlockProposedEvent = { blockNumber: BlockNumber; slot: SlotNumber; b
 /**
  * The 36s-slot reorg cadence shared by every reorg/prune/HA test, regardless of single-node vs
  * multi-validator topology: a 36s L2 slot, 8s blocks, and a 4-slot epoch. The two concrete reorg
- * profiles ({@link FAST_REORG_TIMING}, {@link MV_REORG_TIMING}) extend this with their topology's L1
+ * profiles ({@link FAST_REORG_TIMING}, {@link MULTI_VALIDATOR_REORG_TIMING}) extend this with their topology's L1
  * slot duration and any extra knobs. Kept timing-only — `maxSpeedUpAttempts`, `cancelTxOnTimeout`, and
  * `aztecProofSubmissionEpochs` encode per-test scenario intent and stay explicit at the call site.
  */
@@ -101,7 +101,7 @@ export const REORG_TIMING_BASE = {
  * Timing-only profile shared by the fast single-node L1-reorg tests (`proving/optimistic`'s reorg
  * cases and `l1-reorgs/`). Extends {@link REORG_TIMING_BASE} with mainnet-style 32-slot anvil epochs
  * and a 4s L1 slot. Note: `ethereumSlotDuration` stays at 4 here (not unified to
- * {@link MV_REORG_TIMING}'s 6) — at eth=6 the proof-submission-window timing in the
+ * {@link MULTI_VALIDATOR_REORG_TIMING}'s 6) — at eth=6 the proof-submission-window timing in the
  * proof-removal/proof-restore reorg assertions in `l1-reorgs/blocks` starves and times out, so the 4s
  * L1 slot is required for the single-node reorg path. Tests that need a different epoch length (e.g. 8
  * for the "with replacement" case) override `aztecEpochDuration` after the spread.
@@ -121,7 +121,7 @@ export const FAST_REORG_TIMING = {
  * need. Timing-only: committee size, `aztecProofSubmissionEpochs`, and the slasher block stay
  * per-test. Spread BEFORE per-test overrides so a test can still bump e.g. `aztecEpochDuration`.
  */
-export const MV_REORG_TIMING = {
+export const MULTI_VALIDATOR_REORG_TIMING = {
   ...REORG_TIMING_BASE,
   ethereumSlotDuration: 6,
   attestationPropagationTime: 0.5,
@@ -135,7 +135,7 @@ export const MV_REORG_TIMING = {
  * `attestationPropagationTime` (per-scenario: default 2, 0.5, or 1) — set it per test. Spread BEFORE
  * per-test overrides.
  */
-export const MV_CONSENSUS_TIMING = {
+export const MULTI_VALIDATOR_CONSENSUS_TIMING = {
   ethereumSlotDuration: 12,
   aztecSlotDurationInL1Slots: 3,
   blockDurationMs: 6000,

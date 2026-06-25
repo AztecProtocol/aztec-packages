@@ -32,7 +32,7 @@ import {
   type BlockProposedEvent,
   MBPS_TIMING,
   MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
-  MV_CONSENSUS_TIMING,
+  MULTI_VALIDATOR_CONSENSUS_TIMING,
   MultiNodeTestContext,
   type MultiNodeTestOpts,
   type RegisteredValidator,
@@ -62,7 +62,7 @@ export type BlockProductionFixture = {
 };
 
 /**
- * Stands up the `block-production` validator cluster shared by the `MV_CONSENSUS_TIMING` tests
+ * Stands up the `block-production` validator cluster shared by the `MULTI_VALIDATOR_CONSENSUS_TIMING` tests
  * (`simple`, `high_tps`): builds `nodeCount` mock-gossip validators, sets up the context with the
  * consensus timing profile, spawns one validator node per validator, and returns the cluster. The
  * per-test divergence (`fakeProcessingDelayPerTxMs`, `txDelayerMaxInclusionTimeIntoSlot`,
@@ -78,7 +78,7 @@ export async function setupBlockProduction(opts: {
 
   const test = await MultiNodeTestContext.setup({
     ...MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
-    ...MV_CONSENSUS_TIMING,
+    ...MULTI_VALIDATOR_CONSENSUS_TIMING,
     initialValidators: validators,
     ...opts.setupOpts,
   });
@@ -218,7 +218,7 @@ export {
   proveInteraction,
   type BlockProposedEvent,
   MBPS_TIMING,
-  MV_CONSENSUS_TIMING,
+  MULTI_VALIDATOR_CONSENSUS_TIMING,
   MultiNodeTestContext,
   type RegisteredValidator,
   type TrackedSequencerEvent,

@@ -16,7 +16,7 @@ import { waitForBlocksAtSlots } from '../../fixtures/wait_helpers.js';
 import { proveAndSendTxs } from '../../test-wallet/utils.js';
 import {
   MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
-  MV_CONSENSUS_TIMING,
+  MULTI_VALIDATOR_CONSENSUS_TIMING,
   MultiNodeTestContext,
   type RegisteredValidator,
   buildMockGossipValidators,
@@ -51,7 +51,7 @@ describe('multi-node/block-production/first_slot', () => {
     // We expect 4 blocks per checkpoint with this config
     test = await MultiNodeTestContext.setup({
       ...MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
-      ...MV_CONSENSUS_TIMING,
+      ...MULTI_VALIDATOR_CONSENSUS_TIMING,
       initialValidators: validators,
       aztecEpochDuration: 32,
       aztecTargetCommitteeSize: COMMITTEE_SIZE,

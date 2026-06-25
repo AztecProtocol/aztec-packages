@@ -13,7 +13,7 @@ import { jest } from '@jest/globals';
 import type { EndToEndContext } from '../../fixtures/utils.js';
 import {
   MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
-  MV_REORG_TIMING,
+  MULTI_VALIDATOR_REORG_TIMING,
   MultiNodeTestContext,
   type RegisteredValidator,
   buildMockGossipValidators,
@@ -97,7 +97,7 @@ describe('multi-node/high-availability/ha_checkpoint_handoff', () => {
     // publishing ENABLED (unlike ha_sync.test.ts): the handoff must produce a real on-chain checkpoint.
     test = await MultiNodeTestContext.setup({
       ...MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
-      ...MV_REORG_TIMING,
+      ...MULTI_VALIDATOR_REORG_TIMING,
       initialValidators: validators,
       aztecTargetCommitteeSize: VALIDATOR_COUNT,
     });
