@@ -2,7 +2,6 @@ import { MAX_TX_LIFETIME } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import { Timer } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import {
@@ -171,7 +170,6 @@ describe('syncTaggedPrivateLogs constrained-sync bench', () => {
     // Proxy delegates to the underlying mock, so `mock.calls` still records every query for tag counting.
     const benchmarkedNode = BenchmarkedNodeFactory.create(aztecNode);
 
-    const timer = new Timer();
     const logs = await syncTaggedPrivateLogs(
       secrets,
       benchmarkedNode,
@@ -180,7 +178,6 @@ describe('syncTaggedPrivateLogs constrained-sync bench', () => {
       FINALIZED_BLOCK_NUMBER,
       JOB_ID,
     );
-    const syncMs = timer.ms();
 
     const calls = aztecNode.getPrivateLogsByTags.mock.calls;
     const tagQueries = calls.reduce((sum, [query]) => sum + extractTags(query).length, 0);
@@ -201,7 +198,6 @@ describe('syncTaggedPrivateLogs constrained-sync bench', () => {
       tagQueries,
       rpcRoundTrips,
       rpcBlockingTimeMs,
-      syncMs,
       firstMissOptimum,
     };
   }
@@ -216,8 +212,7 @@ describe('syncTaggedPrivateLogs constrained-sync bench', () => {
           `first-miss-optimum=${String(row.firstMissOptimum).padStart(6)} ` +
           `reduction=${(row.tagQueries / row.firstMissOptimum).toFixed(1)}x ` +
           `round-trips=${String(row.rpcRoundTrips).padStart(4)} ` +
-          `blocking=${row.rpcBlockingTimeMs.toFixed(0).padStart(4)}ms logs=${String(row.logsFound).padStart(5)} ` +
-          `time=${row.syncMs.toFixed(1)}ms`,
+          `blocking=${row.rpcBlockingTimeMs.toFixed(0).padStart(4)}ms logs=${String(row.logsFound).padStart(5)}`,
       );
 
       // Pin behavior as an executable assertion, not just a printout. Timings are reported only (they vary run to run).
@@ -241,7 +236,6 @@ describe('syncTaggedPrivateLogs constrained-sync bench', () => {
       { name: `TagSync/${row.label}/tag-queries`, value: row.tagQueries, unit: 'tag-queries' },
       { name: `TagSync/${row.label}/rpc-round-trips`, value: row.rpcRoundTrips, unit: 'round_trips' },
       { name: `TagSync/${row.label}/rpc-blocking-time`, value: Number(row.rpcBlockingTimeMs.toFixed(2)), unit: 'ms' },
-      { name: `TagSync/${row.label}/sync-time`, value: Number(row.syncMs.toFixed(2)), unit: 'ms' },
     ]);
 
     if (process.env.BENCH_OUTPUT) {
