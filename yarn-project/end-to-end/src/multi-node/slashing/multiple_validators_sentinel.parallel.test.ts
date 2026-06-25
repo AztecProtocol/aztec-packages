@@ -5,120 +5,84 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 
 import { jest } from '@jest/globals';
-import fs from 'fs';
 import 'jest-extended';
-import os from 'os';
-import path from 'path';
 
-import { getBootNodeUdpPort } from '../fixtures/fixtures.js';
-import { createNodes, createNonValidatorNode } from '../fixtures/setup_p2p_test.js';
-import { P2PNetworkTest } from './p2p_network.js';
+import {
+  MultiNodeTestContext,
+  SLASHER_ENABLED_MULTI_VALIDATOR_OPTS,
+  buildMockGossipValidators,
+} from '../multi_node_test_context.js';
 
 const NUM_NODES = 2;
 const VALIDATORS_PER_NODE = 3;
 const NUM_VALIDATORS = NUM_NODES * VALIDATORS_PER_NODE;
-const BOOT_NODE_UDP_PORT = getBootNodeUdpPort();
 const SLOT_COUNT = 3;
 const EPOCH_DURATION = 2;
 const ETHEREUM_SLOT_DURATION = 8;
 const AZTEC_SLOT_DURATION = 36;
 
-const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'validators-sentinel-'));
-
 jest.setTimeout(1000 * 60 * 10);
 
 // Regression test for the sentinel correctly tracking attestations for multiple validators co-hosted on
-// the same physical node as the proposer. Uses P2PNetworkTest with real libp2p: 2 nodes each carrying 3
-// validator keys (6 validators total) plus a non-validator sentinel node and a fake prover. ethSlot=8s,
-// aztecSlot=36s, epoch=2, proofSubEpochs=1024, sentinelEnabled (v5 always enforces the timetable, so the
-// former enforceTimeTable/l1PublishingTime overrides are gone). Dynamic port via
-// getBootNodeUdpPort(). Each it runs as an isolated CI job (parallel convention).
-// REFACTOR: This test shares much code with `validators_sentinel` so we may be able to refactor common parts out.
-describe('e2e_p2p_multiple_validators_sentinel', () => {
-  let t: P2PNetworkTest;
+// the same physical node as the proposer. Uses MultiNodeTestContext on the mock-gossip bus: 2 nodes each
+// carrying 3 validator keys (6 validators total) plus a non-validator sentinel node and a fake prover.
+// ethSlot=8s, aztecSlot=36s, epoch=2, proofSubEpochs=1024, sentinelEnabled. Each it runs as an isolated
+// CI job (parallel convention).
+describe('multi-node/slashing/multiple_validators_sentinel', () => {
+  let test: MultiNodeTestContext;
   let nodes: AztecNodeService[];
   let sentinel: AztecNodeService;
   let rollup: RollupContract;
 
   beforeAll(async () => {
-    t = await P2PNetworkTest.create({
-      testName: 'e2e_p2p_multiple_validators_sentinel',
-      numberOfNodes: 0,
-      numberOfValidators: NUM_VALIDATORS,
-      basePort: BOOT_NODE_UDP_PORT,
-      startProverNode: true,
-      initialConfig: {
-        anvilSlotsInAnEpoch: 4,
-        aztecTargetCommitteeSize: NUM_VALIDATORS,
-        aztecSlotDuration: AZTEC_SLOT_DURATION,
-        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
-        blockDurationMs: 6000,
-        aztecProofSubmissionEpochs: 1024, // effectively do not reorg
-        listenAddress: '127.0.0.1',
-        minTxsPerBlock: 0,
-        aztecEpochDuration: EPOCH_DURATION,
-        slashingRoundSizeInEpochs: 2,
-        sentinelEnabled: true,
-        slashInactivityPenalty: 0n, // Set to 0 to disable
-        inboxLag: 2,
-      },
+    test = await MultiNodeTestContext.setup({
+      ...SLASHER_ENABLED_MULTI_VALIDATOR_OPTS,
+      anvilSlotsInAnEpoch: 4,
+      aztecTargetCommitteeSize: NUM_VALIDATORS,
+      aztecSlotDuration: AZTEC_SLOT_DURATION,
+      ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+      blockDurationMs: 6000,
+      aztecProofSubmissionEpochs: 1024, // effectively do not reorg
+      listenAddress: '127.0.0.1',
+      minTxsPerBlock: 0,
+      aztecEpochDuration: EPOCH_DURATION,
+      slashingRoundSizeInEpochs: 2,
+      sentinelEnabled: true,
+      slashInactivityPenalty: 0n, // Set to 0 to disable
+      inboxLag: 2,
+      initialValidators: buildMockGossipValidators(NUM_VALIDATORS),
     });
 
-    await t.setup();
-    await t.applyBaseSetup();
+    rollup = RollupContract.getFromConfig(test.context.config);
 
-    rollup = RollupContract.getFromConfig(t.ctx.aztecNodeConfig);
+    // Two nodes, each carrying VALIDATORS_PER_NODE consecutive validator keys.
+    const keysFor = (nodeIndex: number) =>
+      Array.from({ length: VALIDATORS_PER_NODE }, (_, j) => test.privateKeyAt(nodeIndex * VALIDATORS_PER_NODE + j));
+    nodes = await Promise.all([0, 1].map(nodeIndex => test.createValidatorNode(keysFor(nodeIndex))));
 
-    nodes = await createNodes(
-      t.ctx.aztecNodeConfig,
-      t.ctx.dateProvider,
-      t.bootstrapNodeEnr,
-      NUM_NODES,
-      BOOT_NODE_UDP_PORT,
-      t.genesis,
-      DATA_DIR,
-      undefined, // no metrics port
-      0, // index offset
-      VALIDATORS_PER_NODE, // validators per node
-    );
+    sentinel = await test.createNonValidatorNode({ sentinelEnabled: true });
 
-    sentinel = await createNonValidatorNode(
-      t.ctx.aztecNodeConfig,
-      t.ctx.dateProvider,
-      BOOT_NODE_UDP_PORT + 1 + NUM_NODES,
-      t.bootstrapNodeEnr,
-      t.genesis,
-      `${DATA_DIR}-sentinel`,
-      undefined,
-    );
-
-    await t.removeInitialNode();
-
-    t.logger.info(`Setup complete`, { validators: t.validators });
+    test.logger.info(`Setup complete`, { validators: test.validators });
   });
 
   afterAll(async () => {
-    await t.stopNodes([...nodes, sentinel]);
-    await t.teardown();
-    for (let i = 0; i < NUM_NODES; i++) {
-      fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
-    }
+    await test.teardown();
   });
 
   const waitForPostWarmupCheckpoint = async (action: string): Promise<void> => {
-    await t.monitor.run();
-    const warmupSlot = Number(t.monitor.l2SlotNumber) + 1;
-    t.logger.info(`Waiting for warmup slot ${warmupSlot} before ${action}`);
+    await test.monitor.run();
+    const warmupSlot = Number(test.monitor.l2SlotNumber) + 1;
+    test.logger.info(`Waiting for warmup slot ${warmupSlot} before ${action}`);
     await retryUntil(
-      async () => (await t.monitor.run()).l2SlotNumber >= warmupSlot,
+      async () => (await test.monitor.run()).l2SlotNumber >= warmupSlot,
       'warmup slot',
       AZTEC_SLOT_DURATION * 3,
     );
 
-    const warmupCheckpoint = t.monitor.checkpointNumber;
-    t.logger.info(`Waiting for checkpoint after warmup before ${action}`, { warmupCheckpoint });
+    const warmupCheckpoint = test.monitor.checkpointNumber;
+    test.logger.info(`Waiting for checkpoint after warmup before ${action}`, { warmupCheckpoint });
     await retryUntil(
-      async () => (await t.monitor.run()).checkpointNumber > warmupCheckpoint,
+      async () => (await test.monitor.run()).checkpointNumber > warmupCheckpoint,
       'post-warmup checkpoint',
       AZTEC_SLOT_DURATION * (SLOT_COUNT + 1) * 3,
     );
@@ -127,22 +91,19 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
   // Waits past the pipelining warm-up period, then observes SLOT_COUNT slots and asserts that every
   // validator on every node has zero attestation-missed entries in the sentinel history for those slots.
   it('collects attestations for all validators on a node', async () => {
-    // Ensure all nodes see each other, especially the sentinel, before starting slot counting
-    await t.waitForP2PMeshConnectivity([...nodes, sentinel]);
-
     // Wait until validator nodes have advanced past their first proposed slot and landed a checkpoint so that the
     // pipelining warm-up period (where some attestations may be missed) is behind us.
     await waitForPostWarmupCheckpoint('establishing initial slot');
 
-    const { checkpointNumber: initialBlock, l2SlotNumber: initialSlot } = t.monitor;
+    const { checkpointNumber: initialBlock, l2SlotNumber: initialSlot } = test.monitor;
 
     const timeout = AZTEC_SLOT_DURATION * SLOT_COUNT * 4;
     const targetSlot = Number(initialSlot) + SLOT_COUNT;
 
-    t.logger.info(`Waiting until L2 slot ${targetSlot}`, { initialBlock, initialSlot, timeout });
-    await retryUntil(() => t.monitor.l2SlotNumber >= targetSlot, 'slot', timeout);
+    test.logger.info(`Waiting until L2 slot ${targetSlot}`, { initialBlock, initialSlot, timeout });
+    await retryUntil(() => test.monitor.l2SlotNumber >= targetSlot, 'slot', timeout);
 
-    t.logger.info(`Waiting until sentinel processed until slot ${targetSlot}`);
+    test.logger.info(`Waiting until sentinel processed until slot ${targetSlot}`);
     await retryUntil(
       async () => {
         const { lastProcessedSlot } = await nodes[0].getValidatorsStats();
@@ -154,14 +115,14 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
 
     for (const node of [...nodes, sentinel]) {
       const stats = await node.getValidatorsStats();
-      t.logger.info(`Collected validator stats at block ${t.monitor.checkpointNumber}`, { stats });
+      test.logger.info(`Collected validator stats at block ${test.monitor.checkpointNumber}`, { stats });
 
       // Check that all validators have attestations recorded
       for (let i = 0; i < VALIDATORS_PER_NODE * NUM_NODES; i++) {
-        const validator = t.validators[i].attester.toString().toLowerCase();
+        const validator = test.validatorAt(i).attester.toString().toLowerCase();
         const validatorStats = stats.stats[validator];
         const history = validatorStats.history.filter(h => h.slot > initialSlot && h.slot <= targetSlot);
-        t.logger.info(`Asserting stats for validator ${validator}`, { history });
+        test.logger.info(`Asserting stats for validator ${validator}`, { history });
         expect(history.filter(h => h.status === 'attestation-missed').length).toEqual(0);
       }
     }
@@ -173,23 +134,20 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
   // missed entries; and at least one first-node validator has a checkpoint-mined or checkpoint-valid
   // entry confirming the block was proposed.
   it('collects attestations for validators in proposer node when block is not published', async () => {
-    // Ensure all nodes see each other, especially the sentinel
-    await t.waitForP2PMeshConnectivity([...nodes, sentinel]);
-
     await waitForPostWarmupCheckpoint('stopping a validator node and establishing initial slot');
 
     // Stop the second node, this means the first node won't be able to propose since won't achieve quorum
     await tryStop(nodes[1]);
 
-    await t.monitor.run();
-    const { checkpointNumber: initialBlock, l2SlotNumber: initialSlot } = t.monitor;
+    await test.monitor.run();
+    const { checkpointNumber: initialBlock, l2SlotNumber: initialSlot } = test.monitor;
 
     const timeout = AZTEC_SLOT_DURATION * SLOT_COUNT * 4;
     const targetSlot = Number(initialSlot) + SLOT_COUNT;
-    const firstNodeValidators = t.validators.slice(0, VALIDATORS_PER_NODE).map(v => v.attester);
-    const offlineValidators = t.validators.slice(VALIDATORS_PER_NODE, VALIDATORS_PER_NODE * 2).map(v => v.attester);
+    const firstNodeValidators = test.validators.slice(0, VALIDATORS_PER_NODE).map(v => v.attester);
+    const offlineValidators = test.validators.slice(VALIDATORS_PER_NODE, VALIDATORS_PER_NODE * 2).map(v => v.attester);
 
-    t.logger.info(
+    test.logger.info(
       `Waiting until L2 slot ${targetSlot} and proposer is in first node (${firstNodeValidators.join(', ')})`,
       { initialBlock, initialSlot, timeout, firstNodeValidators },
     );
@@ -198,17 +156,17 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
     let slotForSentinel!: SlotNumber;
     await retryUntil(
       async () => {
-        slotForSentinel = (await t.monitor.run()).l2SlotNumber;
+        slotForSentinel = (await test.monitor.run()).l2SlotNumber;
         const timestamp = await rollup.getTimestampForSlot(slotForSentinel);
         const proposerAtTime = await rollup.getProposerAt(timestamp);
-        t.logger.info(`At slot ${slotForSentinel}, proposer is ${proposerAtTime}`);
+        test.logger.info(`At slot ${slotForSentinel}, proposer is ${proposerAtTime}`);
         return firstNodeValidators.some(v => v.equals(proposerAtTime)) && slotForSentinel >= targetSlot;
       },
       'proposer is first node',
       timeout,
     );
 
-    t.logger.info(`Waiting until sentinel processed until slot ${slotForSentinel}`);
+    test.logger.info(`Waiting until sentinel processed until slot ${slotForSentinel}`);
     await retryUntil(
       async () => {
         const { lastProcessedSlot } = await sentinel.getValidatorsStats();
@@ -220,7 +178,7 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
 
     // Collect stats from the sentinel node
     const stats = await sentinel.getValidatorsStats();
-    t.logger.info(`Collected validator stats at slot ${t.monitor.l2SlotNumber}`, { stats });
+    test.logger.info(`Collected validator stats at slot ${test.monitor.l2SlotNumber}`, { stats });
 
     const historyForSlot = (validator: (typeof firstNodeValidators)[number]) =>
       stats.stats[validator.toString().toLowerCase()]?.history.filter(h => h.slot === slotForSentinel) ?? [];
@@ -228,7 +186,7 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
     // Check that all of the first node validators have attestations recorded for the selected proposer slot.
     for (const validator of firstNodeValidators) {
       const history = historyForSlot(validator);
-      t.logger.info(`Asserting stats for online validator ${validator}`, { history });
+      test.logger.info(`Asserting stats for online validator ${validator}`, { history });
       expect(history).not.toBeEmpty();
       expect(
         history.filter(
@@ -247,7 +205,7 @@ describe('e2e_p2p_multiple_validators_sentinel', () => {
     // And all of the validators for the offline node must be seen as missed attestation or proposal.
     for (const validator of offlineValidators) {
       const history = historyForSlot(validator);
-      t.logger.info(`Asserting stats for offline validator ${validator}`, { history });
+      test.logger.info(`Asserting stats for offline validator ${validator}`, { history });
       expect(
         history.filter(
           h => h.status === 'attestation-missed' || h.status === 'blocks-missed' || h.status === 'checkpoint-missed',

@@ -5,88 +5,65 @@ import { sleep } from '@aztec/foundation/sleep';
 import type { ValidatorsStats } from '@aztec/stdlib/validators';
 
 import { jest } from '@jest/globals';
-import fs from 'fs';
 import 'jest-extended';
-import os from 'os';
-import path from 'path';
 
-import { createNode, createNodes } from '../fixtures/setup_p2p_test.js';
-import { P2PNetworkTest } from './p2p_network.js';
+import {
+  MultiNodeTestContext,
+  SLASHER_ENABLED_MULTI_VALIDATOR_OPTS,
+  buildMockGossipValidators,
+} from '../multi_node_test_context.js';
 
 const NUM_NODES = 5;
 const NUM_VALIDATORS = NUM_NODES + 1; // We create an extra validator, who will not have a running node
-const BOOT_NODE_UDP_PORT = 4500;
 const BLOCK_COUNT = 3;
 const EPOCH_DURATION = 2;
 const ETHEREUM_SLOT_DURATION = 4;
 const AZTEC_SLOT_DURATION = 8;
 const BLOCK_DURATION_MS = 2000;
 
-const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'validators-sentinel-'));
-
 jest.setTimeout(1000 * 60 * 10);
 
 // Tests sentinel observability: 5 running validators + 1 registered-but-offline validator (6 total),
-// fake prover. P2PNetworkTest real libp2p, ethSlot=4s, aztecSlot=8s, epoch=2, proofSubEpochs=1024,
-// minTxsPerBlock=0, sentinelEnabled, slashInactivityPenalty=0 (slashing disabled). Also regression-tests
-// that a late-joining node initialises its sentinel from the chain state (issue #13142).
-describe('e2e_p2p_validators_sentinel', () => {
-  let t: P2PNetworkTest;
+// fake prover. MultiNodeTestContext on the mock-gossip bus, ethSlot=4s, aztecSlot=8s, epoch=2,
+// proofSubEpochs=1024, minTxsPerBlock=0, sentinelEnabled, slashInactivityPenalty=0 (slashing disabled).
+// Also regression-tests that a late-joining node initialises its sentinel from the chain state (issue
+// #13142).
+describe('multi-node/slashing/validators_sentinel', () => {
+  let test: MultiNodeTestContext;
   let nodes: AztecNodeService[];
   let additionalNode: AztecNodeService | undefined;
   let offlineValidator: EthAddress;
 
   beforeAll(async () => {
-    t = await P2PNetworkTest.create({
-      testName: 'e2e_p2p_validators_sentinel',
-      numberOfNodes: 0,
-      numberOfValidators: NUM_VALIDATORS,
-      basePort: BOOT_NODE_UDP_PORT,
-      startProverNode: true,
-      initialConfig: {
-        anvilSlotsInAnEpoch: 4,
-        aztecTargetCommitteeSize: NUM_VALIDATORS,
-        aztecSlotDuration: AZTEC_SLOT_DURATION,
-        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
-        blockDurationMs: BLOCK_DURATION_MS,
-        aztecProofSubmissionEpochs: 1024, // effectively do not reorg
-        listenAddress: '127.0.0.1',
-        minTxsPerBlock: 0,
-        aztecEpochDuration: EPOCH_DURATION,
-        slashingRoundSizeInEpochs: 2,
-        sentinelEnabled: true,
-        slashInactivityPenalty: 0n, // Set to 0 to disable
-        inboxLag: 2,
-      },
+    test = await MultiNodeTestContext.setup({
+      ...SLASHER_ENABLED_MULTI_VALIDATOR_OPTS,
+      anvilSlotsInAnEpoch: 4,
+      aztecTargetCommitteeSize: NUM_VALIDATORS,
+      aztecSlotDuration: AZTEC_SLOT_DURATION,
+      ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+      blockDurationMs: BLOCK_DURATION_MS,
+      aztecProofSubmissionEpochs: 1024, // effectively do not reorg
+      listenAddress: '127.0.0.1',
+      minTxsPerBlock: 0,
+      aztecEpochDuration: EPOCH_DURATION,
+      slashingRoundSizeInEpochs: 2,
+      sentinelEnabled: true,
+      slashInactivityPenalty: 0n, // Set to 0 to disable
+      inboxLag: 2,
+      initialValidators: buildMockGossipValidators(NUM_VALIDATORS),
     });
 
-    await t.setup();
-    await t.applyBaseSetup();
+    // Create the first NUM_NODES validators' nodes; the last validator shows as offline.
+    nodes = await Promise.all(Array.from({ length: NUM_NODES }, (_, i) => test.createValidatorNodeAt(i)));
 
-    nodes = await createNodes(
-      t.ctx.aztecNodeConfig,
-      t.ctx.dateProvider,
-      t.bootstrapNodeEnr,
-      NUM_NODES, // Note we do not create the last validator yet, so it shows as offline
-      BOOT_NODE_UDP_PORT,
-      t.genesis,
-
-      DATA_DIR,
-    );
-    await t.removeInitialNode();
-
-    t.logger.info(`Setup complete`, { validators: t.validators });
+    test.logger.info(`Setup complete`, { validators: test.validators });
   });
 
   afterAll(async () => {
-    await t.stopNodes(nodes);
     if (additionalNode !== undefined) {
-      await t.stopNodes([additionalNode]);
+      await additionalNode.stop();
     }
-    await t.teardown();
-    for (let i = 0; i < NUM_NODES; i++) {
-      fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
-    }
+    await test.teardown();
   });
 
   // Suite that runs with one registered-but-offline validator. The beforeAll waits for the sentinel
@@ -95,34 +72,33 @@ describe('e2e_p2p_validators_sentinel', () => {
   describe('with an offline validator', () => {
     let stats: ValidatorsStats;
     beforeAll(async () => {
-      // Ensure all running validator nodes see each other before starting block counting.
-      await t.waitForP2PMeshConnectivity(nodes);
-
       // Wait until validator nodes have advanced past their first proposed slot so that the
       // pipelining warm-up period (where some attestations may be missed) is behind us.
-      await t.monitor.run();
-      const warmupSlot = Number(t.monitor.l2SlotNumber) + 1;
-      t.logger.info(`Waiting for warmup slot ${warmupSlot} before establishing initial block`);
+      await test.monitor.run();
+      const warmupSlot = Number(test.monitor.l2SlotNumber) + 1;
+      test.logger.info(`Waiting for warmup slot ${warmupSlot} before establishing initial block`);
       await retryUntil(
-        async () => (await t.monitor.run()).l2SlotNumber >= warmupSlot,
+        async () => (await test.monitor.run()).l2SlotNumber >= warmupSlot,
         'warmup slot',
         AZTEC_SLOT_DURATION * 3,
       );
 
-      const currentBlock = t.monitor.checkpointNumber;
+      const currentBlock = test.monitor.checkpointNumber;
       const blockCount = BLOCK_COUNT;
       const timeout = AZTEC_SLOT_DURATION * blockCount * 8;
-      offlineValidator = t.validators.at(-1)!.attester;
-      t.logger.warn(`Offline validator is ${offlineValidator}`);
+      offlineValidator = test.validatorAt(NUM_VALIDATORS - 1).attester;
+      test.logger.warn(`Offline validator is ${offlineValidator}`);
 
-      t.logger.info(`Waiting until L2 block ${currentBlock + blockCount}`, { currentBlock, blockCount, timeout });
-      await retryUntil(() => t.monitor.checkpointNumber >= currentBlock + blockCount, 'blocks mined', timeout);
+      test.logger.info(`Waiting until L2 block ${currentBlock + blockCount}`, { currentBlock, blockCount, timeout });
+      await retryUntil(() => test.monitor.checkpointNumber >= currentBlock + blockCount, 'blocks mined', timeout);
 
-      t.logger.info(`Waiting until sentinel processed at least ${blockCount - 1} slots and a missed and a mined block`);
+      test.logger.info(
+        `Waiting until sentinel processed at least ${blockCount - 1} slots and a missed and a mined block`,
+      );
       await retryUntil(
         async () => {
           const { initialSlot, lastProcessedSlot, stats } = await nodes[0].getValidatorsStats();
-          t.logger.verbose(`Testing validator stats`, { initialSlot, lastProcessedSlot, stats });
+          test.logger.verbose(`Testing validator stats`, { initialSlot, lastProcessedSlot, stats });
           return (
             initialSlot &&
             lastProcessedSlot &&
@@ -140,13 +116,13 @@ describe('e2e_p2p_validators_sentinel', () => {
       );
 
       stats = await nodes[0].getValidatorsStats();
-      t.logger.info(`Collected validator stats at block ${t.monitor.checkpointNumber}`, { stats });
+      test.logger.info(`Collected validator stats at block ${test.monitor.checkpointNumber}`, { stats });
     });
 
     // Asserts the offline validator's entire sentinel history consists only of missed entries and that
     // missedAttestations.rate == 1.
     it('collects stats on offline validator', () => {
-      t.logger.info(`Asserting stats for offline validator ${offlineValidator}`);
+      test.logger.info(`Asserting stats for offline validator ${offlineValidator}`);
       const offlineStats = stats.stats[offlineValidator.toString().toLowerCase()];
       const historyLength = offlineStats.history.length;
       expect(offlineStats.history.length).toBeGreaterThan(0);
@@ -161,9 +137,9 @@ describe('e2e_p2p_validators_sentinel', () => {
       const [proposerValidator, proposerStats] = Object.entries(stats.stats).find(([_, v]) =>
         v?.history?.some(h => h.status === 'checkpoint-mined'),
       )!;
-      t.logger.info(`Asserting stats for proposer validator ${proposerValidator}`);
+      test.logger.info(`Asserting stats for proposer validator ${proposerValidator}`);
       expect(proposerStats).toBeDefined();
-      expect(t.validators.map(v => v.attester.toString().toLowerCase())).toContain(proposerValidator);
+      expect(test.validators.map(v => v.attester.toString().toLowerCase())).toContain(proposerValidator);
       expect(proposerStats.history.length).toBeGreaterThanOrEqual(1);
       expect(proposerStats.missedProposals.rate).toBeLessThan(1);
     });
@@ -173,9 +149,9 @@ describe('e2e_p2p_validators_sentinel', () => {
       const [attestorValidator, attestorStats] = Object.entries(stats.stats).find(([_, v]) =>
         v?.history?.some(h => h.status === 'attestation-sent'),
       )!;
-      t.logger.info(`Asserting stats for attestor validator ${attestorValidator}`);
+      test.logger.info(`Asserting stats for attestor validator ${attestorValidator}`);
       expect(attestorStats).toBeDefined();
-      expect(t.validators.map(v => v.attester.toString().toLowerCase())).toContain(attestorValidator);
+      expect(test.validators.map(v => v.attester.toString().toLowerCase())).toContain(attestorValidator);
       expect(attestorStats.history.length).toBeGreaterThanOrEqual(1);
       expect(attestorStats.missedAttestations.rate).toBeLessThan(1);
     });
@@ -183,24 +159,15 @@ describe('e2e_p2p_validators_sentinel', () => {
     // Regression test for #13142: a fresh node that joins after several blocks should initialise its
     // sentinel from chain state and accumulate history across subsequent slots.
     it('starts a sentinel on a fresh node', async () => {
-      const checkpointNumber = t.monitor.checkpointNumber;
-      const nodeIndex = NUM_NODES + 1;
-      additionalNode = await createNode(
-        t.ctx.aztecNodeConfig,
-        t.ctx.dateProvider,
-        BOOT_NODE_UDP_PORT + nodeIndex + 1,
-        t.bootstrapNodeEnr!,
-        nodeIndex,
-        t.genesis,
-        `${DATA_DIR}-i`,
-      );
+      const checkpointNumber = test.monitor.checkpointNumber;
+      additionalNode = await test.createNonValidatorNode({ sentinelEnabled: true });
 
-      t.logger.info(`Waiting for a few more blocks to be mined`);
+      test.logger.info(`Waiting for a few more blocks to be mined`);
       const timeout = AZTEC_SLOT_DURATION * 4 * 12;
-      await retryUntil(() => t.monitor.checkpointNumber > checkpointNumber + 3, 'more blocks mined', timeout);
+      await retryUntil(() => test.monitor.checkpointNumber > checkpointNumber + 3, 'more blocks mined', timeout);
       await sleep(1000);
 
-      t.logger.info(`Waiting for sentinel to collect history`);
+      test.logger.info(`Waiting for sentinel to collect history`);
       await retryUntil(
         () => additionalNode!.getValidatorsStats().then(s => Object.keys(s.stats).length > 1),
         'sentinel stats',
@@ -209,7 +176,7 @@ describe('e2e_p2p_validators_sentinel', () => {
       );
 
       const stats = await additionalNode!.getValidatorsStats();
-      t.logger.info(`Collected validator stats from new node at block ${t.monitor.checkpointNumber}`, { stats });
+      test.logger.info(`Collected validator stats from new node at block ${test.monitor.checkpointNumber}`, { stats });
     });
   });
 });

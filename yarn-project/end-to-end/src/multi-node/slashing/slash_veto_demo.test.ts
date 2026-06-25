@@ -12,22 +12,21 @@ import { GSEAbi } from '@aztec/l1-artifacts/GSEAbi';
 import { SlasherAbi } from '@aztec/l1-artifacts/SlasherAbi';
 
 import assert from 'assert';
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
 import { encodeFunctionData, getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
-import { createNodes } from '../fixtures/setup_p2p_test.js';
-import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
-import { P2PNetworkTest } from './p2p_network.js';
+import { getPrivateKeyFromIndex } from '../../fixtures/utils.js';
+import {
+  MultiNodeTestContext,
+  SLASHER_ENABLED_MULTI_VALIDATOR_OPTS,
+  buildMockGossipValidators,
+} from '../multi_node_test_context.js';
 
-const debugLogger = createLogger('e2e:spartan-test:slash-veto-demo');
+const debugLogger = createLogger('e2e:multi-node:slash-veto-demo');
 
 const VETOER_PRIVATE_KEY_INDEX = 18; // This should be after all keys used by validators
 const NUM_NODES = 3;
 const NUM_VALIDATORS = NUM_NODES + 1; // We create an extra validator, who will not have a running node
-const BOOT_NODE_UDP_PORT = 4500;
 const ETHEREUM_SLOT_DURATION = 4;
 const AZTEC_SLOT_DURATION = 8;
 const BLOCK_DURATION_MS = 2000;
@@ -38,7 +37,6 @@ const SLASHING_ROUND_SIZE = 4;
 const SLASHING_QUORUM = 3;
 // an attester must not attest to 50% of proven blocks over an epoch to warrant a slash payload being created
 const SLASH_INACTIVITY_TARGET_PERCENTAGE = 0.5;
-// an attester must not attest to 10% of proven blocks over an epoch to agree with a slash
 // round N must be submitted in/before round N + LIFETIME_IN_ROUNDS
 const LIFETIME_IN_ROUNDS = 2;
 // round N must be submitted after round N + EXECUTION_DELAY_IN_ROUNDS
@@ -55,14 +53,13 @@ const VETOER_ADDRESS = EthAddress.fromString(
 );
 // offset for slashing rounds
 const SLASH_OFFSET_IN_ROUNDS = 2;
-const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'slash-veto-demo-'));
 
-// Tests the slasher veto mechanism. Uses P2PNetworkTest real libp2p: 3 running nodes + 1
-// registered-but-offline validator, fake prover. ethSlot=4s, aztecSlot=8s, epoch=2,
+// Tests the slasher veto mechanism. Uses MultiNodeTestContext on the mock-gossip bus: 3 running nodes
+// + 1 registered-but-offline validator, fake prover. ethSlot=4s, aztecSlot=8s, epoch=2,
 // proofSubEpochs=1024, minTxsPerBlock=0, inboxLag=2, sentinelEnabled, slashSelfAllowed,
 // slashingVetoer=VETOER_ADDRESS (derived deterministically). Tests vetoPayload on the Slasher contract.
 describe('veto slash', () => {
-  let t: P2PNetworkTest;
+  let test: MultiNodeTestContext;
   let nodes: AztecNodeService[];
   let slashingAmount: bigint;
   let additionalNode: AztecNodeService | undefined;
@@ -71,63 +68,48 @@ describe('veto slash', () => {
   let vetoerL1Client: ExtendedViemWalletClient;
 
   beforeEach(async () => {
-    t = await P2PNetworkTest.create({
-      testName: 'e2e_p2p_slash_veto_demo',
-      numberOfNodes: 0,
-      numberOfValidators: NUM_VALIDATORS,
-      basePort: BOOT_NODE_UDP_PORT,
-      startProverNode: true,
-      initialConfig: {
-        anvilSlotsInAnEpoch: 4,
-        aztecSlotDuration: AZTEC_SLOT_DURATION,
-        ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
-        blockDurationMs: BLOCK_DURATION_MS,
-        aztecProofSubmissionEpochs: 1024, // effectively do not reorg
-        listenAddress: '127.0.0.1',
-        minTxsPerBlock: 0,
-        inboxLag: 2,
-        aztecEpochDuration: EPOCH_DURATION,
-        sentinelEnabled: true,
-        slashSelfAllowed: true,
-        slashingOffsetInRounds: SLASH_OFFSET_IN_ROUNDS,
-        slashAmountSmall: SLASHING_UNIT,
-        slashAmountMedium: SLASHING_UNIT * 2n,
-        slashAmountLarge: SLASHING_UNIT * 3n,
-        slashingRoundSizeInEpochs: SLASHING_ROUND_SIZE / EPOCH_DURATION,
-        slashingQuorum: SLASHING_QUORUM,
-        slashingLifetimeInRounds: LIFETIME_IN_ROUNDS,
-        slashingExecutionDelayInRounds: EXECUTION_DELAY_IN_ROUNDS,
-        slashingDisableDuration: SLASHING_DISABLE_DURATION_SECONDS,
-        slashingVetoer: VETOER_ADDRESS,
-        slashInactivityTargetPercentage: SLASH_INACTIVITY_TARGET_PERCENTAGE,
-        proverBrokerMaxEpochsToKeepResultsFor: 20,
-      },
+    test = await MultiNodeTestContext.setup({
+      ...SLASHER_ENABLED_MULTI_VALIDATOR_OPTS,
+      anvilSlotsInAnEpoch: 4,
+      aztecSlotDuration: AZTEC_SLOT_DURATION,
+      ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+      blockDurationMs: BLOCK_DURATION_MS,
+      aztecProofSubmissionEpochs: 1024, // effectively do not reorg
+      listenAddress: '127.0.0.1',
+      minTxsPerBlock: 0,
+      inboxLag: 2,
+      aztecTargetCommitteeSize: NUM_VALIDATORS,
+      aztecEpochDuration: EPOCH_DURATION,
+      sentinelEnabled: true,
+      slashSelfAllowed: true,
+      slashingOffsetInRounds: SLASH_OFFSET_IN_ROUNDS,
+      slashAmountSmall: SLASHING_UNIT,
+      slashAmountMedium: SLASHING_UNIT * 2n,
+      slashAmountLarge: SLASHING_UNIT * 3n,
+      slashingRoundSizeInEpochs: SLASHING_ROUND_SIZE / EPOCH_DURATION,
+      slashingQuorum: SLASHING_QUORUM,
+      slashingLifetimeInRounds: LIFETIME_IN_ROUNDS,
+      slashingExecutionDelayInRounds: EXECUTION_DELAY_IN_ROUNDS,
+      slashingDisableDuration: SLASHING_DISABLE_DURATION_SECONDS,
+      slashingVetoer: VETOER_ADDRESS,
+      slashInactivityTargetPercentage: SLASH_INACTIVITY_TARGET_PERCENTAGE,
+      proverBrokerMaxEpochsToKeepResultsFor: 20,
+      initialValidators: buildMockGossipValidators(NUM_VALIDATORS),
     });
 
-    await t.setup();
-    await t.applyBaseSetup();
-
-    nodes = await createNodes(
-      t.ctx.aztecNodeConfig,
-      t.ctx.dateProvider,
-      t.bootstrapNodeEnr,
-      NUM_NODES, // Note we do not create the last validator yet, so it shows as offline
-      BOOT_NODE_UDP_PORT,
-      t.genesis,
-
-      DATA_DIR,
-    );
+    // Create only the first NUM_NODES validators' nodes; the last validator shows as offline.
+    nodes = await Promise.all(Array.from({ length: NUM_NODES }, (_, i) => test.createValidatorNodeAt(i)));
 
     vetoerL1Client = createExtendedL1Client(
-      t.ctx.aztecNodeConfig.l1RpcUrls,
+      test.context.config.l1RpcUrls,
       bufferToHex(getPrivateKeyFromIndex(VETOER_PRIVATE_KEY_INDEX)!),
     );
     vetoerL1TxUtils = createL1TxUtils(vetoerL1Client, {
-      logger: t.logger,
-      dateProvider: t.ctx.dateProvider,
+      logger: test.logger,
+      dateProvider: test.context.dateProvider,
     });
 
-    ({ rollup } = await t.getContracts());
+    ({ rollup } = await test.getSlashingContracts());
 
     const [activationThreshold, ejectionThreshold] = await Promise.all([
       rollup.getActivationThreshold(),
@@ -138,25 +120,18 @@ describe('veto slash', () => {
     slashingAmount = SLASHING_UNIT * 3n;
     expect(activationThreshold - slashingAmount).toBeLessThan(ejectionThreshold);
 
-    t.ctx.aztecNodeConfig.slashInactivityPenalty = slashingAmount;
     for (const node of nodes) {
       await node.setConfig({ slashInactivityPenalty: slashingAmount });
     }
 
-    await t.removeInitialNode();
-
-    t.logger.info(`Setup complete`, { validators: t.validators });
+    test.logger.info(`Setup complete`, { validators: test.validators });
   });
 
   afterEach(async () => {
-    await t.stopNodes(nodes);
     if (additionalNode !== undefined) {
-      await t.stopNodes([additionalNode]);
+      await additionalNode.stop();
     }
-    await t.teardown();
-    for (let i = 0; i < NUM_NODES; i++) {
-      fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
-    }
+    await test.teardown();
   });
 
   /** Waits for a round to be executable */
@@ -194,7 +169,7 @@ describe('veto slash', () => {
       const slasher = getContract({
         address: slasherAddress.toString() as `0x${string}`,
         abi: SlasherAbi,
-        client: t.ctx.deployL1ContractsValues.l1Client,
+        client: test.context.deployL1ContractsValues.l1Client,
       });
       const slasherVetoer = await slasher.read.VETOER();
       debugLogger.info(`\n\nslasher vetoer: ${slasherVetoer}\n\n`);
@@ -235,13 +210,13 @@ describe('veto slash', () => {
       //                                           //
       //###########################################//
 
-      const attesterPrivateKey = t.attesterPrivateKeys[t.attesterPrivateKeys.length - 1];
+      const attesterPrivateKey = test.privateKeyAt(NUM_VALIDATORS - 1);
       const attester = privateKeyToAccount(attesterPrivateKey);
       const gseAddress = await rollup.getGSE();
       const gse = getContract({
         address: gseAddress.toString() as `0x${string}`,
         abi: GSEAbi,
-        client: t.ctx.deployL1ContractsValues.l1Client,
+        client: test.context.deployL1ContractsValues.l1Client,
       });
       const badAttesterInitialBalance = await gse.read.effectiveBalanceOf([rollup.address, attester.address]);
       debugLogger.info(`\n\nbadAttesterInitialBalance: ${badAttesterInitialBalance}\n\n`);
