@@ -4,7 +4,7 @@ import { ChainMonitor } from '@aztec/ethereum/test';
 import { sleep } from '@aztec/foundation/sleep';
 
 import type { EndToEndContext } from '../../fixtures/utils.js';
-import { SingleNodeTestContext, jest } from './setup.js';
+import { SingleNodeTestContext, jest, setupWithProver } from './setup.js';
 
 // Starts a prover node (fake proofs) on the default setup, raises minTxsPerBlock=1 so blocks are
 // empty, then verifies the prover still submits a proof for those empty-block checkpoints within the
@@ -20,7 +20,7 @@ describe('single-node/proving/empty_blocks', () => {
   let test: SingleNodeTestContext;
 
   beforeEach(async () => {
-    test = await SingleNodeTestContext.setup({});
+    test = await setupWithProver({});
     ({ context, rollup, logger, monitor, L1_BLOCK_TIME_IN_S } = test);
   });
 

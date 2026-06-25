@@ -2,7 +2,7 @@ import type { Logger } from '@aztec/aztec.js/log';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { sleep } from '@aztec/foundation/sleep';
 
-import { SingleNodeTestContext, jest } from './setup.js';
+import { SingleNodeTestContext, jest, setupWithProver } from './setup.js';
 
 const MAX_JOB_COUNT = 20;
 
@@ -29,7 +29,7 @@ describe('single-node/proving/long_proving_time', () => {
     const proverTestDelayMs = (epochDurationInSeconds * 1000 * 3) / 4;
     // Each epoch takes ~3 epochs to prove, so the broker needs to keep results for
     // at least that many epochs to avoid rejecting jobs as stale.
-    test = await SingleNodeTestContext.setup({
+    test = await setupWithProver({
       aztecEpochDuration,
       aztecProofSubmissionEpochs: 1000, // Effectively don't re-org
       proverTestDelayMs,

@@ -13,6 +13,7 @@ import { expect, jest } from '@jest/globals';
 import type { EndToEndContext } from '../../fixtures/utils.js';
 import { waitForNodeCheckpoint } from '../../fixtures/wait_helpers.js';
 import { proveInteraction } from '../../test-wallet/utils.js';
+import { setupWithProver } from '../setup.js';
 import { FAST_REORG_TIMING, SingleNodeTestContext } from '../single_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 20);
@@ -20,7 +21,7 @@ jest.setTimeout(1000 * 60 * 20);
 /**
  * E2E tests for optimistic (checkpoint-driven) proving with reorg scenarios.
  *
- * Setup: a single sequencer/validator node from `SingleNodeTestContext.setup` plus the context's fake prover-node (no
+ * Setup: a single sequencer/validator node from `setupWithProver` plus the context's fake prover-node (no
  * `mockGossipSubNetwork`, so no gossip bus), making this a `single-node` test on the production `Sequencer`. Each of the
  * six `describe` blocks builds a fresh context in its own `beforeEach` and tears it down in the shared `afterEach`. The
  * happy-path pair uses defaults (`numberOfAccounts: 1`; ethSlot=8s local/12s CI, aztecSlot=16s/24s, epoch=6,
@@ -140,7 +141,7 @@ describe('single-node/proving/optimistic', () => {
 
   describe('happy path', () => {
     beforeEach(async () => {
-      test = await SingleNodeTestContext.setup({ numberOfAccounts: 1 });
+      test = await setupWithProver({ numberOfAccounts: 1 });
       ({ rollup, logger, context } = test);
       ({ L2_SLOT_DURATION_IN_S } = test);
       node = context.aztecNode;
@@ -223,7 +224,7 @@ describe('single-node/proving/optimistic', () => {
 
   describe('mid-epoch checkpoint reorg with replacement', () => {
     beforeEach(async () => {
-      test = await SingleNodeTestContext.setup({
+      test = await setupWithProver({
         ...FAST_REORG_TIMING,
         maxSpeedUpAttempts: 0,
         cancelTxOnTimeout: false,
@@ -364,7 +365,7 @@ describe('single-node/proving/optimistic', () => {
 
   describe('mid-epoch checkpoint reorg moving a tx', () => {
     beforeEach(async () => {
-      test = await SingleNodeTestContext.setup({
+      test = await setupWithProver({
         ...FAST_REORG_TIMING,
         numberOfAccounts: 1,
         maxSpeedUpAttempts: 0,
@@ -465,7 +466,7 @@ describe('single-node/proving/optimistic', () => {
 
   describe('mid-epoch checkpoint reorg without replacement', () => {
     beforeEach(async () => {
-      test = await SingleNodeTestContext.setup({
+      test = await setupWithProver({
         ...FAST_REORG_TIMING,
         maxSpeedUpAttempts: 0,
         cancelTxOnTimeout: false,
@@ -543,7 +544,7 @@ describe('single-node/proving/optimistic', () => {
 
   describe('last-slot checkpoint reorg without replacement', () => {
     beforeEach(async () => {
-      test = await SingleNodeTestContext.setup({
+      test = await setupWithProver({
         ...FAST_REORG_TIMING,
         maxSpeedUpAttempts: 0,
         cancelTxOnTimeout: false,
@@ -623,7 +624,7 @@ describe('single-node/proving/optimistic', () => {
 
   describe('checkpoint reorg during proving', () => {
     beforeEach(async () => {
-      test = await SingleNodeTestContext.setup({
+      test = await setupWithProver({
         ...FAST_REORG_TIMING,
         maxSpeedUpAttempts: 0,
         cancelTxOnTimeout: false,
@@ -758,7 +759,7 @@ describe('single-node/proving/optimistic', () => {
 
   describe('prover-node starts mid-epoch', () => {
     beforeEach(async () => {
-      test = await SingleNodeTestContext.setup({
+      test = await setupWithProver({
         ...FAST_REORG_TIMING,
         // Don't start the prover-node automatically — we spin it up mid-epoch in the test.
         startProverNode: false,

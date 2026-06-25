@@ -19,6 +19,14 @@ All tests use `SingleNodeTestContext` (`single_node_test_context.ts`), which own
 `MultiNodeTestContext` (in `../multi-node/`) extends this base with the N-validator topology, so the
 multi-node category inherits the same environment and waiters.
 
+## Setup factories
+
+`setup.ts` holds thin factories over `SingleNodeTestContext.setup`, named by the prover mode a test
+wants. Tests call the factory rather than the static method directly:
+
+- `setupWithProver(opts)` — a single sequencer plus the context's fake in-process prover node. This is
+  the default the proving / partial-proofs / l1-reorgs / recovery / misc suites use.
+
 ## Organizing principle
 
 The top level groups tests by node topology and setup model; the second level names the primary

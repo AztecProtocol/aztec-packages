@@ -13,6 +13,7 @@ import { jest } from '@jest/globals';
 
 import type { EndToEndContext } from '../../fixtures/utils.js';
 import { proveAndSendTxs } from '../../test-wallet/utils.js';
+import { setupWithProver } from '../setup.js';
 import { FAST_REORG_TIMING, SingleNodeTestContext } from '../single_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 20);
@@ -45,7 +46,7 @@ export class L1ReorgsTest {
   public L2_SLOT_DURATION_IN_S!: number;
 
   public async setup(): Promise<void> {
-    this.test = await SingleNodeTestContext.setup({
+    this.test = await setupWithProver({
       ...FAST_REORG_TIMING, // ethSlot=4s, aztecSlot=36s, block=8s, epoch=4, 32 slots/epoch (mainnet)
       numberOfAccounts: 1,
       maxSpeedUpAttempts: 0, // Do not speed up l1 txs, we dont want them to land
