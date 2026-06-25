@@ -49,7 +49,10 @@ import {
  * Scenario labels: `steady-state` is no new logs (K = 0); `catch-up-K` is K new contiguous logs per secret since the
  * last sync; `secrets=N` is N secrets synced together in one batched pass. Because round-trips depend only on K and P
  * (not N), the light catch-up scenarios run at both 100 and 1000 secrets to show tag-queries scale with N while
- * round-trips do not. The `unconstrained` row is the control: it cannot first-miss (windowed scan), so its cost is fixed.
+ * round-trips do not. The `mixed` row is the realistic active sync (999 idle secrets + 1 deep straggler at K = 100): it
+ * isolates that tag-queries stay dominated by the idle majority while a single straggler alone sets the round-trip count
+ * (round-trips therefore match catch-up-100). The `unconstrained` row is the control: it cannot first-miss (windowed
+ * scan), so its cost is fixed.
  */
 
 const logger = createLogger('pxe:tagging:bench');
@@ -77,7 +80,24 @@ type Scenario = {
   priorCursor: number;
   /** New contiguous finalized logs available per secret since the last sync (0 = steady state). */
   newLogs: number;
+  /**
+   * Optional heterogeneous load: the first `count` secrets get `newLogs` new logs each, the remaining
+   * `secretCount - count` are idle (K = 0). When set, the scenario-level `newLogs` is ignored. Models a realistic
+   * sync where most senders are quiet and a few are deep in catch-up.
+   */
+  deepCohort?: { count: number; newLogs: number };
 };
+
+/**
+ * The per-secret new-log distribution for a scenario: `deepCohort.count` secrets at `deepCohort.newLogs`, the rest idle,
+ * or a uniform `newLogs` for every secret when no cohort is set. Single source for both log seeding and the expected
+ * tag-query / round-trip assertions.
+ */
+function newLogsPerSecret(scenario: Scenario): number[] {
+  return Array.from({ length: scenario.secretCount }, (_, i) =>
+    scenario.deepCohort && i < scenario.deepCohort.count ? scenario.deepCohort.newLogs : scenario.newLogs,
+  );
+}
 
 const SCENARIOS: Scenario[] = [
   // steady-state (K = 0): no new logs since the last sync, across recipient secret counts. The dominant case and where
@@ -100,15 +120,30 @@ const SCENARIOS: Scenario[] = [
       newLogs,
     })),
   ),
-  // Deep catch-up at 100 secrets (the negative case): round-trips grow one per probe step while tag-queries stay at the
-  // K + 1 floor. From a full window (catch-up-20) up, the WINDOW_LEN cap forces multiple rounds at any P.
-  ...[UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN, 50, 100].map(newLogs => ({
-    label: `constrained/catch-up-${newLogs}/secrets=100`,
+  // Deep catch-up at 100 and 1000 secrets (the negative case): round-trips grow one per probe step while tag-queries stay
+  // at the K + 1 floor. From a full window (catch-up-20) up, the WINDOW_LEN cap forces multiple rounds at any P. As with
+  // light catch-up, round-trips depend only on K and P (not N), so the two secret counts share a round-trip count and
+  // differ only in tag-queries (10x) and blocking time.
+  ...[100, 1000].flatMap(secretCount =>
+    [UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN, 50, 100].map(newLogs => ({
+      label: `constrained/catch-up-${newLogs}/secrets=${secretCount}`,
+      kind: AppTaggingSecretKind.CONSTRAINED,
+      secretCount,
+      priorCursor: 0,
+      newLogs,
+    })),
+  ),
+  // Mixed (the realistic active sync): 999 idle senders + 1 deep straggler (K = 100). Tag-queries stay dominated by the
+  // idle majority, but the single straggler alone sets the round-trip count (tags are batched across all secrets per
+  // round, so the round count equals the deepest secret's), so round-trips match catch-up-100.
+  {
+    label: `constrained/mixed/secrets=1000`,
     kind: AppTaggingSecretKind.CONSTRAINED,
-    secretCount: 100,
+    secretCount: 1000,
     priorCursor: 0,
-    newLogs,
-  })),
+    newLogs: 0,
+    deepCohort: { count: 1, newLogs: 100 },
+  },
   // Control: unconstrained steady state is unaffected by the optimization (windowed scan cannot first-miss).
   {
     label: `unconstrained/steady-state/secrets=100`,
@@ -139,7 +174,8 @@ describe('syncTaggedPrivateLogs constrained-sync bench', () => {
   }
 
   async function runScenario(scenario: Scenario) {
-    const { kind, secretCount, priorCursor, newLogs } = scenario;
+    const { kind, secretCount, priorCursor } = scenario;
+    const perSecretNewLogs = newLogsPerSecret(scenario);
 
     aztecNode.getPrivateLogsByTags.mockReset();
     const taggingStore = new RecipientTaggingStore(await openTmpStore('bench'));
@@ -153,11 +189,11 @@ describe('syncTaggedPrivateLogs constrained-sync bench', () => {
       }
     }
 
-    // Tags that should resolve to a finalized log: the contiguous run (priorCursor, priorCursor + newLogs].
+    // Tags that should resolve to a finalized log: per secret, the contiguous run (priorCursor, priorCursor + K].
     const hitTags = new Set<string>();
-    for (const secret of secrets) {
-      for (let k = 1; k <= newLogs; k++) {
-        hitTags.add((await computeSiloedTagForIndex(secret, priorCursor + k)).toString());
+    for (let s = 0; s < secrets.length; s++) {
+      for (let k = 1; k <= perSecretNewLogs[s]; k++) {
+        hitTags.add((await computeSiloedTagForIndex(secrets[s], priorCursor + k)).toString());
       }
     }
 
@@ -188,9 +224,10 @@ describe('syncTaggedPrivateLogs constrained-sync bench', () => {
     const rpcRoundTrips = roundTrips.roundTrips;
     const rpcBlockingTimeMs = roundTrips.totalBlockingTime;
 
-    // First-miss floor: each secret pays `newLogs` hits + 1 miss. Unconstrained cannot first-miss, so its floor is
+    // First-miss floor: each secret pays its K hits + 1 miss. Unconstrained cannot first-miss, so its floor is
     // its current cost.
-    const firstMissOptimum = kind === AppTaggingSecretKind.CONSTRAINED ? secretCount * (newLogs + 1) : tagQueries;
+    const firstMissOptimum =
+      kind === AppTaggingSecretKind.CONSTRAINED ? perSecretNewLogs.reduce((sum, k) => sum + k + 1, 0) : tagQueries;
 
     return {
       ...scenario,
@@ -216,20 +253,24 @@ describe('syncTaggedPrivateLogs constrained-sync bench', () => {
       );
 
       // Pin behavior as an executable assertion, not just a printout. Timings are reported only (they vary run to run).
+      const perSecretNewLogs = newLogsPerSecret(scenario);
       if (scenario.kind === AppTaggingSecretKind.CONSTRAINED) {
-        // Fixed-step probing is tag-optimal: K hits plus 1 terminating miss, rounded up to whole probe steps. At
-        // INITIAL_CONSTRAINED_PROBE_LEN = 1 this equals the first-miss floor (reduction = 1.0x), and at steady state
-        // (K = 0) it collapses to a single initial probe per secret.
-        const stepsToFirstMiss = Math.ceil((scenario.newLogs + 1) / INITIAL_CONSTRAINED_PROBE_LEN);
-        expect(row.tagQueries).toBe(scenario.secretCount * stepsToFirstMiss * INITIAL_CONSTRAINED_PROBE_LEN);
-        // One sequential round-trip per probe step (the negative-case cost), independent of chunking and secret count.
-        expect(row.rpcRoundTrips).toBe(stepsToFirstMiss);
+        // Fixed-step probing is tag-optimal: each secret pays its K hits plus 1 terminating miss, rounded up to whole
+        // probe steps. At INITIAL_CONSTRAINED_PROBE_LEN = 1 this equals the first-miss floor (reduction = 1.0x), and at
+        // steady state (K = 0) it collapses to a single initial probe per secret.
+        const stepsPerSecret = perSecretNewLogs.map(k => Math.ceil((k + 1) / INITIAL_CONSTRAINED_PROBE_LEN));
+        expect(row.tagQueries).toBe(
+          stepsPerSecret.reduce((sum, steps) => sum + steps * INITIAL_CONSTRAINED_PROBE_LEN, 0),
+        );
+        // Tags are batched across all secrets per round, so the round-trip count is the deepest secret's: one sequential
+        // round-trip per probe step, independent of chunking and secret count.
+        expect(row.rpcRoundTrips).toBe(Math.max(...stepsPerSecret));
       } else if (scenario.newLogs === 0) {
         // Unconstrained steady state: still the full window (control for the optimization), drained in one round.
         expect(row.tagQueries).toBe(scenario.secretCount * UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN);
         expect(row.rpcRoundTrips).toBe(1);
       }
-      expect(row.logsFound).toBe(scenario.secretCount * scenario.newLogs);
+      expect(row.logsFound).toBe(perSecretNewLogs.reduce((sum, k) => sum + k, 0));
     }
 
     const results: BenchResult[] = rows.flatMap(row => [
