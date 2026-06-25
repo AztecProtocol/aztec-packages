@@ -831,11 +831,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       const anchorBlockHeader = await this.stateMachine.anchorBlockStore.getBlockHeader();
       const simulator = new WASMSimulator();
       const utilityExecutor = async (syncCall: FunctionCall, execScopes: AztecAddress[]) => {
-<<<<<<< HEAD
-        await this.executeUtilityCall(syncCall, execScopes, jobId, authorizedUtilityCallTargets);
-=======
-        await this.executeUtilityCall(syncCall, { scopes: execScopes, jobId });
->>>>>>> origin/public-v5-next
+        await this.executeUtilityCall(syncCall, { scopes: execScopes, jobId, authorizedUtilityCallTargets });
       };
       const oracle = new UtilityExecutionOracle({
         callContext: CallContext.from({
