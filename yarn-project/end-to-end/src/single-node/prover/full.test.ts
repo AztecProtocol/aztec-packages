@@ -22,9 +22,9 @@ import TOML from '@iarna/toml';
 import { jest } from '@jest/globals';
 import { type GetContractReturnType, getContract } from 'viem';
 
-import { FullProverTest } from '../fixtures/e2e_prover_test.js';
-import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
-import { ProvenTx, proveInteraction } from '../test-wallet/utils.js';
+import { FullProverTest } from '../../fixtures/e2e_prover_test.js';
+import { PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
+import { ProvenTx, proveInteraction } from '../../test-wallet/utils.js';
 
 const REAL_PROOFS = !parseBooleanEnv(process.env.FAKE_PROOFS);
 
@@ -42,7 +42,7 @@ jest.setTimeout(TIMEOUT);
 // FAKE_PROOFS=0 (CI_FULL only); fake proofs otherwise. Setup: PIPELINING_SETUP_OPTS (ethSlot=4s,
 // aztecSlot=12s). Timeout is 45 min real / 15 min fake. Time-warp: cheatCodes.rollup.advanceToNextEpoch.
 // jest.setTimeout(TIMEOUT) is 45 min for real proofs, 15 min for fake proofs.
-describe('full_prover', () => {
+describe('single-node/prover/full', () => {
   const COINBASE_ADDRESS = EthAddress.random();
   const t = new FullProverTest('full_prover', 1, COINBASE_ADDRESS, REAL_PROOFS);
 

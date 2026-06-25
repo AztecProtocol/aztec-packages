@@ -7,9 +7,9 @@ import { FeeJuicePortalAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { jest } from '@jest/globals';
 import { type GetContractReturnType, getContract } from 'viem';
 
-import { FullProverTest } from '../fixtures/e2e_prover_test.js';
-import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
-import { proveInteraction } from '../test-wallet/utils.js';
+import { FullProverTest } from '../../fixtures/e2e_prover_test.js';
+import { PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
+import { proveInteraction } from '../../test-wallet/utils.js';
 
 // Set a very long 20 minute timeout.
 const TIMEOUT = 1_200_000;
@@ -23,7 +23,7 @@ jest.setTimeout(15 * 60 * 1000);
 // fake proofs otherwise) via PIPELINING_SETUP_OPTS (ethSlot=4s, aztecSlot=12s). The prover
 // node is a second AztecNodeService with enableProverNode. No on-chain proof submission — only
 // client-side circuit proof generation and circuitProofVerifier.verifyProof() are tested.
-describe('client_prover', () => {
+describe('single-node/prover/client', () => {
   const REAL_PROOFS = !parseBooleanEnv(process.env.FAKE_PROOFS);
   const COINBASE_ADDRESS = EthAddress.random();
   const t = new FullProverTest('full_prover', 1, COINBASE_ADDRESS, REAL_PROOFS);
