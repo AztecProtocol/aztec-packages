@@ -332,6 +332,12 @@ TYPED_TEST(MegaHonkTests, WitnessPolynomialsMasked)
                 check_masked(polys.third_app_calldata(), "third_app_calldata");
                 check_masked(polys.third_app_calldata_read_counts(), "third_app_calldata_read_counts");
                 check_masked(polys.third_app_calldata_inverses(), "third_app_calldata_inverses");
+                check_masked(polys.fourth_app_calldata(), "fourth_app_calldata");
+                check_masked(polys.fourth_app_calldata_read_counts(), "fourth_app_calldata_read_counts");
+                check_masked(polys.fourth_app_calldata_inverses(), "fourth_app_calldata_inverses");
+                check_masked(polys.fifth_app_calldata(), "fifth_app_calldata");
+                check_masked(polys.fifth_app_calldata_read_counts(), "fifth_app_calldata_read_counts");
+                check_masked(polys.fifth_app_calldata_inverses(), "fifth_app_calldata_inverses");
                 check_masked(polys.return_data(), "return_data");
                 check_masked(polys.return_data_read_counts(), "return_data_read_counts");
                 check_masked(polys.return_data_inverses(), "return_data_inverses");

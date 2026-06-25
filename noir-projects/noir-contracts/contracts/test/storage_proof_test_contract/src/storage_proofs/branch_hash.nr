@@ -51,12 +51,11 @@ fn rlp_encode_to_sink<S: BytesSink>(node: Node, sink: &mut S) {
         for i in 0..16 {
             let mut inner_iterations: [Quoted] = @[];
             for j in 0..4 {
-                inner_iterations = inner_iterations
-                    .push_back(
-                        quote {
+                inner_iterations = inner_iterations.push_back(
+                    quote {
                             sink.add_u64(node.rows[$i][$j]);
                         },
-                    );
+                );
             }
             let inner_code = inner_iterations.join(quote {});
             outer_iterations = outer_iterations.push_back(

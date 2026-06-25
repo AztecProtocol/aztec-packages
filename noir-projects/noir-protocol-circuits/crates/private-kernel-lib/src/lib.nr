@@ -4,7 +4,6 @@ mod accumulated_data;
 mod components;
 pub mod private_kernel_init;
 pub mod private_kernel_init_n;
-pub(crate) mod private_kernel_batch;
 pub mod private_kernel_inner;
 pub mod private_kernel_inner_n;
 pub mod private_kernel_reset;

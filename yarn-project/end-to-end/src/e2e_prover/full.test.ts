@@ -192,33 +192,65 @@ describe('full_prover', () => {
     if (!isGenerateTestDataEnabled() || REAL_PROOFS) {
       return;
     }
-    // Deploy Parent + Child and prove three private chains to regenerate
-    // `private-kernel-inner{,-2,-3}/Prover.toml`. The Token transfers below pack into init_2 /
-    // init_3 and never invoke plain `inner` / `inner_2` / `inner_3`. The planner is N=3 greedy,
-    // so we exercise it with three transactions:
-    //   - 4 apps (entrypoint → parent.private_nested_static_call → parent.private_call →
-    //     child.private_get_value) → init_3 + inner
-    //   - 5 apps (BatchCall: nested chain + one extra leaf call) → init_3 + inner_2
-    //   - 6 apps (BatchCall: nested chain + two extra leaf calls) → init_3 + inner_3
-    // `proveInteraction` alone is enough to capture `pushTestData('private-kernel-inner{,-2,-3}',
-    // ...)`; no need to land the txs.
-    logger.info(`Deploying Parent + Child contracts to exercise inner kernels`);
+    // Regenerate `private-kernel-{init,inner}{,-2..-5}/Prover.toml`. With MAX_APPS_PER_KERNEL = 5 the
+    // batch planner greedily packs up to 5 apps per kernel iteration, breaking early only when a reset
+    // is required. The account entrypoint is always the first app on the stack, so a tx with N apps
+    // (entrypoint + nested app calls) makes the planner emit:
+    //   N apps:  1 -> init, 2 -> init-2, ..., 5 -> init-5,
+    //            6 -> init-5 + inner, 7 -> init-5 + inner-2, ..., 10 -> init-5 + inner-5
+    // The 1-app case is an entrypoint-only tx (empty BatchCall): the account makes no app calls and
+    // simply pays fees from its pre-existing fee juice balance, so the init kernel absorbs just the
+    // entrypoint.
+    // The apps only read a settled note, so each adds a single note-hash read request; packing up to 5
+    // per kernel stays far below MAX_NOTE_HASH_READ_REQUESTS_PER_TX (64), so no reset ever splits a
+    // batch and each iteration absorbs exactly min(remaining, 5) apps. We build the app count from
+    // 3-app nested chains plus flat single-app reads: the entrypoint can only make APP_MAX_CALLS (5)
+    // top-level calls, so reaching >6 apps requires depth (nesting), not just a wider batch.
+    // `proveInteraction` alone is enough to capture the pushed test data; no need to land the txs.
+    logger.info(`Deploying Parent + Child contracts to exercise the kernel batch planner`);
     const { contract: childContract } = await ChildContract.deploy(provenWallet).send({ from: sender });
     const { contract: parentContract } = await ParentContract.deploy(provenWallet).send({ from: sender });
-    // Seed a note in child so the static private_get_value reads below have something to return.
+    // Seed a note so the reads below have something to return.
     await childContract.methods.private_set_value(42n, sender).send({ from: sender });
     const getValueSelector = await childContract.methods.private_get_value.selector();
+    // A flat note-reading app: one app, one settled read.
+    const readNote = () => childContract.methods.private_get_value(42n, sender);
+    // A nested chain: one top-level call expanding to three apps
+    // (private_nested_static_call -> private_call -> child.private_get_value) with one settled read.
     const nestedChain = () =>
       parentContract.methods.private_nested_static_call(childContract.address, getValueSelector, [42n, sender]);
-    const extraLeaf = () => childContract.methods.private_get_value(42n, sender);
-    logger.info(`Proving 4-app nested-call tx to populate private-kernel-inner test data`);
-    await proveInteraction(provenWallet, nestedChain(), { from: sender });
-    logger.info(`Proving 5-app batched tx to populate private-kernel-inner-2 test data`);
-    await proveInteraction(provenWallet, new BatchCall(provenWallet, [nestedChain(), extraLeaf()]), { from: sender });
-    logger.info(`Proving 6-app batched tx to populate private-kernel-inner-3 test data`);
-    await proveInteraction(provenWallet, new BatchCall(provenWallet, [nestedChain(), extraLeaf(), extraLeaf()]), {
-      from: sender,
-    });
+    // Build `totalApps - 1` apps (the entrypoint is the first app) from 3-app nested chains plus flat
+    // single-app reads, keeping the number of top-level calls within APP_MAX_CALLS (5).
+    const buildCalls = (totalApps: number) => {
+      let remaining = totalApps - 1;
+      const calls = [];
+      while (remaining >= 3) {
+        calls.push(nestedChain());
+        remaining -= 3;
+      }
+      while (remaining > 0) {
+        calls.push(readNote());
+        remaining -= 1;
+      }
+      return calls;
+    };
+    // Prove a tx with exactly `totalApps` apps. `totalApps === 1` is an entrypoint-only (fee-juice) tx.
+    const proveBatch = async (totalApps: number) => {
+      const calls = buildCalls(totalApps);
+      const interaction = calls.length === 1 ? calls[0] : new BatchCall(provenWallet, calls);
+      logger.info(`Proving ${totalApps}-app tx`);
+      await proveInteraction(provenWallet, interaction, { from: sender });
+    };
+    // 1 app -> init; 2..5 apps -> init-2..init-5; 6..10 apps -> init-5 + inner..inner-5.
+    for (let totalApps = 1; totalApps <= 10; totalApps++) {
+      await proveBatch(totalApps);
+    }
+
+    // We intentionally do NOT regenerate `private-kernel-reset/Prover.toml` (the inner reset) here. The
+    // clean batches above never overflow a reset dimension, so no inner reset runs. Forcing one with a
+    // note-overflow tx produces a reset that only squashes note hashes while leaving the tx's key
+    // validation requests unverified (no master secret keys); the full reset circuit verifies every key
+    // validation request and rejects that sample. The inner-reset sample is therefore maintained by hand.
 
     // Create the two transactions
     const { result: privateBalance } = await provenAsset.methods.balance_of_private(sender).simulate({ from: sender });
@@ -290,10 +322,14 @@ describe('full_prover', () => {
         'private-kernel-init',
         'private-kernel-init-2',
         'private-kernel-init-3',
+        'private-kernel-init-4',
+        'private-kernel-init-5',
         'private-kernel-inner',
         'private-kernel-inner-2',
         'private-kernel-inner-3',
-        'private-kernel-reset',
+        'private-kernel-inner-4',
+        'private-kernel-inner-5',
+        // 'private-kernel-reset' (the inner reset) is maintained by hand and not regenerated here; see the note above.
         'private-kernel-reset-tail',
         'private-kernel-reset-tail-to-public',
         'rollup-tx-base-private',

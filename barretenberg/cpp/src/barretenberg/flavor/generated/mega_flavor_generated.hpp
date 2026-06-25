@@ -72,45 +72,53 @@ class MegaFlavor_Generated {
         first_app_calldata_indicator = 31,
         second_app_calldata_indicator = 32,
         third_app_calldata_indicator = 33,
-        return_data_indicator = 34,
-        q_poseidon2_external = 35,
-        q_poseidon2_external_initial = 36,
-        q_poseidon2_quad_internal = 37,
-        q_5 = 38,
-        q_poseidon2_quad_internal_terminal = 39,
-        q_poseidon2_transition_entry = 40,
-        w_l = 41,
-        w_r = 42,
-        w_o = 43,
-        w_4 = 44,
-        z_perm = 45,
-        lookup_inverses = 46,
-        lookup_read_counts = 47,
-        lookup_read_tags = 48,
-        ecc_op_wire_1 = 49,
-        ecc_op_wire_2 = 50,
-        ecc_op_wire_3 = 51,
-        ecc_op_wire_4 = 52,
-        kernel_calldata = 53,
-        kernel_calldata_read_counts = 54,
-        kernel_calldata_inverses = 55,
-        first_app_calldata = 56,
-        first_app_calldata_read_counts = 57,
-        first_app_calldata_inverses = 58,
-        second_app_calldata = 59,
-        second_app_calldata_read_counts = 60,
-        second_app_calldata_inverses = 61,
-        third_app_calldata = 62,
-        third_app_calldata_read_counts = 63,
-        third_app_calldata_inverses = 64,
-        return_data = 65,
-        return_data_read_counts = 66,
-        return_data_inverses = 67,
-        w_l_shift = 68,
-        w_r_shift = 69,
-        w_o_shift = 70,
-        w_4_shift = 71,
-        z_perm_shift = 72,
+        fourth_app_calldata_indicator = 34,
+        q_5 = 35,
+        fifth_app_calldata_indicator = 36,
+        return_data_indicator = 37,
+        q_poseidon2_external = 38,
+        q_poseidon2_external_initial = 39,
+        q_poseidon2_quad_internal = 40,
+        q_poseidon2_quad_internal_terminal = 41,
+        q_poseidon2_transition_entry = 42,
+        w_l = 43,
+        w_r = 44,
+        w_o = 45,
+        w_4 = 46,
+        z_perm = 47,
+        lookup_inverses = 48,
+        lookup_read_counts = 49,
+        lookup_read_tags = 50,
+        ecc_op_wire_1 = 51,
+        ecc_op_wire_2 = 52,
+        ecc_op_wire_3 = 53,
+        ecc_op_wire_4 = 54,
+        kernel_calldata = 55,
+        kernel_calldata_read_counts = 56,
+        kernel_calldata_inverses = 57,
+        first_app_calldata = 58,
+        first_app_calldata_read_counts = 59,
+        first_app_calldata_inverses = 60,
+        second_app_calldata = 61,
+        second_app_calldata_read_counts = 62,
+        second_app_calldata_inverses = 63,
+        third_app_calldata = 64,
+        third_app_calldata_read_counts = 65,
+        third_app_calldata_inverses = 66,
+        fourth_app_calldata = 67,
+        fourth_app_calldata_read_counts = 68,
+        fourth_app_calldata_inverses = 69,
+        fifth_app_calldata = 70,
+        fifth_app_calldata_read_counts = 71,
+        fifth_app_calldata_inverses = 72,
+        return_data = 73,
+        return_data_read_counts = 74,
+        return_data_inverses = 75,
+        w_l_shift = 76,
+        w_r_shift = 77,
+        w_o_shift = 78,
+        w_4_shift = 79,
+        z_perm_shift = 80,
     };
 
     // Sumcheck relation tuple. Source of truth is
@@ -150,6 +158,18 @@ class MegaFlavor_Generated {
                                                               EntityId::third_app_calldata_indicator,
                                                               EntityId::q_4>,
                                   bb::SingleBusLookupRelation<FF,
+                                                              EntityId::fourth_app_calldata,
+                                                              EntityId::fourth_app_calldata_read_counts,
+                                                              EntityId::fourth_app_calldata_inverses,
+                                                              EntityId::fourth_app_calldata_indicator,
+                                                              EntityId::q_5>,
+                                  bb::SingleBusLookupRelation<FF,
+                                                              EntityId::fifth_app_calldata,
+                                                              EntityId::fifth_app_calldata_read_counts,
+                                                              EntityId::fifth_app_calldata_inverses,
+                                                              EntityId::fifth_app_calldata_indicator,
+                                                              EntityId::q_c>,
+                                  bb::SingleBusLookupRelation<FF,
                                                               EntityId::return_data,
                                                               EntityId::return_data_read_counts,
                                                               EntityId::return_data_inverses,
@@ -161,13 +181,13 @@ class MegaFlavor_Generated {
                                   bb::Poseidon2QuadInternalTerminalRelation<FF>,
                                   bb::Poseidon2TransitionEntryRelation<FF>>;
 
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 41;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 27;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 43;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 33;
     static constexpr size_t NUM_MASKING_ENTITIES = 0;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 5;
     static constexpr bool HasDataBus = true;
-    static constexpr size_t NUM_BUS_COLUMNS = 5;
-    static constexpr std::array<size_t, NUM_BUS_COLUMNS> BUILDER_BUS_INDICES = { 0, 1, 2, 3, 4 };
+    static constexpr size_t NUM_BUS_COLUMNS = 7;
+    static constexpr std::array<size_t, NUM_BUS_COLUMNS> BUILDER_BUS_INDICES = { 0, 1, 2, 3, 4, 5, 6 };
     static constexpr bool HasLogDerivLookup = true;
     static constexpr bool HasElliptic = true;
     static constexpr bool HasMemory = true;
@@ -180,8 +200,8 @@ class MegaFlavor_Generated {
     // Per-shifted-entity (original, duplicate) index pairs in AllEntities, one per shifted
     // entity. Collapsed into `RepeatedCommitmentsData` below for Shplemini compatibility.
     static constexpr std::array<DuplicatePair, NUM_SHIFTED_ENTITIES> REPEATED_COMMITMENT_PAIRS = {
-        DuplicatePair{ 41, 68 }, DuplicatePair{ 42, 69 }, DuplicatePair{ 43, 70 },
-        DuplicatePair{ 44, 71 }, DuplicatePair{ 45, 72 },
+        DuplicatePair{ 43, 76 }, DuplicatePair{ 44, 77 }, DuplicatePair{ 45, 78 },
+        DuplicatePair{ 46, 79 }, DuplicatePair{ 47, 80 },
     };
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS =
         repeated_commitments_from_pairs(REPEATED_COMMITMENT_PAIRS);
@@ -358,6 +378,24 @@ class MegaFlavor_Generated {
         {
             return data[static_cast<size_t>(EntityId::third_app_calldata_indicator)];
         }
+        DataType& fourth_app_calldata_indicator()
+        {
+            return data[static_cast<size_t>(EntityId::fourth_app_calldata_indicator)];
+        }
+        const DataType& fourth_app_calldata_indicator() const
+        {
+            return data[static_cast<size_t>(EntityId::fourth_app_calldata_indicator)];
+        }
+        DataType& q_5() { return data[static_cast<size_t>(EntityId::q_5)]; }
+        const DataType& q_5() const { return data[static_cast<size_t>(EntityId::q_5)]; }
+        DataType& fifth_app_calldata_indicator()
+        {
+            return data[static_cast<size_t>(EntityId::fifth_app_calldata_indicator)];
+        }
+        const DataType& fifth_app_calldata_indicator() const
+        {
+            return data[static_cast<size_t>(EntityId::fifth_app_calldata_indicator)];
+        }
         DataType& return_data_indicator() { return data[static_cast<size_t>(EntityId::return_data_indicator)]; }
         const DataType& return_data_indicator() const
         {
@@ -381,8 +419,6 @@ class MegaFlavor_Generated {
         {
             return data[static_cast<size_t>(EntityId::q_poseidon2_quad_internal)];
         }
-        DataType& q_5() { return data[static_cast<size_t>(EntityId::q_5)]; }
-        const DataType& q_5() const { return data[static_cast<size_t>(EntityId::q_5)]; }
         DataType& q_poseidon2_quad_internal_terminal()
         {
             return data[static_cast<size_t>(EntityId::q_poseidon2_quad_internal_terminal)];
@@ -492,6 +528,42 @@ class MegaFlavor_Generated {
         {
             return data[static_cast<size_t>(EntityId::third_app_calldata_inverses)];
         }
+        DataType& fourth_app_calldata() { return data[static_cast<size_t>(EntityId::fourth_app_calldata)]; }
+        const DataType& fourth_app_calldata() const { return data[static_cast<size_t>(EntityId::fourth_app_calldata)]; }
+        DataType& fourth_app_calldata_read_counts()
+        {
+            return data[static_cast<size_t>(EntityId::fourth_app_calldata_read_counts)];
+        }
+        const DataType& fourth_app_calldata_read_counts() const
+        {
+            return data[static_cast<size_t>(EntityId::fourth_app_calldata_read_counts)];
+        }
+        DataType& fourth_app_calldata_inverses()
+        {
+            return data[static_cast<size_t>(EntityId::fourth_app_calldata_inverses)];
+        }
+        const DataType& fourth_app_calldata_inverses() const
+        {
+            return data[static_cast<size_t>(EntityId::fourth_app_calldata_inverses)];
+        }
+        DataType& fifth_app_calldata() { return data[static_cast<size_t>(EntityId::fifth_app_calldata)]; }
+        const DataType& fifth_app_calldata() const { return data[static_cast<size_t>(EntityId::fifth_app_calldata)]; }
+        DataType& fifth_app_calldata_read_counts()
+        {
+            return data[static_cast<size_t>(EntityId::fifth_app_calldata_read_counts)];
+        }
+        const DataType& fifth_app_calldata_read_counts() const
+        {
+            return data[static_cast<size_t>(EntityId::fifth_app_calldata_read_counts)];
+        }
+        DataType& fifth_app_calldata_inverses()
+        {
+            return data[static_cast<size_t>(EntityId::fifth_app_calldata_inverses)];
+        }
+        const DataType& fifth_app_calldata_inverses() const
+        {
+            return data[static_cast<size_t>(EntityId::fifth_app_calldata_inverses)];
+        }
         DataType& return_data() { return data[static_cast<size_t>(EntityId::return_data)]; }
         const DataType& return_data() const { return data[static_cast<size_t>(EntityId::return_data)]; }
         DataType& return_data_read_counts() { return data[static_cast<size_t>(EntityId::return_data_read_counts)]; }
@@ -548,11 +620,11 @@ class MegaFlavor_Generated {
         }
         std::span<DataType, NUM_SHIFTED_ENTITIES> get_to_be_shifted()
         {
-            return std::span<DataType, NUM_SHIFTED_ENTITIES>{ data.data() + (41), NUM_SHIFTED_ENTITIES };
+            return std::span<DataType, NUM_SHIFTED_ENTITIES>{ data.data() + (43), NUM_SHIFTED_ENTITIES };
         }
         std::span<const DataType, NUM_SHIFTED_ENTITIES> get_to_be_shifted() const
         {
-            return std::span<const DataType, NUM_SHIFTED_ENTITIES>{ data.data() + (41), NUM_SHIFTED_ENTITIES };
+            return std::span<const DataType, NUM_SHIFTED_ENTITIES>{ data.data() + (43), NUM_SHIFTED_ENTITIES };
         }
         std::span<DataType, NUM_SHIFTED_ENTITIES> get_shifted()
         {
@@ -670,69 +742,63 @@ class MegaFlavor_Generated {
                      (*this)[EntityId::ecc_op_wire_3],
                      (*this)[EntityId::ecc_op_wire_4] };
         }
-        RefArray<DataType, 10> get_databus_entities()
+        RefArray<DataType, 14> get_databus_entities()
         {
             return { (*this)[EntityId::kernel_calldata],     (*this)[EntityId::kernel_calldata_read_counts],
                      (*this)[EntityId::first_app_calldata],  (*this)[EntityId::first_app_calldata_read_counts],
                      (*this)[EntityId::second_app_calldata], (*this)[EntityId::second_app_calldata_read_counts],
                      (*this)[EntityId::third_app_calldata],  (*this)[EntityId::third_app_calldata_read_counts],
+                     (*this)[EntityId::fourth_app_calldata], (*this)[EntityId::fourth_app_calldata_read_counts],
+                     (*this)[EntityId::fifth_app_calldata],  (*this)[EntityId::fifth_app_calldata_read_counts],
                      (*this)[EntityId::return_data],         (*this)[EntityId::return_data_read_counts] };
         }
-        RefArray<const DataType, 10> get_databus_entities() const
+        RefArray<const DataType, 14> get_databus_entities() const
         {
             return { (*this)[EntityId::kernel_calldata],     (*this)[EntityId::kernel_calldata_read_counts],
                      (*this)[EntityId::first_app_calldata],  (*this)[EntityId::first_app_calldata_read_counts],
                      (*this)[EntityId::second_app_calldata], (*this)[EntityId::second_app_calldata_read_counts],
                      (*this)[EntityId::third_app_calldata],  (*this)[EntityId::third_app_calldata_read_counts],
+                     (*this)[EntityId::fourth_app_calldata], (*this)[EntityId::fourth_app_calldata_read_counts],
+                     (*this)[EntityId::fifth_app_calldata],  (*this)[EntityId::fifth_app_calldata_read_counts],
                      (*this)[EntityId::return_data],         (*this)[EntityId::return_data_read_counts] };
         }
-        RefArray<DataType, 5> get_databus_inverses()
+        RefArray<DataType, 7> get_databus_inverses()
         {
-            return { (*this)[EntityId::kernel_calldata_inverses],
-                     (*this)[EntityId::first_app_calldata_inverses],
-                     (*this)[EntityId::second_app_calldata_inverses],
-                     (*this)[EntityId::third_app_calldata_inverses],
+            return { (*this)[EntityId::kernel_calldata_inverses],     (*this)[EntityId::first_app_calldata_inverses],
+                     (*this)[EntityId::second_app_calldata_inverses], (*this)[EntityId::third_app_calldata_inverses],
+                     (*this)[EntityId::fourth_app_calldata_inverses], (*this)[EntityId::fifth_app_calldata_inverses],
                      (*this)[EntityId::return_data_inverses] };
         }
-        RefArray<const DataType, 5> get_databus_inverses() const
+        RefArray<const DataType, 7> get_databus_inverses() const
         {
-            return { (*this)[EntityId::kernel_calldata_inverses],
-                     (*this)[EntityId::first_app_calldata_inverses],
-                     (*this)[EntityId::second_app_calldata_inverses],
-                     (*this)[EntityId::third_app_calldata_inverses],
+            return { (*this)[EntityId::kernel_calldata_inverses],     (*this)[EntityId::first_app_calldata_inverses],
+                     (*this)[EntityId::second_app_calldata_inverses], (*this)[EntityId::third_app_calldata_inverses],
+                     (*this)[EntityId::fourth_app_calldata_inverses], (*this)[EntityId::fifth_app_calldata_inverses],
                      (*this)[EntityId::return_data_inverses] };
         }
-        RefArray<DataType, 5> get_databus_indicators()
+        RefArray<DataType, 7> get_databus_indicators()
         {
-            return { (*this)[EntityId::kernel_calldata_indicator],
-                     (*this)[EntityId::first_app_calldata_indicator],
-                     (*this)[EntityId::second_app_calldata_indicator],
-                     (*this)[EntityId::third_app_calldata_indicator],
+            return { (*this)[EntityId::kernel_calldata_indicator],     (*this)[EntityId::first_app_calldata_indicator],
+                     (*this)[EntityId::second_app_calldata_indicator], (*this)[EntityId::third_app_calldata_indicator],
+                     (*this)[EntityId::fourth_app_calldata_indicator], (*this)[EntityId::fifth_app_calldata_indicator],
                      (*this)[EntityId::return_data_indicator] };
         }
-        RefArray<const DataType, 5> get_databus_indicators() const
+        RefArray<const DataType, 7> get_databus_indicators() const
         {
-            return { (*this)[EntityId::kernel_calldata_indicator],
-                     (*this)[EntityId::first_app_calldata_indicator],
-                     (*this)[EntityId::second_app_calldata_indicator],
-                     (*this)[EntityId::third_app_calldata_indicator],
+            return { (*this)[EntityId::kernel_calldata_indicator],     (*this)[EntityId::first_app_calldata_indicator],
+                     (*this)[EntityId::second_app_calldata_indicator], (*this)[EntityId::third_app_calldata_indicator],
+                     (*this)[EntityId::fourth_app_calldata_indicator], (*this)[EntityId::fifth_app_calldata_indicator],
                      (*this)[EntityId::return_data_indicator] };
         }
-        RefArray<DataType, 5> get_databus_selectors()
+        RefArray<DataType, 7> get_databus_selectors()
         {
-            return { (*this)[EntityId::q_l],
-                     (*this)[EntityId::q_r],
-                     (*this)[EntityId::q_o],
-                     (*this)[EntityId::q_4],
-                     (*this)[EntityId::q_m] };
+            return { (*this)[EntityId::q_l], (*this)[EntityId::q_r], (*this)[EntityId::q_o], (*this)[EntityId::q_4],
+                     (*this)[EntityId::q_5], (*this)[EntityId::q_c], (*this)[EntityId::q_m] };
         }
-        RefArray<const DataType, 5> get_databus_selectors() const
+        RefArray<const DataType, 7> get_databus_selectors() const
         {
-            return { (*this)[EntityId::q_l],
-                     (*this)[EntityId::q_r],
-                     (*this)[EntityId::q_o],
-                     (*this)[EntityId::q_4],
-                     (*this)[EntityId::q_m] };
+            return { (*this)[EntityId::q_l], (*this)[EntityId::q_r], (*this)[EntityId::q_o], (*this)[EntityId::q_4],
+                     (*this)[EntityId::q_5], (*this)[EntityId::q_c], (*this)[EntityId::q_m] };
         }
 
         // Composite views: concatenations of subset views.
@@ -777,11 +843,13 @@ class MegaFlavor_Generated {
                 "FIRST_APP_CALLDATA_INDICATOR",
                 "SECOND_APP_CALLDATA_INDICATOR",
                 "THIRD_APP_CALLDATA_INDICATOR",
+                "FOURTH_APP_CALLDATA_INDICATOR",
+                "Q_5",
+                "FIFTH_APP_CALLDATA_INDICATOR",
                 "RETURN_DATA_INDICATOR",
                 "Q_POSEIDON2_EXTERNAL",
                 "Q_POSEIDON2_EXTERNAL_INITIAL",
                 "Q_POSEIDON2_QUAD_INTERNAL",
-                "Q_5",
                 "Q_POSEIDON2_QUAD_INTERNAL_TERMINAL",
                 "Q_POSEIDON2_TRANSITION_ENTRY",
                 "W_L",
@@ -808,6 +876,12 @@ class MegaFlavor_Generated {
                 "THIRD_APP_CALLDATA",
                 "THIRD_APP_CALLDATA_READ_COUNTS",
                 "THIRD_APP_CALLDATA_INVERSES",
+                "FOURTH_APP_CALLDATA",
+                "FOURTH_APP_CALLDATA_READ_COUNTS",
+                "FOURTH_APP_CALLDATA_INVERSES",
+                "FIFTH_APP_CALLDATA",
+                "FIFTH_APP_CALLDATA_READ_COUNTS",
+                "FIFTH_APP_CALLDATA_INVERSES",
                 "RETURN_DATA",
                 "RETURN_DATA_READ_COUNTS",
                 "RETURN_DATA_INVERSES",
@@ -903,20 +977,24 @@ class MegaFlavor_Generated {
         const DataType& second_app_calldata_indicator() const { return data[32]; }
         DataType& third_app_calldata_indicator() { return data[33]; }
         const DataType& third_app_calldata_indicator() const { return data[33]; }
-        DataType& return_data_indicator() { return data[34]; }
-        const DataType& return_data_indicator() const { return data[34]; }
-        DataType& q_poseidon2_external() { return data[35]; }
-        const DataType& q_poseidon2_external() const { return data[35]; }
-        DataType& q_poseidon2_external_initial() { return data[36]; }
-        const DataType& q_poseidon2_external_initial() const { return data[36]; }
-        DataType& q_poseidon2_quad_internal() { return data[37]; }
-        const DataType& q_poseidon2_quad_internal() const { return data[37]; }
-        DataType& q_5() { return data[38]; }
-        const DataType& q_5() const { return data[38]; }
-        DataType& q_poseidon2_quad_internal_terminal() { return data[39]; }
-        const DataType& q_poseidon2_quad_internal_terminal() const { return data[39]; }
-        DataType& q_poseidon2_transition_entry() { return data[40]; }
-        const DataType& q_poseidon2_transition_entry() const { return data[40]; }
+        DataType& fourth_app_calldata_indicator() { return data[34]; }
+        const DataType& fourth_app_calldata_indicator() const { return data[34]; }
+        DataType& q_5() { return data[35]; }
+        const DataType& q_5() const { return data[35]; }
+        DataType& fifth_app_calldata_indicator() { return data[36]; }
+        const DataType& fifth_app_calldata_indicator() const { return data[36]; }
+        DataType& return_data_indicator() { return data[37]; }
+        const DataType& return_data_indicator() const { return data[37]; }
+        DataType& q_poseidon2_external() { return data[38]; }
+        const DataType& q_poseidon2_external() const { return data[38]; }
+        DataType& q_poseidon2_external_initial() { return data[39]; }
+        const DataType& q_poseidon2_external_initial() const { return data[39]; }
+        DataType& q_poseidon2_quad_internal() { return data[40]; }
+        const DataType& q_poseidon2_quad_internal() const { return data[40]; }
+        DataType& q_poseidon2_quad_internal_terminal() { return data[41]; }
+        const DataType& q_poseidon2_quad_internal_terminal() const { return data[41]; }
+        DataType& q_poseidon2_transition_entry() { return data[42]; }
+        const DataType& q_poseidon2_transition_entry() const { return data[42]; }
 
         // Subset views.
         RefArray<DataType, 4> get_sigmas()
@@ -980,29 +1058,27 @@ class MegaFlavor_Generated {
         {
             return { this->q_m(), this->q_l(), this->q_r(), this->q_o(), this->q_4(), this->q_c(), this->q_5() };
         }
-        RefArray<DataType, 5> get_databus_indicators()
+        RefArray<DataType, 7> get_databus_indicators()
         {
-            return { this->kernel_calldata_indicator(),
-                     this->first_app_calldata_indicator(),
-                     this->second_app_calldata_indicator(),
-                     this->third_app_calldata_indicator(),
+            return { this->kernel_calldata_indicator(),     this->first_app_calldata_indicator(),
+                     this->second_app_calldata_indicator(), this->third_app_calldata_indicator(),
+                     this->fourth_app_calldata_indicator(), this->fifth_app_calldata_indicator(),
                      this->return_data_indicator() };
         }
-        RefArray<const DataType, 5> get_databus_indicators() const
+        RefArray<const DataType, 7> get_databus_indicators() const
         {
-            return { this->kernel_calldata_indicator(),
-                     this->first_app_calldata_indicator(),
-                     this->second_app_calldata_indicator(),
-                     this->third_app_calldata_indicator(),
+            return { this->kernel_calldata_indicator(),     this->first_app_calldata_indicator(),
+                     this->second_app_calldata_indicator(), this->third_app_calldata_indicator(),
+                     this->fourth_app_calldata_indicator(), this->fifth_app_calldata_indicator(),
                      this->return_data_indicator() };
         }
-        RefArray<DataType, 5> get_databus_selectors()
+        RefArray<DataType, 7> get_databus_selectors()
         {
-            return { this->q_l(), this->q_r(), this->q_o(), this->q_4(), this->q_m() };
+            return { this->q_l(), this->q_r(), this->q_o(), this->q_4(), this->q_5(), this->q_c(), this->q_m() };
         }
-        RefArray<const DataType, 5> get_databus_selectors() const
+        RefArray<const DataType, 7> get_databus_selectors() const
         {
-            return { this->q_l(), this->q_r(), this->q_o(), this->q_4(), this->q_m() };
+            return { this->q_l(), this->q_r(), this->q_o(), this->q_4(), this->q_5(), this->q_c(), this->q_m() };
         }
 
         // Composite views.
@@ -1046,11 +1122,13 @@ class MegaFlavor_Generated {
                 "FIRST_APP_CALLDATA_INDICATOR",
                 "SECOND_APP_CALLDATA_INDICATOR",
                 "THIRD_APP_CALLDATA_INDICATOR",
+                "FOURTH_APP_CALLDATA_INDICATOR",
+                "Q_5",
+                "FIFTH_APP_CALLDATA_INDICATOR",
                 "RETURN_DATA_INDICATOR",
                 "Q_POSEIDON2_EXTERNAL",
                 "Q_POSEIDON2_EXTERNAL_INITIAL",
                 "Q_POSEIDON2_QUAD_INTERNAL",
-                "Q_5",
                 "Q_POSEIDON2_QUAD_INTERNAL_TERMINAL",
                 "Q_POSEIDON2_TRANSITION_ENTRY",
             };
@@ -1120,12 +1198,24 @@ class MegaFlavor_Generated {
         const DataType& third_app_calldata_read_counts() const { return data[22]; }
         DataType& third_app_calldata_inverses() { return data[23]; }
         const DataType& third_app_calldata_inverses() const { return data[23]; }
-        DataType& return_data() { return data[24]; }
-        const DataType& return_data() const { return data[24]; }
-        DataType& return_data_read_counts() { return data[25]; }
-        const DataType& return_data_read_counts() const { return data[25]; }
-        DataType& return_data_inverses() { return data[26]; }
-        const DataType& return_data_inverses() const { return data[26]; }
+        DataType& fourth_app_calldata() { return data[24]; }
+        const DataType& fourth_app_calldata() const { return data[24]; }
+        DataType& fourth_app_calldata_read_counts() { return data[25]; }
+        const DataType& fourth_app_calldata_read_counts() const { return data[25]; }
+        DataType& fourth_app_calldata_inverses() { return data[26]; }
+        const DataType& fourth_app_calldata_inverses() const { return data[26]; }
+        DataType& fifth_app_calldata() { return data[27]; }
+        const DataType& fifth_app_calldata() const { return data[27]; }
+        DataType& fifth_app_calldata_read_counts() { return data[28]; }
+        const DataType& fifth_app_calldata_read_counts() const { return data[28]; }
+        DataType& fifth_app_calldata_inverses() { return data[29]; }
+        const DataType& fifth_app_calldata_inverses() const { return data[29]; }
+        DataType& return_data() { return data[30]; }
+        const DataType& return_data() const { return data[30]; }
+        DataType& return_data_read_counts() { return data[31]; }
+        const DataType& return_data_read_counts() const { return data[31]; }
+        DataType& return_data_inverses() { return data[32]; }
+        const DataType& return_data_inverses() const { return data[32]; }
 
         // Subset views.
         RefArray<DataType, 4> get_wires() { return { this->w_l(), this->w_r(), this->w_o(), this->w_4() }; }
@@ -1138,36 +1228,38 @@ class MegaFlavor_Generated {
         {
             return { this->ecc_op_wire_1(), this->ecc_op_wire_2(), this->ecc_op_wire_3(), this->ecc_op_wire_4() };
         }
-        RefArray<DataType, 10> get_databus_entities()
+        RefArray<DataType, 14> get_databus_entities()
         {
             return { this->kernel_calldata(),     this->kernel_calldata_read_counts(),
                      this->first_app_calldata(),  this->first_app_calldata_read_counts(),
                      this->second_app_calldata(), this->second_app_calldata_read_counts(),
                      this->third_app_calldata(),  this->third_app_calldata_read_counts(),
+                     this->fourth_app_calldata(), this->fourth_app_calldata_read_counts(),
+                     this->fifth_app_calldata(),  this->fifth_app_calldata_read_counts(),
                      this->return_data(),         this->return_data_read_counts() };
         }
-        RefArray<const DataType, 10> get_databus_entities() const
+        RefArray<const DataType, 14> get_databus_entities() const
         {
             return { this->kernel_calldata(),     this->kernel_calldata_read_counts(),
                      this->first_app_calldata(),  this->first_app_calldata_read_counts(),
                      this->second_app_calldata(), this->second_app_calldata_read_counts(),
                      this->third_app_calldata(),  this->third_app_calldata_read_counts(),
+                     this->fourth_app_calldata(), this->fourth_app_calldata_read_counts(),
+                     this->fifth_app_calldata(),  this->fifth_app_calldata_read_counts(),
                      this->return_data(),         this->return_data_read_counts() };
         }
-        RefArray<DataType, 5> get_databus_inverses()
+        RefArray<DataType, 7> get_databus_inverses()
         {
-            return { this->kernel_calldata_inverses(),
-                     this->first_app_calldata_inverses(),
-                     this->second_app_calldata_inverses(),
-                     this->third_app_calldata_inverses(),
+            return { this->kernel_calldata_inverses(),     this->first_app_calldata_inverses(),
+                     this->second_app_calldata_inverses(), this->third_app_calldata_inverses(),
+                     this->fourth_app_calldata_inverses(), this->fifth_app_calldata_inverses(),
                      this->return_data_inverses() };
         }
-        RefArray<const DataType, 5> get_databus_inverses() const
+        RefArray<const DataType, 7> get_databus_inverses() const
         {
-            return { this->kernel_calldata_inverses(),
-                     this->first_app_calldata_inverses(),
-                     this->second_app_calldata_inverses(),
-                     this->third_app_calldata_inverses(),
+            return { this->kernel_calldata_inverses(),     this->first_app_calldata_inverses(),
+                     this->second_app_calldata_inverses(), this->third_app_calldata_inverses(),
+                     this->fourth_app_calldata_inverses(), this->fifth_app_calldata_inverses(),
                      this->return_data_inverses() };
         }
 
@@ -1207,6 +1299,12 @@ class MegaFlavor_Generated {
                 "THIRD_APP_CALLDATA",
                 "THIRD_APP_CALLDATA_READ_COUNTS",
                 "THIRD_APP_CALLDATA_INVERSES",
+                "FOURTH_APP_CALLDATA",
+                "FOURTH_APP_CALLDATA_READ_COUNTS",
+                "FOURTH_APP_CALLDATA_INVERSES",
+                "FIFTH_APP_CALLDATA",
+                "FIFTH_APP_CALLDATA_READ_COUNTS",
+                "FIFTH_APP_CALLDATA_INVERSES",
                 "RETURN_DATA",
                 "RETURN_DATA_READ_COUNTS",
                 "RETURN_DATA_INVERSES",

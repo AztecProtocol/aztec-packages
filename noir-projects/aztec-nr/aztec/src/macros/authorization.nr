@@ -43,7 +43,8 @@ pub comptime fn generate_authorization_interface_and_get_selector(s: TypeDefinit
                     $from_field($authorization_selector)
                 }
             }
-        }, authorization_selector,
+        },
+        authorization_selector,
     )
 }
 

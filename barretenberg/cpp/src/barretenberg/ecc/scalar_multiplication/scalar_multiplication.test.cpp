@@ -1795,6 +1795,36 @@ TEST(ScalarMultiplicationArenaTest, ArenaLayoutFitsAcrossDispatchSpace)
     bb::set_parallel_for_concurrency(saved_threads);
 }
 
+// Non-GLV mid-band (GLV_SMALL_N_THRESHOLD < n < 2^17) arena-sizing coverage. The live allocator
+// shrinks the window-bit budget to the observed scalar msb, which can pick a heavier schedule than
+// the full-bit pre-sizer; `compute_arena_bytes_for_msm` must upper-bound the arena across every
+// effective_num_bits. Regression for the `bb prove` abort `Assertion failed: (aligned_local + bytes
+// <= bound)` on UltraHonk simple_shield (~28,696-point commitment MSM, 8 threads): that n sits in
+// this band, which the dispatch sweep (probing only 8193 and 262144) and the small-scalar band test
+// (n <= 16384) both miss.
+TEST(ScalarMultiplicationArenaTest, MidBandArenaSizerCoversAllEffectiveNumBits)
+{
+    const size_t saved_threads = bb::get_num_cpus();
+    bb::set_parallel_for_concurrency(8);
+
+    bool found_undersize = false;
+    for (const size_t n :
+         { size_t{ 28696 }, size_t{ 8193 }, size_t{ 1 } << 14, size_t{ 1 } << 15, size_t{ 1 } << 16 }) {
+        for (size_t bits = 1; bits <= 254; ++bits) {
+            if (!pippenger_bn254_arena_layout_fits_for_test(n,
+                                                            /*external_glv_provided=*/false,
+                                                            /*dedup_active=*/false,
+                                                            bits)) {
+                info("UNDERSIZE: n=", n, " effective_num_bits=", bits, " threads=8");
+                found_undersize = true;
+            }
+        }
+    }
+
+    bb::set_parallel_for_concurrency(saved_threads);
+    EXPECT_FALSE(found_undersize) << "arena sizer under-counts in the non-GLV mid-band";
+}
+
 // ======================= Test Wrappers =======================
 
 TYPED_TEST(ScalarMultiplicationTest, PippengerLowMemory)

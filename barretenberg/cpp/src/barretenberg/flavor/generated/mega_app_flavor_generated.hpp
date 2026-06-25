@@ -127,7 +127,7 @@ class MegaAppFlavor_Generated {
     static constexpr size_t NUM_SHIFTED_ENTITIES = 5;
     static constexpr bool HasDataBus = true;
     static constexpr size_t NUM_BUS_COLUMNS = 1;
-    static constexpr std::array<size_t, NUM_BUS_COLUMNS> BUILDER_BUS_INDICES = { 4 };
+    static constexpr std::array<size_t, NUM_BUS_COLUMNS> BUILDER_BUS_INDICES = { 6 };
     static constexpr bool HasLogDerivLookup = true;
     static constexpr bool HasElliptic = true;
     static constexpr bool HasMemory = true;

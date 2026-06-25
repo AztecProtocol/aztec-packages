@@ -3,7 +3,9 @@ use types::{
     constants::{
         HIDING_KERNEL_TO_PUBLIC_VK_INDEX, MEGA_KERNEL_VK_LENGTH_IN_FIELDS, PARITY_BASE_VK_INDEX,
         PARITY_ROOT_VK_INDEX, PRIVATE_KERNEL_INIT_2_VK_INDEX, PRIVATE_KERNEL_INIT_3_VK_INDEX,
+        PRIVATE_KERNEL_INIT_4_VK_INDEX, PRIVATE_KERNEL_INIT_5_VK_INDEX,
         PRIVATE_KERNEL_INNER_2_VK_INDEX, PRIVATE_KERNEL_INNER_3_VK_INDEX,
+        PRIVATE_KERNEL_INNER_4_VK_INDEX, PRIVATE_KERNEL_INNER_5_VK_INDEX,
         PRIVATE_KERNEL_RESET_VK_INDEX, ROOT_ROLLUP_VK_INDEX, ULTRA_VK_LENGTH_IN_FIELDS,
         VK_TREE_HEIGHT,
     },
@@ -49,15 +51,23 @@ pub global VK_MERKLE_TREE: MerkleTree<VK_TREE_WIDTH> = {
     for i in PRIVATE_KERNEL_RESET_VK_INDEX..PRIVATE_KERNEL_RESET_VK_INDEX + 4 {
         leaves[i] = generate_fake_chonk_vk_for_index(i).hash;
     }
-    // Multi-app init / inner variants live at indices >= PRIVATE_KERNEL_INIT_3_VK_INDEX.
-    leaves[PRIVATE_KERNEL_INIT_3_VK_INDEX] =
-        generate_fake_chonk_vk_for_index(PRIVATE_KERNEL_INIT_3_VK_INDEX).hash;
+    // Multi-app init / inner variants live at indices >= PRIVATE_KERNEL_INIT_2_VK_INDEX
     leaves[PRIVATE_KERNEL_INIT_2_VK_INDEX] =
         generate_fake_chonk_vk_for_index(PRIVATE_KERNEL_INIT_2_VK_INDEX).hash;
+    leaves[PRIVATE_KERNEL_INIT_3_VK_INDEX] =
+        generate_fake_chonk_vk_for_index(PRIVATE_KERNEL_INIT_3_VK_INDEX).hash;
+    leaves[PRIVATE_KERNEL_INIT_4_VK_INDEX] =
+        generate_fake_chonk_vk_for_index(PRIVATE_KERNEL_INIT_4_VK_INDEX).hash;
+    leaves[PRIVATE_KERNEL_INIT_5_VK_INDEX] =
+        generate_fake_chonk_vk_for_index(PRIVATE_KERNEL_INIT_5_VK_INDEX).hash;
     leaves[PRIVATE_KERNEL_INNER_2_VK_INDEX] =
         generate_fake_chonk_vk_for_index(PRIVATE_KERNEL_INNER_2_VK_INDEX).hash;
     leaves[PRIVATE_KERNEL_INNER_3_VK_INDEX] =
         generate_fake_chonk_vk_for_index(PRIVATE_KERNEL_INNER_3_VK_INDEX).hash;
+    leaves[PRIVATE_KERNEL_INNER_4_VK_INDEX] =
+        generate_fake_chonk_vk_for_index(PRIVATE_KERNEL_INNER_4_VK_INDEX).hash;
+    leaves[PRIVATE_KERNEL_INNER_5_VK_INDEX] =
+        generate_fake_chonk_vk_for_index(PRIVATE_KERNEL_INNER_5_VK_INDEX).hash;
 
     // Rollup Honk
     for i in HIDING_KERNEL_TO_PUBLIC_VK_INDEX + 1..PRIVATE_KERNEL_RESET_VK_INDEX {

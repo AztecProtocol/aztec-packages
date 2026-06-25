@@ -136,27 +136,27 @@ inline constexpr size_t MSM_ROWS_OFFSET = 2;
 
 // Init kernel: verifies its leading apps (first via an OINK proof, rest via HN); carries no accumulator, so K
 // apps reduce to K claims (no batching for K==1, width-K batching for K>=2).
-inline constexpr std::array<size_t, KERNEL_APP_COUNTS> INIT_KERNEL_GATE_COUNT = { 12182, 24189, 33483 };
-inline constexpr std::array<size_t, KERNEL_APP_COUNTS> INIT_KERNEL_ECC_ROWS = { 524, 1176, 1700 };
-inline constexpr std::array<size_t, KERNEL_APP_COUNTS> INIT_KERNEL_ULTRA_OPS = { 60, 131, 194 };
+inline constexpr std::array<size_t, KERNEL_APP_COUNTS> INIT_KERNEL_GATE_COUNT = { 12190, 24197, 33491, 42865, 52184 };
+inline constexpr std::array<size_t, KERNEL_APP_COUNTS> INIT_KERNEL_ECC_ROWS = { 524, 1176, 1700, 2290, 2814 };
+inline constexpr std::array<size_t, KERNEL_APP_COUNTS> INIT_KERNEL_ULTRA_OPS = { 60, 131, 194, 257, 320 };
 
 // Inner kernel: verifies the previous kernel (HN) plus K apps (HN). The carried accumulator + previous kernel +
 // K apps reduce to a (K+2)-claim per-kernel batching.
-inline constexpr std::array<size_t, KERNEL_APP_COUNTS> INNER_KERNEL_GATE_COUNT = { 25454, 34748, 44122 };
-inline constexpr std::array<size_t, KERNEL_APP_COUNTS> INNER_KERNEL_ECC_ROWS = { 1242, 1832, 2356 };
-inline constexpr std::array<size_t, KERNEL_APP_COUNTS> INNER_KERNEL_ULTRA_OPS = { 140, 203, 266 };
+inline constexpr std::array<size_t, KERNEL_APP_COUNTS> INNER_KERNEL_GATE_COUNT = { 26267, 35561, 44935, 54254, 63603 };
+inline constexpr std::array<size_t, KERNEL_APP_COUNTS> INNER_KERNEL_ECC_ROWS = { 1308, 1898, 2422, 3012, 3536 };
+inline constexpr std::array<size_t, KERNEL_APP_COUNTS> INNER_KERNEL_ULTRA_OPS = { 148, 211, 274, 337, 400 };
 
 // Reset or Tail kernel: verifies a single previous-kernel HN proof, then a width-2 per-kernel
 // batching. Reset and tail kernels are structurally identical from the IVC's perspective.
-inline constexpr size_t RESET_TAIL_KERNEL_GATE_COUNT = 16024;
-inline constexpr size_t RESET_TAIL_KERNEL_ECC_ROWS = 718;
-inline constexpr size_t RESET_TAIL_KERNEL_ULTRA_OPS = 73;
+inline constexpr size_t RESET_TAIL_KERNEL_GATE_COUNT = 16837;
+inline constexpr size_t RESET_TAIL_KERNEL_ECC_ROWS = 784;
+inline constexpr size_t RESET_TAIL_KERNEL_ULTRA_OPS = 81;
 
 // Hiding kernel: verifies the tail kernel (HN_FINAL), then a batch-merge recursive verifier sized for
 // CHONK_MAX_NUM_CIRCUITS plus a decider.
-inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 39638;
+inline constexpr size_t HIDING_KERNEL_GATE_COUNT = 40042;
 inline constexpr size_t HIDING_KERNEL_ECC_ROWS = 5330;
-inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = 359;
+inline constexpr size_t HIDING_KERNEL_ULTRA_OPS = 363;
 
 // ========================================
 // ECCVM Recursive Verifier Constants
