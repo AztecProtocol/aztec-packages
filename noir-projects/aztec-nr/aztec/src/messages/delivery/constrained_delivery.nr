@@ -1,10 +1,10 @@
 //! Sender-side helpers for constrained message delivery.
 //!
-//! Constrained messages form per-`(sender, recipient, secret)` sequences, each send anchored to the handshake
-//! registry at an incrementing index. Two consequences shape the whole flow: sends on one sequence are strictly
-//! ordered across transactions (parallel sends collide or fail the predecessor check, while distinct recipients are
-//! distinct sequences and parallelize), and batching several sends onto one sequence within a transaction requires
-//! an already-committed handshake.
+//! Constrained messages form per-`(sender, recipient, handshake secrets)` sequences, each send anchored to the
+//! handshake registry at an incrementing index. Two consequences shape the whole flow: sends on one sequence are
+//! strictly ordered across transactions (parallel sends collide or fail the predecessor check, while distinct
+//! recipients are distinct sequences and parallelize), and batching several sends onto one sequence within a
+//! transaction requires an already-committed handshake.
 //!
 //! See [`constrain_secret`] for how a send is anchored to the registry,
 
@@ -41,7 +41,13 @@ pub(crate) fn constrain_secret_and_emit_nullifier(
         bootstrapped,
         index,
     );
-    context.push_nullifier_unsafe(compute_constrained_msg_nullifier(sender, recipient, secrets.sender_only, index));
+    context.push_nullifier_unsafe(compute_constrained_msg_nullifier(
+        sender,
+        recipient,
+        secrets.shared,
+        secrets.sender_only,
+        index,
+    ));
 }
 
 /// Anchors an untrusted `(secret, index)` to the registry before its constrained tag is emitted.
@@ -70,7 +76,13 @@ fn constrain_secret(
             [sender.to_field(), recipient.to_field(), secrets.shared, secrets.sender_only],
         );
     } else {
-        let prev_nullifier = compute_constrained_msg_nullifier(sender, recipient, secrets.sender_only, index - 1);
+        let prev_nullifier = compute_constrained_msg_nullifier(
+            sender,
+            recipient,
+            secrets.shared,
+            secrets.sender_only,
+            index - 1,
+        );
         context.assert_nullifier_exists(compute_nullifier_existence_request(prev_nullifier, caller));
     }
 }
@@ -78,16 +90,18 @@ fn constrain_secret(
 /// Computes a constrained send's sequence nullifier.
 ///
 /// Every constrained send emits this nullifier so the next send under the same sequence can prove its predecessor
-/// exists. The nullifier folds in the app-siloed sender-only secret rather than the shared secret, so a recipient
-/// who can reconstruct the shared secret cannot forge a sender's nullifier and grief the sequence.
+/// exists. The nullifier folds in both the app-siloed shared secret and sender-only secret: the shared secret binds
+/// the sequence to the discovery tag secret, and the sender-only secret prevents a recipient who can reconstruct the
+/// shared secret from forging a sender's nullifier and griefing the sequence.
 pub(crate) fn compute_constrained_msg_nullifier(
     sender: AztecAddress,
     recipient: AztecAddress,
+    shared_secret: Field,
     sender_only_secret: Field,
     index: u32,
 ) -> Field {
     poseidon2_hash_with_separator(
-        [sender.to_field(), recipient.to_field(), sender_only_secret, index as Field],
+        [sender.to_field(), recipient.to_field(), shared_secret, sender_only_secret, index as Field],
         DOM_SEP__CONSTRAINED_MSG_NULLIFIER,
     )
 }
@@ -98,7 +112,10 @@ mod test {
     use crate::messages::delivery::handshake::AppSiloedHandshakeSecrets;
     use crate::protocol::{address::AztecAddress, hash::compute_siloed_nullifier, traits::{FromField, ToField}};
     use crate::test::helpers::test_environment::TestEnvironment;
-    use super::{compute_constrained_msg_nullifier, constrain_secret_and_emit_nullifier, VALIDATE_HANDSHAKE_SELECTOR};
+    use super::{
+        compute_constrained_msg_nullifier, constrain_secret, constrain_secret_and_emit_nullifier,
+        VALIDATE_HANDSHAKE_SELECTOR,
+    };
     use std::test::OracleMock;
 
     fn assert_current_nullifier_emitted(
@@ -111,23 +128,14 @@ mod test {
         assert_eq(context.nullifiers.len(), 1);
         assert_eq(
             context.nullifiers.get(0).inner.value,
-            compute_constrained_msg_nullifier(sender, recipient, secrets.sender_only, index),
+            compute_constrained_msg_nullifier(
+                sender,
+                recipient,
+                secrets.shared,
+                secrets.sender_only,
+                index,
+            ),
         );
-    }
-
-    #[test]
-    unconstrained fn nullifier_is_bound_to_sender_only_secret() {
-        let sender = AztecAddress::from_field(2);
-        let recipient = AztecAddress::from_field(4);
-        let index: u32 = 1;
-
-        // The sender's real nullifier folds in a sender-only secret the recipient cannot learn.
-        let real = compute_constrained_msg_nullifier(sender, recipient, 5678, index);
-        // Any value a party lacking that secret substitutes yields a different nullifier, so it cannot pre-emit
-        // (grief) the sender's sequence.
-        let forged = compute_constrained_msg_nullifier(sender, recipient, 1234, index);
-
-        assert(real != forged, "sequence nullifier must be bound to the sender-only secret");
     }
 
     #[test]
@@ -223,8 +231,67 @@ mod test {
                 read_request.inner.inner,
                 compute_siloed_nullifier(
                     context.this_address(),
-                    compute_constrained_msg_nullifier(sender, recipient, secrets.sender_only, index - 1),
+                    compute_constrained_msg_nullifier(
+                        sender,
+                        recipient,
+                        secrets.shared,
+                        secrets.sender_only,
+                        index - 1,
+                    ),
                 ),
+            );
+        });
+    }
+
+    #[test]
+    unconstrained fn reused_secret_above_index_zero_cannot_forge_from_valid_predecessor() {
+        let env = TestEnvironment::new();
+        let registry = AztecAddress::from_field(1);
+        let sender = AztecAddress::from_field(2);
+        let recipient = AztecAddress::from_field(4);
+        let valid_secrets = AppSiloedHandshakeSecrets { shared: 1234, sender_only: 5678 };
+        let tampered_shared_secrets =
+            AppSiloedHandshakeSecrets { shared: 8765, sender_only: valid_secrets.sender_only };
+        let tampered_sender_only_secrets =
+            AppSiloedHandshakeSecrets { shared: valid_secrets.shared, sender_only: 9012 };
+
+        env.private_context(|context| {
+            let _ = OracleMock::mock("aztec_prv_isNullifierPending").returns(true).times(2);
+
+            constrain_secret_and_emit_nullifier(context, registry, sender, recipient, valid_secrets, true, 0);
+            assert_eq(context.nullifiers.len(), 1);
+            let valid_predecessor = context.nullifiers.get(0).inner.value;
+
+            constrain_secret(
+                context,
+                registry,
+                sender,
+                recipient,
+                tampered_shared_secrets,
+                false,
+                1,
+            );
+            constrain_secret(
+                context,
+                registry,
+                sender,
+                recipient,
+                tampered_sender_only_secrets,
+                false,
+                1,
+            );
+
+            assert_eq(context.private_call_requests.len(), 0);
+            assert_eq(context.nullifier_read_requests.len(), 2);
+            assert_eq(context.nullifier_read_requests.get(0).contract_address, context.this_address());
+            assert_eq(context.nullifier_read_requests.get(1).contract_address, context.this_address());
+            assert(
+                context.nullifier_read_requests.get(0).inner.inner != valid_predecessor,
+                "forged shared secret must not reuse the valid predecessor",
+            );
+            assert(
+                context.nullifier_read_requests.get(1).inner.inner != valid_predecessor,
+                "forged sender-only secret must not reuse the valid predecessor",
             );
         });
     }
