@@ -1,4 +1,4 @@
-import { type InitialAccountData, getInitialTestAccountsData } from '@aztec/accounts/testing';
+import { type InitialAccountData, generateSchnorrAccounts } from '@aztec/accounts/testing';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { waitForProven } from '@aztec/aztec.js/contracts';
@@ -28,126 +28,116 @@ import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import { getPXEConfig } from '@aztec/pxe/server';
 import { computeL2ToL1MessageHash } from '@aztec/stdlib/hash';
-import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { getL2ToL1MessageLeafId } from '@aztec/stdlib/messaging';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
-import { jest } from '@jest/globals';
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
 import { type Hex, decodeEventLog, encodeFunctionData, getAddress, getContract } from 'viem';
 import { foundry } from 'viem/chains';
 
-import { shouldCollectMetrics } from '../../fixtures/fixtures.js';
 import { sendL1ToL2Message } from '../../fixtures/l1_to_l2_messaging.js';
-import { ATTESTER_PRIVATE_KEYS_START_INDEX, createNodes, createProverNode } from '../../fixtures/setup_p2p_test.js';
-import { setupSharedBlobStorage } from '../../fixtures/utils.js';
-import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES } from '../../p2p/p2p_network.js';
+import { getPrivateKeyFromIndex, getSponsoredFPCAddress } from '../../fixtures/utils.js';
 import { TestWallet } from '../../test-wallet/test_wallet.js';
+import {
+  MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
+  MultiNodeTestContext,
+  buildMockGossipValidators,
+} from '../multi_node_test_context.js';
+import { GOVERNANCE_TIMING, jest } from './setup.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_VALIDATORS = 4;
-const BOOT_NODE_UDP_PORT = 4500;
-
-const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'add-rollup-old-'));
-const DATA_DIR_NEW = fs.mkdtempSync(path.join(os.tmpdir(), 'add-rollup-new-'));
 
 jest.setTimeout(1000 * 60 * 20);
 
 /**
  * This test emulates the addition of a new rollup to the registry and tests that cross-chain messages work.
  * Transactions are sent to the current rollup to check crosschain messages in both directions.
- * The sequencers proposer a proposal, the proposal is executed and the new rollup is added to the registry
- * The nodes are then updated to use the new rollup and we send transactions to try cross-chain in both directions
+ * The sequencers propose a proposal, the proposal is executed and the new rollup is added to the registry.
+ * The nodes are then migrated to the new rollup and we send transactions to try cross-chain in both directions,
  * ensuring that it also works on the new rollup.
  *
- * Setup: P2PNetworkTest (real libp2p, 4 validator nodes + 1 prover node). SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES
- * (ethSlot=4s, aztecSlot=12s, proofSubEpochs=640) with governanceProposerRoundSize=10, minTxsPerBlock=0,
- * inboxLag=2. Full governance upgrade flow: validators signal a new rollup payload over real p2p, governance
- * vote executes, nodes migrate to the new rollup. Exercises L1→L2 (Inbox) and L2→L1 (Outbox) bridging on
- * both the old and new rollup.
+ * Setup: MultiNodeTestContext on the in-memory mock-gossip bus (no real libp2p, no bootstrap/discovery).
+ * GOVERNANCE_TIMING (ethSlot=4s, aztecSlot=12s, proofSubEpochs=640) with governanceProposerRoundSize=10,
+ * minTxsPerBlock=0, inboxLag=2. 4 validator nodes plus one fake-proof prover node, all attached to the
+ * shared `MockGossipSubNetwork`. Full governance upgrade flow: validators signal a new rollup payload over
+ * mock gossip, governance vote executes, nodes migrate to the new rollup. Exercises L1->L2 (Inbox) and
+ * L2->L1 (Outbox) bridging on both the old and new rollup.
+ *
+ * Migration on the mock bus: there is no bootstrap node or peer discovery to flush, so the original
+ * real-libp2p restart dance (stop bootstrap node, re-add it, let new peers rediscover) collapses to
+ * "stop the old nodes/prover, warp, spawn new nodes/prover on the new rollup config" — the new nodes
+ * simply re-attach to the same in-memory bus. The new rollup is deployed with the same genesis as the
+ * context (same funded accounts + timestamp) so its archive root matches the genesis the fake prover and
+ * validator nodes already run, letting the prover prove the new rollup's checkpoints.
  */
 describe('multi-node/governance/add_rollup', () => {
-  let t: P2PNetworkTest;
+  let test: MultiNodeTestContext;
   let nodes: AztecNodeService[];
   let proverAztecNode: AztecNodeService;
   let l1TxUtils: L1TxUtils;
+  let fundedAccounts: InitialAccountData[];
+  // Anvil index-1 account, funded out of the box, used to deploy the new rollup.
+  const deployerPrivateKey = `0x${getPrivateKeyFromIndex(1)!.toString('hex')}` as const;
 
   beforeAll(async () => {
-    t = await P2PNetworkTest.create({
-      testName: 'e2e_p2p_add_rollup',
-      numberOfNodes: 0,
-      numberOfValidators: NUM_VALIDATORS,
-      basePort: BOOT_NODE_UDP_PORT,
-      // To collect metrics - run in aztec-packages `docker compose --profile metrics up`
-      metricsPort: shouldCollectMetrics(),
-      initialConfig: {
-        ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
-        listenAddress: '127.0.0.1',
-        governanceProposerRoundSize: 10,
-        // Allow validators to build empty checkpoints under pipelining so the chain keeps
-        // advancing while we wait for L1->L2 messages to land in the next checkpoint's inbox tree.
-        minTxsPerBlock: 0,
-        // Pipelining starts cycle for checkpoint N+1 during slot N, but the inbox tree for
-        // checkpoint N is only sealed when checkpoint N is published. inboxLag: 2 sources
-        // L1->L2 messages from checkpoint N-1 (already sealed), avoiding L1ToL2MessagesNotReadyError.
-        inboxLag: 2,
-      },
-      startProverNode: false, // Start one later using p2p.
+    fundedAccounts = await generateSchnorrAccounts(2);
+
+    test = await MultiNodeTestContext.setup({
+      ...MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
+      ...GOVERNANCE_TIMING,
+      listenAddress: '127.0.0.1',
+      aztecTargetCommitteeSize: NUM_VALIDATORS,
+      governanceProposerRoundSize: 10,
+      // Allow validators to build empty checkpoints so the chain keeps advancing while we wait for
+      // L1->L2 messages to land in the next checkpoint's inbox tree.
+      minTxsPerBlock: 0,
+      // inboxLag: 2 sources L1->L2 messages from an already-sealed checkpoint under pipelining, avoiding
+      // L1ToL2MessagesNotReadyError.
+      inboxLag: 2,
+      // Fund the bridging accounts (and the sponsored FPC) at genesis. Skip the hardcoded-account
+      // fast-path so our additionallyFundedAccounts are not clobbered.
+      skipHardcodedAccount: true,
+      additionallyFundedAccounts: fundedAccounts,
+      fundSponsoredFPC: true,
+      initialValidators: buildMockGossipValidators(NUM_VALIDATORS),
     });
 
-    await t.setup();
-    await t.applyBaseSetup();
-    await t.removeInitialNode();
-
-    l1TxUtils = createL1TxUtils(t.ctx.deployL1ContractsValues.l1Client);
+    l1TxUtils = createL1TxUtils(test.context.deployL1ContractsValues.l1Client);
   });
 
   afterAll(async () => {
-    await tryStop(proverAztecNode);
-    await t.stopNodes(nodes);
-    await t.teardown();
-    for (let i = 0; i < NUM_VALIDATORS; i++) {
-      fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
-    }
+    await test.teardown();
   });
 
-  // Runs the full upgrade lifecycle: deploy a new rollup, have validators signal it over real p2p gossip,
-  // reach governance quorum, execute the proposal, migrate all validator nodes to the new rollup, then
-  // verify L1↔L2 cross-chain messaging works on both the old and new rollup.
   it('Should cast votes to add new rollup to registry', async () => {
-    // create the bootstrap node for the network
-    if (!t.bootstrapNodeEnr) {
-      throw new Error('Bootstrap node ENR is not available');
-    }
+    const { context, logger } = test;
 
     const registry = getContract({
-      address: getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.registryAddress.toString()),
+      address: getAddress(context.deployL1ContractsValues.l1ContractAddresses.registryAddress.toString()),
       abi: RegistryAbi,
-      client: t.ctx.deployL1ContractsValues.l1Client,
+      client: context.deployL1ContractsValues.l1Client,
     });
 
     const governanceProposer = getContract({
-      address: getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.governanceProposerAddress.toString()),
+      address: getAddress(context.deployL1ContractsValues.l1ContractAddresses.governanceProposerAddress.toString()),
       abi: GovernanceProposerAbi,
-      client: t.ctx.deployL1ContractsValues.l1Client,
+      client: context.deployL1ContractsValues.l1Client,
     });
 
     const roundSize = await governanceProposer.read.ROUND_SIZE();
 
     const governance = getContract({
-      address: getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.governanceAddress.toString()),
+      address: getAddress(context.deployL1ContractsValues.l1ContractAddresses.governanceAddress.toString()),
       abi: GovernanceAbi,
-      client: t.ctx.deployL1ContractsValues.l1Client,
+      client: context.deployL1ContractsValues.l1Client,
     });
 
     const rollup = new RollupContract(
-      t.ctx.deployL1ContractsValues!.l1Client,
-      t.ctx.deployL1ContractsValues!.l1ContractAddresses.rollupAddress,
+      context.deployL1ContractsValues.l1Client,
+      context.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
     );
 
-    const emperor = t.ctx.deployL1ContractsValues.l1Client.account;
+    const emperor = context.deployL1ContractsValues.l1Client.account;
 
     const waitL1Block = async () => {
       await l1TxUtils.sendAndMonitorTransaction({
@@ -159,52 +149,57 @@ describe('multi-node/governance/add_rollup', () => {
     const currentSlot = await rollup.getSlotNumber();
     const nextRoundSlot = SlotNumber.fromBigInt((BigInt(currentSlot) / roundSize) * roundSize + roundSize);
     const nextRoundTimestamp = await rollup.getTimestampForSlot(nextRoundSlot);
-    await t.ctx.cheatCodes.eth.warp(Number(nextRoundTimestamp));
+    await context.cheatCodes.eth.warp(Number(nextRoundTimestamp));
 
-    // Now that we have passed on the registry, we can deploy the new rollup.
-    const initialTestAccounts = await getInitialTestAccountsData();
-    const { genesisArchiveRoot, fundingNeeded, genesis } = await getGenesisValues(
-      initialTestAccounts.map(a => a.address),
+    // Recompute the funded-account set the context used at genesis (the additionally-funded accounts plus
+    // the sponsored FPC). Deploying the new rollup with a genesis archive root derived from the same set
+    // and timestamp makes the new rollup's genesis equal the context's genesis, so the fake prover and
+    // validator nodes (which run on `context.genesis`) can prove and sync the new rollup.
+    const sponsoredFPCAddress = await getSponsoredFPCAddress();
+    const genesisFundedAddresses = [...fundedAccounts.map(a => a.address), sponsoredFPCAddress];
+    const { genesisArchiveRoot, fundingNeeded } = await getGenesisValues(
+      genesisFundedAddresses,
       undefined,
       undefined,
-      t.ctx.genesis!.genesisTimestamp,
+      context.genesis!.genesisTimestamp,
     );
+
     const { rollup: newRollup } = await deployRollupForUpgrade(
-      t.baseAccountPrivateKey,
-      t.ctx.aztecNodeConfig.l1RpcUrls[0],
+      deployerPrivateKey,
+      context.aztecNodeConfig.l1RpcUrls[0],
       foundry.id,
-      t.ctx.deployL1ContractsValues.l1ContractAddresses.registryAddress,
+      context.deployL1ContractsValues.l1ContractAddresses.registryAddress,
       {
         vkTreeRoot: getVKTreeRoot(),
         protocolContractsHash,
         genesisArchiveRoot,
-        ethereumSlotDuration: t.ctx.aztecNodeConfig.ethereumSlotDuration,
-        aztecSlotDuration: t.ctx.aztecNodeConfig.aztecSlotDuration,
-        aztecEpochDuration: t.ctx.aztecNodeConfig.aztecEpochDuration,
-        aztecTargetCommitteeSize: t.ctx.aztecNodeConfig.aztecTargetCommitteeSize,
-        lagInEpochsForValidatorSet: t.ctx.aztecNodeConfig.lagInEpochsForValidatorSet,
-        lagInEpochsForRandao: t.ctx.aztecNodeConfig.lagInEpochsForRandao,
-        inboxLag: t.ctx.aztecNodeConfig.inboxLag,
-        aztecProofSubmissionEpochs: t.ctx.aztecNodeConfig.aztecProofSubmissionEpochs,
-        slashingQuorum: t.ctx.aztecNodeConfig.slashingQuorum,
-        slashingRoundSizeInEpochs: t.ctx.aztecNodeConfig.slashingRoundSizeInEpochs,
-        slashingLifetimeInRounds: t.ctx.aztecNodeConfig.slashingLifetimeInRounds,
-        slashingExecutionDelayInRounds: t.ctx.aztecNodeConfig.slashingExecutionDelayInRounds,
-        slashingVetoer: t.ctx.aztecNodeConfig.slashingVetoer,
-        slashingDisableDuration: t.ctx.aztecNodeConfig.slashingDisableDuration,
-        manaTarget: t.ctx.aztecNodeConfig.manaTarget,
-        provingCostPerMana: t.ctx.aztecNodeConfig.provingCostPerMana,
-        initialEthPerFeeAsset: t.ctx.aztecNodeConfig.initialEthPerFeeAsset,
+        ethereumSlotDuration: context.aztecNodeConfig.ethereumSlotDuration,
+        aztecSlotDuration: context.aztecNodeConfig.aztecSlotDuration,
+        aztecEpochDuration: context.aztecNodeConfig.aztecEpochDuration,
+        aztecTargetCommitteeSize: context.aztecNodeConfig.aztecTargetCommitteeSize,
+        lagInEpochsForValidatorSet: context.aztecNodeConfig.lagInEpochsForValidatorSet,
+        lagInEpochsForRandao: context.aztecNodeConfig.lagInEpochsForRandao,
+        inboxLag: context.aztecNodeConfig.inboxLag,
+        aztecProofSubmissionEpochs: context.aztecNodeConfig.aztecProofSubmissionEpochs,
+        slashingQuorum: context.aztecNodeConfig.slashingQuorum,
+        slashingRoundSizeInEpochs: context.aztecNodeConfig.slashingRoundSizeInEpochs,
+        slashingLifetimeInRounds: context.aztecNodeConfig.slashingLifetimeInRounds,
+        slashingExecutionDelayInRounds: context.aztecNodeConfig.slashingExecutionDelayInRounds,
+        slashingVetoer: context.aztecNodeConfig.slashingVetoer,
+        slashingDisableDuration: context.aztecNodeConfig.slashingDisableDuration,
+        manaTarget: context.aztecNodeConfig.manaTarget,
+        provingCostPerMana: context.aztecNodeConfig.provingCostPerMana,
+        initialEthPerFeeAsset: context.aztecNodeConfig.initialEthPerFeeAsset,
         feeJuicePortalInitialBalance: fundingNeeded,
         realVerifier: false,
-        exitDelaySeconds: t.ctx.aztecNodeConfig.exitDelaySeconds,
-        slasherEnabled: t.ctx.aztecNodeConfig.slasherEnabled,
-        slashingOffsetInRounds: t.ctx.aztecNodeConfig.slashingOffsetInRounds,
-        slashAmountSmall: t.ctx.aztecNodeConfig.slashAmountSmall,
-        slashAmountMedium: t.ctx.aztecNodeConfig.slashAmountMedium,
-        slashAmountLarge: t.ctx.aztecNodeConfig.slashAmountLarge,
-        localEjectionThreshold: t.ctx.aztecNodeConfig.localEjectionThreshold,
-        governanceVotingDuration: t.ctx.aztecNodeConfig.governanceVotingDuration,
+        exitDelaySeconds: context.aztecNodeConfig.exitDelaySeconds,
+        slasherEnabled: context.aztecNodeConfig.slasherEnabled,
+        slashingOffsetInRounds: context.aztecNodeConfig.slashingOffsetInRounds,
+        slashAmountSmall: context.aztecNodeConfig.slashAmountSmall,
+        slashAmountMedium: context.aztecNodeConfig.slashAmountMedium,
+        slashAmountLarge: context.aztecNodeConfig.slashAmountLarge,
+        localEjectionThreshold: context.aztecNodeConfig.localEjectionThreshold,
+        governanceVotingDuration: context.aztecNodeConfig.governanceVotingDuration,
       },
     );
 
@@ -213,35 +208,35 @@ describe('multi-node/governance/add_rollup', () => {
     // so the deployRollupForUpgrade script can't mint tokens directly to the new portal.
     const newFeeJuicePortalAddress = await newRollup.getFeeJuicePortal();
     const feeAssetHandler = new FeeAssetHandlerContract(
-      t.ctx.deployL1ContractsValues.l1Client,
-      t.ctx.deployL1ContractsValues.l1ContractAddresses.feeAssetHandlerAddress!,
+      context.deployL1ContractsValues.l1Client,
+      context.deployL1ContractsValues.l1ContractAddresses.feeAssetHandlerAddress!,
     );
-    t.logger.info(`Fund the new FeeJuicePortal at ${newFeeJuicePortalAddress}`);
+    logger.info(`Fund the new FeeJuicePortal at ${newFeeJuicePortalAddress}`);
     await feeAssetHandler.setMintAmount(l1TxUtils, fundingNeeded);
     await feeAssetHandler.mint(l1TxUtils, newFeeJuicePortalAddress);
 
     const { address: newPayloadAddress } = await deployL1Contract(
-      t.ctx.deployL1ContractsValues.l1Client,
+      context.deployL1ContractsValues.l1Client,
       RegisterNewRollupVersionPayloadAbi,
       RegisterNewRollupVersionPayloadBytecode,
-      [t.ctx.deployL1ContractsValues.l1ContractAddresses.registryAddress.toString(), newRollup.address],
+      [context.deployL1ContractsValues.l1ContractAddresses.registryAddress.toString(), newRollup.address],
     );
 
     const govInfo = async () => {
-      const bn = await t.ctx.cheatCodes.eth.blockNumber();
+      const bn = await context.cheatCodes.eth.blockNumber();
       const slot = await rollup.getSlotNumber();
       const round = await governanceProposer.read.computeRound([BigInt(slot)]);
 
       const info = await governanceProposer.read.getRoundData([
-        t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
+        context.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
         round,
       ]);
       const leaderVotes = await governanceProposer.read.signalCount([
-        t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
+        context.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
         round,
         info.payloadWithMostSignals,
       ]);
-      t.logger.info(
+      logger.info(
         `Governance stats for round ${round} (Slot: ${slot}, BN: ${bn}). Leader: ${info.payloadWithMostSignals} have ${leaderVotes} signals`,
       );
       return { bn, slot, round, info, leaderVotes };
@@ -249,37 +244,22 @@ describe('multi-node/governance/add_rollup', () => {
 
     await waitL1Block();
 
-    t.logger.info('Creating nodes');
-    // REFACTOR: sleep(4000) below is a hand-rolled connectivity wait; replace with t.waitForP2PMeshConnectivity
-    nodes = await createNodes(
-      { ...t.ctx.aztecNodeConfig, governanceProposerPayload: newPayloadAddress },
-      t.ctx.dateProvider,
-      t.bootstrapNodeEnr,
-      NUM_VALIDATORS,
-      BOOT_NODE_UDP_PORT,
-      t.genesis,
-      DATA_DIR,
-      shouldCollectMetrics(),
+    logger.info('Creating nodes');
+    nodes = await Promise.all(
+      Array.from({ length: NUM_VALIDATORS }, (_, i) =>
+        test.createValidatorNodeAt(i, { governanceProposerPayload: newPayloadAddress }),
+      ),
     );
 
-    // create a prover node that uses p2p only (not rpc) to gather txs to test prover tx collection
-    t.logger.warn(`Creating prover node`);
-    ({ proverNode: proverAztecNode } = await createProverNode(
-      t.ctx.aztecNodeConfig,
-      BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 1,
-      t.bootstrapNodeEnr,
-      ATTESTER_PRIVATE_KEYS_START_INDEX + NUM_VALIDATORS + 1,
-      { dateProvider: t.ctx.dateProvider },
-      t.genesis,
-      `${DATA_DIR}-prover`,
-      shouldCollectMetrics(),
-    ));
+    // Create a prover node attached to the mock-gossip bus to gather txs and prove the chain.
+    logger.warn(`Creating prover node`);
+    proverAztecNode = await test.createProverNode();
 
     await sleep(4000);
 
-    t.logger.info('Start progressing time to cast votes');
+    logger.info('Start progressing time to cast votes');
     const quorumSize = await governanceProposer.read.QUORUM_SIZE();
-    t.logger.info(`Quorum size: ${quorumSize}, round size: ${await governanceProposer.read.ROUND_SIZE()}`);
+    logger.info(`Quorum size: ${quorumSize}, round size: ${await governanceProposer.read.ROUND_SIZE()}`);
 
     const bridging = async (
       node: AztecNodeService,
@@ -370,7 +350,7 @@ describe('multi-node/governance/add_rollup', () => {
         });
 
         // We need to advance to the next epoch so that the out hash will be set to outbox when the epoch is proven.
-        const cheatcodes = RollupCheatCodes.create(l1RpcUrls, l1ContractAddresses, t.ctx.dateProvider);
+        const cheatcodes = RollupCheatCodes.create(l1RpcUrls, l1ContractAddresses, context.dateProvider);
         const minedReceipt = await node.getTxReceipt(l2OutgoingReceipt.txHash);
         if (minedReceipt.epochNumber === undefined) {
           throw new Error('Outgoing tx is not yet in an epoch');
@@ -439,11 +419,11 @@ describe('multi-node/governance/add_rollup', () => {
 
     await bridging(
       nodes[0],
-      t.ctx.additionallyFundedAccounts[0],
-      t.ctx.deployL1ContractsValues.l1Client,
-      t.ctx.deployL1ContractsValues.l1ContractAddresses,
-      BigInt(t.ctx.aztecNodeConfig.rollupVersion),
-      t.ctx.aztecNodeConfig.l1RpcUrls,
+      fundedAccounts[0],
+      context.deployL1ContractsValues.l1Client,
+      context.deployL1ContractsValues.l1ContractAddresses,
+      BigInt(context.aztecNodeConfig.rollupVersion),
+      context.aztecNodeConfig.l1RpcUrls,
     );
 
     // REFACTOR: while(true) polling loop with sleep is hand-rolled; replace with retryUntil
@@ -453,18 +433,18 @@ describe('multi-node/governance/add_rollup', () => {
       if (govData.leaderVotes >= quorumSize) {
         break;
       }
-      await sleep(t.ctx.aztecNodeConfig.ethereumSlotDuration * t.ctx.aztecNodeConfig.aztecSlotDuration * 1000);
+      await sleep(context.aztecNodeConfig.ethereumSlotDuration * context.aztecNodeConfig.aztecSlotDuration * 1000);
     }
 
     const currentSlot2 = await rollup.getSlotNumber();
     const nextRoundSlot2 = SlotNumber.fromBigInt((BigInt(currentSlot2) / roundSize) * roundSize + roundSize);
     const nextRoundTimestamp2 = await rollup.getTimestampForSlot(nextRoundSlot2);
-    t.logger.info(`Warpping to ${nextRoundTimestamp2}`);
-    await t.ctx.cheatCodes.eth.warp(Number(nextRoundTimestamp2));
+    logger.info(`Warpping to ${nextRoundTimestamp2}`);
+    await context.cheatCodes.eth.warp(Number(nextRoundTimestamp2));
 
     await waitL1Block();
 
-    t.logger.info(`Executing proposal ${govData.round}`);
+    logger.info(`Executing proposal ${govData.round}`);
 
     await l1TxUtils.sendAndMonitorTransaction({
       to: governanceProposer.address,
@@ -474,35 +454,35 @@ describe('multi-node/governance/add_rollup', () => {
         args: [govData.round],
       }),
     });
-    t.logger.info(`Submitted winner for round ${govData.round}`);
+    logger.info(`Submitted winner for round ${govData.round}`);
 
     const proposal = await governance.read.getProposal([0n]);
 
     const timeToActive = proposal.creation + proposal.config.votingDelay;
-    t.logger.info(`Warping to ${timeToActive + 1n}`);
-    await t.ctx.cheatCodes.eth.warp(Number(timeToActive + 1n));
-    t.logger.info(`Warped to ${timeToActive + 1n}`);
+    logger.info(`Warping to ${timeToActive + 1n}`);
+    await context.cheatCodes.eth.warp(Number(timeToActive + 1n));
+    logger.info(`Warped to ${timeToActive + 1n}`);
     await waitL1Block();
 
-    t.logger.info(`Voting`);
+    logger.info(`Voting`);
     await rollup.vote(l1TxUtils, 0n);
-    t.logger.info(`Voted`);
+    logger.info(`Voted`);
 
     const timeToExecutable = timeToActive + proposal.config.votingDuration + proposal.config.executionDelay + 1n;
-    t.logger.info(`Warping to ${timeToExecutable}`);
-    await t.ctx.cheatCodes.eth.warp(Number(timeToExecutable));
-    t.logger.info(`Warped to ${timeToExecutable}`);
+    logger.info(`Warping to ${timeToExecutable}`);
+    await context.cheatCodes.eth.warp(Number(timeToExecutable));
+    logger.info(`Warped to ${timeToExecutable}`);
     await waitL1Block();
 
     const canonicalBefore = EthAddress.fromString(await registry.read.getCanonicalRollup());
     expect(canonicalBefore.equals(EthAddress.fromString(rollup.address))).toBe(true);
-    t.logger.info(`Canonical rollup is correct`);
+    logger.info(`Canonical rollup is correct`);
     const numberOfVersionsBefore = await registry.read.numberOfVersions();
-    t.logger.info(`Number of versions listed: ${numberOfVersionsBefore}`);
+    logger.info(`Number of versions listed: ${numberOfVersionsBefore}`);
     const attestersBeforeOld = await rollup.getAttesters();
     const attestersBeforeNew = await newRollup.getAttesters();
 
-    t.logger.info(`Executing proposal`);
+    logger.info(`Executing proposal`);
     await l1TxUtils.sendAndMonitorTransaction({
       to: governance.address,
       data: encodeFunctionData({
@@ -511,24 +491,20 @@ describe('multi-node/governance/add_rollup', () => {
         args: [0n],
       }),
     });
-    t.logger.info(`Executed proposal`);
+    logger.info(`Executed proposal`);
 
     const canonicalAfter = EthAddress.fromString(await registry.read.getCanonicalRollup());
     expect(canonicalAfter.equals(EthAddress.fromString(newRollup.address))).toBe(true);
     const numberOfVersionsAfter = await registry.read.numberOfVersions();
     expect(numberOfVersionsAfter).toBe(numberOfVersionsBefore + 1n);
-    t.logger.info(`Canonical rollup is correct`);
-    t.logger.info(`Number of versions listed: ${numberOfVersionsAfter}`);
-    t.logger.info(`Old rollup: ${rollup.address}. New Rollup: ${newRollup.address}`);
+    logger.info(`Canonical rollup is correct`);
+    logger.info(`Number of versions listed: ${numberOfVersionsAfter}`);
+    logger.info(`Old rollup: ${rollup.address}. New Rollup: ${newRollup.address}`);
 
     const attestersAfterOld = await rollup.getAttesters();
     const attestersAfterNew = await newRollup.getAttesters();
-    t.logger.info(
-      `Attesters old before: ${attestersBeforeOld.length}. Attesters old after: ${attestersAfterOld.length}`,
-    );
-    t.logger.info(
-      `Attesters new before: ${attestersBeforeNew.length}. Attesters new after: ${attestersAfterNew.length}`,
-    );
+    logger.info(`Attesters old before: ${attestersBeforeOld.length}. Attesters old after: ${attestersAfterOld.length}`);
+    logger.info(`Attesters new before: ${attestersBeforeNew.length}. Attesters new after: ${attestersAfterNew.length}`);
 
     // Stop the prover aztec node (which stops the prover subsystem).
     await proverAztecNode.stop();
@@ -537,71 +513,54 @@ describe('multi-node/governance/add_rollup', () => {
     for (let i = 0; i < NUM_VALIDATORS; i++) {
       const node = nodes[i];
       await node.stop();
-      t.logger.info(`Node ${i} stopped`);
+      logger.info(`Node ${i} stopped`);
     }
 
     await sleep(2500);
 
-    // Need to clear the bootnode, since it will otherwise provide stale data to the peers
-    await t.bootstrapNode?.stop();
-    await sleep(2500);
+    // On the mock-gossip bus there is no bootstrap node or peer discovery to flush — the new nodes simply
+    // re-attach to the same in-memory `MockGossipSubNetwork` once spawned.
 
-    // With all down, we make a time jump such that we ensure that we will be at a point where epochs are non-empty
-    // This is to avoid conflicts when the checkpoints are looking further back.
+    // With all down, we make a time jump such that we ensure that we will be at a point where epochs are
+    // non-empty. This is to avoid conflicts when the checkpoints are looking further back.
     const futureEpoch = EpochNumber.fromBigInt(500n + BigInt(await newRollup.getCurrentEpochNumber()));
-    const futureSlot = SlotNumber.fromBigInt(BigInt(futureEpoch) * BigInt(t.ctx.aztecNodeConfig.aztecEpochDuration));
+    const futureSlot = SlotNumber.fromBigInt(BigInt(futureEpoch) * BigInt(context.aztecNodeConfig.aztecEpochDuration));
     const time = await newRollup.getTimestampForSlot(futureSlot);
-    if (time > BigInt(await t.ctx.cheatCodes.eth.lastBlockTimestamp())) {
-      await t.ctx.cheatCodes.eth.warp(Number(time));
+    if (time > BigInt(await context.cheatCodes.eth.lastBlockTimestamp())) {
+      await context.cheatCodes.eth.warp(Number(time));
       await waitL1Block();
     }
 
-    await t.addBootstrapNode();
-    await sleep(2500);
-
     const newVersion = await newRollup.getVersion();
-    const addresses = await RegistryContract.collectAddresses(
-      t.ctx.deployL1ContractsValues.l1Client,
-      t.ctx.deployL1ContractsValues.l1ContractAddresses.registryAddress,
-      newVersion,
-    );
+    // The new rollup's L1 contract addresses (Inbox/Outbox/FeeJuicePortal) for the L1-side bridging txs.
+    // Nodes derive these themselves from `registryAddress` + `rollupVersion` (see the aztec-node factory),
+    // so the node/prover configs only need `rollupVersion` to repoint at the new rollup.
+    const newRollupAddresses: L1ContractAddresses = {
+      ...context.deployL1ContractsValues.l1ContractAddresses,
+      ...(await RegistryContract.collectAddresses(
+        context.deployL1ContractsValues.l1Client,
+        context.deployL1ContractsValues.l1ContractAddresses.registryAddress,
+        newVersion,
+      )),
+    };
 
-    // Set up shared blob storage for the new rollup using FileStore
+    // Config for the new rollup: same genesis as the context (so the fake prover, which runs on
+    // `context.genesis`, can prove the new rollup), pointed at the new rollup version.
     const newConfig = {
-      ...t.ctx.aztecNodeConfig,
-      dataDirectory: DATA_DIR_NEW,
       rollupVersion: Number(newVersion),
       governanceProposerPayload: EthAddress.ZERO,
-      l1Contracts: { ...t.ctx.deployL1ContractsValues.l1ContractAddresses, ...addresses },
     };
-    await setupSharedBlobStorage(newConfig);
 
     await sleep(4000);
 
-    nodes = await createNodes(
-      newConfig,
-      t.ctx.dateProvider,
-      t.bootstrapNodeEnr,
-      NUM_VALIDATORS,
-      BOOT_NODE_UDP_PORT,
-      genesis,
-      DATA_DIR_NEW,
-      shouldCollectMetrics(),
+    nodes = await Promise.all(
+      Array.from({ length: NUM_VALIDATORS }, (_, i) => test.createValidatorNodeAt(i, newConfig)),
     );
 
-    t.logger.warn(`Creating new prover node`);
-    ({ proverNode: proverAztecNode } = await createProverNode(
-      newConfig,
-      BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 1,
-      t.bootstrapNodeEnr,
-      ATTESTER_PRIVATE_KEYS_START_INDEX + NUM_VALIDATORS + 1,
-      { dateProvider: t.ctx.dateProvider },
-      genesis,
-      `${DATA_DIR_NEW}-prover`,
-      shouldCollectMetrics(),
-    ));
+    logger.warn(`Creating new prover node`);
+    proverAztecNode = await test.createProverNode({ rollupVersion: Number(newVersion) });
 
-    // wait a bit for peers to discover each other
+    // wait a bit for nodes to attach to the bus and sync
     await sleep(4000);
 
     // The new rollup should have no checkpoints
@@ -613,23 +572,23 @@ describe('multi-node/governance/add_rollup', () => {
     // exists. After warping ~500 epochs forward, txs anchored at genesis would expire before
     // being included. We poll the node's local view (not just the L1 rollup contract) so the PXE
     // and the assertion observe the same chain state.
-    t.logger.info(`Waiting for new rollup to publish its first checkpoint`);
+    logger.info(`Waiting for new rollup to publish its first checkpoint`);
     await retryUntil(
       async () => Number(await nodes[0].getCheckpointNumber('checkpointed')) > 0,
       'newRollup first checkpoint synced by node',
       300,
       2,
     );
-    t.logger.info(`New rollup published its first checkpoint`);
+    logger.info(`New rollup published its first checkpoint`);
 
     // Bridge into and out of the new rollup to ensure that it works.
     await bridging(
       nodes[0],
-      initialTestAccounts[0],
-      t.ctx.deployL1ContractsValues.l1Client,
-      newConfig.l1Contracts,
+      fundedAccounts[1],
+      context.deployL1ContractsValues.l1Client,
+      newRollupAddresses,
       BigInt(newConfig.rollupVersion),
-      newConfig.l1RpcUrls,
+      context.aztecNodeConfig.l1RpcUrls,
     );
 
     // Both rollups should have a checkpoint number greater than 0
