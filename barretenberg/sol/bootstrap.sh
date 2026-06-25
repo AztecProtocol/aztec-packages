@@ -19,7 +19,11 @@ function test_cmds {
 }
 
 function test_cmds_internal {
-    echo "cd barretenberg/sol && forge test --no-match-contract Base"
+    # Ensure solc is present via l1-contracts (the single owner of the retry-wrapped
+    # svm download) before invoking forge. Otherwise forge falls back to its own
+    # un-retried svm download, which intermittently fails to resolve
+    # binaries.soliditylang.org under parallel CI load and dequeues the merge train.
+    echo "cd l1-contracts && ./bootstrap.sh download_solc && cd ../barretenberg/sol && forge test --no-match-contract Base"
 }
 
 function build_sol {
