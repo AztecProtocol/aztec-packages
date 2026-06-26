@@ -507,6 +507,38 @@ describe('syncTaggedPrivateLogs', () => {
       );
       expect(lastCallTags).toEqual(expectedLastRange);
     });
+
+    it('resets the probe on the sync after a catch-up', async () => {
+      const [secret] = await makeSecrets(1, AppTaggingSecretKind.CONSTRAINED);
+      const finalizedBlockNumber = BlockNumber(10);
+      const logBlockTimestamp = CURRENT_TIMESTAMP - BigInt(MAX_TX_LIFETIME) - 1000n;
+
+      // A cold-start run long enough that the first sync grows the in-memory probe through [1, 2, 4, 8, 16]. The probe
+      // length lives only on the in-memory PendingSecret (never persisted), so the next sync must start fresh at the
+      // initial probe rather than inheriting the grown length.
+      const totalLogs = UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 2;
+      const logTags = await Promise.all(
+        Array.from({ length: totalLogs }, (_, i) => computeSiloedTagForIndex(secret, i)),
+      );
+      mockNodeWithLogs(logTags, Number(finalizedBlockNumber), logBlockTimestamp);
+
+      // First sync catches up the whole run; the cursor lands on the last index.
+      await syncTaggedPrivateLogs([secret], aztecNode, taggingStore, ANCHOR_BLOCK_HEADER, finalizedBlockNumber, JOB_ID);
+      expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBe(totalLogs - 1);
+
+      // Drop the catch-up's recorded calls (mockClear keeps the implementation; mockReset would not) so the next
+      // assertions see only the second sync.
+      aztecNode.getPrivateLogsByTags.mockClear();
+
+      // Second sync, no new logs: it must probe a single tag at cursor + 1, not the grown probe from the catch-up.
+      await syncTaggedPrivateLogs([secret], aztecNode, taggingStore, ANCHOR_BLOCK_HEADER, finalizedBlockNumber, JOB_ID);
+
+      const calls = aztecNode.getPrivateLogsByTags.mock.calls;
+      expect(calls).toHaveLength(1);
+      const probedTags = extractTags(calls[0][0]);
+      expect(probedTags).toHaveLength(INITIAL_CONSTRAINED_PROBE_LEN);
+      expect(probedTags).toEqual([await computeSiloedTagForIndex(secret, totalLogs)]);
+    });
   });
 
   describe('constrained vs unconstrained probing', () => {
