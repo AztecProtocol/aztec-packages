@@ -397,11 +397,22 @@
         },
         "reorgCount": {
           "type": ["integer", "null"],
-          "description": "Count of `Chain pruned` events during the run."
+          "description": "Number of DISTINCT PODS that experienced a pending-chain prune over the window, from the archiver prune_count metric (prune_type in uncheckpointed/l1_conflict/orphan). Counts pods, not events: a single straggler node re-syncing reads as 1, a network-wide reorg as many. Requires the prune_type-attributed metric (new image); reads 0 on older images, so cross-check against the chainPruned events array. Distinct from the raw `Chain pruned` log-event count, which conflates one node's repeated local prunes with a network reorg."
+        },
+        "prunesByType": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Total archiver prunes over the window by cause, summed across pods (so this counts prune events, while reorgCount counts pods). 'unproven' is the proven/epoch prune; the rest are pending-chain reorgs. Each value is null when the metric was unavailable.",
+          "properties": {
+            "unproven": { "type": ["number", "null"] },
+            "uncheckpointed": { "type": ["number", "null"] },
+            "l1_conflict": { "type": ["number", "null"] },
+            "orphan": { "type": ["number", "null"] }
+          }
         },
         "deepestReorgBlocks": {
           "type": ["integer", "null"],
-          "description": "Max (fromBlock - toBlock) across reorg events. 0 if no reorgs."
+          "description": "Max (fromBlock - toBlock) across `Chain pruned` log events. 0 if none. Log-derived (no depth metric), so this reflects the deepest local prune observed in logs."
         }
       }
     },
@@ -498,6 +509,9 @@
           "$ref": "#/$defs/timeSeries"
         },
         "attestationSuccessRate": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "pruneCountByType": {
           "$ref": "#/$defs/timeSeries"
         },
         "txCollectorTxsFromMempoolRate": {

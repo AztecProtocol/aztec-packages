@@ -583,6 +583,17 @@ const TIME_SERIES_DEFS: Record<string, TimeSeriesDef> = {
     unit: "tps",
     query: `sum(rate(aztec_validator_attestation_success_count${NS}[1m]))`,
   },
+  // Archiver prunes broken down by cause (prune_type). 'unproven' is the
+  // proven/epoch prune; 'uncheckpointed'/'l1_conflict'/'orphan' are pending-chain
+  // reorgs that move a node's proposed tip (world-state then logs "Chain pruned").
+  // Summed across pods, so a value here is the network-wide prune rate per cause;
+  // see summary.reorgCount for how many distinct pods diverged. Requires the
+  // prune_type-attributed metric (new image); empty on older images.
+  pruneCountByType: {
+    metric: "aztec_archiver_prune_count",
+    unit: "tps",
+    query: `sum by (aztec_archiver_prune_type)(rate(aztec_archiver_prune_count${NS}[1m]))`,
+  },
   checkpointBlockCountMean: {
     metric: "aztec_sequencer_checkpoint_block_count",
     unit: "count",
@@ -2013,6 +2024,33 @@ async function buildSummary(a: SummaryArgs): Promise<Record<string, unknown>> {
     return d > max ? d : max;
   }, 0);
 
+  // Pending-chain reorgs from the archiver prune_count metric, counted PER POD so
+  // a single straggler's local re-sync (one pod) is distinguishable from a
+  // network-wide reorg (many pods) — the deduped chainPruned log count conflates
+  // them. Pending-chain prune types are all except 'unproven' (the proven/epoch
+  // prune). Requires the prune_type-attributed metric (new image); on older
+  // images this reads 0 — cross-check against the chainPruned events.
+  const pendingPruneSelector = `aztec_archiver_prune_type=~"uncheckpointed|l1_conflict|orphan"`;
+  const reorgPodCount = await safeInstant(
+    `count(sum by (k8s_pod_name)(increase(aztec_archiver_prune_count{k8s_namespace_name="${NAMESPACE}",${pendingPruneSelector}}[${windowSpec}])) > 0)`,
+  );
+  const pruneTypes = [
+    "unproven",
+    "uncheckpointed",
+    "l1_conflict",
+    "orphan",
+  ] as const;
+  const pruneTypeTotals = await Promise.all(
+    pruneTypes.map((t) =>
+      safeInstant(
+        `sum(increase(aztec_archiver_prune_count{k8s_namespace_name="${NAMESPACE}",aztec_archiver_prune_type="${t}"}[${windowSpec}]))`,
+      ),
+    ),
+  );
+  const prunesByType = Object.fromEntries(
+    pruneTypes.map((t, i) => [t, pruneTypeTotals[i]]),
+  ) as Record<(typeof pruneTypes)[number], number | null>;
+
   return {
     headlineKpi:
       inclusionTpsMean === null ? null : inclusionTpsMean / a.targetTps,
@@ -2043,7 +2081,8 @@ async function buildSummary(a: SummaryArgs): Promise<Record<string, unknown>> {
     totalSilentSkipDurationMs: hasInclusionBlockRecords
       ? inclusionBlocks.reduce((s, b) => s + b.silentlySkippedDurationMs, 0)
       : null,
-    reorgCount: reorgs.length,
+    reorgCount: reorgPodCount ?? 0,
+    prunesByType,
     deepestReorgBlocks: deepest,
   };
 }
