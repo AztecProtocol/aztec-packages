@@ -22,6 +22,7 @@
 * **docs:** expand ATP and ATV on first use in registering-sequencer ([#23254](https://github.com/AztecProtocol/aztec-packages/issues/23254)) ([4f2bf86](https://github.com/AztecProtocol/aztec-packages/commit/4f2bf86d75))
 
 
+
 ## [4.3.1](https://github.com/AztecProtocol/aztec-packages/compare/v4.3.0...v4.3.1) (2026-06-03)
 
 
