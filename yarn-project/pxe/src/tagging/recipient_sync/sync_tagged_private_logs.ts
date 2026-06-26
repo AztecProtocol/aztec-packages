@@ -66,7 +66,8 @@ import { findHighestIndexes } from './utils/find_highest_indexes.js';
  *   ended and no further logs exist. We exploit this by probing only a small initial window
  *   (`INITIAL_CONSTRAINED_PROBE_LEN`) and doubling it each round (capped at the window) while every probed index has a
  *   log, stopping at the first miss. A steady-state sync with no new logs costs a single tag instead of the whole
- *   window, and a secret K logs behind catches up in ~log2(K) round-trips instead of one round per log.
+ *   window. A secret K logs behind catches up in ~log2(K) round-trips while the probe is still doubling, then linearly
+ *   at ~K/WINDOW_LEN rounds once the probe saturates the cap, still far below one round per log.
  * - The upper bound is the same as unconstrained: `highestFinalizedIndex + WINDOW_LEN`. Advancing the probe is
  *   decoupled from persisting the finalized cursor, so unfinalized logs at the top of the run are still fetched
  *   while only the finalized prefix is persisted.
@@ -255,9 +256,10 @@ async function processConstrainedResults(
       ? Math.max(pending.boundEnd, highestFinalizedIndex + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1)
       : pending.boundEnd;
 
-  // Double the probe each round so a secret K logs behind resolves in ~log2(K) round-trips instead of one per log. The
-  // queried range is already bounded by boundEnd (a probe can never reach more than WINDOW_LEN past the finalized
-  // frontier); the cap on the stored length just keeps it from growing unbounded once the probe saturates the window.
+  // Double the probe each round so catch-up costs ~log2(K) round-trips while the probe is still doubling, then
+  // ~K/WINDOW_LEN once it saturates the cap, far below one round per log either way. The queried range is already
+  // bounded by boundEnd (a probe can never reach more than WINDOW_LEN past the finalized frontier); the cap on the
+  // stored length just keeps it from growing unbounded once the probe saturates the window.
   const currentProbeLen = pending.probeLen ?? INITIAL_CONSTRAINED_PROBE_LEN;
   const nextProbeLen = Math.min(currentProbeLen * 2, UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN);
 

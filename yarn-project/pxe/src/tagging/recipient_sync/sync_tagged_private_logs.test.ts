@@ -441,11 +441,13 @@ describe('syncTaggedPrivateLogs', () => {
       );
     });
 
-    // Pins the effective per-round query cap for the doubling probe: it ramps 1, 2, 4, 8, 16 and then saturates at
-    // WINDOW_LEN (=20) per round rather than growing without bound, because a probe can never reach more than WINDOW_LEN
-    // past the finalized frontier (the `boundEnd` cap, which the stored-intent `Math.min` mirrors). With 100 new logs
-    // the per-round probe sizes are [1, 2, 4, 8, 16, 20, 20, 20, 20].
-    it('doubling caps the probe at WINDOW_LEN on deep catch-up', async () => {
+    // Pins the effective per-round query cap AND that deep catch-up is linear past the cap, not logarithmic: the probe
+    // ramps 1, 2, 4, 8, 16 (5 doubling rounds covering indexes 1..31), then saturates at WINDOW_LEN (=20) per round
+    // rather than growing without bound, because a probe can never reach more than WINDOW_LEN past the finalized frontier
+    // (the `boundEnd` cap, which the stored-intent `Math.min` mirrors). With 100 new logs the per-round probe sizes are
+    // [1, 2, 4, 8, 16, 20, 20, 20, 20]: 9 rounds (5 doubling + 4 capped windows), the linear regime the ~log2(K) claim is
+    // qualified against, where ~log2(100) would be roughly 7.
+    it('doubling caps the probe at WINDOW_LEN and grows linearly past the cap on deep catch-up', async () => {
       const [secret] = await makeSecrets(1, AppTaggingSecretKind.CONSTRAINED);
       const finalizedBlockNumber = BlockNumber(10);
       const agedTimestamp = CURRENT_TIMESTAMP - BigInt(MAX_TX_LIFETIME) - 1000n;
@@ -576,6 +578,92 @@ describe('syncTaggedPrivateLogs', () => {
       expect(probedTags).toHaveLength(INITIAL_CONSTRAINED_PROBE_LEN);
       expect(probedTags).toEqual([await computeSiloedTagForIndex(secret, totalLogs)]);
     });
+
+    // Pins the round-trip growth law the ~log2(K) claim is qualified against: catch-up is logarithmic only while the
+    // probe is still doubling (1, 2, 4, 8, 16 cover indexes 1..31 in 5 rounds), then linear at roughly one extra round
+    // per WINDOW_LEN window once the probe saturates the cap. Every round here queries fewer than MAX_RPC_LEN tags and
+    // at most one log per tag, so one sync round is exactly one RPC call.
+    it.each([
+      { newLogs: 1, expectedRounds: 2 }, // [1], then [2,3] finds the miss
+      { newLogs: 3, expectedRounds: 3 }, // [1], [2,3], [4..7] (miss at 4)
+      { newLogs: 20, expectedRounds: 5 }, // last doubling round [16..31] contains the miss
+      { newLogs: 50, expectedRounds: 6 }, // 5 doubling rounds reach 31, then 1 capped window
+      { newLogs: 100, expectedRounds: 9 }, // 5 doubling + 4 capped windows; ~log2(100) would be roughly 7
+    ])(
+      'catch-up round-trips grow logarithmically then linearly: K=$newLogs resolves in $expectedRounds rounds',
+      async ({ newLogs, expectedRounds }) => {
+        const [secret] = await makeSecrets(1, AppTaggingSecretKind.CONSTRAINED);
+        const finalizedBlockNumber = BlockNumber(10);
+        const agedTimestamp = CURRENT_TIMESTAMP - BigInt(MAX_TX_LIFETIME) - 1000n;
+
+        // Recipient already synced index 0; K new contiguous finalized logs sit at indexes 1..K.
+        await taggingStore.updateHighestFinalizedIndex(secret, 0, JOB_ID);
+        const hitTags = await Promise.all(
+          Array.from({ length: newLogs }, (_, i) => computeSiloedTagForIndex(secret, i + 1)),
+        );
+        mockNodeWithLogs(hitTags, Number(finalizedBlockNumber), agedTimestamp);
+
+        const logs = await syncTaggedPrivateLogs(
+          [secret],
+          aztecNode,
+          taggingStore,
+          ANCHOR_BLOCK_HEADER,
+          finalizedBlockNumber,
+          JOB_ID,
+        );
+
+        expect(logs).toHaveLength(newLogs);
+        expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBe(newLogs);
+        // One sync round is exactly one RPC call here, so the call count is the round-trip count.
+        expect(aztecNode.getPrivateLogsByTags.mock.calls).toHaveLength(expectedRounds);
+      },
+    );
+
+    // Pins the batched-round semantics under heterogeneous load: idle secrets each cost exactly one probe and drop out
+    // after the first round, while a single deep straggler alone drives the round count. Round-trips track the deepest
+    // secret (here probeSchedule(3) = 3 rounds, the same as a lone K=3 secret), NOT the idle count and NOT one round per
+    // log; tag-queries are the idle probes plus the straggler's doubling schedule. This is the unit-level analogue of the
+    // bench `mixed` scenario, which the bench (skipped in CI) cannot pin.
+    it('a single deep straggler among idle secrets sets the round count, not the idle count', async () => {
+      const idleSecrets = await makeSecrets(4, AppTaggingSecretKind.CONSTRAINED);
+      const [straggler] = await makeSecrets(1, AppTaggingSecretKind.CONSTRAINED);
+      const finalizedBlockNumber = BlockNumber(10);
+      const agedTimestamp = CURRENT_TIMESTAMP - BigInt(MAX_TX_LIFETIME) - 1000n;
+
+      // Idle secrets are caught up at index 5, so their next probe (index 6) misses and drops them after round 1. The
+      // straggler is at index 0 with 3 new contiguous logs at indexes 1..3.
+      const idleCursor = 5;
+      for (const secret of idleSecrets) {
+        await taggingStore.updateHighestFinalizedIndex(secret, idleCursor, JOB_ID);
+      }
+      await taggingStore.updateHighestFinalizedIndex(straggler, 0, JOB_ID);
+      const stragglerHits = await Promise.all([1, 2, 3].map(i => computeSiloedTagForIndex(straggler, i)));
+      mockNodeWithLogs(stragglerHits, Number(finalizedBlockNumber), agedTimestamp);
+
+      const logs = await syncTaggedPrivateLogs(
+        [...idleSecrets, straggler],
+        aztecNode,
+        taggingStore,
+        ANCHOR_BLOCK_HEADER,
+        finalizedBlockNumber,
+        JOB_ID,
+      );
+
+      // Only the straggler's logs are found; its cursor advances while the idle cursors are untouched.
+      expect(logs).toHaveLength(3);
+      expect(await taggingStore.getHighestFinalizedIndex(straggler, JOB_ID)).toBe(3);
+      for (const secret of idleSecrets) {
+        expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBe(idleCursor);
+      }
+
+      // 3 rounds = the straggler's doubling schedule; the 4 idle secrets add no rounds. Each round stays under
+      // MAX_RPC_LEN, so call count is round count. Round 1: 4 idle probes + straggler[1]; round 2: straggler[2,3];
+      // round 3: straggler[4..7] (terminating miss at 4).
+      const callSizes = aztecNode.getPrivateLogsByTags.mock.calls.map(([q]) => extractTags(q).length);
+      expect(callSizes).toEqual([5, 2, 4]);
+      // Total tag-queries: 4 idle probes + the straggler's (1 + 2 + 4) doubling probe = 11.
+      expect(callSizes.reduce((a, b) => a + b, 0)).toBe(11);
+    });
   });
 
   describe('constrained vs unconstrained probing', () => {
@@ -623,6 +711,45 @@ describe('syncTaggedPrivateLogs', () => {
         ),
       );
       expect(calledTags).toEqual(expectedTags);
+    });
+
+    it('cold start: constrained probes a single tag where unconstrained probes the full window', async () => {
+      const [constrained] = await makeSecrets(1, AppTaggingSecretKind.CONSTRAINED);
+      const [unconstrained] = await makeSecrets(1, AppTaggingSecretKind.UNCONSTRAINED);
+
+      aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) =>
+        Promise.resolve(query.tags.map(() => [])),
+      );
+
+      // Fresh secret, nothing stored. The constrained scan opens at the initial probe (a single tag at index 0); the
+      // unconstrained scan must cover the whole [0, WINDOW_LEN] window because gaps are possible. Same starting point,
+      // a single tag vs WINDOW_LEN + 1 tags: the headline of the optimization, at cold start as well as steady state.
+      await syncTaggedPrivateLogs([constrained], aztecNode, taggingStore, ANCHOR_BLOCK_HEADER, BlockNumber(10), JOB_ID);
+      const constrainedTags = extractTags(aztecNode.getPrivateLogsByTags.mock.calls[0][0]);
+      expect(constrainedTags).toEqual(
+        await Promise.all(
+          Array.from({ length: INITIAL_CONSTRAINED_PROBE_LEN }, (_, i) => computeSiloedTagForIndex(constrained, i)),
+        ),
+      );
+
+      aztecNode.getPrivateLogsByTags.mockClear();
+
+      await syncTaggedPrivateLogs(
+        [unconstrained],
+        aztecNode,
+        taggingStore,
+        ANCHOR_BLOCK_HEADER,
+        BlockNumber(10),
+        JOB_ID,
+      );
+      const unconstrainedTags = extractTags(aztecNode.getPrivateLogsByTags.mock.calls[0][0]);
+      expect(unconstrainedTags).toEqual(
+        await Promise.all(
+          Array.from({ length: UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1 }, (_, i) =>
+            computeSiloedTagForIndex(unconstrained, i),
+          ),
+        ),
+      );
     });
   });
 

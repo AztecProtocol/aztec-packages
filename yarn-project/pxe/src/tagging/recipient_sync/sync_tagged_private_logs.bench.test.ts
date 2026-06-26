@@ -42,9 +42,10 @@ import {
  *   slightly to cut round-trips). The floor is reported as the reduction baseline.
  * - `rpc-round-trips`: sequential blocking waits on the node (parallel `Promise.all` calls within a round count as one),
  *   via `BenchmarkedNodeFactory`. The latency axis: doubling grows the probe geometrically, so round-trips rise only
- *   ~log2(K) during catch-up while tag-queries stay near the floor. Depends only on K, not on secret count. A round's
- *   tags are chunked at MAX_RPC_LEN (=100) into parallel calls internally, but those overlap, so a wide round is still
- *   one round-trip; that is why round-trips, not raw call count, is the latency axis.
+ *   ~log2(K) while the probe is still doubling, then linearly at ~K/WINDOW_LEN once it saturates the cap, while
+ *   tag-queries stay near the floor. Depends only on K, not on secret count. A round's tags are chunked at MAX_RPC_LEN
+ *   (=100) into parallel calls internally, but those overlap, so a wide round is still one round-trip; that is why
+ *   round-trips, not raw call count, is the latency axis.
  * - `rpc-blocking-time`: measured wall-clock the caller blocks on the node, under a modeled `MODELED_NODE_RPC_LATENCY_MS`
  *   per call plus a little per-round overhead. Parallel calls within a round overlap, so it tracks round-trips (a
  *   1000-secret round is many parallel chunks but ~one round-trip of blocking time). Reported only (varies run to run).
@@ -294,9 +295,9 @@ describe('syncTaggedPrivateLogs constrained-sync bench', () => {
       // Pin behavior as an executable assertion, not just a printout. Timings are reported only (vary run to run).
       const perSecretNewLogs = newLogsPerSecret(scenario);
       if (scenario.kind === AppTaggingSecretKind.CONSTRAINED) {
-        // `probeSchedule` mirrors the real doubling scan: a secret K logs behind resolves in ~log2(K) round-trips at a
-        // little above the K + 1 tag floor. Tags are batched across all secrets per round, so the round-trip count is
-        // the deepest secret's.
+        // `probeSchedule` mirrors the real doubling scan: a secret K logs behind resolves in ~log2(K) round-trips while
+        // the probe is still doubling and ~K/WINDOW_LEN once it saturates the cap, at a little above the K + 1 tag floor.
+        // Tags are batched across all secrets per round, so the round-trip count is the deepest secret's.
         const sched = perSecretNewLogs.map(k => probeSchedule(k));
         expect(row.tagQueries).toBe(sched.reduce((sum, s) => sum + s.tags, 0));
         expect(row.rpcRoundTrips).toBe(Math.max(...sched.map(s => s.rounds)));
