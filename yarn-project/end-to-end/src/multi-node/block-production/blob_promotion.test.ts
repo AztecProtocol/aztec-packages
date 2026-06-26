@@ -3,9 +3,10 @@ import type { AztecNodeConfig } from '@aztec/aztec-node';
 import { Fr } from '@aztec/aztec.js/fields';
 import { waitForTx } from '@aztec/aztec.js/node';
 import { asyncMap } from '@aztec/foundation/async-map';
-import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { executeTimeout } from '@aztec/foundation/timer';
+import { getEpochAtSlot, getStartTimestampForEpoch } from '@aztec/stdlib/epoch-helpers';
 
 import type { TestWallet } from '../../test-wallet/test_wallet.js';
 import { proveAndSendTxs } from '../../test-wallet/utils.js';
@@ -18,8 +19,48 @@ import {
   waitForProvenCheckpoint,
 } from './setup.js';
 
-const PIPELINE_TX_COUNT = 34;
+// Exactly fills one checkpoint to `maxTxsPerCheckpoint` (24) below, building a single ~12-block
+// checkpoint. The assertions only need one checkpoint with `PIPELINE_EXPECTED_BLOCKS_PER_CHECKPOINT`
+// blocks plus node-0's blob fetch on that checkpoint's download, so sending a second checkpoint's
+// worth of txs (the old 34) just forces an extra ~72s build slot that nothing here checks.
+const PIPELINE_TX_COUNT = 24;
 const PIPELINE_EXPECTED_BLOCKS_PER_CHECKPOINT = 8;
+
+// Once block production stops at the single checkpoint we built, that checkpoint's epoch proof can only
+// be submitted on L1 once the proof-submission epoch begins (`aztecProofSubmissionEpochs` epochs after
+// the checkpoint's epoch); at the 72s/12s wide-slot cadence that boundary is several L1 blocks of dead
+// interval-mining away. The sequencers are idle for this stretch (`waitForProvenCheckpoint` stops them;
+// we stop them here first so none of them race the jump), so the fast-forward only skips empty time. We
+// warp the shared L1 clock (`TestDateProvider` is shared by the cheatcodes, the nodes and the prover, so
+// the warp moves everyone's view of L1 time) to one L1 block before the start of the proof-submission
+// epoch, then let the existing wait observe the boundary cross and the (mock) proof land organically.
+async function warpToProofSubmissionEpoch(fixture: BlockProductionWithProverFixture): Promise<void> {
+  const { test, context, logger, nodes } = fixture;
+
+  // Stop the sequencers before warping so none of them tries to propose into the skipped slots and
+  // records a sequencer failure (which `waitForProvenCheckpoint` would later flag). Stopping is
+  // idempotent, so `waitForProvenCheckpoint` re-stopping them afterwards is harmless.
+  await Promise.all(nodes.map(n => n.getSequencer()?.stop()));
+
+  const { slot } = test.epochCache.getEpochAndSlotNow();
+  const checkpointEpoch = getEpochAtSlot(slot, test.constants);
+  const proofEpoch = EpochNumber(Number(checkpointEpoch) + test.constants.proofSubmissionEpochs);
+  const targetTs = getStartTimestampForEpoch(proofEpoch, test.constants) - BigInt(test.L1_BLOCK_TIME_IN_S);
+  const currentTs = BigInt(await context.cheatCodes.eth.lastBlockTimestamp());
+
+  if (currentTs < targetTs) {
+    logger.warn(
+      `Warping L1 from ${currentTs} to ${targetTs} (1 L1 block before proof-submission epoch ${proofEpoch})`,
+      {
+        checkpointEpoch,
+        proofEpoch,
+        currentTs,
+        targetTs,
+      },
+    );
+    await context.cheatCodes.eth.warp(Number(targetTs), { resetBlockInterval: true });
+  }
+}
 
 // Blob/checkpoint promotion under stressed multi-block production: a node with promotion disabled
 // fetches blobs while promotion-enabled peers fetch zero (the getBlobSidecar spy), and a
@@ -174,7 +215,10 @@ describe('multi-node/block-production/blob_promotion', () => {
       }
     }
 
-    // Verify proving still works end-to-end with pipelined proposers under stressed production.
+    // Verify proving still works end-to-end with pipelined proposers under stressed production. Warp
+    // past the dead epoch-close stretch first so the proof becomes submittable without idling through
+    // the remaining empty slots.
+    await warpToProofSubmissionEpoch(fixture);
     await waitForProvenCheckpoint(fixture, multiBlockCheckpoint);
   });
 });
