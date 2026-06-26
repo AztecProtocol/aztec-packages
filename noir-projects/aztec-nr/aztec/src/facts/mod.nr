@@ -1,7 +1,10 @@
-//! Per-contract storage of immutable facts grouped into collections, backed by PXE's FactStore.
+//! Storage of immutable facts grouped into collections.
 //!
 //! A fact is a contract-defined, typed, immutable datum. Facts are grouped into collections identified by a
 //! `(collection type, collection id)` tuple.
+//!
+//! They are stored in PXE's FactStore, which automatically deals with reorgs by removing any facts
+//! associated with blocks that have been pruned.
 use crate::ephemeral::EphemeralArray;
 use crate::oracle::fact_store::{
     delete_fact_collection_oracle, get_fact_collection_oracle, get_fact_collections_by_type_oracle, record_fact_oracle,
@@ -18,8 +21,12 @@ pub struct OriginBlock {
 /// A single immutable fact in a collection.
 #[derive(Deserialize, Serialize)]
 pub struct Fact {
+    /// A user-defined identifier for fact kinds. Typically used to determine how to deserialize `payload`.
     pub fact_type_id: Field,
     pub payload: EphemeralArray<Field>,
+    /// The block the fact is associated to, if any. A fact with an origin block is said to be a 'retractable' fact,
+    /// and will be automatically deleted if its origin block gets pruned in a reorg. Typically used by facts
+    /// associated with a transaction (e.g. 'processed entry X using data from tx Y in block Z').
     pub origin_block: Option<OriginBlock>,
 }
 
@@ -28,7 +35,10 @@ pub struct Fact {
 pub struct FactCollection {
     pub contract_address: AztecAddress,
     pub scope: AztecAddress,
+    /// The collection's type. A single contract may have facts in collections of different types (e.g. one for the
+    /// processing offchain messages, another for partial notes, etc.).
     pub fact_collection_type_id: Field,
+    /// The collection's unique identifier among the other collections of this type in this contract and scope.
     pub fact_collection_id: Field,
     pub facts: EphemeralArray<Fact>,
 }
