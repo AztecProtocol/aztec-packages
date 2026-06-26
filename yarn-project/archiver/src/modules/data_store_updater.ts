@@ -80,9 +80,9 @@ export class ArchiverDataStoreUpdater {
         this.addContractDataToDb(block),
       ]);
 
-      await this.l2TipsCache?.refresh();
       return opResults.every(Boolean);
     });
+    await this.l2TipsCache?.refresh();
     return result;
   }
 
@@ -125,9 +125,9 @@ export class ArchiverDataStoreUpdater {
         ...newBlocks.map(block => this.addContractDataToDb(block)),
       ]);
 
-      await this.l2TipsCache?.refresh();
       return { prunedBlocks, lastAlreadyInsertedBlockNumber };
     });
+    await this.l2TipsCache?.refresh();
     return result;
   }
 
@@ -224,9 +224,9 @@ export class ArchiverDataStoreUpdater {
       }
 
       const result = await this.removeBlocksAfter(blockNumber);
-      await this.l2TipsCache?.refresh();
       return result;
     });
+    await this.l2TipsCache?.refresh();
     return result;
   }
 
@@ -257,7 +257,7 @@ export class ArchiverDataStoreUpdater {
    * @returns True if the operation is successful.
    */
   public async removeCheckpointsAfter(checkpointNumber: CheckpointNumber): Promise<boolean> {
-    return await this.store.transactionAsync(async () => {
+    const result = await this.store.transactionAsync(async () => {
       const { blocksRemoved = [] } = await this.store.removeCheckpointsAfter(checkpointNumber);
 
       const opResults = await Promise.all([
@@ -268,9 +268,10 @@ export class ArchiverDataStoreUpdater {
         this.store.deleteLogs(blocksRemoved),
       ]);
 
-      await this.l2TipsCache?.refresh();
       return opResults.every(Boolean);
     });
+    await this.l2TipsCache?.refresh();
+    return result;
   }
 
   /**
@@ -280,8 +281,8 @@ export class ArchiverDataStoreUpdater {
   public async setProvenCheckpointNumber(checkpointNumber: CheckpointNumber): Promise<void> {
     await this.store.transactionAsync(async () => {
       await this.store.setProvenCheckpointNumber(checkpointNumber);
-      await this.l2TipsCache?.refresh();
     });
+    await this.l2TipsCache?.refresh();
   }
 
   /**
@@ -291,8 +292,8 @@ export class ArchiverDataStoreUpdater {
   public async setFinalizedCheckpointNumber(checkpointNumber: CheckpointNumber): Promise<void> {
     await this.store.transactionAsync(async () => {
       await this.store.setFinalizedCheckpointNumber(checkpointNumber);
-      await this.l2TipsCache?.refresh();
     });
+    await this.l2TipsCache?.refresh();
   }
 
   /** Extracts and stores contract data from a single block. */

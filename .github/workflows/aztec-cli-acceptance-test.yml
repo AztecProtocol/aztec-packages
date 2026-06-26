@@ -18,7 +18,11 @@ on:
 
 jobs:
   release-acceptance:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false # Don't cancel the other OS if one fails.
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'workflow_run'
@@ -32,19 +36,24 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
-      # Node is only used to run the .ts harness in run-test.sh, which needs >=22.18 for TS
-      # type-stripping. The aztec CLI installer manages its own node version independently.
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
       - name: Run Aztec CLI acceptance test
         timeout-minutes: 30
         run: ./aztec-up/test/aztec-cli-acceptance-test/run-test.sh
 
+  notify:
+    needs: release-acceptance
+    if: (success() || failure()) && github.event_name != 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ github.event.inputs.version || github.event.workflow_run.head_branch }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
       - name: Notify Slack on success
-        if: success() && github.event_name != 'workflow_dispatch'
+        if: needs.release-acceptance.result == 'success'
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         run: |
@@ -54,7 +63,7 @@ jobs:
             "#team-fairies"
 
       - name: Notify Slack and dispatch ClaudeBox on failure
-        if: failure() && github.event_name != 'workflow_dispatch'
+        if: needs.release-acceptance.result == 'failure'
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}

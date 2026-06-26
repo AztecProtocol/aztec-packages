@@ -1,5 +1,28 @@
 # Changelog
 
+## [4.4.0](https://github.com/AztecProtocol/aztec-packages/compare/v4.3.1...v4.4.0) (2026-06-26)
+
+
+### Bug Fixes
+
+* **archiver:** harden v4 L2 tips cache refresh ([#24237](https://github.com/AztecProtocol/aztec-packages/issues/24237)) ([f1314b5](https://github.com/AztecProtocol/aztec-packages/commit/f1314b55fb))
+* **world-state:** backport archive root guard from [#24229](https://github.com/AztecProtocol/aztec-packages/issues/24229) ([#24240](https://github.com/AztecProtocol/aztec-packages/issues/24240)) ([b83df51](https://github.com/AztecProtocol/aztec-packages/commit/b83df512a3))
+* **archiver:** treat re-publish of preloaded protocol contracts as idempotent ([#24227](https://github.com/AztecProtocol/aztec-packages/issues/24227)) ([a99e47b](https://github.com/AztecProtocol/aztec-packages/commit/a99e47bab6))
+* **p2p:** guard ENR address parsing against malformed TCP fields (A-1255) ([#24215](https://github.com/AztecProtocol/aztec-packages/issues/24215)) ([0ab9a1a](https://github.com/AztecProtocol/aztec-packages/commit/0ab9a1ac14))
+* **archiver:** index zero-field logs under empty tag instead of throwing (A-1253) ([#24212](https://github.com/AztecProtocol/aztec-packages/issues/24212)) ([ba3aa5c](https://github.com/AztecProtocol/aztec-packages/commit/ba3aa5cb6a))
+* released contract artifact aztec version ([#23470](https://github.com/AztecProtocol/aztec-packages/issues/23470)) ([a2d104a](https://github.com/AztecProtocol/aztec-packages/commit/a2d104a1b4))
+* **release-image:** stamp aztec_version in published contract artifacts ([766d1db](https://github.com/AztecProtocol/aztec-packages/commit/766d1dbec9))
+* some mac install fixes ([#20630](https://github.com/AztecProtocol/aztec-packages/issues/20630)) ([385ec06](https://github.com/AztecProtocol/aztec-packages/commit/385ec06828))
+
+
+### Miscellaneous
+
+* **ci:** skip aztec-cli notify job when acceptance test is skipped ([#23534](https://github.com/AztecProtocol/aztec-packages/issues/23534)) ([c315242](https://github.com/AztecProtocol/aztec-packages/commit/c3152427ed))
+* **ci:** run aztec-cli acceptance test on macOS ([#23309](https://github.com/AztecProtocol/aztec-packages/issues/23309)) ([67d5103](https://github.com/AztecProtocol/aztec-packages/commit/67d51037c0))
+* **docs:** expand ATP and ATV on first use in registering-sequencer ([#23254](https://github.com/AztecProtocol/aztec-packages/issues/23254)) ([4f2bf86](https://github.com/AztecProtocol/aztec-packages/commit/4f2bf86d75))
+
+
+
 ## [4.3.1](https://github.com/AztecProtocol/aztec-packages/compare/v4.3.0...v4.3.1) (2026-06-03)
 
 
