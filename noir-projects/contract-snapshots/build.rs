@@ -15,10 +15,6 @@ const EXPAND_CASES: &[(&str, &str)] = &[
         "../noir-contracts/contracts/app/token_contract",
     ),
     (
-        "test_token_contract",
-        "../noir-contracts/contracts/test/test_token_contract",
-    ),
-    (
         "amm_contract",
         "../noir-contracts/contracts/app/amm_contract",
     ),
