@@ -19,7 +19,25 @@ import type {
 } from './interfaces.js';
 
 /** Subset of the block source the stream depends on. Checkpoint payloads are no longer fetched here. */
-type L2BlockStreamSource = Pick<L2BlockSource, 'getBlocks' | 'getBlockData' | 'getL2Tips'>;
+export type L2BlockStreamSource = Pick<L2BlockSource, 'getBlocks' | 'getBlockData' | 'getL2Tips'>;
+
+/** Options accepted by {@link L2BlockStream} and {@link EventDrivenL2BlockStream}. */
+export type L2BlockStreamOptions = {
+  pollIntervalMS?: number;
+  batchSize?: number;
+  startingBlock?: number;
+  /** Instead of downloading all blocks, only fetch the smallest subset that results in reliable reorg detection. */
+  skipFinalized?: boolean;
+  /** When true, checkpoint events will not be emitted. Blocks are still fetched but only blocks-added events are emitted. */
+  ignoreCheckpoints?: boolean;
+  /**
+   * When true, the block download loop is skipped entirely: `getBlocks` is never called and `blocks-added` is
+   * never emitted. Only the tip events (`chain-proposed`/`chain-checkpointed`/`chain-proven`/`chain-finalized`)
+   * and `chain-pruned` are emitted, driven by the `getL2Tips` snapshot. For consumers that track tips but never
+   * consume block payloads.
+   */
+  tipsOnly?: boolean;
+};
 
 /** Creates a stream of events for new blocks, chain tips updates, and reorgs, out of polling an archiver or a node. */
 export class L2BlockStream {
@@ -32,22 +50,7 @@ export class L2BlockStream {
     private localData: L2BlockStreamLocalDataProvider,
     private handler: L2BlockStreamEventHandler,
     private readonly log = createLogger('types:block_stream'),
-    private opts: {
-      pollIntervalMS?: number;
-      batchSize?: number;
-      startingBlock?: number;
-      /** Instead of downloading all blocks, only fetch the smallest subset that results in reliable reorg detection. */
-      skipFinalized?: boolean;
-      /** When true, checkpoint events will not be emitted. Blocks are still fetched but only blocks-added events are emitted. */
-      ignoreCheckpoints?: boolean;
-      /**
-       * When true, the block download loop is skipped entirely: `getBlocks` is never called and `blocks-added` is
-       * never emitted. Only the tip events (`chain-proposed`/`chain-checkpointed`/`chain-proven`/`chain-finalized`)
-       * and `chain-pruned` are emitted, driven by the `getL2Tips` snapshot. For consumers that track tips but never
-       * consume block payloads.
-       */
-      tipsOnly?: boolean;
-    } = {},
+    private opts: L2BlockStreamOptions = {},
   ) {
     if (opts.tipsOnly && (opts.startingBlock !== undefined || opts.batchSize !== undefined || opts.skipFinalized)) {
       throw new Error(

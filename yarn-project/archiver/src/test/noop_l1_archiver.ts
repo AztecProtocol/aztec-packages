@@ -16,6 +16,7 @@ import { mock } from 'jest-mock-extended';
 import { EventEmitter } from 'node:events';
 
 import { Archiver } from '../archiver.js';
+import { type L2BlockSourceUpdateDelta, emptyL2BlockSourceUpdateDelta } from '../modules/block_source_update_delta.js';
 import { ArchiverInstrumentation } from '../modules/instrumentation.js';
 import type { ArchiverL1Synchronizer } from '../modules/l1_synchronizer.js';
 import type { ArchiverDataStores } from '../store/data_stores.js';
@@ -43,8 +44,8 @@ class NoopL1Synchronizer implements FunctionsOf<ArchiverL1Synchronizer> {
   testEthereumNodeSynced(): Promise<void> {
     return Promise.resolve();
   }
-  syncFromL1(_initialSyncComplete: boolean): Promise<void> {
-    return Promise.resolve();
+  syncFromL1(_initialSyncComplete: boolean): Promise<L2BlockSourceUpdateDelta> {
+    return Promise.resolve(emptyL2BlockSourceUpdateDelta());
   }
 }
 

@@ -324,6 +324,7 @@ export type ArchiverEmitter = TypedEventEmitter<{
   [L2BlockSourceEvents.DescendentOfInvalidAttestationsCheckpointDetected]: (
     args: DescendentOfInvalidAttestationsCheckpointEvent,
   ) => void;
+  [L2BlockSourceEvents.L2BlockSourceUpdated]: (args: L2BlockSourceUpdatedEvent) => void;
 }>;
 export interface L2BlockSourceEventEmitter extends L2BlockSource {
   events: ArchiverEmitter;
@@ -376,6 +377,28 @@ export function makeL2CheckpointId(number: CheckpointNumber, hash: string): Chec
   return { number, hash };
 }
 
+function l2BlockIdEquals(a: L2BlockId, b: L2BlockId): boolean {
+  return a.number === b.number && a.hash === b.hash;
+}
+
+function l2TipIdEquals(a: L2TipId, b: L2TipId): boolean {
+  return (
+    l2BlockIdEquals(a.block, b.block) &&
+    a.checkpoint.number === b.checkpoint.number &&
+    a.checkpoint.hash === b.checkpoint.hash
+  );
+}
+
+/** Returns whether two {@link L2Tips} snapshots agree on every tier (proposed, checkpointed, proven, finalized). */
+export function l2TipsEqual(a: L2Tips, b: L2Tips): boolean {
+  return (
+    l2BlockIdEquals(a.proposed, b.proposed) &&
+    l2TipIdEquals(a.checkpointed, b.checkpointed) &&
+    l2TipIdEquals(a.proven, b.proven) &&
+    l2TipIdEquals(a.finalized, b.finalized)
+  );
+}
+
 const L2BlockIdSchema = z.object({
   number: BlockNumberSchema,
   hash: z.string(),
@@ -406,7 +429,27 @@ export enum L2BlockSourceEvents {
   InvalidAttestationsCheckpointDetected = 'invalidCheckpointDetected',
   CheckpointEquivocationDetected = 'checkpointEquivocationDetected',
   DescendentOfInvalidAttestationsCheckpointDetected = 'descendentOfInvalidAttestationsCheckpointDetected',
+  L2BlockSourceUpdated = 'l2BlockSourceUpdated',
 }
+
+/**
+ * Aggregate event emitted once per committed archiver sync pass that mutated local state. Carries the chain tips
+ * before and after the pass, and the blocks added (and optionally pruned) during it. Consumers compare `fromTips`
+ * and `toTips` to learn what moved; there is no separate `changed` section.
+ *
+ * This is an optimization signal that lets a block stream reconcile immediately on an archiver update rather than
+ * waiting for its next poll. Polling remains the correctness fallback, so a missed event only affects latency.
+ * `blocksAdded` are hydrated blocks already in hand from the sync pass (so a triggered sync can reuse them instead of
+ * re-reading the store); `blocksPruned` is best-effort and only populated from paths that already hold the pruned
+ * blocks.
+ */
+export type L2BlockSourceUpdatedEvent = {
+  type: 'l2BlockSourceUpdated';
+  fromTips: L2Tips;
+  toTips: L2Tips;
+  blocksAdded: readonly L2Block[];
+  blocksPruned?: readonly L2Block[];
+};
 
 export type L2BlockProvenEvent = {
   type: 'l2BlockProven';

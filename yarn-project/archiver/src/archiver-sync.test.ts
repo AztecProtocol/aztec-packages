@@ -20,7 +20,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { retryFastUntil } from '@aztec/foundation/retry';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { GENESIS_BLOCK_HEADER_HASH, L2BlockSourceEvents } from '@aztec/stdlib/block';
+import { GENESIS_BLOCK_HEADER_HASH, L2BlockSourceEvents, type L2BlockSourceUpdatedEvent } from '@aztec/stdlib/block';
 import type { ProposedCheckpointInput } from '@aztec/stdlib/checkpoint';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
@@ -2540,6 +2540,88 @@ describe('Archiver Sync', () => {
       expect(await archiver.getBlockNumber()).toEqual(checkpointTwoBlocks.at(-1)!.number);
       expect(await archiverStore.blocks.getProposedCheckpointByNumber(CheckpointNumber(2))).toBeDefined();
       expect(await archiverStore.blocks.getProposedCheckpointByNumber(CheckpointNumber(3))).toBeUndefined();
+    }, 15_000);
+  });
+
+  describe('aggregate block source update event', () => {
+    let updateSpy: jest.Mock;
+
+    beforeEach(() => {
+      updateSpy = jest.fn();
+      archiver.events.on(L2BlockSourceEvents.L2BlockSourceUpdated, updateSpy);
+    });
+
+    afterEach(() => {
+      archiver.events.off(L2BlockSourceEvents.L2BlockSourceUpdated, updateSpy);
+    });
+
+    it('emits a single aggregate event carrying fromTips, toTips and blocksAdded for a checkpoint sync', async () => {
+      const { checkpoint: cp1 } = await fake.addCheckpoint(CheckpointNumber(1), {
+        l1BlockNumber: 70n,
+        messagesL1BlockNumber: 60n,
+        numL1ToL2Messages: 3,
+      });
+      const lastBlock = cp1.blocks.at(-1)!.number;
+      fake.setL1BlockNumber(100n);
+
+      await archiver.syncImmediate();
+
+      expect(updateSpy).toHaveBeenCalledTimes(1);
+      const event = updateSpy.mock.calls[0][0] as L2BlockSourceUpdatedEvent;
+      // fromTips is the pre-pass genesis snapshot; toTips reflects the newly checkpointed chain.
+      expect(event.fromTips.proposed.number).toEqual(BlockNumber(0));
+      expect(event.toTips.proposed.number).toEqual(lastBlock);
+      expect(event.toTips.checkpointed.checkpoint.number).toEqual(CheckpointNumber(1));
+      expect(event.blocksAdded.map(b => b.number)).toEqual(cp1.blocks.map(b => b.number));
+      expect(event.blocksPruned).toBeUndefined();
+    });
+
+    it('emits no aggregate event on a fully-synced no-op pass', async () => {
+      await fake.addCheckpoint(CheckpointNumber(1), { l1BlockNumber: 70n, messagesL1BlockNumber: 60n });
+      fake.setL1BlockNumber(100n);
+      await archiver.syncImmediate();
+
+      updateSpy.mockClear();
+
+      // A second pass with no new L1 blocks and no queued blocks mutates nothing.
+      await archiver.syncImmediate();
+
+      expect(updateSpy).not.toHaveBeenCalled();
+    });
+
+    it('includes pruned blocks in the aggregate event when an L1 checkpoint conflicts with local blocks', async () => {
+      const { checkpoint: cp1 } = await fake.addCheckpoint(CheckpointNumber(1), { l1BlockNumber: 70n });
+      const cp1Archive = cp1.blocks.at(-1)!.archive;
+      fake.setL1BlockNumber(80n);
+      await archiver.syncImmediate();
+
+      // Local proposed blocks for checkpoint 2 that will conflict with the L1 checkpoint.
+      const provisionalBlocks = await fake.makeBlocks(CheckpointNumber(2), {
+        previousArchive: cp1Archive,
+        l1BlockNumber: 100n,
+      });
+      for (const block of provisionalBlocks) {
+        await archiver.addBlock(block);
+      }
+
+      // A different checkpoint 2 lands on L1, conflicting with the local provisional blocks.
+      const { checkpoint: differentCp2 } = await fake.addCheckpoint(CheckpointNumber(2), {
+        l1BlockNumber: 100n,
+        previousArchive: cp1Archive,
+      });
+      fake.setL1BlockNumber(101n);
+
+      updateSpy.mockClear();
+      await archiver.syncImmediate();
+
+      expect(updateSpy).toHaveBeenCalledTimes(1);
+      const event = updateSpy.mock.calls[0][0] as L2BlockSourceUpdatedEvent;
+      expect(event.blocksPruned?.map(b => b.number)).toEqual(
+        expect.arrayContaining(provisionalBlocks.map(b => b.number)),
+      );
+      expect(event.blocksAdded.map(b => b.number)).toEqual(
+        expect.arrayContaining(differentCp2.blocks.map(b => b.number)),
+      );
     }, 15_000);
   });
 });
