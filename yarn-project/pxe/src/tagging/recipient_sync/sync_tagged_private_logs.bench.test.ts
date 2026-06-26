@@ -71,7 +71,7 @@ const JOB_ID = 'bench-job';
 // The round-trip *count* is independent of this value; only `rpc-blocking-time` scales with it.
 const MODELED_NODE_RPC_LATENCY_MS = 5;
 
-/** One benchmark measurement in the GitHub-action benchmark JSON shape. */
+/** One benchmark measurement in the benchmark JSON shape. */
 type BenchResult = { name: string; value: number; unit: string };
 
 type Scenario = {

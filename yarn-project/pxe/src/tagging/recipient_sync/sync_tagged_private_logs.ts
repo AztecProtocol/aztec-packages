@@ -161,7 +161,7 @@ function getIndexRangesForSecrets(
           ? Math.min(boundEnd, start + INITIAL_CONSTRAINED_PROBE_LEN)
           : boundEnd;
 
-      // Only constrained secrets grow their probe round to round; unconstrained always scans the full window.
+      // Constrained-only: continued probes grow each round up to the window cap (see processConstrainedResults).
       const probeLen = secret.kind === AppTaggingSecretKind.CONSTRAINED ? INITIAL_CONSTRAINED_PROBE_LEN : undefined;
 
       return { secret, start, end, boundEnd, probeLen };
@@ -218,8 +218,8 @@ async function fetchLogsForSecrets(
 }
 
 /**
- * Processes fetched logs for a constrained secret. Constrained delivery guarantees contiguous index sequences,
- * so we scan from the start of the queried range and stop at the first missing index. Only `highestFinalizedIndex`
+ * Processes fetched logs for a constrained secret: persists the finalized cursor and advances the probe. See the
+ * "# Constrained secrets" section above for why the scan stops at the first missing index. Only `highestFinalizedIndex`
  * is tracked (no aged index).
  */
 async function processConstrainedResults(
@@ -230,8 +230,7 @@ async function processConstrainedResults(
   finalizedBlockNumber: BlockNumber,
   jobId: string,
 ): Promise<PendingSecret | undefined> {
-  // Find where the contiguous run of indexes ends. Constrained delivery guarantees there are no logs after the
-  // first gap, so all logs in the batch are within this prefix.
+  // Find where the contiguous run of indexes ends; all logs in the batch fall within this prefix.
   const indexesWithLogs = new Set(logsWithIndexes.map(l => l.taggingIndex));
   let firstMissingIndex = pending.start;
   while (firstMissingIndex < pending.end && indexesWithLogs.has(firstMissingIndex)) {
@@ -249,9 +248,7 @@ async function processConstrainedResults(
   // Advancing the probe is decoupled from persisting the cursor: keep scanning as long as the probe was entirely hits
   // (no gap) and there is room before the protocol bound, even if none of those hits is finalized yet. Gating this on
   // finalization would drop logs in unfinalized blocks, which sit at the top of the contiguous run. The bound
-  // re-anchors to any finalized index found this round. Because the stream is gapless, we only need to fetch up to the
-  // first missing tag, so the probe advances by the growth policy below (capped at the bound) rather than jumping to
-  // the full window.
+  // re-anchors to any finalized index found this round.
   const probeFullyConsumed = firstMissingIndex >= pending.end;
   const boundEnd =
     highestFinalizedIndex !== undefined
@@ -329,12 +326,11 @@ type PendingSecret = {
   secret: AppTaggingSecret;
   start: number;
   end: number;
-  // Highest index this secret may probe this sync (highest finalized index + WINDOW_LEN + 1, the protocol bound on how
-  // far ahead of finalized a log can sit). Distinct from `end`, which for constrained secrets advances by doubling the
-  // probe each round up to this bound.
+  // Exclusive upper bound on the indexes this secret may probe this sync (highest finalized index + WINDOW_LEN + 1, the
+  // protocol bound on how far ahead of finalized a log can sit). Constrained `end` grows toward it each round.
   boundEnd: number;
-  // Intended constrained probe length for the round that produced `end`; the next round doubles it (capped at
-  // WINDOW_LEN). Only set/read for constrained secrets - unconstrained secrets always scan the full window.
+  // Intended constrained probe length for the round that produced `end` (constrained-only). The queried span can be
+  // smaller when boundEnd caps it.
   probeLen?: number;
 };
 
