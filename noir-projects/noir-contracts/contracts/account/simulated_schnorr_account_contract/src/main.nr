@@ -59,7 +59,7 @@ pub contract SimulatedSchnorrAccount {
             self.context.side_effect_counter,
         );
 
-        // The real constructor delivers the key note with `MessageDelivery::onchain_constrained()`, and a
+        // The real constructor delivers the key note with `MessageDelivery::onchain_unconstrained()`, and a
         // first send bootstraps a handshake: a nested call to `HandshakeRegistry::non_interactive_handshake`
         // inserts a handshake note (note hash + initialization nullifier) and emits two logs (the note-delivery
         // log and the recipient discovery log), and the constrained send emits a chain nullifier. We reproduce
