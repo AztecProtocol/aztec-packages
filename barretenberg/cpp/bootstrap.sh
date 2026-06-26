@@ -239,6 +239,16 @@ function build {
   fi
 }
 
+function chonk_pinned_inputs_apply_to_repo {
+  local github_repository="${GITHUB_REPOSITORY:-}"
+
+  # The pinned inputs are generated from the public aztec-packages circuits.
+  # Private forks can intentionally carry divergent circuits, so do not run
+  # these checks there unless a developer invokes them directly with no repo
+  # context set.
+  [[ -z "$github_repository" || "${github_repository,,}" == "aztecprotocol/aztec-packages" ]]
+}
+
 function test_cmds_native {
   # E.g. build, build-debug or build-coverage
   cd $native_build_dir
@@ -273,8 +283,10 @@ function test_cmds_native {
       done || (echo "Failed to list tests in $bin" && exit 1)
   done
 
-  echo "$hash:CPUS=8:MEM=32g:TIMEOUT=20m barretenberg/cpp/scripts/run_test.sh bbapi_tests ChonkPinnedIvcInputsTest.AllPinnedFlows"
-  echo "$hash barretenberg/cpp/scripts/chonk_inputs.sh check"
+  if chonk_pinned_inputs_apply_to_repo; then
+    echo "$hash:CPUS=8:MEM=32g:TIMEOUT=20m barretenberg/cpp/scripts/run_test.sh bbapi_tests ChonkPinnedIvcInputsTest.AllPinnedFlows"
+    echo "$hash barretenberg/cpp/scripts/chonk_inputs.sh check"
+  fi
 }
 
 function test_cmds_wasm_threads {
