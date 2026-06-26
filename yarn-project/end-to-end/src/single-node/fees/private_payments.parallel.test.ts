@@ -9,17 +9,17 @@ import { TX_ERROR_INSUFFICIENT_FEE_PAYER_BALANCE } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 
-import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
-import { expectMapping } from '../fixtures/utils.js';
-import type { TestWallet } from '../test-wallet/test_wallet.js';
-import { proveInteraction } from '../test-wallet/utils.js';
+import { PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
+import { expectMapping } from '../../fixtures/utils.js';
+import type { TestWallet } from '../../test-wallet/test_wallet.js';
+import { proveInteraction } from '../../test-wallet/utils.js';
 import { FeesTest } from './fees_test.js';
 
 // Private fee payment via BananaCoin FPC (PrivateFeePaymentMethod). Uses FeesTest (prod sequencer,
 // pipelining preset: ethSlot=4s, aztecSlot=12s, inboxLag=2, minTxsPerBlock=0, aztecEpochDuration=4,
 // aztecProofSubmissionEpochs=640), fake in-proc prover node, and GasBridgingTestHarness for L1↔L2
 // fee-juice bridging. Auto-proving is disabled after setup so tests control epoch advancement.
-describe('e2e_fees private_payment', () => {
+describe('single-node/fees/private_payments', () => {
   // FeesTest.setup + applyFPCSetup + applyFundAliceWithBananas chains many dependent txs which run at the
   // ~24s/tx pipelined cadence, exceeding the default 5 min hook window.
   jest.setTimeout(900_000);

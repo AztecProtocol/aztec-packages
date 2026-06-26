@@ -17,8 +17,8 @@ import { Gas, GasSettings } from '@aztec/stdlib/gas';
 
 import { jest } from '@jest/globals';
 
-import { PIPELINING_SETUP_OPTS, getPaddedMaxFeesPerGas } from '../fixtures/fixtures.js';
-import type { TestWallet } from '../test-wallet/test_wallet.js';
+import { PIPELINING_SETUP_OPTS, getPaddedMaxFeesPerGas } from '../../fixtures/fixtures.js';
+import type { TestWallet } from '../../test-wallet/test_wallet.js';
 import { FeesTest } from './fees_test.js';
 
 // FeesTest.setup + applyFundAliceWithBananas + applyFPCSetup chains many dependent txs which run at the
@@ -28,7 +28,7 @@ jest.setTimeout(15 * 60 * 1000);
 // Fee payment during account contract initialization. Uses FeesTest (prod sequencer, pipelining preset:
 // ethSlot=4s, aztecSlot=12s, inboxLag=2, minTxsPerBlock=0), 1 account, fake in-proc prover node, and
 // GasBridgingTestHarness for L1↔L2 fee-juice bridging via FeeJuicePortal.
-describe('e2e_fees account_init', () => {
+describe('single-node/fees/account_init', () => {
   const t = new FeesTest('account_init', 1);
 
   beforeAll(async () => {

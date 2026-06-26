@@ -7,8 +7,8 @@ import { GasSettings } from '@aztec/stdlib/gas';
 
 import { jest } from '@jest/globals';
 
-import { PIPELINING_SETUP_OPTS, getPaddedMaxFeesPerGas } from '../fixtures/fixtures.js';
-import { expectMapping } from '../fixtures/utils.js';
+import { PIPELINING_SETUP_OPTS, getPaddedMaxFeesPerGas } from '../../fixtures/fixtures.js';
+import { expectMapping } from '../../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
 
 // Sponsored fee payment via SponsoredFPC (SponsoredFeePaymentMethod). Uses FeesTest (prod sequencer,
@@ -16,7 +16,7 @@ import { FeesTest } from './fees_test.js';
 // node, and GasBridgingTestHarness for L1↔L2 fee-juice bridging (the SponsoredFPC is funded at
 // genesis via fundSponsoredFPC; the test exercises the sponsored path where the user pays no fee juice
 // directly). Also used as a code snippet in the documentation (docs:start/end:sponsored_fpc_simple).
-describe('e2e_fees sponsored_public_payment', () => {
+describe('single-node/fees/sponsored_payments', () => {
   // FeesTest.setup + applySponsoredFPCSetup + applyFundAliceWithBananas chains many dependent txs which run
   // at the ~24s/tx pipelined cadence, exceeding the default 5 min hook window.
   jest.setTimeout(15 * 60 * 1000);

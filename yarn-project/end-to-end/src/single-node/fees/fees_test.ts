@@ -1,11 +1,10 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
-import { type Logger, createLogger } from '@aztec/aztec.js/log';
+import { createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { CheatCodes, getTokenAllowedSetupFunctions } from '@aztec/aztec/testing';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
-import { RollupContract } from '@aztec/ethereum/contracts';
+import type { RollupContract } from '@aztec/ethereum/contracts';
 import type { DeployAztecL1ContractsArgs } from '@aztec/ethereum/deploy-aztec-l1-contracts';
-import { ChainMonitor } from '@aztec/ethereum/test';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
@@ -23,18 +22,16 @@ import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
 import { getContract } from 'viem';
 
-import { L1_DIRECT_WRITE_ACCOUNT_INDEX, MNEMONIC, getPaddedMaxFeesPerGas } from '../fixtures/fixtures.js';
+import { L1_DIRECT_WRITE_ACCOUNT_INDEX, MNEMONIC, getPaddedMaxFeesPerGas } from '../../fixtures/fixtures.js';
+import { type SetupOptions, ensureAuthRegistryPublished, setup } from '../../fixtures/setup.js';
+import { mintTokensToPrivate } from '../../fixtures/token_utils.js';
+import { type BalancesFn, getBalancesFn, setupSponsoredFPC } from '../../fixtures/utils.js';
 import {
-  type EndToEndContext,
-  type SetupOptions,
-  ensureAuthRegistryPublished,
-  setup,
-  teardown,
-} from '../fixtures/setup.js';
-import { mintTokensToPrivate } from '../fixtures/token_utils.js';
-import { type BalancesFn, getBalancesFn, setupSponsoredFPC } from '../fixtures/utils.js';
-import { FeeJuicePortalTestingHarnessFactory, type GasBridgingTestHarness } from '../shared/gas_portal_test_harness.js';
-import { TestWallet } from '../test-wallet/test_wallet.js';
+  FeeJuicePortalTestingHarnessFactory,
+  type GasBridgingTestHarness,
+} from '../../shared/gas_portal_test_harness.js';
+import { TestWallet } from '../../test-wallet/test_wallet.js';
+import { SingleNodeTestContext, type SingleNodeTestOpts } from '../single_node_test_context.js';
 
 /**
  * Test fixture for testing fees. Provides the following setup steps:
@@ -45,12 +42,15 @@ import { TestWallet } from '../test-wallet/test_wallet.js';
  * SponsoredFPCSetup: Deploys Sponsored FPC contract, and bridges gas from L1.
  * FundAlice: Mints private and public bananas to Alice.
  * SetupSubscription: Deploys a counter contract and a subscription contract, and mints Fee Juice to the subscription contract.
+ *
+ * The fee-domain harness over the single-node topology: extends {@link SingleNodeTestContext} so it
+ * reuses the base node tracking / chain monitor / teardown machinery, but builds its environment with
+ * the bespoke fee opts below (prover node, sponsored-FPC funding, token allowlist) rather than the
+ * base's default node config, and layers the fee-domain setup (FPC, fee juice, banana token) on top.
  */
-export class FeesTest {
+export class FeesTest extends SingleNodeTestContext {
   private accounts: AztecAddress[] = [];
-  public context!: EndToEndContext;
 
-  public logger: Logger;
   public aztecNode!: AztecNode;
   public aztecNodeAdmin!: AztecNodeAdmin;
   public cheatCodes!: CheatCodes;
@@ -65,6 +65,7 @@ export class FeesTest {
 
   public gasSettings!: GasSettings;
 
+  /** The base's {@link SingleNodeTestContext.rollup}, exposed under the fee suite's historical name. */
   public rollupContract!: RollupContract;
 
   public feeJuiceContract!: FeeJuiceContract;
@@ -74,8 +75,6 @@ export class FeesTest {
   public counterContract!: CounterContract;
   public subscriptionContract!: AppSubscriptionContract;
   public feeJuiceBridgeTestHarness!: GasBridgingTestHarness;
-
-  public chainMonitor!: ChainMonitor;
 
   public getCoinbaseBalance!: () => Promise<bigint>;
   public getCoinbaseSequencerRewards!: () => Promise<bigint>;
@@ -90,24 +89,28 @@ export class FeesTest {
   public readonly SUBSCRIPTION_AMOUNT = BigInt(1e19);
   public readonly APP_SPONSORED_TX_GAS_LIMIT = BigInt(10e9);
 
+  private testName: string;
+
   constructor(
     testName: string,
     private numberOfAccounts = 3,
     private setupOptions: Partial<SetupOptions & DeployAztecL1ContractsArgs> = {},
   ) {
+    super();
     if (!numberOfAccounts) {
       throw new Error('There must be at least 1 initial account.');
     }
     setupOptions.coinbase ??= EthAddress.random();
     this.coinbase = setupOptions.coinbase!;
+    this.testName = testName;
     this.logger = createLogger(`e2e:e2e_fees:${testName}`);
   }
 
-  async setup(opts: Partial<SetupOptions> = {}) {
+  override async setup(opts: SingleNodeTestOpts = {}) {
     this.logger.verbose('Setting up fresh context...');
     // Token allowlist entries are test-only: FPC-based fee payment with custom tokens won't work on mainnet alpha.
     const tokenAllowList = await getTokenAllowedSetupFunctions();
-    this.context = await setup(this.numberOfAccounts, {
+    const context = await setup(this.numberOfAccounts, {
       startProverNode: true,
       ...this.setupOptions,
       ...opts,
@@ -116,17 +119,14 @@ export class FeesTest {
       txPublicSetupAllowListExtend: [...(this.setupOptions.txPublicSetupAllowListExtend ?? []), ...tokenAllowList],
     });
 
-    this.rollupContract = RollupContract.getFromConfig(this.context.config);
-    this.chainMonitor = new ChainMonitor(this.rollupContract, this.context.dateProvider, this.logger, 200).start();
+    // Reuse the base context machinery (rollup, epoch cache, chain monitor, node tracking, teardown)
+    // over the environment built above. Restore the FeesTest-named logger afterwards, since
+    // hydrateFromContext repoints `this.logger` at the context logger.
+    await this.hydrateFromContext(context);
+    this.logger = createLogger(`e2e:e2e_fees:${this.testName}`);
+    this.rollupContract = this.rollup;
 
     await this.applyBaseSetup();
-
-    return this;
-  }
-
-  async teardown() {
-    await this.chainMonitor.stop();
-    await teardown(this.context);
   }
 
   async catchUpProvenChain() {

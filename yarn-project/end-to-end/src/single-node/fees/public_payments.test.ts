@@ -8,14 +8,14 @@ import { GasSettings } from '@aztec/stdlib/gas';
 
 import { jest } from '@jest/globals';
 
-import { PIPELINING_SETUP_OPTS, getPaddedMaxFeesPerGas } from '../fixtures/fixtures.js';
-import { expectMapping } from '../fixtures/utils.js';
+import { PIPELINING_SETUP_OPTS, getPaddedMaxFeesPerGas } from '../../fixtures/fixtures.js';
+import { expectMapping } from '../../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
 
 // Public fee payment via BananaCoin FPC (PublicFeePaymentMethod). Uses FeesTest (prod sequencer,
 // pipelining preset: ethSlot=4s, aztecSlot=12s, inboxLag=2, minTxsPerBlock=0), fake in-proc prover
 // node, and GasBridgingTestHarness for L1↔L2 fee-juice bridging (the FPC setup bridges fee juice).
-describe('e2e_fees public_payment', () => {
+describe('single-node/fees/public_payments', () => {
   // FeesTest.setup + applyFPCSetup + applyFundAliceWithBananas chains many dependent txs which run
   // at the ~24s/tx pipelined cadence, exceeding the default 5 min hook window.
   jest.setTimeout(15 * 60 * 1000);

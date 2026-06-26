@@ -11,9 +11,9 @@ import { TX_ERROR_INSUFFICIENT_FEE_PER_GAS } from '@aztec/stdlib/tx';
 import { jest } from '@jest/globals';
 import { inspect } from 'util';
 
-import { DEFAULT_MIN_FEE_PADDING } from '../fixtures/fixtures.js';
-import type { TestWallet } from '../test-wallet/test_wallet.js';
-import { proveInteraction } from '../test-wallet/utils.js';
+import { DEFAULT_MIN_FEE_PADDING } from '../../fixtures/fixtures.js';
+import type { TestWallet } from '../../test-wallet/test_wallet.js';
+import { proveInteraction } from '../../test-wallet/utils.js';
 import { FeesTest } from './fees_test.js';
 
 // Fee oracle and wallet fee-padding behaviour under L1 base-fee spikes and governance fee-config bumps.
@@ -22,7 +22,7 @@ import { FeesTest } from './fees_test.js';
 // No token bridging involved — all L1 interaction is L1 base-fee cheat codes and Rollup oracle calls.
 // (Category: single-node despite using FeesTest, since no cross-chain token transfer or fee-juice
 // portal bridging occurs in any test body — L1 is active only for oracle updates.)
-describe('e2e_fees fee settings', () => {
+describe('single-node/fees/fee_settings', () => {
   let aztecNode: AztecNode;
   let cheatCodes: CheatCodes;
   let aliceAddress: AztecAddress;

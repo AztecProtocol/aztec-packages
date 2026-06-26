@@ -16,16 +16,16 @@ import { ExecutionPayload } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 
-import { PIPELINING_SETUP_OPTS, U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
-import { ensureAuthRegistryPublished } from '../fixtures/setup.js';
-import { expectMapping } from '../fixtures/utils.js';
+import { PIPELINING_SETUP_OPTS, U128_UNDERFLOW_ERROR } from '../../fixtures/fixtures.js';
+import { ensureAuthRegistryPublished } from '../../fixtures/setup.js';
+import { expectMapping } from '../../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
 
 // Fee behaviour when transactions revert. Uses FeesTest (prod sequencer, pipelining preset:
 // ethSlot=4s, aztecSlot=12s, inboxLag=2, minTxsPerBlock=0, aztecEpochDuration=4,
 // aztecProofSubmissionEpochs=640), fake in-proc prover node, and GasBridgingTestHarness for
 // L1↔L2 fee-juice bridging. Auto-proving is disabled after setup so tests control proving themselves.
-describe('e2e_fees failures', () => {
+describe('single-node/fees/failures', () => {
   // FeesTest.setup + applyFPCSetup chains many dependent txs which run at the
   // ~24s/tx pipelined cadence, exceeding the default 5 min hook window.
   jest.setTimeout(900_000);

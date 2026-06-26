@@ -8,14 +8,14 @@ import type { GasSettings } from '@aztec/stdlib/gas';
 
 import { jest } from '@jest/globals';
 
-import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
-import type { TestWallet } from '../test-wallet/test_wallet.js';
+import { PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
+import type { TestWallet } from '../../test-wallet/test_wallet.js';
 import { FeesTest } from './fees_test.js';
 
 // Direct Fee Juice payment flows. Uses FeesTest (prod sequencer, pipelining preset: ethSlot=4s,
 // aztecSlot=12s, inboxLag=2, minTxsPerBlock=0), 1 account (Alice), fake in-proc prover node, and
 // GasBridgingTestHarness for L1↔L2 fee-juice bridging. Bob's account is pre-deployed by Alice.
-describe('e2e_fees Fee Juice payments', () => {
+describe('single-node/fees/fee_juice_payments', () => {
   // FeesTest.setup + applyFundAliceWithBananas chains many dependent txs which run at the
   // ~24s/tx pipelined cadence, exceeding the default 5 min hook window.
   jest.setTimeout(15 * 60 * 1000);

@@ -21,7 +21,7 @@ import { getGasLimits } from '@aztec/wallet-sdk/base-wallet';
 import { jest } from '@jest/globals';
 import { inspect } from 'util';
 
-import { PIPELINING_SETUP_OPTS, getPaddedMaxFeesPerGas } from '../fixtures/fixtures.js';
+import { PIPELINING_SETUP_OPTS, getPaddedMaxFeesPerGas } from '../../fixtures/fixtures.js';
 import { FeesTest } from './fees_test.js';
 
 /**
@@ -57,7 +57,7 @@ function waitForSequencerIdle(sequencer: Sequencer, timeout = 30000): Promise<vo
 // Gas estimation accuracy and FPC teardown gas prediction. Uses FeesTest (prod sequencer, pipelining
 // preset: ethSlot=4s, aztecSlot=12s, inboxLag=2, minTxsPerBlock=0), fake in-proc prover node, and
 // GasBridgingTestHarness for L1↔L2 fee-juice bridging (the FPC setup bridges fee juice to BananaFPC).
-describe('e2e_fees gas_estimation', () => {
+describe('single-node/fees/gas_estimation', () => {
   // FeesTest.setup + applyFPCSetup + applyFundAliceWithBananas chains many dependent txs which run
   // at the pipelined cadence, exceeding the default 5 min hook window.
   jest.setTimeout(900_000);

@@ -8,7 +8,7 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { jest } from '@jest/globals';
 import type { Hex } from 'viem';
 
-import type { TestWallet } from '../test-wallet/test_wallet.js';
+import type { TestWallet } from '../../test-wallet/test_wallet.js';
 import { FeesTest } from './fees_test.js';
 
 jest.setTimeout(300_000);
@@ -19,7 +19,7 @@ jest.setTimeout(300_000);
 // site in the codebase; keeping the file as reference for the original race scenario. Uses FeesTest
 // with prod sequencer (ethSlot=4s, aztecSlot=8s, inboxLag default, minTxsPerBlock=0) and
 // GasBridgingTestHarness for L1↔L2 fee-juice bridging. Single account, fake in-proc prover node.
-describe('e2e_fees bridging_race', () => {
+describe('single-node/fees/bridging_race', () => {
   const ETHEREUM_SLOT_DURATION = 4;
   const AZTEC_SLOT_DURATION = ETHEREUM_SLOT_DURATION * 2;
 
@@ -65,7 +65,7 @@ describe('e2e_fees bridging_race', () => {
     const origApprove = l1TokenManager.approve.bind(l1TokenManager);
     l1TokenManager.approve = async (amount: bigint, address: Hex, addressName = '') => {
       await origApprove(amount, address, addressName);
-      const sleepTime = (Number(t.chainMonitor.checkpointTimestamp) + AZTEC_SLOT_DURATION) * 1000 - Date.now() - 500;
+      const sleepTime = (Number(t.monitor.checkpointTimestamp) + AZTEC_SLOT_DURATION) * 1000 - Date.now() - 500;
       logger.info(`Sleeping for ${sleepTime}ms until near end of L2 slot before sending L1 fee juice to L2 inbox`);
       // REFACTOR: hand-rolled slot-boundary sleep; replace with a timing helper that derives the remaining
       // slot time from the chain monitor's slot boundaries rather than computing it inline.
