@@ -33,8 +33,15 @@ import { getPrivateKeyFromIndex } from '../../fixtures/utils.js';
 import { setupBlockProducer } from '../setup.js';
 import type { SingleNodeTestContext } from '../single_node_test_context.js';
 
-const ETHEREUM_SLOT_DURATION = 8;
-const AZTEC_SLOT_DURATION = 16;
+// Halved from the legacy 8s/16s to the FAST_REORG cadence (eth=4s, L2=8s, ratio 2). The whole body is
+// real production-sequencer block-building on real interval mining (warp does not help — the sequencer
+// needs real wall-clock per slot), so cutting the slot duration is the only lever and scales every wait
+// below. eth<8 also drops the sequencer onto the fast-profile budgets, which still fit one checkpoint per
+// 8s slot (one tx + one governance signal per slot is all this test needs). Safe here because there are no
+// proving/reorg deadlines (aztecProofSubmissionEpochs:128, no prover node) — only vote-count and
+// block-production assertions, both of which are independent of the absolute slot length.
+const ETHEREUM_SLOT_DURATION = 4;
+const AZTEC_SLOT_DURATION = 8;
 const TXS_PER_BLOCK = 1;
 const ROUND_SIZE = 2;
 const QUORUM_SIZE = 2;
@@ -118,10 +125,13 @@ describe('single-node/sequencer/gov_proposal', () => {
     newGovernanceProposerAddress = deployment.address;
     logger.warn(`Deployed new governance proposer at ${newGovernanceProposerAddress}`);
 
-    // Deploy a test contract to send msgs via the outbox, since this increases
-    // gas cost of a proposal, which has triggered oog errors in the past.
-    ({ contract: testContract } = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }));
-    logger.warn(`Deployed test contract at ${testContract.address}`);
+    // Use a test contract to send msgs via the outbox, since this increases gas cost of a proposal,
+    // which has triggered oog errors in the past. We only call its private entrypoint
+    // (`create_l2_to_l1_message_arbitrary_recipient_private`), which executes client-side and emits the
+    // L2->L1 message at the protocol level, so registering the contract is enough — no on-chain deploy tx
+    // is needed (the deploy used to cost ~one full epoch of interval-mined blocks during setup).
+    testContract = await test.registerTestContract(wallet);
+    logger.warn(`Registered test contract at ${testContract.address}`);
 
     await cheatCodes.rollup.advanceToEpoch(EpochNumber(4));
   });
