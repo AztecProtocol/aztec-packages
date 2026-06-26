@@ -7,8 +7,8 @@
 //! an already-committed handshake.
 //!
 //! A pre-existing handshake secret is anchored to the registry by [`constrain_preexisting_handshake_secret`] before its
-//! constrained tag is
-//! emitted; every constrained send then emits the same sequence nullifier via [`emit_sequence_nullifier`].
+//! constrained tag is emitted; every constrained send then emits the same sequence nullifier via
+//! [`emit_sequence_nullifier`].
 
 use crate::context::PrivateContext;
 use crate::nullifier::utils::compute_nullifier_existence_request;

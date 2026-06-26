@@ -318,6 +318,11 @@ describe('Private Execution test suite', () => {
     // on the input.
     aztecNode.getPrivateLogsByTags.mockImplementation(query => Promise.resolve(query.tags.map(() => [])));
 
+    // Constrained-delivery tag derivation calls `doesNullifierExist` (e.g. the handshake bootstrap), which reads the
+    // node's nullifier tree. Default to "not found" so the destructured result is iterable; tests that need a specific
+    // nullifier override this.
+    aztecNode.findLeavesIndexes.mockResolvedValue([]);
+
     // Mock getL2Tips and getBlockHeader for syncTaggedPrivateLogs
     l2TipsStore.getL2Tips.mockResolvedValue(makeL2Tips(anchorBlockHeader.globalVariables.blockNumber));
 
