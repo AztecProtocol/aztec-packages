@@ -53,9 +53,10 @@
         "feePerDaGas": 0,
         "feePerL2Gas": 292838000000
       },
-      "totalManaUsed": 0
+      "totalManaUsed": 0,
+      "accumulatedFees": 0
     },
-    "headerHash": "0x00c9c6a933916fd216e058f663096966404d07ae98ed5cda0505f02e1e70fec6",
+    "headerHash": "0x00628120df9716928e25a69ca7b1ac2497f22fdaab439f64315ad4daf7bc5191",
     "numTxs": 1
   }
 }

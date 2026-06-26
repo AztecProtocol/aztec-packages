@@ -437,7 +437,8 @@ pub global CHECKPOINT_HEADER_LENGTH: u32 = 1 /* last_archive_root */
     + 1 /* coinbase */
     + 1 /* fee_recipient */
     + GAS_FEES_LENGTH
-    + TOTAL_MANA_USED_LENGTH;
+    + TOTAL_MANA_USED_LENGTH
+    + 1 /* accumulated_fees */;
 pub global CHECKPOINT_HEADER_SIZE_IN_BYTES: u32 = (CHECKPOINT_HEADER_LENGTH - 4) * 32
     + 8 /* timestamp */
     + 20 /* coinbase */
