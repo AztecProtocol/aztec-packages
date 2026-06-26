@@ -2,7 +2,6 @@ import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { MessageContext } from '@aztec/stdlib/logs';
 import { DroppedTxReceipt, MinedTxReceipt, TxEffect, TxExecutionResult, TxHash, TxStatus } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
@@ -115,7 +114,7 @@ describe('MessageContextService', () => {
 
     const results = await service.getMessageContextsByTxHash([txHash.hash], anchorBlockNumber);
 
-    expect(results).toEqual([new MessageContext(txHash, noteHashes, firstNullifier)]);
+    expect(results).toEqual([{ txHash, uniqueNoteHashesInTx: noteHashes, firstNullifierInTx: firstNullifier }]);
   });
 
   it('resolves tx hashes in different situations', async () => {
@@ -159,7 +158,12 @@ describe('MessageContextService', () => {
       anchorBlockNumber,
     );
 
-    expect(results).toEqual([null, new MessageContext(validTxHash, validNoteHashes, validNullifier), null, null]);
+    expect(results).toEqual([
+      null,
+      { txHash: validTxHash, uniqueNoteHashesInTx: validNoteHashes, firstNullifierInTx: validNullifier },
+      null,
+      null,
+    ]);
 
     // Zero hash should not trigger getTxReceipt
     expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(3);
@@ -190,7 +194,11 @@ describe('MessageContextService', () => {
       anchorBlockNumber,
     );
 
-    const expected = new MessageContext(txEffect.txHash, txEffect.noteHashes, txEffect.nullifiers[0]);
+    const expected = {
+      txHash: txEffect.txHash,
+      uniqueNoteHashesInTx: txEffect.noteHashes,
+      firstNullifierInTx: txEffect.nullifiers[0],
+    };
     expect(results).toEqual([expected, expected, expected]);
     expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(1);
   });

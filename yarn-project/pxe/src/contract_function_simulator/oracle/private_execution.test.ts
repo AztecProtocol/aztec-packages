@@ -312,7 +312,7 @@ describe('Private Execution test suite', () => {
     senderTaggingStore.storePendingIndexes.mockResolvedValue();
 
     taggingSecretSourcesStore.getSenders.mockResolvedValue([]);
-    taggingSecretSourcesStore.getSharedSecrets.mockResolvedValue([]);
+    taggingSecretSourcesStore.getSharedSecretsForRecipient.mockResolvedValue([]);
 
     // Mock aztec node methods - the return array needs to have the same length as the number of tags
     // on the input.

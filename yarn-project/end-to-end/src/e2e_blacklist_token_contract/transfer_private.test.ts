@@ -5,6 +5,9 @@ import { sendThroughAuthwitProxy, simulateThroughAuthwitProxy } from '../fixture
 import { AUTOMINE_E2E_OPTS, DUPLICATE_NULLIFIER_ERROR } from '../fixtures/fixtures.js';
 import { BlacklistTokenContractTest } from './blacklist_token_contract_test.js';
 
+// Covers private token transfers on TokenBlacklist: direct, self-transfer, authwit-delegated, and
+// blacklist enforcement. Setup: single node with AutomineSequencer, 3 accounts, initial mint applied.
+// Time-warp required during setup to cross role-change delay.
 describe('e2e_blacklist_token_contract transfer private', () => {
   const t = new BlacklistTokenContractTest('transfer_private');
   let { asset, tokenSim, wallet, adminAddress, otherAddress, blacklistedAddress } = t;
@@ -25,6 +28,7 @@ describe('e2e_blacklist_token_contract transfer private', () => {
     await t.tokenSim.check();
   });
 
+  // Transfers half of admin's private balance to other and verifies via TokenSimulator.
   it('transfer less than balance', async () => {
     const balance0 = await asset.methods
       .balance_of_private(adminAddress)
@@ -37,6 +41,7 @@ describe('e2e_blacklist_token_contract transfer private', () => {
     tokenSim.transferPrivate(adminAddress, otherAddress, amount);
   });
 
+  // Transfers half of admin's private balance to themselves and verifies balance is unchanged.
   it('transfer to self', async () => {
     const balance0 = await asset.methods
       .balance_of_private(adminAddress)
@@ -49,6 +54,8 @@ describe('e2e_blacklist_token_contract transfer private', () => {
     tokenSim.transferPrivate(adminAddress, adminAddress, amount);
   });
 
+  // Creates a private authwit for transfer, sends through proxy, verifies TokenSimulator, then asserts
+  // replay fails with DUPLICATE_NULLIFIER_ERROR.
   it('transfer on behalf of other', async () => {
     const balance0 = await asset.methods
       .balance_of_private(adminAddress)
@@ -71,7 +78,10 @@ describe('e2e_blacklist_token_contract transfer private', () => {
     ).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
   });
 
+  // Error paths: over-balance, invalid nonce, over-balance via authwit, missing approval, wrong caller,
+  // sender blacklisted, recipient blacklisted.
   describe('failure cases', () => {
+    // Attempts to transfer more than private balance; expects 'Balance too low'.
     it('transfer more than balance', async () => {
       const balance0 = await asset.methods
         .balance_of_private(adminAddress)
@@ -85,6 +95,7 @@ describe('e2e_blacklist_token_contract transfer private', () => {
       ).rejects.toThrow('Assertion failed: Balance too low');
     });
 
+    // Self-transfer with nonce=1; expects invalid-nonce assertion.
     it('transfer on behalf of self with non-zero nonce', async () => {
       const balance0 = await asset.methods
         .balance_of_private(adminAddress)
@@ -100,6 +111,7 @@ describe('e2e_blacklist_token_contract transfer private', () => {
       );
     });
 
+    // Authwit-transfers more than balance via proxy; expects 'Balance too low' and verifies balances unchanged.
     it('transfer more than balance on behalf of other', async () => {
       const balance0 = await asset.methods
         .balance_of_private(adminAddress)
@@ -141,6 +153,7 @@ describe('e2e_blacklist_token_contract transfer private', () => {
       // See https://github.com/AztecProtocol/aztec-packages/issues/1259
     });
 
+    // Simulates transfer through proxy without providing a witness; expects unknown-authwit error.
     it('transfer on behalf of other without approval', async () => {
       const balance0 = await asset.methods
         .balance_of_private(adminAddress)
@@ -163,6 +176,8 @@ describe('e2e_blacklist_token_contract transfer private', () => {
       );
     });
 
+    // Creates authwit designating otherAddress as caller but sends through proxy; expects unknown-authwit
+    // because the message hash references the proxy address, not otherAddress.
     it('transfer on behalf of other, wrong designated caller', async () => {
       const balance0 = await asset.methods
         .balance_of_private(adminAddress)
@@ -193,12 +208,14 @@ describe('e2e_blacklist_token_contract transfer private', () => {
       ).toEqual(balance0);
     });
 
+    // Attempts transfer from blacklistedAddress as sender; expects 'Blacklisted: Sender'.
     it('transfer from a blacklisted account', async () => {
       await expect(
         asset.methods.transfer(blacklistedAddress, adminAddress, 1n, 0).simulate({ from: blacklistedAddress }),
       ).rejects.toThrow('Assertion failed: Blacklisted: Sender');
     });
 
+    // Attempts transfer to blacklistedAddress as recipient; expects 'Blacklisted: Recipient'.
     it('transfer to a blacklisted account', async () => {
       await expect(
         asset.methods.transfer(adminAddress, blacklistedAddress, 1n, 0).simulate({ from: adminAddress }),

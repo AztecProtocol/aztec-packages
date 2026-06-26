@@ -147,6 +147,8 @@ node:
 
   sentinel:
     enabled: true
+  offenseCollection:
+    enabled: true
   slash:
     # Validator allowlists/denylists
     validatorsAlways: []

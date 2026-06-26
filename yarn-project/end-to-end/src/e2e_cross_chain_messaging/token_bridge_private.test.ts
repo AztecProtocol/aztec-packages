@@ -13,6 +13,10 @@ import type { CrossChainTestHarness } from '../shared/cross_chain_test_harness.j
 import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
+// Private L1→L2 token deposit and L2→L1 withdrawal via the TokenBridge. Uses CrossChainMessagingTest
+// with startProverNode=true (prod sequencer, pipelining preset: ethSlot=4s, aztecSlot=12s), fake
+// in-proc prover node, and CrossChainTestHarness for full L1↔L2 portal/bridge lifecycle.
+// Epoch proving via advanceToEpochProven is required before L1 Outbox consumption.
 describe('e2e_cross_chain_messaging token_bridge_private', () => {
   // Pipelining slows wall-clock chain progress (12s slots); waitForProven via advanceToEpochProven
   // needs more than the default 300s per-test budget.
@@ -47,6 +51,9 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     await t.teardown();
   });
 
+  // Full round-trip: mint tokens on L1, deposit privately via TokenPortal, wait for the message to be
+  // consumable, claim on L2 (minting private tokens), withdraw back to L1 with an authwit, advance the
+  // epoch until proven, then consume the Outbox message on L1 and verify the L1 balance is restored.
   it('Privately deposit funds from L1 -> L2 and withdraw back to L1', async () => {
     // Generate a claim secret using pedersen
     const l1TokenBalance = 1000000n;
@@ -88,6 +95,8 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
     // Advance the epoch until the tx is proven since the messages are inserted to the outbox when the epoch is proven.
     await t.advanceToEpochProven(l2TxReceipt);
 
+    // REFACTOR: hand-rolled retryUntil polling for L2→L1 membership witness; replace with a
+    // waitForL2ToL1MessageWitness(node, txHash, leaf) helper shared across bridge tests.
     const l2ToL1MessageResult = await retryUntil(
       () => aztecNode.getL2ToL1MembershipWitness(l2TxReceipt.txHash, l2ToL1Message),
       'l2 to l1 membership witness',
@@ -108,6 +117,8 @@ describe('e2e_cross_chain_messaging token_bridge_private', () => {
   });
 
   // This test checks that it's enough to have the claim secret to claim the funds to whoever we want.
+  // User2 (not the original depositor) uses the claim secret to call claim_private on behalf of owner.
+  // Asserts the funds land at ownerAddress (not user2), proving the secret-based authorization works.
   it('Claim secret is enough to consume the message', async () => {
     const initialPublicBalance = await crossChainTestHarness.getL1BalanceOf(ethAccount);
     const initialPrivateBalance = await crossChainTestHarness.getL2PrivateBalanceOf(ownerAddress);

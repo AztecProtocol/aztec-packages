@@ -24,13 +24,7 @@ import {
 } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { PublicKeys, deriveKeys, hashPublicKey } from '@aztec/stdlib/keys';
-import {
-  AppTaggingSecret,
-  AppTaggingSecretKind,
-  MessageContext,
-  PendingTaggedLog,
-  SiloedTag,
-} from '@aztec/stdlib/logs';
+import { AppTaggingSecret, AppTaggingSecretKind, SiloedTag } from '@aztec/stdlib/logs';
 import { Note, NoteDao } from '@aztec/stdlib/note';
 import { makeL2Tips, randomContractInstanceWithAddress } from '@aztec/stdlib/testing';
 import {
@@ -62,8 +56,9 @@ import type { TaggingSecretSourcesStore } from '../../storage/tagging_store/tagg
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
+import type { EmbeddedCurvePoint } from '../noir-structs/embedded_curve_point.js';
 import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
-import { ProvidedSecret } from '../noir-structs/provided_secret.js';
+import type { ProvidedSecret } from '../noir-structs/provided_secret.js';
 import { TransientArrayService } from '../transient_array_service.js';
 import { UtilityExecutionOracle, type UtilityExecutionOracleArgs } from './utility_execution_oracle.js';
 
@@ -114,7 +109,7 @@ describe('Utility Execution test suite', () => {
     senderTaggingStore.getTxHashesOfPendingIndexes.mockResolvedValue([]);
     senderTaggingStore.storePendingIndexes.mockResolvedValue();
     taggingSecretSourcesStore.getSenders.mockResolvedValue([]);
-    taggingSecretSourcesStore.getSharedSecrets.mockResolvedValue([]);
+    taggingSecretSourcesStore.getSharedSecretsForRecipient.mockResolvedValue([]);
 
     l2TipsStore.getL2Tips.mockResolvedValue(makeL2Tips(anchorBlockHeader.globalVariables.blockNumber));
     aztecNode.getPrivateLogsByTags.mockImplementation(query => Promise.resolve(query.tags.map(() => [])));
@@ -526,7 +521,7 @@ describe('Utility Execution test suite', () => {
           } else {
             await expect(
               utilityExecutionOracle.callUtilityFunction(STANDARD_HANDSHAKE_REGISTRY_ADDRESS, selector, []),
-            ).rejects.toThrow('Cross-contract utility call denied: No execution hooks configured');
+            ).rejects.toThrow('Cross-contract utility call denied: No authorizeUtilityCall hook configured');
             expect(contractSyncService.ensureContractSynced).not.toHaveBeenCalled();
             expect(nestedSimulator.executeUserCircuit).not.toHaveBeenCalled();
           }
@@ -576,7 +571,11 @@ describe('Utility Execution test suite', () => {
         const response = await utilityExecutionOracle.getMessageContextsByTxHash(requests);
         const [responseValue] = response.readAll(service);
         expect(responseValue.isSome()).toBe(true);
-        expect(responseValue.value).toEqual(new MessageContext(txHash, [noteHash], firstNullifier));
+        expect(responseValue.value).toEqual({
+          txHash,
+          uniqueNoteHashesInTx: [noteHash],
+          firstNullifierInTx: firstNullifier,
+        });
       });
 
       it('sets null in response for tx effects beyond anchor block', async () => {
@@ -634,7 +633,7 @@ describe('Utility Execution test suite', () => {
         const oracleA = makeOracle({ contractAddress: contractAddressA });
         const oracleB = makeOracle({ contractAddress: contractAddressB });
 
-        const ephPksArray = EphemeralArray.fromValues(service, [ephPk]);
+        const ephPksArray = EphemeralArray.fromValues<EmbeddedCurvePoint>(service, [ephPk]);
         const responseA = await oracleA.getSharedSecrets(owner, ephPksArray, contractAddressA);
         const [secretA] = responseA.readAll(service);
 
@@ -653,7 +652,7 @@ describe('Utility Execution test suite', () => {
         const { masterIncomingViewingSecretKey: ownerIvskM } = await deriveKeys(ownerSecretKey);
         keyStore.getMasterSecretKey.mockResolvedValue(ownerIvskM);
 
-        const ephPksArray = EphemeralArray.fromValues(service, [ephPk]);
+        const ephPksArray = EphemeralArray.fromValues<EmbeddedCurvePoint>(service, [ephPk]);
         const wrongAddress = await AztecAddress.random();
         await expect(utilityExecutionOracle.getSharedSecrets(owner, ephPksArray, wrongAddress)).rejects.toThrow(
           /expected/,
@@ -667,7 +666,7 @@ describe('Utility Execution test suite', () => {
       it("uses the provided secret's delivery mode when querying pending log tags", async () => {
         const sharedSecret = Fr.random();
         const providedMode = AppTaggingSecretKind.CONSTRAINED;
-        const providedSecrets = [new ProvidedSecret(sharedSecret, providedMode)];
+        const providedSecrets: ProvidedSecret[] = [{ secret: sharedSecret, mode: providedMode }];
         const constrainedModeTag = await SiloedTag.compute({
           extendedSecret: new AppTaggingSecret(sharedSecret, contractAddress, providedMode),
           index: 0,
@@ -709,14 +708,17 @@ describe('Utility Execution test suite', () => {
         );
         expect(queried).toContain(constrainedModeTag.value.toString());
         expect(queried).not.toContain(sameSecretUnconstrainedModeTag.value.toString());
-        const resultLogs = result.readAll(service).map(log => log.toFields());
-        const expectedConstrainedModeLogFields = new PendingTaggedLog(
-          log.logData,
-          log.txHash,
-          log.noteHashes,
-          log.nullifiers[0],
-        ).toFields();
-        expect(resultLogs).toEqual([expectedConstrainedModeLogFields]);
+        const resultLogs = result.readAll(service);
+        expect(resultLogs).toEqual([
+          {
+            log: log.logData,
+            context: {
+              txHash: log.txHash,
+              uniqueNoteHashesInTx: log.noteHashes,
+              firstNullifierInTx: log.nullifiers[0],
+            },
+          },
+        ]);
       });
     });
 

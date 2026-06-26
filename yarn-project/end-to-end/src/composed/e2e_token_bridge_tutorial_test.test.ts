@@ -86,6 +86,9 @@ async function addMinter(l1TokenContract: EthAddress, l1TokenHandler: EthAddress
 //
 // 3. Run the tests:
 //    yarn test:e2e e2e_token_bridge_tutorial_test.test.ts
+// Token bridge tutorial test. Runs against a pre-started local network (AZTEC_NODE_URL + ETHEREUM_HOSTS)
+// using only published npm packages. Deploys an L1 ERC20/portal and L2 token bridge, then exercises the
+// full L1↔L2 bridging flow. Intentional constraint: no in-proc setup().
 describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
   it('Deploys tokens & bridges to L1 & L2, mints & publicly bridges tokens', async () => {
     const logger = createLogger('aztec:token-bridge-tutorial');

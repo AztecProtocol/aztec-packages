@@ -17,6 +17,10 @@ import { DeployTest } from './deploy_test.js';
 
 type InitTestCtorArgs = Parameters<InitTestContract['methods']['constructor']>;
 
+// Tests private contract initialization flows: noinitcheck functions, contracts without constructors,
+// single/batch initialization, ordering constraints between private init and public calls, and
+// ContractInitializationStatus reporting. DeployTest wraps setup(0, { ...AUTOMINE_E2E_OPTS,
+// fundSponsoredFPC, skipAccountDeployment }) with 1 account.
 describe('e2e_deploy_contract private initialization', () => {
   const t = new DeployTest('private initialization');
 

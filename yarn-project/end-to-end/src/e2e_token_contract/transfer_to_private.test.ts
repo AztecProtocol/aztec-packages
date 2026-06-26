@@ -1,6 +1,9 @@
 import { AUTOMINE_E2E_OPTS, U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
 import { TokenContractTest } from './token_contract_test.js';
 
+// Covers the transfer_to_private entry point on Token contract (public→private), including self and
+// cross-account transfers. Setup: single node with AutomineSequencer, 3 accounts, Token deployed with
+// initial mint.
 describe('e2e_token_contract transfer_to_private', () => {
   const t = new TokenContractTest('transfer_to_private');
   let { asset, adminAddress, account1Address, tokenSim } = t;
@@ -21,6 +24,7 @@ describe('e2e_token_contract transfer_to_private', () => {
     await t.tokenSim.check();
   });
 
+  // Transfers half of admin's public balance to admin's own private balance and verifies via TokenSimulator.
   it('to self', async () => {
     const { result: balancePub } = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
     const amount = balancePub / 2n;
@@ -33,6 +37,7 @@ describe('e2e_token_contract transfer_to_private', () => {
     await tokenSim.check();
   });
 
+  // Transfers half of admin's public balance to account1's private balance and verifies via TokenSimulator.
   it('to someone else', async () => {
     const { result: balancePub } = await asset.methods.balance_of_public(adminAddress).simulate({ from: adminAddress });
     const amount = balancePub / 2n;
@@ -45,7 +50,9 @@ describe('e2e_token_contract transfer_to_private', () => {
     await tokenSim.check();
   });
 
+  // Error paths for transfer_to_private.
   describe('failure cases', () => {
+    // Attempts to transfer more than public balance to private; expects U128_UNDERFLOW_ERROR.
     it('to self (more than balance)', async () => {
       const { result: balancePub } = await asset.methods
         .balance_of_public(adminAddress)

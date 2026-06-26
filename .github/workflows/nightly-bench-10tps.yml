@@ -173,15 +173,12 @@ jobs:
           ref: ${{ needs.select-image.outputs.source_ref }}
 
       - name: Cleanup network resources
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          NO_SPOT: 1
-        run: ./.github/ci3.sh network-teardown bench-10tps bench-10tps
+        uses: ./.github/actions/network-teardown
+        with:
+          env_file: bench-10tps
+          namespace: bench-10tps
+          gcp_sa_key: ${{ secrets.GCP_SA_KEY }}
+          gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
 
   notify-failure:
     if: ${{ always() && failure() && github.event_name != 'workflow_dispatch' }}

@@ -8,7 +8,9 @@ import {
   PRIVATE_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 import { withHexPrefix, withoutHexPrefix } from '@aztec/foundation/string';
+import type { TaggingSecretStrategy } from '@aztec/pxe/server';
 import {
   ARRAY,
   AZTEC_ADDRESS,
@@ -44,11 +46,58 @@ import {
 } from '../constants.js';
 import type { ForeignCallArgs, ForeignCallResult } from '../utils/encoding.js';
 
+// Spreading `ORACLE_REGISTRY` re-materializes its entries into `TXE_ORACLE_REGISTRY`'s inferred type, which names the
+// protocol types below. Re-exporting them gives tsc a portable path to each instead of falling back to a deep
+// node_modules path that breaks .d.ts portability (TS2742).
+export type { ContractClassLogData, EmbeddedCurvePoint, TxEffectData } from '@aztec/pxe/simulator';
+export type { BlockHash } from '@aztec/stdlib/block';
+export type { MembershipWitness } from '@aztec/foundation/trees';
+export type { NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
+
 const GAS_SETTINGS: TypeMapping<GasSettings> = {
   deserialization: {
     fn: ([reader]) => GasSettings.fromFields(reader.readFieldArray(GAS_SETTINGS_LENGTH)),
   },
   shape: [{ len: GAS_SETTINGS_LENGTH }],
+};
+
+// Tagging secret strategy discriminants. Must match the Noir test helper `TaggingSecretStrategy` in
+// aztec-nr `test/helpers/tagging_secret_strategy.nr`. This is a test-only oracle (only `set_tagging_secret_strategy`
+// reads it), so the mapping lives here on the TXE side rather than in the production oracle type mappings.
+const STRATEGY_NON_INTERACTIVE_HANDSHAKE = 1;
+const STRATEGY_ARBITRARY_SECRET = 2;
+const STRATEGY_ADDRESS_DERIVED = 3;
+
+const TAGGING_SECRET_STRATEGY: TypeMapping<TaggingSecretStrategy> = {
+  serialization: {
+    fn: strategy => {
+      switch (strategy.type) {
+        case 'non-interactive-handshake':
+          return [new Fr(STRATEGY_NON_INTERACTIVE_HANDSHAKE), Fr.ZERO, Fr.ZERO];
+        case 'address-derived':
+          return [new Fr(STRATEGY_ADDRESS_DERIVED), Fr.ZERO, Fr.ZERO];
+        case 'arbitrary-secret':
+          return [new Fr(STRATEGY_ARBITRARY_SECRET), strategy.secret.x, strategy.secret.y];
+      }
+    },
+  },
+  deserialization: {
+    fn: ([kindReader, xReader, yReader]) => {
+      const kind = kindReader.readField().toNumber();
+      const [x, y] = [xReader.readField(), yReader.readField()];
+      switch (kind) {
+        case STRATEGY_NON_INTERACTIVE_HANDSHAKE:
+          return { type: 'non-interactive-handshake' };
+        case STRATEGY_ADDRESS_DERIVED:
+          return { type: 'address-derived' };
+        case STRATEGY_ARBITRARY_SECRET:
+          return { type: 'arbitrary-secret', secret: Point.fromFields([x, y]) };
+        default:
+          throw new Error(`Unrecognized tagging secret strategy kind: ${kind}`);
+      }
+    },
+  },
+  shape: ['scalar', 'scalar', 'scalar'],
 };
 
 const PRIVATE_CONTEXT_INPUTS: TypeMapping<PrivateContextInputs> = {
@@ -246,6 +295,10 @@ export const TXE_ORACLE_REGISTRY = {
       { name: 'address', type: AZTEC_ADDRESS },
       { name: 'messageHash', type: FIELD },
     ],
+  }),
+
+  aztec_txe_setTaggingSecretStrategy: makeEntry({
+    params: [{ name: 'strategy', type: OPTION(TAGGING_SECRET_STRATEGY) }],
   }),
 
   aztec_txe_getLastBlockTimestamp: makeEntry({

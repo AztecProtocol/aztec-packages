@@ -1,5 +1,6 @@
 mod builder;
 mod mode;
+mod resolved_tagging_strategy;
 mod tag;
 mod tag_secret_derivation;
 
@@ -24,6 +25,7 @@ pub use builder::{
     MessageDelivery, MessageDeliveryBuilder, OffchainDelivery, OnchainConstrainedDelivery, OnchainUnconstrainedDelivery,
 };
 pub use mode::OnchainDeliveryMode;
+pub use resolved_tagging_strategy::ResolvedTaggingStrategy;
 
 /// Performs private delivery of a message to `recipient` according to `delivery_mode`.
 ///

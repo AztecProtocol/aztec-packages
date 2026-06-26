@@ -15,7 +15,7 @@ import {
   BUFFER,
   BYTE,
   CALL_PRIVATE_RESULT,
-  CONTRACT_CLASS_LOG_INPUT,
+  CONTRACT_CLASS_LOG,
   CONTRACT_INSTANCE,
   DELIVERY_MODE,
   EPHEMERAL_ARRAY,
@@ -41,6 +41,7 @@ import {
   PROVIDED_SECRET,
   PUBLIC_DATA_WITNESS,
   PUBLIC_KEYS_AND_PARTIAL_ADDRESS,
+  RESOLVED_TAGGING_STRATEGY,
   STR,
   TX_EFFECT,
   TX_HASH,
@@ -60,8 +61,9 @@ export {
   BOUNDED_VEC,
   BUFFER,
   BYTE,
-  CONTRACT_CLASS_LOG_INPUT,
+  CONTRACT_CLASS_LOG,
   DELIVERY_MODE,
+  RESOLVED_TAGGING_STRATEGY,
   EPHEMERAL_ARRAY,
   EVENT_VALIDATION_REQUEST,
   FIELD,
@@ -292,8 +294,8 @@ export const ORACLE_REGISTRY = {
   aztec_utl_decryptAes128: makeEntry({
     params: [
       { name: 'ciphertext', type: BOUNDED_VEC(BYTE) },
-      { name: 'iv', type: BUFFER(8) },
-      { name: 'symKey', type: BUFFER(8) },
+      { name: 'iv', type: BUFFER(8, 16) },
+      { name: 'symKey', type: BUFFER(8, 16) },
     ],
     returnType: OPTION(BOUNDED_VEC(BYTE)),
   }),
@@ -463,7 +465,7 @@ export const ORACLE_REGISTRY = {
 
   aztec_prv_notifyCreatedContractClassLog: makeEntry({
     params: [
-      { name: 'log', type: CONTRACT_CLASS_LOG_INPUT },
+      { name: 'log', type: CONTRACT_CLASS_LOG },
       { name: 'counter', type: U32 },
     ],
   }),
@@ -509,6 +511,15 @@ export const ORACLE_REGISTRY = {
   }),
 
   aztec_prv_getSenderForTags: makeEntry({ returnType: OPTION(AZTEC_ADDRESS) }),
+
+  aztec_prv_resolveTaggingStrategy: makeEntry({
+    params: [
+      { name: 'sender', type: AZTEC_ADDRESS },
+      { name: 'recipient', type: AZTEC_ADDRESS },
+      { name: 'deliveryMode', type: DELIVERY_MODE },
+    ],
+    returnType: RESOLVED_TAGGING_STRATEGY,
+  }),
 } satisfies Record<string, OracleRegistryEntry>;
 
 // ─── Registry Infrastructure ─────────────────────────────────────────────────
@@ -582,7 +593,7 @@ export function makeEntry<const TParams extends RegistryParam[] = [], TReturnVal
 }
 
 /** A named oracle parameter with its TypeMapping. */
-export interface RegistryParam<TName extends string = string, T = any> {
+interface RegistryParam<TName extends string = string, T = any> {
   name: TName;
   type: TypeMapping<T>;
 }
@@ -615,7 +626,7 @@ type InferDeserializedParams<T extends RegistryParam[]> = {
 // ─── Derived Handler Interfaces ─────────────────────────────────────────────
 
 /** Strips the `aztec_{scope}_` prefix from an oracle key to get the handler method name. */
-export type StripOraclePrefix<K extends string> = K extends `aztec_${string}_${infer M}` ? M : never;
+type StripOraclePrefix<K extends string> = K extends `aztec_${string}_${infer M}` ? M : never;
 
 /** Derives the handler function signature from a registry entry's deserialization/serialization types. */
 type HandlerFn<E extends OracleRegistryEntry> = (
