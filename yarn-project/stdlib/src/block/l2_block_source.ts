@@ -434,21 +434,19 @@ export enum L2BlockSourceEvents {
 
 /**
  * Aggregate event emitted once per committed archiver sync pass that mutated local state. Carries the chain tips
- * before and after the pass, and the blocks added (and optionally pruned) during it. Consumers compare `fromTips`
- * and `toTips` to learn what moved; there is no separate `changed` section.
+ * before and after the pass, and the blocks added during it. Consumers compare `fromTips` and `toTips` to learn what
+ * moved; there is no separate `changed` section.
  *
  * This is an optimization signal that lets a block stream reconcile immediately on an archiver update rather than
  * waiting for its next poll. Polling remains the correctness fallback, so a missed event only affects latency.
- * `blocksAdded` are hydrated blocks already in hand from the sync pass (so a triggered sync can reuse them instead of
- * re-reading the store); `blocksPruned` is best-effort and only populated from paths that already hold the pruned
- * blocks.
+ * `blocksAdded` are hydrated blocks already in hand from the sync pass, so a triggered sync that is caught up to
+ * `fromTips` can reuse them (and `toTips`) instead of re-reading the store.
  */
 export type L2BlockSourceUpdatedEvent = {
   type: 'l2BlockSourceUpdated';
   fromTips: L2Tips;
   toTips: L2Tips;
   blocksAdded: readonly L2Block[];
-  blocksPruned?: readonly L2Block[];
 };
 
 export type L2BlockProvenEvent = {

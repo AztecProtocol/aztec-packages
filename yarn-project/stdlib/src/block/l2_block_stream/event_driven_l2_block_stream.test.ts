@@ -104,10 +104,10 @@ describe('EventDrivenL2BlockStream', () => {
     getL2Tips.mockResolvedValue(makeTips(proposed));
   };
 
-  const emitUpdate = (toProposed: number, blocksAdded: L2Block[]) => {
+  const emitUpdate = (fromProposed: number, toProposed: number, blocksAdded: L2Block[]) => {
     const event: L2BlockSourceUpdatedEvent = {
       type: 'l2BlockSourceUpdated',
-      fromTips: makeTips(0),
+      fromTips: makeTips(fromProposed),
       toTips: makeTips(toProposed),
       blocksAdded,
     };
@@ -162,16 +162,20 @@ describe('EventDrivenL2BlockStream', () => {
     wrapper.start();
     await waitFor(() => getL2Tips.mock.calls.length > 0);
 
-    // Source advances to 6; the aggregate event carries the three new blocks 4-6.
+    // Source advances to 6; the aggregate event begins at the stream's local tip (3) and carries the three new
+    // blocks 4-6, so the stream is caught up to its `fromTips` and the fast path is armed.
     setSourceTips(6);
     getBlocks.mockClear();
+    getL2Tips.mockClear();
     handler.events.length = 0;
-    emitUpdate(6, [makeBlock(4), makeBlock(5), makeBlock(6)]);
+    emitUpdate(3, 6, [makeBlock(4), makeBlock(5), makeBlock(6)]);
 
     await waitFor(() => handler.events.some(e => e.type === 'blocks-added'));
 
-    // The full 4-6 range was served from the cache, so the source's getBlocks was never called.
+    // The full 4-6 range was served from the cache and `toTips` short-circuits the tips read, so neither the
+    // source's getBlocks nor getL2Tips was called.
     expect(getBlocks).not.toHaveBeenCalled();
+    expect(getL2Tips).not.toHaveBeenCalled();
     expect(handler.addedBlockNumbers()).toEqual([4, 5, 6]);
   });
 
@@ -184,8 +188,8 @@ describe('EventDrivenL2BlockStream', () => {
     setSourceTips(6);
     getBlocks.mockClear();
     handler.events.length = 0;
-    // Event only carries blocks 4-5, but the stream needs through block 6.
-    emitUpdate(6, [makeBlock(4), makeBlock(5)]);
+    // Event begins at the local tip (3) but only carries blocks 4-5, while the stream needs through block 6.
+    emitUpdate(3, 6, [makeBlock(4), makeBlock(5)]);
 
     await waitFor(() => handler.events.some(e => e.type === 'blocks-added'));
 
@@ -193,21 +197,24 @@ describe('EventDrivenL2BlockStream', () => {
     expect(handler.addedBlockNumbers()).toEqual([4, 5, 6]);
   });
 
-  it('drops a stale cache when the fresh proposed tip no longer matches the event tips', async () => {
+  it('delegates fully to the source when not caught up to the event start', async () => {
     setSourceTips(3);
     local.proposedNumber = BlockNumber(3);
     wrapper.start();
     await waitFor(() => getL2Tips.mock.calls.length > 0);
 
-    // The source has actually moved to 6, but the event reports stale tips (proposed 3).
+    // The source has moved to 6, but the event began at proposed 5: the stream (local tip 3) missed intervening
+    // updates and is not caught up to the event's `fromTips`, so its blocks cannot be applied directly.
     setSourceTips(6);
     getBlocks.mockClear();
+    getL2Tips.mockClear();
     handler.events.length = 0;
-    emitUpdate(3, [makeBlock(4), makeBlock(5), makeBlock(6)]);
+    emitUpdate(5, 6, [makeBlock(6)]);
 
     await waitFor(() => handler.events.some(e => e.type === 'blocks-added'));
 
-    // The fresh proposed tip (6) does not match the event tips (3), so the cache is dropped and the source serves.
+    // Not caught up: the fast path is not armed, so the source is queried for both tips and blocks.
+    expect(getL2Tips).toHaveBeenCalled();
     expect(getBlocks).toHaveBeenCalled();
     expect(handler.addedBlockNumbers()).toEqual([4, 5, 6]);
   });
@@ -229,10 +236,11 @@ describe('EventDrivenL2BlockStream', () => {
     wrapper.start();
     expect(calls).toBe(1);
 
-    // Three events arrive while the first pass is in flight.
-    emitUpdate(3, []);
-    emitUpdate(3, []);
-    emitUpdate(3, []);
+    // Three events arrive while the first pass is in flight. They begin at proposed 2 (≠ local 3) so each would
+    // take the source-backed slow path; the point is that they coalesce into a single follow-up pass regardless.
+    emitUpdate(2, 3, []);
+    emitUpdate(2, 3, []);
+    emitUpdate(2, 3, []);
 
     gate.resolve();
     await waitFor(() => calls >= 2);

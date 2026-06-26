@@ -2573,7 +2573,6 @@ describe('Archiver Sync', () => {
       expect(event.toTips.proposed.number).toEqual(lastBlock);
       expect(event.toTips.checkpointed.checkpoint.number).toEqual(CheckpointNumber(1));
       expect(event.blocksAdded.map(b => b.number)).toEqual(cp1.blocks.map(b => b.number));
-      expect(event.blocksPruned).toBeUndefined();
     });
 
     it('emits no aggregate event on a fully-synced no-op pass', async () => {
@@ -2589,7 +2588,7 @@ describe('Archiver Sync', () => {
       expect(updateSpy).not.toHaveBeenCalled();
     });
 
-    it('includes pruned blocks in the aggregate event when an L1 checkpoint conflicts with local blocks', async () => {
+    it('emits one aggregate event carrying the L1 chain when an L1 checkpoint conflicts with local blocks', async () => {
       const { checkpoint: cp1 } = await fake.addCheckpoint(CheckpointNumber(1), { l1BlockNumber: 70n });
       const cp1Archive = cp1.blocks.at(-1)!.archive;
       fake.setL1BlockNumber(80n);
@@ -2614,14 +2613,15 @@ describe('Archiver Sync', () => {
       updateSpy.mockClear();
       await archiver.syncImmediate();
 
+      // The conflicting local blocks are pruned and replaced by the L1 chain. The aggregate event carries the
+      // newly-fetched L1 blocks (the prune itself is reflected by the moved tips, not by the delta).
       expect(updateSpy).toHaveBeenCalledTimes(1);
       const event = updateSpy.mock.calls[0][0] as L2BlockSourceUpdatedEvent;
-      expect(event.blocksPruned?.map(b => b.number)).toEqual(
-        expect.arrayContaining(provisionalBlocks.map(b => b.number)),
-      );
       expect(event.blocksAdded.map(b => b.number)).toEqual(
         expect.arrayContaining(differentCp2.blocks.map(b => b.number)),
       );
+      expect(event.toTips.checkpointed.checkpoint.number).toEqual(CheckpointNumber(2));
+      expect(event.toTips.proposed.number).toEqual(differentCp2.blocks.at(-1)!.number);
     }, 15_000);
   });
 });

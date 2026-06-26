@@ -4,18 +4,12 @@ import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 
 import type { L2Block } from '../l2_block.js';
+import { type L2BlockId, type L2BlockSource, type LocalL2Tips, makeL2BlockId } from '../l2_block_source.js';
 import {
-  type L2BlockId,
-  type L2BlockSource,
-  type L2TipId,
-  type LocalL2Tips,
-  makeL2BlockId,
-} from '../l2_block_source.js';
-import type {
-  L2BlockStreamEvent,
-  L2BlockStreamEventHandler,
-  L2BlockStreamLocalDataProvider,
-  LocalL2BlockId,
+  type L2BlockStreamEvent,
+  type L2BlockStreamEventHandler,
+  type L2BlockStreamLocalDataProvider,
+  localBlockIdDiffers,
 } from './interfaces.js';
 
 /** Subset of the block source the stream depends on. Checkpoint payloads are no longer fetched here. */
@@ -184,19 +178,25 @@ export class L2BlockStream {
       // End-of-pass reconciliation: chain-proposed fires against the pre-pass baseline (a post-prune re-read would
       // equal the source tip and suppress it), then the tiers highest-to-lowest so the finalized <= proven <=
       // checkpointed <= proposed invariant holds mid-pass.
-      if (this.blockTipDiffers(prePassProposed, sourceTips.proposed)) {
+      if (localBlockIdDiffers(prePassProposed, sourceTips.proposed)) {
         await this.emitEvent({ type: 'chain-proposed', block: sourceTips.proposed });
       }
 
       const reconcileTips = pruned ? await this.localData.getL2Tips() : localTips;
-      if (!this.opts.ignoreCheckpoints && this.tipDiffers(reconcileTips.checkpointed?.block, sourceTips.checkpointed)) {
+      if (
+        !this.opts.ignoreCheckpoints &&
+        localBlockIdDiffers(reconcileTips.checkpointed?.block, sourceTips.checkpointed.block)
+      ) {
         await this.emitEvent({
           type: 'chain-checkpointed',
           block: sourceTips.checkpointed.block,
           checkpoint: sourceTips.checkpointed.checkpoint,
         });
       }
-      if (reconcileTips.proven !== undefined && this.tipDiffers(reconcileTips.proven.block, sourceTips.proven)) {
+      if (
+        reconcileTips.proven !== undefined &&
+        localBlockIdDiffers(reconcileTips.proven.block, sourceTips.proven.block)
+      ) {
         await this.emitEvent({
           type: 'chain-proven',
           block: sourceTips.proven.block,
@@ -205,7 +205,7 @@ export class L2BlockStream {
       }
       if (
         reconcileTips.finalized !== undefined &&
-        this.tipDiffers(reconcileTips.finalized.block, sourceTips.finalized)
+        localBlockIdDiffers(reconcileTips.finalized.block, sourceTips.finalized.block)
       ) {
         await this.emitEvent({
           type: 'chain-finalized',
@@ -287,36 +287,6 @@ export class L2BlockStream {
       return false;
     }
     return true;
-  }
-
-  /**
-   * Returns whether the source tip differs from the local one and therefore warrants a tier event. Compares block
-   * number and, when both hashes are known, block hash. The hash comparison is skipped when the local hash is
-   * undefined or missing: world-state legitimately reports `undefined` hashes for tips ahead of its synced range,
-   * and comparing against an undefined hash would re-emit the event on every poll.
-   */
-  private tipDiffers(localBlock: LocalL2BlockId | undefined, sourceTip: L2TipId): boolean {
-    return this.blockTipDiffers(localBlock, sourceTip.block);
-  }
-
-  /**
-   * Block-only variant of {@link tipDiffers} for the proposed tip (an {@link L2BlockId}, with no checkpoint). Compares
-   * block number and, when the local hash is known, block hash. The hash comparison is skipped when the local hash is
-   * undefined: world-state reports `undefined` for its proposed hash, and a strict comparison would re-emit
-   * `chain-proposed` on every poll for it. ({@link L2TipsStoreBase} consumers always carry a hash, so the leniency is
-   * inert for them.)
-   */
-  private blockTipDiffers(localBlock: LocalL2BlockId | undefined, sourceBlock: L2BlockId): boolean {
-    if (localBlock === undefined) {
-      return true;
-    }
-    if (sourceBlock.number !== localBlock.number) {
-      return true;
-    }
-    if (localBlock.hash === undefined) {
-      return false;
-    }
-    return sourceBlock.hash !== localBlock.hash;
   }
 
   /**

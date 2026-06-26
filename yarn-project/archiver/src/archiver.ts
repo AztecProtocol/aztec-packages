@@ -427,7 +427,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     // Now perform L1 sync
     mergeL2BlockSourceUpdateDelta(delta, await this.syncFromL1());
     // Prune proposed blocks with no corresponding proposed checkpoint after the appropriate materialization deadline.
-    mergeL2BlockSourceUpdateDelta(delta, await this.pruneOrphanProposedBlocks());
+    await this.pruneOrphanProposedBlocks();
 
     // Emit a single aggregate update event after all pass work has committed and the tips cache has refreshed,
     // so `toTips` and the source state observed by listeners are consistent with the event payload.
@@ -437,7 +437,8 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
 
   /**
    * Emits the aggregate `l2BlockSourceUpdated` event when the pass mutated local state — either the tips moved or
-   * blocks were added/pruned. A fully-synced no-op pass (tips unchanged, no blocks) emits nothing.
+   * blocks were added. A fully-synced no-op pass (tips unchanged, no blocks) emits nothing. Prunes move the tips, so
+   * they are still reported even though pruned blocks are not carried in the delta.
    */
   private emitBlockSourceUpdatedIfChanged(fromTips: L2Tips, toTips: L2Tips, delta: L2BlockSourceUpdateDelta): void {
     if (l2TipsEqual(fromTips, toTips) && !hasL2BlockSourceUpdateDelta(delta)) {
@@ -448,7 +449,6 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       fromTips,
       toTips,
       blocksAdded: delta.blocksAdded,
-      blocksPruned: delta.blocksPruned.length > 0 ? delta.blocksPruned : undefined,
     });
   }
 
@@ -465,10 +465,9 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
    * The uncheckpointed suffix is scanned in order. Blocks covered by proposed checkpoints are left in
    * place; the first block not covered by a proposed checkpoint starts the orphan suffix to prune.
    */
-  private async pruneOrphanProposedBlocks(): Promise<L2BlockSourceUpdateDelta> {
-    const delta = emptyL2BlockSourceUpdateDelta();
+  private async pruneOrphanProposedBlocks(): Promise<void> {
     if (this.config.skipOrphanProposedBlockPruning) {
-      return delta;
+      return;
     }
     const tips = await this.getL2Tips();
     const now = BigInt(this.dateProvider.nowInSeconds());
@@ -483,7 +482,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
         proposed: tips.proposed,
         proposedCheckpointBlockNumber,
       });
-      return delta;
+      return;
     }
 
     // Load the blocks that are candidates for pruning (ie blocks without a proposed checkpoint covering them)
@@ -537,21 +536,19 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
 
         const prunedBlocks = await this.updater.removeBlocksWithoutProposedCheckpointAfter(pruneAfterBlockNumber);
         if (prunedBlocks.length > 0) {
-          delta.blocksPruned.push(...prunedBlocks);
           this.events.emit(L2BlockSourceEvents.L2PruneUncheckpointed, {
             type: L2BlockSourceEvents.L2PruneUncheckpointed,
             slotNumber: blockSlot,
             blocks: prunedBlocks,
           });
         }
-        return delta;
+        return;
       }
     }
 
     this.log.trace('No orphan proposed blocks to prune: all uncheckpointed blocks are still within deadline', {
       blocksWithoutProposedCheckpoint: blocksWithoutProposedCheckpoint.map(b => b.header.toInspect()),
     });
-    return delta;
   }
 
   private async syncFromL1(): Promise<L2BlockSourceUpdateDelta> {

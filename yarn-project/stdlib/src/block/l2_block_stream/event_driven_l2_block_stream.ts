@@ -13,7 +13,7 @@ import {
   type L2BlockSourceUpdatedEvent,
   type L2Tips,
 } from '../l2_block_source.js';
-import type { L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider } from './interfaces.js';
+import { type L2BlockStreamEventHandler, type L2BlockStreamLocalDataProvider, localTipsMatch } from './interfaces.js';
 import { L2BlockStream, type L2BlockStreamOptions, type L2BlockStreamSource } from './l2_block_stream.js';
 
 /** Derives the metadata-only {@link BlockData} view of a hydrated {@link L2Block}. */
@@ -27,84 +27,58 @@ async function l2BlockToBlockData(block: L2Block): Promise<BlockData> {
   };
 }
 
-/** Returns whether two tips snapshots agree on the proposed tip (number and hash). */
-function proposedTipMatches(a: L2Tips, b: L2Tips): boolean {
-  return a.proposed.number === b.proposed.number && a.proposed.hash === b.proposed.hash;
-}
-
 /** Returns the event emitter of a source that exposes one, or undefined for plain (e.g. RPC-backed) sources. */
 function getEmitter(source: L2BlockSource | L2BlockSourceEventEmitter): ArchiverEmitter | undefined {
   return 'events' in source ? source.events : undefined;
 }
 
-/**
- * Wraps a block source so that hydrated blocks delivered by an aggregate update event can satisfy the block
- * stream's reads, avoiding a round-trip to archiver storage on a triggered sync. The cache is an optimization
- * only: `getL2Tips` always delegates to the source and reconciliation is driven by the fresh source tips, so a
- * stale or partial cache simply delegates and never changes the sync outcome.
- */
-/** A set of hydrated blocks installed from one aggregate event, tagged with the tips that event reported. */
-type HotBlockCacheEntry = { byNumber: Map<number, L2Block>; minNumber: number; maxNumber: number; toTips: L2Tips };
+/** Fast-path context for a single sync pass: blocks to serve by number, plus the tips to report as the source's. */
+type ActiveUpdate = { byNumber: Map<number, L2Block>; toTips: L2Tips };
 
+/**
+ * Wraps a block source so a single sync pass can be served from blocks delivered by an aggregate update event,
+ * avoiding round-trips to archiver storage. The fast path is only armed (via {@link activate}) for a pass that is
+ * confirmed caught up to the event's pre-pass tips: in that case the event's `blocksAdded` contiguously cover the
+ * pass's download range and `toTips` is the exact post-pass tip, so `getL2Tips` can report it without querying the
+ * source. When the fast path is not armed, every read delegates to the source, so a stale or partial cache never
+ * changes the sync outcome.
+ */
 class HotBlockSourceAdapter implements L2BlockStreamSource {
-  /** Blocks installed from the most recent aggregate event, indexed by number, tagged with the event's tips. */
-  private cache: HotBlockCacheEntry | undefined;
+  /** Set for the duration of one fast-path pass; undefined when reads must delegate to the source. */
+  private active: ActiveUpdate | undefined;
 
   constructor(
     private readonly source: L2BlockStreamSource,
     private readonly log: Logger,
   ) {}
 
-  /** Installs hydrated blocks from an aggregate update event, associated with the event's post-pass tips. */
-  public install(blocks: readonly L2Block[], toTips: L2Tips): void {
-    if (blocks.length === 0) {
-      this.cache = undefined;
-      return;
-    }
+  /** Arms the fast path for the current pass: serve these blocks and report `toTips` as the source tips. */
+  public activate(blocks: readonly L2Block[], toTips: L2Tips): void {
     const byNumber = new Map<number, L2Block>();
     for (const block of blocks) {
       byNumber.set(block.number, block);
     }
-    const numbers = [...byNumber.keys()];
-    this.cache = { byNumber, minNumber: Math.min(...numbers), maxNumber: Math.max(...numbers), toTips };
+    this.active = { byNumber, toTips };
+    this.log.trace(`Armed hot-block fast path`, { blocks: byNumber.size, toTips });
   }
 
-  /** Returns the current cache entry (or undefined), so a pass can later clear exactly the entry it used. */
-  public snapshot(): HotBlockCacheEntry | undefined {
-    return this.cache;
+  /** Disarms the fast path so subsequent reads delegate to the source again. */
+  public deactivate(): void {
+    this.active = undefined;
   }
 
-  /**
-   * Drops the cache only if it is still the given entry. Clearing unconditionally would let a pass clobber a cache
-   * that a later-arriving event installed for the next pass.
-   */
-  public clearEntry(entry: HotBlockCacheEntry | undefined): void {
-    if (this.cache === entry) {
-      this.cache = undefined;
-    }
-  }
-
-  public async getL2Tips(): Promise<L2Tips> {
-    const tips = await this.source.getL2Tips();
-    // Self-invalidate when the fresh proposed tip no longer matches the tips the cache was built against: the
-    // source moved on since the event, so the cached blocks may belong to a superseded chain. Matching the
-    // proposed tip is the minimum bar (and is what gates the stream's block downloads); matching all tiers would
-    // be stricter and is also acceptable.
-    if (this.cache && !proposedTipMatches(tips, this.cache.toTips)) {
-      this.log.trace(`Dropping stale hot-block cache; fresh proposed tip does not match the event tips`);
-      this.cache = undefined;
-    }
-    return tips;
+  public getL2Tips(): Promise<L2Tips> {
+    return this.active ? Promise.resolve(this.active.toTips) : this.source.getL2Tips();
   }
 
   public getBlocks(query: BlocksQuery): Promise<L2Block[]> {
-    const served = this.tryServeBlocksFromCache(query);
+    const served = this.active ? this.tryServeBlocksFromCache(query) : undefined;
     return served ? Promise.resolve(served) : this.source.getBlocks(query);
   }
 
   public getBlockData(query: BlockQuery): Promise<BlockData | undefined> {
-    if ('number' in query && this.cache) {
-      const block = this.cache.byNumber.get(query.number);
+    if (this.active && 'number' in query) {
+      const block = this.active.byNumber.get(query.number);
       if (block) {
         return l2BlockToBlockData(block);
       }
@@ -116,17 +90,14 @@ class HotBlockSourceAdapter implements L2BlockStreamSource {
   private tryServeBlocksFromCache(query: BlocksQuery): L2Block[] | undefined {
     // Only the by-range form is cacheable, and only for the full (not checkpointed-only) chain: the cache may hold
     // uncheckpointed blocks that an onlyCheckpointed query must not receive.
-    if (!this.cache || !('from' in query) || query.onlyCheckpointed) {
+    if (!this.active || !('from' in query) || query.onlyCheckpointed) {
       return undefined;
     }
     const from = query.from;
     const to = from + query.limit - 1;
-    if (from < this.cache.minNumber || to > this.cache.maxNumber) {
-      return undefined;
-    }
     const blocks: L2Block[] = [];
     for (let n = from; n <= to; n++) {
-      const block = this.cache.byNumber.get(n);
+      const block = this.active.byNumber.get(n);
       if (!block) {
         // A gap inside the requested range: bail out and let the source serve the whole range.
         return undefined;
@@ -143,26 +114,30 @@ class HotBlockSourceAdapter implements L2BlockStreamSource {
  * the correctness fallback. Subsystems keep consuming the same {@link L2BlockStreamEvent}s; the archiver aggregate
  * event is handled entirely here.
  *
- * Hydrated blocks carried by an event are served back through a hot-block cache so a triggered sync does not
- * re-read archiver block bodies. A fully-synced pass remains a no-op: it calls the source `getL2Tips()` only.
+ * The event is passed through to the sync pass via {@link RunningPromise.trigger}. If, at the time the pass runs,
+ * the stream's local tips match the event's `fromTips` (it is caught up to where the event began), the event's
+ * hydrated blocks are served back through a hot-block cache and the event's `toTips` is reported as the source tips
+ * — so the triggered sync re-reads neither block bodies nor tips from the archiver. Otherwise the pass delegates
+ * entirely to the source, and the periodic poll guarantees eventual catch-up.
  */
 export class EventDrivenL2BlockStream {
   private readonly adapter: HotBlockSourceAdapter;
   private readonly blockStream: L2BlockStream;
-  private readonly runningPromise: RunningPromise;
+  private readonly runningPromise: RunningPromise<L2BlockSourceUpdatedEvent>;
   private readonly emitter: ArchiverEmitter | undefined;
   private started = false;
 
   private readonly onSourceUpdated = (event: L2BlockSourceUpdatedEvent) => {
-    this.adapter.install(event.blocksAdded, event.toTips);
     // Fire-and-forget: trigger coalesces with any in-flight or periodic pass (see RunningPromise.trigger), so a
     // burst of events does not run passes concurrently. Errors are swallowed by the inner stream's own handler.
-    void this.runningPromise.trigger().catch(err => this.log.error(`Error in event-triggered block stream sync`, err));
+    void this.runningPromise
+      .trigger(event)
+      .catch(err => this.log.error(`Error in event-triggered block stream sync`, err));
   };
 
   constructor(
     source: L2BlockSource | L2BlockSourceEventEmitter,
-    localData: L2BlockStreamLocalDataProvider,
+    private readonly localData: L2BlockStreamLocalDataProvider,
     handler: L2BlockStreamEventHandler,
     private readonly log = createLogger('types:event_driven_block_stream'),
     opts: L2BlockStreamOptions = {},
@@ -171,7 +146,11 @@ export class EventDrivenL2BlockStream {
     // The inner stream's own RunningPromise is never started; this wrapper owns the polling loop and drives the
     // stream through `sync()` (which runs `work()` directly when the inner loop is stopped).
     this.blockStream = new L2BlockStream(this.adapter, localData, handler, log, opts);
-    this.runningPromise = new RunningPromise(() => this.runPass(), log, opts.pollIntervalMS ?? 1000);
+    this.runningPromise = new RunningPromise<L2BlockSourceUpdatedEvent>(
+      this.runPass.bind(this),
+      log,
+      opts.pollIntervalMS ?? 1000,
+    );
     this.emitter = getEmitter(source);
   }
 
@@ -204,13 +183,23 @@ export class EventDrivenL2BlockStream {
     return this.runningPromise.trigger();
   }
 
-  /** A single pass over the underlying block stream, dropping afterwards only the cache entry this pass began with. */
-  private async runPass(): Promise<void> {
-    const entry = this.adapter.snapshot();
+  /**
+   * Runs a single pass over the underlying block stream. When triggered by an aggregate event and the stream is
+   * caught up to the event's pre-pass tips, the event's blocks and tips serve the pass directly; the fast path is
+   * always disarmed afterwards so a subsequent poll-driven pass reads from the source.
+   */
+  private async runPass(event?: L2BlockSourceUpdatedEvent): Promise<void> {
+    if (event) {
+      const localTips = await this.localData.getL2Tips();
+      if (localTipsMatch(localTips, event.fromTips)) {
+        this.adapter.activate(event.blocksAdded, event.toTips);
+      }
+    }
+
     try {
       await this.blockStream.sync();
     } finally {
-      this.adapter.clearEntry(entry);
+      this.adapter.deactivate();
     }
   }
 }

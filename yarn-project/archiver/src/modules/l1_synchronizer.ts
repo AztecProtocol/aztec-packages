@@ -210,7 +210,7 @@ export class ArchiverL1Synchronizer implements Traceable {
       mergeL2BlockSourceUpdateDelta(delta, checkpointsDelta);
 
       // Then we try pruning uncheckpointed blocks if a new slot was mined without checkpoints
-      mergeL2BlockSourceUpdateDelta(delta, await this.pruneUncheckpointedBlocks(currentL1Timestamp));
+      await this.pruneUncheckpointedBlocks(currentL1Timestamp);
 
       // Then we prune the current epoch if it'd reorg on next submission.
       // Note that we don't do this before retrieving checkpoints because we may need to retrieve
@@ -281,8 +281,7 @@ export class ArchiverL1Synchronizer implements Traceable {
   }
 
   /** Prune all proposed local blocks that should have been checkpointed by now. */
-  private async pruneUncheckpointedBlocks(currentL1Timestamp: bigint): Promise<L2BlockSourceUpdateDelta> {
-    const delta = emptyL2BlockSourceUpdateDelta();
+  private async pruneUncheckpointedBlocks(currentL1Timestamp: bigint): Promise<void> {
     const [lastCheckpointedBlockNumber, lastProposedBlockNumber] = await Promise.all([
       this.stores.blocks.getCheckpointedL2BlockNumber(),
       this.stores.blocks.getLatestL2BlockNumber(),
@@ -291,7 +290,7 @@ export class ArchiverL1Synchronizer implements Traceable {
     // If there are no uncheckpointed blocks, we got nothing to do
     if (lastProposedBlockNumber === lastCheckpointedBlockNumber) {
       this.log.trace(`No uncheckpointed blocks to prune.`);
-      return delta;
+      return;
     }
 
     // What's the slot at the next L1 block? All blocks for slots strictly before this one should've been checkpointed by now.
@@ -305,7 +304,7 @@ export class ArchiverL1Synchronizer implements Traceable {
     const firstUncheckpointedBlockSlot = firstUncheckpointedBlockData?.header.getSlot();
 
     if (firstUncheckpointedBlockSlot === undefined || firstUncheckpointedBlockSlot >= slotAtNextL1Block) {
-      return delta;
+      return;
     }
 
     // Prune provisional blocks from slots that have ended without being checkpointed.
@@ -317,14 +316,12 @@ export class ArchiverL1Synchronizer implements Traceable {
 
     const prunedBlocks = await this.updater.removeUncheckpointedBlocksAfter(lastCheckpointedBlockNumber);
     if (prunedBlocks.length > 0) {
-      delta.blocksPruned.push(...prunedBlocks);
       this.events.emit(L2BlockSourceEvents.L2PruneUncheckpointed, {
         type: L2BlockSourceEvents.L2PruneUncheckpointed,
         slotNumber: firstUncheckpointedBlockSlot,
         blocks: prunedBlocks,
       });
     }
-    return delta;
   }
 
   /** Queries the rollup contract on whether a prune can be executed on the immediate next L1 block. */
@@ -1092,7 +1089,6 @@ export class ArchiverL1Synchronizer implements Traceable {
 
         // If blocks were pruned due to conflict with L1 checkpoints, emit event
         if (result.prunedBlocks && result.prunedBlocks.length > 0) {
-          delta.blocksPruned.push(...result.prunedBlocks);
           const prunedCheckpointNumber = result.prunedBlocks[0].checkpointNumber;
           const prunedSlotNumber = result.prunedBlocks[0].header.globalVariables.slotNumber;
 
