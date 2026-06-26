@@ -55,23 +55,49 @@ const WINDOWS_PER_MSM: u32 = {{ windows_per_msm }}u;
 
 const WORD_BITS: u32 = 32u;
 
+// Adreno-safe variable shifts: express a runtime shift amount s in [0,31] as
+// <= 5 constant-amount shifts (a barrel shifter). Adreno 7xx (Galaxy S23 /
+// Adreno 740) miscompiles runtime shift amounts — the same reason the sign was
+// packed at the literal bit 31 below — while constant amounts fold cleanly on
+// every driver. Bit-identical to `x >> s` / `x << s` for s in [0,31] on a
+// conformant target (see integration/S23_ADRENO740_CORRECTNESS.md).
+fn shr_var(x: u32, s: u32) -> u32 {
+    var r = x;
+    if ((s & 16u) != 0u) { r = r >> 16u; }
+    if ((s & 8u) != 0u) { r = r >> 8u; }
+    if ((s & 4u) != 0u) { r = r >> 4u; }
+    if ((s & 2u) != 0u) { r = r >> 2u; }
+    if ((s & 1u) != 0u) { r = r >> 1u; }
+    return r;
+}
+fn shl_var(x: u32, s: u32) -> u32 {
+    var r = x;
+    if ((s & 16u) != 0u) { r = r << 16u; }
+    if ((s & 8u) != 0u) { r = r << 8u; }
+    if ((s & 4u) != 0u) { r = r << 4u; }
+    if ((s & 2u) != 0u) { r = r << 2u; }
+    if ((s & 1u) != 0u) { r = r << 1u; }
+    return r;
+}
+
 // Read `count` (<= 32) bits at absolute bit `bit_off` from scalar `s`,
-// little-endian. Bits past the scalar's words read as 0.
+// little-endian. Bits past the scalar's words read as 0. Variable shifts go
+// through shr_var/shl_var (Adreno-740 correctness).
 fn read_bits(s: u32, scalar_words: u32, bit_off: u32, count: u32) -> u32 {
     let base = s * scalar_words;
     let word = bit_off / WORD_BITS;
     let off = bit_off % WORD_BITS;
     var v: u32 = 0u;
     if (word < scalar_words) {
-        v = scalars[base + word] >> off;
+        v = shr_var(scalars[base + word], off);
     }
     if (off + count > WORD_BITS && word + 1u < scalar_words) {
-        v = v | (scalars[base + word + 1u] << (WORD_BITS - off));
+        v = v | shl_var(scalars[base + word + 1u], WORD_BITS - off);
     }
     if (count >= WORD_BITS) {
         return v;
     }
-    return v & ((1u << count) - 1u);
+    return v & (shl_var(1u, count) - 1u);
 }
 
 @compute
@@ -107,9 +133,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     // Constantine signedWindowEncoding: bit c of raw is the sign; the
     // magnitude is the conditionally-negated (raw + 1) >> 1.
-    let neg = (raw >> c) & 1u;
+    let neg = shr_var(raw, c) & 1u;
     let neg_mask = 0u - neg;            // 0 or 0xFFFFFFFF
-    let val_mask = (1u << c) - 1u;
+    let val_mask = shl_var(1u, c) - 1u;
     let encode = (raw + 1u) >> 1u;
     let bucket = ((encode - neg) ^ neg_mask) & val_mask;
 
