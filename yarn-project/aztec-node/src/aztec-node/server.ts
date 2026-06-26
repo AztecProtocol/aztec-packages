@@ -41,6 +41,7 @@ import {
   type L2BlockSource,
   type L2BlockTag,
   type L2Tips,
+  inspectBlockParameter,
 } from '@aztec/stdlib/block';
 import type {
   ContractClassPublic,
