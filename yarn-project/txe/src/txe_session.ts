@@ -17,6 +17,8 @@ import {
   RecipientTaggingStore,
   SenderTaggingStore,
   TaggingSecretSourcesStore,
+  type TaggingSecretStrategy,
+  composeHooks,
 } from '@aztec/pxe/server';
 import {
   ExecutionNoteCache,
@@ -230,6 +232,7 @@ function emptyLastCallState(): LastCallState {
 export class TXESession implements TXESessionStateHandler {
   private state: SessionState = { name: 'TOP_LEVEL' };
   private authwits: Map<string, AuthWitness> = new Map();
+  private taggingSecretStrategy: TaggingSecretStrategy | undefined = undefined;
   private lastCallInfo: LastCallState = emptyLastCallState();
   private txeOracleVersion: { major: number; minor: number } | undefined;
 
@@ -345,6 +348,7 @@ export class TXESession implements TXESessionStateHandler {
       version,
       chainId,
       new Map(),
+      undefined,
       artifactResolver,
       rootPath,
       packageName,
@@ -660,6 +664,7 @@ export class TXESession implements TXESessionStateHandler {
       this.version,
       this.chainId,
       this.authwits,
+      this.taggingSecretStrategy,
       this.artifactResolver,
       this.rootPath,
       this.packageName,
@@ -704,6 +709,7 @@ export class TXESession implements TXESessionStateHandler {
 
     const utilityExecutor = this.utilityExecutorForContractSync(anchorBlock);
     const transientArrayService = new TransientArrayService();
+    const taggingSecretStrategy = this.taggingSecretStrategy;
     this.oracleHandler = new TXEPrivateExecutionOracle({
       argsHash: Fr.ZERO,
       txContext: new TxContext(this.chainId, this.version, gasSettings),
@@ -729,8 +735,11 @@ export class TXESession implements TXESessionStateHandler {
       l2TipsStore: this.stateMachine.l2TipsProvider,
       jobId: this.currentJobId,
       scopes: await this.keyStore.getAccounts(),
-      messageContextService: this.stateMachine.messageContextService,
+      txResolver: this.stateMachine.txResolver,
       simulator: new WASMSimulator(),
+      hooks: composeHooks({
+        resolveTaggingSecretStrategy: taggingSecretStrategy ? () => Promise.resolve(taggingSecretStrategy) : undefined,
+      }),
       transientArrayService,
     });
 
@@ -818,7 +827,7 @@ export class TXESession implements TXESessionStateHandler {
       taggingSecretSourcesStore: this.taggingSecretSourcesStore,
       capsuleService: new CapsuleService(this.capsuleStore, await this.keyStore.getAccounts()),
       privateEventStore: this.privateEventStore,
-      messageContextService: this.stateMachine.messageContextService,
+      txResolver: this.stateMachine.txResolver,
       contractSyncService: this.stateMachine.contractSyncService,
       l2TipsStore: this.stateMachine.l2TipsProvider,
       jobId: this.currentJobId,
@@ -842,15 +851,20 @@ export class TXESession implements TXESessionStateHandler {
     }
 
     // Note that while all public and private contexts do is build a single block that we then process when exiting
-    // those, the top level context performs a large number of actions not captured in the following 'close' call. Among
-    // others, it will create empty blocks (via `advanceBlocksBy` and `deploy`), create blocks with transactions via
-    // `privateCallNewFlow` and `publicCallNewFlow`, add accounts to PXE via `addAccount`, etc. This is a
-    // slight inconsistency in the working model of this class, but is not too bad.
-    // TODO: it's quite unfortunate that we need to capture the authwits created to later pass them again when the top
-    // level context is re-created. This is because authwits create a temporary utility context that'd otherwise reset
-    // the authwits if not persisted, so we'd not be able to pass more than one per execution.
-    // Ideally authwits would be passed alongside a contract call instead of pre-seeded.
-    [this.nextBlockTimestamp, this.authwits] = (this.oracleHandler as TXEOracleTopLevelContext).close();
+    // them, the top level context does most of its work as it goes: it creates empty blocks (via `advanceBlocksBy`
+    // and `deploy`), creates blocks with transactions (via `privateCallNewFlow` and `publicCallNewFlow`), adds
+    // accounts to PXE (via `addAccount`), etc. This is a slight inconsistency in the working model of this class, but
+    // is not too bad. The `close` call below therefore only hands back the session-scoped values that a test
+    // sets directly at the top level, outside any contract execution (e.g. via `advanceTimestampBy`,
+    // `addAuthWitness`, `setTaggingSecretStrategy`). The oracle handler is discarded on every state transition,
+    // so the session must seed these values into the contexts it creates later.
+
+    // TODO: persisting authwits this way is quite unfortunate: they create a temporary utility context that would
+    // otherwise reset them, so we'd not be able to pass more than one per execution. Ideally authwits would be passed
+    // alongside a contract call instead of pre-seeded.
+    [this.nextBlockTimestamp, this.authwits, this.taggingSecretStrategy] = (
+      this.oracleHandler as TXEOracleTopLevelContext
+    ).close();
   }
 
   private async exitPrivateState() {
@@ -925,7 +939,7 @@ export class TXESession implements TXESessionStateHandler {
           taggingSecretSourcesStore: this.taggingSecretSourcesStore,
           capsuleService: new CapsuleService(this.capsuleStore, scopes),
           privateEventStore: this.privateEventStore,
-          messageContextService: this.stateMachine.messageContextService,
+          txResolver: this.stateMachine.txResolver,
           contractSyncService: this.stateMachine.contractSyncService,
           l2TipsStore: this.stateMachine.l2TipsProvider,
           jobId: this.currentJobId,

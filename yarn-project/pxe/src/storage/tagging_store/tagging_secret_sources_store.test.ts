@@ -31,7 +31,7 @@ describe('TaggingSecretSourcesStore', () => {
       const secret = await Point.random();
 
       expect(await store.addSharedSecret(recipient, secret)).toBe(true);
-      expect(await store.getSharedSecrets(recipient)).toEqual([secret]);
+      expect(await store.getSharedSecretsForRecipient(recipient)).toEqual([secret]);
     });
 
     it('returns false when adding a duplicate secret for the same recipient', async () => {
@@ -40,7 +40,7 @@ describe('TaggingSecretSourcesStore', () => {
 
       expect(await store.addSharedSecret(recipient, secret)).toBe(true);
       expect(await store.addSharedSecret(recipient, secret)).toBe(false);
-      expect(await store.getSharedSecrets(recipient)).toEqual([secret]);
+      expect(await store.getSharedSecretsForRecipient(recipient)).toEqual([secret]);
     });
 
     it('scopes secrets per recipient', async () => {
@@ -52,8 +52,35 @@ describe('TaggingSecretSourcesStore', () => {
       await store.addSharedSecret(recipientA, secretA);
       await store.addSharedSecret(recipientB, secretB);
 
-      expect(await store.getSharedSecrets(recipientA)).toEqual([secretA]);
-      expect(await store.getSharedSecrets(recipientB)).toEqual([secretB]);
+      expect(await store.getSharedSecretsForRecipient(recipientA)).toEqual([secretA]);
+      expect(await store.getSharedSecretsForRecipient(recipientB)).toEqual([secretB]);
+    });
+
+    it('lists every shared secret across recipients', async () => {
+      const recipientA = await AztecAddress.random();
+      const recipientB = await AztecAddress.random();
+      const secretA1 = await Point.random();
+      const secretA2 = await Point.random();
+      const secretB = await Point.random();
+
+      await store.addSharedSecret(recipientA, secretA1);
+      await store.addSharedSecret(recipientA, secretA2);
+      await store.addSharedSecret(recipientB, secretB);
+
+      const all = await store.getAllSharedSecrets();
+
+      expect(all).toHaveLength(3);
+      expect(all).toEqual(
+        expect.arrayContaining([
+          { recipient: recipientA, secret: secretA1 },
+          { recipient: recipientA, secret: secretA2 },
+          { recipient: recipientB, secret: secretB },
+        ]),
+      );
+    });
+
+    it('returns an empty list when no shared secrets are registered', async () => {
+      expect(await store.getAllSharedSecrets()).toEqual([]);
     });
 
     it('removes a shared secret', async () => {
@@ -63,7 +90,7 @@ describe('TaggingSecretSourcesStore', () => {
       await store.addSharedSecret(recipient, secret);
 
       expect(await store.removeSharedSecret(recipient, secret)).toBe(true);
-      expect(await store.getSharedSecrets(recipient)).toEqual([]);
+      expect(await store.getSharedSecretsForRecipient(recipient)).toEqual([]);
     });
 
     it('returns false when removing a secret that is not registered', async () => {
@@ -82,7 +109,7 @@ describe('TaggingSecretSourcesStore', () => {
       await store.addSharedSecret(recipient, secret);
 
       expect(await store.getSenders()).toEqual([sender]);
-      expect(await store.getSharedSecrets(recipient)).toEqual([secret]);
+      expect(await store.getSharedSecretsForRecipient(recipient)).toEqual([secret]);
     });
   });
 });

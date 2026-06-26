@@ -23,7 +23,7 @@ use crate::{
     },
     note::{note_interface::{NoteHash, NoteType}, NoteMessage},
     oracle::version::assert_compatible_oracle_version,
-    test::helpers::{txe_oracles, utils::ContractDeployment},
+    test::helpers::{tagging_secret_strategy::TaggingSecretStrategy, txe_oracles, utils::ContractDeployment},
     utils::array::subarray,
 };
 
@@ -82,6 +82,34 @@ pub struct TestEnvironment {
     contract_account_secret: Counter,
     contract_deployment_secret: Counter,
     contract_deployment_salt: Counter,
+}
+
+/// Configuration values for [`TestEnvironment::new_opts`]. Meant to be used by calling `new` and then chaining
+/// methods setting each value, e.g.:
+/// ```noir
+/// let env = TestEnvironment::new_opts(
+///     TestEnvironmentOptions::new().with_tagging_secret_strategy(TaggingSecretStrategy::non_interactive_handshake()),
+/// );
+/// ```
+pub struct TestEnvironmentOptions {
+    tagging_secret_strategy: Option<TaggingSecretStrategy>,
+}
+
+impl TestEnvironmentOptions {
+    /// Creates a new `TestEnvironmentOptions` with default values.
+    pub fn new() -> Self {
+        Self { tagging_secret_strategy: Option::none() }
+    }
+
+    /// Sets the [`TaggingSecretStrategy`] the wallet reports through the
+    /// [`resolve_tagging_strategy`](crate::oracle::resolve_tagging_strategy) oracle, affecting message delivery in
+    /// private executions.
+    ///
+    /// If not set, the wallet hook is left unconfigured and the private execution environment applies its own default.
+    pub fn with_tagging_secret_strategy(&mut self, strategy: TaggingSecretStrategy) -> Self {
+        self.tagging_secret_strategy = Option::some(strategy);
+        *self
+    }
 }
 
 /// Configuration values for [`TestEnvironment::private_context_opts`]. Meant to be used by calling `new` and then
@@ -568,9 +596,30 @@ fn resolve_gas_settings(
 
 impl TestEnvironment {
     /// Creates a new `TestEnvironment`. This function should only be called once per test.
+    ///
+    /// See [`new_opts`](TestEnvironment::new_opts) for a variant that allows configuring the environment.
     pub unconstrained fn new() -> Self {
+        Self::new_opts(TestEnvironmentOptions::new())
+    }
+
+    /// Creates a new `TestEnvironment` with the configuration values in `options`. This function should only be
+    /// called once per test.
+    ///
+    /// ### Sample usage
+    /// ```noir
+    /// let env = TestEnvironment::new_opts(
+    ///     TestEnvironmentOptions::new().with_tagging_secret_strategy(
+    ///         TaggingSecretStrategy::non_interactive_handshake(),
+    ///     ),
+    /// );
+    /// ```
+    pub unconstrained fn new_opts(options: TestEnvironmentOptions) -> Self {
         assert_compatible_oracle_version();
         txe_oracles::assert_compatible_txe_oracle_version();
+
+        // Forward the configured strategy to the wallet.
+        txe_oracles::set_tagging_secret_strategy(options.tagging_secret_strategy);
+
         Self {
             // Use an offset to avoid secret collision with account secrets. Without this, when
             // deploying multiple contracts and creating accounts, they could end up with identical

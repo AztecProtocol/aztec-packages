@@ -4,7 +4,7 @@ import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { type AnchorBlockStore, type ContractStore, ContractSyncService, type NoteStore } from '@aztec/pxe/server';
-import { MessageContextService } from '@aztec/pxe/simulator';
+import { TxResolverService } from '@aztec/pxe/simulator';
 import { L2Block, type L2TipsProvider } from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
@@ -29,7 +29,7 @@ export class TXEStateMachine {
     public archiver: TXEArchiver,
     public anchorBlockStore: AnchorBlockStore,
     public contractSyncService: ContractSyncService,
-    public messageContextService: MessageContextService,
+    public txResolver: TxResolverService,
   ) {}
 
   public static async create(
@@ -42,31 +42,31 @@ export class TXEStateMachine {
     const aztecNodeConfig = {} as AztecNodeConfig;
 
     const log = createLogger('txe_node');
-    const node = new AztecNodeService(
-      aztecNodeConfig,
-      new DummyP2P(),
-      archiver,
-      archiver,
-      archiver,
-      archiver,
-      synchronizer,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      async () => {},
-      VERSION,
-      CHAIN_ID,
-      new TXEGlobalVariablesBuilder(),
-      undefined,
-      new TXEFeeProvider(),
-      new MockEpochCache(),
-      PACKAGE_VERSION,
-      new TestCircuitVerifier(),
-      new TestCircuitVerifier(),
-      undefined,
+    const node = new AztecNodeService({
+      config: aztecNodeConfig,
+      p2pClient: new DummyP2P(),
+      blockSource: archiver,
+      logsSource: archiver,
+      contractDataSource: archiver,
+      l1ToL2MessageSource: archiver,
+      worldStateSynchronizer: synchronizer,
+      sequencer: undefined,
+      proverNode: undefined,
+      slasherClient: undefined,
+      validatorsSentinel: undefined,
+      stopStartedWatchers: async () => {},
+      l1ChainId: CHAIN_ID,
+      version: VERSION,
+      globalVariableBuilder: new TXEGlobalVariablesBuilder(),
+      rollupContract: undefined,
+      feeProvider: new TXEFeeProvider(),
+      epochCache: new MockEpochCache(),
+      packageVersion: PACKAGE_VERSION,
+      peerProofVerifier: new TestCircuitVerifier(),
+      rpcProofVerifier: new TestCircuitVerifier(),
+      telemetry: undefined,
       log,
-    );
+    });
 
     const contractSyncService = new ContractSyncService(
       node,
@@ -75,9 +75,9 @@ export class TXEStateMachine {
       createLogger('txe:contract_sync'),
     );
 
-    const messageContextService = new MessageContextService(node);
+    const txResolver = new TxResolverService(node);
 
-    return new this(node, synchronizer, archiver, anchorBlockStore, contractSyncService, messageContextService);
+    return new this(node, synchronizer, archiver, anchorBlockStore, contractSyncService, txResolver);
   }
 
   /** Returns an {@link L2TipsProvider} backed by this node's chain tips. */

@@ -36,6 +36,18 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 **Impact**: Reading `maxLogsHit` or passing `afterLog` no longer compiles. Previously a single call was silently capped at `MAX_LOGS_PER_TAG` events with no usable way to continue, so the old API was unusable anyway. You can now page through the full set with `afterEvent`/`nextCursor`.
 
+### [PXE] Sender and shared-secret registration unified into `TaggingSecretSource`
+
+The PXE methods for registering tagging-secret sources have been replaced by a single set that takes a `TaggingSecretSource` discriminated union. `registerSender`/`getSenders`/`removeSender` and `registerSharedSecret`/`removeSharedSecret` are gone; use `registerTaggingSecretSource`/`removeTaggingSecretSource`/`getTaggingSecretSources` instead. The `Wallet` interface (`wallet.registerSender`, `getAddressBook`) is unchanged, so this only affects code that talks to a `PXE` instance directly.
+
+| Before | After |
+| --- | --- |
+| `pxe.registerSender(address)` | `pxe.registerTaggingSecretSource({ kind: 'address-derived', sender: address })` |
+| `pxe.removeSender(address)` | `pxe.removeTaggingSecretSource({ kind: 'address-derived', sender: address })` |
+| `pxe.getSenders()` | `pxe.getTaggingSecretSources({ kind: 'address-derived' })` |
+| `pxe.registerSharedSecret(recipient, secret)` | `pxe.registerTaggingSecretSource({ kind: 'arbitrary-secret', recipient, secret })` |
+| `pxe.removeSharedSecret(recipient, secret)` | `pxe.removeTaggingSecretSource({ kind: 'arbitrary-secret', recipient, secret })` |
+
 ### [Aztec.js] Unchecked `AztecAddress` constructors renamed with an `Unsafe` suffix
 
 The synchronous `AztecAddress` constructors that build an address from a raw value do not verify that the value is a valid address (the x-coordinate of a point on the Grumpkin curve, which is what allows it to be encrypted to). An invalid value is accepted silently and only fails later, when a transaction is sent. To make this obvious at the call site, they now carry an `Unsafe` suffix:

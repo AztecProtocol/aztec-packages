@@ -1,6 +1,6 @@
 #!/usr/bin/env -S node --no-warnings
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
-import { AztecNodeService } from '@aztec/aztec-node';
+import { createAztecNodeService } from '@aztec/aztec-node';
 import { type AztecNodeConfig, getConfigEnvVars } from '@aztec/aztec-node/config';
 import { Fr } from '@aztec/aztec.js/fields';
 import { createLogger } from '@aztec/aztec.js/log';
@@ -237,7 +237,7 @@ export async function createAztecNode(
     ...getConfigEnvVars(),
     ...config,
   };
-  const node = await AztecNodeService.createAndSync(
+  const node = await createAztecNodeService(
     aztecNodeConfig,
     { ...deps, proverNodeDeps: { broker: deps.proverBroker } },
     options,
