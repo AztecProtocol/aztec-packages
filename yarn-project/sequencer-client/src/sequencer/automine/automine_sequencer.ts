@@ -397,7 +397,6 @@ export class AutomineSequencer {
     if (!(await this.deps.p2pClient.hasEligiblePendingTxs(minRequired))) {
       return undefined;
     }
-    const txCount = await this.deps.p2pClient.getPendingTxCount();
 
     // Decide target slot from the pending block's timestamp — picks up any prior
     // `setNextBlockTimestamp` call (e.g. queued by runWarp) instead of assuming +1 over
@@ -439,7 +438,6 @@ export class AutomineSequencer {
       blockNumber: nextBlockNumber,
       slot: targetSlot,
       slotTimestamp: slotBoundaryTs,
-      txCount,
       allowEmpty,
     });
 

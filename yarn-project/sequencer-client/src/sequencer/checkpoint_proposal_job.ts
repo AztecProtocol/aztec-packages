@@ -1049,7 +1049,7 @@ export class CheckpointProposalJob implements Traceable {
 
     try {
       // Wait until we have enough txs to build the block
-      const { availableTxs, canStartBuilding, minTxs } = await this.waitForMinTxs(opts);
+      const { canStartBuilding, minTxs } = await this.waitForMinTxs(opts);
       if (!canStartBuilding) {
         this.logCheckpointEvent('block-build-failed', `Block build failed for slot ${this.targetSlot}`, {
           reason: 'insufficient_txs',
@@ -1057,22 +1057,20 @@ export class CheckpointProposalJob implements Traceable {
           slot: this.targetSlot,
           checkpointNumber: this.checkpointNumber,
           indexWithinCheckpoint,
-          availableTxs,
           minTxs,
         });
         this.log.verbose(
-          `Not enough age-eligible txs to build block ${blockNumber} at index ${indexWithinCheckpoint} in slot ${this.targetSlot} (needs ${minTxs} eligible, ${availableTxs} pending)`,
+          `Not enough age-eligible txs to build block ${blockNumber} at index ${indexWithinCheckpoint} in slot ${this.targetSlot} (needs ${minTxs} eligible)`,
           {
             reason: 'insufficient_txs',
             blockNumber,
             slot: this.targetSlot,
             checkpointNumber: this.checkpointNumber,
             indexWithinCheckpoint,
-            availableTxs,
             minTxs,
           },
         );
-        this.eventEmitter.emit('block-tx-count-check-failed', { minTxs, availableTxs, slot: this.targetSlot });
+        this.eventEmitter.emit('block-tx-count-check-failed', { minTxs, slot: this.targetSlot });
         this.metrics.recordBlockProposalFailed('insufficient_txs');
         return { failure: 'insufficient-txs' };
       }
@@ -1086,10 +1084,11 @@ export class CheckpointProposalJob implements Traceable {
         tx => !txHashesAlreadyIncluded.has(tx.txHash.toString()),
       );
 
-      this.log.debug(
-        `Building block ${blockNumber} at index ${indexWithinCheckpoint} for slot ${this.targetSlot} with ${availableTxs} available txs`,
-        { slot: this.targetSlot, blockNumber, indexWithinCheckpoint },
-      );
+      this.log.debug(`Building block ${blockNumber} at index ${indexWithinCheckpoint} for slot ${this.targetSlot}`, {
+        slot: this.targetSlot,
+        blockNumber,
+        indexWithinCheckpoint,
+      });
       this.setState(SequencerState.CREATING_BLOCK);
 
       // Per-block limits are operator overrides (from SEQ_MAX_L2_BLOCK_GAS etc.) further capped
@@ -1241,7 +1240,7 @@ export class CheckpointProposalJob implements Traceable {
     blockNumber: BlockNumber;
     indexWithinCheckpoint: IndexWithinCheckpoint;
     buildDeadline: Date | undefined;
-  }): Promise<{ canStartBuilding: boolean; availableTxs: number; minTxs: number }> {
+  }): Promise<{ canStartBuilding: boolean; minTxs: number }> {
     const { indexWithinCheckpoint, blockNumber, buildDeadline, forceCreate } = opts;
 
     // We only allow a block with 0 txs in the first block of the checkpoint
@@ -1258,7 +1257,7 @@ export class CheckpointProposalJob implements Traceable {
       // If we're past deadline, or we have no deadline, give up
       const now = this.dateProvider.nowAsDate();
       if (startBuildingDeadline === undefined || now >= startBuildingDeadline) {
-        return { canStartBuilding: false, availableTxs: await this.p2pClient.getPendingTxCount(), minTxs };
+        return { canStartBuilding: false, minTxs };
       }
 
       // Wait a bit before checking again
@@ -1270,7 +1269,7 @@ export class CheckpointProposalJob implements Traceable {
       await this.waitForTxsPollingInterval();
     }
 
-    return { canStartBuilding: true, availableTxs: await this.p2pClient.getPendingTxCount(), minTxs };
+    return { canStartBuilding: true, minTxs };
   }
 
   private async getSignedCommitteeAttestations(
