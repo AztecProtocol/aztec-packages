@@ -82,8 +82,7 @@ pub contract HandshakeRegistry {
 
         // Safety: an uncooperative sender could pick a non-random value, but the sender-only secret only protects
         // the sender's own ability to advance their sequence, so a bad value only harms themselves. It is a fresh
-        // random secret known only to the sender, backing the sender-only secret folded into constrained-delivery
-        // nullifiers.
+        // random secret known only to the sender, which will be folded into constrained-delivery nullifiers.
         let sender_secret = unsafe { random() };
         let note = HandshakeNote::new(s_raw, NON_INTERACTIVE_HANDSHAKE, recipient, sender_secret);
 
