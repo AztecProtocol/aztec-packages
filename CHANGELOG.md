@@ -1,5 +1,15 @@
 # Changelog
 
+## [4.3.1](https://github.com/AztecProtocol/aztec-packages/compare/v4.3.0...v4.3.1) (2026-06-03)
+
+
+### Bug Fixes
+
+* **prover:** wait for previous epoch to be proven ([#23457](https://github.com/AztecProtocol/aztec-packages/issues/23457)) ([fd89d46](https://github.com/AztecProtocol/aztec-packages/commit/fd89d46305022a4b6c3b0bb9faa5fb57980aca59))
+* **stdlib:** guard tip-store finalize against deleting live tips (backport [#23295](https://github.com/AztecProtocol/aztec-packages/issues/23295)) ([#23505](https://github.com/AztecProtocol/aztec-packages/issues/23505)) ([bdc777b](https://github.com/AztecProtocol/aztec-packages/commit/bdc777bb778c6942dcc5c13eb84e86c619170002))
+* **release-image:** re-stamp aztec_version into released noir-contracts artifacts so released JSONs no longer carry `"dev"` (backport [#23470](https://github.com/AztecProtocol/aztec-packages/issues/23470)) ([#23851](https://github.com/AztecProtocol/aztec-packages/issues/23851)) ([7d80b2d](https://github.com/AztecProtocol/aztec-packages/commit/7d80b2dabe))
+
+
 ## [4.3.0](https://github.com/AztecProtocol/aztec-packages/compare/v4.2.1...v4.3.0) (2026-05-19)
 
 
