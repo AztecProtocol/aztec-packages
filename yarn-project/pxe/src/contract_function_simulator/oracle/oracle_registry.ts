@@ -27,7 +27,6 @@ import {
   LOG_RETRIEVAL_REQUEST,
   LOG_RETRIEVAL_RESPONSE,
   MEMBERSHIP_WITNESS,
-  MESSAGE_CONTEXT,
   MESSAGE_LOAD_ORACLE_INPUTS,
   type MaybePromise,
   NOTE,
@@ -42,6 +41,7 @@ import {
   PUBLIC_DATA_WITNESS,
   PUBLIC_KEYS_AND_PARTIAL_ADDRESS,
   RESOLVED_TAGGING_STRATEGY,
+  RESOLVED_TX,
   STR,
   TX_EFFECT,
   TX_HASH,
@@ -71,12 +71,12 @@ export {
   LOG_RETRIEVAL_REQUEST,
   LOG_RETRIEVAL_RESPONSE,
   MEMBERSHIP_WITNESS,
-  MESSAGE_CONTEXT,
   NOTE_VALIDATION_REQUEST,
   OPTION,
   PENDING_TAGGED_LOG,
   POINT,
   PROVIDED_SECRET,
+  RESOLVED_TX,
   STR,
   U32,
   slotsOf,
@@ -244,9 +244,9 @@ export const ORACLE_REGISTRY = {
     returnType: EPHEMERAL_ARRAY(EPHEMERAL_ARRAY(LOG_RETRIEVAL_RESPONSE)),
   }),
 
-  aztec_utl_getMessageContextsByTxHash: makeEntry({
+  aztec_utl_getResolvedTxs: makeEntry({
     params: [{ name: 'requests', type: EPHEMERAL_ARRAY(FIELD) }],
-    returnType: EPHEMERAL_ARRAY(OPTION(MESSAGE_CONTEXT)),
+    returnType: EPHEMERAL_ARRAY(OPTION(RESOLVED_TX)),
   }),
 
   aztec_utl_getTxEffect: makeEntry({

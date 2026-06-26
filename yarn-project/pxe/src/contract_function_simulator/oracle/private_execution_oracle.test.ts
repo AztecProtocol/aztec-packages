@@ -21,7 +21,7 @@ import type {
   ResolveTaggingSecretStrategy,
   TaggingSecretStrategy,
 } from '../../hooks/resolve_tagging_secret_strategy.js';
-import type { MessageContextService } from '../../messages/message_context_service.js';
+import type { TxResolverService } from '../../messages/tx_resolver_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
@@ -185,7 +185,7 @@ describe('PrivateExecutionOracle', () => {
       taggingSecretSourcesStore: mock<TaggingSecretSourcesStore>(),
       capsuleService: new CapsuleService(mock<CapsuleStore>(), []),
       privateEventStore: mock<PrivateEventStore>(),
-      messageContextService: mock<MessageContextService>(),
+      txResolver: mock<TxResolverService>(),
       contractSyncService: mock<ContractSyncService>(),
       l2TipsStore: mock<L2TipsProvider>(),
       jobId: 'test',

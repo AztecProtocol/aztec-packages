@@ -198,6 +198,8 @@ When working with `AztecAsyncKVStore`, wrap related reads and writes in `store.t
 <general_style>
 Prefer `const` over `let`. Prefer `async`/`await` over `.then()`/`.catch()` callbacks. Named exports only (no default exports). Explicit return types on public API methods; inferred types acceptable on private/internal methods. Only export types needed by external consumers. Avoid `const self = this`; use arrow functions.
 
+When you need a promise whose `resolve`/`reject` are called from outside the executor (deferred gates, signals, manual settlement), use `promiseWithResolvers` from `@aztec/foundation/promise` instead of `new Promise(resolve => { outerVar = resolve })` with an escaped `let`. The helper returns `{ promise, resolve, reject }` directly, avoiding the mutable placeholder.
+
 Prefer high-level collection functions (`find`, `filter`, `map`, helpers from `foundation/src/collection/`) over imperative loops, but prefer imperative loops over `forEach` and complex `reduce`. Prefer `sum(items.map(item => item.value))` over `reduce(...)` for addition.
 
 Simplify function arguments to single expressions where possible. Use expression bodies instead of block bodies when the block only contains a `return`. Block bodies are appropriate when the callback has multiple statements.

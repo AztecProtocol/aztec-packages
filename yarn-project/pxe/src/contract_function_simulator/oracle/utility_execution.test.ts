@@ -1,4 +1,4 @@
-import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
@@ -27,23 +27,13 @@ import { PublicKeys, deriveKeys, hashPublicKey } from '@aztec/stdlib/keys';
 import { AppTaggingSecret, AppTaggingSecretKind, SiloedTag } from '@aztec/stdlib/logs';
 import { Note, NoteDao } from '@aztec/stdlib/note';
 import { makeL2Tips, randomContractInstanceWithAddress } from '@aztec/stdlib/testing';
-import {
-  BlockHeader,
-  CallContext,
-  Capsule,
-  GlobalVariables,
-  MinedTxReceipt,
-  TxEffect,
-  TxExecutionResult,
-  TxHash,
-  TxStatus,
-} from '@aztec/stdlib/tx';
+import { BlockHeader, CallContext, Capsule, GlobalVariables, TxHash } from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
 import type { _MockProxy } from 'jest-mock-extended/lib/Mock.js';
 
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
-import { MessageContextService } from '../../messages/message_context_service.js';
+import { TxResolverService } from '../../messages/tx_resolver_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
@@ -77,7 +67,7 @@ describe('Utility Execution test suite', () => {
   let privateEventStore: ReturnType<typeof mock<PrivateEventStore>>;
   let contractSyncService: ReturnType<typeof mock<ContractSyncService>>;
   let l2TipsStore: ReturnType<typeof mock<L2TipsProvider>>;
-  let messageContextService: MessageContextService;
+  let txResolver: TxResolverService;
   let acirSimulator: ContractFunctionSimulator;
   let owner: AztecAddress;
   let ownerCompleteAddress: CompleteAddress;
@@ -101,7 +91,7 @@ describe('Utility Execution test suite', () => {
     privateEventStore = mock<PrivateEventStore>();
     contractSyncService = mock<ContractSyncService>();
     l2TipsStore = mock<L2TipsProvider>();
-    messageContextService = new MessageContextService(aztecNode);
+    txResolver = new TxResolverService(aztecNode);
     const capsuleArrays = new Map<string, Fr[][]>();
     anchorBlockHeader = BlockHeader.random();
     senderTaggingStore.getLastFinalizedIndex.mockResolvedValue(undefined);
@@ -135,7 +125,7 @@ describe('Utility Execution test suite', () => {
       privateEventStore,
       simulator,
       contractSyncService,
-      messageContextService,
+      txResolver,
     });
 
     const ownerPartialAddress = Fr.random();
@@ -529,86 +519,6 @@ describe('Utility Execution test suite', () => {
       );
     });
 
-    describe('getMessageContextsByTxHash', () => {
-      const service = new EphemeralArrayService();
-
-      it('sets null in response for zero tx hashes', async () => {
-        const requests = EphemeralArray.fromValues(service, [Fr.ZERO]);
-
-        const response = await utilityExecutionOracle.getMessageContextsByTxHash(requests);
-        const [responseValue] = response.readAll(service);
-        expect(responseValue.isNone()).toBe(true);
-        expect(aztecNode.getTxReceipt).not.toHaveBeenCalled();
-      });
-
-      it('resolves a valid tx hash into a MessageContext', async () => {
-        const txHash = TxHash.random();
-        const noteHash = Fr.random();
-        const firstNullifier = Fr.random();
-
-        aztecNode.getTxReceipt.mockResolvedValueOnce(
-          new MinedTxReceipt(
-            txHash,
-            TxStatus.PROPOSED,
-            TxExecutionResult.SUCCESS,
-            0n,
-            BlockHash.random(),
-            BlockNumber(syncedBlockNumber - 1),
-            SlotNumber(0),
-            0,
-            EpochNumber(1),
-            TxEffect.from({
-              ...(await TxEffect.random()),
-              txHash,
-              noteHashes: [noteHash],
-              nullifiers: [firstNullifier],
-            }),
-          ),
-        );
-
-        const requests = EphemeralArray.fromValues(service, [txHash.hash]);
-
-        const response = await utilityExecutionOracle.getMessageContextsByTxHash(requests);
-        const [responseValue] = response.readAll(service);
-        expect(responseValue.isSome()).toBe(true);
-        expect(responseValue.value).toEqual({
-          txHash,
-          uniqueNoteHashesInTx: [noteHash],
-          firstNullifierInTx: firstNullifier,
-        });
-      });
-
-      it('sets null in response for tx effects beyond anchor block', async () => {
-        const txHash = TxHash.random();
-
-        aztecNode.getTxReceipt.mockResolvedValueOnce(
-          new MinedTxReceipt(
-            txHash,
-            TxStatus.PROPOSED,
-            TxExecutionResult.SUCCESS,
-            0n,
-            BlockHash.random(),
-            BlockNumber(syncedBlockNumber + 1),
-            SlotNumber(0),
-            0,
-            EpochNumber(1),
-            TxEffect.from({
-              ...(await TxEffect.random()),
-              txHash,
-              noteHashes: [],
-              nullifiers: [Fr.random()],
-            }),
-          ),
-        );
-
-        const requests = EphemeralArray.fromValues(service, [txHash.hash]);
-
-        const response = await utilityExecutionOracle.getMessageContextsByTxHash(requests);
-        const [responseValue] = response.readAll(service);
-        expect(responseValue.isNone()).toBe(true);
-      });
-    });
-
     describe('getSharedSecrets', () => {
       const service = new EphemeralArrayService();
 
@@ -744,7 +654,7 @@ describe('Utility Execution test suite', () => {
         taggingSecretSourcesStore,
         capsuleService: new CapsuleService(capsuleStore, scopes),
         privateEventStore,
-        messageContextService,
+        txResolver,
         contractSyncService,
         jobId: 'test-job-id',
         scopes,

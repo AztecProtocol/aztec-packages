@@ -227,29 +227,29 @@ describe('aztec node', () => {
       new MockDateProvider(),
     );
 
-    node = new TestAztecNodeService(
-      nodeConfig,
-      p2p,
-      l2BlockSource,
-      l2LogsSource,
-      contractSource,
+    node = new TestAztecNodeService({
+      config: nodeConfig,
+      p2pClient: p2p,
+      blockSource: l2BlockSource,
+      logsSource: l2LogsSource,
+      contractDataSource: contractSource,
       l1ToL2MessageSource,
-      worldState,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      async () => {},
-      12345,
-      rollupVersion.toNumber(),
-      globalVariablesBuilder,
+      worldStateSynchronizer: worldState,
+      sequencer: undefined,
+      proverNode: undefined,
+      slasherClient: undefined,
+      validatorsSentinel: undefined,
+      stopStartedWatchers: async () => {},
+      l1ChainId: 12345,
+      version: rollupVersion.toNumber(),
+      globalVariableBuilder: globalVariablesBuilder,
       rollupContract,
       feeProvider,
       epochCache,
-      getPackageVersion(),
-      new TestCircuitVerifier(),
-      new TestCircuitVerifier(),
-    );
+      packageVersion: getPackageVersion(),
+      peerProofVerifier: new TestCircuitVerifier(),
+      rpcProofVerifier: new TestCircuitVerifier(),
+    });
   });
 
   describe('tx validation', () => {
@@ -797,34 +797,31 @@ describe('aztec node', () => {
 
         const validatorNodeConfig = { ...nodeConfig, keyStoreDirectory: keyStoreDir };
 
-        nodeWithValidator = new AztecNodeService(
-          validatorNodeConfig,
-          p2p,
-          l2BlockSource,
-          mock<L2LogsSource>(),
-          mock<ContractDataSource>(),
-          mock<L1ToL2MessageSource>(),
-          mock<WorldStateSynchronizer>({ getCommitted: () => merkleTreeOps }),
-          undefined,
-          undefined,
+        nodeWithValidator = new AztecNodeService({
+          config: validatorNodeConfig,
+          p2pClient: p2p,
+          blockSource: l2BlockSource,
+          logsSource: mock<L2LogsSource>(),
+          contractDataSource: mock<ContractDataSource>(),
+          l1ToL2MessageSource: mock<L1ToL2MessageSource>(),
+          worldStateSynchronizer: mock<WorldStateSynchronizer>({ getCommitted: () => merkleTreeOps }),
+          sequencer: undefined,
+          proverNode: undefined,
           slasherClient,
-          undefined,
-          async () => {},
-          12345,
-          rollupVersion.toNumber(),
-          globalVariablesBuilder,
-          undefined,
+          validatorsSentinel: undefined,
+          stopStartedWatchers: async () => {},
+          l1ChainId: 12345,
+          version: rollupVersion.toNumber(),
+          globalVariableBuilder: globalVariablesBuilder,
+          rollupContract: undefined,
           feeProvider,
           epochCache,
-          getPackageVersion(),
-          new TestCircuitVerifier(),
-          new TestCircuitVerifier(),
-          undefined,
-          undefined,
-          undefined,
-          validatorClient as unknown as ValidatorClient,
-          new KeystoreManager(keyStore),
-        );
+          packageVersion: getPackageVersion(),
+          peerProofVerifier: new TestCircuitVerifier(),
+          rpcProofVerifier: new TestCircuitVerifier(),
+          validatorClient: validatorClient as unknown as ValidatorClient,
+          keyStoreManager: new KeystoreManager(keyStore),
+        });
       });
 
       afterEach(() => {
@@ -988,34 +985,31 @@ describe('aztec node', () => {
         // Only truthiness matters: the code checks `if (this.keyStoreManager && this.sequencer)`
         // and the validation logic uses keyStoreManager, not sequencer methods.
         // The test expects rejection before sequencer.updatePublisherNodeKeyStore() is reached.
-        const nodeWithSequencer = new AztecNodeService(
-          { ...nodeConfig, keyStoreDirectory: keyStoreDir },
-          p2p,
-          l2BlockSource,
-          mock<L2LogsSource>(),
-          mock<ContractDataSource>(),
-          mock<L1ToL2MessageSource>(),
-          mock<WorldStateSynchronizer>({ getCommitted: () => merkleTreeOps }),
-          {} as SequencerClient,
-          undefined,
+        const nodeWithSequencer = new AztecNodeService({
+          config: { ...nodeConfig, keyStoreDirectory: keyStoreDir },
+          p2pClient: p2p,
+          blockSource: l2BlockSource,
+          logsSource: mock<L2LogsSource>(),
+          contractDataSource: mock<ContractDataSource>(),
+          l1ToL2MessageSource: mock<L1ToL2MessageSource>(),
+          worldStateSynchronizer: mock<WorldStateSynchronizer>({ getCommitted: () => merkleTreeOps }),
+          sequencer: {} as SequencerClient,
+          proverNode: undefined,
           slasherClient,
-          undefined,
-          async () => {},
-          12345,
-          rollupVersion.toNumber(),
-          globalVariablesBuilder,
-          undefined,
+          validatorsSentinel: undefined,
+          stopStartedWatchers: async () => {},
+          l1ChainId: 12345,
+          version: rollupVersion.toNumber(),
+          globalVariableBuilder: globalVariablesBuilder,
+          rollupContract: undefined,
           feeProvider,
           epochCache,
-          getPackageVersion(),
-          new TestCircuitVerifier(),
-          new TestCircuitVerifier(),
-          undefined,
-          undefined,
-          undefined,
-          validatorClient as unknown as ValidatorClient,
-          new KeystoreManager(initialKeyStore),
-        );
+          packageVersion: getPackageVersion(),
+          peerProofVerifier: new TestCircuitVerifier(),
+          rpcProofVerifier: new TestCircuitVerifier(),
+          validatorClient: validatorClient as unknown as ValidatorClient,
+          keyStoreManager: new KeystoreManager(initialKeyStore),
+        });
 
         // Write new keystore: new validator uses publisherKeyB (not in the L1 signers)
         const newValidatorKey = generatePrivateKey();
@@ -1060,29 +1054,29 @@ describe('aztec node', () => {
       sequencerClient.getSequencer.mockReturnValue(sequencer);
       sequencerClient.trigger.mockReturnValue(Promise.resolve());
 
-      nodeWithSequencer = new AztecNodeService(
-        nodeConfig,
-        p2p,
-        l2BlockSource,
-        mock(),
-        mock(),
-        mock(),
-        worldState,
-        sequencerClient,
-        undefined,
-        undefined,
-        undefined,
-        async () => {},
-        12345,
-        rollupVersion.toNumber(),
-        globalVariablesBuilder,
-        undefined,
-        mock<FeeProvider>(),
+      nodeWithSequencer = new AztecNodeService({
+        config: nodeConfig,
+        p2pClient: p2p,
+        blockSource: l2BlockSource,
+        logsSource: mock(),
+        contractDataSource: mock(),
+        l1ToL2MessageSource: mock(),
+        worldStateSynchronizer: worldState,
+        sequencer: sequencerClient,
+        proverNode: undefined,
+        slasherClient: undefined,
+        validatorsSentinel: undefined,
+        stopStartedWatchers: async () => {},
+        l1ChainId: 12345,
+        version: rollupVersion.toNumber(),
+        globalVariableBuilder: globalVariablesBuilder,
+        rollupContract: undefined,
+        feeProvider: mock<FeeProvider>(),
         epochCache,
-        getPackageVersion(),
-        new TestCircuitVerifier(),
-        new TestCircuitVerifier(),
-      );
+        packageVersion: getPackageVersion(),
+        peerProofVerifier: new TestCircuitVerifier(),
+        rpcProofVerifier: new TestCircuitVerifier(),
+      });
     });
 
     it('throws when no sequencer is running', async () => {
@@ -1114,29 +1108,29 @@ describe('aztec node', () => {
       sequencerClient = mock<SequencerClient>();
       sequencerClient.getSequencer.mockReturnValue(sequencer);
 
-      nodeWithSequencer = new AztecNodeService(
-        nodeConfig,
-        p2p,
-        l2BlockSource,
-        mock(),
-        mock(),
-        mock(),
-        worldState,
-        sequencerClient,
-        undefined,
-        undefined,
-        undefined,
-        async () => {},
-        12345,
-        rollupVersion.toNumber(),
-        globalVariablesBuilder,
-        undefined,
-        mock<FeeProvider>(),
+      nodeWithSequencer = new AztecNodeService({
+        config: nodeConfig,
+        p2pClient: p2p,
+        blockSource: l2BlockSource,
+        logsSource: mock(),
+        contractDataSource: mock(),
+        l1ToL2MessageSource: mock(),
+        worldStateSynchronizer: worldState,
+        sequencer: sequencerClient,
+        proverNode: undefined,
+        slasherClient: undefined,
+        validatorsSentinel: undefined,
+        stopStartedWatchers: async () => {},
+        l1ChainId: 12345,
+        version: rollupVersion.toNumber(),
+        globalVariableBuilder: globalVariablesBuilder,
+        rollupContract: undefined,
+        feeProvider: mock<FeeProvider>(),
         epochCache,
-        getPackageVersion(),
-        new TestCircuitVerifier(),
-        new TestCircuitVerifier(),
-      );
+        packageVersion: getPackageVersion(),
+        peerProofVerifier: new TestCircuitVerifier(),
+        rpcProofVerifier: new TestCircuitVerifier(),
+      });
     });
 
     it('keeps the sequencer frozen when setConfig updates minTxsPerBlock while paused', async () => {

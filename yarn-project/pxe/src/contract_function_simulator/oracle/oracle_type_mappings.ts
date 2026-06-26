@@ -70,6 +70,7 @@ import {
   resolvedTaggingStrategyFromFields,
   resolvedTaggingStrategyToFields,
 } from '../noir-structs/resolved_tagging_strategy.js';
+import type { ResolvedTx } from '../noir-structs/resolved_tx.js';
 import type { TxEffectData } from '../noir-structs/tx_effect_data.js';
 import type { UtilityContext } from '../noir-structs/utility_context.js';
 import type { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
@@ -525,6 +526,13 @@ export const PENDING_TAGGED_LOG: TypeMapping<PendingTaggedLog> = STRUCT<PendingT
   { name: 'log', type: FIXED_BOUNDED_VEC(FIELD, PRIVATE_LOG_SIZE_IN_FIELDS) },
   { name: 'context', type: MESSAGE_CONTEXT },
 ]);
+
+// `ResolvedTx.toFields()` packs the whole struct into a single slot: txHash, the uniqueNoteHashesInTx BoundedVec
+// (MAX_NOTE_HASHES_PER_TX storage fields + length), firstNullifierInTx, blockNumber and blockHash.
+export const RESOLVED_TX: TypeMapping<ResolvedTx> = {
+  serialization: { fn: resolved => [resolved.toFields()] },
+  shape: [{ len: MAX_NOTE_HASHES_PER_TX + 5 }],
+};
 
 export const PROVIDED_SECRET: TypeMapping<ProvidedSecret> = {
   deserialization: {

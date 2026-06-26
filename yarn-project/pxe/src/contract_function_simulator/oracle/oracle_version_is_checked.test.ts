@@ -15,7 +15,7 @@ import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
-import type { MessageContextService } from '../../messages/message_context_service.js';
+import type { TxResolverService } from '../../messages/tx_resolver_service.js';
 import { ORACLE_VERSION_MAJOR, ORACLE_VERSION_MINOR } from '../../oracle_version.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
@@ -45,7 +45,7 @@ describe('Oracle Version Check test suite', () => {
   let capsuleStore: ReturnType<typeof mock<CapsuleStore>>;
   let privateEventStore: ReturnType<typeof mock<PrivateEventStore>>;
   let contractSyncService: ReturnType<typeof mock<ContractSyncService>>;
-  let messageContextService: ReturnType<typeof mock<MessageContextService>>;
+  let txResolver: ReturnType<typeof mock<TxResolverService>>;
   let l2TipsStore: ReturnType<typeof mock<L2TipsProvider>>;
   let acirSimulator: ContractFunctionSimulator;
   let contractAddress: AztecAddress;
@@ -66,7 +66,7 @@ describe('Oracle Version Check test suite', () => {
     capsuleStore = mock<CapsuleStore>();
     privateEventStore = mock<PrivateEventStore>();
     contractSyncService = mock<ContractSyncService>();
-    messageContextService = mock<MessageContextService>();
+    txResolver = mock<TxResolverService>();
     l2TipsStore = mock<L2TipsProvider>();
     assertCompatibleOracleVersionSpy = jest.spyOn(UtilityExecutionOracle.prototype, 'assertCompatibleOracleVersion');
     assertCompatibleOracleVersionSpy.mockClear();
@@ -112,7 +112,7 @@ describe('Oracle Version Check test suite', () => {
       privateEventStore,
       simulator,
       contractSyncService,
-      messageContextService,
+      txResolver,
     });
   });
 
@@ -211,7 +211,7 @@ describe('Oracle Version Check test suite', () => {
         taggingSecretSourcesStore,
         capsuleService: new CapsuleService(capsuleStore, []),
         privateEventStore,
-        messageContextService,
+        txResolver,
         contractSyncService,
         jobId: 'test',
         scopes: [],
