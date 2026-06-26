@@ -68,6 +68,25 @@
     }
   },
   "$defs": {
+    "containerResources": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "CPU/memory requests and limits of a pod's main aztec container, captured verbatim from the Kubernetes pod spec. Values are Kubernetes quantity strings (e.g. cpu '3500m', memory '12Gi').",
+      "properties": {
+        "requests": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "limits": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
     "runMeta": {
       "type": "object",
       "additionalProperties": false,
@@ -169,6 +188,13 @@
                     },
                     "description": "Distinct node pools used by this role, when exposed as node labels."
                   },
+                  "resourceProfiles": {
+                    "type": "array",
+                    "description": "Distinct CPU/memory request+limit profiles of the role's pods (deduped by content). Normally one entry per role; a second entry indicates pods of this role were sized differently. For the bench profiles request==limit (guaranteed QoS).",
+                    "items": {
+                      "$ref": "#/$defs/containerResources"
+                    }
+                  },
                   "nodes": {
                     "type": "array",
                     "items": {
@@ -190,6 +216,9 @@
                         },
                         "nodePool": {
                           "type": "string"
+                        },
+                        "resources": {
+                          "$ref": "#/$defs/containerResources"
                         }
                       }
                     }

@@ -865,17 +865,27 @@ const timeFilter = (startedAt: string, endedAt: string) =>
 
 // --- Run-context capture (image + aztec config env) ---
 
+// CPU/memory requests and limits for a pod's main container, captured verbatim
+// from the Kubernetes pod spec (e.g. {cpu: "3500m", memory: "12Gi"}). For the
+// bench profiles request==limit (guaranteed QoS), so both are usually equal.
+type ContainerResources = {
+  requests?: Record<string, string>;
+  limits?: Record<string, string>;
+};
+
 type RoleNode = {
   role: string;
   podName: string;
   nodeName: string;
   instanceType?: string;
   nodePool?: string;
+  resources?: ContainerResources;
 };
 
 type RoleInfrastructure = {
   instanceTypes: string[];
   nodePools: string[];
+  resourceProfiles: ContainerResources[];
   nodes: RoleNode[];
 };
 
@@ -883,11 +893,15 @@ type Infrastructure = {
   roles: Record<string, RoleInfrastructure>;
 };
 
+// Patterns are matched against the pod name with the namespace prefix removed
+// and anchored with ^, so the L1 infra pods (eth-validator / eth-execution /
+// eth-beacon) are not misread as aztec roles — an unanchored /-validator/ would
+// match "<ns>-eth-validator-0".
 const INFRASTRUCTURE_ROLE_PATTERNS = [
-  { role: "validator", pattern: /-validator(?:-|$)/ },
-  { role: "prover", pattern: /-prover-(?:agent|node|broker)(?:-|$)/ },
-  { role: "rpc", pattern: /-rpc(?:-|$)/ },
-  { role: "fullNode", pattern: /-full-node(?:-|$)/ },
+  { role: "validator", pattern: /^validator(?:-|$)/ },
+  { role: "prover", pattern: /^prover-(?:agent|node|broker)(?:-|$)/ },
+  { role: "rpc", pattern: /^rpc(?:-|$)/ },
+  { role: "fullNode", pattern: /^full-node(?:-|$)/ },
 ];
 
 // Curated subset of env vars worth recording per run so the dashboard can
@@ -991,7 +1005,13 @@ async function captureInfrastructure(): Promise<Infrastructure | undefined> {
     const podsJson = JSON.parse(podsOut) as {
       items?: Array<{
         metadata?: { name?: string };
-        spec?: { nodeName?: string };
+        spec?: {
+          nodeName?: string;
+          containers?: Array<{
+            name?: string;
+            resources?: ContainerResources;
+          }>;
+        };
       }>;
     };
     const nodesJson = JSON.parse(nodesOut) as {
@@ -1034,6 +1054,7 @@ async function captureInfrastructure(): Promise<Infrastructure | undefined> {
           nodePool:
             labels["cloud.google.com/gke-nodepool"] ??
             labels["eks.amazonaws.com/nodegroup"],
+          resources: resourcesForPod(pod.spec?.containers),
         };
       })
       .filter((node): node is RoleNode => node !== undefined)
@@ -1061,15 +1082,50 @@ async function captureInfrastructure(): Promise<Infrastructure | undefined> {
 }
 
 function roleForPodName(podName: string): string | undefined {
-  if (!podName.startsWith(`${NAMESPACE}-`)) {
+  const prefix = `${NAMESPACE}-`;
+  if (!podName.startsWith(prefix)) {
     return undefined;
   }
+  const suffix = podName.slice(prefix.length);
   return INFRASTRUCTURE_ROLE_PATTERNS.find(({ pattern }) =>
-    pattern.test(podName),
+    pattern.test(suffix),
   )?.role;
 }
 
+// Resource requests/limits of a pod's main "aztec" container (falls back to the
+// first container if none is named "aztec"). Returns undefined when the spec
+// declares no resources, so a pod without sizing is simply omitted.
+function resourcesForPod(
+  containers:
+    | Array<{ name?: string; resources?: ContainerResources }>
+    | undefined,
+): ContainerResources | undefined {
+  const container =
+    containers?.find((c) => c.name === "aztec") ?? containers?.[0];
+  const resources = container?.resources;
+  if (!resources) {
+    return undefined;
+  }
+  const out: ContainerResources = {};
+  if (resources.requests && Object.keys(resources.requests).length > 0) {
+    out.requests = resources.requests;
+  }
+  if (resources.limits && Object.keys(resources.limits).length > 0) {
+    out.limits = resources.limits;
+  }
+  return out.requests || out.limits ? out : undefined;
+}
+
 function infrastructureForNodes(nodes: RoleNode[]): RoleInfrastructure {
+  // Pods of a role normally share one resource profile, but dedupe by content
+  // so a mid-run resize or a stray pod surfaces as a second distinct profile
+  // rather than being silently collapsed.
+  const profilesByKey = new Map<string, ContainerResources>();
+  for (const node of nodes) {
+    if (node.resources) {
+      profilesByKey.set(JSON.stringify(node.resources), node.resources);
+    }
+  }
   return {
     instanceTypes: Array.from(
       new Set(
@@ -1079,6 +1135,7 @@ function infrastructureForNodes(nodes: RoleNode[]): RoleInfrastructure {
     nodePools: Array.from(
       new Set(nodes.flatMap((node) => (node.nodePool ? [node.nodePool] : []))),
     ).sort(),
+    resourceProfiles: [...profilesByKey.values()],
     nodes,
   };
 }
