@@ -1,17 +1,17 @@
-import { AUTOMINE_E2E_OPTS, U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
+import { U128_UNDERFLOW_ERROR } from '../../fixtures/fixtures.js';
 import { TokenContractTest } from './token_contract_test.js';
 
 // Covers the transfer_to_private entry point on Token contract (public→private), including self and
 // cross-account transfers. Setup: single node with AutomineSequencer, 3 accounts, Token deployed with
 // initial mint.
-describe('e2e_token_contract transfer_to_private', () => {
+describe('automine/token/transfer_to_private', () => {
   const t = new TokenContractTest('transfer_to_private');
   let { asset, adminAddress, account1Address, tokenSim } = t;
 
   beforeAll(async () => {
     t.applyBaseSnapshots();
     t.applyMintSnapshot();
-    await t.setup({ ...AUTOMINE_E2E_OPTS });
+    await t.setup();
     // Have to destructure again to ensure we have latest refs.
     ({ asset, adminAddress, account1Address, tokenSim } = t);
   });

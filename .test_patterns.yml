@@ -111,7 +111,7 @@ tests:
   - regex: "src/single-node/fees/private_payments"
     owners:
       - *phil
-  - regex: "src/e2e_token_contract/access_control"
+  - regex: "src/automine/token/access_control"
     error_regex: "HttpRequestError: HTTP request failed."
     owners:
       - *charlie

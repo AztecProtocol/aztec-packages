@@ -1,18 +1,17 @@
 import { Fr } from '@aztec/aztec.js/fields';
 
-import { AUTOMINE_E2E_OPTS } from '../fixtures/fixtures.js';
-import { U128_UNDERFLOW_ERROR } from '../fixtures/index.js';
+import { U128_UNDERFLOW_ERROR } from '../../fixtures/index.js';
 import { BlacklistTokenContractTest } from './blacklist_token_contract_test.js';
 
 // Covers public token transfers on TokenBlacklist: direct, self, authwit-delegated, and blacklist
 // enforcement. Setup: single node with AutomineSequencer, 3 accounts, initial mint applied.
 // Time-warp required during setup to cross role-change delay.
-describe('e2e_blacklist_token_contract transfer public', () => {
+describe('automine/token/blacklist_transfer_public', () => {
   const t = new BlacklistTokenContractTest('transfer_public');
   let { asset, tokenSim, wallet, adminAddress, otherAddress, blacklistedAddress } = t;
 
   beforeAll(async () => {
-    await t.setup({ ...AUTOMINE_E2E_OPTS });
+    await t.setup();
     // Beware that we are adding the admin as minter here, which is very slow because it needs multiple blocks.
     await t.applyMint();
     // Have to destructure again to ensure we have latest refs.

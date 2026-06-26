@@ -1,17 +1,16 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 
-import { AUTOMINE_E2E_OPTS } from '../fixtures/fixtures.js';
 import { BlacklistTokenContractTest, Role } from './blacklist_token_contract_test.js';
 
 // Covers role management (admin grant/revoke, minter assignment, blacklisting) on the TokenBlacklist contract.
 // Setup: single node with AutomineSequencer (AUTOMINE_E2E_OPTS), 3 deployed accounts (admin/other/blacklisted),
 // TokenBlacklist contract deployed. Role changes require crossing a 86400s L2 time delay enforced by the
 // contract; crossTimestampOfChange() handles this via markAsProven + warpL2TimeAtLeastBy.
-describe('e2e_blacklist_token_contract access control', () => {
+describe('automine/token/blacklist_access_control', () => {
   const t = new BlacklistTokenContractTest('access_control');
 
   beforeAll(async () => {
-    await t.setup({ ...AUTOMINE_E2E_OPTS });
+    await t.setup();
   });
 
   afterAll(async () => {

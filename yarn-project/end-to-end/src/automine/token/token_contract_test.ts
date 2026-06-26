@@ -1,5 +1,5 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { type Logger, createLogger } from '@aztec/aztec.js/log';
+import { createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { GenericProxyContract } from '@aztec/noir-test-contracts.js/GenericProxy';
@@ -7,25 +7,23 @@ import { InvalidAccountContract } from '@aztec/noir-test-contracts.js/InvalidAcc
 
 import { jest } from '@jest/globals';
 
-import {
-  type EndToEndContext,
-  type SetupOptions,
-  ensureAuthRegistryPublished,
-  setup,
-  teardown,
-} from '../fixtures/setup.js';
-import { mintTokensToPrivate } from '../fixtures/token_utils.js';
-import { TokenSimulator } from '../simulators/token_simulator.js';
-import type { TestWallet } from '../test-wallet/test_wallet.js';
+import { ensureAuthRegistryPublished } from '../../fixtures/setup.js';
+import { mintTokensToPrivate } from '../../fixtures/token_utils.js';
+import { TokenSimulator } from '../../simulators/token_simulator.js';
+import { AutomineTestContext, type AutomineTestOpts } from '../automine_test_context.js';
 
 const { METRICS_PORT: metricsPort } = process.env;
 
-export class TokenContractTest {
+/**
+ * Token-domain harness over the automine topology: extends {@link AutomineTestContext} with a
+ * {@link TokenSimulator}, the USDC Token deploy plus a bad-account and authwit proxy, and an optional
+ * mint. The base/mint steps are opt-in via {@link applyBaseSnapshots}/{@link applyMintSnapshot}, run
+ * after `super.setup()`.
+ */
+export class TokenContractTest extends AutomineTestContext {
   static TOKEN_NAME = 'USDC';
   static TOKEN_SYMBOL = 'USD';
   static TOKEN_DECIMALS = 18n;
-  context!: EndToEndContext;
-  logger: Logger;
   metricsPort?: number;
   asset!: TokenContract;
   tokenSim!: TokenSimulator;
@@ -33,16 +31,17 @@ export class TokenContractTest {
 
   badAccount!: InvalidAccountContract;
   authwitProxy!: GenericProxyContract;
-  wallet!: TestWallet;
   adminAddress!: AztecAddress;
   account1Address!: AztecAddress;
   account2Address!: AztecAddress;
 
   private shouldApplyBaseSetup = false;
   private shouldApplyMint = false;
+  private testName: string;
 
   constructor(testName: string) {
-    this.logger = createLogger(`e2e:e2e_token_contract:${testName}`);
+    super();
+    this.testName = testName;
     this.metricsPort = metricsPort ? parseInt(metricsPort) : undefined;
   }
 
@@ -111,12 +110,10 @@ export class TokenContractTest {
     );
   }
 
-  async setup(opts: Partial<SetupOptions> = {}) {
-    this.context = await setup(3, {
-      ...opts,
-      metricsPort: this.metricsPort,
-      fundSponsoredFPC: true,
-    });
+  override async setup(opts: AutomineTestOpts = {}) {
+    await super.setup({ numberOfAccounts: 3, metricsPort: this.metricsPort, ...opts });
+    // hydrateFromContext repoints `this.logger` at the context logger; restore the harness-named one.
+    this.logger = createLogger(`e2e:automine:token:${this.testName}`);
 
     if (this.shouldApplyBaseSetup) {
       await this.applyBaseSetup();
@@ -125,10 +122,6 @@ export class TokenContractTest {
     if (this.shouldApplyMint) {
       await this.applyMint();
     }
-  }
-
-  async teardown() {
-    await teardown(this.context);
   }
 
   private async applyMint() {

@@ -1,15 +1,15 @@
-import { AUTOMINE_E2E_OPTS, U128_OVERFLOW_ERROR } from '../fixtures/fixtures.js';
+import { U128_OVERFLOW_ERROR } from '../../fixtures/fixtures.js';
 import { TokenContractTest } from './token_contract_test.js';
 
 // Covers public and private minting on Token contract, including minter role enforcement and overflow checks.
 // Setup: single node with AutomineSequencer, 3 accounts deployed, Token contract deployed (no initial mint).
-describe('e2e_token_contract minting', () => {
+describe('automine/token/minting', () => {
   const t = new TokenContractTest('minting');
   let { asset, tokenSim, adminAddress, account1Address } = t;
 
   beforeAll(async () => {
     t.applyBaseSnapshots();
-    await t.setup({ ...AUTOMINE_E2E_OPTS });
+    await t.setup();
     ({ asset, tokenSim, adminAddress, account1Address } = t);
   });
 
