@@ -142,10 +142,13 @@ function build {
     folder_name="examples"
   else
     folder_name="contracts"
-    # Fail the build if the committed test_token_contract is out of sync with canonical
-    # app/token_contract, so a stale codegen'd TestToken can never be silently compiled (run
-    # scripts/gen_test_token.sh and commit to fix). See scripts/gen_test_token.sh.
-    ./scripts/gen_test_token.sh --check
+    # CI-only guard against a committed test_token_contract that has drifted from canonical
+    # app/token_contract. Locally the precommit hook (noir-projects/precommit.sh) regenerates it on
+    # commit, so we skip the check here to avoid failing mid-iteration builds; CI still catches a
+    # stale TestToken that bypassed the hook (e.g. a --no-verify commit). See scripts/gen_test_token.sh.
+    if [ "$CI" -eq 1 ]; then
+      ./scripts/gen_test_token.sh --check
+    fi
   fi
 
   if [ "$#" -eq 0 ]; then

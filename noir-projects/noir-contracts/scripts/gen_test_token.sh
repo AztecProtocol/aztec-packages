@@ -7,13 +7,15 @@
 # tests where a token is just a unit-of-account vehicle rather than the test subject -- there,
 # constrained delivery's first-send handshake bootstrap would distort step/log/nullifier counts that
 # those tests assert on. Generating TestToken from canonical Token (rather than maintaining a second
-# hand-written contract) makes the two impossible to drift: edit Token, rerun this script, commit.
+# hand-written contract) keeps the two from drifting. You rarely run this by hand: the precommit hook
+# (noir-projects/precommit.sh) regenerates TestToken when you commit a canonical Token change, and CI
+# re-runs --check as a backstop.
 #
 # Usage:
 #   gen_test_token.sh           regenerate contracts/test/test_token_contract in place
 #   gen_test_token.sh --check   regenerate into a temp dir and fail if it differs from the committed
-#                               copy (bootstrap.sh runs this before compiling, so a stale committed
-#                               TestToken can never be silently compiled or reviewed)
+#                               copy (CI runs this so a stale committed TestToken can't land; locally
+#                               the precommit hook keeps the committed copy fresh)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
