@@ -1787,13 +1787,17 @@ std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_two_round_fold(
     // Highest bit position of a < 2^127 challenge; the Booth windows tile positions 0..TOP_BIT.
     constexpr size_t TOP_BIT = (WINDOW_BITS * NUM_WINDOWS) - 1; // 4*32 - 1 = 127
 
-    const Fr u1_conv = u1.from_montgomery_form();
-    const Fr u2_conv = u2.from_montgomery_form();
+    // Canonical ([0, p)) value of the scalar inputs. from_montgomery_form() alone is only
+    // coarse-reduced ([0, 2p)) and returns value+p on WASM's 29-bit-limb Montgomery backend, which
+    // would feed a non-canonical (full-width-looking) value into the assert and the Booth-digit
+    // extraction below — tripping the assert / building the wrong fold on WASM.
+    const Fr u1_conv = u1.from_montgomery_form_reduced();
+    const Fr u2_conv = u2.from_montgomery_form_reduced();
     BB_ASSERT(((u1_conv.data[2] | u1_conv.data[3]) == 0) && ((u1_conv.data[1] >> 63) == 0),
               "batch_two_round_fold challenges must be below 2^127");
     BB_ASSERT(((u2_conv.data[2] | u2_conv.data[3]) == 0) && ((u2_conv.data[1] >> 63) == 0),
               "batch_two_round_fold challenges must be below 2^127");
-    const Fr u12_conv = (u1 * u2).from_montgomery_form();
+    const Fr u12_conv = (u1 * u2).from_montgomery_form_reduced();
     const detail::EndoScalars endo_scalars = Fr::split_into_endomorphism_scalars(u12_conv);
     BB_ASSERT_EQ((endo_scalars.first[1] >> 63), 0U, "GLV K1 split must fit below 2^127 for the Booth grid");
     BB_ASSERT_EQ((endo_scalars.second[1] >> 63), 0U, "GLV K2 split must fit below 2^127 for the offset Booth grid");
