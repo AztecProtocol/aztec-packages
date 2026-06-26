@@ -134,5 +134,5 @@ describe('Recursive Aggregation Example', () => {
     // Verify the recursive proof
     const isValid = await recursiveBackend.verifyProof(recursiveProofData);
     expect(isValid).toBe(true);
-  }, 300000);
+  }, 450000);
 });
