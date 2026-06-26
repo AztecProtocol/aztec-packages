@@ -181,6 +181,43 @@ describe('syncTaggedPrivateLogs', () => {
     expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBe(newWindowIndex);
   });
 
+  it('unconstrained drains a contiguous run that fills and exceeds the window', async () => {
+    const [secret] = await makeSecrets(1, AppTaggingSecretKind.UNCONSTRAINED);
+    const finalizedBlockNumber = BlockNumber(10);
+    const logBlockTimestamp = CURRENT_TIMESTAMP - BigInt(MAX_TX_LIFETIME) - 1000n;
+
+    // Unconstrained streams can have gaps, so each round scans the full window and re-anchors the next window to the
+    // highest finalized index found that round, rather than first-miss stopping or doubling a probe (both
+    // constrained-only). A contiguous run that fills the cold-start window and extends past it drains across rounds.
+    const totalLogs = UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 2;
+    const logTags = await Promise.all(Array.from({ length: totalLogs }, (_, i) => computeSiloedTagForIndex(secret, i)));
+    mockNodeWithLogs(logTags, Number(finalizedBlockNumber), logBlockTimestamp);
+
+    const logs = await syncTaggedPrivateLogs(
+      [secret],
+      aztecNode,
+      taggingStore,
+      ANCHOR_BLOCK_HEADER,
+      finalizedBlockNumber,
+      JOB_ID,
+    );
+
+    // Every log is returned and both cursors land on the last index. The aged cursor advances since the logs are old
+    // enough, unlike a constrained secret, which never tracks an aged index.
+    expect(logs).toHaveLength(totalLogs);
+    expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBe(totalLogs - 1);
+    expect(await taggingStore.getHighestAgedIndex(secret, JOB_ID)).toBe(totalLogs - 1);
+
+    // The first round spans the full cold-start window (WINDOW_LEN + 1). Because every index hit, the next round
+    // re-anchors to another full WINDOW_LEN window ahead of the new finalized index: no small initial probe and no
+    // doubling, in contrast to the constrained scan.
+    const callSizes = aztecNode.getPrivateLogsByTags.mock.calls.map(([q]) => extractTags(q).length);
+    expect(callSizes.slice(0, 2)).toEqual([
+      UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1,
+      UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN,
+    ]);
+  });
+
   it('respects pre-existing store indexes', async () => {
     const [secret] = await makeSecrets(1, AppTaggingSecretKind.UNCONSTRAINED);
     const finalizedBlockNumber = BlockNumber(10);
