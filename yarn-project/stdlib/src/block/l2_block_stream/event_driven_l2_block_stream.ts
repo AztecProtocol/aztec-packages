@@ -176,8 +176,10 @@ export class EventDrivenL2BlockStream {
   }
 
   /**
-   * Runs a synchronization pass now, bypassing the poll interval, and resolves once a pass that ran at or after
-   * this call completes. Concurrent callers and periodic ticks coalesce onto the same pass.
+   * Runs a synchronization pass now, bypassing the poll interval, and resolves once that pass completes. Concurrent
+   * callers and periodic ticks coalesce onto a single pass; a caller that coalesces onto an already in-flight pass
+   * can resolve against a pass that began just before it, so this guarantees freshness only up to that coalescing
+   * window. The periodic poll and per-pass reorg handling make the gap a latency effect, never a correctness one.
    */
   public sync(): Promise<void> {
     return this.runningPromise.trigger();
