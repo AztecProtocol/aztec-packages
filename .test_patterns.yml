@@ -301,6 +301,11 @@ tests:
     owners:
       - *palla
 
+  - regex: "src/automine/.*\\.test\\.ts"
+    flake_group_id: e2e-p2p-epoch-flakes
+    owners:
+      - *palla
+
   - regex: "p2p/src/client/test/.*\\.test\\.ts"
     flake_group_id: e2e-p2p-epoch-flakes
     owners:
