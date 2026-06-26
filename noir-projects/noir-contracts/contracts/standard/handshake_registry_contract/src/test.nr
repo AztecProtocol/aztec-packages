@@ -4,7 +4,7 @@ use aztec::{
     messages::delivery::{
         constrained_delivery::VALIDATE_HANDSHAKE_SELECTOR,
         handshake::{
-            AppSiloedHandshakeSecrets, GET_APP_SILOED_SECRET_SELECTOR, GET_HANDSHAKES_SELECTOR, MAX_HANDSHAKES_PER_PAGE,
+            AppSiloedHandshakeSecrets, GET_APP_SILOED_SECRETS_SELECTOR, GET_HANDSHAKES_SELECTOR, MAX_HANDSHAKES_PER_PAGE,
             NON_INTERACTIVE_HANDSHAKE_SELECTOR,
         },
     },
@@ -54,7 +54,7 @@ unconstrained fn selectors_match_the_constrained_delivery_helper() {
     let recipient = AztecAddress::from_field(3);
     let secrets = AppSiloedHandshakeSecrets { shared: 0, sender_only: 0 };
 
-    assert_eq(registry.get_app_siloed_secret(sender, recipient).selector, GET_APP_SILOED_SECRET_SELECTOR);
+    assert_eq(registry.get_app_siloed_secrets(sender, recipient).selector, GET_APP_SILOED_SECRETS_SELECTOR);
     assert_eq(registry.non_interactive_handshake(sender, recipient).selector, NON_INTERACTIVE_HANDSHAKE_SELECTOR);
     assert_eq(registry.validate_handshake(sender, recipient, secrets).selector, VALIDATE_HANDSHAKE_SELECTOR);
     assert_eq(registry.get_handshakes(recipient, 0).selector, GET_HANDSHAKES_SELECTOR);
@@ -70,7 +70,7 @@ unconstrained fn non_interactive_handshake_stores_handshake_for_sender_and_recip
     let utility_secrets = env
         .execute_utility_opts(
             ExecuteUtilityOptions::new().with_from(sender),
-            registry.get_app_siloed_secret(sender, recipient),
+            registry.get_app_siloed_secrets(sender, recipient),
         )
         .expect(f"handshake secret should be present");
     assert_eq(utility_secrets.shared, returned_secrets.shared);
@@ -166,7 +166,7 @@ unconstrained fn rehandshake_replaces_previous_secret_and_returns_latest() {
     let retrieved = env
         .execute_utility_opts(
             ExecuteUtilityOptions::new().with_from(sender),
-            registry.get_app_siloed_secret(sender, recipient),
+            registry.get_app_siloed_secrets(sender, recipient),
         )
         .expect(f"handshake secret should be present");
     assert_eq(retrieved.shared, secrets_second.shared);
@@ -225,13 +225,13 @@ unconstrained fn one_sender_can_have_active_handshakes_with_many_recipients() {
     let retrieved_a = env
         .execute_utility_opts(
             ExecuteUtilityOptions::new().with_from(sender),
-            registry.get_app_siloed_secret(sender, recipient_a),
+            registry.get_app_siloed_secrets(sender, recipient_a),
         )
         .expect(f"handshake secret should be present for recipient A");
     let retrieved_b = env
         .execute_utility_opts(
             ExecuteUtilityOptions::new().with_from(sender),
-            registry.get_app_siloed_secret(sender, recipient_b),
+            registry.get_app_siloed_secrets(sender, recipient_b),
         )
         .expect(f"handshake secret should be present for recipient B");
 
@@ -245,7 +245,7 @@ unconstrained fn one_sender_can_have_active_handshakes_with_many_recipients() {
 }
 
 #[test]
-unconstrained fn get_app_siloed_secret_returns_none_for_wrong_sender() {
+unconstrained fn get_app_siloed_secrets_returns_none_for_wrong_sender() {
     let (env, registry_address, sender, other_sender, recipient) = setup();
     let registry = HandshakeRegistry::at(registry_address);
 
@@ -254,13 +254,13 @@ unconstrained fn get_app_siloed_secret_returns_none_for_wrong_sender() {
     assert(env
         .execute_utility_opts(
             ExecuteUtilityOptions::new().with_from(sender),
-            registry.get_app_siloed_secret(other_sender, recipient),
+            registry.get_app_siloed_secrets(other_sender, recipient),
         )
         .is_none());
 }
 
 #[test]
-unconstrained fn get_app_siloed_secret_returns_none_for_wrong_recipient() {
+unconstrained fn get_app_siloed_secrets_returns_none_for_wrong_recipient() {
     let (env, registry_address, sender, recipient_a, recipient_b) = setup_with_two_recipients();
     let registry = HandshakeRegistry::at(registry_address);
 
@@ -269,7 +269,7 @@ unconstrained fn get_app_siloed_secret_returns_none_for_wrong_recipient() {
     assert(env
         .execute_utility_opts(
             ExecuteUtilityOptions::new().with_from(sender),
-            registry.get_app_siloed_secret(sender, recipient_b),
+            registry.get_app_siloed_secrets(sender, recipient_b),
         )
         .is_none());
 }
@@ -327,7 +327,7 @@ unconstrained fn non_interactive_handshake_accepts_other_sender_in_additional_sc
 }
 
 #[test]
-unconstrained fn get_app_siloed_secret_differs_per_msg_sender() {
+unconstrained fn get_app_siloed_secrets_differs_per_msg_sender() {
     let (env, registry_address, sender, other_sender, recipient) = setup();
     let registry = HandshakeRegistry::at(registry_address);
 
@@ -335,7 +335,7 @@ unconstrained fn get_app_siloed_secret_differs_per_msg_sender() {
     let other_sender_secrets = env
         .execute_utility_opts(
             ExecuteUtilityOptions::new().with_from(other_sender),
-            registry.get_app_siloed_secret(sender, recipient),
+            registry.get_app_siloed_secrets(sender, recipient),
         )
         .expect(f"handshake secret should be present for other caller");
 
@@ -358,7 +358,7 @@ unconstrained fn validate_handshake_accepts_secret_siloed_for_msg_sender() {
     let other_sender_secrets = env
         .execute_utility_opts(
             ExecuteUtilityOptions::new().with_from(other_sender),
-            registry.get_app_siloed_secret(sender, recipient),
+            registry.get_app_siloed_secrets(sender, recipient),
         )
         .expect(f"handshake secret should be present for other caller");
 
@@ -453,7 +453,7 @@ unconstrained fn non_interactive_handshake_is_discovered_by_recipient() {
     let utility_secrets = env
         .execute_utility_opts(
             ExecuteUtilityOptions::new().with_from(sender),
-            registry.get_app_siloed_secret(sender, recipient),
+            registry.get_app_siloed_secrets(sender, recipient),
         )
         .expect(f"handshake secret should be present");
     assert_eq(utility_secrets.shared, returned_secrets.shared);

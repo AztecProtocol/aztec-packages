@@ -1027,7 +1027,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 // every returned secret to `msg_sender`, so a caller only ever learns values siloed to its own address.
 const STANDARD_HANDSHAKE_REGISTRY_DEFAULT_AUTHORIZED_READ_SIGNATURES = [
   'get_handshakes((Field),u32)',
-  'get_app_siloed_secret((Field),(Field))',
+  'get_app_siloed_secrets((Field),(Field))',
 ];
 
 async function doesSelectorHaveSignature(functionSelector: FunctionSelector, signature: string): Promise<boolean> {

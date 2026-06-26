@@ -29,7 +29,7 @@ unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress, AztecA
     (env, registry_address, test_address, sender, recipient)
 }
 
-/// Constrained delivery resolves the current app secret through `HandshakeRegistry::get_app_siloed_secret`, which TXE
+/// Constrained delivery resolves the current app secret through `HandshakeRegistry::get_app_siloed_secrets`, which TXE
 /// denies by default. Authorize the registry as a utility-call target for calls that emit constrained messages.
 unconstrained fn authorizing(registry_address: AztecAddress) -> CallPrivateOptions<0, 1> {
     CallPrivateOptions::new().with_authorized_utility_call_targets([registry_address])
@@ -45,7 +45,7 @@ unconstrained fn rehandshake_replaces_registry_secret_for_future_delivery() {
     let first_secret = env
         .execute_utility_opts(
             ExecuteUtilityOptions::new().with_from(test_address),
-            registry.get_app_siloed_secret(sender, recipient),
+            registry.get_app_siloed_secrets(sender, recipient),
         )
         .expect(f"first delivery should have stored a handshake")
         .shared;
@@ -54,7 +54,7 @@ unconstrained fn rehandshake_replaces_registry_secret_for_future_delivery() {
     let second_secret = env
         .execute_utility_opts(
             ExecuteUtilityOptions::new().with_from(test_address),
-            registry.get_app_siloed_secret(sender, recipient),
+            registry.get_app_siloed_secrets(sender, recipient),
         )
         .expect(f"re-handshake should have stored a replacement handshake")
         .shared;
@@ -76,7 +76,7 @@ unconstrained fn fails_at_index_above_zero_without_prior_nullifier() {
     let secret = env
         .execute_utility_opts(
             ExecuteUtilityOptions::new().with_from(test_address),
-            registry.get_app_siloed_secret(sender, recipient),
+            registry.get_app_siloed_secrets(sender, recipient),
         )
         .expect(f"handshake should be siloed for the test contract")
         .shared;

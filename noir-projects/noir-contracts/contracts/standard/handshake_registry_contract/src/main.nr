@@ -16,7 +16,7 @@ global NON_INTERACTIVE_HANDSHAKE: u8 = 1;
 /// tags
 /// from it when scanning. The raw `S` never leaves the registry: app contracts call
 /// [`HandshakeRegistry::non_interactive_handshake`] to receive the secret already siloed to the caller, call
-/// [`HandshakeRegistry::get_app_siloed_secret`] offchain for an existing handshake, and use
+/// [`HandshakeRegistry::get_app_siloed_secrets`] offchain for an existing handshake, and use
 /// [`HandshakeRegistry::validate_handshake`] to check app-siloed secrets against the current stored handshake. The
 /// private surfaces silo against `msg_sender()`, so a contract can only obtain or validate secrets siloed to itself.
 /// Re-handshaking does not revoke already-started constrained-delivery sequences; it only replaces the registry note
@@ -135,7 +135,7 @@ pub contract HandshakeRegistry {
     /// [HandshakeRegistry::validate_handshake] when they need a constrained proof that supplied app-siloed secrets
     /// match the current handshake.
     #[external("utility")]
-    unconstrained fn get_app_siloed_secret(
+    unconstrained fn get_app_siloed_secrets(
         sender: AztecAddress,
         recipient: AztecAddress,
     ) -> Option<AppSiloedHandshakeSecrets> {

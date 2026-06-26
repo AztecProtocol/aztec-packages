@@ -48,8 +48,8 @@ global HANDSHAKE_EPH_PKS_SLOT: Field = sha256_to_field("AZTEC_NR::HANDSHAKE_EPH_
 // The helper cannot import the handshake registry interface because the registry contract depends on aztec-nr. These
 // selector constants pin the registry ABI surface this library calls. The registry's test suite compares them against
 // its macro-generated `HandshakeRegistry::at(...).method(...).selector` values so signature drift fails in tests.
-pub global GET_APP_SILOED_SECRET_SELECTOR: FunctionSelector =
-    comptime { FunctionSelector::from_signature("get_app_siloed_secret((Field),(Field))") };
+pub global GET_APP_SILOED_SECRETS_SELECTOR: FunctionSelector =
+    comptime { FunctionSelector::from_signature("get_app_siloed_secrets((Field),(Field))") };
 pub global NON_INTERACTIVE_HANDSHAKE_SELECTOR: FunctionSelector =
     comptime { FunctionSelector::from_signature("non_interactive_handshake((Field),(Field))") };
 pub global GET_HANDSHAKES_SELECTOR: FunctionSelector =
@@ -81,7 +81,7 @@ pub(crate) fn get_or_create_app_siloed_handshake_secret(
     let maybe_secrets: Option<AppSiloedHandshakeSecrets> = unsafe {
         let returns = call_utility_function(
             registry,
-            GET_APP_SILOED_SECRET_SELECTOR,
+            GET_APP_SILOED_SECRETS_SELECTOR,
             [sender.to_field(), recipient.to_field()],
         );
         Deserialize::deserialize(returns)
