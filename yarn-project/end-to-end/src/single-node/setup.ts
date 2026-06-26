@@ -41,16 +41,3 @@ export function setupBlockProducer(opts: SingleNodeTestOpts = {}): Promise<Singl
     pxeOpts: { syncChainTip: 'proposed', ...opts.pxeOpts },
   });
 }
-
-/**
- * Single sequencer plus a **real** Barretenberg prover node (`realProofs: true`, `startProverNode: true`),
- * used by the `prover/` suite. Carries the fake-prover defaults otherwise (`aztecProofSubmissionEpochs: 1`,
- * `syncChainTip: 'checkpointed'`) but generates real proofs instead of fake ones. Overridable via `opts`.
- */
-export function setupWithRealProver(opts: SingleNodeTestOpts = {}): Promise<SingleNodeTestContext> {
-  return SingleNodeTestContext.setup({
-    realProofs: true,
-    startProverNode: true,
-    ...opts,
-  });
-}

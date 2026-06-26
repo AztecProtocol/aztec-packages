@@ -30,8 +30,9 @@ wants. Tests call the factory rather than the static method directly:
   block-building / sequencer / sync suites. It raises `aztecProofSubmissionEpochs` to `1024` so unproven
   blocks are not pruned without a prover, and points the PXE at `syncChainTip: 'proposed'` so tests can
   assert on freshly proposed blocks. Both are overridable via `opts`.
-- `setupWithRealProver(opts)` — a single sequencer plus a **real** Barretenberg prover node
-  (`realProofs: true`), for tests that exercise genuine proof generation.
+
+The `prover/` suite (real Barretenberg proofs) builds its environment through `FullProverTest`, which
+extends `SingleNodeTestContext` directly rather than going through a factory.
 
 ## Organizing principle
 
