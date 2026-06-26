@@ -88,8 +88,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   private checkpointProposalJobMetrics: CheckpointProposalJobMetrics;
   private readonly stateLog: Logger;
 
-  /** The last slot for which we attempted to perform our voting duties with degraded block production */
-  private lastSlotForFallbackVote: SlotNumber | undefined;
+  /** The last slot for which we attempted to perform our fallback duties (votes and/or prune) with degraded block production */
+  private lastSlotForFallbackAction: SlotNumber | undefined;
 
   /** The (checkpoint, slot) of the last invalidation request we successfully simulated, to prevent
    * re-simulating and re-submitting the same invalidation across the many ticks within a single slot. */
@@ -455,7 +455,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // We are the proposer and the escape hatch is closed: now run the full sync check before building.
     const syncedTo = await this.checkSync({ ts, slot });
     if (!syncedTo) {
-      await this.tryVoteWhenCannotBuild({ slot, targetSlot });
+      await this.tryVoteAndPruneWhenCannotBuild({ slot, targetSlot });
       return undefined;
     }
 
@@ -475,7 +475,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       });
       // Mark the slot as attempted so a deadline abort is not retried within the same slot. Vote-only actions
       // still need to run because sync can succeed even when it is too late to start building a checkpoint.
-      await this.tryVoteWhenCannotBuild({ slot, targetSlot });
+      await this.tryVoteAndPruneWhenCannotBuild({ slot, targetSlot });
       this.lastSlotForCheckpointProposalJob = targetSlot;
       return undefined;
     }
@@ -944,16 +944,17 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   }
 
   /**
-   * Tries to vote on slashing actions and governance when we cannot build and are past the block-building window.
-   * This allows the sequencer to participate in governance/slashing votes even when it cannot build blocks.
+   * Tries to vote on slashing actions and governance and to prune when we cannot build and are past the
+   * block-building window. This allows the sequencer to participate in governance/slashing votes even when it
+   * cannot build blocks, and to prune the pending chain so it can recover from bad data that is blocking sync.
    */
-  @trackSpan('Sequencer.tryVoteWhenCannotBuild', ({ slot }) => ({ [Attributes.SLOT_NUMBER]: slot }))
-  protected async tryVoteWhenCannotBuild(args: { slot: SlotNumber; targetSlot: SlotNumber }): Promise<void> {
+  @trackSpan('Sequencer.tryVoteAndPruneWhenCannotBuild', ({ slot }) => ({ [Attributes.SLOT_NUMBER]: slot }))
+  protected async tryVoteAndPruneWhenCannotBuild(args: { slot: SlotNumber; targetSlot: SlotNumber }): Promise<void> {
     const { slot, targetSlot } = args;
 
     // Prevent duplicate attempts in the same slot
-    if (this.lastSlotForFallbackVote === slot) {
-      this.log.trace(`Already attempted to vote in slot ${slot} (skipping)`);
+    if (this.lastSlotForFallbackAction === slot) {
+      this.log.trace(`Already attempted fallback actions in slot ${slot} (skipping)`);
       return;
     }
 
@@ -976,7 +977,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     // Mark this slot as attempted
-    this.lastSlotForFallbackVote = slot;
+    this.lastSlotForFallbackAction = slot;
 
     // Get a publisher for voting
     const { attestorAddress, publisher } = await this.publisherFactory.create(proposer);
@@ -1001,19 +1002,40 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const votesPromises = voter.enqueueVotes();
     const votes = await Promise.all(votesPromises);
 
-    if (votes.every(p => !p)) {
-      this.log.debug(`No votes to enqueue for slot ${slot}`);
+    // Even if we cannot build, try to prune so a stuck pending chain (e.g. bad data blocking sync) can
+    // recover. prune() is permissionless, so it rides the same fallback multicall as the votes.
+    const pruneEnqueued = await this.tryEnqueuePruneIfPrunable(targetSlot, publisher);
+
+    // Bail if nothing to do
+    if (votes.every(p => !p) && !pruneEnqueued) {
+      this.log.debug(`Nothing to enqueue for slot ${slot} (no votes, not prunable)`);
       return;
     }
 
-    this.log.info(`Voting in slot ${slot} despite sync failure`, { slot });
+    const [governanceVoteEnqueued, slashingVoteEnqueued] = votes;
+    this.log.info(`Submitting fallback requests in slot ${slot} despite sync failure`, {
+      slot,
+      pruneEnqueued,
+      governanceVoteEnqueued: !!governanceVoteEnqueued,
+      slashingVoteEnqueued: !!slashingVoteEnqueued,
+    });
+
     // Votes are EIP-712-signed for `targetSlot` (the pipelined slot in which the multicall is
     // expected to mine). Delay submission to the start of `targetSlot` so the tx mines in the
     // slot the votes were signed for. We fire-and-forget so we don't block the sequencer's
     // work loop while waiting for the target slot to start.
     void publisher.sendRequestsAt(targetSlot).catch(err => {
-      this.log.error(`Failed to publish votes despite sync failure for slot ${slot}`, err, { slot });
+      this.log.error(`Failed to publish fallback requests despite sync failure for slot ${slot}`, err, { slot });
     });
+  }
+
+  private async tryEnqueuePruneIfPrunable(targetSlot: SlotNumber, publisher: SequencerPublisher): Promise<boolean> {
+    try {
+      return await publisher.enqueuePruneIfPrunable(targetSlot);
+    } catch (err) {
+      this.log.error(`Failed to enqueue rollup prune for slot ${targetSlot}`, err, { targetSlot });
+      return false;
+    }
   }
 
   /**
@@ -1029,13 +1051,13 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const { slot, targetSlot, proposer } = args;
 
     // Prevent duplicate attempts in the same slot
-    if (this.lastSlotForFallbackVote === slot) {
+    if (this.lastSlotForFallbackAction === slot) {
       this.log.trace(`Already attempted to vote in slot ${slot} (escape hatch open, skipping)`);
       return;
     }
 
     // Mark this slot as attempted
-    this.lastSlotForFallbackVote = slot;
+    this.lastSlotForFallbackAction = slot;
 
     const { attestorAddress, publisher } = await this.publisherFactory.create(proposer);
 
@@ -1074,7 +1096,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // the multicall mines in the slot the votes were signed for; otherwise the L1 contract reads
     // `signaler = getCurrentProposer()` against the wrong slot and signature verification fails
     // silently inside Multicall3. Fire-and-forget so we don't block the sequencer's work loop while
-    // waiting for the target slot to start, mirroring tryVoteWhenCannotBuild.
+    // waiting for the target slot to start, mirroring tryVoteAndPruneWhenCannotBuild.
     void publisher.sendRequestsAt(targetSlot).catch(err => {
       this.log.error(`Failed to publish escape-hatch votes for slot ${slot}`, err, { slot, targetSlot });
     });

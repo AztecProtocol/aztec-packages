@@ -34,18 +34,28 @@ function test_cmds {
   fi
   echo "$prefix:TIMEOUT=25m:NAME=e2e_block_building $(set_dump_avm e2e_block_building) $run_test_script simple e2e_block_building"
   echo "$prefix:TIMEOUT=30m:NAME=e2e_avm_simulator $(set_dump_avm e2e_avm_simulator) $run_test_script simple src/e2e_avm_simulator.test.ts"
-  echo "$prefix:TIMEOUT=15m:NAME=e2e_epochs/epochs_long_proving_time $run_test_script simple src/e2e_epochs/epochs_long_proving_time.test.ts"
 
   local tests=(
     # List all standalone and nested tests, except for the ones listed above.
-    src/e2e_!(prover|epochs)/*.test.ts
-    src/e2e_epochs/!(epochs_long_proving_time).test.ts
+    src/e2e_!(prover)/*.test.ts
+    src/single-node/proving/*.test.ts
+    src/single-node/l1-reorgs/*.test.ts
+    src/single-node/recovery/*.test.ts
+    src/single-node/partial-proofs/*.test.ts
+    src/single-node/misc/*.test.ts
+    src/multi-node/block-production/*.test.ts
+    src/multi-node/recovery/*.test.ts
+    src/multi-node/invalid-attestations/*.test.ts
+    src/multi-node/high-availability/*.test.ts
+    src/multi-node/slashing/*.test.ts
     src/e2e_p2p/reqresp/*.test.ts
     src/e2e_!(block_building|avm_simulator).test.ts
   )
   for test in "${tests[@]}"; do
-    local name=${test#*e2e_}
-    name=e2e_${name%.test.ts}
+    # Derive a CI test name from the path: drop the leading "src/" and trailing ".test.ts".
+    # This keeps e2e_<dir>/<file> names while also handling the multi-node/ category folder.
+    local name=${test#src/}
+    name=${name%.test.ts}
 
     # Per-test bash TIMEOUT overrides — keep in sync with the test file's jest.setTimeout.
     local test_prefix="$prefix"
@@ -56,14 +66,20 @@ function test_cmds {
       e2e_cross_chain_messaging/l1_to_l2)
         test_prefix="$prefix:TIMEOUT=20m"
         ;;
+      single-node/proving/long_proving_time)
+        # The long-proving-time scenario waits out a multi-epoch prover delay.
+        test_prefix="$prefix:TIMEOUT=15m"
+        ;;
     esac
 
     # Check if this is a .parallel.test.ts file
     if [[ "$test" == *.parallel.test.ts ]]; then
       # Extract individual test names and create a command for each
       while IFS= read -r test_name; do
-        # Create a safe name for the individual test (replace spaces with underscores)
-        local safe_test_name=$(echo "$test_name" | sed 's/ /_/g')
+        # Create a safe name for the individual test. This becomes the docker container name via
+        # docker_isolate, so every character outside docker's allowed set [a-zA-Z0-9_.-] (spaces,
+        # parentheses, etc.) must be collapsed to an underscore or `docker run --name` rejects it.
+        local safe_test_name=$(echo "$test_name" | sed 's/[^a-zA-Z0-9_.-]/_/g')
         local full_name="${name}_${safe_test_name}"
         echo "$test_prefix:NAME=$full_name $(set_dump_avm $full_name) $run_test_script simple $test \"$test_name\""
       done < <(extract_test_names "$test")
@@ -276,7 +292,9 @@ function compat_test_cmds {
 
     if [[ "$test" == *.parallel.test.ts ]]; then
       while IFS= read -r test_name; do
-        local safe_test_name=$(echo "$test_name" | sed 's/ /_/g')
+        # See the matching note in test_cmds: collapse docker-illegal characters so NAME is a valid
+        # container name for docker_isolate.
+        local safe_test_name=$(echo "$test_name" | sed 's/[^a-zA-Z0-9_.-]/_/g')
         local full_name="compat_${version}_${name}_${safe_test_name}"
         echo "$prefix:NAME=$full_name $compat_env $run_test_script simple $test \"$test_name\""
       done < <(extract_test_names "$test")
