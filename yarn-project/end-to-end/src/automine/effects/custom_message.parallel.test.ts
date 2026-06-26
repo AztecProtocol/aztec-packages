@@ -14,7 +14,7 @@ const TIMEOUT = 300_000;
 // Tests the CustomMessage contract's multi-log event pattern: emitting a single event split across
 // multiple private logs and reassembling it via wallet.getPrivateEvents.
 // Uses setup(1, AUTOMINE_E2E_OPTS) with one node, automine sequencer, one account.
-describe('automine/notes/custom_message', () => {
+describe('automine/effects/custom_message', () => {
   let contract: CustomMessageContract;
   jest.setTimeout(TIMEOUT);
 

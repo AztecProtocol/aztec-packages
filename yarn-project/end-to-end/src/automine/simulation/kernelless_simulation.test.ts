@@ -32,7 +32,7 @@ import { AutomineTestContext } from '../automine_test_context.js';
  * Uses a single automine node with three funded accounts (admin, liquidityProvider, swapper),
  * an AMM with two token pairs, and various test contracts deployed in beforeAll.
  */
-describe('automine/execution/kernelless_simulation', () => {
+describe('automine/simulation/kernelless_simulation', () => {
   let teardown: () => Promise<void>;
 
   let logger: Logger;

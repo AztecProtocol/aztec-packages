@@ -10,8 +10,8 @@ import { CardGameContract } from '@aztec/noir-contracts.js/CardGame';
 
 import { jest } from '@jest/globals';
 
-import type { TestWallet } from '../../test-wallet/test_wallet.js';
-import { AutomineTestContext } from '../automine_test_context.js';
+import type { TestWallet } from '../test-wallet/test_wallet.js';
+import { AutomineTestContext } from './automine_test_context.js';
 
 /* eslint-disable camelcase */
 
@@ -61,7 +61,7 @@ const TIMEOUT = 600_000;
 // initializerless accounts — it derives nullifier-hiding keys from the players' secrets, so it owns the
 // keys. (v5: was setup(3, …); the explicit account provisioning is a setup-mechanics change, not a
 // category change.) jest.setTimeout(600s).
-describe('automine/execution/card_game', () => {
+describe('automine/card_game', () => {
   jest.setTimeout(TIMEOUT);
 
   let logger: Logger;

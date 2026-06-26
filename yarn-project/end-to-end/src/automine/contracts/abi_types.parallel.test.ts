@@ -18,7 +18,7 @@ const I64_MIN = -(2n ** 63n);
 // Tests that different ABI types are correctly encoded when passed to contract functions and decoded from
 // return values in TypeScript. Mirrors Noir-side AbiTypes unit tests. Uses setup(1, AUTOMINE_E2E_OPTS)
 // providing one node, automine sequencer, and one deployed account.
-describe('automine/execution/abi_types', () => {
+describe('automine/contracts/abi_types', () => {
   let abiTypesContract: AbiTypesContract;
   jest.setTimeout(TIMEOUT);
 

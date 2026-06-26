@@ -11,12 +11,12 @@ import type { AztecNode, AztecNodeDebug } from '@aztec/stdlib/interfaces/client'
 import { jest } from '@jest/globals';
 import 'jest-extended';
 
-import { AutomineTestContext } from '../automine_test_context.js';
+import { AutomineTestContext } from './automine_test_context.js';
 
 // Smoke tests for the AutomineSequencer: verifies that sequential and parallel txs land correctly,
 // time warps work, mineBlock produces checkpoints, and revertToCheckpoint restores chain state.
 // Uses setup(1, AUTOMINE_E2E_OPTS) providing one node with AutomineSequencer.
-describe('automine/smoke/smoke', () => {
+describe('automine/smoke', () => {
   jest.setTimeout(10 * 60 * 1000);
 
   let teardown: () => Promise<void>;

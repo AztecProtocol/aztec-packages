@@ -33,7 +33,7 @@ const TIMEOUT = 120_000;
 // obtained tx effect from oracle with the one obtained directly in TS.
 //
 // Uses a single node with AutomineSequencer and one account.
-describe('automine/notes/tx_effect_oracle', () => {
+describe('automine/effects/tx_effect_oracle', () => {
   let contract: TxEffectOracleTestContract;
   let deployTxHash: TxHash;
   jest.setTimeout(TIMEOUT);

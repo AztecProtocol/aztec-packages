@@ -3,9 +3,9 @@ import { NO_FROM } from '@aztec/aztec.js/account';
 import { createLogger } from '@aztec/aztec.js/log';
 import { retryUntil } from '@aztec/foundation/retry';
 
-import type { EndToEndContext } from '../../fixtures/utils.js';
-import { proveInteraction } from '../../test-wallet/utils.js';
-import { AutomineTestContext } from '../automine_test_context.js';
+import type { EndToEndContext } from '../fixtures/utils.js';
+import { proveInteraction } from '../test-wallet/utils.js';
+import { AutomineTestContext } from './automine_test_context.js';
 
 // Verifies that genesis-anchored transactions (proved while PXE is pinned to block 0) can be
 // included in blocks after block 1, and that PXE can prove transactions anchored to genesis even
@@ -13,7 +13,7 @@ import { AutomineTestContext } from '../automine_test_context.js';
 // advancePastGenesis=false, two deployable accounts in additionallyFundedAccounts, and pxe
 // syncChainTip='proven' so the anchor stays at genesis until a real proof lands, which never happens
 // in these tests (no prover node running).
-describe('automine/lifecycle/genesis_timestamp', () => {
+describe('automine/genesis_timestamp', () => {
   let context: EndToEndContext;
 
   const logger = createLogger('e2e:genesis_timestamp');

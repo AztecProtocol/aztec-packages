@@ -18,7 +18,7 @@ const TIMEOUT = 300_000;
 // Tests the OffchainPayment contract's offchain message delivery mechanism. Uses a single node with the
 // AutomineSequencer so each tx mines a block immediately. Also exercises the AutomineSequencer's
 // revertToCheckpoint to simulate a reorg and verify that offchain-delivered notes are reprocessed correctly.
-describe('automine/notes/offchain_payment', () => {
+describe('automine/effects/offchain_payment', () => {
   let contract: OffchainPaymentContract;
   let aztecNode: AztecNode;
   let aztecNodeService: AztecNodeService;

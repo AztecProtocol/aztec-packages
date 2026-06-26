@@ -13,16 +13,16 @@ import { computeCalldataHash } from '@aztec/stdlib/hash';
 
 import { jest } from '@jest/globals';
 
-import type { TestWallet } from '../../test-wallet/test_wallet.js';
-import { proveInteraction } from '../../test-wallet/utils.js';
-import { AutomineTestContext } from '../automine_test_context.js';
+import type { TestWallet } from '../test-wallet/test_wallet.js';
+import { proveInteraction } from '../test-wallet/utils.js';
+import { AutomineTestContext } from './automine_test_context.js';
 
 const TIMEOUT = 300_000;
 
 // See https://github.com/AztecProtocol/aztec-packages/issues/1601
 // Verifies deterministic execution ordering for enqueued public calls and public state updates.
 // Uses a single node with AutomineSequencer; each test mines one block per call via beforeEach setup.
-describe('automine/execution/ordering', () => {
+describe('automine/ordering', () => {
   jest.setTimeout(TIMEOUT);
 
   let wallet: TestWallet;

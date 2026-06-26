@@ -14,7 +14,7 @@ import { AutomineTestContext } from '../automine_test_context.js';
 // ChildContract) and protocol circuits (PrivateKernelInit variant). (v5: the default account is now
 // initializerless, so the user circuit recorded is the entrypoint, not a SchnorrAccount constructor.)
 // Uses setup(1, AUTOMINE_E2E_OPTS) with one node, automine sequencer, one account.
-describe('automine/execution/circuit_recorder', () => {
+describe('automine/simulation/circuit_recorder', () => {
   const RECORD_DIR = './circuit_recordings';
 
   // Sets CIRCUIT_RECORD_DIR env var, runs setup + a ChildContract deploy to trigger circuit execution,

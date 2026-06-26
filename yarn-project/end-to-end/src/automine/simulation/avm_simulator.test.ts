@@ -17,7 +17,7 @@ const TIMEOUT = 600_000;
 // nested calls, gas metering, contract instances, L2→L1 messages, and public-storage overrides.
 // Uses setup(1, AUTOMINE_E2E_OPTS) providing one node, automine sequencer, one funded account.
 // CI runs this as a separate job with TIMEOUT=30m and optionally dumps AVM circuit inputs.
-describe('automine/execution/avm_simulator', () => {
+describe('automine/simulation/avm_simulator', () => {
   jest.setTimeout(TIMEOUT);
 
   let wallet: Wallet;

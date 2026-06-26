@@ -9,15 +9,15 @@ import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contra
 import { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { defaultInitialAccountFeeJuice } from '@aztec/world-state/testing';
 
-import type { TestWallet } from '../../test-wallet/test_wallet.js';
-import { AutomineTestContext } from '../automine_test_context.js';
+import type { TestWallet } from '../test-wallet/test_wallet.js';
+import { AutomineTestContext } from './automine_test_context.js';
 
 // Private functions should receive automatically a phase check that avoids any nested call changing the phase.
 // Functions that opt out of this phase check can be marked with #[allow_phase_change].
 //
 // Uses a single node with AutomineSequencer. The setup pre-funds a custom SponsoredFPC via genesisPublicData
 // so that fee payment can be crafted without ending the setup phase, which is needed to trigger the phase-change error.
-describe('automine/execution/phase_check', () => {
+describe('automine/phase_check', () => {
   let wallet: TestWallet;
   let defaultAccountAddress: AztecAddress;
   let teardown: () => Promise<void>;

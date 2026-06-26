@@ -15,7 +15,7 @@ const I64_MIN = -(2n ** 63n);
 // Verifies that the Aztec.js ABI layer correctly serialises/deserialises Noir Option<T> parameters
 // for public, utility, and private functions. Single node with AutomineSequencer; all calls are
 // simulate()-only (no on-chain state changes).
-describe('automine/execution/option_params', () => {
+describe('automine/contracts/option_params', () => {
   let contract: OptionParamContract;
   let wallet: Wallet;
   let defaultAccountAddress: AztecAddress;

@@ -16,7 +16,7 @@ import { AutomineTestContext } from '../automine_test_context.js';
 // Verifies the kernel's pending-note-hash squashing logic: notes created and nullified in the same tx
 // are not persisted to the tree. Uses a single node with AutomineSequencer; contracts are deployed
 // per-test via deployContract().
-describe('automine/notes/pending_note_hashes', () => {
+describe('automine/effects/pending_note_hashes', () => {
   let aztecNode: AztecNode;
   let wallet: TestWallet;
   let owner: AztecAddress;

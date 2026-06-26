@@ -17,7 +17,7 @@ import { AutomineTestContext } from '../automine_test_context.js';
 // Uses a single node with AutomineSequencer, worldStateCheckpointHistory=2, and
 // aztecProofSubmissionEpochs=1024 (effectively no reorg). markAsProven + extra L1 blocks cause world-state
 // to prune old block data; the test then verifies that PXE can still discover notes from pruned blocks.
-describe('automine/lifecycle/pruned_blocks', () => {
+describe('automine/effects/pruned_blocks', () => {
   jest.setTimeout(5 * 60 * 1000);
 
   let logger: Logger;

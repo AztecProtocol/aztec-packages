@@ -17,7 +17,7 @@ const TIMEOUT = 300_000;
 // via the StateVars and Auth contracts. Single node with AutomineSequencer. The DelayedPublicMutable sub-suite
 // reads DefaultL1ContractsConfig.aztecSlotDuration as a static constant (72) for delay arithmetic and asserts
 // it has not changed; the runtime slot set by AUTOMINE_E2E_OPTS (12s) is irrelevant to that assertion.
-describe('automine/execution/state_vars', () => {
+describe('automine/contracts/state_vars', () => {
   jest.setTimeout(TIMEOUT);
 
   let aztecNode: AztecNode;

@@ -401,7 +401,7 @@ tests:
       - *palla
 
   # http://ci.aztec-labs.com/153f5dcbb0f3799c
-  - regex: "src/automine/notes/offchain_payment.parallel.test.ts"
+  - regex: "src/automine/effects/offchain_payment.parallel.test.ts"
     error_regex: "✕ reprocesses an offchain-delivered payment after an L1 reorg"
     owners:
       - *martin
