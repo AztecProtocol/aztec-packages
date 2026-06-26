@@ -596,6 +596,10 @@ template <TestBase Base_> class TestClass {
         AcirProgram program{ constraint_system, updated_witness_values };
         auto builder = create_circuit<Builder>(program, Base::generate_metadata());
 
+        if (builder.failed()) {
+            return { false, true, builder.err() };
+        }
+
         return { CircuitChecker::check(builder), builder.failed(), builder.err() };
     }
 
