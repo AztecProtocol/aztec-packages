@@ -5,6 +5,12 @@ __metadata:
   version: 8
   cacheKey: 10
 
+"@aztec/barretenberg-ts-packages@workspace:.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/barretenberg-ts-packages@workspace:."
+  languageName: unknown
+  linkType: soft
+
 "@aztec/bb-avm-sim-darwin-arm64@npm:0.1.0, @aztec/bb-avm-sim-darwin-arm64@workspace:bb-avm-sim/packages/bb-avm-sim-darwin-arm64":
   version: 0.0.0-use.local
   resolution: "@aztec/bb-avm-sim-darwin-arm64@workspace:bb-avm-sim/packages/bb-avm-sim-darwin-arm64"
@@ -53,12 +59,6 @@ __metadata:
       optional: true
   bin:
     bb-avm-sim: ./dest/bin.js
-  languageName: unknown
-  linkType: soft
-
-"@aztec/barretenberg-ts-packages@workspace:.":
-  version: 0.0.0-use.local
-  resolution: "@aztec/barretenberg-ts-packages@workspace:."
   languageName: unknown
   linkType: soft
 
