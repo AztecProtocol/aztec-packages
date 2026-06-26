@@ -5,6 +5,9 @@ import { sendThroughAuthwitProxy, simulateThroughAuthwitProxy } from '../fixture
 import { AUTOMINE_E2E_OPTS, DUPLICATE_NULLIFIER_ERROR } from '../fixtures/fixtures.js';
 import { TokenContractTest } from './token_contract_test.js';
 
+// Covers the transfer_in_private entry point on Token contract: authwit-delegated transfers via proxy,
+// authwit cancellation, and error paths including bad-account validation. Setup: single node with
+// AutomineSequencer, 3 accounts + InvalidAccount, Token deployed with initial mint.
 describe('e2e_token_contract transfer private', () => {
   const t = new TokenContractTest('transfer_private');
   let { asset, tokenSim, wallet, adminAddress, account1Address, badAccount } = t;
@@ -24,6 +27,8 @@ describe('e2e_token_contract transfer private', () => {
     await t.tokenSim.check();
   });
 
+  // Creates a private authwit for transfer_in_private, sends through proxy, verifies TokenSimulator,
+  // then confirms replay reverts with DUPLICATE_NULLIFIER_ERROR.
   it('transfer on behalf of other', async () => {
     const { result: balance0 } = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
     const amount = balance0 / 2n;
@@ -43,7 +48,11 @@ describe('e2e_token_contract transfer private', () => {
     ).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
   });
 
+  // Error paths: invalid nonce, over-balance via authwit, no approval, wrong caller, cancelled authwit,
+  // and invalid verify_private_authwit from a bad account contract.
   describe('failure cases', () => {
+    // Self-transfer via transfer_in_private with nonce=1; expects the invalid-nonce assertion with a stack
+    // trace matching Token.transfer_in_private.
     it('transfer on behalf of self with non-zero nonce', async () => {
       const { result: balance0 } = await asset.methods
         .balance_of_private(adminAddress)
@@ -62,6 +71,8 @@ describe('e2e_token_contract transfer private', () => {
       );
     });
 
+    // Authwit-transfers more than private balance via proxy; expects 'Balance too low' and verifies balances
+    // unchanged.
     it('transfer more than balance on behalf of other', async () => {
       const { result: balance0 } = await asset.methods
         .balance_of_private(adminAddress)
@@ -95,6 +106,7 @@ describe('e2e_token_contract transfer private', () => {
       // See https://github.com/AztecProtocol/aztec-packages/issues/1259
     });
 
+    // Simulates transfer_in_private through proxy without a witness; expects unknown-authwit error.
     it('transfer on behalf of other without approval', async () => {
       const { result: balance0 } = await asset.methods
         .balance_of_private(adminAddress)
@@ -116,6 +128,7 @@ describe('e2e_token_contract transfer private', () => {
       );
     });
 
+    // Creates authwit designating account1 as caller but sends through proxy; expects unknown-authwit error.
     it('transfer on behalf of other, wrong designated caller', async () => {
       const { result: balance0 } = await asset.methods
         .balance_of_private(adminAddress)
@@ -142,6 +155,8 @@ describe('e2e_token_contract transfer private', () => {
       );
     });
 
+    // Creates a private authwit, cancels it via cancel_authwit (which nullifies the inner hash), then
+    // attempts the transfer through proxy and expects DUPLICATE_NULLIFIER_ERROR.
     it('transfer on behalf of other, cancelled authwit', async () => {
       const { result: balance0 } = await asset.methods
         .balance_of_private(adminAddress)
@@ -166,6 +181,8 @@ describe('e2e_token_contract transfer private', () => {
       ).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
     });
 
+    // Uses the InvalidAccount contract as the 'from' address; expects 'Message not authorized by account'
+    // because the bad contract returns a malformed validation response.
     it('transfer on behalf of other, invalid verify_private_authwit on "from"', async () => {
       const authwitNonce = Fr.random();
 

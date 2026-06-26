@@ -24,6 +24,9 @@ import type { TestWallet } from './test-wallet/test_wallet.js';
 
 const TIMEOUT = 300_000;
 
+// Covers cryptographic key derivation and usage: nhk_app-based nullification detection and
+// ovsk_app retrieval via the TestContract. Single automine node, one funded Schnorr account,
+// TestContract deployed in beforeAll.
 describe('Keys', () => {
   jest.setTimeout(TIMEOUT);
 
@@ -49,6 +52,8 @@ describe('Keys', () => {
 
   afterAll(() => teardown());
 
+  // Demonstrates that an observer holding nhk_app and the contract address can detect when a note
+  // they did not create has been nullified, by scanning all note hashes and re-deriving nullifiers.
   describe('using nhk_app to detect nullification', () => {
     //    This test checks that it is possible to detect that a note has been nullified just by using nhk_app. Note
     // that this only works for non-transient notes as transient ones never emit a note hash which makes it
@@ -65,6 +70,8 @@ describe('Keys', () => {
     // is impossible to detect with this scheme.
     //    Another example is withdrawing from DeFi and then immediately spending the funds. In this case, we would
     // need nhk_app and the contract address of the DeFi contract to detect the nullification of the initial note.
+    // Creates a note, asserts 0 nullified notes. Destroys the note, scans all blocks for matching
+    // nullifiers derived from nhk_app and asserts exactly 1 nullified note.
     it('nhk_app and contract address are enough to detect note nullification', async () => {
       const masterNullifierHidingKey = deriveMasterNullifierHidingKey(secret);
       const nhkApp = await computeAppNullifierHidingKey(masterNullifierHidingKey, testContract.address);
@@ -110,7 +117,10 @@ describe('Keys', () => {
     };
   });
 
+  // Verifies that the on-chain get_ovsk_app circuit function returns the same ovsk_app as the
+  // TypeScript derivation path (deriveMasterOutgoingViewingSecretKey + computeAppSecretKey).
   describe('ovsk_app', () => {
+    // Derives ovsk_app in TS, calls get_ovsk_app on-chain, and compares the field values.
     it('gets ovsk_app', async () => {
       // Derive the ovpk_m_hash from the account secret. Use `hashPublicKey` (the
       // domain-separated hash over `[x, y]`) rather than `Point.hash()` (which hashes

@@ -74,7 +74,7 @@ export function FunctionParameter({ parameter, required, onParameterChange, defa
       const contacts = await wallet.getAddressBook();
 
       const contracts = (await playgroundDB.listAliases('contracts')).map(
-        ({ alias, item }) => ({ alias, item: AztecAddress.fromString(item) }),
+        ({ alias, item }) => ({ alias, item: AztecAddress.fromStringUnsafe(item) }),
       );
       setAliasedAddresses([...accounts, ...contacts, ...contracts]);
       setLoading(false);

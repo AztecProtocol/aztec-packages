@@ -225,6 +225,11 @@ async function makeInvalidCheckpointProposals({
   return { earlierBlock, terminalBlock, higherBlock, checkpoint };
 }
 
+// Tests slashing of a validator that broadcasts an invalid checkpoint proposal. Uses P2PNetworkTest
+// with mockGossipSubNetwork: true (in-memory gossip bus, no real libp2p). Nodes created via
+// createNode/createNodes from setup_p2p_test.ts. Timing: ethSlot=4s, aztecSlot=8s, epoch=2,
+// committee=2. Three it() cases cover: checkpoint truncated below own block, mismatched header
+// (live sequencer path), and valid checkpoint with delayed higher-index block.
 describe('e2e_slashing_broadcasted_invalid_checkpoint_proposal_slash', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[] = [];
@@ -323,6 +328,9 @@ describe('e2e_slashing_broadcasted_invalid_checkpoint_proposal_slash', () => {
     return { node, currentSlot, signer, validator, signatureContext };
   };
 
+  // Manually broadcasts three block proposals for a past slot, then broadcasts a checkpoint that
+  // references only the earlier block (truncated below the terminal block). Asserts that
+  // awaitBroadcastedInvalidCheckpointOffense detects a BROADCASTED_INVALID_CHECKPOINT_PROPOSAL offense.
   it('slashes a validator that broadcasts a checkpoint truncated below its own retained block proposal', async () => {
     const { node, currentSlot, signer, validator, signatureContext } = await setupNodeAndValidator();
     const targetSlot = SlotNumber(Number(currentSlot) - 2);
@@ -360,6 +368,9 @@ describe('e2e_slashing_broadcasted_invalid_checkpoint_proposal_slash', () => {
     expect(firstOffense.amount).toEqual(slashingUnit);
   });
 
+  // Runs a full sequencer cycle using broadcastInvalidCheckpointProposalOnly nodes; the invalid
+  // proposer broadcasts a checkpoint whose header does not match its own block. Honest nodes observe
+  // the offense via awaitAnyBroadcastedInvalidCheckpointOffense.
   it('slashes a validator that broadcasts a checkpoint with a mismatched header', async () => {
     const { rollup } = await t.getContracts();
 
@@ -433,6 +444,9 @@ describe('e2e_slashing_broadcasted_invalid_checkpoint_proposal_slash', () => {
     }
   });
 
+  // Broadcasts a checkpoint that includes the terminal block in its lastBlock field (valid at first).
+  // Asserts no offense is recorded. Then broadcasts a higher-index block proposal, making the
+  // checkpoint invalid retroactively, and asserts the offense is now detected.
   it('does not slash a valid checkpoint whose lastBlock supplies the terminal proposal until a delayed higher-index block is retained', async () => {
     const { node, currentSlot, signer, validator, signatureContext } = await setupNodeAndValidator();
     const targetSlot = SlotNumber(Number(currentSlot) - 2);

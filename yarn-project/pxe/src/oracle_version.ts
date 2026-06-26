@@ -19,4 +19,4 @@ export const ORACLE_VERSION_MINOR = 1;
 /// - increment only `ORACLE_VERSION_MINOR` if the change is additive (a new oracle was added).
 ///
 /// These constants must be kept in sync between this file and `noir-projects/aztec-nr/aztec/src/oracle/version.nr`.
-export const ORACLE_INTERFACE_HASH = 'c2bb0bada16dc1808e251dc5e9b41c069d6bb71e8e4bab25e8790da831ce20af';
+export const ORACLE_INTERFACE_HASH = '2a441f29ab01b252bc74b91b07fc2514891c28bffdfa0042d80494271b75edee';

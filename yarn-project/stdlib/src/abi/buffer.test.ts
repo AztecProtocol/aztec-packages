@@ -53,4 +53,9 @@ describe('buffer', () => {
     expect(result.length).toBe(31);
     expect(result.toString('hex')).toEqual(buffer.toString('hex'));
   });
+
+  it('returns an empty buffer for an empty field array', () => {
+    const result = bufferFromFields([]);
+    expect(result.length).toBe(0);
+  });
 });

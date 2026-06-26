@@ -18,6 +18,11 @@ const TIMEOUT = 1_200_000;
 // prover-node startup) exceeds the default 5min jest per-test budget.
 jest.setTimeout(15 * 60 * 1000);
 
+// Tests client-side proof generation and verification for private and public transfers.
+// FullProverTest sets up a single node with a real prover node (real BB when FAKE_PROOFS=0,
+// fake proofs otherwise) via PIPELINING_SETUP_OPTS (ethSlot=4s, aztecSlot=12s). The prover
+// node is a second AztecNodeService with enableProverNode. No on-chain proof submission — only
+// client-side circuit proof generation and circuitProofVerifier.verifyProof() are tested.
 describe('client_prover', () => {
   const REAL_PROOFS = !parseBooleanEnv(process.env.FAKE_PROOFS);
   const COINBASE_ADDRESS = EthAddress.random();
@@ -62,6 +67,9 @@ describe('client_prover', () => {
     await t.tokenSim.check();
   });
 
+  // Verifies fee juice portal has a balance, then proves a private transfer and a public transfer
+  // client-side (proveInteraction), and calls circuitProofVerifier.verifyProof() on each without
+  // submitting to the network.
   it(
     'proves and verifies the client-side portion of private and public transfers',
     async () => {

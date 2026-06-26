@@ -27,7 +27,7 @@ set -euo pipefail
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 PKG_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
 
-LOCAL_DMTS="$PKG_ROOT/vendor/jswasm/sqlite3-bundler-friendly.d.mts"
+LOCAL_DMTS="$PKG_ROOT/vendor/jswasm/sqlite3.d.mts"
 LOCAL_GITIGNORE="$PKG_ROOT/vendor/jswasm/.gitignore"
 LOCAL_NPMIGNORE="$PKG_ROOT/vendor/jswasm/.npmignore"
 SHA256SUMS="$PKG_ROOT/vendor/jswasm/SHA256SUMS"
@@ -103,7 +103,7 @@ if [[ -z "$EXTRACTED" ]]; then
 fi
 
 # Preserve files that aren't part of the upstream release across re-vendoring:
-#   - sqlite3-bundler-friendly.d.mts: locally-authored TypeScript declaration
+#   - sqlite3.d.mts: locally-authored TypeScript declaration
 #   - .gitignore: allowlist that keeps upstream artifacts untracked
 #   - .npmignore: shadows .gitignore so npm publish keeps the artifacts
 DMTS_BACKUP=""
@@ -131,7 +131,7 @@ cp -r "$EXTRACTED/jswasm/." "$PKG_ROOT/vendor/jswasm/"
 if [[ -n "$DMTS_BACKUP" ]]; then
   cp "$DMTS_BACKUP" "$LOCAL_DMTS"
   rm "$DMTS_BACKUP"
-  echo "==> Restored locally-authored sqlite3-bundler-friendly.d.mts"
+  echo "==> Restored locally-authored sqlite3.d.mts"
 fi
 if [[ -n "$GITIGNORE_BACKUP" ]]; then
   cp "$GITIGNORE_BACKUP" "$LOCAL_GITIGNORE"

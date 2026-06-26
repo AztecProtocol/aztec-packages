@@ -12,8 +12,8 @@ import { needsRecompile } from './utils/needs_recompile.js';
 import { run } from './utils/spawn.js';
 import { warnIfAztecVersionMismatch } from './utils/warn_if_aztec_version_mismatch.js';
 
-/** Returns paths to contract artifacts in the target directory. */
-async function collectContractArtifacts(): Promise<string[]> {
+/** Returns contract artifacts in the target directory along with whether each has already been postprocessed. */
+async function collectContractArtifacts(): Promise<ContractArtifactInfo[]> {
   let files;
   try {
     files = await readArtifactFiles('target');
@@ -23,7 +23,9 @@ async function collectContractArtifacts(): Promise<string[]> {
     }
     throw err;
   }
-  return files.filter(f => Array.isArray(f.content.functions)).map(f => f.filePath);
+  return files
+    .filter(f => Array.isArray(f.content.functions))
+    .map(f => ({ filePath: f.filePath, transpiled: f.content.transpiled === true }));
 }
 
 /** Stamps the Aztec stack version into the contract artifacts. */
@@ -141,30 +143,34 @@ async function checkNoTestsInContracts(nargo: string, log: LogFn): Promise<void>
 async function compileAztecContract(nargoArgs: string[], log: LogFn): Promise<void> {
   await warnIfAztecVersionMismatch(log);
 
-  if (!(await needsRecompile())) {
-    log('No source changes detected, skipping compilation.');
-    return;
-  }
-
   const nargo = process.env.NARGO ?? 'nargo';
   const bb = process.env.BB ?? findBbBinary() ?? 'bb';
 
-  await run(nargo, ['compile', ...nargoArgs]);
+  const shouldRecompile = await needsRecompile();
+  if (shouldRecompile) {
+    await run(nargo, ['compile', ...nargoArgs]);
 
-  // Ensure contract crates contain no tests (tests belong in the test crate).
-  await checkNoTestsInContracts(nargo, log);
-
-  const artifacts = await collectContractArtifacts();
-
-  if (artifacts.length > 0) {
-    log('Postprocessing contracts...');
-    const bbArgs = artifacts.flatMap(a => ['-i', a]);
-    await run(bb, ['aztec_process', ...bbArgs]);
-
-    await stampAztecVersion(artifacts);
+    // Ensure contract crates contain no tests (tests belong in the test crate).
+    await checkNoTestsInContracts(nargo, log);
   }
 
-  log('Compilation complete!');
+  // Postprocess any untranspiled artifacts: those just produced by nargo above, and any left behind by a bare
+  // `nargo compile` run outside `aztec compile`.
+  const unprocessed = (await collectContractArtifacts()).filter(a => !a.transpiled).map(a => a.filePath);
+
+  if (unprocessed.length > 0) {
+    log('Postprocessing contracts...');
+    const bbArgs = unprocessed.flatMap(a => ['-i', a]);
+    await run(bb, ['aztec_process', ...bbArgs]);
+
+    await stampAztecVersion(unprocessed);
+  }
+
+  if (shouldRecompile || unprocessed.length > 0) {
+    log('Compilation complete!');
+  } else {
+    log('No source changes detected, skipping compilation.');
+  }
 }
 
 export function injectCompileCommand(program: Command, log: LogFn): Command {
@@ -189,4 +195,11 @@ export function injectCompileCommand(program: Command, log: LogFn): Command {
     .action((nargoArgs: string[]) => compileAztecContract(nargoArgs, log));
 
   return program;
+}
+
+interface ContractArtifactInfo {
+  /** Path to the artifact JSON in the target directory. */
+  filePath: string;
+  /** Whether the artifact has already been transpiled and had its verification keys generated. */
+  transpiled: boolean;
 }

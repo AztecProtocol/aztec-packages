@@ -24,6 +24,9 @@ import { getLogger, startAnvil } from '../fixtures/utils.js';
  * Regenerate this test's fixture with
  * AZTEC_GENERATE_TEST_DATA=1 yarn workspace @aztec/prover-client test bb_prover_full_rollup
  */
+// Standalone Honk proof verifier integration test. Starts its own anvil, deploys a HonkVerifier contract,
+// loads a serialised RootRollupPublicInputs fixture, and verifies the proof on-chain via BBCircuitVerifier.
+// No Aztec node. Excluded from compose glob; requires a pre-generated proof fixture (AZTEC_GENERATE_TEST_DATA).
 describe('proof_verification', () => {
   let proof: Proof;
   let publicInputs: RootRollupPublicInputs;
