@@ -5,7 +5,7 @@
  * and Web3Signer for remote signing. Verifies that blocks are produced,
  * attestations are signed, and no double-signing occurs.
  */
-import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
+import { type AztecNodeConfig, AztecNodeService, createAztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { NO_WAIT, getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
@@ -323,11 +323,7 @@ describe('HA Full Setup', () => {
       };
 
       const nodeService = await withLoggerBindings({ actor: `HA-${i}` }, async () => {
-        return await AztecNodeService.createAndSync(
-          nodeConfig,
-          { dateProvider },
-          { genesis, dontStartSequencer: true },
-        );
+        return await createAztecNodeService(nodeConfig, { dateProvider }, { genesis, dontStartSequencer: true });
       });
 
       haNodeServices.push(nodeService);
