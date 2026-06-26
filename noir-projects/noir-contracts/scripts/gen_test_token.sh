@@ -7,9 +7,9 @@
 # tests where a token is just a unit-of-account vehicle rather than the test subject -- there,
 # constrained delivery's first-send handshake bootstrap would distort step/log/nullifier counts that
 # those tests assert on. Generating TestToken from canonical Token (rather than maintaining a second
-# hand-written contract) keeps the two from drifting. You rarely run this by hand: the precommit hook
-# (noir-projects/precommit.sh) regenerates TestToken when you commit a canonical Token change, and CI
-# re-runs --check as a backstop.
+# hand-written contract) keeps the two from drifting. You rarely run this by hand: local builds
+# regenerate TestToken in place, the precommit hook (noir-projects/precommit.sh) regenerates and stages
+# it when you commit a canonical Token change, and CI runs --check as a backstop.
 #
 # Usage:
 #   gen_test_token.sh           regenerate contracts/test/test_token_contract in place
