@@ -121,7 +121,7 @@ async function advanceToEpochBeforePipelinedTargetSlot({
   cheatCodes,
   targetProposer,
   logger,
-  maxAttempts = 30,
+  maxAttempts = 100,
 }: {
   epochCache: EpochCacheInterface;
   cheatCodes: RollupCheatCodes;
