@@ -301,6 +301,17 @@ function assertContractArtifactsVersion() {
 }
 
 /**
+ * Records a function-level timing span into the shared collector installed by the e2e timing
+ * environment. No-op unless TEST_TIMING_FILE is set (the env only installs the collector then). The
+ * span is tagged with the name of the currently running test so the env can attribute it to the
+ * right line; `null` during beforeAll/afterAll lands it on the suite-scoped line.
+ */
+function recordFnSpan(kind: 'setup' | 'teardown', ms: number) {
+  const collector = (globalThis as { __e2eTimings?: { current: string | null; fnSpans: unknown[] } }).__e2eTimings;
+  collector?.fnSpans.push({ name: collector.current, kind, ms });
+}
+
+/**
  * Sets up the environment for the end-to-end tests.
  * @param numberOfAccounts - The number of new accounts to be created once the PXE is initiated.
  * @param opts - Options to pass to the node initialization and to the setup script.
@@ -311,6 +322,20 @@ export async function setup(
   opts: SetupOptions = {},
   pxeOpts: Partial<PXEConfig> = {},
   chain: Chain = foundry,
+): Promise<EndToEndContext> {
+  const setupStart = performance.now();
+  try {
+    return await setupInner(numberOfAccounts, opts, pxeOpts, chain);
+  } finally {
+    recordFnSpan('setup', performance.now() - setupStart);
+  }
+}
+
+async function setupInner(
+  numberOfAccounts: number,
+  opts: SetupOptions,
+  pxeOpts: Partial<PXEConfig>,
+  chain: Chain,
 ): Promise<EndToEndContext> {
   assertContractArtifactsVersion();
   let anvil: Anvil | undefined;
@@ -667,6 +692,7 @@ export async function setup(
     }
 
     const teardown = async () => {
+      const teardownStart = performance.now();
       try {
         await tryStop(wallet, logger);
         await tryStop(aztecNodeService, logger);
@@ -691,6 +717,7 @@ export async function setup(
         } catch (err) {
           logger.error(`Error during telemetry client stop`, err);
         }
+        recordFnSpan('teardown', performance.now() - teardownStart);
       }
     };
 
