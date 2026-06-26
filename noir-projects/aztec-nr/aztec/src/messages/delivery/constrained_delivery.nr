@@ -244,19 +244,55 @@ mod test {
     }
 
     #[test]
-    unconstrained fn reused_secret_above_index_zero_cannot_forge_from_valid_predecessor() {
+    unconstrained fn valid_predecessor_from_one_handshake_cannot_authorize_another_sequence() {
+        let env = TestEnvironment::new();
+        let registry = AztecAddress::from_field(1);
+        let sender = AztecAddress::from_field(2);
+        let recipient = AztecAddress::from_field(4);
+        let handshake_a = AppSiloedHandshakeSecrets { shared: 1234, sender_only: 5678 };
+        let handshake_b = AppSiloedHandshakeSecrets { shared: 8765, sender_only: handshake_a.sender_only };
+
+        env.private_context(|context| {
+            let _ = OracleMock::mock("aztec_prv_isNullifierPending").returns(true).times(1);
+
+            constrain_secret_and_emit_nullifier(context, registry, sender, recipient, handshake_a, true, 0);
+            assert_eq(context.nullifiers.len(), 1);
+            let handshake_a_predecessor = context.nullifiers.get(0).inner.value;
+
+            constrain_secret(context, registry, sender, recipient, handshake_b, false, 1);
+
+            assert_eq(context.private_call_requests.len(), 0);
+            assert_eq(context.nullifier_read_requests.len(), 1);
+            assert_eq(context.nullifier_read_requests.get(0).contract_address, context.this_address());
+            // Omitting the shared secret from the sequence nullifier lets handshake B reuse handshake A's predecessor.
+            assert(
+                context.nullifier_read_requests.get(0).inner.inner != handshake_a_predecessor,
+                "handshake B at index 1 must not be authorized by handshake A's predecessor",
+            );
+            assert_eq(
+                context.nullifier_read_requests.get(0).inner.inner,
+                compute_constrained_msg_nullifier(
+                    sender,
+                    recipient,
+                    handshake_b.shared,
+                    handshake_b.sender_only,
+                    0,
+                ),
+            );
+        });
+    }
+
+    #[test]
+    unconstrained fn shared_secret_holder_cannot_forge_sender_only_sequence_nullifier() {
         let env = TestEnvironment::new();
         let registry = AztecAddress::from_field(1);
         let sender = AztecAddress::from_field(2);
         let recipient = AztecAddress::from_field(4);
         let valid_secrets = AppSiloedHandshakeSecrets { shared: 1234, sender_only: 5678 };
-        let tampered_shared_secrets =
-            AppSiloedHandshakeSecrets { shared: 8765, sender_only: valid_secrets.sender_only };
-        let tampered_sender_only_secrets =
-            AppSiloedHandshakeSecrets { shared: valid_secrets.shared, sender_only: 9012 };
+        let forged_secrets = AppSiloedHandshakeSecrets { shared: valid_secrets.shared, sender_only: 9012 };
 
         env.private_context(|context| {
-            let _ = OracleMock::mock("aztec_prv_isNullifierPending").returns(true).times(2);
+            let _ = OracleMock::mock("aztec_prv_isNullifierPending").returns(true).times(1);
 
             constrain_secret_and_emit_nullifier(context, registry, sender, recipient, valid_secrets, true, 0);
             assert_eq(context.nullifiers.len(), 1);
@@ -267,31 +303,27 @@ mod test {
                 registry,
                 sender,
                 recipient,
-                tampered_shared_secrets,
-                false,
-                1,
-            );
-            constrain_secret(
-                context,
-                registry,
-                sender,
-                recipient,
-                tampered_sender_only_secrets,
+                forged_secrets,
                 false,
                 1,
             );
 
             assert_eq(context.private_call_requests.len(), 0);
-            assert_eq(context.nullifier_read_requests.len(), 2);
+            assert_eq(context.nullifier_read_requests.len(), 1);
             assert_eq(context.nullifier_read_requests.get(0).contract_address, context.this_address());
-            assert_eq(context.nullifier_read_requests.get(1).contract_address, context.this_address());
             assert(
                 context.nullifier_read_requests.get(0).inner.inner != valid_predecessor,
-                "forged shared secret must not reuse the valid predecessor",
-            );
-            assert(
-                context.nullifier_read_requests.get(1).inner.inner != valid_predecessor,
                 "forged sender-only secret must not reuse the valid predecessor",
+            );
+            assert_eq(
+                context.nullifier_read_requests.get(0).inner.inner,
+                compute_constrained_msg_nullifier(
+                    sender,
+                    recipient,
+                    forged_secrets.shared,
+                    forged_secrets.sender_only,
+                    0,
+                ),
             );
         });
     }
