@@ -9,6 +9,33 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.js] `getPublicEvents` is now cursor-paginated
+
+`getPublicEvents` returns a single page of events (at most `MAX_LOGS_PER_TAG`, the node's per-tag page size) and pages instead of the `maxLogsHit` flag, which didn't provide any way to fetch the next page of events:
+
+- The result's `maxLogsHit` boolean is replaced by `nextCursor`. When `nextCursor` is present, more events might exist; pass it as the next query's `afterEvent` to fetch the following page. When it is absent, the range is exhausted.
+- The filter's `afterLog` cursor is renamed to `afterEvent`.
+- Both cursors are the new `EventCursor` type (exported from `@aztec/aztec.js/events`), not the node-layer `LogCursor`.
+
+**Migration:**
+
+```diff
+- const { events, maxLogsHit } = await getPublicEvents(node, MyContract.events.MyEvent, { contractAddress });
++ // One page:
++ const { events, nextCursor } = await getPublicEvents(node, MyContract.events.MyEvent, { contractAddress });
++
++ // All events:
++ const all = [];
++ let afterEvent;
++ do {
++   const page = await getPublicEvents(node, MyContract.events.MyEvent, { contractAddress, afterEvent });
++   all.push(...page.events);
++   afterEvent = page.nextCursor;
++ } while (afterEvent);
+```
+
+**Impact**: Reading `maxLogsHit` or passing `afterLog` no longer compiles. Previously a single call was silently capped at `MAX_LOGS_PER_TAG` events with no usable way to continue, so the old API was unusable anyway. You can now page through the full set with `afterEvent`/`nextCursor`.
+
 ### [Aztec.js] Unchecked `AztecAddress` constructors renamed with an `Unsafe` suffix
 
 The synchronous `AztecAddress` constructors that build an address from a raw value do not verify that the value is a valid address (the x-coordinate of a point on the Grumpkin curve, which is what allows it to be encrypted to). An invalid value is accepted silently and only fails later, when a transaction is sent. To make this obvious at the call site, they now carry an `Unsafe` suffix:
