@@ -32,7 +32,7 @@ function test_cmds {
   else
     echo "$prefix:NAME=e2e_prover_full_fake FAKE_PROOFS=1 $run_test_script simple single-node/prover/full"
   fi
-  echo "$prefix:TIMEOUT=30m:NAME=e2e_avm_simulator $(set_dump_avm e2e_avm_simulator) $run_test_script simple src/e2e_avm_simulator.test.ts"
+  echo "$prefix:TIMEOUT=30m:NAME=automine/execution/avm_simulator $(set_dump_avm e2e_avm_simulator) $run_test_script simple src/automine/execution/avm_simulator.test.ts"
 
   local tests=(
     # List all standalone and nested tests, except for the ones listed above.
@@ -41,6 +41,11 @@ function test_cmds {
     src/automine/contracts/deploy/*.test.ts
     src/automine/contracts/nested/*.test.ts
     src/automine/token/*.test.ts
+    src/automine/smoke/*.test.ts
+    src/automine/accounts/*.test.ts
+    src/automine/notes/*.test.ts
+    src/automine/execution/!(avm_simulator).test.ts
+    src/automine/lifecycle/*.test.ts
     src/single-node/block-building/*.test.ts
     src/single-node/proving/*.test.ts
     src/single-node/l1-reorgs/*.test.ts
@@ -304,6 +309,11 @@ function compat_test_cmds {
     src/automine/contracts/deploy/*.test.ts
     src/automine/contracts/nested/*.test.ts
     src/automine/token/*.test.ts
+    src/automine/smoke/*.test.ts
+    src/automine/accounts/*.test.ts
+    src/automine/notes/*.test.ts
+    src/automine/execution/!(kernelless_simulation).test.ts
+    src/automine/lifecycle/*.test.ts
     src/single-node/fees/*.test.ts
     src/single-node/cross-chain/*.test.ts
     src/single-node/bot/*.test.ts
