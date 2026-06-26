@@ -22,18 +22,21 @@ const SEQUENCER_IDLE_TIMEOUT_MS = 60_000;
 const DEFAULT_L1_PUBLISHING_TIME_SECONDS = 12;
 
 /**
- * Setup for benchmarks. Initializes a remote node with a funded hardcoded account and deploys a benchmark contract.
+ * Setup for benchmarks. Initializes a remote node with funded accounts and deploys a benchmark contract.
  */
 export async function benchmarkSetup(
   opts: Partial<SetupOptions> & {
+    /** Number of funded initializerless accounts to register in the PXE */
+    numberOfAccounts?: number;
     /** What metrics to export */ metrics: (MetricDefinition | MetricFilter)[];
     /** Where to output the benchmark data (defaults to BENCH_OUTPUT or bench.json) */
     benchOutput?: string;
   },
 ) {
-  const context = await setup(1, {
+  const { benchOutput, metrics, numberOfAccounts = 1, ...setupOpts } = opts;
+  const context = await setup(numberOfAccounts, {
     ...PIPELINING_SETUP_OPTS,
-    ...opts,
+    ...setupOpts,
     telemetryConfig: { benchmark: true },
   });
   const [defaultAccountAddress] = context.accounts;
@@ -51,14 +54,14 @@ export async function benchmarkSetup(
   context.teardown = async () => {
     await telemetry.flush();
     const data = telemetry.getMeters();
-    const formatted = formatMetricsForGithubBenchmarkAction(data, opts.metrics);
+    const formatted = formatMetricsForGithubBenchmarkAction(data, metrics);
     if (formatted.length === 0) {
       throw new Error(`No benchmark data generated. Please review your test setup.`);
     }
-    const benchOutput = opts.benchOutput ?? process.env.BENCH_OUTPUT ?? 'bench.json';
-    mkdirSync(path.dirname(benchOutput), { recursive: true });
-    writeFileSync(benchOutput, JSON.stringify(formatted));
-    context.logger.info(`Wrote ${data.length} metrics to ${benchOutput}`);
+    const resolvedBenchOutput = benchOutput ?? process.env.BENCH_OUTPUT ?? 'bench.json';
+    mkdirSync(path.dirname(resolvedBenchOutput), { recursive: true });
+    writeFileSync(resolvedBenchOutput, JSON.stringify(formatted));
+    context.logger.info(`Wrote ${data.length} metrics to ${resolvedBenchOutput}`);
     await origTeardown();
   };
   return { telemetry, context, contract, sequencer };
@@ -161,6 +164,7 @@ async function makeCall(
  * @param context - End to end context.
  * @param contract - Target contract.
  * @param heavyPublicCompute - Whether the transactions include heavy public compute (like a big sha256).
+ * @param fromAccounts - Sender accounts to rotate through when sending transactions.
  * @returns Array of sent txs.
  */
 export async function sendTxs(
@@ -168,13 +172,17 @@ export async function sendTxs(
   context: EndToEndContext,
   contract: BenchmarkingContract,
   heavyPublicCompute: boolean = false,
+  fromAccounts: AztecAddress[] = [context.accounts[0]],
 ): Promise<TxHash[]> {
+  if (fromAccounts.length === 0) {
+    throw new Error('sendTxs requires at least one sender account');
+  }
   const calls = await Promise.all(times(txCount, index => makeCall(index, context, contract, heavyPublicCompute)));
   context.logger.info(`Creating ${txCount} txs`);
-  const [from] = context.accounts;
   context.logger.info(`Sending ${txCount} txs`);
   return Promise.all(
-    calls.map(async call => {
+    calls.map(async (call, index) => {
+      const from = fromAccounts[index % fromAccounts.length];
       const { txHash } = await call.send({ from, wait: NO_WAIT });
       return txHash;
     }),

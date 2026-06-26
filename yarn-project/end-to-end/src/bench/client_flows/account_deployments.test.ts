@@ -94,6 +94,7 @@ describe('Deployment benchmark', () => {
                 1 + // Account constructor
                 1 + // Account entrypoint (wrapped fee payload)
                 paymentMethodManager.apps, // Payment method apps
+              { midFlowResets: 1 },
             ),
           );
 

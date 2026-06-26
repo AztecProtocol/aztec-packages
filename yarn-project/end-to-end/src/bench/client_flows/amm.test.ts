@@ -195,6 +195,7 @@ describe('AMM benchmark', () => {
                   1 + // Token transfer_to_public_and_prepare_private_balance_increase (token1)
                   1 + // Account verify_private_authwit
                   1, // Token prepare_private_balance_increase (liquidity token mint)
+                { midFlowResets: 3 },
               ),
             );
 

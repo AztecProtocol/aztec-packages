@@ -9,6 +9,8 @@ const AZTEC_SLOT_DURATION_SECONDS = 600;
 const ETHEREUM_SLOT_DURATION_SECONDS = 12;
 const BLOCK_DURATION_MS = 200_000;
 const L1_TX_TIMEOUT_MS = 30 * 60 * 1000;
+const STANDARD_TX_COUNT = 32;
+const STANDARD_TX_SENDER_COUNT = 4;
 
 // Block-building latency benchmark. Uses benchmarkSetup() (wraps setup() with telemetry override) and
 // emits BENCH_OUTPUT JSON for the GitHub Benchmark Action. Measures sequencer block-build duration and
@@ -20,6 +22,7 @@ describe('benchmarks/build_block', () => {
 
   beforeEach(async () => {
     ({ context, contract, sequencer } = await benchmarkSetup({
+      numberOfAccounts: STANDARD_TX_SENDER_COUNT,
       maxTxsPerBlock: 1024,
       // The timetable is now always enforced, so give the single bench block enough headroom that
       // it never hits a sub-slot build deadline (we want to measure pure build time, not a
@@ -53,10 +56,9 @@ describe('benchmarks/build_block', () => {
     await context.teardown();
   });
 
-  const TX_COUNT = 32;
-  it(`builds a block with ${TX_COUNT} standard txs`, async () => {
-    sequencer.updateConfig({ minTxsPerBlock: TX_COUNT });
-    const sentTxs = await sendTxs(TX_COUNT, context, contract);
+  it(`builds a block with ${STANDARD_TX_COUNT} standard txs`, async () => {
+    sequencer.updateConfig({ minTxsPerBlock: STANDARD_TX_COUNT });
+    const sentTxs = await sendTxs(STANDARD_TX_COUNT, context, contract, false, context.accounts);
     await waitTxs(sentTxs, context);
   });
 
