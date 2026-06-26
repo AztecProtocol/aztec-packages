@@ -19,10 +19,10 @@ import type { ContractStore } from '../storage/contract_store/contract_store.js'
  */
 export class AnchoredContractData {
   constructor(
-    private store: ContractStore,
-    private contractClassService: ContractClassService,
-    private anchorBlockHeader: BlockHeader,
-    private overrides?: ContractOverrides,
+    private readonly store: ContractStore,
+    private readonly contractClassService: ContractClassService,
+    private readonly anchorBlockHeader: BlockHeader,
+    private readonly overrides?: ContractOverrides,
   ) {}
 
   /** Returns the address preimage of the instance at `address`, from the override if any, else from storage. */
