@@ -66,9 +66,14 @@ describe('multi-node/invalid-attestations/invalidate_block', () => {
     // Uses multiple-blocks-per-slot timing configuration.
     test = await MultiNodeTestContext.setup({
       ...MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
-      ethereumSlotDuration: 8,
-      aztecSlotDuration: 36,
-      blockDurationMs: 6000,
+      // The chain advances one L2 slot per `aztecSlotDuration` of wall-clock (anvil interval-mines an
+      // L1 block every `ethereumSlotDuration` real seconds and advances L1 time by the same amount, so
+      // real time tracks L1 time 1:1). Every wait in this file is therefore bound to `aztecSlotDuration`.
+      // Keep the same per-slot build structure as before (6 sub-blocks/slot, 6 L1 blocks/slot) but at a
+      // shorter slot so the whole suite runs proportionally faster.
+      ethereumSlotDuration: 4,
+      aztecSlotDuration: 24,
+      blockDurationMs: 4000,
       initialValidators: validators,
       aztecTargetCommitteeSize: VALIDATOR_COUNT,
       secondsBeforeInvalidatingBlockAsCommitteeMember: Number.MAX_SAFE_INTEGER,
@@ -529,8 +534,9 @@ describe('multi-node/invalid-attestations/invalidate_block', () => {
       }),
     );
 
-    // And wait for more checkpoints to be mined
-    const nextCheckpointNumber = CheckpointNumber(firstCheckpoint + 3);
+    // And wait for more checkpoints to be mined to confirm the chain progresses past the invalidation.
+    // Two checkpoints past the first bad one is enough to prove forward progress after the rollback.
+    const nextCheckpointNumber = CheckpointNumber(firstCheckpoint + 2);
     logger.warn(`Waiting until more checkpoints have been mined to ensure the chain can progress`);
     await Promise.all(nodes.map(node => node.setConfig({ minTxsPerBlock: 0 })));
     await test.waitUntilCheckpointNumber(nextCheckpointNumber, test.L2_SLOT_DURATION_IN_S * 16);
@@ -832,38 +838,39 @@ describe('multi-node/invalid-attestations/invalidate_block', () => {
     });
   });
 
-  // Injects a high-s ECDSA signature (rejected by L1 OpenZeppelin ECDSA but valid offchain),
-  // waits for the resulting bad checkpoint, then verifies a good proposer invalidates it.
-  // Regression for A-71: Ensure the node correctly invalidates checkpoints where an attestation has a malleable
-  // signature (high-s value). The Rollup contract uses OpenZeppelin's ECDSA recover which rejects high-s values
-  // per EIP-2, so these signatures recover to address(0) on L1 but may succeed offchain.
-  it('proposer invalidates checkpoint with high-s value attestation', async () => {
-    await runInvalidationTest({
-      attackConfig: { injectHighSValueAttestation: true },
-      disableConfig: { injectHighSValueAttestation: false },
-    });
-  });
+  // Three single-attack invalidation scenarios that share the exact same runInvalidationTest shape
+  // (post a checkpoint that is valid offchain but rejected by L1, then verify a good proposer
+  // invalidates it). They run sequentially in one `it` so the ~20s suite setup is paid once instead
+  // of once per scenario (each `it` in a .parallel file is a separate CI job re-paying full setup).
+  // Each scenario logs its own banner and runInvalidationTest self-resets the attack config, so a
+  // failure still names the offending attack.
+  //  - high-s: malleable ECDSA signature; OpenZeppelin's ECDSA recover rejects high-s per EIP-2, so it
+  //    recovers to address(0) on L1 but may succeed offchain. Regression for A-71.
+  //  - unrecoverable: signature that cannot be recovered (e.g. r=0); ecrecover returns address(0) on L1.
+  //    Regression for A-71.
+  //  - shuffled: attestation ordering accepted offchain but rejected by L1, which requires the committee
+  //    order. Regression for the node accepting out-of-order attestations. See #18219.
+  it('proposer invalidates checkpoints with L1-rejected signature/ordering attacks', async () => {
+    const scenarios: { name: string; attackConfig: Record<string, unknown> }[] = [
+      { name: 'high-s value attestation', attackConfig: { injectHighSValueAttestation: true } },
+      { name: 'unrecoverable signature attestation', attackConfig: { injectUnrecoverableSignatureAttestation: true } },
+      { name: 'shuffled attestation ordering', attackConfig: { shuffleAttestationOrdering: true } },
+    ];
 
-  // Injects an unrecoverable signature (e.g. r=0; ecrecover returns address(0) on L1).
-  // Waits for the bad checkpoint then verifies a good proposer invalidates it. Regression for A-71.
-  // Regression for A-71: Ensure the node correctly invalidates checkpoints where an attestation's signature
-  // cannot be recovered (e.g. r=0). On L1, ecrecover returns address(0) for such signatures.
-  it('proposer invalidates checkpoint with unrecoverable signature attestation', async () => {
-    await runInvalidationTest({
-      attackConfig: { injectUnrecoverableSignatureAttestation: true },
-      disableConfig: { injectUnrecoverableSignatureAttestation: false },
-    });
-  });
+    for (let i = 0; i < scenarios.length; i++) {
+      const { name, attackConfig } = scenarios[i];
+      logger.warn(`Running invalidation scenario: ${name}`, { scenario: name });
+      const disableConfig = Object.fromEntries(Object.keys(attackConfig).map(key => [key, false]));
+      await runInvalidationTest({ attackConfig, disableConfig });
+      logger.warn(`Invalidation scenario succeeded: ${name}`, { scenario: name });
 
-  // Injects shuffled attestation ordering (accepted offchain but rejected by L1 which requires the
-  // committee order). Waits for the bad checkpoint then verifies a good proposer invalidates it.
-  // Regression for the node accepting attestations that did not conform to the committee order,
-  // but L1 requires the same ordering. See #18219.
-  it('proposer invalidates previous block with shuffled attestations', async () => {
-    await runInvalidationTest({
-      attackConfig: { shuffleAttestationOrdering: true },
-      disableConfig: { shuffleAttestationOrdering: false },
-    });
+      // runInvalidationTest assumes it starts from stopped sequencers (it calls start() itself).
+      // Stop them between scenarios so the next call gets a fresh runner instead of leaking the
+      // previous poll loop.
+      if (i < scenarios.length - 1) {
+        await Promise.all(nodes.map(node => node.getSequencer()!.stop()));
+      }
+    }
   });
 
   // A checkpoint with invalid attestations must be rejected from L1 calldata, before its blob is fetched.
