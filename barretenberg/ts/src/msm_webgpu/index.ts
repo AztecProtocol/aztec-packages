@@ -12,6 +12,28 @@ export { BN254_CURVE_CONFIG } from './cuzk/curve_config.js';
 export type { CurveConfig } from './cuzk/curve_config.js';
 export type { BigIntPoint, U32ArrayPoint } from './types.js';
 
+// Runtime capability gate — routes a device to WASM when the WebGPU MSM is
+// wrong (e.g. Adreno-740 / Galaxy S23) or slower than WASM (e.g. Pixel-10).
+export {
+  decideFromProbe,
+  resolveGate,
+  makeGateProbe,
+  peekGateVerdict,
+  adapterKeyFromInfo,
+  DEFAULT_GATE_POLICY,
+} from './cuzk/capability_gate.js';
+export type {
+  GateReason,
+  GateVerdict,
+  GatePolicy,
+  ProbeResult,
+  ProbeIO,
+  GateProbe,
+  TimedMsm,
+  MsmPoint,
+  AdapterInfoLike,
+} from './cuzk/capability_gate.js';
+
 // Bridge — used by the bb.js factory when constructing a worker that hosts the
 // BN254 WebGPU MSM hook.
 export { createControlBuffer, CTRL_BYTES, CTRL_SLOTS } from './bridge/protocol.js';
