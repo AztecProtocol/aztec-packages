@@ -1,20 +1,18 @@
 import { ImportTestContract } from '@aztec/noir-test-contracts.js/ImportTest';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 
-import { AUTOMINE_E2E_OPTS } from '../fixtures/fixtures.js';
-import { NestedContractTest } from './nested_contract_test.js';
+import { AutomineTestContext } from '../../automine_test_context.js';
 
 // Tests cross-contract calls through the ImportTest contract (which imports functions from Test).
-// NestedContractTest wraps setup(0, { ...AUTOMINE_E2E_OPTS, fundSponsoredFPC, skipAccountDeployment })
-// with 1 public-deployed account. ImportTest and Test contracts are deployed fresh per test in beforeEach.
-describe('e2e_nested_contract manual', () => {
-  const t = new NestedContractTest('manual');
+// Runs on a single account. ImportTest and Test contracts are deployed fresh per test in beforeEach.
+describe('automine/contracts/nested/importer', () => {
+  const t = new AutomineTestContext();
   let testContract: TestContract;
   let importerContract: ImportTestContract;
   let { wallet, logger, defaultAccountAddress } = t;
 
   beforeAll(async () => {
-    await t.setup({ ...AUTOMINE_E2E_OPTS });
+    await t.setup();
     ({ wallet, logger, defaultAccountAddress } = t);
   });
 

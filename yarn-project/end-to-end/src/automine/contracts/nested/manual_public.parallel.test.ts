@@ -4,22 +4,20 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 
-import { AUTOMINE_E2E_OPTS } from '../fixtures/fixtures.js';
-import { NestedContractTest } from './nested_contract_test.js';
+import { AutomineTestContext } from '../../automine_test_context.js';
 
 // Tests public-to-public nested calls and ordering guarantees (public before private enqueue).
-// NestedContractTest wraps setup(0, { ...AUTOMINE_E2E_OPTS, fundSponsoredFPC, skipAccountDeployment })
-// with 1 public-deployed account. applyManual() deploys Parent and Child contracts in beforeAll.
-describe('e2e_nested_contract manual', () => {
-  const t = new NestedContractTest('manual');
+// Runs on a single account. applyManualParentChild() deploys Parent and Child contracts in beforeAll.
+describe('automine/contracts/nested/manual_public', () => {
+  const t = new AutomineTestContext();
   let { wallet, parentContract, childContract, defaultAccountAddress, aztecNode } = t;
 
   const getChildStoredValue = (child: { address: AztecAddress }) =>
     aztecNode.getPublicStorageAt('latest', child.address, new Fr(1));
 
   beforeAll(async () => {
-    await t.setup({ ...AUTOMINE_E2E_OPTS });
-    await t.applyManual();
+    await t.setup();
+    await t.applyManualParentChild();
     ({ wallet, parentContract, childContract, defaultAccountAddress, aztecNode } = t);
   });
 

@@ -3,14 +3,12 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 import { ParentContract } from '@aztec/noir-test-contracts.js/Parent';
 
-import { AUTOMINE_E2E_OPTS } from '../fixtures/fixtures.js';
-import { NestedContractTest } from './nested_contract_test.js';
+import { AutomineTestContext } from '../../automine_test_context.js';
 
 // Tests parent contracts enqueuing public calls on a child contract via various call patterns.
-// NestedContractTest wraps setup(0, { ...AUTOMINE_E2E_OPTS, fundSponsoredFPC, skipAccountDeployment })
-// with 1 public-deployed account. Parent and Child are deployed fresh per test in beforeEach.
-describe('e2e_nested_contract manual_enqueue', () => {
-  const t = new NestedContractTest('manual_enqueue');
+// Runs on a single account. Parent and Child are deployed fresh per test in beforeEach.
+describe('automine/contracts/nested/manual_private_enqueue', () => {
+  const t = new AutomineTestContext();
   let { wallet, parentContract, childContract, defaultAccountAddress, aztecNode } = t;
 
   const getChildStoredValue = (child: { address: AztecAddress }) =>
@@ -18,7 +16,7 @@ describe('e2e_nested_contract manual_enqueue', () => {
 
   beforeAll(async () => {
     // We don't deploy contracts in beforeAll because every test requires a fresh setup
-    await t.setup({ ...AUTOMINE_E2E_OPTS });
+    await t.setup();
     ({ wallet, defaultAccountAddress, aztecNode } = t);
   });
 

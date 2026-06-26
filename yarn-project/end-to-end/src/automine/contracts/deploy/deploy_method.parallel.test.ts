@@ -11,16 +11,14 @@ import { NoConstructorContract } from '@aztec/noir-test-contracts.js/NoConstruct
 import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { GasFees } from '@aztec/stdlib/gas';
 
-import { AUTOMINE_E2E_OPTS } from '../fixtures/fixtures.js';
-import { TestWallet } from '../test-wallet/test_wallet.js';
-import { DeployTest } from './deploy_test.js';
+import { TestWallet } from '../../../test-wallet/test_wallet.js';
+import { AutomineTestContext } from '../../automine_test_context.js';
 
 // Tests the high-level DeployMethod API: deploying contracts publicly, privately, with
-// batching, and verifying deployment metadata. DeployTest wraps setup(0, { ...AUTOMINE_E2E_OPTS,
-// fundSponsoredFPC, skipAccountDeployment }) with 1 account. Includes a minTxsPerBlock=2 sub-test
-// that verifies two txs land in the same block.
-describe('e2e_deploy_contract deploy method', () => {
-  const t = new DeployTest('deploy method');
+// batching, and verifying deployment metadata. Runs on a single account. Includes a minTxsPerBlock=2
+// sub-test that verifies two txs land in the same block.
+describe('automine/contracts/deploy/deploy_method', () => {
+  const t = new AutomineTestContext();
 
   let logger: Logger;
   let wallet: Wallet;
@@ -28,7 +26,8 @@ describe('e2e_deploy_contract deploy method', () => {
   let defaultAccountAddress: AztecAddress;
 
   beforeAll(async () => {
-    ({ logger, wallet, aztecNode, defaultAccountAddress } = await t.setup({ ...AUTOMINE_E2E_OPTS }));
+    await t.setup();
+    ({ logger, wallet, aztecNode, defaultAccountAddress } = t);
   });
 
   afterAll(() => t.teardown());
