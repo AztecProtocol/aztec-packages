@@ -15,6 +15,9 @@ import { setup } from '../fixtures/utils.js';
 // process.env.ETHEREUM_HOSTS= 'https://sepolia.infura.io/v3/<API_KEY>';
 // process.env.L1_CHAIN_ID = '11155111';
 
+// Public testnet transfer test. Calls setup() with PIPELINING_SETUP_OPTS but requires Sepolia credentials
+// (SEQ_PUBLISHER_PRIVATE_KEY, ETHEREUM_HOSTS, L1_CHAIN_ID=11155111). CI-excluded; runs manually against a
+// live public L1 network. Not a candidate for in-proc consolidation.
 describe(`deploys and transfers a private only token`, () => {
   let wallet: Wallet;
 

@@ -26,6 +26,10 @@ const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'validators-sentinel-'));
 
 jest.setTimeout(1000 * 60 * 10);
 
+// Tests sentinel observability: 5 running validators + 1 registered-but-offline validator (6 total),
+// fake prover. P2PNetworkTest real libp2p, ethSlot=4s, aztecSlot=8s, epoch=2, proofSubEpochs=1024,
+// minTxsPerBlock=0, sentinelEnabled, slashInactivityPenalty=0 (slashing disabled). Also regression-tests
+// that a late-joining node initialises its sentinel from the chain state (issue #13142).
 describe('e2e_p2p_validators_sentinel', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
@@ -85,6 +89,9 @@ describe('e2e_p2p_validators_sentinel', () => {
     }
   });
 
+  // Suite that runs with one registered-but-offline validator. The beforeAll waits for the sentinel
+  // to accumulate history across BLOCK_COUNT checkpoints, then each it asserts different facets of
+  // the collected stats (offline validator, block builder, attestor).
   describe('with an offline validator', () => {
     let stats: ValidatorsStats;
     beforeAll(async () => {
@@ -136,6 +143,8 @@ describe('e2e_p2p_validators_sentinel', () => {
       t.logger.info(`Collected validator stats at block ${t.monitor.checkpointNumber}`, { stats });
     });
 
+    // Asserts the offline validator's entire sentinel history consists only of missed entries and that
+    // missedAttestations.rate == 1.
     it('collects stats on offline validator', () => {
       t.logger.info(`Asserting stats for offline validator ${offlineValidator}`);
       const offlineStats = stats.stats[offlineValidator.toString().toLowerCase()];
@@ -147,6 +156,7 @@ describe('e2e_p2p_validators_sentinel', () => {
       expect(offlineStats.missedProposals.rate).toBeOneOf([1, NaN, undefined]);
     });
 
+    // Finds a validator with a checkpoint-mined history entry and asserts its missedProposals.rate < 1.
     it('collects stats on a block builder', () => {
       const [proposerValidator, proposerStats] = Object.entries(stats.stats).find(([_, v]) =>
         v?.history?.some(h => h.status === 'checkpoint-mined'),
@@ -158,6 +168,7 @@ describe('e2e_p2p_validators_sentinel', () => {
       expect(proposerStats.missedProposals.rate).toBeLessThan(1);
     });
 
+    // Finds a validator with an attestation-sent history entry and asserts its missedAttestations.rate < 1.
     it('collects stats on an attestor', () => {
       const [attestorValidator, attestorStats] = Object.entries(stats.stats).find(([_, v]) =>
         v?.history?.some(h => h.status === 'attestation-sent'),
@@ -169,7 +180,8 @@ describe('e2e_p2p_validators_sentinel', () => {
       expect(attestorStats.missedAttestations.rate).toBeLessThan(1);
     });
 
-    // Regression test for #13142
+    // Regression test for #13142: a fresh node that joins after several blocks should initialise its
+    // sentinel from chain state and accumulate history across subsequent slots.
     it('starts a sentinel on a fresh node', async () => {
       const checkpointNumber = t.monitor.checkpointNumber;
       const nodeIndex = NUM_NODES + 1;

@@ -30,8 +30,9 @@ const NODE_COUNT = 3;
 // checkpoint tx lands on the 2nd L1 block of its target slot.
 //
 // Config: aztecSlotDuration=36s, ethereumSlotDuration=12s (3 L1 blocks / L2 slot), blockDuration=6s,
-//         fakeProcessingDelayPerTxMs=2500ms, attestationPropagationTime=1s, l1PublishingTime=12s,
-//         txDelayerMaxInclusionTimeIntoSlot=1s.
+//         fakeProcessingDelayPerTxMs=2500ms, attestationPropagationTime=1s,
+//         txDelayerMaxInclusionTimeIntoSlot=1s. (v5: the explicit l1PublishingTime override was dropped —
+//         EpochsTestContext no longer takes it; the publish window is now the framework default.)
 //
 // Time inside a build slot (36s total):
 //   T=0-1    (1s)  init (checkpointInitializationTime)
@@ -67,6 +68,11 @@ const BLOCK_DURATION_MS = 6000;
 const L2_SLOT_DURATION_S = 36;
 const L1_BLOCK_TIME_S = 12;
 
+// Multi-block-per-slot suite verifying that 3 validator nodes can build fully-filled checkpoints
+// (4 blocks × 2 txs each) under proposer pipelining with fake tx processing delays. Asserts that
+// CHECKPOINTS_TO_CHECK consecutive checkpoints at or after the target slot each have at least
+// BLOCKS_PER_CHECKPOINT-1 blocks and that the checkpoint tx lands in the 1st or 2nd L1 block of the
+// target slot. Uses EpochsTestContext with mockGossipSubNetwork, no initial sequencer, no prover node.
 describe('e2e_epochs/epochs_high_tps_block_building', () => {
   let context: EndToEndContext;
   let logger: Logger;
@@ -123,6 +129,10 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
     await test.teardown();
   });
 
+  // Pre-proves TX_COUNT txs and sends them all, then sleeps until the target slot's pipelining
+  // build window is reachable. Starts all sequencers and waits for all txs to be mined. Groups
+  // blocks by checkpoint number and for each checkpoint at or after the target slot asserts block
+  // count, per-block tx count, and L1 submission offset. Expects zero fail events.
   it('builds blocks without any errors', async () => {
     // Pre-prove and send all txs so the proposer has a full backlog ready in the pool when it starts building.
     const txs = await timesAsync(TX_COUNT, i =>
@@ -153,6 +163,8 @@ describe('e2e_epochs/epochs_high_tps_block_building', () => {
     logger.warn(
       `Waiting until ${startSequencersAt.toISOString()} (${leadSeconds}s before L2 slot ${targetSlot} starts)`,
     );
+    // REFACTOR: manual slot-timing calculation followed by sleepUntil; replace with a helper
+    // such as test.waitUntilBuildWindowForSlot(targetSlot) that encapsulates lead-time arithmetic.
     await sleepUntil(startSequencersAt, context.dateProvider.nowAsDate());
 
     await Promise.all(sequencers.map(sequencer => sequencer.start()));

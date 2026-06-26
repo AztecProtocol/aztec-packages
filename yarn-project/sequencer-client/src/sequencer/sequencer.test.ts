@@ -232,6 +232,7 @@ describe('sequencer', () => {
     publisher.enqueueProposeCheckpoint.mockResolvedValue(undefined);
     publisher.enqueueGovernanceCastSignal.mockResolvedValue(true);
     publisher.enqueueSlashingActions.mockResolvedValue(true);
+    publisher.enqueuePruneIfPrunable.mockResolvedValue(false);
     publisher.sendRequestsAt.mockResolvedValue({
       result: { receipt: { status: 'success' } as any },
       successfulActions: ['propose'],
@@ -628,6 +629,7 @@ describe('sequencer', () => {
         pub.enqueueProposeCheckpoint.mockResolvedValue(undefined);
         pub.enqueueGovernanceCastSignal.mockResolvedValue(true);
         pub.enqueueSlashingActions.mockResolvedValue(true);
+        pub.enqueuePruneIfPrunable.mockResolvedValue(false);
         pub.sendRequestsAt.mockResolvedValue({
           result: { receipt: { status: 'success' } as any },
           successfulActions: ['propose'],
@@ -825,8 +827,8 @@ describe('sequencer', () => {
     const mockSlashActions = [{ type: 'vote-offenses' as const, round: 1n, votes: [], committees: [] }];
 
     it('should vote on slashing and governance when sync fails and past the start deadline', async () => {
-      // Past start_deadline for the target slot: tryVoteWhenCannotBuild should vote instead of waiting to
-      // build (sync has failed, so building is impossible anyway).
+      // Past start_deadline for the target slot: tryVoteAndPruneWhenCannotBuild should vote instead of waiting
+      // to build (sync has failed, so building is impossible anyway).
       const startDeadline = sequencer.getTimeTable().getBuildStartDeadline(SlotNumber(newSlotNumber));
       dateProvider.setTime((startDeadline + 1) * 1000);
 
@@ -931,6 +933,72 @@ describe('sequencer', () => {
       expect(slasherClient.getProposerActions).not.toHaveBeenCalled();
       expect(publisher.enqueueSlashingActions).not.toHaveBeenCalled();
       expect(publisher.sendRequestsAt).not.toHaveBeenCalled();
+    });
+
+    it('should prune when prunable even if there are no votes to cast', async () => {
+      const startDeadline = sequencer.getTimeTable().getBuildStartDeadline(SlotNumber(newSlotNumber));
+      dateProvider.setTime((startDeadline + 1) * 1000);
+
+      // No slashing actions and no governance payload, so all votes are falsy.
+      slasherClient.getProposerActions.mockResolvedValue([]);
+      publisher.enqueueSlashingActions.mockResolvedValue(false);
+      publisher.enqueueGovernanceCastSignal.mockResolvedValue(false);
+
+      // Set us as the proposer
+      validatorClient.getValidatorAddresses.mockReturnValue([signer.address]);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+
+      // Rollup is prunable, so the fallback should enqueue a prune and still send.
+      publisher.enqueuePruneIfPrunable.mockResolvedValue(true);
+
+      await sequencer.work();
+
+      expect(publisher.enqueuePruneIfPrunable).toHaveBeenCalledWith(SlotNumber(newSlotNumber));
+      // A send fires even though only prune (and no votes) was enqueued.
+      expect(publisher.sendRequestsAt).toHaveBeenCalledWith(SlotNumber(newSlotNumber));
+    });
+
+    it('should not send anything when there are no votes and the rollup is not prunable', async () => {
+      const startDeadline = sequencer.getTimeTable().getBuildStartDeadline(SlotNumber(newSlotNumber));
+      dateProvider.setTime((startDeadline + 1) * 1000);
+
+      // No slashing actions and no governance payload, so all votes are falsy.
+      slasherClient.getProposerActions.mockResolvedValue([]);
+      publisher.enqueueSlashingActions.mockResolvedValue(false);
+      publisher.enqueueGovernanceCastSignal.mockResolvedValue(false);
+
+      // Set us as the proposer
+      validatorClient.getValidatorAddresses.mockReturnValue([signer.address]);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+
+      // Rollup is not prunable.
+      publisher.enqueuePruneIfPrunable.mockResolvedValue(false);
+
+      await sequencer.work();
+
+      expect(publisher.enqueuePruneIfPrunable).toHaveBeenCalledWith(SlotNumber(newSlotNumber));
+      expect(publisher.sendRequestsAt).not.toHaveBeenCalled();
+    });
+
+    it('should enqueue prune alongside votes and send a single request', async () => {
+      const startDeadline = sequencer.getTimeTable().getBuildStartDeadline(SlotNumber(newSlotNumber));
+      dateProvider.setTime((startDeadline + 1) * 1000);
+
+      // Both votes and prune succeed.
+      slasherClient.getProposerActions.mockResolvedValue(mockSlashActions);
+      publisher.enqueueSlashingActions.mockResolvedValue(true);
+      publisher.enqueuePruneIfPrunable.mockResolvedValue(true);
+
+      // Set us as the proposer
+      validatorClient.getValidatorAddresses.mockReturnValue([signer.address]);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+
+      await sequencer.work();
+
+      expect(publisher.enqueueSlashingActions).toHaveBeenCalled();
+      expect(publisher.enqueuePruneIfPrunable).toHaveBeenCalledWith(SlotNumber(newSlotNumber));
+      expect(publisher.sendRequestsAt).toHaveBeenCalledTimes(1);
+      expect(publisher.sendRequestsAt).toHaveBeenCalledWith(SlotNumber(newSlotNumber));
     });
   });
 

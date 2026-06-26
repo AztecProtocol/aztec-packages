@@ -21,6 +21,9 @@ import {
   setupEnvironment,
 } from './utils.js';
 
+// Tests that req/resp gossip fallback works correctly when validators drop transactions. Configures a
+// validator tx-drop rate via the admin API, then submits TARGET_TPS transactions and verifies inclusion,
+// confirming that req/resp retrieval compensates for the lost gossip messages.
 describe('reqresp effectiveness under tx drop', () => {
   jest.setTimeout(60 * 60 * 1000);
 

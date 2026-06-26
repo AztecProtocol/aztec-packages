@@ -436,6 +436,12 @@ variable "SENTINEL_ENABLED" {
   default     = true
 }
 
+variable "OFFENSE_COLLECTION_ENABLED" {
+  description = "Whether to enable offense collection (watchers + read-only slasher) on non-validator nodes"
+  type        = string
+  default     = true
+}
+
 variable "SLASH_INACTIVITY_TARGET_PERCENTAGE" {
   description = "The slash inactivity target percentage"
   type        = string

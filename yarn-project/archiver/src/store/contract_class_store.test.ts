@@ -1,6 +1,7 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { ProtocolContractClassId } from '@aztec/protocol-contracts';
 import {
   type ContractClassPublic,
   type ContractClassPublicWithCommitment,
@@ -56,6 +57,43 @@ describe('ContractClassStore', () => {
 
     it('returns undefined if contract class is not found', async () => {
       await expect(contractClassStore.getContractClass(Fr.random())).resolves.toBeUndefined();
+    });
+  });
+
+  describe('protocol contract classes (A-1257)', () => {
+    // Protocol contracts are preloaded at synthetic block 0. A later on-chain (re-)publish of a
+    // bundled protocol class id must be treated as a no-op rather than a hard error, and must never
+    // delete the preloaded entry.
+    let protocolClass: ContractClassPublic;
+    const preloadBlock = 0;
+
+    beforeEach(async () => {
+      const base = await makeContractClassPublic();
+      protocolClass = { ...base, id: ProtocolContractClassId.ContractClassRegistry };
+      await contractClassStore.addContractClasses([await withCommitment(protocolClass)], BlockNumber(preloadBlock));
+    });
+
+    it('treats re-publish of a preloaded protocol class as a no-op and keeps it queryable', async () => {
+      const originalCommitment = await computePublicBytecodeCommitment(protocolClass.packedBytecode);
+      await expect(
+        contractClassStore.addContractClasses([await withCommitment(protocolClass)], BlockNumber(50)),
+      ).resolves.not.toThrow();
+      await expect(contractClassStore.getContractClass(protocolClass.id)).resolves.toMatchObject(protocolClass);
+      // The block-0 preload must be left untouched: the re-publish must not clobber the stored bytecode commitment.
+      await expect(contractClassStore.getBytecodeCommitment(protocolClass.id)).resolves.toEqual(originalCommitment);
+    });
+
+    it('does not delete a protocol class', async () => {
+      await contractClassStore.deleteContractClasses([protocolClass], BlockNumber(preloadBlock));
+      await expect(contractClassStore.getContractClass(protocolClass.id)).resolves.toMatchObject(protocolClass);
+    });
+
+    it('still throws when a non-protocol class is added twice', async () => {
+      const nonProtocolClass = await makeContractClassPublic(123);
+      await contractClassStore.addContractClasses([await withCommitment(nonProtocolClass)], BlockNumber(10));
+      await expect(
+        contractClassStore.addContractClasses([await withCommitment(nonProtocolClass)], BlockNumber(11)),
+      ).rejects.toThrow(/already exists/);
     });
   });
 });

@@ -13,7 +13,7 @@ export async function bulkTest(
 ) {
   const timer = new Timer();
 
-  const deployer = AztecAddress.fromNumber(42);
+  const deployer = AztecAddress.fromNumberUnsafe(42);
   const avmTestContract = await tester.registerAndDeployContract(
     /*constructorArgs=*/ [],
     deployer,
@@ -114,7 +114,7 @@ export async function megaBulkTest(
 ) {
   const timer = new Timer();
 
-  const deployer = AztecAddress.fromNumber(42);
+  const deployer = AztecAddress.fromNumberUnsafe(42);
   const avmTestContract = await tester.registerAndDeployContract(
     /*constructorArgs=*/ [],
     deployer,

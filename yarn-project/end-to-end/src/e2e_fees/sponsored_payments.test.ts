@@ -11,6 +11,11 @@ import { PIPELINING_SETUP_OPTS, getPaddedMaxFeesPerGas } from '../fixtures/fixtu
 import { expectMapping } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
 
+// Sponsored fee payment via SponsoredFPC (SponsoredFeePaymentMethod). Uses FeesTest (prod sequencer,
+// pipelining preset: ethSlot=4s, aztecSlot=12s, inboxLag=2, minTxsPerBlock=0), fake in-proc prover
+// node, and GasBridgingTestHarness for L1↔L2 fee-juice bridging (the SponsoredFPC is funded at
+// genesis via fundSponsoredFPC; the test exercises the sponsored path where the user pays no fee juice
+// directly). Also used as a code snippet in the documentation (docs:start/end:sponsored_fpc_simple).
 describe('e2e_fees sponsored_public_payment', () => {
   // FeesTest.setup + applySponsoredFPCSetup + applyFundAliceWithBananas chains many dependent txs which run
   // at the ~24s/tx pipelined cadence, exceeding the default 5 min hook window.
@@ -60,6 +65,8 @@ describe('e2e_fees sponsored_public_payment', () => {
       ]);
   });
 
+  // Alice transfers bananas to Bob via SponsoredFeePaymentMethod. The SponsoredFPC covers the fee
+  // from its own gas balance; Alice's gas balance is unaffected and only her banana balance changes.
   it('pays fees for tx that makes a public transfer', async () => {
     // docs:start:sponsored_fpc_simple
     const bananasToSendToBob = 10n;

@@ -57,6 +57,10 @@ const VETOER_ADDRESS = EthAddress.fromString(
 const SLASH_OFFSET_IN_ROUNDS = 2;
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'slash-veto-demo-'));
 
+// Tests the slasher veto mechanism. Uses P2PNetworkTest real libp2p: 3 running nodes + 1
+// registered-but-offline validator, fake prover. ethSlot=4s, aztecSlot=8s, epoch=2,
+// proofSubEpochs=1024, minTxsPerBlock=0, inboxLag=2, sentinelEnabled, slashSelfAllowed,
+// slashingVetoer=VETOER_ADDRESS (derived deterministically). Tests vetoPayload on the Slasher contract.
 describe('veto slash', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
@@ -172,6 +176,10 @@ describe('veto slash', () => {
     });
   }
 
+  // Waits for the inactive validator to accumulate inactivity offenses reaching quorum, then the vetoer
+  // calls vetoPayload on the Slasher contract. Asserts the payload either expires (lifetime exceeded)
+  // or a later round is executed, and that the inactive validator's GSE balance is unchanged.
+  // Currently parameterised as shouldVeto=true only (the non-veto branch is present but not exercised).
   it.each([[true]] as const)(
     'vetoes %s a slashing payload',
     async (shouldVeto: boolean) => {

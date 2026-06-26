@@ -916,7 +916,11 @@ class MockAztecNode implements AztecNode {
     const contractClass = await getContractClassFromArtifact(this.artifact);
     return contractClass;
   }
-  async getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+  async getContract(
+    address: AztecAddress,
+    referenceBlock?: BlockParameter,
+  ): Promise<ContractInstanceWithAddress | undefined> {
+    expect(referenceBlock).toBeUndefined();
     expect(address).toBeInstanceOf(AztecAddress);
     const instance = {
       version: 2 as const,

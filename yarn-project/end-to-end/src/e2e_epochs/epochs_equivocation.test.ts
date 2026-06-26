@@ -34,6 +34,11 @@ const NODE_COUNT = 4;
  *
  * The test verifies that L1 sync overrides the gossip-only proposal on all observer
  * nodes (B, C, D) once A's L1-confirmed checkpoint propagates via the archiver.
+ *
+ * It additionally verifies that the chain heals after node A is stopped, and that every observing
+ * validator records a DUPLICATE_PROPOSAL slashing offense.
+ *
+ * Uses EpochsTestContext with mockGossipSubNetwork, no initial sequencer, and slasherEnabled.
  */
 describe('e2e_epochs/epochs_equivocation', () => {
   let logger: Logger;
@@ -45,6 +50,10 @@ describe('e2e_epochs/epochs_equivocation', () => {
     await test?.teardown();
   });
 
+  // Creates 4 nodes (A holds all keys, B/C each hold 2, D is an observer). Warps L1 to one slot
+  // before the target slot so pipelining engages. Waits for B/C/D to see the gossip-only proposal
+  // then for A's L1-confirmed checkpoint to override it on those nodes. Stops A, re-enables
+  // publishing on B/C, waits for chain recovery, and asserts DUPLICATE_PROPOSAL offense on B and C.
   it('L1-confirmed checkpoint overrides gossip-only equivocating proposal', async () => {
     // Build 4 validators (V1..V4) using getPrivateKeyFromIndex(i+3), same convention as other epoch tests.
     const validators = times(NODE_COUNT, i => {

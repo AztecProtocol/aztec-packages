@@ -14,6 +14,10 @@ import { proveInteraction } from './test-wallet/utils.js';
 
 const TIMEOUT = 300_000;
 
+// Exercises PublicImmutable, PrivateMutable, PrivateImmutable, and DelayedPublicMutable state variable types
+// via the StateVars and Auth contracts. Single node with AutomineSequencer. The DelayedPublicMutable sub-suite
+// reads DefaultL1ContractsConfig.aztecSlotDuration as a static constant (72) for delay arithmetic and asserts
+// it has not changed; the runtime slot set by AUTOMINE_E2E_OPTS (12s) is irrelevant to that assertion.
 describe('e2e_state_vars', () => {
   jest.setTimeout(TIMEOUT);
 
@@ -39,13 +43,19 @@ describe('e2e_state_vars', () => {
 
   afterAll(() => teardown());
 
+  // Tests for PublicImmutable: initialize-once semantics, reading from private/public/utility contexts,
+  // and rejection of double-initialization.
   describe('PublicImmutable', () => {
+    // Simulates a constrained private read on an uninitialized PublicImmutable; asserts the expected
+    // error is thrown.
     it('private read of uninitialized PublicImmutable should fail', async () => {
       await expect(
         contract.methods.get_public_immutable_constrained_private().simulate({ from: defaultAccountAddress }),
       ).rejects.toThrow('Trying to read from uninitialized PublicImmutable');
     });
 
+    // Sends initialize_public_immutable(1) then reads back via get_public_immutable; asserts the
+    // returned struct's account field matches the caller.
     it('initialize and read PublicImmutable', async () => {
       // Initializes the public immutable and then reads the value using a utility  function
       // checking the return values:
@@ -57,6 +67,8 @@ describe('e2e_state_vars', () => {
       expect(read).toEqual({ account: defaultAccountAddress, value: read.value });
     });
 
+    // Reads the initialized PublicImmutable from two private contexts (direct and indirect) plus utility,
+    // via a BatchCall; asserts the direct read equals utility and the indirect read equals utility.value + 1.
     it('private read of initialized PublicImmutable', async () => {
       // Reads the value using a utility function checking the return values with:
       // 1. A constrained private function that reads it directly
@@ -76,6 +88,8 @@ describe('e2e_state_vars', () => {
       await contract.methods.match_public_immutable(c.account, c.value).send({ from: defaultAccountAddress });
     });
 
+    // Same as the private-read test but using constrained public functions; asserts direct and indirect
+    // public reads are consistent with the utility value.
     it('public read of PublicImmutable', async () => {
       // Reads the value using a utility function checking the return values with:
       // 1. A constrained public function that reads it directly
@@ -96,6 +110,8 @@ describe('e2e_state_vars', () => {
       await contract.methods.match_public_immutable(c.account, c.value).send({ from: defaultAccountAddress });
     });
 
+    // Calls get_public_immutable_constrained_public_multiple (reads 5 times in one function); asserts
+    // the returned array equals [c, c, c, c, c] where c is the utility read result.
     it('public multiread of PublicImmutable', async () => {
       // Reads the value using a utility function checking the return values with:
       // 1. A constrained public function that reads 5 times directly (going beyond the previous 4 Field return value)
@@ -108,6 +124,8 @@ describe('e2e_state_vars', () => {
       expect(a).toEqual([c, c, c, c, c]);
     });
 
+    // Calls initialize_public_immutable a second time after it was already initialized in the previous
+    // test (depends on sequential execution); asserts 'Attempted to emit duplicate nullifier'.
     it('initializing PublicImmutable the second time should fail', async () => {
       // Jest executes the tests sequentially and the first call to initialize_public_immutable was executed
       // in the previous test, so the call below should fail.
@@ -117,7 +135,10 @@ describe('e2e_state_vars', () => {
     });
   });
 
+  // Tests for PrivateMutable: initialize, read, update, and rejection of re-initialization.
   describe('PrivateMutable', () => {
+    // Asserts is_private_mutable_initialized returns false before initialization, then confirms
+    // get_private_mutable throws on an uninitialized slot.
     it('fail to read uninitialized PrivateMutable', async () => {
       expect(
         (
@@ -131,6 +152,8 @@ describe('e2e_state_vars', () => {
       ).rejects.toThrow();
     });
 
+    // Sends initialize_private(RANDOMNESS, VALUE), verifies the tx produces 2 nullifiers (one for the
+    // tx and one for the initializer), and asserts is_private_mutable_initialized returns true after.
     it('initialize PrivateMutable', async () => {
       expect(
         (
@@ -157,6 +180,8 @@ describe('e2e_state_vars', () => {
       ).toEqual(true);
     });
 
+    // Attempts to call initialize_private a second time; asserts it throws and the initialized flag
+    // remains true.
     it('fail to reinitialize', async () => {
       expect(
         (
@@ -177,6 +202,7 @@ describe('e2e_state_vars', () => {
       ).toEqual(true);
     });
 
+    // Reads the PrivateMutable after initialization; asserts the stored value matches VALUE.
     it('read initialized PrivateMutable', async () => {
       expect(
         (
@@ -191,6 +217,8 @@ describe('e2e_state_vars', () => {
       expect(value).toEqual(VALUE);
     });
 
+    // Calls update_private_mutable with the same RANDOMNESS and VALUE; asserts one new note hash and
+    // 2 nullifiers (tx + old note), and the stored value is unchanged.
     it('replace with same value', async () => {
       expect(
         (
@@ -219,6 +247,8 @@ describe('e2e_state_vars', () => {
       expect(noteBefore.value).toEqual(noteAfter.value);
     });
 
+    // Calls update_private_mutable with different RANDOMNESS and VALUE; asserts one new note hash,
+    // 2 nullifiers, and the stored value matches the new VALUE.
     it('replace PrivateMutable with other values', async () => {
       expect(
         (
@@ -243,6 +273,8 @@ describe('e2e_state_vars', () => {
       expect(value).toEqual(VALUE + 1n);
     });
 
+    // Calls increase_private_value (reads then updates in private); asserts the new value is exactly
+    // the prior value + 1, verifying read-then-write consistency.
     it('replace PrivateMutable dependent on prior value', async () => {
       expect(
         (
@@ -271,7 +303,10 @@ describe('e2e_state_vars', () => {
     });
   });
 
+  // Tests for PrivateImmutable: initialize-once semantics, reading the stored value, and rejection of
+  // double-initialization.
   describe('PrivateImmutable', () => {
+    // Asserts is_priv_imm_initialized is false before initialization and that view_private_immutable throws.
     it('fail to read uninitialized PrivateImmutable', async () => {
       expect(
         (
@@ -285,6 +320,8 @@ describe('e2e_state_vars', () => {
       ).rejects.toThrow();
     });
 
+    // Calls initialize_private_immutable(RANDOMNESS, VALUE); asserts 1 note hash and 2 nullifiers are
+    // emitted, and is_priv_imm_initialized becomes true.
     it('initialize PrivateImmutable', async () => {
       expect(
         (
@@ -311,6 +348,7 @@ describe('e2e_state_vars', () => {
       ).toEqual(true);
     });
 
+    // Calls initialize_private_immutable a second time; asserts it throws and the flag remains true.
     it('fail to reinitialize', async () => {
       expect(
         (
@@ -331,6 +369,7 @@ describe('e2e_state_vars', () => {
       ).toEqual(true);
     });
 
+    // Reads the PrivateImmutable after initialization; asserts the stored value matches VALUE.
     it('read initialized PrivateImmutable', async () => {
       expect(
         (
@@ -348,6 +387,8 @@ describe('e2e_state_vars', () => {
     });
   });
 
+  // Tests for DelayedPublicMutable: verifies that changing the authorized-delay alters the
+  // expirationTimestamp returned in private reads by the expected amount.
   describe('DelayedPublicMutable', () => {
     let authContract: AuthContract;
 
@@ -366,6 +407,9 @@ describe('e2e_state_vars', () => {
       }
     });
 
+    // Changes the authorized delay from 5 slots (360s) to 2 slots, advances the chain past the
+    // scheduled timestamp_of_change by sending no-op txs, then proves the private read and asserts
+    // the expirationTimestamp equals anchorTimestamp + newDelay - 1.
     it('sets the expiration timestamp property', async () => {
       // Mirrors CHANGE_AUTHORIZED_DELAY in noir-contracts/contracts/app/auth_contract/src/main.nr.
       const oldDelay = 360n;
@@ -393,6 +437,8 @@ describe('e2e_state_vars', () => {
       // forces aztecSlotDuration=12s under pipelining (see fixtures/setup.ts), so a fixed
       // `delay(N blocks)` cannot count for the schedule — block timestamp polling is the
       // slot-duration-agnostic way to know we have crossed the schedule.
+      // REFACTOR: hand-rolled loop advancing the chain by sending no-op txs until a target timestamp is
+      // crossed; a DSL helper like advanceChainToTimestamp(node, timestampOfChange) should replace this.
       while ((await aztecNode.getBlockData('latest'))!.header.globalVariables.timestamp < timestampOfChange) {
         await authContract.methods.get_authorized().send({ from: defaultAccountAddress });
       }

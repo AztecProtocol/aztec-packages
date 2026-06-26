@@ -27,7 +27,7 @@ describe('ContractAddress', () => {
     const mockInstance = {
       initializationHash: new Fr(1),
       salt: new Fr(2),
-      deployer: AztecAddress.fromField(new Fr(4)),
+      deployer: AztecAddress.fromFieldUnsafe(new Fr(4)),
       immutablesHash: new Fr(3),
     };
     const result = await computeSaltedInitializationHash(mockInstance);
@@ -62,7 +62,7 @@ describe('ContractAddress', () => {
     const contractClassId = new Fr(4n);
     const initializationHash = new Fr(5n);
     const immutablesHash = new Fr(6n);
-    const deployer = AztecAddress.fromField(new Fr(7));
+    const deployer = AztecAddress.fromFieldUnsafe(new Fr(7));
     const publicKeys = (await deriveKeys(secretKey)).publicKeys;
     const instance = {
       publicKeys,

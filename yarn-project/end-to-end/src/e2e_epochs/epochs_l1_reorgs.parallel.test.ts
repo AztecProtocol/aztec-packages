@@ -31,6 +31,11 @@ import { EpochsTestContext } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 20);
 
+// Single-node + prover-node suite exercising L1 reorg behavior for both block data and L1→L2
+// messages. Uses EthCheatCodes reorg/reorgWithReplacement to remove or insert L1 transactions
+// and verifies the archiver and node prune/restore their views accordingly. Prover and sequencer
+// delayers intercept L1 txs to enable controlled reorg scenarios. Uses EpochsTestContext defaults
+// (single initial sequencer, fake prover, no mock gossip); actively drives L1 via cheatcodes.
 describe('e2e_epochs/epochs_l1_reorgs', () => {
   let context: EndToEndContext;
   let logger: Logger;
@@ -90,6 +95,8 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
     await test.teardown();
   });
 
+  // Suite covering L1 reorg effects on L2 block state: proof removal, proof re-addition via
+  // reorg, checkpoint removal from pending chain, and checkpoint insertion via reorg.
   describe('blocks', () => {
     const getBlobs = async (serializedTx: `0x${string}`) => {
       const parsedTx = parseTransaction(serializedTx);
@@ -107,6 +114,9 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
     const getProvenCheckpointNumber = (node: AztecNode) =>
       node.getChainTips().then(tips => tips.proven.checkpoint.number);
 
+    // Waits for an initial proof to land, stops the prover, reorgs L1 to remove the proof block,
+    // waits for the proof submission window to expire, spins up a new sync-only node, and verifies
+    // both the new node and the old node have rolled back to the pre-proof checkpoint number.
     it('prunes L2 blocks if a proof is removed due to an L1 reorg', async () => {
       /** Logs a full state snapshot: L1 latest/finalized and archiver L2 tips. */
       const logState = async (label: string) => {
@@ -197,6 +207,8 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
 
       // And check that the old node has processed the reorg as well
       logger.warn(`Testing old node after reorg`);
+      // REFACTOR: hand-rolled poll on proven checkpoint equality; replace with
+      // test.waitUntilProvenCheckpointNumber(initialProvenCheckpoint, timeout).
       await retryUntil(
         () => getProvenCheckpointNumber(node).then(cp => cp === initialProvenCheckpoint),
         'prune',
@@ -213,6 +225,9 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       await newNode.stop();
     });
 
+    // Waits for a proof, stops the prover, removes the proof via reorgWithReplacement (same block
+    // count), starts a fresh prover node, and verifies a new proof lands and the node re-syncs to
+    // the proven state without having pruned.
     it('does not prune if a second proof lands within the submission window after the first one is reorged out', async () => {
       // Send txs to trigger multi-block checkpoints
       await sendTransactions(TX_COUNT);
@@ -260,6 +275,9 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       // New prover's aztec node is stopped in test.teardown()
     });
 
+    // Cancels the next prover L1 tx so no proof lands, waits for the end of the submission window
+    // (triggering pruning), then reorgs L1 to include the previously-cancelled proof tx and
+    // verifies the node un-prunes and resumes from the proven state.
     it('restores L2 blocks if a proof is added due to an L1 reorg', async () => {
       // Send txs to trigger multi-block checkpoints
       await sendTransactions(TX_COUNT);
@@ -337,6 +355,8 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       logger.warn(`Test succeeded`);
     });
 
+    // Waits until CHECKPOINT_NUMBER is mined and node synced, stops the sequencer, reorgs L1 to
+    // remove that checkpoint's L1 block, and verifies the node rolls back to checkpoint-1.
     it('prunes blocks from pending chain removed from L1 due to an L1 reorg', async () => {
       // Send txs to trigger multi-block checkpoints
       await sendTransactions(TX_COUNT);
@@ -373,6 +393,9 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       await retryUntil(() => getCheckpointNumber(node).then(b => b === expectedCheckpointNumber), 'node sync', 30, 0.1);
     });
 
+    // Cancels the next sequencer L1 tx (blocking CHECKPOINT_NUMBER from landing), waits for
+    // several more L1 blocks to pass, then reorgs L1 to include the previously-cancelled checkpoint
+    // tx and manually sends the blobs to the filestore. Verifies the node sees the new block.
     it('sees new blocks added in an L1 reorg', async () => {
       // Send txs to trigger multi-block checkpoints
       await sendTransactions(TX_COUNT);
@@ -442,6 +465,8 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
     });
   });
 
+  // Suite covering L1 reorg effects on L1→L2 cross-chain messages: removal of a sent message
+  // and insertion of a previously-cancelled message.
   describe('messages', () => {
     let l1Client: ExtendedViemWalletClient;
     let l1ClientDelayer: Delayer;
@@ -456,6 +481,8 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
         { l1ContractAddresses: context.deployL1ContractsValues.l1ContractAddresses, l1Client },
       );
 
+    // Sends 3 L1→L2 messages, waits for the last to be seen, reorgs it out, sends a replacement
+    // message, and verifies the replacement becomes ready while the removed message is gone.
     it('updates L1 to L2 messages changed due to an L1 reorg', async () => {
       // Send L2 txs to trigger multi-block checkpoints and wait for them to land in a checkpoint
       await sendTransactions(TX_COUNT, 100);
@@ -490,6 +517,9 @@ describe('e2e_epochs/epochs_l1_reorgs', () => {
       await test.assertMultipleBlocksPerSlot(2);
     });
 
+    // Sends a first message, cancels a second message's L1 tx via delayer, waits for the archiver
+    // to advance past the cancelled block, then reorgs to include the cancelled message. Sends a
+    // third message on top and verifies all three are eventually seen by the node.
     it('handles missed message inserted by an L1 reorg', async () => {
       // Send L2 txs to trigger multi-block checkpoints and wait for them to land in a checkpoint
       await sendTransactions(TX_COUNT, 200);

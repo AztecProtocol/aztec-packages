@@ -151,12 +151,18 @@ derived from the canonical content for that slot range.
 stateDiagram-v2
   [*] --> initialized
   initialized --> awaiting_checkpoints: start()
-  awaiting_checkpoints --> completed: publish succeeds
-  awaiting_checkpoints --> superseded: longer same-epoch candidate wins
-  awaiting_checkpoints --> failed: L1 submission errored
-  awaiting_checkpoints --> cancelled: cancel()
+  awaiting_checkpoints --> awaiting_root: sub-tree proofs ready, top-tree prove begins
+  awaiting_root --> publishing_proof: epoch proof ready, submit to L1
+  publishing_proof --> completed: publish succeeds
+  publishing_proof --> superseded: longer same-epoch candidate wins
+  publishing_proof --> failed: L1 submission errored
+  awaiting_checkpoints --> failed: top-tree prove errored
+  awaiting_root --> failed: top-tree prove errored
   initialized --> timed_out: deadline
   awaiting_checkpoints --> timed_out: deadline (EpochSession or candidate)
+  awaiting_root --> timed_out: deadline (EpochSession or candidate)
+  awaiting_checkpoints --> cancelled: cancel()
+  awaiting_root --> cancelled: cancel()
   completed --> [*]
   superseded --> [*]
   cancelled --> [*]
@@ -164,10 +170,16 @@ stateDiagram-v2
   failed --> [*]
 ```
 
-The `awaiting-checkpoints` state covers the window between `start()` and the L1
-submission: a `TopTreeJob` is running over the `EpochSession`'s frozen checkpoint set,
-awaiting each checkpoint's sub-tree result (`CheckpointProver.whenBlockProofsReady`)
-and assembling the epoch proof.
+The non-terminal states track the window between `start()` and the L1 submission:
+
+- `awaiting-checkpoints` — a `TopTreeJob` is awaiting each checkpoint's sub-tree result
+  (`CheckpointProver.whenBlockProofsReady`) before the top-tree prove can begin.
+- `awaiting-root` — the sub-tree proofs are ready and the top-tree (root) prove is running,
+  assembling the epoch proof (set via the `TopTreeJob` `beforeProve` hook).
+- `publishing-proof` — the epoch proof is being submitted to L1 via `ProofPublishingService`.
+
+`cancel()` and the deadline can fire during any of these pre-submit phases; a terminal state
+set that way wins over the phase transitions (which are guarded by `isTerminal()`).
 
 The `EpochSession` does three sequential things: (1) run a `TopTreeJob` over the frozen
 checkpoint subset, (2) hand the resulting proof to `ProofPublishingService` as a

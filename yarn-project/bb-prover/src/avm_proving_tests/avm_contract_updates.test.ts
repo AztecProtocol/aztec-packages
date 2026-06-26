@@ -17,7 +17,7 @@ import { AvmProvingTester } from './avm_proving_tester.js';
 const TIMEOUT = 60_000;
 
 describe('AVM check-circuit - contract updates', () => {
-  const sender = AztecAddress.fromNumber(42);
+  const sender = AztecAddress.fromNumberUnsafe(42);
 
   const avmTestContractClassSeed = 0;
   let avmTestContractInstance: ContractInstanceWithAddress;

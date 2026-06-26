@@ -15,6 +15,10 @@ import { AUTOMINE_E2E_OPTS } from '../fixtures/fixtures.js';
 import { TestWallet } from '../test-wallet/test_wallet.js';
 import { DeployTest } from './deploy_test.js';
 
+// Tests the high-level DeployMethod API: deploying contracts publicly, privately, with
+// batching, and verifying deployment metadata. DeployTest wraps setup(0, { ...AUTOMINE_E2E_OPTS,
+// fundSponsoredFPC, skipAccountDeployment }) with 1 account. Includes a minTxsPerBlock=2 sub-test
+// that verifies two txs land in the same block.
 describe('e2e_deploy_contract deploy method', () => {
   const t = new DeployTest('deploy method');
 

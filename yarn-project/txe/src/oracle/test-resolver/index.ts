@@ -8,7 +8,6 @@ import { z } from 'zod';
 
 import { ForeignCallArgsSchema, type ForeignCallResult, ForeignCallResultSchema } from '../../utils/encoding.js';
 import { TXE_ORACLE_REGISTRY } from '../txe_oracle_registry.js';
-import { ORACLE_TEST_FIXTURES } from './fixtures.js';
 import { type OracleTestCallInput, OracleTestResolver } from './resolver.js';
 
 const OracleTestCallInputSchema = zodFor<OracleTestCallInput>()(
@@ -35,7 +34,7 @@ const OracleTestRpcHandlerSchema: ApiSchemaFor<OracleTestRpcHandler> = {
 
 /** Creates an RPC server backed by the oracle test resolver. */
 export function createOracleTestRpcServer(logger: Logger) {
-  const resolver = new OracleTestResolver(TXE_ORACLE_REGISTRY, ORACLE_TEST_FIXTURES, logger);
+  const resolver = OracleTestResolver.fromRegistry(TXE_ORACLE_REGISTRY, logger);
   const server = createSafeJsonRpcServer<OracleTestRpcHandler>(resolver, OracleTestRpcHandlerSchema, {
     http200OnError: true,
   });
