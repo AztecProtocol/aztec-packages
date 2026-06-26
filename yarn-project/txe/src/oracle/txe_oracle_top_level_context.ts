@@ -743,7 +743,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
             processedTx.revertReason,
             this.contractStore,
             this.stateMachine.contractClassService,
-            await this.stateMachine.anchorBlockStore.getBlockHeader(),
+            anchorBlockHeader,
             this.logger,
           );
           // eslint-disable-next-line no-empty
