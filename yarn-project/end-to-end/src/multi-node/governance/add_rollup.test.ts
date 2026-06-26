@@ -85,6 +85,12 @@ describe('multi-node/governance/add_rollup', () => {
     test = await MultiNodeTestContext.setup({
       ...MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
       ...GOVERNANCE_TIMING,
+      // Override GOVERNANCE_TIMING's 12s L2 slot down to 8s: the body is paced by checkpoint production
+      // (each bridging tx waits a full slot for the next checkpoint), so a shorter slot scales the
+      // dominant bridging waits down proportionally. ethereumSlotDuration stays 4s (still < the fast-
+      // profile threshold of 8), giving the mocked-p2p budgets that fit a checkpoint in an 8s slot — the
+      // same eth=4s/aztec=8s profile the multiple_validators_sentinel test runs 4+ validators on.
+      aztecSlotDuration: 8,
       listenAddress: '127.0.0.1',
       aztecTargetCommitteeSize: NUM_VALIDATORS,
       governanceProposerRoundSize: 10,
@@ -429,15 +435,19 @@ describe('multi-node/governance/add_rollup', () => {
       context.aztecNodeConfig.l1RpcUrls,
     );
 
-    // REFACTOR: while(true) polling loop with sleep is hand-rolled; replace with retryUntil
-    let govData;
-    while (true) {
-      govData = await govInfo();
-      if (govData.leaderVotes >= quorumSize) {
-        break;
-      }
-      await sleep(context.aztecNodeConfig.ethereumSlotDuration * context.aztecNodeConfig.aztecSlotDuration * 1000);
-    }
+    // Poll once per L2 slot for the round leader to reach quorum. Validators signal at most once per
+    // slot, so a per-slot poll catches quorum within ~one slot of when it is reached; the previous
+    // ethSlot*aztecSlot (~48s) sleep overshot the quorum slot by up to a full poll interval.
+    let govData = await govInfo();
+    await retryUntil(
+      async () => {
+        govData = await govInfo();
+        return govData.leaderVotes >= quorumSize;
+      },
+      'governance leader reaches quorum',
+      300,
+      context.aztecNodeConfig.aztecSlotDuration,
+    );
 
     const currentSlot2 = await rollup.getSlotNumber();
     const nextRoundSlot2 = SlotNumber.fromBigInt((BigInt(currentSlot2) / roundSize) * roundSize + roundSize);
