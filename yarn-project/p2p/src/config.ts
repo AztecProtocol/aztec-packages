@@ -617,7 +617,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   keepFinalizedTxsForSlots: {
     env: 'P2P_KEEP_FINALIZED_TXS_FOR_SLOTS',
     description:
-      'Number of slots behind the finalized tip to keep finalized txs for before deleting them. 0 deletes at the finalized tip. Prover nodes set this above their worst-case proving + submission lag so a prover catching up is not starved of already-finalized txs.',
+      'Number of slots behind the finalized tip to keep finalized txs for before deleting them. 0 deletes at the finalized tip.',
     ...numberConfigHelper(0),
   },
   ...pickConfigMappings(sharedSequencerConfigMappings, [
