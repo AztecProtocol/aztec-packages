@@ -146,7 +146,7 @@ tests:
     error_regex: "Anvil failed to stop in time|Cannot read properties of undefined"
     owners:
       - *palla
-  - regex: "src/e2e_bot.test.ts"
+  - regex: "src/single-node/bot/bot.test.ts"
     error_regex: "Tx dropped"
     owners:
       - *palla
@@ -221,7 +221,7 @@ tests:
     owners:
       - *adam
 
-  - regex: "yarn-project/end-to-end/scripts/run_test.sh simple src/e2e_bot.test.ts"
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh simple src/single-node/bot/bot.test.ts"
     error_regex: "Nonce provided for the transaction is lower than the current nonce of the account"
     owners:
       - *adam

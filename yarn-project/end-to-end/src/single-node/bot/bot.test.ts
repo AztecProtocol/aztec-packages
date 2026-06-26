@@ -21,8 +21,8 @@ import { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import { jest } from '@jest/globals';
 
-import { PIPELINED_FEE_PADDING, PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
-import { getPrivateKeyFromIndex, setup } from './fixtures/utils.js';
+import { PIPELINED_FEE_PADDING, PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
+import { getPrivateKeyFromIndex, setup } from '../../fixtures/utils.js';
 
 // Tests the transaction bot implementations (transfer bot, AMM bot, cross-chain bot).
 // Uses setup(0, PIPELINING_SETUP_OPTS + aztecProofSubmissionEpochs:640) with one node, production
@@ -30,7 +30,7 @@ import { getPrivateKeyFromIndex, setup } from './fixtures/utils.js';
 // aztecEpochDuration is the setup() default). The bridge-resume, setup-via-bridging, and
 // cross-chain-bot subsuites actively drive L1 cross-chain bridging: fee-juice portal deposits,
 // advanceInboxInProgress, and L2→L1 messages via CrossChainBot.
-describe('e2e_bot', () => {
+describe('single-node/bot/bot', () => {
   let wallet: EmbeddedWallet;
   let aztecNode: AztecNode;
   let teardown: () => Promise<void>;

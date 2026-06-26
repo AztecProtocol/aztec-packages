@@ -12,13 +12,13 @@ import { EmbeddedWallet } from '@aztec/wallets/embedded';
 import { jest } from '@jest/globals';
 import 'jest-extended';
 
-import { PIPELINED_FEE_PADDING, PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
-import { setup } from './fixtures/utils.js';
+import { PIPELINED_FEE_PADDING, PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
+import { setup } from '../../fixtures/utils.js';
 
 // Verifies sequencer runtime configuration (maxL2BlockGas / manaTarget) via a live Bot. Uses
 // PIPELINING_SETUP_OPTS (prod sequencer, ethSlot=4s, aztecSlot=12s) with no accounts pre-deployed;
 // the bot creates its own account inline.
-describe('e2e_sequencer_config', () => {
+describe('single-node/sequencer/sequencer_config', () => {
   jest.setTimeout(20 * 60 * 1000); // 20 minutes
 
   let teardown: () => Promise<void>;

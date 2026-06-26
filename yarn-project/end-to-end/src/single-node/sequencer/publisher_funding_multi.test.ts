@@ -17,8 +17,8 @@ import { join } from 'path';
 import { type Hex, parseEther } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
-import { PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
-import { getPrivateKeyFromIndex, setup } from './fixtures/utils.js';
+import { PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
+import { getPrivateKeyFromIndex, setup } from '../../fixtures/utils.js';
 
 // Key indices from the test MNEMONIC (all pre-funded by Anvil):
 // 0 = L1 contract deployer (not in keystore)
@@ -44,7 +44,7 @@ const FUNDING_AMOUNT = parseEther('2.1');
 // Tests the PublisherManager's automatic L1 ETH top-up logic when a keystore carries two publishers and a
 // dedicated funding account. Uses PIPELINING_SETUP_OPTS (prod sequencer, ethSlot=4s, aztecSlot=12s) with
 // a pre-written keystore JSON and ethCheatCodes to drain and monitor publisher balances.
-describe('e2e_publisher_funding_multi', () => {
+describe('single-node/sequencer/publisher_funding_multi', () => {
   jest.setTimeout(5 * 60 * 1000);
 
   let logger: Logger;

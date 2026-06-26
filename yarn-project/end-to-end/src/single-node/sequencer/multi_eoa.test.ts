@@ -20,10 +20,10 @@ import 'jest-extended';
 import { type Hex, type TransactionSerialized, recoverTransactionAddress } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
-import { MNEMONIC, PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
-import { setup } from './fixtures/utils.js';
-import type { TestWallet } from './test-wallet/test_wallet.js';
-import { proveInteraction } from './test-wallet/utils.js';
+import { MNEMONIC, PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
+import { setup } from '../../fixtures/utils.js';
+import type { TestWallet } from '../../test-wallet/test_wallet.js';
+import { proveInteraction } from '../../test-wallet/utils.js';
 
 const NUM_PUBLISHERS = 4;
 
@@ -48,7 +48,7 @@ const createPublisherKeysAndAddresses = () => {
 // longer sorts publishers by balance or pins which one is used; it blocks the first publisher attempted
 // and asserts a different one takes over. Initializerless accounts deploy nothing at setup, so the
 // beforeAll sends a couple of txs to get blocks published across rotated publishers first.)
-describe('e2e_multi_eoa', () => {
+describe('single-node/sequencer/multi_eoa', () => {
   jest.setTimeout(5 * 60 * 1000); // 5 minutes
 
   let aztecNode: AztecNode;

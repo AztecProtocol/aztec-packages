@@ -43,7 +43,10 @@ function test_cmds {
     src/single-node/recovery/*.test.ts
     src/single-node/partial-proofs/*.test.ts
     src/single-node/sequencer/*.test.ts
+    src/single-node/fees/*.test.ts
+    src/single-node/bot/*.test.ts
     src/single-node/sync/*.test.ts
+    src/infra/*.test.ts
     src/single-node/misc/*.test.ts
     src/multi-node/block-production/*.test.ts
     src/multi-node/recovery/*.test.ts
@@ -292,6 +295,9 @@ function compat_test_cmds {
 
   local tests=(
     src/e2e_*/*.test.ts
+    src/single-node/fees/*.test.ts
+    src/single-node/bot/*.test.ts
+    src/infra/*.test.ts
     src/p2p/*.test.ts
     src/p2p/reqresp/*.test.ts
     src/e2e_!(kernelless_simulation).test.ts

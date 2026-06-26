@@ -10,16 +10,16 @@ import { jest } from '@jest/globals';
 import { mnemonicToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-import { MNEMONIC, PIPELINING_SETUP_OPTS } from './fixtures/fixtures.js';
-import { getLogger, setup, startAnvil } from './fixtures/utils.js';
-import { MockStateView, diffInBps } from './shared/mock_state_view.js';
+import { MNEMONIC, PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
+import { getLogger, setup, startAnvil } from '../../fixtures/utils.js';
+import { MockStateView, diffInBps } from '../../shared/mock_state_view.js';
 
 // Covers the on-chain fee-asset price oracle convergence mechanism. Starts its own Anvil instance,
 // deploys a MockStateView (etched at the real StateView address), then runs a single node with
 // PIPELINING_SETUP_OPTS (prod seq, ethereumSlotDuration=4s, aztecSlotDuration=12s, minTxsPerBlock=0).
 // Verifies that the rollup's getEthPerFeeAsset converges toward the oracle price across checkpoints
 // via retryUntil polling.
-describe('FeeAssetPriceOracle E2E', () => {
+describe('single-node/fees/fee_asset_price_oracle', () => {
   jest.setTimeout(15 * 60 * 1000);
 
   let logger: Logger;
