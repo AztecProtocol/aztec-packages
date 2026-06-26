@@ -14,9 +14,9 @@ import { ExecutionPayload } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 
-import { L1_DIRECT_WRITE_ACCOUNT_INDEX, PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
-import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
-import type { CrossChainTestHarness } from '../shared/cross_chain_test_harness.js';
+import { L1_DIRECT_WRITE_ACCOUNT_INDEX, PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
+import { sendL1ToL2Message } from '../../fixtures/l1_to_l2_messaging.js';
+import type { CrossChainTestHarness } from '../../shared/cross_chain_test_harness.js';
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
 jest.setTimeout(300_000);
@@ -26,7 +26,7 @@ jest.setTimeout(300_000);
 // inboxLag=2, minTxsPerBlock=1, aztecProofSubmissionEpochs=2, aztecEpochDuration=4) with
 // EpochTestSettler for auto-proving and CrossChainTestHarness for L1↔L2 token portal bridging.
 // Each it is run as an independent CI job (*.parallel.test.ts convention).
-describe('e2e_cross_chain_messaging l1_to_l2', () => {
+describe('single-node/cross-chain/l1_to_l2', () => {
   let t: CrossChainMessagingTest;
   let log: Logger;
   let crossChainTestHarness: CrossChainTestHarness;

@@ -15,8 +15,8 @@ import { TxExecutionResult, type TxHash, TxStatus } from '@aztec/stdlib/tx';
 import { jest } from '@jest/globals';
 import { type Hex, decodeEventLog } from 'viem';
 
-import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
-import type { CrossChainTestHarness } from '../shared/cross_chain_test_harness.js';
+import { PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
+import type { CrossChainTestHarness } from '../../shared/cross_chain_test_harness.js';
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
 /**
@@ -50,7 +50,7 @@ function waitForSequencerIdle(sequencer: Sequencer, timeout = 30000): Promise<vo
 // Uses CrossChainMessagingTest with startProverNode=true (prod sequencer, pipelining preset:
 // ethSlot=4s, aztecSlot=12s), fake in-proc prover node, CrossChainTestHarness for L1↔L2 token
 // portal bridging, and real epoch proving via advanceToEpochProven before Outbox consumption.
-describe('e2e_cross_chain_messaging l2_to_l1', () => {
+describe('single-node/cross-chain/l2_to_l1', () => {
   // Pipelining slows wall-clock chain progress (12s slots); advanceToEpochProven plus the per-test
   // multi-tx flows exceed the default 300s per-test budget.
   jest.setTimeout(15 * 60 * 1000);

@@ -44,6 +44,7 @@ function test_cmds {
     src/single-node/partial-proofs/*.test.ts
     src/single-node/sequencer/*.test.ts
     src/single-node/fees/*.test.ts
+    src/single-node/cross-chain/*.test.ts
     src/single-node/bot/*.test.ts
     src/single-node/sync/*.test.ts
     src/infra/*.test.ts
@@ -70,7 +71,7 @@ function test_cmds {
       multi-node/governance/add_rollup)
         test_prefix="$prefix:TIMEOUT=20m"
         ;;
-      e2e_cross_chain_messaging/l1_to_l2)
+      single-node/cross-chain/l1_to_l2.parallel)
         test_prefix="$prefix:TIMEOUT=20m"
         ;;
       single-node/block-building/block_building)
@@ -296,6 +297,7 @@ function compat_test_cmds {
   local tests=(
     src/e2e_*/*.test.ts
     src/single-node/fees/*.test.ts
+    src/single-node/cross-chain/*.test.ts
     src/single-node/bot/*.test.ts
     src/infra/*.test.ts
     src/p2p/*.test.ts

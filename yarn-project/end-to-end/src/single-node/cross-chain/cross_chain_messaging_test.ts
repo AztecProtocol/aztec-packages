@@ -1,7 +1,7 @@
 import type { AztecNodeConfig } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { waitForProven } from '@aztec/aztec.js/contracts';
-import { type Logger, createLogger } from '@aztec/aztec.js/log';
+import { createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { TxReceipt } from '@aztec/aztec.js/tx';
 import { CheatCodes, EpochTestSettler } from '@aztec/aztec/testing';
@@ -13,7 +13,6 @@ import type {
 } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import { pickL1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
-import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
@@ -24,30 +23,29 @@ import type { PXEConfig } from '@aztec/pxe/server';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
-import { MNEMONIC } from '../fixtures/fixtures.js';
-import {
-  type EndToEndContext,
-  type SetupOptions,
-  ensureAuthRegistryPublished,
-  setup,
-  teardown,
-} from '../fixtures/setup.js';
-import { CrossChainTestHarness } from '../shared/cross_chain_test_harness.js';
-import type { TestWallet } from '../test-wallet/test_wallet.js';
+import { MNEMONIC } from '../../fixtures/fixtures.js';
+import { type SetupOptions, ensureAuthRegistryPublished, setup } from '../../fixtures/setup.js';
+import { CrossChainTestHarness } from '../../shared/cross_chain_test_harness.js';
+import type { TestWallet } from '../../test-wallet/test_wallet.js';
+import { SingleNodeTestContext, type SingleNodeTestOpts } from '../single_node_test_context.js';
 
-export class CrossChainMessagingTest {
+/**
+ * The cross-chain-messaging harness over the single-node topology: extends {@link SingleNodeTestContext}
+ * so it reuses the base node tracking / chain monitor / teardown machinery, but builds its environment
+ * with the bespoke cross-chain opts below (optional prover node, sponsored-FPC funding, a generous
+ * prover tx-gathering window for the epoch warps) rather than the base's default node config, and owns
+ * the {@link CrossChainTestHarness} domain object plus the L1 inbox/outbox handles.
+ */
+export class CrossChainMessagingTest extends SingleNodeTestContext {
   private requireEpochProven: boolean;
   private setupOptions: SetupOptions;
   private deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs>;
   private pxeOpts: Partial<PXEConfig>;
   private l1HarnessAccountIndex?: number;
-  logger: Logger;
-  context!: EndToEndContext;
+  private testName: string;
   aztecNode!: AztecNode;
   aztecNodeConfig!: AztecNodeConfig;
   aztecNodeAdmin!: AztecNodeAdmin;
-
-  l1Client!: ExtendedViemWalletClient | undefined;
 
   wallet!: TestWallet;
   ownerAddress!: AztecAddress;
@@ -58,7 +56,6 @@ export class CrossChainMessagingTest {
   l2Token!: TokenContract;
   l2Bridge!: TokenBridgeContract;
 
-  rollup!: RollupContract;
   inbox!: InboxContract;
   outbox!: OutboxContract;
   cheatCodes!: CheatCodes;
@@ -82,6 +79,8 @@ export class CrossChainMessagingTest {
     pxeOpts: Partial<PXEConfig> = {},
     l1HarnessAccountIndex?: number,
   ) {
+    super();
+    this.testName = testName;
     this.logger = createLogger(`e2e:e2e_cross_chain_messaging:${testName}`);
     this.setupOptions = opts;
     this.deployL1ContractsArgs = {
@@ -93,11 +92,11 @@ export class CrossChainMessagingTest {
     this.requireEpochProven = opts.startProverNode ?? false;
   }
 
-  async setup(opts: Partial<SetupOptions> = {}, pxeOpts: Partial<PXEConfig> = {}) {
+  override async setup(opts: SingleNodeTestOpts = {}, pxeOpts: Partial<PXEConfig> = {}) {
     this.logger.info('Setting up cross chain messaging test');
     // Recompute requireEpochProven from the merged options so per-call startProverNode is honored.
     this.requireEpochProven = opts.startProverNode ?? this.setupOptions.startProverNode ?? false;
-    this.context = await setup(
+    const context = await setup(
       3,
       {
         ...this.setupOptions,
@@ -116,6 +115,13 @@ export class CrossChainMessagingTest {
       },
       { ...this.pxeOpts, ...pxeOpts },
     );
+
+    // Reuse the base context machinery (rollup, epoch cache, chain monitor, node tracking, teardown)
+    // over the environment built above. Restore the CrossChainMessagingTest-named logger afterwards,
+    // since hydrateFromContext repoints `this.logger` at the context logger.
+    await this.hydrateFromContext(context);
+    this.logger = createLogger(`e2e:e2e_cross_chain_messaging:${this.testName}`);
+
     await this.applyBaseSetup();
   }
 
@@ -144,9 +150,9 @@ export class CrossChainMessagingTest {
     }
   }
 
-  async teardown() {
+  override async teardown() {
     await this.epochTestSettler?.stop();
-    await teardown(this.context);
+    await super.teardown();
   }
 
   async applyBaseSetup() {

@@ -3,14 +3,18 @@ import { retryUntil } from '@aztec/foundation/retry';
 
 import { jest } from '@jest/globals';
 
-import { L1_DIRECT_WRITE_ACCOUNT_INDEX, NO_L1_TO_L2_MSG_ERROR, PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
+import {
+  L1_DIRECT_WRITE_ACCOUNT_INDEX,
+  NO_L1_TO_L2_MSG_ERROR,
+  PIPELINING_SETUP_OPTS,
+} from '../../fixtures/fixtures.js';
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
 // Public L1→L2 token deposit and L2→L1 withdrawal via the TokenBridge. Uses CrossChainMessagingTest
 // with startProverNode=true (prod sequencer, pipelining preset: ethSlot=4s, aztecSlot=12s), fake
 // in-proc prover node, and CrossChainTestHarness for full L1↔L2 portal/bridge lifecycle. Setup and
 // teardown happen per-test (beforeEach/afterEach) because the test creates fresh bridge state each run.
-describe('e2e_cross_chain_messaging token_bridge_public', () => {
+describe('single-node/cross-chain/token_bridge_public', () => {
   // Pipelining slows wall-clock chain progress (12s slots); waitForProven via advanceToEpochProven
   // needs more than the default 300s per-test budget.
   jest.setTimeout(15 * 60 * 1000);

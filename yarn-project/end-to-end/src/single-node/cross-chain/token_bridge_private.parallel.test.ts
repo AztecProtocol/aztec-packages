@@ -8,16 +8,16 @@ import type { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 
 import { jest } from '@jest/globals';
 
-import { L1_DIRECT_WRITE_ACCOUNT_INDEX, PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
-import type { CrossChainTestHarness } from '../shared/cross_chain_test_harness.js';
-import type { TestWallet } from '../test-wallet/test_wallet.js';
+import { L1_DIRECT_WRITE_ACCOUNT_INDEX, PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
+import type { CrossChainTestHarness } from '../../shared/cross_chain_test_harness.js';
+import type { TestWallet } from '../../test-wallet/test_wallet.js';
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
 // Private L1→L2 token deposit and L2→L1 withdrawal via the TokenBridge. Uses CrossChainMessagingTest
 // with startProverNode=true (prod sequencer, pipelining preset: ethSlot=4s, aztecSlot=12s), fake
 // in-proc prover node, and CrossChainTestHarness for full L1↔L2 portal/bridge lifecycle.
 // Epoch proving via advanceToEpochProven is required before L1 Outbox consumption.
-describe('e2e_cross_chain_messaging token_bridge_private', () => {
+describe('single-node/cross-chain/token_bridge_private', () => {
   // Pipelining slows wall-clock chain progress (12s slots); waitForProven via advanceToEpochProven
   // needs more than the default 300s per-test budget.
   jest.setTimeout(15 * 60 * 1000);

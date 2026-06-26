@@ -5,14 +5,18 @@ import { sha256ToField } from '@aztec/foundation/crypto/sha256';
 
 import { toFunctionSelector } from 'viem';
 
-import { L1_DIRECT_WRITE_ACCOUNT_INDEX, NO_L1_TO_L2_MSG_ERROR, PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
+import {
+  L1_DIRECT_WRITE_ACCOUNT_INDEX,
+  NO_L1_TO_L2_MSG_ERROR,
+  PIPELINING_SETUP_OPTS,
+} from '../../fixtures/fixtures.js';
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
 // Token bridge failure scenarios: missing authwit, wrong secret hash, and wrong deposit direction.
 // Uses CrossChainMessagingTest (prod sequencer, pipelining preset: ethSlot=4s, aztecSlot=12s,
 // inboxLag=2, minTxsPerBlock=0), EpochTestSettler for auto-proving, and CrossChainTestHarness for
 // L1↔L2 token portal bridging.
-describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
+describe('single-node/cross-chain/token_bridge_failure_cases', () => {
   const t = new CrossChainMessagingTest('token_bridge_failure_cases', {}, {}, {}, L1_DIRECT_WRITE_ACCOUNT_INDEX);
   let version: number = 1;
 
