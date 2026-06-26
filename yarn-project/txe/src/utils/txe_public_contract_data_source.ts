@@ -45,14 +45,12 @@ export class TXEPublicContractDataSource implements ContractDataSource {
   }
 
   async getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
-    const instance = await this.contractStore.getContractInstance(address);
-    // TXE has no contract updates, so the current class always equals the original.
+    const instance = await this.getContract(address);
     return instance && this.contractStore.getContractArtifact(instance.originalContractClassId);
   }
 
   async getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
-    const instance = await this.contractStore.getContractInstance(address);
-    // TXE has no contract updates, so the current class always equals the original.
+    const instance = await this.getContract(address);
     return instance && this.contractStore.getDebugFunctionName(instance.originalContractClassId, selector);
   }
 
