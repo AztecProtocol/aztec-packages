@@ -1,11 +1,11 @@
 name: Nightly Bench Inclusion Sweep
 
-# Set A inclusion sweep (Linear A-1223): runs the 1/5/10 TPS points
-# SEQUENTIALLY (one ~150-full-node network at a time to bound cluster load),
-# each in its own namespace, all tagged with a shared sweepId so the dashboard
-# groups them. Each point (deploy -> wait -> bench -> teardown) is the reusable
-# bench-inclusion-point.yml workflow; the next point's call `needs` the previous
-# one, so deploy N+1 only starts after point N's teardown.
+# Set A inclusion sweep (Linear A-1223): deploys ONE network and runs the
+# 1/5/10 TPS points SEQUENTIALLY against it, all tagged with a shared sweepId so
+# the dashboard groups them. The scraper drains the mempool to zero between
+# points. Each point is the reusable bench-inclusion-point.yml workflow
+# (SKIP_NETWORK_DEPLOY=1); the next point's call `needs` the previous one so they
+# don't overlap. Deploy / wait-for-first-block / teardown happen once.
 
 on:
   schedule:
@@ -101,49 +101,102 @@ jobs:
           # Shared across all three points so the dashboard groups the sweep.
           echo "sweep_id=incl-$(date -u +%Y%m%d)-${{ github.run_id }}" >> "$GITHUB_OUTPUT"
 
-  point-1tps:
+  # ---- Deploy the single network the whole sweep runs against ----
+  deploy:
     needs: select-image
+    uses: ./.github/workflows/deploy-network.yml
+    with:
+      network: bench-inclusion-sweep
+      namespace: bench-inclusion-sweep
+      aztec_docker_image: ${{ needs.select-image.outputs.docker_image }}
+      ref: ${{ needs.select-image.outputs.source_ref }}
+      notify_on_failure: false
+    secrets: inherit
+
+  wait:
+    needs: [select-image, deploy]
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ needs.select-image.outputs.source_ref }}
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+        with:
+          install_components: gke-gcloud-auth-plugin
+      - name: Wait for first L2 block
+        env:
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          NAMESPACE: bench-inclusion-sweep
+        run: cd spartan && ./bootstrap.sh wait_for_l2_block bench-inclusion-sweep
+
+  # ---- Three points, sequential, on the SAME network ----
+  point-1tps:
+    needs: [select-image, wait]
     uses: ./.github/workflows/bench-inclusion-point.yml
     with:
       tps: "1"
-      namespace: bench-incl-sweep-1tps
+      namespace: bench-inclusion-sweep
       docker_image: ${{ needs.select-image.outputs.docker_image }}
       source_ref: ${{ needs.select-image.outputs.source_ref }}
       sweep_id: ${{ needs.select-image.outputs.sweep_id }}
     secrets: inherit
 
-  # 5 TPS starts only after the 1 TPS point finishes (incl. its teardown), but
-  # runs regardless of whether 1 TPS passed — a failed point drops only itself.
+  # 5 TPS runs after 1 TPS finishes — gated on the network being up (wait), not
+  # on the 1 TPS result, so a failed point drops only itself.
   point-5tps:
-    needs: [select-image, point-1tps]
-    if: ${{ !cancelled() && needs.select-image.result == 'success' }}
+    needs: [select-image, wait, point-1tps]
+    if: ${{ !cancelled() && needs.wait.result == 'success' }}
     uses: ./.github/workflows/bench-inclusion-point.yml
     with:
       tps: "5"
-      namespace: bench-incl-sweep-5tps
+      namespace: bench-inclusion-sweep
       docker_image: ${{ needs.select-image.outputs.docker_image }}
       source_ref: ${{ needs.select-image.outputs.source_ref }}
       sweep_id: ${{ needs.select-image.outputs.sweep_id }}
     secrets: inherit
 
-  # 10 TPS starts only after the 5 TPS point finishes (incl. its teardown), but
-  # runs regardless of whether 5 TPS passed — a failed point drops only itself.
   point-10tps:
-    needs: [select-image, point-5tps]
-    if: ${{ !cancelled() && needs.select-image.result == 'success' }}
+    needs: [select-image, wait, point-5tps]
+    if: ${{ !cancelled() && needs.wait.result == 'success' }}
     uses: ./.github/workflows/bench-inclusion-point.yml
     with:
       tps: "10"
-      namespace: bench-incl-sweep-10tps
+      namespace: bench-inclusion-sweep
       docker_image: ${{ needs.select-image.outputs.docker_image }}
       source_ref: ${{ needs.select-image.outputs.source_ref }}
       sweep_id: ${{ needs.select-image.outputs.sweep_id }}
     secrets: inherit
+
+  # ---- Tear the network down once, regardless of point outcomes ----
+  cleanup:
+    if: always()
+    needs: [select-image, deploy, wait, point-1tps, point-5tps, point-10tps]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ needs.select-image.outputs.source_ref }}
+      - name: Cleanup network resources
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          NO_SPOT: 1
+        run: ./.github/ci3.sh network-teardown bench-inclusion-sweep bench-inclusion-sweep
 
   notify-failure:
     if: ${{ always() && failure() && github.event_name != 'workflow_dispatch' }}
     needs:
       - select-image
+      - deploy
+      - wait
       - point-1tps
       - point-5tps
       - point-10tps
@@ -161,5 +214,5 @@ jobs:
           RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           ./ci3/slack_notify_with_claudebox_kickoff "#alerts-next-scenario" \
             "Nightly inclusion sweep FAILED (image ${IMAGE}): <${RUN_URL}|View Run> (🤖)" \
-            "Nightly inclusion sweep failed (image ${IMAGE}). CI run: ${RUN_URL}. A failed point drops only that point; check which TPS point(s) failed." \
+            "Nightly inclusion sweep failed (image ${IMAGE}). CI run: ${RUN_URL}. Deploy/wait failures fail the whole sweep; a failed individual point drops only that point." \
             --link "$RUN_URL"

@@ -1,10 +1,10 @@
 name: Bench Inclusion Point
 
-# Reusable: runs ONE inclusion-sweep TPS point end-to-end — deploy a fresh
-# network, wait for the first L2 block, run the bench point, then tear the
-# network down (always). Called once per point (1/5/10 TPS) by
-# nightly-bench-inclusion-sweep.yml, which chains the calls so only one network
-# exists at a time.
+# Reusable: runs ONE inclusion-sweep TPS point against an ALREADY-DEPLOYED
+# network (SKIP_NETWORK_DEPLOY=1). The caller (nightly-bench-inclusion-sweep.yml)
+# deploys the network once and calls this for each point (1/5/10 TPS), chaining
+# the calls so the points run sequentially on the same network. Deploy / wait /
+# teardown are done once by the caller, not here.
 
 on:
   workflow_call:
@@ -14,7 +14,7 @@ on:
         required: true
         type: string
       namespace:
-        description: "k8s namespace for this point's network"
+        description: "k8s namespace of the already-deployed network"
         required: true
         type: string
       network:
@@ -23,11 +23,11 @@ on:
         type: string
         default: bench-inclusion-sweep
       docker_image:
-        description: "Full aztec docker image to deploy"
+        description: "Full aztec docker image (already deployed)"
         required: true
         type: string
       source_ref:
-        description: "Git ref to checkout for the bench/teardown scripts"
+        description: "Git ref to checkout for the bench scripts"
         required: true
         type: string
       sweep_id:
@@ -36,38 +36,7 @@ on:
         type: string
 
 jobs:
-  deploy:
-    uses: ./.github/workflows/deploy-network.yml
-    with:
-      network: ${{ inputs.network }}
-      namespace: ${{ inputs.namespace }}
-      aztec_docker_image: ${{ inputs.docker_image }}
-      ref: ${{ inputs.source_ref }}
-      notify_on_failure: false
-    secrets: inherit
-
-  wait:
-    needs: deploy
-    runs-on: ubuntu-latest
-    timeout-minutes: 120
-    steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-        with:
-          ref: ${{ inputs.source_ref }}
-      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
-      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
-        with:
-          install_components: gke-gcloud-auth-plugin
-      - name: Wait for first L2 block
-        env:
-          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          NAMESPACE: ${{ inputs.namespace }}
-        run: cd spartan && ./bootstrap.sh wait_for_l2_block ${{ inputs.network }}
-
   bench:
-    needs: wait
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
@@ -91,22 +60,3 @@ jobs:
           BENCH_SWEEP_ID: ${{ inputs.sweep_id }}
           BENCH_SWEEP_LABEL: inclusion-sweep
         run: ./.github/ci3.sh network-inclusion-sweep ${{ inputs.network }} ${{ inputs.namespace }} "${{ inputs.docker_image }}"
-
-  cleanup:
-    if: always()
-    needs: [deploy, wait, bench]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-        with:
-          ref: ${{ inputs.source_ref }}
-      - name: Cleanup network resources
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
-          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          NO_SPOT: 1
-        run: ./.github/ci3.sh network-teardown ${{ inputs.network }} ${{ inputs.namespace }}
