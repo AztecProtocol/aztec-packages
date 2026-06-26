@@ -142,15 +142,10 @@ function build {
     folder_name="examples"
   else
     folder_name="contracts"
-    # test_token_contract is generated from canonical app/token_contract; keep it current every build.
-    # Locally, regenerate in place so an edited canonical Token is reflected in TestToken-based e2e
-    # tests before you commit (the precommit hook handles the commit itself). Regenerating never fails
-    # the build, and the resulting dirty file just makes cache_content_hash skip the cache for this one
-    # contract (and only when Token actually changed -- identical output stays a cache hit).
-    # In CI we --check instead: the committed copy must already be in sync (the precommit hook keeps it
-    # fresh), and regenerating would dirty the tree mid-run, which cache_content_hash rejects in CI. A
-    # stale TestToken that bypassed the hook (e.g. a --no-verify commit) fails --check with a clear
-    # message. See scripts/gen_test_token.sh.
+    # test_token_contract is generated from canonical app/token_contract. Locally, regenerate it in
+    # place so an edited Token is reflected in TestToken-based tests before you commit (the precommit
+    # hook also regenerates it on commit). In CI we verify instead of regenerate: the committed copy
+    # must already be in sync, and a CI build must not modify checked-in files. See gen_test_token.sh.
     if [ "$CI" -eq 1 ]; then
       ./scripts/gen_test_token.sh --check
     else
