@@ -33,7 +33,7 @@ pub contract Benchmarking {
     #[external("private")]
     fn create_note(owner: AztecAddress, value: Field) {
         let note = FieldNote { value };
-        self.storage.notes.at(owner).insert(note).deliver(MessageDelivery::onchain_constrained());
+        self.storage.notes.at(owner).insert(note).deliver(MessageDelivery::onchain_unconstrained());
     }
     // Deletes a note at a specific index in the set and creates a new one with the same value.
     // We explicitly pass in the note index so we can ensure we consume different notes when sending
@@ -46,7 +46,7 @@ pub contract Benchmarking {
         let mut getter_options = NoteGetterOptions::new();
         let notes = owner_notes.pop_notes(getter_options.set_limit(1).set_offset(index));
         let note = notes.get(0);
-        owner_notes.insert(note).deliver(MessageDelivery::onchain_constrained());
+        owner_notes.insert(note).deliver(MessageDelivery::onchain_unconstrained());
     }
 
     // Reads and writes to public storage and enqueues a call to another public function.
