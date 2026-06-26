@@ -1,28 +1,28 @@
 {
   "inner": [
-    { "name": "inner_sm", "dimensions": [4, 4, 4, 4, 4, 4, 0, 0, 0], "cost": 64723 },
-    { "name": "inner_lg", "dimensions": [32, 32, 32, 32, 16, 16, 0, 0, 0], "cost": 157664 },
-    { "name": "inner_nhpr_overflow", "dimensions": [64, 0, 0, 0, 0, 0, 0, 0, 0], "cost": 43034 },
-    { "name": "inner_nhsr_overflow", "dimensions": [0, 64, 0, 0, 0, 0, 0, 0, 0], "cost": 131223 },
-    { "name": "inner_nfpr_overflow", "dimensions": [0, 0, 64, 0, 0, 0, 0, 0, 0], "cost": 43034 },
-    { "name": "inner_nfsr_overflow", "dimensions": [0, 0, 0, 64, 0, 0, 0, 0, 0], "cost": 133940 },
-    { "name": "inner_key_overflow", "dimensions": [0, 0, 0, 0, 64, 0, 0, 0, 0], "cost": 82635 },
-    { "name": "inner_squash_overflow", "dimensions": [0, 0, 0, 0, 0, 64, 0, 0, 0], "cost": 55468 }
+    { "name": "inner_sm", "dimensions": [4, 4, 4, 4, 4, 4, 0, 0, 0], "cost": 64727 },
+    { "name": "inner_lg", "dimensions": [32, 32, 32, 32, 16, 16, 0, 0, 0], "cost": 157668 },
+    { "name": "inner_nhpr_overflow", "dimensions": [64, 0, 0, 0, 0, 0, 0, 0, 0], "cost": 43038 },
+    { "name": "inner_nhsr_overflow", "dimensions": [0, 64, 0, 0, 0, 0, 0, 0, 0], "cost": 131226 },
+    { "name": "inner_nfpr_overflow", "dimensions": [0, 0, 64, 0, 0, 0, 0, 0, 0], "cost": 43038 },
+    { "name": "inner_nfsr_overflow", "dimensions": [0, 0, 0, 64, 0, 0, 0, 0, 0], "cost": 133943 },
+    { "name": "inner_key_overflow", "dimensions": [0, 0, 0, 0, 64, 0, 0, 0, 0], "cost": 82639 },
+    { "name": "inner_squash_overflow", "dimensions": [0, 0, 0, 0, 0, 64, 0, 0, 0], "cost": 55472 }
   ],
   "finalTail": [
-    { "name": "md_pay", "dimensions": [0, 8, 0, 8, 4, 0, 4, 16, 8], "cost": 72509 },
-    { "name": "all_4", "dimensions": [4, 4, 4, 4, 4, 4, 4, 4, 4], "cost": 69988 },
-    { "name": "all_8", "dimensions": [8, 8, 8, 8, 8, 8, 8, 8, 8], "cost": 86211 },
-    { "name": "all_16", "dimensions": [16, 16, 16, 16, 16, 16, 16, 16, 16], "cost": 118654 },
-    { "name": "all_32", "dimensions": [32, 32, 32, 32, 32, 32, 32, 32, 32], "cost": 183543 },
-    { "name": "all_64", "dimensions": [64, 64, 64, 64, 64, 64, 64, 64, 64], "cost": 313606 }
+    { "name": "md_pay", "dimensions": [0, 8, 0, 8, 4, 0, 4, 16, 8], "cost": 72512 },
+    { "name": "all_4", "dimensions": [4, 4, 4, 4, 4, 4, 4, 4, 4], "cost": 69990 },
+    { "name": "all_8", "dimensions": [8, 8, 8, 8, 8, 8, 8, 8, 8], "cost": 86213 },
+    { "name": "all_16", "dimensions": [16, 16, 16, 16, 16, 16, 16, 16, 16], "cost": 118657 },
+    { "name": "all_32", "dimensions": [32, 32, 32, 32, 32, 32, 32, 32, 32], "cost": 183545 },
+    { "name": "all_64", "dimensions": [64, 64, 64, 64, 64, 64, 64, 64, 64], "cost": 313607 }
   ],
   "finalTailToPublic": [
-    { "name": "md_pay", "dimensions": [0, 8, 0, 8, 4, 0, 4, 16, 8], "cost": 101562 },
-    { "name": "all_4", "dimensions": [4, 4, 4, 4, 4, 4, 4, 4, 4], "cost": 99043 },
-    { "name": "all_8", "dimensions": [8, 8, 8, 8, 8, 8, 8, 8, 8], "cost": 115264 },
-    { "name": "all_16", "dimensions": [16, 16, 16, 16, 16, 16, 16, 16, 16], "cost": 147704 },
-    { "name": "all_32", "dimensions": [32, 32, 32, 32, 32, 32, 32, 32, 32], "cost": 212590 },
-    { "name": "all_64", "dimensions": [64, 64, 64, 64, 64, 64, 64, 64, 64], "cost": 342624 }
+    { "name": "md_pay", "dimensions": [0, 8, 0, 8, 4, 0, 4, 16, 8], "cost": 101564 },
+    { "name": "all_4", "dimensions": [4, 4, 4, 4, 4, 4, 4, 4, 4], "cost": 99044 },
+    { "name": "all_8", "dimensions": [8, 8, 8, 8, 8, 8, 8, 8, 8], "cost": 115265 },
+    { "name": "all_16", "dimensions": [16, 16, 16, 16, 16, 16, 16, 16, 16], "cost": 147705 },
+    { "name": "all_32", "dimensions": [32, 32, 32, 32, 32, 32, 32, 32, 32], "cost": 212591 },
+    { "name": "all_64", "dimensions": [64, 64, 64, 64, 64, 64, 64, 64, 64], "cost": 342625 }
   ]
 }

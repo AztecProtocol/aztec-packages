@@ -148,6 +148,7 @@ pub struct FixtureBuilder {
     pub args_hash: Field,
     pub calldata_hash: Field,
     pub returns_hash: Field,
+    pub tx_request_salt: Field,
 
     // Private call.
     pub salted_initialization_hash: SaltedInitializationHash,
@@ -225,6 +226,7 @@ impl FixtureBuilder {
         builder.msg_sender = fixtures::contracts::parent_contract.address;
         builder.counter_start = counter_start;
         builder.counter = counter_start + 1;
+        builder.tx_request_salt = 54321;
 
         builder.protocol_contracts = fixtures::protocol_contracts::get_protocol_contracts();
 
@@ -339,6 +341,7 @@ impl FixtureBuilder {
         PrivateTxConstantData {
             anchor_block_header: self.anchor_block_header,
             tx_context: self.tx_context,
+            tx_request_salt: self.tx_request_salt,
             vk_tree_root: self.vk_tree_root,
             protocol_contracts: self.protocol_contracts,
         }
@@ -350,7 +353,7 @@ impl FixtureBuilder {
             args_hash: self.args_hash,
             tx_context: self.tx_context,
             function_data: self.function_data,
-            salt: 54321,
+            salt: self.tx_request_salt,
         }
     }
 
@@ -440,6 +443,7 @@ impl FixtureBuilder {
             },
             anchor_block_header: self.anchor_block_header,
             tx_context: self.tx_context,
+            tx_request_salt: self.tx_request_salt,
         }
     }
 

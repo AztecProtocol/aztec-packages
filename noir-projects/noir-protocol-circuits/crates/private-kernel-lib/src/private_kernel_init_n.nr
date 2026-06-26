@@ -14,7 +14,6 @@ pub struct PrivateKernelInitNCircuitPrivateInputs<let N: u32> {
     pub vk_tree_root: Field,
     pub protocol_contracts: ProtocolContracts,
     pub is_private_only: bool,
-    pub first_nullifier_hint: Field,
     pub revertible_counter_hint: u32,
 }
 
@@ -28,7 +27,6 @@ pub fn execute<let N: u32>(
             vk_tree_root: inputs.vk_tree_root,
             protocol_contracts: inputs.protocol_contracts,
             is_private_only: inputs.is_private_only,
-            first_nullifier_hint: inputs.first_nullifier_hint,
             revertible_counter_hint: inputs.revertible_counter_hint,
         },
     );

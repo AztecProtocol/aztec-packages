@@ -172,7 +172,6 @@ export class PrivateKernelExecutionProver {
         previousOutput: output,
         txRequest,
         isPrivateOnlyTx,
-        firstNullifierHint: executionResult.firstNullifier,
         minRevertibleSideEffectCounter,
         executionSteps,
         generateWitnesses,
@@ -448,7 +447,6 @@ export class PrivateKernelExecutionProver {
     previousOutput: PrivateKernelSimulateOutput<PrivateKernelCircuitPublicInputs>;
     txRequest: TxRequest;
     isPrivateOnlyTx: boolean;
-    firstNullifierHint: Fr;
     minRevertibleSideEffectCounter: number;
     executionSteps: PrivateExecutionStep[];
     generateWitnesses: boolean;
@@ -459,7 +457,6 @@ export class PrivateKernelExecutionProver {
       previousOutput,
       txRequest,
       isPrivateOnlyTx,
-      firstNullifierHint,
       minRevertibleSideEffectCounter,
       executionSteps,
       generateWitnesses,
@@ -479,12 +476,9 @@ export class PrivateKernelExecutionProver {
             ProtocolContractsList,
             apps[0],
             isPrivateOnlyTx,
-            firstNullifierHint,
             minRevertibleSideEffectCounter,
           );
-          this.log.debug(
-            `Calling private kernel init with isPrivateOnly ${isPrivateOnlyTx} and firstNullifierHint ${proofInput.firstNullifierHint}`,
-          );
+          this.log.debug(`Calling private kernel init with isPrivateOnly ${isPrivateOnlyTx}`);
           pushTestData('private-kernel-inputs-init', proofInput);
           output = generateWitnesses
             ? await this.proofCreator.generateInitOutput(proofInput)
@@ -500,12 +494,9 @@ export class PrivateKernelExecutionProver {
             apps[0],
             apps[1],
             isPrivateOnlyTx,
-            firstNullifierHint,
             minRevertibleSideEffectCounter,
           );
-          this.log.debug(
-            `Calling private kernel init_2 with isPrivateOnly ${isPrivateOnlyTx} and firstNullifierHint ${proofInput.firstNullifierHint}`,
-          );
+          this.log.debug(`Calling private kernel init_2 with isPrivateOnly ${isPrivateOnlyTx}`);
           pushTestData('private-kernel-inputs-init-2', proofInput);
           output = generateWitnesses
             ? await this.proofCreator.generateInit2Output(proofInput)
@@ -522,12 +513,9 @@ export class PrivateKernelExecutionProver {
             apps[1],
             apps[2],
             isPrivateOnlyTx,
-            firstNullifierHint,
             minRevertibleSideEffectCounter,
           );
-          this.log.debug(
-            `Calling private kernel init_3 with isPrivateOnly ${isPrivateOnlyTx} and firstNullifierHint ${proofInput.firstNullifierHint}`,
-          );
+          this.log.debug(`Calling private kernel init_3 with isPrivateOnly ${isPrivateOnlyTx}`);
           pushTestData('private-kernel-inputs-init-3', proofInput);
           output = generateWitnesses
             ? await this.proofCreator.generateInit3Output(proofInput)
