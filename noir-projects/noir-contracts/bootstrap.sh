@@ -142,6 +142,10 @@ function build {
     folder_name="examples"
   else
     folder_name="contracts"
+    # Fail the build if the committed test_token_contract is out of sync with canonical
+    # app/token_contract, so a stale codegen'd TestToken can never be silently compiled (run
+    # scripts/gen_test_token.sh and commit to fix). See scripts/gen_test_token.sh.
+    ./scripts/gen_test_token.sh --check
   fi
 
   if [ "$#" -eq 0 ]; then
