@@ -28,6 +28,11 @@ describe('e2e_genesis_timestamp', () => {
       0,
       {
         ...AUTOMINE_E2E_OPTS,
+        // This suite pins the proven tip at genesis (no prover node, syncChainTip:'proven',
+        // advancePastGenesis:false) and asserts on genesis-anchored txs. Mining the L1 setup txs
+        // instantly shifts how far L1 time advances past the rollup genesis during deployment, which
+        // breaks those genesis-anchoring assumptions, so keep L1 setup on the anvil block interval.
+        automineL1Setup: false,
         advancePastGenesis: false,
         // This test proves genesis-anchored account deployment txs, so it needs deployable accounts
         additionallyFundedAccounts: await generateSchnorrAccounts(2, 'schnorr'),
