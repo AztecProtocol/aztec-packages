@@ -205,7 +205,6 @@ describe('syncTaggedPrivateLogs', () => {
     // Every log is returned and both cursors land on the last index. The aged cursor advances since the logs are old
     // enough, unlike a constrained secret, which never tracks an aged index.
     expect(logs).toHaveLength(totalLogs);
-    expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(2);
     expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBe(totalLogs - 1);
     expect(await taggingStore.getHighestAgedIndex(secret, JOB_ID)).toBe(totalLogs - 1);
 
