@@ -131,6 +131,17 @@ const gpuKnobs: MsmConfig = (() => {
   };
 })();
 
+// Per-pass GPU timestamps need the `timestamp-query` device feature, which
+// gpu.ts only requests when this flag is set BEFORE the device is created.
+// Enable it eagerly for the profile autorun (or a manual ?profile=1) so the
+// device comes up timestamp-enrolled. Telemetry only — never on in proving.
+{
+  const _qp = new URLSearchParams(window.location.search);
+  if (_qp.get('autorun') === 'msm-profile' || _qp.get('profile') === '1') {
+    (globalThis as Record<string, unknown>).__webgpu_profile_timestamps = true;
+  }
+}
+
 // Default to the machine's reported logical thread count, capped at
 // MT_THREADS_MAX. Falls back to 4 if `navigator.hardwareConcurrency`
 // is undefined.
@@ -1708,14 +1719,18 @@ $runBench.addEventListener('click', async () => {
   }
 });
 
-$runSweep.addEventListener('click', async () => {
-  $log.innerHTML = '';
-  $results.classList.remove('visible');
-  abortRequested = false;
-  setBusy(true, 'sweeping…');
-
-  const mtThreads = readMtThreads();
-  const nobleEnabled = $noble.checked;
+// Core sweep loop, shared by the "Sweep" button and the `?autorun=msm-sweep`
+// driver. Runs SWEEP_REPS reps of {WebGPU MsmV2, WASM Pippenger} at every size
+// in SWEEP_LOGN, mutating `rows` in place (so a caller that holds the returned
+// reference sees live progress) and returning it. Throws on abort/error — the
+// caller owns setBusy()/error logging.
+async function performSweep(opts: {
+  mtThreads: number;
+  noble: boolean;
+  onProgress?: (logN: number, rep: number) => void;
+  onRows?: (rows: SweepRow[]) => void;
+}): Promise<SweepRow[]> {
+  const { mtThreads, noble: nobleEnabled } = opts;
   log('info', `[sweep] start: mt-threads=${mtThreads}, noble=${nobleEnabled ? 'on' : 'off'}`);
   logMemSnapshot('sweep-start');
 
@@ -1726,82 +1741,95 @@ $runSweep.addEventListener('click', async () => {
     nobleOk: null,
     crossOk: null,
   }));
+  // Hand the caller the live array up front so a throw mid-sweep (e.g. a phone
+  // losing its GPU at a large size) still leaves the completed rows readable.
+  opts.onRows?.(rows);
   renderSweepTable(rows);
 
-  try {
-    for (const row of rows) {
-      throwIfAborted();
-      const checkNoble = nobleEnabled && row.logN === NOBLE_REFERENCE_LOGN;
-      log('info', '');
-      log('info', `[sweep] === log₂(n) = ${row.logN} (n = ${(1 << row.logN).toLocaleString()}) ===`);
+  for (const row of rows) {
+    throwIfAborted();
+    const checkNoble = nobleEnabled && row.logN === NOBLE_REFERENCE_LOGN;
+    log('info', '');
+    log('info', `[sweep] === log₂(n) = ${row.logN} (n = ${(1 << row.logN).toLocaleString()}) ===`);
 
-      log('info', `[sweep] step 1/4: generateInputs (mirrorForNoble=${checkNoble})`);
+    log('info', `[sweep] step 1/4: generateInputs (mirrorForNoble=${checkNoble})`);
+    await yieldToBrowser();
+    const tGen = performance.now();
+    const inputs = await generateInputs(row.logN, checkNoble);
+    log('info', `[sweep] step 1/4 done in ${(performance.now() - tGen).toFixed(0)} ms`);
+    logMemSnapshot(`after generateInputs(${row.logN})`);
+    await yieldToBrowser();
+
+    let noble: { x: bigint; y: bigint } | null = null;
+    if (checkNoble && inputs.points && inputs.scalars) {
+      log('info', `[sweep] step 2/4: noble reference (blocking ~10s)`);
+      await yieldToBrowser(16); // let the warning render before we block
+      const tNoble = performance.now();
+      noble = referenceMsm(inputs.points, inputs.scalars);
+      log('info', `[sweep] step 2/4 done in ${(performance.now() - tNoble).toFixed(0)} ms`);
       await yieldToBrowser();
-      const tGen = performance.now();
-      const inputs = await generateInputs(row.logN, checkNoble);
-      log('info', `[sweep] step 1/4 done in ${(performance.now() - tGen).toFixed(0)} ms`);
-      logMemSnapshot(`after generateInputs(${row.logN})`);
-      await yieldToBrowser();
-
-      let noble: { x: bigint; y: bigint } | null = null;
-      if (checkNoble && inputs.points && inputs.scalars) {
-        log('info', `[sweep] step 2/4: noble reference (blocking ~10s)`);
-        await yieldToBrowser(16); // let the warning render before we block
-        const tNoble = performance.now();
-        noble = referenceMsm(inputs.points, inputs.scalars);
-        log('info', `[sweep] step 2/4 done in ${(performance.now() - tNoble).toFixed(0)} ms`);
-        await yieldToBrowser();
-      } else {
-        log('info', `[sweep] step 2/4: noble skipped`);
-      }
-
-      log('info', `[sweep] step 3/4: ensure the WASM worker is booted, then load this size's inputs`);
-      // Pre-warm the WASM boot before the timed reps so we don't fold
-      // the spawn time into the first rep's wall clock. Also if Stop
-      // hits during boot we abort here cleanly rather than mid-MSM.
-      await ensureWasmBooted();
-      throwIfAborted();
-      // Decode + upload the WASM inputs once per size — untimed, kept
-      // out of every rep's measured window.
-      await loadWasmInputs(inputs);
-      throwIfAborted();
-      await yieldToBrowser();
-      log('info', `[sweep] step 3/4 done`);
-
-      log('info', `[sweep] step 4/4: ${SWEEP_REPS} reps × {gpu, wasm-mt}`);
-      for (let i = 0; i < SWEEP_REPS; i++) {
-        throwIfAborted();
-        setBusy(true, `sweeping log₂(n)=${row.logN} (rep ${i + 1}/${SWEEP_REPS})…`);
-        log('info', `[sweep]   rep ${i + 1}/${SWEEP_REPS}`);
-
-        const gpu = await runWebGpuOnce(inputs);
-        await yieldToBrowser();
-        throwIfAborted();
-
-        const mt = await runWasmOnce();
-        await yieldToBrowser();
-
-        row.webgpu.push(gpu);
-        row.wasmMt.push(mt);
-        if (i === 0) {
-          row.crossOk = pointsEqual(gpu.xy, mt.xy);
-          if (noble !== null) row.nobleOk = pointsEqual(noble, gpu.xy);
-          if (!row.crossOk) {
-            log('err', `[sweep]   cross-check FAILED at log₂(n)=${row.logN}`);
-            log('err', `         gpu.x=${gpu.xy.x.toString(16)}`);
-            log('err', `         mt.x =${mt.xy.x.toString(16)}`);
-          }
-        }
-        renderSweepTable(rows);
-      }
-      log(
-        'info',
-        `[sweep]   medians: gpu=${median(row.webgpu.map(s => s.ms)).toFixed(1)}, ` +
-          `mt=${median(row.wasmMt.map(s => s.ms)).toFixed(1)} ms`,
-      );
-      logMemSnapshot(`after log₂(n)=${row.logN}`);
+    } else {
+      log('info', `[sweep] step 2/4: noble skipped`);
     }
-    log('ok', `[sweep] done — see comparison table above.`);
+
+    log('info', `[sweep] step 3/4: ensure the WASM worker is booted, then load this size's inputs`);
+    // Pre-warm the WASM boot before the timed reps so we don't fold
+    // the spawn time into the first rep's wall clock. Also if Stop
+    // hits during boot we abort here cleanly rather than mid-MSM.
+    await ensureWasmBooted();
+    throwIfAborted();
+    // Decode + upload the WASM inputs once per size — untimed, kept
+    // out of every rep's measured window.
+    await loadWasmInputs(inputs);
+    throwIfAborted();
+    await yieldToBrowser();
+    log('info', `[sweep] step 3/4 done`);
+
+    log('info', `[sweep] step 4/4: ${SWEEP_REPS} reps × {gpu, wasm-mt}`);
+    for (let i = 0; i < SWEEP_REPS; i++) {
+      throwIfAborted();
+      setBusy(true, `sweeping log₂(n)=${row.logN} (rep ${i + 1}/${SWEEP_REPS})…`);
+      log('info', `[sweep]   rep ${i + 1}/${SWEEP_REPS}`);
+
+      const gpu = await runWebGpuOnce(inputs);
+      await yieldToBrowser();
+      throwIfAborted();
+
+      const mt = await runWasmOnce();
+      await yieldToBrowser();
+
+      row.webgpu.push(gpu);
+      row.wasmMt.push(mt);
+      if (i === 0) {
+        row.crossOk = pointsEqual(gpu.xy, mt.xy);
+        if (noble !== null) row.nobleOk = pointsEqual(noble, gpu.xy);
+        if (!row.crossOk) {
+          log('err', `[sweep]   cross-check FAILED at log₂(n)=${row.logN}`);
+          log('err', `         gpu.x=${gpu.xy.x.toString(16)}`);
+          log('err', `         mt.x =${mt.xy.x.toString(16)}`);
+        }
+      }
+      renderSweepTable(rows);
+      opts.onProgress?.(row.logN, i);
+    }
+    log(
+      'info',
+      `[sweep]   medians: gpu=${median(row.webgpu.map(s => s.ms)).toFixed(1)}, ` +
+        `mt=${median(row.wasmMt.map(s => s.ms)).toFixed(1)} ms`,
+    );
+    logMemSnapshot(`after log₂(n)=${row.logN}`);
+  }
+  log('ok', `[sweep] done — see comparison table above.`);
+  return rows;
+}
+
+$runSweep.addEventListener('click', async () => {
+  $log.innerHTML = '';
+  $results.classList.remove('visible');
+  abortRequested = false;
+  setBusy(true, 'sweeping…');
+  try {
+    await performSweep({ mtThreads: readMtThreads(), noble: $noble.checked });
   } catch (err) {
     log(abortRequested ? 'warn' : 'err', `[sweep] ${err instanceof Error ? err.message : String(err)}`);
     if (!abortRequested && err instanceof Error && err.stack) log('err', err.stack);
@@ -2668,6 +2696,12 @@ function hideProgress(): void {
       await waitForRun();
       $logn.value = String(autorunLogN);
       $logn.dispatchEvent(new Event('input'));
+      // Opt-in pass-by-pass hash dump (?debug_dump=1) — set before the run so
+      // MsmV2.run() hashes its intermediate buffers. Diff two devices run with
+      // the same ?scalar_seed to localize an Adreno-740 miscompile.
+      if (qp.get('debug_dump') === '1') {
+        (globalThis as Record<string, unknown>).__msm_debug_buffers = true;
+      }
       // First click: warmup happens during this click (no debug, runs
       // to completion and produces a real gpu.x).
       $run.click();
@@ -2720,6 +2754,7 @@ function hideProgress(): void {
         err_count: errLines.length,
         debug_dump: dump ?? null,
         tree_dump: treeDump ?? null,
+        debug_hashes: (globalThis as { __msm_debug_buffer_hashes?: unknown }).__msm_debug_buffer_hashes ?? null,
       };
       const state =
         debugSmvp || debugTreeOut
@@ -2750,6 +2785,198 @@ function hideProgress(): void {
         log: [],
         userAgent: navigator.userAgent,
         hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+    }
+  }
+
+  // Autorun: full WebGPU-vs-WASM timing sweep across 2^10..2^20.
+  //   ?autorun=msm-sweep   run performSweep(), POST per-size medians to /results
+  //   ?target=<dev>        device key (echoed back so the bench attributes rows)
+  //   ?threads=N           override WASM MT thread count (phones must cap this)
+  //   ?noble=1             also run the noble reference check at 2^16 (slow)
+  if (autorun === 'msm-sweep') {
+    const target = qp.get('target');
+    const nobleEnabled = qp.get('noble') === '1';
+    const threadsRaw = parseInt(qp.get('threads') ?? '', 10);
+    const client = makeResultsClient({ page: 'msm-sweep' });
+    const meta = {
+      target: target ?? null,
+      userAgent: navigator.userAgent,
+      hardwareConcurrency: navigator.hardwareConcurrency,
+      deviceMemory: (navigator as unknown as { deviceMemory?: number }).deviceMemory ?? null,
+    };
+    log(
+      'info',
+      `[autorun] msm-sweep target=${target ?? '—'} ` +
+        `threads=${Number.isFinite(threadsRaw) && threadsRaw > 0 ? threadsRaw : 'default'} noble=${nobleEnabled}`,
+    );
+    if (Number.isFinite(threadsRaw) && threadsRaw > 0) {
+      $mtThreads.value = String(threadsRaw);
+      $mtThreads.dispatchEvent(new Event('input'));
+    }
+    // Wait for the Run button (SRS fetched + WASM available). The WASM worker
+    // itself boots lazily inside performSweep at the configured thread count.
+    const waitForRun = async (): Promise<void> => {
+      for (let i = 0; i < 1200; i++) {
+        if (!$run.disabled) return;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      throw new Error('Run button never enabled within 10 minutes');
+    };
+    const mtThreads = readMtThreads();
+    const summarize = (rows: SweepRow[]) =>
+      rows.map(r => {
+        const gpuMs = r.webgpu.length ? median(r.webgpu.map(s => s.ms)) : null;
+        const wasmMs = r.wasmMt.length ? median(r.wasmMt.map(s => s.ms)) : null;
+        return {
+          logN: r.logN,
+          n: 1 << r.logN,
+          gpu_ms: gpuMs == null ? null : +gpuMs.toFixed(3),
+          wasm_ms: wasmMs == null ? null : +wasmMs.toFixed(3),
+          speedup: gpuMs && wasmMs ? +(wasmMs / gpuMs).toFixed(3) : null,
+          gpu_samples: r.webgpu.map(s => +s.ms.toFixed(3)),
+          wasm_samples: r.wasmMt.map(s => +s.ms.toFixed(3)),
+          cross_ok: r.crossOk,
+          noble_ok: r.nobleOk,
+        };
+      });
+    const captureLog = (): string[] => {
+      const out: string[] = [];
+      for (let i = 0; i < $log.children.length; i++) out.push($log.children[i].textContent ?? '');
+      return out.slice(-80);
+    };
+    const baseParams = { page: 'msm-sweep', sweep: SWEEP_LOGN, reps: SWEEP_REPS, mtThreads, noble: nobleEnabled };
+    let captured: SweepRow[] = [];
+    try {
+      await waitForRun();
+      $log.innerHTML = '';
+      abortRequested = false;
+      setBusy(true, 'sweeping…');
+      const rows = await performSweep({
+        mtThreads,
+        noble: nobleEnabled,
+        onProgress: (logN, rep) => client.postProgress({ target: target ?? null, logN, rep }),
+        onRows: r => (captured = r),
+      });
+      setBusy(false);
+      const sweep = summarize(rows);
+      const allCrossOk = rows.every(r => r.crossOk === true);
+      const complete = sweep.every(s => s.gpu_ms != null && s.wasm_ms != null);
+      const state = complete && allCrossOk ? 'done' : 'error';
+      await client.postResults({
+        ...meta,
+        state,
+        params: baseParams,
+        results: { sweep, all_cross_ok: allCrossOk, complete },
+        error: allCrossOk ? null : 'cross-check disagreement at one or more sizes',
+        log: captureLog(),
+      });
+      log(state === 'done' ? 'ok' : 'err', `[autorun] state=${state}`);
+    } catch (e) {
+      setBusy(false);
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[autorun] FATAL: ${msg}`);
+      // Post the sizes that finished before the failure (e.g. a phone losing
+      // its GPU at a large size) so a long run isn't wasted.
+      const sweep = summarize(captured);
+      const done = sweep.filter(s => s.gpu_ms != null && s.wasm_ms != null).length;
+      await client.postResults({
+        ...meta,
+        state: 'error',
+        params: baseParams,
+        results: { sweep, all_cross_ok: captured.every(r => r.crossOk !== false), complete: false, partial: true, completed_sizes: done },
+        error: msg,
+        log: captureLog(),
+      });
+    }
+  }
+
+  if (autorun === 'msm-profile') {
+    const target = qp.get('target');
+    const reps = Math.max(1, parseInt(qp.get('reps') ?? '8', 10) || 8);
+    const sizesParam = qp.get('sizes');
+    const sizes = (sizesParam ? sizesParam.split(',').map(s => parseInt(s, 10)) : [...PROFILE_SIZES]).filter(
+      n => Number.isInteger(n) && n >= 8 && n <= 20,
+    );
+    const client = makeResultsClient({ page: 'msm-profile' });
+    const meta = {
+      target: target ?? null,
+      userAgent: navigator.userAgent,
+      hardwareConcurrency: navigator.hardwareConcurrency,
+    };
+    log('info', `[autorun] msm-profile target=${target ?? '—'} sizes=${sizes.join(',')} reps=${reps}`);
+    const waitForRun = async (): Promise<void> => {
+      for (let i = 0; i < 1200; i++) {
+        if (!$run.disabled) return;
+        await new Promise(r => setTimeout(r, 500));
+      }
+      throw new Error('Run button never enabled within 10 minutes');
+    };
+    try {
+      await waitForRun();
+      $log.innerHTML = '';
+      abortRequested = false;
+      setBusy(true, 'profiling…');
+      let profileEnabled = true;
+      const perSize: Array<{
+        logN: number;
+        n: number;
+        gpu_median_ms: number | null;
+        passes_ms: Record<string, number>;
+        reps_ok: number;
+      }> = [];
+      for (const logN of sizes) {
+        const inputs = await generateInputs(logN, false);
+        const captures: ProfileCapture[] = [];
+        const gpuMs: number[] = [];
+        for (let i = 0; i < reps; i++) {
+          try {
+            const g = await runWebGpuOnce(inputs, { profile: true });
+            captures.push(g.capture);
+            gpuMs.push(g.ms);
+            client.postProgress({ target: target ?? null, logN, rep: i });
+          } catch (e) {
+            profileEnabled = false;
+            log('err', `[profile] logN=${logN} rep ${i}: ${e instanceof Error ? e.message : String(e)}`);
+            break;
+          }
+          await yieldToBrowser();
+        }
+        const passes_ms: Record<string, number> = {};
+        for (const [k, v] of aggregatePerKey(captures, stripBatch)) passes_ms[k] = +v.toFixed(4);
+        perSize.push({
+          logN,
+          n: 1 << logN,
+          gpu_median_ms: gpuMs.length ? +median(gpuMs).toFixed(3) : null,
+          passes_ms,
+          reps_ok: gpuMs.length,
+        });
+        if (!profileEnabled) break;
+      }
+      setBusy(false);
+      const state = profileEnabled && perSize.some(p => p.reps_ok > 0) ? 'done' : 'error';
+      const logLines: string[] = [];
+      for (let i = 0; i < $log.children.length; i++) logLines.push($log.children[i].textContent ?? '');
+      await client.postResults({
+        ...meta,
+        state,
+        params: { page: 'msm-profile', target, reps, sizes },
+        results: { perSize, profile_enabled: profileEnabled },
+        error: profileEnabled ? null : "device lacks 'timestamp-query' (chrome://flags/#enable-unsafe-webgpu)",
+        log: logLines.slice(-60),
+      });
+      log(state === 'done' ? 'ok' : 'err', `[autorun] msm-profile state=${state}`);
+    } catch (e) {
+      setBusy(false);
+      const msg = e instanceof Error ? `${e.message}\n${e.stack}` : String(e);
+      log('err', `[autorun] msm-profile FATAL: ${msg}`);
+      await client.postResults({
+        ...meta,
+        state: 'error',
+        params: { page: 'msm-profile', target, reps, sizes },
+        results: null,
+        error: msg,
+        log: [],
       });
     }
   }

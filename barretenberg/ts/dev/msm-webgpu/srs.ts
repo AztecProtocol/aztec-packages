@@ -59,11 +59,25 @@ async function fetchCompressed(numPoints: number, onProgress: SrsProgress): Prom
     }
     return r;
   };
-  let response: Response;
-  try {
-    response = await fetchOne(CRS_PRIMARY);
-  } catch {
-    response = await fetchOne(CRS_FALLBACK);
+  // Prefer the dev server's same-origin mirror (the box serves `g1_compressed.dat`
+  // from its own fast link through the SSH tunnel) over the public CRS CDN, which
+  // can be far slower from a remote device. Fall back to the CDN hosts if the
+  // local mirror is absent (e.g. running the page without the box-served file).
+  const localMirror = typeof window !== 'undefined' ? `${window.location.origin}/dev/msm-webgpu` : '';
+  const hosts = [localMirror, CRS_PRIMARY, CRS_FALLBACK].filter(Boolean);
+  let response: Response | null = null;
+  let lastErr: unknown = null;
+  for (const host of hosts) {
+    try {
+      response = await fetchOne(host);
+      onProgress({ kind: 'info', msg: `[srs] source: ${host === localMirror ? 'box mirror (same-origin)' : host}` });
+      break;
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  if (!response) {
+    throw lastErr instanceof Error ? lastErr : new Error('all CRS hosts failed');
   }
 
   // Stream the body so we can report byte-level progress as it lands.
