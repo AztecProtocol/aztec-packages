@@ -9,6 +9,7 @@ import {STFLib} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Timestamp, TimeLib, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {BlobLib} from "@aztec-blob-lib/BlobLib.sol";
 import {EpochProofLib} from "./EpochProofLib.sol";
+import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 import {AttestationLib} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {
   ProposeLib,
@@ -81,10 +82,10 @@ library RollupOperationsExtLib {
     uint256 _start,
     uint256 _end,
     PublicInputArgs calldata _args,
-    bytes32[] calldata _fees,
+    ProposedHeader[] calldata _headers,
     bytes calldata _blobPublicInputs
   ) external view returns (bytes32[] memory) {
-    return EpochProofLib.getEpochProofPublicInputs(_start, _end, _args, _fees, _blobPublicInputs);
+    return EpochProofLib.getEpochProofPublicInputs(_start, _end, _args, _headers, _blobPublicInputs);
   }
 
   function validateBlobs(bytes calldata _blobsInput, bool _checkBlob)

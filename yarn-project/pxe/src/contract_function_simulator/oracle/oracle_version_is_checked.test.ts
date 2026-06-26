@@ -9,7 +9,7 @@ import type { L2TipsProvider } from '@aztec/stdlib/block';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { BlockHeader, HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
+import { BlockHeader, CallContext, HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
@@ -26,8 +26,8 @@ import type { FactStore } from '../../storage/fact_store/index.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
-import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_address_book_store.js';
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
+import type { TaggingSecretSourcesStore } from '../../storage/tagging_store/tagging_secret_sources_store.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import { TransientArrayService } from '../transient_array_service.js';
 import { buildACIRCallback } from './acir_callback.js';
@@ -43,7 +43,7 @@ describe('Oracle Version Check test suite', () => {
   let aztecNode: ReturnType<typeof mock<AztecNode>>;
   let senderTaggingStore: ReturnType<typeof mock<SenderTaggingStore>>;
   let recipientTaggingStore: ReturnType<typeof mock<RecipientTaggingStore>>;
-  let senderAddressBookStore: ReturnType<typeof mock<SenderAddressBookStore>>;
+  let taggingSecretSourcesStore: ReturnType<typeof mock<TaggingSecretSourcesStore>>;
   let capsuleStore: ReturnType<typeof mock<CapsuleStore>>;
   let factStore: ReturnType<typeof mock<FactStore>>;
   let privateEventStore: ReturnType<typeof mock<PrivateEventStore>>;
@@ -65,7 +65,7 @@ describe('Oracle Version Check test suite', () => {
     aztecNode = mock<AztecNode>();
     senderTaggingStore = mock<SenderTaggingStore>();
     recipientTaggingStore = mock<RecipientTaggingStore>();
-    senderAddressBookStore = mock<SenderAddressBookStore>();
+    taggingSecretSourcesStore = mock<TaggingSecretSourcesStore>();
     capsuleStore = mock<CapsuleStore>();
     factStore = mock<FactStore>();
     privateEventStore = mock<PrivateEventStore>();
@@ -111,7 +111,7 @@ describe('Oracle Version Check test suite', () => {
       l2TipsStore: mock(),
       senderTaggingStore,
       recipientTaggingStore,
-      senderAddressBookStore,
+      taggingSecretSourcesStore,
       capsuleStore,
       factStore,
       privateEventStore,
@@ -158,8 +158,6 @@ describe('Oracle Version Check test suite', () => {
       const msgSender = await AztecAddress.random();
       const senderForTags = await AztecAddress.random();
       await acirSimulator.run(txRequest, {
-        contractAddress,
-        selector,
         msgSender,
         anchorBlockHeader,
         senderForTags,
@@ -205,7 +203,7 @@ describe('Oracle Version Check test suite', () => {
 
     beforeEach(() => {
       oracle = new UtilityExecutionOracle({
-        contractAddress,
+        callContext: new CallContext(AztecAddress.NULL_MSG_SENDER, contractAddress, FunctionSelector.empty(), true),
         authWitnesses: [],
         capsules: [],
         anchorBlockHeader,
@@ -215,7 +213,7 @@ describe('Oracle Version Check test suite', () => {
         addressStore,
         aztecNode,
         recipientTaggingStore,
-        senderAddressBookStore,
+        taggingSecretSourcesStore,
         capsuleService: new CapsuleService(capsuleStore, []),
         factService: new FactService(factStore, []),
         privateEventStore,

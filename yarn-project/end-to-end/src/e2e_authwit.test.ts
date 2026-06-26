@@ -15,6 +15,9 @@ import type { TestWallet } from './test-wallet/test_wallet.js';
 
 const TIMEOUT = 300_000;
 
+// Tests the authorization witness (authwit) system in both private and public contexts.
+// Uses setup(2, AUTOMINE_E2E_OPTS) providing one node with automine sequencer and two accounts.
+// Accounts are publicly deployed and the AuthRegistry is published before any test runs.
 describe('e2e_authwit_tests', () => {
   jest.setTimeout(TIMEOUT);
 
@@ -40,8 +43,12 @@ describe('e2e_authwit_tests', () => {
 
   afterAll(() => teardown());
 
+  // Private authwit tests: witnesses are provided only to PXE, not published on-chain.
   describe('Private', () => {
+    // Tests inner-hash consumption via the AuthWitTest proxy flow.
     describe('arbitrary data', () => {
+      // Creates an inner hash, generates a private witness, asserts it is valid only for account1,
+      // consumes it via the proxy (making the inner hash a nullifier), then asserts double-spend is rejected.
       it('happy path', async () => {
         // What are we doing here:
         // 1. We compute an inner hash which is here just a hash of random data
@@ -89,8 +96,13 @@ describe('e2e_authwit_tests', () => {
     });
   });
 
+  // Public authwit tests: witnesses are stored on-chain via setPublicAuthWit and consumed through
+  // the AuthRegistry contract.
   describe('Public', () => {
+    // Tests that a public authwit can be set, validated, consumed, and then appears invalid.
     describe('arbitrary data', () => {
+      // Sets a public authwit for account1, validates it is both private and public valid,
+      // then consumes it via the AuthRegistry and verifies it is no longer publicly valid.
       it('happy path', async () => {
         const innerHash = await computeInnerAuthWitHash([Fr.fromHexString('0xdead'), Fr.fromHexString('0x01')]);
 
@@ -119,7 +131,10 @@ describe('e2e_authwit_tests', () => {
         });
       });
 
+      // Tests that a public authwit can be cancelled (set to false) before consumption.
       describe('failure case', () => {
+        // Sets a public authwit, then immediately revokes it, then attempts to consume — expects
+        // an "unauthorized" revert.
         it('cancel before usage', async () => {
           const innerHash = await computeInnerAuthWitHash([Fr.fromHexString('0xdead'), Fr.fromHexString('0x02')]);
           const intent = { consumer: auth.address, innerHash };

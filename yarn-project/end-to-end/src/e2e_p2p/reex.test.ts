@@ -27,6 +27,11 @@ const NUM_TXS_PER_NODE = 1;
 const BASE_BOOT_NODE_UDP_PORT = 4500;
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'reex-'));
 
+// Sets up a 4-node real libp2p network with txTimeoutMs=30s, proofSubEpochs=1024, min/max=1 txPerBlock,
+// inboxLag=2 (v5 always enforces the timetable, so the former enforceTimeTable override is gone). The
+// beforeAll submits transactions and deploys a spam contract
+// in preparation for validator re-execution tests. All inner test logic is inside describe.skip
+// pending a fix to the makeBlockBuilderDeps spy (TODO palla/mbps).
 describe('e2e_p2p_reex', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];

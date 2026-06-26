@@ -100,6 +100,9 @@ const peerCountQuery = () => `avg(aztec_peer_manager_peer_count_peers{k8s_namesp
 const peerConnectionDurationQuery = (perc: string, windowSeconds: number) =>
   `histogram_quantile(${perc}, sum(rate(aztec_peer_manager_peer_connection_duration_milliseconds_bucket{k8s_namespace_name="${config.NAMESPACE}"}[${windowSeconds}s])) by (le))`;
 
+// Sustained mixed-priority TPS test against a live k8s deployment. Drives LOW_VALUE_TPS and HIGH_VALUE_TPS
+// traffic simultaneously, optionally with Chaos Mesh network shaping, and collects Prometheus metrics for
+// p2p latency, attestation timing, and peer connections.
 describe('sustained N TPS test', () => {
   jest.setTimeout(60 * 60 * 1000 * 10); // 10 hours
 

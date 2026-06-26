@@ -137,6 +137,8 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
   // Track attestations by checkpoint number for proof submission
   mapping(uint256 => CommitteeAttestations) internal checkpointAttestations;
 
+  mapping(uint256 => ProposedHeader) internal checkpointHeaders;
+
   modifier prepare(uint256 _validatorCount, uint256 _targetCommitteeSize) {
     // We deploy a the rollup and sets the time and all to
     vm.warp(l1Metadata[0].timestamp - SLOT_DURATION);
@@ -220,9 +222,10 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
 
         skipBlobCheck(address(rollup));
 
-        // Store the attestations for the current checkpoint number
+        // Store the attestations and header for the current checkpoint number
         uint256 currentCheckpointNumber = rollup.getPendingCheckpointNumber() + 1;
         checkpointAttestations[currentCheckpointNumber] = AttestationLibHelper.packAttestations(b.attestations);
+        checkpointHeaders[currentCheckpointNumber] = b.proposeArgs.header;
 
         vm.prank(proposer);
         rollup.propose(
@@ -249,16 +252,9 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
           epochSize++;
         }
 
-        bytes32[] memory fees = new bytes32[](Constants.MAX_CHECKPOINTS_PER_EPOCH * 2);
-
-        for (uint256 feeIndex = 0; feeIndex < epochSize; feeIndex++) {
-          // we need the minFee, and we cannot just take it from the point. Because it is different
-          Timestamp ts = rollup.getTimestampForSlot(Slot.wrap(start + feeIndex));
-          uint256 manaMinFee = rollup.getManaMinFeeAt(ts, true);
-          uint256 fee = rollup.getFeeHeader(start + feeIndex).manaUsed * manaMinFee;
-
-          fees[feeIndex * 2] = bytes32(uint256(uint160(bytes20(coinbase))));
-          fees[feeIndex * 2 + 1] = bytes32(fee);
+        ProposedHeader[] memory headers = new ProposedHeader[](epochSize);
+        for (uint256 headerIndex = 0; headerIndex < epochSize; headerIndex++) {
+          headers[headerIndex] = checkpointHeaders[start + headerIndex];
         }
 
         CheckpointLog memory endCheckpoint = rollup.getCheckpoint(start + epochSize - 1);
@@ -276,7 +272,7 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
               start: start,
               end: start + epochSize - 1,
               args: args,
-              fees: fees,
+              headers: headers,
               attestations: checkpointAttestations[start + epochSize - 1],
               blobInputs: full.checkpoint.batchedBlobInputs,
               proof: ""
@@ -327,6 +323,7 @@ contract PreHeatingTest is FeeModelTestPoints, DecoderBase {
     header.feeRecipient = bytes32(0);
     header.gasFees.feePerL2Gas = manaMinFee;
     header.totalManaUsed = manaSpent;
+    header.accumulatedFees = uint256(manaMinFee) * manaSpent;
 
     ProposeArgs memory proposeArgs = ProposeArgs({
       header: header,

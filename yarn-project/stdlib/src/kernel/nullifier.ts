@@ -70,7 +70,7 @@ export class ScopedNullifier implements Ordered {
 
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
-    return new ScopedNullifier(reader.readObject(Nullifier), AztecAddress.fromField(reader.readField()));
+    return new ScopedNullifier(reader.readObject(Nullifier), AztecAddress.fromFieldUnsafe(reader.readField()));
   }
 
   isEmpty() {

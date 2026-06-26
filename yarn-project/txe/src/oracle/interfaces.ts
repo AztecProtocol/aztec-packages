@@ -2,6 +2,8 @@ import { CompleteAddress } from '@aztec/aztec.js/addresses';
 import { TxHash } from '@aztec/aztec.js/tx';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { TaggingSecretStrategy } from '@aztec/pxe/server';
+import type { Option } from '@aztec/pxe/simulator';
 import type { EventSelector, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasSettings } from '@aztec/stdlib/gas';
@@ -42,9 +44,9 @@ export interface IAvmExecutionOracle {
   getContractInstanceImmutablesHash(address: AztecAddress): Promise<{ member: Fr; exists: boolean }>;
   returndataSize(): Promise<Fr>;
   returndataCopy(rdOffset: number, copySize: number): Promise<Fr[]>;
-  call(l2Gas: number, daGas: number, address: AztecAddress, argsLength: number, args: Fr[]): Promise<Fr[]>;
-  staticCall(l2Gas: number, daGas: number, address: AztecAddress, argsLength: number, args: Fr[]): Promise<Fr[]>;
-  successCopy(): Promise<Fr>;
+  call(l2Gas: number, daGas: number, address: AztecAddress, argsLength: number, args: Fr[]): Promise<void>;
+  staticCall(l2Gas: number, daGas: number, address: AztecAddress, argsLength: number, args: Fr[]): Promise<void>;
+  successCopy(): Promise<boolean>;
 }
 
 /**
@@ -69,6 +71,7 @@ export interface ITxeExecutionOracle {
   createAccount(secret: Fr): Promise<CompleteAddress>;
   addAccount(secret: Fr): Promise<CompleteAddress>;
   addAuthWitness(address: AztecAddress, messageHash: Fr): Promise<void>;
+  setTaggingSecretStrategy(strategy: Option<TaggingSecretStrategy>): void;
   getLastBlockTimestamp(): Promise<bigint>;
   getLastTxEffects(): Promise<{
     txHash: TxHash;
@@ -90,6 +93,7 @@ export interface ITxeExecutionOracle {
     gasSettings: GasSettings,
   ): Promise<{ returnValues: Fr[]; offchainEffects: Fr[][] }>;
   executeUtilityFunction(
+    from: AztecAddress | undefined,
     targetContractAddress: AztecAddress,
     functionSelector: FunctionSelector,
     args: Fr[],

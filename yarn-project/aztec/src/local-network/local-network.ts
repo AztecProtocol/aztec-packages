@@ -166,7 +166,7 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
 
   const bananaFPC = await getBananaFPCAddress(initialAccounts);
   const sponsoredFPC = await getSponsoredFPCAddress();
-  const prefundAddresses = (aztecNodeConfig.prefundAddresses ?? []).map(a => AztecAddress.fromString(a));
+  const prefundAddresses = (aztecNodeConfig.prefundAddresses ?? []).map(a => AztecAddress.fromStringUnsafe(a));
   const fundedAddresses = [
     ...initialAccounts.map(a => a.address),
     ...(initialAccounts.length ? [bananaFPC, sponsoredFPC] : []),

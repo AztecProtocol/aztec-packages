@@ -36,7 +36,7 @@ import { PrivateLog } from '@aztec/stdlib/logs';
 import { PrivateCallExecutionResult } from '@aztec/stdlib/tx';
 import { VerificationKeyData } from '@aztec/stdlib/vks';
 
-const DEFAULT_CONTRACT_ADDRESS = AztecAddress.fromBigInt(987654n);
+const DEFAULT_CONTRACT_ADDRESS = AztecAddress.fromBigIntUnsafe(987654n);
 
 /**
  * Builds a ClaimedLengthArray from a list of items, padding to the required size.

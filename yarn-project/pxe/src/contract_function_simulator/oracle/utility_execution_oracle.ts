@@ -3,7 +3,7 @@ import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { uniqueBy } from '@aztec/foundation/collection';
 import { Aes128 } from '@aztec/foundation/crypto/aes128';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import type { Point } from '@aztec/foundation/curves/grumpkin';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 import { LogLevels, type Logger, createLogger } from '@aztec/foundation/log';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import type { KeyStore } from '@aztec/key-store';
@@ -25,16 +25,21 @@ import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { PublicKeys, computeAddressSecret, hashPublicKey } from '@aztec/stdlib/keys';
-import { AppTaggingSecret, type PendingTaggedLog, deriveAppSiloedSharedSecret } from '@aztec/stdlib/logs';
+import {
+  AppTaggingSecret,
+  FlatPublicLogs,
+  type PendingTaggedLog,
+  deriveAppSiloedSharedSecret,
+} from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import {
   type BlockHeader,
+  CallContext,
   type Capsule,
   type IndexedTxEffect,
   type OffchainEffect,
-  TxEffect,
   type TxHash,
 } from '@aztec/stdlib/tx';
 
@@ -55,9 +60,10 @@ import type { FactService, OriginBlock } from '../../storage/fact_store/index.js
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
-import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_address_book_store.js';
+import type { TaggingSecretSourcesStore } from '../../storage/tagging_store/tagging_secret_sources_store.js';
 import { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
+import type { EmbeddedCurvePoint } from '../noir-structs/embedded_curve_point.js';
 import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
 import type { EventValidationRequest } from '../noir-structs/event_validation_request.js';
 import { type FactCollection, emptyFactCollection, toNoirFactCollection } from '../noir-structs/fact_collection.js';
@@ -67,17 +73,17 @@ import type { NoteData } from '../noir-structs/note_data.js';
 import type { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import { Option } from '../noir-structs/option.js';
 import type { ProvidedSecret } from '../noir-structs/provided_secret.js';
-import { ResolvedTx } from '../noir-structs/resolved_tx.js';
-import { UtilityContext } from '../noir-structs/utility_context.js';
+import type { ResolvedTx } from '../noir-structs/resolved_tx.js';
+import type { TxEffectData } from '../noir-structs/tx_effect_data.js';
+import type { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
 import type { TransientArrayService } from '../transient_array_service.js';
 import { buildACIRCallback } from './acir_callback.js';
 import type { IMiscOracle, IUtilityExecutionOracle } from './interfaces.js';
-import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
 /** Args for UtilityExecutionOracle constructor. */
 export type UtilityExecutionOracleArgs = {
-  contractAddress: AztecAddress;
+  callContext: CallContext;
   /** List of transient auth witnesses to be used during this simulation */
   authWitnesses: AuthWitness[];
   capsules: Capsule[]; // TODO(#12425): Rename to transientCapsules
@@ -88,7 +94,7 @@ export type UtilityExecutionOracleArgs = {
   addressStore: AddressStore;
   aztecNode: AztecNode;
   recipientTaggingStore: RecipientTaggingStore;
-  senderAddressBookStore: SenderAddressBookStore;
+  taggingSecretSourcesStore: TaggingSecretSourcesStore;
   capsuleService: CapsuleService;
   factService: FactService;
   privateEventStore: PrivateEventStore;
@@ -121,7 +127,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   // We store oracle version to be able to show a nice error message when an oracle handler is missing.
   private contractOracleVersion: { major: number; minor: number } | undefined;
 
-  protected readonly contractAddress: AztecAddress;
+  protected readonly callContext: CallContext;
   protected readonly authWitnesses: AuthWitness[];
   protected readonly capsules: Capsule[];
   protected readonly anchorBlockHeader: BlockHeader;
@@ -131,7 +137,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   protected readonly addressStore: AddressStore;
   protected readonly aztecNode: AztecNode;
   protected readonly recipientTaggingStore: RecipientTaggingStore;
-  protected readonly senderAddressBookStore: SenderAddressBookStore;
+  protected readonly taggingSecretSourcesStore: TaggingSecretSourcesStore;
   protected readonly capsuleService: CapsuleService;
   protected readonly factService: FactService;
   protected readonly privateEventStore: PrivateEventStore;
@@ -146,7 +152,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   protected readonly utilityExecutor: (call: FunctionCall, scopes: AztecAddress[]) => Promise<void>;
 
   constructor(args: UtilityExecutionOracleArgs) {
-    this.contractAddress = args.contractAddress;
+    this.callContext = args.callContext;
     this.authWitnesses = args.authWitnesses;
     this.capsules = args.capsules;
     this.anchorBlockHeader = args.anchorBlockHeader;
@@ -156,7 +162,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.addressStore = args.addressStore;
     this.aztecNode = args.aztecNode;
     this.recipientTaggingStore = args.recipientTaggingStore;
-    this.senderAddressBookStore = args.senderAddressBookStore;
+    this.taggingSecretSourcesStore = args.taggingSecretSourcesStore;
     this.capsuleService = args.capsuleService;
     this.factService = args.factService;
     this.privateEventStore = args.privateEventStore;
@@ -196,17 +202,22 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   public getUtilityContext(): UtilityContext {
-    return new UtilityContext(this.anchorBlockHeader, this.contractAddress);
+    return {
+      blockHeader: this.anchorBlockHeader,
+      contractAddress: this.callContext.contractAddress,
+      msgSender: this.callContext.msgSender,
+    };
   }
 
   /**
    * Retrieve keys associated with a specific master public key and app address.
    * @param pkMHash - The master public key hash.
+   * @param _keyIndex - Sent by the Noir oracle caller but unused here; kept to match the oracle signature.
    * @returns A Promise that resolves to nullifier keys.
    * @throws If the keys are not registered in the key store.
    * @throws If scopes are defined and the account is not in the scopes.
    */
-  public async getKeyValidationRequest(pkMHash: Fr): Promise<KeyValidationRequest> {
+  public async getKeyValidationRequest(pkMHash: Fr, _keyIndex: Fr): Promise<KeyValidationRequest> {
     let hasAccess = false;
     for (let i = 0; i < this.scopes.length && !hasAccess; i++) {
       if (await this.keyStore.accountHasKey(this.scopes[i], pkMHash)) {
@@ -260,7 +271,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     const witness = await this.#queryWithBlockHashNotAfterAnchor(referenceBlockHash, () =>
       this.aztecNode.getBlockHashMembershipWitness(referenceBlockHash, blockHash),
     );
-    return witness ? Option.some(witness) : Option.none(MembershipWitness.empty(ARCHIVE_HEIGHT));
+    return witness ? Option.some(witness) : Option.none();
   }
 
   /**
@@ -352,7 +363,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   ): Promise<Option<{ publicKeys: PublicKeys; partialAddress: PartialAddress }>> {
     const completeAddress = await this.addressStore.getCompleteAddress(account);
     if (!completeAddress) {
-      return Option.none({ publicKeys: PublicKeys.default(), partialAddress: Fr.ZERO });
+      return Option.none();
     }
     return Option.some({ publicKeys: completeAddress.publicKeys, partialAddress: completeAddress.partialAddress });
   }
@@ -487,7 +498,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       await this.anchorBlockHeader.hash(),
     );
 
-    return new MessageLoadOracleInputs(messageIndex, siblingPath);
+    return { index: messageIndex, siblingPath };
   }
 
   /**
@@ -586,7 +597,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.l2TipsStore,
       this.keyStore,
       this.recipientTaggingStore,
-      this.senderAddressBookStore,
+      this.taggingSecretSourcesStore,
       this.addressStore,
       this.jobId,
       this.logger.getBindings(),
@@ -646,7 +657,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 
     const resolved = await this.txResolver.resolveTxs(txHashes, this.anchorBlockHeader.getBlockNumber());
 
-    const options = resolved.map(r => (r ? Option.some(r) : Option.none<ResolvedTx>(ResolvedTx.empty())));
+    const options = resolved.map(r => (r ? Option.some(r) : Option.none<ResolvedTx>()));
     return EphemeralArray.fromValues(this.ephemeralArrayService, options);
   }
 
@@ -654,17 +665,26 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * Fetches the effects of a transaction by its hash. Returns null if the tx is not found or is beyond the anchor
    * block.
    */
-  public async getTxEffect(txHash: TxHash): Promise<Option<TxEffect>> {
+  public async getTxEffect(txHash: TxHash): Promise<Option<TxEffectData>> {
     if (txHash.hash.isZero()) {
       throw new Error('Invalid tx hash passed into aztec_utl_getTxEffect oracle handler');
     }
 
     const receipt = await this.aztecNode.getTxReceipt(txHash, { includeTxEffect: true });
     if (!receipt.isMined() || !receipt.txEffect || receipt.blockNumber > this.anchorBlockHeader.getBlockNumber()) {
-      return Option.none(TxEffect.empty());
+      return Option.none();
     }
 
-    return Option.some(receipt.txEffect);
+    const txEffect = receipt.txEffect;
+    return Option.some({
+      ...txEffect,
+      publicLogs: FlatPublicLogs.fromLogs(txEffect.publicLogs),
+      contractClassLogs: txEffect.contractClassLogs.map(log => ({
+        contractAddress: log.contractAddress,
+        fields: log.fields.toFields(),
+        emittedLength: log.emittedLength,
+      })),
+    });
   }
 
   public setCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], scope: AztecAddress): void {
@@ -680,7 +700,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   ): Promise<Option<Fr[]>> {
     this.#assertOwnContract(contractAddress);
     const values = await this.capsuleService.getCapsule(contractAddress, slot, this.jobId, scope, this.capsules);
-    return values ? Option.some(values) : Option.none(new Array(tSize).fill(Fr.ZERO));
+    return values ? Option.some(values) : Option.none({ length: tSize });
   }
 
   public deleteCapsule(contractAddress: AztecAddress, slot: Fr, scope: AztecAddress): void {
@@ -824,7 +844,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       const plaintext = await aes128.decryptBufferCBC(Buffer.from(ciphertext.data), iv, symKey);
       return Option.some(BoundedVec.from<number>({ data: [...plaintext], maxLength: capacity }));
     } catch {
-      return Option.none(BoundedVec.empty<number>({ maxLength: capacity }));
+      return Option.none({ maxLength: capacity });
     }
   }
 
@@ -837,7 +857,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    */
   public async getSharedSecrets(
     address: AztecAddress,
-    ephPks: EphemeralArray<Point>,
+    ephPks: EphemeralArray<EmbeddedCurvePoint>,
     contractAddress: AztecAddress,
   ): Promise<EphemeralArray<Fr>> {
     if (!contractAddress.equals(this.contractAddress)) {
@@ -852,7 +872,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 
     const ephPkPoints = ephPks.readAll(this.ephemeralArrayService);
     const secrets = await Promise.all(
-      ephPkPoints.map(ephPk => deriveAppSiloedSharedSecret(addressSecret, ephPk, this.contractAddress)),
+      ephPkPoints.map(({ x, y }) => deriveAppSiloedSharedSecret(addressSecret, new Point(x, y), this.contractAddress)),
     );
 
     return EphemeralArray.fromValues(this.ephemeralArrayService, secrets);
@@ -931,12 +951,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
 
     if (!targetContractAddress.equals(this.contractAddress)) {
-      // The HandshakeRegistry is called during every contract's sync to discover handshake secrets.
-      // It is a standard contract that only reads its own state, so it is always authorized.
-      const isHandshakeRegistryRead =
-        targetContractAddress.equals(STANDARD_HANDSHAKE_REGISTRY_ADDRESS) &&
-        functionSelector.equals(await FunctionSelector.fromSignature('get_handshakes((Field),u32)'));
-      if (!isHandshakeRegistryRead) {
+      // Standard handshake registry reads are authorized by default; every other cross-contract call needs the hook.
+      if (!(await isStandardHandshakeRegistryUtilityRead(targetContractAddress, functionSelector))) {
         const [callerInstance, targetInstance] = await Promise.all([
           this.getContractInstance(this.contractAddress),
           this.getContractInstance(targetContractAddress),
@@ -952,9 +968,9 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
           callerContext: this.callerContext,
         };
 
-        const response = this.hooks
+        const response = this.hooks?.authorizeUtilityCall
           ? await this.hooks.authorizeUtilityCall(request)
-          : { authorized: false, reason: 'No execution hooks configured' };
+          : { authorized: false, reason: 'No authorizeUtilityCall hook configured' };
 
         if (!response.authorized) {
           const reason = response.reason ? `: ${response.reason}` : '';
@@ -981,7 +997,12 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     );
 
     const nestedOracle = new UtilityExecutionOracle({
-      contractAddress: targetContractAddress,
+      callContext: CallContext.from({
+        msgSender: this.contractAddress,
+        contractAddress: targetContractAddress,
+        functionSelector,
+        isStaticCall: true,
+      }),
       authWitnesses: this.authWitnesses,
       capsules: this.capsules,
       anchorBlockHeader: this.anchorBlockHeader,
@@ -991,7 +1012,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       addressStore: this.addressStore,
       aztecNode: this.aztecNode,
       recipientTaggingStore: this.recipientTaggingStore,
-      senderAddressBookStore: this.senderAddressBookStore,
+      taggingSecretSourcesStore: this.taggingSecretSourcesStore,
       capsuleService: this.capsuleService,
       factService: this.factService,
       privateEventStore: this.privateEventStore,
@@ -1091,4 +1112,37 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   protected get callerContext(): 'private' | 'private view' | 'utility' {
     return 'utility';
   }
+
+  /** The address of the contract whose function is being executed, from the call context. */
+  protected get contractAddress(): AztecAddress {
+    return this.callContext.contractAddress;
+  }
+}
+
+const STANDARD_HANDSHAKE_REGISTRY_GET_HANDSHAKES_SIGNATURE = 'get_handshakes((Field),u32)';
+const STANDARD_HANDSHAKE_REGISTRY_GET_APP_SILOED_SECRET_SIGNATURE = 'get_app_siloed_secret((Field),(Field))';
+
+async function doesSelectorHaveSignature(functionSelector: FunctionSelector, signature: string): Promise<boolean> {
+  return functionSelector.equals(await FunctionSelector.fromSignature(signature));
+}
+
+/**
+ * Whether a cross-contract utility call targets one of the standard handshake registry's read functions.
+ *
+ * These reads are authorized by PXE for every wallet, without consulting the `authorizeUtilityCall` hook, so that
+ * wallets don't need to know the handshake registry exists in order to deliver and discover messages through it.
+ */
+async function isStandardHandshakeRegistryUtilityRead(
+  targetContractAddress: AztecAddress,
+  functionSelector: FunctionSelector,
+): Promise<boolean> {
+  if (!targetContractAddress.equals(STANDARD_HANDSHAKE_REGISTRY_ADDRESS)) {
+    return false;
+  }
+
+  const [isGetHandshakes, isGetAppSiloedSecret] = await Promise.all([
+    doesSelectorHaveSignature(functionSelector, STANDARD_HANDSHAKE_REGISTRY_GET_HANDSHAKES_SIGNATURE),
+    doesSelectorHaveSignature(functionSelector, STANDARD_HANDSHAKE_REGISTRY_GET_APP_SILOED_SECRET_SIGNATURE),
+  ]);
+  return isGetHandshakes || isGetAppSiloedSecret;
 }

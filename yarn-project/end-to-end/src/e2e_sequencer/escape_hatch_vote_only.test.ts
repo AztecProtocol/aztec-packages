@@ -37,6 +37,11 @@ const ESCAPE_HATCH_ACTIVE_DURATION = 16n;
 
 jest.setTimeout(1000 * 60 * 5);
 
+// Tests the sequencer's behavior during an EscapeHatch voting window. One node running a 4-validator
+// committee with pipelining opts (ethSlot=12s, aztecSlot=36s, epoch=4, proofSubEpochs=15). The
+// beforeEach deploys a custom EscapeHatch L1 contract and wires it into the rollup. Timing driven by
+// cheatCodes.rollup.advanceToEpoch + retryUntil waits.
+// Setup: plain setup(1, { ...PIPELINING_SETUP_OPTS, overridden slots, aztecTargetCommitteeSize=4 }).
 describe('e2e_escape_hatch_vote_only', () => {
   let logger: Logger;
   let teardown: () => Promise<void>;
@@ -146,6 +151,9 @@ describe('e2e_escape_hatch_vote_only', () => {
 
   afterEach(() => teardown());
 
+  // Verifies that when the escape hatch is open the sequencer casts governance votes every slot without
+  // building blocks or checkpoints, and that no failure events are emitted in the vote-only window.
+  // Waits two full epochs via retryUntil, then checks vote count >= slots elapsed and checkpoint count = 0.
   it('casts governance signals and advances checkpoints while escape hatch is closed', async () => {
     const sequencer = sequencerClient!.getSequencer();
 
@@ -229,6 +237,7 @@ describe('e2e_escape_hatch_vote_only', () => {
     const initialStats = await getStats();
 
     // We will wait until epochs advance
+    // REFACTOR: retryUntil on epoch arithmetic should be replaced with a cheatCodes.rollup.waitForEpoch helper
     await retryUntil(
       async () =>
         (await rollup.getEpochNumberForSlotNumber(await rollup.getSlotNumber())) >= initialStats.epoch + EpochNumber(2),
@@ -245,6 +254,7 @@ describe('e2e_escape_hatch_vote_only', () => {
     const slotsPassed = slotAtMeasurement - initialStats.slot;
     expect(slotsPassed).toBeGreaterThan(0);
     const drainTarget = slotAtMeasurement + 2;
+    // REFACTOR: retryUntil on slot polling should be replaced with a rollup slot-wait helper
     await retryUntil(
       () => rollup.getSlotNumber().then(s => s >= drainTarget),
       'pipelined vote drain',

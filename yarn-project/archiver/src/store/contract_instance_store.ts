@@ -1,5 +1,6 @@
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
+import { isProtocolContract } from '@aztec/protocol-contracts';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ContractInstanceUpdateWithAddress,
@@ -72,6 +73,11 @@ export class ContractInstanceStore {
     return this.db.transactionAsync(async () => {
       const key = contractInstance.address.toString();
       if (await this.#contractInstances.hasAsync(key)) {
+        // Protocol contracts are preloaded at block 0, so a later on-chain (re-)publish of a bundled
+        // protocol instance is valid and must be a no-op. Keep the existing block-0 entry untouched.
+        if (isProtocolContract(contractInstance.address)) {
+          return;
+        }
         throw new Error(
           `Contract instance at ${key} already exists (deployed at block ${await this.#contractInstancePublishedAt.getAsync(key)}), cannot add again at block ${blockNumber}`,
         );
@@ -82,6 +88,11 @@ export class ContractInstanceStore {
   }
 
   deleteContractInstance(contractInstance: ContractInstanceWithAddress): Promise<void> {
+    // Protocol contracts are preloaded at block 0 and must never be deleted, even when the block that
+    // (re-)published them on-chain is unwound by a reorg.
+    if (isProtocolContract(contractInstance.address)) {
+      return Promise.resolve();
+    }
     return this.db.transactionAsync(async () => {
       await this.#contractInstances.delete(contractInstance.address.toString());
       await this.#contractInstancePublishedAt.delete(contractInstance.address.toString());

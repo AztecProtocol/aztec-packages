@@ -3,6 +3,10 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { AUTOMINE_E2E_OPTS } from '../fixtures/fixtures.js';
 import { BlacklistTokenContractTest, Role } from './blacklist_token_contract_test.js';
 
+// Covers role management (admin grant/revoke, minter assignment, blacklisting) on the TokenBlacklist contract.
+// Setup: single node with AutomineSequencer (AUTOMINE_E2E_OPTS), 3 deployed accounts (admin/other/blacklisted),
+// TokenBlacklist contract deployed. Role changes require crossing a 86400s L2 time delay enforced by the
+// contract; crossTimestampOfChange() handles this via markAsProven + warpL2TimeAtLeastBy.
 describe('e2e_blacklist_token_contract access control', () => {
   const t = new BlacklistTokenContractTest('access_control');
 
@@ -18,6 +22,8 @@ describe('e2e_blacklist_token_contract access control', () => {
     await t.tokenSim.check();
   });
 
+  // Sends update_roles to grant admin+minter to the admin account, crosses the 86400s delay, then asserts
+  // the role is readable via get_roles.
   it('grant mint permission to the admin', async () => {
     const adminMinterRole = new Role().withAdmin().withMinter();
     await t.asset.methods.update_roles(t.adminAddress, adminMinterRole.toNoirStruct()).send({ from: t.adminAddress });
@@ -29,6 +35,7 @@ describe('e2e_blacklist_token_contract access control', () => {
     );
   });
 
+  // Grants admin role to the 'other' account, crosses the delay, and verifies the role via get_roles.
   it('create a new admin', async () => {
     const adminRole = new Role().withAdmin();
     await t.asset.methods.update_roles(t.otherAddress, adminRole.toNoirStruct()).send({ from: t.adminAddress });
@@ -40,6 +47,7 @@ describe('e2e_blacklist_token_contract access control', () => {
     );
   });
 
+  // Clears the 'other' account's roles via update_roles, crosses the delay, and verifies the empty role.
   it('revoke the new admin', async () => {
     const noRole = new Role();
     await t.asset.methods.update_roles(t.otherAddress, noRole.toNoirStruct()).send({ from: t.adminAddress });
@@ -51,6 +59,7 @@ describe('e2e_blacklist_token_contract access control', () => {
     );
   });
 
+  // Assigns blacklisted role to the dedicated blacklistedAddress, crosses the delay, and reads back the role.
   it('blacklist account', async () => {
     const blacklistRole = new Role().withBlacklisted();
     await t.asset.methods
@@ -64,7 +73,9 @@ describe('e2e_blacklist_token_contract access control', () => {
     );
   });
 
+  // Verifies that update_roles reverts when called by a non-admin account.
   describe('failure cases', () => {
+    // Calls update_roles from otherAddress (not admin) and expects the 'caller is not admin' assertion failure.
     it('set roles from non admin', async () => {
       const newRole = new Role().withAdmin().withAdmin();
       await expect(
@@ -74,6 +85,7 @@ describe('e2e_blacklist_token_contract access control', () => {
       ).rejects.toThrow('Assertion failed: caller is not admin');
     });
 
+    // Attempts to revoke admin's minter role from otherAddress and expects the 'caller is not admin' error.
     it('revoke minter from non admin', async () => {
       const noRole = new Role();
       await expect(

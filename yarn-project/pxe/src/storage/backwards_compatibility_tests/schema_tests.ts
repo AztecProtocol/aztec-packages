@@ -2,6 +2,7 @@
 import { CONTRACT_CLASS_LOG_SIZE_IN_FIELDS, PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { KeyStore } from '@aztec/key-store';
@@ -43,7 +44,7 @@ import { FactStore } from '../fact_store/fact_store.js';
 import { FactCollectionKey } from '../fact_store/fact_store_keys.js';
 import { NoteStore } from '../note_store/note_store.js';
 import { PrivateEventStore } from '../private_event_store/private_event_store.js';
-import { RecipientTaggingStore, SenderAddressBookStore, SenderTaggingStore } from '../tagging_store/index.js';
+import { RecipientTaggingStore, SenderTaggingStore, TaggingSecretSourcesStore } from '../tagging_store/index.js';
 import { snapshotArray, snapshotMap, snapshotSingleton } from './kv_store_snapshot.js';
 
 /**
@@ -108,7 +109,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
             SlotNumber(47),
             53n,
             EthAddress.fromField(new Fr(59n)),
-            AztecAddress.fromBigInt(61n),
+            AztecAddress.fromBigIntUnsafe(61n),
             new GasFees(67n, 71n),
           ),
           new Fr(73n),
@@ -127,8 +128,8 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       const capsuleStore = new CapsuleStore(kvStore);
 
       const jobId = 'fixture-job';
-      const contractAddress = AztecAddress.fromBigInt(2n);
-      const scope = AztecAddress.fromBigInt(3n);
+      const contractAddress = AztecAddress.fromBigIntUnsafe(2n);
+      const scope = AztecAddress.fromBigIntUnsafe(3n);
 
       // Three setCapsule calls (2-element, 1-element, 0-element value vector) pin every value-encoding length case.
       capsuleStore.setCapsule(contractAddress, new Fr(5n), [new Fr(7n), new Fr(11n)], jobId, scope);
@@ -190,7 +191,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
         new SerializableContractInstance({
           version: 2,
           salt: new Fr(73n),
-          deployer: AztecAddress.fromBigInt(79n),
+          deployer: AztecAddress.fromBigIntUnsafe(79n),
           currentContractClassId: new Fr(83n),
           originalContractClassId: new Fr(89n),
           initializationHash: new Fr(97n),
@@ -206,7 +207,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
             new Fr(71n),
             new Fr(73n),
           ),
-        }).withAddress(AztecAddress.fromBigInt(101n)),
+        }).withAddress(AztecAddress.fromBigIntUnsafe(101n)),
       );
     },
     snapshotStore: async kvStore => ({
@@ -221,8 +222,8 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
     writeToStore: async kvStore => {
       const factStore = new FactStore(kvStore);
       const jobId = 'fixture-job';
-      const contract = AztecAddress.fromBigInt(100n);
-      const scope = AztecAddress.fromBigInt(1n);
+      const contract = AztecAddress.fromBigIntUnsafe(100n);
+      const scope = AztecAddress.fromBigIntUnsafe(1n);
       const factCollectionTypeId = new Fr(7n);
       const keyA = FactCollectionKey.from({
         contractAddress: contract,
@@ -279,9 +280,10 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
             SlotNumber(19),
             23n,
             EthAddress.fromField(new Fr(29n)),
-            AztecAddress.fromBigInt(31n),
+            AztecAddress.fromBigIntUnsafe(31n),
             new GasFees(37n, 41n),
             new Fr(43n),
+            new Fr(47n),
           ),
           [block],
           CheckpointNumber(47),
@@ -328,17 +330,17 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
 
       // Two contracts so `note_nullifiers_by_contract` exhibits both a multi-value row (contractA → {n1, n2}) and a
       // single-value row (contractB → {n3}).
-      const contractA = AztecAddress.fromBigInt(2n);
-      const contractB = AztecAddress.fromBigInt(3n);
-      const scopeX = AztecAddress.fromBigInt(5n);
-      const scopeY = AztecAddress.fromBigInt(7n);
+      const contractA = AztecAddress.fromBigIntUnsafe(2n);
+      const contractB = AztecAddress.fromBigIntUnsafe(3n);
+      const scopeX = AztecAddress.fromBigIntUnsafe(5n);
+      const scopeY = AztecAddress.fromBigIntUnsafe(7n);
 
       // note1: active, will be added under two scopes to exercise the multi-element scopes vector encoding in
       // `StoredNote.toBuffer`.
       const note1 = new NoteDao(
         new Note([new Fr(13n), new Fr(17n), new Fr(19n)]),
         contractA,
-        AztecAddress.fromBigInt(23n),
+        AztecAddress.fromBigIntUnsafe(23n),
         new Fr(29n),
         new Fr(31n),
         new Fr(37n),
@@ -355,7 +357,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       const note2 = new NoteDao(
         new Note([new Fr(71n), new Fr(73n), new Fr(79n)]),
         contractA,
-        AztecAddress.fromBigInt(83n),
+        AztecAddress.fromBigIntUnsafe(83n),
         new Fr(89n),
         new Fr(97n),
         new Fr(101n),
@@ -373,7 +375,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       const note3 = new NoteDao(
         new Note([new Fr(139n), new Fr(149n), new Fr(151n)]),
         contractB,
-        AztecAddress.fromBigInt(157n),
+        AztecAddress.fromBigIntUnsafe(157n),
         new Fr(163n),
         new Fr(167n),
         new Fr(173n),
@@ -426,12 +428,12 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
 
       // Two (contract, selector) pairs and two block numbers so each multimap exhibits both a multi-value row
       // (contractA/selectorA → {e1, e2} and blockN1 → {e1, e2}) and a contrasting single-value row.
-      const contractA = AztecAddress.fromBigInt(2n);
-      const contractB = AztecAddress.fromBigInt(3n);
+      const contractA = AztecAddress.fromBigIntUnsafe(2n);
+      const contractB = AztecAddress.fromBigIntUnsafe(3n);
       const selectorA = EventSelector.fromField(new Fr(5n));
       const selectorB = EventSelector.fromField(new Fr(7n));
-      const scopeX = AztecAddress.fromBigInt(11n);
-      const scopeY = AztecAddress.fromBigInt(13n);
+      const scopeX = AztecAddress.fromBigIntUnsafe(11n);
+      const scopeY = AztecAddress.fromBigIntUnsafe(13n);
       const blockN1 = BlockNumber(17);
       const blockN2 = BlockNumber(19);
 
@@ -526,8 +528,8 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       const recipientTaggingStore = new RecipientTaggingStore(kvStore);
 
       const jobId = 'fixture-job';
-      const secretA = new AppTaggingSecret(new Fr(2n), AztecAddress.fromBigInt(3n));
-      const secretB = new AppTaggingSecret(new Fr(5n), AztecAddress.fromBigInt(7n));
+      const secretA = new AppTaggingSecret(new Fr(2n), AztecAddress.fromBigIntUnsafe(3n));
+      const secretB = new AppTaggingSecret(new Fr(5n), AztecAddress.fromBigIntUnsafe(7n));
 
       await recipientTaggingStore.updateHighestFinalizedIndex(secretA, 11, jobId);
       await recipientTaggingStore.updateHighestAgedIndex(secretA, 13, jobId);
@@ -541,16 +543,30 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
   },
 
   {
-    name: 'SenderAddressBookStore',
+    name: 'TaggingSecretSourcesStore',
     writeToStore: async kvStore => {
-      const senderAddressBookStore = new SenderAddressBookStore(kvStore);
+      const taggingSecretSourcesStore = new TaggingSecretSourcesStore(kvStore);
 
-      await senderAddressBookStore.addSender(AztecAddress.fromBigInt(2n));
-      await senderAddressBookStore.addSender(AztecAddress.fromBigInt(3n));
-      await senderAddressBookStore.addSender(AztecAddress.fromBigInt(5n));
+      await taggingSecretSourcesStore.addSender(AztecAddress.fromBigIntUnsafe(2n));
+      await taggingSecretSourcesStore.addSender(AztecAddress.fromBigIntUnsafe(3n));
+      await taggingSecretSourcesStore.addSender(AztecAddress.fromBigIntUnsafe(5n));
+
+      await taggingSecretSourcesStore.addSharedSecret(
+        AztecAddress.fromBigIntUnsafe(7n),
+        new Point(new Fr(2n), new Fr(3n)),
+      );
+      await taggingSecretSourcesStore.addSharedSecret(
+        AztecAddress.fromBigIntUnsafe(7n),
+        new Point(new Fr(5n), new Fr(7n)),
+      );
+      await taggingSecretSourcesStore.addSharedSecret(
+        AztecAddress.fromBigIntUnsafe(11n),
+        new Point(new Fr(13n), new Fr(17n)),
+      );
     },
     snapshotStore: async kvStore => ({
-      address_book: await snapshotMap(kvStore.openMap<string, true>('address_book')),
+      senders: await snapshotMap(kvStore.openMap<string, true>('senders')),
+      recipient_shared_secrets: await snapshotMap(kvStore.openMultiMap<string, string>('recipient_shared_secrets')),
     }),
   },
 
@@ -560,9 +576,9 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       const senderTaggingStore = new SenderTaggingStore(kvStore);
 
       const jobId = 'fixture-job';
-      const secretA = new AppTaggingSecret(new Fr(2n), AztecAddress.fromBigInt(3n));
-      const secretB = new AppTaggingSecret(new Fr(5n), AztecAddress.fromBigInt(7n));
-      const secretC = new AppTaggingSecret(new Fr(11n), AztecAddress.fromBigInt(13n));
+      const secretA = new AppTaggingSecret(new Fr(2n), AztecAddress.fromBigIntUnsafe(3n));
+      const secretB = new AppTaggingSecret(new Fr(5n), AztecAddress.fromBigIntUnsafe(7n));
+      const secretC = new AppTaggingSecret(new Fr(11n), AztecAddress.fromBigIntUnsafe(13n));
       const txHashA = TxHash.fromBigInt(17n);
       const txHashB = TxHash.fromBigInt(19n);
       const txHashC = TxHash.fromBigInt(23n);
@@ -656,7 +672,7 @@ function buildL2Block(): L2Block {
       SlotNumber(181),
       191n,
       EthAddress.fromField(new Fr(193n)),
-      AztecAddress.fromBigInt(197n),
+      AztecAddress.fromBigIntUnsafe(197n),
       new GasFees(199n, 211n),
     ),
     new Fr(223n),
@@ -677,10 +693,10 @@ function buildL2Block(): L2Block {
         3,
       ),
     ],
-    [new PublicLog(AztecAddress.fromBigInt(281n), [new Fr(283n), new Fr(293n)])],
+    [new PublicLog(AztecAddress.fromBigIntUnsafe(281n), [new Fr(283n), new Fr(293n)])],
     [
       new ContractClassLog(
-        AztecAddress.fromBigInt(307n),
+        AztecAddress.fromBigIntUnsafe(307n),
         new ContractClassLogFields(paddedFrs([311n, 313n, 317n], CONTRACT_CLASS_LOG_SIZE_IN_FIELDS)),
         3,
       ),

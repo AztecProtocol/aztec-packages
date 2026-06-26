@@ -210,6 +210,15 @@ export class RPCTranslator {
     });
   }
 
+  // eslint-disable-next-line camelcase
+  aztec_txe_setTaggingSecretStrategy(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_txe_setTaggingSecretStrategy',
+      inputs,
+      handler: ([strategy]) => this.handlerAsTxe().setTaggingSecretStrategy(strategy),
+    });
+  }
+
   // PXE oracles
 
   // eslint-disable-next-line camelcase
@@ -439,7 +448,7 @@ export class RPCTranslator {
     return callTxeHandler({
       oracle: 'aztec_utl_getKeyValidationRequest',
       inputs,
-      handler: ([pkMHash]) => this.handlerAsUtility().getKeyValidationRequest(pkMHash),
+      handler: ([pkMHash, keyIndex]) => this.handlerAsUtility().getKeyValidationRequest(pkMHash, keyIndex),
     });
   }
 
@@ -1092,8 +1101,9 @@ export class RPCTranslator {
     return callTxeHandler({
       oracle: 'aztec_txe_executeUtilityFunction',
       inputs,
-      handler: ([targetContractAddress, functionSelector, args, authorizedUtilityCallTargets]) =>
+      handler: ([from, targetContractAddress, functionSelector, args, authorizedUtilityCallTargets]) =>
         this.stateHandler.executeUtilityFunction(
+          from,
           targetContractAddress,
           functionSelector,
           args,
@@ -1118,6 +1128,16 @@ export class RPCTranslator {
       oracle: 'aztec_prv_getSenderForTags',
       inputs: [],
       handler: () => this.handlerAsPrivate().getSenderForTags(),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_prv_resolveTaggingStrategy(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_prv_resolveTaggingStrategy',
+      inputs,
+      handler: ([sender, recipient, deliveryMode]) =>
+        this.handlerAsPrivate().resolveTaggingStrategy(sender, recipient, deliveryMode),
     });
   }
 

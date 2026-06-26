@@ -137,7 +137,7 @@ export function parsePaymentMethod(
     if (!parsed.asset) {
       throw new Error('Missing "asset" in payment option');
     }
-    return AztecAddress.fromString(parsed.asset);
+    return AztecAddress.fromStringUnsafe(parsed.asset);
   };
 
   return async (wallet: Wallet, from: AztecAddress, gasSettings: GasSettings) => {

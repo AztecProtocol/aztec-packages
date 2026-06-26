@@ -13,7 +13,7 @@ import { AvmProvingTester } from './avm_proving_tester.js';
 const TIMEOUT = 100_000;
 
 describe('AVM check-circuit – unhappy paths 3', () => {
-  const sender = AztecAddress.fromNumber(42);
+  const sender = AztecAddress.fromNumberUnsafe(42);
   let avmTestContractInstance: ContractInstanceWithAddress;
   let tester: AvmProvingTester;
   let worldStateService: NativeWorldStateService;
@@ -23,7 +23,7 @@ describe('AVM check-circuit – unhappy paths 3', () => {
     tester = await AvmProvingTester.new(worldStateService, /*checkCircuitOnly*/ true);
     avmTestContractInstance = await tester.registerAndDeployContract(
       /*constructorArgs=*/ [],
-      /*deployer=*/ AztecAddress.fromNumber(420),
+      /*deployer=*/ AztecAddress.fromNumberUnsafe(420),
       AvmTestContractArtifact,
     );
   });
@@ -137,15 +137,15 @@ describe('AVM check-circuit – unhappy paths 3', () => {
             l2ToL1Msgs: [
               new ScopedL2ToL1Message(
                 new L2ToL1Message(EthAddress.fromNumber(0x1111), new Fr(0xdddd)),
-                AztecAddress.fromNumber(0x1111),
+                AztecAddress.fromNumberUnsafe(0x1111),
               ),
               new ScopedL2ToL1Message(
                 new L2ToL1Message(EthAddress.fromNumber(0x2222), new Fr(0xeeee)),
-                AztecAddress.fromNumber(0x2222),
+                AztecAddress.fromNumberUnsafe(0x2222),
               ),
               new ScopedL2ToL1Message(
                 new L2ToL1Message(EthAddress.fromNumber(0x3333), new Fr(0xffff)),
-                AztecAddress.fromNumber(0x3333),
+                AztecAddress.fromNumberUnsafe(0x3333),
               ),
             ],
           },

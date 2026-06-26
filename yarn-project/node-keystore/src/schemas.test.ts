@@ -30,7 +30,7 @@ describe('Keystore Schema Validation', () => {
     expect(parsed.validators![0].attester).toBe('0x1234567890123456789012345678901234567890123456789012345678901234');
     expect(
       parsed.validators![0].feeRecipient?.equals(
-        AztecAddress.fromString('0x1234567890123456789012345678901234567890123456789012345678901234'),
+        AztecAddress.fromStringUnsafe('0x1234567890123456789012345678901234567890123456789012345678901234'),
       ),
     ).toBeTruthy();
   });
@@ -190,7 +190,7 @@ describe('Keystore Schema Validation', () => {
       expect(parsed.coinbase?.equals(EthAddress.fromString('0x1111111111111111111111111111111111111111'))).toBeTruthy();
       expect(
         parsed.feeRecipient?.equals(
-          AztecAddress.fromString('0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'),
+          AztecAddress.fromStringUnsafe('0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef'),
         ),
       ).toBeTruthy();
     }
@@ -210,7 +210,7 @@ describe('Keystore Schema Validation', () => {
     ).toBeTruthy();
     expect(
       parsed.validators![2].feeRecipient?.equals(
-        AztecAddress.fromString('0x0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcd'),
+        AztecAddress.fromStringUnsafe('0x0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcdef0bcd'),
       ),
     ).toBeTruthy();
   });

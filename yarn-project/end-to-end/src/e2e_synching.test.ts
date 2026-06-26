@@ -311,6 +311,11 @@ const variants: VariantDefinition[] = [
   { checkpointCount: 1000, txCount: 4, txComplexity: TxComplexity.PrivateTransfer },
 ];
 
+// Sync stress-test and reorg-replay harness. The outer suite has two modes gated by env vars:
+// AZTEC_GENERATE_TEST_DATA=1 builds fixture block data (slow, ~30-40 min), and the skipped inner
+// describes replay that data for sync benchmarks and prune/reorg tests. Uses PIPELINING_SETUP_OPTS.
+// All inner describe blocks are describe.skip and are not run in CI; only the outer it.each runs
+// when AZTEC_GENERATE_TEST_DATA is set.
 describe('e2e_synching', () => {
   // WARNING: Running this with AZTEC_GENERATE_TEST_DATA is VERY slow, and will build a whole slew
   //          of fixtures including multiple blocks with many transaction in.
@@ -501,7 +506,11 @@ describe('e2e_synching', () => {
     await teardown();
   };
 
+  // Skipped in CI. Replays pre-generated fixture checkpoints via SequencerPublisher.enqueueProposeCheckpoint,
+  // then syncs a brand-new node and records the sync time.
   describe.skip('replay history and then do a fresh sync', () => {
+    // Replays all fixture checkpoints then creates a fresh AztecNodeService and times how long it takes
+    // to sync to the replayed chain tip; logs the result.
     it.each(variants)(
       'vanilla - %s',
       async (variantDef: VariantDefinition) => {
@@ -539,9 +548,14 @@ describe('e2e_synching', () => {
     );
   });
 
+  // Skipped in CI. Replays fixture checkpoints, then triggers a rollup prune via eth.warp and
+  // rollup.write.prune(); verifies that the archiver and world-state roll back correctly and that a
+  // node can re-extend the chain from the pruned tip.
   describe.skip('a wild prune appears', () => {
     const ASSUME_PROVEN_THROUGH = CheckpointNumber(0);
 
+    // Replays fixtures, then warps time and calls rollup.write.prune(); asserts the archiver drops
+    // the pruned blocks and world-state reverts to the proven checkpoint.
     it('archiver following catches reorg as it occur and deletes blocks', async () => {
       if (AZTEC_GENERATE_TEST_DATA) {
         return;
@@ -620,11 +634,12 @@ describe('e2e_synching', () => {
 
           expect(await archiver.getCheckpointNumber()).toBeGreaterThan(provenThrough);
           const blockTip = (await archiver.getBlock({ number: await archiver.getBlockNumber() }))!;
+          const referenceTimestamp = blockTip.header.globalVariables.timestamp;
           const txHash = blockTip.body.txEffects[0].txHash;
 
           const contractClassIds = await archiver.getContractClassIds();
           const contractInstances = await Promise.all(
-            contracts.map(async c => (await archiver.getContract(c.address))!),
+            contracts.map(async c => (await archiver.getContract(c.address, referenceTimestamp))!),
           );
           for (let i = 0; i < contracts.length; i++) {
             expect(contractInstances[i]).not.toBeUndefined();
@@ -636,6 +651,8 @@ describe('e2e_synching', () => {
           await rollup.write.prune();
 
           // We need to sleep a bit to make sure that we have caught the prune and deleted blocks.
+          // REFACTOR: sleep-based wait for archiver to process the prune event; a retryUntil or event-based
+          // helper (waitForArchiverCheckpoint or similar) should replace this sleep.
           await sleep(3000);
           expect(await archiver.getCheckpointNumber()).toBe(provenThrough);
 
@@ -643,9 +660,9 @@ describe('e2e_synching', () => {
 
           expect(contractClassIdsAfter.some(id => id.equals(contractInstances[0].currentContractClassId))).toBeTrue();
           expect(contractClassIdsAfter.some(id => id.equals(contractInstances[1].currentContractClassId))).toBeFalse();
-          expect(await archiver.getContract(contracts[0].address)).not.toBeUndefined();
-          expect(await archiver.getContract(contracts[1].address)).toBeUndefined();
-          expect(await archiver.getContract(contracts[2].address)).toBeUndefined();
+          expect(await archiver.getContract(contracts[0].address, referenceTimestamp)).not.toBeUndefined();
+          expect(await archiver.getContract(contracts[1].address, referenceTimestamp)).toBeUndefined();
+          expect(await archiver.getContract(contracts[2].address, referenceTimestamp)).toBeUndefined();
 
           // Only the hardcoded schnorr is pruned since the contract class also existed before prune.
           expect(contractClassIdsAfter).toEqual(
@@ -665,6 +682,8 @@ describe('e2e_synching', () => {
       );
     });
 
+    // Replays fixtures, marks partial chain as proven, warps time and prunes; asserts a synced node
+    // sees a lower block number after prune, then extends the chain with new txs.
     it('node following prunes and can extend chain (fresh pxe)', async () => {
       // @todo this should be rewritten slightly when the PXE can handle re-orgs
       // such that it does not need to be run "fresh" Issue #9327
@@ -700,6 +719,8 @@ describe('e2e_synching', () => {
             hash: await rollup.write.prune(),
           });
 
+          // REFACTOR: sleep-based wait for node to process prune and update block number; a retryUntil
+          // waiting on getBlockNumber() < blockBeforePrune should replace this sleep.
           await sleep(5000);
           expect(await aztecNode.getBlockNumber()).toBeLessThan(blockBeforePrune);
 
@@ -725,6 +746,8 @@ describe('e2e_synching', () => {
       );
     });
 
+    // Replays fixtures, marks partial chain as proven, warps time and prunes, then syncs a brand-new
+    // node; asserts the new node can extend the pruned chain with fresh txs.
     it('fresh sync can extend chain', async () => {
       if (AZTEC_GENERATE_TEST_DATA) {
         return;
