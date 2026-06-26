@@ -66,6 +66,7 @@ impl PrivateKernelCircuitOutputComposer {
     ) -> PrivateKernelCircuitPublicInputs {
         let constants = PrivateTxConstantData {
             tx_context: inputs.private_call.public_inputs.tx_context,
+            tx_request_salt: inputs.private_call.public_inputs.tx_request_salt,
             vk_tree_root: inputs.vk_tree_root,
             protocol_contracts: inputs.protocol_contracts,
             anchor_block_header: inputs.private_call.public_inputs.anchor_block_header,

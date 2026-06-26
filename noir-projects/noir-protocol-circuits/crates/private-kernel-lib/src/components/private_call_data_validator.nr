@@ -171,6 +171,7 @@ impl PrivateCallDataValidator {
             "anchor block header mismatch",
         );
         assert_eq(this_call.tx_context, constants.tx_context, "mismatch tx context");
+        assert_eq(this_call.tx_request_salt, constants.tx_request_salt, "mismatch tx_request_salt");
     }
 
     /// For Inner only.
