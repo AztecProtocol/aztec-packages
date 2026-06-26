@@ -1438,6 +1438,11 @@ export class MsmV2 {
   private redBuf!: GPUBuffer; // gathered + decoded by run()
   private redStaging!: GPUBuffer; // small mappable L_w gather target
   private bucketResultBuf!: GPUBuffer; // diagnostic readback
+  private bucketAndSignBuf!: GPUBuffer; // diagnostic readback (decompose output)
+  private dbgRowPtrBuf?: GPUBuffer; // diagnostic readback (transpose CSR row ptrs)
+  private dbgValIdxBuf?: GPUBuffer; // diagnostic readback (transpose CSR val idx)
+  private partialsBuf?: GPUBuffer; // handle to the transpose partials (= l0IdxBuf)
+  private dbgPartialsBuf?: GPUBuffer; // mid-pipeline snapshot of partials (pre-clobber)
   // profiling (created in prepare when this.profile)
   private querySet: GPUQuerySet | null = null;
   private tsResolveBuf: GPUBuffer | null = null;
@@ -2346,8 +2351,11 @@ export class MsmV2 {
     // pool adopted our pending scalarsRawBuf, so scratch.scalarsRawBuf is
     // the same identity we already cached on `this`.
     const bucketAndSignBuf = scratch.bucketAndSignBuf;
+    this.bucketAndSignBuf = bucketAndSignBuf; // diagnostic readback handle
     const rowPtrBuf = scratch.rowPtrBuf;
     const valIdxBuf = scratch.valIdxBuf;
+    this.dbgRowPtrBuf = rowPtrBuf; // diagnostic readback handles (transpose CSR)
+    this.dbgValIdxBuf = valIdxBuf;
     // ALL active-sums indices must reference the POOL's M1, not this MSM's.
     // The pool's bufA/bufB are sized to its max-M1 (across all MSMs that
     // have ever bound to it), and the pad-trio sits at [poolM1-3, poolM1-2,
@@ -2380,6 +2388,7 @@ export class MsmV2 {
     // after the transpose, per batch) overwrites it; the level-0 seed trio
     // sits above batchSlots and is never touched by the partials region.
     const partialsBuf = l0IdxBuf;
+    this.partialsBuf = partialsBuf; // diagnostic handle (cleared/reused as the L0 input downstream)
     this.xposeCountBind = mkBind(this.xposeCountLayout, [bucketAndSignBuf, partialsBuf, xposeParams]);
     this.xposeReduceBind = mkBind(this.xposeReduceLayout, [partialsBuf, rowPtrBuf, xposeParams]);
     this.xposeScanBind = mkBind(this.xposeScanLayout, [rowPtrBuf, xposeParams]);
@@ -2766,7 +2775,24 @@ export class MsmV2 {
       dispatch(this.xposeCountPipe, this.xposeCountBind, this.transposeNumPointTiles, tbw, `xpose_count${bsfx}`);
       dispatch(this.xposeReducePipe, this.xposeReduceBind, Math.ceil(this.BW / 256), tbw, `xpose_reduce${bsfx}`);
       dispatch(this.xposeScanPipe, this.xposeScanBind, this.batchWindows, 1, `xpose_scan${bsfx}`);
+      // Debug only: zero val_idx so the written-region diff isn't confounded by
+      // the 740's non-zero-init garbage. Off in production.
+      if (this.dbgValIdxBuf && (globalThis as { __msm_debug_buffers?: boolean }).__msm_debug_buffers === true) {
+        enc.clearBuffer(this.dbgValIdxBuf);
+      }
       dispatch(this.xposeScatterPipe, this.xposeScatterBind, this.transposeNumPointTiles, tbw, `xpose_scatter${bsfx}`);
+      // Diagnostic: snapshot partials (exclusive-prefix) before convActive
+      // reuses l0IdxBuf. Only on the first batch, only when debugging.
+      if (bi === 0 && this.partialsBuf && (globalThis as { __msm_debug_buffers?: boolean }).__msm_debug_buffers === true) {
+        if (!this.dbgPartialsBuf || this.dbgPartialsBuf.size < this.partialsBuf.size) {
+          this.dbgPartialsBuf?.destroy();
+          this.dbgPartialsBuf = this.device.createBuffer({
+            size: this.partialsBuf.size,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC,
+          });
+        }
+        enc.copyBufferToBuffer(this.partialsBuf, 0, this.dbgPartialsBuf, 0, this.partialsBuf.size);
+      }
       dispatch(this.convActivePipe, this.convActiveBind, Math.ceil(tSlots / WGI), 1, `csr2v2_active${bsfx}`);
       dispatch(this.convMetaPipe, this.convMetaBind, this.nConvMeta, 1, `csr2v2_meta${bsfx}`);
       for (let lv = 0; lv < this.levels; lv++) {
@@ -2972,7 +2998,70 @@ export class MsmV2 {
         batchWindows: this.batchWindows,
       };
     }
+    // Debug localization (opt-in): hash the decompose output + post-fused
+    // bucket sums so two devices run with the same scalar seed can be diffed
+    // pass-by-pass to localize an Adreno-740 miscompile. Telemetry only.
+    if ((globalThis as { __msm_debug_buffers?: boolean }).__msm_debug_buffers === true) {
+      await this.dumpDebugHashes();
+    }
+
     return { x: result.x, y: result.y, profile, windowSums: L, c: this.c };
+  }
+
+  /** Debug: FNV-1a hashes of intermediate pipeline buffers, written to
+   *  `globalThis.__msm_debug_buffer_hashes`. Two devices run with an identical
+   *  `?scalar_seed` produce identical hashes for every correct pass; the first
+   *  pass whose hash differs localizes a per-device miscompile. */
+  private async dumpDebugHashes(): Promise<void> {
+    const fnv = (a: Uint32Array): string => {
+      let h = 0x811c9dc5 >>> 0;
+      for (let i = 0; i < a.length; i++) {
+        const w = a[i];
+        h = Math.imul(h ^ (w & 0xff), 0x01000193) >>> 0;
+        h = Math.imul(h ^ ((w >>> 8) & 0xff), 0x01000193) >>> 0;
+        h = Math.imul(h ^ ((w >>> 16) & 0xff), 0x01000193) >>> 0;
+        h = Math.imul(h ^ ((w >>> 24) & 0xff), 0x01000193) >>> 0;
+      }
+      return (h >>> 0).toString(16).padStart(8, '0');
+    };
+    const bas = await readbackU32(this.device, this.bucketAndSignBuf, this.bucketAndSignBuf.size);
+    const bres = await readbackU32(this.device, this.bucketResultBuf, 2 * PG * this.bTotal * 4 * 4);
+    const csrRow = this.dbgRowPtrBuf ? await readbackU32(this.device, this.dbgRowPtrBuf, this.dbgRowPtrBuf.size) : null;
+    const csrVal = this.dbgValIdxBuf ? await readbackU32(this.device, this.dbgValIdxBuf, this.dbgValIdxBuf.size) : null;
+    const part = this.dbgPartialsBuf ? await readbackU32(this.device, this.dbgPartialsBuf, this.dbgPartialsBuf.size) : null;
+    (globalThis as { __msm_debug_buffer_hashes?: unknown }).__msm_debug_buffer_hashes = {
+      decompose_bucketAndSign: fnv(bas),
+      bucketAndSign_len: bas.length,
+      transpose_partials: part ? fnv(part) : null,
+      transpose_rowPtr: csrRow ? fnv(csrRow) : null,
+      transpose_valIdx: csrVal ? fnv(csrVal) : null,
+      // Order-independent: if this matches the reference but transpose_valIdx
+      // does not, val_idx is a valid permutation (different order) and the bug
+      // is downstream (fused), not the scatter.
+      transpose_valIdx_sorted: csrVal ? fnv(Uint32Array.from(Array.from(csrVal).sort((x, y) => x - y))) : null,
+      // WRITTEN-region-only, per-window, sorted: hashes just the slots the
+      // scatter actually targets ([w*n, w*n + nnz_w), nnz_w from rowPtr), sorted
+      // within each window so ordering doesn't matter. Removes the zero-init
+      // confound. Matches the reference iff the scatter writes the correct SET
+      // — if it matches but the MSM is still wrong, the bug is in fused.
+      transpose_valIdx_written: (() => {
+        if (!csrVal || !csrRow) return null;
+        const BW1 = this.BW + 1;
+        const out: number[] = [];
+        for (let w = 0; w < this.numWindows; w++) {
+          const nnz = csrRow[w * BW1 + this.BW] ?? 0;
+          const base = w * this.n;
+          const end = Math.min(base + nnz, csrVal.length);
+          const win = Array.from(csrVal.subarray(base, end)).sort((a, b) => a - b);
+          for (const v of win) out.push(v);
+        }
+        return fnv(Uint32Array.from(out));
+      })(),
+      fused_bucketResult: fnv(bres),
+      bucketResult_len: bres.length,
+      numWindows: this.numWindows,
+      BW: this.BW,
+    };
   }
 
   /** True iff this MSM was built with `profile: true` and the device supports
