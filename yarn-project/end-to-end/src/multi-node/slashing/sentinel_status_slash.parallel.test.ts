@@ -24,7 +24,7 @@ import { awaitCommitteeExists, findUpcomingProposerSlot } from './setup.js';
  * status variants via in-tree validator-config flags (no jest stubbing of internals).
  *
  * Setup: MultiNodeTestContext on the in-memory mock-gossip bus (no real libp2p). 6 validators,
- * ethSlot varies by CI (4s local / 8s CI), aztecSlot=2x ethSlot, epoch=2, proofSubEpochs=1024,
+ * ethSlot=4s, aztecSlot=8s, epoch=2, proofSubEpochs=1024,
  * minTxsPerBlock=0, inboxLag=2, sentinelEnabled, fake prover.
  * Each it runs as an isolated CI job (parallel convention).
  *
@@ -49,7 +49,13 @@ jest.setTimeout(TEST_TIMEOUT);
 
 const NUM_VALIDATORS = 6;
 const COMMITTEE_SIZE = NUM_VALIDATORS;
-const ETHEREUM_SLOT_DURATION = process.env.CI ? 8 : 4;
+// Matches the proven `validators_sentinel.parallel` / `multiple_validators_sentinel.parallel` profile:
+// the body advances through real L2 slots at wall-clock pace, so the slot duration directly sets body
+// time. At eth<8 the sequencer uses the fast (mocked-p2p) operational budgets, which fit a checkpoint
+// comfortably in an 8s slot. proofSubEpochs=1024 disables reorg/proving deadlines and the only
+// assertions are sentinel attestation/status records (no proving-window timing), so the fast profile is
+// safe here. Larger durations only add dead wall-clock without exercising new behavior.
+const ETHEREUM_SLOT_DURATION = 4;
 const AZTEC_SLOT_DURATION = ETHEREUM_SLOT_DURATION * 2;
 const BLOCK_DURATION_MS = ETHEREUM_SLOT_DURATION * 500;
 const AZTEC_EPOCH_DURATION = 2;
