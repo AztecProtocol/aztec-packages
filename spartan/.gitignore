@@ -28,6 +28,7 @@ environments/*
 !environments/testnet-canary.env
 !environments/testnet.env
 !environments/mainnet.env
+!environments/mainnet-v4.env
 !environments/tps-scenario.env
 !environments/kind-minimal.env
 !environments/kind-provers.env
