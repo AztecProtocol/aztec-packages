@@ -1,5 +1,4 @@
 import type { ArchiverDataSource } from '@aztec/archiver';
-import { type AztecNodeConfig, getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import { createLogger } from '@aztec/aztec.js/log';
@@ -22,7 +21,7 @@ import {
 import { EpochCache } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
-import { getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
+import { type L1ContractsConfig, getL1ContractsConfigEnvVars } from '@aztec/ethereum/config';
 import { GovernanceProposerContract, RollupContract, SimulationOverridesBuilder } from '@aztec/ethereum/contracts';
 import { type DeployAztecL1ContractsArgs, deployAztecL1Contracts } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
@@ -52,7 +51,6 @@ import { RollupAbi } from '@aztec/l1-artifacts';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { ProtocolContractsList, protocolContractsHash } from '@aztec/protocol-contracts';
 import { LightweightCheckpointBuilder } from '@aztec/prover-client/light';
-import { SequencerPublisher, SequencerPublisherMetrics } from '@aztec/sequencer-client';
 import {
   type BlockData,
   type BlockQuery,
@@ -92,7 +90,10 @@ import { type Address, encodeFunctionData, getAbiItem, getAddress, multicall3Abi
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
+import { type SequencerClientConfig, getConfigEnvVars } from '../config.js';
+import { sendL1ToL2Message } from './l1_to_l2_messaging.js';
+import { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
+import { SequencerPublisher } from './sequencer-publisher.js';
 import { writeJson } from './write_json.js';
 
 // To update the test data, run "export AZTEC_GENERATE_TEST_DATA=1" in shell and run the tests again
@@ -105,7 +106,10 @@ const deployerPK = '0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092
 
 const logger = createLogger('integration_l1_publisher');
 
-const config: AztecNodeConfig = { ...getConfigEnvVars(), checkIntervalMs: 100, stallTimeMs: 6_000 };
+// Compose the publisher's config from sequencer-client's own env getter plus the L1 contracts
+// config (for lagInEpochsForValidatorSet, which is not part of SequencerClientConfig). This avoids
+// depending on @aztec/aztec-node, which would create a sequencer-client <-> aztec-node cycle.
+const config: SequencerClientConfig & L1ContractsConfig = { ...getL1ContractsConfigEnvVars(), ...getConfigEnvVars() };
 
 // Must exceed the inbox lag (network default 2) so at least one checkpoint consumes a real L1->L2 message.
 const numberOfConsecutiveBlocks = 3;
