@@ -1,4 +1,4 @@
-import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
+import { type AztecNodeConfig, createAztecNodeService } from '@aztec/aztec-node';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { MerkleTreeId } from '@aztec/aztec.js/trees';
@@ -62,7 +62,7 @@ describe('e2e_snapshot_sync', () => {
   const createNonValidatorNode = async (name: string, config: Partial<AztecNodeConfig> = {}) => {
     log.warn('Creating and syncing a node without a validator...');
     return await withLoggerBindings({ actor: `node-${name}` }, () =>
-      AztecNodeService.createAndSync(
+      createAztecNodeService(
         {
           ...context.config,
           disableValidator: true,

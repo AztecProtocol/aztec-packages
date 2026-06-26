@@ -7,7 +7,7 @@ use crate::{
 
 use crate::protocol::{
     abis::{function_selector::FunctionSelector, gas_settings::GasSettings},
-    address::AztecAddress,
+    address::{AztecAddress, EthAddress},
     constants::{
         CONTRACT_INSTANCE_LENGTH, GAS_SETTINGS_LENGTH, MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX,
         MAX_PRIVATE_LOGS_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS,
@@ -22,7 +22,7 @@ use crate::protocol::{
 ///
 /// The TypeScript counterparts are in `yarn-project/txe/src/txe_oracle_version.ts`.
 pub global TXE_ORACLE_VERSION_MAJOR: Field = 2;
-pub global TXE_ORACLE_VERSION_MINOR: Field = 1;
+pub global TXE_ORACLE_VERSION_MINOR: Field = 2;
 
 /// Asserts that the TXE oracle interface version is compatible.
 pub unconstrained fn assert_compatible_txe_oracle_version() {
@@ -256,6 +256,14 @@ pub unconstrained fn add_account(secret: Field) -> TestAccount {}
 
 #[oracle(aztec_txe_addAuthWitness)]
 pub unconstrained fn add_authwit(address: AztecAddress, message_hash: Field) {}
+
+#[oracle(aztec_txe_sendL1ToL2Message)]
+pub unconstrained fn send_l1_to_l2_message(
+    content: Field,
+    secret_hash: Field,
+    sender: EthAddress,
+    recipient: AztecAddress,
+) -> Field {}
 
 #[oracle(aztec_txe_setTaggingSecretStrategy)]
 pub unconstrained fn set_tagging_secret_strategy(strategy: Option<TaggingSecretStrategy>) {}

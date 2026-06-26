@@ -43,6 +43,7 @@ pub mod unconstrained_array;
 pub mod ephemeral;
 pub mod transient;
 pub mod event;
+pub mod facts;
 pub mod messages;
 pub use protocol_types as protocol;
 pub(crate) mod logging;

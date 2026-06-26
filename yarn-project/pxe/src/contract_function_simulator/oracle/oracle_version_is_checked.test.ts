@@ -15,12 +15,14 @@ import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
-import type { MessageContextService } from '../../messages/message_context_service.js';
+import type { TxResolverService } from '../../messages/tx_resolver_service.js';
 import { ORACLE_VERSION_MAJOR, ORACLE_VERSION_MINOR } from '../../oracle_version.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
+import { FactService } from '../../storage/fact_store/index.js';
+import type { FactStore } from '../../storage/fact_store/index.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
@@ -43,9 +45,10 @@ describe('Oracle Version Check test suite', () => {
   let recipientTaggingStore: ReturnType<typeof mock<RecipientTaggingStore>>;
   let taggingSecretSourcesStore: ReturnType<typeof mock<TaggingSecretSourcesStore>>;
   let capsuleStore: ReturnType<typeof mock<CapsuleStore>>;
+  let factStore: ReturnType<typeof mock<FactStore>>;
   let privateEventStore: ReturnType<typeof mock<PrivateEventStore>>;
   let contractSyncService: ReturnType<typeof mock<ContractSyncService>>;
-  let messageContextService: ReturnType<typeof mock<MessageContextService>>;
+  let txResolver: ReturnType<typeof mock<TxResolverService>>;
   let l2TipsStore: ReturnType<typeof mock<L2TipsProvider>>;
   let acirSimulator: ContractFunctionSimulator;
   let contractAddress: AztecAddress;
@@ -64,9 +67,10 @@ describe('Oracle Version Check test suite', () => {
     recipientTaggingStore = mock<RecipientTaggingStore>();
     taggingSecretSourcesStore = mock<TaggingSecretSourcesStore>();
     capsuleStore = mock<CapsuleStore>();
+    factStore = mock<FactStore>();
     privateEventStore = mock<PrivateEventStore>();
     contractSyncService = mock<ContractSyncService>();
-    messageContextService = mock<MessageContextService>();
+    txResolver = mock<TxResolverService>();
     l2TipsStore = mock<L2TipsProvider>();
     assertCompatibleOracleVersionSpy = jest.spyOn(UtilityExecutionOracle.prototype, 'assertCompatibleOracleVersion');
     assertCompatibleOracleVersionSpy.mockClear();
@@ -109,10 +113,11 @@ describe('Oracle Version Check test suite', () => {
       recipientTaggingStore,
       taggingSecretSourcesStore,
       capsuleStore,
+      factStore,
       privateEventStore,
       simulator,
       contractSyncService,
-      messageContextService,
+      txResolver,
     });
   });
 
@@ -210,8 +215,9 @@ describe('Oracle Version Check test suite', () => {
         recipientTaggingStore,
         taggingSecretSourcesStore,
         capsuleService: new CapsuleService(capsuleStore, []),
+        factService: new FactService(factStore, []),
         privateEventStore,
-        messageContextService,
+        txResolver,
         contractSyncService,
         jobId: 'test',
         scopes: [],

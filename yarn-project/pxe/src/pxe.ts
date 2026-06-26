@@ -69,7 +69,7 @@ import { enrichPublicSimulationError, enrichSimulationError } from './error_enri
 import { PrivateEventFilterValidator } from './events/private_event_filter_validator.js';
 import type { ExecutionHooks } from './hooks/index.js';
 import { JobCoordinator } from './job_coordinator/job_coordinator.js';
-import { MessageContextService } from './messages/message_context_service.js';
+import { TxResolverService } from './messages/tx_resolver_service.js';
 import {
   PrivateKernelExecutionProver,
   type PrivateKernelExecutionProverConfig,
@@ -79,6 +79,7 @@ import { AddressStore } from './storage/address_store/address_store.js';
 import { AnchorBlockStore } from './storage/anchor_block_store/anchor_block_store.js';
 import { CapsuleStore } from './storage/capsule_store/capsule_store.js';
 import { ContractStore } from './storage/contract_store/contract_store.js';
+import { FactStore } from './storage/fact_store/index.js';
 import { NoteStore } from './storage/note_store/note_store.js';
 import { openPxeStores } from './storage/open_pxe_stores.js';
 import { PrivateEventStore } from './storage/private_event_store/private_event_store.js';
@@ -215,6 +216,7 @@ export class PXE {
     private contractStore: ContractStore,
     private noteStore: NoteStore,
     private capsuleStore: CapsuleStore,
+    private factStore: FactStore,
     private anchorBlockStore: AnchorBlockStore,
     private senderTaggingStore: SenderTaggingStore,
     private taggingSecretSourcesStore: TaggingSecretSourcesStore,
@@ -222,7 +224,7 @@ export class PXE {
     private addressStore: AddressStore,
     private privateEventStore: PrivateEventStore,
     private contractSyncService: ContractSyncService,
-    private messageContextService: MessageContextService,
+    private txResolver: TxResolverService,
     private l2TipsStore: L2TipsProvider,
     private simulator: CircuitSimulator,
     private proverEnabled: boolean,
@@ -288,6 +290,7 @@ export class PXE {
       capsuleStore,
       keyStore,
       l2TipsStore,
+      factStore,
     } = openPxeStores(store, initialBlockHash);
     const contractSyncService = new ContractSyncService(
       node,
@@ -295,7 +298,7 @@ export class PXE {
       noteStore,
       createLogger('pxe:contract_sync', bindings),
     );
-    const messageContextService = new MessageContextService(node);
+    const txResolver = new TxResolverService(node);
 
     const synchronizer = new BlockSynchronizer(
       node,
@@ -303,6 +306,7 @@ export class PXE {
       anchorBlockStore,
       noteStore,
       privateEventStore,
+      factStore,
       l2TipsStore,
       contractSyncService,
       config,
@@ -316,6 +320,7 @@ export class PXE {
       recipientTaggingStore,
       privateEventStore,
       noteStore,
+      factStore,
       contractSyncService,
     ]);
 
@@ -332,6 +337,7 @@ export class PXE {
       contractStore,
       noteStore,
       capsuleStore,
+      factStore,
       anchorBlockStore,
       senderTaggingStore,
       taggingSecretSourcesStore,
@@ -339,7 +345,7 @@ export class PXE {
       addressStore,
       privateEventStore,
       contractSyncService,
-      messageContextService,
+      txResolver,
       l2TipsStore,
       simulator,
       proverEnabled,
@@ -383,10 +389,11 @@ export class PXE {
       recipientTaggingStore: this.recipientTaggingStore,
       taggingSecretSourcesStore: this.taggingSecretSourcesStore,
       capsuleStore: this.capsuleStore,
+      factStore: this.factStore,
       privateEventStore: this.privateEventStore,
       simulator: this.simulator,
       contractSyncService: this.contractSyncService,
-      messageContextService: this.messageContextService,
+      txResolver: this.txResolver,
       hooks: this.hooks,
     });
   }
