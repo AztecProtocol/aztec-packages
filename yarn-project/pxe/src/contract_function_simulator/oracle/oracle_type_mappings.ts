@@ -544,10 +544,12 @@ export const ORIGIN_BLOCK: TypeMapping<OriginBlock> = {
       blockNumber: blockNumberReader.readField().toNumber(),
       blockHash: blockHashReader.readField(),
     }),
-    slots: 2,
   },
+  shape: ['scalar', 'scalar'],
 };
 
+// `facts` and `payload` each materialize to a single service-slot id, so a Fact occupies: factTypeId, the payload
+// array slot, and `OPTION(ORIGIN_BLOCK)` (its discriminant plus ORIGIN_BLOCK's two slots).
 export const FACT: TypeMapping<Fact> = {
   serialization: {
     fn: f => [
@@ -556,6 +558,7 @@ export const FACT: TypeMapping<Fact> = {
       ...OPTION(ORIGIN_BLOCK).serialization!.fn(f.originBlock),
     ],
   },
+  shape: ['scalar', 'scalar', 'scalar', 'scalar', 'scalar'],
 };
 
 export const FACT_COLLECTION: TypeMapping<FactCollection> = {
@@ -568,6 +571,7 @@ export const FACT_COLLECTION: TypeMapping<FactCollection> = {
       c.facts.materializeSlot(v => FACT.serialization!.fn(v).flat() as Fr[]),
     ],
   },
+  shape: ['scalar', 'scalar', 'scalar', 'scalar', 'scalar'],
 };
 
 export const PROVIDED_SECRET: TypeMapping<ProvidedSecret> = {

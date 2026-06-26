@@ -12,9 +12,9 @@ describe('FactService', () => {
   let store: FactStore;
 
   const jobId = 'job-1';
-  const contract = AztecAddress.fromField(new Fr(1));
-  const allowedScope = AztecAddress.fromField(new Fr(2));
-  const disallowedScope = AztecAddress.fromField(new Fr(3));
+  const contract = AztecAddress.fromFieldUnsafe(new Fr(1));
+  const allowedScope = AztecAddress.fromFieldUnsafe(new Fr(2));
+  const disallowedScope = AztecAddress.fromFieldUnsafe(new Fr(3));
   const typeId = new Fr(10);
   const collectionId = new Fr(20);
   const factTypeId = new Fr(30);

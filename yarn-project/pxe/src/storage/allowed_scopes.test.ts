@@ -4,8 +4,8 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { assertAllowedScope } from './allowed_scopes.js';
 
 describe('assertAllowedScope', () => {
-  const scopeA = AztecAddress.fromField(new Fr(1));
-  const scopeB = AztecAddress.fromField(new Fr(2));
+  const scopeA = AztecAddress.fromFieldUnsafe(new Fr(1));
+  const scopeB = AztecAddress.fromFieldUnsafe(new Fr(2));
 
   it('permits a scope present in the allowed list', () => {
     expect(() => assertAllowedScope(scopeA, [scopeA, scopeB])).not.toThrow();
