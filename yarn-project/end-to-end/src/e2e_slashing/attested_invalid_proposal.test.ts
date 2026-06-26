@@ -4,7 +4,7 @@ import { EthAddress } from '@aztec/aztec.js/addresses';
 import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
 import type { RollupCheatCodes } from '@aztec/aztec/testing';
-import type { EpochCacheInterface } from '@aztec/epoch-cache';
+import { type EpochCacheInterface, PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
 import { BlockNumber, EpochNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
@@ -135,22 +135,29 @@ async function advanceToEpochBeforePipelinedTargetSlot({
     const currentEpoch = await cheatCodes.getEpoch();
     const nextEpoch = Number(currentEpoch) + 1;
     const firstSlotOfNextEpoch = nextEpoch * Number(epochDuration);
-    // The prior pipelined target can start first after the epoch warp and consume the bad proposer config.
-    const priorPipelinedTargetSlot = SlotNumber(firstSlotOfNextEpoch);
-    const pipelinedTargetSlot = SlotNumber(firstSlotOfNextEpoch + 1);
-    const priorProposer = await epochCache.getProposerAttesterAddressInSlot(priorPipelinedTargetSlot);
-    const proposer = await epochCache.getProposerAttesterAddressInSlot(pipelinedTargetSlot);
-
-    logger.info(
-      `Checking pipelined target slot ${pipelinedTargetSlot} in epoch ${nextEpoch} for proposer ${targetProposer}`,
-      { proposer: proposer?.toString(), priorPipelinedTargetSlot, priorProposer: priorProposer?.toString() },
+    const candidateSlots = Array.from({ length: Number(epochDuration) }, (_, index) =>
+      SlotNumber(firstSlotOfNextEpoch + index),
+    );
+    const candidates = await Promise.all(
+      candidateSlots.map(async slot => ({
+        slot,
+        proposer: await epochCache.getProposerAttesterAddressInSlot(slot),
+      })),
     );
 
-    if (proposer?.equals(targetProposer) && !priorProposer?.equals(targetProposer)) {
-      return { targetEpoch: EpochNumber(nextEpoch), targetSlot: pipelinedTargetSlot };
+    logger.info(`Checking pipelined target slots in epoch ${nextEpoch} for proposer ${targetProposer}`, {
+      candidates: candidates.map(({ slot, proposer }) => ({
+        slot,
+        proposer: proposer?.toString(),
+      })),
+    });
+
+    const target = candidates.find(({ proposer }) => proposer?.equals(targetProposer));
+    if (target) {
+      return { targetEpoch: EpochNumber(nextEpoch), targetSlot: target.slot };
     }
 
-    await cheatCodes.advanceToNextEpoch();
+    await cheatCodes.advanceToEpoch(EpochNumber(nextEpoch));
   }
 
   throw new Error(`Target proposer ${targetProposer.toString()} not found after ${maxAttempts} epoch attempts`);
@@ -328,8 +335,13 @@ describe('e2e_slashing_attested_invalid_proposal', () => {
 
     await Promise.all(nodes.map(node => node.getSequencer()!.start()));
 
-    t.logger.warn(`Advancing to epoch ${targetEpoch}; bad proposer should build for slot ${targetSlot}`);
-    await t.ctx.cheatCodes.rollup.advanceToEpoch(targetEpoch);
+    const buildSlot = SlotNumber(targetSlot - PROPOSER_PIPELINING_SLOT_OFFSET);
+    t.logger.warn(`Advancing to build slot ${buildSlot}; bad proposer should build for slot ${targetSlot}`, {
+      targetEpoch,
+      targetSlot,
+      buildSlot,
+    });
+    await t.ctx.cheatCodes.rollup.advanceToSlot(buildSlot);
 
     const badCheckpointBlockHashes = await retryUntil(
       () => {
