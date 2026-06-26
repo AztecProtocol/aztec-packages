@@ -24,12 +24,12 @@ import { ForkCheckpoint, NativeWorldStateService } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
 
-import { Opcode } from '../../avm/serialization/instruction_serialization.js';
+import { Opcode } from '../../avm/testing/serialization/instruction_serialization.js';
 import { deployCustomBytecode } from '../../fixtures/custom_bytecode_tester.js';
 import { PublicTxSimulationTester, SimpleContractDataSource } from '../../fixtures/index.js';
 import { SPAM_CONFIGS, type SpamConfig, createOpcodeSpamBytecode } from '../../fixtures/opcode_spammer.js';
 import { PublicContractsDB } from '../../public_db_sources.js';
-import { CppPublicTxSimulator } from '../../public_tx_simulator/cpp_public_tx_simulator.js';
+import { PublicTxSimulator } from '../../public_tx_simulator/public_tx_simulator.js';
 import { GuardedMerkleTreeOperations } from '../guarded_merkle_tree.js';
 import { PublicProcessor } from '../public_processor.js';
 
@@ -91,7 +91,7 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
     const merkleTrees = await worldStateService.fork();
     const contractsDB = new PublicContractsDB(contractDataSource);
 
-    const simulator = new CppPublicTxSimulator(merkleTrees, contractsDB, globals);
+    const simulator = new PublicTxSimulator(merkleTrees, contractsDB, globals);
 
     const tester = new PublicTxSimulationTester(merkleTrees, contractDataSource, globals);
     await tester.setFeePayerBalance(admin);
@@ -179,7 +179,7 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
    * The race is non-deterministic, so we run multiple iterations.
    * This test PASSES if we observe corruption (proving the bug exists).
    */
-  it('CppPublicTxSimulator BUG PROOF: race condition exists WITHOUT cancellation', async () => {
+  it('PublicTxSimulator BUG PROOF: race condition exists WITHOUT cancellation', async () => {
     const raceObservedCount = await runRaceConditionTest(false, MAX_BUG_PROOF_ITERATIONS);
     logger.info(`Race condition observed in >0/${MAX_BUG_PROOF_ITERATIONS} iterations (expected: >0)`);
     expect(raceObservedCount).toBeGreaterThan(0);
@@ -195,7 +195,7 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
    *
    * This test PASSES if we observe NO corruption (proving the fix works).
    */
-  it('CppPublicTxSimulator FIX PROOF: no race condition WITH cancellation', async () => {
+  it('PublicTxSimulator FIX PROOF: no race condition WITH cancellation', async () => {
     const raceObservedCount = await runRaceConditionTest(true, FIX_PROOF_ITERATIONS);
     logger.info(`Race condition observed in ${raceObservedCount}/${FIX_PROOF_ITERATIONS} iterations (expected: 0)`);
     expect(raceObservedCount).toBe(0);
@@ -250,7 +250,7 @@ describe('PublicProcessor C++ Timeout Race Condition', () => {
       const guardedMerkleTrees = new GuardedMerkleTreeOperations(merkleTrees);
 
       // Create the real C++ simulator
-      const realSimulator = new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals);
+      const realSimulator = new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals);
 
       // Track the simulation promise so we can await it for cleanup.
       // Use an object wrapper to avoid TypeScript control flow analysis issues.

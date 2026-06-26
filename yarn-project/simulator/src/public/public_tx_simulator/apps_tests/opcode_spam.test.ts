@@ -13,8 +13,7 @@ import {
 } from '../../fixtures/public_tx_simulation_tester.js';
 import { SimpleContractDataSource } from '../../fixtures/simple_contract_data_source.js';
 import { TestExecutorMetrics } from '../../test_executor_metrics.js';
-import { MeasuredCppPublicTxSimulator } from '../cpp_public_tx_simulator.js';
-import { MeasuredCppVsTsPublicTxSimulator } from '../cpp_vs_ts_public_tx_simulator.js';
+import { MeasuredPublicTxSimulator } from '../public_tx_simulator.js';
 
 // NOTE: This test is meant to be run for benchmarking. Set RUN_AVM_OPCODE_SPAM=1 to enable.
 const describeOrSkip = process.env.RUN_AVM_OPCODE_SPAM ? describe : describe.skip;
@@ -65,14 +64,7 @@ describeOrSkip('Opcode Spammer Benchmarks', () => {
     logger.info(metrics.toPrettyString());
   });
 
-  describe.each([
-    // NOTE: Cpp vs TS simulation is very slow (because TS is slow), so we skip it by default.
-    // It is useful to manually run to make sure these tests perform identically between simulators.
-    //{ useCppSimulator: false, simulatorName: 'CppVsTs' },
-    { useCppSimulator: true, simulatorName: 'Cpp' },
-  ])('($simulatorName) Simulator', ({ useCppSimulator, simulatorName }) => {
-    const metricsPrefix = simulatorName;
-
+  describe('Opcode Spam', () => {
     let worldStateService: NativeWorldStateService;
     let tester: PublicTxSimulationTester;
 
@@ -80,9 +72,8 @@ describeOrSkip('Opcode Spammer Benchmarks', () => {
       worldStateService = await NativeWorldStateService.tmp();
       const contractDataSource = new SimpleContractDataSource();
       const merkleTree = await worldStateService.fork();
-      const simulatorFactory: MeasuredSimulatorFactory = useCppSimulator
-        ? (mt, cdb, g, m, c) => new MeasuredCppPublicTxSimulator(mt, cdb, g, m, c)
-        : (mt, cdb, g, m, c) => new MeasuredCppVsTsPublicTxSimulator(mt, cdb, g, m, c);
+      const simulatorFactory: MeasuredSimulatorFactory = (mt, cdb, g, m, c) =>
+        new MeasuredPublicTxSimulator(mt, cdb, g, m, c);
       tester = new PublicTxSimulationTester(
         merkleTree,
         contractDataSource,
@@ -91,7 +82,7 @@ describeOrSkip('Opcode Spammer Benchmarks', () => {
         simulatorFactory,
         config,
       );
-      tester.setMetricsPrefix(`${metricsPrefix} Opcode Spam`);
+      tester.setMetricsPrefix('Opcode Spam');
     });
 
     afterEach(async () => {
