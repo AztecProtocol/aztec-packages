@@ -5,8 +5,8 @@ import { FactCollectionKey } from './fact_store_keys.js';
 import { StoredFact, factKeyStrOf } from './stored_fact.js';
 
 describe('StoredFact', () => {
-  const contract = AztecAddress.fromBigInt(100n);
-  const scope = AztecAddress.fromBigInt(1n);
+  const contract = AztecAddress.fromBigIntUnsafe(100n);
+  const scope = AztecAddress.fromBigIntUnsafe(1n);
   const collectionType = new Fr(7n);
   const collectionId = new Fr(42n);
   const factType = new Fr(3n);
