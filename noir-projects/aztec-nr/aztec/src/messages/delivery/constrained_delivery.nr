@@ -6,7 +6,8 @@
 //! distinct sequences and parallelize), and batching several sends onto one sequence within a transaction requires
 //! an already-committed handshake.
 //!
-//! A reused handshake secret is anchored to the registry by [`constrain_reused_secret`] before its constrained tag is
+//! A pre-existing handshake secret is anchored to the registry by [`constrain_preexisting_handshake_secret`] before its
+//! constrained tag is
 //! emitted; every constrained send then emits the same sequence nullifier via [`emit_sequence_nullifier`].
 
 use crate::context::PrivateContext;
@@ -23,12 +24,12 @@ use crate::protocol::{
 pub global VALIDATE_HANDSHAKE_SELECTOR: FunctionSelector =
     comptime { FunctionSelector::from_signature("validate_handshake((Field),(Field),Field)") };
 
-/// Anchors a reused handshake secret's untrusted `(secret, index)` to the registry before its constrained tag is
+/// Anchors a pre-existing handshake secret's untrusted `(secret, index)` to the registry before its constrained tag is
 /// emitted.
 ///
-/// - reuse at index 0: `validate_handshake` binds the oracle-supplied secret to the stored handshake.
-/// - reuse at index > 0: the prior sequence nullifier must exist, anchoring back to the index-0 check.
-pub(crate) fn constrain_reused_secret(
+/// - at index 0: `validate_handshake` binds the oracle-supplied secret to the stored handshake.
+/// - at index > 0: the prior sequence nullifier must exist, anchoring back to the index-0 check.
+pub(crate) fn constrain_preexisting_handshake_secret(
     context: &mut PrivateContext,
     registry: AztecAddress,
     sender: AztecAddress,
@@ -82,7 +83,7 @@ mod test {
     use crate::protocol::{address::AztecAddress, hash::compute_siloed_nullifier, traits::{FromField, ToField}};
     use crate::test::helpers::test_environment::TestEnvironment;
     use super::{
-        compute_constrained_msg_nullifier, constrain_reused_secret, emit_sequence_nullifier,
+        compute_constrained_msg_nullifier, constrain_preexisting_handshake_secret, emit_sequence_nullifier,
         VALIDATE_HANDSHAKE_SELECTOR,
     };
     use std::test::OracleMock;
@@ -125,7 +126,7 @@ mod test {
                 .returns((child_call_end_counter, empty_returns_hash))
                 .times(1);
 
-            constrain_reused_secret(context, registry, sender, recipient, secret, 0);
+            constrain_preexisting_handshake_secret(context, registry, sender, recipient, secret, 0);
 
             assert_eq(context.nullifier_read_requests.len(), 0);
             assert_eq(context.private_call_requests.len(), 1);
@@ -151,7 +152,7 @@ mod test {
         env.private_context(|context| {
             let _ = OracleMock::mock("aztec_prv_isNullifierPending").returns(false).times(1);
 
-            constrain_reused_secret(context, registry, sender, recipient, secret, index);
+            constrain_preexisting_handshake_secret(context, registry, sender, recipient, secret, index);
 
             assert_eq(context.private_call_requests.len(), 0);
             assert_eq(context.nullifier_read_requests.len(), 1);

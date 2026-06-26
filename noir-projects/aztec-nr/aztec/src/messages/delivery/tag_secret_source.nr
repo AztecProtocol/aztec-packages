@@ -5,7 +5,7 @@
 //! source and [`tag_with`](super::tag) runs it to derive the message tag.
 use crate::context::PrivateContext;
 use crate::messages::delivery::{
-    constrained_delivery::constrain_reused_secret, handshake::create_non_interactive_handshake,
+    constrained_delivery::constrain_preexisting_handshake_secret, handshake::create_non_interactive_handshake,
 };
 use crate::protocol::address::AztecAddress;
 use crate::standard_addresses::STANDARD_HANDSHAKE_REGISTRY_ADDRESS;
@@ -45,7 +45,7 @@ impl TagSecretSource for ExistingHandshake {
         secret: Field,
         index: u32,
     ) {
-        constrain_reused_secret(
+        constrain_preexisting_handshake_secret(
             context,
             STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
             sender,

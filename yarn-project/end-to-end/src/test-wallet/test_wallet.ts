@@ -28,7 +28,6 @@ import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
-import { AppTaggingSecretKind } from '@aztec/stdlib/logs';
 import type { NoteDao } from '@aztec/stdlib/note';
 import {
   type BlockHeader,
@@ -79,7 +78,7 @@ export class TestWallet extends BaseWallet {
       proverEnabled: overridePXEConfig?.proverEnabled ?? false,
       ...overridePXEConfig,
     });
-    const pxe = await createPXE(nodeRef, pxeConfig, withTestDefaultTaggingHook(options));
+    const pxe = await createPXE(nodeRef, pxeConfig, options);
     const wallet = new TestWallet(pxe, nodeRef);
     await wallet.initStubClasses();
     return wallet;
@@ -402,24 +401,4 @@ export class TestWallet extends BaseWallet {
   stop(): Promise<void> {
     return this.pxe.stop();
   }
-}
-
-/**
- * Merges the default tagging secret strategy into PXE creation options for test wallets. Account constructors and note
- * delivery use constrained delivery, which requires a strategy: it defaults to a non-interactive handshake, while
- * unconstrained delivery keeps the address-derived default. Callers override per-field via `options.hooks`.
- */
-export function withTestDefaultTaggingHook(options: PXECreationOptions = { loggers: {} }): PXECreationOptions {
-  return {
-    ...options,
-    hooks: {
-      resolveTaggingSecretStrategy: ({ deliveryMode }) =>
-        Promise.resolve(
-          deliveryMode === AppTaggingSecretKind.CONSTRAINED
-            ? { type: 'non-interactive-handshake' }
-            : { type: 'address-derived' },
-        ),
-      ...options.hooks,
-    },
-  };
 }

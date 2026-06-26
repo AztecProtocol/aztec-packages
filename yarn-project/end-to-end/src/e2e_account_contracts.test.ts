@@ -19,7 +19,7 @@ import { deriveSigningKey } from '@aztec/stdlib/keys';
 
 import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
-import { TestWallet, withTestDefaultTaggingHook } from './test-wallet/test_wallet.js';
+import { TestWallet } from './test-wallet/test_wallet.js';
 import { AztecNodeProxy } from './test-wallet/utils.js';
 
 export class TestWalletInternals extends TestWallet {
@@ -27,7 +27,7 @@ export class TestWalletInternals extends TestWallet {
     const pxeConfig = getPXEConfig();
     pxeConfig.proverEnabled = false;
     const nodeRef = new AztecNodeProxy(node);
-    const pxe = await createPXE(nodeRef, pxeConfig, withTestDefaultTaggingHook());
+    const pxe = await createPXE(nodeRef, pxeConfig);
     return new TestWalletInternals(pxe, nodeRef);
   }
 

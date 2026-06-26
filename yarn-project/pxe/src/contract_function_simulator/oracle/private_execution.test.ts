@@ -210,7 +210,7 @@ describe('Private Execution test suite', () => {
       anchorBlockHeader,
       senderForTags,
       jobId: TEST_JOB_ID,
-      scopes: [owner],
+      scopes: [owner, senderForTags],
     });
   };
 
