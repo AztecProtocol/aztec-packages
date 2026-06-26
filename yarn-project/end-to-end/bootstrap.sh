@@ -311,7 +311,7 @@ function compat_test_cmds {
     src/automine/token/*.test.ts
     src/automine/accounts/*.test.ts
     src/automine/effects/*.test.ts
-    src/automine/simulation/!(avm_simulator|kernelless_simulation).test.ts
+    src/automine/simulation/!(kernelless_simulation).test.ts
     src/single-node/fees/*.test.ts
     src/single-node/cross-chain/*.test.ts
     src/single-node/bot/*.test.ts
