@@ -5,11 +5,12 @@ import { createBlobClient } from '@aztec/blob-client/client';
 import { Blob } from '@aztec/blob-lib';
 import type { Delayer } from '@aztec/ethereum/l1-tx-utils';
 import type { ChainMonitor, ChainMonitorEventMap } from '@aztec/ethereum/test';
-import { CheckpointNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { AbortError } from '@aztec/foundation/error';
 import { retryUntil } from '@aztec/foundation/retry';
 import { hexToBuffer } from '@aztec/foundation/string';
 import { executeTimeout } from '@aztec/foundation/timer';
+import { getProofSubmissionDeadlineTimestamp } from '@aztec/stdlib/epoch-helpers';
 
 import 'jest-extended';
 import { keccak256, parseTransaction } from 'viem';
@@ -59,6 +60,29 @@ describe('single-node/l1-reorgs/blocks', () => {
       throw new Error('No sidecars found in tx');
     }
     return await Promise.all(parsedTx.sidecars!.map(sidecar => Blob.fromBlobBuffer(hexToBuffer(sidecar.blob))));
+  };
+
+  // Most of a proof-submission window is dead wall-clock time: the chain keeps producing checkpoints
+  // at the L1 cadence while the test just waits for the fixed deadline to elapse. This warps the L1
+  // clock forward to `leadSlots` L2 slots before the window's last slot so the subsequent
+  // `waitUntilLastSlotOfProofSubmissionWindow` only sleeps out the few remaining real slots — leaving
+  // enough real time for any in-flight proving, pruning, and recovery to happen organically. Only warps
+  // forward, and is a no-op when the chain is already within `leadSlots`+1 slots of the window end.
+  const warpNearSubmissionWindowEnd = async (epoch: number, leadSlots = 2) => {
+    const { slotDuration } = test.constants;
+    const deadline = getProofSubmissionDeadlineTimestamp(EpochNumber(epoch), test.constants);
+    // Mirror waitUntilLastSlotOfProofSubmissionWindow's target (one slot before the deadline).
+    const lastSlotTs = deadline - BigInt(slotDuration);
+    const target = lastSlotTs - BigInt(leadSlots * slotDuration);
+    const currentTs = BigInt(await context.cheatCodes.eth.lastBlockTimestamp());
+    if (currentTs < target) {
+      logger.warn(`Warping L1 to ${leadSlots} slots before end of epoch ${epoch} submission window`, {
+        currentTs,
+        target,
+        epoch,
+      });
+      await context.cheatCodes.eth.warp(Number(target), { resetBlockInterval: true });
+    }
   };
 
   // Waits for an initial proof to land, stops the prover, reorgs L1 to remove the proof block,
@@ -133,10 +157,13 @@ describe('single-node/l1-reorgs/blocks', () => {
     await logState('after-reorg');
     expect((await monitor.run(true)).provenCheckpointNumber).toEqual(initialProvenCheckpoint);
 
-    // Wait until the end of the proof submission window for the epoch of the proven checkpoint
+    // Wait until the end of the proof submission window for the epoch of the proven checkpoint. The
+    // prover is stopped and the proof has been reorged out, so the rest of the window is dead time —
+    // warp over the bulk of it, leaving a few real slots for the node to detect the missed proof and prune.
     const provenCheckpointEpoch = await test.rollup.getEpochNumberForCheckpoint(
       CheckpointNumber(provenBlockEvent.provenCheckpointNumber),
     );
+    await warpNearSubmissionWindowEnd(Number(provenCheckpointEpoch));
     await test.waitUntilLastSlotOfProofSubmissionWindow(provenCheckpointEpoch);
     await logState('after-submission-window');
 
@@ -246,6 +273,17 @@ describe('single-node/l1-reorgs/blocks', () => {
     const firstUnprovenCheckpoint = CheckpointNumber(initialProvenCheckpoint + 1);
     await test.waitUntilCheckpointNumber(firstUnprovenCheckpoint, L2_SLOT_DURATION_IN_S * 4);
     const epochToWaitFor = await test.rollup.getEpochNumberForCheckpoint(firstUnprovenCheckpoint);
+
+    // Once the prover has produced and (cancelled) submitted its proof tx, the rest of the submission
+    // window is dead time. Wait in real time for that tx to be captured, then warp over the bulk of the
+    // window before the wait below sleeps out the remaining real slots that drive the prune.
+    await retryUntil(
+      () => Promise.resolve(proverDelayer.getCancelledTxs().length > 0),
+      'cancelled proof tx',
+      L2_SLOT_DURATION_IN_S * 6,
+      0.5,
+    );
+    await warpNearSubmissionWindowEnd(Number(epochToWaitFor));
     await test.waitUntilLastSlotOfProofSubmissionWindow(epochToWaitFor);
     await monitor.run(true);
     logger.warn(
