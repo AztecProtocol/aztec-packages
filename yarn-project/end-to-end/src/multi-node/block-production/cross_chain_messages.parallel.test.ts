@@ -1,8 +1,9 @@
 import { EthAddress } from '@aztec/aztec.js/addresses';
+import { getTimestampRangeForEpoch } from '@aztec/aztec.js/block';
 import { generateClaimSecret } from '@aztec/aztec.js/ethereum';
 import { Fr } from '@aztec/aztec.js/fields';
 import { isL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
-import { CheckpointNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { timesAsync } from '@aztec/foundation/collection';
 import { retryUntil } from '@aztec/foundation/retry';
 import { executeTimeout } from '@aztec/foundation/timer';
@@ -19,6 +20,37 @@ import {
 } from './setup.js';
 
 const TX_COUNT = 10;
+
+// Stops the validator sequencers, then warps the L1 clock to the start of the epoch *after* the one
+// holding `targetCheckpoint`, and finally waits for that checkpoint to be proven. The epoch proof is
+// proved as a single unit and can only be submitted to L1 once its epoch is sealed, so a test that
+// stops building the moment its assertions pass otherwise idles a full epoch in real wall-clock
+// waiting for the boundary. Sequencers are stopped before the warp so the jump can't trigger a burst
+// of block builds (the production sequencer needs real wall-clock per block); only the prover's epoch
+// proof submission + L1 confirmation remain after the warp. The checkpoints the assertions depend on
+// are already produced before this runs, so warping the dead tail away doesn't change what is proven.
+async function warpPastEpochTailAndWaitForProven(
+  fixture: BlockProductionWithProverFixture,
+  targetCheckpoint: CheckpointNumber,
+) {
+  const { test, context, logger, nodes } = fixture;
+  await Promise.all(nodes.map(n => n.getSequencer()?.stop()));
+
+  const { epoch } = test.epochCache.getEpochAndSlotNow();
+  const nextEpoch = EpochNumber(Number(epoch) + 1);
+  const [nextEpochStartTs] = getTimestampRangeForEpoch(nextEpoch, test.constants);
+  const currentTs = BigInt(await context.cheatCodes.eth.lastBlockTimestamp());
+  if (currentTs < nextEpochStartTs) {
+    logger.warn(`Warping L1 past epoch ${epoch} tail to ${nextEpochStartTs} so the epoch proof can be submitted`, {
+      epoch: Number(epoch),
+      currentTs: Number(currentTs),
+      nextEpochStartTs: Number(nextEpochStartTs),
+    });
+    await context.cheatCodes.eth.warp(Number(nextEpochStartTs), { resetBlockInterval: true });
+  }
+
+  await waitForProvenCheckpoint(fixture, targetCheckpoint);
+}
 
 // Cross-chain payloads survive multi-block production: L2→L1 message effects are present across the
 // produced blocks, and L1→L2 messages become ready after inbox lag and their consume txs mine. Both
@@ -83,7 +115,7 @@ describe('multi-node/block-production/cross_chain_messages', () => {
     const allL2ToL1Messages = allBlocks.flatMap(block => block.body.txEffects.flatMap(txEffect => txEffect.l2ToL1Msgs));
     logger.warn(`Found ${allL2ToL1Messages.length} L2→L1 message(s) across all blocks`, { allL2ToL1Messages });
     expect(allL2ToL1Messages.length).toBeGreaterThanOrEqual(TX_COUNT);
-    await waitForProvenCheckpoint(fixture, multiBlockCheckpoint);
+    await warpPastEpochTailAndWaitForProven(fixture, multiBlockCheckpoint);
   });
 
   // Seeds L1→L2 messages, sends filler txs to advance the chain so messages become ready, then
