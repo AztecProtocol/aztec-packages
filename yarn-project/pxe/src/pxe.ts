@@ -79,6 +79,7 @@ import { AddressStore } from './storage/address_store/address_store.js';
 import { AnchorBlockStore } from './storage/anchor_block_store/anchor_block_store.js';
 import { CapsuleStore } from './storage/capsule_store/capsule_store.js';
 import { ContractStore } from './storage/contract_store/contract_store.js';
+import { FactStore } from './storage/fact_store/index.js';
 import { NoteStore } from './storage/note_store/note_store.js';
 import { openPxeStores } from './storage/open_pxe_stores.js';
 import { PrivateEventStore } from './storage/private_event_store/private_event_store.js';
@@ -215,6 +216,7 @@ export class PXE {
     private contractStore: ContractStore,
     private noteStore: NoteStore,
     private capsuleStore: CapsuleStore,
+    private factStore: FactStore,
     private anchorBlockStore: AnchorBlockStore,
     private senderTaggingStore: SenderTaggingStore,
     private taggingSecretSourcesStore: TaggingSecretSourcesStore,
@@ -335,6 +337,7 @@ export class PXE {
       contractStore,
       noteStore,
       capsuleStore,
+      factStore,
       anchorBlockStore,
       senderTaggingStore,
       taggingSecretSourcesStore,
@@ -386,6 +389,7 @@ export class PXE {
       recipientTaggingStore: this.recipientTaggingStore,
       taggingSecretSourcesStore: this.taggingSecretSourcesStore,
       capsuleStore: this.capsuleStore,
+      factStore: this.factStore,
       privateEventStore: this.privateEventStore,
       simulator: this.simulator,
       contractSyncService: this.contractSyncService,

@@ -55,6 +55,8 @@ import { ORACLE_VERSION_MAJOR } from '../../oracle_version.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
+import { FactCollectionKey, FactCollectionTypeKey } from '../../storage/fact_store/index.js';
+import type { FactService, OriginBlock } from '../../storage/fact_store/index.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
@@ -64,6 +66,7 @@ import { BoundedVec } from '../noir-structs/bounded_vec.js';
 import type { EmbeddedCurvePoint } from '../noir-structs/embedded_curve_point.js';
 import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
 import type { EventValidationRequest } from '../noir-structs/event_validation_request.js';
+import { type FactCollection, emptyFactCollection, toNoirFactCollection } from '../noir-structs/fact_collection.js';
 import type { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
 import type { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import type { NoteData } from '../noir-structs/note_data.js';
@@ -93,6 +96,7 @@ export type UtilityExecutionOracleArgs = {
   recipientTaggingStore: RecipientTaggingStore;
   taggingSecretSourcesStore: TaggingSecretSourcesStore;
   capsuleService: CapsuleService;
+  factService: FactService;
   privateEventStore: PrivateEventStore;
   txResolver: TxResolverService;
   contractSyncService: ContractSyncService;
@@ -135,6 +139,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   protected readonly recipientTaggingStore: RecipientTaggingStore;
   protected readonly taggingSecretSourcesStore: TaggingSecretSourcesStore;
   protected readonly capsuleService: CapsuleService;
+  protected readonly factService: FactService;
   protected readonly privateEventStore: PrivateEventStore;
   protected readonly txResolver: TxResolverService;
   protected readonly contractSyncService: ContractSyncService;
@@ -159,6 +164,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.recipientTaggingStore = args.recipientTaggingStore;
     this.taggingSecretSourcesStore = args.taggingSecretSourcesStore;
     this.capsuleService = args.capsuleService;
+    this.factService = args.factService;
     this.privateEventStore = args.privateEventStore;
     this.txResolver = args.txResolver;
     this.contractSyncService = args.contractSyncService;
@@ -682,10 +688,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   public setCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], scope: AztecAddress): void {
-    if (!contractAddress.equals(this.contractAddress)) {
-      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
-      throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
-    }
+    this.#assertOwnContract(contractAddress);
     this.capsuleService.setCapsule(contractAddress, slot, capsule, this.jobId, scope);
   }
 
@@ -695,19 +698,13 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     tSize: number,
     scope: AztecAddress,
   ): Promise<Option<Fr[]>> {
-    if (!contractAddress.equals(this.contractAddress)) {
-      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
-      throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
-    }
+    this.#assertOwnContract(contractAddress);
     const values = await this.capsuleService.getCapsule(contractAddress, slot, this.jobId, scope, this.capsules);
     return values ? Option.some(values) : Option.none({ length: tSize });
   }
 
   public deleteCapsule(contractAddress: AztecAddress, slot: Fr, scope: AztecAddress): void {
-    if (!contractAddress.equals(this.contractAddress)) {
-      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
-      throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
-    }
+    this.#assertOwnContract(contractAddress);
     this.capsuleService.deleteCapsule(contractAddress, slot, this.jobId, scope);
   }
 
@@ -718,11 +715,110 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     numEntries: number,
     scope: AztecAddress,
   ): Promise<void> {
+    this.#assertOwnContract(contractAddress);
+    return this.capsuleService.copyCapsule(contractAddress, srcSlot, dstSlot, numEntries, this.jobId, scope);
+  }
+
+  /**
+   * Asserts the executing contract may only access its own slice of PXE DB.
+   */
+  #assertOwnContract(contractAddress: AztecAddress): void {
     if (!contractAddress.equals(this.contractAddress)) {
-      // TODO(#10727): instead of this check that this.contractAddress is allowed to access the external DB
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
-    return this.capsuleService.copyCapsule(contractAddress, srcSlot, dstSlot, numEntries, this.jobId, scope);
+  }
+
+  /**
+   * Records a fact into a collection. A `Some` origin block makes the fact retractable (pruned on reorg of that
+   * block), a `None` origin block makes it non-retractable, surviving reorgs.
+   */
+  public recordFact(
+    contractAddress: AztecAddress,
+    scope: AztecAddress,
+    factCollectionTypeId: Fr,
+    factCollectionId: Fr,
+    factTypeId: Fr,
+    payload: EphemeralArray<Fr>,
+    originBlock: Option<OriginBlock>,
+  ): Promise<void> {
+    this.#assertOwnContract(contractAddress);
+    return this.factService.recordFact(
+      new FactCollectionKey(contractAddress, scope, factCollectionTypeId, factCollectionId),
+      factTypeId,
+      payload.readAll(this.ephemeralArrayService),
+      originBlock.isSome() ? originBlock.value : undefined,
+      this.jobId,
+    );
+  }
+
+  /**
+   * Deletes a fact collection, removing all its facts. A no-op if no such collection exists.
+   */
+  public deleteFactCollection(
+    contractAddress: AztecAddress,
+    scope: AztecAddress,
+    factCollectionTypeId: Fr,
+    factCollectionId: Fr,
+  ): Promise<void> {
+    this.#assertOwnContract(contractAddress);
+    return this.factService.deleteFactCollection(
+      new FactCollectionKey(contractAddress, scope, factCollectionTypeId, factCollectionId),
+      this.jobId,
+    );
+  }
+
+  /**
+   * Returns a fact collection.
+   */
+  public async getFactCollection(
+    contractAddress: AztecAddress,
+    scope: AztecAddress,
+    factCollectionTypeId: Fr,
+    factCollectionId: Fr,
+  ): Promise<Option<FactCollection>> {
+    this.#assertOwnContract(contractAddress);
+    const collection = await this.factService.getFactCollection(
+      new FactCollectionKey(contractAddress, scope, factCollectionTypeId, factCollectionId),
+      this.jobId,
+    );
+    return collection
+      ? Option.some(
+          toNoirFactCollection(
+            this.ephemeralArrayService,
+            contractAddress,
+            scope,
+            factCollectionTypeId,
+            factCollectionId,
+            collection.facts,
+          ),
+        )
+      : Option.none(emptyFactCollection(this.ephemeralArrayService));
+  }
+
+  /** Returns every fact collection of `factCollectionTypeId`. */
+  public async getFactCollectionsByType(
+    contractAddress: AztecAddress,
+    scope: AztecAddress,
+    factCollectionTypeId: Fr,
+  ): Promise<EphemeralArray<FactCollection>> {
+    this.#assertOwnContract(contractAddress);
+    const collections = await this.factService.getFactCollectionsByType(
+      new FactCollectionTypeKey(contractAddress, scope, factCollectionTypeId),
+      this.jobId,
+    );
+    return EphemeralArray.fromValues(
+      this.ephemeralArrayService,
+      collections.map(collection =>
+        toNoirFactCollection(
+          this.ephemeralArrayService,
+          collection.key.contractAddress,
+          collection.key.scope,
+          collection.key.factCollectionTypeId,
+          collection.key.factCollectionId,
+          collection.facts,
+        ),
+      ),
+    );
   }
 
   /**
@@ -918,6 +1014,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       recipientTaggingStore: this.recipientTaggingStore,
       taggingSecretSourcesStore: this.taggingSecretSourcesStore,
       capsuleService: this.capsuleService,
+      factService: this.factService,
       privateEventStore: this.privateEventStore,
       txResolver: this.txResolver,
       contractSyncService: this.contractSyncService,

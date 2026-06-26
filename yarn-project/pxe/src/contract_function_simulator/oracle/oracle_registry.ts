@@ -20,6 +20,7 @@ import {
   DELIVERY_MODE,
   EPHEMERAL_ARRAY,
   EVENT_VALIDATION_REQUEST,
+  FACT_COLLECTION,
   FIELD,
   FUNCTION_SELECTOR,
   type InputSlot,
@@ -34,6 +35,7 @@ import {
   NOTE_VALIDATION_REQUEST,
   NULLIFIER_MEMBERSHIP_WITNESS,
   OPTION,
+  ORIGIN_BLOCK,
   type OutputSlot,
   PENDING_TAGGED_LOG,
   POINT,
@@ -318,6 +320,46 @@ export const ORACLE_REGISTRY = {
 
   aztec_utl_emitOffchainEffect: makeEntry({
     params: [{ name: 'data', type: ARRAY(FIELD) }],
+  }),
+
+  aztec_utl_recordFact: makeEntry({
+    params: [
+      { name: 'contractAddress', type: AZTEC_ADDRESS },
+      { name: 'scope', type: AZTEC_ADDRESS },
+      { name: 'factCollectionTypeId', type: FIELD },
+      { name: 'factCollectionId', type: FIELD },
+      { name: 'factTypeId', type: FIELD },
+      { name: 'payload', type: EPHEMERAL_ARRAY(FIELD) },
+      { name: 'originBlock', type: OPTION(ORIGIN_BLOCK) },
+    ],
+  }),
+
+  aztec_utl_deleteFactCollection: makeEntry({
+    params: [
+      { name: 'contractAddress', type: AZTEC_ADDRESS },
+      { name: 'scope', type: AZTEC_ADDRESS },
+      { name: 'factCollectionTypeId', type: FIELD },
+      { name: 'factCollectionId', type: FIELD },
+    ],
+  }),
+
+  aztec_utl_getFactCollection: makeEntry({
+    params: [
+      { name: 'contractAddress', type: AZTEC_ADDRESS },
+      { name: 'scope', type: AZTEC_ADDRESS },
+      { name: 'factCollectionTypeId', type: FIELD },
+      { name: 'factCollectionId', type: FIELD },
+    ],
+    returnType: OPTION(FACT_COLLECTION),
+  }),
+
+  aztec_utl_getFactCollectionsByType: makeEntry({
+    params: [
+      { name: 'contractAddress', type: AZTEC_ADDRESS },
+      { name: 'scope', type: AZTEC_ADDRESS },
+      { name: 'factCollectionTypeId', type: FIELD },
+    ],
+    returnType: EPHEMERAL_ARRAY(FACT_COLLECTION),
   }),
 
   aztec_utl_callUtilityFunction: makeEntry({

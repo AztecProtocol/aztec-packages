@@ -37,6 +37,7 @@ pub(crate) mod ephemeral_oracles;
 pub(crate) mod transient_oracles;
 #[generate_oracle_tests]
 pub mod contract_sync;
+pub mod fact_store;
 #[generate_oracle_tests]
 pub mod public_call;
 pub mod tx_resolution;

@@ -3,6 +3,7 @@ import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import type { KeyStore } from '@aztec/key-store';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { type CircuitSimulator, WASMSimulator } from '@aztec/simulator/client';
 import { HandshakeRegistryArtifact } from '@aztec/standard-contracts/handshake-registry';
@@ -38,6 +39,8 @@ import type { AddressStore } from '../../storage/address_store/address_store.js'
 import { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
+import { FactService, FactStore } from '../../storage/fact_store/index.js';
+import type { OriginBlock } from '../../storage/fact_store/index.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
@@ -48,6 +51,7 @@ import { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
 import type { EmbeddedCurvePoint } from '../noir-structs/embedded_curve_point.js';
 import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
+import { Option } from '../noir-structs/option.js';
 import type { ProvidedSecret } from '../noir-structs/provided_secret.js';
 import { TransientArrayService } from '../transient_array_service.js';
 import { UtilityExecutionOracle, type UtilityExecutionOracleArgs } from './utility_execution_oracle.js';
@@ -64,6 +68,7 @@ describe('Utility Execution test suite', () => {
   let recipientTaggingStore: ReturnType<typeof mock<RecipientTaggingStore>>;
   let taggingSecretSourcesStore: ReturnType<typeof mock<TaggingSecretSourcesStore>>;
   let capsuleStore: ReturnType<typeof mock<CapsuleStore>>;
+  let factStore: FactStore;
   let privateEventStore: ReturnType<typeof mock<PrivateEventStore>>;
   let contractSyncService: ReturnType<typeof mock<ContractSyncService>>;
   let l2TipsStore: ReturnType<typeof mock<L2TipsProvider>>;
@@ -88,6 +93,7 @@ describe('Utility Execution test suite', () => {
     recipientTaggingStore = mock<RecipientTaggingStore>();
     taggingSecretSourcesStore = mock<TaggingSecretSourcesStore>();
     capsuleStore = mock<CapsuleStore>();
+    factStore = new FactStore(await openTmpStore('utility-exec-fact-test'));
     privateEventStore = mock<PrivateEventStore>();
     contractSyncService = mock<ContractSyncService>();
     l2TipsStore = mock<L2TipsProvider>();
@@ -122,6 +128,7 @@ describe('Utility Execution test suite', () => {
       recipientTaggingStore,
       taggingSecretSourcesStore,
       capsuleStore,
+      factStore,
       privateEventStore,
       simulator,
       contractSyncService,
@@ -632,6 +639,91 @@ describe('Utility Execution test suite', () => {
       });
     });
 
+    describe('fact store', () => {
+      const service = new EphemeralArrayService();
+      const typeId = new Fr(10);
+      const collectionId = new Fr(20);
+      const factTypeId = new Fr(30);
+      const noBlock = Option.none<OriginBlock>();
+      const payloadOf = (value: number) => EphemeralArray.fromValues(service, [new Fr(value)]);
+
+      it('records a fact and reads it back via getFactCollection', async () => {
+        const oracle = makeOracle({ scopes: [scope] });
+        await oracle.recordFact(contractAddress, scope, typeId, collectionId, factTypeId, payloadOf(7), noBlock);
+
+        const result = await oracle.getFactCollection(contractAddress, scope, typeId, collectionId);
+        expect(result.isSome()).toBe(true);
+        const collection = result.value!;
+        expect(collection.contractAddress).toEqual(contractAddress);
+        expect(collection.scope).toEqual(scope);
+        expect(collection.factCollectionTypeId).toEqual(typeId);
+        expect(collection.factCollectionId).toEqual(collectionId);
+        const facts = collection.facts.readAll(service);
+        expect(facts).toHaveLength(1);
+        expect(facts[0].factTypeId).toEqual(factTypeId);
+        expect(facts[0].payload.readAll(service)).toEqual([new Fr(7)]);
+        expect(facts[0].originBlock.isNone()).toBe(true);
+      });
+
+      it('returns None for an unrecorded collection', async () => {
+        const oracle = makeOracle({ scopes: [scope] });
+        const result = await oracle.getFactCollection(contractAddress, scope, typeId, collectionId);
+        expect(result.isNone()).toBe(true);
+      });
+
+      it('returns only the surviving collections of a type after some are removed', async () => {
+        const oracle = makeOracle({ scopes: [scope] });
+
+        // Record a fact into a handful of collections of the same type, each with a distinct id, so we can tell which
+        // ones come back.
+        const ids = [1, 2, 3, 4, 5];
+        for (const id of ids) {
+          await oracle.recordFact(contractAddress, scope, typeId, new Fr(id), factTypeId, payloadOf(100 + id), noBlock);
+        }
+
+        // Remove two of them; the rest must remain.
+        await oracle.deleteFactCollection(contractAddress, scope, typeId, new Fr(2));
+        await oracle.deleteFactCollection(contractAddress, scope, typeId, new Fr(4));
+
+        const collections = (await oracle.getFactCollectionsByType(contractAddress, scope, typeId)).readAll(service);
+
+        // Exactly the survivors come back (order is not guaranteed, so compare as a set).
+        const survivingIds = collections
+          .map(collection => collection.factCollectionId.toNumber())
+          .sort((a, b) => a - b);
+        expect(survivingIds).toEqual([1, 3, 5]);
+      });
+
+      it('stores a retractable fact when given an origin block', async () => {
+        const oracle = makeOracle({ scopes: [scope] });
+        const originBlock = Option.some<OriginBlock>({ blockNumber: 5, blockHash: new Fr(0xabc) });
+        await oracle.recordFact(contractAddress, scope, typeId, collectionId, factTypeId, payloadOf(42), originBlock);
+
+        const result = await oracle.getFactCollection(contractAddress, scope, typeId, collectionId);
+        expect(result.isSome()).toBe(true);
+        const facts = result.value!.facts.readAll(service);
+        expect(facts).toHaveLength(1);
+        expect(facts[0].originBlock.isSome()).toBe(true);
+        expect(facts[0].originBlock.value!).toEqual({ blockNumber: 5, blockHash: new Fr(0xabc) });
+      });
+
+      it('rejects access to another contract', async () => {
+        const oracle = makeOracle({ scopes: [scope] });
+        const otherContract = await AztecAddress.random();
+        expect(() =>
+          oracle.recordFact(otherContract, scope, typeId, collectionId, factTypeId, payloadOf(1), noBlock),
+        ).toThrow(/not allowed to access/);
+      });
+
+      it('rejects a scope outside the allowed list', async () => {
+        const oracle = makeOracle({ scopes: [scope] });
+        const otherScope = await AztecAddress.random();
+        expect(() =>
+          oracle.recordFact(contractAddress, otherScope, typeId, collectionId, factTypeId, payloadOf(1), noBlock),
+        ).toThrow(/not in the allowed scopes/);
+      });
+    });
+
     const makeOracle = (overrides?: Partial<UtilityExecutionOracleArgs> & { contractAddress?: AztecAddress }) => {
       const { contractAddress: contractAddressOverride, ...rest } = overrides ?? {};
       const scopes = rest.scopes ?? [];
@@ -653,6 +745,7 @@ describe('Utility Execution test suite', () => {
         recipientTaggingStore,
         taggingSecretSourcesStore,
         capsuleService: new CapsuleService(capsuleStore, scopes),
+        factService: new FactService(factStore, scopes),
         privateEventStore,
         txResolver,
         contractSyncService,

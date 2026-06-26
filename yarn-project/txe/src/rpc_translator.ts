@@ -835,6 +835,54 @@ export class RPCTranslator {
     });
   }
 
+  // eslint-disable-next-line camelcase
+  aztec_utl_recordFact(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_recordFact',
+      inputs,
+      handler: ([contractAddress, scope, factCollectionTypeId, factCollectionId, factTypeId, payload, originBlock]) =>
+        this.handlerAsUtility().recordFact(
+          contractAddress,
+          scope,
+          factCollectionTypeId,
+          factCollectionId,
+          factTypeId,
+          payload,
+          originBlock,
+        ),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_deleteFactCollection(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_deleteFactCollection',
+      inputs,
+      handler: ([contractAddress, scope, factCollectionTypeId, factCollectionId]) =>
+        this.handlerAsUtility().deleteFactCollection(contractAddress, scope, factCollectionTypeId, factCollectionId),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_getFactCollection(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getFactCollection',
+      inputs,
+      handler: ([contractAddress, scope, factCollectionTypeId, factCollectionId]) =>
+        this.handlerAsUtility().getFactCollection(contractAddress, scope, factCollectionTypeId, factCollectionId),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_getFactCollectionsByType(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getFactCollectionsByType',
+      inputs,
+      handler: ([contractAddress, scope, factCollectionTypeId]) =>
+        this.handlerAsUtility().getFactCollectionsByType(contractAddress, scope, factCollectionTypeId),
+    });
+  }
+
   // AVM opcodes
 
   // eslint-disable-next-line camelcase
