@@ -211,6 +211,16 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
+  aztec_txe_sendL1ToL2Message(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_txe_sendL1ToL2Message',
+      inputs,
+      handler: ([content, secretHash, sender, recipient]) =>
+        this.handlerAsTxe().sendL1ToL2Message(content, secretHash, sender, recipient),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
   aztec_txe_setTaggingSecretStrategy(...inputs: ForeignCallArgs) {
     return callTxeHandler({
       oracle: 'aztec_txe_setTaggingSecretStrategy',
@@ -474,6 +484,16 @@ export class RPCTranslator {
       oracle: 'aztec_utl_getNullifierMembershipWitness',
       inputs,
       handler: ([blockHash, nullifier]) => this.handlerAsUtility().getNullifierMembershipWitness(blockHash, nullifier),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_getL1ToL2MembershipWitness(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getL1ToL2MembershipWitness',
+      inputs,
+      handler: ([contractAddress, messageHash, secret]) =>
+        this.handlerAsUtility().getL1ToL2MembershipWitness(contractAddress, messageHash, secret),
     });
   }
 

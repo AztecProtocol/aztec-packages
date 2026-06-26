@@ -88,7 +88,7 @@ export class TXEStateMachine {
     };
   }
 
-  public async handleL2Block(block: L2Block) {
+  public async handleL2Block(block: L2Block, l1ToL2Messages: Fr[] = []) {
     // Create a checkpoint from the block manually.
     // TXE uses 1-block-per-checkpoint for testing simplicity, so we can use block number as checkpoint number.
     // This uses the deprecated fromBlockNumber method intentionally for the TXE testing environment.
@@ -126,7 +126,7 @@ export class TXEStateMachine {
     this.contractSyncService.wipe();
 
     await Promise.all([
-      this.synchronizer.handleL2Block(block),
+      this.synchronizer.handleL2Block(block, l1ToL2Messages),
       this.archiver.addCheckpoints([publishedCheckpoint], undefined),
       this.anchorBlockStore.setHeader(block.header),
     ]);

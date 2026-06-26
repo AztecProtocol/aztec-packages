@@ -2,6 +2,7 @@ mod accounts;
 mod call_gas_settings;
 mod deployment;
 mod events;
+mod l1_to_l2_messages;
 mod private_context;
 mod public_context;
 mod utility_context;
