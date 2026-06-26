@@ -186,6 +186,7 @@ claimed_first_nullifier = "0x2eb81a5a72d6816dd34b6330ce27e75a0faa44a3c8dcfb97b56
 claimed_revertible_counter = "0x0000000000000000000000000000000000000000000000000000000000000005"
 
   [previous_kernel_public_inputs.constants]
+  tx_request_salt = "0x2deeb4d4a9cfc5a97e7403c4d21745f34e0c7971e29c38ac4a473bacbd10cac2"
   vk_tree_root = "0x19e707b1c27292672391666e89b1deeeb36ab5bf508efef4f021df37bc224a21"
 
     [previous_kernel_public_inputs.constants.anchor_block_header]

@@ -330,6 +330,7 @@ impl FixtureBuilder {
         PrivateTxConstantData {
             anchor_block_header: self.anchor_block_header,
             tx_context: self.tx_context,
+            tx_request_salt: self.tx_request_salt,
             vk_tree_root: self.vk_tree_root,
             protocol_contracts: self.protocol_contracts,
         }
