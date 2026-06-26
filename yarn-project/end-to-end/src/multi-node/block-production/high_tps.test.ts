@@ -49,9 +49,14 @@ const NODE_COUNT = 3;
 const BLOCKS_PER_CHECKPOINT = 4;
 const TXS_PER_BLOCK = 2;
 const CHECKPOINTS_TO_CHECK = 3;
-// Extra txs beyond the ones we assert on: one partial checkpoint at startup (sequencers start mid-slot with
-// only one blockDuration of slack) plus a buffer at the tail.
-const TX_COUNT_HIGH = BLOCKS_PER_CHECKPOINT * TXS_PER_BLOCK * (CHECKPOINTS_TO_CHECK + 1);
+// Send exactly enough txs to fill the CHECKPOINTS_TO_CHECK checkpoints we assert on and no more. Each
+// checkpoint at the wide 36s slot cadence costs ~36s of real wall-clock to build, and the `waitForTx`
+// below blocks until the *last* tx is mined — so any txs beyond the asserted checkpoints force extra
+// build slots that the assertions never look at. The lead-time wait below makes the first checkpoint's
+// build window fully reachable, so the first checkpoint fills like the rest and no startup-partial
+// buffer is needed; if a checkpoint does come up short the loop still iterates the first
+// CHECKPOINTS_TO_CHECK checkpoints at or after the target slot (each tolerant of BLOCKS_PER_CHECKPOINT-1).
+const TX_COUNT_HIGH = BLOCKS_PER_CHECKPOINT * TXS_PER_BLOCK * CHECKPOINTS_TO_CHECK;
 const TX_DURATION_MS = 2500;
 const BLOCK_DURATION_MS = 6000;
 
