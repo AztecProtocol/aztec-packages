@@ -222,8 +222,8 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
     writeToStore: async kvStore => {
       const factStore = new FactStore(kvStore);
       const jobId = 'fixture-job';
-      const contract = AztecAddress.fromBigInt(100n);
-      const scope = AztecAddress.fromBigInt(1n);
+      const contract = AztecAddress.fromBigIntUnsafe(100n);
+      const scope = AztecAddress.fromBigIntUnsafe(1n);
       const factCollectionTypeId = new Fr(7n);
       const keyA = FactCollectionKey.from({
         contractAddress: contract,

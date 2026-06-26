@@ -4,8 +4,8 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { FactCollectionKey, FactCollectionTypeKey } from './fact_store_keys.js';
 
 describe('fact store keys', () => {
-  const contract = AztecAddress.fromBigInt(100n);
-  const scope = AztecAddress.fromBigInt(1n);
+  const contract = AztecAddress.fromBigIntUnsafe(100n);
+  const scope = AztecAddress.fromBigIntUnsafe(1n);
   const type = new Fr(7n);
   const id = new Fr(42n);
 
