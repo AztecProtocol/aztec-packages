@@ -16,7 +16,12 @@ import { retryTimes } from '@aztec/foundation/retry';
 import { count } from '@aztec/foundation/string';
 import { DateProvider, Timer, elapsed } from '@aztec/foundation/timer';
 import { isDefined, isErrorClass } from '@aztec/foundation/types';
-import { type ArchiverEmitter, L2BlockSourceEvents, type ValidateCheckpointResult } from '@aztec/stdlib/block';
+import {
+  type ArchiverEmitter,
+  type L2Block,
+  L2BlockSourceEvents,
+  type ValidateCheckpointResult,
+} from '@aztec/stdlib/block';
 import {
   Checkpoint,
   type CheckpointData,
@@ -43,11 +48,6 @@ import { type ArchiverDataStores, getArchiverSynchPoint } from '../store/data_st
 import type { L2TipsCache } from '../store/l2_tips_cache.js';
 import { MessageStoreError } from '../store/message_store.js';
 import type { InboxMessage } from '../structs/inbox_message.js';
-import {
-  type L2BlockSourceUpdateDelta,
-  emptyL2BlockSourceUpdateDelta,
-  mergeL2BlockSourceUpdateDelta,
-} from './block_source_update_delta.js';
 import { ArchiverDataStoreUpdater } from './data_store_updater.js';
 import type { ArchiverInstrumentation } from './instrumentation.js';
 import { validateCheckpointAttestationsFromCalldata } from './validation.js';
@@ -62,6 +62,8 @@ type RollupStatus = {
   lastRetrievedCheckpoint?: PublishedCheckpoint;
   /** Last checkpoint observed on L1 across both valid and rejected entries on this iteration */
   lastSeenCheckpoint?: { checkpointNumber: CheckpointNumber; l1: L1PublishedData };
+  /** Blocks added while handling checkpoints this iteration, for the aggregate block source update event. */
+  blocksAdded: L2Block[];
 };
 
 /**
@@ -150,8 +152,8 @@ export class ArchiverL1Synchronizer implements Traceable {
   }
 
   @trackSpan('Archiver.syncFromL1')
-  public async syncFromL1(initialSyncComplete: boolean): Promise<L2BlockSourceUpdateDelta> {
-    const delta = emptyL2BlockSourceUpdateDelta();
+  public async syncFromL1(initialSyncComplete: boolean): Promise<L2Block[]> {
+    const blocksAdded: L2Block[] = [];
 
     // In between the various calls to L1, the block number can move meaning some of the following
     // calls will return data for blocks that were not present during earlier calls. To combat this
@@ -165,7 +167,7 @@ export class ArchiverL1Synchronizer implements Traceable {
 
     if (this.l1BlockHash && currentL1BlockHash.equals(this.l1BlockHash)) {
       this.log.trace(`No new L1 blocks since last sync at L1 block ${this.l1BlockNumber}`);
-      return delta;
+      return blocksAdded;
     }
 
     // Log at error if the latest L1 block timestamp is too old
@@ -202,12 +204,8 @@ export class ArchiverL1Synchronizer implements Traceable {
     if (currentL1BlockNumber > blocksSynchedTo) {
       // First we retrieve new checkpoints and L2 blocks and store them in the DB. This will also update the
       // pending chain validation status, proven checkpoint number, and synched L1 block number.
-      const { rollupStatus, delta: checkpointsDelta } = await this.handleCheckpoints(
-        blocksSynchedTo,
-        currentL1BlockNumber,
-        initialSyncComplete,
-      );
-      mergeL2BlockSourceUpdateDelta(delta, checkpointsDelta);
+      const rollupStatus = await this.handleCheckpoints(blocksSynchedTo, currentL1BlockNumber, initialSyncComplete);
+      blocksAdded.push(...rollupStatus.blocksAdded);
 
       // Then we try pruning uncheckpointed blocks if a new slot was mined without checkpoints
       await this.pruneUncheckpointedBlocks(currentL1Timestamp);
@@ -250,7 +248,7 @@ export class ArchiverL1Synchronizer implements Traceable {
       l1BlockNumberAtEnd,
     });
 
-    return delta;
+    return blocksAdded;
   }
 
   /** Updates the finalized checkpoint using the pre-fetched finalized L1 block from the current sync iteration. */
@@ -635,8 +633,8 @@ export class ArchiverL1Synchronizer implements Traceable {
     blocksSynchedTo: bigint,
     currentL1BlockNumber: bigint,
     initialSyncComplete: boolean,
-  ): Promise<{ rollupStatus: RollupStatus; delta: L2BlockSourceUpdateDelta }> {
-    const delta = emptyL2BlockSourceUpdateDelta();
+  ): Promise<RollupStatus> {
+    const blocksAdded: L2Block[] = [];
     const localPendingCheckpointNumber = await this.stores.blocks.getLatestCheckpointNumber();
     const initialValidationResult: ValidateCheckpointResult | undefined =
       await this.stores.blocks.getPendingChainValidationStatus();
@@ -655,6 +653,7 @@ export class ArchiverL1Synchronizer implements Traceable {
       pendingCheckpointNumber,
       pendingArchive: pendingArchive.toString(),
       validationResult: initialValidationResult,
+      blocksAdded,
     };
     this.log.trace(`Retrieved rollup status at current L1 block ${currentL1BlockNumber}.`, {
       localPendingCheckpointNumber,
@@ -733,7 +732,7 @@ export class ArchiverL1Synchronizer implements Traceable {
       this.log.debug(
         `No checkpoints to retrieve from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}, no checkpoints on chain`,
       );
-      return { rollupStatus, delta };
+      return rollupStatus;
     }
 
     await updateProvenCheckpoint();
@@ -758,7 +757,7 @@ export class ArchiverL1Synchronizer implements Traceable {
         // TODO(#8621): Tackle this properly when we handle L1 Re-orgs.
         // await this.stores.blocks.setSynchedL1BlockNumber(currentL1BlockNumber);
         this.log.debug(`No checkpoints to retrieve from ${blocksSynchedTo + 1n} to ${currentL1BlockNumber}`);
-        return { rollupStatus, delta };
+        return rollupStatus;
       }
 
       const localPendingCheckpointInChain = archiveForLocalPendingCheckpointNumber.equals(
@@ -1085,7 +1084,7 @@ export class ArchiverL1Synchronizer implements Traceable {
         // Record blocks newly fetched from L1 checkpoint payloads as added. The promoted checkpoint (if any) is
         // excluded: its blocks were already in local archiver storage (added via the proposed-block path) so the
         // block stream does not need them re-downloaded.
-        delta.blocksAdded.push(...checkpointsToAdd.flatMap(c => c.checkpoint.blocks));
+        blocksAdded.push(...checkpointsToAdd.flatMap(c => c.checkpoint.blocks));
 
         // If blocks were pruned due to conflict with L1 checkpoints, emit event
         if (result.prunedBlocks && result.prunedBlocks.length > 0) {
@@ -1155,7 +1154,7 @@ export class ArchiverL1Synchronizer implements Traceable {
     // Important that we update AFTER inserting the blocks.
     await updateProvenCheckpoint();
 
-    return { rollupStatus: { ...rollupStatus, lastRetrievedCheckpoint, lastSeenCheckpoint }, delta };
+    return { ...rollupStatus, lastRetrievedCheckpoint, lastSeenCheckpoint };
   }
 
   /**

@@ -40,12 +40,6 @@ import { type ArchiverConfig, mapArchiverConfig } from './config.js';
 import { BlockAlreadyCheckpointedError, BlockOrCheckpointSlotExpiredError, NoBlobBodiesFoundError } from './errors.js';
 import { validateAndLogHistoricalLogsAvailability } from './l1/validate_historical_logs.js';
 import { validateAndLogTraceAvailability } from './l1/validate_trace.js';
-import {
-  type L2BlockSourceUpdateDelta,
-  emptyL2BlockSourceUpdateDelta,
-  hasL2BlockSourceUpdateDelta,
-  mergeL2BlockSourceUpdateDelta,
-} from './modules/block_source_update_delta.js';
 import { ArchiverDataSourceBase } from './modules/data_source_base.js';
 import { ArchiverDataStoreUpdater } from './modules/data_store_updater.js';
 import type { ArchiverInstrumentation } from './modules/instrumentation.js';
@@ -346,10 +340,10 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
    * Called at the beginning of each sync iteration.
    * Items are processed in the order they were queued.
    */
-  private async processInboundQueue(): Promise<L2BlockSourceUpdateDelta> {
-    const delta = emptyL2BlockSourceUpdateDelta();
+  private async processInboundQueue(): Promise<L2Block[]> {
+    const blocksAdded: L2Block[] = [];
     if (this.inboundQueue.length === 0) {
-      return delta;
+      return blocksAdded;
     }
 
     // Take all items from the queue
@@ -386,7 +380,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
         if (type === 'block') {
           const [durationMs] = await elapsed(() => this.updater.addProposedBlock(item.block));
           this.instrumentation.processNewProposedBlock(durationMs, item.block);
-          delta.blocksAdded.push(item.block);
+          blocksAdded.push(item.block);
         } else {
           await this.updater.addProposedCheckpoint(item.checkpoint);
         }
@@ -406,7 +400,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
         reject(err);
       }
     }
-    return delta;
+    return blocksAdded;
   }
 
   public waitForInitialSync() {
@@ -421,35 +415,28 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     // Capture the tips before any mutation so the aggregate event can report what moved this pass.
     const fromTips = await this.getL2Tips();
 
-    const delta = emptyL2BlockSourceUpdateDelta();
+    // Accumulate the blocks added across the pass's sub-steps (queued proposals + L1 checkpoint payloads).
+    const blocksAdded: L2Block[] = [];
     // Process any queued blocks first, before doing L1 sync
-    mergeL2BlockSourceUpdateDelta(delta, await this.processInboundQueue());
+    blocksAdded.push(...(await this.processInboundQueue()));
     // Now perform L1 sync
-    mergeL2BlockSourceUpdateDelta(delta, await this.syncFromL1());
+    blocksAdded.push(...(await this.syncFromL1()));
     // Prune proposed blocks with no corresponding proposed checkpoint after the appropriate materialization deadline.
     await this.pruneOrphanProposedBlocks();
 
     // Emit a single aggregate update event after all pass work has committed and the tips cache has refreshed,
-    // so `toTips` and the source state observed by listeners are consistent with the event payload.
+    // so `toTips` and the source state observed by listeners are consistent with the event payload. The pass
+    // mutated state if the tips moved (added blocks, a prune, or a thin tier movement) or blocks were added; a
+    // fully-synced no-op pass emits nothing.
     const toTips = await this.getL2Tips();
-    this.emitBlockSourceUpdatedIfChanged(fromTips, toTips, delta);
-  }
-
-  /**
-   * Emits the aggregate `l2BlockSourceUpdated` event when the pass mutated local state — either the tips moved or
-   * blocks were added. A fully-synced no-op pass (tips unchanged, no blocks) emits nothing. Prunes move the tips, so
-   * they are still reported even though pruned blocks are not carried in the delta.
-   */
-  private emitBlockSourceUpdatedIfChanged(fromTips: L2Tips, toTips: L2Tips, delta: L2BlockSourceUpdateDelta): void {
-    if (l2TipsEqual(fromTips, toTips) && !hasL2BlockSourceUpdateDelta(delta)) {
-      return;
+    if (!l2TipsEqual(fromTips, toTips) || blocksAdded.length > 0) {
+      this.events.emit(L2BlockSourceEvents.L2BlockSourceUpdated, {
+        type: L2BlockSourceEvents.L2BlockSourceUpdated,
+        fromTips,
+        toTips,
+        blocksAdded,
+      });
     }
-    this.events.emit(L2BlockSourceEvents.L2BlockSourceUpdated, {
-      type: L2BlockSourceEvents.L2BlockSourceUpdated,
-      fromTips,
-      toTips,
-      blocksAdded: delta.blocksAdded,
-    });
   }
 
   /**
@@ -551,9 +538,9 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     });
   }
 
-  private async syncFromL1(): Promise<L2BlockSourceUpdateDelta> {
+  private async syncFromL1(): Promise<L2Block[]> {
     // Delegate to the L1 synchronizer
-    const delta = await this.synchronizer.syncFromL1(this.initialSyncComplete);
+    const blocksAdded = await this.synchronizer.syncFromL1(this.initialSyncComplete);
 
     // Check if we've completed initial sync
     const currentL1BlockNumber = this.synchronizer.getL1BlockNumber();
@@ -570,7 +557,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
         this.initialSyncPromise.resolve();
       }
     }
-    return delta;
+    return blocksAdded;
   }
 
   /** Resumes the archiver after a stop. */
