@@ -84,8 +84,14 @@ export class BootstrapNode implements P2PBootstrapApi {
       this.logger.info('Advertised socket address updated', { addr: addr.toString() });
     });
     this.node.on('discovered', async (enr: SignableENR) => {
-      const addr = await enr.getFullMultiaddr('udp');
-      this.logger.verbose(`Discovered new peer`, { enr: enr.encodeTxt(), addr: addr?.toString() });
+      try {
+        const addr = await enr.getFullMultiaddr('udp');
+        this.logger.verbose(`Discovered new peer`, { enr: enr.encodeTxt(), addr: addr?.toString() });
+      } catch (err) {
+        // A malformed ENR address field makes the parser throw. As an async listener this would crash
+        // the bootnode on an unhandled rejection — catch, log, and drop the ENR instead.
+        this.logger.warn(`Dropping discovered ENR with unparseable address`, { err });
+      }
     });
 
     try {

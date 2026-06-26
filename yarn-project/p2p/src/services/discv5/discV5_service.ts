@@ -242,10 +242,17 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   }
 
   private async onEnrAdded(enr: ENR) {
-    const multiAddrTcp = await enr.getFullMultiaddr('tcp');
-    const multiAddrUdp = await enr.getFullMultiaddr('udp');
-    this.logger.debug(`Added ENR ${enr.encodeTxt()}`, { multiAddrTcp, multiAddrUdp, nodeId: enr.nodeId });
-    this.onDiscovered(enr);
+    try {
+      const multiAddrTcp = await enr.getFullMultiaddr('tcp');
+      const multiAddrUdp = await enr.getFullMultiaddr('udp');
+      this.logger.debug(`Added ENR ${enr.encodeTxt()}`, { multiAddrTcp, multiAddrUdp, nodeId: enr.nodeId });
+      this.onDiscovered(enr);
+    } catch (err) {
+      // A malformed ENR address field (e.g. a 3-byte TCP port) makes @nethermindeth/enr throw while
+      // parsing the multiaddr. This is an async event listener, so an unhandled rejection would crash
+      // the process — catch, log, and drop the ENR instead.
+      this.logger.warn(`Dropping ENR with unparseable address`, { nodeId: enr.nodeId, err });
+    }
   }
 
   private isOurBootnode(enr: ENR) {
@@ -278,6 +285,17 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     const value = enr.kvs.get(AZTEC_ENR_KEY);
     if (!value) {
       this.logger.debug(`Peer node ${enr.nodeId} does not have aztec key in ENR`);
+      return false;
+    }
+
+    // A malformed TCP field (e.g. a non-2-byte port) makes @nethermindeth/enr throw while building the
+    // multiaddr. Reject such an ENR here so it's never emitted as a full peer or re-parsed by an
+    // unguarded listener (which would crash the process). A missing TCP addr is allowed — those peers
+    // are simply skipped at dial time.
+    try {
+      enr.getLocationMultiaddr('tcp');
+    } catch (err) {
+      this.logger.debug(`Peer node ${enr.nodeId} has an unparseable TCP address`, { err });
       return false;
     }
 

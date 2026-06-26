@@ -14,7 +14,10 @@ import {
   Body,
   CheckpointedL2Block,
   CommitteeAttestation,
+  GENESIS_CHECKPOINT_HEADER_HASH,
   L2Block,
+  type L2TipId,
+  type L2Tips,
   type ValidateCheckpointResult,
   deserializeValidateCheckpointResult,
   serializeValidateCheckpointResult,
@@ -623,6 +626,138 @@ export class BlockStore {
     return typeof latestBlocknumber === 'number'
       ? BlockNumber(latestBlocknumber)
       : BlockNumber(INITIAL_L2_BLOCK_NUM - 1);
+  }
+
+  /**
+   * Resolves all L2 chain tips in a single read transaction so the snapshot is internally consistent.
+   * The result is guaranteed to satisfy finalized <= proven <= checkpointed <= proposed by block number.
+   */
+  async getL2TipsData(genesisBlockHash: Fr): Promise<L2Tips> {
+    return await this.db.transactionAsync(async () => {
+      const genesisBlockNumber = BlockNumber(INITIAL_L2_BLOCK_NUM - 1);
+      const genesisCheckpointNumber = CheckpointNumber(INITIAL_CHECKPOINT_NUMBER - 1);
+      const genesisBlockId = { number: genesisBlockNumber, hash: genesisBlockHash.toString() };
+      const genesisCheckpointId = {
+        number: genesisCheckpointNumber,
+        hash: GENESIS_CHECKPOINT_HEADER_HASH.toString(),
+      };
+      const genesisTip: L2TipId = { block: genesisBlockId, checkpoint: genesisCheckpointId };
+
+      const [latestBlockEntry] = await toArray(this.#blocks.entriesAsync({ reverse: true, limit: 1 }));
+      const [latestCheckpointEntry] = await toArray(this.#checkpoints.entriesAsync({ reverse: true, limit: 1 }));
+      const latestCheckpointNumber = latestCheckpointEntry
+        ? CheckpointNumber(latestCheckpointEntry[0])
+        : genesisCheckpointNumber;
+
+      const [provenRaw, finalizedRaw] = await Promise.all([
+        this.#lastProvenCheckpoint.getAsync(),
+        this.#lastFinalizedCheckpoint.getAsync(),
+      ]);
+
+      const provenCheckpointNumber = CheckpointNumber(Math.min(provenRaw ?? 0, latestCheckpointNumber));
+      const finalizedCheckpointNumber = CheckpointNumber(Math.min(finalizedRaw ?? 0, provenCheckpointNumber));
+
+      const checkpointStorageCache = new Map<CheckpointNumber, CheckpointStorage>();
+      if (latestCheckpointEntry) {
+        checkpointStorageCache.set(CheckpointNumber(latestCheckpointEntry[0]), latestCheckpointEntry[1]);
+      }
+
+      const loadCheckpointStorage = async (
+        checkpointNumber: CheckpointNumber,
+      ): Promise<CheckpointStorage | undefined> => {
+        if (checkpointNumber === genesisCheckpointNumber) {
+          return undefined;
+        }
+        if (!checkpointStorageCache.has(checkpointNumber)) {
+          const checkpointStorage = await this.#checkpoints.getAsync(checkpointNumber);
+          if (!checkpointStorage) {
+            throw new CheckpointNotFoundError(checkpointNumber);
+          }
+          checkpointStorageCache.set(checkpointNumber, checkpointStorage);
+        }
+        return checkpointStorageCache.get(checkpointNumber)!;
+      };
+
+      const [provenCheckpoint, finalizedCheckpoint] = await Promise.all([
+        loadCheckpointStorage(provenCheckpointNumber),
+        loadCheckpointStorage(finalizedCheckpointNumber),
+      ]);
+
+      const blockHashCache = new Map<BlockNumber, string>();
+      blockHashCache.set(genesisBlockNumber, genesisBlockHash.toString());
+      if (latestBlockEntry) {
+        blockHashCache.set(
+          BlockNumber(latestBlockEntry[0]),
+          BlockHash.fromBuffer(latestBlockEntry[1].blockHash).toString(),
+        );
+      }
+
+      const loadBlockHash = async (blockNumber: BlockNumber): Promise<string> => {
+        if (!blockHashCache.has(blockNumber)) {
+          const blockStorage = await this.#blocks.getAsync(blockNumber);
+          if (!blockStorage) {
+            throw new BlockNotFoundError(blockNumber);
+          }
+          blockHashCache.set(blockNumber, BlockHash.fromBuffer(blockStorage.blockHash).toString());
+        }
+        return blockHashCache.get(blockNumber)!;
+      };
+
+      const proposed =
+        latestBlockEntry === undefined
+          ? genesisBlockId
+          : {
+              number: BlockNumber(latestBlockEntry[0]),
+              hash: BlockHash.fromBuffer(latestBlockEntry[1].blockHash).toString(),
+            };
+
+      const buildTipFromCheckpoint = async (stored: CheckpointStorage | undefined): Promise<L2TipId> => {
+        if (!stored) {
+          return genesisTip;
+        }
+        const blockNumber = BlockNumber(stored.startBlock + stored.blockCount - 1);
+        return {
+          block: { number: blockNumber, hash: await loadBlockHash(blockNumber) },
+          checkpoint: {
+            number: CheckpointNumber(stored.checkpointNumber),
+            hash: CheckpointHeader.fromBuffer(stored.header).hash().toString(),
+          },
+        };
+      };
+
+      const [checkpointed, proven, finalized] = await Promise.all([
+        buildTipFromCheckpoint(latestCheckpointEntry?.[1]),
+        buildTipFromCheckpoint(provenCheckpoint),
+        buildTipFromCheckpoint(finalizedCheckpoint),
+      ]);
+
+      if (proposed.number < checkpointed.block.number) {
+        throw new Error(
+          `Inconsistent block store: latest block ${proposed.number} is behind checkpointed block ${checkpointed.block.number}`,
+        );
+      }
+
+      if (
+        finalized.checkpoint.number > proven.checkpoint.number ||
+        proven.checkpoint.number > checkpointed.checkpoint.number
+      ) {
+        throw new Error(
+          `Inconsistent checkpoint numbers in chain tips: finalized=${finalized.checkpoint.number} proven=${proven.checkpoint.number} checkpointed=${checkpointed.checkpoint.number}`,
+        );
+      }
+
+      if (
+        finalized.block.number > proven.block.number ||
+        proven.block.number > checkpointed.block.number ||
+        checkpointed.block.number > proposed.number
+      ) {
+        throw new Error(
+          `Inconsistent block numbers in chain tips: finalized=${finalized.block.number} proven=${proven.block.number} checkpointed=${checkpointed.block.number} proposed=${proposed.number}`,
+        );
+      }
+
+      return { proposed, checkpointed, proven, finalized };
+    });
   }
 
   async getLatestCheckpointNumber(): Promise<CheckpointNumber> {
