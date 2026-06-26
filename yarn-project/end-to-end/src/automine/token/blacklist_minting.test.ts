@@ -2,19 +2,18 @@ import { computeSecretHash } from '@aztec/aztec.js/crypto';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { TxHash } from '@aztec/aztec.js/tx';
 
-import { AUTOMINE_E2E_OPTS } from '../fixtures/fixtures.js';
-import { U128_OVERFLOW_ERROR } from '../fixtures/index.js';
+import { U128_OVERFLOW_ERROR } from '../../fixtures/index.js';
 import { BlacklistTokenContractTest } from './blacklist_token_contract_test.js';
 
 // Covers public and private minting on TokenBlacklist, including minter role enforcement and blacklist
 // restrictions on recipients. Setup: single node with AutomineSequencer, 3 accounts, TokenBlacklist
 // deployed with initial balances (applyMint). Role-change delay requires time-warp during setup.
-describe('e2e_blacklist_token_contract mint', () => {
+describe('automine/token/blacklist_minting', () => {
   const t = new BlacklistTokenContractTest('mint');
   let { asset, tokenSim, adminAddress, otherAddress, blacklistedAddress } = t;
 
   beforeAll(async () => {
-    await t.setup({ ...AUTOMINE_E2E_OPTS });
+    await t.setup();
     // Beware that we are adding the admin as minter here, which is very slow because it needs multiple blocks.
     await t.applyMint();
     // Have to destructure again to ensure we have latest refs.

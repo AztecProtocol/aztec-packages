@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/aztec.js/fields';
 
-import { AUTOMINE_E2E_OPTS, U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
-import { type AlertConfig, GrafanaClient } from '../quality_of_service/grafana_client.js';
+import { U128_UNDERFLOW_ERROR } from '../../fixtures/fixtures.js';
+import { type AlertConfig, GrafanaClient } from '../../quality_of_service/grafana_client.js';
 import { TokenContractTest } from './token_contract_test.js';
 
 const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';
@@ -21,14 +21,14 @@ const qosAlerts: AlertConfig[] = [
 // Covers the transfer_in_public entry point on Token contract: direct, self, authwit-delegated, authwit
 // cancellation (two flows), and bad-account validation. Also conditionally checks Grafana QoS alerts when
 // CHECK_ALERTS=true. Setup: single node with AutomineSequencer, Token deployed with initial mint.
-describe('e2e_token_contract transfer public', () => {
+describe('automine/token/transfer_in_public', () => {
   const t = new TokenContractTest('transfer_in_public');
   let { asset, tokenSim, wallet, adminAddress, account1Address, badAccount } = t;
 
   beforeAll(async () => {
     t.applyBaseSnapshots();
     t.applyMintSnapshot();
-    await t.setup({ ...AUTOMINE_E2E_OPTS });
+    await t.setup();
     // Have to destructure again to ensure we have latest refs.
     ({ asset, tokenSim, wallet, adminAddress, account1Address, badAccount } = t);
   });

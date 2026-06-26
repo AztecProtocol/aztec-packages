@@ -1,28 +1,18 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { computeSecretHash } from '@aztec/aztec.js/crypto';
 import { Fr } from '@aztec/aztec.js/fields';
-import { type Logger, createLogger } from '@aztec/aztec.js/log';
-import type { AztecNode } from '@aztec/aztec.js/node';
+import { createLogger } from '@aztec/aztec.js/log';
 import type { TxHash } from '@aztec/aztec.js/tx';
-import type { CheatCodes } from '@aztec/aztec/testing';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBlacklistContract } from '@aztec/noir-contracts.js/TokenBlacklist';
 import { GenericProxyContract } from '@aztec/noir-test-contracts.js/GenericProxy';
 import { InvalidAccountContract } from '@aztec/noir-test-contracts.js/InvalidAccount';
-import type { SequencerClient } from '@aztec/sequencer-client';
-import type { AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 
 import { jest } from '@jest/globals';
 
-import {
-  type EndToEndContext,
-  type SetupOptions,
-  ensureAuthRegistryPublished,
-  setup,
-  teardown,
-} from '../fixtures/setup.js';
-import { TokenSimulator } from '../simulators/token_simulator.js';
-import type { TestWallet } from '../test-wallet/test_wallet.js';
+import { ensureAuthRegistryPublished } from '../../fixtures/setup.js';
+import { TokenSimulator } from '../../simulators/token_simulator.js';
+import { AutomineTestContext, type AutomineTestOpts } from '../automine_test_context.js';
 
 export class Role {
   private isAdmin = false;
@@ -51,37 +41,33 @@ export class Role {
   }
 }
 
-export class BlacklistTokenContractTest {
+/**
+ * TokenBlacklist-domain harness over the automine topology: extends {@link AutomineTestContext} with a
+ * {@link TokenSimulator}, the {@link Role} helper, the TokenBlacklist deploy plus a bad-account and
+ * authwit proxy, and the role-change-delay warp. Base setup and mint run in {@link setup}.
+ */
+export class BlacklistTokenContractTest extends AutomineTestContext {
   // This value MUST match the same value that we have in the contract
   static CHANGE_ROLES_DELAY = 86400;
 
-  context!: EndToEndContext;
-  logger: Logger;
-  wallet!: TestWallet;
   asset!: TokenBlacklistContract;
   tokenSim!: TokenSimulator;
   badAccount!: InvalidAccountContract;
   authwitProxy!: GenericProxyContract;
-  cheatCodes!: CheatCodes;
-  sequencer!: SequencerClient;
-  aztecNode!: AztecNode & AztecNodeDebug;
 
   adminAddress!: AztecAddress;
   otherAddress!: AztecAddress;
   blacklistedAddress!: AztecAddress;
 
+  private testName: string;
+
   constructor(testName: string) {
-    this.logger = createLogger(`e2e:e2e_blacklist_token_contract:${testName}`);
+    super();
+    this.testName = testName;
   }
 
   async crossTimestampOfChange() {
-    // Under AUTOMINE_E2E_OPTS, the 86400s warp crosses many epochs without any proofs being
-    // submitted. Mark current pending checkpoints as proven first so the rollup contract's
-    // pruning window doesn't reset the chain tip to genesis (which would make the warp's
-    // own empty-checkpoint propose fail with Rollup__InvalidArchive). See the AutomineSequencer
-    // README "Epoch proving caveat" and the equivalent pattern in lending_simulator.progressSlots.
-    await this.cheatCodes.rollup.markAsProven();
-    await this.cheatCodes.warpL2TimeAtLeastBy(this.aztecNode, BlacklistTokenContractTest.CHANGE_ROLES_DELAY);
+    await this.markProvenAndWarp(BlacklistTokenContractTest.CHANGE_ROLES_DELAY);
   }
 
   /**
@@ -139,17 +125,11 @@ export class BlacklistTokenContractTest {
     ).toEqual(new Role().withAdmin().toNoirStruct());
   }
 
-  async setup(opts: Partial<SetupOptions> = {}) {
-    this.logger.info('Setting up fresh context');
-    this.context = await setup(3, {
-      ...opts,
-      fundSponsoredFPC: true,
-    });
+  override async setup(opts: AutomineTestOpts = {}) {
+    await super.setup({ numberOfAccounts: 3, ...opts });
+    // hydrateFromContext repoints `this.logger` at the context logger; restore the harness-named one.
+    this.logger = createLogger(`e2e:automine:blacklist:${this.testName}`);
     await this.applyBaseSetup();
-  }
-
-  async teardown() {
-    await teardown(this.context);
   }
 
   async addPendingShieldNoteToPXE(

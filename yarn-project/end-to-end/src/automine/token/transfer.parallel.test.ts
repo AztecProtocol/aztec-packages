@@ -2,21 +2,20 @@ import { AztecAddress, CompleteAddress } from '@aztec/aztec.js/addresses';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { TokenContract, type Transfer } from '@aztec/noir-contracts.js/Token';
 
-import { AUTOMINE_E2E_OPTS } from '../fixtures/fixtures.js';
 import { TokenContractTest } from './token_contract_test.js';
 
 // Covers the top-level transfer() entry point on Token contract (private-to-private), including transfer to
 // non-deployed accounts and private Transfer event emission. Note: the describe title collides with
 // transfer_in_private.test.ts — the tested contract methods differ (transfer vs transfer_in_private).
 // Setup: single node with AutomineSequencer, 3 accounts, Token deployed with initial mint.
-describe('e2e_token_contract transfer private', () => {
+describe('automine/token/transfer', () => {
   const t = new TokenContractTest('transfer_private');
   let { asset, adminAddress, wallet, account1Address, tokenSim } = t;
 
   beforeAll(async () => {
     t.applyBaseSnapshots();
     t.applyMintSnapshot();
-    await t.setup({ ...AUTOMINE_E2E_OPTS });
+    await t.setup();
     ({ asset, adminAddress, wallet, account1Address, tokenSim } = t);
   });
 

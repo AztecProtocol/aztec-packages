@@ -1,20 +1,19 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { TokenContract, type Transfer } from '@aztec/noir-contracts.js/Token';
 
-import { AUTOMINE_E2E_OPTS } from '../fixtures/fixtures.js';
-import { mintNotes } from '../fixtures/token_utils.js';
+import { mintNotes } from '../../fixtures/token_utils.js';
 import { TokenContractTest } from './token_contract_test.js';
 
 // Verifies that the Token contract's private transfer function correctly handles note consolidation across
 // recursive calls (consuming many notes via two levels of recursion). Also checks that private Transfer
 // events are emitted and readable. Setup: single node with AutomineSequencer, 3 accounts, Token deployed.
-describe('e2e_token_contract private transfer recursion', () => {
+describe('automine/token/private_transfer_recursion', () => {
   const t = new TokenContractTest('odd_transfer_private');
   let { asset, wallet, adminAddress, account1Address, node } = t;
 
   beforeAll(async () => {
     t.applyBaseSnapshots();
-    await t.setup({ ...AUTOMINE_E2E_OPTS });
+    await t.setup();
     ({ asset, wallet, adminAddress, account1Address, node } = t);
   });
 

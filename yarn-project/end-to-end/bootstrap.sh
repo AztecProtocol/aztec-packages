@@ -40,6 +40,7 @@ function test_cmds {
     src/automine/contracts/*.test.ts
     src/automine/contracts/deploy/*.test.ts
     src/automine/contracts/nested/*.test.ts
+    src/automine/token/*.test.ts
     src/single-node/block-building/*.test.ts
     src/single-node/proving/*.test.ts
     src/single-node/l1-reorgs/*.test.ts
@@ -302,6 +303,7 @@ function compat_test_cmds {
     src/automine/contracts/*.test.ts
     src/automine/contracts/deploy/*.test.ts
     src/automine/contracts/nested/*.test.ts
+    src/automine/token/*.test.ts
     src/single-node/fees/*.test.ts
     src/single-node/cross-chain/*.test.ts
     src/single-node/bot/*.test.ts

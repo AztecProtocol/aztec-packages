@@ -15,7 +15,7 @@ import { mkdtemp } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { BlacklistTokenContractTest, Role } from '../e2e_blacklist_token_contract/blacklist_token_contract_test.js';
+import { BlacklistTokenContractTest, Role } from '../automine/token/blacklist_token_contract_test.js';
 import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import { type EndToEndContext, setup } from '../fixtures/utils.js';
 import type { TestWallet } from '../test-wallet/test_wallet.js';

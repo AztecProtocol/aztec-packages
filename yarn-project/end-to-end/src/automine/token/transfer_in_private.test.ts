@@ -1,21 +1,21 @@
 import { computeAuthWitMessageHash, computeInnerAuthWitHashFromAction } from '@aztec/aztec.js/authorization';
 import { Fr } from '@aztec/aztec.js/fields';
 
-import { sendThroughAuthwitProxy, simulateThroughAuthwitProxy } from '../fixtures/authwit_proxy.js';
-import { AUTOMINE_E2E_OPTS, DUPLICATE_NULLIFIER_ERROR } from '../fixtures/fixtures.js';
+import { sendThroughAuthwitProxy, simulateThroughAuthwitProxy } from '../../fixtures/authwit_proxy.js';
+import { DUPLICATE_NULLIFIER_ERROR } from '../../fixtures/fixtures.js';
 import { TokenContractTest } from './token_contract_test.js';
 
 // Covers the transfer_in_private entry point on Token contract: authwit-delegated transfers via proxy,
 // authwit cancellation, and error paths including bad-account validation. Setup: single node with
 // AutomineSequencer, 3 accounts + InvalidAccount, Token deployed with initial mint.
-describe('e2e_token_contract transfer private', () => {
+describe('automine/token/transfer_in_private', () => {
   const t = new TokenContractTest('transfer_private');
   let { asset, tokenSim, wallet, adminAddress, account1Address, badAccount } = t;
 
   beforeAll(async () => {
     t.applyBaseSnapshots();
     t.applyMintSnapshot();
-    await t.setup({ ...AUTOMINE_E2E_OPTS });
+    await t.setup();
     ({ asset, tokenSim, wallet, adminAddress, account1Address, badAccount } = t);
   });
 

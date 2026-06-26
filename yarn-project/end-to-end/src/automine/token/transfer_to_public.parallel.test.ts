@@ -1,21 +1,21 @@
 import { computeAuthWitMessageHash } from '@aztec/aztec.js/authorization';
 import { Fr } from '@aztec/aztec.js/fields';
 
-import { sendThroughAuthwitProxy, simulateThroughAuthwitProxy } from '../fixtures/authwit_proxy.js';
-import { AUTOMINE_E2E_OPTS, DUPLICATE_NULLIFIER_ERROR } from '../fixtures/fixtures.js';
+import { sendThroughAuthwitProxy, simulateThroughAuthwitProxy } from '../../fixtures/authwit_proxy.js';
+import { DUPLICATE_NULLIFIER_ERROR } from '../../fixtures/fixtures.js';
 import { TokenContractTest } from './token_contract_test.js';
 
 // Covers the transfer_to_public entry point on Token contract (private→public): direct, authwit-delegated
 // via proxy, and error paths. Setup: single node with AutomineSequencer, 3 accounts, Token deployed with
 // initial mint.
-describe('e2e_token_contract transfer_to_public', () => {
+describe('automine/token/transfer_to_public', () => {
   const t = new TokenContractTest('transfer_to_public');
   let { asset, wallet, adminAddress, account1Address, tokenSim } = t;
 
   beforeAll(async () => {
     t.applyBaseSnapshots();
     t.applyMintSnapshot();
-    await t.setup({ ...AUTOMINE_E2E_OPTS });
+    await t.setup();
     // Have to destructure again to ensure we have latest refs.
     ({ asset, wallet, adminAddress, account1Address, tokenSim } = t);
   });

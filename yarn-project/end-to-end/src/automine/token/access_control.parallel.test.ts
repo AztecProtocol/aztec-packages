@@ -1,15 +1,14 @@
-import { AUTOMINE_E2E_OPTS } from '../fixtures/fixtures.js';
 import { TokenContractTest } from './token_contract_test.js';
 
 // Covers admin and minter role management on the Token contract: set_admin, set_minter, and failure cases
 // when called by a non-admin. Setup: single node with AutomineSequencer (AUTOMINE_E2E_OPTS), 3 accounts
 // deployed, Token contract deployed. No time-warp needed (Token has no role-change delay).
-describe('e2e_token_contract access control', () => {
+describe('automine/token/access_control', () => {
   const t = new TokenContractTest('access_control');
 
   beforeAll(async () => {
     t.applyBaseSnapshots();
-    await t.setup({ ...AUTOMINE_E2E_OPTS });
+    await t.setup();
   });
 
   afterAll(async () => {

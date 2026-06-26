@@ -1,18 +1,17 @@
 import { readFieldCompressedString } from '@aztec/aztec.js/utils';
 
-import { AUTOMINE_E2E_OPTS } from '../fixtures/fixtures.js';
 import { TokenContractTest } from './token_contract_test.js';
 
 // Verifies that Token contract constants (name, symbol, decimals) are readable from both private and public
 // entry points and match the values supplied at deploy time. Setup: single node with AutomineSequencer,
 // Token contract deployed with TOKEN_NAME/SYMBOL/DECIMALS.
-describe('e2e_token_contract reading constants', () => {
+describe('automine/token/reading_constants', () => {
   const t = new TokenContractTest('reading_constants');
   const { TOKEN_DECIMALS, TOKEN_NAME, TOKEN_SYMBOL } = TokenContractTest;
 
   beforeAll(async () => {
     t.applyBaseSnapshots();
-    await t.setup({ ...AUTOMINE_E2E_OPTS });
+    await t.setup();
   });
 
   afterAll(async () => {
