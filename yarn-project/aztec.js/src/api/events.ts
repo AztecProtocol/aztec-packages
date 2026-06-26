@@ -1,18 +1,16 @@
 import { DomainSeparator } from '@aztec/constants';
 import { type EventMetadataDefinition, decodeFromAbi } from '@aztec/stdlib/abi';
 import { computeLogTag } from '@aztec/stdlib/hash';
-import { MAX_LOGS_PER_TAG } from '@aztec/stdlib/interfaces/api-limit';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import { type PublicLogsQuery, Tag } from '@aztec/stdlib/logs';
+import { type PublicLogsQuery, Tag, queryAllPublicLogsByTags } from '@aztec/stdlib/logs';
 
 import type { PublicEvent, PublicEventFilter } from '../wallet/wallet.js';
 
-/** Result of a paginated public event query. */
+/** Result of a public event query. */
 export type GetPublicEventsResult<T> = {
   /** The decoded events with metadata. */
   events: PublicEvent<T>[];
-  /** Whether the per-tag log limit was reached, indicating more results may be available — pass back the last
-   * event's metadata as an `afterLog` cursor to continue. */
+  /** Currently unused, always `false`. Retained for API stability. */
   maxLogsHit: boolean;
 };
 
@@ -26,8 +24,9 @@ export type GetPublicEventsResult<T> = {
  *   - `txHash`: Transaction in which the events were emitted (mutually exclusive with `fromBlock`/`toBlock`).
  *   - `fromBlock`: The block number from which to start fetching events (inclusive). Optional.
  *   - `toBlock`: The block number until which to fetch events (not inclusive). Optional.
- *   - `afterLog`: Log cursor after which to start fetching logs. Used for pagination.
- * @returns The decoded events with metadata and a flag indicating if more results are available.
+ *   - `afterLog`: Log cursor to resume strictly after. Optional. When set, only events after this cursor
+ *     are returned.
+ * @returns All decoded events with metadata, plus `maxLogsHit=false` (retained for backwards compatibility).
  */
 export async function getPublicEvents<T>(
   node: AztecNode,
@@ -47,7 +46,7 @@ export async function getPublicEvents<T>(
     txHash: filter.txHash,
   };
 
-  const [logsForTag] = await node.getPublicLogsByTags(query);
+  const [logsForTag] = await queryAllPublicLogsByTags(node, query);
   const events: PublicEvent<T>[] = logsForTag.map(log => ({
     event: decodeFromAbi([eventMetadataDef.abiType], log.logData.slice(1)) as T,
     metadata: {
@@ -58,5 +57,7 @@ export async function getPublicEvents<T>(
     },
   }));
 
-  return { events, maxLogsHit: logsForTag.length === MAX_LOGS_PER_TAG };
+  // Note we use `queryAllPublicLogsByTags`, so there will never be logs pending pagination, hence `maxLogsHit` is set
+  // to `false`. We keep the return shape for backwards compatibility.
+  return { events, maxLogsHit: false };
 }
