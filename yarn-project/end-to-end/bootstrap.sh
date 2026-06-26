@@ -140,9 +140,7 @@ function test_cmds {
     fi
   done
 
-  #echo "$hash:ONLY_TERM_PARENT=1 $run_test_script simple src/e2e_multi_validator/e2e_multi_validator_node.test.ts"
   #echo "$hash:ONLY_TERM_PARENT=1 $run_test_script web3signer src/composed/web3signer/integration_remote_signer.test.ts"
-  #echo "$hash:ONLY_TERM_PARENT=1 $run_test_script web3signer src/e2e_multi_validator/e2e_multi_validator_node_key_store.test.ts"
 
   # compose-based tests with custom scripts
   for flow in ../cli-wallet/test/flows/*.sh; do
