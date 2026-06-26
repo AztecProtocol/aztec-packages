@@ -75,8 +75,9 @@
 //! [`OffchainReception::step`] is invoked. [`OffchainReception::step`] implements the rest of the reception state
 //! machine described above.
 //!
-//! When stepping, if the transaction to the message is found onchain, an `OFFCHAIN_MESSAGE_PROCESSED` [retractable
-//! fact](crate::facts::record_retractable_fact) associated to the block where the transaction was found is recorded.
+//! When stepping, if the transaction to the message is found onchain, an `OFFCHAIN_MESSAGE_PROCESSED`
+//! [retractable fact](crate::facts::record_retractable_fact) associated to the block where the transaction was found is
+//! recorded.
 //! Note that since this fact is retractable, a reorg dropping said block would result in the fact being automatically
 //! removed by PXE, effectively pushing the reception process back to `RECEIVED` state.
 //!
