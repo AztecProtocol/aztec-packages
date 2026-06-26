@@ -2,10 +2,8 @@ import type { Bufferable } from '@aztec/foundation/serialize';
 
 import { strict as assert } from 'assert';
 
-import type { AvmContext } from '../avm_context.js';
-import { type Gas, computeAddressingCost, getBaseGasCost, getDynamicGasCost, mulGas, sumGas } from '../avm_gas.js';
-import type { BufferCursor } from '../serialization/buffer_cursor.js';
-import { Opcode, type OperandType, deserialize, serializeAs } from '../serialization/instruction_serialization.js';
+import type { BufferCursor } from './serialization/buffer_cursor.js';
+import { Opcode, type OperandType, deserialize, serializeAs } from './serialization/instruction_serialization.js';
 
 type InstructionConstructor = {
   new (...args: any[]): Instruction;
@@ -16,13 +14,6 @@ type InstructionConstructor = {
  * It's most important aspects are execute and (de)serialize.
  */
 export abstract class Instruction {
-  /**
-   * Consumes gas and executes the instruction.
-   * This is the main entry point for the instruction.
-   * @param context - The AvmContext in which the instruction executes.
-   */
-  public abstract execute(context: AvmContext): Promise<void>;
-
   /**
    * Whether the instruction will modify the PC itself.
    */
@@ -91,23 +82,6 @@ export abstract class Instruction {
         return new this(...args);
       },
     });
-  }
-
-  /**
-   * Returns the base gas cost for the instruction.
-   * @returns The base gas cost.
-   */
-  protected baseGasCost(indirectOperandsCount: number, relativeOperandsCount: number): Gas {
-    return sumGas(getBaseGasCost(this.opcode), computeAddressingCost(indirectOperandsCount, relativeOperandsCount));
-  }
-
-  /**
-   * Computes the dynamic gas cost for the instruction
-   * @param dynMultiplier - The multiplier for the dynamic gas cost.
-   * @returns The dynamic gas cost.
-   */
-  protected dynamicGasCost(dynMultiplier: number = 0): Gas {
-    return mulGas(getDynamicGasCost(this.opcode), dynMultiplier);
   }
 
   /**

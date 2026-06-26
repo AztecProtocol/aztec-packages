@@ -1,15 +1,14 @@
 import { strict as assert } from 'assert';
 
-import { TypeTag } from '../avm/avm_memory_types.js';
-import { Addressing, AddressingMode } from '../avm/opcodes/addressing_mode.js';
-import { Add, CalldataCopy, Cast, Jump, Return, Set } from '../avm/opcodes/index.js';
-import { encodeToBytecode } from '../avm/serialization/bytecode_serialization.js';
+import { TypeTag } from '../avm/testing/avm_memory_types.js';
+import { Add, Addressing, AddressingMode, CalldataCopy, Cast, Jump, Return, Set } from '../avm/testing/opcodes.js';
+import { encodeToBytecode } from '../avm/testing/serialization/bytecode_serialization.js';
 import {
   MAX_OPCODE_VALUE,
   Opcode,
   OperandType,
   getOperandSize,
-} from '../avm/serialization/instruction_serialization.js';
+} from '../avm/testing/serialization/instruction_serialization.js';
 import { deployAndExecuteCustomBytecode } from './custom_bytecode_tester.js';
 import { PublicTxSimulationTester } from './public_tx_simulation_tester.js';
 

@@ -4,7 +4,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { strict as assert } from 'assert';
 
 import { AvmParsingError, InvalidOpcodeError, InvalidTagValueError } from '../errors.js';
-import { Add, Call, EnvironmentVariable, GetEnvVar, Set, StaticCall, Sub } from '../opcodes/index.js';
+import { Add, Call, EnvironmentVariable, GetEnvVar, Set, StaticCall, Sub } from '../opcodes.js';
 import type { BufferCursor } from './buffer_cursor.js';
 import { type InstructionSet, decodeFromBytecode, encodeToBytecode } from './bytecode_serialization.js';
 import { MAX_OPCODE_VALUE, Opcode } from './instruction_serialization.js';

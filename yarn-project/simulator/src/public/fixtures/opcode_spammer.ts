@@ -170,7 +170,15 @@ import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import assert from 'assert';
 
-import { Field, type MemoryValue, TaggedMemory, TypeTag, Uint1, Uint32, Uint64 } from '../avm/avm_memory_types.js';
+import {
+  Field,
+  type MemoryValue,
+  TaggedMemory,
+  TypeTag,
+  Uint1,
+  Uint32,
+  Uint64,
+} from '../avm/testing/avm_memory_types.js';
 import {
   Add,
   And,
@@ -218,9 +226,9 @@ import {
   SuccessCopy,
   ToRadixBE,
   Xor,
-} from '../avm/opcodes/index.js';
-import { encodeToBytecode } from '../avm/serialization/bytecode_serialization.js';
-import { Opcode } from '../avm/serialization/instruction_serialization.js';
+} from '../avm/testing/opcodes.js';
+import { encodeToBytecode } from '../avm/testing/serialization/bytecode_serialization.js';
+import { Opcode } from '../avm/testing/serialization/instruction_serialization.js';
 import { deployCustomBytecode, executeCustomBytecode } from './custom_bytecode_tester.js';
 import type { PublicTxSimulationTester } from './public_tx_simulation_tester.js';
 

@@ -13,12 +13,7 @@ describe('C++ Exception Handling during Public Tx Simulation', () => {
 
   beforeEach(async () => {
     worldStateService = await NativeWorldStateService.tmp();
-    tester = await PublicTxSimulationTester.create(
-      worldStateService,
-      /*globals=*/ undefined,
-      /*metrics=*/ undefined,
-      /*useCppSimulator=*/ true, // Use C++ simulator
-    );
+    tester = await PublicTxSimulationTester.create(worldStateService, /*globals=*/ undefined, /*metrics=*/ undefined);
     avmTestContractInstance = await tester.registerAndDeployContract(
       /*constructorArgs=*/ [],
       /*deployer=*/ AztecAddress.fromNumber(420),
