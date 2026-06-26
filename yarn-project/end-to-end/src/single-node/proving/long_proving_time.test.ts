@@ -24,13 +24,27 @@ describe('single-node/proving/long_proving_time', () => {
     //  1) base parity, 2) root parity, 3) empty block, and 4) epoch root.
     // So we delay proving of each circuit such that each epoch takes 3 epochs to prove.
     const aztecEpochDuration = 2;
-    const { aztecSlotDuration } = SingleNodeTestContext.getSlotDurations({ aztecEpochDuration });
+    // The body is bounded by the real-wall-clock prover delay (a `sleep`, not the date provider, so
+    // warping cannot shrink it): a single agent serially sleeps `proverTestDelayMs` per circuit. Both
+    // the block-build cadence and the proving delay scale with the slot duration, so shrinking the L1
+    // slot (4s, the established FAST_REORG_TIMING L1 cadence) scales the whole timeline down ~3x while
+    // keeping the delay-to-slot ratio — and hence the "proving lags block production by ~3 epochs"
+    // assertion — exactly intact.
+    const ethereumSlotDuration = 4;
+    const aztecSlotDurationInL1Slots = 2;
+    const { aztecSlotDuration } = SingleNodeTestContext.getSlotDurations({
+      aztecEpochDuration,
+      ethereumSlotDuration,
+      aztecSlotDurationInL1Slots,
+    });
     const epochDurationInSeconds = aztecSlotDuration * aztecEpochDuration;
     const proverTestDelayMs = (epochDurationInSeconds * 1000 * 3) / 4;
     // Each epoch takes ~3 epochs to prove, so the broker needs to keep results for
     // at least that many epochs to avoid rejecting jobs as stale.
     test = await setupWithProver({
       aztecEpochDuration,
+      ethereumSlotDuration,
+      aztecSlotDurationInL1Slots,
       aztecProofSubmissionEpochs: 1000, // Effectively don't re-org
       proverTestDelayMs,
       proverNodeMaxPendingJobs: MAX_JOB_COUNT, // Prove multiple epochs concurrently
