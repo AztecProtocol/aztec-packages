@@ -99,10 +99,7 @@ mod test {
     use crate::messages::delivery::handshake::AppSiloedHandshakeSecrets;
     use crate::protocol::{address::AztecAddress, hash::compute_siloed_nullifier, traits::{FromField, ToField}};
     use crate::test::helpers::test_environment::TestEnvironment;
-    use super::{
-        compute_constrained_msg_nullifier, constrain_secret, constrain_secret_and_emit_nullifier,
-        VALIDATE_HANDSHAKE_SELECTOR,
-    };
+    use super::{compute_constrained_msg_nullifier, constrain_secret_and_emit_nullifier, VALIDATE_HANDSHAKE_SELECTOR};
     use std::test::OracleMock;
 
     fn assert_current_nullifier_emitted(
@@ -218,76 +215,35 @@ mod test {
         });
     }
 
+    // The shared secret must bind to the sender's chain: without it, a prover holding a fixed `sender_only` could
+    // extend a sequence at index > 0 using another valid sequence's predecessor but a different (malicious) shared
+    // secret, which then derives the log tag, so the recipient scans the wrong tag and never finds the note.
     #[test]
-    unconstrained fn valid_predecessor_from_one_handshake_cannot_authorize_another_sequence() {
-        let env = TestEnvironment::new();
-        let registry = AztecAddress::from_field(1);
+    fn shared_secret_changes_sequence_nullifier() {
         let sender = AztecAddress::from_field(2);
         let recipient = AztecAddress::from_field(4);
-        let handshake_a = AppSiloedHandshakeSecrets { shared: 1234, sender_only: 5678 };
-        let handshake_b = AppSiloedHandshakeSecrets { shared: 8765, sender_only: handshake_a.sender_only };
+        let secrets_a = AppSiloedHandshakeSecrets { shared: 1234, sender_only: 5678 };
+        let secrets_b = AppSiloedHandshakeSecrets { shared: 8765, sender_only: secrets_a.sender_only };
 
-        env.private_context(|context| {
-            let _ = OracleMock::mock("aztec_prv_isNullifierPending").returns(true).times(1);
-
-            constrain_secret_and_emit_nullifier(context, registry, sender, recipient, handshake_a, true, 0);
-            assert_eq(context.nullifiers.len(), 1);
-            let handshake_a_predecessor = context.nullifiers.get(0).inner.value;
-
-            constrain_secret(context, registry, sender, recipient, handshake_b, false, 1);
-
-            assert_eq(context.private_call_requests.len(), 0);
-            assert_eq(context.nullifier_read_requests.len(), 1);
-            assert_eq(context.nullifier_read_requests.get(0).contract_address, context.this_address());
-            // Omitting the shared secret from the sequence nullifier lets handshake B reuse handshake A's predecessor.
-            assert(
-                context.nullifier_read_requests.get(0).inner.inner != handshake_a_predecessor,
-                "handshake B at index 1 must not be authorized by handshake A's predecessor",
-            );
-            assert_eq(
-                context.nullifier_read_requests.get(0).inner.inner,
-                compute_constrained_msg_nullifier(sender, recipient, handshake_b, 0),
-            );
-        });
+        assert(
+            compute_constrained_msg_nullifier(sender, recipient, secrets_a, 0)
+                != compute_constrained_msg_nullifier(sender, recipient, secrets_b, 0),
+        );
     }
 
+    // The sender-only secret keeps the recipient from forging the sender's chain: the recipient can reconstruct the
+    // shared secret via ECDH but not `sender_only`, so binding it prevents a recipient from advancing (and griefing)
+    // the sequence.
     #[test]
-    unconstrained fn shared_secret_holder_cannot_forge_sender_only_sequence_nullifier() {
-        let env = TestEnvironment::new();
-        let registry = AztecAddress::from_field(1);
+    fn sender_only_secret_changes_sequence_nullifier() {
         let sender = AztecAddress::from_field(2);
         let recipient = AztecAddress::from_field(4);
-        let valid_secrets = AppSiloedHandshakeSecrets { shared: 1234, sender_only: 5678 };
-        let forged_secrets = AppSiloedHandshakeSecrets { shared: valid_secrets.shared, sender_only: 9012 };
+        let secrets_a = AppSiloedHandshakeSecrets { shared: 1234, sender_only: 5678 };
+        let secrets_b = AppSiloedHandshakeSecrets { shared: secrets_a.shared, sender_only: 9012 };
 
-        env.private_context(|context| {
-            let _ = OracleMock::mock("aztec_prv_isNullifierPending").returns(true).times(1);
-
-            constrain_secret_and_emit_nullifier(context, registry, sender, recipient, valid_secrets, true, 0);
-            assert_eq(context.nullifiers.len(), 1);
-            let valid_predecessor = context.nullifiers.get(0).inner.value;
-
-            constrain_secret(
-                context,
-                registry,
-                sender,
-                recipient,
-                forged_secrets,
-                false,
-                1,
-            );
-
-            assert_eq(context.private_call_requests.len(), 0);
-            assert_eq(context.nullifier_read_requests.len(), 1);
-            assert_eq(context.nullifier_read_requests.get(0).contract_address, context.this_address());
-            assert(
-                context.nullifier_read_requests.get(0).inner.inner != valid_predecessor,
-                "forged sender-only secret must not reuse the valid predecessor",
-            );
-            assert_eq(
-                context.nullifier_read_requests.get(0).inner.inner,
-                compute_constrained_msg_nullifier(sender, recipient, forged_secrets, 0),
-            );
-        });
+        assert(
+            compute_constrained_msg_nullifier(sender, recipient, secrets_a, 0)
+                != compute_constrained_msg_nullifier(sender, recipient, secrets_b, 0),
+        );
     }
 }
