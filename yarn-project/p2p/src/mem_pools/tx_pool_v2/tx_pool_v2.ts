@@ -156,8 +156,8 @@ export class AztecKVTxPoolV2 extends (EventEmitter as new () => TypedEventEmitte
     return this.#queue.put(() => Promise.resolve(this.#impl.getPendingTxCount()));
   }
 
-  getEligiblePendingTxCount(): Promise<number> {
-    return this.#queue.put(() => Promise.resolve(this.#impl.getEligiblePendingTxCount()));
+  hasEligiblePendingTxs(minCount: number): Promise<boolean> {
+    return this.#queue.put(() => Promise.resolve(this.#impl.hasEligiblePendingTxs(minCount)));
   }
 
   getMinedTxHashes(): Promise<[TxHash, L2BlockId][]> {

@@ -292,7 +292,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
   /** Set up p2p mock to return the given transactions */
   function mockP2pWithTxs(txs: Tx[]): void {
     p2p.getPendingTxCount.mockResolvedValue(txs.length);
-    p2p.getEligiblePendingTxCount.mockResolvedValue(txs.length);
+    p2p.hasEligiblePendingTxs.mockImplementation(minCount => Promise.resolve(txs.length >= minCount));
     p2p.iterateEligiblePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
   }
 
@@ -435,7 +435,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
     p2p.broadcastProposal.mockResolvedValue(undefined);
     p2p.broadcastCheckpointProposal.mockResolvedValue(undefined);
     p2p.getPendingTxCount.mockResolvedValue(100); // Always have enough txs
-    p2p.getEligiblePendingTxCount.mockResolvedValue(100); // Always have enough eligible txs
+    p2p.hasEligiblePendingTxs.mockResolvedValue(true); // Always have enough eligible txs
 
     worldState = mockDeep<WorldStateSynchronizer>();
     const mockFork = mock<MerkleTreeWriteOperations>({
@@ -1151,7 +1151,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
       const { blocks, txs } = await createTestBlocksAndTxs(2);
       mockP2pWithTxs(txs);
       // Force a single WAITING_FOR_TXS poll before the first block by reporting no eligible txs once.
-      p2p.getEligiblePendingTxCount.mockResolvedValueOnce(0);
+      p2p.hasEligiblePendingTxs.mockResolvedValueOnce(false);
       checkpointBuilder.seedBlocks(
         blocks,
         blocks.map((_, i) => [txs[i]]),

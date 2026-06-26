@@ -1061,7 +1061,7 @@ export class CheckpointProposalJob implements Traceable {
           minTxs,
         });
         this.log.verbose(
-          `Not enough txs to build block ${blockNumber} at index ${indexWithinCheckpoint} in slot ${this.targetSlot} (got ${availableTxs} txs but needs ${minTxs})`,
+          `Not enough age-eligible txs to build block ${blockNumber} at index ${indexWithinCheckpoint} in slot ${this.targetSlot} (needs ${minTxs} eligible, ${availableTxs} pending)`,
           {
             reason: 'insufficient_txs',
             blockNumber,
@@ -1252,26 +1252,25 @@ export class CheckpointProposalJob implements Traceable {
       ? new Date(buildDeadline.getTime() - this.timetable.minBlockDuration * 1000)
       : undefined;
 
-    let availableTxs = await this.p2pClient.getEligiblePendingTxCount();
-
-    while (!forceCreate && availableTxs < minTxs) {
+    // Gate on age-eligible txs so we don't start building on txs the builder would then filter out for being
+    // too fresh. hasEligiblePendingTxs early-exits once minTxs are eligible instead of counting the whole pool.
+    while (!forceCreate && !(await this.p2pClient.hasEligiblePendingTxs(minTxs))) {
       // If we're past deadline, or we have no deadline, give up
       const now = this.dateProvider.nowAsDate();
       if (startBuildingDeadline === undefined || now >= startBuildingDeadline) {
-        return { canStartBuilding: false, availableTxs, minTxs };
+        return { canStartBuilding: false, availableTxs: await this.p2pClient.getPendingTxCount(), minTxs };
       }
 
       // Wait a bit before checking again
       this.setState(SequencerState.WAITING_FOR_TXS);
       this.log.verbose(
-        `Waiting for enough txs to build block ${blockNumber} at index ${indexWithinCheckpoint} in slot ${this.targetSlot} (have ${availableTxs} but need ${minTxs})`,
-        { blockNumber, slot: this.targetSlot, indexWithinCheckpoint },
+        `Waiting for ${minTxs} age-eligible txs to build block ${blockNumber} at index ${indexWithinCheckpoint} in slot ${this.targetSlot}`,
+        { blockNumber, slot: this.targetSlot, indexWithinCheckpoint, minTxs },
       );
       await this.waitForTxsPollingInterval();
-      availableTxs = await this.p2pClient.getEligiblePendingTxCount();
     }
 
-    return { canStartBuilding: true, availableTxs, minTxs };
+    return { canStartBuilding: true, availableTxs: await this.p2pClient.getPendingTxCount(), minTxs };
   }
 
   private async getSignedCommitteeAttestations(

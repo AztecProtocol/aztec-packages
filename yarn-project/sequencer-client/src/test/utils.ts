@@ -90,7 +90,7 @@ export async function makeBlock(txs: Tx[], globalVariables: GlobalVariables): Pr
  */
 export function mockPendingTxs(p2p: MockProxy<P2P>, txs: Tx[]): void {
   p2p.getPendingTxCount.mockResolvedValue(txs.length);
-  p2p.getEligiblePendingTxCount.mockResolvedValue(txs.length);
+  p2p.hasEligiblePendingTxs.mockImplementation(minCount => Promise.resolve(txs.length >= minCount));
   p2p.iteratePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
   p2p.iterateEligiblePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
 }

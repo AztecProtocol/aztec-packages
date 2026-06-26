@@ -814,9 +814,9 @@ export class TxPoolV2Impl {
     return this.#indices.getPendingTxCount();
   }
 
-  getEligiblePendingTxCount(): number {
+  hasEligiblePendingTxs(minCount: number): boolean {
     const maxReceivedAt = this.#dateProvider.now() - this.#config.minTxPoolAgeMs;
-    return this.#indices.getEligiblePendingTxCount(maxReceivedAt);
+    return this.#indices.hasEligiblePendingTxs(maxReceivedAt, minCount);
   }
 
   getMinedTxHashes(): [TxHash, L2BlockId][] {
