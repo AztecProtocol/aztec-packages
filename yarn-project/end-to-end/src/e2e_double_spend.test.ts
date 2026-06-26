@@ -8,6 +8,8 @@ import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
+// Tests that a public nullifier emitted in one tx cannot be emitted again in a subsequent tx.
+// Uses setup(1, AUTOMINE_E2E_OPTS) with one node, automine sequencer, one funded account.
 describe('e2e_double_spend', () => {
   let wallet: Wallet;
   let defaultAccountAddress: AztecAddress;
@@ -33,7 +35,10 @@ describe('e2e_double_spend', () => {
 
   afterAll(() => teardown());
 
+  // Verifies the public nullifier duplicate rejection path: simulation fails, then direct send reverts.
   describe('double spends', () => {
+    // Emits nullifier=1 publicly, then simulates the same — expects "duplicate nullifier" error.
+    // Then sends without simulation and expects REVERTED status.
     it('emits a public nullifier and then tries to emit the same nullifier', async () => {
       const nullifier = new Fr(1);
       await contract.methods.emit_nullifier_public(nullifier).send({ from: defaultAccountAddress });

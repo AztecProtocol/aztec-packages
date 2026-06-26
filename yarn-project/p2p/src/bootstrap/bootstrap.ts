@@ -84,15 +84,21 @@ export class BootstrapNode implements P2PBootstrapApi {
       this.logger.info('Advertised socket address updated', { addr: addr.toString() });
     });
     this.node.on('discovered', async (enr: SignableENR) => {
-      const addr = await enr.getFullMultiaddr('udp');
-      this.logger.verbose(`Discovered new peer`, { enr: enr.encodeTxt(), addr: addr?.toString() });
-      // discv5's discovered() only updates routing table entries that already exist. Nodes that
-      // established a session with an empty-IP ENR are never inserted, so even after their ENR
-      // gains a valid socket address the routing table stays empty and FINDNODE always returns 0
-      // peers. Calling addEnr() here does an insertOrUpdate regardless of prior state, fixing
-      // the routing table so these nodes become discoverable to other peers.
-      if (addr) {
-        this.node.addEnr(enr);
+      try {
+        const addr = await enr.getFullMultiaddr('udp');
+        this.logger.verbose(`Discovered new peer`, { enr: enr.encodeTxt(), addr: addr?.toString() });
+        // discv5's discovered() only updates routing table entries that already exist. Nodes that
+        // established a session with an empty-IP ENR are never inserted, so even after their ENR
+        // gains a valid socket address the routing table stays empty and FINDNODE always returns 0
+        // peers. Calling addEnr() here does an insertOrUpdate regardless of prior state, fixing
+        // the routing table so these nodes become discoverable to other peers.
+        if (addr) {
+          this.node.addEnr(enr);
+        }
+      } catch (err) {
+        // A malformed ENR address field makes the parser throw. As an async listener this would crash
+        // the bootnode on an unhandled rejection — catch, log, and drop the ENR instead.
+        this.logger.warn(`Dropping discovered ENR with unparseable address`, { err });
       }
     });
 

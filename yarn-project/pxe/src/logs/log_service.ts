@@ -1,3 +1,4 @@
+import { PRIVATE_LOG_CIPHERTEXT_LEN } from '@aztec/constants';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import type { GrumpkinScalar, Point } from '@aztec/foundation/curves/grumpkin';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
@@ -9,7 +10,7 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import {
   AppTaggingSecret,
   type LogResult,
-  PendingTaggedLog,
+  type PendingTaggedLog,
   SiloedTag,
   computeSharedTaggingSecret,
 } from '@aztec/stdlib/logs';
@@ -19,7 +20,7 @@ import {
   type LogRetrievalRequest,
   LogSource,
 } from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
-import { LogRetrievalResponse } from '../contract_function_simulator/noir-structs/log_retrieval_response.js';
+import type { LogRetrievalResponse } from '../contract_function_simulator/noir-structs/log_retrieval_response.js';
 import { AddressStore } from '../storage/address_store/address_store.js';
 import type { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
 import type { TaggingSecretSourcesStore } from '../storage/tagging_store/tagging_secret_sources_store.js';
@@ -147,12 +148,14 @@ export class LogService {
   ): Map<RangeKey, { fromBlock?: BlockNumber; toBlock?: BlockNumber; entries: typeof entries }> {
     const groups = new Map<RangeKey, { fromBlock?: BlockNumber; toBlock?: BlockNumber; entries: typeof entries }>();
     for (const entry of entries) {
-      const key = rangeKey(entry.request.fromBlock, entry.request.toBlock);
+      const fromBlock = entry.request.fromBlock.value;
+      const toBlock = entry.request.toBlock.value;
+      const key = rangeKey(fromBlock, toBlock);
       const existing = groups.get(key);
       if (existing) {
         existing.entries.push(entry);
       } else {
-        groups.set(key, { fromBlock: entry.request.fromBlock, toBlock: entry.request.toBlock, entries: [entry] });
+        groups.set(key, { fromBlock, toBlock, entries: [entry] });
       }
     }
     return groups;
@@ -166,12 +169,14 @@ export class LogService {
     if (nullifiers.length === 0) {
       throw new Error(`Log for tx ${log.txHash} returned no nullifiers from the node`);
     }
-    return new LogRetrievalResponse(
-      log.logData.slice(1), // Skip the tag
-      log.txHash,
-      noteHashes,
-      nullifiers[0],
-    );
+    return {
+      // Skip the tag, and clip to the wire cap: public logs can exceed PRIVATE_LOG_CIPHERTEXT_LEN, which is the fixed
+      // size of the oracle's BoundedVec slot. A no-op for private logs, which are already within the cap.
+      logPayload: log.logData.slice(1, 1 + PRIVATE_LOG_CIPHERTEXT_LEN),
+      txHash: log.txHash,
+      uniqueNoteHashesInTx: noteHashes,
+      firstNullifierInTx: nullifiers[0],
+    };
   }
 
   public async fetchTaggedLogs(
@@ -209,7 +214,10 @@ export class LogService {
       if (nullifiers.length === 0) {
         throw new Error(`Log for tx ${log.txHash} returned no nullifiers from the node`);
       }
-      return new PendingTaggedLog(log.logData, log.txHash, noteHashes, nullifiers[0]);
+      return {
+        log: log.logData,
+        context: { txHash: log.txHash, uniqueNoteHashesInTx: noteHashes, firstNullifierInTx: nullifiers[0] },
+      };
     });
   }
 
@@ -232,7 +240,7 @@ export class LogService {
 
     const points = [
       ...(await this.#getSecretsForSenders(recipientCompleteAddress, recipientIvsk)),
-      ...(await this.taggingSecretSourcesStore.getSharedSecrets(recipient)),
+      ...(await this.taggingSecretSourcesStore.getSharedSecretsForRecipient(recipient)),
     ];
     return Promise.all(points.map(secret => AppTaggingSecret.compute(secret, contractAddress, recipient)));
   }

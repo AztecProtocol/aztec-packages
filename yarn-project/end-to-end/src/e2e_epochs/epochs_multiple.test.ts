@@ -8,6 +8,10 @@ import { EpochsTestContext, WORLD_STATE_CHECKPOINT_HISTORY } from './epochs_test
 
 jest.setTimeout(1000 * 60 * 15);
 
+// Suite: verifies that multiple consecutive epochs are proven successfully and that world-state
+// checkpoints are pruned after finalization. Uses EpochsTestContext defaults: single node,
+// prod-seq, interval mining, ethSlot=8s (12s CI), aztecSlot=16s (24s CI), epoch=6,
+// proofSubmissionEpochs=1, fake prover. TARGET_PROVEN_EPOCHS env var controls iteration count.
 // Assumes one block per checkpoint
 describe('e2e_epochs/epochs_multiple', () => {
   let rollup: RollupContract;
@@ -25,6 +29,9 @@ describe('e2e_epochs/epochs_multiple', () => {
     await test.teardown();
   });
 
+  // Loops through targetProvenEpochs epochs: waits for each epoch to end, asserts it is proven,
+  // then verifies the epoch-end block is accessible as a historic block and that earlier blocks
+  // beyond the checkpoint history window have been purged from world state.
   it('successfully proves multiple epochs', async () => {
     const targetProvenEpochs = process.env.TARGET_PROVEN_EPOCHS ? parseInt(process.env.TARGET_PROVEN_EPOCHS) : 3;
     let epochNumber = 0;

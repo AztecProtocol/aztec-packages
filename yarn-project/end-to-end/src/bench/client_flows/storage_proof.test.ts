@@ -17,6 +17,8 @@ import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchma
 
 jest.setTimeout(300_000);
 
+// Storage proof round-trip benchmark. Uses ClientFlowsBenchmark with BENCHMARK_CONFIG; profiles the full
+// buildStorageProofCapsules + contract-call flow for multiple account/fee-method combinations.
 describe('Storage proof benchmark', () => {
   const t = new ClientFlowsBenchmark('storage_proof');
   let userWallet: TestWallet;

@@ -19,7 +19,13 @@ import { mock } from 'jest-mock-extended';
 import { ProverNodeJobMetrics } from '../metrics.js';
 import type { ProofPublishingService, PublishCandidate, PublishOutcome } from '../proof-publishing-service.js';
 import { CheckpointProver } from './checkpoint-prover.js';
-import { EpochSession, type EpochSessionDeps, type EpochSessionHooks, type SessionSpec } from './epoch-session.js';
+import {
+  type EpochProvingJobState,
+  EpochSession,
+  type EpochSessionDeps,
+  type EpochSessionHooks,
+  type SessionSpec,
+} from './epoch-session.js';
 import type { TopTreeProof } from './top-tree-job.js';
 
 describe('EpochSession', () => {
@@ -322,6 +328,34 @@ describe('EpochSession', () => {
       });
       await session.start();
       expect(calls).toEqual(['before', 'prove', 'after']);
+    });
+  });
+
+  // ---------------- state reporting ----------------
+
+  describe('state reporting', () => {
+    it('advances through awaiting-root (while proving) and publishing-proof (while submitting)', async () => {
+      let stateDuringProve: EpochProvingJobState | undefined;
+      let stateDuringSubmit: EpochProvingJobState | undefined;
+      const session = makeSession({
+        hooks: {
+          // beforeProve has already flipped the state by the time the prove runs.
+          topTreeProveOverride: () => {
+            stateDuringProve = session.getState();
+            return Promise.resolve(synthProof);
+          },
+        },
+      });
+      publishingService.submit.mockImplementation(() => {
+        stateDuringSubmit = session.getState();
+        return Promise.resolve('published');
+      });
+
+      const state = await session.start();
+
+      expect(stateDuringProve).toBe('awaiting-root');
+      expect(stateDuringSubmit).toBe('publishing-proof');
+      expect(state).toBe('completed');
     });
   });
 

@@ -14,6 +14,10 @@ import { setup } from './fixtures/utils.js';
 
 // Tests PXE interacting with a node that has pruned relevant blocks, preventing usage of the archive API (which PXE
 // should not rely on).
+//
+// Uses a single node with AutomineSequencer, worldStateCheckpointHistory=2, and
+// aztecProofSubmissionEpochs=1024 (effectively no reorg). markAsProven + extra L1 blocks cause world-state
+// to prune old block data; the test then verifies that PXE can still discover notes from pruned blocks.
 describe('e2e_pruned_blocks', () => {
   jest.setTimeout(5 * 60 * 1000);
 
@@ -68,6 +72,9 @@ describe('e2e_pruned_blocks', () => {
     }
   }
 
+  // Mints half the token amount (tx1), mines enough empty blocks to make that block eligible for pruning,
+  // calls markAsProven + extra L1 blocks to finalize the prune, polls until the archive query on tx1's
+  // block fails, then mints the other half and transfers the full amount. Asserts final balances.
   it('can discover and use notes created in both pruned and available blocks', async () => {
     // This is the only test in this suite so it doesn't seem worthwhile to worry too much about reusable setup etc. For
     // simplicity's sake I just did the entire thing here.
@@ -106,6 +113,8 @@ describe('e2e_pruned_blocks', () => {
     // The same historical query we performed before should now fail since this block is not available anymore. We poll
     // the node for a bit until it processes the blocks we marked as proven, causing the historical query to fail.
     logger.warn(`Awaiting 'unable to find leaf' error from node due to pruned history`);
+    // REFACTOR: hand-rolled poll waiting for world-state prune to propagate; a DSL helper such as
+    // waitForWorldStatePrune(node, blockNumber) should replace this retryUntil loop.
     await retryUntil(
       async () => {
         try {

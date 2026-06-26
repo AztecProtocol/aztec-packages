@@ -21,6 +21,10 @@ import { ensureAuthRegistryPublished } from '../fixtures/setup.js';
 import { expectMapping } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
 
+// Fee behaviour when transactions revert. Uses FeesTest (prod sequencer, pipelining preset:
+// ethSlot=4s, aztecSlot=12s, inboxLag=2, minTxsPerBlock=0, aztecEpochDuration=4,
+// aztecProofSubmissionEpochs=640), fake in-proc prover node, and GasBridgingTestHarness for
+// L1↔L2 fee-juice bridging. Auto-proving is disabled after setup so tests control proving themselves.
 describe('e2e_fees failures', () => {
   // FeesTest.setup + applyFPCSetup chains many dependent txs which run at the
   // ~24s/tx pipelined cadence, exceeding the default 5 min hook window.
@@ -56,6 +60,9 @@ describe('e2e_fees failures', () => {
     await t.teardown();
   });
 
+  // Submits a tx that reverts in public app logic while using the private FPC path. Asserts that the
+  // fee is still paid from the FPC's gas balance, Alice gets a banana refund note, and the sequencer
+  // reward on L1 equals the fee minus prover fee and burn after the epoch is proven.
   it('reverts transactions but still pays fees using PrivateFeePaymentMethod', async () => {
     const outrageousPublicAmountAliceDoesNotHave = t.ALICE_INITIAL_BANANAS * 5n;
     const privateMintedAlicePrivateBananas = t.ALICE_INITIAL_BANANAS;
@@ -90,6 +97,8 @@ describe('e2e_fees failures', () => {
     await expectMapping(t.getGasBalanceFn, [aliceAddress, bananaFPC.address], [initialAliceGas, initialFPCGas]);
 
     // We wait until the proven chain is caught up so all previous fees are paid out.
+    // REFACTOR: manual advanceToNextEpoch + catchUpProvenChain sequence; replace with a single
+    // waitForEpochProven() helper on FeesTest that encapsulates this pattern.
     await t.cheatCodes.rollup.advanceToNextEpoch();
     await t.catchUpProvenChain();
 
@@ -161,6 +170,8 @@ describe('e2e_fees failures', () => {
     );
   });
 
+  // Same as above but using the public FPC path. Verifies the public banana balances are updated
+  // correctly for Alice and the FPC even when the app logic transfer reverts.
   it('reverts transactions but still pays fees using PublicFeePaymentMethod', async () => {
     const outrageousPublicAmountAliceDoesNotHave = t.ALICE_INITIAL_BANANAS * 5n;
     const publicMintedAlicePublicBananas = t.ALICE_INITIAL_BANANAS;
@@ -243,6 +254,8 @@ describe('e2e_fees failures', () => {
     );
   });
 
+  // A tx whose fee-payment setup phase (BuggedSetupFeePaymentMethod) demands more than maxFee causes
+  // both local simulation and the sequencer to reject the tx outright — the tx is never included.
   it('fails transaction that error in setup', async () => {
     const OutrageousPublicAmountAliceDoesNotHave = BigInt(100e12);
 
@@ -271,6 +284,9 @@ describe('e2e_fees failures', () => {
     ).rejects.toThrow(/Transaction (0x)?[0-9a-fA-F]{64} was dropped/i);
   });
 
+  // A tx whose teardown gas limit is zero (BuggedTeardownFeePaymentMethod) reverts in teardown but
+  // is still included in a block. Asserts the tx revert code is REVERTED, Alice was charged up to the
+  // fee limit in setup, and the epoch can still be proven after the revert.
   it('includes transaction that error in teardown', async () => {
     /**
      * We trigger an error in teardown by having the "FPC" call a function that reverts.
@@ -352,6 +368,8 @@ describe('e2e_fees failures', () => {
     await waitForProven(aztecNode, receipt, { provenTimeout });
   });
 
+  // Sends a tx that reverts in both app logic and teardown, then advances the epoch and waits for
+  // the block to be proven. Ensures a double-revert tx can be proven without hanging the prover.
   it('proves transaction where both app logic and teardown revert', async () => {
     const outrageousPublicAmountAliceDoesNotHave = t.ALICE_INITIAL_BANANAS * 5n;
 

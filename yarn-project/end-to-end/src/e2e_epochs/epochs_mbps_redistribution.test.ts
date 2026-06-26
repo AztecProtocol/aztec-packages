@@ -49,6 +49,12 @@ const LATE_TX_COUNT = 7;
 /** Total txs pre-proved before the test begins. */
 const TOTAL_TX_COUNT = EARLY_TX_COUNT + LATE_TX_COUNT;
 
+// Four-validator MBPS suite verifying that the per-block gas budget redistribution mechanism allows
+// late transactions to fill the last blocks of a checkpoint whose earlier blocks were light. Two tests:
+// (1) standard redistribution — early blocks consume minimal budget, late txs all fit across the last
+// blocks; (2) validators should NOT apply the proposer's fair-share multiplier during re-execution —
+// nodes with different perBlockAllocationMultiplier values must still attest for each other's blocks.
+// Uses EpochsTestContext with mockGossipSubNetwork, startProverNode, no initial sequencer.
 /**
  * Verifies that checkpoint budget redistribution lets a burst of late transactions fit into the last
  * blocks of a checkpoint when the earlier blocks were light.
@@ -151,6 +157,10 @@ describe('e2e_epochs/epochs_mbps_redistribution', () => {
     await test?.teardown();
   });
 
+  // Pre-proves TOTAL_TX_COUNT txs. Warps to just before the next L2 slot. Sends the first early tx
+  // before starting sequencers so block-1 is not empty. Feeds remaining early txs one per sub-slot
+  // (waiting for each to be proposed), then dumps all late txs at once. Waits for all txs to be
+  // mined and verifies the late txs landed across the last two blocks (redistribution gave them budget).
   it('redistributes checkpoint budget so a late burst fits across the last two blocks', async () => {
     await setupTest();
 
@@ -266,6 +276,9 @@ describe('e2e_epochs/epochs_mbps_redistribution', () => {
   /**
    * Verifies that validators do NOT apply the proposer's fair-share multiplier when re-executing blocks.
    *
+   * Configures nodes 0/1 with perBlockAllocationMultiplier=10 and nodes 2/3 with the default (1.2),
+   * and keeps the mempool topped up with a background loop.
+   *
    * Two of the four validator nodes are configured with a very large `perBlockAllocationMultiplier` (10),
    * allowing their proposer to pack multiple txs into a single block. The other two keep the default
    * multiplier (1.2), which limits them to 1 tx per block given the tight `maxTxsPerCheckpoint`.
@@ -336,6 +349,8 @@ describe('e2e_epochs/epochs_mbps_redistribution', () => {
         await sleep(1000);
       }
     };
+    // REFACTOR: hand-rolled background sleep loop keeping the mempool above a threshold; replace
+    // with a shared test utility such as startMempoolFeeder(wallet, contract, from, minPending).
     void keepMempoolFull();
 
     // Build a lookup from attester address to validator index for proposer identification.

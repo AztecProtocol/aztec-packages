@@ -5,7 +5,7 @@ import type { P2PClient } from '@aztec/p2p';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { CheckpointReexecutionTracker } from '@aztec/stdlib/checkpoint';
 import type { ChainConfig } from '@aztec/stdlib/config';
-import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
+import type { SlasherConfig, ValidatorClientConfig } from '@aztec/stdlib/interfaces/server';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 
 import type { SentinelConfig } from './config.js';
@@ -17,12 +17,24 @@ export async function createSentinel(
   archiver: L2BlockSource,
   p2p: P2PClient,
   reexecutionTracker: CheckpointReexecutionTracker,
-  config: SentinelConfig & DataStoreConfig & SlasherConfig & Pick<ChainConfig, 'l1ChainId' | 'rollupAddress'>,
+  config: SentinelConfig &
+    DataStoreConfig &
+    SlasherConfig &
+    Pick<ChainConfig, 'l1ChainId' | 'rollupAddress'> &
+    Pick<ValidatorClientConfig, 'disableValidator'>,
   logger = createLogger('node:sentinel'),
 ): Promise<Sentinel | undefined> {
-  if (!config.sentinelEnabled) {
+  const runsValidator = !config.disableValidator;
+  if (!runsValidator && !config.sentinelEnabled) {
+    logger.verbose('Sentinel is disabled');
     return undefined;
   }
+  if (runsValidator) {
+    logger.info('Enabling sentinel since this node runs a validator');
+  } else {
+    logger.info('Enabling sentinel from SENTINEL_ENABLED configuration');
+  }
+
   const kvStore = await createStore('sentinel', SentinelStore.SCHEMA_VERSION, config, logger.getBindings());
   const storeHistoryLength = config.sentinelHistoryLengthInEpochs * epochCache.getL1Constants().epochDuration;
   const storeHistoricEpochPerformanceLength = config.sentinelHistoricEpochPerformanceLengthInEpochs;

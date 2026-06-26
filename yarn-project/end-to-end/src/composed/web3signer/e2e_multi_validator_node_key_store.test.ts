@@ -156,6 +156,9 @@ function verifyKeyStore(directory: string) {
 
 jest.setTimeout(10 * 60 * 1000);
 
+// Multi-validator key-store test using a Web3Signer sidecar (docker-compose web3signer suite). Runs
+// setup() with PIPELINING_SETUP_OPTS and multiple keystores loaded through the NodeKeystoreAdapter and
+// Web3Signer, then verifies that blocks are proposed and proven across VALIDATOR_COUNT validators.
 describe('e2e_multi_validator_node', () => {
   let initialValidatorPrivateKeys: `0x${string}`[];
   let validatorAddresses: `0x${string}`[];

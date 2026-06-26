@@ -1,5 +1,4 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { Point } from '@aztec/foundation/curves/grumpkin';
 import { FieldReader } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -7,7 +6,7 @@ import { AppTaggingSecretKind, Tag } from '@aztec/stdlib/logs';
 
 import { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
-import { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
+import { type LogRetrievalRequest, LogSource } from '../noir-structs/log_retrieval_request.js';
 import { Option } from '../noir-structs/option.js';
 import {
   ARRAY,
@@ -181,10 +180,12 @@ describe('oracle type mappings', () => {
       expect(out.maxLength).toBe(3);
     });
 
-    it('round-trips a vec of multi-field elements', async () => {
-      // A point spans two fields, so its elementSize is 2.
-      const data = [await Point.random(), await Point.random()];
-      const out = roundTrip(BOUNDED_VEC(POINT), BoundedVec.from({ data, maxLength: 3, elementSize: 2 }));
+    it('round-trips a vec of multi-field elements', () => {
+      const data = [
+        { x: Fr.random(), y: Fr.random() },
+        { x: Fr.random(), y: Fr.random() },
+      ];
+      const out = roundTrip(BOUNDED_VEC(POINT), BoundedVec.from({ data, maxLength: 3 }));
       expect(out.data).toEqual(data);
       expect(out.maxLength).toBe(3);
     });
@@ -192,7 +193,7 @@ describe('oracle type mappings', () => {
     it('round-trips a vec of multi-slot elements', () => {
       const present = Fr.random();
       const data = [Option.some(present), Option.none<Fr>()];
-      const vec = BoundedVec.from({ data, maxLength: 3, elementSize: 2 });
+      const vec = BoundedVec.from({ data, maxLength: 3 });
       const out = roundTrip(BOUNDED_VEC(OPTION(FIELD)), vec);
       expect(out.data.map(o => o.isSome())).toEqual([true, false]);
       expect(out.data[0].value).toEqual(present);
@@ -256,7 +257,13 @@ describe('oracle type mappings', () => {
     });
 
     it('rejects a multi-field row with trailing fields', async () => {
-      const row = new LogRetrievalRequest(await AztecAddress.random(), new Tag(Fr.random())).toFields();
+      const row = toRow<LogRetrievalRequest>(LOG_RETRIEVAL_REQUEST, {
+        contractAddress: await AztecAddress.random(),
+        tag: new Tag(Fr.random()),
+        source: LogSource.PUBLIC_AND_PRIVATE,
+        fromBlock: Option.none(),
+        toBlock: Option.none(),
+      });
       expect(() => readEphemeralArray(LOG_RETRIEVAL_REQUEST, [[...row, Fr.random()]])).toThrow(
         'unexpected trailing field(s)',
       );

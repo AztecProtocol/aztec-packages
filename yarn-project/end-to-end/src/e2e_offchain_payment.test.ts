@@ -15,6 +15,9 @@ import { proveInteraction } from './test-wallet/utils.js';
 
 const TIMEOUT = 300_000;
 
+// Tests the OffchainPayment contract's offchain message delivery mechanism. Uses a single node with the
+// AutomineSequencer so each tx mines a block immediately. Also exercises the AutomineSequencer's
+// revertToCheckpoint to simulate a reorg and verify that offchain-delivered notes are reprocessed correctly.
 describe('e2e_offchain_payment', () => {
   let contract: OffchainPaymentContract;
   let aztecNode: AztecNode;
@@ -52,6 +55,8 @@ describe('e2e_offchain_payment', () => {
     logger.info(`Reverted to checkpoint ${checkpointBeforeTx}`);
   }
 
+  // Mints tokens to Alice on-chain, executes a private transfer that emits offchain messages, delivers
+  // those messages to Bob and Alice via simulate(), then checks both balances are correct.
   it('processes an offchain-delivered private payment via QR-style handoff', async () => {
     const [alice, bob] = accounts;
 
@@ -105,6 +110,9 @@ describe('e2e_offchain_payment', () => {
     expect(aliceBalance).toBe(mintAmount - paymentAmount);
   });
 
+  // Proves a private transfer that emits offchain messages, delivers notes, performs a checkpoint
+  // revert via AutomineSequencer.revertToCheckpoint(), then forces a block re-mine and polls until
+  // the PXE reprocesses the re-mined offchain effects and restores Bob's balance.
   it('reprocesses an offchain-delivered payment after an L1 reorg', async () => {
     const [alice, bob] = accounts;
     const mintAmount = 100n;
@@ -189,6 +197,8 @@ describe('e2e_offchain_payment', () => {
 
     // Wait for the PXE to process the re-mined block and update its note view.
     // The PXE syncs asynchronously from the archiver, so the balance may lag briefly.
+    // REFACTOR: hand-rolled poll waiting for PXE to reprocess re-mined offchain notes; a DSL helper
+    // (e.g. waitForNoteBalance or waitForPXESync) should replace this retryUntil loop.
     await retryUntil(
       async () => {
         const { result } = await contract.methods.get_balance(bob).simulate({ from: bob });
