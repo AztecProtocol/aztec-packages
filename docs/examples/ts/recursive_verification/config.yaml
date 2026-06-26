@@ -26,4 +26,10 @@ dependencies:
   - "link:@aztec/noir-acvm_js:noir/packages/acvm_js"
   - "link:@aztec/noir-noirc_abi:noir/packages/noirc_abi"
   - "link:@aztec/noir-types:noir/packages/types"
+  # Runtime deps of @aztec/bb.js (linked, so its own deps are not auto-installed)
   - "npm:pako"
+  - "npm:msgpackr"
+  - "npm:comlink"
+  - "npm:idb-keyval"
+  - "npm:commander"
+  - "npm:tslib"
