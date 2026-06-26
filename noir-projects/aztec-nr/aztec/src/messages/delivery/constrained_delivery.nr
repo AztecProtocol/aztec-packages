@@ -41,13 +41,7 @@ pub(crate) fn constrain_secret_and_emit_nullifier(
         bootstrapped,
         index,
     );
-    context.push_nullifier_unsafe(compute_constrained_msg_nullifier(
-        sender,
-        recipient,
-        secrets.shared,
-        secrets.sender_only,
-        index,
-    ));
+    context.push_nullifier_unsafe(compute_constrained_msg_nullifier(sender, recipient, secrets, index));
 }
 
 /// Anchors an untrusted `(secret, index)` to the registry before its constrained tag is emitted.
@@ -76,13 +70,7 @@ fn constrain_secret(
             [sender.to_field(), recipient.to_field(), secrets.shared, secrets.sender_only],
         );
     } else {
-        let prev_nullifier = compute_constrained_msg_nullifier(
-            sender,
-            recipient,
-            secrets.shared,
-            secrets.sender_only,
-            index - 1,
-        );
+        let prev_nullifier = compute_constrained_msg_nullifier(sender, recipient, secrets, index - 1);
         context.assert_nullifier_exists(compute_nullifier_existence_request(prev_nullifier, caller));
     }
 }
@@ -96,12 +84,11 @@ fn constrain_secret(
 pub(crate) fn compute_constrained_msg_nullifier(
     sender: AztecAddress,
     recipient: AztecAddress,
-    shared_secret: Field,
-    sender_only_secret: Field,
+    secrets: AppSiloedHandshakeSecrets,
     index: u32,
 ) -> Field {
     poseidon2_hash_with_separator(
-        [sender.to_field(), recipient.to_field(), shared_secret, sender_only_secret, index as Field],
+        [sender.to_field(), recipient.to_field(), secrets.shared, secrets.sender_only, index as Field],
         DOM_SEP__CONSTRAINED_MSG_NULLIFIER,
     )
 }
@@ -128,13 +115,7 @@ mod test {
         assert_eq(context.nullifiers.len(), 1);
         assert_eq(
             context.nullifiers.get(0).inner.value,
-            compute_constrained_msg_nullifier(
-                sender,
-                recipient,
-                secrets.shared,
-                secrets.sender_only,
-                index,
-            ),
+            compute_constrained_msg_nullifier(sender, recipient, secrets, index),
         );
     }
 
@@ -231,13 +212,7 @@ mod test {
                 read_request.inner.inner,
                 compute_siloed_nullifier(
                     context.this_address(),
-                    compute_constrained_msg_nullifier(
-                        sender,
-                        recipient,
-                        secrets.shared,
-                        secrets.sender_only,
-                        index - 1,
-                    ),
+                    compute_constrained_msg_nullifier(sender, recipient, secrets, index - 1),
                 ),
             );
         });
@@ -271,13 +246,7 @@ mod test {
             );
             assert_eq(
                 context.nullifier_read_requests.get(0).inner.inner,
-                compute_constrained_msg_nullifier(
-                    sender,
-                    recipient,
-                    handshake_b.shared,
-                    handshake_b.sender_only,
-                    0,
-                ),
+                compute_constrained_msg_nullifier(sender, recipient, handshake_b, 0),
             );
         });
     }
@@ -317,13 +286,7 @@ mod test {
             );
             assert_eq(
                 context.nullifier_read_requests.get(0).inner.inner,
-                compute_constrained_msg_nullifier(
-                    sender,
-                    recipient,
-                    forged_secrets.shared,
-                    forged_secrets.sender_only,
-                    0,
-                ),
+                compute_constrained_msg_nullifier(sender, recipient, forged_secrets, 0),
             );
         });
     }
