@@ -356,7 +356,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   }
 
   async sendL1ToL2Message(content: Fr, secretHash: Fr, sender: EthAddress, recipient: AztecAddress): Promise<Fr> {
-    // The message tree grows by a fixed chunk per block, so the next free slot is simply the current tree size.
+    // Messages are appended to the tree, so the next free slot is simply the current tree size.
     const { size } = await this.stateMachine.synchronizer
       .getCommitted()
       .getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE);
