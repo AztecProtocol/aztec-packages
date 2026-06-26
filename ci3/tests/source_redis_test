@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# Tests for Redis helper behavior when Redis is unavailable.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+RED=$'\033[0;31m'
+GREEN=$'\033[0;32m'
+NC=$'\033[0m'
+
+TESTS_PASSED=0
+TESTS_FAILED=0
+
+pass() { echo "${GREEN}✓${NC} $1"; ((TESTS_PASSED++)) || true; }
+fail() {
+  echo "${RED}✗${NC} $1: $2"
+  ((TESTS_FAILED++)) || true
+}
+
+echo "=== Source Redis Test Suite ==="
+
+echo "--- Test: redis_setexz is a no-op without Redis under pipefail ---"
+
+code=0
+output=$(
+  ROOT="$ROOT" bash -lc '
+    set -euo pipefail
+    export CI=1
+    export CI_REDIS_AVAILABLE=0
+    export DASHBOARD_URL=http://ci.invalid
+    NO_CD=1 source "$ROOT/ci3/source"
+    printf "%s\n" "CI booting..." | redis_setexz test-key 300
+    echo ok
+  ' 2>&1
+) || code=$?
+
+if [ "$code" -eq 0 ] && [ "$output" = "ok" ]; then
+  pass "redis_setexz consumes stdin and exits 0"
+else
+  fail "redis_setexz consumes stdin and exits 0" "code=$code output=$output"
+fi
+
+echo
+if [[ $TESTS_FAILED -eq 0 ]]; then
+  echo "${GREEN}All $TESTS_PASSED tests passed.${NC}"
+  exit 0
+else
+  echo "${RED}$TESTS_FAILED of $((TESTS_PASSED + TESTS_FAILED)) tests failed.${NC}"
+  exit 1
+fi
