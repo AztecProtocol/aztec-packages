@@ -142,10 +142,6 @@ tests:
     error_regex: "✕ Can't claim funds"
     owners:
       - *lasse
-  - regex: "src/e2e_l1_publisher/e2e_l1_publisher.test.ts"
-    error_regex: "Anvil failed to stop in time|Cannot read properties of undefined"
-    owners:
-      - *palla
   - regex: "src/single-node/bot/bot.test.ts"
     error_regex: "Tx dropped"
     owners:
