@@ -4,10 +4,8 @@
 
 use crate::context::PrivateContext;
 use crate::messages::delivery::{
-    constrained_delivery::emit_sequence_nullifier,
-    handshake::get_existing_app_siloed_handshake_secret,
-    OnchainDeliveryMode,
-    tag_secret_source::{ExistingHandshake, NewNonInteractiveHandshake, TagSecretSource, UnconstrainedSecret},
+    constrained_delivery::emit_sequence_nullifier, handshake::get_existing_app_siloed_handshake_secret,
+    OnchainDeliveryMode, ResolvedTaggingStrategy,
 };
 use crate::oracle::notes::get_next_tagging_index;
 use crate::oracle::resolve_tagging_strategy::resolve_tagging_strategy;
@@ -20,7 +18,7 @@ use crate::standard_addresses::STANDARD_HANDSHAKE_REGISTRY_ADDRESS;
 
 /// Derives the discovery log tag for an on-chain delivery.
 ///
-/// Selects the [`TagSecretSource`](super::tag_secret_source::TagSecretSource) that backs the tag: if a handshake is
+/// Selects the [`ResolvedTaggingStrategy`](super::ResolvedTaggingStrategy) that backs the tag: if a handshake is
 /// already registered for `(sender, recipient)` its secret is reused, otherwise the source is resolved from the wallet
 /// via [`resolve_tagging_strategy`].
 pub(crate) fn derive_log_tag(
@@ -34,48 +32,26 @@ pub(crate) fn derive_log_tag(
     let existing =
         unsafe { get_existing_app_siloed_handshake_secret(STANDARD_HANDSHAKE_REGISTRY_ADDRESS, sender, recipient) };
 
-    if existing.is_some() {
-        tag_with(
-            ExistingHandshake { secret: existing.unwrap() },
-            context,
-            mode,
-            sender,
-            recipient,
-        )
+    let source = if existing.is_some() {
+        ResolvedTaggingStrategy::existing_handshake(existing.unwrap())
     } else {
-        // Safety: the strategy only selects which source runs; each source constrains (or rejects) its own secret
+        // Safety: the strategy only selects which source runs; each variant constrains (or rejects) its own secret
         // before a constrained tag is emitted, so an untrusted strategy can't produce a valid unbacked constrained tag.
-        let strategy = unsafe { resolve_tagging_strategy(sender, recipient, mode) };
-        if strategy.is_non_interactive_handshake() {
-            tag_with(
-                NewNonInteractiveHandshake {},
-                context,
-                mode,
-                sender,
-                recipient,
-            )
-        } else {
-            tag_with(
-                UnconstrainedSecret { secret: strategy.into_unconstrained_secret() },
-                context,
-                mode,
-                sender,
-                recipient,
-            )
+        unsafe {
+            resolve_tagging_strategy(sender, recipient, mode)
         }
-    }
+    };
+
+    tag_with(source, context, mode, sender, recipient)
 }
 
-fn tag_with<S>(
-    source: S,
+fn tag_with(
+    source: ResolvedTaggingStrategy,
     context: &mut PrivateContext,
     mode: OnchainDeliveryMode,
     sender: AztecAddress,
     recipient: AztecAddress,
-) -> Field
-where
-    S: TagSecretSource,
-{
+) -> Field {
     let secret = source.obtain_secret(context, sender, recipient);
 
     // Safety: the index is untrusted. Constrained delivery constrains it below before emitting the tag; unconstrained

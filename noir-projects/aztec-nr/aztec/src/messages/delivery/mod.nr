@@ -2,7 +2,6 @@ mod builder;
 mod mode;
 mod resolved_tagging_strategy;
 mod tag;
-pub(crate) mod tag_secret_source;
 
 pub mod constrained_delivery;
 pub mod handshake;
