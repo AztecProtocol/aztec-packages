@@ -43,15 +43,18 @@ own job.
 
 ## Subfolders
 
+A second-level folder is created only when it earns its keep: a shared harness, an existing sub-hierarchy,
+or a coherent domain of several files. The remaining miscellaneous protocol/execution behaviors live as flat
+files directly under `automine/` — smoke, tx ordering/double-spend/phase checks, mempool limits, the app demos
+(card game, private voting), and the timestamp/PXE tests.
+
 | Path | Contents |
 |---|---|
-| `smoke/` | AutomineSequencer mechanics themselves: sequential and parallel tx landing, time warps, `mineBlock`, and checkpoint revert. |
 | `token/` | Token-economics tests on the two token harnesses plus the `TokenSimulator`/`LendingSimulator`-adjacent DeFi tests: token transfers/minting/burning/access-control, the blacklist token suite, AMM, lending, NFT, orderbook, crowdfunding, and escrow. |
-| `contracts/` | Contract lifecycle and cross-contract behavior. `deploy/` (class registration, deploy method, legacy deploy, private initialization), `nested/` (importer and the manual private/public nested-call patterns), plus contract updates, storage proofs, static calls, and nested utility calls. |
+| `contracts/` | Contract lifecycle and cross-contract behavior. `deploy/` (class registration, deploy method, legacy deploy, private initialization), `nested/` (importer and the manual private/public nested-call patterns), plus contract updates, storage proofs, static calls, nested utility calls, and the ABI/storage-surface tests (ABI types, option params, state variables). |
 | `accounts/` | Account and key behavior: account contracts, keys, multiple accounts sharing an encryption key, two-PXE interop, authwit, and scope isolation. |
-| `notes/` | Note discovery, events, and offchain effects: note getters, pending note hashes, partial notes, event logs, event-only notes, offchain effects and payments, large public events, custom messages, and the tx-effect oracle. |
-| `execution/` | Transaction semantics: ordering, double-spend rejection, phase checks, kernelless simulation, the AVM simulator, the circuit recorder, option params, ABI types, state variables, mempool limits, the card game, and private voting. |
-| `lifecycle/` | Chain-tip, pruning, and timing behavior under automine: pruned blocks, the genesis timestamp, expiration timestamps, and PXE behavior. |
+| `effects/` | Note discovery, events, and offchain effects: note getters, pending note hashes, partial notes, event logs, event-only notes, offchain effects and payments, large public events, custom messages, the tx-effect oracle, and note rediscovery after pruned blocks. |
+| `simulation/` | Circuit simulation surface: the AVM simulator, kernelless simulation, and the circuit recorder. |
 
-The `execution/avm_simulator` file is a genuine outlier: it dumps AVM circuit inputs for the downstream
-`avm_check_circuit` CI job, so it has a bespoke CI line and is excluded from the generic `execution/` glob.
+The `simulation/avm_simulator` file is a genuine outlier: it dumps AVM circuit inputs for the downstream
+`avm_check_circuit` CI job, so it has a bespoke CI line and is excluded from the generic `simulation/` glob.

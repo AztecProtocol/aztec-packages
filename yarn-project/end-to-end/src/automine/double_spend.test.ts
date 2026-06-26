@@ -5,11 +5,11 @@ import { TxExecutionResult } from '@aztec/aztec.js/tx';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 
-import { AutomineTestContext } from '../automine_test_context.js';
+import { AutomineTestContext } from './automine_test_context.js';
 
 // Tests that a public nullifier emitted in one tx cannot be emitted again in a subsequent tx.
 // Uses setup(1, AUTOMINE_E2E_OPTS) with one node, automine sequencer, one funded account.
-describe('automine/execution/double_spend', () => {
+describe('automine/double_spend', () => {
   let wallet: Wallet;
   let defaultAccountAddress: AztecAddress;
 

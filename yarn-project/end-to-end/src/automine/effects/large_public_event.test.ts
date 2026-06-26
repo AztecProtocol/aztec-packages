@@ -14,7 +14,7 @@ const TIMEOUT = 300_000;
 
 /// Tests that events exceeding MAX_EVENT_SERIALIZED_LEN can be emitted publicly.
 // Single automine node, one funded account, LargePublicEventContract deployed in beforeAll.
-describe('automine/notes/large_public_event', () => {
+describe('automine/effects/large_public_event', () => {
   let contract: LargePublicEventContract;
   jest.setTimeout(TIMEOUT);
 

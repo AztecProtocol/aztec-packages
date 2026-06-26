@@ -25,7 +25,7 @@ const TIMEOUT = 300_000;
 // public-log event emission and retrieval (unencrypted events via getPublicEvents), including nested
 // events with struct fields and tagging-cache reconciliation against kernel squashing. Uses a single
 // automine node with two genesis-funded Schnorr accounts and a deployed TestLogContract.
-describe('automine/notes/event_logs', () => {
+describe('automine/effects/event_logs', () => {
   let testLogContract: TestLogContract;
   jest.setTimeout(TIMEOUT);
 

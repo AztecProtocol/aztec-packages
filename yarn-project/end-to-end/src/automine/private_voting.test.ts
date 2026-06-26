@@ -5,11 +5,11 @@ import type { Wallet } from '@aztec/aztec.js/wallet';
 import { PrivateVotingContract } from '@aztec/noir-contracts.js/PrivateVoting';
 import { TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
 
-import { AutomineTestContext } from '../automine_test_context.js';
+import { AutomineTestContext } from './automine_test_context.js';
 
 // Verifies the PrivateVoting contract's nullifier-based double-vote prevention. Uses a single node
 // with AutomineSequencer and one account.
-describe('automine/execution/private_voting', () => {
+describe('automine/private_voting', () => {
   let wallet: Wallet;
 
   let logger: Logger;

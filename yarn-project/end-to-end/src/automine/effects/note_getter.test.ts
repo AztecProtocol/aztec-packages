@@ -18,7 +18,7 @@ function boundedVecToArray<T>(boundedVec: NoirBoundedVec<T>): T[] {
 // Covers the NoteGetter contract's filtering capabilities (EQ, NEQ, LT, GT, LTE, GTE comparators
 // and sub-field property selectors) and the TestContract's note status filter (active vs nullified).
 // Single automine node, one funded account, contracts deployed per describe block.
-describe('automine/notes/note_getter', () => {
+describe('automine/effects/note_getter', () => {
   let wallet: Wallet;
   let defaultAddress: AztecAddress;
   let teardown: () => Promise<void>;

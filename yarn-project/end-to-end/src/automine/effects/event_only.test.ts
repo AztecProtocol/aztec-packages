@@ -12,7 +12,7 @@ const TIMEOUT = 300_000;
 
 /// Tests that a private event can be obtained for a contract that does not work with notes.
 // Single automine node, one genesis-funded account, EventOnlyContract deployed in beforeAll.
-describe('automine/notes/event_only', () => {
+describe('automine/effects/event_only', () => {
   let eventOnlyContract: EventOnlyContract;
   jest.setTimeout(TIMEOUT);
 

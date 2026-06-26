@@ -3,14 +3,14 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
 
-import type { TestWallet } from '../../test-wallet/test_wallet.js';
-import { AutomineTestContext } from '../automine_test_context.js';
+import type { TestWallet } from '../test-wallet/test_wallet.js';
+import { AutomineTestContext } from './automine_test_context.js';
 
 // TODO: Ideally these would be unit tests for PXE, but some functions like simulateTx, proveTx, etc require
 // more complex setup
 //
 // Exercises PXE simulation error paths that require a running node. Single node with AutomineSequencer.
-describe('automine/lifecycle/pxe', () => {
+describe('automine/pxe', () => {
   let wallet: TestWallet;
   let defaultAccountAddress: AztecAddress;
   let teardown: () => Promise<void>;

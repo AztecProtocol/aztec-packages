@@ -5,15 +5,15 @@ import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { AztecNode, AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 import { TX_ERROR_INVALID_EXPIRATION_TIMESTAMP } from '@aztec/stdlib/tx';
 
-import type { TestWallet } from '../../test-wallet/test_wallet.js';
-import { proveInteraction } from '../../test-wallet/utils.js';
-import { AutomineTestContext } from '../automine_test_context.js';
+import type { TestWallet } from '../test-wallet/test_wallet.js';
+import { proveInteraction } from '../test-wallet/utils.js';
+import { AutomineTestContext } from './automine_test_context.js';
 
 // Covers transaction expiration-timestamp enforcement: setting a valid expiration succeeds, setting
 // one below the mined block timestamp fails at prove time, and setting one that is then warped past
 // by L1 time causes rejection at submission. Uses a single automine node; L1 time is warped via
 // cheatCodes.eth.warp in the invalidation tests.
-describe('automine/lifecycle/expiration_timestamp', () => {
+describe('automine/expiration_timestamp', () => {
   let wallet: TestWallet;
   let defaultAccountAddress: AztecAddress;
   let aztecNode: AztecNode & AztecNodeDebug;

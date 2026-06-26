@@ -12,7 +12,7 @@ const TIMEOUT = 300_000;
 
 // Smoke test for the partial-note pattern: minting tokens into a private note via the
 // Token contract's mint_to_private path. Single node with AutomineSequencer.
-describe('automine/notes/partial_notes', () => {
+describe('automine/effects/partial_notes', () => {
   jest.setTimeout(TIMEOUT);
 
   let teardown: () => Promise<void>;

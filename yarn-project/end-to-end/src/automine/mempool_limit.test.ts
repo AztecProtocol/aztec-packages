@@ -4,14 +4,14 @@ import { TxStatus } from '@aztec/aztec.js/tx';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
-import type { EndToEndContext } from '../../fixtures/utils.js';
-import type { TestWallet } from '../../test-wallet/test_wallet.js';
-import { proveInteraction } from '../../test-wallet/utils.js';
-import { AutomineTestContext } from '../automine_test_context.js';
+import type { EndToEndContext } from '../fixtures/utils.js';
+import type { TestWallet } from '../test-wallet/test_wallet.js';
+import { proveInteraction } from '../test-wallet/utils.js';
+import { AutomineTestContext } from './automine_test_context.js';
 
 // Verifies that the node rejects incoming transactions when the mempool is at capacity. Uses a
 // single automine node with aztecNodeAdmin access; sequencer is paused to let txs accumulate.
-describe('automine/execution/mempool_limit', () => {
+describe('automine/mempool_limit', () => {
   let wallet: TestWallet;
   let defaultAccountAddress: AztecAddress;
   let aztecNode: AztecNode;

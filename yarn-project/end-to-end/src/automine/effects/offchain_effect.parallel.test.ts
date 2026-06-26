@@ -15,7 +15,7 @@ const TIMEOUT = 300_000;
 // proveInteraction, and the offchain-message delivery flow (emitting an event or note as an
 // offchain message, then delivering it via offchain_receive and retrieving via getPrivateEvents).
 // Single automine node, one funded account, two OffchainEffectContract instances.
-describe('automine/notes/offchain_effect', () => {
+describe('automine/effects/offchain_effect', () => {
   let contract1: OffchainEffectContract;
   let contract2: OffchainEffectContract;
 
