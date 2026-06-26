@@ -110,7 +110,7 @@ describe('single-node/proving/cross_chain_public_message', () => {
     // (txEpoch + proofSubmissionEpochs); the consume block is already produced, so warping the tail
     // doesn't change what gets proven, only how long we wait for it.
     const txBlock = (await context.aztecNode.getBlock(txReceipt.blockNumber!))!;
-    const txEpoch = getEpochAtSlot(txBlock.slot, test.constants);
+    const txEpoch = getEpochAtSlot(txBlock.header.globalVariables.slotNumber, test.constants);
     const proofEpoch = EpochNumber(Number(txEpoch) + test.constants.proofSubmissionEpochs);
     logger.warn(`Consume tx landed in epoch ${txEpoch}; warping to proof-submission epoch ${proofEpoch}`);
     await warpToEpochStart(proofEpoch);
