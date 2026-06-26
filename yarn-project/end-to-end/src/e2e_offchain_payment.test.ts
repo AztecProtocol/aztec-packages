@@ -42,6 +42,12 @@ describe('e2e_offchain_payment', () => {
     ({ contract } = await OffchainPaymentContract.deploy(wallet).send({ from: accounts[0] }));
   });
 
+  // The reorg test pauses the AutomineSequencer to keep the poller from racing its post-reorg assertions;
+  // resume here so a pause is never left dangling (resume is a no-op when not paused).
+  afterEach(() => {
+    aztecNodeService.getAutomineSequencer()?.resume();
+  });
+
   async function forceEmptyBlock() {
     const blockBefore = await aztecNode.getBlockNumber();
     logger.info(`Forcing empty block. Current L2 block: ${blockBefore}`);
@@ -49,8 +55,14 @@ describe('e2e_offchain_payment', () => {
     logger.info(`Empty block mined. New L2 block: ${await aztecNode.getBlockNumber()}`);
   }
 
+  // Reverts the chain to `checkpointBeforeTx`. Pauses the AutomineSequencer first: reverting restores the
+  // un-mined transfer tx to the pending pool, and the sequencer's mempool poller would otherwise re-mine it
+  // within ~50ms, racing the post-reorg balance assertions. Pausing only gates the poller; explicit ops
+  // (revertToCheckpoint, the later forceEmptyBlock re-mine) still run. The sequencer stays paused until the
+  // afterEach resume, so the explicit re-mine is the only thing that rebuilds the reverted block.
   async function forceReorg(checkpointBeforeTx: number) {
     const automine = aztecNodeService.getAutomineSequencer()!;
+    automine.pause();
     await automine.revertToCheckpoint(checkpointBeforeTx);
     logger.info(`Reverted to checkpoint ${checkpointBeforeTx}`);
   }
@@ -190,9 +202,10 @@ describe('e2e_offchain_payment', () => {
     const { result: aliceAfterRollback } = await contract.methods.get_balance(alice).simulate({ from: alice });
     expect(aliceAfterRollback).toBe(mintAmount);
 
-    // The p2p tx pool marks rolled-back txs as pending again, so the AutomineSequencer
-    // re-mines the transfer tx automatically. Force a block build so the PXE re-syncs
-    // and reprocesses the offchain-delivered notes.
+    // The reorg restored the transfer tx to the pending pool. With the sequencer still paused (so the
+    // mempool poller cannot win the re-mine race), force a block build: `forceEmptyBlock` permits an empty
+    // block but still drains the pending pool, so it re-mines the restored transfer deterministically. This
+    // drives the PXE to re-sync and reprocess the offchain-delivered notes without re-enqueuing them.
     await forceEmptyBlock();
 
     // Wait for the PXE to process the re-mined block and update its note view.
