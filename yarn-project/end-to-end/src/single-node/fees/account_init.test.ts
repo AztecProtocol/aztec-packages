@@ -17,22 +17,26 @@ import { Gas, GasSettings } from '@aztec/stdlib/gas';
 
 import { jest } from '@jest/globals';
 
-import { PIPELINING_SETUP_OPTS, getPaddedMaxFeesPerGas } from '../../fixtures/fixtures.js';
+import { AUTOMINE_E2E_OPTS, getPaddedMaxFeesPerGas } from '../../fixtures/fixtures.js';
 import type { TestWallet } from '../../test-wallet/test_wallet.js';
 import { FeesTest } from './fees_test.js';
 
-// FeesTest.setup + applyFundAliceWithBananas + applyFPCSetup chains many dependent txs which run at the
-// ~24s/tx pipelined cadence, exceeding the default 5 min hook window.
-jest.setTimeout(15 * 60 * 1000);
+// FeesTest.setup + applyFundAliceWithBananas + applyFPCSetup chains many dependent txs; the
+// AutomineSequencer builds one block per tx synchronously, so the hook stays well under the window,
+// but keep a generous budget as a safety margin.
+jest.setTimeout(10 * 60 * 1000);
 
-// Fee payment during account contract initialization. Uses FeesTest (prod sequencer, pipelining preset:
-// ethSlot=4s, aztecSlot=12s, inboxLag=2, minTxsPerBlock=0), 1 account, fake in-proc prover node, and
-// GasBridgingTestHarness for L1↔L2 fee-juice bridging via FeeJuicePortal.
+// Fee payment during account contract initialization. Uses FeesTest on the AUTOMINE_E2E_OPTS preset
+// (AutomineSequencer: one block per tx, synchronous L1 mining, inboxLag=1), 1 account, fake in-proc
+// prover node, and GasBridgingTestHarness for L1↔L2 fee-juice bridging via FeeJuicePortal. This suite
+// only asserts on gas/banana balances and transaction fees (no coinbase/prover-fee/proven-chain
+// assertions that would require real block timing), so automine is safe and far faster than the
+// real-interval-mined pipelining preset the sibling fee tests use.
 describe('single-node/fees/account_init', () => {
   const t = new FeesTest('account_init', 1);
 
   beforeAll(async () => {
-    await t.setup({ ...PIPELINING_SETUP_OPTS });
+    await t.setup({ ...AUTOMINE_E2E_OPTS });
     await t.applyFundAliceWithBananas();
     await t.applyFPCSetup();
     ({ aliceAddress, wallet, bananaCoin, bananaFPC, logger, aztecNode } = t);
