@@ -560,6 +560,29 @@ const TIME_SERIES_DEFS: Record<string, TimeSeriesDef> = {
     // code records attestationTimeAllowed in seconds.
     query: `avg(aztec_sequencer_attestations_collect_allowance_milliseconds${NS}) * 1000`,
   },
+  // Attester-side attestation failures, broken down by error_type. The
+  // error_type=timeout slice is the signal that diagnosed the 10 TPS reorgs: an
+  // attester that could not re-execute the proposed checkpoint in time, dragging
+  // the committee below quorum. Summed across pods (validators emit this) so the
+  // series is the network-wide failure rate per cause.
+  attestationFailedNodeIssueByErrorTypeRate: {
+    metric: "aztec_validator_attestation_failed_node_issue_count",
+    unit: "tps",
+    query: `sum by (aztec_error_type)(rate(aztec_validator_attestation_failed_node_issue_count${NS}[1m]))`,
+  },
+  // Attestations rejected because the proposal itself was bad (invalid_proposal,
+  // state_mismatch, failed_txs, …) — distinct from the node-side issues above.
+  attestationFailedBadProposalByErrorTypeRate: {
+    metric: "aztec_validator_attestation_failed_bad_proposal_count",
+    unit: "tps",
+    query: `sum by (aztec_error_type)(rate(aztec_validator_attestation_failed_bad_proposal_count${NS}[1m]))`,
+  },
+  // Successful attestations, the denominator for a failure ratio.
+  attestationSuccessRate: {
+    metric: "aztec_validator_attestation_success_count",
+    unit: "tps",
+    query: `sum(rate(aztec_validator_attestation_success_count${NS}[1m]))`,
+  },
   checkpointBlockCountMean: {
     metric: "aztec_sequencer_checkpoint_block_count",
     unit: "count",
@@ -1929,6 +1952,9 @@ async function buildSummary(a: SummaryArgs): Promise<Record<string, unknown>> {
     mempoolMinedP50,
     mempoolMinedP95,
     mempoolMinedP99,
+    attestationFailedNodeIssueCount,
+    attestationFailedBadProposalCount,
+    attestationSuccessCount,
   ] = await Promise.all([
     safeInstant(
       oneShotQuantile(
@@ -1967,6 +1993,18 @@ async function buildSummary(a: SummaryArgs): Promise<Record<string, unknown>> {
     safeInstant(
       oneShotQuantile(0.99, "aztec_mempool_tx_mined_delay_milliseconds_bucket"),
     ),
+    // Total attestation outcomes over the observed window. The node-issue count
+    // is the headline reorg-diagnostic number (e.g. the run #95 "184" of failed
+    // attestations); success gives a denominator for a failure ratio.
+    safeInstant(
+      `sum(increase(aztec_validator_attestation_failed_node_issue_count${NS}[${windowSpec}]))`,
+    ),
+    safeInstant(
+      `sum(increase(aztec_validator_attestation_failed_bad_proposal_count${NS}[${windowSpec}]))`,
+    ),
+    safeInstant(
+      `sum(increase(aztec_validator_attestation_success_count${NS}[${windowSpec}]))`,
+    ),
   ]);
 
   const reorgs = a.events.filter((e) => e.type === "chainPruned");
@@ -1992,6 +2030,9 @@ async function buildSummary(a: SummaryArgs): Promise<Record<string, unknown>> {
     mempoolTxMinedDelayP50Ms: mempoolMinedP50,
     mempoolTxMinedDelayP95Ms: mempoolMinedP95,
     mempoolTxMinedDelayP99Ms: mempoolMinedP99,
+    attestationFailedNodeIssueCount,
+    attestationFailedBadProposalCount,
+    attestationSuccessCount,
     totalTxsMined,
     totalTxsFailed: hasInclusionBlockRecords
       ? inclusionBlocks.reduce((s, b) => s + b.failedCount, 0)

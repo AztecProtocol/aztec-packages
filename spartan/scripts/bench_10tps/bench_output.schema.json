@@ -367,6 +367,18 @@
         "mempoolTxMinedDelayP99Ms": {
           "type": ["number", "null"]
         },
+        "attestationFailedNodeIssueCount": {
+          "type": ["number", "null"],
+          "description": "Total attester-side attestation failures over the observed window (aztec_validator_attestation_failed_node_issue_count: timeout / txs_not_available / parent_block_not_found / etc.). The reorg-diagnostic headline — high values mean attesters could not re-execute proposals in time, dragging the committee below quorum. null if the metric was unavailable."
+        },
+        "attestationFailedBadProposalCount": {
+          "type": ["number", "null"],
+          "description": "Total attestations rejected over the window because the proposal was bad (invalid_proposal / state_mismatch / failed_txs / …), distinct from node-side issues."
+        },
+        "attestationSuccessCount": {
+          "type": ["number", "null"],
+          "description": "Total successful attestations over the window. Denominator for an attestation failure ratio against the two failure counts above."
+        },
         "totalTxsMined": {
           "type": ["integer", "null"],
           "description": "Exact sum from per-block logs. Null when block logs were unavailable and inclusionTpsMean came from Prometheus."
@@ -477,6 +489,15 @@
           "$ref": "#/$defs/timeSeries"
         },
         "attestationsCollectAllowanceMean": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "attestationFailedNodeIssueByErrorTypeRate": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "attestationFailedBadProposalByErrorTypeRate": {
+          "$ref": "#/$defs/timeSeries"
+        },
+        "attestationSuccessRate": {
           "$ref": "#/$defs/timeSeries"
         },
         "txCollectorTxsFromMempoolRate": {
