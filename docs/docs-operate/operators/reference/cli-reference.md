@@ -35,8 +35,8 @@ tags:
     --network <value>                                                                                                                      ($NETWORK)
           Network to run Aztec on
 
-    --enable-version-check                                                   (default: true)                                               ($ENABLE_VERSION_CHECK)
-          Check if the node is running the latest version and is following the latest rollup
+    --enable-auto-shutdown                                                   (default: false)                                              ($ENABLE_AUTO_SHUTDOWN)
+          Soft-shutdown the node when the canonical rollup is no longer compatible (protocol constants diverge), keeping the health server up so K8s probes keep passing. Only applies to nodes following the canonical rollup.
 
     --sync-mode <value>                                                      (default: snapshot)                                           ($SYNC_MODE)
           Set sync mode to `full` to always sync via L1, `snapshot` to download a snapshot if there is no local data, `force-snapshot` to download even if there is local data.

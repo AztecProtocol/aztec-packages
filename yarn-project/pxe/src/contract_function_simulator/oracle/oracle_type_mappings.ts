@@ -16,7 +16,7 @@ import {
 import { BlockNumber, type SlotNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import type { EthAddress } from '@aztec/foundation/eth-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { FieldReader } from '@aztec/foundation/serialize';
 import { MembershipWitness, type SiblingPath } from '@aztec/foundation/trees';
 import { type ACVMField, fromUintArray } from '@aztec/simulator/client';
@@ -288,8 +288,9 @@ const LOG_SOURCE: TypeMapping<LogSource> = {
   shape: ['scalar'],
 };
 
-const ETH_ADDRESS: TypeMapping<EthAddress> = {
+export const ETH_ADDRESS: TypeMapping<EthAddress> = {
   serialization: { fn: v => [v.toField()] },
+  deserialization: { fn: ([reader]) => EthAddress.fromField(reader.readField()) },
   shape: ['scalar'],
 };
 

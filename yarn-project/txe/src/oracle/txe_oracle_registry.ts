@@ -17,6 +17,7 @@ import {
   BIGINT,
   BLOCK_NUMBER,
   BOOL,
+  ETH_ADDRESS,
   FIELD,
   FUNCTION_SELECTOR,
   type InputSlot,
@@ -295,6 +296,16 @@ export const TXE_ORACLE_REGISTRY = {
       { name: 'address', type: AZTEC_ADDRESS },
       { name: 'messageHash', type: FIELD },
     ],
+  }),
+
+  aztec_txe_sendL1ToL2Message: makeEntry({
+    params: [
+      { name: 'content', type: FIELD },
+      { name: 'secretHash', type: FIELD },
+      { name: 'sender', type: ETH_ADDRESS },
+      { name: 'recipient', type: AZTEC_ADDRESS },
+    ],
+    returnType: FIELD,
   }),
 
   aztec_txe_setTaggingSecretStrategy: makeEntry({

@@ -23,6 +23,7 @@ export function getSingleTxBlockRequestHash(blockNumber: BlockNumber): Fr {
 export async function insertTxEffectIntoWorldTrees(
   txEffect: TxEffect,
   worldTrees: MerkleTreeWriteOperations,
+  l1ToL2Messages: Fr[] = [],
 ): Promise<void> {
   await worldTrees.appendLeaves(
     MerkleTreeId.NOTE_HASH_TREE,
@@ -37,7 +38,7 @@ export async function insertTxEffectIntoWorldTrees(
 
   await worldTrees.appendLeaves(
     MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
-    padArrayEnd<Fr, number>(txEffect.l2ToL1Msgs, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
+    padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP),
   );
 
   // We do not need to add public data writes because we apply them as we go.
