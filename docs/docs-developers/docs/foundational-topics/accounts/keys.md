@@ -29,8 +29,8 @@ Each Aztec account uses multiple key pairs:
 |----------|---------|-----------------|-----------|
 | **Nullifier Keys** (`Npk_m`) | Spending notes (destroying private state) | Yes | No |
 | **Incoming Viewing Keys** (`Ivpk_m`) | Decrypting received notes | Yes | No |
-| **Outgoing Viewing Keys** (`Ovpk_m`) | Reserved — not currently used | Yes | No |
-| **Tagging Keys** (`Tpk_m`) | Reserved — not currently used | Yes | No |
+| **Outgoing Viewing Keys** (`Ovpk_m`) | Encrypting outgoing logs (available in Aztec.nr, not yet used by any app) | Yes | No |
+| **Tagging Keys** (`Tpk_m`) | Reserved (not currently used) | Yes | No |
 | **Message-Signing Keys** (`Mspk_m`) | Reserved — slot for future protocol-level message signing | Yes | No |
 | **Fallback Keys** (`Fbpk_m`) | Reserved — slot for future account-recovery / fallback flows | Yes | No |
 | **Signing Keys** | Transaction authorization | No (app-defined) | Yes |
@@ -103,6 +103,29 @@ graph TB
 
 This uses elliptic curve Diffie-Hellman: both parties compute the same shared secret `S`, but only the recipient has the private key needed to decrypt.
 
+### Outgoing Viewing Keys
+
+**Purpose**: Encrypting *outgoing* logs, so the sender of a note can later decrypt a record of what they sent
+
+Incoming viewing keys let a recipient read notes sent *to* them. Outgoing viewing keys are the counterpart for the sender: they let an account encrypt a log of the notes it sent *out*, and decrypt that log later (for example to reconstruct its own activity). The design is inspired by Zcash, where outgoing viewability is kept distinct from incoming viewability so the two can be disclosed independently.
+
+Unlike the incoming viewing key, the outgoing viewing key is **not** used by any current application or by the default note/log flow. There simply hasn't been a use case that needs outgoing-log viewability separate from incoming-log viewability. It is therefore optional: a contract only uses it if it deliberately chooses to emit outgoing logs.
+
+**It is, however, fully available at the application layer.** The key is plumbed into Aztec.nr, so a contract that wants outgoing logs can derive the app-siloed outgoing viewing secret key today:
+
+| Context | Function | Import / Access |
+|---------|----------|----------------|
+| Private (constrained) | `context.request_ovsk_app(owner_ovpk_m_hash)` | Called on `&mut PrivateContext` |
+| Unconstrained | `get_ovsk_app(owner_ovpk_m_hash)` | `use aztec::keys::getters::get_ovsk_app` |
+
+The owner's master outgoing viewing public key hash is read the same way as the other keys:
+
+```rust
+let owner_ovpk_m_hash = get_public_keys(owner).ovpk_m_hash;
+```
+
+In short, the outgoing viewing key exists at the protocol level, contributes to address derivation, and is usable from contract code; it is just not yet exercised by any application.
+
 ### Signing Keys
 
 **Purpose**: Transaction authorization (optional, application-defined)
@@ -155,7 +178,10 @@ This derivation ensures:
 - The address proves ownership of the nullifier key needed to spend notes
 
 :::note
-The `Ovpk` (outgoing viewing key) and `Tpk` (tagging key) exist in the protocol's `PublicKeys` struct but are not currently used. They're reserved for future protocol upgrades.
+The `Ovpk` (outgoing viewing key) and `Tpk` (tagging key) both contribute to address derivation, but they differ in how usable they are:
+
+- `Ovpk` is a real, working protocol key that is plumbed into Aztec.nr (see [Outgoing Viewing Keys](#outgoing-viewing-keys)). No application uses it yet, but a contract can use it today to emit and decrypt its own outgoing logs.
+- `Tpk` exists in the `PublicKeys` struct and the address preimage, but it is **not** wired into any contract-facing functionality. Treat it as reserved for future use.
 :::
 
 :::note
@@ -213,7 +239,7 @@ Aztec's multi-key architecture is fundamental to its privacy and security model:
 |----------|---------|------------|-----------|------------|
 | **Nullifier** (`Npk_m`) | Spend notes | Yes | No | Protocol (PXE) |
 | **Incoming Viewing** (`Ivpk_m`) | Decrypt received notes | No | No | Protocol (PXE) |
-| **Outgoing Viewing** (`Ovpk_m`) | Reserved | N/A | No | Protocol (PXE) |
+| **Outgoing Viewing** (`Ovpk_m`) | Encrypt outgoing logs (available, unused by apps) | Yes | No | Protocol (PXE) |
 | **Tagging** (`Tpk_m`) | Reserved | N/A | No | Protocol (PXE) |
 | **Message-Signing** (`Mspk_m`) | Reserved | N/A | No | Protocol (PXE) |
 | **Fallback** (`Fbpk_m`) | Reserved | N/A | No | Protocol (PXE) |
