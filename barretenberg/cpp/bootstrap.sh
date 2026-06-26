@@ -292,9 +292,20 @@ function test_cmds_asan {
     ["ultra_honk_tests"]="MegaHonkTests/0.Basic"
     ["dsl_tests"]="HonkRecursionConstraintTestWithoutPredicate/2.Tampering"
   )
+  # The recursion-constraint flow proves and verifies a full UltraHonk circuit. In isolation
+  # under build-asan-fast it takes ~3 minutes, but its cost has grown with the verifier circuit
+  # and under the parallel full-test grind it now exceeds the 600s default and is killed. Give
+  # it the same generous budget as the other heavy recursion proving test.
+  declare -A asan_timeouts=(
+    ["dsl_tests"]="20m"
+  )
   for bin_name in "${!asan_tests[@]}"; do
     local filter=${asan_tests[$bin_name]}
-    echo -e "$prefix barretenberg/cpp/build-asan-fast/bin/$bin_name --gtest_filter=$filter"
+    local test_prefix=$prefix
+    if [[ -n "${asan_timeouts[$bin_name]:-}" ]]; then
+      test_prefix="$prefix:TIMEOUT=${asan_timeouts[$bin_name]}"
+    fi
+    echo -e "$test_prefix barretenberg/cpp/build-asan-fast/bin/$bin_name --gtest_filter=$filter"
   done
 }
 
