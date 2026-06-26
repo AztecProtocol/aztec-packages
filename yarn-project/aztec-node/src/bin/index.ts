@@ -7,7 +7,12 @@ import {
 import { createLogger } from '@aztec/foundation/log';
 import { getOtelJsonRpcPropagationMiddleware } from '@aztec/telemetry-client';
 
-import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars, registerAztecNodeRpcHandlers } from '../index.js';
+import {
+  type AztecNodeConfig,
+  createAztecNodeService,
+  getConfigEnvVars,
+  registerAztecNodeRpcHandlers,
+} from '../index.js';
 
 const { AZTEC_NODE_PORT = 8081, API_PREFIX = '' } = process.env;
 
@@ -19,7 +24,7 @@ const logger = createLogger('node');
 async function createAndDeployAztecNode() {
   const aztecNodeConfig: AztecNodeConfig = { ...getConfigEnvVars() };
 
-  return await AztecNodeService.createAndSync(aztecNodeConfig);
+  return await createAztecNodeService(aztecNodeConfig);
 }
 
 /**
