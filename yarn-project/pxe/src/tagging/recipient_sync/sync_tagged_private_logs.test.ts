@@ -344,7 +344,7 @@ describe('syncTaggedPrivateLogs', () => {
 
       // Indexes 0 and 1 are hits in an unfinalized block (8 > finalized 5); index 2 is the gap. With the small initial
       // probe, index 0 is probed alone and is unfinalized, so the scan must still advance to discover index 1 — gating
-      // advancement on finalization (as an earlier design did) would drop it.
+      // advancement on finalization would drop it.
       const unfinalizedTags = await Promise.all([0, 1].map(i => computeSiloedTagForIndex(secret, i)));
       aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) => {
         const tags = extractTags(query);
