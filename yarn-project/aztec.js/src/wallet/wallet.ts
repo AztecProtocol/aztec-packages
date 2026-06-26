@@ -12,6 +12,8 @@ import {
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
+  type ContractInstancePreimage,
+  ContractInstancePreimageSchema,
   type ContractInstancePreimageWithAddress,
   ContractInstancePreimageWithAddressSchema,
 } from '@aztec/stdlib/contract';
@@ -278,11 +280,7 @@ export type Wallet = {
   registerSender(address: AztecAddress, alias?: string): Promise<AztecAddress>;
   getAddressBook(): Promise<Aliased<AztecAddress>[]>;
   getAccounts(): Promise<Aliased<AztecAddress>[]>;
-  registerContract(
-    instance: ContractInstancePreimageWithAddress,
-    artifact?: ContractArtifact,
-    secretKey?: Fr,
-  ): Promise<ContractInstancePreimageWithAddress>;
+  registerContract(instance: ContractInstancePreimage, artifact?: ContractArtifact, secretKey?: Fr): Promise<void>;
   /**
    * Registers a contract class artifact in the local PXE without binding it to any instance.
    * Useful for simulation flows that need the artifact available locally before any on-chain
@@ -581,8 +579,8 @@ const WalletMethodSchemas = {
     output: z.array(z.object({ alias: z.string(), item: schemas.AztecAddress })),
   }),
   registerContract: z.function({
-    input: z.tuple([ContractInstancePreimageWithAddressSchema, optional(ContractArtifactSchema), optional(schemas.Fr)]),
-    output: ContractInstancePreimageWithAddressSchema,
+    input: z.tuple([ContractInstancePreimageSchema, optional(ContractArtifactSchema), optional(schemas.Fr)]),
+    output: z.void(),
   }),
   registerContractClass: z.function({ input: z.tuple([ContractArtifactSchema]), output: z.void() }),
   simulateTx: z.function({
@@ -634,12 +632,15 @@ function createBatchSchemas<T extends Record<string, z.ZodFunction<z.ZodTuple<an
     }),
   );
 
-  const namesAndReturns = names.map(name =>
-    z.object({
+  const namesAndReturns = names.map(name => {
+    const returnType = getSchemaReturnType(methodSchemas[name]);
+    return z.object({
       name: z.literal(name),
-      result: getSchemaReturnType(methodSchemas[name]),
-    }),
-  );
+      // void-returning methods serialize to a missing `result` key over JSON-RPC, so their field must be optional:
+      // value-returning methods keep it required so a dropped result is still caught.
+      result: returnType instanceof z.ZodVoid ? returnType.optional() : returnType,
+    });
+  });
 
   // Type assertion needed because discriminatedUnion expects a tuple type [T, T, ...T[]]
   // but we're building the array dynamically. The runtime behavior is correct.

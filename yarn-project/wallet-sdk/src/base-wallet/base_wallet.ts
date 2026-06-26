@@ -41,7 +41,7 @@ import {
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type ContractInstancePreimageWithAddress, type NodeInfo, computePartialAddress } from '@aztec/stdlib/contract';
+import { type ContractInstancePreimage, type NodeInfo, computePartialAddress } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
 import { Gas, GasFees, GasSettings, ManaUsageEstimate } from '@aztec/stdlib/gas';
 import {
@@ -346,10 +346,10 @@ export abstract class BaseWallet implements Wallet {
   }
 
   async registerContract(
-    instance: ContractInstancePreimageWithAddress,
+    instance: ContractInstancePreimage,
     artifact?: ContractArtifact,
     secretKey?: Fr,
-  ): Promise<ContractInstancePreimageWithAddress> {
+  ): Promise<void> {
     // Classes and instances are registered independently: register the artifact (if provided) then the instance.
     // Neither call validates that the artifact matches the class the instance runs, a missing artifact only surfaces
     // when the contract is later simulated.
@@ -361,7 +361,6 @@ export abstract class BaseWallet implements Wallet {
     if (secretKey) {
       await this.pxe.registerAccount(secretKey, await computePartialAddress(instance));
     }
-    return instance;
   }
 
   registerContractClass(artifact: ContractArtifact): Promise<void> {

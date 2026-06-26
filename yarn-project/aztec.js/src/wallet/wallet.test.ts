@@ -144,17 +144,7 @@ describe('WalletSchema', () => {
       immutablesHash: Fr.random(),
       publicKeys: PublicKeys.default(),
     };
-    const result = await context.client.registerContract(mockInstance, mockArtifact, Fr.random());
-    expect(result).toEqual({
-      address: expect.any(AztecAddress),
-      deployer: expect.any(AztecAddress),
-      initializationHash: expect.any(Fr),
-      immutablesHash: expect.any(Fr),
-      originalContractClassId: expect.any(Fr),
-      publicKeys: expect.any(PublicKeys),
-      salt: expect.any(Fr),
-      version: 2,
-    });
+    await context.client.registerContract(mockInstance, mockArtifact, Fr.random());
   });
 
   it('registerContractClass', async () => {
@@ -394,10 +384,7 @@ describe('WalletSchema', () => {
     expect(results[4]).toEqual({ name: 'registerSender', result: expect.any(AztecAddress) });
     expect(results[5]).toEqual({ name: 'getAddressBook', result: expect.any(Array) });
     expect(results[6]).toEqual({ name: 'getAccounts', result: expect.any(Array) });
-    expect(results[7]).toEqual({
-      name: 'registerContract',
-      result: expect.objectContaining({ address: expect.any(AztecAddress) }),
-    });
+    expect(results[7]).toEqual({ name: 'registerContract', result: undefined });
     expect(results[8]).toEqual({ name: 'simulateTx', result: expect.any(TxSimulationResultWithAppOffset) });
     expect(results[9]).toEqual({ name: 'executeUtility', result: expect.any(UtilityExecutionResult) });
     expect(results[10]).toEqual({ name: 'profileTx', result: expect.any(TxProfileResult) });
@@ -468,22 +455,7 @@ class MockWallet implements Wallet {
     return [{ alias: 'account1', item: await AztecAddress.random() }];
   }
 
-  async registerContract(
-    _instanceData: any,
-    _artifact?: any,
-    _secretKey?: Fr,
-  ): Promise<ContractInstancePreimageWithAddress> {
-    return {
-      version: 2,
-      address: await AztecAddress.random(),
-      deployer: await AztecAddress.random(),
-      initializationHash: Fr.random(),
-      immutablesHash: Fr.random(),
-      originalContractClassId: Fr.random(),
-      publicKeys: await PublicKeys.random(),
-      salt: Fr.random(),
-    };
-  }
+  async registerContract(_instanceData: any, _artifact?: any, _secretKey?: Fr): Promise<void> {}
 
   async registerContractClass(_artifact: any): Promise<void> {}
 
