@@ -40,6 +40,8 @@ import { AddressStore } from '../address_store/address_store.js';
 import { AnchorBlockStore } from '../anchor_block_store/index.js';
 import { CapsuleStore } from '../capsule_store/capsule_store.js';
 import { ContractStore } from '../contract_store/contract_store.js';
+import { FactStore } from '../fact_store/fact_store.js';
+import { FactCollectionKey } from '../fact_store/fact_store_keys.js';
 import { NoteStore } from '../note_store/note_store.js';
 import { PrivateEventStore } from '../private_event_store/private_event_store.js';
 import { RecipientTaggingStore, SenderTaggingStore, TaggingSecretSourcesStore } from '../tagging_store/index.js';
@@ -212,6 +214,40 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       contract_artifacts: await snapshotMap(kvStore.openMap<string, Buffer>('contract_artifacts')),
       contract_classes: await snapshotMap(kvStore.openMap<string, Buffer>('contract_classes')),
       contracts_instances: await snapshotMap(kvStore.openMap<string, Buffer>('contracts_instances')),
+    }),
+  },
+
+  {
+    name: 'FactStore',
+    writeToStore: async kvStore => {
+      const factStore = new FactStore(kvStore);
+      const jobId = 'fixture-job';
+      const contract = AztecAddress.fromBigInt(100n);
+      const scope = AztecAddress.fromBigInt(1n);
+      const factCollectionTypeId = new Fr(7n);
+      const keyA = FactCollectionKey.from({
+        contractAddress: contract,
+        scope,
+        factCollectionTypeId,
+        factCollectionId: new Fr(0xaan),
+      });
+      const keyB = FactCollectionKey.from({
+        contractAddress: contract,
+        scope,
+        factCollectionTypeId,
+        factCollectionId: new Fr(0xbbn),
+      });
+      // A collection whose only fact is retractable (origin block 6): pruned on a reorg above block 6.
+      await factStore.recordFact(keyA, new Fr(3n), [new Fr(5n)], { blockNumber: 6, blockHash: new Fr(2n) }, jobId);
+      // A collection with a non-retractable and a retractable fact.
+      await factStore.recordFact(keyB, new Fr(1n), [new Fr(9n)], undefined, jobId);
+      await factStore.recordFact(keyB, new Fr(2n), [], { blockNumber: 5, blockHash: new Fr(1n) }, jobId);
+      await kvStore.transactionAsync(() => factStore.commit(jobId));
+    },
+    snapshotStore: async kvStore => ({
+      facts: await snapshotMap(kvStore.openMap<string, Buffer>('facts')),
+      facts_by_collection: await snapshotMap(kvStore.openMultiMap<string, string>('facts_by_collection')),
+      facts_by_block: await snapshotMap(kvStore.openMultiMap<number, string>('facts_by_block')),
     }),
   },
 
