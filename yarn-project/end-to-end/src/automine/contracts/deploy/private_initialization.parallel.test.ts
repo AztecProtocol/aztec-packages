@@ -11,18 +11,16 @@ import { PrivateInitTestContract } from '@aztec/noir-test-contracts.js/PrivateIn
 import { siloNullifier } from '@aztec/stdlib/hash';
 import { TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
 
-import { AUTOMINE_E2E_OPTS } from '../fixtures/fixtures.js';
-import type { TestWallet } from '../test-wallet/test_wallet.js';
-import { DeployTest } from './deploy_test.js';
+import type { TestWallet } from '../../../test-wallet/test_wallet.js';
+import { AutomineTestContext } from '../../automine_test_context.js';
 
 type InitTestCtorArgs = Parameters<InitTestContract['methods']['constructor']>;
 
 // Tests private contract initialization flows: noinitcheck functions, contracts without constructors,
 // single/batch initialization, ordering constraints between private init and public calls, and
-// ContractInitializationStatus reporting. DeployTest wraps setup(0, { ...AUTOMINE_E2E_OPTS,
-// fundSponsoredFPC, skipAccountDeployment }) with 1 account.
-describe('e2e_deploy_contract private initialization', () => {
-  const t = new DeployTest('private initialization');
+// ContractInitializationStatus reporting. Runs on a single account.
+describe('automine/contracts/deploy/private_initialization', () => {
+  const t = new AutomineTestContext();
 
   let logger: Logger;
   let wallet: TestWallet;
@@ -30,7 +28,8 @@ describe('e2e_deploy_contract private initialization', () => {
   let aztecNode: AztecNode;
 
   beforeAll(async () => {
-    ({ logger, wallet, aztecNode, defaultAccountAddress } = await t.setup({ ...AUTOMINE_E2E_OPTS }));
+    await t.setup();
+    ({ logger, wallet, aztecNode, defaultAccountAddress } = t);
     await publishContractClass(wallet, InitTestContract.artifact).then(c => c.send({ from: defaultAccountAddress }));
   });
 

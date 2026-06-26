@@ -21,19 +21,18 @@ import { PublicKeys } from '@aztec/stdlib/keys';
 
 import { jest } from '@jest/globals';
 
-import { AUTOMINE_E2E_OPTS, DUPLICATE_NULLIFIER_ERROR } from '../fixtures/fixtures.js';
-import { DeployTest, type StatefulContractCtorArgs } from './deploy_test.js';
+import { DUPLICATE_NULLIFIER_ERROR } from '../../../fixtures/fixtures.js';
+import { AutomineTestContext, type StatefulContractCtorArgs } from '../../automine_test_context.js';
 
 // Tests low-level contract class and instance registration: publishing class bytecode, deploying
-// instances via wallet or a contract deployer, and init-check enforcement. DeployTest wraps
-// setup(0, { ...AUTOMINE_E2E_OPTS, fundSponsoredFPC, skipAccountDeployment }) with 1 account.
+// instances via wallet or a contract deployer, and init-check enforcement. Runs on a single account.
 // jest.setTimeout is 900s because serial publish/deploy chains exceed the default 5 min hook budget.
-describe('e2e_deploy_contract contract class registration', () => {
+describe('automine/contracts/deploy/contract_class_registration', () => {
   // Pipelined cadence (~24s/dependent-tx) inflates the chained deploy/publish setup beyond the default 5 min
   // hook window. Many of the publishInstance helpers serially register multiple contracts/instances per case.
   jest.setTimeout(900_000);
 
-  const t = new DeployTest('contract class');
+  const t = new AutomineTestContext();
 
   let logger: Logger;
   let wallet: Wallet;
@@ -45,7 +44,8 @@ describe('e2e_deploy_contract contract class registration', () => {
   let publicationTxReceipt: TxReceipt;
 
   beforeAll(async () => {
-    ({ logger, wallet, aztecNode, defaultAccountAddress } = await t.setup({ ...AUTOMINE_E2E_OPTS }));
+    await t.setup();
+    ({ logger, wallet, aztecNode, defaultAccountAddress } = t);
     artifact = StatefulTestContract.artifact;
     publicationTxReceipt = await publishContractClass(wallet, artifact).then(c =>
       c.send({ from: defaultAccountAddress }).then(({ receipt }) => receipt),

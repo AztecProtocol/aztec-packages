@@ -9,22 +9,21 @@ import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest
 import { TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
 import { TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
 
-import { AUTOMINE_E2E_OPTS } from '../fixtures/fixtures.js';
-import type { TestWallet } from '../test-wallet/test_wallet.js';
-import { DeployTest } from './deploy_test.js';
+import type { TestWallet } from '../../../test-wallet/test_wallet.js';
+import { AutomineTestContext } from '../../automine_test_context.js';
 
 // Tests legacy ContractDeployer API: basic deploy, consecutive rollups, duplicate-salt rejection,
-// and failed public constructor handling. DeployTest wraps setup(0, { ...AUTOMINE_E2E_OPTS,
-// fundSponsoredFPC, skipAccountDeployment }) with 1 account.
-describe('e2e_deploy_contract legacy', () => {
-  const t = new DeployTest('legacy');
+// and failed public constructor handling. Runs on a single account.
+describe('automine/contracts/deploy/legacy', () => {
+  const t = new AutomineTestContext();
 
   let logger: Logger;
   let wallet: TestWallet;
   let defaultAccountAddress: AztecAddress;
 
   beforeAll(async () => {
-    ({ logger, wallet, defaultAccountAddress } = await t.setup({ ...AUTOMINE_E2E_OPTS }));
+    await t.setup();
+    ({ logger, wallet, defaultAccountAddress } = t);
   });
 
   afterAll(() => t.teardown());

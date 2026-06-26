@@ -37,6 +37,9 @@ function test_cmds {
   local tests=(
     # List all standalone and nested tests, except for the ones listed above.
     src/e2e_*/*.test.ts
+    src/automine/contracts/*.test.ts
+    src/automine/contracts/deploy/*.test.ts
+    src/automine/contracts/nested/*.test.ts
     src/single-node/block-building/*.test.ts
     src/single-node/proving/*.test.ts
     src/single-node/l1-reorgs/*.test.ts
@@ -296,6 +299,9 @@ function compat_test_cmds {
 
   local tests=(
     src/e2e_*/*.test.ts
+    src/automine/contracts/*.test.ts
+    src/automine/contracts/deploy/*.test.ts
+    src/automine/contracts/nested/*.test.ts
     src/single-node/fees/*.test.ts
     src/single-node/cross-chain/*.test.ts
     src/single-node/bot/*.test.ts
@@ -306,9 +312,10 @@ function compat_test_cmds {
   )
   for test in "${tests[@]}"; do
     local name
-    if [[ "$test" == src/p2p/* ]]; then
-      # The p2p/ folder has no `e2e_` prefix to strip; flatten its path into an e2e_p2p_<file> name
-      # (matching the historical e2e_p2p/<file> names) by dropping "src/", ".test.ts", and slashes.
+    if [[ "$test" == src/p2p/* || "$test" == src/automine/* ]]; then
+      # The p2p/ and automine/ folders have no `e2e_` prefix to strip; flatten their path into an
+      # e2e_<path> name (matching the historical e2e_p2p/<file> names) by dropping "src/", ".test.ts",
+      # and slashes.
       name=${test#src/}
       name=e2e_${name%.test.ts}
       name=${name//\//_}
