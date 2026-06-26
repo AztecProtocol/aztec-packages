@@ -26,16 +26,16 @@ type StagedOp = { kind: 'recordFact'; fact: StoredFact } | { kind: 'deleteFactCo
 /**
  * Stores immutable facts grouped into collections, isolated by contract and scope.
  *
- * A fact collection is a contract-defined bag of facts identified by a {@link FactCollectionKey} (contract, collection
- * type, and id). A fact is a contract-defined immutable, typed datum in a collection. Collections are implicit: one
- * comes into being when its first fact is recorded and ceases to exist once it has no facts left.
+ * A fact collection is a contract-defined bag of facts identified by a {@link FactCollectionKey} (contract, scope,
+ * collection type, and id). A fact is a contract-defined immutable, typed datum in a collection. Collections are
+ * implicit: one comes into being when its first fact is recorded and ceases to exist once it has no facts left.
  *
  * What makes this store different to, for example, the `CapsuleStore`, is that it is designed to support use cases
  * where resilience to reorgs is needed, via what we call _retractability_.
  *
  * Facts can be retractable or non-retractable. They are retractable if they are associated to an origin block.
  * Retractable facts are removed from the store when their origin block is pruned (typically due to a reorg).
- * Non-retractable facts survive reorgs; they must then be explicitly deleted, so as not to keep consuming resources
+ * Non-retractable facts survive reorgs: they must then be explicitly deleted, so as not to keep consuming resources
  * (storage and compute) indefinitely.
  *
  * Fact collections are isolated by scope.
@@ -82,7 +82,7 @@ export class FactStore implements StagedStore {
   }
 
   /**
-   * Records a fact in a collection, visible under the given scope.
+   * Records a fact in a collection.
    *
    * The collection is created implicitly on the first fact recorded for its key: recording into an existing collection
    * just adds to it.
