@@ -52,8 +52,6 @@ own job.
 | `notes/` | Note discovery, events, and offchain effects: note getters, pending note hashes, partial notes, event logs, event-only notes, offchain effects and payments, large public events, custom messages, and the tx-effect oracle. |
 | `execution/` | Transaction semantics: ordering, double-spend rejection, phase checks, kernelless simulation, the AVM simulator, the circuit recorder, option params, ABI types, state variables, mempool limits, the card game, and private voting. |
 | `lifecycle/` | Chain-tip, pruning, and timing behavior under automine: pruned blocks, the genesis timestamp, expiration timestamps, and PXE behavior. |
-| `sync/` | Node snapshot upload/download and sync. `snapshot_sync` creates a snapshot and syncs fresh nodes from one or multiple URLs, including fallback past a corrupted snapshot. |
 
-Two genuine outliers: `lifecycle/genesis_timestamp` builds its environment with a custom chain and a
-disabled `AnvilTestWatcher` rather than going through the base factory, and `execution/avm_simulator`
-dumps AVM circuit inputs for the downstream `avm_check_circuit` CI job.
+The `execution/avm_simulator` file is a genuine outlier: it dumps AVM circuit inputs for the downstream
+`avm_check_circuit` CI job, so it has a bespoke CI line and is excluded from the generic `execution/` glob.
