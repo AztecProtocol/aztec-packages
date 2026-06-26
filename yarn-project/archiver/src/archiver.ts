@@ -499,6 +499,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
 
         const prunedBlocks = await this.updater.removeBlocksWithoutProposedCheckpointAfter(pruneAfterBlockNumber);
         if (prunedBlocks.length > 0) {
+          this.instrumentation.recordPrune('orphan');
           this.events.emit(L2BlockSourceEvents.L2PruneUncheckpointed, {
             type: L2BlockSourceEvents.L2PruneUncheckpointed,
             slotNumber: blockSlot,

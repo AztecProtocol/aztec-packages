@@ -302,6 +302,7 @@ export class ArchiverL1Synchronizer implements Traceable {
 
     const prunedBlocks = await this.updater.removeUncheckpointedBlocksAfter(lastCheckpointedBlockNumber);
     if (prunedBlocks.length > 0) {
+      this.instrumentation.recordPrune('uncheckpointed');
       this.events.emit(L2BlockSourceEvents.L2PruneUncheckpointed, {
         type: L2BlockSourceEvents.L2PruneUncheckpointed,
         slotNumber: firstUncheckpointedBlockSlot,
@@ -1076,6 +1077,8 @@ export class ArchiverL1Synchronizer implements Traceable {
             `Pruned ${result.prunedBlocks.length} mismatching blocks for checkpoint ${prunedCheckpointNumber}`,
             { prunedBlocks: result.prunedBlocks.map(b => b.toBlockInfo()), prunedSlotNumber, prunedCheckpointNumber },
           );
+
+          this.instrumentation.recordPrune('l1_conflict');
 
           // Emit event for listening services to react to the prune.
           // Note: slotNumber comes from the first pruned block. If pruned blocks theoretically spanned multiple slots,

@@ -340,7 +340,8 @@ export const ARCHIVER_PRUNE_DURATION: MetricDefinition = {
 };
 export const ARCHIVER_PRUNE_COUNT: MetricDefinition = {
   name: 'aztec.archiver.prune_count',
-  description: 'Number of prunes detected',
+  description:
+    'Number of prunes detected, dimensioned by prune_type: unproven (epoch prune of checkpoints that will not be proven), uncheckpointed (proposed blocks whose slot ended without a checkpoint), l1_conflict (proposed blocks conflicting with an L1 checkpoint), and orphan (proposed blocks whose matching proposed checkpoint never arrived before the deadline). Only unproven was counted before this dimension was added; the rest are pending-chain reorgs previously observable only in logs.',
   valueType: ValueType.INT,
 };
 
