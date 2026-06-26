@@ -458,6 +458,10 @@ export class P2PClient extends WithTracer implements P2P {
     return this.txPool.getPendingTxCount();
   }
 
+  public getEligiblePendingTxCount(): Promise<number> {
+    return this.txPool.getEligiblePendingTxCount();
+  }
+
   public async *iteratePendingTxs(opts?: { includeProof?: boolean }): AsyncIterableIterator<Tx> {
     for (const txHash of await this.txPool.getPendingTxHashes()) {
       const tx = await this.txPool.getTxByHash(txHash, opts);

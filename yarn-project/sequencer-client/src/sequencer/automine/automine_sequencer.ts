@@ -362,7 +362,7 @@ export class AutomineSequencer {
       return;
     }
     try {
-      const pending = await this.deps.p2pClient.getPendingTxCount();
+      const pending = await this.deps.p2pClient.getEligiblePendingTxCount();
       if (pending > 0) {
         // Fire-and-forget; the build result is delivered via `buildIfPending()` callers,
         // not via the poller.
@@ -389,7 +389,7 @@ export class AutomineSequencer {
     }
     await this.reconcileDateProvider();
 
-    const txCount = await this.deps.p2pClient.getPendingTxCount();
+    const txCount = await this.deps.p2pClient.getEligiblePendingTxCount();
     // For mempool-driven builds, wait for at least `minTxsPerBlock` pending txs (or 1 if not set)
     // before building. This mirrors the production sequencer's `waitForMinTxs` behavior, and is
     // required for tests that bundle multiple txs into one block via `setConfig({ minTxsPerBlock })`.

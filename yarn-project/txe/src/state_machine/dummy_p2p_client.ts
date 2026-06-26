@@ -122,6 +122,10 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "getPendingTxCount"');
   }
 
+  public getEligiblePendingTxCount(): Promise<number> {
+    throw new Error('DummyP2P does not implement "getEligiblePendingTxCount"');
+  }
+
   public start(): Promise<void> {
     throw new Error('DummyP2P does not implement "start"');
   }

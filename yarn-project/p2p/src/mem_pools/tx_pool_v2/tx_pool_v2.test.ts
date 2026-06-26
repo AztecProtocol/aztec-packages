@@ -5414,6 +5414,34 @@ describe('TxPoolV2', () => {
       expect(toStrings(eligible)).toEqual([hashOf(tx)]);
     });
 
+    it('getEligiblePendingTxCount excludes fresh txs and counts them once they age in', async () => {
+      const txs = await Promise.all([mockTxWithFee(1, 10), mockTxWithFee(2, 20), mockTxWithFee(3, 30)]);
+      await agePool.addPendingTxs(txs);
+
+      // Fresh txs (added at 10000, cutoff 10000 - 2000 = 8000) count as pending but not as eligible
+      expect(await agePool.getPendingTxCount()).toBe(3);
+      expect(await agePool.getEligiblePendingTxCount()).toBe(0);
+
+      // Once the minimum age elapses they all become eligible
+      currentTime = 12_001;
+      expect(await agePool.getPendingTxCount()).toBe(3);
+      expect(await agePool.getEligiblePendingTxCount()).toBe(3);
+    });
+
+    it('getEligiblePendingTxCount counts only txs old enough at a partial cutoff', async () => {
+      const tx1 = await mockTxWithFee(1, 10);
+      await agePool.addPendingTxs([tx1]);
+
+      currentTime = 11_000;
+      const tx2 = await mockTxWithFee(2, 20);
+      await agePool.addPendingTxs([tx2]);
+
+      // At 12500: tx1 (added at 10000) is old enough, tx2 (added at 11000) is not
+      currentTime = 12_500;
+      expect(await agePool.getPendingTxCount()).toBe(2);
+      expect(await agePool.getEligiblePendingTxCount()).toBe(1);
+    });
+
     it('tx becomes eligible at exactly minTxPoolAgeMs', async () => {
       const tx = await mockTxWithFee(1, 10);
       await agePool.addPendingTxs([tx]);

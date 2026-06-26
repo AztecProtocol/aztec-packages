@@ -182,6 +182,9 @@ export type P2P = P2PClient & {
   /** Returns the number of pending txs in the mempool. */
   getPendingTxCount(): Promise<number>;
 
+  /** Returns the number of pending txs that have been in the pool long enough to be eligible for block building. */
+  getEligiblePendingTxCount(): Promise<number>;
+
   /**
    * Protects existing transactions by hash for a given slot.
    * Returns hashes of transactions that weren't found in the pool.

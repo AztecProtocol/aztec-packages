@@ -224,6 +224,9 @@ export interface TxPoolV2 extends TypedEventEmitter<TxPoolV2Events> {
   /** Gets the count of pending transactions */
   getPendingTxCount(): Promise<number>;
 
+  /** Gets the count of pending transactions old enough per minTxPoolAgeMs. Age-filtered counterpart of getPendingTxCount. */
+  getEligiblePendingTxCount(): Promise<number>;
+
   /** Gets mined transaction hashes with their block IDs */
   getMinedTxHashes(): Promise<[TxHash, L2BlockId][]>;
 

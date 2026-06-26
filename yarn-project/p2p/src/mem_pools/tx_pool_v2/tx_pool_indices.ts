@@ -228,6 +228,18 @@ export class TxPoolIndices {
     return this.#pendingByPriority.length;
   }
 
+  /**
+   * Counts pending transactions received at or before maxReceivedAt, i.e. those old enough to be
+   * eligible for block building. Age-filtered counterpart of {@link getPendingTxCount}.
+   */
+  getEligiblePendingTxCount(maxReceivedAt: number): number {
+    let count = 0;
+    for (const _ of this.iterateEligiblePendingByPriority('desc', maxReceivedAt)) {
+      count++;
+    }
+    return count;
+  }
+
   /** Gets the lowest priority pending transaction hashes (up to limit) */
   getLowestPriorityPending(limit: number): string[] {
     if (limit <= 0) {

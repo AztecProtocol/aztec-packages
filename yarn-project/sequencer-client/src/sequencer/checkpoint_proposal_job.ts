@@ -1252,7 +1252,7 @@ export class CheckpointProposalJob implements Traceable {
       ? new Date(buildDeadline.getTime() - this.timetable.minBlockDuration * 1000)
       : undefined;
 
-    let availableTxs = await this.p2pClient.getPendingTxCount();
+    let availableTxs = await this.p2pClient.getEligiblePendingTxCount();
 
     while (!forceCreate && availableTxs < minTxs) {
       // If we're past deadline, or we have no deadline, give up
@@ -1268,7 +1268,7 @@ export class CheckpointProposalJob implements Traceable {
         { blockNumber, slot: this.targetSlot, indexWithinCheckpoint },
       );
       await this.waitForTxsPollingInterval();
-      availableTxs = await this.p2pClient.getPendingTxCount();
+      availableTxs = await this.p2pClient.getEligiblePendingTxCount();
     }
 
     return { canStartBuilding: true, availableTxs, minTxs };
