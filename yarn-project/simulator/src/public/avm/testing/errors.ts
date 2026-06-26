@@ -1,8 +1,8 @@
 import type { Point } from '@aztec/foundation/curves/grumpkin';
 import type { FailingFunction, NoirCallStack } from '@aztec/stdlib/errors';
 
-import { ExecutionError } from '../../common/errors.js';
-import { CheckedPublicExecutionError } from '../public_errors.js';
+import { ExecutionError } from '../../../common/errors.js';
+import { CheckedPublicExecutionError } from '../../public_errors.js';
 
 /**
  * Avm-specific errors should derive from this

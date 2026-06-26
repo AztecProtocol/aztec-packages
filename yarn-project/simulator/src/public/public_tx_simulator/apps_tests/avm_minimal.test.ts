@@ -5,13 +5,7 @@ import { NativeWorldStateService } from '@aztec/world-state/native';
 import { executeAvmMinimalPublicTx } from '../../fixtures/minimal_public_tx.js';
 import { PublicTxSimulationTester } from '../../fixtures/public_tx_simulation_tester.js';
 
-describe.each([
-  // Note: cannot run this for both TS and C++ simulators as they produce different hints!
-  // TODO(dbanks12): ideally we would TS as well and compare hints to make sure that C++ is strictly a subset of TS hints.
-  // TS generates extra hints that C++ does not.
-  //{ useCppSimulator: false, simulatorName: 'TS Simulator' },
-  { useCppSimulator: true, simulatorName: 'Cpp Simulator' },
-])('Public TX simulator apps tests: AvmMinimalTestContract ($simulatorName)', ({ useCppSimulator }) => {
+describe('Public TX simulator apps tests: AvmMinimalTestContract', () => {
   let worldStateService: NativeWorldStateService;
   let tester: PublicTxSimulationTester;
   // Make sure we collect hints
@@ -30,7 +24,6 @@ describe.each([
       worldStateService,
       /*globals=*/ undefined,
       /*metrics=*/ undefined,
-      useCppSimulator,
       config,
     );
   });
