@@ -1,6 +1,7 @@
 import { Fr } from '@aztec/aztec.js/fields';
-import { SlotNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
+import { getEpochAtSlot, getStartTimestampForEpoch } from '@aztec/stdlib/epoch-helpers';
 import { TxStatus } from '@aztec/stdlib/tx';
 
 import { proveAndSendTxs, proveInteraction } from '../../test-wallet/utils.js';
@@ -11,6 +12,43 @@ import {
   setupBlockProductionWithProver,
   waitForProvenCheckpoint,
 } from './setup.js';
+
+// The proven-checkpoint tail (~73% of each `it`) is a fixed wall-clock wait for the epoch holding the
+// multi-block checkpoint to close on L1: with `aztecProofSubmissionEpochs: 1` the epoch proof can only
+// be submitted once the *next* epoch begins, and at the 72s/12s wide-slot cadence that boundary is ~16
+// L1 blocks (~190s) of dead interval-mining away. The sequencers are already idle for this stretch
+// (`waitForProvenCheckpoint` stops them; we stop them here first so none of them race the jump), so the
+// fast-forward only skips empty time. We warp the shared L1 clock (`TestDateProvider` is shared by the
+// cheatcodes, the nodes and the prover, so the warp moves everyone's view of L1 time) to one L1 block
+// before the start of the proof-submission epoch, then let the existing wait observe the boundary cross
+// and the (mock) proof land organically over the remaining real time.
+async function warpToProofSubmissionEpoch(fixture: BlockProductionWithProverFixture): Promise<void> {
+  const { test, context, logger, nodes } = fixture;
+
+  // Stop the sequencers before warping so none of them tries to propose into the skipped slots and
+  // records a sequencer failure (which `waitForProvenCheckpoint` would later flag). Stopping is
+  // idempotent, so `waitForProvenCheckpoint` re-stopping them afterwards is harmless.
+  await Promise.all(nodes.map(n => n.getSequencer()?.stop()));
+
+  const { slot } = test.epochCache.getEpochAndSlotNow();
+  const checkpointEpoch = getEpochAtSlot(slot, test.constants);
+  const proofEpoch = EpochNumber(Number(checkpointEpoch) + test.constants.proofSubmissionEpochs);
+  const targetTs = getStartTimestampForEpoch(proofEpoch, test.constants) - BigInt(test.L1_BLOCK_TIME_IN_S);
+  const currentTs = BigInt(await context.cheatCodes.eth.lastBlockTimestamp());
+
+  if (currentTs < targetTs) {
+    logger.warn(
+      `Warping L1 from ${currentTs} to ${targetTs} (1 L1 block before proof-submission epoch ${proofEpoch})`,
+      {
+        checkpointEpoch,
+        proofEpoch,
+        currentTs,
+        targetTs,
+      },
+    );
+    await context.cheatCodes.eth.warp(Number(targetTs), { resetBlockInterval: true });
+  }
+}
 
 // Production of a multi-block proposed slot: txs anchor to the proposed tip and the wallet syncs to it,
 // and a non-validator re-executes then cold-syncs the checkpointed multi-block slot. Both share the
@@ -65,6 +103,7 @@ describe('multi-node/block-production/proposed_chain', () => {
       wait: true,
       archiver: fixture.archiver,
     });
+    await warpToProofSubmissionEpoch(fixture);
     await waitForProvenCheckpoint(fixture, multiBlockCheckpoint);
   });
 
@@ -158,6 +197,7 @@ describe('multi-node/block-production/proposed_chain', () => {
       wait: true,
       archiver: fixture.archiver,
     });
+    await warpToProofSubmissionEpoch(fixture);
     await waitForProvenCheckpoint(fixture, multiBlockCheckpoint);
   });
 });
