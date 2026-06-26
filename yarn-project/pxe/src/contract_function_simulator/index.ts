@@ -47,7 +47,7 @@ export type { IMiscOracle, IUtilityExecutionOracle, IPrivateExecutionOracle } fr
 export type { NoteData } from './noir-structs/note_data.js';
 export type { ResolvedTaggingStrategy } from './noir-structs/resolved_tagging_strategy.js';
 export type { MessageLoadOracleInputs } from './oracle/message_load_oracle_inputs.js';
-export { MessageContextService } from '../messages/message_context_service.js';
+export { TxResolverService } from '../messages/tx_resolver_service.js';
 export { UtilityExecutionOracle } from './oracle/utility_execution_oracle.js';
 export { PrivateExecutionOracle } from './oracle/private_execution_oracle.js';
 export { buildACIRCallback, UnavailableOracleError } from './oracle/acir_callback.js';
@@ -66,4 +66,5 @@ export type { LogRetrievalResponse } from './noir-structs/log_retrieval_response
 export { NoteValidationRequest } from './noir-structs/note_validation_request.js';
 export type { TxEffectData } from './noir-structs/tx_effect_data.js';
 export type { ProvidedSecret } from './noir-structs/provided_secret.js';
+export { ResolvedTx } from './noir-structs/resolved_tx.js';
 export { TransientArrayService } from './transient_array_service.js';

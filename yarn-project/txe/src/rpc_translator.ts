@@ -594,11 +594,11 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_getMessageContextsByTxHash(...inputs: ForeignCallArgs) {
+  aztec_utl_getResolvedTxs(...inputs: ForeignCallArgs) {
     return callTxeHandler({
-      oracle: 'aztec_utl_getMessageContextsByTxHash',
+      oracle: 'aztec_utl_getResolvedTxs',
       inputs,
-      handler: ([requestArrayBaseSlot]) => this.handlerAsUtility().getMessageContextsByTxHash(requestArrayBaseSlot),
+      handler: ([requestArrayBaseSlot]) => this.handlerAsUtility().getResolvedTxs(requestArrayBaseSlot),
     });
   }
 

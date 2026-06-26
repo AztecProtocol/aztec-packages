@@ -69,7 +69,7 @@ import { enrichPublicSimulationError, enrichSimulationError } from './error_enri
 import { PrivateEventFilterValidator } from './events/private_event_filter_validator.js';
 import type { ExecutionHooks } from './hooks/index.js';
 import { JobCoordinator } from './job_coordinator/job_coordinator.js';
-import { MessageContextService } from './messages/message_context_service.js';
+import { TxResolverService } from './messages/tx_resolver_service.js';
 import {
   PrivateKernelExecutionProver,
   type PrivateKernelExecutionProverConfig,
@@ -222,7 +222,7 @@ export class PXE {
     private addressStore: AddressStore,
     private privateEventStore: PrivateEventStore,
     private contractSyncService: ContractSyncService,
-    private messageContextService: MessageContextService,
+    private txResolver: TxResolverService,
     private l2TipsStore: L2TipsProvider,
     private simulator: CircuitSimulator,
     private proverEnabled: boolean,
@@ -296,7 +296,7 @@ export class PXE {
       noteStore,
       createLogger('pxe:contract_sync', bindings),
     );
-    const messageContextService = new MessageContextService(node);
+    const txResolver = new TxResolverService(node);
 
     const synchronizer = new BlockSynchronizer(
       node,
@@ -342,7 +342,7 @@ export class PXE {
       addressStore,
       privateEventStore,
       contractSyncService,
-      messageContextService,
+      txResolver,
       l2TipsStore,
       simulator,
       proverEnabled,
@@ -389,7 +389,7 @@ export class PXE {
       privateEventStore: this.privateEventStore,
       simulator: this.simulator,
       contractSyncService: this.contractSyncService,
-      messageContextService: this.messageContextService,
+      txResolver: this.txResolver,
       hooks: this.hooks,
     });
   }

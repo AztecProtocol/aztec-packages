@@ -645,7 +645,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       taggingSecretSourcesStore: this.taggingSecretSourcesStore,
       capsuleService: this.capsuleService,
       privateEventStore: this.privateEventStore,
-      messageContextService: this.messageContextService,
+      txResolver: this.txResolver,
       contractSyncService: this.contractSyncService,
       jobId: this.jobId,
       totalPublicCalldataCount: this.totalPublicCalldataCount,

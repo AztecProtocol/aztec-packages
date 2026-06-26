@@ -28,7 +28,6 @@ import { PublicKeys, computeAddressSecret, hashPublicKey } from '@aztec/stdlib/k
 import {
   AppTaggingSecret,
   FlatPublicLogs,
-  type MessageContext,
   type PendingTaggedLog,
   deriveAppSiloedSharedSecret,
 } from '@aztec/stdlib/logs';
@@ -50,7 +49,7 @@ import { EventService } from '../../events/event_service.js';
 import type { UtilityCallAuthorizationRequest } from '../../hooks/authorize_utility_call.js';
 import type { ExecutionHooks } from '../../hooks/index.js';
 import { LogService } from '../../logs/log_service.js';
-import { MessageContextService } from '../../messages/message_context_service.js';
+import { TxResolverService } from '../../messages/tx_resolver_service.js';
 import { NoteService } from '../../notes/note_service.js';
 import { ORACLE_VERSION_MAJOR } from '../../oracle_version.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
@@ -71,6 +70,7 @@ import type { NoteData } from '../noir-structs/note_data.js';
 import type { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import { Option } from '../noir-structs/option.js';
 import type { ProvidedSecret } from '../noir-structs/provided_secret.js';
+import type { ResolvedTx } from '../noir-structs/resolved_tx.js';
 import type { TxEffectData } from '../noir-structs/tx_effect_data.js';
 import type { UtilityContext } from '../noir-structs/utility_context.js';
 import { pickNotes } from '../pick_notes.js';
@@ -94,7 +94,7 @@ export type UtilityExecutionOracleArgs = {
   taggingSecretSourcesStore: TaggingSecretSourcesStore;
   capsuleService: CapsuleService;
   privateEventStore: PrivateEventStore;
-  messageContextService: MessageContextService;
+  txResolver: TxResolverService;
   contractSyncService: ContractSyncService;
   l2TipsStore: L2TipsProvider;
   jobId: string;
@@ -136,7 +136,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   protected readonly taggingSecretSourcesStore: TaggingSecretSourcesStore;
   protected readonly capsuleService: CapsuleService;
   protected readonly privateEventStore: PrivateEventStore;
-  protected readonly messageContextService: MessageContextService;
+  protected readonly txResolver: TxResolverService;
   protected readonly contractSyncService: ContractSyncService;
   protected readonly l2TipsStore: L2TipsProvider;
   protected readonly jobId: string;
@@ -160,7 +160,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.taggingSecretSourcesStore = args.taggingSecretSourcesStore;
     this.capsuleService = args.capsuleService;
     this.privateEventStore = args.privateEventStore;
-    this.messageContextService = args.messageContextService;
+    this.txResolver = args.txResolver;
     this.contractSyncService = args.contractSyncService;
     this.l2TipsStore = args.l2TipsStore;
     this.jobId = args.jobId;
@@ -645,18 +645,13 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return EphemeralArray.fromValues(this.ephemeralArrayService, innerArrays);
   }
 
-  /** Reads tx hash requests from an ephemeral array, resolves their contexts, and returns the response array. */
-  public async getMessageContextsByTxHash(
-    requests: EphemeralArray<Fr>,
-  ): Promise<EphemeralArray<Option<MessageContext>>> {
+  /** Given an array of tx hashes, returns an aligned array of tx info if the tx is available. */
+  public async getResolvedTxs(requests: EphemeralArray<Fr>): Promise<EphemeralArray<Option<ResolvedTx>>> {
     const txHashes = requests.readAll(this.ephemeralArrayService);
 
-    const maybeMessageContexts = await this.messageContextService.getMessageContextsByTxHash(
-      txHashes,
-      this.anchorBlockHeader.getBlockNumber(),
-    );
+    const resolved = await this.txResolver.resolveTxs(txHashes, this.anchorBlockHeader.getBlockNumber());
 
-    const options = maybeMessageContexts.map(mc => (mc ? Option.some(mc) : Option.none<MessageContext>()));
+    const options = resolved.map(r => (r ? Option.some(r) : Option.none<ResolvedTx>()));
     return EphemeralArray.fromValues(this.ephemeralArrayService, options);
   }
 
@@ -924,7 +919,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       taggingSecretSourcesStore: this.taggingSecretSourcesStore,
       capsuleService: this.capsuleService,
       privateEventStore: this.privateEventStore,
-      messageContextService: this.messageContextService,
+      txResolver: this.txResolver,
       contractSyncService: this.contractSyncService,
       l2TipsStore: this.l2TipsStore,
       jobId: this.jobId,
