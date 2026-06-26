@@ -686,6 +686,23 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
       const collectOffenses = !config.disableValidator || config.enableOffenseCollection;
 
+      // A prover node may still be proving an epoch whose blocks have already finalized on L1. Its proof
+      // submission window spans (proofSubmissionEpochs + 1) epochs, so its tx pool must keep finalized txs
+      // for at least that long to re-fetch them for proving and failure upload. Operators may configure a
+      // larger margin but not a smaller one.
+      if (config.enableProverNode) {
+        const proofSubmissionEpochs = await rollupContract.getProofSubmissionEpochs();
+        const proverRetentionFloorSlots = (proofSubmissionEpochs + 1) * Number(epochDuration);
+        const configuredSlots = config.keepFinalizedTxsForSlots ?? 0;
+        if (proverRetentionFloorSlots > configuredSlots) {
+          log.warn(
+            `Increasing keepFinalizedTxsForSlots from ${configuredSlots} to ${proverRetentionFloorSlots} ` +
+              `(proof submission window of ${proofSubmissionEpochs + 1} epochs) to retain finalized txs for proving`,
+          );
+          config.keepFinalizedTxsForSlots = proverRetentionFloorSlots;
+        }
+      }
+
       // create the tx pool and the p2p client, which will need the l2 block source
       const p2pClient = await createP2PClient(
         config,

@@ -712,8 +712,12 @@ export class TxPoolV2Impl {
   async handleFinalizedBlock(block: BlockHeader): Promise<void> {
     const blockNumber = block.globalVariables.blockNumber;
 
-    // Step 1: Find mined txs at or before finalized block
-    const minedTxsToFinalize = this.#indices.findTxsMinedAtOrBefore(blockNumber);
+    // Hold finalized txs for a configurable margin behind the finalized tip so a prover still
+    // proving an epoch with already-finalized blocks isn't starved of its txs. 0 deletes at the finalized tip.
+    const cutoffBlock = await this.#finalizationCutoffBlock(block);
+
+    // Step 1: Find mined txs at or before the cutoff block
+    const minedTxsToFinalize = this.#indices.findTxsMinedAtOrBefore(cutoffBlock);
 
     // Step 2: Archive in chunks if archiving is enabled. Hydrating an entire epoch's worth of
     // mined txs at once would OOM under load. When archiving is disabled there is no need to hydrate the txs at all.
@@ -737,14 +741,43 @@ export class TxPoolV2Impl {
     // transaction. Only tx hashes are touched here, so memory is bounded and atomicity is preserved.
     await this.#store.transactionAsync(async () => {
       await this.#deleteTxsBatch(minedTxsToFinalize);
-      await this.#deletedPool.finalizeBlock(blockNumber);
+      await this.#deletedPool.finalizeBlock(cutoffBlock);
     });
 
     if (minedTxsToFinalize.length > 0) {
-      this.#log.info(`Finalized ${minedTxsToFinalize.length} mined txs from blocks up to ${blockNumber}`, {
+      this.#log.info(`Finalized ${minedTxsToFinalize.length} mined txs from blocks up to ${cutoffBlock}`, {
         txHashes: minedTxsToFinalize,
+        finalizedBlockNumber: blockNumber,
+        cutoffBlock,
       });
     }
+  }
+
+  /**
+   * Resolves the block up to which finalized txs may be deleted, given `keepFinalizedTxsForSlots`.
+   * With a margin of 0 this is just the finalized block. Otherwise we keep txs whose block is within
+   * the margin (in slots) of the finalized tip: take the target slot `finalizedSlot - margin`, find the
+   * latest checkpoint at or before it (walking back a slot at a time, since the slot index only keys each
+   * checkpoint's own slot, until one is found — every checkpoint has at least one block), and use that
+   * checkpoint's last block as the cutoff. This rounds to a checkpoint boundary, so it can retain slightly
+   * more than the configured margin but never less, and never deletes past the finalized block.
+   */
+  async #finalizationCutoffBlock(block: BlockHeader): Promise<BlockNumber> {
+    const keepSlots = this.#config.keepFinalizedTxsForSlots;
+    if (keepSlots <= 0) {
+      return block.globalVariables.blockNumber;
+    }
+
+    const targetSlot = block.getSlot() - keepSlots;
+    for (let slot = targetSlot; slot >= 0; slot--) {
+      const checkpoint = await this.#l2BlockSource.getCheckpointData({ slot: SlotNumber(slot) });
+      if (checkpoint) {
+        return BlockNumber(checkpoint.startBlock + checkpoint.blockCount - 1);
+      }
+    }
+
+    // No checkpoint at or before the target slot (e.g. early chain): keep everything.
+    return BlockNumber(0);
   }
 
   // === Query Methods ===
@@ -856,6 +889,9 @@ export class TxPoolV2Impl {
     }
     if (config.minTxPoolAgeMs !== undefined) {
       this.#config.minTxPoolAgeMs = config.minTxPoolAgeMs;
+    }
+    if (config.keepFinalizedTxsForSlots !== undefined) {
+      this.#config.keepFinalizedTxsForSlots = config.keepFinalizedTxsForSlots;
     }
     // Update eviction rules with new config
     this.#evictionManager.updateConfig(config);

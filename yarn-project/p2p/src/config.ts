@@ -243,6 +243,12 @@ export interface P2PConfig
   /** Minimum percentage fee increase required to replace an existing tx via RPC (0 = no bump). */
   priceBumpPercentage: bigint;
 
+  /**
+   * Number of slots behind the finalized tip to keep finalized txs for before deleting them. 0 deletes
+   * at the finalized tip (default).
+   */
+  keepFinalizedTxsForSlots: number;
+
   /** Drop incoming block and checkpoint proposals at the libp2p dispatch layer (for testing only) */
   skipIncomingProposals?: boolean;
 
@@ -607,6 +613,12 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description:
       'Minimum percentage fee increase required to replace an existing tx via RPC. Even at 0%, replacement still requires paying at least 1 unit more.',
     ...bigintConfigHelper(10n),
+  },
+  keepFinalizedTxsForSlots: {
+    env: 'P2P_KEEP_FINALIZED_TXS_FOR_SLOTS',
+    description:
+      'Number of slots behind the finalized tip to keep finalized txs for before deleting them. 0 deletes at the finalized tip. Prover nodes set this above their worst-case proving + submission lag so a prover catching up is not starved of already-finalized txs.',
+    ...numberConfigHelper(0),
   },
   ...pickConfigMappings(sharedSequencerConfigMappings, [
     'expectedBlockProposalsPerSlot',
