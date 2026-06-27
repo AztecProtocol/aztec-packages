@@ -105,13 +105,18 @@ in shared/prod code (out of scope for this test-only branch). A follow-up PR sho
     poll loop and never observes its invalidation. Proper fix: item B.8 (idempotent `start()`), after
     which the merge + timing cut can be re-applied.
 
-16. **`gov_proposal.parallel`** — slot cut **weakened** from the attempted eth=4/aztec=8 to eth=4/aztec=12
-    (kept the retryUntil quorum-poll refactor). Symptom: `Invalid timing configuration: derived 0 blocks
-    per checkpoint for slot duration 8s and block duration 3s`. Root cause: with the default 3s block
-    duration and fast-profile budgets the timing model needs aztecSlotDuration ≥ ~8.5s to fit one block
-    per checkpoint; 8s derives 0. 12s is the floor (derives 2). Proper fix to reach 8s: also cut
-    `blockDurationMs` to 2000 (as `multiple_validators_sentinel` does), but that changes block packing for
-    a governance test — validate separately.
+16. **`gov_proposal.parallel`** (both its) — **fully reverted** to baseline (eth=8/aztec=16 +
+    `TestContract.deploy`), dropping both the slot cut and the `registerTestContract` swap. Two failure
+    modes were hit in succession: first `Invalid timing configuration: derived 0 blocks per checkpoint for
+    slot duration 8s` (the eth=4/aztec=8 attempt), then — after raising to eth=4/aztec=12 to clear the
+    timing guard — `Block hash … not found when querying world state … possibly a reorg has occurred`,
+    preceded by `Submitting fallback requests despite sync failure` and `SequencerInterruptedError`. Root
+    cause of the reorg: this is real production-sequencer block-building, and dropping to eth=4 (the only
+    way to reach a sub-16s L2 slot, since eth=8 forces aztec ∈ {16,24,…}) flips the node onto the
+    fast-profile budgets, which destabilizes its sync under the `advanceToEpoch(4)` warps. Not safely
+    tunable from the test file. Proper fix: needs a shared-fixture/prod change to keep the node sync stable
+    on the fast profile (or a fast-profile-safe `advanceToEpoch`); revisit alongside item A.* when the
+    shared block-production setup is touched.
 
 17. **`add_rollup`** — the `aztecSlotDuration: 8` override of `GOVERNANCE_TIMING` (12s) was **removed**
     (kept the retryUntil quorum-poll refactor). Same `Invalid timing configuration` root cause as item 16;
