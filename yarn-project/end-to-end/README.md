@@ -124,6 +124,13 @@ CI splits each `it` in a `.parallel.test.ts` file into its own docker job, runni
   a plain `.test.ts` **even if it has many top-level `it`s** — it runs as one ordered job. Adding
   `.parallel` to such a file breaks CI, because each `it` then runs without its predecessors.
 - A file with a single top-level `it` is a plain `.test.ts`.
+- `it`/`test` names in a `.parallel` file must avoid regex/shell-special characters —
+  `"` `(` `)` `[` `]` `{` `}` `$` `\` and backtick. The split passes each name to
+  `run_test.sh ... "<name>"` as a shell-quoted `--testNamePattern` regex: an embedded `"` closes the
+  quote early and hard-fails the job, while regex metacharacters (`(` `)` `[` `]` `+` `*` `?` `|` `{` `}`)
+  silently match zero tests so the shard runs nothing and passes green — a coverage gap that hides the
+  test. Plain `.test.ts` files run as one job and are unaffected, so any name is fine there.
+  (`.` `!` `#` `-` `:` `,` are safe in `.parallel` names.)
 - Each file has exactly one top-level `describe`, named to match its path
   (e.g. `describe('automine/token/transfer', …)`).
 

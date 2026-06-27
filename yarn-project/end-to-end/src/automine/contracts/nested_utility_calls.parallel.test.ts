@@ -37,20 +37,20 @@ describe('automine/contracts/nested_utility_calls', () => {
   afterAll(() => teardown());
 
   // Simulates pow_utility(2, 0) from the same contract; expects result == 1 with no recursion.
-  it('pow_utility(x, 0) returns 1 (base case, no nested call)', async () => {
+  it('pow_utility with exponent 0 returns 1 - base case, no nested call', async () => {
     const { result } = await contractA.methods.pow_utility(2n, 0).simulate({ from: defaultAccountAddress });
     expect(result).toEqual(1n);
   });
 
   // Simulates pow_utility(2, 10) which recurses 10 times within the same contract; expects 1024.
-  it('pow_utility(2, 10) returns 2^10 (10 levels of nesting)', async () => {
+  it('pow_utility 2 to the 10 returns 1024 - 10 levels of nesting', async () => {
     const { result } = await contractA.methods.pow_utility(2n, 10).simulate({ from: defaultAccountAddress });
     expect(result).toEqual(2n ** 10n);
   });
 
   // Simulates pow_private(2, 10) which calls pow_utility from a private function context; expects
   // 1024.
-  it('pow_private(2, 10) returns 2^10 (private function calling utility)', async () => {
+  it('pow_private 2 to the 10 returns 1024 - private function calling utility', async () => {
     const { result } = await contractA.methods.pow_private(2n, 10).simulate({ from: defaultAccountAddress });
     expect(result).toEqual(2n ** 10n);
   });
