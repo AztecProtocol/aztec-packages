@@ -121,18 +121,20 @@ describe('multi-node/block-production/proof_boundary', () => {
   const waitPastBoundary = async (boundarySlot: SlotNumber) => {
     // The slots between the first checkpoint and the boundary are dead time: the chain just has to
     // advance, nothing the assertions depend on happens until the boundary's neighbourhood. Warp the
-    // L1 clock over that dead time to the build window of slot N-1 (the boundary slot's pipelined
-    // build starts at the start of slot N-1, and any per-test proof tx must land within
-    // (boundaryTs - L2_SLOT, boundaryTs)), so warping no further than the N-1 build window leaves the
-    // parent build (N-1), the boundary build/publish (N), and the prune/recovery (N+1, N+2) to run in
-    // real wall-clock. `resetBlockInterval` keeps the anvil interval miner ticking from the warped
+    // L1 clock over that dead time, but stop a full three L2 slots ahead of the boundary (start of slot
+    // N-3). The remaining real-time tail must cover: the natural proof landing strictly before the
+    // start of slot N-1 (the `proof lands well before deadline` assertion), the sequencer actually
+    // proposing a parent block in slot N-1 (`hadProposedParent`), and the boundary build/publish and
+    // prune/recovery (N, N+1, N+2). Warping only to the N-1 build window left no real slots for the
+    // parent proposal and forced the natural proof to land at exactly boundaryTs - L2_SLOT, tripping
+    // those assertions. `resetBlockInterval` keeps the anvil interval miner ticking from the warped
     // point so those slots are produced organically. Only warp when there is real headroom so this is
     // a no-op if the chain has already advanced near the boundary.
-    const criticalWindowStartTs = getTimestampForSlot(SlotNumber(Number(boundarySlot) - 1), test.constants);
+    const criticalWindowStartTs = getTimestampForSlot(SlotNumber(Number(boundarySlot) - 3), test.constants);
     const warpTarget = criticalWindowStartTs - BigInt(test.L1_BLOCK_TIME_IN_S);
     const nowTs = BigInt(test.context.dateProvider.nowInSeconds());
     if (nowTs + BigInt(2 * test.L2_SLOT_DURATION_IN_S) < warpTarget) {
-      logger.warn(`Warping L1 from ${nowTs} to ${warpTarget} (build window of slot ${Number(boundarySlot) - 1})`, {
+      logger.warn(`Warping L1 from ${nowTs} to ${warpTarget} (start of slot ${Number(boundarySlot) - 3})`, {
         nowTs,
         warpTarget,
         boundarySlot,
