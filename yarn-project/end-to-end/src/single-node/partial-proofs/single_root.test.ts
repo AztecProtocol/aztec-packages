@@ -28,8 +28,19 @@ describe('single-node/partial-proofs/single_root', () => {
   // ChainMonitor.provenCheckpointNumber until it exceeds 0, confirming a partial proof was
   // accepted on-chain.
   it('submits partial proofs when instructed manually', async () => {
-    // With pipelining, each checkpoint takes ~2 L2 slots on a solo-sequencer setup.
-    await test.waitUntilCheckpointNumber(CheckpointNumber(4), test.L2_SLOT_DURATION_IN_S * 12);
+    // The production sequencer publishes one empty checkpoint per L2 slot, gated by L1 wall-clock,
+    // so left alone these 4 checkpoints cost ~4 slots of real time. Instead, after each checkpoint
+    // lands, warp the L1 clock one slot forward so the sequencer builds and publishes the next
+    // empty checkpoint immediately. Advancing exactly one slot at a time, only after the prior
+    // checkpoint is confirmed on-chain, keeps the one-checkpoint-per-slot layout unchanged.
+    const target = CheckpointNumber(4);
+    while (monitor.checkpointNumber < target) {
+      const next = CheckpointNumber.add(monitor.checkpointNumber, 1);
+      await test.waitUntilCheckpointNumber(next, test.L2_SLOT_DURATION_IN_S * 4);
+      if (monitor.checkpointNumber < target) {
+        await test.context.cheatCodes.rollup.advanceToNextSlot();
+      }
+    }
     logger.info(`Kicking off partial proof`);
 
     await test.context.proverNode!.getProverNode()!.startProof(EpochNumber(0));
