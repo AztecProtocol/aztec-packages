@@ -145,12 +145,15 @@ describe('single-node/proving/optimistic', () => {
    * boundary in wall-clock. Used to skip the dead stretch where the chain just advances one L1
    * block per slot until an epoch ends so the optimistic proof can land — the checkpoints/txs the
    * assertions depend on have already been produced before this is called, so warping the tail away
-   * doesn't change what gets proven. The `leadSlots` tail (default one slot — the current epoch's
-   * last slot) is left in real time so the sequencer can publish the epoch's final checkpoint before
-   * the boundary; this is purely an epoch *end* wait, so it needs less settle room than anchoring a
-   * fresh epoch (`waitUntilNextEpochStarts` uses two).
+   * doesn't change what gets proven. The `leadSlots` tail is left in real time so the sequencer can
+   * publish the epoch's final checkpoint before the boundary. `leadSlots` must be >= 2: the warp
+   * lands on slot `lastSlot - (leadSlots - 1)`, and the mid-epoch-proving sampler records the slot at
+   * which it observes the prover registered — with a one-slot lead the warp lands on the epoch's last
+   * slot, so a sampler tick that fires post-warp records `lastSlot` and fails the `< lastSlot`
+   * assertion. Two slots leaves the clock at `lastSlot - 1` with a full real-time slot for the
+   * sampler to record before the clock reaches `lastSlot`.
    */
-  const warpToEpochStart = async (epoch: EpochNumber | number, leadSlots = 1): Promise<bigint> => {
+  const warpToEpochStart = async (epoch: EpochNumber | number, leadSlots = 2): Promise<bigint> => {
     const [targetTs] = getTimestampRangeForEpoch(EpochNumber(Number(epoch)), test.constants);
     const safeTs = targetTs - BigInt(leadSlots * L2_SLOT_DURATION_IN_S);
     const currentTs = BigInt(await context.cheatCodes.eth.lastBlockTimestamp());
