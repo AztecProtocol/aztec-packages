@@ -1,7 +1,8 @@
 import { EthAddress } from '@aztec/aztec.js/addresses';
+import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
-import type { AztecNode } from '@aztec/aztec.js/node';
+import { type AztecNode, waitForTx } from '@aztec/aztec.js/node';
 import { EpochTestSettler } from '@aztec/aztec/testing';
 import { MAX_CHECKPOINTS_PER_EPOCH } from '@aztec/constants';
 import { OutboxContract, type ViemL2ToL1Msg } from '@aztec/ethereum/contracts';
@@ -138,9 +139,18 @@ describe('single-node/partial-proofs/multi_root', () => {
       const msg = makeMsg(content);
       const leaf = computeLeaf(msg);
       logger.warn(`Sending L2-to-L1 message ${i} (content=${content.toString()})`);
-      const { receipt } = await contract.methods
+      // The production sequencer builds the tx's block for the next slot, then publishes the
+      // checkpoint only once L1 time reaches that slot's start. Left to the real-time clock that
+      // is ~2 ethereum slots of wall-clock per tx. Instead, send without waiting, let the block get
+      // built (PROPOSED), then warp L1 straight to the built block's slot so the checkpoint publishes
+      // immediately. The warp lands exactly where the checkpoint would have published on its own, so
+      // the per-checkpoint layout the assertions below depend on is unchanged.
+      const { txHash } = await contract.methods
         .create_l2_to_l1_message_arbitrary_recipient_private(content, recipient)
-        .send({ from, wait: { waitForStatus: TxStatus.CHECKPOINTED } });
+        .send({ from, wait: NO_WAIT });
+      const proposed = await waitForTx(node, txHash, { waitForStatus: TxStatus.PROPOSED });
+      await test.context.cheatCodes.rollup.advanceToSlot(proposed.slotNumber!);
+      const receipt = await waitForTx(node, txHash, { waitForStatus: TxStatus.CHECKPOINTED });
       logger.warn(`Tx ${i} checkpointed`, {
         txHash: receipt.txHash.toString(),
         blockNumber: receipt.blockNumber,
