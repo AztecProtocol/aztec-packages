@@ -273,7 +273,11 @@ function test_cmds_native {
       done || (echo "Failed to list tests in $bin" && exit 1)
   done
 
-  echo "$hash:CPUS=8:MEM=32g:TIMEOUT=20m barretenberg/cpp/scripts/run_test.sh bbapi_tests ChonkPinnedIvcInputsTest.AllPinnedFlows"
+  # The full pinned Chonk flow is a release-mode compatibility test. In debug
+  # builds it is extremely slow and has been the only failing shard in nightlies.
+  if [[ "$native_preset" != *debug* ]]; then
+    echo "$hash:CPUS=8:MEM=32g:TIMEOUT=20m barretenberg/cpp/scripts/run_test.sh bbapi_tests ChonkPinnedIvcInputsTest.AllPinnedFlows"
+  fi
   echo "$hash barretenberg/cpp/scripts/chonk_inputs.sh check"
 }
 
