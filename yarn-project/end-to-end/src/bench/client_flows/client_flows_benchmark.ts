@@ -109,7 +109,8 @@ export class ClientFlowsBenchmark {
         1 + // FPC entrypoint
         1 + // BananaCoin transfer_to_public
         1 + // Account verify_private_authwit
-        1, // BananaCoin prepare_private_balance_increase
+        1 + // BananaCoin prepare_private_balance_increase
+        1, // Offchain fee note reception
     },
     // eslint-disable-next-line camelcase
     sponsored_fpc: {
