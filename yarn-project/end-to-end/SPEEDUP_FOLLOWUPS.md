@@ -142,3 +142,54 @@ Also **tuned, not reverted** (kept the optimization, adjusted the warp lead): `p
 start of slot N-3, giving the real-time tail room for the natural proof to land before slot N-1, for the
 sequencer to propose the parent (`hadProposedParent`), and for the boundary build/publish/prune. This is
 the prompt's "increase the warp lead" tune and stays within the test file.
+
+## E. Batch-2 shared-fixture opportunities (next-tier suites that BAILED — body is real wall-clock)
+
+These next-tier suites are body-dominated by *genuine production-sequencer slot-clock building* (not a
+warpable cheat-clock/proving wait), so no safe test-only edit exists. The lever in each case lives in a
+shared timing profile or the multi-node test context. Recorded for the same future PR as A/B.
+
+20. **`pipeline_prune`** (~367s, single `it`, `multi-node/recovery`) — ~204s of the body is 4 real
+    sequencers building checkpoints 2-3 at 72s/slot (`WIDE_SLOT_TIMING`), inside which sits a **~126s
+    dead gap** where nothing builds: the chain just waits for the L1 clock to roll past the
+    uncheckpointed slot so `pruneUncheckpointedBlocks` fires (`slotAtNextL1Block===16`). Opportunity: a
+    shared `MultiNodeTestContext.warpPastSlotForPrune(slot)` that warps L1 ~2 L1 blocks into the slot
+    *after* the uncheckpointed one (`resetBlockInterval:true`) once the target proposer's blocks are
+    known-built — skipping the dead gap without perturbing active building. Must be validated against
+    `assertProposerPipelining` (exact buildSlot/submissionSlot) and `assertMultipleBlocksPerSlot(8)`.
+    Cutting `TX_COUNT` breaks the latter; cutting the 72s slot is blocked by the A-914 constraint on
+    `WIDE_SLOT_TIMING` (non-proposers hit `CheckpointNumberNotSequentialError` below 72s/12s).
+
+21. **`proposal_failure_recovery.parallel`** (~231s, 2 `it`s, `multi-node/recovery`) — both bodies are
+    100% production-sequencer slot-clock across ~3 consecutive 36s slots (build slot N → wait slot-end on
+    L1 → prune via the checkpoint-proposal-receive deadline → rebuild+publish). Every milestone gap in
+    the logs is exactly one 36s slot. Warp is ruled out (it would jump the 4 sequencers' shared clock and
+    skip the pipelined building the prune/recovery assertions require). The only lever is cutting
+    `aztecSlotDuration` in the shared `MULTI_VALIDATOR_REORG_TIMING` profile (eth=6/aztec=36, also used by
+    `equivocation_recovery`, `ha_sync`, `ha_checkpoint_handoff`). With eth=6 fixed, aztec must stay a
+    multiple of 6; 24 (=6×4) is the practical floor given `l1PublishingTime:12`. A 36→24 cut saves
+    ~30-40s/`it` (~60-80s across the two CI jobs) but is moderate-risk on a 4-node consensus+pruning test
+    (`orphanPruneNoProposalTolerance:1`, `attestationPropagationTime:0.5`, receive-deadline all
+    slot-scaled) — needs a real run to confirm the pipeline still fits at 24s. Shared-fixture change.
+
+22. **`slash_veto_demo`** (~185s, single `it`, `multi-node/slashing`) — body = ~105s wait-for-submittable
+    -round + veto tx + ~61s wait-for-expiry. Quorum forms only as each of 3 validators bundles a
+    slash-signal into its per-slot block proposal, so the rounds advance via real per-slot building (logs
+    show 1:1 wall-clock slot progression, node clock NOT warped during the body). Warp is unsafe (it would
+    skip the signal-carrying proposals so quorum never forms / expiry threshold never crossed). In-file
+    timing is already at the floor (ethSlot=4s, aztecSlot=8s, epoch=2, slashingRound=4 slots ≈30s
+    wall-clock/round under the fake prover); eth<8 is the destabilization zone. Lever would be a shorter
+    slashing-round/epoch in a shared multi-node slashing timing profile — risky (inactivity detection is
+    measured over a proven epoch; quorum needs 3 proposers' signals within one round). Shared-fixture.
+
+23. **`token_bridge_public.parallel`** (~203s = ~102s setup + ~101s body, `single-node/cross-chain`) — the
+    test file only orchestrates `CrossChainTestHarness` calls; every wait lives in shared fixtures.
+    Highest-leverage shared change: in `cross_chain_test_harness.ts`, the deploy/init txs (~56s of setup)
+    and the body helpers (`mintTokensPublicOnL2`, `consumeMessageOnAztecAndMintPublicly`,
+    `withdrawPublicFromAztecToL1`, the two zero-mints in `makeMessageConsumable`) each pay one ~12s
+    checkpoint cycle on the pipelining slot clock — converting them to the send-NO_WAIT→`advanceToSlot(
+    proposed.slotNumber)` pattern (proven in multi_root) would collapse ~11 waits to ~3s each and benefits
+    EVERY cross-chain test (token_bridge_public/private, l2_to_l1, cross_chain_messages). Also
+    `cross_chain_messaging_test.ts advanceToEpochProven` waits ~24s for the fake prover while the L1 clock
+    ticks 4s at a time — warping the L1 clock forward there would shrink the tail. Both shared-fixture;
+    aligns with item A.6.
