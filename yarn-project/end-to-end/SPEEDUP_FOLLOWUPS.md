@@ -79,3 +79,61 @@ caller for free — these are the highest-leverage items.
 13. **`MultiNodeTestContext.findSlotsWithProposers`** already exists (multi_node_test_context.ts:352,
     with a `// REFACTOR:` TODO at :568); invalidate_block.parallel still hand-rolls the EpochNotStable
     slot search. Migrating reduces flake surface (no time impact).
+
+## D. Optimizations reverted/weakened to get CI green
+
+These were undone or weakened on `spl/e2e-speed-up-1` because they failed CI and the proper fix lives
+in shared/prod code (out of scope for this test-only branch). A follow-up PR should revisit each.
+
+14. **`proposed_chain.parallel`, `deploy_and_call_ordering`, `cross_chain_messages.parallel` (L2→L1 it),
+    `blob_promotion`** — the local `warpToProofSubmissionEpoch` / `warpPastEpochTailAndWaitForProven`
+    warp was **reverted** in all four (blob_promotion keeps only its safe `PIPELINE_TX_COUNT` 34→24
+    trim). Symptom: `block-build-failed: "Sequencer was interrupted"` recorded into `failEvents`, then
+    `waitForProvenCheckpoint → assertNoFailuresFromSequencers(failEvents)` rejected it. Root cause: the
+    helper stops the sequencers to warp safely, but `waitForProvenCheckpoint` runs
+    `assertNoFailuresFromSequencers` **before** it stops them, so the warp's own interrupt event is seen
+    as a failure. Proper fix: item A.2 — fold the warp into the shared `waitForProvenCheckpoint`
+    (`multi-node/block-production/setup.ts`) so the assert runs against the pre-stop event set, or have
+    the assert ignore `SequencerInterruptedError` block-build failures.
+
+15. **`invalidate_block.parallel`** — **fully reverted** (both the eth=8/aztec=36/block=6000 →
+    eth=4/aztec=24/block=4000 timing cut and the merge of three single-attack invalidation `it`s into one
+    sequential loop). Symptom: `TimeoutError: Waiting for CheckpointInvalidated event` on the 2nd/3rd
+    merged scenario, with `SequencerInterruptedError` from the inter-scenario `stop()`. Root cause: the
+    merged loop re-runs `runInvalidationTest` against a chain left mid-flight by the previous scenario,
+    and `Sequencer.start()` is not idempotent (item B.8), so the next scenario's runner leaks the prior
+    poll loop and never observes its invalidation. Proper fix: item B.8 (idempotent `start()`), after
+    which the merge + timing cut can be re-applied.
+
+16. **`gov_proposal.parallel`** — slot cut **weakened** from the attempted eth=4/aztec=8 to eth=4/aztec=12
+    (kept the retryUntil quorum-poll refactor). Symptom: `Invalid timing configuration: derived 0 blocks
+    per checkpoint for slot duration 8s and block duration 3s`. Root cause: with the default 3s block
+    duration and fast-profile budgets the timing model needs aztecSlotDuration ≥ ~8.5s to fit one block
+    per checkpoint; 8s derives 0. 12s is the floor (derives 2). Proper fix to reach 8s: also cut
+    `blockDurationMs` to 2000 (as `multiple_validators_sentinel` does), but that changes block packing for
+    a governance test — validate separately.
+
+17. **`add_rollup`** — the `aztecSlotDuration: 8` override of `GOVERNANCE_TIMING` (12s) was **removed**
+    (kept the retryUntil quorum-poll refactor). Same `Invalid timing configuration` root cause as item 16;
+    `GOVERNANCE_TIMING`'s 12s is the floor with the default 3s block duration. Same proper fix (cut
+    `blockDurationMs` if 8s is wanted).
+
+18. **`long_proving_time`** — slot cut **weakened** from `aztecSlotDurationInL1Slots: 2` (eth=4 → L2=8s,
+    ~3× speedup) to `3` (L2=12s, ~2× speedup). Same `Invalid timing configuration` root cause as item 16;
+    8s derives 0 blocks per checkpoint. proverTestDelayMs is slot-derived so the delay-to-slot ratio
+    (and the "lags by ~3 epochs" assertion) stays intact at 12s. Same proper fix to reach 8s (cut
+    `blockDurationMs`).
+
+19. **`proof_fails.parallel` ("does not allow submitting proof after epoch end" it)** — the first
+    `warpToEpochStart(1, 2)` (warp over the epoch-0 advance) was **reverted** to a real-time
+    `waitUntilEpochStarts(1)`; the epoch-1→2 warp is kept. Symptom: `expect(checkpointBeforeRollback)
+    .toBeGreaterThan(1)` got 1. Root cause: warping to ~2 slots before the epoch-1 boundary skips the
+    epoch-0 slots the sequencer needs to build a 2nd checkpoint, leaving only checkpoint 1. Proper fix:
+    item A.1 — a shared `waitUntilEpochStarts` warp that lands far enough before the boundary to leave
+    the in-epoch checkpoint builds intact (or capture the checkpoint count differently).
+
+Also **tuned, not reverted** (kept the optimization, adjusted the warp lead): `proof_boundary.parallel`
+(all 3 its) — the shared `waitPastBoundary` warp target was moved from the slot N-1 build window to the
+start of slot N-3, giving the real-time tail room for the natural proof to land before slot N-1, for the
+sequencer to propose the parent (`hadProposedParent`), and for the boundary build/publish/prune. This is
+the prompt's "increase the warp lead" tune and stays within the test file.
