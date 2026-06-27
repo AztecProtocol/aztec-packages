@@ -193,3 +193,39 @@ shared timing profile or the multi-node test context. Recorded for the same futu
     `cross_chain_messaging_test.ts advanceToEpochProven` waits ~24s for the fake prover while the L1 clock
     ticks 4s at a time — warping the L1 clock forward there would shrink the tail. Both shared-fixture;
     aligns with item A.6.
+
+24. **`attested_invalid_proposal.parallel`** (~186s, 2 `it`s, `multi-node/slashing`) — same
+    production-sequencer per-slot pattern as item 22. The ~59s dominant wait is genuine per-slot building
+    (L1 interval-mined every 4s, automine off): the honest validator builds the valid checkpoint for the
+    slot after the invalid one, and orphan-pruning fires only on the real proposal-synced deadline. Warp
+    would skip the building+deadline the asserts need. Timing constants are inline (AZTEC_SLOT_DURATION=36,
+    ETHEREUM_SLOT_DURATION=4, BLOCK_DURATION_MS=8000, BLOCKS_PER_CHECKPOINT=3) — a coordinated slot cut
+    across the multi-node/slashing suite is the only lever; out of single-file scope.
+
+25. **`multi_validator_node.parallel`** (~140s, 2 `it`s, `multi-node/block-production`) — both bodies are
+    genuine 5-validator per-slot block building + attestation on the shared clock (ethSlot=8s,
+    aztecSlot=36s, epoch=2, blockDurationMs=6000, INLINE in the test's beforeEach — note
+    `MOCK_GOSSIP_MULTI_VALIDATOR_OPTS` carries no timing). No idle dead-wait to warp. ethSlot is already
+    at the 8s floor (below flips to the fast profile, gov_proposal §D item 16). A coordinated
+    aztecSlot 36→24 (eth held at 8) MIGHT shave per-slot waits if attestation collection still completes,
+    but the committee-transition asserts (it-2 advances lagInEpochsForValidatorSet+1 epochs) need a real
+    run to validate — candidate for a slot-duration sweep, not a blind single-file edit.
+
+26. **`e2e_l1_publisher`** (~149s, 13 `it`s in one job, `e2e_l1_publisher/`) — dominant cost is per-`it`
+    setup: `deployAztecL1Contracts()` runs a `forge` broadcast script (~4.1s) 13× (~53s). NOT
+    consolidatable: every `it` needs a fresh genesis-archive rollup (the block-building `it` asserts
+    `archive == GENESIS_ARCHIVE_ROOT`), and the describe blocks deploy with incompatible args (committee
+    size 0 vs 3, slot 72 vs 48, automine on/off). Bodies already warp between checkpoints
+    (`progressTimeBySlot`); the rest is real checkpoint/blob construction + blob-tx submission (warp-immune).
+    Shared opportunity: cache/snapshot a freshly-deployed rollup once and `anvil_loadState`/EVM-revert per
+    test instead of re-running forge (the 9 committee-size-0 tests share one config) — in `@aztec/ethereum`.
+
+**Untouched next-tier suites (high-confidence bails by analogy — not separately agent-analyzed):**
+`equivocation_recovery` (~170s) uses the same `MULTI_VALIDATOR_REORG_TIMING` profile as item 21
+(`proposal_failure_recovery`) → same production-sequencer per-slot bail; lever is that shared profile.
+`gossip_network_no_cheat` (~172s) and `fee_asset_price_oracle_gossip` (~192s) already run the p2p body at
+the 24s slot (the lever spent on `gossip_network` above) — their residual cost is real p2p peer-spinup +
+propagation (shared `P2PNetworkTest`), so test-file slot cuts don't apply. `late_prover_tx_collection`
+(~165s) already runs at the 12s shared floor with only a ~25s body — its cost is setup/teardown, not the
+slot clock. (`fee_asset_price_oracle_gossip` and `late_prover_tx_collection` are being checked by a final
+wave for a fee-oracle-deadband or teardown-specific win; if those bail, all four are shared-fixture only.)
