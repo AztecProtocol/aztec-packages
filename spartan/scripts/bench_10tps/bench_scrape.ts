@@ -383,6 +383,22 @@ const TIME_SERIES_DEFS: Record<string, TimeSeriesDef> = {
     unit: "tps",
     query: `sum(rate(aztec_node_receive_tx_count${NS}[1m]))`,
   },
+  // Throughput funnel — tx rate at three stages, as three labeled series (source=
+  // gossip|rpc_receive|mined) in one entry so the dashboard overlays them on one
+  // chart. gossip: per-node accepted tx-topic gossipsub messages, avg across pods
+  // (every node accepts each unique tx once, so avg ~= unique-tx propagation rate;
+  // sum would overcount by the pod count). rpc_receive: receiveTx on the single
+  // submission node (= ingressTps). mined: archiver block tx rate, avg across
+  // archivers (= inclusionTps).
+  throughputTps: {
+    metric:
+      "gossipsub_accepted_messages_total|aztec_node_receive_tx_count|aztec_archiver_block_tx_count_sum",
+    unit: "tps",
+    query:
+      `label_replace(avg(rate(gossipsub_accepted_messages_total{k8s_namespace_name="${NAMESPACE}",topic="tx"}[1m])), "source", "gossip", "", "") or ` +
+      `label_replace(sum(rate(aztec_node_receive_tx_count${NS}[1m])), "source", "rpc_receive", "", "") or ` +
+      `label_replace(avg(rate(aztec_archiver_block_tx_count_sum${NS}[1m])), "source", "mined", "", "")`,
+  },
   // Duration of the RPC node's receiveTx handler (aztec.node.receive_tx.duration,
   // a histogram). This is the tx-ingest cost on the submission path — the metric
   // to watch when RPC ingress is the bottleneck (climbs as the RPC saturates).

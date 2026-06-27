@@ -429,6 +429,10 @@
         "ingressTps": {
           "$ref": "#/$defs/timeSeries"
         },
+        "throughputTps": {
+          "$ref": "#/$defs/timeSeries",
+          "description": "Tx throughput funnel as three labeled series (source = gossip | rpc_receive | mined) for overlaying on one chart: gossip propagation (per-node accepted tx-topic gossipsub, avg across pods), RPC ingress, and mined (avg across archivers)."
+        },
         "mempoolSizeRpc": {
           "$ref": "#/$defs/timeSeries"
         },
