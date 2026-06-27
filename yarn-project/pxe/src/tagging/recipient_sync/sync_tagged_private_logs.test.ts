@@ -2,6 +2,7 @@ import { MAX_TX_LIFETIME } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { MAX_RPC_LEN } from '@aztec/stdlib/interfaces/api-limit';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import {
   type AppTaggingSecret,
@@ -86,7 +87,7 @@ describe('syncTaggedPrivateLogs', () => {
     expect(logs).toHaveLength(0);
   });
 
-  it('batches tags from multiple secrets into a single RPC call', async () => {
+  it('batches tags from multiple secrets into capped RPC calls', async () => {
     const secrets = await makeSecrets(3, AppTaggingSecretKind.UNCONSTRAINED);
     const finalizedBlockNumber = BlockNumber(10);
 
@@ -97,7 +98,22 @@ describe('syncTaggedPrivateLogs', () => {
 
     await syncTaggedPrivateLogs(secrets, aztecNode, taggingStore, ANCHOR_BLOCK_HEADER, finalizedBlockNumber, JOB_ID);
 
-    expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(1);
+    const queriedTags = aztecNode.getPrivateLogsByTags.mock.calls.flatMap(([query]) => extractTags(query));
+    const expectedTags = (
+      await Promise.all(
+        secrets.map(secret =>
+          Promise.all(
+            Array.from({ length: UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1 }, (_, i) =>
+              computeSiloedTagForIndex(secret, i),
+            ),
+          ),
+        ),
+      )
+    ).flat();
+
+    expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(Math.ceil(expectedTags.length / MAX_RPC_LEN));
+    expect(aztecNode.getPrivateLogsByTags.mock.calls.every(([query]) => query.tags.length <= MAX_RPC_LEN)).toBe(true);
+    expect(queriedTags).toEqual(expectedTags);
   });
 
   it('syncs logs and updates store independently per secret', async () => {
