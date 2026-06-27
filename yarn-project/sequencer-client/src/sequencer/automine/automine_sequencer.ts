@@ -274,14 +274,22 @@ export class AutomineSequencer {
   /**
    * Warps L1 timestamp to `targetTimestampSec`. Rounded up to the next aztec-slot
    * boundary so the next build lands on a fresh slot. Atomic with respect to builds —
-   * the queue ensures no build is in flight while the warp executes.
+   * the queue ensures no build is in flight while the warp executes. A no-op when the
+   * target is already at or behind the current L1 time (see {@link runWarp}).
    */
   public warpTo(targetTimestampSec: number): Promise<void> {
     return this.queue.put(() => this.runWarp(targetTimestampSec));
   }
 
-  /** Warps L1 timestamp forward by `deltaSec` seconds from the current L1 time. */
+  /**
+   * Warps L1 timestamp forward by `deltaSec` seconds from the current L1 time, rounded up to the next
+   * aztec-slot boundary. Throws if `deltaSec` is not positive (warping "by" a non-positive amount is a
+   * caller bug — unlike {@link warpTo}, which no-ops on a past target).
+   */
   public warpBy(deltaSec: number): Promise<void> {
+    if (deltaSec <= 0) {
+      throw new Error(`warpL2TimeAtLeastBy: duration must be positive, got ${deltaSec} seconds.`);
+    }
     return this.queue.put(async () => {
       const current = await this.deps.ethCheatCodes.lastBlockTimestamp();
       await this.runWarp(current + deltaSec);
