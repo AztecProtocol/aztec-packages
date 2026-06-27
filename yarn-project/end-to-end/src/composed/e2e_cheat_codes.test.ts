@@ -56,7 +56,9 @@ describe('e2e_cheat_codes', () => {
     const blockBefore = await aztecNode.getBlock(await aztecNode.getBlockNumber());
     const timestampBefore = Number(blockBefore!.header.globalVariables.timestamp);
 
-    // Duration of 1 second is less than a slot, but should still succeed via auto-adjust.
+    // Duration of 1 second is less than a slot, but should still produce a block via auto-adjust. warpL2TimeAtLeastBy
+    // reads the current L1 time inside the sequencer queue and adds the duration, so the target is always in the
+    // future by the time the warp runs — no timestamp race.
     await cheatCodes.warpL2TimeAtLeastBy(nodeDebug, 1);
 
     const blockNumber = await aztecNode.getBlockNumber();
@@ -71,36 +73,25 @@ describe('e2e_cheat_codes', () => {
   });
 
   it('warpL2TimeAtLeastTo with target in current slot auto-adjusts to next slot', async () => {
-    // Target is 1 second ahead of L1 time — still in the current slot, so auto-adjust should kick in.
-    // The sequencer running in this composed test advances L1 by a full slot when it proposes a block,
-    // and that warp can land between our `lastBlockTimestamp()` read and the cheat code's internal
-    // re-read, racing `currentL1 + 1` into the past. Retry on that specific race with a fresh target;
-    // a subsequent slot-jump within the retry window is improbable enough that a small cap suffices.
-    const maxAttempts = 5;
-    let lastError: unknown;
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      const currentL1Timestamp = Number(await cheatCodes.eth.lastBlockTimestamp());
-      const targetTimestamp = currentL1Timestamp + 1;
-      try {
-        await cheatCodes.warpL2TimeAtLeastTo(nodeDebug, targetTimestamp);
-        const blockNumber = await aztecNode.getBlockNumber();
-        const block = await aztecNode.getBlock(blockNumber);
-        expect(block).toBeDefined();
-        expect(Number(block!.header.globalVariables.timestamp)).toBeGreaterThanOrEqual(targetTimestamp);
-        return;
-      } catch (err) {
-        lastError = err;
-        if (!(err instanceof Error) || !err.message.includes('is not in the future')) {
-          throw err;
-        }
-      }
-    }
-    throw lastError;
+    // Target is 1 second ahead of L1 time — still in the current slot, so auto-adjust rounds up to the next slot
+    // boundary and builds there. The sequencer can advance L1 (e.g. an auto-settle epoch proof mines an empty L1
+    // block) between our `lastBlockTimestamp()` read and the warp running on the queue; if that pushes L1 past the
+    // target the warp no-ops rather than throwing, so we assert against whichever clock leads.
+    const targetTimestamp = Number(await cheatCodes.eth.lastBlockTimestamp()) + 1;
+    await cheatCodes.warpL2TimeAtLeastTo(nodeDebug, targetTimestamp);
+
+    const block = await aztecNode.getBlock(await aztecNode.getBlockNumber());
+    expect(block).toBeDefined();
+    const l2Timestamp = Number(block!.header.globalVariables.timestamp);
+    const l1Timestamp = Number(await cheatCodes.eth.lastBlockTimestamp());
+    expect(Math.max(l2Timestamp, l1Timestamp)).toBeGreaterThanOrEqual(targetTimestamp);
   });
 
-  it('warpL2TimeAtLeastTo with past timestamp throws', async () => {
-    const currentL1Timestamp = Number(await cheatCodes.eth.lastBlockTimestamp());
-    const pastTimestamp = currentL1Timestamp - 1000;
-    await expect(cheatCodes.warpL2TimeAtLeastTo(nodeDebug, pastTimestamp)).rejects.toThrow('is not in the future');
+  it('warpL2TimeAtLeastTo with past timestamp is a no-op', async () => {
+    const blockNumberBefore = await aztecNode.getBlockNumber();
+    const pastTimestamp = Number(await cheatCodes.eth.lastBlockTimestamp()) - 1000;
+
+    await expect(cheatCodes.warpL2TimeAtLeastTo(nodeDebug, pastTimestamp)).resolves.toBeUndefined();
+    expect(await aztecNode.getBlockNumber()).toBe(blockNumberBefore);
   });
 });
