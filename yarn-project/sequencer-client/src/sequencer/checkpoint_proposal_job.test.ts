@@ -364,16 +364,17 @@ describe('CheckpointProposalJob', () => {
     deadline: undefined,
     isLastBlock: false,
   });
+  const makeSingleBlockTimetable = () =>
+    makeProposerTimetable({
+      l1Constants,
+      blockDurationMs: 9000,
+    });
 
   describe('single block mode', () => {
     beforeEach(() => {
       // Single block mode: a 9s block duration in a 24s slot derives exactly one block sub-slot.
-      job.setTimetable(
-        makeProposerTimetable({
-          l1Constants,
-          blockDurationMs: 9000,
-        }),
-      );
+      timetable = makeSingleBlockTimetable();
+      job.setTimetable(timetable);
     });
 
     it('builds one block with sufficient txs', async () => {
@@ -825,6 +826,8 @@ describe('CheckpointProposalJob', () => {
         targetSlot: SlotNumber(newSlotNumber + 1),
         proposedCheckpointData,
       });
+      pipelinedJob.setTimetable(makeSingleBlockTimetable());
+      dateProvider.setTime(pipelinedJob.getTimetable().getBuildFrameStart(SlotNumber(newSlotNumber + 1)) * 1000);
 
       // Listen for mismatch events on this job's emitter
       mismatchEvents = [];
