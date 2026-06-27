@@ -49,9 +49,6 @@ impl Deserialize for ResolvedTaggingStrategy {
 }
 
 impl From<ResolvedTaggingStrategy> for TagSecretSource {
-    /// Maps the wallet's resolved strategy onto a source. This is total over the strategy's two variants and cannot
-    /// produce [`existing_handshake`](TagSecretSource::existing_handshake), so converting untrusted wallet data can
-    /// never yield the registry-backed source.
     fn from(strategy: ResolvedTaggingStrategy) -> Self {
         if strategy.kind == NON_INTERACTIVE_HANDSHAKE {
             TagSecretSource::new_non_interactive_handshake()
