@@ -433,6 +433,10 @@
           "$ref": "#/$defs/timeSeries",
           "description": "Tx throughput funnel as three labeled series (source = gossip | rpc_receive | mined) for overlaying on one chart: gossip propagation (per-node accepted tx-topic gossipsub, avg across pods), RPC ingress, and mined (avg across archivers)."
         },
+        "p2pBandwidthBytesPerSec": {
+          "$ref": "#/$defs/timeSeries",
+          "description": "Gossipsub P2P wire bandwidth (all topics) as four labeled series (source = recv_avg | recv_max | sent_avg | sent_max): per-pod average and hottest-pod receive/send byte rates. From the gossipsub RPC byte counters (no libp2p-level transport metric is exported)."
+        },
         "mempoolSizeRpc": {
           "$ref": "#/$defs/timeSeries"
         },

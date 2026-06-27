@@ -399,6 +399,21 @@ const TIME_SERIES_DEFS: Record<string, TimeSeriesDef> = {
       `label_replace(sum(rate(aztec_node_receive_tx_count${NS}[1m])), "source", "rpc_receive", "", "") or ` +
       `label_replace(avg(rate(aztec_archiver_block_tx_count_sum${NS}[1m])), "source", "mined", "", "")`,
   },
+  // Gossipsub P2P wire bandwidth (all topics), as four labeled series: receive and
+  // send, each as the per-pod average and the hottest pod (max). Per pod, not
+  // summed, since the question is whether any node's bandwidth is a wall — the max
+  // series surfaces gossip load that isn't evenly spread. No libp2p-level transport
+  // metric is exported, so these gossipsub RPC byte counters are the bandwidth
+  // signal (they dominate P2P traffic).
+  p2pBandwidthBytesPerSec: {
+    metric: "gossipsub_rpc_recv_bytes_total|gossipsub_rpc_sent_bytes_total",
+    unit: "bytes/sec",
+    query:
+      `label_replace(avg(rate(gossipsub_rpc_recv_bytes_total${NS}[1m])), "source", "recv_avg", "", "") or ` +
+      `label_replace(max(rate(gossipsub_rpc_recv_bytes_total${NS}[1m])), "source", "recv_max", "", "") or ` +
+      `label_replace(avg(rate(gossipsub_rpc_sent_bytes_total${NS}[1m])), "source", "sent_avg", "", "") or ` +
+      `label_replace(max(rate(gossipsub_rpc_sent_bytes_total${NS}[1m])), "source", "sent_max", "", "")`,
+  },
   // Duration of the RPC node's receiveTx handler (aztec.node.receive_tx.duration,
   // a histogram). This is the tx-ingest cost on the submission path — the metric
   // to watch when RPC ingress is the bottleneck (climbs as the RPC saturates).
