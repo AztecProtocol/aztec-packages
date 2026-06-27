@@ -239,3 +239,30 @@ so only `equivocation_recovery` and `gossip_network_no_cheat` remain as shared-f
     job was cancelled — adding up to `txGatheringTimeoutMs` (default 120s) of shutdown latency to EVERY
     prover-node test, not just this one. The test-file workaround here just shrinks the timeout to 15s;
     the real fix is threading the abort signal so cancellation aborts the gather immediately.
+
+## F. Batch-2 CI-forced reverts/tunes (second CI round)
+
+28. **`e2e_2_pxes` — REVERTED** the beforeEach→beforeAll consolidation. Symptom: the 6th `it`
+    ("balance updates automatically after sender is registered") failed with `Invalid tx: Existing
+    nullifier` (the other 5 passed). Root cause: under shared state the test re-spends a note already
+    nullified by an earlier `it` / re-registers an already-registered sender, so it genuinely needs a
+    fresh per-test chain. Proper fix would isolate only that `it` (or reset PXE/chain state between the
+    coupled tests) while keeping the shared setup for the independent ones — needs a real run to confirm
+    which `it`s are safe to share.
+
+29. **`fee_settings` — REVERTED** the `cheatCodes.rollup.advanceSlots(3)` deadband-skip warp. Symptom: the
+    two tests using `inflateL2FeesViaL1BaseFee` ("handles min fee spikes", "reproduces the stale fee
+    snapshot race") failed with `Block header not found` / `Insufficient fee per gas` / slot-expired; the
+    governance-recovery test (which doesn't use the helper) passed. Root cause: warping mid-test desyncs
+    the production sequencer's checkpoint building from the L1 fee-oracle state the assertions sample
+    (same class as the gov_proposal fast-profile reorg, §D item 16). Proper fix lives in shared
+    `rollup_cheat_codes.ts` (have `updateL1GasFeeOracle` mine its own block instead of waiting an interval),
+    per the test's existing REFACTOR TODOs.
+
+30. **`optimistic.parallel` — TUNED (kept the optimization)**, `warpToEpochStart` default `leadSlots`
+    1 → 2. Symptom: flaky `expect(observedSlot).toBeLessThan(lastSlot)` — passed at the green baseline,
+    failed here with observedSlot == lastSlot (5). Root cause: a one-slot lead warps the clock onto the
+    epoch's last slot, so the 100ms mid-epoch-proving sampler, if it ticks post-warp, records `lastSlot`
+    instead of the earlier registration slot. A two-slot lead lands the clock on `lastSlot - 1`, leaving a
+    full real-time slot for the sampler to record before the clock reaches `lastSlot`. In-file tune, keeps
+    the ~600s saving.
