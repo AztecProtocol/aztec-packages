@@ -50,12 +50,7 @@ describe('automine/accounts/2_pxes', () => {
     return { wallet, address: accountManager.address, teardown };
   }
 
-  // Setup is hoisted to beforeAll: every `it` deploys its own token/Child contract and asserts on
-  // (contract, owner) pairs it created itself, so no `it` relies on fresh per-test chain state. The
-  // shared PXEs only ever register `accountA`/`accountB` as senders (never their secret keys), so the
-  // cross-PXE "balance is zero without the secret key" assertions hold regardless of test order, and
-  // the shared account created in a later `it` (index 2) does not collide with accountA/accountB.
-  beforeAll(async () => {
+  beforeEach(async () => {
     ({
       aztecNode,
       additionallyFundedAccounts,
@@ -81,7 +76,7 @@ describe('automine/accounts/2_pxes', () => {
     await walletB.registerSender(accountAAddress, 'accountA');
   });
 
-  afterAll(async () => {
+  afterEach(async () => {
     await teardownB();
     await teardownA();
   });

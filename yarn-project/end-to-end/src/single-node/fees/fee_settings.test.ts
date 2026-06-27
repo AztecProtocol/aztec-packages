@@ -117,16 +117,6 @@ describe('single-node/fees/fee_settings', () => {
       const targetL1BaseFee = referenceDerivedL1BaseFee > 0n ? referenceDerivedL1BaseFee : 1n;
       t.logger.info(`Targeting L1 base fee ${targetL1BaseFee} (current ${currentL1BaseFee})`);
 
-      // Skip the oracle rotation deadband cheaply. `updateL1GasFeeOracle` no-ops until the current
-      // L2 slot reaches `lastSlotOfChange + (LIFETIME - LAG) = +3` (FeeLib.sol updateL1GasFeeOracle),
-      // and the retry below otherwise burns that window mining one L1 block per ~4s interval tick
-      // (each `updateL1GasFeeOracle` waits a full anvil block interval for its receipt). Warping the
-      // shared clock forward past the deadband lets the first retry iteration rotate immediately. The
-      // warp only moves *when* the deadband opens, not the base fee the rotation captures (the retry
-      // re-pins `targetL1BaseFee` every iteration), so the >=1.3x assertions are unaffected, and the
-      // self-correcting retry still converges if the warp lands a slot short.
-      await cheatCodes.rollup.advanceSlots(3);
-
       // REFACTOR: hand-rolled retryUntil loop that mines L1 blocks and rotates the oracle; replace with
       // a helper on RollupCheatCodes that abstracts the L1-base-fee-spike + oracle-rotation retry.
       return await retryUntil(
