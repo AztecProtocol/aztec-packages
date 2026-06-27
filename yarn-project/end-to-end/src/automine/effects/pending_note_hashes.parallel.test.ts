@@ -94,7 +94,7 @@ describe('automine/effects/pending_note_hashes', () => {
 
   // Inserts a note and reads it back within the same nested-call chain; asserts the tx succeeds,
   // confirming the simulator can access pending (not-yet-persisted) notes within a single tx.
-  it('Aztec.nr function can "get" notes it just "inserted"', async () => {
+  it('Aztec.nr function can get notes it just inserted', async () => {
     const mintAmount = 65n;
 
     const deployedContract = await deployContract();
@@ -107,7 +107,7 @@ describe('automine/effects/pending_note_hashes', () => {
 
   // Creates one note and nullifies it in the same tx; asserts both the note hash and its nullifier
   // are squashed (zeroed) in the mined block, and the private log count is zero.
-  it('Squash! Aztec.nr function can "create" and "nullify" note in the same TX', async () => {
+  it('Squash! Aztec.nr function can create and nullify note in the same TX', async () => {
     // Kernel will squash the noteHash and its nullifier.
     // Realistic way to describe this test is "Mint note A, then burn note A in the same transaction"
     const mintAmount = 65n;
@@ -131,7 +131,7 @@ describe('automine/effects/pending_note_hashes', () => {
     await expectNoteLogsSquashedExcept(0);
   });
 
-  it('Squash! Aztec.nr function can "create" and "nullify" note in the same TX but the constrained note log survives', async () => {
+  it('Squash! Aztec.nr function can create and nullify note in the same TX but the constrained note log survives', async () => {
     // Kernel will squash the noteHash and its nullifier, but NOT the note log: constrained-delivery logs are not
     // linked to the note for squashing, because a removed log would break the index sequence.
     const mintAmount = 65n;
@@ -183,7 +183,7 @@ describe('automine/effects/pending_note_hashes', () => {
 
   // Same as above but the insert emits two private logs; asserts all are squashed along with the note
   // hash and nullifier.
-  it('Squash! Aztec.nr function can "create" and "nullify" note in the same TX with 2 note logs', async () => {
+  it('Squash! Aztec.nr function can create and nullify note in the same TX with 2 note logs', async () => {
     // Kernel will squash the noteHash and its nullifier and both note logs
     // Realistic way to describe this test is "Mint note A, then burn note A in the same transaction"
     const mintAmount = 65n;
@@ -208,7 +208,7 @@ describe('automine/effects/pending_note_hashes', () => {
 
   // Creates two notes and nullifies both in the same tx; asserts both note hashes, both nullifiers,
   // and both private logs are squashed.
-  it('Squash! Aztec.nr function can "create" 2 notes and "nullify" both in the same TX', async () => {
+  it('Squash! Aztec.nr function can create 2 notes and nullify both in the same TX', async () => {
     // Kernel will squash both noteHashes and their nullifier.
     // Realistic way to describe this test is "Mint notes A and B, then burn both in the same transaction"
     const mintAmount = 65n;
@@ -233,7 +233,7 @@ describe('automine/effects/pending_note_hashes', () => {
 
   // Creates two notes but only nullifies one in the same tx; asserts exactly one note hash persists
   // and its counterpart is squashed, leaving one private log.
-  it('Squash! Aztec.nr function can "create" 2 notes and "nullify" 1 in the same TX (kernel will squash one note + nullifier)', async () => {
+  it('Squash! Aztec.nr function can create 2 notes and nullify 1 in the same TX - kernel will squash one note and nullifier', async () => {
     // Kernel will squash one noteHash and its nullifier.
     // The other note will become persistent!
     // Realistic way to describe this test is "Mint notes A and B, then burn note A in the same transaction"
@@ -259,7 +259,7 @@ describe('automine/effects/pending_note_hashes', () => {
 
   // Same as the previous test but both notes share the same inner hash (static randomness); verifies
   // that only one of the two identical-hash notes is squashed, and the other persists.
-  it('Squash! Aztec.nr function can "create" 2 notes with the same note hash and "nullify" 1 in the same TX', async () => {
+  it('Squash! Aztec.nr function can create 2 notes with the same note hash and nullify 1 in the same TX', async () => {
     // Kernel will squash one noteHash and its nullifier, where two notes with the same inner hash exist.
     // The other note will become persistent!
     // Realistic way to describe this test is "Mint notes A and B, then burn note A in the same transaction"

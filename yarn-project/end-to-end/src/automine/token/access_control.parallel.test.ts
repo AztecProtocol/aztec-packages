@@ -50,7 +50,7 @@ describe('automine/token/access_control', () => {
     });
 
     // Attempts set_admin from the original admin address (which is no longer admin); expects 'caller is not admin'.
-    it('Set admin (not admin)', async () => {
+    it('Set admin not as admin', async () => {
       await expect(t.asset.methods.set_admin(t.adminAddress).simulate({ from: t.adminAddress })).rejects.toThrow(
         'Assertion failed: caller is not admin',
       );

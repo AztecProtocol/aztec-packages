@@ -38,7 +38,7 @@ describe('automine/effects/offchain_effect', () => {
 
   // Sends emit_offchain_effects with 2 effects; asserts the returned offchainEffects array has
   // length 2, that effects are reversed (popped from BoundedVec end), and contractAddresses match.
-  it('should return offchain effects from send()', async () => {
+  it('should return offchain effects from send', async () => {
     const effects = Array(2)
       .fill(null)
       .map(() => ({

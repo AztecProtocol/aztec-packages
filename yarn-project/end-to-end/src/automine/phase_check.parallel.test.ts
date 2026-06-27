@@ -70,7 +70,7 @@ describe('automine/phase_check', () => {
 
   // Same scenario but the function is annotated with #[allow_phase_change]; asserts the simulation
   // succeeds without throwing.
-  it('should not fail when a nested call changes the phase if #[allow_phase_change] is used', async () => {
+  it('should not fail when a nested call changes the phase if the allow_phase_change attribute is used', async () => {
     await contract.methods.call_function_that_ends_setup_without_phase_check().simulate({
       from: defaultAccountAddress,
       fee: {

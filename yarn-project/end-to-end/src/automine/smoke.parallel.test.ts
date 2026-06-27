@@ -116,7 +116,7 @@ describe('automine/smoke', () => {
 
   // Mines two checkpoints, then calls automine.revertToCheckpoint(first). Asserts the archiver tip
   // reverts to the earlier checkpoint and a fresh tx lands cleanly on the reverted chain.
-  it('revertToCheckpoint rolls back L1+L2 state', async () => {
+  it('revertToCheckpoint rolls back L1 and L2 state', async () => {
     // Land a tx and record the checkpoint it landed at.
     await contract.methods.emit_nullifier_public(BigInt(5000)).send({ from: owner });
     const checkpointBefore = (await aztecNode.getChainTips()).checkpointed.checkpoint.number;

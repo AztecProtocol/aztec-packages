@@ -93,7 +93,7 @@ describe('automine/token/escrow', () => {
 
   // Mints 50 to owner, then uses BatchCall to transfer 10 from owner and withdraw 20 from escrow
   // in the same tx. Asserts recipient ends up with 30 total.
-  it('moves funds using multiple keys on the same tx (#1010)', async () => {
+  it('moves funds using multiple keys on the same tx - regression 1010', async () => {
     logger.info(`Minting funds in token contract to ${owner}`);
     const mintAmount = 50n;
 
