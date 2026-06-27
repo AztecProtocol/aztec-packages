@@ -34,6 +34,18 @@
       "kind": "multimap"
     },
     {
+      "name": "facts",
+      "kind": "map"
+    },
+    {
+      "name": "facts_by_block",
+      "kind": "multimap"
+    },
+    {
+      "name": "facts_by_collection",
+      "kind": "multimap"
+    },
+    {
       "name": "header",
       "kind": "singleton"
     },

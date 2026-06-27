@@ -2,6 +2,7 @@ import { CompleteAddress } from '@aztec/aztec.js/addresses';
 import { TxHash } from '@aztec/aztec.js/tx';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { TaggingSecretStrategy } from '@aztec/pxe/server';
 import type { Option } from '@aztec/pxe/simulator';
 import type { EventSelector, FunctionSelector } from '@aztec/stdlib/abi';
@@ -71,6 +72,7 @@ export interface ITxeExecutionOracle {
   createAccount(secret: Fr): Promise<CompleteAddress>;
   addAccount(secret: Fr): Promise<CompleteAddress>;
   addAuthWitness(address: AztecAddress, messageHash: Fr): Promise<void>;
+  sendL1ToL2Message(content: Fr, secretHash: Fr, sender: EthAddress, recipient: AztecAddress): Promise<Fr>;
   setTaggingSecretStrategy(strategy: Option<TaggingSecretStrategy>): void;
   getLastBlockTimestamp(): Promise<bigint>;
   getLastTxEffects(): Promise<{

@@ -1,6 +1,6 @@
 use crate::protocol::{
     abis::{function_selector::FunctionSelector, gas::Gas, gas_fees::GasFees, gas_settings::GasSettings},
-    address::AztecAddress,
+    address::{AztecAddress, EthAddress},
     constants::{MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS},
     traits::{Deserialize, Empty, FromField, Packable, Serialize},
 };
@@ -11,7 +11,7 @@ use crate::{
         UtilityContext,
     },
     event::{event_interface::EventInterface, EventMessage},
-    hash::hash_args,
+    hash::{compute_secret_hash, hash_args},
     messages::{
         discovery::{
             ComputeNoteHash, ComputeNoteNullifier, CustomMessageHandler, process_message::process_message_plaintext,
@@ -866,6 +866,42 @@ impl TestEnvironment {
     /// Sets the timestamp of the next block to be mined to be ahead of the last one by `duration`.
     pub unconstrained fn advance_next_block_timestamp_by(_self: Self, duration: u64) {
         txe_oracles::advance_timestamp_by(duration);
+    }
+
+    /// Creates a message sent from the L1 to the L2.
+    ///
+    /// This is required so that a contract can later consume it via
+    /// [`PrivateContext::consume_l1_to_l2_message`](crate::context::PrivateContext::consume_l1_to_l2_message) or its
+    /// public counterpart. An empty block is mined carrying the message leaf.
+    ///
+    /// `content`, `secret`, `sender` and `recipient` must match what the consuming contract uses. The secret is hashed
+    /// with the standard [`crate::hash::compute_secret_hash`] - use
+    /// [`send_l1_to_l2_message_from_secret_hash`](TestEnvironment::send_l1_to_l2_message_from_secret_hash) if the
+    /// contract commits to its secret differently).
+    ///
+    /// Returns the global leaf index to pass as `consume_l1_to_l2_message`'s `leaf_index`.
+    pub unconstrained fn send_l1_to_l2_message(
+        self,
+        content: Field,
+        secret: Field,
+        sender: EthAddress,
+        recipient: AztecAddress,
+    ) -> Field {
+        self.send_l1_to_l2_message_from_secret_hash(content, compute_secret_hash(secret), sender, recipient)
+    }
+
+    /// Variant of [`send_l1_to_l2_message`](TestEnvironment::send_l1_to_l2_message) that takes the secret hash
+    /// directly.
+    ///
+    /// This is only required by contracts that commit to their consumption secret with a non-standard hash function.
+    pub unconstrained fn send_l1_to_l2_message_from_secret_hash(
+        _self: Self,
+        content: Field,
+        secret_hash: Field,
+        sender: EthAddress,
+        recipient: AztecAddress,
+    ) -> Field {
+        txe_oracles::send_l1_to_l2_message(content, secret_hash, sender, recipient)
     }
 
     /// Creates a new account that can be used as the `from` parameter in contract calls, e.g. in `private_call` or

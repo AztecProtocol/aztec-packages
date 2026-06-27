@@ -16,7 +16,7 @@ import {
 import { BlockNumber, type SlotNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import type { EthAddress } from '@aztec/foundation/eth-address';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { FieldReader } from '@aztec/foundation/serialize';
 import { MembershipWitness, type SiblingPath } from '@aztec/foundation/trees';
 import { type ACVMField, fromUintArray } from '@aztec/simulator/client';
@@ -54,11 +54,14 @@ import {
   TxHash,
 } from '@aztec/stdlib/tx';
 
+import type { OriginBlock } from '../../storage/fact_store/index.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
 import type { ContractClassLogData } from '../noir-structs/contract_class_log_data.js';
 import type { EmbeddedCurvePoint } from '../noir-structs/embedded_curve_point.js';
 import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
 import { EventValidationRequest } from '../noir-structs/event_validation_request.js';
+import type { Fact } from '../noir-structs/fact.js';
+import type { FactCollection } from '../noir-structs/fact_collection.js';
 import { type LogRetrievalRequest, type LogSource, logSourceFromField } from '../noir-structs/log_retrieval_request.js';
 import type { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import type { NoteData } from '../noir-structs/note_data.js';
@@ -70,6 +73,7 @@ import {
   resolvedTaggingStrategyFromFields,
   resolvedTaggingStrategyToFields,
 } from '../noir-structs/resolved_tagging_strategy.js';
+import type { ResolvedTx } from '../noir-structs/resolved_tx.js';
 import type { TxEffectData } from '../noir-structs/tx_effect_data.js';
 import type { UtilityContext } from '../noir-structs/utility_context.js';
 import type { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
@@ -284,8 +288,9 @@ const LOG_SOURCE: TypeMapping<LogSource> = {
   shape: ['scalar'],
 };
 
-const ETH_ADDRESS: TypeMapping<EthAddress> = {
+export const ETH_ADDRESS: TypeMapping<EthAddress> = {
   serialization: { fn: v => [v.toField()] },
+  deserialization: { fn: ([reader]) => EthAddress.fromField(reader.readField()) },
   shape: ['scalar'],
 };
 
@@ -525,6 +530,50 @@ export const PENDING_TAGGED_LOG: TypeMapping<PendingTaggedLog> = STRUCT<PendingT
   { name: 'log', type: FIXED_BOUNDED_VEC(FIELD, PRIVATE_LOG_SIZE_IN_FIELDS) },
   { name: 'context', type: MESSAGE_CONTEXT },
 ]);
+
+// `ResolvedTx.toFields()` packs the whole struct into a single slot: txHash, the uniqueNoteHashesInTx BoundedVec
+// (MAX_NOTE_HASHES_PER_TX storage fields + length), firstNullifierInTx, blockNumber and blockHash.
+export const RESOLVED_TX: TypeMapping<ResolvedTx> = {
+  serialization: { fn: resolved => [resolved.toFields()] },
+  shape: [{ len: MAX_NOTE_HASHES_PER_TX + 5 }],
+};
+
+export const ORIGIN_BLOCK: TypeMapping<OriginBlock> = {
+  serialization: { fn: ob => [new Fr(ob.blockNumber), ob.blockHash] },
+  deserialization: {
+    fn: ([blockNumberReader, blockHashReader]) => ({
+      blockNumber: blockNumberReader.readField().toNumber(),
+      blockHash: blockHashReader.readField(),
+    }),
+  },
+  shape: ['scalar', 'scalar'],
+};
+
+// `facts` and `payload` each materialize to a single service-slot id, so a Fact occupies: factTypeId, the payload
+// array slot, and `OPTION(ORIGIN_BLOCK)` (its discriminant plus ORIGIN_BLOCK's two slots).
+export const FACT: TypeMapping<Fact> = {
+  serialization: {
+    fn: f => [
+      f.factTypeId,
+      f.payload.materializeSlot(v => FIELD.serialization!.fn(v).flat() as Fr[]),
+      ...OPTION(ORIGIN_BLOCK).serialization!.fn(f.originBlock),
+    ],
+  },
+  shape: ['scalar', 'scalar', 'scalar', 'scalar', 'scalar'],
+};
+
+export const FACT_COLLECTION: TypeMapping<FactCollection> = {
+  serialization: {
+    fn: c => [
+      c.contractAddress.toField(),
+      c.scope.toField(),
+      c.factCollectionTypeId,
+      c.factCollectionId,
+      c.facts.materializeSlot(v => FACT.serialization!.fn(v).flat() as Fr[]),
+    ],
+  },
+  shape: ['scalar', 'scalar', 'scalar', 'scalar', 'scalar'],
+};
 
 export const PROVIDED_SECRET: TypeMapping<ProvidedSecret> = {
   deserialization: {

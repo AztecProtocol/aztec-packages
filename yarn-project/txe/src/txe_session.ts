@@ -10,6 +10,8 @@ import {
   CapsuleService,
   CapsuleStore,
   ContractStore,
+  FactService,
+  FactStore,
   JobCoordinator,
   NoteService,
   NoteStore,
@@ -257,6 +259,7 @@ export class TXESession implements TXESessionStateHandler {
     private recipientTaggingStore: RecipientTaggingStore,
     private taggingSecretSourcesStore: TaggingSecretSourcesStore,
     private capsuleStore: CapsuleStore,
+    private factStore: FactStore,
     private privateEventStore: PrivateEventStore,
     private jobCoordinator: JobCoordinator,
     private currentJobId: string,
@@ -308,12 +311,14 @@ export class TXESession implements TXESessionStateHandler {
     const recipientTaggingStore = new RecipientTaggingStore(store);
     const taggingSecretSourcesStore = new TaggingSecretSourcesStore(store);
     const capsuleStore = new CapsuleStore(store);
+    const factStore = new FactStore(store);
     const keyStore = new KeyStore(store);
     const accountStore = new TXEAccountStore(store);
 
     const jobCoordinator = new JobCoordinator(store);
     jobCoordinator.registerStores([
       capsuleStore,
+      factStore,
       senderTaggingStore,
       recipientTaggingStore,
       privateEventStore,
@@ -343,6 +348,7 @@ export class TXESession implements TXESessionStateHandler {
       recipientTaggingStore,
       taggingSecretSourcesStore,
       capsuleStore,
+      factStore,
       privateEventStore,
       nextBlockTimestamp,
       version,
@@ -370,6 +376,7 @@ export class TXESession implements TXESessionStateHandler {
       recipientTaggingStore,
       taggingSecretSourcesStore,
       capsuleStore,
+      factStore,
       privateEventStore,
       jobCoordinator,
       initialJobId,
@@ -659,6 +666,7 @@ export class TXESession implements TXESessionStateHandler {
       this.recipientTaggingStore,
       this.taggingSecretSourcesStore,
       this.capsuleStore,
+      this.factStore,
       this.privateEventStore,
       this.nextBlockTimestamp,
       this.version,
@@ -730,12 +738,13 @@ export class TXESession implements TXESessionStateHandler {
       recipientTaggingStore: this.recipientTaggingStore,
       taggingSecretSourcesStore: this.taggingSecretSourcesStore,
       capsuleService: new CapsuleService(this.capsuleStore, await this.keyStore.getAccounts()),
+      factService: new FactService(this.factStore, await this.keyStore.getAccounts()),
       privateEventStore: this.privateEventStore,
       contractSyncService: this.stateMachine.contractSyncService,
       l2TipsStore: this.stateMachine.l2TipsProvider,
       jobId: this.currentJobId,
       scopes: await this.keyStore.getAccounts(),
-      messageContextService: this.stateMachine.messageContextService,
+      txResolver: this.stateMachine.txResolver,
       simulator: new WASMSimulator(),
       hooks: composeHooks({
         resolveTaggingSecretStrategy: taggingSecretStrategy ? () => Promise.resolve(taggingSecretStrategy) : undefined,
@@ -826,8 +835,9 @@ export class TXESession implements TXESessionStateHandler {
       recipientTaggingStore: this.recipientTaggingStore,
       taggingSecretSourcesStore: this.taggingSecretSourcesStore,
       capsuleService: new CapsuleService(this.capsuleStore, await this.keyStore.getAccounts()),
+      factService: new FactService(this.factStore, await this.keyStore.getAccounts()),
       privateEventStore: this.privateEventStore,
-      messageContextService: this.stateMachine.messageContextService,
+      txResolver: this.stateMachine.txResolver,
       contractSyncService: this.stateMachine.contractSyncService,
       l2TipsStore: this.stateMachine.l2TipsProvider,
       jobId: this.currentJobId,
@@ -938,8 +948,9 @@ export class TXESession implements TXESessionStateHandler {
           recipientTaggingStore: this.recipientTaggingStore,
           taggingSecretSourcesStore: this.taggingSecretSourcesStore,
           capsuleService: new CapsuleService(this.capsuleStore, scopes),
+          factService: new FactService(this.factStore, scopes),
           privateEventStore: this.privateEventStore,
-          messageContextService: this.stateMachine.messageContextService,
+          txResolver: this.stateMachine.txResolver,
           contractSyncService: this.stateMachine.contractSyncService,
           l2TipsStore: this.stateMachine.l2TipsProvider,
           jobId: this.currentJobId,
