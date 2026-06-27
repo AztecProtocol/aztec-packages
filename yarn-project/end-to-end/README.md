@@ -13,7 +13,7 @@ integration layer above the per-package unit tests.
 Run a single test (spawns its own in-process anvil):
 
 ```bash
-yarn test:e2e src/automine/token/transfer.parallel.test.ts
+yarn test:e2e src/automine/token/access_control.parallel.test.ts
 yarn test:e2e src/single-node/block-building/block_building.test.ts -t 'rejects double spend'
 ```
 
@@ -111,12 +111,19 @@ overlaps but APIs differ, compose. Don't duplicate a category's environment wiri
 
 ### The `.parallel` suffix
 
-CI splits each **top-level** `it` in a `.parallel.test.ts` file into its own docker job (via
-`extract_test_names` in `bootstrap.sh`). Rules:
+CI splits each `it` in a `.parallel.test.ts` file into its own docker job, running it in isolation via
+`jest --testNamePattern` (the names come from `extract_test_names` in `bootstrap.sh`, which matches
+`it`/`test` at **any** nesting depth, not just top level). When an `it` runs alone its enclosing
+`beforeAll`/`beforeEach` hooks still run, but sibling `it`s do not. Rules:
 
-- A file with more than one top-level `it` **must** carry the `.parallel.test.ts` suffix.
-- A file with a single top-level `it` (even if it has many `it`s nested inside sub-`describe`s — those
-  don't count) is a plain `.test.ts`.
+- The `.parallel` suffix is for files whose `it`s are **independent**: every `it` must pass when run
+  entirely on its own. That holds only when all shared state is built in `beforeAll`/`beforeEach` and no
+  `it` reads or asserts on state produced by a sibling `it`.
+- A file with sequential or stateful `it`s (progressive mutation across `it`s, a describe-scope variable
+  assigned in one `it` and read in another, a note/token created in an earlier `it` and used later) stays
+  a plain `.test.ts` **even if it has many top-level `it`s** — it runs as one ordered job. Adding
+  `.parallel` to such a file breaks CI, because each `it` then runs without its predecessors.
+- A file with a single top-level `it` is a plain `.test.ts`.
 - Each file has exactly one top-level `describe`, named to match its path
   (e.g. `describe('automine/token/transfer', …)`).
 
@@ -193,7 +200,7 @@ To verify that contracts deployed from a previous release still work against the
 `@aztec/noir-test-contracts.js`:
 
 ```bash
-CONTRACT_ARTIFACTS_VERSION=4.1.3 yarn test:e2e src/automine/token/transfer.parallel.test.ts
+CONTRACT_ARTIFACTS_VERSION=4.1.3 yarn test:e2e src/automine/token/access_control.parallel.test.ts
 ```
 
 Only the JSON artifact files (`.../artifacts/*.json`) are redirected. The TypeScript wrapper classes

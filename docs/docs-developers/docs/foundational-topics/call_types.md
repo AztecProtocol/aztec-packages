@@ -3,7 +3,7 @@ title: Call Types
 sidebar_position: 6
 tags: [calls, contracts, execution]
 description: Understand the different types of contract calls in Aztec, including private and public execution modes, and how they compare to Ethereum's call types.
-references: ["noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr", "noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr", "noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr", "noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr", "yarn-project/end-to-end/src/automine/card_game.test.ts", "yarn-project/end-to-end/src/automine/token/crowdfunding_and_claim.parallel.test.ts"]
+references: ["noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr", "noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr", "noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr", "noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr", "yarn-project/end-to-end/src/automine/card_game.test.ts", "yarn-project/end-to-end/src/automine/token/crowdfunding_and_claim.test.ts"]
 
 ---
 
@@ -216,7 +216,7 @@ This creates a transaction, generates proofs for private execution, broadcasts t
 
 You can also use `send` to check for execution failures in testing contexts by expecting the transaction to throw:
 
-#include_code local-tx-fails /yarn-project/end-to-end/src/automine/token/crowdfunding_and_claim.parallel.test.ts typescript
+#include_code local-tx-fails /yarn-project/end-to-end/src/automine/token/crowdfunding_and_claim.test.ts typescript
 
 ## Next Steps
 
