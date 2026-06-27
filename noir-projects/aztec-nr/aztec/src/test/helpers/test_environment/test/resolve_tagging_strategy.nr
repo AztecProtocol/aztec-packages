@@ -11,7 +11,6 @@ use crate::{
 #[test]
 unconstrained fn defaults_unconstrained_delivery_to_the_address_derived_shared_secret() {
     let mut env = TestEnvironment::new();
-    // The hook path looks up the executing contract's class ID, so run in a deployed contract's context.
     let app = env.create_contract_account();
     let sender = env.create_light_account();
     let recipient = env.create_light_account();
@@ -42,8 +41,6 @@ unconstrained fn defaults_constrained_delivery_to_a_non_interactive_handshake() 
             OnchainDeliveryMode::onchain_constrained(),
         );
 
-        // TEMPORARY: while that policy is being decided, PXE temporarily defaults it to a non-interactive handshake
-        // instead of failing. Update this expectation when the PXE default is decided.
         assert_eq(resolved, ResolvedTaggingStrategy::non_interactive_handshake());
     });
 }
@@ -90,17 +87,12 @@ unconstrained fn applies_the_strategy_set_in_the_options() {
 #[test]
 unconstrained fn app_silos_an_arbitrary_secret_point() {
     let point = EmbeddedCurvePoint { x: 7, y: 11 };
-    // Deploying the contract account below delivers its keys via constrained delivery, which an arbitrary (i.e.
-    // unconstrained-only) secret cannot back. So deploy first under the default strategy and only then switch to the
-    // arbitrary secret for the unconstrained resolution under test.
-    let mut env = TestEnvironment::new();
+    let mut env = TestEnvironment::new_opts(TestEnvironmentOptions::new().with_tagging_secret_strategy(
+        TaggingSecretStrategy::arbitrary_secret(point),
+    ));
     // The hook path looks up the executing contract's class ID, so run in a deployed contract's context.
     let app = env.create_contract_account();
     let recipient = env.create_light_account();
-
-    crate::test::helpers::txe_oracles::set_tagging_secret_strategy(Option::some(TaggingSecretStrategy::arbitrary_secret(
-        point,
-    )));
 
     env.private_context_at(app, |_| {
         let resolved = resolve_tagging_strategy(

@@ -99,14 +99,13 @@ describe('PrivateExecutionOracle', () => {
       ).resolves.toEqual({ type: 'unconstrained-secret', secret });
     });
 
-    // TEMPORARY: while the default tagging-secret-strategy policy is being decided, the constrained-delivery default in
-    // PrivateExecutionOracle.#defaultTaggingSecretStrategy returns a non-interactive handshake instead of throwing.
-    // Re-enable this test or update it when a default is decided.
-    it.skip('fails constrained delivery when no hooks are configured', async () => {
+    it('defaults constrained delivery to a non-interactive handshake when no hooks are configured', async () => {
       const oracle = makeOracle();
 
-      await expect(oracle.resolveTaggingStrategy(sender, recipient, AppTaggingSecretKind.CONSTRAINED)).rejects.toThrow(
-        /requires a configured resolveTaggingSecretStrategy hook/,
+      await expect(oracle.resolveTaggingStrategy(sender, recipient, AppTaggingSecretKind.CONSTRAINED)).resolves.toEqual(
+        {
+          type: 'non-interactive-handshake',
+        },
       );
     });
 

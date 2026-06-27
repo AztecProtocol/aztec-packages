@@ -235,16 +235,14 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     }
   }
 
-  /** The privacy-safe tagging secret strategy used when no {@link ResolveTaggingSecretStrategy} hook is configured. */
+  /** The default tagging secret strategy used when no {@link ResolveTaggingSecretStrategy} hook is configured. */
   #defaultTaggingSecretStrategy(deliveryMode: AppTaggingSecretKind, _recipient: AztecAddress): TaggingSecretStrategy {
     if (deliveryMode === AppTaggingSecretKind.CONSTRAINED) {
-      // TEMPORARY: constrained delivery has no privacy-safe default (a non-interactive handshake reveals the recipient
-      // onchain, an interactive one needs a wallet). While the default policy is being decided it is temporarily defaulted
-      // to a non-interactive handshake.
       return { type: 'non-interactive-handshake' };
     }
 
-    // Unconstrained default: an address-derived (Diffie-Hellman) shared secret, which leaves no onchain trace.
+    // TODO: default unconstrained delivery to a non-interactive handshake too, so a pair shares one handshake (and
+    // one discovery stream) across both modes.
     return { type: 'address-derived' };
   }
 

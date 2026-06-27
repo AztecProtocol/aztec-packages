@@ -4,10 +4,8 @@
 
 use crate::context::PrivateContext;
 use crate::messages::delivery::{
-    constrained_delivery::emit_sequence_nullifier,
-    handshake::get_existing_app_siloed_handshake_secret,
-    OnchainDeliveryMode,
-    tag_secret_source::{ExistingHandshake, NewNonInteractiveHandshake, TagSecretSource, UnconstrainedSecret},
+    constrained_delivery::emit_sequence_nullifier, handshake::get_existing_app_siloed_handshake_secret,
+    OnchainDeliveryMode, tag_secret_source::TagSecretSource,
 };
 use crate::oracle::notes::get_next_tagging_index;
 use crate::oracle::resolve_tagging_strategy::resolve_tagging_strategy;
@@ -19,10 +17,6 @@ use crate::protocol::{
 use crate::standard_addresses::STANDARD_HANDSHAKE_REGISTRY_ADDRESS;
 
 /// Derives the discovery log tag for an on-chain delivery.
-///
-/// Selects the [`TagSecretSource`](super::tag_secret_source::TagSecretSource) that backs the tag: if a handshake is
-/// already registered for `(sender, recipient)` its secret is reused, otherwise the source is resolved from the wallet
-/// via [`resolve_tagging_strategy`].
 pub(crate) fn derive_log_tag(
     context: &mut PrivateContext,
     mode: OnchainDeliveryMode,
@@ -34,48 +28,27 @@ pub(crate) fn derive_log_tag(
     let existing =
         unsafe { get_existing_app_siloed_handshake_secret(STANDARD_HANDSHAKE_REGISTRY_ADDRESS, sender, recipient) };
 
-    if existing.is_some() {
-        tag_with(
-            ExistingHandshake { secret: existing.unwrap() },
-            context,
-            mode,
-            sender,
-            recipient,
-        )
-    } else {
-        // Safety: the strategy only selects which source runs; each source constrains (or rejects) its own secret
-        // before a constrained tag is emitted, so an untrusted strategy can't produce a valid unbacked constrained tag.
-        let strategy = unsafe { resolve_tagging_strategy(sender, recipient, mode) };
-        if strategy.is_non_interactive_handshake() {
-            tag_with(
-                NewNonInteractiveHandshake {},
-                context,
-                mode,
-                sender,
-                recipient,
-            )
-        } else {
-            tag_with(
-                UnconstrainedSecret { secret: strategy.into_unconstrained_secret() },
-                context,
-                mode,
-                sender,
-                recipient,
-            )
-        }
-    }
+    let source: TagSecretSource = existing.map_or_else(
+        || {
+            // Safety: the strategy only selects which source runs; each source constrains (or rejects) its own
+            // secret before a constrained tag is emitted, so an untrusted strategy can't produce a valid unbacked
+            // constrained tag.
+            let strategy = unsafe { resolve_tagging_strategy(sender, recipient, mode) };
+            strategy.into()
+        },
+        |handshake_secret| TagSecretSource::existing_handshake(handshake_secret),
+    );
+
+    tag_with(source, context, mode, sender, recipient)
 }
 
-fn tag_with<S>(
-    source: S,
+fn tag_with(
+    source: TagSecretSource,
     context: &mut PrivateContext,
     mode: OnchainDeliveryMode,
     sender: AztecAddress,
     recipient: AztecAddress,
-) -> Field
-where
-    S: TagSecretSource,
-{
+) -> Field {
     let secret = source.obtain_secret(context, sender, recipient);
 
     // Safety: the index is untrusted. Constrained delivery constrains it below before emitting the tag; unconstrained
@@ -106,9 +79,7 @@ fn tag_from_secret_and_index(secret: Field, index: u32, mode: OnchainDeliveryMod
 }
 
 mod test {
-    use crate::hash::hash_args;
     use crate::messages::delivery::ResolvedTaggingStrategy;
-    use crate::oracle::execution_cache;
     use crate::protocol::{
         address::AztecAddress,
         constants::{DOM_SEP__CONSTRAINED_MSG_LOG_TAG, DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG},
@@ -191,57 +162,30 @@ mod test {
         });
     }
 
-    #[test(should_fail_with = "an unconstrained tagging secret cannot back constrained delivery")]
-    unconstrained fn rejects_an_unconstrained_secret_for_constrained_delivery() {
-        let env = TestEnvironment::new();
-
-        env.private_context(|context| {
-            mock_existing_handshake_secret(Option::none());
-            let _ = OracleMock::mock("aztec_prv_resolveTaggingStrategy").returns(
-                ResolvedTaggingStrategy::unconstrained_secret(7),
-            );
-            // `tag_with` reserves the index before the strategy rejects constrained delivery.
-            let _ = OracleMock::mock("aztec_prv_getNextTaggingIndex").returns(0);
-
-            let _ = derive_log_tag(
-                context,
-                OnchainDeliveryMode::onchain_constrained(),
-                SENDER,
-                RECIPIENT,
-            );
-        });
-    }
-
     #[test]
-    unconstrained fn creates_a_non_interactive_handshake_when_the_wallet_asks() {
+    unconstrained fn constrained_delivery_emits_the_sequence_nullifier_and_constrained_tag() {
         let env = TestEnvironment::new();
         let secret: Field = 7;
+        // Index > 0 so the reused secret is anchored via the previous sequence nullifier, not a registry call.
         let index: u32 = 3;
 
         env.private_context(|context| {
-            mock_existing_handshake_secret(Option::none());
-            let _ = OracleMock::mock("aztec_prv_resolveTaggingStrategy").returns(
-                ResolvedTaggingStrategy::non_interactive_handshake(),
-            );
+            mock_existing_handshake_secret(Option::some(secret));
             let _ = OracleMock::mock("aztec_prv_getNextTaggingIndex").returns(index);
-
-            // The registry's `non_interactive_handshake` call returns the app-siloed secret via the returns cache.
-            let returns_hash = hash_args([secret]);
-            execution_cache::store([secret], returns_hash);
-            let child_call_end_counter = context.side_effect_counter + 1;
-            let _ = OracleMock::mock("aztec_prv_callPrivateFunction")
-                .returns((child_call_end_counter, returns_hash))
-                .times(1);
+            let _ = OracleMock::mock("aztec_prv_isNullifierPending").returns(false);
 
             assert_eq(
                 derive_log_tag(
                     context,
-                    OnchainDeliveryMode::onchain_unconstrained(),
+                    OnchainDeliveryMode::onchain_constrained(),
                     SENDER,
                     RECIPIENT,
                 ),
-                tag_from_secret_and_index(secret, index, OnchainDeliveryMode::onchain_unconstrained()),
+                tag_from_secret_and_index(secret, index, OnchainDeliveryMode::onchain_constrained()),
             );
+
+            // Constrained delivery emits the sequence nullifier for the (sender, recipient, secret) sequence.
+            assert_eq(context.nullifiers.len(), 1);
         });
     }
 
