@@ -36,8 +36,19 @@ describe('single-node/recovery/manual_rollback', () => {
     logger.info(`Starting manual rollback test to unfinalized block`);
     context.sequencer?.updateConfig({ minTxsPerBlock: 0 });
     const targetCheckpointNumber = CheckpointNumber(4);
-    // With pipelining, each checkpoint takes ~2 L2 slots on a solo-sequencer setup.
-    await test.waitUntilCheckpointNumber(targetCheckpointNumber, test.L2_SLOT_DURATION_IN_S * 12);
+    // The production sequencer publishes one empty checkpoint per L2 slot, gated by L1 wall-clock,
+    // so left alone these 4 checkpoints cost ~4 slots of real time. Instead, after each checkpoint
+    // lands, warp the L1 clock one slot forward so the sequencer builds and publishes the next
+    // empty checkpoint immediately. Advancing exactly one slot at a time, only after the prior
+    // checkpoint is confirmed on-chain, keeps the one-checkpoint-per-L1-block layout unchanged, so
+    // the subsequent `reorg(2)` removes the same checkpoints it would have without warping.
+    while (test.monitor.checkpointNumber < targetCheckpointNumber) {
+      const next = CheckpointNumber.add(test.monitor.checkpointNumber, 1);
+      await test.waitUntilCheckpointNumber(next, test.L2_SLOT_DURATION_IN_S * 4);
+      if (test.monitor.checkpointNumber < targetCheckpointNumber) {
+        await test.context.cheatCodes.rollup.advanceToNextSlot();
+      }
+    }
     await waitForBlockNumber(node, 4, { timeout: 10 });
 
     logger.info(`Synced to checkpoint 4. Pausing syncing and rolling back the chain.`);
