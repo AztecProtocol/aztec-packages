@@ -19,22 +19,20 @@ describe('automine/token/access_control', () => {
     await t.tokenSim.check();
   });
 
-  // Sets account1 as the new admin via set_admin, then reads back the admin via get_admin.
-  it('Set admin', async () => {
+  // Exercises the full admin/minter role narrative as one test: adminAddress hands admin to account1,
+  // account1 (now admin) grants itself minter, then revokes it. These steps form an ordered chain
+  // (each builds on the previous), so they live in a single it() — the .parallel split runs every
+  // top-level it() in its own isolated container, where separate ordered tests could not see each
+  // other's state.
+  it('Manages admin and minter roles', async () => {
     await t.asset.methods.set_admin(t.account1Address).send({ from: t.adminAddress });
     expect((await t.asset.methods.get_admin().simulate({ from: t.adminAddress })).result).toBe(
       t.account1Address.toBigInt(),
     );
-  });
 
-  // Grants minter role to account1 (now admin) via set_minter(true) and verifies via is_minter.
-  it('Add minter as admin', async () => {
     await t.asset.methods.set_minter(t.account1Address, true).send({ from: t.account1Address });
     expect((await t.asset.methods.is_minter(t.account1Address).simulate({ from: t.adminAddress })).result).toBe(true);
-  });
 
-  // Revokes minter role from account1 via set_minter(false) and verifies via is_minter.
-  it('Revoke minter as admin', async () => {
     await t.asset.methods.set_minter(t.account1Address, false).send({ from: t.account1Address });
     expect((await t.asset.methods.is_minter(t.account1Address).simulate({ from: t.adminAddress })).result).toBe(false);
   });
