@@ -109,11 +109,12 @@ describe('single-node/proving/proof_fails', () => {
     proverDelayer.pauseNextTxUntilTimestamp(epoch2Start);
     logger.warn(`Delayed prover tx until epoch 2 starts at ${epoch2Start}`);
 
-    // Wait until the start of epoch 1 and capture the checkpoint number before the rollback. Warp
-    // over the dead epoch-0 advance to two slots before the boundary; the checkpoint built in epoch 0
-    // already exists (waitUntilCheckpointNumber above), and the two-slot tail lets the sequencer build
-    // enough checkpoints that checkpointBeforeRollback lands above CheckpointNumber(1).
-    await warpToEpochStart(1, 2);
+    // Wait until the start of epoch 1 in real time and capture the checkpoint number before the
+    // rollback. We do NOT warp the epoch-0 advance here: the assertion below requires more than one
+    // checkpoint to have been built before the rollback, and warping to a couple of slots before the
+    // epoch-1 boundary skips the epoch-0 slots the sequencer needs to build those extra checkpoints
+    // (it left only checkpoint 1, tripping `toBeGreaterThan(1)`). Epoch 1 onward is still warped below.
+    await test.waitUntilEpochStarts(EpochNumber(1));
     const checkpointBeforeRollback = await rollup.getCheckpointNumber();
     logger.warn(`Starting epoch 1 after checkpoint ${checkpointBeforeRollback}`);
     expect(checkpointBeforeRollback).toBeGreaterThan(CheckpointNumber(1));
