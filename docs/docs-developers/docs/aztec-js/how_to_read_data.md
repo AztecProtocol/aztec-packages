@@ -90,7 +90,7 @@ Use the `getPublicEvents` helper to retrieve typed public events:
 
 #include_code import_get_public_events /docs/examples/ts/aztecjs_advanced/index.ts typescript
 
-#include_code get_public_events yarn-project/end-to-end/src/e2e_event_logs.test.ts typescript
+#include_code get_public_events yarn-project/end-to-end/src/automine/effects/event_logs.test.ts typescript
 
 The function parameters are:
 
@@ -112,7 +112,7 @@ Private events are stored in the PXE with privacy scoping. Use `wallet.getPrivat
 
 The `BlockNumber` type is a branded type that wraps raw numbers for type safety. Use it when setting `fromBlock` and `toBlock` in filters.
 
-#include_code get_private_events yarn-project/end-to-end/src/e2e_event_logs.test.ts typescript
+#include_code get_private_events yarn-project/end-to-end/src/automine/effects/event_logs.test.ts typescript
 
 The `PrivateEventFilter` includes:
 
