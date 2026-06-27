@@ -227,5 +227,15 @@ shared timing profile or the multi-node test context. Recorded for the same futu
 the 24s slot (the lever spent on `gossip_network` above) — their residual cost is real p2p peer-spinup +
 propagation (shared `P2PNetworkTest`), so test-file slot cuts don't apply. `late_prover_tx_collection`
 (~165s) already runs at the 12s shared floor with only a ~25s body — its cost is setup/teardown, not the
-slot clock. (`fee_asset_price_oracle_gossip` and `late_prover_tx_collection` are being checked by a final
-wave for a fee-oracle-deadband or teardown-specific win; if those bail, all four are shared-fixture only.)
+slot clock. (`fee_asset_price_oracle_gossip` and `late_prover_tx_collection` WERE then sped up in-file —
+the former by the same 24→12 slot cut, the latter by capping the prover's background tx-gather timeout —
+so only `equivocation_recovery` and `gossip_network_no_cheat` remain as shared-fixture-only bails.)
+
+27. **(PROD-CODE) `CheckpointProver.gatherTxs` ignores cancellation** (`prover-node/src/job/checkpoint-prover.ts`
+    ~219-223) — surfaced while speeding up `late_prover_tx_collection`. `gatherTxs` computes a fixed
+    `now + txGatheringTimeoutMs` deadline and does NOT thread the job's `abortController.signal` into
+    `txProvider.getTxsForBlock` (nor the underlying tx-collection reqresp loop). So when a prover node is
+    stopped, `prover.stop()` awaits the in-flight gather until its full deadline expires even though the
+    job was cancelled — adding up to `txGatheringTimeoutMs` (default 120s) of shutdown latency to EVERY
+    prover-node test, not just this one. The test-file workaround here just shrinks the timeout to 15s;
+    the real fix is threading the abort signal so cancellation aborts the gather immediately.
