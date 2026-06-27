@@ -126,6 +126,9 @@ if(NOT FUZZING AND NOT WASM AND NOT BB_LITE)
     add_subdirectory(barretenberg/world_state)
     # NOTE: Do not conditionally base this on the AVM flag as it defines a necessary vm2_sim library.
     add_subdirectory(barretenberg/vm2)
+    # Tests that drive vm2 with real Noir contract artifacts. Built here (links vm2), but run from
+    # the noir-projects test phase (after artifacts exist). Self-gated on AVM in its CMakeLists.txt.
+    add_subdirectory(vm2_contracts)
     add_subdirectory(barretenberg/ipc)
     add_subdirectory(barretenberg/wsdb)
     add_subdirectory(barretenberg/vm2_wsdb)

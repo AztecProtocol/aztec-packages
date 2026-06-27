@@ -245,7 +245,8 @@ function test {
 
 function bench_cmds {
   local hash=$(hash)
-  echo "$hash BENCH_OUTPUT=bench-out/sim.bench.json yarn-project/scripts/run_test.sh simulator/src/public/public_tx_simulator/apps_tests/bench.test.ts"
+  # NOTE: the public-tx apps simulation benchmark is now a C++ benchmark, wired in
+  # barretenberg/cpp/bootstrap.sh bench_cmds.
   echo "$hash BENCH_OUTPUT=bench-out/native_world_state.bench.json yarn-project/scripts/run_test.sh world-state/src/native/native_bench.test.ts"
   echo "$hash BENCH_OUTPUT=bench-out/kv_store.bench.json yarn-project/scripts/run_test.sh kv-store/src/bench/map_bench.test.ts"
   echo "$hash BENCH_OUTPUT=bench-out/tx_pool_v2.bench.json yarn-project/scripts/run_test.sh p2p/src/mem_pools/tx_pool_v2/tx_pool_v2_bench.test.ts"
@@ -253,7 +254,6 @@ function bench_cmds {
   echo "$hash:ISOLATE=1:CPUS=16:MEM=32g:TIMEOUT=1800 BENCH_OUTPUT=bench-out/p2p_client_batch_tx_requester.bench.json yarn-project/scripts/run_test.sh p2p/src/client/test/p2p_client.batch_tx_requester.bench.test.ts"
   echo "$hash BENCH_OUTPUT=bench-out/tx.bench.json yarn-project/scripts/run_test.sh stdlib/src/tx/tx_bench.test.ts"
   echo "$hash:ISOLATE=1:CPUS=10:MEM=16g:LOG_LEVEL=silent BENCH_OUTPUT=bench-out/proving_broker.bench.json yarn-project/scripts/run_test.sh prover-client/src/test/proving_broker_testbench.test.ts"
-  echo "$hash:ISOLATE=1:CPUS=16:MEM=16g BENCH_OUTPUT=bench-out/avm_bulk_test.bench.json yarn-project/scripts/run_test.sh bb-prover/src/avm_proving_tests/avm_bulk.test.ts"
   echo "$hash BENCH_OUTPUT=bench-out/lightweight_checkpoint_builder.bench.json yarn-project/scripts/run_test.sh prover-client/src/light/lightweight_checkpoint_builder.bench.test.ts"
   echo "$hash:ISOLATE=1:CPUS=8:MEM=32g:TIMEOUT=1200 BENCH_OUTPUT=bench-out/batch_verifier.bench.json yarn-project/scripts/run_test.sh ivc-integration/src/batch_verifier.bench.test.ts"
 }

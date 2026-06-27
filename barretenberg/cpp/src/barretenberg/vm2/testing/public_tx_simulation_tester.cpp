@@ -24,6 +24,10 @@ using world_state::WorldStateRevision;
 // A balance large enough to cover the fee for any test transaction.
 const FF FEE_PAYER_BALANCE = FF(uint256_t(1) << 100);
 
+// Mirrors the TS constant of the same name (not present in the generated C++ aztec_constants.hpp).
+// Paired with MAX_PROCESSABLE_L2_GAS for the tx gas limits.
+constexpr uint32_t MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT = 786432;
+
 // WorldState is neither copyable nor movable (it holds a mutex), so it must be constructed
 // directly into the owning unique_ptr.
 std::unique_ptr<WorldState> make_world_state(const std::string& data_dir)
@@ -135,6 +139,16 @@ PublicSimulatorConfig PublicTxSimulationTester::default_config()
     return PublicSimulatorConfig{
         .skip_fee_enforcement = false,
         .collect_call_metadata = true,
+        // Mirror the TS CollectionLimitsConfig defaults so call metadata (calldata/returndata/call
+        // stack) is actually captured; without nonzero limits the collector records nothing.
+        .collection_limits =
+            CollectionLimitsConfig{
+                .max_debug_log_memory_reads = DEFAULT_MAX_DEBUG_LOG_MEMORY_READS,
+                .max_calldata_size_in_fields = 300,
+                .max_returndata_size_in_fields = 300,
+                .max_call_stack_depth = 5,
+                .max_call_stack_items = 100,
+            },
     };
 }
 
@@ -158,26 +172,31 @@ WorldStateRevision PublicTxSimulationTester::current_revision() const
     return WorldStateRevision{ .forkId = fork_id, .includeUncommitted = true };
 }
 
-DeployedContract PublicTxSimulationTester::deploy_contract(std::span<const uint8_t> bytecode, const FF& salt)
+DeployedContract PublicTxSimulationTester::deploy_contract(std::span<const uint8_t> bytecode,
+                                                           const FF& salt,
+                                                           const FF& artifact_hash,
+                                                           const FF& private_functions_root,
+                                                           const FF& initialization_hash,
+                                                           const AztecAddress& deployer)
 {
     std::vector<uint8_t> bytecode_vec(bytecode.begin(), bytecode.end());
 
     const FF commitment = simulation::compute_public_bytecode_commitment(bytecode_vec);
-    const FF class_id = simulation::compute_contract_class_id(/*artifact_hash=*/0, /*private_fn_root=*/0, commitment);
+    const FF class_id = simulation::compute_contract_class_id(artifact_hash, private_functions_root, commitment);
 
     ContractClassWithCommitment contract_class{
         .id = class_id,
-        .artifact_hash = 0,
-        .private_functions_root = 0,
+        .artifact_hash = artifact_hash,
+        .private_functions_root = private_functions_root,
         .packed_bytecode = bytecode_vec,
         .public_bytecode_commitment = commitment,
     };
     ContractInstance instance{
         .salt = salt,
-        .deployer = default_sender(),
+        .deployer = deployer,
         .current_contract_class_id = class_id,
         .original_contract_class_id = class_id,
-        .initialization_hash = 0,
+        .initialization_hash = initialization_hash,
         .immutables_hash = 0,
         .public_keys =
             PublicKeys{
@@ -195,11 +214,22 @@ DeployedContract PublicTxSimulationTester::deploy_contract(std::span<const uint8
     contract_db_.add_contract_instance(address, instance);
 
     // Insert the deployment nullifier so the simulator can resolve this (non-protocol) contract.
+    insert_contract_deployment_nullifier(address);
+
+    return DeployedContract{ .address = address, .contract_class = contract_class, .instance = instance };
+}
+
+void PublicTxSimulationTester::insert_contract_deployment_nullifier(const AztecAddress& address)
+{
     const NullifierLeafValue deployment_nullifier =
         simulation::unconstrained_silo_nullifier(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, address);
     ws->insert_indexed_leaves<NullifierLeafValue>(MerkleTreeId::NULLIFIER_TREE, { deployment_nullifier }, fork_id);
+}
 
-    return DeployedContract{ .address = address, .contract_class = contract_class, .instance = instance };
+void PublicTxSimulationTester::insert_nullifier(const AztecAddress& contract_address, const FF& nullifier)
+{
+    const NullifierLeafValue siloed = simulation::unconstrained_silo_nullifier(contract_address, nullifier);
+    ws->insert_indexed_leaves<NullifierLeafValue>(MerkleTreeId::NULLIFIER_TREE, { siloed }, fork_id);
 }
 
 void PublicTxSimulationTester::set_public_storage(const AztecAddress& address, const FF& slot, const FF& value)
@@ -238,27 +268,68 @@ void PublicTxSimulationTester::fund_fee_payer(const AztecAddress& fee_payer)
 TxSimulationResult PublicTxSimulationTester::simulate_tx(const std::vector<TestEnqueuedCall>& app_calls,
                                                          const PublicSimulatorConfig& config)
 {
-    const AztecAddress fee_payer = default_sender();
+    return simulate_scenario(TxScenario{ .app_calls = app_calls }, config);
+}
+
+TxSimulationResult PublicTxSimulationTester::simulate_tx_with_setup(const std::vector<TestEnqueuedCall>& setup_calls,
+                                                                    const std::vector<TestEnqueuedCall>& app_calls,
+                                                                    const PublicSimulatorConfig& config)
+{
+    return simulate_scenario(TxScenario{ .setup_calls = setup_calls, .app_calls = app_calls }, config);
+}
+
+TxSimulationResult PublicTxSimulationTester::simulate_tx_as(const AztecAddress& sender,
+                                                            const std::vector<TestEnqueuedCall>& app_calls,
+                                                            bool commit,
+                                                            const PublicSimulatorConfig& config)
+{
+    return simulate_scenario(TxScenario{ .app_calls = app_calls, .sender = sender, .commit = commit }, config);
+}
+
+TxSimulationResult PublicTxSimulationTester::simulate_scenario(const TxScenario& scenario,
+                                                               const PublicSimulatorConfig& config)
+{
+    const AztecAddress sender = scenario.sender.value_or(default_sender());
+    const AztecAddress fee_payer = sender;
     fund_fee_payer(fee_payer);
 
-    std::vector<PublicCallRequestWithCalldata> app_logic_enqueued_calls;
-    app_logic_enqueued_calls.reserve(app_calls.size());
-    for (const auto& call : app_calls) {
-        app_logic_enqueued_calls.push_back(PublicCallRequestWithCalldata{
+    const auto to_enqueued_call = [&](const TestEnqueuedCall& call) {
+        return PublicCallRequestWithCalldata{
             .request =
                 PublicCallRequest{
-                    .msg_sender = default_sender(),
+                    .msg_sender = call.msg_sender.value_or(sender),
                     .contract_address = call.contract_address,
                     .is_static_call = call.is_static_call,
                     .calldata_hash = simulation::compute_calldata_hash(call.calldata),
                 },
             .calldata = call.calldata,
-        });
+        };
+    };
+
+    std::vector<PublicCallRequestWithCalldata> setup_enqueued_calls;
+    setup_enqueued_calls.reserve(scenario.setup_calls.size());
+    for (const auto& call : scenario.setup_calls) {
+        setup_enqueued_calls.push_back(to_enqueued_call(call));
+    }
+    std::vector<PublicCallRequestWithCalldata> app_logic_enqueued_calls;
+    app_logic_enqueued_calls.reserve(scenario.app_calls.size());
+    for (const auto& call : scenario.app_calls) {
+        app_logic_enqueued_calls.push_back(to_enqueued_call(call));
+    }
+    std::optional<PublicCallRequestWithCalldata> teardown_enqueued_call;
+    if (scenario.teardown_call.has_value()) {
+        teardown_enqueued_call = to_enqueued_call(*scenario.teardown_call);
     }
 
-    // A unique first nullifier per tx, needed for note-nonce computation.
-    const FF first_nullifier =
-        FF(uint256_t("0x00000000000000000000000000000000000000000000000000000000deadbeef")) + FF(tx_count);
+    // The first nullifier is required for note-nonce computation. Use the scenario's non-revertible
+    // nullifiers when provided (their first element is the first nullifier); otherwise supply a unique
+    // default. tx_count is bumped regardless to keep the default unique across txs.
+    std::vector<FF> non_revertible_nullifiers = scenario.non_revertible_nullifiers;
+    if (non_revertible_nullifiers.empty()) {
+        non_revertible_nullifiers = {
+            FF(uint256_t("0x00000000000000000000000000000000000000000000000000000000deadbeef")) + FF(tx_count)
+        };
+    }
     tx_count++;
 
     const GlobalVariables globals{
@@ -272,23 +343,35 @@ TxSimulationResult PublicTxSimulationTester::simulate_tx(const std::vector<TestE
         .gas_fees = GasFees{ .fee_per_da_gas = 1, .fee_per_l2_gas = 1 },
     };
 
+    const Gas app_gas_limits = scenario.gas_limits.value_or(
+        Gas{ .l2_gas = MAX_PROCESSABLE_L2_GAS, .da_gas = MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT });
+
     Tx tx{
         .hash = "0xtest",
         .gas_settings =
             GasSettings{
-                .gas_limits = Gas{ .l2_gas = 1000000, .da_gas = 1000000 },
+                // Mirror the TS PublicTxSimulationTester limits (MAX_PROCESSABLE_L2_GAS /
+                // MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT). After subtracting the private-portion
+                // overhead this leaves AVM_MAX_PROCESSABLE_L2_GAS for app logic, which heavy app
+                // tests (e.g. AvmTest bulk_testing) need; a flat 1M is not enough.
+                .gas_limits = app_gas_limits,
                 .teardown_gas_limits = Gas{ .l2_gas = 1000000, .da_gas = 1000000 },
                 .max_fees_per_gas = GasFees{ .fee_per_da_gas = 1, .fee_per_l2_gas = 1 },
                 .max_priority_fees_per_gas = GasFees{ .fee_per_da_gas = 0, .fee_per_l2_gas = 0 },
             },
         .effective_gas_fees = GasFees{ .fee_per_da_gas = 1, .fee_per_l2_gas = 1 },
-        .non_revertible_accumulated_data = AccumulatedData{ .nullifiers = { first_nullifier } },
+        .non_revertible_accumulated_data = AccumulatedData{ .note_hashes = scenario.non_revertible_note_hashes,
+                                                            .nullifiers = non_revertible_nullifiers },
+        .revertible_accumulated_data = AccumulatedData{ .note_hashes = scenario.revertible_note_hashes,
+                                                        .nullifiers = scenario.revertible_nullifiers,
+                                                        .l2_to_l1_messages = scenario.revertible_l2_to_l1_messages },
+        .setup_enqueued_calls = setup_enqueued_calls,
         .app_logic_enqueued_calls = app_logic_enqueued_calls,
+        .teardown_enqueued_call = teardown_enqueued_call,
         .gas_used_by_private = Gas{ .l2_gas = PUBLIC_TX_L2_GAS_OVERHEAD, .da_gas = TX_DA_GAS_OVERHEAD },
         .fee_payer = fee_payer,
     };
-
-    const ProtocolContracts protocol_contracts{};
+    const bool commit = scenario.commit;
 
     AvmSimulationHelper helper;
     ws->checkpoint(fork_id);
@@ -300,7 +383,13 @@ TxSimulationResult PublicTxSimulationTester::simulate_tx(const std::vector<TestE
                                        contract_db_, current_revision(), *ws, config, tx, globals, protocol_contracts)
                                  : helper.simulate_fast_with_existing_ws(
                                        contract_db_, current_revision(), *ws, config, tx, globals, protocol_contracts);
-        ws->revert_checkpoint(fork_id);
+        // Commit the tx's state changes to the world state when requested (so subsequent txs observe
+        // them); otherwise revert so each tx is isolated.
+        if (commit) {
+            ws->commit_checkpoint(fork_id);
+        } else {
+            ws->revert_checkpoint(fork_id);
+        }
         return result;
     } catch (...) {
         ws->revert_checkpoint(fork_id);

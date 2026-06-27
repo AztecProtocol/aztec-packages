@@ -58,6 +58,32 @@ struct TestEnqueuedCall {
     AztecAddress contract_address;
     std::vector<FF> calldata = {};
     bool is_static_call = false;
+    // Overrides the tx-level sender for this call's msg_sender. Used for internal functions that
+    // require msg_sender to equal the contract's own address.
+    std::optional<AztecAddress> msg_sender = std::nullopt;
+};
+
+// A fully-specified transaction to simulate: setup / app-logic / teardown enqueued calls plus the
+// private-side insertions (nullifiers / note hashes / L2->L1 messages, split into the non-revertible
+// and revertible accumulators) that a real tx would carry from its private portion. Mirrors the TS
+// tester's createTx parameters; lets the proving tests exercise teardown and side-effect-limit paths.
+struct TxScenario {
+    std::vector<TestEnqueuedCall> setup_calls = {};
+    std::vector<TestEnqueuedCall> app_calls = {};
+    std::optional<TestEnqueuedCall> teardown_call = std::nullopt;
+    // msg_sender / fee payer for the calls. Defaults to default_sender() when unset.
+    std::optional<AztecAddress> sender = std::nullopt;
+    // Overrides the tx's app-logic gas limits when set (some tests need more than the default).
+    std::optional<Gas> gas_limits = std::nullopt;
+    // Private insertions. When non_revertible_nullifiers is empty a unique first nullifier is supplied
+    // automatically; when non-empty, its first element is used as the tx's first nullifier.
+    std::vector<FF> non_revertible_nullifiers = {};
+    std::vector<FF> non_revertible_note_hashes = {};
+    std::vector<FF> revertible_nullifiers = {};
+    std::vector<FF> revertible_note_hashes = {};
+    std::vector<ScopedL2ToL1Message> revertible_l2_to_l1_messages = {};
+    // When true, the tx's state changes are committed to the world state.
+    bool commit = false;
 };
 
 // Owns an in-process world state and contract DB, supports pseudo-deployments of custom bytecode
@@ -80,8 +106,20 @@ class PublicTxSimulationTester {
     // Pseudo-deploys a contract from packed bytecode: derives its class id/instance/address,
     // registers them in the contract DB, and inserts the deployment nullifier into the world
     // state so the simulator can resolve the contract. The salt differentiates instances that
-    // share the same bytecode (and therefore the same class id).
-    DeployedContract deploy_contract(std::span<const uint8_t> bytecode, const FF& salt = 0);
+    // share the same bytecode (and therefore, for fixed class params, the same class id).
+    //
+    // artifact_hash and private_functions_root feed into the class id alongside the bytecode
+    // commitment. Custom-bytecode tests leave them at 0; contract-artifact deployments vary them
+    // (e.g. with a seed) to obtain distinct class ids from identical bytecode.
+    // initialization_hash / deployer feed the contract address derivation and let contracts with a
+    // constructor (initializer) pass their initialization check (which recomputes the hash from the
+    // constructor selector + args).
+    DeployedContract deploy_contract(std::span<const uint8_t> bytecode,
+                                     const FF& salt = 0,
+                                     const FF& artifact_hash = 0,
+                                     const FF& private_functions_root = 0,
+                                     const FF& initialization_hash = 0,
+                                     const AztecAddress& deployer = default_sender());
 
     // World-state helpers for seeding "warm" tree reads.
     void set_public_storage(const AztecAddress& address, const FF& slot, const FF& value);
@@ -89,16 +127,50 @@ class PublicTxSimulationTester {
     void append_note_hash(const FF& note_hash);
     void append_l1_to_l2_message(const FF& message);
 
+    // Inserts the deployment (contract-address) nullifier for a contract at `address`, so the
+    // simulator resolves it as deployed. deploy_contract() does this automatically; standalone
+    // registrations (e.g. canonical standard contracts) call it directly.
+    void insert_contract_deployment_nullifier(const AztecAddress& address);
+
+    // Inserts a nullifier siloed by `contract_address`, mirroring the TS tester's insertNullifier.
+    // Used to seed nullifiers that would normally be emitted by private functions not run here.
+    void insert_nullifier(const AztecAddress& contract_address, const FF& nullifier);
+
     // Simulates a public tx with the given app-logic enqueued calls, funding the fee payer
     // up front. The simulation runs on a fresh world-state checkpoint that is reverted
     // afterwards, so deployments persist across calls but per-tx writes do not.
     TxSimulationResult simulate_tx(const std::vector<TestEnqueuedCall>& app_calls,
                                    const PublicSimulatorConfig& config = default_config());
 
+    // As above, but with setup-phase enqueued calls. A revert in the setup phase is non-recoverable
+    // and causes the simulator to throw (rather than returning a non-OK revert code).
+    TxSimulationResult simulate_tx_with_setup(const std::vector<TestEnqueuedCall>& setup_calls,
+                                              const std::vector<TestEnqueuedCall>& app_calls,
+                                              const PublicSimulatorConfig& config = default_config());
+
+    // Simulates a tx where `sender` is the msg_sender of the enqueued calls and the fee payer. When
+    // `commit` is true the tx's state changes are committed to the world state so subsequent txs
+    // observe them (needed for stateful multi-tx app tests such as token/amm); otherwise they are
+    // reverted as usual.
+    TxSimulationResult simulate_tx_as(const AztecAddress& sender,
+                                      const std::vector<TestEnqueuedCall>& app_calls,
+                                      bool commit,
+                                      const PublicSimulatorConfig& config = default_config());
+
+    // Simulates a fully-specified scenario (setup / app / teardown calls + private insertions + gas).
+    // The richest entry point; the simulate_tx* overloads above are thin wrappers over it. Used by the
+    // proving tests, which need teardown and side-effect-limit (revertible insertion) paths.
+    TxSimulationResult simulate_scenario(const TxScenario& scenario,
+                                         const PublicSimulatorConfig& config = default_config());
+
     static PublicSimulatorConfig default_config();
 
     world_state::WorldState& world_state() { return *ws; }
     TestContractDB& contract_db() { return contract_db_; }
+
+    // Protocol contracts available to the simulated tx (canonical address -> derived address map).
+    // Empty by default; populated by tests that exercise calls to protocol contracts (e.g. fee juice).
+    ProtocolContracts protocol_contracts;
 
   private:
     world_state::WorldStateRevision current_revision() const;

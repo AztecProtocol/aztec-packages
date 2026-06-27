@@ -167,6 +167,13 @@ function build {
 }
 
 function test_cmds {
+  # Allow requesting a named subset of test commands, e.g. `test_cmds avm_contracts` dispatches to
+  # test_cmds_avm_contracts. With no argument, emit the default set below.
+  if [ -n "${1:-}" ]; then
+    test_cmds_$1
+    return
+  fi
+
   local folder_name
   if [ -n "${DOCS_WORKING_DIR:-}" ]; then
     folder_name="examples"
@@ -192,6 +199,31 @@ function test_cmds {
       [ -z "${cache[$package]:-}" ] && cache[$package]=$(get_contract_hash $package $folder_name)
       echo "${cache[$package]} noir-projects/scripts/run_test.sh noir-contracts $package $test $port"
     done
+  fi
+}
+
+function test_cmds_avm_contracts {
+  local folder_name
+  if [ -n "${DOCS_WORKING_DIR:-}" ]; then
+    folder_name="examples"
+  else
+    folder_name="contracts"
+  fi
+
+  # C++ vm2 tests that drive the AVM simulator (and prover) with real compiled contract artifacts. The
+  # vm2_contracts_tests binary is built during the barretenberg C++ build (it links vm2), but it
+  # reads the contract artifacts produced here, so it can only run after this build. We schedule it
+  # from noir-contracts' test phase. Keyed on the bb binary hash plus the hashes of the contracts it
+  # exercises so it re-runs when the simulator/test or any of those contracts change. It includes
+  # proving tests (full AVM proofs), so it needs the CRS (present after the bb build) plus extra time,
+  # memory and CPU isolation. Skip in the docs/examples flow (no AvmTest contract there).
+  if [ -z "${DOCS_WORKING_DIR:-}" ]; then
+    vm2_contracts_hash=$(hash_str $BB_HASH \
+      $(get_contract_hash avm_test_contract $folder_name) \
+      $(get_contract_hash avm_gadgets_test_contract $folder_name) \
+      $(get_contract_hash token_contract $folder_name) \
+      $(get_contract_hash amm_contract $folder_name))
+    echo "$vm2_contracts_hash:ISOLATE=1:CPUS=8:MEM=16g:TIMEOUT=900 barretenberg/cpp/scripts/run_test.sh vm2_contracts_tests '*'"
   fi
 }
 
