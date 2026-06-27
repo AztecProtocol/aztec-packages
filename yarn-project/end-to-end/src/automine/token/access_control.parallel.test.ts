@@ -39,8 +39,18 @@ describe('automine/token/access_control', () => {
     expect((await t.asset.methods.is_minter(t.account1Address).simulate({ from: t.adminAddress })).result).toBe(false);
   });
 
-  // Error cases: unauthorized set_admin and unauthorized set_minter.
+  // Error cases: unauthorized set_admin and unauthorized set_minter. These assert that calls from
+  // t.adminAddress revert once it is no longer admin, so the block transfers admin to account1 in its
+  // own beforeAll rather than relying on the 'Set admin' test above having run (CI runs tests in
+  // isolation). The transfer is idempotent: it is skipped if admin was already moved.
   describe('failure cases', () => {
+    beforeAll(async () => {
+      const currentAdmin = (await t.asset.methods.get_admin().simulate({ from: t.adminAddress })).result;
+      if (currentAdmin === t.adminAddress.toBigInt()) {
+        await t.asset.methods.set_admin(t.account1Address).send({ from: t.adminAddress });
+      }
+    });
+
     // Attempts set_admin from the original admin address (which is no longer admin); expects 'caller is not admin'.
     it('Set admin (not admin)', async () => {
       await expect(t.asset.methods.set_admin(t.adminAddress).simulate({ from: t.adminAddress })).rejects.toThrow(
