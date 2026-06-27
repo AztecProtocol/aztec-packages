@@ -27,11 +27,13 @@ describe('single-node/proving/long_proving_time', () => {
     // The body is bounded by the real-wall-clock prover delay (a `sleep`, not the date provider, so
     // warping cannot shrink it): a single agent serially sleeps `proverTestDelayMs` per circuit. Both
     // the block-build cadence and the proving delay scale with the slot duration, so shrinking the L1
-    // slot (4s, the established FAST_REORG_TIMING L1 cadence) scales the whole timeline down ~3x while
+    // slot (4s, the established FAST_REORG_TIMING L1 cadence) scales the whole timeline down ~2x while
     // keeping the delay-to-slot ratio — and hence the "proving lags block production by ~3 epochs"
-    // assertion — exactly intact.
+    // assertion — exactly intact. The L2 slot stays at 3 L1 slots (12s): the timing model needs
+    // S >= ~8.5s with the default 3s block duration to fit one block per checkpoint, so a 2x (12s) slot
+    // is the floor here — an 8s slot derives 0 blocks per checkpoint and trips the timing-config guard.
     const ethereumSlotDuration = 4;
-    const aztecSlotDurationInL1Slots = 2;
+    const aztecSlotDurationInL1Slots = 3;
     const { aztecSlotDuration } = SingleNodeTestContext.getSlotDurations({
       aztecEpochDuration,
       ethereumSlotDuration,

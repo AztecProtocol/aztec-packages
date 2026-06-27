@@ -85,12 +85,6 @@ describe('multi-node/governance/add_rollup', () => {
     test = await MultiNodeTestContext.setup({
       ...MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
       ...GOVERNANCE_TIMING,
-      // Override GOVERNANCE_TIMING's 12s L2 slot down to 8s: the body is paced by checkpoint production
-      // (each bridging tx waits a full slot for the next checkpoint), so a shorter slot scales the
-      // dominant bridging waits down proportionally. ethereumSlotDuration stays 4s (still < the fast-
-      // profile threshold of 8), giving the mocked-p2p budgets that fit a checkpoint in an 8s slot — the
-      // same eth=4s/aztec=8s profile the multiple_validators_sentinel test runs 4+ validators on.
-      aztecSlotDuration: 8,
       listenAddress: '127.0.0.1',
       aztecTargetCommitteeSize: NUM_VALIDATORS,
       governanceProposerRoundSize: 10,

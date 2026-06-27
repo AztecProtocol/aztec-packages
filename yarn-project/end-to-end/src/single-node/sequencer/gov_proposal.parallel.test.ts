@@ -33,15 +33,16 @@ import { getPrivateKeyFromIndex } from '../../fixtures/utils.js';
 import { setupBlockProducer } from '../setup.js';
 import type { SingleNodeTestContext } from '../single_node_test_context.js';
 
-// Halved from the legacy 8s/16s to the FAST_REORG cadence (eth=4s, L2=8s, ratio 2). The whole body is
-// real production-sequencer block-building on real interval mining (warp does not help — the sequencer
-// needs real wall-clock per slot), so cutting the slot duration is the only lever and scales every wait
-// below. eth<8 also drops the sequencer onto the fast-profile budgets, which still fit one checkpoint per
-// 8s slot (one tx + one governance signal per slot is all this test needs). Safe here because there are no
-// proving/reorg deadlines (aztecProofSubmissionEpochs:128, no prover node) — only vote-count and
-// block-production assertions, both of which are independent of the absolute slot length.
+// Cut from the legacy 8s/16s to eth=4s, L2=12s. The whole body is real production-sequencer
+// block-building on real interval mining (warp does not help — the sequencer needs real wall-clock per
+// slot), so cutting the slot duration is the only lever and scales every wait below. eth<8 also drops the
+// sequencer onto the fast-profile budgets. The 12s L2 slot is the floor with the default 3s block
+// duration: the timing model derives floor((12 - 5.5) / 3) = 2 blocks per checkpoint, whereas an 8s slot
+// derives 0 and trips the timing-config guard. Safe here because there are no proving/reorg deadlines
+// (aztecProofSubmissionEpochs:128, no prover node) — only vote-count and block-production assertions, both
+// independent of the absolute slot length.
 const ETHEREUM_SLOT_DURATION = 4;
-const AZTEC_SLOT_DURATION = 8;
+const AZTEC_SLOT_DURATION = 12;
 const TXS_PER_BLOCK = 1;
 const ROUND_SIZE = 2;
 const QUORUM_SIZE = 2;
