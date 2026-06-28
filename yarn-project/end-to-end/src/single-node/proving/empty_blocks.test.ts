@@ -20,7 +20,12 @@ describe('single-node/proving/empty_blocks', () => {
   let test: SingleNodeTestContext;
 
   beforeEach(async () => {
-    test = await setupWithProver({});
+    // Shrink the slot cadence from the 12s/24s CI default to the 4s/12s floor (the same proven
+    // floor `multi_proof` uses for empty-checkpoint epoch-0 proving on this single-node topology):
+    // the body waits in real wall-clock for the production sequencer to march through epoch 0 (one
+    // empty checkpoint per L2 slot) before the prover proves it, and that timeline scales with the
+    // slot duration. 12s is the floor for the 3s-block timing model.
+    test = await setupWithProver({ ethereumSlotDuration: 4, aztecSlotDurationInL1Slots: 3 });
     ({ context, rollup, logger, monitor, L1_BLOCK_TIME_IN_S } = test);
   });
 
@@ -34,7 +39,13 @@ describe('single-node/proving/empty_blocks', () => {
   // monitor's checkpointNumber matches the proven target, confirming the proof landed on L1.
   it('submits proof even if there are no txs to build a block', async () => {
     context.sequencer?.updateConfig({ minTxsPerBlock: 1 });
-    await test.waitUntilEpochStarts(1);
+    // Left alone, the production sequencer interval-mines its way to the epoch-1 boundary in real
+    // wall-clock (~6 empty L2 slots), which is dead time. Warp to two slots before the boundary
+    // instead: the two-slot tail still gives the sequencer a build window so at least one empty
+    // checkpoint lands in epoch 0 (keeping the test meaningful — there must be a checkpoint for the
+    // prover to prove), and the generous `waitUntilProvenCheckpointNumber` timeout below absorbs the
+    // prover's build+submit time after the boundary.
+    await test.waitUntilNextEpochStarts();
 
     // Sleep to make sure any pending checkpoints are published. We deliberately keep the fixed
     // sleep rather than waiting for the sequencer to reach IDLE: the sequencer is typically already
@@ -43,6 +54,11 @@ describe('single-node/proving/empty_blocks', () => {
     await sleep(L1_BLOCK_TIME_IN_S * 1000);
     const checkpointNumberAtEndOfEpoch0 = await rollup.getCheckpointNumber();
     logger.info(`Starting epoch 1 after checkpoint ${checkpointNumberAtEndOfEpoch0}`);
+
+    // Guard against a vacuous pass: an empty checkpoint must have actually been built in epoch 0 for
+    // there to be something to prove. Without this, if the warp ever left no build window the proven
+    // wait would resolve immediately at checkpoint 0 and the test would pass without testing anything.
+    expect(checkpointNumberAtEndOfEpoch0).toBeGreaterThan(0);
 
     await test.waitUntilProvenCheckpointNumber(checkpointNumberAtEndOfEpoch0, 240);
     expect(monitor.checkpointNumber).toEqual(checkpointNumberAtEndOfEpoch0);
