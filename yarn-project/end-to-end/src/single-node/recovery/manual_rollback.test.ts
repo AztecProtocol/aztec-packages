@@ -19,7 +19,11 @@ describe('single-node/recovery/manual_rollback', () => {
   let test: SingleNodeTestContext;
 
   beforeEach(async () => {
-    test = await setupWithProver({ aztecEpochDuration: 100 }); // No L2 reorgs, no finalized blocks
+    // Shrink the slot cadence to the 4s/12s floor (proven by multi_proof on this single-node prover
+    // topology): the body waits in real wall-clock for the sequencer to publish empty checkpoints one per
+    // L2 slot, so a 2x-shorter slot ~halves that wait. (A clock warp here races the building and times out.)
+    // No L2 reorgs, no finalized blocks.
+    test = await setupWithProver({ aztecEpochDuration: 100, ethereumSlotDuration: 4, aztecSlotDurationInL1Slots: 3 });
     ({ context, logger, rollup } = test);
     ({ aztecNode: node } = context);
   });
@@ -36,19 +40,8 @@ describe('single-node/recovery/manual_rollback', () => {
     logger.info(`Starting manual rollback test to unfinalized block`);
     context.sequencer?.updateConfig({ minTxsPerBlock: 0 });
     const targetCheckpointNumber = CheckpointNumber(4);
-    // The production sequencer publishes one empty checkpoint per L2 slot, gated by L1 wall-clock,
-    // so left alone these 4 checkpoints cost ~4 slots of real time. Instead, after each checkpoint
-    // lands, warp the L1 clock one slot forward so the sequencer builds and publishes the next
-    // empty checkpoint immediately. Advancing exactly one slot at a time, only after the prior
-    // checkpoint is confirmed on-chain, keeps the one-checkpoint-per-L1-block layout unchanged, so
-    // the subsequent `reorg(2)` removes the same checkpoints it would have without warping.
-    while (test.monitor.checkpointNumber < targetCheckpointNumber) {
-      const next = CheckpointNumber.add(test.monitor.checkpointNumber, 1);
-      await test.waitUntilCheckpointNumber(next, test.L2_SLOT_DURATION_IN_S * 4);
-      if (test.monitor.checkpointNumber < targetCheckpointNumber) {
-        await test.context.cheatCodes.rollup.advanceToNextSlot();
-      }
-    }
+    // With pipelining, each checkpoint takes ~2 L2 slots on a solo-sequencer setup.
+    await test.waitUntilCheckpointNumber(targetCheckpointNumber, test.L2_SLOT_DURATION_IN_S * 12);
     await waitForBlockNumber(node, 4, { timeout: 10 });
 
     logger.info(`Synced to checkpoint 4. Pausing syncing and rolling back the chain.`);

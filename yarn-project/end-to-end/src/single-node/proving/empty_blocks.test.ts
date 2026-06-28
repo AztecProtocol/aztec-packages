@@ -39,13 +39,11 @@ describe('single-node/proving/empty_blocks', () => {
   // monitor's checkpointNumber matches the proven target, confirming the proof landed on L1.
   it('submits proof even if there are no txs to build a block', async () => {
     context.sequencer?.updateConfig({ minTxsPerBlock: 1 });
-    // Left alone, the production sequencer interval-mines its way to the epoch-1 boundary in real
-    // wall-clock (~6 empty L2 slots), which is dead time. Warp to two slots before the boundary
-    // instead: the two-slot tail still gives the sequencer a build window so at least one empty
-    // checkpoint lands in epoch 0 (keeping the test meaningful — there must be a checkpoint for the
-    // prover to prove), and the generous `waitUntilProvenCheckpointNumber` timeout below absorbs the
-    // prover's build+submit time after the boundary.
-    await test.waitUntilNextEpochStarts();
+    // Wait in real wall-clock for the sequencer to march through epoch 0 building its empty checkpoint.
+    // The slot-cadence cut in setup already halves this; a clock warp to the boundary is NOT used —
+    // it skips the sequencer's build window and leaves epoch 0 with no checkpoint to prove (the guard
+    // below would then fire).
+    await test.waitUntilEpochStarts(1);
 
     // Sleep to make sure any pending checkpoints are published. We deliberately keep the fixed
     // sleep rather than waiting for the sequencer to reach IDLE: the sequencer is typically already

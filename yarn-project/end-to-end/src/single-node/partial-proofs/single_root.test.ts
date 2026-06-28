@@ -15,7 +15,11 @@ describe('single-node/partial-proofs/single_root', () => {
   let test: SingleNodeTestContext;
 
   beforeEach(async () => {
-    test = await setupWithProver({ aztecEpochDuration: 1000 });
+    // Shrink the slot cadence to the 4s/12s floor (proven by multi_proof/long_proving_time on this
+    // single-node prover topology): the body waits in real wall-clock for the sequencer to publish the
+    // empty checkpoints one per L2 slot, so a 2x-shorter slot ~halves that wait. 12s is the floor for the
+    // 3s-block timing model. (A clock warp here races the sequencer's building and trips EmptyEpochError.)
+    test = await setupWithProver({ aztecEpochDuration: 1000, ethereumSlotDuration: 4, aztecSlotDurationInL1Slots: 3 });
     ({ monitor, logger } = test);
   });
 
@@ -28,19 +32,8 @@ describe('single-node/partial-proofs/single_root', () => {
   // ChainMonitor.provenCheckpointNumber until it exceeds 0, confirming a partial proof was
   // accepted on-chain.
   it('submits partial proofs when instructed manually', async () => {
-    // The production sequencer publishes one empty checkpoint per L2 slot, gated by L1 wall-clock,
-    // so left alone these 4 checkpoints cost ~4 slots of real time. Instead, after each checkpoint
-    // lands, warp the L1 clock one slot forward so the sequencer builds and publishes the next
-    // empty checkpoint immediately. Advancing exactly one slot at a time, only after the prior
-    // checkpoint is confirmed on-chain, keeps the one-checkpoint-per-slot layout unchanged.
-    const target = CheckpointNumber(4);
-    while (monitor.checkpointNumber < target) {
-      const next = CheckpointNumber.add(monitor.checkpointNumber, 1);
-      await test.waitUntilCheckpointNumber(next, test.L2_SLOT_DURATION_IN_S * 4);
-      if (monitor.checkpointNumber < target) {
-        await test.context.cheatCodes.rollup.advanceToNextSlot();
-      }
-    }
+    // With pipelining, each checkpoint takes ~2 L2 slots on a solo-sequencer setup.
+    await test.waitUntilCheckpointNumber(CheckpointNumber(4), test.L2_SLOT_DURATION_IN_S * 12);
     logger.info(`Kicking off partial proof`);
 
     await test.context.proverNode!.getProverNode()!.startProof(EpochNumber(0));
