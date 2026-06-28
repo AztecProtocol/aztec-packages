@@ -286,3 +286,21 @@ so only `equivocation_recovery` and `gossip_network_no_cheat` remain as shared-f
     already on. Shared opportunity: per-test snapshot/restore of L2+L1+clock state so the heavy `setup(0,…)`
     (~16s × 6) runs once in beforeAll and each it restores to a clean upgrade-able contract — needs
     snapshot/rollback support in `fixtures/utils.ts`.
+
+## H. Batch-3 CI-forced tune (second CI round): warp → slot-cut
+
+A general lesson for single-node prover tests that wait for empty checkpoints to accumulate: the
+**per-checkpoint warp loop** (`advanceToNextSlot` after each checkpoint, or `waitUntilNextEpochStarts`)
+**races the production sequencer's building** and breaks the test, whereas the **slot-cadence cut**
+(`ethereumSlotDuration: 4, aztecSlotDurationInL1Slots: 3`) reliably ~halves the wall-clock with no race.
+
+33. **`single_root`, `manual_rollback`, `empty_blocks`** — switched from the warp approach to slot-cut.
+    Symptoms in the warp version: `single_root` → `EmptyEpochError: No blocks found for epoch 0` (warp
+    skipped building before `startProof(0)`); `manual_rollback` → `TimeoutError: awaiting block proposed
+    >= 4` (warp outran the sequencer); `empty_blocks` → the `> 0` guard fired with 0 checkpoints +
+    `BlockOrCheckpointSlotExpiredError` (warp-to-boundary left no build window). All three now use the
+    slot-cut only (proven by `multi_proof`/`upload_failed_proof` passing in the same round), keeping a
+    ~50s/test saving (vs the warp's hoped ~75-90s). `empty_blocks` retains its vacuous-pass guard.
+    Follow-up: a shared `SingleNodeTestContext` helper that warps **only after** confirming each checkpoint
+    is on-chain (the multi_root "warp after PROPOSED" discipline, not blind `advanceToNextSlot`) could
+    recover the extra savings safely.
