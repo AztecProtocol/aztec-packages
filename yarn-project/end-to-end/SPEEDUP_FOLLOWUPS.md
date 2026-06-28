@@ -266,3 +266,23 @@ so only `equivocation_recovery` and `gossip_network_no_cheat` remain as shared-f
     instead of the earlier registration slot. A two-slot lead lands the clock on `lastSlot - 1`, leaving a
     full real-time slot for the sampler to record before the clock reaches `lastSlot`. In-file tune, keeps
     the ~600s saving.
+
+## G. Batch-3 bails (next-next tier, ~100-185s)
+
+31. **`failures` (fees, ~186s, 5 its)** — BAILED. Each body = prod-sequencer slot cadence to build the tx
+    (warp-immune per §a) + a ~11s CHECKPOINTED wait + already-warp-accelerated proving cycles
+    (`advanceToNextEpoch` + `catchUpProvenChain`). The only warp-targetable window (the CHECKPOINTED wait,
+    ~45s total) is unsafe: the build→checkpoint boundary already shows routine prune-reorgs at every epoch
+    boundary, and tests 1/2 assert EXACT equality on committed on-chain prover-fee/burn/sequencer-reward
+    values that any reorg or fee-oracle desync would break — the exact class that reverted `fee_settings`
+    (§F item 29). Shared opportunity: a `FeesTest.waitForEpochProven()` helper (existing REFACTOR TODO)
+    fusing the advance+catchup and pipelining the warp a couple slots early would help all fees tests safely.
+
+32. **`e2e_contract_updates` (~122s, 6 its, setup-dominated)** — BAILED. Setup-consolidation (beforeAll) is
+    unsafe: the suite is order-dependent. `beforeEach` deploys a fresh `UpdatableContract` + seeds a genesis
+    update-delay per test; two its permanently `update_to(...)` (class upgrade) and `warpL2TimeAtLeastBy(≥600s)`,
+    while four its assert the contract is in its FRESH un-upgraded state — a once-only setup would leak the
+    upgrade+clock-warp forward and break them (same isolation break as `e2e_2_pxes`, §F item 28). Automine is
+    already on. Shared opportunity: per-test snapshot/restore of L2+L1+clock state so the heavy `setup(0,…)`
+    (~16s × 6) runs once in beforeAll and each it restores to a clean upgrade-able contract — needs
+    snapshot/rollback support in `fixtures/utils.ts`.
