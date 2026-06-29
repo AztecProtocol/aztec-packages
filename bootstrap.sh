@@ -657,11 +657,12 @@ function private_release {
     done
   fi
 
-  # Publish for real, in dependency order: bb.js, the noir packages, and wsdb must be on the registry
-  # before yarn-project's release smoke-tests installing the @aztec packages that depend on them
-  # (@aztec/world-state has a runtime dependency on @aztec/wsdb). npm packages are platform-independent,
-  # so only the docker image is published on arm64.
-  local publish=(barretenberg/ts noir wsdb yarn-project release-image)
+  # Publish for real, in dependency order: bb.js, the noir packages, ipc-runtime, and wsdb must be on
+  # the registry before yarn-project's release smoke-tests installing the @aztec packages that depend on
+  # them. @aztec/world-state has a runtime dependency on @aztec/wsdb, and the ipc-codegen-generated
+  # @aztec/wsdb in turn has a runtime dependency on @aztec/ipc-runtime, so ipc-runtime must precede wsdb.
+  # npm packages are platform-independent, so only the docker image is published on arm64.
+  local publish=(barretenberg/ts noir ipc-runtime wsdb yarn-project release-image)
   if [ $(arch) == arm64 ]; then
     publish=(release-image)
   fi
