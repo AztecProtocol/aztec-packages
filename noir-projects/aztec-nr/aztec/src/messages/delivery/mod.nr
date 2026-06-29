@@ -2,7 +2,7 @@ mod builder;
 mod mode;
 mod resolved_tagging_strategy;
 mod tag;
-mod tag_secret_derivation;
+pub(crate) mod tag_secret_source;
 
 pub mod constrained_delivery;
 pub mod handshake;
@@ -19,11 +19,8 @@ use crate::{
 use crate::protocol::address::AztecAddress;
 use mode::DeliveryMode;
 use tag::derive_log_tag;
-use tag_secret_derivation::TagSecretDerivation;
 
-pub use builder::{
-    MessageDelivery, MessageDeliveryBuilder, OffchainDelivery, OnchainConstrainedDelivery, OnchainUnconstrainedDelivery,
-};
+pub use builder::{MessageDelivery, MessageDeliveryBuilder, OffchainDelivery, OnchainDelivery};
 pub use mode::OnchainDeliveryMode;
 pub use resolved_tagging_strategy::ResolvedTaggingStrategy;
 
@@ -65,12 +62,6 @@ where
     let deliver_as_offchain_message = mode == DeliveryMode::offchain();
     assert_constant(deliver_as_offchain_message);
 
-    let tag_secret_derivation = delivery.tag_secret_derivation();
-    tag_secret_derivation.assert_is_constant();
-
-    let resolved_tag_secret_derivation = resolve_tag_secret_derivation(mode, tag_secret_derivation);
-    resolved_tag_secret_derivation.assert_is_constant();
-
     let sender_override = delivery.sender_override();
 
     if deliver_as_offchain_message {
@@ -88,7 +79,6 @@ where
             maybe_note_hash_counter,
             recipient,
             mode,
-            resolved_tag_secret_derivation,
             sender_override,
         );
     }
@@ -100,13 +90,11 @@ fn do_onchain_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
     maybe_note_hash_counter: Option<u32>,
     recipient: AztecAddress,
     mode: DeliveryMode,
-    resolved_tag_secret_derivation: TagSecretDerivation,
     sender_override: Option<AztecAddress>,
 ) {
     let is_constrained = mode == DeliveryMode::onchain_constrained();
     assert_constant(is_constrained);
 
-    assert_valid_tag_derivation_for_mode(mode, resolved_tag_secret_derivation);
     let onchain_mode = to_onchain_delivery_mode(mode);
     let sender = resolve_sender(sender_override);
 
@@ -117,13 +105,7 @@ fn do_onchain_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
         || AES128::encrypt(encode_into_message_plaintext(), recipient, contract_address),
     );
 
-    let log_tag = derive_log_tag(
-        context,
-        onchain_mode,
-        resolved_tag_secret_derivation,
-        sender,
-        recipient,
-    );
+    let log_tag = derive_log_tag(context, onchain_mode, sender, recipient);
 
     // This value must be constant to avoid predicating the context calls below, which might result in
     // the context's arrays having unknown compile time write indices and hence dramatically increasing constraints
@@ -142,21 +124,6 @@ fn do_onchain_private_message_delivery<Env, let MESSAGE_PLAINTEXT_LEN: u32>(
         context.emit_raw_note_log_unsafe(log_tag, log, maybe_note_hash_counter.unwrap());
     } else {
         context.emit_private_log_unsafe(log_tag, log);
-    }
-}
-
-fn assert_valid_tag_derivation_for_mode(mode: DeliveryMode, tag_secret_derivation: TagSecretDerivation) {
-    if mode == DeliveryMode::onchain_constrained() {
-        std::static_assert(
-            tag_secret_derivation == TagSecretDerivation::non_interactive_handshake(),
-            "constrained delivery requires non-interactive handshake tag derivation",
-        );
-    } else {
-        // Unconstrained handshake-origin delivery is not yet implemented; see F-698.
-        std::static_assert(
-            tag_secret_derivation == TagSecretDerivation::address_secret(),
-            "unconstrained handshake delivery not yet implemented (F-698)",
-        );
     }
 }
 
@@ -181,70 +148,11 @@ fn to_onchain_delivery_mode(mode: DeliveryMode) -> OnchainDeliveryMode {
     }
 }
 
-fn resolve_tag_secret_derivation(
-    mode: DeliveryMode,
-    tag_secret_derivation: TagSecretDerivation,
-) -> TagSecretDerivation {
-    if tag_secret_derivation == TagSecretDerivation::wallet_default() {
-        // TODO(F-699): Resolve wallet-default by first reusing an existing handshake for `(sender, recipient, mode)`
-        // without consulting wallet policy. If none exists, consult the wallet delivery privacy preference before
-        // choosing address-secret delivery or creating a non-interactive handshake.
-        //
-        // Once the privacy preference is oracle-driven, add integration coverage that reuses one mode-agnostic
-        // handshake secret for both constrained and unconstrained onchain delivery tags. Today unconstrained
-        // handshake-derived delivery is rejected, so PXE unit tests cover provided-secret expansion across both tag
-        // domains.
-        if mode == DeliveryMode::onchain_constrained() {
-            TagSecretDerivation::non_interactive_handshake()
-        } else {
-            TagSecretDerivation::address_secret()
-        }
-    } else {
-        tag_secret_derivation
-    }
-}
-
 mod test {
     use crate::protocol::{address::AztecAddress, traits::FromField};
     use crate::test::helpers::test_environment::TestEnvironment;
-    use super::{DeliveryMode, resolve_sender, resolve_tag_secret_derivation, TagSecretDerivation};
+    use super::resolve_sender;
     use std::test::OracleMock;
-
-    #[test]
-    fn wallet_default_resolves_for_delivery_mode() {
-        assert(
-            resolve_tag_secret_derivation(
-                DeliveryMode::onchain_unconstrained(),
-                TagSecretDerivation::wallet_default(),
-            )
-                == TagSecretDerivation::address_secret(),
-        );
-        assert(
-            resolve_tag_secret_derivation(
-                DeliveryMode::onchain_constrained(),
-                TagSecretDerivation::wallet_default(),
-            )
-                == TagSecretDerivation::non_interactive_handshake(),
-        );
-    }
-
-    #[test]
-    fn explicit_tag_secret_derivation_is_preserved() {
-        assert(
-            resolve_tag_secret_derivation(
-                DeliveryMode::onchain_unconstrained(),
-                TagSecretDerivation::address_secret(),
-            )
-                == TagSecretDerivation::address_secret(),
-        );
-        assert(
-            resolve_tag_secret_derivation(
-                DeliveryMode::onchain_constrained(),
-                TagSecretDerivation::non_interactive_handshake(),
-            )
-                == TagSecretDerivation::non_interactive_handshake(),
-        );
-    }
 
     #[test(should_fail_with = "Sender for tags is not set")]
     unconstrained fn sender_resolution_requires_wallet_default_sender() {

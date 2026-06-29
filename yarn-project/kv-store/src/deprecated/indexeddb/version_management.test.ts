@@ -1,8 +1,8 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { DatabaseVersion } from '@aztec/stdlib/database-version/version';
 
-import { mockLogger } from '../interfaces/utils.js';
-import { initStoreForRollupAndSchemaVersion } from '../utils.js';
+import { mockLogger } from '../../interfaces/utils.js';
+import { initStoreForRollupAndSchemaVersion } from '../../utils.js';
 import { AztecIndexedDBStore } from './store.js';
 
 describe('IndexedDB Version Management', () => {
