@@ -34,8 +34,6 @@ This affects contracts that implement a custom message handler (registered via `
   }
 ```
 
-**Impact**: Custom message handlers must rename the parameter type to `ResolvedTx` and update references. Field names are unchanged, so accesses like `.tx_hash` keep working. Contracts without a custom message handler are unaffected.
-
 ### [Prover Node JSON-RPC] Prover API moved to the admin endpoint; `getL2Tips`/`getWorldStateSyncStatus` removed
 
 The prover node's JSON-RPC methods (`prover_*`) have moved off the public node RPC server and onto the admin RPC server. They now require the admin API key and are served on the admin port (8880) instead of the public port (8080).

@@ -2,20 +2,13 @@ use crate::{
     ephemeral::EphemeralArray,
     facts::OriginBlock,
     messages::{
-        discovery::{
-            ComputeNoteHash, ComputeNoteNullifier, nonce_discovery::attempt_note_nonce_discovery,
-            partial_note_reception::PartialNoteReception,
-        },
+        discovery::{ComputeNoteHash, ComputeNoteNullifier, partial_note_reception::PartialNoteReception},
         encoding::MAX_MESSAGE_CONTENT_LEN,
         logs::partial_note::{decode_partial_note_private_message, MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN},
         processing::{
-            enqueue_note_for_validation,
-            get_pending_partial_notes_completion_logs,
-            log_retrieval_response::{LogRetrievalResponse, MAX_LOG_CONTENT_LEN},
-            ResolvedTx,
+            get_pending_partial_notes_completion_logs, log_retrieval_response::LogRetrievalResponse, ResolvedTx,
         },
     },
-    utils::array,
 };
 
 use crate::logging::{aztecnr_debug_log_format, aztecnr_warn_log_format};
@@ -69,27 +62,25 @@ pub(crate) unconstrained fn process_partial_note_private_msg(
     }
 }
 
-/// Searches for logs that would result in the completion of pending partial notes, ultimately resulting in the notes
-/// being delivered to PXE if completed.
+/// Drives all pending partial-note receptions one sync step forward, delegating per-reception work to
+/// [`PartialNoteReception`]. Its only responsibilities are loading the receptions, batch-fetching completion logs for
+/// the pending ones, and delegating individual processing:
 ///
-/// Also terminates completed receptions once their completion block finalizes (the resulting note is then reorg-proof,
-/// so there is nothing left to track).
+/// 1. terminate completed receptions whose completion block has finalized;
+/// 2. fetch the completion logs of all still-pending receptions in a single concurrent round-trip;
+/// 3. hand each pending reception its completion log (if found) to complete itself.
 pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs(
     contract_address: AztecAddress,
     compute_note_hash: ComputeNoteHash,
     compute_note_nullifier: ComputeNoteNullifier,
     scope: AztecAddress,
 ) {
-    // Terminate completed receptions whose completion block has finalized.
     PartialNoteReception::load_all(contract_address, scope).for_each(|_i, reception: PartialNoteReception| {
-        if reception.is_completed() {
-            if reception.completed_origin().unwrap().block_state.is_finalized() {
-                reception.terminate();
-            }
-        }
+        reception.terminate_if_finalized();
     });
 
-    // Reload after the terminations above, then process the still-pending receptions.
+    // Reload after the terminations above, then batch-fetch the completion logs of the still-pending receptions. For
+    // performance we fetch all of these logs concurrently, minimizing the time spent waiting for node roundtrips.
     let pending_receptions = PartialNoteReception::load_all(contract_address, scope)
         .filter(|reception: PartialNoteReception| !reception.is_completed());
     let pending_partial_notes: EphemeralArray<DeliveredPendingPartialNote> =
@@ -97,95 +88,22 @@ pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs(
 
     aztecnr_debug_log_format!("{} pending partial notes")([pending_partial_notes.len() as Field]);
 
-    // Each of the pending partial notes might get completed by a log containing its public values. For performance
-    // reasons, we fetch all of these logs concurrently and then process them one by one, minimizing the amount of time
-    // waiting for the node roundtrip.
     let completion_logs = get_pending_partial_notes_completion_logs(contract_address, pending_partial_notes);
 
-    // Each entry in the completion logs array corresponds to the entry in the pending partial notes array at the same
-    // index. Each inner array contains all matching LogRetrievalResponses.
+    // Each completion-logs entry is index-aligned with the pending receptions, and each inner array holds all matching
+    // `LogRetrievalResponse`s for that reception's tag.
     assert_eq(completion_logs.len(), pending_receptions.len());
 
-    // `mark_completed` below writes to the fact store rather than mutating these index-aligned arrays, so a forward
-    // pass is safe (no index shifting like the previous capsule-array removal required).
     for i in 0..completion_logs.len() {
         let logs_for_tag: EphemeralArray<LogRetrievalResponse> = completion_logs.get(i);
-        let pending_partial_note = pending_partial_notes.get(i);
-        let reception = pending_receptions.get(i);
         let num_logs = logs_for_tag.len();
 
         if num_logs == 0 {
-            aztecnr_debug_log_format!("Found no completion logs for partial note with tag {}")(
-                [pending_partial_note.note_completion_log_tag],
-            );
-
-            // Leave the reception pending; we keep searching for this tagged log on future syncs until we find it or
-            // its delivery block is reorg'd away (which prunes the reception automatically).
+            // Leave the reception pending; we keep searching for its completion log on future syncs until we find it
+            // or its delivery block is reorg'd away (which prunes the reception automatically).
         } else {
             assert(num_logs == 1, f"Expected at most 1 completion log per partial note, got {num_logs}");
-
-            aztecnr_debug_log_format!("Completion log found for partial note with tag {}")([
-                pending_partial_note.note_completion_log_tag,
-            ]);
-            let log = logs_for_tag.get(0);
-
-            // The first field in the completion log payload is the storage slot, followed by the public note
-            // content fields.
-            let storage_slot = log.log_payload.get(0);
-            let public_note_content: BoundedVec<Field, MAX_LOG_CONTENT_LEN - 1> = array::subbvec(log.log_payload, 1);
-
-            // Public fields are assumed to all be placed at the end of the packed representation, so we combine
-            // the private and public packed fields (i.e. the contents of the private message and public log
-            // plaintext) to get the complete packed content.
-            let complete_packed_note = array::append(
-                pending_partial_note.packed_private_note_content,
-                public_note_content,
-            );
-
-            let discovered_notes = attempt_note_nonce_discovery(
-                log.unique_note_hashes_in_tx,
-                log.first_nullifier_in_tx,
-                compute_note_hash,
-                compute_note_nullifier,
-                contract_address,
-                pending_partial_note.owner,
-                storage_slot,
-                pending_partial_note.randomness,
-                pending_partial_note.note_type_id,
-                complete_packed_note,
-            );
-
-            // TODO(#11627): is there anything reasonable we can do if we get a log but it doesn't result in a note
-            // being found?
-            if discovered_notes.len() == 0 {
-                panic(
-                    f"A partial note's completion log did not result in any notes being found - this should never happen",
-                );
-            }
-
-            aztecnr_debug_log_format!("Discovered {0} notes for partial note with tag {1}")([
-                discovered_notes.len() as Field,
-                pending_partial_note.note_completion_log_tag,
-            ]);
-
-            discovered_notes.for_each(|discovered_note| {
-                enqueue_note_for_validation(
-                    contract_address,
-                    pending_partial_note.owner,
-                    storage_slot,
-                    pending_partial_note.randomness,
-                    discovered_note.note_nonce,
-                    complete_packed_note,
-                    discovered_note.note_hash,
-                    discovered_note.inner_nullifier,
-                    log.tx_hash,
-                );
-            });
-
-            // Mark the reception completed, anchored to the completion log's block. The discovered note is itself
-            // reorg-handled by the note store; if this block is reorg'd, PXE retracts this fact and the reception
-            // folds back to pending, so the completion log is searched for again.
-            reception.mark_completed(log.origin_block);
+            pending_receptions.get(i).complete_with_log(logs_for_tag.get(0), compute_note_hash, compute_note_nullifier);
         }
     }
 }

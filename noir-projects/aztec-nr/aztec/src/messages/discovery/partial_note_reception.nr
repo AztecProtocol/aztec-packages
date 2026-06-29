@@ -20,8 +20,16 @@ use crate::facts::{
     delete_fact_collection, Fact, FactCollection, get_fact_collections_by_type, OriginBlock, record_retractable_fact,
     RetractableFactOrigin,
 };
-use crate::messages::discovery::partial_notes::DeliveredPendingPartialNote;
+use crate::logging::aztecnr_debug_log_format;
+use crate::messages::{
+    discovery::{
+        ComputeNoteHash, ComputeNoteNullifier, nonce_discovery::attempt_note_nonce_discovery,
+        partial_notes::DeliveredPendingPartialNote,
+    },
+    processing::{enqueue_note_for_validation, log_retrieval_response::{LogRetrievalResponse, MAX_LOG_CONTENT_LEN}},
+};
 use crate::protocol::{address::AztecAddress, hash::{poseidon2_hash, sha256_to_field}, traits::{Deserialize, Serialize}};
+use crate::utils::array;
 
 /// Fact-collection type id shared by every partial-note reception in the [fact store](crate::facts).
 pub(crate) global PARTIAL_NOTE_RECEPTION_TYPE_ID: Field =
@@ -123,6 +131,81 @@ impl PartialNoteReception {
             self.collection.fact_collection_type_id,
             self.collection.fact_collection_id,
         );
+    }
+
+    /// Terminates this reception if it is completed and its completion block has finalized: the resulting note is
+    /// then reorg-proof, so there is nothing left to track.
+    pub(crate) unconstrained fn terminate_if_finalized(self) {
+        if self.is_completed() {
+            if self.completed_origin().unwrap().block_state.is_finalized() {
+                self.terminate();
+            }
+        }
+    }
+
+    /// Completes a pending reception from its completion log: combines the delivered private content with the log's
+    /// public content, discovers the resulting note(s), enqueues them for validation, and records the retractable
+    /// `completed` marker anchored to the completion log's block.
+    ///
+    /// Because the marker is retractable, a reorg of the completion block folds the reception back to pending (the
+    /// completion log is then searched for again); the note itself is reorg-handled by the note store.
+    pub(crate) unconstrained fn complete_with_log(
+        self,
+        log: LogRetrievalResponse,
+        compute_note_hash: ComputeNoteHash,
+        compute_note_nullifier: ComputeNoteNullifier,
+    ) {
+        let pending = self.read_pending();
+
+        // The first field in the completion log payload is the storage slot, followed by the public note content.
+        let storage_slot = log.log_payload.get(0);
+        let public_note_content: BoundedVec<Field, MAX_LOG_CONTENT_LEN - 1> = array::subbvec(log.log_payload, 1);
+
+        // Public fields are placed at the end of the packed representation, so we combine the private and public
+        // packed content to get the complete packed note.
+        let complete_packed_note = array::append(pending.packed_private_note_content, public_note_content);
+
+        let discovered_notes = attempt_note_nonce_discovery(
+            log.unique_note_hashes_in_tx,
+            log.first_nullifier_in_tx,
+            compute_note_hash,
+            compute_note_nullifier,
+            self.collection.contract_address,
+            pending.owner,
+            storage_slot,
+            pending.randomness,
+            pending.note_type_id,
+            complete_packed_note,
+        );
+
+        // TODO(#11627): is there anything reasonable we can do if we get a log but it doesn't result in a note being
+        // found?
+        if discovered_notes.len() == 0 {
+            panic(
+                f"A partial note's completion log did not result in any notes being found - this should never happen",
+            );
+        }
+
+        aztecnr_debug_log_format!("Discovered {0} notes for partial note with tag {1}")([
+            discovered_notes.len() as Field,
+            pending.note_completion_log_tag,
+        ]);
+
+        discovered_notes.for_each(|discovered_note| {
+            enqueue_note_for_validation(
+                self.collection.contract_address,
+                pending.owner,
+                storage_slot,
+                pending.randomness,
+                discovered_note.note_nonce,
+                complete_packed_note,
+                discovered_note.note_hash,
+                discovered_note.inner_nullifier,
+                log.tx_hash,
+            );
+        });
+
+        self.mark_completed(log.origin_block);
     }
 }
 
