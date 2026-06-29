@@ -4,7 +4,19 @@ import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { strict as assert } from 'assert';
 
 import { TypeTag } from '../avm/testing/avm_memory_types.js';
-import { Add, Addressing, AddressingMode, Call, CalldataCopy, Cast, Jump, Return, Set, Sha256Compression, Xor } from '../avm/testing/opcodes.js';
+import {
+  Add,
+  Addressing,
+  AddressingMode,
+  Call,
+  CalldataCopy,
+  Cast,
+  Jump,
+  Return,
+  Set,
+  Sha256Compression,
+  Xor,
+} from '../avm/testing/opcodes.js';
 import { encodeToBytecode } from '../avm/testing/serialization/bytecode_serialization.js';
 import {
   MAX_OPCODE_VALUE,
