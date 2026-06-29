@@ -97,7 +97,7 @@ void setup_fuzzer_state(bb::avm2::fuzzer::FuzzerWorldStateManager& ws_mgr,
 // Fund the fee payer with enough balance for the transaction
 void fund_fee_payer(bb::avm2::fuzzer::FuzzerWorldStateManager& ws_mgr, const Tx& tx);
 
-// Run the differential fuzzer comparing CPP vs JS simulator
+// Run the C++ simulator on a full transaction with multiple enqueued calls
 SimulatorResult fuzz_tx(bb::avm2::fuzzer::FuzzerWorldStateManager& ws_mgr,
                         bb::avm2::fuzzer::FuzzerContractDB& contract_db,
                         FuzzerTxData& tx_data);

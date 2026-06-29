@@ -11,16 +11,15 @@ import { PublicCallRequest } from '@aztec/stdlib/kernel';
 import { GlobalVariables, PublicCallRequestWithCalldata, type Tx } from '@aztec/stdlib/tx';
 import { NativeWorldStateService } from '@aztec/world-state';
 
-import { BaseAvmSimulationTester } from '../avm/fixtures/base_avm_simulation_tester.js';
+import { BaseAvmSimulationTester } from '../avm/testing/base_avm_simulation_tester.js';
 import {
   DEFAULT_BLOCK_NUMBER,
   DEFAULT_TIMESTAMP,
   getContractFunctionAbi,
   getFunctionSelector,
-} from '../avm/fixtures/utils.js';
+} from '../avm/testing/utils.js';
 import { PublicContractsDB } from '../public_db_sources.js';
-import { MeasuredCppPublicTxSimulator } from '../public_tx_simulator/cpp_public_tx_simulator.js';
-import { MeasuredCppVsTsPublicTxSimulator } from '../public_tx_simulator/cpp_vs_ts_public_tx_simulator.js';
+import { MeasuredPublicTxSimulator } from '../public_tx_simulator/public_tx_simulator.js';
 import type { MeasuredPublicTxSimulatorInterface } from '../public_tx_simulator/public_tx_simulator_interface.js';
 import { TestExecutorMetrics } from '../test_executor_metrics.js';
 import { SimpleContractDataSource } from './simple_contract_data_source.js';
@@ -83,7 +82,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     if (simulatorFactory) {
       this.simulator = simulatorFactory(merkleTree, contractsDB, globals, this.metrics, config);
     } else {
-      this.simulator = new MeasuredCppPublicTxSimulator(merkleTree, contractsDB, globals, this.metrics, config);
+      this.simulator = new MeasuredPublicTxSimulator(merkleTree, contractsDB, globals, this.metrics, config);
     }
   }
 
@@ -91,14 +90,12 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     worldStateService: NativeWorldStateService, // make sure to close this later
     globals: GlobalVariables = defaultGlobals(),
     metrics: TestExecutorMetrics = new TestExecutorMetrics(),
-    useCppSimulator = false,
     config: PublicSimulatorConfig = defaultConfig,
   ): Promise<PublicTxSimulationTester> {
     const contractDataSource = new SimpleContractDataSource();
     const merkleTree = await worldStateService.fork();
-    const simulatorFactory: MeasuredSimulatorFactory = useCppSimulator
-      ? (mt, cdb, g, m, c) => new MeasuredCppPublicTxSimulator(mt, cdb, g, m, c)
-      : (mt, cdb, g, m, c) => new MeasuredCppVsTsPublicTxSimulator(mt, cdb, g, m, c);
+    const simulatorFactory: MeasuredSimulatorFactory = (mt, cdb, g, m, c) =>
+      new MeasuredPublicTxSimulator(mt, cdb, g, m, c);
     return new PublicTxSimulationTester(merkleTree, contractDataSource, globals, metrics, simulatorFactory, config);
   }
 

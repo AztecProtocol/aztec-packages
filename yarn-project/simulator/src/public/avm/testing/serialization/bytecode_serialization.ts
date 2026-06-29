@@ -8,6 +8,7 @@ import {
   InvalidTagValueError,
   duringInstrFetch,
 } from '../errors.js';
+import { Instruction } from '../instruction.js';
 import {
   Add,
   And,
@@ -24,7 +25,6 @@ import {
   FieldDiv,
   GetContractInstance,
   GetEnvVar,
-  Instruction,
   InternalCall,
   InternalReturn,
   Jump,
@@ -56,7 +56,7 @@ import {
   SuccessCopy,
   ToRadixBE,
   Xor,
-} from '../opcodes/index.js';
+} from '../opcodes.js';
 import { BufferCursor } from './buffer_cursor.js';
 import { MAX_OPCODE_VALUE, Opcode } from './instruction_serialization.js';
 
