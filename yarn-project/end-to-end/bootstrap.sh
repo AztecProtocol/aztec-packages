@@ -32,11 +32,18 @@ function test_cmds {
   else
     echo "$prefix:NAME=e2e_prover_full_fake FAKE_PROOFS=1 $run_test_script simple single-node/prover/full"
   fi
-  echo "$prefix:TIMEOUT=30m:NAME=e2e_avm_simulator $(set_dump_avm e2e_avm_simulator) $run_test_script simple src/e2e_avm_simulator.test.ts"
+  echo "$prefix:TIMEOUT=30m:NAME=automine/simulation/avm_simulator $(set_dump_avm e2e_avm_simulator) $run_test_script simple src/automine/simulation/avm_simulator.test.ts"
 
   local tests=(
     # List all standalone and nested tests, except for the ones listed above.
-    src/e2e_*/*.test.ts
+    src/automine/*.test.ts
+    src/automine/contracts/*.test.ts
+    src/automine/contracts/deploy/*.test.ts
+    src/automine/contracts/nested/*.test.ts
+    src/automine/token/*.test.ts
+    src/automine/accounts/*.test.ts
+    src/automine/effects/*.test.ts
+    src/automine/simulation/!(avm_simulator).test.ts
     src/single-node/block-building/*.test.ts
     src/single-node/proving/*.test.ts
     src/single-node/l1-reorgs/*.test.ts
@@ -57,7 +64,6 @@ function test_cmds {
     src/multi-node/governance/*.test.ts
     src/p2p/*.test.ts
     src/p2p/reqresp/*.test.ts
-    src/e2e_!(avm_simulator).test.ts
   )
   for test in "${tests[@]}"; do
     # Derive a CI test name from the path: drop the leading "src/" and trailing ".test.ts".
@@ -295,20 +301,27 @@ function compat_test_cmds {
   local compat_env="CONTRACT_ARTIFACTS_VERSION=$version"
 
   local tests=(
-    src/e2e_*/*.test.ts
+    src/automine/*.test.ts
+    src/automine/contracts/*.test.ts
+    src/automine/contracts/deploy/*.test.ts
+    src/automine/contracts/nested/*.test.ts
+    src/automine/token/*.test.ts
+    src/automine/accounts/*.test.ts
+    src/automine/effects/*.test.ts
+    src/automine/simulation/!(kernelless_simulation).test.ts
     src/single-node/fees/*.test.ts
     src/single-node/cross-chain/*.test.ts
     src/single-node/bot/*.test.ts
     src/infra/*.test.ts
     src/p2p/*.test.ts
     src/p2p/reqresp/*.test.ts
-    src/e2e_!(kernelless_simulation).test.ts
   )
   for test in "${tests[@]}"; do
     local name
-    if [[ "$test" == src/p2p/* ]]; then
-      # The p2p/ folder has no `e2e_` prefix to strip; flatten its path into an e2e_p2p_<file> name
-      # (matching the historical e2e_p2p/<file> names) by dropping "src/", ".test.ts", and slashes.
+    if [[ "$test" == src/p2p/* || "$test" == src/automine/* ]]; then
+      # The p2p/ and automine/ folders have no `e2e_` prefix to strip; flatten their path into an
+      # e2e_<path> name (matching the historical e2e_p2p/<file> names) by dropping "src/", ".test.ts",
+      # and slashes.
       name=${test#src/}
       name=e2e_${name%.test.ts}
       name=${name//\//_}
