@@ -1,0 +1,116 @@
+import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { EthAddress } from '@aztec/aztec.js/addresses';
+import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
+import { parseBooleanEnv } from '@aztec/foundation/config';
+import { FeeJuicePortalAbi, TestERC20Abi } from '@aztec/l1-artifacts';
+
+import { jest } from '@jest/globals';
+import { type GetContractReturnType, getContract } from 'viem';
+
+import { FullProverTest } from '../../fixtures/e2e_prover_test.js';
+import { PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
+import { proveInteraction } from '../../test-wallet/utils.js';
+
+// Set a very long 20 minute timeout.
+const TIMEOUT = 1_200_000;
+
+// Pipelined 12s-slot setup chain (account deploys + token deploy + mint + epoch advance +
+// prover-node startup) exceeds the default 5min jest per-test budget.
+jest.setTimeout(15 * 60 * 1000);
+
+// Tests client-side proof generation and verification for private and public transfers.
+// FullProverTest sets up a single node with a real prover node (real BB when FAKE_PROOFS=0,
+// fake proofs otherwise) via PIPELINING_SETUP_OPTS (ethSlot=4s, aztecSlot=12s). The prover
+// node is a second AztecNodeService with enableProverNode. No on-chain proof submission — only
+// client-side circuit proof generation and circuitProofVerifier.verifyProof() are tested.
+describe('single-node/prover/client', () => {
+  const REAL_PROOFS = !parseBooleanEnv(process.env.FAKE_PROOFS);
+  const COINBASE_ADDRESS = EthAddress.random();
+  const t = new FullProverTest('full_prover', 1, COINBASE_ADDRESS, REAL_PROOFS);
+
+  let { provenAsset, accounts, logger, wallet } = t;
+  let sender: AztecAddress;
+  let recipient: AztecAddress;
+
+  let feeJuiceToken: GetContractReturnType<typeof TestERC20Abi, ExtendedViemWalletClient>;
+  let feeJuicePortal: GetContractReturnType<typeof FeeJuicePortalAbi, ExtendedViemWalletClient>;
+
+  beforeAll(
+    async () => {
+      t.logger.warn(`Running suite with ${REAL_PROOFS ? 'real' : 'fake'} proofs`);
+
+      await t.setup({ ...PIPELINING_SETUP_OPTS });
+
+      ({ provenAsset, accounts, logger, wallet } = t);
+      [sender, recipient] = accounts;
+
+      feeJuicePortal = getContract({
+        abi: FeeJuicePortalAbi,
+        address: t.l1Contracts.l1ContractAddresses.feeJuicePortalAddress.toString(),
+        client: t.l1Contracts.l1Client,
+      });
+
+      feeJuiceToken = getContract({
+        abi: TestERC20Abi,
+        address: t.l1Contracts.l1ContractAddresses.feeJuiceAddress.toString(),
+        client: t.l1Contracts.l1Client,
+      });
+    },
+    15 * 60 * 1000,
+  );
+
+  afterAll(async () => {
+    await t.teardown();
+  });
+
+  afterEach(async () => {
+    await t.tokenSim.check();
+  });
+
+  // Verifies fee juice portal has a balance, then proves a private transfer and a public transfer
+  // client-side (proveInteraction), and calls circuitProofVerifier.verifyProof() on each without
+  // submitting to the network.
+  it(
+    'proves and verifies the client-side portion of private and public transfers',
+    async () => {
+      logger.info(`Starting test for client-side portion of public and private transfer`);
+
+      const balance = await feeJuiceToken.read.balanceOf([feeJuicePortal.address]);
+      logger.info(`Balance of fee juice token: ${balance}`);
+
+      expect(balance).toBeGreaterThan(0n);
+
+      const canonicalAddress = await feeJuicePortal.read.ROLLUP();
+      logger.info(`Canonical address: ${canonicalAddress}`);
+      expect(canonicalAddress.toLowerCase()).toBe(
+        t.l1Contracts.l1ContractAddresses.rollupAddress.toString().toLowerCase(),
+      );
+
+      // Create the two transactions
+      const { result: privateBalance } = await provenAsset.methods
+        .balance_of_private(sender)
+        .simulate({ from: sender });
+      const privateSendAmount = privateBalance / 10n;
+      expect(privateSendAmount).toBeGreaterThan(0n);
+      const privateInteraction = provenAsset.methods.transfer(recipient, privateSendAmount);
+
+      const { result: publicBalance } = await provenAsset.methods.balance_of_public(sender).simulate({ from: sender });
+      const publicSendAmount = publicBalance / 10n;
+      expect(publicSendAmount).toBeGreaterThan(0n);
+      const publicInteraction = provenAsset.methods.transfer_in_public(sender, recipient, publicSendAmount, 0);
+
+      // Prove them
+      logger.info(`Proving txs`);
+      const [publicProvenTx, privateProvenTx] = await Promise.all([
+        proveInteraction(wallet, publicInteraction, { from: sender }),
+        proveInteraction(wallet, privateInteraction, { from: sender }),
+      ]);
+
+      // Verify them
+      logger.info(`Verifying txs`);
+      await expect(t.circuitProofVerifier?.verifyProof(publicProvenTx)).resolves.not.toThrow();
+      await expect(t.circuitProofVerifier?.verifyProof(privateProvenTx)).resolves.not.toThrow();
+    },
+    TIMEOUT,
+  );
+});
