@@ -54,7 +54,7 @@ fn derive_handshake_log_tag(
     recipient: AztecAddress,
     mode: OnchainDeliveryMode,
 ) -> Field {
-    let (secret, bootstrapped) = get_or_create_app_siloed_handshake_secret(
+    let (secrets, bootstrapped) = get_or_create_app_siloed_handshake_secret(
         context,
         STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
         sender,
@@ -62,18 +62,19 @@ fn derive_handshake_log_tag(
     );
 
     // Safety: the returned index is untrusted and is constrained before the tag is emitted.
-    let index = unsafe { get_next_tagging_index(secret, mode) };
+    let index = unsafe { get_next_tagging_index(secrets.shared, mode) };
     constrain_secret_and_emit_nullifier(
         context,
         STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
         sender,
         recipient,
-        secret,
+        secrets,
         bootstrapped,
         index,
     );
 
-    tag_from_secret_and_index(secret, index, mode)
+    // The discovery tag stays derived from the shared secret only, so the recipient still finds every message.
+    tag_from_secret_and_index(secrets.shared, index, mode)
 }
 
 fn tag_domain_separator(mode: OnchainDeliveryMode) -> u32 {
