@@ -1,9 +1,8 @@
 import type { Logger } from '@aztec/aztec.js/log';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { ChainMonitor } from '@aztec/ethereum/test';
-import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
-import { getProofSubmissionDeadlineTimestamp } from '@aztec/stdlib/epoch-helpers';
 
 import { jest } from '@jest/globals';
 
@@ -48,28 +47,6 @@ describe('single-node/recovery/prune_when_cannot_build', () => {
     await test.teardown();
   });
 
-  // Reaching the end of a proof submission window is dead wall-clock time: sync is paused so the proposer
-  // cannot build, and the chain just sits while the L1 clock ticks to the fixed deadline. Warp the L1 clock
-  // forward to `leadSlots` L2 slots before the window's last slot so the subsequent
-  // `waitUntilLastSlotOfProofSubmissionWindow` only sleeps out the remaining real slots, leaving the
-  // proposer real slots to run its fallback prune once the window expires. Only warps forward.
-  const warpNearSubmissionWindowEnd = async (epoch: number, leadSlots = 2) => {
-    const { slotDuration } = test.constants;
-    const deadline = getProofSubmissionDeadlineTimestamp(EpochNumber(epoch), test.constants);
-    // Mirror waitUntilLastSlotOfProofSubmissionWindow's target (one slot before the deadline).
-    const lastSlotTs = deadline - BigInt(slotDuration);
-    const target = lastSlotTs - BigInt(leadSlots * slotDuration);
-    const currentTs = BigInt(await context.cheatCodes.eth.lastBlockTimestamp());
-    if (currentTs < target) {
-      logger.warn(`Warping L1 to ${leadSlots} slots before end of epoch ${epoch} submission window`, {
-        currentTs,
-        target,
-        epoch,
-      });
-      await context.cheatCodes.eth.warp(Number(target), { resetBlockInterval: true });
-    }
-  };
-
   it('prunes the pending chain via the fallback path when it cannot propose', async () => {
     // Build a few checkpoints in epoch 0 so there is a pending chain to prune. Nothing proves them.
     const targetCheckpointNumber = CheckpointNumber(3);
@@ -92,7 +69,7 @@ describe('single-node/recovery/prune_when_cannot_build', () => {
     logger.info(`Waiting for the proof submission window of epoch 0 to expire`);
     // Most of this window is dead clock (sync is paused; nothing builds), so warp to near its end and let
     // only the final couple of real slots elapse — the proposer needs those real slots for its fallback prune.
-    await warpNearSubmissionWindowEnd(0);
+    await test.warpNearSubmissionWindowEnd(0);
     await test.waitUntilLastSlotOfProofSubmissionWindow(0);
     const lastBlockTs = BigInt(await context.cheatCodes.eth.lastBlockTimestamp());
     await context.cheatCodes.eth.warp(Number(lastBlockTs) + L2_SLOT_DURATION_IN_S * 2, { resetBlockInterval: true });

@@ -6,7 +6,7 @@ import { TxExecutionResult } from '@aztec/aztec.js/tx';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
-import { getEpochAtSlot, getTimestampRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
+import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 
 import { jest } from '@jest/globals';
 
@@ -34,25 +34,6 @@ describe('single-node/proving/cross_chain_public_message', () => {
   let logger: Logger;
 
   let test: SingleNodeTestContext;
-
-  /**
-   * Warps the L1 clock to within `leadSlots` slots of the start of `epoch`, then waits for that boundary in
-   * wall-clock, skipping the dead stretch where the chain just advances one L1 block per slot until an epoch
-   * ends. The consume tx the assertion depends on is already produced before this is called, so warping the
-   * tail away doesn't change what gets proven, and the shared `TestDateProvider` moves the
-   * prover/node/sequencer clocks together so the epoch finalizes right after the warp. The `leadSlots` tail
-   * is left in real time so the sequencer can publish the epoch's final checkpoint before the boundary.
-   */
-  const warpToEpochStart = async (epoch: EpochNumber | number, leadSlots = 2): Promise<bigint> => {
-    const [targetTs] = getTimestampRangeForEpoch(EpochNumber(Number(epoch)), test.constants);
-    const safeTs = targetTs - BigInt(leadSlots * test.L2_SLOT_DURATION_IN_S);
-    const currentTs = BigInt(await context.cheatCodes.eth.lastBlockTimestamp());
-    if (currentTs < safeTs) {
-      logger.info(`Warping L1 from ${currentTs} to ${safeTs} (${leadSlots} slots before epoch ${epoch})`);
-      await context.cheatCodes.eth.warp(Number(safeTs), { resetBlockInterval: true });
-    }
-    return test.waitUntilEpochStarts(Number(epoch));
-  };
 
   beforeEach(async () => {
     test = await setupWithProver({
@@ -110,7 +91,7 @@ describe('single-node/proving/cross_chain_public_message', () => {
     const txEpoch = getEpochAtSlot(txBlock.header.globalVariables.slotNumber, test.constants);
     const proofEpoch = EpochNumber(Number(txEpoch) + test.constants.proofSubmissionEpochs);
     logger.warn(`Consume tx landed in epoch ${txEpoch}; warping to proof-submission epoch ${proofEpoch}`);
-    await warpToEpochStart(proofEpoch);
+    await test.warpToEpochStart(Number(proofEpoch));
 
     // Wait until a proof lands for the transaction
     logger.warn(`Waiting for proof for tx ${txReceipt.txHash} mined at ${txReceipt.blockNumber!}`);

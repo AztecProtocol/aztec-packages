@@ -60,24 +60,6 @@ describe('single-node/proving/proof_fails', () => {
     await test.teardown();
   });
 
-  // Warps the shared L1 clock forward to `leadSlots` L2 slots before the start of `epoch`, then waits for
-  // the boundary in wall-clock. The epoch-end deadlines these tests assert on (proof rejected after epoch
-  // end / proving aborted at next epoch end) fire AT the boundary via natural sequencer activity, so only
-  // the dead inter-epoch advance is skipped; the last `leadSlots` slots stay real time for the boundary, the
-  // post-deadline propose/prune, and any held prover tx (released by `pauseNextTxUntilTimestamp`, which keys
-  // off the L1 block timestamp the warp moves) to settle organically. The shared TestDateProvider means the
-  // prover sees the same warp. Forward-only, so a no-op when already within `leadSlots` of the boundary.
-  const warpToEpochStart = async (epoch: number, leadSlots: number) => {
-    const [start] = getTimestampRangeForEpoch(EpochNumber(epoch), constants);
-    const safeTs = start - BigInt(leadSlots * L2_SLOT_DURATION_IN_S);
-    const currentTs = BigInt(await context.cheatCodes.eth.lastBlockTimestamp());
-    if (currentTs < safeTs) {
-      logger.warn(`Warping L1 from ${currentTs} to ${safeTs} (${leadSlots} slots before epoch ${epoch})`);
-      await context.cheatCodes.eth.warp(Number(safeTs), { resetBlockInterval: true });
-    }
-    return test.waitUntilEpochStarts(epoch);
-  };
-
   // Delays the proof tx until after epoch 2 starts (past the submission deadline). Waits for
   // epoch 1 to end, then epoch 2 to begin, and polls until the rollup checkpoint number drops
   // below the pre-rollback value. Asserts the delayed proof receipt is reverted and the
@@ -123,7 +105,7 @@ describe('single-node/proving/proof_fails', () => {
     // slots before the boundary; the held prover tx stays paused until epoch 2 starts (its
     // timestamp gate moves with the warp), then releases, reverts past the deadline, and the
     // post-deadline propose triggers the prune in real time.
-    await warpToEpochStart(2, 2);
+    await test.warpToEpochStart(2);
     // REFACTOR: hand-rolled retryUntil polling rollup.getCheckpointNumber for rollback detection;
     // a DSL helper like waitForRollback(checkpoint) would make the intent clearer.
     await retryUntil(
@@ -212,7 +194,7 @@ describe('single-node/proving/proof_fails', () => {
     // two slots before the boundary — the sleep (sized above) outlasts that warped gap, so the
     // prover is still mid-prove when the deadline passes and never submits a proof.
     await proveSleepStarted.promise;
-    await warpToEpochStart(2, 2);
+    await test.warpToEpochStart(2);
     logger.warn(`Starting epoch 2`);
 
     // No proof for epoch zero should have landed during epoch one

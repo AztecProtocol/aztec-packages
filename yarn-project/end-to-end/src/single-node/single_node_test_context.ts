@@ -482,6 +482,53 @@ export class SingleNodeTestContext {
     return target;
   }
 
+  /**
+   * Warps the L1 clock to within `leadSlots` slots of the start of `epoch`, then waits for that boundary in
+   * wall-clock, skipping the dead stretch where the chain just advances one L1 block per slot until an epoch
+   * ends. Anything the post-warp assertions depend on must already be produced before calling this — warping
+   * the tail away does not change what gets proven, and the shared `TestDateProvider` moves the
+   * prover/node/sequencer clocks together so the epoch finalizes right after the warp. The `leadSlots` tail
+   * (default 2) is left in real time so the sequencer can publish the epoch's final checkpoint before the
+   * boundary, and so any post-warp sampler observes an in-epoch slot rather than the epoch's last slot.
+   * Forward-only, so a no-op when already within `leadSlots` of the boundary.
+   */
+  public async warpToEpochStart(epoch: number, opts: { leadSlots?: number } = {}): Promise<bigint> {
+    const leadSlots = opts.leadSlots ?? 2;
+    const [targetTs] = getTimestampRangeForEpoch(EpochNumber(epoch), this.constants);
+    const safeTs = targetTs - BigInt(leadSlots * this.L2_SLOT_DURATION_IN_S);
+    const currentTs = BigInt(await this.context.cheatCodes.eth.lastBlockTimestamp());
+    if (currentTs < safeTs) {
+      this.logger.info(`Warping L1 from ${currentTs} to ${safeTs} (${leadSlots} slots before epoch ${epoch})`);
+      await this.context.cheatCodes.eth.warp(Number(safeTs), { resetBlockInterval: true });
+    }
+    return this.waitUntilEpochStarts(epoch);
+  }
+
+  /**
+   * Most of a proof-submission window is dead wall-clock time, so warp the L1 clock forward to `leadSlots`
+   * (default 2) L2 slots before the window's last slot. A subsequent
+   * {@link waitUntilLastSlotOfProofSubmissionWindow} then only sleeps out the few remaining real slots,
+   * leaving enough real time for any in-flight proving, pruning, and recovery to happen organically. Only
+   * warps forward, so it is a no-op when the chain is already within `leadSlots`+1 slots of the window end.
+   */
+  public async warpNearSubmissionWindowEnd(epoch: number, opts: { leadSlots?: number } = {}): Promise<void> {
+    const leadSlots = opts.leadSlots ?? 2;
+    const { slotDuration } = this.constants;
+    const deadline = getProofSubmissionDeadlineTimestamp(EpochNumber(epoch), this.constants);
+    // Mirror waitUntilLastSlotOfProofSubmissionWindow's target (one slot before the deadline).
+    const lastSlotTs = deadline - BigInt(slotDuration);
+    const target = lastSlotTs - BigInt(leadSlots * slotDuration);
+    const currentTs = BigInt(await this.context.cheatCodes.eth.lastBlockTimestamp());
+    if (currentTs < target) {
+      this.logger.warn(`Warping L1 to ${leadSlots} slots before end of epoch ${epoch} submission window`, {
+        currentTs,
+        target,
+        epoch,
+      });
+      await this.context.cheatCodes.eth.warp(Number(target), { resetBlockInterval: true });
+    }
+  }
+
   /** Waits until the given checkpoint number is mined. */
   public async waitUntilCheckpointNumber(target: CheckpointNumber, timeout = 120) {
     await retryUntil(

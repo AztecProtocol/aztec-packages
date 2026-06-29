@@ -4,7 +4,7 @@ import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/f
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { retryUntil } from '@aztec/foundation/retry';
 import type { TestProverNode } from '@aztec/prover-node/test';
-import { getEpochAtSlot, getSlotRangeForEpoch, getTimestampRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
+import { getEpochAtSlot, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { TxExecutionResult } from '@aztec/stdlib/tx';
 
@@ -141,28 +141,6 @@ describe('single-node/proving/optimistic', () => {
   };
 
   /**
-   * Warps the L1 clock to within `leadSlots` slots of the start of `epoch`, then waits for that boundary in
-   * wall-clock, skipping the dead stretch where the chain just advances one L1 block per slot until an epoch
-   * ends. The checkpoints/txs the assertions depend on are already produced before this is called, so
-   * warping the tail away doesn't change what gets proven, and the `leadSlots` tail is left in real time so
-   * the sequencer can publish the epoch's final checkpoint before the boundary. `leadSlots` must be >= 2:
-   * the warp lands on slot `lastSlot - (leadSlots - 1)`, and the mid-epoch-proving sampler records the slot
-   * at which it observes the prover registered. With a one-slot lead the warp lands on the epoch's last slot,
-   * so a sampler tick firing post-warp records `lastSlot` and fails the `< lastSlot` assertion; two slots
-   * leaves the clock at `lastSlot - 1` with a full real-time slot for the sampler to record first.
-   */
-  const warpToEpochStart = async (epoch: EpochNumber | number, leadSlots = 2): Promise<bigint> => {
-    const [targetTs] = getTimestampRangeForEpoch(EpochNumber(Number(epoch)), test.constants);
-    const safeTs = targetTs - BigInt(leadSlots * L2_SLOT_DURATION_IN_S);
-    const currentTs = BigInt(await context.cheatCodes.eth.lastBlockTimestamp());
-    if (currentTs < safeTs) {
-      logger.info(`Warping L1 from ${currentTs} to ${safeTs} (${leadSlots} slots before epoch ${epoch})`);
-      await context.cheatCodes.eth.warp(Number(safeTs), { resetBlockInterval: true });
-    }
-    return test.waitUntilEpochStarts(Number(epoch));
-  };
-
-  /**
    * Waits until the prover-node has registered a CheckpointProver for `epoch`. The happy-path tests
    * warp the L1 clock to near the epoch boundary to skip dead wall-clock; that warp must not race
    * ahead of the prover registering its sub-tree, or the optimistic-proving sampler would record the
@@ -219,7 +197,7 @@ describe('single-node/proving/optimistic', () => {
 
       logger.info(`Waiting for epoch ${txEpoch} to end`);
       await waitForProverToRegisterEpoch(proverNode, txEpoch);
-      await warpToEpochStart(txEpoch + 1);
+      await test.warpToEpochStart(txEpoch + 1);
       const epochEndCheckpointNumber = (await test.monitor.run(true)).checkpointNumber;
       logger.info(`Epoch ${txEpoch} ended with checkpoint number ${epochEndCheckpointNumber}`);
       expect(epochEndCheckpointNumber).toBeGreaterThanOrEqual(txCheckpoint);
@@ -265,7 +243,7 @@ describe('single-node/proving/optimistic', () => {
 
         logger.info(`Waiting for epoch ${txEpoch} to end`);
         await waitForProverToRegisterEpoch(proverNode, txEpoch);
-        await warpToEpochStart(txEpoch + 1);
+        await test.warpToEpochStart(txEpoch + 1);
         const cp = (await test.monitor.run(true)).checkpointNumber;
         expect(cp).toBeGreaterThanOrEqual(txCheckpoint);
 
@@ -418,7 +396,7 @@ describe('single-node/proving/optimistic', () => {
       // production has been resumed and may produce additional checkpoints before the
       // next epoch starts; we only assert that the chain advanced past the replacement
       // and that the replacement itself ends up proven.
-      await warpToEpochStart(currentEpoch + 1);
+      await test.warpToEpochStart(currentEpoch + 1);
       const epochEndCheckpoint = (await test.monitor.run(true)).checkpointNumber;
       expect(epochEndCheckpoint).toBeGreaterThanOrEqual(replacementCheckpoint);
 
@@ -518,7 +496,7 @@ describe('single-node/proving/optimistic', () => {
       // archiver indexes the replacement checkpoint only after the sequencer's slot completes
       // (~slot duration) and the L1 propose tx confirms — far longer than the default 30s.
       const currentEpoch = await epochOfCheckpoint(reminedCheckpoint, 120);
-      await warpToEpochStart(currentEpoch + 1);
+      await test.warpToEpochStart(currentEpoch + 1);
       const epochEndCheckpoint = (await test.monitor.run(true)).checkpointNumber;
       expect(epochEndCheckpoint).toBeGreaterThanOrEqual(reminedCheckpoint);
 
@@ -595,7 +573,7 @@ describe('single-node/proving/optimistic', () => {
 
       // Wait for the epoch to end and proof to land with the surviving checkpoints. Publishing is
       // suppressed, so no checkpoints land in the remaining slots — warp the dead tail away.
-      await warpToEpochStart(currentEpoch + 1);
+      await test.warpToEpochStart(currentEpoch + 1);
       const epochEndCheckpoint = (await test.monitor.run(true)).checkpointNumber;
 
       // (3) The epoch proved up to and including the last surviving checkpoint (the (N-1)th).
@@ -682,7 +660,7 @@ describe('single-node/proving/optimistic', () => {
       });
 
       // Wait for the next epoch to start, then for proof to land with the surviving checkpoints.
-      await warpToEpochStart(epoch + 1);
+      await test.warpToEpochStart(epoch + 1);
       const epochEndCheckpoint = (await test.monitor.run(true)).checkpointNumber;
       expect(epochEndCheckpoint).toEqual(afterReorgCheckpoint);
 
@@ -878,7 +856,7 @@ describe('single-node/proving/optimistic', () => {
       logger.info(`Prover-node started with id ${proverNode.getProverId().toString()}`);
 
       // Wait for the anchored epoch to end and its proof to land on L1.
-      await warpToEpochStart(epoch + 1);
+      await test.warpToEpochStart(epoch + 1);
       const epochEndCheckpoint = (await test.monitor.run(true)).checkpointNumber;
       const lastPreSpawn = preSpawnCheckpointNumbers[preSpawnCheckpointNumbers.length - 1];
       expect(epochEndCheckpoint).toBeGreaterThanOrEqual(lastPreSpawn);

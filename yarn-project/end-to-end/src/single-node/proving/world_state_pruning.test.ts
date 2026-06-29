@@ -1,7 +1,6 @@
 import type { Logger } from '@aztec/aztec.js/log';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
-import { getTimestampRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 
 import { SingleNodeTestContext, WORLD_STATE_CHECKPOINT_HISTORY, jest, setupWithProver } from './setup.js';
 
@@ -25,24 +24,6 @@ describe('single-node/proving/world_state_pruning', () => {
     await test.teardown();
   });
 
-  // Warps the L1 clock to within `leadSlots` slots of the start of `epoch`, then waits for that boundary in
-  // wall-clock, skipping the dead stretch where the chain just advances one empty checkpoint per slot until
-  // an epoch ends and its fake proof can land. The shared TestDateProvider means the prover sees the warp
-  // too, so proving completes right after. The `leadSlots` tail is left in real time so the sequencer can
-  // build the epoch's final checkpoint(s); two slots keeps each epoch accruing enough checkpoints that
-  // pruning stays observable. All assertions are derived from whatever checkpoint number the epoch actually
-  // reaches, so a shorter epoch does not change what is checked.
-  const warpToEpochStart = async (epoch: number, leadSlots = 2): Promise<bigint> => {
-    const [targetTs] = getTimestampRangeForEpoch(EpochNumber(epoch), test.constants);
-    const safeTs = targetTs - BigInt(leadSlots * test.L2_SLOT_DURATION_IN_S);
-    const currentTs = BigInt(await test.context.cheatCodes.eth.lastBlockTimestamp());
-    if (currentTs < safeTs) {
-      logger.info(`Warping L1 from ${currentTs} to ${safeTs} (${leadSlots} slots before epoch ${epoch})`);
-      await test.context.cheatCodes.eth.warp(Number(safeTs), { resetBlockInterval: true });
-    }
-    return test.waitUntilEpochStarts(epoch);
-  };
-
   // Loops through targetProvenEpochs epochs: waits for each epoch to end, asserts it is proven,
   // then verifies the epoch-end block is accessible as a historic block and that earlier blocks
   // beyond the checkpoint history window have been purged from world state.
@@ -53,7 +34,7 @@ describe('single-node/proving/world_state_pruning', () => {
 
     while (epochNumber < targetProvenEpochs) {
       logger.info(`Waiting for the end of epoch ${epochNumber}`);
-      await warpToEpochStart(epochNumber + 1);
+      await test.warpToEpochStart(epochNumber + 1);
       const epochEndCheckpointNumber = (await test.monitor.run()).checkpointNumber;
       logger.info(`Epoch ${epochNumber} ended with pending checkpoint number ${epochEndCheckpointNumber}`);
 
