@@ -48,11 +48,11 @@ describe('single-node/recovery/prune_when_cannot_build', () => {
     await test.teardown();
   });
 
-  // Reaching the end of epoch 0's proof submission window is dead wall-clock time: sync is paused so the
-  // proposer cannot build, and the chain just sits while the L1 clock ticks to the fixed deadline. This
-  // warps the L1 clock forward to `leadSlots` L2 slots before the window's last slot so the subsequent
-  // `waitUntilLastSlotOfProofSubmissionWindow` only sleeps out the few remaining real slots — leaving the
-  // proposer real slots to run its fallback prune organically once the window expires. Only warps forward.
+  // Reaching the end of a proof submission window is dead wall-clock time: sync is paused so the proposer
+  // cannot build, and the chain just sits while the L1 clock ticks to the fixed deadline. Warp the L1 clock
+  // forward to `leadSlots` L2 slots before the window's last slot so the subsequent
+  // `waitUntilLastSlotOfProofSubmissionWindow` only sleeps out the remaining real slots, leaving the
+  // proposer real slots to run its fallback prune once the window expires. Only warps forward.
   const warpNearSubmissionWindowEnd = async (epoch: number, leadSlots = 2) => {
     const { slotDuration } = test.constants;
     const deadline = getProofSubmissionDeadlineTimestamp(EpochNumber(epoch), test.constants);

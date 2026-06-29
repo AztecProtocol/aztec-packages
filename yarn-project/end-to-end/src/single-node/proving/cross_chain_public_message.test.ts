@@ -36,14 +36,12 @@ describe('single-node/proving/cross_chain_public_message', () => {
   let test: SingleNodeTestContext;
 
   /**
-   * Warps the L1 clock to within `leadSlots` slots of the start of `epoch`, then waits for that
-   * boundary in wall-clock. Skips the dead stretch where the chain just advances one L1 block per
-   * slot until an epoch ends so the fake proof can land — the consume tx the assertion depends on
-   * has already been produced before this is called, so warping the tail away doesn't change what
-   * gets proven. The shared `TestDateProvider` moves the prover/node/sequencer clocks together, so
-   * the epoch finalizes right after the warp. The `leadSlots` tail is left in real time so the
-   * sequencer can publish the epoch's final checkpoint before the boundary (mirrors the shared
-   * `waitUntilNextEpochStarts`, which uses two slots of lead).
+   * Warps the L1 clock to within `leadSlots` slots of the start of `epoch`, then waits for that boundary in
+   * wall-clock, skipping the dead stretch where the chain just advances one L1 block per slot until an epoch
+   * ends. The consume tx the assertion depends on is already produced before this is called, so warping the
+   * tail away doesn't change what gets proven, and the shared `TestDateProvider` moves the
+   * prover/node/sequencer clocks together so the epoch finalizes right after the warp. The `leadSlots` tail
+   * is left in real time so the sequencer can publish the epoch's final checkpoint before the boundary.
    */
   const warpToEpochStart = async (epoch: EpochNumber | number, leadSlots = 2): Promise<bigint> => {
     const [targetTs] = getTimestampRangeForEpoch(EpochNumber(Number(epoch)), test.constants);
@@ -104,11 +102,10 @@ describe('single-node/proving/cross_chain_public_message', () => {
       .send({ from: context.accounts[0] });
     expect(txReceipt.blockNumber).toBeGreaterThan(0);
 
-    // The consume tx lands in the first slot of its epoch, so the chain otherwise idles through the
-    // remaining ~5 slots of that epoch before the fake proof can be assembled. Warp the L1 clock over
-    // that dead stretch to the start of the epoch where the proof becomes submittable
-    // (txEpoch + proofSubmissionEpochs); the consume block is already produced, so warping the tail
-    // doesn't change what gets proven, only how long we wait for it.
+    // The consume tx lands in the first slot of its epoch, so the chain otherwise idles through the rest of
+    // that epoch before the fake proof can be assembled. Warp over that dead stretch to the epoch where the
+    // proof becomes submittable (txEpoch + proofSubmissionEpochs); the consume block is already produced, so
+    // warping the tail doesn't change what gets proven, only how long we wait for it.
     const txBlock = (await context.aztecNode.getBlock(txReceipt.blockNumber!))!;
     const txEpoch = getEpochAtSlot(txBlock.header.globalVariables.slotNumber, test.constants);
     const proofEpoch = EpochNumber(Number(txEpoch) + test.constants.proofSubmissionEpochs);

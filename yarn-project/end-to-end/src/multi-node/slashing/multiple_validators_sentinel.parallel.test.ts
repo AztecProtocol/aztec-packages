@@ -18,10 +18,10 @@ const VALIDATORS_PER_NODE = 3;
 const NUM_VALIDATORS = NUM_NODES * VALIDATORS_PER_NODE;
 const SLOT_COUNT = 3;
 const EPOCH_DURATION = 2;
-// Matches the sibling `validators_sentinel.parallel` profile: the body advances through SLOT_COUNT real
-// L2 slots at wall-clock pace, so the slot duration directly sets body time. At eth<8 the sequencer uses
-// the fast (mocked-p2p) operational budgets, which fit a checkpoint comfortably in an 8s slot even with
-// six co-hosted validators. Larger durations only add dead wall-clock without exercising new behavior.
+// The body advances through SLOT_COUNT real L2 slots at wall-clock pace, so the slot duration directly
+// sets body time. At eth<8 the sequencer uses the fast (mocked-p2p) operational budgets, which fit a
+// checkpoint comfortably in an 8s slot even with six co-hosted validators; larger durations only add
+// dead wall-clock without exercising new behavior.
 const ETHEREUM_SLOT_DURATION = 4;
 const AZTEC_SLOT_DURATION = 8;
 
@@ -92,14 +92,13 @@ describe('multi-node/slashing/multiple_validators_sentinel', () => {
     );
   };
 
-  // Two phases share one setup (each it in a .parallel file re-pays the full beforeAll as its own CI job,
-  // so merging them removes a duplicate cluster bring-up). Phase 1 runs with both nodes online and asserts
-  // every validator on every node has zero attestation-missed entries across the observed slots. Phase 2
-  // then stops the second validator node, finds a slot where a first-node validator is the proposer, and
-  // asserts via the sentinel node that first-node validators have no missed entries for that slot, the
-  // offline validators do, and at least one first-node validator shows a checkpoint-mined/-valid entry.
-  // The phases are ordered (phase 1 needs both nodes online; phase 2 self-anchors on a fresh post-stop
-  // slot window) so phase 1 must complete its assertions before phase 2 stops the node.
+  // Two phases share one setup, since each it in a .parallel file re-pays the full beforeAll as its own CI
+  // job. Phase 1 runs with both nodes online and asserts every validator on every node has zero
+  // attestation-missed entries across the observed slots. Phase 2 then stops the second validator node,
+  // finds a slot where a first-node validator is the proposer, and asserts via the sentinel node that
+  // first-node validators have no missed entries for that slot, the offline validators do, and at least one
+  // first-node validator shows a checkpoint-mined/-valid entry. The phases are ordered (phase 1 needs both
+  // nodes online; phase 2 self-anchors on a fresh post-stop slot window).
   it('collects attestations for all validators, including when a block is not published', async () => {
     // --- Phase 1: all validators on a node ---
     // Wait until validator nodes have advanced past their first proposed slot and landed a checkpoint so that the

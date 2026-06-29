@@ -116,12 +116,11 @@ describe('e2e_p2p_late_prover_tx_collection', () => {
     // 3. Start the prover LATE: after the block was mined and its proposal/tx gossip already happened.
     //    It learns the mined block via L1/archiver sync, but never received the proposal or the txs.
     t.logger.info('Creating late-joining prover node');
-    // The prover node auto-starts a CheckpointProver for the already-mined (unproven) checkpoint, whose
-    // background gatherTxs waits up to txGatheringTimeoutMs (default 120s) for the block's txs. The second
-    // tx is never reachable via that background path here, so the gather runs to its full deadline and
-    // blocks proverNode.stop() in afterEach for the entire timeout. The assertion only exercises the direct
-    // collectFastForBlock call (its own 4*slot deadline), so shrinking this timeout just lets teardown's
-    // cancel unblock quickly without affecting what the test verifies.
+    // The prover node auto-starts a CheckpointProver whose background gatherTxs waits up to
+    // txGatheringTimeoutMs for the block's txs. The second tx is never reachable via that background path
+    // here, so the gather runs to its full deadline and blocks proverNode.stop() in afterEach. The
+    // assertion only exercises the direct collectFastForBlock call (its own 4*slot deadline), so a short
+    // timeout lets teardown's cancel unblock quickly without affecting what the test verifies.
     ({ proverNode } = await createProverNode(
       { ...t.ctx.aztecNodeConfig, txGatheringTimeoutMs: 15_000 },
       BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 1,

@@ -34,15 +34,14 @@ import { setupBlockProducer } from '../setup.js';
 import type { SingleNodeTestContext } from '../single_node_test_context.js';
 
 // Nearly all wall-clock in this file is L2-slot pacing: the production sequencer waits a real
-// `aztecSlotDuration` for every block, and warp cannot skip the build window. So we shrink the
-// slot/block timing on top of PIPELINING_SETUP_OPTS to make every block land faster.
+// `aztecSlotDuration` per block and warp cannot skip the build window, so shrink the slot/block timing on
+// top of PIPELINING_SETUP_OPTS to make every block land faster.
 //
-// `ethereumSlotDuration: 4` stays in the fast-profile band (<8) so the proposer timetable budgets
-// stay at init=1, 2P=1, prepCp=0.5, minBlockDuration=1 (see stdlib/timetable/budgets.ts).
-// With those budgets, blocks-per-checkpoint = floor((S - 2.5 - D) / D). At S=8, D=1.5 that is
-// floor((8 - 2.5 - 1.5)/1.5) = floor(4/1.5) = 2, preserving the 2-blocks-per-slot property
-// PIPELINING_SETUP_OPTS assumes (vs S=12, D=3 -> 2 before). aztecSlotDuration must stay a multiple
-// of ethereumSlotDuration; 8 = 2 L1 slots per L2 slot.
+// `ethereumSlotDuration: 4` stays in the fast-profile band (<8) so the proposer timetable budgets stay at
+// init=1, 2P=1, prepCp=0.5, minBlockDuration=1 (see stdlib/timetable/budgets.ts). With those budgets,
+// blocks-per-checkpoint = floor((S - 2.5 - D) / D); at S=8, D=1.5 that is floor((8 - 2.5 - 1.5)/1.5) = 2,
+// the 2-blocks-per-slot property PIPELINING_SETUP_OPTS assumes. aztecSlotDuration must stay a multiple of
+// ethereumSlotDuration; 8 = 2 L1 slots per L2 slot.
 const FAST_BLOCK_BUILDING_OPTS = {
   ...PIPELINING_SETUP_OPTS,
   aztecSlotDuration: 8,
@@ -52,8 +51,9 @@ const FAST_BLOCK_BUILDING_OPTS = {
 // Tests block building mechanics under the production sequencer with pipelining:
 // multi-tx blocks, double-spend rejection, log ordering, regressions, and L1 reorgs.
 // Uses setupBlockProducer (no prover node) with FAST_BLOCK_BUILDING_OPTS (ethereumSlotDuration=4s,
-// aztecSlotDuration=8s, blockDurationMs=1500, minTxsPerBlock=0). The factory pins aztecProofSubmissionEpochs=1024 so
-// unproven blocks survive; the `reorgs` describe overrides it to 1 to exercise pruning.
+// aztecSlotDuration=8s, blockDurationMs=1500, minTxsPerBlock=0). The factory pins
+// aztecProofSubmissionEpochs=1024 so unproven blocks survive; the `reorgs` describe overrides it to 1 to
+// exercise pruning.
 // The `reorgs` describe uses RollupCheatCodes (advanceToNextEpoch, markAsProven, advanceToEpoch)
 // — other-active L1, not cross-chain bridging. CI job has TIMEOUT=25m.
 describe('single-node/block-building/block_building', () => {

@@ -49,12 +49,11 @@ jest.setTimeout(TEST_TIMEOUT);
 
 const NUM_VALIDATORS = 6;
 const COMMITTEE_SIZE = NUM_VALIDATORS;
-// Matches the proven `validators_sentinel.parallel` / `multiple_validators_sentinel.parallel` profile:
-// the body advances through real L2 slots at wall-clock pace, so the slot duration directly sets body
+// The body advances through real L2 slots at wall-clock pace, so the slot duration directly sets body
 // time. At eth<8 the sequencer uses the fast (mocked-p2p) operational budgets, which fit a checkpoint
-// comfortably in an 8s slot. proofSubEpochs=1024 disables reorg/proving deadlines and the only
-// assertions are sentinel attestation/status records (no proving-window timing), so the fast profile is
-// safe here. Larger durations only add dead wall-clock without exercising new behavior.
+// comfortably in an 8s slot. proofSubEpochs=1024 disables reorg/proving deadlines and the only assertions
+// are sentinel attestation/status records (no proving-window timing), so the fast profile is safe here;
+// larger durations only add dead wall-clock without exercising new behavior.
 const ETHEREUM_SLOT_DURATION = 4;
 const AZTEC_SLOT_DURATION = ETHEREUM_SLOT_DURATION * 2;
 const BLOCK_DURATION_MS = ETHEREUM_SLOT_DURATION * 500;

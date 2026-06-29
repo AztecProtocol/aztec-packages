@@ -43,13 +43,12 @@ describe('single-node/proving/upload_failed_proof', () => {
     uploadPath = await mkdtemp(join(tmpdir(), 'failed-proofs-'));
     uploadUrl = `file://${uploadPath}`;
 
-    // Shrink the slot cadence from the 12s/24s CI default to the 4s/12s floor (the same proven floor
-    // `multi_proof`/`long_proving_time` use): the body is bounded by the production sequencer building
-    // epoch 0 on the real wall-clock (one empty checkpoint per L2 slot) before the prover finalizes
-    // epoch 0 at the epoch-1 boundary and trips the failing top-tree-prove hook. The epoch wall-time
-    // scales with the slot duration, so a 2x-shorter slot roughly halves the timeline. 12s is the
-    // floor: the timing model needs an L2 slot >= ~8.5s with the default 3s block to fit one block per
-    // checkpoint. The 6-slot epoch is kept so epoch 0 still reliably lands its checkpoints.
+    // Run at the 4s/12s slot-cadence floor: the body is bounded by the production sequencer building epoch
+    // 0 on the real wall-clock (one empty checkpoint per L2 slot) before the prover finalizes epoch 0 at the
+    // epoch-1 boundary and trips the failing top-tree-prove hook. The epoch wall-time scales with the slot
+    // duration, so a shorter slot shortens the timeline. 12s is the floor: the timing model needs an L2 slot
+    // >= ~8.5s with the default 3s block to fit one block per checkpoint. The 6-slot epoch is kept so epoch 0
+    // still reliably lands its checkpoints.
     test = await setupWithProver({
       proverNodeConfig: { proverNodeFailedEpochStore: uploadUrl },
       ethereumSlotDuration: 4,

@@ -88,14 +88,14 @@ describe('single-node/cross-chain/l2_to_l1', () => {
     await t.teardown();
   });
 
-  // The L2→L1 message-tree scenarios below share the single ~138s cross-chain setup (this is a
-  // *.parallel.test.ts file, so each `it` runs as a separate CI job that re-pays that setup) by
-  // running back-to-back as phases of one merged `it`. Each phase is self-anchoring: it sets its own
-  // sequencer config, sends txs carrying freshly randomized message content (`Fr.random()`), advances
-  // its own epoch to proven (`advanceToEpochProven` re-derives the tx's epoch per call), and consumes
-  // its own message leaves from the Outbox — so phases don't interfere on the shared chain. Each phase
-  // logs its scope so a failure stays diagnosable. The reorg scenario stays a separate `it` because it
-  // does a deep L1 reorg and is kept isolated to avoid leaving lingering L1 state for the other phases.
+  // The L2→L1 message-tree scenarios below run back-to-back as phases of one `it` to share the single
+  // ~138s cross-chain setup (this is a *.parallel.test.ts file, so each `it` runs as a separate CI job that
+  // re-pays that setup). Each phase is self-anchoring: it sets its own sequencer config, sends txs carrying
+  // freshly randomized message content (`Fr.random()`), advances its own epoch to proven
+  // (`advanceToEpochProven` re-derives the tx's epoch per call), and consumes its own message leaves from
+  // the Outbox — so phases don't interfere on the shared chain. Each phase logs its scope so a failure stays
+  // diagnosable. The reorg scenario stays a separate `it`: it does a deep L1 reorg and is kept isolated to
+  // avoid leaving lingering L1 state for the other phases.
 
   // Note: We register one portal address when deploying contract but that address is no-longer the only address
   // allowed to receive messages from the given contract. In the following test we'll test that it's really the case.
@@ -400,11 +400,9 @@ describe('single-node/cross-chain/l2_to_l1', () => {
     await expectConsumeMessageToSucceed(messages[1], receipt1.txHash);
   }
 
-  // Runs the five L2→L1 message-tree scenarios above back-to-back over the single shared cross-chain
-  // setup. Each is independent and self-anchoring (see the block comment above the first phase), so the
-  // chain stays healthy between phases. The explicit timeout covers all five proven-epoch advances
-  // within one CI job (each phase advances and proves its own epoch). The deep-L1-reorg scenario is
-  // intentionally NOT included here (kept as its own `it`).
+  // Runs the five message-tree scenarios above back-to-back (see the block comment above the first phase).
+  // The explicit timeout covers all five proven-epoch advances within one CI job. The deep-L1-reorg
+  // scenario is intentionally NOT included here (kept as its own `it`).
   it('builds and consumes L2-to-L1 message trees across block and checkpoint layouts', async () => {
     t.logger.info('Phase: 1 tx with 2 messages (private + public) to a non-registered portal');
     await oneTxTwoMessagesToNonRegisteredPortal();

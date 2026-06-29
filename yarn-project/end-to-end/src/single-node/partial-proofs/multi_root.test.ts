@@ -139,12 +139,11 @@ describe('single-node/partial-proofs/multi_root', () => {
       const msg = makeMsg(content);
       const leaf = computeLeaf(msg);
       logger.warn(`Sending L2-to-L1 message ${i} (content=${content.toString()})`);
-      // The production sequencer builds the tx's block for the next slot, then publishes the
-      // checkpoint only once L1 time reaches that slot's start. Left to the real-time clock that
-      // is ~2 ethereum slots of wall-clock per tx. Instead, send without waiting, let the block get
-      // built (PROPOSED), then warp L1 straight to the built block's slot so the checkpoint publishes
-      // immediately. The warp lands exactly where the checkpoint would have published on its own, so
-      // the per-checkpoint layout the assertions below depend on is unchanged.
+      // The production sequencer builds the tx's block for the next slot, then publishes the checkpoint
+      // only once L1 time reaches that slot's start (~2 ethereum slots of wall-clock per tx). So send
+      // without waiting, let the block get built (PROPOSED), then warp L1 straight to the built block's
+      // slot to publish the checkpoint immediately. The warp lands exactly where the checkpoint would have
+      // published on its own, so the per-checkpoint layout the assertions below depend on is unchanged.
       const { txHash } = await contract.methods
         .create_l2_to_l1_message_arbitrary_recipient_private(content, recipient)
         .send({ from, wait: NO_WAIT });

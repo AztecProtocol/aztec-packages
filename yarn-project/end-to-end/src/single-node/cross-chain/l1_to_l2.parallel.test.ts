@@ -235,16 +235,14 @@ describe('single-node/cross-chain/l1_to_l2', () => {
     await sendConsumeMsgTx(actualMessage2Index);
   };
 
-  // Sends the same L1→L2 message content twice via a non-registered portal, waits for each to be
-  // ready, and consumes both from private and then from public, within a single setup. Verifies
-  // duplicate messages are indexed correctly and the second consumption uses the non-nullified
-  // duplicate leaf, on both consumption paths.
+  // Sends the same L1→L2 message content twice via a non-registered portal, waits for each to be ready,
+  // and consumes both from private and then from public. Verifies duplicate messages are indexed correctly
+  // and the second consumption uses the non-nullified duplicate leaf, on both consumption paths.
   //
-  // The private and public scopes are exercised back-to-back in one test (rather than two
-  // `it`s) because each `it` in a *.parallel.test.ts file runs as a separate CI job that re-pays
-  // the full ~100s cross-chain setup. Both scopes use freshly randomized message content per call
-  // (`Fr.random()` in `canSendMessageFromNonRegisteredPortal`), so they don't interfere on the
-  // shared chain. The phase logs below keep a scope-specific failure diagnosable.
+  // The private and public scopes run back-to-back in one test because each `it` in a *.parallel.test.ts
+  // file runs as a separate CI job that re-pays the full ~100s cross-chain setup. Both scopes use freshly
+  // randomized message content per call (`Fr.random()` in `canSendMessageFromNonRegisteredPortal`), so they
+  // don't interfere on the shared chain. The phase logs below keep a scope-specific failure diagnosable.
   it('can send an L1 to L2 message from a non-registered portal address consumed repeatedly', async () => {
     log.info('Running non-registered-portal scenario for scope private');
     await canSendMessageFromNonRegisteredPortal('private');
@@ -352,12 +350,11 @@ describe('single-node/cross-chain/l1_to_l2', () => {
   // private — and then, in a second drift cycle, from public — only after the chain re-syncs to the
   // message's checkpoint, not before.
   //
-  // Both scopes run back-to-back in one test (rather than two `it`s) to share the single ~130s
-  // cross-chain setup, since each `it` in a *.parallel.test.ts file runs as a separate CI job that
-  // re-pays it. `canConsumeMessageAfterInboxDrift` is self-anchoring: it re-captures the proven tip
-  // and re-establishes drift from the current chain head on each call, and the private cycle leaves
-  // the chain caught-up and proven, so the public cycle starts from a healthy tip. The phase logs
-  // below keep a scope-specific failure diagnosable.
+  // Both scopes run back-to-back in one test to share the single ~130s cross-chain setup, since each `it`
+  // in a *.parallel.test.ts file runs as a separate CI job that re-pays it. `canConsumeMessageAfterInboxDrift`
+  // is self-anchoring: it re-captures the proven tip and re-establishes drift from the current chain head on
+  // each call, and the private cycle leaves the chain caught-up and proven, so the public cycle starts from a
+  // healthy tip. The phase logs below keep a scope-specific failure diagnosable.
   it('can consume L1 to L2 message after inbox drifts away from the rollup', async () => {
     log.info('Running inbox-drift scenario for scope private');
     await canConsumeMessageAfterInboxDrift('private');

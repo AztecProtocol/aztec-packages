@@ -59,14 +59,13 @@ describe('single-node/l1-reorgs/messages', () => {
       { l1ContractAddresses: context.deployL1ContractsValues.l1ContractAddresses, l1Client },
     );
 
-  // Both reorg scenarios run sequentially against a single fixture: each `it` in this *.parallel file is
-  // a separate CI job re-paying the full ~21s setup (container bootstrap + L1 deploy + node + prover),
-  // and the dateProvider here is pinned to real interval mining (so there is no dead window to warp away
-  // — every checkpoint is built in real wall-clock). Merging removes one entire job's setup, and the
-  // second scenario reuses the live multi-block chain the first one already built instead of re-paying
-  // another ~60s `waitUntilCheckpointNumber` ramp. The two scenarios are self-anchoring: scenario 2 keys
-  // its reorg off the current L1 tip and uses fresh random messages, so it composes cleanly on top of
-  // scenario 1's post-reorg chain.
+  // Both reorg scenarios run sequentially against a single fixture: each `it` in this *.parallel file is a
+  // separate CI job re-paying the full ~21s setup (container bootstrap + L1 deploy + node + prover), and
+  // the dateProvider here is pinned to real interval mining (so there is no dead window to warp away —
+  // every checkpoint is built in real wall-clock). Scenario 2 reuses the live multi-block chain scenario 1
+  // already built rather than ramping up its own. The two scenarios are self-anchoring: scenario 2 keys its
+  // reorg off the current L1 tip and uses fresh random messages, so it composes cleanly on top of scenario
+  // 1's post-reorg chain.
   it('handles L1 reorgs that remove a message and insert a previously-cancelled one', async () => {
     // --- Scenario 1: sends 3 L1→L2 messages, waits for the last to be seen, reorgs it out, sends a
     // replacement message, and verifies the replacement becomes ready while the removed message is gone.
@@ -105,10 +104,9 @@ describe('single-node/l1-reorgs/messages', () => {
 
     // --- Scenario 2: on top of the live chain, sends a first message, cancels a second message's L1 tx
     // via the delayer, waits for the archiver to advance past the cancelled block, then reorgs to include
-    // the cancelled message. Sends a third message on top and verifies all three are eventually seen by
-    // the node. No fresh `waitUntilCheckpointNumber` is needed: the chain is already producing checkpoints
-    // (it keeps mining at the L1 cadence) and scenario 1 already built the multi-block checkpoints the
-    // assertion below checks.
+    // the cancelled message. Sends a third message on top and verifies all three are eventually seen by the
+    // node. No fresh `waitUntilCheckpointNumber` is needed: the chain is already mining at the L1 cadence
+    // and scenario 1 already built the multi-block checkpoints the assertion below checks.
     logger.warn(`Scenario 1 complete; starting missed-message reorg scenario on the live chain`);
 
     // Send a message and wait for node to sync it

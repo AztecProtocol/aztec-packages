@@ -25,14 +25,13 @@ describe('single-node/proving/world_state_pruning', () => {
     await test.teardown();
   });
 
-  // Warps the L1 clock to within `leadSlots` slots of the start of `epoch`, then waits for that
-  // boundary in wall-clock. The body spends most of its time advancing one empty checkpoint per
-  // slot in real time just so an epoch ends and its fake proof can land; warping skips that dead
-  // stretch. The shared TestDateProvider means the prover sees the warp too, so proving completes
-  // right after. The `leadSlots` tail is left in real time so the sequencer can build the epoch's
-  // final checkpoint(s); two slots keeps each epoch accruing enough checkpoints that pruning stays
-  // observable while still cutting the bulk of the wait. All assertions are derived from whatever
-  // checkpoint number the epoch actually reaches, so a shorter epoch does not change what is checked.
+  // Warps the L1 clock to within `leadSlots` slots of the start of `epoch`, then waits for that boundary in
+  // wall-clock, skipping the dead stretch where the chain just advances one empty checkpoint per slot until
+  // an epoch ends and its fake proof can land. The shared TestDateProvider means the prover sees the warp
+  // too, so proving completes right after. The `leadSlots` tail is left in real time so the sequencer can
+  // build the epoch's final checkpoint(s); two slots keeps each epoch accruing enough checkpoints that
+  // pruning stays observable. All assertions are derived from whatever checkpoint number the epoch actually
+  // reaches, so a shorter epoch does not change what is checked.
   const warpToEpochStart = async (epoch: number, leadSlots = 2): Promise<bigint> => {
     const [targetTs] = getTimestampRangeForEpoch(EpochNumber(epoch), test.constants);
     const safeTs = targetTs - BigInt(leadSlots * test.L2_SLOT_DURATION_IN_S);

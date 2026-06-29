@@ -15,8 +15,8 @@ jest.setTimeout(1000 * 60 * 10);
 // Suite: checks that multiple prover nodes can each submit their own valid proof for the same epoch.
 // SingleNodeTestContext with startProverNode=false (test creates 3 prover nodes manually). Single
 // sequencer node. Timing: ethSlot=4s, aztecSlot=12s (3 L1 slots), epoch=6, proofSubmissionEpochs=1,
-// fake prover. Staggered top-tree-prove delays (v5 patches createTopTreeOrchestrator's prove() per
-// node; pre-v5 it patched finalizeEpoch) ensure provers don't all land at the same L1 block.
+// fake prover. Staggered top-tree-prove delays (patching createTopTreeOrchestrator's prove() per node)
+// ensure provers don't all land at the same L1 block.
 describe('single-node/proving/multi_proof', () => {
   let context: EndToEndContext;
   let logger: Logger;
@@ -27,14 +27,13 @@ describe('single-node/proving/multi_proof', () => {
     // Don't start prover node during setup - we'll create and manage all prover nodes in the test
     // This ensures we can apply delay patches before any prover starts proving.
     //
-    // Shrink the slot cadence from the 12s/24s CI default to the 4s/12s floor (the same proven
-    // floor `long_proving_time` uses): the body is bounded by the production sequencer building
-    // epoch 0 on the real wall-clock (one empty block per L2 slot) plus the per-prover stagger
-    // (`index * ethereumSlotDuration` ms). Both scale with the slot duration, so a 2x-shorter slot
-    // halves the timeline while keeping the stagger >=1 L1 slot apart (so the three provers still
-    // land their proofs on distinct L1 blocks). 12s is the floor: the timing model needs an L2 slot
-    // >= ~8.5s with the default 3s block to fit one block per checkpoint, so an 8s slot derives 0
-    // blocks per checkpoint. The 6-slot epoch is kept so epoch 0 still reliably lands >=1 block.
+    // Run at the 4s/12s slot-cadence floor: the body is bounded by the production sequencer building epoch
+    // 0 on the real wall-clock (one empty block per L2 slot) plus the per-prover stagger
+    // (`index * ethereumSlotDuration` ms). Both scale with the slot duration, so a shorter slot shortens the
+    // timeline while keeping the stagger >=1 L1 slot apart (so the three provers still land their proofs on
+    // distinct L1 blocks). 12s is the floor: the timing model needs an L2 slot >= ~8.5s with the default 3s
+    // block to fit one block per checkpoint, so an 8s slot derives 0 blocks per checkpoint. The 6-slot epoch
+    // is kept so epoch 0 still reliably lands >=1 block.
     test = await setupWithProver({
       startProverNode: false,
       ethereumSlotDuration: 4,

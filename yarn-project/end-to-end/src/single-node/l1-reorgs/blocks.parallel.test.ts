@@ -62,12 +62,11 @@ describe('single-node/l1-reorgs/blocks', () => {
     return await Promise.all(parsedTx.sidecars!.map(sidecar => Blob.fromBlobBuffer(hexToBuffer(sidecar.blob))));
   };
 
-  // Most of a proof-submission window is dead wall-clock time: the chain keeps producing checkpoints
-  // at the L1 cadence while the test just waits for the fixed deadline to elapse. This warps the L1
-  // clock forward to `leadSlots` L2 slots before the window's last slot so the subsequent
-  // `waitUntilLastSlotOfProofSubmissionWindow` only sleeps out the few remaining real slots — leaving
-  // enough real time for any in-flight proving, pruning, and recovery to happen organically. Only warps
-  // forward, and is a no-op when the chain is already within `leadSlots`+1 slots of the window end.
+  // Most of a proof-submission window is dead wall-clock time, so warp the L1 clock forward to `leadSlots`
+  // L2 slots before the window's last slot. The subsequent `waitUntilLastSlotOfProofSubmissionWindow` then
+  // only sleeps out the few remaining real slots, leaving enough real time for any in-flight proving,
+  // pruning, and recovery to happen organically. Only warps forward, so it is a no-op when the chain is
+  // already within `leadSlots`+1 slots of the window end.
   const warpNearSubmissionWindowEnd = async (epoch: number, leadSlots = 2) => {
     const { slotDuration } = test.constants;
     const deadline = getProofSubmissionDeadlineTimestamp(EpochNumber(epoch), test.constants);

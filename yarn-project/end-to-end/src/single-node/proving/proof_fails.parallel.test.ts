@@ -60,14 +60,13 @@ describe('single-node/proving/proof_fails', () => {
     await test.teardown();
   });
 
-  // Warps the shared L1 clock forward to `leadSlots` L2 slots before the start of `epoch`, then falls
-  // into the wall-clock wait for the boundary itself. The epoch-end deadlines these tests assert on
-  // (proof rejected after epoch end / proving aborted at next epoch end) fire AT the boundary via
-  // natural sequencer activity, so we only skip the dead inter-epoch advance and leave the last
-  // `leadSlots` slots in real time for the boundary, the post-deadline propose/prune, and any held
-  // prover tx (released by `pauseNextTxUntilTimestamp`, which keys off the L1 block timestamp the warp
-  // moves) to settle organically. The shared TestDateProvider means the prover sees the same warp.
-  // Forward-only: a no-op when the chain is already within `leadSlots` of the boundary.
+  // Warps the shared L1 clock forward to `leadSlots` L2 slots before the start of `epoch`, then waits for
+  // the boundary in wall-clock. The epoch-end deadlines these tests assert on (proof rejected after epoch
+  // end / proving aborted at next epoch end) fire AT the boundary via natural sequencer activity, so only
+  // the dead inter-epoch advance is skipped; the last `leadSlots` slots stay real time for the boundary, the
+  // post-deadline propose/prune, and any held prover tx (released by `pauseNextTxUntilTimestamp`, which keys
+  // off the L1 block timestamp the warp moves) to settle organically. The shared TestDateProvider means the
+  // prover sees the same warp. Forward-only, so a no-op when already within `leadSlots` of the boundary.
   const warpToEpochStart = async (epoch: number, leadSlots: number) => {
     const [start] = getTimestampRangeForEpoch(EpochNumber(epoch), constants);
     const safeTs = start - BigInt(leadSlots * L2_SLOT_DURATION_IN_S);
@@ -109,11 +108,10 @@ describe('single-node/proving/proof_fails', () => {
     proverDelayer.pauseNextTxUntilTimestamp(epoch2Start);
     logger.warn(`Delayed prover tx until epoch 2 starts at ${epoch2Start}`);
 
-    // Wait until the start of epoch 1 in real time and capture the checkpoint number before the
-    // rollback. We do NOT warp the epoch-0 advance here: the assertion below requires more than one
-    // checkpoint to have been built before the rollback, and warping to a couple of slots before the
-    // epoch-1 boundary skips the epoch-0 slots the sequencer needs to build those extra checkpoints
-    // (it left only checkpoint 1, tripping `toBeGreaterThan(1)`). Epoch 1 onward is still warped below.
+    // Wait until the start of epoch 1 in real time and capture the checkpoint number before the rollback.
+    // The epoch-0 advance is NOT warped here: the assertion below requires more than one checkpoint to have
+    // been built before the rollback, and warping to near the epoch-1 boundary would skip the epoch-0 slots
+    // the sequencer needs to build those extra checkpoints. Epoch 1 onward is still warped below.
     await test.waitUntilEpochStarts(EpochNumber(1));
     const checkpointBeforeRollback = await rollup.getCheckpointNumber();
     logger.warn(`Starting epoch 1 after checkpoint ${checkpointBeforeRollback}`);
@@ -151,11 +149,10 @@ describe('single-node/proving/proof_fails', () => {
     logger.warn(`Test succeeded`);
   });
 
-  // Injects a sleep delay into each top tree's prove() (patched via createTopTreeOrchestrator with a
-  // jest spy; v5 split epoch proving into per-checkpoint top trees, replacing the former finalizeEpoch
-  // patch), holding the prover mid-prove until the chain is warped past the epoch 1 deadline so the
-  // prover misses it. Asserts that after the gated prove resolves, no proof tx was submitted (the
-  // prover aborted), and the proven checkpoint number remained 0 through epoch 1.
+  // Injects a sleep delay into each top tree's prove() (patched via createTopTreeOrchestrator with a jest
+  // spy), holding the prover mid-prove until the chain is warped past the epoch 1 deadline so the prover
+  // misses it. Asserts that after the gated prove resolves, no proof tx was submitted (the prover aborted),
+  // and the proven checkpoint number remained 0 through epoch 1.
   it('aborts proving if end of next epoch is reached', async () => {
     // Create prover node after test setup to avoid early proving
     const proverNode = await test.createProverNode({ cancelTxOnTimeout: false, maxSpeedUpAttempts: 0 });

@@ -54,9 +54,8 @@ describe('automine/ordering', () => {
 
   afterAll(() => teardown());
 
-  // Parent and Child are deployed once and shared across tests. Each test sends its own tx and asserts on
-  // either tx-local data, its own mined block's logs, or the `'latest'` public storage read taken right after
-  // its own write, so no per-test contract isolation is required.
+  // Parent and Child are deployed once and shared across tests: each test asserts only on tx-local data, its
+  // own mined block's logs, or a `'latest'` read taken right after its own write, so no isolation is required.
   describe('with parent and child contract', () => {
     let parent: ParentContract;
     let child: ChildContract;

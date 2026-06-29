@@ -28,10 +28,9 @@ jest.setTimeout(10 * 60 * 1000);
 
 // Fee payment during account contract initialization. Uses FeesTest on the AUTOMINE_E2E_OPTS preset
 // (AutomineSequencer: one block per tx, synchronous L1 mining, inboxLag=1), 1 account, fake in-proc
-// prover node, and GasBridgingTestHarness for L1↔L2 fee-juice bridging via FeeJuicePortal. This suite
-// only asserts on gas/banana balances and transaction fees (no coinbase/prover-fee/proven-chain
-// assertions that would require real block timing), so automine is safe and far faster than the
-// real-interval-mined pipelining preset the sibling fee tests use.
+// prover node, and GasBridgingTestHarness for L1↔L2 fee-juice bridging via FeeJuicePortal. This suite only
+// asserts on gas/banana balances and transaction fees (no coinbase/prover-fee/proven-chain assertions that
+// would require real block timing), so automine is safe here.
 describe('single-node/fees/account_init', () => {
   const t = new FeesTest('account_init', 1);
 

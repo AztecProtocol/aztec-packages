@@ -19,10 +19,9 @@ describe('single-node/recovery/manual_rollback', () => {
   let test: SingleNodeTestContext;
 
   beforeEach(async () => {
-    // Shrink the slot cadence to the 4s/12s floor (proven by multi_proof on this single-node prover
-    // topology): the body waits in real wall-clock for the sequencer to publish empty checkpoints one per
-    // L2 slot, so a 2x-shorter slot ~halves that wait. (A clock warp here races the building and times out.)
-    // No L2 reorgs, no finalized blocks.
+    // Run at the 4s/12s slot-cadence floor: the body waits in real wall-clock for the sequencer to publish
+    // empty checkpoints one per L2 slot, so a shorter slot shortens that wait. A clock warp here races the
+    // building and times out. No L2 reorgs, no finalized blocks.
     test = await setupWithProver({ aztecEpochDuration: 100, ethereumSlotDuration: 4, aztecSlotDurationInL1Slots: 3 });
     ({ context, logger, rollup } = test);
     ({ aztecNode: node } = context);
