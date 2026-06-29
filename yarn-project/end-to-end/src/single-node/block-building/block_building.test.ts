@@ -33,27 +33,11 @@ import { proveInteraction } from '../../test-wallet/utils.js';
 import { setupBlockProducer } from '../setup.js';
 import type { SingleNodeTestContext } from '../single_node_test_context.js';
 
-// Nearly all wall-clock in this file is L2-slot pacing: the production sequencer waits a real
-// `aztecSlotDuration` per block and warp cannot skip the build window, so shrink the slot/block timing on
-// top of PIPELINING_SETUP_OPTS to make every block land faster.
-//
-// `ethereumSlotDuration: 4` stays in the fast-profile band (<8) so the proposer timetable budgets stay at
-// init=1, 2P=1, prepCp=0.5, minBlockDuration=1 (see stdlib/timetable/budgets.ts). With those budgets,
-// blocks-per-checkpoint = floor((S - 2.5 - D) / D); at S=8, D=1.5 that is floor((8 - 2.5 - 1.5)/1.5) = 2,
-// the 2-blocks-per-slot property PIPELINING_SETUP_OPTS assumes. aztecSlotDuration must stay a multiple of
-// ethereumSlotDuration; 8 = 2 L1 slots per L2 slot.
-const FAST_BLOCK_BUILDING_OPTS = {
-  ...PIPELINING_SETUP_OPTS,
-  aztecSlotDuration: 8,
-  blockDurationMs: 1500,
-} as const;
-
 // Tests block building mechanics under the production sequencer with pipelining:
 // multi-tx blocks, double-spend rejection, log ordering, regressions, and L1 reorgs.
-// Uses setupBlockProducer (no prover node) with FAST_BLOCK_BUILDING_OPTS (ethereumSlotDuration=4s,
-// aztecSlotDuration=8s, blockDurationMs=1500, minTxsPerBlock=0). The factory pins
-// aztecProofSubmissionEpochs=1024 so unproven blocks survive; the `reorgs` describe overrides it to 1 to
-// exercise pruning.
+// Uses setupBlockProducer (no prover node) with PIPELINING_SETUP_OPTS (ethereumSlotDuration=4s,
+// aztecSlotDuration=12s, minTxsPerBlock=0). The factory pins aztecProofSubmissionEpochs=1024 so
+// unproven blocks survive; the `reorgs` describe overrides it to 1 to exercise pruning.
 // The `reorgs` describe uses RollupCheatCodes (advanceToNextEpoch, markAsProven, advanceToEpoch)
 // — other-active L1, not cross-chain bridging. CI job has TIMEOUT=25m.
 describe('single-node/block-building/block_building', () => {
@@ -79,7 +63,7 @@ describe('single-node/block-building/block_building', () => {
   describe('multi-txs block', () => {
     beforeAll(async () => {
       test = await setupBlockProducer({
-        ...FAST_BLOCK_BUILDING_OPTS,
+        ...PIPELINING_SETUP_OPTS,
         numberOfAccounts: 2,
         archiverPollingIntervalMS: 200,
         sequencerPollingIntervalMS: 200,
@@ -105,7 +89,7 @@ describe('single-node/block-building/block_building', () => {
         fakeProcessingDelayPerTxMs: 0,
         minTxsPerBlock: 1,
         maxTxsPerBlock: undefined, // reset to default
-        blockDurationMs: 1500, // reset to FAST_BLOCK_BUILDING_OPTS (2 blocks/slot at aztecSlotDuration=8)
+        blockDurationMs: 3000, // reset to the PIPELINING_SETUP_OPTS fixture default (2 blocks/slot)
       });
       // Clean up any mocks
       jest.restoreAllMocks();
@@ -119,17 +103,18 @@ describe('single-node/block-building/block_building', () => {
     // than fit in one sub-slot, the proposer must cut the block off at the deadline and roll the excess
     // txs into the next sub-slot (and the next checkpoint when the slot ends). It must NOT pack everything
     // into a single block and burn the whole slot on it.
-    // Configures BLOCK_DURATION_MS=1.5s and FAKE_DELAY_PER_TX=500ms, floods 10 txs, asserts they span
+    // Configures BLOCK_DURATION_MS=2s and FAKE_DELAY_PER_TX=500ms, floods 10 txs, asserts they span
     // at least 2 distinct blocks (sub-slot deadline enforced).
     it('processes txs until hitting timetable', async () => {
-      // The timetable is always enforced. This file runs at aztecSlotDuration=8s, ethereumSlotDuration=4s.
-      // With ethereumSlotDuration<8 the fast-profile budgets apply: checkpointProposalInitTime=1s,
-      // p2pPropagationTime=0.5s, checkpointProposalPrepareTime=0.5s, minBlockDuration=1s. The block count is
-      // maxBlocks = floor((S - init - D - 2P - prepCp) / D) = floor((8 - 1 - D - 1 - 0.5) / D). At D=1.5s
-      // that is floor((5.5 - 1.5)/1.5) = floor(4/1.5) = 2 sub-slots per slot, enough to assert the
-      // cut-across-blocks invariant. Sub-slot build deadlines fall at 1 + k*1.5s into the slot.
-      const BLOCK_DURATION_MS = 1500;
-      // Fake delay per tx, sized so ~3 txs fit in a 1.5s sub-slot before the builder cuts at the deadline.
+      // The timetable is always enforced. Fixture defaults under pipelining: aztecSlotDuration=12s,
+      // ethereumSlotDuration=4s. With ethereumSlotDuration<8 the timing model normalizes to
+      // checkpointInitializationTime=0.5s, checkpointAssembleTime=0.5s, p2pPropagationTime=0,
+      // minExecutionTime=1s. We override blockDurationMs to a 2s sub-slot for this test, giving
+      // maxBlocks = floor((12 - 0.5 - (0.5 + 0 + 2)) / 2) = floor(9/2) = 4 sub-slots per slot — more
+      // sub-slots than the fixture default (3s -> 2 blocks/slot) so the cut-across-blocks invariant
+      // is easier to assert. Sub-slot build deadlines fall at 0.5 + k*2s into the slot.
+      const BLOCK_DURATION_MS = 2000;
+      // Fake delay per tx, sized so ~3 txs fit in a 2s sub-slot before the builder cuts at the deadline.
       const FAKE_DELAY_PER_TX_MS = 500;
       // Send substantially more than fits in one sub-slot so the proposer must span multiple blocks.
       const TX_COUNT = 10;
@@ -334,7 +319,7 @@ describe('single-node/block-building/block_building', () => {
     let contract: TestContract;
 
     beforeAll(async () => {
-      test = await setupBlockProducer({ ...FAST_BLOCK_BUILDING_OPTS, numberOfAccounts: 1 });
+      test = await setupBlockProducer({ ...PIPELINING_SETUP_OPTS, numberOfAccounts: 1 });
       ({
         logger,
         wallet,
@@ -473,7 +458,7 @@ describe('single-node/block-building/block_building', () => {
     let ownerAddress: AztecAddress;
 
     beforeAll(async () => {
-      test = await setupBlockProducer({ ...FAST_BLOCK_BUILDING_OPTS, numberOfAccounts: 1 });
+      test = await setupBlockProducer({ ...PIPELINING_SETUP_OPTS, numberOfAccounts: 1 });
       ({
         logger,
         wallet,
@@ -551,14 +536,14 @@ describe('single-node/block-building/block_building', () => {
     // Waits for block number >= 3 with buildCheckpointIfEmpty=true to confirm empty checkpoints are built.
     it('publishes two empty blocks', async () => {
       test = await setupBlockProducer({
-        ...FAST_BLOCK_BUILDING_OPTS,
+        ...PIPELINING_SETUP_OPTS,
         minTxsPerBlock: 0,
         buildCheckpointIfEmpty: true,
       });
       ({ wallet, logger, aztecNode } = test.context);
 
-      // Under pipelining, with `aztecSlotDuration=8s`, each empty checkpoint contains one empty
-      // block and lands roughly every 8s. Allow up to 60s for three empty blocks to appear.
+      // Under pipelining, with `aztecSlotDuration=12s`, each empty checkpoint contains one empty
+      // block and lands roughly every 12s. Allow up to 60s for three empty blocks to appear.
       // REFACTOR: raw retryUntil poll on block number; replace with a waitForBlock(n) DSL helper
       await retryUntil(async () => (await aztecNode.getBlockNumber()) >= 3, 'wait-block', 60, 1);
     });
@@ -567,7 +552,7 @@ describe('single-node/block-building/block_building', () => {
     // Deploys an account on block 1 with minTxsPerBlock=0 to verify the first block can accept txs.
     it('sends a tx on the first block', async () => {
       test = await setupBlockProducer({
-        ...FAST_BLOCK_BUILDING_OPTS,
+        ...PIPELINING_SETUP_OPTS,
         minTxsPerBlock: 0,
         additionallyFundedAccounts: await generateSchnorrAccounts(1, 'schnorr'),
       });
@@ -586,7 +571,7 @@ describe('single-node/block-building/block_building', () => {
 
     // Floods 24 Token.mint_to_public txs while the sequencer is building blocks and asserts all land.
     it('can simulate public txs while building a block', async () => {
-      test = await setupBlockProducer({ ...FAST_BLOCK_BUILDING_OPTS, numberOfAccounts: 1, minTxsPerBlock: 1 });
+      test = await setupBlockProducer({ ...PIPELINING_SETUP_OPTS, numberOfAccounts: 1, minTxsPerBlock: 1 });
       ({
         logger,
         aztecNode,
@@ -626,7 +611,7 @@ describe('single-node/block-building/block_building', () => {
     // tree next available leaf index is a multiple of 64.
     // Injects a fakeThrowAfterProcessingTxCount=2 to force AVM failure, verifies nullifier tree alignment.
     it('clears up all nullifiers if tx processing fails', async () => {
-      test = await setupBlockProducer({ ...FAST_BLOCK_BUILDING_OPTS, numberOfAccounts: 1, minTxsPerBlock: 1 });
+      test = await setupBlockProducer({ ...PIPELINING_SETUP_OPTS, numberOfAccounts: 1, minTxsPerBlock: 1 });
       ({
         logger,
         aztecNode,
@@ -691,7 +676,7 @@ describe('single-node/block-building/block_building', () => {
       // reorg test's advance past getProofSubmissionDeadlineEpoch(epoch 2, { proofSubmissionEpochs: 1 })
       // actually crosses the on-chain submission window and triggers the prune-and-reinclude reorg.
       test = await setupBlockProducer({
-        ...FAST_BLOCK_BUILDING_OPTS,
+        ...PIPELINING_SETUP_OPTS,
         numberOfAccounts: 1,
         minTxsPerBlock: 1,
         aztecProofSubmissionEpochs: 1,
