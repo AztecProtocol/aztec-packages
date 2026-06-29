@@ -126,7 +126,9 @@ describe('single-node/block-building/debug_trace', () => {
         }
       });
 
-    expect(await aztecNode.getBlockNumber()).toBeGreaterThanOrEqual(1);
+    // After setup the chain sits at genesis (block 0): the shared e2e setup no longer mines an empty
+    // block to advance past genesis. The test drives block progression itself below via minTxsPerBlock=0.
+    expect(await aztecNode.getBlockNumber()).toBeGreaterThanOrEqual(0);
 
     // The current config requires at least 1 tx per block, so the block number won't be increasing
 
@@ -252,7 +254,9 @@ describe('single-node/block-building/debug_trace', () => {
         }
       });
 
-    expect(await aztecNode.getBlockNumber()).toBeGreaterThanOrEqual(1);
+    // After setup the chain sits at genesis (block 0): the shared e2e setup no longer mines an empty
+    // block to advance past genesis. The test drives block progression itself below via minTxsPerBlock=0.
+    expect(await aztecNode.getBlockNumber()).toBeGreaterThanOrEqual(0);
 
     const numBlocksToMine = 3;
     const startBlockNumber = await aztecNode.getBlockNumber();
