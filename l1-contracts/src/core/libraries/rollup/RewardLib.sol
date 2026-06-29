@@ -151,7 +151,7 @@ library RewardLib {
     return accumulatedRewards;
   }
 
-  function handleRewardsAndFees(SubmitEpochRootProofArgs memory _args, Epoch _endEpoch) internal {
+  function handleRewardsAndFees(SubmitEpochRootProofArgs calldata _args, Epoch _endEpoch) internal {
     RollupStore storage rollupStore = STFLib.getStorage();
     RewardStorage storage rewardStorage = getStorage();
 
@@ -215,7 +215,7 @@ library RewardLib {
 
         v.manaUsed = feeHeader.getManaUsed();
 
-        uint256 fee = uint256(_args.fees[1 + i * 2]);
+        uint256 fee = _args.headers[i].accumulatedFees;
         uint256 burn = feeHeader.getCongestionCost() * v.manaUsed;
 
         t.feesToClaim += fee;
@@ -230,7 +230,7 @@ library RewardLib {
         v.sequencerFee = fee - burn - v.proverFee;
 
         {
-          v.sequencer = fieldToAddress(_args.fees[i * 2]);
+          v.sequencer = _args.headers[i].coinbase;
           uint256 toSequencer = v.sequencerCheckpointReward + v.sequencerFee;
           if (toSequencer > 0) {
             rewardStorage.sequencerRewards[v.sequencer] += toSequencer;
@@ -298,9 +298,5 @@ library RewardLib {
     assembly {
       storageStruct.slot := position
     }
-  }
-
-  function fieldToAddress(bytes32 _f) private pure returns (address) {
-    return address(uint160(uint256(_f)));
   }
 }

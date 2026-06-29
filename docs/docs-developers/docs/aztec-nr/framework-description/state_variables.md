@@ -273,7 +273,7 @@ When working with private state variables, many operations return a `NoteMessage
 #### Delivery Methods
 
 Private notes need to be communicated to their recipients so they know the note exists and can use it. The [`NoteMessage`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/note/struct.NoteMessage) wrapper forces you to make an explicit choice about how this happens:
-  - [`MessageDelivery::onchain_constrained()`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/messages/delivery/global.MessageDelivery): Verified in the circuit (most secure, but highest cost) - Use when the sender cannot be trusted to deliver correctly (e.g., protocol fees, multisig config updates). **Warning:** Currently [not fully constrained](https://github.com/AztecProtocol/aztec-packages/issues/14565) - the log's tag is unconstrained.
+  - [`MessageDelivery::onchain_constrained()`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/messages/delivery/global.MessageDelivery): Verified in the circuit (most secure, but highest cost) - Use when the sender cannot be trusted to deliver correctly (e.g., protocol fees, multisig config updates).
   - [`MessageDelivery::onchain_unconstrained()`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/messages/delivery/global.MessageDelivery): Message stored onchain but no guarantees on content - Use when the sender is incentivized to deliver correctly but may not have an offchain channel to the recipient.
   - [`MessageDelivery::offchain()`](pathname:///aztec-nr-api/#api_ref_version/noir_aztec/messages/delivery/global.MessageDelivery): Lowest cost, no onchain data - Use when the sender and recipient can communicate and the sender is incentivized to deliver correctly.
 
@@ -434,25 +434,25 @@ Note: The `Owned` wrapper requires calling `.at(owner)` to access the underlying
 
 #### `get_notes`
 
-Retrieves notes the account has access to. You can optionally provide filtering options. Returns `RetrievedNote` instances:
+Retrieves notes the account has access to. You can optionally provide filtering options. Returns `ConfirmedNote` instances:
 
 #include_code private_set_get_notes /noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr rust
 
 #### `pop_notes`
 
-This function pops (gets, removes and returns) the notes the account has access to. Unlike `get_notes`, this immediately nullifies the notes and returns them directly (not wrapped in `RetrievedNote`):
+This function pops (gets, removes and returns) the notes the account has access to. Unlike `get_notes`, this immediately nullifies the notes and returns them directly (not wrapped in `ConfirmedNote`):
 
 #include_code private_set_pop_notes /noir-projects/noir-contracts/contracts/test/pending_note_hashes_contract/src/main.nr rust
 
 #### `remove`
 
-Will remove a note from the `PrivateSet` if it previously has been read from storage. Takes a `RetrievedNote` as returned by `get_notes`:
+Will remove a note from the `PrivateSet` if it previously has been read from storage. Takes a `ConfirmedNote` as returned by `get_notes`:
 
 ```rust
 let options = NoteGetterOptions::new();
-let retrieved_notes = self.storage.balances.at(owner).get_notes(options);
+let confirmed_notes = self.storage.balances.at(owner).get_notes(options);
 // ... select a note to remove ...
-self.storage.balances.at(owner).remove(retrieved_notes.get(0));
+self.storage.balances.at(owner).remove(confirmed_notes.get(0));
 ```
 
 Note that if you obtained the note via `get_notes`, it's much better to use `pop_notes`, as `pop_notes` results in significantly fewer constraints due to avoiding an extra hash and read request check.

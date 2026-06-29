@@ -13,6 +13,8 @@ import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchma
 
 jest.setTimeout(300_000);
 
+// L1↔L2 bridging round-trip benchmark. Uses ClientFlowsBenchmark (wraps CrossChainTestHarness) with
+// BENCHMARK_CONFIG; profiles the full bridge-in flow for multiple account/fee-method combinations.
 describe('Bridging benchmark', () => {
   const t = new ClientFlowsBenchmark('bridging');
   // The wallet used by the user to interact

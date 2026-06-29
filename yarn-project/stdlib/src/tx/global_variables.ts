@@ -125,7 +125,7 @@ export class GlobalVariables {
       SlotNumber(reader.readU32()),
       reader.readField().toBigInt(),
       EthAddress.fromField(reader.readField()),
-      AztecAddress.fromField(reader.readField()),
+      AztecAddress.fromFieldUnsafe(reader.readField()),
       GasFees.fromFields(reader),
     );
   }
@@ -220,7 +220,7 @@ export class GlobalVariables {
       blockNumber: BlockNumber(randomInt(100_000)),
       slotNumber: SlotNumber(randomInt(100_000)),
       coinbase: EthAddress.random(),
-      feeRecipient: AztecAddress.fromField(Fr.random()),
+      feeRecipient: AztecAddress.fromFieldUnsafe(Fr.random()),
       gasFees: GasFees.random(),
       timestamp: BigInt(randomInt(100_000_000)),
       ...overrides,

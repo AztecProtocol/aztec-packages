@@ -13,7 +13,7 @@ import { ReadRequest, ScopedReadRequest } from './read_request.js';
 import { PendingReadHint, ReadRequestAction, SettledReadHint } from './read_request_hints.js';
 
 describe('buildNoteHashReadRequestHints', () => {
-  const contractAddress = AztecAddress.fromBigInt(112233n);
+  const contractAddress = AztecAddress.fromBigIntUnsafe(112233n);
 
   const getNoteHashValue = (index: number) => index + 9999;
 

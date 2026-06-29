@@ -57,8 +57,8 @@ export class FactCollectionKey {
   static fromString(str: string): FactCollectionKey {
     const [contractAddress, scope, factCollectionTypeId, factCollectionId] = str.split(':');
     return new FactCollectionKey(
-      AztecAddress.fromString(contractAddress),
-      AztecAddress.fromString(scope),
+      AztecAddress.fromStringUnsafe(contractAddress),
+      AztecAddress.fromStringUnsafe(scope),
       Fr.fromString(factCollectionTypeId),
       Fr.fromString(factCollectionId),
     );

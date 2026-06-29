@@ -5,7 +5,7 @@
  * and Web3Signer for remote signing. Verifies that blocks are produced,
  * attestations are signed, and no double-signing occurs.
  */
-import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
+import { type AztecNodeConfig, AztecNodeService, createAztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import { NO_WAIT, getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
@@ -88,6 +88,9 @@ async function waitForTriggerTx(node: AztecNode, txHash: TxHash): Promise<TxRece
   return receipt;
 }
 
+// Requires the docker-compose HA suite (run_test.sh ha): live Postgres (DATABASE_URL) and Web3Signer
+// sidecar. Uses setup() with PIPELINING_SETUP_OPTS; multiple in-proc AztecNodeService instances share the
+// Postgres slashing-protection DB and Web3Signer keystore.
 describe('HA Full Setup', () => {
   jest.setTimeout(20 * 60 * 1000); // 20 minutes
 
@@ -320,11 +323,7 @@ describe('HA Full Setup', () => {
       };
 
       const nodeService = await withLoggerBindings({ actor: `HA-${i}` }, async () => {
-        return await AztecNodeService.createAndSync(
-          nodeConfig,
-          { dateProvider },
-          { genesis, dontStartSequencer: true },
-        );
+        return await createAztecNodeService(nodeConfig, { dateProvider }, { genesis, dontStartSequencer: true });
       });
 
       haNodeServices.push(nodeService);

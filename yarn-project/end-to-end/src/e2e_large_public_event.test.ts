@@ -14,6 +14,7 @@ import { setup } from './fixtures/utils.js';
 const TIMEOUT = 300_000;
 
 /// Tests that events exceeding MAX_EVENT_SERIALIZED_LEN can be emitted publicly.
+// Single automine node, one funded account, LargePublicEventContract deployed in beforeAll.
 describe('LargePublicEvent', () => {
   let contract: LargePublicEventContract;
   jest.setTimeout(TIMEOUT);
@@ -35,6 +36,8 @@ describe('LargePublicEvent', () => {
 
   afterAll(() => teardown());
 
+  // Sends emit_large_event with 11 random Fr fields, retrieves via getPublicEvents, and asserts
+  // the returned event's data array matches.
   it('emits and retrieves a public event with more than MAX_EVENT_SERIALIZED_LEN fields', async () => {
     const data = Array.from({ length: 11 }, () => Fr.random());
 

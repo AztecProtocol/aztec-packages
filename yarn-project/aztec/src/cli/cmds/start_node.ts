@@ -6,7 +6,6 @@ import {
 } from '@aztec/aztec-node';
 import { Fr } from '@aztec/aztec.js/fields';
 import { getL1Config } from '@aztec/cli/config';
-import { getPublicClient } from '@aztec/ethereum/client';
 import { getGenesisStateConfigEnvVars } from '@aztec/ethereum/config';
 import { type NetworkNames, SecretValue } from '@aztec/foundation/config';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
@@ -30,14 +29,9 @@ import {
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import { createAztecNode } from '../../local-network/index.js';
-import {
-  extractNamespacedOptions,
-  extractRelevantOptions,
-  preloadCrsDataForVerifying,
-  setupVersionChecker,
-} from '../util.js';
+import { extractNamespacedOptions, extractRelevantOptions, preloadCrsDataForVerifying } from '../util.js';
 import { getVersions } from '../versioning.js';
-import { computeExpectedGenesisRoot, waitForCompatibleRollup } from './standby.js';
+import { computeExpectedGenesisRoot, setupAutoShutdown, waitForCompatibleRollup } from './standby.js';
 import { startProverBroker } from './start_prover_broker.js';
 
 export async function startNode(
@@ -184,15 +178,14 @@ export async function startNode(
     await addBot(options, signalHandlers, services, wallet, node, telemetry, undefined);
   }
 
-  if (nodeConfig.enableVersionCheck && networkName !== 'local') {
-    const cacheDir = process.env.DATA_DIRECTORY ? `${process.env.DATA_DIRECTORY}/cache` : undefined;
+  if (nodeConfig.enableAutoShutdown && networkName !== 'local' && followsCanonicalRollup) {
     try {
-      await setupVersionChecker(
-        networkName,
-        followsCanonicalRollup,
-        getPublicClient(nodeConfig!),
+      await setupAutoShutdown(
+        nodeConfig,
+        nodeConfig.registryAddress,
+        (nodeConfig.rollupVersion as number | 'canonical') ?? 'canonical',
+        { genesisArchiveRoot, vkTreeRoot: getVKTreeRoot(), protocolContractsHash },
         signalHandlers,
-        cacheDir,
       );
     } catch {
       /* no-op */

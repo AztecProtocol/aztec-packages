@@ -3,7 +3,7 @@ use aztec::{
     context::UtilityContext,
     ephemeral::EphemeralArray,
     messages::{
-        delivery::{handshake::DiscoveredHandshake, OnchainDeliveryMode},
+        delivery::handshake::DiscoveredHandshake,
         discovery::{
             ComputeNoteHash, ComputeNoteNullifier, CustomMessageHandler, do_sync_state_without_handshake_discovery,
         },
@@ -19,7 +19,7 @@ use aztec::{
         address::AztecAddress,
         constants::DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
         hash::{compute_log_tag, sha256_to_field},
-        traits::{Deserialize, ToField},
+        traits::ToField,
     },
     utils::point::point_from_x_coord_and_sign,
 };
@@ -63,7 +63,7 @@ pub(crate) unconstrained fn handshake_registry_sync(
         let tag = compute_log_tag(scope.to_field(), DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG);
         let logs = get_handshake_logs_in_range(contract_address, tag, cursor, Option::some(next_block));
 
-        // Store all valid handshakes with their delivery mode
+        // Store all valid handshakes
         let handshakes: CapsuleArray<DiscoveredHandshake> =
             CapsuleArray::at(contract_address, HANDSHAKES_CAPSULE_SLOT, scope);
         logs.for_each(|_i, log| {
@@ -71,9 +71,7 @@ pub(crate) unconstrained fn handshake_registry_sync(
 
             let _ = AES128::decrypt(ciphertext, scope, contract_address)
                 .and_then(|pt| {
-                    point_from_x_coord_and_sign(pt.get(0), true).map(|pk| {
-                        DiscoveredHandshake { eph_pk: pk, mode: OnchainDeliveryMode::deserialize([pt.get(1)]) }
-                    })
+                    point_from_x_coord_and_sign(pt.get(0), true).map(|pk| DiscoveredHandshake { eph_pk: pk })
                 })
                 .map(|h| handshakes.push(h));
         });

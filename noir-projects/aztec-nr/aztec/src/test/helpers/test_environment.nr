@@ -1,6 +1,6 @@
 use crate::protocol::{
     abis::{function_selector::FunctionSelector, gas::Gas, gas_fees::GasFees, gas_settings::GasSettings},
-    address::AztecAddress,
+    address::{AztecAddress, EthAddress},
     constants::{MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS},
     traits::{Deserialize, Empty, FromField, Packable, Serialize},
 };
@@ -11,7 +11,7 @@ use crate::{
         UtilityContext,
     },
     event::{event_interface::EventInterface, EventMessage},
-    hash::hash_args,
+    hash::{compute_secret_hash, hash_args},
     messages::{
         discovery::{
             ComputeNoteHash, ComputeNoteNullifier, CustomMessageHandler, process_message::process_message_plaintext,
@@ -23,7 +23,7 @@ use crate::{
     },
     note::{note_interface::{NoteHash, NoteType}, NoteMessage},
     oracle::version::assert_compatible_oracle_version,
-    test::helpers::{txe_oracles, utils::ContractDeployment},
+    test::helpers::{tagging_secret_strategy::TaggingSecretStrategy, txe_oracles, utils::ContractDeployment},
     utils::array::subarray,
 };
 
@@ -82,6 +82,34 @@ pub struct TestEnvironment {
     contract_account_secret: Counter,
     contract_deployment_secret: Counter,
     contract_deployment_salt: Counter,
+}
+
+/// Configuration values for [`TestEnvironment::new_opts`]. Meant to be used by calling `new` and then chaining
+/// methods setting each value, e.g.:
+/// ```noir
+/// let env = TestEnvironment::new_opts(
+///     TestEnvironmentOptions::new().with_tagging_secret_strategy(TaggingSecretStrategy::non_interactive_handshake()),
+/// );
+/// ```
+pub struct TestEnvironmentOptions {
+    tagging_secret_strategy: Option<TaggingSecretStrategy>,
+}
+
+impl TestEnvironmentOptions {
+    /// Creates a new `TestEnvironmentOptions` with default values.
+    pub fn new() -> Self {
+        Self { tagging_secret_strategy: Option::none() }
+    }
+
+    /// Sets the [`TaggingSecretStrategy`] the wallet reports through the
+    /// [`resolve_tagging_strategy`](crate::oracle::resolve_tagging_strategy) oracle, affecting message delivery in
+    /// private executions.
+    ///
+    /// If not set, the wallet hook is left unconfigured and the private execution environment applies its own default.
+    pub fn with_tagging_secret_strategy(&mut self, strategy: TaggingSecretStrategy) -> Self {
+        self.tagging_secret_strategy = Option::some(strategy);
+        *self
+    }
 }
 
 /// Configuration values for [`TestEnvironment::private_context_opts`]. Meant to be used by calling `new` and then
@@ -385,31 +413,40 @@ struct EventDiscoveryOptions {
 ///
 /// ```noir
 /// env.execute_utility_opts(
-///     ExecuteUtilityOptions::new().with_authorized_utility_call_targets([target]),
+///     ExecuteUtilityOptions::new().with_from(caller).with_authorized_utility_call_targets([target]),
 ///     SomeContract::at(addr).some_utility_function(),
 /// );
 /// ```
 pub struct ExecuteUtilityOptions<let T: u32> {
+    from: Option<AztecAddress>,
     authorized_utility_call_targets: [AztecAddress; T],
 }
 
 impl ExecuteUtilityOptions<0> {
     /// Creates default `ExecuteUtilityOptions`.
     pub fn new() -> Self {
-        ExecuteUtilityOptions { authorized_utility_call_targets: [] }
+        ExecuteUtilityOptions { from: Option::none(), authorized_utility_call_targets: [] }
     }
 }
 
 impl<let T: u32> ExecuteUtilityOptions<T> {
+    /// Sets the `msg_sender` simulating a cross-contract call.
+    ///
+    /// By default, an `Option::none` value is supplied to `maybe_msg_sender`.
+    pub fn with_from(&mut self, from: AztecAddress) -> Self {
+        self.from = Option::some(from);
+        *self
+    }
+
     /// Authorizes cross-contract utility calls to given targets.
     ///
     /// By default, cross-contract utility calls are denied. This method lets the test author specify which target
     /// contracts are allowed to be called via utility functions during execution.
     pub fn with_authorized_utility_call_targets<let T_2: u32>(
-        _self: Self,
+        self: Self,
         targets: [AztecAddress; T_2],
     ) -> ExecuteUtilityOptions<T_2> {
-        ExecuteUtilityOptions { authorized_utility_call_targets: targets }
+        ExecuteUtilityOptions { from: self.from, authorized_utility_call_targets: targets }
     }
 }
 
@@ -559,9 +596,30 @@ fn resolve_gas_settings(
 
 impl TestEnvironment {
     /// Creates a new `TestEnvironment`. This function should only be called once per test.
+    ///
+    /// See [`new_opts`](TestEnvironment::new_opts) for a variant that allows configuring the environment.
     pub unconstrained fn new() -> Self {
+        Self::new_opts(TestEnvironmentOptions::new())
+    }
+
+    /// Creates a new `TestEnvironment` with the configuration values in `options`. This function should only be
+    /// called once per test.
+    ///
+    /// ### Sample usage
+    /// ```noir
+    /// let env = TestEnvironment::new_opts(
+    ///     TestEnvironmentOptions::new().with_tagging_secret_strategy(
+    ///         TaggingSecretStrategy::non_interactive_handshake(),
+    ///     ),
+    /// );
+    /// ```
+    pub unconstrained fn new_opts(options: TestEnvironmentOptions) -> Self {
         assert_compatible_oracle_version();
         txe_oracles::assert_compatible_txe_oracle_version();
+
+        // Forward the configured strategy to the wallet.
+        txe_oracles::set_tagging_secret_strategy(options.tagging_secret_strategy);
+
         Self {
             // Use an offset to avoid secret collision with account secrets. Without this, when
             // deploying multiple contracts and creating accounts, they could end up with identical
@@ -810,6 +868,42 @@ impl TestEnvironment {
         txe_oracles::advance_timestamp_by(duration);
     }
 
+    /// Creates a message sent from the L1 to the L2.
+    ///
+    /// This is required so that a contract can later consume it via
+    /// [`PrivateContext::consume_l1_to_l2_message`](crate::context::PrivateContext::consume_l1_to_l2_message) or its
+    /// public counterpart. An empty block is mined carrying the message leaf.
+    ///
+    /// `content`, `secret`, `sender` and `recipient` must match what the consuming contract uses. The secret is hashed
+    /// with the standard [`crate::hash::compute_secret_hash`] - use
+    /// [`send_l1_to_l2_message_from_secret_hash`](TestEnvironment::send_l1_to_l2_message_from_secret_hash) if the
+    /// contract commits to its secret differently).
+    ///
+    /// Returns the global leaf index to pass as `consume_l1_to_l2_message`'s `leaf_index`.
+    pub unconstrained fn send_l1_to_l2_message(
+        self,
+        content: Field,
+        secret: Field,
+        sender: EthAddress,
+        recipient: AztecAddress,
+    ) -> Field {
+        self.send_l1_to_l2_message_from_secret_hash(content, compute_secret_hash(secret), sender, recipient)
+    }
+
+    /// Variant of [`send_l1_to_l2_message`](TestEnvironment::send_l1_to_l2_message) that takes the secret hash
+    /// directly.
+    ///
+    /// This is only required by contracts that commit to their consumption secret with a non-standard hash function.
+    pub unconstrained fn send_l1_to_l2_message_from_secret_hash(
+        _self: Self,
+        content: Field,
+        secret_hash: Field,
+        sender: EthAddress,
+        recipient: AztecAddress,
+    ) -> Field {
+        txe_oracles::send_l1_to_l2_message(content, secret_hash, sender, recipient)
+    }
+
     /// Creates a new account that can be used as the `from` parameter in contract calls, e.g. in `private_call` or
     /// `public_call`, or be made the owner or recipient of notes in `private_context`.
     ///
@@ -1026,7 +1120,6 @@ impl TestEnvironment {
     /// The `call` value can be obtained by calling the appropriate method on a contract type. E.g.:
     ///
     /// ```noir
-    /// let caller = env.create_light_account();
     /// let contract_addr = env.deploy("SampleContract").without_initializer();
     /// let return_value = env.execute_utility(SampleContract::at(contract_addr).sample_utility_function());
     /// ```
@@ -1038,7 +1131,7 @@ impl TestEnvironment {
     }
 
     /// Variant of `execute_utility` which allows specifying configuration values via `ExecuteUtilityOptions`, such as
-    /// authorizing cross-contract utility calls.
+    /// `msg_sender` or authorizing cross-contract utility calls.
     pub unconstrained fn execute_utility_opts<let M: u32, let N: u32, let U: u32, T>(
         _self: Self,
         opts: ExecuteUtilityOptions<U>,
@@ -1048,6 +1141,7 @@ impl TestEnvironment {
         T: Deserialize,
     {
         let serialized_return_values = txe_oracles::execute_utility_function(
+            opts.from,
             call.target_contract,
             call.selector,
             call.args,

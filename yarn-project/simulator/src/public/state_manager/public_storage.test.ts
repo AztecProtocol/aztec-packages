@@ -17,7 +17,7 @@ describe('avm public storage', () => {
 
   describe('AVM Public Storage', () => {
     it('Reading an unwritten slot works (gets zero & DNE)', async () => {
-      const contractAddress = AztecAddress.fromNumber(1);
+      const contractAddress = AztecAddress.fromNumberUnsafe(1);
       const slot = new Fr(2);
       // never written!
       publicDb.storageRead.mockResolvedValue(Fr.ZERO);
@@ -28,7 +28,7 @@ describe('avm public storage', () => {
     });
 
     it('Should cache storage write, reading works after write', async () => {
-      const contractAddress = AztecAddress.fromNumber(1);
+      const contractAddress = AztecAddress.fromNumberUnsafe(1);
       const slot = new Fr(2);
       const value = new Fr(3);
       // Write to cache
@@ -40,7 +40,7 @@ describe('avm public storage', () => {
     });
 
     it('Reading works on fallback to host (gets value & exists)', async () => {
-      const contractAddress = AztecAddress.fromNumber(1);
+      const contractAddress = AztecAddress.fromNumberUnsafe(1);
       const slot = new Fr(2);
       const storedValue = new Fr(420);
       // ensure that fallback to host gets a value
@@ -53,7 +53,7 @@ describe('avm public storage', () => {
     });
 
     it('Reading works on fallback to parent (gets value & exists)', async () => {
-      const contractAddress = AztecAddress.fromNumber(1);
+      const contractAddress = AztecAddress.fromNumberUnsafe(1);
       const slot = new Fr(2);
       const value = new Fr(3);
       const childStorage = new PublicStorage(publicDb, publicStorage);
@@ -66,7 +66,7 @@ describe('avm public storage', () => {
     });
 
     it('Reading works on fallback to grandparent (gets value & exists)', async () => {
-      const contractAddress = AztecAddress.fromNumber(1);
+      const contractAddress = AztecAddress.fromNumberUnsafe(1);
       const slot = new Fr(2);
       const value = new Fr(3);
       const childStorage = new PublicStorage(publicDb, publicStorage);
@@ -81,7 +81,7 @@ describe('avm public storage', () => {
 
     it('When reading from storage, should check cache, then parent, then host', async () => {
       // Store a different value in storage vs the cache, and make sure the cache is returned
-      const contractAddress = AztecAddress.fromNumber(1);
+      const contractAddress = AztecAddress.fromNumberUnsafe(1);
       const slot = new Fr(2);
       const storedValue = new Fr(420);
       const parentValue = new Fr(69);
@@ -114,7 +114,7 @@ describe('avm public storage', () => {
 
   it('Should be able to merge two public storages together', async () => {
     // Checking that child's writes take precedence on marge
-    const contractAddress = AztecAddress.fromNumber(1);
+    const contractAddress = AztecAddress.fromNumberUnsafe(1);
     const slot = new Fr(2);
     // value written initially in parent
     const value = new Fr(1);

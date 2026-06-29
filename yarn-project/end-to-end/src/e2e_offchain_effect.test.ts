@@ -12,6 +12,10 @@ import { proveInteraction } from './test-wallet/utils.js';
 
 const TIMEOUT = 300_000;
 
+// Covers the offchain-effect mechanism: effects returned from send(), effects returned from
+// proveInteraction, and the offchain-message delivery flow (emitting an event or note as an
+// offchain message, then delivering it via offchain_receive and retrieving via getPrivateEvents).
+// Single automine node, one funded account, two OffchainEffectContract instances.
 describe('e2e_offchain_effect', () => {
   let contract1: OffchainEffectContract;
   let contract2: OffchainEffectContract;
@@ -33,6 +37,8 @@ describe('e2e_offchain_effect', () => {
 
   afterAll(() => teardown());
 
+  // Sends emit_offchain_effects with 2 effects; asserts the returned offchainEffects array has
+  // length 2, that effects are reversed (popped from BoundedVec end), and contractAddresses match.
   it('should return offchain effects from send()', async () => {
     const effects = Array(2)
       .fill(null)
@@ -55,6 +61,8 @@ describe('e2e_offchain_effect', () => {
     expect(offchainEffects[1].data).toEqual(effects[0].data);
   });
 
+  // Proves emit_offchain_effects with 3 effects via proveInteraction; asserts that
+  // provenTx.offchainEffects matches the expected reversed order with correct contractAddresses.
   it('should emit offchain effects', async () => {
     const effects = Array(3)
       .fill(null)
@@ -80,6 +88,7 @@ describe('e2e_offchain_effect', () => {
     expect(provenTx.offchainEffects).toEqual(expectedOffchainEffects);
   });
 
+  // Proves emit_offchain_effects with empty input; asserts provenTx.offchainEffects is empty.
   it('should not emit any offchain effects', async () => {
     const provenTx = await proveInteraction(wallet, contract1.methods.emit_offchain_effects([]), {
       from: defaultAccountAddress,
@@ -87,6 +96,8 @@ describe('e2e_offchain_effect', () => {
     expect(provenTx.offchainEffects).toEqual([]);
   });
 
+  // Sends emit_event_as_offchain_message_for_msg_sender, captures the offchain message, delivers
+  // it via offchain_receive (simulated), and retrieves the event from PXE via getPrivateEvents.
   it('should emit event as offchain message and process it', async () => {
     const [a, b, c] = [1n, 2n, 3n];
     const recipient = defaultAccountAddress;
@@ -136,6 +147,8 @@ describe('e2e_offchain_effect', () => {
     });
   });
 
+  // Sends emit_note_as_offchain_message, delivers it via offchain_receive, and reads the note
+  // value back via get_note_value to verify the note was properly committed.
   it('should emit note as offchain message and process it', async () => {
     const value = 123n;
     const owner = defaultAccountAddress;

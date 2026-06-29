@@ -49,6 +49,11 @@ const qosAlerts: AlertConfig[] = [
   },
 ];
 
+// Tests end-to-end gossip propagation with 4 validators, a fake prover node, and a non-validator
+// monitoring node (alwaysReexecuteBlockProposals:true). Uses P2PNetworkTest with real libp2p,
+// SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES (ethSlot=4s, aztecSlot=36s, epoch=4, proofSubEpochs=640),
+// inboxLag=2. Asserts txs are mined from all nodes, attestation signers match the validator set,
+// and the prover node produces a proven block by collecting txs from p2p.
 describe('e2e_p2p_network', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
@@ -96,6 +101,10 @@ describe('e2e_p2p_network', () => {
     }
   });
 
+  // Stands up 4 validators + 1 prover + 1 re-execution monitor, submits 2 txs per node, and waits
+  // for all txs to mine. Checks attestation signers match the validator set and confirms the prover
+  // eventually produces a proven block (collecting txs from p2p rather than RPC).
+  // REFACTOR: Promise.all over waitForTx calls is hand-rolled; extract to a shared helper
   it('should rollup txs from all peers', async () => {
     // create the bootstrap node for the network
     if (!t.bootstrapNodeEnr) {

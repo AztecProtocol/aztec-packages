@@ -33,6 +33,11 @@ const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';
  * The other validators connect to everyone
  * We check that the submitted transactions are mined and that the block
  * contains attestations from all validators
+ *
+ * Setup: P2PNetworkTest real libp2p, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES (ethSlot=4s, aztecSlot=24s,
+ * epoch=4, proofSubEpochs=640), inboxLag=2, p2pMaxFailedAuthAttemptsAllowed=0. 7 nodes total: 2 regular
+ * + 2 preferred (p2pAllowOnlyValidators, no discovery) + 2 validators with discovery + 1 validator
+ * without discovery. No prover. jest.setTimeout=30m.
  */
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
@@ -57,6 +62,9 @@ const qosAlerts: AlertConfig[] = [
   },
 ];
 
+// Tests the preferred-node (supernode) topology: preferred nodes only accept validator connections;
+// a no-discovery validator connects exclusively through preferred nodes; gossip monitors assert that
+// traffic flows only through expected peers. Verifies txs mine and attestation signers match validators.
 describe('e2e_p2p_preferred_network', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
@@ -169,6 +177,11 @@ describe('e2e_p2p_preferred_network', () => {
     }
   });
 
+  // Creates a 7-node topology (2 regular + 2 preferred + 2 validators + 1 no-discovery validator),
+  // installs gossip monitors to verify no-discovery validators only receive traffic from preferred nodes,
+  // submits txs from regular nodes, and asserts all txs mine with attestations from all validators.
+  // REFACTOR: peer-count polling loop in waitForNodeToAcquirePeers is hand-rolled; consider
+  // using t.waitForP2PMeshConnectivity with a peer-count predicate
   it('should rollup txs from all peers', async () => {
     // create the bootstrap node for the network
     if (!t.bootstrapNodeEnr) {

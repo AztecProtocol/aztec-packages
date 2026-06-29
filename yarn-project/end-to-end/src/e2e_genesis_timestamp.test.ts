@@ -7,6 +7,13 @@ import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { type EndToEndContext, setup } from './fixtures/utils.js';
 import { proveInteraction } from './test-wallet/utils.js';
 
+// Verifies that genesis-anchored transactions (proved while PXE is pinned to block 0) can be
+// included in blocks after block 1, and that PXE can prove transactions anchored to genesis even
+// after the chain has advanced (public data tree diverged). Uses AUTOMINE_E2E_OPTS with
+// advancePastGenesis=false, two deployable accounts in additionallyFundedAccounts, and pxe
+// syncChainTip='proven' so the anchor stays at genesis until a real proof lands, which never happens
+// in these tests (no prover node running). (v5: replaced skipAccountDeployment with
+// advancePastGenesis=false + explicit additionallyFundedAccounts.)
 describe('e2e_genesis_timestamp', () => {
   let context: EndToEndContext;
 
@@ -51,11 +58,15 @@ describe('e2e_genesis_timestamp', () => {
 
   const awaitBlockCheckpointed = async () => {
     const { aztecNode } = context;
+    // REFACTOR: hand-rolled retryUntil polling on block number and checkpoint number; a helper like
+    // waitForBlockNumber / waitForCheckpointNumber would replace both calls.
     await retryUntil(async () => (await aztecNode.getBlockNumber()) >= 1, 'wait for block >= 1', 60);
     await retryUntil(async () => (await aztecNode.getCheckpointNumber()) >= 1, 'wait for checkpoint >= 1', 60);
     logger.info(`Block number after advancing: ${await aztecNode.getBlockNumber()}`);
   };
 
+  // Proves an account-deploy tx while at block 0, mines an empty block via mineBlock(), then
+  // sends the genesis-anchored proven tx and asserts it lands after block 1.
   it('can include genesis-anchored tx in a block after block 1', async () => {
     const { aztecNode } = context;
 
@@ -81,6 +92,8 @@ describe('e2e_genesis_timestamp', () => {
 
   // Regression for an issue where PXE failed to prove txs while anchored to block zero
   // if there were new blocks mined that modified the public data tree.
+  // Sends a first genesis-anchored account deploy (modifies public data tree), then proves and
+  // sends a second genesis-anchored deploy for a different account and asserts it also lands.
   it('can generate genesis-anchored tx after chain advances when PXE anchor is pinned to zero', async () => {
     const { aztecNode } = context;
 

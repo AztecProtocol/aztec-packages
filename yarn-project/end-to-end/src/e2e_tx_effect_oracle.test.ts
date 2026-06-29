@@ -32,7 +32,8 @@ const TIMEOUT = 120_000;
 // Note: This would ideally be an integration test as it only tests an oracle implementation but we currently don't
 // have the infrastructure for that. Testing it with TXE is also infeasible as there we would not be able to check the
 // obtained tx effect from oracle with the one obtained directly in TS.
-
+//
+// Uses a single node with AutomineSequencer and one account.
 describe('e2e tx effect oracle', () => {
   let contract: TxEffectOracleTestContract;
   let deployTxHash: TxHash;
@@ -59,6 +60,8 @@ describe('e2e tx effect oracle', () => {
 
   afterAll(() => teardown());
 
+  // Fetches the deploy tx's TxEffect from the node, computes a poseidon2 hash over the padded field
+  // layout in TS, then simulates the Noir contract's get_tx_effect_hash and compares the two hashes.
   it('tx effect in Noir exactly matches tx effect in TS', async () => {
     const nodeEffect = await aztecNode.getTxEffect(deployTxHash);
     expect(nodeEffect).toBeDefined();
@@ -73,6 +76,8 @@ describe('e2e tx effect oracle', () => {
     expect(actualHash).toEqual(expectedHash.toBigInt());
   });
 
+  // Passes a random Fr as a tx hash to assert_is_none; asserts the oracle returns None (the tx does
+  // not exist) without throwing.
   it('aztec_utl_getTxEffect oracle returns None for a random tx hash', async () => {
     await contract.methods.assert_is_none(Fr.random()).simulate({ from: defaultAccountAddress });
   });
