@@ -322,6 +322,12 @@ ${supportsShm
     return this.client.call(input);
   }
 
+  sendProcessSignal(signal: NodeJS.Signals): void {
+    if (this.child.exitCode === null) {
+      this.child.kill(signal);
+    }
+  }
+
   async destroy(): Promise<void> {
     // Mark intentional teardown so the exit handler doesn't report it as an
     // unexpected death.
@@ -404,6 +410,10 @@ export class ${serviceClass} extends AsyncApi {
 
   getIpcPath(): string {
     return this.spawnedBackend.getIpcPath();
+  }
+
+  sendProcessSignal(signal: NodeJS.Signals): void {
+    this.spawnedBackend.sendProcessSignal(signal);
   }
 }
 `;
