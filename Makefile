@@ -396,8 +396,17 @@ l1-contracts-src: l1-contracts-solc
 l1-contracts-verifier: noir-protocol-circuits l1-contracts-src
 	$(call build,$@,l1-contracts,build_verifier)
 
+# l1-contracts-artifacts: Generate the @aztec/l1-artifacts TS package (ABIs/bytecode/storage) and the
+# self-contained foundry bundle used by the runtime forge deploy path. Must depend on the verifier, not
+# just build_src: the generated artifact list includes HonkVerifier, and its real implementation is only
+# produced by build_verifier (which compiles generated/HonkVerifier.sol, copied from noir-projects).
+# build_src only compiles the src/ coverage mock of the same name, which collides on the same out/ path
+# and would be published instead if the verifier had not run last.
+l1-contracts-artifacts: l1-contracts-verifier
+	$(call build,$@,l1-contracts,build_artifacts)
+
 # l1-contracts: Complete build (aggregate target)
-l1-contracts: l1-contracts-src l1-contracts-verifier
+l1-contracts: l1-contracts-src l1-contracts-verifier l1-contracts-artifacts
 
 l1-contracts-tests: l1-contracts-verifier
 	$(call test,$@,l1-contracts)

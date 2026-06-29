@@ -122,7 +122,7 @@ function compile_all {
   # Ensure the pinned version sqlite3mc-wasm upstream artifacts are present before any package builds.
   ./sqlite3mc-wasm/scripts/vendor.sh ensure
 
-  compile_project ::: constants foundation stdlib blob-lib builder ethereum l1-artifacts
+  compile_project ::: constants foundation stdlib blob-lib builder ethereum
 
   # Call all projects that have a generation stage.
   parallel --joblog joblog.txt --line-buffered --tag 'cd {} && yarn generate' ::: \
@@ -133,7 +133,6 @@ function compile_all {
     slasher \
     stdlib \
     ivc-integration \
-    l1-artifacts \
     noir-contracts.js \
     noir-test-contracts.js \
     noir-protocol-circuits-types \
@@ -262,13 +261,6 @@ function bench_cmds {
 function release_packages {
   echo "Computing packages to publish..."
   local packages=$(get_projects topological)
-
-  # Strip platform-specific solc binary from l1-artifacts before npm publish.
-  # Replace solc="./solc-X.Y.Z" with solc_version="X.Y.Z" so forge auto-downloads
-  # the correct binary via SVM on the end-user's machine.
-  local l1_artifacts="l1-artifacts/l1-contracts"
-  rm -f "$l1_artifacts"/solc-*
-  sed -i 's|^solc = "\./solc-\(.*\)"|solc_version = "\1"|' "$l1_artifacts/foundry.toml"
 
   local package_list=()
   for package in $packages; do
