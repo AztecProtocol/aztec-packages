@@ -1058,8 +1058,11 @@ describe('L1Publisher integration', () => {
         }
       }
 
-      // The publisher should now be in cancelled state
-      expect(publisher.l1TxUtils.state).toEqual(TxUtilsState.CANCELLED);
+      // The publisher should transition to cancelled state. The cancellation is fired in the
+      // background after the tx times out, so poll rather than asserting synchronously: the timeout
+      // only trips on the same loop iteration that crosses the slot boundary, leaving the async
+      // cancellation mid-flight when we get here.
+      await retryUntil(() => publisher.l1TxUtils.state === TxUtilsState.CANCELLED, 'state is cancelled', 5, 0.1);
 
       // Now allow the cancellation to be mined, check that we transition to MINED, and the last tx was indeed a cancellation.
       await ethCheatCodes.mine();
@@ -1124,9 +1127,12 @@ describe('L1Publisher integration', () => {
         // Wait for state to transition and give the publisher time to process
         await sleep(1000);
 
-        // The publisher should now be in cancelled state
+        // Once we cross the slot boundary the publisher should transition to cancelled state. The
+        // cancellation is fired in the background after the tx times out, so poll rather than
+        // asserting synchronously: the timeout only trips on the same loop iteration that crosses
+        // the slot boundary, leaving the async cancellation mid-flight when we get here.
         if (nextL2Slot > initialL2Slot) {
-          expect(publisher.l1TxUtils.state).toEqual(TxUtilsState.CANCELLED);
+          await retryUntil(() => publisher.l1TxUtils.state === TxUtilsState.CANCELLED, 'state is cancelled', 5, 0.1);
           expect(sendRequestsResult).toBeNull();
           break;
         }
