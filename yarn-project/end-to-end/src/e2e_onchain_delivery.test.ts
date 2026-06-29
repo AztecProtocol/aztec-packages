@@ -244,13 +244,13 @@ describe('onchain delivery', () => {
   buildMessageDeliveryTest({
     description: 'handshake bootstrapped constrained, reused unconstrained (cross-mode)',
     mode: { events: 'constrained', notes: 'unconstrained' },
-    senderHook: async ({ deliveryMode }) => {
+    senderHook: ({ deliveryMode }) => {
       if (deliveryMode !== AppTaggingSecretKind.CONSTRAINED) {
         throw new Error(
           'cross-mode reuse regressed: the unconstrained send consulted the strategy hook instead of reusing the bootstrapped handshake',
         );
       }
-      return { type: 'non-interactive-handshake' };
+      return Promise.resolve({ type: 'non-interactive-handshake' });
     },
   });
 
