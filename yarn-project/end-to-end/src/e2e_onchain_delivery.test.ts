@@ -20,8 +20,8 @@ import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { ensureHandshakeRegistryPublished, setup, setupPXEAndGetWallet } from './fixtures/setup.js';
 import { TestWallet } from './test-wallet/test_wallet.js';
 
-// The wallet hook that selects a message's tagging-secret source (handshake / address-ECDH / arbitrary). Derived from
-// the exported PXE options rather than importing the hook type, which `@aztec/pxe/server` does not re-export.
+// The wallet hook that selects a message's tagging-secret source. Derived from the exported PXE options
+// rather than importing the hook type, which `@aztec/pxe/server` does not re-export.
 type SenderHook = NonNullable<NonNullable<PXECreationOptions['hooks']>['resolveTaggingSecretStrategy']>;
 
 type Mode = 'constrained' | 'unconstrained';
@@ -227,8 +227,8 @@ describe('onchain delivery', () => {
     },
   });
 
-  // UNDISCOVERABLE: with no hook, unconstrained delivery to an external recipient defaults to an address-derived tag.
-  // PXE B holds no sender state, so it cannot reconstruct that tag and discovers nothing.
+  // TODO(F-770): With no hook, unconstrained delivery to an external recipient defaults to an address-derived
+  // tag. PXE B holds no sender state, so it cannot reconstruct that tag and discovers nothing.
   buildMessageDeliveryTest({
     description: 'unconstrained x default to external recipient',
     mode: 'unconstrained',
@@ -240,7 +240,7 @@ describe('onchain delivery', () => {
   // consulted), so the hook returns a handshake for the bootstrapping constrained send but throws if it is ever
   // consulted for the unconstrained send. That makes discovery a durable proof of mode-agnostic reuse: were reuse to
   // regress, the unconstrained note would fall through to the hook and fail loudly instead of being silently
-  // re-discovered some other way (e.g. if the unconstrained default later becomes a handshake of its own).
+  // re-discovered some other way.
   buildMessageDeliveryTest({
     description: 'handshake bootstrapped constrained, reused unconstrained (cross-mode)',
     mode: { events: 'constrained', notes: 'unconstrained' },
@@ -256,7 +256,7 @@ describe('onchain delivery', () => {
 
   // REJECTED: the mirror of the unconstrained x arbitrary-secret cell with constrained mode. An unconstrained secret
   // cannot back constrained delivery, so the circuit rejects the send. This pins the PXE -> circuit soundness
-  // boundary that PXE deliberately delegates to the circuit (it resolves the unsound strategy without rejecting it).
+  // boundary that PXE deliberately delegates to the circuit.
   // The secret value is irrelevant to the rejection, so a fresh point per hook call is fine and no recipient
   // registration is needed.
   buildMessageDeliveryTest({
