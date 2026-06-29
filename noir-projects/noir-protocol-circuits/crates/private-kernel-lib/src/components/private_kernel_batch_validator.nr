@@ -164,9 +164,9 @@ impl<let N: u32> PrivateKernelBatchValidator<N> {
     /// Init batched output validator.
     ///
     /// Mirrors `validate_as_inner` but seeds the constants from `tx_request` + app[0] and
-    /// handles the optional protocol-nullifier slot at `output.end.nullifiers.array[0]` via a length-1
-    /// prepended segment. App 0 is responsible for `validate_as_first_call`; apps 1..N use
-    /// `validate_as_inner_call_against_request` against this validator's returned popped requests.
+    /// validates that `output.end.nullifiers.array[0]` equals the protocol nullifier. App 0 is responsible for
+    /// `validate_as_first_call`; apps 1..N use `validate_as_inner_call_against_request` against this
+    /// validator's returned popped requests.
     pub fn validate_as_init(
         self,
         tx_request: TxRequest,
@@ -283,7 +283,7 @@ impl<let N: u32> PrivateKernelBatchValidator<N> {
     ///
     /// The inner kernel passes `previous_kernel` directly. The init kernel passes a synthetic
     /// previous state built by `build_init_prev_state`: all accumulators are empty except
-    /// `end.nullifiers`, which carries the protocol-nullifier prepend (length 0 or 1).
+    /// `end.nullifiers`, which carries the protocol-nullifier at index 0.
     fn validate_non_stack_arrays(self, prev_state: PrivateKernelCircuitPublicInputs) {
         let contract_addresses = self.collect_contract_addresses();
 
