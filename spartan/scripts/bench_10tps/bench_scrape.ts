@@ -1426,6 +1426,10 @@ type ChainPrunedEvent = {
   source: "log";
   fromBlock?: number;
   toBlock?: number;
+  // Distinct pods that logged this prune (same toBlock within the dedupe
+  // window). 1 = a single node's local view diverged and re-synced; many =
+  // the canonical chain rewound network-wide (a genuine chain reorg).
+  podCount: number;
 };
 
 type SlotSummaryEvent = {
@@ -1505,10 +1509,12 @@ async function scrapeChainPrunedEvents(
         at: entry.timestamp,
         time: Date.parse(entry.timestamp),
         toBlock: Number(m[1]),
+        pod: entry.resource?.labels?.pod_name ?? "unknown",
       };
     })
     .filter(
-      (x): x is { at: string; time: number; toBlock: number } => x !== null,
+      (x): x is { at: string; time: number; toBlock: number; pod: string } =>
+        x !== null,
     )
     .sort((a, b) => a.time - b.time);
 
@@ -1523,6 +1529,22 @@ async function scrapeChainPrunedEvents(
     }
   }
 
+  // Distinct pods that pruned to the same toBlock within the dedupe window:
+  // 1 means a lone node diverged locally; many means the canonical chain rewound
+  // across the network. This is what separates a node-local re-sync from a real
+  // chain reorg.
+  const podCountFor = (toBlock: number, time: number) =>
+    new Set(
+      parsed
+        .filter(
+          (p) =>
+            p.toBlock === toBlock &&
+            p.time >= time &&
+            p.time - time < DEDUPE_WINDOW_MS,
+        )
+        .map((p) => p.pod),
+    ).size;
+
   return deduped.map(({ at, time, toBlock }) => {
     // fromBlock is reconstructed because server_world_state_synchronizer.ts:459
     // doesn't log it structurally. Correlate with the latest block we've seen
@@ -1536,6 +1558,7 @@ async function scrapeChainPrunedEvents(
       source: "log" as const,
       fromBlock: before || undefined,
       toBlock,
+      podCount: podCountFor(toBlock, time),
     };
   });
 }
@@ -2084,22 +2107,24 @@ async function buildSummary(a: SummaryArgs): Promise<Record<string, unknown>> {
     ),
   ]);
 
-  const reorgs = a.events.filter((e) => e.type === "chainPruned");
-  const deepest = reorgs.reduce((max, e) => {
-    const d = (e.fromBlock ?? 0) - (e.toBlock ?? 0);
-    return d > max ? d : max;
-  }, 0);
-
-  // Pending-chain reorgs from the archiver prune_count metric, counted PER POD so
-  // a single straggler's local re-sync (one pod) is distinguishable from a
-  // network-wide reorg (many pods) — the deduped chainPruned log count conflates
-  // them. Pending-chain prune types are all except 'unproven' (the proven/epoch
-  // prune). Requires the prune_type-attributed metric (new image); on older
-  // images this reads 0 — cross-check against the chainPruned events.
-  const pendingPruneSelector = `aztec_archiver_prune_type=~"uncheckpointed|l1_conflict|orphan"`;
-  const reorgPodCount = await safeInstant(
-    `count(sum by (k8s_pod_name)(increase(aztec_archiver_prune_count{k8s_namespace_name="${NAMESPACE}",${pendingPruneSelector}}[${windowSpec}])) > 0)`,
+  // Separate genuine chain reorgs from single-node local divergences using the
+  // per-event podCount (distinct pods that pruned to the same block). podCount
+  // >= 2 means multiple nodes rewound to the same block — the canonical chain
+  // reorged; podCount <= 1 is one straggler whose local view diverged and
+  // re-synced, which does NOT destabilise the chain or the headline. Events from
+  // older scrapes without podCount default to node-local.
+  const chainPrunes = a.events.filter(
+    (e): e is ChainPrunedEvent => e.type === "chainPruned",
   );
+  const chainReorgs = chainPrunes.filter((e) => (e.podCount ?? 1) >= 2);
+  const nodeLocalPruneCount = chainPrunes.length - chainReorgs.length;
+  const deepest = chainReorgs.reduce(
+    (max, e) => Math.max(max, (e.fromBlock ?? 0) - (e.toBlock ?? 0)),
+    0,
+  );
+
+  // Prune totals by cause from the prune_type-attributed metric (new image; empty
+  // on older images). Complements the log-derived reorg classification above.
   const pruneTypes = [
     "unproven",
     "uncheckpointed",
@@ -2148,7 +2173,8 @@ async function buildSummary(a: SummaryArgs): Promise<Record<string, unknown>> {
     totalSilentSkipDurationMs: hasInclusionBlockRecords
       ? inclusionBlocks.reduce((s, b) => s + b.silentlySkippedDurationMs, 0)
       : null,
-    reorgCount: reorgPodCount ?? 0,
+    reorgCount: chainReorgs.length,
+    nodeLocalPruneCount,
     prunesByType,
     deepestReorgBlocks: deepest,
   };

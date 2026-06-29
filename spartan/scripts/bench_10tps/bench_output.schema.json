@@ -401,12 +401,16 @@
         },
         "reorgCount": {
           "type": ["integer", "null"],
-          "description": "Number of DISTINCT PODS that experienced a pending-chain prune over the window, from the archiver prune_count metric (prune_type in uncheckpointed/l1_conflict/orphan). Counts pods, not events: a single straggler node re-syncing reads as 1, a network-wide reorg as many. Requires the prune_type-attributed metric (new image); reads 0 on older images, so cross-check against the chainPruned events array. Distinct from the raw `Chain pruned` log-event count, which conflates one node's repeated local prunes with a network reorg."
+          "description": "Number of genuine CHAIN reorgs: `Chain pruned` events where 2+ distinct pods pruned to the same block (event.podCount >= 2), i.e. the canonical chain rewound network-wide. A single straggler whose local view diverged and re-synced is NOT counted here — see nodeLocalPruneCount. Log-derived, so accurate regardless of node image."
+        },
+        "nodeLocalPruneCount": {
+          "type": ["integer", "null"],
+          "description": "Number of single-node local prunes (`Chain pruned` events with podCount <= 1): one node's view diverged and re-synced while the canonical chain held. Informational — does not indicate chain instability or make the headline provisional."
         },
         "prunesByType": {
           "type": "object",
           "additionalProperties": false,
-          "description": "Total archiver prunes over the window by cause, summed across pods (so this counts prune events, while reorgCount counts pods). 'unproven' is the proven/epoch prune; the rest are pending-chain reorgs. Each value is null when the metric was unavailable.",
+          "description": "Total archiver prunes over the window by cause, summed across pods. 'unproven' is the proven/epoch prune; the rest are pending-chain prunes. From the prune_type-attributed metric; each value is null when that metric was unavailable (older node images).",
           "properties": {
             "unproven": { "type": ["number", "null"] },
             "uncheckpointed": { "type": ["number", "null"] },
@@ -416,7 +420,7 @@
         },
         "deepestReorgBlocks": {
           "type": ["integer", "null"],
-          "description": "Max (fromBlock - toBlock) across `Chain pruned` log events. 0 if none. Log-derived (no depth metric), so this reflects the deepest local prune observed in logs."
+          "description": "Max (fromBlock - toBlock) across genuine chain-reorg events (podCount >= 2). 0 when there were no chain reorgs (single-node local prune depths are not counted here; see the chainPruned events for those)."
         }
       }
     },
@@ -710,6 +714,10 @@
         "toBlock": {
           "type": "integer",
           "description": "For chainPruned: the post-prune tip."
+        },
+        "podCount": {
+          "type": "integer",
+          "description": "For chainPruned: distinct pods that logged this prune (same toBlock within the dedupe window). 1 = a single node diverged locally and re-synced; >= 2 = the canonical chain rewound across multiple nodes (a genuine chain reorg)."
         },
         "slotNumber": {
           "type": "integer",
