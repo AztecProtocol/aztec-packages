@@ -1,6 +1,6 @@
 import { BBBundlePrivateKernelProver } from '@aztec/bb-prover/client/bundle';
 import { createLogger } from '@aztec/foundation/log';
-import { createStore } from '@aztec/kv-store/browser';
+import { createStore } from '@aztec/kv-store/sqlite-opfs';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { WASMSimulator } from '@aztec/simulator/client';
 import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';

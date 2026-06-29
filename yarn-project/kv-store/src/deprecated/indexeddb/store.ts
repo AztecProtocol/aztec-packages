@@ -42,7 +42,7 @@ export interface AztecIDBSchema extends DBSchema {
 /**
  * A key-value store backed by IndexedDB.
  *
- * @deprecated The IndexedDB backend is being retired. Use `@aztec/kv-store/browser` (SQLite-OPFS) instead.
+ * @deprecated The IndexedDB backend is being retired. Use `@aztec/kv-store/sqlite-opfs` instead.
  */
 export class AztecIndexedDBStore implements AztecAsyncKVStore {
   #rootDB: IDBPDatabase<AztecIDBSchema>;

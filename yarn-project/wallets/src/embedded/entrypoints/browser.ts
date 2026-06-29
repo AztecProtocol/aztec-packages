@@ -1,6 +1,6 @@
 import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { createStore, openTmpStore } from '@aztec/kv-store/browser';
+import { createStore, openTmpStore } from '@aztec/kv-store/sqlite-opfs';
 import { type PXE, type PXECreationOptions, createPXE } from '@aztec/pxe/client/lazy';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/config';
 import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry/lazy';

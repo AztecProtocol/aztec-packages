@@ -8,7 +8,6 @@
     "./lmdb": "./dest/lmdb/index.js",
     "./lmdb-v2": "./dest/lmdb-v2/index.js",
     "./deprecated/indexeddb": "./dest/deprecated/indexeddb/index.js",
-    "./browser": "./dest/browser/index.js",
     "./sqlite-opfs": "./dest/sqlite-opfs/index.js",
     "./stores": "./dest/stores/index.js"
   },

@@ -15,6 +15,5 @@ The backend is selected at import time, you import `createStore` (and friends) f
 
 - `@aztec/kv-store/lmdb-v2`: server / Node. The current default for node components.
 - `@aztec/kv-store/lmdb`: the legacy LMDB backend, backed by [`lmdb-js`](https://github.com/kriszyp/lmdb-js).
-- `@aztec/kv-store/browser`: encryption-at-rest capable, backed by SQLite over the Origin Private File System (OPFS). An alias of `@aztec/kv-store/sqlite-opfs`.
-- `@aztec/kv-store/sqlite-opfs`: browser, the explicit SQLite-OPFS backend that `@aztec/kv-store/browser` points at.
-- `@aztec/kv-store/deprecated/indexeddb`: **deprecated** browser backend, backed by IndexedDB. New browser code must use `@aztec/kv-store/browser`, as this backend is on its way to being fully deprecated.
+- `@aztec/kv-store/sqlite-opfs`: the recommended browser backend, encryption-at-rest capable, backed by SQLite over the Origin Private File System (OPFS).
+- `@aztec/kv-store/deprecated/indexeddb`: **deprecated** browser backend, backed by IndexedDB. New browser code must use `@aztec/kv-store/sqlite-opfs`, as this backend is on its way to being fully deprecated.

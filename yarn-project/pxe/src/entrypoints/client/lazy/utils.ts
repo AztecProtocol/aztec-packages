@@ -1,6 +1,6 @@
 import { BBLazyPrivateKernelProver } from '@aztec/bb-prover/client/lazy';
 import { createLogger } from '@aztec/foundation/log';
-import { createStore } from '@aztec/kv-store/browser';
+import { createStore } from '@aztec/kv-store/sqlite-opfs';
 import { LazyProtocolContractsProvider } from '@aztec/protocol-contracts/providers/lazy';
 import { WASMSimulator } from '@aztec/simulator/client';
 import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry/lazy';

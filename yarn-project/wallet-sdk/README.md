@@ -325,7 +325,7 @@ function useWalletDiscovery(chainInfo: ChainInfo, appId: string) {
 Your wallet and the PXE it embeds persist state through a pluggable key-value store (`@aztec/kv-store`). In the browser there are two backends:
 
 - **IndexedDB** (`@aztec/kv-store/deprecated/indexeddb`): the default in browser environments up to Aztec Alpha v4, now moved to a deprecated subpath. We plan to remove this backend, so new browser code should use the SQLite backend below.
-- **SQLite-OPFS** (`@aztec/kv-store/sqlite-opfs`, also exported as the recommended `@aztec/kv-store/browser` entrypoint): the default KV store backend from Aztec Alpha v5 on. It's backed by the durable Origin Private File System web standard, and it offers a number of advantages over IndexedDB: a sane transaction model (IDB transactions auto-close the moment the event loop yields, which constrains the store layer), support for encryption at rest, and better performance in the access patterns we exercise the most from both wallet and PXE.
+- **SQLite-OPFS** (`@aztec/kv-store/sqlite-opfs`): the default KV store backend from Aztec Alpha v5 on. It's backed by the durable Origin Private File System web standard, and it offers a number of advantages over IndexedDB: a sane transaction model (IDB transactions auto-close the moment the event loop yields, which constrains the store layer), support for encryption at rest, and better performance in the access patterns we exercise the most from both wallet and PXE.
 
 The backend is chosen by *which store you construct and hand to the wallet* there is no runtime flag or environment variable.
 

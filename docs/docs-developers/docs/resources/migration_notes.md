@@ -11,13 +11,13 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ### [PXE] Browser KV-store default is now SQLite-OPFS; the IndexedDB entrypoint moved and will be deprecated
 
-The browser PXE data store and the embedded wallet (`@aztec/wallets`) now persist to SQLite-OPFS instead of IndexedDB by default. The recommended way to obtain the browser backend is the new `@aztec/kv-store/browser`.
+The browser PXE data store and the embedded wallet (`@aztec/wallets`) now persist to SQLite-OPFS instead of IndexedDB by default. The recommended way to obtain the browser backend is `@aztec/kv-store/sqlite-opfs`.
 
 **Migration:**
 
 ```diff
 - import { createStore } from '@aztec/kv-store/indexeddb';
-+ import { createStore } from '@aztec/kv-store/browser';
++ import { createStore } from '@aztec/kv-store/sqlite-opfs';
 ```
 
 If you must stay on IndexedDB for now, import from the deprecated entrypoint instead:
