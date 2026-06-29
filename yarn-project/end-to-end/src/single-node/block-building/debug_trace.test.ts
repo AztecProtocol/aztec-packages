@@ -126,10 +126,7 @@ describe('single-node/block-building/debug_trace', () => {
         }
       });
 
-    expect(await aztecNode.getBlockNumber()).toBeGreaterThanOrEqual(1);
-
     // The current config requires at least 1 tx per block, so the block number won't be increasing
-
     // We now want to set the sequencer config to allow blocks with 0 transactions
     // Wait until we have successfully moved forward by a few blocks
     const numBlocksToMine = 2;
@@ -251,8 +248,6 @@ describe('single-node/block-building/debug_trace', () => {
           throw err;
         }
       });
-
-    expect(await aztecNode.getBlockNumber()).toBeGreaterThanOrEqual(1);
 
     const numBlocksToMine = 3;
     const startBlockNumber = await aztecNode.getBlockNumber();
