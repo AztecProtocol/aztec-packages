@@ -11,7 +11,7 @@ describe('LogRetrievalResponse', () => {
     const uniqueNoteHashes = [new Fr(5n), new Fr(6n)];
     const firstNullifier = new Fr(7n);
 
-    const response = new LogRetrievalResponse(logPayload, txHash, uniqueNoteHashes, firstNullifier);
+    const response = new LogRetrievalResponse(logPayload, txHash, uniqueNoteHashes, firstNullifier, 8, new Fr(9n));
     const serialized = LogRetrievalResponse.toSerializedOption(response);
 
     // Test against snapshot
@@ -101,6 +101,8 @@ describe('LogRetrievalResponse', () => {
         "0x0000000000000000000000000000000000000000000000000000000000000000",
         "0x0000000000000000000000000000000000000000000000000000000000000002",
         "0x0000000000000000000000000000000000000000000000000000000000000007",
+        "0x0000000000000000000000000000000000000000000000000000000000000008",
+        "0x0000000000000000000000000000000000000000000000000000000000000009",
       ]
     `);
 
@@ -203,6 +205,8 @@ describe('LogRetrievalResponse', () => {
         "0x0000000000000000000000000000000000000000000000000000000000000000",
         "0x0000000000000000000000000000000000000000000000000000000000000000",
         "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "0x0000000000000000000000000000000000000000000000000000000000000000",
       ]
     `);
 
@@ -221,7 +225,7 @@ describe('LogRetrievalResponse', () => {
     const uniqueNoteHashes = [new Fr(5n), new Fr(6n)];
     const firstNullifier = new Fr(7n);
 
-    const pendingLog = new LogRetrievalResponse(logPayload, txHash, uniqueNoteHashes, firstNullifier);
+    const pendingLog = new LogRetrievalResponse(logPayload, txHash, uniqueNoteHashes, firstNullifier, 8, new Fr(9n));
 
     expect(pendingLog.toFields().length).toEqual(LogRetrievalResponse.toEmptyFields().length);
   });

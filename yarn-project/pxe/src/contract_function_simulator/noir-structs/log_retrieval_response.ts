@@ -15,6 +15,8 @@ export class LogRetrievalResponse {
     public txHash: TxHash,
     public uniqueNoteHashesInTx: Fr[],
     public firstNullifierInTx: Fr,
+    public blockNumber: number,
+    public blockHash: Fr,
   ) {}
 
   toFields(): Fr[] {
@@ -25,6 +27,8 @@ export class LogRetrievalResponse {
       this.txHash.hash,
       ...serializeBoundedVec(this.uniqueNoteHashesInTx, MAX_NOTE_HASHES_PER_TX),
       this.firstNullifierInTx,
+      new Fr(this.blockNumber),
+      this.blockHash,
     ];
   }
 
@@ -35,7 +39,8 @@ export class LogRetrievalResponse {
       1 /* txHash */ +
       MAX_NOTE_HASHES_PER_TX +
       1 /* uniqueNoteHashesInTx BVec */ +
-      1; /* firstNullifierInTx */
+      1 /* firstNullifierInTx */ +
+      2; /* blockNumber + blockHash */
     return range(serializationLen).map(_ => Fr.zero());
   }
 

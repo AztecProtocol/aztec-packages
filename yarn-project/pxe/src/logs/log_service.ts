@@ -164,6 +164,8 @@ export class LogService {
       log.txHash,
       noteHashes,
       nullifiers[0],
+      log.blockNumber,
+      log.blockHash.toFr(),
     );
   }
 
