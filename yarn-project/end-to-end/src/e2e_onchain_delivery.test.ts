@@ -221,7 +221,7 @@ describe('onchain delivery', () => {
   });
 
   // GREEN: unconstrained delivery whose source the wallet pins to a non-interactive handshake. The first send
-  // bootstraps the handshake; PXE B discovers it via the registry and reads the (nullifier-free) unconstrained logs.
+  // bootstraps the handshake; PXE B discovers it via the registry and reads the unconstrained logs.
   buildMessageDeliveryTest({
     description: 'unconstrained x handshake',
     mode: 'unconstrained',
