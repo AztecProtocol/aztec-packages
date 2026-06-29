@@ -27,11 +27,11 @@ import type { Logger } from '@aztec/aztec.js/log';
 import { createLogger } from '@aztec/aztec.js/log';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
-import type { TokenContract } from '@aztec/noir-contracts.js/Token';
+import type { TestTokenContract } from '@aztec/noir-test-contracts.js/TestToken';
 
 import { jest } from '@jest/globals';
 
-import { deployToken, mintTokensToPrivate } from '../fixtures/token_utils.js';
+import { deployTestToken, mintTokensToPrivate } from '../fixtures/token_utils.js';
 import { createWalletClient } from './wallet_rpc_client.js';
 
 const TIMEOUT = 300_000;
@@ -53,9 +53,9 @@ describe('forward-compatibility: AMM', () => {
   let otherLiquidityProviderAddress: AztecAddress;
   let swapperAddress: AztecAddress;
 
-  let token0: TokenContract;
-  let token1: TokenContract;
-  let liquidityToken: TokenContract;
+  let token0: TestTokenContract;
+  let token1: TestTokenContract;
+  let liquidityToken: TestTokenContract;
 
   let amm: AMMContract;
 
@@ -73,9 +73,9 @@ describe('forward-compatibility: AMM', () => {
     expect(accounts.length).toBeGreaterThanOrEqual(4);
     [adminAddress, liquidityProviderAddress, otherLiquidityProviderAddress, swapperAddress] = accounts;
 
-    ({ contract: token0 } = await deployToken(wallet, adminAddress, 0n, logger));
-    ({ contract: token1 } = await deployToken(wallet, adminAddress, 0n, logger));
-    ({ contract: liquidityToken } = await deployToken(wallet, adminAddress, 0n, logger));
+    ({ contract: token0 } = await deployTestToken(wallet, adminAddress, 0n, logger));
+    ({ contract: token1 } = await deployTestToken(wallet, adminAddress, 0n, logger));
+    ({ contract: liquidityToken } = await deployTestToken(wallet, adminAddress, 0n, logger));
 
     ({ contract: amm } = await AMMContract.deploy(wallet, token0.address, token1.address, liquidityToken.address).send({
       from: adminAddress,
