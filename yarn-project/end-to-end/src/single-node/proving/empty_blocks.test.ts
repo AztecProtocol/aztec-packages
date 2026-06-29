@@ -21,7 +21,7 @@ describe('single-node/proving/empty_blocks', () => {
 
   beforeEach(async () => {
     // Run at the 4s/12s slot-cadence floor: the body waits in real wall-clock for the production sequencer
-    // to march through epoch 0 (one empty checkpoint per L2 slot) before the prover proves it, and that
+    // to march through an epoch (one empty checkpoint per L2 slot) before the prover proves it, and that
     // timeline scales with the slot duration. 12s is the floor for the 3s-block timing model.
     test = await setupWithProver({ ethereumSlotDuration: 4, aztecSlotDurationInL1Slots: 3 });
     ({ context, rollup, logger, monitor, L1_BLOCK_TIME_IN_S } = test);
@@ -32,31 +32,34 @@ describe('single-node/proving/empty_blocks', () => {
     await test.teardown();
   });
 
-  // Raises minTxsPerBlock to 1 so the sequencer cannot build blocks, advances to epoch 1,
-  // then waits for the prover to submit a proof for the empty checkpoint. Asserts that the
-  // monitor's checkpointNumber matches the proven target, confirming the proof landed on L1.
+  // Raises minTxsPerBlock to 1 so the sequencer cannot build blocks, anchors on a fresh epoch and waits
+  // for it to elapse, then waits for the prover to submit a proof for the empty checkpoint. Asserts that
+  // the monitor's checkpointNumber matches the proven target, confirming the proof landed on L1.
   it('submits proof even if there are no txs to build a block', async () => {
     context.sequencer?.updateConfig({ minTxsPerBlock: 1 });
-    // Wait in real wall-clock for the sequencer to march through epoch 0 building its empty checkpoint. A
-    // clock warp to the boundary is NOT used here: it would skip the sequencer's build window and leave
-    // epoch 0 with no checkpoint to prove (the guard below would then fire).
-    await test.waitUntilEpochStarts(1);
+    // Anchor on a freshly-started epoch rather than epoch 0: under CI load the node's sequencer can come
+    // up after the chain has already advanced past epoch 0's slots, leaving epoch 0 with no checkpoint to
+    // prove. Wait for the next epoch to start (sequencer running) then for it to fully elapse, so its
+    // empty checkpoints are closed on L1 and eligible for proving. A clock warp is NOT used: it would skip
+    // the sequencer's build window and leave the epoch with no checkpoint to prove (the guard below fires).
+    const epoch = await test.waitUntilNextEpochStarts();
+    await test.waitUntilEpochStarts(epoch + 1);
 
     // Sleep to make sure any pending checkpoints are published. We deliberately keep the fixed
     // sleep rather than waiting for the sequencer to reach IDLE: the sequencer is typically already
     // idle here, so an IDLE wait would return immediately and not give the in-flight L1 publish time
     // to land. The window we need is the publish settling, not the sequencer becoming idle.
     await sleep(L1_BLOCK_TIME_IN_S * 1000);
-    const checkpointNumberAtEndOfEpoch0 = await rollup.getCheckpointNumber();
-    logger.info(`Starting epoch 1 after checkpoint ${checkpointNumberAtEndOfEpoch0}`);
+    const checkpointNumber = await rollup.getCheckpointNumber();
+    logger.info(`Anchored on epoch ${epoch}, ending at checkpoint ${checkpointNumber}`);
 
-    // Guard against a vacuous pass: an empty checkpoint must have actually been built in epoch 0 for there
-    // to be something to prove. Without this, if no checkpoint was built the proven wait would resolve
+    // Guard against a vacuous pass: an empty checkpoint must have actually been built for there to be
+    // something to prove. Without this, if no checkpoint was built the proven wait would resolve
     // immediately at checkpoint 0 and the test would pass without testing anything.
-    expect(checkpointNumberAtEndOfEpoch0).toBeGreaterThan(0);
+    expect(checkpointNumber).toBeGreaterThan(0);
 
-    await test.waitUntilProvenCheckpointNumber(checkpointNumberAtEndOfEpoch0, 240);
-    expect(monitor.checkpointNumber).toEqual(checkpointNumberAtEndOfEpoch0);
+    await test.waitUntilProvenCheckpointNumber(checkpointNumber, 240);
+    expect(monitor.checkpointNumber).toEqual(checkpointNumber);
     logger.info(`Test succeeded`);
   });
 });
