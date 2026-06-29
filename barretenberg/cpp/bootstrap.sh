@@ -130,6 +130,11 @@ function download_chonk_inputs {
   scripts/chonk_inputs.sh download
 }
 
+function pinned_chonk_input_flow_names {
+  ensure_pinned_chonk_inputs "$(pinned_chonk_inputs_dir)" >&2
+  list_pinned_chonk_input_flows "$(pinned_chonk_inputs_dir)"
+}
+
 # Builds object files early for cross compilation (parallel with avm-transpiler).
 function build_cross_objects {
   set -eu
@@ -273,7 +278,12 @@ function test_cmds_native {
       done || (echo "Failed to list tests in $bin" && exit 1)
   done
 
-  echo "$hash:CPUS=8:MEM=32g:TIMEOUT=20m barretenberg/cpp/scripts/run_test.sh bbapi_tests ChonkPinnedIvcInputsTest.AllPinnedFlows"
+  local chonk_flow
+  while IFS= read -r chonk_flow; do
+    [[ -n "$chonk_flow" ]] || continue
+    printf '%s CHONK_PINNED_IVC_FLOW=%q barretenberg/cpp/scripts/run_test.sh bbapi_tests ChonkPinnedIvcInputsTest.AllPinnedFlows\n' \
+      "$hash:CPUS=8:MEM=32g:TIMEOUT=20m" "$chonk_flow"
+  done < <(pinned_chonk_input_flow_names)
   echo "$hash barretenberg/cpp/scripts/chonk_inputs.sh check"
 }
 
@@ -326,8 +336,7 @@ function test {
 }
 
 function pinned_chonk_bench_flow_names {
-  ensure_pinned_chonk_inputs "$(pinned_chonk_inputs_dir)" >&2
-  list_pinned_chonk_input_flows "$(pinned_chonk_inputs_dir)"
+  pinned_chonk_input_flow_names
 }
 
 function chonk_ivc_bench_cmds {
