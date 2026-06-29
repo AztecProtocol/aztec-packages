@@ -38,7 +38,11 @@ where
     for s in 0..N {
         let source = sources[s];
         source.for_each_i(|source_item, i| {
-            assert_eq(dest.array[running_offset + i], source_item, "source item does not append to dest");
+            assert_eq(
+                dest.array[running_offset + i],
+                source_item,
+                "source item does not append to dest",
+            );
         });
         running_offset += source.length;
     }
