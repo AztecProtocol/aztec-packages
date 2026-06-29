@@ -21,6 +21,7 @@ use types::{
         MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, PRIVATE_KERNEL_INIT_VK_INDEX,
         PRIVATE_KERNEL_INNER_VK_INDEX,
     },
+    hash::create_protocol_nullifier,
 };
 
 // Tests for the batched private kernels (`private_kernel_init_n` / `private_kernel_inner_n`, which
@@ -1164,12 +1165,27 @@ fn assert_batch_n_min_revertible_midbatch_matches_sequential<let N: u32>() {
 }
 
 fn assert_batch_n_protocol_nullifier_matches_sequential<let N: u32>() {
-    let builder = BatchNTestBuilder::<N>::new();
-    // The kernel always injects the protocol nullifier. Both the batched and the sequential paths
-    // must inject the same prepended nullifier.
-    let batched = builder.execute_linear_chain();
-    let sequential = builder.execute_sequential_with_shape(false, true);
+    let mut builder = BatchNTestBuilder::<N>::new();
+    // Give each call one app nullifier so we can check the protocol nullifier is prepended ahead of
+    // them (and not, say, overwriting or trailing the app nullifiers).
+    for i in 0..N {
+        builder.append_nullifiers(i, 1);
+    }
+    let app_nullifiers = builder.private_calls.map(|call| call.nullifiers.storage()[0]);
 
+    let batched = builder.execute_linear_chain();
+
+    // The init kernel always injects the protocol nullifier at index 0, with value
+    // `create_protocol_nullifier(tx_request)`; the app nullifiers follow it in call order.
+    let scoped_protocol_nullifier = create_protocol_nullifier(builder.tx_request);
+    assert_eq(batched.end.nullifiers.length, N + 1, "incorrect nullifier length");
+    assert_eq(batched.end.nullifiers.array[0], scoped_protocol_nullifier);
+    for i in 0..N {
+        assert_eq(batched.end.nullifiers.array[i + 1], app_nullifiers[i]);
+    }
+
+    // The batched and sequential paths must also produce identical output overall.
+    let sequential = builder.execute_sequential_with_shape(false, true);
     assert_private_kernel_public_inputs_eq(batched, sequential);
 }
 
