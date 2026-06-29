@@ -59,17 +59,9 @@ describe('single-node/l1-reorgs/messages', () => {
       { l1ContractAddresses: context.deployL1ContractsValues.l1ContractAddresses, l1Client },
     );
 
-  // Both reorg scenarios run sequentially against a single fixture: each `it` in this *.parallel file is a
-  // separate CI job re-paying the full ~21s setup (container bootstrap + L1 deploy + node + prover), and
-  // the dateProvider here is pinned to real interval mining (so there is no dead window to warp away —
-  // every checkpoint is built in real wall-clock). Scenario 2 reuses the live multi-block chain scenario 1
-  // already built rather than ramping up its own. The two scenarios are self-anchoring: scenario 2 keys its
-  // reorg off the current L1 tip and uses fresh random messages, so it composes cleanly on top of scenario
-  // 1's post-reorg chain.
-  it('handles L1 reorgs that remove a message and insert a previously-cancelled one', async () => {
-    // --- Scenario 1: sends 3 L1→L2 messages, waits for the last to be seen, reorgs it out, sends a
-    // replacement message, and verifies the replacement becomes ready while the removed message is gone.
-
+  // Sends 3 L1→L2 messages, waits for the last to be seen, reorgs it out, sends a replacement
+  // message, and verifies the replacement becomes ready while the removed message is gone.
+  it('updates L1 to L2 messages changed due to an L1 reorg', async () => {
     // Send L2 txs to trigger multi-block checkpoints and wait for them to land in a checkpoint
     await sendTransactions(TX_COUNT, 100);
     await test.waitUntilCheckpointNumber(CheckpointNumber(2), L2_SLOT_DURATION_IN_S * 6);
@@ -101,13 +93,15 @@ describe('single-node/l1-reorgs/messages', () => {
 
     // Verify multi-block checkpoints were built
     await test.assertMultipleBlocksPerSlot(2);
+  });
 
-    // --- Scenario 2: on top of the live chain, sends a first message, cancels a second message's L1 tx
-    // via the delayer, waits for the archiver to advance past the cancelled block, then reorgs to include
-    // the cancelled message. Sends a third message on top and verifies all three are eventually seen by the
-    // node. No fresh `waitUntilCheckpointNumber` is needed: the chain is already mining at the L1 cadence
-    // and scenario 1 already built the multi-block checkpoints the assertion below checks.
-    logger.warn(`Scenario 1 complete; starting missed-message reorg scenario on the live chain`);
+  // Sends a first message, cancels a second message's L1 tx via delayer, waits for the archiver
+  // to advance past the cancelled block, then reorgs to include the cancelled message. Sends a
+  // third message on top and verifies all three are eventually seen by the node.
+  it('handles missed message inserted by an L1 reorg', async () => {
+    // Send L2 txs to trigger multi-block checkpoints and wait for them to land in a checkpoint
+    await sendTransactions(TX_COUNT, 200);
+    await test.waitUntilCheckpointNumber(CheckpointNumber(2), L2_SLOT_DURATION_IN_S * 6);
 
     // Send a message and wait for node to sync it
     logger.warn(`Sending first cross chain message`);
@@ -122,17 +116,12 @@ describe('single-node/l1-reorgs/messages', () => {
     await retryUntil(() => l1ClientDelayer.getCancelledTxs().length, 'next msg tx', L1_BLOCK_TIME_IN_S, 0.1);
 
     // Wait until the archiver moves the syncpoint forward
-    const reorgL1BlockNumber = await monitor.run(true).then(m => m.l1BlockNumber);
-    await retryUntil(
-      () => archiver.getL1BlockNumber()! > reorgL1BlockNumber,
-      'archiver sync',
-      L1_BLOCK_TIME_IN_S * 2,
-      0.1,
-    );
+    const l1BlockNumber = await monitor.run(true).then(m => m.l1BlockNumber);
+    await retryUntil(() => archiver.getL1BlockNumber()! > l1BlockNumber, 'archiver sync', L1_BLOCK_TIME_IN_S * 2, 0.1);
 
     // Now trigger the reorg, where we insert the second message
     logger.warn(`Triggering reorg to insert second message`);
-    const reorgDepth = (await monitor.run(true).then(m => m.l1BlockNumber)) - reorgL1BlockNumber;
+    const reorgDepth = (await monitor.run(true).then(m => m.l1BlockNumber)) - l1BlockNumber;
     await context.cheatCodes.eth.reorgWithReplacement(reorgDepth, [[l1ClientDelayer.getCancelledTxs()[0]]]);
     const secondMsg = await secondMsgPromise;
     await waitForL1ToL2MessageSeen(node, secondMsg.msgHash, { timeoutSeconds: L1_BLOCK_TIME_IN_S * 3 });

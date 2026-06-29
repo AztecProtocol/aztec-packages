@@ -88,21 +88,12 @@ describe('single-node/cross-chain/l2_to_l1', () => {
     await t.teardown();
   });
 
-  // The L2→L1 message-tree scenarios below run back-to-back as phases of one `it` to share the single
-  // ~138s cross-chain setup (this is a *.parallel.test.ts file, so each `it` runs as a separate CI job that
-  // re-pays that setup). Each phase is self-anchoring: it sets its own sequencer config, sends txs carrying
-  // freshly randomized message content (`Fr.random()`), advances its own epoch to proven
-  // (`advanceToEpochProven` re-derives the tx's epoch per call), and consumes its own message leaves from
-  // the Outbox — so phases don't interfere on the shared chain. Each phase logs its scope so a failure stays
-  // diagnosable. The reorg scenario stays a separate `it`: it does a deep L1 reorg and is kept isolated to
-  // avoid leaving lingering L1 state for the other phases.
-
   // Note: We register one portal address when deploying contract but that address is no-longer the only address
   // allowed to receive messages from the given contract. In the following test we'll test that it's really the case.
   // Sends one tx with two L2→L1 messages (one from private, one from public) to a non-registered portal.
   // Proves the epoch, then consumes both messages from L1 via the Outbox and asserts the MessageConsumed
   // event is emitted and the message cannot be consumed a second time.
-  async function oneTxTwoMessagesToNonRegisteredPortal() {
+  it('1 tx with 2 messages, one from public, one from private, to a non-registered portal address', async () => {
     const recipient = crossChainTestHarness.ethAccount;
     const contents = [Fr.random(), Fr.random()];
     const messages = contents.map(content => makeL2ToL1Message(recipient, content));
@@ -130,7 +121,7 @@ describe('single-node/cross-chain/l2_to_l1', () => {
     await expectConsumeMessageToSucceed(messages[0], txReceipt.txHash);
     // Consume messages[1].
     await expectConsumeMessageToSucceed(messages[1], txReceipt.txHash);
-  }
+  });
 
   // A message-bearing tx that gets reorged out of its checkpoint and remined into a fresh
   // one must still prove correctly — the message has to follow the tx into its new home and
@@ -203,7 +194,7 @@ describe('single-node/cross-chain/l2_to_l1', () => {
   // In this test, we test that the correct tree class is used, and the final out hash equals the only message leaf.
   // Two txs packed into the same block: one emitting an L2→L1 message, one with no messages. Verifies
   // the message tree is built correctly (zero txOutHash skipped) and the single message is consumable.
-  async function twoTxsSameBlockOneNoMessageOneMessage() {
+  it('2 txs in the same block, one with no messages, one with a message', async () => {
     const content = Fr.random();
     const recipient = msgSender;
     const message = makeL2ToL1Message(recipient, content);
@@ -228,11 +219,11 @@ describe('single-node/cross-chain/l2_to_l1', () => {
 
     // Consume the message.
     await expectConsumeMessageToSucceed(message, withMessageReceipt.txHash);
-  }
+  });
 
   // Two txs with 3 and 4 messages respectively. Verifies the mixed-height subtree structure is
   // built correctly and representative messages from each tx are consumable after epoch proving.
-  async function twoTxsThreeAndFourMessages() {
+  it('2 txs (balanced), one with 3 messages (unbalanced), one with 4 messages (balanced)', async () => {
     // Force txs to be in the same block.
     await aztecNodeAdmin!.setConfig({ minTxsPerBlock: 2 });
     await waitForSequencerIdle(t.context.sequencer!.getSequencer());
@@ -283,11 +274,11 @@ describe('single-node/cross-chain/l2_to_l1', () => {
       const msg = tx1.messages[0];
       await expectConsumeMessageToSucceed(msg, l2TxReceipt1.txHash);
     }
-  }
+  });
 
   // Three txs with 3, 1, and 2 messages. The 1-message tx's subtree root is the leaf itself; the
   // 3-message tx is unbalanced. Verifies representative messages from each tx are consumable.
-  async function threeTxsThreeOneAndTwoMessages() {
+  it('3 txs (unbalanced), one with 3 messages (unbalanced), one with 1 message (the subtree root), one with 2 messages (balanced)', async () => {
     // Force txs to be in the same block.
     await aztecNodeAdmin!.setConfig({ minTxsPerBlock: 3 });
     await waitForSequencerIdle(t.context.sequencer!.getSequencer());
@@ -339,13 +330,13 @@ describe('single-node/cross-chain/l2_to_l1', () => {
       const msg = tx2.messages[1];
       await expectConsumeMessageToSucceed(msg, l2TxReceipt2.txHash);
     }
-  }
+  });
 
   // Two txs, each with one message, packed into separate blocks of the same checkpoint. Exercises the
   // checkpoint-level L2→L1 tree (block out hashes within a checkpoint), which the single-block
   // cases above never reach (see #17027). Membership witnesses span the checkpoint's block subtree;
   // verifies both messages are consumable after epoch proving.
-  async function twoTxsEachWithMessageInDifferentBlocksOfSameCheckpoint() {
+  it('2 txs each with a message, in different blocks of the same checkpoint', async () => {
     const recipient = msgSender;
     const contents = [Fr.random(), Fr.random()];
     const messages = contents.map(content => makeL2ToL1Message(recipient, content));
@@ -398,27 +389,7 @@ describe('single-node/cross-chain/l2_to_l1', () => {
     // a single block.
     await expectConsumeMessageToSucceed(messages[0], receipt0.txHash);
     await expectConsumeMessageToSucceed(messages[1], receipt1.txHash);
-  }
-
-  // Runs the five message-tree scenarios above back-to-back (see the block comment above the first phase).
-  // The explicit timeout covers all five proven-epoch advances within one CI job. The deep-L1-reorg
-  // scenario is intentionally NOT included here (kept as its own `it`).
-  it('builds and consumes L2-to-L1 message trees across block and checkpoint layouts', async () => {
-    t.logger.info('Phase: 1 tx with 2 messages (private + public) to a non-registered portal');
-    await oneTxTwoMessagesToNonRegisteredPortal();
-
-    t.logger.info('Phase: 2 txs in the same block, one with no messages, one with a message');
-    await twoTxsSameBlockOneNoMessageOneMessage();
-
-    t.logger.info('Phase: 2 txs, one with 3 messages (unbalanced), one with 4 messages (balanced)');
-    await twoTxsThreeAndFourMessages();
-
-    t.logger.info('Phase: 3 txs with 3, 1, and 2 messages');
-    await threeTxsThreeOneAndTwoMessages();
-
-    t.logger.info('Phase: 2 txs each with a message, in different blocks of the same checkpoint');
-    await twoTxsEachWithMessageInDifferentBlocksOfSameCheckpoint();
-  }, 900_000);
+  });
 
   function makeL2ToL1Message(recipient: EthAddress, content: Fr = Fr.ZERO): ViemL2ToL1Msg {
     return {
