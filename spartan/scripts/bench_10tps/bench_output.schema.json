@@ -307,14 +307,18 @@
       "properties": {
         "headlineKpi": {
           "type": ["number", "null"],
-          "description": "inclusionTpsMean / targetTps. The single number on the dashboard top strip."
+          "description": "inclusionTpsMean / targetTps. The single number on the dashboard top strip. ~1.0 on a healthy run; below 1 only when the network cannot keep up with offered load (warmup/drain no longer dilute it)."
         },
         "targetTps": {
           "type": "number"
         },
         "inclusionTpsMean": {
           "type": ["number", "null"],
-          "description": "Inclusion throughput over the observed inclusion window. Uses exact block-log throughput when block records are available, otherwise falls back to the Prometheus inclusionTps mean."
+          "description": "Steady-state inclusion throughput from the block log: txs mined between the first block that included txs (warmup ramp trimmed) and load stop (drain tail trimmed), divided by that span. Falls back to inclusionTpsWindowMean when block logs are unavailable."
+        },
+        "inclusionTpsWindowMean": {
+          "type": ["number", "null"],
+          "description": "Total txs mined divided by the whole observed window (start to drain end). Diluted by the warmup ramp and post-load drain tail; retained for transparency alongside the steady-state inclusionTpsMean."
         },
         "inclusionTpsPeak": {
           "type": ["number", "null"],

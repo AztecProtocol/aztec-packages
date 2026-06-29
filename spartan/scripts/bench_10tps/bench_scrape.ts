@@ -1869,6 +1869,9 @@ type SummaryArgs = {
   targetTps: number;
   startedAtEpoch: number;
   inclusionEndedAtEpoch: number;
+  // Load-stop time (when the generator stopped sending), distinct from
+  // inclusionEndedAtEpoch (the drain end). Bounds the steady-state window.
+  loadEndedAtEpoch: number;
   windowSec: number;
   histogramWindowSec: number;
   endedAtEpoch: number;
@@ -1944,10 +1947,42 @@ async function buildSummary(a: SummaryArgs): Promise<Record<string, unknown>> {
     ? inclusionBlocks.reduce((s, b) => s + b.successfulCount, 0)
     : null;
   const promInclusionTpsMean = meanNonNull(inclusionPoints);
-  const inclusionTpsMean =
+  // Whole-observed-window mean: total mined / observed window. Diluted by the
+  // warmup ramp and the post-load drain tail; kept for transparency.
+  const inclusionTpsWindowMean =
     totalTxsMined !== null && a.windowSec > 0
       ? totalTxsMined / a.windowSec
       : promInclusionTpsMean;
+  // Steady-state rate from the block log: start at the first block that actually
+  // included txs (trims the warmup ramp) and end at load stop, not the drain end
+  // (trims the cooldown tail), so the headline reflects sustained-load throughput
+  // and only drops below target when the network genuinely can't keep up. Falls
+  // back to the window mean when block logs are unavailable.
+  const minedBlocks = a.blocks
+    .map((b) => ({
+      epoch: Math.floor(Date.parse(b.minedAt) / 1000),
+      n: b.successfulCount,
+    }))
+    .filter((b) => Number.isFinite(b.epoch));
+  const firstInclusionEpoch = minedBlocks
+    .filter(
+      (b) =>
+        b.n > 0 && b.epoch >= a.startedAtEpoch && b.epoch <= a.loadEndedAtEpoch,
+    )
+    .reduce((min, b) => Math.min(min, b.epoch), Number.POSITIVE_INFINITY);
+  const steadySec = Number.isFinite(firstInclusionEpoch)
+    ? a.loadEndedAtEpoch - firstInclusionEpoch
+    : 0;
+  const steadyTxs = Number.isFinite(firstInclusionEpoch)
+    ? minedBlocks
+        .filter(
+          (b) =>
+            b.epoch >= firstInclusionEpoch && b.epoch <= a.loadEndedAtEpoch,
+        )
+        .reduce((s, b) => s + b.n, 0)
+    : 0;
+  const inclusionTpsMean =
+    steadySec > 0 ? steadyTxs / steadySec : inclusionTpsWindowMean;
   const inclusionTpsPeak = maxNonNull(inclusionPoints);
 
   if (!hasInclusionBlockRecords && promInclusionTpsMean !== null) {
@@ -2087,6 +2122,7 @@ async function buildSummary(a: SummaryArgs): Promise<Record<string, unknown>> {
       inclusionTpsMean === null ? null : inclusionTpsMean / a.targetTps,
     targetTps: a.targetTps,
     inclusionTpsMean,
+    inclusionTpsWindowMean,
     inclusionTpsPeak,
     inclusionLatencyP50Ms: inclLatP50,
     inclusionLatencyP95Ms: inclLatP95,
@@ -2465,6 +2501,7 @@ async function main(): Promise<void> {
       targetTps: args.targetTps,
       startedAtEpoch,
       inclusionEndedAtEpoch: drain.inclusionEndedAtEpoch,
+      loadEndedAtEpoch: endedAtEpoch,
       windowSec: observedWindowSec,
       histogramWindowSec: observedWindowSec,
       endedAtEpoch: drain.inclusionEndedAtEpoch,
