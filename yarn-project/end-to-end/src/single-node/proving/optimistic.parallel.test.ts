@@ -96,26 +96,31 @@ describe('single-node/proving/optimistic', () => {
    * The check has to be more than "a session exists for the epoch": full sessions only
    * open once the epoch is complete on L1, and even a non-optimistic prover would start
    * the moment the epoch's last checkpoint is pushed (a few L1 slots before the epoch's
-   * final L2 slot). So instead we watch the long-lived `CheckpointStore`: at each tick we
-   * record, per epoch, the earliest wall-clock slot at which *some* `CheckpointProver`
-   * for that epoch has been registered. Sub-trees are spawned at registration, so this
-   * slot is strictly before the epoch's last slot when optimistic proving is active.
+   * final L2 slot). So instead we watch the long-lived `CheckpointStore` while it is live
+   * (provers are reaped once the epoch's proof-submission window closes, so we cannot read
+   * this back after the fact) and record, per epoch, the *lowest checkpoint header slot* of
+   * any `CheckpointProver` registered for that epoch. A sub-tree is spawned at registration,
+   * so a registered prover whose checkpoint sits at a slot strictly before the epoch's last
+   * slot means proving began for an in-epoch (non-final) checkpoint — the optimistic path.
+   *
+   * We key off the prover's own checkpoint header slot rather than the wall-clock slot at
+   * observation time: the latter races the 100ms sampler tick (a checkpoint with header slot
+   * N can first be observed in wall-clock slot N+1), whereas the header slot is the
+   * deterministic property the assertion actually cares about.
    */
   const startMidEpochProvingSampler = (proverNode: TestProverNode) => {
-    /** epoch -> earliest wall-clock slot at which a CheckpointProver for that epoch was registered. */
-    const provingStartedAtSlot = new Map<EpochNumber, SlotNumber>();
+    /** epoch -> lowest checkpoint header slot of any CheckpointProver observed for that epoch. */
+    const lowestProvenSlotByEpoch = new Map<EpochNumber, SlotNumber>();
     let stopped = false;
     // REFACTOR: hand-rolled setTimeout sampler loop with a `stopped` flag — a polling/observe helper
     // (e.g. a sampler that records earliest-observed values per key until disposed) should replace it.
     const loop = (async () => {
       while (!stopped) {
-        const { epoch, slot } = test.epochCache.getEpochAndSlotNow();
-        const hasProverThisEpoch = proverNode
-          .getCheckpointStore()
-          .listAll()
-          .some(p => p.epochNumber === epoch);
-        if (hasProverThisEpoch && !provingStartedAtSlot.has(epoch)) {
-          provingStartedAtSlot.set(epoch, slot);
+        for (const prover of proverNode.getCheckpointStore().listAll()) {
+          const current = lowestProvenSlotByEpoch.get(prover.epochNumber);
+          if (current === undefined || prover.slotNumber < current) {
+            lowestProvenSlotByEpoch.set(prover.epochNumber, prover.slotNumber);
+          }
         }
         await new Promise(resolve => setTimeout(resolve, 100));
       }
@@ -123,16 +128,16 @@ describe('single-node/proving/optimistic', () => {
     return async () => {
       stopped = true;
       await loop;
-      return provingStartedAtSlot;
+      return lowestProvenSlotByEpoch;
     };
   };
 
-  /** Asserts a CheckpointProver for `epoch` was registered before the epoch's last L2 slot. */
-  const expectOptimisticProving = (provingStartedAtSlot: Map<EpochNumber, SlotNumber>, epoch: EpochNumber) => {
-    const observedSlot = provingStartedAtSlot.get(epoch);
+  /** Asserts a CheckpointProver was registered for `epoch` for a checkpoint before the epoch's last L2 slot. */
+  const expectOptimisticProving = (lowestProvenSlotByEpoch: Map<EpochNumber, SlotNumber>, epoch: EpochNumber) => {
+    const lowestProvenSlot = lowestProvenSlotByEpoch.get(epoch);
     const [, lastSlot] = getSlotRangeForEpoch(epoch, test.constants);
-    expect(observedSlot).toBeDefined();
-    expect(observedSlot!).toBeLessThan(lastSlot);
+    expect(lowestProvenSlot).toBeDefined();
+    expect(lowestProvenSlot!).toBeLessThan(lastSlot);
   };
 
   afterEach(async () => {
@@ -149,6 +154,15 @@ describe('single-node/proving/optimistic', () => {
 
     it('proves an epoch via checkpoint-driven flow', async () => {
       const proverNode = test.proverNodes[0].getProverNode() as TestProverNode;
+
+      // Anchor on a freshly-started epoch so the sequencer is already warmed up when the epoch
+      // under test begins. Epoch 0 starts the instant genesis is set, but cold setup (L1 deploy
+      // mining warps the simulated clock forward several slots) can leave the sequencer dormant
+      // until slot 4-5 of epoch 0, so its first — and only — checkpoint lands at the epoch's last
+      // slot and there is nothing to prove mid-epoch. Anchoring guarantees a full epoch with
+      // checkpoints produced from its start, which is the premise the optimistic check needs.
+      await test.waitUntilNextEpochStarts();
+
       const stopSampler = startMidEpochProvingSampler(proverNode);
 
       // Land a real tx in the epoch so we prove actual tx effects, not just empty blocks.
@@ -175,15 +189,21 @@ describe('single-node/proving/optimistic', () => {
       // The tx is in a proven block.
       expect((await node.getTxReceipt(txReceipt.txHash)).executionResult).toEqual(TxExecutionResult.SUCCESS);
 
-      // A CheckpointProver for the epoch was registered before the epoch's last slot — i.e.
-      // the prover-node started proving optimistically rather than waiting for the epoch to end.
-      const provingStartedAtSlot = await stopSampler();
-      logger.info(`Optimistic proving start slots by epoch: ${JSON.stringify([...provingStartedAtSlot])}`);
-      expectOptimisticProving(provingStartedAtSlot, txEpoch);
+      // A CheckpointProver for the epoch was registered for a checkpoint before the epoch's last
+      // slot — i.e. the prover-node started proving optimistically rather than waiting for the epoch
+      // to end.
+      const lowestProvenSlotByEpoch = await stopSampler();
+      logger.info(`Lowest proven checkpoint slot by epoch: ${JSON.stringify([...lowestProvenSlotByEpoch])}`);
+      expectOptimisticProving(lowestProvenSlotByEpoch, txEpoch);
     });
 
     it('proves multiple epochs via checkpoint-driven flow', async () => {
       const proverNode = test.proverNodes[0].getProverNode() as TestProverNode;
+
+      // Anchor on a freshly-started epoch before sampling — see the single-epoch test above for
+      // why epoch 0 of a cold-started chain can lack any in-epoch checkpoint before its last slot.
+      await test.waitUntilNextEpochStarts();
+
       const stopSampler = startMidEpochProvingSampler(proverNode);
       const contract = await test.registerTestContract(context.wallet);
 
@@ -212,12 +232,12 @@ describe('single-node/proving/optimistic', () => {
         expect((await node.getTxReceipt(txReceipt.txHash)).executionResult).toEqual(TxExecutionResult.SUCCESS);
       }
 
-      // Every epoch the prover-node proved should have had a CheckpointProver registered
-      // before the epoch's last slot — i.e. proving started mid-epoch, not after.
-      const provingStartedAtSlot = await stopSampler();
-      logger.info(`Optimistic proving start slots by epoch: ${JSON.stringify([...provingStartedAtSlot])}`);
+      // Every epoch the prover-node proved should have had a CheckpointProver registered for a
+      // checkpoint before the epoch's last slot — i.e. proving started mid-epoch, not after.
+      const lowestProvenSlotByEpoch = await stopSampler();
+      logger.info(`Lowest proven checkpoint slot by epoch: ${JSON.stringify([...lowestProvenSlotByEpoch])}`);
       for (const epoch of provenEpochs) {
-        expectOptimisticProving(provingStartedAtSlot, epoch);
+        expectOptimisticProving(lowestProvenSlotByEpoch, epoch);
       }
     });
   });
