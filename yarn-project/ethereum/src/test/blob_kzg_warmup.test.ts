@@ -27,12 +27,12 @@ describe('warmBlobKzg', () => {
     await anvil.stop();
   });
 
-  it('warms KZG and leaves anvil able to accept a real blob tx', async () => {
-    await expect(warmBlobKzg({ rpcUrl, chain: foundry, logger })).resolves.toBeUndefined();
+  it('warms KZG and leaves anvil and the sender able to send a real blob tx', async () => {
+    await expect(warmBlobKzg(client, logger)).resolves.toBeUndefined();
 
-    // A real blob tx should be accepted and mined now that anvil's trusted setup is warm. This also proves
-    // the fake warm-up tx burned no nonce: the real tx uses a different account (index 0 vs 19), but anvil
-    // must have rejected the fake tx without mining a block for the chain to be in a clean state.
+    // A real blob tx from the SAME account must now be accepted and mined: anvil's trusted setup is warm,
+    // and the rejected warm-up tx burned no nonce (it never entered the pool), so the sender's nonce is
+    // still clean.
     const blobs = [new Uint8Array(getBytesPerBlob()).fill(1)];
     const hash = await client.sendTransaction({
       to: client.account.address,

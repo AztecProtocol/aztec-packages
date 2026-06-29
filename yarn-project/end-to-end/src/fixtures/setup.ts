@@ -467,6 +467,11 @@ async function setupInner(
 
     const l1Client = createExtendedL1Client(config.l1RpcUrls, publisherHdAccount!, chain);
 
+    // Warm both KZG trusted setups (ours + anvil's) in parallel
+    if (anvil && isAnvilTestChain(chain.id)) {
+      await warmBlobKzg(l1Client, logger);
+    }
+
     // Deploy Multicall3 if running locally
     await deployMulticall3(l1Client, logger);
 
@@ -475,28 +480,22 @@ async function setupInner(
     await l1Client.getTransactionCount({ address: l1Client.account.address });
     logger.trace('Deployed Multicall3');
 
-    const deployPromise = deployAztecL1Contracts(config.l1RpcUrls[0], publisherPrivKeyHex!, chain.id, {
-      ...getL1ContractsConfigEnvVars(),
-      ...opts,
-      ...opts.l1ContractsArgs,
-      vkTreeRoot: getVKTreeRoot(),
-      protocolContractsHash,
-      genesisArchiveRoot,
-      initialValidators: opts.initialValidators,
-      feeJuicePortalInitialBalance: fundingNeeded,
-      realVerifier: false,
-    });
-
-    // Warm both KZG trusted setups (ours + anvil's) in parallel with the L1 deploy, but only for a
-    // locally-started anvil that runs an initial sequencer (the node that performs the first checkpoint
-    // publish, where both setups would otherwise init serially). The fake-tx round trips interleave with
-    // the deploy's RPCs; the single ~2.2s getKzg() block runs once with anvil's warm-up hidden inside it.
-    // Best-effort and never throws, so it cannot break setup.
-    if (anvil && !opts.skipInitialSequencer && isAnvilTestChain(chain.id)) {
-      await warmBlobKzg({ rpcUrl: config.l1RpcUrls[0], chain, logger });
-    }
-
-    const deployL1ContractsValues: DeployAztecL1ContractsReturnType = await deployPromise;
+    const deployL1ContractsValues: DeployAztecL1ContractsReturnType = await deployAztecL1Contracts(
+      config.l1RpcUrls[0],
+      publisherPrivKeyHex!,
+      chain.id,
+      {
+        ...getL1ContractsConfigEnvVars(),
+        ...opts,
+        ...opts.l1ContractsArgs,
+        vkTreeRoot: getVKTreeRoot(),
+        protocolContractsHash,
+        genesisArchiveRoot,
+        initialValidators: opts.initialValidators,
+        feeJuicePortalInitialBalance: fundingNeeded,
+        realVerifier: false,
+      },
+    );
 
     Object.assign(config, deployL1ContractsValues.l1ContractAddresses);
     config.rollupVersion = deployL1ContractsValues.rollupVersion;
