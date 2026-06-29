@@ -103,22 +103,18 @@ describe('single-node/fees/fee_settings', () => {
 
       const minRiseTarget = (reference.feePerL2Gas * 13n) / 10n;
 
-      // Bump next L1 block base fee above both the current L1 fee and the L1 fee implied by
-      // the requested L2 fee rise, with a 0.1 gwei absolute floor. The absolute floor
-      // matters when anvil's natural EIP-1559 decay has driven `currentL1BaseFee` close to zero —
-      // multiplying tiny numbers stays tiny, so a target below the previous oracle snapshot can
-      // *decrease* L2 fees. The reference-derived floor matters after an earlier spike has
-      // already raised the L2 fee baseline: repeating the same absolute L1 base fee can leave
-      // the derived L2 fee below the required 1.3x rise. The oracle rotation deadband
+      // Bump the next L1 block base fee from the requested L2 fee rise rather than from a fixed
+      // absolute L1 floor. Fast automined L1 setup can leave anvil's natural base fee very low;
+      // a 0.1 gwei floor turns this into a >6x L2 spike, which is outside the default-padding
+      // behavior this test is checking. The reference-derived target keeps the spike meaningful
+      // while staying below the padded max fee asserted below. The oracle rotation deadband
       // (`LIFETIME - LAG = 3` L2 slots between successful rotations, see FeeLib.sol:170)
       // silently no-ops `updateL1GasFeeOracle` until the window opens; we retry every second so
       // the *first* call after the deadband opens captures our bumped block.
       const latestL1Block = await cheatCodes.eth.publicClient.getBlock();
       const currentL1BaseFee = latestL1Block.baseFeePerGas ?? 1_000_000_000n;
-      const referenceDerivedL1BaseFee = minRiseTarget / 8_000n;
-      const targetL1BaseFee = [currentL1BaseFee * 2n, 100_000_000n, referenceDerivedL1BaseFee].reduce((a, b) =>
-        a > b ? a : b,
-      );
+      const referenceDerivedL1BaseFee = (minRiseTarget * 2n) / 8_000n;
+      const targetL1BaseFee = referenceDerivedL1BaseFee > 0n ? referenceDerivedL1BaseFee : 1n;
       t.logger.info(`Targeting L1 base fee ${targetL1BaseFee} (current ${currentL1BaseFee})`);
 
       // REFACTOR: hand-rolled retryUntil loop that mines L1 blocks and rotates the oracle; replace with
