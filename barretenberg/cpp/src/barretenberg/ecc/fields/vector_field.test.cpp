@@ -422,4 +422,57 @@ TEST(VectorFieldTest, ScalarTypeAlias)
     SUCCEED();
 }
 
+TEST(VectorFieldTest, CoarseInputArithmeticMatchesScalar)
+{
+    // +/-/* must accept operands already in the lazy-reduced "coarse" form -- a
+    // value in [0, 2p), not yet conditionally reduced to [0, p) -- which a prior
+    // `+` leaves behind between polynomial passes. The other arithmetic tests
+    // feed only canonical [0, p) inputs from random_element(), so the
+    // lazy-reduction branches for coarse operands go unexercised. Here we build
+    // coarse operands (a + b lands in [0, 2p)) and feed them back into +/-/*,
+    // checking the result mod p against scalar fr arithmetic.
+    for (int trial = 0; trial < 150; ++trial) {
+        auto a = random_five();
+        auto b = random_five();
+        auto c = random_five();
+        auto d = random_five();
+
+        Vec coarse_l = Vec(a) + Vec(b); // lanes in [0, 2p)
+        Vec coarse_r = Vec(c) + Vec(d);
+
+        std::array<fr, 5> add_exp;
+        std::array<fr, 5> sub_exp;
+        std::array<fr, 5> mul_exp;
+        for (size_t i = 0; i < 5; ++i) {
+            fr l = a[i] + b[i];
+            fr r = c[i] + d[i];
+            add_exp[i] = l + r;
+            sub_exp[i] = l - r;
+            mul_exp[i] = l * r;
+        }
+
+        EXPECT_TRUE(field_array_eq(add_exp, (coarse_l + coarse_r).to_array())) << "add trial " << trial;
+        EXPECT_TRUE(field_array_eq(sub_exp, (coarse_l - coarse_r).to_array())) << "sub trial " << trial;
+        EXPECT_TRUE(field_array_eq(mul_exp, (coarse_l * coarse_r).to_array())) << "mul trial " << trial;
+    }
+
+    // Deterministic maximally-coarse operands: (p-1) + (p-1) = 2p-2, the largest
+    // value the coarse form holds, in every lane.
+    const fr neg_one = -fr::one();
+    std::array<fr, 5> maxes{ neg_one, neg_one, neg_one, neg_one, neg_one };
+    Vec max_coarse = Vec(maxes) + Vec(maxes); // 2p-2 per lane
+    const fr m = neg_one + neg_one;           // (p-1)+(p-1) = p-2 mod p
+    std::array<fr, 5> add_exp;
+    std::array<fr, 5> sub_exp;
+    std::array<fr, 5> mul_exp;
+    for (size_t i = 0; i < 5; ++i) {
+        add_exp[i] = m + m;
+        sub_exp[i] = m - m;
+        mul_exp[i] = m * m;
+    }
+    EXPECT_TRUE(field_array_eq(add_exp, (max_coarse + max_coarse).to_array()));
+    EXPECT_TRUE(field_array_eq(sub_exp, (max_coarse - max_coarse).to_array()));
+    EXPECT_TRUE(field_array_eq(mul_exp, (max_coarse * max_coarse).to_array()));
+}
+
 } // namespace
