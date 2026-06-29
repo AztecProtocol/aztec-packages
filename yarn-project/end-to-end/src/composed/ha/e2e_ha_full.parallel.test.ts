@@ -33,6 +33,7 @@ import { PostgresSlashingProtectionDatabase } from '@aztec/validator-ha-signer/d
 import { type DutyRow, DutyStatus, DutyType } from '@aztec/validator-ha-signer/types';
 
 import { jest } from '@jest/globals';
+import getPort from 'get-port';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -301,6 +302,12 @@ describe('HA Full Setup', () => {
 
       const dataDirectory = config.dataDirectory ? `${config.dataDirectory}-${i}` : undefined;
 
+      // Allocate a free TCP port for this peer's libp2p transport. Fixed sequential ports (e.g. config.p2pPort + i)
+      // collide with OS-assigned ephemeral ports used elsewhere in the same process -- notably the prover node,
+      // which binds p2pPort: 0 -- because the bootstrap node's default port (40400) falls inside the ephemeral
+      // range. getPort picks a port that is actually free at bind time, avoiding those already-bound sockets.
+      const p2pPort = await getPort();
+
       const nodeConfig: AztecNodeConfig = {
         ...config,
         nodeId,
@@ -316,7 +323,7 @@ describe('HA Full Setup', () => {
         disableValidator: false,
         // Enable P2P for transaction and block gossip
         p2pEnabled: true,
-        p2pPort: (config.p2pPort ?? 40400) + i + 1,
+        p2pPort,
         // Connect to bootstrap node for tx gossip
         bootstrapNodes: [bootstrapNodeEnr],
         web3SignerUrl,
