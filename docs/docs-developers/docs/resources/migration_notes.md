@@ -9,6 +9,12 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [PXE] Unconstrained delivery defaults to a non-interactive handshake for external recipients
+
+When no `resolveTaggingSecretStrategy` hook is configured, onchain unconstrained delivery now defaults to a non-interactive handshake when the recipient is external (an account whose keys the wallet does not hold), instead of an address-derived shared secret. A self-send (the recipient is one of the wallet's own accounts) still uses an address-derived secret, which needs no handshake and leaves no onchain trace.
+
+**Impact**: An external recipient can now discover unconstrained-delivered messages without having registered the sender in advance, but establishing the handshake publishes an onchain marker derived from the recipient's address (anyone who knows that address can tell a handshake was created for them, though not by whom nor the contents). Wallets that want the previous behavior can configure a `resolveTaggingSecretStrategy` hook that returns an `address-derived` strategy.
+
 ### [Aztec.js] `getPublicEvents` is now cursor-paginated
 
 `getPublicEvents` returns a single page of events (at most `MAX_LOGS_PER_TAG`, the node's per-tag page size) and pages instead of the `maxLogsHit` flag, which didn't provide any way to fetch the next page of events:

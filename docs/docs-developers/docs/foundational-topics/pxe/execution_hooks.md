@@ -78,6 +78,8 @@ When the hook is absent, cross-contract utility calls are denied. See [Cross-con
 
 Called as a fallback for message delivery: a registered onchain handshake's secret is reused directly, so this hook only fires when the sender-recipient pair has none yet. The wallet returns a concrete `TaggingSecretStrategy` (and any material the chosen derivation needs); see [Tagging secret strategy](../../aztec-nr/framework-description/note_delivery.md#tagging-secret-strategy) for the variants, the trade-offs, and the defaults in each environment.
 
+For an unconstrained self-send (the recipient is one of the wallet's own accounts), the PXE always uses an [address-derived shared secret](../../aztec-nr/framework-description/note_delivery.md#tagging-secret-strategy) regardless of what the hook returns: both sides' keys are local, so no handshake is needed.
+
 ### In Noir tests
 
 When testing in Noir, leaving the strategy unset makes `TestEnvironment` fall back to the bare PXE default. Set a strategy when creating the environment to exercise a specific one; it affects message delivery in private executions:
@@ -92,4 +94,4 @@ let env = TestEnvironment::new_opts(
 
 Pass a `resolveTaggingSecretStrategy` hook when [creating the PXE](#configuring-hooks). It receives a `TaggingSecretStrategyRequest` with the executing contract's address and the message's sender, recipient, and delivery mode (`'constrained'` or `'unconstrained'`), so a wallet can apply per-application or per-recipient policies, or surface the decision to the user, instead of returning a fixed value.
 
-When the hook is absent, the PXE applies a privacy-safe default: unconstrained delivery uses an [address-derived shared secret](../../aztec-nr/framework-description/note_delivery.md#tagging-secret-strategy), which leaves no onchain trace, while constrained delivery fails rather than silently revealing the recipient through a [non-interactive handshake](../../aztec-nr/framework-description/note_delivery.md#tagging-secret-strategy).
+When the hook is absent, the PXE applies a default: both delivery modes use a [non-interactive handshake](../../aztec-nr/framework-description/note_delivery.md#tagging-secret-strategy) so the recipient can discover the message without prior coordination.

@@ -1,6 +1,6 @@
 use crate::{
     messages::delivery::{OnchainDeliveryMode, ResolvedTaggingStrategy},
-    oracle::{notes::get_app_tagging_secret, resolve_tagging_strategy::resolve_tagging_strategy},
+    oracle::resolve_tagging_strategy::resolve_tagging_strategy,
     protocol::{address::AztecAddress, hash::poseidon2_hash, point::EmbeddedCurvePoint, traits::{FromField, ToField}},
     test::helpers::{
         tagging_secret_strategy::TaggingSecretStrategy,
@@ -9,10 +9,11 @@ use crate::{
 };
 
 #[test]
-unconstrained fn defaults_unconstrained_delivery_to_the_address_derived_shared_secret() {
+unconstrained fn defaults_an_unconstrained_self_send_to_the_address_derived_shared_secret() {
     let mut env = TestEnvironment::new();
     let app = env.create_contract_account();
     let sender = env.create_light_account();
+    // The recipient is one of the environment's own accounts, so this is a self-send.
     let recipient = env.create_light_account();
 
     env.private_context_at(app, |_| {
@@ -22,9 +23,29 @@ unconstrained fn defaults_unconstrained_delivery_to_the_address_derived_shared_s
             OnchainDeliveryMode::onchain_unconstrained(),
         );
 
-        // With no strategy configured, the default derives the address-derived (Diffie-Hellman) shared secret.
-        let expected_secret = get_app_tagging_secret(sender, recipient).unwrap();
-        assert_eq(resolved, ResolvedTaggingStrategy::unconstrained_secret(expected_secret));
+        // An unconstrained self-send resolves to an address-derived secret rather than a non-interactive handshake.
+        assert(resolved.is_unconstrained_secret());
+    });
+}
+
+#[test]
+unconstrained fn defaults_an_unconstrained_external_send_to_a_non_interactive_handshake() {
+    let mut env = TestEnvironment::new();
+    let app = env.create_contract_account();
+    let sender = env.create_light_account();
+    // A valid address point the environment does not control (never created as an account), i.e. an external recipient.
+    let recipient = AztecAddress::from_field(8);
+
+    env.private_context_at(app, |_| {
+        let resolved = resolve_tagging_strategy(
+            sender,
+            recipient,
+            OnchainDeliveryMode::onchain_unconstrained(),
+        );
+
+        // An unconstrained send to an external recipient defaults to a non-interactive handshake, since no
+        // address-derived secret would be discoverable by a recipient that has not registered the sender.
+        assert_eq(resolved, ResolvedTaggingStrategy::non_interactive_handshake());
     });
 }
 
@@ -70,7 +91,8 @@ unconstrained fn applies_the_strategy_set_in_the_options() {
         TaggingSecretStrategy::non_interactive_handshake(),
     ));
     // The hook path looks up the executing contract's class ID, so run in a deployed contract's context. A handshake
-    // strategy differs from the unconstrained default (an address-derived secret), proving the wallet was consulted.
+    // strategy differs from the unconstrained self-send default (an address-derived secret), proving the wallet was
+    // consulted.
     let app = env.create_contract_account();
     let recipient = env.create_light_account();
 

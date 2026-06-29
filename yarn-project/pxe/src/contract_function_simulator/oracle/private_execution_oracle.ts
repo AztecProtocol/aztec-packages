@@ -189,28 +189,58 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
 
   /**
    * Resolves the tagging strategy for a message via the wallet's {@link ResolveTaggingSecretStrategy} hook. The contract receives a ready-to-use {@link ResolvedTaggingStrategy}.
-   * When no hook is configured, applies a privacy-safe default.
+   * When no hook is configured, applies a default: a non-interactive handshake, except for an unconstrained self-send,
+   * which uses an address-derived secret.
    */
   public async resolveTaggingStrategy(
     sender: AztecAddress,
     recipient: AztecAddress,
     deliveryMode: AppTaggingSecretKind,
   ): Promise<ResolvedTaggingStrategy> {
-    const hook: ResolveTaggingSecretStrategy | undefined = this.hooks?.resolveTaggingSecretStrategy;
-    let strategy: TaggingSecretStrategy;
-    if (hook) {
-      const { currentContractClassId } = await this.getContractInstance(this.contractAddress);
-      strategy = await hook({
-        contractAddress: this.contractAddress,
-        contractClassId: currentContractClassId,
-        sender,
-        recipient,
-        deliveryMode,
-      });
-    } else {
-      strategy = this.#defaultTaggingSecretStrategy(deliveryMode, recipient);
-    }
+    const [isUnconstrainedSelfSend, chosenStrategy] = await Promise.all([
+      this.#isUnconstrainedSelfSend(recipient, deliveryMode),
+      this.#chooseTaggingSecretStrategy(sender, recipient, deliveryMode),
+    ]);
+
+    // For unconstrained delivery, a self-send uses a local address-derived secret instead of a non-interactive
+    // handshake. A self-send is one where the wallet controls the recipient's keys, so both sides' keys are local: no
+    // handshake is needed and nothing is revealed onchain. It also avoids a recursion: a handshake self-delivers its
+    // note via unconstrained delivery, which would establish yet another handshake. This guard runs regardless of the
+    // resolved strategy (hook or default), to protect wallets from invalid configuration.
+    const strategy: TaggingSecretStrategy =
+      isUnconstrainedSelfSend && chosenStrategy.type === 'non-interactive-handshake'
+        ? { type: 'address-derived' }
+        : chosenStrategy;
+
     return this.#resolveTaggingSecretStrategy(strategy, sender, recipient);
+  }
+
+  async #chooseTaggingSecretStrategy(
+    sender: AztecAddress,
+    recipient: AztecAddress,
+    deliveryMode: AppTaggingSecretKind,
+  ): Promise<TaggingSecretStrategy> {
+    const hook: ResolveTaggingSecretStrategy | undefined = this.hooks?.resolveTaggingSecretStrategy;
+    if (!hook) {
+      // With no hook, both delivery modes default to a non-interactive handshake
+      return { type: 'non-interactive-handshake' };
+    }
+
+    const { currentContractClassId } = await this.getContractInstance(this.contractAddress);
+    return hook({
+      contractAddress: this.contractAddress,
+      contractClassId: currentContractClassId,
+      sender,
+      recipient,
+      deliveryMode,
+    });
+  }
+
+  /** Whether this is an unconstrained delivery to one of the wallet's own accounts (a self-send). */
+  #isUnconstrainedSelfSend(recipient: AztecAddress, deliveryMode: AppTaggingSecretKind) {
+    return deliveryMode === AppTaggingSecretKind.UNCONSTRAINED
+      ? this.keyStore.hasAccount(recipient)
+      : Promise.resolve(false);
   }
 
   /** Resolves a wallet-provided {@link TaggingSecretStrategy} into the app-siloed secret handed to the contract. */
@@ -233,17 +263,6 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
         return { type: 'unconstrained-secret', secret: appTaggingSecret.secret };
       }
     }
-  }
-
-  /** The default tagging secret strategy used when no {@link ResolveTaggingSecretStrategy} hook is configured. */
-  #defaultTaggingSecretStrategy(deliveryMode: AppTaggingSecretKind, _recipient: AztecAddress): TaggingSecretStrategy {
-    if (deliveryMode === AppTaggingSecretKind.CONSTRAINED) {
-      return { type: 'non-interactive-handshake' };
-    }
-
-    // TODO: default unconstrained delivery to a non-interactive handshake too, so a pair shares one handshake (and
-    // one discovery stream) across both modes.
-    return { type: 'address-derived' };
   }
 
   /**

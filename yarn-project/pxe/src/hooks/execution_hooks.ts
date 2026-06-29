@@ -39,7 +39,7 @@ export interface ExecutionHooks {
   authorizeUtilityCall?: AuthorizeUtilityCall;
   /**
    * Resolves a message's tagging secret when none is already established for the sender/recipient pair, letting the
-   * wallet apply per-recipient policy. PXE applies a privacy-safe default when absent.
+   * wallet apply per-recipient policy. PXE applies a default when absent.
    * See {@link ResolveTaggingSecretStrategy} for the request shape and defaults.
    */
   resolveTaggingSecretStrategy?: ResolveTaggingSecretStrategy;
