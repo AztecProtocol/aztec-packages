@@ -246,4 +246,18 @@ mod test {
                 != compute_constrained_msg_nullifier(sender, recipient, secrets_b, 0),
         );
     }
+
+    // Each sequence position must hash to a distinct nullifier: a collision across indices would let a send at one
+    // position satisfy its predecessor check against another position's nullifier, breaking the strict ordering.
+    #[test]
+    fn index_changes_sequence_nullifier() {
+        let sender = AztecAddress::from_field(2);
+        let recipient = AztecAddress::from_field(4);
+        let secrets = AppSiloedHandshakeSecrets { shared: 1234, sender_only: 5678 };
+
+        assert(
+            compute_constrained_msg_nullifier(sender, recipient, secrets, 0)
+                != compute_constrained_msg_nullifier(sender, recipient, secrets, 1),
+        );
+    }
 }
