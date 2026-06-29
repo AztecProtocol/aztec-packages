@@ -99,7 +99,7 @@ use crate::{
         delete_fact_collection, Fact, FactCollection, get_fact_collection, get_fact_collections_by_type, OriginBlock,
         record_non_retractable_fact, record_retractable_fact,
     },
-    messages::processing::OffchainMessageWithContext,
+    messages::processing::OffchainMessageWithTx,
     oracle::tx_resolution::ResolvedTx,
     protocol::{
         address::AztecAddress,
@@ -205,7 +205,7 @@ impl OffchainReception {
         self,
         maybe_resolved_tx: Option<ResolvedTx>,
         now: u64,
-    ) -> Option<OffchainMessageWithContext> {
+    ) -> Option<OffchainMessageWithTx> {
         let message = self.read_message();
         let processed_fact = self.collection.facts.find(|f: Fact| f.fact_type_id == OFFCHAIN_MESSAGE_PROCESSED);
 
@@ -214,7 +214,7 @@ impl OffchainReception {
             let resolved = maybe_resolved_tx.unwrap();
             self.mark_processed(resolved.block_number, resolved.block_hash);
             Option::some(
-                OffchainMessageWithContext { message_ciphertext: message.ciphertext, resolved_tx: resolved },
+                OffchainMessageWithTx { message_ciphertext: message.ciphertext, resolved_tx: resolved },
             )
         } else if processed_fact.is_some() {
             if processed_fact.unwrap().origin_block.unwrap().block_state.is_finalized() {

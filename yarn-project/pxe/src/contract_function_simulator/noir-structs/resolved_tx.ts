@@ -1,8 +1,7 @@
 import { MAX_NOTE_HASHES_PER_TX } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-
-import { TxHash } from './tx_hash.js';
+import { TxHash } from '@aztec/stdlib/tx';
 
 /**
  * The resolved on-chain context of a transaction.

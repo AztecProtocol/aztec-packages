@@ -45,7 +45,7 @@ global LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT: Field = sha256_to_field(
 
 /// An offchain-delivered message with resolved context, ready for processing during sync.
 #[derive(Serialize, Deserialize)]
-pub struct OffchainMessageWithContext {
+pub struct OffchainMessageWithTx {
     pub message_ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
     pub resolved_tx: ResolvedTx,
 }

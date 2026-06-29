@@ -28,7 +28,6 @@ import {
   ContractClassLog,
   ContractClassLogFields,
   FlatPublicLogs,
-  PendingTaggedLog,
   PrivateLog,
   Tag,
   appTaggingSecretKindFromDeliveryMode,
@@ -47,8 +46,9 @@ import { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js'
 import type { NoteData } from '../noir-structs/note_data.js';
 import { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import { Option } from '../noir-structs/option.js';
+import { PendingTaggedLog } from '../noir-structs/pending_tagged_log.js';
 import { ProvidedSecret } from '../noir-structs/provided_secret.js';
-import { ResolvedTx } from '@aztec/stdlib/tx';
+import { ResolvedTx } from '../noir-structs/resolved_tx.js';
 import { UtilityContext } from '../noir-structs/utility_context.js';
 import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 import { packAsHintedNote } from './note_packing_utils.js';

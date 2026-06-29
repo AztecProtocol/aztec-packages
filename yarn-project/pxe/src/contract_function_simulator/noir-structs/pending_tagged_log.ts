@@ -1,8 +1,8 @@
 import { PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import type { TxHash } from '@aztec/stdlib/tx';
 
-import type { TxHash } from '../tx/tx_hash.js';
-import { ResolvedTx } from '../tx/resolved_tx.js';
+import { ResolvedTx } from './resolved_tx.js';
 
 /**
  * Represents a pending tagged log as it is stored in the pending tagged log array to which the fetchTaggedLogs oracle

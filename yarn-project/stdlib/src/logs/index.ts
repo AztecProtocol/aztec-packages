@@ -5,7 +5,6 @@ export * from './tagging_index_range.js';
 export * from './contract_class_log.js';
 export * from './public_log.js';
 export * from './private_log.js';
-export * from './pending_tagged_log.js';
 export * from './log_result.js';
 export * from './log_cursor.js';
 export * from './logs_query.js';

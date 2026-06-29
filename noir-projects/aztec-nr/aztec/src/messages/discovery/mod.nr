@@ -18,7 +18,7 @@ use crate::{
         encoding::MAX_MESSAGE_CONTENT_LEN,
         logs::note::MAX_NOTE_PACKED_LEN,
         processing::{
-            offchain::OffchainInboxSync, OffchainMessageWithContext, pending_tagged_log::PendingTaggedLog, ResolvedTx,
+            offchain::OffchainInboxSync, OffchainMessageWithTx, pending_tagged_log::PendingTaggedLog, ResolvedTx,
             validate_and_store_enqueued_notes_and_events,
         },
     },
@@ -209,7 +209,7 @@ unconstrained fn sync_state_with_secrets(
 
     if offchain_inbox_sync.is_some() {
         let msgs = offchain_inbox_sync.unwrap()(contract_address, scope);
-        msgs.for_each(|_i, msg: OffchainMessageWithContext| {
+        msgs.for_each(|_i, msg: OffchainMessageWithTx| {
             process_message_ciphertext(
                 contract_address,
                 compute_note_hash,

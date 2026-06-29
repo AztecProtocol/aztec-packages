@@ -1,8 +1,8 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
+import { TxHash } from '@aztec/stdlib/tx';
 
 import { ResolvedTx } from './resolved_tx.js';
-import { TxHash } from './tx_hash.js';
 
 describe('ResolvedTx', () => {
   it('serialization matches snapshots and output of Noir serialization', () => {
