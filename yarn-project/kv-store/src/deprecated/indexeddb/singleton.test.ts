@@ -1,5 +1,5 @@
-import { describeAztecSingleton } from '../interfaces/singleton_test_suite.js';
-import { mockLogger } from '../interfaces/utils.js';
+import { describeAztecSingleton } from '../../interfaces/singleton_test_suite.js';
+import { mockLogger } from '../../interfaces/utils.js';
 import { AztecIndexedDBStore } from './store.js';
 
 describe('IndexedDBSingleton', () => {
