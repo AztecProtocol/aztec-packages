@@ -1,8 +1,8 @@
 import type { IDBPDatabase, IDBPObjectStore } from 'idb';
 import { hash } from 'ohash';
 
-import type { AztecAsyncArray } from '../interfaces/array.js';
-import type { Value } from '../interfaces/common.js';
+import type { AztecAsyncArray } from '../../interfaces/array.js';
+import type { Value } from '../../interfaces/common.js';
 import type { AztecIDBSchema } from './store.js';
 
 /**

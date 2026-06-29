@@ -3,14 +3,14 @@ import { SerialQueue } from '@aztec/foundation/queue';
 
 import { type DBSchema, type IDBPDatabase, deleteDB, openDB } from 'idb';
 
-import type { AztecAsyncArray } from '../interfaces/array.js';
-import type { Key, StoreSize, Value } from '../interfaces/common.js';
-import type { AztecAsyncCounter } from '../interfaces/counter.js';
-import type { AztecAsyncMap } from '../interfaces/map.js';
-import type { AztecAsyncMultiMap } from '../interfaces/multi_map.js';
-import type { AztecAsyncSet } from '../interfaces/set.js';
-import type { AztecAsyncSingleton } from '../interfaces/singleton.js';
-import type { AztecAsyncKVStore } from '../interfaces/store.js';
+import type { AztecAsyncArray } from '../../interfaces/array.js';
+import type { Key, StoreSize, Value } from '../../interfaces/common.js';
+import type { AztecAsyncCounter } from '../../interfaces/counter.js';
+import type { AztecAsyncMap } from '../../interfaces/map.js';
+import type { AztecAsyncMultiMap } from '../../interfaces/multi_map.js';
+import type { AztecAsyncSet } from '../../interfaces/set.js';
+import type { AztecAsyncSingleton } from '../../interfaces/singleton.js';
+import type { AztecAsyncKVStore } from '../../interfaces/store.js';
 import { IndexedDBAztecArray } from './array.js';
 import { IndexedDBAztecMap } from './map.js';
 import { IndexedDBAztecMultiMap } from './multi_map.js';
@@ -41,8 +41,9 @@ export interface AztecIDBSchema extends DBSchema {
 
 /**
  * A key-value store backed by IndexedDB.
+ *
+ * @deprecated The IndexedDB backend is being retired. Use `@aztec/kv-store/sqlite-opfs` instead.
  */
-
 export class AztecIndexedDBStore implements AztecAsyncKVStore {
   #rootDB: IDBPDatabase<AztecIDBSchema>;
   #name: string;

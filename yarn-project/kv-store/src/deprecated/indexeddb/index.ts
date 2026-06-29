@@ -1,11 +1,14 @@
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 
-import { initStoreForRollupAndSchemaVersion } from '../utils.js';
+import { initStoreForRollupAndSchemaVersion } from '../../utils.js';
 import { AztecIndexedDBStore } from './store.js';
 
 export { AztecIndexedDBStore } from './store.js';
 
+/**
+ * @deprecated The IndexedDB backend is being retired. Use `@aztec/kv-store/sqlite-opfs` instead.
+ */
 export async function createStore(
   name: string,
   config: DataStoreConfig,
@@ -26,6 +29,9 @@ export async function createStore(
   return initStoreForRollupAndSchemaVersion(store, schemaVersion, config.rollupAddress, log);
 }
 
+/**
+ * @deprecated The IndexedDB backend is being retired. Use `@aztec/kv-store/sqlite-opfs` instead.
+ */
 export function openTmpStore(ephemeral: boolean = false): Promise<AztecIndexedDBStore> {
   return AztecIndexedDBStore.open(createLogger('kv-store:indexeddb'), undefined, ephemeral);
 }
