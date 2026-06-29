@@ -232,9 +232,6 @@ describe('HA Full Setup', () => {
           startProverNode: true,
           // The bootstrap node is only an RPC/P2P anchor. HA validators are the first block producers in this suite.
           disableValidator: true,
-          // This node cannot build blocks (validation is disabled and the committee's HA nodes start later),
-          // so setup must not wait for a block past genesis.
-          advancePastGenesis: false,
           // Enable P2P for transaction gossip
           p2pEnabled: true,
           // Enable slashing for testing governance + slashing vote coordination

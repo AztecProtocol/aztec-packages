@@ -273,6 +273,53 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
     });
   }
 
+  /**
+   * Resolves with the first `checkpoint` event whose payload satisfies `match`. Unlike
+   * {@link waitUntilCheckpoint} (which waits for a target number), this lets callers wait for an
+   * arbitrary checkpoint property (e.g. one published in the first half of its slot). Rejects after
+   * `opts.timeout` ms if provided; otherwise waits indefinitely.
+   */
+  public waitForCheckpoint(
+    match: (event: ChainMonitorEventMap['checkpoint'][0]) => boolean,
+    opts: { timeout?: number } = {},
+  ): Promise<ChainMonitorEventMap['checkpoint'][0]> {
+    return new Promise((resolve, reject) => {
+      let timer: NodeJS.Timeout | undefined;
+      const listener = (event: ChainMonitorEventMap['checkpoint'][0]) => {
+        if (match(event)) {
+          if (timer) {
+            clearTimeout(timer);
+          }
+          this.off('checkpoint', listener);
+          resolve(event);
+        }
+      };
+      if (opts.timeout !== undefined) {
+        timer = setTimeout(() => {
+          this.off('checkpoint', listener);
+          reject(new Error(`Timed out after ${opts.timeout}ms waiting for a matching checkpoint`));
+        }, opts.timeout);
+      }
+      this.on('checkpoint', listener);
+    });
+  }
+
+  /** Resolves once the proven checkpoint number reaches `checkpointNumber`. */
+  public waitUntilCheckpointProven(checkpointNumber: CheckpointNumber): Promise<void> {
+    if (this.provenCheckpointNumber >= checkpointNumber) {
+      return Promise.resolve();
+    }
+    return new Promise(resolve => {
+      const listener = (data: { provenCheckpointNumber: CheckpointNumber; timestamp: bigint }) => {
+        if (data.provenCheckpointNumber >= checkpointNumber) {
+          this.off('checkpoint-proven', listener);
+          resolve();
+        }
+      };
+      this.on('checkpoint-proven', listener);
+    });
+  }
+
   private async fetchFeeData(timestamp: bigint): Promise<L2FeeData> {
     const [components, minFeePerMana, l1Fees, ethPerFeeAsset, manaTarget] = await Promise.all([
       this.rollup.getManaMinFeeComponentsAt(timestamp, true),

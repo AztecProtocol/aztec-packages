@@ -362,8 +362,7 @@ export class AutomineSequencer {
       return;
     }
     try {
-      const pending = await this.deps.p2pClient.getPendingTxCount();
-      if (pending > 0) {
+      if (await this.deps.p2pClient.hasEligiblePendingTxs(1)) {
         // Fire-and-forget; the build result is delivered via `buildIfPending()` callers,
         // not via the poller.
         void this.buildIfPending().catch(err => {
@@ -389,13 +388,13 @@ export class AutomineSequencer {
     }
     await this.reconcileDateProvider();
 
-    const txCount = await this.deps.p2pClient.getPendingTxCount();
-    // For mempool-driven builds, wait for at least `minTxsPerBlock` pending txs (or 1 if not set)
+    // For mempool-driven builds, wait for at least `minTxsPerBlock` age-eligible txs (or 1 if not set)
     // before building. This mirrors the production sequencer's `waitForMinTxs` behavior, and is
     // required for tests that bundle multiple txs into one block via `setConfig({ minTxsPerBlock })`.
-    // Explicit empty-block / warp paths pass `allowEmpty: true` and bypass this gate.
+    // Explicit empty-block / warp paths pass `allowEmpty: true`, giving minRequired 0, which
+    // hasEligiblePendingTxs treats as always satisfied so the gate is bypassed.
     const minRequired = allowEmpty ? 0 : Math.max(this.deps.config.minTxsPerBlock ?? 1, 1);
-    if (txCount < minRequired) {
+    if (!(await this.deps.p2pClient.hasEligiblePendingTxs(minRequired))) {
       return undefined;
     }
 
@@ -439,7 +438,6 @@ export class AutomineSequencer {
       blockNumber: nextBlockNumber,
       slot: targetSlot,
       slotTimestamp: slotBoundaryTs,
-      txCount,
       allowEmpty,
     });
 

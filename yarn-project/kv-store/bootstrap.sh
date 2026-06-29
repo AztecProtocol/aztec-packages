@@ -14,7 +14,7 @@ function test_cmds {
   # container — running multiple files in a single vitest invocation
   # triggers a CDP teardown deadlock on the 2-CPU CI executor. See
   # scripts/run-browser-tests.sh for the root-cause analysis.
-  for test in src/indexeddb/*.test.ts src/sqlite-opfs/*.test.ts; do
+  for test in src/deprecated/indexeddb/*.test.ts src/sqlite-opfs/*.test.ts; do
     echo "$hash:ISOLATE=1 yarn-project/kv-store/scripts/run_test.sh $test"
   done
 }

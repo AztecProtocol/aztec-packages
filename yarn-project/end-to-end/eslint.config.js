@@ -21,7 +21,7 @@ export default [
     },
   },
   {
-    files: ['src/e2e_storage_proof/fixtures/storage_proof_fetcher.ts'],
+    files: ['src/automine/contracts/fixtures/storage_proof_fetcher.ts'],
     rules: {
       camelcase: 'off',
       'no-console': 'off',
