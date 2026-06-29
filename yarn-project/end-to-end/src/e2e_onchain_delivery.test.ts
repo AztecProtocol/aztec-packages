@@ -12,6 +12,7 @@ import { type DeliveryEvent, OnchainDeliveryTestContract } from '@aztec/noir-tes
 import type { PXECreationOptions } from '@aztec/pxe/server';
 import { STANDARD_HANDSHAKE_REGISTRY_ADDRESS } from '@aztec/standard-contracts/handshake-registry/constants';
 import type { AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
+import { AppTaggingSecretKind } from '@aztec/stdlib/logs';
 
 import { jest } from '@jest/globals';
 
@@ -23,17 +24,32 @@ import { TestWallet } from './test-wallet/test_wallet.js';
 // the exported PXE options rather than importing the hook type, which `@aztec/pxe/server` does not re-export.
 type SenderHook = NonNullable<NonNullable<PXECreationOptions['hooks']>['resolveTaggingSecretStrategy']>;
 
+type Mode = 'constrained' | 'unconstrained';
+
+// What PXE B is expected to observe for a (mode, source) cell:
+// - 'discovered':         PXE B discovers every message PXE A sent (a working cell; asserted with `it`).
+// - 'undiscoverable':     delivery lands onchain but PXE B cannot reconstruct the tag and discovers nothing. A
+//                         TEMPORARY limitation of a not-yet-implemented path, asserted with `it.failing` so the cell
+//                         turns red (prompting promotion to `it`) the moment the path starts working.
+// - { type: 'rejected' }: PXE A's send is rejected in-circuit because the resolved source cannot back the mode. A
+//                         PERMANENT soundness invariant, positively asserted with `it` against the panic message.
+type RejectedOutcome = { type: 'rejected'; message: string };
+type DeliveryOutcome = 'discovered' | 'undiscoverable' | RejectedOutcome;
+
+const isRejectedOutcome = (outcome: DeliveryOutcome): outcome is RejectedOutcome => typeof outcome === 'object';
+
 // Onchain private delivery has two orthogonal axes: the delivery MODE (constrained = nullifier-chained sequence;
 // unconstrained = no nullifier, windowed scan) and the tagging-secret SOURCE, which the wallet's
-// `resolveTaggingSecretStrategy` hook selects. This harness exercises the valid (mode, source) cells end to end
-// across two PXEs that share only a node: PXE A sends, PXE B discovers purely from onchain logs plus the
-// HandshakeRegistry.
+// `resolveTaggingSecretStrategy` hook selects. This harness exercises the (mode, source) cells end to end across two
+// PXEs that share only a node: PXE A sends, PXE B discovers purely from onchain logs plus the HandshakeRegistry.
 //
 // Cross-PXE is the meaningful setup: PXE B holds no sender state, so a cell only "discovers" a message if the source
-// truly reached it. It is also what makes the expected-red default-source cell meaningful.
+// truly reached it, which is also what makes the undiscoverable and rejected cells meaningful.
 function buildMessageDeliveryTest(opts: {
   description: string;
-  mode: 'constrained' | 'unconstrained';
+  // A single mode applies to both the event and note sends; `{ events, notes }` sends each in its own mode, which
+  // exercises cross-mode handshake reuse: bootstrap in one mode, deliver in the other on the same handshake.
+  mode: Mode | { events: Mode; notes: Mode };
   // Omitted = no hook, so the PXE applies its default strategy for the mode.
   senderHook?: SenderHook;
   // Recipient-side setup the source requires (e.g. registering a raw arbitrary secret); runs once after deployment.
@@ -42,10 +58,10 @@ function buildMessageDeliveryTest(opts: {
     recipientAddress: AztecAddress,
     sender: AztecAddress,
   ) => Promise<void>;
-  // When true the discovery assertions are expected to fail for a not-yet-implemented path.
-  expectRed?: boolean;
+  // Defaults to 'discovered'; see `DeliveryOutcome`.
+  outcome?: DeliveryOutcome;
 }) {
-  const { description, mode, senderHook, recipientRegistration, expectRed } = opts;
+  const { description, mode, senderHook, recipientRegistration, outcome = 'discovered' } = opts;
 
   describe(description, () => {
     jest.setTimeout(300_000);
@@ -65,6 +81,16 @@ function buildMessageDeliveryTest(opts: {
     // A failure during delivery fails beforeAll loudly instead of being swallowed as an expected red.
     let discoveredEvents: FieldLike[];
     let readNotes: bigint[];
+
+    const { events: eventMode, notes: noteMode } = typeof mode === 'string' ? { events: mode, notes: mode } : mode;
+    const sendEvent = (value: bigint) =>
+      eventMode === 'constrained'
+        ? contractSender.methods.emit_event(recipient, value)
+        : contractSender.methods.emit_event_unconstrained(recipient, value);
+    const sendNote = (value: bigint) =>
+      noteMode === 'constrained'
+        ? contractSender.methods.emit_note(recipient, value)
+        : contractSender.methods.emit_note_unconstrained(recipient, value);
 
     beforeAll(async () => {
       // PXE A holds the sender and carries this cell's tagging-secret-strategy hook. The recipient is funded at genesis
@@ -107,14 +133,12 @@ function buildMessageDeliveryTest(opts: {
 
       await recipientRegistration?.(walletRecipient, recipient, sender);
 
-      const sendEvent = (value: bigint) =>
-        mode === 'constrained'
-          ? contractSender.methods.emit_event(recipient, value)
-          : contractSender.methods.emit_event_unconstrained(recipient, value);
-      const sendNote = (value: bigint) =>
-        mode === 'constrained'
-          ? contractSender.methods.emit_note(recipient, value)
-          : contractSender.methods.emit_note_unconstrained(recipient, value);
+      // A rejected cell lands nothing: its send is exercised (and asserted) in the test body, not here, so the
+      // matcher distinguishes the expected rejection from an unexpected infra error rather than beforeAll swallowing
+      // it. Both teardowns and the sender/recipient/contract are assigned above, so afterAll stays safe.
+      if (isRejectedOutcome(outcome)) {
+        return;
+      }
 
       // Constrained sends to one pair are strictly ordered, so deliver one tx at a time. The first send bootstraps the
       // handshake (when the source is a handshake); the rest reuse it.
@@ -150,9 +174,16 @@ function buildMessageDeliveryTest(opts: {
       await teardownSender();
     });
 
+    if (isRejectedOutcome(outcome)) {
+      it('PXE A cannot send: the resolved source cannot back the delivery mode', async () => {
+        await expect(sendEvent(eventValues[0]).send({ from: sender })).rejects.toThrow(outcome.message);
+      });
+      return;
+    }
+
     // `it.failing` passes while the assertion fails and turns into a suite failure once the path works, prompting
     // promotion to a plain `it`.
-    const test = expectRed ? it.failing : it;
+    const test = outcome === 'undiscoverable' ? it.failing : it;
 
     test('PXE B discovers the events delivered by PXE A', () => {
       expect(discoveredEvents.length).toBe(eventValues.length);
@@ -168,7 +199,7 @@ function buildMessageDeliveryTest(opts: {
 }
 
 describe('onchain delivery', () => {
-  // GREEN: constrained always goes through a handshake (the PXE default for constrained), reused across modes.
+  // GREEN: constrained always goes through a handshake (the PXE default for constrained).
   buildMessageDeliveryTest({
     description: 'constrained x handshake',
     mode: 'constrained',
@@ -196,12 +227,43 @@ describe('onchain delivery', () => {
     },
   });
 
-  // RED: with no hook, unconstrained delivery to an external recipient defaults to an address-derived tag. PXE B holds
-  // no sender state, so it cannot reconstruct that tag and discovers nothing.
+  // UNDISCOVERABLE: with no hook, unconstrained delivery to an external recipient defaults to an address-derived tag.
+  // PXE B holds no sender state, so it cannot reconstruct that tag and discovers nothing.
   buildMessageDeliveryTest({
     description: 'unconstrained x default to external recipient',
     mode: 'unconstrained',
-    expectRed: true,
+    outcome: 'undiscoverable',
+  });
+
+  // GREEN: one handshake serves both modes. The constrained events bootstrap the handshake; the unconstrained notes
+  // reuse it. Reuse bypasses the wallet hook entirely (an existing registry handshake is resolved before the hook is
+  // consulted), so the hook returns a handshake for the bootstrapping constrained send but throws if it is ever
+  // consulted for the unconstrained send. That makes discovery a durable proof of mode-agnostic reuse: were reuse to
+  // regress, the unconstrained note would fall through to the hook and fail loudly instead of being silently
+  // re-discovered some other way (e.g. if the unconstrained default later becomes a handshake of its own).
+  buildMessageDeliveryTest({
+    description: 'handshake bootstrapped constrained, reused unconstrained (cross-mode)',
+    mode: { events: 'constrained', notes: 'unconstrained' },
+    senderHook: async ({ deliveryMode }) => {
+      if (deliveryMode !== AppTaggingSecretKind.CONSTRAINED) {
+        throw new Error(
+          'cross-mode reuse regressed: the unconstrained send consulted the strategy hook instead of reusing the bootstrapped handshake',
+        );
+      }
+      return { type: 'non-interactive-handshake' };
+    },
+  });
+
+  // REJECTED: the mirror of the unconstrained x arbitrary-secret cell with constrained mode. An unconstrained secret
+  // cannot back constrained delivery, so the circuit rejects the send. This pins the PXE -> circuit soundness
+  // boundary that PXE deliberately delegates to the circuit (it resolves the unsound strategy without rejecting it).
+  // The secret value is irrelevant to the rejection, so a fresh point per hook call is fine and no recipient
+  // registration is needed.
+  buildMessageDeliveryTest({
+    description: 'constrained x arbitrary secret (rejected)',
+    mode: 'constrained',
+    senderHook: async () => ({ type: 'arbitrary-secret', secret: await Point.random() }),
+    outcome: { type: 'rejected', message: 'an unconstrained tagging secret cannot back constrained delivery' },
   });
 });
 
