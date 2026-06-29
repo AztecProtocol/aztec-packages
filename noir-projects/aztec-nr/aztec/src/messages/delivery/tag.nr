@@ -4,7 +4,7 @@
 
 use crate::context::PrivateContext;
 use crate::messages::delivery::{
-    constrained_delivery::emit_sequence_nullifier, handshake::get_existing_app_siloed_handshake_secret,
+    constrained_delivery::emit_sequence_nullifier, handshake::get_existing_app_siloed_handshake_secrets,
     OnchainDeliveryMode, tag_secret_source::TagSecretSource,
 };
 use crate::oracle::notes::get_next_tagging_index;
@@ -23,10 +23,10 @@ pub(crate) fn derive_log_tag(
     sender: AztecAddress,
     recipient: AztecAddress,
 ) -> Field {
-    // Safety: this only selects which source backs the tag. An existing handshake's secret is constrained against the
+    // Safety: this only selects which source backs the tag. An existing handshake's secrets are constrained against the
     // registry before a constrained tag is emitted; otherwise the wallet's resolved source runs.
     let existing =
-        unsafe { get_existing_app_siloed_handshake_secret(STANDARD_HANDSHAKE_REGISTRY_ADDRESS, sender, recipient) };
+        unsafe { get_existing_app_siloed_handshake_secrets(STANDARD_HANDSHAKE_REGISTRY_ADDRESS, sender, recipient) };
 
     let source: TagSecretSource = existing.map_or_else(
         || {
@@ -36,7 +36,7 @@ pub(crate) fn derive_log_tag(
             let strategy = unsafe { resolve_tagging_strategy(sender, recipient, mode) };
             strategy.into()
         },
-        |handshake_secret| TagSecretSource::existing_handshake(handshake_secret),
+        |handshake_secrets| TagSecretSource::existing_handshake(handshake_secrets),
     );
 
     tag_with(source, context, mode, sender, recipient)
@@ -49,18 +49,19 @@ fn tag_with(
     sender: AztecAddress,
     recipient: AztecAddress,
 ) -> Field {
-    let secret = source.obtain_secret(context, sender, recipient);
+    let secrets = source.obtain_secrets(context, sender, recipient);
 
     // Safety: the index is untrusted. Constrained delivery constrains it below before emitting the tag; unconstrained
     // discovery tolerates gaps, so a wrong index only yields an undiscoverable tag.
-    let index = unsafe { get_next_tagging_index(secret, mode) };
+    let index = unsafe { get_next_tagging_index(secrets.shared, mode) };
 
     if mode == OnchainDeliveryMode::onchain_constrained() {
-        source.constrain_secret(context, sender, recipient, secret, index);
-        emit_sequence_nullifier(context, sender, recipient, secret, index);
+        source.constrain_secrets(context, sender, recipient, secrets, index);
+        emit_sequence_nullifier(context, sender, recipient, secrets, index);
     }
 
-    tag_from_secret_and_index(secret, index, mode)
+    // The discovery tag stays derived from the shared secret only, so the recipient still finds every message.
+    tag_from_secret_and_index(secrets.shared, index, mode)
 }
 
 fn tag_domain_separator(mode: OnchainDeliveryMode) -> u32 {
@@ -79,6 +80,7 @@ fn tag_from_secret_and_index(secret: Field, index: u32, mode: OnchainDeliveryMod
 }
 
 mod test {
+    use crate::messages::delivery::handshake::AppSiloedHandshakeSecrets;
     use crate::messages::delivery::ResolvedTaggingStrategy;
     use crate::protocol::{
         address::AztecAddress,
@@ -116,7 +118,7 @@ mod test {
         let index: u32 = 3;
 
         env.private_context(|context| {
-            mock_existing_handshake_secret(Option::some(secret));
+            mock_existing_handshake_secrets(Option::some(AppSiloedHandshakeSecrets { shared: secret, sender_only: 99 }));
             let _ = OracleMock::mock("aztec_prv_getNextTaggingIndex").returns(index);
             let resolve_oracle = OracleMock::mock("aztec_prv_resolveTaggingStrategy").returns(
                 ResolvedTaggingStrategy::non_interactive_handshake(),
@@ -144,7 +146,7 @@ mod test {
         let index: u32 = 3;
 
         env.private_context(|context| {
-            mock_existing_handshake_secret(Option::none());
+            mock_existing_handshake_secrets(Option::none());
             let _ = OracleMock::mock("aztec_prv_resolveTaggingStrategy").returns(
                 ResolvedTaggingStrategy::unconstrained_secret(secret),
             );
@@ -170,7 +172,7 @@ mod test {
         let index: u32 = 3;
 
         env.private_context(|context| {
-            mock_existing_handshake_secret(Option::some(secret));
+            mock_existing_handshake_secrets(Option::some(AppSiloedHandshakeSecrets { shared: secret, sender_only: 99 }));
             let _ = OracleMock::mock("aztec_prv_getNextTaggingIndex").returns(index);
             let _ = OracleMock::mock("aztec_prv_isNullifierPending").returns(false);
 
@@ -189,7 +191,7 @@ mod test {
         });
     }
 
-    unconstrained fn mock_existing_handshake_secret(maybe_secret: Option<Field>) {
-        let _ = OracleMock::mock("aztec_utl_callUtilityFunction").returns(maybe_secret.serialize());
+    unconstrained fn mock_existing_handshake_secrets(maybe_secrets: Option<AppSiloedHandshakeSecrets>) {
+        let _ = OracleMock::mock("aztec_utl_callUtilityFunction").returns(maybe_secrets.serialize());
     }
 }

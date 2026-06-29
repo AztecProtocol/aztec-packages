@@ -51,14 +51,14 @@ describe('constrained delivery', () => {
     await contract.methods.emit_note(recipient, 1).send({ from: sender });
 
     const { result: secretAfterFirstSend } = await contract.methods
-      .get_app_siloed_secret(sender, recipient)
+      .get_app_siloed_secrets(sender, recipient)
       .simulate({ from: sender });
     expect(secretAfterFirstSend).toBeDefined();
 
     await contract.methods.emit_event(recipient, 1).send({ from: sender });
 
     const { result: secret } = await contract.methods
-      .get_app_siloed_secret(sender, recipient)
+      .get_app_siloed_secrets(sender, recipient)
       .simulate({ from: sender });
     // The second send reuses the handshake rather than bootstrapping a new one: the secret is unchanged.
     expect(secret).toEqual(secretAfterFirstSend);
@@ -95,7 +95,7 @@ describe('constrained delivery', () => {
       await contract.methods.emit_two_events(batchRecipient).send({ from: sender });
 
       const { result: secret } = await contract.methods
-        .get_app_siloed_secret(sender, batchRecipient)
+        .get_app_siloed_secrets(sender, batchRecipient)
         .simulate({ from: sender });
       expect(secret).toBeDefined();
 
@@ -114,7 +114,7 @@ describe('constrained delivery', () => {
       ]).send({ from: sender });
 
       const { result: secret } = await contract.methods
-        .get_app_siloed_secret(sender, batchRecipient2)
+        .get_app_siloed_secrets(sender, batchRecipient2)
         .simulate({ from: sender });
       expect(secret).toBeDefined();
 
@@ -131,7 +131,7 @@ describe('constrained delivery', () => {
       await contract.methods.emit_two_events(batchRecipient3).send({ from: sender });
 
       const { result: secret } = await contract.methods
-        .get_app_siloed_secret(sender, batchRecipient3)
+        .get_app_siloed_secrets(sender, batchRecipient3)
         .simulate({ from: sender });
       expect(secret).toBeDefined();
 
@@ -149,7 +149,7 @@ describe('constrained delivery', () => {
       ]).send({ from: sender });
 
       const { result: secret } = await contract.methods
-        .get_app_siloed_secret(sender, batchRecipient4)
+        .get_app_siloed_secrets(sender, batchRecipient4)
         .simulate({ from: sender });
       expect(secret).toBeDefined();
 
