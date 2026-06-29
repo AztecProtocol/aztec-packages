@@ -188,7 +188,22 @@ describe('single-node/fees/gas_estimation', () => {
     const estimatedGas = await estimateGasLimits(sim2.gasUsed!);
     logGasEstimate(estimatedGas);
 
+    // Pin both transfers into the same block so they share one block.gasFees. The assertions below
+    // compare the estimated and unestimated transactionFees directly (toBeLessThan / toBeGreaterThan),
+    // which only isolates the teardown-refund difference when both txs are billed at the same L2 gas
+    // price. Under the pipelining preset (minTxsPerBlock: 0, two blocks per slot) the two concurrent
+    // sends would otherwise land in different blocks whose feePerL2Gas can differ several-fold as the
+    // L1 base fee evolves on a freshly-deployed chain, flipping the comparison.
+    const sequencer = t.context.sequencer!.getSequencer();
+    await t.aztecNodeAdmin.setConfig({ minTxsPerBlock: 2, maxTxsPerBlock: 2 });
+    // Wait for any in-progress checkpoint job to complete so the next job picks up the updated config.
+    await waitForSequencerIdle(sequencer);
+
     const [withEstimate, withoutEstimate] = await sendTransfers(estimatedGas, paymentMethod);
+
+    // Guards the same-block invariant the fee comparisons below rely on; if a batching change ever lets
+    // the two txs split across blocks again, this fails clearly instead of resurfacing as a flaky fee assertion.
+    expect(withEstimate.blockNumber).toEqual(withoutEstimate.blockNumber);
 
     const teardownFixedFee = gasSettings.teardownGasLimits.computeFee(gasSettings.maxFeesPerGas).toBigInt();
 
