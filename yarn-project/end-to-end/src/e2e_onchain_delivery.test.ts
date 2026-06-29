@@ -306,6 +306,26 @@ describe('onchain delivery', () => {
     },
   });
 
+  // GREEN: the reverse of the cross-mode cell above. The unconstrained events bootstrap the handshake (no nullifier);
+  // the constrained notes reuse it, validating the reused secret against the registry at index 0 and then chaining by
+  // sequence nullifier. This is the stricter reuse direction: were the sender's tagging index to leak across modes, the
+  // first constrained note would land at a non-zero index and assert a predecessor nullifier the unconstrained sends
+  // never emitted, failing in-circuit; the tolerant unconstrained scan in the cell above would absorb the same bug
+  // silently. The hook returns a handshake for the bootstrapping unconstrained send and throws if consulted for the
+  // constrained reuse, so cross-PXE discovery is a durable proof of mode-agnostic reuse.
+  buildMessageDeliveryTest({
+    description: 'handshake bootstrapped unconstrained, reused constrained (cross-mode)',
+    mode: { events: 'unconstrained', notes: 'constrained' },
+    senderHook: ({ deliveryMode }) => {
+      if (deliveryMode !== AppTaggingSecretKind.UNCONSTRAINED) {
+        throw new Error(
+          'cross-mode reuse regressed: the constrained send consulted the strategy hook instead of reusing the bootstrapped handshake',
+        );
+      }
+      return Promise.resolve({ type: 'non-interactive-handshake' });
+    },
+  });
+
   // REJECTED: the mirror of the unconstrained x arbitrary-secret cell with constrained mode. An unconstrained secret
   // cannot back constrained delivery, so the circuit rejects the send. This pins the PXE -> circuit soundness
   // boundary that PXE deliberately delegates to the circuit.
