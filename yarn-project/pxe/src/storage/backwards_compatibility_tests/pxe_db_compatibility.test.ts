@@ -1,7 +1,11 @@
-import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { createStore, openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/stdlib/block';
 
+import { mkdtemp, rm } from 'fs/promises';
 import { toMatchFile } from 'jest-file-snapshot';
+import { tmpdir } from 'os';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -16,6 +20,7 @@ import { createStoreSpy } from './store_spy.js';
 // detect whether the list of stores PXE uses changed, and whether snapshot test for each element in said list exists.
 expect.extend({ toMatchFile });
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const PRE_DERIVED_MESSAGE_AND_FALLBACK_KEYS_PXE_SCHEMA_VERSION = 9;
 
 /**
  * Asserts that `value` matches the per-store snapshot file `__snapshots__/<name>.json`. Each store gets its own file
@@ -150,6 +155,43 @@ async function collectOpenedStores() {
  *     class and compares the resulting bytes to a committed per-store snapshot.
  */
 describe('PXE storage compatibility test suite', () => {
+  it('resets PXE key-store rows from schema 9 before opening current storage', async () => {
+    expect(PXE_DATA_SCHEMA_VERSION).toBeGreaterThan(PRE_DERIVED_MESSAGE_AND_FALLBACK_KEYS_PXE_SCHEMA_VERSION);
+
+    const account = AztecAddress.fromStringUnsafe('0x0b3683ee9df3ed6ed7027145bd6093f783b0bb4d8354501d906db7bb8cb58ea3');
+    const dataDirectory = await mkdtemp(join(tmpdir(), 'pxe-schema-reset-'));
+    const config = {
+      dataDirectory,
+      dataStoreMapSizeKb: 1024,
+      rollupAddress: EthAddress.ZERO,
+    };
+
+    try {
+      const oldStore = await createStore('pxe_data', PRE_DERIVED_MESSAGE_AND_FALLBACK_KEYS_PXE_SCHEMA_VERSION, config);
+      try {
+        await oldStore
+          .openMap<string, Buffer>('key_store')
+          .set(
+            `${account.toString()}-ivsk_m`,
+            Buffer.from('1fb01c42d1aaa2662041b899c77cb19e08192193acc5a94405f1b43c974eba7a', 'hex'),
+          );
+      } finally {
+        await oldStore.close();
+      }
+
+      const currentStore = await createStore('pxe_data', PXE_DATA_SCHEMA_VERSION, config);
+      try {
+        await expect(
+          currentStore.openMap<string, Buffer>('key_store').getAsync(`${account.toString()}-ivsk_m`),
+        ).resolves.toBeUndefined();
+      } finally {
+        await currentStore.close();
+      }
+    } finally {
+      await rm(dataDirectory, { recursive: true, force: true, maxRetries: 3 });
+    }
+  });
+
   it('opens the expected set of stores', async () => {
     const openedStores = await collectOpenedStores();
     expectMatchesSnapshot({ schemaVersion: PXE_DATA_SCHEMA_VERSION, stores: openedStores }, 'opened_stores');
