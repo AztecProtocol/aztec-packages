@@ -526,7 +526,7 @@ describe('L1Publisher integration', () => {
       const l1BlockNumber = await l1Client.getBlockNumber();
 
       // random recipient address, just kept consistent for easy testing ts/sol.
-      const recipientAddress = AztecAddress.fromString(
+      const recipientAddress = AztecAddress.fromStringUnsafe(
         '0x1647b194c649f5dd01d7c832f89b0f496043c9150797923ea89e93d5ac619a93',
       );
 

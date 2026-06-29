@@ -101,7 +101,7 @@ export async function getTxSender(pxe: PXE, _from?: string) {
   let from: AztecAddress;
   if (_from) {
     try {
-      from = AztecAddress.fromString(_from);
+      from = AztecAddress.fromStringUnsafe(_from);
     } catch {
       throw new InvalidArgumentError(`Invalid option 'from' passed: ${_from}`);
     }
@@ -195,7 +195,7 @@ export function parseFieldFromHexString(str: string): Fr {
  */
 export function parseAztecAddress(address: string): AztecAddress {
   try {
-    return AztecAddress.fromString(address);
+    return AztecAddress.fromStringUnsafe(address);
   } catch {
     throw new InvalidArgumentError(`Invalid Aztec address: ${address}`);
   }

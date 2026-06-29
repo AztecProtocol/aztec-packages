@@ -18,7 +18,7 @@ describe('validateCheckpointStructure', () => {
 
   const fixedSlot = SlotNumber(42);
   const fixedCoinbase = EthAddress.random();
-  const fixedFeeRecipient = AztecAddress.fromField(Fr.random());
+  const fixedFeeRecipient = AztecAddress.fromFieldUnsafe(Fr.random());
   const fixedGasFees = GasFees.random();
   const fixedTimestamp = BigInt(Math.floor(Date.now() / 1000));
 
@@ -158,7 +158,7 @@ describe('validateCheckpoint — limits', () => {
   const checkpointNumber = CheckpointNumber(1);
   const fixedSlot = SlotNumber(42);
   const fixedCoinbase = EthAddress.random();
-  const fixedFeeRecipient = AztecAddress.fromField(Fr.random());
+  const fixedFeeRecipient = AztecAddress.fromFieldUnsafe(Fr.random());
   const fixedGasFees = GasFees.random();
   const fixedTimestamp = BigInt(Math.floor(Date.now() / 1000));
 

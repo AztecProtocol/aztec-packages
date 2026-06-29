@@ -47,7 +47,7 @@ async function buildChainedCheckpointsWithLogs(
   return checkpoints;
 }
 
-const CONTRACT = AztecAddress.fromNumber(543254);
+const CONTRACT = AztecAddress.fromNumberUnsafe(543254);
 
 describe('LogStore', () => {
   let blockStore: BlockStore;
@@ -525,7 +525,7 @@ describe('LogStore', () => {
       await logStore.addLogs([ckpt.checkpoint.blocks[0]]);
 
       // Same tag, different contract → no hits.
-      const otherContract = AztecAddress.fromNumber(99);
+      const otherContract = AztecAddress.fromNumberUnsafe(99);
       const [missing] = await logStore.getPublicLogsByTags({ contractAddress: otherContract, tags: [tag] });
       expect(missing).toEqual([]);
 

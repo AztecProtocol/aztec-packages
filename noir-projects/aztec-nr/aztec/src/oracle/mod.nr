@@ -19,10 +19,6 @@ use crate::macros::oracle_testing::{generate_oracle_tests, generate_oracle_tests
         // TODO: implement once we support more complex types
         quote { emit_public_log_opcode },
         quote { returndata_copy_opcode },
-        // TODO: requires fix on registry
-        quote { call_opcode },
-        quote { call_static_opcode },
-        quote { success_copy_opcode },
     ],
 )]
 pub mod avm;
@@ -41,8 +37,16 @@ pub(crate) mod ephemeral_oracles;
 pub(crate) mod transient_oracles;
 #[generate_oracle_tests]
 pub mod contract_sync;
+pub mod fact_store;
 #[generate_oracle_tests]
 pub mod public_call;
+pub mod tx_resolution;
+#[generate_oracle_tests_excluding(
+    @[
+        quote { resolve_tagging_strategy_oracle }, // TODO: implement once we support more complex types
+    ],
+)]
+pub mod resolve_tagging_strategy;
 #[generate_oracle_tests]
 pub mod tx_phase;
 pub mod execution;

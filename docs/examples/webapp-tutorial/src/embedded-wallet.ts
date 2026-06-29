@@ -73,7 +73,11 @@ export class EmbeddedWallet extends BaseEmbeddedWallet {
 
   static async #getSponsoredFPCContract() {
     const { SponsoredFPCContractArtifact } = await import(
+<<<<<<< HEAD
       '@aztec/noir-contracts.js/SponsoredFPC'
+=======
+      "@aztec/noir-contracts.js/SponsoredFPC"
+>>>>>>> c81bb25cb7 (feat: merge-train/fairies-v5 (#24223))
     );
     const instance = await getContractInstanceFromInstantiationParams(
       SponsoredFPCContractArtifact,

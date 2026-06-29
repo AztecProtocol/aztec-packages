@@ -20,8 +20,8 @@ describe('Public Processor app tests: TokenContract', () => {
   const logger = createLogger('public-processor-apps-tests-token');
 
   const NUM_TRANSFERS = 10;
-  const admin = AztecAddress.fromNumber(42);
-  const sender = AztecAddress.fromNumber(111);
+  const admin = AztecAddress.fromNumberUnsafe(42);
+  const sender = AztecAddress.fromNumberUnsafe(111);
 
   let token: ContractInstanceWithAddress;
   let worldStateService: NativeWorldStateService;
@@ -105,7 +105,7 @@ describe('Public Processor app tests: TokenContract', () => {
 
     const transferTxs = [];
     for (let i = 0; i < NUM_TRANSFERS; i++) {
-      const receiver = AztecAddress.fromNumber(200 + i); // different receiver each time
+      const receiver = AztecAddress.fromNumberUnsafe(200 + i); // different receiver each time
       transferTxs.push(
         await tester.createTx(
           /*sender=*/ sender,

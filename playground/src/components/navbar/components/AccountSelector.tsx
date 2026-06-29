@@ -81,7 +81,7 @@ export function AccountSelector() {
           onClose={() => setIsOpen(false)}
           onChange={e => {
             if (e.target.value !== '') {
-              handleAccountChange(AztecAddress.fromString(e.target.value));
+              handleAccountChange(AztecAddress.fromStringUnsafe(e.target.value));
             }
           }}
           disabled={areAccountsLoading}

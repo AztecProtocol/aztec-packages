@@ -45,7 +45,7 @@ describe('log_store_codec', () => {
     });
 
     it('strips 0x prefix for AztecAddress', () => {
-      const addr = AztecAddress.fromNumber(12345);
+      const addr = AztecAddress.fromNumberUnsafe(12345);
       const hex = fieldHex(addr);
       expect(hex).toHaveLength(64);
       expect(hex).not.toMatch(/^0x/);
@@ -69,7 +69,7 @@ describe('log_store_codec', () => {
     });
 
     it('round-trips a public-style prefix (contract-tag)', () => {
-      const contractHex = fieldHex(AztecAddress.fromNumber(99));
+      const contractHex = fieldHex(AztecAddress.fromNumberUnsafe(99));
       const tagHex = fieldHex(new Fr(0x5678n));
       const prefix = encodePublicPrefix(contractHex, tagHex);
       const key = encodeKey(prefix, 10, 0, 2);
@@ -242,7 +242,7 @@ describe('log_store_codec', () => {
 
   describe('encodePublicPrefix', () => {
     it('produces contractHex-tagHex', () => {
-      const contractHex = fieldHex(AztecAddress.fromNumber(1));
+      const contractHex = fieldHex(AztecAddress.fromNumberUnsafe(1));
       const tagHex = fieldHex(new Fr(2n));
       expect(encodePublicPrefix(contractHex, tagHex)).toBe(`${contractHex}-${tagHex}`);
     });

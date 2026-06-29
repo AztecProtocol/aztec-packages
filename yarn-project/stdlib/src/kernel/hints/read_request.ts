@@ -112,7 +112,7 @@ export class ScopedReadRequest {
 
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
-    return new ScopedReadRequest(reader.readObject(ReadRequest), AztecAddress.fromField(reader.readField()));
+    return new ScopedReadRequest(reader.readObject(ReadRequest), AztecAddress.fromFieldUnsafe(reader.readField()));
   }
 
   /**

@@ -55,7 +55,11 @@
 //! produces two tests: `some+some` and `none+none`. Each scenario becomes its own `#[test]`, suffixed by index
 //! (`__0`, `__1`, …).
 
-use crate::protocol::{abis::function_selector::FunctionSelector, address::AztecAddress, traits::FromField};
+use crate::protocol::{
+    abis::function_selector::FunctionSelector,
+    address::{AztecAddress, EthAddress},
+    traits::FromField,
+};
 
 /// Max capacity of [`Scenario`] names.
 global MAX_SCENARIO_NAME_LEN: u32 = 64;
@@ -132,6 +136,11 @@ impl OracleTestValue<1> for AztecAddress {
 impl OracleTestValue<1> for FunctionSelector {
     fn oracle_test_value(seed: u32) -> [Scenario<Self>; 1] {
         [Scenario::unnamed(FunctionSelector::from_field(seed as Field))]
+    }
+}
+impl OracleTestValue<1> for EthAddress {
+    fn oracle_test_value(seed: u32) -> [Scenario<Self>; 1] {
+        [Scenario::unnamed(EthAddress::from_field(seed as Field))]
     }
 }
 impl<T> OracleTestValue<2> for Option<T>

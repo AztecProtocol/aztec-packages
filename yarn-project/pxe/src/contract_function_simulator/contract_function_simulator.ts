@@ -94,16 +94,18 @@ import {
 
 import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
 import type { ExecutionHooks } from '../hooks/index.js';
-import type { MessageContextService } from '../messages/message_context_service.js';
+import type { TxResolverService } from '../messages/tx_resolver_service.js';
 import type { AddressStore } from '../storage/address_store/address_store.js';
 import { CapsuleService } from '../storage/capsule_store/capsule_service.js';
 import type { CapsuleStore } from '../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../storage/contract_store/contract_store.js';
+import { FactService } from '../storage/fact_store/index.js';
+import type { FactStore } from '../storage/fact_store/index.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
-import type { SenderAddressBookStore } from '../storage/tagging_store/sender_address_book_store.js';
 import type { SenderTaggingStore } from '../storage/tagging_store/sender_tagging_store.js';
+import type { TaggingSecretSourcesStore } from '../storage/tagging_store/tagging_secret_sources_store.js';
 import type { BenchmarkedNode } from './benchmarked_node.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from './execution_tagging_index_cache.js';
@@ -138,12 +140,13 @@ export type ContractFunctionSimulatorArgs = {
   l2TipsStore: L2TipsProvider;
   senderTaggingStore: SenderTaggingStore;
   recipientTaggingStore: RecipientTaggingStore;
-  senderAddressBookStore: SenderAddressBookStore;
+  taggingSecretSourcesStore: TaggingSecretSourcesStore;
   capsuleStore: CapsuleStore;
+  factStore: FactStore;
   privateEventStore: PrivateEventStore;
   simulator: CircuitSimulator;
   contractSyncService: ContractSyncService;
-  messageContextService: MessageContextService;
+  txResolver: TxResolverService;
   hooks?: ExecutionHooks;
 };
 
@@ -160,12 +163,13 @@ export class ContractFunctionSimulator {
   private readonly l2TipsStore: L2TipsProvider;
   private readonly senderTaggingStore: SenderTaggingStore;
   private readonly recipientTaggingStore: RecipientTaggingStore;
-  private readonly senderAddressBookStore: SenderAddressBookStore;
+  private readonly taggingSecretSourcesStore: TaggingSecretSourcesStore;
   private readonly capsuleStore: CapsuleStore;
+  private readonly factStore: FactStore;
   private readonly privateEventStore: PrivateEventStore;
   private readonly simulator: CircuitSimulator;
   private readonly contractSyncService: ContractSyncService;
-  private readonly messageContextService: MessageContextService;
+  private readonly txResolver: TxResolverService;
   private readonly hooks: ExecutionHooks | undefined;
 
   constructor(args: ContractFunctionSimulatorArgs) {
@@ -177,12 +181,13 @@ export class ContractFunctionSimulator {
     this.l2TipsStore = args.l2TipsStore;
     this.senderTaggingStore = args.senderTaggingStore;
     this.recipientTaggingStore = args.recipientTaggingStore;
-    this.senderAddressBookStore = args.senderAddressBookStore;
+    this.taggingSecretSourcesStore = args.taggingSecretSourcesStore;
     this.capsuleStore = args.capsuleStore;
+    this.factStore = args.factStore;
     this.privateEventStore = args.privateEventStore;
     this.simulator = args.simulator;
     this.contractSyncService = args.contractSyncService;
-    this.messageContextService = args.messageContextService;
+    this.txResolver = args.txResolver;
     this.hooks = args.hooks;
     this.log = createLogger('simulator');
   }
@@ -254,10 +259,11 @@ export class ContractFunctionSimulator {
       aztecNode: this.aztecNode,
       senderTaggingStore: this.senderTaggingStore,
       recipientTaggingStore: this.recipientTaggingStore,
-      senderAddressBookStore: this.senderAddressBookStore,
+      taggingSecretSourcesStore: this.taggingSecretSourcesStore,
       capsuleService: new CapsuleService(this.capsuleStore, scopes),
+      factService: new FactService(this.factStore, scopes),
       privateEventStore: this.privateEventStore,
-      messageContextService: this.messageContextService,
+      txResolver: this.txResolver,
       contractSyncService: this.contractSyncService,
       jobId,
       totalPublicCalldataCount: 0,
@@ -355,10 +361,11 @@ export class ContractFunctionSimulator {
       addressStore: this.addressStore,
       aztecNode: this.aztecNode,
       recipientTaggingStore: this.recipientTaggingStore,
-      senderAddressBookStore: this.senderAddressBookStore,
+      taggingSecretSourcesStore: this.taggingSecretSourcesStore,
       capsuleService: new CapsuleService(this.capsuleStore, scopes),
+      factService: new FactService(this.factStore, scopes),
       privateEventStore: this.privateEventStore,
-      messageContextService: this.messageContextService,
+      txResolver: this.txResolver,
       contractSyncService: this.contractSyncService,
       l2TipsStore: this.l2TipsStore,
       jobId,

@@ -269,7 +269,10 @@ export function makePublicLogTag(blockNumber: number, txIndex: number, logIndex:
 }
 
 /** Creates a PublicLog with fields derived from the tag. */
-export function makePublicLog(tag: Tag, contractAddress: AztecAddress = AztecAddress.fromNumber(543254)): PublicLog {
+export function makePublicLog(
+  tag: Tag,
+  contractAddress: AztecAddress = AztecAddress.fromNumberUnsafe(543254),
+): PublicLog {
   return PublicLog.from({
     contractAddress,
     fields: new Array(10).fill(null).map((_, i) => (!i ? tag.value : new Fr(tag.value.toBigInt() + BigInt(i)))),
@@ -281,7 +284,7 @@ export function makePublicLogs(
   blockNumber: number,
   txIndex: number,
   numLogsPerTx: number,
-  contractAddress: AztecAddress = AztecAddress.fromNumber(543254),
+  contractAddress: AztecAddress = AztecAddress.fromNumberUnsafe(543254),
 ): PublicLog[] {
   return times(numLogsPerTx, logIndex => {
     const tag = makePublicLogTag(blockNumber, txIndex, logIndex);

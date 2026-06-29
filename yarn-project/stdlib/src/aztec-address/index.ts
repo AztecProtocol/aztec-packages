@@ -43,34 +43,64 @@ export class AztecAddress {
   static ZERO = new AztecAddress(Buffer.alloc(32, 0));
 
   /** Null msg sender address. Not part of the protocol contracts tree. */
-  static NULL_MSG_SENDER = AztecAddress.fromBigInt(NULL_MSG_SENDER_CONTRACT_ADDRESS);
+  static NULL_MSG_SENDER = AztecAddress.fromBigIntUnsafe(NULL_MSG_SENDER_CONTRACT_ADDRESS);
 
   static zero(): AztecAddress {
     return AztecAddress.ZERO;
   }
 
-  static fromField(fr: Fr) {
+  /**
+   * Builds an `AztecAddress` from a field **without checking it is a valid address** (the x-coordinate of a point on
+   * the Grumpkin curve, which is what lets it be encrypted to). Use {@link AztecAddress.isValid} to validate an
+   * untrusted one, or {@link AztecAddress.random} for valid test addresses.
+   */
+  static fromFieldUnsafe(fr: Fr) {
     return new AztecAddress(fr);
   }
 
+  /**
+   * Deserializes an `AztecAddress` from a buffer. It does **not** check the value is a valid Grumpkin-curve address
+   * (see {@link AztecAddress.isValid}); it is meant for reading addresses from already-validated serialized data. Use
+   * {@link AztecAddress.random} for valid test addresses.
+   */
   static fromBuffer(buffer: Buffer | BufferReader) {
     return new AztecAddress(fromBuffer(buffer, Fr));
   }
 
+  /**
+   * Deserializes an `AztecAddress` from a field reader. It does **not** check the value is a valid Grumpkin-curve
+   * address (see {@link AztecAddress.isValid}); it is meant for reading addresses from already-validated serialized
+   * data. Use {@link AztecAddress.random} for valid test addresses.
+   */
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
     return new AztecAddress(reader.readField());
   }
 
-  static fromBigInt(value: bigint) {
+  /**
+   * Builds an `AztecAddress` from a bigint **without checking it is a valid address** (the x-coordinate of a point on
+   * the Grumpkin curve, which is what lets it be encrypted to). Use {@link AztecAddress.isValid} to validate an
+   * untrusted one, or {@link AztecAddress.random} for valid test addresses.
+   */
+  static fromBigIntUnsafe(value: bigint) {
     return new AztecAddress(new Fr(value));
   }
 
-  static fromNumber(value: number) {
+  /**
+   * Builds an `AztecAddress` from a number **without checking it is a valid address** (the x-coordinate of a point on
+   * the Grumpkin curve, which is what lets it be encrypted to). Use {@link AztecAddress.isValid} to validate an
+   * untrusted one, or {@link AztecAddress.random} for valid test addresses.
+   */
+  static fromNumberUnsafe(value: number) {
     return new AztecAddress(new Fr(value));
   }
 
-  static fromString(buf: string) {
+  /**
+   * Builds an `AztecAddress` from a hex string **without checking it is a valid address** (the x-coordinate of a
+   * point on the Grumpkin curve, which is what lets it be encrypted to). Use {@link AztecAddress.isValid} to
+   * validate an untrusted one, or {@link AztecAddress.random} for valid test addresses.
+   */
+  static fromStringUnsafe(buf: string) {
     return new AztecAddress(hexToBuffer(buf));
   }
 
@@ -89,7 +119,7 @@ export class AztecAddress {
     if (obj instanceof Buffer || Buffer.isBuffer(obj)) {
       return new AztecAddress(obj);
     }
-    return AztecAddress.fromString(obj);
+    return AztecAddress.fromStringUnsafe(obj);
   }
 
   /**
