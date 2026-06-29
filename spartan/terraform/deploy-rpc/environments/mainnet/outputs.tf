@@ -1,3 +1,8 @@
+output "namespace" {
+  description = "Kubernetes namespace for RPC workloads and Kong routes."
+  value       = module.environment.namespace
+}
+
 output "rpc_services" {
   description = "RPC Service names and ports keyed by alias."
   value       = module.environment.rpc_services
