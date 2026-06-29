@@ -9,6 +9,33 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] `MessageContext` removed: message processing uses `ResolvedTx`
+
+`aztec::messages::processing::MessageContext` has been removed. It had become an exact duplicate of `ResolvedTx` (the resolved on-chain context of a transaction), so the two are unified on `ResolvedTx`, which carries the same `tx_hash`, `unique_note_hashes_in_tx`, and `first_nullifier_in_tx`, plus the originating `block_number` and `block_hash`. The offchain handoff type `OffchainMessageWithContext` is likewise renamed to `OffchainMessageWithTx`.
+
+This affects contracts that implement a custom message handler (registered via `AztecConfig::custom_message_handler`): the handler's context parameter is now a `ResolvedTx`.
+
+**Migration:**
+
+```diff
+  use aztec::messages::processing::{
+-     enqueue_event_for_validation, MessageContext,
++     enqueue_event_for_validation, ResolvedTx,
+  };
+
+  unconstrained fn handle_my_message(
+      // ...
+-     message_context: MessageContext,
++     resolved_tx: ResolvedTx,
+      scope: AztecAddress,
+  ) {
+-     // ...message_context.tx_hash...
++     // ...resolved_tx.tx_hash...
+  }
+```
+
+**Impact**: Custom message handlers must rename the parameter type to `ResolvedTx` and update references. Field names are unchanged, so accesses like `.tx_hash` keep working. Contracts without a custom message handler are unaffected.
+
 ### [Prover Node JSON-RPC] Prover API moved to the admin endpoint; `getL2Tips`/`getWorldStateSyncStatus` removed
 
 The prover node's JSON-RPC methods (`prover_*`) have moved off the public node RPC server and onto the admin RPC server. They now require the admin API key and are served on the admin port (8880) instead of the public port (8080).
