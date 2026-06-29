@@ -1,9 +1,5 @@
 import { NetCrs, fetchWithFallback } from './net_crs.js';
-
-// Compressed form of generator: x=1, y=2 (even, so sign bit = 0)
-const BN254_G1_FIRST_ELEMENT_COMPRESSED = new Uint8Array([
-  0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
-]);
+import { BN254_G1_FIRST_ELEMENT_COMPRESSED, BN254_G1_SECOND_ELEMENT_COMPRESSED, BN254_G2_EXPECTED, spotCheckG1Data } from './crs_integrity.js';
 
 describe('NetCrs', () => {
   it('should download compressed CRS data', async () => {
@@ -15,13 +11,29 @@ describe('NetCrs', () => {
     expect(g1Data).toEqual(BN254_G1_FIRST_ELEMENT_COMPRESSED);
   }, 30000);
 
-  it('should download G2 data', async () => {
+  it('should return hardcoded G2 data', () => {
     const crs = new NetCrs(1);
+    expect(crs.getG2Data()).toEqual(BN254_G2_EXPECTED);
+    expect(crs.getG2Data().length).toBe(128);
+  });
+
+  it('should verify second G1 element when downloading 2+ points', async () => {
+    const crs = new NetCrs(2);
     await crs.init();
 
-    const g2Data = crs.getG2Data();
-    expect(g2Data.length).toBe(128); // G2 point is 128 bytes
+    const g1Data = crs.getG1Data();
+    expect(g1Data.length).toBe(64);
+    expect(g1Data.slice(0, 32)).toEqual(BN254_G1_FIRST_ELEMENT_COMPRESSED);
+    expect(g1Data.slice(32, 64)).toEqual(BN254_G1_SECOND_ELEMENT_COMPRESSED);
   }, 30000);
+});
+
+describe('CRS integrity', () => {
+  it('should reject corrupted G1 data', () => {
+    const bad = new Uint8Array(32);
+    bad[0] = 0xff;
+    expect(() => spotCheckG1Data(bad)).toThrow('first G1 element does not match');
+  });
 });
 
 describe('fetchWithFallback', () => {
@@ -59,5 +71,3 @@ describe('fetchWithFallback', () => {
     expect(data).toEqual(BN254_G1_FIRST_ELEMENT_COMPRESSED);
   }, 30000);
 });
-
-

@@ -1,4 +1,5 @@
 import { NetCrs, NetGrumpkinCrs } from '../net_crs.js';
+import { BN254_G2_EXPECTED } from '../crs_integrity.js';
 import { get, set } from 'idb-keyval';
 
 /**
@@ -6,7 +7,6 @@ import { get, set } from 'idb-keyval';
  */
 export class CachedNetCrs {
   private g1Data!: Uint8Array;
-  private g2Data!: Uint8Array;
   constructor(public readonly numPoints: number) {}
 
   static async new(numPoints: number) {
@@ -19,8 +19,6 @@ export class CachedNetCrs {
    * Download the data.
    */
   async init() {
-    const g2Data = await get('g2Data');
-
     // Prefer cached uncompressed (64 bytes/point, fast path: no decompression needed)
     const g1Uncompressed = await get('g1Data');
     const uncompressedLength = this.numPoints * 64;
@@ -30,14 +28,6 @@ export class CachedNetCrs {
       // Download compressed from CDN
       const netCrs = new NetCrs(this.numPoints);
       this.g1Data = await netCrs.downloadG1Data();
-    }
-
-    if (!g2Data) {
-      const netCrs = new NetCrs(this.numPoints);
-      this.g2Data = await netCrs.downloadG2Data();
-      await set('g2Data', this.g2Data);
-    } else {
-      this.g2Data = g2Data;
     }
   }
 
@@ -56,11 +46,10 @@ export class CachedNetCrs {
   }
 
   /**
-   * G2 points data for verification key.
-   * @returns The points data.
+   * G2 point data for verification key. Hardcoded from the trusted setup (128 bytes).
    */
   getG2Data(): Uint8Array {
-    return this.g2Data;
+    return BN254_G2_EXPECTED;
   }
 }
 

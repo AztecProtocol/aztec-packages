@@ -208,7 +208,16 @@ export class BarretenbergNativeShmSyncBackend implements IMsgpackBackendSync {
   destroy(): void {
     this.cleanup();
     this.process.kill('SIGTERM');
-    // Remove process event listeners to prevent hanging
     this.process.removeAllListeners();
+
+    // Escalate to SIGKILL if process doesn't exit after SIGTERM
+    const killTimeout = setTimeout(() => {
+      try {
+        this.process.kill('SIGKILL');
+      } catch {
+        // Process already exited
+      }
+    }, 1000);
+    killTimeout.unref(); // Don't prevent Node from exiting
   }
 }

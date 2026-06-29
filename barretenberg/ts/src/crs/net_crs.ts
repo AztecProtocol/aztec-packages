@@ -1,4 +1,4 @@
-import { retry, makeBackoff } from '../retry/index.js';
+import { spotCheckG1Data, BN254_G2_EXPECTED } from './crs_integrity.js';
 
 // Primary CRS host (Cloudflare R2)
 const CRS_PRIMARY_HOST = 'https://crs.aztec-cdn.foundation';
@@ -31,7 +31,6 @@ export async function fetchWithFallback(
  */
 export class NetCrs {
   private data!: Uint8Array;
-  private g2Data!: Uint8Array;
   constructor(
     /**
      * The number of circuit gates.
@@ -44,7 +43,6 @@ export class NetCrs {
    */
   async init() {
     await this.downloadG1Data();
-    await this.downloadG2Data();
   }
 
   /**
@@ -52,15 +50,10 @@ export class NetCrs {
    */
   async streamG1Data(): Promise<ReadableStream<Uint8Array>> {
     const response = await this.fetchG1Data();
-    return response.body!;
-  }
-
-  /**
-   * Opens up a ReadableStream to the G2 points data
-   */
-  async streamG2Data(): Promise<ReadableStream<Uint8Array>> {
-    const response = await this.fetchG2Data();
-    return response.body!;
+    if (!response.body) {
+      throw new Error('CRS G1 download response has no body stream');
+    }
+    return response.body;
   }
 
   /**
@@ -69,15 +62,11 @@ export class NetCrs {
    */
   async downloadG1Data() {
     const response = await this.fetchG1Data();
-    return (this.data = new Uint8Array(await response.arrayBuffer()));
-  }
-
-  /**
-   * Download the G2 points data.
-   */
-  async downloadG2Data() {
-    const response2 = await this.fetchG2Data();
-    return (this.g2Data = new Uint8Array(await response2.arrayBuffer()));
+    this.data = new Uint8Array(await response.arrayBuffer());
+    if (this.data.length > 0) {
+      spotCheckG1Data(this.data);
+    }
+    return this.data;
   }
 
   /**
@@ -88,11 +77,10 @@ export class NetCrs {
   }
 
   /**
-   * G2 points data for verification key.
-   * @returns The points data.
+   * G2 point data for verification key. Hardcoded from the trusted setup (128 bytes).
    */
   getG2Data(): Uint8Array {
-    return this.g2Data;
+    return BN254_G2_EXPECTED;
   }
 
   /**
@@ -115,18 +103,6 @@ export class NetCrs {
     );
   }
 
-  /**
-   * Fetches the appropriate range of points from a remote source
-   */
-  private async fetchG2Data(): Promise<Response> {
-    const options: RequestInit = {
-      cache: 'force-cache',
-    };
-    return await retry(
-      () => fetchWithFallback(`${CRS_PRIMARY_HOST}/g2.dat`, `${CRS_FALLBACK_HOST}/g2.dat`, options),
-      makeBackoff([5, 5, 5]),
-    );
-  }
 }
 
 /**
@@ -159,7 +135,10 @@ export class NetGrumpkinCrs {
    */
   async streamG1Data(): Promise<ReadableStream<Uint8Array>> {
     const response = await this.fetchG1Data();
-    return response.body!;
+    if (!response.body) {
+      throw new Error('Grumpkin CRS G1 download response has no body stream');
+    }
+    return response.body;
   }
 
   /**

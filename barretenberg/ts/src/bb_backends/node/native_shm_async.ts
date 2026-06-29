@@ -1,6 +1,7 @@
 import { createRequire } from 'module';
 import { spawn, ChildProcess } from 'child_process';
 import { openSync, closeSync } from 'fs';
+import { cpus } from 'os';
 import { IMsgpackBackendAsync } from '../interface.js';
 import { findNapiBinary, findPackageRoot } from './platform.js';
 import { threadId } from 'worker_threads';
@@ -42,6 +43,30 @@ export class BarretenbergNativeShmAsyncBackend implements IMsgpackBackendAsync {
     this.client.setResponseCallback((responseBuffer: Buffer) => {
       this.handleResponse(responseBuffer);
     });
+
+    // If process dies unexpectedly, reject all pending callbacks
+    this.process.on('exit', (code: number | null, signal: string | null) => {
+      if (signal !== 'SIGTERM') {
+        this.rejectPendingCallbacks(
+          new Error(`Native backend process exited unexpectedly (code=${code}, signal=${signal})`),
+        );
+      }
+    });
+  }
+
+  private rejectPendingCallbacks(error: Error): void {
+    const hadPending = this.pendingCallbacks.length > 0;
+    for (const callback of this.pendingCallbacks) {
+      callback.reject(error);
+    }
+    this.pendingCallbacks = [];
+    if (hadPending) {
+      try {
+        this.client.release();
+      } catch {
+        // Client may already be released
+      }
+    }
   }
 
   /**
@@ -93,7 +118,7 @@ export class BarretenbergNativeShmAsyncBackend implements IMsgpackBackendAsync {
     const shmName = `bb-async-${process.pid}-${threadId}-${instanceCounter++}`;
 
     // If threads not set use num cpu cores, max 16 (same as socket backend)
-    const hwc = threads ? threads.toString() : '16';
+    const hwc = threads ? threads.toString() : Math.min(16, cpus().length).toString();
     const env = { ...process.env, HARDWARE_CONCURRENCY: hwc };
 
     // Set up file logging if logger is provided
@@ -245,8 +270,9 @@ export class BarretenbergNativeShmAsyncBackend implements IMsgpackBackendAsync {
   }
 
   async destroy(): Promise<void> {
-    // Kill the bb process
-    // Background thread and callbacks will be cleaned up by OS on process exit
+    // Reject all pending callbacks before killing the process
+    this.rejectPendingCallbacks(new Error('Backend destroyed while requests were pending'));
+
     this.process.kill('SIGTERM');
     this.process.removeAllListeners();
 
