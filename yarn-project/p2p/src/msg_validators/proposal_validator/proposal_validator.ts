@@ -19,7 +19,6 @@ export class ProposalValidator {
   private logger: Logger;
   private txsPermitted: boolean;
   private maxTxsPerBlock?: number;
-  private maxBlocksPerCheckpoint?: number;
   private skipSlotValidation: boolean;
   private signatureContext: CoordinationSignatureContext;
   private clockDisparityMs: number;
@@ -41,7 +40,6 @@ export class ProposalValidator {
     this.timetable = timetable;
     this.txsPermitted = opts.txsPermitted;
     this.maxTxsPerBlock = opts.maxTxsPerBlock;
-    this.maxBlocksPerCheckpoint = opts.maxBlocksPerCheckpoint;
     this.skipSlotValidation = opts.skipSlotValidation ?? false;
     this.signatureContext = opts.signatureContext;
     this.clockDisparityMs = opts.clockDisparityMs;
@@ -107,8 +105,12 @@ export class ProposalValidator {
         return { result: 'reject', severity: PeerErrorSeverity.MidToleranceError };
       }
 
-      // A block proposal whose index lands beyond the checkpoint block limit can never be part of a
-      // checkpoint we would attest to, so reject it immediately at ingress.
+      // A block proposal whose index lands at or beyond the hard attestable ceiling is structurally
+      // impossible garbage, so reject it immediately at ingress. Indices in
+      // `[maxBlocksPerCheckpoint, MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT)` are over the consensus limit
+      // but structurally valid proposer misbehavior; they pass gossip validation here so the offending
+      // proposal can be retained and re-broadcast as slashing evidence (handled downstream in the p2p
+      // service), rather than penalizing the relaying peer.
       if ('indexWithinCheckpoint' in proposal) {
         const indexResult = this.validateBlockIndexWithinCheckpoint(proposal);
         if (indexResult.result !== 'accept') {
@@ -126,20 +128,21 @@ export class ProposalValidator {
   }
 
   /**
-   * Rejects a block proposal whose index within its checkpoint lands at or beyond the per-checkpoint
-   * block limit. `MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT` is a hard ceiling applied even when
-   * `maxBlocksPerCheckpoint` is unset; a lower configured value tightens it further.
-   * `indexWithinCheckpoint` is 0-based, so a ceiling of 72 rejects the 73rd block. Applies to standalone
+   * Rejects a block proposal whose index within its checkpoint lands at or beyond the hard attestable
+   * ceiling `MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT` (a structurally impossible index that can never be
+   * part of any checkpoint we could attest to). `indexWithinCheckpoint` is 0-based, so a ceiling of 72
+   * rejects the 73rd block.
+   *
+   * Indices in `[maxBlocksPerCheckpoint, MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT)` are over the configured
+   * consensus limit but still structurally valid: they are proposer misbehavior, not relaying-peer
+   * fault, so they are *not* rejected here. The p2p service retains and re-broadcasts the first such
+   * proposal per (slot, proposer) as slashing evidence and skips processing it. Applies to standalone
    * block proposals and to the terminal block embedded in a checkpoint proposal.
    */
   public validateBlockIndexWithinCheckpoint(proposal: BlockProposal): ValidationResult {
-    const maxBlocksPerCheckpoint = Math.min(
-      this.maxBlocksPerCheckpoint ?? MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT,
-      MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT,
-    );
-    if (proposal.indexWithinCheckpoint >= maxBlocksPerCheckpoint) {
+    if (proposal.indexWithinCheckpoint >= MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT) {
       this.logger.warn(
-        `Penalizing peer for proposal with indexWithinCheckpoint ${proposal.indexWithinCheckpoint} >= max ${maxBlocksPerCheckpoint}`,
+        `Penalizing peer for proposal with indexWithinCheckpoint ${proposal.indexWithinCheckpoint} >= attestable ceiling ${MAX_ATTESTABLE_BLOCKS_PER_CHECKPOINT}`,
       );
       return { result: 'reject', severity: PeerErrorSeverity.MidToleranceError };
     }

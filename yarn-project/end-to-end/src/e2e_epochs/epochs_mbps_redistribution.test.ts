@@ -31,32 +31,50 @@ jest.setTimeout(1000 * 60 * 20);
 const NODE_COUNT = 4;
 
 /**
- * Number of txs to feed one-by-one during early sub-slots.
- * These are sent at the start of each sub-slot so each block picks up exactly one.
+ * Number of txs fed one-by-one during the early sub-slots (blocks 0 and 1), one per block.
+ * They are sent at the start of each sub-slot so each early block picks up exactly one, leaving
+ * most of the checkpoint's tx budget unconsumed for the later blocks to inherit.
  */
 const EARLY_TX_COUNT = 2;
 
 /**
- * Number of txs to dump into the mempool right before the last sub-slot.
- * With redistribution working, the last block should have enough budget to include all of them.
- * Without redistribution, the per-block gas cap starves the last block.
+ * Number of txs dumped into the mempool as a burst once the early blocks are in. They race the
+ * proposer's mempool snapshot for the one-before-last block, so they split arbitrarily across the
+ * last two blocks (an x/(LATE_TX_COUNT-x) split). With redistribution working, those two blocks
+ * together inherit enough budget to hold all of them regardless of the split; without it, each is
+ * capped at the static per-block limit S and the burst spills into the next checkpoint.
  */
-const LATE_TX_COUNT = 4;
+const LATE_TX_COUNT = 7;
 
 /** Total txs pre-proved before the test begins. */
 const TOTAL_TX_COUNT = EARLY_TX_COUNT + LATE_TX_COUNT;
 
+// Four-validator MBPS suite verifying that the per-block gas budget redistribution mechanism allows
+// late transactions to fill the last blocks of a checkpoint whose earlier blocks were light. Two tests:
+// (1) standard redistribution — early blocks consume minimal budget, late txs all fit across the last
+// blocks; (2) validators should NOT apply the proposer's fair-share multiplier during re-execution —
+// nodes with different perBlockAllocationMultiplier values must still attest for each other's blocks.
+// Uses EpochsTestContext with mockGossipSubNetwork, startProverNode, no initial sequencer.
 /**
- * Verifies that checkpoint budget redistribution allows late transactions to fit in the last block
- * when earlier blocks in the checkpoint were light.
+ * Verifies that checkpoint budget redistribution lets a burst of late transactions fit into the last
+ * blocks of a checkpoint when the earlier blocks were light.
  *
- * The test configures a tight per-checkpoint tx limit across multiple blocks per checkpoint. Early
- * blocks each receive a single tx, leaving most of the budget unconsumed. All remaining txs are then
- * submitted just before the last sub-slot. With redistribution working, the last block inherits the
- * unused budget from earlier blocks and can include all late txs. Without redistribution, each block
- * is capped at the static per-block limit and the late txs are left out.
+ * Config gives C = maxBlocksPerCheckpoint = 4 blocks per checkpoint with a tight
+ * maxTxsPerCheckpoint = TOTAL_TX_COUNT = 9. The proposer's per-block cap (proposer mode) is
+ * `min(remainingTxs, ceil(remainingTxs / remainingBlocks * 1.2))` with the multiplier floor 1.2.
+ * Blocks 0 and 1 each take a single early tx (caps 3 and 4), so used = 2 and 7 txs remain. The burst
+ * of LATE_TX_COUNT = 7 then races the snapshot for block 2 (one-before-last): block 2 has cap
+ * `ceil(7/2*1.2)=5` and takes some x ∈ [1,5]; block 3 (last) then has cap `7-x` and takes the rest.
+ * Either way the last two blocks jointly absorb all 7 late txs.
  *
- * Success is verified by confirming that all late txs land in the same block.
+ * The "no redistribution" baseline is the static per-block cap S = ceil(9/4*1.2) = 3: without
+ * redistribution each of the last two blocks holds at most S = 3, so together at most 6, and the 7th
+ * tx spills into the first block of the *next* checkpoint (a consecutive global block number).
+ *
+ * Success is verified by confirming that, within the checkpoint holding the early txs, the last two
+ * checkpoint block indices together hold all LATE_TX_COUNT late txs (> 2*S = 6). The check counts by
+ * checkpoint block index, not by global block number, so a spilled tx in the next checkpoint does not
+ * masquerade as a redistributed one.
  */
 describe('e2e_epochs/epochs_mbps_redistribution', () => {
   let context: EndToEndContext;
@@ -85,12 +103,11 @@ describe('e2e_epochs/epochs_mbps_redistribution', () => {
       return { attester, withdrawer: attester, privateKey, bn254SecretKey: new SecretValue(Fr.random().toBigInt()) };
     });
 
-    // Timing calculation for 3 blocks per checkpoint with 8s sub-slots:
-    // - initializationOffset = 0.5s (test mode, ethereumSlotDuration < 8)
-    // - 3 blocks x 8s = 24s
-    // - checkpointFinalization = 0.5s (assemble) + 0 (p2p in test) + 2s (L1 publish) = 2.5s
-    // - finalBlockDuration = 8s (re-execution)
-    // - Total: 0.5 + 24 + 8 + 2.5 = 35s => use 36s
+    // Timing for C = 4 blocks per checkpoint with 6s sub-slots (fast e2e profile, ethereumSlotDuration < 8):
+    // maxBlocksPerCheckpoint = floor((S - init - D - 2P - prepCp) / D). In the fast profile the operational
+    // budgets collapse to init + 2P + prepCp = 1 + 2*0.5 + 0.5 = 2.5s, so floor((36 - 2.5 - 6) / 6) =
+    // floor(27.5/6) = 4. (At the old D = 8s this was floor((36 - 2.5 - 8) / 8) = 3.) The chosen 36s slot
+    // leaves room for the 4 sub-slots plus L1 publish and final-block re-execution.
     test = await EpochsTestContext.setup({
       numberOfAccounts: 0,
       initialValidators: validators,
@@ -100,14 +117,14 @@ describe('e2e_epochs/epochs_mbps_redistribution', () => {
       aztecEpochDuration: 4,
       ethereumSlotDuration: 4,
       aztecSlotDuration: 36,
-      blockDurationMs: 8000,
+      blockDurationMs: 6000,
       attestationPropagationTime: 0.5,
       aztecTargetCommitteeSize: 3,
       // Allow empty blocks so that early sub-slots without txs still produce blocks.
       minTxsPerBlock: 0,
-      // Tight checkpoint-level tx limit: forces redistribution to matter.
-      // With 3 blocks and multiplier 1.2: maxTxsPerBlock = ceil(TOTAL_TX_COUNT/3*1.2).
-      // The redistribution should cap early blocks, preserving budget for the last block.
+      // Tight checkpoint-level tx limit: forces redistribution to matter. With C = 4 blocks and the 1.2
+      // multiplier the static per-block cap is S = ceil(TOTAL_TX_COUNT / C * 1.2) = ceil(9/4*1.2) = 3.
+      // Redistribution lets the lightly-used early blocks pass their unused budget to the later blocks.
       maxTxsPerCheckpoint: TOTAL_TX_COUNT,
       // PXE syncs on checkpointed chain tip.
       pxeOpts: { syncChainTip: 'checkpointed' },
@@ -140,7 +157,11 @@ describe('e2e_epochs/epochs_mbps_redistribution', () => {
     await test?.teardown();
   });
 
-  it('redistributes checkpoint budget so late txs fit in the last block', async () => {
+  // Pre-proves TOTAL_TX_COUNT txs. Warps to just before the next L2 slot. Sends the first early tx
+  // before starting sequencers so block-1 is not empty. Feeds remaining early txs one per sub-slot
+  // (waiting for each to be proposed), then dumps all late txs at once. Waits for all txs to be
+  // mined and verifies the late txs landed across the last two blocks (redistribution gave them budget).
+  it('redistributes checkpoint budget so a late burst fits across the last two blocks', async () => {
     await setupTest();
 
     // Pre-prove all transactions up front.
@@ -195,10 +216,12 @@ describe('e2e_epochs/epochs_mbps_redistribution', () => {
     }
     logger.warn(`Sent ${earlyTxHashes.length} early transactions`);
 
-    // Right before the last sub-slot, dump all remaining txs.
-    // With redistribution working, the last block's budget should be generous
-    // enough (early blocks consumed little), and all late txs should fit.
-    logger.warn(`Sending ${LATE_TX_COUNT} late transactions before the last sub-slot`);
+    // As soon as block index 1 is in, dump the whole late burst at once. Dumping immediately (rather than
+    // waiting for the very last sub-slot) is important: block index 2 must see at least one of these txs by
+    // its build cutoff so it actually builds as a non-empty index-2 block and the burst lands in the last two
+    // blocks of this checkpoint. The burst races the proposer's one-shot mempool snapshot for block 2, so it
+    // splits arbitrarily across blocks 2 and 3 — redistribution makes that split irrelevant to the outcome.
+    logger.warn(`Sending ${LATE_TX_COUNT} late transactions as a burst`);
     const lateTxHashes = await Promise.all(provenTxs.slice(EARLY_TX_COUNT).map(tx => tx.send({ wait: NO_WAIT })));
     logger.warn(`Sent ${lateTxHashes.length} late transactions`);
 
@@ -212,24 +235,57 @@ describe('e2e_epochs/epochs_mbps_redistribution', () => {
     );
     logger.warn(`All transactions have been mined`);
 
-    // Verify that all late txs landed in the same block.
-    // This confirms the last block received the redistributed budget and could fit them all.
-    const lateReceipts = await Promise.all(lateTxHashes.map(h => nodes[0].getTxReceipt(h)));
-    const lateBlockNumbers = lateReceipts.map(r => r.blockNumber);
-    logger.warn(`Late tx block numbers: ${lateBlockNumbers.join(', ')}`);
-    expect(new Set(lateBlockNumbers).size).toBe(1);
+    // maxBlocksPerCheckpoint derived from the timing config above (see setupTest): floor((36-2.5-6)/6) = 4.
+    const MAX_BLOCKS_PER_CHECKPOINT = 4;
+    // Static per-block cap (the "no redistribution" baseline): S = ceil(maxTxsPerCheckpoint / C * 1.2) = 3.
+    const STATIC_PER_BLOCK_CAP = Math.ceil((TOTAL_TX_COUNT / MAX_BLOCKS_PER_CHECKPOINT) * 1.2);
+
+    // Find the checkpoint that contains all the early txs and inspect its blocks by checkpoint-relative index.
+    // We count late txs by index within this checkpoint, NOT by distinct global block number: without
+    // redistribution the spilled 7th tx lands in the *next* checkpoint's first block (a consecutive global
+    // block number) which would fool a block-number check.
+    const lateTxHashStrings = new Set(lateTxHashes.map(h => h.toString()));
+    const earlyTxHashStrings = new Set(earlyTxHashes.map(h => h.toString()));
+    const checkpoints = await archiver.getCheckpoints({ from: CheckpointNumber(1), limit: 50 });
+    const checkpointHasTx = (pc: (typeof checkpoints)[number], hash: string) =>
+      pc.checkpoint.blocks.some(b => b.body.txEffects.some(e => e.txHash.toString() === hash));
+    const targetCheckpoint = checkpoints.find(pc => [...earlyTxHashStrings].every(h => checkpointHasTx(pc, h)));
+    expect(targetCheckpoint).toBeDefined();
+
+    const blocks = targetCheckpoint!.checkpoint.blocks;
+    // Assert the checkpoint shape before indexing into it. If block 2 ever failed to build and the checkpoint
+    // collapsed to fewer than 4 blocks, `blocks.length - 2` would point at an early block and the
+    // redistribution check below would fail misleadingly. Asserting the shape first turns such a timing
+    // regression into an explicit, diagnostic failure rather than a confusing redistribution mismatch.
+    expect(blocks.length).toBe(MAX_BLOCKS_PER_CHECKPOINT);
+    const lateCountPerBlock = blocks.map(
+      b => b.body.txEffects.filter(e => lateTxHashStrings.has(e.txHash.toString())).length,
+    );
+    logger.warn(
+      `Target checkpoint ${targetCheckpoint!.checkpoint.number}: ${blocks.length} blocks, ` +
+        `late-tx counts by index = [${lateCountPerBlock.join(',')}], S=${STATIC_PER_BLOCK_CAP}`,
+    );
+
+    // Redistribution claim: the last two blocks of the target checkpoint jointly hold all the late txs.
+    // Without redistribution each is capped at S, so they could hold at most 2*S = 6 and the 7th would spill.
+    const lastTwoLateCount = lateCountPerBlock[blocks.length - 2] + lateCountPerBlock[blocks.length - 1];
+    expect(lastTwoLateCount).toBeGreaterThan(2 * STATIC_PER_BLOCK_CAP);
+    expect(lastTwoLateCount).toBe(LATE_TX_COUNT);
   });
 
   /**
    * Verifies that validators do NOT apply the proposer's fair-share multiplier when re-executing blocks.
    *
+   * Configures nodes 0/1 with perBlockAllocationMultiplier=10 and nodes 2/3 with the default (1.2),
+   * and keeps the mempool topped up with a background loop.
+   *
    * Two of the four validator nodes are configured with a very large `perBlockAllocationMultiplier` (10),
    * allowing their proposer to pack multiple txs into a single block. The other two keep the default
    * multiplier (1.2), which limits them to 1 tx per block given the tight `maxTxsPerCheckpoint`.
    *
-   * With `maxTxsPerCheckpoint = 2` and 3 blocks per checkpoint:
-   * - Normal multiplier (1.2): first block cap = ceil(2/3 * 1.2) = 1 tx (later blocks may get more via redistribution)
-   * - High multiplier (10):   first block cap = ceil(2/3 * 10)  = 7 txs (capped by remaining = 2)
+   * With `maxTxsPerCheckpoint = 2` and 4 blocks per checkpoint (shared setupTest uses blockDurationMs=6000 → C=4):
+   * - Normal multiplier (1.2): first block cap = ceil(2/4 * 1.2) = 1 tx (later blocks may get more via redistribution)
+   * - High multiplier (10):   first block cap = ceil(2/4 * 10)  = 5 txs (capped by remaining = 2)
    *
    * The test watches checkpoints and identifies the proposer for each slot via EpochCache.
    * It waits until it observes a checkpoint by a high-multiplier proposer with the initial block having >1 tx
@@ -293,6 +349,8 @@ describe('e2e_epochs/epochs_mbps_redistribution', () => {
         await sleep(1000);
       }
     };
+    // REFACTOR: hand-rolled background sleep loop keeping the mempool above a threshold; replace
+    // with a shared test utility such as startMempoolFeeder(wallet, contract, from, minPending).
     void keepMempoolFull();
 
     // Build a lookup from attester address to validator index for proposer identification.

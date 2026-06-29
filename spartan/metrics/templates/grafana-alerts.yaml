@@ -12,7 +12,7 @@ metadata:
     grafana_alert: "1"
 data:
   {{ $filename }}: |-
-{{ $.Files.Get $path | indent 4 }}
+{{ $.Files.Get $path | replace "__INTERNAL_NETWORK_NAMESPACES_REGEX__" $.Values.alerts.internalNetworkNamespacesRegex | indent 4 }}
 {{- end }}
 {{- end }}
 {{- end }}

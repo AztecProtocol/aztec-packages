@@ -2,17 +2,20 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
-import type { TokenContract } from '@aztec/noir-contracts.js/Token';
+import type { TestTokenContract } from '@aztec/noir-test-contracts.js/TestToken';
 
 import { jest } from '@jest/globals';
 
 import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
-import { deployToken, mintTokensToPrivate } from './fixtures/token_utils.js';
+import { deployTestToken, mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 
 const TIMEOUT = 900_000;
 
+// End-to-end test for the AMM contract: liquidity provisioning, swaps, and removal.
+// Uses setup(4, AUTOMINE_E2E_OPTS, {syncChainTip:'checkpointed'}) providing one node with automine
+// sequencer, four funded accounts (admin, two LPs, swapper), and three deployed Token contracts.
 // TODO(F-560): Consider whether it makes sense to drop this
 // https://linear.app/aztec-labs/issue/F-560/add-more-tests-to-forward-compatibility-testing
 describe('AMM', () => {
@@ -29,9 +32,9 @@ describe('AMM', () => {
   let otherLiquidityProviderAddress: AztecAddress;
   let swapperAddress: AztecAddress;
 
-  let token0: TokenContract;
-  let token1: TokenContract;
-  let liquidityToken: TokenContract;
+  let token0: TestTokenContract;
+  let token1: TestTokenContract;
+  let liquidityToken: TestTokenContract;
 
   let amm: AMMContract;
 
@@ -53,9 +56,9 @@ describe('AMM', () => {
       logger,
     } = await setup(4, { ...AUTOMINE_E2E_OPTS }, { syncChainTip: 'checkpointed' }));
 
-    ({ contract: token0 } = await deployToken(wallet, adminAddress, 0n, logger));
-    ({ contract: token1 } = await deployToken(wallet, adminAddress, 0n, logger));
-    ({ contract: liquidityToken } = await deployToken(wallet, adminAddress, 0n, logger));
+    ({ contract: token0 } = await deployTestToken(wallet, adminAddress, 0n, logger));
+    ({ contract: token1 } = await deployTestToken(wallet, adminAddress, 0n, logger));
+    ({ contract: liquidityToken } = await deployTestToken(wallet, adminAddress, 0n, logger));
 
     ({ contract: amm } = await AMMContract.deploy(wallet, token0.address, token1.address, liquidityToken.address).send({
       from: adminAddress,
@@ -78,6 +81,9 @@ describe('AMM', () => {
 
   afterAll(() => teardown());
 
+  // Happy-path integration covering all AMM operations in sequence: initial liquidity,
+  // second LP entering, exact-in swap, exact-out swap, and LP withdrawal. Tests are ordered
+  // and share state; they must run sequentially in this describe block.
   describe('full flow', () => {
     // This is an integration test in which we perform an entire run of the happy path. Thorough unit testing is not
     // included.
@@ -106,6 +112,8 @@ describe('AMM', () => {
       expect(after.token1 - before.token1).toEqual(delta.token1);
     }
 
+    // First LP deposits maximum token0 and token1, receiving (99/100)*TOTAL_SUPPLY liquidity tokens.
+    // Verifies AMM and LP balances shift by the full deposited amounts.
     it('add initial liquidity', async () => {
       const ammBalancesBefore = await getAmmBalances();
       const lpBalancesBefore = await getWalletBalances(liquidityProviderAddress);
@@ -165,6 +173,8 @@ describe('AMM', () => {
       );
     });
 
+    // Second LP enters with a mismatched max ratio (6:5). The AMM uses the 1:1 pool ratio,
+    // refunds excess token0, and mints proportional liquidity tokens.
     it('add liquidity from another lp', async () => {
       // This is the same as when we add liquidity for the first time, but we'll be going through a different code path
       // since total supply for the liquidity token is non-zero
@@ -237,6 +247,8 @@ describe('AMM', () => {
       ).toEqual(expectedLiquidityTokens);
     });
 
+    // Swapper sends 10% of token0 balance as exact-in and receives the contract-quoted amount of
+    // token1 as exact-out minimum. Verifies swapper and AMM balance deltas match the quote.
     it('swap exact tokens in', async () => {
       const swapperBalancesBefore = await getWalletBalances(swapperAddress);
       const ammBalancesBefore = await getAmmBalances();
@@ -271,6 +283,9 @@ describe('AMM', () => {
       assertBalancesDelta(swapperBalancesBefore, swapperBalancesAfter, { token0: -amountIn, token1: amountOutMin });
     });
 
+    // Undoes the previous swap: requests exact-out equal to the token0 the contract would return
+    // for the swapper's full token1 balance. Verifies the swapper ends with less token0 than initially
+    // (fees consumed), and confirms balance deltas match the quote.
     it('swap exact tokens out', async () => {
       const swapperBalancesBefore = await getWalletBalances(swapperAddress);
       const ammBalancesBefore = await getAmmBalances();
@@ -315,6 +330,8 @@ describe('AMM', () => {
       expect(swapperBalancesAfter.token0).toBeLessThan(INITIAL_TOKEN_BALANCE);
     });
 
+    // Second LP burns their entire liquidity-token balance via the AMM. Verifies they receive
+    // more token0 than their original deposit (swap fees accrued) and exactly their token1 back.
     it('remove liquidity', async () => {
       // We now withdraw all of the tokens of one of the liquidity providers by burning their entire liquidity token
       // balance.

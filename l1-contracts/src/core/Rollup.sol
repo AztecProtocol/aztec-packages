@@ -292,16 +292,15 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @param  _start - The start of the epoch (inclusive)
    * @param  _end - The end of the epoch (inclusive)
    * @param  _args - Array of public inputs to the proof (previousArchive, endArchive, endTimestamp, outHash, proverId)
-   * @param  _fees - Array of recipient-value pairs with fees to be distributed for the epoch
    */
   function getEpochProofPublicInputs(
     uint256 _start,
     uint256 _end,
     PublicInputArgs calldata _args,
-    bytes32[] calldata _fees,
+    ProposedHeader[] calldata _headers,
     bytes calldata _blobPublicInputs
   ) external view override(IRollup) returns (bytes32[] memory) {
-    return RollupOperationsExtLib.getEpochProofPublicInputs(_start, _end, _args, _fees, _blobPublicInputs);
+    return RollupOperationsExtLib.getEpochProofPublicInputs(_start, _end, _args, _headers, _blobPublicInputs);
   }
 
   /**

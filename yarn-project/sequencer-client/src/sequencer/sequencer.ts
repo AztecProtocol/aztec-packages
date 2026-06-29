@@ -18,7 +18,11 @@ import type {
   ProposedCheckpointSink,
   ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
-import type { Checkpoint, ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
+import {
+  type Checkpoint,
+  type ProposedCheckpointData,
+  buildCheckpointSimulationOverridesPlan,
+} from '@aztec/stdlib/checkpoint';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import {
@@ -45,7 +49,6 @@ import { DefaultSequencerConfig } from '../config.js';
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import type { SequencerPublisherFactory } from '../publisher/sequencer-publisher-factory.js';
 import type { InvalidateCheckpointRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
-import { buildCheckpointSimulationOverridesPlan } from './chain_state_overrides.js';
 import { CheckpointProposalJob } from './checkpoint_proposal_job.js';
 import { CheckpointProposalJobMetrics } from './checkpoint_proposal_job_metrics.js';
 import { CheckpointVoter } from './checkpoint_voter.js';
@@ -85,8 +88,8 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   private checkpointProposalJobMetrics: CheckpointProposalJobMetrics;
   private readonly stateLog: Logger;
 
-  /** The last slot for which we attempted to perform our voting duties with degraded block production */
-  private lastSlotForFallbackVote: SlotNumber | undefined;
+  /** The last slot for which we attempted to perform our fallback duties (votes and/or prune) with degraded block production */
+  private lastSlotForFallbackAction: SlotNumber | undefined;
 
   /** The (checkpoint, slot) of the last invalidation request we successfully simulated, to prevent
    * re-simulating and re-submitting the same invalidation across the many ticks within a single slot. */
@@ -452,7 +455,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // We are the proposer and the escape hatch is closed: now run the full sync check before building.
     const syncedTo = await this.checkSync({ ts, slot });
     if (!syncedTo) {
-      await this.tryVoteWhenCannotBuild({ slot, targetSlot });
+      await this.tryVoteAndPruneWhenCannotBuild({ slot, targetSlot });
       return undefined;
     }
 
@@ -472,7 +475,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       });
       // Mark the slot as attempted so a deadline abort is not retried within the same slot. Vote-only actions
       // still need to run because sync can succeed even when it is too late to start building a checkpoint.
-      await this.tryVoteWhenCannotBuild({ slot, targetSlot });
+      await this.tryVoteAndPruneWhenCannotBuild({ slot, targetSlot });
       this.lastSlotForCheckpointProposalJob = targetSlot;
       return undefined;
     }
@@ -798,9 +801,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
         number: syncSummary.latestBlockNumber,
         hash: syncSummary.latestBlockHash,
       })),
-      this.l2BlockSource
-        .getL2Tips()
-        .then(t => ({ proposed: t.proposed, checkpointed: t.checkpointed, proposedCheckpoint: t.proposedCheckpoint })),
+      this.l2BlockSource.getL2Tips().then(t => ({ proposed: t.proposed, checkpointed: t.checkpointed })),
       this.p2pClient.getStatus().then(p2p => p2p.syncedToL2Block),
       this.l1ToL2MessageSource.getL2Tips().then(t => ({ proposed: t.proposed, checkpointed: t.checkpointed })),
       this.l2BlockSource.getPendingChainValidationStatus(),
@@ -845,16 +846,17 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // matching proposed checkpoint (e.g. it crashed before assembling it). Building on this orphan block
     // would fork the chain off a tip no other node can follow. The archiver prunes these orphan blocks
     // once their build slot ends; this guard is the correctness barrier during the grace window before.
+    // `getProposedCheckpointData()` returns the latest proposed checkpoint payload, which is always
+    // the leading one (a proposed entry is only stored beyond the confirmed frontier and is deleted
+    // on confirmation). It carries no tip, so there is no tip-vs-payload split read to reconcile.
     if (
       blockData.checkpointNumber > l2Tips.checkpointed.checkpoint.number &&
-      (l2Tips.proposedCheckpoint.checkpoint.number !== blockData.checkpointNumber ||
-        proposedCheckpointData?.checkpointNumber !== blockData.checkpointNumber)
+      proposedCheckpointData?.checkpointNumber !== blockData.checkpointNumber
     ) {
       const logCtx = {
         blockCheckpointNumber: blockData.checkpointNumber,
         checkpointedCheckpointNumber: l2Tips.checkpointed.checkpoint.number,
-        proposedCheckpointTipNumber: l2Tips.proposedCheckpoint.checkpoint.number,
-        proposedCheckpointDataNumber: proposedCheckpointData?.checkpointNumber,
+        proposedCheckpointTipNumber: proposedCheckpointData?.checkpointNumber,
         blockNumber: blockData.header.getBlockNumber(),
         blockSlot: blockData.header.getSlot(),
         syncedL2Slot,
@@ -865,27 +867,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return undefined;
     }
 
-    const hasProposedCheckpoint = l2Tips.proposedCheckpoint.checkpoint.number > l2Tips.checkpointed.checkpoint.number;
-
-    // The l2Tips and proposedCheckpointData reads above come from independent archiver snapshots
-    // (a JS-side tips cache vs. a direct store read on `#proposedCheckpoints`). A concurrent archiver
-    // write that mutates both can be observed split, leaving us with `hasProposedCheckpoint=true` but
-    // no proposedCheckpointData (or one whose number doesn't match the tip). Refuse to proceed in that
-    // window — the next checkSync tick will see a coherent snapshot.
-    if (
-      hasProposedCheckpoint &&
-      (!proposedCheckpointData ||
-        proposedCheckpointData.checkpointNumber !== l2Tips.proposedCheckpoint.checkpoint.number)
-    ) {
-      this.log.warn(`Sequencer sync check failed: inconsistent proposed-checkpoint state`, {
-        proposedCheckpointTipNumber: l2Tips.proposedCheckpoint.checkpoint.number,
-        checkpointedTipNumber: l2Tips.checkpointed.checkpoint.number,
-        proposedCheckpointDataNumber: proposedCheckpointData?.checkpointNumber,
-        syncedL2Slot,
-        ...args,
-      });
-      return undefined;
-    }
+    const hasProposedCheckpoint = proposedCheckpointData !== undefined;
 
     // Check that the proposed checkpoint is indeed the parent of the checkpoint we'll be building
     // The checkpoint number to build is derived as blockData.checkpointNumber + 1
@@ -962,16 +944,17 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   }
 
   /**
-   * Tries to vote on slashing actions and governance when we cannot build and are past the block-building window.
-   * This allows the sequencer to participate in governance/slashing votes even when it cannot build blocks.
+   * Tries to vote on slashing actions and governance and to prune when we cannot build and are past the
+   * block-building window. This allows the sequencer to participate in governance/slashing votes even when it
+   * cannot build blocks, and to prune the pending chain so it can recover from bad data that is blocking sync.
    */
-  @trackSpan('Sequencer.tryVoteWhenCannotBuild', ({ slot }) => ({ [Attributes.SLOT_NUMBER]: slot }))
-  protected async tryVoteWhenCannotBuild(args: { slot: SlotNumber; targetSlot: SlotNumber }): Promise<void> {
+  @trackSpan('Sequencer.tryVoteAndPruneWhenCannotBuild', ({ slot }) => ({ [Attributes.SLOT_NUMBER]: slot }))
+  protected async tryVoteAndPruneWhenCannotBuild(args: { slot: SlotNumber; targetSlot: SlotNumber }): Promise<void> {
     const { slot, targetSlot } = args;
 
     // Prevent duplicate attempts in the same slot
-    if (this.lastSlotForFallbackVote === slot) {
-      this.log.trace(`Already attempted to vote in slot ${slot} (skipping)`);
+    if (this.lastSlotForFallbackAction === slot) {
+      this.log.trace(`Already attempted fallback actions in slot ${slot} (skipping)`);
       return;
     }
 
@@ -994,7 +977,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     }
 
     // Mark this slot as attempted
-    this.lastSlotForFallbackVote = slot;
+    this.lastSlotForFallbackAction = slot;
 
     // Get a publisher for voting
     const { attestorAddress, publisher } = await this.publisherFactory.create(proposer);
@@ -1019,19 +1002,40 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const votesPromises = voter.enqueueVotes();
     const votes = await Promise.all(votesPromises);
 
-    if (votes.every(p => !p)) {
-      this.log.debug(`No votes to enqueue for slot ${slot}`);
+    // Even if we cannot build, try to prune so a stuck pending chain (e.g. bad data blocking sync) can
+    // recover. prune() is permissionless, so it rides the same fallback multicall as the votes.
+    const pruneEnqueued = await this.tryEnqueuePruneIfPrunable(targetSlot, publisher);
+
+    // Bail if nothing to do
+    if (votes.every(p => !p) && !pruneEnqueued) {
+      this.log.debug(`Nothing to enqueue for slot ${slot} (no votes, not prunable)`);
       return;
     }
 
-    this.log.info(`Voting in slot ${slot} despite sync failure`, { slot });
+    const [governanceVoteEnqueued, slashingVoteEnqueued] = votes;
+    this.log.info(`Submitting fallback requests in slot ${slot} despite sync failure`, {
+      slot,
+      pruneEnqueued,
+      governanceVoteEnqueued: !!governanceVoteEnqueued,
+      slashingVoteEnqueued: !!slashingVoteEnqueued,
+    });
+
     // Votes are EIP-712-signed for `targetSlot` (the pipelined slot in which the multicall is
     // expected to mine). Delay submission to the start of `targetSlot` so the tx mines in the
     // slot the votes were signed for. We fire-and-forget so we don't block the sequencer's
     // work loop while waiting for the target slot to start.
     void publisher.sendRequestsAt(targetSlot).catch(err => {
-      this.log.error(`Failed to publish votes despite sync failure for slot ${slot}`, err, { slot });
+      this.log.error(`Failed to publish fallback requests despite sync failure for slot ${slot}`, err, { slot });
     });
+  }
+
+  private async tryEnqueuePruneIfPrunable(targetSlot: SlotNumber, publisher: SequencerPublisher): Promise<boolean> {
+    try {
+      return await publisher.enqueuePruneIfPrunable(targetSlot);
+    } catch (err) {
+      this.log.error(`Failed to enqueue rollup prune for slot ${targetSlot}`, err, { targetSlot });
+      return false;
+    }
   }
 
   /**
@@ -1047,13 +1051,13 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const { slot, targetSlot, proposer } = args;
 
     // Prevent duplicate attempts in the same slot
-    if (this.lastSlotForFallbackVote === slot) {
+    if (this.lastSlotForFallbackAction === slot) {
       this.log.trace(`Already attempted to vote in slot ${slot} (escape hatch open, skipping)`);
       return;
     }
 
     // Mark this slot as attempted
-    this.lastSlotForFallbackVote = slot;
+    this.lastSlotForFallbackAction = slot;
 
     const { attestorAddress, publisher } = await this.publisherFactory.create(proposer);
 
@@ -1092,7 +1096,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // the multicall mines in the slot the votes were signed for; otherwise the L1 contract reads
     // `signaler = getCurrentProposer()` against the wrong slot and signature verification fails
     // silently inside Multicall3. Fire-and-forget so we don't block the sequencer's work loop while
-    // waiting for the target slot to start, mirroring tryVoteWhenCannotBuild.
+    // waiting for the target slot to start, mirroring tryVoteAndPruneWhenCannotBuild.
     void publisher.sendRequestsAt(targetSlot).catch(err => {
       this.log.error(`Failed to publish escape-hatch votes for slot ${slot}`, err, { slot, targetSlot });
     });

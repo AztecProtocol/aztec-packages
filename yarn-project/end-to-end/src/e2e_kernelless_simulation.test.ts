@@ -29,6 +29,9 @@ import type { TestWallet } from './test-wallet/test_wallet.js';
  * Demonstrates the capability of simulating a transaction without executing the kernels, allowing
  * the bypass of many checks and a healthy improvement in speed. Kernelless simulations should aim
  * to be as close as possible to reality, so their output can be used to calculate gas usage
+ *
+ * Uses a single automine node with three funded accounts (admin, liquidityProvider, swapper),
+ * an AMM with two token pairs, and various test contracts deployed in beforeAll.
  */
 describe('Kernelless simulation', () => {
   let teardown: () => Promise<void>;
@@ -79,6 +82,8 @@ describe('Kernelless simulation', () => {
 
   afterAll(() => teardown());
 
+  // Covers authwit-request discovery via kernelless simulation, gas estimation comparison between
+  // kernelless and with-kernels paths, and fee payer identity propagation.
   describe('Authwits and gas', () => {
     type Balance = {
       token0: bigint;
@@ -99,6 +104,9 @@ describe('Kernelless simulation', () => {
       };
     }
 
+    // Simulates add_liquidity in kernelless-override mode, captures the two offchain authwit
+    // requests, derives and verifies authwit hashes, then sends the real tx with authwitnesses
+    // created from the offchain effect inner hashes.
     it('adds liquidity without authwits', async () => {
       const lpBalancesBefore = await getWalletBalances(liquidityProviderAddress);
 
@@ -232,6 +240,8 @@ describe('Kernelless simulation', () => {
       ).resolves.toBeDefined();
     });
 
+    // Simulates a swap in both kernelless-override and full modes and asserts L2Gas and DA gas
+    // estimates match. Also verifies feePayer is identical between the two paths.
     it('produces matching gas estimates and fee payer between kernelless and with-kernels simulation', async () => {
       const swapperBalancesBefore = await getWalletBalances(swapperAddress);
       const ammBalancesBefore = await getAmmBalances();
@@ -292,6 +302,8 @@ describe('Kernelless simulation', () => {
     });
   });
 
+  // Verifies that kernelless simulation correctly models note squashing (transient create+nullify
+  // patterns) and produces the same gas estimates as the full-kernels path.
   describe('Note squashing', () => {
     let pendingNoteHashesContract: PendingNoteHashesContract;
 
@@ -301,6 +313,8 @@ describe('Kernelless simulation', () => {
       }));
     });
 
+    // Simulates test_insert_then_get_then_nullify_all_in_nested_calls in both modes; checks that
+    // L2Gas and DA gas estimates are identical between kernelless and full paths.
     it('squashing produces same gas estimates as with-kernels path', async () => {
       const mintAmount = 42n;
 
@@ -336,6 +350,8 @@ describe('Kernelless simulation', () => {
     });
   });
 
+  // Verifies that the #[authorize_once] macro correctly serializes struct parameters into the
+  // offchain CallAuthorizationRequest, including field count and decoded argument values.
   describe('authorize_once with multi-field struct parameters', () => {
     let authWitTestContract: AuthWitTestContract;
     let proxy: GenericProxyContract;
@@ -347,6 +363,8 @@ describe('Kernelless simulation', () => {
       ]);
     });
 
+    // Simulates auth_with_struct via a proxy in kernelless mode; asserts that the emitted
+    // offchain effect has 6 serialized fields and decodes to the correct 4-parameter call args.
     it('emits offchain effect with correct serialized args length for struct parameters', async () => {
       const structData = { a: Fr.random(), b: Fr.random(), c: Fr.random() };
       const amount = Fr.random();
@@ -393,6 +411,8 @@ describe('Kernelless simulation', () => {
     });
   });
 
+  // Verifies that kernelless simulation resolves settled note-hash read requests against the
+  // on-chain note hash tree via findLeavesIndexes.
   describe('read request verification', () => {
     let pendingNoteHashesContract: PendingNoteHashesContract;
 
@@ -402,6 +422,8 @@ describe('Kernelless simulation', () => {
       }));
     });
 
+    // Inserts a note with full kernels, then simulates get_then_nullify_note in kernelless mode
+    // and checks that findLeavesIndexes was called to look up the settled note hash.
     it('verifies settled read requests against the note hash tree', async () => {
       const mintAmount = 100n;
 
@@ -430,7 +452,11 @@ describe('Kernelless simulation', () => {
     });
   });
 
+  // Checks that kernelless simulation produces the same gas estimates as the full-kernels path for
+  // Schnorr and ECDSA account contract deployments.
   describe('account contract deployment', () => {
+    // Creates a fresh Schnorr account manager, simulates its deploy in both kernelless and full
+    // modes, and asserts L2Gas and DA gas limits are identical.
     it('simulates Schnorr account deployment and gas matches with-kernels counterpart', async () => {
       const signingKey = Fq.random();
       const accountManager = await wallet.createAccount({
@@ -457,6 +483,8 @@ describe('Kernelless simulation', () => {
       expect(kernellessGas.totalGas.l2Gas).toEqual(withKernelsGas.totalGas.l2Gas);
     });
 
+    // Creates a fresh EcdsaK account manager, simulates its deploy in both kernelless and full
+    // modes, and asserts L2Gas and DA gas limits are identical.
     it('simulates ECDSA account deployment and gas matches with-kernels counterpart', async () => {
       const signingKey = randomBytes(32);
       const accountManager = await wallet.createAccount({

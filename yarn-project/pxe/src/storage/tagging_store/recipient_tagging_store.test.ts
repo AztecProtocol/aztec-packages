@@ -1,5 +1,5 @@
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { type AppTaggingSecret, AppTaggingSecretKind } from '@aztec/stdlib/logs';
+import { AppTaggingSecret, AppTaggingSecretKind } from '@aztec/stdlib/logs';
 import { randomAppTaggingSecret } from '@aztec/stdlib/testing';
 
 import { RecipientTaggingStore } from './recipient_tagging_store.js';
@@ -83,6 +83,27 @@ describe('RecipientTaggingStore', () => {
       await taggingStore.updateHighestFinalizedIndex(secret1, 5, 'job1');
       await taggingStore.discardStaged('job1');
       expect(await taggingStore.getHighestFinalizedIndex(secret1, 'job1')).toBeUndefined();
+    });
+  });
+
+  // A single handshake shared secret is scanned under both delivery modes (constrained + unconstrained). The two
+  // share the same underlying Fr and app but differ in kind, so they must be tracked as independent index sequences:
+  // advancing one mode's finalized index must not clobber the other's.
+  describe('mode independence', () => {
+    it('tracks the same secret under different kinds independently', async () => {
+      const unconstrained = await randomAppTaggingSecret(AppTaggingSecretKind.UNCONSTRAINED);
+      const constrained = new AppTaggingSecret(
+        unconstrained.secret,
+        unconstrained.app,
+        AppTaggingSecretKind.CONSTRAINED,
+      );
+
+      await taggingStore.updateHighestFinalizedIndex(unconstrained, 4, 'job1');
+      await taggingStore.updateHighestFinalizedIndex(constrained, 9, 'job1');
+      await taggingStore.commit('job1');
+
+      expect(await taggingStore.getHighestFinalizedIndex(unconstrained, 'job2')).toBe(4);
+      expect(await taggingStore.getHighestFinalizedIndex(constrained, 'job2')).toBe(9);
     });
   });
 });

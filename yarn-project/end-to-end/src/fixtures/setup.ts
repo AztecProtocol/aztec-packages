@@ -1,5 +1,5 @@
 import { type InitialAccountData, generateSchnorrAccounts } from '@aztec/accounts/testing';
-import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
+import { type AztecNodeConfig, AztecNodeService, createAztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import type { ContractMethod } from '@aztec/aztec.js/contracts';
 import { publishContractClass, publishInstance } from '@aztec/aztec.js/deployment';
@@ -109,6 +109,8 @@ export async function setupSharedBlobStorage(config: { dataDirectory?: string } 
 /**
  * Sets up Private eXecution Environment (PXE) and returns the corresponding test wallet.
  * @param aztecNode - An instance of Aztec Node.
+ * @param nodeDebug - The node's debug API, used to register public function signatures for named traces; pass
+ *   `undefined` when the node does not expose it.
  * @param opts - Partial configuration for the PXE.
  * @param logger - The logger to be used.
  * @param actor - Actor label to include in log output (e.g., 'pxe-test').
@@ -116,6 +118,7 @@ export async function setupSharedBlobStorage(config: { dataDirectory?: string } 
  */
 export async function setupPXEAndGetWallet(
   aztecNode: AztecNode,
+  nodeDebug: AztecNodeDebug | undefined,
   opts: Partial<PXEConfig> = {},
   logger = getLogger(),
   actor?: string,
@@ -136,7 +139,10 @@ export async function setupPXEAndGetWallet(
 
   const teardown = configuredDataDirectory ? () => Promise.resolve() : () => tryRmDir(PXEConfig.dataDirectory!);
 
-  const wallet = await TestWallet.create(aztecNode, PXEConfig, { loggerActorLabel: actor });
+  const wallet = await TestWallet.create(aztecNode, PXEConfig, {
+    loggerActorLabel: actor,
+    nodeDebug,
+  });
 
   return {
     wallet,
@@ -295,6 +301,17 @@ function assertContractArtifactsVersion() {
 }
 
 /**
+ * Records a function-level timing span into the shared collector installed by the e2e timing
+ * environment. No-op unless TEST_TIMING_FILE is set (the env only installs the collector then). The
+ * span is tagged with the name of the currently running test so the env can attribute it to the
+ * right line; `null` during beforeAll/afterAll lands it on the suite-scoped line.
+ */
+function recordFnSpan(kind: 'setup' | 'teardown', ms: number) {
+  const collector = (globalThis as { __e2eTimings?: { current: string | null; fnSpans: unknown[] } }).__e2eTimings;
+  collector?.fnSpans.push({ name: collector.current, kind, ms });
+}
+
+/**
  * Sets up the environment for the end-to-end tests.
  * @param numberOfAccounts - The number of new accounts to be created once the PXE is initiated.
  * @param opts - Options to pass to the node initialization and to the setup script.
@@ -305,6 +322,20 @@ export async function setup(
   opts: SetupOptions = {},
   pxeOpts: Partial<PXEConfig> = {},
   chain: Chain = foundry,
+): Promise<EndToEndContext> {
+  const setupStart = performance.now();
+  try {
+    return await setupInner(numberOfAccounts, opts, pxeOpts, chain);
+  } finally {
+    recordFnSpan('setup', performance.now() - setupStart);
+  }
+}
+
+async function setupInner(
+  numberOfAccounts: number,
+  opts: SetupOptions,
+  pxeOpts: Partial<PXEConfig>,
+  chain: Chain,
 ): Promise<EndToEndContext> {
   assertContractArtifactsVersion();
   let anvil: Anvil | undefined;
@@ -556,7 +587,7 @@ export async function setup(
       : config;
 
     const aztecNodeService = await withLoggerBindings({ actor: 'node-0' }, () =>
-      AztecNodeService.createAndSync(
+      createAztecNodeService(
         initialNodeConfig,
         { dateProvider, telemetry: telemetryClient, p2pClientDeps },
         { genesis, dontStartSequencer: opts.skipInitialSequencer },
@@ -598,6 +629,8 @@ export async function setup(
     pxeConfig.proverEnabled = !!pxeOpts.proverEnabled;
     const wallet = await TestWallet.create(aztecNodeService, pxeConfig, {
       loggerActorLabel: 'pxe-0',
+      // In-process node implements the debug API, so register public function signatures for named traces.
+      nodeDebug: aztecNodeService,
       ...opts.pxeCreationOptions,
     });
 
@@ -605,12 +638,7 @@ export async function setup(
       wallet.setMinFeePadding(opts.walletMinFeePadding);
     }
 
-    const cheatCodes = await CheatCodes.create(
-      config.l1RpcUrls,
-      aztecNodeService,
-      dateProvider,
-      aztecNodeService.getAutomineSequencer(),
-    );
+    const cheatCodes = await CheatCodes.create(config.l1RpcUrls, aztecNodeService, dateProvider);
 
     if (
       (opts.aztecTargetCommitteeSize && opts.aztecTargetCommitteeSize > 0) ||
@@ -664,6 +692,7 @@ export async function setup(
     }
 
     const teardown = async () => {
+      const teardownStart = performance.now();
       try {
         await tryStop(wallet, logger);
         await tryStop(aztecNodeService, logger);
@@ -688,6 +717,7 @@ export async function setup(
         } catch (err) {
           logger.error(`Error during telemetry client stop`, err);
         }
+        recordFnSpan('teardown', performance.now() - teardownStart);
       }
     };
 
@@ -807,7 +837,7 @@ export function createAndSyncProverNode(
   options: { genesis?: GenesisData; dontStart?: boolean },
 ): Promise<{ proverNode: AztecNodeService }> {
   return withLoggerBindings({ actor: 'prover-0' }, async () => {
-    const proverNode = await AztecNodeService.createAndSync(
+    const proverNode = await createAztecNodeService(
       {
         ...baseConfig,
         ...configOverrides,

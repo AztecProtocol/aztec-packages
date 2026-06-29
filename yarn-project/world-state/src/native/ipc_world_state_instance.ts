@@ -282,6 +282,7 @@ export class IpcWorldState implements NativeWorldStateInstance {
     // The per-fork queue is cleaned up in `finally` even on error, so the JS-side queues map cannot outlive
     // the native fork (e.g. when the native fork was already destroyed by an unwind/historical-prune and
     // DELETE_FORK rejects with "Fork not found").
+    let shouldDeleteForkQueue = false;
     try {
       const response = await requestQueue.execute(
         async () => {
@@ -300,8 +301,11 @@ export class IpcWorldState implements NativeWorldStateInstance {
         committedOnly,
       );
       return response;
+    } catch (err: any) {
+      shouldDeleteForkQueue = forkId !== 0 && err?.message === 'Fork not found';
+      throw err;
     } finally {
-      if (messageType === WorldStateMessageType.DELETE_FORK) {
+      if (messageType === WorldStateMessageType.DELETE_FORK || shouldDeleteForkQueue) {
         await requestQueue.stop();
         this.queues.delete(forkId);
       }
@@ -544,6 +548,9 @@ export class IpcWorldState implements NativeWorldStateInstance {
           blocknumber: Number(b.blockNumber),
           blockstateref: blockStateRefToMap(b.blockStateRef as Map<number, readonly [Buffer, number | bigint]>) as any,
           blockheaderhash: new Uint8Array(b.blockHeaderHash),
+          // Forwarded so the wsdb (IPC) sync path enforces the same archive-root divergence check as the napi path.
+          expectedarchiveroot: new Uint8Array(b.expectedArchiveRoot),
+          expectedpreviousarchiveroot: new Uint8Array(b.expectedPreviousArchiveRoot),
           paddednotehashes: b.paddedNoteHashes.map(l => new Uint8Array(l as Buffer)),
           paddedl1tol2messages: b.paddedL1ToL2Messages.map(l => new Uint8Array(l as Buffer)),
           paddednullifiers: b.paddedNullifiers.map(l => ({
@@ -554,6 +561,7 @@ export class IpcWorldState implements NativeWorldStateInstance {
             value: new Uint8Array((l as { slot: Buffer; value: Buffer }).value),
           })),
         });
+
         return convertStatusFull(resp.status) as WorldStateResponse[T];
       }
 

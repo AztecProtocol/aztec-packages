@@ -12,6 +12,9 @@ import { setup } from './fixtures/utils.js';
 
 const TIMEOUT = 300_000;
 
+// Tests the CustomMessage contract's multi-log event pattern: emitting a single event split across
+// multiple private logs and reassembling it via wallet.getPrivateEvents.
+// Uses setup(1, AUTOMINE_E2E_OPTS) with one node, automine sequencer, one account.
 describe('CustomMessage - Multi-Log Pattern', () => {
   let contract: CustomMessageContract;
   jest.setTimeout(TIMEOUT);
@@ -31,6 +34,8 @@ describe('CustomMessage - Multi-Log Pattern', () => {
 
   afterAll(() => teardown());
 
+  // Emits one MultiLogEvent via emit_multi_log_event, retrieves it via getPrivateEvents, and
+  // asserts all four field values match.
   it('reassembles a multi-log event from multiple private logs', async () => {
     const values = [Fr.random(), Fr.random(), Fr.random(), Fr.random()];
 
@@ -52,6 +57,8 @@ describe('CustomMessage - Multi-Log Pattern', () => {
     expect(events[0].event.value3).toBe(values[3].toBigInt());
   });
 
+  // Emits two MultiLogEvents in a single BatchCall, retrieves both, and asserts all eight field
+  // values match by matching on value0.
   it('reassembles multiple multi-log events from the same transaction', async () => {
     const valuesA = [Fr.random(), Fr.random(), Fr.random(), Fr.random()];
     const valuesB = [Fr.random(), Fr.random(), Fr.random(), Fr.random()];

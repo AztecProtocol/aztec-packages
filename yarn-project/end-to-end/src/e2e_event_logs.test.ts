@@ -22,6 +22,10 @@ import { setup } from './fixtures/utils.js';
 
 const TIMEOUT = 300_000;
 
+// Covers private-log event emission and retrieval (encrypted events via getPrivateEvents) and
+// public-log event emission and retrieval (unencrypted events via getPublicEvents), including nested
+// events with struct fields and tagging-cache reconciliation against kernel squashing. Uses a single
+// automine node with two genesis-funded Schnorr accounts and a deployed TestLogContract.
 describe('Logs', () => {
   let testLogContract: TestLogContract;
   jest.setTimeout(TIMEOUT);
@@ -50,7 +54,12 @@ describe('Logs', () => {
 
   afterAll(() => teardown());
 
+  // Covers encrypted private-log emission, public unencrypted-log emission, and nested-event
+  // struct decoding. Verifies getPrivateEvents and getPublicEvents return correctly typed payloads.
   describe('functionality around emitting an encrypted log', () => {
+    // Sends 5 emit_encrypted_events txs in parallel, then queries getPrivateEvents for two event
+    // types and checks counts and field values. Also sends 5 unencrypted txs and verifies
+    // getPublicEvents round-trips correctly.
     it('emits multiple events as private logs and decodes them', async () => {
       const preimages = makeTuple(5, makeTuple.bind(undefined, 4, Fr.random)) as Tuple<Tuple<Fr, 4>, 5>;
 
@@ -121,6 +130,8 @@ describe('Logs', () => {
       );
     });
 
+    // Sends 5 emit_unencrypted_events txs and retrieves events via getPublicEvents; verifies
+    // field values round-trip correctly for both ExampleEvent0 and ExampleEvent1.
     it('emits multiple unencrypted events as public logs and decodes them', async () => {
       const preimage = makeTuple(5, makeTuple.bind(undefined, 4, Fr.random)) as Tuple<Tuple<Fr, 4>, 5>;
 
@@ -177,6 +188,8 @@ describe('Logs', () => {
       );
     });
 
+    // Emits an ExampleNestedEvent with struct field and verifies that getPublicEvents correctly
+    // decodes nested struct fields (a, b, c, extra_value).
     it('decodes public events with nested structs', async () => {
       const a = Fr.random();
       const b = Fr.random();
@@ -211,6 +224,8 @@ describe('Logs', () => {
     //    between calls,
     // 2. across separate transactions that interact with the same contract function, confirming proper persistence
     //    of the cache contents in the database (TaggingDataProvider) after transaction proving completes.
+    // Sends two emit_encrypted_events_nested txs (4 and 2 nesting levels), fetches raw private logs,
+    // and asserts that all tags within a tx are unique and tags are globally unique across both txs.
     it('produces unique tags for encrypted logs across nested calls and different transactions', async () => {
       let tx1Tags: string[];
       // With 4 nestings we have 5 total calls, each emitting 2 logs => 10 logs
@@ -263,6 +278,9 @@ describe('Logs', () => {
     });
   });
 
+  // Regression suite for the PXE tagging-cache / kernel-squashing interaction (issue #22949).
+  // The kernel may squash some log emissions; the PXE must reconcile its recorded index ranges
+  // against surviving logs to avoid Conflicting range errors on subsequent txs.
   describe('tagging cache reconciliation against kernel squashing', () => {
     // Regression test for https://github.com/AztecProtocol/aztec-packages/issues/22949.
     //
@@ -271,6 +289,8 @@ describe('Logs', () => {
     // its delivery log with it). The PXE must reconcile the recorded ranges against the kernel's surviving private
     // logs before persisting them, otherwise a subsequent tx sharing the same tagging secret hits a
     // `Conflicting range` error when its tagging sync re-derives the range from on-chain data and notices a mismatch.
+    // Calls deliver_squashed_and_surviving_notes twice in sequence (same tagging secret for both).
+    // Verifies no Conflicting range error on the second call after the first squashes a log index.
     it('does not throw `Conflicting range` across consecutive squashing txs sharing a tagging secret', async () => {
       // Each call reserves two indexes for the (sender, sender, contract) tagging secret and squashes the first
       // delivery's (note, nullifier, log) triple. Pre-fix, the second call's tagging sync would observe that the

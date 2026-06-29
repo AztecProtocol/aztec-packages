@@ -14,13 +14,18 @@ import { ExecutionPayload } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 
-import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
+import { L1_DIRECT_WRITE_ACCOUNT_INDEX, PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import { sendL1ToL2Message } from '../fixtures/l1_to_l2_messaging.js';
 import type { CrossChainTestHarness } from '../shared/cross_chain_test_harness.js';
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
 jest.setTimeout(300_000);
 
+// L1→L2 messaging via Inbox: message readiness, duplicate messages, and inbox drift after a rollup
+// reorg. Uses CrossChainMessagingTest (prod sequencer, pipelining preset: ethSlot=4s, aztecSlot=12s,
+// inboxLag=2, minTxsPerBlock=1, aztecProofSubmissionEpochs=2, aztecEpochDuration=4) with
+// EpochTestSettler for auto-proving and CrossChainTestHarness for L1↔L2 token portal bridging.
+// Each it is run as an independent CI job (*.parallel.test.ts convention).
 describe('e2e_cross_chain_messaging l1_to_l2', () => {
   let t: CrossChainMessagingTest;
   let log: Logger;
@@ -57,6 +62,7 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
       // (e.g. a missed checkpoint publish that prunes the pipelined proposed chain) doesn't
       // drop the wallet's in-flight tx via handlePrunedBlocks.
       { syncChainTip: 'checkpointed' },
+      L1_DIRECT_WRITE_ACCOUNT_INDEX,
     );
     await t.setup();
 
@@ -89,6 +95,8 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
     return newBlock;
   };
 
+  // REFACTOR: hand-rolled retryUntil polling for a block to reach the checkpointed chain tip; replace
+  // with a shared waitForBlockCheckpointed(node, blockNumber) helper in the e2e fixture utilities.
   const waitForBlockToCheckpoint = async (blockNumber: BlockNumber) => {
     return await retryUntil(
       async () => {
@@ -130,6 +138,8 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
   };
 
   // Waits until the message is fetched by the archiver of the node and returns the msg target checkpoint
+  // REFACTOR: hand-rolled retryUntil loop that also advances blocks on each retry; replace with a
+  // waitForL1ToL2MessageIndexed(node, msgHash, advanceBlock) helper in the e2e fixture or harness.
   const waitForMessageFetched = async (msgHash: Fr) => {
     log.warn(`Waiting until the message is fetched by the node`);
     return await retryUntil(
@@ -225,10 +235,15 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
     await sendConsumeMsgTx(actualMessage2Index);
   };
 
+  // Sends the same L1→L2 message content twice via a non-registered portal, waits for each to be
+  // ready, and consumes both from private. Verifies duplicate messages are indexed correctly and
+  // the second consumption uses the non-nullified duplicate leaf.
   it('can send an L1 to L2 message from a non-registered portal address consumed from private repeatedly', async () => {
     await canSendMessageFromNonRegisteredPortal('private');
   });
 
+  // Same as above but the message is consumed from public state. Verifies the public consumption
+  // path handles duplicate messages and the oracle returns the correct non-nullified leaf index.
   it('can send an L1 to L2 message from a non-registered portal address consumed from public repeatedly', async () => {
     await canSendMessageFromNonRegisteredPortal('public');
   });
@@ -328,10 +343,15 @@ describe('e2e_cross_chain_messaging l1_to_l2', () => {
     }
   };
 
+  // Mines four checkpoints without proving, inserting an L1→L2 message after the drift, then
+  // triggers a rollup prune back to the pre-drift block. Verifies the message can be consumed from
+  // private only after the chain re-syncs to the message's checkpoint, not before.
   it('can consume L1 to L2 message in private after inbox drifts away from the rollup', async () => {
     await canConsumeMessageAfterInboxDrift('private');
   });
 
+  // Same drift scenario but consuming from public. Uses a send+dontThrowOnRevert loop to probe when
+  // the message becomes consumable, then verifies the successful tx is in the message's checkpoint.
   it('can consume L1 to L2 message in public after inbox drifts away from the rollup', async () => {
     await canConsumeMessageAfterInboxDrift('public');
   });

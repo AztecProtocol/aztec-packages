@@ -37,7 +37,11 @@ describe('TxPoolV2: benchmarks', () => {
   const metrics = new TxPoolBenchMetrics();
 
   // Use a fixed set of fee payers to test fee payer index with multiple txs per payer
-  const feePayers = [AztecAddress.fromBigInt(1n), AztecAddress.fromBigInt(2n), AztecAddress.fromBigInt(3n)];
+  const feePayers = [
+    AztecAddress.fromBigIntUnsafe(1n),
+    AztecAddress.fromBigIntUnsafe(2n),
+    AztecAddress.fromBigIntUnsafe(3n),
+  ];
 
   // Pre-created transaction pools for different sizes
   const POOL_SIZES = [10, 100, 1000] as const;

@@ -20,9 +20,12 @@ function download_solc {
   mkdir -p "$HOME/.svm"
   # We build a minimal file to trigger svm download of solc. svm fetches the
   # binary from binaries.soliditylang.org, which intermittently fails to resolve
-  # under heavy parallel CI load; retry to ride out transient DNS drops. (The
-  # merge queue disables the cache above, so this download path runs every time.)
-  retry "forge build --use \"$solc_version\" src/core/libraries/ConstantsGen.sol 2>/dev/null"
+  # under heavy parallel CI load; retry every 10s for ~5 min to ride out transient
+  # DNS drops, but only on connection/DNS failures so a genuine build error fails
+  # fast. (The merge queue disables the cache above, so this download path runs
+  # every time. stderr is kept so retry can see the DNS error and match on it.)
+  RETRY_ATTEMPTS=30 RETRY_SLEEP=10 retry -p 'dns error|Temporary failure in name resolution|error sending request|failed to lookup address|Connection refused|connection reset' \
+    "forge build --use \"$solc_version\" src/core/libraries/ConstantsGen.sol"
 
   # Copy from svm cache to local path
   local svm_path="$HOME/.svm/$solc_version/solc-$solc_version"

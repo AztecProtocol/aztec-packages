@@ -22,6 +22,11 @@ import { EpochsTestContext } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
+// Suite: 2 parallel scenarios testing proof-submission failure paths. EpochsTestContext with single
+// sequencer node, no initial prover (prover nodes created in test bodies). Timing: ethSlot=8s,
+// aztecSlot=2×8=16s, epoch=8, proofSubmissionEpochs=1 (default), blockDurationMs=3s,
+// cancelTxOnTimeout=false, inboxLag=2 (v5 always enforces the timetable, so the former enforceTimeTable
+// override is gone). Prover Delayer steers proof tx timing.
 describe('e2e_epochs/epochs_proof_fails', () => {
   let context: EndToEndContext;
   let l1Client: ViemClient;
@@ -55,6 +60,10 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     await test.teardown();
   });
 
+  // Delays the proof tx until after epoch 2 starts (past the submission deadline). Waits for
+  // epoch 1 to end, then epoch 2 to begin, and polls until the rollup checkpoint number drops
+  // below the pre-rollback value. Asserts the delayed proof receipt is reverted and the
+  // post-rollback chain tip is in epoch 2.
   it('does not allow submitting proof after epoch end', async () => {
     // Here we cause a re-org by not publishing the proof for epoch 0 until after the end of epoch 1.
     // The proof will be rejected and a re-org will take place via the next post-deadline propose tx.
@@ -91,6 +100,8 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     // checkpoint number rather than a fixed timestamp because the exact slot that triggers the
     // prune depends on poll timing (see comment above).
     await test.waitUntilEpochStarts(EpochNumber(2));
+    // REFACTOR: hand-rolled retryUntil polling rollup.getCheckpointNumber for rollback detection;
+    // a DSL helper like waitForRollback(checkpoint) would make the intent clearer.
     await retryUntil(
       async () => (await rollup.getCheckpointNumber()) < checkpointBeforeRollback,
       'rollup rolled back',
@@ -114,6 +125,11 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     logger.warn(`Test succeeded`);
   });
 
+  // Injects a sleep delay of epochDuration * L2_SLOT_DURATION into each top tree's prove() (patched
+  // via createTopTreeOrchestrator with a jest spy; v5 split epoch proving into per-checkpoint top
+  // trees, replacing the former finalizeEpoch patch), ensuring the prover misses the epoch 1 deadline.
+  // Asserts that after the gated prove resolves, no proof tx was submitted (the prover aborted), and
+  // the proven checkpoint number remained 0 through epoch 1.
   it('aborts proving if end of next epoch is reached', async () => {
     // Create prover node after test setup to avoid early proving
     const proverNode = await test.createProverNode({ cancelTxOnTimeout: false, maxSpeedUpAttempts: 0 });

@@ -33,14 +33,14 @@ import {
   type L2Tips,
 } from '@aztec/stdlib/block';
 import type { CheckpointData, ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
-import type { ContractDataSource } from '@aztec/stdlib/contract';
+import type { ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { EmptyL1RollupConstants, type L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { L2LogsSource, MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
-import { mockTx } from '@aztec/stdlib/testing';
+import { mockTx, randomContractInstanceWithAddress } from '@aztec/stdlib/testing';
 import {
   AppendOnlyTreeSnapshot,
   MerkleTreeId,
@@ -116,6 +116,7 @@ describe('aztec node', () => {
   let merkleTreeOps: MockProxy<MerkleTreeReadOperations>;
   let worldState: MockProxy<WorldStateSynchronizer>;
   let l2BlockSource: MockProxy<L2BlockSource>;
+  let contractSource: MockProxy<ContractDataSource>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let lastBlockNumber: BlockNumber;
   let node: TestAztecNodeService;
@@ -204,7 +205,7 @@ describe('aztec node', () => {
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
 
     // all txs use the same allowed FPC class
-    const contractSource = mock<ContractDataSource>();
+    contractSource = mock<ContractDataSource>();
 
     const nodeConfigFromEnvVars: AztecNodeConfig = getConfigEnvVars();
     nodeConfig = {
@@ -226,28 +227,29 @@ describe('aztec node', () => {
       new MockDateProvider(),
     );
 
-    node = new TestAztecNodeService(
-      nodeConfig,
-      p2p,
-      l2BlockSource,
-      l2LogsSource,
-      contractSource,
+    node = new TestAztecNodeService({
+      config: nodeConfig,
+      p2pClient: p2p,
+      blockSource: l2BlockSource,
+      logsSource: l2LogsSource,
+      contractDataSource: contractSource,
       l1ToL2MessageSource,
-      worldState,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      async () => {},
-      12345,
-      rollupVersion.toNumber(),
-      globalVariablesBuilder,
+      worldStateSynchronizer: worldState,
+      sequencer: undefined,
+      proverNode: undefined,
+      slasherClient: undefined,
+      validatorsSentinel: undefined,
+      stopStartedWatchers: async () => {},
+      l1ChainId: 12345,
+      version: rollupVersion.toNumber(),
+      globalVariableBuilder: globalVariablesBuilder,
+      rollupContract,
       feeProvider,
       epochCache,
-      getPackageVersion(),
-      new TestCircuitVerifier(),
-      new TestCircuitVerifier(),
-    );
+      packageVersion: getPackageVersion(),
+      peerProofVerifier: new TestCircuitVerifier(),
+      rpcProofVerifier: new TestCircuitVerifier(),
+    });
   });
 
   describe('tx validation', () => {
@@ -418,6 +420,46 @@ describe('aztec node', () => {
       it('returns undefined for non-existent block', async () => {
         l2BlockSource.getBlockData.mockResolvedValue(undefined);
         expect(await node.getBlock(BlockNumber(3))).toEqual(undefined);
+      });
+    });
+
+    describe('getContract', () => {
+      let address: AztecAddress;
+      let instance: ContractInstanceWithAddress;
+      const referenceTimestamp = 4242n;
+
+      beforeEach(async () => {
+        instance = await randomContractInstanceWithAddress();
+        address = instance.address;
+
+        l2BlockSource.getBlockData.mockResolvedValue({
+          header: BlockHeader.empty({
+            globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(1), timestamp: referenceTimestamp }),
+          }),
+          archive: L2Block.empty().archive,
+          blockHash: BlockHash.random(),
+          checkpointNumber: CheckpointNumber(1),
+          indexWithinCheckpoint: IndexWithinCheckpoint(0),
+        });
+
+        contractSource.getContract.mockImplementation((_address, timestamp) =>
+          Promise.resolve(timestamp === referenceTimestamp ? instance : undefined),
+        );
+      });
+
+      it('resolves the reference block to its timestamp and reads the instance as of that block', async () => {
+        expect(await node.getContract(address, BlockNumber(1))).toEqual(instance);
+      });
+
+      it('defaults to the latest block when no reference block is given', async () => {
+        const getBlockData = jest.spyOn(node, 'getBlockData');
+        expect(await node.getContract(address)).toEqual(instance);
+        expect(getBlockData).toHaveBeenCalledWith('latest');
+      });
+
+      it('throws when the reference block is not part of the chain', async () => {
+        l2BlockSource.getBlockData.mockResolvedValue(undefined);
+        await expect(node.getContract(address, BlockHash.random())).rejects.toThrow(/not found/);
       });
     });
 
@@ -709,232 +751,6 @@ describe('aztec node', () => {
     });
   });
 
-  describe('simulatePublicCalls', () => {
-    const mockNextL1Slot = (slot: SlotNumber) => {
-      jest.spyOn(epochCache, 'getEpochAndSlotInNextL1Slot').mockReturnValue({
-        epoch: EpochNumber(0),
-        slot,
-        ts: 0n,
-        nowSeconds: BigInt(NOW_S),
-      });
-    };
-
-    const makeSimulationBlockData = (
-      blockNumber: BlockNumber,
-      slotNumber: SlotNumber,
-      checkpointNumber = CheckpointNumber(1),
-    ): BlockData => ({
-      header: BlockHeader.empty({
-        globalVariables: GlobalVariables.empty({ blockNumber, slotNumber }),
-      }),
-      archive: L2Block.empty().archive,
-      blockHash: BlockHash.random(),
-      checkpointNumber,
-      indexWithinCheckpoint: IndexWithinCheckpoint(0),
-    });
-
-    it('refuses to simulate public calls if the gas limit is too high', async () => {
-      const tx = await mockTxForRollup(0x10000);
-      unfreeze(tx.data.constants.txContext.gasSettings.gasLimits).l2Gas = 1e12;
-      await expect(node.simulatePublicCalls(tx)).rejects.toThrow(/gas/i);
-    });
-
-    it('uses the slot after the proposed checkpoint when it is later than the next L1 timestamp slot', async () => {
-      const tx = await mockTxForRollup(0x10000);
-      const checkpointNumber = CheckpointNumber(1);
-      const proposedCheckpointBlockNumber = BlockNumber(9);
-      const targetSlot = SlotNumber(10);
-      l2BlockSource.getL2Tips.mockResolvedValue(
-        makeTips({
-          proposed: proposedCheckpointBlockNumber,
-          proposedCheckpoint: checkpointNumber,
-          proposedCheckpointBlock: proposedCheckpointBlockNumber,
-        }),
-      );
-      l2BlockSource.getBlockData.mockResolvedValue(
-        makeSimulationBlockData(proposedCheckpointBlockNumber, SlotNumber(9), checkpointNumber),
-      );
-      mockNextL1Slot(SlotNumber(5));
-      globalVariablesBuilder.buildCheckpointGlobalVariables.mockResolvedValue({
-        chainId,
-        version: rollupVersion,
-        slotNumber: targetSlot,
-        timestamp: 0n,
-        coinbase: EthAddress.ZERO,
-        feeRecipient: AztecAddress.ZERO,
-        gasFees: GasFees.empty(),
-      });
-
-      await expect(node.simulatePublicCalls(tx)).rejects.toThrow();
-
-      expect(l2BlockSource.getBlockData).toHaveBeenCalledWith({ number: proposedCheckpointBlockNumber });
-      expect(globalVariablesBuilder.buildGlobalVariables).not.toHaveBeenCalled();
-      expect(globalVariablesBuilder.buildCheckpointGlobalVariables).toHaveBeenCalledWith(
-        EthAddress.ZERO,
-        AztecAddress.ZERO,
-        targetSlot,
-      );
-    });
-
-    it('uses the next L1 timestamp slot when it is later than the slot after the proposed checkpoint', async () => {
-      const tx = await mockTxForRollup(0x10000);
-      const checkpointNumber = CheckpointNumber(1);
-      const proposedCheckpointBlockNumber = BlockNumber(9);
-      const targetSlot = SlotNumber(12);
-      l2BlockSource.getL2Tips.mockResolvedValue(
-        makeTips({
-          proposed: proposedCheckpointBlockNumber,
-          proposedCheckpoint: checkpointNumber,
-          proposedCheckpointBlock: proposedCheckpointBlockNumber,
-        }),
-      );
-      l2BlockSource.getBlockData.mockResolvedValue(
-        makeSimulationBlockData(proposedCheckpointBlockNumber, SlotNumber(9), checkpointNumber),
-      );
-      mockNextL1Slot(targetSlot);
-      globalVariablesBuilder.buildCheckpointGlobalVariables.mockResolvedValue({
-        chainId,
-        version: rollupVersion,
-        slotNumber: targetSlot,
-        timestamp: 0n,
-        coinbase: EthAddress.ZERO,
-        feeRecipient: AztecAddress.ZERO,
-        gasFees: GasFees.empty(),
-      });
-
-      await expect(node.simulatePublicCalls(tx)).rejects.toThrow();
-
-      expect(l2BlockSource.getBlockData).toHaveBeenCalledWith({ number: proposedCheckpointBlockNumber });
-      expect(globalVariablesBuilder.buildGlobalVariables).not.toHaveBeenCalled();
-      expect(globalVariablesBuilder.buildCheckpointGlobalVariables).toHaveBeenCalledWith(
-        EthAddress.ZERO,
-        AztecAddress.ZERO,
-        targetSlot,
-      );
-    });
-
-    it('uses the latest proposed block slot when it is ahead of the proposed checkpoint', async () => {
-      const tx = await mockTxForRollup(0x10000);
-      const checkpointNumber = CheckpointNumber(1);
-      const proposedCheckpointBlockNumber = BlockNumber(9);
-      const latestProposedBlockNumber = BlockNumber(12);
-      const targetSlot = SlotNumber(12);
-      l2BlockSource.getL2Tips.mockResolvedValue(
-        makeTips({
-          proposed: latestProposedBlockNumber,
-          proposedCheckpoint: checkpointNumber,
-          proposedCheckpointBlock: proposedCheckpointBlockNumber,
-        }),
-      );
-      l2BlockSource.getBlockData.mockImplementation(query => {
-        if (!('number' in query)) {
-          return Promise.resolve(undefined);
-        }
-        if (query.number === proposedCheckpointBlockNumber) {
-          return Promise.resolve(
-            makeSimulationBlockData(proposedCheckpointBlockNumber, SlotNumber(9), checkpointNumber),
-          );
-        }
-        return Promise.resolve(makeSimulationBlockData(latestProposedBlockNumber, targetSlot, checkpointNumber));
-      });
-      mockNextL1Slot(SlotNumber(5));
-      globalVariablesBuilder.buildCheckpointGlobalVariables.mockResolvedValue({
-        chainId,
-        version: rollupVersion,
-        slotNumber: targetSlot,
-        timestamp: 0n,
-        coinbase: EthAddress.ZERO,
-        feeRecipient: AztecAddress.ZERO,
-        gasFees: GasFees.empty(),
-      });
-
-      await expect(node.simulatePublicCalls(tx)).rejects.toThrow();
-
-      expect(l2BlockSource.getBlockData).toHaveBeenCalledWith({ number: proposedCheckpointBlockNumber });
-      expect(l2BlockSource.getBlockData).toHaveBeenCalledWith({ number: latestProposedBlockNumber });
-      expect(globalVariablesBuilder.buildGlobalVariables).not.toHaveBeenCalled();
-      expect(globalVariablesBuilder.buildCheckpointGlobalVariables).toHaveBeenCalledWith(
-        EthAddress.ZERO,
-        AztecAddress.ZERO,
-        targetSlot,
-      );
-    });
-
-    it('disregards missing proposed block slots and uses the next L1 timestamp slot', async () => {
-      const tx = await mockTxForRollup(0x10000);
-      const checkpointNumber = CheckpointNumber(1);
-      const proposedCheckpointBlockNumber = BlockNumber(9);
-      const latestProposedBlockNumber = BlockNumber(12);
-      const targetSlot = SlotNumber(13);
-      l2BlockSource.getL2Tips.mockResolvedValue(
-        makeTips({
-          proposed: latestProposedBlockNumber,
-          proposedCheckpoint: checkpointNumber,
-          proposedCheckpointBlock: proposedCheckpointBlockNumber,
-        }),
-      );
-      l2BlockSource.getBlockData.mockResolvedValue(undefined);
-      mockNextL1Slot(targetSlot);
-      globalVariablesBuilder.buildCheckpointGlobalVariables.mockResolvedValue({
-        chainId,
-        version: rollupVersion,
-        slotNumber: targetSlot,
-        timestamp: 0n,
-        coinbase: EthAddress.ZERO,
-        feeRecipient: AztecAddress.ZERO,
-        gasFees: GasFees.empty(),
-      });
-
-      await expect(node.simulatePublicCalls(tx)).rejects.toThrow();
-
-      expect(l2BlockSource.getBlockData).toHaveBeenCalledWith({ number: proposedCheckpointBlockNumber });
-      expect(l2BlockSource.getBlockData).toHaveBeenCalledWith({ number: latestProposedBlockNumber });
-      expect(globalVariablesBuilder.buildGlobalVariables).not.toHaveBeenCalled();
-      expect(globalVariablesBuilder.buildCheckpointGlobalVariables).toHaveBeenCalledWith(
-        EthAddress.ZERO,
-        AztecAddress.ZERO,
-        targetSlot,
-      );
-    });
-
-    it('treats slot zero as a valid proposed checkpoint slot', async () => {
-      const tx = await mockTxForRollup(0x10000);
-      const checkpointNumber = CheckpointNumber(0);
-      const proposedCheckpointBlockNumber = BlockNumber(0);
-      const targetSlot = SlotNumber(1);
-      l2BlockSource.getL2Tips.mockResolvedValue(
-        makeTips({
-          proposed: proposedCheckpointBlockNumber,
-          proposedCheckpoint: checkpointNumber,
-          proposedCheckpointBlock: proposedCheckpointBlockNumber,
-        }),
-      );
-      l2BlockSource.getBlockData.mockResolvedValue(
-        makeSimulationBlockData(proposedCheckpointBlockNumber, SlotNumber(0), checkpointNumber),
-      );
-      mockNextL1Slot(SlotNumber(0));
-      globalVariablesBuilder.buildCheckpointGlobalVariables.mockResolvedValue({
-        chainId,
-        version: rollupVersion,
-        slotNumber: targetSlot,
-        timestamp: 0n,
-        coinbase: EthAddress.ZERO,
-        feeRecipient: AztecAddress.ZERO,
-        gasFees: GasFees.empty(),
-      });
-
-      await expect(node.simulatePublicCalls(tx)).rejects.toThrow();
-
-      expect(l2BlockSource.getBlockData).toHaveBeenCalledWith({ number: proposedCheckpointBlockNumber });
-      expect(globalVariablesBuilder.buildGlobalVariables).not.toHaveBeenCalled();
-      expect(globalVariablesBuilder.buildCheckpointGlobalVariables).toHaveBeenCalledWith(
-        EthAddress.ZERO,
-        AztecAddress.ZERO,
-        targetSlot,
-      );
-    });
-  });
-
   describe('reloadKeystore', () => {
     it('throws BadRequestError if no file-based keystore directory is configured', async () => {
       // Default node has no keyStoreDirectory set
@@ -981,33 +797,31 @@ describe('aztec node', () => {
 
         const validatorNodeConfig = { ...nodeConfig, keyStoreDirectory: keyStoreDir };
 
-        nodeWithValidator = new AztecNodeService(
-          validatorNodeConfig,
-          p2p,
-          l2BlockSource,
-          mock<L2LogsSource>(),
-          mock<ContractDataSource>(),
-          mock<L1ToL2MessageSource>(),
-          mock<WorldStateSynchronizer>({ getCommitted: () => merkleTreeOps }),
-          undefined,
-          undefined,
+        nodeWithValidator = new AztecNodeService({
+          config: validatorNodeConfig,
+          p2pClient: p2p,
+          blockSource: l2BlockSource,
+          logsSource: mock<L2LogsSource>(),
+          contractDataSource: mock<ContractDataSource>(),
+          l1ToL2MessageSource: mock<L1ToL2MessageSource>(),
+          worldStateSynchronizer: mock<WorldStateSynchronizer>({ getCommitted: () => merkleTreeOps }),
+          sequencer: undefined,
+          proverNode: undefined,
           slasherClient,
-          undefined,
-          async () => {},
-          12345,
-          rollupVersion.toNumber(),
-          globalVariablesBuilder,
+          validatorsSentinel: undefined,
+          stopStartedWatchers: async () => {},
+          l1ChainId: 12345,
+          version: rollupVersion.toNumber(),
+          globalVariableBuilder: globalVariablesBuilder,
+          rollupContract: undefined,
           feeProvider,
           epochCache,
-          getPackageVersion(),
-          new TestCircuitVerifier(),
-          new TestCircuitVerifier(),
-          undefined,
-          undefined,
-          undefined,
-          validatorClient as unknown as ValidatorClient,
-          new KeystoreManager(keyStore),
-        );
+          packageVersion: getPackageVersion(),
+          peerProofVerifier: new TestCircuitVerifier(),
+          rpcProofVerifier: new TestCircuitVerifier(),
+          validatorClient: validatorClient as unknown as ValidatorClient,
+          keyStoreManager: new KeystoreManager(keyStore),
+        });
       });
 
       afterEach(() => {
@@ -1171,33 +985,31 @@ describe('aztec node', () => {
         // Only truthiness matters: the code checks `if (this.keyStoreManager && this.sequencer)`
         // and the validation logic uses keyStoreManager, not sequencer methods.
         // The test expects rejection before sequencer.updatePublisherNodeKeyStore() is reached.
-        const nodeWithSequencer = new AztecNodeService(
-          { ...nodeConfig, keyStoreDirectory: keyStoreDir },
-          p2p,
-          l2BlockSource,
-          mock<L2LogsSource>(),
-          mock<ContractDataSource>(),
-          mock<L1ToL2MessageSource>(),
-          mock<WorldStateSynchronizer>({ getCommitted: () => merkleTreeOps }),
-          {} as SequencerClient,
-          undefined,
+        const nodeWithSequencer = new AztecNodeService({
+          config: { ...nodeConfig, keyStoreDirectory: keyStoreDir },
+          p2pClient: p2p,
+          blockSource: l2BlockSource,
+          logsSource: mock<L2LogsSource>(),
+          contractDataSource: mock<ContractDataSource>(),
+          l1ToL2MessageSource: mock<L1ToL2MessageSource>(),
+          worldStateSynchronizer: mock<WorldStateSynchronizer>({ getCommitted: () => merkleTreeOps }),
+          sequencer: {} as SequencerClient,
+          proverNode: undefined,
           slasherClient,
-          undefined,
-          async () => {},
-          12345,
-          rollupVersion.toNumber(),
-          globalVariablesBuilder,
+          validatorsSentinel: undefined,
+          stopStartedWatchers: async () => {},
+          l1ChainId: 12345,
+          version: rollupVersion.toNumber(),
+          globalVariableBuilder: globalVariablesBuilder,
+          rollupContract: undefined,
           feeProvider,
           epochCache,
-          getPackageVersion(),
-          new TestCircuitVerifier(),
-          new TestCircuitVerifier(),
-          undefined,
-          undefined,
-          undefined,
-          validatorClient as unknown as ValidatorClient,
-          new KeystoreManager(initialKeyStore),
-        );
+          packageVersion: getPackageVersion(),
+          peerProofVerifier: new TestCircuitVerifier(),
+          rpcProofVerifier: new TestCircuitVerifier(),
+          validatorClient: validatorClient as unknown as ValidatorClient,
+          keyStoreManager: new KeystoreManager(initialKeyStore),
+        });
 
         // Write new keystore: new validator uses publisherKeyB (not in the L1 signers)
         const newValidatorKey = generatePrivateKey();
@@ -1242,28 +1054,29 @@ describe('aztec node', () => {
       sequencerClient.getSequencer.mockReturnValue(sequencer);
       sequencerClient.trigger.mockReturnValue(Promise.resolve());
 
-      nodeWithSequencer = new AztecNodeService(
-        nodeConfig,
-        p2p,
-        l2BlockSource,
-        mock(),
-        mock(),
-        mock(),
-        worldState,
-        sequencerClient,
-        undefined,
-        undefined,
-        undefined,
-        async () => {},
-        12345,
-        rollupVersion.toNumber(),
-        globalVariablesBuilder,
-        mock<FeeProvider>(),
+      nodeWithSequencer = new AztecNodeService({
+        config: nodeConfig,
+        p2pClient: p2p,
+        blockSource: l2BlockSource,
+        logsSource: mock(),
+        contractDataSource: mock(),
+        l1ToL2MessageSource: mock(),
+        worldStateSynchronizer: worldState,
+        sequencer: sequencerClient,
+        proverNode: undefined,
+        slasherClient: undefined,
+        validatorsSentinel: undefined,
+        stopStartedWatchers: async () => {},
+        l1ChainId: 12345,
+        version: rollupVersion.toNumber(),
+        globalVariableBuilder: globalVariablesBuilder,
+        rollupContract: undefined,
+        feeProvider: mock<FeeProvider>(),
         epochCache,
-        getPackageVersion(),
-        new TestCircuitVerifier(),
-        new TestCircuitVerifier(),
-      );
+        packageVersion: getPackageVersion(),
+        peerProofVerifier: new TestCircuitVerifier(),
+        rpcProofVerifier: new TestCircuitVerifier(),
+      });
     });
 
     it('throws when no sequencer is running', async () => {
@@ -1295,28 +1108,29 @@ describe('aztec node', () => {
       sequencerClient = mock<SequencerClient>();
       sequencerClient.getSequencer.mockReturnValue(sequencer);
 
-      nodeWithSequencer = new AztecNodeService(
-        nodeConfig,
-        p2p,
-        l2BlockSource,
-        mock(),
-        mock(),
-        mock(),
-        worldState,
-        sequencerClient,
-        undefined,
-        undefined,
-        undefined,
-        async () => {},
-        12345,
-        rollupVersion.toNumber(),
-        globalVariablesBuilder,
-        mock<FeeProvider>(),
+      nodeWithSequencer = new AztecNodeService({
+        config: nodeConfig,
+        p2pClient: p2p,
+        blockSource: l2BlockSource,
+        logsSource: mock(),
+        contractDataSource: mock(),
+        l1ToL2MessageSource: mock(),
+        worldStateSynchronizer: worldState,
+        sequencer: sequencerClient,
+        proverNode: undefined,
+        slasherClient: undefined,
+        validatorsSentinel: undefined,
+        stopStartedWatchers: async () => {},
+        l1ChainId: 12345,
+        version: rollupVersion.toNumber(),
+        globalVariableBuilder: globalVariablesBuilder,
+        rollupContract: undefined,
+        feeProvider: mock<FeeProvider>(),
         epochCache,
-        getPackageVersion(),
-        new TestCircuitVerifier(),
-        new TestCircuitVerifier(),
-      );
+        packageVersion: getPackageVersion(),
+        peerProofVerifier: new TestCircuitVerifier(),
+        rpcProofVerifier: new TestCircuitVerifier(),
+      });
     });
 
     it('keeps the sequencer frozen when setConfig updates minTxsPerBlock while paused', async () => {
@@ -1405,9 +1219,8 @@ describe('aztec node', () => {
   /** Builds an L2Tips stub with the given checkpoint numbers per tip. */
   function makeTips(args: {
     proposed?: BlockNumber;
-    proposedCheckpointBlock?: BlockNumber;
-    proposedCheckpoint?: CheckpointNumber;
     checkpointed?: CheckpointNumber;
+    checkpointedBlock?: BlockNumber;
     proven?: CheckpointNumber;
     finalized?: CheckpointNumber;
   }): L2Tips {
@@ -1418,8 +1231,7 @@ describe('aztec node', () => {
     });
     return {
       proposed: makeBlockId(args.proposed),
-      checkpointed: makeTipId(args.checkpointed ?? CheckpointNumber(0)),
-      proposedCheckpoint: makeTipId(args.proposedCheckpoint ?? CheckpointNumber(0), args.proposedCheckpointBlock),
+      checkpointed: makeTipId(args.checkpointed ?? CheckpointNumber(0), args.checkpointedBlock),
       proven: makeTipId(args.proven ?? CheckpointNumber(0)),
       finalized: makeTipId(args.finalized ?? CheckpointNumber(0)),
     };
@@ -1459,26 +1271,6 @@ describe('aztec node', () => {
     }
 
     describe('throw guards', () => {
-      it('throws BadRequestError when "proposed" resolves to a proposed entry and includeL1PublishInfo is requested', async () => {
-        l2BlockSource.getL2Tips.mockResolvedValue(makeTips({ proposedCheckpoint: CheckpointNumber(5) }));
-        l2BlockSource.getCheckpointData.mockResolvedValue(undefined);
-        l2BlockSource.getProposedCheckpointData.mockResolvedValue(
-          makeProposedCheckpointData(CheckpointNumber(5), SlotNumber(10)),
-        );
-
-        await expect(node.getCheckpoint('proposed', { includeL1PublishInfo: true })).rejects.toThrow(BadRequestError);
-      });
-
-      it('throws BadRequestError when "proposed" resolves to a proposed entry and includeAttestations is requested', async () => {
-        l2BlockSource.getL2Tips.mockResolvedValue(makeTips({ proposedCheckpoint: CheckpointNumber(5) }));
-        l2BlockSource.getCheckpointData.mockResolvedValue(undefined);
-        l2BlockSource.getProposedCheckpointData.mockResolvedValue(
-          makeProposedCheckpointData(CheckpointNumber(5), SlotNumber(10)),
-        );
-
-        await expect(node.getCheckpoint('proposed', { includeAttestations: true })).rejects.toThrow(BadRequestError);
-      });
-
       it('throws BadRequestError when number lookup resolves to a proposed entry and includeL1PublishInfo is requested', async () => {
         l2BlockSource.getCheckpointData.mockResolvedValue(undefined);
         l2BlockSource.getProposedCheckpointData.mockResolvedValue(
@@ -1503,30 +1295,6 @@ describe('aztec node', () => {
     });
 
     describe('fallback semantics', () => {
-      it('getCheckpoint("proposed") returns the projected proposed entry when one exists at the proposed-tip number', async () => {
-        l2BlockSource.getL2Tips.mockResolvedValue(makeTips({ proposedCheckpoint: CheckpointNumber(2) }));
-        l2BlockSource.getCheckpointData.mockResolvedValue(undefined);
-        const proposed = makeProposedCheckpointData(CheckpointNumber(2), SlotNumber(5));
-        l2BlockSource.getProposedCheckpointData.mockResolvedValue(proposed);
-
-        const result = await node.getCheckpoint('proposed');
-        expect(result).toBeDefined();
-        expect(result!.number).toEqual(CheckpointNumber(2));
-      });
-
-      it('getCheckpoint("proposed") returns the latest confirmed checkpoint when no proposed entry exists', async () => {
-        // When no proposed entry exists, the proposedCheckpoint tip falls back to the confirmed tip.
-        l2BlockSource.getL2Tips.mockResolvedValue(
-          makeTips({ proposedCheckpoint: CheckpointNumber(3), checkpointed: CheckpointNumber(3) }),
-        );
-        const confirmed = makeCheckpointData(CheckpointNumber(3));
-        l2BlockSource.getCheckpointData.mockResolvedValue(confirmed);
-
-        const result = await node.getCheckpoint('proposed');
-        expect(result).toBeDefined();
-        expect(result!.number).toEqual(CheckpointNumber(3));
-      });
-
       it('getCheckpoint({ number }) returns the confirmed entry when one exists', async () => {
         const confirmed = makeCheckpointData(CheckpointNumber(3));
         l2BlockSource.getCheckpointData.mockResolvedValue(confirmed);
@@ -1636,22 +1404,23 @@ describe('aztec node', () => {
   });
 
   describe('getCheckpointNumber', () => {
-    it('returns the proposed checkpoint number from proposedCheckpoint tip', async () => {
+    beforeEach(() => {
       l2BlockSource.getL2Tips.mockResolvedValue(
-        makeTips({ proposedCheckpoint: CheckpointNumber(7), checkpointed: CheckpointNumber(5) }),
+        makeTips({ checkpointed: CheckpointNumber(5), proven: CheckpointNumber(3), finalized: CheckpointNumber(2) }),
       );
-
-      const result = await node.getCheckpointNumber('proposed');
-      expect(result).toEqual(CheckpointNumber(7));
     });
 
-    it('returns the proposedCheckpoint tip number when it equals the confirmed checkpoint (fallback already baked in)', async () => {
-      l2BlockSource.getL2Tips.mockResolvedValue(
-        makeTips({ proposedCheckpoint: CheckpointNumber(5), checkpointed: CheckpointNumber(5) }),
-      );
+    it('returns the checkpointed number by default', async () => {
+      expect(await node.getCheckpointNumber()).toEqual(CheckpointNumber(5));
+      expect(await node.getCheckpointNumber('checkpointed')).toEqual(CheckpointNumber(5));
+    });
 
-      const result = await node.getCheckpointNumber('proposed');
-      expect(result).toEqual(CheckpointNumber(5));
+    it('returns the proven checkpoint number', async () => {
+      expect(await node.getCheckpointNumber('proven')).toEqual(CheckpointNumber(3));
+    });
+
+    it('returns the finalized checkpoint number', async () => {
+      expect(await node.getCheckpointNumber('finalized')).toEqual(CheckpointNumber(2));
     });
   });
 
@@ -1691,7 +1460,6 @@ describe('aztec node', () => {
       return {
         proposed: blockId(args.proposed),
         checkpointed: tipId(args.checkpointed),
-        proposedCheckpoint: tipId(args.checkpointed),
         proven: tipId(args.proven),
         finalized: tipId(args.finalized),
       };

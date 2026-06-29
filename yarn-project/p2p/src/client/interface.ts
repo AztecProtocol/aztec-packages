@@ -13,6 +13,7 @@ import type { ReqRespSubProtocol, ReqRespSubProtocolHandler } from '../services/
 import type {
   DuplicateAttestationInfo,
   DuplicateProposalInfo,
+  OversizedProposalInfo,
   P2PBlockReceivedCallback,
   P2PCheckpointAttestationCallback,
   P2PCheckpointReceivedCallback,
@@ -96,6 +97,14 @@ export type P2P = P2PClient & {
    * @param callback - Function called with info about the duplicate proposal
    */
   registerDuplicateProposalCallback(callback: (info: DuplicateProposalInfo) => void): void;
+
+  /**
+   * Registers a callback invoked when an oversized block proposal (index at or beyond the consensus
+   * per-checkpoint block limit) is stored and re-broadcast as slashing evidence.
+   *
+   * @param callback - Function called with info about the oversized proposal
+   */
+  registerOversizedProposalCallback(callback: (info: OversizedProposalInfo) => void): void;
 
   /**
    * Registers a callback invoked when a duplicate attestation is detected (equivocation).

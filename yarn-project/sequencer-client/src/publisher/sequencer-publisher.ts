@@ -117,6 +117,7 @@ type L1ProcessArgs = {
 export const Actions = [
   'invalidate-by-invalid-attestation',
   'invalidate-by-insufficient-attestations',
+  'prune',
   'propose',
   'governance-signal',
   'vote-offenses',
@@ -177,6 +178,8 @@ export class SequencerPublisher {
   protected log: Logger;
   protected ethereumSlotDuration: bigint;
   protected aztecSlotDuration: bigint;
+  private readonly previousL1BlockWaitTimeoutMs: number;
+  private readonly previousL1BlockWaitPollIntervalMs: number;
 
   /** Date provider for wall-clock time. */
   private readonly dateProvider: DateProvider;
@@ -205,7 +208,13 @@ export class SequencerPublisher {
   protected requests: RequestWithExpiry[] = [];
 
   constructor(
-    private config: Pick<SequencerPublisherConfig, 'fishermanMode' | 'l1TxFailedStore'> &
+    private config: Pick<
+      SequencerPublisherConfig,
+      | 'fishermanMode'
+      | 'l1TxFailedStore'
+      | 'sequencerPublisherPreviousL1BlockWaitTimeoutMs'
+      | 'sequencerPublisherPreviousL1BlockWaitPollIntervalMs'
+    > &
       Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration'> & { l1ChainId: number },
     deps: {
       telemetry?: TelemetryClient;
@@ -225,6 +234,8 @@ export class SequencerPublisher {
     this.log = deps.log ?? createLogger('sequencer:publisher');
     this.ethereumSlotDuration = BigInt(config.ethereumSlotDuration);
     this.aztecSlotDuration = BigInt(config.aztecSlotDuration);
+    this.previousL1BlockWaitTimeoutMs = config.sequencerPublisherPreviousL1BlockWaitTimeoutMs;
+    this.previousL1BlockWaitPollIntervalMs = config.sequencerPublisherPreviousL1BlockWaitPollIntervalMs;
     this.dateProvider = deps.dateProvider;
     this.epochCache = deps.epochCache;
     this.lastActions = deps.lastActions;
@@ -617,34 +628,69 @@ export class SequencerPublisher {
 
   /*
    * Schedules sending all enqueued requests at (or after) the start of the given L2 slot.
-   * Sleeps until one L1 slot before the L2 slot boundary so the tx has a chance of being
-   * picked up by the first L1 block of the L2 slot.
-   * NB: there is a known correctness risk — being included in the L1 block right before the
-   * L2 slot starts would revert propose with HeaderLib__InvalidSlotNumber.
-   * Uses InterruptibleSleep so it can be cancelled via interrupt().
    */
   public async sendRequestsAt(targetSlot: SlotNumber): Promise<SendRequestsResult | undefined> {
-    const l1Constants = this.epochCache.getL1Constants();
-    // Start of the target L2 slot, in ms (getTimestampForSlot returns seconds).
-    const startOfTargetSlotMs = Number(getTimestampForSlot(targetSlot, l1Constants)) * 1000;
-    // Aim to be in the mempool one L1 slot before the L2 slot starts, so we have a chance of
-    // being picked up by the first L1 block of the L2 slot.
-    const submitAfterMs = startOfTargetSlotMs - Number(this.ethereumSlotDuration) * 1000;
+    await this.waitForTargetSlot(targetSlot);
     if (this.interrupted) {
       return undefined;
     }
-    const sleepMs = submitAfterMs - this.dateProvider.now();
-    if (sleepMs > 0) {
-      this.log.debug(`Sleeping ${sleepMs}ms before sending requests`, {
-        targetSlot,
-        submitAfterMs,
-      });
+
+    return this.sendRequests(targetSlot);
+  }
+
+  /**
+   * Sleeps until one L1 slot before the L2 slot boundary, and then waits for that L1 block
+   * to be mined, so we don't risk being included in it. If that block never gets mined after
+   * a timeout, we assume it got skipped on L1, so we send the tx anyway.
+   */
+  private async waitForTargetSlot(targetSlot: SlotNumber): Promise<void> {
+    const l1Constants = this.epochCache.getL1Constants();
+    const nowInSeconds = this.dateProvider.nowInSeconds();
+    const startOfTargetSlotTs = getTimestampForSlot(targetSlot, l1Constants);
+    const previousL1BlockTs = startOfTargetSlotTs - this.ethereumSlotDuration;
+    const waitDeadlineTs = previousL1BlockTs + BigInt(this.previousL1BlockWaitTimeoutMs / 1000);
+    const logCtx = { targetSlot, startOfTargetSlotTs, nowInSeconds, previousL1BlockTs, waitDeadlineTs };
+
+    // Check if we are already past time
+    if (nowInSeconds >= startOfTargetSlotTs) {
+      this.log.verbose(`Target slot ${targetSlot} already started, sending requests immediately`, logCtx);
+      return;
+    }
+
+    // Otherwise we wait
+    this.log.debug(`Waiting for slot ${targetSlot} before sending requests`, logCtx);
+
+    // Wait until previous L1 block timestamp first
+    const sleepMs = (Number(previousL1BlockTs) - nowInSeconds) * 1000;
+    if (sleepMs > 0 && !this.interrupted) {
+      this.log.trace(`Sleeping ${sleepMs}ms before waiting for previous L1 block`, logCtx);
       await this.interruptibleSleep.sleep(sleepMs);
     }
-    if (this.interrupted) {
-      return undefined;
+
+    // Then loop until we see the previous L1 block, so we know that we cannot be included in it.
+    // We time out after a while, once we are sure that that block is skipped in L1.
+    while (!this.interrupted) {
+      try {
+        const nowInSeconds = this.dateProvider.nowInSeconds();
+        logCtx.nowInSeconds = nowInSeconds;
+
+        if (nowInSeconds >= waitDeadlineTs) {
+          this.log.warn(`Timed out waiting for previous L1 block before sending requests, proceeding`, logCtx);
+          return;
+        }
+
+        const latestBlockTs = await this.l1TxUtils.getBlock().then(b => b.timestamp);
+        if (latestBlockTs >= previousL1BlockTs) {
+          this.log.debug(`Previous L1 block mined, proceeding to send requests`, { ...logCtx, latestBlockTs });
+          return;
+        }
+        this.log.trace(`Previous L1 block not mined yet, continuing to wait`, { ...logCtx, latestBlockTs });
+      } catch (err) {
+        this.log.error(`Error while waiting for previous L1 block before sending requests; retrying`, err, logCtx);
+      } finally {
+        await this.interruptibleSleep.sleep(this.previousL1BlockWaitPollIntervalMs);
+      }
     }
-    return this.sendRequests(targetSlot);
   }
 
   private callbackBundledTransactions(
@@ -1012,6 +1058,47 @@ export class SequencerPublisher {
       this.govProposerContract,
       signerAddress,
       signer,
+    );
+  }
+
+  /**
+   * Enqueues a `prune()` transaction if the rollup is prunable at the given slot's L1 timestamp.
+   * `prune()` is permissionless and idempotent — if the chain is no longer prunable by send time the
+   * bundle simulation usually drops the entry; on a node without `eth_simulateV1` the bundle is sent
+   * as-is and the prune reverts `Rollup__NothingToPrune` inside `aggregate3(allowFailure: true)`
+   * (a failed action, never a whole-tx revert). Used by the failed-sync fallback so a stuck pending
+   * chain (e.g. bad data blocking sync) can be wound back to recover.
+   * @returns true if a prune request was enqueued, false otherwise.
+   */
+  public async enqueuePruneIfPrunable(slotNumber: SlotNumber): Promise<boolean> {
+    if (this.lastActions['prune'] === slotNumber) {
+      this.log.debug(`Skipping duplicate prune for slot ${slotNumber}`, { slotNumber });
+      return false;
+    }
+    // Use the SAME timestamp the bundle simulator overrides block.timestamp with at send time
+    // (sequencer-bundle-simulator.ts) so this upfront check and the send-time sim agree. Slot-start
+    // and last-L1-slot both fall within the same L2 slot (and epoch, which is what `canPruneAtTime`
+    // derives), so they agree today; matching the simulator keeps it robust if the contract ever uses
+    // the timestamp more granularly.
+    const ts = getLastL1SlotTimestampForL2Slot(slotNumber, this.epochCache.getL1Constants());
+    const canPrune = await this.rollupContract.canPruneAtTime(ts).catch(err => {
+      this.log.error(`Failed to check canPruneAtTime for slot ${slotNumber}`, err, { slotNumber });
+      return false;
+    });
+    if (!canPrune) {
+      this.log.debug(`Rollup not prunable at slot ${slotNumber}`, { slotNumber });
+      return false;
+    }
+    const request: L1TxRequest = {
+      to: this.rollupContract.address,
+      data: encodeFunctionData({ abi: RollupAbi, functionName: 'prune', args: [] }),
+    };
+    this.log.info(`Enqueuing rollup prune for slot ${slotNumber}`, { slotNumber });
+    return this.enqueueRequest(
+      'prune',
+      request,
+      { address: this.rollupContract.address, abi: RollupAbi, eventName: 'PrunedPending' },
+      slotNumber,
     );
   }
 

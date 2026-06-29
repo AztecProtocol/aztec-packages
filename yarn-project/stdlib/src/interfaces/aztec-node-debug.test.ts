@@ -32,6 +32,18 @@ describe('AztecNodeDebugApiSchema', () => {
     expect(await context.client.prove()).toEqual(7);
     expect(await context.client.prove(CheckpointNumber(3))).toEqual(3);
   });
+
+  it('warpL2TimeAtLeastTo', async () => {
+    await context.client.warpL2TimeAtLeastTo(1234567890);
+  });
+
+  it('warpL2TimeAtLeastBy', async () => {
+    await context.client.warpL2TimeAtLeastBy(42);
+  });
+
+  it('registerContractFunctionSignatures', async () => {
+    await context.client.registerContractFunctionSignatures(['test()']);
+  });
 });
 
 class MockAztecNodeDebug implements AztecNodeDebug {
@@ -41,5 +53,17 @@ class MockAztecNodeDebug implements AztecNodeDebug {
 
   prove(upToCheckpoint?: CheckpointNumber): Promise<CheckpointNumber> {
     return Promise.resolve(upToCheckpoint ?? CheckpointNumber(7));
+  }
+
+  warpL2TimeAtLeastTo(_targetTimestamp: number): Promise<void> {
+    return Promise.resolve();
+  }
+
+  warpL2TimeAtLeastBy(_duration: number): Promise<void> {
+    return Promise.resolve();
+  }
+
+  registerContractFunctionSignatures(_signatures: string[]): Promise<void> {
+    return Promise.resolve();
   }
 }

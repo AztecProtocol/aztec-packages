@@ -96,6 +96,11 @@ export class OpenTelemetryClient implements TelemetryClient {
   private meters: Map<string, WrappedMeter> = new Map<string, WrappedMeter>();
   private tracers: Map<string, Tracer> = new Map<string, Tracer>();
 
+  /** Memoized shutdown promise. The telemetry client is shared between the aztec-node and an embedded prover-node,
+   * so stop() can be invoked more than once; the providers throw "shutdown may only be called once" and
+   * "invalid attempt to force flush after shutdown" if that happens. Guarding here makes stop()/flush() idempotent. */
+  private stopPromise: Promise<void> | undefined;
+
   protected constructor(
     private resource: IResource,
     private meterProvider: MeterProvider,
@@ -169,6 +174,10 @@ export class OpenTelemetryClient implements TelemetryClient {
   }
 
   public async flush() {
+    // Flushing after the providers have been shut down throws "invalid attempt to force flush after shutdown".
+    if (this.stopPromise) {
+      return;
+    }
     await Promise.all([
       this.meterProvider.forceFlush(),
       this.loggerProvider?.forceFlush(),
@@ -176,7 +185,11 @@ export class OpenTelemetryClient implements TelemetryClient {
     ]);
   }
 
-  public async stop() {
+  public stop() {
+    return (this.stopPromise ??= this.doStop());
+  }
+
+  private async doStop() {
     this.nodejsMetricsMonitor?.stop();
 
     const flushAndShutdown = async (provider?: { forceFlush: () => Promise<void>; shutdown: () => Promise<void> }) => {
