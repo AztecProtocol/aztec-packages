@@ -36,7 +36,6 @@ function test_cmds {
 
   local tests=(
     # List all standalone and nested tests, except for the ones listed above.
-    src/e2e_*/*.test.ts
     src/automine/*.test.ts
     src/automine/contracts/*.test.ts
     src/automine/contracts/deploy/*.test.ts
@@ -65,7 +64,6 @@ function test_cmds {
     src/multi-node/governance/*.test.ts
     src/p2p/*.test.ts
     src/p2p/reqresp/*.test.ts
-    src/e2e_!(avm_simulator).test.ts
   )
   for test in "${tests[@]}"; do
     # Derive a CI test name from the path: drop the leading "src/" and trailing ".test.ts".
@@ -303,7 +301,6 @@ function compat_test_cmds {
   local compat_env="CONTRACT_ARTIFACTS_VERSION=$version"
 
   local tests=(
-    src/e2e_*/*.test.ts
     src/automine/*.test.ts
     src/automine/contracts/*.test.ts
     src/automine/contracts/deploy/*.test.ts
@@ -318,7 +315,6 @@ function compat_test_cmds {
     src/infra/*.test.ts
     src/p2p/*.test.ts
     src/p2p/reqresp/*.test.ts
-    src/e2e_!(kernelless_simulation).test.ts
   )
   for test in "${tests[@]}"; do
     local name
