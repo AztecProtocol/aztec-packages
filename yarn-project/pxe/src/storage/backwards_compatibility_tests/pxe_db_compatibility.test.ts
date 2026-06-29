@@ -168,13 +168,12 @@ describe('PXE storage compatibility test suite', () => {
     try {
       const oldStore = await createStore('pxe_data', PRE_DERIVED_MESSAGE_AND_FALLBACK_KEYS_PXE_SCHEMA_VERSION, config);
       try {
-        await oldStore.openMap<string, Buffer>('key_store').set(
-          `${account.toString()}-ivsk_m`,
-          Buffer.from(
-            '1fb01c42d1aaa2662041b899c77cb19e08192193acc5a94405f1b43c974eba7a',
-            'hex',
-          ),
-        );
+        await oldStore
+          .openMap<string, Buffer>('key_store')
+          .set(
+            `${account.toString()}-ivsk_m`,
+            Buffer.from('1fb01c42d1aaa2662041b899c77cb19e08192193acc5a94405f1b43c974eba7a', 'hex'),
+          );
       } finally {
         await oldStore.close();
       }
