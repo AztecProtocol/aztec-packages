@@ -14,7 +14,6 @@ import {
   type ContractInstanceWithAddress,
   computeInitializationHash,
 } from '@aztec/stdlib/contract';
-import { isNoirCallStackUnresolved } from '@aztec/stdlib/errors';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import { deriveKeys } from '@aztec/stdlib/keys';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/stdlib/testing';
@@ -22,10 +21,6 @@ import type { UInt64 } from '@aztec/stdlib/types';
 
 import { strict as assert } from 'assert';
 import merge from 'lodash.merge';
-
-import { resolveAssertionMessageFromRevertData, traverseCauseChain } from '../../../common/index.js';
-import { Field, Uint8, Uint32, Uint64 } from './avm_memory_types.js';
-import type { AvmRevertReason } from './errors.js';
 
 export const PUBLIC_DISPATCH_FN_NAME = 'public_dispatch';
 export const DEFAULT_TIMESTAMP: UInt64 = 99833n;
@@ -36,22 +31,6 @@ export const DEFAULT_BLOCK_NUMBER = BlockNumber(42);
  */
 export function allSameExcept(original: any, overrides: any): any {
   return merge({}, original, overrides);
-}
-
-export function randomMemoryBytes(length: number): Uint8[] {
-  return [...Array(length)].map(_ => new Uint8(Math.floor(Math.random() * 255)));
-}
-
-export function randomMemoryUint32s(length: number): Uint32[] {
-  return [...Array(length)].map(_ => new Uint32(Math.floor(Math.random() * 255)));
-}
-
-export function randomMemoryUint64s(length: number): Uint64[] {
-  return [...Array(length)].map(_ => new Uint64(Math.floor(Math.random() * 255)));
-}
-
-export function randomMemoryFields(length: number): Field[] {
-  return [...Array(length)].map(_ => new Field(Fr.random()));
 }
 
 export function getFunctionSelector(
@@ -79,24 +58,6 @@ export function getContractFunctionAbi(
     contractArtifact.functions.find(f => f.name === functionName) ??
     contractArtifact.nonDispatchPublicFunctions.find(f => f.name === functionName)
   );
-}
-
-export function resolveContractAssertionMessage(
-  functionName: string,
-  revertReason: AvmRevertReason,
-  output: Fr[],
-  contractArtifact: ContractArtifact,
-): string | undefined {
-  traverseCauseChain(revertReason, cause => {
-    revertReason = cause as AvmRevertReason;
-  });
-
-  const functionArtifact = getAllFunctionAbis(contractArtifact).find(f => f.name === functionName);
-  if (!functionArtifact || !revertReason.noirCallStack || !isNoirCallStackUnresolved(revertReason.noirCallStack)) {
-    return undefined;
-  }
-
-  return resolveAssertionMessageFromRevertData(output, functionArtifact);
 }
 
 /**
