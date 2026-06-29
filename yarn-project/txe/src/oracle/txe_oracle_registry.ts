@@ -4,16 +4,20 @@ import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
+  PRIVATE_CONTEXT_INPUTS_LENGTH,
   PRIVATE_LOG_SIZE_IN_FIELDS,
 } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 import { withHexPrefix, withoutHexPrefix } from '@aztec/foundation/string';
+import type { TaggingSecretStrategy } from '@aztec/pxe/server';
 import {
   ARRAY,
   AZTEC_ADDRESS,
   BIGINT,
   BLOCK_NUMBER,
   BOOL,
+  ETH_ADDRESS,
   FIELD,
   FUNCTION_SELECTOR,
   type InputSlot,
@@ -23,6 +27,7 @@ import {
   type OracleRegistryEntry,
   type ParamTypes,
   STR,
+  type SlotShape,
   type TypeMapping,
   U32,
   makeEntry,
@@ -42,20 +47,68 @@ import {
 } from '../constants.js';
 import type { ForeignCallArgs, ForeignCallResult } from '../utils/encoding.js';
 
+// Spreading `ORACLE_REGISTRY` re-materializes its entries into `TXE_ORACLE_REGISTRY`'s inferred type, which names the
+// protocol types below. Re-exporting them gives tsc a portable path to each instead of falling back to a deep
+// node_modules path that breaks .d.ts portability (TS2742).
+export type { ContractClassLogData, EmbeddedCurvePoint, TxEffectData } from '@aztec/pxe/simulator';
+export type { BlockHash } from '@aztec/stdlib/block';
+export type { MembershipWitness } from '@aztec/foundation/trees';
+export type { NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
+
 const GAS_SETTINGS: TypeMapping<GasSettings> = {
-  serialization: { fn: v => v.toFields() },
   deserialization: {
     fn: ([reader]) => GasSettings.fromFields(reader.readFieldArray(GAS_SETTINGS_LENGTH)),
-    slots: 1,
   },
+  shape: [{ len: GAS_SETTINGS_LENGTH }],
+};
+
+// Tagging secret strategy discriminants. Must match the Noir test helper `TaggingSecretStrategy` in
+// aztec-nr `test/helpers/tagging_secret_strategy.nr`. This is a test-only oracle (only `set_tagging_secret_strategy`
+// reads it), so the mapping lives here on the TXE side rather than in the production oracle type mappings.
+const STRATEGY_NON_INTERACTIVE_HANDSHAKE = 1;
+const STRATEGY_ARBITRARY_SECRET = 2;
+const STRATEGY_ADDRESS_DERIVED = 3;
+
+const TAGGING_SECRET_STRATEGY: TypeMapping<TaggingSecretStrategy> = {
+  serialization: {
+    fn: strategy => {
+      switch (strategy.type) {
+        case 'non-interactive-handshake':
+          return [new Fr(STRATEGY_NON_INTERACTIVE_HANDSHAKE), Fr.ZERO, Fr.ZERO];
+        case 'address-derived':
+          return [new Fr(STRATEGY_ADDRESS_DERIVED), Fr.ZERO, Fr.ZERO];
+        case 'arbitrary-secret':
+          return [new Fr(STRATEGY_ARBITRARY_SECRET), strategy.secret.x, strategy.secret.y];
+      }
+    },
+  },
+  deserialization: {
+    fn: ([kindReader, xReader, yReader]) => {
+      const kind = kindReader.readField().toNumber();
+      const [x, y] = [xReader.readField(), yReader.readField()];
+      switch (kind) {
+        case STRATEGY_NON_INTERACTIVE_HANDSHAKE:
+          return { type: 'non-interactive-handshake' };
+        case STRATEGY_ADDRESS_DERIVED:
+          return { type: 'address-derived' };
+        case STRATEGY_ARBITRARY_SECRET:
+          return { type: 'arbitrary-secret', secret: Point.fromFields([x, y]) };
+        default:
+          throw new Error(`Unrecognized tagging secret strategy kind: ${kind}`);
+      }
+    },
+  },
+  shape: ['scalar', 'scalar', 'scalar'],
 };
 
 const PRIVATE_CONTEXT_INPUTS: TypeMapping<PrivateContextInputs> = {
   serialization: { fn: v => v.toFields() },
+  shape: Array<SlotShape>(PRIVATE_CONTEXT_INPUTS_LENGTH).fill('scalar'),
 };
 
 const COMPLETE_ADDRESS: TypeMapping<CompleteAddress> = {
   serialization: { fn: v => [v.address.toField(), ...v.publicKeys.toFields()] },
+  shape: Array<SlotShape>(8).fill('scalar'), // address + 7 public-key fields
 };
 
 const TXE_TX_EFFECTS: TypeMapping<{
@@ -91,6 +144,17 @@ const TXE_TX_EFFECTS: TypeMapping<{
       ] as (Fr | Fr[])[];
     },
   },
+  // txHash, padded note hashes + count, padded nullifiers + count, flattened private-log storage + lengths + count.
+  shape: [
+    'scalar',
+    { len: MAX_NOTE_HASHES_PER_TX },
+    'scalar',
+    { len: MAX_NULLIFIERS_PER_TX },
+    'scalar',
+    { len: MAX_PRIVATE_LOGS_PER_TX * PRIVATE_LOG_SIZE_IN_FIELDS },
+    { len: MAX_PRIVATE_LOGS_PER_TX },
+    'scalar',
+  ],
 };
 
 const TXE_OFFCHAIN_EFFECTS: TypeMapping<{ effects: Fr[][] }> = {
@@ -109,6 +173,12 @@ const TXE_OFFCHAIN_EFFECTS: TypeMapping<{ effects: Fr[][] }> = {
       return [rawArrayStorage, effectLengths, new Fr(effects.length)] as (Fr | Fr[])[];
     },
   },
+  // Flattened effect storage, per-effect lengths, then the effect count.
+  shape: [
+    { len: MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY * MAX_OFFCHAIN_EFFECT_LEN },
+    { len: MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY },
+    'scalar',
+  ],
 };
 
 const TXE_CALL_CONTEXT: TypeMapping<{ txHash: Fr; anchorBlockTimestamp: bigint }> = {
@@ -118,15 +188,18 @@ const TXE_CALL_CONTEXT: TypeMapping<{ txHash: Fr; anchorBlockTimestamp: bigint }
       return [new Fr(isSome), txHash, new Fr(anchorBlockTimestamp)];
     },
   },
+  shape: ['scalar', 'scalar', 'scalar'], // discriminant, txHash, anchor block timestamp
 };
 
 const CONTRACT_INSTANCE_MEMBER: TypeMapping<{ member: Fr; exists: boolean }> = {
   serialization: { fn: ({ member, exists }) => [member, new Fr(exists)] },
+  shape: ['scalar', 'scalar'],
 };
 
 const EVENT_SELECTOR: TypeMapping<EventSelector> = {
   serialization: { fn: v => [v.toField()] },
-  deserialization: { fn: ([reader]) => EventSelector.fromField(reader.readField()), slots: 1 },
+  deserialization: { fn: ([reader]) => EventSelector.fromField(reader.readField()) },
+  shape: ['scalar'],
 };
 
 const TXE_PRIVATE_EVENTS: TypeMapping<Fr[][]> = {
@@ -144,6 +217,12 @@ const TXE_PRIVATE_EVENTS: TypeMapping<Fr[][]> = {
       return [rawArrayStorage, eventLengths, new Fr(events.length)] as (Fr | Fr[])[];
     },
   },
+  // Flattened event storage, per-event lengths, then the event count.
+  shape: [
+    { len: MAX_PRIVATE_EVENTS_PER_TXE_QUERY * MAX_PRIVATE_EVENT_LEN },
+    { len: MAX_PRIVATE_EVENTS_PER_TXE_QUERY },
+    'scalar',
+  ],
 };
 
 export const TXE_ORACLE_REGISTRY = {
@@ -217,6 +296,20 @@ export const TXE_ORACLE_REGISTRY = {
       { name: 'address', type: AZTEC_ADDRESS },
       { name: 'messageHash', type: FIELD },
     ],
+  }),
+
+  aztec_txe_sendL1ToL2Message: makeEntry({
+    params: [
+      { name: 'content', type: FIELD },
+      { name: 'secretHash', type: FIELD },
+      { name: 'sender', type: ETH_ADDRESS },
+      { name: 'recipient', type: AZTEC_ADDRESS },
+    ],
+    returnType: FIELD,
+  }),
+
+  aztec_txe_setTaggingSecretStrategy: makeEntry({
+    params: [{ name: 'strategy', type: OPTION(TAGGING_SECRET_STRATEGY) }],
   }),
 
   aztec_txe_getLastBlockTimestamp: makeEntry({
@@ -337,7 +430,6 @@ export const TXE_ORACLE_REGISTRY = {
       { name: 'argsLength', type: U32 },
       { name: 'args', type: ARRAY(FIELD) },
     ],
-    returnType: ARRAY(FIELD),
   }),
 
   aztec_avm_staticCall: makeEntry({
@@ -348,10 +440,9 @@ export const TXE_ORACLE_REGISTRY = {
       { name: 'argsLength', type: U32 },
       { name: 'args', type: ARRAY(FIELD) },
     ],
-    returnType: ARRAY(FIELD),
   }),
 
-  aztec_avm_successCopy: makeEntry({ returnType: FIELD }),
+  aztec_avm_successCopy: makeEntry({ returnType: BOOL }),
 
   aztec_avm_getContractInstanceDeployer: makeEntry({
     params: [{ name: 'address', type: AZTEC_ADDRESS }],

@@ -3,21 +3,31 @@ import { type EventMetadataDefinition, decodeFromAbi } from '@aztec/stdlib/abi';
 import { computeLogTag } from '@aztec/stdlib/hash';
 import { MAX_LOGS_PER_TAG } from '@aztec/stdlib/interfaces/api-limit';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import { type PublicLogsQuery, Tag } from '@aztec/stdlib/logs';
+import { LogCursor, type PublicLogsQuery, Tag } from '@aztec/stdlib/logs';
 
 import type { PublicEvent, PublicEventFilter } from '../wallet/wallet.js';
+import { EventCursor } from './event_cursor.js';
 
-/** Result of a paginated public event query. */
+export { EventCursor };
+
+/** Result of a single page of a public event query. */
 export type GetPublicEventsResult<T> = {
-  /** The decoded events with metadata. */
+  /** The decoded events with metadata. At most `MAX_LOGS_PER_TAG` (the node's per-tag page size). */
   events: PublicEvent<T>[];
-  /** Whether the per-tag log limit was reached, indicating more results may be available — pass back the last
-   * event's metadata as an `afterLog` cursor to continue. */
-  maxLogsHit: boolean;
+  /**
+   * If present, use it to fetch the next page by setting `afterEvent` to it. Absent when all events in the range have
+   * been returned.
+   */
+  nextCursor?: EventCursor;
 };
 
 /**
- * Returns decoded public events given search parameters.
+ * Returns a page of decoded public events given search parameters.
+ *
+ * A single call returns at most `MAX_LOGS_PER_TAG` events (the node's per-tag page size). When more events exist,
+ * `nextCursor` points past the last returned event. Pass it as `afterEvent` to fetch the next page. When `nextCursor`
+ * is absent, all events in the range have been returned.
+ *
  * @param node - The node to request events from.
  * @param eventMetadataDef - Metadata of the event. This should be the class generated from the contract.
  *   e.g. `Contract.events.Event`.
@@ -26,8 +36,9 @@ export type GetPublicEventsResult<T> = {
  *   - `txHash`: Transaction in which the events were emitted (mutually exclusive with `fromBlock`/`toBlock`).
  *   - `fromBlock`: The block number from which to start fetching events (inclusive). Optional.
  *   - `toBlock`: The block number until which to fetch events (not inclusive). Optional.
- *   - `afterLog`: Log cursor after which to start fetching logs. Used for pagination.
- * @returns The decoded events with metadata and a flag indicating if more results are available.
+ *   - `afterEvent`: Cursor to resume strictly after. Optional. When set, only events after this cursor
+ *     are returned.
+ * @returns A page of decoded events with metadata, plus a `nextCursor` to continue (absent when done).
  */
 export async function getPublicEvents<T>(
   node: AztecNode,
@@ -39,9 +50,10 @@ export async function getPublicEvents<T>(
   const logTagField = await computeLogTag(eventMetadataDef.eventSelector.toField(), DomainSeparator.EVENT_LOG_TAG);
   const logTag = new Tag(logTagField);
 
+  const afterLog = filter.afterEvent?.toLogCursor();
   const query: PublicLogsQuery = {
     contractAddress: filter.contractAddress,
-    tags: [filter.afterLog !== undefined ? { tag: logTag, afterLog: filter.afterLog } : logTag],
+    tags: [afterLog !== undefined ? { tag: logTag, afterLog } : logTag],
     fromBlock: filter.fromBlock,
     toBlock: filter.toBlock,
     txHash: filter.txHash,
@@ -58,5 +70,10 @@ export async function getPublicEvents<T>(
     },
   }));
 
-  return { events, maxLogsHit: logsForTag.length === MAX_LOGS_PER_TAG };
+  const nextCursor =
+    logsForTag.length === MAX_LOGS_PER_TAG
+      ? EventCursor.fromLogCursor(LogCursor.fromLog(logsForTag[logsForTag.length - 1]))
+      : undefined;
+
+  return { events, nextCursor };
 }

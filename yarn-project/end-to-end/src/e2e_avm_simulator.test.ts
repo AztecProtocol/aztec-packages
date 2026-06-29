@@ -233,7 +233,7 @@ describe('e2e_avm_simulator', () => {
 
         // Calls set_storage_map then add_storage_map, reads the result and expects 200.
         it('Modifies storage (Map)', async () => {
-          const address = AztecAddress.fromBigInt(9090n);
+          const address = AztecAddress.fromBigIntUnsafe(9090n);
           await avmContract.methods.set_storage_map(address, 100).send({ from: defaultAccountAddress });
           await avmContract.methods.add_storage_map(address, 100).send({ from: defaultAccountAddress });
           expect(
@@ -244,7 +244,7 @@ describe('e2e_avm_simulator', () => {
         // Uses BatchCall to enqueue set_storage_map + add_storage_map in a single tx, then reads;
         // confirms storage is shared across enqueued public calls within the same tx.
         it('Preserves storage across enqueued public calls', async () => {
-          const address = AztecAddress.fromBigInt(9090n);
+          const address = AztecAddress.fromBigIntUnsafe(9090n);
           // This will create 1 tx with 2 public calls in it.
           await new BatchCall(wallet, [
             avmContract.methods.set_storage_map(address, 100),

@@ -1,6 +1,7 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import {
   AZTEC_ADDRESS,
   BIGINT,
@@ -9,6 +10,7 @@ import {
   BOOL,
   BYTE,
   BoundedVec,
+  ETH_ADDRESS,
   FIELD,
   FUNCTION_SELECTOR,
   NOTE_SELECTOR,
@@ -53,7 +55,8 @@ const TEST_VALUE_IMPLS: TestValueImpl[] = [
   scalar(BIGINT, seed => BigInt(seed)),
   scalar(BYTE, seed => seed),
   scalar(BOOL, seed => seed % 2 !== 0),
-  scalar(AZTEC_ADDRESS, seed => AztecAddress.fromNumber(seed)),
+  scalar(AZTEC_ADDRESS, seed => AztecAddress.fromNumberUnsafe(seed)),
+  scalar(ETH_ADDRESS, seed => EthAddress.fromField(new Fr(seed))),
   scalar(FUNCTION_SELECTOR, seed => FunctionSelector.fromField(new Fr(seed))),
   scalar(NOTE_SELECTOR, seed => NoteSelector.fromField(new Fr(seed))),
   scalar(BLOCK_HASH, seed => new BlockHash(new Fr(seed))),
