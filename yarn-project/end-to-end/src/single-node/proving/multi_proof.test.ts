@@ -1,7 +1,8 @@
 import type { Logger } from '@aztec/aztec.js/log';
-import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
+import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
-import { type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
+import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 
 import { jest } from '@jest/globals';
 
@@ -19,10 +20,7 @@ jest.setTimeout(1000 * 60 * 10);
 // all land at the same L1 block.
 describe('single-node/proving/multi_proof', () => {
   let context: EndToEndContext;
-  let constants: L1RollupConstants;
   let logger: Logger;
-
-  let L1_BLOCK_TIME_IN_S: number;
 
   let test: SingleNodeTestContext;
 
@@ -30,7 +28,7 @@ describe('single-node/proving/multi_proof', () => {
     // Don't start prover node during setup - we'll create and manage all prover nodes in the test
     // This ensures we can apply delay patches before any prover starts proving
     test = await setupWithProver({ startProverNode: false });
-    ({ context, constants, logger, L1_BLOCK_TIME_IN_S } = test);
+    ({ context, logger } = test);
   });
 
   afterEach(async () => {
@@ -40,8 +38,9 @@ describe('single-node/proving/multi_proof', () => {
 
   // Creates 3 prover nodes (deferred start), patches each top tree's prove() to stagger by index *
   // ethereumSlotDuration (via createTopTreeOrchestrator; pre-v5 this patched finalizeEpoch), then starts
-  // them all. Waits for epoch 1 to begin, then polls until all 3 provers have submitted proofs for
-  // epoch 0 via rollup.getHasSubmittedProof.
+  // them all. Anchors on a freshly-started epoch (rather than epoch 0, which under CI load can be empty if
+  // the node's sequencer comes up after the chain has already advanced past it), waits for that epoch to
+  // elapse, then polls until all 3 provers have submitted proofs for it via rollup.getHasSubmittedProof.
   it('submits proofs from multiple prover-nodes', async () => {
     // Create all three prover nodes without starting them
     // This allows us to apply the delay patches before any proving begins
@@ -75,22 +74,46 @@ describe('single-node/proving/multi_proof', () => {
     const proverIds = test.proverNodes.map(node => node.getProverNode()!.getProverId());
     logger.info(`Prover nodes running with ids ${proverIds.map(id => id.toString()).join(', ')}`);
 
-    // Wait until the start of epoch one and collect info on epoch zero
-    await test.waitUntilEpochStarts(1);
-    await sleep(L1_BLOCK_TIME_IN_S * 1000);
-    const [_firstEpochStartSlot, firstEpochEndSlot] = getSlotRangeForEpoch(EpochNumber(0), constants);
-    const firstEpochBlocks = await context.aztecNode
-      .getBlocks(BlockNumber(1), test.epochDuration)
-      .then(blocks => blocks.filter(block => block.header.getSlot() <= firstEpochEndSlot));
-    const firstEpochLength = firstEpochBlocks.length;
-    const firstEpochLastBlockNum = firstEpochBlocks.at(-1)!.number;
-    logger.info(`Starting epoch 1 with length ${firstEpochLength} after L2 block ${firstEpochLastBlockNum}`);
+    // Anchor on a freshly-started epoch with the provers already running, then wait for it to fully
+    // elapse. We can't use epoch 0: under CI load the sequencer can come up after the chain has already
+    // advanced past epoch 0's slots, leaving it with no blocks, and the snapshot below would then have
+    // nothing to read. Anchoring on the next epoch guarantees its full slot range is ahead of us.
+    const epoch = await test.waitUntilNextEpochStarts();
+    await test.waitUntilEpochStarts(epoch + 1);
 
-    // Wait until all three provers have submitted proofs
-    await test.waitForAllProversToSubmit(EpochNumber(0), firstEpochLength);
+    // Snapshot the anchored epoch's checkpoints. The epoch is now closed on L1 (no more epoch-N
+    // checkpoints can land once epoch N+1 has begun), but the node's archiver may still be catching up.
+    // Read the authoritative L1 checkpoint tip, then wait until the archiver has indexed every checkpoint
+    // up to it — only then is the epoch-N subset complete. A `length > 0` poll would race a partial view
+    // and snapshot a prefix of the epoch.
+    const tip = (await test.monitor.run(true)).checkpointNumber;
+    const checkpoints = await retryUntil(
+      async () => {
+        const all = await context.aztecNode.getCheckpointsData({ from: CheckpointNumber(1), limit: Number(tip) });
+        if (all.length < Number(tip)) {
+          return undefined;
+        }
+        return all.filter(cp => getEpochAtSlot(cp.header.slotNumber, test.constants) === epoch);
+      },
+      `archiver indexes all checkpoints up to ${tip} for epoch ${epoch}`,
+      test.L2_SLOT_DURATION_IN_S,
+      0.5,
+    );
+
+    // `getHasSubmittedProof` is keyed by the number of checkpoints the epoch-root proof covers, so we
+    // count checkpoints (not blocks). The epoch's last block is the last block of its final checkpoint.
+    const epochCheckpointCount = checkpoints.length;
+    const lastCheckpoint = checkpoints.at(-1)!;
+    const epochLastBlockNum = BlockNumber(lastCheckpoint.startBlock + lastCheckpoint.blockCount - 1);
+    logger.info(
+      `Anchored on epoch ${epoch} with ${epochCheckpointCount} checkpoints up to L2 block ${epochLastBlockNum}`,
+    );
+
+    // Wait until all three provers have submitted proofs for the anchored epoch
+    await test.waitForAllProversToSubmit(epoch, epochCheckpointCount);
 
     const provenBlockNumber = await context.aztecNode.getBlockNumber('proven');
-    expect(provenBlockNumber).toEqual(firstEpochLastBlockNum);
+    expect(provenBlockNumber).toEqual(epochLastBlockNum);
 
     logger.info(`Test succeeded`);
   });
