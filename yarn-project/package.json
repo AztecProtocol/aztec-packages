@@ -39,7 +39,6 @@
     "ivc-integration",
     "key-store",
     "kv-store",
-    "l1-artifacts",
     "native",
     "node-keystore",
     "node-lib",

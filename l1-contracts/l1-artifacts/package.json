@@ -7,15 +7,13 @@
     ".": "./dest/index.js"
   },
   "typedocOptions": {
-    "entryPoints": "./generated/index.ts",
+    "entryPoints": "./src/index.ts",
     "displayName": "L1 Contracts",
     "tsconfig": "./tsconfig.json"
   },
   "scripts": {
-    "build": "yarn clean && yarn generate && ../scripts/tsc.sh",
-    "clean": "rm -rf ./dest ./generated .tsbuildinfo",
-    "formatting": "run -T prettier --check ./generated && run -T eslint ./generated",
-    "formatting:fix": "run -T prettier -w ./generated",
+    "build": "yarn clean && yarn generate && tsc -p tsconfig.json",
+    "clean": "rm -rf ./dest ./src .tsbuildinfo",
     "copy-artifacts": "bash scripts/copy-foundry-artifacts.sh",
     "generate": "yarn copy-artifacts && yarn generate:l1-contracts",
     "generate:l1-contracts": "bash scripts/generate-artifacts.sh"
@@ -31,7 +29,6 @@
   },
   "files": [
     "dest",
-    "generated",
     "l1-contracts"
   ],
   "types": "./dest/index.d.ts"
