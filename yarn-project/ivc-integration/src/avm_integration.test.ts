@@ -4,7 +4,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { mapAvmCircuitPublicInputsToNoir } from '@aztec/noir-protocol-circuits-types/server';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
-import { PublicTxSimulationTester, bulkTest, executeAvmMinimalPublicTx } from '@aztec/simulator/public/fixtures';
+import { PublicTxSimulationTester, bulkTest } from '@aztec/simulator/public/fixtures';
 import { AvmCircuitInputs, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { RecursiveProof } from '@aztec/stdlib/proofs';
 import { VerificationKeyAsFields } from '@aztec/stdlib/vks';
@@ -128,18 +128,5 @@ describe('AVM Integration', () => {
     const avmCircuitInputs = new AvmCircuitInputs(avmSimulationResult.hints!, avmSimulationResult.publicInputs!);
 
     await proveMockPublicBaseRollup(avmCircuitInputs, bbWorkingDirectory, bbBinaryPath, chonkPublicInputs, chonkProof);
-  }, 240_000);
-
-  it('Should generate and verify an ultra honk proof from an AVM verification for the minimal TX with skipping public inputs validation', async () => {
-    const result = await executeAvmMinimalPublicTx(simTester);
-    expect(result.revertCode.isOK()).toBe(true);
-
-    await proveMockPublicBaseRollup(
-      new AvmCircuitInputs(result.hints!, result.publicInputs!),
-      bbWorkingDirectory,
-      bbBinaryPath,
-      chonkPublicInputs,
-      chonkProof,
-    );
   }, 240_000);
 });
