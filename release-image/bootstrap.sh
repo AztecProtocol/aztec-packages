@@ -9,7 +9,7 @@ function prepare_crs {
   echo_header "prepare crs for prover-agent image"
   local crs_src=${CRS_PATH:-$HOME/.bb-crs}
 
-  if [ ! -f "$crs_src/bn254_g1_compressed.dat" ]; then
+  if [ ! -f "$crs_src/bn254_g1_compressed.dat" ] || [ ! -f "$crs_src/grumpkin_g1_v2.flat.dat" ]; then
     # this assumes we pull the required number of points for proving the biggest circuit
     echo "CRS not found at $crs_src, downloading..."
     $root/barretenberg/scripts/download_bb_crs.sh
@@ -19,7 +19,7 @@ function prepare_crs {
   mkdir -p crs
   cp "$crs_src/bn254_g1_compressed.dat" crs/
   cp "$crs_src/bn254_g2.dat" crs/
-  cp "$crs_src/grumpkin_g1.flat.dat" crs/
+  cp "$crs_src/grumpkin_g1_v2.flat.dat" crs/
   # Normalize timestamps so COPY --link produces an identical layer across builds
   for f in crs/*; do touch -t 197001010000 "$f"; done
   echo "CRS files staged in crs/ ($(du -sh crs | cut -f1))"
