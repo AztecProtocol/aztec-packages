@@ -112,6 +112,12 @@ const numberOfConsecutiveBlocks = 3;
 
 jest.setTimeout(1000000);
 
+// Low-level integration tests for SequencerPublisher: building checkpoints, publishing with and
+// without attestations, handling L1 tx cancellation/speedup, and invalidating bad checkpoints.
+// Custom wiring: starts its own anvil directly via startAnvil(), deploys L1 contracts, builds a
+// real NativeWorldStateService + ServerWorldStateSynchronizer, and creates a SequencerPublisher
+// directly — no AztecNodeService, no PXE. EthCheatCodesWithState drives time. Each describe block
+// has its own beforeEach calling the local setup() function.
 describe('L1Publisher integration', () => {
   let l1Client: ExtendedViemWalletClient;
   let l1ContractAddresses: L1ContractAddresses;
@@ -520,7 +526,7 @@ describe('L1Publisher integration', () => {
       const l1BlockNumber = await l1Client.getBlockNumber();
 
       // random recipient address, just kept consistent for easy testing ts/sol.
-      const recipientAddress = AztecAddress.fromString(
+      const recipientAddress = AztecAddress.fromStringUnsafe(
         '0x1647b194c649f5dd01d7c832f89b0f496043c9150797923ea89e93d5ac619a93',
       );
 

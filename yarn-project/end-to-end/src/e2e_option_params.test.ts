@@ -13,6 +13,9 @@ const TIMEOUT = 300_000;
 const U64_MAX = 2n ** 64n - 1n;
 const I64_MIN = -(2n ** 63n);
 
+// Verifies that the Aztec.js ABI layer correctly serialises/deserialises Noir Option<T> parameters
+// for public, utility, and private functions. Single node with AutomineSequencer; all calls are
+// simulate()-only (no on-chain state changes).
 describe('Option params', () => {
   let contract: OptionParamContract;
   let wallet: Wallet;
@@ -40,6 +43,8 @@ describe('Option params', () => {
 
   afterAll(() => teardown());
 
+  // Simulates a public function accepting Option<Struct> with undefined, null, and a real value,
+  // asserting each maps to None / None / Some correctly.
   it('accepts ergonomic Option params for public functions', async () => {
     const { result } = await contract.methods
       .return_public_optional_struct(undefined)
@@ -57,6 +62,7 @@ describe('Option params', () => {
     expect(someResult).toEqual(someValue);
   });
 
+  // Same Option<Struct> round-trip check for a Noir utility function via simulate().
   it('accepts ergonomic Option params for utility functions', async () => {
     const { result: undefinedResult } = await contract.methods
       .return_utility_optional_struct(undefined)
@@ -74,6 +80,7 @@ describe('Option params', () => {
     expect(someResult).toEqual(someValue);
   });
 
+  // Same Option<Struct> round-trip check for a Noir private function via simulate().
   it('accepts ergonomic Option params for private functions', async () => {
     const { result: undefinedResult } = await contract.methods
       .return_private_optional_struct(undefined)

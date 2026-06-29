@@ -95,7 +95,7 @@ export class CLIWallet extends BaseWallet {
     return Promise.resolve(
       accounts.map(({ key, value }) => {
         const alias = key.includes(':') ? key.slice(key.indexOf(':') + 1) : key;
-        return { alias, item: AztecAddress.fromString(value) };
+        return { alias, item: AztecAddress.fromStringUnsafe(value) };
       }),
     );
   }

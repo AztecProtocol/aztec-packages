@@ -206,6 +206,8 @@ _prodlike: &prodlike
   #---------------------------------------------------------------------------
   # Enable sentinel monitoring.
   SENTINEL_ENABLED: true
+  # Enable offense collection (watchers + read-only slasher) on non-validator nodes.
+  OFFENSE_COLLECTION_ENABLED: true
 
 # Network presets selected via NETWORK env var; individual values can still be overridden.
 networks:
@@ -262,7 +264,7 @@ networks:
     SLASH_INVALID_BLOCK_PENALTY: 10e18
     SLASH_INVALID_CHECKPOINT_PROPOSAL_PENALTY: 0
     SLASH_GRACE_PERIOD_L2_SLOTS: 0
-    ENABLE_VERSION_CHECK: true
+    ENABLE_AUTO_SHUTDOWN: false
 
   testnet:
     <<: *prodlike
@@ -308,7 +310,7 @@ networks:
     SLASH_INVALID_BLOCK_PENALTY: 100000e18
     SLASH_INVALID_CHECKPOINT_PROPOSAL_PENALTY: 100000e18  # AZIP-16: activated at SMALL
     SLASH_GRACE_PERIOD_L2_SLOTS: 64
-    ENABLE_VERSION_CHECK: true
+    ENABLE_AUTO_SHUTDOWN: false
 
   mainnet:
     <<: *prodlike
@@ -353,7 +355,7 @@ networks:
     # Telemetry
     PUBLIC_OTEL_EXPORTER_OTLP_METRICS_ENDPOINT: ""
     PUBLIC_OTEL_COLLECT_FROM: ""
-    ENABLE_VERSION_CHECK: false
+    ENABLE_AUTO_SHUTDOWN: false
     # Slasher penalties - more lenient initially
     SLASH_DATA_WITHHOLDING_PENALTY: 0
     SLASH_INACTIVITY_TARGET_PERCENTAGE: 0.8

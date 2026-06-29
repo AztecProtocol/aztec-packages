@@ -10,7 +10,7 @@ import { ReadRequest, ScopedReadRequest } from './read_request.js';
 import { TransientDataSquashingHint } from './transient_data_squashing_hint.js';
 
 describe('buildTransientDataHints', () => {
-  const contractAddress = AztecAddress.fromBigInt(987654n);
+  const contractAddress = AztecAddress.fromBigIntUnsafe(987654n);
 
   let noteHashes: ScopedNoteHash[];
   let nullifiers: ScopedNullifier[];
@@ -90,7 +90,7 @@ describe('buildTransientDataHints', () => {
   });
 
   it('throws if contract address does not match', () => {
-    nullifiers[3].contractAddress = AztecAddress.fromBigInt(123456n);
+    nullifiers[3].contractAddress = AztecAddress.fromBigIntUnsafe(123456n);
     expect(buildHints).toThrow('Contract address of hinted note hash does not match.');
   });
 
@@ -134,7 +134,7 @@ describe('buildTransientDataHints', () => {
 });
 
 describe('countSquashedLogs', () => {
-  const contractAddress = AztecAddress.fromBigInt(987654n);
+  const contractAddress = AztecAddress.fromBigIntUnsafe(987654n);
 
   const makeLog = (noteHashCounter: number, counter: number): ScopedPrivateLogData => {
     const log = PrivateLogData.empty();

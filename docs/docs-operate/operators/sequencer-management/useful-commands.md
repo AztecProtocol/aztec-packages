@@ -196,16 +196,16 @@ Replace `[REGISTRY_ADDRESS]` and `[GOVERNANCE_ADDRESS]` with your actual address
 Query the quorum parameters for the governance system:
 
 ```bash
-# Get the signaling round size (in L2 blocks)
-cast call [GOVERNANCE_PROPOSER_ADDRESS] "M()" --rpc-url $RPC_URL
+# Get the signaling round size (in L2 slots)
+cast call [GOVERNANCE_PROPOSER_ADDRESS] "ROUND_SIZE()" --rpc-url $RPC_URL
 
 # Get the number of signals required for quorum in any single round
-cast call [GOVERNANCE_PROPOSER_ADDRESS] "N()" --rpc-url $RPC_URL
+cast call [GOVERNANCE_PROPOSER_ADDRESS] "QUORUM_SIZE()" --rpc-url $RPC_URL
 ```
 
 **What these values mean:**
-- **M()** - The size of any signaling round, measured in L2 blocks (e.g., 1000 blocks)
-- **N()** - The number of signals needed within a round for a payload to reach quorum (e.g., 750 signals, which is 75% of M)
+- **ROUND_SIZE()** - The size of any signaling round, measured in L2 slots (e.g., 1000 slots on mainnet)
+- **QUORUM_SIZE()** - The number of signals needed within a round for a payload to reach quorum (e.g., 600 signals on mainnet, which is 60% of ROUND_SIZE)
 
 ### Find the Current Round Number
 
@@ -234,7 +234,7 @@ cast call 0x9876543210abcdef9876543210abcdef98765432 "computeRound(uint256)" 500
 Check how many sequencers have signaled support for a specific payload in a given round:
 
 ```bash
-cast call [GOVERNANCE_PROPOSER_ADDRESS] "yeaCount(address,uint256,address)" [ROLLUP_ADDRESS] [ROUND_NUMBER] [PAYLOAD_ADDRESS] --rpc-url $RPC_URL
+cast call [GOVERNANCE_PROPOSER_ADDRESS] "signalCount(address,uint256,address)" [ROLLUP_ADDRESS] [ROUND_NUMBER] [PAYLOAD_ADDRESS] --rpc-url $RPC_URL
 ```
 
 Replace:
@@ -245,10 +245,10 @@ Replace:
 
 **Example:**
 ```bash
-cast call 0x9876543210abcdef9876543210abcdef98765432 "yeaCount(address,uint256,address)" 0xabcdef1234567890abcdef1234567890abcdef12 5 0x1111111111111111111111111111111111111111 --rpc-url $RPC_URL
+cast call 0x9876543210abcdef9876543210abcdef98765432 "signalCount(address,uint256,address)" 0xabcdef1234567890abcdef1234567890abcdef12 5 0x1111111111111111111111111111111111111111 --rpc-url $RPC_URL
 ```
 
-This returns the number of signals the payload has received in that round. Compare this to the quorum threshold (N) to determine if the payload can be promoted to a proposal.
+This returns the number of signals the payload has received in that round. Compare this to the quorum threshold (QUORUM_SIZE) to determine if the payload can be promoted to a proposal.
 
 ### Get Current Proposal Count
 
@@ -263,7 +263,7 @@ cast call [GOVERNANCE_CONTRACT_ADDRESS] "proposalCount()" --rpc-url $RPC_URL
 Get details about a specific proposal:
 
 ```bash
-cast call [GOVERNANCE_CONTRACT_ADDRESS] "proposals(uint256)" [PROPOSAL_ID] --rpc-url $RPC_URL
+cast call [GOVERNANCE_CONTRACT_ADDRESS] "getProposal(uint256)" [PROPOSAL_ID] --rpc-url $RPC_URL
 ```
 
 Replace:

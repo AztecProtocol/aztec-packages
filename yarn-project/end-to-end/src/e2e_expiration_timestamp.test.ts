@@ -10,6 +10,10 @@ import { setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 import { proveInteraction } from './test-wallet/utils.js';
 
+// Covers transaction expiration-timestamp enforcement: setting a valid expiration succeeds, setting
+// one below the mined block timestamp fails at prove time, and setting one that is then warped past
+// by L1 time causes rejection at submission. Uses a single automine node; L1 time is warped via
+// cheatCodes.eth.warp in the invalidation tests.
 describe('e2e_expiration_timestamp', () => {
   let wallet: TestWallet;
   let defaultAccountAddress: AztecAddress;
@@ -34,6 +38,8 @@ describe('e2e_expiration_timestamp', () => {
 
   afterAll(() => teardown());
 
+  // Expiration is set two slots ahead of the latest block, so it is above the next slot's
+  // timestamp. Expects the tx to prove and land without error.
   describe('when requesting expiration timestamp higher than the one of a mined block', () => {
     let expirationTimestamp: bigint;
 
@@ -51,6 +57,8 @@ describe('e2e_expiration_timestamp', () => {
     describe('with no enqueued public calls', () => {
       const enqueuePublicCall = false;
 
+      // Proves a private-only tx and asserts the expirationTimestamp in the tx data equals the
+      // requested value.
       it('sets the expiration timestamp', async () => {
         const tx = await proveInteraction(
           wallet,
@@ -62,6 +70,7 @@ describe('e2e_expiration_timestamp', () => {
         // See compute_tx_expiration_timestamp.ts for the rounding logic.
       });
 
+      // Sends a private-only tx with a future expiration and expects it to be mined successfully.
       it('does not invalidate the transaction', async () => {
         await contract.methods
           .set_expiration_timestamp(expirationTimestamp, enqueuePublicCall)
@@ -72,6 +81,8 @@ describe('e2e_expiration_timestamp', () => {
     describe('with an enqueued public call', () => {
       const enqueuePublicCall = true;
 
+      // Proves a hybrid (private+public) tx and asserts the expirationTimestamp equals the
+      // requested value.
       it('sets expiration timestamp', async () => {
         const tx = await proveInteraction(
           wallet,
@@ -81,6 +92,7 @@ describe('e2e_expiration_timestamp', () => {
         expect(tx.data.expirationTimestamp).toEqual(expirationTimestamp);
       });
 
+      // Sends a hybrid tx with a future expiration and expects it to be mined successfully.
       it('does not invalidate the transaction', async () => {
         await contract.methods
           .set_expiration_timestamp(expirationTimestamp, enqueuePublicCall)
@@ -89,6 +101,9 @@ describe('e2e_expiration_timestamp', () => {
     });
   });
 
+  // Expiration is set one timestamp unit below the next slot's start, so it is provable
+  // (expiration > anchor block) but rejected at submission. The invalidation tests also warp L1
+  // time via cheatCodes.eth.warp to force expiration in the node's slot check.
   describe('when requesting expiration timestamp lower than the next block', () => {
     let expirationTimestamp: bigint;
 
@@ -107,6 +122,8 @@ describe('e2e_expiration_timestamp', () => {
     describe('with no enqueued public calls', () => {
       const enqueuePublicCall = false;
 
+      // Proves a private-only tx; even though expiration < nextSlot the prove-time check passes
+      // because expiration > anchor block timestamp. Asserts the field is set.
       it('sets expiration timestamp', async () => {
         const tx = await proveInteraction(
           wallet,
@@ -116,6 +133,8 @@ describe('e2e_expiration_timestamp', () => {
         expect(tx.data.expirationTimestamp).toEqual(expirationTimestamp);
       });
 
+      // Proves a tx with a safe expiration, then warps L1 time past it via cheatCodes.eth.warp,
+      // then sends the proven tx and expects TX_ERROR_INVALID_EXPIRATION_TIMESTAMP.
       it('invalidates the transaction', async () => {
         await runInvalidatesTest(enqueuePublicCall);
       });
@@ -124,6 +143,8 @@ describe('e2e_expiration_timestamp', () => {
     describe('with an enqueued public call', () => {
       const enqueuePublicCall = true;
 
+      // Proves a hybrid tx; even though expiration < nextSlot the prove-time check passes. Asserts
+      // the expirationTimestamp field is set.
       it('sets expiration timestamp', async () => {
         const tx = await proveInteraction(
           wallet,
@@ -133,6 +154,8 @@ describe('e2e_expiration_timestamp', () => {
         expect(tx.data.expirationTimestamp).toEqual(expirationTimestamp);
       });
 
+      // Proves a hybrid tx with a safe expiration, warps L1 time past it, then expects
+      // TX_ERROR_INVALID_EXPIRATION_TIMESTAMP on send.
       it('invalidates the transaction', async () => {
         await runInvalidatesTest(enqueuePublicCall);
       });
@@ -176,6 +199,7 @@ describe('e2e_expiration_timestamp', () => {
     }
   });
 
+  // Expiration is set below the already-mined block's timestamp, so proving itself must fail.
   describe('when requesting expiration timestamp lower than the one of a mined block', () => {
     let expirationTimestamp: bigint;
 
@@ -191,6 +215,8 @@ describe('e2e_expiration_timestamp', () => {
     describe('with no enqueued public calls', () => {
       const enqueuePublicCall = false;
 
+      // Sends a private-only tx with an expiration already below the current block timestamp;
+      // expects rejection before it can be proven.
       it('fails to prove the tx', async () => {
         await expect(
           contract.methods
@@ -203,6 +229,7 @@ describe('e2e_expiration_timestamp', () => {
     describe('with an enqueued public call', () => {
       const enqueuePublicCall = true;
 
+      // Sends a hybrid tx with an expiration below the current block; expects prove-time rejection.
       it('fails to prove the tx', async () => {
         await expect(
           contract.methods

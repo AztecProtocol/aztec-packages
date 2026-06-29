@@ -316,18 +316,7 @@ export abstract class ArchiverDataSourceBase
     return this.stores.contractClasses.getBytecodeCommitment(id);
   }
 
-  public async getContract(
-    address: AztecAddress,
-    maybeTimestamp?: UInt64,
-  ): Promise<ContractInstanceWithAddress | undefined> {
-    let timestamp;
-    if (maybeTimestamp === undefined) {
-      const latestBlockData = await this.getBlockData({ tag: 'proposed' });
-      timestamp = latestBlockData ? latestBlockData.header.globalVariables.timestamp : 0n;
-    } else {
-      timestamp = maybeTimestamp;
-    }
-
+  public getContract(address: AztecAddress, timestamp: UInt64): Promise<ContractInstanceWithAddress | undefined> {
     return this.stores.contractInstances.getContractInstance(address, timestamp);
   }
 

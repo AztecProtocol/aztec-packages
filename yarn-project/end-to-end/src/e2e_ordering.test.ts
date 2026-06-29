@@ -1,4 +1,5 @@
 // Test suite for testing proper ordering of side effects
+// See https://github.com/AztecProtocol/aztec-packages/issues/1601 for motivation.
 import type { FunctionSelector } from '@aztec/aztec.js/abi';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
@@ -20,6 +21,8 @@ import { proveInteraction } from './test-wallet/utils.js';
 const TIMEOUT = 300_000;
 
 // See https://github.com/AztecProtocol/aztec-packages/issues/1601
+// Verifies deterministic execution ordering for enqueued public calls and public state updates.
+// Uses a single node with AutomineSequencer; each test mines one block per call via beforeEach setup.
 describe('e2e_ordering', () => {
   jest.setTimeout(TIMEOUT);
 
@@ -52,6 +55,7 @@ describe('e2e_ordering', () => {
 
   afterEach(() => teardown());
 
+  // Sub-suite deploying Parent and Child contracts fresh in each test to ensure isolation.
   describe('with parent and child contract', () => {
     let parent: ParentContract;
     let child: ChildContract;
@@ -63,6 +67,8 @@ describe('e2e_ordering', () => {
       pubSetValueSelector = await child.methods.pub_set_value.selector();
     }, TIMEOUT);
 
+    // Asserts that enqueued public calls execute in the order they were enqueued (nested-first vs direct-first),
+    // verified by reading public logs from the mined block in canonical order.
     describe('enqueued public calls ordering', () => {
       const nestedValue = 10n;
       const directValue = 20n;
@@ -72,6 +78,9 @@ describe('e2e_ordering', () => {
         enqueue_calls_to_child_with_nested_last: [directValue, nestedValue] as bigint[], // eslint-disable-line camelcase
       } as const;
 
+      // Proves a parent tx that enqueues two public calls (direct and nested) in different orderings; asserts
+      // the calldata hashes match, the calls are enqueued in the expected order, and public logs arrive in
+      // that same order in the mined block.
       it.each(['enqueue_calls_to_child_with_nested_first', 'enqueue_calls_to_child_with_nested_last'] as const)(
         'orders public function execution in %s',
         async method => {
@@ -105,6 +114,8 @@ describe('e2e_ordering', () => {
       );
     });
 
+    // Asserts that public storage writes from multiple nested calls are applied in the expected order
+    // and that the final persisted value matches the last write in execution order.
     describe('public state update ordering, and final state value check', () => {
       const nestedValue = 10n;
       const directValue = 20n;
@@ -115,6 +126,8 @@ describe('e2e_ordering', () => {
         set_value_with_two_nested_calls: [nestedValue, directValue, directValue, nestedValue, directValue] as bigint[], // eslint-disable-line camelcase
       } as const;
 
+      // Calls each method variant on the child and reads back getPublicStorageAt to confirm the final
+      // persisted value equals the last write in the expected ordering sequence.
       it.each([
         'set_value_twice_with_nested_first',
         'set_value_twice_with_nested_last',
@@ -128,6 +141,8 @@ describe('e2e_ordering', () => {
         expect(value.toBigInt()).toBe(expectedOrder[expectedOrder.length - 1]); // final state should match last value set
       });
 
+      // Calls each method variant and reads the block's public logs via getBlock; asserts they arrive in
+      // the same order as the expected write sequence.
       it.each([
         'set_value_twice_with_nested_first',
         'set_value_twice_with_nested_last',

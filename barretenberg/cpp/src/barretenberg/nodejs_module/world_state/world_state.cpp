@@ -781,7 +781,9 @@ bool WorldStateWrapper::sync_block(msgpack::object& obj, msgpack::sbuffer& buf)
                                                   request.value.paddedNoteHashes,
                                                   request.value.paddedL1ToL2Messages,
                                                   request.value.paddedNullifiers,
-                                                  request.value.publicDataWrites);
+                                                  request.value.publicDataWrites,
+                                                  request.value.expectedArchiveRoot,
+                                                  request.value.expectedPreviousArchiveRoot);
 
     MsgHeader header(request.header.messageId);
     messaging::TypedMessage<WorldStateStatusFull> resp_msg(WorldStateMessageType::SYNC_BLOCK, header, { status });

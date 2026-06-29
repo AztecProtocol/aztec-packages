@@ -13,6 +13,8 @@ import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchma
 
 jest.setTimeout(1_600_000);
 
+// Contract deployment round-trip benchmark. Uses ClientFlowsBenchmark with BENCHMARK_CONFIG; profiles
+// PrivateVoting contract deployment across account types and fee-payment methods; emits BENCH_OUTPUT JSON.
 describe('Deployment benchmark', () => {
   const t = new ClientFlowsBenchmark('deployments');
   let node: AztecNode;

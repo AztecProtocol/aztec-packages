@@ -9,6 +9,9 @@ import { deployToken, expectTokenBalance } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 
+// Verifies that the PXE correctly handles multiple Schnorr accounts sharing the same encryption
+// key (different signing keys). Checks that note discovery and balance tracking remain accurate
+// across three accounts. Uses AUTOMINE_E2E_OPTS with 3 custom accounts sharing one secret.
 describe('e2e_multiple_accounts_1_enc_key', () => {
   let wallet: TestWallet;
   let accounts: AztecAddress[] = [];
@@ -81,6 +84,9 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
 
   /**
    * Tests the ability of the Private eXecution Environment (PXE) to handle multiple accounts under the same encryption key.
+   *
+   * Executes three sequential private transfers (0→1, 0→2, 1→2) and asserts balance correctness
+   * after each transfer, verifying that note discovery works across accounts sharing a secret.
    */
   it('spends notes from multiple account under the same encryption key', async () => {
     const transferAmount1 = 654n; // account 0 -> account 1

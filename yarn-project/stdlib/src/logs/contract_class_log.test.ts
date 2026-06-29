@@ -18,26 +18,15 @@ describe('ContractClassLog', () => {
     expect(res).toEqual(log);
   });
 
-  it('serializes to field array and deserializes it back', () => {
-    const fieldArray = log.toFields();
-    const res = ContractClassLog.fromFields(fieldArray);
-    expect(res).toEqual(log);
-  });
-
   it('convert to and from json', () => {
     const parsed = ContractClassLog.schema.parse(JSON.parse(jsonStringify(log)));
     expect(parsed).toEqual(log);
   });
 
-  it('number of fields matches constant', () => {
-    const fields = log.toFields();
-    expect(fields.length * Fr.SIZE_IN_BYTES).toBe(ContractClassLog.SIZE_IN_BYTES);
-  });
-
   it('number of emitted blob fields is correct', () => {
     const smallLogFields = [new Fr(1), new Fr(2), new Fr(3)];
     const smallLog = new ContractClassLog(
-      AztecAddress.fromField(Fr.ONE),
+      AztecAddress.fromFieldUnsafe(Fr.ONE),
       ContractClassLogFields.fromEmittedFields(smallLogFields),
       smallLogFields.length,
     );
@@ -47,7 +36,7 @@ describe('ContractClassLog', () => {
       Fr.random(),
     );
     const largeLog = new ContractClassLog(
-      AztecAddress.fromField(Fr.ONE),
+      AztecAddress.fromFieldUnsafe(Fr.ONE),
       ContractClassLogFields.fromEmittedFields(largeLogFields),
       largeLogFields.length,
     );

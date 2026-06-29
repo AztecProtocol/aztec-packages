@@ -8,6 +8,8 @@ import { TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
 import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
 
+// Verifies the PrivateVoting contract's nullifier-based double-vote prevention. Uses a single node
+// with AutomineSequencer and one account.
 describe('e2e_voting_contract', () => {
   let wallet: Wallet;
 
@@ -33,7 +35,10 @@ describe('e2e_voting_contract', () => {
 
   afterAll(() => teardown());
 
+  // Suite covering the cast_vote flow including double-vote rejection via existing-nullifier error.
   describe('votes', () => {
+    // Starts a vote, casts once, then verifies the tally is 1. Attempts a second vote via simulate
+    // (expects nullifier collision) and then via send (expects TX_ERROR_EXISTING_NULLIFIER).
     it('votes, then tries to vote again', async () => {
       const candidate = new Fr(1);
       const electionId = { id: Fr.random() };
