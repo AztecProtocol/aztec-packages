@@ -21,7 +21,7 @@ impl OriginBlockState {
         Self { inner: 3 }
     }
 
-    /// Whether the origin block is still above the proven tip (reorg-able).
+    /// Whether the origin block is still above the proven tip.
     pub fn is_pending(self) -> bool {
         self == Self::pending()
     }
@@ -31,7 +31,7 @@ impl OriginBlockState {
         self == Self::proven()
     }
 
-    /// Whether the origin block is finalized, the only retraction-proof state.
+    /// Whether the origin block is finalized, and thus facts related to it can no longer be retracted.
     pub fn is_finalized(self) -> bool {
         self == Self::finalized()
     }
