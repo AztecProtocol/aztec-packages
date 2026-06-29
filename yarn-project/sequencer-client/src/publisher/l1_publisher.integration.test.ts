@@ -1059,7 +1059,7 @@ describe('L1Publisher integration', () => {
       }
 
       // The publisher should now be in cancelled state
-      expect(publisher.l1TxUtils.state).toEqual(TxUtilsState.CANCELLED);
+      await retryUntil(() => publisher.l1TxUtils.state === TxUtilsState.CANCELLED, 'state is cancelled', 3, 0.1);
 
       // Now allow the cancellation to be mined, check that we transition to MINED, and the last tx was indeed a cancellation.
       await ethCheatCodes.mine();
@@ -1126,7 +1126,7 @@ describe('L1Publisher integration', () => {
 
         // The publisher should now be in cancelled state
         if (nextL2Slot > initialL2Slot) {
-          expect(publisher.l1TxUtils.state).toEqual(TxUtilsState.CANCELLED);
+          await retryUntil(() => publisher.l1TxUtils.state === TxUtilsState.CANCELLED, 'state is cancelled', 3, 0.1);
           expect(sendRequestsResult).toBeNull();
           break;
         }
