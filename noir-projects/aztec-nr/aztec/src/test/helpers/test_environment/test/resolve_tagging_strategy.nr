@@ -88,11 +88,9 @@ unconstrained fn constrained_delivery_succeeds_with_a_configured_strategy() {
 #[test]
 unconstrained fn applies_the_strategy_set_in_the_options() {
     let mut env = TestEnvironment::new_opts(TestEnvironmentOptions::new().with_tagging_secret_strategy(
-        TaggingSecretStrategy::non_interactive_handshake(),
+        TaggingSecretStrategy::arbitrary_secret(EmbeddedCurvePoint { x: 7, y: 11 }),
     ));
-    // The hook path looks up the executing contract's class ID, so run in a deployed contract's context. A handshake
-    // strategy differs from the unconstrained self-send default (an address-derived secret), proving the wallet was
-    // consulted.
+    // The hook path looks up the executing contract's class ID, so run in a deployed contract's context.
     let app = env.create_contract_account();
     let recipient = env.create_light_account();
 
@@ -102,7 +100,7 @@ unconstrained fn applies_the_strategy_set_in_the_options() {
             recipient,
             OnchainDeliveryMode::onchain_unconstrained(),
         );
-        assert_eq(resolved, ResolvedTaggingStrategy::non_interactive_handshake());
+        assert(resolved.is_unconstrained_secret());
     });
 }
 

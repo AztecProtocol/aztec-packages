@@ -28,8 +28,12 @@ import type { ResolveTaggingSecretStrategy } from './resolve_tagging_secret_stra
  *         ? { authorized: true }
  *         : { authorized: false, reason: 'Unknown target' };
  *     },
- *     // When there's no established way to reach the recipient, fall back to a non-interactive handshake.
- *     resolveTaggingSecretStrategy: async () => ({ type: 'non-interactive-handshake' }),
+ *     // Apply per-recipient policy: reach a known contact via their address keys (no onchain trace) and use a
+ *     // non-interactive handshake for everyone else.
+ *     resolveTaggingSecretStrategy: async ({ recipient }) =>
+ *       knownContacts.has(recipient.toString())
+ *         ? { type: 'address-derived' }
+ *         : { type: 'non-interactive-handshake' },
  *   },
  * });
  * ```
