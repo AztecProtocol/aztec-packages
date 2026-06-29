@@ -7,6 +7,7 @@ use crate::messages::{
 use crate::protocol::address::AztecAddress;
 
 pub(crate) mod nonce_discovery;
+pub(crate) mod partial_note_reception;
 pub(crate) mod partial_notes;
 pub(crate) mod private_events;
 pub mod private_notes;
