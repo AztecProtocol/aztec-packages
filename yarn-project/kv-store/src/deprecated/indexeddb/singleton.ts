@@ -1,8 +1,8 @@
 import type { IDBPDatabase, IDBPObjectStore } from 'idb';
 import { hash } from 'ohash';
 
-import type { Value } from '../interfaces/common.js';
-import type { AztecAsyncSingleton } from '../interfaces/singleton.js';
+import type { Value } from '../../interfaces/common.js';
+import type { AztecAsyncSingleton } from '../../interfaces/singleton.js';
 import type { AztecIDBSchema } from './store.js';
 
 /**

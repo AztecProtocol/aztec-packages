@@ -1,8 +1,8 @@
 import type { IDBPDatabase, IDBPObjectStore } from 'idb';
 import { hash } from 'ohash';
 
-import type { Key, Range, Value } from '../interfaces/common.js';
-import type { AztecAsyncMap } from '../interfaces/map.js';
+import type { Key, Range, Value } from '../../interfaces/common.js';
+import type { AztecAsyncMap } from '../../interfaces/map.js';
 import type { AztecIDBSchema } from './store.js';
 
 /**
