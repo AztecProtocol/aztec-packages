@@ -16,8 +16,8 @@
   "properties": {
     "schemaVersion": {
       "type": "string",
-      "const": "4",
-      "description": "Bump when breaking the schema. Old JSONs keep their previous version so the dashboard can render them side-by-side. v3: timeSeries entries carry `series: [{labels, points}]` instead of bare `points`. v4 (additive): adds optional `provingInfra` (hint-gen + proving-queue-by-job_type series) and `saturation` (per-role ELU/CPU/memory, max + avg) sections, plus `run.sweepId`/`run.sweepLabel` so a night's 1/5/10 TPS points group as one sweep. All v3 fields retained; a v3 run is unchanged apart from this version string."
+      "const": "5",
+      "description": "Bump when breaking the schema. Old JSONs keep their previous version so the dashboard can render them side-by-side. v3: timeSeries entries carry `series: [{labels, points}]` instead of bare `points`. v4 (additive): adds optional `provingInfra` (hint-gen + proving-queue-by-job_type series) and `saturation` (per-role ELU/CPU/memory, max + avg) sections, plus `run.sweepId`/`run.sweepLabel` so a night's 1/5/10 TPS points group as one sweep. v5 (additive): adds `run.benchmarkType` so the dashboard can group a day's sweeps by the kind of benchmark (ingress-inclusion, simulated-proving, real-proving, block-capacity). All prior fields retained."
     },
     "run": {
       "$ref": "#/$defs/runMeta"
@@ -147,6 +147,16 @@
         "sweepLabel": {
           "type": "string",
           "description": "v4. Human-readable label for the sweep this run belongs to (e.g. 'inclusion-sweep' or 'proving-sweep'). Optional."
+        },
+        "benchmarkType": {
+          "type": "string",
+          "enum": [
+            "ingress-inclusion",
+            "simulated-proving",
+            "real-proving",
+            "block-capacity"
+          ],
+          "description": "v5. The kind of benchmark this run measures. Groups a day's sweeps in the dashboard sidebar (Day -> benchmark type). 'real-proving' typically only runs weekly. Optional; absent runs are treated as 'ingress-inclusion'."
         },
         "testDurationSeconds": {
           "type": "integer",

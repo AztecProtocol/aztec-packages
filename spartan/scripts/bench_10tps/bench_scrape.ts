@@ -64,6 +64,7 @@ type Args = {
   maxPendingWaitSeconds: number;
   sweepId: string | undefined;
   sweepLabel: string | undefined;
+  benchmarkType: string | undefined;
 };
 
 function parseArgs(): Args {
@@ -104,6 +105,8 @@ function parseArgs(): Args {
     ),
     sweepId: get("--sweep-id", env.BENCH_SWEEP_ID ?? "") || undefined,
     sweepLabel: get("--sweep-label", env.BENCH_SWEEP_LABEL ?? "") || undefined,
+    benchmarkType:
+      get("--benchmark-type", env.BENCH_BENCHMARK_TYPE ?? "") || undefined,
   };
 }
 
@@ -2587,7 +2590,7 @@ async function main(): Promise<void> {
     });
 
     const payload = {
-      schemaVersion: "4",
+      schemaVersion: "5",
       run: {
         runId: args.runId,
         startedAt: args.startedAt,
@@ -2604,6 +2607,9 @@ async function main(): Promise<void> {
         targetTps: args.targetTps,
         ...(args.sweepId !== undefined && { sweepId: args.sweepId }),
         ...(args.sweepLabel !== undefined && { sweepLabel: args.sweepLabel }),
+        ...(args.benchmarkType !== undefined && {
+          benchmarkType: args.benchmarkType,
+        }),
         testDurationSeconds: windowSec,
         workload: args.workload,
         ...(Object.keys(aztecConfig).length > 0 && { aztecConfig }),

@@ -329,6 +329,7 @@ function bench_inclusion_point {
       --target-tps "$tps" \
       --sweep-id "${BENCH_SWEEP_ID:-}" \
       --sweep-label "${BENCH_SWEEP_LABEL:-inclusion-sweep}" \
+      --benchmark-type "${BENCH_BENCHMARK_TYPE:-ingress-inclusion}" \
       --workload sha256_hash_1024 \
       --output "$run_json" \
       --inclusion-records "$metadata" \
@@ -357,8 +358,8 @@ function network_bench_upload {
 
   # Reject anything that's not the schema we've designed the index against.
   local schema=$(jq -r .schemaVersion "$run_json")
-  if [[ "$schema" != "4" ]]; then
-    echo "[network_bench] run JSON has schemaVersion '$schema', expected '4'; skipping upload"
+  if [[ "$schema" != "5" ]]; then
+    echo "[network_bench] run JSON has schemaVersion '$schema', expected '5'; skipping upload"
     return 0
   fi
 
@@ -377,6 +378,7 @@ function network_bench_upload {
     targetTps: .run.targetTps,
     sweepId: .run.sweepId,
     sweepLabel: .run.sweepLabel,
+    benchmarkType: .run.benchmarkType,
     workload: .run.workload,
     testDurationSeconds: .run.testDurationSeconds,
     namespace: .run.namespace,
@@ -399,7 +401,7 @@ function network_bench_upload {
     gcloud storage cp "${bucket}/index.json" "$idx_local"
   elif echo "$desc_err" | grep -qiE 'not.?found|matched no objects|404'; then
     echo "[network_bench] no remote index.json yet; seeding empty"
-    echo '{"schemaVersion":"1","runs":[]}' > "$idx_local"
+    echo '{"schemaVersion":"2","runs":[]}' > "$idx_local"
   else
     echo "[network_bench] cannot read remote index.json:"
     echo "$desc_err" | head -5
@@ -407,7 +409,7 @@ function network_bench_upload {
   fi
 
   jq --argjson entry "$entry" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '
-    .schemaVersion = "1"
+    .schemaVersion = "2"
     | .generatedAt = $ts
     | .runs = ((.runs // []) | map(select(.runId != $entry.runId)) + [$entry]
               | sort_by(.endedAt) | reverse)
