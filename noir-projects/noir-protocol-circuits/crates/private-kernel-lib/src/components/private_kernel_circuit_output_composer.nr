@@ -15,7 +15,7 @@ pub(crate) use get_expiration_timestamp_for_contract_updates::get_expiration_tim
 use crate::{
     accumulated_data::{
         assert_array_appended::{
-            append_and_scope_to_empty_dest, append_and_scope_to_index_0_or_1,
+            append_and_scope_after_protocol_nullifier, append_and_scope_to_empty_dest,
             append_reversed_to_empty_dest, append_to_empty_dest,
         },
         sort_by_counter,
@@ -33,8 +33,12 @@ use types::{
         validation_requests::PrivateValidationRequests,
     },
     address::AztecAddress,
+<<<<<<< HEAD
     constants::MAX_U64_VALUE,
     hash::compute_protocol_nullifier,
+=======
+    hash::create_protocol_nullifier,
+>>>>>>> origin/next
     side_effect::Ordered,
     traits::Empty,
     utils::arrays::ClaimedLengthArray,
@@ -68,6 +72,7 @@ impl PrivateKernelCircuitOutputComposer {
     ) -> PrivateKernelCircuitPublicInputs {
         let constants = PrivateTxConstantData {
             tx_context: inputs.private_call.public_inputs.tx_context,
+            tx_request_salt: inputs.private_call.public_inputs.tx_request_salt,
             vk_tree_root: inputs.vk_tree_root,
             protocol_contracts: inputs.protocol_contracts,
             anchor_block_header: inputs.private_call.public_inputs.anchor_block_header,
@@ -76,6 +81,7 @@ impl PrivateKernelCircuitOutputComposer {
         let mut validation_requests = PrivateValidationRequests::empty();
         let mut end = PrivateAccumulatedData::empty();
 
+<<<<<<< HEAD
         // Every tx needs at least one nullifier for uniqueness (used for computing the nonce for note hashes).
         // If `first_nullifier_hint` equals the protocol nullifier, it is inserted at index 0. Otherwise, at least one
         // private call must emit a nullifier, and the hint should match the first nullifier emitted.
@@ -88,6 +94,15 @@ impl PrivateKernelCircuitOutputComposer {
             end.nullifiers.array[0] = scoped_protocol_nullifier;
             end.nullifiers.length = 1;
         };
+=======
+        // The protocol nullifier seeds the note-hash nonce computation: unsquashable (`note_hash == 0`),
+        // non-revertible (counter 1, so it sorts to index 0), and globally unique (`tx_request.hash()`
+        // includes the salt).
+        let scoped_protocol_nullifier = create_protocol_nullifier(inputs.tx_request);
+        // Safety: index 0 is empty, so a direct write plus `length = 1` is equivalent to a `push`.
+        end.nullifiers.array[0] = scoped_protocol_nullifier;
+        end.nullifiers.length = 1;
+>>>>>>> origin/next
 
         let contract_address = inputs.private_call.public_inputs.call_context.contract_address;
 
@@ -111,10 +126,9 @@ impl PrivateKernelCircuitOutputComposer {
             contract_address,
         );
 
-        append_and_scope_to_index_0_or_1(
+        append_and_scope_after_protocol_nullifier(
             &mut end.nullifiers,
             inputs.private_call.public_inputs.nullifiers,
-            should_inject_protocol_nullifier,
             contract_address,
         );
 

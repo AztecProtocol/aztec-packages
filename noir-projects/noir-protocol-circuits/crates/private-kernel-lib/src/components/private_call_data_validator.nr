@@ -39,7 +39,6 @@ impl PrivateCallDataValidator {
         self,
         tx_request: TxRequest,
         protocol_contracts: ProtocolContracts,
-        first_nullifier_hint: Field,
         claimed_revertible_counter: u32,
     ) {
         self.validate_common(
@@ -47,9 +46,6 @@ impl PrivateCallDataValidator {
             protocol_contracts,
             claimed_revertible_counter,
         );
-
-        // There must be at least one nullifier for the private execution, which is used to compute note hash nonces.
-        assert(!first_nullifier_hint.is_empty(), "first_nullifier_hint cannot be empty");
 
         self.validate_against_tx_request(tx_request);
 
@@ -186,6 +182,14 @@ impl PrivateCallDataValidator {
             this_call.tx_context,
             "tx_context in private call does not match the value in tx_request",
         );
+        // Binds the entry-point proof to the tx request's salt. The salt feeds the protocol nullifier
+        // (`P = H(tx_request)`), so without this a third party could rebind the same proof to a
+        // different salt, yielding a different `P` and replaying the transaction.
+        assert_eq(
+            tx_request.salt,
+            this_call.tx_request_salt,
+            "tx_request_salt in private call does not match the salt in tx_request",
+        );
     }
 
     /// For Inner only.
@@ -202,6 +206,7 @@ impl PrivateCallDataValidator {
             "anchor block header mismatch",
         );
         assert_eq(this_call.tx_context, constants.tx_context, "mismatch tx context");
+        assert_eq(this_call.tx_request_salt, constants.tx_request_salt, "mismatch tx_request_salt");
     }
 
     /// For Inner only.

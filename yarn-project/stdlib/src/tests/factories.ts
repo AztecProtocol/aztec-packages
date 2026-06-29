@@ -692,6 +692,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
     anchorBlockHeader: makeBlockHeader(seed + 0xd00),
     txContext: makeTxContext(seed + 0x1400),
     isFeePayer: false,
+    txRequestSalt: fr(seed + 0x1500),
   });
 }
 
@@ -916,6 +917,7 @@ export function makeCheckpointHeader(seed = 0, overrides: Partial<FieldsOf<Check
     feeRecipient: makeAztecAddress(seed + 0x600),
     gasFees: makeGasFees(seed + 0x700),
     totalManaUsed: fr(seed + 0x800),
+    accumulatedFees: fr(seed + 0x850),
     ...overrides,
   });
 }

@@ -7,7 +7,11 @@ use protocol_test_utils::FixtureBuilder;
 use types::{
     abis::{private_call_request::PrivateCallRequest, transaction::tx_request::TxRequest},
     constants::PRIVATE_KERNEL_INIT_VK_INDEX,
+<<<<<<< HEAD
     hash::compute_protocol_nullifier,
+=======
+    hash::create_protocol_nullifier,
+>>>>>>> origin/next
     traits::Empty,
 };
 
@@ -16,7 +20,6 @@ pub struct PrivateKernelCircuitOutputValidatorBuilder {
     private_call: FixtureBuilder,
     output: FixtureBuilder,
     tx_request: TxRequest,
-    first_nullifier_hint: Field,
     revertible_counter_hint: u32,
     is_private_only: bool,
 }
@@ -39,19 +42,24 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
             private_call,
             output,
             tx_request,
-            first_nullifier_hint: 27,
             revertible_counter_hint: 42,
             is_private_only: false,
         }
     }
 
     pub fn with_protocol_nullifier(&mut self) {
+<<<<<<< HEAD
         let (scoped_protocol_nullifier, siloed_protocol_nullifier) =
             compute_protocol_nullifier(self.tx_request);
         self.output.nullifiers.push(scoped_protocol_nullifier);
         self.previous_kernel.nullifiers.push(scoped_protocol_nullifier);
 
         self.first_nullifier_hint = siloed_protocol_nullifier;
+=======
+        let protocol_nullifier = create_protocol_nullifier(self.tx_request);
+        self.output.nullifiers.push(protocol_nullifier);
+        self.previous_kernel.nullifiers.push(protocol_nullifier);
+>>>>>>> origin/next
     }
 
     pub fn with_previous_kernel_vk_index(&mut self, vk_index: u32) {

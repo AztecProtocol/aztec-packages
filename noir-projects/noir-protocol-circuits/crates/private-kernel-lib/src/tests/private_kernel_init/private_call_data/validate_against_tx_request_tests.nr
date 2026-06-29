@@ -68,3 +68,13 @@ fn mismatch_l2_gas_limit() {
 
     builder.execute_and_fail();
 }
+
+#[test(should_fail_with = "tx_request_salt in private call does not match the salt in tx_request")]
+fn mismatch_salt() {
+    let mut builder = TestBuilder::new();
+
+    // Tweak the salt to be a different value.
+    builder.tx_request.salt += 1;
+
+    builder.execute_and_fail();
+}

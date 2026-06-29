@@ -34,7 +34,7 @@ struct SubmitEpochRootProofArgs {
   uint256 start; // inclusive
   uint256 end; // inclusive
   PublicInputArgs args;
-  bytes32[] fees;
+  ProposedHeader[] headers; // Must match what was proposed by the committee
   CommitteeAttestations attestations; // attestations for the last checkpoint in epoch
   bytes blobInputs;
   bytes proof;
@@ -184,7 +184,7 @@ interface IRollup is IRollupCore, IHaveVersion {
     uint256 _start,
     uint256 _end,
     PublicInputArgs calldata _args,
-    bytes32[] calldata _fees,
+    ProposedHeader[] calldata _headers,
     bytes calldata _blobPublicInputs
   ) external view returns (bytes32[] memory);
 

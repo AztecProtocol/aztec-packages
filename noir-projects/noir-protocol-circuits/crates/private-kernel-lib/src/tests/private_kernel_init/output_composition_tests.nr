@@ -1,16 +1,23 @@
 use super::TestBuilder;
 use protocol_test_utils::assert_claimed_length_array_eq;
 use types::{
+<<<<<<< HEAD
     address::AztecAddress, constants::DEFAULT_UPDATE_DELAY, hash::compute_protocol_nullifier,
+=======
+    address::AztecAddress,
+    constants::DEFAULT_UPDATE_DELAY,
+    hash::create_protocol_nullifier,
+>>>>>>> origin/next
     traits::Empty,
 };
 
 #[test]
-fn with_everything_empty_except_for_first_nullifier_hint() {
+fn with_everything_empty() {
     let mut builder = TestBuilder::new();
 
     builder.private_call.expiration_timestamp = 0;
-    builder.first_nullifier_hint = 1234;
+
+    let scoped_protocol_nullifier = create_protocol_nullifier(builder.tx_request);
 
     let pi = builder.execute();
     builder.assert_expected_public_inputs(pi);
@@ -22,8 +29,8 @@ fn with_everything_empty_except_for_first_nullifier_hint() {
     assert_eq(pi.claimed_revertible_counter, 0);
 
     assert_claimed_length_array_eq(pi.end.note_hashes, []);
-    // The nullifiers array is empty because the protocol nullifier is not injected.
-    assert_claimed_length_array_eq(pi.end.nullifiers, []);
+    // Only the protocol nullifier is present.
+    assert_claimed_length_array_eq(pi.end.nullifiers, [scoped_protocol_nullifier]);
     assert_claimed_length_array_eq(pi.end.l2_to_l1_msgs, []);
     assert_claimed_length_array_eq(pi.end.private_logs, []);
     assert_claimed_length_array_eq(pi.end.contract_class_logs_hashes, []);
@@ -39,6 +46,7 @@ fn with_everything_empty_except_for_first_nullifier_hint() {
 }
 
 #[test]
+<<<<<<< HEAD
 fn with_protocol_nullifier_injected() {
     let mut builder = TestBuilder::new();
 
@@ -60,6 +68,12 @@ fn with_nullifiers_emitted_and_protocol_nullifier_injected() {
     let (scoped_protocol_nullifier, protocol_nullifier) =
         compute_protocol_nullifier(builder.tx_request);
     builder.first_nullifier_hint = protocol_nullifier;
+=======
+fn with_nullifiers_emitted_and_protocol_nullifier_injected() {
+    let mut builder = TestBuilder::new();
+
+    let scoped_protocol_nullifier = create_protocol_nullifier(builder.tx_request);
+>>>>>>> origin/next
 
     builder.private_call.append_nullifiers(1);
     let private_call_nullifiers = builder.private_call.nullifiers.storage();
@@ -97,7 +111,6 @@ fn with_everything_non_empty() {
     let mut builder = TestBuilder::new();
 
     builder.is_private_only = true;
-    builder.first_nullifier_hint = 1234;
     builder.revertible_counter_hint = 567;
     builder.private_call.expiration_timestamp = 7890;
     builder.private_call.is_fee_payer = true;
@@ -121,6 +134,8 @@ fn with_everything_non_empty() {
     let pi = builder.execute();
     builder.assert_expected_public_inputs(pi);
 
+    let scoped_protocol_nullifier = create_protocol_nullifier(builder.tx_request);
+
     assert_eq(pi.min_revertible_side_effect_counter, 98765);
     assert_eq(pi.fee_payer, builder.private_call.contract_address);
     assert_eq(pi.expiration_timestamp, 7890);
@@ -133,7 +148,7 @@ fn with_everything_non_empty() {
     let nullifiers = builder.private_call.nullifiers.storage();
     assert_claimed_length_array_eq(
         pi.end.nullifiers,
-        [nullifiers[0], nullifiers[1], nullifiers[2]],
+        [scoped_protocol_nullifier, nullifiers[0], nullifiers[1], nullifiers[2]],
     );
 
     let l2_to_l1_msgs = builder.private_call.l2_to_l1_msgs.storage();

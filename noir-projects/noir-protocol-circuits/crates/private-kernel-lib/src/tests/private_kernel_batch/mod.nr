@@ -17,11 +17,11 @@ use types::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         private_kernel_data::PrivateKernelData, transaction::tx_request::TxRequest,
     },
-    hash::compute_protocol_nullifier,
     constants::{
         MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, PRIVATE_KERNEL_INIT_VK_INDEX,
         PRIVATE_KERNEL_INNER_VK_INDEX,
     },
+    hash::compute_protocol_nullifier,
 };
 
 // Tests for the batched private kernels (`private_kernel_init_n` / `private_kernel_inner_n`, which
@@ -86,7 +86,6 @@ fn execute_init_n_sequential<let N: u32>(
             vk_tree_root: inputs.vk_tree_root,
             protocol_contracts: inputs.protocol_contracts,
             is_private_only: inputs.is_private_only,
-            first_nullifier_hint: inputs.first_nullifier_hint,
             revertible_counter_hint: inputs.revertible_counter_hint,
         },
     );
@@ -142,7 +141,6 @@ struct BatchNTestBuilder<let N: u32> {
     tx_request: TxRequest,
     private_calls: [FixtureBuilder; N],
     is_private_only: bool,
-    first_nullifier_hint: Field,
     revertible_counter_hint: u32,
 }
 
@@ -171,7 +169,6 @@ impl<let N: u32> BatchNTestBuilder<N> {
             tx_request,
             private_calls,
             is_private_only: false,
-            first_nullifier_hint: 123,
             revertible_counter_hint: 0,
         }
     }
@@ -303,7 +300,6 @@ impl<let N: u32> BatchNTestBuilder<N> {
             vk_tree_root: private_calls[0].vk_tree_root,
             protocol_contracts: private_calls[0].protocol_contracts,
             is_private_only: self.is_private_only,
-            first_nullifier_hint: self.first_nullifier_hint,
             revertible_counter_hint: self.revertible_counter_hint,
         }
     }
@@ -790,10 +786,7 @@ fn assert_batch_n_expiration_timestamp_min_matches_sequential<let N: u32>() {
 /// the order in which the calls should be processed is `[B, D, C]`. The prover instead supplies the calls in the order
 /// `[B, C, D]` with `popped_from_source = [0, 0, 1]`: pop `B` and `C` from the previous stack
 /// (source 0), then pop `D` from `B`'s own `private_call_requests` (source 1). We test that this order is rejected by enforcing increasing side effect counters.
-fn non_side_effect_ordered_inner_scenario() -> (
-    PrivateKernelInnerNCircuitPrivateInputs<3>,
-    PrivateCallStackBatchHints<3>,
-) {
+fn non_side_effect_ordered_inner_scenario() -> (PrivateKernelInnerNCircuitPrivateInputs<3>, PrivateCallStackBatchHints<3>) {
     // B: interval [10, 15]; has child D.
     let mut b = FixtureBuilder::new_from_counter(10);
     b.counter = 15;
@@ -814,7 +807,8 @@ fn non_side_effect_ordered_inner_scenario() -> (
     b.private_call_requests.push(d.to_private_call_request());
 
     // Previous kernel stack: [C, B] with B on top (highest index).
-    let mut previous_kernel = FixtureBuilder::new_from_counter(5).in_vk_tree(PRIVATE_KERNEL_INIT_VK_INDEX);
+    let mut previous_kernel =
+        FixtureBuilder::new_from_counter(5).in_vk_tree(PRIVATE_KERNEL_INIT_VK_INDEX);
     previous_kernel.private_call_requests.push(c.to_private_call_request());
     previous_kernel.private_call_requests.push(b.to_private_call_request());
 
@@ -836,7 +830,9 @@ fn compose_inner<let N: u32>(
     inputs: PrivateKernelInnerNCircuitPrivateInputs<N>,
 ) -> PrivateKernelCircuitPublicInputs {
     // Safety: test witness generator; `validate_inner` re-checks the output against the hints.
-    unsafe { compose_inner_batch_n(inputs.previous_kernel.public_inputs, inputs.private_calls) }
+    unsafe {
+        compose_inner_batch_n(inputs.previous_kernel.public_inputs, inputs.private_calls)
+    }
 }
 
 fn validate_inner<let N: u32>(
@@ -914,10 +910,7 @@ fn inner_linear_chain_inputs() -> PrivateKernelInnerNCircuitPrivateInputs<3> {
 
 // Previous kernel stack is [X, Y] with Y on top. The batch pops Y (and its child Z), leaving X on
 // the bottom of the stack. Honest hints [0, 1]: Y from the previous stack, Z from Y.
-fn inner_prev_remainder_scenario() -> (
-    PrivateKernelInnerNCircuitPrivateInputs<2>,
-    PrivateCallStackBatchHints<2>,
-) {
+fn inner_prev_remainder_scenario() -> (PrivateKernelInnerNCircuitPrivateInputs<2>, PrivateCallStackBatchHints<2>) {
     let mut previous_kernel = FixtureBuilder::new_from_counter(135)
         .in_vk_tree(PRIVATE_KERNEL_INIT_VK_INDEX)
         .as_parent_contract();
@@ -962,11 +955,7 @@ fn inner_prev_remainder_scenario() -> (
 /// scenario instead defers D (`popped_from_source = [0, 1, 1]`: B and C both popped from A), so the
 /// batch processes A, B, C and leaves D on the output stack for a later kernel. Returns the init
 /// inputs, the deferral hints, and the D fixture (the deferred call).
-fn deferred_grandchild_init_scenario() -> (
-    PrivateKernelInitNCircuitPrivateInputs<3>,
-    PrivateCallStackBatchHints<3>,
-    FixtureBuilder,
-) {
+fn deferred_grandchild_init_scenario() -> (PrivateKernelInitNCircuitPrivateInputs<3>, PrivateCallStackBatchHints<3>, FixtureBuilder) {
     let mut a = FixtureBuilder::new_from_counter(2).is_first_call();
     a.counter = 100;
     a.compute_update_tree_and_hints();
@@ -1681,5 +1670,8 @@ fn cross_kernel_deferred_order_a_b_c_then_d_is_accepted() {
         previous_kernel: private_kernel_data_with_vk_index(output1, PRIVATE_KERNEL_INIT_VK_INDEX),
         private_calls: [d.to_private_call_data()],
     };
-    drive_inner_with_hints(inputs2, PrivateCallStackBatchHints { popped_from_source: [0] });
+    drive_inner_with_hints(
+        inputs2,
+        PrivateCallStackBatchHints { popped_from_source: [0] },
+    );
 }

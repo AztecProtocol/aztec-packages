@@ -90,7 +90,6 @@ export function convertPrivateKernelInitInputsToWitnessMapWithAbi(
     protocol_contracts: mapProtocolContractsToNoir(privateKernelInitCircuitPrivateInputs.protocolContracts),
     private_call: mapPrivateCallDataToNoir(privateKernelInitCircuitPrivateInputs.privateCall),
     is_private_only: privateKernelInitCircuitPrivateInputs.isPrivateOnly,
-    first_nullifier_hint: mapFieldToNoir(privateKernelInitCircuitPrivateInputs.firstNullifierHint),
     revertible_counter_hint: mapNumberToNoir(privateKernelInitCircuitPrivateInputs.revertibleCounterHint),
     app_public_inputs: mapPrivateCircuitPublicInputsToNoir(
       privateKernelInitCircuitPrivateInputs.privateCall.publicInputs,
@@ -117,7 +116,6 @@ export function convertPrivateKernelInit2InputsToWitnessMapWithAbi(
     private_call_0: mapPrivateCallDataToNoir(inputs.privateCall0),
     private_call_1: mapPrivateCallDataToNoir(inputs.privateCall1),
     is_private_only: inputs.isPrivateOnly,
-    first_nullifier_hint: mapFieldToNoir(inputs.firstNullifierHint),
     revertible_counter_hint: mapNumberToNoir(inputs.revertibleCounterHint),
     app_public_inputs_0: mapPrivateCircuitPublicInputsToNoir(inputs.privateCall0.publicInputs),
     app_public_inputs_1: mapPrivateCircuitPublicInputsToNoir(inputs.privateCall1.publicInputs),
@@ -143,7 +141,6 @@ export function convertPrivateKernelInit3InputsToWitnessMapWithAbi(
     private_call_1: mapPrivateCallDataToNoir(inputs.privateCall1),
     private_call_2: mapPrivateCallDataToNoir(inputs.privateCall2),
     is_private_only: inputs.isPrivateOnly,
-    first_nullifier_hint: mapFieldToNoir(inputs.firstNullifierHint),
     revertible_counter_hint: mapNumberToNoir(inputs.revertibleCounterHint),
     app_public_inputs_0: mapPrivateCircuitPublicInputsToNoir(inputs.privateCall0.publicInputs),
     app_public_inputs_1: mapPrivateCircuitPublicInputsToNoir(inputs.privateCall1.publicInputs),

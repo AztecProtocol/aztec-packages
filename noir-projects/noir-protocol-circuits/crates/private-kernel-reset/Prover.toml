@@ -173,7 +173,12 @@ is_private_only = true
 claimed_revertible_counter = "0x0000000000000000000000000000000000000000000000000000000000000004"
 
   [previous_kernel_public_inputs.constants]
+<<<<<<< HEAD
   vk_tree_root = "0x2e39d065eab7b0c48df9b1a8fd68a58cdafb37fa215cfae39020d9652592f1ee"
+=======
+  tx_request_salt = "0x0b99e25732f2e402efc6ae9612608eb7daf1e0e02f9a5b900ac876ce4f6ad96a"
+  vk_tree_root = "0x2bf5085c122d9f6778f1037b7f72210721ea2d9cbae355e192413db78dd8071a"
+>>>>>>> origin/next
 
     [previous_kernel_public_inputs.constants.anchor_block_header]
     sponge_blob_hash = "0x0d107dc502b75f5695d838cb9ccde2662c16acfc8fea38ab83e57e397d5a22da"

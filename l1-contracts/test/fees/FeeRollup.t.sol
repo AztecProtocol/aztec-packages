@@ -132,6 +132,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
   /**
    * @notice Constructs a fake checkpoint that is not possible to prove, but passes the L1 checks.
    */
+  mapping(uint256 => ProposedHeader) internal checkpointHeaders;
+
   function getCheckpoint() internal view returns (Checkpoint memory) {
     // We will be using the genesis for both before and after. This will be impossible
     // to prove, but we don't need to prove anything here.
@@ -169,6 +171,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     header.feeRecipient = bytes32(0);
     header.gasFees.feePerL2Gas = manaMinFee;
     header.totalManaUsed = manaSpent;
+    header.accumulatedFees = uint256(manaMinFee) * manaSpent;
 
     return Checkpoint({
       archive: archiveRoot,
@@ -217,21 +220,17 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
   function _buildEpochFees(uint256 _start, uint256 _epochSize)
     internal
     view
-    returns (bytes32[] memory fees, uint256 burnSum, uint256 proverFees, uint256 sequencerFees)
+    returns (uint256 burnSum, uint256 proverFees, uint256 sequencerFees)
   {
-    fees = new bytes32[](Constants.MAX_CHECKPOINTS_PER_EPOCH * 2);
-
     for (uint256 feeIndex = 0; feeIndex < _epochSize; feeIndex++) {
       (uint256 fee, uint256 burn, uint256 proverFee) = _getExpectedCheckpointFees(_start + feeIndex);
       burnSum += burn;
       proverFees += proverFee;
       sequencerFees += (fee - burn - proverFee);
-      fees[feeIndex * 2] = bytes32(uint256(uint160(bytes20(coinbase))));
-      fees[feeIndex * 2 + 1] = bytes32(fee);
     }
   }
 
-  function _submitEpochProof(uint256 _start, uint256 _epochSize, bytes32[] memory _fees) internal {
+  function _submitEpochProof(uint256 _start, uint256 _epochSize) internal {
     CheckpointLog memory endCheckpoint = rollup.getCheckpoint(_start + _epochSize - 1);
     PublicInputArgs memory args = PublicInputArgs({
       previousArchive: rollup.getCheckpoint(_start).archive,
@@ -240,12 +239,17 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       proverId: address(0)
     });
 
+    ProposedHeader[] memory headers = new ProposedHeader[](_epochSize);
+    for (uint256 i = 0; i < _epochSize; i++) {
+      headers[i] = checkpointHeaders[_start + i];
+    }
+
     rollup.submitEpochRootProof(
       SubmitEpochRootProofArgs({
         start: _start,
         end: _start + _epochSize - 1,
         args: args,
-        fees: _fees,
+        headers: headers,
         attestations: CommitteeAttestations({signatureIndices: "", signaturesOrAddresses: ""}),
         blobInputs: full.checkpoint.batchedBlobInputs,
         proof: ""
@@ -264,6 +268,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         TestPoint memory point = points[Slot.unwrap(nextSlot) - 1];
         Checkpoint memory b = getCheckpoint();
         skipBlobCheck(address(rollup));
+        checkpointHeaders[rollup.getPendingCheckpointNumber() + 1] = b.header;
         rollup.propose(
           ProposeArgs({
             header: b.header,
@@ -355,6 +360,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         Checkpoint memory b = getCheckpoint();
 
         skipBlobCheck(address(rollup));
+        checkpointHeaders[rollup.getPendingCheckpointNumber() + 1] = b.header;
         rollup.propose(
           ProposeArgs({
             header: b.header,
@@ -400,12 +406,11 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         uint256 pendingCheckpointNumber = rollup.getPendingCheckpointNumber();
         uint256 start = rollup.getProvenCheckpointNumber() + 1;
         uint256 usedCheckpointsInEpoch = _getUsedCheckpointsInEpoch(start, pendingCheckpointNumber);
-        (bytes32[] memory fees, uint256 burnSum, uint256 proverFees, uint256 sequencerFees) =
-          _buildEpochFees(start, usedCheckpointsInEpoch);
+        (uint256 burnSum, uint256 proverFees, uint256 sequencerFees) = _buildEpochFees(start, usedCheckpointsInEpoch);
 
         uint256 burnAddressBalanceBefore = asset.balanceOf(rollup.getBurnAddress());
         uint256 sequencerRewardsBefore = rollup.getSequencerRewards(coinbase);
-        _submitEpochProof(start, usedCheckpointsInEpoch, fees);
+        _submitEpochProof(start, usedCheckpointsInEpoch);
 
         uint256 burned = asset.balanceOf(rollup.getBurnAddress()) - burnAddressBalanceBefore;
         assertEq(burnSum, burned, "Sum of burned does not match");
