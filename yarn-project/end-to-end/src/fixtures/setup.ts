@@ -30,7 +30,6 @@ import { randomBytes } from '@aztec/foundation/crypto/random';
 import { tryRmDir } from '@aztec/foundation/fs';
 import { withLoggerBindings } from '@aztec/foundation/log/server';
 import { retryUntil } from '@aztec/foundation/retry';
-import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
@@ -205,11 +204,6 @@ export type SetupOptions = {
   zkPassportArgs?: ZKPassportArgs;
   /** Whether to fund the sponsored FPC in genesis (defaults to false). */
   fundSponsoredFPC?: boolean;
-  /**
-   * Whether to advance the chain past genesis by mining an empty block during setup (defaults to true).
-   * Set to false for tests that must observe the chain at genesis (block 0).
-   */
-  advancePastGenesis?: boolean;
   /** L1 contracts deployment arguments. */
   l1ContractsArgs?: Partial<DeployAztecL1ContractsArgs>;
   /** Wallet minimum fee padding multiplier */
@@ -569,27 +563,6 @@ async function setupInner(
       p2pClientDeps = { p2pServiceFactory: getMockPubSubP2PServiceFactory(mockGossipSubNetwork) };
     }
 
-    // Transactions built against the genesis state must be included in block 1, otherwise they are dropped.
-    // To avoid test failures from dropped transactions, we ensure progression beyond genesis before proceeding.
-    const originalMinTxsPerBlock = config.minTxsPerBlock;
-    if (originalMinTxsPerBlock === undefined) {
-      throw new Error('minTxsPerBlock is undefined in e2e test setup');
-    }
-    const originalBuildCheckpointIfEmpty = config.buildCheckpointIfEmpty ?? false;
-
-    // Allow an empty checkpoint so the empty block can be built; leave untouched when not advancing.
-    const advancePastGenesis = (opts.advancePastGenesis ?? true) && !opts.skipInitialSequencer;
-    config.minTxsPerBlock = advancePastGenesis ? 0 : originalMinTxsPerBlock;
-    // Pipelining is always on: the proposer builds during slot N-1 for slot N. A tx submitted at slot N
-    // start arrives after that build, so forcing minTxsPerBlock=1 would stall the chain on alternating
-    // slots -- hence empty checkpoints are allowed (minTxsPerBlock=0) while advancing past genesis.
-    // Automine is unaffected: its runBuild clamps mempool builds to Math.max(minTxsPerBlock ?? 1, 1) and
-    // still requires minValidTxs: 1.
-    const shouldTemporarilyBuildEmptyCheckpoints = advancePastGenesis && config.useAutomineSequencer !== true;
-    if (shouldTemporarilyBuildEmptyCheckpoints) {
-      config.buildCheckpointIfEmpty = true;
-    }
-
     config.p2pEnabled = opts.mockGossipSubNetwork || config.p2pEnabled;
     config.p2pIp = opts.p2pIp ?? config.p2pIp ?? '127.0.0.1';
 
@@ -694,35 +667,6 @@ async function setupInner(
       accounts = defaultAccounts.map(a => a.address);
     }
     logger.trace('Created funded test accounts');
-
-    // Advancing past genesis needs a running sequencer to build the empty block; advancePastGenesis is
-    // already false when skipInitialSequencer is set.
-    if (advancePastGenesis) {
-      logger.info('Mining an empty block to progress past genesis');
-      const automine = aztecNodeService.getAutomineSequencer();
-      if (automine) {
-        await automine.buildEmptyBlock();
-      }
-      while ((await aztecNodeService.getBlockNumber()) === 0) {
-        await sleep(2000);
-      }
-    } else if (opts.skipInitialSequencer) {
-      logger.info('Sequencer not started on initial node, skipping block progression');
-    }
-    logger.trace('Advanced chain past genesis');
-
-    // Now we restore the original minTxsPerBlock setting if we changed it.
-    if (sequencerClient) {
-      const sequencer = sequencerClient.getSequencer();
-      if (config.minTxsPerBlock !== originalMinTxsPerBlock) {
-        sequencer.updateConfig({ minTxsPerBlock: originalMinTxsPerBlock });
-      }
-      if (shouldTemporarilyBuildEmptyCheckpoints) {
-        sequencer.updateConfig({ buildCheckpointIfEmpty: originalBuildCheckpointIfEmpty });
-        config.buildCheckpointIfEmpty = originalBuildCheckpointIfEmpty;
-      }
-    }
-    logger.trace('Restored sequencer config');
 
     const teardown = async () => {
       const teardownStart = performance.now();
