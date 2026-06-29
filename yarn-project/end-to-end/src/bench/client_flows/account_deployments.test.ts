@@ -15,6 +15,9 @@ import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchma
 
 jest.setTimeout(300_000);
 
+// Account deployment round-trip benchmark. Uses ClientFlowsBenchmark (wraps setup()) with BENCHMARK_CONFIG
+// env var; profiles the full deployment flow (simulate → prove → send → wait) for ECDSA-R1 and Schnorr
+// account types with various fee-payment methods. Bench pipeline only.
 describe('Deployment benchmark', () => {
   const t = new ClientFlowsBenchmark('deployments');
 

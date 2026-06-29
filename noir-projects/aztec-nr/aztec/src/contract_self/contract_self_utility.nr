@@ -54,6 +54,25 @@ impl<Storage, CallSelf> ContractSelfUtility<Storage, CallSelf> {
         Self { context, storage, address: context.this_address(), call_self }
     }
 
+    /// The address of the contract that made this function call.
+    ///
+    /// This is similar to Solidity's `msg.sender` value.
+    ///
+    /// ## Direct Invocation
+    ///
+    /// A utility function invoked directly (e.g. by a wallet or dApp) rather than from another contract has no caller,
+    /// and this function panics. Only a nested (cross-contract) utility call has a `msg_sender`.
+    ///
+    /// If you need to handle the no-caller case, use [`UtilityContext::maybe_msg_sender`].
+    ///
+    /// Note that utility functions are simulated client-side and never proven, so this value is unconstrained: see
+    /// [`UtilityContext::maybe_msg_sender`] for why it must not be relied on as a security guarantee.
+    pub unconstrained fn msg_sender(self) -> AztecAddress {
+        self.context.maybe_msg_sender().expect(
+            f"msg_sender() called on a top-level utility with no caller; use maybe_msg_sender() instead",
+        )
+    }
+
     /// Makes a utility contract call from another utility function.
     ///
     /// Note: only same-contract utility calls are currently supported. See TODO(F-29).

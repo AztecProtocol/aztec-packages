@@ -274,14 +274,22 @@ export class AutomineSequencer {
   /**
    * Warps L1 timestamp to `targetTimestampSec`. Rounded up to the next aztec-slot
    * boundary so the next build lands on a fresh slot. Atomic with respect to builds —
-   * the queue ensures no build is in flight while the warp executes.
+   * the queue ensures no build is in flight while the warp executes. A no-op when the
+   * target is already at or behind the current L1 time (see {@link runWarp}).
    */
   public warpTo(targetTimestampSec: number): Promise<void> {
     return this.queue.put(() => this.runWarp(targetTimestampSec));
   }
 
-  /** Warps L1 timestamp forward by `deltaSec` seconds from the current L1 time. */
+  /**
+   * Warps L1 timestamp forward by `deltaSec` seconds from the current L1 time, rounded up to the next
+   * aztec-slot boundary. Throws if `deltaSec` is not positive (warping "by" a non-positive amount is a
+   * caller bug — unlike {@link warpTo}, which no-ops on a past target).
+   */
   public warpBy(deltaSec: number): Promise<void> {
+    if (deltaSec <= 0) {
+      throw new Error(`warpL2TimeAtLeastBy: duration must be positive, got ${deltaSec} seconds.`);
+    }
     return this.queue.put(async () => {
       const current = await this.deps.ethCheatCodes.lastBlockTimestamp();
       await this.runWarp(current + deltaSec);
@@ -409,7 +417,10 @@ export class AutomineSequencer {
       await this.deps.ethCheatCodes.setNextBlockTimestamp(slotBoundaryTs);
     }
 
-    const tips = await this.deps.l2BlockSource.getL2Tips();
+    const [tips, proposedCheckpoint] = await Promise.all([
+      this.deps.l2BlockSource.getL2Tips(),
+      this.deps.l2BlockSource.getProposedCheckpointData(),
+    ]);
     const syncedToBlockNumber = tips.proposed.number;
 
     // Ensure world state has processed the archiver's tip before forking. Without this,
@@ -419,7 +430,8 @@ export class AutomineSequencer {
     await this.deps.worldState.syncImmediate(BlockNumber(syncedToBlockNumber));
 
     const nextBlockNumber = BlockNumber(syncedToBlockNumber + 1);
-    const checkpointNumber = CheckpointNumber(tips.proposedCheckpoint.checkpoint.number + 1);
+    const parentCheckpointNumber = proposedCheckpoint?.checkpointNumber ?? tips.checkpointed.checkpoint.number;
+    const checkpointNumber = CheckpointNumber(parentCheckpointNumber + 1);
     const targetEpoch = getEpochAtSlot(SlotNumber(targetSlot), this.deps.l1Constants);
 
     this.log.verbose(`Building automine checkpoint`, {

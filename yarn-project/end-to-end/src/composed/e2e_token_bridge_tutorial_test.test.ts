@@ -71,7 +71,9 @@ async function addMinter(l1TokenContract: EthAddress, l1TokenHandler: EthAddress
     abi: TestERC20Abi,
     client: l1Client,
   });
-  await contract.write.addMinter([l1TokenHandler.toString()]);
+  await l1Client.waitForTransactionReceipt({
+    hash: await contract.write.addMinter([l1TokenHandler.toString()]),
+  });
 }
 
 // To run these tests against a local network:
@@ -84,6 +86,9 @@ async function addMinter(l1TokenContract: EthAddress, l1TokenHandler: EthAddress
 //
 // 3. Run the tests:
 //    yarn test:e2e e2e_token_bridge_tutorial_test.test.ts
+// Token bridge tutorial test. Runs against a pre-started local network (AZTEC_NODE_URL + ETHEREUM_HOSTS)
+// using only published npm packages. Deploys an L1 ERC20/portal and L2 token bridge, then exercises the
+// full L1↔L2 bridging flow. Intentional constraint: no in-proc setup().
 describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
   it('Deploys tokens & bridges to L1 & L2, mints & publicly bridges tokens', async () => {
     const logger = createLogger('aztec:token-bridge-tutorial');
@@ -138,10 +143,16 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
     await l2TokenContract.methods.set_minter(l2BridgeContract.address, true).send({ from: ownerAztecAddress });
 
     // Initialize L1 portal contract
-    await l1Portal.write.initialize(
-      [l1ContractAddresses.registryAddress.toString(), l1TokenContract.toString(), l2BridgeContract.address.toString()],
-      {},
-    );
+    await l1Client.waitForTransactionReceipt({
+      hash: await l1Portal.write.initialize(
+        [
+          l1ContractAddresses.registryAddress.toString(),
+          l1TokenContract.toString(),
+          l2BridgeContract.address.toString(),
+        ],
+        {},
+      ),
+    });
     logger.info('L1 portal contract initialized');
 
     const l1PortalManager = new L1TokenPortalManager(

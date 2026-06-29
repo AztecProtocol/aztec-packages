@@ -2,20 +2,23 @@ import { getSchnorrInitializerlessAccountContractAddress } from '@aztec/accounts
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
-import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { TestTokenContract } from '@aztec/noir-test-contracts.js/TestToken';
 
 import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
-import { deployToken, expectTokenBalance } from './fixtures/token_utils.js';
+import { deployTestToken, expectTokenBalance } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 
+// Verifies that the PXE correctly handles multiple Schnorr accounts sharing the same encryption
+// key (different signing keys). Checks that note discovery and balance tracking remain accurate
+// across three accounts. Uses AUTOMINE_E2E_OPTS with 3 custom accounts sharing one secret.
 describe('e2e_multiple_accounts_1_enc_key', () => {
   let wallet: TestWallet;
   let accounts: AztecAddress[] = [];
   let logger: Logger;
   let teardown: () => Promise<void>;
 
-  let token: TokenContract;
+  let token: TestTokenContract;
 
   const initialBalance = 987n;
   const numAccounts = 3;
@@ -52,7 +55,7 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
     accounts = accountsData.map(a => a.address);
     logger.info('Account contracts created');
 
-    ({ contract: token } = await deployToken(wallet, accounts[0], initialBalance, logger));
+    ({ contract: token } = await deployTestToken(wallet, accounts[0], initialBalance, logger));
   });
 
   afterEach(() => teardown());
@@ -68,7 +71,7 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
     const sender = accounts[senderIndex];
     const receiver = accounts[receiverIndex];
 
-    const contractWithWallet = TokenContract.at(token.address, wallet);
+    const contractWithWallet = TestTokenContract.at(token.address, wallet);
 
     await contractWithWallet.methods.transfer(receiver, transferAmount).send({ from: accounts[senderIndex] });
 
@@ -81,6 +84,9 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
 
   /**
    * Tests the ability of the Private eXecution Environment (PXE) to handle multiple accounts under the same encryption key.
+   *
+   * Executes three sequential private transfers (0→1, 0→2, 1→2) and asserts balance correctness
+   * after each transfer, verifying that note discovery works across accounts sharing a secret.
    */
   it('spends notes from multiple account under the same encryption key', async () => {
     const transferAmount1 = 654n; // account 0 -> account 1

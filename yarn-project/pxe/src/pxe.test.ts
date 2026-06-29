@@ -2,6 +2,7 @@ import { BBBundlePrivateKernelProver } from '@aztec/bb-prover/client/bundle';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
@@ -22,8 +23,8 @@ import {
   GENESIS_CHECKPOINT_HEADER_HASH,
 } from '@aztec/stdlib/block';
 import { emptyChainConfig } from '@aztec/stdlib/config';
-import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
-import type { AztecNode, BlockResponse } from '@aztec/stdlib/interfaces/client';
+import { CompleteAddress, getContractClassFromArtifact } from '@aztec/stdlib/contract';
+import type { AztecNode, AztecNodeDebug, BlockResponse } from '@aztec/stdlib/interfaces/client';
 import {
   randomContractArtifact,
   randomContractInstanceWithAddress,
@@ -36,17 +37,19 @@ import { mock } from 'jest-mock-extended';
 import type { MockProxy } from 'jest-mock-extended/lib/Mock.js';
 
 import type { PXEConfig } from './config/index.js';
-import { PXE, type PackedPrivateEvent } from './pxe.js';
+import { PXE, type PackedPrivateEvent, type TaggingSecretSource } from './pxe.js';
 import { PrivateEventStore } from './storage/private_event_store/private_event_store.js';
 
 describe('PXE', () => {
   let pxe: PXE;
   let kvStore: AztecLMDBStoreV2;
   let node: MockProxy<AztecNode>;
+  let nodeDebug: MockProxy<AztecNodeDebug>;
 
   beforeAll(async () => {
     kvStore = await openTmpStore('test');
     node = mock<AztecNode>();
+    nodeDebug = mock<AztecNodeDebug>();
     const simulator = new WASMSimulator();
     const kernelProver = new BBBundlePrivateKernelProver(simulator);
     const protocolContractsProvider = new BundledProtocolContractsProvider();
@@ -100,6 +103,7 @@ describe('PXE', () => {
 
     pxe = await PXE.create({
       node,
+      nodeDebug,
       store: kvStore,
       proofCreator: kernelProver,
       simulator,
@@ -122,7 +126,9 @@ describe('PXE', () => {
   it('refuses to register an invalid address as a sender', async () => {
     // x = 3 is not a valid x-coordinate on the Grumpkin curve (y^2 = x^3 - 17 = 10 has no square root in Fr)
     const invalidAddress = new AztecAddress(new Fr(3));
-    await expect(pxe.registerSender(invalidAddress)).rejects.toThrow(/not valid/);
+    await expect(pxe.registerTaggingSecretSource({ kind: 'address-derived', sender: invalidAddress })).rejects.toThrow(
+      /not valid/,
+    );
   });
 
   it('does not throw when registering the same account twice (just ignores the second attempt)', async () => {
@@ -135,9 +141,72 @@ describe('PXE', () => {
 
   it('does not add a keystore account to the sender address book when registered as a sender', async () => {
     const { address } = await pxe.registerAccount(Fr.random(), Fr.random());
-    await pxe.registerSender(address);
-    const senders = await pxe.getSenders();
-    expect(senders.map(s => s.toString())).not.toContain(address.toString());
+    await pxe.registerTaggingSecretSource({ kind: 'address-derived', sender: address });
+    const senders = await pxe.getTaggingSecretSources({ kind: 'address-derived' });
+    const senderAddresses = senders.map(s => s.sender.toString());
+    expect(senderAddresses).not.toContain(address.toString());
+  });
+
+  it('lists registered senders and arbitrary secrets together', async () => {
+    const senderSource: TaggingSecretSource = {
+      kind: 'address-derived',
+      sender: (await CompleteAddress.random()).address,
+    };
+    const secretSource: TaggingSecretSource = {
+      kind: 'arbitrary-secret',
+      recipient: (await CompleteAddress.random()).address,
+      secret: await Point.random(),
+    };
+
+    await pxe.registerTaggingSecretSource(senderSource);
+    await pxe.registerTaggingSecretSource(secretSource);
+
+    expect(await pxe.getTaggingSecretSources()).toEqual(expect.arrayContaining([senderSource, secretSource]));
+  });
+
+  it('filters tagging secret sources by kind', async () => {
+    const senderSource: TaggingSecretSource = {
+      kind: 'address-derived',
+      sender: (await CompleteAddress.random()).address,
+    };
+    const secretSource: TaggingSecretSource = {
+      kind: 'arbitrary-secret',
+      recipient: (await CompleteAddress.random()).address,
+      secret: await Point.random(),
+    };
+
+    await pxe.registerTaggingSecretSource(senderSource);
+    await pxe.registerTaggingSecretSource(secretSource);
+
+    const senders = await pxe.getTaggingSecretSources({ kind: 'address-derived' });
+    expect(senders).toContainEqual(senderSource);
+    expect(senders).not.toContainEqual(secretSource);
+
+    const secrets = await pxe.getTaggingSecretSources({ kind: 'arbitrary-secret' });
+    expect(secrets).toContainEqual(secretSource);
+    expect(secrets).not.toContainEqual(senderSource);
+  });
+
+  it('removes registered senders and arbitrary secrets', async () => {
+    const senderSource: TaggingSecretSource = {
+      kind: 'address-derived',
+      sender: (await CompleteAddress.random()).address,
+    };
+    const secretSource: TaggingSecretSource = {
+      kind: 'arbitrary-secret',
+      recipient: (await CompleteAddress.random()).address,
+      secret: await Point.random(),
+    };
+
+    await pxe.registerTaggingSecretSource(senderSource);
+    await pxe.registerTaggingSecretSource(secretSource);
+
+    await pxe.removeTaggingSecretSource(senderSource);
+    await pxe.removeTaggingSecretSource(secretSource);
+
+    const remaining = await pxe.getTaggingSecretSources();
+    expect(remaining).not.toContainEqual(senderSource);
+    expect(remaining).not.toContainEqual(secretSource);
   });
 
   it('successfully adds a contract', async () => {
@@ -202,11 +271,11 @@ describe('PXE', () => {
 
   it('does not call registerContractFunctionSignatures for contracts without public functions', async () => {
     const { artifact, instance } = await randomDeployedContract();
-    node.registerContractFunctionSignatures.mockClear();
+    nodeDebug.registerContractFunctionSignatures.mockClear();
 
     await pxe.registerContract({ artifact, instance });
 
-    expect(node.registerContractFunctionSignatures).not.toHaveBeenCalled();
+    expect(nodeDebug.registerContractFunctionSignatures).not.toHaveBeenCalled();
   });
 
   it('calls registerContractFunctionSignatures for contracts with public functions', async () => {
@@ -227,11 +296,11 @@ describe('PXE', () => {
     ];
     const contractClass = await getContractClassFromArtifact(artifact);
     const instance = await randomContractInstanceWithAddress({ contractClassId: contractClass.id });
-    node.registerContractFunctionSignatures.mockClear();
+    nodeDebug.registerContractFunctionSignatures.mockClear();
 
     await pxe.registerContract({ artifact, instance });
 
-    expect(node.registerContractFunctionSignatures).toHaveBeenCalledWith(['my_public_fn()']);
+    expect(nodeDebug.registerContractFunctionSignatures).toHaveBeenCalledWith(['my_public_fn()']);
   });
 
   // These tests are meant to quickly exercise PXE as a frontier API so we don't need to rely on slower E2E tests
@@ -290,9 +359,9 @@ describe('PXE', () => {
         finalized: tipId,
       });
 
-      // This is read when PXE tries to resolve the
-      // class id of a contract instance
-      node.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
+      // Read when PXE resolves the current class id of a contract instance at the anchor block. Returning undefined
+      // makes readCurrentClassId fall back to the local instance's originalContractClassId.
+      node.getContract.mockResolvedValue(undefined);
 
       // Used to sync private logs from the node - the return array needs to have the same length as the number of tags
       // on the input.

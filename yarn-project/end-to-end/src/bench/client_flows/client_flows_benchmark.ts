@@ -20,7 +20,7 @@ import { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
-import { TokenContract as BananaCoin, TokenContract } from '@aztec/noir-contracts.js/Token';
+import { TestTokenContract as BananaCoin, TestTokenContract } from '@aztec/noir-test-contracts.js/TestToken';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/server';
@@ -28,7 +28,12 @@ import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 
-import { AUTOMINE_E2E_OPTS, MNEMONIC, getPaddedMaxFeesPerGas } from '../../fixtures/fixtures.js';
+import {
+  AUTOMINE_E2E_OPTS,
+  L1_DIRECT_WRITE_ACCOUNT_INDEX,
+  MNEMONIC,
+  getPaddedMaxFeesPerGas,
+} from '../../fixtures/fixtures.js';
 import { type EndToEndContext, type SetupOptions, setup, teardown } from '../../fixtures/setup.js';
 import { mintTokensToPrivate } from '../../fixtures/token_utils.js';
 import { setupSponsoredFPC } from '../../fixtures/utils.js';
@@ -71,13 +76,13 @@ export class ClientFlowsBenchmark {
   public bananaFPC!: FPCContract;
   public bananaFPCInstance!: ContractInstanceWithAddress;
   // Random asset we want to trade
-  public candyBarCoin!: TokenContract;
+  public candyBarCoin!: TestTokenContract;
   public candyBarCoinInstance!: ContractInstanceWithAddress;
   // AMM contract
   public amm!: AMMContract;
   public ammInstance!: ContractInstanceWithAddress;
   // Liquidity token for AMM
-  public liquidityToken!: TokenContract;
+  public liquidityToken!: TestTokenContract;
   public liquidityTokenInstance!: ContractInstanceWithAddress;
   // Sponsored FPC contract
   public sponsoredFPC!: SponsoredFPCContract;
@@ -134,7 +139,8 @@ export class ClientFlowsBenchmark {
   async setup() {
     this.logger.info('Setting up subsystems from fresh');
     // Token allowlist entries are test-only: FPC-based fee payment with custom tokens won't work on mainnet alpha.
-    const tokenAllowList = await getTokenAllowedSetupFunctions();
+    // BananaCoin is the codegen'd TestToken here, so the allowlist must key on its class, not canonical Token's.
+    const tokenAllowList = await getTokenAllowedSetupFunctions(BananaCoin.artifact);
     this.context = await setup(2, {
       ...this.setupOptions,
       fundSponsoredFPC: true,
@@ -235,7 +241,15 @@ export class ClientFlowsBenchmark {
     this.feeJuiceBridgeTestHarness = await FeeJuicePortalTestingHarnessFactory.create({
       aztecNode: this.context.aztecNodeService,
       aztecNodeAdmin: this.context.aztecNodeService,
-      l1Client: this.context.deployL1ContractsValues.l1Client,
+      // Bridge from a dedicated L1 account so its direct writes don't race the sequencer publisher's
+      // txs on the deployer account (see L1_DIRECT_WRITE_ACCOUNT_INDEX).
+      l1Client: createExtendedL1Client(
+        this.context.config.l1RpcUrls,
+        MNEMONIC,
+        undefined,
+        undefined,
+        L1_DIRECT_WRITE_ACCOUNT_INDEX,
+      ),
       wallet: this.adminWallet,
       logger: this.logger,
     });
@@ -259,7 +273,7 @@ export class ClientFlowsBenchmark {
 
   async applyDeployCandyBarToken() {
     this.logger.info('Applying candy bar token deployment');
-    const { contract: candyBarCoin, instance: candyBarCoinInstance } = await TokenContract.deploy(
+    const { contract: candyBarCoin, instance: candyBarCoinInstance } = await TestTokenContract.deploy(
       this.adminWallet,
       this.adminAddress,
       'CBC',
@@ -348,7 +362,7 @@ export class ClientFlowsBenchmark {
 
   public async applyDeployAmm() {
     this.logger.info('Applying AMM deployment');
-    const { contract: liquidityToken, instance: liquidityTokenInstance } = await TokenContract.deploy(
+    const { contract: liquidityToken, instance: liquidityTokenInstance } = await TestTokenContract.deploy(
       this.adminWallet,
       this.adminAddress,
       'LPT',

@@ -80,7 +80,7 @@ async function createKeyFiles() {
   });
 
   const feeRecipientAddresses = Array.from({ length: VALIDATOR_COUNT }, (_, i) => {
-    return AztecAddress.fromNumber(i + 1);
+    return AztecAddress.fromNumberUnsafe(i + 1);
   });
 
   await createKeyFile1(
@@ -156,6 +156,9 @@ function verifyKeyStore(directory: string) {
 
 jest.setTimeout(10 * 60 * 1000);
 
+// Multi-validator key-store test using a Web3Signer sidecar (docker-compose web3signer suite). Runs
+// setup() with PIPELINING_SETUP_OPTS and multiple keystores loaded through the NodeKeystoreAdapter and
+// Web3Signer, then verifies that blocks are proposed and proven across VALIDATOR_COUNT validators.
 describe('e2e_multi_validator_node', () => {
   let initialValidatorPrivateKeys: `0x${string}`[];
   let validatorAddresses: `0x${string}`[];
@@ -202,7 +205,7 @@ describe('e2e_multi_validator_node', () => {
         .toString()
         .toLowerCase();
       expectedCoinbaseAddresses.set(validatorAddress.toLowerCase(), coinbase);
-      const feeRecipient = AztecAddress.fromNumber(i + 1)
+      const feeRecipient = AztecAddress.fromNumberUnsafe(i + 1)
         .toString()
         .toLowerCase();
       expectedFeeRecipientAddresses.set(validatorAddress.toLowerCase(), feeRecipient);

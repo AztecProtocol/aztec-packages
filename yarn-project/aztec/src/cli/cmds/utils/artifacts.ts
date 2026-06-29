@@ -6,6 +6,11 @@ export interface CompiledArtifact {
   file_map: unknown;
   functions: ContractFunction[];
   bytecode?: string;
+  /**
+   * Set to true by the AVM transpiler (invoked via `bb aztec_process`) once the contract has been transpiled and its
+   * verification keys generated. Absent on raw `nargo compile` output, hence optional.
+   */
+  transpiled?: boolean;
 }
 
 export interface ContractFunction {

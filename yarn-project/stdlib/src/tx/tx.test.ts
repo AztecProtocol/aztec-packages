@@ -45,7 +45,7 @@ describe('Tx', () => {
       });
     }
 
-    const someAddress = AztecAddress.fromField(new Fr(27));
+    const someAddress = AztecAddress.fromFieldUnsafe(new Fr(27));
 
     it('returns overhead only for tx with just a nullifier', () => {
       const tx = makePrivateOnlyTx();

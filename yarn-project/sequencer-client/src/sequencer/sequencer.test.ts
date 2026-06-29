@@ -232,6 +232,7 @@ describe('sequencer', () => {
     publisher.enqueueProposeCheckpoint.mockResolvedValue(undefined);
     publisher.enqueueGovernanceCastSignal.mockResolvedValue(true);
     publisher.enqueueSlashingActions.mockResolvedValue(true);
+    publisher.enqueuePruneIfPrunable.mockResolvedValue(false);
     publisher.sendRequestsAt.mockResolvedValue({
       result: { receipt: { status: 'success' } as any },
       successfulActions: ['propose'],
@@ -260,7 +261,6 @@ describe('sequencer', () => {
     rollupContract.getManaTarget.mockResolvedValue(10_000n);
 
     globalVariableBuilder = mock<GlobalVariableBuilder>();
-    globalVariableBuilder.buildGlobalVariables.mockResolvedValue(globalVariables);
     globalVariableBuilder.buildCheckpointGlobalVariables.mockResolvedValue(omit(globalVariables, 'blockNumber'));
 
     p2p = mock<P2P>({
@@ -314,10 +314,6 @@ describe('sequencer', () => {
       getBlockNumber: mockFn().mockResolvedValue(lastBlockNumber),
       getL2Tips: mockFn().mockResolvedValue({
         proposed: { number: lastBlockNumber, hash },
-        proposedCheckpoint: {
-          block: { number: lastBlockNumber, hash },
-          checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
-        },
         checkpointed: {
           block: { number: lastBlockNumber, hash },
           checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
@@ -343,10 +339,6 @@ describe('sequencer', () => {
       getL1ToL2Messages: () => Promise.resolve(Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO)),
       getL2Tips: mockFn().mockResolvedValue({
         proposed: { number: lastBlockNumber, hash },
-        proposedCheckpoint: {
-          block: { number: lastBlockNumber, hash },
-          checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
-        },
         checkpointed: {
           block: { number: lastBlockNumber, hash },
           checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
@@ -637,6 +629,7 @@ describe('sequencer', () => {
         pub.enqueueProposeCheckpoint.mockResolvedValue(undefined);
         pub.enqueueGovernanceCastSignal.mockResolvedValue(true);
         pub.enqueueSlashingActions.mockResolvedValue(true);
+        pub.enqueuePruneIfPrunable.mockResolvedValue(false);
         pub.sendRequestsAt.mockResolvedValue({
           result: { receipt: { status: 'success' } as any },
           successfulActions: ['propose'],
@@ -834,8 +827,8 @@ describe('sequencer', () => {
     const mockSlashActions = [{ type: 'vote-offenses' as const, round: 1n, votes: [], committees: [] }];
 
     it('should vote on slashing and governance when sync fails and past the start deadline', async () => {
-      // Past start_deadline for the target slot: tryVoteWhenCannotBuild should vote instead of waiting to
-      // build (sync has failed, so building is impossible anyway).
+      // Past start_deadline for the target slot: tryVoteAndPruneWhenCannotBuild should vote instead of waiting
+      // to build (sync has failed, so building is impossible anyway).
       const startDeadline = sequencer.getTimeTable().getBuildStartDeadline(SlotNumber(newSlotNumber));
       dateProvider.setTime((startDeadline + 1) * 1000);
 
@@ -940,6 +933,72 @@ describe('sequencer', () => {
       expect(slasherClient.getProposerActions).not.toHaveBeenCalled();
       expect(publisher.enqueueSlashingActions).not.toHaveBeenCalled();
       expect(publisher.sendRequestsAt).not.toHaveBeenCalled();
+    });
+
+    it('should prune when prunable even if there are no votes to cast', async () => {
+      const startDeadline = sequencer.getTimeTable().getBuildStartDeadline(SlotNumber(newSlotNumber));
+      dateProvider.setTime((startDeadline + 1) * 1000);
+
+      // No slashing actions and no governance payload, so all votes are falsy.
+      slasherClient.getProposerActions.mockResolvedValue([]);
+      publisher.enqueueSlashingActions.mockResolvedValue(false);
+      publisher.enqueueGovernanceCastSignal.mockResolvedValue(false);
+
+      // Set us as the proposer
+      validatorClient.getValidatorAddresses.mockReturnValue([signer.address]);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+
+      // Rollup is prunable, so the fallback should enqueue a prune and still send.
+      publisher.enqueuePruneIfPrunable.mockResolvedValue(true);
+
+      await sequencer.work();
+
+      expect(publisher.enqueuePruneIfPrunable).toHaveBeenCalledWith(SlotNumber(newSlotNumber));
+      // A send fires even though only prune (and no votes) was enqueued.
+      expect(publisher.sendRequestsAt).toHaveBeenCalledWith(SlotNumber(newSlotNumber));
+    });
+
+    it('should not send anything when there are no votes and the rollup is not prunable', async () => {
+      const startDeadline = sequencer.getTimeTable().getBuildStartDeadline(SlotNumber(newSlotNumber));
+      dateProvider.setTime((startDeadline + 1) * 1000);
+
+      // No slashing actions and no governance payload, so all votes are falsy.
+      slasherClient.getProposerActions.mockResolvedValue([]);
+      publisher.enqueueSlashingActions.mockResolvedValue(false);
+      publisher.enqueueGovernanceCastSignal.mockResolvedValue(false);
+
+      // Set us as the proposer
+      validatorClient.getValidatorAddresses.mockReturnValue([signer.address]);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+
+      // Rollup is not prunable.
+      publisher.enqueuePruneIfPrunable.mockResolvedValue(false);
+
+      await sequencer.work();
+
+      expect(publisher.enqueuePruneIfPrunable).toHaveBeenCalledWith(SlotNumber(newSlotNumber));
+      expect(publisher.sendRequestsAt).not.toHaveBeenCalled();
+    });
+
+    it('should enqueue prune alongside votes and send a single request', async () => {
+      const startDeadline = sequencer.getTimeTable().getBuildStartDeadline(SlotNumber(newSlotNumber));
+      dateProvider.setTime((startDeadline + 1) * 1000);
+
+      // Both votes and prune succeed.
+      slasherClient.getProposerActions.mockResolvedValue(mockSlashActions);
+      publisher.enqueueSlashingActions.mockResolvedValue(true);
+      publisher.enqueuePruneIfPrunable.mockResolvedValue(true);
+
+      // Set us as the proposer
+      validatorClient.getValidatorAddresses.mockReturnValue([signer.address]);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+
+      await sequencer.work();
+
+      expect(publisher.enqueueSlashingActions).toHaveBeenCalled();
+      expect(publisher.enqueuePruneIfPrunable).toHaveBeenCalledWith(SlotNumber(newSlotNumber));
+      expect(publisher.sendRequestsAt).toHaveBeenCalledTimes(1);
+      expect(publisher.sendRequestsAt).toHaveBeenCalledWith(SlotNumber(newSlotNumber));
     });
   });
 
@@ -1285,9 +1344,8 @@ describe('sequencer', () => {
       await setupSingleTxBlock();
 
       // Override to non-genesis state so checkSync doesn't take the genesis path.
-      // proposedCheckpoint is set with checkpoint number 1 > checkpointed tip 0, so hasProposedCheckpoint is true.
+      // The proposed checkpoint has number 1 > checkpointed tip 0, so hasProposedCheckpoint is true.
       const nonGenesisHash = Fr.random().toString();
-      const proposedCheckpointHash = Fr.random().toString();
       worldState.status.mockResolvedValue({
         state: WorldStateRunningState.IDLE,
         syncSummary: {
@@ -1300,10 +1358,6 @@ describe('sequencer', () => {
       } satisfies WorldStateSynchronizerStatus);
       const tipsWithBlock1 = {
         proposed: { number: BlockNumber(1), hash: nonGenesisHash },
-        proposedCheckpoint: {
-          block: { number: BlockNumber(1), hash: nonGenesisHash },
-          checkpoint: { number: CheckpointNumber(1), hash: proposedCheckpointHash },
-        },
         checkpointed: {
           block: { number: BlockNumber(1), hash: nonGenesisHash },
           checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
@@ -1338,7 +1392,7 @@ describe('sequencer', () => {
         blockCount: 1,
         totalManaUsed: 0n,
         feeAssetPriceModifier: 0n,
-      } satisfies ProposedCheckpointData);
+      });
 
       await sequencer.work();
 
@@ -1354,7 +1408,6 @@ describe('sequencer', () => {
       // Confirmed checkpoint is 1, pending is 2, proposed tip is in checkpoint 3.
       // So sequencer would try to build checkpoint 4, which exceeds the 1-deep pipeline limit.
       const nonGenesisHash = Fr.random().toString();
-      const proposedCheckpointHash = Fr.random().toString();
       const checkpointedHash = Fr.random().toString();
       worldState.status.mockResolvedValue({
         state: WorldStateRunningState.IDLE,
@@ -1368,10 +1421,6 @@ describe('sequencer', () => {
       } satisfies WorldStateSynchronizerStatus);
       const tips = {
         proposed: { number: BlockNumber(3), hash: nonGenesisHash },
-        proposedCheckpoint: {
-          block: { number: BlockNumber(2), hash: nonGenesisHash },
-          checkpoint: { number: CheckpointNumber(2), hash: proposedCheckpointHash },
-        },
         checkpointed: {
           block: { number: BlockNumber(1), hash: nonGenesisHash },
           checkpoint: { number: CheckpointNumber(1), hash: checkpointedHash },
@@ -1397,9 +1446,7 @@ describe('sequencer', () => {
         checkpointNumber: CheckpointNumber(3),
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       } satisfies BlockData);
-      l2BlockSource.getProposedCheckpointData.mockResolvedValue({
-        checkpointNumber: CheckpointNumber(2),
-      } as any);
+      l2BlockSource.getProposedCheckpointData.mockResolvedValue({ checkpointNumber: CheckpointNumber(2) } as any);
 
       await sequencer.work();
 
@@ -1424,7 +1471,6 @@ describe('sequencer', () => {
 
       // Set up a pipelined parent (pending override = parentCheckpointNumber = 1).
       const nonGenesisHash = Fr.random().toString();
-      const proposedCheckpointHash = Fr.random().toString();
       worldState.status.mockResolvedValue({
         state: WorldStateRunningState.IDLE,
         syncSummary: {
@@ -1437,10 +1483,6 @@ describe('sequencer', () => {
       } satisfies WorldStateSynchronizerStatus);
       const tipsWithBlock1 = {
         proposed: { number: BlockNumber(1), hash: nonGenesisHash },
-        proposedCheckpoint: {
-          block: { number: BlockNumber(1), hash: nonGenesisHash },
-          checkpoint: { number: CheckpointNumber(1), hash: proposedCheckpointHash },
-        },
         checkpointed: {
           block: { number: BlockNumber(1), hash: nonGenesisHash },
           checkpoint: { number: CheckpointNumber.ZERO, hash: GENESIS_CHECKPOINT_HEADER_HASH.toString() },
@@ -1475,7 +1517,7 @@ describe('sequencer', () => {
         blockCount: 1,
         totalManaUsed: 0n,
         feeAssetPriceModifier: 0n,
-      } satisfies ProposedCheckpointData);
+      });
 
       await sequencer.work();
 
@@ -1510,18 +1552,17 @@ describe('sequencer', () => {
   describe('checkSync orphan-block guard', () => {
     // Mocks all sync sources so checkSync passes its earlier equality checks and reaches the orphan
     // guard, with the world-state tip at `blockNumber` (in `blockCheckpointNumber`) while the
-    // checkpointed and proposed-checkpoint tips sit at the given checkpoint numbers.
+    // checkpointed tip sits at `checkpointedCheckpointNumber`. The leading proposed checkpoint (if any)
+    // is supplied via `getProposedCheckpointData`.
     const setupSyncedToBlock = (opts: {
       blockNumber: BlockNumber;
       blockSlot: SlotNumber;
       blockCheckpointNumber: CheckpointNumber;
       checkpointedCheckpointNumber: CheckpointNumber;
-      proposedCheckpointTipNumber: CheckpointNumber;
-      proposedCheckpointData: ProposedCheckpointData | undefined;
+      proposedCheckpoint: ProposedCheckpointData | undefined;
     }) => {
       const hash = Fr.random().toString();
       const checkpointHash = Fr.random().toString();
-      const proposedCheckpointHash = Fr.random().toString();
       worldState.status.mockResolvedValue({
         state: WorldStateRunningState.IDLE,
         syncSummary: {
@@ -1534,10 +1575,6 @@ describe('sequencer', () => {
       } satisfies WorldStateSynchronizerStatus);
       const tips = {
         proposed: { number: opts.blockNumber, hash },
-        proposedCheckpoint: {
-          block: { number: opts.blockNumber, hash },
-          checkpoint: { number: opts.proposedCheckpointTipNumber, hash: proposedCheckpointHash },
-        },
         checkpointed: {
           block: { number: opts.blockNumber, hash },
           checkpoint: { number: opts.checkpointedCheckpointNumber, hash: checkpointHash },
@@ -1563,20 +1600,19 @@ describe('sequencer', () => {
         checkpointNumber: opts.blockCheckpointNumber,
         indexWithinCheckpoint: IndexWithinCheckpoint(0),
       } satisfies BlockData);
-      l2BlockSource.getProposedCheckpointData.mockResolvedValue(opts.proposedCheckpointData);
+      l2BlockSource.getProposedCheckpointData.mockResolvedValue(opts.proposedCheckpoint);
     };
 
     it('returns undefined and logs debug while waiting for a matching proposed checkpoint', async () => {
-      // Local tip is a block at checkpoint 3, but the checkpointed and proposed-checkpoint tips are
-      // still at checkpoint 2 and no proposed checkpoint 3 exists: an orphan block-only tip whose
-      // enclosing checkpoint has not materialized into the archiver.
+      // Local tip is a block at checkpoint 3, but the checkpointed tip is still at checkpoint 2 and no
+      // proposed checkpoint 3 exists: an orphan block-only tip whose enclosing checkpoint has not
+      // materialized into the archiver.
       setupSyncedToBlock({
         blockNumber: BlockNumber(3),
         blockSlot: SlotNumber(3),
         blockCheckpointNumber: CheckpointNumber(3),
         checkpointedCheckpointNumber: CheckpointNumber(2),
-        proposedCheckpointTipNumber: CheckpointNumber(2),
-        proposedCheckpointData: undefined,
+        proposedCheckpoint: undefined,
       });
       const warnSpy = jest.spyOn(sequencer.getLogger(), 'warn');
       const debugSpy = jest.spyOn(sequencer.getLogger(), 'debug');
@@ -1590,8 +1626,7 @@ describe('sequencer', () => {
         expect.objectContaining({
           blockCheckpointNumber: CheckpointNumber(3),
           checkpointedCheckpointNumber: CheckpointNumber(2),
-          proposedCheckpointTipNumber: CheckpointNumber(2),
-          proposedCheckpointDataNumber: undefined,
+          proposedCheckpointTipNumber: undefined,
         }),
       );
     });
@@ -1602,8 +1637,7 @@ describe('sequencer', () => {
         blockSlot: SlotNumber(3),
         blockCheckpointNumber: CheckpointNumber(3),
         checkpointedCheckpointNumber: CheckpointNumber(2),
-        proposedCheckpointTipNumber: CheckpointNumber(3),
-        proposedCheckpointData: {
+        proposedCheckpoint: {
           checkpointNumber: CheckpointNumber(3),
           header: CheckpointHeader.empty(),
           archive: AppendOnlyTreeSnapshot.empty(),
@@ -1612,7 +1646,7 @@ describe('sequencer', () => {
           blockCount: 1,
           totalManaUsed: 0n,
           feeAssetPriceModifier: 0n,
-        } satisfies ProposedCheckpointData,
+        },
       });
 
       const result = await sequencer.checkSyncForTest({ ts: 1000n, slot: SlotNumber(2) });

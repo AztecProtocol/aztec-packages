@@ -5,7 +5,7 @@ import type { Wallet } from '@aztec/aztec.js/wallet';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
-import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { TestTokenContract } from '@aztec/noir-test-contracts.js/TestToken';
 import type { RoundTripStats } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
@@ -38,6 +38,8 @@ interface RoundTripData {
   roundTrips: RoundTripStats | undefined;
 }
 
+// AMM interaction round-trip benchmark. Uses ClientFlowsBenchmark with BENCHMARK_CONFIG; profiles
+// add-liquidity and swap flows across account types and fee-payment methods; emits BENCH_OUTPUT JSON.
 describe('AMM benchmark', () => {
   const roundTripData: RoundTripData[] = [];
   const t = new ClientFlowsBenchmark('amm');
@@ -50,10 +52,10 @@ describe('AMM benchmark', () => {
   // FPC that accepts bananas
   let bananaFPCInstance: ContractInstanceWithAddress;
   // BananaCoin Token contract, just used to pay fees in this scenario
-  let bananaCoin: TokenContract;
+  let bananaCoin: TestTokenContract;
   let bananaCoinInstance: ContractInstanceWithAddress;
   // CandyBarCoin Token contract, which we want to amm
-  let candyBarCoin: TokenContract;
+  let candyBarCoin: TestTokenContract;
   let candyBarCoinInstance: ContractInstanceWithAddress;
   // AMM contract
   let amm: AMMContract;
@@ -114,7 +116,7 @@ describe('AMM benchmark', () => {
         await userWallet.registerSender(adminAddress);
         // Register both FPC and BananCoin on the user's Wallet so we can simulate and prove
         await userWallet.registerContract(bananaFPCInstance, FPCContract.artifact);
-        await userWallet.registerContract(bananaCoinInstance, TokenContract.artifact);
+        await userWallet.registerContract(bananaCoinInstance, TestTokenContract.artifact);
         // Register the CandyBarCoin on the user's Wallet so we can simulate and prove
         await userWallet.registerContract(candyBarCoinInstance);
         // Register the AMM and liquidity token on the user's Wallet so we can simulate and prove

@@ -23,8 +23,8 @@ export class NoteValidationRequest {
   static fromFields(fields: Fr[] | FieldReader): NoteValidationRequest {
     const reader = FieldReader.asReader(fields);
 
-    const contractAddress = AztecAddress.fromField(reader.readField());
-    const owner = AztecAddress.fromField(reader.readField());
+    const contractAddress = AztecAddress.fromFieldUnsafe(reader.readField());
+    const owner = AztecAddress.fromFieldUnsafe(reader.readField());
     const storageSlot = reader.readField();
     const randomness = reader.readField();
     const noteNonce = reader.readField();

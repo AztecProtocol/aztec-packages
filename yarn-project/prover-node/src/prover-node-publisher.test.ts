@@ -10,12 +10,15 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { PublisherConfig, TxSenderConfig } from '@aztec/sequencer-client';
 import { Proof } from '@aztec/stdlib/proofs';
-import { RootRollupPublicInputs } from '@aztec/stdlib/rollup';
+import { CheckpointHeader, RootRollupPublicInputs } from '@aztec/stdlib/rollup';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { ProverNodePublisher } from './prover-node-publisher.js';
+
+const makeHeadersForRange = (fromCheckpoint: number, toCheckpoint: number) =>
+  Array.from({ length: toCheckpoint - fromCheckpoint + 1 }, () => CheckpointHeader.random());
 
 describe('prover-node-publisher', () => {
   // Prover publisher dependencies
@@ -171,6 +174,7 @@ describe('prover-node-publisher', () => {
           fromCheckpoint: CheckpointNumber(fromCheckpoint),
           toCheckpoint: CheckpointNumber(toCheckpoint),
           publicInputs: ourPublicInputs,
+          headers: makeHeadersForRange(fromCheckpoint, toCheckpoint),
           proof: Proof.empty(),
           batchedBlobInputs: ourBatchedBlob,
           attestations: [],
@@ -237,6 +241,7 @@ describe('prover-node-publisher', () => {
       fromCheckpoint: CheckpointNumber(fromCheckpoint),
       toCheckpoint: CheckpointNumber(toCheckpoint),
       publicInputs: ourPublicInputs,
+      headers: makeHeadersForRange(fromCheckpoint, toCheckpoint),
       proof: Proof.empty(),
       batchedBlobInputs: batchedBlob,
       attestations: [],
@@ -323,6 +328,7 @@ describe('prover-node-publisher', () => {
       fromCheckpoint: CheckpointNumber(2),
       toCheckpoint: CheckpointNumber(2),
       publicInputs: ourPublicInputs,
+      headers: makeHeadersForRange(2, 2),
       proof: Proof.empty(),
       batchedBlobInputs: ourBatchedBlob,
       attestations: [],

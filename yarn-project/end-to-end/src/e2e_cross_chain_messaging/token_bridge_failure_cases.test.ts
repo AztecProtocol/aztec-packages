@@ -5,11 +5,15 @@ import { sha256ToField } from '@aztec/foundation/crypto/sha256';
 
 import { toFunctionSelector } from 'viem';
 
-import { NO_L1_TO_L2_MSG_ERROR, PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
+import { L1_DIRECT_WRITE_ACCOUNT_INDEX, NO_L1_TO_L2_MSG_ERROR, PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
+// Token bridge failure scenarios: missing authwit, wrong secret hash, and wrong deposit direction.
+// Uses CrossChainMessagingTest (prod sequencer, pipelining preset: ethSlot=4s, aztecSlot=12s,
+// inboxLag=2, minTxsPerBlock=0), EpochTestSettler for auto-proving, and CrossChainTestHarness for
+// L1↔L2 token portal bridging.
 describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
-  const t = new CrossChainMessagingTest('token_bridge_failure_cases');
+  const t = new CrossChainMessagingTest('token_bridge_failure_cases', {}, {}, {}, L1_DIRECT_WRITE_ACCOUNT_INDEX);
   let version: number = 1;
 
   let { crossChainTestHarness, ethAccount, l2Bridge, ownerAddress, user1Address, user2Address, rollup } = t;
@@ -28,6 +32,8 @@ describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
     await t.teardown();
   });
 
+  // Attempts to call exit_to_l1_public without granting an authwit to the bridge contract.
+  // Asserts the simulation reverts with "unauthorized".
   it("Bridge can't withdraw my funds if I don't give approval", async () => {
     const mintAmountToOwner = 100n;
     await crossChainTestHarness.mintTokensPublicOnL2(mintAmountToOwner);
@@ -42,6 +48,8 @@ describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
     ).rejects.toThrow(/unauthorized/);
   }, 180_000);
 
+  // Sends a public deposit to the portal, then tries to claim with a wrong bridge amount, producing
+  // a mismatched message hash. Asserts "No L1 to L2 message found" for the wrong hash.
   it("Can't claim funds privately which were intended for public deposit from the token portal", async () => {
     const bridgeAmount = 100n;
 
@@ -74,6 +82,8 @@ describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
     ).rejects.toThrow(`No L1 to L2 message found for message hash ${wrongMessage.hash().toString()}`);
   }, 180_000);
 
+  // Sends a private deposit to the portal, then tries to claim it publicly using claim_public.
+  // The message hash does not match the public-mint selector, so consumption fails with NO_L1_TO_L2_MSG_ERROR.
   it("Can't claim funds publicly which were intended for private deposit from the token portal", async () => {
     // 1. Mint tokens on L1
     const bridgeAmount = 100n;

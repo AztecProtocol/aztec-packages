@@ -37,6 +37,7 @@ import {
 import {
   type Checkpoint,
   type ProposedCheckpointData,
+  buildCheckpointSimulationOverridesPlan,
   getPreviousCheckpointOutHashes,
   validateCheckpoint,
 } from '@aztec/stdlib/checkpoint';
@@ -68,7 +69,6 @@ import { DutyAlreadySignedError, SlashingProtectionError } from '@aztec/validato
 
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import type { InvalidateCheckpointRequest, SequencerPublisher } from '../publisher/sequencer-publisher.js';
-import { buildCheckpointSimulationOverridesPlan } from './chain_state_overrides.js';
 import type { CheckpointProposalJobMetricsRecorder } from './checkpoint_proposal_job_metrics.js';
 import { CheckpointVoter } from './checkpoint_voter.js';
 import { SequencerInterruptedError } from './errors.js';
@@ -398,9 +398,7 @@ export class CheckpointProposalJob implements Traceable {
       }
     }
 
-    await this.publisher.enqueueProposeCheckpoint(checkpoint, attestations, attestationsSignature, {
-      txTimeoutAt,
-    });
+    await this.publisher.enqueueProposeCheckpoint(checkpoint, attestations, attestationsSignature, { txTimeoutAt });
   }
 
   /**
@@ -1062,7 +1060,7 @@ export class CheckpointProposalJob implements Traceable {
           availableTxs,
           minTxs,
         });
-        this.log.warn(
+        this.log.verbose(
           `Not enough txs to build block ${blockNumber} at index ${indexWithinCheckpoint} in slot ${this.targetSlot} (got ${availableTxs} txs but needs ${minTxs})`,
           {
             reason: 'insufficient_txs',

@@ -3,7 +3,8 @@ import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses'
 import { createLogger } from '@aztec/foundation/log';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
-import { MemoryCircuitRecorder, SimulatorRecorderWrapper, WASMSimulator } from '@aztec/simulator/client';
+import { WASMSimulator } from '@aztec/simulator/client';
+import { MemoryCircuitRecorder, SimulatorRecorderWrapper } from '@aztec/simulator/server';
 import { FileCircuitRecorder } from '@aztec/simulator/testing';
 import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
 import { getStandardHandshakeRegistry } from '@aztec/standard-contracts/handshake-registry';
@@ -73,6 +74,7 @@ export async function createPXE(
   const pxeLogger = loggers.pxe ?? createLogger('pxe:service', { actor });
   const pxe = await PXE.create({
     node: aztecNode,
+    nodeDebug: options.nodeDebug,
     store: options.store,
     proofCreator: prover,
     simulator,

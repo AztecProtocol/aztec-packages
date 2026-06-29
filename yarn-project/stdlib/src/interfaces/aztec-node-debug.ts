@@ -6,6 +6,9 @@ import { z } from 'zod';
 import { type ApiSchemaFor, optional } from '../schemas/schemas.js';
 import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning/index.js';
 
+const MAX_SIGNATURES_PER_REGISTER_CALL = 100;
+const MAX_SIGNATURE_LEN = 10000;
+
 /**
  * Debug interface for Aztec node available in sandbox/local-network mode.
  */
@@ -33,11 +36,45 @@ export interface AztecNodeDebug {
    * @throws If no automine sequencer is running (only the automine sequencer supports synthetic proving).
    */
   prove(upToCheckpoint?: CheckpointNumber): Promise<CheckpointNumber>;
+
+  /**
+   * Warps L1 time forward to at least `targetTimestamp` and builds an empty L2 checkpoint at the next slot boundary,
+   * advancing the L2 timestamp to at least the target. The warp is serialized with block building, so it never
+   * interleaves with an in-flight build. A no-op when `targetTimestamp` is already at or behind the current L1 time.
+   *
+   * @param targetTimestamp - Target L1 timestamp, in seconds.
+   * @throws If no automine sequencer is running (only the automine sequencer supports time warps).
+   */
+  warpL2TimeAtLeastTo(targetTimestamp: number): Promise<void>;
+
+  /**
+   * Warps L1 time forward by at least `duration` seconds from the current L1 time and builds an empty L2 checkpoint
+   * at the next slot boundary. The warp is serialized with block building, so it never interleaves with an in-flight
+   * build.
+   *
+   * @param duration - Number of seconds to advance; must be positive.
+   * @throws If no automine sequencer is running, or if `duration` is not positive.
+   */
+  warpL2TimeAtLeastBy(duration: number): Promise<void>;
+
+  /**
+   * Registers public function signatures so the node can resolve selectors to names in public-execution stack
+   * traces. The mapping lives only in unpersisted node memory, is not gossiped, and is exposed here (rather than on
+   * the main node API) because it is a debug-only, unauthenticated write that should not be reachable on prod nodes.
+   * @param functionSignatures - Decoded `name(paramTypes)` signatures to register by selector.
+   */
+  registerContractFunctionSignatures(functionSignatures: string[]): Promise<void>;
 }
 
 export const AztecNodeDebugApiSchema: ApiSchemaFor<AztecNodeDebug> = {
   mineBlock: z.function({ input: z.tuple([]), output: z.void() }),
   prove: z.function({ input: z.tuple([optional(CheckpointNumberSchema)]), output: CheckpointNumberSchema }),
+  warpL2TimeAtLeastTo: z.function({ input: z.tuple([z.number()]), output: z.void() }),
+  warpL2TimeAtLeastBy: z.function({ input: z.tuple([z.number()]), output: z.void() }),
+  registerContractFunctionSignatures: z.function({
+    input: z.tuple([z.array(z.string().max(MAX_SIGNATURE_LEN)).max(MAX_SIGNATURES_PER_REGISTER_CALL)]),
+    output: z.void(),
+  }),
 };
 
 export function createAztecNodeDebugClient(
