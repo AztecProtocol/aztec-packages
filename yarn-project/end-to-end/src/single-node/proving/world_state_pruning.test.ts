@@ -2,7 +2,7 @@ import type { Logger } from '@aztec/aztec.js/log';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 
-import { SingleNodeTestContext, WORLD_STATE_CHECKPOINT_HISTORY, jest } from './setup.js';
+import { SingleNodeTestContext, WORLD_STATE_CHECKPOINT_HISTORY, jest, setupWithProver } from './setup.js';
 
 // Verifies that multiple consecutive epochs are proven successfully and that world-state checkpoints
 // are pruned after finalization. SingleNodeTestContext defaults: single node, prod-seq, interval
@@ -15,7 +15,7 @@ describe('single-node/proving/world_state_pruning', () => {
   let test: SingleNodeTestContext;
 
   beforeEach(async () => {
-    test = await SingleNodeTestContext.setup({});
+    test = await setupWithProver({});
     ({ rollup, logger } = test);
   });
 

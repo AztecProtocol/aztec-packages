@@ -6,6 +6,7 @@ import { type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoc
 import { jest } from '@jest/globals';
 
 import type { EndToEndContext } from '../../fixtures/utils.js';
+import { setupWithProver } from '../setup.js';
 import { SingleNodeTestContext } from '../single_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
@@ -28,7 +29,7 @@ describe('single-node/proving/multi_proof', () => {
   beforeEach(async () => {
     // Don't start prover node during setup - we'll create and manage all prover nodes in the test
     // This ensures we can apply delay patches before any prover starts proving
-    test = await SingleNodeTestContext.setup({ startProverNode: false });
+    test = await setupWithProver({ startProverNode: false });
     ({ context, constants, logger, L1_BLOCK_TIME_IN_S } = test);
   });
 

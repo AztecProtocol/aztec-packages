@@ -53,8 +53,8 @@ export const PIPELINING_SETUP_OPTS = {
 /**
  * Setup option preset that opts a test into the deterministic AutomineSequencer path.
  * Use only for single-sequencer tests that don't exercise block-building or consensus
- * (e.g. e2e_token, e2e_amm, e2e_authwit). Not compatible with `e2e_p2p/*`,
- * `multi-node/*`, `e2e_slashing/*`, `e2e_block_building`, or any multi-validator suite.
+ * (e.g. e2e_token, e2e_amm, e2e_authwit). Not compatible with `p2p/*`,
+ * `multi-node/*`, `e2e_block_building`, or any multi-validator suite.
  *
  *     await setup(N, { ...AUTOMINE_E2E_OPTS, ...otherOpts });
  *

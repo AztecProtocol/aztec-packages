@@ -23,7 +23,7 @@ import { type TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 import { type Hex, decodeEventLog } from 'viem';
 
 import { waitForL2ToL1Witness } from '../../fixtures/wait_helpers.js';
-import { SingleNodeTestContext, jest } from './setup.js';
+import { SingleNodeTestContext, jest, setupWithProver } from './setup.js';
 
 // Suite: verifies the AZIP-14 partial-proof multi-root Outbox design. Drives an EpochTestSettler
 // manually to stage progressively deeper partial-proof roots (K=1, 2, 3) for the same epoch, then
@@ -48,7 +48,7 @@ describe('single-node/partial-proofs/multi_root', () => {
   let recipient: EthAddress;
 
   beforeEach(async () => {
-    test = await SingleNodeTestContext.setup({
+    test = await setupWithProver({
       numberOfAccounts: 1,
       minTxsPerBlock: 1,
       // With the enforced timetable this setup can have 5 blocks per checkpoint. The default

@@ -15,6 +15,7 @@ import { join } from 'path';
 import { getACVMConfig } from '../../fixtures/get_acvm_config.js';
 import { getBBConfig } from '../../fixtures/get_bb_config.js';
 import type { EndToEndContext } from '../../fixtures/utils.js';
+import { setupWithProver } from '../setup.js';
 import { SingleNodeTestContext } from '../single_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
@@ -42,7 +43,7 @@ describe('single-node/proving/upload_failed_proof', () => {
     uploadPath = await mkdtemp(join(tmpdir(), 'failed-proofs-'));
     uploadUrl = `file://${uploadPath}`;
 
-    test = await SingleNodeTestContext.setup({
+    test = await setupWithProver({
       proverNodeConfig: { proverNodeFailedEpochStore: uploadUrl },
     });
     ({ context, logger } = test);

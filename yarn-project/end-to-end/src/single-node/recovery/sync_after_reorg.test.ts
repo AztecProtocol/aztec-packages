@@ -4,7 +4,7 @@ import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { executeTimeout } from '@aztec/foundation/timer';
 
 import type { EndToEndContext } from '../../fixtures/utils.js';
-import { SingleNodeTestContext, jest } from './setup.js';
+import { SingleNodeTestContext, jest, setupWithProver } from './setup.js';
 
 // Regression test ensuring a new node can sync world-state after an unpruned reorg (issue #12206).
 // SingleNodeTestContext with single node, no prover, prod-seq, interval mining. Timing: all defaults
@@ -20,7 +20,7 @@ describe('single-node/recovery/sync_after_reorg', () => {
   let test: SingleNodeTestContext;
 
   beforeEach(async () => {
-    test = await SingleNodeTestContext.setup({ startProverNode: false }); // no prover!
+    test = await setupWithProver({ startProverNode: false }); // no prover!
     ({ context, logger } = test);
     ({ L2_SLOT_DURATION_IN_S } = test);
   });

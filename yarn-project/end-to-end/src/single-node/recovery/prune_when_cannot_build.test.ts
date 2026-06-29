@@ -7,6 +7,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { jest } from '@jest/globals';
 
 import type { EndToEndContext } from '../../fixtures/utils.js';
+import { setupWithProver } from '../setup.js';
 import { SingleNodeTestContext } from '../single_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
@@ -29,7 +30,7 @@ describe('single-node/recovery/prune_when_cannot_build', () => {
   let test: SingleNodeTestContext;
 
   beforeEach(async () => {
-    test = await SingleNodeTestContext.setup({
+    test = await setupWithProver({
       startProverNode: false, // Nothing ever proves epoch 0, so its pending chain stays unproven and becomes prunable.
       ethereumSlotDuration: 8,
       aztecEpochDuration: 8, // Long enough to land a few checkpoints in epoch 0.

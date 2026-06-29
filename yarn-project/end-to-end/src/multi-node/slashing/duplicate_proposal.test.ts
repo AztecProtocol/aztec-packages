@@ -4,7 +4,6 @@ import { EthAddress } from '@aztec/aztec.js/addresses';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { OffenseType } from '@aztec/slasher';
 
-import { advanceToEpochBeforeProposer, awaitCommitteeExists, awaitOffenseDetected } from '../../e2e_p2p/shared.js';
 import {
   MultiNodeTestContext,
   SLASHER_ENABLED_MULTI_VALIDATOR_OPTS,
@@ -13,6 +12,9 @@ import {
 import {
   AZTEC_SLOT_DURATION,
   NUM_VALIDATORS,
+  advanceToEpochBeforeProposer,
+  awaitCommitteeExists,
+  awaitOffenseDetected,
   aztecEpochDuration,
   baseSlashingOpts,
   slashingRoundSize,

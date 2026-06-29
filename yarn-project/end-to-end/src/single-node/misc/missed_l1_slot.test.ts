@@ -9,6 +9,7 @@ import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { jest } from '@jest/globals';
 
 import { proveAndSendTxs } from '../../test-wallet/utils.js';
+import { setupWithProver } from '../setup.js';
 import { SingleNodeTestContext } from '../single_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
@@ -75,7 +76,7 @@ describe('single-node/misc/missed_l1_slot', () => {
   const TX_COUNT = 12;
 
   beforeEach(async () => {
-    test = await SingleNodeTestContext.setup({
+    test = await setupWithProver({
       numberOfAccounts: 0,
       // The 8s blockDurationMs leaves a per-block DA gas budget too small to fit an account
       // deploy, so use the hardcoded-account fast-path (funded via genesis) even though we

@@ -5,7 +5,7 @@ import { CheckpointNumber } from '@aztec/foundation/branded-types';
 
 import type { EndToEndContext } from '../../fixtures/utils.js';
 import { waitForBlockNumber } from '../../fixtures/wait_helpers.js';
-import { SingleNodeTestContext, jest } from './setup.js';
+import { SingleNodeTestContext, jest, setupWithProver } from './setup.js';
 
 // Exercises the aztecNodeAdmin.rollbackTo() API. Default SingleNodeTestContext with a very long epoch
 // (aztecEpochDuration=100) so there are no L2 reorgs, no finalized blocks, and the full pending chain
@@ -19,7 +19,7 @@ describe('single-node/recovery/manual_rollback', () => {
   let test: SingleNodeTestContext;
 
   beforeEach(async () => {
-    test = await SingleNodeTestContext.setup({ aztecEpochDuration: 100 }); // No L2 reorgs, no finalized blocks
+    test = await setupWithProver({ aztecEpochDuration: 100 }); // No L2 reorgs, no finalized blocks
     ({ context, logger, rollup } = test);
     ({ aztecNode: node } = context);
   });

@@ -18,6 +18,7 @@ import { RootRollupPublicInputs } from '@aztec/stdlib/rollup';
 import { jest } from '@jest/globals';
 
 import type { EndToEndContext } from '../../fixtures/utils.js';
+import { setupWithProver } from '../setup.js';
 import { SingleNodeTestContext } from '../single_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
@@ -41,7 +42,7 @@ describe('single-node/proving/proof_fails', () => {
   let test: SingleNodeTestContext;
 
   beforeEach(async () => {
-    test = await SingleNodeTestContext.setup({
+    test = await setupWithProver({
       maxSpeedUpAttempts: 0, // No speed ups
       startProverNode: false, // Avoid early proving
       ethereumSlotDuration: 8,

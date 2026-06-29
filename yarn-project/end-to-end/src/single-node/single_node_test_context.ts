@@ -216,9 +216,6 @@ export class SingleNodeTestContext {
     const { ethereumSlotDuration, aztecSlotDuration, aztecEpochDuration, aztecProofSubmissionEpochs } =
       SingleNodeTestContext.getSlotDurations(opts);
 
-    this.L1_BLOCK_TIME_IN_S = ethereumSlotDuration;
-    this.L2_SLOT_DURATION_IN_S = aztecSlotDuration;
-
     // Auto-create a hardcoded account funded via genesis when:
     //  - skipInitialSequencer is set (no sequencer to deploy on-chain), or
     //  - useHardcodedAccount is explicitly requested (e.g. tight per-block gas budgets that
@@ -262,12 +259,32 @@ export class SingleNodeTestContext {
       { syncChainTip: 'checkpointed', ...opts.pxeOpts },
     );
 
-    this.context = context;
-
     // Register the hardcoded account in PXE (local only, no on-chain deployment needed).
     if (hardcodedAccountData) {
+      this.context = context;
       await this.registerHardcodedAccount(hardcodedAccountData);
     }
+
+    await this.hydrateFromContext(context);
+  }
+
+  /**
+   * Populates the context-derived state (tracked nodes, L1 client, rollup, epoch cache, chain
+   * monitor, delayers, timing constants) from an already-built {@link EndToEndContext}. Split out of
+   * {@link setup} so prover-specific subclasses that build the environment with their own bespoke
+   * `setup(...)` opts (e.g. `FullProverTest`) can still reuse the base node/teardown machinery
+   * without inheriting the base's default node config. Slot/epoch durations are read from the
+   * resolved `context.config` so the recorded constants match whatever the environment was deployed
+   * with.
+   */
+  protected async hydrateFromContext(context: EndToEndContext): Promise<void> {
+    this.context = context;
+
+    const { ethereumSlotDuration, aztecSlotDuration, aztecEpochDuration } = context.config;
+
+    this.L1_BLOCK_TIME_IN_S = ethereumSlotDuration;
+    this.L2_SLOT_DURATION_IN_S = aztecSlotDuration;
+
     this.proverNodes = context.proverNode ? [context.proverNode] : [];
     this.nodes = context.aztecNode ? [context.aztecNode as AztecNodeService] : [];
     this.logger = context.logger;
