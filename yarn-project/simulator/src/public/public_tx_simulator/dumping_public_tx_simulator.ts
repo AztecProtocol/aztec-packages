@@ -15,13 +15,13 @@ import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 import type { PublicContractsDB } from '../public_db_sources.js';
-import { CppPublicTxSimulator } from './cpp_public_tx_simulator.js';
+import { PublicTxSimulator } from './public_tx_simulator.js';
 
 /**
  * A C++ public tx simulator that dumps AVM circuit inputs to disk after simulation.
  * Used during nightly CI runs to collect circuit inputs for benchmarking.
  */
-export class DumpingCppPublicTxSimulator extends CppPublicTxSimulator {
+export class DumpingPublicTxSimulator extends PublicTxSimulator {
   private readonly outputDir: string;
 
   constructor(

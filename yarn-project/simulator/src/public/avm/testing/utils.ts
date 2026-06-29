@@ -24,8 +24,8 @@ import { strict as assert } from 'assert';
 import merge from 'lodash.merge';
 
 import { resolveAssertionMessageFromRevertData, traverseCauseChain } from '../../../common/index.js';
-import { Field, Uint8, Uint32, Uint64 } from '../avm_memory_types.js';
-import type { AvmRevertReason } from '../errors.js';
+import { Field, Uint8, Uint32, Uint64 } from './avm_memory_types.js';
+import type { AvmRevertReason } from './errors.js';
 
 export const PUBLIC_DISPATCH_FN_NAME = 'public_dispatch';
 export const DEFAULT_TIMESTAMP: UInt64 = 99833n;

@@ -54,7 +54,7 @@ import { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
 import {
   type PublicTxSimulatorConfig,
   type PublicTxSimulatorInterface,
-  TelemetryCppPublicTxSimulator,
+  TelemetryPublicTxSimulator,
 } from '../public_tx_simulator/index.js';
 import { GuardedMerkleTreeOperations } from './guarded_merkle_tree.js';
 import { PublicProcessorMetrics } from './public_processor_metrics.js';
@@ -105,7 +105,7 @@ export class PublicProcessorFactory {
     globalVariables: GlobalVariables,
     config?: Partial<PublicTxSimulatorConfig>,
   ): PublicTxSimulatorInterface {
-    return new TelemetryCppPublicTxSimulator(
+    return new TelemetryPublicTxSimulator(
       merkleTree,
       contractsDB,
       globalVariables,

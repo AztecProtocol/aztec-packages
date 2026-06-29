@@ -68,7 +68,7 @@ class FuzzerWorldStateManager {
     static constexpr const char* DATA_DIR = "/tmp/avm_fuzzer_ws/world_state";
     static constexpr uint64_t MAP_SIZE_KB = 10240; // 10 MB
 
-    // Static instance management (similar to JsSimulator pattern)
+    // Static singleton instance management
     static void initialize()
     {
         if (instance == nullptr) {

@@ -1,10 +1,10 @@
 import type { PublicTxResult } from '@aztec/stdlib/avm';
 import { ProtocolContracts } from '@aztec/stdlib/tx';
 
-import { TypeTag } from '../avm/avm_memory_types.js';
-import { Add, Return, Set } from '../avm/opcodes/index.js';
-import { encodeToBytecode } from '../avm/serialization/bytecode_serialization.js';
-import { Opcode } from '../avm/serialization/instruction_serialization.js';
+import { TypeTag } from '../avm/testing/avm_memory_types.js';
+import { Add, Return, Set } from '../avm/testing/opcodes.js';
+import { encodeToBytecode } from '../avm/testing/serialization/bytecode_serialization.js';
+import { Opcode } from '../avm/testing/serialization/instruction_serialization.js';
 import { deployAndExecuteCustomBytecode } from './custom_bytecode_tester.js';
 import { PublicTxSimulationTester } from './public_tx_simulation_tester.js';
 

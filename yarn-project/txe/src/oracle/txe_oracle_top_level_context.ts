@@ -47,10 +47,10 @@ import {
   witnessMapToFields,
 } from '@aztec/simulator/client';
 import {
-  CppPublicTxSimulator,
   GuardedMerkleTreeOperations,
   PublicContractsDB,
   PublicProcessor,
+  PublicTxSimulator,
 } from '@aztec/simulator/server';
 import { type ContractArtifact, EventSelector, FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
@@ -541,7 +541,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       globals,
       guardedMerkleTrees,
       contractsDB,
-      new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config, bindings),
+      new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config, bindings),
       new TestDateProvider(),
       undefined,
       createLogger('simulator:public-processor', bindings),
@@ -655,7 +655,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       collectStatistics: false,
       collectCallMetadata: true,
     });
-    const simulator = new CppPublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config, bindings2);
+    const simulator = new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config, bindings2);
     const processor = new PublicProcessor(
       globals,
       guardedMerkleTrees,

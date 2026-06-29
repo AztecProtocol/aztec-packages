@@ -9,7 +9,6 @@
 #include "barretenberg/avm_fuzzer/common/interfaces/dbs.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/control_flow.hpp"
-#include "barretenberg/avm_fuzzer/fuzz_lib/fuzz.hpp"
 #include "barretenberg/avm_fuzzer/fuzzer_comparison_helper.hpp"
 #include "barretenberg/avm_fuzzer/mutations/basic_types/field.hpp"
 #include "barretenberg/avm_fuzzer/mutations/basic_types/uint64_t.hpp"
@@ -96,15 +95,12 @@ void fund_fee_payer(FuzzerWorldStateManager& ws_mgr, const Tx& tx)
     ws_mgr.write_fee_payer_balance(tx.fee_payer, fee_required_da + fee_required_l2);
 }
 
-/// @brief Fuzz CPP vs JS simulator with a full transaction containing multiple enqueued calls
+/// @brief Run the C++ simulator on a full transaction containing multiple enqueued calls
 /// @param tx_data The transaction data containing multiple enqueued calls
-/// @returns The simulator result if the results are the same
-/// @throws An exception if the simulator results are different
+/// @returns The simulation result; a reverted result carrying the message if the simulator throws
 SimulatorResult fuzz_tx(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contract_db, FuzzerTxData& tx_data)
 {
-    // Run simulators
     auto cpp_simulator = CppSimulator();
-    JsSimulator* js_simulator = JsSimulator::getInstance();
     SimulatorResult cpp_result;
 
     try {
@@ -129,25 +125,6 @@ SimulatorResult fuzz_tx(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contr
         };
         ws_mgr.revert();
     }
-
-    ws_mgr.checkpoint();
-    auto js_result = js_simulator->simulate(ws_mgr,
-                                            contract_db,
-                                            tx_data.tx,
-                                            tx_data.global_variables,
-                                            tx_data.public_data_writes,
-                                            tx_data.note_hashes,
-                                            tx_data.protocol_contracts);
-
-    // If the results do not match
-    if (!compare_simulator_results(cpp_result, js_result)) {
-        fuzz_info("CppSimulator ", cpp_result);
-        fuzz_info("JsSimulator  ", js_result);
-        throw std::runtime_error("Simulator results are different");
-    }
-    fuzz_info("Simulator results match successfully");
-    fuzz_info("CppSimulator ", cpp_result);
-    fuzz_info("JsSimulator  ", js_result);
 
     return cpp_result;
 }
