@@ -1,13 +1,15 @@
 import { MAX_NOTE_HASHES_PER_TX } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { TxHash } from '@aztec/stdlib/tx';
+
+import { TxHash } from './tx_hash.js';
 
 /**
  * The resolved on-chain context of a transaction.
  *
  * Carries the note hashes and first nullifier needed to discover notes that originated from the transaction, plus the
- * number and hash of the block in which it was mined.
+ * number and hash of the block in which it was mined. Message processing uses this both for the on-chain tagged-log
+ * path and the offchain reception path; it is the single context attached to a message being processed.
  *
  * A TS version of the `ResolvedTx` struct in `oracle/tx_resolution.nr`.
  */

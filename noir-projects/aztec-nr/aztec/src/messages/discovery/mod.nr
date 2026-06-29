@@ -18,8 +18,8 @@ use crate::{
         encoding::MAX_MESSAGE_CONTENT_LEN,
         logs::note::MAX_NOTE_PACKED_LEN,
         processing::{
-            MessageContext, offchain::OffchainInboxSync, OffchainMessageWithContext,
-            pending_tagged_log::PendingTaggedLog, validate_and_store_enqueued_notes_and_events,
+            offchain::OffchainInboxSync, OffchainMessageWithContext, pending_tagged_log::PendingTaggedLog, ResolvedTx,
+            validate_and_store_enqueued_notes_and_events,
         },
     },
     oracle::message_processing,
@@ -108,7 +108,7 @@ pub type CustomMessageHandler = unconstrained fn(
 /* msg_type_id */ u64,
 /* msg_metadata */ u64,
 /* msg_content */ BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
-/* message_context */ MessageContext,
+/* resolved_tx */ ResolvedTx,
 /* scope */ AztecAddress);
 
 /// Custom state synchronization handler.
@@ -216,7 +216,7 @@ unconstrained fn sync_state_with_secrets(
                 compute_note_nullifier,
                 process_custom_message,
                 msg.message_ciphertext,
-                msg.message_context,
+                msg.resolved_tx,
                 scope,
             );
         });

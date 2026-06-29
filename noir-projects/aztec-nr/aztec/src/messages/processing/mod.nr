@@ -1,8 +1,7 @@
 pub(crate) mod event_validation_request;
 pub mod offchain;
 
-mod message_context;
-pub use message_context::MessageContext;
+pub use crate::oracle::tx_resolution::ResolvedTx;
 
 mod note_validation_request;
 pub use note_validation_request::NoteValidationRequest;
@@ -48,7 +47,7 @@ global LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT: Field = sha256_to_field(
 #[derive(Serialize, Deserialize)]
 pub struct OffchainMessageWithContext {
     pub message_ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
-    pub message_context: MessageContext,
+    pub resolved_tx: ResolvedTx,
 }
 
 /// Enqueues a note for validation and storage by PXE.

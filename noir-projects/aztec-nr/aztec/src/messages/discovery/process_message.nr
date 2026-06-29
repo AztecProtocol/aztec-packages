@@ -8,7 +8,7 @@ use crate::messages::{
     msg_type::{
         MIN_CUSTOM_MSG_TYPE_ID, PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID, PRIVATE_EVENT_MSG_TYPE_ID, PRIVATE_NOTE_MSG_TYPE_ID,
     },
-    processing::MessageContext,
+    processing::ResolvedTx,
 };
 
 use crate::logging::{aztecnr_debug_log, aztecnr_warn_log_format};
@@ -32,7 +32,7 @@ pub unconstrained fn process_message_ciphertext(
     compute_note_nullifier: ComputeNoteNullifier,
     process_custom_message: Option<CustomMessageHandler>,
     message_ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
-    message_context: MessageContext,
+    resolved_tx: ResolvedTx,
     recipient: AztecAddress,
 ) {
     let message_plaintext_option = AES128::decrypt(message_ciphertext, recipient, contract_address);
@@ -44,11 +44,11 @@ pub unconstrained fn process_message_ciphertext(
             compute_note_nullifier,
             process_custom_message,
             message_plaintext_option.unwrap(),
-            message_context,
+            resolved_tx,
             recipient,
         );
     } else {
-        aztecnr_warn_log_format!("Could not decrypt message ciphertext from tx {0}, ignoring")([message_context.tx_hash]);
+        aztecnr_warn_log_format!("Could not decrypt message ciphertext from tx {0}, ignoring")([resolved_tx.tx_hash]);
     }
 }
 
@@ -58,7 +58,7 @@ pub(crate) unconstrained fn process_message_plaintext(
     compute_note_nullifier: ComputeNoteNullifier,
     process_custom_message: Option<CustomMessageHandler>,
     message_plaintext: BoundedVec<Field, MESSAGE_PLAINTEXT_LEN>,
-    message_context: MessageContext,
+    resolved_tx: ResolvedTx,
     recipient: AztecAddress,
 ) {
     // The first thing to do after decrypting the message is to determine what type of message we're processing. We
@@ -75,9 +75,9 @@ pub(crate) unconstrained fn process_message_plaintext(
 
             process_private_note_msg(
                 contract_address,
-                message_context.tx_hash,
-                message_context.unique_note_hashes_in_tx,
-                message_context.first_nullifier_in_tx,
+                resolved_tx.tx_hash,
+                resolved_tx.unique_note_hashes_in_tx,
+                resolved_tx.first_nullifier_in_tx,
                 compute_note_hash,
                 compute_note_nullifier,
                 msg_metadata,
@@ -90,7 +90,7 @@ pub(crate) unconstrained fn process_message_plaintext(
                 contract_address,
                 msg_metadata,
                 msg_content,
-                message_context.tx_hash,
+                resolved_tx.tx_hash,
                 recipient,
             );
         } else if msg_type_id == PRIVATE_EVENT_MSG_TYPE_ID {
@@ -100,7 +100,7 @@ pub(crate) unconstrained fn process_message_plaintext(
                 contract_address,
                 msg_metadata,
                 msg_content,
-                message_context.tx_hash,
+                resolved_tx.tx_hash,
             );
         } else if msg_type_id < MIN_CUSTOM_MSG_TYPE_ID {
             // The message type ID falls in the range reserved for aztec.nr built-in types but wasn't matched above.
@@ -117,7 +117,7 @@ pub(crate) unconstrained fn process_message_plaintext(
                 msg_type_id,
                 msg_metadata,
                 msg_content,
-                message_context,
+                resolved_tx,
                 recipient,
             );
         } else {
@@ -130,6 +130,6 @@ pub(crate) unconstrained fn process_message_plaintext(
             );
         }
     } else {
-        aztecnr_warn_log_format!("Could not decode message plaintext from tx {0}, ignoring")([message_context.tx_hash]);
+        aztecnr_warn_log_format!("Could not decode message plaintext from tx {0}, ignoring")([resolved_tx.tx_hash]);
     }
 }

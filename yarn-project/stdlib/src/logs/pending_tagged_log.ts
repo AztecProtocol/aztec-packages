@@ -2,14 +2,14 @@ import { PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 
 import type { TxHash } from '../tx/tx_hash.js';
-import { MessageContext } from './message_context.js';
+import { ResolvedTx } from '../tx/resolved_tx.js';
 
 /**
  * Represents a pending tagged log as it is stored in the pending tagged log array to which the fetchTaggedLogs oracle
  * inserts found private logs. A TS version of `pending_tagged_log.nr`.
  */
 export class PendingTaggedLog {
-  private context: MessageContext;
+  private context: ResolvedTx;
 
   constructor(
     public log: Fr[],
@@ -17,7 +17,7 @@ export class PendingTaggedLog {
     uniqueNoteHashesInTx: Fr[],
     firstNullifierInTx: Fr,
   ) {
-    this.context = new MessageContext(txHash, uniqueNoteHashesInTx, firstNullifierInTx);
+    this.context = new ResolvedTx(txHash, uniqueNoteHashesInTx, firstNullifierInTx, 0, Fr.ZERO);
   }
 
   toFields(): Fr[] {

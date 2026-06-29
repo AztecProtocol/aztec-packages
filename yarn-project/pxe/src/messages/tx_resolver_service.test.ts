@@ -6,7 +6,7 @@ import { DroppedTxReceipt, MinedTxReceipt, TxEffect, TxExecutionResult, TxHash, 
 
 import { mock } from 'jest-mock-extended';
 
-import { ResolvedTx } from '../contract_function_simulator/noir-structs/resolved_tx.js';
+import { ResolvedTx } from '@aztec/stdlib/tx';
 import { TxResolverService } from './tx_resolver_service.js';
 
 describe('TxResolverService', () => {

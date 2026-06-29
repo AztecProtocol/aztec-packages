@@ -3,7 +3,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { type IndexedTxEffect, TxHash } from '@aztec/stdlib/tx';
 
-import { ResolvedTx } from '../contract_function_simulator/noir-structs/resolved_tx.js';
+import { ResolvedTx } from '@aztec/stdlib/tx';
 
 /** Resolves transaction hashes into their on-chain context (note hashes, first nullifier, and mined block). */
 export class TxResolverService {
