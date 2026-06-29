@@ -634,11 +634,12 @@ describe('e2e_synching', () => {
 
           expect(await archiver.getCheckpointNumber()).toBeGreaterThan(provenThrough);
           const blockTip = (await archiver.getBlock({ number: await archiver.getBlockNumber() }))!;
+          const referenceTimestamp = blockTip.header.globalVariables.timestamp;
           const txHash = blockTip.body.txEffects[0].txHash;
 
           const contractClassIds = await archiver.getContractClassIds();
           const contractInstances = await Promise.all(
-            contracts.map(async c => (await archiver.getContract(c.address))!),
+            contracts.map(async c => (await archiver.getContract(c.address, referenceTimestamp))!),
           );
           for (let i = 0; i < contracts.length; i++) {
             expect(contractInstances[i]).not.toBeUndefined();
@@ -659,9 +660,9 @@ describe('e2e_synching', () => {
 
           expect(contractClassIdsAfter.some(id => id.equals(contractInstances[0].currentContractClassId))).toBeTrue();
           expect(contractClassIdsAfter.some(id => id.equals(contractInstances[1].currentContractClassId))).toBeFalse();
-          expect(await archiver.getContract(contracts[0].address)).not.toBeUndefined();
-          expect(await archiver.getContract(contracts[1].address)).toBeUndefined();
-          expect(await archiver.getContract(contracts[2].address)).toBeUndefined();
+          expect(await archiver.getContract(contracts[0].address, referenceTimestamp)).not.toBeUndefined();
+          expect(await archiver.getContract(contracts[1].address, referenceTimestamp)).toBeUndefined();
+          expect(await archiver.getContract(contracts[2].address, referenceTimestamp)).toBeUndefined();
 
           // Only the hardcoded schnorr is pruned since the contract class also existed before prune.
           expect(contractClassIdsAfter).toEqual(

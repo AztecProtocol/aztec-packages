@@ -9,7 +9,7 @@ import { AvmProvingTester } from './avm_proving_tester.js';
 const TIMEOUT = 60_000;
 
 describe('AVM check-circuit – public fee payment', () => {
-  const sender = AztecAddress.fromNumber(42);
+  const sender = AztecAddress.fromNumberUnsafe(42);
   const feePayer = sender;
 
   const initialFeeJuiceBalance = new Fr(20000);
@@ -25,7 +25,7 @@ describe('AVM check-circuit – public fee payment', () => {
 
     avmTestContractInstance = await tester.registerAndDeployContract(
       /*constructorArgs=*/ [],
-      /*deployer=*/ AztecAddress.fromNumber(420),
+      /*deployer=*/ AztecAddress.fromNumberUnsafe(420),
       AvmTestContractArtifact,
     );
   });

@@ -80,7 +80,7 @@ async function createKeyFiles() {
   });
 
   const feeRecipientAddresses = Array.from({ length: VALIDATOR_COUNT }, (_, i) => {
-    return AztecAddress.fromNumber(i + 1);
+    return AztecAddress.fromNumberUnsafe(i + 1);
   });
 
   await createKeyFile1(
@@ -205,7 +205,7 @@ describe('e2e_multi_validator_node', () => {
         .toString()
         .toLowerCase();
       expectedCoinbaseAddresses.set(validatorAddress.toLowerCase(), coinbase);
-      const feeRecipient = AztecAddress.fromNumber(i + 1)
+      const feeRecipient = AztecAddress.fromNumberUnsafe(i + 1)
         .toString()
         .toLowerCase();
       expectedFeeRecipientAddresses.set(validatorAddress.toLowerCase(), feeRecipient);

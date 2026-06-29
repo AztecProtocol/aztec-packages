@@ -8,4 +8,4 @@
 !.gitignore
 !.npmignore
 !SHA256SUMS
-!sqlite3-bundler-friendly.d.mts
+!sqlite3.d.mts

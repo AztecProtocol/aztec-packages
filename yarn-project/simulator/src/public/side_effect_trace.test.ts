@@ -106,11 +106,11 @@ describe('Public Side Effect Trace', () => {
         await trace.tracePublicStorageWrite(address, slot.add(new Fr(i)), value.add(new Fr(1)), false);
       }
       await expect(
-        trace.tracePublicStorageWrite(AztecAddress.fromNumber(42), new Fr(42), value, false),
+        trace.tracePublicStorageWrite(AztecAddress.fromNumberUnsafe(42), new Fr(42), value, false),
       ).rejects.toThrow(SideEffectLimitReachedError);
       // Still allows protocol writes
       await expect(
-        trace.tracePublicStorageWrite(AztecAddress.fromNumber(42), new Fr(42), value, true),
+        trace.tracePublicStorageWrite(AztecAddress.fromNumberUnsafe(42), new Fr(42), value, true),
       ).resolves.not.toThrow();
     });
 
@@ -118,12 +118,12 @@ describe('Public Side Effect Trace', () => {
       for (let i = 0; i < PROTOCOL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX; i++) {
         await trace.tracePublicStorageWrite(address, slot, value, true);
       }
-      await expect(trace.tracePublicStorageWrite(AztecAddress.fromNumber(42), new Fr(42), value, true)).rejects.toThrow(
-        SideEffectLimitReachedError,
-      );
+      await expect(
+        trace.tracePublicStorageWrite(AztecAddress.fromNumberUnsafe(42), new Fr(42), value, true),
+      ).rejects.toThrow(SideEffectLimitReachedError);
       // Still allows user writes
       await expect(
-        trace.tracePublicStorageWrite(AztecAddress.fromNumber(42), new Fr(42), value, false),
+        trace.tracePublicStorageWrite(AztecAddress.fromNumberUnsafe(42), new Fr(42), value, false),
       ).resolves.not.toThrow();
     });
 
@@ -143,9 +143,9 @@ describe('Public Side Effect Trace', () => {
 
     it('Should enforce maximum number of new l2 to l1 messages', () => {
       for (let i = 0; i < MAX_L2_TO_L1_MSGS_PER_TX; i++) {
-        trace.traceNewL2ToL1Message(AztecAddress.fromNumber(i), new Fr(i), new Fr(i));
+        trace.traceNewL2ToL1Message(AztecAddress.fromNumberUnsafe(i), new Fr(i), new Fr(i));
       }
-      expect(() => trace.traceNewL2ToL1Message(AztecAddress.fromNumber(42), new Fr(42), new Fr(42))).toThrow(
+      expect(() => trace.traceNewL2ToL1Message(AztecAddress.fromNumberUnsafe(42), new Fr(42), new Fr(42))).toThrow(
         SideEffectLimitReachedError,
       );
     });
@@ -153,10 +153,10 @@ describe('Public Side Effect Trace', () => {
     it('Should enforce maximum number of log fields', () => {
       // Fill the payload with one super large log
       trace.tracePublicLog(
-        AztecAddress.fromNumber(42),
+        AztecAddress.fromNumberUnsafe(42),
         new Array(FLAT_PUBLIC_LOGS_PAYLOAD_LENGTH - PUBLIC_LOG_HEADER_LENGTH).fill(new Fr(42)),
       );
-      expect(() => trace.tracePublicLog(AztecAddress.fromNumber(42), [])).toThrow(SideEffectLimitReachedError);
+      expect(() => trace.tracePublicLog(AztecAddress.fromNumberUnsafe(42), [])).toThrow(SideEffectLimitReachedError);
     });
 
     it('Should enforce maximum number of unique contract class IDs', async () => {
@@ -209,17 +209,17 @@ describe('Public Side Effect Trace', () => {
         ),
       );
       await expect(
-        trace.tracePublicStorageWrite(AztecAddress.fromNumber(42), new Fr(42), new Fr(42), false),
+        trace.tracePublicStorageWrite(AztecAddress.fromNumberUnsafe(42), new Fr(42), new Fr(42), false),
       ).rejects.toThrow(SideEffectLimitReachedError);
       await expect(
-        trace.tracePublicStorageWrite(AztecAddress.fromNumber(42), new Fr(42), new Fr(42), true),
+        trace.tracePublicStorageWrite(AztecAddress.fromNumberUnsafe(42), new Fr(42), new Fr(42), true),
       ).rejects.toThrow(SideEffectLimitReachedError);
       expect(() => trace.traceNewNoteHash(new Fr(42))).toThrow(SideEffectLimitReachedError);
       expect(() => trace.traceNewNullifier(new Fr(42))).toThrow(SideEffectLimitReachedError);
-      expect(() => trace.traceNewL2ToL1Message(AztecAddress.fromNumber(42), new Fr(42), new Fr(42))).toThrow(
+      expect(() => trace.traceNewL2ToL1Message(AztecAddress.fromNumberUnsafe(42), new Fr(42), new Fr(42))).toThrow(
         SideEffectLimitReachedError,
       );
-      expect(() => trace.tracePublicLog(AztecAddress.fromNumber(42), [])).toThrow(SideEffectLimitReachedError);
+      expect(() => trace.tracePublicLog(AztecAddress.fromNumberUnsafe(42), [])).toThrow(SideEffectLimitReachedError);
     });
   });
 

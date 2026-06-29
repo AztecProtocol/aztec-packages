@@ -41,7 +41,7 @@ describe('LightweightCheckpointBuilder benchmarks', () => {
   const toGithubActionBenchmarkJSON = (indent = 2) => JSON.stringify(results, null, indent);
 
   beforeEach(async () => {
-    feePayer = AztecAddress.fromNumber(42222);
+    feePayer = AztecAddress.fromNumberUnsafe(42222);
     feePayerBalance = new Fr(10n ** 20n);
     const feePayerSlot = await computeFeePayerBalanceLeafSlot(feePayer);
     const genesis: GenesisData = {
@@ -120,7 +120,7 @@ describe('LightweightCheckpointBuilder benchmarks', () => {
     // Add a full contract class log (CONTRACT_CLASS_LOG_SIZE_IN_FIELDS = 3,023 blob fields).
     tx.txEffect.contractClassLogs = [
       new ContractClassLog(
-        AztecAddress.fromNumber(seed),
+        AztecAddress.fromNumberUnsafe(seed),
         ContractClassLogFields.random(CONTRACT_CLASS_LOG_SIZE_IN_FIELDS),
         CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
       ),

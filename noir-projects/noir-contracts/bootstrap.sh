@@ -142,6 +142,15 @@ function build {
     folder_name="examples"
   else
     folder_name="contracts"
+    # test_token_contract is generated from canonical app/token_contract. Locally, regenerate it in
+    # place so an edited Token is reflected in TestToken-based tests before you commit (the precommit
+    # hook also regenerates it on commit). In CI we verify instead of regenerate: the committed copy
+    # must already be in sync, and a CI build must not modify checked-in files. See gen_test_token.sh.
+    if [ "$CI" -eq 1 ]; then
+      ./scripts/gen_test_token.sh --check
+    else
+      ./scripts/gen_test_token.sh
+    fi
   fi
 
   if [ "$#" -eq 0 ]; then

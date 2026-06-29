@@ -23,7 +23,7 @@ export class ContractProviderForCpp implements ContractProvider {
   public getContractInstance = async (address: string): Promise<Buffer | undefined> => {
     this.log.trace(`Contract provider callback: getContractInstance(${address})`);
 
-    const aztecAddr = AztecAddress.fromString(address);
+    const aztecAddr = AztecAddress.fromStringUnsafe(address);
 
     const instance = await this.contractsDB.getContractInstance(aztecAddr, this.globalVariables.timestamp);
 
@@ -88,7 +88,7 @@ export class ContractProviderForCpp implements ContractProvider {
     this.log.trace(`Contract provider callback: getDebugFunctionName(${address}, ${selector})`);
 
     // Parse address and selector strings
-    const aztecAddr = AztecAddress.fromString(address);
+    const aztecAddr = AztecAddress.fromStringUnsafe(address);
     const selectorFr = Fr.fromString(selector);
     const functionSelector = FunctionSelector.fromFieldOrUndefined(selectorFr);
 

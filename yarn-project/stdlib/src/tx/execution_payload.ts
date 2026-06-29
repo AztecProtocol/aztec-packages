@@ -54,7 +54,8 @@ export function mergeExecutionPayloads(requests: ExecutionPayload[]): ExecutionP
     );
   }
 
-  const feePayer = uniqueFeePayers.size === 1 ? AztecAddress.fromString(Array.from(uniqueFeePayers)[0]) : undefined;
+  const feePayer =
+    uniqueFeePayers.size === 1 ? AztecAddress.fromStringUnsafe(Array.from(uniqueFeePayers)[0]) : undefined;
 
   return new ExecutionPayload(calls, combinedAuthWitnesses, combinedCapsules, combinedExtraHashedArgs, feePayer);
 }

@@ -53,9 +53,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const instance = await getContractInstanceFromInstantiationParams(
       PrivateVotingContract.artifact,
       {
-        deployer: AztecAddress.fromString(deployerAddress),
+        deployer: AztecAddress.fromStringUnsafe(deployerAddress),
         salt: Fr.fromString(deploymentSalt),
-        constructorArgs: [AztecAddress.fromString(deployerAddress)],
+        constructorArgs: [AztecAddress.fromStringUnsafe(deployerAddress)],
       }
     );
     await wallet.registerContract(instance, PrivateVotingContract.artifact);
@@ -155,7 +155,7 @@ voteButton.addEventListener('click', async (e) => {
 
     // Prepare contract interaction
     const votingContract = PrivateVotingContract.at(
-      AztecAddress.fromString(contractAddress),
+      AztecAddress.fromStringUnsafe(contractAddress),
       wallet
     );
 
@@ -188,7 +188,7 @@ async function updateVoteTally(wallet: Wallet, from: AztecAddress) {
 
   // Prepare contract interaction
   const votingContract = PrivateVotingContract.at(
-    AztecAddress.fromString(contractAddress),
+    AztecAddress.fromStringUnsafe(contractAddress),
     wallet
   );
 
