@@ -9,15 +9,15 @@ use sync::handshake_registry_sync;
 /// signature). See [`HandshakeRegistry::non_interactive_handshake`].
 global NON_INTERACTIVE_HANDSHAKE: u8 = 1;
 
-/// Registry for the constrained-delivery shared-secret handshake protocol.
+/// Registry for the constrained-delivery handshake protocol.
 ///
 /// The registry establishes a master shared-secret point `S` between a sender and a recipient and stores one current
 /// note for each `(recipient, sender)` pair. `S` is independent of delivery mode: the recipient should derive per-mode
 /// tags
 /// from it when scanning. The raw `S` never leaves the registry: app contracts call
 /// [`HandshakeRegistry::non_interactive_handshake`] to receive the secret already siloed to the caller, call
-/// [`HandshakeRegistry::get_app_siloed_secret`] offchain for an existing handshake, and use
-/// [`HandshakeRegistry::validate_handshake`] to check an app-siloed secret against the current stored handshake. The
+/// [`HandshakeRegistry::get_app_siloed_secrets`] offchain for an existing handshake, and use
+/// [`HandshakeRegistry::validate_handshake`] to check app-siloed secrets against the current stored handshake. The
 /// private surfaces silo against `msg_sender()`, so a contract can only obtain or validate secrets siloed to itself.
 /// Re-handshaking does not revoke already-started constrained-delivery sequences; it only replaces the registry note
 /// used
@@ -31,9 +31,10 @@ pub contract HandshakeRegistry {
         keys::{ecdh_shared_secret::derive_ecdh_shared_secret, ephemeral::generate_positive_ephemeral_key_pair},
         macros::{functions::external, storage::storage},
         messages::{
-            delivery::{handshake::{HandshakePage, MAX_HANDSHAKES_PER_PAGE}, MessageDelivery},
+            delivery::{handshake::{AppSiloedHandshakeSecrets, HandshakePage, MAX_HANDSHAKES_PER_PAGE}, MessageDelivery},
             encryption::{aes128::AES128, message_encryption::MessageEncryption},
         },
+        oracle::random::random,
         protocol::{
             address::AztecAddress, constants::DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG, hash::compute_log_tag,
             traits::ToField,
@@ -48,7 +49,8 @@ pub contract HandshakeRegistry {
         handshakes: Map<AztecAddress, Owned<PrivateMutable<HandshakeNote, Context>, Context>, Context>,
     }
 
-    /// Performs a non-interactive handshake from `sender` to `recipient` and returns the app-siloed shared secret
+    /// Performs a non-interactive handshake from `sender` to `recipient` and returns the [app-siloed handshake
+    /// secrets][AppSiloedHandshakeSecrets]
     /// for the calling contract.
     ///
     /// The handshake establishes a single shared secret per `(recipient, sender)` pair, independent of delivery
@@ -63,21 +65,26 @@ pub contract HandshakeRegistry {
     ///    recipient discovers handshakes addressed to them by scanning their tag and recovers `S` from `eph_pk`
     ///    via their own ECDH (`recipient_isk * eph_pk`). `eph_pk.y` is fixed positive by the
     ///    [`generate_positive_ephemeral_key_pair`] convention, so only `eph_pk.x` is transmitted.
-    /// 3. Returns the app-siloed shared secret for `msg_sender()`, allowing the caller to fold "handshake + first
-    ///    tag" into one call without a second hop into the registry.
+    /// 3. Returns the app-siloed handshake secrets for `msg_sender()`, allowing the caller to fold "handshake + first
+    ///    tag" into one call without a second hop into the registry. The sender-only secret derives from a fresh
+    ///    random secret (retained in the note), so the recipient, who only sees `eph_pk`, cannot reconstruct it.
     ///
     /// # Panics
     /// If `recipient` is not a valid curve point. There are no upstream side effects in this call frame to
     /// protect, and a fallback would insert a permanent note recording a handshake with an invalid recipient,
     /// polluting registry state.
     #[external("private")]
-    fn non_interactive_handshake(sender: AztecAddress, recipient: AztecAddress) -> Field {
+    fn non_interactive_handshake(sender: AztecAddress, recipient: AztecAddress) -> AppSiloedHandshakeSecrets {
         let recipient_point = recipient.to_address_point().expect(f"recipient address is not on the curve");
 
         let (eph_sk, eph_pk) = generate_positive_ephemeral_key_pair();
         let s_raw = derive_ecdh_shared_secret(eph_sk, recipient_point.inner);
 
-        let note = HandshakeNote::new(s_raw, NON_INTERACTIVE_HANDSHAKE, recipient);
+        // Safety: an uncooperative sender could pick a non-random value, but the sender-only secret only protects
+        // the sender's own ability to advance their sequence, so a bad value only harms themselves. It is a fresh
+        // random secret known only to the sender, which will be folded into constrained-delivery nullifiers.
+        let sender_secret = unsafe { random() };
+        let note = HandshakeNote::new(s_raw, NON_INTERACTIVE_HANDSHAKE, recipient, sender_secret);
 
         // The recipient is not involved in this note's delivery: they discover the handshake via the encrypted log
         // emitted below, not via the sender's note. We deliver onchain unconstrained rather than offchain so the
@@ -94,44 +101,48 @@ pub contract HandshakeRegistry {
         let ciphertext = AES128::encrypt([eph_pk.x], recipient, self.context.this_address());
         self.context.emit_private_log_unsafe(log_tag, BoundedVec::from_array(ciphertext));
 
-        note.siloed_for(self.msg_sender())
+        note.app_siloed_secrets_for(self.msg_sender())
     }
 
-    /// Asserts that `app_siloed_secret` is the silo of the stored handshake from `sender` to `recipient`, for
-    /// the caller (`msg_sender()`).
+    /// Asserts that `secrets` match the stored handshake from `sender` to `recipient`, for the caller
+    /// (`msg_sender()`).
     ///
-    /// Apps that receive an `app_siloed_secret` from an untrusted source call this once to validate that secret
+    /// Apps that receive handshake secrets from an untrusted source call this once to validate those secrets
     /// against the registry's latest stored handshake.
     ///
     /// # Panics
-    /// If no stored handshake for `(sender, recipient)` silos to `app_siloed_secret` under the calling
-    /// contract's address.
+    /// If no stored handshake for `(sender, recipient)` silos to the provided secrets under the calling contract's
+    /// address.
     #[external("private")]
-    fn validate_handshake(sender: AztecAddress, recipient: AztecAddress, app_siloed_secret: Field) {
-        let caller = self.msg_sender();
+    fn validate_handshake(sender: AztecAddress, recipient: AztecAddress, secrets: AppSiloedHandshakeSecrets) {
         let replacement_note_message = self.storage.handshakes.at(recipient).at(sender).get_note();
         let note = replacement_note_message.get_note();
 
-        assert(note.siloed_for(caller) == app_siloed_secret, "no matching handshake");
+        assert(note.app_siloed_secrets_for(self.msg_sender()) == secrets, "no matching handshake");
 
         // `PrivateMutable::get_note` proves the current note by nullifying and recreating it. Deliver the
         // replacement to the sender so later validation calls can prove the same current handshake again.
         replacement_note_message.deliver(MessageDelivery::onchain_unconstrained());
     }
 
-    /// Returns the app-siloed shared secret for an existing handshake.
+    /// Returns the app-siloed secrets for an existing handshake.
     ///
-    /// This is the existing-handshake retrieval surface. It returns `silo(S, msg_sender)`, never raw `S`; a different
-    /// caller receives a different app-siloed value for the same registry note. Siloing by `self.msg_sender()` means
-    /// a hostile contract cannot read another app's siloed secret: whatever arguments a caller passes, it only ever
-    /// learns values siloed to its own address. Contracts should still call [HandshakeRegistry::validate_handshake]
-    /// when they need a constrained proof that a supplied app-siloed secret matches the current handshake.
+    /// This is the existing-handshake retrieval surface. It returns secrets siloed to `msg_sender`, never the raw `S`
+    /// or the sender-only secret; a different caller receives different app-siloed values for the same registry note.
+    /// Siloing by `self.msg_sender()` means a hostile contract cannot read another app's siloed secrets: whatever
+    /// arguments a caller passes, it only ever learns values siloed to its own address. Contracts should still call
+    /// [HandshakeRegistry::validate_handshake] when they need a constrained proof that supplied app-siloed secrets
+    /// match the current handshake.
     #[external("utility")]
-    unconstrained fn get_app_siloed_secret(sender: AztecAddress, recipient: AztecAddress) -> Option<Field> {
+    unconstrained fn get_app_siloed_secrets(
+        sender: AztecAddress,
+        recipient: AztecAddress,
+    ) -> Option<AppSiloedHandshakeSecrets> {
         let handshake = self.storage.handshakes.at(recipient).at(sender);
 
         if handshake.is_initialized() {
-            Option::some(handshake.view_note().siloed_for(self.msg_sender()))
+            let note = handshake.view_note();
+            Option::some(note.app_siloed_secrets_for(self.msg_sender()))
         } else {
             Option::none()
         }
