@@ -90,7 +90,7 @@ pub(crate) unconstrained fn process_message_plaintext(
                 contract_address,
                 msg_metadata,
                 msg_content,
-                resolved_tx.tx_hash,
+                resolved_tx,
                 recipient,
             );
         } else if msg_type_id == PRIVATE_EVENT_MSG_TYPE_ID {

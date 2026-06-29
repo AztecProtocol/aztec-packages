@@ -1,26 +1,25 @@
 use crate::{
-    capsules::CapsuleArray,
     ephemeral::EphemeralArray,
+    facts::OriginBlock,
     messages::{
-        discovery::{ComputeNoteHash, ComputeNoteNullifier, nonce_discovery::attempt_note_nonce_discovery},
+        discovery::{
+            ComputeNoteHash, ComputeNoteNullifier, nonce_discovery::attempt_note_nonce_discovery,
+            partial_note_reception::PartialNoteReception,
+        },
         encoding::MAX_MESSAGE_CONTENT_LEN,
         logs::partial_note::{decode_partial_note_private_message, MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN},
         processing::{
             enqueue_note_for_validation,
             get_pending_partial_notes_completion_logs,
             log_retrieval_response::{LogRetrievalResponse, MAX_LOG_CONTENT_LEN},
+            ResolvedTx,
         },
     },
     utils::array,
 };
 
 use crate::logging::{aztecnr_debug_log_format, aztecnr_warn_log_format};
-use crate::protocol::{address::AztecAddress, hash::sha256_to_field, traits::{Deserialize, Serialize}};
-
-/// The slot in the PXE capsules where we store a `CapsuleArray` of `DeliveredPendingPartialNote`.
-pub(crate) global DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT: Field = sha256_to_field(
-    "AZTEC_NR::DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT".as_bytes(),
-);
+use crate::protocol::{address::AztecAddress, traits::{Deserialize, Serialize}};
 
 /// A partial note that was delivered but is still pending completion. Contains the information necessary to find the
 /// log that will complete it and lead to a note being discovered and delivered.
@@ -37,14 +36,12 @@ pub(crate) unconstrained fn process_partial_note_private_msg(
     contract_address: AztecAddress,
     msg_metadata: u64,
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
-    tx_hash: Field,
+    resolved_tx: ResolvedTx,
     scope: AztecAddress,
 ) {
     let decoded = decode_partial_note_private_message(msg_metadata, msg_content);
 
     if decoded.is_some() {
-        // We store the information of the partial note we found in a persistent capsule in PXE, so that we can later
-        // search for the public log that will complete it.
         let (owner, randomness, note_completion_log_tag, note_type_id, packed_private_note_content) = decoded.unwrap();
 
         let pending = DeliveredPendingPartialNote {
@@ -55,34 +52,48 @@ pub(crate) unconstrained fn process_partial_note_private_msg(
             packed_private_note_content,
         };
 
-        CapsuleArray::at(
+        // Record the pending partial note as a retractable fact anchored to the delivery block, so PXE prunes it if
+        // that block is reorg'd away. We then search for the public log that completes it on each sync.
+        PartialNoteReception::init(
             contract_address,
-            DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT,
             scope,
-        )
-            .push(pending);
+            pending,
+            OriginBlock { block_number: resolved_tx.block_number, block_hash: resolved_tx.block_hash },
+        );
     } else {
         aztecnr_warn_log_format!(
             "Could not decode partial note private message from tx {0}, ignoring",
         )(
-            [tx_hash],
+            [resolved_tx.tx_hash],
         );
     }
 }
 
 /// Searches for logs that would result in the completion of pending partial notes, ultimately resulting in the notes
 /// being delivered to PXE if completed.
+///
+/// Also terminates completed receptions once their completion block finalizes (the resulting note is then reorg-proof,
+/// so there is nothing left to track).
 pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs(
     contract_address: AztecAddress,
     compute_note_hash: ComputeNoteHash,
     compute_note_nullifier: ComputeNoteNullifier,
     scope: AztecAddress,
 ) {
-    let pending_partial_notes = CapsuleArray::at(
-        contract_address,
-        DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT,
-        scope,
-    );
+    // Terminate completed receptions whose completion block has finalized.
+    PartialNoteReception::load_all(contract_address, scope).for_each(|_i, reception: PartialNoteReception| {
+        if reception.is_completed() {
+            if reception.completed_origin().unwrap().block_state.is_finalized() {
+                reception.terminate();
+            }
+        }
+    });
+
+    // Reload after the terminations above, then process the still-pending receptions.
+    let pending_receptions = PartialNoteReception::load_all(contract_address, scope)
+        .filter(|reception: PartialNoteReception| !reception.is_completed());
+    let pending_partial_notes: EphemeralArray<DeliveredPendingPartialNote> =
+        pending_receptions.map(|reception: PartialNoteReception| reception.read_pending());
 
     aztecnr_debug_log_format!("{} pending partial notes")([pending_partial_notes.len() as Field]);
 
@@ -93,16 +104,14 @@ pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs(
 
     // Each entry in the completion logs array corresponds to the entry in the pending partial notes array at the same
     // index. Each inner array contains all matching LogRetrievalResponses.
-    assert_eq(completion_logs.len(), pending_partial_notes.len());
+    assert_eq(completion_logs.len(), pending_receptions.len());
 
-    // Note: the loop runs backwards because it removes completed entries from `pending_partial_notes`, which is
-    // index-aligned with `completion_logs`. Going from last to first keeps the indices of not-yet-visited entries
-    // stable.
-    let mut i = completion_logs.len();
-    while i > 0 {
-        i -= 1;
+    // `mark_completed` below writes to the fact store rather than mutating these index-aligned arrays, so a forward
+    // pass is safe (no index shifting like the previous capsule-array removal required).
+    for i in 0..completion_logs.len() {
         let logs_for_tag: EphemeralArray<LogRetrievalResponse> = completion_logs.get(i);
         let pending_partial_note = pending_partial_notes.get(i);
+        let reception = pending_receptions.get(i);
         let num_logs = logs_for_tag.len();
 
         if num_logs == 0 {
@@ -110,9 +119,8 @@ pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs(
                 [pending_partial_note.note_completion_log_tag],
             );
 
-            // Note that we're not removing the pending partial note from the capsule array, so we will continue
-            // searching for this tagged log when performing message discovery in the future until we either find it or
-            // the entry is somehow removed from the array.
+            // Leave the reception pending; we keep searching for this tagged log on future syncs until we find it or
+            // its delivery block is reorg'd away (which prunes the reception automatically).
         } else {
             assert(num_logs == 1, f"Expected at most 1 completion log per partial note, got {num_logs}");
 
@@ -174,9 +182,10 @@ pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs(
                 );
             });
 
-            // Because there is only a single log for a given tag, once we've processed the tagged log then we simply
-            // delete the pending work entry, regardless of whether it was actually completed or not.
-            pending_partial_notes.remove(i);
+            // Mark the reception completed, anchored to the completion log's block. The discovered note is itself
+            // reorg-handled by the note store; if this block is reorg'd, PXE retracts this fact and the reception
+            // folds back to pending, so the completion log is searched for again.
+            reception.mark_completed(log.origin_block);
         }
     }
 }

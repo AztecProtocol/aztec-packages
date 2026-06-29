@@ -12,7 +12,6 @@ pub(crate) mod pending_tagged_log;
 pub(crate) mod provided_secret;
 
 use crate::{
-    capsules::CapsuleArray,
     ephemeral::EphemeralArray,
     event::EventSelector,
     messages::{
@@ -144,13 +143,13 @@ pub unconstrained fn validate_and_store_enqueued_notes_and_events(scope: AztecAd
     let _ = EphemeralArray::<EventValidationRequest>::at(EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).clear();
 }
 
-/// Efficiently queries the node for logs that result in the completion of all `DeliveredPendingPartialNote`s stored in
-/// a `CapsuleArray` by performing all node communication concurrently. Returns a nested `EphemeralArray`, one inner
+/// Efficiently queries the node for logs that result in the completion of all `DeliveredPendingPartialNote`s in an
+/// `EphemeralArray` by performing all node communication concurrently. Returns a nested `EphemeralArray`, one inner
 /// array per pending partial note, each containing all matching `LogRetrievalResponse`s (which may be empty if no
 /// logs were found).
 pub(crate) unconstrained fn get_pending_partial_notes_completion_logs(
     contract_address: AztecAddress,
-    pending_partial_notes: CapsuleArray<DeliveredPendingPartialNote>,
+    pending_partial_notes: EphemeralArray<DeliveredPendingPartialNote>,
 ) -> EphemeralArray<EphemeralArray<LogRetrievalResponse>> {
     let log_retrieval_requests = EphemeralArray::at(LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT);
 
