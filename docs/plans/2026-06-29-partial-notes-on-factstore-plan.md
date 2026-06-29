@@ -15,7 +15,7 @@
 - Noir: lines ≤ 120 chars; use `panic("…")` not `assert(false, …)`; no early `return` (use if/else); use `crate::logging::aztecnr_*` log macros. (`noir-projects/aztec-nr/CLAUDE.md`)
 - TS: build via `yarn build` from `yarn-project/` (never `tsgo`); format/lint with `yarn format` / `yarn lint`; line width 120. (`yarn-project/CLAUDE.md`)
 - `$NARGO` must be `noir/noir-repo/target/release/nargo` (do not use a global nargo). (root `CLAUDE.md`)
-- Noir aztec-nr tests run with: `cd noir-projects/aztec-nr && $NARGO test --package aztec <filter>` (see existing usage). Confirm the exact invocation from `noir-projects/aztec-nr/bootstrap.sh` before first run.
+- Noir aztec-nr tests run with: `(cd noir-projects/aztec-nr && NARGO=../../noir/noir-repo/target/release/nargo $NARGO test --package noir_aztec <filter>)`. The package name is `noir_aztec` (per `aztec/Nargo.toml`), not `aztec`.
 - Reuse `crate::facts::OriginBlock` for the new origin-block fields; do not define a parallel type. (root `CLAUDE.md` reuse rule)
 - Stage only named files in commits; never `git add -A`/`.` (the untracked `docs/plans/2026-06-26-getpublicevents-pagination-design.md` must not be swept in).
 - Base branch for this work: `martin/f-762-fact-origin-block-state-in-offchain-receive`.
@@ -75,7 +75,7 @@ entry (`…06`): `0x…09` (block_number) then `0x…feed` (block_hash).
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `cd noir-projects/aztec-nr && $NARGO test --package aztec message_context`
+Run: `cd noir-projects/aztec-nr && $NARGO test --package noir_aztec message_context`
 Expected: FAIL — struct literal missing `origin_block` field / length mismatch.
 
 - [ ] **Step 3: Add the field to the Noir struct**
@@ -143,7 +143,7 @@ new args for now (Task 3 supplies real values). Build TS: `yarn build`. Expected
 - [ ] **Step 6: Regenerate/verify the Noir golden values and run the test (green)**
 
 The two appended values are deterministic (`block_number=9`, `block_hash=0xfeed`), so the Step 1
-edits already encode them. Run: `cd noir-projects/aztec-nr && $NARGO test --package aztec message_context`
+edits already encode them. Run: `cd noir-projects/aztec-nr && $NARGO test --package noir_aztec message_context`
 Expected: PASS.
 
 - [ ] **Step 7: Commit**
@@ -179,7 +179,7 @@ length grows by 2 — add two trailing `0x…00` entries to the `none` golden ar
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `cd noir-projects/aztec-nr && $NARGO test --package aztec log_retrieval_response`
+Run: `cd noir-projects/aztec-nr && $NARGO test --package noir_aztec log_retrieval_response`
 Expected: FAIL — missing field / length mismatch.
 
 - [ ] **Step 3: Add the field to the Noir struct**
@@ -212,7 +212,7 @@ for now (Task 5 supplies real values). `yarn build`. Expected: compiles.
 
 Run: `AZTEC_GENERATE_TEST_DATA=1 yarn workspace @aztec/pxe test src/contract_function_simulator/noir-structs/log_retrieval_response.test.ts`
 Then copy the regenerated arrays into `log_retrieval_response.nr` (replacing the Step 1 placeholders
-if they differ) and run: `cd noir-projects/aztec-nr && $NARGO test --package aztec log_retrieval_response`
+if they differ) and run: `cd noir-projects/aztec-nr && $NARGO test --package noir_aztec log_retrieval_response`
 Expected: PASS.
 
 - [ ] **Step 7: Commit**
@@ -311,7 +311,7 @@ assert_eq(processable.message_context.origin_block.block_number, 5);
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `cd noir-projects/aztec-nr && $NARGO test --package aztec reception`
+Run: `cd noir-projects/aztec-nr && $NARGO test --package noir_aztec reception`
 Expected: FAIL — `origin_block` is zero.
 
 - [ ] **Step 3: Populate `origin_block` in `step`**
@@ -329,7 +329,7 @@ let message_context = MessageContext {
 
 - [ ] **Step 4: Run to verify it passes**
 
-Run: `cd noir-projects/aztec-nr && $NARGO test --package aztec reception`
+Run: `cd noir-projects/aztec-nr && $NARGO test --package noir_aztec reception`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -494,7 +494,7 @@ mod test {
 
 - [ ] **Step 2: Run to verify it fails**
 
-Run: `cd noir-projects/aztec-nr && $NARGO test --package aztec partial_notes::reception`
+Run: `cd noir-projects/aztec-nr && $NARGO test --package noir_aztec partial_notes::reception`
 Expected: FAIL — `PartialNoteReception` undefined.
 
 - [ ] **Step 3: Implement the FSM module**
@@ -620,7 +620,7 @@ to `messages/processing/mod.nr`.
 
 - [ ] **Step 4: Run to verify it passes**
 
-Run: `cd noir-projects/aztec-nr && $NARGO test --package aztec partial_notes::reception`
+Run: `cd noir-projects/aztec-nr && $NARGO test --package noir_aztec partial_notes::reception`
 Expected: PASS (4 tests).
 
 - [ ] **Step 5: Commit**
@@ -778,9 +778,9 @@ Change its parameter from `CapsuleArray<DeliveredPendingPartialNote>` to
 
 - [ ] **Step 5: Build the whole aztec-nr package**
 
-Run: `cd noir-projects/aztec-nr && $NARGO test --package aztec partial_notes`
+Run: `cd noir-projects/aztec-nr && $NARGO test --package noir_aztec partial_notes`
 Expected: PASS (Task 6 tests still green; discovery compiles). Then run the full discovery test:
-`$NARGO test --package aztec discovery` — Expected: PASS.
+`$NARGO test --package noir_aztec discovery` — Expected: PASS.
 
 - [ ] **Step 6: Commit**
 
@@ -818,7 +818,7 @@ unconstrained fn completed_reception_terminates_once_block_finalizes() {
 
 Add the body using `make_pending()` and a low block number (TXE reports low blocks as finalized, per
 the `reception.nr` offchain test convention). Run:
-`cd noir-projects/aztec-nr && $NARGO test --package aztec partial_notes::reception`
+`cd noir-projects/aztec-nr && $NARGO test --package noir_aztec partial_notes::reception`
 Expected: PASS.
 
 - [ ] **Step 2: Locate and run the existing partial-note integration test**
