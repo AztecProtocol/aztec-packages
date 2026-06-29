@@ -5,9 +5,13 @@
 // speed. But a batched broadcast (forge's default sends many txs at once) can race the auto-miner:
 // it mines a block on the first ready tx and may leave txs that arrived just after the trigger
 // sitting in the pool, so forge waits forever for their receipts. We avoid the race without touching
-// anvil's mining mode by broadcasting one tx at a time on anvil (`--batch-size 1`): with only a
-// single tx in flight there is nothing for the auto-miner to strand. A hard timeout guards against
-// a broadcast hanging indefinitely; real chains keep forge's faster default batch size.
+// anvil's mining mode by broadcasting one tx at a time (`--batch-size 1`) only when anvil has
+// automine ON: with a single tx in flight there is nothing for the auto-miner to strand.
+//
+// When anvil is in interval (or no) mining mode the race does not exist — the miner drains the whole
+// pool on each block — and serializing to one tx per block would stall the deploy for a full block
+// interval per transaction, blowing past the broadcast timeout. There (and on real chains) we keep a
+// larger batch size. A hard timeout guards against a broadcast hanging indefinitely.
 //
 // Usage: ./scripts/forge_broadcast.js <forge script args...>
 //        (without --broadcast or --batch-size — added automatically)
@@ -37,15 +41,19 @@ function extractArg(args, flag) {
 const args = process.argv.slice(2);
 const rpcUrl = extractArg(args, "--rpc-url");
 
-// Detect anvil so we broadcast one tx at a time there (avoiding the automine batch race) while
-// leaving real chains on forge's faster default batch size.
-const isAnvil = rpcUrl
-  ? await rpc(rpcUrl, "web3_clientVersion")
-      .then((v) => v.toLowerCase().includes("anvil"))
-      .catch(() => false)
-  : false;
+// Broadcast one tx at a time only on an automining anvil, where batching races the auto-miner.
+// Interval-mining anvil and real chains keep a larger batch size: there is no race there, and
+// serializing would stall the deploy one block interval per tx.
+const [isAnvil, isAutomine] = rpcUrl
+  ? await Promise.all([
+      rpc(rpcUrl, "web3_clientVersion")
+        .then((v) => v.toLowerCase().includes("anvil"))
+        .catch(() => false),
+      rpc(rpcUrl, "anvil_getAutomine").catch(() => false),
+    ])
+  : [false, false];
 
-const batchSize = isAnvil ? "1" : "8";
+const batchSize = isAnvil && isAutomine ? "1" : "8";
 const timeoutMs =
   Number(process.env.FORGE_BROADCAST_TIMEOUT_MS) ||
   (isAnvil ? 120_000 : 1_200_000);
