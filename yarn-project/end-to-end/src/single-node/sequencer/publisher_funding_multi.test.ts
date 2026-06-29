@@ -42,17 +42,16 @@ const toPrivateKeyHex = (index: number): Hex => {
 const FUNDING_THRESHOLD = parseEther('2');
 const FUNDING_AMOUNT = parseEther('2.1');
 
-/** Exposes the {@link PublisherManager} internals this suite asserts on without `as any` casts. */
+/**
+ * Exposes the {@link PublisherManager} internals this suite asserts on without `as any` casts. The
+ * fields are re-declared `public` (they are `protected` on the base) so an `as` cast of the real
+ * instance can read them. Re-exposed as fields rather than methods: the instance is a base
+ * PublisherManager, so subclass methods would not exist on it at runtime — only its fields do.
+ */
 class TestPublisherManager extends PublisherManager {
-  public getPublishers() {
-    return this.publishers;
-  }
-  public getFunder() {
-    return this.funder;
-  }
-  public getFundingPromise() {
-    return this.fundingPromise;
-  }
+  declare public publishers: L1TxUtils[];
+  declare public funder?: L1TxUtils;
+  declare public fundingPromise?: RunningPromise;
 }
 
 // Tests the PublisherManager's automatic L1 ETH top-up logic when a keystore carries two publishers and a
@@ -128,12 +127,12 @@ describe('single-node/sequencer/publisher_funding_multi', () => {
   // PublisherManager's funding loop to top them both up (round 1), then drains one publisher again
   // and drives a second funding round to confirm the loop is still healthy.
   it('funds both publishers when balances drop below threshold', async () => {
-    const publishers: L1TxUtils[] = (publisherManager as TestPublisherManager).getPublishers();
-    const funder: L1TxUtils | undefined = (publisherManager as TestPublisherManager).getFunder();
+    const publishers: L1TxUtils[] = (publisherManager as TestPublisherManager).publishers;
+    const funder: L1TxUtils | undefined = (publisherManager as TestPublisherManager).funder;
     // The PublisherManager runs triggerFundingIfNeeded on a 2-minute RunningPromise. Driving that
     // RunningPromise directly via trigger() forces an immediate funding cycle, so the test does not
     // pay the (up to) 2-minute polling interval per round.
-    const fundingPromise: RunningPromise | undefined = (publisherManager as TestPublisherManager).getFundingPromise();
+    const fundingPromise: RunningPromise | undefined = (publisherManager as TestPublisherManager).fundingPromise;
 
     expect(publishers.length).toBe(2);
     expect(funder).toBeDefined();
