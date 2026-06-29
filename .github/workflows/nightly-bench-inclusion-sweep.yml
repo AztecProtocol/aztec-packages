@@ -1,6 +1,6 @@
 name: Nightly Bench Inclusion Sweep
 
-# Set A inclusion sweep (Linear A-1223): deploys ONE network and runs the
+# Inclusion sweep: deploys ONE network and runs the
 # 1/5/10 TPS points SEQUENTIALLY against it, all tagged with a shared sweepId so
 # the dashboard groups them. The scraper drains the mempool to zero between
 # points. Each point is the reusable bench-inclusion-point.yml workflow

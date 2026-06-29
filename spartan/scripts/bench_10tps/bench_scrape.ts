@@ -701,8 +701,8 @@ const SATURATION_ROLES: Record<string, string> = {
 // telemetry-client/src/nodejs_metrics_monitor.ts (nodejs.* prefix, NOT aztec_).
 // CPU comes from @opentelemetry/host-metrics (process.cpu.utilization), not the
 // nodejs monitor. NOTE: ELU and especially CPU may be telemetry-gated in the
-// bench env — if so these series come back empty (A-1222 acceptance: verify on
-// the live env and adjust the metric name / enable the exporter as needed).
+// bench env — if so these series come back empty (verify on the live env and
+// adjust the metric name / enable the exporter as needed).
 const SATURATION_METRICS: { key: string; metric: string; unit: string }[] = [
   { key: "elu", metric: "nodejs_eventloop_utilization", unit: "ratio" },
   { key: "cpu", metric: "process_cpu_utilization", unit: "ratio" },

@@ -1,5 +1,5 @@
-# Full-node profile that REQUIRES spot nodes (Linear A-1223, Set A inclusion
-# sweep). Same shape + resources as full-node-resources-prod.yaml, but the
+# Full-node profile that REQUIRES spot nodes (inclusion sweep). Same shape
+# + resources as full-node-resources-prod.yaml, but the
 # spot affinity is required (not merely preferred) so full nodes always land on
 # spot, copying the pattern from prover-resources-dev.yaml. Only full nodes use
 # this profile; validators / RPC / prover stay on-demand so mid-block spot

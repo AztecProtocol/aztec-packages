@@ -938,7 +938,7 @@ case "$cmd" in
     ;;
   "ci-network-inclusion-sweep")
     # Args: <env_file> <namespace> [docker_image]
-    # Runs one Set A inclusion-sweep point (TARGET_TPS) on the given network.
+    # Runs one inclusion-sweep point (TARGET_TPS) on the given network.
     # The v4 run JSON (tagged BENCH_SWEEP_ID) is uploaded to GCS inside
     # bench_inclusion_point; deploy/teardown of each point's namespace is done by
     # the workflow, so this is normally called with SKIP_NETWORK_DEPLOY=1.

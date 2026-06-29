@@ -273,7 +273,7 @@ function bench_10tps {
   fi
 }
 
-# One point of the Set A inclusion sweep (A-1223). Same scrape+upload path as
+# One point of the inclusion sweep. Same scrape+upload path as
 # bench_10tps, and the same load model: a fixed 1 TPS of high-value txs (the
 # measured inclusion lane) plus (TARGET_TPS - 1) TPS of low-value background
 # traffic to bring total load to the target. So inclusion latency is always

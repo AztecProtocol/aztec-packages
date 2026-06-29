@@ -300,7 +300,7 @@ case "$cmd" in
     ;;
   network-inclusion-sweep)
     # Args: <env_file> <namespace> [docker_image]
-    # Runs one inclusion-sweep point (Set A) at TARGET_TPS against an existing
+    # Runs one inclusion-sweep point at TARGET_TPS against an existing
     # network, tagged with BENCH_SWEEP_ID. The workflow deploys/tears down each
     # point's namespace separately, so this is normally called with
     # SKIP_NETWORK_DEPLOY=1. TARGET_TPS / BENCH_SWEEP_ID / BENCH_SWEEP_LABEL come
