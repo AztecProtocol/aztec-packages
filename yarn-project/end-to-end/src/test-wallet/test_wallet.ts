@@ -20,7 +20,7 @@ import { TxSimulationResultWithAppOffset } from '@aztec/aztec.js/wallet';
 import type { DefaultAccountEntrypointOptions } from '@aztec/entrypoints/account';
 import { DefaultEntrypoint } from '@aztec/entrypoints/default';
 import { Fq, Fr } from '@aztec/foundation/curves/bn254';
-import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
+import { GrumpkinScalar, type Point } from '@aztec/foundation/curves/grumpkin';
 import type { NotesFilter } from '@aztec/pxe/client/lazy';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/config';
 import { PXE, type PXECreationOptions, createPXE } from '@aztec/pxe/server';
@@ -396,6 +396,14 @@ export class TestWallet extends BaseWallet {
 
   sync(): Promise<void> {
     return this.pxe.sync();
+  }
+
+  /**
+   * Registers a raw out-of-band shared secret so this PXE discovers unconstrained messages tagged with it. Test-only
+   * surface over {@link PXE.registerTaggingSecretSource}, which the base `Wallet` does not expose.
+   */
+  registerArbitrarySecret(recipient: AztecAddress, secret: Point): Promise<void> {
+    return this.pxe.registerTaggingSecretSource({ kind: 'arbitrary-secret', recipient, secret });
   }
 
   stop(): Promise<void> {

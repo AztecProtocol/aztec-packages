@@ -57,6 +57,16 @@ pub contract ConstrainedDeliveryTest {
     }
 
     #[external("private")]
+    fn emit_note_unconstrained(recipient: AztecAddress, value: Field) {
+        self.storage.notes.at(recipient).insert(FieldNote { value }).deliver(MessageDelivery::onchain_unconstrained());
+    }
+
+    #[external("private")]
+    fn emit_event_unconstrained(recipient: AztecAddress, value: Field) {
+        self.emit(DeliveryEvent { value }).deliver_to(recipient, MessageDelivery::onchain_unconstrained());
+    }
+
+    #[external("private")]
     fn emit_two_events(recipient: AztecAddress) {
         self.emit(DeliveryEvent { value: 1 }).deliver_to(recipient, MessageDelivery::onchain_constrained());
         self.emit(DeliveryEvent { value: 2 }).deliver_to(recipient, MessageDelivery::onchain_constrained());
