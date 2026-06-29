@@ -15,7 +15,7 @@ resource "google_container_cluster" "primary" {
     channel = "UNSPECIFIED"
   }
 
-  # NOTE: Enabling workload identity at the cluster level means new node pools may default to GKE_METADATA mode.
+  # NOTE: Enabling workload identity at the cluster level means new node pools may default to GKE_METADATA mode. 
   dynamic "workload_identity_config" {
     for_each = var.enable_workload_identity ? [1] : []
     content {
@@ -326,52 +326,6 @@ resource "google_container_node_pool" "spot_nodes_2core" {
       local-ssd = "false"
       node-type = "network"
       cores     = "2"
-    }
-    tags = ["aztec-gke-node", "spot"]
-
-    # Spot instance termination handler
-    taint {
-      key    = "cloud.google.com/gke-spot"
-      value  = "true"
-      effect = "NO_SCHEDULE"
-    }
-  }
-
-  # Management configuration
-  management {
-    auto_repair  = true
-    auto_upgrade = false
-  }
-}
-
-# Create 4 core spot instance node pool with autoscaling
-resource "google_container_node_pool" "spot_nodes_4core" {
-  name     = "${var.cluster_name}-4core-spot"
-  location = var.zone
-  cluster  = var.cluster_name
-  version  = var.node_version
-  # Enable autoscaling
-  autoscaling {
-    min_node_count = 0
-    max_node_count = 1500
-  }
-
-  # Node configuration
-  node_config {
-    machine_type = "t2d-standard-4"
-    spot         = true
-
-    service_account = var.service_account
-    oauth_scopes = [
-      "https://www.googleapis.com/auth/cloud-platform"
-    ]
-
-    labels = {
-      env       = "production"
-      pool      = "spot"
-      local-ssd = "false"
-      node-type = "network"
-      cores     = "4"
     }
     tags = ["aztec-gke-node", "spot"]
 
