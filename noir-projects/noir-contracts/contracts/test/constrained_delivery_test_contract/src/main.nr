@@ -63,11 +63,11 @@ pub contract ConstrainedDeliveryTest {
     }
 
     /// Test reads go through this wrapper so the registry sees this contract as
-    /// [HandshakeRegistry::get_app_siloed_secret]'s msg_sender.
+    /// [HandshakeRegistry::get_app_siloed_secrets]'s msg_sender.
     #[external("utility")]
-    unconstrained fn get_app_siloed_secret(sender: AztecAddress, recipient: AztecAddress) -> Option<Field> {
+    unconstrained fn get_app_siloed_secrets(sender: AztecAddress, recipient: AztecAddress) -> Option<Field> {
         let registry = HandshakeRegistry::at(STANDARD_HANDSHAKE_REGISTRY_ADDRESS);
-        self.call(registry.get_app_siloed_secret(sender, recipient))
+        self.call(registry.get_app_siloed_secrets(sender, recipient)).map(|secrets| secrets.shared)
     }
 
     /// Returns the values of all `FieldNote`s discovered for `owner`. The e2e test derives both the count and the

@@ -1,7 +1,7 @@
 import { hash } from 'ohash';
 
-import type { Key, Value } from '../interfaces/common.js';
-import type { AztecAsyncMultiMap } from '../interfaces/multi_map.js';
+import type { Key, Value } from '../../interfaces/common.js';
+import type { AztecAsyncMultiMap } from '../../interfaces/multi_map.js';
 import { IndexedDBAztecMap } from './map.js';
 
 /**

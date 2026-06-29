@@ -1119,8 +1119,13 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 }
 
-const STANDARD_HANDSHAKE_REGISTRY_GET_HANDSHAKES_SIGNATURE = 'get_handshakes((Field),u32)';
-const STANDARD_HANDSHAKE_REGISTRY_GET_APP_SILOED_SECRET_SIGNATURE = 'get_app_siloed_secret((Field),(Field))';
+// Registry reads that any contract may issue without an `authorizeUtilityCall` hook. The constrained-delivery
+// library calls these implicitly for the app, and they are safe to default-authorize because the registry siloes
+// every returned secret to `msg_sender`, so a caller only ever learns values siloed to its own address.
+const STANDARD_HANDSHAKE_REGISTRY_DEFAULT_AUTHORIZED_READ_SIGNATURES = [
+  'get_handshakes((Field),u32)',
+  'get_app_siloed_secrets((Field),(Field))',
+];
 
 async function doesSelectorHaveSignature(functionSelector: FunctionSelector, signature: string): Promise<boolean> {
   return functionSelector.equals(await FunctionSelector.fromSignature(signature));
@@ -1140,9 +1145,10 @@ async function isStandardHandshakeRegistryUtilityRead(
     return false;
   }
 
-  const [isGetHandshakes, isGetAppSiloedSecret] = await Promise.all([
-    doesSelectorHaveSignature(functionSelector, STANDARD_HANDSHAKE_REGISTRY_GET_HANDSHAKES_SIGNATURE),
-    doesSelectorHaveSignature(functionSelector, STANDARD_HANDSHAKE_REGISTRY_GET_APP_SILOED_SECRET_SIGNATURE),
-  ]);
-  return isGetHandshakes || isGetAppSiloedSecret;
+  const matches = await Promise.all(
+    STANDARD_HANDSHAKE_REGISTRY_DEFAULT_AUTHORIZED_READ_SIGNATURES.map(signature =>
+      doesSelectorHaveSignature(functionSelector, signature),
+    ),
+  );
+  return matches.some(Boolean);
 }

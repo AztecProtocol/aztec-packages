@@ -11,10 +11,11 @@ use crate::{
 #[test]
 unconstrained fn defaults_unconstrained_delivery_to_the_address_derived_shared_secret() {
     let mut env = TestEnvironment::new();
+    let app = env.create_contract_account();
     let sender = env.create_light_account();
     let recipient = env.create_light_account();
 
-    env.private_context(|_| {
+    env.private_context_at(app, |_| {
         let resolved = resolve_tagging_strategy(
             sender,
             recipient,
@@ -27,18 +28,20 @@ unconstrained fn defaults_unconstrained_delivery_to_the_address_derived_shared_s
     });
 }
 
-#[test(should_fail_with = "requires a configured resolveTaggingSecretStrategy hook")]
-unconstrained fn constrained_delivery_fails_without_a_configured_strategy() {
+#[test]
+unconstrained fn defaults_constrained_delivery_to_a_non_interactive_handshake() {
     let mut env = TestEnvironment::new();
-    let sender = env.create_light_account();
+    let app = env.create_contract_account();
     let recipient = env.create_light_account();
 
-    env.private_context(|_| {
-        let _ = resolve_tagging_strategy(
-            sender,
+    env.private_context_at(app, |_| {
+        let resolved = resolve_tagging_strategy(
+            AztecAddress::from_field(1),
             recipient,
             OnchainDeliveryMode::onchain_constrained(),
         );
+
+        assert_eq(resolved, ResolvedTaggingStrategy::non_interactive_handshake());
     });
 }
 
