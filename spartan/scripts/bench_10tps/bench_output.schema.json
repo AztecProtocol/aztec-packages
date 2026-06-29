@@ -401,11 +401,15 @@
         },
         "reorgCount": {
           "type": ["integer", "null"],
-          "description": "Number of genuine CHAIN reorgs: `Chain pruned` events where 2+ distinct pods pruned to the same block (event.podCount >= 2), i.e. the canonical chain rewound network-wide. A single straggler whose local view diverged and re-synced is NOT counted here — see nodeLocalPruneCount. Log-derived, so accurate regardless of node image."
+          "description": "Number of genuine CHAIN reorgs: `Chain pruned` events where ALL following validators rewound to the same block (event.validatorPruneCount >= validatorCount), i.e. the canonical chain reorged. Prunes reported by only a subset of validators are local divergences and are NOT counted — see nodeLocalPruneCount. Log-derived, so accurate regardless of node image; 0 if the validator fleet size could not be determined."
         },
         "nodeLocalPruneCount": {
           "type": ["integer", "null"],
-          "description": "Number of single-node local prunes (`Chain pruned` events with podCount <= 1): one node's view diverged and re-synced while the canonical chain held. Informational — does not indicate chain instability or make the headline provisional."
+          "description": "Number of `Chain pruned` events that were NOT chain reorgs: a subset of validators (or non-validator followers) diverged locally and re-synced while the canonical chain held. Informational — does not indicate chain instability or make the headline provisional."
+        },
+        "validatorCount": {
+          "type": ["integer", "null"],
+          "description": "Number of validator pods following the chain during the run (distinct validators that logged l2-block-handled). The denominator for chain-reorg detection — a reorg requires all of them to have pruned to the same block."
         },
         "prunesByType": {
           "type": "object",
@@ -715,9 +719,9 @@
           "type": "integer",
           "description": "For chainPruned: the post-prune tip."
         },
-        "podCount": {
+        "validatorPruneCount": {
           "type": "integer",
-          "description": "For chainPruned: distinct pods that logged this prune (same toBlock within the dedupe window). 1 = a single node diverged locally and re-synced; >= 2 = the canonical chain rewound across multiple nodes (a genuine chain reorg)."
+          "description": "For chainPruned: distinct VALIDATOR pods that logged this prune (same toBlock within the dedupe window). A genuine chain reorg requires this to equal the validator fleet size (summary.validatorCount); fewer means a subset of validators (or non-validator followers) diverged locally and re-synced."
         },
         "slotNumber": {
           "type": "integer",

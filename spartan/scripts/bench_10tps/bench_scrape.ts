@@ -1426,10 +1426,11 @@ type ChainPrunedEvent = {
   source: "log";
   fromBlock?: number;
   toBlock?: number;
-  // Distinct pods that logged this prune (same toBlock within the dedupe
-  // window). 1 = a single node's local view diverged and re-synced; many =
-  // the canonical chain rewound network-wide (a genuine chain reorg).
-  podCount: number;
+  // Distinct VALIDATOR pods that logged this prune (same toBlock within the
+  // dedupe window). Compared against the validator fleet size to decide whether
+  // the canonical chain reorged: < fleet = some validators diverged locally and
+  // re-synced; == fleet = every validator rewound, a genuine chain reorg.
+  validatorPruneCount: number;
 };
 
 type SlotSummaryEvent = {
@@ -1529,18 +1530,19 @@ async function scrapeChainPrunedEvents(
     }
   }
 
-  // Distinct pods that pruned to the same toBlock within the dedupe window:
-  // 1 means a lone node diverged locally; many means the canonical chain rewound
-  // across the network. This is what separates a node-local re-sync from a real
-  // chain reorg.
-  const podCountFor = (toBlock: number, time: number) =>
+  // Distinct VALIDATOR pods that pruned to the same toBlock within the dedupe
+  // window. A genuine chain reorg means every validator rewound; a lone validator
+  // (or non-validator follower) pruning is a local divergence that self-heals.
+  const validatorPrefix = `${NAMESPACE}-validator-`;
+  const validatorPruneCountFor = (toBlock: number, time: number) =>
     new Set(
       parsed
         .filter(
           (p) =>
             p.toBlock === toBlock &&
             p.time >= time &&
-            p.time - time < DEDUPE_WINDOW_MS,
+            p.time - time < DEDUPE_WINDOW_MS &&
+            p.pod.startsWith(validatorPrefix),
         )
         .map((p) => p.pod),
     ).size;
@@ -1558,9 +1560,40 @@ async function scrapeChainPrunedEvents(
       source: "log" as const,
       fromBlock: before || undefined,
       toBlock,
-      podCount: podCountFor(toBlock, time),
+      validatorPruneCount: validatorPruneCountFor(toBlock, time),
     };
   });
+}
+
+// Number of validator pods actively following the chain — distinct validators
+// that logged l2-block-handled in the window. Denominator for chain-reorg
+// detection: a genuine reorg requires every following validator to have pruned,
+// so down validators are excluded (they can't report and shouldn't gate the
+// count). Returns 0 on scrape failure, which disables reorg detection (every
+// prune is then treated as node-local) rather than false-positiving.
+async function scrapeValidatorFleetSize(
+  startedAt: string,
+  endedAt: string,
+): Promise<number> {
+  const filter = [
+    `resource.labels.namespace_name="${NAMESPACE}"`,
+    `resource.labels.pod_name=~"${NAMESPACE}-validator-"`,
+    `jsonPayload.eventName="l2-block-handled"`,
+    timeFilter(startedAt, endedAt),
+  ].join(" AND ");
+  try {
+    const entries = await gcloudRead(filter);
+    return new Set(
+      entries
+        .map((e) => e.resource?.labels?.pod_name)
+        .filter((p): p is string => !!p),
+    ).size;
+  } catch (err) {
+    log("validator fleet-size scrape failed", {
+      err: err instanceof Error ? err.message : String(err),
+    });
+    return 0;
+  }
 }
 
 async function scrapeSlotSummaryEvents(
@@ -1902,6 +1935,9 @@ type SummaryArgs = {
   blocks: BlockRecord[];
   events: Event[];
   inclusionRecords: InclusionRecord[];
+  // Number of validator pods following the chain; the denominator for deciding
+  // whether a prune was a network-wide chain reorg (all validators) vs local.
+  validatorCount: number;
 };
 
 type BlockBuildPerTx = {
@@ -2107,16 +2143,21 @@ async function buildSummary(a: SummaryArgs): Promise<Record<string, unknown>> {
     ),
   ]);
 
-  // Separate genuine chain reorgs from single-node local divergences using the
-  // per-event podCount (distinct pods that pruned to the same block). podCount
-  // >= 2 means multiple nodes rewound to the same block — the canonical chain
-  // reorged; podCount <= 1 is one straggler whose local view diverged and
-  // re-synced, which does NOT destabilise the chain or the headline. Events from
-  // older scrapes without podCount default to node-local.
+  // A genuine chain reorg requires EVERY following validator to have rewound to
+  // the same block (validatorPruneCount >= validatorCount). Anything less is a
+  // local divergence — a subset of validators (or non-validator followers) that
+  // pruned and re-synced while the canonical chain held — and does not
+  // destabilise the chain or the headline. If the validator fleet size is
+  // unknown (scrape failed) no prune is treated as a chain reorg.
   const chainPrunes = a.events.filter(
     (e): e is ChainPrunedEvent => e.type === "chainPruned",
   );
-  const chainReorgs = chainPrunes.filter((e) => (e.podCount ?? 1) >= 2);
+  const chainReorgs =
+    a.validatorCount > 0
+      ? chainPrunes.filter(
+          (e) => (e.validatorPruneCount ?? 0) >= a.validatorCount,
+        )
+      : [];
   const nodeLocalPruneCount = chainPrunes.length - chainReorgs.length;
   const deepest = chainReorgs.reduce(
     (max, e) => Math.max(max, (e.fromBlock ?? 0) - (e.toBlock ?? 0)),
@@ -2175,6 +2216,7 @@ async function buildSummary(a: SummaryArgs): Promise<Record<string, unknown>> {
       : null,
     reorgCount: chainReorgs.length,
     nodeLocalPruneCount,
+    validatorCount: a.validatorCount,
     prunesByType,
     deepestReorgBlocks: deepest,
   };
@@ -2504,6 +2546,12 @@ async function main(): Promise<void> {
       });
     }
 
+    const validatorCount = await scrapeValidatorFleetSize(
+      args.startedAt,
+      logEndedAt,
+    );
+    log(`Chain-following validator fleet size: ${validatorCount}`);
+
     log("Scraping sequencer state transition logs from gcloud");
     let sequencerStateSlots: SequencerStateSlot[] = [];
     try {
@@ -2535,6 +2583,7 @@ async function main(): Promise<void> {
       blocks,
       events,
       inclusionRecords,
+      validatorCount,
     });
 
     const payload = {
