@@ -171,6 +171,10 @@ export class InMemoryTxPool extends EventEmitter implements TxPoolV2 {
     return Promise.resolve(this.txsByHash.size);
   }
 
+  async hasEligiblePendingTxs(minCount: number): Promise<boolean> {
+    return (await this.getPendingTxCount()) >= minCount;
+  }
+
   getMinedTxHashes(): Promise<[TxHash, L2BlockId][]> {
     return Promise.resolve([]);
   }
