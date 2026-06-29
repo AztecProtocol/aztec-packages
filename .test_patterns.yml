@@ -193,6 +193,10 @@ tests:
     owners:
       - *phil
       - *palla
+  - regex: "sequencer-client/src/publisher/l1_publisher.integration.test.ts"
+    error_regex: "Anvil failed to stop in time|Cannot read properties of undefined|L1 RPC request failed"
+    owners:
+      - *palla
 
   # Nightly GKE tests
   - regex: "spartan/bootstrap.sh"
