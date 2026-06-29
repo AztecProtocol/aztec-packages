@@ -49,7 +49,7 @@ export type SequencerEvents = {
     simulatedPending: CheckpointNumber | undefined;
   }) => void;
   ['proposer-rollup-check-failed']: (args: { reason: string; slot: SlotNumber }) => void;
-  ['block-tx-count-check-failed']: (args: { minTxs: number; availableTxs: number; slot: SlotNumber }) => void;
+  ['block-tx-count-check-failed']: (args: { minTxs: number; slot: SlotNumber }) => void;
   ['block-build-failed']: (args: { reason: string; slot: SlotNumber }) => void;
   ['block-proposed']: (args: {
     blockNumber: BlockNumber;

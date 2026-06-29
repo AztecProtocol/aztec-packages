@@ -108,37 +108,37 @@ tests:
     skip: true
     owners:
       - *alex
-  - regex: "src/e2e_fees/private_payments"
+  - regex: "src/single-node/fees/private_payments"
     owners:
       - *phil
-  - regex: "src/e2e_token_contract/access_control"
+  - regex: "src/automine/token/access_control"
     error_regex: "HttpRequestError: HTTP request failed."
     owners:
       - *charlie
-  - regex: "src/e2e_lending_contract"
+  - regex: "src/automine/token/lending"
     error_regex: "✕ Depositing"
     owners:
       - *lasse
-  - regex: "src/e2e_lending_contract"
+  - regex: "src/automine/token/lending"
     error_regex: "✕ Repay"
     owners:
       - *lasse
-  - regex: "src/e2e_cross_chain_messaging/l1_to_l2"
+  - regex: "src/single-node/cross-chain/l1_to_l2"
     owners:
       - *palla
-  - regex: "src/e2e_cross_chain_messaging/token_bridge_private"
+  - regex: "src/single-node/cross-chain/token_bridge_private"
     error_regex: "✕ Claim secret is enough to consume the message"
     owners:
       - *lasse
-  - regex: "src/e2e_cross_chain_messaging/token_bridge_public"
+  - regex: "src/single-node/cross-chain/token_bridge_public"
     error_regex: "✕ Someone else can mint funds to me on my behalf"
     owners:
       - *lasse
-  - regex: "src/e2e_cross_chain_messaging/token_bridge_public"
+  - regex: "src/single-node/cross-chain/token_bridge_public"
     error_regex: "✕ Publicly deposit funds"
     owners:
       - *lasse
-  - regex: "src/e2e_cross_chain_messaging/token_bridge_failure_cases"
+  - regex: "src/single-node/cross-chain/token_bridge_failure_cases"
     error_regex: "✕ Can't claim funds"
     owners:
       - *lasse
@@ -146,7 +146,7 @@ tests:
     error_regex: "Anvil failed to stop in time|Cannot read properties of undefined"
     owners:
       - *palla
-  - regex: "src/e2e_bot.test.ts"
+  - regex: "src/single-node/bot/bot.test.ts"
     error_regex: "Tx dropped"
     owners:
       - *palla
@@ -185,10 +185,6 @@ tests:
     error_regex: "ContractFunctionExecutionError: The contract function"
     owners:
       - *mitch
-  - regex: "e2e_p2p/valid_epoch_pruned_slash.test.ts"
-    owners:
-      - *mitch
-      - *palla
   - regex: "archiver/src/archiver/archiver.test.ts"
     error_regex: "Received number of calls: 1"
     owners:
@@ -225,7 +221,7 @@ tests:
     owners:
       - *adam
 
-  - regex: "yarn-project/end-to-end/scripts/run_test.sh simple src/e2e_bot.test.ts"
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh simple src/single-node/bot/bot.test.ts"
     error_regex: "Nonce provided for the transaction is lower than the current nonce of the account"
     owners:
       - *adam
@@ -267,30 +263,45 @@ tests:
       - *charlie
       - *adam
 
-  - regex: "src/e2e_epochs/epochs_l1_reorgs.parallel.test.ts"
+  - regex: "src/single-node/l1-reorgs/blocks.parallel.test.ts"
     owners:
       - *phil
 
-  - regex: "epochs_mbps.pipeline.parallel.test.ts.*prunes uncheckpointed"
+  - regex: "src/single-node/l1-reorgs/messages.parallel.test.ts"
+    owners:
+      - *phil
+
+  - regex: "src/multi-node/recovery/pipeline_prune.test.ts.*prunes uncheckpointed"
     owners:
       - *sean
 
-  # Asserts all late txs land in the checkpoint's last block, but the proposer seals the last block as
-  # soon as one tx is available and snapshots the mempool, so late txs still propagating over gossip
-  # spill into the next checkpoint. Flaky until the sequencer waits for the last block's tx window.
-  - regex: "src/e2e_epochs/epochs_mbps_redistribution.test.ts"
+  # Asserts a late tx burst is redistributed across the checkpoint's last two blocks, but the proposer
+  # seals the one-before-last block as soon as one tx is available and snapshots the mempool, so late
+  # txs still propagating over gossip spill into the next checkpoint. Flaky until the sequencer waits
+  # for the last block's tx window.
+  - regex: "src/multi-node/block-production/redistribution.parallel.test.ts.*redistributes checkpoint budget"
     owners:
       - *phil
 
   # Blanket flake patterns for unstable p2p, epoch, and l1 tx utils tests
   # This is a temporary measure while team bandwidth is constrained
   # Replaced many specific patterns - see https://github.com/AztecProtocol/aztec-packages/pull/17962 for historical context
-  - regex: "src/e2e_p2p/.*\\.test\\.ts"
+  - regex: "src/p2p/.*\\.test\\.ts"
     flake_group_id: e2e-p2p-epoch-flakes
     owners:
       - *phil
 
-  - regex: "src/e2e_epochs/.*\\.test\\.ts"
+  - regex: "src/single-node/.*\\.test\\.ts"
+    flake_group_id: e2e-p2p-epoch-flakes
+    owners:
+      - *palla
+
+  - regex: "src/multi-node/.*\\.test\\.ts"
+    flake_group_id: e2e-p2p-epoch-flakes
+    owners:
+      - *palla
+
+  - regex: "src/automine/.*\\.test\\.ts"
     flake_group_id: e2e-p2p-epoch-flakes
     owners:
       - *palla
@@ -325,7 +336,7 @@ tests:
     owners:
       - *palla
 
-  - regex: "e2e_block_building"
+  - regex: "src/single-node/block-building/block_building.test.ts"
     error_regex: "✕ processes txs until hitting timetable"
     owners:
       - *palla
@@ -358,7 +369,7 @@ tests:
     owners:
       - *lasse
 
-  - regex: "yarn-project/end-to-end/scripts/run_test.sh simple src/e2e_fees/gas_estimation.test.ts"
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh simple src/single-node/fees/gas_estimation.parallel.test.ts"
     error_regex: "timeout: sending signal TERM to command 'bash'"
     owners:
       - *alex
@@ -373,7 +384,7 @@ tests:
   # p2p checkpoint-attestation-validator's acceptance window, getting rejected
   # before the slasher's gossip callback fires. The slasher then never records
   # ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL and the test times out.
-  - regex: "src/e2e_slashing/attested_invalid_proposal.test.ts"
+  - regex: "src/multi-node/slashing/attested_invalid_proposal.parallel.test.ts"
     error_regex: "Timeout awaiting honest validator slash offenses for invalid proposal attestation"
     owners:
       - *palla
@@ -384,7 +395,7 @@ tests:
 
   # http://ci.aztec-labs.com/98d59d04f85223f8
   # Build-cache flake: module not found during Jest startup
-  - regex: "src/e2e_sequencer/gov_proposal.parallel.test.ts"
+  - regex: "src/single-node/sequencer/gov_proposal.parallel.test.ts"
     error_regex: "Cannot find module '@aztec/sequencer-client/config'"
     owners:
       - *palla
@@ -398,7 +409,7 @@ tests:
       - *palla
 
   # http://ci.aztec-labs.com/153f5dcbb0f3799c
-  - regex: "src/e2e_offchain_payment.test.ts"
+  - regex: "src/automine/effects/offchain_payment.parallel.test.ts"
     error_regex: "✕ reprocesses an offchain-delivered payment after an L1 reorg"
     owners:
       - *martin
@@ -416,7 +427,7 @@ tests:
   # http://ci.aztec-labs.com/930ddc9ede87059f
   # Pipelining race: slasher doesn't record the duplicate proposal offense before
   # the test's wait timeout — same family as #23501.
-  - regex: "src/e2e_p2p/duplicate_proposal_slash.test.ts"
+  - regex: "src/multi-node/slashing/duplicate_proposal.test.ts.*duplicate proposals"
     error_regex: "TimeoutError: Timeout awaiting duplicate proposal offense"
     owners:
       - *palla

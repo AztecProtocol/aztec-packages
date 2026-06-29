@@ -1,0 +1,122 @@
+import { BlockNumber } from '@aztec/foundation/branded-types';
+import { TokenContract, type Transfer } from '@aztec/noir-contracts.js/Token';
+
+import { mintNotes } from '../../fixtures/token_utils.js';
+import { TokenContractTest } from './token_contract_test.js';
+
+// Verifies that the Token contract's private transfer function correctly handles note consolidation across
+// recursive calls (consuming many notes via two levels of recursion). Also checks that private Transfer
+// events are emitted and readable. Setup: single node with AutomineSequencer, 3 accounts, Token deployed.
+describe('automine/token/private_transfer_recursion', () => {
+  const t = new TokenContractTest('odd_transfer_private');
+  let { asset, wallet, adminAddress, account1Address, node } = t;
+
+  beforeAll(async () => {
+    t.applyBaseSnapshots();
+    await t.setup();
+    ({ asset, wallet, adminAddress, account1Address, node } = t);
+  });
+
+  afterAll(async () => {
+    await t.teardown();
+  });
+
+  // Mints 16 separate notes of 10 tokens each, transfers the full balance to account1, then verifies that
+  // all 16 notes were nullified, one new note was created, and the Transfer event is readable.
+  it('transfer full balance', async () => {
+    // We insert 16 notes, which is large enough to guarantee that the token will need to do two recursive calls to
+    // itself to consume them all (since it retrieves 2 notes on the first pass and 8 in each subsequent pass).
+    const totalNotes = 16;
+    const totalBalance = await mintNotes(wallet, adminAddress, adminAddress, asset, Array(totalNotes).fill(10n));
+    const { receipt: txReceipt } = await asset.methods
+      .transfer(account1Address, totalBalance)
+      .send({ from: adminAddress });
+    const txEffects = await node.getTxEffect(txReceipt.txHash);
+
+    // We should have nullified all notes, plus an extra nullifier for the transaction and one for the event commitment.
+    expect(txEffects!.data.nullifiers.length).toBe(totalNotes + 1 + 1);
+    // We should have created a single new note, for the recipient
+    expect(txEffects!.data.noteHashes.length).toBe(1);
+
+    const events = await wallet.getPrivateEvents<Transfer>(TokenContract.events.Transfer, {
+      contractAddress: asset.address,
+      fromBlock: BlockNumber(txReceipt.blockNumber!),
+      toBlock: BlockNumber(txReceipt.blockNumber! + 1),
+      scopes: [account1Address],
+    });
+
+    expect(events[0]).toEqual({
+      event: {
+        from: adminAddress,
+        to: account1Address,
+        amount: totalBalance,
+      },
+      metadata: {
+        l2BlockNumber: BlockNumber(txReceipt.blockNumber!),
+        l2BlockHash: txReceipt.blockHash,
+        txHash: txReceipt.txHash,
+      },
+    });
+  });
+
+  // Mints 4 notes, transfers less than the total (forcing partial note use), and verifies that the correct
+  // number of nullifiers and note hashes are produced, the sender has the expected change, and the Transfer
+  // event is readable.
+  it('transfer less than full balance and get change', async () => {
+    const noteAmounts = [10n, 10n, 10n, 10n];
+    const expectedChange = 3n; // This will result in one of the notes being partially used
+
+    const totalBalance = await mintNotes(wallet, adminAddress, adminAddress, asset, noteAmounts);
+    const toSend = totalBalance - expectedChange;
+
+    const { receipt: txReceipt } = await asset.methods.transfer(account1Address, toSend).send({ from: adminAddress });
+    const txEffects = await node.getTxEffect(txReceipt.txHash);
+
+    // We should have nullified all notes, plus an extra nullifier for the transaction and one for the event commitment.
+    expect(txEffects!.data.nullifiers.length).toBe(noteAmounts.length + 1 + 1);
+    // We should have created two new notes, one for the recipient and one for the sender (with the change)
+    expect(txEffects!.data.noteHashes.length).toBe(2);
+
+    const { result: senderBalance } = await asset.methods
+      .balance_of_private(adminAddress)
+      .simulate({ from: adminAddress });
+    expect(senderBalance).toEqual(expectedChange);
+
+    const events = await wallet.getPrivateEvents<Transfer>(TokenContract.events.Transfer, {
+      contractAddress: asset.address,
+      fromBlock: BlockNumber(txReceipt.blockNumber!),
+      toBlock: BlockNumber(txReceipt.blockNumber! + 1),
+      scopes: [account1Address],
+    });
+
+    expect(events[0]).toEqual({
+      event: {
+        from: adminAddress,
+        to: account1Address,
+        amount: toSend,
+      },
+      metadata: {
+        l2BlockNumber: BlockNumber(txReceipt.blockNumber!),
+        l2BlockHash: txReceipt.blockHash,
+        txHash: txReceipt.txHash,
+      },
+    });
+  });
+
+  // Error path for recursive private transfer.
+  describe('failure cases', () => {
+    // Attempts to transfer more than the available private balance; expects 'Balance too low'.
+    it('transfer more than balance', async () => {
+      const { result: balance0 } = await asset.methods
+        .balance_of_private(adminAddress)
+        .simulate({ from: adminAddress });
+
+      const amount = balance0 + 1n;
+      expect(amount).toBeGreaterThan(0n);
+
+      await expect(asset.methods.transfer(account1Address, amount).simulate({ from: adminAddress })).rejects.toThrow(
+        'Assertion failed: Balance too low',
+      );
+    });
+  });
+});
