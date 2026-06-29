@@ -82,8 +82,7 @@ pub(crate) unconstrained fn get_existing_app_siloed_handshake_secrets(
 ///
 /// The registry inserts a fresh handshake note and returns the app-siloed secrets. The constrained return value is the
 /// source of truth for the secrets, so constrained delivery anchoring a freshly bootstrapped handshake needs no
-/// separate
-/// `validate_handshake`.
+/// separate `validate_handshake`.
 ///
 /// Any handshake already registered for the pair is overwritten.
 pub(crate) fn create_non_interactive_handshake(

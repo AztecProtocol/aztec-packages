@@ -25,12 +25,12 @@ type SenderHook = NonNullable<NonNullable<PXECreationOptions['hooks']>['resolveT
 
 // Onchain private delivery has two orthogonal axes: the delivery MODE (constrained = nullifier-chained sequence;
 // unconstrained = no nullifier, windowed scan) and the tagging-secret SOURCE, which the wallet's
-// `resolveTaggingSecretStrategy` hook selects (a non-interactive handshake, an address-derived ECDH secret, or a raw
-// arbitrary secret shared out of band). This harness exercises the valid (mode, source) cells end to end across two
-// PXEs that share only a node: PXE A sends, PXE B discovers purely from on-chain logs plus the HandshakeRegistry.
+// `resolveTaggingSecretStrategy` hook selects. This harness exercises the valid (mode, source) cells end to end
+// across two PXEs that share only a node: PXE A sends, PXE B discovers purely from onchain logs plus the
+// HandshakeRegistry.
 //
 // Cross-PXE is the meaningful setup: PXE B holds no sender state, so a cell only "discovers" a message if the source
-// truly reached it. It is also what makes the F-770 cell below a real red.
+// truly reached it. It is also what makes the expected-red default-source cell meaningful.
 function buildMessageDeliveryTest(opts: {
   description: string;
   mode: 'constrained' | 'unconstrained';
@@ -42,7 +42,7 @@ function buildMessageDeliveryTest(opts: {
     recipientAddress: AztecAddress,
     sender: AztecAddress,
   ) => Promise<void>;
-  // When true the discovery assertions are expected to fail (a not-yet-implemented path); see the F-770 cell.
+  // When true the discovery assertions are expected to fail for a not-yet-implemented path.
   expectRed?: boolean;
 }) {
   const { description, mode, senderHook, recipientRegistration, expectRed } = opts;
@@ -61,8 +61,8 @@ function buildMessageDeliveryTest(opts: {
     let contractSender: OnchainDeliveryTestContract;
     let teardownSender: () => Promise<void>;
     let teardownRecipient: () => Promise<void>;
-    // Discovery results captured in beforeAll, so the (possibly `it.failing`) assertions below stay pure: an infra
-    // failure during delivery fails beforeAll loudly instead of being swallowed as an expected red.
+    // Discovery results captured in beforeAll, so the assertions in the actual tests below stay pure.
+    // A failure during delivery fails beforeAll loudly instead of being swallowed as an expected red.
     let discoveredEvents: FieldLike[];
     let readNotes: bigint[];
 
@@ -168,16 +168,16 @@ function buildMessageDeliveryTest(opts: {
 }
 
 describe('onchain delivery', () => {
-  // GREEN: constrained always goes through a handshake (the PXE default for constrained), reused mode-agnostically.
+  // GREEN: constrained always goes through a handshake (the PXE default for constrained), reused across modes.
   buildMessageDeliveryTest({
-    description: 'constrained · handshake',
+    description: 'constrained x handshake',
     mode: 'constrained',
   });
 
   // GREEN: unconstrained delivery whose source the wallet pins to a non-interactive handshake. The first send
   // bootstraps the handshake; PXE B discovers it via the registry and reads the (nullifier-free) unconstrained logs.
   buildMessageDeliveryTest({
-    description: 'unconstrained · handshake',
+    description: 'unconstrained x handshake',
     mode: 'unconstrained',
     senderHook: () => Promise.resolve({ type: 'non-interactive-handshake' }),
   });
@@ -187,7 +187,7 @@ describe('onchain delivery', () => {
   // send fires the hook).
   let arbitrarySecret: Point;
   buildMessageDeliveryTest({
-    description: 'unconstrained · arbitrary secret',
+    description: 'unconstrained x arbitrary secret',
     mode: 'unconstrained',
     senderHook: () => Promise.resolve({ type: 'arbitrary-secret', secret: arbitrarySecret }),
     recipientRegistration: async (recipientWallet, recipientAddress) => {
@@ -196,21 +196,16 @@ describe('onchain delivery', () => {
     },
   });
 
-  // RED (F-770): with no hook, unconstrained delivery to an external recipient defaults to an address-derived (ECDH)
-  // tag. PXE B holds no sender state, so it cannot reconstruct that tag and discovers nothing. F-770 will default
-  // external unconstrained delivery to a non-interactive handshake; this flips to green then.
+  // RED: with no hook, unconstrained delivery to an external recipient defaults to an address-derived tag. PXE B holds
+  // no sender state, so it cannot reconstruct that tag and discovers nothing.
   buildMessageDeliveryTest({
-    description: 'unconstrained · default to external recipient (F-770)',
+    description: 'unconstrained x default to external recipient',
     mode: 'unconstrained',
     expectRed: true,
   });
 });
 
-// Constrained sends to one recipient form a strictly ordered sequence, so concurrent and batched sends behave
-// differently: parallel txs collide on the shared index nullifier, same-tx batches work only once the handshake is
-// committed, and batches that bootstrap a brand-new recipient re-handshake onto separate secrets. Each test uses
-// its own recipient. This is single-PXE and constrained-specific, so it stays outside the cross-PXE matrix above.
-describe('constrained delivery sequencing', () => {
+describe('constrained delivery', () => {
   jest.setTimeout(300_000);
 
   let teardown: () => Promise<void>;
@@ -259,87 +254,93 @@ describe('constrained delivery sequencing', () => {
     expect(index).toEqual(2n);
   });
 
-  // Constrained sends to one `(sender, recipient)` pair are strictly ordered: the first send bootstraps the
-  // handshake and every send emits a nullifier keyed only on `(sender, recipient, secret, index)`. Two sends fired
-  // in parallel read the same index and collide, so one tx is rejected. Marked `it.failing` because this is a
-  // protocol limitation, not a bug: it documents the constraint and will start failing (prompting its removal) if
-  // parallel sends to a single pair ever become supported. The working alternative is the batched test below.
-  it.failing('cannot fan out constrained sends on the same sequence in parallel', async () => {
-    await Promise.all([
-      contract.methods.emit_note(recipient, 1).send({ from: sender }),
-      contract.methods.emit_note(recipient, 1).send({ from: sender }),
-    ]);
-  });
+  // Constrained sends to one recipient form a strictly ordered sequence, so concurrent and batched sends behave
+  // differently: parallel txs collide on the shared index nullifier, same-tx batches work only once the handshake is
+  // committed, and batches that bootstrap a brand-new recipient re-handshake onto separate secrets. Each test uses
+  // its own recipient.
+  describe('concurrency and batching', () => {
+    // Constrained sends to one `(sender, recipient)` pair are strictly ordered: the first send bootstraps the
+    // handshake and every send emits a nullifier keyed only on `(sender, recipient, secret, index)`. Two sends fired
+    // in parallel read the same index and collide, so one tx is rejected. Marked `it.failing` because this is a
+    // protocol limitation, not a bug: it documents the constraint and will start failing (prompting its removal) if
+    // parallel sends to a single pair ever become supported. The working alternative is the batched test below.
+    it.failing('cannot fan out constrained sends on the same sequence in parallel', async () => {
+      await Promise.all([
+        contract.methods.emit_note(recipient, 1).send({ from: sender }),
+        contract.methods.emit_note(recipient, 1).send({ from: sender }),
+      ]);
+    });
 
-  // CAN batch (1): a contract call may emit several constrained messages to one recipient in a single tx; each
-  // later emit proves the previous nullifier as a same-tx pending nullifier. The handshake must already be
-  // committed (see the re-handshake test below), so it is established first; a fresh recipient starts at index 0,
-  // so two emits land indices 0 and 1 and the next index is 2.
-  it('lands multiple constrained sends from a single contract call on an established handshake', async () => {
-    await registry.methods.non_interactive_handshake(sender, batchRecipient).send({ from: sender });
+    // CAN batch (1): a contract call may emit several constrained messages to one recipient in a single tx; each
+    // later emit proves the previous nullifier as a same-tx pending nullifier. The handshake must already be
+    // committed (see the re-handshake test below), so it is established first; a fresh recipient starts at index 0,
+    // so two emits land indices 0 and 1 and the next index is 2.
+    it('lands multiple constrained sends from a single contract call on an established handshake', async () => {
+      await registry.methods.non_interactive_handshake(sender, batchRecipient).send({ from: sender });
 
-    await contract.methods.emit_two_events(batchRecipient).send({ from: sender });
+      await contract.methods.emit_two_events(batchRecipient).send({ from: sender });
 
-    const { result: secret } = await contract.methods
-      .get_app_siloed_secrets(sender, batchRecipient)
-      .simulate({ from: sender });
-    expect(secret).toBeDefined();
+      const { result: secret } = await contract.methods
+        .get_app_siloed_secrets(sender, batchRecipient)
+        .simulate({ from: sender });
+      expect(secret).toBeDefined();
 
-    const { result: index } = await contract.methods.next_index_for_secret(secret).simulate({ from: sender });
-    expect(index).toEqual(2n);
-  });
+      const { result: index } = await contract.methods.next_index_for_secret(secret).simulate({ from: sender });
+      expect(index).toEqual(2n);
+    });
 
-  // CAN batch (2): client-side BatchCall aggregates separate calls into one tx with the same effect. The two
-  // emit_note calls that fail as parallel txs (above) succeed batched, given an established handshake.
-  it('lands the same two sends when aggregated into one tx with BatchCall', async () => {
-    await registry.methods.non_interactive_handshake(sender, batchRecipient2).send({ from: sender });
+    // CAN batch (2): client-side BatchCall aggregates separate calls into one tx with the same effect. The two
+    // emit_note calls that fail as parallel txs (above) succeed batched, given an established handshake.
+    it('lands the same two sends when aggregated into one tx with BatchCall', async () => {
+      await registry.methods.non_interactive_handshake(sender, batchRecipient2).send({ from: sender });
 
-    await new BatchCall(wallet, [
-      contract.methods.emit_note(batchRecipient2, 1),
-      contract.methods.emit_note(batchRecipient2, 1),
-    ]).send({ from: sender });
+      await new BatchCall(wallet, [
+        contract.methods.emit_note(batchRecipient2, 1),
+        contract.methods.emit_note(batchRecipient2, 1),
+      ]).send({ from: sender });
 
-    const { result: secret } = await contract.methods
-      .get_app_siloed_secrets(sender, batchRecipient2)
-      .simulate({ from: sender });
-    expect(secret).toBeDefined();
+      const { result: secret } = await contract.methods
+        .get_app_siloed_secrets(sender, batchRecipient2)
+        .simulate({ from: sender });
+      expect(secret).toBeDefined();
 
-    const { result: index } = await contract.methods.next_index_for_secret(secret).simulate({ from: sender });
-    expect(index).toEqual(2n);
-  });
+      const { result: index } = await contract.methods.next_index_for_secret(secret).simulate({ from: sender });
+      expect(index).toEqual(2n);
+    });
 
-  // CANNOT batch onto a brand-new recipient, even within a single contract call. The registry lookup that decides
-  // reuse-vs-bootstrap is a utility call reading committed state, so the second emit cannot see the first emit's
-  // pending bootstrap and re-handshakes onto a fresh secret (each handshake mints a new shared secret). The registry
-  // keeps the second handshake, which holds a single log, so the next index is 1, not 2. This is why the
-  // established-handshake tests above seed the handshake first.
-  it('re-handshakes instead of reusing when sends bootstrap a new recipient in the same tx', async () => {
-    await contract.methods.emit_two_events(batchRecipient3).send({ from: sender });
+    // CANNOT batch onto a brand-new recipient, even within a single contract call. The registry lookup that decides
+    // reuse-vs-bootstrap is a utility call reading committed state, so the second emit cannot see the first emit's
+    // pending bootstrap and re-handshakes onto a fresh secret (each handshake mints a new shared secret). The registry
+    // keeps the second handshake, which holds a single log, so the next index is 1, not 2. This is why the
+    // established-handshake tests above seed the handshake first.
+    it('re-handshakes instead of reusing when sends bootstrap a new recipient in the same tx', async () => {
+      await contract.methods.emit_two_events(batchRecipient3).send({ from: sender });
 
-    const { result: secret } = await contract.methods
-      .get_app_siloed_secrets(sender, batchRecipient3)
-      .simulate({ from: sender });
-    expect(secret).toBeDefined();
+      const { result: secret } = await contract.methods
+        .get_app_siloed_secrets(sender, batchRecipient3)
+        .simulate({ from: sender });
+      expect(secret).toBeDefined();
 
-    const { result: index } = await contract.methods.next_index_for_secret(secret).simulate({ from: sender });
-    expect(index).toEqual(1n);
-  });
+      const { result: index } = await contract.methods.next_index_for_secret(secret).simulate({ from: sender });
+      expect(index).toEqual(1n);
+    });
 
-  // The same new-recipient limitation holds via client-side BatchCall: the two aggregated emit_note calls each
-  // bootstrap and re-handshake onto separate secrets (the utility read can't see the first's pending bootstrap),
-  // so the next index is 1, not 2. Confirms the constraint is in the utility read, not the batching mechanism.
-  it('re-handshakes instead of reusing when BatchCall sends bootstrap a new recipient in the same tx', async () => {
-    await new BatchCall(wallet, [
-      contract.methods.emit_note(batchRecipient4, 1),
-      contract.methods.emit_note(batchRecipient4, 1),
-    ]).send({ from: sender });
+    // The same new-recipient limitation holds via client-side BatchCall: the two aggregated emit_note calls each
+    // bootstrap and re-handshake onto separate secrets (the utility read can't see the first's pending bootstrap),
+    // so the next index is 1, not 2. Confirms the constraint is in the utility read, not the batching mechanism.
+    it('re-handshakes instead of reusing when BatchCall sends bootstrap a new recipient in the same tx', async () => {
+      await new BatchCall(wallet, [
+        contract.methods.emit_note(batchRecipient4, 1),
+        contract.methods.emit_note(batchRecipient4, 1),
+      ]).send({ from: sender });
 
-    const { result: secret } = await contract.methods
-      .get_app_siloed_secrets(sender, batchRecipient4)
-      .simulate({ from: sender });
-    expect(secret).toBeDefined();
+      const { result: secret } = await contract.methods
+        .get_app_siloed_secrets(sender, batchRecipient4)
+        .simulate({ from: sender });
+      expect(secret).toBeDefined();
 
-    const { result: index } = await contract.methods.next_index_for_secret(secret).simulate({ from: sender });
-    expect(index).toEqual(1n);
+      const { result: index } = await contract.methods.next_index_for_secret(secret).simulate({ from: sender });
+      expect(index).toEqual(1n);
+    });
   });
 });
