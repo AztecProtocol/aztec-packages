@@ -362,7 +362,7 @@ function network_bench_upload {
     return 0
   fi
 
-  local bucket="gs://aztec-testnet/network_bench"
+  local bucket="${NETWORK_BENCH_BUCKET:-gs://aztec-testnet/network_bench}"
   local run_id=$(jq -r .run.runId "$run_json")
   local target="${bucket}/${run_id}.json"
 
@@ -530,6 +530,9 @@ case "$cmd" in
     ;;
   "hash")
     echo $(hash)
+    ;;
+  "network_bench_upload")
+    network_bench_upload "$1"
     ;;
   test|test_cmds|gke|build|gcp_auth)
     $cmd
