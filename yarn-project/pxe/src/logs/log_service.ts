@@ -196,7 +196,14 @@ export class LogService {
       if (nullifiers.length === 0) {
         throw new Error(`Log for tx ${log.txHash} returned no nullifiers from the node`);
       }
-      return new PendingTaggedLog(log.logData, log.txHash, noteHashes, nullifiers[0]);
+      return new PendingTaggedLog(
+        log.logData,
+        log.txHash,
+        noteHashes,
+        nullifiers[0],
+        log.blockNumber,
+        log.blockHash.toFr(),
+      );
     });
   }
 

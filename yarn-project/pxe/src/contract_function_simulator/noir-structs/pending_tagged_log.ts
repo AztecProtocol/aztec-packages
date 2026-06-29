@@ -16,8 +16,10 @@ export class PendingTaggedLog {
     txHash: TxHash,
     uniqueNoteHashesInTx: Fr[],
     firstNullifierInTx: Fr,
+    blockNumber: number,
+    blockHash: Fr,
   ) {
-    this.context = new ResolvedTx(txHash, uniqueNoteHashesInTx, firstNullifierInTx, 0, Fr.ZERO);
+    this.context = new ResolvedTx(txHash, uniqueNoteHashesInTx, firstNullifierInTx, blockNumber, blockHash);
   }
 
   toFields(): Fr[] {

@@ -11,7 +11,7 @@ describe('PendingTaggedLog', () => {
     const uniqueNoteHashes = [new Fr(4n), new Fr(5n)];
     const firstNullifier = new Fr(6n);
 
-    const pendingLog = new PendingTaggedLog(log, txHash, uniqueNoteHashes, firstNullifier);
+    const pendingLog = new PendingTaggedLog(log, txHash, uniqueNoteHashes, firstNullifier, 0, Fr.ZERO);
     const serialized = pendingLog.toFields();
 
     // Test against snapshot
