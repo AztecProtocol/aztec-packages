@@ -1,6 +1,7 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import type { Logger } from '@aztec/aztec.js/log';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
+import { retryUntil } from '@aztec/foundation/retry';
 import { executeTimeout } from '@aztec/foundation/timer';
 
 import type { EndToEndContext } from '../../fixtures/utils.js';
@@ -9,8 +10,8 @@ import { SingleNodeTestContext, jest, setupWithProver } from './setup.js';
 // Regression test ensuring a new node can sync world-state after an unpruned reorg (issue #12206).
 // SingleNodeTestContext with single node, no prover, prod-seq, interval mining. Timing: all defaults
 // (ethSlot=8s/12s CI, aztecSlot=16s/24s, epoch=6, proofSubmissionEpochs=1). The test stops the
-// sequencer mid-run, advances into epoch 2 via waitUntilEpochStarts, then creates a second node and
-// verifies it syncs cleanly despite the reorg window.
+// sequencer mid-run, waits until the unproven checkpoints become prunable on L1, then creates a
+// second node and verifies it syncs cleanly despite the reorg window.
 describe('single-node/recovery/sync_after_reorg', () => {
   let context: EndToEndContext;
   let logger: Logger;
@@ -31,9 +32,10 @@ describe('single-node/recovery/sync_after_reorg', () => {
   });
 
   // Regression for https://github.com/AztecProtocol/aztec-packages/issues/12206.
-  // Waits for 5 checkpoints, stops the main sequencer node, waits for epoch 2 to start (creating
-  // a reorg window), then creates a fresh non-validator node with a 10s timeout and verifies its
-  // block number is 0 (it did not get stuck on a reorg'd block).
+  // Waits for 5 checkpoints, stops the main sequencer node, waits until the rollup would prune the
+  // unproven checkpoints on the next L1 block (opening a reorg window), then creates a fresh
+  // non-validator node with a 10s timeout and verifies its block number is 0 (it did not get stuck
+  // on a reorg'd block).
   it('new node can sync world-state after unpruned reorg', async () => {
     // Wait until there are a few checkpoints in there
     // With pipelining, each checkpoint takes ~2 L2 slots (the sequencer must wait for
@@ -44,8 +46,21 @@ describe('single-node/recovery/sync_after_reorg', () => {
     logger.warn(`Stopping the main node`);
     await (context.aztecNode as AztecNodeService).stop();
 
-    // Wait for an extra epoch, so a reorg would invalidate these blocks
-    await test.waitUntilEpochStarts(2);
+    // Wait until the unproven checkpoints become prunable, so a fresh node will reorg them out on
+    // sync. We poll the rollup's own prune predicate rather than hardcoding an epoch boundary: the
+    // checkpoints become prunable `proofSubmissionEpochs + 1` epochs after the *first* checkpoint's
+    // epoch, and on a freshly-deployed chain the cold-start clock warp can land that first
+    // checkpoint in epoch 0 or epoch 1, shifting the deadline. We evaluate `canPruneAtTime` at the
+    // current L1 block timestamp, which is stricter than the archiver's own check (it looks one L1
+    // block further ahead): once it holds for a block, it holds for every later block the fresh
+    // archiver could sync to, so the archiver's `handleEpochPrune` is guaranteed to fire.
+    logger.warn(`Waiting until the rollup can prune the unproven checkpoints`);
+    await retryUntil(
+      async () => test.rollup.canPruneAtTime(BigInt(await context.cheatCodes.eth.lastBlockTimestamp())),
+      `rollup can prune unproven checkpoints`,
+      L2_SLOT_DURATION_IN_S * 12,
+      0.5,
+    );
 
     // Add a new node and watch it sync
     // We add a timeout since the archiver never finishes syncing and this promise does not resolve is the bug is not fixed
