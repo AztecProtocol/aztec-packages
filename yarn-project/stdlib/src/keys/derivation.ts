@@ -1,4 +1,4 @@
-import { DEFAULT_FBPK_M_HASH, DEFAULT_MSPK_M_HASH, DomainSeparator } from '@aztec/constants';
+import { DomainSeparator } from '@aztec/constants';
 import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { sha512ToGrumpkinScalar } from '@aztec/foundation/crypto/sha512';
@@ -37,6 +37,14 @@ export function deriveMasterIncomingViewingSecretKey(secretKey: Fr): GrumpkinSca
 
 export function deriveMasterOutgoingViewingSecretKey(secretKey: Fr): GrumpkinScalar {
   return sha512ToGrumpkinScalar([secretKey, DomainSeparator.OVSK_M]);
+}
+
+export function deriveMasterMessageSigningSecretKey(secretKey: Fr): GrumpkinScalar {
+  return sha512ToGrumpkinScalar([secretKey, DomainSeparator.MSSK_M]);
+}
+
+export function deriveMasterFallbackSecretKey(secretKey: Fr): GrumpkinScalar {
+  return sha512ToGrumpkinScalar([secretKey, DomainSeparator.FBSK_M]);
 }
 
 export function deriveSigningKey(secretKey: Fr): GrumpkinScalar {
@@ -100,27 +108,28 @@ export async function deriveKeys(secretKey: Fr) {
   const masterIncomingViewingSecretKey = deriveMasterIncomingViewingSecretKey(secretKey);
   const masterOutgoingViewingSecretKey = deriveMasterOutgoingViewingSecretKey(secretKey);
   const masterTaggingSecretKey = sha512ToGrumpkinScalar([secretKey, DomainSeparator.TSK_M]);
+  const masterMessageSigningSecretKey = deriveMasterMessageSigningSecretKey(secretKey);
+  const masterFallbackSecretKey = deriveMasterFallbackSecretKey(secretKey);
 
   // Then we derive master public keys
   const masterNullifierPublicKey = await derivePublicKeyFromSecretKey(masterNullifierHidingKey);
   const masterIncomingViewingPublicKey = await derivePublicKeyFromSecretKey(masterIncomingViewingSecretKey);
   const masterOutgoingViewingPublicKey = await derivePublicKeyFromSecretKey(masterOutgoingViewingSecretKey);
   const masterTaggingPublicKey = await derivePublicKeyFromSecretKey(masterTaggingSecretKey);
+  const masterMessageSigningPublicKey = await derivePublicKeyFromSecretKey(masterMessageSigningSecretKey);
+  const masterFallbackPublicKey = await derivePublicKeyFromSecretKey(masterFallbackSecretKey);
 
   // The non-owner-visible PublicKeys carries hashes for npk/ovpk/tpk/mspk/fbpk and the raw
-  // point only for ivpk_m. The npk/ovpk/tpk raw points are also returned alongside so the key
-  // store can persist them under `${account}-{n|ov|t}pk_m` (only their hashes live in publicKeys).
+  // point only for ivpk_m. The npk/ovpk/tpk/mspk/fbpk raw points are also returned alongside so the key
+  // store can persist them under `${account}-{n|ov|t|ms|fb}pk_m` (only their hashes live in publicKeys).
   // The ivpk_m point isn't returned separately because it already lives in publicKeys.ivpkM.
-  //
-  // TODO: There isn't a derivation path for the message signing(msk) and fallback(fbk) keys yet. So we just use the the
-  // default values for now.
   const publicKeys = new PublicKeys(
     await hashPublicKey(masterNullifierPublicKey),
     masterIncomingViewingPublicKey,
     await hashPublicKey(masterOutgoingViewingPublicKey),
     await hashPublicKey(masterTaggingPublicKey),
-    new Fr(DEFAULT_MSPK_M_HASH),
-    new Fr(DEFAULT_FBPK_M_HASH),
+    await hashPublicKey(masterMessageSigningPublicKey),
+    await hashPublicKey(masterFallbackPublicKey),
   );
 
   return {
@@ -128,9 +137,13 @@ export async function deriveKeys(secretKey: Fr) {
     masterIncomingViewingSecretKey,
     masterOutgoingViewingSecretKey,
     masterTaggingSecretKey,
+    masterMessageSigningSecretKey,
+    masterFallbackSecretKey,
     masterNullifierPublicKey,
     masterOutgoingViewingPublicKey,
     masterTaggingPublicKey,
+    masterMessageSigningPublicKey,
+    masterFallbackPublicKey,
     publicKeys,
   };
 }
