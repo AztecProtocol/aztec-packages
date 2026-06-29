@@ -17,11 +17,11 @@ use types::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         private_kernel_data::PrivateKernelData, transaction::tx_request::TxRequest,
     },
-    hash::compute_protocol_nullifier,
     constants::{
         MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, PRIVATE_KERNEL_INIT_VK_INDEX,
         PRIVATE_KERNEL_INNER_VK_INDEX,
     },
+    hash::create_protocol_nullifier,
 };
 
 // Tests for the batched private kernels (`private_kernel_init_n` / `private_kernel_inner_n`, which
@@ -86,7 +86,6 @@ fn execute_init_n_sequential<let N: u32>(
             vk_tree_root: inputs.vk_tree_root,
             protocol_contracts: inputs.protocol_contracts,
             is_private_only: inputs.is_private_only,
-            first_nullifier_hint: inputs.first_nullifier_hint,
             revertible_counter_hint: inputs.revertible_counter_hint,
         },
     );
@@ -142,7 +141,6 @@ struct BatchNTestBuilder<let N: u32> {
     tx_request: TxRequest,
     private_calls: [FixtureBuilder; N],
     is_private_only: bool,
-    first_nullifier_hint: Field,
     revertible_counter_hint: u32,
 }
 
@@ -171,7 +169,6 @@ impl<let N: u32> BatchNTestBuilder<N> {
             tx_request,
             private_calls,
             is_private_only: false,
-            first_nullifier_hint: 123,
             revertible_counter_hint: 0,
         }
     }
@@ -303,7 +300,6 @@ impl<let N: u32> BatchNTestBuilder<N> {
             vk_tree_root: private_calls[0].vk_tree_root,
             protocol_contracts: private_calls[0].protocol_contracts,
             is_private_only: self.is_private_only,
-            first_nullifier_hint: self.first_nullifier_hint,
             revertible_counter_hint: self.revertible_counter_hint,
         }
     }
@@ -394,6 +390,18 @@ impl<let N: u32> BatchNTestBuilder<N> {
         private_call.anchor_block_header.global_variables.version += 1;
         self.private_calls[index] = private_call;
     }
+
+    fn increment_tx_request_salt(&mut self, index: u32) {
+        let mut private_call = self.private_calls[index];
+        private_call.tx_request_salt += 1;
+        self.private_calls[index] = private_call;
+    }
+
+    fn increment_tx_context_chain_id(&mut self, index: u32) {
+        let mut private_call = self.private_calls[index];
+        private_call.tx_context.chain_id += 1;
+        self.private_calls[index] = private_call;
+    }
 }
 
 /// Builds a batched-inner scenario: a previous kernel plus N private calls sharing its tx constants.
@@ -476,10 +484,171 @@ impl<let N: u32> InnerNTestBuilder<N> {
         }
     }
 
+    /// Runs the batched inner kernel on a depth-first tree: the root (pushed onto the previous
+    /// kernel's stack) has two children -- one starts the chain consumed by the batch, the other is
+    /// a sibling left on the output stack.
+    fn execute_depth_first_with_sibling(self) -> PrivateKernelCircuitPublicInputs {
+        private_kernel_inner_n::execute::<N>(self.depth_first_inputs())
+    }
+
+    /// Sequential reference for the depth-first tree (for the differential tests).
+    fn execute_depth_first_with_sibling_sequential(self) -> PrivateKernelCircuitPublicInputs {
+        execute_inner_n_sequential(self.depth_first_inputs())
+    }
+
+    /// Mirrors `linear_chain_inputs`, but gives the root a second child (a sibling) that no batched
+    /// call consumes, so it is left on the output stack. Requires N >= 2.
+    fn depth_first_inputs(self) -> PrivateKernelInnerNCircuitPrivateInputs<N> {
+        let mut previous_kernel = self.previous_kernel;
+        let mut private_calls = self.private_calls;
+
+        let mut root = private_calls[0];
+        root.append_private_call_requests(2);
+        private_calls[0] = root;
+
+        for i in 1..N {
+            let previous_request = private_calls[i - 1].private_call_requests.get(0);
+            private_calls[i].msg_sender = private_calls[i - 1].contract_address;
+            private_calls[i].counter_start = previous_request.start_side_effect_counter;
+            if private_calls[i].counter <= previous_request.start_side_effect_counter {
+                private_calls[i].counter = previous_request.start_side_effect_counter + 1;
+            }
+            if i < N - 1 {
+                let mut private_call = private_calls[i];
+                private_call.add_private_call_request();
+                private_calls[i] = private_call;
+            }
+        }
+
+        for i in 1..N {
+            let reverse_index = N - i - 1;
+            let next_call_request = private_calls[reverse_index + 1].to_private_call_request();
+            let next_counter = private_calls[reverse_index + 1].counter;
+            let mut current_call = private_calls[reverse_index];
+            current_call.private_call_requests.set(0, next_call_request);
+            if current_call.counter <= next_counter {
+                current_call.counter = next_counter + 1;
+            }
+            private_calls[reverse_index] = current_call;
+        }
+
+        let mut root = private_calls[0];
+        let mut sibling_request = private_calls[0].private_call_requests.get(1);
+        sibling_request.start_side_effect_counter = private_calls[1].counter + 1;
+        sibling_request.end_side_effect_counter = sibling_request.start_side_effect_counter + 1;
+        root.private_call_requests.set(1, sibling_request);
+        private_calls[0] = root;
+        if private_calls[0].counter <= sibling_request.end_side_effect_counter {
+            private_calls[0].counter = sibling_request.end_side_effect_counter + 1;
+        }
+
+        previous_kernel.private_call_requests.push(private_calls[0].to_private_call_request());
+
+        let mut private_call_data = [private_calls[0].to_private_call_data(); N];
+        for i in 1..N {
+            private_call_data[i] = private_calls[i].to_private_call_data();
+        }
+
+        PrivateKernelInnerNCircuitPrivateInputs {
+            previous_kernel: previous_kernel.to_private_kernel_data(),
+            private_calls: private_call_data,
+        }
+    }
+
     /// Appends `amount` note hashes to `private_calls[index]`.
     fn append_note_hashes(&mut self, index: u32, amount: u32) {
         let mut private_call = self.private_calls[index];
         private_call.append_note_hashes(amount);
+        self.private_calls[index] = private_call;
+    }
+
+    fn append_nullifiers(&mut self, index: u32, amount: u32) {
+        let mut private_call = self.private_calls[index];
+        private_call.append_nullifiers(amount);
+        self.private_calls[index] = private_call;
+    }
+
+    fn append_l2_to_l1_msgs(&mut self, index: u32, amount: u32) {
+        let mut private_call = self.private_calls[index];
+        private_call.append_l2_to_l1_msgs(amount);
+        self.private_calls[index] = private_call;
+    }
+
+    fn append_private_logs(&mut self, index: u32, amount: u32) {
+        let mut private_call = self.private_calls[index];
+        private_call.append_private_logs(amount);
+        self.private_calls[index] = private_call;
+    }
+
+    fn append_contract_class_logs(&mut self, index: u32, amount: u32) {
+        let mut private_call = self.private_calls[index];
+        private_call.append_contract_class_logs(amount);
+        self.private_calls[index] = private_call;
+    }
+
+    fn append_public_call_requests(&mut self, index: u32, amount: u32) {
+        let mut private_call = self.private_calls[index];
+        private_call.append_public_call_requests(amount);
+        self.private_calls[index] = private_call;
+    }
+
+    fn append_note_hash_read_requests(&mut self, index: u32, amount: u32) {
+        let mut private_call = self.private_calls[index];
+        private_call.append_note_hash_read_requests(amount);
+        self.private_calls[index] = private_call;
+    }
+
+    fn append_nullifier_read_requests(&mut self, index: u32, amount: u32) {
+        let mut private_call = self.private_calls[index];
+        private_call.append_nullifier_read_requests(amount);
+        self.private_calls[index] = private_call;
+    }
+
+    fn append_key_validation_requests(&mut self, index: u32, amount: u32) {
+        let mut private_call = self.private_calls[index];
+        private_call.append_key_validation_requests(amount);
+        self.private_calls[index] = private_call;
+    }
+
+    fn set_fee_payer(&mut self, index: u32) {
+        let mut private_call = self.private_calls[index];
+        private_call.is_fee_payer = true;
+        self.private_calls[index] = private_call;
+    }
+
+    fn set_public_teardown_call_request(&mut self, index: u32) {
+        let mut private_call = self.private_calls[index];
+        private_call.set_public_teardown_call_request();
+        self.private_calls[index] = private_call;
+    }
+
+    fn end_setup(&mut self, index: u32) {
+        let mut private_call = self.private_calls[index];
+        private_call.end_setup();
+        self.private_calls[index] = private_call;
+    }
+
+    fn set_static_call(&mut self, index: u32) {
+        let mut private_call = self.private_calls[index];
+        let _ = private_call.is_static_call();
+        self.private_calls[index] = private_call;
+    }
+
+    fn increment_tx_request_salt(&mut self, index: u32) {
+        let mut private_call = self.private_calls[index];
+        private_call.tx_request_salt += 1;
+        self.private_calls[index] = private_call;
+    }
+
+    fn increment_anchor_block_header_version(&mut self, index: u32) {
+        let mut private_call = self.private_calls[index];
+        private_call.anchor_block_header.global_variables.version += 1;
+        self.private_calls[index] = private_call;
+    }
+
+    fn increment_tx_context_chain_id(&mut self, index: u32) {
+        let mut private_call = self.private_calls[index];
+        private_call.tx_context.chain_id += 1;
         self.private_calls[index] = private_call;
     }
 }
@@ -488,6 +657,23 @@ impl<let N: u32> InnerNTestBuilder<N> {
 /// class log on call 0), so the differential test exercises the concatenation + scoping of all
 /// accumulator arrays at once.
 fn add_one_of_each_per_call_with_tx_bounded_logs<let N: u32>(builder: &mut BatchNTestBuilder<N>) {
+    for i in 0..N {
+        builder.append_note_hashes(i, 1);
+        builder.append_nullifiers(i, 1);
+        builder.append_l2_to_l1_msgs(i, 1);
+        builder.append_private_logs(i, 1);
+        builder.append_public_call_requests(i, 1);
+        builder.append_note_hash_read_requests(i, 1);
+        builder.append_nullifier_read_requests(i, 1);
+        builder.append_key_validation_requests(i, 1);
+    }
+
+    builder.append_contract_class_logs(0, 1);
+}
+
+/// Inner analogue of `add_one_of_each_per_call_with_tx_bounded_logs`: one of each per-call
+/// side-effect type on every call, plus one tx-bounded contract class log on call 0.
+fn add_one_of_each_per_inner_call<let N: u32>(builder: &mut InnerNTestBuilder<N>) {
     for i in 0..N {
         builder.append_note_hashes(i, 1);
         builder.append_nullifiers(i, 1);
@@ -611,6 +797,31 @@ fn assert_batch_n_second_call_must_match_previous_kernel_header<let N: u32>() {
     let _ = builder.execute_linear_chain();
 }
 
+fn assert_init_n_salt_mismatch_rejected<let N: u32>() {
+    let mut builder = BatchNTestBuilder::<N>::new();
+
+    // The init kernel binds every call's `tx_request_salt` to the tx request's salt. The first call
+    // is bound directly (`validate_against_tx_request`); subsequent calls are bound via the shared
+    // constants (`validate_against_constants`). Mutate a subsequent call when one exists (N > 1),
+    // otherwise the only (first) call.
+    let index = if N == 1 { 0 } else { 1 };
+    builder.increment_tx_request_salt(index);
+
+    let _ = builder.execute_linear_chain();
+}
+
+fn assert_init_n_tx_context_mismatch_rejected<let N: u32>() {
+    let mut builder = BatchNTestBuilder::<N>::new();
+
+    // The first call's `tx_context` is bound to the tx request (`validate_against_tx_request`);
+    // subsequent calls are bound to the shared constants (`validate_against_constants`). Mutate a
+    // subsequent call when one exists (N > 1), otherwise the only (first) call.
+    let index = if N == 1 { 0 } else { 1 };
+    builder.increment_tx_context_chain_id(index);
+
+    let _ = builder.execute_linear_chain();
+}
+
 fn assert_batch_n_fee_payer_conflict_fails<let N: u32>() {
     let mut builder = BatchNTestBuilder::<N>::new();
 
@@ -710,6 +921,205 @@ fn assert_inner_n_with_previous_side_effects_matches_sequential_kernels<let N: u
     assert_private_kernel_public_inputs_eq(batched, sequential);
 }
 
+fn assert_inner_n_salt_mismatch_rejected<let N: u32>() {
+    let mut builder = InnerNTestBuilder::<N>::new();
+
+    // Every inner call's `tx_request_salt` must match the salt propagated by the previous kernel's
+    // constants (`validate_against_constants`).
+    builder.increment_tx_request_salt(0);
+
+    let _ = builder.execute_linear_chain();
+}
+
+fn assert_inner_n_anchor_mismatch_rejected<let N: u32>() {
+    let mut builder = InnerNTestBuilder::<N>::new();
+
+    // Every inner call's `anchor_block_header` must match the previous kernel's constants.
+    builder.increment_anchor_block_header_version(0);
+
+    let _ = builder.execute_linear_chain();
+}
+
+fn assert_inner_n_tx_context_mismatch_rejected<let N: u32>() {
+    let mut builder = InnerNTestBuilder::<N>::new();
+
+    // Every inner call's `tx_context` must match the previous kernel's constants.
+    builder.increment_tx_context_chain_id(0);
+
+    let _ = builder.execute_linear_chain();
+}
+
+fn assert_inner_n_with_everything_non_empty_matches_sequential_kernels<let N: u32>() {
+    let mut builder = InnerNTestBuilder::<N>::new();
+    add_one_of_each_per_inner_call(&mut builder);
+
+    let batched = builder.execute_linear_chain();
+    let sequential = builder.execute_linear_chain_sequential();
+
+    assert_private_kernel_public_inputs_eq(batched, sequential);
+}
+
+fn assert_inner_n_is_private_only_matches_sequential<let N: u32>() {
+    let mut builder = InnerNTestBuilder::<N>::new();
+    // `is_private_only` is propagated from the previous kernel; the batched and sequential paths
+    // must propagate it identically.
+    builder.previous_kernel.is_private_only = true;
+
+    let batched = builder.execute_linear_chain();
+    let sequential = builder.execute_linear_chain_sequential();
+
+    assert_private_kernel_public_inputs_eq(batched, sequential);
+}
+
+fn assert_inner_n_expiration_timestamp_min_matches_sequential<let N: u32>() {
+    let mut builder = InnerNTestBuilder::<N>::new();
+    // Give each call a distinct (decreasing) expiration; the output must carry the minimum across
+    // the previous kernel and all calls, identically on both paths.
+    for i in 0..N {
+        let mut call = builder.private_calls[i];
+        call.expiration_timestamp -= (i as u64) + 1;
+        builder.private_calls[i] = call;
+    }
+
+    let batched = builder.execute_linear_chain();
+    let sequential = builder.execute_linear_chain_sequential();
+
+    assert_private_kernel_public_inputs_eq(batched, sequential);
+}
+
+fn assert_inner_n_fee_payer_midbatch_matches_sequential<let N: u32>() {
+    let mut builder = InnerNTestBuilder::<N>::new();
+    // A non-first call nominates itself as fee payer.
+    builder.set_fee_payer(N - 1);
+
+    let batched = builder.execute_linear_chain();
+    let sequential = builder.execute_linear_chain_sequential();
+
+    assert_private_kernel_public_inputs_eq(batched, sequential);
+}
+
+fn assert_inner_n_public_teardown_midbatch_matches_sequential<let N: u32>() {
+    let mut builder = InnerNTestBuilder::<N>::new();
+    builder.set_public_teardown_call_request(N - 1);
+
+    let batched = builder.execute_linear_chain();
+    let sequential = builder.execute_linear_chain_sequential();
+
+    assert_private_kernel_public_inputs_eq(batched, sequential);
+}
+
+fn assert_inner_n_min_revertible_midbatch_matches_sequential<let N: u32>() {
+    let mut builder = InnerNTestBuilder::<N>::new();
+    // A non-first call ends the setup phase, setting min_revertible_side_effect_counter. The
+    // previous kernel must already claim that counter (inner propagates it from the previous kernel
+    // rather than from an input hint, as the init kernel does).
+    builder.end_setup(N - 1);
+    builder.previous_kernel.claimed_revertible_counter =
+        builder.private_calls[N - 1].min_revertible_side_effect_counter;
+
+    let batched = builder.execute_linear_chain();
+    let sequential = builder.execute_linear_chain_sequential();
+
+    assert_private_kernel_public_inputs_eq(batched, sequential);
+}
+
+fn assert_inner_n_depth_first_child_keeps_sibling_on_stack<let N: u32>() {
+    let builder = InnerNTestBuilder::<N>::new();
+
+    let output = builder.execute_depth_first_with_sibling();
+
+    assert_eq(output.end.private_call_stack.length, 1);
+}
+
+fn assert_inner_n_depth_first_with_sibling_matches_sequential_kernels<let N: u32>() {
+    let builder = InnerNTestBuilder::<N>::new();
+
+    let batched = builder.execute_depth_first_with_sibling();
+    let sequential = builder.execute_depth_first_with_sibling_sequential();
+
+    assert_private_kernel_public_inputs_eq(batched, sequential);
+}
+
+fn assert_inner_n_claimed_lengths_are_validated<let N: u32>() {
+    let mut builder = InnerNTestBuilder::<N>::new();
+
+    // Every inner call's claimed array lengths are bounds-checked by `validate_common`.
+    builder.append_note_hash_read_requests(0, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL + 1);
+
+    let _ = builder.execute_linear_chain();
+}
+
+fn assert_inner_n_side_effect_counters_are_validated<let N: u32>() {
+    let mut builder = InnerNTestBuilder::<N>::new();
+
+    builder.append_note_hashes(0, 1);
+    let mut inputs = builder.linear_chain_inputs();
+    // Push a side-effect counter below the call's start counter; `validate_common` must reject it.
+    let mut note_hash = inputs.private_calls[0].public_inputs.note_hashes.array[0];
+    note_hash.counter = inputs.private_calls[0].public_inputs.start_side_effect_counter;
+    inputs.private_calls[0].public_inputs.note_hashes.array[0] = note_hash;
+
+    let _ = private_kernel_inner_n::execute::<N>(inputs);
+}
+
+fn assert_inner_n_fee_payer_conflict_fails<let N: u32>() {
+    let mut builder = InnerNTestBuilder::<N>::new();
+
+    // Two calls in the batch both nominate themselves as fee payer; the composer must reject the
+    // second nomination.
+    builder.set_fee_payer(0);
+    builder.set_fee_payer(1);
+
+    let _ = builder.execute_linear_chain();
+}
+
+fn assert_inner_n_public_teardown_conflict_fails<let N: u32>() {
+    let mut builder = InnerNTestBuilder::<N>::new();
+
+    builder.set_public_teardown_call_request(0);
+    builder.set_public_teardown_call_request(1);
+
+    let _ = builder.execute_linear_chain();
+}
+
+fn assert_inner_n_min_revertible_conflict_fails<let N: u32>() {
+    let mut builder = InnerNTestBuilder::<N>::new();
+
+    // Two calls both end setup, so each tries to set min_revertible_side_effect_counter; the second
+    // must be rejected. The previous kernel claims the first call's counter (inner propagates the
+    // claimed counter from the previous kernel).
+    builder.end_setup(0);
+    builder.end_setup(1);
+    builder.previous_kernel.claimed_revertible_counter =
+        builder.private_calls[0].min_revertible_side_effect_counter;
+
+    let _ = builder.execute_linear_chain();
+}
+
+fn assert_inner_n_static_call_requires_static_nested_private_call_fails<let N: u32>() {
+    let mut builder = InnerNTestBuilder::<N>::new();
+
+    // A static call's nested private call must also be static. Call 1 is made static but its child
+    // (call 2 in the chain) is not, so the rule fires. Requires call 1 to have a child (N >= 3).
+    builder.set_static_call(1);
+
+    let _ = builder.execute_linear_chain();
+}
+
+fn assert_inner_n_static_call_restrictions_apply_to_next_slot_fails<let N: u32>() {
+    let mut builder = InnerNTestBuilder::<N>::new();
+    let last_index = N - 1;
+
+    // Make the non-root calls static, then emit a note hash from the last (static) call; static
+    // calls may not emit side effects.
+    for i in 1..N {
+        builder.set_static_call(i);
+    }
+    builder.append_note_hashes(last_index, 1);
+
+    let _ = builder.execute_linear_chain();
+}
+
 fn assert_batch_n_is_private_only_matches_sequential<let N: u32>() {
     let mut builder = BatchNTestBuilder::<N>::new();
     builder.is_private_only = true;
@@ -756,14 +1166,26 @@ fn assert_batch_n_min_revertible_midbatch_matches_sequential<let N: u32>() {
 
 fn assert_batch_n_protocol_nullifier_matches_sequential<let N: u32>() {
     let mut builder = BatchNTestBuilder::<N>::new();
-    // Point the hint at the protocol nullifier so the kernel (not the app) injects it. Both the
-    // batched and the sequential paths must inject the same prepended nullifier.
-    let (_, protocol_nullifier) = compute_protocol_nullifier(builder.tx_request);
-    builder.first_nullifier_hint = protocol_nullifier;
+    // Give each call one app nullifier so we can check the protocol nullifier is prepended ahead of
+    // them (and not, say, overwriting or trailing the app nullifiers).
+    for i in 0..N {
+        builder.append_nullifiers(i, 1);
+    }
+    let app_nullifiers = builder.private_calls.map(|call| call.nullifiers.storage()[0]);
 
     let batched = builder.execute_linear_chain();
-    let sequential = builder.execute_sequential_with_shape(false, true);
 
+    // The init kernel always injects the protocol nullifier at index 0, with value
+    // `create_protocol_nullifier(tx_request)`; the app nullifiers follow it in call order.
+    let scoped_protocol_nullifier = create_protocol_nullifier(builder.tx_request);
+    assert_eq(batched.end.nullifiers.length, N + 1, "incorrect nullifier length");
+    assert_eq(batched.end.nullifiers.array[0], scoped_protocol_nullifier);
+    for i in 0..N {
+        assert_eq(batched.end.nullifiers.array[i + 1], app_nullifiers[i]);
+    }
+
+    // The batched and sequential paths must also produce identical output overall.
+    let sequential = builder.execute_sequential_with_shape(false, true);
     assert_private_kernel_public_inputs_eq(batched, sequential);
 }
 
@@ -790,10 +1212,7 @@ fn assert_batch_n_expiration_timestamp_min_matches_sequential<let N: u32>() {
 /// the order in which the calls should be processed is `[B, D, C]`. The prover instead supplies the calls in the order
 /// `[B, C, D]` with `popped_from_source = [0, 0, 1]`: pop `B` and `C` from the previous stack
 /// (source 0), then pop `D` from `B`'s own `private_call_requests` (source 1). We test that this order is rejected by enforcing increasing side effect counters.
-fn non_side_effect_ordered_inner_scenario() -> (
-    PrivateKernelInnerNCircuitPrivateInputs<3>,
-    PrivateCallStackBatchHints<3>,
-) {
+fn non_side_effect_ordered_inner_scenario() -> (PrivateKernelInnerNCircuitPrivateInputs<3>, PrivateCallStackBatchHints<3>) {
     // B: interval [10, 15]; has child D.
     let mut b = FixtureBuilder::new_from_counter(10);
     b.counter = 15;
@@ -814,7 +1233,8 @@ fn non_side_effect_ordered_inner_scenario() -> (
     b.private_call_requests.push(d.to_private_call_request());
 
     // Previous kernel stack: [C, B] with B on top (highest index).
-    let mut previous_kernel = FixtureBuilder::new_from_counter(5).in_vk_tree(PRIVATE_KERNEL_INIT_VK_INDEX);
+    let mut previous_kernel =
+        FixtureBuilder::new_from_counter(5).in_vk_tree(PRIVATE_KERNEL_INIT_VK_INDEX);
     previous_kernel.private_call_requests.push(c.to_private_call_request());
     previous_kernel.private_call_requests.push(b.to_private_call_request());
 
@@ -836,7 +1256,9 @@ fn compose_inner<let N: u32>(
     inputs: PrivateKernelInnerNCircuitPrivateInputs<N>,
 ) -> PrivateKernelCircuitPublicInputs {
     // Safety: test witness generator; `validate_inner` re-checks the output against the hints.
-    unsafe { compose_inner_batch_n(inputs.previous_kernel.public_inputs, inputs.private_calls) }
+    unsafe {
+        compose_inner_batch_n(inputs.previous_kernel.public_inputs, inputs.private_calls)
+    }
 }
 
 fn validate_inner<let N: u32>(
@@ -868,7 +1290,6 @@ fn compose_init<let N: u32>(
             inputs.vk_tree_root,
             inputs.protocol_contracts,
             inputs.is_private_only,
-            inputs.first_nullifier_hint,
             inputs.revertible_counter_hint,
             inputs.private_calls,
         )
@@ -886,7 +1307,6 @@ fn validate_init<let N: u32>(
             inputs.vk_tree_root,
             inputs.protocol_contracts,
             inputs.is_private_only,
-            inputs.first_nullifier_hint,
             inputs.revertible_counter_hint,
         );
     for i in 1..N {
@@ -914,10 +1334,7 @@ fn inner_linear_chain_inputs() -> PrivateKernelInnerNCircuitPrivateInputs<3> {
 
 // Previous kernel stack is [X, Y] with Y on top. The batch pops Y (and its child Z), leaving X on
 // the bottom of the stack. Honest hints [0, 1]: Y from the previous stack, Z from Y.
-fn inner_prev_remainder_scenario() -> (
-    PrivateKernelInnerNCircuitPrivateInputs<2>,
-    PrivateCallStackBatchHints<2>,
-) {
+fn inner_prev_remainder_scenario() -> (PrivateKernelInnerNCircuitPrivateInputs<2>, PrivateCallStackBatchHints<2>) {
     let mut previous_kernel = FixtureBuilder::new_from_counter(135)
         .in_vk_tree(PRIVATE_KERNEL_INIT_VK_INDEX)
         .as_parent_contract();
@@ -962,11 +1379,7 @@ fn inner_prev_remainder_scenario() -> (
 /// scenario instead defers D (`popped_from_source = [0, 1, 1]`: B and C both popped from A), so the
 /// batch processes A, B, C and leaves D on the output stack for a later kernel. Returns the init
 /// inputs, the deferral hints, and the D fixture (the deferred call).
-fn deferred_grandchild_init_scenario() -> (
-    PrivateKernelInitNCircuitPrivateInputs<3>,
-    PrivateCallStackBatchHints<3>,
-    FixtureBuilder,
-) {
+fn deferred_grandchild_init_scenario() -> (PrivateKernelInitNCircuitPrivateInputs<3>, PrivateCallStackBatchHints<3>, FixtureBuilder) {
     let mut a = FixtureBuilder::new_from_counter(2).is_first_call();
     a.counter = 100;
     a.compute_update_tree_and_hints();
@@ -1011,11 +1424,114 @@ fn deferred_grandchild_init_scenario() -> (
         vk_tree_root: a.vk_tree_root,
         protocol_contracts: a.protocol_contracts,
         is_private_only: false,
-        first_nullifier_hint: 123,
         revertible_counter_hint: 0,
     };
 
     (inputs, PrivateCallStackBatchHints { popped_from_source: [0, 1, 1] }, d)
+}
+
+// N = 1 is the degenerate batch: a single private call. The multi-call scenarios (depth-first
+// sibling handling, second-call stack/constants mismatches, mid-batch fee-payer/teardown/min-
+// revertible nominations, static-nested-call rules) have no analogue here, so only the single-call
+// baseline and the per-call constants checks apply. `linear_chain_consumes_all_calls` is also
+// omitted for the init batch: the single call's child request is legitimately left on the stack as
+// a deferred call, so the stack is not empty (the inner batch consumes its root from the previous
+// kernel's stack, so its counterpart is kept).
+#[test]
+fn batch_1_linear_chain_matches_sequential_kernels() {
+    assert_batch_n_linear_chain_matches_sequential_kernels::<1>();
+}
+
+#[test]
+fn batch_1_with_everything_non_empty_matches_sequential_kernels() {
+    assert_batch_n_with_everything_non_empty_matches_sequential_kernels::<1>();
+}
+
+#[test]
+fn batch_1_is_private_only_matches_sequential() {
+    assert_batch_n_is_private_only_matches_sequential::<1>();
+}
+
+#[test]
+fn batch_1_protocol_nullifier_matches_sequential() {
+    assert_batch_n_protocol_nullifier_matches_sequential::<1>();
+}
+
+#[test]
+fn batch_1_expiration_timestamp_min_matches_sequential() {
+    assert_batch_n_expiration_timestamp_min_matches_sequential::<1>();
+}
+
+// For N = 1 the single call is the first call, so its salt is bound directly by
+// `validate_against_tx_request` (hence the different failure message than the N > 1 cases).
+#[test(should_fail_with = "tx_request_salt in private call does not match the salt in tx_request")]
+fn batch_1_salt_mismatch_rejected() {
+    assert_init_n_salt_mismatch_rejected::<1>();
+}
+
+#[test(should_fail_with = "tx_context in private call does not match the value in tx_request")]
+fn batch_1_tx_context_mismatch_rejected() {
+    assert_init_n_tx_context_mismatch_rejected::<1>();
+}
+
+#[test]
+fn inner_1_accumulates_side_effects_after_previous_kernel() {
+    assert_inner_n_accumulates_side_effects_after_previous_kernel::<1>();
+}
+
+#[test]
+fn inner_1_with_previous_side_effects_matches_sequential_kernels() {
+    assert_inner_n_with_previous_side_effects_matches_sequential_kernels::<1>();
+}
+
+#[test]
+fn inner_1_linear_chain_consumes_all_calls() {
+    assert_inner_n_linear_chain_consumes_all_calls::<1>();
+}
+
+#[test]
+fn inner_1_linear_chain_matches_sequential_kernels() {
+    assert_inner_n_linear_chain_matches_sequential_kernels::<1>();
+}
+
+#[test]
+fn inner_1_with_everything_non_empty_matches_sequential_kernels() {
+    assert_inner_n_with_everything_non_empty_matches_sequential_kernels::<1>();
+}
+
+#[test]
+fn inner_1_is_private_only_matches_sequential() {
+    assert_inner_n_is_private_only_matches_sequential::<1>();
+}
+
+#[test]
+fn inner_1_expiration_timestamp_min_matches_sequential() {
+    assert_inner_n_expiration_timestamp_min_matches_sequential::<1>();
+}
+
+#[test(should_fail_with = "mismatch tx_request_salt")]
+fn inner_1_salt_mismatch_rejected() {
+    assert_inner_n_salt_mismatch_rejected::<1>();
+}
+
+#[test(should_fail_with = "anchor block header mismatch")]
+fn inner_1_anchor_mismatch_rejected() {
+    assert_inner_n_anchor_mismatch_rejected::<1>();
+}
+
+#[test(should_fail_with = "mismatch tx context")]
+fn inner_1_tx_context_mismatch_rejected() {
+    assert_inner_n_tx_context_mismatch_rejected::<1>();
+}
+
+#[test(should_fail_with = "note_hash_read_requests length out of bounds")]
+fn inner_1_claimed_lengths_are_validated() {
+    assert_inner_n_claimed_lengths_are_validated::<1>();
+}
+
+#[test(should_fail_with = "Counter must be greater than previous counter")]
+fn inner_1_side_effect_counters_are_validated() {
+    assert_inner_n_side_effect_counters_are_validated::<1>();
 }
 
 #[test]
@@ -1066,6 +1582,16 @@ fn batch_2_second_call_side_effect_counters_are_validated() {
 #[test(should_fail_with = "anchor block header mismatch")]
 fn batch_2_second_call_must_match_previous_kernel_header() {
     assert_batch_n_second_call_must_match_previous_kernel_header::<2>();
+}
+
+#[test(should_fail_with = "mismatch tx_request_salt")]
+fn batch_2_salt_mismatch_rejected() {
+    assert_init_n_salt_mismatch_rejected::<2>();
+}
+
+#[test(should_fail_with = "mismatch tx context")]
+fn batch_2_tx_context_mismatch_rejected() {
+    assert_init_n_tx_context_mismatch_rejected::<2>();
 }
 
 #[test(should_fail_with = "Cannot overwrite non-empty fee_payer")]
@@ -1146,6 +1672,91 @@ fn inner_2_linear_chain_matches_sequential_kernels() {
 }
 
 #[test]
+fn inner_2_with_everything_non_empty_matches_sequential_kernels() {
+    assert_inner_n_with_everything_non_empty_matches_sequential_kernels::<2>();
+}
+
+#[test]
+fn inner_2_is_private_only_matches_sequential() {
+    assert_inner_n_is_private_only_matches_sequential::<2>();
+}
+
+#[test]
+fn inner_2_expiration_timestamp_min_matches_sequential() {
+    assert_inner_n_expiration_timestamp_min_matches_sequential::<2>();
+}
+
+#[test]
+fn inner_2_fee_payer_midbatch_matches_sequential() {
+    assert_inner_n_fee_payer_midbatch_matches_sequential::<2>();
+}
+
+#[test]
+fn inner_2_public_teardown_midbatch_matches_sequential() {
+    assert_inner_n_public_teardown_midbatch_matches_sequential::<2>();
+}
+
+#[test]
+fn inner_2_min_revertible_midbatch_matches_sequential() {
+    assert_inner_n_min_revertible_midbatch_matches_sequential::<2>();
+}
+
+#[test]
+fn inner_2_depth_first_child_keeps_sibling_on_stack() {
+    assert_inner_n_depth_first_child_keeps_sibling_on_stack::<2>();
+}
+
+#[test]
+fn inner_2_depth_first_with_sibling_matches_sequential_kernels() {
+    assert_inner_n_depth_first_with_sibling_matches_sequential_kernels::<2>();
+}
+
+#[test(should_fail_with = "mismatch tx_request_salt")]
+fn inner_2_salt_mismatch_rejected() {
+    assert_inner_n_salt_mismatch_rejected::<2>();
+}
+
+#[test(should_fail_with = "anchor block header mismatch")]
+fn inner_2_anchor_mismatch_rejected() {
+    assert_inner_n_anchor_mismatch_rejected::<2>();
+}
+
+#[test(should_fail_with = "mismatch tx context")]
+fn inner_2_tx_context_mismatch_rejected() {
+    assert_inner_n_tx_context_mismatch_rejected::<2>();
+}
+
+#[test(should_fail_with = "note_hash_read_requests length out of bounds")]
+fn inner_2_claimed_lengths_are_validated() {
+    assert_inner_n_claimed_lengths_are_validated::<2>();
+}
+
+#[test(should_fail_with = "Counter must be greater than previous counter")]
+fn inner_2_side_effect_counters_are_validated() {
+    assert_inner_n_side_effect_counters_are_validated::<2>();
+}
+
+#[test(should_fail_with = "Cannot overwrite non-empty fee_payer")]
+fn inner_2_fee_payer_conflict_fails() {
+    assert_inner_n_fee_payer_conflict_fails::<2>();
+}
+
+#[test(should_fail_with = "Public teardown call request already set")]
+fn inner_2_public_teardown_conflict_fails() {
+    assert_inner_n_public_teardown_conflict_fails::<2>();
+}
+
+#[test(should_fail_with = "cannot overwrite non-zero min_revertible_side_effect_counter")]
+fn inner_2_min_revertible_conflict_fails() {
+    assert_inner_n_min_revertible_conflict_fails::<2>();
+}
+
+#[test(should_fail_with = "note_hashes must be empty for static calls")]
+fn inner_2_static_call_restrictions_apply_to_next_slot_fails() {
+    assert_inner_n_static_call_restrictions_apply_to_next_slot_fails::<2>();
+}
+
+#[test]
 fn batch_3_accumulates_side_effects_across_slots() {
     assert_batch_n_accumulates_side_effects_across_slots::<3>();
 }
@@ -1198,6 +1809,16 @@ fn batch_3_third_call_side_effect_counters_are_validated() {
 #[test(should_fail_with = "anchor block header mismatch")]
 fn batch_3_second_call_must_match_previous_kernel_header() {
     assert_batch_n_second_call_must_match_previous_kernel_header::<3>();
+}
+
+#[test(should_fail_with = "mismatch tx_request_salt")]
+fn batch_3_salt_mismatch_rejected() {
+    assert_init_n_salt_mismatch_rejected::<3>();
+}
+
+#[test(should_fail_with = "mismatch tx context")]
+fn batch_3_tx_context_mismatch_rejected() {
+    assert_init_n_tx_context_mismatch_rejected::<3>();
 }
 
 #[test(should_fail_with = "Cannot overwrite non-empty fee_payer")]
@@ -1276,6 +1897,96 @@ fn inner_3_linear_chain_matches_sequential_kernels() {
 }
 
 #[test]
+fn inner_3_with_everything_non_empty_matches_sequential_kernels() {
+    assert_inner_n_with_everything_non_empty_matches_sequential_kernels::<3>();
+}
+
+#[test]
+fn inner_3_is_private_only_matches_sequential() {
+    assert_inner_n_is_private_only_matches_sequential::<3>();
+}
+
+#[test]
+fn inner_3_expiration_timestamp_min_matches_sequential() {
+    assert_inner_n_expiration_timestamp_min_matches_sequential::<3>();
+}
+
+#[test]
+fn inner_3_fee_payer_midbatch_matches_sequential() {
+    assert_inner_n_fee_payer_midbatch_matches_sequential::<3>();
+}
+
+#[test]
+fn inner_3_public_teardown_midbatch_matches_sequential() {
+    assert_inner_n_public_teardown_midbatch_matches_sequential::<3>();
+}
+
+#[test]
+fn inner_3_min_revertible_midbatch_matches_sequential() {
+    assert_inner_n_min_revertible_midbatch_matches_sequential::<3>();
+}
+
+#[test]
+fn inner_3_depth_first_child_keeps_sibling_on_stack() {
+    assert_inner_n_depth_first_child_keeps_sibling_on_stack::<3>();
+}
+
+#[test]
+fn inner_3_depth_first_with_sibling_matches_sequential_kernels() {
+    assert_inner_n_depth_first_with_sibling_matches_sequential_kernels::<3>();
+}
+
+#[test(should_fail_with = "mismatch tx_request_salt")]
+fn inner_3_salt_mismatch_rejected() {
+    assert_inner_n_salt_mismatch_rejected::<3>();
+}
+
+#[test(should_fail_with = "anchor block header mismatch")]
+fn inner_3_anchor_mismatch_rejected() {
+    assert_inner_n_anchor_mismatch_rejected::<3>();
+}
+
+#[test(should_fail_with = "mismatch tx context")]
+fn inner_3_tx_context_mismatch_rejected() {
+    assert_inner_n_tx_context_mismatch_rejected::<3>();
+}
+
+#[test(should_fail_with = "note_hash_read_requests length out of bounds")]
+fn inner_3_claimed_lengths_are_validated() {
+    assert_inner_n_claimed_lengths_are_validated::<3>();
+}
+
+#[test(should_fail_with = "Counter must be greater than previous counter")]
+fn inner_3_side_effect_counters_are_validated() {
+    assert_inner_n_side_effect_counters_are_validated::<3>();
+}
+
+#[test(should_fail_with = "Cannot overwrite non-empty fee_payer")]
+fn inner_3_fee_payer_conflict_fails() {
+    assert_inner_n_fee_payer_conflict_fails::<3>();
+}
+
+#[test(should_fail_with = "Public teardown call request already set")]
+fn inner_3_public_teardown_conflict_fails() {
+    assert_inner_n_public_teardown_conflict_fails::<3>();
+}
+
+#[test(should_fail_with = "cannot overwrite non-zero min_revertible_side_effect_counter")]
+fn inner_3_min_revertible_conflict_fails() {
+    assert_inner_n_min_revertible_conflict_fails::<3>();
+}
+
+#[test(should_fail_with = "nested private call of a static call must be static")]
+fn inner_3_static_call_requires_static_nested_private_call_fails() {
+    assert_inner_n_static_call_requires_static_nested_private_call_fails::<3>();
+}
+
+#[test(should_fail_with = "note_hashes must be empty for static calls")]
+fn inner_3_static_call_restrictions_apply_to_next_slot_fails() {
+    assert_inner_n_static_call_restrictions_apply_to_next_slot_fails::<3>();
+}
+
+#[test]
 fn batch_4_accumulates_side_effects_across_slots() {
     assert_batch_n_accumulates_side_effects_across_slots::<4>();
 }
@@ -1328,6 +2039,16 @@ fn batch_4_fourth_call_side_effect_counters_are_validated() {
 #[test(should_fail_with = "anchor block header mismatch")]
 fn batch_4_second_call_must_match_previous_kernel_header() {
     assert_batch_n_second_call_must_match_previous_kernel_header::<4>();
+}
+
+#[test(should_fail_with = "mismatch tx_request_salt")]
+fn batch_4_salt_mismatch_rejected() {
+    assert_init_n_salt_mismatch_rejected::<4>();
+}
+
+#[test(should_fail_with = "mismatch tx context")]
+fn batch_4_tx_context_mismatch_rejected() {
+    assert_init_n_tx_context_mismatch_rejected::<4>();
 }
 
 #[test(should_fail_with = "Cannot overwrite non-empty fee_payer")]
@@ -1406,6 +2127,96 @@ fn inner_4_linear_chain_matches_sequential_kernels() {
 }
 
 #[test]
+fn inner_4_with_everything_non_empty_matches_sequential_kernels() {
+    assert_inner_n_with_everything_non_empty_matches_sequential_kernels::<4>();
+}
+
+#[test]
+fn inner_4_is_private_only_matches_sequential() {
+    assert_inner_n_is_private_only_matches_sequential::<4>();
+}
+
+#[test]
+fn inner_4_expiration_timestamp_min_matches_sequential() {
+    assert_inner_n_expiration_timestamp_min_matches_sequential::<4>();
+}
+
+#[test]
+fn inner_4_fee_payer_midbatch_matches_sequential() {
+    assert_inner_n_fee_payer_midbatch_matches_sequential::<4>();
+}
+
+#[test]
+fn inner_4_public_teardown_midbatch_matches_sequential() {
+    assert_inner_n_public_teardown_midbatch_matches_sequential::<4>();
+}
+
+#[test]
+fn inner_4_min_revertible_midbatch_matches_sequential() {
+    assert_inner_n_min_revertible_midbatch_matches_sequential::<4>();
+}
+
+#[test]
+fn inner_4_depth_first_child_keeps_sibling_on_stack() {
+    assert_inner_n_depth_first_child_keeps_sibling_on_stack::<4>();
+}
+
+#[test]
+fn inner_4_depth_first_with_sibling_matches_sequential_kernels() {
+    assert_inner_n_depth_first_with_sibling_matches_sequential_kernels::<4>();
+}
+
+#[test(should_fail_with = "mismatch tx_request_salt")]
+fn inner_4_salt_mismatch_rejected() {
+    assert_inner_n_salt_mismatch_rejected::<4>();
+}
+
+#[test(should_fail_with = "anchor block header mismatch")]
+fn inner_4_anchor_mismatch_rejected() {
+    assert_inner_n_anchor_mismatch_rejected::<4>();
+}
+
+#[test(should_fail_with = "mismatch tx context")]
+fn inner_4_tx_context_mismatch_rejected() {
+    assert_inner_n_tx_context_mismatch_rejected::<4>();
+}
+
+#[test(should_fail_with = "note_hash_read_requests length out of bounds")]
+fn inner_4_claimed_lengths_are_validated() {
+    assert_inner_n_claimed_lengths_are_validated::<4>();
+}
+
+#[test(should_fail_with = "Counter must be greater than previous counter")]
+fn inner_4_side_effect_counters_are_validated() {
+    assert_inner_n_side_effect_counters_are_validated::<4>();
+}
+
+#[test(should_fail_with = "Cannot overwrite non-empty fee_payer")]
+fn inner_4_fee_payer_conflict_fails() {
+    assert_inner_n_fee_payer_conflict_fails::<4>();
+}
+
+#[test(should_fail_with = "Public teardown call request already set")]
+fn inner_4_public_teardown_conflict_fails() {
+    assert_inner_n_public_teardown_conflict_fails::<4>();
+}
+
+#[test(should_fail_with = "cannot overwrite non-zero min_revertible_side_effect_counter")]
+fn inner_4_min_revertible_conflict_fails() {
+    assert_inner_n_min_revertible_conflict_fails::<4>();
+}
+
+#[test(should_fail_with = "nested private call of a static call must be static")]
+fn inner_4_static_call_requires_static_nested_private_call_fails() {
+    assert_inner_n_static_call_requires_static_nested_private_call_fails::<4>();
+}
+
+#[test(should_fail_with = "note_hashes must be empty for static calls")]
+fn inner_4_static_call_restrictions_apply_to_next_slot_fails() {
+    assert_inner_n_static_call_restrictions_apply_to_next_slot_fails::<4>();
+}
+
+#[test]
 fn batch_5_accumulates_side_effects_across_slots() {
     assert_batch_n_accumulates_side_effects_across_slots::<5>();
 }
@@ -1458,6 +2269,16 @@ fn batch_5_fifth_call_side_effect_counters_are_validated() {
 #[test(should_fail_with = "anchor block header mismatch")]
 fn batch_5_second_call_must_match_previous_kernel_header() {
     assert_batch_n_second_call_must_match_previous_kernel_header::<5>();
+}
+
+#[test(should_fail_with = "mismatch tx_request_salt")]
+fn batch_5_salt_mismatch_rejected() {
+    assert_init_n_salt_mismatch_rejected::<5>();
+}
+
+#[test(should_fail_with = "mismatch tx context")]
+fn batch_5_tx_context_mismatch_rejected() {
+    assert_init_n_tx_context_mismatch_rejected::<5>();
 }
 
 #[test(should_fail_with = "Cannot overwrite non-empty fee_payer")]
@@ -1533,6 +2354,96 @@ fn inner_5_linear_chain_consumes_all_calls() {
 #[test]
 fn inner_5_linear_chain_matches_sequential_kernels() {
     assert_inner_n_linear_chain_matches_sequential_kernels::<5>();
+}
+
+#[test]
+fn inner_5_with_everything_non_empty_matches_sequential_kernels() {
+    assert_inner_n_with_everything_non_empty_matches_sequential_kernels::<5>();
+}
+
+#[test]
+fn inner_5_is_private_only_matches_sequential() {
+    assert_inner_n_is_private_only_matches_sequential::<5>();
+}
+
+#[test]
+fn inner_5_expiration_timestamp_min_matches_sequential() {
+    assert_inner_n_expiration_timestamp_min_matches_sequential::<5>();
+}
+
+#[test]
+fn inner_5_fee_payer_midbatch_matches_sequential() {
+    assert_inner_n_fee_payer_midbatch_matches_sequential::<5>();
+}
+
+#[test]
+fn inner_5_public_teardown_midbatch_matches_sequential() {
+    assert_inner_n_public_teardown_midbatch_matches_sequential::<5>();
+}
+
+#[test]
+fn inner_5_min_revertible_midbatch_matches_sequential() {
+    assert_inner_n_min_revertible_midbatch_matches_sequential::<5>();
+}
+
+#[test]
+fn inner_5_depth_first_child_keeps_sibling_on_stack() {
+    assert_inner_n_depth_first_child_keeps_sibling_on_stack::<5>();
+}
+
+#[test]
+fn inner_5_depth_first_with_sibling_matches_sequential_kernels() {
+    assert_inner_n_depth_first_with_sibling_matches_sequential_kernels::<5>();
+}
+
+#[test(should_fail_with = "mismatch tx_request_salt")]
+fn inner_5_salt_mismatch_rejected() {
+    assert_inner_n_salt_mismatch_rejected::<5>();
+}
+
+#[test(should_fail_with = "anchor block header mismatch")]
+fn inner_5_anchor_mismatch_rejected() {
+    assert_inner_n_anchor_mismatch_rejected::<5>();
+}
+
+#[test(should_fail_with = "mismatch tx context")]
+fn inner_5_tx_context_mismatch_rejected() {
+    assert_inner_n_tx_context_mismatch_rejected::<5>();
+}
+
+#[test(should_fail_with = "note_hash_read_requests length out of bounds")]
+fn inner_5_claimed_lengths_are_validated() {
+    assert_inner_n_claimed_lengths_are_validated::<5>();
+}
+
+#[test(should_fail_with = "Counter must be greater than previous counter")]
+fn inner_5_side_effect_counters_are_validated() {
+    assert_inner_n_side_effect_counters_are_validated::<5>();
+}
+
+#[test(should_fail_with = "Cannot overwrite non-empty fee_payer")]
+fn inner_5_fee_payer_conflict_fails() {
+    assert_inner_n_fee_payer_conflict_fails::<5>();
+}
+
+#[test(should_fail_with = "Public teardown call request already set")]
+fn inner_5_public_teardown_conflict_fails() {
+    assert_inner_n_public_teardown_conflict_fails::<5>();
+}
+
+#[test(should_fail_with = "cannot overwrite non-zero min_revertible_side_effect_counter")]
+fn inner_5_min_revertible_conflict_fails() {
+    assert_inner_n_min_revertible_conflict_fails::<5>();
+}
+
+#[test(should_fail_with = "nested private call of a static call must be static")]
+fn inner_5_static_call_requires_static_nested_private_call_fails() {
+    assert_inner_n_static_call_requires_static_nested_private_call_fails::<5>();
+}
+
+#[test(should_fail_with = "note_hashes must be empty for static calls")]
+fn inner_5_static_call_restrictions_apply_to_next_slot_fails() {
+    assert_inner_n_static_call_restrictions_apply_to_next_slot_fails::<5>();
 }
 
 #[test(should_fail_with = "private calls must be processed in increasing side_effect_counter order")]
@@ -1681,5 +2592,8 @@ fn cross_kernel_deferred_order_a_b_c_then_d_is_accepted() {
         previous_kernel: private_kernel_data_with_vk_index(output1, PRIVATE_KERNEL_INIT_VK_INDEX),
         private_calls: [d.to_private_call_data()],
     };
-    drive_inner_with_hints(inputs2, PrivateCallStackBatchHints { popped_from_source: [0] });
+    drive_inner_with_hints(
+        inputs2,
+        PrivateCallStackBatchHints { popped_from_source: [0] },
+    );
 }

@@ -434,6 +434,8 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     const privateExecutionOracle = new PrivateExecutionOracle({
       argsHash,
       txContext,
+      // The TXE does not run the init kernel's salt binding, so no tx-request salt is in scope.
+      txRequestSalt: Fr.ZERO,
       callContext,
       anchorBlockHeader: blockHeader,
       utilityExecutor,
@@ -497,7 +499,6 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         }),
       );
 
-      noteCache.finish();
       const nonceGenerator = noteCache.getNonceGenerator();
       result = new PrivateExecutionResult(executionResult, nonceGenerator, publicFunctionsCalldata);
     } catch (err) {

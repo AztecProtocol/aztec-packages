@@ -40,6 +40,7 @@ contract DecoderBase is TestBase {
   }
 
   struct AlphabeticalHeader {
+    uint256 accumulatedFees;
     bytes32 blobsHash;
     bytes32 blockHeadersHash;
     address coinbase;
@@ -109,7 +110,8 @@ contract DecoderBase is TestBase {
           coinbase: full.checkpoint.header.coinbase,
           feeRecipient: full.checkpoint.header.feeRecipient,
           gasFees: full.checkpoint.header.gasFees,
-          totalManaUsed: full.checkpoint.header.totalManaUsed
+          totalManaUsed: full.checkpoint.header.totalManaUsed,
+          accumulatedFees: full.checkpoint.header.accumulatedFees
         }),
         headerHash: full.checkpoint.headerHash,
         numTxs: full.checkpoint.numTxs

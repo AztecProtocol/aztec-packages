@@ -15,7 +15,7 @@ async function generateGenesisValues(genesis: GenesisData) {
   }
 
   // Create a temporary world state to compute the genesis values.
-  const ws = await NativeWorldStateService.tmp(undefined /* rollupAddress */, true /* cleanupTmpDir */, genesis);
+  const ws = await NativeWorldStateService.tmp(/*cleanupTmpDir=*/ true, genesis);
   const genesisArchiveRoot = new Fr((await ws.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE)).root);
   await ws.close();
 

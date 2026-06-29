@@ -16,7 +16,6 @@ pub struct PrivateKernelInitNCircuitPrivateInputs<let N: u32> {
     pub vk_tree_root: Field,
     pub protocol_contracts: ProtocolContracts,
     pub is_private_only: bool,
-    pub first_nullifier_hint: Field,
     pub revertible_counter_hint: u32,
 }
 
@@ -26,8 +25,7 @@ pub struct PrivateKernelInitNCircuitPrivateInputs<let N: u32> {
 /// This circuit:
 /// - Validates the initial N private call data (proof verification, contract address validation, etc.)
 /// - Verifies the first call matches the `tx_request` provided by the user
-/// - Creates the protocol nullifier from the `tx_request` hash if the `first_nullifier_hint` indicates that it should
-///   be injected
+/// - Injects the protocol nullifier, computed from the `tx_request` hash, at index 0 of the nullifiers array
 /// - Establishes the `tx_context` (chain ID, version, protocol contracts, etc.)
 /// - Initializes the accumulated data arrays for note hashes, nullifiers, read requests, and other side effects from
 ///   the private calls
@@ -54,12 +52,12 @@ pub fn execute<let N: u32>(
     PrivateCallDataValidator::new(inputs.private_calls[0]).validate_as_first_call(
         inputs.tx_request,
         inputs.protocol_contracts,
-        inputs.first_nullifier_hint,
         inputs.revertible_counter_hint,
     );
 
     let constants_for_apps = PrivateTxConstantData {
         tx_context: inputs.private_calls[0].public_inputs.tx_context,
+        tx_request_salt: inputs.private_calls[0].public_inputs.tx_request_salt,
         vk_tree_root: inputs.vk_tree_root,
         protocol_contracts: inputs.protocol_contracts,
         anchor_block_header: inputs.private_calls[0].public_inputs.anchor_block_header,
@@ -79,7 +77,6 @@ pub fn execute<let N: u32>(
             inputs.vk_tree_root,
             inputs.protocol_contracts,
             inputs.is_private_only,
-            inputs.first_nullifier_hint,
             inputs.revertible_counter_hint,
             inputs.private_calls,
         )
@@ -95,7 +92,6 @@ pub fn execute<let N: u32>(
                 inputs.vk_tree_root,
                 inputs.protocol_contracts,
                 inputs.is_private_only,
-                inputs.first_nullifier_hint,
                 inputs.revertible_counter_hint,
             );
 

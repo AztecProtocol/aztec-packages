@@ -246,6 +246,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
             AztecAddress.fromBigInt(31n),
             new GasFees(37n, 41n),
             new Fr(43n),
+            new Fr(47n),
           ),
           [block],
           CheckpointNumber(47),

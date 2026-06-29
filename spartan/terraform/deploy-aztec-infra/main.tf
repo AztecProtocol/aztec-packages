@@ -46,7 +46,7 @@ provider "google" {
 
 module "web3signer" {
   # Only deploy web3signer if we have validators or provers that need to publish to L1
-  count = tonumber(var.VALIDATOR_REPLICAS) > 0 ? 1 : 0
+  count = tonumber(var.VALIDATOR_REPLICAS) > 0 || (var.PROVER_ENABLED && !var.PROVER_NODE_DISABLE_PROOF_PUBLISH) ? 1 : 0
 
   source                                   = "../modules/web3signer"
   NAMESPACE                                = var.NAMESPACE

@@ -24,6 +24,14 @@ export class PrivateTxConstantData {
      */
     public txContext: TxContext,
     /**
+     * Salt of the transaction request (`TxRequest.salt`).
+     *
+     * Bound to the user's `tx_request` by the Init circuit and kept constant by every subsequent kernel so that each
+     * app circuit's `txRequestSalt` public input can be checked against it. It is intentionally not carried into
+     * `TxConstantData`: it is dropped by the Tail circuits rather than being exposed by the final (hiding) kernel.
+     */
+    public txRequestSalt: Fr,
+    /**
      * Root of the vk tree for the protocol circuits.
      */
     public vkTreeRoot: Fr,
@@ -38,7 +46,13 @@ export class PrivateTxConstantData {
   }
 
   static getFields(fields: FieldsOf<PrivateTxConstantData>) {
-    return [fields.anchorBlockHeader, fields.txContext, fields.vkTreeRoot, fields.protocolContracts] as const;
+    return [
+      fields.anchorBlockHeader,
+      fields.txContext,
+      fields.txRequestSalt,
+      fields.vkTreeRoot,
+      fields.protocolContracts,
+    ] as const;
   }
 
   static fromFields(fields: Fr[] | FieldReader): PrivateTxConstantData {
@@ -46,6 +60,7 @@ export class PrivateTxConstantData {
     return new PrivateTxConstantData(
       reader.readObject(BlockHeader),
       reader.readObject(TxContext),
+      reader.readField(),
       reader.readField(),
       reader.readObject(ProtocolContracts),
     );
@@ -67,6 +82,7 @@ export class PrivateTxConstantData {
       reader.readObject(BlockHeader),
       reader.readObject(TxContext),
       Fr.fromBuffer(reader),
+      Fr.fromBuffer(reader),
       reader.readObject(ProtocolContracts),
     );
   }
@@ -76,13 +92,20 @@ export class PrivateTxConstantData {
   }
 
   static empty() {
-    return new PrivateTxConstantData(BlockHeader.empty(), TxContext.empty(), Fr.ZERO, ProtocolContracts.empty());
+    return new PrivateTxConstantData(
+      BlockHeader.empty(),
+      TxContext.empty(),
+      Fr.ZERO,
+      Fr.ZERO,
+      ProtocolContracts.empty(),
+    );
   }
 
   getSize() {
     return (
       this.anchorBlockHeader.getSize() +
       this.txContext.getSize() +
+      this.txRequestSalt.size +
       this.vkTreeRoot.size +
       this.protocolContracts.getSize()
     );

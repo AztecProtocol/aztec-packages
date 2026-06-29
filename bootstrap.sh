@@ -603,7 +603,7 @@ function release_dryrun {
 function private_release {
   # Release flow for the private repo, run on a (nightly) ci-private-release PR. We publish only to our
   # internal GCP Artifact Registry: the docker image (release-image -> INTERNAL_DOCKER_REGISTRY that
-  # GKE/staging pulls from) and the npm packages (barretenberg/ts, noir, yarn-project -> the
+  # GKE/staging pulls from) and the npm packages (barretenberg/ts, noir, wsdb, yarn-project -> the
   # INTERNAL_NPM_REGISTRY npm repo). We run the release step for real on exactly those components and do
   # not invoke the others — the remaining release sources publish public artifacts (github releases,
   # crates.io, the aztec-up/playground S3 installers) and are not interrelated with these.
@@ -657,10 +657,11 @@ function private_release {
     done
   fi
 
-  # Publish for real, in dependency order: bb.js and the noir packages must be on the registry before
-  # yarn-project's release smoke-tests installing the @aztec packages that depend on them. npm packages
-  # are platform-independent, so only the docker image is published on arm64.
-  local publish=(barretenberg/ts noir yarn-project release-image)
+  # Publish for real, in dependency order: bb.js, the noir packages, and wsdb must be on the registry
+  # before yarn-project's release smoke-tests installing the @aztec packages that depend on them
+  # (@aztec/world-state has a runtime dependency on @aztec/wsdb). npm packages are platform-independent,
+  # so only the docker image is published on arm64.
+  local publish=(barretenberg/ts noir wsdb yarn-project release-image)
   if [ $(arch) == arm64 ]; then
     publish=(release-image)
   fi
