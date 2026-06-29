@@ -12,11 +12,7 @@ use types::{
         transaction::tx_request::TxRequest,
     },
     address::AztecAddress,
-<<<<<<< HEAD
-    hash::compute_protocol_nullifier,
-=======
     hash::create_protocol_nullifier,
->>>>>>> origin/next
 };
 
 struct TestBuilder {
@@ -82,13 +78,6 @@ impl TestBuilder {
         }
         let mut accumulated_data = private_call.to_private_accumulated_data();
 
-<<<<<<< HEAD
-        let (scoped_protocol_nullifier, protocol_nullifier) =
-            compute_protocol_nullifier(self.tx_request);
-        if self.first_nullifier_hint == protocol_nullifier {
-            accumulated_data.nullifiers.length = 1;
-            accumulated_data.nullifiers.array[0] = scoped_protocol_nullifier;
-=======
         let scoped_protocol_nullifier = create_protocol_nullifier(self.tx_request);
         // The protocol nullifier is always injected at index 0; app nullifiers shift to index 1+.
         let app_nullifiers = accumulated_data.nullifiers;
@@ -96,7 +85,6 @@ impl TestBuilder {
         nullifiers.array[0] = scoped_protocol_nullifier;
         for i in 0..nullifiers.array.len() - 1 {
             nullifiers.array[i + 1] = app_nullifiers.array[i];
->>>>>>> origin/next
         }
         nullifiers.length = app_nullifiers.length + 1;
         accumulated_data.nullifiers = nullifiers;
