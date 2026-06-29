@@ -13,7 +13,7 @@ import { TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
-import { TestDateProvider } from '@aztec/foundation/timer';
+import { ManualDateProvider } from '@aztec/foundation/timer';
 import type { TypedEventEmitter } from '@aztec/foundation/types';
 import { type P2P, P2PClientState } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
@@ -89,7 +89,7 @@ describe('CheckpointProposalJob', () => {
   let l2BlockSource: MockProxy<L2BlockSource>;
   let blockSink: MockProxy<L2BlockSink & ProposedCheckpointSink>;
   let slasherClient: MockProxy<SlasherClientInterface>;
-  let dateProvider: TestDateProvider;
+  let dateProvider: ManualDateProvider;
   let metrics: MockProxy<SequencerMetrics>;
   let checkpointMetrics: MockProxy<CheckpointProposalJobMetricsRecorder>;
   let job: TestCheckpointProposalJob;
@@ -165,7 +165,9 @@ describe('CheckpointProposalJob', () => {
       rollupManaLimit: Number.MAX_SAFE_INTEGER,
     };
 
-    dateProvider = new TestDateProvider();
+    // ManualDateProvider freezes time (it does not track real wall-clock progression), so timing-sensitive
+    // assertions on dateProvider.now() are deterministic regardless of how long the test takes to execute.
+    dateProvider = new ManualDateProvider();
     // Set time to be at the start of the slot (slot 1 starts at l1GenesisTime + slotDuration - ethereumSlotDuration)
     const slotStartTime = Number(l1GenesisTime) + newSlotNumber * slotDuration - ethereumSlotDuration;
     dateProvider.setTime(slotStartTime * 1000); // Convert to milliseconds
@@ -417,8 +419,9 @@ describe('CheckpointProposalJob', () => {
       // We build checkpoint 2 on top of proposed parent at checkpoint 1.
       checkpointNumber = CheckpointNumber(2);
 
-      const checkpoint = await createCheckpointProposalJob({
-        targetSlot: SlotNumber(newSlotNumber + 1),
+      const targetSlot = SlotNumber(newSlotNumber + 1);
+      const pipelinedJob = createCheckpointProposalJob({
+        targetSlot,
         proposedCheckpointData: {
           checkpointNumber: CheckpointNumber(1),
           header: CheckpointHeader.empty(),
@@ -429,13 +432,21 @@ describe('CheckpointProposalJob', () => {
           totalManaUsed: 5000n,
           feeAssetPriceModifier: 100n,
         },
-      }).executeAndAwait();
+      });
+
+      // Anchor the (frozen) clock at the build-frame opening for the target slot before executing, since the
+      // job reads dateProvider.now() when recording the offset.
+      dateProvider.setTime(pipelinedJob.getTimetable().getBuildFrameStart(targetSlot) * 1000);
+
+      const checkpoint = await pipelinedJob.executeAndAwait();
 
       expect(checkpoint).toBeDefined();
       expect(checkpointMetrics.startCheckpointTiming).toHaveBeenCalledWith(expect.any(Number));
       expect(checkpointMetrics.recordPipelinedCheckpointBuildStartOffsetFromSlotBoundary).toHaveBeenCalledTimes(1);
+      // The build frame opens at target_slot_start - S - E, and the build slot boundary measured against is
+      // target_slot_start - S, so the offset is exactly -E (one ethereum slot before the boundary).
       const [offsetMs] = checkpointMetrics.recordPipelinedCheckpointBuildStartOffsetFromSlotBoundary.mock.calls[0];
-      expect(Math.abs(offsetMs + ethereumSlotDuration * 1000)).toBeLessThan(100);
+      expect(offsetMs).toBe(-ethereumSlotDuration * 1000);
     });
 
     it('skips building if not enough txs and not forced', async () => {
