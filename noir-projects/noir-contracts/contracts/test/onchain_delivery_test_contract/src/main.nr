@@ -1,10 +1,10 @@
-//! Thin wrappers around constrained delivery for TXE tests.
+//! Thin wrappers around onchain message delivery for tests.
 use aztec::macros::aztec;
 
 mod test;
 
 #[aztec]
-pub contract ConstrainedDeliveryTest {
+pub contract OnchainDeliveryTest {
     use aztec::{
         macros::{events::event, functions::external, storage::storage},
         messages::delivery::MessageDelivery,

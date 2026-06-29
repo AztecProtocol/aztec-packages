@@ -8,10 +8,7 @@ import type { Wallet } from '@aztec/aztec.js/wallet';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Point } from '@aztec/foundation/curves/grumpkin';
 import { HandshakeRegistryContract } from '@aztec/noir-contracts.js/HandshakeRegistry';
-import {
-  ConstrainedDeliveryTestContract,
-  type DeliveryEvent,
-} from '@aztec/noir-test-contracts.js/ConstrainedDeliveryTest';
+import { type DeliveryEvent, OnchainDeliveryTestContract } from '@aztec/noir-test-contracts.js/OnchainDeliveryTest';
 import type { PXECreationOptions } from '@aztec/pxe/server';
 import { STANDARD_HANDSHAKE_REGISTRY_ADDRESS } from '@aztec/standard-contracts/handshake-registry/constants';
 import type { AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
@@ -33,8 +30,7 @@ type SenderHook = NonNullable<NonNullable<PXECreationOptions['hooks']>['resolveT
 // PXEs that share only a node: PXE A sends, PXE B discovers purely from on-chain logs plus the HandshakeRegistry.
 //
 // Cross-PXE is the meaningful setup: PXE B holds no sender state, so a cell only "discovers" a message if the source
-// truly reached it. That is also what makes the F-770 cell a real red — a defaulted unconstrained send to an external
-// recipient currently derives an address-ECDH tag PXE B cannot reconstruct.
+// truly reached it. It is also what makes the F-770 cell below a real red.
 function buildMessageDeliveryTest(opts: {
   description: string;
   mode: 'constrained' | 'unconstrained';
@@ -62,7 +58,7 @@ function buildMessageDeliveryTest(opts: {
     let walletRecipient: TestWallet;
     let sender: AztecAddress;
     let recipient: AztecAddress;
-    let contractSender: ConstrainedDeliveryTestContract;
+    let contractSender: OnchainDeliveryTestContract;
     let teardownSender: () => Promise<void>;
     let teardownRecipient: () => Promise<void>;
     // Discovery results captured in beforeAll, so the (possibly `it.failing`) assertions below stay pure: an infra
@@ -101,13 +97,13 @@ function buildMessageDeliveryTest(opts: {
       recipient = recipientAccount.address;
 
       await ensureHandshakeRegistryPublished(walletSender, sender);
-      const { contract: deployed, instance } = await ConstrainedDeliveryTestContract.deploy(walletSender).send({
+      const { contract: deployed, instance } = await OnchainDeliveryTestContract.deploy(walletSender).send({
         from: sender,
       });
       contractSender = deployed;
 
       await ensureHandshakeRegistryPublished(walletRecipient, recipient);
-      await walletRecipient.registerContract(instance, ConstrainedDeliveryTestContract.artifact);
+      await walletRecipient.registerContract(instance, OnchainDeliveryTestContract.artifact);
 
       await recipientRegistration?.(walletRecipient, recipient, sender);
 
@@ -134,7 +130,7 @@ function buildMessageDeliveryTest(opts: {
       await walletRecipient.sync();
 
       const events = await walletRecipient.getPrivateEvents<DeliveryEvent>(
-        ConstrainedDeliveryTestContract.events.DeliveryEvent,
+        OnchainDeliveryTestContract.events.DeliveryEvent,
         {
           contractAddress: contractSender.address,
           fromBlock: BlockNumber(Math.min(...blockNumbers)),
@@ -144,7 +140,7 @@ function buildMessageDeliveryTest(opts: {
       );
       discoveredEvents = events.map(e => e.event.value);
 
-      const contractRecipient = ConstrainedDeliveryTestContract.at(contractSender.address, walletRecipient);
+      const contractRecipient = OnchainDeliveryTestContract.at(contractSender.address, walletRecipient);
       const { result } = await contractRecipient.methods.get_note_values(recipient).simulate({ from: recipient });
       readNotes = result.storage.slice(0, Number(result.len));
     });
@@ -155,8 +151,7 @@ function buildMessageDeliveryTest(opts: {
     });
 
     // `it.failing` passes while the assertion fails and turns into a suite failure once the path works, prompting
-    // promotion to a plain `it`. Only the assertion runs here; delivery happened in beforeAll, so a real delivery
-    // failure surfaces rather than masquerading as the expected red.
+    // promotion to a plain `it`.
     const test = expectRed ? it.failing : it;
 
     test('PXE B discovers the events delivered by PXE A', () => {
@@ -226,7 +221,7 @@ describe('constrained delivery sequencing', () => {
   let batchRecipient2: AztecAddress;
   let batchRecipient3: AztecAddress;
   let batchRecipient4: AztecAddress;
-  let contract: ConstrainedDeliveryTestContract;
+  let contract: OnchainDeliveryTestContract;
   let registry: HandshakeRegistryContract;
 
   beforeAll(async () => {
@@ -237,7 +232,7 @@ describe('constrained delivery sequencing', () => {
     } = await setup(6, { ...AUTOMINE_E2E_OPTS }));
 
     await ensureHandshakeRegistryPublished(wallet, sender);
-    ({ contract } = await ConstrainedDeliveryTestContract.deploy(wallet).send({ from: sender }));
+    ({ contract } = await OnchainDeliveryTestContract.deploy(wallet).send({ from: sender }));
     registry = HandshakeRegistryContract.at(STANDARD_HANDSHAKE_REGISTRY_ADDRESS, wallet);
   });
 
