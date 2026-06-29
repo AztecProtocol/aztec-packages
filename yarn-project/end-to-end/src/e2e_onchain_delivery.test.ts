@@ -196,9 +196,8 @@ function buildMessageDeliveryTest(opts: {
       return;
     }
 
-    // 'discovered' and 'xfail-discovered' assert the same positive condition; 'xfail-discovered' runs under
-    // `it.failing`, which passes while the assertion fails and turns the suite red once the path works, prompting
-    // promotion to 'discovered'.
+    // 'discovered' and 'xfail-discovered' assert the same positive condition.
+    // 'xfail-discovered' runs under `it.failing`.
     const test = outcome.type === 'xfail-discovered' ? it.failing : it;
 
     test('PXE B discovers the events delivered by PXE A', () => {
@@ -243,9 +242,9 @@ describe('onchain delivery', () => {
     },
   });
 
-  // NOT-DISCOVERABLE (privacy twin of the arbitrary-secret cell above): the sender tags with an arbitrary secret the
-  // recipient never registers. The cell above discovers this same kind of send; here PXE B cannot, because the secret
-  // was never shared with it. A leak that surfaced the delivery to PXE B would flip this red.
+  // NOT-DISCOVERABLE: the sender tags with an arbitrary secret the recipient never registers.
+  // The cell above discovers this same kind of send; here PXE B cannot, because the secret
+  // was never shared with it.
   let unsharedSecret: Point;
   buildMessageDeliveryTest({
     description: 'unconstrained x arbitrary secret never shared with the recipient',
@@ -259,15 +258,15 @@ describe('onchain delivery', () => {
   });
 
   // TODO(F-770): with no hook, unconstrained delivery to an external recipient defaults to an address-derived tag.
-  // PXE B holds no sender state, so it cannot reconstruct that tag and discovers nothing yet. F-770 will default this
-  // to a handshake, at which point this cell turns red and graduates to 'discovered'.
+  // PXE B holds no sender state, so it cannot reconstruct that tag and discovers nothing yet. Switching the default
+  // to a handshake, will turn this test red and require graduating to 'discovered'.
   buildMessageDeliveryTest({
     description: 'unconstrained x default to external recipient',
     mode: 'unconstrained',
     outcome: { type: 'xfail-discovered' },
   });
 
-  // DISCOVERED: the address-derived (ECDH) source, which is the unconstrained default exercised above. With the
+  // DISCOVERED: the address-derived source, which is the unconstrained default exercised above. With the
   // recipient registering the sender, PXE B reconstructs the address-derived tag and discovers the delivery. Positive
   // control for the cell below (same source, sender unregistered) and for the default cell above.
   buildMessageDeliveryTest({
@@ -279,9 +278,8 @@ describe('onchain delivery', () => {
     },
   });
 
-  // NOT-DISCOVERABLE (privacy twin of the cell above): the same address-derived source, but the recipient never
-  // registers the sender, so PXE B cannot reconstruct the tag. Unlike the F-770 default cell above (a temporary gap),
-  // an explicitly address-derived send to an unregistered sender is a permanent boundary that survives F-770.
+  // NOT-DISCOVERABLE: An explicit address-derived source, but the recipient never
+  // registers the sender, so PXE B cannot reconstruct the tag.
   buildMessageDeliveryTest({
     description: 'unconstrained x address-derived without registering the sender',
     mode: 'unconstrained',
