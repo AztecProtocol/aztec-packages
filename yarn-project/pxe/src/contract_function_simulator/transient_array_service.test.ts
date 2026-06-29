@@ -5,8 +5,8 @@ import { TransientArrayService } from './transient_array_service.js';
 
 describe('TransientArrayService', () => {
   let service: TransientArrayService;
-  const contractA = AztecAddress.fromField(new Fr(0xaa));
-  const contractB = AztecAddress.fromField(new Fr(0xbb));
+  const contractA = AztecAddress.fromFieldUnsafe(new Fr(0xaa));
+  const contractB = AztecAddress.fromFieldUnsafe(new Fr(0xbb));
   const slot = Fr.fromString('0x01');
   const otherSlot = Fr.fromString('0x02');
 

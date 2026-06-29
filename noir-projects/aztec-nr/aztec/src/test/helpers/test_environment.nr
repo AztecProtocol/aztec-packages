@@ -1,6 +1,6 @@
 use crate::protocol::{
     abis::{function_selector::FunctionSelector, gas::Gas, gas_fees::GasFees, gas_settings::GasSettings},
-    address::AztecAddress,
+    address::{AztecAddress, EthAddress},
     constants::{MAX_PROCESSABLE_DA_GAS_PER_CHECKPOINT, MAX_PROCESSABLE_L2_GAS},
     traits::{Deserialize, Empty, FromField, Packable, Serialize},
 };
@@ -11,7 +11,7 @@ use crate::{
         UtilityContext,
     },
     event::{event_interface::EventInterface, EventMessage},
-    hash::hash_args,
+    hash::{compute_secret_hash, hash_args},
     messages::{
         discovery::{
             ComputeNoteHash, ComputeNoteNullifier, CustomMessageHandler, process_message::process_message_plaintext,
@@ -23,7 +23,7 @@ use crate::{
     },
     note::{note_interface::{NoteHash, NoteType}, NoteMessage},
     oracle::version::assert_compatible_oracle_version,
-    test::helpers::{txe_oracles, utils::ContractDeployment},
+    test::helpers::{tagging_secret_strategy::TaggingSecretStrategy, txe_oracles, utils::ContractDeployment},
     utils::array::subarray,
 };
 
@@ -82,6 +82,34 @@ pub struct TestEnvironment {
     contract_account_secret: Counter,
     contract_deployment_secret: Counter,
     contract_deployment_salt: Counter,
+}
+
+/// Configuration values for [`TestEnvironment::new_opts`]. Meant to be used by calling `new` and then chaining
+/// methods setting each value, e.g.:
+/// ```noir
+/// let env = TestEnvironment::new_opts(
+///     TestEnvironmentOptions::new().with_tagging_secret_strategy(TaggingSecretStrategy::non_interactive_handshake()),
+/// );
+/// ```
+pub struct TestEnvironmentOptions {
+    tagging_secret_strategy: Option<TaggingSecretStrategy>,
+}
+
+impl TestEnvironmentOptions {
+    /// Creates a new `TestEnvironmentOptions` with default values.
+    pub fn new() -> Self {
+        Self { tagging_secret_strategy: Option::none() }
+    }
+
+    /// Sets the [`TaggingSecretStrategy`] the wallet reports through the
+    /// [`resolve_tagging_strategy`](crate::oracle::resolve_tagging_strategy) oracle, affecting message delivery in
+    /// private executions.
+    ///
+    /// If not set, the wallet hook is left unconfigured and the private execution environment applies its own default.
+    pub fn with_tagging_secret_strategy(&mut self, strategy: TaggingSecretStrategy) -> Self {
+        self.tagging_secret_strategy = Option::some(strategy);
+        *self
+    }
 }
 
 /// Configuration values for [`TestEnvironment::private_context_opts`]. Meant to be used by calling `new` and then
@@ -568,9 +596,30 @@ fn resolve_gas_settings(
 
 impl TestEnvironment {
     /// Creates a new `TestEnvironment`. This function should only be called once per test.
+    ///
+    /// See [`new_opts`](TestEnvironment::new_opts) for a variant that allows configuring the environment.
     pub unconstrained fn new() -> Self {
+        Self::new_opts(TestEnvironmentOptions::new())
+    }
+
+    /// Creates a new `TestEnvironment` with the configuration values in `options`. This function should only be
+    /// called once per test.
+    ///
+    /// ### Sample usage
+    /// ```noir
+    /// let env = TestEnvironment::new_opts(
+    ///     TestEnvironmentOptions::new().with_tagging_secret_strategy(
+    ///         TaggingSecretStrategy::non_interactive_handshake(),
+    ///     ),
+    /// );
+    /// ```
+    pub unconstrained fn new_opts(options: TestEnvironmentOptions) -> Self {
         assert_compatible_oracle_version();
         txe_oracles::assert_compatible_txe_oracle_version();
+
+        // Forward the configured strategy to the wallet.
+        txe_oracles::set_tagging_secret_strategy(options.tagging_secret_strategy);
+
         Self {
             // Use an offset to avoid secret collision with account secrets. Without this, when
             // deploying multiple contracts and creating accounts, they could end up with identical
@@ -817,6 +866,42 @@ impl TestEnvironment {
     /// Sets the timestamp of the next block to be mined to be ahead of the last one by `duration`.
     pub unconstrained fn advance_next_block_timestamp_by(_self: Self, duration: u64) {
         txe_oracles::advance_timestamp_by(duration);
+    }
+
+    /// Creates a message sent from the L1 to the L2.
+    ///
+    /// This is required so that a contract can later consume it via
+    /// [`PrivateContext::consume_l1_to_l2_message`](crate::context::PrivateContext::consume_l1_to_l2_message) or its
+    /// public counterpart. An empty block is mined carrying the message leaf.
+    ///
+    /// `content`, `secret`, `sender` and `recipient` must match what the consuming contract uses. The secret is hashed
+    /// with the standard [`crate::hash::compute_secret_hash`] - use
+    /// [`send_l1_to_l2_message_from_secret_hash`](TestEnvironment::send_l1_to_l2_message_from_secret_hash) if the
+    /// contract commits to its secret differently).
+    ///
+    /// Returns the global leaf index to pass as `consume_l1_to_l2_message`'s `leaf_index`.
+    pub unconstrained fn send_l1_to_l2_message(
+        self,
+        content: Field,
+        secret: Field,
+        sender: EthAddress,
+        recipient: AztecAddress,
+    ) -> Field {
+        self.send_l1_to_l2_message_from_secret_hash(content, compute_secret_hash(secret), sender, recipient)
+    }
+
+    /// Variant of [`send_l1_to_l2_message`](TestEnvironment::send_l1_to_l2_message) that takes the secret hash
+    /// directly.
+    ///
+    /// This is only required by contracts that commit to their consumption secret with a non-standard hash function.
+    pub unconstrained fn send_l1_to_l2_message_from_secret_hash(
+        _self: Self,
+        content: Field,
+        secret_hash: Field,
+        sender: EthAddress,
+        recipient: AztecAddress,
+    ) -> Field {
+        txe_oracles::send_l1_to_l2_message(content, secret_hash, sender, recipient)
     }
 
     /// Creates a new account that can be used as the `from` parameter in contract calls, e.g. in `private_call` or

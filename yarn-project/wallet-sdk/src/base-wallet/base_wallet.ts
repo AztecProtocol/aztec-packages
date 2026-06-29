@@ -129,7 +129,7 @@ export abstract class BaseWallet implements Wallet {
   protected scopesFrom(from: AztecAddress | NoFrom, additionalScopes: AztecAddress[] = []): AztecAddress[] {
     const allScopes = from === NO_FROM ? additionalScopes : [from, ...additionalScopes];
     const scopeSet = new Set(allScopes.map(address => address.toString()));
-    return [...scopeSet].map(AztecAddress.fromString);
+    return [...scopeSet].map(AztecAddress.fromStringUnsafe);
   }
 
   /**
@@ -155,8 +155,8 @@ export abstract class BaseWallet implements Wallet {
    * @returns The aliased collection of AztecAddresses that form this wallet's address book
    */
   async getAddressBook(): Promise<Aliased<AztecAddress>[]> {
-    const senders: AztecAddress[] = await this.pxe.getSenders();
-    return senders.map(sender => ({ item: sender, alias: '' }));
+    const sources = await this.pxe.getTaggingSecretSources({ kind: 'address-derived' });
+    return sources.map(source => ({ item: source.sender, alias: '' }));
   }
 
   /**
@@ -346,8 +346,9 @@ export abstract class BaseWallet implements Wallet {
     }
   }
 
-  registerSender(address: AztecAddress, _alias: string = ''): Promise<AztecAddress> {
-    return this.pxe.registerSender(address);
+  async registerSender(address: AztecAddress, _alias: string = ''): Promise<AztecAddress> {
+    await this.pxe.registerTaggingSecretSource({ kind: 'address-derived', sender: address });
+    return address;
   }
 
   async registerContract(

@@ -104,18 +104,18 @@ describe('public_tx_simulator', () => {
     tx.data.forPublic!.nonRevertibleAccumulatedData.noteHashes[1] = new Fr(0xaaaa);
     tx.data.forPublic!.nonRevertibleAccumulatedData.l2ToL1Msgs[0] = new ScopedL2ToL1Message(
       new L2ToL1Message(EthAddress.fromNumber(0x5555), new Fr(0xbbbb)),
-      AztecAddress.fromField(new Fr(0x6666)),
+      AztecAddress.fromFieldUnsafe(new Fr(0x6666)),
     );
     tx.data.forPublic!.nonRevertibleAccumulatedData.l2ToL1Msgs[1] = new ScopedL2ToL1Message(
       new L2ToL1Message(EthAddress.fromNumber(0x6666), new Fr(0xcccc)),
-      AztecAddress.fromField(new Fr(0x7777)),
+      AztecAddress.fromFieldUnsafe(new Fr(0x7777)),
     );
 
     tx.data.forPublic!.revertibleAccumulatedData.nullifiers[0] = new Fr(0x9999);
     tx.data.forPublic!.revertibleAccumulatedData.noteHashes[0] = new Fr(0xbbbb);
     tx.data.forPublic!.revertibleAccumulatedData.l2ToL1Msgs[0] = new ScopedL2ToL1Message(
       new L2ToL1Message(EthAddress.fromNumber(0x7777), new Fr(0xdddd)),
-      AztecAddress.fromField(new Fr(0x8888)),
+      AztecAddress.fromFieldUnsafe(new Fr(0x8888)),
     );
 
     tx.data.gasUsed = privateGasUsed;
@@ -1203,7 +1203,7 @@ describe('public_tx_simulator', () => {
 
       tx.data.forPublic!.revertibleAccumulatedData.l2ToL1Msgs[0] = new ScopedL2ToL1Message(
         new L2ToL1Message(EthAddress.fromNumber(123), new Fr(456)),
-        AztecAddress.fromNumber(789),
+        AztecAddress.fromNumberUnsafe(789),
       );
 
       mockPublicExecutor([
@@ -1283,7 +1283,7 @@ describe('public_tx_simulator', () => {
 
       tx.data.forPublic!.revertibleAccumulatedData.l2ToL1Msgs[0] = new ScopedL2ToL1Message(
         new L2ToL1Message(EthAddress.fromNumber(123), new Fr(456)),
-        AztecAddress.fromNumber(789),
+        AztecAddress.fromNumberUnsafe(789),
       );
 
       mockPublicExecutor([
@@ -1379,7 +1379,7 @@ describe('public_tx_simulator', () => {
 
       tx.data.forPublic!.revertibleAccumulatedData.l2ToL1Msgs[0] = new ScopedL2ToL1Message(
         new L2ToL1Message(EthAddress.fromNumber(123), new Fr(456)),
-        AztecAddress.fromNumber(789),
+        AztecAddress.fromNumberUnsafe(789),
       );
 
       mockPublicExecutor([

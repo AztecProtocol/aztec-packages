@@ -8,7 +8,7 @@
 # also honors any nested .gitignore, and would strip those same artifacts
 # from the published tarball, leaving downstream consumers with an
 # unbuildable package (`dest/index.js` re-exports from
-# `../vendor/jswasm/sqlite3-bundler-friendly.mjs`).
+# `../vendor/jswasm/sqlite3.mjs`).
 #
 # An .npmignore in a directory shadows the sibling .gitignore for npm pack.
 # Empty contents = "include everything in this directory."

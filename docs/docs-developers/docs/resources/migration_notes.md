@@ -9,6 +9,65 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.js] `getPublicEvents` is now cursor-paginated
+
+`getPublicEvents` returns a single page of events (at most `MAX_LOGS_PER_TAG`, the node's per-tag page size) and pages instead of the `maxLogsHit` flag, which didn't provide any way to fetch the next page of events:
+
+- The result's `maxLogsHit` boolean is replaced by `nextCursor`. When `nextCursor` is present, more events might exist; pass it as the next query's `afterEvent` to fetch the following page. When it is absent, the range is exhausted.
+- The filter's `afterLog` cursor is renamed to `afterEvent`.
+- Both cursors are the new `EventCursor` type (exported from `@aztec/aztec.js/events`), not the node-layer `LogCursor`.
+
+**Migration:**
+
+```diff
+- const { events, maxLogsHit } = await getPublicEvents(node, MyContract.events.MyEvent, { contractAddress });
++ // One page:
++ const { events, nextCursor } = await getPublicEvents(node, MyContract.events.MyEvent, { contractAddress });
++
++ // All events:
++ const all = [];
++ let afterEvent;
++ do {
++   const page = await getPublicEvents(node, MyContract.events.MyEvent, { contractAddress, afterEvent });
++   all.push(...page.events);
++   afterEvent = page.nextCursor;
++ } while (afterEvent);
+```
+
+**Impact**: Reading `maxLogsHit` or passing `afterLog` no longer compiles. Previously a single call was silently capped at `MAX_LOGS_PER_TAG` events with no usable way to continue, so the old API was unusable anyway. You can now page through the full set with `afterEvent`/`nextCursor`.
+
+### [PXE] Sender and shared-secret registration unified into `TaggingSecretSource`
+
+The PXE methods for registering tagging-secret sources have been replaced by a single set that takes a `TaggingSecretSource` discriminated union. `registerSender`/`getSenders`/`removeSender` and `registerSharedSecret`/`removeSharedSecret` are gone; use `registerTaggingSecretSource`/`removeTaggingSecretSource`/`getTaggingSecretSources` instead. The `Wallet` interface (`wallet.registerSender`, `getAddressBook`) is unchanged, so this only affects code that talks to a `PXE` instance directly.
+
+| Before | After |
+| --- | --- |
+| `pxe.registerSender(address)` | `pxe.registerTaggingSecretSource({ kind: 'address-derived', sender: address })` |
+| `pxe.removeSender(address)` | `pxe.removeTaggingSecretSource({ kind: 'address-derived', sender: address })` |
+| `pxe.getSenders()` | `pxe.getTaggingSecretSources({ kind: 'address-derived' })` |
+| `pxe.registerSharedSecret(recipient, secret)` | `pxe.registerTaggingSecretSource({ kind: 'arbitrary-secret', recipient, secret })` |
+| `pxe.removeSharedSecret(recipient, secret)` | `pxe.removeTaggingSecretSource({ kind: 'arbitrary-secret', recipient, secret })` |
+
+### [Aztec.js] Unchecked `AztecAddress` constructors renamed with an `Unsafe` suffix
+
+The synchronous `AztecAddress` constructors that build an address from a raw value do not verify that the value is a valid address (the x-coordinate of a point on the Grumpkin curve, which is what allows it to be encrypted to). An invalid value is accepted silently and only fails later, when a transaction is sent. To make this obvious at the call site, they now carry an `Unsafe` suffix:
+
+| Before | After |
+| --- | --- |
+| `AztecAddress.fromField` | `AztecAddress.fromFieldUnsafe` |
+| `AztecAddress.fromBigInt` | `AztecAddress.fromBigIntUnsafe` |
+| `AztecAddress.fromNumber` | `AztecAddress.fromNumberUnsafe` |
+| `AztecAddress.fromString` | `AztecAddress.fromStringUnsafe` |
+
+**Migration:**
+
+```diff
+- const address = AztecAddress.fromBigInt(123n);
++ const address = AztecAddress.fromBigIntUnsafe(123n);
+```
+
+For a random, genuinely valid address in tests use `AztecAddress.random()`, and to check an untrusted value use `address.isValid()`. The serialization constructors `fromBuffer` and `fromFields` keep their names (they are part of the (de)serialization interface and read addresses from already-validated data), but their docs now note that they perform no validation either.
+
 ### Cross-contract utility calls now have a `msg_sender`
 
 A utility function called by another contract (utility to utility, or private to utility) can read the calling contract's address via `self.msg_sender()`, mirroring private and public functions. A top-level utility call (e.g. invoked directly by a wallet or dapp) has no caller: `self.msg_sender()` panics, and `self.context.maybe_msg_sender()` returns `Option::none()`.

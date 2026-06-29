@@ -69,7 +69,7 @@ describe('single-node/sequencer/publisher_funding_multi', () => {
           attester: attesterKey,
           publisher: [publisherKey1, publisherKey2],
           coinbase: EthAddress.fromNumber(42).toChecksumString(),
-          feeRecipient: AztecAddress.fromNumber(42).toString(),
+          feeRecipient: AztecAddress.fromNumberUnsafe(42).toString(),
         },
       ],
       fundingAccount: funderKey,

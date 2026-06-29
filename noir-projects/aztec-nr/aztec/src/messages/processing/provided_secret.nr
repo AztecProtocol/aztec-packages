@@ -1,5 +1,4 @@
-use crate::messages::delivery::OnchainDeliveryMode;
-use crate::protocol::traits::{Deserialize, Serialize};
+use crate::{messages::delivery::OnchainDeliveryMode, protocol::traits::{Deserialize, Serialize}};
 
 /// A tagging secret the app supplies explicitly to `get_pending_tagged_logs`.
 ///

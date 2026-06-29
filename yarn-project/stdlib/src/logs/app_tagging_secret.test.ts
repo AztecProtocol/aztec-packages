@@ -1,10 +1,14 @@
 import { DomainSeparator } from '@aztec/constants';
 import { poseidon2Hash } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 
+import { AztecAddress } from '../aztec-address/index.js';
+import { CompleteAddress } from '../contract/complete_address.js';
 import { computeLogTag, computeSiloedPrivateLogFirstField } from '../hash/hash.js';
+import { deriveMasterIncomingViewingSecretKey } from '../keys/derivation.js';
 import { randomAppTaggingSecret } from '../tests/factories.js';
-import { AppTaggingSecret } from './app_tagging_secret.js';
+import { AppTaggingSecret, computeSharedTaggingSecret } from './app_tagging_secret.js';
 import { AppTaggingSecretKind } from './app_tagging_secret_kind.js';
 import { SiloedTag } from './siloed_tag.js';
 import { TaggingIndexRangeSchema } from './tagging_index_range.js';
@@ -42,6 +46,58 @@ describe('AppTaggingSecret', () => {
 
       expect(parsed.extendedSecret).toBeInstanceOf(AppTaggingSecret);
       expect(parsed.extendedSecret.kind).toBe(AppTaggingSecretKind.UNCONSTRAINED);
+    });
+  });
+
+  describe('compute', () => {
+    it('is a deterministic function of the point, app and recipient', async () => {
+      const point = await Point.random();
+      const app = await AztecAddress.random();
+      const recipient = await AztecAddress.random();
+
+      const a = await AppTaggingSecret.compute(point, app, recipient);
+      const b = await AppTaggingSecret.compute(point, app, recipient);
+      expect(b.secret).toEqual(a.secret);
+
+      const otherApp = await AppTaggingSecret.compute(point, await AztecAddress.random(), recipient);
+      expect(otherApp.secret).not.toEqual(a.secret);
+
+      const otherRecipient = await AppTaggingSecret.compute(point, app, await AztecAddress.random());
+      expect(otherRecipient.secret).not.toEqual(a.secret);
+    });
+
+    // Registering a pre-shared tagging secret point directly must yield the same directional secret as the ECDH-derived
+    // sender path. Both sides of the Diffie-Hellman exchange compute the same shared point, so a recipient that
+    // registers that point discovers exactly the tags a sender would emit.
+    it('a directly registered shared point matches the ECDH-derived sender secret', async () => {
+      const recipientSecretKey = Fr.random();
+      const recipientComplete = await CompleteAddress.fromSecretKeyAndPartialAddress(recipientSecretKey, Fr.random());
+      const recipientIvsk = deriveMasterIncomingViewingSecretKey(recipientSecretKey);
+
+      const senderSecretKey = Fr.random();
+      const senderComplete = await CompleteAddress.fromSecretKeyAndPartialAddress(senderSecretKey, Fr.random());
+      const senderIvsk = deriveMasterIncomingViewingSecretKey(senderSecretKey);
+
+      const app = await AztecAddress.random();
+
+      // The recipient derives the shared point against the sender.
+      const pointFromRecipient = await computeSharedTaggingSecret(
+        recipientComplete,
+        recipientIvsk,
+        senderComplete.address,
+      );
+      // The sender derives the same point against the recipient (Diffie-Hellman symmetry).
+      const pointFromSender = await computeSharedTaggingSecret(senderComplete, senderIvsk, recipientComplete.address);
+
+      expect(pointFromRecipient).toBeDefined();
+      expect(pointFromSender).toEqual(pointFromRecipient);
+
+      const secretViaEcdh = await AppTaggingSecret.compute(pointFromRecipient!, app, recipientComplete.address);
+      // Registering the shared point directly (bypassing ECDH) derives the identical secret.
+      const secretViaRegistration = await AppTaggingSecret.compute(pointFromSender!, app, recipientComplete.address);
+
+      expect(secretViaRegistration.secret).toEqual(secretViaEcdh.secret);
+      expect(secretViaRegistration.app).toEqual(app);
     });
   });
 

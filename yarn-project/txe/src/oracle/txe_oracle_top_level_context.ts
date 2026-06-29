@@ -6,6 +6,7 @@ import {
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Schnorr } from '@aztec/foundation/crypto/schnorr';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import { LogLevels, type Logger, applyStringFormatting, createLogger } from '@aztec/foundation/log';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import type { KeyStore } from '@aztec/key-store';
@@ -15,12 +16,15 @@ import {
   CapsuleStore,
   type ContractStore,
   type ExecutionHooks,
+  FactService,
+  FactStore,
   NoteStore,
   ORACLE_VERSION_MAJOR,
   PrivateEventStore,
   RecipientTaggingStore,
-  SenderAddressBookStore,
   SenderTaggingStore,
+  TaggingSecretSourcesStore,
+  type TaggingSecretStrategy,
   composeHooks,
   enrichPublicSimulationError,
 } from '@aztec/pxe/server';
@@ -30,6 +34,7 @@ import {
   ExecutionTaggingIndexCache,
   HashedValuesCache,
   type IMiscOracle,
+  type Option,
   PrivateExecutionOracle,
   TransientArrayService,
   UtilityExecutionOracle,
@@ -66,6 +71,7 @@ import {
   PublicCallRequest,
 } from '@aztec/stdlib/kernel';
 import { hashPublicKey } from '@aztec/stdlib/keys';
+import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/stdlib/messaging';
 import { ChonkProof } from '@aztec/stdlib/proofs';
 import { makeGlobalVariables } from '@aztec/stdlib/testing';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
@@ -107,13 +113,15 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     private accountStore: TXEAccountStore,
     private senderTaggingStore: SenderTaggingStore,
     private recipientTaggingStore: RecipientTaggingStore,
-    private senderAddressBookStore: SenderAddressBookStore,
+    private taggingSecretSourcesStore: TaggingSecretSourcesStore,
     private capsuleStore: CapsuleStore,
+    private factStore: FactStore,
     private privateEventStore: PrivateEventStore,
     private nextBlockTimestamp: bigint,
     private version: Fr,
     private chainId: Fr,
     private authwits: Map<string, AuthWitness>,
+    private taggingSecretStrategy: TaggingSecretStrategy | undefined,
     private readonly artifactResolver: TXEArtifactResolver,
     private readonly rootPath: string,
     private readonly packageName: string,
@@ -252,7 +260,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
   }
 
   private deploymentNullifier(address: AztecAddress): Promise<Fr> {
-    return siloNullifier(AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS), address.toField());
+    return siloNullifier(AztecAddress.fromNumberUnsafe(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS), address.toField());
   }
 
   async deploy(
@@ -346,7 +354,31 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     this.authwits.set(authWitness.requestHash.toString(), authWitness);
   }
 
-  async mineBlock(options: { nullifiers?: Fr[] } = {}) {
+  setTaggingSecretStrategy(strategy: Option<TaggingSecretStrategy>): void {
+    this.taggingSecretStrategy = strategy.value;
+  }
+
+  async sendL1ToL2Message(content: Fr, secretHash: Fr, sender: EthAddress, recipient: AztecAddress): Promise<Fr> {
+    // Messages are appended to the tree, so the next free slot is simply the current tree size.
+    const { size } = await this.stateMachine.synchronizer
+      .getCommitted()
+      .getTreeInfo(MerkleTreeId.L1_TO_L2_MESSAGE_TREE);
+    const leafIndex = new Fr(size);
+
+    const message = new L1ToL2Message(
+      new L1Actor(sender, this.chainId.toNumber()),
+      new L2Actor(recipient, this.version.toNumber()),
+      content,
+      secretHash,
+      leafIndex,
+    );
+
+    await this.mineBlock({ l1ToL2Messages: [message.hash()] });
+
+    return leafIndex;
+  }
+
+  async mineBlock(options: { nullifiers?: Fr[]; l1ToL2Messages?: Fr[] } = {}) {
     const blockNumber = await this.getNextBlockNumber();
 
     const txEffect = TxEffect.empty();
@@ -354,7 +386,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     txEffect.txHash = new TxHash(new Fr(blockNumber));
 
     const forkedWorldTrees = await this.stateMachine.synchronizer.nativeWorldStateService.fork();
-    await insertTxEffectIntoWorldTrees(txEffect, forkedWorldTrees);
+    await insertTxEffectIntoWorldTrees(txEffect, forkedWorldTrees, options.l1ToL2Messages ?? []);
 
     const globals = makeGlobalVariables(undefined, {
       blockNumber,
@@ -368,7 +400,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
     this.logger.info(`Created block ${blockNumber} with timestamp ${block.header.globalVariables.timestamp}`);
 
-    await this.stateMachine.handleL2Block(block);
+    await this.stateMachine.handleL2Block(block, options.l1ToL2Messages ?? []);
   }
 
   async privateCallNewFlow(
@@ -431,6 +463,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     const simulator = new WASMSimulator();
 
     const transientArrayService = new TransientArrayService();
+    const taggingSecretStrategy = this.taggingSecretStrategy;
     const privateExecutionOracle = new PrivateExecutionOracle({
       argsHash,
       txContext,
@@ -449,8 +482,9 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       aztecNode: this.stateMachine.node,
       senderTaggingStore: this.senderTaggingStore,
       recipientTaggingStore: this.recipientTaggingStore,
-      senderAddressBookStore: this.senderAddressBookStore,
+      taggingSecretSourcesStore: this.taggingSecretSourcesStore,
       capsuleService: new CapsuleService(this.capsuleStore, scopes),
+      factService: new FactService(this.factStore, scopes),
       privateEventStore: this.privateEventStore,
       contractSyncService: this.stateMachine.contractSyncService,
       jobId,
@@ -461,13 +495,16 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       // contract would perform, including setting senderForTags.
       senderForTags: from,
       simulator,
-      messageContextService: this.stateMachine.messageContextService,
+      txResolver: this.stateMachine.txResolver,
       l2TipsStore: this.stateMachine.l2TipsProvider,
       hooks: composeHooks({
         authorizeUtilityCall: this.buildAuthorizeUtilityCallHook(
           isStaticCall ? 'private view' : 'private',
           authorizedUtilityCallTargets,
         ),
+        // Only configure the hook when a strategy was explicitly set, so that otherwise the default tagging secret
+        // strategy is exercised.
+        resolveTaggingSecretStrategy: taggingSecretStrategy ? () => Promise.resolve(taggingSecretStrategy) : undefined,
       }),
       transientArrayService,
     });
@@ -848,10 +885,11 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         addressStore: this.addressStore,
         aztecNode: this.stateMachine.node,
         recipientTaggingStore: this.recipientTaggingStore,
-        senderAddressBookStore: this.senderAddressBookStore,
+        taggingSecretSourcesStore: this.taggingSecretSourcesStore,
         capsuleService: new CapsuleService(this.capsuleStore, scopes),
+        factService: new FactService(this.factStore, scopes),
         privateEventStore: this.privateEventStore,
-        messageContextService: this.stateMachine.messageContextService,
+        txResolver: this.stateMachine.txResolver,
         contractSyncService: this.stateMachine.contractSyncService,
         l2TipsStore: this.stateMachine.l2TipsProvider,
         jobId,
@@ -886,9 +924,9 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     }
   }
 
-  close(): [bigint, Map<string, AuthWitness>] {
+  close(): [bigint, Map<string, AuthWitness>, TaggingSecretStrategy | undefined] {
     this.logger.debug('Exiting Top Level Context');
-    return [this.nextBlockTimestamp, this.authwits];
+    return [this.nextBlockTimestamp, this.authwits, this.taggingSecretStrategy];
   }
 
   private async getLastBlockNumber(): Promise<BlockNumber> {

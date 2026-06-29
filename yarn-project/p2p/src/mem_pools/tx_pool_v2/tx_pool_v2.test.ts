@@ -1036,7 +1036,7 @@ describe('TxPoolV2', () => {
       });
 
       it('pre-protected tx bypasses insufficient balance pre-add rule', async () => {
-        const sharedFeePayer = AztecAddress.fromBigInt(999n);
+        const sharedFeePayer = AztecAddress.fromBigIntUnsafe(999n);
         // Set balance to 0 - normally tx would be ignored
         setFeePayerBalanceForPreProtect(0n);
 
@@ -1129,7 +1129,7 @@ describe('TxPoolV2', () => {
       });
 
       it('pre-protected tx does not trigger post-add eviction rules', async () => {
-        const sharedFeePayer = AztecAddress.fromBigInt(999n);
+        const sharedFeePayer = AztecAddress.fromBigIntUnsafe(999n);
         // Balance covers only one tx
         setFeePayerBalanceForPreProtect(DEFAULT_TX_FEE_LIMIT + DEFAULT_TX_FEE_LIMIT / 2n);
 
@@ -1294,7 +1294,7 @@ describe('TxPoolV2', () => {
         });
 
         it('tx ignored due to insufficient balance succeeds after pre-protection', async () => {
-          const sharedFeePayer = AztecAddress.fromBigInt(999n);
+          const sharedFeePayer = AztecAddress.fromBigIntUnsafe(999n);
           // Set balance to 0
           setFeePayerBalanceForPreProtect(0n);
 
@@ -3441,7 +3441,7 @@ describe('TxPoolV2', () => {
     });
 
     it('high priority tx evicts lower priority tx from same fee payer', async () => {
-      const sharedFeePayer = AztecAddress.fromBigInt(999n);
+      const sharedFeePayer = AztecAddress.fromBigIntUnsafe(999n);
       // Set balance to cover only one tx
       setFeePayerBalance(DEFAULT_TX_FEE_LIMIT + DEFAULT_TX_FEE_LIMIT / 2n);
 
@@ -3470,7 +3470,7 @@ describe('TxPoolV2', () => {
     });
 
     it('low priority tx ignored when fee payer balance exhausted by existing tx', async () => {
-      const sharedFeePayer = AztecAddress.fromBigInt(999n);
+      const sharedFeePayer = AztecAddress.fromBigIntUnsafe(999n);
       // Balance covers only one tx
       setFeePayerBalance(DEFAULT_TX_FEE_LIMIT + DEFAULT_TX_FEE_LIMIT / 2n);
 
@@ -3498,7 +3498,7 @@ describe('TxPoolV2', () => {
     });
 
     it('batch from same fee payer - only top N by priority accepted', async () => {
-      const sharedFeePayer = AztecAddress.fromBigInt(999n);
+      const sharedFeePayer = AztecAddress.fromBigIntUnsafe(999n);
       // Balance covers exactly 2 tx fee limits
       setFeePayerBalance(DEFAULT_TX_FEE_LIMIT * 2n + DEFAULT_TX_FEE_LIMIT / 2n);
 
@@ -3546,7 +3546,7 @@ describe('TxPoolV2', () => {
     };
 
     it('evicts low-priority txs after BLOCK_MINED when balance is insufficient', async () => {
-      const sharedFeePayer = AztecAddress.fromBigInt(999n);
+      const sharedFeePayer = AztecAddress.fromBigIntUnsafe(999n);
       // Initial balance covers all 3 txs
       setFeePayerBalance(DEFAULT_TX_FEE_LIMIT * 3n + DEFAULT_TX_FEE_LIMIT / 2n);
 
@@ -3587,7 +3587,7 @@ describe('TxPoolV2', () => {
     });
 
     it('evicts low-priority txs after CHAIN_PRUNED when balance is insufficient', async () => {
-      const sharedFeePayer = AztecAddress.fromBigInt(999n);
+      const sharedFeePayer = AztecAddress.fromBigIntUnsafe(999n);
       // Initial balance covers both txs
       setFeePayerBalance(DEFAULT_TX_FEE_LIMIT * 2n + DEFAULT_TX_FEE_LIMIT / 2n);
 
@@ -3621,7 +3621,7 @@ describe('TxPoolV2', () => {
     });
 
     it('priority ordering is correct - highest priority funded first', async () => {
-      const sharedFeePayer = AztecAddress.fromBigInt(999n);
+      const sharedFeePayer = AztecAddress.fromBigIntUnsafe(999n);
       // Initial balance covers all 3 txs
       setFeePayerBalance(DEFAULT_TX_FEE_LIMIT * 3n + DEFAULT_TX_FEE_LIMIT / 2n);
 
@@ -3663,7 +3663,7 @@ describe('TxPoolV2', () => {
     });
 
     it('does not evict when balance is sufficient', async () => {
-      const sharedFeePayer = AztecAddress.fromBigInt(999n);
+      const sharedFeePayer = AztecAddress.fromBigIntUnsafe(999n);
       // Balance covers all txs
       setFeePayerBalance(BigInt(1e18));
 
@@ -4737,7 +4737,7 @@ describe('TxPoolV2', () => {
     });
 
     it('fee payer balance + nullifier conflict - higher priority wins both', async () => {
-      const sharedFeePayer = AztecAddress.fromBigInt(999n);
+      const sharedFeePayer = AztecAddress.fromBigIntUnsafe(999n);
       // Set balance to only cover 1 tx
       db.getLeafPreimage.mockImplementation((tree, index) => {
         if (tree === MerkleTreeId.PUBLIC_DATA_TREE) {
@@ -4781,8 +4781,8 @@ describe('TxPoolV2', () => {
     });
 
     it('batch with nullifier conflicts across different fee payers', async () => {
-      const feePayerA = AztecAddress.fromBigInt(111n);
-      const feePayerB = AztecAddress.fromBigInt(222n);
+      const feePayerA = AztecAddress.fromBigIntUnsafe(111n);
+      const feePayerB = AztecAddress.fromBigIntUnsafe(222n);
 
       // tx1 (fee payer A, low priority) and tx2 (fee payer B, high priority) share nullifier
       const tx1 = await mockTx(1, {
