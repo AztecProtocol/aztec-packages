@@ -1184,6 +1184,29 @@ describe('CheckpointProposalJob', () => {
       expect(waitSpy.mock.calls[0][0]).toEqual(buildFrameStartSeconds() + 2);
     });
 
+    it('does not wait for optional blocks once a non-empty checkpoint has no additional eligible txs', async () => {
+      jest
+        .spyOn(job.getTimetable(), 'selectNextSubslot')
+        .mockReturnValueOnce(subslot(2, 0, false))
+        .mockReturnValueOnce(subslot(4, 1, true))
+        .mockReturnValue(noSubslot());
+
+      const { blocks } = await setupMultipleBlocks(2, [1, 0]);
+      validatorClient.collectAttestations.mockResolvedValue(getAttestations(blocks[0]));
+
+      const waitSpy = jest.spyOn(job, 'waitUntilNextSubslot');
+
+      job.updateConfig({ minTxsPerBlock: 0 });
+      const checkpoint = await job.executeAndAwait();
+
+      expect(checkpoint).toBeDefined();
+      expect(checkpointBuilder.buildBlockCalls).toHaveLength(1);
+      expect(waitSpy).not.toHaveBeenCalled();
+      expect(p2p.broadcastProposal).not.toHaveBeenCalled();
+      expect(p2p.broadcastCheckpointProposal).toHaveBeenCalledTimes(1);
+      expect(publisher.enqueueProposeCheckpoint).toHaveBeenCalledTimes(1);
+    });
+
     it('builds a single block when not enough txs are available but we build empty checkpoints', async () => {
       // Mock timetable to have two sub-slots
       jest
@@ -1275,11 +1298,12 @@ describe('CheckpointProposalJob', () => {
         .mockReturnValue(noSubslot());
 
       const txs = await Promise.all([makeTx(1, chainId), makeTx(2, chainId)]);
+      const pendingTxs = [...txs, await makeTx(3, chainId)];
       const block = await makeBlock(txs, globalVariables);
 
       p2p.getPendingTxCount.mockResolvedValue(10);
       p2p.hasEligiblePendingTxs.mockImplementation(minCount => Promise.resolve(10 >= minCount));
-      p2p.iterateEligiblePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
+      p2p.iterateEligiblePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(pendingTxs)));
 
       checkpointBuilder.seedBlocks([block], [txs]);
 

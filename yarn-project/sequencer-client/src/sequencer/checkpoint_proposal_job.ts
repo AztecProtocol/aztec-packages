@@ -871,6 +871,7 @@ export class CheckpointProposalJob implements Traceable {
     const blocksInCheckpoint: L2Block[] = [];
     const txHashesAlreadyIncluded = new Set<string>();
     const initialBlockNumber = BlockNumber(this.syncedToBlockNumber + 1);
+    let txsInCheckpoint = 0;
 
     // Last block in the checkpoint will usually be flagged as pending broadcast, so we send it along with the checkpoint proposal
     let blockPendingBroadcast: BlockProposal | undefined = undefined;
@@ -897,6 +898,22 @@ export class CheckpointProposalJob implements Traceable {
           slot: this.targetSlot,
           blocksBuilt,
           nowSeconds,
+        });
+        break;
+      }
+
+      if (
+        txsInCheckpoint > 0 &&
+        !(await this.hasUnincludedEligiblePendingTxs(
+          this.getMinTxsForBlock(indexWithinCheckpoint),
+          txHashesAlreadyIncluded,
+        ))
+      ) {
+        this.log.debug(`No additional age-eligible txs available for checkpoint block`, {
+          slot: this.targetSlot,
+          checkpointNumber: this.checkpointNumber,
+          blocksBuilt,
+          indexWithinCheckpoint,
         });
         break;
       }
@@ -943,6 +960,7 @@ export class CheckpointProposalJob implements Traceable {
       });
 
       blocksInCheckpoint.push(block);
+      txsInCheckpoint += block.body.txEffects.length;
       usedTxs.forEach(tx => txHashesAlreadyIncluded.add(tx.txHash.toString()));
 
       // Sign the block proposal. This will throw if HA signing fails.
@@ -967,6 +985,22 @@ export class CheckpointProposalJob implements Traceable {
           blocksBuilt,
         });
 
+        blockPendingBroadcast = proposal;
+        break;
+      }
+
+      if (
+        txsInCheckpoint > 0 &&
+        !(await this.hasUnincludedEligiblePendingTxs(
+          this.getMinTxsForBlock(IndexWithinCheckpoint(blocksInCheckpoint.length)),
+          txHashesAlreadyIncluded,
+        ))
+      ) {
+        this.log.debug(`Completing checkpoint without waiting for optional block`, {
+          slot: this.targetSlot,
+          checkpointNumber: this.checkpointNumber,
+          blocksBuilt: blocksInCheckpoint.length,
+        });
         blockPendingBroadcast = proposal;
         break;
       }
@@ -1233,6 +1267,33 @@ export class CheckpointProposalJob implements Traceable {
     }
   }
 
+  private getMinTxsForBlock(indexWithinCheckpoint: IndexWithinCheckpoint): number {
+    return indexWithinCheckpoint > 0 && this.config.minTxsPerBlock === 0 ? 1 : this.config.minTxsPerBlock;
+  }
+
+  private async hasUnincludedEligiblePendingTxs(
+    minTxs: number,
+    txHashesAlreadyIncluded: Set<string>,
+  ): Promise<boolean> {
+    if (minTxs === 0) {
+      return true;
+    }
+
+    let txCount = 0;
+    for await (const tx of this.p2pClient.iterateEligiblePendingTxs({ includeProof: false })) {
+      if (txHashesAlreadyIncluded.has(tx.txHash.toString())) {
+        continue;
+      }
+
+      txCount += 1;
+      if (txCount >= minTxs) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   /** Waits until minTxs are available on the pool for building a block. */
   @trackSpan('CheckpointProposalJob.waitForMinTxs')
   private async waitForMinTxs(opts: {
@@ -1244,7 +1305,7 @@ export class CheckpointProposalJob implements Traceable {
     const { indexWithinCheckpoint, blockNumber, buildDeadline, forceCreate } = opts;
 
     // We only allow a block with 0 txs in the first block of the checkpoint
-    const minTxs = indexWithinCheckpoint > 0 && this.config.minTxsPerBlock === 0 ? 1 : this.config.minTxsPerBlock;
+    const minTxs = this.getMinTxsForBlock(indexWithinCheckpoint);
 
     // Latest time to keep waiting for txs: wait_for_txs_deadline = block_build_deadline(k) - min_block_duration.
     const startBuildingDeadline = buildDeadline
