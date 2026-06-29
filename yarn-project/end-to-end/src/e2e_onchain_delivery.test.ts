@@ -26,17 +26,20 @@ type SenderHook = NonNullable<NonNullable<PXECreationOptions['hooks']>['resolveT
 
 type Mode = 'constrained' | 'unconstrained';
 
-// What PXE B is expected to observe for a (mode, source) cell:
-// - 'discovered':         PXE B discovers every message PXE A sent (a working cell; asserted with `it`).
-// - 'undiscoverable':     delivery lands onchain but PXE B cannot reconstruct the tag and discovers nothing. A
-//                         TEMPORARY limitation of a not-yet-implemented path, asserted with `it.failing` so the cell
-//                         turns red (prompting promotion to `it`) the moment the path starts working.
-// - { type: 'rejected' }: PXE A's send is rejected in-circuit because the resolved source cannot back the mode. A
-//                         PERMANENT soundness invariant, positively asserted with `it` against the panic message.
-type RejectedOutcome = { type: 'rejected'; message: string };
-type DeliveryOutcome = 'discovered' | 'undiscoverable' | RejectedOutcome;
-
-const isRejectedOutcome = (outcome: DeliveryOutcome): outcome is RejectedOutcome => typeof outcome === 'object';
+// What PXE B is expected to observe for a (mode, source) cell. The `type` names the asserted condition, so the two
+// "PXE B sees nothing" outcomes never read alike:
+// - 'discovered': PXE B discovers every message PXE A sent. Asserted with `it`.
+// - 'xfail-discovered': asserts the same as 'discovered', but a known not-yet-implemented path fails it today, so it
+//   runs under `it.failing` and turns the suite red (prompting promotion to 'discovered') once that path works.
+// - 'not-discoverable': delivery lands onchain but PXE B was never given the secret, so it discovers nothing. A
+//   PERMANENT privacy boundary asserted with `it`; a leak that surfaces the delivery to PXE B flips it red.
+// - 'rejected': PXE A's send is rejected in-circuit because the resolved source cannot back the mode. Asserted with
+//   `it` against `message`.
+type DeliveryOutcome =
+  | { type: 'discovered' }
+  | { type: 'xfail-discovered' }
+  | { type: 'not-discoverable'; reason: string }
+  | { type: 'rejected'; message: string };
 
 // Onchain private delivery has two orthogonal axes: the delivery MODE (constrained = nullifier-chained sequence;
 // unconstrained = no nullifier, windowed scan) and the tagging-secret SOURCE, which the wallet's
@@ -44,7 +47,7 @@ const isRejectedOutcome = (outcome: DeliveryOutcome): outcome is RejectedOutcome
 // PXEs that share only a node: PXE A sends, PXE B discovers purely from onchain logs plus the HandshakeRegistry.
 //
 // Cross-PXE is the meaningful setup: PXE B holds no sender state, so a cell only "discovers" a message if the source
-// truly reached it, which is also what makes the undiscoverable and rejected cells meaningful.
+// truly reached it, which is also what makes the not-discoverable and rejected cells meaningful.
 function buildMessageDeliveryTest(opts: {
   description: string;
   // A single mode applies to both the event and note sends; `{ events, notes }` sends each in its own mode, which
@@ -61,7 +64,7 @@ function buildMessageDeliveryTest(opts: {
   // Defaults to 'discovered'; see `DeliveryOutcome`.
   outcome?: DeliveryOutcome;
 }) {
-  const { description, mode, senderHook, recipientRegistration, outcome = 'discovered' } = opts;
+  const { description, mode, senderHook, recipientRegistration, outcome = { type: 'discovered' } } = opts;
 
   describe(description, () => {
     jest.setTimeout(300_000);
@@ -136,7 +139,7 @@ function buildMessageDeliveryTest(opts: {
       // A rejected cell lands nothing: its send is exercised (and asserted) in the test body, not here, so the
       // matcher distinguishes the expected rejection from an unexpected infra error rather than beforeAll swallowing
       // it. Both teardowns and the sender/recipient/contract are assigned above, so afterAll stays safe.
-      if (isRejectedOutcome(outcome)) {
+      if (outcome.type === 'rejected') {
         return;
       }
 
@@ -174,16 +177,29 @@ function buildMessageDeliveryTest(opts: {
       await teardownSender();
     });
 
-    if (isRejectedOutcome(outcome)) {
+    if (outcome.type === 'rejected') {
       it('PXE A cannot send: the resolved source cannot back the delivery mode', async () => {
         await expect(sendEvent(eventValues[0]).send({ from: sender })).rejects.toThrow(outcome.message);
       });
       return;
     }
 
-    // `it.failing` passes while the assertion fails and turns into a suite failure once the path works, prompting
-    // promotion to a plain `it`.
-    const test = outcome === 'undiscoverable' ? it.failing : it;
+    if (outcome.type === 'not-discoverable') {
+      // The sends landed onchain (beforeAll mined them), but PXE B was never given the secret, so discovery must come
+      // up empty. Plain `it` so a future leak that surfaces the delivery to PXE B fails loudly.
+      it(`PXE B cannot discover the delivered events (${outcome.reason})`, () => {
+        expect(discoveredEvents).toEqual([]);
+      });
+      it(`PXE B cannot read the delivered notes (${outcome.reason})`, () => {
+        expect(readNotes).toEqual([]);
+      });
+      return;
+    }
+
+    // 'discovered' and 'xfail-discovered' assert the same positive condition; 'xfail-discovered' runs under
+    // `it.failing`, which passes while the assertion fails and turns the suite red once the path works, prompting
+    // promotion to 'discovered'.
+    const test = outcome.type === 'xfail-discovered' ? it.failing : it;
 
     test('PXE B discovers the events delivered by PXE A', () => {
       expect(discoveredEvents.length).toBe(eventValues.length);
@@ -227,12 +243,50 @@ describe('onchain delivery', () => {
     },
   });
 
-  // TODO(F-770): With no hook, unconstrained delivery to an external recipient defaults to an address-derived
-  // tag. PXE B holds no sender state, so it cannot reconstruct that tag and discovers nothing.
+  // NOT-DISCOVERABLE (privacy twin of the arbitrary-secret cell above): the sender tags with an arbitrary secret the
+  // recipient never registers. The cell above discovers this same kind of send; here PXE B cannot, because the secret
+  // was never shared with it. A leak that surfaced the delivery to PXE B would flip this red.
+  let unsharedSecret: Point;
+  buildMessageDeliveryTest({
+    description: 'unconstrained x arbitrary secret never shared with the recipient',
+    mode: 'unconstrained',
+    senderHook: () => Promise.resolve({ type: 'arbitrary-secret', secret: unsharedSecret }),
+    recipientRegistration: async () => {
+      // Generate the secret the sender uses, but deliberately do NOT register it on PXE B; that is the point.
+      unsharedSecret = await Point.random();
+    },
+    outcome: { type: 'not-discoverable', reason: 'the arbitrary secret was never registered on PXE B' },
+  });
+
+  // TODO(F-770): with no hook, unconstrained delivery to an external recipient defaults to an address-derived tag.
+  // PXE B holds no sender state, so it cannot reconstruct that tag and discovers nothing yet. F-770 will default this
+  // to a handshake, at which point this cell turns red and graduates to 'discovered'.
   buildMessageDeliveryTest({
     description: 'unconstrained x default to external recipient',
     mode: 'unconstrained',
-    outcome: 'undiscoverable',
+    outcome: { type: 'xfail-discovered' },
+  });
+
+  // DISCOVERED: the address-derived (ECDH) source, which is the unconstrained default exercised above. With the
+  // recipient registering the sender, PXE B reconstructs the address-derived tag and discovers the delivery. Positive
+  // control for the cell below (same source, sender unregistered) and for the default cell above.
+  buildMessageDeliveryTest({
+    description: 'unconstrained x address-derived (recipient registers the sender)',
+    mode: 'unconstrained',
+    senderHook: () => Promise.resolve({ type: 'address-derived' }),
+    recipientRegistration: async (recipientWallet, _recipientAddress, senderAddress) => {
+      await recipientWallet.registerSender(senderAddress);
+    },
+  });
+
+  // NOT-DISCOVERABLE (privacy twin of the cell above): the same address-derived source, but the recipient never
+  // registers the sender, so PXE B cannot reconstruct the tag. Unlike the F-770 default cell above (a temporary gap),
+  // an explicitly address-derived send to an unregistered sender is a permanent boundary that survives F-770.
+  buildMessageDeliveryTest({
+    description: 'unconstrained x address-derived without registering the sender',
+    mode: 'unconstrained',
+    senderHook: () => Promise.resolve({ type: 'address-derived' }),
+    outcome: { type: 'not-discoverable', reason: 'PXE B never registered the sender' },
   });
 
   // GREEN: one handshake serves both modes. The constrained events bootstrap the handshake; the unconstrained notes
