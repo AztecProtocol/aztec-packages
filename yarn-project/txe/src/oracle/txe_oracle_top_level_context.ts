@@ -71,6 +71,7 @@ import {
   PublicCallRequest,
 } from '@aztec/stdlib/kernel';
 import { hashPublicKey } from '@aztec/stdlib/keys';
+import type { PrivateLog } from '@aztec/stdlib/logs';
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/stdlib/messaging';
 import { ChonkProof } from '@aztec/stdlib/proofs';
 import { makeGlobalVariables } from '@aztec/stdlib/testing';
@@ -183,7 +184,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     return (await this.stateMachine.node.getBlockData('latest'))!.header.globalVariables.timestamp;
   }
 
-  async getLastTxEffects() {
+  async getLastTxEffects(): Promise<{ txHash: TxHash; noteHashes: Fr[]; nullifiers: Fr[]; privateLogs: PrivateLog[] }> {
     const latestBlockNumber = await this.stateMachine.archiver.getBlockNumber();
     const block = await this.stateMachine.archiver.getBlock({ number: latestBlockNumber });
 
