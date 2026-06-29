@@ -3,7 +3,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { EthCheatCodes } from '@aztec/aztec/testing';
 import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
-import type { PublisherManager } from '@aztec/ethereum/publisher-manager';
+import { PublisherManager } from '@aztec/ethereum/publisher-manager';
 import { SecretValue } from '@aztec/foundation/config';
 import { retryUntil } from '@aztec/foundation/retry';
 import type { RunningPromise } from '@aztec/foundation/running-promise';
@@ -41,6 +41,19 @@ const toPrivateKeyHex = (index: number): Hex => {
 
 const FUNDING_THRESHOLD = parseEther('2');
 const FUNDING_AMOUNT = parseEther('2.1');
+
+/** Exposes the {@link PublisherManager} internals this suite asserts on without `as any` casts. */
+class TestPublisherManager extends PublisherManager {
+  public getPublishers() {
+    return this.publishers;
+  }
+  public getFunder() {
+    return this.funder;
+  }
+  public getFundingPromise() {
+    return this.fundingPromise;
+  }
+}
 
 // Tests the PublisherManager's automatic L1 ETH top-up logic when a keystore carries two publishers and a
 // dedicated funding account. Uses PIPELINING_SETUP_OPTS (prod sequencer, ethSlot=4s, aztecSlot=12s) with
@@ -115,12 +128,12 @@ describe('single-node/sequencer/publisher_funding_multi', () => {
   // PublisherManager's funding loop to top them both up (round 1), then drains one publisher again
   // and drives a second funding round to confirm the loop is still healthy.
   it('funds both publishers when balances drop below threshold', async () => {
-    const publishers: L1TxUtils[] = (publisherManager as any).publishers;
-    const funder: L1TxUtils | undefined = (publisherManager as any).funder;
+    const publishers: L1TxUtils[] = (publisherManager as TestPublisherManager).getPublishers();
+    const funder: L1TxUtils | undefined = (publisherManager as TestPublisherManager).getFunder();
     // The PublisherManager runs triggerFundingIfNeeded on a 2-minute RunningPromise. Driving that
     // RunningPromise directly via trigger() forces an immediate funding cycle, so the test does not
     // pay the (up to) 2-minute polling interval per round.
-    const fundingPromise: RunningPromise | undefined = (publisherManager as any).fundingPromise;
+    const fundingPromise: RunningPromise | undefined = (publisherManager as TestPublisherManager).getFundingPromise();
 
     expect(publishers.length).toBe(2);
     expect(funder).toBeDefined();
