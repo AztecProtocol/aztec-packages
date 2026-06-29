@@ -422,4 +422,103 @@ TEST(VectorFieldTest, ScalarTypeAlias)
     SUCCEED();
 }
 
+TEST(VectorFieldTest, CoarseInputArithmeticMatchesScalar)
+{
+    // +/-/* must accept operands already in the lazy-reduced "coarse" form -- a
+    // value in [0, 2p), not yet conditionally reduced to [0, p) -- which a prior
+    // `+` leaves behind between polynomial passes. The other arithmetic tests
+    // feed only canonical [0, p) inputs from random_element(), so the
+    // lazy-reduction branches for coarse operands go unexercised. Here we build
+    // coarse operands (a + b lands in [0, 2p)) and feed them back into +/-/*,
+    // checking the result mod p against scalar fr arithmetic.
+    for (int trial = 0; trial < 150; ++trial) {
+        auto a = random_five();
+        auto b = random_five();
+        auto c = random_five();
+        auto d = random_five();
+
+        Vec coarse_l = Vec(a) + Vec(b); // lanes in [0, 2p)
+        Vec coarse_r = Vec(c) + Vec(d);
+
+        std::array<fr, 5> add_exp;
+        std::array<fr, 5> sub_exp;
+        std::array<fr, 5> mul_exp;
+        for (size_t i = 0; i < 5; ++i) {
+            fr l = a[i] + b[i];
+            fr r = c[i] + d[i];
+            add_exp[i] = l + r;
+            sub_exp[i] = l - r;
+            mul_exp[i] = l * r;
+        }
+
+        EXPECT_TRUE(field_array_eq(add_exp, (coarse_l + coarse_r).to_array())) << "add trial " << trial;
+        EXPECT_TRUE(field_array_eq(sub_exp, (coarse_l - coarse_r).to_array())) << "sub trial " << trial;
+        EXPECT_TRUE(field_array_eq(mul_exp, (coarse_l * coarse_r).to_array())) << "mul trial " << trial;
+    }
+
+    // Deterministic maximally-coarse operands: (p-1) + (p-1) = 2p-2, the largest
+    // value the coarse form holds, in every lane.
+    const fr neg_one = -fr::one();
+    std::array<fr, 5> maxes{ neg_one, neg_one, neg_one, neg_one, neg_one };
+    Vec max_coarse = Vec(maxes) + Vec(maxes); // 2p-2 per lane
+    const fr m = neg_one + neg_one;           // (p-1)+(p-1) = p-2 mod p
+    std::array<fr, 5> add_exp;
+    std::array<fr, 5> sub_exp;
+    std::array<fr, 5> mul_exp;
+    for (size_t i = 0; i < 5; ++i) {
+        add_exp[i] = m + m;
+        sub_exp[i] = m - m;
+        mul_exp[i] = m * m;
+    }
+    EXPECT_TRUE(field_array_eq(add_exp, (max_coarse + max_coarse).to_array()));
+    EXPECT_TRUE(field_array_eq(sub_exp, (max_coarse - max_coarse).to_array()));
+    EXPECT_TRUE(field_array_eq(mul_exp, (max_coarse * max_coarse).to_array()));
+}
+
+TEST(VectorFieldTest, CoarseStoreReloadRoundTrip)
+{
+    // Between polynomial passes a coarse (unreduced, [0, 2p)) VectorField is stored
+    // to memory by one pass and reloaded by the next. The earlier round-trip tests
+    // stored only canonical values from random_element(); here we store a coarse
+    // value (a + b, left unreduced) and check that both the store_to/linear-memory
+    // ctor path (SIMD shuffle) and the scatter/gather path (scalar random access)
+    // reproduce it mod p.
+    for (int trial = 0; trial < 64; ++trial) {
+        auto a = random_five();
+        auto b = random_five();
+        Vec coarse = Vec(a) + Vec(b); // lanes in [0, 2p)
+        std::array<fr, 5> expected;
+        for (size_t i = 0; i < 5; ++i) {
+            expected[i] = a[i] + b[i];
+        }
+
+        // store_to -> linear-memory ctor reload (SIMD-shuffle transpose).
+        {
+            std::array<fr, 5> buf;
+            coarse.store_to(buf.data());
+            Vec reloaded(buf.data());
+            EXPECT_TRUE(field_array_eq(expected, reloaded.to_array())) << "store_to/ctor trial " << trial;
+        }
+        // scatter -> gather reload (scalar random-access path).
+        {
+            std::array<fr, 5> buf{ fr::zero(), fr::zero(), fr::zero(), fr::zero(), fr::zero() };
+            std::array<size_t, 5> idx{ 0, 1, 2, 3, 4 };
+            coarse.scatter(buf.data(), idx);
+            Vec reloaded = Vec::gather(buf.data(), idx);
+            EXPECT_TRUE(field_array_eq(expected, reloaded.to_array())) << "scatter/gather trial " << trial;
+        }
+    }
+
+    // Deterministic maximally-coarse value: (p-1) + (p-1) = 2p-2 in every lane.
+    const fr neg_one = -fr::one();
+    std::array<fr, 5> maxes{ neg_one, neg_one, neg_one, neg_one, neg_one };
+    Vec max_coarse = Vec(maxes) + Vec(maxes);
+    const fr m = neg_one + neg_one;
+    std::array<fr, 5> expected{ m, m, m, m, m };
+    std::array<fr, 5> buf;
+    max_coarse.store_to(buf.data());
+    Vec reloaded(buf.data());
+    EXPECT_TRUE(field_array_eq(expected, reloaded.to_array()));
+}
+
 } // namespace
