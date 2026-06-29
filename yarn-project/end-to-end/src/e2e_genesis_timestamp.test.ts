@@ -9,11 +9,9 @@ import { proveInteraction } from './test-wallet/utils.js';
 
 // Verifies that genesis-anchored transactions (proved while PXE is pinned to block 0) can be
 // included in blocks after block 1, and that PXE can prove transactions anchored to genesis even
-// after the chain has advanced (public data tree diverged). Uses AUTOMINE_E2E_OPTS with
-// advancePastGenesis=false, two deployable accounts in additionallyFundedAccounts, and pxe
-// syncChainTip='proven' so the anchor stays at genesis until a real proof lands, which never happens
-// in these tests (no prover node running). (v5: replaced skipAccountDeployment with
-// advancePastGenesis=false + explicit additionallyFundedAccounts.)
+// after the chain has advanced (public data tree diverged). Uses AUTOMINE_E2E_OPTS, two deployable
+// accounts in additionallyFundedAccounts, and pxe syncChainTip='proven' so the anchor stays at
+// genesis until a real proof lands, which never happens in these tests (no prover node running).
 describe('e2e_genesis_timestamp', () => {
   let context: EndToEndContext;
 
@@ -28,12 +26,11 @@ describe('e2e_genesis_timestamp', () => {
       0,
       {
         ...AUTOMINE_E2E_OPTS,
-        // This suite pins the proven tip at genesis (no prover node, syncChainTip:'proven',
-        // advancePastGenesis:false) and asserts on genesis-anchored txs. Mining the L1 setup txs
-        // instantly shifts how far L1 time advances past the rollup genesis during deployment, which
-        // breaks those genesis-anchoring assumptions, so keep L1 setup on the anvil block interval.
+        // This suite pins the proven tip at genesis (no prover node, syncChainTip:'proven') and
+        // asserts on genesis-anchored txs. Mining the L1 setup txs instantly shifts how far L1 time
+        // advances past the rollup genesis during deployment, which breaks those genesis-anchoring
+        // assumptions, so keep L1 setup on the anvil block interval.
         automineL1Setup: false,
-        advancePastGenesis: false,
         // This test proves genesis-anchored account deployment txs, so it needs deployable accounts
         additionallyFundedAccounts: await generateSchnorrAccounts(2, 'schnorr'),
       },
