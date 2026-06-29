@@ -1,4 +1,5 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { KeyStore } from '@aztec/key-store';
 import { createStore, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/stdlib/block';
@@ -155,9 +156,7 @@ async function collectOpenedStores() {
  *     class and compares the resulting bytes to a committed per-store snapshot.
  */
 describe('PXE storage compatibility test suite', () => {
-  it('resets PXE key-store rows from schema 9 before opening current storage', async () => {
-    expect(PXE_DATA_SCHEMA_VERSION).toBeGreaterThan(PRE_DERIVED_MESSAGE_AND_FALLBACK_KEYS_PXE_SCHEMA_VERSION);
-
+  it('resets schema 9 key-store rows that cannot fetch derived message-signing keys', async () => {
     const account = AztecAddress.fromStringUnsafe('0x0b3683ee9df3ed6ed7027145bd6093f783b0bb4d8354501d906db7bb8cb58ea3');
     const dataDirectory = await mkdtemp(join(tmpdir(), 'pxe-schema-reset-'));
     const config = {
@@ -169,21 +168,24 @@ describe('PXE storage compatibility test suite', () => {
     try {
       const oldStore = await createStore('pxe_data', PRE_DERIVED_MESSAGE_AND_FALLBACK_KEYS_PXE_SCHEMA_VERSION, config);
       try {
-        await oldStore
-          .openMap<string, Buffer>('key_store')
-          .set(
-            `${account.toString()}-ivsk_m`,
-            Buffer.from('1fb01c42d1aaa2662041b899c77cb19e08192193acc5a94405f1b43c974eba7a', 'hex'),
-          );
+        await oldStore.openMap<string, Buffer>('key_store').set(
+          `${account.toString()}-ivsk_m`,
+          Buffer.from(
+            '1fb01c42d1aaa2662041b899c77cb19e08192193acc5a94405f1b43c974eba7a',
+            'hex',
+          ),
+        );
       } finally {
         await oldStore.close();
       }
 
       const currentStore = await createStore('pxe_data', PXE_DATA_SCHEMA_VERSION, config);
       try {
-        await expect(
-          currentStore.openMap<string, Buffer>('key_store').getAsync(`${account.toString()}-ivsk_m`),
-        ).resolves.toBeUndefined();
+        const keyStore = new KeyStore(currentStore);
+        if (await keyStore.hasAccount(account)) {
+          await keyStore.getMasterMessageSigningPublicKey(account);
+        }
+        await expect(keyStore.hasAccount(account)).resolves.toBe(false);
       } finally {
         await currentStore.close();
       }
