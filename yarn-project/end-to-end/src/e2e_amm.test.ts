@@ -2,12 +2,12 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
-import type { TokenContract } from '@aztec/noir-contracts.js/Token';
+import type { TestTokenContract } from '@aztec/noir-test-contracts.js/TestToken';
 
 import { jest } from '@jest/globals';
 
 import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
-import { deployToken, mintTokensToPrivate } from './fixtures/token_utils.js';
+import { deployTestToken, mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
 import type { TestWallet } from './test-wallet/test_wallet.js';
 
@@ -32,9 +32,9 @@ describe('AMM', () => {
   let otherLiquidityProviderAddress: AztecAddress;
   let swapperAddress: AztecAddress;
 
-  let token0: TokenContract;
-  let token1: TokenContract;
-  let liquidityToken: TokenContract;
+  let token0: TestTokenContract;
+  let token1: TestTokenContract;
+  let liquidityToken: TestTokenContract;
 
   let amm: AMMContract;
 
@@ -56,9 +56,9 @@ describe('AMM', () => {
       logger,
     } = await setup(4, { ...AUTOMINE_E2E_OPTS }, { syncChainTip: 'checkpointed' }));
 
-    ({ contract: token0 } = await deployToken(wallet, adminAddress, 0n, logger));
-    ({ contract: token1 } = await deployToken(wallet, adminAddress, 0n, logger));
-    ({ contract: liquidityToken } = await deployToken(wallet, adminAddress, 0n, logger));
+    ({ contract: token0 } = await deployTestToken(wallet, adminAddress, 0n, logger));
+    ({ contract: token1 } = await deployTestToken(wallet, adminAddress, 0n, logger));
+    ({ contract: liquidityToken } = await deployTestToken(wallet, adminAddress, 0n, logger));
 
     ({ contract: amm } = await AMMContract.deploy(wallet, token0.address, token1.address, liquidityToken.address).send({
       from: adminAddress,
