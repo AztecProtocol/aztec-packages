@@ -3,29 +3,17 @@ import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
 import { strict as assert } from 'assert';
 
-<<<<<<< HEAD
-import { TypeTag } from '../avm/avm_memory_types.js';
-import { Addressing, AddressingMode } from '../avm/opcodes/addressing_mode.js';
-import { Add, Call, CalldataCopy, Cast, Jump, Return, Set, Sha256Compression, Xor } from '../avm/opcodes/index.js';
-import { encodeToBytecode } from '../avm/serialization/bytecode_serialization.js';
-=======
 import { TypeTag } from '../avm/testing/avm_memory_types.js';
-import { Add, Addressing, AddressingMode, CalldataCopy, Cast, Jump, Return, Set } from '../avm/testing/opcodes.js';
+import { Add, Addressing, AddressingMode, Call, CalldataCopy, Cast, Jump, Return, Set, Sha256Compression, Xor } from '../avm/testing/opcodes.js';
 import { encodeToBytecode } from '../avm/testing/serialization/bytecode_serialization.js';
->>>>>>> origin/public-next
 import {
   MAX_OPCODE_VALUE,
   Opcode,
   OperandType,
   getInstructionSize,
   getOperandSize,
-<<<<<<< HEAD
-} from '../avm/serialization/instruction_serialization.js';
-import { deployAndExecuteCustomBytecode, deployCustomBytecode } from './custom_bytecode_tester.js';
-=======
 } from '../avm/testing/serialization/instruction_serialization.js';
-import { deployAndExecuteCustomBytecode } from './custom_bytecode_tester.js';
->>>>>>> origin/public-next
+import { deployAndExecuteCustomBytecode, deployCustomBytecode } from './custom_bytecode_tester.js';
 import { PublicTxSimulationTester } from './public_tx_simulation_tester.js';
 
 // First instruction resolved a base address (offset 0) which is uninitialized and therefore
