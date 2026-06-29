@@ -18,18 +18,16 @@ import {
   waitForProvenCheckpoint,
 } from './setup.js';
 
-// Exactly fills one checkpoint to `maxTxsPerCheckpoint` (24) below, building a single ~12-block
-// checkpoint. The assertions only need one checkpoint with `PIPELINE_EXPECTED_BLOCKS_PER_CHECKPOINT`
-// blocks plus node-0's blob fetch on that checkpoint's download, so sending a second checkpoint's
-// worth of txs (the old 34) just forces an extra ~72s build slot that nothing here checks.
-const PIPELINE_TX_COUNT = 24;
+const PIPELINE_MAX_TXS_PER_BLOCK = 2;
 const PIPELINE_EXPECTED_BLOCKS_PER_CHECKPOINT = 8;
+
+// In case the PIPELINE_TX_COUNT txs we send get split across two checkpoints, ensure at least one
+// of them will be filled with the expected number of blocks.
+const PIPELINE_TX_COUNT = PIPELINE_MAX_TXS_PER_BLOCK * PIPELINE_EXPECTED_BLOCKS_PER_CHECKPOINT * 2;
 
 // Blob/checkpoint promotion under stressed multi-block production: a node with promotion disabled
 // fetches blobs while promotion-enabled peers fetch zero (the getBlobSidecar spy), and a
-// high-block-count checkpoint built under adverse gossip latency still proves. The MBPS and pipelining
-// offset assertions live in their behavior-named homes (production tests, pipeline_prune) and are not
-// re-checked here.
+// high-block-count checkpoint built under adverse gossip latency still proves.
 describe('multi-node/block-production/blob_promotion', () => {
   let fixture: BlockProductionWithProverFixture;
 
@@ -56,7 +54,7 @@ describe('multi-node/block-production/blob_promotion', () => {
       maxTxsPerCheckpoint: 24,
       inboxLag: 2,
       minTxsPerBlock: 1,
-      maxTxsPerBlock: 2,
+      maxTxsPerBlock: PIPELINE_MAX_TXS_PER_BLOCK,
       pxeOpts: { syncChainTip: 'checkpointed' },
       skipInitialSequencer: true,
     });

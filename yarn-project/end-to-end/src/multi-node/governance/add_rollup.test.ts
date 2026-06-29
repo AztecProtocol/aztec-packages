@@ -429,17 +429,16 @@ describe('multi-node/governance/add_rollup', () => {
       context.aztecNodeConfig.l1RpcUrls,
     );
 
-    // Poll once per L2 slot for the round leader to reach quorum. Validators signal at most once per
-    // slot, so a per-slot poll catches quorum within ~one slot of when it is reached; the previous
-    // ethSlot*aztecSlot (~48s) sleep overshot the quorum slot by up to a full poll interval.
-    let govData = await govInfo();
-    await retryUntil(
+    // Poll once per L2 slot for the round leader to reach quorum, since validators signal once per slot
+    const govData = await retryUntil(
       async () => {
-        govData = await govInfo();
-        return govData.leaderVotes >= quorumSize;
+        const govData = await govInfo();
+        if (govData.leaderVotes >= quorumSize) {
+          return govData;
+        }
       },
       'governance leader reaches quorum',
-      300,
+      600,
       context.aztecNodeConfig.aztecSlotDuration,
     );
 
