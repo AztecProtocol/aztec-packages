@@ -306,13 +306,14 @@ describe('onchain delivery', () => {
     },
   });
 
-  // GREEN: the reverse of the cross-mode cell above. The unconstrained events bootstrap the handshake (no nullifier);
-  // the constrained notes reuse it, validating the reused secret against the registry at index 0 and then chaining by
-  // sequence nullifier. This is the stricter reuse direction: were the sender's tagging index to leak across modes, the
-  // first constrained note would land at a non-zero index and assert a predecessor nullifier the unconstrained sends
-  // never emitted, failing in-circuit; the tolerant unconstrained scan in the cell above would absorb the same bug
-  // silently. The hook returns a handshake for the bootstrapping unconstrained send and throws if consulted for the
-  // constrained reuse, so cross-PXE discovery is a durable proof of mode-agnostic reuse.
+  // GREEN: the stricter cross-mode direction. The unconstrained events bootstrap the handshake; the constrained
+  // notes reuse it. The tripwire makes reuse a hard guarantee: a constrained send that consulted the hook would throw,
+  // and the only way to skip the hook is resolving an existing handshake, so a green means the notes reused the
+  // bootstrapped handshake. It also pins the constrained sequence to a fresh index 0: index 0 validates against the
+  // registry, higher indices assert a predecessor nullifier, so a sender index leaked from the unconstrained counter
+  // would make the first note demand a predecessor that was never emitted and fail the actual send.
+  // The index is never read here; the circuit rejecting a wrong one is the signal. The forward cell can't catch this because
+  // its reusing side is unconstrained, where the index only feeds the tag and the scan tolerates gaps.
   buildMessageDeliveryTest({
     description: 'handshake bootstrapped unconstrained, reused constrained (cross-mode)',
     mode: { events: 'unconstrained', notes: 'constrained' },
