@@ -46,7 +46,7 @@ import {
   SCHNORR_HARDCODED_PRIVATE_KEY,
   SchnorrHardcodedKeyAccountContract,
 } from '../fixtures/schnorr_hardcoded_account_contract.js';
-import { span } from '../fixtures/timing.js';
+import { testSpan } from '../fixtures/timing.js';
 import {
   type EndToEndContext,
   type SetupOptions,
@@ -362,7 +362,7 @@ export class SingleNodeTestContext {
     const proverNodePrivateKey = this.getNextPrivateKey();
     const proverIndex = this.proverNodes.length + 1;
     const { mockGossipSubNetwork } = this.context;
-    const { proverNode } = await span('spawn:node', () =>
+    const { proverNode } = await testSpan('setup:node', () =>
       withLoggerBindings({ actor: `prover-${proverIndex}` }, () =>
         createAndSyncProverNode(
           proverNodePrivateKey,
@@ -413,7 +413,7 @@ export class SingleNodeTestContext {
     const resolvedConfig = { ...this.context.config, ...opts };
     const p2pEnabled = resolvedConfig.p2pEnabled || mockGossipSubNetwork !== undefined;
     const p2pIp = resolvedConfig.p2pIp ?? (p2pEnabled ? '127.0.0.1' : undefined);
-    const node = await span('spawn:node', () =>
+    const node = await testSpan('setup:node', () =>
       withLoggerBindings({ actor: `${actorPrefix}-${nodeIndex}` }, () =>
         createAztecNodeService(
           {
@@ -457,7 +457,7 @@ export class SingleNodeTestContext {
     // Cover at least two full epochs of wall time so callers issuing the wait mid-epoch
     // still have headroom — the prior `30 * epochDuration` mixed units (slots vs seconds)
     // and timed out at 120s for configs whose epoch wall time is 144s+.
-    await span('wait:epoch', () =>
+    await testSpan('wait:epoch', () =>
       waitUntilL1Timestamp(
         this.l1Client,
         start - BigInt(this.L1_BLOCK_TIME_IN_S),
@@ -542,7 +542,7 @@ export class SingleNodeTestContext {
 
   /** Waits until the given checkpoint number is mined. */
   public async waitUntilCheckpointNumber(target: CheckpointNumber, timeout = 120) {
-    await span('wait:checkpoint', () =>
+    await testSpan('wait:checkpoint', () =>
       retryUntil(
         () => Promise.resolve(target <= this.monitor.checkpointNumber),
         `Wait until checkpoint ${target}`,
@@ -554,7 +554,7 @@ export class SingleNodeTestContext {
 
   /** Waits until the given checkpoint number is marked as proven. */
   public async waitUntilProvenCheckpointNumber(target: CheckpointNumber, timeout = 120) {
-    await span('wait:proven-checkpoint', () =>
+    await testSpan('wait:proven-checkpoint', () =>
       retryUntil(
         () => Promise.resolve(target <= this.monitor.provenCheckpointNumber),
         `Wait proven checkpoint ${target}`,
@@ -576,7 +576,7 @@ export class SingleNodeTestContext {
     // Use a timeout that accounts for the full proof submission window
     const proofSubmissionWindowDuration =
       this.constants.proofSubmissionEpochs * this.epochDuration * this.L2_SLOT_DURATION_IN_S;
-    await span('wait:proof-window', () =>
+    await testSpan('wait:proof-window', () =>
       waitUntilL1Timestamp(this.l1Client, oneSlotBefore, undefined, proofSubmissionWindowDuration * 2),
     );
   }
@@ -616,14 +616,14 @@ export class SingleNodeTestContext {
     const target = this.buildWindowTimestampForSlot(slot, { lead: opts.lead });
     const timeout = opts.timeout ?? this.L2_SLOT_DURATION_IN_S * 3;
     this.logger.info(`Waiting until L1 reaches build window of slot ${slot}`, { slot, target });
-    await span('wait:slot', () => waitUntilL1Timestamp(this.l1Client, target, undefined, timeout));
+    await testSpan('wait:slot', () => waitUntilL1Timestamp(this.l1Client, target, undefined, timeout));
     return slot;
   }
 
   /** Waits for the aztec node to sync to the target block number. */
   public async waitForNodeToSync(blockNumber: BlockNumber, type: 'proven' | 'finalized' | 'historic') {
     const waitTime = ARCHIVER_POLL_INTERVAL + WORLD_STATE_BLOCK_CHECK_INTERVAL;
-    await span('wait:node-sync', async () => {
+    await testSpan('wait:node-sync', async () => {
       let synched = false;
       while (!synched) {
         await sleep(waitTime);
@@ -654,7 +654,7 @@ export class SingleNodeTestContext {
     opts: { timeout?: number } = {},
   ): Promise<void> {
     const proverIds = this.proverNodes.map(node => node.getProverNode()!.getProverId());
-    await span('wait:proof-submitted', () =>
+    await testSpan('wait:proof-submitted', () =>
       retryUntil(
         async () => {
           const haveSubmitted = await Promise.all(
@@ -932,7 +932,7 @@ export class SingleNodeTestContext {
     opts: { timeout?: number } = {},
   ): Promise<Parameters<SequencerEvents[E]>[0]> {
     const timeout = opts.timeout ?? 60_000;
-    return span('wait:sequencer-state', () =>
+    return testSpan('wait:sequencer-state', () =>
       executeTimeout(
         signal =>
           new Promise<Parameters<SequencerEvents[E]>[0]>(resolve => {

@@ -1,11 +1,11 @@
 /**
- * E2e span instrumentation. Wrapping a shared test helper in {@link span} / {@link spanSync} records
- * how long it ran, attributed to the test (or suite) that was executing, so a full CI run can be
- * aggregated into a ranked list of where the suite spends wall-clock (setup, protocol waits, client
+ * E2e span instrumentation. Wrapping a shared test helper in {@link testSpan} / {@link testSpanSync}
+ * records how long it ran, attributed to the test (or suite) that was executing, so a full CI run can
+ * be aggregated into a ranked list of where the suite spends wall-clock (setup, protocol waits, client
  * proving, warp scans, ...). See the A-1178 timing environment in `shared/timing_env.mjs`.
  *
  * Everything here is gated on the collector installed by that environment, which only exists when
- * `TEST_TIMING_FILE` is set. When it is unset, {@link span} calls `fn()` directly with no extra work
+ * `TEST_TIMING_FILE` is set. When it is unset, {@link testSpan} calls `fn()` directly with no extra work
  * and no clock reads — instrumentation is exactly zero-cost and cannot change a test's behavior or
  * timing.
  */
@@ -15,17 +15,17 @@ import { AsyncLocalStorage } from 'node:async_hooks';
  * Async-context owner override. A span normally attributes itself to the running test
  * (`collector.current`), but a background producer (e.g. the mempool feeder) runs interleaved with
  * arbitrary tests, so its spans would smear across whichever test happened to be current when each
- * round fired. Running such work inside {@link withSpanOwner} pins every span in that async call tree
- * to a fixed owner instead — isolated by async context from concurrent test-body spans.
+ * round fired. Running such work inside {@link withTestSpanOwner} pins every span in that async call
+ * tree to a fixed owner instead — isolated by async context from concurrent test-body spans.
  */
 const ownerOverride = new AsyncLocalStorage<string | null>();
 
 /**
- * Runs `fn` with every {@link span} inside its async call tree attributed to `owner` instead of the
+ * Runs `fn` with every {@link testSpan} inside its async call tree attributed to `owner` instead of the
  * currently running test. Use a non-test sentinel owner (e.g. `other:mempool-feeder`) to keep a
  * background producer's spans out of the per-test view.
  */
-export function withSpanOwner<T>(owner: string, fn: () => Promise<T>): Promise<T> {
+export function withTestSpanOwner<T>(owner: string, fn: () => Promise<T>): Promise<T> {
   return ownerOverride.run(owner, fn);
 }
 
@@ -33,7 +33,7 @@ export function withSpanOwner<T>(owner: string, fn: () => Promise<T>): Promise<T
 export type TimingSpan = {
   /** Full name of the test running when the span started, or `null` if inside a beforeAll/afterAll hook. */
   owner: string | null;
-  /** Stable `category:label` tag, aggregated across occurrences (e.g. `wait:checkpoint`, `spawn:node`). */
+  /** Stable `category:label` tag, aggregated across occurrences (e.g. `wait:checkpoint`, `setup:node`). */
   name: string;
   /** `performance.now()` at span start. */
   start: number;
@@ -63,11 +63,11 @@ function getCollector(): SpanCollector | undefined {
  * started. The span is recorded even when `fn` throws. Pure passthrough: when no collector is
  * installed (i.e. `TEST_TIMING_FILE` is unset) this calls `fn()` directly with zero overhead.
  *
- * Use stable `category:label` tags and prefer wrapping at the leaf wait/spawn/tx level — labels are
+ * Use stable `category:label` tags and prefer wrapping at the leaf wait/setup/tx level — labels are
  * forever aggregation keys, and leaf-level tagging keeps spans additive. See `SPEEDUP_FOLLOWUPS` and
  * the A-1179 design doc for the tag taxonomy.
  */
-export async function span<T>(name: string, fn: () => Promise<T>): Promise<T> {
+export async function testSpan<T>(name: string, fn: () => Promise<T>): Promise<T> {
   const collector = getCollector();
   if (!collector) {
     return fn();
@@ -81,8 +81,8 @@ export async function span<T>(name: string, fn: () => Promise<T>): Promise<T> {
   }
 }
 
-/** Synchronous variant of {@link span} for non-async helpers. Same zero-cost guarantee when unset. */
-export function spanSync<T>(name: string, fn: () => T): T {
+/** Synchronous variant of {@link testSpan} for non-async helpers. Same zero-cost guarantee when unset. */
+export function testSpanSync<T>(name: string, fn: () => T): T {
   const collector = getCollector();
   if (!collector) {
     return fn();

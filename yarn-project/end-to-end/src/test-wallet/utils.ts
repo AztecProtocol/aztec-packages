@@ -19,7 +19,7 @@ import { type OffchainEffect, type ProvingStats, Tx, TxHash, type TxReceipt } fr
 
 import { inspect } from 'util';
 
-import { span, withSpanOwner } from '../fixtures/timing.js';
+import { testSpan, withTestSpanOwner } from '../fixtures/timing.js';
 import type { TestWallet } from './test_wallet.js';
 
 export type ProvenTxSendOpts = {
@@ -41,7 +41,7 @@ export class ProvenTx extends Tx {
   send(options?: Omit<ProvenTxSendOpts, 'wait'>): Promise<TxReceipt>;
   send<W extends ProvenTxSendOpts['wait']>(options: ProvenTxSendOpts & { wait: W }): Promise<ProvenTxSendReturn<W>>;
   send(options?: ProvenTxSendOpts): Promise<TxHash | TxReceipt> {
-    return span('tx:send', () => this.sendInner(options));
+    return testSpan('tx:send', () => this.sendInner(options));
   }
 
   private async sendInner(options?: ProvenTxSendOpts): Promise<TxHash | TxReceipt> {
@@ -75,7 +75,7 @@ export function proveInteraction(
   interaction: ContractFunctionInteraction | DeployMethod | BatchCall,
   options: SendInteractionOptions | DeployOptions,
 ): Promise<ProvenTx> {
-  return span('tx:prove', async () => {
+  return testSpan('tx:prove', async () => {
     const execPayload = await interaction.request(options);
     return wallet.proveTx(execPayload, toSendOptions(options));
   });
@@ -144,7 +144,7 @@ export function startMempoolFeeder(
   // Pin the feeder's prove/send spans to a fixed non-test owner. It runs interleaved with arbitrary
   // tests, so without this its tx:prove/tx:send spans would smear onto whichever test was current
   // when each round fired; the pinned owner matches no test/suite record, excluding them cleanly.
-  const loop = withSpanOwner('other:mempool-feeder', async () => {
+  const loop = withTestSpanOwner('other:mempool-feeder', async () => {
     while (!stopped) {
       try {
         const pendingCount = await node.getPendingTxCount();

@@ -6,7 +6,7 @@ import CustomEnvironment from '../../../foundation/src/jest/env.mjs';
 // Per-test e2e timing environment. Gated entirely on the TEST_TIMING_FILE env var: when unset, this
 // behaves exactly like the base CustomEnvironment (it only delegates). When set, it records, per test
 // worker process, the time spent in jest before/after hooks and the test body, and folds in the named
-// spans recorded via the `span()` wrapper (fixtures/timing.ts) through a collector shared on
+// spans recorded via the `testSpan()` wrapper (fixtures/timing.ts) through a collector shared on
 // `this.global`.
 //
 // Output is one JSONL file per worker process (the env runs once per worker). Each line carries a
@@ -191,95 +191,14 @@ export default class TimingEnvironment extends CustomEnvironment {
     return parts.join(' ');
   }
 
-  /**
-   * Aggregates a list of `{ start, end }` spans of one tag into `{ count, totalMs, busyMs, maxMs }`.
-   * `totalMs` is the naive sum of per-occurrence durations (correct for serial repeats); `busyMs` is
-   * the duration of the union of the `[start, end)` intervals (concurrency-correct — N concurrent
-   * spans collapse to their wall-clock span instead of summing to ~N×); `maxMs` is the longest single
-   * occurrence. All durations are on the shared process-wide `performance.now()` clock.
-   */
-  aggregateSpans(spans) {
-    let totalMs = 0;
-    let maxMs = 0;
-    for (const span of spans) {
-      const ms = span.end - span.start;
-      totalMs += ms;
-      if (ms > maxMs) {
-        maxMs = ms;
-      }
-    }
-    // busyMs: sort by start and merge overlapping intervals, summing the merged lengths.
-    const sorted = [...spans].sort((a, b) => a.start - b.start);
-    let busyMs = 0;
-    let mergeStart = null;
-    let mergeEnd = null;
-    for (const span of sorted) {
-      if (mergeStart === null) {
-        mergeStart = span.start;
-        mergeEnd = span.end;
-      } else if (span.start <= mergeEnd) {
-        if (span.end > mergeEnd) {
-          mergeEnd = span.end;
-        }
-      } else {
-        busyMs += mergeEnd - mergeStart;
-        mergeStart = span.start;
-        mergeEnd = span.end;
-      }
-    }
-    if (mergeStart !== null) {
-      busyMs += mergeEnd - mergeStart;
-    }
-    return { count: spans.length, totalMs, busyMs, maxMs };
-  }
-
-  /**
-   * Groups the collected spans by owner, then by tag, and attaches a `spans` map of aggregates to the
-   * matching per-test / suite record. Also derives the back-compat `setupFnMs` / `teardownFnMs` fields
-   * from the `spawn:env:<mode>` / `teardown:env` aggregates. Spans whose owner matches no record (e.g.
-   * the pinned `other:mempool-feeder` owner) are dropped. Drains `collector.spans` once done.
-   */
+  /** Folds the collected spans into the per-test / suite records via {@link foldSpansInto}, then drains the collector. */
   foldSpans() {
-    // Group by owner (null owner → suite record), then by tag.
-    const byOwner = new Map();
-    for (const span of this.collector.spans) {
-      const owner = span.owner ?? null;
-      let byName = byOwner.get(owner);
-      if (!byName) {
-        byName = new Map();
-        byOwner.set(owner, byName);
-      }
-      let list = byName.get(span.name);
-      if (!list) {
-        list = [];
-        byName.set(span.name, list);
-      }
-      list.push(span);
-      if (this.emitSpanLines) {
-        this.rawSpans.push({ owner, name: span.name, ms: span.end - span.start });
-      }
-    }
-
-    for (const [owner, byName] of byOwner) {
-      const record = owner === null ? this.suiteRecord : this.recordsByName.get(owner);
-      if (!record) {
-        continue;
-      }
-      const aggregates = {};
-      for (const [name, list] of byName) {
-        aggregates[name] = this.aggregateSpans(list);
-      }
-      record.spans = aggregates;
-      // Back-compat: the legacy fn-span buckets are derived from the top-level env spawn/teardown tags.
-      // The top-level setup is tagged `spawn:env:<proverMode>` (the mode is a closed set, distinct from
-      // the `:anvil`/`:l1-deploy`/... sub-phase tags), so sum those three exact tags.
-      const setupFnMs =
-        (aggregates['spawn:env:none']?.totalMs ?? 0) +
-        (aggregates['spawn:env:fake']?.totalMs ?? 0) +
-        (aggregates['spawn:env:real']?.totalMs ?? 0);
-      record.setupFnMs = setupFnMs + (record.setupFnMs ?? 0);
-      record.teardownFnMs = (aggregates['teardown:env']?.totalMs ?? 0) + (record.teardownFnMs ?? 0);
-    }
+    const rawSpans = foldSpansInto(this.collector.spans, {
+      recordsByName: this.recordsByName,
+      suiteRecord: this.suiteRecord,
+      emitSpanLines: this.emitSpanLines,
+    });
+    this.rawSpans.push(...rawSpans);
     this.collector.spans = [];
   }
 
@@ -345,4 +264,100 @@ export default class TimingEnvironment extends CustomEnvironment {
     }
     return JSON.stringify(obj);
   }
+}
+
+/**
+ * Aggregates a list of `{ start, end }` spans of one tag into `{ count, totalMs, busyMs, maxMs }`.
+ * `totalMs` is the naive sum of per-occurrence durations (correct for serial repeats); `busyMs` is
+ * the duration of the union of the `[start, end)` intervals (concurrency-correct — N concurrent
+ * spans collapse to their wall-clock span instead of summing to ~N×); `maxMs` is the longest single
+ * occurrence. All durations are on the shared process-wide `performance.now()` clock. Does not mutate
+ * the input array.
+ */
+export function aggregateSpans(spans) {
+  let totalMs = 0;
+  let maxMs = 0;
+  for (const span of spans) {
+    const ms = span.end - span.start;
+    totalMs += ms;
+    if (ms > maxMs) {
+      maxMs = ms;
+    }
+  }
+  // busyMs: sort by start and merge overlapping intervals, summing the merged lengths.
+  const sorted = [...spans].sort((a, b) => a.start - b.start);
+  let busyMs = 0;
+  let mergeStart = null;
+  let mergeEnd = null;
+  for (const span of sorted) {
+    if (mergeStart === null) {
+      mergeStart = span.start;
+      mergeEnd = span.end;
+    } else if (span.start <= mergeEnd) {
+      if (span.end > mergeEnd) {
+        mergeEnd = span.end;
+      }
+    } else {
+      busyMs += mergeEnd - mergeStart;
+      mergeStart = span.start;
+      mergeEnd = span.end;
+    }
+  }
+  if (mergeStart !== null) {
+    busyMs += mergeEnd - mergeStart;
+  }
+  return { count: spans.length, totalMs, busyMs, maxMs };
+}
+
+/**
+ * Groups `spans` by owner, then by tag, and attaches a `spans` map of aggregates to the matching
+ * per-test record (looked up in `recordsByName`) or, for `null`-owner spans, to `suiteRecord`. Also
+ * derives the back-compat `setupFnMs` / `teardownFnMs` fields from the `setup:env:<mode>` /
+ * `teardown:env` aggregates (additive over any pre-existing value). Spans whose owner matches no
+ * record (e.g. the pinned `other:mempool-feeder` owner) are dropped. Returns the raw per-occurrence
+ * list (`{ owner, name, ms }`), which is empty unless `emitSpanLines` is set.
+ */
+export function foldSpansInto(spans, { recordsByName, suiteRecord, emitSpanLines = false }) {
+  const rawSpans = [];
+  // Group by owner (null owner → suite record), then by tag.
+  const byOwner = new Map();
+  for (const span of spans) {
+    const owner = span.owner ?? null;
+    let byName = byOwner.get(owner);
+    if (!byName) {
+      byName = new Map();
+      byOwner.set(owner, byName);
+    }
+    let list = byName.get(span.name);
+    if (!list) {
+      list = [];
+      byName.set(span.name, list);
+    }
+    list.push(span);
+    if (emitSpanLines) {
+      rawSpans.push({ owner, name: span.name, ms: span.end - span.start });
+    }
+  }
+
+  for (const [owner, byName] of byOwner) {
+    const record = owner === null ? suiteRecord : recordsByName.get(owner);
+    if (!record) {
+      continue;
+    }
+    const aggregates = {};
+    for (const [name, list] of byName) {
+      aggregates[name] = aggregateSpans(list);
+    }
+    record.spans = aggregates;
+    // Back-compat: the legacy fn-span buckets are derived from the top-level env setup/teardown tags.
+    // The top-level setup is tagged `setup:env:<proverMode>` (the mode is a closed set, distinct from
+    // the `:anvil`/`:l1-deploy`/... sub-phase tags), so sum those three exact tags.
+    const setupFnMs =
+      (aggregates['setup:env:none']?.totalMs ?? 0) +
+      (aggregates['setup:env:fake']?.totalMs ?? 0) +
+      (aggregates['setup:env:real']?.totalMs ?? 0);
+    record.setupFnMs = setupFnMs + (record.setupFnMs ?? 0);
+    record.teardownFnMs = (aggregates['teardown:env']?.totalMs ?? 0) + (record.teardownFnMs ?? 0);
+  }
+  return rawSpans;
 }

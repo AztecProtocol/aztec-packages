@@ -76,7 +76,7 @@ import { MNEMONIC, TEST_MAX_PENDING_TX_POOL_COUNT, TEST_PEER_CHECK_INTERVAL_MS }
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
-import { span } from './timing.js';
+import { testSpan } from './timing.js';
 import { getEndToEndTestTelemetryClient } from './with_telemetry_utils.js';
 
 export { startAnvil };
@@ -315,7 +315,7 @@ export function setup(
   // swing in setup cost, so the three factories are comparable on the span leaderboard. The internals
   // (anvil / l1-deploy / sequencer-start / pxe / wallet:create) decompose this further.
   const proverMode = opts.realProofs ? 'real' : opts.startProverNode ? 'fake' : 'none';
-  return span(`spawn:env:${proverMode}`, async () => {
+  return testSpan(`setup:env:${proverMode}`, async () => {
     const ctx = await setupInner(numberOfAccounts, opts, pxeOpts, chain);
     if (process.env.EXIT_E2E_AFTER_SETUP) {
       ctx.logger.info('EXIT_E2E_AFTER_SETUP is set; aborting before the test body runs');
@@ -370,7 +370,7 @@ async function setupInner(
       if (!isAnvilTestChain(chain.id)) {
         throw new Error(`No ETHEREUM_HOSTS set but non anvil chain requested`);
       }
-      const res = await span('spawn:env:anvil', () =>
+      const res = await testSpan('setup:env:anvil', () =>
         startAnvil({
           l1BlockTime: opts.ethereumSlotDuration,
           accounts: opts.anvilAccounts,
@@ -473,7 +473,7 @@ async function setupInner(
     await l1Client.getTransactionCount({ address: l1Client.account.address });
     logger.trace('Deployed Multicall3');
 
-    const deployL1ContractsValues: DeployAztecL1ContractsReturnType = await span('spawn:env:l1-deploy', () =>
+    const deployL1ContractsValues: DeployAztecL1ContractsReturnType = await testSpan('setup:env:l1-deploy', () =>
       deployAztecL1Contracts(config.l1RpcUrls[0], publisherPrivKeyHex!, chain.id, {
         ...getL1ContractsConfigEnvVars(),
         ...opts,
@@ -579,7 +579,7 @@ async function setupInner(
       : config;
     logger.trace('Prepared aztec node config');
 
-    const aztecNodeService = await span('spawn:env:sequencer-start', () =>
+    const aztecNodeService = await testSpan('setup:env:sequencer-start', () =>
       withLoggerBindings({ actor: 'node-0' }, () =>
         createAztecNodeService(
           initialNodeConfig,
@@ -603,7 +603,7 @@ async function setupInner(
         rpcTxProviders: [aztecNodeService],
       };
 
-      ({ proverNode } = await span('spawn:env:prover-node', () =>
+      ({ proverNode } = await testSpan('setup:env:prover-node', () =>
         createAndSyncProverNode(
           proverNodePrivateKeyHex,
           config,
@@ -626,7 +626,7 @@ async function setupInner(
     pxeConfig.dataDirectory = path.join(directoryToCleanup, randomBytes(8).toString('hex'));
     // For tests we only want proving enabled if specifically requested
     pxeConfig.proverEnabled = !!pxeOpts.proverEnabled;
-    const wallet = await span('spawn:env:pxe', () =>
+    const wallet = await testSpan('setup:env:pxe', () =>
       TestWallet.create(aztecNodeService, pxeConfig, {
         loggerActorLabel: 'pxe-0',
         // In-process node implements the debug API, so register public function signatures for named traces.
@@ -664,13 +664,13 @@ async function setupInner(
     // + a simulated store call) with no on-chain tx, independent of the sequencer.
     if (numberOfAccounts > 0) {
       logger.info(`Creating ${numberOfAccounts} initializerless test accounts`);
-      await span('wallet:create', () => createFundedInitializerlessAccounts(wallet, defaultAccounts));
+      await testSpan('wallet:create', () => createFundedInitializerlessAccounts(wallet, defaultAccounts));
       accounts = defaultAccounts.map(a => a.address);
     }
     logger.trace('Created funded test accounts');
 
     const teardown = () =>
-      span('teardown:env', async () => {
+      testSpan('teardown:env', async () => {
         try {
           await tryStop(wallet, logger);
           await tryStop(aztecNodeService, logger);

@@ -19,7 +19,7 @@ import type { SlashingProtectionDatabase } from '@aztec/validator-ha-signer/type
 import { type GetContractReturnType, getAddress, getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
-import { span } from '../fixtures/timing.js';
+import { testSpan } from '../fixtures/timing.js';
 import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
 import {
   SingleNodeTestContext,
@@ -303,7 +303,7 @@ export class MultiNodeTestContext extends SingleNodeTestContext {
     target: CheckpointNumber,
     opts: { nodes?: AztecNode[]; timeout?: number; interval?: number } = {},
   ): Promise<void> {
-    return span('wait:proven-checkpoint', () =>
+    return testSpan('wait:proven-checkpoint', () =>
       this.waitForAllNodes(tips => tips.proven.checkpoint.number >= target, {
         ...opts,
         description: `proven checkpoint >= ${target}`,
@@ -316,7 +316,7 @@ export class MultiNodeTestContext extends SingleNodeTestContext {
     target: CheckpointNumber,
     opts: { nodes?: AztecNode[]; timeout?: number; interval?: number } = {},
   ): Promise<void> {
-    return span('wait:checkpoint', () =>
+    return testSpan('wait:checkpoint', () =>
       this.waitForAllNodes(tips => tips.checkpointed.checkpoint.number >= target, {
         ...opts,
         description: `checkpointed checkpoint >= ${target}`,
@@ -334,7 +334,7 @@ export class MultiNodeTestContext extends SingleNodeTestContext {
     match: (block: BlockResponse) => boolean = block => block.header.globalVariables.slotNumber === slot,
     opts: { nodes?: AztecNode[]; timeout?: number; interval?: number } = {},
   ): Promise<void> {
-    return span('wait:block', () =>
+    return testSpan('wait:block', () =>
       this.waitForAllNodes(
         async (tips, node) => {
           const blockNumber = tag === 'proposed' ? tips.proposed.number : tips.checkpointed.block.number;
@@ -361,7 +361,7 @@ export class MultiNodeTestContext extends SingleNodeTestContext {
     predicate: (proposers: EthAddress[]) => boolean,
     opts: { fromSlot?: SlotNumber; margin?: number; maxAttempts?: number } = {},
   ): Promise<{ slots: SlotNumber[]; proposers: EthAddress[] }> {
-    return span('warp:find-proposer', async () => {
+    return testSpan('warp:find-proposer', async () => {
       const margin = opts.margin ?? 4;
       const maxAttempts = opts.maxAttempts ?? 200;
       let candidate = opts.fromSlot ?? SlotNumber(Number(this.epochCache.getEpochAndSlotNow().slot) + margin);
@@ -426,7 +426,7 @@ export class MultiNodeTestContext extends SingleNodeTestContext {
     const mode = opts.mode ?? 'all';
     const timeout = opts.timeout ?? this.L2_SLOT_DURATION_IN_S * 4;
     const interval = opts.interval ?? 0.5;
-    return span('wait:offense', () =>
+    return testSpan('wait:offense', () =>
       retryUntil(
         async () => {
           const perNode = await Promise.all(

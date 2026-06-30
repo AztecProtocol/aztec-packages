@@ -11,7 +11,7 @@ import type { AztecNode, CheckpointTag } from '@aztec/stdlib/interfaces/client';
 import type { L2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
 import type { TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 
-import { span } from './timing.js';
+import { testSpan } from './timing.js';
 
 /** Options for the block-number polling helpers. */
 export type WaitForBlockOpts = {
@@ -35,7 +35,7 @@ export type WaitForBlockOpts = {
 export function waitForBlockNumber(node: AztecNode, target: number, opts: WaitForBlockOpts = {}): Promise<BlockNumber> {
   const tag = opts.tag ?? 'proposed';
   const compare = opts.compare ?? ((actual, target) => actual >= target);
-  return span(tag === 'proven' ? 'wait:proven-block' : 'wait:block', () =>
+  return testSpan(`wait-${tag}`, () =>
     // Wrap the matched value: retryUntil treats any falsy return as "keep polling", so a legitimate
     // match of block 0 (e.g. a freshly-pruned tip) would otherwise loop until timeout.
     retryUntil(
@@ -88,7 +88,7 @@ export function waitForNodeCheckpoint(
 ): Promise<CheckpointNumber> {
   const tag = opts.tag ?? 'checkpointed';
   const compare = opts.compare ?? ((actual, target) => actual >= target);
-  return span(tag === 'proven' ? 'wait:proven-checkpoint' : 'wait:checkpoint', () =>
+  return testSpan(tag === 'proven' ? 'wait:proven-checkpoint' : 'wait:checkpoint', () =>
     // Wrap the matched value: retryUntil treats any falsy return as "keep polling", so a legitimate
     // match of checkpoint 0 (e.g. proven === 0 or checkpointed <= 1 after a prune) would otherwise
     // loop until timeout instead of resolving.
@@ -118,7 +118,7 @@ export function waitForNodeProvenCheckpoint(
  * {@link waitForTx}; resolves with the receipts in input order.
  */
 export function waitForTxs(node: AztecNode, txHashes: TxHash[], opts?: WaitOpts): Promise<TxReceipt[]> {
-  return span('wait:tx-mined', () => Promise.all(txHashes.map(txHash => waitForTx(node, txHash, opts))));
+  return testSpan('wait:tx-mined', () => Promise.all(txHashes.map(txHash => waitForTx(node, txHash, opts))));
 }
 
 /** Options for {@link waitForBlocksAtSlots}. */
@@ -144,7 +144,7 @@ export async function waitForBlocksAtSlots(
 ): Promise<void> {
   const from = opts.from ?? INITIAL_L2_BLOCK_NUM;
   const limit = opts.limit ?? 10;
-  await span('wait:block', () =>
+  await testSpan('wait:block', () =>
     retryUntil(
       async () => {
         const blocks = await node.getBlocks(from, limit);
@@ -169,7 +169,7 @@ export function waitForL2ToL1Witness(
   message: Fr,
   opts: { timeout?: number; interval?: number } = {},
 ): Promise<L2ToL1MembershipWitness> {
-  return span('wait:l2-to-l1-witness', () =>
+  return testSpan('wait:l2-to-l1-witness', () =>
     retryUntil(
       () => node.getL2ToL1MembershipWitness(txHash, message),
       `L2-to-L1 membership witness for ${txHash.toString()}`,
@@ -199,7 +199,7 @@ export function waitForTxReceipt(
   predicate: (receipt: TxReceipt) => boolean,
   opts: WaitForTxReceiptOpts = {},
 ): Promise<TxReceipt> {
-  return span('wait:tx-mined', () =>
+  return testSpan('wait:tx-mined', () =>
     retryUntil(
       async () => {
         const receipt = await node.getTxReceipt(txHash);
@@ -246,7 +246,7 @@ export function waitForPendingTxCount(
   opts: WaitForPendingTxCountOpts = {},
 ): Promise<number> {
   const compare = opts.compare ?? ((actual, target) => actual >= target);
-  return span('wait:pending-tx', () =>
+  return testSpan('wait:pending-tx', () =>
     // Wrap the matched value: retryUntil treats any falsy return as "keep polling", so a legitimate
     // match of 0 pending txs would otherwise loop until timeout instead of resolving.
     retryUntil(
@@ -285,7 +285,7 @@ export function waitForSequencerState(
   state: SequencerState,
   opts: WaitForSequencerStateOpts = {},
 ): Promise<void> {
-  return span('wait:sequencer-state', () => waitForSequencerStateInner(sequencer, state, opts));
+  return testSpan('wait:sequencer-state', () => waitForSequencerStateInner(sequencer, state, opts));
 }
 
 async function waitForSequencerStateInner(

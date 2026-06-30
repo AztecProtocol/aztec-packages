@@ -14,7 +14,7 @@ import type { TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 
-import { span } from '../../fixtures/timing.js';
+import { testSpan } from '../../fixtures/timing.js';
 import { submitTxsTo } from '../../shared/submit-transactions.js';
 import type { TestWallet } from '../../test-wallet/test_wallet.js';
 import type { MultiNodeTestContext } from '../multi_node_test_context.js';
@@ -65,7 +65,7 @@ export function awaitProposalExecution(
   timeoutSeconds: number,
   logger: Logger,
 ): Promise<bigint> {
-  return span(
+  return testSpan(
     'wait:slash-execution',
     () =>
       new Promise<bigint>((resolve, reject) => {
@@ -93,7 +93,7 @@ export async function awaitCommitteeExists({
 }): Promise<readonly `0x${string}`[]> {
   logger.info(`Waiting for committee to be set`);
   let committee: EthAddress[] | undefined;
-  await span('wait:committee', () =>
+  await testSpan('wait:committee', () =>
     retryUntil(
       async () => {
         committee = await rollup.getCurrentEpochCommittee();
@@ -139,7 +139,7 @@ export function findUpcomingProposerSlot({
   minLeadSlots: number;
   maxSlotsToScan?: number;
 }): Promise<SlotNumber> {
-  return span('warp:find-proposer', async () => {
+  return testSpan('warp:find-proposer', async () => {
     let candidate = Number(await cheatCodes.getSlot()) + minLeadSlots;
 
     for (let scanned = 0; scanned < maxSlotsToScan; scanned++) {
@@ -200,7 +200,7 @@ export function advanceToEpochBeforeProposer({
   maxAttempts?: number;
   warmupSlots?: number;
 }): Promise<{ targetEpoch: EpochNumber; targetSlot: SlotNumber }> {
-  return span('warp:find-proposer', async () => {
+  return testSpan('warp:find-proposer', async () => {
     const { epochDuration } = await cheatCodes.getConfig();
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -253,7 +253,7 @@ export async function awaitOffenseDetected({
 }) {
   const targetOffenseCount = waitUntilOffenseCount ?? 1;
   logger.warn(`Waiting for ${pluralize('offense', targetOffenseCount)} to be detected`);
-  const offenses = await span('wait:offense', () =>
+  const offenses = await testSpan('wait:offense', () =>
     retryUntil(
       async () => {
         const offenses = await nodeAdmin.getSlashOffenses('all');
@@ -301,7 +301,7 @@ export async function awaitCommitteeKicked({
     throw new Error('No slashing proposer configured. Cannot test slashing.');
   }
 
-  await span('wait:committee-kicked', async () => {
+  await testSpan('wait:committee-kicked', async () => {
     await cheatCodes.debugRollup();
 
     // Use the slash offset to ensure we are in the right epoch for tally

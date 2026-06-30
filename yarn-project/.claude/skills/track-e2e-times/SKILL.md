@@ -22,7 +22,7 @@ that is not part of this skill. Everything here is local: run, find the files, p
 The jest `testEnvironment` for `end-to-end` is `src/shared/timing_env.mjs`, wired in
 `yarn-project/end-to-end/package.json`. It is always installed but **gated on the `TEST_TIMING_FILE`
 env var**: when that var is unset it behaves like the base environment and records nothing (the
-`span()` wrapper in `src/fixtures/timing.ts` calls through with zero overhead). Set `TEST_TIMING_FILE`
+`testSpan()` wrapper in `src/fixtures/timing.ts` calls through with zero overhead). Set `TEST_TIMING_FILE`
 to a path and the environment writes JSONL there.
 
 Relevant env vars:
@@ -76,7 +76,7 @@ One JSON object per line, one line per test and one suite-scoped line per file. 
 | `beforeHooksMs` | Sum of `beforeEach` hooks (test lines) or `beforeAll` (suite line). |
 | `afterHooksMs` | Sum of `afterEach` hooks (test lines) or `afterAll` (suite line). |
 | `bodyMs` | The `it()` body wall-clock (test lines only). |
-| `setupFnMs` / `teardownFnMs` | Back-compat fields, derived from the `spawn:env:<mode>` / `teardown:env` spans. |
+| `setupFnMs` / `teardownFnMs` | Back-compat fields, derived from the `setup:env:<mode>` / `teardown:env` spans. |
 | `totalMs` | Whole-test wall-clock (test lines), or `beforeHooksMs + afterHooksMs` (suite line). |
 | `startedAt` | ISO timestamp of test start (test lines). |
 | `commit` / `branch` / `runId` | Run metadata from `COMMIT_HASH` / `TARGET_BRANCH`|`REF_NAME` / `RUN_ID` (may be `null` locally). |
@@ -96,7 +96,7 @@ Each test/suite line carries a `spans` map. For every `category:label` tag the t
   `busyMs ≪ totalMs` gap flags work run serially that could be parallel.
 - **`maxMs`** — longest single occurrence, to catch one pathological wait hiding in a cheap average.
 
-Tags follow a stable `category:label` taxonomy (`spawn:`, `wait:`, `tx:`, `warp:`, `wallet:`,
+Tags follow a stable `category:label` taxonomy (`setup:`, `wait:`, `tx:`, `warp:`, `wallet:`,
 `deploy:`, `other:`), tagged **by concept, not by function** — e.g. every checkpoint waiter maps to
 `wait:checkpoint` — so a tag is a stable aggregation key regardless of which helper a test called.
 
@@ -165,5 +165,5 @@ With `TEST_TIMING_SPANS=1`, each `type:"span"` line is a single occurrence (`nam
 
 - `row.sh` (this directory) — aggregate JSONL → summary sums + leaderboard.
 - `yarn-project/end-to-end/src/shared/timing_env.mjs` — the jest timing environment that writes the JSONL.
-- `yarn-project/end-to-end/src/fixtures/timing.ts` — the `span()` / `spanSync()` / `withSpanOwner()` wrappers.
+- `yarn-project/end-to-end/src/fixtures/timing.ts` — the `testSpan()` / `testSpanSync()` / `withTestSpanOwner()` wrappers.
 - `./ci.sh test-timings <CI_LOG_ID> <folder>` — download a CI job's per-worker JSONL (repo root).
