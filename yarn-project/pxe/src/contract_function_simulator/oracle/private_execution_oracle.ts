@@ -251,7 +251,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * ready to hand to the contract. Callers must validate the recipient in-circuit before reaching here, so an invalid one is unexpected.
    */
   async #addressDerivedSecret(sender: AztecAddress, recipient: AztecAddress): Promise<ResolvedTaggingStrategy> {
-    const secret = await this.getAppTaggingSecret(sender, recipient);
+    const secret = await this.#getAppTaggingSecret(sender, recipient);
     if (!secret.isSome()) {
       throw new Error(`Cannot derive an address-derived tagging secret for invalid recipient ${recipient}`);
     }
@@ -268,7 +268,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    * @param recipient - The address receiving the log
    * @returns The app tagging secret, or `None` if the recipient is invalid.
    */
-  public async getAppTaggingSecret(sender: AztecAddress, recipient: AztecAddress): Promise<Option<Fr>> {
+  async #getAppTaggingSecret(sender: AztecAddress, recipient: AztecAddress): Promise<Option<Fr>> {
     const extendedSecret = await this.#calculateAppTaggingSecret(this.contractAddress, sender, recipient);
 
     if (!extendedSecret) {
