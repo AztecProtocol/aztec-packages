@@ -669,8 +669,10 @@ Aztec.js examples, which are source-only; see task 4). Tasks:
    `npm:@aztec/*@<new_version>`, keeping special pins like `@aztec/viem`.
 
 Report pass/fail per guide/tutorial/example with the exact doc line for each failure. Fix
-drift in snapshot **and** source, then re-run Step 13 and the affected check. If the
-validation can't run (sandbox lacks this RC, infra down), say so and list what was skipped.
+guide/tutorial drift in both the snapshot **and** the source docs; for the Aztec.js
+examples (source-only, task 4) there is no snapshot copy, so fix only the source. Then
+re-run Step 13 and the affected check. If the validation can't run (sandbox lacks this RC,
+infra down), say so and list what was skipped.
 
 ### Step 16: Clean Up Old Versions
 
