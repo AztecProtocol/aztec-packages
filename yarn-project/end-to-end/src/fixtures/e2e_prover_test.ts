@@ -24,6 +24,7 @@ import { TestWallet } from '../test-wallet/test_wallet.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { getPrivateKeyFromIndex, getSponsoredFPCAddress, setup, setupPXEAndGetWallet } from './setup.js';
+import { waitForProvenBlock } from './wait_helpers.js';
 
 type ProvenSetup = {
   wallet: TestWallet;
@@ -64,7 +65,7 @@ export class FullProverTest extends SingleNodeTestContext {
     return this.proverAztecNode?.getProofVerifier();
   }
   provenAsset!: TokenContract;
-  private proverAztecNode!: AztecNodeService;
+  private proverAztecNode?: AztecNodeService;
   private simulatedProverAztecNode!: AztecNodeService;
   public l1Contracts!: DeployAztecL1ContractsReturnType;
   public proverAddress!: EthAddress;
@@ -177,7 +178,9 @@ export class FullProverTest extends SingleNodeTestContext {
     await this.context.cheatCodes.rollup.advanceToNextEpoch();
 
     this.logger.verbose(`Marking current block as proven`);
+    const setupTip = await this.aztecNode.getBlockNumber();
     await this.context.cheatCodes.rollup.markAsProven();
+    await waitForProvenBlock(this.aztecNode, setupTip, { timeout: 30, interval: 0.1 });
 
     this.logger.verbose(`Main setup completed, initializing full prover PXE, Node, and Prover Node`);
     const { wallet: provenWallet, teardown: provenTeardown } = await setupPXEAndGetWallet(
@@ -256,14 +259,15 @@ export class FullProverTest extends SingleNodeTestContext {
       validatorPrivateKeys: new SecretValue([]),
     };
 
-    this.proverAztecNode = await createAztecNodeService(
+    const proverAztecNode = await createAztecNodeService(
       proverNodeConfig,
       { dateProvider: this.context.dateProvider, p2pClientDeps: { rpcTxProviders: [this.aztecNode] } },
       { genesis },
     );
+    this.proverAztecNode = proverAztecNode;
     // Track the real prover node so the base teardown stops it (the simulated one created by `setup`
     // was already stopped above).
-    this.proverNodes = [this.proverAztecNode];
+    this.proverNodes = [proverAztecNode];
     this.logger.warn(`Proofs are now enabled`, { realProofs: this.realProofs });
   }
 
@@ -283,7 +287,7 @@ export class FullProverTest extends SingleNodeTestContext {
     }
 
     // Stop the prover node before destroying the BB singleton it proves with.
-    await this.proverAztecNode.stop();
+    await this.proverAztecNode?.stop();
 
     await Barretenberg.destroySingleton();
     await this.bbConfigCleanup?.();
