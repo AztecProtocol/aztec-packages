@@ -5,13 +5,23 @@ import CustomEnvironment from '../../../foundation/src/jest/env.mjs';
 
 // Per-test e2e timing environment. Gated entirely on the TEST_TIMING_FILE env var: when unset, this
 // behaves exactly like the base CustomEnvironment (it only delegates). When set, it records, per test
-// worker process, the time spent in jest before/after hooks and the test body, and merges in the
-// function-level time captured by setup.ts/teardown.ts via a collector shared on `this.global`.
+// worker process, the time spent in jest before/after hooks and the test body, and folds in the named
+// spans recorded via the `span()` wrapper (fixtures/timing.ts) through a collector shared on
+// `this.global`.
 //
 // Output is one JSONL file per worker process (the env runs once per worker). Each line carries a
 // `type` discriminator and is one of:
 //   - `type: 'test'` (`name` set): beforeEach hooks, the it() body, afterEach hooks for one test; or
 //   - `type: 'suite'` (`name: null`): the suite-scoped beforeAll/afterAll hooks for the whole file.
+//
+// Each line also gains a `spans` map: per `category:label` tag the test/suite touched, the collector
+// records `{ count, totalMs, busyMs, maxMs }`. `busyMs` is the duration of the union of the spans'
+// `[start, end)` intervals on the shared `performance.now()` clock, so concurrent spans (Promise.all
+// fan-out) do not inflate it the way `totalMs` does. The legacy `setupFnMs`/`teardownFnMs` fields are
+// kept for back-compat, derived from the `setup:env`/`teardown:env` spans.
+//
+// When `TEST_TIMING_SPANS=1`, the collector additionally retains every raw span occurrence and emits
+// one `type:"span"` line per occurrence (owner, name, ms) for deep dives, at the cost of a larger file.
 export default class TimingEnvironment extends CustomEnvironment {
   constructor(config, context) {
     super(config, context);
@@ -28,10 +38,17 @@ export default class TimingEnvironment extends CustomEnvironment {
       runId: process.env.RUN_ID ?? null,
     };
 
-    // Shared collector. setup.ts (running in the sandbox realm) reads `globalThis.__e2eTimings`; this
-    // env (host realm) reads `this.global.__e2eTimings` — they are the same object. `current` is the
-    // full name of the test currently running (null during beforeAll/afterAll), used to tag fn spans.
-    this.collector = { current: null, fnSpans: [] };
+    // Opt-in per-occurrence emission for deep dives (off by default keeps the JSONL one line per test).
+    this.emitSpanLines = process.env.TEST_TIMING_SPANS === '1';
+
+    // Shared collector. The instrumented helpers (running in the sandbox realm) read
+    // `globalThis.__e2eTimings`; this env (host realm) reads `this.global.__e2eTimings` — they are the
+    // same object. `current` is the full name of the test currently running (null during
+    // beforeAll/afterAll), used to attribute each span to a test or to the suite-scoped line. `spans`
+    // accumulates every recorded span until flush. The `start`/`end` timestamps come from the sandbox
+    // realm's `performance.now()`; Node's perf clock is process-wide (one monotonic origin across all
+    // realms), so merging the intervals here for `busyMs` is valid.
+    this.collector = { current: null, spans: [] };
     this.global.__e2eTimings = this.collector;
 
     // Records to flush as JSONL on teardown. One per test plus one suite-scoped record.
@@ -44,6 +61,8 @@ export default class TimingEnvironment extends CustomEnvironment {
     this.testStarts = new Map();
     // Guards against double-flushing (we flush on both the teardown event and the teardown method).
     this.flushed = false;
+    // Raw per-occurrence spans retained only when TEST_TIMING_SPANS=1, emitted as `type:"span"` lines.
+    this.rawSpans = [];
   }
 
   // Flush on the teardown method too: the jest lifecycle always calls this, whereas the 'teardown'
@@ -133,7 +152,6 @@ export default class TimingEnvironment extends CustomEnvironment {
         if (record && event.test?.errors?.length) {
           record.status = 'failed';
         }
-        this.mergeFnSpans(name, record);
         this.collector.current = null;
         break;
       }
@@ -173,48 +191,105 @@ export default class TimingEnvironment extends CustomEnvironment {
     return parts.join(' ');
   }
 
-  /** Moves fn spans tagged with `name` into the matching record's setup/teardown buckets. */
-  mergeFnSpans(name, record) {
-    if (!record) {
-      return;
-    }
-    const remaining = [];
-    for (const span of this.collector.fnSpans) {
-      if (span.name === name) {
-        if (span.kind === 'setup') {
-          record.setupFnMs += span.ms;
-        } else if (span.kind === 'teardown') {
-          record.teardownFnMs += span.ms;
-        }
-      } else {
-        remaining.push(span);
+  /**
+   * Aggregates a list of `{ start, end }` spans of one tag into `{ count, totalMs, busyMs, maxMs }`.
+   * `totalMs` is the naive sum of per-occurrence durations (correct for serial repeats); `busyMs` is
+   * the duration of the union of the `[start, end)` intervals (concurrency-correct — N concurrent
+   * spans collapse to their wall-clock span instead of summing to ~N×); `maxMs` is the longest single
+   * occurrence. All durations are on the shared process-wide `performance.now()` clock.
+   */
+  aggregateSpans(spans) {
+    let totalMs = 0;
+    let maxMs = 0;
+    for (const span of spans) {
+      const ms = span.end - span.start;
+      totalMs += ms;
+      if (ms > maxMs) {
+        maxMs = ms;
       }
     }
-    this.collector.fnSpans = remaining;
+    // busyMs: sort by start and merge overlapping intervals, summing the merged lengths.
+    const sorted = [...spans].sort((a, b) => a.start - b.start);
+    let busyMs = 0;
+    let mergeStart = null;
+    let mergeEnd = null;
+    for (const span of sorted) {
+      if (mergeStart === null) {
+        mergeStart = span.start;
+        mergeEnd = span.end;
+      } else if (span.start <= mergeEnd) {
+        if (span.end > mergeEnd) {
+          mergeEnd = span.end;
+        }
+      } else {
+        busyMs += mergeEnd - mergeStart;
+        mergeStart = span.start;
+        mergeEnd = span.end;
+      }
+    }
+    if (mergeStart !== null) {
+      busyMs += mergeEnd - mergeStart;
+    }
+    return { count: spans.length, totalMs, busyMs, maxMs };
   }
 
-  /** Finalizes the suite-scoped record (untagged fn spans + beforeAll/afterAll) and writes all JSONL. */
+  /**
+   * Groups the collected spans by owner, then by tag, and attaches a `spans` map of aggregates to the
+   * matching per-test / suite record. Also derives the back-compat `setupFnMs` / `teardownFnMs` fields
+   * from the `spawn:env:<mode>` / `teardown:env` aggregates. Spans whose owner matches no record (e.g.
+   * the pinned `other:mempool-feeder` owner) are dropped. Drains `collector.spans` once done.
+   */
+  foldSpans() {
+    // Group by owner (null owner → suite record), then by tag.
+    const byOwner = new Map();
+    for (const span of this.collector.spans) {
+      const owner = span.owner ?? null;
+      let byName = byOwner.get(owner);
+      if (!byName) {
+        byName = new Map();
+        byOwner.set(owner, byName);
+      }
+      let list = byName.get(span.name);
+      if (!list) {
+        list = [];
+        byName.set(span.name, list);
+      }
+      list.push(span);
+      if (this.emitSpanLines) {
+        this.rawSpans.push({ owner, name: span.name, ms: span.end - span.start });
+      }
+    }
+
+    for (const [owner, byName] of byOwner) {
+      const record = owner === null ? this.suiteRecord : this.recordsByName.get(owner);
+      if (!record) {
+        continue;
+      }
+      const aggregates = {};
+      for (const [name, list] of byName) {
+        aggregates[name] = this.aggregateSpans(list);
+      }
+      record.spans = aggregates;
+      // Back-compat: the legacy fn-span buckets are derived from the top-level env spawn/teardown tags.
+      // The top-level setup is tagged `spawn:env:<proverMode>` (the mode is a closed set, distinct from
+      // the `:anvil`/`:l1-deploy`/... sub-phase tags), so sum those three exact tags.
+      const setupFnMs =
+        (aggregates['spawn:env:none']?.totalMs ?? 0) +
+        (aggregates['spawn:env:fake']?.totalMs ?? 0) +
+        (aggregates['spawn:env:real']?.totalMs ?? 0);
+      record.setupFnMs = setupFnMs + (record.setupFnMs ?? 0);
+      record.teardownFnMs = (aggregates['teardown:env']?.totalMs ?? 0) + (record.teardownFnMs ?? 0);
+    }
+    this.collector.spans = [];
+  }
+
+  /** Folds spans into records, finalizes the suite-scoped record, and writes all JSONL. */
   finalizeAndFlush() {
     if (this.flushed || !this.timingFile) {
       return;
     }
     this.flushed = true;
-    const suite = {
-      setupFnMs: 0,
-      beforeHooksMs: this.suiteRecord.beforeHooksMs,
-      teardownFnMs: 0,
-      afterHooksMs: this.suiteRecord.afterHooksMs,
-    };
-    for (const span of this.collector.fnSpans) {
-      if (span.name === null || span.name === undefined) {
-        if (span.kind === 'setup') {
-          suite.setupFnMs += span.ms;
-        } else if (span.kind === 'teardown') {
-          suite.teardownFnMs += span.ms;
-        }
-      }
-    }
-    this.collector.fnSpans = [];
+    this.foldSpans();
 
     const lines = [];
     for (const record of this.records) {
@@ -225,13 +300,17 @@ export default class TimingEnvironment extends CustomEnvironment {
         type: 'suite',
         name: null,
         status: 'passed',
-        setupFnMs: suite.setupFnMs,
-        beforeHooksMs: suite.beforeHooksMs,
-        teardownFnMs: suite.teardownFnMs,
-        afterHooksMs: suite.afterHooksMs,
-        totalMs: suite.beforeHooksMs + suite.afterHooksMs,
+        setupFnMs: this.suiteRecord.setupFnMs ?? 0,
+        beforeHooksMs: this.suiteRecord.beforeHooksMs,
+        teardownFnMs: this.suiteRecord.teardownFnMs ?? 0,
+        afterHooksMs: this.suiteRecord.afterHooksMs,
+        totalMs: this.suiteRecord.beforeHooksMs + this.suiteRecord.afterHooksMs,
+        spans: this.suiteRecord.spans,
       }),
     );
+    for (const raw of this.rawSpans) {
+      lines.push(this.toLine({ type: 'span', name: raw.owner, span: raw.name, ms: raw.ms }));
+    }
 
     const payload = lines.join('\n') + '\n';
     try {
@@ -246,12 +325,22 @@ export default class TimingEnvironment extends CustomEnvironment {
     }
   }
 
-  /** Flattens metadata onto a record and serializes to a single JSON line. */
+  /** Flattens metadata onto a record and serializes to a single JSON line, rounding all Ms fields. */
   toLine(record) {
     const obj = { suite: this.suite, ...record, ...this.meta };
     for (const key of Object.keys(obj)) {
       if (key.endsWith('Ms') && typeof obj[key] === 'number') {
         obj[key] = Math.round(obj[key]);
+      }
+    }
+    // Round the nested span aggregates' Ms fields too (totalMs/busyMs/maxMs per tag).
+    if (obj.spans && typeof obj.spans === 'object') {
+      for (const agg of Object.values(obj.spans)) {
+        for (const key of Object.keys(agg)) {
+          if (key.endsWith('Ms') && typeof agg[key] === 'number') {
+            agg[key] = Math.round(agg[key]);
+          }
+        }
       }
     }
     return JSON.stringify(obj);

@@ -14,6 +14,7 @@ import type { TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 
+import { span } from '../../fixtures/timing.js';
 import { submitTxsTo } from '../../shared/submit-transactions.js';
 import type { TestWallet } from '../../test-wallet/test_wallet.js';
 import type { MultiNodeTestContext } from '../multi_node_test_context.js';
@@ -64,19 +65,23 @@ export function awaitProposalExecution(
   timeoutSeconds: number,
   logger: Logger,
 ): Promise<bigint> {
-  return new Promise<bigint>((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      logger.warn(`Timed out waiting for proposal execution`);
-      reject(new Error(`Timeout waiting for proposal execution after ${timeoutSeconds}s`));
-    }, timeoutSeconds * 1000);
+  return span(
+    'wait:slash-execution',
+    () =>
+      new Promise<bigint>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          logger.warn(`Timed out waiting for proposal execution`);
+          reject(new Error(`Timeout waiting for proposal execution after ${timeoutSeconds}s`));
+        }, timeoutSeconds * 1000);
 
-    const unwatch = slashingProposer.listenToRoundExecuted(args => {
-      logger.warn(`Slash from round ${args.round} executed`);
-      clearTimeout(timeout);
-      unwatch();
-      resolve(args.round);
-    });
-  });
+        const unwatch = slashingProposer.listenToRoundExecuted(args => {
+          logger.warn(`Slash from round ${args.round} executed`);
+          clearTimeout(timeout);
+          unwatch();
+          resolve(args.round);
+        });
+      }),
+  );
 }
 
 export async function awaitCommitteeExists({
@@ -88,13 +93,15 @@ export async function awaitCommitteeExists({
 }): Promise<readonly `0x${string}`[]> {
   logger.info(`Waiting for committee to be set`);
   let committee: EthAddress[] | undefined;
-  await retryUntil(
-    async () => {
-      committee = await rollup.getCurrentEpochCommittee();
-      return committee && committee.length > 0;
-    },
-    'non-empty committee',
-    60,
+  await span('wait:committee', () =>
+    retryUntil(
+      async () => {
+        committee = await rollup.getCurrentEpochCommittee();
+        return committee && committee.length > 0;
+      },
+      'non-empty committee',
+      60,
+    ),
   );
   logger.warn(`Committee has been formed`, { committee: committee!.map(c => c.toString()) });
   return committee!.map(c => c.toString() as `0x${string}`);
@@ -117,7 +124,7 @@ export async function awaitCommitteeExists({
  * to warp close to the target (rather than stage sequencers an epoch ahead) use this and warp the
  * final `minLeadSlots` in themselves.
  */
-export async function findUpcomingProposerSlot({
+export function findUpcomingProposerSlot({
   epochCache,
   cheatCodes,
   targetProposer,
@@ -132,31 +139,33 @@ export async function findUpcomingProposerSlot({
   minLeadSlots: number;
   maxSlotsToScan?: number;
 }): Promise<SlotNumber> {
-  let candidate = Number(await cheatCodes.getSlot()) + minLeadSlots;
+  return span('warp:find-proposer', async () => {
+    let candidate = Number(await cheatCodes.getSlot()) + minLeadSlots;
 
-  for (let scanned = 0; scanned < maxSlotsToScan; scanned++) {
-    let proposer: EthAddress | undefined;
-    try {
-      proposer = await epochCache.getProposerAttesterAddressInSlot(SlotNumber(candidate));
-    } catch (err) {
-      if (!(err instanceof Error) || !err.message.includes('EpochNotStable')) {
-        throw err;
+    for (let scanned = 0; scanned < maxSlotsToScan; scanned++) {
+      let proposer: EthAddress | undefined;
+      try {
+        proposer = await epochCache.getProposerAttesterAddressInSlot(SlotNumber(candidate));
+      } catch (err) {
+        if (!(err instanceof Error) || !err.message.includes('EpochNotStable')) {
+          throw err;
+        }
+        await cheatCodes.advanceToNextEpoch();
+        const newCurrentSlot = Number(await cheatCodes.getSlot());
+        // Keep the lead after the warp: never return a slot we could no longer warp ahead of.
+        candidate = Math.max(candidate, newCurrentSlot + minLeadSlots);
+        continue;
       }
-      await cheatCodes.advanceToNextEpoch();
-      const newCurrentSlot = Number(await cheatCodes.getSlot());
-      // Keep the lead after the warp: never return a slot we could no longer warp ahead of.
-      candidate = Math.max(candidate, newCurrentSlot + minLeadSlots);
-      continue;
+
+      if (proposer && proposer.equals(targetProposer)) {
+        logger.warn(`Found target proposer ${targetProposer} at slot ${candidate}`);
+        return SlotNumber(candidate);
+      }
+      candidate++;
     }
 
-    if (proposer && proposer.equals(targetProposer)) {
-      logger.warn(`Found target proposer ${targetProposer} at slot ${candidate}`);
-      return SlotNumber(candidate);
-    }
-    candidate++;
-  }
-
-  throw new Error(`Target proposer ${targetProposer} not found within ${maxSlotsToScan} slots`);
+    throw new Error(`Target proposer ${targetProposer} not found within ${maxSlotsToScan} slots`);
+  });
 }
 
 /**
@@ -176,7 +185,7 @@ export async function findUpcomingProposerSlot({
  * Returns the target epoch and the concrete target slot so the caller can warp to it after starting
  * sequencers.
  */
-export async function advanceToEpochBeforeProposer({
+export function advanceToEpochBeforeProposer({
   epochCache,
   cheatCodes,
   targetProposer,
@@ -191,38 +200,40 @@ export async function advanceToEpochBeforeProposer({
   maxAttempts?: number;
   warmupSlots?: number;
 }): Promise<{ targetEpoch: EpochNumber; targetSlot: SlotNumber }> {
-  const { epochDuration } = await cheatCodes.getConfig();
+  return span('warp:find-proposer', async () => {
+    const { epochDuration } = await cheatCodes.getConfig();
 
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const currentEpoch = await cheatCodes.getEpoch();
-    // Check the NEXT epoch's slots so we stay one epoch before the target,
-    // giving the caller time to start sequencers before the target epoch arrives.
-    const nextEpoch = Number(currentEpoch) + 1;
-    const epochStartSlot = nextEpoch * Number(epochDuration);
-    // Skip the first `warmupSlots` slots so the caller keeps a warm-up margin after warping to one
-    // slot before the epoch (see the doc comment above).
-    const startSlot = epochStartSlot + warmupSlots;
-    const endSlot = epochStartSlot + Number(epochDuration);
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const currentEpoch = await cheatCodes.getEpoch();
+      // Check the NEXT epoch's slots so we stay one epoch before the target,
+      // giving the caller time to start sequencers before the target epoch arrives.
+      const nextEpoch = Number(currentEpoch) + 1;
+      const epochStartSlot = nextEpoch * Number(epochDuration);
+      // Skip the first `warmupSlots` slots so the caller keeps a warm-up margin after warping to one
+      // slot before the epoch (see the doc comment above).
+      const startSlot = epochStartSlot + warmupSlots;
+      const endSlot = epochStartSlot + Number(epochDuration);
 
-    logger.info(
-      `Checking next epoch ${nextEpoch} (slots ${startSlot}-${endSlot - 1}) for proposer ${targetProposer} (current epoch: ${currentEpoch})`,
-    );
+      logger.info(
+        `Checking next epoch ${nextEpoch} (slots ${startSlot}-${endSlot - 1}) for proposer ${targetProposer} (current epoch: ${currentEpoch})`,
+      );
 
-    for (let s = startSlot; s < endSlot; s++) {
-      const proposer = await epochCache.getProposerAttesterAddressInSlot(SlotNumber(s));
-      if (proposer && proposer.equals(targetProposer)) {
-        logger.warn(
-          `Found target proposer ${targetProposer} in slot ${s} of epoch ${nextEpoch}. Staying at epoch ${currentEpoch} to allow sequencer startup.`,
-        );
-        return { targetEpoch: EpochNumber(nextEpoch), targetSlot: SlotNumber(s) };
+      for (let s = startSlot; s < endSlot; s++) {
+        const proposer = await epochCache.getProposerAttesterAddressInSlot(SlotNumber(s));
+        if (proposer && proposer.equals(targetProposer)) {
+          logger.warn(
+            `Found target proposer ${targetProposer} in slot ${s} of epoch ${nextEpoch}. Staying at epoch ${currentEpoch} to allow sequencer startup.`,
+          );
+          return { targetEpoch: EpochNumber(nextEpoch), targetSlot: SlotNumber(s) };
+        }
       }
+
+      logger.info(`Target proposer not found in epoch ${nextEpoch}, advancing to next epoch`);
+      await cheatCodes.advanceToNextEpoch();
     }
 
-    logger.info(`Target proposer not found in epoch ${nextEpoch}, advancing to next epoch`);
-    await cheatCodes.advanceToNextEpoch();
-  }
-
-  throw new Error(`Target proposer ${targetProposer} not found in any slot after ${maxAttempts} epoch attempts`);
+    throw new Error(`Target proposer ${targetProposer} not found in any slot after ${maxAttempts} epoch attempts`);
+  });
 }
 
 export async function awaitOffenseDetected({
@@ -242,15 +253,17 @@ export async function awaitOffenseDetected({
 }) {
   const targetOffenseCount = waitUntilOffenseCount ?? 1;
   logger.warn(`Waiting for ${pluralize('offense', targetOffenseCount)} to be detected`);
-  const offenses = await retryUntil(
-    async () => {
-      const offenses = await nodeAdmin.getSlashOffenses('all');
-      if (offenses.length >= targetOffenseCount) {
-        return offenses;
-      }
-    },
-    'non-empty offenses',
-    timeoutSeconds,
+  const offenses = await span('wait:offense', () =>
+    retryUntil(
+      async () => {
+        const offenses = await nodeAdmin.getSlashOffenses('all');
+        if (offenses.length >= targetOffenseCount) {
+          return offenses;
+        }
+      },
+      'non-empty offenses',
+      timeoutSeconds,
+    ),
   );
   logger.info(
     `Hit ${offenses.length} offenses on rounds ${unique(offenses.map(o => getRoundForOffense(o, { slashingRoundSize, epochDuration })))}`,
@@ -288,59 +301,61 @@ export async function awaitCommitteeKicked({
     throw new Error('No slashing proposer configured. Cannot test slashing.');
   }
 
-  await cheatCodes.debugRollup();
+  await span('wait:committee-kicked', async () => {
+    await cheatCodes.debugRollup();
 
-  // Use the slash offset to ensure we are in the right epoch for tally
-  const slashOffsetInRounds = await slashingProposer.getSlashOffsetInRounds();
-  const slashingRoundSizeInEpochs = slashingRoundSize / aztecEpochDuration;
-  const slashingOffsetInEpochs = Number(slashOffsetInRounds) * slashingRoundSizeInEpochs;
-  const firstEpochInOffenseRound = offenseEpoch - (offenseEpoch % slashingRoundSizeInEpochs);
-  const targetEpoch = firstEpochInOffenseRound + slashingOffsetInEpochs;
-  logger.info(`Advancing to epoch ${targetEpoch} so we start slashing`);
-  await cheatCodes.advanceToEpoch(EpochNumber(targetEpoch), { offset: -aztecSlotDuration / 2 });
+    // Use the slash offset to ensure we are in the right epoch for tally
+    const slashOffsetInRounds = await slashingProposer.getSlashOffsetInRounds();
+    const slashingRoundSizeInEpochs = slashingRoundSize / aztecEpochDuration;
+    const slashingOffsetInEpochs = Number(slashOffsetInRounds) * slashingRoundSizeInEpochs;
+    const firstEpochInOffenseRound = offenseEpoch - (offenseEpoch % slashingRoundSizeInEpochs);
+    const targetEpoch = firstEpochInOffenseRound + slashingOffsetInEpochs;
+    logger.info(`Advancing to epoch ${targetEpoch} so we start slashing`);
+    await cheatCodes.advanceToEpoch(EpochNumber(targetEpoch), { offset: -aztecSlotDuration / 2 });
 
-  const attestersPre = await rollup.getAttesters();
-  expect(attestersPre.length).toBe(committee.length);
+    const attestersPre = await rollup.getAttesters();
+    expect(attestersPre.length).toBe(committee.length);
 
-  for (const attester of attestersPre) {
-    const attesterInfo = await rollup.getAttesterView(attester);
-    expect(attesterInfo.status).toEqual(1); // Validating
-  }
+    for (const attester of attestersPre) {
+      const attesterInfo = await rollup.getAttesterView(attester);
+      expect(attesterInfo.status).toEqual(1); // Validating
+    }
 
-  // Allow up to four round-lengths so that under proposer pipelining, where individual rounds
-  // sometimes fail to gather quorum because parts of the committee miss votes due to chain-state
-  // races, we still see a later round execute the slash.
-  const timeout = slashingRoundSize * 4 * aztecSlotDuration + 30;
-  logger.info(`Waiting for slash to be executed (timeout ${timeout}s)`);
-  await awaitProposalExecution(slashingProposer, timeout, logger);
+    // Allow up to four round-lengths so that under proposer pipelining, where individual rounds
+    // sometimes fail to gather quorum because parts of the committee miss votes due to chain-state
+    // races, we still see a later round execute the slash.
+    const timeout = slashingRoundSize * 4 * aztecSlotDuration + 30;
+    logger.info(`Waiting for slash to be executed (timeout ${timeout}s)`);
+    await awaitProposalExecution(slashingProposer, timeout, logger);
 
-  // The attesters should still form the committee but they should be reduced to the "living" status
-  await cheatCodes.debugRollup();
-  const committeePostSlashing = await rollup.getCurrentEpochCommittee();
-  expect(committeePostSlashing?.length).toBe(attestersPre.length);
+    // The attesters should still form the committee but they should be reduced to the "living" status
+    await cheatCodes.debugRollup();
+    const committeePostSlashing = await rollup.getCurrentEpochCommittee();
+    expect(committeePostSlashing?.length).toBe(attestersPre.length);
 
-  const attestersPostSlashing = await rollup.getAttesters();
-  expect(attestersPostSlashing.length).toBe(0);
+    const attestersPostSlashing = await rollup.getAttesters();
+    expect(attestersPostSlashing.length).toBe(0);
 
-  for (const attester of attestersPre) {
-    const attesterInfo = await rollup.getAttesterView(attester);
-    expect(attesterInfo.status).toEqual(2); // Living
-  }
+    for (const attester of attestersPre) {
+      const attesterInfo = await rollup.getAttesterView(attester);
+      expect(attesterInfo.status).toEqual(2); // Living
+    }
 
-  logger.info(`Advancing to check current committee`);
-  await cheatCodes.debugRollup();
-  await cheatCodes.advanceToEpoch(
-    EpochNumber((await cheatCodes.getEpoch()) + (await rollup.getLagInEpochsForValidatorSet()) + 1),
-  );
-  await cheatCodes.debugRollup();
+    logger.info(`Advancing to check current committee`);
+    await cheatCodes.debugRollup();
+    await cheatCodes.advanceToEpoch(
+      EpochNumber((await cheatCodes.getEpoch()) + (await rollup.getLagInEpochsForValidatorSet()) + 1),
+    );
+    await cheatCodes.debugRollup();
 
-  const committeeNextEpoch = await rollup.getCurrentEpochCommittee();
-  // The committee should be undefined, since the validator set is empty
-  // and the tests currently using this helper always set a target committee size.
-  expect(committeeNextEpoch).toBeUndefined();
+    const committeeNextEpoch = await rollup.getCurrentEpochCommittee();
+    // The committee should be undefined, since the validator set is empty
+    // and the tests currently using this helper always set a target committee size.
+    expect(committeeNextEpoch).toBeUndefined();
 
-  const attestersNextEpoch = await rollup.getAttesters();
-  expect(attestersNextEpoch.length).toBe(0);
+    const attestersNextEpoch = await rollup.getAttesters();
+    expect(attestersNextEpoch.length).toBe(0);
+  });
 }
 
 /** Resolves the slot at which `node` includes `txHash`, by reading the tx receipt and block header. */
