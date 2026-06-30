@@ -24,7 +24,7 @@ import { TestWallet } from '../test-wallet/test_wallet.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { getPrivateKeyFromIndex, getSponsoredFPCAddress, setup, setupPXEAndGetWallet } from './setup.js';
-import { waitForProvenBlock } from './wait_helpers.js';
+import { waitForBlockNumber, waitForProvenBlock } from './wait_helpers.js';
 
 type ProvenSetup = {
   wallet: TestWallet;
@@ -174,11 +174,13 @@ export class FullProverTest extends SingleNodeTestContext {
       });
     }
 
+    const setupTip = await this.aztecNode.getBlockNumber();
+    await waitForBlockNumber(this.aztecNode, setupTip, { tag: 'checkpointed', timeout: 60, interval: 0.1 });
+
     this.logger.verbose(`Move to a clean epoch`);
     await this.context.cheatCodes.rollup.advanceToNextEpoch();
 
     this.logger.verbose(`Marking current block as proven`);
-    const setupTip = await this.aztecNode.getBlockNumber();
     await this.context.cheatCodes.rollup.markAsProven();
     await waitForProvenBlock(this.aztecNode, setupTip, { timeout: 30, interval: 0.1 });
 
