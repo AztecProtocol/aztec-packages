@@ -111,7 +111,7 @@ export class KeyStore {
    * @returns A Promise that resolves to an array of account addresses.
    */
   public async getAccounts(): Promise<AztecAddress[]> {
-    const allMapKeys = await toArray(this.#keys.keysAsync());
+    const allMapKeys = await this.#db.transactionAsync(() => toArray(this.#keys.keysAsync()));
     // We return account addresses based on the map keys that end with '-ivsk_m'
     const accounts = allMapKeys.filter(key => key.endsWith('-ivsk_m')).map(key => key.split('-')[0]);
     return accounts.map(account => AztecAddress.fromStringUnsafe(account));
@@ -119,7 +119,7 @@ export class KeyStore {
 
   /** Checks whether an account is registered in the key store. */
   public async hasAccount(account: AztecAddress): Promise<boolean> {
-    return !!(await this.#keys.getAsync(`${account.toString()}-ivsk_m`));
+    return !!(await this.#db.transactionAsync(() => this.#keys.getAsync(`${account.toString()}-ivsk_m`)));
   }
 
   /**
@@ -345,7 +345,7 @@ export class KeyStore {
    * @throws If the account does not exist in the key store.
    */
   async #getMasterKeyBuffer(account: AztecAddress, suffix: string): Promise<Buffer> {
-    const buffer = await this.#keys.getAsync(`${account.toString()}-${suffix}`);
+    const buffer = await this.#db.transactionAsync(() => this.#keys.getAsync(`${account.toString()}-${suffix}`));
     if (!buffer) {
       throw new Error(
         `Account ${account.toString()} does not exist. Registered accounts: ${await this.getAccounts()}.`,
