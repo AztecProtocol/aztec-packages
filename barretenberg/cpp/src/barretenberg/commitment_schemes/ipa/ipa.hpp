@@ -285,7 +285,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
             transcript->send_to_verifier("IPA:L_" + index, Commitment(L_i));
             transcript->send_to_verifier("IPA:R_" + index, Commitment(R_i));
 
-            const Fr round_challenge = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
+            const Fr round_challenge = transcript->template get_short_challenge<Fr>("IPA:round_challenge_" + index);
             if (round_challenge.is_zero()) {
                 throw_or_abort("IPA round challenge is zero");
             }
@@ -487,7 +487,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
             const std::string index = std::to_string(log_poly_length - round_idx - 1);
             const auto element_L = transcript->template receive_from_prover<Commitment>("IPA:L_" + index);
             const auto element_R = transcript->template receive_from_prover<Commitment>("IPA:R_" + index);
-            round_challenges[round_idx] = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
+            round_challenges[round_idx] = transcript->template get_short_challenge<Fr>("IPA:round_challenge_" + index);
             if (round_challenges[round_idx].is_zero()) {
                 throw_or_abort("Round challenges can't be zero");
             }
@@ -673,7 +673,7 @@ template <typename Curve_, size_t log_poly_length = CONST_ECCVM_LOG_N> class IPA
             const std::string index = std::to_string(log_poly_length - round_idx - 1);
             auto element_L = transcript->template receive_from_prover<Commitment>("IPA:L_" + index);
             auto element_R = transcript->template receive_from_prover<Commitment>("IPA:R_" + index);
-            round_challenges[round_idx] = transcript->template get_challenge<Fr>("IPA:round_challenge_" + index);
+            round_challenges[round_idx] = transcript->template get_short_challenge<Fr>("IPA:round_challenge_" + index);
             round_challenges_inv[round_idx] = round_challenges[round_idx].invert();
 
             msm_elements[2 * round_idx] = element_L;

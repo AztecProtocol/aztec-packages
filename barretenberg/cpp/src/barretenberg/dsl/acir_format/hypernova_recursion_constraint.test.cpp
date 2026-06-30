@@ -629,7 +629,7 @@ TEST_F(HypernovaRecursionConstraintTest, HidingKernelGateCount)
     EXPECT_EQ(counts.num_opcodes, 1U);
     EXPECT_EQ(counts.gate_count, HIDING_KERNEL_GATE_COUNT);
     EXPECT_EQ(counts.ecc_rows, HIDING_KERNEL_ECC_ROWS + MSM_ROWS_OFFSET);
-    EXPECT_EQ(counts.ultra_ops, HIDING_KERNEL_ULTRA_OPS);
+    EXPECT_EQ(counts.ultra_ops, bb::HIDING_KERNEL_ULTRA_OPS);
 }
 
 // =====================================================================================

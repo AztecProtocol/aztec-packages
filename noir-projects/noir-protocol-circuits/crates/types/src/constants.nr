@@ -660,7 +660,7 @@ pub global RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 =
 pub global NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
 // Chonk sub-proof lengths; pinned to bb via static_asserts in mock_verifier_inputs.test.cpp.
 pub global CHONK_HIDING_OINK_LENGTH: u32 = 48;
-pub global CHONK_MERGE_PROOF_SIZE: u32 = 42;
+pub global CHONK_MERGE_PROOF_SIZE: u32 = 41;
 pub global CHONK_ECCVM_PROOF_LENGTH: u32 = 556;
 pub global CHONK_TRIPLE_IPA_PROOF_LENGTH: u32 = 70;
 pub global CHONK_JOINT_PROOF_LENGTH: u32 = 478;
