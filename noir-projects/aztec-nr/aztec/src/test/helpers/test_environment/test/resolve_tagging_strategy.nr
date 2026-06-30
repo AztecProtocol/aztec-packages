@@ -1,4 +1,5 @@
 use crate::{
+    keys::ecdh_shared_secret::compute_app_siloed_shared_secret,
     messages::delivery::{OnchainDeliveryMode, ResolvedTaggingStrategy},
     oracle::{notes::get_app_tagging_secret, resolve_tagging_strategy::resolve_tagging_strategy},
     protocol::{address::AztecAddress, hash::poseidon2_hash, point::EmbeddedCurvePoint, traits::{FromField, ToField}},
@@ -101,9 +102,9 @@ unconstrained fn app_silos_an_arbitrary_secret_point() {
             OnchainDeliveryMode::onchain_unconstrained(),
         );
 
-        // PXE app-silos the raw point before handing it over: poseidon2 over the point and the executing contract,
+        // PXE app-silos the raw point before handing it over: hash the point and the executing contract,
         // then over the recipient for direction. This mirrors `AppTaggingSecret::compute` on the PXE side.
-        let app_secret = poseidon2_hash([point.x, point.y, app.to_field()]);
+        let app_secret = compute_app_siloed_shared_secret(point, app);
         let expected_secret = poseidon2_hash([app_secret, recipient.to_field()]);
         assert_eq(resolved, ResolvedTaggingStrategy::unconstrained_secret(expected_secret));
     });
