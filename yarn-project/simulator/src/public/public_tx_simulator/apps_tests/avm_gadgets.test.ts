@@ -8,7 +8,7 @@ import { NativeWorldStateService } from '@aztec/world-state';
 import { PublicTxSimulationTester, defaultGlobals } from '../../fixtures/public_tx_simulation_tester.js';
 
 describe('Public TX simulator apps tests: gadgets', () => {
-  describe('Public TX simulator apps tests: gadgets (via Cpp Simulator)', () => {
+  describe('Public TX simulator apps tests: gadgets', () => {
     const deployer = AztecAddress.fromNumber(42);
 
     let worldStateService: NativeWorldStateService;
@@ -26,6 +26,7 @@ describe('Public TX simulator apps tests: gadgets', () => {
     });
 
     afterEach(async () => {
+      await tester.close();
       await worldStateService.close();
     });
 

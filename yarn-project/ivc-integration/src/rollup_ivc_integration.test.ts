@@ -88,6 +88,7 @@ describe('Rollup IVC Integration', () => {
       simConfig,
     );
     const avmSimulationResult = await bulkTest(simTester, logger, AvmTestContractArtifact);
+    await simTester.close();
     await worldStateService.close();
     expect(avmSimulationResult.revertCode.isOK()).toBe(true);
 

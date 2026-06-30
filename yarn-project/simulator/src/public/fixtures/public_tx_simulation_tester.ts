@@ -18,6 +18,7 @@ import {
   getContractFunctionAbi,
   getFunctionSelector,
 } from '../avm/testing/utils.js';
+import { AvmExecutor } from '../avm_executor.js';
 import { PublicContractsDB } from '../public_db_sources.js';
 import { MeasuredPublicTxSimulator } from '../public_tx_simulator/public_tx_simulator.js';
 import type { MeasuredPublicTxSimulatorInterface } from '../public_tx_simulator/public_tx_simulator_interface.js';
@@ -63,8 +64,9 @@ export type MeasuredSimulatorFactory = (
  */
 export class PublicTxSimulationTester extends BaseAvmSimulationTester {
   protected txCount: number = 0;
-  private simulator: MeasuredPublicTxSimulatorInterface;
+  private simulator: MeasuredPublicTxSimulatorInterface | undefined;
   private metricsPrefix?: string;
+  protected avmExecutor?: AvmExecutor;
 
   constructor(
     merkleTree: MerkleTreeWriteOperations,
@@ -80,7 +82,9 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     if (simulatorFactory) {
       this.simulator = simulatorFactory(merkleTree, contractsDB, globals, this.metrics, config);
     } else {
-      this.simulator = new MeasuredPublicTxSimulator(merkleTree, contractsDB, globals, this.metrics, config);
+      // No simulator — this tester can only be used for setup (setFeePayerBalance, createTx, etc.)
+      // To simulate, use PublicTxSimulationTester.create() or pass a simulatorFactory.
+      this.simulator = undefined;
     }
   }
 
@@ -92,9 +96,23 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
   ): Promise<PublicTxSimulationTester> {
     const contractDataSource = new SimpleContractDataSource();
     const merkleTree = await worldStateService.fork();
-    const simulatorFactory: MeasuredSimulatorFactory = (mt, cdb, g, m, c) =>
-      new MeasuredPublicTxSimulator(mt, cdb, g, m, c);
-    return new PublicTxSimulationTester(merkleTree, contractDataSource, globals, metrics, simulatorFactory, config);
+
+    const avmExecutor = await AvmExecutor.spawn({ wsdbIpcPath: worldStateService.getIpcPath() });
+    const forkId = merkleTree.getRevision().forkId;
+    const forkedSimulator = avmExecutor.forFork(forkId, new PublicContractsDB(contractDataSource), globals.timestamp);
+    const simulatorFactory: MeasuredSimulatorFactory = (_mt, _cdb, g, m, c) =>
+      new MeasuredPublicTxSimulator(forkedSimulator, g, m, c, undefined, forkId);
+
+    const tester = new PublicTxSimulationTester(
+      merkleTree,
+      contractDataSource,
+      globals,
+      metrics,
+      simulatorFactory,
+      config,
+    );
+    tester.avmExecutor = avmExecutor;
+    return tester;
   }
 
   public setMetricsPrefix(prefix: string) {
@@ -193,18 +211,8 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     teardownCall?: TestEnqueuedCall,
     feePayer?: AztecAddress,
     privateInsertions?: TestPrivateInsertions,
-    gasLimits?: Gas,
   ): Promise<PublicTxResult> {
-    return await this.simulateTx(
-      sender,
-      setupCalls,
-      appCalls,
-      teardownCall,
-      feePayer,
-      privateInsertions,
-      txLabel,
-      gasLimits,
-    );
+    return await this.simulateTx(sender, setupCalls, appCalls, teardownCall, feePayer, privateInsertions, txLabel);
   }
 
   /**
@@ -222,7 +230,6 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     teardownCall?: TestEnqueuedCall,
     feePayer?: AztecAddress,
     privateInsertions?: TestPrivateInsertions,
-    gasLimits?: Gas,
   ): Promise<PublicTxResult> {
     return await this.simulateTxWithLabel(
       txLabel,
@@ -232,12 +239,20 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
       teardownCall,
       feePayer,
       privateInsertions,
-      gasLimits,
     );
   }
 
   public prettyPrintMetrics() {
     this.metrics.prettyPrint();
+  }
+
+  /** Clean up IPC resources (AVM executor and merkle tree fork) created by create(). */
+  public async close(): Promise<void> {
+    await this.avmExecutor?.[Symbol.asyncDispose]();
+    // Close the merkle tree fork to release IPC resources before the wsdb process is killed.
+    if (this.merkleTrees?.close) {
+      await this.merkleTrees.close().catch(() => {});
+    }
   }
 
   /**
@@ -248,14 +263,14 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
    * @param waitTimeoutMs - If provided, wait up to this many ms for the simulation to actually stop.
    */
   public async cancel(waitTimeoutMs?: number): Promise<void> {
-    await this.simulator.cancel?.(waitTimeoutMs);
+    await this.simulator?.cancel?.(waitTimeoutMs);
   }
 
   /**
    * Get the underlying simulator for advanced test scenarios.
    * Use this when you need direct control over simulation (e.g., for testing cancellation).
    */
-  public getSimulator(): MeasuredPublicTxSimulatorInterface {
+  public getSimulator(): MeasuredPublicTxSimulatorInterface | undefined {
     return this.simulator;
   }
 

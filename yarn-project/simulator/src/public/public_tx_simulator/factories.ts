@@ -1,24 +1,23 @@
 import type { LoggerBindings } from '@aztec/foundation/log';
 import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
-import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
 import type { GlobalVariables } from '@aztec/stdlib/tx';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 
-import type { PublicContractsDB } from '../public_db_sources.js';
+import type { AvmSimulator } from '../avm_simulator_pool.js';
 import { DumpingPublicTxSimulator } from './dumping_public_tx_simulator.js';
 import { TelemetryPublicTxSimulator } from './public_tx_simulator.js';
 
 /**
- * Creates a public tx simulator for block building.
- * Uses DumpingPublicTxSimulator if DUMP_AVM_INPUTS_TO_DIR env var is set (for CI/testing avm circuit),
+ * Creates an IPC-based public tx simulator for block building.
+ * Uses DumpingPublicTxSimulator if DUMP_AVM_INPUTS_TO_DIR env var is set (for CI/testing the AVM circuit),
  * otherwise uses TelemetryPublicTxSimulator (for production).
  */
 export function createPublicTxSimulatorForBlockBuilding(
-  merkleTree: MerkleTreeWriteOperations,
-  contractsDB: PublicContractsDB,
+  avmSimulator: AvmSimulator,
   globalVariables: GlobalVariables,
   telemetryClient: TelemetryClient,
   bindings?: LoggerBindings,
+  wsdbForkId?: number,
   collectDebugLogs = false,
 ) {
   const config = PublicSimulatorConfig.from({
@@ -38,7 +37,7 @@ export function createPublicTxSimulatorForBlockBuilding(
       collectHints: true,
       collectPublicInputs: true,
     };
-    return new DumpingPublicTxSimulator(merkleTree, contractsDB, globalVariables, dumpingConfig, dumpDir, bindings);
+    return new DumpingPublicTxSimulator(avmSimulator, globalVariables, dumpingConfig, dumpDir, bindings, wsdbForkId);
   }
-  return new TelemetryPublicTxSimulator(merkleTree, contractsDB, globalVariables, telemetryClient, config, bindings);
+  return new TelemetryPublicTxSimulator(avmSimulator, globalVariables, telemetryClient, config, bindings, wsdbForkId);
 }

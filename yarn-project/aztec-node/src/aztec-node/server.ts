@@ -42,7 +42,7 @@ import {
   type SequencerPublisher,
   createAutomineSequencer,
 } from '@aztec/sequencer-client';
-import { PublicContractsDB, PublicProcessorFactory } from '@aztec/simulator/server';
+import { AvmExecutor, PublicContractsDB, PublicProcessorFactory } from '@aztec/simulator/server';
 import {
   AttestationsBlockWatcher,
   AttestedInvalidProposalWatcher,
@@ -187,6 +187,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
   public readonly tracer: Tracer;
 
+  /** IPC backends to clean up on stop (CDB, AVM). WSDB is cleaned up by world state. */
+  private ipcBackends: Array<{ destroy?(): Promise<void> }> = [];
+
   constructor(
     protected config: AztecNodeConfig,
     protected readonly p2pClient: P2P,
@@ -215,6 +218,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     private keyStoreManager?: KeystoreManager,
     private debugLogStore: DebugLogStore = new NullDebugLogStore(),
     private readonly automineSequencer?: AutomineSequencer,
+    // AVM execution backend for public simulation. Wired in production (createAndSync); absent in unit/TXE
+    // nodes that don't drive public execution, hence optional and asserted at the simulation call site.
+    private avmExecutor?: AvmExecutor,
   ) {
     this.metrics = new NodeMetrics(telemetry, 'AztecNodeService');
     this.tracer = telemetry.getTracer('AztecNodeService');
@@ -498,7 +504,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
   ): Promise<AztecNodeService> {
     const config = { ...inputConfig }; // Copy the config so we dont mutate the input object
     const log = deps.logger ?? createLogger('node');
-    const packageVersion = getPackageVersion();
+    const packageVersion = getPackageVersion() ?? '';
     const telemetry = deps.telemetry ?? getTelemetryClient();
     const dateProvider = deps.dateProvider ?? new DateProvider();
     const ethereumChain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
@@ -598,6 +604,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       const nativeWs = await createWorldState(config, options.genesis);
       const initialHeader = nativeWs.getInitialHeader();
       const initialBlockHash = await initialHeader.hash();
+
+      log.info('WSDB ready, creating AVM executor');
+      const avmExecutor = await AvmExecutor.spawn({
+        wsdbIpcPath: nativeWs.getIpcPath(),
+        logger: (msg: string) => log.debug(msg),
+      });
+      started.push({ stop: () => avmExecutor[Symbol.asyncDispose]() });
+
       const archiver = await createArchiver(
         config,
         { blobClient, epochCache, telemetry, dateProvider },
@@ -646,6 +660,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         rollupVersion: BigInt(config.rollupVersion),
         l1GenesisTime,
         slotDuration: Number(slotDuration),
+        rollupManaLimit,
       };
 
       const globalVariableBuilder = new GlobalVariableBuilder(dateProvider, publicClient, globalVariableBuilderConfig);
@@ -688,7 +703,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         worldStateSynchronizer,
         archiver,
         dateProvider,
+        avmExecutor,
         telemetry,
+        undefined, // debugLogStore
       );
 
       let validatorClient: ValidatorClient | undefined;
@@ -893,6 +910,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
           worldStateSynchronizer,
           archiver,
           dateProvider,
+          avmExecutor,
           telemetry,
           debugLogStore,
         );
@@ -976,6 +994,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
           epochCache,
           blobClient,
           keyStoreManager,
+          avmExecutor,
         });
 
         if (!options.dontStartProverNode) {
@@ -1015,7 +1034,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         keyStoreManager,
         debugLogStore,
         automineSequencer,
+        avmExecutor,
       );
+
+      // Register the AVM executor for cleanup on stop (it owns the AVM pool + CDB server).
+      node.ipcBackends.push({ destroy: () => avmExecutor[Symbol.asyncDispose]() });
 
       return node;
     } catch (err) {
@@ -1287,6 +1310,14 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     await tryStop(this.worldStateSynchronizer);
     await tryStop(this.blockSource);
     await tryStop(this.blobClient);
+    // Destroy IPC backends (CDB, AVM). WSDB is cleaned up by worldStateSynchronizer.
+    for (const backend of this.ipcBackends) {
+      try {
+        await backend.destroy?.();
+      } catch (e) {
+        this.log.warn(`Error destroying IPC backend: ${e}`);
+      }
+    }
     await tryStop(this.telemetry);
     this.log.info(`Stopped Aztec Node`);
   }
@@ -1595,6 +1626,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
     const publicProcessorFactory = new PublicProcessorFactory(
       this.contractDataSource,
+      this.avmExecutor!,
       new DateProvider(),
       this.telemetry,
       this.log.getBindings(),

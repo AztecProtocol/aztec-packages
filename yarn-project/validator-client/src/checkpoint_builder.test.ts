@@ -10,7 +10,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import type { LightweightCheckpointBuilder } from '@aztec/prover-client/light';
-import type { PublicContractsDB, PublicProcessor } from '@aztec/simulator/server';
+import type { AvmExecutor, PublicContractsDB, PublicProcessor } from '@aztec/simulator/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2Block } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
@@ -66,7 +66,7 @@ describe('CheckpointBuilder', () => {
     declare public contractsDB: PublicContractsDB;
 
     public override makeBlockBuilderDeps(_globalVariables: GlobalVariables, _fork: MerkleTreeWriteOperations) {
-      return Promise.resolve({ processor, validator });
+      return Promise.resolve({ processor, validator, wsdbForkId: 0 });
     }
 
     /** Expose for testing */
@@ -104,6 +104,8 @@ describe('CheckpointBuilder', () => {
       contractDataSource,
       dateProvider,
       telemetryClient,
+      // TestCheckpointBuilder overrides makeBlockBuilderDeps, so this is never exercised.
+      mock<AvmExecutor>(),
     );
   }
 

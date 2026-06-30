@@ -5,6 +5,7 @@ function hash {
   hash_str \
     $(../noir/bootstrap.sh hash) \
     $(../barretenberg/bootstrap.sh hash) \
+    $(../ipc-codegen/bootstrap.sh hash) \
     $(cache_content_hash ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns)
 }
 
@@ -138,6 +139,7 @@ function compile_all {
     noir-protocol-circuits-types \
     protocol-contracts \
     pxe \
+    simulator \
     standard-contracts
   cat joblog.txt
 

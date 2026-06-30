@@ -26,6 +26,7 @@ describe('Public TX simulator apps tests: AvmTestContract', () => {
   });
 
   afterEach(async () => {
+    await simTester.close();
     await worldStateService.close();
   });
 
