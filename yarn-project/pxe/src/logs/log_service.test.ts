@@ -36,32 +36,13 @@ describe('LogService', () => {
     const tag = Tag.random();
 
     beforeEach(async () => {
-      // Set up contract address
       contractAddress = await AztecAddress.random();
-      keyStore = new KeyStore(await openTmpStore('test'));
-      recipientTaggingStore = new RecipientTaggingStore(await openTmpStore('test'));
-      taggingSecretSourcesStore = new TaggingSecretSourcesStore(await openTmpStore('test'));
-      addressStore = new AddressStore(await openTmpStore('test'));
-
-      aztecNode = mock<AztecNode>();
+      ({ aztecNode, keyStore, recipientTaggingStore, taggingSecretSourcesStore, addressStore, logService } =
+        await createTestLogService());
 
       aztecNode.getPrivateLogsByTags.mockReset();
       aztecNode.getPublicLogsByTags.mockReset();
       aztecNode.getTxEffect.mockReset();
-
-      // Set up anchor block header (required for bulkRetrieveLogs)
-      const anchorBlockHeader = makeBlockHeader(randomInt(1000), { blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM) });
-
-      logService = new LogService(
-        aztecNode,
-        anchorBlockHeader,
-        mock<L2TipsProvider>(),
-        keyStore,
-        recipientTaggingStore,
-        taggingSecretSourcesStore,
-        addressStore,
-        'test',
-      );
     });
 
     it('returns empty arrays if no logs are found', async () => {
@@ -318,27 +299,12 @@ describe('LogService', () => {
 
     beforeEach(async () => {
       contractAddress = await AztecAddress.random();
-      keyStore = new KeyStore(await openTmpStore('test'));
-      recipientTaggingStore = new RecipientTaggingStore(await openTmpStore('test'));
-      taggingSecretSourcesStore = new TaggingSecretSourcesStore(await openTmpStore('test'));
-      addressStore = new AddressStore(await openTmpStore('test'));
 
-      const anchorBlockHeader = makeBlockHeader(randomInt(1000), { blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM) });
-      const l2TipsStore = mock<L2TipsProvider>();
-      l2TipsStore.getL2Tips.mockResolvedValue(makeL2Tips(anchorBlockHeader.globalVariables.blockNumber));
-
-      aztecNode = mock<AztecNode>();
-
-      logService = new LogService(
-        aztecNode,
-        anchorBlockHeader,
-        l2TipsStore,
-        keyStore,
-        recipientTaggingStore,
-        taggingSecretSourcesStore,
-        addressStore,
-        'test',
-      );
+      const l2TipsProvider = mock<L2TipsProvider>();
+      const testContext = await createTestLogService(l2TipsProvider);
+      ({ aztecNode, keyStore, recipientTaggingStore, taggingSecretSourcesStore, addressStore, logService } =
+        testContext);
+      l2TipsProvider.getL2Tips.mockResolvedValue(makeL2Tips(testContext.anchorBlockHeader.globalVariables.blockNumber));
 
       // A real recipient account, so the ECDH tag derivation has the keys and address preimage it needs.
       recipientCompleteAddress = await keyStore.addAccount(new Fr(1), Fr.random());
@@ -383,6 +349,37 @@ describe('LogService', () => {
     });
   });
 });
+
+async function createTestLogService(l2TipsProvider: MockProxy<L2TipsProvider> = mock<L2TipsProvider>()) {
+  const keyStore = new KeyStore(await openTmpStore('test'));
+  const recipientTaggingStore = new RecipientTaggingStore(await openTmpStore('test'));
+  const taggingSecretSourcesStore = new TaggingSecretSourcesStore(await openTmpStore('test'));
+  const addressStore = new AddressStore(await openTmpStore('test'));
+  const aztecNode = mock<AztecNode>();
+  // Anchor block header is required for bulkRetrieveLogs.
+  const anchorBlockHeader = makeBlockHeader(randomInt(1000), { blockNumber: BlockNumber(INITIAL_L2_BLOCK_NUM) });
+
+  const logService = new LogService(
+    aztecNode,
+    anchorBlockHeader,
+    l2TipsProvider,
+    keyStore,
+    recipientTaggingStore,
+    taggingSecretSourcesStore,
+    addressStore,
+    'test',
+  );
+
+  return {
+    aztecNode,
+    keyStore,
+    recipientTaggingStore,
+    taggingSecretSourcesStore,
+    addressStore,
+    anchorBlockHeader,
+    logService,
+  };
+}
 
 function makeLogRetrievalRequest(
   contractAddress: AztecAddress,
