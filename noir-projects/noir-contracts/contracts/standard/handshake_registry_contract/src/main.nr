@@ -20,8 +20,7 @@ global NON_INTERACTIVE_HANDSHAKE: u8 = 1;
 /// [`HandshakeRegistry::validate_handshake`] to check app-siloed secrets against the current stored handshake. The
 /// private surfaces silo against `msg_sender()`, so a contract can only obtain or validate secrets siloed to itself.
 /// Re-handshaking does not revoke already-started constrained-delivery sequences; it only replaces the registry note
-/// used
-/// for [validation][`HandshakeRegistry::validate_handshake`].
+/// used for [validation][`HandshakeRegistry::validate_handshake`].
 ///
 /// Currently only implements the non-interactive flow (see [`HandshakeRegistry::non_interactive_handshake`]).
 #[aztec(::aztec::macros::AztecConfig::new().custom_sync_state(crate::handshake_registry_sync))]
