@@ -93,7 +93,7 @@ describe('e2e_contract_updates', () => {
       signingKey,
       salt,
       type: 'schnorr_initializerless' as const,
-      address: await getSchnorrInitializerlessAccountContractAddress(senderPrivateKey, salt, signingKey),
+      address: await getSchnorrInitializerlessAccountContractAddress(signingKey, salt, senderPrivateKey),
     };
     defaultAccountAddress = account.address;
 

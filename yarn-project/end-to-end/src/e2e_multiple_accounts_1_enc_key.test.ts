@@ -34,7 +34,7 @@ describe('e2e_multiple_accounts_1_enc_key', () => {
         // A different signing key for each account.
         const signingKey = GrumpkinScalar.random();
         const salt = Fr.random();
-        const address = await getSchnorrInitializerlessAccountContractAddress(secret, salt, signingKey);
+        const address = await getSchnorrInitializerlessAccountContractAddress(signingKey, salt, secret);
         return {
           secret,
           signingKey,
