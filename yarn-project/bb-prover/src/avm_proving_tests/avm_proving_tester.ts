@@ -1,5 +1,6 @@
 import type { AvmStat } from '@aztec/bb.js';
-import { Timer } from '@aztec/foundation/timer';
+import { TimeoutError } from '@aztec/foundation/error';
+import { Timer, timeoutPromise } from '@aztec/foundation/timer';
 import {
   PublicTxSimulationTester,
   SimpleContractDataSource,
@@ -17,9 +18,13 @@ import { NativeWorldStateService } from '@aztec/world-state';
 
 import path from 'path';
 
-import { BBJsFactory } from '../bb/bb_js_backend.js';
+import { type BBJsApi, BBJsFactory } from '../bb/bb_js_backend.js';
 
 const BB_PATH = path.resolve('../../barretenberg/cpp/build/bin/bb-avm');
+const CHECK_CIRCUIT_TIMEOUT_MS = 25_000;
+const CHECK_CIRCUIT_ATTEMPTS = 2;
+
+type CheckAvmCircuitResult = Awaited<ReturnType<BBJsApi['checkAvmCircuit']>>;
 
 // Config with collectHints enabled for proving tests
 const provingConfig: PublicSimulatorConfig = PublicSimulatorConfig.from({
@@ -64,8 +69,7 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     const inputsBuffer = avmCircuitInputs.serializeWithMessagePack();
 
     if (this.checkCircuitOnly) {
-      await using instance = await this.bbJsFactory.getInstance();
-      const { passed, stats } = await instance.checkAvmCircuit(inputsBuffer);
+      const { passed, stats } = await this.checkAvmCircuitWithRetry(inputsBuffer, txLabel);
       this.recordProverMetrics(stats, txLabel);
       expect(passed).toBe(true);
       return [];
@@ -91,6 +95,31 @@ export class AvmProvingTester extends PublicTxSimulationTester {
   public async proveVerify(avmCircuitInputs: AvmCircuitInputs, txLabel: string = 'unlabeledTx') {
     const proof = await this.prove(avmCircuitInputs, txLabel);
     await this.verify(proof, avmCircuitInputs.publicInputs);
+  }
+
+  private async checkAvmCircuitWithRetry(inputsBuffer: Uint8Array, txLabel: string): Promise<CheckAvmCircuitResult> {
+    for (let attempt = 1; attempt <= CHECK_CIRCUIT_ATTEMPTS; attempt++) {
+      try {
+        await using instance = await this.bbJsFactory.getInstance();
+        return await Promise.race([
+          instance.checkAvmCircuit(inputsBuffer),
+          timeoutPromise(
+            CHECK_CIRCUIT_TIMEOUT_MS,
+            `AVM check-circuit for ${txLabel} timed out after ${CHECK_CIRCUIT_TIMEOUT_MS}ms`,
+          ),
+        ]);
+      } catch (err) {
+        if (!(err instanceof TimeoutError) || attempt === CHECK_CIRCUIT_ATTEMPTS) {
+          throw err;
+        }
+        this.logger.warn('AVM check-circuit timed out; retrying with a fresh bb instance', {
+          txLabel,
+          attempt,
+          timeoutMs: CHECK_CIRCUIT_TIMEOUT_MS,
+        });
+      }
+    }
+    throw new Error(`AVM check-circuit for ${txLabel} did not complete`);
   }
 
   private recordProverMetrics(stats: AvmStat[], txLabel: string) {
