@@ -12,6 +12,7 @@ import { jest } from '@jest/globals';
 import { inspect } from 'util';
 
 import { DEFAULT_MIN_FEE_PADDING } from '../../fixtures/fixtures.js';
+import { waitForBlockNumber, waitForNodeCheckpoint } from '../../fixtures/wait_helpers.js';
 import type { TestWallet } from '../../test-wallet/test_wallet.js';
 import { proveInteraction } from '../../test-wallet/utils.js';
 import { FeesTest } from './fees_test.js';
@@ -145,21 +146,8 @@ describe('single-node/fees/fee_settings', () => {
     // Pick a baseline from the post-checkpoint chain state. The prove step itself is
     // made deterministic by prepareTxsWithMockedMinFees below.
     const getCurrentMinFeesAfterCheckpoint = async (checkpointedBlock: BlockNumber) => {
-      // REFACTOR: hand-rolled retryUntil polling for a checkpointed block number; replace with a
-      // waitUntilCheckpointedBlockNumber(node, blockNumber) helper in the e2e fixture utilities.
-      return await retryUntil(
-        async () => {
-          const currentCheckpointedBlock = await aztecNode.getBlockNumber('checkpointed');
-          if (currentCheckpointedBlock < checkpointedBlock) {
-            return undefined;
-          }
-
-          return await aztecNode.getCurrentMinFees();
-        },
-        `L2 min fees after block ${checkpointedBlock} is checkpointed`,
-        60,
-        1,
-      );
+      await waitForBlockNumber(aztecNode, checkpointedBlock, { tag: 'checkpointed', timeout: 60 });
+      return await aztecNode.getCurrentMinFees();
     };
 
     const proveTx = async (minFeePadding: number | undefined) => {
@@ -291,14 +279,7 @@ describe('single-node/fees/fee_settings', () => {
       // `checkpointed` tip must strictly advance.
       const RECOVERY_TARGET = CheckpointNumber.add(checkpointBefore, 3);
       const RECOVERY_BUDGET_SECONDS = AZTEC_SLOT_DURATION * 6;
-      // REFACTOR: hand-rolled retryUntil polling for checkpoint number; replace with a
-      // waitForCheckpointNumber(node, target) helper from EpochsTestContext or a shared utility.
-      await retryUntil(
-        async () => (await aztecNode.getCheckpointNumber('checkpointed')) >= RECOVERY_TARGET,
-        `chain advances at least ${RECOVERY_TARGET - checkpointBefore} checkpoints past governance bump`,
-        RECOVERY_BUDGET_SECONDS,
-        1,
-      );
+      await waitForNodeCheckpoint(aztecNode, RECOVERY_TARGET, { timeout: RECOVERY_BUDGET_SECONDS, interval: 1 });
 
       // Healthy pipelining produces one checkpoint per L2 slot, so an advance of 3 checkpoints
       // covers exactly 3 slots. If a pipelined header was invalidated and dropped (the A-1057

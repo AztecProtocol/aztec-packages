@@ -3,11 +3,13 @@ import type { Fr } from '@aztec/aztec.js/fields';
 import { waitForTx } from '@aztec/aztec.js/node';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/aztec.js/protocol';
 import type { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
+import type { Sequencer, SequencerEvents, SequencerState } from '@aztec/sequencer-client';
 import type { L2BlockTag } from '@aztec/stdlib/block';
 import type { AztecNode, CheckpointTag } from '@aztec/stdlib/interfaces/client';
 import type { L2ToL1MembershipWitness } from '@aztec/stdlib/messaging';
-import type { TxHash, TxReceipt } from '@aztec/stdlib/tx';
+import type { TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 
 /** Options for the block-number polling helpers. */
 export type WaitForBlockOpts = {
@@ -160,4 +162,142 @@ export function waitForL2ToL1Witness(
     opts.timeout ?? 30,
     opts.interval ?? 1,
   );
+}
+
+/** Options for the tx-receipt polling helpers. */
+export type WaitForTxReceiptOpts = {
+  /** Seconds before the poll rejects; defaults to 30. */
+  timeout?: number;
+  /** Seconds between polls; defaults to 1. */
+  interval?: number;
+};
+
+/**
+ * Polls `node.getTxReceipt(txHash)` until `predicate(receipt)` holds, resolving with the receipt.
+ * Wraps the `retryUntil` that the block-building reorg tests hand-roll while waiting for a tx to
+ * transition between statuses (pruned, re-included, ...).
+ * @returns The receipt once the predicate holds.
+ */
+export function waitForTxReceipt(
+  node: AztecNode,
+  txHash: TxHash,
+  predicate: (receipt: TxReceipt) => boolean,
+  opts: WaitForTxReceiptOpts = {},
+): Promise<TxReceipt> {
+  return retryUntil(
+    async () => {
+      const receipt = await node.getTxReceipt(txHash);
+      return predicate(receipt) ? { receipt } : undefined;
+    },
+    `tx receipt for ${txHash.toString()}`,
+    opts.timeout ?? 30,
+    opts.interval ?? 1,
+  ).then(({ receipt }) => receipt);
+}
+
+/** Polls until `node.getTxReceipt(txHash).status === status`. Thin wrapper over {@link waitForTxReceipt}. */
+export function waitForTxStatus(
+  node: AztecNode,
+  txHash: TxHash,
+  status: TxStatus,
+  opts: WaitForTxReceiptOpts = {},
+): Promise<TxReceipt> {
+  return waitForTxReceipt(node, txHash, receipt => receipt.status === status, opts);
+}
+
+/** Compares the node's pending-tx count against the target; defaults to `>=`. */
+export type PendingTxCountComparator = (actual: number, target: number) => boolean;
+
+/** Options for {@link waitForPendingTxCount}. */
+export type WaitForPendingTxCountOpts = {
+  /** How the node's pending-tx count must relate to `target`; defaults to `(actual, target) => actual >= target`. */
+  compare?: PendingTxCountComparator;
+  /** Seconds before the poll rejects; defaults to 30. */
+  timeout?: number;
+  /** Seconds between polls; defaults to 1. */
+  interval?: number;
+};
+
+/**
+ * Polls `node.getPendingTxCount()` until `opts.compare(actual, target)` holds (default `>=`).
+ * Replaces the hand-rolled mempool-size poll in the slashing tests.
+ * @returns The pending-tx count once the comparison holds.
+ */
+export function waitForPendingTxCount(
+  node: AztecNode,
+  target: number,
+  opts: WaitForPendingTxCountOpts = {},
+): Promise<number> {
+  const compare = opts.compare ?? ((actual, target) => actual >= target);
+  // Wrap the matched value: retryUntil treats any falsy return as "keep polling", so a legitimate
+  // match of 0 pending txs would otherwise loop until timeout instead of resolving.
+  return retryUntil(
+    async () => {
+      const count = await node.getPendingTxCount();
+      return compare(count, target) ? { count } : undefined;
+    },
+    `pending tx count ${compare} ${target}`,
+    opts.timeout ?? 30,
+    opts.interval ?? 1,
+  ).then(({ count }) => count);
+}
+
+/** Options for {@link waitForSequencerState}. */
+export type WaitForSequencerStateOpts = {
+  /** Milliseconds before the wait rejects; defaults to 30000. */
+  timeout?: number;
+  /**
+   * Action to run after subscribing to the sequencer but before awaiting the transition. Subscribing
+   * first guarantees the state change the action triggers is not missed between the action and the
+   * listener attaching.
+   */
+  after?: () => unknown;
+};
+
+/**
+ * Resolves once `sequencer` reaches `state`. Subscribes to the `state-changed` event first, then (if
+ * `opts.after` is given) runs the action, then resolves immediately if the sequencer is already at
+ * `state`, otherwise waits for the transition. The listener is cleaned up on both resolve and timeout.
+ * Replaces the hand-rolled `state-changed` on/off subscriptions duplicated across the fee, cross-chain,
+ * and keystore-reload tests.
+ */
+export async function waitForSequencerState(
+  sequencer: Sequencer,
+  state: SequencerState,
+  opts: WaitForSequencerStateOpts = {},
+): Promise<void> {
+  const timeout = opts.timeout ?? 30000;
+  const { promise, resolve, reject } = promiseWithResolvers<void>();
+
+  let settled = false;
+  const handler = (args: Parameters<SequencerEvents['state-changed']>[0]) => {
+    if (args.newState === state) {
+      finish(resolve);
+    }
+  };
+  const timer = setTimeout(
+    () => finish(() => reject(new Error(`Timeout waiting for sequencer ${state} state`))),
+    timeout,
+  );
+  function finish(complete: () => void) {
+    if (settled) {
+      return;
+    }
+    settled = true;
+    clearTimeout(timer);
+    sequencer.off('state-changed', handler);
+    complete();
+  }
+
+  sequencer.on('state-changed', handler);
+  try {
+    await opts.after?.();
+    if (sequencer.status().state === state) {
+      finish(resolve);
+    }
+    await promise;
+  } catch (err) {
+    finish(() => {});
+    throw err;
+  }
 }
