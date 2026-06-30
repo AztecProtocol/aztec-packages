@@ -138,43 +138,43 @@ use crate::protocol::{
 #[derive(Eq)]
 pub struct PrivateContext {
     // docs:start:private-context
-    pub inputs: PrivateContextInputs,
-    pub side_effect_counter: u32,
+    inputs: PrivateContextInputs,
+    side_effect_counter: u32,
 
-    pub min_revertible_side_effect_counter: u32,
-    pub is_fee_payer: bool,
+    min_revertible_side_effect_counter: u32,
+    is_fee_payer: bool,
 
-    pub args_hash: Field,
-    pub return_hash: Field,
+    args_hash: Field,
+    return_hash: Field,
 
-    pub expiration_timestamp: u64,
+    pub(crate) expiration_timestamp: u64,
 
     pub(crate) note_hash_read_requests: BoundedVec<Scoped<Counted<Field>>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>,
     pub(crate) nullifier_read_requests: BoundedVec<Scoped<Counted<Field>>, MAX_NULLIFIER_READ_REQUESTS_PER_CALL>,
     key_validation_requests_and_separators: BoundedVec<KeyValidationRequestAndSeparator, MAX_KEY_VALIDATION_REQUESTS_PER_CALL>,
 
-    pub note_hashes: BoundedVec<Counted<NoteHash>, MAX_NOTE_HASHES_PER_CALL>,
-    pub nullifiers: BoundedVec<Counted<Nullifier>, MAX_NULLIFIERS_PER_CALL>,
+    pub(crate) note_hashes: BoundedVec<Counted<NoteHash>, MAX_NOTE_HASHES_PER_CALL>,
+    pub(crate) nullifiers: BoundedVec<Counted<Nullifier>, MAX_NULLIFIERS_PER_CALL>,
 
-    pub private_call_requests: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
-    pub public_call_requests: BoundedVec<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_CALL>,
-    pub public_teardown_call_request: PublicCallRequest,
-    pub l2_to_l1_msgs: BoundedVec<Counted<L2ToL1Message>, MAX_L2_TO_L1_MSGS_PER_CALL>,
+    pub(crate) private_call_requests: BoundedVec<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL>,
+    public_call_requests: BoundedVec<Counted<PublicCallRequest>, MAX_ENQUEUED_CALLS_PER_CALL>,
+    public_teardown_call_request: PublicCallRequest,
+    l2_to_l1_msgs: BoundedVec<Counted<L2ToL1Message>, MAX_L2_TO_L1_MSGS_PER_CALL>,
     // docs:end:private-context
 
     // Header of a block whose state is used during private execution (not the block the transaction is included in).
-    pub anchor_block_header: BlockHeader,
+    pub(crate) anchor_block_header: BlockHeader,
 
-    pub private_logs: BoundedVec<Counted<PrivateLogData>, MAX_PRIVATE_LOGS_PER_CALL>,
-    pub contract_class_logs_hashes: BoundedVec<Counted<LogHash>, MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
+    private_logs: BoundedVec<Counted<PrivateLogData>, MAX_PRIVATE_LOGS_PER_CALL>,
+    contract_class_logs_hashes: BoundedVec<Counted<LogHash>, MAX_CONTRACT_CLASS_LOGS_PER_CALL>,
 
     // Contains the last key validation request for each key type. This is used to cache the last request and avoid
     // fetching the same request multiple times. The index of the array corresponds to the key type (0 nullifier, 1
     // incoming, 2 outgoing, 3 tagging).
-    pub last_key_validation_requests: [Option<KeyValidationRequest>; NUM_KEY_TYPES],
+    last_key_validation_requests: [Option<KeyValidationRequest>; NUM_KEY_TYPES],
 
-    pub expected_non_revertible_side_effect_counter: u32,
-    pub expected_revertible_side_effect_counter: u32,
+    expected_non_revertible_side_effect_counter: u32,
+    expected_revertible_side_effect_counter: u32,
 }
 
 impl PrivateContext {
@@ -303,6 +303,19 @@ impl PrivateContext {
         self.inputs.call_context.function_selector
     }
 
+    /// Returns whether this call is being executed as part of a static call.
+    ///
+    /// Similar to Solidity's `STATICCALL`, a static call is read-only: neither this function nor any of its nested
+    /// calls may emit side-effects (new notes, nullifiers, logs, L2->L1 messages, etc.). A call is considered static
+    /// if it was invoked as a static call or if any of its ancestor calls were.
+    ///
+    /// # Returns
+    /// * `bool` - `true` if this call (or an ancestor call) is a static call.
+    ///
+    pub fn is_static_call(self) -> bool {
+        self.inputs.call_context.is_static_call
+    }
+
     /// Returns the hash of the arguments passed to the current function.
     ///
     /// Very low-level function: You shouldn't need to call this. The #[external("private")] macro calls this, and it
@@ -318,6 +331,19 @@ impl PrivateContext {
     ///
     pub fn get_args_hash(self) -> Field {
         self.args_hash
+    }
+
+    /// Returns the current value of the side-effect counter, i.e. the counter that will be assigned to the next
+    /// side-effect emitted by this function.
+    ///
+    /// Low-level function: Ordinarily, smart contract developers will not need to access this. See `next_counter` for
+    /// details on how side-effect counters are assigned and why they exist.
+    ///
+    /// # Returns
+    /// * `u32` - The current side-effect counter.
+    ///
+    pub fn get_side_effect_counter(self) -> u32 {
+        self.side_effect_counter
     }
 
     /// Pushes a new note_hash to the Aztec blockchain's global Note Hash Tree (a state tree).
