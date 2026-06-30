@@ -182,18 +182,6 @@ function block_capacity_bench_cmds {
   echo "$(hash):TIMEOUT=${timeout} BENCH_OUTPUT=bench-out/block_capacity.bench.json $root/yarn-project/end-to-end/scripts/run_test.sh simple block_capacity.test.ts"
 }
 
-function bench_10tps_cmds {
-  # Mix: 1 tps of high-value + 9 tps of low-value, total still 10 tps. The
-  # high-value lane is what we measure for the headline client-observed
-  # inclusion latency (low-value txs pay near-network-min and are allowed to
-  # fail fee checks, so they would skew the headline if measured).
-  local high_value_tps=1
-  local low_value_tps=9
-  local test_duration=${TEST_DURATION_SECONDS:-600} # 10 mins
-  local timeout=${BENCH_TIMEOUT_SECONDS:-7200} # account for initial committee formation
-  echo "$(hash):TIMEOUT=${timeout} BENCH_RUN_ID=${BENCH_RUN_ID:-} BENCH_OUTPUT=bench-out/n_tps.10tps.bench.json BENCH_SCENARIO=10tps LOW_VALUE_TPS=${low_value_tps} HIGH_VALUE_TPS=${high_value_tps} TEST_DURATION_SECONDS=${test_duration} $root/yarn-project/end-to-end/scripts/run_test.sh simple n_tps.test.ts"
-}
-
 function network_bench {
   rm -rf bench-out
   mkdir -p bench-out
@@ -236,50 +224,12 @@ function block_capacity_bench {
   block_capacity_bench_cmds | parallelize 1
 }
 
-function bench_10tps {
-  rm -rf bench-out
-  mkdir -p bench-out
-
-  local env_file="$1"
-  source_network_env $env_file
-
-  echo_header "spartan bench-10tps"
-  gcp_auth
-  export_admin_api_key
-  export K8S_ENRICHER=${K8S_ENRICHER:-1}
-  export BENCH_RUN_ID="${BENCH_RUN_ID:-$(date -u +%Y%m%d)-${COMMIT_HASH:0:10}}"
-  bench_10tps_cmds | parallelize 1
-
-  local metadata="/tmp/n_tps_timing_data.json"
-  local run_json="bench-out/bench-10tps-${BENCH_RUN_ID}.json"
-  if [[ -f "$metadata" ]]; then
-    local started=$(jq -r .startedAt < "$metadata")
-    local ended=$(jq -r .endedAt < "$metadata")
-    echo "Scraping bench-10tps run ${BENCH_RUN_ID} (started=${started} ended=${ended})"
-    NAMESPACE="$NAMESPACE" GCP_PROJECT_ID="${GCP_PROJECT_ID:-}" ./scripts/bench_10tps/bench_scrape.ts \
-      --run-id "$BENCH_RUN_ID" \
-      --started "$started" \
-      --ended "$ended" \
-      --target-tps 10 \
-      --workload sha256_hash_1024 \
-      --output "$run_json" \
-      --inclusion-records "$metadata" \
-      --wait-for-pending-zero \
-      --max-pending-wait-seconds "${BENCH_SCRAPE_MAX_PENDING_WAIT_SECONDS:-3600}" \
-      || echo "[bench_10tps] scraper failed (non-fatal)"
-    network_bench_upload "$run_json" || echo "[network_bench] upload failed (non-fatal)"
-  else
-    echo "[bench_10tps] no timing metadata at ${metadata}; skipping scraper"
-  fi
-}
-
-# One point of the inclusion sweep. Same scrape+upload path as
-# bench_10tps, and the same load model: a fixed 1 TPS of high-value txs (the
+# One point of the inclusion sweep: a fixed 1 TPS of high-value txs (the
 # measured inclusion lane) plus (TARGET_TPS - 1) TPS of low-value background
 # traffic to bring total load to the target. So inclusion latency is always
 # measured for a properly-paying user's tx while the network runs at TARGET_TPS.
 # Tagged with a shared BENCH_SWEEP_ID so the 1/5/10 points group as one sweep
-# (schema v4). Each point runs in its own namespace.
+# (schema v5). Each point runs in its own namespace.
 function bench_inclusion_point_cmds {
   local tps=${TARGET_TPS:-10}
   local high_value_tps=1
@@ -490,7 +440,7 @@ case "$cmd" in
     run_network_tests "$1" "$2"
     ;;
 
-  network_tests|network_tests_1|network_tests_2|network_bench|proving_bench|block_capacity_bench|bench_10tps|bench_inclusion_point)
+  network_tests|network_tests_1|network_tests_2|network_bench|proving_bench|block_capacity_bench|bench_inclusion_point)
     env_file="$1"
     $cmd "$env_file"
     ;;
