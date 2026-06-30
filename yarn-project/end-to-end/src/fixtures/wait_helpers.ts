@@ -35,7 +35,7 @@ export type WaitForBlockOpts = {
 export function waitForBlockNumber(node: AztecNode, target: number, opts: WaitForBlockOpts = {}): Promise<BlockNumber> {
   const tag = opts.tag ?? 'proposed';
   const compare = opts.compare ?? ((actual, target) => actual >= target);
-  return testSpan(`wait-${tag}`, () =>
+  return testSpan(`wait:${tag}`, () =>
     // Wrap the matched value: retryUntil treats any falsy return as "keep polling", so a legitimate
     // match of block 0 (e.g. a freshly-pruned tip) would otherwise loop until timeout.
     retryUntil(
