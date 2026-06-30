@@ -17,44 +17,9 @@
 #include "bigfield.hpp"
 
 #include "../field/field.hpp"
-#include "barretenberg/stdlib_circuit_builders/duplicate_provenance.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
 
 namespace bb::stdlib {
-
-namespace {
-
-// BOOMERANG_DUPLICATE_PROVENANCE: See
-// barretenberg/cpp/src/barretenberg/boomerang_value_detection/WITNESS_DUPLICATE_DETECTION.md.
-enum class BigfieldReductionOp : uint64_t {
-    DECOMPOSE_DOUBLE_WIDTH_LIMB = 1,
-    SELF_REDUCE = 2,
-    MULTIPLY_ADD_CARRY = 3,
-};
-
-enum class BigfieldSelfReduceSlot : uint64_t { QUOTIENT = 0, FIRST_REMAINDER_LIMB = 1 };
-enum class BigfieldCarrySlot : uint64_t { LOW = 0, HIGH = 1 };
-enum class BigfieldDoubleWidthLimbSlot : uint64_t { LOW = 0, HIGH = 1 };
-
-inline DuplicateProvenanceLocalId bigfield_reduction_local_id(BigfieldReductionOp op,
-                                                              std::initializer_list<uint64_t> identities = {})
-{
-    auto local_id = duplicate_provenance_local_id({ static_cast<uint64_t>(op) });
-    append_duplicate_provenance_identity(local_id, DuplicateProvenanceLocalId(identities));
-    return local_id;
-}
-
-inline DuplicateProvenanceLocalId bigfield_constant_identity(const bb::fr& value)
-{
-    DuplicateProvenanceLocalId identities;
-    const uint256_t value_uint256(value);
-    for (const uint64_t limb : value_uint256.data) {
-        append_duplicate_provenance_identity(identities, limb);
-    }
-    return identities;
-}
-
-} // namespace
 
 template <typename Builder, typename T>
 bigfield<Builder, T>::bigfield(Builder* parent_context)
@@ -2196,40 +2161,6 @@ template <typename Builder, typename T> void bigfield<Builder, T>::self_reduce()
         witness_t(context, fr(remainder_value.slice(NUM_LIMB_BITS * 2, NUM_LIMB_BITS * 3 + NUM_LAST_LIMB_BITS).lo)));
 
     unsafe_evaluate_multiply_add(*this, one(), {}, quotient, { remainder });
-
-    // The reduction constraint this == quotient * p + remainder, with quotient and remainder both range-bounded
-    // (quotient < 2^maximum_quotient_bits, remainder < 2^s), forces a unique (quotient, remainder) for a fixed input
-    // element. So two self_reduce calls on the same input limb witnesses produce constraint-forced-equal quotient and
-    // remainder limbs. Key the provenance group on the four input binary-basis limb real variable indices (the
-    // element is a witness here -- the constant case returned early above), distinguishing the quotient limb and each
-    // remainder limb by slot. limb_identity reads the raw witness index (bigfield is a friend of field_t) so it never
-    // normalizes a limb -- normalization can add gates, which a provenance tag must never do.
-    const auto limb_identity = [this](const field_t<Builder>& limb) {
-        return limb.is_constant() ? bigfield_constant_identity(limb.get_value())
-                                  : duplicate_provenance_local_id(
-                                        { static_cast<uint64_t>(context->real_variable_index[limb.witness_index]) });
-    };
-    const auto in0 = limb_identity(binary_basis_limbs[0].element);
-    const auto in1 = limb_identity(binary_basis_limbs[1].element);
-    const auto in2 = limb_identity(binary_basis_limbs[2].element);
-    const auto in3 = limb_identity(binary_basis_limbs[3].element);
-    const auto self_reduce_key = [&](uint64_t slot) {
-        auto local_id = bigfield_reduction_local_id(BigfieldReductionOp::SELF_REDUCE);
-        append_duplicate_provenance_identity(local_id, in0);
-        append_duplicate_provenance_identity(local_id, in1);
-        append_duplicate_provenance_identity(local_id, in2);
-        append_duplicate_provenance_identity(local_id, in3);
-        append_duplicate_provenance_identity(local_id, slot);
-        return Builder::make_duplicate_provenance(DuplicateProvenanceCategory::BIGFIELD_REDUCTION, std::move(local_id));
-    };
-    context->tag_duplicate_provenance(quotient_limb.witness_index,
-                                      self_reduce_key(static_cast<uint64_t>(BigfieldSelfReduceSlot::QUOTIENT)));
-    for (size_t i = 0; i < NUM_LIMBS; ++i) {
-        context->tag_duplicate_provenance(
-            remainder.binary_basis_limbs[i].element.witness_index,
-            self_reduce_key(static_cast<uint64_t>(BigfieldSelfReduceSlot::FIRST_REMAINDER_LIMB) + i));
-    }
-
     binary_basis_limbs[0] =
         remainder.binary_basis_limbs[0]; // Combination of const method and mutable variables is good practice?
     binary_basis_limbs[1] = remainder.binary_basis_limbs[1];
@@ -2446,53 +2377,6 @@ void bigfield<Builder, T>::unsafe_evaluate_multiply_add(const bigfield& input_le
 
     // N.B. this method DOES NOT evaluate the prime field component of the non-native field mul
     const auto [lo_idx, hi_idx] = ctx->evaluate_non_native_field_multiplication(witnesses);
-
-    // The carry witnesses lo_idx / hi_idx are the (range-constrained) carry decomposition of
-    // a * b + q * p' - r over the binary basis. For a fixed set of input witnesses (left, to_mul, quotient and the
-    // accumulated remainder limbs) the carries are uniquely determined by the non-native multiplication gate, so two
-    // evaluations with identical input witnesses produce constraint-forced-equal carries. Key the provenance group on
-    // the real variable indices of all those inputs; the lo and hi carry get distinct keys (one extra slot word) as
-    // they are not forced equal to each other. Inputs that were constants are converted to fresh fixed witnesses above
-    // and so map to per-call-distinct indices -- a conservative (non-grouping) outcome.
-    {
-        // limb_identity reads the raw witness index (bigfield is a friend of field_t) so it never normalizes -- a
-        // provenance tag must not add gates. The four remainder_limbs were already normalized above when their witness
-        // indices were captured into the multiplication witnesses, so reading .witness_index here is side-effect-free.
-        const auto limb_identity = [ctx](const field_t<Builder>& limb) {
-            return limb.is_constant() ? bigfield_constant_identity(limb.get_value())
-                                      : duplicate_provenance_local_id(
-                                            { static_cast<uint64_t>(ctx->real_variable_index[limb.witness_index]) });
-        };
-        const auto carry_key = [&](uint64_t slot) {
-            auto local_id = bigfield_reduction_local_id(BigfieldReductionOp::MULTIPLY_ADD_CARRY);
-            const std::array<DuplicateProvenanceLocalId, 16> identities = {
-                limb_identity(left.binary_basis_limbs[0].element),
-                limb_identity(left.binary_basis_limbs[1].element),
-                limb_identity(left.binary_basis_limbs[2].element),
-                limb_identity(left.binary_basis_limbs[3].element),
-                limb_identity(to_mul.binary_basis_limbs[0].element),
-                limb_identity(to_mul.binary_basis_limbs[1].element),
-                limb_identity(to_mul.binary_basis_limbs[2].element),
-                limb_identity(to_mul.binary_basis_limbs[3].element),
-                limb_identity(quotient.binary_basis_limbs[0].element),
-                limb_identity(quotient.binary_basis_limbs[1].element),
-                limb_identity(quotient.binary_basis_limbs[2].element),
-                limb_identity(quotient.binary_basis_limbs[3].element),
-                limb_identity(remainder_limbs[0]),
-                limb_identity(remainder_limbs[1]),
-                limb_identity(remainder_limbs[2]),
-                limb_identity(remainder_limbs[3]),
-            };
-            for (const auto& identity : identities) {
-                append_duplicate_provenance_identity(local_id, identity);
-            }
-            append_duplicate_provenance_identity(local_id, slot);
-            return Builder::make_duplicate_provenance(DuplicateProvenanceCategory::BIGFIELD_REDUCTION,
-                                                      std::move(local_id));
-        };
-        ctx->tag_duplicate_provenance(lo_idx, carry_key(static_cast<uint64_t>(BigfieldCarrySlot::LOW)));
-        ctx->tag_duplicate_provenance(hi_idx, carry_key(static_cast<uint64_t>(BigfieldCarrySlot::HIGH)));
-    }
 
     field_t<Builder>::evaluate_polynomial_identity(left.prime_basis_limb,
                                                    to_mul.prime_basis_limb,
@@ -2984,27 +2868,6 @@ std::array<uint32_t, 2> bigfield<Builder, T>::decompose_non_native_field_double_
 
     const uint32_t low_idx = ctx->add_variable(bb::fr(low));
     const uint32_t hi_idx = ctx->add_variable(bb::fr(hi));
-
-    // The decomposition original == low + hi * 2^L with range-constrained low (< 2^L) is unique for a fixed input
-    // limb of fixed bit-length, so two decompositions of the same input limb produce constraint-forced-equal low and
-    // hi limbs. Key the provenance group on the input limb's real variable index and the requested bit-length; the
-    // two output limbs get distinct keys (one extra identity word) since they are not forced equal to each other.
-    const uint64_t input_identity = static_cast<uint64_t>(ctx->real_variable_index[limb_idx]);
-    const uint64_t width_identity = static_cast<uint64_t>(num_limb_bits);
-    ctx->tag_duplicate_provenance(
-        low_idx,
-        Builder::make_duplicate_provenance(
-            DuplicateProvenanceCategory::BIGFIELD_REDUCTION,
-            bigfield_reduction_local_id(
-                BigfieldReductionOp::DECOMPOSE_DOUBLE_WIDTH_LIMB,
-                { input_identity, width_identity, static_cast<uint64_t>(BigfieldDoubleWidthLimbSlot::LOW) })));
-    ctx->tag_duplicate_provenance(
-        hi_idx,
-        Builder::make_duplicate_provenance(
-            DuplicateProvenanceCategory::BIGFIELD_REDUCTION,
-            bigfield_reduction_local_id(
-                BigfieldReductionOp::DECOMPOSE_DOUBLE_WIDTH_LIMB,
-                { input_identity, width_identity, static_cast<uint64_t>(BigfieldDoubleWidthLimbSlot::HIGH) })));
 
     BB_ASSERT_GT(num_limb_bits, NUM_LIMB_BITS);
     const size_t lo_bits = NUM_LIMB_BITS;

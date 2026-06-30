@@ -1,6 +1,7 @@
 #include "barretenberg/boomerang_value_detection/graph.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
+#include "barretenberg/dsl/acir_format/recursion_constraint_output.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/goblin/mock_circuits.hpp"
 #include "barretenberg/goblin_avm/goblin_avm_verifier.hpp"
@@ -82,12 +83,9 @@ TEST_F(BoomerangTwoLayerAvmRecursiveVerifierTests, graph_description_basic)
     avm2::TwoLayerAvmRecursiveVerifier goblin_avm_verifier(builder);
     auto output = goblin_avm_verifier.verify_proof(stdlib_proof, public_inputs);
 
-    IO inputs;
-    inputs.pairing_inputs = output.points_accumulator;
-    inputs.ipa_claim = output.ipa_claim;
-    inputs.set_public();
-
-    builder.ipa_proof = output.ipa_proof.get_value();
+    acir_format::HonkRecursionConstraintsOutput<Builder> recursion_output;
+    recursion_output.update_triple_ipa_opening(output.points_accumulator, std::move(output.triple_ipa_opening));
+    recursion_output.finalize(builder, /*is_hn_recursion_constraints=*/false, /*has_ipa_claim=*/true);
 
     // The pairing points are public outputs from the recursive verifier that will be verified externally via a pairing
     // check. While they are computed within the circuit (via batch_mul for P0 and negation for P1), their output

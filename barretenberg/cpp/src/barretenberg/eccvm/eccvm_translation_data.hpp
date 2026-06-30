@@ -36,6 +36,7 @@ template <typename Transcript> class TranslationData {
 
     // M(X) + Z_H(X) * R(X), where R(X) is a random polynomial of length = WITNESS_MASKING_TERM_LENGTH
     Polynomial masked_concatenated_polynomial;
+    Commitment masked_concatenated_commitment;
 
     // Interpolation domain {1, g, \ldots, g^{SUBGROUP_SIZE - 1}} required for Lagrange interpolation
     std::array<FF, SUBGROUP_SIZE> interpolation_domain;
@@ -76,8 +77,9 @@ template <typename Transcript> class TranslationData {
         compute_concatenated_polynomials(transcript_polynomials);
 
         // Commit to  M(X) + Z_H(X)*R(X), where R is a random polynomial of WITNESS_MASKING_TERM_LENGTH.
+        masked_concatenated_commitment = commitment_key.commit(masked_concatenated_polynomial);
         transcript->send_to_verifier("Translation:concatenated_masking_term_commitment",
-                                     commitment_key.commit(masked_concatenated_polynomial));
+                                     masked_concatenated_commitment);
     }
     /**
      * @brief Extract the first \f$ s = \text{TRACE\_OFFSET} \f$ coefficients from each of the \f$ T \f$ transcript

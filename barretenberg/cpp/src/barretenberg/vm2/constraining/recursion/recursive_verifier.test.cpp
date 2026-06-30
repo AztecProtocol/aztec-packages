@@ -1,6 +1,7 @@
 #include "barretenberg/vm2/constraining/recursion/recursive_verifier.hpp"
 #include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/dsl/acir_format/recursion_constraint_output.hpp"
 #include "barretenberg/flavor/ultra_flavor.hpp"
 #include "barretenberg/stdlib/special_public_inputs/special_public_inputs.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
@@ -110,14 +111,14 @@ TEST_F(AvmRecursiveTests, TwoLayerAvmRecursion)
         return result;
     }();
 
-    stdlib::recursion::honk::RollupIO inputs;
-    inputs.pairing_inputs = verifier_output.points_accumulator;
-    inputs.ipa_claim = verifier_output.ipa_claim;
-    inputs.set_public();
-    outer_circuit.ipa_proof = verifier_output.ipa_proof.get_value();
-
-    // Ensure that the pairing check is satisfied on the outputs of the recursive verifier
+    // Ensure that the pairing check is satisfied on the outputs of the recursive verifier.
     ASSERT_TRUE(verifier_output.points_accumulator.check()) << "Pairing points (aggregation state) are not valid.";
+
+    acir_format::HonkRecursionConstraintsOutput<OuterBuilder> recursion_output;
+    recursion_output.update_triple_ipa_opening(verifier_output.points_accumulator,
+                                               std::move(verifier_output.triple_ipa_opening));
+    recursion_output.finalize(outer_circuit, /*is_hn_recursion_constraints=*/false, /*has_ipa_claim=*/true);
+
     ASSERT_FALSE(outer_circuit.failed()) << "Outer circuit has failed.";
 
     vinfo("Recursive verifier: finalized num gates = ", outer_circuit.num_gates());

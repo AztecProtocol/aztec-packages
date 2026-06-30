@@ -37,9 +37,16 @@ namespace bb {
  */
 template <typename Curve> class ShplonkProver_ {
     using Fr = typename Curve::ScalarField;
+    using Commitment = typename Curve::AffineElement;
     using Polynomial = bb::Polynomial<Fr>;
 
   public:
+    struct PartiallyEvaluatedQuotient {
+        ProverOpeningClaim<Curve> opening_claim;
+        Commitment quotient_commitment;
+        Fr batching_challenge;
+    };
+
     /**
      * @brief Compute batched quotient polynomial Q(X) = ∑ⱼ νʲ ⋅ ( fⱼ(X) − vⱼ) / ( X − xⱼ )
      *
@@ -252,12 +259,13 @@ template <typename Curve> class ShplonkProver_ {
      * @return ProverOpeningClaim<Curve>
      */
     template <typename Transcript>
-    static ProverOpeningClaim<Curve> prove(const CommitmentKey<Curve>& commitment_key,
-                                           std::span<ProverOpeningClaim<Curve>> opening_claims,
-                                           const std::shared_ptr<Transcript>& transcript,
-                                           std::span<ProverOpeningClaim<Curve>> libra_opening_claims = {},
-                                           std::span<ProverOpeningClaim<Curve>> sumcheck_round_claims = {},
-                                           const size_t virtual_log_n = 0)
+    static PartiallyEvaluatedQuotient compute_partially_evaluated_quotient(
+        const CommitmentKey<Curve>& commitment_key,
+        std::span<ProverOpeningClaim<Curve>> opening_claims,
+        const std::shared_ptr<Transcript>& transcript,
+        std::span<ProverOpeningClaim<Curve>> libra_opening_claims = {},
+        std::span<ProverOpeningClaim<Curve>> sumcheck_round_claims = {},
+        const size_t virtual_log_n = 0)
     {
         BB_BENCH_NAME("ShplonkProver::prove");
         const Fr nu = transcript->template get_challenge<Fr>("Shplonk:nu");
@@ -275,14 +283,33 @@ template <typename Curve> class ShplonkProver_ {
         transcript->send_to_verifier("Shplonk:Q", batched_quotient_commitment);
         const Fr z = transcript->template get_challenge<Fr>("Shplonk:z");
 
-        return compute_partially_evaluated_batched_quotient(virtual_log_n,
-                                                            opening_claims,
-                                                            batched_quotient,
-                                                            nu,
-                                                            z,
-                                                            gemini_fold_pos_evaluations,
-                                                            libra_opening_claims,
-                                                            sumcheck_round_claims);
+        return { compute_partially_evaluated_batched_quotient(virtual_log_n,
+                                                              opening_claims,
+                                                              batched_quotient,
+                                                              nu,
+                                                              z,
+                                                              gemini_fold_pos_evaluations,
+                                                              libra_opening_claims,
+                                                              sumcheck_round_claims),
+                 batched_quotient_commitment,
+                 nu };
+    }
+
+    template <typename Transcript>
+    static ProverOpeningClaim<Curve> prove(const CommitmentKey<Curve>& commitment_key,
+                                           std::span<ProverOpeningClaim<Curve>> opening_claims,
+                                           const std::shared_ptr<Transcript>& transcript,
+                                           std::span<ProverOpeningClaim<Curve>> libra_opening_claims = {},
+                                           std::span<ProverOpeningClaim<Curve>> sumcheck_round_claims = {},
+                                           const size_t virtual_log_n = 0)
+    {
+        return compute_partially_evaluated_quotient(commitment_key,
+                                                    opening_claims,
+                                                    transcript,
+                                                    libra_opening_claims,
+                                                    sumcheck_round_claims,
+                                                    virtual_log_n)
+            .opening_claim;
     }
 };
 
@@ -352,8 +379,21 @@ template <typename Curve> class ShplonkVerifier_ {
     Fr evaluation = Fr(0);
 
   public:
+    ShplonkVerifier_(const std::vector<Commitment>& polynomial_commitments,
+                     const Commitment& quotient_commitment,
+                     const Fr& nu_challenge,
+                     const Fr& partial_evaluation_challenge)
+        : pows_of_nu({ Fr(1), nu_challenge })
+        , quotient(quotient_commitment)
+        , z_challenge(partial_evaluation_challenge)
+        , commitments({ quotient })
+        , scalars{ Fr{ 1 } }
+    {
+        initialize(polynomial_commitments);
+    }
+
     template <typename Transcript>
-    ShplonkVerifier_(std::vector<Commitment>& polynomial_commitments,
+    ShplonkVerifier_(const std::vector<Commitment>& polynomial_commitments,
                      std::shared_ptr<Transcript>& transcript,
                      const size_t num_claims)
         : pows_of_nu({ Fr(1), transcript->template get_challenge<Fr>("Shplonk:nu") })
@@ -362,12 +402,19 @@ template <typename Curve> class ShplonkVerifier_ {
         , commitments({ quotient })
         , scalars{ Fr{ 1 } }
     {
+        BB_ASSERT_EQ(num_claims, polynomial_commitments.size());
+        initialize(polynomial_commitments);
+    }
+
+  private:
+    void initialize(const std::vector<Commitment>& polynomial_commitments)
+    {
+        const size_t num_claims = polynomial_commitments.size();
         if (num_claims <= 1U) {
             throw_or_abort("Using Shplonk with just one claim. Should use batch reduction.");
         }
-        const size_t num_commitments = commitments.size();
-        commitments.reserve(num_commitments);
-        scalars.reserve(num_commitments);
+        commitments.reserve(num_claims + 1);
+        scalars.reserve(num_claims + 1);
         pows_of_nu.reserve(num_claims);
 
         commitments.insert(commitments.end(), polynomial_commitments.begin(), polynomial_commitments.end());
@@ -383,6 +430,35 @@ template <typename Curve> class ShplonkVerifier_ {
         }
     }
 
+    void accumulate_claims(std::span<const OpeningClaim<Curve>> claims)
+    {
+        // Compute { 1 / (z - x_i) }
+        std::vector<Fr> inverse_vanishing_evals;
+        inverse_vanishing_evals.reserve(claims.size());
+        if constexpr (Curve::is_stdlib_type) {
+            for (const auto& claim : claims) {
+                inverse_vanishing_evals.emplace_back((z_challenge - claim.opening_pair.challenge).invert());
+            }
+        } else {
+            for (const auto& claim : claims) {
+                inverse_vanishing_evals.emplace_back(z_challenge - claim.opening_pair.challenge);
+            }
+            Fr::batch_invert(inverse_vanishing_evals);
+        }
+
+        // Update the Shplonk verifier state with each claim
+        // For each claim: s_i -= ν^i / (z - x_i) and θ += ν^i * v_i / (z - x_i)
+        for (size_t idx = 0; idx < claims.size(); idx++) {
+            // Compute ν^i / (z - x_i)
+            auto scalar_factor = pows_of_nu[idx] * inverse_vanishing_evals[idx];
+            // s_i -= ν^i / (z - x_i)
+            scalars[idx + 1] -= scalar_factor;
+            // θ += ν^i * v_i / (z - x_i)
+            identity_scalar_coefficient += scalar_factor * claims[idx].opening_pair.evaluation;
+        }
+    }
+
+  public:
     /**
      * @brief Finalize the Shplonk verification and return the KZG opening claim
      *
@@ -443,33 +519,26 @@ template <typename Curve> class ShplonkVerifier_ {
         }
         ShplonkVerifier_<Curve> verifier(polynomial_commiments, transcript, num_claims);
 
-        // Compute { 1 / (z - x_i) }
-        std::vector<Fr> inverse_vanishing_evals;
-        inverse_vanishing_evals.reserve(num_claims);
-        if constexpr (Curve::is_stdlib_type) {
-            for (const auto& claim : claims) {
-                inverse_vanishing_evals.emplace_back((verifier.z_challenge - claim.opening_pair.challenge).invert());
-            }
-        } else {
-            for (const auto& claim : claims) {
-                inverse_vanishing_evals.emplace_back(verifier.z_challenge - claim.opening_pair.challenge);
-            }
-            Fr::batch_invert(inverse_vanishing_evals);
-        }
-
-        // Update the Shplonk verifier state with each claim
-        // For each claim: s_i -= ν^i / (z - x_i) and θ += ν^i * v_i / (z - x_i)
-        for (size_t idx = 0; idx < claims.size(); idx++) {
-            // Compute ν^i / (z - x_i)
-            auto scalar_factor = verifier.pows_of_nu[idx] * inverse_vanishing_evals[idx];
-            // s_i -= ν^i / (z - x_i)
-            verifier.scalars[idx + 1] -= scalar_factor;
-            // θ += ν^i * v_i / (z - x_i)
-            verifier.identity_scalar_coefficient += scalar_factor * claims[idx].opening_pair.evaluation;
-        }
-
+        verifier.accumulate_claims(claims);
         return verifier;
     };
+
+    static OpeningClaim<Curve> compute_partially_evaluated_quotient_claim(const Commitment& g1_identity,
+                                                                          std::span<const OpeningClaim<Curve>> claims,
+                                                                          const Commitment& quotient_commitment,
+                                                                          const Fr& nu_challenge,
+                                                                          const Fr& partial_evaluation_challenge)
+    {
+        std::vector<Commitment> polynomial_commiments;
+        polynomial_commiments.reserve(claims.size());
+        for (const auto& claim : claims) {
+            polynomial_commiments.emplace_back(claim.commitment);
+        }
+        ShplonkVerifier_<Curve> verifier(
+            polynomial_commiments, quotient_commitment, nu_challenge, partial_evaluation_challenge);
+        verifier.accumulate_claims(claims);
+        return verifier.finalize(g1_identity);
+    }
 
     /**
      * @brief Recomputes the new claim commitment [G] given the proof and

@@ -14,18 +14,19 @@
 namespace bb {
 
 /**
- * @brief Run all Chonk verification except IPA, returning the IPA data for deferred verification.
+ * @brief Run Chonk verification up to the deferred TripleIPA verification, returning the TripleIPA data.
  *
  * @details Verification flow on a shared transcript:
  *   1. MegaZK Oink → extract HidingKernelIO (t_j, T_prev, calldata commitment)
  *   2. Databus consistency check
  *   3. Merge verification (using t_j, T_prev)
- *   4. ECCVM verification → get v, x, accumulated_result, IPA claim
+ *   4. ECCVM verification -> get v, x, accumulated_result, TripleIPA claim
  *   5. Translator Oink + Joint sumcheck + Joint PCS → pairing check
  */
-template <> ChonkVerifier<false>::IPAReductionResult ChonkVerifier<false>::reduce_to_ipa_claim(const Proof& proof)
+template <>
+ChonkVerifier<false>::TripleIpaReductionResult ChonkVerifier<false>::reduce_to_triple_ipa_opening(const Proof& proof)
 {
-    BB_BENCH_NAME("ChonkVerifier::reduce_to_ipa_claim");
+    BB_BENCH_NAME("ChonkVerifier::reduce_to_triple_ipa_opening");
 
     // Step 1: Verify MegaZK Oink on the shared transcript
     BatchedHonkTranslatorVerifier batched_verifier(vk_and_hash, transcript);
@@ -38,7 +39,7 @@ template <> ChonkVerifier<false>::IPAReductionResult ChonkVerifier<false>::reduc
     // Check accumulated pairing points from the IVC chain (inner recursive verifications)
     if (!kernel_io.pairing_inputs.check()) {
         info("ChonkVerifier: verification failed at PI pairing points check");
-        return { {}, {}, false };
+        return { false };
     }
 
     // Step 2: Databus consistency check
@@ -48,7 +49,7 @@ template <> ChonkVerifier<false>::IPAReductionResult ChonkVerifier<false>::reduc
     vinfo("ChonkVerifier: databus consistency verified: ", databus_consistency_verified);
     if (!databus_consistency_verified) {
         info("ChonkVerifier: verification failed at databus consistency check");
-        return { {}, {}, false };
+        return { false };
     }
 
     // Step 3: Merge verification
@@ -62,21 +63,21 @@ template <> ChonkVerifier<false>::IPAReductionResult ChonkVerifier<false>::reduc
 
     if (!merge_result.reduction_succeeded) {
         info("ChonkVerifier: verification failed at Merge reduction");
-        return { {}, {}, false };
+        return { false };
     }
     if (!merge_result.pairing_points.check()) {
         info("ChonkVerifier: verification failed at Merge pairing check");
-        return { {}, {}, false };
+        return { false };
     }
 
-    // Step 4: ECCVM verification
+    // Step 4: ECCVM verification (reconstruct TripleIPA claim; proof is carried separately)
     ECCVMVerifier_<ECCVMFlavor> eccvm_verifier{ transcript, proof.eccvm_proof };
-    auto eccvm_result = eccvm_verifier.reduce_to_ipa_opening();
-    vinfo("ChonkVerifier: ECCVM reduced to IPA opening: ", eccvm_result.reduction_succeeded ? "true" : "false");
+    auto eccvm_result = eccvm_verifier.reduce_to_triple_ipa_claim();
+    vinfo("ChonkVerifier: ECCVM reduced to TripleIPA claim: ", eccvm_result.reduction_succeeded ? "true" : "false");
 
     if (!eccvm_result.reduction_succeeded) {
         info("ChonkVerifier: verification failed at ECCVM step");
-        return { {}, {}, false };
+        return { false };
     }
     auto translator_input = eccvm_verifier.get_translator_input_data();
 
@@ -90,14 +91,15 @@ template <> ChonkVerifier<false>::IPAReductionResult ChonkVerifier<false>::reduc
 
     if (!batched_result.reduction_succeeded) {
         info("ChonkVerifier: verification failed at batched translator+joint reduction");
-        return { {}, {}, false };
+        return { false };
     }
     if (!batched_result.pairing_points.check()) {
         info("ChonkVerifier: verification failed at batched translator+joint pairing check");
-        return { {}, {}, false };
+        return { false };
     }
 
-    return { std::move(eccvm_result.ipa_claim), proof.ipa_proof, true };
+    return { .all_checks_passed = true,
+             .triple_ipa_opening = { .claim = std::move(eccvm_result.triple_ipa_claim), .proof = proof.ipa_proof } };
 }
 
 /**
@@ -106,22 +108,11 @@ template <> ChonkVerifier<false>::IPAReductionResult ChonkVerifier<false>::reduc
 template <> ChonkVerifier<false>::Output ChonkVerifier<false>::verify(const Proof& proof)
 {
     BB_BENCH_NAME("ChonkVerifier::verify");
-    auto result = reduce_to_ipa_claim(proof);
+    auto result = reduce_to_triple_ipa_opening(proof);
     if (!result.all_checks_passed) {
         return false;
     }
-
-    // Step 6: Verify IPA opening
-    auto ipa_transcript = std::make_shared<Goblin::Transcript>(result.ipa_proof);
-    auto ipa_vk = VerifierCommitmentKey<curve::Grumpkin>{ ECCVMFlavor::ECCVM_FIXED_SIZE };
-    bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_vk, result.ipa_claim, ipa_transcript);
-    vinfo("ChonkVerifier: Goblin IPA verified: ", ipa_verified);
-    if (!ipa_verified) {
-        info("ChonkVerifier: Chonk verification failed at IPA check");
-        return false;
-    }
-
-    return true;
+    return ECCVMVerifier::verify_accumulator(result.triple_ipa_opening.reduce_to_accumulator());
 }
 
 /**
@@ -131,11 +122,11 @@ template <> ChonkVerifier<false>::Output ChonkVerifier<false>::verify(const Proo
  *   1. MegaZK Oink → extract HidingKernelIO (pairing points, calldata, ecc_op_tables)
  *   2. Databus consistency check (in-circuit)
  *   3. Merge verification → merge pairing points
- *   4. ECCVM verification → IPA claim + translator input data
+ *   4. ECCVM verification -> TripleIPA claim + translator input data
  *   5. Translator Oink + Joint sumcheck + Joint PCS → batched pairing points
  *   6. Aggregate all pairing points (PI, Merge, Batched PCS)
  *
- * Returns ReductionResult with aggregated pairing points and IPA claim for deferred verification.
+ * Returns ReductionResult with aggregated pairing points and TripleIPA opening for deferred verification.
  */
 template <> ChonkVerifier<true>::Output ChonkVerifier<true>::verify(const Proof& proof)
 {
@@ -166,8 +157,8 @@ template <> ChonkVerifier<true>::Output ChonkVerifier<true>::verify(const Proof&
 
     // Step 4: ECCVM verification
     typename GoblinVerifier::ECCVMVerifier eccvm_verifier{ transcript, proof.eccvm_proof };
-    auto eccvm_result = eccvm_verifier.reduce_to_ipa_opening();
-    vinfo("ChonkRecursiveVerifier: ECCVM reduced to IPA opening: ",
+    auto eccvm_result = eccvm_verifier.reduce_to_triple_ipa_claim();
+    vinfo("ChonkRecursiveVerifier: ECCVM reduced to TripleIPA claim: ",
           eccvm_result.reduction_succeeded ? "true" : "false");
     auto translator_input = eccvm_verifier.get_translator_input_data();
 
@@ -199,19 +190,22 @@ template <> ChonkVerifier<true>::Output ChonkVerifier<true>::verify(const Proof&
     bool all_checks_passed =
         merge_result.reduction_succeeded && eccvm_result.reduction_succeeded && batched_result.reduction_succeeded;
 
-    return ReductionResult{ .pairing_points = std::move(aggregated_pairing_points),
-                            .ipa_claim = std::move(eccvm_result.ipa_claim),
-                            .ipa_proof = proof.ipa_proof,
-                            .all_checks_passed = all_checks_passed };
+    return ReductionResult{
+        .pairing_points = std::move(aggregated_pairing_points),
+        .triple_ipa_opening = { .claim = std::move(eccvm_result.triple_ipa_claim), .proof = proof.ipa_proof },
+        .all_checks_passed = all_checks_passed,
+    };
 }
 
 /**
- * @brief Stub for recursive mode (not meaningful — reduce_to_ipa_claim is only used in native batch verification).
+ * @brief Stub for recursive mode (not meaningful — reduce_to_triple_ipa_opening is only used in native batch
+ * verification).
  */
 template <>
-ChonkVerifier<true>::IPAReductionResult ChonkVerifier<true>::reduce_to_ipa_claim([[maybe_unused]] const Proof& proof)
+ChonkVerifier<true>::TripleIpaReductionResult ChonkVerifier<true>::reduce_to_triple_ipa_opening(
+    [[maybe_unused]] const Proof& proof)
 {
-    throw_or_abort("reduce_to_ipa_claim is only available for native (non-recursive) ChonkVerifier");
+    throw_or_abort("reduce_to_triple_ipa_opening is only available for native (non-recursive) ChonkVerifier");
 }
 
 // Template instantiations

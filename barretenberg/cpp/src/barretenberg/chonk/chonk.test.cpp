@@ -148,43 +148,44 @@ class ChonkTests : public ::testing::Test {
         BB_DISABLE_ASSERTS();
 
         TestSettings settings{ .log2_num_gates = SMALL_LOG_2_NUM_GATES };
-        auto [proof, vk] = run_ivc(/*num_app_circuits=*/4, settings, [field_to_tamper](Chonk& ivc, size_t idx) {
-            if (idx == 3) {
-                auto& kernel_entry = ivc.verification_queue[0];
-                ASSERT_TRUE(kernel_entry.is_kernel()) << "Expected first queue entry to be a kernel";
+        auto [proof, vk] =
+            run_ivc(/*num_app_circuits=*/MAX_APPS_PER_KERNEL + 1, settings, [field_to_tamper](Chonk& ivc, size_t idx) {
+                if (idx == MAX_APPS_PER_KERNEL) {
+                    auto& kernel_entry = ivc.verification_queue[0];
+                    ASSERT_TRUE(kernel_entry.is_kernel()) << "Expected first queue entry to be a kernel";
 
-                using KernelIOSerde = bb::stdlib::recursion::honk::KernelIOSerde;
-                size_t num_public_inputs = kernel_entry.num_public_inputs();
-                KernelIOSerde kernel_io = KernelIOSerde::from_proof(kernel_entry.proof, num_public_inputs);
+                    using KernelIOSerde = bb::stdlib::recursion::honk::KernelIOSerde;
+                    size_t num_public_inputs = kernel_entry.num_public_inputs();
+                    KernelIOSerde kernel_io = KernelIOSerde::from_proof(kernel_entry.proof, num_public_inputs);
 
-                // Tamper with the specified field
-                switch (field_to_tamper) {
-                case KernelIOField::PAIRING_INPUTS: {
-                    // Set P0 to [x]₁ (the first SRS point after [1]) and P1 to [1]₁
-                    kernel_io.pairing_inputs.P0() =
-                        srs::get_crs_factory<curve::BN254>()->get_crs(2)->get_monomial_points()[1];
-                    kernel_io.pairing_inputs.P1() = -Commitment::one();
+                    // Tamper with the specified field
+                    switch (field_to_tamper) {
+                    case KernelIOField::PAIRING_INPUTS: {
+                        // Set P0 to [x]₁ (the first SRS point after [1]) and P1 to [1]₁
+                        kernel_io.pairing_inputs.P0() =
+                            srs::get_crs_factory<curve::BN254>()->get_crs(2)->get_monomial_points()[1];
+                        kernel_io.pairing_inputs.P1() = -Commitment::one();
 
-                    EXPECT_TRUE(kernel_io.pairing_inputs.check());
-                    break;
+                        EXPECT_TRUE(kernel_io.pairing_inputs.check());
+                        break;
+                    }
+                    case KernelIOField::ACCUMULATOR_HASH:
+                        kernel_io.output_hn_accum_hash += FF(1);
+                        break;
+                    case KernelIOField::KERNEL_RETURN_DATA:
+                        kernel_io.kernel_return_data = kernel_io.kernel_return_data + Commitment::one();
+                        break;
+                    case KernelIOField::APP_RETURN_DATA:
+                        kernel_io.app_return_data[0] = kernel_io.app_return_data[0] + Commitment::one();
+                        break;
+                    case KernelIOField::ECC_OP_HASH:
+                        kernel_io.ecc_op_hash += FF(1);
+                        break;
+                    }
+
+                    kernel_io.to_proof(kernel_entry.proof, num_public_inputs);
                 }
-                case KernelIOField::ACCUMULATOR_HASH:
-                    kernel_io.output_hn_accum_hash += FF(1);
-                    break;
-                case KernelIOField::KERNEL_RETURN_DATA:
-                    kernel_io.kernel_return_data = kernel_io.kernel_return_data + Commitment::one();
-                    break;
-                case KernelIOField::APP_RETURN_DATA:
-                    kernel_io.app_return_data[0] = kernel_io.app_return_data[0] + Commitment::one();
-                    break;
-                case KernelIOField::ECC_OP_HASH:
-                    kernel_io.ecc_op_hash += FF(1);
-                    break;
-                }
-
-                kernel_io.to_proof(kernel_entry.proof, num_public_inputs);
-            }
-        });
+            });
         EXPECT_FALSE(verify_chonk(proof, vk));
     }
 

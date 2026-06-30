@@ -110,9 +110,16 @@ template <typename FF> struct GateSeparatorPolynomial {
     }
 
     /**
+     * @brief The pow_β per-variable factor \f$ (1 - X) + X\cdot \beta \f$ at \f$ X = \mathrm{challenge} \f$.
+     * @details The building block of every pow_β / eq / shifted-eq fold; shared with `ShiftedEqPolynomial` so the
+     * factor has a single definition.
+     */
+    static FF univariate_factor(const FF& challenge, const FF& beta) { return FF(1) + (challenge * (beta - FF(1))); }
+
+    /**
      * @brief Evaluate  \f$ ((1−X_{i}) + X_{i}\cdot \beta_{i})\f$ at the challenge point \f$ X_{i}=u_{i} \f$.
      */
-    FF univariate_eval(FF challenge) const { return (FF(1) + (challenge * (betas[current_element_idx] - FF(1)))); };
+    FF univariate_eval(FF challenge) const { return univariate_factor(challenge, betas[current_element_idx]); };
 
     /**
      * @brief Partially evaluate the \f$pow_{\beta} \f$-polynomial at the new challenge and update \f$ c_i \f$

@@ -7,6 +7,7 @@
 #pragma once
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/thread.hpp"
+#include "barretenberg/polynomials/fold_stride2.hpp"
 #include "gemini.hpp"
 
 /**
@@ -135,11 +136,10 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
         actual_size = fold_size;
     }
 
-    // A_l = Aₗ(X) is the polynomial being folded
-    // in the first iteration, we take the batched polynomial
-    // in the next iteration, it is the previously folded one
+    // A_l = Aₗ(X) is the polynomial being folded: the batched polynomial A_0 in the first iteration,
+    // the previous fold output thereafter.
     actual_size = A_0.end_index();
-    auto A_l = A_0.data();
+    const Polynomial* A_l = &A_0;
     for (size_t l = 0; l < log_n - 1; ++l) {
         const size_t fold_size = (actual_size + 1) / 2;
         const size_t num_pairs = actual_size / 2; // number of full even/odd pairs
@@ -147,24 +147,30 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
         // Opening point is the same for all; use zero for rounds beyond the challenge size
         const Fr u_l = l < virtual_log_n ? multilinear_challenge[l] : Fr(0);
 
-        // A_l_fold = Aₗ₊₁(X) = (1-uₗ)⋅even(Aₗ)(X) + uₗ⋅odd(Aₗ)(X)
-        auto A_l_fold = fold_polynomials[l].data();
-
+        // A_l_fold = Aₗ₊₁(X) = (1-uₗ)⋅even(Aₗ)(X) + uₗ⋅odd(Aₗ)(X), i.e. the stride-2 fold
+        // A_l_fold[j] = A_l[2j] + u_l * (A_l[2j+1] - A_l[2j]). Each thread folds a disjoint output
+        // slice; `fold_stride2` runs the WASM SIMD bulk + scalar tail (see its definition). The output
+        // buffer is freshly allocated, so there is no aliasing with the source.
+        Polynomial& A_l_fold = fold_polynomials[l];
+        const Polynomial& source = *A_l;
         parallel_for_heuristic(
             num_pairs,
-            [&](size_t j) {
-                // fold(Aₗ)[j] = (1-uₗ)⋅even(Aₗ)[j] + uₗ⋅odd(Aₗ)[j]
-                //            = (1-uₗ)⋅Aₗ[2j]      + uₗ⋅Aₗ[2j+1]
-                //            = Aₗ₊₁[j]
-                A_l_fold[j] = A_l[j << 1] + u_l * (A_l[(j << 1) + 1] - A_l[j << 1]);
+            [&](const ThreadChunk& chunk) {
+                auto chunk_range = chunk.range(num_pairs);
+                if (chunk_range.empty()) {
+                    return;
+                }
+                const size_t lo = *chunk_range.begin();
+                const size_t hi = lo + chunk_range.size();
+                fold_stride2(source, A_l_fold, lo, hi, u_l);
             },
             fold_iteration_cost);
         // If odd number of coefficients, the last one has no partner (implicitly 0)
         if (actual_size & 1) {
-            A_l_fold[num_pairs] = A_l[actual_size - 1] * (Fr(1) - u_l);
+            A_l_fold.at(num_pairs) = source[actual_size - 1] * (Fr(1) - u_l);
         }
         // set Aₗ₊₁ = Aₗ for the next iteration
-        A_l = A_l_fold;
+        A_l = &A_l_fold;
         actual_size = fold_size;
     }
 

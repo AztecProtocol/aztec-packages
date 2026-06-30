@@ -549,6 +549,96 @@ template <typename G1> class TestAffineElement : public testing::Test {
         }
     }
 
+    // === coverage for batch_two_round_fold (fused IPA SRS fold) ===
+
+    // Build a random 127-bit scalar, as produced by the IPA transcript for round challenges.
+    static Fr random_short_scalar()
+    {
+        const Fr full = Fr::random_element();
+        const Fr conv = full.from_montgomery_form();
+        return Fr(uint256_t{ conv.data[0], conv.data[1] & 0x7FFFFFFFFFFFFFFFULL, 0, 0 });
+    }
+
+    // Check the fused two-round fold against per-point projective arithmetic:
+    // out[i] = (u1·u2)·P[i] + u1·P[i+t] + u2·P[i+2t] + P[i+3t].
+    static void check_two_round_fold_against_naive(size_t t, const Fr& u1, const Fr& u2)
+    {
+        std::vector<affine_element> points;
+        points.reserve(4 * t);
+        for (size_t i = 0; i < 4 * t; ++i) {
+            points.push_back(affine_element(element::random_element()));
+        }
+        const Fr u12 = u1 * u2;
+        std::vector<affine_element> expected;
+        expected.reserve(t);
+        for (size_t i = 0; i < t; ++i) {
+            element acc = element(points[i]) * u12;
+            acc += element(points[i + t]) * u1;
+            acc += element(points[i + 2 * t]) * u2;
+            acc += points[i + 3 * t];
+            expected.push_back(affine_element(acc));
+        }
+        const std::vector<affine_element> result = element::batch_two_round_fold(points, u1, u2);
+        ASSERT_EQ(result.size(), expected.size());
+        for (size_t i = 0; i < t; ++i) {
+            EXPECT_EQ(result[i], expected[i]) << "index " << i;
+        }
+    }
+
+    static void test_two_round_fold_random_challenges()
+    {
+        check_two_round_fold_against_naive(64, random_short_scalar(), random_short_scalar());
+        check_two_round_fold_against_naive(17, random_short_scalar(), random_short_scalar());
+        for (size_t t : { size_t{ 1 }, size_t{ 2 }, size_t{ 3 } }) {
+            check_two_round_fold_against_naive(t, random_short_scalar(), random_short_scalar());
+        }
+    }
+
+    // Small challenges produce low-magnitude Booth digit streams in which the running accumulator
+    // frequently equals ±(the next digit·base) — exactly the doubling/addition edge (shared
+    // x-coordinate, or a result at infinity) where the unsafe batch-affine formulas are invalid and
+    // the schedule must fall back to the safe (Jacobian) ops. The values below are chosen to land in
+    // that regime; the naive cross-check then guarantees the fallback path is itself correct.
+    static void test_two_round_fold_small_challenges()
+    {
+        for (uint64_t s1 : { 1ULL, 2ULL, 3ULL, 8ULL, 15ULL, 16ULL }) {
+            for (uint64_t s2 : { 1ULL, 2ULL, 4ULL, 7ULL, 16ULL }) {
+                check_two_round_fold_against_naive(4, Fr(s1), Fr(s2));
+            }
+        }
+    }
+
+    // The fused fold must agree with two sequential production folds:
+    // round 1: H = u1·G_lo + G_hi; round 2: u2·H_lo + H_hi.
+    static void test_two_round_fold_matches_sequential_folds()
+    {
+        constexpr size_t t = 32;
+        std::vector<affine_element> points;
+        points.reserve(4 * t);
+        for (size_t i = 0; i < 4 * t; ++i) {
+            points.push_back(affine_element(element::random_element()));
+        }
+        const Fr u1 = random_short_scalar();
+        const Fr u2 = random_short_scalar();
+
+        std::vector<affine_element> round1 =
+            element::batch_mul_with_endomorphism(std::span<const affine_element>(points.data(), 2 * t), u1);
+        element::batch_affine_add(std::span<affine_element>(round1.data(), 2 * t),
+                                  std::span<affine_element>(points.data() + 2 * t, 2 * t),
+                                  std::span<affine_element>(round1.data(), 2 * t));
+        std::vector<affine_element> round2 =
+            element::batch_mul_with_endomorphism(std::span<const affine_element>(round1.data(), t), u2);
+        element::batch_affine_add(std::span<affine_element>(round2.data(), t),
+                                  std::span<affine_element>(round1.data() + t, t),
+                                  std::span<affine_element>(round2.data(), t));
+
+        const std::vector<affine_element> fused = element::batch_two_round_fold(points, u1, u2);
+        ASSERT_EQ(fused.size(), round2.size());
+        for (size_t i = 0; i < t; ++i) {
+            EXPECT_EQ(fused[i], round2[i]) << "index " << i;
+        }
+    }
+
     static void test_frc_codec_round_trip()
     {
         using FrField = FrCodec::DataType;
@@ -799,6 +889,34 @@ TYPED_TEST(TestAffineElement, BatchMulNumPointsNotMultipleOfThreads)
         GTEST_SKIP();
     } else {
         TestFixture::test_batch_mul_num_points_not_multiple_of_threads();
+    }
+}
+
+// Fused two-round IPA SRS fold: out[i] = (u1·u2)·P[i] + u1·P[i+t] + u2·P[i+2t] + P[i+3t].
+TYPED_TEST(TestAffineElement, TwoRoundFoldRandomChallenges)
+{
+    if constexpr (!TypeParam::USE_ENDOMORPHISM) {
+        GTEST_SKIP();
+    } else {
+        TestFixture::test_two_round_fold_random_challenges();
+    }
+}
+
+TYPED_TEST(TestAffineElement, TwoRoundFoldSmallChallenges)
+{
+    if constexpr (!TypeParam::USE_ENDOMORPHISM) {
+        GTEST_SKIP();
+    } else {
+        TestFixture::test_two_round_fold_small_challenges();
+    }
+}
+
+TYPED_TEST(TestAffineElement, TwoRoundFoldMatchesSequentialFolds)
+{
+    if constexpr (!TypeParam::USE_ENDOMORPHISM) {
+        GTEST_SKIP();
+    } else {
+        TestFixture::test_two_round_fold_matches_sequential_folds();
     }
 }
 

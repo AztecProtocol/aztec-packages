@@ -122,7 +122,7 @@ template <typename Curve> struct PairingPoints {
             idx++;
         }
 
-        std::vector<Fr> challenges = transcript.template get_challenges<Fr>(labels);
+        std::vector<Fr> challenges = transcript.template get_short_challenges<Fr>(labels);
 
         // Aggregate: P_agg = P₀ + r₁·P₁ + r₂·P₂ + ... + rₙ₋₁·Pₙ₋₁
         Group P0;
@@ -187,8 +187,9 @@ template <typename Curve> struct PairingPoints {
         transcript.add_to_hash_buffer("Accumulator_P1", P1());
         transcript.add_to_hash_buffer("Aggregated_P0", other.P0());
         transcript.add_to_hash_buffer("Aggregated_P1", other.P1());
+        // Short challenge: scales `other`'s points in a (Goblin / 128-bit) batch_mul below.
         auto recursion_separator =
-            transcript.template get_challenge<typename Curve::ScalarField>("recursion_separator");
+            transcript.template get_short_challenge<typename Curve::ScalarField>("recursion_separator");
         is_default_ = false; // After aggregation, points are no longer default
         // If Mega Builder is in use, the EC operations are deferred via Goblin.
         // batch_mul with constant scalar 1 is optimal here (Goblin uses add instead of mul).

@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import { Mega } from "./flavors/mega.js";
 import { MegaApp } from "./flavors/mega_app.js";
 import { MegaKernel } from "./flavors/mega_kernel.js";
+import { MegaAvm } from "./flavors/mega_avm.js";
 import { MegaZK } from "./flavors/mega_zk.js";
 import { Ultra } from "./flavors/ultra.js";
 import { UltraZK } from "./flavors/ultra_zk.js";
@@ -274,10 +275,10 @@ function resolveLayout(flavor: Flavor): ResolvedLayout {
         numBusColumns,
         builderBusIndices: (() => {
             // Selector → builder bus_idx (kernel_calldata=0, first_app=1, second_app=2,
-            // third_app=3, return_data=4). Order of buses in this flavor comes from the
-            // `databus_selectors` subset.
+            // third_app=3, fourth_app=4, fifth_app=5, return_data=6). Order of buses in this
+            // flavor comes from the `databus_selectors` subset.
             const sel_to_idx = new Map<string, number>([
-                ["q_l", 0], ["q_r", 1], ["q_o", 2], ["q_4", 3], ["q_m", 4],
+                ["q_l", 0], ["q_r", 1], ["q_o", 2], ["q_4", 3], ["q_5", 4], ["q_c", 5], ["q_m", 6],
             ]);
             const sels = subsets.get("databus_selectors") ?? [];
             return sels.map((sel) => {
@@ -760,7 +761,7 @@ function generate(flavor: Flavor, repoRoot: string): { path: string; layout: Res
 function main(): void {
     const repoRoot = path.resolve(__dirname, "..", "..", "..", "..", "..");
 
-    for (const flavorValue of [Mega, MegaApp, MegaKernel, MegaZK, Ultra, UltraZK]) {
+    for (const flavorValue of [Mega, MegaApp, MegaAvm, MegaKernel, MegaZK, Ultra, UltraZK]) {
         const { path: outFile, layout } = generate(flavorValue, repoRoot);
         process.stdout.write(
             `flavor-codegen: emitted ${path.relative(repoRoot, outFile)} ` +

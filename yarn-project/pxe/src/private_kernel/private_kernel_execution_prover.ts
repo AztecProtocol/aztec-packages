@@ -21,9 +21,13 @@ import {
   type PrivateKernelExecutionProofOutput,
   PrivateKernelInit2CircuitPrivateInputs,
   PrivateKernelInit3CircuitPrivateInputs,
+  PrivateKernelInit4CircuitPrivateInputs,
+  PrivateKernelInit5CircuitPrivateInputs,
   PrivateKernelInitCircuitPrivateInputs,
   PrivateKernelInner2CircuitPrivateInputs,
   PrivateKernelInner3CircuitPrivateInputs,
+  PrivateKernelInner4CircuitPrivateInputs,
+  PrivateKernelInner5CircuitPrivateInputs,
   PrivateKernelInnerCircuitPrivateInputs,
   PrivateKernelResetTailCircuitPrivateInputs,
   type PrivateKernelSimulateOutput,
@@ -523,6 +527,47 @@ export class PrivateKernelExecutionProver {
           functionName = 'private_kernel_init_3';
           break;
         }
+        case 4: {
+          const proofInput = new PrivateKernelInit4CircuitPrivateInputs(
+            txRequest,
+            vkTreeRoot,
+            ProtocolContractsList,
+            apps[0],
+            apps[1],
+            apps[2],
+            apps[3],
+            isPrivateOnlyTx,
+            minRevertibleSideEffectCounter,
+          );
+          this.log.debug(`Calling private kernel init_4 with isPrivateOnly ${isPrivateOnlyTx}`);
+          pushTestData('private-kernel-inputs-init-4', proofInput);
+          output = generateWitnesses
+            ? await this.proofCreator.generateInit4Output(proofInput)
+            : await this.proofCreator.simulateInit4(proofInput);
+          functionName = 'private_kernel_init_4';
+          break;
+        }
+        case 5: {
+          const proofInput = new PrivateKernelInit5CircuitPrivateInputs(
+            txRequest,
+            vkTreeRoot,
+            ProtocolContractsList,
+            apps[0],
+            apps[1],
+            apps[2],
+            apps[3],
+            apps[4],
+            isPrivateOnlyTx,
+            minRevertibleSideEffectCounter,
+          );
+          this.log.debug(`Calling private kernel init_5 with isPrivateOnly ${isPrivateOnlyTx}`);
+          pushTestData('private-kernel-inputs-init-5', proofInput);
+          output = generateWitnesses
+            ? await this.proofCreator.generateInit5Output(proofInput)
+            : await this.proofCreator.simulateInit5(proofInput);
+          functionName = 'private_kernel_init_5';
+          break;
+        }
         default:
           throw new Error(`Unsupported init kernel batch size: ${apps.length}`);
       }
@@ -555,6 +600,37 @@ export class PrivateKernelExecutionProver {
             ? await this.proofCreator.generateInner3Output(proofInput)
             : await this.proofCreator.simulateInner3(proofInput);
           functionName = 'private_kernel_inner_3';
+          break;
+        }
+        case 4: {
+          const proofInput = new PrivateKernelInner4CircuitPrivateInputs(
+            previousKernelData,
+            apps[0],
+            apps[1],
+            apps[2],
+            apps[3],
+          );
+          pushTestData('private-kernel-inputs-inner-4', proofInput);
+          output = generateWitnesses
+            ? await this.proofCreator.generateInner4Output(proofInput)
+            : await this.proofCreator.simulateInner4(proofInput);
+          functionName = 'private_kernel_inner_4';
+          break;
+        }
+        case 5: {
+          const proofInput = new PrivateKernelInner5CircuitPrivateInputs(
+            previousKernelData,
+            apps[0],
+            apps[1],
+            apps[2],
+            apps[3],
+            apps[4],
+          );
+          pushTestData('private-kernel-inputs-inner-5', proofInput);
+          output = generateWitnesses
+            ? await this.proofCreator.generateInner5Output(proofInput)
+            : await this.proofCreator.simulateInner5(proofInput);
+          functionName = 'private_kernel_inner_5';
           break;
         }
         default:

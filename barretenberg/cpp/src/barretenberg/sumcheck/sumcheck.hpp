@@ -9,6 +9,7 @@
 #include "barretenberg/flavor/flavor_concepts.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/polynomials/eq_polynomial.hpp"
+#include "barretenberg/polynomials/fold_stride2.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/polynomials/polynomial_arithmetic.hpp"
 #include "barretenberg/sumcheck/sumcheck_output.hpp"
@@ -48,6 +49,7 @@ template <typename Flavor, bool CommittedSumcheck = UsesCommittedSumcheck<Flavor
 
     std::vector<std::array<FF, 3>> get_evaluations() { return {}; }
     std::vector<Polynomial<FF>> get_univariates() { return {}; }
+    std::vector<typename Flavor::Commitment> get_commitments() { return {}; }
 };
 
 /**
@@ -57,6 +59,7 @@ template <typename Flavor> struct RoundUnivariateHandler<Flavor, true> {
     using FF = typename Flavor::FF;
     using Transcript = typename Flavor::Transcript;
     using CommitmentKey = typename Flavor::CommitmentKey;
+    using Commitment = typename Flavor::Commitment;
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = Flavor::BATCHED_RELATION_PARTIAL_LENGTH;
 
     std::shared_ptr<Transcript> transcript;
@@ -64,6 +67,7 @@ template <typename Flavor> struct RoundUnivariateHandler<Flavor, true> {
     std::vector<FF> eval_domain;
     std::vector<std::array<FF, 3>> round_evaluations;
     std::vector<Polynomial<FF>> round_univariates;
+    std::vector<Commitment> round_commitments;
 
     RoundUnivariateHandler(std::shared_ptr<Transcript> transcript)
         : transcript(std::move(transcript))
@@ -84,7 +88,9 @@ template <typename Flavor> struct RoundUnivariateHandler<Flavor, true> {
         // Transform to monomial form and commit to it
         Polynomial<FF> round_poly_monomial(
             eval_domain, std::span<FF>(round_univariate.evaluations), BATCHED_RELATION_PARTIAL_LENGTH);
-        transcript->send_to_verifier("Sumcheck:univariate_comm_" + idx, ck.commit(round_poly_monomial));
+        auto round_commitment = ck.commit(round_poly_monomial);
+        transcript->send_to_verifier("Sumcheck:univariate_comm_" + idx, round_commitment);
+        round_commitments.push_back(round_commitment);
 
         // Store round univariate in monomial, as it is required by Shplemini
         round_univariates.push_back(std::move(round_poly_monomial));
@@ -109,6 +115,7 @@ template <typename Flavor> struct RoundUnivariateHandler<Flavor, true> {
 
     std::vector<std::array<FF, 3>> get_evaluations() { return round_evaluations; }
     std::vector<Polynomial<FF>> get_univariates() { return round_univariates; }
+    std::vector<Commitment> get_commitments() { return round_commitments; }
 };
 
 /**
@@ -614,6 +621,7 @@ template <typename Flavor> class SumcheckProver {
         return SumcheckOutput<Flavor>{ .challenge = multivariate_challenge,
                                        .claimed_evaluations = multivariate_evaluations,
                                        .claimed_libra_evaluation = libra_evaluation,
+                                       .round_univariate_commitments = handler.get_commitments(),
                                        .round_univariates = handler.get_univariates(),
                                        .round_univariate_evaluations = handler.get_evaluations() };
     };
@@ -622,6 +630,11 @@ template <typename Flavor> class SumcheckProver {
      * @brief Evaluate at the round challenge and prepare for next round.
      * @details Reads from source_polynomials and writes to dest_polynomials.
      * See Sumcheck.md for detailed mathematical documentation of the book-keeping table approach.
+     *
+     * Per polynomial, output k folds the adjacent source pair: dst[k] = src[2k] + r * (src[2k+1] - src[2k]).
+     * The per-output kernel (scalar tail + WASM SIMD bulk, virtual-zero prefix handling, in-place aliasing)
+     * lives in `bb::fold_stride2`; this method just halves each polynomial's active extent around it. The
+     * number of outputs is ceil(limit/2) = (limit / 2) + (limit % 2), matching the shrunk end index.
      */
     static void partially_evaluate(auto& source_polynomials,
                                    PartiallyEvaluatedMultivariates& dest_polynomials,
@@ -632,11 +645,13 @@ template <typename Flavor> class SumcheckProver {
         parallel_for(source_view.size(), [&](size_t j) {
             BB_BENCH_TRACY_NAME("Sumcheck::partially_evaluate");
             const auto& poly = source_view[j];
-            size_t limit = poly.end_index();
-            for (size_t i = 0; i < limit; i += 2) {
-                dest_view[j].at(i >> 1) = poly[i] + round_challenge * (poly[i + 1] - poly[i]);
-            }
-            dest_view[j].shrink_end_index((limit / 2) + (limit % 2));
+            auto& dest = dest_view[j];
+            const size_t limit = poly.end_index();
+            // One output per source pair (2k, 2k+1); when limit is odd the last source slot is unpaired
+            // and folds against an implicit zero, so we round up: ceil(limit / 2).
+            const size_t num_outputs = (limit / 2) + (limit % 2);
+            fold_stride2(poly, dest, /*begin=*/0, /*end=*/num_outputs, round_challenge);
+            dest.shrink_end_index(num_outputs);
         });
         // Halve the active-row prefix to track the folded trace; the loop above leaves the member untouched, so this
         // reads the pre-round value even when source and dest alias (see partially_evaluate_in_place).

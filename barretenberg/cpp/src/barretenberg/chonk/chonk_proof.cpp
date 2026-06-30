@@ -29,7 +29,7 @@ std::vector<typename ChonkProof_<IsRecursive>::FF> ChonkProof_<IsRecursive>::to_
 
 /**
  * @brief Split a flat vector of field elements into ChonkProof components.
- * @details Uses known fixed sizes for merge/eccvm/ipa proofs, and derives the hiding_oink_proof and
+ * @details Uses known fixed sizes for merge/eccvm proofs, and derives the hiding_oink_proof and
  * joint_proof sizes from the total.
  */
 template <bool IsRecursive>
@@ -38,7 +38,7 @@ ChonkProof_<IsRecursive> ChonkProof_<IsRecursive>::from_field_elements(const std
     // Fixed-size components
     constexpr size_t merge_size = MERGE_PROOF_SIZE;
     constexpr size_t eccvm_size = ECCVMFlavor::PROOF_LENGTH;
-    constexpr size_t ipa_size = IPA_PROOF_LENGTH;
+    constexpr size_t ipa_size = ECCVMFlavor::TRIPLE_IPA_PROOF_LENGTH;
     constexpr size_t joint_size = JOINT_PROOF_LENGTH;
 
     // MegaZK Oink proof size = total - all other fixed-size components.

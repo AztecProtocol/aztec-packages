@@ -3,14 +3,17 @@ import * as R from "../relations/index.js";
 import type { SingleBusLookupSpec } from "../relations/index.js";
 import { megaPoseidon2Relations } from "./mega_poseidon2.js";
 
-// 5 bus columns: kernel_calldata + 3 app_calldata + return_data. Each is gated by a dedicated
-// wire selector (q_l/q_r/q_o/q_4/q_m) used as a per-bus discriminator.
+// 7 bus columns: kernel_calldata + 5 app_calldata + return_data. Each is gated by a dedicated
+// wire selector (q_l/q_r/q_o/q_4/q_5/q_c/q_m) used as a per-bus discriminator. The selector order
+// here must match apply_databus_selectors in mega_circuit_builder.cpp (indexed by BusId).
 const busSpecs: SingleBusLookupSpec[] = (
   [
     ["kernel_calldata", "q_l"],
     ["first_app_calldata", "q_r"],
     ["second_app_calldata", "q_o"],
     ["third_app_calldata", "q_4"],
+    ["fourth_app_calldata", "q_5"],
+    ["fifth_app_calldata", "q_c"],
     ["return_data", "q_m"],
   ] as const
 ).map(([bus, selector]) => ({

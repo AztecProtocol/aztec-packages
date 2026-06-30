@@ -5,13 +5,16 @@
 // =====================
 
 #include "barretenberg/ultra_honk/oink_prover.hpp"
+#include "barretenberg/commitment_schemes/shplonk/sparse_masking_poly.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/flavor/mega_app_flavor.hpp"
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/mega_kernel_flavor.hpp"
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/honk/prover_instance_inspector.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/relations/databus_lookup_relation.hpp"
 #include "barretenberg/relations/logderiv_lookup_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
@@ -214,13 +217,15 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_z_perm()
 {
     BB_BENCH_NAME("OinkProver::commit_to_z_perm");
 
-    // Grand product computation already starts after the disabled region (gp_start), preserving masking values
-    compute_grand_product_polynomial(*prover_instance);
+    // Grand product computation already starts after the disabled region (gp_start), preserving masking values.
+    // It also measures the adjacent-duplicate z_perm coefficients (rows where the per-row grand-product ratio is
+    // 1, so z_perm is unchanged) as a by-product, avoiding a second full pass over z_perm for the MSM dedup hint.
+    uint32_t z_perm_dup_count = 0;
+    compute_grand_product_polynomial(*prover_instance, z_perm_dup_count);
 
     auto& z_perm = prover_instance->polynomials.z_perm();
     auto batch = commitment_key.start_batch();
-    // set has_duplicates_hint for Z_PERM (empty row = duplicate Z value)
-    batch.add_to_batch(z_perm, commitment_labels.z_perm(), /*has_duplicates_hint=*/true);
+    batch.add_to_batch(z_perm, commitment_labels.z_perm(), /*has_duplicates_hint=*/true, z_perm_dup_count);
     auto commitments = batch.commit_and_send_to_verifier(transcript);
     prover_instance->commitments.z_perm() = commitments[0];
 }
@@ -228,12 +233,18 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_z_perm()
 template <typename Flavor> void OinkProver<Flavor>::commit_to_masking_poly()
 {
     if constexpr (flavor_has_gemini_masking<Flavor>()) {
-        // Gemini masking poly only needs to cover the actual polynomial extent, not full dyadic size
-        const size_t polynomial_size = prover_instance->polynomials.max_end_index();
-        prover_instance->polynomials.gemini_masking_poly() = Polynomial<FF>::random(polynomial_size);
+        // Sparse 2d-coefficient mask on the tail-halving support (dense random for tiny circuits).
+        // See SHPLEMINI_ZK_MASKING.md for the rank / ZK argument.
+        const size_t dyadic_size = prover_instance->dyadic_size();
+        const size_t d = numeric::get_msb(dyadic_size);
+        prover_instance->polynomials.gemini_masking_poly() =
+            build_gemini_masking_poly<FF>(d, prover_instance->polynomials.max_end_index(), dyadic_size);
 
-        // Commit to the masking polynomial and send to transcript
-        auto masking_commitment = commitment_key.commit(prover_instance->polynomials.gemini_masking_poly());
+        typename Flavor::Commitment masking_commitment;
+        {
+            BB_BENCH_NAME("Oink::commit_masking_poly_msm");
+            masking_commitment = commitment_key.commit(prover_instance->polynomials.gemini_masking_poly());
+        }
         transcript->send_to_verifier("Gemini:masking_poly_comm", masking_commitment);
     }
 };
@@ -345,16 +356,19 @@ template <typename Flavor> void OinkProver<Flavor>::compute_logderivative_invers
  *
  * @param instance prover instance whose polynomials, public inputs, and relation parameters are used
  */
-template <typename Flavor> void OinkProver<Flavor>::compute_grand_product_polynomial(ProverInstance& instance)
+template <typename Flavor>
+void OinkProver<Flavor>::compute_grand_product_polynomial(ProverInstance& instance, uint32_t& z_perm_dup_count)
 {
     BB_BENCH_NAME("OinkProver::compute_grand_product_polynomial");
     auto& relation_parameters = instance.relation_parameters;
     relation_parameters.public_input_delta = compute_public_input_delta<Flavor>(
         instance.public_inputs, relation_parameters.beta, relation_parameters.gamma, instance.pub_inputs_offset());
 
-    // Compute permutation grand product polynomial
+    // Compute permutation grand product polynomial, measuring adjacent-duplicate z_perm coefficients
+    // (rows where the per-row ratio is 1) into `z_perm_dup_count` for the MSM dedup hint, as a
+    // by-product of Step 1.
     compute_grand_product<Flavor, UltraPermutationRelation<FF>>(
-        instance.polynomials, relation_parameters, instance.get_final_active_wire_idx() + 1);
+        instance.polynomials, relation_parameters, instance.get_final_active_wire_idx() + 1, &z_perm_dup_count);
 }
 
 template class OinkProver<UltraFlavor>;

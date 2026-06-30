@@ -1,5 +1,6 @@
 #include "barretenberg/ecc/fields/vector_field.hpp"
 
+#include "barretenberg/ecc/curves/bn254/fq.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 
@@ -8,8 +9,10 @@
 
 namespace {
 
+using bb::fq;
 using bb::fr;
 using Vec = bb::VectorField<bb::Bn254FrParams>;
+using VecFq = bb::VectorField<bb::Bn254FqParams>;
 
 // Build an array of 5 random field elements for a test case.
 std::array<fr, 5> random_five()
@@ -419,6 +422,258 @@ TEST(VectorFieldTest, MixedAddBroadcast)
 TEST(VectorFieldTest, ScalarTypeAlias)
 {
     static_assert(std::is_same_v<typename Vec::scalar_type, bb::fr>);
+    SUCCEED();
+}
+
+TEST(VectorFieldTest, CoarseInputArithmeticMatchesScalar)
+{
+    // +/-/* must accept operands already in the lazy-reduced "coarse" form -- a
+    // value in [0, 2p), not yet conditionally reduced to [0, p) -- which a prior
+    // `+` leaves behind between polynomial passes. The other arithmetic tests
+    // feed only canonical [0, p) inputs from random_element(), so the
+    // lazy-reduction branches for coarse operands go unexercised. Here we build
+    // coarse operands (a + b lands in [0, 2p)) and feed them back into +/-/*,
+    // checking the result mod p against scalar fr arithmetic.
+    for (int trial = 0; trial < 150; ++trial) {
+        auto a = random_five();
+        auto b = random_five();
+        auto c = random_five();
+        auto d = random_five();
+
+        Vec coarse_l = Vec(a) + Vec(b); // lanes in [0, 2p)
+        Vec coarse_r = Vec(c) + Vec(d);
+
+        std::array<fr, 5> add_exp;
+        std::array<fr, 5> sub_exp;
+        std::array<fr, 5> mul_exp;
+        for (size_t i = 0; i < 5; ++i) {
+            fr l = a[i] + b[i];
+            fr r = c[i] + d[i];
+            add_exp[i] = l + r;
+            sub_exp[i] = l - r;
+            mul_exp[i] = l * r;
+        }
+
+        EXPECT_TRUE(field_array_eq(add_exp, (coarse_l + coarse_r).to_array())) << "add trial " << trial;
+        EXPECT_TRUE(field_array_eq(sub_exp, (coarse_l - coarse_r).to_array())) << "sub trial " << trial;
+        EXPECT_TRUE(field_array_eq(mul_exp, (coarse_l * coarse_r).to_array())) << "mul trial " << trial;
+    }
+
+    // Deterministic maximally-coarse operands: (p-1) + (p-1) = 2p-2, the largest
+    // value the coarse form holds, in every lane.
+    const fr neg_one = -fr::one();
+    std::array<fr, 5> maxes{ neg_one, neg_one, neg_one, neg_one, neg_one };
+    Vec max_coarse = Vec(maxes) + Vec(maxes); // 2p-2 per lane
+    const fr m = neg_one + neg_one;           // (p-1)+(p-1) = p-2 mod p
+    std::array<fr, 5> add_exp;
+    std::array<fr, 5> sub_exp;
+    std::array<fr, 5> mul_exp;
+    for (size_t i = 0; i < 5; ++i) {
+        add_exp[i] = m + m;
+        sub_exp[i] = m - m;
+        mul_exp[i] = m * m;
+    }
+    EXPECT_TRUE(field_array_eq(add_exp, (max_coarse + max_coarse).to_array()));
+    EXPECT_TRUE(field_array_eq(sub_exp, (max_coarse - max_coarse).to_array()));
+    EXPECT_TRUE(field_array_eq(mul_exp, (max_coarse * max_coarse).to_array()));
+}
+
+TEST(VectorFieldTest, CoarseStoreReloadRoundTrip)
+{
+    // Between polynomial passes a coarse (unreduced, [0, 2p)) VectorField is stored
+    // to memory by one pass and reloaded by the next. The earlier round-trip tests
+    // stored only canonical values from random_element(); here we store a coarse
+    // value (a + b, left unreduced) and check that both the store_to/linear-memory
+    // ctor path (SIMD shuffle) and the scatter/gather path (scalar random access)
+    // reproduce it mod p.
+    for (int trial = 0; trial < 64; ++trial) {
+        auto a = random_five();
+        auto b = random_five();
+        Vec coarse = Vec(a) + Vec(b); // lanes in [0, 2p)
+        std::array<fr, 5> expected;
+        for (size_t i = 0; i < 5; ++i) {
+            expected[i] = a[i] + b[i];
+        }
+
+        // store_to -> linear-memory ctor reload (SIMD-shuffle transpose).
+        {
+            std::array<fr, 5> buf;
+            coarse.store_to(buf.data());
+            Vec reloaded(buf.data());
+            EXPECT_TRUE(field_array_eq(expected, reloaded.to_array())) << "store_to/ctor trial " << trial;
+        }
+        // scatter -> gather reload (scalar random-access path).
+        {
+            std::array<fr, 5> buf{ fr::zero(), fr::zero(), fr::zero(), fr::zero(), fr::zero() };
+            std::array<size_t, 5> idx{ 0, 1, 2, 3, 4 };
+            coarse.scatter(buf.data(), idx);
+            Vec reloaded = Vec::gather(buf.data(), idx);
+            EXPECT_TRUE(field_array_eq(expected, reloaded.to_array())) << "scatter/gather trial " << trial;
+        }
+    }
+
+    // Deterministic maximally-coarse value: (p-1) + (p-1) = 2p-2 in every lane.
+    const fr neg_one = -fr::one();
+    std::array<fr, 5> maxes{ neg_one, neg_one, neg_one, neg_one, neg_one };
+    Vec max_coarse = Vec(maxes) + Vec(maxes);
+    const fr m = neg_one + neg_one;
+    std::array<fr, 5> expected{ m, m, m, m, m };
+    std::array<fr, 5> buf;
+    max_coarse.store_to(buf.data());
+    Vec reloaded(buf.data());
+    EXPECT_TRUE(field_array_eq(expected, reloaded.to_array()));
+}
+
+// =====================================================================
+// VectorField<Bn254FqParams> coverage.
+//
+// MSM curve arithmetic operates on Fq, so VectorField needs an Fq instance
+// with its own kernel specialization (the WASM-SIMD operator* body resolves
+// R_INV_WASM / P_WASM against the surrounding class scope and so picks up
+// Fq's modulus when included inside the Fq specialization in
+// vector_field_wasm.cpp).
+//
+// These tests mirror the Fr suite for the operations exercised by
+// batch_affine_add_interleaved (construction, add, sub, mul, eq, is_zero,
+// distributivity). dot_product is not yet specialized for Fq and is not
+// tested here.
+// =====================================================================
+
+std::array<fq, 5> random_five_fq()
+{
+    std::array<fq, 5> out;
+    for (size_t i = 0; i < 5; ++i) {
+        out[i] = fq::random_element();
+    }
+    return out;
+}
+
+bool field_array_eq_fq(const std::array<fq, 5>& a, const std::array<fq, 5>& b)
+{
+    for (size_t i = 0; i < 5; ++i) {
+        if (a[i] != b[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+TEST(VectorFieldFqTest, RoundtripConstructionPreservesValues)
+{
+    auto input = random_five_fq();
+    VecFq v(input);
+    auto out = v.to_array();
+    EXPECT_TRUE(field_array_eq_fq(input, out));
+}
+
+TEST(VectorFieldFqTest, AdditionMatchesScalarFieldAdd)
+{
+    for (int trial = 0; trial < 32; ++trial) {
+        auto a = random_five_fq();
+        auto b = random_five_fq();
+        std::array<fq, 5> expected;
+        for (size_t i = 0; i < 5; ++i) {
+            expected[i] = a[i] + b[i];
+        }
+        VecFq va(a), vb(b);
+        auto got = (va + vb).to_array();
+        EXPECT_TRUE(field_array_eq_fq(expected, got)) << "trial " << trial;
+    }
+}
+
+TEST(VectorFieldFqTest, SubtractionMatchesScalarFieldSub)
+{
+    for (int trial = 0; trial < 32; ++trial) {
+        auto a = random_five_fq();
+        auto b = random_five_fq();
+        std::array<fq, 5> expected;
+        for (size_t i = 0; i < 5; ++i) {
+            expected[i] = a[i] - b[i];
+        }
+        VecFq va(a), vb(b);
+        auto got = (va - vb).to_array();
+        EXPECT_TRUE(field_array_eq_fq(expected, got)) << "trial " << trial;
+    }
+}
+
+TEST(VectorFieldFqTest, MultiplicationMatchesScalarFieldMul)
+{
+    // 150 random trials — matches the correctness-harness requirement for the
+    // q1s1 kernel that the Fr coverage uses. This is the test that exercises
+    // VectorField<Bn254FqParams>::operator* — the new Fq specialization.
+    for (int trial = 0; trial < 150; ++trial) {
+        auto a = random_five_fq();
+        auto b = random_five_fq();
+        std::array<fq, 5> expected;
+        for (size_t i = 0; i < 5; ++i) {
+            expected[i] = a[i] * b[i];
+        }
+        VecFq va(a), vb(b);
+        auto got = (va * vb).to_array();
+        EXPECT_TRUE(field_array_eq_fq(expected, got)) << "trial " << trial;
+    }
+}
+
+TEST(VectorFieldFqTest, EqualityDetectsMatchesAndMismatches)
+{
+    auto a = random_five_fq();
+    VecFq va(a);
+
+    VecFq vb(a);
+    EXPECT_EQ(va.eq(vb), 0b11111u);
+
+    auto a_flipped = a;
+    a_flipped[0] = a[0] + fq::one();
+    VecFq vc(a_flipped);
+    EXPECT_EQ(va.eq(vc), 0b11110u);
+}
+
+TEST(VectorFieldFqTest, IsZeroDetectsZeroAndP)
+{
+    std::array<fq, 5> zeros{};
+    for (auto& x : zeros) {
+        x = fq::zero();
+    }
+    VecFq v_zero(zeros);
+    EXPECT_EQ(v_zero.is_zero(), 0b11111u);
+
+    auto non_zero = random_five_fq();
+    non_zero[0] = fq::one();
+    VecFq v_nz(non_zero);
+    EXPECT_EQ(v_nz.is_zero(), 0u);
+}
+
+TEST(VectorFieldFqTest, DistributivityMulOverAdd)
+{
+    for (int trial = 0; trial < 32; ++trial) {
+        auto a = random_five_fq();
+        auto b = random_five_fq();
+        auto c = random_five_fq();
+        std::array<fq, 5> expected;
+        for (size_t i = 0; i < 5; ++i) {
+            expected[i] = a[i] * (b[i] + c[i]);
+        }
+        VecFq va(a), vb(b), vc(c);
+        auto got = (va * (vb + vc)).to_array();
+        EXPECT_TRUE(field_array_eq_fq(expected, got)) << "trial " << trial;
+    }
+}
+
+TEST(VectorFieldFqTest, MulByOneIsIdentity)
+{
+    auto a = random_five_fq();
+    std::array<fq, 5> ones;
+    for (auto& x : ones) {
+        x = fq::one();
+    }
+    VecFq va(a), v_one(ones);
+    auto got = (va * v_one).to_array();
+    EXPECT_TRUE(field_array_eq_fq(a, got));
+}
+
+TEST(VectorFieldFqTest, ScalarTypeAlias)
+{
+    static_assert(std::is_same_v<typename VecFq::scalar_type, bb::fq>);
     SUCCEED();
 }
 

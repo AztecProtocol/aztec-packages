@@ -7,61 +7,8 @@
 #include "./straus_lookup_table.hpp"
 #include "./cycle_group.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
-#include "barretenberg/stdlib_circuit_builders/duplicate_provenance.hpp"
 
 namespace bb::stdlib {
-
-namespace {
-
-// BOOMERANG_DUPLICATE_PROVENANCE: See
-// barretenberg/cpp/src/barretenberg/boomerang_value_detection/WITNESS_DUPLICATE_DETECTION.md.
-enum class StrausTableProvenanceKind : uint64_t {
-    TABLE_IDENTITY = 0,
-};
-
-enum class PointCoordinateSlot : uint64_t { X = 0, Y = 1 };
-enum class StrausInfinityIdentityKind : uint64_t { CONSTANT_FLAG = 0, DERIVED_FROM_BASE_POINT = 1 };
-enum class MsmFieldIdentityKind : uint64_t { CONSTANT = 0, WITNESS_AFFINE = 1 };
-
-inline DuplicateProvenanceLocalId msm_table_local_id(std::initializer_list<uint64_t> identities)
-{
-    return duplicate_provenance_local_id(identities);
-}
-
-inline void append_msm_identity(DuplicateProvenanceLocalId& identities, uint64_t identity)
-{
-    append_duplicate_provenance_identity(identities, identity);
-}
-
-inline void append_msm_field(DuplicateProvenanceLocalId& identities, const bb::fr& value)
-{
-    const uint256_t value_uint256(value);
-    for (const uint64_t limb : value_uint256.data) {
-        append_msm_identity(identities, limb);
-    }
-}
-
-// Affine identity of a field_t for provenance keying: the raw underlying witness index (read without normalizing,
-// so no gate is added) plus the affine multiplicative/additive constants. Two field_t's that the circuit
-// would treat as equal once normalized share this identity; two field_t's that share a raw witness but differ in
-// affine constants represent different values and get different identities. Constants include their full field value.
-template <typename Builder> inline DuplicateProvenanceLocalId field_affine_identity(const field_t<Builder>& f)
-{
-    DuplicateProvenanceLocalId identities;
-    if (f.is_constant()) {
-        append_msm_identity(identities, static_cast<uint64_t>(MsmFieldIdentityKind::CONSTANT));
-        append_msm_field(identities, f.get_value());
-        return identities;
-    }
-    append_msm_identity(identities, static_cast<uint64_t>(MsmFieldIdentityKind::WITNESS_AFFINE));
-    append_msm_identity(identities,
-                        static_cast<uint64_t>(f.get_context()->real_variable_index[f.get_raw_witness_index()]));
-    append_msm_field(identities, f.multiplicative_constant);
-    append_msm_field(identities, f.additive_constant);
-    return identities;
-}
-
-} // namespace
 
 /**
  * @brief Compute the output points generated when computing the Straus lookup table
@@ -182,40 +129,6 @@ straus_lookup_table<Builder>::straus_lookup_table(Builder* context,
         }
     }
 
-    // Provenance key inputs for the ROM cells. The point table is a deterministic function of the base point and the
-    // offset generator: point_table[0] = offset_generator and point_table[i] = point_table[i-1] + modded_base_point,
-    // where modded_base_point = conditional_assign(base_point.is_point_at_infinity(), one, base_point). For a fixed set
-    // of input witnesses every cell point_table[i] is the unique output of this chain of ecc_add gates, so two straus
-    // tables built from the SAME base point and offset generator (by affine witness identity) have constraint-forced
-    // equal cells at every slot i. We key on the affine identities of the four input coordinates (never on coordinate
-    // values) plus the slot index and the coordinate (x/y). The infinity edge: the chain also depends on
-    // base_point.is_point_at_infinity(); when that flag is constant we include the flag value. When it is a witness it
-    // is, in every construction path that produces one, derived deterministically from the base point's own coordinates
-    // (cycle_group's 2-arg constructor sets _is_infinity = (5y^2 + x^3)_is_zero, and add/sub results derive it from
-    // their inputs), so including the base coordinates' affine identities is a sound proxy: two tables share the
-    // infinity term only when they already share the coordinate identities the flag is derived from. This is the same
-    // structural assumption the legacy straus overlay makes when it reconstructs the table chain.
-    const auto base_x_id = field_affine_identity(base_point.x());
-    const auto base_y_id = field_affine_identity(base_point.y());
-    const auto offset_x_id = field_affine_identity(offset_generator.x());
-    const auto offset_y_id = field_affine_identity(offset_generator.y());
-    DuplicateProvenanceLocalId infinity_id;
-    if (base_point.is_point_at_infinity().is_constant()) {
-        infinity_id = msm_table_local_id({ static_cast<uint64_t>(StrausInfinityIdentityKind::CONSTANT_FLAG),
-                                           base_point.is_point_at_infinity().get_value() ? UINT64_C(1) : UINT64_C(0) });
-    } else {
-        infinity_id =
-            msm_table_local_id({ static_cast<uint64_t>(StrausInfinityIdentityKind::DERIVED_FROM_BASE_POINT) });
-        append_duplicate_provenance_identity(infinity_id, base_x_id);
-        append_duplicate_provenance_identity(infinity_id, base_y_id);
-    }
-    provenance_table_id = msm_table_local_id({ static_cast<uint64_t>(StrausTableProvenanceKind::TABLE_IDENTITY) });
-    append_duplicate_provenance_identity(provenance_table_id, base_x_id);
-    append_duplicate_provenance_identity(provenance_table_id, base_y_id);
-    append_duplicate_provenance_identity(provenance_table_id, offset_x_id);
-    append_duplicate_provenance_identity(provenance_table_id, offset_y_id);
-    append_duplicate_provenance_identity(provenance_table_id, infinity_id);
-
     // Construct a ROM array containing the point table
     rom_id = context->create_ROM_array(table_size);
     for (size_t i = 0; i < table_size; ++i) {
@@ -227,19 +140,6 @@ straus_lookup_table<Builder>::straus_lookup_table(Builder* context,
         std::array<uint32_t, 2> coordinate_indices = { point_table[i].x().get_witness_index(),
                                                        point_table[i].y().get_witness_index() };
         context->set_ROM_element_pair(rom_id, i, coordinate_indices);
-
-        // Tag the ROM cell coordinate witnesses. Cell i's x and y are not forced equal to each other, so they get
-        // distinct slot words; the slot index i distinguishes cells of one table (they are distinct points).
-        const auto cell_key = [&](uint64_t coord) {
-            auto local_id = provenance_table_id;
-            append_duplicate_provenance_identity(local_id, static_cast<uint64_t>(i));
-            append_duplicate_provenance_identity(local_id, coord);
-            return Builder::make_duplicate_provenance(DuplicateProvenanceCategory::MSM_TABLE, std::move(local_id));
-        };
-        _context->tag_duplicate_provenance(coordinate_indices[0],
-                                           cell_key(static_cast<uint64_t>(PointCoordinateSlot::X)));
-        _context->tag_duplicate_provenance(coordinate_indices[1],
-                                           cell_key(static_cast<uint64_t>(PointCoordinateSlot::Y)));
     }
 }
 
@@ -264,34 +164,12 @@ template <typename Builder> cycle_group<Builder> straus_lookup_table<Builder>::r
         index = field_t::from_witness(_context, _index.get_value());
         index.assert_equal(_index.get_value());
     }
-    const uint32_t index_witness = index.get_witness_index();
-    auto [x_idx, y_idx] = _context->read_ROM_array_pair(rom_id, index_witness);
+    auto [x_idx, y_idx] = _context->read_ROM_array_pair(rom_id, index.get_witness_index());
     field_t x = field_t::from_witness_index(_context, x_idx);
     field_t y = field_t::from_witness_index(_context, y_idx);
     // Merge tag of table with tag of index
     x.set_origin_tag(OriginTag(tag, _index.get_origin_tag()));
     y.set_origin_tag(OriginTag(tag, _index.get_origin_tag()));
-
-    // Tag the read-output coordinate witnesses with an MSM_TABLE provenance key. The ROM consistency argument forces
-    // every read of array `rom_id` at a fixed index witness to equal the same ROM cell. Key on the read-index witness
-    // identity (or its existing provenance), never on the current index value or coordinate values.
-    const auto index_identity = [&]() {
-        const uint32_t real_index = _context->real_variable_index[index_witness];
-        const auto& provenance = _context->get_duplicate_provenance();
-        auto provenance_it = provenance.find(real_index);
-        if (provenance_it != provenance.end()) {
-            return _context->get_duplicate_provenance_interned_identity(provenance_it->second);
-        }
-        return msm_table_local_id({ DUPLICATE_PROVENANCE_RAW_IDENTITY_TAG, static_cast<uint64_t>(real_index) });
-    }();
-    const auto coord_key = [&](uint64_t coord) {
-        auto local_id = provenance_table_id;
-        append_duplicate_provenance_identity(local_id, index_identity);
-        append_duplicate_provenance_identity(local_id, coord);
-        return Builder::make_duplicate_provenance(DuplicateProvenanceCategory::MSM_TABLE, std::move(local_id));
-    };
-    _context->tag_duplicate_provenance(x_idx, coord_key(static_cast<uint64_t>(PointCoordinateSlot::X)));
-    _context->tag_duplicate_provenance(y_idx, coord_key(static_cast<uint64_t>(PointCoordinateSlot::Y)));
 
     // The result is known to not be the point at infinity due to the use of offset generators in the table.
     // Use the private 4-arg constructor to avoid auto-detection gates.

@@ -121,28 +121,29 @@ template <typename FF_> class Poseidon2QuadInternalRelationImpl {
 
         const auto q_sel = CoeffAcc(in[AllEntities::EntityId::q_poseidon2_quad_internal]);
 
-        // Helper: compute fifth power as Accumulator (degree 5 in the input wire).
-        auto pow5 = [](const Accumulator& x) -> Accumulator {
-            auto sq = x.sqr();
-            auto quart = sq.sqr();
-            return quart * x;
+        // Square the degree-1 pow5 input in the coefficient basis before promoting -- see
+        // UnivariateCoefficientBasis::sqr.
+        auto pow5 = [](const auto& x_m) -> Accumulator {
+            const Accumulator x(x_m);
+            const Accumulator sq(x_m.sqr());
+            return sq.sqr() * x;
         };
 
         // ── Current row: u_k = (s_0^{(k)} + c_k)^5. The four S-box outputs feed the closed-form
         //                   prediction of the row-end state. ──
-        auto u_0 = pow5(Accumulator(w_l + q_l)); // u_0 = (s_0^(0) + c_{4i})^5
-        auto u_1 = pow5(Accumulator(w_r + q_r)); // u_1 = (s_0^(1) + c_{4i+1})^5
-        auto u_2 = pow5(Accumulator(w_o + q_o)); // u_2 = (s_0^(2) + c_{4i+2})^5
-        auto u_3 = pow5(Accumulator(w_4 + q_4)); // u_3 = (s_0^(3) + c_{4i+3})^5
+        auto u_0 = pow5(w_l + q_l); // u_0 = (s_0^(0) + c_{4i})^5
+        auto u_1 = pow5(w_r + q_r); // u_1 = (s_0^(1) + c_{4i+1})^5
+        auto u_2 = pow5(w_o + q_o); // u_2 = (s_0^(2) + c_{4i+2})^5
+        auto u_3 = pow5(w_4 + q_4); // u_3 = (s_0^(3) + c_{4i+3})^5
 
         // ── Next row's S-box outputs. Together with the next row's lane-0 wires they let us
         //    forward-compute V · (next row's hidden lanes) via the b'-formulas, without ever
         //    materializing the hidden lanes themselves. Only three (not four) because the
         //    b'-formulas only depend on u_0', u_1', u_2'. ──
-        auto u_0_next = pow5(Accumulator(w_l_shift + q_m)); // u_0' = (next_s_0^(0) + c_{4(i+1)})^5
-        auto u_1_next = pow5(Accumulator(w_r_shift + q_c)); // u_1' = (next_s_0^(1) + c_{4(i+1)+1})^5
-        auto u_2_next = pow5(Accumulator(w_o_shift + q_5)); // u_2' = (next_s_0^(2) + c_{4(i+1)+2})^5
-        auto u_0_next_D1 = u_0_next * D1;                   // CSE: D_1 · u_0' is reused in A_1 and A_2
+        auto u_0_next = pow5(w_l_shift + q_m); // u_0' = (next_s_0^(0) + c_{4(i+1)})^5
+        auto u_1_next = pow5(w_r_shift + q_c); // u_1' = (next_s_0^(1) + c_{4(i+1)+1})^5
+        auto u_2_next = pow5(w_o_shift + q_5); // u_2' = (next_s_0^(2) + c_{4(i+1)+2})^5
+        auto u_0_next_D1 = u_0_next * D1;      // CSE: D_1 · u_0' is reused in A_1 and A_2
 
         // Precomputed coefficient vectors. Each is indexed [W_R, W_O, W_4, U_0, U_1, U_2, U_3].
         const auto& cf0 = QuadParams::tables.closed_form[0];            // out_0 (row-end lane 0)

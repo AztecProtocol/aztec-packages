@@ -130,25 +130,22 @@ HonkRecursionConstraintsOutput<UltraCircuitBuilder> create_recursion_constraints
 
         gate_counter.track_diff(gates_per_opcode, opcode_idx);
     }
-    BB_ASSERT(!(output.is_root_rollup && output.nested_ipa_claims.size() != 2),
-              "Root rollup must accumulate two IPA proofs.");
+    BB_ASSERT(
+        !(output.is_root_rollup && output.nested_ipa_claims.size() + output.nested_triple_ipa_openings.size() != 2),
+        "Root rollup must accumulate two IPA proofs.");
 
     for (const auto& [constraint, opcode_idx] : zip_view(chonk_recursion_data.first, chonk_recursion_data.second)) {
-        HonkRecursionConstraintOutput<UltraCircuitBuilder> honk_output =
-            create_chonk_recursion_constraints(builder, constraint);
+        ChonkRecursionConstraintOutput chonk_output = create_chonk_recursion_constraints(builder, constraint);
 
-        // Update the output
-        output.update(honk_output, /*update_ipa_data=*/true);
+        output.update_triple_ipa_opening(chonk_output.points_accumulator, std::move(chonk_output.triple_ipa_opening));
 
         gate_counter.track_diff(gates_per_opcode, opcode_idx);
     }
 
     for (const auto& [constraint, opcode_idx] : zip_view(avm_recursion_data.first, avm_recursion_data.second)) {
-        HonkRecursionConstraintOutput<UltraCircuitBuilder> honk_output =
-            create_avm2_recursion_constraints_goblin(builder, constraint);
+        AvmRecursionConstraintOutput avm_output = create_avm2_recursion_constraints_goblin(builder, constraint);
 
-        // Update the output
-        output.update(honk_output, /*update_ipa_data=*/true);
+        output.update_triple_ipa_opening(avm_output.points_accumulator, std::move(avm_output.triple_ipa_opening));
 
         gate_counter.track_diff(gates_per_opcode, opcode_idx);
     }

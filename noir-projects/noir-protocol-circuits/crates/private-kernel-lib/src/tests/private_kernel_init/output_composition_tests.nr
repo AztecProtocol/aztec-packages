@@ -1,9 +1,7 @@
 use super::TestBuilder;
 use protocol_test_utils::assert_claimed_length_array_eq;
 use types::{
-    address::AztecAddress,
-    constants::DEFAULT_UPDATE_DELAY,
-    hash::create_protocol_nullifier,
+    address::AztecAddress, constants::DEFAULT_UPDATE_DELAY, hash::create_protocol_nullifier,
     traits::Empty,
 };
 

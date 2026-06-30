@@ -56,35 +56,40 @@ class ChonkTranscriptInvariantTests : public ::testing::Test {
  * Any change to this count indicates a structural change in how transcripts are managed, which
  * could have security implications (e.g., unexpected transcript isolation or sharing).
  *
- * The 4-app IVC flow creates 6 circuits: app0 -> app1 -> app2 -> kernel1 -> app3 -> kernel2 -> reset-tail -> hiding
+ * We use MAX_APPS_PER_KERNEL + 1 app circuits so the flow contains a full app group (one init kernel) plus a
+ * single-app remainder group (one intermediate kernel), followed by the reset-tail and hiding kernels. With
+ * MAX_APPS_PER_KERNEL = 5 this is 6 apps -> 10 circuits:
+ * app0 .. app4 -> init kernel -> app5 -> intermediate kernel -> reset-tail -> hiding
  *
  * Per-circuit transcript breakdown (from complete_kernel_circuit_logic). The per-kernel multilinear batching (and the
  * hiding kernel's decider) continue on the shared accumulation transcript, so they create no additional transcripts:
- * - App circuits (0, 1, 2, 4): 0 transcripts - use native HN folding prover
- * - Init kernel (3): 3 transcripts:
+ * - App circuits (0-4, 6): 0 transcripts - use native HN folding prover
+ * - Init kernel (5): 3 transcripts:
  *     1. accumulation_recursive_transcript
  *     2. PairingPoints::aggregate_multiple - for batching pairing points with Fiat-Shamir separator
  *     3. hash_transcript - for computing accumulator hash to propagate in public inputs
- * - Intermediate kernel (5): 3 transcripts:
+ * - Intermediate kernel (7): 3 transcripts:
  *     1. accumulation_recursive_transcript - shared across recursive verification
  *     2. PairingPoints::aggregate_multiple - for batching pairing points with Fiat-Shamir separator
  *     3. hash_transcript - for computing accumulator hash to propagate in public inputs
- * - Reset-tail kernels (6): 2 transcripts:
+ * - Reset-tail kernel (8): 2 transcripts:
  *     1. accumulation_recursive_transcript
  *     2. hash_transcript - for computing accumulator hash to propagate in public inputs
- * - Hiding kernel (7): 3 transcripts:
+ * - Hiding kernel (9): 3 transcripts:
  *     1. accumulation_recursive_transcript
  *     2. batch_merge_transcript - for final batch merge verification
  *     3. PairingPoints::aggregate_multiple
  *
- * Total: 0 + 0 + 0 + 3 + 0 + 3 + 2 + 3 = 11 transcripts
+ * Total: 0*5 + 3 + 0 + 3 + 2 + 3 = 11 transcripts
  */
 TEST_F(ChonkTranscriptInvariantTests, AccumulationTranscriptCount)
 {
-    // Pinned expected transcript count for 4 app circuits
+    // Pinned expected transcript count for a MAX_APPS_PER_KERNEL + 1 app IVC (one full app group + a one-app
+    // remainder group, then the reset-tail and hiding kernels). Values below assume MAX_APPS_PER_KERNEL == 5.
+    static_assert(MAX_APPS_PER_KERNEL == 5, "Update pinned transcript counts if MAX_APPS_PER_KERNEL changes");
     constexpr size_t EXPECTED_TOTAL_TRANSCRIPTS = 11;
-    constexpr size_t EXPECTED_NUM_CIRCUITS = 8;
-    constexpr std::array<size_t, EXPECTED_NUM_CIRCUITS> EXPECTED_CIRCUIT_TRANSCRIPTS = { 0, 0, 0, 3, 0, 3, 2, 3 };
+    constexpr size_t EXPECTED_NUM_CIRCUITS = 10;
+    constexpr std::array<size_t, EXPECTED_NUM_CIRCUITS> EXPECTED_CIRCUIT_TRANSCRIPTS = { 0, 0, 0, 0, 0, 3, 0, 3, 2, 3 };
 
     // Record transcript index before IVC
     size_t index_before_ivc = bb::unique_transcript_index.load();
@@ -93,8 +98,8 @@ TEST_F(ChonkTranscriptInvariantTests, AccumulationTranscriptCount)
     std::vector<size_t> indices_before_accumulation;
     std::vector<size_t> indices_after_accumulation;
 
-    // Create IVC with 4 app circuits
-    constexpr size_t NUM_APP_CIRCUITS = 4;
+    // Create IVC with MAX_APPS_PER_KERNEL + 1 app circuits to force a full app group plus a one-app remainder group.
+    constexpr size_t NUM_APP_CIRCUITS = MAX_APPS_PER_KERNEL + 1;
     PrivateFunctionExecutionMockCircuitProducer circuit_producer(NUM_APP_CIRCUITS);
     const size_t num_circuits = circuit_producer.total_num_circuits;
     ASSERT_EQ(num_circuits, EXPECTED_NUM_CIRCUITS) << "Circuit count mismatch - test assumptions invalid";

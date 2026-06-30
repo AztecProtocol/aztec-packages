@@ -813,6 +813,10 @@ template <typename Flavor> struct ECCVMStructuredProofBase : StructuredProofHelp
     FF translation_grand_sum_eval;
     FF translation_quotient_eval;
 
+    // TripleIPA pow-tensor masking claim
+    Commitment pow_mask_commitment;
+    FF pow_mask_evaluation;
+
     // Final Shplonk Q
     Commitment final_shplonk_q_comm;
 
@@ -854,22 +858,11 @@ template <typename Flavor> struct ECCVMStructuredProofBase : StructuredProofHelp
         libra_grand_sum_commitment = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
         libra_quotient_commitment = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
 
-        // Gemini fold commitments and evaluations
-        for (size_t i = 0; i < log_n - 1; ++i) {
-            gemini_fold_comms.push_back(this->template deserialize_from_buffer<Commitment>(proof_data, offset));
-        }
-        for (size_t i = 0; i < log_n; ++i) {
-            gemini_fold_evals.push_back(this->template deserialize_from_buffer<FF>(proof_data, offset));
-        }
-
         // Libra SmallSubgroupIPA evaluations
         libra_concatenation_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
         libra_shifted_grand_sum_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
         libra_grand_sum_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
         libra_quotient_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
-
-        // First Shplonk Q
-        shplonk_q_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
 
         // Translation data
         translation_masking_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
@@ -885,6 +878,10 @@ template <typename Flavor> struct ECCVMStructuredProofBase : StructuredProofHelp
         translation_shifted_grand_sum_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
         translation_grand_sum_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
         translation_quotient_eval = this->template deserialize_from_buffer<FF>(proof_data, offset);
+
+        // TripleIPA pow-tensor masking claim
+        pow_mask_commitment = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
+        pow_mask_evaluation = this->template deserialize_from_buffer<FF>(proof_data, offset);
 
         // Final Shplonk Q
         final_shplonk_q_comm = this->template deserialize_from_buffer<Commitment>(proof_data, offset);
@@ -922,22 +919,11 @@ template <typename Flavor> struct ECCVMStructuredProofBase : StructuredProofHelp
         Base::serialize_to_buffer(libra_grand_sum_commitment, proof_data);
         Base::serialize_to_buffer(libra_quotient_commitment, proof_data);
 
-        // Gemini fold commitments and evaluations
-        for (size_t i = 0; i < log_n - 1; ++i) {
-            Base::serialize_to_buffer(gemini_fold_comms[i], proof_data);
-        }
-        for (size_t i = 0; i < log_n; ++i) {
-            Base::serialize_to_buffer(gemini_fold_evals[i], proof_data);
-        }
-
         // Libra SmallSubgroupIPA evaluations
         Base::serialize_to_buffer(libra_concatenation_eval, proof_data);
         Base::serialize_to_buffer(libra_shifted_grand_sum_eval, proof_data);
         Base::serialize_to_buffer(libra_grand_sum_eval, proof_data);
         Base::serialize_to_buffer(libra_quotient_eval, proof_data);
-
-        // First Shplonk Q
-        Base::serialize_to_buffer(shplonk_q_comm, proof_data);
 
         // Translation data
         Base::serialize_to_buffer(translation_masking_comm, proof_data);
@@ -953,6 +939,10 @@ template <typename Flavor> struct ECCVMStructuredProofBase : StructuredProofHelp
         Base::serialize_to_buffer(translation_shifted_grand_sum_eval, proof_data);
         Base::serialize_to_buffer(translation_grand_sum_eval, proof_data);
         Base::serialize_to_buffer(translation_quotient_eval, proof_data);
+
+        // TripleIPA pow-tensor masking claim
+        Base::serialize_to_buffer(pow_mask_commitment, proof_data);
+        Base::serialize_to_buffer(pow_mask_evaluation, proof_data);
 
         // Final Shplonk Q
         Base::serialize_to_buffer(final_shplonk_q_comm, proof_data);

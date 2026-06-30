@@ -33,10 +33,10 @@ using namespace bb;
  *
  * @param builder
  * @param input
- * @return HonkRecursionConstraintOutput {pairing agg object, ipa claim, ipa proof}
+ * @return AvmRecursionConstraintOutput {pairing agg object, deferred TripleIPA opening}
  */
-HonkRecursionConstraintOutput<UltraCircuitBuilder> create_avm2_recursion_constraints_goblin(
-    UltraCircuitBuilder& builder, const RecursionConstraint& input)
+AvmRecursionConstraintOutput create_avm2_recursion_constraints_goblin(UltraCircuitBuilder& builder,
+                                                                      const RecursionConstraint& input)
 {
     BB_ASSERT_EQ(input.proof_type, AVM);
 
@@ -52,10 +52,9 @@ HonkRecursionConstraintOutput<UltraCircuitBuilder> create_avm2_recursion_constra
     // Execute the TwoLayerAvmRecursiveVerifier recursive verifier
     avm2::TwoLayerAvmRecursiveVerifier verifier(builder);
 
-    bb::avm2::TwoLayerAvmRecursiveVerifier::TwoLayerAvmRecursiveVerifierOutput output =
-        verifier.verify_proof(proof_fields, bb::avm2::PublicInputs::flat_to_columns(public_inputs_flattened));
-
-    return output;
+    auto output = verifier.verify_proof(proof_fields, bb::avm2::PublicInputs::flat_to_columns(public_inputs_flattened));
+    return { .points_accumulator = std::move(output.points_accumulator),
+             .triple_ipa_opening = std::move(output.triple_ipa_opening) };
 }
 
 } // namespace acir_format

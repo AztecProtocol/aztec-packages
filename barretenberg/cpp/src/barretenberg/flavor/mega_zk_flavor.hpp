@@ -88,7 +88,7 @@ class MegaZKFlavor : public MegaZKFlavor_Generated {
                   "batched Chonk flow.");
     // MegaZK includes only the kernel_calldata bus. The hiding kernel reads against the prior
     // circuit's return_data, which is copy-constrained to kernel_calldata; the other Mega buses
-    // (first/second/third_app_calldata, return_data) don't apply here.
+    // (first..fifth_app_calldata, return_data) don't apply here.
     static_assert(NUM_BUS_COLUMNS == 1, "MegaZK flavor should declare exactly the kernel_calldata bus");
 
     // ZK masking lives at rows [NUM_ZERO_ROWS, TRACE_OFFSET); Sumcheck disables rows [0, TRACE_OFFSET).

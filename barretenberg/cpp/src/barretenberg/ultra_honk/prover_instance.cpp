@@ -12,6 +12,7 @@
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/flavor/mega_app_flavor.hpp"
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
+#include "barretenberg/flavor/mega_flavor.hpp"
 #include "barretenberg/flavor/mega_kernel_flavor.hpp"
 #include "barretenberg/honk/composer/composer_lib.hpp"
 #include "barretenberg/honk/composer/permutation_lib.hpp"
@@ -277,7 +278,7 @@ void ProverInstance_<Flavor>::allocate_databus_polynomials(const Circuit& circui
     auto bus_indicators = polynomials.get_databus_indicators(); // [bus0_indicator, bus1_indicator, ...]
     bb::constexpr_for<0, Flavor::NUM_BUS_COLUMNS, 1>([&]<size_t bus_idx>() {
         // Map the flavor's local bus index to the builder's `get_bus_vector` slot (kernel_calldata=0,
-        // first/second/third_app_calldata=1/2/3, return_data=4). For full MegaFlavor this is the identity;
+        // first..fifth_app_calldata=1..5, return_data=6). For full MegaFlavor this is the identity;
         // for other flavors (e.g. MegaAppFlavor with only `return_data`) the mapping shifts so the right
         // builder bus is read.
         constexpr size_t builder_bus_idx = Flavor::BUILDER_BUS_INDICES[bus_idx];

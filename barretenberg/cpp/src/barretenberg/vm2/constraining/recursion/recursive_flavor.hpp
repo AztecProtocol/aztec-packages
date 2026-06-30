@@ -147,7 +147,7 @@ class AvmRecursiveFlavor {
                 transcript->template receive_from_prover<std::array<FF, NUM_ALL_ENTITIES>>("Sumcheck:evaluations");
 
             [[maybe_unused]] auto _unshifted_challenges =
-                transcript->template get_challenges<FF>(challenges.get_unshifted_labels());
+                transcript->template get_short_challenges<FF>(challenges.get_unshifted_labels());
 
             [[maybe_unused]] const FF _gemini_batching_challenge = transcript->template get_challenge<FF>("rho");
 

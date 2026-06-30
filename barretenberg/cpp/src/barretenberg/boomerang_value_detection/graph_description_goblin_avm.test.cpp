@@ -1,5 +1,6 @@
 #include "barretenberg/boomerang_value_detection/graph.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
+#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/common/test.hpp"
 
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
@@ -7,9 +8,6 @@
 #include "barretenberg/goblin_avm/goblin_avm.hpp"
 #include "barretenberg/goblin_avm/goblin_avm_verifier.hpp"
 #include "barretenberg/srs/global_crs.hpp"
-#include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
-#include "barretenberg/ultra_honk/ultra_prover.hpp"
-#include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
 namespace bb::stdlib::recursion::honk {
 class BoomerangGoblinAvmRecursiveVerifierTests : public testing::Test {
@@ -20,9 +18,6 @@ class BoomerangGoblinAvmRecursiveVerifierTests : public testing::Test {
 
     using OuterFlavor = UltraFlavor;
     using OuterBuilder = OuterFlavor::CircuitBuilder;
-    using OuterProver = UltraProver_<OuterFlavor>;
-    using OuterVerifier = UltraRollupVerifier;
-    using OuterProverInstance = ProverInstance_<OuterFlavor>;
 
     using Commitment = UltraFlavor::Commitment;
     using RecursiveCommitment = bb::GoblinAvmRecursiveVerifier::Commitment;
@@ -35,6 +30,20 @@ class BoomerangGoblinAvmRecursiveVerifierTests : public testing::Test {
     using BF = TranslatorFlavor::BF;
 
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
+
+    template <typename TripleIpaClaim> static void fix_triple_ipa_claim_witnesses(TripleIpaClaim& claim)
+    {
+        claim.unshifted_commitment.fix_witness();
+        claim.shifted_commitment.fix_witness();
+        claim.unshifted_evaluation.fix_witness();
+        claim.shifted_evaluation.fix_witness();
+        claim.univariate.commitment.fix_witness();
+        claim.univariate.opening_pair.challenge.fix_witness();
+        claim.univariate.opening_pair.evaluation.fix_witness();
+        for (auto& challenge : claim.multilinear_challenge) {
+            challenge.fix_witness();
+        }
+    }
 
     struct ProverOutput {
         GoblinAvmProof proof;
@@ -90,14 +99,17 @@ TEST_F(BoomerangGoblinAvmRecursiveVerifierTests, graph_description_basic)
     auto transcript = std::make_shared<Transcript>();
     GoblinAvmStdlibProof stdlib_proof(builder, proof);
     GoblinAvmRecursiveVerifier verifier{ transcript, stdlib_proof, recursive_table_commitments };
-    auto output = verifier.reduce_to_pairing_check_and_ipa_opening();
+    auto output = verifier.reduce_to_pairing_check_and_triple_ipa_opening();
+
+    fix_triple_ipa_claim_witnesses(output.triple_ipa_opening.claim);
+
+    auto [ipa_claim, ipa_proof] = IPA<stdlib::grumpkin<OuterBuilder>>::create_random_valid_ipa_claim_and_proof(builder);
 
     stdlib::recursion::honk::RollupIO inputs;
     inputs.pairing_inputs = output.translator_pairing_points;
-    inputs.ipa_claim = output.ipa_claim;
+    inputs.ipa_claim = ipa_claim;
     inputs.set_public();
-
-    builder.ipa_proof = output.ipa_proof.get_value();
+    builder.ipa_proof = ipa_proof;
 
     // Use the already aggregated pairing points (merge + translator)
     auto translator_pairing_points = output.translator_pairing_points;
@@ -110,19 +122,8 @@ TEST_F(BoomerangGoblinAvmRecursiveVerifierTests, graph_description_basic)
     // rather than relying solely on them being public outputs.
     translator_pairing_points.fix_witness();
 
-    // Construct and verify a proof for the Goblin Recursive Verifier circuit
-    {
-        auto prover_instance = std::make_shared<OuterProverInstance>(builder);
-        auto verification_key =
-            std::make_shared<typename OuterFlavor::VerificationKey>(prover_instance->get_precomputed());
-        auto vk_and_hash = std::make_shared<typename OuterFlavor::VKAndHash>(verification_key);
-        OuterProver prover(prover_instance, verification_key);
-        OuterVerifier verifier(vk_and_hash);
-        auto proof = prover.construct_proof();
-        bool verified = verifier.verify_proof(proof).result;
-
-        ASSERT_TRUE(verified);
-    }
+    builder.finalize_circuit();
+    EXPECT_FALSE(builder.failed()) << builder.err();
 
     info("Recursive Verifier: num gates = ", builder.num_gates());
     auto graph = cdg::StaticAnalyzer(builder, false);
@@ -130,8 +131,6 @@ TEST_F(BoomerangGoblinAvmRecursiveVerifierTests, graph_description_basic)
     // All pairing point coordinate limbs are now properly constrained. The self_reduce() call in bigfield::set_public()
     // ensures limbs are in canonical form, adding constraints that use each limb in multiple gates.
     EXPECT_EQ(variables_in_one_gate.size(), 0);
-    graph.fill_witness_duplicate_map({}, cdg::WitnessDuplicateFilterMode::TRIAGE_VALUE_FILTERS);
-    EXPECT_TRUE(graph.get_witness_duplicate_map().empty());
 }
 
 } // namespace bb::stdlib::recursion::honk

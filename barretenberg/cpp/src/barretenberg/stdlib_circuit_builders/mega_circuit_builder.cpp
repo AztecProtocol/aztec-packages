@@ -119,25 +119,6 @@ ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wires(const UltraOp& ultra
     op_tuple.z_1 = this->add_variable(ultra_op.z_1);
     op_tuple.z_2 = this->add_variable(ultra_op.z_2);
 
-    // BOOMERANG_DUPLICATE_PROVENANCE: See
-    // barretenberg/cpp/src/barretenberg/boomerang_value_detection/WITNESS_DUPLICATE_DETECTION.md. Tag each point limb
-    // with an ECC_OP_TABLE provenance key keyed on the opcode, the serialization slot in the ecc_op block, and the limb
-    // slot. The limb slot is essential: x_lo, x_hi, y_lo, and y_hi are not forced equal to each other.
-    const uint64_t slot = ecc_op_slot_count++;
-    if (!ultra_op.op_code.is_random_op) {
-        const uint64_t opcode_value = static_cast<uint64_t>(ultra_op.op_code.value());
-        enum class EccOpPointLimb : uint64_t { X_LO = 0, X_HI = 1, Y_LO = 2, Y_HI = 3 };
-        const auto group_key = [&](EccOpPointLimb limb_slot) {
-            return CircuitBuilderBase<FF>::make_duplicate_provenance(
-                DuplicateProvenanceCategory::ECC_OP_TABLE,
-                duplicate_provenance_local_id({ opcode_value, slot, static_cast<uint64_t>(limb_slot) }));
-        };
-        this->tag_duplicate_provenance(op_tuple.x_lo, group_key(EccOpPointLimb::X_LO));
-        this->tag_duplicate_provenance(op_tuple.x_hi, group_key(EccOpPointLimb::X_HI));
-        this->tag_duplicate_provenance(op_tuple.y_lo, group_key(EccOpPointLimb::Y_LO));
-        this->tag_duplicate_provenance(op_tuple.y_hi, group_key(EccOpPointLimb::Y_HI));
-    }
-
     // Set the indices for the op values for each of the two rows
     uint32_t op_val_idx_1 = op_tuple.op;      // genuine op code value
     uint32_t op_val_idx_2 = this->zero_idx(); // second row value always set to 0
@@ -275,8 +256,9 @@ template <typename FF> void MegaCircuitBuilder_<FF>::apply_databus_selectors(con
     auto& block = this->blocks.busread;
     const size_t idx = static_cast<size_t>(bus_idx);
     // Bus column k (0 <= k < NUM_BUS_COLUMNS) is selected by one of these selectors.
-    // The order here must match BusData<bus_idx>::selector in databus_lookup_relation.hpp.
-    auto databus_selectors = std::array{ &block.q_1(), &block.q_2(), &block.q_3(), &block.q_4(), &block.q_m() };
+    // The order here must match the bus selector order in flavor-codegen mega.ts / mega_kernel.ts.
+    auto databus_selectors =
+        std::array{ &block.q_1(), &block.q_2(), &block.q_3(), &block.q_4(), &block.q_5(), &block.q_c(), &block.q_m() };
     static_assert(std::tuple_size_v<decltype(databus_selectors)> == NUM_BUS_COLUMNS,
                   "apply_databus_selectors mapping must match NUM_BUS_COLUMNS and "
                   "BusData<bus_idx>::selector in databus_lookup_relation.hpp");
@@ -284,8 +266,6 @@ template <typename FF> void MegaCircuitBuilder_<FF>::apply_databus_selectors(con
     for (size_t selector_idx = 0; selector_idx < NUM_BUS_COLUMNS; ++selector_idx) {
         databus_selectors[selector_idx]->emplace_back(selector_idx == idx ? 1 : 0);
     }
-    block.q_5().emplace_back(0);
-    block.q_c().emplace_back(0);
     block.set_gate_selector(1);
 }
 

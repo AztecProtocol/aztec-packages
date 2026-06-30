@@ -76,6 +76,7 @@ TEST_F(ChonkRecursionTests, Basic)
     StdlibProof stdlib_proof(builder, proof);
     ChonkRecVerifierOutput output = verifier.verify(stdlib_proof);
 
+    EXPECT_TRUE(output.all_checks_passed);
     EXPECT_EQ(builder.failed(), false) << builder.err();
 
     EXPECT_TRUE(CircuitChecker::check(builder));

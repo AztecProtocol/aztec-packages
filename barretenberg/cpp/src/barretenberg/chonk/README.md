@@ -109,12 +109,12 @@ The Chonk verifier performs verification on a shared transcript:
 MegaZK Oink → Merge → ECCVM → Translator Oink + Joint Sumcheck + Joint PCS → Pairing Check
 ```
 
-Concretely (`ChonkVerifier::reduce_to_ipa_claim` / `ChonkVerifier::verify`):
+Concretely (`ChonkVerifier::reduce_to_triple_ipa_opening` / `ChonkVerifier::verify`):
 
 1. **MegaZK Oink verification**: `BatchedHonkTranslatorVerifier::verify_mega_zk_oink` processes the hiding kernel's pre-sumcheck proof and extracts `HidingKernelIO` (pairing points, kernel return data commitment, ECC op wire commitments)
 2. **Databus consistency check**: Asserts the hiding kernel's kernel calldata commitment equals the `kernel_return_data` commitment contained it its public inputs
 3. **Merge verification**: Verifies the hiding kernel's APPEND-mode merge proof using the ECC op wire commitments from step 1 and `ecc_op_tables` from `HidingKernelIO`
-4. **ECCVM verification**: Reduces to an IPA opening claim; extracts translator input parameters (`v`, `x`, `accumulated_result`)
+4. **ECCVM verification**: Reduces to a deferred TripleIPA opening; extracts translator input parameters (`v`, `x`, `accumulated_result`)
 5. **Joint verification**: `BatchedHonkTranslatorVerifier::verify` processes the translator Oink, runs the 17-round joint sumcheck, and performs the joint Shplemini/KZG PCS reduction
 6. **Pairing aggregation**: Aggregates 3 pairing point sets using `aggregate_multiple`:
    - Public Input (PI) pairing points from `HidingKernelIO`

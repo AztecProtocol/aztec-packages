@@ -70,6 +70,7 @@ namespace bb {
 template <typename Flavor> class SmallSubgroupIPAProver {
     using Curve = typename Flavor::Curve;
     using FF = typename Curve::ScalarField;
+    using Commitment = typename Curve::AffineElement;
     // The size of a multiplicative subgroup in the ScalarField of a curve
     static constexpr size_t SUBGROUP_SIZE = Curve::SUBGROUP_SIZE;
 
@@ -126,6 +127,7 @@ template <typename Flavor> class SmallSubgroupIPAProver {
 
     std::shared_ptr<typename Flavor::Transcript> transcript;
     typename Flavor::CommitmentKey commitment_key;
+    std::array<Commitment, NUM_SMALL_IPA_COMMITMENTS> witness_commitments;
 
   public:
     // The SmallSubgroupIPA claim
@@ -180,6 +182,7 @@ template <typename Flavor> class SmallSubgroupIPAProver {
     {
         return { concatenated_polynomial, grand_sum_polynomial, grand_sum_identity_quotient };
     }
+    std::array<Commitment, NUM_SMALL_IPA_COMMITMENTS> get_witness_commitments() const { return witness_commitments; }
     // Getters for test purposes
     const Polynomial<FF>& get_batched_polynomial() const { return grand_sum_identity_polynomial; }
     const Polynomial<FF>& get_challenge_polynomial() const { return challenge_polynomial; }

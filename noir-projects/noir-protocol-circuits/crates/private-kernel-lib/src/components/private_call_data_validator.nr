@@ -5,7 +5,8 @@ use types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
         private_call_request::PrivateCallRequest,
-        private_kernel::private_call_data::PrivateCallData, protocol_contracts::ProtocolContracts,
+        private_kernel::private_call_data::PrivateCallData,
+        private_tx_constant_data::PrivateTxConstantData, protocol_contracts::ProtocolContracts,
         transaction::tx_request::TxRequest,
     },
     constants::NULL_MSG_SENDER_CONTRACT_ADDRESS,
@@ -92,6 +93,41 @@ impl PrivateCallDataValidator {
         let private_call_stack_length = previous_kernel.end.private_call_stack.length;
         let call_request =
             previous_kernel.end.private_call_stack.array[private_call_stack_length - 1];
+        self.validate_against_call_request(call_request);
+    }
+
+    /// For batched Init and Inner.
+    /// Run every check that depends only on the shared tx constants (proof verification,
+    /// contract address, side-effect counters, msg_senders, expected counters, claimed-lengths bounds,
+    /// anchor_block_header, tx_context).
+    /// Must run BEFORE the unconstrained composer; the composer may otherwise index past
+    /// claimed array lengths.
+    ///
+    /// Note: This function should only be used to validate function calls AFTER the first
+    /// function call.
+    pub fn validate_against_constants(
+        self,
+        constants: PrivateTxConstantData,
+        claimed_revertible_counter: u32,
+    ) {
+        self.validate_common(
+            false /* is_first_function_call */,
+            constants.protocol_contracts,
+            claimed_revertible_counter,
+        );
+
+        let this_call = self.data.public_inputs;
+        assert_eq(
+            this_call.anchor_block_header,
+            constants.anchor_block_header,
+            "anchor block header mismatch",
+        );
+        assert_eq(this_call.tx_context, constants.tx_context, "mismatch tx context");
+        assert_eq(this_call.tx_request_salt, constants.tx_request_salt, "mismatch tx_request_salt");
+    }
+
+    /// Validate that the call_request matched the current call.
+    pub fn validate_against_request(self, call_request: PrivateCallRequest) {
         self.validate_against_call_request(call_request);
     }
 

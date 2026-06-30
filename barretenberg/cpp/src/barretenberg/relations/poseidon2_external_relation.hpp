@@ -115,16 +115,18 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
 
         // add round constants which are loaded in selectors
 
-        auto sbox = [](const Accumulator& x) {
-            auto t2 = x.sqr();  // x^2
-            auto t4 = t2.sqr(); // x^4
-            return t4 * x;      // x^5
+        // Square the degree-1 sbox input in the coefficient basis before promoting -- see
+        // UnivariateCoefficientBasis::sqr.
+        auto sbox = [](const auto& x_m) {
+            const Accumulator x(x_m);
+            const Accumulator t2(x_m.sqr()); // x^2
+            return t2.sqr() * x;             // x^4 * x = x^5
         };
         // apply s-box round
-        auto u1 = sbox(Accumulator(w_1 + c_1));
-        auto u2 = sbox(Accumulator(w_2 + c_2));
-        auto u3 = sbox(Accumulator(w_3 + c_3));
-        auto u4 = sbox(Accumulator(w_4 + c_4));
+        auto u1 = sbox(w_1 + c_1);
+        auto u2 = sbox(w_2 + c_2);
+        auto u3 = sbox(w_3 + c_3);
+        auto u4 = sbox(w_4 + c_4);
         // Matrix mul v = M_E * u with 14 additions.
         // Precompute common summands.
         auto t0 = u1 + u2; // u_1 + u_2

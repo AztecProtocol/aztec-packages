@@ -34,14 +34,13 @@ template <typename Field> class StdlibCodec {
     using grumpkin_commitment = cycle_group<Builder>;
 
     /**
-     * @brief  A stdlib Transcript method needed to convert an `fr` challenge to a `bigfield` one. Assumes that
-     * `challenge` is "short".
+     * @brief  A stdlib Transcript method needed to convert a short `fr` challenge limb to a `bigfield` one.
      *
      * @tparam T fr or fq
      * @param challenge a 127-bit limb of a full challenge
      * @return T
      */
-    template <typename T> static T convert_challenge(const fr& challenge)
+    template <typename T> static T convert_short_challenge(const fr& challenge)
     {
         if constexpr (std::is_same_v<T, fr>) {
             return challenge;
@@ -57,6 +56,26 @@ template <typename Field> class StdlibCodec {
             auto high_limb = fr::from_witness_index(builder, builder->zero_idx());
             high_limb.set_origin_tag(challenge.get_origin_tag());
             return T(challenge, high_limb);
+        }
+    }
+
+    /**
+     * @brief Convert a full-width challenge to a target type (fr or fq).
+     * @details For `fq` the full challenge is decomposed into the low/high halves expected by the
+     * `bigfield(low_bits, high_bits)` constructor (which range-constrains the limbs), and the decomposition is
+     * bound back to the challenge so the resulting cycle scalar equals the squeezed challenge. This is exact and
+     * canonical: the challenge value is `< r < q`, so it is always a valid `fq` element. Mirrors the native
+     * `FrCodec::convert_full_challenge`, which reinterprets the same value as `fq`.
+     */
+    template <typename T> static T convert_full_challenge(const fr& challenge)
+    {
+        if constexpr (std::is_same_v<T, fr>) {
+            return challenge;
+        } else if constexpr (std::is_same_v<T, fq>) {
+            // Decompose at the bigfield's lower-two-limb boundary; split_unique binds the halves to the challenge.
+            static constexpr size_t LOW_BITS = 2 * T::NUM_LIMB_BITS;
+            const auto [low_bits, high_bits] = split_unique(challenge, LOW_BITS);
+            return T(low_bits, high_bits);
         }
     }
 

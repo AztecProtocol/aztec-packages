@@ -222,6 +222,18 @@ class UltraEccOpsTable {
     static_assert(APPEND_TRACE_OFFSET % NUM_ROWS_PER_OP == 0);
 
     /**
+     * @brief Shift size of the APPEND merge: the start row of the appended subtable's polynomial in the merged table.
+     * @details The shift `k` of the identity M = L + X^k · R: the optional ZK prefix (ZK_ULTRA_OPS rows, present only
+     * for the Chonk table) followed by `append_offset` ops (NUM_ROWS_PER_OP rows each) for the tables up to the tail.
+     * The appended subtable's polynomial carries the APPEND_TRACE_OFFSET leading zeros itself, so `k` excludes them.
+     * For the row at which the appended operations actually begin, see compute_fixed_append_ops_row.
+     */
+    static constexpr size_t compute_fixed_append_offset(size_t append_offset, bool include_zk_prefix = true)
+    {
+        return (include_zk_prefix ? ZK_ULTRA_OPS : 0) + (append_offset * NUM_ROWS_PER_OP);
+    }
+
+    /**
      * @brief Build a hiding op as paired Ultra and ECCVM operations from raw Fq coordinates.
      *
      * @details Uses opcode q_eq=q_reset=1 (value 3) for Translator compatibility. The base point is constructed
@@ -263,6 +275,13 @@ class UltraEccOpsTable {
     using UltraOpsTable = EccOpsTable<UltraOp>;
     using ColumnPolynomials = std::array<Polynomial<Fr>, TABLE_WIDTH>;
 
+    // Row at which the appended subtable's operations begin: the polynomial start (compute_fixed_append_offset) plus
+    // the APPEND_TRACE_OFFSET leading-zero preamble that the subtable polynomial carries.
+    static constexpr size_t compute_fixed_append_ops_row(size_t append_offset, bool include_zk_prefix)
+    {
+        return compute_fixed_append_offset(append_offset, include_zk_prefix) + APPEND_TRACE_OFFSET;
+    }
+
     UltraOpsTable table;
     std::vector<UltraOp> zk_ops; // ops used to mask real ops in Chonk
 
@@ -287,8 +306,10 @@ class UltraEccOpsTable {
         }
         BB_ASSERT(!table.get().empty(), "Fixed-append set but no subtables present");
         // Last subtable starts at fixed_append_offset (in op units), preceded by APPEND_TRACE_OFFSET zero rows.
+        // This count excludes the ZK prefix, hence include_zk_prefix=false.
         const size_t last_subtable_rows = table.get().back().size() * NUM_ROWS_PER_OP;
-        return (fixed_append_offset.value() * NUM_ROWS_PER_OP) + APPEND_TRACE_OFFSET + last_subtable_rows;
+        return compute_fixed_append_ops_row(fixed_append_offset.value(), /*include_zk_prefix=*/false) +
+               last_subtable_rows;
     }
     size_t ultra_table_size_up_to_tail() const
     {
@@ -565,9 +586,9 @@ class UltraEccOpsTable {
         }
 
         if (fixed_append_offset_for_last.has_value()) {
-            const size_t zk_prefix_rows = include_zk_ops ? ZK_ULTRA_OPS : 0;
-            size_t append_row =
-                zk_prefix_rows + (fixed_append_offset_for_last.value() * NUM_ROWS_PER_OP) + APPEND_TRACE_OFFSET;
+            // The appended subtable's operations begin after the optional ZK prefix and the APPEND_TRACE_OFFSET
+            // leading-zero preamble.
+            size_t append_row = compute_fixed_append_ops_row(fixed_append_offset_for_last.value(), include_zk_ops);
             for (const auto& op : table.get()[subtable_end_idx - 1]) {
                 write_op_to_polynomials(column_polynomials, op, append_row);
                 append_row += NUM_ROWS_PER_OP;

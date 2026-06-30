@@ -12,12 +12,8 @@
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
-#include "barretenberg/stdlib_circuit_builders/duplicate_provenance.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
-#include <algorithm>
-#include <cstdint>
 #include <memory>
-#include <unordered_set>
 #include <utility>
 
 using namespace bb;
@@ -418,102 +414,4 @@ TEST(boomerang_bigfield, test_graph_description_constructor_high_low_bits)
     auto connected_components = graph.find_connected_components();
     auto variables_in_one_gate = graph.get_variables_in_one_gate();
     EXPECT_EQ(variables_in_one_gate.size(), 0);
-}
-
-namespace {
-// Build a bigfield element from a single set of witnesses so two reductions can share the exact same input
-// witnesses (by witness index). The returned element references freshly created limb witnesses holding `value`.
-fq_ct bigfield_from_witnesses(Builder& builder, const fq& value)
-{
-    return fq_ct(witness_ct(&builder, fr(uint256_t(value).slice(0, fq_ct::NUM_LIMB_BITS * 2))),
-                 witness_ct(&builder, fr(uint256_t(value).slice(fq_ct::NUM_LIMB_BITS * 2, fq_ct::NUM_LIMB_BITS * 4))));
-}
-
-// Count the distinct BIGFIELD_REDUCTION provenance keys that the builder assigned, and the maximum number of distinct
-// real variables that share any single such key.
-std::pair<size_t, size_t> bigfield_provenance_key_stats(const Builder& builder)
-{
-    std::unordered_map<bb::DuplicateProvenance, std::unordered_set<uint32_t>, bb::DuplicateProvenanceHasher> by_key;
-    for (const auto& [real_index, key] : builder.get_duplicate_provenance()) {
-        if (duplicate_provenance_category(key) == DuplicateProvenanceCategory::BIGFIELD_REDUCTION) {
-            by_key[key].insert(real_index);
-        }
-    }
-    size_t max_group = 0;
-    for (const auto& [key, reals] : by_key) {
-        max_group = std::max(max_group, reals.size());
-    }
-    return { by_key.size(), max_group };
-}
-} // namespace
-
-/**
- * @brief Positive: reducing the SAME input witnesses twice produces a shared provenance group.
- *
- * @details Two multiplications of the same input bigfield witnesses run the same deterministic reduction
- * (unsafe_evaluate_multiply_add carries, and the self_reduce quotient/remainder once the product is reduced). Because
- * the producer keys the BIGFIELD_REDUCTION group on the identity (real variable indices) of the input witnesses, the
- * two reductions' intermediates land in the same group, so at least one provenance key is shared by more than one
- * distinct real variable. Those duplicates are constraint-forced equal and are suppressed by the analyzer.
- */
-TEST(boomerang_bigfield, provenance_suppresses_repeated_reduction_of_same_witnesses)
-{
-    Builder builder;
-    const fq value = fq::random_element(&engine);
-
-    // Two bigfield objects that share the SAME input limb witnesses (the copy ctor copies the limb field_t's, hence
-    // the underlying witness indices). reduce_mod_target_modulus -> self_reduce derives a unique (quotient, remainder)
-    // from those input witnesses, so the two reductions' quotient/remainder limbs are constraint-forced equal and the
-    // producer tags them with the same BIGFIELD_REDUCTION key.
-    fq_ct element_a = bigfield_from_witnesses(builder, value);
-    fq_ct element_b = element_a;
-
-    element_a.reduce_mod_target_modulus();
-    element_b.reduce_mod_target_modulus();
-    fix_bigfield_element(element_a);
-    fix_bigfield_element(element_b);
-
-    const auto [num_keys, max_group] = bigfield_provenance_key_stats(builder);
-    EXPECT_GT(num_keys, 0U);
-    // At least one reduction-output group holds two distinct real variables: the matching quotient/remainder limbs of
-    // the two identical-input reductions.
-    EXPECT_GE(max_group, 2U);
-}
-
-/**
- * @brief Negative: reducing two independent elements sharing a limb value does NOT group them.
- *
- * @details Two bigfield elements built from distinct witnesses get different BIGFIELD_REDUCTION local ids even if
- * their values (and therefore some reduction-intermediate values) coincide, because the key derives from the input
- * witnesses' real variable indices, not their values. The reduction intermediates of the two elements are therefore
- * in different provenance groups -- the constraints do not force them equal -- so a value-coincident duplicate is not
- * suppressed by provenance. This test asserts the provenance grouping itself stays sound: distinct inputs -> distinct
- * keys.
- */
-TEST(boomerang_bigfield, provenance_keeps_distinct_elements_sharing_value)
-{
-    Builder builder;
-    const fq shared_value = fq::random_element(&engine);
-    const fq other_value = fq::random_element(&engine);
-
-    // Two independent elements with the SAME value but DISTINCT witnesses, each multiplied by an independent factor.
-    fq_ct element_a = bigfield_from_witnesses(builder, shared_value);
-    fq_ct element_b = bigfield_from_witnesses(builder, shared_value);
-    fq_ct factor_a = bigfield_from_witnesses(builder, other_value);
-    fq_ct factor_b = bigfield_from_witnesses(builder, other_value);
-
-    fq_ct product_a = element_a * factor_a;
-    fq_ct product_b = element_b * factor_b;
-    fix_bigfield_element(product_a);
-    fix_bigfield_element(product_b);
-
-    std::unordered_set<DuplicateProvenance, DuplicateProvenanceHasher> keys;
-    for (const auto& [real_index, key] : builder.get_duplicate_provenance()) {
-        if (duplicate_provenance_category(key) == DuplicateProvenanceCategory::BIGFIELD_REDUCTION) {
-            keys.insert(key);
-        }
-    }
-    // Distinct input witnesses for the two reductions -> distinct reduction-instance keys; the two sets of
-    // value-coincident intermediates are not grouped together by provenance.
-    EXPECT_GE(keys.size(), 2U);
 }

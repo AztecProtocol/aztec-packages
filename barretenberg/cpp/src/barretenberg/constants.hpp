@@ -50,7 +50,7 @@ static constexpr uint32_t NUM_DISABLED_ROWS_IN_SUMCHECK = NUM_MASKED_ROWS + 1;
 // Number of wires in Ultra and Mega arithmetization
 static constexpr uint32_t NUM_WIRES = 4;
 
-static constexpr uint32_t MERGE_PROOF_SIZE = 42; // used to ensure mock proofs are generated correctly
+static constexpr uint32_t MERGE_PROOF_SIZE = 41; // used to ensure mock proofs are generated correctly
 
 // There are 5 distinguished wires in ECCVM that have to be opened as univariates to establish the connection between
 // ECCVM and Translator
@@ -63,17 +63,17 @@ static constexpr size_t NUM_ZERO_ROWS = 1;
 static constexpr size_t NUM_TRAILING_KERNELS = 2;
 
 // The maximum number of app circuits a single kernel can recursively verify in one accumulation group.
-static constexpr uint8_t MAX_APPS_PER_KERNEL = 3;
+static constexpr uint8_t MAX_APPS_PER_KERNEL = 5;
 
 // The maximum number of claims combined in a single per-kernel multilinear batching sumcheck: the accumulator carried
 // in from the previous kernel, the previous kernel's proof, and up to MAX_APPS_PER_KERNEL app proofs.
 static constexpr size_t CHONK_MAX_CLAIMS_PER_KERNEL = MAX_APPS_PER_KERNEL + 2;
 
-static constexpr size_t CHONK_MAX_NUM_APPS = 41;
+static constexpr size_t CHONK_MAX_NUM_APPS = 45;
 static constexpr size_t compute_chonk_max_num_circuits()
 {
     return CHONK_MAX_NUM_APPS + ((CHONK_MAX_NUM_APPS + MAX_APPS_PER_KERNEL - 1) / MAX_APPS_PER_KERNEL) +
-           /*trailing kernels*/ NUM_TRAILING_KERNELS;
+           NUM_TRAILING_KERNELS;
 }
 static constexpr size_t CHONK_MAX_NUM_CIRCUITS = compute_chonk_max_num_circuits();
 
@@ -83,4 +83,8 @@ static constexpr size_t BATCH_MERGE_PROOF_SIZE =
     /*commitments*/ (4 * (4 * (CHONK_MAX_NUM_CIRCUITS + /*zk tables, merged tables*/ 2) + /*degree check*/ 1)) +
     /*evals*/ (4 * (CHONK_MAX_NUM_CIRCUITS + 2) + 1) +
     /*shplonk and kzg*/ 8;
+
+// Number of ultra ops the hiding kernel appends. The final merge verifier hard-codes its shift size from this,
+// and the merge prover asserts the hiding subtable matches it, so it must equal the hiding kernel's ultra-op count.
+static constexpr size_t HIDING_KERNEL_ULTRA_OPS = 363;
 } // namespace bb

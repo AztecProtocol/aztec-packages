@@ -11,12 +11,13 @@
 namespace bb {
 
 /**
- * @brief Reduce Goblin proof to pairing check and IPA opening claim
+ * @brief Reduce Goblin proof to pairing checks and a TripleIPA claim
  * @details Processes Merge, ECCVM, and Translator sub-proofs sequentially. In native mode, performs immediate
  * pairing checks for early rejections and returns the default ReductionResult on failure.
  */
 template <typename Curve>
-typename GoblinVerifier_<Curve>::ReductionResult GoblinVerifier_<Curve>::reduce_to_pairing_check_and_ipa_opening()
+typename GoblinVerifier_<Curve>::ReductionResult GoblinVerifier_<
+    Curve>::reduce_to_pairing_check_and_triple_ipa_opening()
 {
     BB_BENCH_NAME("GoblinVerifier::reduce");
     // Step 1: Verify the merge proof
@@ -37,8 +38,9 @@ typename GoblinVerifier_<Curve>::ReductionResult GoblinVerifier_<Curve>::reduce_
 
     // Step 2: Verify the ECCVM proof
     ECCVMVerifier eccvm_verifier{ transcript, proof.eccvm_proof };
-    auto eccvm_result = eccvm_verifier.reduce_to_ipa_opening();
-    vinfo("Goblin: ECCVM reduced to IPA opening successfully: ", eccvm_result.reduction_succeeded ? "true" : "false");
+    auto eccvm_result = eccvm_verifier.reduce_to_triple_ipa_claim();
+    vinfo("Goblin: ECCVM reduced to TripleIPA claim successfully: ",
+          eccvm_result.reduction_succeeded ? "true" : "false");
 
     if constexpr (!IsRecursive) {
         if (!eccvm_result.reduction_succeeded) {
@@ -81,15 +83,15 @@ typename GoblinVerifier_<Curve>::ReductionResult GoblinVerifier_<Curve>::reduce_
     bool all_checks_passed =
         merge_result.reduction_succeeded && eccvm_result.reduction_succeeded && translator_result.reduction_succeeded;
 
-    // Warning: `all_checks_passed` always excludes IPA verification (deferred in both modes).
+    // Warning: `all_checks_passed` always excludes TripleIPA verification (deferred in both modes).
     // Native mode: pairing checks already performed above (fail-fast), included in all_checks_passed
     // Recursive mode: pairing checks deferred, excluded from all_checks_passed (for in-circuit batching)
     // In recursive mode, boolean flags are for circuit structure only (not actual verification).
     // Note: Pairing points are NOT aggregated here - caller should use aggregate_multiple for efficiency
     ReductionResult result{ .merge_pairing_points = std::move(merge_result.pairing_points),
                             .translator_pairing_points = std::move(translator_result.pairing_points),
-                            .ipa_claim = std::move(eccvm_result.ipa_claim),
-                            .ipa_proof = proof.ipa_proof,
+                            .triple_ipa_opening = { .claim = std::move(eccvm_result.triple_ipa_claim),
+                                                    .proof = proof.ipa_proof },
                             .all_checks_passed = all_checks_passed };
 
     return result;

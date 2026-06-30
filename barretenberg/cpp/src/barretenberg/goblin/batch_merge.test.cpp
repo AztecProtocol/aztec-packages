@@ -338,7 +338,7 @@ template <typename Param> class BatchMergeTests : public testing::Test {
     static constexpr bool IsRecursive = Curve::is_stdlib_type;
     using BuilderType = typename BuilderTypeHelper<Curve>::type;
 
-    static constexpr size_t VERIFIER_NUM_GATES = NumSubtables == 9 ? 6184 : 24010;
+    static constexpr size_t VERIFIER_NUM_GATES = NumSubtables == 9 ? 3035 : 19085;
     static constexpr size_t ZK_OFFSET = NumSubtables == 9 ? 666 : 520;
 
     struct VerifyResult {
@@ -587,9 +587,8 @@ TYPED_TEST(BatchMergeTests, GraphDescription)
         BuilderType builder;
         Proof proof = TestFixture::create_proof(builder, native_proof);
         FF hash = TestFixture::create_hash(builder, native_hash);
-        // The hash is consumed only via split_challenge, which yields a low/high pair via a single arithmetic
-        // gate: hash = lo + 2^127 * hi. The verifier subsequently uses only the low half, so hash itself
-        // appears in only that one gate. Pin it so the StaticAnalyzer doesn't flag it as unconstrained.
+        // The hash is a public input to the recursive batch-merge verifier. Pin it so the StaticAnalyzer doesn't flag
+        // it as unconstrained when graph-description tests analyze the verifier circuit in isolation.
         hash.fix_witness();
 
         Verifier verifier;

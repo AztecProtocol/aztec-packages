@@ -47,12 +47,12 @@ describe('Private Kernel Sequencer', () => {
     await BarretenbergSync.initSingleton({ backend: BackendType.NativeSharedMemory, logger: logger.debug });
   });
 
-  // Sanity-pin: the multi-app dispatch assertions below assume MAX_APPS_PER_KERNEL is 3. If the
+  // Sanity-pin: the multi-app dispatch assertions below assume MAX_APPS_PER_KERNEL is 5. If the
   // protocol constant changes, the per-test expected step shapes (especially the 14-app deep tree
   // case) need to be reworked.
-  if (MAX_APPS_PER_KERNEL !== 3) {
+  if (MAX_APPS_PER_KERNEL !== 5) {
     throw new Error(
-      `This test suite assumes MAX_APPS_PER_KERNEL === 3, got ${MAX_APPS_PER_KERNEL}. Update the expected dispatch shapes.`,
+      `This test suite assumes MAX_APPS_PER_KERNEL === 5, got ${MAX_APPS_PER_KERNEL}. Update the expected dispatch shapes.`,
     );
   }
 
@@ -155,9 +155,13 @@ describe('Private Kernel Sequencer', () => {
     proofCreator.simulateInit.mockResolvedValue(simulateProofOutput());
     proofCreator.simulateInit2.mockResolvedValue(simulateProofOutput());
     proofCreator.simulateInit3.mockResolvedValue(simulateProofOutput());
+    proofCreator.simulateInit4.mockResolvedValue(simulateProofOutput());
+    proofCreator.simulateInit5.mockResolvedValue(simulateProofOutput());
     proofCreator.simulateInner.mockResolvedValue(simulateProofOutput());
     proofCreator.simulateInner2.mockResolvedValue(simulateProofOutput());
     proofCreator.simulateInner3.mockResolvedValue(simulateProofOutput());
+    proofCreator.simulateInner4.mockResolvedValue(simulateProofOutput());
+    proofCreator.simulateInner5.mockResolvedValue(simulateProofOutput());
     proofCreator.simulateReset.mockResolvedValue(simulateProofOutput());
     proofCreator.simulateResetTail.mockResolvedValue(simulateProofOutputFinal());
 
@@ -174,9 +178,13 @@ describe('Private Kernel Sequencer', () => {
       expect(proofCreator.simulateInit).toHaveBeenCalledTimes(1);
       expect(proofCreator.simulateInit2).not.toHaveBeenCalled();
       expect(proofCreator.simulateInit3).not.toHaveBeenCalled();
+      expect(proofCreator.simulateInit4).not.toHaveBeenCalled();
+      expect(proofCreator.simulateInit5).not.toHaveBeenCalled();
       expect(proofCreator.simulateInner).not.toHaveBeenCalled();
       expect(proofCreator.simulateInner2).not.toHaveBeenCalled();
       expect(proofCreator.simulateInner3).not.toHaveBeenCalled();
+      expect(proofCreator.simulateInner4).not.toHaveBeenCalled();
+      expect(proofCreator.simulateInner5).not.toHaveBeenCalled();
       proofCreator.simulateInit.mockClear();
     }
 
@@ -187,8 +195,8 @@ describe('Private Kernel Sequencer', () => {
       //   }
       //   d {}
       // }
-      // DFS order: a, b, c, d (4 apps). At N=3 the planner picks {a, b, c} as the first batch
-      // (init_3), leaving d for a single-app inner.
+      // DFS order: a, b, c, d (4 apps). At N=5 all four apps fit in the first batch, so dispatch
+      // is a single init_4 with no inner.
       dependencies = {
         a: ['b', 'd'],
         b: ['c'],
@@ -197,12 +205,13 @@ describe('Private Kernel Sequencer', () => {
       await prove(executionResult);
 
       expect(proofCreator.simulateInit).not.toHaveBeenCalled();
-      expect(proofCreator.simulateInit3).toHaveBeenCalledTimes(1);
-      expect(proofCreator.simulateInner).toHaveBeenCalledTimes(1);
+      expect(proofCreator.simulateInit4).toHaveBeenCalledTimes(1);
+      expect(proofCreator.simulateInner).not.toHaveBeenCalled();
       expect(proofCreator.simulateInner2).not.toHaveBeenCalled();
       expect(proofCreator.simulateInner3).not.toHaveBeenCalled();
-      proofCreator.simulateInit3.mockClear();
-      proofCreator.simulateInner.mockClear();
+      expect(proofCreator.simulateInner4).not.toHaveBeenCalled();
+      expect(proofCreator.simulateInner5).not.toHaveBeenCalled();
+      proofCreator.simulateInit4.mockClear();
     }
 
     {
@@ -226,9 +235,9 @@ describe('Private Kernel Sequencer', () => {
       //     }
       //     g {}
       //   }
-      // DFS order: a, b, d, h, c, e, f, i, j, l, n, m, k, g (14 apps). At N=3 the planner
-      // greedily takes 3 per iteration with no overflow under the mock kernel state, giving
-      // batches [a,b,d], [h,c,e], [f,i,j], [l,n,m], [k,g] → init_3 + 3×inner_3 + inner_2.
+      // DFS order: a, b, d, h, c, e, f, i, j, l, n, m, k, g (14 apps). At N=5 the planner
+      // greedily takes 5 per iteration with no overflow under the mock kernel state, giving
+      // batches [a,b,d,h,c], [e,f,i,j,l], [n,m,k,g] → init_5 + inner_5 + inner_4.
       dependencies = {
         a: ['b', 'c'],
         b: ['d'],
@@ -242,10 +251,12 @@ describe('Private Kernel Sequencer', () => {
       await prove(executionResult);
 
       expect(proofCreator.simulateInit).not.toHaveBeenCalled();
-      expect(proofCreator.simulateInit3).toHaveBeenCalledTimes(1);
+      expect(proofCreator.simulateInit5).toHaveBeenCalledTimes(1);
       expect(proofCreator.simulateInner).not.toHaveBeenCalled();
-      expect(proofCreator.simulateInner2).toHaveBeenCalledTimes(1);
-      expect(proofCreator.simulateInner3).toHaveBeenCalledTimes(3);
+      expect(proofCreator.simulateInner2).not.toHaveBeenCalled();
+      expect(proofCreator.simulateInner3).not.toHaveBeenCalled();
+      expect(proofCreator.simulateInner4).toHaveBeenCalledTimes(1);
+      expect(proofCreator.simulateInner5).toHaveBeenCalledTimes(1);
     }
   });
 
@@ -263,52 +274,50 @@ describe('Private Kernel Sequencer', () => {
     expect(proofCreator.simulateResetTail).toHaveBeenCalledTimes(1);
   });
 
-  it('executes init_3, inner, and terminal reset+tail for nested functions', async () => {
+  it('executes init_4 and terminal reset+tail for nested functions', async () => {
     // a {
     //   b {
     //     c {}
     //   }
     //   d {}
     // }
-    // DFS order a, b, c, d. At MAX_APPS_PER_KERNEL=3 the first batch absorbs {a, b, c} into
-    // init_3, leaving d for a single-app inner.
+    // DFS order a, b, c, d. At MAX_APPS_PER_KERNEL=5 all four apps fit in the first batch, so the
+    // dispatch is a single init_4 with no inner iteration.
     dependencies = { a: ['b', 'd'], b: ['c'] };
 
     const executionResult = createExecutionResult('a');
     const result = await prove(executionResult);
 
     const stepNames = result.executionSteps.map(s => s.functionName);
-    expect(stepNames).toEqual([
-      'a',
-      'b',
-      'c',
-      'private_kernel_init_3',
-      'd',
-      'private_kernel_inner',
-      'private_kernel_reset_tail',
-    ]);
+    expect(stepNames).toEqual(['a', 'b', 'c', 'd', 'private_kernel_init_4', 'private_kernel_reset_tail']);
   });
 
   it('runs inner reset before next iteration when key validation requests overflow', async () => {
-    // Inner-reset fires between kernel iterations. Use 4 apps so the planner fills init_3 with
-    // {a, b, c} and leaves d for a second iteration where the overflow check trips.
-    proofCreator.simulateInit3.mockResolvedValue(
+    // Inner-reset fires between kernel iterations. Use 6 apps so the planner fills init_5 with
+    // {a, b, c, d, e} and leaves f for a second iteration where the overflow check trips.
+    proofCreator.simulateInit5.mockResolvedValue(
       simulateProofOutput(b => times(MAX_KEY_VALIDATION_REQUESTS_PER_TX, () => b.addKeyValidationRequest())),
     );
 
-    // Leftover app d adds 1 key validation request → total exceeds MAX → inner reset needed.
-    const dBuilder = new PrivateCircuitPublicInputsBuilder(contractAddress);
-    dBuilder.addKeyValidationRequest();
-    const dPublicInputs = dBuilder.build();
+    // Leftover app f adds 1 key validation request → total exceeds MAX → inner reset needed.
+    const fBuilder = new PrivateCircuitPublicInputsBuilder(contractAddress);
+    fBuilder.addKeyValidationRequest();
+    const fPublicInputs = fBuilder.build();
 
-    // a { b c d } — DFS order a, b, c, d. First batch absorbs {a, b, c}; d is left for the
-    // second iteration.
-    dependencies = { a: ['b', 'c', 'd'] };
+    // a { b c d e f } — DFS order a, b, c, d, e, f. First batch absorbs {a, b, c, d, e}; f is left
+    // for the second iteration.
+    dependencies = { a: ['b', 'c', 'd', 'e', 'f'] };
 
-    // Distinct empty PIs for b and c so the createCallExecutionResult helper doesn't mutate a
+    // Distinct empty PIs for b..e so the createCallExecutionResult helper doesn't mutate a
     // shared callContext across siblings.
     const entryExecResult = createCallExecutionResult('a', {
-      childPublicInputs: [PrivateCircuitPublicInputs.empty(), PrivateCircuitPublicInputs.empty(), dPublicInputs],
+      childPublicInputs: [
+        PrivateCircuitPublicInputs.empty(),
+        PrivateCircuitPublicInputs.empty(),
+        PrivateCircuitPublicInputs.empty(),
+        PrivateCircuitPublicInputs.empty(),
+        fPublicInputs,
+      ],
     });
 
     const executionResult = new PrivateExecutionResult(entryExecResult, Fr.zero(), []);
@@ -319,16 +328,18 @@ describe('Private Kernel Sequencer', () => {
       'a',
       'b',
       'c',
-      'private_kernel_init_3',
-      // Inner reset to clear key validation requests before processing d.
-      'private_kernel_reset',
       'd',
+      'e',
+      'private_kernel_init_5',
+      // Inner reset to clear key validation requests before processing f.
+      'private_kernel_reset',
+      'f',
       'private_kernel_inner',
       // Terminal reset+tail performs siloing.
       'private_kernel_reset_tail',
     ]);
 
-    expect(proofCreator.simulateInit3).toHaveBeenCalledTimes(1);
+    expect(proofCreator.simulateInit5).toHaveBeenCalledTimes(1);
     expect(proofCreator.simulateInner).toHaveBeenCalledTimes(1);
     expect(proofCreator.simulateReset).toHaveBeenCalledTimes(1);
     expect(proofCreator.simulateResetTail).toHaveBeenCalledTimes(1);
@@ -354,10 +365,10 @@ describe('Private Kernel Sequencer', () => {
   });
 
   it('runs two consecutive inner resets when first reset output still overflows', async () => {
-    // Same 4-app shape as the previous test. Set up init_3 to emit BOTH MAX note hash read
+    // Same 6-app shape as the previous test. Set up init_5 to emit BOTH MAX note hash read
     // requests AND MAX key validation requests so the second iteration trips two distinct
     // overflow predicates back-to-back.
-    proofCreator.simulateInit3.mockResolvedValue(
+    proofCreator.simulateInit5.mockResolvedValue(
       simulateProofOutput(b => {
         times(MAX_NOTE_HASH_READ_REQUESTS_PER_TX, i => {
           b.addNoteHash({ value: new Fr(i + 1) });
@@ -372,18 +383,24 @@ describe('Private Kernel Sequencer', () => {
       simulateProofOutput(b => times(MAX_KEY_VALIDATION_REQUESTS_PER_TX, () => b.addKeyValidationRequest())),
     );
 
-    // Leftover app d adds 1 note hash read request and 1 key validation request → both
+    // Leftover app f adds 1 note hash read request and 1 key validation request → both
     // dimensions overflow → two inner resets triggered.
-    const dBuilder = new PrivateCircuitPublicInputsBuilder(contractAddress);
-    dBuilder.addPendingNoteHashReadRequest();
-    dBuilder.addKeyValidationRequest();
-    const dPublicInputs = dBuilder.build();
+    const fBuilder = new PrivateCircuitPublicInputsBuilder(contractAddress);
+    fBuilder.addPendingNoteHashReadRequest();
+    fBuilder.addKeyValidationRequest();
+    const fPublicInputs = fBuilder.build();
 
-    // a { b c d } — DFS order a, b, c, d. First batch absorbs {a, b, c} into init_3; d is left
-    // for the second iteration where the dual-overflow forces two resets.
-    dependencies = { a: ['b', 'c', 'd'] };
+    // a { b c d e f } — DFS order a, b, c, d, e, f. First batch absorbs {a, b, c, d, e} into init_5;
+    // f is left for the second iteration where the dual-overflow forces two resets.
+    dependencies = { a: ['b', 'c', 'd', 'e', 'f'] };
     const entryExecResult = createCallExecutionResult('a', {
-      childPublicInputs: [PrivateCircuitPublicInputs.empty(), PrivateCircuitPublicInputs.empty(), dPublicInputs],
+      childPublicInputs: [
+        PrivateCircuitPublicInputs.empty(),
+        PrivateCircuitPublicInputs.empty(),
+        PrivateCircuitPublicInputs.empty(),
+        PrivateCircuitPublicInputs.empty(),
+        fPublicInputs,
+      ],
     });
 
     const executionResult = new PrivateExecutionResult(entryExecResult, Fr.zero(), []);
@@ -394,17 +411,19 @@ describe('Private Kernel Sequencer', () => {
       'a',
       'b',
       'c',
-      'private_kernel_init_3',
-      // Two consecutive inner resets to clear note hash read requests and key validation requests before processing d.
-      'private_kernel_reset',
-      'private_kernel_reset',
       'd',
+      'e',
+      'private_kernel_init_5',
+      // Two consecutive inner resets to clear note hash read requests and key validation requests before processing f.
+      'private_kernel_reset',
+      'private_kernel_reset',
+      'f',
       'private_kernel_inner',
       // Terminal reset+tail performs siloing.
       'private_kernel_reset_tail',
     ]);
 
-    expect(proofCreator.simulateInit3).toHaveBeenCalledTimes(1);
+    expect(proofCreator.simulateInit5).toHaveBeenCalledTimes(1);
     expect(proofCreator.simulateInner).toHaveBeenCalledTimes(1);
     expect(proofCreator.simulateReset).toHaveBeenCalledTimes(2);
     expect(proofCreator.simulateResetTail).toHaveBeenCalledTimes(1);
