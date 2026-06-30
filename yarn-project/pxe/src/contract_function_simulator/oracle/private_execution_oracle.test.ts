@@ -133,7 +133,7 @@ describe('PrivateExecutionOracle', () => {
       const point = await Point.random();
       const { oracle } = await makeHookedOracle({ type: 'arbitrary-secret', secret: point }, Fr.random());
 
-      const expected = await AppTaggingSecret.compute(point, contractAddress, recipient);
+      const expected = await AppTaggingSecret.computeDirectional(point, contractAddress, recipient);
       await expect(
         oracle.resolveTaggingStrategy(sender, recipient, AppTaggingSecretKind.UNCONSTRAINED),
       ).resolves.toEqual({ type: 'unconstrained-secret', secret: expected.secret });

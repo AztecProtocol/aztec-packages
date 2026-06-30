@@ -49,20 +49,20 @@ describe('AppTaggingSecret', () => {
     });
   });
 
-  describe('compute', () => {
+  describe('computeDirectional', () => {
     it('is a deterministic function of the point, app and recipient', async () => {
       const point = await Point.random();
       const app = await AztecAddress.random();
       const recipient = await AztecAddress.random();
 
-      const a = await AppTaggingSecret.compute(point, app, recipient);
-      const b = await AppTaggingSecret.compute(point, app, recipient);
+      const a = await AppTaggingSecret.computeDirectional(point, app, recipient);
+      const b = await AppTaggingSecret.computeDirectional(point, app, recipient);
       expect(b.secret).toEqual(a.secret);
 
-      const otherApp = await AppTaggingSecret.compute(point, await AztecAddress.random(), recipient);
+      const otherApp = await AppTaggingSecret.computeDirectional(point, await AztecAddress.random(), recipient);
       expect(otherApp.secret).not.toEqual(a.secret);
 
-      const otherRecipient = await AppTaggingSecret.compute(point, app, await AztecAddress.random());
+      const otherRecipient = await AppTaggingSecret.computeDirectional(point, app, await AztecAddress.random());
       expect(otherRecipient.secret).not.toEqual(a.secret);
     });
 
@@ -92,9 +92,17 @@ describe('AppTaggingSecret', () => {
       expect(pointFromRecipient).toBeDefined();
       expect(pointFromSender).toEqual(pointFromRecipient);
 
-      const secretViaEcdh = await AppTaggingSecret.compute(pointFromRecipient!, app, recipientComplete.address);
+      const secretViaEcdh = await AppTaggingSecret.computeDirectional(
+        pointFromRecipient!,
+        app,
+        recipientComplete.address,
+      );
       // Registering the shared point directly (bypassing ECDH) derives the identical secret.
-      const secretViaRegistration = await AppTaggingSecret.compute(pointFromSender!, app, recipientComplete.address);
+      const secretViaRegistration = await AppTaggingSecret.computeDirectional(
+        pointFromSender!,
+        app,
+        recipientComplete.address,
+      );
 
       expect(secretViaRegistration.secret).toEqual(secretViaEcdh.secret);
       expect(secretViaRegistration.app).toEqual(app);
