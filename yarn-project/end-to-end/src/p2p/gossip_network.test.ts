@@ -31,9 +31,9 @@ const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';
 const NUM_VALIDATORS = 4;
 const NUM_TXS_PER_NODE = 2;
 const BOOT_NODE_UDP_PORT = process.env.BOOT_NODE_UDP_PORT ? parseInt(process.env.BOOT_NODE_UDP_PORT) : 4500;
-const AZTEC_SLOT_DURATION = 36;
+const AZTEC_SLOT_DURATION = 24;
 const AZTEC_EPOCH_DURATION = 4;
-const BLOCK_DURATION_MS = 16_000;
+const BLOCK_DURATION_MS = 10_000;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'gossip-'));
 
@@ -51,7 +51,7 @@ const qosAlerts: AlertConfig[] = [
 
 // Tests end-to-end gossip propagation with 4 validators, a fake prover node, and a non-validator
 // monitoring node (alwaysReexecuteBlockProposals:true). Uses P2PNetworkTest with real libp2p,
-// SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES (ethSlot=4s, aztecSlot=36s, epoch=4, proofSubEpochs=640),
+// SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES (ethSlot=4s, aztecSlot=24s, epoch=4, proofSubEpochs=640),
 // inboxLag=2. Asserts txs are mined from all nodes, attestation signers match the validator set,
 // and the prover node produces a proven block by collecting txs from p2p.
 describe('e2e_p2p_network', () => {

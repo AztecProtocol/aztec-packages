@@ -133,10 +133,13 @@ describe('single-node/l1-reorgs/blocks', () => {
     await logState('after-reorg');
     expect((await monitor.run(true)).provenCheckpointNumber).toEqual(initialProvenCheckpoint);
 
-    // Wait until the end of the proof submission window for the epoch of the proven checkpoint
+    // Wait until the end of the proof submission window for the epoch of the proven checkpoint. The
+    // prover is stopped and the proof has been reorged out, so the rest of the window is dead time —
+    // warp over the bulk of it, leaving a few real slots for the node to detect the missed proof and prune.
     const provenCheckpointEpoch = await test.rollup.getEpochNumberForCheckpoint(
       CheckpointNumber(provenBlockEvent.provenCheckpointNumber),
     );
+    await test.warpNearSubmissionWindowEnd(Number(provenCheckpointEpoch));
     await test.waitUntilLastSlotOfProofSubmissionWindow(provenCheckpointEpoch);
     await logState('after-submission-window');
 
@@ -246,6 +249,17 @@ describe('single-node/l1-reorgs/blocks', () => {
     const firstUnprovenCheckpoint = CheckpointNumber(initialProvenCheckpoint + 1);
     await test.waitUntilCheckpointNumber(firstUnprovenCheckpoint, L2_SLOT_DURATION_IN_S * 4);
     const epochToWaitFor = await test.rollup.getEpochNumberForCheckpoint(firstUnprovenCheckpoint);
+
+    // Once the prover has produced and (cancelled) submitted its proof tx, the rest of the submission
+    // window is dead time. Wait in real time for that tx to be captured, then warp over the bulk of the
+    // window before the wait below sleeps out the remaining real slots that drive the prune.
+    await retryUntil(
+      () => Promise.resolve(proverDelayer.getCancelledTxs().length > 0),
+      'cancelled proof tx',
+      L2_SLOT_DURATION_IN_S * 6,
+      0.5,
+    );
+    await test.warpNearSubmissionWindowEnd(Number(epochToWaitFor));
     await test.waitUntilLastSlotOfProofSubmissionWindow(epochToWaitFor);
     await monitor.run(true);
     logger.warn(

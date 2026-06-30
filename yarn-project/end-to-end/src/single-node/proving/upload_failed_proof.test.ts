@@ -23,8 +23,8 @@ jest.setTimeout(1000 * 60 * 10);
 // Suite: verifies that a failed epoch-proving job uploads its state to a file store and that
 // rerunEpochProvingJob can re-prove from the downloaded data on a fresh instance. Uses
 // SingleNodeTestContext with a prover configured to use a temp file:// URL as the epoch failure store.
-// Timing: all defaults (ethSlot=8s/12s CI, aztecSlot=16s/24s, epoch=6, proofSubmissionEpochs=1,
-// fake prover). The test tears down mid-run and re-proves via a standalone helper.
+// Timing: ethSlot=4s, aztecSlot=12s (3 L1 slots), epoch=6, proofSubmissionEpochs=1, fake prover. The
+// test tears down mid-run and re-proves via a standalone helper.
 describe('single-node/proving/upload_failed_proof', () => {
   let context: EndToEndContext;
   let logger: Logger;
@@ -43,8 +43,16 @@ describe('single-node/proving/upload_failed_proof', () => {
     uploadPath = await mkdtemp(join(tmpdir(), 'failed-proofs-'));
     uploadUrl = `file://${uploadPath}`;
 
+    // Run at the 4s/12s slot-cadence floor: the body is bounded by the production sequencer building epoch
+    // 0 on the real wall-clock (one empty checkpoint per L2 slot) before the prover finalizes epoch 0 at the
+    // epoch-1 boundary and trips the failing top-tree-prove hook. The epoch wall-time scales with the slot
+    // duration, so a shorter slot shortens the timeline. 12s is the floor: the timing model needs an L2 slot
+    // >= ~8.5s with the default 3s block to fit one block per checkpoint. The 6-slot epoch is kept so epoch 0
+    // still reliably lands its checkpoints.
     test = await setupWithProver({
       proverNodeConfig: { proverNodeFailedEpochStore: uploadUrl },
+      ethereumSlotDuration: 4,
+      aztecSlotDurationInL1Slots: 3,
     });
     ({ context, logger } = test);
     ({ config } = context);

@@ -45,7 +45,7 @@ const qosAlerts: AlertConfig[] = [
 
 // Tests that the fee-asset price oracle value set on a mock L1 StateView contract gossips through the
 // real libp2p validator network and converges on the rollup's on-chain price. Uses P2PNetworkTest with
-// SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES (ethSlot=4s, aztecSlot=24s, epoch=4, proofSubEpochs=640) plus a
+// SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES (ethSlot=4s, aztecSlot=12s, epoch=4, proofSubEpochs=640) plus a
 // real prover node. CHECK_ALERTS env var gates optional Grafana alert validation.
 describe('e2e_p2p_network', () => {
   let t: P2PNetworkTest;
@@ -62,7 +62,7 @@ describe('e2e_p2p_network', () => {
       startProverNode: false, // we'll start our own using p2p
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
-        aztecSlotDuration: 24,
+        aztecSlotDuration: 12,
         aztecEpochDuration: 4,
         slashingRoundSizeInEpochs: 2,
         slashingQuorum: 5,

@@ -27,8 +27,13 @@ import type { SingleNodeTestContext } from '../single_node_test_context.js';
 
 const OPEN_THE_HATCH = true;
 
-const ETHEREUM_SLOT_DURATION = 12;
-const AZTEC_SLOT_DURATION = 36;
+// Run at the PIPELINING_SETUP_OPTS fast profile (eth=4s, aztec=12s). Every escape-hatch parameter below
+// is in epochs/slots (counts), not wall-clock seconds, so the open/closed-window math and the per-slot
+// vote-count assertions are invariant to slot duration — only the wall-clock cost of living through the
+// vote slots changes. The body has no proving-deadline assertion (aztecProofSubmissionEpochs=15), so the
+// eth<8 fast timing budgets are safe.
+const ETHEREUM_SLOT_DURATION = 4;
+const AZTEC_SLOT_DURATION = 12;
 const AZTEC_EPOCH_DURATION = 4;
 const ROUND_SIZE = AZTEC_EPOCH_DURATION * 64;
 const QUORUM_SIZE = ROUND_SIZE - 1; // Don't matter if almost impossible, not what we test
@@ -40,7 +45,7 @@ const ESCAPE_HATCH_ACTIVE_DURATION = 16n;
 jest.setTimeout(1000 * 60 * 5);
 
 // Tests the sequencer's behavior during an EscapeHatch voting window. One node running a 4-validator
-// committee with pipelining opts (ethSlot=12s, aztecSlot=36s, epoch=4, proofSubEpochs=15). The
+// committee with pipelining opts (ethSlot=4s, aztecSlot=12s, epoch=4, proofSubEpochs=15). The
 // beforeEach deploys a custom EscapeHatch L1 contract and wires it into the rollup. Timing driven by
 // cheatCodes.rollup.advanceToEpoch + retryUntil waits.
 // Setup: setupBlockProducer (no prover node) with { ...PIPELINING_SETUP_OPTS, overridden slots,
@@ -78,10 +83,11 @@ describe('single-node/sequencer/escape_hatch_vote_only', () => {
       validatorPrivateKeys: new SecretValue(validators.map(v => v.privateKey)),
       governanceProposerRoundSize: ROUND_SIZE,
       governanceProposerQuorum: QUORUM_SIZE,
-      // Override PIPELINING_SETUP_OPTS slot durations for the longer cadence this test needs.
+      // Inherit the PIPELINING_SETUP_OPTS fast slot durations (eth=4s, aztec=12s, blockDurationMs=3000).
+      // These slots are restated as named constants so the retryUntil timeouts below scale with them.
       ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
       aztecSlotDuration: AZTEC_SLOT_DURATION,
-      blockDurationMs: 12000,
+      blockDurationMs: 3000,
       aztecEpochDuration: AZTEC_EPOCH_DURATION,
       // Keep pruning far away for this test.
       aztecProofSubmissionEpochs: 15, // needed so ACTIVE_DURATION=2 is a valid EscapeHatch config
