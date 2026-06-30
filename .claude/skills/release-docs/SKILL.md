@@ -359,6 +359,22 @@ Also:
 
 ### Step 11: Cut Versioned Docs
 
+**Prerequisite — preprocess before cutting.** `docs:version` snapshots from
+`processed-docs/` (the resolved path the docs plugins serve, see
+`docusaurus.config.js`), *not* the raw `docs-*` source. So you must run
+`yarn preprocess` (or a full `yarn build`) with the same `RELEASE_TYPE`/`*_TAG`
+env vars used below *before* cutting, or the snapshot captures stale/empty
+content. This is why a freshly cut snapshot already has macros resolved (no raw
+`#release_version`/`#include_code`). The "verify no raw placeholders remain"
+check later in this step confirms the preprocess took effect.
+
+**`#include_code` freezes against the working-tree source.** Snippets resolve
+from whatever code is checked out when you preprocess, so to freeze the release's
+code the working tree must be at the release tag's source (or re-resolve the
+snapshot's `#include_code` from the tag afterward — what the
+`re-resolve <prev_version> snapshot include_code from the tag` commit did).
+Cutting against `next`'s code silently freezes the wrong snippets.
+
 Create a versioned snapshot of the developer docs:
 
 Set the environment variables matching the release type:
