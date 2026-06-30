@@ -49,14 +49,18 @@ template <class Curve> class CommitmentKey {
 
     CommitmentKey() = default;
 
+    static constexpr size_t round_up_to_even(size_t n) { return (n + 1) & ~size_t{ 1 }; }
+
     /**
      * @brief Construct a new Kate Commitment Key object from existing SRS
      *
-     * @param num_points Number of points needed for commitments
+     * @param num_points Number of points needed for commitments. Always rounded up to the next even
+     * value so that callers which need one extra SRS point (e.g. sparse masking polynomials that
+     * round their top pair up to an even index) always fit.
      */
     CommitmentKey(const size_t num_points)
-        : srs(srs::get_crs_factory<Curve>()->get_crs(num_points))
-        , srs_size(num_points)
+        : srs(srs::get_crs_factory<Curve>()->get_crs(round_up_to_even(num_points)))
+        , srs_size(round_up_to_even(num_points))
     {}
     /**
      * @brief Checks the commitment key is properly initialized.

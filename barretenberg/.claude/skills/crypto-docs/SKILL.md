@@ -26,6 +26,26 @@ Docusaurus developer-docs site (see `docs/CLAUDE.md`).
 - **Use the code's identifiers for named quantities** — the exact source variable names — so every
   symbol is greppable. This is what keeps a doc consistent with the code as it changes.
 
+## When the detail lives elsewhere
+
+A note can be a *sketch* or *summary* whose full detail — the heavy algebra, the exhaustive case
+analysis, the complete proof — is carried by an authoritative companion: a formalization (Lean/Coq),
+a paper, or a reference implementation. Then:
+
+- **State the claim and the reduction path; delegate the detail.** Give the statement, the chain of
+  intermediate claims, and why each step holds — don't reproduce derivations the companion already
+  carries. Point each step to where the companion proves it, and still give its mechanism (*why* it
+  holds), not just an assertion.
+  Present formulas when necessary, do not re-prove them.
+- **Collect the external references in one correspondence map, not in the prose.** Lemma names,
+  theorem numbers, and file paths (`foo_of_bar`, "Thm 4.2") in running text break the mathematics.
+  Keep the body free of them and gather `body statement → source location` in a single table (an
+  instance of *One canonical home per fact*).
+- **Source identifiers are not math prose.** The greppability rule of *Bind the doc to the code* is
+  served in the map and in references, not the prose. In prose use conventional terms — write
+  "block-triangular reduction", not the source's `triangularRows` — and rename or explain a lifted
+  identifier at first use.
+
 ## Conventions for a protocol spec
 
 - **State the claims up front** as labelled identities, before the mechanism that establishes them.
@@ -48,18 +68,28 @@ Docusaurus developer-docs site (see `docs/CLAUDE.md`).
   polynomial $h$), and write what is computed as an equation — not action-verb narration. Verbs that
   gesture instead of naming ("walks", "contracts", "discharges") are out; precise verbs (computes,
   evaluates, checks, equals) are fine.
+- **One claim per sentence.** Split a sentence that stacks clauses with semicolons, several
+  em-dashes, or nested parentheticals; short sentences read.
 - **Name the concrete thing, don't gesture** — the actual object, not "nothing downstream sees it".
+- **Keep the editor's intent out of the text.** Write the fact, not your reasoning about how you
+  chose to present it ("to keep this readable…", "for clarity…", "we now…"); that belongs in the PR
+  thread.
 - **Separate distinct rationales** — if a thing holds for two reasons, give both, not one "because".
 - **Cut what the reader can infer.** State a failure-mode direction once (completeness vs soundness)
-  without then spelling out the obvious version.
+  without then spelling out the obvious version. Don't restate a displayed equation, set, or table
+  in prose.
+- **Quantify a performance claim** with a count, not an analogy, and state its scope (local vs
+  end-to-end).
 - **Avoid the repo AI-isms** (root `CLAUDE.md` `<jargon>`): "load bearing", "seam", "north star",
   "sharpening", effusive openers.
 
 ## Present tense — describe the artifact as it is
 
 - **No retroactive framing in permanent files.** No "used to be", "previously", "old | new" tables.
-  The delta belongs in the PR and commit message; the doc states the current truth. (Extends
-  `barretenberg/cpp/CLAUDE.md`'s comment rule to docs.)
+  Don't define the artifact by contrast with an approach the reader never saw ("there is no X step",
+  "unlike the naive Y") — state what it is, positively. The delta belongs in the PR and commit
+  message; the doc states the current truth. (Extends `barretenberg/cpp/CLAUDE.md`'s comment rule to
+  docs.)
 - **A pure delta doc usually should not land.** Fold its durable content into the spec and code
   comments, and keep the before/after in the PR description.
 
@@ -69,11 +99,6 @@ Docusaurus developer-docs site (see `docs/CLAUDE.md`).
   partial edit leaves contradictions.
 - **Cross-check formulas against the code and against each other.**
 - **Resolve every `§` cross-reference**, especially after renumbering.
-
-## Claims and evidence
-
-- **Quantify performance claims** with a count, not an analogy, and state the scope (local vs
-  end-to-end).
 
 ## Math and diagrams
 
@@ -104,7 +129,28 @@ crypto-specific points:
   reconstruct; remove one only when it is wrong or the change makes it obsolete — not to shrink a
   diff or tidy.
 
-## Pre-finish checklist (mechanical checks)
+## Reviewing
+
+Two modes, applied to a draft: a qualitative lens, then a binary sweep.
+
+### Coarse to fine
+
+Not a fixed recipe, a lens. Fixing prose inside a paragraph you later move or cut is wasted, so
+review tends to go best from structure down to sentences:
+
+- **Scope.** Is the doc (or section) at the right altitude, and not a pure delta that shouldn't land?
+  (*Present tense*)
+- **Structure**, reading headings and topic sentences alone: does anything depend on what comes
+  later, or re-explain what came earlier? Is a fact stated twice, or sitting somewhere other than the
+  section whose job it is? (*Structure and narrative*; *One canonical home per fact*)
+- **Sentences**, once the structure has settled. For each, it is worth asking whether it restates
+  something already shown (a displayed equation, an earlier line), asserts what nothing backs,
+  contradicts the code or another section, narrates an editorial choice, leans on an undefined term,
+  frames by contrast with the past, or gestures instead of naming. Several of these — *does it match
+  the code?*, *is the claim backed?* — are settled only by checking the source, not by rereading the
+  prose.
+
+### Mechanical checks (final sweep)
 
 1. No retroactive framing in a permanent file.
 2. After any algebra change, all formulas and comments agree with each other and the code.
@@ -114,3 +160,7 @@ crypto-specific points:
 6. Performance claims carry a count and a scope caveat.
 7. All math/diagrams render in a plain markdown engine (no TikZ); code comments use Unicode math,
    not LaTeX markup.
+8. Prose uses conventional math terms, not source identifiers; external references (lemma names,
+   theorem numbers, file paths) appear only in the correspondence map.
+9. No editor's intent narrating a presentation choice ("to keep this readable…", "for clarity…");
+   the text carries only the content.
