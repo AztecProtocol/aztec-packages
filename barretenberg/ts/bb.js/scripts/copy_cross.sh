@@ -8,16 +8,16 @@ cd $(dirname $0)/..
 if [ -n "${1:-}" ]; then
   arch="$1"
   mkdir -p ./build/$arch
-  cp ../cpp/build-$arch/bin/bb ./build/$arch
-  cp ../cpp/build-$arch/lib/nodejs_module.node ./build/$arch
+  cp ../../cpp/build-$arch/bin/bb ./build/$arch
+  cp ../../cpp/build-$arch/lib/nodejs_module.node ./build/$arch
 elif semver check "${REF_NAME:-}" && [[ "$(arch)" == "amd64" ]]; then
   # We're building a release.
   # Copy all cross-compiled architectures for release builds.
   # The native amd64-linux binary is already copied by copy_native.sh (bb-ts target).
   for arch in arm64-linux amd64-macos arm64-macos; do
     mkdir -p ./build/$arch
-    cp ../cpp/build-$arch/bin/bb ./build/$arch
-    cp ../cpp/build-$arch/lib/nodejs_module.node ./build/$arch
+    cp ../../cpp/build-$arch/bin/bb ./build/$arch
+    cp ../../cpp/build-$arch/lib/nodejs_module.node ./build/$arch
   done
 
   llvm-strip-20 ./build/*/*
