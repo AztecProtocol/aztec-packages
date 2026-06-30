@@ -205,6 +205,31 @@ describe('prover-node-publisher', () => {
       publisher = new ProverNodePublisher(config, { rollupContract: rollup, l1TxUtils: l1Utils });
 
       await publisher.submitEpochProof(setupPublishData(65, 32, 33, 64));
+      expect(l1Utils.sendAndMonitorTransaction).toHaveBeenCalledWith(expect.objectContaining({ to: rollupAddress }));
+    });
+
+    it('redirects the submit tx to the configured proof submission target', async () => {
+      (rollup as any).address = EthAddress.random().toString();
+      const target = EthAddress.random();
+      publisher = new ProverNodePublisher(config, {
+        rollupContract: rollup,
+        l1TxUtils: l1Utils,
+        proofSubmissionTarget: target,
+      });
+
+      await publisher.submitEpochProof(setupPublishData(65, 32, 33, 64));
+      expect(l1Utils.sendAndMonitorTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({ to: target.toString() }),
+      );
+    });
+  });
+
+  it('waits until the proven checkpoint reaches the checkpoint before the proof start', async () => {
+    const checkpoints = Array.from({ length: 100 }, () => RootRollupPublicInputs.random());
+    const fromCheckpoint = CheckpointNumber(33);
+    const toCheckpoint = CheckpointNumber(64);
+
+      await publisher.submitEpochProof(setupPublishData(65, 32, 33, 64));
       expect(l1Utils.sendAndMonitorTransaction).toHaveBeenCalledWith(
         expect.objectContaining({ to: rollupAddress }),
         expect.anything(),
