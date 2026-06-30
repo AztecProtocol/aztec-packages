@@ -1,6 +1,7 @@
 import type { Logger } from '@aztec/aztec.js/log';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { ChainMonitor } from '@aztec/ethereum/test';
+import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { sleep } from '@aztec/foundation/sleep';
 
 import type { EndToEndContext } from '../../fixtures/utils.js';
@@ -33,6 +34,11 @@ describe('single-node/proving/empty_blocks', () => {
   // then waits for the prover to submit a proof for the empty checkpoint. Asserts that the
   // monitor's checkpointNumber matches the proven target, confirming the proof landed on L1.
   it('submits proof even if there are no txs to build a block', async () => {
+    // Let the sequencer build its first empty checkpoint (at the setup default minTxsPerBlock:0)
+    // before raising the floor. Raising minTxsPerBlock first races the sequencer's first proposal
+    // loop: if the config lands before block 1 is built, the sequencer waits forever for a tx that
+    // never arrives, no checkpoint is built in epoch 0, and there is nothing to prove.
+    await test.waitUntilCheckpointNumber(CheckpointNumber(1));
     context.sequencer?.updateConfig({ minTxsPerBlock: 1 });
     await test.waitUntilEpochStarts(1);
 
