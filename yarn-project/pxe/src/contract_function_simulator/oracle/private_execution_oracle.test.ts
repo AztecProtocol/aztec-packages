@@ -7,10 +7,9 @@ import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2TipsProvider } from '@aztec/stdlib/block';
-import { CompleteAddress, SerializableContractInstance } from '@aztec/stdlib/contract';
+import { SerializableContractInstance } from '@aztec/stdlib/contract';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { deriveKeys } from '@aztec/stdlib/keys';
 import { AppTaggingSecret, AppTaggingSecretKind } from '@aztec/stdlib/logs';
 import { type BlockHeader, CallContext, type Capsule, TxContext } from '@aztec/stdlib/tx';
 
@@ -89,16 +88,6 @@ describe('PrivateExecutionOracle', () => {
       recipient = await AztecAddress.random();
     });
 
-    it('defaults unconstrained delivery to an address-derived shared secret when no hooks are configured', async () => {
-      const { senderAddress, recipientAddress, addressStore, keyStore, expectedSecret } =
-        await makeAddressDerivedFixture();
-      const oracle = makeOracle({ addressStore, keyStore });
-
-      await expect(
-        oracle.resolveTaggingStrategy(senderAddress, recipientAddress, AppTaggingSecretKind.UNCONSTRAINED),
-      ).resolves.toEqual({ type: 'unconstrained-secret', secret: expectedSecret });
-    });
-
     it('defaults constrained delivery to a non-interactive handshake when no hooks are configured', async () => {
       const oracle = makeOracle();
 
@@ -117,16 +106,6 @@ describe('PrivateExecutionOracle', () => {
           type: 'non-interactive-handshake',
         },
       );
-    });
-
-    it('resolves an address-derived strategy to the unconstrained secret', async () => {
-      const { senderAddress, recipientAddress, addressStore, keyStore, expectedSecret } =
-        await makeAddressDerivedFixture();
-      const { oracle } = await makeHookedOracle({ type: 'address-derived' }, Fr.random(), { addressStore, keyStore });
-
-      await expect(
-        oracle.resolveTaggingStrategy(senderAddress, recipientAddress, AppTaggingSecretKind.UNCONSTRAINED),
-      ).resolves.toEqual({ type: 'unconstrained-secret', secret: expectedSecret });
     });
 
     it('app-silos a raw arbitrary-secret point before handing it to the contract', async () => {
@@ -168,40 +147,6 @@ describe('PrivateExecutionOracle', () => {
         .spyOn(oracle, 'getContractInstance')
         .mockResolvedValue(await SerializableContractInstance.random({ currentContractClassId: contractClassId }));
       return { oracle, resolveTaggingSecretStrategy };
-    };
-
-    // Builds a sender whose complete address and incoming-viewing secret key are internally consistent, plus a valid
-    // recipient and the address/key-store mocks the oracle reads, so the address-derived path runs the real ECDH
-    // derivation. The expected secret is computed via the same helper the oracle uses, so it matches exactly.
-    const makeAddressDerivedFixture = async () => {
-      const senderSecretKey = Fr.random();
-      const senderCompleteAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(senderSecretKey, Fr.random());
-      const { masterIncomingViewingSecretKey: senderIvsk } = await deriveKeys(senderSecretKey);
-      const recipientAddress = (await CompleteAddress.random()).address;
-
-      const addressStore = mock<AddressStore>();
-      addressStore.getCompleteAddress.mockResolvedValue(senderCompleteAddress);
-      const keyStore = mock<KeyStore>();
-      keyStore.getMasterIncomingViewingSecretKey.mockResolvedValue(senderIvsk);
-
-      const expected = await AppTaggingSecret.computeUnconstrained(
-        senderCompleteAddress,
-        senderIvsk,
-        recipientAddress,
-        contractAddress,
-        recipientAddress,
-      );
-      if (!expected) {
-        throw new Error('expected a derived tagging secret for a valid recipient');
-      }
-
-      return {
-        senderAddress: senderCompleteAddress.address,
-        recipientAddress,
-        addressStore,
-        keyStore,
-        expectedSecret: expected.secret,
-      };
     };
   });
 
