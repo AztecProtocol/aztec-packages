@@ -22,7 +22,7 @@ import {
   deployAztecL1Contracts,
 } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import type { Delayer } from '@aztec/ethereum/l1-tx-utils';
-import { EthCheatCodes, EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
+import { EthCheatCodes, EthCheatCodesWithState, startAnvil, warmBlobKzg } from '@aztec/ethereum/test';
 import type { Anvil } from '@aztec/ethereum/test';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
@@ -466,6 +466,11 @@ async function setupInner(
     }
 
     const l1Client = createExtendedL1Client(config.l1RpcUrls, publisherHdAccount!, chain);
+
+    // Warm both KZG trusted setups (ours + anvil's) in parallel
+    if (anvil && isAnvilTestChain(chain.id)) {
+      await warmBlobKzg(l1Client, logger);
+    }
 
     // Deploy Multicall3 if running locally
     await deployMulticall3(l1Client, logger);
