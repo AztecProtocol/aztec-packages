@@ -479,10 +479,13 @@ checked out at the tag in Step 2) against the snapshot you just cut from it.
 
 Two distinct classes of change can be missed — **check both**:
 
-- **Source (current) docs** — `docs/docs-developers/`, `docs/docs-operate/`,
-  `docs/docs-participate/`, `docs/src/`. Edits here only reach a version when that
-  version is cut, so anything added on `next` since the tag is missing from the new
-  snapshot.
+- **Source (current) docs** — only `docs/docs-developers/` (→ `developer_versioned_docs/`)
+  and `docs/docs-operate/` (→ `network_versioned_docs/`) are snapshotted. Edits here only
+  reach a version when that version is cut, so anything added on `next` since the tag is
+  missing from the new snapshot. A source file at `docs/docs-developers/docs/X` maps to
+  `developer_versioned_docs/version-v<new_version>/docs/X` in the snapshot. (`docs/docs-participate/`,
+  `docs/src/`, and the `docs/docs/` root pages are NOT versioned; changes there land live
+  on `next` and are out of scope for this reconcile.)
 - **Existing versioned snapshots on `next`** — fixes that were applied _directly_
   to the previous version's snapshot (e.g.
   `docs/developer_versioned_docs/version-<prev_version>/...`). These were carried
@@ -507,12 +510,15 @@ is actually visible:
 
    ```bash
    git diff v<new_version>..origin/next -- \
-     docs/docs-developers/ docs/docs-operate/ docs/docs-participate/ docs/src/
+     docs/docs-developers/ docs/docs-operate/
    ```
 
 3. See what `next` changed **directly in the previous versioned snapshot with the same major version number**, and
    apply the equivalent fix to the same file in the new snapshot wherever that file
-   also exists there. Steps 5 and 11 have already overwritten the local version
+   also exists there. **If this release type has no previous version** (a first cut, or
+   the type is absent from the version config), skip this sub-step: there is no prior
+   snapshot to diff against (same first-cut guard as Step 16). Steps 5 and 11 have
+   already overwritten the local version
    configs with the new version, so resolve `<prev_version>` (the previous version
    for this release type, including its `v` prefix) from `origin/next`, **not** the
    working tree:
@@ -617,31 +623,50 @@ Present a summary of the review to the user for approval.
 
 ### Step 15: Functional Validation — Run the Guides, Tutorials, and Examples
 
-`yarn build` (Step 13) only checks links and spelling — not whether the documented
-commands run. Before shipping, exercise the new version against a real local network.
+`yarn build` (Step 13) only checks links and spelling, not whether the documented
+commands run. Before shipping, exercise the new version against a real network.
 
 **Run this in a subagent** (long-running, install-heavy). Validate the **cut snapshot**
-content (`developer_versioned_docs/version-v<new_version>/`), not `next`. Tasks:
+content (`developer_versioned_docs/version-v<new_version>/docs/...`), not `next` (except the
+Aztec.js examples, which are source-only; see task 4). Tasks:
 
-1. **Start a local network on the new version:**
+1. **Install the release and start a local network.** `# background; wait until ready` is a
+   comment, not backgrounding; actually background it and poll until the node answers, or
+   the subagent hangs:
 
    ```bash
    VERSION=<new_version> bash -i <(curl -sL https://install.aztec.network)
-   aztec --version              # must equal <new_version>
-   aztec start --local-network  # background; wait until ready
+   aztec --version                          # must equal <new_version>
+   aztec start --local-network > /tmp/local-network.log 2>&1 &
+   until curl -sf -X POST -H 'Content-Type: application/json' \
+     -d '{"jsonrpc":"2.0","method":"node_getNodeInfo","params":[],"id":1}' \
+     http://localhost:8080 | grep -q nodeVersion; do sleep 5; done
    ```
+   If port 8080 is taken, start on a different `--port`/`--admin-port` and point the wallet
+   at it with `--node-url`.
 
-2. **Walk the guides and tutorials as written**, executing every documented command:
-   the getting-started guides (`getting_started_on_local_network.md` local,
-   `getting_started_on_testnet.md` testnet) and every tutorial under
-   `docs/tutorials/{contract,js}_tutorials/`. Record any drift (renamed command,
-   changed flag, stale address, different output).
+2. **Validate the getting-started guide that matches the release type** (mirror the Steps
+   10/14 branch), walking it as written and running every documented command:
+   - **devnet / nightly** → `getting_started_on_local_network.md`, against the task-1 local network.
+   - **testnet / mainnet** → `getting_started_on_testnet.md`, against that network's live RPC.
+     A local network can't exercise it (it needs a funded account). Verify the read-only
+     steps; only run funded transactions if a funded account is available, and never spend
+     more than necessary.
 
-3. **Run the Aztec.js examples** in `docs/examples/ts/`: type-check all via
-   `bootstrap.sh`, execute the runner-supported set via `aztecjs_runner/run.sh`, and list
-   skipped examples with reasons. To test against the published release (not the workspace
-   copies auto-linked in `lib.sh`), temporarily rewrite each example's `@aztec/*` config
-   dep to `npm:@aztec/*@<new_version>`, keeping special pins like `@aztec/viem`.
+3. **Walk every tutorial** under
+   `developer_versioned_docs/version-v<new_version>/docs/tutorials/**/*.md`. Glob the whole
+   tree, not just the `contract_tutorials`/`js_tutorials` subdirs; loose tutorials like
+   `testing_governance_rollup_upgrade.md` sit directly under `tutorials/`. Contract
+   compile/deploy/interact flows run against the task-1 local network regardless of release
+   type. Record any drift (renamed command, changed flag, stale address, different output).
+
+4. **Run the Aztec.js examples** in `docs/examples/ts/` against the local network. These are
+   **source-only**: they are not part of any versioned snapshot, so they validate the
+   release tag's example code, not the cut snapshot. Type-check all via `bootstrap.sh`,
+   execute the runner-supported set via `aztecjs_runner/run.sh`, and list skipped examples
+   with reasons. To test against the published release (not the workspace copies auto-linked
+   in `lib.sh`), temporarily rewrite each example's `@aztec/*` config dep to
+   `npm:@aztec/*@<new_version>`, keeping special pins like `@aztec/viem`.
 
 Report pass/fail per guide/tutorial/example with the exact doc line for each failure. Fix
 drift in snapshot **and** source, then re-run Step 13 and the affected check. If the
