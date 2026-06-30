@@ -124,7 +124,7 @@ mod test {
         env.private_context(|context| {
             // The real registry call is covered by integration tests; this unit test only needs a coherent child
             // call result so `PrivateContext` records the request.
-            let child_call_end_counter = context.side_effect_counter + 1;
+            let child_call_end_counter = context.get_side_effect_counter() + 1;
             let empty_returns_hash: Field = 0;
             let _ = OracleMock::mock("aztec_prv_callPrivateFunction")
                 .returns((child_call_end_counter, empty_returns_hash))
