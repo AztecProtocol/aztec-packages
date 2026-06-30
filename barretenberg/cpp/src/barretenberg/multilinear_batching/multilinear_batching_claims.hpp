@@ -143,7 +143,7 @@ struct MultilinearBatchingProverClaim {
      * @brief Debug helper to compare prover claim against verifier claim.
      * @details Recomputes commitments and evaluations to verify consistency.
      */
-    bool compare_with_verifier_claim(const MultilinearBatchingVerifierClaim<curve::BN254>& verifier_claim);
+    bool compare_with_verifier_claim(const MultilinearBatchingVerifierClaim<curve::BN254>& verifier_claim) const;
 #endif
 };
 

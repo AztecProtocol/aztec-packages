@@ -12,7 +12,7 @@ namespace bb {
 
 #ifndef NDEBUG
 bool MultilinearBatchingProverClaim::compare_with_verifier_claim(
-    const MultilinearBatchingVerifierClaim<curve::BN254>& verifier_claim)
+    const MultilinearBatchingVerifierClaim<curve::BN254>& verifier_claim) const
 {
     bool is_a_match = true;
     bb::CommitmentKey<curve::BN254> bn254_commitment_key(dyadic_size);
@@ -35,16 +35,20 @@ bool MultilinearBatchingProverClaim::compare_with_verifier_claim(
         is_a_match = false;
     }
 
-    // Bump the virtual size to compute mle evaluations
-    non_shifted_polynomial.increase_virtual_size(1 << challenge.size());
-    shifted_polynomial.increase_virtual_size(1 << challenge.size());
+    // Bump local virtual sizes to compute MLE evaluations without mutating the cached prover claim.
+    Polynomial non_shifted_polynomial_for_evaluation = non_shifted_polynomial;
+    Polynomial shifted_polynomial_for_evaluation = shifted_polynomial;
+    non_shifted_polynomial_for_evaluation.increase_virtual_size(1 << challenge.size());
+    shifted_polynomial_for_evaluation.increase_virtual_size(1 << challenge.size());
 
-    if (verifier_claim.non_shifted_evaluation != non_shifted_polynomial.evaluate_mle(verifier_claim.challenge)) {
+    if (verifier_claim.non_shifted_evaluation !=
+        non_shifted_polynomial_for_evaluation.evaluate_mle(verifier_claim.challenge)) {
         info("Non-shifted evaluation mismatch");
         is_a_match = false;
     }
 
-    if (verifier_claim.shifted_evaluation != shifted_polynomial.evaluate_mle(verifier_claim.challenge, true)) {
+    if (verifier_claim.shifted_evaluation !=
+        shifted_polynomial_for_evaluation.evaluate_mle(verifier_claim.challenge, true)) {
         info("Shifted evaluation mismatch");
         is_a_match = false;
     }
