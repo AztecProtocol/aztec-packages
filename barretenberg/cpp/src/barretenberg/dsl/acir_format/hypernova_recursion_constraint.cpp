@@ -173,12 +173,13 @@ void mock_chonk_accumulation(const std::shared_ptr<Chonk>& ivc, const bool is_ke
     Chonk::VerifierInputs entry = acir_format::create_mock_verification_queue_entry(is_kernel);
     ivc->verification_queue.emplace_back(entry);
 
-    // The kernel batches the accumulator carried in from the previous kernel (absent for the init kernel, whose queue
+    // The kernel batches the previous accumulator (absent for the init kernel, whose queue
     // begins with an app) plus one claim per queued proof. Each call refreshes the mock batching proof so the last
     // one (with the full group) carries the correct width; a single-claim init kernel needs no batching proof.
     const bool is_init =
         !ivc->verification_queue.empty() && ivc->verification_queue.front().kind == Chonk::CircuitKind::App;
-    const size_t num_claims = (is_init ? 0 : 1) + ivc->verification_queue.size();
+    const size_t num_claims =
+        Chonk::group_claim_count(/*has_previous_accumulator=*/!is_init, ivc->verification_queue.size());
     if (num_claims >= 2) {
         ivc->multilinear_batch_proof = acir_format::create_mock_multilinear_batch_proof(num_claims);
     }

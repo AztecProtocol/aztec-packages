@@ -88,6 +88,8 @@ class Chonk {
     using ProverAccumulator = FoldingProver::Accumulator;
     using VerifierAccumulator = MultilinearBatchingVerifierClaim<curve::BN254>;
     using RecursiveVerifierAccumulator = MultilinearBatchingVerifierClaim<stdlib::bn254<ClientCircuit>>;
+    // Ecc running hash passed to the hiding kernel
+    using EccOpRunningHash = StdlibFF;
 
     // Result types for decomposed verification steps
     struct PublicInputsResult {
@@ -159,18 +161,17 @@ class Chonk {
 
     size_t num_circuits_accumulated = 0; // number of circuits accumulated so far
   public:
-    ProverAccumulator prover_accumulator; // accumulator carried between kernels (output of the previous kernel's batch)
-    std::vector<ProverAccumulator>
-        multilinear_batch_prover_accumulators; // sumcheck claims of the current group, awaiting the per-kernel batching
+    ProverAccumulator prover_accumulator;          // previous accumulator (output of the previous kernel's batch)
+    std::shared_ptr<FoldingProver> folding_prover; // folds the current group; (re)created at each group start
     HonkProof
         multilinear_batch_proof; // current kernel's multilinear batching proof (consumed in its recursive verifier)
 
     HonkProof decider_proof; // decider proof to be verified in the Hiding kernel
 
-    VerifierAccumulator recursive_verifier_native_accum; // native value of the accumulator carried between kernels
+    VerifierAccumulator recursive_verifier_native_accum; // native value of the previous accumulator
 #ifndef NDEBUG
     VerifierAccumulator native_verifier_accum;
-    std::vector<VerifierAccumulator> multilinear_batch_native_claims;
+    std::shared_ptr<HypernovaFoldingNativeVerifier> native_folding_verifier; // native cross-check of the current group
     std::shared_ptr<Transcript> native_verifier_accumulation_transcript = std::make_shared<Transcript>();
 #endif
 
@@ -190,6 +191,15 @@ class Chonk {
     std::shared_ptr<HidingKernelProverInstance> hiding_prover_inst;
     std::shared_ptr<MegaZKVerificationKey> hiding_vk;
 
+    /**
+     * @brief Number of claims a kernel batches: the previous accumulator (absent for the init kernel) plus one
+     * sumcheck claim per proof in the group. A single claim needs no batching proof.
+     */
+    static constexpr size_t group_claim_count(bool has_previous_accumulator, size_t group_size)
+    {
+        return (has_previous_accumulator ? 1 : 0) + group_size;
+    }
+
     size_t get_num_circuits() const { return num_circuits; }
 
     Goblin& get_goblin() { return goblin; }
@@ -200,13 +210,11 @@ class Chonk {
     void instantiate_stdlib_verification_queue(ClientCircuit& circuit,
                                                const std::vector<StdlibCircuitVKAndHash>& input_keys = {});
 
-    [[nodiscard("Claim and pairing points should be collected")]] std::
-        tuple<RecursiveVerifierAccumulator, PairingPoints, StdlibFF>
-        recursive_verification_and_consistency_checks(
-            const StdlibVerifierInputs& verifier_inputs,
-            const std::optional<StdlibFF>& prev_stdlib_acc_hash,
-            const std::optional<StdlibFF>& running_ecc_op_hash,
-            const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript);
+    [[nodiscard("Pairing points should be collected")]] std::pair<PairingPoints, EccOpRunningHash>
+    recursive_verification_and_consistency_checks(const StdlibVerifierInputs& verifier_inputs,
+                                                  HypernovaFoldingRecursiveVerifier& folding_verifier,
+                                                  const std::optional<StdlibFF>& prev_stdlib_acc_hash,
+                                                  const std::optional<EccOpRunningHash>& running_ecc_op_hash);
 
     // Complete the logic of a kernel circuit (e.g. HN/merge recursive verification, databus consistency checks)
     void complete_kernel_circuit_logic(ClientCircuit& circuit);
@@ -247,7 +255,7 @@ class Chonk {
      * @brief Whether the kernel currently being completed is the init kernel (the first kernel, which carries
      * no accumulator from a previous kernel).
      * @details Derived from the group queued for verification: the init kernel's group begins with the first
-     * app's proof, whereas every later kernel's group begins with the carried previous-kernel proof. Must be
+     * app's proof, whereas every later kernel's group begins with the previous kernel's proof. Must be
      * called once the stdlib verification queue holds the current kernel's group.
      */
     [[nodiscard]] bool is_init_kernel() const;
@@ -306,7 +314,7 @@ class Chonk {
      * @brief Natively verify the multilinear batching proof and update the native verifier
      * accumulator. Useful for debugging.
      *
-     * @details Batches the accumulator carried in from the previous kernel (absent for the init group) with the
+     * @details Batches the previous accumulator (absent for the init group) with the
      * group's collected sumcheck claims, mirroring prove_multilinear_batching, and cross-checks the result against
      * the prover accumulator.
      */
@@ -349,8 +357,7 @@ class Chonk {
 
     template <typename InstanceFlavor>
     HonkProof instance_to_accumulator(ClientCircuit& circuit,
-                                      const std::shared_ptr<typename InstanceFlavor::VerificationKey>& vk,
-                                      const std::shared_ptr<Transcript>& accumulation_transcript);
+                                      const std::shared_ptr<typename InstanceFlavor::VerificationKey>& vk);
 
     void accumulate_hiding_kernel(ClientCircuit& circuit, const std::shared_ptr<MegaZKVerificationKey>& precomputed_vk);
 };
