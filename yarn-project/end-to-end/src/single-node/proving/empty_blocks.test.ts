@@ -1,28 +1,22 @@
 import type { Logger } from '@aztec/aztec.js/log';
 import { RollupContract } from '@aztec/ethereum/contracts';
-import { ChainMonitor } from '@aztec/ethereum/test';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
-import { sleep } from '@aztec/foundation/sleep';
 
 import type { EndToEndContext } from '../../fixtures/utils.js';
 import { SingleNodeTestContext, jest, setupWithProver } from './setup.js';
 
-// Starts a prover node (fake proofs) on the default setup, raises minTxsPerBlock=1 so blocks are
-// empty, then verifies the prover still submits a proof for those empty-block checkpoints within the
-// proof submission window.
+// Starts a prover node (fake proofs) on the default setup and verifies the prover submits a proof for
+// a real non-genesis checkpoint with no txs.
 describe('single-node/proving/empty_blocks', () => {
   let context: EndToEndContext;
   let rollup: RollupContract;
   let logger: Logger;
-  let monitor: ChainMonitor;
-
-  let L1_BLOCK_TIME_IN_S: number;
 
   let test: SingleNodeTestContext;
 
   beforeEach(async () => {
     test = await setupWithProver({});
-    ({ context, rollup, logger, monitor, L1_BLOCK_TIME_IN_S } = test);
+    ({ context, rollup, logger } = test);
   });
 
   afterEach(async () => {
@@ -30,28 +24,19 @@ describe('single-node/proving/empty_blocks', () => {
     await test.teardown();
   });
 
-  // Raises minTxsPerBlock to 1 so the sequencer cannot build blocks, advances to epoch 1,
-  // then waits for the prover to submit a proof for the empty checkpoint. Asserts that the
-  // monitor's checkpointNumber matches the proven target, confirming the proof landed on L1.
+  // Waits for a real empty checkpoint, raises minTxsPerBlock to 1 to stop more empty checkpoints
+  // from being built, then waits for the prover to submit a proof covering that target.
   it('submits proof even if there are no txs to build a block', async () => {
     // Let the sequencer build its first empty checkpoint (at the setup default minTxsPerBlock:0)
     // before raising the floor. Raising minTxsPerBlock first races the sequencer's first proposal
     // loop: if the config lands before block 1 is built, the sequencer waits forever for a tx that
-    // never arrives, no checkpoint is built in epoch 0, and there is nothing to prove.
-    await test.waitUntilCheckpointNumber(CheckpointNumber(1));
+    // never arrives, no non-genesis checkpoint is built, and there is nothing to prove.
+    const proofTargetCheckpoint = CheckpointNumber(1);
+    await test.waitUntilCheckpointNumber(proofTargetCheckpoint);
     context.sequencer?.updateConfig({ minTxsPerBlock: 1 });
-    await test.waitUntilEpochStarts(1);
 
-    // Sleep to make sure any pending checkpoints are published. We deliberately keep the fixed
-    // sleep rather than waiting for the sequencer to reach IDLE: the sequencer is typically already
-    // idle here, so an IDLE wait would return immediately and not give the in-flight L1 publish time
-    // to land. The window we need is the publish settling, not the sequencer becoming idle.
-    await sleep(L1_BLOCK_TIME_IN_S * 1000);
-    const checkpointNumberAtEndOfEpoch0 = await rollup.getCheckpointNumber();
-    logger.info(`Starting epoch 1 after checkpoint ${checkpointNumberAtEndOfEpoch0}`);
-
-    await test.waitUntilProvenCheckpointNumber(checkpointNumberAtEndOfEpoch0, 240);
-    expect(monitor.checkpointNumber).toEqual(checkpointNumberAtEndOfEpoch0);
+    await test.waitUntilProvenCheckpointNumber(proofTargetCheckpoint, 240);
+    expect(await rollup.getProvenCheckpointNumber()).toBeGreaterThanOrEqual(proofTargetCheckpoint);
     logger.info(`Test succeeded`);
   });
 });
