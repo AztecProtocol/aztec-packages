@@ -27,7 +27,6 @@ describe('LogService', () => {
   let contractAddress: AztecAddress;
   let aztecNode: MockProxy<AztecNode>;
   let keyStore: KeyStore;
-  let recipientTaggingStore: RecipientTaggingStore;
   let addressStore: AddressStore;
   let taggingSecretSourcesStore: TaggingSecretSourcesStore;
   let logService: LogService;
@@ -37,8 +36,7 @@ describe('LogService', () => {
 
     beforeEach(async () => {
       contractAddress = await AztecAddress.random();
-      ({ aztecNode, keyStore, recipientTaggingStore, taggingSecretSourcesStore, addressStore, logService } =
-        await createTestLogService());
+      ({ aztecNode, keyStore, taggingSecretSourcesStore, addressStore, logService } = await createTestLogService());
 
       aztecNode.getPrivateLogsByTags.mockReset();
       aztecNode.getPublicLogsByTags.mockReset();
@@ -302,8 +300,7 @@ describe('LogService', () => {
 
       const l2TipsProvider = mock<L2TipsProvider>();
       const testContext = await createTestLogService(l2TipsProvider);
-      ({ aztecNode, keyStore, recipientTaggingStore, taggingSecretSourcesStore, addressStore, logService } =
-        testContext);
+      ({ aztecNode, keyStore, taggingSecretSourcesStore, addressStore, logService } = testContext);
       l2TipsProvider.getL2Tips.mockResolvedValue(makeL2Tips(testContext.anchorBlockHeader.globalVariables.blockNumber));
 
       // A real recipient account, so the ECDH tag derivation has the keys and address preimage it needs.
