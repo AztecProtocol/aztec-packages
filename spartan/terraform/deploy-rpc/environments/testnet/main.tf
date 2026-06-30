@@ -59,7 +59,7 @@ locals {
       hosts              = ["v5.testnet.rpc.aztec-labs.com", "canonical.testnet.rpc.aztec-labs.com"]
       storage_size       = "8Gi"
       env = merge(local.env, {
-        ROLLUP_VERSION = "4239416255"
+        ROLLUP_VERSION = ""
       })
     })
     v4 = merge(local.l1_secret_names, {

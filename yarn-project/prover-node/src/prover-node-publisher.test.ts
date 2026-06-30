@@ -47,6 +47,67 @@ describe('prover-node-publisher', () => {
     publisher = new ProverNodePublisher(config, { rollupContract: rollup, l1TxUtils: l1Utils });
   });
 
+  const setupPublishData = (pending: number, proven: number, fromCheckpoint: number, toCheckpoint: number) => {
+    // Create public inputs for every checkpoint
+    const checkpoints = Array.from({ length: 100 }, () => {
+      return RootRollupPublicInputs.random();
+    });
+
+    // Return the tips specified by the test
+    rollup.getTips.mockResolvedValue({
+      pending: CheckpointNumber(pending),
+      proven: CheckpointNumber(proven),
+    });
+
+    // Return the requested checkpoint
+    rollup.getCheckpoint.mockImplementation((checkpointNumber: CheckpointNumber) =>
+      Promise.resolve({
+        archive: checkpoints[checkpointNumber - 1].endArchiveRoot,
+        attestationsHash: Buffer32.ZERO, // unused,
+        payloadDigest: Buffer32.ZERO, // unused,
+        headerHash: Buffer32.ZERO, // unused,
+        blobCommitmentsHash: Buffer32.ZERO, // unused,
+        outHash: '0x', // unused,
+        slotNumber: SlotNumber(0), // unused,
+        feeHeader: {
+          excessMana: 0n, // unused
+          manaUsed: 0n, // unused
+          ethPerFeeAsset: 0n, // unused
+          congestionCost: 0n, // unused
+          proverCost: 0n, // unused
+        },
+      }),
+    );
+
+    // We have built a rollup proof of the range fromCheckpoint - toCheckpoint
+    // so we need to set our archives and hashes accordingly
+    const ourPublicInputs = RootRollupPublicInputs.random();
+    ourPublicInputs.previousArchiveRoot = checkpoints[fromCheckpoint - 2]?.endArchiveRoot ?? Fr.ZERO;
+    ourPublicInputs.endArchiveRoot = checkpoints[toCheckpoint - 1]?.endArchiveRoot ?? Fr.ZERO;
+
+    const ourBatchedBlob = new BatchedBlob(
+      ourPublicInputs.blobPublicInputs.blobCommitmentsHash,
+      ourPublicInputs.blobPublicInputs.z,
+      ourPublicInputs.blobPublicInputs.y,
+      ourPublicInputs.blobPublicInputs.c,
+      ourPublicInputs.blobPublicInputs.c.negate(), // Fill with dummy value
+    );
+
+    // Return our public inputs
+    const totalFields = ourPublicInputs.toFields();
+    rollup.getEpochProofPublicInputs.mockResolvedValue(totalFields);
+
+    return {
+      epochNumber: EpochNumber(2),
+      fromCheckpoint: CheckpointNumber(fromCheckpoint),
+      toCheckpoint: CheckpointNumber(toCheckpoint),
+      publicInputs: ourPublicInputs,
+      proof: Proof.empty(),
+      batchedBlobInputs: ourBatchedBlob,
+      attestations: [],
+    };
+  };
+
   const testCases = [
     // Usual case of proving full epoch
     { pending: 65, proven: 32, fromCheckpoint: 33, toCheckpoint: 64, expectedPublish: true, message: '' },
@@ -119,56 +180,10 @@ describe('prover-node-publisher', () => {
   test.each(testCases)(
     'submits proof for epoch with proposed checkpoint: $pending, proven checkpoint: $proven, fromCheckpoint: $fromCheckpoint, toCheckpoint: $toCheckpoint',
     async ({ pending, proven, fromCheckpoint, toCheckpoint, expectedPublish, message }) => {
-      // Create public inputs for every checkpoint
-      const checkpoints = Array.from({ length: 100 }, () => {
-        return RootRollupPublicInputs.random();
-      });
-
-      // Return the tips specified by the test
-      rollup.getTips.mockResolvedValue({
-        pending: CheckpointNumber(pending),
-        proven: CheckpointNumber(proven),
-      });
-
-      // Return the requested checkpoint
-      rollup.getCheckpoint.mockImplementation((checkpointNumber: CheckpointNumber) =>
-        Promise.resolve({
-          archive: checkpoints[checkpointNumber - 1].endArchiveRoot,
-          attestationsHash: Buffer32.ZERO, // unused,
-          payloadDigest: Buffer32.ZERO, // unused,
-          headerHash: Buffer32.ZERO, // unused,
-          blobCommitmentsHash: Buffer32.ZERO, // unused,
-          outHash: '0x', // unused,
-          slotNumber: SlotNumber(0), // unused,
-          feeHeader: {
-            excessMana: 0n, // unused
-            manaUsed: 0n, // unused
-            ethPerFeeAsset: 0n, // unused
-            congestionCost: 0n, // unused
-            proverCost: 0n, // unused
-          },
-        }),
-      );
-
-      // We have built a rollup proof of the range fromCheckpoint - toCheckpoint
-      // so we need to set our archives and hashes accordingly
-      const ourPublicInputs = RootRollupPublicInputs.random();
-      ourPublicInputs.previousArchiveRoot = checkpoints[fromCheckpoint - 2]?.endArchiveRoot ?? Fr.ZERO;
-      ourPublicInputs.endArchiveRoot = checkpoints[toCheckpoint - 1]?.endArchiveRoot ?? Fr.ZERO;
-
-      const ourBatchedBlob = new BatchedBlob(
-        ourPublicInputs.blobPublicInputs.blobCommitmentsHash,
-        ourPublicInputs.blobPublicInputs.z,
-        ourPublicInputs.blobPublicInputs.y,
-        ourPublicInputs.blobPublicInputs.c,
-        ourPublicInputs.blobPublicInputs.c.negate(), // Fill with dummy value
-      );
-
-      // Return our public inputs
-      const totalFields = ourPublicInputs.toFields();
-      rollup.getEpochProofPublicInputs.mockResolvedValue(totalFields);
+      const publishData = setupPublishData(pending, proven, fromCheckpoint, toCheckpoint);
 
       const result = await publisher
+<<<<<<< HEAD
         .submitEpochProof({
           epochNumber: EpochNumber(2),
           fromCheckpoint: CheckpointNumber(fromCheckpoint),
@@ -179,6 +194,9 @@ describe('prover-node-publisher', () => {
           batchedBlobInputs: ourBatchedBlob,
           attestations: [],
         })
+=======
+        .submitEpochProof(publishData)
+>>>>>>> origin/public-next
         .then(() => 'Success')
         .catch(error => error.message);
 
@@ -192,6 +210,111 @@ describe('prover-node-publisher', () => {
     },
   );
 
+<<<<<<< HEAD
+=======
+  describe('proof submission target', () => {
+    it('defaults the submit tx target to the rollup address', async () => {
+      const rollupAddress = EthAddress.random().toString();
+      (rollup as any).address = rollupAddress;
+      publisher = new ProverNodePublisher(config, { rollupContract: rollup, l1TxUtils: l1Utils });
+
+      await publisher.submitEpochProof(setupPublishData(65, 32, 33, 64));
+      expect(l1Utils.sendAndMonitorTransaction).toHaveBeenCalledWith(expect.objectContaining({ to: rollupAddress }));
+    });
+
+    it('redirects the submit tx to the configured proof submission target', async () => {
+      (rollup as any).address = EthAddress.random().toString();
+      const target = EthAddress.random();
+      publisher = new ProverNodePublisher(config, {
+        rollupContract: rollup,
+        l1TxUtils: l1Utils,
+        proofSubmissionTarget: target,
+      });
+
+      await publisher.submitEpochProof(setupPublishData(65, 32, 33, 64));
+      expect(l1Utils.sendAndMonitorTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({ to: target.toString() }),
+      );
+    });
+  });
+
+  it('waits until the proven checkpoint reaches the checkpoint before the proof start', async () => {
+    const checkpoints = Array.from({ length: 100 }, () => RootRollupPublicInputs.random());
+    const fromCheckpoint = CheckpointNumber(33);
+    const toCheckpoint = CheckpointNumber(64);
+
+    rollup.getTips
+      .mockResolvedValueOnce({
+        pending: CheckpointNumber(65),
+        proven: CheckpointNumber(31),
+      })
+      .mockResolvedValueOnce({
+        pending: CheckpointNumber(65),
+        proven: CheckpointNumber(32),
+      })
+      .mockResolvedValue({
+        pending: CheckpointNumber(65),
+        proven: CheckpointNumber(32),
+      });
+    rollup.getRollupConstants.mockResolvedValue({
+      l1StartBlock: 0n,
+      l1GenesisTime: BigInt(Math.floor(Date.now() / 1000)),
+      slotDuration: 1,
+      epochDuration: 1,
+      proofSubmissionEpochs: 100,
+      targetCommitteeSize: 48,
+      rollupManaLimit: Number.MAX_SAFE_INTEGER,
+    });
+
+    rollup.getCheckpoint.mockImplementation((checkpointNumber: CheckpointNumber) =>
+      Promise.resolve({
+        archive: checkpoints[checkpointNumber - 1].endArchiveRoot,
+        attestationsHash: Buffer32.ZERO,
+        payloadDigest: Buffer32.ZERO,
+        headerHash: Buffer32.ZERO,
+        blobCommitmentsHash: Buffer32.ZERO,
+        outHash: '0x',
+        slotNumber: SlotNumber(0),
+        feeHeader: {
+          excessMana: 0n,
+          manaUsed: 0n,
+          ethPerFeeAsset: 0n,
+          congestionCost: 0n,
+          proverCost: 0n,
+        },
+      }),
+    );
+
+    const ourPublicInputs = RootRollupPublicInputs.random();
+    ourPublicInputs.previousArchiveRoot = checkpoints[fromCheckpoint - 2].endArchiveRoot;
+    ourPublicInputs.endArchiveRoot = checkpoints[toCheckpoint - 1].endArchiveRoot;
+
+    const ourBatchedBlob = new BatchedBlob(
+      ourPublicInputs.blobPublicInputs.blobCommitmentsHash,
+      ourPublicInputs.blobPublicInputs.z,
+      ourPublicInputs.blobPublicInputs.y,
+      ourPublicInputs.blobPublicInputs.c,
+      ourPublicInputs.blobPublicInputs.c.negate(),
+    );
+
+    rollup.getEpochProofPublicInputs.mockResolvedValue(ourPublicInputs.toFields());
+
+    await publisher.submitEpochProof({
+      epochNumber: EpochNumber(2),
+      fromCheckpoint,
+      toCheckpoint,
+      publicInputs: ourPublicInputs,
+      proof: Proof.empty(),
+      batchedBlobInputs: ourBatchedBlob,
+      attestations: [],
+    });
+
+    expect(rollup.getRollupConstants).toHaveBeenCalled();
+    expect(rollup.getTips).toHaveBeenCalledTimes(3);
+    expect(l1Utils.sendAndMonitorTransaction).toHaveBeenCalled();
+  });
+
+>>>>>>> origin/public-next
   it('analyzeEpochProofSubmission validates, estimates, and does not send tx', async () => {
     const fromCheckpoint = 33;
     const toCheckpoint = 64;
