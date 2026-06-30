@@ -170,8 +170,10 @@ grind_link=$(term_link "/grind?cmd=$(urlencode "$cmd")" "grind")
 fail_links="($grind_link)"
 
 # Create a temporary file for the test log.
-tmp_file=/tmp/$key
-touch $tmp_file
+tmp_dir="${TMPDIR:-/tmp}"
+mkdir -p "$tmp_dir"
+tmp_file="$tmp_dir/$key"
+touch "$tmp_file"
 
 # Publish test started event to Redis channel.
 if [ "$publish" -eq 1 ]; then

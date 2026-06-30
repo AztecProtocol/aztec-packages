@@ -14,10 +14,21 @@ else
   jobs=$(get_num_cpus_max ${1:-})
 fi
 
-parallel_args="-E STOP -j$jobs --memsuspend $(memsuspend_limit) --line-buffer --joblog joblog.txt"
+parallel_tmp_dir="${PARALLEL_TMPDIR:-$root/build/parallel-tmp}"
+mkdir -p "$parallel_tmp_dir"
+
+parallel_args=(
+  -E STOP
+  -j"$jobs"
+  --memsuspend "$(memsuspend_limit)"
+  --line-buffer
+  --joblog joblog.txt
+  --tmpdir "$parallel_tmp_dir"
+  --compress
+)
 
 if [ "${NO_FAIL_FAST:-0}" -eq 0 ]; then
-  parallel_args+=" --halt now,fail=1"
+  parallel_args+=(--halt now,fail=1)
 fi
 
 echo "Starting parallel run with max $jobs jobs..."
@@ -30,7 +41,7 @@ if [ -t 1 ]; then
   # If we're in a terminal default to a progress bar, and use cache_log to save output to redis.
   # Dump output only on failure.
   set +e
-  output=$(parallel $parallel_args --bar 'DUMP_FAIL=1 run_test_cmd {}' > >(DUP=1 stdbuf -oL cache_log "Test run"))
+  output=$(parallel "${parallel_args[@]}" --bar 'DUMP_FAIL=1 run_test_cmd {}' > >(DUP=1 stdbuf -oL cache_log "Test run"))
   code=$?
   if [ "$code" -ne 0 ]; then
     echo -e "$output"
@@ -40,7 +51,7 @@ if [ -t 1 ]; then
 else
   # Non interactive environments (like CI) should just stream output.
   # Caller can denoise if they want to.
-  parallel $parallel_args 'run_test_cmd {}'
+  parallel "${parallel_args[@]}" 'run_test_cmd {}'
 fi
 
 slow_jobs=$(cat joblog.txt | \
