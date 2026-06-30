@@ -30,6 +30,14 @@ import { CrossChainTestHarness } from '../../shared/cross_chain_test_harness.js'
 import type { TestWallet } from '../../test-wallet/test_wallet.js';
 import { SingleNodeTestContext, type SingleNodeTestOpts } from '../single_node_test_context.js';
 
+/** Optional configuration for {@link CrossChainMessagingTest}. */
+export type CrossChainMessagingTestOpts = {
+  /** Mnemonic account index for the harness L1 client (token portal, inbox, minting). Defaults to the first account. */
+  l1HarnessAccountIndex?: number;
+  /** Whether to deploy the L1/L2 token bridge. Set to false for suites that only pass arbitrary messages. Defaults to true. */
+  deployTokenBridge?: boolean;
+};
+
 /**
  * The cross-chain-messaging harness over the single-node topology: extends {@link SingleNodeTestContext}
  * so it reuses the base node tracking / chain monitor / teardown machinery, but builds its environment
@@ -83,8 +91,7 @@ export class CrossChainMessagingTest extends SingleNodeTestContext {
     opts: SetupOptions = {},
     deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs> = {},
     pxeOpts: Partial<PXEConfig> = {},
-    l1HarnessAccountIndex?: number,
-    deployTokenBridge = true,
+    crossChainOpts: CrossChainMessagingTestOpts = {},
   ) {
     super();
     this.testName = testName;
@@ -95,8 +102,8 @@ export class CrossChainMessagingTest extends SingleNodeTestContext {
       ...deployL1ContractsArgs,
     };
     this.pxeOpts = pxeOpts;
-    this.l1HarnessAccountIndex = l1HarnessAccountIndex;
-    this.deployTokenBridge = deployTokenBridge;
+    this.l1HarnessAccountIndex = crossChainOpts.l1HarnessAccountIndex;
+    this.deployTokenBridge = crossChainOpts.deployTokenBridge ?? true;
     this.requireEpochProven = opts.startProverNode ?? false;
   }
 
@@ -120,25 +127,21 @@ export class CrossChainMessagingTest extends SingleNodeTestContext {
           ...opts.proverNodeConfig,
           txGatheringTimeoutMs: opts.proverNodeConfig?.txGatheringTimeoutMs ?? 10 * 60 * 1000,
         },
+        // The deploy hook's L1 client must use the harness account index: the pre-deployed ERC20's
+        // owner is set to this account, and the harness later mints from the same account.
+        l1ClientAccountIndex: this.l1HarnessAccountIndex,
         // Deploy the cross-chain token portal + ERC20 before the node starts, while anvil is still
         // automining, instead of paying the L1 block interval for them once the sequencer is live.
         deployL1Contracts: this.deployTokenBridge
-          ? async ({ l1RpcUrls, chain, logger }) => {
-              const harnessL1Client = createExtendedL1Client(
-                l1RpcUrls,
-                MNEMONIC,
-                chain,
-                undefined,
-                this.l1HarnessAccountIndex,
-              );
+          ? async ({ l1Client, logger }) => {
               const { address: underlyingERC20Address } = await deployL1Contract(
-                harnessL1Client,
+                l1Client,
                 TestERC20Abi,
                 TestERC20Bytecode,
-                ['Underlying', 'UND', harnessL1Client.account.address],
+                ['Underlying', 'UND', l1Client.account.address],
               );
               const { address: tokenPortalAddress } = await deployL1Contract(
-                harnessL1Client,
+                l1Client,
                 TokenPortalAbi,
                 TokenPortalBytecode,
               );

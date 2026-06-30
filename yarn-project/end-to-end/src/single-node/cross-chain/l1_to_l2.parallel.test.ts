@@ -61,10 +61,9 @@ describe('single-node/cross-chain/l1_to_l2', () => {
       // (e.g. a missed checkpoint publish that prunes the pipelined proposed chain) doesn't
       // drop the wallet's in-flight tx via handlePrunedBlocks.
       { syncChainTip: 'checkpointed' },
-      L1_DIRECT_WRITE_ACCOUNT_INDEX,
       // This suite only passes arbitrary L1→L2 messages to its own TestContract; it never bridges
       // tokens, so skip the token+portal+bridge deploy and use the test's L1 handles directly.
-      false,
+      { l1HarnessAccountIndex: L1_DIRECT_WRITE_ACCOUNT_INDEX, deployTokenBridge: false },
     );
     await t.setup();
 
