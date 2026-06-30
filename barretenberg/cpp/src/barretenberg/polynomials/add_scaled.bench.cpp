@@ -44,9 +44,9 @@
 
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/fields/vector_field.hpp"
+#include "barretenberg/ecc/fields/vectorized_for.hpp"
 #include "barretenberg/polynomials/broadcast.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/polynomials/vectorized_for.hpp"
 
 #include <array>
 #include <benchmark/benchmark.h>

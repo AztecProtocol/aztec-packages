@@ -15,9 +15,9 @@
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/fields/vector_field.hpp"
+#include "barretenberg/ecc/fields/vectorized_for.hpp"
 #include "barretenberg/polynomials/broadcast.hpp"
 #include "barretenberg/polynomials/shared_shifted_virtual_zeroes_array.hpp"
-#include "barretenberg/polynomials/vectorized_for.hpp"
 #include "evaluation_domain.hpp"
 #include "polynomial_arithmetic.hpp"
 #include <array>

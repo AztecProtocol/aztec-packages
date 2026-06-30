@@ -201,13 +201,11 @@ template <class Params> struct alignas(32) VectorField {
 
     VectorField operator+(const VectorField& other) const noexcept;
     VectorField operator-(const VectorField& other) const noexcept;
-    // Under WASM SIMD, operator* is only specialized for Bn254FrParams (see
-    // vector_field_wasm.cpp). Instantiating with any other Params under SIMD
-    // is a link-time error; gating it at compile time via a requires clause
-    // would change the symbol mangling and break the explicit specialization
-    // match, so we keep the declaration unconstrained and rely on callers
-    // (e.g. `vectorized_for<N, Fr>`) to route non-Bn254 Fr through the
-    // scalar path.
+    // Under WASM SIMD, operator* has explicit specializations for Bn254FrParams and Bn254FqParams
+    // (see vector_field_wasm.cpp); the has_simd_mont_mul trait above marks exactly those. Instantiating
+    // it with any other Params under SIMD is a link-time error. Gating it at compile time with a
+    // requires clause would change the symbol mangling and break the explicit-specialization match, so
+    // the declaration is left unconstrained and callers route unsupported Params through the scalar path.
     VectorField operator*(const VectorField& other) const noexcept;
 
     // SLOW PATH — for random-access patterns only. For contiguous loads/stores

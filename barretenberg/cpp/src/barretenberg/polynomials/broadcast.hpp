@@ -1,7 +1,7 @@
 #pragma once
 
 #include "barretenberg/ecc/fields/vector_field.hpp"
-#include "barretenberg/polynomials/vectorized_for.hpp"
+#include "barretenberg/ecc/fields/vectorized_for.hpp"
 
 #include <cstddef>
 

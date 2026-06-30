@@ -7,6 +7,7 @@
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/ecc/groups/affine_add_packed.hpp"
 #include "barretenberg/ecc/groups/element_impl.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include <barretenberg/env/hardware_concurrency.hpp>
@@ -160,16 +161,25 @@ template <typename Curve> struct ThreadScratch {
     using AffineElement = typename Curve::AffineElement;
     using Element = typename Curve::Element;
     using BaseField = typename Curve::BaseField;
+    using BaseParams = typename BaseField::Params;
 
     // reduce_chunk's tree-reduce buffer. Per level the inner loop walks with a read cursor
     // `i` and a write cursor `next_len ≤ i`, compacting in-place; the next level re-enters
     // the same buffer without a swap.
+    // it does not make sense to store `curr_pts` in packed form because of the structure of the algorithm; we walk
+    // through marchstep with curr_buckets and perform conditional operations if the digits are the same.
     std::span<AffineElement> curr_pts;
     std::span<uint32_t> curr_buckets;
 
-    // reduce_chunk's batch-affine scratch.
-    std::span<AffineElement> points_to_add;
-    std::span<BaseField> inversion_scratch;
+    // reduce_chunk's batch-affine drain, held packed in SIMD form (VectorField groups). For each
+    // same-bucket pair, tree_reduce pushes one point into `lhs` and the other into `rhs`; drain_batch
+    // runs the packed affine add and scatters each sum back to curr_pts. `out` shares `lhs`'s backing
+    // (the add runs in place), `add_scratch` holds the dx/dy/xsum/inv working buffers, and
+    // `pair_dest[k]` is the curr_pts slot the k-th sum is written to.
+    bb::VectorAffineElementPushSpan<BaseParams> lhs;
+    bb::VectorAffineElementPushSpan<BaseParams> rhs;
+    bb::VectorAffineElementPushSpan<BaseParams> out;
+    bb::group_elements::BatchAffineAddScratch<BaseParams> add_scratch;
     std::span<uint32_t> pair_dest;
 
     size_t result_len = 0;
@@ -245,15 +255,32 @@ template <typename Curve> inline void drain_batch(ThreadScratch<Curve>& s, size_
     if (pair_count == 0) {
         return;
     }
-    bb::group_elements::batch_affine_add_interleaved<typename Curve::AffineElement, typename Curve::BaseField>(
-        s.points_to_add.data(), 2 * pair_count, s.inversion_scratch.data());
-    // In-place compaction: each `pair_dest[i]` is the `next_len` value at the moment the
-    // pair was queued, which is < the read cursor `i_outer` and < the current `next_len`
-    // — so writing back into curr_pts at `pair_dest[i]` lands on a slot that is already
-    // past the read cursor. See reduce_chunk for the full invariant.
-    for (size_t i = 0; i < pair_count; ++i) {
-        s.curr_pts[s.pair_dest[i]] = s.points_to_add[pair_count + i];
+    constexpr size_t W = bb::VectorField<typename Curve::BaseField::Params>::SIZE;
+
+    // Add every queued pair at once: out[k] = lhs[k] + rhs[k], in place (out shares lhs's backing).
+    bb::group_elements::batch_affine_add(s.lhs, s.rhs, s.out, s.add_scratch);
+
+    // Scatter each sum back to curr_pts, group-major so to_array() unpacks each VectorField once.
+    // pair_dest[k] is the `next_len` value recorded when the k-th pair was queued, which is < the
+    // read cursor at that level — so the write lands on an already-read slot (see tree_reduce_in_place).
+    size_t k = 0;
+    for (size_t g = 0; g < s.out.num_full_vectors(); ++g) {
+        const auto xs = s.out.x[g].to_array();
+        const auto ys = s.out.y[g].to_array();
+        for (size_t l = 0; l < W; ++l, ++k) {
+            s.curr_pts[s.pair_dest[k]].x = xs[l];
+            s.curr_pts[s.pair_dest[k]].y = ys[l];
+        }
     }
+    const auto* xt = s.out.x.tail_data();
+    const auto* yt = s.out.y.tail_data();
+    for (size_t t = 0; t < s.out.tail(); ++t, ++k) {
+        s.curr_pts[s.pair_dest[k]].x = xt[t];
+        s.curr_pts[s.pair_dest[k]].y = yt[t];
+    }
+
+    s.lhs.reset();
+    s.rhs.reset();
 }
 
 /**
@@ -283,9 +310,8 @@ template <typename Curve> void tree_reduce_in_place(ThreadScratch<Curve>& s, siz
 
         while (i < curr_len) {
             if (i + 1 < curr_len && s.curr_buckets[i] == s.curr_buckets[i + 1]) {
-                const size_t slot = 2 * pair_count;
-                s.points_to_add[slot] = s.curr_pts[i];
-                s.points_to_add[slot + 1] = s.curr_pts[i + 1];
+                s.lhs.push_point(s.curr_pts[i].x, s.curr_pts[i].y);
+                s.rhs.push_point(s.curr_pts[i + 1].x, s.curr_pts[i + 1].y);
                 s.curr_buckets[next_len] = s.curr_buckets[i];
                 s.pair_dest[pair_count] = static_cast<uint32_t>(next_len);
                 ++next_len;
@@ -1799,8 +1825,26 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
         };
         s.curr_pts = ts_fixed_alloc.template operator()<AffineElement>(chunk_capacity);
         s.curr_buckets = ts_fixed_alloc.template operator()<uint32_t>(chunk_capacity);
-        s.points_to_add = ts_fixed_alloc.template operator()<AffineElement>(2 * BATCH_CAPACITY);
-        s.inversion_scratch = ts_fixed_alloc.template operator()<BaseField>(BATCH_CAPACITY);
+        // Packed batch-affine drain backing, each run sized for BATCH_CAPACITY elements. The run count
+        // is sourced from PerWorkerArenaLayout so these allocations and the sizer's layout walk cannot
+        // drift. Index map below; `out` shares `lhs`'s backing (the add runs in place).
+        using BaseParams = typename BaseField::Params;
+        using VecField = bb::VectorField<BaseParams>;
+        constexpr size_t packed_runs =
+            round_parallel_detail::PerWorkerArenaLayout<Curve>::PACKED_DRAIN_VECTORFIELD_RUNS;
+        const size_t pack_cap = (BATCH_CAPACITY / VecField::SIZE) + 1;
+        std::array<std::span<VecField>, packed_runs> packed;
+        for (auto& run : packed) {
+            run = ts_fixed_alloc.template operator()<VecField>(pack_cap);
+        }
+        // packed = { lhs.x, lhs.y, rhs.x, rhs.y, dx, dy, xsum, inv }
+        s.lhs = { packed[0], packed[1] };
+        s.rhs = { packed[2], packed[3] };
+        s.out = { packed[0], packed[1] };
+        s.add_scratch = { bb::VectorFieldPushSpan<BaseParams>{ packed[4] },
+                          bb::VectorFieldPushSpan<BaseParams>{ packed[5] },
+                          bb::VectorFieldPushSpan<BaseParams>{ packed[6] },
+                          bb::VectorFieldPushSpan<BaseParams>{ packed[7] } };
         s.pair_dest = ts_fixed_alloc.template operator()<uint32_t>(BATCH_CAPACITY);
         s.overflow_slots = ts_fixed_alloc.template operator()<uint32_t>(global_max_overflow_per_window);
         s.overflow_pts = ts_fixed_alloc.template operator()<AffineElement>(global_max_overflow_per_window);

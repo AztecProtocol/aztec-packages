@@ -8,10 +8,10 @@
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/thread.hpp"
+#include "barretenberg/ecc/fields/vectorized_for.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/polynomials/accumulator.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/polynomials/vectorized_for.hpp"
 #include <math.h>
 #include <memory.h>
 
