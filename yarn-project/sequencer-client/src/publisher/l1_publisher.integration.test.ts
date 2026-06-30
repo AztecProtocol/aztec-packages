@@ -1035,6 +1035,13 @@ describe('L1Publisher integration', () => {
       );
     };
 
+    const mineBlockWithoutPendingTxs = async () => {
+      for (const tx of await ethCheatCodes.getTxPoolContents()) {
+        await ethCheatCodes.dropTransaction(tx.hash);
+      }
+      await ethCheatCodes.mine();
+    };
+
     it(`cancels block proposal when the L2 slot ends`, async () => {
       const { checkpoint } = await buildSingleCheckpoint();
       await enqueueProposeL2Checkpoint(checkpoint);
@@ -1043,7 +1050,7 @@ describe('L1Publisher integration', () => {
       // Advance one L1 block at a time without mining the publish tx.
       // While we are on the same L2 slot, sendRequests should not resolve.
       while (true) {
-        await ethCheatCodes.mineEmptyBlock();
+        await mineBlockWithoutPendingTxs();
         await ethCheatCodes.syncDateProvider();
         const currentL2Slot = await rollup.getSlotNumber();
         const { slot: nextL2Slot } = epochCache.getEpochAndSlotInNextL1Slot();
@@ -1084,7 +1091,7 @@ describe('L1Publisher integration', () => {
       // After N L1 blocks, the publisher should have bumped the gas and resent the tx
       const l1SlotsUntilSpeedUp = 1;
       for (let i = 0; i < l1SlotsUntilSpeedUp; i++) {
-        await ethCheatCodes.mineEmptyBlock();
+        await mineBlockWithoutPendingTxs();
         await ethCheatCodes.syncDateProvider();
       }
 
@@ -1117,7 +1124,7 @@ describe('L1Publisher integration', () => {
 
       // Let the proposal timeout by mining empty blocks until we're past the L2 slot
       while (true) {
-        await ethCheatCodes.mineEmptyBlock();
+        await mineBlockWithoutPendingTxs();
         await ethCheatCodes.syncDateProvider();
         const { slot: nextL2Slot } = epochCache.getEpochAndSlotInNextL1Slot();
 
