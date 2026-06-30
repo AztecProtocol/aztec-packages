@@ -1,6 +1,6 @@
 # @aztec/accounts
 
-Version: v5.0.0-rc.1
+Version: v5.0.0-rc.2
 
 ## Quick Import Reference
 
@@ -20,7 +20,7 @@ import {
 ### DefaultAccountContract
 
 Base class for implementing an account contract. Requires that the account uses the default entrypoint method signature.
-Implements: `unknown`
+Implements: `AccountContract`
 
 **Constructor**
 ```typescript
@@ -28,11 +28,11 @@ new DefaultAccountContract()
 ```
 
 **Methods**
-- `getAccount(completeAddress: CompleteAddress) => Account`
-- `getAuthWitnessProvider(address: CompleteAddress) => AuthWitnessProvider`
-- `getContractArtifact() => Promise<ContractArtifact>`
-- `getImmutablesHash() => Promise<any>` - Accounts without immutables (the default) contribute to their address via an on-chain initializer instead. Account contracts that commit immutables into their address override this.
-- `getInitializationFunctionAndArgs() => Promise<{ constructorArgs: any[]; constructorName: string } | undefined>`
+- `getAccount(completeAddress: CompleteAddress) => Account` - Returns the account implementation for this account contract given an instance at the provided address. The account is responsible for assembling tx requests given requested function calls, and for creating signed auth witnesses given action identifiers (message hashes).
+- `getAuthWitnessProvider(address: CompleteAddress) => AuthWitnessProvider` - Returns the auth witness provider for the given address.
+- `getContractArtifact() => Promise<ContractArtifact>` - Returns the artifact of this account contract.
+- `getImmutablesHash() => Promise<Fr | undefined>` - Accounts without immutables (the default) contribute to their address via an on-chain initializer instead. Account contracts that commit immutables into their address override this.
+- `getInitializationFunctionAndArgs() => Promise<{ constructorArgs: any[]; constructorName: string } | undefined>` - Returns the initializer function name and arguments for this instance, or undefined if this contract does not require initialization.
 
 ### EcdsaKAccountContract
 
@@ -46,11 +46,11 @@ new EcdsaKAccountContract(signingPrivateKey: Buffer)
 ```
 
 **Methods**
-- `getAccount(completeAddress: CompleteAddress) => Account`
+- `getAccount(completeAddress: CompleteAddress) => Account` - Returns the account implementation for this account contract given an instance at the provided address. The account is responsible for assembling tx requests given requested function calls, and for creating signed auth witnesses given action identifiers (message hashes).
 - `getAuthWitnessProvider(_address: CompleteAddress) => AuthWitnessProvider`
 - `getContractArtifact() => Promise<ContractArtifact>`
-- `getImmutablesHash() => Promise<any>` - Accounts without immutables (the default) contribute to their address via an on-chain initializer instead. Account contracts that commit immutables into their address override this.
-- `getInitializationFunctionAndArgs() => Promise<{ constructorArgs: any[][]; constructorName: string }>`
+- `getImmutablesHash() => Promise<Fr | undefined>` - Accounts without immutables (the default) contribute to their address via an on-chain initializer instead. Account contracts that commit immutables into their address override this.
+- `getInitializationFunctionAndArgs() => Promise<{ constructorArgs: number[][]; constructorName: string }>`
 
 ### EcdsaRAccountContract
 
@@ -64,11 +64,11 @@ new EcdsaRAccountContract(signingPrivateKey: Buffer)
 ```
 
 **Methods**
-- `getAccount(completeAddress: CompleteAddress) => Account`
+- `getAccount(completeAddress: CompleteAddress) => Account` - Returns the account implementation for this account contract given an instance at the provided address. The account is responsible for assembling tx requests given requested function calls, and for creating signed auth witnesses given action identifiers (message hashes).
 - `getAuthWitnessProvider(_address: CompleteAddress) => AuthWitnessProvider`
 - `getContractArtifact() => Promise<ContractArtifact>`
-- `getImmutablesHash() => Promise<any>` - Accounts without immutables (the default) contribute to their address via an on-chain initializer instead. Account contracts that commit immutables into their address override this.
-- `getInitializationFunctionAndArgs() => Promise<{ constructorArgs: any[][]; constructorName: string }>`
+- `getImmutablesHash() => Promise<Fr | undefined>` - Accounts without immutables (the default) contribute to their address via an on-chain initializer instead. Account contracts that commit immutables into their address override this.
+- `getInitializationFunctionAndArgs() => Promise<{ constructorArgs: number[][]; constructorName: string }>`
 
 ### EcdsaRSSHAccountContract
 
@@ -82,10 +82,10 @@ new EcdsaRSSHAccountContract(signingPublicKey: Buffer)
 ```
 
 **Methods**
-- `getAccount(completeAddress: CompleteAddress) => Account`
+- `getAccount(completeAddress: CompleteAddress) => Account` - Returns the account implementation for this account contract given an instance at the provided address. The account is responsible for assembling tx requests given requested function calls, and for creating signed auth witnesses given action identifiers (message hashes).
 - `getAuthWitnessProvider(_address: CompleteAddress) => AuthWitnessProvider`
 - `getContractArtifact() => Promise<ContractArtifact>`
-- `getImmutablesHash() => Promise<any>` - Accounts without immutables (the default) contribute to their address via an on-chain initializer instead. Account contracts that commit immutables into their address override this.
+- `getImmutablesHash() => Promise<Fr | undefined>` - Accounts without immutables (the default) contribute to their address via an on-chain initializer instead. Account contracts that commit immutables into their address override this.
 - `getInitializationFunctionAndArgs() => Promise<{ constructorArgs: number[][]; constructorName: string }>`
 
 ### SchnorrAccountContract
@@ -96,19 +96,19 @@ Extends: `SchnorrBaseAccountContract`
 
 **Constructor**
 ```typescript
-new SchnorrAccountContract(signingPrivateKey: GrumpkinScalar)
+new SchnorrAccountContract(signingPrivateKey: Fq)
 ```
 
 **Properties**
-- `signingPrivateKey: GrumpkinScalar`
+- `signingPrivateKey: Fq`
 
 **Methods**
-- `getAccount(completeAddress: CompleteAddress) => Account`
+- `getAccount(completeAddress: CompleteAddress) => Account` - Returns the account implementation for this account contract given an instance at the provided address. The account is responsible for assembling tx requests given requested function calls, and for creating signed auth witnesses given action identifiers (message hashes).
 - `getAuthWitnessProvider(_address: CompleteAddress) => AuthWitnessProvider`
 - `getContractArtifact() => Promise<ContractArtifact>`
-- `getImmutablesHash() => Promise<any>` - Accounts without immutables (the default) contribute to their address via an on-chain initializer instead. Account contracts that commit immutables into their address override this.
+- `getImmutablesHash() => Promise<Fr | undefined>` - Accounts without immutables (the default) contribute to their address via an on-chain initializer instead. Account contracts that commit immutables into their address override this.
 - `getInitializationFunctionAndArgs() => Promise<{ constructorArgs: any[]; constructorName: string } | undefined>`
-- `getSigningPublicKey() => any` - The Grumpkin public key this account verifies signatures against.
+- `getSigningPublicKey() => Promise<Point>` - The Grumpkin public key this account verifies signatures against.
 
 ### SchnorrInitializerlessAccountContract
 
@@ -118,19 +118,19 @@ Extends: `SchnorrBaseAccountContract`
 
 **Constructor**
 ```typescript
-new SchnorrInitializerlessAccountContract(signingPrivateKey: GrumpkinScalar)
+new SchnorrInitializerlessAccountContract(signingPrivateKey: Fq)
 ```
 
 **Properties**
-- `signingPrivateKey: GrumpkinScalar`
+- `signingPrivateKey: Fq`
 
 **Methods**
-- `getAccount(completeAddress: CompleteAddress) => Account`
+- `getAccount(completeAddress: CompleteAddress) => Account` - Returns the account implementation for this account contract given an instance at the provided address. The account is responsible for assembling tx requests given requested function calls, and for creating signed auth witnesses given action identifiers (message hashes).
 - `getAuthWitnessProvider(_address: CompleteAddress) => AuthWitnessProvider`
 - `getContractArtifact() => Promise<ContractArtifact>`
 - `getImmutablesHash() => Promise<Fr>` - Accounts without immutables (the default) contribute to their address via an on-chain initializer instead. Account contracts that commit immutables into their address override this.
 - `getInitializationFunctionAndArgs() => Promise<undefined>`
-- `getSigningPublicKey() => any` - The Grumpkin public key this account verifies signatures against.
+- `getSigningPublicKey() => Promise<Point>` - The Grumpkin public key this account verifies signatures against.
 
 ## Interfaces
 
@@ -142,7 +142,7 @@ Data for generating an initial account.
 - `address: AztecAddress` - Address of the schnorr account contract.
 - `salt: Fr` - Contract address salt.
 - `secret: Fr` - Secret to derive the keys for the account.
-- `signingKey: GrumpkinScalar` - Signing key od the account.
+- `signingKey: Fq` - Signing key od the account.
 - `type?: InitialAccountType` - Account contract variant.
 
 ## Functions
@@ -161,13 +161,13 @@ Gets the basic information for initial test accounts.
 
 ### getSchnorrAccountContractAddress
 ```typescript
-function getSchnorrAccountContractAddress(secret: Fr, salt: Fr, signingPrivateKey?: any) => Promise<AztecAddress>
+function getSchnorrAccountContractAddress(secret: Fr, salt: Fr, signingPrivateKey?: Fq) => Promise<AztecAddress>
 ```
 Compute the address of a schnorr account contract.
 
 ### getSchnorrInitializerlessAccountContractAddress
 ```typescript
-function getSchnorrInitializerlessAccountContractAddress(secret: Fr, salt: Fr, signingPrivateKey?: any) => Promise<AztecAddress>
+function getSchnorrInitializerlessAccountContractAddress(secret: Fr, salt: Fr, signingPrivateKey?: Fq) => Promise<AztecAddress>
 ```
 Compute the address of a schnorr account contract.
 
@@ -185,22 +185,22 @@ type EcdsaRAccountContractArtifact = ContractArtifact
 
 ### INITIAL_TEST_ACCOUNT_SALTS
 ```typescript
-type INITIAL_TEST_ACCOUNT_SALTS = any[]
+type INITIAL_TEST_ACCOUNT_SALTS = Fr[]
 ```
 
 ### INITIAL_TEST_ENCRYPTION_KEYS
 ```typescript
-type INITIAL_TEST_ENCRYPTION_KEYS = any[]
+type INITIAL_TEST_ENCRYPTION_KEYS = Fq[]
 ```
 
 ### INITIAL_TEST_SECRET_KEYS
 ```typescript
-type INITIAL_TEST_SECRET_KEYS = any[]
+type INITIAL_TEST_SECRET_KEYS = Fr[]
 ```
 
 ### INITIAL_TEST_SIGNING_KEYS
 ```typescript
-type INITIAL_TEST_SIGNING_KEYS = any[]
+type INITIAL_TEST_SIGNING_KEYS = Fq[]
 ```
 
 ### InitialAccountType
@@ -211,10 +211,26 @@ The schnorr account contract variant a test account uses.
 
 ### SchnorrAccountContractArtifact
 ```typescript
-type SchnorrAccountContractArtifact = any
+type SchnorrAccountContractArtifact = ContractArtifact
 ```
 
 ### SchnorrInitializerlessAccountContractArtifact
 ```typescript
-type SchnorrInitializerlessAccountContractArtifact = any
+type SchnorrInitializerlessAccountContractArtifact = ContractArtifact
 ```
+
+## Cross-Package References
+
+This package references types from other Aztec packages:
+
+**@aztec/aztec.js**
+- `Account`, `AccountContract`
+
+**@aztec/entrypoints**
+- `AuthWitnessProvider`
+
+**@aztec/foundation**
+- `Fq`, `Fr`, `Point`
+
+**@aztec/stdlib**
+- `AztecAddress`, `CompleteAddress`, `ContractArtifact`

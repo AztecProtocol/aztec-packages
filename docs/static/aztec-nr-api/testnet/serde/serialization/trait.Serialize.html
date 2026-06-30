@@ -58,6 +58,8 @@
 <li><a href="#impl-Serialize-for-EpochConstantData">EpochConstantData</a></li>
 <li><a href="#impl-Serialize-for-EthAddress">EthAddress</a></li>
 <li><a href="#impl-Serialize-for-EventSelector">EventSelector</a></li>
+<li><a href="#impl-Serialize-for-Fact">Fact</a></li>
+<li><a href="#impl-Serialize-for-FactCollection">FactCollection</a></li>
 <li><a href="#impl-Serialize-for-Fancier">Fancier</a></li>
 <li><a href="#impl-Serialize-for-FeeRecipient">FeeRecipient</a></li>
 <li><a href="#impl-Serialize-for-Field">Field</a></li>
@@ -92,6 +94,7 @@
 <li><a href="#impl-Serialize-for-OffchainMessageWithContext">OffchainMessageWithContext</a></li>
 <li><a href="#impl-Serialize-for-OnchainDeliveryMode">OnchainDeliveryMode</a></li>
 <li><a href="#impl-Serialize-for-Option<T>">Option<T></a></li>
+<li><a href="#impl-Serialize-for-OriginBlock">OriginBlock</a></li>
 <li><a href="#impl-Serialize-for-PartialAddress">PartialAddress</a></li>
 <li><a href="#impl-Serialize-for-PartialStateReference">PartialStateReference</a></li>
 <li><a href="#impl-Serialize-for-PartialUintNote">PartialUintNote</a></li>
@@ -114,10 +117,13 @@
 <li><a href="#impl-Serialize-for-PublicKeys">PublicKeys</a></li>
 <li><a href="#impl-Serialize-for-PublicKeysHash">PublicKeysHash</a></li>
 <li><a href="#impl-Serialize-for-PublicLogs">PublicLogs</a></li>
+<li><a href="#impl-Serialize-for-ResolvedTaggingStrategy">ResolvedTaggingStrategy</a></li>
+<li><a href="#impl-Serialize-for-ResolvedTx">ResolvedTx</a></li>
 <li><a href="#impl-Serialize-for-Scoped<T>">Scoped<T></a></li>
 <li><a href="#impl-Serialize-for-Smol">Smol</a></li>
 <li><a href="#impl-Serialize-for-SpongeBlob">SpongeBlob</a></li>
 <li><a href="#impl-Serialize-for-StateReference">StateReference</a></li>
+<li><a href="#impl-Serialize-for-TaggingSecretStrategy">TaggingSecretStrategy</a></li>
 <li><a href="#impl-Serialize-for-TestAccount">TestAccount</a></li>
 <li><a href="#impl-Serialize-for-TreeSnapshots">TreeSnapshots</a></li>
 <li><a href="#impl-Serialize-for-TxConstantData">TxConstantData</a></li>
@@ -298,6 +304,10 @@ fail with an arguments hash mismatch error message.</p>
 
 <h3 id="impl-Serialize-for-EventSelector"><code class="code-header">impl <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../noir_aztec/event/struct.EventSelector.html" class="struct">EventSelector</a></code></h3>
 
+<h3 id="impl-Serialize-for-Fact"><code class="code-header">impl <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../noir_aztec/facts/struct.Fact.html" class="struct">Fact</a></code></h3>
+
+<h3 id="impl-Serialize-for-FactCollection"><code class="code-header">impl <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../noir_aztec/facts/struct.FactCollection.html" class="struct">FactCollection</a></code></h3>
+
 <h3 id="impl-Serialize-for-Fancier"><code class="code-header">impl <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for Fancier</code></h3>
 
 <h3 id="impl-Serialize-for-FeeRecipient"><code class="code-header">impl <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/fee_recipient/struct.FeeRecipient.html" class="struct">FeeRecipient</a></code></h3>
@@ -372,6 +382,8 @@ fail with an arguments hash mismatch error message.</p>
 <div class="where-clause">where
     T: <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a></div></code></h3>
 
+<h3 id="impl-Serialize-for-OriginBlock"><code class="code-header">impl <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../noir_aztec/facts/struct.OriginBlock.html" class="struct">OriginBlock</a></code></h3>
+
 <h3 id="impl-Serialize-for-PartialAddress"><code class="code-header">impl <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/address/partial_address/struct.PartialAddress.html" class="struct">PartialAddress</a></code></h3>
 
 <h3 id="impl-Serialize-for-PartialStateReference"><code class="code-header">impl <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/partial_state_reference/struct.PartialStateReference.html" class="struct">PartialStateReference</a></code></h3>
@@ -416,6 +428,10 @@ fail with an arguments hash mismatch error message.</p>
 
 <h3 id="impl-Serialize-for-PublicLogs"><code class="code-header">impl <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/public_logs/struct.PublicLogs.html" class="struct">PublicLogs</a></code></h3>
 
+<h3 id="impl-Serialize-for-ResolvedTaggingStrategy"><code class="code-header">impl <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../noir_aztec/messages/delivery/struct.ResolvedTaggingStrategy.html" class="struct">ResolvedTaggingStrategy</a></code></h3>
+
+<h3 id="impl-Serialize-for-ResolvedTx"><code class="code-header">impl <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../noir_aztec/oracle/tx_resolution/struct.ResolvedTx.html" class="struct">ResolvedTx</a></code></h3>
+
 <h3 id="impl-Serialize-for-Scoped<T>"><code class="code-header">impl&lt;T&gt; <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;T&gt;
 <div class="where-clause">where
     T: <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a></div></code></h3>
@@ -425,6 +441,8 @@ fail with an arguments hash mismatch error message.</p>
 <h3 id="impl-Serialize-for-SpongeBlob"><code class="code-header">impl <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/blob_data/struct.SpongeBlob.html" class="struct">SpongeBlob</a></code></h3>
 
 <h3 id="impl-Serialize-for-StateReference"><code class="code-header">impl <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../protocol_types/abis/state_reference/struct.StateReference.html" class="struct">StateReference</a></code></h3>
+
+<h3 id="impl-Serialize-for-TaggingSecretStrategy"><code class="code-header">impl <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../noir_aztec/test/helpers/tagging_secret_strategy/struct.TaggingSecretStrategy.html" class="struct">TaggingSecretStrategy</a></code></h3>
 
 <h3 id="impl-Serialize-for-TestAccount"><code class="code-header">impl <a href="../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../noir_aztec/test/helpers/utils/struct.TestAccount.html" class="struct">TestAccount</a></code></h3>
 
