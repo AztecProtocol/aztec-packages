@@ -791,13 +791,90 @@ export class L1FeeAnalyzer {
     });
   }
 
-  /**
-   * Gets the minimum value from an array of bigints
-   */
   private minBigInt(values: bigint[]): bigint {
-    if (values.length === 0) {
-      return 0n;
-    }
-    return values.reduce((min, val) => (val < min ? val : min), values[0]);
+    return minBigInt(values);
+  }
+}
+
+function minBigInt(values: bigint[]): bigint {
+  if (values.length === 0) {
+    return 0n;
+  }
+  return values.reduce((min, val) => (val < min ? val : min), values[0]);
+}
+
+/** Point-in-time snapshot of L1 fee conditions for failed tx diagnostics. */
+export interface FeeSnapshot {
+  latestBlockNumber: bigint;
+  l1BaseFee: bigint;
+  blobBaseFee: bigint;
+  pendingP75PriorityFee: bigint;
+  pendingBlobP75PriorityFee: bigint;
+  pendingTxCount: number;
+  pendingBlobTxCount: number;
+  pendingBlobCount: number;
+}
+
+/** Captures a snapshot of current L1 fees for diagnostics. Never throws. */
+export async function captureFeeSnapshot(client: ViemClient): Promise<FeeSnapshot | undefined> {
+  try {
+    const [latestBlock, pendingBlock, blobBaseFee] = await Promise.all([
+      client.getBlock({ blockTag: 'latest' }),
+      client.getBlock({ blockTag: 'pending', includeTransactions: true }).catch(() => null),
+      client.getBlobBaseFee().catch(() => 0n),
+    ]);
+    const processed = processTransactions(pendingBlock?.transactions);
+    return {
+      latestBlockNumber: latestBlock.number,
+      l1BaseFee: latestBlock.baseFeePerGas ?? 0n,
+      blobBaseFee,
+      pendingP75PriorityFee: calculatePercentile(processed.allPriorityFees, 75),
+      pendingBlobP75PriorityFee: calculatePercentile(processed.blobPriorityFees, 75),
+      pendingTxCount: pendingBlock?.transactions?.length ?? 0,
+      pendingBlobTxCount: processed.blobTxs.length,
+      pendingBlobCount: processed.totalBlobCount,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+/** Fee thresholds from a mined L1 block for underpricing analysis. */
+export interface MinedBlockFees {
+  blockNumber: bigint;
+  baseFeePerGas: bigint;
+  minIncludedPriorityFee: bigint;
+  minIncludedBlobPriorityFee: bigint;
+  blockBlobsFull: boolean;
+  includedBlobTxCount: number;
+  includedBlobCount: number;
+}
+
+/** Waits for the next L1 block and extracts inclusion fee thresholds. Never throws. */
+export async function captureNextMinedBlockFees(
+  client: ViemClient,
+  currentBlockNumber: bigint,
+): Promise<MinedBlockFees | undefined> {
+  try {
+    await retryUntil(
+      async () => (await client.getBlockNumber()) > currentBlockNumber,
+      'Wait for next block for fee capture',
+      15_000,
+      0.5,
+    );
+    const minedBlock = await client.getBlock({ includeTransactions: true });
+    const processed = processTransactions(minedBlock.transactions);
+    const blobsInBlock = minedBlock.blobGasUsed ? Number(minedBlock.blobGasUsed / GAS_PER_BLOB) : 0;
+    return {
+      blockNumber: minedBlock.number,
+      baseFeePerGas: minedBlock.baseFeePerGas ?? 0n,
+      minIncludedPriorityFee: minBigInt(processed.allPriorityFees),
+      minIncludedBlobPriorityFee: minBigInt(processed.blobPriorityFees),
+      blockBlobsFull: blobsInBlock >= getMaxBlobCapacity(minedBlock.timestamp),
+      includedBlobTxCount: processed.blobTxs.length,
+      includedBlobCount: processed.totalBlobCount,
+    };
+  } catch {
+    return undefined;
   }
 }
