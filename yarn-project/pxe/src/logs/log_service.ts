@@ -176,6 +176,8 @@ export class LogService {
       txHash: log.txHash,
       uniqueNoteHashesInTx: noteHashes,
       firstNullifierInTx: nullifiers[0],
+      blockNumber: log.blockNumber,
+      blockTimestamp: log.blockTimestamp,
     };
   }
 

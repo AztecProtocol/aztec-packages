@@ -1,12 +1,16 @@
+import { MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_CIPHERTEXT_LEN } from '@aztec/constants';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { FieldReader } from '@aztec/foundation/serialize';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { AppTaggingSecretKind, Tag } from '@aztec/stdlib/logs';
+import { TxHash } from '@aztec/stdlib/tx';
 
 import { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
 import { type LogRetrievalRequest, LogSource } from '../noir-structs/log_retrieval_request.js';
+import type { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import { Option } from '../noir-structs/option.js';
 import {
   ARRAY,
@@ -17,6 +21,7 @@ import {
   EPHEMERAL_ARRAY,
   FIELD,
   LOG_RETRIEVAL_REQUEST,
+  LOG_RETRIEVAL_RESPONSE,
   MEMBERSHIP_WITNESS,
   OPTION,
   POINT,
@@ -298,6 +303,41 @@ describe('oracle type mappings', () => {
     it('serializes to its declared shape', () => {
       const witness = MEMBERSHIP_WITNESS(4);
       expect(shapeOf(witness.serialization!.fn(MembershipWitness.random(4)))).toEqual(witness.shape);
+    });
+  });
+
+  describe('LOG_RETRIEVAL_RESPONSE', () => {
+    const sampleResponse = (): LogRetrievalResponse => ({
+      logPayload: [Fr.random()],
+      txHash: TxHash.random(),
+      uniqueNoteHashesInTx: [Fr.random()],
+      firstNullifierInTx: Fr.random(),
+      blockNumber: BlockNumber(0x1234),
+      blockTimestamp: 0xdeadbeefn,
+    });
+
+    it('pins the concrete wire layout', () => {
+      // Positional wire format shared with Noir: an accidental interior field insertion would shift the trailing
+      // scalars and silently corrupt the Noir-side deserialize, so pin the full slot layout rather than just `.shape`.
+      expect(LOG_RETRIEVAL_RESPONSE.shape).toEqual([
+        { len: PRIVATE_LOG_CIPHERTEXT_LEN + 1 }, // logPayload BoundedVec: storage fields + length
+        'scalar', // txHash
+        { len: MAX_NOTE_HASHES_PER_TX + 1 }, // uniqueNoteHashesInTx BoundedVec: storage fields + length
+        'scalar', // firstNullifierInTx
+        'scalar', // blockNumber
+        'scalar', // blockTimestamp
+      ]);
+    });
+
+    it('serializes to its declared shape', () => {
+      expect(shapeOf(LOG_RETRIEVAL_RESPONSE.serialization!.fn(sampleResponse()))).toEqual(LOG_RETRIEVAL_RESPONSE.shape);
+    });
+
+    it('appends the origin block number and timestamp as the final two scalar slots', () => {
+      const response = sampleResponse();
+      const slots = LOG_RETRIEVAL_RESPONSE.serialization!.fn(response);
+      expect(slots.at(-2)).toEqual(new Fr(response.blockNumber));
+      expect(slots.at(-1)).toEqual(new Fr(response.blockTimestamp));
     });
   });
 });

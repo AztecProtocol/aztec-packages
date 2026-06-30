@@ -518,6 +518,8 @@ export const LOG_RETRIEVAL_RESPONSE: TypeMapping<LogRetrievalResponse> = STRUCT<
   { name: 'txHash', type: TX_HASH },
   { name: 'uniqueNoteHashesInTx', type: FIXED_BOUNDED_VEC(FIELD, MAX_NOTE_HASHES_PER_TX) },
   { name: 'firstNullifierInTx', type: FIELD },
+  { name: 'blockNumber', type: BLOCK_NUMBER },
+  { name: 'blockTimestamp', type: BIGINT },
 ]);
 
 export const MESSAGE_CONTEXT: TypeMapping<MessageContext> = STRUCT<MessageContext>([
