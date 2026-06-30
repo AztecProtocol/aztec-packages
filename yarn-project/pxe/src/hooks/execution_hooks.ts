@@ -1,4 +1,5 @@
 import type { AuthorizeUtilityCall } from './authorize_utility_call.js';
+import type { ResolveCustomRequest } from './resolve_custom_request.js';
 import type { ResolveTaggingSecretStrategy } from './resolve_tagging_secret_strategy.js';
 
 /**
@@ -43,6 +44,12 @@ export interface ExecutionHooks {
    * See {@link ResolveTaggingSecretStrategy} for the request shape and defaults.
    */
   resolveTaggingSecretStrategy?: ResolveTaggingSecretStrategy;
+  /**
+   * Resolves a custom, caller-defined request a circuit cannot serve from local state. Any contract can issue one, so
+   * an implementor should verify both the request `kind` and the issuing contract (its address and class ID) before
+   * fulfilling it. Rejected when absent; see {@link ResolveCustomRequest}.
+   */
+  resolveCustomRequest?: ResolveCustomRequest;
 }
 
 /**
