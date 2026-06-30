@@ -77,6 +77,8 @@ fi
 function redis_cli {
   if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
     timeout 30 redis-cli --raw -h $CI_REDIS "$@" || true
+  elif [[ " $* " == *" -x "* ]]; then
+    cat >/dev/null
   fi
 }
 

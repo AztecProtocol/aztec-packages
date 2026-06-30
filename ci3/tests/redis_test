@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# Tests for Redis helper behavior when Redis is unavailable.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+RED=$'\033[0;31m'
+GREEN=$'\033[0;32m'
+NC=$'\033[0m'
+
+TESTS_PASSED=0
+TESTS_FAILED=0
+
+pass() { echo "${GREEN}PASS${NC} $1"; ((TESTS_PASSED++)) || true; }
+fail() {
+  echo "${RED}FAIL${NC} $1: $2"
+  ((TESTS_FAILED++)) || true
+}
+
+echo "=== Redis Helper Test Suite ==="
+
+# Match the GitHub Actions runner path: no local Redis, strict pipe handling.
+export CI=1
+export CI_REDIS_AVAILABLE=0
+export DASHBOARD_URL=http://ci.aztec-labs.com
+export root="$ROOT"
+source "$ROOT/ci3/source"
+
+echo "--- Test: redis_setexz drains stdin without Redis ---"
+
+code=0
+timeout 5 bash -c '
+  set -euo pipefail
+  export CI=1
+  export CI_REDIS_AVAILABLE=0
+  export DASHBOARD_URL=http://ci.aztec-labs.com
+  export root="$1"
+  source "$1/ci3/source"
+  printf "%s\n" "CI booting..." | redis_setexz test-key 300
+' bash "$ROOT" &>/dev/null || code=$?
+
+if [ "$code" -eq 0 ]; then
+  pass "redis_setexz succeeds without Redis"
+else
+  fail "redis_setexz succeeds without Redis" "exit code $code"
+fi
+
+echo "--- Test: redis_cli -x drains stdin without Redis ---"
+
+code=0
+timeout 5 bash -c '
+  set -euo pipefail
+  export CI=1
+  export CI_REDIS_AVAILABLE=0
+  export DASHBOARD_URL=http://ci.aztec-labs.com
+  export root="$1"
+  source "$1/ci3/source"
+  printf "%s\n" "payload" | redis_cli -x SETEX test-key 300
+' bash "$ROOT" &>/dev/null || code=$?
+
+if [ "$code" -eq 0 ]; then
+  pass "redis_cli -x succeeds without Redis"
+else
+  fail "redis_cli -x succeeds without Redis" "exit code $code"
+fi
+
+echo
+if [[ $TESTS_FAILED -eq 0 ]]; then
+  echo "${GREEN}All $TESTS_PASSED tests passed.${NC}"
+  exit 0
+else
+  echo "${RED}$TESTS_FAILED of $((TESTS_PASSED + TESTS_FAILED)) tests failed.${NC}"
+  exit 1
+fi
