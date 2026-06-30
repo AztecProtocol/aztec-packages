@@ -7,7 +7,7 @@ import {
   deserializeFromMessagePack,
   serializeWithMessagePack,
 } from '@aztec/stdlib/avm';
-import { GlobalVariables, ProtocolContracts, TreeSnapshots } from '@aztec/stdlib/tx';
+import { GlobalVariables, TreeSnapshots } from '@aztec/stdlib/tx';
 import { NativeWorldStateService } from '@aztec/world-state';
 
 import { createInterface } from 'readline';
@@ -58,7 +58,6 @@ async function simulateWithFuzzer(
   rawContractInstances: [any, any][], // Replace these when we are moving contract instances to TS
   rawPublicDataWrites: any[], // Public data tree writes to apply before simulation
   rawNoteHashes: any[], // Note hashes to apply before simulation
-  protocolContracts: ProtocolContracts, // Protocol contracts mapping from C++
 ): Promise<{
   reverted: boolean;
   output: Fr[];
@@ -68,7 +67,7 @@ async function simulateWithFuzzer(
 }> {
   const worldStateService = await openExistingWorldState(dataDir, mapSizeKb);
 
-  const simulator = await AvmFuzzerSimulator.create(worldStateService, globals, protocolContracts);
+  const simulator = await AvmFuzzerSimulator.create(worldStateService, globals);
 
   await simulator.applyNoteHashes(rawNoteHashes);
 
@@ -108,7 +107,7 @@ async function execute(base64Line: string): Promise<void> {
     const rawRequest = deserializeFromMessagePack(buffer);
     const request = FuzzerSimulationRequest.fromPlainObject(rawRequest);
 
-    // Run the TS simulation
+    // Run the simulation on the C++ AVM simulator
     const result = await simulateWithFuzzer(
       request.wsDataDir,
       request.wsMapSizeKb,
@@ -118,7 +117,6 @@ async function execute(base64Line: string): Promise<void> {
       request.contractInstances,
       request.publicDataWrites,
       request.noteHashes,
-      request.protocolContracts,
     );
 
     // Serialize the result to msgpack and encode it in base64 for output

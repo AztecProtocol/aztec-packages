@@ -97,7 +97,7 @@
     "@aztec/constants": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
-    "@aztec/l1-artifacts": "workspace:^",
+    "@aztec/l1-artifacts": "portal:../../l1-contracts/l1-artifacts",
     "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi",
     "@google-cloud/storage": "^7.15.0",
     "axios": "^1.15.1",

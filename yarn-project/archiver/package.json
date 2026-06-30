@@ -72,7 +72,7 @@
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
-    "@aztec/l1-artifacts": "workspace:^",
+    "@aztec/l1-artifacts": "portal:../../l1-contracts/l1-artifacts",
     "@aztec/noir-protocol-circuits-types": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/stdlib": "workspace:^",

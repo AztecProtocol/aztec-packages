@@ -1,17 +1,11 @@
 #include "barretenberg/avm_fuzzer/fuzz_lib/simulator.hpp"
 
 #include <cstdint>
-#include <iomanip>
-#include <iostream>
-#include <sys/wait.h>
-#include <unistd.h>
 #include <vector>
 
 #include "barretenberg/avm_fuzzer/common/interfaces/dbs.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"
-#include "barretenberg/common/base64.hpp"
-#include "barretenberg/serialize/msgpack_impl.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
@@ -32,37 +26,6 @@ using namespace bb::avm2::fuzzer;
 using namespace bb::world_state;
 
 constexpr auto MAX_RETURN_DATA_SIZE_IN_FIELDS = 1024;
-
-// Helper function to serialize simulation request via msgpack
-std::string serialize_simulation_request(
-    const Tx& tx,
-    const GlobalVariables& globals,
-    const FuzzerContractDB& contract_db,
-    const std::vector<bb::crypto::merkle_tree::PublicDataLeafValue>& public_data_writes,
-    const std::vector<FF>& note_hashes,
-    const ProtocolContracts& protocol_contracts)
-{
-    // Build vectors from contract_db
-    std::vector<ContractClass> classes_vec = contract_db.get_contract_classes();
-    std::vector<std::pair<AztecAddress, ContractInstance>> instances_vec = contract_db.get_contract_instances();
-
-    FuzzerSimulationRequest request{
-        .ws_data_dir = FuzzerWorldStateManager::get_data_dir(),
-        .ws_map_size_kb = FuzzerWorldStateManager::get_map_size_kb(),
-        .tx = tx,
-        .globals = globals,
-        .contract_classes = std::move(classes_vec),
-        .contract_instances = std::move(instances_vec),
-        .public_data_writes = public_data_writes,
-        .note_hashes = note_hashes,
-        .protocol_contracts = protocol_contracts,
-    };
-
-    auto [buffer, size] = msgpack_encode_buffer(request);
-    std::string result = base64_encode(buffer, size);
-    delete[] buffer;
-    return result;
-}
 
 // Helper function to create default global variables for testing
 GlobalVariables create_default_globals()
@@ -127,76 +90,6 @@ SimulatorResult CppSimulator::simulate(
                  .public_tx_effect = result.public_tx_effect };
     }
     return { .reverted = reverted, .output = values, .public_tx_effect = result.public_tx_effect };
-}
-
-JsSimulator* JsSimulator::instance = nullptr;
-JsSimulator::JsSimulator(std::string& simulator_path)
-    : simulator_path(simulator_path)
-    , process("LOG_LEVEL=silent node " + simulator_path + " 2>/dev/null")
-{}
-
-JsSimulator* JsSimulator::getInstance()
-{
-    if (instance == nullptr) {
-        throw std::runtime_error("JsSimulator should be initializing in FUZZ INIT");
-    }
-    return instance;
-}
-
-/// Initializes the typescript simulator process
-/// See yarn-project/simulator/scripts/fuzzing
-void JsSimulator::initialize(std::string& simulator_path)
-{
-    if (instance != nullptr) {
-        throw std::runtime_error("JsSimulator already initialized");
-    }
-    instance = new JsSimulator(simulator_path);
-}
-
-SimulatorResult JsSimulator::simulate(
-    [[maybe_unused]] fuzzer::FuzzerWorldStateManager& ws_mgr,
-    fuzzer::FuzzerContractDB& contract_db,
-    const Tx& tx,
-    const GlobalVariables& globals,
-    const std::vector<bb::crypto::merkle_tree::PublicDataLeafValue>& public_data_writes,
-    const std::vector<FF>& note_hashes,
-    const ProtocolContracts& protocol_contracts)
-{
-    std::string serialized =
-        serialize_simulation_request(tx, globals, contract_db, public_data_writes, note_hashes, protocol_contracts);
-
-    // Send the request
-    process.write_line(serialized);
-    std::string response = process.read_line();
-    while (response.empty()) {
-        std::cout << "Empty response, reading again" << std::endl;
-        std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        response = process.read_line();
-    }
-    // Remove the newline character
-    response.erase(response.find_last_not_of('\n') + 1);
-
-    // Parse with msg_pack
-    auto res_buffer = base64_decode(response);
-    SimulatorResult result;
-    result = msgpack::unpack(res_buffer.data(), res_buffer.size()).get().convert(result);
-    return result;
-}
-
-bool compare_simulator_results(SimulatorResult& result1, SimulatorResult& result2)
-{
-    // Since the simulator results are interchangeable between TS and C++, we limit the return data size for comparison
-    // todo(ilyas): we ideally specify one param as the TS result and truncate only that one
-    if (result1.output.size() > MAX_RETURN_DATA_SIZE_IN_FIELDS) {
-        result1.output.resize(MAX_RETURN_DATA_SIZE_IN_FIELDS);
-    }
-    if (result2.output.size() > MAX_RETURN_DATA_SIZE_IN_FIELDS) {
-        result2.output.resize(MAX_RETURN_DATA_SIZE_IN_FIELDS);
-    }
-
-    return result1.reverted == result2.reverted && result1.output == result2.output &&
-           result1.end_tree_snapshots == result2.end_tree_snapshots &&
-           result1.public_tx_effect == result2.public_tx_effect;
 }
 
 // Creates a default transaction that the single app logic enqueued call can be inserted into

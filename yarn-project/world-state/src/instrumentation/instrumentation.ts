@@ -10,24 +10,12 @@ import {
   createUpDownCounterWithDefault,
 } from '@aztec/telemetry-client';
 
-import {
-  type DBStats,
-  type TreeDBStats,
-  type TreeMeta,
-  WorldStateMessageType,
-  type WorldStateStatusFull,
-} from '../native/message.js';
+import type { DBStats, TreeDBStats, TreeMeta, WorldStateStatusFull } from '../native/message.js';
+import type { WorldStateOperationName } from '../native/world_state_operation.js';
 
 type DBTypeString = 'leaf_preimage' | 'leaf_indices' | 'nodes' | 'blocks' | 'block_indices';
 
-const durationTrackDenylist = new Set<WorldStateMessageType>([
-  WorldStateMessageType.GET_INITIAL_STATE_REFERENCE,
-  WorldStateMessageType.CLOSE,
-
-  // these aren't used anymore, should be removed from the API
-  WorldStateMessageType.COMMIT,
-  WorldStateMessageType.ROLLBACK,
-]);
+const durationTrackDenylist = new Set<WorldStateOperationName>(['getInitialStateReference']);
 
 export class WorldStateInstrumentation {
   private dbMapSize: Gauge;
@@ -144,10 +132,10 @@ export class WorldStateInstrumentation {
     );
   }
 
-  public recordRoundTrip(timeUs: number, request: WorldStateMessageType) {
-    if (!durationTrackDenylist.has(request)) {
+  public recordRoundTrip(timeUs: number, operation: WorldStateOperationName) {
+    if (!durationTrackDenylist.has(operation)) {
       this.requestHistogram.record(Math.ceil(timeUs), {
-        [Attributes.WORLD_STATE_REQUEST_TYPE]: WorldStateMessageType[request],
+        [Attributes.WORLD_STATE_REQUEST_TYPE]: operation,
       });
     }
   }

@@ -2,12 +2,18 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <span>
 #include <string>
 #include <sys/types.h>
 
 namespace ipc {
+
+// Passed as the MPSC-SHM client id to mean "atomically claim a free slot on
+// connect" rather than pinning a specific one. This is the default for
+// make_client / create_mpsc_shm; an explicit id is only used by tests.
+inline constexpr std::size_t kAutoClientId = std::numeric_limits<std::size_t>::max();
 
 /**
  * @brief Abstract interface for IPC client
@@ -84,7 +90,7 @@ class IpcClient {
     static std::unique_ptr<IpcClient> create_shm(const std::string& base_name);
     // Multi-producer SHM: one request ring per client slot and one response
     // ring per client slot. This is what make_client("*.shm") selects.
-    static std::unique_ptr<IpcClient> create_mpsc_shm(const std::string& base_name, size_t client_id);
+    static std::unique_ptr<IpcClient> create_mpsc_shm(const std::string& base_name, size_t client_id = kAutoClientId);
 };
 
 /**
@@ -95,12 +101,12 @@ class IpcClient {
  *  - "*.shm"  → IpcClient::create_mpsc_shm(<basename>, client_id)
  *
  * Returns nullptr if the suffix is not recognised. `shm_client_id` is only
- * consulted for the SHM path; for MPSC-SHM, each connecting client picks a
- * distinct slot (0..max_clients-1).
+ * consulted for the SHM path; it defaults to kAutoClientId, so each connecting
+ * client atomically claims a distinct free slot (0..max_clients-1) on connect.
  *
  * @param input_path Path passed by the caller (often a CLI flag).
- * @param shm_client_id Client slot to claim in MPSC-SHM mode. Ignored for UDS.
+ * @param shm_client_id MPSC-SHM slot to pin, or kAutoClientId to self-allocate. Ignored for UDS.
  */
-std::unique_ptr<IpcClient> make_client(const std::string& input_path, std::size_t shm_client_id = 0);
+std::unique_ptr<IpcClient> make_client(const std::string& input_path, std::size_t shm_client_id = kAutoClientId);
 
 } // namespace ipc

@@ -4,7 +4,6 @@
 #include "barretenberg/avm_fuzzer/common/interfaces/dbs.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/control_flow.hpp"
-#include "barretenberg/avm_fuzzer/fuzz_lib/fuzz.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/fuzzer_context.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/fuzzer_data.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/instruction.hpp"

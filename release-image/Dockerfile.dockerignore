@@ -5,6 +5,12 @@
 !/barretenberg/ts/dest/
 !/barretenberg/ts/build/
 !/barretenberg/ts/package.json
+!/ipc-runtime/ts/dest/
+!/ipc-runtime/ts/package.json
+!/wsdb/ts/dest/
+!/wsdb/ts/build/
+!/wsdb/ts/package.json
+!/wsdb/ts/packages/
 !/noir/noir-repo/target/release/nargo
 !/noir/noir-repo/target/release/acvm
 !/noir/packages/
@@ -21,5 +27,9 @@
 !/yarn-project/noir-contracts.js/artifacts/
 !/yarn-project/noir-test-contracts.js/artifacts/
 !/yarn-project/simulator/artifacts/
-# This includes all files needed for l1-contracts deployment via forge script.
-!/yarn-project/l1-artifacts/l1-contracts/
+# l1-artifacts is a portal dependency of @aztec/aztec but lives outside yarn-project, so it isn't
+# covered by the /yarn-project/* globs above. We need its manifest, compiled output, and the bundled
+# foundry subtree used for l1-contracts deployment via forge script.
+!/l1-contracts/l1-artifacts/package.json
+!/l1-contracts/l1-artifacts/dest/
+!/l1-contracts/l1-artifacts/l1-contracts/

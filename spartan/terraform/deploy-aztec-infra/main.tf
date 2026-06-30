@@ -308,7 +308,34 @@ locals {
     })
   } : {}
 
-  # Define all releases in a map
+  p2p_bootstrap_release = {
+    name  = "${var.RELEASE_PREFIX}-p2p-bootstrap"
+    chart = "aztec-node"
+    values = [
+      "common.yaml",
+      "p2p-bootstrap.yaml",
+      "p2p-bootstrap-resources-${var.P2P_BOOTSTRAP_RESOURCE_PROFILE}.yaml"
+    ]
+    inline_values = [yamlencode({
+      service = {
+        p2p = { publicIP = var.P2P_PUBLIC_IP }
+      }
+    })]
+    custom_settings = {
+      "nodeType"                          = "p2p-bootstrap"
+      "service.p2p.nodePortEnabled"       = var.P2P_NODEPORT_ENABLED
+      "service.p2p.hostPortEnabled"       = var.P2P_HOSTPORT_ENABLED
+      "service.p2p.announcePort"          = local.p2p_port_p2p_bootstrap
+      "service.p2p.port"                  = local.p2p_port_p2p_bootstrap
+      "node.env.P2P_MAX_PENDING_TX_COUNT" = var.P2P_MAX_PENDING_TX_COUNT
+    }
+    boot_node_host_path  = ""
+    bootstrap_nodes_path = ""
+    wait                 = true
+  }
+
+  # Define all non-bootstrap releases in a map. The p2p bootstrap release is
+  # applied first so nodes cannot fetch an ENR from an old bootstrap pod.
   helm_releases = merge({
     snapshot = var.STORE_SNAPSHOT_URL != null ? {
       name   = "${var.RELEASE_PREFIX}-snapshot"
@@ -319,32 +346,6 @@ locals {
         "snapshots.uploadLocation"    = var.STORE_SNAPSHOT_URL
         "snapshots.frequency"         = var.SNAPSHOT_CRON
         "nodeSelector.node-type"      = "network"
-      }
-      boot_node_host_path  = ""
-      bootstrap_nodes_path = ""
-      wait                 = true
-    } : null
-
-    p2p_bootstrap = var.DEPLOY_INTERNAL_BOOTNODE ? {
-      name  = "${var.RELEASE_PREFIX}-p2p-bootstrap"
-      chart = "aztec-node"
-      values = [
-        "common.yaml",
-        "p2p-bootstrap.yaml",
-        "p2p-bootstrap-resources-${var.P2P_BOOTSTRAP_RESOURCE_PROFILE}.yaml"
-      ]
-      inline_values = [yamlencode({
-        service = {
-          p2p = { publicIP = var.P2P_PUBLIC_IP }
-        }
-      })]
-      custom_settings = {
-        "nodeType"                          = "p2p-bootstrap"
-        "service.p2p.nodePortEnabled"       = var.P2P_NODEPORT_ENABLED
-        "service.p2p.hostPortEnabled"       = var.P2P_HOSTPORT_ENABLED
-        "service.p2p.announcePort"          = local.p2p_port_p2p_bootstrap
-        "service.p2p.port"                  = local.p2p_port_p2p_bootstrap
-        "node.env.P2P_MAX_PENDING_TX_COUNT" = var.P2P_MAX_PENDING_TX_COUNT
       }
       boot_node_host_path  = ""
       bootstrap_nodes_path = ""
@@ -677,6 +678,58 @@ locals {
   }, local.validator_releases)
 }
 
+# The p2p bootstrap release used to be an entry in the helm_releases map (applied
+# via helm_release.releases["p2p_bootstrap"]). It is now its own resource so it can
+# be applied before the other releases. Tell Terraform it is the same release to
+# avoid destroying and recreating the running bootstrap node.
+moved {
+  from = helm_release.releases["p2p_bootstrap"]
+  to   = helm_release.p2p_bootstrap[0]
+}
+
+resource "helm_release" "p2p_bootstrap" {
+  count = var.DEPLOY_INTERNAL_BOOTNODE ? 1 : 0
+
+  provider         = helm.gke-cluster
+  name             = local.p2p_bootstrap_release.name
+  repository       = "../../"
+  chart            = local.p2p_bootstrap_release.chart
+  namespace        = var.NAMESPACE
+  create_namespace = true
+  upgrade_install  = true
+  force_update     = true
+  recreate_pods    = true
+  reuse_values     = false
+  timeout          = lookup(local.p2p_bootstrap_release, "timeout", 600)
+  wait             = local.p2p_bootstrap_release.wait
+  wait_for_jobs    = true
+
+  values = concat(
+    [for v in local.p2p_bootstrap_release.values : file("./values/${v}")],
+    [local.common_inline_values],
+    lookup(local.p2p_bootstrap_release, "inline_values", [])
+  )
+
+  dynamic "set" {
+    for_each = { for k, v in merge(
+      local.common_settings,
+      local.p2p_bootstrap_release.custom_settings
+    ) : k => v if v != null }
+    content {
+      name  = set.key
+      value = set.value
+    }
+  }
+
+  dynamic "set_list" {
+    for_each = { for k, v in local.common_list_settings : k => v if v != null }
+    content {
+      name  = set_list.key
+      value = set_list.value
+    }
+  }
+}
+
 # Create all helm releases using for_each
 resource "helm_release" "releases" {
   for_each = { for k, v in local.helm_releases : k => v if v != null }
@@ -694,6 +747,8 @@ resource "helm_release" "releases" {
   timeout          = lookup(each.value, "timeout", 600)
   wait             = each.value.wait
   wait_for_jobs    = true
+  # Safe for networks without an internal bootnode: helm_release.p2p_bootstrap has count 0.
+  depends_on = [helm_release.p2p_bootstrap]
 
   values = concat(
     [for v in each.value.values : file("./values/${v}")],

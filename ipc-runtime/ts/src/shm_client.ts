@@ -157,7 +157,11 @@ export function createNapiShmSyncClient(
 ): NapiShmSyncClient {
   const napi = loadIpcRuntimeNapi(options.customAddonPath);
   return new NapiShmSyncClient(
-    new napi.MsgpackClient(shmName, options.clientId ?? 0),
+    // Omit the slot id when not given so the native side self-allocates a free
+    // slot (kAutoClientId) instead of aliasing every client onto slot 0.
+    options.clientId === undefined
+      ? new napi.MsgpackClient(shmName)
+      : new napi.MsgpackClient(shmName, options.clientId),
   );
 }
 
@@ -167,6 +171,10 @@ export function createNapiShmAsyncClient(
 ): NapiShmAsyncClient {
   const napi = loadIpcRuntimeNapi(options.customAddonPath);
   return new NapiShmAsyncClient(
-    new napi.MsgpackClientAsync(shmName, options.clientId ?? 0),
+    // Omit the slot id when not given so the native side self-allocates a free
+    // slot (kAutoClientId) instead of aliasing every client onto slot 0.
+    options.clientId === undefined
+      ? new napi.MsgpackClientAsync(shmName)
+      : new napi.MsgpackClientAsync(shmName, options.clientId),
   );
 }

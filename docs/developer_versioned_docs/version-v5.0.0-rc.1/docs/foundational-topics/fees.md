@@ -3,7 +3,14 @@ title: Fees
 sidebar_position: 4
 tags: [fees, mana, gas]
 description: Understand Aztec's fee system including mana-based transaction pricing, Aztec token and Fee Juice payments, and how L1 and L2 costs are transparently calculated for users.
-references: ["yarn-project/stdlib/src/gas/gas_settings.ts"]
+references:
+  [
+    "yarn-project/stdlib/src/gas/gas_settings.ts",
+    "l1-contracts/src/core/messagebridge/FeeJuicePortal.sol",
+    "noir-projects/noir-contracts/contracts/protocol/fee_juice_contract/src/main.nr",
+    "yarn-project/aztec.js/src/ethereum/portal_manager.ts",
+    "yarn-project/aztec.js/src/fee/fee_juice_payment_method_with_claim.ts",
+  ]
 ---
 
 import { Why_Fees } from '@site/src/components/Snippets/general_snippets';
@@ -48,7 +55,7 @@ The SDK and protocol code use "gas" in variable names (e.g., `daGas`, `l2Gas`, `
 
 ## What is Fee Juice?
 
-Fee Juice is the native fee token on Aztec, used to pay for transaction fees. It is bridged Aztec tokens from Ethereum and is **non-transferable** on Aztec - it can only be used to pay fees, not sent between accounts.
+Fee Juice is the native fee token on Aztec, used to pay for transaction fees. It is created by bridging Aztec tokens from Ethereum and is held as a **public**, **non-transferable** balance on Aztec - it can only be used to pay fees, not sent between accounts.
 
 Aztec borrows ideas from EIP-1559, including congestion multipliers and the ability to specify base and priority fees per mana.
 
@@ -86,9 +93,24 @@ export class GasSettings {
 
 ## Fee payment
 
-A fee payer obtains Fee Juice by bridging Aztec tokens from Ethereum. The fee payer can be the account itself or a fee-paying contract (FPC), which functions similarly to a paymaster on Ethereum. On Aztec, Fee Juice is non-transferable and only deducted by the protocol to pay for fees. A user can claim bridged Fee Juice and use it to pay for transaction fees in the same transaction.
+A fee payer obtains Fee Juice by bridging Aztec tokens from Ethereum. The fee payer can be the account itself or a fee-paying contract (FPC), which functions similarly to a paymaster on Ethereum. On Aztec, Fee Juice is held as a public balance, is non-transferable, and is only deducted by the protocol to pay for fees.
 
-Fee Juice uses an enshrined `FeeJuicePortal` contract on Ethereum for bridging, unlike user-deployed token portals. The underlying cross-chain messaging mechanism is similar to other tokens - for more on this concept see the [Token Bridge Tutorial](../tutorials/js_tutorials/token_bridge.md) which describes portal contracts and [cross-chain messaging](../aztec-nr/framework-description/ethereum_aztec_messaging.md).
+### Bridging Fee Juice from Ethereum
+
+Fee Juice originates on Ethereum as an ERC-20 token. Bridging means depositing that token into the enshrined `FeeJuicePortal` contract on L1, then claiming the resulting balance on L2. Unlike user-deployed token portals, the `FeeJuicePortal` is part of the protocol's L1 deployment, but it uses the same [cross-chain messaging](../aztec-nr/framework-description/ethereum_aztec_messaging.md) mechanism available to any token; the [Token Bridge Tutorial](../tutorials/js_tutorials/token_bridge.md) describes portal contracts in general.
+
+Bridging happens in two steps:
+
+1. **Deposit on L1.** The depositor generates a random claim secret, approves the `FeeJuicePortal` to spend their tokens, and calls its deposit function with the recipient's Aztec address, the amount, and the hash of the claim secret. The portal locks the tokens and sends an L1-to-L2 message addressed to the `FeeJuice` protocol contract on Aztec.
+2. **Claim on L2.** After the message becomes available on Aztec (about two L2 blocks after the deposit), the claimant presents the claim secret to the `FeeJuice` contract. It consumes the message, emitting a nullifier so the same deposit cannot be claimed twice, and credits the recipient's public Fee Juice balance.
+
+Only the hash of the claim secret appears on L1, and the recipient address is fixed at deposit time, so revealing the secret on L2 releases the funds only to the intended recipient.
+
+The bridge is one-way. There is no withdrawal path back to L1 for users: bridged Fee Juice can only be spent on fees, and tokens leave the L1 portal only when the rollup contract distributes collected fees to sequencers and provers.
+
+Claiming is itself an L2 transaction whose fee must be paid, which would leave a brand-new account stuck. The protocol resolves this by letting a transaction claim Fee Juice and spend it on that same transaction's fee: the claim runs in the transaction's non-revertible [setup phase](./transactions.md#setup-phase-non-revertible), so the credited balance is available to cover the fee even if the rest of the transaction reverts. This is how a new account can pay for its own deployment with bridged Fee Juice. The `FeeJuice` contract also offers a standalone claim for pre-funding an account that will pay fees later.
+
+In `aztec.js`, the `L1FeeJuicePortalManager` class handles the L1 side (token approval and deposit) and returns the claim details, and `FeeJuicePaymentMethodWithClaim` performs the claim and fee payment in a single transaction. See [Bridge Fee Juice from L1](../aztec-js/how_to_pay_fees.md#bridge-fee-juice-from-l1) for a code walkthrough. The `aztec-wallet` CLI's `bridge-fee-juice` command handles the L1 deposit step and prints the claim details for use in a later transaction.
 
 ### Payment methods
 
@@ -133,4 +155,4 @@ The calculated fee of a transaction is deducted from the fee payer (nominated ac
 
 ## Next steps
 
-For a guide on paying fees programmatically, see [How to Pay Fees](../aztec-js/how_to_pay_fees.md).
+For a guide on paying fees programmatically, including how to bridge Fee Juice from L1, see [How to Pay Fees](../aztec-js/how_to_pay_fees.md).
