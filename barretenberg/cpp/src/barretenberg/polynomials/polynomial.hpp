@@ -7,6 +7,7 @@
 #pragma once
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/common/compiler_hints.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -708,10 +709,10 @@ template <typename Fr>
     // below its work threshold by invoking `func(ThreadChunk{0, 1})` directly,
     // so the small-range / single-thread case still reaches add_scaled_chunk's
     // tight `vectorized_for<VECTOR_FIELD_WIDTH>` loop without parallel_for overhead.
-    [[clang::always_inline]] parallel_for_heuristic(
+    BB_INLINE_STMT parallel_for_heuristic(
         other.size(),
         [&other, scaling_factor, this](const ThreadChunk& chunk) {
-            [[clang::always_inline]] add_scaled_chunk(chunk, other, scaling_factor);
+            BB_INLINE_STMT add_scaled_chunk(chunk, other, scaling_factor);
         },
         thread_heuristics::FF_ADDITION_COST + thread_heuristics::FF_MULTIPLICATION_COST);
 }
@@ -737,9 +738,9 @@ template <typename Fr>
 {
     BB_ASSERT_LTE(start_index(), other.start_index);
     BB_ASSERT_GTE(end_index(), other.end_index());
-    [[clang::always_inline]] parallel_for_heuristic(
+    BB_INLINE_STMT parallel_for_heuristic(
         other.size(),
-        [&other, this](const ThreadChunk& chunk) { [[clang::always_inline]] add_chunk(chunk, other); },
+        [&other, this](const ThreadChunk& chunk) { BB_INLINE_STMT add_chunk(chunk, other); },
         thread_heuristics::FF_ADDITION_COST);
     return *this;
 }
@@ -763,9 +764,9 @@ template <typename Fr>
 {
     BB_ASSERT_LTE(start_index(), other.start_index);
     BB_ASSERT_GTE(end_index(), other.end_index());
-    [[clang::always_inline]] parallel_for_heuristic(
+    BB_INLINE_STMT parallel_for_heuristic(
         other.size(),
-        [&other, this](const ThreadChunk& chunk) { [[clang::always_inline]] subtract_chunk(chunk, other); },
+        [&other, this](const ThreadChunk& chunk) { BB_INLINE_STMT subtract_chunk(chunk, other); },
         thread_heuristics::FF_ADDITION_COST);
     return *this;
 }
@@ -789,11 +790,9 @@ template <typename Fr>
 template <typename Fr>
 [[gnu::always_inline]] inline Polynomial<Fr>& Polynomial<Fr>::operator*=(const Fr& scaling_factor)
 {
-    [[clang::always_inline]] parallel_for_heuristic(
+    BB_INLINE_STMT parallel_for_heuristic(
         size(),
-        [scaling_factor, this](const ThreadChunk& chunk) {
-            [[clang::always_inline]] multiply_chunk(chunk, scaling_factor);
-        },
+        [scaling_factor, this](const ThreadChunk& chunk) { BB_INLINE_STMT multiply_chunk(chunk, scaling_factor); },
         thread_heuristics::FF_MULTIPLICATION_COST);
     return *this;
 }
