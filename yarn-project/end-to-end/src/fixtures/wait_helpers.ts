@@ -15,6 +15,8 @@ import type { TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 export type WaitForBlockOpts = {
   /** Which chain tip to read; defaults to 'proposed'. */
   tag?: L2BlockTag;
+  /** How the node's block number must relate to `target`; defaults to `(actual, target) => actual >= target`. */
+  compare?: (actual: number, target: number) => boolean;
   /** Seconds before the poll rejects; defaults to 60. */
   timeout?: number;
   /** Seconds between polls; defaults to 1. */
@@ -22,20 +24,23 @@ export type WaitForBlockOpts = {
 };
 
 /**
- * Polls `node.getBlockNumber(tag)` until it reaches `target`. Replaces the ad-hoc
- * `retryUntil(() => node.getBlockNumber(tag) >= target)` polls scattered across the suite.
- * @returns The block number once it reaches `target`.
+ * Polls `node.getBlockNumber(tag)` until `opts.compare(actual, target)` holds (default `>=`). Replaces
+ * the ad-hoc `retryUntil(() => node.getBlockNumber(tag) <op> target)` polls scattered across the suite,
+ * where the node may sync forward or prune backward — the caller passes the comparator for whichever it
+ * expects.
+ * @returns The block number once the comparison holds.
  */
 export function waitForBlockNumber(node: AztecNode, target: number, opts: WaitForBlockOpts = {}): Promise<BlockNumber> {
   const tag = opts.tag ?? 'proposed';
+  const compare = opts.compare ?? ((actual, target) => actual >= target);
   // Wrap the matched value: retryUntil treats any falsy return as "keep polling", so a legitimate
   // match of block 0 (e.g. a freshly-pruned tip) would otherwise loop until timeout.
   return retryUntil(
     async () => {
       const blockNumber = await node.getBlockNumber(tag);
-      return blockNumber >= target ? { blockNumber } : undefined;
+      return compare(blockNumber, target) ? { blockNumber } : undefined;
     },
-    `block ${tag} >= ${target}`,
+    `block ${tag} ${compare} ${target}`,
     opts.timeout ?? 60,
     opts.interval ?? 1,
   ).then(({ blockNumber }) => blockNumber);

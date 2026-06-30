@@ -2,7 +2,7 @@ import type { AztecNodeConfig } from '@aztec/aztec-node';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import type { Logger } from '@aztec/aztec.js/log';
 import { tryRmDir } from '@aztec/foundation/fs';
-import { retryUntil } from '@aztec/foundation/retry';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { downloadEpochProvingJob, rerunEpochProvingJob } from '@aztec/prover-node';
 import type { TestProverNode } from '@aztec/prover-node/test';
@@ -83,26 +83,27 @@ describe('single-node/proving/upload_failed_proof', () => {
     });
 
     // And track when the epoch failure upload is complete
-    let epochUploadUrl: string | undefined = undefined;
+    const { promise: epochUploaded, resolve: onEpochUploaded } = promiseWithResolvers<string>();
     const origTryUploadEpochFailure = proverNode.tryUploadSessionFailure.bind(proverNode);
     proverNode.tryUploadSessionFailure = async (session: any) => {
-      epochUploadUrl = await origTryUploadEpochFailure(session);
-      return epochUploadUrl;
+      const url = await origTryUploadEpochFailure(session);
+      if (url !== undefined) {
+        onEpochUploaded(url);
+      }
+      return url;
     };
 
     // Wait until the start of epoch one so prover node starts proving epoch 0,
     // and wait for the data to be uploaded to the remote file store
     await test.waitUntilEpochStarts(1);
-    // REFACTOR: hand-rolled retryUntil polling a local variable for the upload completion; a DSL
-    // helper or a Promise-based event on the prover node would avoid the polling loop.
-    await retryUntil(() => epochUploadUrl !== undefined, 'Upload epoch failure', 240, 1);
+    const epochUploadUrl = await epochUploaded;
 
     // Stop everything, we're going to prove on a fresh instance
     await test.teardown();
 
     const rerunDownloadPath = join(rerunDownloadDir, 'data.bin');
     logger.warn(`Downloading epoch proving job data and state`, { uploadPath, rerunDataDir, rerunDownloadPath });
-    await downloadEpochProvingJob(epochUploadUrl!, logger, {
+    await downloadEpochProvingJob(epochUploadUrl, logger, {
       dataDirectory: rerunDataDir,
       jobDataDownloadPath: rerunDownloadPath,
     });

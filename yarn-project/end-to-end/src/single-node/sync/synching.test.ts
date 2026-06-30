@@ -47,7 +47,7 @@ import { GovernanceProposerContract, RollupContract } from '@aztec/ethereum/cont
 import { createL1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Signature } from '@aztec/foundation/eth-signature';
-import { sleep } from '@aztec/foundation/sleep';
+import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
@@ -68,6 +68,7 @@ import { getContract } from 'viem';
 import { PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
 import { mintTokensToPrivate } from '../../fixtures/token_utils.js';
 import { type EndToEndContext, setupPXEAndGetWallet } from '../../fixtures/utils.js';
+import { waitForBlockNumber } from '../../fixtures/wait_helpers.js';
 import { TestWallet } from '../../test-wallet/test_wallet.js';
 import { setupBlockProducer } from '../setup.js';
 
@@ -658,11 +659,13 @@ describe('single-node/sync/synching', () => {
 
           await rollup.write.prune();
 
-          // We need to sleep a bit to make sure that we have caught the prune and deleted blocks.
-          // REFACTOR: sleep-based wait for archiver to process the prune event; a retryUntil or event-based
-          // helper (waitForArchiverCheckpoint or similar) should replace this sleep.
-          await sleep(3000);
-          expect(await archiver.getCheckpointNumber()).toBe(provenThrough);
+          // Wait for the archiver to catch the prune and roll its checkpoint number back to the proven tip.
+          await retryUntil(
+            async () => (await archiver.getCheckpointNumber()) === provenThrough || undefined,
+            'archiver to process prune',
+            30,
+            0.5,
+          );
 
           const contractClassIdsAfter = await archiver.getContractClassIds();
 
@@ -727,10 +730,8 @@ describe('single-node/sync/synching', () => {
             hash: await rollup.write.prune(),
           });
 
-          // REFACTOR: sleep-based wait for node to process prune and update block number; a retryUntil
-          // waiting on getBlockNumber() < blockBeforePrune should replace this sleep.
-          await sleep(5000);
-          expect(await aztecNode.getBlockNumber()).toBeLessThan(blockBeforePrune);
+          // Wait for the node to observe the prune and roll its block number back below the pre-prune tip.
+          await waitForBlockNumber(aztecNode, blockBeforePrune, { compare: (actual, target) => actual < target });
 
           // We need to start the pxe after the re-org for now, because it won't handle it otherwise
           const { wallet } = await setupPXEAndGetWallet(aztecNode!, aztecNode!);
