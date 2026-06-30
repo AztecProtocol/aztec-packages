@@ -24,19 +24,13 @@ impl TagSecretSource {
 
     /// Establishes a fresh non-interactive handshake, publishing information about the recipient onchain.
     pub(crate) fn new_non_interactive_handshake() -> Self {
-        Self {
-            kind: NEW_NON_INTERACTIVE_HANDSHAKE,
-            secrets: AppSiloedHandshakeSecrets { shared: 0, sender_only: 0 },
-        }
+        Self { kind: NEW_NON_INTERACTIVE_HANDSHAKE, secrets: AppSiloedHandshakeSecrets { shared: 0, sender_only: 0 } }
     }
 
     /// A ready-to-use unconstrained secret the wallet resolved. Sound only for unconstrained delivery, which derives
     /// the discovery tag from the shared secret alone and never folds in a sender-only secret.
     pub(crate) fn unconstrained_secret(secret: Field) -> Self {
-        Self {
-            kind: UNCONSTRAINED_SECRET,
-            secrets: AppSiloedHandshakeSecrets { shared: secret, sender_only: 0 },
-        }
+        Self { kind: UNCONSTRAINED_SECRET, secrets: AppSiloedHandshakeSecrets { shared: secret, sender_only: 0 } }
     }
 
     /// Returns the app-siloed handshake secrets, performing any handshake creation the source requires.
@@ -117,10 +111,7 @@ mod test {
     unconstrained fn unconstrained_secret_obtains_its_secret() {
         let env = TestEnvironment::new();
         env.private_context(|context| {
-            assert_eq(
-                TagSecretSource::unconstrained_secret(42).obtain_secrets(context, SENDER, RECIPIENT).shared,
-                42,
-            );
+            assert_eq(TagSecretSource::unconstrained_secret(42).obtain_secrets(context, SENDER, RECIPIENT).shared, 42);
         });
     }
 

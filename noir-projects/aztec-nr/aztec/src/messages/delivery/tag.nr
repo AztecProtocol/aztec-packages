@@ -118,7 +118,9 @@ mod test {
         let index: u32 = 3;
 
         env.private_context(|context| {
-            mock_existing_handshake_secrets(Option::some(AppSiloedHandshakeSecrets { shared: secret, sender_only: 99 }));
+            mock_existing_handshake_secrets(Option::some(
+                AppSiloedHandshakeSecrets { shared: secret, sender_only: 99 },
+            ));
             let _ = OracleMock::mock("aztec_prv_getNextTaggingIndex").returns(index);
             let resolve_oracle = OracleMock::mock("aztec_prv_resolveTaggingStrategy").returns(
                 ResolvedTaggingStrategy::non_interactive_handshake(),
@@ -172,7 +174,9 @@ mod test {
         let index: u32 = 3;
 
         env.private_context(|context| {
-            mock_existing_handshake_secrets(Option::some(AppSiloedHandshakeSecrets { shared: secret, sender_only: 99 }));
+            mock_existing_handshake_secrets(Option::some(
+                AppSiloedHandshakeSecrets { shared: secret, sender_only: 99 },
+            ));
             let _ = OracleMock::mock("aztec_prv_getNextTaggingIndex").returns(index);
             let _ = OracleMock::mock("aztec_prv_isNullifierPending").returns(false);
 
