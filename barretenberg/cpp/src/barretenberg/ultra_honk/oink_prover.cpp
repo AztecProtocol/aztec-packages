@@ -5,6 +5,7 @@
 // =====================
 
 #include "barretenberg/ultra_honk/oink_prover.hpp"
+#include "barretenberg/commitment_schemes/shplonk/sparse_masking_poly.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/flavor/mega_app_flavor.hpp"
 #include "barretenberg/flavor/mega_avm_flavor.hpp"
@@ -13,6 +14,7 @@
 #include "barretenberg/honk/library/grand_product_delta.hpp"
 #include "barretenberg/honk/library/grand_product_library.hpp"
 #include "barretenberg/honk/prover_instance_inspector.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/relations/databus_lookup_relation.hpp"
 #include "barretenberg/relations/logderiv_lookup_relation.hpp"
 #include "barretenberg/relations/permutation_relation.hpp"
@@ -231,12 +233,18 @@ template <typename Flavor> void OinkProver<Flavor>::commit_to_z_perm()
 template <typename Flavor> void OinkProver<Flavor>::commit_to_masking_poly()
 {
     if constexpr (flavor_has_gemini_masking<Flavor>()) {
-        // Gemini masking poly only needs to cover the actual polynomial extent, not full dyadic size
-        const size_t polynomial_size = prover_instance->polynomials.max_end_index();
-        prover_instance->polynomials.gemini_masking_poly() = Polynomial<FF>::random(polynomial_size);
+        // Sparse 2d-coefficient mask on the tail-halving support (dense random for tiny circuits).
+        // See SHPLEMINI_ZK_MASKING.md for the rank / ZK argument.
+        const size_t dyadic_size = prover_instance->dyadic_size();
+        const size_t d = numeric::get_msb(dyadic_size);
+        prover_instance->polynomials.gemini_masking_poly() =
+            build_gemini_masking_poly<FF>(d, prover_instance->polynomials.max_end_index(), dyadic_size);
 
-        // Commit to the masking polynomial and send to transcript
-        auto masking_commitment = commitment_key.commit(prover_instance->polynomials.gemini_masking_poly());
+        typename Flavor::Commitment masking_commitment;
+        {
+            BB_BENCH_NAME("Oink::commit_masking_poly_msm");
+            masking_commitment = commitment_key.commit(prover_instance->polynomials.gemini_masking_poly());
+        }
         transcript->send_to_verifier("Gemini:masking_poly_comm", masking_commitment);
     }
 };

@@ -20,7 +20,7 @@ using Commitment = Curve::AffineElement;
 using ProverClaim = MultilinearBatchingProverClaim;
 using VerifierClaim = MultilinearBatchingVerifierClaim<Curve>;
 
-class MultilinearBatchingWitnessDuplicateTests : public ::testing::Test {
+class MultilinearBatchingGraphDescriptionTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite() { bb::srs::init_file_crs_factory(bb::srs::bb_crs_path()); }
 
@@ -89,7 +89,7 @@ class MultilinearBatchingWitnessDuplicateTests : public ::testing::Test {
     }
 };
 
-TEST_F(MultilinearBatchingWitnessDuplicateTests, RecursiveVerifierWitnessDuplicates)
+TEST_F(MultilinearBatchingGraphDescriptionTests, RecursiveVerifierGraphDescription)
 {
     ClaimSet set = build_honest_claims();
 
@@ -162,9 +162,6 @@ TEST_F(MultilinearBatchingWitnessDuplicateTests, RecursiveVerifierWitnessDuplica
         analyzer.print_variable_info(var_idx);
     }
     EXPECT_EQ(variables_in_one_gate.size(), 0);
-
-    analyzer.fill_witness_duplicate_map({}, cdg::WitnessDuplicateFilterMode::TRIAGE_VALUE_FILTERS);
-    EXPECT_TRUE(analyzer.get_witness_duplicate_map().empty());
 }
 
 } // namespace

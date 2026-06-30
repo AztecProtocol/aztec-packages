@@ -100,6 +100,19 @@ class MockTranscript {
         return result;
     }
     /**
+     * @brief Return a short (127-bit) challenge, mirroring Transcript::get_short_challenge.
+     * @details IPA's fused-rounds optimization is only sound for short round challenges, so the supplied value
+     * is truncated to its low 127 bits to match what the real transcript produces via Codec::split_challenge.
+     */
+    template <typename T> T get_short_challenge(const std::string&)
+    {
+        BB_ASSERT_LT(current_challenge_index, challenges.size());
+        static constexpr size_t SHORT_CHALLENGE_BITS = (bb::fr::modulus.get_msb() + 1) / 2; // 127
+        T result = static_cast<T>(challenges[current_challenge_index].slice(0, SHORT_CHALLENGE_BITS));
+        current_challenge_index++;
+        return result;
+    }
+    /**
      * @brief Receive elements from the prover
      *
      */

@@ -212,22 +212,40 @@ template <class Params> struct alignas(32) VectorField {
     // use `load_contiguous` / `store_contiguous`, which avoid the per-lane
     // scalar pack/unpack and dispatch a single SIMD shuffle.
     //
-    // Gather: returns a VectorField whose lane L equals base[idx[L]].
-    static VectorField gather(const Field* base, std::array<size_t, 5> idx) noexcept
+    // Gather: returns a VectorField whose lane L equals base[idx[L] - offset]. `offset` rebases absolute
+    // indices onto `base` (e.g. a polynomial's start_index), applied per-lane rather than as `base - offset`
+    // because forming that intermediate pointer is UB ([expr.add]/4) -- it lands before the array even though
+    // each base[idx[L] - offset] lands inside it.
+    static VectorField gather(const Field* base, std::array<size_t, 5> idx, size_t offset = 0) noexcept
     {
-        std::array<Field, 5> tmp{ base[idx[0]], base[idx[1]], base[idx[2]], base[idx[3]], base[idx[4]] };
+        std::array<Field, 5> tmp{ base[idx[0] - offset],
+                                  base[idx[1] - offset],
+                                  base[idx[2] - offset],
+                                  base[idx[3] - offset],
+                                  base[idx[4] - offset] };
         return VectorField(tmp);
     }
 
-    // SLOW PATH — see gather. Writes base[idx[L]] = this->get(L) for L in 0..4.
-    void scatter(Field* base, std::array<size_t, 5> idx) const noexcept
+    // Counterpart to `gather` for sources that aren't a flat `Field*` -- e.g. a polynomial's `operator[]`,
+    // which handles virtual-zero and start-index translation. lane L is set to value_at(L).
+    template <typename Fn> static VectorField from_lanes(const Fn& value_at) noexcept
+    {
+        std::array<Field, SIZE> lanes;
+        for (size_t lane = 0; lane < SIZE; ++lane) {
+            lanes[lane] = value_at(lane);
+        }
+        return VectorField(lanes);
+    }
+
+    // SLOW PATH — see gather. Writes base[idx[L] - offset] = this->get(L) for L in 0..4.
+    void scatter(Field* base, std::array<size_t, 5> idx, size_t offset = 0) const noexcept
     {
         auto a = to_array();
-        base[idx[0]] = a[0];
-        base[idx[1]] = a[1];
-        base[idx[2]] = a[2];
-        base[idx[3]] = a[3];
-        base[idx[4]] = a[4];
+        base[idx[0] - offset] = a[0];
+        base[idx[1] - offset] = a[1];
+        base[idx[2] - offset] = a[2];
+        base[idx[3] - offset] = a[3];
+        base[idx[4] - offset] = a[4];
     }
 
     // Contiguous load: lane L = base[L] for L in 0..4.

@@ -49,8 +49,6 @@ static constexpr void walk_mega_zk_oink_proof(ScalarFn&& process_scalar,
 template <typename ScalarFn, typename CommitmentFn>
 static constexpr void walk_merge_proof(ScalarFn&& process_scalar, CommitmentFn&& process_commitment)
 {
-    // shift_size
-    process_scalar();
     // 4 merged table commitments
     for (size_t i = 0; i < 4; i++) {
         process_commitment();

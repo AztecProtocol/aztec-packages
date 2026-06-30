@@ -60,7 +60,7 @@ $$
 h_i = \text{Poseidon2}(h_{i-1}, T_i).
 $$
 
-The final kernel receives the resulting hash and passes it to the batch merge verifier. The verifier recomputes the same hash chain from the commitments supplied in the batch merge proof and checks that the selected hash value equals the public input hash. In the implementation this is optimized by reusing transcript challenges: `Transcript::get_challenge("HASH_i")` updates the transcript and yields the hash-chain element. The verifier compares the lower 127 bits of the supplied hash, so the hash-binding collision probability is $2^{-127}$.
+The final kernel receives the resulting hash and passes it to the batch merge verifier. The verifier recomputes the same hash chain from the commitments supplied in the batch merge proof and checks that the selected hash value equals the public input hash. In the implementation this is optimized by reusing transcript challenges: `Transcript::get_challenge("HASH_i")` updates the transcript and yields the hash-chain element.
 
 ## Protocol Statement
 
@@ -208,7 +208,7 @@ The important separation is:
 The prover controls several values: $N$, the subtable sizes $s_i$, the column commitments, the aggregate commitments, and the evaluations. The protocol constrains these as follows:
 
 - **Commitment binding:** KZG binds each sent commitment to a unique polynomial under the standard binding assumption.
-- **Hash binding:** The public hash binds the active subtable commitments up to a $2^{-127}$ collision probability from the transcript-hash optimization.
+- **Hash binding:** The public hash binds the active subtable commitments up to the collision probability of the Poseidon2 transcript hash.
 - **Number of subtables:** The verifier enforces $1 \leq N \leq M$ and masks unused sizes with the indicator array.
 - **Unused slots:** Slots $i>N$ are committed as identity and opened at zero. Their sizes are zeroed by the verifier.
 - **Degree bounds:** The reversed-polynomial identity proves $\deg(C_{i,j}) < \sigma_i$ for each active slot.

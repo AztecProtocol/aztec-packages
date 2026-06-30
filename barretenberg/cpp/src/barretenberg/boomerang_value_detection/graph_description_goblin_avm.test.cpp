@@ -131,8 +131,6 @@ TEST_F(BoomerangGoblinAvmRecursiveVerifierTests, graph_description_basic)
     // All pairing point coordinate limbs are now properly constrained. The self_reduce() call in bigfield::set_public()
     // ensures limbs are in canonical form, adding constraints that use each limb in multiple gates.
     EXPECT_EQ(variables_in_one_gate.size(), 0);
-    graph.fill_witness_duplicate_map({}, cdg::WitnessDuplicateFilterMode::TRIAGE_VALUE_FILTERS);
-    EXPECT_TRUE(graph.get_witness_duplicate_map().empty());
 }
 
 } // namespace bb::stdlib::recursion::honk

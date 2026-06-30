@@ -1999,6 +1999,9 @@ TYPED_TEST(ScalarMultiplicationTest, ExternalGlvDoubledDirect)
 }
 TYPED_TEST(ScalarMultiplicationTest, GlvExtremeMagnitudeScalars)
 {
+#ifdef __wasm__
+    GTEST_SKIP() << "GLV extreme-magnitude sweep is native-only; the ~50-probe naive comparison times out on wasm.";
+#endif
     this->test_glv_extreme_magnitude_scalars();
 }
 TYPED_TEST(ScalarMultiplicationTest, EffectiveNumBitsBandSmallScalars)

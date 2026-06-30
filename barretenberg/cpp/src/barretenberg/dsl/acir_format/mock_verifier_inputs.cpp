@@ -271,11 +271,6 @@ Goblin::MergeProof create_mock_merge_proof()
     Goblin::MergeProof proof;
     proof.reserve(MERGE_PROOF_SIZE);
 
-    uint32_t mock_shift_size = 5; // Must be smaller than 32, otherwise pow raises an error
-
-    // Populate mock shift size
-    populate_field_elements<fr>(proof, 1, /*value=*/fr{ mock_shift_size });
-
     // Populate mock merged table commitments and batched degree check polynomial commitment
     populate_field_elements_for_mock_commitments(proof, NUM_WIRES + 1);
 

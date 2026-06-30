@@ -15,7 +15,7 @@ use types::{
         MAX_NULLIFIERS_PER_TX, MAX_PRIVATE_CALL_STACK_LENGTH_PER_CALL,
         MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX,
     },
-    hash::compute_protocol_nullifier,
+    hash::create_protocol_nullifier,
     side_effect::{Counted, Scoped},
     traits::Empty,
     utils::arrays::ClaimedLengthArray,
@@ -164,20 +164,20 @@ impl<let N: u32> PrivateKernelBatchValidator<N> {
     /// Init batched output validator.
     ///
     /// Mirrors `validate_as_inner` but seeds the constants from `tx_request` + app[0] and
-    /// handles the optional protocol-nullifier slot at `output.end.nullifiers.array[0]` via a length-1
-    /// prepended segment. App 0 is responsible for `validate_as_first_call`; apps 1..N use
-    /// `validate_as_inner_call_against_request` against this validator's returned popped requests.
+    /// validates that `output.end.nullifiers.array[0]` equals the protocol nullifier. App 0 is responsible for
+    /// `validate_as_first_call`; apps 1..N use `validate_as_inner_call_against_request` against this
+    /// validator's returned popped requests.
     pub fn validate_as_init(
         self,
         tx_request: TxRequest,
         vk_tree_root: Field,
         protocol_contracts: ProtocolContracts,
         is_private_only: bool,
-        first_nullifier_hint: Field,
         revertible_counter_hint: u32,
     ) -> [PrivateCallRequest; N] {
         let expected_constants = PrivateTxConstantData {
             tx_context: self.private_calls[0].public_inputs.tx_context,
+            tx_request_salt: self.private_calls[0].public_inputs.tx_request_salt,
             vk_tree_root,
             protocol_contracts,
             anchor_block_header: self.private_calls[0].public_inputs.anchor_block_header,
@@ -190,7 +190,7 @@ impl<let N: u32> PrivateKernelBatchValidator<N> {
             revertible_counter_hint,
         );
 
-        let init_prev_state = self.build_init_prev_state(tx_request, first_nullifier_hint);
+        let init_prev_state = self.build_init_prev_state(tx_request);
         self.validate_non_stack_arrays(init_prev_state);
 
         let empty_prev_stack: ClaimedLengthArray<PrivateCallRequest, MAX_PRIVATE_CALL_STACK_LENGTH_PER_TX> =
@@ -283,7 +283,7 @@ impl<let N: u32> PrivateKernelBatchValidator<N> {
     ///
     /// The inner kernel passes `previous_kernel` directly. The init kernel passes a synthetic
     /// previous state built by `build_init_prev_state`: all accumulators are empty except
-    /// `end.nullifiers`, which carries the protocol-nullifier prepend (length 0 or 1).
+    /// `end.nullifiers`, which carries the protocol-nullifier at index 0.
     fn validate_non_stack_arrays(self, prev_state: PrivateKernelCircuitPublicInputs) {
         let contract_addresses = self.collect_contract_addresses();
 
@@ -365,23 +365,13 @@ impl<let N: u32> PrivateKernelBatchValidator<N> {
 
     /// Builds the synthetic previous-state used by `validate_as_init` to feed
     /// `validate_non_stack_arrays`. All accumulators are empty except `end.nullifiers`, which
-    /// carries the protocol-nullifier prepend (length 1 if `first_nullifier_hint` matches the
-    /// protocol nullifier for `tx_request`, length 0 otherwise).
-    fn build_init_prev_state(
-        self,
-        tx_request: TxRequest,
-        first_nullifier_hint: Field,
-    ) -> PrivateKernelCircuitPublicInputs {
+    /// carries the protocol-nullifier prepend (always length 1: the init kernel injects the
+    /// protocol nullifier for `tx_request` at index 0).
+    fn build_init_prev_state(self, tx_request: TxRequest) -> PrivateKernelCircuitPublicInputs {
         let mut prev_state = PrivateKernelCircuitPublicInputs::empty_for_init_validation();
-        let nullifier_prepend_len = protocol_nullifier_offset_init(
-            self.output.end.nullifiers,
-            tx_request,
-            first_nullifier_hint,
-        );
-        if nullifier_prepend_len == 1 {
-            prev_state.end.nullifiers.array[0] = self.output.end.nullifiers.array[0];
-            prev_state.end.nullifiers.length = 1;
-        }
+        assert_protocol_nullifier_injected(self.output.end.nullifiers, tx_request);
+        prev_state.end.nullifiers.array[0] = self.output.end.nullifiers.array[0];
+        prev_state.end.nullifiers.length = 1;
         prev_state
     }
 
@@ -552,22 +542,16 @@ impl<let N: u32> PrivateKernelBatchValidator<N> {
     }
 }
 
-fn protocol_nullifier_offset_init(
+fn assert_protocol_nullifier_injected(
     output_nullifiers: ClaimedLengthArray<Scoped<Counted<Nullifier>>, MAX_NULLIFIERS_PER_TX>,
     tx_request: TxRequest,
-    first_nullifier_hint: Field,
-) -> u32 {
-    let (scoped_protocol_nullifier, protocol_nullifier) = compute_protocol_nullifier(tx_request);
-    if first_nullifier_hint == protocol_nullifier {
-        assert_eq(
-            output_nullifiers.array[0],
-            scoped_protocol_nullifier,
-            "incorrect protocol nullifier",
-        );
-        1
-    } else {
-        0
-    }
+) {
+    let scoped_protocol_nullifier = create_protocol_nullifier(tx_request);
+    assert_eq(
+        output_nullifiers.array[0],
+        scoped_protocol_nullifier,
+        "incorrect protocol nullifier",
+    );
 }
 
 trait EmptyForInitValidation {

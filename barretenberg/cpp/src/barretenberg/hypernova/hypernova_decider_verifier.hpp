@@ -21,9 +21,9 @@ template <typename Flavor_> class HypernovaDeciderVerifier {
     using Commitment = Flavor::Commitment;
     using Transcript = Flavor::Transcript;
     using PCS = Flavor::PCS;
-    using Accumulator = HypernovaFoldingVerifier<Flavor>::Accumulator;
+    using Accumulator = HypernovaFoldingVerifier<IsRecursiveFlavor<Flavor>>::Accumulator;
     // Types conditionally assigned based on the Flavor being recursive
-    using Proof = HypernovaFoldingVerifier<Flavor>::Proof;
+    using Proof = HypernovaFoldingVerifier<IsRecursiveFlavor<Flavor>>::Proof;
     using PairingPoints =
         std::conditional_t<Curve::is_stdlib_type, stdlib::recursion::PairingPoints<Curve>, bb::PairingPoints<Curve>>;
 

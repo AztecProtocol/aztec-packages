@@ -15,6 +15,9 @@
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 #include "barretenberg/ultra_honk/prover_instance.hpp"
 
+#include <optional>
+#include <vector>
+
 namespace bb {
 
 /**
@@ -44,6 +47,12 @@ namespace bb {
  * @note The class is *not* templated on a single flavor — its incoming-instance methods take an
  * `InstanceFlavor` template parameter so circuits of different flavors (e.g. MegaAppFlavor for apps
  * and MegaKernelFlavor for kernels) can all be folded into the same Accumulator.
+ *
+ * ## Lifecycle
+ *
+ * Construct → `accumulate_instance()` once per incoming circuit → `finalize(previous_accumulator)` exactly once,
+ * where previous_accumulator is the previously-owned accumulator.
+ * SINGLE-USE: one prover drives exactly one folding group
  */
 class HypernovaFoldingProver {
   public:
@@ -99,24 +108,45 @@ class HypernovaFoldingProver {
     }
 
     /**
-     * @brief Fold an instance into an accumulator.
+     * @brief Turn an instance into an accumulator and cache the resulting claim for the final batching.
+     * @return This instance's proof slice (Oink + Sumcheck), exported from the shared transcript.
      */
     template <typename InstanceFlavor>
-    std::pair<HonkProof, Accumulator> fold(
-        Accumulator&& accumulator,
-        const std::shared_ptr<ProverInstance_<InstanceFlavor>>& instance,
-        const std::shared_ptr<typename InstanceFlavor::VerificationKey>& honk_vk = nullptr)
+    HonkProof accumulate_instance(const std::shared_ptr<ProverInstance_<InstanceFlavor>>& instance,
+                                  const std::shared_ptr<typename InstanceFlavor::VerificationKey>& honk_vk = nullptr)
     {
-        BB_BENCH_NAME("HypernovaFoldingProver::fold");
-        Accumulator incoming_accumulator = instance_to_accumulator<InstanceFlavor>(instance, honk_vk);
+        cached_claims.emplace_back(instance_to_accumulator<InstanceFlavor>(instance, honk_vk));
+        return transcript->export_proof();
+    }
+
+    /**
+     * @brief Batch the previous accumulator (if any) and the cached claims into a single accumulator.
+     * @details The previous accumulator is claim 0, followed by the cached per-instance claims in order. With a single
+     * assembled claim there is nothing to batch: it is returned and an empty proof is returned. With two or
+     * more, the MultilinearBatching sumcheck is run and its proof returned.
+     */
+    std::pair<HonkProof, Accumulator> finalize(std::optional<Accumulator> previous_accumulator = std::nullopt)
+    {
+        BB_BENCH_NAME("HypernovaFoldingProver::finalize");
 
         std::vector<Accumulator> claims;
-        claims.emplace_back(std::move(accumulator));
-        claims.emplace_back(std::move(incoming_accumulator));
-        MultilinearBatchingProver batching_prover(std::move(claims), transcript);
+        claims.reserve((previous_accumulator.has_value() ? 1 : 0) + cached_claims.size());
+        if (previous_accumulator.has_value()) {
+            claims.emplace_back(std::move(*previous_accumulator));
+        }
+        for (auto& claim : cached_claims) {
+            claims.emplace_back(std::move(claim));
+        }
+        cached_claims.clear();
+        BB_ASSERT(!claims.empty(), "HypernovaFoldingProver::finalize: nothing to fold");
 
+        if (claims.size() == 1) {
+            // No batching: the single claim is already the accumulator.
+            return { HonkProof{}, std::move(claims[0]) };
+        }
+        MultilinearBatchingProver batching_prover(std::move(claims), transcript);
         HonkProof proof = batching_prover.construct_proof();
-        return { proof, batching_prover.compute_new_claim() };
+        return { std::move(proof), batching_prover.compute_new_claim() };
     }
 
     /**
@@ -124,8 +154,12 @@ class HypernovaFoldingProver {
      */
     HonkProof export_proof() { return transcript->export_proof(); };
 
+    // Read access to the per-instance claims accumulated so far
+    const std::vector<Accumulator>& get_cached_claims() const { return cached_claims; }
+
   private:
     std::shared_ptr<Transcript> transcript;
+    std::vector<Accumulator> cached_claims; // one per accumulated instance, in order
 
     /**
      * @brief Convert the output of the sumcheck run on the incoming instance into an accumulator.

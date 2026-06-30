@@ -164,27 +164,4 @@ template <typename Flavor> struct MultilinearBatching : CodecConstants<Flavor> {
     static constexpr size_t LENGTH = Sumcheck<Flavor>::LENGTH(Flavor::VIRTUAL_LOG_N);
 };
 
-/**
- * @brief Hypernova folding proof layout.
- * @details Used when folding an incoming instance with an existing accumulator.
- *          Contains: instance-to-accumulator proof (Oink + Sumcheck) + MultilinearBatching proof.
- *          Note: gate challenges are derived, not sent in the proof.
- * @tparam Flavor The outer flavor (e.g., MegaFlavor)
- * @tparam BatchingFlavor The batching flavor (MultilinearBatchingFlavor_<NumClaims>)
- */
-template <typename Flavor, typename BatchingFlavor> struct HypernovaFolding {
-    static constexpr size_t LENGTH_WITHOUT_PUB_INPUTS(size_t log_n)
-    {
-        return HypernovaInstanceToAccum<Flavor>::LENGTH_WITHOUT_PUB_INPUTS(log_n) +
-               MultilinearBatching<BatchingFlavor>::LENGTH;
-    }
-
-    static size_t derive_num_public_inputs(size_t proof_size, size_t log_n)
-    {
-        const size_t overhead = LENGTH_WITHOUT_PUB_INPUTS(log_n);
-        BB_ASSERT_GTE(proof_size, overhead, "HypernovaFolding proof too short to derive num_public_inputs");
-        return proof_size - overhead;
-    }
-};
-
 } // namespace bb::ProofLength

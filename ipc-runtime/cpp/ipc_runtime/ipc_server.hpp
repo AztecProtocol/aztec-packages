@@ -5,6 +5,8 @@
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <cstdio>
+#include <exception>
 #include <functional>
 #include <map>
 #include <memory>
@@ -250,8 +252,23 @@ class IpcServer {
 
             // Always send the response frame — a zero-length response is still a
             // response, and skipping it would deadlock the waiting client.
-            auto response = handler(client_id, request);
-            send(client_id, response.data(), response.size());
+            try {
+                auto response = handler(client_id, request);
+                send(client_id, response.data(), response.size());
+            } catch (const std::exception& e) {
+                // A handler or send failure here is unrecoverable for this
+                // request — e.g. a response larger than the ring can never be
+                // delivered — so the client would otherwise hang. Log the reason
+                // and shut down cleanly instead of letting the exception reach
+                // std::terminate (which dies silently). The client's death
+                // detection then surfaces this with the server log path. (A
+                // future per-request error frame could make this recoverable
+                // without taking the server down.)
+                fprintf(stderr, "ipc: fatal error serving client %d: %s\n", client_id, e.what());
+                fflush(stderr);
+                shutdown_requested_.store(true, std::memory_order_release);
+                break;
+            }
 
             // Explicitly release/consume the message.
             release(client_id, request.size());

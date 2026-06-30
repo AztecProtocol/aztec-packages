@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/common/compiler_hints.hpp"
 #include "barretenberg/ecc/fields/vector_field.hpp"
 
 #include <array>
@@ -105,19 +106,18 @@ template <size_t N, typename Fr, typename K>
         // Bulk: emit ContiguousVectorIndex<N> so the kernel routes through the
         // fast contiguous-load path.
         //
-        // The kernel call sites are tagged with `[[clang::always_inline]]` as a
-        // statement attribute (clang 12+) so that under -Oz the generic lambda's
-        // `operator()` is inlined into the bulk loop instead of being emitted as
-        // a standalone WASM function and called once per N-wide block. This
-        // keeps the kernel body resident in the caller's TurboFan compilation
-        // unit so V8 can register-allocate the SIMD lanes across blocks.
+        // The kernel call sites are tagged with `BB_INLINE_STMT` (see compiler_hints.hpp)
+        // so that under -Oz the generic lambda's `operator()` is inlined into the bulk
+        // loop instead of being emitted as a standalone WASM function and called once per
+        // N-wide block. This keeps the kernel body resident in the caller's TurboFan
+        // compilation unit so V8 can register-allocate the SIMD lanes across blocks.
         while (i + N <= end) {
-            [[clang::always_inline]] kernel(ContiguousVectorIndex<N>{ i });
+            BB_INLINE_STMT kernel(ContiguousVectorIndex<N>{ i });
             i += N;
         }
         // Tail
         while (i < end) {
-            [[clang::always_inline]] kernel(ScalarIndex{ i });
+            BB_INLINE_STMT kernel(ScalarIndex{ i });
             ++i;
         }
     } else {
@@ -125,13 +125,13 @@ template <size_t N, typename Fr, typename K>
         // Degenerate to scalar so the kernel body never instantiates against
         // VectorField<NonBn254FrParams>::operator*, which is undefined.
         for (size_t i = start; i < end; ++i) {
-            [[clang::always_inline]] kernel(ScalarIndex{ i });
+            BB_INLINE_STMT kernel(ScalarIndex{ i });
         }
     }
 #else
     // Native: plain scalar — see design note above.
     for (size_t i = start; i < end; ++i) {
-        [[clang::always_inline]] kernel(ScalarIndex{ i });
+        BB_INLINE_STMT kernel(ScalarIndex{ i });
     }
 #endif
 }

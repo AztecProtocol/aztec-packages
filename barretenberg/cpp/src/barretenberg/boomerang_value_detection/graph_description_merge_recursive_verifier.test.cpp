@@ -45,8 +45,6 @@ template <class RecursiveBuilder> class BoomerangRecursiveMergeVerifierTest : pu
         auto result = tool.analyze_circuit();
         EXPECT_EQ(result.first.size(), 1);
         EXPECT_EQ(result.second.size(), 0);
-        tool.fill_witness_duplicate_map({}, cdg::WitnessDuplicateFilterMode::TRIAGE_VALUE_FILTERS);
-        EXPECT_TRUE(tool.get_witness_duplicate_map().empty());
     }
 
     static std::shared_ptr<ECCOpQueue> construct_final_merge_op_queue(const size_t num_subtables_up_to_tail)
@@ -63,6 +61,14 @@ template <class RecursiveBuilder> class BoomerangRecursiveMergeVerifierTest : pu
 
         InnerBuilder hiding_circuit{ op_queue };
         GoblinMockCircuits::construct_simple_circuit(hiding_circuit);
+
+        // The merge protocol is only used for the hiding kernel, whose subtable has a fixed size. The prover and
+        // verifier both rely on this (the verifier hard-codes the shift size from it), so pad the final subtable to
+        // match.
+        BB_ASSERT_LTE(op_queue->get_current_subtable_size(), bb::HIDING_KERNEL_ULTRA_OPS);
+        while (op_queue->get_current_subtable_size() < bb::HIDING_KERNEL_ULTRA_OPS) {
+            op_queue->no_op_ultra_only();
+        }
         return op_queue;
     }
 

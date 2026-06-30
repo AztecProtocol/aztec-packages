@@ -783,15 +783,16 @@ TEST_F(TranslatorRelationConsistency, OpcodeConstraintRelation)
         const auto& accumulators_binary_limbs_2_shift = input_elements.accumulators_binary_limbs_2_shift;
         const auto& accumulators_binary_limbs_3_shift = input_elements.accumulators_binary_limbs_3_shift;
 
-        const auto& lagrange_mini_masking = input_elements.lagrange_mini_masking;
         const auto& lagrange_even_in_minicircuit = input_elements.lagrange_even_in_minicircuit;
+        const auto& lagrange_odd_in_minicircuit = input_elements.lagrange_odd_in_minicircuit;
 
         RelationValues expected_values;
 
         const auto parameters = RelationParameters<FF>::get_random();
 
-        // Opcode constraints - ensure op is 0, 3, 4, or 8
-        expected_values[0] = op * (op - FF(3)) * (op - FF(4)) * (op - FF(8)) * (lagrange_mini_masking - FF(1));
+        // Opcode constraints - on even rows: op is 0, 3, 4, or 8; on odd rows: op is 0
+        expected_values[0] = op * (op - FF(3)) * (op - FF(4)) * (op - FF(8)) * lagrange_even_in_minicircuit +
+                             op * lagrange_odd_in_minicircuit;
 
         auto shared = (op - FF(3)) * (op - FF(4)) * (op - FF(8)) * lagrange_even_in_minicircuit;
         expected_values[1] = shared * (accumulators_binary_limbs_0 - accumulators_binary_limbs_0_shift);

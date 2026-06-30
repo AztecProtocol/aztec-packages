@@ -7,6 +7,7 @@
 #pragma once
 #include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
+#include "barretenberg/common/compiler_hints.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
@@ -25,19 +26,6 @@
 #include <ranges>
 #include <vector>
 namespace bb {
-
-// Rebase absolute polynomial indices into offsets relative to data(), so a gather/scatter base
-// pointer stays in-bounds. Forming `data() - start_index()` directly is UB ([expr.add]/4): that
-// intermediate pointer lands before the backing array, even though `base[idx]` later lands inside it.
-template <size_t N>
-[[gnu::always_inline]] inline std::array<size_t, N> rebase_lane_indices(std::array<size_t, N> idx,
-                                                                        size_t start_index) noexcept
-{
-    for (size_t lane = 0; lane < N; ++lane) {
-        idx[lane] -= start_index;
-    }
-    return idx;
-}
 
 /* Span class with a start index offset.
  * We conceptually have a span like a_0 + a_1 x ... a_n x^n and then multiply by x^start_index.
@@ -75,8 +63,7 @@ template <typename Fr> struct PolynomialSpan {
     template <size_t N, typename U = element_type> VectorField<typename U::Params> operator[](VectorIndex<N> ctx) const
     {
         static_assert(N == VECTOR_FIELD_WIDTH, "VectorField is fixed-width; N must equal VECTOR_FIELD_WIDTH");
-        return VectorField<typename U::Params>::gather(this->span.data(),
-                                                       rebase_lane_indices(ctx.idx, this->start_index));
+        return VectorField<typename U::Params>::gather(this->span.data(), ctx.idx, this->start_index);
     }
 
     // Contiguous vector read: lane L = this->span[base - start_index + L].
@@ -485,12 +472,12 @@ template <typename Fr> class Polynomial {
         std::array<size_t, 5> idx;
         [[gnu::always_inline]] VectorWriteProxyT& operator=(const VectorField<Params_>& v)
         {
-            v.scatter(self->data(), rebase_lane_indices(idx, self->start_index()));
+            v.scatter(self->data(), idx, self->start_index());
             return *this;
         }
         [[gnu::always_inline]] operator VectorField<Params_>() const
         {
-            return VectorField<Params_>::gather(self->data(), rebase_lane_indices(idx, self->start_index()));
+            return VectorField<Params_>::gather(self->data(), idx, self->start_index());
         }
 
         BB_VECTOR_PROXY_BINARY_OPS(VectorWriteProxyT, VectorField<Params_>, Fr)
@@ -528,7 +515,7 @@ template <typename Fr> class Polynomial {
     template <size_t N, typename U = Fr> VectorField<typename U::Params> operator[](VectorIndex<N> ctx) const
     {
         static_assert(N == VECTOR_FIELD_WIDTH, "VectorField is fixed-width; N must equal VECTOR_FIELD_WIDTH");
-        return VectorField<typename U::Params>::gather(this->data(), rebase_lane_indices(ctx.idx, this->start_index()));
+        return VectorField<typename U::Params>::gather(this->data(), ctx.idx, this->start_index());
     }
 
     // Contiguous vector read via token: lane L = (*this)[ctx.base + L].
@@ -722,10 +709,10 @@ template <typename Fr>
     // below its work threshold by invoking `func(ThreadChunk{0, 1})` directly,
     // so the small-range / single-thread case still reaches add_scaled_chunk's
     // tight `vectorized_for<VECTOR_FIELD_WIDTH>` loop without parallel_for overhead.
-    [[clang::always_inline]] parallel_for_heuristic(
+    BB_INLINE_STMT parallel_for_heuristic(
         other.size(),
         [&other, scaling_factor, this](const ThreadChunk& chunk) {
-            [[clang::always_inline]] add_scaled_chunk(chunk, other, scaling_factor);
+            BB_INLINE_STMT add_scaled_chunk(chunk, other, scaling_factor);
         },
         thread_heuristics::FF_ADDITION_COST + thread_heuristics::FF_MULTIPLICATION_COST);
 }
@@ -751,9 +738,9 @@ template <typename Fr>
 {
     BB_ASSERT_LTE(start_index(), other.start_index);
     BB_ASSERT_GTE(end_index(), other.end_index());
-    [[clang::always_inline]] parallel_for_heuristic(
+    BB_INLINE_STMT parallel_for_heuristic(
         other.size(),
-        [&other, this](const ThreadChunk& chunk) { [[clang::always_inline]] add_chunk(chunk, other); },
+        [&other, this](const ThreadChunk& chunk) { BB_INLINE_STMT add_chunk(chunk, other); },
         thread_heuristics::FF_ADDITION_COST);
     return *this;
 }
@@ -777,9 +764,9 @@ template <typename Fr>
 {
     BB_ASSERT_LTE(start_index(), other.start_index);
     BB_ASSERT_GTE(end_index(), other.end_index());
-    [[clang::always_inline]] parallel_for_heuristic(
+    BB_INLINE_STMT parallel_for_heuristic(
         other.size(),
-        [&other, this](const ThreadChunk& chunk) { [[clang::always_inline]] subtract_chunk(chunk, other); },
+        [&other, this](const ThreadChunk& chunk) { BB_INLINE_STMT subtract_chunk(chunk, other); },
         thread_heuristics::FF_ADDITION_COST);
     return *this;
 }
@@ -803,11 +790,9 @@ template <typename Fr>
 template <typename Fr>
 [[gnu::always_inline]] inline Polynomial<Fr>& Polynomial<Fr>::operator*=(const Fr& scaling_factor)
 {
-    [[clang::always_inline]] parallel_for_heuristic(
+    BB_INLINE_STMT parallel_for_heuristic(
         size(),
-        [scaling_factor, this](const ThreadChunk& chunk) {
-            [[clang::always_inline]] multiply_chunk(chunk, scaling_factor);
-        },
+        [scaling_factor, this](const ThreadChunk& chunk) { BB_INLINE_STMT multiply_chunk(chunk, scaling_factor); },
         thread_heuristics::FF_MULTIPLICATION_COST);
     return *this;
 }

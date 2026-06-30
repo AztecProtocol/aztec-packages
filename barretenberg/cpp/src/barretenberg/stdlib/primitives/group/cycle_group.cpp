@@ -15,64 +15,10 @@
 #include "./cycle_group.hpp"
 #include "barretenberg/numeric/general/general.hpp"
 #include "barretenberg/stdlib/primitives/plookup/plookup.hpp"
-#include "barretenberg/stdlib_circuit_builders/duplicate_provenance.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
 namespace bb::stdlib {
-
-namespace {
-
-// BOOMERANG_DUPLICATE_PROVENANCE: See
-// barretenberg/cpp/src/barretenberg/boomerang_value_detection/WITNESS_DUPLICATE_DETECTION.md.
-enum class MsmTableOperation : uint64_t {
-    DOUBLE = 0,
-    ADD = 1,
-    SUBTRACT = 2,
-};
-
-enum class PointCoordinateSlot : uint64_t { X = 0, Y = 1 };
-enum class MsmFieldIdentityKind : uint64_t { CONSTANT = 0, WITNESS_AFFINE = 1 };
-
-inline DuplicateProvenanceLocalId msm_table_local_id(std::initializer_list<uint64_t> identities)
-{
-    return duplicate_provenance_local_id(identities);
-}
-
-inline void append_msm_identity(DuplicateProvenanceLocalId& identities, uint64_t identity)
-{
-    append_duplicate_provenance_identity(identities, identity);
-}
-
-inline void append_msm_field(DuplicateProvenanceLocalId& identities, const bb::fr& value)
-{
-    const uint256_t value_uint256(value);
-    for (const uint64_t limb : value_uint256.data) {
-        append_msm_identity(identities, limb);
-    }
-}
-
-// Affine identity of a field_t for provenance keying: the raw underlying witness index (read without normalizing,
-// so no gate is added) plus the affine multiplicative/additive constants. Two field_t's that the circuit
-// would treat as equal once normalized share this identity; two field_t's that share a raw witness but differ in
-// affine constants represent different values and get different identities. Constants include their full field value.
-template <typename Builder> inline DuplicateProvenanceLocalId field_affine_identity(const field_t<Builder>& f)
-{
-    DuplicateProvenanceLocalId identities;
-    if (f.is_constant()) {
-        append_msm_identity(identities, static_cast<uint64_t>(MsmFieldIdentityKind::CONSTANT));
-        append_msm_field(identities, f.get_value());
-        return identities;
-    }
-    append_msm_identity(identities, static_cast<uint64_t>(MsmFieldIdentityKind::WITNESS_AFFINE));
-    append_msm_identity(identities,
-                        static_cast<uint64_t>(f.get_context()->real_variable_index[f.get_raw_witness_index()]));
-    append_msm_field(identities, f.multiplicative_constant);
-    append_msm_field(identities, f.additive_constant);
-    return identities;
-}
-
-} // namespace
 
 /**
  * @brief Construct a new constant point at infinity cycle group object.
@@ -402,27 +348,6 @@ cycle_group<Builder> cycle_group<Builder>::dbl(const std::optional<AffineElement
         // Merge the x and y origin tags since the output depends on both
         result._x.set_origin_tag(OriginTag(_x.get_origin_tag(), _y.get_origin_tag()));
         result._y.set_origin_tag(OriginTag(_x.get_origin_tag(), _y.get_origin_tag()));
-
-        // Tag the output coordinates with an MSM_TABLE provenance key. The ecc_dbl gate constrains (x3, y3) to be
-        // the unique double of the input point (x1, y1); for a fixed pair of input witnesses there is exactly one
-        // satisfying output, so two doublings of the SAME input point (by affine witness identity) are
-        // constraint-forced equal. We key on the affine identity of the two input coordinates (_x and modified_y,
-        // the witnesses actually fed to the gate) plus an operation discriminator, never on coordinate values: two
-        // doublings of value-coincident but distinct input witnesses get distinct keys. x3 and y3 are not forced
-        // equal to each other, so they get distinct slot words.
-        const auto in_x = field_affine_identity(_x);
-        const auto in_y = field_affine_identity(modified_y);
-        const auto dbl_key = [&](uint64_t coord) {
-            auto local_id = msm_table_local_id({ static_cast<uint64_t>(MsmTableOperation::DOUBLE) });
-            append_duplicate_provenance_identity(local_id, in_x);
-            append_duplicate_provenance_identity(local_id, in_y);
-            append_duplicate_provenance_identity(local_id, coord);
-            return Builder::make_duplicate_provenance(DuplicateProvenanceCategory::MSM_TABLE, std::move(local_id));
-        };
-        context->tag_duplicate_provenance(result._x.get_witness_index(),
-                                          dbl_key(static_cast<uint64_t>(PointCoordinateSlot::X)));
-        context->tag_duplicate_provenance(result._y.get_witness_index(),
-                                          dbl_key(static_cast<uint64_t>(PointCoordinateSlot::Y)));
     }
 
     return result;
@@ -505,34 +430,6 @@ cycle_group<Builder> cycle_group<Builder>::_unconditional_add_or_subtract(const 
             .y3 = result._y.get_witness_index(),
             .is_addition = is_addition,
         });
-
-        // Tag the output coordinates with an MSM_TABLE provenance key. The ecc_add gate constrains (x3, y3) to be
-        // the unique sum/difference of the input points (x1, y1) and (x2, y2); for a fixed pair of input points and
-        // a fixed operation direction there is exactly one satisfying output, so two additions of the SAME two
-        // input points (by affine witness identity) with the SAME is_addition flag are constraint-forced equal. We
-        // key on the affine identity of the four input coordinates plus the operation direction, never on
-        // coordinate values: additions of value-coincident but distinct input witnesses get distinct keys. x3 and
-        // y3 are not forced equal to each other, so they get distinct slot words. The incomplete-addition formula is
-        // deterministic in the inputs over the non-degenerate domain enforced by the gate, so this keying is sound.
-        const auto in_x1 = field_affine_identity(_x);
-        const auto in_y1 = field_affine_identity(_y);
-        const auto in_x2 = field_affine_identity(other._x);
-        const auto in_y2 = field_affine_identity(other._y);
-        const uint64_t direction =
-            static_cast<uint64_t>(is_addition ? MsmTableOperation::ADD : MsmTableOperation::SUBTRACT);
-        const auto add_key = [&](uint64_t coord) {
-            auto local_id = msm_table_local_id({ direction });
-            append_duplicate_provenance_identity(local_id, in_x1);
-            append_duplicate_provenance_identity(local_id, in_y1);
-            append_duplicate_provenance_identity(local_id, in_x2);
-            append_duplicate_provenance_identity(local_id, in_y2);
-            append_duplicate_provenance_identity(local_id, coord);
-            return Builder::make_duplicate_provenance(DuplicateProvenanceCategory::MSM_TABLE, std::move(local_id));
-        };
-        context->tag_duplicate_provenance(result._x.get_witness_index(),
-                                          add_key(static_cast<uint64_t>(PointCoordinateSlot::X)));
-        context->tag_duplicate_provenance(result._y.get_witness_index(),
-                                          add_key(static_cast<uint64_t>(PointCoordinateSlot::Y)));
     }
 
     // Merge the origin tags from both inputs
