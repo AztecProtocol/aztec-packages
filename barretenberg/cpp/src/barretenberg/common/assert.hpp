@@ -184,9 +184,40 @@ struct AssertGuard {
 
 // These are used in tests.
 #ifdef BB_NO_EXCEPTIONS
+#ifdef __wasm__
+// WASI gtest does not expose ASSERT_DEATH / EXPECT_DEATH (process-exit semantics aren't
+// available to user code inside the WASM module). Skip the assertion instead — the
+// test still executes the surrounding setup, just stops at the death check. Without
+// this fallback, every TU that includes a death-style assertion fails to compile under
+// WASM, which is why only `ecc_tests` currently builds for `test_cmds_wasm_threads` in
+// bootstrap.sh.
+//
+// The `sizeof((void)(statement), 0)` and `(void)sizeof(matcher)` patterns parse the
+// arguments without evaluating them, so any locals / typedefs referenced inside the
+// death-check expression don't trigger -Wunused warnings at the call site.
+#define ASSERT_THROW_OR_ABORT(statement, matcher)                                                                      \
+    do {                                                                                                               \
+        (void)sizeof((void)(statement), 0);                                                                            \
+        (void)sizeof(matcher);                                                                                         \
+        GTEST_SKIP() << "death tests unavailable on WASI";                                                             \
+    } while (0)
+#define EXPECT_THROW_OR_ABORT(statement, matcher)                                                                      \
+    do {                                                                                                               \
+        (void)sizeof((void)(statement), 0);                                                                            \
+        (void)sizeof(matcher);                                                                                         \
+        GTEST_SKIP() << "death tests unavailable on WASI";                                                             \
+    } while (0)
+#define EXPECT_THROW_WITH_MESSAGE(code, expectedMessage)                                                               \
+    do {                                                                                                               \
+        (void)sizeof((void)(code), 0);                                                                                 \
+        (void)sizeof(expectedMessage);                                                                                 \
+        GTEST_SKIP() << "death tests unavailable on WASI";                                                             \
+    } while (0)
+#else
 #define ASSERT_THROW_OR_ABORT(statement, matcher) ASSERT_DEATH(statement, matcher)
 #define EXPECT_THROW_OR_ABORT(statement, matcher) EXPECT_DEATH(statement, matcher)
 #define EXPECT_THROW_WITH_MESSAGE(code, expectedMessage) EXPECT_DEATH(code, expectedMessage)
+#endif
 #else
 #define ASSERT_THROW_OR_ABORT(statement, matcher) ASSERT_THROW(statement, std::runtime_error)
 #define EXPECT_THROW_OR_ABORT(statement, matcher) EXPECT_THROW(statement, std::runtime_error)

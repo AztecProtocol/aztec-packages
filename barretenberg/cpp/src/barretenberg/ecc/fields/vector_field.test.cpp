@@ -1,5 +1,6 @@
 #include "barretenberg/ecc/fields/vector_field.hpp"
 
+#include "barretenberg/ecc/curves/bn254/fq.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
 
@@ -8,8 +9,10 @@
 
 namespace {
 
+using bb::fq;
 using bb::fr;
 using Vec = bb::VectorField<bb::Bn254FrParams>;
+using VecFq = bb::VectorField<bb::Bn254FqParams>;
 
 // Build an array of 5 random field elements for a test case.
 std::array<fr, 5> random_five()
@@ -519,6 +522,159 @@ TEST(VectorFieldTest, CoarseStoreReloadRoundTrip)
     max_coarse.store_to(buf.data());
     Vec reloaded(buf.data());
     EXPECT_TRUE(field_array_eq(expected, reloaded.to_array()));
+}
+
+// =====================================================================
+// VectorField<Bn254FqParams> coverage.
+//
+// MSM curve arithmetic operates on Fq, so VectorField needs an Fq instance
+// with its own kernel specialization (the WASM-SIMD operator* body resolves
+// R_INV_WASM / P_WASM against the surrounding class scope and so picks up
+// Fq's modulus when included inside the Fq specialization in
+// vector_field_wasm.cpp).
+//
+// These tests mirror the Fr suite for the operations exercised by
+// batch_affine_add_interleaved (construction, add, sub, mul, eq, is_zero,
+// distributivity). dot_product is not yet specialized for Fq and is not
+// tested here.
+// =====================================================================
+
+std::array<fq, 5> random_five_fq()
+{
+    std::array<fq, 5> out;
+    for (size_t i = 0; i < 5; ++i) {
+        out[i] = fq::random_element();
+    }
+    return out;
+}
+
+bool field_array_eq_fq(const std::array<fq, 5>& a, const std::array<fq, 5>& b)
+{
+    for (size_t i = 0; i < 5; ++i) {
+        if (a[i] != b[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+TEST(VectorFieldFqTest, RoundtripConstructionPreservesValues)
+{
+    auto input = random_five_fq();
+    VecFq v(input);
+    auto out = v.to_array();
+    EXPECT_TRUE(field_array_eq_fq(input, out));
+}
+
+TEST(VectorFieldFqTest, AdditionMatchesScalarFieldAdd)
+{
+    for (int trial = 0; trial < 32; ++trial) {
+        auto a = random_five_fq();
+        auto b = random_five_fq();
+        std::array<fq, 5> expected;
+        for (size_t i = 0; i < 5; ++i) {
+            expected[i] = a[i] + b[i];
+        }
+        VecFq va(a), vb(b);
+        auto got = (va + vb).to_array();
+        EXPECT_TRUE(field_array_eq_fq(expected, got)) << "trial " << trial;
+    }
+}
+
+TEST(VectorFieldFqTest, SubtractionMatchesScalarFieldSub)
+{
+    for (int trial = 0; trial < 32; ++trial) {
+        auto a = random_five_fq();
+        auto b = random_five_fq();
+        std::array<fq, 5> expected;
+        for (size_t i = 0; i < 5; ++i) {
+            expected[i] = a[i] - b[i];
+        }
+        VecFq va(a), vb(b);
+        auto got = (va - vb).to_array();
+        EXPECT_TRUE(field_array_eq_fq(expected, got)) << "trial " << trial;
+    }
+}
+
+TEST(VectorFieldFqTest, MultiplicationMatchesScalarFieldMul)
+{
+    // 150 random trials — matches the correctness-harness requirement for the
+    // q1s1 kernel that the Fr coverage uses. This is the test that exercises
+    // VectorField<Bn254FqParams>::operator* — the new Fq specialization.
+    for (int trial = 0; trial < 150; ++trial) {
+        auto a = random_five_fq();
+        auto b = random_five_fq();
+        std::array<fq, 5> expected;
+        for (size_t i = 0; i < 5; ++i) {
+            expected[i] = a[i] * b[i];
+        }
+        VecFq va(a), vb(b);
+        auto got = (va * vb).to_array();
+        EXPECT_TRUE(field_array_eq_fq(expected, got)) << "trial " << trial;
+    }
+}
+
+TEST(VectorFieldFqTest, EqualityDetectsMatchesAndMismatches)
+{
+    auto a = random_five_fq();
+    VecFq va(a);
+
+    VecFq vb(a);
+    EXPECT_EQ(va.eq(vb), 0b11111u);
+
+    auto a_flipped = a;
+    a_flipped[0] = a[0] + fq::one();
+    VecFq vc(a_flipped);
+    EXPECT_EQ(va.eq(vc), 0b11110u);
+}
+
+TEST(VectorFieldFqTest, IsZeroDetectsZeroAndP)
+{
+    std::array<fq, 5> zeros{};
+    for (auto& x : zeros) {
+        x = fq::zero();
+    }
+    VecFq v_zero(zeros);
+    EXPECT_EQ(v_zero.is_zero(), 0b11111u);
+
+    auto non_zero = random_five_fq();
+    non_zero[0] = fq::one();
+    VecFq v_nz(non_zero);
+    EXPECT_EQ(v_nz.is_zero(), 0u);
+}
+
+TEST(VectorFieldFqTest, DistributivityMulOverAdd)
+{
+    for (int trial = 0; trial < 32; ++trial) {
+        auto a = random_five_fq();
+        auto b = random_five_fq();
+        auto c = random_five_fq();
+        std::array<fq, 5> expected;
+        for (size_t i = 0; i < 5; ++i) {
+            expected[i] = a[i] * (b[i] + c[i]);
+        }
+        VecFq va(a), vb(b), vc(c);
+        auto got = (va * (vb + vc)).to_array();
+        EXPECT_TRUE(field_array_eq_fq(expected, got)) << "trial " << trial;
+    }
+}
+
+TEST(VectorFieldFqTest, MulByOneIsIdentity)
+{
+    auto a = random_five_fq();
+    std::array<fq, 5> ones;
+    for (auto& x : ones) {
+        x = fq::one();
+    }
+    VecFq va(a), v_one(ones);
+    auto got = (va * v_one).to_array();
+    EXPECT_TRUE(field_array_eq_fq(a, got));
+}
+
+TEST(VectorFieldFqTest, ScalarTypeAlias)
+{
+    static_assert(std::is_same_v<typename VecFq::scalar_type, bb::fq>);
+    SUCCEED();
 }
 
 } // namespace

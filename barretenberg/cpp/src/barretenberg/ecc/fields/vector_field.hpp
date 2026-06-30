@@ -113,7 +113,9 @@ template <class Params> inline constexpr bool has_simd_mont_mul_v = has_simd_mon
 // vector_field.hpp stays Params-agnostic at the type level; the trait body
 // has no member access, only `: std::true_type`.
 class Bn254FrParams;
+class Bn254FqParams;
 template <> struct has_simd_mont_mul<Bn254FrParams> : std::true_type {};
+template <> struct has_simd_mont_mul<Bn254FqParams> : std::true_type {};
 
 template <class Params> struct alignas(32) VectorField {
     using Field = field<Params>;
@@ -224,6 +226,17 @@ template <class Params> struct alignas(32) VectorField {
                                   base[idx[3] - offset],
                                   base[idx[4] - offset] };
         return VectorField(tmp);
+    }
+
+    // Counterpart to `gather` for sources that aren't a flat `Field*` -- e.g. a polynomial's `operator[]`,
+    // which handles virtual-zero and start-index translation. lane L is set to value_at(L).
+    template <typename Fn> static VectorField from_lanes(const Fn& value_at) noexcept
+    {
+        std::array<Field, SIZE> lanes;
+        for (size_t lane = 0; lane < SIZE; ++lane) {
+            lanes[lane] = value_at(lane);
+        }
+        return VectorField(lanes);
     }
 
     // SLOW PATH — see gather. Writes base[idx[L] - offset] = this->get(L) for L in 0..4.
