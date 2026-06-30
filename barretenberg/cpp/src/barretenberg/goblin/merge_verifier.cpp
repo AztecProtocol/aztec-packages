@@ -83,16 +83,16 @@ BatchOpeningClaim<Curve> MergeVerifier_<Curve>::compute_shplonk_opening_claim(
     for (auto& scalar : shplonk_batching_challenges) {
         batch_opening_claim.scalars.emplace_back(std::move(scalar));
     }
-    auto intermediate_product = (shplonk_opening_challenge - kappa) * (shplonk_opening_challenge - kappa_inv).invert();
-    batch_opening_claim.scalars.back() *= intermediate_product;
+
+    FF ratio = (shplonk_opening_challenge - kappa) * (shplonk_opening_challenge - kappa_inv).invert();
+    batch_opening_claim.scalars.back() *= ratio;
 
     batch_opening_claim.scalars.emplace_back(FF(0));
     for (size_t idx = 0; idx < evals.size(); idx++) {
         if (idx < evals.size() - 1) {
             batch_opening_claim.scalars.back() -= evals[idx] * shplonk_batching_challenges[idx];
         } else {
-            batch_opening_claim.scalars.back() -=
-                shplonk_batching_challenges.back() * evals.back() * intermediate_product;
+            batch_opening_claim.scalars.back() -= shplonk_batching_challenges.back() * evals.back() * ratio;
         }
     }
 

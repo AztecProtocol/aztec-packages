@@ -7,7 +7,6 @@
 #pragma once
 
 #include "barretenberg/stdlib/primitives/field/field.hpp"
-#include "barretenberg/stdlib_circuit_builders/duplicate_provenance.hpp"
 #include "barretenberg/transcript/origin_tag.hpp"
 #include <optional>
 #include <vector>
@@ -66,10 +65,7 @@ template <typename Builder> class straus_lookup_table {
     Builder* _context;
     size_t rom_id = 0; // Ultra ROM array ID
     size_t _table_bits = 0;
-    // BOOMERANG_DUPLICATE_PROVENANCE: See
-    // barretenberg/cpp/src/barretenberg/boomerang_value_detection/WITNESS_DUPLICATE_DETECTION.md.
     OriginTag tag;
-    DuplicateProvenanceLocalId provenance_table_id;
 };
 
 } // namespace bb::stdlib

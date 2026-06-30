@@ -45,8 +45,6 @@ template <class RecursiveBuilder> class BoomerangRecursiveMergeVerifierTest : pu
         auto result = tool.analyze_circuit();
         EXPECT_EQ(result.first.size(), 1);
         EXPECT_EQ(result.second.size(), 0);
-        tool.fill_witness_duplicate_map({}, cdg::WitnessDuplicateFilterMode::TRIAGE_VALUE_FILTERS);
-        EXPECT_TRUE(tool.get_witness_duplicate_map().empty());
     }
 
     static std::shared_ptr<ECCOpQueue> construct_final_merge_op_queue(const size_t num_subtables_up_to_tail)

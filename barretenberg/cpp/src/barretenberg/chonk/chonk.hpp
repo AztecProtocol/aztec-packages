@@ -203,12 +203,10 @@ class Chonk {
     [[nodiscard("Claim and pairing points should be collected")]] std::
         tuple<RecursiveVerifierAccumulator, PairingPoints, StdlibFF>
         recursive_verification_and_consistency_checks(
-            ClientCircuit& circuit,
             const StdlibVerifierInputs& verifier_inputs,
             const std::optional<StdlibFF>& prev_stdlib_acc_hash,
             const std::optional<StdlibFF>& running_ecc_op_hash,
-            const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript,
-            bool explain_batch_merge_hash_repetition = false);
+            const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript);
 
     // Complete the logic of a kernel circuit (e.g. HN/merge recursive verification, databus consistency checks)
     void complete_kernel_circuit_logic(ClientCircuit& circuit);

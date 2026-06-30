@@ -286,7 +286,6 @@ Chonk::PublicInputsResult Chonk::process_app_public_inputs(std::vector<StdlibFF>
  * points, and the updated ECC-op running hash. The claim is collected by complete_kernel_circuit_logic and batched
  * together with the rest of the group at the end of the kernel.
  *
- * @param circuit
  * @param verifier_inputs {proof, vkey, type (Oink/HN)} A set of inputs for recursive verification
  * @param prev_stdlib_acc_hash The hash of the accumulator from the previous step of recursive verification
  * @param running_ecc_op_hash Running hash of ECC-op column commitments from prior steps in this kernel.
@@ -295,12 +294,10 @@ Chonk::PublicInputsResult Chonk::process_app_public_inputs(std::vector<StdlibFF>
  */
 std::tuple<Chonk::RecursiveVerifierAccumulator, Chonk::PairingPoints, Chonk::StdlibFF> Chonk::
     recursive_verification_and_consistency_checks(
-        ClientCircuit& circuit,
         const StdlibVerifierInputs& verifier_inputs,
         const std::optional<StdlibFF>& prev_stdlib_acc_hash,
         const std::optional<StdlibFF>& running_ecc_op_hash,
-        const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript,
-        bool explain_batch_merge_hash_repetition)
+        const std::shared_ptr<RecursiveTranscript>& accumulation_recursive_transcript)
 {
     BB_BENCH_NAME("Chonk::recursive_verification_and_consistency_checks");
 
@@ -347,21 +344,7 @@ std::tuple<Chonk::RecursiveVerifierAccumulator, Chonk::PairingPoints, Chonk::Std
         updated_hash = public_inputs_result.ecc_op_hash.value();
     }
 
-    // Step 3: Update the running ECC op hash with this circuit's ECC op column commitments.
-    const auto update_ecc_op_hash = [&]() {
-        return Goblin::BatchMergeRecursiveVerifier::ecc_op_hash_step(ecc_op_col_commitments_vec, updated_hash);
-    };
-    if (explain_batch_merge_hash_repetition) {
-        // BOOMERANG_DUPLICATE_PROVENANCE: See
-        // barretenberg/cpp/src/barretenberg/boomerang_value_detection/WITNESS_DUPLICATE_DETECTION.md. The hiding
-        // kernel's running ECC-op hash is intentionally recomputed by the batch-merge transcript hash. Scope this
-        // Poseidon2 call as the running-hash side of that cryptographic binding.
-        auto duplicate_binding_scope = circuit.scoped_duplicate_cryptographic_binding(
-            batch_merge_ecc_op_hash_binding_local_id(DuplicateCryptographicBindingRole::RUNNING_HASH));
-        updated_hash = update_ecc_op_hash();
-    } else {
-        updated_hash = update_ecc_op_hash();
-    }
+    updated_hash = Goblin::BatchMergeRecursiveVerifier::ecc_op_hash_step(ecc_op_col_commitments_vec, updated_hash);
 
     return { std::move(claim), public_inputs_result.pairing_points, updated_hash.value() };
 }
@@ -439,13 +422,8 @@ void Chonk::complete_kernel_circuit_logic(ClientCircuit& circuit)
     while (!stdlib_verification_queue.empty()) {
         const StdlibVerifierInputs& verifier_input = stdlib_verification_queue.front();
 
-        auto [claim, pairing_points, updated_ecc_hash] =
-            recursive_verification_and_consistency_checks(circuit,
-                                                          verifier_input,
-                                                          prev_stdlib_accum_hash,
-                                                          running_ecc_op_hash,
-                                                          accumulation_recursive_transcript,
-                                                          is_hiding);
+        auto [claim, pairing_points, updated_ecc_hash] = recursive_verification_and_consistency_checks(
+            verifier_input, prev_stdlib_accum_hash, running_ecc_op_hash, accumulation_recursive_transcript);
         points_accumulator.push_back(pairing_points);
         running_ecc_op_hash = updated_ecc_hash;
         claims.emplace_back(std::move(claim));

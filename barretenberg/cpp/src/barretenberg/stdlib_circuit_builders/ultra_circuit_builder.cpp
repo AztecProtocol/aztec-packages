@@ -23,20 +23,6 @@
 
 namespace bb {
 
-namespace {
-
-enum class LookupKeyMode : uint64_t { ONE_KEY = 0, TWO_KEY = 1 };
-constexpr uint64_t NO_SECOND_LOOKUP_KEY_IDENTITY = 0;
-
-// BOOMERANG_DUPLICATE_PROVENANCE: See
-// barretenberg/cpp/src/barretenberg/boomerang_value_detection/WITNESS_DUPLICATE_DETECTION.md.
-inline DuplicateProvenanceLocalId builder_duplicate_provenance_local_id(std::initializer_list<uint64_t> identities)
-{
-    return duplicate_provenance_local_id(identities);
-}
-
-} // namespace
-
 template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::finalize_circuit()
 {
     /**
@@ -503,36 +489,6 @@ plookup::ReadData<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_gates_f
     const size_t num_lookups = read_values[ColumnIdx::C1].size();
     plookup::ReadData<uint32_t> read_data;
 
-    auto key_identity = [&](uint32_t witness_index) {
-        const uint64_t real_index = static_cast<uint64_t>(this->real_variable_index[witness_index]);
-        const auto& provenance = this->get_duplicate_provenance();
-        auto provenance_it = provenance.find(static_cast<uint32_t>(real_index));
-        if (provenance_it != provenance.end()) {
-            return this->get_duplicate_provenance_interned_identity(provenance_it->second);
-        }
-        return builder_duplicate_provenance_local_id({ DUPLICATE_PROVENANCE_RAW_IDENTITY_TAG, real_index });
-    };
-    const auto lhs_identity = key_identity(key_a_index);
-    const auto rhs_identity = key_b_index.has_value() ? key_identity(*key_b_index)
-                                                      : DuplicateProvenanceLocalId{ NO_SECOND_LOOKUP_KEY_IDENTITY };
-    const auto accumulator_provenance_key = [&](ColumnIdx column, size_t row) {
-        auto local_id = builder_duplicate_provenance_local_id(
-            { static_cast<uint64_t>(id),
-              static_cast<uint64_t>(key_b_index.has_value() ? LookupKeyMode::TWO_KEY : LookupKeyMode::ONE_KEY) });
-        append_duplicate_provenance_identity(local_id, lhs_identity);
-        append_duplicate_provenance_identity(local_id, rhs_identity);
-        append_duplicate_provenance_identity(local_id, static_cast<uint64_t>(column));
-        append_duplicate_provenance_identity(local_id, static_cast<uint64_t>(row));
-        return UltraCircuitBuilder_<ExecutionTrace>::make_duplicate_provenance(
-            DuplicateProvenanceCategory::LOOKUP_TABLE, std::move(local_id));
-    };
-    const auto tag_accumulator_if_untagged = [&](uint32_t witness_index, const DuplicateProvenance& key) {
-        const uint32_t real_index = this->real_variable_index[witness_index];
-        if (!this->get_duplicate_provenance().contains(real_index)) {
-            this->tag_duplicate_provenance(witness_index, key);
-        }
-    };
-
     for (size_t i = 0; i < num_lookups; ++i) {
         const bool is_first_lookup = (i == 0);
         const bool is_last_lookup = (i == num_lookups - 1);
@@ -558,14 +514,6 @@ plookup::ReadData<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_gates_f
 
         create_lookup_gate(
             first_idx, second_idx, third_idx, table, read_values.lookup_entries[i], col1_step, col2_step, col3_step);
-
-        if (!is_first_lookup) {
-            tag_accumulator_if_untagged(first_idx, accumulator_provenance_key(ColumnIdx::C1, i));
-        }
-        if (!(is_first_lookup && key_b_index.has_value())) {
-            tag_accumulator_if_untagged(second_idx, accumulator_provenance_key(ColumnIdx::C2, i));
-        }
-        tag_accumulator_if_untagged(third_idx, accumulator_provenance_key(ColumnIdx::C3, i));
     }
     return read_data;
 }
@@ -652,15 +600,6 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_limbed_range_
         const auto limb_idx = this->add_variable(bb::fr(sublimbs.back()));
         sublimb_indices.emplace_back(limb_idx);
         create_small_range_constraint(limb_idx, last_limb_range);
-    }
-
-    const uint64_t input_identity = static_cast<uint64_t>(this->real_variable_index[variable_index]);
-    for (size_t i = 0; i < sublimb_indices.size(); ++i) {
-        this->tag_duplicate_provenance(
-            sublimb_indices[i],
-            UltraCircuitBuilder_<ExecutionTrace>::make_duplicate_provenance(
-                DuplicateProvenanceCategory::RANGE_DECOMPOSITION,
-                builder_duplicate_provenance_local_id({ input_identity, num_bits, target_range_bitnum, i })));
     }
 
     // Prove that the limbs reconstruct the original value by processing limbs in groups of 3.

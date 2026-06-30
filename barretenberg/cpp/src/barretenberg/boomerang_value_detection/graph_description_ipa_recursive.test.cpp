@@ -190,8 +190,6 @@ class BoomerangIPARecursiveTests : public CommitmentTest<NativeCurve> {
         auto tool_results = tool.analyze_circuit();
         EXPECT_EQ(tool_results.first.size(), 1);
         EXPECT_EQ(tool_results.second.size(), 0);
-        tool.fill_witness_duplicate_map({}, cdg::WitnessDuplicateFilterMode::TRIAGE_VALUE_FILTERS);
-        EXPECT_TRUE(tool.get_witness_duplicate_map().empty());
     }
 };
 
@@ -214,8 +212,6 @@ TEST_F(BoomerangIPARecursiveTests, FullRecursiveVerifierMediumRandom)
     auto tool_results = tool.analyze_circuit();
     EXPECT_EQ(tool_results.first.size(), 1);
     EXPECT_EQ(tool_results.second.size(), 0);
-    tool.fill_witness_duplicate_map({}, cdg::WitnessDuplicateFilterMode::TRIAGE_VALUE_FILTERS);
-    EXPECT_TRUE(tool.get_witness_duplicate_map().empty());
 }
 
 TEST_F(BoomerangIPARecursiveTests, AccumulateSmallRandom)
@@ -285,6 +281,4 @@ TEST_F(BoomerangIPARecursiveTests, AccumulationAndFullRecursiveVerifierMediumRan
     auto tool_results = tool.analyze_circuit();
     EXPECT_EQ(tool_results.first.size(), 1);
     EXPECT_EQ(tool_results.second.size(), 0);
-    tool.fill_witness_duplicate_map({}, cdg::WitnessDuplicateFilterMode::TRIAGE_VALUE_FILTERS);
-    EXPECT_TRUE(tool.get_witness_duplicate_map().empty());
 }
