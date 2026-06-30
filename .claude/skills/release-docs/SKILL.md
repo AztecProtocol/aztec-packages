@@ -165,23 +165,30 @@ This creates/updates the API docs in:
 
 **Prerequisites — you MUST build dependencies before generating API docs:**
 
-1. **Initialize submodules** (needed for noir packages and yarn-project):
+1. **Initialize submodules.** A fresh checkout or a `git worktree` does NOT
+   populate them, and the noir portal deps won't resolve without it:
    ```bash
-   # Use submodule_update MCP tool, or:
    git submodule update --init --recursive
    ```
-2. **Bootstrap noir** (provides nargo for aztec-nr docs and JS packages for
-   yarn-project):
+2. **Build the TS dependency chain** with `make yarn-project` from the repo root.
+   It builds bb → noir → l1-contracts → yarn-project, which is what TypeDoc needs
+   to resolve cross-package types. Two traps that waste a lot of time:
+   - Do **not** run the repo-root `./bootstrap.sh` for this: it also builds the
+     `spartan` target (k8s infra) which fails without helm/terraform and aborts
+     the whole build. `make yarn-project` skips spartan.
+   - `cd yarn-project && yarn && yarn build` on its own fails with `Manifest not
+     found` for `../noir/packages/acvm_js`, because noir's TS packages aren't
+     built yet. `make yarn-project` builds them first.
    ```bash
-   cd noir && ./bootstrap.sh
+   make yarn-project
    ```
-3. **Install and build yarn-project** (for TypeScript docs — TypeDoc needs
-   compiled packages to resolve cross-package types):
-   ```bash
-   cd yarn-project && yarn && yarn build
-   ```
-4. **Install aztec CLI** matching the release version (provides nargo if not
-   already available from noir bootstrap):
+3. **Use the release-matched nargo for the aztec-nr docs.** `generate:aztec-nr-api`
+   runs `nargo doc`; a mismatched/older `nargo` on PATH fails with cryptic errors
+   (e.g. `error: Non-ASCII character in comment`). Use the tag-matched compiler:
+   `aztec-nargo` from the installed CLI (step 4), or the `noir-repo` build at the
+   tag, not a stray global `nargo`. The script prefers a `nargo` found on PATH,
+   so put the right one first (e.g. prepend the installed CLI's bin dir).
+4. **Install the aztec CLI** matching the release version (provides `aztec-nargo`):
    ```bash
    VERSION=<nodeVersion> bash -i <(curl -sL https://install.aztec.network/<nodeVersion>)
    ```
@@ -266,6 +273,16 @@ Determine the L1 RPC URL from the `l1ChainId`: `1` → Ethereum mainnet,
 `11155111` → Sepolia. The Rollup and Registry addresses are already known from
 the RPC response.
 
+**Mental model when the rollup version changed.** Compare the RPC `rollupVersion`
+against the value currently in `networks.md`. If it changed, the network did a
+rollup upgrade: the per-rollup contracts are redeployed (Rollup, Inbox, Outbox,
+Fee Juice Portal, Slasher, Reward Booster, Tally Slashing Proposer, Honk Verifier,
+Slash Payload Cloneable, all in the RPC or reachable from the new Rollup), while
+governance/shared contracts persist (Registry, Governance, GSE, Staking Asset, Fee
+Juice, Coin Issuer, Reward Distributor, Governance Proposer, Fee Asset Handler,
+Staking Registry, Slash Factory). Re-resolve the per-rollup set; for the rest,
+confirm the existing values still hold (e.g. `cast code <addr>` returns bytecode).
+
 #### Tier 1: Query on-chain from known contracts
 
 First check whether the RPC response already includes `gseAddress` in
@@ -281,26 +298,41 @@ cast call <ROLLUP_ADDRESS> "getSlasher()(address)" --rpc-url <L1_RPC>
 
 # Governance — from Registry
 cast call <REGISTRY_ADDRESS> "getGovernance()(address)" --rpc-url <L1_RPC>
+
+# Honk Verifier — from Rollup
+cast call <ROLLUP_ADDRESS> "getEpochProofVerifier()(address)" --rpc-url <L1_RPC>
+
+# Reward Booster — 3rd field of the Rollup's reward config
+#   returns (rewardDistributor, sequencerBps, booster, checkpointReward)
+cast call <ROLLUP_ADDRESS> "getRewardConfig()(address,uint256,address,uint96)" --rpc-url <L1_RPC>
+
+# Tally Slashing Proposer — the Slasher's PROPOSER (use the Slasher resolved above)
+cast call <SLASHER_ADDRESS> "PROPOSER()(address)" --rpc-url <L1_RPC>
+
+# Slash Payload Cloneable — the proposer's payload implementation
+cast call <PROPOSER_ADDRESS> "SLASH_PAYLOAD_IMPLEMENTATION()(address)" --rpc-url <L1_RPC>
 ```
 
 #### Tier 2: From deployment output (if available)
 
-These addresses are stored internally with no public getter. They can be obtained
-from the Forge deployment script output (`l1-contracts/script/deploy/DeployAztecL1Contracts.s.sol`
-prints JSON with all addresses). Ask the user if they have deployment output.
+Only contracts with no public getter remain here. Obtain them from the Forge
+deployment script output (`l1-contracts/script/deploy/DeployAztecL1Contracts.s.sol`
+prints JSON with all addresses); ask the user if they have it.
 
-- **Reward Booster** (stored in Rollup's `RewardLib` storage, no getter)
-- **Tally Slashing Proposer** (deployed alongside Slasher, no getter)
 - **Staking Registry**
+
+Reward Booster, Tally Slashing Proposer, Honk Verifier, and Slash Payload
+Cloneable used to live here / in Tier 3, but are now resolvable on-chain (Tier 1).
 
 #### Tier 3: Manual / confirm unchanged
 
-These periphery contracts have no on-chain getter. Ask the user to provide new
-addresses or confirm that the existing values in `networks.md` are still correct.
+No on-chain getter. Ask the user for new addresses, or confirm the existing
+`networks.md` values still hold. These are governance-level and are not
+redeployed by a rollup upgrade, so they usually carry over (verify with
+`cast code <addr>`, which returns bytecode if the contract still exists).
 
-- **Honk Verifier**
+- **Slash Factory** (governance-level; if a release no longer deploys it, mark `N/A`)
 - **Register New Rollup Version Payload**
-- **Slash Payload Cloneable**
 
 #### Update the tables
 
@@ -558,6 +590,12 @@ Fix any issues reported by the build:
 - Spellcheck errors
 
 Iterate until the build passes.
+
+**Known non-fatal warning:** the build prints a broken-anchor warning for
+`#aztec-validator-keys%7Cvalkeys` in the generated CLI reference, on every version
+(mainnet, testnet, current). It comes from a `validator-keys|valkeys` command alias
+the CLI-ref generator anchors badly, `onBrokenAnchors` is set to `warn`, so the
+build still succeeds. Don't chase it as a release-cut regression.
 
 ### Step 14: Review Getting Started Page
 
