@@ -35,9 +35,9 @@ bool MultilinearBatchingProverClaim::compare_with_verifier_claim(
         is_a_match = false;
     }
 
-    // Bump local virtual sizes to compute MLE evaluations without mutating the cached prover claim.
-    Polynomial non_shifted_polynomial_for_evaluation = non_shifted_polynomial;
-    Polynomial shifted_polynomial_for_evaluation = shifted_polynomial;
+    // Share coefficient storage while using the batching domain size for MLE evaluation.
+    Polynomial non_shifted_polynomial_for_evaluation = non_shifted_polynomial.share();
+    Polynomial shifted_polynomial_for_evaluation = shifted_polynomial.share();
     non_shifted_polynomial_for_evaluation.increase_virtual_size(1 << challenge.size());
     shifted_polynomial_for_evaluation.increase_virtual_size(1 << challenge.size());
 
