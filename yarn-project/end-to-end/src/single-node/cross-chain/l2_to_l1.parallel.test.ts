@@ -17,7 +17,6 @@ import { type Hex, decodeEventLog } from 'viem';
 
 import { PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
 import { waitForSequencerState } from '../../fixtures/wait_helpers.js';
-import type { CrossChainTestHarness } from '../../shared/cross_chain_test_harness.js';
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
 // L2→L1 messaging via Outbox: tree structure, multi-tx blocks, and multi-block checkpoints.
@@ -29,9 +28,10 @@ describe('single-node/cross-chain/l2_to_l1', () => {
   // multi-tx flows exceed the default 300s per-test budget.
   jest.setTimeout(15 * 60 * 1000);
 
-  const t = new CrossChainMessagingTest('l2_to_l1', { startProverNode: true });
+  // This suite only passes arbitrary L2→L1 messages from its own TestContract; it never bridges
+  // tokens, so skip the token+portal+bridge deploy (last arg) and use the test's L1 handles directly.
+  const t = new CrossChainMessagingTest('l2_to_l1', { startProverNode: true }, {}, {}, undefined, false);
 
-  let crossChainTestHarness: CrossChainTestHarness;
   let aztecNode: AztecNode;
   let aztecNodeAdmin: AztecNodeAdmin;
   let msgSender: EthAddress;
@@ -46,7 +46,7 @@ describe('single-node/cross-chain/l2_to_l1', () => {
   beforeAll(async () => {
     await t.setup({ ...PIPELINING_SETUP_OPTS }, { syncChainTip: 'checkpointed' });
 
-    ({ crossChainTestHarness, aztecNode, aztecNodeAdmin, wallet, user1Address, rollup, outbox } = t);
+    ({ aztecNode, aztecNodeAdmin, wallet, user1Address, rollup, outbox } = t);
 
     msgSender = EthAddress.fromString(t.deployL1ContractsValues.l1Client.account.address);
 
@@ -68,7 +68,7 @@ describe('single-node/cross-chain/l2_to_l1', () => {
   // Proves the epoch, then consumes both messages from L1 via the Outbox and asserts the MessageConsumed
   // event is emitted and the message cannot be consumed a second time.
   it('1 tx with 2 messages, one from public, one from private, to a non-registered portal address', async () => {
-    const recipient = crossChainTestHarness.ethAccount;
+    const recipient = t.ethAccount;
     const contents = [Fr.random(), Fr.random()];
     const messages = contents.map(content => makeL2ToL1Message(recipient, content));
 
@@ -370,7 +370,7 @@ describe('single-node/cross-chain/l2_to_l1', () => {
       sender: { actor: contract.address.toString() as Hex, version },
       recipient: {
         actor: recipient.toString() as Hex,
-        chainId: BigInt(crossChainTestHarness.l1Client.chain.id),
+        chainId: BigInt(t.l1Client.chain.id),
       },
       content: content.toString() as Hex,
     };

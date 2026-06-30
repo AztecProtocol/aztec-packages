@@ -190,6 +190,20 @@ export type SetupOptions = {
    * that assert on genesis-relative L1 timing need to opt out with `false`.
    */
   automineL1Setup?: boolean;
+  /**
+   * Hook invoked after the Aztec L1 rollup contracts are deployed but BEFORE the node/sequencer
+   * start, while anvil automine is still enabled (when `automineL1Setup` is true, the default).
+   * Deploy extra L1 contracts a test needs here (e.g. a cross-chain token portal + ERC20) so they
+   * mine instantly under automine instead of paying the L1 block interval once the node is running
+   * (and racing the live sequencer/archiver). The resolved value is exposed on the returned context
+   * as `l1DeployResult`.
+   */
+  deployL1Contracts?: (deps: {
+    l1RpcUrls: string[];
+    chain: Chain;
+    deployL1ContractsValues: DeployAztecL1ContractsReturnType;
+    logger: Logger;
+  }) => Promise<unknown>;
   /** How many accounts to seed and unlock in anvil. */
   anvilAccounts?: number;
   /** Port to start anvil (defaults to 8545) */
@@ -263,6 +277,8 @@ export type EndToEndContext = {
   proverDelayer: Delayer | undefined;
   /** Genesis data used for setting up nodes. */
   genesis: GenesisData | undefined;
+  /** Resolved value of the `deployL1Contracts` setup hook, if one was provided. */
+  l1DeployResult: unknown;
   /** ACVM config (only set if running locally). */
   acvmConfig: Awaited<ReturnType<typeof getACVMConfig>>;
   /** BB config (only set if running locally). */
@@ -508,6 +524,19 @@ async function setupInner(
       }
     }
 
+    // Deploy any test-specific L1 contracts while automine is still on and before the node starts,
+    // so they mine instantly rather than paying the L1 block interval once the sequencer is live.
+    let l1DeployResult: unknown;
+    if (opts.deployL1Contracts) {
+      logger.trace('Running deployL1Contracts hook');
+      l1DeployResult = await opts.deployL1Contracts({
+        l1RpcUrls: config.l1RpcUrls,
+        chain,
+        deployL1ContractsValues,
+        logger,
+      });
+    }
+
     if (enableAutomine) {
       await ethCheatCodes.setAutomine(false);
       await ethCheatCodes.setIntervalMining(config.ethereumSlotDuration);
@@ -713,6 +742,7 @@ async function setupInner(
       logger,
       mockGossipSubNetwork,
       genesis,
+      l1DeployResult,
       proverNode,
       sequencerDelayer,
       proverDelayer,

@@ -13,10 +13,11 @@ import type {
 } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import { pickL1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { EpochNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
-import { TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
+import { TestERC20Abi, TestERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 import type { PXEConfig } from '@aztec/pxe/server';
@@ -42,6 +43,9 @@ export class CrossChainMessagingTest extends SingleNodeTestContext {
   private deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs>;
   private pxeOpts: Partial<PXEConfig>;
   private l1HarnessAccountIndex?: number;
+  private deployTokenBridge: boolean;
+  /** L1 token portal + ERC20 deployed before the node started (under automine) by the setup hook. */
+  private preDeployedCrossChainL1?: { underlyingERC20Address: EthAddress; tokenPortalAddress: EthAddress };
   private testName: string;
   aztecNode!: AztecNode;
   aztecNodeConfig!: AztecNodeConfig;
@@ -53,6 +57,8 @@ export class CrossChainMessagingTest extends SingleNodeTestContext {
   user2Address!: AztecAddress;
   crossChainTestHarness!: CrossChainTestHarness;
   ethAccount!: EthAddress;
+  /** L1 client used for cross-chain L1 interactions (token portal, inbox), tied to `l1HarnessAccountIndex`. */
+  harnessL1Client!: ExtendedViemWalletClient;
   l2Token!: TokenContract;
   l2Bridge!: TokenBridgeContract;
 
@@ -78,6 +84,7 @@ export class CrossChainMessagingTest extends SingleNodeTestContext {
     deployL1ContractsArgs: Partial<DeployAztecL1ContractsArgs> = {},
     pxeOpts: Partial<PXEConfig> = {},
     l1HarnessAccountIndex?: number,
+    deployTokenBridge = true,
   ) {
     super();
     this.testName = testName;
@@ -89,6 +96,7 @@ export class CrossChainMessagingTest extends SingleNodeTestContext {
     };
     this.pxeOpts = pxeOpts;
     this.l1HarnessAccountIndex = l1HarnessAccountIndex;
+    this.deployTokenBridge = deployTokenBridge;
     this.requireEpochProven = opts.startProverNode ?? false;
   }
 
@@ -112,6 +120,35 @@ export class CrossChainMessagingTest extends SingleNodeTestContext {
           ...opts.proverNodeConfig,
           txGatheringTimeoutMs: opts.proverNodeConfig?.txGatheringTimeoutMs ?? 10 * 60 * 1000,
         },
+        // Deploy the cross-chain token portal + ERC20 before the node starts, while anvil is still
+        // automining, instead of paying the L1 block interval for them once the sequencer is live.
+        deployL1Contracts: this.deployTokenBridge
+          ? async ({ l1RpcUrls, chain, logger }) => {
+              const harnessL1Client = createExtendedL1Client(
+                l1RpcUrls,
+                MNEMONIC,
+                chain,
+                undefined,
+                this.l1HarnessAccountIndex,
+              );
+              const { address: underlyingERC20Address } = await deployL1Contract(
+                harnessL1Client,
+                TestERC20Abi,
+                TestERC20Bytecode,
+                ['Underlying', 'UND', harnessL1Client.account.address],
+              );
+              const { address: tokenPortalAddress } = await deployL1Contract(
+                harnessL1Client,
+                TokenPortalAbi,
+                TokenPortalBytecode,
+              );
+              this.preDeployedCrossChainL1 = { underlyingERC20Address, tokenPortalAddress };
+              logger.verbose(
+                `Pre-deployed cross-chain L1 ERC20 ${underlyingERC20Address} and portal ${tokenPortalAddress}`,
+              );
+              return this.preDeployedCrossChainL1;
+            }
+          : undefined,
       },
       { ...this.pxeOpts, ...pxeOpts },
     );
@@ -193,12 +230,29 @@ export class CrossChainMessagingTest extends SingleNodeTestContext {
       undefined,
       this.l1HarnessAccountIndex,
     );
+    this.harnessL1Client = harnessL1Client;
+    this.ethAccount = EthAddress.fromString((await harnessL1Client.getAddresses())[0]);
 
-    const underlyingERC20Address = await deployL1Contract(harnessL1Client, TestERC20Abi, TestERC20Bytecode, [
-      'Underlying',
-      'UND',
-      harnessL1Client.account.address,
-    ]).then(({ address }) => address);
+    // L1 contract handles every cross-chain test needs, independent of the token bridge.
+    const l1Client = createExtendedL1Client(this.aztecNodeConfig.l1RpcUrls, MNEMONIC);
+    this.l1Client = l1Client;
+    const l1Contracts = pickL1ContractAddresses(this.aztecNodeConfig);
+    this.rollup = new RollupContract(l1Client, l1Contracts.rollupAddress.toString());
+    this.inbox = new InboxContract(l1Client, l1Contracts.inboxAddress.toString());
+    this.outbox = new OutboxContract(l1Client, l1Contracts.outboxAddress.toString());
+
+    // Tests that only pass arbitrary L1<->L2 messages (not token bridging) never touch the L2 token,
+    // bridge, or portal. Skip the token+portal+bridge deploy (an L1 ERC20, an L1 portal, and two L2
+    // contract deploys plus their init txs) entirely for them.
+    if (!this.deployTokenBridge) {
+      this.logger.info('Skipping token bridge deploy; test only needs L1 handles and ethAccount');
+      return;
+    }
+
+    // The ERC20 and token portal were deployed before the node started (under automine) by the
+    // `deployL1Contracts` setup hook above; the harness reuses them and only deploys the L2 token,
+    // L2 bridge, and the portal init that need the running node.
+    const { underlyingERC20Address, tokenPortalAddress: predeployedTokenPortalAddress } = this.preDeployedCrossChainL1!;
 
     this.logger.verbose(`Setting up cross chain harness...`);
     this.crossChainTestHarness = await CrossChainTestHarness.new(
@@ -208,6 +262,7 @@ export class CrossChainMessagingTest extends SingleNodeTestContext {
       this.ownerAddress,
       this.logger,
       underlyingERC20Address,
+      predeployedTokenPortalAddress,
     );
 
     this.logger.verbose(`L2 token deployed to: ${this.crossChainTestHarness.l2Token.address}`);
@@ -220,14 +275,6 @@ export class CrossChainMessagingTest extends SingleNodeTestContext {
     // There is an issue with the reviver so we are getting strings sometimes. Working around it here.
     this.ethAccount = EthAddress.fromString(crossChainContext.ethAccount.toString());
     const tokenPortalAddress = EthAddress.fromString(crossChainContext.tokenPortal.toString());
-
-    const l1Client = createExtendedL1Client(this.aztecNodeConfig.l1RpcUrls, MNEMONIC);
-    this.l1Client = l1Client;
-
-    const l1Contracts = pickL1ContractAddresses(this.aztecNodeConfig);
-    this.rollup = new RollupContract(l1Client, l1Contracts.rollupAddress.toString());
-    this.inbox = new InboxContract(l1Client, l1Contracts.inboxAddress.toString());
-    this.outbox = new OutboxContract(l1Client, l1Contracts.outboxAddress.toString());
 
     this.crossChainTestHarness = new CrossChainTestHarness(
       this.aztecNode,
