@@ -20,7 +20,7 @@ describe('KeyStore', () => {
 
     const { address: accountAddress } = await keyStore.addAccount(sk, partialAddress);
     expect(accountAddress.toString()).toMatchInlineSnapshot(
-      `"0x25d24398ba1a027cf6879542e7ed726f2d05dfb441e3c564ce44c6cdd7414e16"`,
+      `"0x0a3120bded2afb430e67e4bdb5326a673fbfd95642b6ea7f80d0cc958aac3940"`,
     );
 
     const { pkMHash: returnedNpkMHash } = await keyStore.getKeyValidationRequest(
@@ -42,7 +42,7 @@ describe('KeyStore', () => {
     expect(masterIncomingViewingSecretKey.equals(keys.masterIncomingViewingSecretKey)).toBe(true);
 
     // Arbitrary app contract address
-    const appAddress = AztecAddress.fromBigInt(624n);
+    const appAddress = AztecAddress.fromBigIntUnsafe(624n);
 
     const { pkMHash: obtainedNpkMHash, skApp: appNullifierHidingKey } = await keyStore.getKeyValidationRequest(
       computedMasterNullifierPublicKeyHash,
@@ -61,7 +61,7 @@ describe('KeyStore', () => {
     // Returned accounts are as expected
     const accounts = await keyStore.getAccounts();
     expect(accounts.toString()).toMatchInlineSnapshot(
-      `"0x25d24398ba1a027cf6879542e7ed726f2d05dfb441e3c564ce44c6cdd7414e16"`,
+      `"0x0a3120bded2afb430e67e4bdb5326a673fbfd95642b6ea7f80d0cc958aac3940"`,
     );
 
     // Manages to find master nullifier hiding key for the pk_m hash

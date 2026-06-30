@@ -255,7 +255,7 @@ export async function addNewContractInstanceToTx(
   );
 
   const contractAddressNullifier = await siloNullifier(
-    AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
+    AztecAddress.fromNumberUnsafe(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
     contractInstance.address.toField(),
   );
 

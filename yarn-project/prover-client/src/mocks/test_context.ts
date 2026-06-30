@@ -86,7 +86,7 @@ export class TestContext {
   ) {
     const directoriesToCleanup: string[] = [];
 
-    const feePayer = AztecAddress.fromNumber(42222);
+    const feePayer = AztecAddress.fromNumberUnsafe(42222);
     const initialFeePayerBalance = new Fr(10n ** 20n);
     const feePayerSlot = await computeFeePayerBalanceLeafSlot(feePayer);
     const genesis: GenesisData = {

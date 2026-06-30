@@ -224,6 +224,13 @@ export interface TxPoolV2 extends TypedEventEmitter<TxPoolV2Events> {
   /** Gets the count of pending transactions */
   getPendingTxCount(): Promise<number>;
 
+  /**
+   * Returns whether at least `minCount` pending transactions are old enough per minTxPoolAgeMs to be eligible
+   * for block building. Stops scanning once the threshold is reached, so it is cheaper than counting all
+   * eligible txs when only a few are needed.
+   */
+  hasEligiblePendingTxs(minCount: number): Promise<boolean>;
+
   /** Gets mined transaction hashes with their block IDs */
   getMinedTxHashes(): Promise<[TxHash, L2BlockId][]>;
 

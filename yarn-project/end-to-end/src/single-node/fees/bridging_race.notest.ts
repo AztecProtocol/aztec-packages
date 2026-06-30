@@ -1,0 +1,84 @@
+import { SchnorrAccountContract } from '@aztec/accounts/schnorr';
+import { Fr } from '@aztec/aztec.js/fields';
+import type { Logger } from '@aztec/aztec.js/log';
+import { Fq } from '@aztec/foundation/curves/bn254';
+import { sleep } from '@aztec/foundation/sleep';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+
+import { jest } from '@jest/globals';
+import type { Hex } from 'viem';
+
+import type { TestWallet } from '../../test-wallet/test_wallet.js';
+import { FeesTest } from './fees_test.js';
+
+jest.setTimeout(300_000);
+
+// Regression for https://github.com/AztecProtocol/aztec-packages/issues/12366
+// Similar to e2e_fees/account_init but with no automine
+// Disabled (.notest.ts): this regression was covered by fixes applied at each "wait for two blocks"
+// site in the codebase; keeping the file as reference for the original race scenario. Uses FeesTest
+// with prod sequencer (ethSlot=4s, aztecSlot=8s, inboxLag default, minTxsPerBlock=0) and
+// GasBridgingTestHarness for L1↔L2 fee-juice bridging. Single account, fake in-proc prover node.
+describe('single-node/fees/bridging_race', () => {
+  const ETHEREUM_SLOT_DURATION = 4;
+  const AZTEC_SLOT_DURATION = ETHEREUM_SLOT_DURATION * 2;
+
+  const t = new FeesTest('bridging_race', 1, {
+    ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
+    aztecSlotDuration: AZTEC_SLOT_DURATION,
+    minTxsPerBlock: 0,
+  });
+
+  beforeAll(async () => {
+    await t.setup();
+    ({ wallet, logger } = t);
+  });
+
+  afterAll(async () => {
+    await t.teardown();
+  });
+
+  let logger: Logger;
+  let bobsAddress: AztecAddress;
+  let wallet: TestWallet;
+
+  beforeEach(async () => {
+    const bobsSecretKey = Fr.random();
+    const bobsPrivateSigningKey = Fq.random();
+    const bobsSalt = Fr.random();
+    const bobsAccountManager = await wallet.createAccount({
+      secret: bobsSecretKey,
+      salt: bobsSalt,
+      contract: new SchnorrAccountContract(bobsPrivateSigningKey),
+    });
+    bobsAddress = bobsAccountManager.address;
+  });
+
+  // Reproduces a timing race where an L1→L2 fee-juice bridge message lands just before the end of an
+  // L2 slot, causing the archiver to miss it. The fix was to wait for the archiver to see the message
+  // before waiting for the required two-block confirmation. The sleep injected into approve() simulates
+  // the near-slot-boundary timing.
+  it('Alice bridges funds to Bob', async () => {
+    // Tweak the token manager so the bridging happens immediately before the end of the current L2 slot
+    // This caused the message to be "not in state" when tried to be used
+    const l1TokenManager = t.feeJuiceBridgeTestHarness.l1TokenManager;
+    const origApprove = l1TokenManager.approve.bind(l1TokenManager);
+    l1TokenManager.approve = async (amount: bigint, address: Hex, addressName = '') => {
+      await origApprove(amount, address, addressName);
+      const sleepTime = (Number(t.monitor.checkpointTimestamp) + AZTEC_SLOT_DURATION) * 1000 - Date.now() - 500;
+      logger.info(`Sleeping for ${sleepTime}ms until near end of L2 slot before sending L1 fee juice to L2 inbox`);
+      // REFACTOR: hand-rolled slot-boundary sleep; replace with a timing helper that derives the remaining
+      // slot time from the chain monitor's slot boundaries rather than computing it inline.
+      await sleep(sleepTime);
+    };
+
+    // Waiting for the archiver to sync the message _before_ waiting for the mandatory 2 L2 blocks to pass fixed it
+    // This was added everywhere we wait for two blocks, which is spread across three different places in the codebase
+    // Yes, we need to REFACTOR it at some point
+    const claim = await t.feeJuiceBridgeTestHarness.prepareTokensOnL1(bobsAddress);
+    const { claimSecret: secret, messageLeafIndex: index } = claim;
+    await t.feeJuiceContract.methods.claim(bobsAddress, claim.claimAmount, secret, index).send({ from: bobsAddress });
+    const [balance] = await t.getGasBalanceFn(bobsAddress);
+    expect(balance).toEqual(claim.claimAmount);
+  });
+});

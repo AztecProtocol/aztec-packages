@@ -1,10 +1,6 @@
 {
-  "schemaVersion": 9,
+  "schemaVersion": 10,
   "stores": [
-    {
-      "name": "address_book",
-      "kind": "map"
-    },
     {
       "name": "capsules",
       "kind": "map"
@@ -35,6 +31,18 @@
     },
     {
       "name": "events_by_contract_selector",
+      "kind": "multimap"
+    },
+    {
+      "name": "facts",
+      "kind": "map"
+    },
+    {
+      "name": "facts_by_block",
+      "kind": "multimap"
+    },
+    {
+      "name": "facts_by_collection",
       "kind": "multimap"
     },
     {
@@ -95,6 +103,14 @@
     },
     {
       "name": "pxe_l2_tips",
+      "kind": "map"
+    },
+    {
+      "name": "recipient_shared_secrets",
+      "kind": "multimap"
+    },
+    {
+      "name": "senders",
       "kind": "map"
     }
   ]

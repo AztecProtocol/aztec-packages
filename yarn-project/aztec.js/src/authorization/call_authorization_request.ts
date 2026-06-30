@@ -81,8 +81,8 @@ export class CallAuthorizationRequest {
     const request = new CallAuthorizationRequest(
       selector,
       reader.readField(), // inner_hash
-      AztecAddress.fromField(reader.readField()), // on_behalf_of
-      AztecAddress.fromField(reader.readField()), // msg_sender
+      AztecAddress.fromFieldUnsafe(reader.readField()), // on_behalf_of
+      AztecAddress.fromFieldUnsafe(reader.readField()), // msg_sender
       FunctionSelector.fromField(reader.readField()), // fn_selector
       reader.readField(), // args_hash
       reader.readFieldArray(reader.remainingFields()), // args

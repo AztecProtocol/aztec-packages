@@ -24,7 +24,7 @@ export function AddSendersDialog({
 
   const addSender = async () => {
     try {
-      const parsed = AztecAddress.fromString(sender);
+      const parsed = AztecAddress.fromStringUnsafe(sender);
       onClose(parsed, alias);
     } catch (e) {
       setError('Invalid Aztec address');

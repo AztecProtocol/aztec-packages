@@ -315,7 +315,7 @@ describe('public_processor', () => {
   });
 
   describe('with fee payer', () => {
-    const feePayer = AztecAddress.fromBigInt(123123n);
+    const feePayer = AztecAddress.fromBigIntUnsafe(123123n);
     const initialBalance = new Fr(1000);
 
     beforeEach(async () => {

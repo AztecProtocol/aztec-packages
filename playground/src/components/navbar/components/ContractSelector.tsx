@@ -108,7 +108,7 @@ export function ContractSelector() {
       } else {
         const artifactAsString = await playgroundDB.retrieveAlias(`artifacts:${contractValue}`);
         const contractArtifact = loadContractArtifact(parse(artifactAsString));
-        setCurrentContractAddress(AztecAddress.fromString(contractValue));
+        setCurrentContractAddress(AztecAddress.fromStringUnsafe(contractValue));
         setCurrentContractArtifact(contractArtifact);
         setSelectedPredefinedContract(undefined);
         setShowContractInterface(true);

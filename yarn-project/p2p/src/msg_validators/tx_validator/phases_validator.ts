@@ -97,7 +97,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
           }
           if (
             entry.rejectNullMsgSender &&
-            publicCall.request.msgSender.equals(AztecAddress.fromBigInt(NULL_MSG_SENDER_CONTRACT_ADDRESS))
+            publicCall.request.msgSender.equals(AztecAddress.fromBigIntUnsafe(NULL_MSG_SENDER_CONTRACT_ADDRESS))
           ) {
             return TX_ERROR_SETUP_NULL_MSG_SENDER;
           }
@@ -130,7 +130,7 @@ export class PhasesTxValidator implements TxValidator<Tx> {
         }
         if (
           entry.rejectNullMsgSender &&
-          publicCall.request.msgSender.equals(AztecAddress.fromBigInt(NULL_MSG_SENDER_CONTRACT_ADDRESS))
+          publicCall.request.msgSender.equals(AztecAddress.fromBigIntUnsafe(NULL_MSG_SENDER_CONTRACT_ADDRESS))
         ) {
           return TX_ERROR_SETUP_NULL_MSG_SENDER;
         }

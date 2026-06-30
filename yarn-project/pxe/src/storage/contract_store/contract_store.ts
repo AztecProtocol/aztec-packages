@@ -215,7 +215,7 @@ export class ContractStore {
   getContractsAddresses(): Promise<AztecAddress[]> {
     return this.#store.transactionAsync(async () => {
       const keys = await toArray(this.#contractInstances.keysAsync());
-      return keys.map(AztecAddress.fromString);
+      return keys.map(AztecAddress.fromStringUnsafe);
     });
   }
 
