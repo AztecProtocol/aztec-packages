@@ -1026,6 +1026,10 @@ describe('L1Publisher integration', () => {
       await retryUntil(() => ethCheatCodes.getTxPoolStatus().then(s => s.pending > 0), 'tx sent', 20, 0.1);
     };
 
+    const disableProposalSpeedUps = () => {
+      publisher.l1TxUtils.config.maxSpeedUpAttempts = 0;
+    };
+
     const enqueueProposeL2Checkpoint = async (checkpoint: Checkpoint) => {
       await publisher.enqueueProposeCheckpoint(
         checkpoint,
@@ -1037,6 +1041,7 @@ describe('L1Publisher integration', () => {
 
     it(`cancels block proposal when the L2 slot ends`, async () => {
       const { checkpoint } = await buildSingleCheckpoint();
+      disableProposalSpeedUps();
       await enqueueProposeL2Checkpoint(checkpoint);
       await sendRequests();
 
@@ -1053,13 +1058,19 @@ describe('L1Publisher integration', () => {
         await sleep(1000);
 
         if (nextL2Slot > initialL2Slot) {
-          expect(sendRequestsResult).toBeNull();
+          await retryUntil(
+            () => sendRequestsResult === null && publisher.l1TxUtils.state === TxUtilsState.CANCELLED,
+            'state is cancelled and request timed out',
+            3,
+            0.1,
+          );
           break;
         }
       }
 
       // The publisher should now be in cancelled state
-      await retryUntil(() => publisher.l1TxUtils.state === TxUtilsState.CANCELLED, 'state is cancelled', 3, 0.1);
+      expect(sendRequestsResult).toBeNull();
+      expect(publisher.l1TxUtils.state).toBe(TxUtilsState.CANCELLED);
 
       // Now allow the cancellation to be mined, check that we transition to MINED, and the last tx was indeed a cancellation.
       await ethCheatCodes.mine();
@@ -1109,6 +1120,7 @@ describe('L1Publisher integration', () => {
 
     it(`can send two consecutive proposals if the first one times out`, async () => {
       const { checkpoint: checkpoint1 } = await buildSingleCheckpoint();
+      disableProposalSpeedUps();
       await enqueueProposeL2Checkpoint(checkpoint1);
       await sendRequests();
 
