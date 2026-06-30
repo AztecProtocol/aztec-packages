@@ -197,20 +197,14 @@ export type SetupOptions<TDeployExtraL1ContractsReturnType = unknown> = {
    * Deploy extra L1 contracts a test needs here (e.g. a cross-chain token portal + ERC20) so they
    * mine instantly under automine instead of paying the L1 block interval once the node is running
    * (and racing the live sequencer/archiver). The resolved value is exposed on the returned context
-   * as `l1DeployResult`. The hook receives a viem extended L1 client already pointed at the account
-   * selected by `l1ClientAccountIndex`.
+   * as `extraL1DeployResult`. The hook receives setup's L1 deployer client (the same one used to
+   * deploy Multicall3).
    */
-  deployL1Contracts?: (deps: {
+  deployExtraL1Contracts?: (deps: {
     l1Client: ExtendedViemWalletClient;
     deployL1ContractsValues: DeployAztecL1ContractsReturnType;
     logger: Logger;
   }) => Promise<TDeployExtraL1ContractsReturnType>;
-  /**
-   * Mnemonic account index for the L1 client passed to the `deployL1Contracts` hook. Defaults to the
-   * first account; set it when the hook deploys contracts whose owner must match an account the test
-   * later writes with (e.g. a pre-deployed ERC20 minted from the same harness account).
-   */
-  l1ClientAccountIndex?: number;
   /** How many accounts to seed and unlock in anvil. */
   anvilAccounts?: number;
   /** Port to start anvil (defaults to 8545) */
@@ -284,8 +278,8 @@ export type EndToEndContext<TDeployExtraL1ContractsReturnType = unknown> = {
   proverDelayer: Delayer | undefined;
   /** Genesis data used for setting up nodes. */
   genesis: GenesisData | undefined;
-  /** Resolved value of the `deployL1Contracts` setup hook, if one was provided. */
-  l1DeployResult: TDeployExtraL1ContractsReturnType;
+  /** Resolved value of the `deployExtraL1Contracts` setup hook, if one was provided. */
+  extraL1DeployResult: TDeployExtraL1ContractsReturnType;
   /** ACVM config (only set if running locally). */
   acvmConfig: Awaited<ReturnType<typeof getACVMConfig>>;
   /** BB config (only set if running locally). */
@@ -533,21 +527,17 @@ async function setupInner<TDeployExtraL1ContractsReturnType = unknown>(
 
     // Deploy any test-specific L1 contracts while automine is still on and before the node starts,
     // so they mine instantly rather than paying the L1 block interval once the sequencer is live.
-    let l1DeployResult: TDeployExtraL1ContractsReturnType = undefined as TDeployExtraL1ContractsReturnType;
-    if (opts.deployL1Contracts) {
-      logger.trace('Running deployL1Contracts hook');
-      const hookL1Client = createExtendedL1Client(
-        config.l1RpcUrls,
-        MNEMONIC,
-        chain,
-        undefined,
-        opts.l1ClientAccountIndex,
-      );
-      l1DeployResult = await opts.deployL1Contracts({
-        l1Client: hookL1Client,
+    let extraL1DeployResult: TDeployExtraL1ContractsReturnType = undefined as TDeployExtraL1ContractsReturnType;
+    if (opts.deployExtraL1Contracts) {
+      logger.trace('Running deployExtraL1Contracts hook');
+      extraL1DeployResult = await opts.deployExtraL1Contracts({
+        l1Client,
         deployL1ContractsValues,
         logger,
       });
+      // The hook reused `l1Client` to send deploy txs, so refresh viem's nonce cache to avoid a
+      // stale cached nonce for later transactions on the publisher account.
+      await l1Client.getTransactionCount({ address: l1Client.account.address });
     }
 
     if (enableAutomine) {
@@ -755,7 +745,7 @@ async function setupInner<TDeployExtraL1ContractsReturnType = unknown>(
       logger,
       mockGossipSubNetwork,
       genesis,
-      l1DeployResult,
+      extraL1DeployResult,
       proverNode,
       sequencerDelayer,
       proverDelayer,

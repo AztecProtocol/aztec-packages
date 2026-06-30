@@ -24,6 +24,8 @@ import type { PXEConfig } from '@aztec/pxe/server';
 import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
+import { mnemonicToAccount } from 'viem/accounts';
+
 import { MNEMONIC } from '../../fixtures/fixtures.js';
 import { type SetupOptions, ensureAuthRegistryPublished, setup } from '../../fixtures/setup.js';
 import { CrossChainTestHarness } from '../../shared/cross_chain_test_harness.js';
@@ -127,19 +129,23 @@ export class CrossChainMessagingTest extends SingleNodeTestContext {
           ...opts.proverNodeConfig,
           txGatheringTimeoutMs: opts.proverNodeConfig?.txGatheringTimeoutMs ?? 10 * 60 * 1000,
         },
-        // The deploy hook's L1 client must use the harness account index: the pre-deployed ERC20's
-        // owner is set to this account, and the harness later mints from the same account.
-        l1ClientAccountIndex: this.l1HarnessAccountIndex,
         // Deploy the cross-chain token portal + ERC20 before the node starts, while anvil is still
         // automining, instead of paying the L1 block interval for them once the sequencer is live.
-        deployL1Contracts: this.deployTokenBridge
+        deployExtraL1Contracts: this.deployTokenBridge
           ? async ({ l1Client, logger }) => {
+              // The harness mints the underlying ERC20 from `l1HarnessAccountIndex` and `TestERC20.mint`
+              // is onlyMinter, so its owner/initial-minter must be that account even though setup's
+              // publisher client sends the deploy tx.
+              const harnessAddress = mnemonicToAccount(MNEMONIC, {
+                addressIndex: this.l1HarnessAccountIndex ?? 0,
+              }).address;
               const { address: underlyingERC20Address } = await deployL1Contract(
                 l1Client,
                 TestERC20Abi,
                 TestERC20Bytecode,
-                ['Underlying', 'UND', l1Client.account.address],
+                ['Underlying', 'UND', harnessAddress],
               );
+              // The TokenPortal's initialize is permissionless, so it can be deployed by the publisher.
               const { address: tokenPortalAddress } = await deployL1Contract(
                 l1Client,
                 TokenPortalAbi,
@@ -253,7 +259,7 @@ export class CrossChainMessagingTest extends SingleNodeTestContext {
     }
 
     // The ERC20 and token portal were deployed before the node started (under automine) by the
-    // `deployL1Contracts` setup hook above; the harness reuses them and only deploys the L2 token,
+    // `deployExtraL1Contracts` setup hook above; the harness reuses them and only deploys the L2 token,
     // L2 bridge, and the portal init that need the running node.
     const { underlyingERC20Address, tokenPortalAddress: predeployedTokenPortalAddress } = this.preDeployedCrossChainL1!;
 
