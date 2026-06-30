@@ -164,8 +164,6 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     }
     const avmResult = await this.simulator.simulate(tx, fullTxLabel);
 
-    await this.#recordBytecodeSizes(fullTxLabel, [...setupCalls, ...appCalls, ...(teardownCall ? [teardownCall] : [])]);
-
     // Something like this is often useful for debugging:
     //if (avmResult.revertReason) {
     //  // resolve / enrich revert reason
@@ -293,27 +291,6 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     const request = await PublicCallRequest.fromCalldata(sender, address, isStaticCall, calldata);
 
     return new PublicCallRequestWithCalldata(request, calldata);
-  }
-
-  // WARNING: Deduplicates by artifact name, so two different artifacts with the same name
-  // in a single tx would only record the first one's bytecode size.
-  async #recordBytecodeSizes(txLabel: string, calls: TestEnqueuedCall[]) {
-    const seenArtifactNames = new Set<string>();
-    for (const call of calls) {
-      const artifact = await this.contractDataSource.getContractArtifact(call.address);
-      if (!artifact || seenArtifactNames.has(artifact.name)) {
-        continue;
-      }
-      seenArtifactNames.add(artifact.name);
-      const instance = await this.contractDataSource.getContract(call.address);
-      if (!instance) {
-        continue;
-      }
-      const contractClass = await this.contractDataSource.getContractClass(instance.currentContractClassId);
-      if (contractClass) {
-        this.metrics.recordBytecodeSize(txLabel, artifact.name, contractClass.packedBytecode.length);
-      }
-    }
   }
 }
 
