@@ -75,6 +75,8 @@ export interface NativeWorldStateInstance {
     blockNumber: BlockNumber;
     blockStateRef: BlockStateReference;
     blockHeaderHash: Buffer;
+    expectedArchiveRoot: Buffer;
+    expectedPreviousArchiveRoot: Buffer;
     paddedNoteHashes: readonly SerializedLeafValue[];
     paddedL1ToL2Messages: readonly SerializedLeafValue[];
     paddedNullifiers: readonly SerializedLeafValue[];
