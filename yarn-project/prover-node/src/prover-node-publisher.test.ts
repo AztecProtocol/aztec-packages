@@ -205,7 +205,10 @@ describe('prover-node-publisher', () => {
       publisher = new ProverNodePublisher(config, { rollupContract: rollup, l1TxUtils: l1Utils });
 
       await publisher.submitEpochProof(setupPublishData(65, 32, 33, 64));
-      expect(l1Utils.sendAndMonitorTransaction).toHaveBeenCalledWith(expect.objectContaining({ to: rollupAddress }));
+      expect(l1Utils.sendAndMonitorTransaction).toHaveBeenCalledWith(
+        expect.objectContaining({ to: rollupAddress }),
+        expect.anything(),
+      );
     });
 
     it('redirects the submit tx to the configured proof submission target', async () => {
@@ -220,6 +223,7 @@ describe('prover-node-publisher', () => {
       await publisher.submitEpochProof(setupPublishData(65, 32, 33, 64));
       expect(l1Utils.sendAndMonitorTransaction).toHaveBeenCalledWith(
         expect.objectContaining({ to: target.toString() }),
+        expect.anything(),
       );
     });
   });
