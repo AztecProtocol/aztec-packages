@@ -9,7 +9,7 @@ import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint, SlotNumber } from
 import { timesAsync } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
-import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
+import { DateProvider, ManualDateProvider } from '@aztec/foundation/timer';
 import type { AztecAsyncMap } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { RevertCode } from '@aztec/stdlib/avm';
@@ -1580,7 +1580,7 @@ describe('TxPoolV2', () => {
 
       it('reports now - receivedAt for a tx that was pending in the pool', async () => {
         const minedCalls: MinedTxInfo[][] = [];
-        const dateProvider = new TestDateProvider();
+        const dateProvider = new ManualDateProvider();
         const { impl, cleanup } = await makeImpl(m => minedCalls.push(m), dateProvider);
         try {
           const tx = await mockTx(1);
@@ -1593,9 +1593,8 @@ describe('TxPoolV2', () => {
           const minedTxs = minedCalls[0];
           expect(minedTxs).toHaveLength(1);
           expect(minedTxs[0].txHash).toBe(hashOf(tx));
-          // 5s advance dominates; real elapsed during the test is a few ms.
-          expect(minedTxs[0].minedDelayMs).toBeGreaterThanOrEqual(5000);
-          expect(minedTxs[0].minedDelayMs).toBeLessThan(6000);
+          // Frozen clock: the delay is exactly the 5s advance, with no real-time drift.
+          expect(minedTxs[0].minedDelayMs).toBe(5000);
         } finally {
           await cleanup();
         }
@@ -1603,7 +1602,7 @@ describe('TxPoolV2', () => {
 
       it('leaves the delay undefined when receivedAt is unknown (hydrated/restart tx)', async () => {
         const minedCalls: MinedTxInfo[][] = [];
-        const dateProvider = new TestDateProvider();
+        const dateProvider = new ManualDateProvider();
         const { impl, cleanup } = await makeImpl(m => minedCalls.push(m), dateProvider);
         try {
           const tx = await mockTx(1);
