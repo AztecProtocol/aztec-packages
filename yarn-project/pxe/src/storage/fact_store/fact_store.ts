@@ -100,6 +100,11 @@ export class FactStore implements StagedStore {
     originBlock: OriginBlock | undefined,
     jobId: string,
   ): Promise<void> {
+    this.logger.debug('recordFact', {
+      factCollectionKey: factCollectionKey.toString(),
+      retractable: originBlock !== undefined,
+      jobId,
+    });
     return this.#withJobLock(jobId, () => {
       this.#stagedOpsFor(jobId).push({
         kind: 'recordFact',
@@ -115,6 +120,7 @@ export class FactStore implements StagedStore {
    * Idempotent: deleting a collection that does not exist is a no-op.
    */
   deleteFactCollection(factCollectionKey: FactCollectionKey, jobId: string): Promise<void> {
+    this.logger.debug('deleteFactCollection', { factCollectionKey: factCollectionKey.toString(), jobId });
     return this.#withJobLock(jobId, () => {
       this.#stagedOpsFor(jobId).push({ kind: 'deleteFactCollection', key: factCollectionKey });
       return Promise.resolve();
@@ -125,6 +131,7 @@ export class FactStore implements StagedStore {
    * Returns the fact collection for the (scope-qualified) key, or undefined if it has no facts.
    */
   async getFactCollection(factCollectionKey: FactCollectionKey, jobId: string): Promise<FactCollection | undefined> {
+    this.logger.debug('getFactCollection', { factCollectionKey: factCollectionKey.toString(), jobId });
     const collectionKey = factCollectionKey.toString();
     const committed = await this.#store.transactionAsync(() => this.#readCollectionsFromDb([factCollectionKey]));
 
@@ -143,6 +150,7 @@ export class FactStore implements StagedStore {
     factCollectionTypeKey: FactCollectionTypeKey,
     jobId: string,
   ): Promise<FactCollection[]> {
+    this.logger.debug('getFactCollectionsByType', { factCollectionTypeKey: factCollectionTypeKey.toString(), jobId });
     const typeKey = factCollectionTypeKey.toString();
     const committed = await this.#readCollectionsFromDbByType(typeKey);
 
@@ -161,6 +169,7 @@ export class FactStore implements StagedStore {
    * auto-commit the outer transaction.
    */
   async commit(jobId: string): Promise<void> {
+    this.logger.debug('commit', { jobId });
     for (const op of this.#stagedOpsFor(jobId)) {
       switch (op.kind) {
         case 'recordFact':
@@ -180,6 +189,7 @@ export class FactStore implements StagedStore {
 
   /** Discards all staged operations for the given job without persisting them. */
   discardStaged(jobId: string): Promise<void> {
+    this.logger.debug('discardStaged', { jobId });
     this.#clearJobData(jobId);
     return Promise.resolve();
   }
@@ -194,6 +204,7 @@ export class FactStore implements StagedStore {
    * mid-job could re-introduce records originating from deleted blocks or change state underneath a job's view.
    */
   async rollback(toBlock: BlockNum): Promise<void> {
+    this.logger.debug('rollback', { toBlock });
     if (this.#opsForJob.size > 0) {
       throw new Error('PXE fact store rollback is not allowed while jobs are running');
     }

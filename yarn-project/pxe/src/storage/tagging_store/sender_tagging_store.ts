@@ -1,3 +1,4 @@
+import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import { AppTaggingSecret, SiloedTag, type TaggingIndexRange } from '@aztec/stdlib/logs';
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';
@@ -15,6 +16,8 @@ type PendingIndexesEntry = { lowestIndex: number; highestIndex: number; txHash: 
  */
 export class SenderTaggingStore implements StagedStore {
   readonly storeName = 'sender_tagging';
+
+  logger = createLogger('sender_tagging_store');
 
   #store: AztecAsyncKVStore;
 
@@ -100,6 +103,7 @@ export class SenderTaggingStore implements StagedStore {
    * @remark This method must run in a DB transaction context. It's designed to be called from JobCoordinator#commitJob.
    */
   async commit(jobId: string): Promise<void> {
+    this.logger.debug('commit', { jobId });
     const pendingIndexesForJob = this.#pendingIndexesForJob.get(jobId);
     if (pendingIndexesForJob) {
       for (const [secret, pendingIndexes] of pendingIndexesForJob.entries()) {
@@ -122,6 +126,7 @@ export class SenderTaggingStore implements StagedStore {
   }
 
   discardStaged(jobId: string): Promise<void> {
+    this.logger.debug('discardStaged', { jobId });
     this.#pendingIndexesForJob.delete(jobId);
     this.#lastFinalizedIndexesForJob.delete(jobId);
     return Promise.resolve();
@@ -141,6 +146,7 @@ export class SenderTaggingStore implements StagedStore {
    * @throws If a different range already exists for the same (secret, txHash) pair.
    */
   storePendingIndexes(ranges: TaggingIndexRange[], txHash: TxHash, jobId: string): Promise<void> {
+    this.logger.debug('storePendingIndexes', { rangeCount: ranges.length, txHash, jobId });
     if (ranges.length === 0) {
       return Promise.resolve();
     }
@@ -223,6 +229,7 @@ export class SenderTaggingStore implements StagedStore {
     endIndex: number,
     jobId: string,
   ): Promise<TxHash[]> {
+    this.logger.debug('getTxHashesOfPendingIndexes', { secret, startIndex, endIndex, jobId });
     return this.#store.transactionAsync(async () => {
       const existing = await this.#readPendingIndexes(jobId, secret.toString());
       const txHashes = existing
@@ -238,6 +245,7 @@ export class SenderTaggingStore implements StagedStore {
    * @returns The last (highest) finalized index for the given secret.
    */
   getLastFinalizedIndex(secret: AppTaggingSecret, jobId: string): Promise<number | undefined> {
+    this.logger.debug('getLastFinalizedIndex', { secret, jobId });
     return this.#store.transactionAsync(() => this.#readLastFinalizedIndex(jobId, secret.toString()));
   }
 
@@ -248,6 +256,7 @@ export class SenderTaggingStore implements StagedStore {
    * @returns The last used index.
    */
   getLastUsedIndex(secret: AppTaggingSecret, jobId: string): Promise<number | undefined> {
+    this.logger.debug('getLastUsedIndex', { secret, jobId });
     const secretStr = secret.toString();
 
     return this.#store.transactionAsync(async () => {
@@ -270,6 +279,7 @@ export class SenderTaggingStore implements StagedStore {
    * Drops all pending indexes corresponding to the given transaction hashes.
    */
   dropPendingIndexes(txHashes: TxHash[], jobId: string): Promise<void> {
+    this.logger.debug('dropPendingIndexes', { txHashCount: txHashes.length, jobId });
     if (txHashes.length === 0) {
       return Promise.resolve();
     }
@@ -361,6 +371,7 @@ export class SenderTaggingStore implements StagedStore {
    * indexes.
    */
   async finalizePendingIndexes(txHashes: TxHash[], jobId: string): Promise<void> {
+    this.logger.debug('finalizePendingIndexes', { txHashCount: txHashes.length, jobId });
     if (txHashes.length === 0) {
       return;
     }
@@ -425,6 +436,7 @@ export class SenderTaggingStore implements StagedStore {
    * @param jobId - job context for staged writes to this store. See `JobCoordinator` for more details.
    */
   async finalizePendingIndexesOfAPartiallyRevertedTx(txEffect: TxEffect, jobId: string): Promise<void> {
+    this.logger.debug('finalizePendingIndexesOfAPartiallyRevertedTx', { txHash: txEffect.txHash, jobId });
     const txHashStr = txEffect.txHash.toString();
 
     // Build a set of all siloed tag values that made it onchain (first field of each private log).

@@ -1,3 +1,4 @@
+import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import type { AppTaggingSecret } from '@aztec/stdlib/logs';
 
@@ -13,6 +14,8 @@ import type { StagedStore } from '../../job_coordinator/job_coordinator.js';
  */
 export class RecipientTaggingStore implements StagedStore {
   storeName: string = 'recipient_tagging';
+
+  logger = createLogger('recipient_tagging_store');
 
   #store: AztecAsyncKVStore;
 
@@ -83,6 +86,7 @@ export class RecipientTaggingStore implements StagedStore {
    * @remark This method must run in a DB transaction context. It's designed to be called from JobCoordinator#commitJob.
    */
   async commit(jobId: string): Promise<void> {
+    this.logger.debug('commit', { jobId });
     const highestAgedIndexForJob = this.#highestAgedIndexForJob.get(jobId);
     if (highestAgedIndexForJob) {
       for (const [secret, index] of highestAgedIndexForJob.entries()) {
@@ -101,16 +105,19 @@ export class RecipientTaggingStore implements StagedStore {
   }
 
   discardStaged(jobId: string): Promise<void> {
+    this.logger.debug('discardStaged', { jobId });
     this.#highestAgedIndexForJob.delete(jobId);
     this.#highestFinalizedIndexForJob.delete(jobId);
     return Promise.resolve();
   }
 
   getHighestAgedIndex(secret: AppTaggingSecret, jobId: string): Promise<number | undefined> {
+    this.logger.debug('getHighestAgedIndex', { secret, jobId });
     return this.#store.transactionAsync(() => this.#readHighestAgedIndex(jobId, secret.toString()));
   }
 
   updateHighestAgedIndex(secret: AppTaggingSecret, index: number, jobId: string): Promise<void> {
+    this.logger.debug('updateHighestAgedIndex', { secret, index, jobId });
     return this.#store.transactionAsync(async () => {
       const currentIndex = await this.#readHighestAgedIndex(jobId, secret.toString());
       if (currentIndex !== undefined && index <= currentIndex) {
@@ -122,10 +129,12 @@ export class RecipientTaggingStore implements StagedStore {
   }
 
   getHighestFinalizedIndex(secret: AppTaggingSecret, jobId: string): Promise<number | undefined> {
+    this.logger.debug('getHighestFinalizedIndex', { secret, jobId });
     return this.#store.transactionAsync(() => this.#readHighestFinalizedIndex(jobId, secret.toString()));
   }
 
   updateHighestFinalizedIndex(secret: AppTaggingSecret, index: number, jobId: string): Promise<void> {
+    this.logger.debug('updateHighestFinalizedIndex', { secret, index, jobId });
     return this.#store.transactionAsync(async () => {
       const currentIndex = await this.#readHighestFinalizedIndex(jobId, secret.toString());
       if (currentIndex !== undefined && index < currentIndex) {

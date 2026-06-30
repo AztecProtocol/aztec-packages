@@ -3,6 +3,7 @@ import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar, Point } from '@aztec/foundation/curves/grumpkin';
 import { toArray } from '@aztec/foundation/iterable';
+import { createLogger } from '@aztec/foundation/log';
 import { type Bufferable, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -28,6 +29,9 @@ function secretKeyStorageSuffix(prefix: KeyPrefix): string {
  */
 export class KeyStore {
   public static readonly SCHEMA_VERSION = 1;
+
+  logger = createLogger('key_store');
+
   #db: AztecAsyncKVStore;
   #keys: AztecAsyncMap<string, Buffer>;
 
@@ -41,6 +45,7 @@ export class KeyStore {
    * @returns A promise that resolves to the newly created account's CompleteAddress.
    */
   public createAccount(): Promise<CompleteAddress> {
+    this.logger.debug('createAccount');
     const sk = Fr.random();
     const partialAddress = Fr.random();
     return this.addAccount(sk, partialAddress);
@@ -53,6 +58,8 @@ export class KeyStore {
    * @returns The account's complete address.
    */
   public async addAccount(sk: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
+    // Intentionally do not log `sk` (secret key). `partialAddress` is public address-derivation material.
+    this.logger.debug('addAccount', { partialAddress });
     const {
       masterNullifierHidingKey,
       masterIncomingViewingSecretKey,
@@ -111,6 +118,7 @@ export class KeyStore {
    * @returns A Promise that resolves to an array of account addresses.
    */
   public async getAccounts(): Promise<AztecAddress[]> {
+    this.logger.debug('getAccounts');
     const allMapKeys = await toArray(this.#keys.keysAsync());
     // We return account addresses based on the map keys that end with '-ivsk_m'
     const accounts = allMapKeys.filter(key => key.endsWith('-ivsk_m')).map(key => key.split('-')[0]);
@@ -119,6 +127,7 @@ export class KeyStore {
 
   /** Checks whether an account is registered in the key store. */
   public async hasAccount(account: AztecAddress): Promise<boolean> {
+    this.logger.debug('hasAccount', { account });
     return !!(await this.#keys.getAsync(`${account.toString()}-ivsk_m`));
   }
 
@@ -130,6 +139,7 @@ export class KeyStore {
    * @returns The key validation request.
    */
   public getKeyValidationRequest(pkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest> {
+    this.logger.debug('getKeyValidationRequest', { pkMHash, contractAddress });
     return this.#db.transactionAsync(async () => {
       const [keyPrefix, account] = await this.getKeyPrefixAndAccount(pkMHash);
 
@@ -178,6 +188,7 @@ export class KeyStore {
    * @throws If the account does not exist in the key store.
    */
   public async getMasterNullifierPublicKey(account: AztecAddress): Promise<PublicKey> {
+    this.logger.debug('getMasterNullifierPublicKey', { account });
     return Point.fromBuffer(await this.#getMasterKeyBuffer(account, 'npk_m'));
   }
 
@@ -186,6 +197,7 @@ export class KeyStore {
    * @throws If the account does not exist in the key store.
    */
   public async getMasterIncomingViewingPublicKey(account: AztecAddress): Promise<PublicKey> {
+    this.logger.debug('getMasterIncomingViewingPublicKey', { account });
     return Point.fromBuffer(await this.#getMasterKeyBuffer(account, 'ivpk_m'));
   }
 
@@ -194,6 +206,7 @@ export class KeyStore {
    * @throws If the account does not exist in the key store.
    */
   public async getMasterOutgoingViewingPublicKey(account: AztecAddress): Promise<PublicKey> {
+    this.logger.debug('getMasterOutgoingViewingPublicKey', { account });
     return Point.fromBuffer(await this.#getMasterKeyBuffer(account, 'ovpk_m'));
   }
 
@@ -202,6 +215,7 @@ export class KeyStore {
    * @throws If the account does not exist in the key store.
    */
   public async getMasterTaggingPublicKey(account: AztecAddress): Promise<PublicKey> {
+    this.logger.debug('getMasterTaggingPublicKey', { account });
     return Point.fromBuffer(await this.#getMasterKeyBuffer(account, 'tpk_m'));
   }
 
@@ -210,6 +224,7 @@ export class KeyStore {
    * @throws If the account does not exist in the key store.
    */
   public async getMasterMessageSigningPublicKey(account: AztecAddress): Promise<PublicKey> {
+    this.logger.debug('getMasterMessageSigningPublicKey', { account });
     return Point.fromBuffer(await this.#getMasterKeyBuffer(account, 'mspk_m'));
   }
 
@@ -218,6 +233,7 @@ export class KeyStore {
    * @throws If the account does not exist in the key store.
    */
   public async getMasterFallbackPublicKey(account: AztecAddress): Promise<PublicKey> {
+    this.logger.debug('getMasterFallbackPublicKey', { account });
     return Point.fromBuffer(await this.#getMasterKeyBuffer(account, 'fbpk_m'));
   }
 
@@ -226,6 +242,7 @@ export class KeyStore {
    * @throws If the account does not exist in the key store.
    */
   public async getMasterMessageSigningSecretKey(account: AztecAddress): Promise<GrumpkinScalar> {
+    this.logger.debug('getMasterMessageSigningSecretKey', { account });
     return GrumpkinScalar.fromBuffer(await this.#getMasterKeyBuffer(account, 'mssk_m'));
   }
 
@@ -234,6 +251,7 @@ export class KeyStore {
    * @throws If the account does not exist in the key store.
    */
   public async getMasterFallbackSecretKey(account: AztecAddress): Promise<GrumpkinScalar> {
+    this.logger.debug('getMasterFallbackSecretKey', { account });
     return GrumpkinScalar.fromBuffer(await this.#getMasterKeyBuffer(account, 'fbsk_m'));
   }
 
@@ -242,6 +260,7 @@ export class KeyStore {
    * @throws If the account does not exist in the key store.
    */
   public async getMasterIncomingViewingSecretKey(account: AztecAddress): Promise<GrumpkinScalar> {
+    this.logger.debug('getMasterIncomingViewingSecretKey', { account });
     return GrumpkinScalar.fromBuffer(await this.#getMasterKeyBuffer(account, 'ivsk_m'));
   }
 
@@ -253,6 +272,7 @@ export class KeyStore {
    * @returns A Promise that resolves to the application outgoing viewing secret key.
    */
   public async getAppOutgoingViewingSecretKey(account: AztecAddress, app: AztecAddress): Promise<Fr> {
+    this.logger.debug('getAppOutgoingViewingSecretKey', { account, app });
     const masterOutgoingViewingSecretKey = GrumpkinScalar.fromBuffer(await this.#getMasterKeyBuffer(account, 'ovsk_m'));
 
     return poseidon2HashWithSeparator(
@@ -269,6 +289,7 @@ export class KeyStore {
    * @dev Used when feeding the sk_m to the kernel circuit for keys verification.
    */
   public getMasterSecretKey(pkMHash: Fr): Promise<GrumpkinScalar> {
+    this.logger.debug('getMasterSecretKey', { pkMHash });
     return this.#db.transactionAsync(async () => {
       const [keyPrefix, account] = await this.getKeyPrefixAndAccount(pkMHash);
 
@@ -306,6 +327,7 @@ export class KeyStore {
    * @returns True if the account has a key with the given hash.
    */
   public accountHasKey(account: AztecAddress, pkMHash: Fr): Promise<boolean> {
+    this.logger.debug('accountHasKey', { account, pkMHash });
     return this.#db.transactionAsync(async () => {
       const pkMHashBuffer = serializeToBuffer(pkMHash);
       for (const prefix of KEY_PREFIXES) {
@@ -325,6 +347,7 @@ export class KeyStore {
    * in the key store.
    */
   public async getKeyPrefixAndAccount(value: Bufferable): Promise<[KeyPrefix, AztecAddress]> {
+    this.logger.debug('getKeyPrefixAndAccount');
     const valueBuffer = serializeToBuffer(value);
     for await (const [key, val] of this.#keys.entriesAsync()) {
       // Browser returns Uint8Array, Node.js returns Buffer

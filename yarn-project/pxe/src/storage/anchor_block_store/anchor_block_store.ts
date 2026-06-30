@@ -1,3 +1,4 @@
+import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncSingleton } from '@aztec/kv-store';
 import { BlockHeader } from '@aztec/stdlib/tx';
 
@@ -6,6 +7,8 @@ import { BlockHeader } from '@aztec/stdlib/tx';
  * advances or reorgs.
  */
 export class AnchorBlockStore {
+  logger = createLogger('anchor_block_store');
+
   #store: AztecAsyncKVStore;
   #synchronizedHeader: AztecAsyncSingleton<Buffer>;
 
@@ -22,10 +25,12 @@ export class AnchorBlockStore {
    * support for reentrancy).
    */
   async setHeader(header: BlockHeader): Promise<void> {
+    this.logger.debug('setHeader', { blockNumber: header.getBlockNumber() });
     await this.#synchronizedHeader.set(header.toBuffer());
   }
 
   async getBlockHeader(): Promise<BlockHeader> {
+    this.logger.debug('getBlockHeader');
     const headerBuffer = await this.#store.transactionAsync(() => this.#synchronizedHeader.getAsync());
     if (!headerBuffer) {
       throw new Error(`Trying to get block header with a not-yet-synchronized PXE - this should never happen`);

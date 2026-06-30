@@ -100,6 +100,7 @@ export class CapsuleStore implements StagedStore {
    * @param jobId - The jobId identifying which staged data to commit
    */
   async commit(jobId: string): Promise<void> {
+    this.logger.debug('commit', { jobId });
     const jobStagedCapsules = this.#getJobStagedCapsules(jobId);
 
     for (const [key, value] of jobStagedCapsules) {
@@ -120,6 +121,7 @@ export class CapsuleStore implements StagedStore {
    * Discards staged data without committing.
    */
   discardStaged(jobId: string): Promise<void> {
+    this.logger.debug('discardStaged', { jobId });
     this.#stagedCapsules.delete(jobId);
     return Promise.resolve();
   }
@@ -136,6 +138,7 @@ export class CapsuleStore implements StagedStore {
    * network state it's backed by local PXE db.
    */
   setCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], jobId: string, scope: AztecAddress) {
+    this.logger.debug('setCapsule', { contractAddress, slot, scope, jobId });
     const dbSlotKey = dbSlotToKey(contractAddress, slot, scope);
 
     // A store overrides any pre-existing data on the slot
@@ -149,6 +152,7 @@ export class CapsuleStore implements StagedStore {
    * @returns The stored data or `null` if no data is stored under the slot.
    */
   getCapsule(contractAddress: AztecAddress, slot: Fr, jobId: string, scope: AztecAddress): Promise<Fr[] | null> {
+    this.logger.debug('getCapsule', { contractAddress, slot, scope, jobId });
     return this.#store.transactionAsync(() => this.#getCapsuleInternal(contractAddress, slot, jobId, scope));
   }
 
@@ -177,6 +181,7 @@ export class CapsuleStore implements StagedStore {
    * @param slot - The slot in the database to delete.
    */
   deleteCapsule(contractAddress: AztecAddress, slot: Fr, jobId: string, scope: AztecAddress) {
+    this.logger.debug('deleteCapsule', { contractAddress, slot, scope, jobId });
     // When we commit this, we will interpret null as a deletion, so we'll propagate the delete to the KV store
     this.#deleteOnStage(jobId, dbSlotToKey(contractAddress, slot, scope));
   }
@@ -200,6 +205,7 @@ export class CapsuleStore implements StagedStore {
     jobId: string,
     scope: AztecAddress,
   ): Promise<void> {
+    this.logger.debug('copyCapsule', { contractAddress, srcSlot, dstSlot, numEntries, scope, jobId });
     // This transactional context gives us "copy atomicity":
     // there shouldn't be concurrent writes to what's being copied here.
     // Equally important: this in practice is expected to perform thousands of DB operations
@@ -243,6 +249,7 @@ export class CapsuleStore implements StagedStore {
     jobId: string,
     scope: AztecAddress,
   ): Promise<void> {
+    this.logger.debug('appendToCapsuleArray', { contractAddress, baseSlot, entries: content.length, scope, jobId });
     // We wrap this in a transaction to serialize concurrent calls from Promise.all.
     // Without this, concurrent appends to the same array could race: both read length=0,
     // both write at the same slots, one overwrites the other.
@@ -266,6 +273,7 @@ export class CapsuleStore implements StagedStore {
   }
 
   readCapsuleArray(contractAddress: AztecAddress, baseSlot: Fr, jobId: string, scope: AztecAddress): Promise<Fr[][]> {
+    this.logger.debug('readCapsuleArray', { contractAddress, baseSlot, scope, jobId });
     // I'm leaving this transactional context here though because I'm assuming this
     // gives us "read array atomicity": there shouldn't be concurrent writes to what's being copied
     // here.
@@ -295,6 +303,7 @@ export class CapsuleStore implements StagedStore {
   }
 
   setCapsuleArray(contractAddress: AztecAddress, baseSlot: Fr, content: Fr[][], jobId: string, scope: AztecAddress) {
+    this.logger.debug('setCapsuleArray', { contractAddress, baseSlot, entries: content.length, scope, jobId });
     // This transactional context in theory isn't so critical now because we aren't
     // writing to DB so if there's exceptions midway and it blows up, no visible impact
     // to persistent storage will happen.

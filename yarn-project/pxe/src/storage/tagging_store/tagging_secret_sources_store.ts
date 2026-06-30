@@ -1,5 +1,6 @@
 import { Point } from '@aztec/foundation/curves/grumpkin';
 import { toArray } from '@aztec/foundation/iterable';
+import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap } from '@aztec/kv-store';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
@@ -16,6 +17,8 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
  *   and so these must not be reused to preserve privacy.
  */
 export class TaggingSecretSourcesStore {
+  logger = createLogger('tagging_secret_sources_store');
+
   #store: AztecAsyncKVStore;
   #senders: AztecAsyncMap<string, true>;
   #sharedSecretsByRecipient: AztecAsyncMultiMap<string, string>;
@@ -28,6 +31,7 @@ export class TaggingSecretSourcesStore {
   }
 
   addSender(address: AztecAddress): Promise<boolean> {
+    this.logger.debug('addSender', { address });
     return this.#store.transactionAsync(async () => {
       if (await this.#senders.hasAsync(address.toString())) {
         return false;
@@ -40,12 +44,14 @@ export class TaggingSecretSourcesStore {
   }
 
   getSenders(): Promise<AztecAddress[]> {
+    this.logger.debug('getSenders');
     return this.#store.transactionAsync(async () => {
       return (await toArray(this.#senders.keysAsync())).map(AztecAddress.fromStringUnsafe);
     });
   }
 
   removeSender(address: AztecAddress): Promise<boolean> {
+    this.logger.debug('removeSender', { address });
     return this.#store.transactionAsync(async () => {
       if (!(await this.#senders.hasAsync(address.toString()))) {
         return false;
@@ -62,6 +68,7 @@ export class TaggingSecretSourcesStore {
    * @returns true if the secret was newly added, false if it was already registered for that recipient.
    */
   addSharedSecret(recipient: AztecAddress, secret: Point): Promise<boolean> {
+    this.logger.debug('addSharedSecret', { recipient });
     return this.#store.transactionAsync(async () => {
       const secretStr = secret.toString();
       // MultiMap.set silently ignores an identical (key, value), so we scan to report whether this is a new secret.
@@ -79,6 +86,7 @@ export class TaggingSecretSourcesStore {
 
   /** Returns the pre-shared tagging secrets registered for a given recipient. */
   getSharedSecretsForRecipient(recipient: AztecAddress): Promise<Point[]> {
+    this.logger.debug('getSharedSecretsForRecipient', { recipient });
     return this.#store.transactionAsync(async () => {
       return (await toArray(this.#sharedSecretsByRecipient.getValuesAsync(recipient.toString()))).map(secret =>
         Point.fromString(secret),
@@ -88,6 +96,7 @@ export class TaggingSecretSourcesStore {
 
   /** Returns every registered pre-shared tagging secret, each paired with the recipient it is scoped to. */
   getAllSharedSecrets(): Promise<{ recipient: AztecAddress; secret: Point }[]> {
+    this.logger.debug('getAllSharedSecrets');
     return this.#store.transactionAsync(async () => {
       const entries = await toArray(this.#sharedSecretsByRecipient.entriesAsync());
       return entries.map(([recipient, secret]) => ({
@@ -102,6 +111,7 @@ export class TaggingSecretSourcesStore {
    * @returns true if the secret was registered and removed, false if it was not registered for that recipient.
    */
   removeSharedSecret(recipient: AztecAddress, secret: Point): Promise<boolean> {
+    this.logger.debug('removeSharedSecret', { recipient });
     return this.#store.transactionAsync(async () => {
       const secretStr = secret.toString();
       for await (const existing of this.#sharedSecretsByRecipient.getValuesAsync(recipient.toString())) {

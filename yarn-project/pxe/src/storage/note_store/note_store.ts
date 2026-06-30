@@ -96,6 +96,7 @@ export class NoteStore implements StagedStore {
    * @param jobId - The job context for staged writes
    */
   public addNotes(notes: NoteDao[], scope: AztecAddress, jobId: string): Promise<void[]> {
+    this.logger.debug('addNotes', { noteCount: notes.length, scope, jobId });
     return this.#withJobLock(jobId, () =>
       this.#store.transactionAsync(() =>
         Promise.all(
@@ -152,6 +153,11 @@ export class NoteStore implements StagedStore {
    * @returns Filtered and deduplicated notes (a note might be present in multiple scopes, but returned at most once)
    */
   getNotes(filter: NotesFilter, jobId: string): Promise<NoteDao[]> {
+    this.logger.debug('getNotes', {
+      contractAddress: filter.contractAddress,
+      scopeCount: filter.scopes.length,
+      jobId,
+    });
     if (filter.scopes.length === 0) {
       return Promise.resolve([]);
     }
@@ -266,6 +272,7 @@ export class NoteStore implements StagedStore {
    * @throws If any nullifier has no matching note in this store, or was emitted at block 0.
    */
   applyNullifiers(siloedNullifiers: DataInBlock<Fr>[], jobId: string): Promise<NoteDao[]> {
+    this.logger.debug('applyNullifiers', { nullifierCount: siloedNullifiers.length, jobId });
     if (siloedNullifiers.length === 0) {
       return Promise.resolve([]);
     }
@@ -319,6 +326,7 @@ export class NoteStore implements StagedStore {
    * @param jobId - The jobId identifying which staged data to commit
    */
   async commit(jobId: string): Promise<void> {
+    this.logger.debug('commit', { jobId });
     for (const [nullifier, storedNote] of this.#getNotesForJob(jobId)) {
       await this.#notes.set(nullifier, storedNote.toBuffer());
       await this.#notesByContractAddress.set(storedNote.noteDao.contractAddress.toString(), nullifier);
@@ -334,6 +342,7 @@ export class NoteStore implements StagedStore {
   }
 
   discardStaged(jobId: string): Promise<void> {
+    this.logger.debug('discardStaged', { jobId });
     this.#clearJobData(jobId);
     return Promise.resolve();
   }
@@ -383,6 +392,7 @@ export class NoteStore implements StagedStore {
 
   /** Returns the nullifiers (note ids) of all notes created at the given block number. Used by delete-on-prune. */
   public async nullifiersOfNotesAtBlock(blockNumber: number): Promise<string[]> {
+    this.logger.debug('nullifiersOfNotesAtBlock', { blockNumber });
     const nullifiers: string[] = [];
     for await (const nullifier of this.#notesByBlockNumber.getValuesAsync(blockNumber)) {
       nullifiers.push(nullifier);
@@ -401,6 +411,7 @@ export class NoteStore implements StagedStore {
    * nullifier emissions anchored to deleted blocks.
    */
   public async rollback(toBlock: number): Promise<void> {
+    this.logger.debug('rollback', { toBlock });
     if (this.#notesForJob.size > 0 || this.#nullifierEmissionsForJob.size > 0) {
       throw new Error('PXE note store rollback is not allowed while jobs are running');
     }

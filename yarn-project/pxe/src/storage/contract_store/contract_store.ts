@@ -1,6 +1,7 @@
 import type { FUNCTION_TREE_HEIGHT } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
+import { createLogger } from '@aztec/foundation/log';
 import { BufferReader, numToUInt8, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { MembershipWitness } from '@aztec/foundation/trees';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
@@ -100,6 +101,8 @@ export class SerializableContractClassData {
  * the required information and facilitate cryptographic proof generation.
  */
 export class ContractStore {
+  logger = createLogger('contract_store');
+
   /** Map from contract class id to private function tree. */
   // TODO: Update it to be LRU cache so that it doesn't keep all the data all the time.
   #privateFunctionTrees: Map<string, PrivateFunctionsTree> = new Map();
@@ -139,6 +142,7 @@ export class ContractStore {
     contract: ContractArtifact,
     contractClassWithIdAndPreimage?: ContractClassWithId & ContractClassIdPreimage,
   ): Promise<Fr> {
+    this.logger.debug('addContractArtifact', { contractName: contract.name });
     const contractClass = contractClassWithIdAndPreimage ?? (await getContractClassFromArtifact(contract));
     const key = contractClass.id.toString();
 
@@ -169,6 +173,7 @@ export class ContractStore {
   }
 
   async addContractInstance(contract: ContractInstanceWithAddress): Promise<void> {
+    this.logger.debug('addContractInstance', { address: contract.address });
     await this.#store.transactionAsync(async () => {
       await this.#contractInstances.set(
         contract.address.toString(),
@@ -213,6 +218,7 @@ export class ContractStore {
   // Public getters
 
   getContractsAddresses(): Promise<AztecAddress[]> {
+    this.logger.debug('getContractsAddresses');
     return this.#store.transactionAsync(async () => {
       const keys = await toArray(this.#contractInstances.keysAsync());
       return keys.map(AztecAddress.fromStringUnsafe);
@@ -221,6 +227,7 @@ export class ContractStore {
 
   /** Returns a contract instance for a given address. */
   public getContractInstance(contractAddress: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+    this.logger.debug('getContractInstance', { contractAddress });
     return this.#store.transactionAsync(async () => {
       const contract = await this.#contractInstances.getAsync(contractAddress.toString());
       return contract && SerializableContractInstance.fromBuffer(contract).withAddress(contractAddress);
@@ -229,6 +236,7 @@ export class ContractStore {
 
   /** Returns the raw contract artifact for a given class id. */
   public async getContractArtifact(contractClassId: Fr): Promise<ContractArtifact | undefined> {
+    this.logger.debug('getContractArtifact', { contractClassId });
     const key = contractClassId.toString();
     const cached = this.#contractArtifactCache.get(key);
     if (cached) {
@@ -248,6 +256,7 @@ export class ContractStore {
   public async getContractClassWithPreimage(
     contractClassId: Fr,
   ): Promise<(ContractClassWithId & ContractClassIdPreimage) | undefined> {
+    this.logger.debug('getContractClassWithPreimage', { contractClassId });
     const key = contractClassId.toString();
     const buf = await this.#store.transactionAsync(() => this.#contractClassData.getAsync(key));
     if (!buf) {
@@ -265,6 +274,7 @@ export class ContractStore {
   public async getContract(
     address: AztecAddress,
   ): Promise<(ContractInstanceWithAddress & ContractArtifact) | undefined> {
+    this.logger.debug('getContract', { address });
     const instance = await this.getContractInstance(address);
     if (!instance) {
       return;
@@ -287,6 +297,7 @@ export class ContractStore {
     contractAddress: AztecAddress,
     selector: FunctionSelector,
   ): Promise<FunctionArtifactWithContractName | undefined> {
+    this.logger.debug('getFunctionArtifact', { contractAddress, selector });
     const artifact = await this.#getArtifactByAddress(contractAddress);
     if (!artifact) {
       return undefined;
@@ -299,6 +310,7 @@ export class ContractStore {
     contractAddress: AztecAddress,
     selector: FunctionSelector,
   ): Promise<FunctionArtifactWithContractName> {
+    this.logger.debug('getFunctionArtifactWithDebugMetadata', { contractAddress, selector });
     const artifact = await this.getFunctionArtifact(contractAddress, selector);
     if (!artifact) {
       throw new Error(`Function artifact not found for contract ${contractAddress} and selector ${selector}.`);
@@ -313,6 +325,7 @@ export class ContractStore {
   public async getPublicFunctionArtifact(
     contractAddress: AztecAddress,
   ): Promise<FunctionArtifactWithContractName | undefined> {
+    this.logger.debug('getPublicFunctionArtifact', { contractAddress });
     const artifact = await this.#getArtifactByAddress(contractAddress);
     const fn = artifact && artifact.functions.find(f => f.functionType === FunctionType.PUBLIC);
     return fn && { ...fn, contractName: artifact.name };
@@ -322,6 +335,7 @@ export class ContractStore {
     contractAddress: AztecAddress,
     selector: FunctionSelector,
   ): Promise<FunctionAbi | undefined> {
+    this.logger.debug('getFunctionAbi', { contractAddress, selector });
     const artifact = await this.#getArtifactByAddress(contractAddress);
     return artifact && (await findFunctionAbiBySelector(artifact, selector));
   }
@@ -337,6 +351,7 @@ export class ContractStore {
     contractAddress: AztecAddress,
     selector: FunctionSelector,
   ): Promise<FunctionDebugMetadata | undefined> {
+    this.logger.debug('getFunctionDebugMetadata', { contractAddress, selector });
     const artifact = await this.#getArtifactByAddress(contractAddress);
     if (!artifact) {
       return undefined;
@@ -348,6 +363,7 @@ export class ContractStore {
   public async getPublicFunctionDebugMetadata(
     contractAddress: AztecAddress,
   ): Promise<FunctionDebugMetadata | undefined> {
+    this.logger.debug('getPublicFunctionDebugMetadata', { contractAddress });
     const artifact = await this.#getArtifactByAddress(contractAddress);
     const fn = artifact && artifact.functions.find(f => f.functionType === FunctionType.PUBLIC);
     return fn && getFunctionDebugMetadata(artifact, fn);
@@ -364,22 +380,26 @@ export class ContractStore {
     contractClassId: Fr,
     selector: FunctionSelector,
   ): Promise<MembershipWitness<typeof FUNCTION_TREE_HEIGHT> | undefined> {
+    this.logger.debug('getFunctionMembershipWitness', { contractClassId, selector });
     const tree = await this.#getPrivateFunctionTreeForClassId(contractClassId);
     return tree?.getFunctionMembershipWitness(selector);
   }
 
   public async getDebugContractName(contractAddress: AztecAddress) {
+    this.logger.debug('getDebugContractName', { contractAddress });
     const artifact = await this.#getArtifactByAddress(contractAddress);
     return artifact?.name;
   }
 
   public async getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector) {
+    this.logger.debug('getDebugFunctionName', { contractAddress, selector });
     const artifact = await this.#getArtifactByAddress(contractAddress);
     const fn = artifact && (await findFunctionAbiBySelector(artifact, selector));
     return `${artifact?.name ?? contractAddress}:${fn?.name ?? selector}`;
   }
 
   public async getFunctionCall(functionName: string, args: any[], to: AztecAddress): Promise<FunctionCall> {
+    this.logger.debug('getFunctionCall', { to, functionName });
     const contract = await this.getContract(to);
     if (!contract) {
       throw new Error(

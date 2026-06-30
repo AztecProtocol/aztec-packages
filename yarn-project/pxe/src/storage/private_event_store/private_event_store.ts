@@ -90,6 +90,11 @@ export class PrivateEventStore implements StagedStore {
     metadata: PrivateEventMetadata,
     jobId: string,
   ) {
+    this.logger.debug('storePrivateEventLog', {
+      contractAddress: metadata.contractAddress,
+      scope: metadata.scope,
+      jobId,
+    });
     return this.#withJobLock(jobId, () =>
       this.#store.transactionAsync(async () => {
         const { contractAddress, scope, txHash, l2BlockNumber, l2BlockHash, txIndexInBlock, eventIndexInTx } = metadata;
@@ -146,6 +151,12 @@ export class PrivateEventStore implements StagedStore {
     eventSelector: EventSelector,
     filter: PrivateEventStoreFilter,
   ): Promise<PackedPrivateEvent[]> {
+    this.logger.debug('getPrivateEvents', {
+      contractAddress: filter.contractAddress,
+      eventSelector,
+      fromBlock: filter.fromBlock,
+      toBlock: filter.toBlock,
+    });
     return this.#store.transactionAsync(async () => {
       const key = this.#keyFor(filter.contractAddress, eventSelector);
       const targetScopes = new Set(filter.scopes.map(s => s.toString()));
@@ -228,6 +239,7 @@ export class PrivateEventStore implements StagedStore {
 
   /** Returns the ids (siloed event commitments) of all events emitted at the given block number. Used by delete-on-prune. */
   public async eventIdsAtBlock(blockNumber: number): Promise<string[]> {
+    this.logger.debug('eventIdsAtBlock', { blockNumber });
     const eventIds: string[] = [];
     for await (const eventId of this.#eventsByBlockNumber.getValuesAsync(blockNumber)) {
       eventIds.push(eventId);
@@ -245,6 +257,7 @@ export class PrivateEventStore implements StagedStore {
    * uncommitted staged writes, since rolling back mid-job could later re-introduce events anchored to deleted blocks.
    */
   public async rollback(toBlock: number): Promise<void> {
+    this.logger.debug('rollback', { toBlock });
     if (this.#eventsForJob.size > 0) {
       throw new Error('PXE private event store rollback is not allowed while jobs are running');
     }
@@ -282,6 +295,7 @@ export class PrivateEventStore implements StagedStore {
    * @param jobId - The jobId identifying which staged data to commit
    */
   async commit(jobId: string): Promise<void> {
+    this.logger.debug('commit', { jobId });
     // Note: Don't use #withJobLock here - commit runs within JobCoordinator's transactionAsync,
     // and awaiting the lock would create a microtask boundary with no pending DB request,
     // causing IndexedDB to auto-commit the transaction.
@@ -303,6 +317,7 @@ export class PrivateEventStore implements StagedStore {
    * Discards in memory job data without persisting it.
    */
   discardStaged(jobId: string): Promise<void> {
+    this.logger.debug('discardStaged', { jobId });
     this.#clearJobData(jobId);
     return Promise.resolve();
   }

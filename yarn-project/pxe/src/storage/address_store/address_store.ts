@@ -1,9 +1,12 @@
 import { toArray } from '@aztec/foundation/iterable';
+import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncArray, AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CompleteAddress } from '@aztec/stdlib/contract';
 
 export class AddressStore {
+  logger = createLogger('address_store');
+
   #store: AztecAsyncKVStore;
   #completeAddresses: AztecAsyncArray<Buffer>;
   #completeAddressIndex: AztecAsyncMap<string, number>;
@@ -16,6 +19,7 @@ export class AddressStore {
   }
 
   addCompleteAddress(completeAddress: CompleteAddress): Promise<boolean> {
+    this.logger.debug('addCompleteAddress', { address: completeAddress.address });
     return this.#store.transactionAsync(async () => {
       // TODO readd this
       // await this.#addScope(completeAddress.address);
@@ -44,6 +48,7 @@ export class AddressStore {
   }
 
   getCompleteAddress(account: AztecAddress): Promise<CompleteAddress | undefined> {
+    this.logger.debug('getCompleteAddress', { account });
     return this.#store.transactionAsync(async () => {
       const index = await this.#completeAddressIndex.getAsync(account.toString());
       if (index === undefined) {
@@ -56,6 +61,7 @@ export class AddressStore {
   }
 
   getCompleteAddresses(): Promise<CompleteAddress[]> {
+    this.logger.debug('getCompleteAddresses');
     return this.#store.transactionAsync(async () => {
       return await Promise.all(
         (await toArray(this.#completeAddresses.valuesAsync())).map(v => CompleteAddress.fromBuffer(v)),
