@@ -1,6 +1,7 @@
 import type { RollupContract } from '@aztec/ethereum/contracts';
 import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import type { PublisherManager } from '@aztec/ethereum/publisher-manager';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LoggerBindings } from '@aztec/foundation/log';
 import type { ProverPublisherConfig, ProverTxSenderConfig } from '@aztec/sequencer-client';
 import type { TelemetryClient } from '@aztec/telemetry-client';
@@ -13,6 +14,7 @@ export class ProverPublisherFactory {
     private deps: {
       rollupContract: RollupContract;
       publisherManager: PublisherManager<L1TxUtils>;
+      proofSubmissionTarget?: EthAddress;
       telemetry?: TelemetryClient;
     },
     private bindings?: LoggerBindings,
@@ -37,6 +39,7 @@ export class ProverPublisherFactory {
       {
         rollupContract: this.deps.rollupContract,
         l1TxUtils: l1Publisher,
+        proofSubmissionTarget: this.deps.proofSubmissionTarget,
         telemetry: this.deps.telemetry,
       },
       this.bindings,

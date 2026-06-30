@@ -6,6 +6,7 @@ import {
   numberConfigHelper,
   pickConfigMappings,
 } from '@aztec/foundation/config';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { type KeyStoreConfig, keyStoreConfigMappings } from '@aztec/node-keystore/config';
 import { ethPrivateKeySchema } from '@aztec/node-keystore/schemas';
@@ -44,6 +45,7 @@ export type SpecificProverNodeConfig = {
   txGatheringIntervalMs: number;
   txGatheringBatchSize: number;
   txGatheringMaxParallelRequestsPerNode: number;
+  proofSubmissionTargetAddress?: EthAddress;
 };
 
 export const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProverNodeConfig> = {
@@ -95,6 +97,14 @@ export const specificProverNodeConfigMappings: ConfigMappingsType<SpecificProver
     env: 'PROVER_NODE_DISABLE_PROOF_PUBLISH',
     description: 'Whether the prover node skips publishing proofs to L1',
     ...booleanConfigHelper(false),
+  },
+  proofSubmissionTargetAddress: {
+    env: 'PROVER_NODE_PROOF_SUBMISSION_TARGET_ADDRESS',
+    description:
+      'Optional L1 address the submitEpochRootProof tx is sent to. Must expose the identical submitEpochRootProof ABI ' +
+      'and forward to the rollup. Defaults to the rollup address.',
+    parseEnv: (val: string) => EthAddress.fromString(val),
+    defaultValue: undefined,
   },
 };
 
