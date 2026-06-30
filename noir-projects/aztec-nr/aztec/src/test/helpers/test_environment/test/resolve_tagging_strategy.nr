@@ -5,6 +5,7 @@ use crate::{
     test::helpers::{
         tagging_secret_strategy::TaggingSecretStrategy,
         test_environment::{TestEnvironment, TestEnvironmentOptions},
+        txe_oracles,
     },
 };
 
@@ -15,18 +16,28 @@ unconstrained fn defaults_unconstrained_delivery_to_the_address_derived_shared_s
     let sender = env.create_light_account();
     let recipient = env.create_light_account();
 
-    env.private_context_at(app, |_| {
-        let resolved = resolve_tagging_strategy(
+    // With no strategy configured, the wallet default applies.
+    let resolved_default = env.private_context_at(app, |_| {
+        resolve_tagging_strategy(
             sender,
             recipient,
             OnchainDeliveryMode::onchain_unconstrained(),
-        );
-
-        // With no strategy configured, unconstrained delivery resolves to an address-derived (Diffie-Hellman)
-        // shared secret rather than a handshake. The exact secret is derived by the PXE and asserted in its unit
-        // tests; here we can only confirm the default resolves to a secret and not a non-interactive handshake.
-        assert(resolved != ResolvedTaggingStrategy::non_interactive_handshake());
+        )
     });
+
+    // Explicitly selecting the address-derived strategy must yield the identical resolved secret for the same
+    // (sender, recipient, app). The equality proves the unconstrained default is the address-derived
+    // (Diffie-Hellman) shared secret.
+    txe_oracles::set_tagging_secret_strategy(Option::some(TaggingSecretStrategy::address_derived()));
+    let resolved_address_derived = env.private_context_at(app, |_| {
+        resolve_tagging_strategy(
+            sender,
+            recipient,
+            OnchainDeliveryMode::onchain_unconstrained(),
+        )
+    });
+
+    assert_eq(resolved_default, resolved_address_derived);
 }
 
 #[test]
