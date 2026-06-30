@@ -165,7 +165,6 @@ describe('ProverNode', () => {
     expect(proverNode.getLastProcessedCheckpoint()).toEqual(CheckpointNumber(3));
     const originalProver = proverNode.getCheckpointStore().listAll()[0];
 
-<<<<<<< HEAD
     // The prune target is block 2 (in checkpoint 2), but the event's checkpointed tip is inflated to the rebuilt 3.
     // getBlockData also feeds collectRegisterData when the rebuild re-registers, so it carries a header too.
     l2BlockSource.getBlockData.mockResolvedValue({
@@ -177,33 +176,6 @@ describe('ProverNode', () => {
       block: { number: BlockNumber(2), hash: '0x02' },
       checkpointed: makeTipId(3),
       proven: makeTipId(2),
-=======
-    config = {
-      proverNodeMaxPendingJobs: 3,
-      proverNodePollingIntervalMs: 10,
-      proverNodeMaxParallelBlocksPerEpoch: 32,
-      txGatheringIntervalMs: 100,
-      txGatheringBatchSize: 10,
-      txGatheringMaxParallelRequestsPerNode: 5,
-      proverNodeFailedEpochStore: undefined,
-      txGatheringTimeoutMs: 1000,
-      proverNodeEpochProvingDelayMs: undefined,
-      proverNodeDisableProofPublish: false,
-      proofSubmissionTargetAddress: undefined,
-    };
-
-    // World state returns a new mock db every time it is asked to fork
-    worldState.fork.mockImplementation(() => Promise.resolve(mock<MerkleTreeWriteOperations>()));
-    worldState.status.mockResolvedValue({
-      state: WorldStateRunningState.RUNNING,
-      syncSummary: {
-        latestBlockNumber: BlockNumber(1),
-        latestBlockHash: '',
-        finalizedBlockNumber: BlockNumber.ZERO,
-        oldestHistoricBlockNumber: BlockNumber.ZERO,
-        treesAreSynched: true,
-      },
->>>>>>> origin/public-next
     });
 
     // The orphaned prover for checkpoint 3 is marked pruned, and the cursor was clamped below 3.
