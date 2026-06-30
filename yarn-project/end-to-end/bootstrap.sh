@@ -43,6 +43,7 @@ function test_cmds {
     src/automine/token/*.test.ts
     src/automine/accounts/*.test.ts
     src/automine/effects/*.test.ts
+    src/automine/delivery/*.test.ts
     src/automine/simulation/!(avm_simulator).test.ts
     src/single-node/block-building/*.test.ts
     src/single-node/proving/*.test.ts

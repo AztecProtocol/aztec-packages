@@ -12,9 +12,9 @@ import { AppTaggingSecretKind } from '@aztec/stdlib/logs';
 
 import { jest } from '@jest/globals';
 
-import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
-import { ensureHandshakeRegistryPublished, setup, setupPXEAndGetWallet } from './fixtures/setup.js';
-import { TestWallet } from './test-wallet/test_wallet.js';
+import { AUTOMINE_E2E_OPTS } from '../../fixtures/fixtures.js';
+import { ensureHandshakeRegistryPublished, setup, setupPXEAndGetWallet } from '../../fixtures/setup.js';
+import { TestWallet } from '../../test-wallet/test_wallet.js';
 
 // The wallet hook that selects a message's tagging-secret source. Derived from the exported PXE options
 // rather than importing the hook type, which `@aztec/pxe/server` does not re-export.
@@ -171,7 +171,7 @@ function buildMessageDeliveryTest(opts: {
   });
 }
 
-describe('onchain delivery', () => {
+describe('automine/delivery/onchain', () => {
   // constrained always goes through a handshake. Stated explicitly rather than relying on the PXE default.
   buildMessageDeliveryTest({
     strategy: 'handshake',

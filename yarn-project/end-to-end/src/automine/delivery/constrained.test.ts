@@ -8,13 +8,13 @@ import { STANDARD_HANDSHAKE_REGISTRY_ADDRESS } from '@aztec/standard-contracts/h
 
 import { jest } from '@jest/globals';
 
-import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
-import { ensureHandshakeRegistryPublished, setup } from './fixtures/setup.js';
+import { AUTOMINE_E2E_OPTS } from '../../fixtures/fixtures.js';
+import { ensureHandshakeRegistryPublished, setup } from '../../fixtures/setup.js';
 
-// Delivery-method-specific tests that don't fit the generic (strategy, mode) matrix in `e2e_onchain_delivery.test.ts`:
+// Delivery-method-specific tests that don't fit the generic (strategy, mode) matrix in `onchain.test.ts`:
 // the strict ordering of a constrained sequence (handshake reuse, concurrency, batching) and the soundness boundary
 // that rejects an arbitrary secret backing constrained delivery.
-describe('constrained delivery', () => {
+describe('automine/delivery/constrained', () => {
   jest.setTimeout(300_000);
 
   let teardown: () => Promise<void>;
@@ -152,35 +152,35 @@ describe('constrained delivery', () => {
       expect(index).toEqual(1n);
     });
   });
-});
 
-describe('rejects unsound sources', () => {
-  jest.setTimeout(300_000);
+  describe('rejects unsound sources', () => {
+    jest.setTimeout(300_000);
 
-  // An unconstrained (arbitrary) secret cannot back constrained delivery, so the circuit rejects the send. This pins
-  // the PXE -> circuit soundness boundary that the PXE deliberately delegates to the circuit. The secret value is
-  // irrelevant to the rejection, so a fresh point per hook call is fine and no recipient registration is needed.
-  it('rejects a constrained send backed by an arbitrary secret', async () => {
-    const {
-      teardown,
-      wallet,
-      accounts: [sender, recipient],
-    } = await setup(2, {
-      ...AUTOMINE_E2E_OPTS,
-      pxeCreationOptions: {
-        hooks: {
-          resolveTaggingSecretStrategy: async () => ({ type: 'arbitrary-secret', secret: await Point.random() }),
+    // An unconstrained (arbitrary) secret cannot back constrained delivery, so the circuit rejects the send. This pins
+    // the PXE -> circuit soundness boundary that the PXE deliberately delegates to the circuit. The secret value is
+    // irrelevant to the rejection, so a fresh point per hook call is fine and no recipient registration is needed.
+    it('rejects a constrained send backed by an arbitrary secret', async () => {
+      const {
+        teardown,
+        wallet,
+        accounts: [sender, recipient],
+      } = await setup(2, {
+        ...AUTOMINE_E2E_OPTS,
+        pxeCreationOptions: {
+          hooks: {
+            resolveTaggingSecretStrategy: async () => ({ type: 'arbitrary-secret', secret: await Point.random() }),
+          },
         },
-      },
+      });
+      try {
+        await ensureHandshakeRegistryPublished(wallet, sender);
+        const { contract } = await OnchainDeliveryTestContract.deploy(wallet).send({ from: sender });
+        await expect(contract.methods.emit_event(recipient, 1).send({ from: sender })).rejects.toThrow(
+          'an unconstrained tagging secret cannot back constrained delivery',
+        );
+      } finally {
+        await teardown();
+      }
     });
-    try {
-      await ensureHandshakeRegistryPublished(wallet, sender);
-      const { contract } = await OnchainDeliveryTestContract.deploy(wallet).send({ from: sender });
-      await expect(contract.methods.emit_event(recipient, 1).send({ from: sender })).rejects.toThrow(
-        'an unconstrained tagging secret cannot back constrained delivery',
-      );
-    } finally {
-      await teardown();
-    }
   });
 });
