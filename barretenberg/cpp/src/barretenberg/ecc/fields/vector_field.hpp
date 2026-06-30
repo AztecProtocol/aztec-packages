@@ -228,6 +228,17 @@ template <class Params> struct alignas(32) VectorField {
         return VectorField(tmp);
     }
 
+    // Counterpart to `gather` for sources that aren't a flat `Field*` -- e.g. a polynomial's `operator[]`,
+    // which handles virtual-zero and start-index translation. lane L is set to value_at(L).
+    template <typename Fn> static VectorField from_lanes(const Fn& value_at) noexcept
+    {
+        std::array<Field, SIZE> lanes;
+        for (size_t lane = 0; lane < SIZE; ++lane) {
+            lanes[lane] = value_at(lane);
+        }
+        return VectorField(lanes);
+    }
+
     // SLOW PATH — see gather. Writes base[idx[L] - offset] = this->get(L) for L in 0..4.
     void scatter(Field* base, std::array<size_t, 5> idx, size_t offset = 0) const noexcept
     {
