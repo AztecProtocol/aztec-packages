@@ -35,3 +35,19 @@ templates:
       *Grafana overview:*
       {{ .ExternalURL }}d/bexge5lz3e51cd/p2p-bootnodes?orgId=1&var-network={{ if gt (len .Alerts) 0 }}{{ with (index (index .Alerts 0).Labels "network") }}{{ urlquery . }}{{ else }}unknown{{ end }}{{ else }}{{ with (index .CommonLabels "network") }}{{ urlquery . }}{{ else }}unknown{{ end }}{{ end }}
       {{- end }}
+
+
+      {{ define "aztec.slack.by_eth_chain" -}}
+      {{ if gt (len .Alerts) 0 }}
+      *Alerts:*
+      {{ range .Alerts }}
+      - {{ with (index .Labels "eth_chain") }}{{ . }}{{ else }}unknown-chain{{ end }}: {{ with (index .Annotations "summary") }}{{ . }}{{ else }}(no summary){{ end }}
+      {{ end }}
+      {{ else }}
+      *Alerts:*
+      - {{ with (index .CommonAnnotations "summary") }}{{ . }}{{ else }}(no summary){{ end }}
+      {{ end }}
+
+      *Grafana L1 nodes:*
+      {{ .ExternalURL }}d/l1-ethereum-nodes/ethereum-l1-nodes?orgId=1&refresh=30s&var-data_source=default&var-eth_chain={{ if gt (len .Alerts) 0 }}{{ with (index (index .Alerts 0).Labels "eth_chain") }}{{ urlquery . }}{{ else }}unknown{{ end }}{{ else }}{{ with (index .CommonLabels "eth_chain") }}{{ urlquery . }}{{ else }}unknown{{ end }}{{ end }}
+      {{- end }}
