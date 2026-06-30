@@ -23,7 +23,12 @@ global NON_INTERACTIVE_HANDSHAKE: u8 = 1;
 /// used
 /// for [validation][`HandshakeRegistry::validate_handshake`].
 ///
-/// Currently only implements the non-interactive flow (see [`HandshakeRegistry::non_interactive_handshake`]).
+/// # Privacy
+/// The siloing described above means reading handshakes never compromises message secrecy: a reader only ever
+/// derives secrets siloed to its own address. Handshake metadata is weaker, though; see
+/// [`HandshakeRegistry::non_interactive_handshake`] for privacy details.
+///
+/// Only non-interactive handshakes are currently implemented.
 #[aztec(::aztec::macros::AztecConfig::new().custom_sync_state(crate::handshake_registry_sync))]
 pub contract HandshakeRegistry {
     use crate::{handshake_note::HandshakeNote, NON_INTERACTIVE_HANDSHAKE, sync::get_all_handshakes};
@@ -68,6 +73,15 @@ pub contract HandshakeRegistry {
     /// 3. Returns the app-siloed handshake secrets for `msg_sender()`, allowing the caller to fold "handshake + first
     ///    tag" into one call without a second hop into the registry. The sender-only secret derives from a fresh
     ///    random secret (retained in the note), so the recipient, who only sees `eph_pk`, cannot reconstruct it.
+    ///
+    /// # Privacy
+    /// Non-interactive handshakes are announced via a bootstrap log under a tag derived from the recipient address.
+    /// Their existence, count, and timing are observable by anyone who knows that address. See
+    /// [`HandshakeRegistry::get_handshakes`] for the discovery read's privacy notes. The raw shared-secret point
+    /// remains protected: callers only receive secrets siloed to their own address.
+    ///
+    /// Interactive handshakes can avoid this recipient-keyed bootstrap leakage, but require recipient
+    /// cooperation before the sender can create the shared secret.
     ///
     /// # Panics
     /// If `recipient` is not a valid curve point. There are no upstream side effects in this call frame to
@@ -151,6 +165,11 @@ pub contract HandshakeRegistry {
     /// Returns a page of discovered handshakes addressed to `recipient`.
     ///
     /// `total_count` is the full list length, so callers can determine whether more pages remain.
+    ///
+    /// # Privacy
+    /// Returns the decrypted discovery payload (`eph_pk`, `mode`) to any caller that knows `recipient` and has it in
+    /// scope. `mode` narrows the category of apps the recipient uses; `eph_pk` does not weaken secrecy. See the
+    /// contract's privacy notes above for the full model.
     #[external("utility")]
     unconstrained fn get_handshakes(recipient: AztecAddress, page_offset: u32) -> HandshakePage {
         let handshakes = get_all_handshakes(self.context.this_address(), recipient);
