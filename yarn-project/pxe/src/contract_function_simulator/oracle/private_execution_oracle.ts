@@ -29,6 +29,7 @@ import {
   type TxContext,
 } from '@aztec/stdlib/tx';
 
+import type { ResolveCustomRequest } from '../../hooks/resolve_custom_request.js';
 import type {
   ResolveTaggingSecretStrategy,
   TaggingSecretStrategy,
@@ -185,6 +186,19 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
    */
   public getSenderForTags(): Promise<Option<AztecAddress>> {
     return Promise.resolve(this.defaultSenderForTags ? Option.some(this.defaultSenderForTags) : Option.none());
+  }
+
+  /**
+   * Resolves a custom, caller-defined request via the {@link ResolveCustomRequest} hook, which produces the response
+   * however it needs to. Throws when no hook is configured, since the request cannot be served.
+   */
+  public async resolveCustomRequest(kind: Fr, payload: Fr[]): Promise<Fr[]> {
+    const hook: ResolveCustomRequest | undefined = this.hooks?.resolveCustomRequest;
+    if (!hook) {
+      throw new Error('Cannot serve a request: no resolveCustomRequest hook is configured');
+    }
+    const { currentContractClassId } = await this.getContractInstance(this.contractAddress);
+    return hook({ contractAddress: this.contractAddress, contractClassId: currentContractClassId, kind, payload });
   }
 
   /**
