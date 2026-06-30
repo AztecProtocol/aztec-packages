@@ -181,9 +181,8 @@ describe('PXE storage compatibility test suite', () => {
       const currentStore = await createStore('pxe_data', PXE_DATA_SCHEMA_VERSION, config);
       try {
         const keyStore = new KeyStore(currentStore);
-        if (await keyStore.hasAccount(account)) {
-          await keyStore.getMasterMessageSigningPublicKey(account);
-        }
+        // A schema-9 row only has ivsk_m and cannot supply the now-required derived message-signing/fallback keys,
+        // so opening under the current schema must reset it.
         await expect(keyStore.hasAccount(account)).resolves.toBe(false);
       } finally {
         await currentStore.close();

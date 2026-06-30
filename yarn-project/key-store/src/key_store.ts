@@ -1,5 +1,3 @@
-import { DomainSeparator } from '@aztec/constants';
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar, Point } from '@aztec/foundation/curves/grumpkin';
 import { toArray } from '@aztec/foundation/iterable';
@@ -11,7 +9,6 @@ import { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import {
   KEY_PREFIXES,
   type KeyPrefix,
-  type PublicKey,
   computeAppSecretKey,
   deriveKeys,
   derivePublicKeyFromSecretKey,
@@ -111,7 +108,7 @@ export class KeyStore {
    * @returns A Promise that resolves to an array of account addresses.
    */
   public async getAccounts(): Promise<AztecAddress[]> {
-    const allMapKeys = await toArray(this.#keys.keysAsync());
+    const allMapKeys = await this.#db.transactionAsync(() => toArray(this.#keys.keysAsync()));
     // We return account addresses based on the map keys that end with '-ivsk_m'
     const accounts = allMapKeys.filter(key => key.endsWith('-ivsk_m')).map(key => key.split('-')[0]);
     return accounts.map(account => AztecAddress.fromStringUnsafe(account));
@@ -119,7 +116,7 @@ export class KeyStore {
 
   /** Checks whether an account is registered in the key store. */
   public async hasAccount(account: AztecAddress): Promise<boolean> {
-    return !!(await this.#keys.getAsync(`${account.toString()}-ivsk_m`));
+    return !!(await this.#db.transactionAsync(() => this.#keys.getAsync(`${account.toString()}-ivsk_m`)));
   }
 
   /**
@@ -174,91 +171,11 @@ export class KeyStore {
   }
 
   /**
-   * Gets the master nullifier public key for a given account.
-   * @throws If the account does not exist in the key store.
-   */
-  public async getMasterNullifierPublicKey(account: AztecAddress): Promise<PublicKey> {
-    return Point.fromBuffer(await this.#getMasterKeyBuffer(account, 'npk_m'));
-  }
-
-  /**
-   * Gets the master incoming viewing public key for a given account.
-   * @throws If the account does not exist in the key store.
-   */
-  public async getMasterIncomingViewingPublicKey(account: AztecAddress): Promise<PublicKey> {
-    return Point.fromBuffer(await this.#getMasterKeyBuffer(account, 'ivpk_m'));
-  }
-
-  /**
-   * Retrieves the master outgoing viewing public key.
-   * @throws If the account does not exist in the key store.
-   */
-  public async getMasterOutgoingViewingPublicKey(account: AztecAddress): Promise<PublicKey> {
-    return Point.fromBuffer(await this.#getMasterKeyBuffer(account, 'ovpk_m'));
-  }
-
-  /**
-   * Retrieves the master tagging public key.
-   * @throws If the account does not exist in the key store.
-   */
-  public async getMasterTaggingPublicKey(account: AztecAddress): Promise<PublicKey> {
-    return Point.fromBuffer(await this.#getMasterKeyBuffer(account, 'tpk_m'));
-  }
-
-  /**
-   * Retrieves the master message-signing public key.
-   * @throws If the account does not exist in the key store.
-   */
-  public async getMasterMessageSigningPublicKey(account: AztecAddress): Promise<PublicKey> {
-    return Point.fromBuffer(await this.#getMasterKeyBuffer(account, 'mspk_m'));
-  }
-
-  /**
-   * Retrieves the master fallback public key.
-   * @throws If the account does not exist in the key store.
-   */
-  public async getMasterFallbackPublicKey(account: AztecAddress): Promise<PublicKey> {
-    return Point.fromBuffer(await this.#getMasterKeyBuffer(account, 'fbpk_m'));
-  }
-
-  /**
-   * Retrieves the master message-signing secret key.
-   * @throws If the account does not exist in the key store.
-   */
-  public async getMasterMessageSigningSecretKey(account: AztecAddress): Promise<GrumpkinScalar> {
-    return GrumpkinScalar.fromBuffer(await this.#getMasterKeyBuffer(account, 'mssk_m'));
-  }
-
-  /**
-   * Retrieves the master fallback secret key.
-   * @throws If the account does not exist in the key store.
-   */
-  public async getMasterFallbackSecretKey(account: AztecAddress): Promise<GrumpkinScalar> {
-    return GrumpkinScalar.fromBuffer(await this.#getMasterKeyBuffer(account, 'fbsk_m'));
-  }
-
-  /**
    * Retrieves master incoming viewing secret key.
    * @throws If the account does not exist in the key store.
    */
   public async getMasterIncomingViewingSecretKey(account: AztecAddress): Promise<GrumpkinScalar> {
     return GrumpkinScalar.fromBuffer(await this.#getMasterKeyBuffer(account, 'ivsk_m'));
-  }
-
-  /**
-   * Retrieves application outgoing viewing secret key.
-   * @throws If the account does not exist in the key store.
-   * @param account - The account to retrieve the application outgoing viewing secret key for.
-   * @param app - The application address to retrieve the outgoing viewing secret key for.
-   * @returns A Promise that resolves to the application outgoing viewing secret key.
-   */
-  public async getAppOutgoingViewingSecretKey(account: AztecAddress, app: AztecAddress): Promise<Fr> {
-    const masterOutgoingViewingSecretKey = GrumpkinScalar.fromBuffer(await this.#getMasterKeyBuffer(account, 'ovsk_m'));
-
-    return poseidon2HashWithSeparator(
-      [masterOutgoingViewingSecretKey.hi, masterOutgoingViewingSecretKey.lo, app],
-      DomainSeparator.OVSK_M,
-    );
   }
 
   /**
@@ -345,7 +262,11 @@ export class KeyStore {
    * @throws If the account does not exist in the key store.
    */
   async #getMasterKeyBuffer(account: AztecAddress, suffix: string): Promise<Buffer> {
-    const buffer = await this.#keys.getAsync(`${account.toString()}-${suffix}`);
+    // The read is wrapped in its own transaction so it serializes on the store's queue and never reads a
+    // sub-store transaction that another flow left auto-committing at a task boundary. The not-found error
+    // path calls getAccounts() (its own transaction) only after this one has settled — wrapping it here would
+    // nest transactions and deadlock on the IndexedDB backend, which has no nested-transaction support.
+    const buffer = await this.#db.transactionAsync(() => this.#keys.getAsync(`${account.toString()}-${suffix}`));
     if (!buffer) {
       throw new Error(
         `Account ${account.toString()} does not exist. Registered accounts: ${await this.getAccounts()}.`,
