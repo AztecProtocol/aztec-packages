@@ -119,6 +119,7 @@ describe('prover-node', () => {
       txGatheringTimeoutMs: 1000,
       proverNodeEpochProvingDelayMs: undefined,
       proverNodeDisableProofPublish: false,
+      proofSubmissionTargetAddress: undefined,
     };
 
     // World state returns a new mock db every time it is asked to fork
