@@ -27,10 +27,24 @@ function test_cmds {
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
   local prefix="$hash:ISOLATE=1:TIMEOUT=20m"
 
+  # prover/full has its own dedicated lines below and is excluded from the generic globs. The rest of
+  # prover/ (currently just client) mirrors full: real Barretenberg under CI_FULL with the heavy
+  # 16-CPU/96g budget, fake proofs otherwise. The REAL_PROOFS = !FAKE_PROOFS toggle in the test means
+  # omitting FAKE_PROOFS selects real proving, which is why the real variant needs full_real's budget.
   if [ "$CI_FULL" -eq 1 ]; then
     echo "$prefix:TIMEOUT=20m:CPUS=16:MEM=96g:NAME=e2e_prover_full_real $run_test_script simple single-node/prover/full"
+    for test in src/single-node/prover/!(full).test.ts; do
+      local name=${test#src/}
+      name=${name%.test.ts}
+      echo "$prefix:TIMEOUT=20m:CPUS=16:MEM=96g:NAME=${name}_real $run_test_script simple ${test#src/}"
+    done
   else
     echo "$prefix:NAME=e2e_prover_full_fake FAKE_PROOFS=1 $run_test_script simple single-node/prover/full"
+    for test in src/single-node/prover/!(full).test.ts; do
+      local name=${test#src/}
+      name=${name%.test.ts}
+      echo "$prefix:NAME=${name}_fake FAKE_PROOFS=1 $run_test_script simple ${test#src/}"
+    done
   fi
   echo "$prefix:TIMEOUT=30m:NAME=automine/simulation/avm_simulator $(set_dump_avm e2e_avm_simulator) $run_test_script simple src/automine/simulation/avm_simulator.test.ts"
 
