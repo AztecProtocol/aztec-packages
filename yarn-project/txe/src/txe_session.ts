@@ -401,7 +401,9 @@ export class TXESession implements TXESessionStateHandler {
     try {
       // Oracles retired into the PXE legacy registry have no translator method; dispatch them through the same
       // buildACIRCallback legacy path that contract execution uses, keeping TXE's two oracle paths in sync.
-      if (functionName in LEGACY_ORACLE_REGISTRY) {
+      // Use an own-property check: `in` would match inherited `Object.prototype` keys (e.g. `constructor`), routing
+      // them into the legacy path instead of letting them fall through to the unknown-oracle error.
+      if (Object.hasOwn(LEGACY_ORACLE_REGISTRY, functionName)) {
         return callTxeLegacyHandler(
           functionName,
           inputs,

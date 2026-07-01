@@ -80,7 +80,9 @@ function parseOracleName(key: string, label: string): { scope: string; methodNam
 function makeUnknownOracleTrap(handler: OracleHandler): ProxyHandler<ACIRCallback> {
   return {
     get(obj, prop: string) {
-      if (prop in obj) {
+      // Own-property check only: `in` would match inherited `Object.prototype` keys (e.g. `constructor`, `toString`)
+      // and return the built-in instead of falling through to the unknown-oracle diagnostic below.
+      if (Object.hasOwn(obj, prop)) {
         return (obj as Record<string, unknown>)[prop];
       }
 
