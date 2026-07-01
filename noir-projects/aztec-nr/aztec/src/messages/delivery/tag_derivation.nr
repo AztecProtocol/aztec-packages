@@ -13,9 +13,9 @@ global ADDRESS_DERIVED: u8 = 2;
 ///
 /// Selected through the on-chain delivery builder's `via_*` methods. On-chain delivery tags every message from a
 /// secret shared between the sender and the recipient, and there is
-/// [more than one way][`crate::messages::delivery::ResolvedTaggingStrategy`] to establish it. By default the tag
-/// reuses an already-registered handshake for the pair and otherwise falls back to the wallet-resolved strategy.
-/// Selecting a derivation instead lets the contract fix it, and its choice is honored over that default.
+/// [more than one way][`crate::messages::delivery::ResolvedTaggingStrategy`] to establish it.
+/// Selecting a derivation instead lets the contract fix it, and its choice is honored over the wallet-resolved
+/// strategy.
 #[derive(Eq)]
 pub(crate) struct TagDerivation {
     kind: u8,
@@ -23,15 +23,12 @@ pub(crate) struct TagDerivation {
 
 impl TagDerivation {
     /// Reuses an existing non-interactive handshake for the pair, creating a fresh one only when none exists.
-    ///
-    /// Unlike the default (which asks the wallet how to reach the recipient, and may pick an address-derived
-    /// secret), this always resolves to a non-interactive handshake.
     pub(crate) fn non_interactive_handshake() -> Self {
         Self { kind: NON_INTERACTIVE_HANDSHAKE }
     }
 
     /// Derives the tag from the address-derived secret for the `(sender, recipient)` pair (a Diffie-Hellman exchange
-    /// between their addresses). Leaves no on-chain trace and never consults the handshake registry.
+    /// between their addresses).
     pub(crate) fn address_derived() -> Self {
         Self { kind: ADDRESS_DERIVED }
     }
@@ -91,11 +88,11 @@ mod test {
         let env = TestEnvironment::new();
         let secret: Field = 7;
 
-        env.private_context(|context| {
+        env.private_context(|_context| {
             let _ = OracleMock::mock("aztec_prv_getAppTaggingSecret").returns(Option::some(secret));
 
             let source = TagDerivation::address_derived().into_tag_secret_source(SENDER, RECIPIENT);
-            assert_eq(source.obtain_secrets(context, SENDER, RECIPIENT).shared, secret);
+            assert_eq(source, TagSecretSource::unconstrained_secret(secret));
         });
     }
 
@@ -104,12 +101,12 @@ mod test {
         let env = TestEnvironment::new();
         let random_secret: Field = 999;
 
-        env.private_context(|context| {
+        env.private_context(|_context| {
             let _ = OracleMock::mock("aztec_prv_getAppTaggingSecret").returns(Option::<Field>::none());
             let _ = OracleMock::mock("aztec_misc_getRandomField").returns(random_secret);
 
             let source = TagDerivation::address_derived().into_tag_secret_source(SENDER, RECIPIENT);
-            assert_eq(source.obtain_secrets(context, SENDER, RECIPIENT).shared, random_secret);
+            assert_eq(source, TagSecretSource::unconstrained_secret(random_secret));
         });
     }
 

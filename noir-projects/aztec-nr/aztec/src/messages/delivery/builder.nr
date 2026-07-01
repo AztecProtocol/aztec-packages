@@ -217,10 +217,10 @@ impl MessageDeliveryBuilder for OffchainDelivery {
 
 /// On-chain unconstrained delivery. Returned by [`MessageDelivery::onchain_unconstrained`].
 ///
-/// By default (when no `via_*` method is called) the tag reuses a handshake already registered for the pair, and
+/// By default the tag reuses a handshake already registered for the pair, and
 /// otherwise falls back to the wallet-resolved [tagging secret
-/// strategy][`crate::messages::delivery::ResolvedTaggingStrategy`]. The `via_*` methods let the contract fix the
-/// derivation instead, and its choice is honored over this default.
+/// strategy][`crate::messages::delivery::ResolvedTaggingStrategy`]. The contract can also fix the
+/// derivation, and its choice is honored over this default.
 pub struct OnchainUnconstrainedDelivery {
     sender_override: Option<AztecAddress>,
     tag_derivation: Option<TagDerivation>,
@@ -289,10 +289,9 @@ impl From<OnchainUnconstrainedDelivery> for OnchainDeliveryMode {
 
 /// On-chain constrained delivery. Returned by [`MessageDelivery::onchain_constrained`].
 ///
-/// By default (when `via_non_interactive_handshake` is not called) the tag reuses a handshake already registered for
-/// the pair, and otherwise falls back to the wallet-resolved [tagging secret
-/// strategy][`crate::messages::delivery::ResolvedTaggingStrategy`]. Constrained delivery only supports
-/// handshake-backed derivations, so it exposes just that one `via_*` selector.
+/// By default the tag reuses a handshake already registered for the pair, and otherwise falls back to the
+/// wallet-resolved [tagging secret strategy][`crate::messages::delivery::ResolvedTaggingStrategy`]. Constrained
+/// delivery only supports handshake-backed derivations.
 pub struct OnchainConstrainedDelivery {
     sender_override: Option<AztecAddress>,
     tag_derivation: Option<TagDerivation>,
@@ -320,8 +319,7 @@ impl OnchainConstrainedDelivery {
     /// Derives the discovery tag from a non-interactive handshake for the pair, reusing an existing one and creating a
     /// fresh one only when none exists. Overrides the wallet's default resolution.
     ///
-    /// Constrained delivery only supports handshake-backed derivations; the address-derived and arbitrary secrets are
-    /// unconstrained-only, so they live on [`OnchainUnconstrainedDelivery`] instead.
+    /// Constrained delivery only supports constrained secrets (e.g., handshake-registry backed derivations)
     pub fn via_non_interactive_handshake(&mut self) -> Self {
         self.tag_derivation = Option::some(TagDerivation::non_interactive_handshake());
         *self
@@ -393,13 +391,10 @@ mod test {
     }
 
     #[test]
-    fn onchain_deliveries_default_to_no_tag_derivation() {
+    fn tag_derivation_defaults_to_none_and_via_methods_populate_it() {
         assert(MessageDelivery::onchain_unconstrained().build_message_delivery().tag_derivation().is_none());
         assert(MessageDelivery::onchain_constrained().build_message_delivery().tag_derivation().is_none());
-    }
 
-    #[test]
-    fn via_methods_populate_the_tag_derivation() {
         let unconstrained_delivery =
             MessageDelivery::onchain_unconstrained().via_address_derived_secret().build_message_delivery();
         assert_eq(unconstrained_delivery.tag_derivation(), Option::some(TagDerivation::address_derived()));
