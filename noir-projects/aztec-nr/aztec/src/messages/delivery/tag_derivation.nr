@@ -61,8 +61,7 @@ impl TagDerivation {
 }
 
 /// Resolves to the secrets of a non-interactive handshake already registered for `(sender, recipient)`, or to
-/// `fallback()` when none exists yet. Shared by the wallet-resolved default (`default_tag_secret_source`) and the
-/// [`TagDerivation::non_interactive_handshake`] override, which only differ in what backs the tag otherwise.
+/// `fallback()` when none exists yet.
 pub(crate) fn existing_handshake_secrets_or_else<Env>(
     sender: AztecAddress,
     recipient: AztecAddress,
