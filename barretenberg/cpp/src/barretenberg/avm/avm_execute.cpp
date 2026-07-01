@@ -11,7 +11,7 @@
 namespace bb::avm {
 
 using namespace bb::avm2;
-using namespace bb::world_state;
+using bb::crypto::merkle_tree::WorldStateRevision;
 
 // Cancellation for the single in-flight simulation. bb-avm-sim runs exactly one
 // simulation at a time; the SIGUSR1 handler (which may run on any thread) cancels

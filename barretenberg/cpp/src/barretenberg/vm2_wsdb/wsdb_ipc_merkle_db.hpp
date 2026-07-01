@@ -7,9 +7,9 @@
  * each LowLevelMerkleDBInterface call into the corresponding WSDB IPC command.
  */
 
+#include "barretenberg/crypto/merkle_tree/merkle_tree_id.hpp"
 #include "barretenberg/vm2/simulation/interfaces/db.hpp"
-#include "barretenberg/world_state/types.hpp"
-#include "barretenberg/wsdb/wsdb_ipc_client.hpp"
+#include "barretenberg/vm2_wsdb/wsdb_ipc_client.hpp"
 
 #include <optional>
 #include <stack>
@@ -23,7 +23,7 @@ class WsdbIpcMerkleDB final : public avm2::simulation::LowLevelMerkleDBInterface
      * @param client Reference to a connected WsdbIpcClient.
      * @param revision The world state revision (includes forkId) to use for queries.
      */
-    WsdbIpcMerkleDB(wsdb::WsdbIpcClient& client, world_state::WorldStateRevision revision);
+    WsdbIpcMerkleDB(wsdb::WsdbIpcClient& client, crypto::merkle_tree::WorldStateRevision revision);
 
     avm2::TreeSnapshots get_tree_roots() const override;
 
@@ -58,7 +58,7 @@ class WsdbIpcMerkleDB final : public avm2::simulation::LowLevelMerkleDBInterface
     void invalidate_tree_roots_cache();
 
     wsdb::WsdbIpcClient& client_;
-    world_state::WorldStateRevision revision_;
+    crypto::merkle_tree::WorldStateRevision revision_;
     std::stack<uint32_t> checkpoint_stack_{ { 0 } };
     /** Cached tree roots — avoids 5 IPC round trips per get_tree_roots() call. */
     mutable std::optional<avm2::TreeSnapshots> cached_tree_roots_;

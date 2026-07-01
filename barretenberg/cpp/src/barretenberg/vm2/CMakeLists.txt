@@ -53,10 +53,8 @@ if(AVM)
   # vm2_tests needs dsl for integration testing, but this creates circular dependency:
   # vm2 provides functions that dsl calls, but tests need dsl functions.
   # Solution: Link dsl, then vm2 again to resolve the circular reference.
-  # world_state is a test-only dependency: memory_merkle_db.test.cpp checks MemoryMerkleDB against a
-  # real WorldState, but vm2 itself no longer depends on world_state.
   if(NOT WASM AND NOT FUZZING)
-      target_link_libraries(vm2_tests PRIVATE dsl vm2 world_state)
+      target_link_libraries(vm2_tests PRIVATE dsl vm2)
   endif()
 
   if(FUZZING)

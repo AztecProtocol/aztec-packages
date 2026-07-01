@@ -47,7 +47,7 @@ endef
 # PHONY TARGETS - List every target that has a file/dir of the same name.
 #==============================================================================
 
-.PHONY: noir barretenberg noir-projects l1-contracts release-image boxes playground docs aztec-up spartan wsdb bb-avm-sim
+.PHONY: noir barretenberg noir-projects l1-contracts release-image boxes playground docs aztec-up spartan lmdblib kvdb wsdb bb-avm-sim
 
 #==============================================================================
 # BOOTSTRAP TARGETS
@@ -321,11 +321,20 @@ ipc-runtime-cross-arm64-macos:
 ipc-runtime-cross: ipc-runtime ipc-runtime-cross-arm64-linux ipc-runtime-cross-amd64-macos ipc-runtime-cross-arm64-macos
 
 #==============================================================================
-# WSDB
+# Native packages (lmdblib, kvdb, wsdb)
 #==============================================================================
 
-wsdb: ipc-codegen ipc-runtime bb-cpp-native
-	$(call build,$@,wsdb)
+# lmdblib and kvdb are barretenberg-free: they build against their own deps
+# (lmdb, msgpack-c, node-addon-api) only, never bb.
+.PHONY: lmdblib kvdb
+lmdblib:
+	$(call build,$@,native-packages/lmdblib)
+
+kvdb: lmdblib
+	$(call build,$@,native-packages/kvdb)
+
+wsdb: ipc-codegen ipc-runtime bb-cpp-native lmdblib
+	$(call build,$@,native-packages/wsdb)
 
 #==============================================================================
 # .claude tooling
@@ -402,7 +411,7 @@ l1-contracts-tests: l1-contracts-verifier
 # Yarn Project - TypeScript monorepo with all TS packages
 #==============================================================================
 
-yarn-project: bb-ts noir-projects l1-contracts wsdb bb-avm-sim
+yarn-project: bb-ts noir-projects l1-contracts wsdb kvdb bb-avm-sim
 	$(call build,$@,yarn-project)
 
 yarn-project-tests: yarn-project

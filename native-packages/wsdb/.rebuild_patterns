@@ -1,0 +1,8 @@
+^native-packages/wsdb/bootstrap\.sh$
+^native-packages/wsdb/package\.json$
+^native-packages/wsdb/\.rebuild_patterns$
+^native-packages/wsdb/wsdb_schema\.jsonc$
+^native-packages/wsdb/cpp/
+^native-packages/lmdblib/
+^ipc-codegen/src/.*\.ts$
+^ipc-codegen/templates/

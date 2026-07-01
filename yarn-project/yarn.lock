@@ -1567,6 +1567,55 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@aztec/kvdb-darwin-arm64@portal:../native-packages/kvdb/ts/packages/kvdb-darwin-arm64::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/kvdb-darwin-arm64@portal:../native-packages/kvdb/ts/packages/kvdb-darwin-arm64::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  conditions: os=darwin & cpu=arm64
+  languageName: node
+  linkType: soft
+
+"@aztec/kvdb-darwin-x64@portal:../native-packages/kvdb/ts/packages/kvdb-darwin-x64::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/kvdb-darwin-x64@portal:../native-packages/kvdb/ts/packages/kvdb-darwin-x64::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  conditions: os=darwin & cpu=x64
+  languageName: node
+  linkType: soft
+
+"@aztec/kvdb-linux-arm64@portal:../native-packages/kvdb/ts/packages/kvdb-linux-arm64::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/kvdb-linux-arm64@portal:../native-packages/kvdb/ts/packages/kvdb-linux-arm64::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  conditions: os=linux & cpu=arm64
+  languageName: node
+  linkType: soft
+
+"@aztec/kvdb-linux-x64@portal:../native-packages/kvdb/ts/packages/kvdb-linux-x64::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/kvdb-linux-x64@portal:../native-packages/kvdb/ts/packages/kvdb-linux-x64::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  conditions: os=linux & cpu=x64
+  languageName: node
+  linkType: soft
+
+"@aztec/kvdb@portal:../native-packages/kvdb/ts::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/kvdb@portal:../native-packages/kvdb/ts::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  dependencies:
+    "@aztec/kvdb-darwin-arm64": "npm:0.1.0"
+    "@aztec/kvdb-darwin-x64": "npm:0.1.0"
+    "@aztec/kvdb-linux-arm64": "npm:0.1.0"
+    "@aztec/kvdb-linux-x64": "npm:0.1.0"
+    tslib: "npm:^2.4.0"
+  dependenciesMeta:
+    "@aztec/kvdb-darwin-arm64":
+      optional: true
+    "@aztec/kvdb-darwin-x64":
+      optional: true
+    "@aztec/kvdb-linux-arm64":
+      optional: true
+    "@aztec/kvdb-linux-x64":
+      optional: true
+  languageName: node
+  linkType: soft
+
 "@aztec/l1-artifacts@portal:../../l1-contracts/l1-artifacts::locator=%40aztec%2Farchiver%40workspace%3Aarchiver":
   version: 0.0.0-use.local
   resolution: "@aztec/l1-artifacts@portal:../../l1-contracts/l1-artifacts::locator=%40aztec%2Farchiver%40workspace%3Aarchiver"
@@ -1677,6 +1726,7 @@ __metadata:
   dependencies:
     "@aztec/bb.js": "workspace:^"
     "@aztec/foundation": "workspace:^"
+    "@aztec/kvdb": "npm:0.1.0"
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
@@ -2503,37 +2553,37 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/wsdb-darwin-arm64@portal:../wsdb/ts/packages/wsdb-darwin-arm64::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+"@aztec/wsdb-darwin-arm64@portal:../native-packages/wsdb/ts/packages/wsdb-darwin-arm64::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@aztec/wsdb-darwin-arm64@portal:../wsdb/ts/packages/wsdb-darwin-arm64::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  resolution: "@aztec/wsdb-darwin-arm64@portal:../native-packages/wsdb/ts/packages/wsdb-darwin-arm64::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   conditions: os=darwin & cpu=arm64
   languageName: node
   linkType: soft
 
-"@aztec/wsdb-darwin-x64@portal:../wsdb/ts/packages/wsdb-darwin-x64::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+"@aztec/wsdb-darwin-x64@portal:../native-packages/wsdb/ts/packages/wsdb-darwin-x64::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@aztec/wsdb-darwin-x64@portal:../wsdb/ts/packages/wsdb-darwin-x64::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  resolution: "@aztec/wsdb-darwin-x64@portal:../native-packages/wsdb/ts/packages/wsdb-darwin-x64::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   conditions: os=darwin & cpu=x64
   languageName: node
   linkType: soft
 
-"@aztec/wsdb-linux-arm64@portal:../wsdb/ts/packages/wsdb-linux-arm64::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+"@aztec/wsdb-linux-arm64@portal:../native-packages/wsdb/ts/packages/wsdb-linux-arm64::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@aztec/wsdb-linux-arm64@portal:../wsdb/ts/packages/wsdb-linux-arm64::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  resolution: "@aztec/wsdb-linux-arm64@portal:../native-packages/wsdb/ts/packages/wsdb-linux-arm64::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   conditions: os=linux & cpu=arm64
   languageName: node
   linkType: soft
 
-"@aztec/wsdb-linux-x64@portal:../wsdb/ts/packages/wsdb-linux-x64::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+"@aztec/wsdb-linux-x64@portal:../native-packages/wsdb/ts/packages/wsdb-linux-x64::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@aztec/wsdb-linux-x64@portal:../wsdb/ts/packages/wsdb-linux-x64::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  resolution: "@aztec/wsdb-linux-x64@portal:../native-packages/wsdb/ts/packages/wsdb-linux-x64::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   conditions: os=linux & cpu=x64
   languageName: node
   linkType: soft
 
-"@aztec/wsdb@portal:../wsdb/ts::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+"@aztec/wsdb@portal:../native-packages/wsdb/ts::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
   version: 0.0.0-use.local
-  resolution: "@aztec/wsdb@portal:../wsdb/ts::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  resolution: "@aztec/wsdb@portal:../native-packages/wsdb/ts::locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
     "@aztec/ipc-runtime": "@aztec/ipc-runtime"
     "@aztec/wsdb-darwin-arm64": "npm:0.1.0"

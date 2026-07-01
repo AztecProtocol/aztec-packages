@@ -1,7 +1,7 @@
 #include "barretenberg/vm2_wsdb/wsdb_ipc_merkle_db.hpp"
 #include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/common/log.hpp"
-#include "barretenberg/wsdb/wsdb_wire_convert.hpp"
+#include "barretenberg/vm2_wsdb/wsdb_wire_convert_client.hpp"
 
 #include <cstring>
 
@@ -26,7 +26,7 @@ using bb::wsdb::tree_id_to_wire;
 // Constructor
 // ---------------------------------------------------------------------------
 
-WsdbIpcMerkleDB::WsdbIpcMerkleDB(wsdb::WsdbIpcClient& client, world_state::WorldStateRevision revision)
+WsdbIpcMerkleDB::WsdbIpcMerkleDB(wsdb::WsdbIpcClient& client, crypto::merkle_tree::WorldStateRevision revision)
     : client_(client)
     , revision_(revision)
 {}

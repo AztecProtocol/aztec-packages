@@ -135,13 +135,13 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
 
     uint32_t leaf_index = 27;
     EXPECT_CALL(mock_low_level_merkle_db, get_tree_roots()).WillRepeatedly(Return(trees));
-    EXPECT_CALL(mock_low_level_merkle_db, get_sibling_path(world_state::MerkleTreeId::PUBLIC_DATA_TREE, _))
+    EXPECT_CALL(mock_low_level_merkle_db, get_sibling_path(crypto::merkle_tree::MerkleTreeId::PUBLIC_DATA_TREE, _))
         .WillOnce(Return(fr_sibling_path{ 0 }));
     EXPECT_CALL(mock_low_level_merkle_db, get_leaf_preimage_public_data_tree(_))
         .WillOnce(Return(PublicDataTreeLeafPreimage(PublicDataLeafValue(1, 0), 0, 0)));
-    EXPECT_CALL(
-        mock_low_level_merkle_db,
-        get_low_indexed_leaf(world_state::MerkleTreeId::PUBLIC_DATA_TREE, delayed_public_mutable_hash_leaf_slot))
+    EXPECT_CALL(mock_low_level_merkle_db,
+                get_low_indexed_leaf(crypto::merkle_tree::MerkleTreeId::PUBLIC_DATA_TREE,
+                                     delayed_public_mutable_hash_leaf_slot))
         .WillOnce(Return(GetLowIndexedLeafResponse(false, leaf_index)));
 
     EXPECT_CALL(mock_field_gt, ff_gt(_, _)).WillRepeatedly(Return(true));
@@ -239,7 +239,7 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
     }
 
     EXPECT_CALL(mock_low_level_merkle_db, get_tree_roots()).WillRepeatedly(Return(trees));
-    EXPECT_CALL(mock_low_level_merkle_db, get_sibling_path(world_state::MerkleTreeId::PUBLIC_DATA_TREE, _))
+    EXPECT_CALL(mock_low_level_merkle_db, get_sibling_path(crypto::merkle_tree::MerkleTreeId::PUBLIC_DATA_TREE, _))
         .WillOnce(Return(fr_sibling_path{ 0 }));
     EXPECT_CALL(mock_low_level_merkle_db, get_leaf_preimage_public_data_tree(_))
         .WillRepeatedly([&](const uint64_t& index) {
@@ -247,8 +247,8 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
                 PublicDataLeafValue(update_leaf_slots[index], update_leaf_values[index]), 0, 0);
         });
 
-    EXPECT_CALL(mock_low_level_merkle_db, get_low_indexed_leaf(world_state::MerkleTreeId::PUBLIC_DATA_TREE, _))
-        .WillRepeatedly([&](world_state::MerkleTreeId, const FF& leaf_slot) {
+    EXPECT_CALL(mock_low_level_merkle_db, get_low_indexed_leaf(crypto::merkle_tree::MerkleTreeId::PUBLIC_DATA_TREE, _))
+        .WillRepeatedly([&](crypto::merkle_tree::MerkleTreeId, const FF& leaf_slot) {
             for (size_t i = 0; i < update_leaf_slots.size(); ++i) {
                 if (leaf_slot == update_leaf_slots[i]) {
                     return GetLowIndexedLeafResponse(true, static_cast<uint64_t>(i));

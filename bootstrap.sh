@@ -307,6 +307,7 @@ function install_hooks {
 #!/usr/bin/env bash
 set -euo pipefail
 (cd barretenberg/cpp && ./format.sh staged)
+(cd native-packages && ./format.sh staged)
 ./yarn-project/precommit.sh
 ./noir/precommit.sh
 ./noir-projects/precommit.sh
@@ -562,7 +563,9 @@ function release {
   projects=(
     barretenberg/cpp
     ipc-runtime
-    wsdb
+    native-packages/lmdblib
+    native-packages/kvdb
+    native-packages/wsdb
     barretenberg/ts
     barretenberg/rust
     noir
