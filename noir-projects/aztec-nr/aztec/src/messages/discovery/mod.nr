@@ -4,6 +4,7 @@ use crate::messages::{
     delivery::handshake::{get_handshake_secrets, PROVIDED_SECRETS_ARRAY_BASE_SLOT},
     processing::provided_secret::ProvidedSecret,
 };
+use crate::partial_notes;
 use crate::protocol::address::AztecAddress;
 
 pub(crate) mod nonce_discovery;
@@ -223,7 +224,7 @@ unconstrained fn sync_state_with_secrets(
 
     // Then we process all pending partial notes, regardless of whether they were found in the current or previous
     // executions.
-    crate::partial_notes::fetch_and_process_partial_note_completion_logs(
+    partial_notes::fetch_and_process_partial_note_completion_logs(
         contract_address,
         compute_note_hash,
         compute_note_nullifier,
