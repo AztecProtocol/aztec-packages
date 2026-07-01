@@ -34,8 +34,6 @@ pub(crate) unconstrained fn process_partial_note_private_msg(
     if decoded.is_some() {
         let (owner, randomness, note_completion_log_tag, note_type_id, packed_private_note_content) = decoded.unwrap();
 
-        // Record the pending partial note as a retractable fact anchored to the delivery block, so PXE prunes it if
-        // that block is reorg'd away. We then search for the public log that completes it on each sync.
         PartialNoteFsm::init(
             contract_address,
             recipient,
@@ -57,12 +55,7 @@ pub(crate) unconstrained fn process_partial_note_private_msg(
     }
 }
 
-/// Drives every active partial-note FSM one sync step forward, delegating all per-note transition logic to
-/// [`PartialNoteFsm::step`]. The orchestrator only loads the FSMs once, batch-fetches the completion logs of the
-/// pending ones (the dominant network cost), and then steps each FSM:
-///
-/// 1. step each pending FSM with its fetched completion logs, so found logs complete their notes;
-/// 2. step every active FSM with no logs, terminating those whose completion block has finalized.
+/// Drives every active partial-note FSM forward.
 pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs(
     contract_address: AztecAddress,
     compute_note_hash: ComputeNoteHash,
@@ -72,20 +65,18 @@ pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs(
     // `load_all` is a relatively expensive oracle round-trip, so we call it once and reuse the result.
     let active_partial_note_fsms = PartialNoteFsm::load_all(contract_address, scope);
 
-    // Fetching completion logs is the dominant cost of contract sync (a node round-trip each) and only pending notes
-    // need them, so we batch that fetch for the pending subset and then drive the FSMs in two passes:
-    //  1. Step each pending FSM with its freshly-fetched completion logs, giving found logs a chance to complete.
+    // Fetching completion logs is the dominant cost of partial note contract sync (a node round-trip each) and only
+    // pending notes need them, so we batch that fetch for the pending subset and then drive the FSMs in two passes:
+    //  1. Step each pending FSM with its freshly-fetched completion logs, giving found logs a chance to complete notes.
     //  2. Step every active FSM with no logs, which is where completed-and-finalized FSMs terminate.
     // Keeping both the completion and termination logic inside `PartialNoteFsm::step` is what lets the orchestrator
-    // stay this small; the price is the two-pass shape that the batched fetch forces on us.
+    // stay this small, the price is the somewhat less elegant two-pass shape that the batched fetch forces on us.
     let pending_partial_note_fsms = active_partial_note_fsms.filter(|fsm: PartialNoteFsm| fsm.is_pending());
     let pending_partial_notes = pending_partial_note_fsms.map(|fsm: PartialNoteFsm| fsm.read_pending());
 
     aztecnr_debug_log_format!("{} pending partial notes")([pending_partial_notes.len() as Field]);
 
     let completion_logs = get_pending_partial_notes_completion_logs(contract_address, pending_partial_notes);
-    // Each completion-logs entry is index-aligned with the pending FSMs.
-    assert_eq(completion_logs.len(), pending_partial_note_fsms.len());
 
     pending_partial_note_fsms.for_each(|i, fsm: PartialNoteFsm| {
         fsm.step(Option::some(completion_logs.get(i)), compute_note_hash, compute_note_nullifier);

@@ -94,7 +94,7 @@ pub(crate) struct PartialNoteFsm {
 }
 
 impl PartialNoteFsm {
-    /// Initializes an FSM for a freshly discovered parital note.
+    /// Initializes an FSM for a freshly discovered partial note.
     ///
     /// The FSM existence is tied to `origin_block`: if `origin_block` is dropped by a reorg, the FSM is transparently
     /// deleted.
@@ -115,7 +115,7 @@ impl PartialNoteFsm {
         );
     }
 
-    /// Loads every active partial-note reception for the given contract and scope.
+    /// Loads every active partial-note FSM for the given contract and scope.
     pub(crate) unconstrained fn load_all(
         contract_address: AztecAddress,
         scope: AztecAddress,
@@ -124,13 +124,12 @@ impl PartialNoteFsm {
             .map(|collection: FactCollection| PartialNoteFsm { collection })
     }
 
-    /// The fact-collection id identifying a partial note: a hash of its delivered content, so duplicate deliveries
-    /// collapse onto a single reception.
+    /// The fact-collection id identifying a specific partial note.
     pub(crate) fn id_for(pending: DeliveredPendingPartialNote) -> Field {
         poseidon2_hash(pending.serialize())
     }
 
-    /// Reads and decodes the delivered partial note this reception carries.
+    /// Reads and decodes the delivered partial note this FSM processes.
     pub(crate) unconstrained fn read_pending(self) -> DeliveredPendingPartialNote {
         let delivered = self.collection.facts.find(|f: Fact| f.fact_type_id == PARTIAL_NOTE_DELIVERED).unwrap();
         let mut fields = [0; <DeliveredPendingPartialNote as Deserialize>::N];
@@ -140,18 +139,18 @@ impl PartialNoteFsm {
         Deserialize::deserialize(fields)
     }
 
-    /// Returns `true` if this reception has a canonical `completed` fact (i.e. its note was discovered and enqueued).
+    /// Whether the partial note FSM is in `completed` state, i.e. its note was discovered and enqueued.
     pub(crate) unconstrained fn is_completed(self) -> bool {
         self.collection.facts.any(|f: Fact| f.fact_type_id == PARTIAL_NOTE_COMPLETED)
     }
 
-    /// Returns `true` if this reception is still pending, i.e. it has no canonical `completed` fact yet.
+    /// Whether the partial note FSM is in `pending` state, i.e. it hasn't been completed yet.
     pub(crate) unconstrained fn is_pending(self) -> bool {
         !self.is_completed()
     }
 
-    /// The `completed` marker's origin (with PXE-injected finality state), if this reception is completed.
-    pub(crate) unconstrained fn completed_origin(self) -> Option<RetractableFactOrigin> {
+    /// The completion-log marker's origin (with PXE-injected finality state), if this reception is completed.
+    unconstrained fn completion_log_origin(self) -> Option<RetractableFactOrigin> {
         let maybe_completed = self.collection.facts.find(|f: Fact| f.fact_type_id == PARTIAL_NOTE_COMPLETED);
         if maybe_completed.is_some() {
             maybe_completed.unwrap().origin_block
@@ -216,7 +215,7 @@ impl PartialNoteFsm {
                 // No completion log yet: stay pending and keep searching on future syncs, until it is found or the
                 // delivery block is reorg'd away (which prunes this FSM automatically).
             }
-        } else if self.completed_origin().unwrap().block_state.is_finalized() {
+        } else if self.completion_log_origin().unwrap().block_state.is_finalized() {
             // Completed -> Terminated: the completion block finalized, so the discovered note is permanent and there
             // is nothing left to track.
             self.terminate();
@@ -341,7 +340,7 @@ mod test {
             let all = PartialNoteFsm::load_all(address, scope);
             assert_eq(all.len(), 1);
             assert(!all.get(0).is_completed(), "freshly delivered reception should be pending");
-            assert(all.get(0).completed_origin().is_none());
+            assert(all.get(0).completion_log_origin().is_none());
         });
     }
 
@@ -371,7 +370,7 @@ mod test {
 
             let reloaded = PartialNoteFsm::load_all(address, scope).get(0);
             assert(reloaded.is_completed(), "should be completed after mark_completed");
-            assert(reloaded.completed_origin().unwrap().block_state.is_finalized());
+            assert(reloaded.completion_log_origin().unwrap().block_state.is_finalized());
         });
     }
 
