@@ -1,7 +1,7 @@
 use crate::messages::{
     discovery::{
-        ComputeNoteHash, ComputeNoteNullifier, CustomMessageHandler, partial_notes::process_partial_note_private_msg,
-        private_events::process_private_event_msg, private_notes::process_private_note_msg,
+        ComputeNoteHash, ComputeNoteNullifier, CustomMessageHandler, private_events::process_private_event_msg,
+        private_notes::process_private_note_msg,
     },
     encoding::{decode_message, MESSAGE_CIPHERTEXT_LEN, MESSAGE_PLAINTEXT_LEN},
     encryption::{aes128::AES128, message_encryption::MessageEncryption},
@@ -12,6 +12,7 @@ use crate::messages::{
 };
 
 use crate::logging::{aztecnr_debug_log, aztecnr_warn_log_format};
+use crate::partial_notes::process_partial_note_private_msg;
 use crate::protocol::address::AztecAddress;
 
 /// Processes a message that can contain notes, partial notes, or events.

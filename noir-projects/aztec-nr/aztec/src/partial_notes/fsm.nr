@@ -65,14 +65,12 @@ use crate::facts::{
 };
 use crate::logging::aztecnr_debug_log_format;
 use crate::messages::{
-    discovery::{
-        ComputeNoteHash, ComputeNoteNullifier, nonce_discovery::attempt_note_nonce_discovery,
-        partial_notes::DeliveredPendingPartialNote,
-    },
+    discovery::{ComputeNoteHash, ComputeNoteNullifier, nonce_discovery::attempt_note_nonce_discovery},
     processing::{enqueue_note_for_validation, log_retrieval_response::{LogRetrievalResponse, MAX_LOG_CONTENT_LEN}},
 };
 use crate::protocol::{address::AztecAddress, hash::{poseidon2_hash, sha256_to_field}, traits::{Deserialize, Serialize}};
 use crate::utils::array;
+use super::DeliveredPendingPartialNote;
 
 /// Fact-collection type id shared by every partial-note reception in the [fact store](crate::facts).
 global PARTIAL_NOTE_RECEPTION_TYPE_ID: Field = sha256_to_field("AZTEC_NR::PARTIAL_NOTE_RECEPTION_TYPE_ID".as_bytes());
@@ -289,9 +287,9 @@ unconstrained fn to_payload(pending: DeliveredPendingPartialNote) -> EphemeralAr
 mod test {
     use crate::ephemeral::EphemeralArray;
     use crate::facts::OriginBlock;
-    use crate::messages::discovery::partial_notes::DeliveredPendingPartialNote;
     use crate::messages::logs::note::MAX_NOTE_PACKED_LEN;
     use crate::messages::processing::log_retrieval_response::LogRetrievalResponse;
+    use crate::partial_notes::DeliveredPendingPartialNote;
     use crate::protocol::address::AztecAddress;
     use crate::test::helpers::test_environment::TestEnvironment;
     use super::PartialNoteFsm;

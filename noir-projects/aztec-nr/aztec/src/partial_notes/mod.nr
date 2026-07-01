@@ -1,7 +1,9 @@
+mod fsm;
+
 use crate::{
     facts::OriginBlock,
     messages::{
-        discovery::{ComputeNoteHash, ComputeNoteNullifier, partial_note_fsm::PartialNoteFsm},
+        discovery::{ComputeNoteHash, ComputeNoteNullifier},
         encoding::MAX_MESSAGE_CONTENT_LEN,
         logs::partial_note::{decode_partial_note_private_message, MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN},
         processing::{get_pending_partial_notes_completion_logs, ResolvedTx},
@@ -10,6 +12,7 @@ use crate::{
 
 use crate::logging::{aztecnr_debug_log_format, aztecnr_warn_log_format};
 use crate::protocol::{address::AztecAddress, traits::{Deserialize, Serialize}};
+use fsm::PartialNoteFsm;
 
 /// A partial note that was delivered but is still pending completion. Contains the information necessary to find the
 /// log that will complete it and lead to a note being discovered and delivered.

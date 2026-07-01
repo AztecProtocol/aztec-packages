@@ -15,12 +15,12 @@ use crate::{
     ephemeral::EphemeralArray,
     event::EventSelector,
     messages::{
-        discovery::partial_notes::DeliveredPendingPartialNote,
         encoding::MESSAGE_CIPHERTEXT_LEN,
         logs::{event::MAX_EVENT_SERIALIZED_LEN, note::MAX_NOTE_PACKED_LEN},
         processing::{log_retrieval_request::LogRetrievalRequest, log_retrieval_response::LogRetrievalResponse},
     },
     oracle::message_processing,
+    partial_notes::DeliveredPendingPartialNote,
 };
 use crate::protocol::{
     address::AztecAddress,
