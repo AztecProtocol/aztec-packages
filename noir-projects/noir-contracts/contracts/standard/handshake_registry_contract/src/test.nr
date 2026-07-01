@@ -4,8 +4,8 @@ use aztec::{
     messages::delivery::{
         constrained_delivery::VALIDATE_HANDSHAKE_SELECTOR,
         handshake::{
-            AppSiloedHandshakeSecrets, GET_APP_SILOED_SECRETS_SELECTOR, GET_HANDSHAKES_SELECTOR, MAX_HANDSHAKES_PER_PAGE,
-            NON_INTERACTIVE_HANDSHAKE_SELECTOR,
+            AppSiloedHandshakeSecrets, GET_APP_SILOED_SECRETS_SELECTOR, GET_HANDSHAKES_SELECTOR,
+            MAX_HANDSHAKES_PER_PAGE, NON_INTERACTIVE_HANDSHAKE_SELECTOR,
         },
     },
     oracle::shared_secret::get_shared_secret,
