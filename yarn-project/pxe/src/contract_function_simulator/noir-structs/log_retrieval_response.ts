@@ -12,8 +12,6 @@ export type LogRetrievalResponse = {
   txHash: TxHash;
   uniqueNoteHashesInTx: Fr[];
   firstNullifierInTx: Fr;
-  /** The number of the block `txHash` was included in, i.e. the log's origin block. */
   blockNumber: BlockNumber;
-  /** The timestamp of the block `txHash` was included in. */
   blockTimestamp: UInt64;
 };

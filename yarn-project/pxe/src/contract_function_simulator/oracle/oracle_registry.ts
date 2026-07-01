@@ -241,7 +241,7 @@ export const ORACLE_REGISTRY = {
     ],
   }),
 
-  aztec_utl_getLogsByTag: makeEntry({
+  aztec_utl_getLogsByTagV2: makeEntry({
     params: [{ name: 'requests', type: EPHEMERAL_ARRAY(LOG_RETRIEVAL_REQUEST) }],
     returnType: EPHEMERAL_ARRAY(EPHEMERAL_ARRAY(LOG_RETRIEVAL_RESPONSE)),
   }),
@@ -635,7 +635,7 @@ export function makeEntry<const TParams extends RegistryParam[] = [], TReturnVal
 }
 
 /** A named oracle parameter with its TypeMapping. */
-interface RegistryParam<TName extends string = string, T = any> {
+export interface RegistryParam<TName extends string = string, T = any> {
   name: TName;
   type: TypeMapping<T>;
 }
@@ -661,7 +661,7 @@ export type ParamTypes<T extends readonly NamedValue[]> = {
  * @example `InferDeserializedParams<[RegistryParam<'addr', AztecAddress>, RegistryParam<'slot', Fr>]>`
  *        → `[NamedValue<'addr', AztecAddress>, NamedValue<'slot', Fr>]`
  */
-type InferDeserializedParams<T extends RegistryParam[]> = {
+export type InferDeserializedParams<T extends RegistryParam[]> = {
   [K in keyof T]: T[K] extends RegistryParam<infer N, infer V> ? NamedValue<N, V> : never;
 };
 

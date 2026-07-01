@@ -635,7 +635,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     ]);
   }
 
-  public async getLogsByTag(
+  public async getLogsByTagV2(
     requests: EphemeralArray<LogRetrievalRequest>,
   ): Promise<EphemeralArray<EphemeralArray<LogRetrievalResponse>>> {
     const logRetrievalRequests = requests.readAll(this.ephemeralArrayService);

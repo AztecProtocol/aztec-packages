@@ -2,7 +2,8 @@ import type { ACIRCallback, ACVMField } from '@aztec/simulator/client';
 
 import { ORACLE_VERSION_MAJOR, ORACLE_VERSION_MINOR } from '../../oracle_version.js';
 import type { IMiscOracle, IPrivateExecutionOracle, IUtilityExecutionOracle } from './interfaces.js';
-import { ORACLE_REGISTRY } from './oracle_registry.js';
+import { LEGACY_ORACLE_REGISTRY, type LegacyOracleEntry } from './legacy_oracle_registry.js';
+import { type NamedValue, ORACLE_REGISTRY, type OracleRegistryEntry, makeEntry } from './oracle_registry.js';
 
 export class UnavailableOracleError extends Error {
   constructor(oracleName: string) {
@@ -17,9 +18,16 @@ export class UnavailableOracleError extends Error {
  * `aztec_{scope}_{methodName}` convention to resolve the handler, and calling the method directly. Unknown oracle
  * names produce enhanced error messages based on the contract's oracle version.
  */
-export function buildACIRCallback(handler: OracleHandler): ACIRCallback {
+export function buildACIRCallback(
+  handler: OracleHandler,
+  registries: {
+    real?: Record<string, OracleRegistryEntry>;
+    legacy?: Record<string, LegacyOracleEntry>;
+  } = {},
+): ACIRCallback {
+  const { real = ORACLE_REGISTRY, legacy: legacyRegistry = LEGACY_ORACLE_REGISTRY } = registries;
   const target = {} as ACIRCallback;
-  for (const [oracleKey, entry] of Object.entries(ORACLE_REGISTRY)) {
+  for (const [oracleKey, entry] of Object.entries(real)) {
     const match = oracleKey.match(/^aztec_(\w+?)_(.+)$/);
     if (!match) {
       throw new Error(`Oracle "${oracleKey}" does not follow the aztec_{scope}_{method} convention`);
@@ -28,9 +36,38 @@ export function buildACIRCallback(handler: OracleHandler): ACIRCallback {
     target[oracleKey] = async (...inputs: ACVMField[][]) => {
       assertHandlerSupportsScope(handler, scope);
       const named = entry.deserializeParams(inputs);
-      const positional = named.map(p => p.value);
+      const positional = named.map((p: NamedValue) => p.value);
       const result = await (handler as any)[methodName](...positional);
       return entry.serializeReturn(result);
+    };
+  }
+
+  // Legacy oracle names: served for contracts compiled against a retired oracle version. Each reuses the current
+  // handler of its `modernOracle` and reshapes the wire (params and/or return) back to what the old bytecode expects.
+  for (const [legacyKey, legacy] of Object.entries(legacyRegistry)) {
+    const match = legacyKey.match(/^aztec_(\w+?)_(.+)$/);
+    if (!match) {
+      throw new Error(`Legacy oracle "${legacyKey}" does not follow the aztec_{scope}_{method} convention`);
+    }
+    const [, scope] = match;
+    // A legacy name is a retired one; if it still exists in `real` the two loops would both write `target[legacyKey]`
+    // and the legacy wire would silently shadow the live oracle. Fail loudly instead.
+    if (legacyKey in target) {
+      throw new Error(`Legacy oracle "${legacyKey}" collides with a live oracle of the same name in the registry`);
+    }
+    const modernEntry = real[legacy.modernOracle];
+    const methodName = legacy.modernOracle.match(/^aztec_\w+?_(.+)$/)![1];
+    // Override only the side whose wire changed; inherit the other from the modern entry.
+    const paramOverride = legacy.params;
+    const paramSource = paramOverride ? makeEntry({ params: [...paramOverride.legacyType] }) : modernEntry;
+    const returnOverride = legacy.returnType;
+    const returnSource = returnOverride ? makeEntry({ returnType: returnOverride.legacyType }) : modernEntry;
+    target[legacyKey] = async (...inputs: ACVMField[][]) => {
+      assertHandlerSupportsScope(handler, scope);
+      const legacyArgs = paramSource.deserializeParams(inputs).map(p => p.value);
+      const positional = paramOverride ? paramOverride.mapping(legacyArgs) : legacyArgs;
+      const result = await (handler as any)[methodName](...positional);
+      return returnSource.serializeReturn(returnOverride ? returnOverride.mapping(result) : result);
     };
   }
 

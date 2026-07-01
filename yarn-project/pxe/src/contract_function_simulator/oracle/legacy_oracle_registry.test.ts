@@ -1,0 +1,77 @@
+/* eslint-disable camelcase */
+import { Fr } from '@aztec/foundation/curves/bn254';
+import { toACVMField } from '@aztec/simulator/client';
+
+import { buildACIRCallback } from './acir_callback.js';
+import type { LegacyOracleEntry } from './legacy_oracle_registry.js';
+import { FIELD, U32 } from './oracle_registry.js';
+
+type Handler = Parameters<typeof buildACIRCallback>[0];
+
+describe('legacy oracle dispatch', () => {
+  it('adapts the return wire: handler runs, result is mapped, then serialized through the legacy type', async () => {
+    // Fixture scenario: the return override maps the handler's current result to the legacy value the old bytecode
+    // expects, then serializes it through the legacy type.
+    const handler = { isMisc: true, getRandomField: () => Promise.resolve(new Fr(41)) };
+
+    const legacyRegistry: Record<string, LegacyOracleEntry> = {
+      aztec_misc_legacyReturn: {
+        modernOracle: 'aztec_misc_getRandomField',
+        returnType: { legacyType: FIELD, mapping: (result: Fr) => new Fr(result.toBigInt() + 1n) },
+      },
+    };
+
+    const callback = buildACIRCallback(handler as unknown as Handler, { legacy: legacyRegistry });
+
+    // Handler produces 41; the override maps it to the legacy value (41 + 1) the old bytecode expects.
+    const wire = await callback['aztec_misc_legacyReturn']();
+
+    expect(wire).toEqual([toACVMField(new Fr(42))]);
+  });
+
+  it('adapts the param wire: legacy args are deserialized, mapped, then passed to the modern handler', async () => {
+    // Fixture scenario: the retired wire carried a single `major` field, but the current handler signature is
+    // (major, minor). The param override deserializes that one-field wire and reshapes it into the modern arg tuple,
+    // defaulting the `minor` the old bytecode never sent.
+    const DEFAULTED_MINOR = 0;
+
+    let handlerArgs: unknown[] | undefined;
+    const handler = {
+      isMisc: true,
+      assertCompatibleOracleVersion: (...args: unknown[]) => {
+        handlerArgs = args;
+      },
+    };
+
+    const legacyRegistry: Record<string, LegacyOracleEntry> = {
+      aztec_misc_legacyParams: {
+        modernOracle: 'aztec_misc_assertCompatibleOracleVersion',
+        params: {
+          legacyType: [{ name: 'major', type: U32 }],
+          mapping: ([major]: number[]) => [major, DEFAULTED_MINOR],
+        },
+      },
+    };
+
+    const callback = buildACIRCallback(handler as unknown as Handler, { legacy: legacyRegistry });
+
+    // Old bytecode sends one field (major = 5); the handler must still receive the full (major, minor) tuple.
+    await callback['aztec_misc_legacyParams']([toACVMField(new Fr(5))]);
+
+    expect(handlerArgs).toEqual([5, DEFAULTED_MINOR]);
+  });
+
+  it('rejects a legacy name that collides with a live oracle', () => {
+    const handler = { isMisc: true, getRandomField: () => Promise.resolve(new Fr(0)) };
+    const legacyRegistry: Record<string, LegacyOracleEntry> = {
+      aztec_misc_getRandomField: {
+        modernOracle: 'aztec_misc_getRandomField',
+        returnType: { legacyType: FIELD, mapping: (result: Fr) => result },
+      },
+    };
+
+    expect(() => buildACIRCallback(handler as unknown as Handler, { legacy: legacyRegistry })).toThrow(
+      'collides with a live oracle',
+    );
+  });
+});
