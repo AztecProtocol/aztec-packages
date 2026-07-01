@@ -1938,6 +1938,40 @@ async function traceOneMsm(inputs: TestInputs): Promise<TraceInput> {
   return { cpu, gpu };
 }
 
+interface MsmTraceSample {
+  wallMs: number;
+  /** Every pass as [label, beginNs, endNs] on the ABSOLUTE GPU timestamp clock. */
+  passTimes: [string, string, string][];
+}
+
+// One profiled MSM run for the `msm-trace` autorun (Zac's webgpu-gpu-trace contract).
+// Re-prepares to defeat prepare()'s identity cache, submits, and returns wall time
+// plus every pass's ABSOLUTE GPU-clock [label, beginNs, endNs] (epoch-anchored, not
+// rebased to 0). The absolute timestamps are what the Adreno labeler clock-aligns to
+// the gapit hardware-counter bursts; rebased values would lose the per-rep idle gaps.
+async function traceOneMsmRaw(msm: MsmV2, inputs: TestInputs): Promise<MsmTraceSample> {
+  const device = gpuDevice!;
+  const reident = new Uint8Array(inputs.scalarsBuf.buffer, inputs.scalarsBuf.byteOffset, inputs.scalarsBuf.byteLength);
+  await msm.prepare(reident);
+  const staging = device.createBuffer({
+    size: msm.windowSumsByteLength,
+    usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST,
+  });
+  const t0 = performance.now();
+  const enc = device.createCommandEncoder();
+  msm.encodeIntoBatch(enc, staging, 0);
+  device.queue.submit([enc.finish()]);
+  await staging.mapAsync(GPUMapMode.READ);
+  const wallMs = performance.now() - t0;
+  staging.unmap();
+  staging.destroy();
+  const raw = await msm.readProfilePassTimelineRaw();
+  const passTimes: [string, string, string][] = raw
+    ? raw.passes.map(p => [p.label, String(raw.epochNs + BigInt(p.beginNs)), String(raw.epochNs + BigInt(p.endNs))])
+    : [];
+  return { wallMs, passTimes };
+}
+
 // Trace → Perfetto: capture one aligned CPU+GPU run and download a trace-event
 // JSON. Open it at https://ui.perfetto.dev. WebGPU-only; no WASM/COI needed.
 $runTrace.addEventListener('click', async () => {
@@ -2753,6 +2787,58 @@ function hideProgress(): void {
         results: null,
         error: msg,
         log: [],
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+    }
+  } else if (autorun === 'msm-trace' || (autorun === 'msm-bench' && qp.get('trace') === '1')) {
+    // Zac webgpu-gpu-trace contract: 3 warm-ups + `reps` profiled MSMs with an idle gap
+    // between, then POST results.samples[].passTimes (absolute GPU-clock ns) so the Adreno
+    // labeler can name the gapit counter bursts. `dev` tags the row for parallel-device runs.
+    const logN = parseInt(qp.get('logn') ?? '17', 10);
+    const reps = parseInt(qp.get('reps') ?? '5', 10);
+    const gapMs = parseInt(qp.get('gap') ?? '60', 10);
+    const dev = qp.get('dev') ?? undefined;
+    const target = qp.get('target') ?? undefined;
+    const client = makeResultsClient({ page: 'msm-trace' });
+    const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+    log('info', `[autorun] msm-trace logN=${logN} reps=${reps} gap=${gapMs}ms dev=${dev ?? '—'}`);
+    try {
+      const inputs = await generateInputs(logN, false);
+      const msm = await ensureWebGpuWarmed(inputs, true);
+      if (!msm.profileEnabled) {
+        throw new Error("msm-trace needs 'timestamp-query' — launch the browser with --enable-unsafe-webgpu");
+      }
+      for (let w = 0; w < 3; w++) {
+        await traceOneMsmRaw(msm, inputs);
+        await sleep(gapMs);
+      }
+      const samples: MsmTraceSample[] = [];
+      for (let i = 0; i < reps; i++) {
+        const s = await traceOneMsmRaw(msm, inputs);
+        samples.push(s);
+        log('info', `[trace] rep ${i + 1}/${reps} wall=${s.wallMs.toFixed(1)}ms passes=${s.passTimes.length}`);
+        if (i + 1 < reps) await sleep(gapMs);
+      }
+      const spanTotal = samples.reduce((a, s) => a + s.passTimes.length, 0);
+      await client.postResults({
+        target,
+        state: 'done',
+        params: { dev, logN, reps, page: 'msm-trace' },
+        results: { samples, calib: [] },
+        userAgent: navigator.userAgent,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+      });
+      log('ok', `[autorun] msm-trace done: ${samples.length} samples (${spanTotal} pass spans) posted`);
+    } catch (e) {
+      const msg = e instanceof Error ? `${e.message}\n${e.stack ?? ''}` : String(e);
+      log('err', `[autorun] msm-trace FATAL: ${msg}`);
+      await client.postResults({
+        target,
+        state: 'error',
+        params: { dev, logN, reps, page: 'msm-trace' },
+        results: null,
+        error: msg,
         userAgent: navigator.userAgent,
         hardwareConcurrency: navigator.hardwareConcurrency,
       });
