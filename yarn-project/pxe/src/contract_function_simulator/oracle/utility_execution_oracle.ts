@@ -25,12 +25,7 @@ import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { PublicKeys, computeAddressSecret, hashPublicKey } from '@aztec/stdlib/keys';
-import {
-  AppTaggingSecret,
-  FlatPublicLogs,
-  type PendingTaggedLog,
-  deriveAppSiloedSharedSecret,
-} from '@aztec/stdlib/logs';
+import { AppTaggingSecret, FlatPublicLogs, type PendingTaggedLog, appSiloEcdhSharedSecret } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
@@ -872,7 +867,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 
     const ephPkPoints = ephPks.readAll(this.ephemeralArrayService);
     const secrets = await Promise.all(
-      ephPkPoints.map(({ x, y }) => deriveAppSiloedSharedSecret(addressSecret, new Point(x, y), this.contractAddress)),
+      ephPkPoints.map(({ x, y }) => appSiloEcdhSharedSecret(addressSecret, new Point(x, y), this.contractAddress)),
     );
 
     return EphemeralArray.fromValues(this.ephemeralArrayService, secrets);

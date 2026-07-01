@@ -562,6 +562,14 @@ export const ORACLE_REGISTRY = {
     ],
     returnType: RESOLVED_TAGGING_STRATEGY,
   }),
+
+  aztec_prv_resolveCustomRequest: makeEntry({
+    params: [
+      { name: 'kind', type: FIELD },
+      { name: 'payload', type: ARRAY(FIELD) },
+    ],
+    returnType: ARRAY(FIELD),
+  }),
 } satisfies Record<string, OracleRegistryEntry>;
 
 // ─── Registry Infrastructure ─────────────────────────────────────────────────

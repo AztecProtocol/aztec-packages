@@ -1162,6 +1162,15 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
+  aztec_prv_resolveCustomRequest(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_prv_resolveCustomRequest',
+      inputs,
+      handler: ([kind, payload]) => this.handlerAsPrivate().resolveCustomRequest(kind, payload),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
   aztec_prv_getAppTaggingSecret(...inputs: ForeignCallArgs) {
     return callTxeHandler({
       oracle: 'aztec_prv_getAppTaggingSecret',

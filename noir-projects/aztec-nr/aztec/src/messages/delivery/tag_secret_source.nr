@@ -125,7 +125,7 @@ mod test {
             let returns = secrets.serialize();
             let returns_hash = hash_args(returns);
             execution_cache::store(returns, returns_hash);
-            let child_call_end_counter = context.side_effect_counter + 1;
+            let child_call_end_counter = context.get_side_effect_counter() + 1;
             let _ = OracleMock::mock("aztec_prv_callPrivateFunction")
                 .returns((child_call_end_counter, returns_hash))
                 .times(1);

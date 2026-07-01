@@ -29,6 +29,7 @@ import {
   type TxContext,
 } from '@aztec/stdlib/tx';
 
+import type { ResolveCustomRequest } from '../../hooks/resolve_custom_request.js';
 import type {
   ResolveTaggingSecretStrategy,
   TaggingSecretStrategy,
@@ -188,6 +189,19 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   }
 
   /**
+   * Resolves a custom, caller-defined request via the {@link ResolveCustomRequest} hook, which produces the response
+   * however it needs to. Throws when no hook is configured, since the request cannot be served.
+   */
+  public async resolveCustomRequest(kind: Fr, payload: Fr[]): Promise<Fr[]> {
+    const hook: ResolveCustomRequest | undefined = this.hooks?.resolveCustomRequest;
+    if (!hook) {
+      throw new Error('Cannot serve a request: no resolveCustomRequest hook is configured');
+    }
+    const { currentContractClassId } = await this.getContractInstance(this.contractAddress);
+    return hook({ contractAddress: this.contractAddress, contractClassId: currentContractClassId, kind, payload });
+  }
+
+  /**
    * Resolves the tagging strategy for a message via the wallet's {@link ResolveTaggingSecretStrategy} hook. The contract receives a ready-to-use {@link ResolvedTaggingStrategy}.
    * When no hook is configured, applies a privacy-safe default.
    */
@@ -229,7 +243,11 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
         return this.#addressDerivedSecret(sender, recipient);
       case 'arbitrary-secret': {
         // App-silo the raw arbitrary secret point here so wallets never replicate the derivation.
-        const appTaggingSecret = await AppTaggingSecret.compute(strategy.secret, this.contractAddress, recipient);
+        const appTaggingSecret = await AppTaggingSecret.computeDirectional(
+          strategy.secret,
+          this.contractAddress,
+          recipient,
+        );
         return { type: 'unconstrained-secret', secret: appTaggingSecret.secret };
       }
     }
@@ -305,13 +323,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   async #calculateAppTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
     const senderCompleteAddress = await this.getCompleteAddressOrFail(sender);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
-    return AppTaggingSecret.computeUnconstrained(
-      senderCompleteAddress,
-      senderIvsk,
-      recipient,
-      contractAddress,
-      recipient,
-    );
+    return AppTaggingSecret.computeViaEcdh(senderCompleteAddress, senderIvsk, recipient, contractAddress, recipient);
   }
 
   async #getIndexToUseForSecret(secret: AppTaggingSecret): Promise<number> {
