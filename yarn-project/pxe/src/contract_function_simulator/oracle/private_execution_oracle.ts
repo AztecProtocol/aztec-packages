@@ -207,10 +207,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     // handshake is needed and nothing is revealed onchain. It also avoids a recursion: a handshake self-delivers its
     // note via unconstrained delivery, which would establish yet another handshake. This guard runs regardless of the
     // resolved strategy (hook or default), to protect wallets from invalid configuration.
-    const strategy: TaggingSecretStrategy =
-      isUnconstrainedSelfSend && chosenStrategy.type === 'non-interactive-handshake'
-        ? { type: 'address-derived' }
-        : chosenStrategy;
+    const strategy: TaggingSecretStrategy = isUnconstrainedSelfSend ? { type: 'address-derived' } : chosenStrategy;
 
     return this.#resolveTaggingSecretStrategy(strategy, sender, recipient);
   }

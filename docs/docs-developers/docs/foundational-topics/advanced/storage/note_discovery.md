@@ -63,7 +63,7 @@ The "sender" in note tagging is **not necessarily the transaction sender**. It's
 
 #### Registering known senders
 
-To discover notes from a particular sender via an address-derived secret, the recipient's PXE must know the sender's address in advance so it can compute the shared tagging secret. Register senders using the wallet API:
+To discover notes from a particular sender via an [address-derived secret](#address-derived-secret), the recipient's PXE must know the sender's address in advance so it can compute the shared tagging secret. Register senders using the wallet API:
 
 ```typescript
 // Register a sender so your PXE can discover notes from them
@@ -76,7 +76,7 @@ Notes sent to yourself are always discoverable — the PXE automatically adds al
 
 The `#[aztec]` macro automatically injects an unconstrained `sync_state` utility function into every contract. This function is invoked by the PXE during note syncing to orchestrate discovery via oracles; manual execution is forbidden by the PXE to prevent inconsistencies. The process works as follows:
 
-1. **Fetch tagged logs**: The contract calls the `fetchTaggedLogs` oracle. The PXE computes tags for every secret it can use for this recipient (one per registered sender for address-derived tags, plus one per discovered handshake and per pre-shared secret), queries the node for matching logs, and returns them to the contract.
+1. **Fetch tagged logs**: The contract calls the `fetchTaggedLogs` oracle. The PXE computes tags for every secret it can use for this recipient, queries the node for matching logs, and returns them to the contract.
 
 2. **Decrypt**: For each log, the contract strips the tag and attempts AES-128 decryption using a symmetric key derived from the recipient's private key (via ECDH). Logs that don't decrypt are silently discarded (they were not intended for this recipient).
 

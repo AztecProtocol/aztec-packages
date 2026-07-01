@@ -142,7 +142,7 @@ self.storage.balances.at(admin).add(amount)
 
 - **Use when:** The sender cannot be trusted to deliver correctly (e.g., paying fees, creating notes for others, multisig configuration changes). Use this when you need to prove to a contract that the delivery has been done correctly. You can imagine a private NFT sale escrow contract where the escrow would be holding the NFT (the contract itself would be the NFT note owner) and then the escrow would release the NFT to the buyer once the NFT buyer pays the seller. In this case the `NFTSale::buy(...)` function would trigger the payment token transfer from the buyer to the seller and it would need to use constrained delivery otherwise the escrow contract would be willing to transfer the NFT without the NFT seller actually being able to then spend the money. Note that for the transfer of the NFT from the escrow contract to the buyer you could use offchain delivery because the delivery and encryption would be done in the buyer's PXE and hence there is alignment.
 - **Costs:** DA gas fees for the encrypted log, proving time overhead for encryption and tagging
-- **Guarantees:** Recipient receives correctly encrypted content and can find it: both the encryption and the discovery tag are constrained, so a malicious sender cannot deliver wrong content or a tag the recipient won't scan for
+- **Guarantees:** Recipient will always be able to find correctly encrypted content: both the encryption and the discovery tag are constrained and stored onchain.
 - **Privacy:** High for the message contents. By default, reaching a recipient the sender has not handshaked with before establishes a handshake that reveals the recipient was contacted (see [Tagging secret strategy](#tagging-secret-strategy))
 
 ```rust
