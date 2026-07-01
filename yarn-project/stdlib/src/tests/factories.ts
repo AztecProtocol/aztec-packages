@@ -53,8 +53,6 @@ import type { Bufferable, Serializable, Tuple } from '@aztec/foundation/serializ
 import { MembershipWitness } from '@aztec/foundation/trees';
 
 import { FunctionSelector } from '../abi/function_selector.js';
-import { ContractStorageRead } from '../avm/contract_storage_read.js';
-import { ContractStorageUpdateRequest } from '../avm/contract_storage_update_request.js';
 import {
   AvmAccumulatedData,
   AvmAccumulatedDataArrayLengths,
@@ -81,7 +79,6 @@ import {
   AvmSequentialInsertHintPublicDataTree,
   AvmTxHint,
 } from '../avm/index.js';
-import { PublicDataRead } from '../avm/public_data_read.js';
 import { PublicDataWrite } from '../avm/public_data_write.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import { BlockHash } from '../block/block_hash.js';
@@ -268,41 +265,6 @@ function makeKeyValidationRequestAndSeparators(seed: number): KeyValidationReque
 
 export function makePublicDataWrite(seed = 1) {
   return new PublicDataWrite(fr(seed), fr(seed + 1));
-}
-
-/**
- * Creates arbitrary public data read.
- * @param seed - The seed to use for generating the public data read.
- * @returns A public data read.
- */
-export function makePublicDataRead(seed = 1): PublicDataRead {
-  return new PublicDataRead(fr(seed), fr(seed + 1), 0);
-}
-
-/**
- * Creates empty public data read.
- * @returns An empty public data read.
- */
-export function makeEmptyPublicDataRead(): PublicDataRead {
-  return new PublicDataRead(fr(0), fr(0), 0);
-}
-
-/**
- * Creates arbitrary contract storage update request.
- * @param seed - The seed to use for generating the contract storage update request.
- * @returns A contract storage update request.
- */
-export function makeContractStorageUpdateRequest(seed = 1): ContractStorageUpdateRequest {
-  return new ContractStorageUpdateRequest(fr(seed), fr(seed + 1), seed + 2);
-}
-
-/**
- * Creates arbitrary contract storage read.
- * @param seed - The seed to use for generating the contract storage read.
- * @returns A contract storage read.
- */
-export function makeContractStorageRead(seed = 1): ContractStorageRead {
-  return new ContractStorageRead(fr(seed), fr(seed + 1), seed + 2);
 }
 
 function makeTxConstantData(seed = 1) {
