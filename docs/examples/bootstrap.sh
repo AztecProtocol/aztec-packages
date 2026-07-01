@@ -186,7 +186,7 @@ function validate-webapp-tutorial {
       // Also pick up @aztec packages that the monorepo declares as local portals
       // in yarn-project's root resolutions but that live outside the scanned dirs
       // above (e.g. the generated native service packages @aztec/wsdb and
-      // @aztec/aztec-vm-sim, and @aztec/ipc-runtime). These are workspace-local
+      // @aztec/bb-avm-sim, and @aztec/ipc-runtime). These are workspace-local
       // and unpublished, so the closure walk must link them rather than fall back
       // to an npm lookup that 404s.
       const rootManifest = JSON.parse(fs.readFileSync(path.join(yp, 'package.json'), 'utf8'));

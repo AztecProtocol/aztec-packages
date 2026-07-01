@@ -2,9 +2,13 @@
 *
 !/.release-please-manifest.json
 !/barretenberg/cpp/build/bin/bb-avm
-!/barretenberg/ts/dest/
-!/barretenberg/ts/build/
-!/barretenberg/ts/package.json
+!/barretenberg/ts/bb.js/dest/
+!/barretenberg/ts/bb.js/build/
+!/barretenberg/ts/bb.js/package.json
+!/barretenberg/ts/bb-avm-sim/dest/
+!/barretenberg/ts/bb-avm-sim/build/
+!/barretenberg/ts/bb-avm-sim/package.json
+!/barretenberg/ts/bb-avm-sim/packages/
 !/ipc-runtime/ts/dest/
 !/ipc-runtime/ts/package.json
 !/wsdb/ts/dest/
