@@ -26,8 +26,9 @@
     "README.md"
   ],
   "scripts": {
-    "clean": "rm -rf ./dest .tsbuildinfo .tsbuildinfo.cjs ./src/cbind/generated",
-    "build": "yarn clean && yarn generate && yarn build:wasm && yarn build:native && yarn build:esm && yarn build:cjs && yarn build:browser",
+    "clean": "rm -rf ./dest .tsbuildinfo .tsbuildinfo.cjs ./src/cbind/generated ./src/msm_webgpu/wgsl/_generated",
+    "build": "yarn clean && yarn generate && yarn generate:wgsl && yarn build:wasm && yarn build:native && yarn build:esm && yarn build:cjs && yarn build:browser",
+    "generate:wgsl": "node src/msm_webgpu/scripts/inline-wgsl.mjs",
     "build:wasm": "./scripts/copy_wasm.sh",
     "build:native": "./scripts/copy_native.sh",
     "build:esm": "tsgo -b tsconfig.esm.json && chmod +x ./dest/node/bin/index.js",
@@ -70,10 +71,13 @@
     "rootDir": "./src"
   },
   "dependencies": {
+    "@noble/curves": "=1.7.0",
+    "bigint-crypto-utils": "^3.3.0",
     "comlink": "^4.4.1",
     "commander": "^12.1.0",
     "idb-keyval": "^6.2.1",
     "msgpackr": "^1.11.2",
+    "mustache": "^4.2.0",
     "pako": "^2.1.0",
     "tslib": "^2.4.0"
   },
@@ -83,10 +87,12 @@
     "@swc/jest": "^0.2.37",
     "@types/detect-node": "^2.0.0",
     "@types/jest": "^30.0.0",
+    "@types/mustache": "^4.2.3",
     "@types/node": "^22.15.17",
     "@types/pako": "^2.0.3",
     "@types/source-map-support": "^0.5.6",
     "@typescript/native-preview": "7.0.0-dev.20251126.1",
+    "@webgpu/types": "^0.1.55",
     "eslint": "^9.26.0",
     "eslint-config-prettier": "^10.1.5",
     "jest": "^30.0.0",
