@@ -60,6 +60,22 @@ describe('single-node/proving/long_proving_time', () => {
     await test.teardown();
   });
 
+  // Waits until the proven checkpoint reaches `target` while sampling the prover job queue on every
+  // tick and returning the peak parallelism observed over the whole proving window (the value the
+  // MAX_JOB_COUNT assertion depends on — a one-shot snapshot could not capture the peak).
+  const sampleMaxJobCountUntilProven = async (target: number) => {
+    let maxJobCount = 0;
+    while (monitor.provenCheckpointNumber === undefined || monitor.provenCheckpointNumber < target) {
+      const jobs = await test.proverNodes[0].getProverNode()!.getJobs();
+      if (jobs.length > maxJobCount) {
+        maxJobCount = jobs.length;
+        logger.info(`Updated max job count to ${maxJobCount}`, jobs);
+      }
+      await sleep((L1_BLOCK_TIME_IN_S * 1000) / 2);
+    }
+    return maxJobCount;
+  };
+
   // Polls the prover node's job queue until provenCheckpointNumber reaches targetProvenEpochs.
   // Asserts that checkpointNumber advanced at least 3× the proven epoch count, confirming proving
   // lagged behind block production. Asserts maxJobCount stays within MAX_JOB_COUNT (20), confirming
@@ -69,21 +85,6 @@ describe('single-node/proving/long_proving_time', () => {
     const targetProvenBlockNumber = targetProvenEpochs * test.epochDuration;
     logger.info(`Waiting for ${targetProvenEpochs} epochs to be proven at ${targetProvenBlockNumber} L2 blocks`);
 
-    // Waits until the proven checkpoint reaches `target` while sampling the prover job queue on every
-    // tick and returning the peak parallelism observed over the whole proving window (the value the
-    // MAX_JOB_COUNT assertion depends on — a one-shot snapshot could not capture the peak).
-    const sampleMaxJobCountUntilProven = async (target: number) => {
-      let maxJobCount = 0;
-      while (monitor.provenCheckpointNumber === undefined || monitor.provenCheckpointNumber < target) {
-        const jobs = await test.proverNodes[0].getProverNode()!.getJobs();
-        if (jobs.length > maxJobCount) {
-          maxJobCount = jobs.length;
-          logger.info(`Updated max job count to ${maxJobCount}`, jobs);
-        }
-        await sleep((L1_BLOCK_TIME_IN_S * 1000) / 2);
-      }
-      return maxJobCount;
-    };
     const maxJobCount = await sampleMaxJobCountUntilProven(targetProvenBlockNumber);
 
     // At least 3 epochs should have passed after the proven one (though we add a -1 just in case)

@@ -123,6 +123,27 @@ describe('single-node/sequencer/publisher_funding_multi', () => {
     await rm(keyStoreDirectory, { recursive: true, force: true });
   });
 
+  // Polls until every address in `accounts` has an L1 balance strictly above `threshold`.
+  const waitForBalancesAbove = (accounts: EthAddress[], threshold: bigint) =>
+    retryUntil(
+      async () => {
+        const balances = await Promise.all(accounts.map(account => ethCheatCodes.getBalance(account)));
+        return balances.every(balance => balance > threshold) || undefined;
+      },
+      `all balances above ${threshold}`,
+      180,
+      1,
+    );
+
+  // Polls until `funder`'s L1 spend since `before` reaches at least `amount`.
+  const waitForFunderSpend = (funder: EthAddress, before: bigint, amount: bigint) =>
+    retryUntil(
+      async () => before - (await ethCheatCodes.getBalance(funder)) >= amount || undefined,
+      `funder to spend at least ${amount}`,
+      180,
+      1,
+    );
+
   // Sets both publisher L1 balances below the funding threshold via ethCheatCodes, drives the
   // PublisherManager's funding loop to top them both up (round 1), then drains one publisher again
   // and drives a second funding round to confirm the loop is still healthy.
@@ -151,27 +172,6 @@ describe('single-node/sequencer/publisher_funding_multi', () => {
     await ethCheatCodes.setBalance(funderAddress, parseEther('100'));
 
     const funderBalanceBefore = await ethCheatCodes.getBalance(funderAddress);
-
-    // Polls until every address in `accounts` has an L1 balance strictly above `threshold`.
-    const waitForBalancesAbove = (accounts: EthAddress[], threshold: bigint) =>
-      retryUntil(
-        async () => {
-          const balances = await Promise.all(accounts.map(account => ethCheatCodes.getBalance(account)));
-          return balances.every(balance => balance > threshold) || undefined;
-        },
-        `all balances above ${threshold}`,
-        180,
-        1,
-      );
-
-    // Polls until the funder's L1 spend since `before` reaches at least `amount`.
-    const waitForFunderSpend = (before: bigint, amount: bigint) =>
-      retryUntil(
-        async () => before - (await ethCheatCodes.getBalance(funderAddress)) >= amount || undefined,
-        `funder to spend at least ${amount}`,
-        180,
-        1,
-      );
 
     // Force the funding cycle now rather than waiting for the next 2-minute poll, then confirm both
     // publishers were topped up.
@@ -207,7 +207,7 @@ describe('single-node/sequencer/publisher_funding_multi', () => {
     // Force a second funding cycle rather than waiting for the next 2-minute poll.
     await fundingPromise!.trigger();
 
-    await waitForFunderSpend(funderBalanceBefore2, FUNDING_AMOUNT);
+    await waitForFunderSpend(funderAddress, funderBalanceBefore2, FUNDING_AMOUNT);
 
     const funderSpent2 = funderBalanceBefore2 - (await ethCheatCodes.getBalance(funderAddress));
     logger.info(`Second funding round: funder spent ${funderSpent2} (expected ~${FUNDING_AMOUNT})`);

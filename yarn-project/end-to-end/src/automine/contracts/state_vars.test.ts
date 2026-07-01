@@ -406,6 +406,15 @@ describe('automine/contracts/state_vars', () => {
       }
     });
 
+    // Drives the chain forward by sending a no-op tx per iteration (rather than warping wall-clock time)
+    // until the latest block's timestamp reaches `target`. Under the forced 12s slot duration a fixed
+    // block-count delay cannot count for the schedule, so we poll the real block timestamp instead.
+    const advanceChainToTimestamp = async (target: bigint) => {
+      while ((await aztecNode.getBlockData('latest'))!.header.globalVariables.timestamp < target) {
+        await authContract.methods.get_authorized().send({ from: defaultAccountAddress });
+      }
+    };
+
     // Changes the authorized delay from 5 slots (360s) to 2 slots, advances the chain past the
     // scheduled timestamp_of_change by sending no-op txs, then proves the private read and asserts
     // the expirationTimestamp equals anchorTimestamp + newDelay - 1.
@@ -436,14 +445,6 @@ describe('automine/contracts/state_vars', () => {
       // forces aztecSlotDuration=12s under pipelining (see fixtures/setup.ts), so a fixed
       // `delay(N blocks)` cannot count for the schedule — block timestamp polling is the
       // slot-duration-agnostic way to know we have crossed the schedule.
-      // Drives the chain forward by sending a no-op tx per iteration (rather than warping wall-clock time)
-      // until the latest block's timestamp reaches `target`. Under the forced 12s slot duration a fixed
-      // block-count delay cannot count for the schedule, so we poll the real block timestamp instead.
-      const advanceChainToTimestamp = async (target: bigint) => {
-        while ((await aztecNode.getBlockData('latest'))!.header.globalVariables.timestamp < target) {
-          await authContract.methods.get_authorized().send({ from: defaultAccountAddress });
-        }
-      };
       await advanceChainToTimestamp(timestampOfChange);
 
       // We now call our AuthContract to see if the change in expiration timestamp has reflected our delay change.

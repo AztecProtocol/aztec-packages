@@ -54,6 +54,14 @@ describe('single-node/fees/bridging_race', () => {
     bobsAddress = bobsAccountManager.address;
   });
 
+  // Sleeps until 500ms before the current L2 slot ends, so the subsequent bridge lands right at the slot
+  // boundary (this is what reproduces the "message not in state" race the test guards against).
+  const sleepUntilNearSlotEnd = async () => {
+    const sleepTime = (Number(t.monitor.checkpointTimestamp) + AZTEC_SLOT_DURATION) * 1000 - Date.now() - 500;
+    logger.info(`Sleeping for ${sleepTime}ms until near end of L2 slot before sending L1 fee juice to L2 inbox`);
+    await sleep(sleepTime);
+  };
+
   // Reproduces a timing race where an L1→L2 fee-juice bridge message lands just before the end of an
   // L2 slot, causing the archiver to miss it. The fix was to wait for the archiver to see the message
   // before waiting for the required two-block confirmation. The sleep injected into approve() simulates
@@ -63,13 +71,6 @@ describe('single-node/fees/bridging_race', () => {
     // This caused the message to be "not in state" when tried to be used
     const l1TokenManager = t.feeJuiceBridgeTestHarness.l1TokenManager;
     const origApprove = l1TokenManager.approve.bind(l1TokenManager);
-    // Sleeps until 500ms before the current L2 slot ends, so the subsequent bridge lands right at the slot
-    // boundary (this is what reproduces the "message not in state" race the test guards against).
-    const sleepUntilNearSlotEnd = async () => {
-      const sleepTime = (Number(t.monitor.checkpointTimestamp) + AZTEC_SLOT_DURATION) * 1000 - Date.now() - 500;
-      logger.info(`Sleeping for ${sleepTime}ms until near end of L2 slot before sending L1 fee juice to L2 inbox`);
-      await sleep(sleepTime);
-    };
     l1TokenManager.approve = async (amount: bigint, address: Hex, addressName = '') => {
       await origApprove(amount, address, addressName);
       await sleepUntilNearSlotEnd();
