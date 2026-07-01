@@ -119,7 +119,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
     FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
     FuzzerContractDB contract_db;
-    ws_mgr->fork();
+    ws_mgr->reseed_to_genesis();
 
     FuzzerContext context;
 
@@ -148,8 +148,6 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 
     // Print timing stats for this iteration
     vinfo("Timing stats:\n", bb::avm2::Stats::get().to_string());
-
-    ws_mgr->reset_world_state();
 
     return 0;
 }

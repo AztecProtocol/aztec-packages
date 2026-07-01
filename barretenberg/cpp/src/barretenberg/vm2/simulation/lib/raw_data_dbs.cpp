@@ -30,18 +30,18 @@ std::string to_string(const TreeSnapshots& snapshots)
                   snapshots.l1_to_l2_message_tree);
 }
 
-std::string get_tree_name(world_state::MerkleTreeId tree_id)
+std::string get_tree_name(MerkleTreeId tree_id)
 {
     switch (tree_id) {
-    case world_state::MerkleTreeId::PUBLIC_DATA_TREE:
+    case MerkleTreeId::PUBLIC_DATA_TREE:
         return "PUBLIC_DATA_TREE";
-    case world_state::MerkleTreeId::NULLIFIER_TREE:
+    case MerkleTreeId::NULLIFIER_TREE:
         return "NULLIFIER_TREE";
-    case world_state::MerkleTreeId::NOTE_HASH_TREE:
+    case MerkleTreeId::NOTE_HASH_TREE:
         return "NOTE_HASH_TREE";
-    case world_state::MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
+    case MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
         return "L1_TO_L2_MESSAGE_TREE";
-    case world_state::MerkleTreeId::ARCHIVE:
+    case MerkleTreeId::ARCHIVE:
         return "ARCHIVE";
     }
 
@@ -318,17 +318,17 @@ HintedRawMerkleDB::HintedRawMerkleDB(const ExecutionHints& hints)
     }
 }
 
-const AppendOnlyTreeSnapshot& HintedRawMerkleDB::get_tree_info(world_state::MerkleTreeId tree_id) const
+const AppendOnlyTreeSnapshot& HintedRawMerkleDB::get_tree_info(MerkleTreeId tree_id) const
 {
     return get_tree_info_helper(tree_id, tree_roots);
 }
 
-AppendOnlyTreeSnapshot& HintedRawMerkleDB::get_tree_info(world_state::MerkleTreeId tree_id)
+AppendOnlyTreeSnapshot& HintedRawMerkleDB::get_tree_info(MerkleTreeId tree_id)
 {
     return get_tree_info_helper(tree_id, tree_roots);
 }
 
-SiblingPath HintedRawMerkleDB::get_sibling_path(world_state::MerkleTreeId tree_id, index_t leaf_index) const
+SiblingPath HintedRawMerkleDB::get_sibling_path(MerkleTreeId tree_id, index_t leaf_index) const
 {
     auto tree_info = get_tree_info(tree_id);
     GetSiblingPathKey key = { tree_info, tree_id, leaf_index };
@@ -347,8 +347,7 @@ SiblingPath HintedRawMerkleDB::get_sibling_path(world_state::MerkleTreeId tree_i
     return it->second;
 }
 
-GetLowIndexedLeafResponse HintedRawMerkleDB::get_low_indexed_leaf(world_state::MerkleTreeId tree_id,
-                                                                  const FF& value) const
+GetLowIndexedLeafResponse HintedRawMerkleDB::get_low_indexed_leaf(MerkleTreeId tree_id, const FF& value) const
 {
     auto tree_info = get_tree_info(tree_id);
     GetPreviousValueIndexKey key = { tree_info, tree_id, value };
@@ -367,7 +366,7 @@ GetLowIndexedLeafResponse HintedRawMerkleDB::get_low_indexed_leaf(world_state::M
     return it->second;
 }
 
-FF HintedRawMerkleDB::get_leaf_value(world_state::MerkleTreeId tree_id, index_t leaf_index) const
+FF HintedRawMerkleDB::get_leaf_value(MerkleTreeId tree_id, index_t leaf_index) const
 {
     auto tree_info = get_tree_info(tree_id);
     GetLeafValueKey key = { tree_info, tree_id, leaf_index };
@@ -388,7 +387,7 @@ FF HintedRawMerkleDB::get_leaf_value(world_state::MerkleTreeId tree_id, index_t 
 
 IndexedLeaf<PublicDataLeafValue> HintedRawMerkleDB::get_leaf_preimage_public_data_tree(index_t leaf_index) const
 {
-    auto tree_info = get_tree_info(world_state::MerkleTreeId::PUBLIC_DATA_TREE);
+    auto tree_info = get_tree_info(MerkleTreeId::PUBLIC_DATA_TREE);
     GetLeafPreimageKey key = { tree_info, leaf_index };
     auto it = get_leaf_preimage_hints_public_data_tree.find(key);
     if (it == get_leaf_preimage_hints_public_data_tree.end()) {
@@ -405,7 +404,7 @@ IndexedLeaf<PublicDataLeafValue> HintedRawMerkleDB::get_leaf_preimage_public_dat
 
 IndexedLeaf<NullifierLeafValue> HintedRawMerkleDB::get_leaf_preimage_nullifier_tree(index_t leaf_index) const
 {
-    auto tree_info = get_tree_info(world_state::MerkleTreeId::NULLIFIER_TREE);
+    auto tree_info = get_tree_info(MerkleTreeId::NULLIFIER_TREE);
     GetLeafPreimageKey key = { tree_info, leaf_index };
     auto it = get_leaf_preimage_hints_nullifier_tree.find(key);
     if (it == get_leaf_preimage_hints_nullifier_tree.end()) {
@@ -423,8 +422,8 @@ IndexedLeaf<NullifierLeafValue> HintedRawMerkleDB::get_leaf_preimage_nullifier_t
 SequentialInsertionResult<PublicDataLeafValue> HintedRawMerkleDB::insert_indexed_leaves_public_data_tree(
     const PublicDataLeafValue& leaf_value)
 {
-    auto tree_info = get_tree_info(world_state::MerkleTreeId::PUBLIC_DATA_TREE);
-    SequentialInsertHintPublicDataTreeKey key = { tree_info, world_state::MerkleTreeId::PUBLIC_DATA_TREE, leaf_value };
+    auto tree_info = get_tree_info(MerkleTreeId::PUBLIC_DATA_TREE);
+    SequentialInsertHintPublicDataTreeKey key = { tree_info, MerkleTreeId::PUBLIC_DATA_TREE, leaf_value };
     auto it = sequential_insert_hints_public_data_tree.find(key);
     if (it == sequential_insert_hints_public_data_tree.end()) {
         throw std::runtime_error(format("Sequential insert hint (PUBLIC_DATA_TREE) not found for key (root: ",
@@ -462,8 +461,8 @@ SequentialInsertionResult<PublicDataLeafValue> HintedRawMerkleDB::insert_indexed
 SequentialInsertionResult<NullifierLeafValue> HintedRawMerkleDB::insert_indexed_leaves_nullifier_tree(
     const NullifierLeafValue& leaf_value)
 {
-    auto tree_info = get_tree_info(world_state::MerkleTreeId::NULLIFIER_TREE);
-    SequentialInsertHintNullifierTreeKey key = { tree_info, world_state::MerkleTreeId::NULLIFIER_TREE, leaf_value };
+    auto tree_info = get_tree_info(MerkleTreeId::NULLIFIER_TREE);
+    SequentialInsertHintNullifierTreeKey key = { tree_info, MerkleTreeId::NULLIFIER_TREE, leaf_value };
     auto it = sequential_insert_hints_nullifier_tree.find(key);
     if (it == sequential_insert_hints_nullifier_tree.end()) {
         throw std::runtime_error(format("Sequential insert hint (NULLIFIER_TREE) not found for key (root: ",
@@ -622,7 +621,7 @@ void HintedRawMerkleDB::revert_checkpoint()
     checkpoint_action_counter++;
 }
 
-void HintedRawMerkleDB::append_leaves(world_state::MerkleTreeId tree_id, std::span<const FF> leaves)
+void HintedRawMerkleDB::append_leaves(MerkleTreeId tree_id, std::span<const FF> leaves)
 {
     auto tree_info = get_tree_info(tree_id);
     AppendLeavesHintKey key = { tree_info, tree_id, std::vector<FF>(leaves.begin(), leaves.end()) };
@@ -642,7 +641,7 @@ void HintedRawMerkleDB::append_leaves(world_state::MerkleTreeId tree_id, std::sp
 
     // Update the tree state based on the hint.
     switch (tree_id) {
-    case world_state::MerkleTreeId::NOTE_HASH_TREE:
+    case MerkleTreeId::NOTE_HASH_TREE:
         tree_roots.note_hash_tree = snapshot_after;
         debug("Evolved state of NOTE_HASH_TREE: ",
               tree_roots.note_hash_tree.root,
@@ -650,7 +649,7 @@ void HintedRawMerkleDB::append_leaves(world_state::MerkleTreeId tree_id, std::sp
               tree_roots.note_hash_tree.next_available_leaf_index,
               ")");
         break;
-    case world_state::MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
+    case MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
         tree_roots.l1_to_l2_message_tree = snapshot_after;
         debug("Evolved state of L1_TO_L2_MESSAGE_TREE: ",
               tree_roots.l1_to_l2_message_tree.root,
@@ -663,7 +662,7 @@ void HintedRawMerkleDB::append_leaves(world_state::MerkleTreeId tree_id, std::sp
     }
 }
 
-void HintedRawMerkleDB::pad_tree(world_state::MerkleTreeId tree_id, size_t num_leaves)
+void HintedRawMerkleDB::pad_tree(MerkleTreeId tree_id, size_t num_leaves)
 {
     auto& tree_info = get_tree_info(tree_id);
     auto size_before = tree_info.next_available_leaf_index;
@@ -679,173 +678,6 @@ void HintedRawMerkleDB::pad_tree(world_state::MerkleTreeId tree_id, size_t num_l
 }
 
 uint32_t HintedRawMerkleDB::get_checkpoint_id() const
-{
-    return checkpoint_stack.top();
-}
-
-// PureRawMerkleDB starts.
-TreeSnapshots PureRawMerkleDB::get_tree_roots() const
-{
-    if (cached_tree_snapshots.has_value()) {
-        return cached_tree_snapshots.value();
-    }
-
-    auto l1_to_l2_info = ws_instance.get_tree_info(ws_revision, MerkleTreeId::L1_TO_L2_MESSAGE_TREE);
-    auto note_hash_info = ws_instance.get_tree_info(ws_revision, MerkleTreeId::NOTE_HASH_TREE);
-    auto nullifier_info = ws_instance.get_tree_info(ws_revision, MerkleTreeId::NULLIFIER_TREE);
-    auto public_data_info = ws_instance.get_tree_info(ws_revision, MerkleTreeId::PUBLIC_DATA_TREE);
-
-    TreeSnapshots tree_snapshots = {
-        .l1_to_l2_message_tree = AppendOnlyTreeSnapshot{ .root = l1_to_l2_info.meta.root,
-                                                         .next_available_leaf_index = l1_to_l2_info.meta.size },
-        .note_hash_tree = AppendOnlyTreeSnapshot{ .root = note_hash_info.meta.root,
-                                                  .next_available_leaf_index = note_hash_info.meta.size },
-        .nullifier_tree = AppendOnlyTreeSnapshot{ .root = nullifier_info.meta.root,
-                                                  .next_available_leaf_index = nullifier_info.meta.size },
-        .public_data_tree = AppendOnlyTreeSnapshot{ .root = public_data_info.meta.root,
-                                                    .next_available_leaf_index = public_data_info.meta.size },
-    };
-
-    if (cache_tree_roots) {
-        cached_tree_snapshots = tree_snapshots;
-    }
-
-    return tree_snapshots;
-}
-
-SiblingPath PureRawMerkleDB::get_sibling_path(MerkleTreeId tree_id, index_t leaf_index) const
-{
-    return ws_instance.get_sibling_path(ws_revision, tree_id, leaf_index);
-}
-
-GetLowIndexedLeafResponse PureRawMerkleDB::get_low_indexed_leaf(MerkleTreeId tree_id, const FF& value) const
-{
-    return ws_instance.find_low_leaf_index(ws_revision, tree_id, value);
-}
-
-FF PureRawMerkleDB::get_leaf_value(MerkleTreeId tree_id, index_t leaf_index) const
-{
-    std::optional<FF> res = ws_instance.get_leaf<FF>(ws_revision, tree_id, leaf_index);
-    // If the optional is not set, we assume something is wrong (e.g. leaf index out of bounds)
-    if (!res.has_value()) {
-        throw std::runtime_error(
-            format("Invalid get_leaf_value request", static_cast<uint64_t>(tree_id), " for index ", leaf_index));
-    }
-    return res.value();
-}
-
-IndexedLeaf<PublicDataLeafValue> PureRawMerkleDB::get_leaf_preimage_public_data_tree(index_t leaf_index) const
-{
-    std::optional<IndexedLeaf<PublicDataLeafValue>> res =
-        ws_instance.get_indexed_leaf<PublicDataLeafValue>(ws_revision, MerkleTreeId::PUBLIC_DATA_TREE, leaf_index);
-    // If the optional is not set, we assume something is wrong (e.g. leaf index out of bounds)
-    if (!res.has_value()) {
-        throw std::runtime_error(format("Invalid get_leaf_preimage_public_data_tree request for index ", leaf_index));
-    }
-    return res.value();
-}
-
-IndexedLeaf<NullifierLeafValue> PureRawMerkleDB::get_leaf_preimage_nullifier_tree(index_t leaf_index) const
-{
-    std::optional<IndexedLeaf<NullifierLeafValue>> res =
-        ws_instance.get_indexed_leaf<NullifierLeafValue>(ws_revision, MerkleTreeId::NULLIFIER_TREE, leaf_index);
-    // If the optional is not set, we assume something is wrong (e.g. leaf index out of bounds)
-    if (!res.has_value()) {
-        throw std::runtime_error(format("Invalid get_leaf_preimage_nullifier_tree request for index ", leaf_index));
-    }
-    return res.value();
-}
-
-// State modification methods.
-SequentialInsertionResult<PublicDataLeafValue> PureRawMerkleDB::insert_indexed_leaves_public_data_tree(
-    const PublicDataLeafValue& leaf_value)
-{
-    // Throws CancelledException if cancelled.
-    throw_if_cancelled();
-
-    // Invalidate the cached tree roots.
-    cached_tree_snapshots = std::nullopt;
-
-    auto result = ws_instance.insert_indexed_leaves<PublicDataLeafValue>(
-        MerkleTreeId::PUBLIC_DATA_TREE, { leaf_value }, ws_revision.forkId);
-    return result;
-}
-
-SequentialInsertionResult<NullifierLeafValue> PureRawMerkleDB::insert_indexed_leaves_nullifier_tree(
-    const NullifierLeafValue& leaf_value)
-{
-    // Throws CancelledException if cancelled.
-    throw_if_cancelled();
-
-    // Invalidate the cached tree roots.
-    cached_tree_snapshots = std::nullopt;
-
-    auto result = ws_instance.insert_indexed_leaves<NullifierLeafValue>(
-        MerkleTreeId::NULLIFIER_TREE, { leaf_value }, ws_revision.forkId);
-    return result;
-}
-
-void PureRawMerkleDB::append_leaves(MerkleTreeId tree_id, std::span<const FF> leaves)
-{
-    // Throws CancelledException if cancelled.
-    throw_if_cancelled();
-
-    // Invalidate the cached tree roots.
-    cached_tree_snapshots = std::nullopt;
-
-    ws_instance.append_leaves(tree_id, std::vector<FF>(leaves.begin(), leaves.end()), ws_revision.forkId);
-}
-
-void PureRawMerkleDB::pad_tree(MerkleTreeId tree_id, size_t num_leaves)
-{
-    // Throws CancelledException if cancelled.
-    throw_if_cancelled();
-
-    // Invalidate the cached tree roots.
-    cached_tree_snapshots = std::nullopt;
-
-    // The only trees that should be padded are NULLIFIER_TREE and NOTE_HASH_TREE
-    switch (tree_id) {
-    case MerkleTreeId::NULLIFIER_TREE: {
-        std::vector<NullifierLeafValue> padding_leaves(num_leaves, NullifierLeafValue::empty());
-        ws_instance.batch_insert_indexed_leaves(
-            MerkleTreeId::NULLIFIER_TREE, padding_leaves, NULLIFIER_SUBTREE_HEIGHT, ws_revision.forkId);
-        break;
-    }
-    case MerkleTreeId::NOTE_HASH_TREE: {
-        std::vector<FF> padding_leaves(num_leaves, FF(0));
-        ws_instance.append_leaves(MerkleTreeId::NOTE_HASH_TREE, padding_leaves, ws_revision.forkId);
-        break;
-    }
-    default:
-        throw std::runtime_error("Padding not supported for tree " + std::to_string(static_cast<uint64_t>(tree_id)));
-    }
-}
-
-void PureRawMerkleDB::create_checkpoint()
-{
-    ws_instance.checkpoint(ws_revision.forkId);
-    // Since the world state checkpoint stack is opaque, we track our own checkpoint ids.
-    uint32_t current_id = checkpoint_stack.top();
-    checkpoint_stack.push(current_id + 1);
-}
-
-void PureRawMerkleDB::commit_checkpoint()
-{
-    ws_instance.commit_checkpoint(ws_revision.forkId);
-    checkpoint_stack.pop();
-}
-
-void PureRawMerkleDB::revert_checkpoint()
-{
-    // Invalidate the cached tree roots.
-    cached_tree_snapshots = std::nullopt;
-
-    ws_instance.revert_checkpoint(ws_revision.forkId);
-    checkpoint_stack.pop();
-}
-
-uint32_t PureRawMerkleDB::get_checkpoint_id() const
 {
     return checkpoint_stack.top();
 }

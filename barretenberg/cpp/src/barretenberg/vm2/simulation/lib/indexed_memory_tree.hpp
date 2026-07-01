@@ -25,7 +25,7 @@ template <typename LeafType, typename HashingPolicy> class IndexedMemoryTree {
   private:
     void append_leaf(const IndexedLeaf<LeafType>& leaf);
 
-    MemoryTree<HashingPolicy> tree;
+    crypto::merkle_tree::MemoryTree<HashingPolicy> tree;
     size_t depth;
     size_t max_leaves;
     std::vector<IndexedLeaf<LeafType>> leaves;
@@ -149,7 +149,7 @@ SequentialInsertionResult<LeafType> IndexedMemoryTree<LeafType, HashingPolicy>::
         GetLowIndexedLeafResponse find_low_leaf_result = get_low_indexed_leaf(key);
         IndexedLeaf<LeafType>& low_leaf = leaves.at(find_low_leaf_result.index);
 
-        result.low_leaf_witness_data.push_back(LeafUpdateWitnessData<LeafType>(
+        result.low_leaf_witness_data.push_back(crypto::merkle_tree::LeafUpdateWitnessData<LeafType>(
             low_leaf, find_low_leaf_result.index, tree.get_sibling_path(find_low_leaf_result.index)));
 
         if (!find_low_leaf_result.is_already_present) {
@@ -166,7 +166,7 @@ SequentialInsertionResult<LeafType> IndexedMemoryTree<LeafType, HashingPolicy>::
             FF new_leaf_hash = HashingPolicy::hash(new_indexed_leaf.get_hash_inputs());
             tree.update_element(insertion_index, new_leaf_hash);
 
-            result.insertion_witness_data.push_back(LeafUpdateWitnessData<LeafType>(
+            result.insertion_witness_data.push_back(crypto::merkle_tree::LeafUpdateWitnessData<LeafType>(
                 new_indexed_leaf, insertion_index, tree.get_sibling_path(insertion_index)));
 
         } else if (LeafType::is_updateable()) {
@@ -177,7 +177,7 @@ SequentialInsertionResult<LeafType> IndexedMemoryTree<LeafType, HashingPolicy>::
 
             // Push an empty insertion witness
             result.insertion_witness_data.push_back(
-                LeafUpdateWitnessData<LeafType>(IndexedLeaf<LeafType>::empty(), 0, {}));
+                crypto::merkle_tree::LeafUpdateWitnessData<LeafType>(IndexedLeaf<LeafType>::empty(), 0, {}));
         } else {
             throw std::runtime_error("Leaf is not updateable");
         }

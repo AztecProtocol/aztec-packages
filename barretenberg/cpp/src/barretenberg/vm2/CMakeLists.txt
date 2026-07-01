@@ -18,7 +18,7 @@ list(FILTER VM2_SIM_SOURCE_FILES EXCLUDE REGEX ".*\\.(test|bench|fuzzer)\\.cpp$"
 barretenberg_module_with_sources(
   vm2_sim
   SOURCE_FILES ${VM2_SIM_SOURCE_FILES}
-  DEPENDENCIES world_state
+  DEPENDENCIES crypto_merkle_tree
 )
 
 # vm2_sim needs -fPIC because it's linked into the nodejs_module shared library
@@ -47,14 +47,16 @@ if(AVM)
     TEST_SOURCE_FILES ${TEST_SOURCE_FILES}
     BENCH_SOURCE_FILES ${BENCH_SOURCE_FILES}
     FUZZERS_SOURCE_FILES ${FUZZERS_SOURCE_FILES}
-    DEPENDENCIES sumcheck stdlib_honk_verifier goblin_avm world_state vm2_sim boomerang_value_detection
+    DEPENDENCIES sumcheck stdlib_honk_verifier goblin_avm vm2_sim boomerang_value_detection
   )
 
   # vm2_tests needs dsl for integration testing, but this creates circular dependency:
   # vm2 provides functions that dsl calls, but tests need dsl functions.
   # Solution: Link dsl, then vm2 again to resolve the circular reference.
+  # world_state is a test-only dependency: memory_merkle_db.test.cpp checks MemoryMerkleDB against a
+  # real WorldState, but vm2 itself no longer depends on world_state.
   if(NOT WASM AND NOT FUZZING)
-      target_link_libraries(vm2_tests PRIVATE dsl vm2)
+      target_link_libraries(vm2_tests PRIVATE dsl vm2 world_state)
   endif()
 
   if(FUZZING)

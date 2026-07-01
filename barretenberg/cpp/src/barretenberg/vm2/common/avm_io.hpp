@@ -7,14 +7,13 @@
 #include "barretenberg/common/streams.hpp" // Derives operator<< from SERIALIZATION_FIELDS.
 #include "barretenberg/common/utils.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/merkle_tree_id.hpp" // For MerkleTreeId, WorldStateRevision and MSGPACK_ADD_ENUM(MerkleTreeId).
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
-#include "barretenberg/world_state/world_state.hpp" // For MSGPACK_ADD_ENUM(MerkleTreeId)
 
 #include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
-#include "barretenberg/world_state/types.hpp"
 #include "msgpack/adaptor/define_decl.hpp"
 
 namespace bb::avm2 {
@@ -189,7 +188,7 @@ struct DebugFunctionNameHint {
 struct GetSiblingPathHint {
     AppendOnlyTreeSnapshot hint_key;
     // params
-    world_state::MerkleTreeId tree_id;
+    bb::crypto::merkle_tree::MerkleTreeId tree_id;
     uint64_t index;
     // return
     std::vector<FF> path;
@@ -202,7 +201,7 @@ struct GetSiblingPathHint {
 struct GetPreviousValueIndexHint {
     AppendOnlyTreeSnapshot hint_key;
     // params
-    world_state::MerkleTreeId tree_id;
+    bb::crypto::merkle_tree::MerkleTreeId tree_id;
     FF value;
     // return
     uint64_t index;
@@ -228,7 +227,7 @@ template <typename LeafPreimage_> struct GetLeafPreimageHint {
 struct GetLeafValueHint {
     AppendOnlyTreeSnapshot hint_key;
     // params
-    world_state::MerkleTreeId tree_id;
+    bb::crypto::merkle_tree::MerkleTreeId tree_id;
     uint64_t index;
     // return
     FF value;
@@ -241,7 +240,7 @@ struct GetLeafValueHint {
 template <typename Leaf> struct SequentialInsertHint {
     AppendOnlyTreeSnapshot hint_key;
     // params
-    world_state::MerkleTreeId tree_id;
+    bb::crypto::merkle_tree::MerkleTreeId tree_id;
     Leaf leaf;
     // return
     crypto::merkle_tree::LeafUpdateWitnessData<Leaf> low_leaves_witness_data;
@@ -260,7 +259,7 @@ struct AppendLeavesHint {
     AppendOnlyTreeSnapshot hint_key;
     AppendOnlyTreeSnapshot state_after;
     // params
-    world_state::MerkleTreeId tree_id;
+    bb::crypto::merkle_tree::MerkleTreeId tree_id;
     std::vector<FF> leaves;
 
     bool operator==(const AppendLeavesHint& other) const = default;
@@ -465,7 +464,7 @@ struct PublicSimulatorConfig {
 };
 
 struct AvmFastSimulationInputs {
-    world_state::WorldStateRevision ws_revision;
+    bb::crypto::merkle_tree::WorldStateRevision ws_revision;
     PublicSimulatorConfig config;
     Tx tx;
     GlobalVariables global_variables;

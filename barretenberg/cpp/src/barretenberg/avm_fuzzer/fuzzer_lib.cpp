@@ -1,4 +1,5 @@
 #include "barretenberg/avm_fuzzer/fuzzer_lib.hpp"
+#include "barretenberg/serialize/msgpack_impl.hpp"
 
 #include <cstdint>
 #include <string>
@@ -26,9 +27,9 @@
 #include "barretenberg/vm2/tooling/stats.hpp"
 #include "barretenberg/vm2/tracegen_helper.hpp"
 
+using namespace bb;
 using namespace bb::avm2::fuzzer;
 using namespace bb::avm2::simulation;
-using namespace bb::world_state;
 
 extern size_t LLVMFuzzerMutate(uint8_t* Data, size_t Size, size_t MaxSize);
 
@@ -97,7 +98,6 @@ SimulatorResult fuzz_tx(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contr
     SimulatorResult cpp_result;
 
     try {
-        ws_mgr.checkpoint();
         cpp_result = cpp_simulator.simulate(ws_mgr,
                                             contract_db,
                                             tx_data.tx,
@@ -107,7 +107,6 @@ SimulatorResult fuzz_tx(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contr
                                             tx_data.protocol_contracts);
         fuzz_info("CppSimulator completed without exception");
         fuzz_info("CppSimulator result: ", cpp_result);
-        ws_mgr.revert();
     } catch (const std::exception& e) {
         fuzz_info("CppSimulator threw an exception: ", e.what());
         cpp_result = SimulatorResult{
@@ -116,14 +115,13 @@ SimulatorResult fuzz_tx(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contr
             .end_tree_snapshots = TreeSnapshots(),
             .revert_reason = e.what(),
         };
-        ws_mgr.revert();
     }
 
     return cpp_result;
 }
 
 /// @brief Run the prover fuzzer: fast simulation, hint collection, comparison, and check_circuit
-/// @param ws_mgr The world state manager (should already be forked)
+/// @param ws_mgr The world state manager (should already be reseeded to genesis)
 /// @param contract_db The contract database
 /// @param tx_data The transaction data
 /// @returns the simulation result
@@ -131,8 +129,6 @@ SimulatorResult fuzz_tx(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contr
 TxSimulationResult fuzz_prover(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB& contract_db, FuzzerTxData& tx_data)
 {
     ProtocolContracts& protocol_contracts = tx_data.protocol_contracts;
-    WorldState& ws = ws_mgr.get_world_state();
-    WorldStateRevision ws_rev = ws_mgr.get_current_revision();
     AvmSimulationHelper helper;
 
     // Reset stats for this iteration
@@ -151,29 +147,32 @@ TxSimulationResult fuzz_prover(FuzzerWorldStateManager& ws_mgr, FuzzerContractDB
         .collect_public_inputs = true,
     };
 
-    // 1. Run simulate_fast_with_existing_ws
-    // It is the only one that may throw, so we wrap it in try-catch. If it fails, we do not proceed
+    // Each simulation mutates its merkle DB, so we run each against a fresh copy of the
+    // genesis-seeded in-memory merkle DB to keep them all starting from the same state.
+
+    // 1. Run fast simulation against the in-memory merkle DB.
+    // It is the only one that may throw, so we wrap it in try-catch. If it fails, we do not proceed.
     TxSimulationResult fast_result;
     try {
-        ws_mgr.checkpoint();
-        fast_result = AVM_TRACK_TIME_V(
-            "fuzzer/simulate_fast",
-            helper.simulate_fast_with_existing_ws(
-                contract_db, ws_rev, ws, sim_fast_config, tx_data.tx, tx_data.global_variables, protocol_contracts));
-        ws_mgr.revert();
+        simulation::MemoryMerkleDB fast_merkle_db = ws_mgr.get_memory_merkle_db();
+        fast_result = AVM_TRACK_TIME_V("fuzzer/simulate_fast",
+                                       helper.simulate_fast_internal(contract_db,
+                                                                     fast_merkle_db,
+                                                                     sim_fast_config,
+                                                                     tx_data.tx,
+                                                                     tx_data.global_variables,
+                                                                     protocol_contracts));
     } catch (const std::exception& e) {
-        ws_mgr.revert();
-        fuzz_info("simulate_fast_with_existing_ws threw an exception: ", e.what());
+        fuzz_info("simulate_fast_internal threw an exception: ", e.what());
         return {};
     }
 
-    // 2. Run simulate_for_hint_collection
-    ws_mgr.checkpoint();
+    // 2. Run hint-collecting simulation against a fresh copy of the in-memory merkle DB.
+    simulation::MemoryMerkleDB hint_merkle_db = ws_mgr.get_memory_merkle_db();
     TxSimulationResult hint_result = AVM_TRACK_TIME_V(
         "fuzzer/simulate_hints",
-        helper.simulate_for_hint_collection(
-            contract_db, ws_rev, ws, sim_hint_config, tx_data.tx, tx_data.global_variables, protocol_contracts));
-    ws_mgr.revert();
+        helper.simulate_for_hint_collection_internal(
+            contract_db, hint_merkle_db, sim_hint_config, tx_data.tx, tx_data.global_variables, protocol_contracts));
 
     // 2a. Construct proving inputs from hint result
     bb::avm2::AvmProvingInputs proving_inputs{

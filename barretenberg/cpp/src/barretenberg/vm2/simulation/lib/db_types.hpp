@@ -1,6 +1,7 @@
 #pragma once
 
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/merkle_tree_id.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/map.hpp"
@@ -69,16 +70,16 @@ struct TreeCounters {
 } // namespace bb::avm2::simulation
 
 // We need this helper to avoid having const and non-const versions methods in db classes.
-auto& get_tree_info_helper(world_state::MerkleTreeId tree_id, auto& tree_roots)
+auto& get_tree_info_helper(bb::crypto::merkle_tree::MerkleTreeId tree_id, auto& tree_roots)
 {
     switch (tree_id) {
-    case world_state::MerkleTreeId::NULLIFIER_TREE:
+    case bb::crypto::merkle_tree::MerkleTreeId::NULLIFIER_TREE:
         return tree_roots.nullifier_tree;
-    case world_state::MerkleTreeId::PUBLIC_DATA_TREE:
+    case bb::crypto::merkle_tree::MerkleTreeId::PUBLIC_DATA_TREE:
         return tree_roots.public_data_tree;
-    case world_state::MerkleTreeId::NOTE_HASH_TREE:
+    case bb::crypto::merkle_tree::MerkleTreeId::NOTE_HASH_TREE:
         return tree_roots.note_hash_tree;
-    case world_state::MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
+    case bb::crypto::merkle_tree::MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
         return tree_roots.l1_to_l2_message_tree;
     default:
         throw std::runtime_error("AVM cannot process tree id: " + std::to_string(static_cast<uint64_t>(tree_id)));
