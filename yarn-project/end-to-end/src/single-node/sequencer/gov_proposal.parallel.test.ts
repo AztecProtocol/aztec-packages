@@ -264,12 +264,7 @@ describe('single-node/sequencer/gov_proposal', () => {
     // Wait through the target slot end plus the two-L1-slot sync tolerance before starting the vote-only round.
     const voteOnlySlot = SlotNumber(Number(checkpointAfterBlobDisable.l2SlotNumber) + 2);
     logger.warn(`Waiting until slot ${voteOnlySlot} before starting vote-only round`);
-    await retryUntil(
-      async () => ((await rollup.getSlotNumber()) >= voteOnlySlot ? true : undefined),
-      'stale pipelined checkpoint to expire after disabling blob client',
-      AZTEC_SLOT_DURATION * 4,
-      1,
-    );
+    await cheatCodes.rollup.waitForSlot(voteOnlySlot, { timeout: AZTEC_SLOT_DURATION * 4 });
 
     // Select the voting round.
     const { round, roundDuration, nextRoundBeginsAtSlot } = await setupVotingRound();
@@ -280,8 +275,7 @@ describe('single-node/sequencer/gov_proposal', () => {
     const nextRoundEndsAtSlot = SlotNumber(nextRoundBeginsAtSlot + Number(roundDuration));
     const timeout = AZTEC_SLOT_DURATION * Number(roundDuration + 2n) + 20;
     logger.warn(`Waiting until slot ${nextRoundEndsAtSlot} for round to end (timeout ${timeout}s)`);
-    // REFACTOR: retryUntil on slot polling should be replaced with a rollup slot-wait helper
-    await retryUntil(() => rollup.getSlotNumber().then(s => s > nextRoundEndsAtSlot), 'round end', timeout, 1);
+    await cheatCodes.rollup.waitForSlot(SlotNumber(nextRoundEndsAtSlot + 1), { timeout });
 
     // We should have voted despite being unable to build blocks
     await verifyVotes(round, roundDuration);

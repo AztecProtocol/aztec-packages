@@ -7,7 +7,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { FunctionsOf } from '@aztec/foundation/types';
-import type { ArchiverEmitter, BlockHash } from '@aztec/stdlib/block';
+import type { ArchiverEmitter, BlockHash, L2Block } from '@aztec/stdlib/block';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
@@ -43,8 +43,8 @@ class NoopL1Synchronizer implements FunctionsOf<ArchiverL1Synchronizer> {
   testEthereumNodeSynced(): Promise<void> {
     return Promise.resolve();
   }
-  syncFromL1(_initialSyncComplete: boolean): Promise<void> {
-    return Promise.resolve();
+  syncFromL1(_initialSyncComplete: boolean): Promise<L2Block[]> {
+    return Promise.resolve([]);
   }
 }
 

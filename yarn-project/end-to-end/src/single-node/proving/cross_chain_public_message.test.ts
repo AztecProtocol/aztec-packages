@@ -3,8 +3,10 @@ import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { waitForL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
 import { TxExecutionResult } from '@aztec/aztec.js/tx';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
+import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 
 import { jest } from '@jest/globals';
 
@@ -80,6 +82,16 @@ describe('single-node/proving/cross_chain_public_message', () => {
       )
       .send({ from: context.accounts[0] });
     expect(txReceipt.blockNumber).toBeGreaterThan(0);
+
+    // The consume tx lands in the first slot of its epoch, so the chain otherwise idles through the rest of
+    // that epoch before the fake proof can be assembled. Warp over that dead stretch to the epoch where the
+    // proof becomes submittable (txEpoch + proofSubmissionEpochs); the consume block is already produced, so
+    // warping the tail doesn't change what gets proven, only how long we wait for it.
+    const txBlock = (await context.aztecNode.getBlock(txReceipt.blockNumber!))!;
+    const txEpoch = getEpochAtSlot(txBlock.header.globalVariables.slotNumber, test.constants);
+    const proofEpoch = EpochNumber(Number(txEpoch) + test.constants.proofSubmissionEpochs);
+    logger.warn(`Consume tx landed in epoch ${txEpoch}; warping to proof-submission epoch ${proofEpoch}`);
+    await test.warpToEpochStart(Number(proofEpoch));
 
     // Wait until a proof lands for the transaction
     logger.warn(`Waiting for proof for tx ${txReceipt.txHash} mined at ${txReceipt.blockNumber!}`);

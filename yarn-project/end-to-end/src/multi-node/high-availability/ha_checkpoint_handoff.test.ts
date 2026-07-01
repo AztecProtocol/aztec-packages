@@ -10,7 +10,6 @@ import type { CheckpointData, ProposedCheckpointData } from '@aztec/stdlib/check
 
 import { jest } from '@jest/globals';
 
-import type { EndToEndContext } from '../../fixtures/utils.js';
 import {
   MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
   MULTI_VALIDATOR_REORG_TIMING,
@@ -67,7 +66,6 @@ const VALIDATOR_COUNT = 4;
  * S2→peer uses the test-only `pauseProposingForSlots` hook.
  */
 describe('multi-node/high-availability/ha_checkpoint_handoff', () => {
-  let context: EndToEndContext;
   let logger: Logger;
   let rollup: RollupContract;
 
@@ -102,7 +100,7 @@ describe('multi-node/high-availability/ha_checkpoint_handoff', () => {
       aztecTargetCommitteeSize: VALIDATOR_COUNT,
     });
 
-    ({ context, logger, rollup } = test);
+    ({ logger, rollup } = test);
 
     // Create 4 nodes in 2 HA pairs (pk1+pk2, pk3+pk4) sharing keys + a per-pair slashing-protection DB.
     // Distinct coinbases per node let the secondary assertion prove which peer produced S2's checkpoint;
@@ -155,56 +153,32 @@ describe('multi-node/high-availability/ha_checkpoint_handoff', () => {
         ? undefined
         : haPairs.find(pair => pair.addresses.includes(proposer.toString().toLowerCase()));
 
-    // REFACTOR: hand-rolled slot-search loop with manual epoch arithmetic and warp-on-EpochNotStable retry
-    // (same pattern as invalid-attestations/invalidate_block and recovery/proposal_failure_recovery) — a shared
-    // "find slots matching a proposer predicate, warping past EpochNotStable" helper should replace it.
-    let candidate = Number(test.epochCache.getEpochAndSlotNow().slot) + 4;
-    const maxAttempts = 200;
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      try {
-        const [p1, p2] = await Promise.all([
-          test.epochCache.getProposerAttesterAddressInSlot(SlotNumber(candidate)),
-          test.epochCache.getProposerAttesterAddressInSlot(SlotNumber(candidate + 1)),
-        ]);
-        const pairS1 = matchingPair(p1);
-        const pairS2 = matchingPair(p2);
-        if (pairS1 !== undefined && pairS1 === pairS2) {
-          const [builder, peer] = pairS1.nodes;
-          logger.warn(`Found consecutive same-pair proposal slots ${candidate} and ${candidate + 1}.`, {
-            slotS1: candidate,
-            slotS2: candidate + 1,
-            proposerS1: p1?.toString(),
-            proposerS2: p2?.toString(),
-            pairAddresses: pairS1.addresses,
-          });
-          return {
-            slotS1: SlotNumber(candidate),
-            slotS2: SlotNumber(candidate + 1),
-            builder,
-            peer,
-            peerCoinbase: pairS1.coinbases[1],
-            builderArchiver: builder.getBlockSource() as Archiver,
-            peerArchiver: peer.getBlockSource() as Archiver,
-          };
-        }
-        candidate++;
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (!msg.includes('EpochNotStable')) {
-          throw err;
-        }
-        const block = await test.l1Client.getBlock({ includeTransactions: false });
-        const warpBy = test.epochDuration * test.L2_SLOT_DURATION_IN_S;
-        const newTs = Number(block.timestamp) + warpBy;
-        logger.warn(`Hit EpochNotStable at candidate ${candidate}, warping L1 forward by ${warpBy}s to ${newTs}`);
-        await context.cheatCodes.eth.warp(newTs, { resetBlockInterval: true });
-        const newCurrentSlot = Number(test.epochCache.getEpochAndSlotNow().slot);
-        if (candidate < newCurrentSlot + 4) {
-          candidate = newCurrentSlot + 4;
-        }
-      }
-    }
-    throw new Error(`Could not find two consecutive slots both proposed by the same HA pair`);
+    const {
+      slots: [slotS1, slotS2],
+      proposers: [p1, p2],
+    } = await test.findSlotsWithProposers(2, ([proposerS1, proposerS2]) => {
+      const pairS1 = matchingPair(proposerS1);
+      return pairS1 !== undefined && pairS1 === matchingPair(proposerS2);
+    });
+
+    const pair = matchingPair(p1)!;
+    const [builder, peer] = pair.nodes;
+    logger.warn(`Found consecutive same-pair proposal slots ${slotS1} and ${slotS2}.`, {
+      slotS1,
+      slotS2,
+      proposerS1: p1.toString(),
+      proposerS2: p2.toString(),
+      pairAddresses: pair.addresses,
+    });
+    return {
+      slotS1,
+      slotS2,
+      builder,
+      peer,
+      peerCoinbase: pair.coinbases[1],
+      builderArchiver: builder.getBlockSource() as Archiver,
+      peerArchiver: peer.getBlockSource() as Archiver,
+    };
   }
 
   afterEach(async () => {

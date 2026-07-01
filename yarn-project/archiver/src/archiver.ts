@@ -20,6 +20,7 @@ import {
   L2BlockSourceEvents,
   type L2Tips,
   type ValidateCheckpointResult,
+  l2TipsEqual,
 } from '@aztec/stdlib/block';
 import { type ProposedCheckpointInput, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import {
@@ -339,9 +340,10 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
    * Called at the beginning of each sync iteration.
    * Items are processed in the order they were queued.
    */
-  private async processInboundQueue(): Promise<void> {
+  private async processInboundQueue(): Promise<L2Block[]> {
+    const blocksAdded: L2Block[] = [];
     if (this.inboundQueue.length === 0) {
-      return;
+      return blocksAdded;
     }
 
     // Take all items from the queue
@@ -378,6 +380,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
         if (type === 'block') {
           const [durationMs] = await elapsed(() => this.updater.addProposedBlock(item.block));
           this.instrumentation.processNewProposedBlock(durationMs, item.block);
+          blocksAdded.push(item.block);
         } else {
           await this.updater.addProposedCheckpoint(item.checkpoint);
         }
@@ -386,6 +389,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
       } catch (err: any) {
         if (err instanceof BlockAlreadyCheckpointedError) {
           this.log.debug(`Proposed block ${itemNumber} matches already checkpointed block, ignoring late proposal`);
+          // A late proposal that matches an already-checkpointed block adds nothing new, so it is not appended.
           resolve();
           continue;
         }
@@ -396,6 +400,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
         reject(err);
       }
     }
+    return blocksAdded;
   }
 
   public waitForInitialSync() {
@@ -407,12 +412,31 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
    */
   @trackSpan('Archiver.sync')
   private async sync() {
+    // Capture the tips before any mutation so the aggregate event can report what moved this pass.
+    const fromTips = await this.getL2Tips();
+
+    // Accumulate the blocks added across the pass's sub-steps (queued proposals + L1 checkpoint payloads).
+    const blocksAdded: L2Block[] = [];
     // Process any queued blocks first, before doing L1 sync
-    await this.processInboundQueue();
+    blocksAdded.push(...(await this.processInboundQueue()));
     // Now perform L1 sync
-    await this.syncFromL1();
+    blocksAdded.push(...(await this.syncFromL1()));
     // Prune proposed blocks with no corresponding proposed checkpoint after the appropriate materialization deadline.
     await this.pruneOrphanProposedBlocks();
+
+    // Emit a single aggregate update event after all pass work has committed and the tips cache has refreshed,
+    // so `toTips` and the source state observed by listeners are consistent with the event payload. The pass
+    // mutated state if the tips moved (added blocks, a prune, or a thin tier movement) or blocks were added; a
+    // fully-synced no-op pass emits nothing.
+    const toTips = await this.getL2Tips();
+    if (!l2TipsEqual(fromTips, toTips) || blocksAdded.length > 0) {
+      this.events.emit(L2BlockSourceEvents.L2BlockSourceUpdated, {
+        type: L2BlockSourceEvents.L2BlockSourceUpdated,
+        fromTips,
+        toTips,
+        blocksAdded,
+      });
+    }
   }
 
   /**
@@ -514,9 +538,9 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
     });
   }
 
-  private async syncFromL1() {
+  private async syncFromL1(): Promise<L2Block[]> {
     // Delegate to the L1 synchronizer
-    await this.synchronizer.syncFromL1(this.initialSyncComplete);
+    const blocksAdded = await this.synchronizer.syncFromL1(this.initialSyncComplete);
 
     // Check if we've completed initial sync
     const currentL1BlockNumber = this.synchronizer.getL1BlockNumber();
@@ -533,6 +557,7 @@ export class Archiver extends ArchiverDataSourceBase implements L2BlockSink, Tra
         this.initialSyncPromise.resolve();
       }
     }
+    return blocksAdded;
   }
 
   /** Resumes the archiver after a stop. */

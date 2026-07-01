@@ -142,10 +142,6 @@ tests:
     error_regex: "✕ Can't claim funds"
     owners:
       - *lasse
-  - regex: "src/e2e_l1_publisher/e2e_l1_publisher.test.ts"
-    error_regex: "Anvil failed to stop in time|Cannot read properties of undefined"
-    owners:
-      - *palla
   - regex: "src/single-node/bot/bot.test.ts"
     error_regex: "Tx dropped"
     owners:
@@ -196,6 +192,10 @@ tests:
   - regex: "p2p/src/services/discv5/discv5_service.test.ts"
     owners:
       - *phil
+      - *palla
+  - regex: "sequencer-client/src/publisher/l1_publisher.integration.test.ts"
+    error_regex: "Anvil failed to stop in time|Cannot read properties of undefined"
+    owners:
       - *palla
 
   # Nightly GKE tests

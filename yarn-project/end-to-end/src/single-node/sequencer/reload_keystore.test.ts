@@ -9,7 +9,7 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
 import type { EthPrivateKey } from '@aztec/node-keystore';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
-import { type SequencerClient, type SequencerEvents, SequencerState } from '@aztec/sequencer-client';
+import { type SequencerClient, SequencerState } from '@aztec/sequencer-client';
 import type { TestSequencer, TestSequencerClient } from '@aztec/sequencer-client/test';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import type { ValidatorClient } from '@aztec/validator-client';
@@ -22,6 +22,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 
 import { PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
 import { getPrivateKeyFromIndex } from '../../fixtures/utils.js';
+import { waitForSequencerState } from '../../fixtures/wait_helpers.js';
 import { setupBlockProducer } from '../setup.js';
 import type { SingleNodeTestContext } from '../single_node_test_context.js';
 
@@ -34,60 +35,6 @@ const PUBLISHER_KEY_INDEX = 3;
 const VALIDATOR_COUNT = 4;
 const COMMITTEE_SIZE = VALIDATOR_COUNT;
 const INITIAL_KEYSTORE_COUNT = 3;
-
-// REFACTOR: hand-rolled state-changed on/off subscription with a manual timeout that runs an action and
-// waits for the sequencer to return to IDLE — a waitForSequencerState(IDLE, { after }) DSL helper should
-// replace it (also duplicated as waitForSequencerIdle in e2e_multiple_blobs / e2e_fees / l2_to_l1).
-async function waitForSequencerIdleAfter(
-  sequencer: TestSequencer,
-  action: () => Promise<unknown>,
-  timeout = 30_000,
-): Promise<void> {
-  let settled = false;
-  let resolveIdle!: () => void;
-  let rejectIdle!: (err: Error) => void;
-  const idlePromise = new Promise<void>((resolve, reject) => {
-    resolveIdle = resolve;
-    rejectIdle = reject;
-  });
-
-  let cleanup = () => {};
-  const finish = (complete: () => void) => {
-    if (settled) {
-      return;
-    }
-    settled = true;
-    cleanup();
-    complete();
-  };
-
-  const handler = (args: Parameters<SequencerEvents['state-changed']>[0]) => {
-    if (args.newState === SequencerState.IDLE) {
-      finish(resolveIdle);
-    }
-  };
-
-  const timer = setTimeout(
-    () => finish(() => rejectIdle(new Error('Timeout waiting for sequencer IDLE state'))),
-    timeout,
-  );
-  cleanup = () => {
-    clearTimeout(timer);
-    sequencer.off('state-changed', handler);
-  };
-
-  sequencer.on('state-changed', handler);
-  try {
-    await action();
-    if (sequencer.status().state === SequencerState.IDLE) {
-      finish(resolveIdle);
-    }
-    await idlePromise;
-  } catch (err) {
-    finish(() => {});
-    throw err;
-  }
-}
 
 // Tests that the sequencer node's keystore can be hot-reloaded at runtime via the admin API.
 // One node with 4 validators staked, committee size 4. Initially only 3 validators are in the
@@ -261,7 +208,9 @@ describe('single-node/sequencer/reload_keystore', () => {
     // Send a tx and confirm the block uses one of the new per-validator coinbases.
     // Whichever validator is the proposer, its coinbase must be from the reloaded keystore.
     // A checkpoint job may already be waiting for txs with the old coinbase, so let it expire before sending.
-    await waitForSequencerIdleAfter(sequencer, () => cheatCodes.rollup.advanceToNextSlot());
+    await waitForSequencerState(sequencer, SequencerState.IDLE, {
+      after: () => cheatCodes.rollup.advanceToNextSlot(),
+    });
 
     const allNewCoinbasesLower = newCoinbases.map(c => c.toString().toLowerCase());
 
