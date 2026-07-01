@@ -199,6 +199,11 @@ describe('e2e_p2p_add_rollup', () => {
         slashAmountLarge: t.ctx.aztecNodeConfig.slashAmountLarge,
         localEjectionThreshold: t.ctx.aztecNodeConfig.localEjectionThreshold,
         governanceVotingDuration: t.ctx.aztecNodeConfig.governanceVotingDuration,
+        entryQueueBootstrapValidatorSetSize: t.ctx.aztecNodeConfig.entryQueueBootstrapValidatorSetSize,
+        entryQueueBootstrapFlushSize: t.ctx.aztecNodeConfig.entryQueueBootstrapFlushSize,
+        entryQueueFlushSizeMin: t.ctx.aztecNodeConfig.entryQueueFlushSizeMin,
+        entryQueueFlushSizeQuotient: t.ctx.aztecNodeConfig.entryQueueFlushSizeQuotient,
+        entryQueueMaxFlushSize: t.ctx.aztecNodeConfig.entryQueueMaxFlushSize,
       },
     );
 

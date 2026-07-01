@@ -186,5 +186,11 @@ export async function getL1ContractsConfig(
     slashAmountMedium: slashingAmounts[1],
     slashAmountLarge: slashingAmounts[2],
     initialEthPerFeeAsset: DefaultL1ContractsConfig.initialEthPerFeeAsset,
+    // Not exposed by the rollup contract; fall back to defaults like the other non-on-chain fields above.
+    entryQueueBootstrapValidatorSetSize: DefaultL1ContractsConfig.entryQueueBootstrapValidatorSetSize,
+    entryQueueBootstrapFlushSize: DefaultL1ContractsConfig.entryQueueBootstrapFlushSize,
+    entryQueueFlushSizeMin: DefaultL1ContractsConfig.entryQueueFlushSizeMin,
+    entryQueueFlushSizeQuotient: DefaultL1ContractsConfig.entryQueueFlushSizeQuotient,
+    entryQueueMaxFlushSize: DefaultL1ContractsConfig.entryQueueMaxFlushSize,
   };
 }
