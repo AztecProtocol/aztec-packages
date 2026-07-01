@@ -1,10 +1,12 @@
-// This window has to be as large as the largest expected number of logs emitted in a tx for a given directional app
-// tagging secret. If we get more tag indexes consumed than this window, an error is thrown in `PXE::proveTx` function.
-// This is set to a larger value than MAX_PRIVATE_LOGS_PER_TX (currently 64) because there could be more than
-// MAX_PRIVATE_LOGS_PER_TX indexes consumed in case the logs are squashed. This happens when the log contains a note
-// and the note is nullified in the same tx.
+// This window bounds how far a sender's next tag index for a directional app tagging secret can run ahead of that
+// secret's highest finalized (observed-as-mined) index before `PXE::proveTx` throws.
 //
-// Having a large window significantly slowed down `e2e_l1_with_wall_time` test as there we perform sync for more than
-// 1000 secrets. For this reason we set it to a relatively low value of 20. 20 should be sufficient for all the use
-// cases.
+// It must cover the worst case of a single tx: MAX_PRIVATE_LOGS_PER_TX (currently 64, matching MAX_NOTE_HASHES_PER_TX)
+// logs can all be tagged with the same secret in one tx, so a fresh secret's very first tx can consume that many
+// indexes before anything is finalized. A larger window also makes recipient-side sync more expensive, since
+// discovery has to probe ahead of the last finalized index for every active secret.
+//
+// EXPERIMENT (draft PR, not for merge): set below the safe minimum on purpose, to check whether #24429's bump to
+// MAX_PRIVATE_LOGS_PER_TX was needed to pass CI now that the client-flows bench uses address-derived secrets again.
+// Do not ship this value — see PR description.
 export const UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN = 20;
