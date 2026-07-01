@@ -1,6 +1,6 @@
 # @aztec/pxe
 
-Version: v5.0.0-rc.1
+Version: v5.0.0-rc.2
 
 ## Quick Import Reference
 
@@ -26,7 +26,7 @@ new AddressStore(store: AztecAsyncKVStore)
 
 **Methods**
 - `addCompleteAddress(completeAddress: CompleteAddress) => Promise<boolean>`
-- `getCompleteAddress(account: AztecAddress) => Promise<any>`
+- `getCompleteAddress(account: AztecAddress) => Promise<CompleteAddress | undefined>`
 - `getCompleteAddresses() => Promise<CompleteAddress[]>`
 
 ### AnchorBlockStore
@@ -58,7 +58,7 @@ new CapsuleService(capsuleStore: CapsuleStore, allowedScopes: AztecAddress[])
 - `getCapsule(contractAddress: AztecAddress, slot: Fr, jobId: string, scope: AztecAddress, transientCapsules?: Capsule[]) => Promise<Fr[] | null>`
 - `readCapsuleArray(contractAddress: AztecAddress, baseSlot: Fr, jobId: string, scope: AztecAddress) => Promise<Fr[][]>`
 - `setCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], jobId: string, scope: AztecAddress) => void`
-- `setCapsuleArray(contractAddress: AztecAddress, baseSlot: Fr, content: Fr[][], jobId: string, scope: AztecAddress) => any`
+- `setCapsuleArray(contractAddress: AztecAddress, baseSlot: Fr, content: Fr[][], jobId: string, scope: AztecAddress) => Promise<void>`
 
 ### CapsuleStore
 Implements: `StagedStore`
@@ -81,7 +81,7 @@ new CapsuleStore(store: AztecAsyncKVStore)
 - `getCapsule(contractAddress: AztecAddress, slot: Fr, jobId: string, scope: AztecAddress) => Promise<Fr[] | null>` - Returns data previously stored via `storeCapsule` in the per-contract non-volatile database.
 - `readCapsuleArray(contractAddress: AztecAddress, baseSlot: Fr, jobId: string, scope: AztecAddress) => Promise<Fr[][]>`
 - `setCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], jobId: string, scope: AztecAddress) => void` - Stores arbitrary information in a per-contract non-volatile database, which can later be retrieved with `loadCapsule`. * If data was already stored at this slot, it is overwritten.
-- `setCapsuleArray(contractAddress: AztecAddress, baseSlot: Fr, content: Fr[][], jobId: string, scope: AztecAddress) => any`
+- `setCapsuleArray(contractAddress: AztecAddress, baseSlot: Fr, content: Fr[][], jobId: string, scope: AztecAddress) => Promise<void>`
 
 ### ContractStore
 
@@ -93,23 +93,23 @@ new ContractStore(store: AztecAsyncKVStore)
 ```
 
 **Methods**
-- `addContractArtifact(contract: ContractArtifact, contractClassWithIdAndPreimage?: any) => Promise<Fr>` - Registers a new contract artifact and its corresponding class data. IMPORTANT: This method does not verify that the provided artifact matches the class data or that the class id matches the artifact. It is the caller's responsibility to ensure the consistency and correctness of the provided data. This is done to avoid redundant, expensive contract class computations
+- `addContractArtifact(contract: ContractArtifact, contractClassWithIdAndPreimage?: ContractClass & Pick<ContractClassCommitments, "id"> & ContractClassIdPreimage) => Promise<Fr>` - Registers a new contract artifact and its corresponding class data. IMPORTANT: This method does not verify that the provided artifact matches the class data or that the class id matches the artifact. It is the caller's responsibility to ensure the consistency and correctness of the provided data. This is done to avoid redundant, expensive contract class computations
 - `addContractInstance(contract: ContractInstanceWithAddress) => Promise<void>`
-- `getContract(address: AztecAddress) => Promise<any>`
-- `getContractArtifact(contractClassId: Fr) => Promise<any>` - Returns the raw contract artifact for a given class id.
-- `getContractClassWithPreimage(contractClassId: Fr) => Promise<any>` - Returns a contract class for a given class id.
-- `getContractInstance(contractAddress: AztecAddress) => Promise<any>` - Returns a contract instance for a given address.
+- `getContract(address: AztecAddress) => Promise<ContractInstance & { address: AztecAddress } & ContractArtifact | undefined>`
+- `getContractArtifact(contractClassId: Fr) => Promise<ContractArtifact | undefined>` - Returns the raw contract artifact for a given class id.
+- `getContractClassWithPreimage(contractClassId: Fr) => Promise<ContractClass & Pick<ContractClassCommitments, "id"> & ContractClassIdPreimage | undefined>` - Returns a contract class for a given class id.
+- `getContractInstance(contractAddress: AztecAddress) => Promise<ContractInstanceWithAddress | undefined>` - Returns a contract instance for a given address.
 - `getContractsAddresses() => Promise<AztecAddress[]>`
-- `getDebugContractName(contractAddress: AztecAddress) => Promise<any>`
+- `getDebugContractName(contractAddress: AztecAddress) => Promise<string | undefined>`
 - `getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector) => Promise<string>`
-- `getFunctionAbi(contractAddress: AztecAddress, selector: FunctionSelector) => Promise<any>`
-- `getFunctionArtifact(contractAddress: AztecAddress, selector: FunctionSelector) => Promise<any>` - Retrieves the artifact of a specified function within a given contract.
+- `getFunctionAbi(contractAddress: AztecAddress, selector: FunctionSelector) => Promise<FunctionAbi | undefined>`
+- `getFunctionArtifact(contractAddress: AztecAddress, selector: FunctionSelector) => Promise<FunctionArtifactWithContractName | undefined>` - Retrieves the artifact of a specified function within a given contract.
 - `getFunctionArtifactWithDebugMetadata(contractAddress: AztecAddress, selector: FunctionSelector) => Promise<FunctionArtifactWithContractName>`
 - `getFunctionCall(functionName: string, args: any[], to: AztecAddress) => Promise<FunctionCall>`
-- `getFunctionDebugMetadata(contractAddress: AztecAddress, selector: FunctionSelector) => Promise<any>` - Retrieves the debug metadata of a specified function within a given contract.
-- `getFunctionMembershipWitness(contractClassId: Fr, selector: FunctionSelector) => Promise<any>` - Retrieve the function membership witness for the given contract class and function selector.
-- `getPublicFunctionArtifact(contractAddress: AztecAddress) => Promise<any>`
-- `getPublicFunctionDebugMetadata(contractAddress: AztecAddress) => Promise<any>`
+- `getFunctionDebugMetadata(contractAddress: AztecAddress, selector: FunctionSelector) => Promise<FunctionDebugMetadata | undefined>` - Retrieves the debug metadata of a specified function within a given contract.
+- `getFunctionMembershipWitness(contractClassId: Fr, selector: FunctionSelector) => Promise<MembershipWitness<7> | undefined>` - Retrieve the function membership witness for the given contract class and function selector.
+- `getPublicFunctionArtifact(contractAddress: AztecAddress) => Promise<FunctionArtifactWithContractName | undefined>`
+- `getPublicFunctionDebugMetadata(contractAddress: AztecAddress) => Promise<FunctionDebugMetadata | undefined>`
 
 ### ContractSyncService
 
@@ -127,9 +127,86 @@ new ContractSyncService(aztecNode: AztecNode, contractStore: ContractStore, note
 **Methods**
 - `commit(_jobId: string) => Promise<void>` - Commits staged data to main storage. Should be called within a transaction for atomicity.
 - `discardStaged(_jobId: string) => Promise<void>` - Discards staged data without committing. Called on abort.
-- `ensureContractSynced(contractAddress: AztecAddress, functionToInvokeAfterSync: any, utilityExecutor: (call: FunctionCall, scopes: AztecAddress[]) => Promise<any>, anchorBlockHeader: BlockHeader, jobId: string, scopes: AztecAddress[]) => Promise<void>` - Ensures a contract's private state is synchronized and that the PXE holds the current class artifact. Uses a cache to avoid redundant sync operations - the cache is wiped when the anchor block changes.
+- `ensureContractSynced(contractAddress: AztecAddress, functionToInvokeAfterSync: FunctionSelector | null, utilityExecutor: (call: FunctionCall, scopes: AztecAddress[]) => Promise<any>, anchorBlockHeader: BlockHeader, jobId: string, scopes: AztecAddress[]) => Promise<void>` - Ensures a contract's private state is synchronized and that the PXE holds the current class artifact. Uses a cache to avoid redundant sync operations - the cache is wiped when the anchor block changes.
 - `invalidateContractForScopes(contractAddress: AztecAddress, scopes: AztecAddress[]) => void` - Clears sync cache entries for the given scopes of a contract.
 - `wipe() => void` - Clears sync cache. Called by BlockSynchronizer when anchor block changes.
+
+### FactCollectionKey
+
+Uniquely identifies a single fact collection, isolated by scope; all its facts share this key.
+
+**Constructor**
+```typescript
+new FactCollectionKey(contractAddress: AztecAddress, scope: AztecAddress, factCollectionTypeId: Fr, factCollectionId: Fr)
+```
+
+**Properties**
+- `readonly contractAddress: AztecAddress`
+- `readonly factCollectionId: Fr`
+- `readonly factCollectionTypeId: Fr`
+- `readonly scope: AztecAddress`
+
+**Methods**
+- `factCollectionTypeKey() => FactCollectionTypeKey` - The key grouping this collection with the other collections of its type within the same contract and scope.
+- `static from(fields: FieldsOf<FactCollectionKey>) => FactCollectionKey`
+- `static fromString(str: string) => FactCollectionKey` - Inverse of toString
+- `toString() => string`
+
+### FactCollectionTypeKey
+
+Identifies all fact collections of one type within a contract, for one scope.
+
+**Constructor**
+```typescript
+new FactCollectionTypeKey(contractAddress: AztecAddress, scope: AztecAddress, factCollectionTypeId: Fr)
+```
+
+**Properties**
+- `readonly contractAddress: AztecAddress`
+- `readonly factCollectionTypeId: Fr`
+- `readonly scope: AztecAddress`
+
+**Methods**
+- `static from(fields: FieldsOf<FactCollectionTypeKey>) => FactCollectionTypeKey`
+- `toString() => string`
+
+### FactService
+
+Wraps a FactStore with scope-based access control. Each method asserts scope validity before delegating to FactStore, gating which accounts a contract may record facts under or read facts from.
+
+**Constructor**
+```typescript
+new FactService(factStore: FactStore, allowedScopes: AztecAddress[])
+```
+
+**Methods**
+- `deleteFactCollection(factCollectionKey: FactCollectionKey, jobId: string) => Promise<void>`
+- `getFactCollection(factCollectionKey: FactCollectionKey, jobId: string) => Promise<FactCollection | undefined>`
+- `getFactCollectionsByType(factCollectionTypeKey: FactCollectionTypeKey, jobId: string) => Promise<FactCollection[]>`
+- `recordFact(factCollectionKey: FactCollectionKey, factTypeId: Fr, payload: Fr[], originBlock: OriginBlock | undefined, jobId: string) => Promise<void>`
+
+### FactStore
+
+Stores immutable facts grouped into collections, isolated by contract and scope. A fact collection is a contract-defined bag of facts identified by a FactCollectionKey (contract, scope, collection type, and id). A fact is a contract-defined immutable, typed datum in a collection. Collections are implicit: one comes into being when its first fact is recorded and ceases to exist once it has no facts left. What makes this store different to, for example, the `CapsuleStore`, is that it is designed to support use cases where resilience to reorgs is needed, via what we call _retractability_. Facts can be retractable or non-retractable. They are retractable if they are associated to an origin block. Retractable facts are removed from the store when their origin block is pruned (typically due to a reorg). Non-retractable facts survive reorgs: they must then be explicitly deleted, so as not to keep consuming resources (storage and compute) indefinitely. Fact collections are isolated by scope. This store is designed to enable Aztec.nr to implement complex workflows such as offchain reception or partial note processing by storing structured data that is guaranteed to exist conditionally to specific blocks being included in the chain, while leaving the complexity of ensuring said guarantees to PXE. A key design driver is that PXE knows nothing about the actual fact contents: it just manages enough metadata to provide the guarantees mentioned above. That way, concepts such as offchain delivery or partial notes are completely defined by Aztec.nr, opening the door to further extension without the need for ad-hoc PXE support. As with most other PXE stores, writes are staged per-job and flushed atomically on commit.
+Implements: `StagedStore`
+
+**Constructor**
+```typescript
+new FactStore(store: AztecAsyncKVStore)
+```
+
+**Properties**
+- `logger: Logger`
+- `readonly storeName: string` - Unique name identifying this store (used for tracking staged stores from JobCoordinator)
+
+**Methods**
+- `commit(jobId: string) => Promise<void>` - Commits all staged operations for the given job to persistent storage. Must be called inside a transaction owned by the caller (JobCoordinator wraps all commits in a single transactionAsync, and IndexedDB does not support nested transactions). DO NOT call `#withJobLock` here: awaiting the lock creates a microtask boundary that causes IndexedDB to auto-commit the outer transaction.
+- `deleteFactCollection(factCollectionKey: FactCollectionKey, jobId: string) => Promise<void>` - Deletes a fact collection: removes every fact under the (scope-qualified) collection key. Idempotent: deleting a collection that does not exist is a no-op.
+- `discardStaged(jobId: string) => Promise<void>` - Discards all staged operations for the given job without persisting them.
+- `getFactCollection(factCollectionKey: FactCollectionKey, jobId: string) => Promise<FactCollection | undefined>` - Returns the fact collection for the (scope-qualified) key, or undefined if it has no facts.
+- `getFactCollectionsByType(factCollectionTypeKey: FactCollectionTypeKey, jobId: string) => Promise<FactCollection[]>` - Returns every fact collection of the given type for the queried scope, each holding its facts.
+- `recordFact(factCollectionKey: FactCollectionKey, factTypeId: Fr, payload: Fr[], originBlock: OriginBlock | undefined, jobId: string) => Promise<void>` - Records a fact in a collection. The collection is created implicitly on the first fact recorded for its key: recording into an existing collection just adds to it. If `originBlock === undefined`, the fact is non-retractable: it survives reorgs. A defined origin block makes the fact retractable: on a prune below its block, it will be deleted. Idempotent: re-recording an identical fact (same collection, fact type, payload, and origin block) is a no-op. The same payload tied to a different origin block is a distinct fact.
+- `rollback(toBlock: number) => Promise<void>` - Removes every retractable fact originating from blocks over height `toBlock`, across all scopes. Non-retractable facts are untouched. Must run inside a caller-owned transaction (because it needs to share the transaction with other stores and IndexedDB has no nested transactions). Throws if any job is in flight (has accessed the store and not yet committed or discarded), since rolling back mid-job could re-introduce records originating from deleted blocks or change state underneath a job's view.
 
 ### JobCoordinator
 
@@ -137,7 +214,7 @@ JobCoordinator manages job lifecycle and provides crash resilience for PXE opera
 
 **Constructor**
 ```typescript
-new JobCoordinator(kvStore: AztecAsyncKVStore, bindings?: any)
+new JobCoordinator(kvStore: AztecAsyncKVStore, bindings?: LoggerBindings)
 ```
 
 **Properties**
@@ -151,6 +228,39 @@ new JobCoordinator(kvStore: AztecAsyncKVStore, bindings?: any)
 - `registerStore(store: StagedStore) => void` - Registers a staged store. Must be called during initialization for all stores that need staging support.
 - `registerStores(stores: StagedStore[]) => void` - Registers multiple staged stores.
 
+### NoteDao
+
+A Note Data Access Object, representing a note that was committed to the note hash tree, holding all of the information required to use it during execution and manage its state.
+
+**Constructor**
+```typescript
+new NoteDao(note: Note, contractAddress: AztecAddress, owner: AztecAddress, storageSlot: Fr, randomness: Fr, noteNonce: Fr, noteHash: Fr, siloedNullifier: Fr, txHash: TxHash, l2BlockNumber: BlockNumber, l2BlockHash: string, txIndexInBlock: number, noteIndexInTx: number)
+```
+
+**Properties**
+- `contractAddress: AztecAddress` - The address of the contract that created the note (i.e. the address used by the kernel during siloing).
+- `l2BlockHash: string` - The L2 block hash in which the tx with this note was included. Used for note management while processing reorgs.
+- `l2BlockNumber: BlockNumber` - The L2 block number in which the tx with this note was included. Used for note management while processing reorgs.
+- `note: Note` - The packed content of the note, as will be returned in the getNotes oracle.
+- `noteHash: Fr` - The inner hash (non-unique, non-siloed) of the note. Each contract determines how the note is hashed. Can be used alongside contractAddress and nonce to compute the uniqueNoteHash and the siloedNoteHash.
+- `noteIndexInTx: number` - The index of the note within the tx (based on note hash position), used for ordering notes.
+- `noteNonce: Fr` - The nonce that was injected into the note hash preimage in order to guarantee uniqueness.
+- `owner: AztecAddress` - The owner of the note - generally the account that can spend the note.
+- `randomness: Fr` - The randomness injected to the note hash preimage.
+- `siloedNullifier: Fr` - The nullifier of the note, siloed by contract address. Note: Might be set as 0 if the note was added to PXE as nullified.
+- `storageSlot: Fr` - The storage location of the note. This value is not used for anything in PXE, but we do index by storage slot since contracts typically make queries based on it.
+- `txHash: TxHash` - The hash of the tx in which this note was created. Knowing the tx hash allows for efficient node queries e.g. when searching for txEffects.
+- `txIndexInBlock: number` - The index of the tx within the block, used for ordering notes.
+
+**Methods**
+- `equals(other: NoteDao) => boolean` - Returns true if this note is equal to the `other` one.
+- `static fromBuffer(buffer: Buffer<ArrayBufferLike> | BufferReader) => NoteDao`
+- `static fromString(str: string) => NoteDao`
+- `getSize() => number` - Returns the size in bytes of the Note Dao.
+- `static random(__namedParameters?: Partial<NoteDao>) => Promise<NoteDao>`
+- `toBuffer() => Buffer`
+- `toString() => string`
+
 ### NoteService
 
 **Constructor**
@@ -159,7 +269,7 @@ new NoteService(noteStore: NoteStore, aztecNode: AztecNode, anchorBlockHeader: B
 ```
 
 **Methods**
-- `getNotes(contractAddress: AztecAddress, owner: any, storageSlot: Fr, status: NoteStatus, scopes: AztecAddress[]) => Promise<{ contractAddress: NoteDao; isPending: boolean; ... }[]>` - Retrieves a set of notes stored in the database for a given contract address and storage slot. The query result is paginated using 'limit' and 'offset' values. Returns an object containing an array of note data.
+- `getNotes(contractAddress: AztecAddress, owner: AztecAddress | undefined, storageSlot: Fr, status: NoteStatus, scopes: AztecAddress[]) => Promise<{ contractAddress: AztecAddress; isPending: boolean; ... }[]>` - Retrieves a set of notes stored in the database for a given contract address and storage slot. The query result is paginated using 'limit' and 'offset' values. Returns an object containing an array of note data.
 - `syncNoteNullifiers(contractAddress: AztecAddress, scopes: AztecAddress[]) => Promise<void>` - Looks for nullifiers of active contract notes and marks them as nullified if a nullifier is found. Fetches notes from the NoteStore and checks which nullifiers are present in the onchain nullifier Merkle tree - up to the latest locally synced block. We use the locally synced block instead of querying the chain's 'latest' block to ensure correctness: notes are only marked nullified once their corresponding nullifier has been included in a block up to which the PXE has synced. This allows recent nullifications to be processed even if the node is not an archive node.
 - `validateAndStoreNotes(requests: NoteValidationRequest[], scope: AztecAddress, txEffects: Map<string, IndexedTxEffect>) => Promise<void>` - Validates and stores a batch of notes against pre-fetched tx effects. For each request we must verify that: - the note actually exists in the corresponding tx effect (and thus in the note hash tree), and - the note has not already been nullified. Failing to do either would result in circuits getting either non-existent notes and failing to produce inclusion proofs for them, or getting nullified notes and producing duplicate nullifiers, both of which are catastrophic failure modes. Note that adding a note and removing it is *not* equivalent to never adding it in the first place. A nullifier emitted in a block that comes after note creation might result in the note being de-nullified by a chain reorg, so we must store both the note hash and nullifier block information.
 
@@ -174,7 +284,7 @@ new NoteStore(store: AztecAsyncKVStore)
 ```
 
 **Properties**
-- `logger: any`
+- `logger: Logger`
 - `readonly storeName: string` - Unique name identifying this store (used for tracking staged stores from JobCoordinator)
 
 **Methods**
@@ -196,20 +306,20 @@ Private eXecution Environment (PXE) is a library used by wallets to simulate pri
 **Methods**
 - `static create(__namedParameters: PXECreateArgs) => Promise<PXE>` - Creates an instance of a PXE by instantiating all the necessary data providers and services. Also triggers the registration of the protocol contracts and makes sure the provided node can be contacted.
 - `executeUtility(call: FunctionCall, __namedParameters: ExecuteUtilityOpts) => Promise<UtilityExecutionResult>` - Executes a contract utility function.
-- `getContractArtifact(id: Fr) => Promise<any>` - Returns the contract artifact for a given contract class id, if it's registered in the PXE.
-- `getContractInstance(address: AztecAddress) => Promise<any>` - Returns the contract instance for a given address, if it's registered in the PXE.
+- `getContractArtifact(id: Fr) => Promise<ContractArtifact | undefined>` - Returns the contract artifact for a given contract class id, if it's registered in the PXE.
+- `getContractInstance(address: AztecAddress) => Promise<ContractInstanceWithAddress | undefined>` - Returns the contract instance for a given address, if it's registered in the PXE.
 - `getContracts() => Promise<AztecAddress[]>` - Retrieves the addresses of contracts added to this PXE.
-- `getPrivateEvents(eventSelector: EventSelector, filter: PrivateEventFilter) => Promise<any[]>` - Returns the private events given search parameters.
+- `getPrivateEvents(eventSelector: EventSelector, filter: PrivateEventFilter) => Promise<PackedPrivateEvent[]>` - Returns the private events given search parameters.
 - `getRegisteredAccounts() => Promise<CompleteAddress[]>` - Retrieves the user accounts registered on this PXE.
-- `getSenders() => Promise<AztecAddress[]>` - Retrieves senders registered in this PXE.
 - `getSyncedBlockHeader() => Promise<BlockHeader>` - Returns the block header up to which the PXE has synced.
+- `getTaggingSecretSources<K extends "address-derived" | "arbitrary-secret">(filter: { kind: K }) => Promise<Extract<{ kind: "address-derived"; sender: AztecAddress }, { kind: K }> | Extract<{ kind: "arbitrary-secret"; recipient: AztecAddress; secret: Point }, { kind: K }>[]>` - Retrieves the tagging secret sources registered in this PXE. Without a filter it returns every source; pass `{ kind }` to narrow to a single variant. See TaggingSecretSource.
 - `profileTx(txRequest: TxExecutionRequest, __namedParameters: ProfileTxOpts) => Promise<TxProfileResult>` - Profiles a transaction, reporting gate counts (unless disabled) and returns an execution trace.
 - `proveTx(txRequest: TxExecutionRequest, scopes: ProveTxOpts) => Promise<TxProvingResult>` - Proves the private portion of a simulated transaction, ready to send to the network (where validators prove the public portion).
-- `registerAccount(secretKey: Fr, partialAddress: PartialAddress) => Promise<CompleteAddress>` - Registers a user account in PXE given its master encryption private key. Once a new account is registered, the PXE will trial-decrypt all published notes on the chain and store those that correspond to the registered account. Will do nothing if the account is already registered.
-- `registerContract(contract: { artifact?: any; instance: ContractInstanceWithAddress }) => Promise<void>` - Adds deployed contracts to the PXE. Deployed contract information is used to access the contract code when simulating local transactions. This is automatically called by aztec.js when deploying a contract. Dapps that wish to interact with contracts already deployed should register these contracts in their users' PXE through this method.
+- `registerAccount(secretKey: Fr, partialAddress: Fr) => Promise<CompleteAddress>` - Registers a user account in PXE given its master encryption private key. Once a new account is registered, the PXE will trial-decrypt all published notes on the chain and store those that correspond to the registered account. Will do nothing if the account is already registered.
+- `registerContract(contract: { artifact?: ContractArtifact; instance: ContractInstanceWithAddress }) => Promise<void>` - Adds deployed contracts to the PXE. Deployed contract information is used to access the contract code when simulating local transactions. This is automatically called by aztec.js when deploying a contract. Dapps that wish to interact with contracts already deployed should register these contracts in their users' PXE through this method.
 - `registerContractClass(artifact: ContractArtifact) => Promise<void>` - Registers a contract class in the PXE without registering any associated contract instance with it.
-- `registerSender(sender: AztecAddress) => Promise<AztecAddress>` - Registers a sender in this PXE. After registering a new sender, the PXE will sync private logs that are tagged with this sender's address. Will do nothing if the address is already registered.
-- `removeSender(sender: AztecAddress) => Promise<void>` - Removes a sender registered in this PXE.
+- `registerTaggingSecretSource(source: TaggingSecretSource) => Promise<void>` - Registers a source from which this PXE derives the tagging secrets it scans for to discover incoming private logs. See TaggingSecretSource for the meaning of each variant. Does nothing if the source is already registered. After a new source is added we clear the cache tracking which contracts have finished syncing, so every contract re-syncs against the new source's logs (whose notes/events could belong to any contract). Already-discovered notes/events are not discarded.
+- `removeTaggingSecretSource(source: TaggingSecretSource) => Promise<void>` - Removes a previously registered tagging secret source. Does nothing if it was not registered.
 - `simulateTx(txRequest: TxExecutionRequest, __namedParameters: SimulateTxOpts) => Promise<TxSimulationResult>` - Simulates a transaction based on the provided preauthenticated execution request. This will run a local simulation of private execution (and optionally of public as well), run the kernel circuits to ensure adherence to protocol rules (without generating a proof), and return the simulation results . Note that this is used with `ContractFunctionInteraction::simulateTx` to bypass certain checks. In that case, the transaction returned is only potentially ready to be sent to the network for execution.
 - `stop() => Promise<void>` - Stops the PXE's job queue and closes the backing store.
 - `sync() => Promise<void>` - Triggers a sync of PXE state with the node, regardless of the `autoSync` config flag. Use this to batch syncs across composite flows when `autoSync` is disabled (e.g. one sync per simulate+send instead of one per inner PXE call). Serialized through the job queue.
@@ -226,16 +336,16 @@ new PrivateEventStore(store: AztecAsyncKVStore)
 ```
 
 **Properties**
-- `logger: any`
+- `logger: Logger`
 - `readonly storeName: string` - Unique name identifying this store (used for tracking staged stores from JobCoordinator)
 
 **Methods**
 - `commit(jobId: string) => Promise<void>` - Commits in memory job data to persistent storage. Called by JobCoordinator when a job completes successfully. Note: JobCoordinator wraps all commits in a single transaction, so we don't need our own transactionAsync here (and using one would throw on IndexedDB as it does not support nested txs).
 - `discardStaged(jobId: string) => Promise<void>` - Discards in memory job data without persisting it.
 - `eventIdsAtBlock(blockNumber: number) => Promise<string[]>` - Returns the ids (siloed event commitments) of all events emitted at the given block number. Used by delete-on-prune.
-- `getPrivateEvents(eventSelector: EventSelector, filter: PrivateEventStoreFilter) => Promise<any[]>` - Returns the private events given search parameters.
+- `getPrivateEvents(eventSelector: EventSelector, filter: PrivateEventStoreFilter) => Promise<PackedPrivateEvent[]>` - Returns the private events given search parameters.
 - `rollback(toBlock: number) => Promise<void>` - Rolls the store back to `toBlock`: deletes every event anchored to a block strictly above it, as if nothing past that block height ever happened. Used by the reorg (`chain-pruned`) path to truncate the orphaned tail. Scanning from `toBlock + 1` upward covers everything above the rollback target without needing to know the chain tip. Must be called inside a transaction owned by the caller (it issues no `transactionAsync` of its own, the reorg path wraps it together with the anchor update, and IndexedDB has no nested transactions). Throws if any job has uncommitted staged writes, since rolling back mid-job could later re-introduce events anchored to deleted blocks.
-- `storePrivateEventLog(eventSelector: EventSelector, randomness: Fr, msgContent: Fr[], siloedEventCommitment: Fr, metadata: any, jobId: string) => Promise<unknown>` - Store a private event log.
+- `storePrivateEventLog(eventSelector: EventSelector, randomness: Fr, msgContent: Fr[], siloedEventCommitment: Fr, metadata: PrivateEventMetadata, jobId: string) => Promise<void>` - Store a private event log.
 
 ### RecipientTaggingStore
 
@@ -257,20 +367,6 @@ new RecipientTaggingStore(store: AztecAsyncKVStore)
 - `getHighestFinalizedIndex(secret: AppTaggingSecret, jobId: string) => Promise<number | undefined>`
 - `updateHighestAgedIndex(secret: AppTaggingSecret, index: number, jobId: string) => Promise<void>`
 - `updateHighestFinalizedIndex(secret: AppTaggingSecret, index: number, jobId: string) => Promise<void>`
-
-### SenderAddressBookStore
-
-Stores sender addresses. During recipient log synchronization, these senders are used, along with a given recipient, to derive directional app tagging secrets that are then used to sync the logs.
-
-**Constructor**
-```typescript
-new SenderAddressBookStore(store: AztecAsyncKVStore)
-```
-
-**Methods**
-- `addSender(address: AztecAddress) => Promise<boolean>`
-- `getSenders() => Promise<AztecAddress[]>`
-- `removeSender(address: AztecAddress) => Promise<boolean>`
 
 ### SenderTaggingStore
 
@@ -296,6 +392,24 @@ new SenderTaggingStore(store: AztecAsyncKVStore)
 - `getTxHashesOfPendingIndexes(secret: AppTaggingSecret, startIndex: number, endIndex: number, jobId: string) => Promise<TxHash[]>` - Returns the transaction hashes of all pending transactions that contain highest indexes within a specified range for a given directional app tagging secret. We check based on the highest indexes only as that is the relevant information for the caller of this function.
 - `storePendingIndexes(ranges: TaggingIndexRange[], txHash: TxHash, jobId: string) => Promise<void>` - Stores pending index ranges.
 
+### TaggingSecretSourcesStore
+
+Stores the sources from which directional app tagging secrets are derived during recipient log synchronization. Two kinds of source are held: - Sender addresses: combined with a recipient to derive a shared tagging secret via ECDH. These are global (not scoped to a recipient) because the per-recipient binding comes from re-mixing the recipient's keys during derivation, so each account only ever derives secrets meant for it. - Pre-shared tagging secrets: shared secret points registered directly, bypassing ECDH. These are scoped to a specific recipient, since the derivation of the directional app tagging secret does not require any secret recipient data: given the original secret anyone can derive a recipient's app-siloed directional tagging secret, and so these must not be reused to preserve privacy.
+
+**Constructor**
+```typescript
+new TaggingSecretSourcesStore(store: AztecAsyncKVStore)
+```
+
+**Methods**
+- `addSender(address: AztecAddress) => Promise<boolean>`
+- `addSharedSecret(recipient: AztecAddress, secret: Point) => Promise<boolean>` - Registers a pre-shared tagging secret scoped to a recipient.
+- `getAllSharedSecrets() => Promise<{ recipient: AztecAddress; secret: Point }[]>` - Returns every registered pre-shared tagging secret, each paired with the recipient it is scoped to.
+- `getSenders() => Promise<AztecAddress[]>`
+- `getSharedSecretsForRecipient(recipient: AztecAddress) => Promise<Point[]>` - Returns the pre-shared tagging secrets registered for a given recipient.
+- `removeSender(address: AztecAddress) => Promise<boolean>`
+- `removeSharedSecret(recipient: AztecAddress, secret: Point) => Promise<boolean>` - Removes a pre-shared tagging secret scoped to a recipient.
+
 ## Interfaces
 
 ### BlockSynchronizerConfig
@@ -309,10 +423,11 @@ Configuration settings for the block synchronizer.
 
 ### ExecutionHooks
 
-Hooks that PXE invokes during client-side simulation to gate operations that the protocol does not restrict on its own. They give the wallet a chance to apply custom policies (e.g. prompting the user, consulting a dynamic allowlist, or inspecting call arguments) before the execution proceeds. For example, authorizeUtilityCall is called whenever a utility function makes a cross-contract call. A call made by a malicious contract could leak private information, so the hook lets the wallet decide, per-call, whether to allow it. A static allowlist would not work here because neither the app nor the wallet can predict ahead of time which contracts will be invoked during execution. Calls to standard contracts (such as the HandshakeRegistry) bypass this hook and are always authorized. Note: hooks are unrelated to authentication witnesses (authwits). Authwits are an on-chain mechanism where a contract verifies that a caller was authorized by a specific account; hooks are a client-side PXE concern that gates execution before it proceeds.
+Hooks that PXE invokes during client-side simulation to gate or steer operations that the protocol does not restrict on its own. They give the wallet a chance to apply custom policies (e.g. prompting the user, consulting a dynamic allowlist, or inspecting call arguments) before the execution proceeds. All hooks are optional, and when a hook is absent PXE applies a safe default. For example, authorizeUtilityCall is called whenever a utility function makes a cross-contract call. A call made by a malicious contract could leak private information, so the hook lets the wallet decide, per-call, whether to allow it. A static allowlist would not work here because neither the app nor the wallet can predict ahead of time which contracts will be invoked during execution. Calls to standard contracts (such as the HandshakeRegistry) bypass this hook and are always authorized. When the hook is absent, cross-contract utility calls are denied. Note: hooks are unrelated to authentication witnesses (authwits). Authwits are an on-chain mechanism where a contract verifies that a caller was authorized by a specific account; hooks are a client-side PXE concern that gates execution before it proceeds.
 
 **Properties**
-- `authorizeUtilityCall: AuthorizeUtilityCall` - Called when a contract attempts a cross-contract utility call.
+- `authorizeUtilityCall?: AuthorizeUtilityCall` - Called when a contract attempts a cross-contract utility call. Calls are denied when absent.
+- `resolveTaggingSecretStrategy?: ResolveTaggingSecretStrategy` - Resolves a message's tagging secret when none is already established for the sender/recipient pair, letting the wallet apply per-recipient policy. PXE applies a privacy-safe default when absent. See ResolveTaggingSecretStrategy for the request shape and defaults.
 
 ### KernelProverConfig
 
@@ -325,7 +440,7 @@ Configuration settings for the prover factory
 
 ### composeHooks
 ```typescript
-function composeHooks(partial: Partial<ExecutionHooks>) => ExecutionHooks | undefined
+function composeHooks(hooks: ExecutionHooks) => ExecutionHooks | undefined
 ```
 Builds an ExecutionHooks from individually-constructed hook callbacks. Returns `undefined` when every field is absent, so callers can unconditionally pass the result as `hooks`.
 
@@ -359,19 +474,24 @@ Adds contract and function names to a simulation error, if they can be found in 
 
 ### getCliPXEOptions
 ```typescript
-function getCliPXEOptions() => any
+function getCliPXEOptions() => CliPXEOptions & KernelProverConfig & { dataDirectory?: string; dataStoreMapSizeKb: number } & Partial<Pick<L1ContractAddresses, "rollupAddress">> & { l1ChainId: number; rollupVersion: number } & Pick<L1ContractAddresses, "rollupAddress"> & BlockSynchronizerConfig
 ```
 Creates an instance of CliPxeOptions out of environment variables
 
 ### getPXEConfig
 ```typescript
-function getPXEConfig() => any
+function getPXEConfig() => PXEConfig
 ```
 Creates an instance of PXEConfig out of environment variables using sensible defaults for integration testing if not set.
 
+### getPackageInfo
+```typescript
+function getPackageInfo() => { name: string; version: string }
+```
+
 ### logContractMessage
 ```typescript
-function logContractMessage(logger: Logger, level: LogLevel, message: string, fields: Fr[]) => void
+function logContractMessage(logger: Logger, level: "silent" | "fatal" | "error" | "warn" | "info" | "verbose" | "debug" | "trace", message: string, fields: Fr[]) => void
 ```
 Formats and emits a single contract log message through the given logger.
 
@@ -410,6 +530,18 @@ type ExecuteUtilityOpts = unknown
 ```
 Options for PXE.executeUtility.
 
+### Fact
+```typescript
+type Fact = unknown
+```
+A fact as returned by the fact store.
+
+### FactCollection
+```typescript
+type FactCollection = unknown
+```
+A fact collection as returned by the store.
+
 ### NotesFilter
 ```typescript
 type NotesFilter = unknown
@@ -418,13 +550,19 @@ A filter used to fetch notes.
 
 ### ORACLE_VERSION_MAJOR
 ```typescript
-type ORACLE_VERSION_MAJOR = 29
+type ORACLE_VERSION_MAJOR = 30
 ```
 
 ### ORACLE_VERSION_MINOR
 ```typescript
 type ORACLE_VERSION_MINOR = 1
 ```
+
+### OriginBlock
+```typescript
+type OriginBlock = unknown
+```
+The block a retractable fact originates from.
 
 ### PXEConfig
 ```typescript
@@ -444,7 +582,7 @@ type PXECreationOptions = unknown
 
 ### PXE_DATA_SCHEMA_VERSION
 ```typescript
-type PXE_DATA_SCHEMA_VERSION = 8
+type PXE_DATA_SCHEMA_VERSION = 9
 ```
 
 ### PackedPrivateEvent
@@ -475,11 +613,35 @@ type ProveTxOpts = unknown
 ```
 Options for PXE.proveTx.
 
+### ResolveTaggingSecretStrategy
+```typescript
+type ResolveTaggingSecretStrategy = (request: TaggingSecretStrategyRequest) => Promise<TaggingSecretStrategy>
+```
+Hook returning the TaggingSecretStrategy for an outgoing message.
+
 ### SimulateTxOpts
 ```typescript
 type SimulateTxOpts = unknown
 ```
 Options for PXE.simulateTx.
+
+### TaggingSecretSource
+```typescript
+type TaggingSecretSource = { kind: "address-derived"; sender: AztecAddress } | { kind: "arbitrary-secret"; recipient: AztecAddress; secret: Point }
+```
+A source from which PXE derives the tagging secrets it scans for to discover incoming private logs. - `address-derived`: derives a shared secret via ECDH from an external `sender` address against every account registered in this PXE (present and future), so registering one sender applies it to all of them. The address is not secret, so unlike `arbitrary-secret` it can be reused freely across recipients. - `arbitrary-secret`: a shared secret point provided directly, scoped to a single recipient. It bypasses ECDH, so it must not be reused across recipients (each would then be able to find the others' tags).
+
+### TaggingSecretStrategy
+```typescript
+type TaggingSecretStrategy = { type: "non-interactive-handshake" } | { type: "address-derived" } | { secret: Point; type: "arbitrary-secret" }
+```
+How a message's tagging secret is chosen: the wallet's strategy, returned by the `resolveTaggingSecretStrategy` hook when no onchain handshake has been registered for the sender/recipient pair. This is intent (plus, for an arbitrary secret, the raw material); PXE resolves it into the secret it hands the contract.
+
+### TaggingSecretStrategyRequest
+```typescript
+type TaggingSecretStrategyRequest = unknown
+```
+Information about the message delivery requesting a tagging secret strategy.
 
 ### UtilityCallAuthorizationRequest
 ```typescript
@@ -498,11 +660,6 @@ Result of an authorization hook evaluation.
 type allPxeConfigMappings = ConfigMappingsType<CliPXEOptions & PXEConfig>
 ```
 
-### getPackageInfo
-```typescript
-type getPackageInfo = any
-```
-
 ### pxeCliConfigMappings
 ```typescript
 type pxeCliConfigMappings = ConfigMappingsType<CliPXEOptions>
@@ -512,3 +669,22 @@ type pxeCliConfigMappings = ConfigMappingsType<CliPXEOptions>
 ```typescript
 type pxeConfigMappings = ConfigMappingsType<PXEConfig>
 ```
+
+## Cross-Package References
+
+This package references types from other Aztec packages:
+
+**@aztec/aztec.js**
+- `PrivateEventFilter`
+
+**@aztec/ethereum**
+- `L1ContractAddresses`
+
+**@aztec/foundation**
+- `BlockNumber`, `BufferReader`, `ConfigMappingsType`, `FieldsOf`, `Fr`, `Logger`, `LoggerBindings`, `MembershipWitness`, `Point`
+
+**@aztec/kv-store**
+- `AztecAsyncKVStore`
+
+**@aztec/stdlib**
+- `AppTaggingSecret`, `AztecAddress`, `AztecNode`, `BlockHeader`, `Capsule`, `ChainConfig`, `CompleteAddress`, `ContractArtifact`, `ContractClass`, `ContractClassCommitments`, `ContractClassIdPreimage`, `ContractInstance`, `ContractInstanceWithAddress`, `DataInBlock`, `DataStoreConfig`, `DebugLog`, `EventSelector`, `FunctionAbi`, `FunctionArtifactWithContractName`, `FunctionCall`, `FunctionDebugMetadata`, `FunctionSelector`, `InTx`, `IndexedTxEffect`, `Note`, `NoteDao`, `NoteStatus`, `SimulationError`, `TaggingIndexRange`, `TxEffect`, `TxExecutionRequest`, `TxHash`, `TxProfileResult`, `TxProvingResult`, `TxSimulationResult`, `UtilityExecutionResult`

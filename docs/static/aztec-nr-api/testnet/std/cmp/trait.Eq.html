@@ -98,6 +98,7 @@
 <li><a href="#impl-Eq-for-OnchainDeliveryMode">OnchainDeliveryMode</a></li>
 <li><a href="#impl-Eq-for-Option<T>">Option<T></a></li>
 <li><a href="#impl-Eq-for-Ordering">Ordering</a></li>
+<li><a href="#impl-Eq-for-OriginBlock">OriginBlock</a></li>
 <li><a href="#impl-Eq-for-PartialAddress">PartialAddress</a></li>
 <li><a href="#impl-Eq-for-PartialStateReference">PartialStateReference</a></li>
 <li><a href="#impl-Eq-for-PartialUintNote">PartialUintNote</a></li>
@@ -128,6 +129,8 @@
 <li><a href="#impl-Eq-for-PublicKeysHash">PublicKeysHash</a></li>
 <li><a href="#impl-Eq-for-PublicLogs">PublicLogs</a></li>
 <li><a href="#impl-Eq-for-Quoted">Quoted</a></li>
+<li><a href="#impl-Eq-for-ResolvedTaggingStrategy">ResolvedTaggingStrategy</a></li>
+<li><a href="#impl-Eq-for-ResolvedTx">ResolvedTx</a></li>
 <li><a href="#impl-Eq-for-SaltedInitializationHash">SaltedInitializationHash</a></li>
 <li><a href="#impl-Eq-for-ScheduledDelayChange<INITIAL_DELAY>">ScheduledDelayChange<INITIAL_DELAY></a></li>
 <li><a href="#impl-Eq-for-ScheduledValueChange<T>">ScheduledValueChange<T></a></li>
@@ -135,6 +138,7 @@
 <li><a href="#impl-Eq-for-SortedTuple<T>">SortedTuple<T></a></li>
 <li><a href="#impl-Eq-for-SpongeBlob">SpongeBlob</a></li>
 <li><a href="#impl-Eq-for-StateReference">StateReference</a></li>
+<li><a href="#impl-Eq-for-TaggingSecretStrategy">TaggingSecretStrategy</a></li>
 <li><a href="#impl-Eq-for-TraitConstraint">TraitConstraint</a></li>
 <li><a href="#impl-Eq-for-TraitDefinition">TraitDefinition</a></li>
 <li><a href="#impl-Eq-for-TreeSnapshots">TreeSnapshots</a></li>
@@ -441,6 +445,8 @@
 
 <h3 id="impl-Eq-for-Ordering"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../std/cmp/struct.Ordering.html" class="struct">Ordering</a></code></h3>
 
+<h3 id="impl-Eq-for-OriginBlock"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/facts/struct.OriginBlock.html" class="struct">OriginBlock</a></code></h3>
+
 <h3 id="impl-Eq-for-PartialAddress"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/address/partial_address/struct.PartialAddress.html" class="struct">PartialAddress</a></code></h3>
 
 <h3 id="impl-Eq-for-PartialStateReference"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/abis/partial_state_reference/struct.PartialStateReference.html" class="struct">PartialStateReference</a></code></h3>
@@ -501,6 +507,10 @@
 
 <h3 id="impl-Eq-for-Quoted"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../std/primitive.Quoted.html" class="primitive">Quoted</a></code></h3>
 
+<h3 id="impl-Eq-for-ResolvedTaggingStrategy"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/messages/delivery/struct.ResolvedTaggingStrategy.html" class="struct">ResolvedTaggingStrategy</a></code></h3>
+
+<h3 id="impl-Eq-for-ResolvedTx"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/oracle/tx_resolution/struct.ResolvedTx.html" class="struct">ResolvedTx</a></code></h3>
+
 <h3 id="impl-Eq-for-SaltedInitializationHash"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/address/salted_initialization_hash/struct.SaltedInitializationHash.html" class="struct">SaltedInitializationHash</a></code></h3>
 
 <h3 id="impl-Eq-for-ScheduledDelayChange<INITIAL_DELAY>"><code class="code-header">impl&lt;let INITIAL_DELAY: <a href="../../std/primitive.u64.html" class="primitive">u64</a>&gt; <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/delayed_public_mutable/scheduled_delay_change/struct.ScheduledDelayChange.html" class="struct">ScheduledDelayChange</a>&lt;INITIAL_DELAY&gt;</code></h3>
@@ -520,6 +530,8 @@
 <h3 id="impl-Eq-for-SpongeBlob"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/blob_data/struct.SpongeBlob.html" class="struct">SpongeBlob</a></code></h3>
 
 <h3 id="impl-Eq-for-StateReference"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../protocol_types/abis/state_reference/struct.StateReference.html" class="struct">StateReference</a></code></h3>
+
+<h3 id="impl-Eq-for-TaggingSecretStrategy"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../noir_aztec/test/helpers/tagging_secret_strategy/struct.TaggingSecretStrategy.html" class="struct">TaggingSecretStrategy</a></code></h3>
 
 <h3 id="impl-Eq-for-TraitConstraint"><code class="code-header">impl <a href="../../std/cmp/trait.Eq.html" class="trait">Eq</a> for <a href="../../std/primitive.TraitConstraint.html" class="primitive">TraitConstraint</a></code></h3>
 

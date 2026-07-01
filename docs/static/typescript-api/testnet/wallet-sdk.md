@@ -1,6 +1,6 @@
 # @aztec/wallet-sdk
 
-Version: v5.0.0-rc.1
+Version: v5.0.0-rc.2
 
 ## Quick Import Reference
 
@@ -47,48 +47,48 @@ new BackgroundConnectionHandler(config: BackgroundConnectionConfig, transport: B
 ### BaseWallet
 
 A base class for Wallet implementations
-Implements: `unknown`
+Implements: `Wallet`
 
 **Constructor**
 ```typescript
-new BaseWallet(pxe: PXE, aztecNode: AztecNode, log: any)
+new BaseWallet(pxe: PXE, aztecNode: AztecNode, log: Logger)
 ```
 
 **Properties**
 - `readonly aztecNode: AztecNode`
 - `cancellableTransactions: boolean`
-- `log: any`
+- `log: Logger`
 - `minFeePadding: number`
 - `readonly pxe: PXE`
 
 **Methods**
 - `batch<T extends readonly BatchedMethod[]>(methods: T) => Promise<BatchResults<T>>`
 - `completeFeeOptions(config: CompleteFeeOptionsConfig) => Promise<FeeOptions>` - Completes partial user-provided fee options with wallet defaults.
-- `computeAppCallOffset(from: any, feeOptions: FeeOptions) => Promise<number>` - Computes the index where the app's calls begin in the flattened array of calls (0 = entrypoint/root, 1..N = fee calls, N+1 = app).
+- `computeAppCallOffset(from: AztecAddress | "NO_FROM", feeOptions: FeeOptions) => Promise<number>` - Computes the index where the app's calls begin in the flattened array of calls (0 = entrypoint/root, 1..N = fee calls, N+1 = app).
 - `contextualizeError(err: Error, ...context: string[]) => Error`
-- `createAuthWit(from: AztecAddress, messageHashOrIntent: any) => Promise<AuthWitness>`
-- `createTxExecutionRequestFromPayloadAndFee(executionPayload: ExecutionPayload, from: any, feeOptions: FeeOptions) => Promise<TxExecutionRequest>`
+- `createAuthWit(from: AztecAddress, messageHashOrIntent: IntentInnerHash | CallIntent) => Promise<AuthWitness>`
+- `createTxExecutionRequestFromPayloadAndFee(executionPayload: ExecutionPayload, from: AztecAddress | "NO_FROM", feeOptions: FeeOptions) => Promise<TxExecutionRequest>`
 - `executeUtility(call: FunctionCall, opts: ExecuteUtilityOptions) => Promise<UtilityExecutionResult>`
 - `getAccountFromAddress(address: AztecAddress) => Promise<Account>`
 - `getAccounts() => Promise<Aliased<AztecAddress>[]>`
 - `getAddressBook() => Promise<Aliased<AztecAddress>[]>` - Returns the list of aliased contacts associated with the wallet. This base implementation directly returns PXE's senders, but note that in general contacts are a superset of senders. - Senders: Addresses we check during synching in case they sent us notes, - Contacts: more general concept akin to a phone's contact list.
 - `getChainInfo() => Promise<ChainInfo>`
 - `getContractClassMetadata(id: Fr) => Promise<{ isArtifactRegistered: boolean; isContractClassPubliclyRegistered: boolean }>`
-- `getContractMetadata(address: AztecAddress) => Promise<{ initializationStatus: ContractInitializationStatus; instance: any; ... }>` - Returns metadata about a contract, including whether it has been initialized, published, and updated.
+- `getContractMetadata(address: AztecAddress) => Promise<{ initializationStatus: ContractInitializationStatus; instance: ContractInstanceWithAddress | undefined; ... }>` - Returns metadata about a contract, including whether it has been initialized, published, and updated.
 - `getContractName(address: AztecAddress) => Promise<string | undefined>` - Resolves a contract address to a human-readable name via PXE, if available.
 - `getMaxTxGasLimits() => Promise<Gas>` - Returns the maximum gas limits a single transaction may declare on this wallet's network (the node-advertised `txsLimits.gas`). Internal helper used to fill in default gas limits when sending a transaction without explicit limits, and to validate caller-provided limits before sending. Backed by the cached node info, since a wallet talks to a single network.
 - `getMinFees(estimate: ManaUsageEstimate) => Promise<GasFees>` - Returns the worst-case min fee across predicted future slots. Falls back to getCurrentMinFees if the node doesn't support getPredictedMinFees.
 - `getPrivateEvents<T>(eventDef: EventMetadataDefinition, eventFilter: PrivateEventFilter) => Promise<PrivateEvent<T>[]>`
 - `profileTx(executionPayload: ExecutionPayload, opts: ProfileOptions) => Promise<TxProfileResult>`
-- `registerContract(instance: ContractInstanceWithAddress, artifact?: any, secretKey?: any) => Promise<ContractInstanceWithAddress>`
-- `registerContractClass(artifact: ContractArtifact) => Promise<void>`
+- `registerContract(instance: ContractInstanceWithAddress, artifact?: ContractArtifact, secretKey?: Fr) => Promise<ContractInstanceWithAddress>`
+- `registerContractClass(artifact: ContractArtifact) => Promise<void>` - Registers a contract class artifact in the local PXE without binding it to any instance. Useful for simulation flows that need the artifact available locally before any on-chain upgrade has taken effect. No chain check.
 - `registerSender(address: AztecAddress, _alias: string) => Promise<AztecAddress>`
 - `requestCapabilities(_manifest: AppCapabilities) => Promise<WalletCapabilities>` - Request capabilities from the wallet. This method is wallet-implementation-dependent and must be provided by classes extending BaseWallet. Embedded wallets typically don't support capability-based authorization (no user authorization flow), while external wallets (browser extensions, hardware wallets) implement this to reduce authorization friction by allowing apps to request permissions upfront. Consider making it abstract so implementing it is a conscious decision. Leaving it as-is while the feature stabilizes.
-- `scopesFrom(from: any, additionalScopes: AztecAddress[]) => AztecAddress[]`
-- `senderForTagsFrom(from: any, sendMessagesAs?: any) => any` - Picks the sender address PXE should tag private messages with. Returns `undefined` when there is no signing account (`from === NO_FROM`) and no explicit override; in that case any private log emitted by the tx using the wallet-supplied default sender will fail the "Sender for tags is not set" assertion.
+- `scopesFrom(from: AztecAddress | "NO_FROM", additionalScopes: AztecAddress[]) => AztecAddress[]`
+- `senderForTagsFrom(from: AztecAddress | "NO_FROM", sendMessagesAs?: AztecAddress) => AztecAddress | undefined` - Picks the sender address PXE should tag private messages with. Returns `undefined` when there is no signing account (`from === NO_FROM`) and no explicit override; in that case any private log emitted by the tx using the wallet-supplied default sender will fail the "Sender for tags is not set" assertion.
 - `sendTx<W extends InteractionWaitOptions>(executionPayload: ExecutionPayload, opts: SendOptions<W>) => Promise<SendReturn<W>>`
 - `simulateTx(executionPayload: ExecutionPayload, opts: SimulateOptions) => Promise<TxSimulationResultWithAppOffset>` - Simulates a transaction, optimizing leading public static calls by running them directly on the node while sending the remaining calls through the standard PXE path. Return values from both paths are merged back in original call order.
-- `simulateViaEntrypoint(executionPayload: ExecutionPayload, opts: SimulateViaEntrypointOptions) => Promise<any>` - Simulates calls through the standard PXE path (account entrypoint).
+- `simulateViaEntrypoint(executionPayload: ExecutionPayload, opts: SimulateViaEntrypointOptions) => Promise<TxSimulationResultWithAppOffset>` - Simulates calls through the standard PXE path (account entrypoint).
 
 ### ContentScriptConnectionHandler
 
@@ -570,7 +570,7 @@ Converts a base64 string to a Uint8Array.
 
 ### buildMergedSimulationResult
 ```typescript
-function buildMergedSimulationResult(optimizedResults: TxSimulationResult[], normalResult: any) => TxSimulationResultWithAppOffset
+function buildMergedSimulationResult(optimizedResults: TxSimulationResult[], normalResult: TxSimulationResultWithAppOffset | null) => TxSimulationResultWithAppOffset
 ```
 Merges simulation results from the optimized (public static) and normal paths. Since optimized calls are always a leading prefix, return values are simply concatenated: optimized first, then normal. Stats are taken from the normal result only (the optimized path doesn't produce them).
 
@@ -654,7 +654,7 @@ Imports a public key from JWK format. Used to import the other party's public ke
 
 ### simulateViaNode
 ```typescript
-function simulateViaNode(node: AztecNode, publicStaticCalls: FunctionCall[], from: AztecAddress, chainInfo: ChainInfo, gasSettings: GasSettings, blockHeader: BlockHeader, skipFeeEnforcement: boolean, getContractName: ContractNameResolver, overrides?: any) => Promise<TxSimulationResult[]>
+function simulateViaNode(node: AztecNode, publicStaticCalls: FunctionCall[], from: AztecAddress, chainInfo: ChainInfo, gasSettings: GasSettings, blockHeader: BlockHeader, skipFeeEnforcement: boolean, getContractName: ContractNameResolver, overrides?: SimulationOverrides) => Promise<TxSimulationResult[]>
 ```
 Simulates public static calls by splitting them into batches of MAX_ENQUEUED_CALLS_PER_CALL and sending each batch directly to the node.
 
@@ -749,3 +749,22 @@ Type of wallet provider
 Message types for wallet SDK communication. All types are prefixed with 'aztec-wallet-' for namespacing.
 
 Values: `aztec-wallet-disconnect`, `aztec-wallet-discovery`, `aztec-wallet-discovery-response`, `aztec-wallet-key-exchange-request`, `aztec-wallet-key-exchange-response`, `aztec-wallet-ping`, `aztec-wallet-pong`, `aztec-wallet-secure-message`, `aztec-wallet-secure-response`, `aztec-wallet-session-disconnected`, `aztec-wallet-ready`
+
+## Cross-Package References
+
+This package references types from other Aztec packages:
+
+**@aztec/aztec.js**
+- `Account`, `Aliased`, `AppCapabilities`, `BatchResults`, `BatchedMethod`, `CallIntent`, `ContractInitializationStatus`, `ExecuteUtilityOptions`, `IntentInnerHash`, `InteractionWaitOptions`, `PrivateEvent`, `PrivateEventFilter`, `ProfileOptions`, `SendOptions`, `SendReturn`, `SimulateOptions`, `TxSimulationResultWithAppOffset`, `Wallet`, `WalletCapabilities`
+
+**@aztec/entrypoints**
+- `ChainInfo`
+
+**@aztec/foundation**
+- `Fr`, `Logger`
+
+**@aztec/pxe**
+- `ContractNameResolver`, `PXE`
+
+**@aztec/stdlib**
+- `AuthWitness`, `AztecAddress`, `AztecNode`, `BlockHeader`, `ContractArtifact`, `ContractInstanceWithAddress`, `EventMetadataDefinition`, `ExecutionPayload`, `FunctionCall`, `Gas`, `GasFees`, `GasSettings`, `GasUsed`, `ManaUsageEstimate`, `SimulationOverrides`, `TxExecutionRequest`, `TxProfileResult`, `TxSimulationResult`, `UtilityExecutionResult`
