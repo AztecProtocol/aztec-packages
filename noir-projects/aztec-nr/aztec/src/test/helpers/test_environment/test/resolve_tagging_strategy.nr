@@ -1,4 +1,5 @@
 use crate::{
+    keys::ecdh_shared_secret::compute_app_siloed_shared_secret,
     messages::delivery::{OnchainDeliveryMode, ResolvedTaggingStrategy},
     oracle::resolve_tagging_strategy::resolve_tagging_strategy,
     protocol::{address::AztecAddress, hash::poseidon2_hash, point::EmbeddedCurvePoint, traits::{FromField, ToField}},
@@ -92,7 +93,7 @@ unconstrained fn applies_the_strategy_set_in_the_options() {
     ));
     // The hook path looks up the executing contract's class ID, so run in a deployed contract's context.
     let app = env.create_contract_account();
-    let recipient = env.create_light_account();
+    let recipient = AztecAddress::from_field(8);
 
     env.private_context_at(app, |_| {
         let resolved = resolve_tagging_strategy(
@@ -112,7 +113,7 @@ unconstrained fn app_silos_an_arbitrary_secret_point() {
     ));
     // The hook path looks up the executing contract's class ID, so run in a deployed contract's context.
     let app = env.create_contract_account();
-    let recipient = env.create_light_account();
+    let recipient = AztecAddress::from_field(8);
 
     env.private_context_at(app, |_| {
         let resolved = resolve_tagging_strategy(
@@ -121,10 +122,36 @@ unconstrained fn app_silos_an_arbitrary_secret_point() {
             OnchainDeliveryMode::onchain_unconstrained(),
         );
 
-        // PXE app-silos the raw point before handing it over: poseidon2 over the point and the executing contract,
-        // then over the recipient for direction. This mirrors `AppTaggingSecret::compute` on the PXE side.
-        let app_secret = poseidon2_hash([point.x, point.y, app.to_field()]);
+        // PXE app-silos the raw point before handing it over, then folds in the recipient for direction. This mirrors
+        // `AppTaggingSecret.computeDirectional` on the PXE side.
+        let app_secret = compute_app_siloed_shared_secret(point, app);
         let expected_secret = poseidon2_hash([app_secret, recipient.to_field()]);
         assert_eq(resolved, ResolvedTaggingStrategy::unconstrained_secret(expected_secret));
+    });
+}
+
+#[test]
+unconstrained fn overrides_a_configured_arbitrary_secret_for_an_unconstrained_self_send() {
+    let point = EmbeddedCurvePoint { x: 7, y: 11 };
+    let mut env = TestEnvironment::new_opts(TestEnvironmentOptions::new().with_tagging_secret_strategy(
+        TaggingSecretStrategy::arbitrary_secret(point),
+    ));
+    let app = env.create_contract_account();
+    let sender = env.create_light_account();
+    let recipient = env.create_light_account();
+
+    env.private_context_at(app, |_| {
+        let resolved = resolve_tagging_strategy(
+            sender,
+            recipient,
+            OnchainDeliveryMode::onchain_unconstrained(),
+        );
+
+        // A self-send forces an address-derived secret even with an arbitrary secret configured. The resolved
+        // secret is unconstrained, but not the app-siloed arbitrary point the configured secret would have produced.
+        let app_secret = compute_app_siloed_shared_secret(point, app);
+        let arbitrary_secret = poseidon2_hash([app_secret, recipient.to_field()]);
+        assert(resolved.is_unconstrained_secret());
+        assert(resolved != ResolvedTaggingStrategy::unconstrained_secret(arbitrary_secret));
     });
 }
