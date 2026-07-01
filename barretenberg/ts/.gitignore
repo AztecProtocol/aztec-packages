@@ -2,13 +2,19 @@
 !.yarn/releases
 !.yarn/plugins
 node_modules
-dest
+bb.js/node_modules
+bb.js/dest
+bb.js/build
+bb.js/.tsbuildinfo*
+bb.js/*.tsbuildinfo
+bb-avm-sim/
 .tsbuildinfo*
 *.tsbuildinfo
 *.log
 /crs
 package.tgz
 package
+packages/
 
 # Generated files
-src/cbind/generated/
+bb.js/src/cbind/generated/

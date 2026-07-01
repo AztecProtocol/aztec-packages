@@ -5,10 +5,10 @@
 // predict browser performance. Run the same script against two builds (current vs baseline) and compare.
 //
 // Prereqs:
-//   - bb.js is built: (cd barretenberg/ts && yarn build)   [needs the wasm artifact + dest/node]
+//   - bb.js is built: (cd barretenberg/ts/bb.js && yarn build)   [needs the wasm artifact + dest/node]
 //   - pinned inputs downloaded: barretenberg/cpp/scripts/chonk_inputs.sh download
 //
-// Usage (from barretenberg/ts so node_modules resolves):
+// Usage (from barretenberg/ts/bb.js so node_modules resolves):
 //   node scripts/chonk_wasm_bench.mjs
 //
 // Env knobs:
