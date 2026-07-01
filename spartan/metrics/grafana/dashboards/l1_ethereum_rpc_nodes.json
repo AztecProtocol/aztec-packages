@@ -25,7 +25,7 @@
     {
       "id": 1,
       "type": "row",
-      "title": "Gateway",
+      "title": "Reth",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -38,693 +38,6 @@
     {
       "id": 2,
       "type": "stat",
-      "title": "Gateway request rate",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${data_source}"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 1,
-        "w": 4,
-        "h": 5
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "reqps",
-          "decimals": 2,
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "color": {
-            "mode": "thresholds"
-          },
-          "noValue": "0"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "auto",
-        "wideLayout": true,
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "showPercentChange": false,
-        "percentChangeColorMode": "standard"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${data_source}"
-          },
-          "editorMode": "code",
-          "expr": "sum(rate(kong_http_requests_total{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_endpoint=~\"$eth_endpoint\",consumer=~\"$consumer\"}[$__rate_interval]))",
-          "legendFormat": "",
-          "range": true,
-          "instant": false,
-          "refId": "A"
-        }
-      ],
-      "pluginVersion": "12.3.6"
-    },
-    {
-      "id": 3,
-      "type": "stat",
-      "title": "Gateway 5xx",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${data_source}"
-      },
-      "gridPos": {
-        "x": 4,
-        "y": 1,
-        "w": 4,
-        "h": 5
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "decimals": 3,
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "color": {
-            "mode": "thresholds"
-          },
-          "noValue": "0"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "auto",
-        "wideLayout": true,
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "showPercentChange": false,
-        "percentChangeColorMode": "standard"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${data_source}"
-          },
-          "editorMode": "code",
-          "expr": "(sum(rate(kong_http_requests_total{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_endpoint=~\"$eth_endpoint\",consumer=~\"$consumer\",code=~\"5..\"}[$__rate_interval])) or vector(0)) / clamp_min(sum(rate(kong_http_requests_total{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_endpoint=~\"$eth_endpoint\",consumer=~\"$consumer\"}[$__rate_interval])), 0.000000001)",
-          "legendFormat": "",
-          "range": true,
-          "instant": false,
-          "refId": "A"
-        }
-      ],
-      "pluginVersion": "12.3.6"
-    },
-    {
-      "id": 4,
-      "type": "stat",
-      "title": "Request p95",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${data_source}"
-      },
-      "gridPos": {
-        "x": 8,
-        "y": 1,
-        "w": 4,
-        "h": 5
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "ms",
-          "decimals": 0,
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "color": {
-            "mode": "thresholds"
-          },
-          "noValue": "0"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "auto",
-        "wideLayout": true,
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "showPercentChange": false,
-        "percentChangeColorMode": "standard"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${data_source}"
-          },
-          "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(kong_request_latency_ms_bucket{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_endpoint=~\"$eth_endpoint\"}[$__rate_interval])))",
-          "legendFormat": "",
-          "range": true,
-          "instant": false,
-          "refId": "A"
-        }
-      ],
-      "pluginVersion": "12.3.6"
-    },
-    {
-      "id": 5,
-      "type": "stat",
-      "title": "Upstream p95",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${data_source}"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 1,
-        "w": 4,
-        "h": 5
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "ms",
-          "decimals": 0,
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "color": {
-            "mode": "thresholds"
-          },
-          "noValue": "0"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "auto",
-        "wideLayout": true,
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "showPercentChange": false,
-        "percentChangeColorMode": "standard"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${data_source}"
-          },
-          "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(kong_upstream_latency_ms_bucket{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_endpoint=~\"$eth_endpoint\"}[$__rate_interval])))",
-          "legendFormat": "",
-          "range": true,
-          "instant": false,
-          "refId": "A"
-        }
-      ],
-      "pluginVersion": "12.3.6"
-    },
-    {
-      "id": 6,
-      "type": "stat",
-      "title": "Unhealthy targets",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${data_source}"
-      },
-      "gridPos": {
-        "x": 16,
-        "y": 1,
-        "w": 4,
-        "h": 5
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "decimals": 0,
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "color": {
-            "mode": "thresholds"
-          },
-          "noValue": "0"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "auto",
-        "wideLayout": true,
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "showPercentChange": false,
-        "percentChangeColorMode": "standard"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${data_source}"
-          },
-          "editorMode": "code",
-          "expr": "sum(kong_upstream_target_health{network=\"ethereum\",state=~\"unhealthy|dns_error\"}) or vector(0)",
-          "legendFormat": "",
-          "range": true,
-          "instant": false,
-          "refId": "A"
-        }
-      ],
-      "pluginVersion": "12.3.6"
-    },
-    {
-      "id": 7,
-      "type": "stat",
-      "title": "Kong nodes",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${data_source}"
-      },
-      "gridPos": {
-        "x": 20,
-        "y": 1,
-        "w": 4,
-        "h": 5
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none",
-          "decimals": 0,
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "color": {
-            "mode": "thresholds"
-          },
-          "noValue": "0"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "values": false,
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": ""
-        },
-        "orientation": "auto",
-        "textMode": "auto",
-        "wideLayout": true,
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "showPercentChange": false,
-        "percentChangeColorMode": "standard"
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${data_source}"
-          },
-          "editorMode": "code",
-          "expr": "count(count by (node_id) (kong_node_info{network=\"ethereum\"}))",
-          "legendFormat": "",
-          "range": true,
-          "instant": false,
-          "refId": "A"
-        }
-      ],
-      "pluginVersion": "12.3.6"
-    },
-    {
-      "id": 8,
-      "type": "timeseries",
-      "title": "Request rate by endpoint and status",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${data_source}"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 6,
-        "w": 12,
-        "h": 8
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "reqps",
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "color": {
-            "mode": "palette-classic"
-          },
-          "decimals": 2
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${data_source}"
-          },
-          "editorMode": "code",
-          "expr": "sum by (eth_chain, eth_endpoint, code) (rate(kong_http_requests_total{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_endpoint=~\"$eth_endpoint\",consumer=~\"$consumer\"}[$__rate_interval]))",
-          "legendFormat": "{{eth_chain}} {{eth_endpoint}} {{code}}",
-          "range": true,
-          "instant": false,
-          "refId": "A"
-        }
-      ],
-      "pluginVersion": "12.3.6"
-    },
-    {
-      "id": 9,
-      "type": "timeseries",
-      "title": "Request rate by consumer",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${data_source}"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 6,
-        "w": 12,
-        "h": 8
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "reqps",
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "color": {
-            "mode": "palette-classic"
-          },
-          "decimals": 2
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${data_source}"
-          },
-          "editorMode": "code",
-          "expr": "sum by (consumer, code) (rate(kong_http_requests_total{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_endpoint=~\"$eth_endpoint\",consumer!=\"\",consumer=~\"$consumer\"}[$__rate_interval])) or sum by (consumer, code) (label_replace(rate(kong_http_requests_total{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_endpoint=~\"$eth_endpoint\",consumer=\"\"}[$__rate_interval]), \"consumer\", \"unauthenticated\", \"__name__\", \".*\"))",
-          "legendFormat": "{{consumer}} {{code}}",
-          "range": true,
-          "instant": false,
-          "refId": "A"
-        }
-      ],
-      "pluginVersion": "12.3.6"
-    },
-    {
-      "id": 10,
-      "type": "timeseries",
-      "title": "Gateway latency",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${data_source}"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 14,
-        "w": 12,
-        "h": 8
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "ms",
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${data_source}"
-          },
-          "editorMode": "code",
-          "expr": "histogram_quantile(0.50, sum by (le, eth_endpoint) (rate(kong_request_latency_ms_bucket{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_endpoint=~\"$eth_endpoint\"}[$__rate_interval])))",
-          "legendFormat": "p50 {{eth_endpoint}}",
-          "range": true,
-          "instant": false,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${data_source}"
-          },
-          "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le, eth_endpoint) (rate(kong_request_latency_ms_bucket{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_endpoint=~\"$eth_endpoint\"}[$__rate_interval])))",
-          "legendFormat": "p95 {{eth_endpoint}}",
-          "range": true,
-          "instant": false,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${data_source}"
-          },
-          "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum by (le, eth_endpoint) (rate(kong_request_latency_ms_bucket{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_endpoint=~\"$eth_endpoint\"}[$__rate_interval])))",
-          "legendFormat": "p99 {{eth_endpoint}}",
-          "range": true,
-          "instant": false,
-          "refId": "A"
-        }
-      ],
-      "pluginVersion": "12.3.6"
-    },
-    {
-      "id": 11,
-      "type": "timeseries",
-      "title": "Bandwidth",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${data_source}"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 14,
-        "w": 12,
-        "h": 8
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "Bps",
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          },
-          "color": {
-            "mode": "palette-classic"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "none"
-        }
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${data_source}"
-          },
-          "editorMode": "code",
-          "expr": "sum by (eth_endpoint, direction) (rate(kong_bandwidth_bytes_total{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_endpoint=~\"$eth_endpoint\",direction=~\"ingress|egress\"}[$__rate_interval]))",
-          "legendFormat": "{{eth_endpoint}} {{direction}}",
-          "range": true,
-          "instant": false,
-          "refId": "A"
-        }
-      ],
-      "pluginVersion": "12.3.6"
-    },
-    {
-      "id": 12,
-      "type": "row",
-      "title": "Reth",
-      "collapsed": false,
-      "gridPos": {
-        "x": 0,
-        "y": 22,
-        "w": 24,
-        "h": 1
-      },
-      "panels": []
-    },
-    {
-      "id": 13,
-      "type": "stat",
       "title": "Reth scrape up",
       "datasource": {
         "type": "prometheus",
@@ -732,7 +45,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 23,
+        "y": 1,
         "w": 4,
         "h": 5
       },
@@ -791,7 +104,7 @@
       "pluginVersion": "12.3.6"
     },
     {
-      "id": 14,
+      "id": 3,
       "type": "stat",
       "title": "Connected peers",
       "datasource": {
@@ -800,7 +113,7 @@
       },
       "gridPos": {
         "x": 4,
-        "y": 23,
+        "y": 1,
         "w": 4,
         "h": 5
       },
@@ -859,7 +172,7 @@
       "pluginVersion": "12.3.6"
     },
     {
-      "id": 15,
+      "id": 4,
       "type": "stat",
       "title": "Headers downloaded",
       "datasource": {
@@ -868,7 +181,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 23,
+        "y": 1,
         "w": 4,
         "h": 5
       },
@@ -927,7 +240,7 @@
       "pluginVersion": "12.3.6"
     },
     {
-      "id": 16,
+      "id": 5,
       "type": "stat",
       "title": "Bodies downloaded",
       "datasource": {
@@ -936,7 +249,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 23,
+        "y": 1,
         "w": 4,
         "h": 5
       },
@@ -995,7 +308,7 @@
       "pluginVersion": "12.3.6"
     },
     {
-      "id": 17,
+      "id": 6,
       "type": "stat",
       "title": "Txpool total",
       "datasource": {
@@ -1004,7 +317,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 23,
+        "y": 1,
         "w": 4,
         "h": 5
       },
@@ -1063,7 +376,7 @@
       "pluginVersion": "12.3.6"
     },
     {
-      "id": 18,
+      "id": 7,
       "type": "stat",
       "title": "Base fee",
       "datasource": {
@@ -1072,7 +385,7 @@
       },
       "gridPos": {
         "x": 20,
-        "y": 23,
+        "y": 1,
         "w": 4,
         "h": 5
       },
@@ -1131,7 +444,7 @@
       "pluginVersion": "12.3.6"
     },
     {
-      "id": 19,
+      "id": 8,
       "type": "timeseries",
       "title": "RPC calls by method",
       "datasource": {
@@ -1140,7 +453,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 28,
+        "y": 6,
         "w": 12,
         "h": 8
       },
@@ -1191,7 +504,7 @@
       "pluginVersion": "12.3.6"
     },
     {
-      "id": 20,
+      "id": 9,
       "type": "timeseries",
       "title": "Downloader progress rate",
       "datasource": {
@@ -1200,7 +513,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 28,
+        "y": 6,
         "w": 12,
         "h": 8
       },
@@ -1263,7 +576,7 @@
       "pluginVersion": "12.3.6"
     },
     {
-      "id": 21,
+      "id": 10,
       "type": "timeseries",
       "title": "Txpool by subpool",
       "datasource": {
@@ -1272,7 +585,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 36,
+        "y": 14,
         "w": 12,
         "h": 8
       },
@@ -1359,7 +672,7 @@
       "pluginVersion": "12.3.6"
     },
     {
-      "id": 22,
+      "id": 11,
       "type": "timeseries",
       "title": "Engine sync/forkchoice responses",
       "datasource": {
@@ -1368,7 +681,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 36,
+        "y": 14,
         "w": 12,
         "h": 8
       },
@@ -1455,20 +768,20 @@
       "pluginVersion": "12.3.6"
     },
     {
-      "id": 23,
+      "id": 12,
       "type": "row",
       "title": "Lighthouse",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 44,
+        "y": 22,
         "w": 24,
         "h": 1
       },
       "panels": []
     },
     {
-      "id": 24,
+      "id": 13,
       "type": "stat",
       "title": "Lighthouse scrape up",
       "datasource": {
@@ -1477,7 +790,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 45,
+        "y": 23,
         "w": 4,
         "h": 5
       },
@@ -1536,7 +849,7 @@
       "pluginVersion": "12.3.6"
     },
     {
-      "id": 25,
+      "id": 14,
       "type": "stat",
       "title": "Synced",
       "datasource": {
@@ -1545,7 +858,7 @@
       },
       "gridPos": {
         "x": 4,
-        "y": 45,
+        "y": 23,
         "w": 4,
         "h": 5
       },
@@ -1604,7 +917,7 @@
       "pluginVersion": "12.3.6"
     },
     {
-      "id": 26,
+      "id": 15,
       "type": "stat",
       "title": "Head slot",
       "datasource": {
@@ -1613,7 +926,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 45,
+        "y": 23,
         "w": 4,
         "h": 5
       },
@@ -1672,7 +985,7 @@
       "pluginVersion": "12.3.6"
     },
     {
-      "id": 27,
+      "id": 16,
       "type": "stat",
       "title": "Finalized epoch",
       "datasource": {
@@ -1681,7 +994,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 45,
+        "y": 23,
         "w": 4,
         "h": 5
       },
@@ -1740,7 +1053,7 @@
       "pluginVersion": "12.3.6"
     },
     {
-      "id": 28,
+      "id": 17,
       "type": "stat",
       "title": "Slots/sec",
       "datasource": {
@@ -1749,7 +1062,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 45,
+        "y": 23,
         "w": 4,
         "h": 5
       },
@@ -1808,7 +1121,7 @@
       "pluginVersion": "12.3.6"
     },
     {
-      "id": 29,
+      "id": 18,
       "type": "stat",
       "title": "Peers",
       "datasource": {
@@ -1817,7 +1130,7 @@
       },
       "gridPos": {
         "x": 20,
-        "y": 45,
+        "y": 23,
         "w": 4,
         "h": 5
       },
@@ -1876,7 +1189,7 @@
       "pluginVersion": "12.3.6"
     },
     {
-      "id": 30,
+      "id": 19,
       "type": "timeseries",
       "title": "Beacon chain head",
       "datasource": {
@@ -1885,7 +1198,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 50,
+        "y": 28,
         "w": 12,
         "h": 8
       },
@@ -1948,7 +1261,7 @@
       "pluginVersion": "12.3.6"
     },
     {
-      "id": 31,
+      "id": 20,
       "type": "timeseries",
       "title": "Lighthouse bandwidth",
       "datasource": {
@@ -1957,7 +1270,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 50,
+        "y": 28,
         "w": 12,
         "h": 8
       },
@@ -2008,7 +1321,7 @@
       "pluginVersion": "12.3.6"
     },
     {
-      "id": 32,
+      "id": 21,
       "type": "timeseries",
       "title": "Lighthouse storage and memory",
       "datasource": {
@@ -2017,7 +1330,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 58,
+        "y": 36,
         "w": 12,
         "h": 8
       },
@@ -2080,7 +1393,7 @@
       "pluginVersion": "12.3.6"
     },
     {
-      "id": 33,
+      "id": 22,
       "type": "timeseries",
       "title": "Gossipsub messages",
       "datasource": {
@@ -2089,7 +1402,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 58,
+        "y": 36,
         "w": 12,
         "h": 8
       },
@@ -2157,7 +1470,6 @@
   "tags": [
     "ethereum",
     "l1",
-    "kong",
     "reth",
     "lighthouse"
   ],
@@ -2201,56 +1513,6 @@
           "text": "All",
           "value": "$__all"
         }
-      },
-      {
-        "name": "eth_endpoint",
-        "label": "endpoint",
-        "type": "query",
-        "datasource": {
-          "type": "prometheus",
-          "uid": "${data_source}"
-        },
-        "definition": "label_values(up{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_endpoint!=\"\",component=\"ethereum-node\"}, eth_endpoint)",
-        "query": {
-          "qryType": 1,
-          "query": "label_values(up{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_endpoint!=\"\",component=\"ethereum-node\"}, eth_endpoint)",
-          "refId": "PrometheusVariableQueryEditor-VariableQuery"
-        },
-        "refresh": 1,
-        "includeAll": true,
-        "allValue": ".*",
-        "multi": true,
-        "sort": 1,
-        "current": {
-          "selected": true,
-          "text": "All",
-          "value": "$__all"
-        }
-      },
-      {
-        "name": "consumer",
-        "label": "consumer",
-        "type": "query",
-        "datasource": {
-          "type": "prometheus",
-          "uid": "${data_source}"
-        },
-        "definition": "label_values(kong_http_requests_total{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_endpoint=~\"$eth_endpoint\"}, consumer)",
-        "query": {
-          "qryType": 1,
-          "query": "label_values(kong_http_requests_total{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_endpoint=~\"$eth_endpoint\"}, consumer)",
-          "refId": "PrometheusVariableQueryEditor-VariableQuery"
-        },
-        "refresh": 1,
-        "includeAll": true,
-        "allValue": ".*",
-        "multi": true,
-        "sort": 1,
-        "current": {
-          "selected": true,
-          "text": "All",
-          "value": "$__all"
-        }
       }
     ]
   },
@@ -2260,8 +1522,8 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Ethereum RPC Nodes",
-  "uid": "l1-ethereum-rpc-nodes",
+  "title": "Ethereum L1 Nodes",
+  "uid": "l1-ethereum-nodes",
   "version": 1,
   "weekStart": ""
 }
