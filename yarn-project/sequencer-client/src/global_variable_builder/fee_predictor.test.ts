@@ -12,6 +12,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import { FEE_ORACLE_LAG, type GasFees, ManaUsageEstimate, computeExcessMana } from '@aztec/stdlib/gas';
 
+import { jest } from '@jest/globals';
 import { foundry } from 'viem/chains';
 
 import { FeePredictor } from './fee_predictor.js';
@@ -351,4 +352,29 @@ describe('FeePredictor', () => {
       nextCheckpointOffset++;
     }
   }, 60_000);
+});
+
+describe('FeePredictor state caching', () => {
+  it('recovers from a transient L1 read failure without waiting for a new L1 block', async () => {
+    const blockNumber = 1n;
+    const getBlockNumber = jest.fn<() => Promise<bigint>>(() => Promise.resolve(blockNumber));
+    const state = { manaTarget: 1n } as unknown;
+    const fetchState = jest
+      .fn<() => Promise<unknown>>()
+      .mockRejectedValueOnce(new Error('L1 RPC request failed'))
+      .mockResolvedValue(state);
+
+    const predictor: FeePredictor = Object.create(FeePredictor.prototype);
+    Reflect.set(predictor, 'publicClient', { getBlockNumber });
+    Reflect.set(predictor, 'cachedL1BlockNumber', undefined);
+    Reflect.set(predictor, 'cachedState', undefined);
+    Reflect.set(predictor, 'fetchState', fetchState);
+
+    const getState = Reflect.get(FeePredictor.prototype, 'getState') as () => Promise<unknown>;
+
+    await expect(getState.call(predictor)).rejects.toThrow('L1 RPC request failed');
+    // Same L1 block: must recompute rather than replay the cached rejection.
+    await expect(getState.call(predictor)).resolves.toBe(state);
+    expect(fetchState).toHaveBeenCalledTimes(2);
+  });
 });

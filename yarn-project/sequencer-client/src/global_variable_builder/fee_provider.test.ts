@@ -41,4 +41,26 @@ describe('FeeProviderImpl', () => {
 
     expect(getPredictedMinFees).toHaveBeenCalledWith(ManaUsageEstimate.Target);
   });
+
+  it('recovers from a transient L1 read failure without waiting for a new L1 block', async () => {
+    const blockNumber = 1n;
+    const getBlockNumber = jest.fn<() => Promise<bigint>>(() => Promise.resolve(blockNumber));
+    const computeCurrentMinFees = jest
+      .fn<() => Promise<GasFees>>()
+      .mockRejectedValueOnce(new Error('L1 RPC request failed'))
+      .mockResolvedValue(new GasFees(0, 42));
+
+    const provider: FeeProviderImpl = Object.create(FeeProviderImpl.prototype);
+    Reflect.set(provider, 'publicClient', { getBlockNumber });
+    Reflect.set(provider, 'currentL1BlockNumber', undefined);
+    Reflect.set(provider, 'currentMinFees', Promise.resolve(new GasFees(0, 0)));
+    Reflect.set(provider, 'computeCurrentMinFees', computeCurrentMinFees);
+
+    // First call fails on the transient L1 read.
+    await expect(provider.getCurrentMinFees()).rejects.toThrow('L1 RPC request failed');
+
+    // A subsequent call at the SAME L1 block must recompute rather than replay the cached rejection.
+    await expect(provider.getCurrentMinFees()).resolves.toEqual(new GasFees(0, 42));
+    expect(computeCurrentMinFees).toHaveBeenCalledTimes(2);
+  });
 });
