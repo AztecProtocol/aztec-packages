@@ -15,7 +15,6 @@ import { DefaultAccountEntrypoint } from '@aztec/entrypoints/account';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 import { createPXE, getPXEConfig } from '@aztec/pxe/server';
-import { deriveSigningKey } from '@aztec/stdlib/keys';
 
 import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { setup } from './fixtures/utils.js';
@@ -54,7 +53,7 @@ const itShouldBehaveLikeAnAccountContract = (
     beforeAll(async () => {
       const secret = Fr.random();
       const salt = Fr.random();
-      const signingKey = deriveSigningKey(secret);
+      const signingKey = GrumpkinScalar.random();
       const contract = getAccountContract(signingKey);
       const address = await getAccountContractAddress(contract, secret, salt);
       const accountData = {

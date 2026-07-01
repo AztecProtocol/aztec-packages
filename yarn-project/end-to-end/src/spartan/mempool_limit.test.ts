@@ -13,7 +13,6 @@
 //   createAztecNodeAdminClient,
 //   createAztecNodeClient,
 // } from '@aztec/stdlib/interfaces/client';
-// import { deriveSigningKey } from '@aztec/stdlib/keys';
 // import { makeTracedFetch } from '@aztec/telemetry-client';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';

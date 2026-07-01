@@ -47,11 +47,6 @@ export function deriveMasterFallbackSecretKey(secretKey: Fr): GrumpkinScalar {
   return sha512ToGrumpkinScalar([secretKey, DomainSeparator.FBSK_M]);
 }
 
-export function deriveSigningKey(secretKey: Fr): GrumpkinScalar {
-  // TODO(#5837): come up with a standard signing key derivation scheme instead of using ivsk_m as signing keys here
-  return sha512ToGrumpkinScalar([secretKey, DomainSeparator.IVSK_M]);
-}
-
 export function computePreaddress(publicKeysHash: Fr, partialAddress: Fr) {
   return poseidon2HashWithSeparator([publicKeysHash, partialAddress], DomainSeparator.CONTRACT_ADDRESS_V2);
 }

@@ -1,4 +1,5 @@
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
+import { deriveSecretKeyFromSigningKey } from '@aztec/accounts/utils';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import {
   BatchCall,
@@ -30,7 +31,6 @@ import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { BlockTag } from '@aztec/stdlib/block';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import { type BotConfig, SupportedTokenContracts } from './config.js';
@@ -223,9 +223,13 @@ export class BotFactory {
     return accountManager.address;
   }
 
-  private async setupAccountWithPrivateKey(secret: Fr) {
+  private async setupAccountWithPrivateKey(privateKey: Fr) {
     const salt = this.config.senderSalt ?? Fr.ONE;
-    const signingKey = deriveSigningKey(secret);
+    // The configured private key is the account's signing key. Reinterpret its bytes as a Grumpkin scalar (always
+    // valid, since the BN254 scalar field is smaller than Grumpkin's) and derive the privacy secret from it, keeping
+    // the signing key independent of anything PXE holds.
+    const signingKey = GrumpkinScalar.fromBuffer(privateKey.toBuffer());
+    const secret = await deriveSecretKeyFromSigningKey(signingKey);
     const accountManager = await this.wallet.createSchnorrInitializerlessAccount(secret, salt, signingKey);
     return accountManager.address;
   }

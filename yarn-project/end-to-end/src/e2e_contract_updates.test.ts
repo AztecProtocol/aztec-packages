@@ -1,7 +1,7 @@
 import { getSchnorrInitializerlessAccountContractAddress } from '@aztec/accounts/schnorr';
 import { fastForwardContractUpdate, getContractClassFromArtifact } from '@aztec/aztec.js/contracts';
 import { publishContractClass } from '@aztec/aztec.js/deployment';
-import { Fr } from '@aztec/aztec.js/fields';
+import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { CheatCodes } from '@aztec/aztec/testing';
 import { MINIMUM_UPDATE_DELAY, UPDATED_CLASS_IDS_SLOT } from '@aztec/constants';
@@ -17,7 +17,6 @@ import {
 } from '@aztec/stdlib/delayed-public-mutable';
 import { computePublicDataTreeLeafSlot, deriveStorageSlotInMap } from '@aztec/stdlib/hash';
 import type { AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
-import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 
 import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
@@ -84,7 +83,7 @@ describe('e2e_contract_updates', () => {
 
   beforeEach(async () => {
     const senderPrivateKey = Fr.random();
-    const signingKey = deriveSigningKey(senderPrivateKey);
+    const signingKey = GrumpkinScalar.random();
     const salt = Fr.ONE;
     // Use a deterministic initializerless account whose address we know before setup, so the scheduled
     // delay can be seeded in genesis public data for it. We fund it and create it ourselves below.
