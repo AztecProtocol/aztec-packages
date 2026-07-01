@@ -242,7 +242,7 @@ export class LogService {
       ...(await this.#getSecretsForSenders(recipientCompleteAddress, recipientIvsk)),
       ...(await this.taggingSecretSourcesStore.getSharedSecretsForRecipient(recipient)),
     ];
-    return Promise.all(points.map(secret => AppTaggingSecret.compute(secret, contractAddress, recipient)));
+    return Promise.all(points.map(secret => AppTaggingSecret.computeDirectional(secret, contractAddress, recipient)));
   }
 
   async #getSecretsForSenders(
