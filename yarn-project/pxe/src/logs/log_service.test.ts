@@ -96,6 +96,22 @@ describe('LogService', () => {
       expect(responses[0][1].txHash).toEqual(privateLog.txHash);
     });
 
+    it('threads the origin block number and timestamp from the source log', async () => {
+      const publicLog = randomPrivateLogResult({ includeEffects: true });
+      const privateLog = randomPrivateLogResult({ includeEffects: true });
+
+      aztecNode.getPublicLogsByTags.mockResolvedValue([[publicLog]]);
+      aztecNode.getPrivateLogsByTags.mockResolvedValue([[privateLog]]);
+
+      const request = makeLogRetrievalRequest(contractAddress, tag);
+      const responses = await logService.fetchLogsByTag(contractAddress, [request]);
+
+      expect(responses[0][0].blockNumber).toEqual(publicLog.blockNumber);
+      expect(responses[0][0].blockTimestamp).toEqual(publicLog.blockTimestamp);
+      expect(responses[0][1].blockNumber).toEqual(privateLog.blockNumber);
+      expect(responses[0][1].blockTimestamp).toEqual(privateLog.blockTimestamp);
+    });
+
     it('rejects a batch where at least one request targets a different contract', async () => {
       const differentContract = await AztecAddress.random();
       const validRequest = makeLogRetrievalRequest(contractAddress, tag);
