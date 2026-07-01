@@ -44,15 +44,12 @@ impl TagDerivation {
     /// Resolves this choice into the [`TagSecretSource`] backing the message tag.
     pub(crate) fn into_tag_secret_source(self, sender: AztecAddress, recipient: AztecAddress) -> TagSecretSource {
         if self.kind == NON_INTERACTIVE_HANDSHAKE {
-            // Safety: this only selects which source backs the tag. A reused handshake's secrets are constrained
-            // against the registry before a constrained tag is emitted, and a fresh handshake is created in a
-            // constrained manner in `obtain_secrets`.
-            let existing = unsafe {
-                get_existing_app_siloed_handshake_secrets(STANDARD_HANDSHAKE_REGISTRY_ADDRESS, sender, recipient)
-            };
-            existing.map_or_else(|| TagSecretSource::new_non_interactive_handshake(), |secrets| {
-                TagSecretSource::existing_handshake(secrets)
-            })
+            // A fresh handshake is created in a constrained manner in `obtain_secrets`.
+            existing_handshake_secrets_or_else(
+                sender,
+                recipient,
+                || TagSecretSource::new_non_interactive_handshake(),
+            )
         } else {
             // Safety: the secret is untrusted, but address-derived tagging is unconstrained-only, where a wrong
             // secret only yields an undiscoverable tag. An invalid recipient has no shared secret, so we fall back
@@ -61,6 +58,22 @@ impl TagDerivation {
             TagSecretSource::unconstrained_secret(secret)
         }
     }
+}
+
+/// Resolves to the secrets of a non-interactive handshake already registered for `(sender, recipient)`, or to
+/// `fallback()` when none exists yet. Shared by the wallet-resolved default (`default_tag_secret_source`) and the
+/// [`TagDerivation::non_interactive_handshake`] override, which only differ in what backs the tag otherwise.
+pub(crate) fn existing_handshake_secrets_or_else<Env>(
+    sender: AztecAddress,
+    recipient: AztecAddress,
+    fallback: fn[Env]() -> TagSecretSource,
+) -> TagSecretSource {
+    // Safety: this only selects which source backs the tag. A reused handshake's secrets are constrained against
+    // the registry before a constrained tag is emitted; the fallback source constrains (or rejects) its own secret
+    // the same way.
+    let existing =
+        unsafe { get_existing_app_siloed_handshake_secrets(STANDARD_HANDSHAKE_REGISTRY_ADDRESS, sender, recipient) };
+    existing.map_or_else(fallback, |secrets| TagSecretSource::existing_handshake(secrets))
 }
 
 mod test {

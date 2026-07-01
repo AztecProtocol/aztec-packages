@@ -4,8 +4,10 @@
 
 use crate::context::PrivateContext;
 use crate::messages::delivery::{
-    constrained_delivery::emit_sequence_nullifier, handshake::get_existing_app_siloed_handshake_secrets,
-    OnchainDeliveryMode, tag_derivation::TagDerivation, tag_secret_source::TagSecretSource,
+    constrained_delivery::emit_sequence_nullifier,
+    OnchainDeliveryMode,
+    tag_derivation::{existing_handshake_secrets_or_else, TagDerivation},
+    tag_secret_source::TagSecretSource,
 };
 use crate::oracle::notes::get_next_tagging_index;
 use crate::oracle::resolve_tagging_strategy::resolve_tagging_strategy;
@@ -14,7 +16,6 @@ use crate::protocol::{
     constants::{DOM_SEP__CONSTRAINED_MSG_LOG_TAG, DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG},
     hash::{compute_log_tag, poseidon2_hash},
 };
-use crate::standard_addresses::STANDARD_HANDSHAKE_REGISTRY_ADDRESS;
 
 /// Derives the discovery log tag for an on-chain delivery.
 ///
@@ -40,12 +41,9 @@ fn default_tag_secret_source(
     recipient: AztecAddress,
     mode: OnchainDeliveryMode,
 ) -> TagSecretSource {
-    // Safety: this only selects which source backs the tag. An existing handshake's secrets are constrained against the
-    // registry before a constrained tag is emitted; otherwise the wallet's resolved source runs.
-    let existing =
-        unsafe { get_existing_app_siloed_handshake_secrets(STANDARD_HANDSHAKE_REGISTRY_ADDRESS, sender, recipient) };
-
-    existing.map_or_else(
+    existing_handshake_secrets_or_else(
+        sender,
+        recipient,
         || {
             // Safety: the strategy only selects which source runs; each source constrains (or rejects) its own
             // secret before a constrained tag is emitted, so an untrusted strategy can't produce a valid unbacked
@@ -53,7 +51,6 @@ fn default_tag_secret_source(
             let strategy = unsafe { resolve_tagging_strategy(sender, recipient, mode) };
             strategy.into()
         },
-        |handshake_secrets| TagSecretSource::existing_handshake(handshake_secrets),
     )
 }
 
