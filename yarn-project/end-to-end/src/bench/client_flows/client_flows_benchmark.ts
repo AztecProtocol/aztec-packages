@@ -238,10 +238,12 @@ export class ClientFlowsBenchmark {
       // executions and a nullifier per cold chain). Constrained delivery is unaffected: the Noir circuit rejects
       // address-derived for constrained, so the hook falls through to a handshake there.
       hooks: {
-        resolveTaggingSecretStrategy: async ({ deliveryMode }) =>
-          deliveryMode === AppTaggingSecretKind.UNCONSTRAINED
-            ? { type: 'address-derived' }
-            : { type: 'non-interactive-handshake' },
+        resolveTaggingSecretStrategy: ({ deliveryMode }) =>
+          Promise.resolve(
+            deliveryMode === AppTaggingSecretKind.UNCONSTRAINED
+              ? { type: 'address-derived' }
+              : { type: 'non-interactive-handshake' },
+          ),
       },
     });
   }
