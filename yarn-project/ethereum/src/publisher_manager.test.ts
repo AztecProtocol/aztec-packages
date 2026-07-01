@@ -447,7 +447,7 @@ describe('PublisherManager', () => {
       expect(funder.interrupted).toBe(false);
     });
 
-    it('is idempotent on double start (does not orphan a funding loop)', async () => {
+    it('is idempotent on double start (does not orphan a loop or re-spawn monitors)', async () => {
       mockPublishers = createMockPublishers(1);
       const funder = new TestL1TxUtils(EthAddress.random()) as TestL1TxUtils & L1TxUtils;
       funder.balance = 5000n;
@@ -465,6 +465,23 @@ describe('PublisherManager', () => {
       // A second start must reuse the already-running funding loop, not spawn a new one that leaks.
       expect(loopAfterSecond).toBe(loopAfterFirst);
       expect(loopAfterSecond?.isRunning()).toBe(true);
+      // And it must not re-run loadStateAndResumeMonitoring, which would spawn a duplicate background
+      // monitor per pending nonce.
+      expect(mockPublishers[0].loadCount).toBe(1);
+    });
+
+    it('reloads monitoring on a start that follows a stop (restart), not on a bare double start', async () => {
+      mockPublishers = createMockPublishers(1);
+      publisherManager = new PublisherManager(mockPublishers, {});
+
+      await publisherManager.start();
+      expect(mockPublishers[0].loadCount).toBe(1);
+
+      await publisherManager.stop();
+      await publisherManager.start();
+
+      // A real restart (after stop) reloads state so in-flight txs resume monitoring.
+      expect(mockPublishers[0].loadCount).toBe(2);
     });
 
     it('is idempotent on double stop', async () => {

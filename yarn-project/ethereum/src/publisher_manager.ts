@@ -42,6 +42,7 @@ export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
   private static readonly FUNDING_CHECK_INTERVAL_MS = 2 * 60 * 1000;
   protected funder?: UtilsType;
   protected fundingPromise?: RunningPromise;
+  private started = false;
 
   constructor(
     protected publishers: UtilsType[],
@@ -73,10 +74,17 @@ export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
    * Loads the state of all publishers and the funder, clears any interrupted flag left by a previous
    * {@link stop} so publishing works again after a restart, and starts periodic funding checks.
    *
-   * Idempotent and safe to call as a restart after {@link stop}: the funding loop is only started when
-   * it is not already running, so a second call does not orphan a poll loop.
+   * Idempotent: a redundant start while already started is a no-op, so it neither orphans a funding loop
+   * nor re-runs `loadStateAndResumeMonitoring` (which would spawn a second background monitor per pending
+   * nonce). Safe to call as a restart after {@link stop} to re-enable publishing.
    */
   public async start(): Promise<void> {
+    if (this.started) {
+      this.log.debug('PublisherManager already started, ignoring start');
+      return;
+    }
+    this.started = true;
+
     // Clear the interrupted flag set by a previous stop() so a restarted manager can publish again.
     // On a first start this is a no-op (the flag is already clear).
     this.publishers.forEach(pub => pub.restart());
@@ -108,6 +116,7 @@ export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
    * clears the interrupted flag.
    */
   public async stop(): Promise<void> {
+    this.started = false;
     await this.fundingPromise?.stop();
     this.fundingPromise = undefined;
     this.publishers.forEach(pub => pub.interrupt());
