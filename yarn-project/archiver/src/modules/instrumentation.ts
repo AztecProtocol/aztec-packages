@@ -158,10 +158,12 @@ export class ArchiverInstrumentation {
 
   /**
    * Records a pending-chain reorg, where the archiver dropped proposed blocks (and world-state follows by pruning). The
-   * type distinguishes the cause: 'uncheckpointed' (slot ended without a checkpoint), 'l1_conflict' (blocks conflicting
-   * with an L1 checkpoint), or 'orphan' (no matching proposed checkpoint arrived before the deadline).
+   * type distinguishes the cause: 'uncheckpointed' (slot ended without a checkpoint), 'l1_conflict' (proposed blocks
+   * conflicting with an L1 checkpoint), 'orphan' (no matching proposed checkpoint arrived before the deadline), or
+   * 'l1_mismatch' (the local checkpointed tip diverged from L1 — an L1 reorg or a pruned/missed-proof checkpoint — so
+   * already-checkpointed blocks were rewound).
    */
-  public recordPrune(pruneType: 'uncheckpointed' | 'l1_conflict' | 'orphan') {
+  public recordPrune(pruneType: 'uncheckpointed' | 'l1_conflict' | 'orphan' | 'l1_mismatch') {
     this.pruneCount.add(1, { [Attributes.PRUNE_TYPE]: pruneType });
   }
 

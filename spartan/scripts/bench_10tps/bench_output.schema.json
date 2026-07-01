@@ -429,7 +429,8 @@
             "unproven": { "type": ["number", "null"] },
             "uncheckpointed": { "type": ["number", "null"] },
             "l1_conflict": { "type": ["number", "null"] },
-            "orphan": { "type": ["number", "null"] }
+            "orphan": { "type": ["number", "null"] },
+            "l1_mismatch": { "type": ["number", "null"] }
           }
         },
         "deepestReorgBlocks": {

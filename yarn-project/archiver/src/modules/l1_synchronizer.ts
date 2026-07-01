@@ -783,6 +783,9 @@ export class ArchiverL1Synchronizer implements Traceable {
 
         const checkpointsToRemove = localPendingCheckpointNumber - tipAfterUnwind;
         await this.updater.removeCheckpointsAfter(CheckpointNumber(tipAfterUnwind));
+        if (checkpointsToRemove > 0) {
+          this.instrumentation.recordPrune('l1_mismatch');
+        }
 
         this.log.warn(
           `Removed ${count(checkpointsToRemove, 'checkpoint')} after checkpoint ${tipAfterUnwind} ` +

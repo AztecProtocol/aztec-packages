@@ -1,10 +1,10 @@
 #!/usr/bin/env -S node --experimental-strip-types --no-warnings
 //
-// Scrape a completed bench-10tps run into a schema-conformant JSON payload.
-// Contract: bench_output.schema.json (v4). Invoked by the bench_10tps function
-// in spartan/bootstrap.sh after n_tps.test.ts finishes.
+// Scrape a completed inclusion-sweep run into a schema-conformant JSON payload.
+// Contract: bench_output.schema.json (v5). Invoked by the bench_inclusion_point
+// function in spartan/bootstrap.sh after n_tps.test.ts finishes.
 //
-// v4 adds two PromQL sections alongside the inclusion timeSeries:
+// Alongside the inclusion timeSeries the payload carries two PromQL sections:
 //   - provingInfra: prover-node hint-gen (tx re-execution) + proving-queue
 //     behaviour broken down by job_type.
 //   - saturation:   per-role ELU/CPU/memory, each as max (hottest pod) + avg.
@@ -618,7 +618,7 @@ const TIME_SERIES_DEFS: Record<string, TimeSeriesDef> = {
     query: `sum(rate(aztec_validator_attestation_success_count${NS}[1m]))`,
   },
   // Archiver prunes broken down by cause (prune_type). 'unproven' is the
-  // proven/epoch prune; 'uncheckpointed'/'l1_conflict'/'orphan' are pending-chain
+  // proven/epoch prune; 'uncheckpointed'/'l1_conflict'/'orphan'/'l1_mismatch' are pending-chain
   // reorgs that move a node's proposed tip (world-state then logs "Chain pruned").
   // Summed across pods, so a value here is the network-wide prune rate per cause;
   // see summary.reorgCount for how many distinct pods diverged. Requires the
@@ -2174,6 +2174,7 @@ async function buildSummary(a: SummaryArgs): Promise<Record<string, unknown>> {
     "uncheckpointed",
     "l1_conflict",
     "orphan",
+    "l1_mismatch",
   ] as const;
   const pruneTypeTotals = await Promise.all(
     pruneTypes.map((t) =>
@@ -2243,9 +2244,9 @@ function assertShape(payload: Record<string, unknown>): void {
       throw new Error(`output missing required top-level key: ${key}`);
     }
   }
-  if (payload.schemaVersion !== "4") {
+  if (payload.schemaVersion !== "5") {
     throw new Error(
-      `schemaVersion must be "4", got ${String(payload.schemaVersion)}`,
+      `schemaVersion must be "5", got ${String(payload.schemaVersion)}`,
     );
   }
   const run = payload.run as Record<string, unknown>;
