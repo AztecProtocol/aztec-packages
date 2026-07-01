@@ -49,7 +49,6 @@ import { NoteService } from '../../notes/note_service.js';
 import { ORACLE_VERSION_MAJOR } from '../../oracle_version.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
-import type { ContractStore } from '../../storage/contract_store/contract_store.js';
 import { FactCollectionKey, FactCollectionTypeKey } from '../../storage/fact_store/index.js';
 import type { FactService, OriginBlock } from '../../storage/fact_store/index.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';

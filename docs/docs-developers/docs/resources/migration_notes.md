@@ -25,7 +25,7 @@ Registering classes and instances are now separate, unvalidated operations. `reg
 
   If you were calling it without an artifact, just drop the wrapping object: `pxe.registerContract({ instance })` becomes `pxe.registerContract(instance)`. The `wallet.registerContract(instance, artifact?, secretKeyOrKeys?)` convenience is unchanged and performs both registrations for you.
 
-- To make a new class's code available after an on-chain upgrade, register the new artifact instead of calling `updateContract`:
+- To make a new class's code available after an onchain upgrade, register the new artifact instead of calling `updateContract`:
 
 ```diff
 - await pxe.updateContract(address, newArtifact);

@@ -25,7 +25,6 @@ import type { TxResolverService } from '../../messages/tx_resolver_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
-import type { ContractStore } from '../../storage/contract_store/contract_store.js';
 import { FactService } from '../../storage/fact_store/index.js';
 import type { FactStore } from '../../storage/fact_store/index.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
@@ -119,7 +118,7 @@ describe('PrivateExecutionOracle', () => {
     });
 
     it('resolves a non-interactive-handshake strategy', async () => {
-      const { oracle } = await makeHookedOracle({ strategy: { type: 'non-interactive-handshake' } });
+      const { oracle } = makeHookedOracle({ strategy: { type: 'non-interactive-handshake' } });
 
       await expect(oracle.resolveTaggingStrategy(sender, recipient, AppTaggingSecretKind.CONSTRAINED)).resolves.toEqual(
         {
@@ -129,7 +128,7 @@ describe('PrivateExecutionOracle', () => {
     });
 
     it('resolves an address-derived strategy to the unconstrained secret', async () => {
-      const { oracle } = await makeHookedOracle({ strategy: { type: 'address-derived' } });
+      const { oracle } = makeHookedOracle({ strategy: { type: 'address-derived' } });
       const secret = Fr.random();
       jest.spyOn(oracle, 'getAppTaggingSecret').mockResolvedValue(Option.some(secret));
 
@@ -140,7 +139,7 @@ describe('PrivateExecutionOracle', () => {
 
     it('app-silos a raw arbitrary-secret point before handing it to the contract', async () => {
       const point = await Point.random();
-      const { oracle } = await makeHookedOracle({ strategy: { type: 'arbitrary-secret', secret: point } });
+      const { oracle } = makeHookedOracle({ strategy: { type: 'arbitrary-secret', secret: point } });
 
       const expected = await AppTaggingSecret.computeDirectional(point, contractAddress, recipient);
       await expect(
@@ -149,7 +148,7 @@ describe('PrivateExecutionOracle', () => {
     });
 
     it('overrides a hooked non-interactive handshake on an unconstrained self-send with an address-derived secret', async () => {
-      const { oracle } = await makeHookedOracle({
+      const { oracle } = makeHookedOracle({
         strategy: { type: 'non-interactive-handshake' },
         keyStore: makeKeyStore({ ownsRecipient: true }),
       });
@@ -162,7 +161,7 @@ describe('PrivateExecutionOracle', () => {
     });
 
     it('keeps a hooked non-interactive handshake under constrained delivery even when the wallet owns the recipient', async () => {
-      const { oracle } = await makeHookedOracle({
+      const { oracle } = makeHookedOracle({
         strategy: { type: 'non-interactive-handshake' },
         keyStore: makeKeyStore({ ownsRecipient: true }),
       });
@@ -174,7 +173,7 @@ describe('PrivateExecutionOracle', () => {
 
     it('passes the correct message context to the hook', async () => {
       const contractClassId = Fr.random();
-      const { oracle, resolveTaggingSecretStrategy } = await makeHookedOracle({
+      const { oracle, resolveTaggingSecretStrategy } = makeHookedOracle({
         strategy: { type: 'non-interactive-handshake' },
         contractClassId,
       });
@@ -190,7 +189,7 @@ describe('PrivateExecutionOracle', () => {
       });
     });
 
-    const makeHookedOracle = async ({
+    const makeHookedOracle = ({
       strategy,
       contractClassId = Fr.random(),
       keyStore = makeKeyStore({ ownsRecipient: false }),
