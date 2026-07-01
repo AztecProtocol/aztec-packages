@@ -2,7 +2,7 @@ import { RollupContract } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient } from '@aztec/ethereum/types';
 import { SlotNumber } from '@aztec/foundation/branded-types';
 import type { DateProvider } from '@aztec/foundation/timer';
-import { getNextL1SlotTimestamp } from '@aztec/stdlib/epoch-helpers';
+import { getNextL1SlotTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { GasFees, ManaUsageEstimate } from '@aztec/stdlib/gas';
 import type { FeeProvider } from '@aztec/stdlib/tx';
 
@@ -16,6 +16,7 @@ export class FeeProviderImpl implements FeeProvider {
 
   private readonly rollupContract: RollupContract;
   private readonly feePredictor: FeePredictor;
+  private readonly slotDuration: number;
   private readonly ethereumSlotDuration: number;
   private readonly l1GenesisTime: bigint;
 
@@ -24,6 +25,7 @@ export class FeeProviderImpl implements FeeProvider {
     private readonly publicClient: ViemPublicClient,
     config: GlobalVariableBuilderConfig,
   ) {
+    this.slotDuration = config.slotDuration;
     this.ethereumSlotDuration = config.ethereumSlotDuration;
     this.l1GenesisTime = config.l1GenesisTime;
 
@@ -45,9 +47,10 @@ export class FeeProviderImpl implements FeeProvider {
     // The timestamp of that last block will act as a lower bound for the next block.
 
     const lastCheckpoint = await this.rollupContract.getPendingCheckpoint();
-    const earliestTimestamp = await this.rollupContract.getTimestampForSlot(
-      SlotNumber.fromBigInt(BigInt(lastCheckpoint.slotNumber) + 1n),
-    );
+    const earliestTimestamp = getTimestampForSlot(SlotNumber.fromBigInt(BigInt(lastCheckpoint.slotNumber) + 1n), {
+      slotDuration: this.slotDuration,
+      l1GenesisTime: this.l1GenesisTime,
+    });
     const nextEthTimestamp = getNextL1SlotTimestamp(this.dateProvider.nowInSeconds(), {
       l1GenesisTime: this.l1GenesisTime,
       ethereumSlotDuration: this.ethereumSlotDuration,
@@ -64,7 +67,15 @@ export class FeeProviderImpl implements FeeProvider {
     // If the L1 block number has changed then chain a new promise to get the current min fees
     if (this.currentL1BlockNumber === undefined || blockNumber > this.currentL1BlockNumber) {
       this.currentL1BlockNumber = blockNumber;
-      this.currentMinFees = this.currentMinFees.then(() => this.computeCurrentMinFees());
+      this.currentMinFees = this.currentMinFees
+        .catch(() => undefined)
+        .then(() => this.computeCurrentMinFees())
+        .catch(err => {
+          if (this.currentL1BlockNumber === blockNumber) {
+            this.currentL1BlockNumber = undefined;
+          }
+          throw err;
+        });
     }
     return this.currentMinFees;
   }
