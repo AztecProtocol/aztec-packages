@@ -47,8 +47,12 @@ export function buildMessageDeliveryTest(opts: {
     recipientAddress: AztecAddress,
     sender: AztecAddress,
   ) => Promise<void>;
+  // Extra `it()`s to register in this cell's suite, e.g. assertions against state a custom `senderHook` recorded.
+  // Called inside the same `describe`, after the two baseline assertions below, so it shares their `beforeAll`
+  // instead of depending on Jest's cross-`describe` execution order.
+  additionalTests?: () => void;
 }) {
-  const { strategy, mode, senderHook, recipientRegistration } = opts;
+  const { strategy, mode, senderHook, recipientRegistration, additionalTests } = opts;
   const description = `${strategy} x ${formatMode(mode)}`;
 
   describe(description, () => {
@@ -166,5 +170,7 @@ export function buildMessageDeliveryTest(opts: {
     it('the recipient PXE reads back the notes delivered by the sender PXE', () => {
       expect(readNotes).toEqual(noteValues);
     });
+
+    additionalTests?.();
   });
 }
