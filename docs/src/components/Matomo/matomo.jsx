@@ -26,6 +26,19 @@ export default function useMatomo() {
   const trackerUrl = `${urlBase}matomo.php`;
   const srcUrl = `${urlBase}matomo.js`;
 
+  // Secondary Matomo instance (Aztec Labs). Registered as an additional tracker
+  // on the shared _paq queue so it inherits the same consent handling and
+  // page-view calls as the primary tracker above.
+  const azteclabsTrackerUrl = "https://azteclabs.matomo.cloud/matomo.php";
+  const azteclabsSiteId = "23";
+  const crossDomainLinkingDomains = [
+    "*.aztec.network",
+    "*.docs.aztec.network",
+    "*.noir-lang.org",
+    "*.play.aztec-labs.com",
+    "*.testnet.aztec.network",
+  ];
+
   window._paq = window._paq || [];
 
   useEffect(() => {
@@ -36,11 +49,20 @@ export default function useMatomo() {
   }, []);
 
   useEffect(() => {
+    // Hold all tracking (for every tracker on the shared _paq queue) until the
+    // user opts in via the banner below. Matomo persists the choice in its own
+    // cookie, so returning visitors who accepted are tracked automatically.
+    pushInstruction("requireConsent");
     pushInstruction("setTrackerUrl", trackerUrl);
     pushInstruction("setSiteId", getSiteId(env));
     if (env !== "prod") {
       pushInstruction("setSecureCookie", false);
     }
+
+    pushInstruction("addTracker", azteclabsTrackerUrl, azteclabsSiteId);
+    pushInstruction("setDomains", crossDomainLinkingDomains);
+    pushInstruction("enableCrossDomainLinking");
+    pushInstruction("enableLinkTracking");
 
     const doc = document;
     const scriptElement = doc.createElement("script");
@@ -71,14 +93,14 @@ export default function useMatomo() {
     localStorage.setItem("matomoConsent", false);
     setShowBanner(false);
   };
-  
+
   // Add global debug function for console access
   useEffect(() => {
-    if (env !== "prod" && typeof window !== 'undefined') {
+    if (env !== "prod" && typeof window !== "undefined") {
       window.forceNPS = () => {
-        const event = new CustomEvent('forceShowNPS');
+        const event = new CustomEvent("forceShowNPS");
         window.dispatchEvent(event);
-        console.log('🔧 Forcing NPS widget to show');
+        console.log("🔧 Forcing NPS widget to show");
       };
 
       // Clean up on unmount
