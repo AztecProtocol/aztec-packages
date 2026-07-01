@@ -4,6 +4,7 @@ import type { ViemPublicClient } from '@aztec/ethereum/types';
 import { CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
+import { retryUntil } from '@aztec/foundation/retry';
 import type { DateProvider } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
@@ -242,6 +243,32 @@ export class RollupCheatCodes {
         `Proven tip moved: ${tipsBefore.proven} -> ${tipsAfter.proven}. Pending tip: ${tipsAfter.pending}.`,
       );
     });
+  }
+
+  /**
+   * Polls the rollup until its current epoch reaches `epoch`. Unlike {@link advanceToEpoch} this does
+   * not warp the L1 clock; it only waits for the chain to reach `epoch` through external activity.
+   */
+  public async waitForEpoch(epoch: EpochNumber, opts: { timeout?: number; interval?: number } = {}): Promise<void> {
+    await retryUntil(
+      async () => (await this.getEpoch()) >= epoch || undefined,
+      `rollup epoch >= ${epoch}`,
+      opts.timeout ?? 60,
+      opts.interval ?? 1,
+    );
+  }
+
+  /**
+   * Polls the rollup until its current slot reaches `slot`. Unlike {@link advanceToSlot} this does not
+   * warp the L1 clock; it only waits for the chain to reach `slot` through external activity.
+   */
+  public async waitForSlot(slot: SlotNumber, opts: { timeout?: number; interval?: number } = {}): Promise<void> {
+    await retryUntil(
+      async () => (await this.getSlot()) >= slot || undefined,
+      `rollup slot >= ${slot}`,
+      opts.timeout ?? 60,
+      opts.interval ?? 1,
+    );
   }
 
   /**

@@ -91,17 +91,7 @@ describe('multi-node/block-production/proof_boundary', () => {
   };
 
   const computeBoundarySlot = async () => {
-    // REFACTOR: hand-rolled retryUntil polling for first checkpoint; replace with
-    // test.waitUntilCheckpointNumber(CheckpointNumber(1)) from MultiNodeTestContext.
-    await retryUntil(
-      async () => {
-        await test.monitor.run(true);
-        return test.monitor.checkpointNumber >= CheckpointNumber(1);
-      },
-      'first checkpoint mined',
-      120,
-      0.5,
-    );
+    await test.waitUntilCheckpointNumber(CheckpointNumber(1));
 
     const firstCheckpoint = await test.rollup.getCheckpoint(CheckpointNumber(1));
     const firstCheckpointEpoch = getEpochAtSlot(firstCheckpoint.slotNumber, test.constants);

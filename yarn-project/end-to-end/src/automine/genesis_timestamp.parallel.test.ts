@@ -1,9 +1,9 @@
 import { generateSchnorrAccounts } from '@aztec/accounts/testing';
 import { NO_FROM } from '@aztec/aztec.js/account';
 import { createLogger } from '@aztec/aztec.js/log';
-import { retryUntil } from '@aztec/foundation/retry';
 
 import type { EndToEndContext } from '../fixtures/utils.js';
+import { waitForBlockNumber, waitForNodeCheckpoint } from '../fixtures/wait_helpers.js';
 import { proveInteraction } from '../test-wallet/utils.js';
 import { AutomineTestContext } from './automine_test_context.js';
 
@@ -60,10 +60,8 @@ describe('automine/genesis_timestamp', () => {
 
   const awaitBlockCheckpointed = async () => {
     const { aztecNode } = context;
-    // REFACTOR: hand-rolled retryUntil polling on block number and checkpoint number; a helper like
-    // waitForBlockNumber / waitForCheckpointNumber would replace both calls.
-    await retryUntil(async () => (await aztecNode.getBlockNumber()) >= 1, 'wait for block >= 1', 60);
-    await retryUntil(async () => (await aztecNode.getCheckpointNumber()) >= 1, 'wait for checkpoint >= 1', 60);
+    await waitForBlockNumber(aztecNode, 1);
+    await waitForNodeCheckpoint(aztecNode, 1, { timeout: 60, interval: 1 });
     logger.info(`Block number after advancing: ${await aztecNode.getBlockNumber()}`);
   };
 

@@ -16,6 +16,7 @@ import { jest } from '@jest/globals';
 
 import { L1_DIRECT_WRITE_ACCOUNT_INDEX, PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
 import { sendL1ToL2Message } from '../../fixtures/l1_to_l2_messaging.js';
+import { waitForBlockNumber } from '../../fixtures/wait_helpers.js';
 import type { CrossChainTestHarness } from '../../shared/cross_chain_test_harness.js';
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
@@ -95,26 +96,14 @@ describe('single-node/cross-chain/l1_to_l2', () => {
     return newBlock;
   };
 
-  // REFACTOR: hand-rolled retryUntil polling for a block to reach the checkpointed chain tip; replace
-  // with a shared waitForBlockCheckpointed(node, blockNumber) helper in the e2e fixture utilities.
   const waitForBlockToCheckpoint = async (blockNumber: BlockNumber) => {
-    return await retryUntil(
-      async () => {
-        const checkpointedBlockNumber = await aztecNode.getBlockNumber('checkpointed');
-        const isCheckpointed = checkpointedBlockNumber >= blockNumber;
-        if (!isCheckpointed) {
-          return undefined;
-        }
-        const [checkpointedBlock] = await aztecNode.getBlocks(blockNumber, 1, {
-          includeL1PublishInfo: true,
-          includeAttestations: true,
-          onlyCheckpointed: true,
-        });
-        return checkpointedBlock.checkpointNumber;
-      },
-      'wait for block to checkpoint',
-      60,
-    );
+    await waitForBlockNumber(aztecNode, blockNumber, { tag: 'checkpointed', timeout: 60 });
+    const [checkpointedBlock] = await aztecNode.getBlocks(blockNumber, 1, {
+      includeL1PublishInfo: true,
+      includeAttestations: true,
+      onlyCheckpointed: true,
+    });
+    return checkpointedBlock.checkpointNumber;
   };
 
   const advanceCheckpoint = async () => {

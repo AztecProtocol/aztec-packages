@@ -5,7 +5,6 @@ import { RollupContract, STATE_VIEW_ADDRESS } from '@aztec/ethereum/contracts';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { retryUntil } from '@aztec/foundation/retry';
-import { sleep } from '@aztec/foundation/sleep';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { CheckpointAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
@@ -96,7 +95,6 @@ describe('e2e_p2p_network', () => {
   // Deploys a MockStateView L1 contract, sets an initial oracle price, then starts 4 validator nodes
   // and a prover. Adjusts the oracle price twice and uses retryUntil to confirm the rollup's on-chain
   // price converges to each target within the gossip propagation window.
-  // REFACTOR: sleep(8000) for peer discovery is hand-rolled; replace with t.waitForP2PMeshConnectivity
   it('should rollup txs from all peers', async () => {
     // create the bootstrap node for the network
     if (!t.bootstrapNodeEnr) {
@@ -144,8 +142,8 @@ describe('e2e_p2p_network', () => {
       shouldCollectMetrics(),
     ));
 
-    // wait a bit for peers to discover each other
-    await sleep(8000);
+    // Wait for the validators to discover each other and form a gossip mesh before proceeding.
+    await t.waitForP2PMeshConnectivity(nodes);
 
     // We need to `createNodes` before we setup account, because
     // those nodes actually form the committee, and so we cannot build
