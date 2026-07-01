@@ -10,6 +10,7 @@ import {
   type SlashingProposerContract,
 } from '@aztec/ethereum/contracts';
 import {
+  type L1TxState,
   L1TxTimeoutError,
   type L1TxUtils,
   type L1TxUtilsConfig,
@@ -255,6 +256,7 @@ describe('SequencerPublisher', () => {
       receipt: proposeTxReceipt,
       stats: undefined,
       multicallData: '0x',
+      state: {} as any,
     });
 
     await publisher.sendRequests();
@@ -316,6 +318,7 @@ describe('SequencerPublisher', () => {
       receipt: proposeTxReceipt,
       stats: undefined,
       multicallData: '0x',
+      state: {} as any,
     });
 
     await publisher.enqueueProposeCheckpoint(
@@ -383,7 +386,7 @@ describe('SequencerPublisher', () => {
     it('rotates to next publisher when forward throws and retries successfully', async () => {
       forwardSpy
         .mockRejectedValueOnce(new Error('RPC error'))
-        .mockResolvedValueOnce({ receipt: proposeTxReceipt, stats: undefined, multicallData: '0x' });
+        .mockResolvedValueOnce({ receipt: proposeTxReceipt, stats: undefined, multicallData: '0x', state: {} as any });
       getNextPublisher.mockResolvedValueOnce(secondL1TxUtils);
 
       await rotatingPublisher.enqueueProposeCheckpoint(
@@ -577,7 +580,12 @@ describe('SequencerPublisher', () => {
       lastValidL2Slot: SlotNumber(5),
       checkSuccess: () => true,
     });
-    forwardSpy.mockResolvedValue({ receipt: proposeTxReceipt, stats: undefined, multicallData: '0x' });
+    forwardSpy.mockResolvedValue({
+      receipt: proposeTxReceipt,
+      stats: undefined,
+      multicallData: '0x',
+      state: {} as any,
+    });
 
     await publisher.sendRequests(SlotNumber(5));
 
@@ -667,7 +675,12 @@ describe('SequencerPublisher', () => {
         .mockResolvedValueOnce({ gasUsed: 500_000n, result: firstResult })
         .mockResolvedValueOnce({ gasUsed: 300_000n, result: secondResult });
 
-      forwardSpy.mockResolvedValue({ receipt: proposeTxReceipt, stats: undefined, multicallData: '0x' });
+      forwardSpy.mockResolvedValue({
+        receipt: proposeTxReceipt,
+        stats: undefined,
+        multicallData: '0x',
+        state: {} as any,
+      });
 
       const result = await publisher.sendRequests();
 
@@ -695,7 +708,12 @@ describe('SequencerPublisher', () => {
         .mockResolvedValueOnce({ gasUsed: 500_000n, result: firstResult })
         .mockResolvedValueOnce({ gasUsed: 1_000_000n, result: '0x' });
 
-      forwardSpy.mockResolvedValue({ receipt: proposeTxReceipt, stats: undefined, multicallData: '0x' });
+      forwardSpy.mockResolvedValue({
+        receipt: proposeTxReceipt,
+        stats: undefined,
+        multicallData: '0x',
+        state: {} as any,
+      });
 
       const result = await publisher.sendRequests();
 
@@ -718,10 +736,12 @@ describe('SequencerPublisher', () => {
           receipt: proposeTxReceipt,
           stats: undefined,
           multicallData: '0x',
+          state: {} as L1TxState,
         }) as Promise<{
           receipt: TransactionReceipt;
           stats: undefined;
           multicallData: Hex;
+          state: L1TxState;
         }>,
     );
     await publisher.enqueueProposeCheckpoint(
@@ -822,6 +842,7 @@ describe('SequencerPublisher', () => {
       receipt: proposeTxReceipt,
       stats: undefined,
       multicallData: '0x',
+      state: {} as any,
     });
 
     await publisher.sendRequests();
