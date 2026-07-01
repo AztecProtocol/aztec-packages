@@ -13,12 +13,7 @@ import {
   type SlashingProposerContract,
   buildSimulationOverridesStateOverride,
 } from '@aztec/ethereum/contracts';
-import {
-  type L1FeeAnalysisResult,
-  L1FeeAnalyzer,
-  captureFeeSnapshot,
-  captureWindowBlockFees,
-} from '@aztec/ethereum/l1-fee-analysis';
+import { type L1FeeAnalysisResult, L1FeeAnalyzer, captureWindowBlockFees } from '@aztec/ethereum/l1-fee-analysis';
 import {
   type L1BlobInputs,
   type L1TxConfig,
@@ -327,49 +322,38 @@ export class SequencerPublisher {
   }
 
   /**
-   * Captures the L1 fee environment for underpricing diagnostics: a pending-pool snapshot plus, when
-   * a target slot is given, per-block fee data for the L1 blocks in that slot's inclusion window (the
-   * blocks the tx could have landed in). Reads only already-mined blocks, so it never waits on the
-   * chain. Safe to call off the critical path: the underlying capture calls never throw, and this
-   * returns undefined if the snapshot could not be taken.
+   * Captures per-block fee data for the L1 blocks in the target slot's inclusion window (the blocks the
+   * tx could have landed in) for underpricing diagnostics. Reads only already-mined blocks, so it never
+   * waits on the chain. Safe to call off the critical path: the underlying capture never throws, and this
+   * returns undefined when there is no target slot or the window is not yet mined (e.g. an early send
+   * failure), in which case the record simply carries no window data.
    */
   private async captureFeeEnvironment(targetL2Slot: SlotNumber | undefined): Promise<FailedL1Tx['gasInfo']> {
-    const snapshot = await captureFeeSnapshot(this.l1TxUtils.client);
-    if (!snapshot) {
+    if (targetL2Slot === undefined) {
       return undefined;
     }
-    const gasInfo: NonNullable<FailedL1Tx['gasInfo']> = {
-      l1BaseFee: snapshot.l1BaseFee.toString(),
-      blobBaseFee: snapshot.blobBaseFee.toString(),
-      pendingP75PriorityFee: snapshot.pendingP75PriorityFee.toString(),
-      pendingBlobP75PriorityFee: snapshot.pendingBlobP75PriorityFee.toString(),
-      pendingTxCount: snapshot.pendingTxCount,
-      pendingBlobTxCount: snapshot.pendingBlobTxCount,
-      pendingBlobCount: snapshot.pendingBlobCount,
-      feeSnapshotBlockNumber: snapshot.latestBlockNumber.toString(),
-    };
-    if (targetL2Slot !== undefined) {
-      const l1Constants = this.epochCache.getL1Constants();
-      // The inclusion window is [start of slot N, start of slot N+1): all L1 blocks that can include
-      // a tx for this L2 slot. getTimestampForSlot returns seconds, matching block.timestamp.
-      const windowStartS = getTimestampForSlot(targetL2Slot, l1Constants);
-      const windowEndS = getTimestampForSlot(SlotNumber(Number(targetL2Slot) + 1), l1Constants);
-      const windowBlocks = await captureWindowBlockFees(this.l1TxUtils.client, windowStartS, windowEndS);
-      if (windowBlocks.length > 0) {
-        gasInfo.windowBlocks = windowBlocks.map(b => ({
-          blockNumber: b.blockNumber.toString(),
-          timestamp: b.timestamp.toString(),
-          baseFeePerGas: b.baseFeePerGas.toString(),
-          p75PriorityFee: b.p75PriorityFee.toString(),
-          minIncludedPriorityFee: b.minIncludedPriorityFee.toString(),
-          minIncludedBlobPriorityFee: b.minIncludedBlobPriorityFee.toString(),
-          blockBlobsFull: b.blockBlobsFull,
-          includedBlobTxCount: b.includedBlobTxCount,
-          includedBlobCount: b.includedBlobCount,
-        }));
-      }
+    const l1Constants = this.epochCache.getL1Constants();
+    // The inclusion window is [start of slot N, start of slot N+1): all L1 blocks that can include a tx
+    // for this L2 slot. getTimestampForSlot returns seconds, matching block.timestamp.
+    const windowStartS = getTimestampForSlot(targetL2Slot, l1Constants);
+    const windowEndS = getTimestampForSlot(SlotNumber(Number(targetL2Slot) + 1), l1Constants);
+    const windowBlocks = await captureWindowBlockFees(this.l1TxUtils.client, windowStartS, windowEndS);
+    if (windowBlocks.length === 0) {
+      return undefined;
     }
-    return gasInfo;
+    return {
+      windowBlocks: windowBlocks.map(b => ({
+        blockNumber: b.blockNumber.toString(),
+        timestamp: b.timestamp.toString(),
+        baseFeePerGas: b.baseFeePerGas.toString(),
+        p75PriorityFee: b.p75PriorityFee.toString(),
+        minIncludedPriorityFee: b.minIncludedPriorityFee.toString(),
+        minIncludedBlobPriorityFee: b.minIncludedBlobPriorityFee.toString(),
+        blockBlobsFull: b.blockBlobsFull,
+        includedBlobTxCount: b.includedBlobTxCount,
+        includedBlobCount: b.includedBlobCount,
+      })),
+    };
   }
 
   /** Computes timing info relative to the L2 slot deadline. */

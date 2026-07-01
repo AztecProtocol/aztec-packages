@@ -69,22 +69,6 @@ export type FailedL1Tx = {
     }[];
     /** Number of send attempts (initial send + speed-ups). */
     attempts?: number;
-    /** L1 base fee at time of failure. */
-    l1BaseFee?: string;
-    /** Blob base fee at time of failure. */
-    blobBaseFee?: string;
-    /** 75th percentile priority fee from pending txs at failure time. */
-    pendingP75PriorityFee?: string;
-    /** 75th percentile priority fee from pending blob txs at failure time. */
-    pendingBlobP75PriorityFee?: string;
-    /** Total number of txs in the pending pool. */
-    pendingTxCount?: number;
-    /** Number of blob txs in the pending pool. */
-    pendingBlobTxCount?: number;
-    /** Total blob count in the pending pool. */
-    pendingBlobCount?: number;
-    /** L1 block number the fee snapshot was anchored to. */
-    feeSnapshotBlockNumber?: string;
     /**
      * Per-block fee data for the L1 blocks the tx could have been included in (the target L2 slot's
      * inclusion window), in chronological order. Compare sentGasPrice against these to see whether

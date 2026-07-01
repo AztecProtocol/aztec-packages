@@ -803,42 +803,6 @@ function minBigInt(values: bigint[]): bigint {
   return values.reduce((min, val) => (val < min ? val : min), values[0]);
 }
 
-/** Point-in-time snapshot of L1 fee conditions for failed tx diagnostics. */
-export interface FeeSnapshot {
-  latestBlockNumber: bigint;
-  l1BaseFee: bigint;
-  blobBaseFee: bigint;
-  pendingP75PriorityFee: bigint;
-  pendingBlobP75PriorityFee: bigint;
-  pendingTxCount: number;
-  pendingBlobTxCount: number;
-  pendingBlobCount: number;
-}
-
-/** Captures a snapshot of current L1 fees for diagnostics. Never throws. */
-export async function captureFeeSnapshot(client: ViemClient): Promise<FeeSnapshot | undefined> {
-  try {
-    const [latestBlock, pendingBlock, blobBaseFee] = await Promise.all([
-      client.getBlock({ blockTag: 'latest' }),
-      client.getBlock({ blockTag: 'pending', includeTransactions: true }).catch(() => null),
-      client.getBlobBaseFee().catch(() => 0n),
-    ]);
-    const processed = processTransactions(pendingBlock?.transactions);
-    return {
-      latestBlockNumber: latestBlock.number,
-      l1BaseFee: latestBlock.baseFeePerGas ?? 0n,
-      blobBaseFee,
-      pendingP75PriorityFee: calculatePercentile(processed.allPriorityFees, 75),
-      pendingBlobP75PriorityFee: calculatePercentile(processed.blobPriorityFees, 75),
-      pendingTxCount: pendingBlock?.transactions?.length ?? 0,
-      pendingBlobTxCount: processed.blobTxs.length,
-      pendingBlobCount: processed.totalBlobCount,
-    };
-  } catch {
-    return undefined;
-  }
-}
-
 /** Per-block fee data for one mined L1 block, used to diagnose whether a tx was underpriced for it. */
 export interface WindowBlockFees {
   blockNumber: bigint;
