@@ -56,15 +56,15 @@ locals {
   rpcs = {
     v5 = merge(local.l1_secret_names, {
       aztec_docker_image = var.CANONICAL_AZTEC_DOCKER_IMAGE
-      hosts              = ["v5.testnet.rpc.aztec-labs.com", "canonical.testnet.rpc.aztec-labs.com", "testnet.rpc.aztec-labs.com"]
+      hosts              = ["v5.testnet.rpc.aztec-labs.com", "canonical.testnet.rpc.aztec-labs.com"]
       storage_size       = "8Gi"
       env = merge(local.env, {
-        ROLLUP_VERSION = "4239416255"
+        ROLLUP_VERSION = ""
       })
     })
     v4 = merge(local.l1_secret_names, {
       aztec_docker_image = var.V4_AZTEC_DOCKER_IMAGE
-      hosts              = ["v4.testnet.rpc.aztec-labs.com"]
+      hosts              = ["v4.testnet.rpc.aztec-labs.com", "testnet.rpc.aztec-labs.com"]
       storage_size       = "8Gi"
       env = merge(local.env, {
         ROLLUP_VERSION = "4127419662"

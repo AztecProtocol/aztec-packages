@@ -59,7 +59,7 @@
       "path": "../../../../yarn-project/kv-store"
     },
     {
-      "path": "../../../../yarn-project/l1-artifacts"
+      "path": "../../../../l1-contracts/l1-artifacts"
     },
     {
       "path": "../../../../yarn-project/node-keystore"

@@ -230,11 +230,11 @@ cast call [GOVERNANCE_CONTRACT_ADDRESS] \
 
 # Query the latest proposal (count - 1, since proposals are zero-indexed)
 cast call [GOVERNANCE_CONTRACT_ADDRESS] \
-  "proposals(uint256)" $((PROPOSAL_COUNT - 1)) \
+  "getProposal(uint256)" $((PROPOSAL_COUNT - 1)) \
   --rpc-url [YOUR_RPC_URL]
 ```
 
-This returns the `CompressedProposal` struct data, which includes:
+This returns the `Proposal` struct data, which includes:
 - The payload address
 - Creation timestamp
 - Voting start and end times
@@ -390,7 +390,7 @@ Query the proposal to see the voting timeline:
 
 ```bash
 cast call [GOVERNANCE_CONTRACT_ADDRESS] \
-  "proposals(uint256)" [PROPOSAL_ID] \
+  "getProposal(uint256)" [PROPOSAL_ID] \
   --rpc-url [YOUR_RPC_URL]
 ```
 

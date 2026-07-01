@@ -48,7 +48,7 @@ describe('LightweightCheckpointBuilder benchmarks', () => {
       prefilledPublicData: [new PublicDataTreeLeaf(feePayerSlot, feePayerBalance)],
       genesisTimestamp: 0n,
     };
-    worldState = await NativeWorldStateService.tmp(undefined, true, genesis);
+    worldState = await NativeWorldStateService.tmp(true, genesis);
   });
 
   afterEach(async () => {

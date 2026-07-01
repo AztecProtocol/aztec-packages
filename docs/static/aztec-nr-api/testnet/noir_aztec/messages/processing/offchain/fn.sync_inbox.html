@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../../styles.css">
+<script defer src="../../../../nargo_doc.js"></script>
+<title>Function sync_inbox documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">sync_inbox</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module offchain</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.OffchainMessage.html">OffchainMessage</a></div></li>
+</ul>
+<h3>Type aliases</h3><ul class="item-list">
+<li><a href="type.OffchainInboxSync.html">OffchainInboxSync</a></div></li>
+</ul>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.receive.html">receive</a></div></li>
+<li><a href="fn.sync_inbox.html">sync_inbox</a></div></li>
+</ul>
+<h3>Globals</h3><ul class="item-list">
+<li><a href="global.MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL.html">MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">messages</a>::<a href="../index.html">processing</a>::<a href="index.html">offchain</a></div>
+<h1>Function <span class="fn">sync_inbox</span></h1>
+<pre><code>pub unconstrained fn sync_inbox(
+    contract_address: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    scope: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+) -> <a href="../../../../noir_aztec/ephemeral/type.EphemeralArray.html" class="type">EphemeralArray</a>&lt;<a href="../../../../noir_aztec/messages/processing/struct.OffchainMessageWithContext.html" class="struct">OffchainMessageWithContext</a>&gt;</code></pre>
+
+<div class="comments">
+<p>Returns offchain-delivered messages to process during sync.</p>
+</div>
+</main>
+</span>
+</body>
+</html>

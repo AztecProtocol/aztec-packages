@@ -7,43 +7,41 @@ const types = @import("generated/echo_types.zig");
 const echo_server = @import("generated/echo_server.zig");
 
 const EchoHandler = struct {
-    /// Diagnostic channel for handler failures — the generated dispatcher
-    /// sends this as the error variant's message when set.
-    error_message: ?[]const u8 = null,
-
-    pub fn bytes(self: *EchoHandler, cmd: types.EchoBytes) !types.EchoBytesResponse {
+    // Handlers are asynchronous: they produce their result via respond.ok(...) /
+    // respond.err(...) (synchronously here; an async transport could defer).
+    pub fn bytes(self: *EchoHandler, cmd: types.EchoBytes, respond: *echo_server.Responder(types.EchoBytesResponse)) void {
         _ = self;
-        return .{ .data = cmd.data };
+        respond.ok(.{ .data = cmd.data });
     }
 
-    pub fn fields(self: *EchoHandler, cmd: types.EchoFields) !types.EchoFieldsResponse {
+    pub fn fields(self: *EchoHandler, cmd: types.EchoFields, respond: *echo_server.Responder(types.EchoFieldsResponse)) void {
         _ = self;
-        return .{ .a = cmd.a, .b = cmd.b, .name = cmd.name };
+        respond.ok(.{ .a = cmd.a, .b = cmd.b, .name = cmd.name });
     }
 
-    pub fn nested(self: *EchoHandler, cmd: types.EchoNested) !types.EchoNestedResponse {
+    pub fn nested(self: *EchoHandler, cmd: types.EchoNested, respond: *echo_server.Responder(types.EchoNestedResponse)) void {
         _ = self;
-        return .{ .inner = cmd.inner };
+        respond.ok(.{ .inner = cmd.inner });
     }
 
-    pub fn aliases(self: *EchoHandler, cmd: types.EchoAliases) !types.EchoAliasesResponse {
+    pub fn aliases(self: *EchoHandler, cmd: types.EchoAliases, respond: *echo_server.Responder(types.EchoAliasesResponse)) void {
         _ = self;
-        return .{
+        respond.ok(.{
             .tree_id = cmd.tree_id,
             .hash = cmd.hash,
             .maybe_hash = cmd.maybe_hash,
             .hashes = cmd.hashes,
-        };
+        });
     }
 
-    pub fn blobs(self: *EchoHandler, cmd: types.EchoBlobs) !types.EchoBlobsResponse {
+    pub fn blobs(self: *EchoHandler, cmd: types.EchoBlobs, respond: *echo_server.Responder(types.EchoBlobsResponse)) void {
         _ = self;
-        return .{ .maybe_data = cmd.maybe_data, .parts = cmd.parts };
+        respond.ok(.{ .maybe_data = cmd.maybe_data, .parts = cmd.parts });
     }
 
-    pub fn fail(self: *EchoHandler, cmd: types.EchoFail) !types.EchoFailResponse {
-        self.error_message = cmd.message;
-        return error.EchoFailRequested;
+    pub fn fail(self: *EchoHandler, cmd: types.EchoFail, respond: *echo_server.Responder(types.EchoFailResponse)) void {
+        _ = self;
+        respond.err(cmd.message);
     }
 };
 

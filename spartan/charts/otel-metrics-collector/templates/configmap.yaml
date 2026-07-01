@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "otel-metrics-collector.configName" . }}
+  labels:
+    {{- include "otel-metrics-collector.labels" . | nindent 4 }}
+data:
+  collector.yaml: |-
+    extensions:
+      health_check:
+        endpoint: 0.0.0.0:13133
+    receivers:
+      prometheus:
+        config:
+          scrape_configs:
+            {{- include "otel-metrics-collector.scrapeConfigs" . | nindent 12 }}
+    processors:
+      resource:
+        attributes:
+          {{- include "otel-metrics-collector.resourceAttributes" . | nindent 10 }}
+      batch: {}
+    exporters:
+      otlphttp:
+        endpoint: ${env:OTEL_EXPORTER_OTLP_ENDPOINT}
+        compression: gzip
+    service:
+      extensions:
+        - health_check
+      pipelines:
+        metrics:
+          receivers:
+            - prometheus
+          processors:
+            - resource
+            - batch
+          exporters:
+            - otlphttp

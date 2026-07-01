@@ -228,6 +228,26 @@ function format {
   $NARGO fmt
 }
 
+function bench_cmds {
+  # Size every compiled contract artifact (total JSON size + public bytecode size). Reads the
+  # artifacts produced by `build`, so it runs after the contracts are compiled. Keyed on the noir/bb
+  # toolchain plus the contract sources (the same inputs as get_contract_hash, but covering all
+  # contracts) so it re-runs whenever any artifact could change. Skipped in the docs/examples flow.
+  [ -n "${DOCS_WORKING_DIR:-}" ] && return
+  local hash=$(hash_str \
+    $NOIR_HASH \
+    $BB_HASH \
+    $(cache_content_hash \
+      ../../avm-transpiler/.rebuild_patterns \
+      ../../barretenberg/cpp/.rebuild_patterns \
+      ../../barretenberg/ts/.rebuild_patterns \
+      "^noir-projects/noir-contracts/" \
+      "^noir-projects/aztec-nr/" \
+      "^noir-projects/noir-protocol-circuits/crates/types/" \
+      "^noir-projects/scripts/bench_artifact_sizes.sh"))
+  echo "$hash noir-projects/scripts/bench_artifact_sizes.sh"
+}
+
 # Force-builds standard contracts and tar-balls their artifacts into pinned-standard-contracts.tar.gz.
 # Run this to (re)pin the standard-contract artifacts, then commit the resulting tarball. Re-run and
 # re-commit whenever the canonical standard-contract artifacts are intended to change.

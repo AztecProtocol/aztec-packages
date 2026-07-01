@@ -724,7 +724,7 @@ __metadata:
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
-    "@aztec/l1-artifacts": "workspace:^"
+    "@aztec/l1-artifacts": "portal:../../l1-contracts/l1-artifacts"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/stdlib": "workspace:^"
@@ -761,7 +761,7 @@ __metadata:
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
-    "@aztec/l1-artifacts": "workspace:^"
+    "@aztec/l1-artifacts": "portal:../../l1-contracts/l1-artifacts"
     "@aztec/node-keystore": "workspace:^"
     "@aztec/node-lib": "workspace:^"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
@@ -802,7 +802,7 @@ __metadata:
     "@aztec/entrypoints": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
-    "@aztec/l1-artifacts": "workspace:^"
+    "@aztec/l1-artifacts": "portal:../../l1-contracts/l1-artifacts"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/standard-contracts": "workspace:^"
     "@aztec/stdlib": "workspace:^"
@@ -869,7 +869,7 @@ __metadata:
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
-    "@aztec/l1-artifacts": "workspace:^"
+    "@aztec/l1-artifacts": "portal:../../l1-contracts/l1-artifacts"
     "@aztec/node-lib": "workspace:^"
     "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
@@ -1022,7 +1022,7 @@ __metadata:
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
-    "@aztec/l1-artifacts": "workspace:^"
+    "@aztec/l1-artifacts": "portal:../../l1-contracts/l1-artifacts"
     "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/noir-test-contracts.js": "workspace:^"
@@ -1113,7 +1113,7 @@ __metadata:
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
-    "@aztec/l1-artifacts": "workspace:^"
+    "@aztec/l1-artifacts": "portal:../../l1-contracts/l1-artifacts"
     "@aztec/node-keystore": "workspace:^"
     "@aztec/node-lib": "workspace:^"
     "@aztec/p2p": "workspace:^"
@@ -1153,7 +1153,7 @@ __metadata:
     "@aztec/accounts": "workspace:^"
     "@aztec/bb-prover": "workspace:^"
     "@aztec/ethereum": "workspace:^"
-    "@aztec/l1-artifacts": "workspace:^"
+    "@aztec/l1-artifacts": "*"
     "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/noir-test-contracts.js": "workspace:^"
@@ -1210,7 +1210,7 @@ __metadata:
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
-    "@aztec/l1-artifacts": "workspace:^"
+    "@aztec/l1-artifacts": "portal:../../l1-contracts/l1-artifacts"
     "@aztec/node-keystore": "workspace:^"
     "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi"
@@ -1305,7 +1305,7 @@ __metadata:
   dependencies:
     "@aztec/ethereum": "workspace:*"
     "@aztec/foundation": "workspace:^"
-    "@aztec/l1-artifacts": "workspace:^"
+    "@aztec/l1-artifacts": "portal:../../l1-contracts/l1-artifacts"
     "@aztec/stdlib": "workspace:*"
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
@@ -1330,7 +1330,7 @@ __metadata:
     "@aztec/blob-lib": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
-    "@aztec/l1-artifacts": "workspace:^"
+    "@aztec/l1-artifacts": "portal:../../l1-contracts/l1-artifacts"
     "@jest/globals": "npm:^30.0.0"
     "@noble/curves": "npm:=1.7.0"
     "@types/jest": "npm:^30.0.0"
@@ -1410,6 +1410,12 @@ __metadata:
     viem: "npm:@aztec/viem@2.38.2"
     zod: "npm:^4"
   languageName: unknown
+  linkType: soft
+
+"@aztec/ipc-runtime@portal:../ipc-runtime/ts::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/ipc-runtime@portal:../ipc-runtime/ts::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  languageName: node
   linkType: soft
 
 "@aztec/ivc-integration@workspace:ivc-integration":
@@ -1507,16 +1513,108 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@aztec/l1-artifacts@workspace:^, @aztec/l1-artifacts@workspace:l1-artifacts":
+"@aztec/l1-artifacts@portal:../../l1-contracts/l1-artifacts::locator=%40aztec%2Farchiver%40workspace%3Aarchiver":
   version: 0.0.0-use.local
-  resolution: "@aztec/l1-artifacts@workspace:l1-artifacts"
+  resolution: "@aztec/l1-artifacts@portal:../../l1-contracts/l1-artifacts::locator=%40aztec%2Farchiver%40workspace%3Aarchiver"
   dependencies:
-    "@types/node": "npm:^22.15.17"
-    "@typescript/native-preview": "npm:7.0.0-dev.20260113.1"
-    ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
-    typescript: "npm:^5.3.3"
-  languageName: unknown
+  languageName: node
+  linkType: soft
+
+"@aztec/l1-artifacts@portal:../../l1-contracts/l1-artifacts::locator=%40aztec%2Faztec%40workspace%3Aaztec":
+  version: 0.0.0-use.local
+  resolution: "@aztec/l1-artifacts@portal:../../l1-contracts/l1-artifacts::locator=%40aztec%2Faztec%40workspace%3Aaztec"
+  dependencies:
+    tslib: "npm:^2.4.0"
+  languageName: node
+  linkType: soft
+
+"@aztec/l1-artifacts@portal:../../l1-contracts/l1-artifacts::locator=%40aztec%2Faztec-node%40workspace%3Aaztec-node":
+  version: 0.0.0-use.local
+  resolution: "@aztec/l1-artifacts@portal:../../l1-contracts/l1-artifacts::locator=%40aztec%2Faztec-node%40workspace%3Aaztec-node"
+  dependencies:
+    tslib: "npm:^2.4.0"
+  languageName: node
+  linkType: soft
+
+"@aztec/l1-artifacts@portal:../../l1-contracts/l1-artifacts::locator=%40aztec%2Faztec.js%40workspace%3Aaztec.js":
+  version: 0.0.0-use.local
+  resolution: "@aztec/l1-artifacts@portal:../../l1-contracts/l1-artifacts::locator=%40aztec%2Faztec.js%40workspace%3Aaztec.js"
+  dependencies:
+    tslib: "npm:^2.4.0"
+  languageName: node
+  linkType: soft
+
+"@aztec/l1-artifacts@portal:../../l1-contracts/l1-artifacts::locator=%40aztec%2Fbot%40workspace%3Abot":
+  version: 0.0.0-use.local
+  resolution: "@aztec/l1-artifacts@portal:../../l1-contracts/l1-artifacts::locator=%40aztec%2Fbot%40workspace%3Abot"
+  dependencies:
+    tslib: "npm:^2.4.0"
+  languageName: node
+  linkType: soft
+
+"@aztec/l1-artifacts@portal:../../l1-contracts/l1-artifacts::locator=%40aztec%2Fcli%40workspace%3Acli":
+  version: 0.0.0-use.local
+  resolution: "@aztec/l1-artifacts@portal:../../l1-contracts/l1-artifacts::locator=%40aztec%2Fcli%40workspace%3Acli"
+  dependencies:
+    tslib: "npm:^2.4.0"
+  languageName: node
+  linkType: soft
+
+"@aztec/l1-artifacts@portal:../../l1-contracts/l1-artifacts::locator=%40aztec%2Fend-to-end%40workspace%3Aend-to-end":
+  version: 0.0.0-use.local
+  resolution: "@aztec/l1-artifacts@portal:../../l1-contracts/l1-artifacts::locator=%40aztec%2Fend-to-end%40workspace%3Aend-to-end"
+  dependencies:
+    tslib: "npm:^2.4.0"
+  languageName: node
+  linkType: soft
+
+"@aztec/l1-artifacts@portal:../../l1-contracts/l1-artifacts::locator=%40aztec%2Fepoch-cache%40workspace%3Aepoch-cache":
+  version: 0.0.0-use.local
+  resolution: "@aztec/l1-artifacts@portal:../../l1-contracts/l1-artifacts::locator=%40aztec%2Fepoch-cache%40workspace%3Aepoch-cache"
+  dependencies:
+    tslib: "npm:^2.4.0"
+  languageName: node
+  linkType: soft
+
+"@aztec/l1-artifacts@portal:../../l1-contracts/l1-artifacts::locator=%40aztec%2Fethereum%40workspace%3Aethereum":
+  version: 0.0.0-use.local
+  resolution: "@aztec/l1-artifacts@portal:../../l1-contracts/l1-artifacts::locator=%40aztec%2Fethereum%40workspace%3Aethereum"
+  dependencies:
+    tslib: "npm:^2.4.0"
+  languageName: node
+  linkType: soft
+
+"@aztec/l1-artifacts@portal:../../l1-contracts/l1-artifacts::locator=%40aztec%2Fprover-node%40workspace%3Aprover-node":
+  version: 0.0.0-use.local
+  resolution: "@aztec/l1-artifacts@portal:../../l1-contracts/l1-artifacts::locator=%40aztec%2Fprover-node%40workspace%3Aprover-node"
+  dependencies:
+    tslib: "npm:^2.4.0"
+  languageName: node
+  linkType: soft
+
+"@aztec/l1-artifacts@portal:../../l1-contracts/l1-artifacts::locator=%40aztec%2Fsequencer-client%40workspace%3Asequencer-client":
+  version: 0.0.0-use.local
+  resolution: "@aztec/l1-artifacts@portal:../../l1-contracts/l1-artifacts::locator=%40aztec%2Fsequencer-client%40workspace%3Asequencer-client"
+  dependencies:
+    tslib: "npm:^2.4.0"
+  languageName: node
+  linkType: soft
+
+"@aztec/l1-artifacts@portal:../../l1-contracts/l1-artifacts::locator=%40aztec%2Fslasher%40workspace%3Aslasher":
+  version: 0.0.0-use.local
+  resolution: "@aztec/l1-artifacts@portal:../../l1-contracts/l1-artifacts::locator=%40aztec%2Fslasher%40workspace%3Aslasher"
+  dependencies:
+    tslib: "npm:^2.4.0"
+  languageName: node
+  linkType: soft
+
+"@aztec/l1-artifacts@portal:../../l1-contracts/l1-artifacts::locator=%40aztec%2Fstdlib%40workspace%3Astdlib":
+  version: 0.0.0-use.local
+  resolution: "@aztec/l1-artifacts@portal:../../l1-contracts/l1-artifacts::locator=%40aztec%2Fstdlib%40workspace%3Astdlib"
+  dependencies:
+    tslib: "npm:^2.4.0"
+  languageName: node
   linkType: soft
 
 "@aztec/native@workspace:^, @aztec/native@workspace:native":
@@ -1851,7 +1949,7 @@ __metadata:
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
-    "@aztec/l1-artifacts": "workspace:^"
+    "@aztec/l1-artifacts": "portal:../../l1-contracts/l1-artifacts"
     "@aztec/native": "workspace:^"
     "@aztec/node-keystore": "workspace:^"
     "@aztec/node-lib": "workspace:^"
@@ -1956,7 +2054,7 @@ __metadata:
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
-    "@aztec/l1-artifacts": "workspace:^"
+    "@aztec/l1-artifacts": "portal:../../l1-contracts/l1-artifacts"
     "@aztec/node-keystore": "workspace:^"
     "@aztec/noir-acvm_js": "portal:../../noir/packages/acvm_js"
     "@aztec/noir-contracts.js": "workspace:^"
@@ -2040,7 +2138,7 @@ __metadata:
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
-    "@aztec/l1-artifacts": "workspace:^"
+    "@aztec/l1-artifacts": "portal:../../l1-contracts/l1-artifacts"
     "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@jest/globals": "npm:^30.0.0"
@@ -2102,7 +2200,7 @@ __metadata:
     "@aztec/constants": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
-    "@aztec/l1-artifacts": "workspace:^"
+    "@aztec/l1-artifacts": "portal:../../l1-contracts/l1-artifacts"
     "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi"
     "@google-cloud/storage": "npm:^7.15.0"
     "@jest/expect": "npm:^30.0.0"
@@ -2327,11 +2425,13 @@ __metadata:
     "@aztec/bb.js": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
+    "@aztec/ipc-runtime": "npm:0.1.0"
     "@aztec/kv-store": "workspace:^"
     "@aztec/native": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
+    "@aztec/wsdb": "npm:0.1.0"
     "@jest/globals": "npm:^30.0.0"
     "@types/jest": "npm:^30.0.0"
     "@types/node": "npm:^22.15.17"
@@ -2344,6 +2444,59 @@ __metadata:
     typescript: "npm:^5.3.3"
     zod: "npm:^4"
   languageName: unknown
+  linkType: soft
+
+"@aztec/wsdb-darwin-arm64@portal:../wsdb/ts/packages/wsdb-darwin-arm64::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/wsdb-darwin-arm64@portal:../wsdb/ts/packages/wsdb-darwin-arm64::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  conditions: os=darwin & cpu=arm64
+  languageName: node
+  linkType: soft
+
+"@aztec/wsdb-darwin-x64@portal:../wsdb/ts/packages/wsdb-darwin-x64::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/wsdb-darwin-x64@portal:../wsdb/ts/packages/wsdb-darwin-x64::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  conditions: os=darwin & cpu=x64
+  languageName: node
+  linkType: soft
+
+"@aztec/wsdb-linux-arm64@portal:../wsdb/ts/packages/wsdb-linux-arm64::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/wsdb-linux-arm64@portal:../wsdb/ts/packages/wsdb-linux-arm64::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  conditions: os=linux & cpu=arm64
+  languageName: node
+  linkType: soft
+
+"@aztec/wsdb-linux-x64@portal:../wsdb/ts/packages/wsdb-linux-x64::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/wsdb-linux-x64@portal:../wsdb/ts/packages/wsdb-linux-x64::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  conditions: os=linux & cpu=x64
+  languageName: node
+  linkType: soft
+
+"@aztec/wsdb@portal:../wsdb/ts::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/wsdb@portal:../wsdb/ts::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  dependencies:
+    "@aztec/ipc-runtime": "@aztec/ipc-runtime"
+    "@aztec/wsdb-darwin-arm64": "npm:0.1.0"
+    "@aztec/wsdb-darwin-x64": "npm:0.1.0"
+    "@aztec/wsdb-linux-arm64": "npm:0.1.0"
+    "@aztec/wsdb-linux-x64": "npm:0.1.0"
+    msgpackr: "npm:^1.11.2"
+    tslib: "npm:^2.4.0"
+  dependenciesMeta:
+    "@aztec/wsdb-darwin-arm64":
+      optional: true
+    "@aztec/wsdb-darwin-x64":
+      optional: true
+    "@aztec/wsdb-linux-arm64":
+      optional: true
+    "@aztec/wsdb-linux-x64":
+      optional: true
+  bin:
+    aztec-wsdb: ./dest/bin.js
+  languageName: node
   linkType: soft
 
 "@babel/code-frame@npm:^7.0.0, @babel/code-frame@npm:^7.27.1":

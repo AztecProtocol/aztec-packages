@@ -37,7 +37,7 @@ describe('LightweightCheckpointBuilder', () => {
     };
 
     // Create world state with fee payer balance
-    worldState = await NativeWorldStateService.tmp(undefined, true, genesis);
+    worldState = await NativeWorldStateService.tmp(true, genesis);
   });
 
   afterEach(async () => {
