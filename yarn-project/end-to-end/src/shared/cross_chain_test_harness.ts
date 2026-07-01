@@ -43,6 +43,7 @@ export async function deployAndInitializeTokenAndBridgeContracts(
   rollupRegistryAddress: EthAddress,
   owner: AztecAddress,
   underlyingERC20Address: EthAddress,
+  predeployedTokenPortalAddress?: EthAddress,
 ): Promise<{
   /**
    * The L2 token contract instance.
@@ -65,8 +66,9 @@ export async function deployAndInitializeTokenAndBridgeContracts(
    */
   underlyingERC20: any;
 }> {
-  // deploy the token portal
-  const { address: tokenPortalAddress } = await deployL1Contract(l1Client, TokenPortalAbi, TokenPortalBytecode);
+  // Deploy the token portal, unless it was already deployed before the node started (under automine).
+  const tokenPortalAddress =
+    predeployedTokenPortalAddress ?? (await deployL1Contract(l1Client, TokenPortalAbi, TokenPortalBytecode)).address;
   const tokenPortal = getContract({
     address: tokenPortalAddress.toString(),
     abi: TokenPortalAbi,
@@ -135,6 +137,7 @@ export class CrossChainTestHarness {
     ownerAddress: AztecAddress,
     logger: Logger,
     underlyingERC20Address: EthAddress,
+    predeployedTokenPortalAddress?: EthAddress,
   ): Promise<CrossChainTestHarness> {
     const ethAccount = EthAddress.fromString((await l1Client.getAddresses())[0]);
     const l1ContractAddresses = (await aztecNode.getNodeInfo()).l1ContractAddresses;
@@ -147,6 +150,7 @@ export class CrossChainTestHarness {
       l1ContractAddresses.registryAddress,
       ownerAddress,
       underlyingERC20Address,
+      predeployedTokenPortalAddress,
     );
     logger.info('Deployed and initialized token, portal and its bridge.');
 
