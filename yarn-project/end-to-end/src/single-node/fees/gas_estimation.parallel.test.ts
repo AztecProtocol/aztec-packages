@@ -5,7 +5,7 @@ import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { Logger } from '@aztec/foundation/log';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
-import { type Sequencer, type SequencerEvents, SequencerState } from '@aztec/sequencer-client';
+import { SequencerState } from '@aztec/sequencer-client';
 import {
   GAS_ESTIMATION_DA_GAS_LIMIT,
   GAS_ESTIMATION_L2_GAS_LIMIT,
@@ -22,37 +22,8 @@ import { jest } from '@jest/globals';
 import { inspect } from 'util';
 
 import { PIPELINING_SETUP_OPTS, getPaddedMaxFeesPerGas } from '../../fixtures/fixtures.js';
+import { waitForSequencerState } from '../../fixtures/wait_helpers.js';
 import { FeesTest } from './fees_test.js';
-
-/**
- * Waits for the sequencer to reach IDLE state.
- * This ensures any in-progress checkpoint job has completed and the next job will use the current config.
- */
-function waitForSequencerIdle(sequencer: Sequencer, timeout = 30000): Promise<void> {
-  // If already idle, no need to wait
-  if (sequencer.status().state === SequencerState.IDLE) {
-    return Promise.resolve();
-  }
-
-  // REFACTOR: raw sequencer event listener with manual timer; replace with a shared
-  // waitForSequencerState(sequencer, SequencerState.IDLE) helper in the e2e fixtures.
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      sequencer.off('state-changed', handler);
-      reject(new Error('Timeout waiting for sequencer IDLE state'));
-    }, timeout);
-
-    const handler = (args: Parameters<SequencerEvents['state-changed']>[0]) => {
-      if (args.newState === SequencerState.IDLE) {
-        clearTimeout(timer);
-        sequencer.off('state-changed', handler);
-        resolve();
-      }
-    };
-
-    sequencer.on('state-changed', handler);
-  });
-}
 
 // Gas estimation accuracy and FPC teardown gas prediction. Uses FeesTest (prod sequencer, pipelining
 // preset: ethSlot=4s, aztecSlot=12s, inboxLag=2, minTxsPerBlock=0), fake in-proc prover node, and
@@ -147,7 +118,7 @@ describe('single-node/fees/gas_estimation', () => {
 
     // Wait for any in-progress checkpoint job to complete before sending txs.
     // This ensures the next checkpoint job will use the updated minTxsPerBlock config.
-    await waitForSequencerIdle(sequencer);
+    await waitForSequencerState(sequencer, SequencerState.IDLE);
 
     const [withEstimate, withoutEstimate] = await sendTransfers(estimatedGas);
 
@@ -188,7 +159,22 @@ describe('single-node/fees/gas_estimation', () => {
     const estimatedGas = await estimateGasLimits(sim2.gasUsed!);
     logGasEstimate(estimatedGas);
 
+    // Pin both transfers into the same block so they share one block.gasFees. The assertions below
+    // compare the estimated and unestimated transactionFees directly (toBeLessThan / toBeGreaterThan),
+    // which only isolates the teardown-refund difference when both txs are billed at the same L2 gas
+    // price. Under the pipelining preset (minTxsPerBlock: 0, two blocks per slot) the two concurrent
+    // sends would otherwise land in different blocks whose feePerL2Gas can differ several-fold as the
+    // L1 base fee evolves on a freshly-deployed chain, flipping the comparison.
+    const sequencer = t.context.sequencer!.getSequencer();
+    await t.aztecNodeAdmin.setConfig({ minTxsPerBlock: 2, maxTxsPerBlock: 2 });
+    // Wait for any in-progress checkpoint job to complete so the next job picks up the updated config.
+    await waitForSequencerState(sequencer, SequencerState.IDLE);
+
     const [withEstimate, withoutEstimate] = await sendTransfers(estimatedGas, paymentMethod);
+
+    // Guards the same-block invariant the fee comparisons below rely on; if a batching change ever lets
+    // the two txs split across blocks again, this fails clearly instead of resurfacing as a flaky fee assertion.
+    expect(withEstimate.blockNumber).toEqual(withoutEstimate.blockNumber);
 
     const teardownFixedFee = gasSettings.teardownGasLimits.computeFee(gasSettings.maxFeesPerGas).toBigInt();
 

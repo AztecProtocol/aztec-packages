@@ -124,7 +124,7 @@ mod test {
         env.private_context(|context| {
             // The real registry call is covered by integration tests; this unit test only needs a coherent child
             // call result so `PrivateContext` records the request.
-            let child_call_end_counter = context.side_effect_counter + 1;
+            let child_call_end_counter = context.get_side_effect_counter() + 1;
             let empty_returns_hash: Field = 0;
             let _ = OracleMock::mock("aztec_prv_callPrivateFunction")
                 .returns((child_call_end_counter, empty_returns_hash))
@@ -207,6 +207,20 @@ mod test {
         assert(
             compute_constrained_msg_nullifier(sender, recipient, secrets_a, 0)
                 != compute_constrained_msg_nullifier(sender, recipient, secrets_b, 0),
+        );
+    }
+
+    // Each sequence position must hash to a distinct nullifier: a collision across indices would let a send at one
+    // position satisfy its predecessor check against another position's nullifier, breaking the strict ordering.
+    #[test]
+    fn index_changes_sequence_nullifier() {
+        let sender = AztecAddress::from_field(2);
+        let recipient = AztecAddress::from_field(4);
+        let secrets = AppSiloedHandshakeSecrets { shared: 1234, sender_only: 5678 };
+
+        assert(
+            compute_constrained_msg_nullifier(sender, recipient, secrets, 0)
+                != compute_constrained_msg_nullifier(sender, recipient, secrets, 1),
         );
     }
 }

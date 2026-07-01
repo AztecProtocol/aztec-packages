@@ -34,7 +34,7 @@ describe('single-node/proving/world_state_pruning', () => {
 
     while (epochNumber < targetProvenEpochs) {
       logger.info(`Waiting for the end of epoch ${epochNumber}`);
-      await test.waitUntilEpochStarts(epochNumber + 1);
+      await test.warpToEpochStart(epochNumber + 1);
       const epochEndCheckpointNumber = (await test.monitor.run()).checkpointNumber;
       logger.info(`Epoch ${epochNumber} ended with pending checkpoint number ${epochEndCheckpointNumber}`);
 

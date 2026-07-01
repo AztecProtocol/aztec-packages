@@ -4,7 +4,6 @@ import type { Logger } from '@aztec/aztec.js/log';
 import { waitForTx } from '@aztec/aztec.js/node';
 import { BlockNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { chunkBy } from '@aztec/foundation/collection';
-import { sleepUntil } from '@aztec/foundation/sleep';
 import type { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { getSlotAtTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 
@@ -127,9 +126,9 @@ describe('multi-node/block-production/high_tps', () => {
     logger.warn(
       `Waiting until ${startSequencersAt.toISOString()} (${leadSeconds}s before L2 slot ${targetSlot} starts)`,
     );
-    // REFACTOR: manual slot-timing calculation followed by sleepUntil; replace with a helper
-    // such as test.waitUntilBuildWindowForSlot(targetSlot) that encapsulates lead-time arithmetic.
-    await sleepUntil(startSequencersAt, context.dateProvider.nowAsDate());
+    // Wall-clock wait (the production sequencers must run in real time, so we don't warp here). The
+    // build-window helper derives the same `slotStart(targetSlot) - leadSeconds` target as above.
+    await test.waitForBuildWindowForSlot(targetSlot, { lead: leadSeconds });
 
     await test.startSequencers(nodes);
     logger.warn(`Started all sequencers`);

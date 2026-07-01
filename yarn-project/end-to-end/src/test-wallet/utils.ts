@@ -19,6 +19,7 @@ import { type OffchainEffect, type ProvingStats, Tx, TxHash, type TxReceipt } fr
 
 import { inspect } from 'util';
 
+import { testSpan, withTestSpanOwner } from '../fixtures/timing.js';
 import type { TestWallet } from './test_wallet.js';
 
 export type ProvenTxSendOpts = {
@@ -39,7 +40,11 @@ export class ProvenTx extends Tx {
 
   send(options?: Omit<ProvenTxSendOpts, 'wait'>): Promise<TxReceipt>;
   send<W extends ProvenTxSendOpts['wait']>(options: ProvenTxSendOpts & { wait: W }): Promise<ProvenTxSendReturn<W>>;
-  async send(options?: ProvenTxSendOpts): Promise<TxHash | TxReceipt> {
+  send(options?: ProvenTxSendOpts): Promise<TxHash | TxReceipt> {
+    return testSpan('tx:send', () => this.sendInner(options));
+  }
+
+  private async sendInner(options?: ProvenTxSendOpts): Promise<TxHash | TxReceipt> {
     const txHash = this.getTxHash();
     await this.node.sendTx(this).catch(err => {
       throw this.contextualizeError(err, inspect(this));
@@ -65,13 +70,15 @@ export class ProvenTx extends Tx {
   }
 }
 
-export async function proveInteraction(
+export function proveInteraction(
   wallet: TestWallet,
   interaction: ContractFunctionInteraction | DeployMethod | BatchCall,
   options: SendInteractionOptions | DeployOptions,
-) {
-  const execPayload = await interaction.request(options);
-  return wallet.proveTx(execPayload, toSendOptions(options));
+): Promise<ProvenTx> {
+  return testSpan('tx:prove', async () => {
+    const execPayload = await interaction.request(options);
+    return wallet.proveTx(execPayload, toSendOptions(options));
+  });
 }
 
 /** Builds an interaction for index `i` of a batch. */
@@ -134,7 +141,10 @@ export function startMempoolFeeder(
   const intervalMs = opts.intervalMs ?? 1000;
   let stopped = false;
 
-  const loop = (async () => {
+  // Pin the feeder's prove/send spans to a fixed non-test owner. It runs interleaved with arbitrary
+  // tests, so without this its tx:prove/tx:send spans would smear onto whichever test was current
+  // when each round fired; the pinned owner matches no test/suite record, excluding them cleanly.
+  const loop = withTestSpanOwner('other:mempool-feeder', async () => {
     while (!stopped) {
       try {
         const pendingCount = await node.getPendingTxCount();
@@ -147,7 +157,7 @@ export function startMempoolFeeder(
       }
       await sleep(intervalMs);
     }
-  })();
+  });
 
   return {
     async [Symbol.asyncDispose]() {

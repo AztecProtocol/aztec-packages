@@ -16,6 +16,15 @@ pub(crate) struct TagSecretSource {
     secrets: AppSiloedHandshakeSecrets,
 }
 
+// Hand-written rather than `#[derive(Eq)]`: the derive resolves each field's `Eq` at expansion time and can't see
+// `AppSiloedHandshakeSecrets`'s own derived `Eq` (a cross-module derive dependency), whereas this direct comparison
+// resolves it normally.
+impl Eq for TagSecretSource {
+    fn eq(self, other: Self) -> bool {
+        (self.kind == other.kind) & (self.secrets == other.secrets)
+    }
+}
+
 impl TagSecretSource {
     /// Reuses the secrets of a handshake already registered for the pair (mode-agnostic).
     pub(crate) fn existing_handshake(secrets: AppSiloedHandshakeSecrets) -> Self {
@@ -125,7 +134,7 @@ mod test {
             let returns = secrets.serialize();
             let returns_hash = hash_args(returns);
             execution_cache::store(returns, returns_hash);
-            let child_call_end_counter = context.side_effect_counter + 1;
+            let child_call_end_counter = context.get_side_effect_counter() + 1;
             let _ = OracleMock::mock("aztec_prv_callPrivateFunction")
                 .returns((child_call_end_counter, returns_hash))
                 .times(1);

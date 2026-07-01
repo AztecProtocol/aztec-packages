@@ -142,10 +142,6 @@ tests:
     error_regex: "✕ Can't claim funds"
     owners:
       - *lasse
-  - regex: "src/e2e_l1_publisher/e2e_l1_publisher.test.ts"
-    error_regex: "Anvil failed to stop in time|Cannot read properties of undefined"
-    owners:
-      - *palla
   - regex: "src/single-node/bot/bot.test.ts"
     error_regex: "Tx dropped"
     owners:
@@ -196,6 +192,10 @@ tests:
   - regex: "p2p/src/services/discv5/discv5_service.test.ts"
     owners:
       - *phil
+      - *palla
+  - regex: "sequencer-client/src/publisher/l1_publisher.integration.test.ts"
+    error_regex: "Anvil failed to stop in time|Cannot read properties of undefined"
+    owners:
       - *palla
 
   # Nightly GKE tests
@@ -331,8 +331,12 @@ tests:
       - *leila
 
   # http://ci.aztec-labs.com/61d96be1402847b1
+  # The L1↔L2 bridging flow sends its L1 txs against an automining anvil that the
+  # local-network sequencer and cheat codes also drive; under load a tx can sit
+  # unmined past viem's confirmation timeout, surfacing as either the jest per-test
+  # timeout or a viem WaitForTransactionReceiptTimeoutError (http://ci.aztec-labs.com/1643e817d7242e0e).
   - regex: "src/composed/e2e_token_bridge_tutorial_test.test.ts"
-    error_regex: "Exceeded timeout of [0-9]+ ms for a test"
+    error_regex: "Exceeded timeout of [0-9]+ ms for a test|WaitForTransactionReceiptTimeoutError: Timed out while waiting for transaction"
     owners:
       - *palla
 

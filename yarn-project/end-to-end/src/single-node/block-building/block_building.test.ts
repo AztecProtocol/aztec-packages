@@ -11,8 +11,6 @@ import { CheatCodes } from '@aztec/aztec/testing';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { times, unique } from '@aztec/foundation/collection';
-import { retryUntil } from '@aztec/foundation/retry';
-import { sleep } from '@aztec/foundation/sleep';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
@@ -28,6 +26,13 @@ import { jest } from '@jest/globals';
 import 'jest-extended';
 
 import { DUPLICATE_NULLIFIER_ERROR, PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
+import {
+  waitForBlockNumber,
+  waitForProvenBlock,
+  waitForTxReceipt,
+  waitForTxStatus,
+  waitForTxs,
+} from '../../fixtures/wait_helpers.js';
 import { TestWallet } from '../../test-wallet/test_wallet.js';
 import { proveInteraction } from '../../test-wallet/utils.js';
 import { setupBlockProducer } from '../setup.js';
@@ -147,7 +152,7 @@ describe('single-node/block-building/block_building', () => {
       });
 
       // Await txs to be mined and assert they are mined across multiple different blocks.
-      const receipts = await Promise.all(txHashes.map(txHash => waitForTx(aztecNode, txHash)));
+      const receipts = await waitForTxs(aztecNode, txHashes);
       const blockNumbers = receipts.map(r => r.blockNumber!).sort((a, b) => a - b);
       logger.info(`Txs mined on blocks: ${unique(blockNumbers)}`);
       // Spread must be at least 1 — i.e. txs are split across at least 2 distinct blocks. This fails
@@ -197,7 +202,7 @@ describe('single-node/block-building/block_building', () => {
       }
 
       // Await txs to be mined and assert they are all mined on the same block
-      const receipts = await Promise.all(txHashes.map(txHash => waitForTx(aztecNode, txHash)));
+      const receipts = await waitForTxs(aztecNode, txHashes);
       expect(receipts.map(r => r.blockNumber)).toEqual(times(TX_COUNT, () => receipts[0].blockNumber));
 
       // Assert all contracts got initialized
@@ -232,7 +237,7 @@ describe('single-node/block-building/block_building', () => {
       }
 
       // Await txs to be mined and assert they are all mined on the same block
-      const receipts = await Promise.all(txHashes.map(txHash => waitForTx(aztecNode, txHash)));
+      const receipts = await waitForTxs(aztecNode, txHashes);
       expect(receipts.map(r => r.blockNumber)).toEqual(times(TX_COUNT, () => receipts[0].blockNumber));
     });
 
@@ -544,8 +549,7 @@ describe('single-node/block-building/block_building', () => {
 
       // Under pipelining, with `aztecSlotDuration=12s`, each empty checkpoint contains one empty
       // block and lands roughly every 12s. Allow up to 60s for three empty blocks to appear.
-      // REFACTOR: raw retryUntil poll on block number; replace with a waitForBlock(n) DSL helper
-      await retryUntil(async () => (await aztecNode.getBlockNumber()) >= 3, 'wait-block', 60, 1);
+      await waitForBlockNumber(aztecNode, 3);
     });
 
     // Regression for https://github.com/AztecProtocol/aztec-packages/issues/7537
@@ -557,8 +561,7 @@ describe('single-node/block-building/block_building', () => {
         additionallyFundedAccounts: await generateSchnorrAccounts(1, 'schnorr'),
       });
       ({ logger, aztecNode, wallet } = test.context);
-      // REFACTOR: sleep-based wait; replace with a waitForBlock(1) or equivalent readiness helper
-      await sleep(1000);
+      await waitForBlockNumber(aztecNode, 1);
 
       const [accountData] = test.context.additionallyFundedAccounts;
 
@@ -664,7 +667,7 @@ describe('single-node/block-building/block_building', () => {
 
   // Tests that the sequencer handles L2 reorgs correctly: detects stale proofs, prunes affected txs,
   // and re-includes those that were built against a proven block.
-  // Uses cheatCodes.rollup.advanceToNextEpoch, markAsProven, advanceToEpoch, retryUntil.
+  // Uses cheatCodes.rollup.advanceToNextEpoch, markAsProven, advanceToEpoch, and tx-status wait helpers.
   describe('reorgs', () => {
     let contract: StatefulTestContract;
     let cheatCodes: CheatCodes;
@@ -700,8 +703,7 @@ describe('single-node/block-building/block_building', () => {
       // interval mining, so we drive proven manually here (and again inside each test).
       await cheatCodes.rollup.markAsProven();
       const bn = await aztecNode.getBlockNumber();
-      // REFACTOR: raw retryUntil poll on proven block number; replace with waitForProvenBlock(n) helper
-      await retryUntil(async () => (await aztecNode.getBlockNumber('proven')) >= bn, 'wait-proven', 60, 1);
+      await waitForProvenBlock(aztecNode, bn);
     });
 
     afterEach(() => test.teardown());
@@ -735,26 +737,14 @@ describe('single-node/block-building/block_building', () => {
 
       // Wait until the sequencer kicks out tx1
       logger.info(`Waiting for node to prune tx1`);
-      // REFACTOR: raw retryUntil polling for tx status transition; replace with a waitForTxPruned() helper
-      await retryUntil(
-        async () => (await aztecNode.getTxReceipt(tx1.txHash)).status === TxStatus.PENDING,
-        'wait for pruning',
-        15,
-        0.11,
-      );
+      await waitForTxStatus(aztecNode, tx1.txHash, TxStatus.PENDING, { timeout: 15, interval: 0.11 });
 
       // And wait until it is brought back tx1
       logger.info(`Waiting for node to re-include tx1`);
-      // REFACTOR: raw retryUntil polling for re-inclusion; replace with a waitForTxReincluded() helper
-      await retryUntil(
-        async () => {
-          const receipt = await aztecNode.getTxReceipt(tx1.txHash);
-          return receipt.isMined() && receipt.hasExecutionSucceeded();
-        },
-        'wait for re-inclusion',
-        15,
-        1,
-      );
+      await waitForTxReceipt(aztecNode, tx1.txHash, receipt => receipt.isMined() && receipt.hasExecutionSucceeded(), {
+        timeout: 15,
+        interval: 1,
+      });
 
       // Tx1 should have been mined in a block with the same number but different hash now
       const newTx1Receipt = await aztecNode.getTxReceipt(tx1.txHash);
