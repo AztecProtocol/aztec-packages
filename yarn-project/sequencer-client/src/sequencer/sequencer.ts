@@ -286,10 +286,18 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   /**
    * Starts (or restarts) the sequencer and moves it to the IDLE state. Idempotent: if the poll loop is
    * already running this is a no-op, so a double start never orphans a second loop. Safe to call after a
-   * previous {@link stop} to resume building — the caller is responsible for restarting the publishers
-   * (see {@link SequencerClient.start}) so that L1 publishing is re-enabled.
+   * previous {@link stop} has fully resolved to resume building — the caller is responsible for restarting
+   * the publishers (see {@link SequencerClient.start}) so that L1 publishing is re-enabled.
+   *
+   * Lifecycle calls are expected to be serialized by the caller. As a guard against a start racing an
+   * in-progress {@link stop}, a start while STOPPING is refused: allocating a fresh poll loop mid-stop
+   * would leave a running loop that the still-in-flight stop would then mark STOPPED, orphaning it.
    */
   public start() {
+    if (this.state === SequencerState.STOPPING) {
+      this.log.warn('Attempted to start sequencer while it is stopping; ignoring');
+      return;
+    }
     if (this.runningPromise?.isRunning()) {
       this.log.warn('Attempted to start sequencer that is already running');
       return;
@@ -323,13 +331,11 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     this.log.info(`Stopping sequencer`);
     this.setState(SequencerState.STOPPING, undefined, { force: true });
     this.lastCheckpointProposalJob?.interrupt();
-    // Interrupt the fallback senders' own interruptible sleeps (independent of the pooled L1TxUtils),
-    // so a sleeper waiting for a target slot wakes immediately and short-circuits instead of surviving
-    // the stop as a dangling promise that a later restart could re-arm into a stale-slot send.
-    for (const { publisher } of this.pendingFallbackSends) {
-      publisher.interrupt();
-    }
     await this.publisherFactory.stopAll();
+    // Stop the poll loop and await the in-flight work() iteration. work() enqueues its fire-and-forget
+    // fallback send synchronously before returning, so once this resolves no further work() will run and
+    // pendingFallbackSends holds every send that will ever exist. Only then do we interrupt and drain
+    // them — interrupting before this point would miss a send registered by the last in-flight work().
     await this.runningPromise?.stop();
     await this.lastCheckpointProposalJob?.awaitPendingSubmission();
     await this.drainPendingFallbackSends();
@@ -337,8 +343,17 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     this.log.info('Stopped sequencer');
   }
 
-  /** Awaits every tracked fallback send to settle, then clears the tracking set. */
+  /**
+   * Interrupts every tracked fallback sender's own interruptible sleep (independent of the pooled
+   * L1TxUtils) so a sleeper waiting for a target slot wakes immediately and short-circuits, then awaits
+   * all of them to settle and clears the tracking set. This guarantees no dangling sleeper survives the
+   * stop that a later restart (which clears the interrupted flag) could re-arm into a stale-slot send.
+   * Must be called after the poll loop has stopped, so the set is final.
+   */
   private async drainPendingFallbackSends(): Promise<void> {
+    for (const { publisher } of this.pendingFallbackSends) {
+      publisher.interrupt();
+    }
     const pending = [...this.pendingFallbackSends].map(entry => entry.done);
     if (pending.length > 0) {
       await Promise.allSettled(pending);
@@ -350,7 +365,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
    * Registers a fire-and-forget fallback send so {@link stop} can interrupt its wrapper publisher and
    * await its completion. The entry removes itself once the send settles.
    */
-  private trackFallbackSend(publisher: SequencerPublisher, send: Promise<unknown>): void {
+  protected trackFallbackSend(publisher: SequencerPublisher, send: Promise<unknown>): void {
     const entry = { publisher, done: Promise.resolve() };
     entry.done = send.then(
       () => {

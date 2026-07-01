@@ -458,6 +458,63 @@ describe('sequencer', () => {
       expect([SequencerState.STOPPED, SequencerState.STOPPING]).not.toContain(sequencer.status().state);
     });
 
+    it('refuses to start while stopping, so no fresh poll loop is orphaned mid-stop', async () => {
+      sequencer.start();
+      const loopBeforeStop = sequencer.getRunningPromise();
+
+      // Park stop() in the STOPPING state by hanging stopAll until we release it.
+      const { promise: stopAllHang, resolve: releaseStopAll } = promiseWithResolvers<void>();
+      publisherFactory.stopAll.mockReturnValueOnce(stopAllHang);
+
+      const stopPromise = sequencer.stop();
+      expect(sequencer.status().state).toBe(SequencerState.STOPPING);
+
+      // A start() landing mid-stop must be refused, not allocate a new loop the stop would orphan.
+      sequencer.start();
+      expect(sequencer.getRunningPromise()).toBe(loopBeforeStop);
+
+      releaseStopAll();
+      await stopPromise;
+      expect(sequencer.status().state).toBe(SequencerState.STOPPED);
+    });
+
+    it('interrupts and drains a fallback send registered after the stop began (last in-flight work())', async () => {
+      sequencer.start();
+
+      // Park stop() before the poll loop is awaited, then register a fallback send during that window —
+      // this stands in for the last in-flight work() enqueuing a fallback send after stop() started.
+      // The interrupt+drain must still catch it, since interruption happens after the loop stops.
+      const { promise: stopAllHang, resolve: releaseStopAll } = promiseWithResolvers<void>();
+      publisherFactory.stopAll.mockReturnValueOnce(stopAllHang);
+
+      const stopPromise = sequencer.stop();
+
+      const { promise: sendHang, resolve: releaseSend } = promiseWithResolvers<undefined>();
+      sequencer.trackFallbackSendForTest(
+        publisher,
+        sendHang.then(() => {
+          if (publisher.interrupt.mock.calls.length === 0) {
+            throw new Error('late fallback send completed without being interrupted by stop()');
+          }
+          return undefined;
+        }),
+      );
+      expect(sequencer.getPendingFallbackSendCount()).toBe(1);
+
+      // Release the stopAll park; stop() then stops the loop and enters drainPendingFallbackSends,
+      // which interrupts the tracked wrapper before awaiting it. Only after that do we release the
+      // (now short-circuited) send so stop() can complete.
+      releaseStopAll();
+      await new Promise(resolve => setTimeout(resolve, 0));
+      expect(publisher.interrupt).toHaveBeenCalled();
+
+      releaseSend(undefined);
+      await stopPromise;
+
+      expect(sequencer.getPendingFallbackSendCount()).toBe(0);
+      expect(sequencer.status().state).toBe(SequencerState.STOPPED);
+    });
+
     it('drains an in-flight fallback send on stop, leaving nothing dangling across a restart', async () => {
       // Drive the fire-and-forget fallback path (vote/prune when we cannot build) with a send that
       // hangs until we release it, mimicking a wrapper publisher sleeping in waitForTargetSlot.
@@ -1813,6 +1870,10 @@ class TestSequencer extends Sequencer {
 
   public getPendingFallbackSendCount() {
     return this.pendingFallbackSends.size;
+  }
+
+  public trackFallbackSendForTest(publisher: SequencerPublisher, send: Promise<unknown>) {
+    return this.trackFallbackSend(publisher, send);
   }
 
   public checkCanProposeForTest(slot: SlotNumber) {
