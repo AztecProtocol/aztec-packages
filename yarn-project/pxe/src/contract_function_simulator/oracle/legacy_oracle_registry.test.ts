@@ -12,7 +12,7 @@ describe('legacy oracle dispatch', () => {
   it('adapts the return wire: handler runs, result is mapped, then serialized through the legacy type', async () => {
     // Fixture scenario: the return override maps the handler's current result to the legacy value the old bytecode
     // expects, then serializes it through the legacy type.
-    const handler = { isMisc: true, getRandomField: () => Promise.resolve(new Fr(41)) };
+    const handler = { isMisc: true, getRandomField: () => Promise.resolve(new Fr(41)) } as Handler;
 
     const legacyRegistry: Record<string, LegacyOracleEntry> = {
       aztec_misc_legacyReturn: {
@@ -21,7 +21,7 @@ describe('legacy oracle dispatch', () => {
       },
     };
 
-    const callback = buildACIRCallback(handler as unknown as Handler, { legacy: legacyRegistry });
+    const callback = buildACIRCallback(handler, { legacy: legacyRegistry });
 
     // Handler produces 41; the override maps it to the legacy value (41 + 1) the old bytecode expects.
     const wire = await callback['aztec_misc_legacyReturn']();
@@ -41,7 +41,7 @@ describe('legacy oracle dispatch', () => {
       assertCompatibleOracleVersion: (...args: unknown[]) => {
         handlerArgs = args;
       },
-    };
+    } as Handler;
 
     const legacyRegistry: Record<string, LegacyOracleEntry> = {
       aztec_misc_legacyParams: {
@@ -53,7 +53,7 @@ describe('legacy oracle dispatch', () => {
       },
     };
 
-    const callback = buildACIRCallback(handler as unknown as Handler, { legacy: legacyRegistry });
+    const callback = buildACIRCallback(handler, { legacy: legacyRegistry });
 
     // Old bytecode sends one field (major = 5); the handler must still receive the full (major, minor) tuple.
     await callback['aztec_misc_legacyParams']([toACVMField(new Fr(5))]);
@@ -62,7 +62,7 @@ describe('legacy oracle dispatch', () => {
   });
 
   it('rejects a legacy name that collides with a live oracle', () => {
-    const handler = { isMisc: true, getRandomField: () => Promise.resolve(new Fr(0)) };
+    const handler = { isMisc: true, getRandomField: () => Promise.resolve(new Fr(0)) } as Handler;
     const legacyRegistry: Record<string, LegacyOracleEntry> = {
       aztec_misc_getRandomField: {
         modernOracle: 'aztec_misc_getRandomField',
@@ -70,8 +70,6 @@ describe('legacy oracle dispatch', () => {
       },
     };
 
-    expect(() => buildACIRCallback(handler as unknown as Handler, { legacy: legacyRegistry })).toThrow(
-      'collides with a live oracle',
-    );
+    expect(() => buildACIRCallback(handler, { legacy: legacyRegistry })).toThrow('collides with a live oracle');
   });
 });
