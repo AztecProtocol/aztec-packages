@@ -2,7 +2,54 @@
 //!
 //! A partial note arrives in two parts: a private part (delivered first, carrying the owner, randomness, completion-log
 //! tag, note type, and packed private content) and a public *completion log* (storage slot + packed public content).
-//! The note can only be discovered and stored once both are combined.
+//! The note can only be discovered and stored once both are combined. The state chart below summarizes how a single
+//! partial note's reception advances, including how reorgs fold it back.
+//!
+//! ```text
+//!                   init() (partial note delivered)
+//!                         |
+//!                         v
+//!                     +-----------+    completion log found     +-----------+
+//!                ---- |           | --------------------------> |           |
+//!  log not found |    |           |                             |           |     discover note(s),
+//!                |--> |  PENDING  |                             | COMPLETED | ~~> enqueue for validation
+//!                     |           | <-------------------------- |           |
+//!                     |           |  completion block re-orged  |           |
+//!                     +-----------+                             +-----------+
+//!                         |                                         |
+//!                         |  delivery block re-orged                |  completion block finalized
+//!                         v                                         v
+//!                   +---------------------------------------------------------+
+//!                   |               TERMINATED (process ends)                 |
+//!                   +---------------------------------------------------------+
+//! ```
+//!
+//! ## States
+//!
+//! - **Pending**: the private part has been delivered (a retractable `delivered` birth fact is recorded) but the
+//!   completion log has not been found yet. While in this state, message discovery keeps searching for that log on
+//!   each sync.
+//! - **Completed**: the completion log was found, so the note was discovered and enqueued for validation and a
+//!   retractable `completed` marker was recorded. Because that marker is anchored to the completion block, this state
+//!   is not terminal until the block finalizes: a reorg dropping it folds the reception back to `Pending`.
+//! - **Terminated**: nothing else can be done with the partial note, either because its delivery block was re-orged
+//!   away (so the delivery itself was reverted) or because its completion block has finalized (so the discovered note
+//!   is permanent and reorg-proof). This is the terminal state.
+//!
+//! ## Transitions
+//!
+//! - **Pending -> Completed** ([`complete_with_log`](PartialNoteFsm::complete_with_log)): the completion log is
+//!   found. Its public content is combined with the delivered private content, the resulting note(s) are discovered
+//!   and enqueued for validation, and a retractable `completed` marker anchored to the completion block is recorded.
+//! - **Completed -> Pending**: the completion block is re-orged out, retracting the `completed` marker. PXE handles
+//!   this transparently, and the completion log is searched for again.
+//! - **Pending -> Terminated**: the delivery block is re-orged out, retracting the `delivered` birth fact. With no
+//!   facts left the collection is pruned by PXE — the delivery was reverted, so there is nothing left to do.
+//! - **Completed -> Terminated** ([`terminate_if_finalized`](PartialNoteFsm::terminate_if_finalized)): the
+//!   completion block finalizes, making the discovered note reorg-proof, so the reception is complete and its
+//!   collection is deleted.
+//!
+//! ## Implementation
 //!
 //! Each pending partial note is tracked as a [fact collection](crate::facts::FactCollection) of type
 //! `PARTIAL_NOTE_RECEPTION_TYPE_ID`, identified by a hash of its [`DeliveredPendingPartialNote`] content (so
@@ -43,11 +90,11 @@ global PARTIAL_NOTE_COMPLETED: Field = sha256_to_field("AZTEC_NR::PARTIAL_NOTE_C
 
 /// A single partial note's reception machine, backed by a [`FactCollection`](crate::facts::FactCollection).
 #[derive(Deserialize, Serialize)]
-pub(crate) struct PartialNoteReception {
+pub(crate) struct PartialNoteFsm {
     collection: FactCollection,
 }
 
-impl PartialNoteReception {
+impl PartialNoteFsm {
     /// Initializes a reception for a freshly delivered partial note, in the `Pending` state.
     ///
     /// Records the retractable `delivered` birth fact anchored to `origin_block` (the delivery block). Re-initializing
@@ -73,9 +120,9 @@ impl PartialNoteReception {
     pub(crate) unconstrained fn load_all(
         contract_address: AztecAddress,
         scope: AztecAddress,
-    ) -> EphemeralArray<PartialNoteReception> {
+    ) -> EphemeralArray<PartialNoteFsm> {
         get_fact_collections_by_type(contract_address, scope, PARTIAL_NOTE_RECEPTION_TYPE_ID)
-            .map(|collection: FactCollection| PartialNoteReception { collection })
+            .map(|collection: FactCollection| PartialNoteFsm { collection })
     }
 
     /// The fact-collection id identifying a partial note: a hash of its delivered content, so duplicate deliveries
@@ -224,7 +271,7 @@ mod test {
     use crate::messages::discovery::partial_notes::DeliveredPendingPartialNote;
     use crate::protocol::address::AztecAddress;
     use crate::test::helpers::test_environment::TestEnvironment;
-    use super::PartialNoteReception;
+    use super::PartialNoteFsm;
 
     unconstrained fn setup() -> (TestEnvironment, AztecAddress) {
         let mut env = TestEnvironment::new();
@@ -253,9 +300,9 @@ mod test {
         let (env, scope) = setup();
         env.private_context(|context| {
             let address = context.this_address();
-            PartialNoteReception::init(address, scope, make_pending(scope), finalized_block());
+            PartialNoteFsm::init(address, scope, make_pending(scope), finalized_block());
 
-            let all = PartialNoteReception::load_all(address, scope);
+            let all = PartialNoteFsm::load_all(address, scope);
             assert_eq(all.len(), 1);
             assert(!all.get(0).is_completed(), "freshly delivered reception should be pending");
             assert(all.get(0).completed_origin().is_none());
@@ -267,9 +314,9 @@ mod test {
         let (env, scope) = setup();
         env.private_context(|context| {
             let address = context.this_address();
-            PartialNoteReception::init(address, scope, make_pending(scope), finalized_block());
+            PartialNoteFsm::init(address, scope, make_pending(scope), finalized_block());
 
-            let pending = PartialNoteReception::load_all(address, scope).get(0).read_pending();
+            let pending = PartialNoteFsm::load_all(address, scope).get(0).read_pending();
             assert_eq(pending.owner, scope);
             assert_eq(pending.randomness, 0x11);
             assert_eq(pending.note_completion_log_tag, 0x22);
@@ -282,11 +329,11 @@ mod test {
         let (env, scope) = setup();
         env.private_context(|context| {
             let address = context.this_address();
-            PartialNoteReception::init(address, scope, make_pending(scope), finalized_block());
+            PartialNoteFsm::init(address, scope, make_pending(scope), finalized_block());
 
-            PartialNoteReception::load_all(address, scope).get(0).mark_completed(finalized_block());
+            PartialNoteFsm::load_all(address, scope).get(0).mark_completed(finalized_block());
 
-            let reloaded = PartialNoteReception::load_all(address, scope).get(0);
+            let reloaded = PartialNoteFsm::load_all(address, scope).get(0);
             assert(reloaded.is_completed(), "should be completed after mark_completed");
             assert(reloaded.completed_origin().unwrap().block_state.is_finalized());
         });
@@ -297,10 +344,10 @@ mod test {
         let (env, scope) = setup();
         env.private_context(|context| {
             let address = context.this_address();
-            PartialNoteReception::init(address, scope, make_pending(scope), finalized_block());
+            PartialNoteFsm::init(address, scope, make_pending(scope), finalized_block());
 
-            PartialNoteReception::load_all(address, scope).get(0).terminate();
-            assert_eq(PartialNoteReception::load_all(address, scope).len(), 0);
+            PartialNoteFsm::load_all(address, scope).get(0).terminate();
+            assert_eq(PartialNoteFsm::load_all(address, scope).len(), 0);
         });
     }
 
@@ -309,10 +356,10 @@ mod test {
         let (env, scope) = setup();
         env.private_context(|context| {
             let address = context.this_address();
-            PartialNoteReception::init(address, scope, make_pending(scope), finalized_block());
-            PartialNoteReception::init(address, scope, make_pending(scope), finalized_block());
+            PartialNoteFsm::init(address, scope, make_pending(scope), finalized_block());
+            PartialNoteFsm::init(address, scope, make_pending(scope), finalized_block());
 
-            assert_eq(PartialNoteReception::load_all(address, scope).len(), 1);
+            assert_eq(PartialNoteFsm::load_all(address, scope).len(), 1);
         });
     }
 }

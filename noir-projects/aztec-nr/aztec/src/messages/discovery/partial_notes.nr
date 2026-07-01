@@ -2,7 +2,7 @@ use crate::{
     ephemeral::EphemeralArray,
     facts::OriginBlock,
     messages::{
-        discovery::{ComputeNoteHash, ComputeNoteNullifier, partial_note_reception::PartialNoteReception},
+        discovery::{ComputeNoteHash, ComputeNoteNullifier, partial_note_fsm::PartialNoteFsm},
         encoding::MAX_MESSAGE_CONTENT_LEN,
         logs::partial_note::{decode_partial_note_private_message, MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN},
         processing::{
@@ -47,7 +47,7 @@ pub(crate) unconstrained fn process_partial_note_private_msg(
 
         // Record the pending partial note as a retractable fact anchored to the delivery block, so PXE prunes it if
         // that block is reorg'd away. We then search for the public log that completes it on each sync.
-        PartialNoteReception::init(
+        PartialNoteFsm::init(
             contract_address,
             scope,
             pending,
@@ -63,7 +63,7 @@ pub(crate) unconstrained fn process_partial_note_private_msg(
 }
 
 /// Drives all pending partial-note receptions one sync step forward, delegating per-reception work to
-/// [`PartialNoteReception`]. Its only responsibilities are loading the receptions, batch-fetching completion logs for
+/// [`PartialNoteFsm`]. Its only responsibilities are loading the receptions, batch-fetching completion logs for
 /// the pending ones, and delegating individual processing:
 ///
 /// 1. terminate completed receptions whose completion block has finalized;
@@ -75,16 +75,16 @@ pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs(
     compute_note_nullifier: ComputeNoteNullifier,
     scope: AztecAddress,
 ) {
-    PartialNoteReception::load_all(contract_address, scope).for_each(|_i, reception: PartialNoteReception| {
+    PartialNoteFsm::load_all(contract_address, scope).for_each(|_i, reception: PartialNoteFsm| {
         reception.terminate_if_finalized();
     });
 
     // Reload after the terminations above, then batch-fetch the completion logs of the still-pending receptions. For
     // performance we fetch all of these logs concurrently, minimizing the time spent waiting for node roundtrips.
-    let pending_receptions = PartialNoteReception::load_all(contract_address, scope)
-        .filter(|reception: PartialNoteReception| !reception.is_completed());
+    let pending_receptions =
+        PartialNoteFsm::load_all(contract_address, scope).filter(|reception: PartialNoteFsm| !reception.is_completed());
     let pending_partial_notes: EphemeralArray<DeliveredPendingPartialNote> =
-        pending_receptions.map(|reception: PartialNoteReception| reception.read_pending());
+        pending_receptions.map(|reception: PartialNoteFsm| reception.read_pending());
 
     aztecnr_debug_log_format!("{} pending partial notes")([pending_partial_notes.len() as Field]);
 
