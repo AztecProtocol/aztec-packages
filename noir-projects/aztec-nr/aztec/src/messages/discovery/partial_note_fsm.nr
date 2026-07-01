@@ -1,4 +1,4 @@
-//! The fact-backed reception machine for a single partial note.
+//! The finite state machine to process a single partial note.
 //!
 //! A partial note arrives in two parts: a private part (delivered first, carrying the owner, randomness, completion-log
 //! tag, note type, and packed private content) and a public *completion log* (storage slot + packed public content).
@@ -26,41 +26,38 @@
 //!
 //! ## States
 //!
-//! - **Pending**: the private part has been delivered (a retractable `delivered` birth fact is recorded) but the
-//!   completion log has not been found yet. While in this state, message discovery keeps searching for that log on
-//!   each sync.
-//! - **Completed**: the completion log was found, so the note was discovered and enqueued for validation and a
-//!   retractable `completed` marker was recorded. Because that marker is anchored to the completion block, this state
-//!   is not terminal until the block finalizes: a reorg dropping it folds the reception back to `Pending`.
+//! - **Pending**: the private part has been received but the completion log has not been found yet. While in this
+//!   state, message discovery keeps searching for that log on each sync.
+//! - **Completed**: the completion log was found, so the note was discovered and enqueued for storage. Because the
+//!   block containing the completion log can be dropped by a reorg, this state is not terminal until the block
+//!   finalizes: a reorg dropping it rewinds the FSM back to `Pending` state.
 //! - **Terminated**: nothing else can be done with the partial note, either because its delivery block was re-orged
 //!   away (so the delivery itself was reverted) or because its completion block has finalized (so the discovered note
-//!   is permanent and reorg-proof). This is the terminal state.
+//!   is permanent and reorg-proof). This is the terminal state of this FSM.
 //!
 //! ## Transitions (each evaluated by [`step`](PartialNoteFsm::step))
 //!
 //! - **Pending -> Completed** ([`complete_with_log`](PartialNoteFsm::complete_with_log)): the completion log is
 //!   found. Its public content is combined with the delivered private content, the resulting note(s) are discovered
-//!   and enqueued for validation, and a retractable `completed` marker anchored to the completion block is recorded.
-//! - **Completed -> Pending**: the completion block is re-orged out, retracting the `completed` marker. PXE handles
-//!   this transparently, and the completion log is searched for again.
-//! - **Pending -> Terminated**: the delivery block is re-orged out, retracting the `delivered` birth fact. With no
-//!   facts left the collection is pruned by PXE — the delivery was reverted, so there is nothing left to do.
-//! - **Completed -> Terminated**: the completion block finalizes, making the discovered note reorg-proof, so the
+//!   and enqueued for storage.
+//! - **Completed -> Pending**: the completion log block is re-orged out. The completion log is searched for again.
+//! - **Pending -> Terminated**: the delivery block is re-orged out, retracting the `delivered` birth fact. The
+//!   delivery was reverted, so there is nothing left to do.
+//! - **Completed -> Terminated**: the completion log block finalizes, making the discovered note reorg-proof, so the
 //!   reception is complete and its collection is deleted.
 //!
 //! ## Implementation
 //!
 //! Each pending partial note is tracked as a [fact collection](crate::facts::FactCollection) of type
 //! `PARTIAL_NOTE_RECEPTION_TYPE_ID`, identified by a hash of its [`DeliveredPendingPartialNote`] content (so
-//! re-delivery of the same partial note collapses onto a single reception). The collection holds:
+//! re-delivery of the same partial note is idempotent). The collection holds:
 //!
-//! - a retractable `PARTIAL_NOTE_DELIVERED` birth fact anchored to the delivery block (so a reorg of that block
-//!   auto-prunes the pending note), whose payload is the serialized [`DeliveredPendingPartialNote`];
-//! - once the completion log is found, a retractable `PARTIAL_NOTE_COMPLETED` fact anchored to the completion block.
+//! - a retractable `PARTIAL_NOTE_DELIVERED` birth fact tied to a delivery block (so a reorg of that block auto-prunes
+//!   the pending note), whose payload is the serialized [`DeliveredPendingPartialNote`];
+//! - once the completion log is found, a retractable `PARTIAL_NOTE_COMPLETED` fact tied to the completion log block.
 //!
 //! Status folds from the canonical fact set: `delivered` only ⇒ Pending; `delivered` + canonical `completed` ⇒
-//! Completed. A reorg retracting either fact folds the reception back accordingly. This mirrors
-//! [`OffchainReception`](crate::messages::processing::offchain).
+//! Completed. A reorg retracting either fact folds the reception back accordingly.
 use crate::ephemeral::EphemeralArray;
 use crate::facts::{
     delete_fact_collection, Fact, FactCollection, get_fact_collections_by_type, OriginBlock, record_retractable_fact,
@@ -149,7 +146,7 @@ impl PartialNoteFsm {
         !self.is_completed()
     }
 
-    /// The completion-log marker's origin (with PXE-injected finality state), if this reception is completed.
+    /// Origin block of the partial note completion log, if available.
     unconstrained fn completion_log_origin(self) -> Option<RetractableFactOrigin> {
         let maybe_completed = self.collection.facts.find(|f: Fact| f.fact_type_id == PARTIAL_NOTE_COMPLETED);
         if maybe_completed.is_some() {
@@ -159,7 +156,7 @@ impl PartialNoteFsm {
         }
     }
 
-    /// Records the retractable `completed` marker, anchored to the completion-log block.
+    /// Transition the partial note FSM as `completed`, conditional to `origin_block`.
     pub(crate) unconstrained fn mark_completed(self, origin_block: OriginBlock) {
         let empty_payload: EphemeralArray<Field> = EphemeralArray::empty();
         record_retractable_fact(
@@ -173,7 +170,7 @@ impl PartialNoteFsm {
         );
     }
 
-    /// Terminates this reception by deleting its [fact collection](crate::facts::FactCollection).
+    /// Terminates this partial note FSM.
     pub(crate) unconstrained fn terminate(self) {
         delete_fact_collection(
             self.collection.contract_address,
@@ -183,21 +180,12 @@ impl PartialNoteFsm {
         );
     }
 
-    /// Advances this partial-note FSM by one step, mirroring
-    /// [`OffchainReception::step`](crate::messages::processing::offchain).
+    /// Advances this partial-note FSM by one step.
     ///
-    /// All per-note transition logic lives here; the caller only decides *when* to step and supplies the completion
-    /// logs it batch-fetched for the pending notes.
+    /// Partial notes can only be completed if completion logs have been found for them. Log discovery and
+    /// provisioning is responsibility of the caller.
     ///
-    /// - **Pending + completion log found**: the note is completed (its note(s) discovered and enqueued) via
-    ///   [`complete_with_log`](PartialNoteFsm::complete_with_log), moving to `Completed`.
-    /// - **Completed + completion block finalized**: the discovered note is reorg-proof, so the FSM terminates.
-    /// - Otherwise the FSM is left untouched: a pending note keeps waiting for its log, a completed-but-unfinalized
-    ///   note waits for finality.
-    ///
-    /// `maybe_completion_logs` is `Some` with this note's freshly-fetched completion logs when the caller searched
-    /// for them this pass (only pending notes are searched) and `None` otherwise. `compute_note_hash` and
-    /// `compute_note_nullifier` are only used on the completion path.
+    /// `compute_note_hash` and `compute_note_nullifier` are injected dependencies.
     pub(crate) unconstrained fn step(
         self,
         maybe_completion_logs: Option<EphemeralArray<LogRetrievalResponse>>,
@@ -216,18 +204,19 @@ impl PartialNoteFsm {
                 // delivery block is reorg'd away (which prunes this FSM automatically).
             }
         } else if self.completion_log_origin().unwrap().block_state.is_finalized() {
-            // Completed -> Terminated: the completion block finalized, so the discovered note is permanent and there
-            // is nothing left to track.
+            // Completed -> Terminated: the completion log block finalized, so the discovered note is permanent and
+            // there is nothing left to track.
             self.terminate();
         }
     }
 
-    /// Completes a pending reception from its completion log: combines the delivered private content with the log's
-    /// public content, discovers the resulting note(s), enqueues them for validation, and records the retractable
-    /// `completed` marker anchored to the completion log's block.
+    /// Completes a partial note.
     ///
-    /// Because the marker is retractable, a reorg of the completion block folds the reception back to pending (the
-    /// completion log is then searched for again); the note itself is reorg-handled by the note store.
+    /// Combines the delivered private content with the log's public content, discovers the resulting note(s), enqueues
+    /// them for validation, and transitions the FSM to `completed` state conditional to the completion log's block.
+    ///
+    /// Because the completion fact is retractable, a reorg of the completion log's block rewinds the FSM back to
+    /// `pending` state (which signals that completion log search should restart).
     unconstrained fn complete_with_log(
         self,
         log: LogRetrievalResponse,
@@ -331,7 +320,7 @@ mod test {
     }
 
     #[test]
-    unconstrained fn init_creates_a_pending_reception() {
+    unconstrained fn init_creates_a_partial_note_fsm_in_pending_state() {
         let (env, scope) = setup();
         env.private_context(|context| {
             let address = context.this_address();
@@ -339,7 +328,7 @@ mod test {
 
             let all = PartialNoteFsm::load_all(address, scope);
             assert_eq(all.len(), 1);
-            assert(!all.get(0).is_completed(), "freshly delivered reception should be pending");
+            assert(all.get(0).is_pending(), "freshly delivered reception should be pending");
             assert(all.get(0).completion_log_origin().is_none());
         });
     }
