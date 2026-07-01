@@ -248,14 +248,15 @@ describe('Private Execution test suite', () => {
 
     const ownerPartialAddress = Fr.random();
     ownerCompleteAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(ownerSk, ownerPartialAddress);
-    ({ masterNullifierHidingKey: ownerNhkM, masterIncomingViewingSecretKey: ownerIvskM } = await deriveKeys(ownerSk));
+    ({ masterNullifierHidingSecretKey: ownerNhkM, masterIncomingViewingSecretKey: ownerIvskM } =
+      await deriveKeys(ownerSk));
 
     const recipientPartialAddress = Fr.random();
     recipientCompleteAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(
       recipientSk,
       recipientPartialAddress,
     );
-    ({ masterNullifierHidingKey: recipientNhkM, masterIncomingViewingSecretKey: recipientIvskM } =
+    ({ masterNullifierHidingSecretKey: recipientNhkM, masterIncomingViewingSecretKey: recipientIvskM } =
       await deriveKeys(recipientSk));
 
     const senderForTagsPartialAddress = Fr.random();
@@ -263,7 +264,7 @@ describe('Private Execution test suite', () => {
       senderForTagsSk,
       senderForTagsPartialAddress,
     );
-    ({ masterNullifierHidingKey: senderForTagsNhkM, masterIncomingViewingSecretKey: senderForTagsIvskM } =
+    ({ masterNullifierHidingSecretKey: senderForTagsNhkM, masterIncomingViewingSecretKey: senderForTagsIvskM } =
       await deriveKeys(senderForTagsSk));
 
     owner = ownerCompleteAddress.address;

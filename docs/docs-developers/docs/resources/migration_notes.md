@@ -27,9 +27,11 @@ Aztec is in active development. Each version may introduce breaking changes that
 + const secretKey = accountManager.getSecretKey();
 ```
 
-To do what `AccountWithSecretKey` was meant for (exporting an account into a separate PXE or wallet), account registration now also accepts a full set of master secret keys instead of only a single seed. `wallet.registerContract(instance, artifact?, secretKeyOrKeys?)` and `pxe.registerAccount(secretKeyOrKeys, partialAddress)` take either an `Fr` (as before) or a `MasterSecretKeys` object (exported from `@aztec/aztec.js/keys`), and `pxe.getAccountSecretKeys(address)` returns those keys. These keys guard the account's privacy, so they should never be exposed to applications.
+To do what `AccountWithSecretKey` was meant for (exporting an account into a separate PXE or wallet), account registration accepts a full set of master secret keys instead of only a single seed. `wallet.registerContract(instance, artifact?, secretKeyOrKeys?)` takes either an `Fr` seed (as before) or a `MasterSecretKeys` object (exported from `@aztec/aztec.js/keys`), for an account whose privacy keys were generated independently rather than from one seed.
 
-**Impact**: Importing `AccountWithSecretKey`, or calling `getSecretKey()`/`getEncryptionSecret()` on the result of `getAccount()`, no longer compiles. The signer `getAccount()` returns is otherwise unchanged, and passing a single `Fr` to the registration methods keeps working.
+The PXE never receives the seed nor the message-signing and fallback secret keys: it is not trusted to hold them. The wallet derives the account's privacy keys and passes the PXE only the four privacy secret keys (nullifier-hiding, incoming-viewing, outgoing-viewing, tagging) plus the message-signing and fallback *public* keys. Accordingly, `pxe.getAccountSecretKeys(address)` returns only those four privacy secret keys.
+
+**Impact**: Importing `AccountWithSecretKey`, or calling `getSecretKey()`/`getEncryptionSecret()` on the result of `getAccount()`, no longer compiles. The signer `getAccount()` returns is otherwise unchanged, and passing a single `Fr` or a `MasterSecretKeys` to `wallet.registerContract` keeps working.
 
 
 ### [PXE] Unconstrained delivery defaults to a non-interactive handshake for external recipients
