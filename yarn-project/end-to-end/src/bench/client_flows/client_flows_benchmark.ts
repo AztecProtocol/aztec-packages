@@ -27,6 +27,7 @@ import { type PXEConfig, getPXEConfig } from '@aztec/pxe/server';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
+import { AppTaggingSecretKind } from '@aztec/stdlib/logs';
 
 import {
   AUTOMINE_E2E_OPTS,
@@ -230,6 +231,17 @@ export class ClientFlowsBenchmark {
     this.userWallet = await TestWallet.create(this.aztecNode, userPXEConfigWithContracts, {
       loggers: {
         prover: this.proxyLogger.createLogger('pxe:bb:wasm:bundle:proxied'),
+      },
+      // The benchmark measures steady-state app cost, not first-send discovery cost. Reproduce the pre-handshake-default
+      // behavior of unconstrained delivery: derive the tagging secret from the (sender, recipient) key pair via ECDH
+      // instead of taking the current default (a non-interactive handshake, which injects two extra private app
+      // executions and a nullifier per cold chain). Constrained delivery is unaffected: the Noir circuit rejects
+      // address-derived for constrained, so the hook falls through to a handshake there.
+      hooks: {
+        resolveTaggingSecretStrategy: async ({ deliveryMode }) =>
+          deliveryMode === AppTaggingSecretKind.UNCONSTRAINED
+            ? { type: 'address-derived' }
+            : { type: 'non-interactive-handshake' },
       },
     });
   }
