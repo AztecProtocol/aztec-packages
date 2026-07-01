@@ -79,10 +79,6 @@ function check_circuit_vks {
   local exit_code=0
   local -a bb_check_args=(check --scheme chonk --ivc_inputs_path "$flow_folder/ivc-inputs.msgpack")
 
-  if [[ "$bb_preset" == "debug" ]]; then
-    bb_check_args+=(--disable_asserts)
-  fi
-
   output="$("$bb" "${bb_check_args[@]}" 2>&1)" || exit_code=$?
 
   if [[ $exit_code -ne 0 ]]; then
