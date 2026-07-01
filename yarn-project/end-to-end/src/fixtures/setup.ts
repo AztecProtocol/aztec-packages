@@ -525,30 +525,32 @@ async function setupInner(
     }
     logger.trace('Deployed L1 rollup contracts');
 
-    // Use metricsPort-based telemetry if provided, otherwise use the regular telemetry client
-    const telemetryClient = opts.metricsPort
-      ? await getEndToEndTestTelemetryClient(opts.metricsPort)
-      : await getTelemetryClient(opts.telemetryConfig);
+    // These boot steps are independent and write disjoint config keys, so run them concurrently:
+    // telemetry returns a client (no config write), shared blob storage writes blobFileStore* keys,
+    // and the ACVM/BB config resolvers write their own acvm*/bb* keys.
+    const [telemetryClient, , acvmConfig, bbConfig] = await Promise.all([
+      // Use metricsPort-based telemetry if provided, otherwise use the regular telemetry client
+      opts.metricsPort ? getEndToEndTestTelemetryClient(opts.metricsPort) : getTelemetryClient(opts.telemetryConfig),
+      setupSharedBlobStorage(config),
+      getACVMConfig(logger),
+      getBBConfig(logger),
+    ]);
     logger.trace('Created telemetry client');
-
-    await setupSharedBlobStorage(config);
     logger.trace('Set up shared blob storage');
 
-    logger.verbose('Creating and synching an aztec node', config);
-
-    const acvmConfig = await getACVMConfig(logger);
     if (acvmConfig) {
       config.acvmWorkingDirectory = acvmConfig.acvmWorkingDirectory;
       config.acvmBinaryPath = acvmConfig.acvmBinaryPath;
     }
     logger.trace('Resolved ACVM config');
 
-    const bbConfig = await getBBConfig(logger);
     if (bbConfig) {
       config.bbBinaryPath = bbConfig.bbBinaryPath;
       config.bbWorkingDirectory = bbConfig.bbWorkingDirectory;
     }
     logger.trace('Resolved Barretenberg config');
+
+    logger.verbose('Creating and synching an aztec node', config);
 
     let mockGossipSubNetwork: MockGossipSubNetwork | undefined;
     let p2pClientDeps: P2PClientDeps | undefined = undefined;
