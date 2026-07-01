@@ -52,4 +52,12 @@ export class BoundedVec<T> {
   static empty<T>({ maxLength, elementSize = 1 }: { maxLength: number; elementSize?: number }): BoundedVec<T> {
     return new BoundedVec<T>([], maxLength, elementSize);
   }
+
+  equals(other: BoundedVec<T>, innerEquals: (a: T, b: T) => boolean): boolean {
+    return (
+      this.maxLength === other.maxLength &&
+      this.data.length === other.data.length &&
+      this.data.every((value, i) => innerEquals(value, other.data[i]))
+    );
+  }
 }
