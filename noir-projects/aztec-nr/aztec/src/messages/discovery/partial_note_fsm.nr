@@ -36,7 +36,7 @@
 //!   away (so the delivery itself was reverted) or because its completion block has finalized (so the discovered note
 //!   is permanent and reorg-proof). This is the terminal state.
 //!
-//! ## Transitions
+//! ## Transitions (each evaluated by [`step`](PartialNoteFsm::step))
 //!
 //! - **Pending -> Completed** ([`complete_with_log`](PartialNoteFsm::complete_with_log)): the completion log is
 //!   found. Its public content is combined with the delivered private content, the resulting note(s) are discovered
@@ -45,9 +45,8 @@
 //!   this transparently, and the completion log is searched for again.
 //! - **Pending -> Terminated**: the delivery block is re-orged out, retracting the `delivered` birth fact. With no
 //!   facts left the collection is pruned by PXE — the delivery was reverted, so there is nothing left to do.
-//! - **Completed -> Terminated** ([`terminate_if_finalized`](PartialNoteFsm::terminate_if_finalized)): the
-//!   completion block finalizes, making the discovered note reorg-proof, so the reception is complete and its
-//!   collection is deleted.
+//! - **Completed -> Terminated**: the completion block finalizes, making the discovered note reorg-proof, so the
+//!   reception is complete and its collection is deleted.
 //!
 //! ## Implementation
 //!
@@ -95,10 +94,10 @@ pub(crate) struct PartialNoteFsm {
 }
 
 impl PartialNoteFsm {
-    /// Initializes a reception for a freshly delivered partial note, in the `Pending` state.
+    /// Initializes an FSM for a freshly discovered parital note.
     ///
-    /// Records the retractable `delivered` birth fact anchored to `origin_block` (the delivery block). Re-initializing
-    /// the same partial note is a no-op, which makes redelivery idempotent.
+    /// The FSM existence is tied to `origin_block`: if `origin_block` is dropped by a reorg, the FSM is transparently
+    /// deleted.
     pub(crate) unconstrained fn init(
         contract_address: AztecAddress,
         scope: AztecAddress,
@@ -146,6 +145,11 @@ impl PartialNoteFsm {
         self.collection.facts.any(|f: Fact| f.fact_type_id == PARTIAL_NOTE_COMPLETED)
     }
 
+    /// Returns `true` if this reception is still pending, i.e. it has no canonical `completed` fact yet.
+    pub(crate) unconstrained fn is_pending(self) -> bool {
+        !self.is_completed()
+    }
+
     /// The `completed` marker's origin (with PXE-injected finality state), if this reception is completed.
     pub(crate) unconstrained fn completed_origin(self) -> Option<RetractableFactOrigin> {
         let maybe_completed = self.collection.facts.find(|f: Fact| f.fact_type_id == PARTIAL_NOTE_COMPLETED);
@@ -180,13 +184,42 @@ impl PartialNoteFsm {
         );
     }
 
-    /// Terminates this reception if it is completed and its completion block has finalized: the resulting note is
-    /// then reorg-proof, so there is nothing left to track.
-    pub(crate) unconstrained fn terminate_if_finalized(self) {
-        if self.is_completed() {
-            if self.completed_origin().unwrap().block_state.is_finalized() {
-                self.terminate();
+    /// Advances this partial-note FSM by one step, mirroring
+    /// [`OffchainReception::step`](crate::messages::processing::offchain).
+    ///
+    /// All per-note transition logic lives here; the caller only decides *when* to step and supplies the completion
+    /// logs it batch-fetched for the pending notes.
+    ///
+    /// - **Pending + completion log found**: the note is completed (its note(s) discovered and enqueued) via
+    ///   [`complete_with_log`](PartialNoteFsm::complete_with_log), moving to `Completed`.
+    /// - **Completed + completion block finalized**: the discovered note is reorg-proof, so the FSM terminates.
+    /// - Otherwise the FSM is left untouched: a pending note keeps waiting for its log, a completed-but-unfinalized
+    ///   note waits for finality.
+    ///
+    /// `maybe_completion_logs` is `Some` with this note's freshly-fetched completion logs when the caller searched
+    /// for them this pass (only pending notes are searched) and `None` otherwise. `compute_note_hash` and
+    /// `compute_note_nullifier` are only used on the completion path.
+    pub(crate) unconstrained fn step(
+        self,
+        maybe_completion_logs: Option<EphemeralArray<LogRetrievalResponse>>,
+        compute_note_hash: ComputeNoteHash,
+        compute_note_nullifier: ComputeNoteNullifier,
+    ) {
+        if self.is_pending() {
+            if maybe_completion_logs.is_some() {
+                let completion_logs = maybe_completion_logs.unwrap();
+                let num_logs = completion_logs.len();
+                if num_logs != 0 {
+                    assert(num_logs == 1, f"Expected at most 1 completion log per partial note, got {num_logs}");
+                    self.complete_with_log(completion_logs.get(0), compute_note_hash, compute_note_nullifier);
+                }
+                // No completion log yet: stay pending and keep searching on future syncs, until it is found or the
+                // delivery block is reorg'd away (which prunes this FSM automatically).
             }
+        } else if self.completed_origin().unwrap().block_state.is_finalized() {
+            // Completed -> Terminated: the completion block finalized, so the discovered note is permanent and there
+            // is nothing left to track.
+            self.terminate();
         }
     }
 
@@ -196,7 +229,7 @@ impl PartialNoteFsm {
     ///
     /// Because the marker is retractable, a reorg of the completion block folds the reception back to pending (the
     /// completion log is then searched for again); the note itself is reorg-handled by the note store.
-    pub(crate) unconstrained fn complete_with_log(
+    unconstrained fn complete_with_log(
         self,
         log: LogRetrievalResponse,
         compute_note_hash: ComputeNoteHash,
@@ -267,8 +300,11 @@ unconstrained fn to_payload(pending: DeliveredPendingPartialNote) -> EphemeralAr
 }
 
 mod test {
+    use crate::ephemeral::EphemeralArray;
     use crate::facts::OriginBlock;
     use crate::messages::discovery::partial_notes::DeliveredPendingPartialNote;
+    use crate::messages::logs::note::MAX_NOTE_PACKED_LEN;
+    use crate::messages::processing::log_retrieval_response::LogRetrievalResponse;
     use crate::protocol::address::AztecAddress;
     use crate::test::helpers::test_environment::TestEnvironment;
     use super::PartialNoteFsm;
@@ -361,5 +397,98 @@ mod test {
 
             assert_eq(PartialNoteFsm::load_all(address, scope).len(), 1);
         });
+    }
+
+    #[test]
+    unconstrained fn step_leaves_a_pending_reception_untouched_when_it_has_no_completion_log() {
+        let (env, scope) = setup();
+        env.private_context(|context| {
+            let address = context.this_address();
+            PartialNoteFsm::init(address, scope, make_pending(scope), finalized_block());
+
+            // Neither an empty fetched-logs set (`Some(empty)`, the pass-1 "searched, found nothing" case) nor no
+            // fetch at all (`None`, the pass-2 case) can complete a pending reception, so it stays pending.
+            let no_logs: EphemeralArray<LogRetrievalResponse> = EphemeralArray::empty();
+            PartialNoteFsm::load_all(address, scope).get(0).step(
+                Option::some(no_logs),
+                dummy_compute_note_hash,
+                dummy_compute_note_nullifier,
+            );
+            PartialNoteFsm::load_all(address, scope).get(0).step(
+                Option::none(),
+                dummy_compute_note_hash,
+                dummy_compute_note_nullifier,
+            );
+
+            let all = PartialNoteFsm::load_all(address, scope);
+            assert_eq(all.len(), 1);
+            assert(all.get(0).is_pending(), "reception without a completion log should stay pending");
+        });
+    }
+
+    #[test]
+    unconstrained fn step_terminates_a_completed_reception_once_its_block_is_finalized() {
+        let (env, scope) = setup();
+        env.private_context(|context| {
+            let address = context.this_address();
+            PartialNoteFsm::init(address, scope, make_pending(scope), finalized_block());
+            PartialNoteFsm::load_all(address, scope).get(0).mark_completed(finalized_block());
+
+            // Completed with a finalized completion block: the discovered note is reorg-proof, so step terminates the
+            // FSM by deleting its collection.
+            PartialNoteFsm::load_all(address, scope).get(0).step(
+                Option::none(),
+                dummy_compute_note_hash,
+                dummy_compute_note_nullifier,
+            );
+
+            assert_eq(PartialNoteFsm::load_all(address, scope).len(), 0);
+        });
+    }
+
+    #[test]
+    unconstrained fn step_keeps_a_completed_reception_while_its_block_is_unfinalized() {
+        let (env, scope) = setup();
+        // A future block never finalizes here, so the completed reception must survive the step.
+        let unfinalized_block = OriginBlock { block_number: env.last_block_number() + 100, block_hash: 0 };
+        env.private_context(|context| {
+            let address = context.this_address();
+            PartialNoteFsm::init(address, scope, make_pending(scope), finalized_block());
+            PartialNoteFsm::load_all(address, scope).get(0).mark_completed(unfinalized_block);
+
+            // Completed but not yet finalized: step must not terminate it, since a reorg could still fold it back.
+            PartialNoteFsm::load_all(address, scope).get(0).step(
+                Option::none(),
+                dummy_compute_note_hash,
+                dummy_compute_note_nullifier,
+            );
+
+            let all = PartialNoteFsm::load_all(address, scope);
+            assert_eq(all.len(), 1);
+            assert(all.get(0).is_completed(), "unfinalized completed reception should survive step");
+        });
+    }
+
+    unconstrained fn dummy_compute_note_hash(
+        _packed_note: BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
+        _owner: AztecAddress,
+        _storage_slot: Field,
+        _note_type_id: Field,
+        _contract_address: AztecAddress,
+        _randomness: Field,
+    ) -> Option<Field> {
+        Option::none()
+    }
+
+    unconstrained fn dummy_compute_note_nullifier(
+        _unique_note_hash: Field,
+        _packed_note: BoundedVec<Field, MAX_NOTE_PACKED_LEN>,
+        _owner: AztecAddress,
+        _storage_slot: Field,
+        _note_type_id: Field,
+        _contract_address: AztecAddress,
+        _randomness: Field,
+    ) -> Option<Field> {
+        Option::none()
     }
 }

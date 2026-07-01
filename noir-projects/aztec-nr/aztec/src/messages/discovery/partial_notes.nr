@@ -1,13 +1,10 @@
 use crate::{
-    ephemeral::EphemeralArray,
     facts::OriginBlock,
     messages::{
         discovery::{ComputeNoteHash, ComputeNoteNullifier, partial_note_fsm::PartialNoteFsm},
         encoding::MAX_MESSAGE_CONTENT_LEN,
         logs::partial_note::{decode_partial_note_private_message, MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN},
-        processing::{
-            get_pending_partial_notes_completion_logs, log_retrieval_response::LogRetrievalResponse, ResolvedTx,
-        },
+        processing::{get_pending_partial_notes_completion_logs, ResolvedTx},
     },
 };
 
@@ -30,27 +27,25 @@ pub(crate) unconstrained fn process_partial_note_private_msg(
     msg_metadata: u64,
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
     resolved_tx: ResolvedTx,
-    scope: AztecAddress,
+    recipient: AztecAddress,
 ) {
     let decoded = decode_partial_note_private_message(msg_metadata, msg_content);
 
     if decoded.is_some() {
         let (owner, randomness, note_completion_log_tag, note_type_id, packed_private_note_content) = decoded.unwrap();
 
-        let pending = DeliveredPendingPartialNote {
-            owner,
-            randomness,
-            note_completion_log_tag,
-            note_type_id,
-            packed_private_note_content,
-        };
-
         // Record the pending partial note as a retractable fact anchored to the delivery block, so PXE prunes it if
         // that block is reorg'd away. We then search for the public log that completes it on each sync.
         PartialNoteFsm::init(
             contract_address,
-            scope,
-            pending,
+            recipient,
+            DeliveredPendingPartialNote {
+                owner,
+                randomness,
+                note_completion_log_tag,
+                note_type_id,
+                packed_private_note_content,
+            },
             OriginBlock { block_number: resolved_tx.block_number, block_hash: resolved_tx.block_hash },
         );
     } else {
@@ -62,48 +57,41 @@ pub(crate) unconstrained fn process_partial_note_private_msg(
     }
 }
 
-/// Drives all pending partial-note receptions one sync step forward, delegating per-reception work to
-/// [`PartialNoteFsm`]. Its only responsibilities are loading the receptions, batch-fetching completion logs for
-/// the pending ones, and delegating individual processing:
+/// Drives every active partial-note FSM one sync step forward, delegating all per-note transition logic to
+/// [`PartialNoteFsm::step`]. The orchestrator only loads the FSMs once, batch-fetches the completion logs of the
+/// pending ones (the dominant network cost), and then steps each FSM:
 ///
-/// 1. terminate completed receptions whose completion block has finalized;
-/// 2. fetch the completion logs of all still-pending receptions in a single concurrent round-trip;
-/// 3. hand each pending reception its completion log (if found) to complete itself.
+/// 1. step each pending FSM with its fetched completion logs, so found logs complete their notes;
+/// 2. step every active FSM with no logs, terminating those whose completion block has finalized.
 pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs(
     contract_address: AztecAddress,
     compute_note_hash: ComputeNoteHash,
     compute_note_nullifier: ComputeNoteNullifier,
     scope: AztecAddress,
 ) {
-    PartialNoteFsm::load_all(contract_address, scope).for_each(|_i, reception: PartialNoteFsm| {
-        reception.terminate_if_finalized();
-    });
+    // `load_all` is a relatively expensive oracle round-trip, so we call it once and reuse the result.
+    let active_partial_note_fsms = PartialNoteFsm::load_all(contract_address, scope);
 
-    // Reload after the terminations above, then batch-fetch the completion logs of the still-pending receptions. For
-    // performance we fetch all of these logs concurrently, minimizing the time spent waiting for node roundtrips.
-    let pending_receptions =
-        PartialNoteFsm::load_all(contract_address, scope).filter(|reception: PartialNoteFsm| !reception.is_completed());
-    let pending_partial_notes: EphemeralArray<DeliveredPendingPartialNote> =
-        pending_receptions.map(|reception: PartialNoteFsm| reception.read_pending());
+    // Fetching completion logs is the dominant cost of contract sync (a node round-trip each) and only pending notes
+    // need them, so we batch that fetch for the pending subset and then drive the FSMs in two passes:
+    //  1. Step each pending FSM with its freshly-fetched completion logs, giving found logs a chance to complete.
+    //  2. Step every active FSM with no logs, which is where completed-and-finalized FSMs terminate.
+    // Keeping both the completion and termination logic inside `PartialNoteFsm::step` is what lets the orchestrator
+    // stay this small; the price is the two-pass shape that the batched fetch forces on us.
+    let pending_partial_note_fsms = active_partial_note_fsms.filter(|fsm: PartialNoteFsm| fsm.is_pending());
+    let pending_partial_notes = pending_partial_note_fsms.map(|fsm: PartialNoteFsm| fsm.read_pending());
 
     aztecnr_debug_log_format!("{} pending partial notes")([pending_partial_notes.len() as Field]);
 
     let completion_logs = get_pending_partial_notes_completion_logs(contract_address, pending_partial_notes);
+    // Each completion-logs entry is index-aligned with the pending FSMs.
+    assert_eq(completion_logs.len(), pending_partial_note_fsms.len());
 
-    // Each completion-logs entry is index-aligned with the pending receptions, and each inner array holds all matching
-    // `LogRetrievalResponse`s for that reception's tag.
-    assert_eq(completion_logs.len(), pending_receptions.len());
+    pending_partial_note_fsms.for_each(|i, fsm: PartialNoteFsm| {
+        fsm.step(Option::some(completion_logs.get(i)), compute_note_hash, compute_note_nullifier);
+    });
 
-    for i in 0..completion_logs.len() {
-        let logs_for_tag: EphemeralArray<LogRetrievalResponse> = completion_logs.get(i);
-        let num_logs = logs_for_tag.len();
-
-        if num_logs == 0 {
-            // Leave the reception pending; we keep searching for its completion log on future syncs until we find it
-            // or its delivery block is reorg'd away (which prunes the reception automatically).
-        } else {
-            assert(num_logs == 1, f"Expected at most 1 completion log per partial note, got {num_logs}");
-            pending_receptions.get(i).complete_with_log(logs_for_tag.get(0), compute_note_hash, compute_note_nullifier);
-        }
-    }
+    active_partial_note_fsms.for_each(|_i, fsm: PartialNoteFsm| {
+        fsm.step(Option::none(), compute_note_hash, compute_note_nullifier);
+    });
 }
