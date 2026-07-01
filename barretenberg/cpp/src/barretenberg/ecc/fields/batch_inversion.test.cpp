@@ -109,6 +109,20 @@ TEST(BatchInversionDeath, ZeroInputAborts)
         EXPECT_DEATH(bb::batch_invert(in, out), "invert zero");
     }
 }
+
+// out must not alias in (batch_invert reads in while writing prefixes into out); passing
+// one span as both must trip the BB_ASSERT(!in.aliases(out)) guard.
+TEST(BatchInversionDeath, AliasedOutputAborts)
+{
+    constexpr size_t W = PushSpanFq::W;
+    const size_t n = 7;
+    std::vector<VecFq> backing((n / W) + 1);
+    PushSpanFq span{ std::span<VecFq>(backing) };
+    for (size_t i = 0; i < n; ++i) {
+        span.push(random_nonzero());
+    }
+    EXPECT_DEATH(bb::batch_invert(span, span), "aliases");
+}
 #endif
 
 } // namespace

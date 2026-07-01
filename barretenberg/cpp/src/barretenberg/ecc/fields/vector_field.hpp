@@ -117,6 +117,15 @@ class Bn254FqParams;
 template <> struct has_simd_mont_mul<Bn254FrParams> : std::true_type {};
 template <> struct has_simd_mont_mul<Bn254FqParams> : std::true_type {};
 
+// Single source of truth for consumers: is the packed SIMD mont-mul body actually compiled for
+// `Params` on this target? = SIMD target (BB_VECTOR_FIELD_SIMD) AND a Params that has a body
+// (has_simd_mont_mul_v). `has_simd_mont_mul_v` alone is target-blind (true for Bn254 even on native,
+// where no body exists), so consumers used to AND it with `#if defined(__wasm_simd128__)` at every call
+// site. Branch on this instead — it keeps the target preprocessor here at the data structure, and an
+// `if constexpr (simd_available_v<...>)` is false on native, so the packed branch is discarded there.
+template <class Params>
+inline constexpr bool simd_available_v = (BB_VECTOR_FIELD_SIMD != 0) && has_simd_mont_mul_v<Params>;
+
 template <class Params> struct alignas(32) VectorField {
     using Field = field<Params>;
     using scalar_type = Field;

@@ -677,4 +677,41 @@ TEST(VectorFieldFqTest, ScalarTypeAlias)
     SUCCEED();
 }
 
+// Contiguous/gather transposes for Fq — the MSM production path (g1 coordinates are Fq),
+// mirroring the Fr round-trips above.
+TEST(VectorFieldFqTest, LinearMemoryCtorAndStoreToRoundTrip)
+{
+    std::array<fq, 5> src;
+    for (size_t i = 0; i < 5; ++i) {
+        src[i] = fq::random_element();
+    }
+    VecFq v(src.data());
+    for (size_t L = 0; L < 5; ++L) {
+        EXPECT_EQ(v.get(L), src[L]) << "lane " << L;
+    }
+    std::array<fq, 5> dst;
+    for (size_t i = 0; i < 5; ++i) {
+        dst[i] = fq::zero();
+    }
+    v.store_to(dst.data());
+    for (size_t L = 0; L < 5; ++L) {
+        EXPECT_EQ(dst[L], src[L]) << "lane " << L;
+    }
+}
+
+TEST(VectorFieldFqTest, LinearMemoryCtorMatchesGatherForLinearIndices)
+{
+    std::array<fq, 5> src;
+    for (size_t i = 0; i < 5; ++i) {
+        src[i] = fq::random_element();
+    }
+    VecFq a = VecFq::gather(src.data(), std::array<size_t, 5>{ 0, 1, 2, 3, 4 });
+    VecFq b(src.data());
+    auto a_arr = a.to_array();
+    auto b_arr = b.to_array();
+    for (size_t L = 0; L < 5; ++L) {
+        EXPECT_EQ(a_arr[L], b_arr[L]) << "lane " << L;
+    }
+}
+
 } // namespace
