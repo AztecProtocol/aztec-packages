@@ -122,15 +122,18 @@ impl MessageDelivery {
     ///
     /// ## Privacy
     ///
-    /// No information is revealed on-chain about sender, recipient, or the message contents. The message itself
-    /// reveals no information about the sender or recipient, and requires knowledge of the recipient's private address
-    /// keys in order to obtain the plaintext.
+    /// The message itself reveals no information on-chain about sender, recipient, or contents: obtaining the plaintext
+    /// requires the recipient's private address keys, and recognizing that a log was sent between a given sender and
+    /// recipient requires their shared tagging secret, which no third party can compute.
+    ///
+    /// The exception is the discovery tag. Reaching a recipient the sender has not handshaked with before establishes,
+    /// by default, a non-interactive handshake. This reveals to anyone who knows the recipient's address that a
+    /// handshake was made with them, but not by whom, nor the contents. An interactive handshake would not leak this,
+    /// but it requires coordination with the recipient. Delivering to one of the wallet's own accounts instead uses an
+    /// address-derived secret and reveals nothing.
     ///
     /// Delivering the message does produce on-chain information in the form of private logs, so transactions that
     /// deliver many messages this way might be identifiable by the large number of logs.
-    ///
-    /// Identifying that a log corresponds to a message between a given sender and recipient requires, among other
-    /// things, knowledge of both of their addresses **and** either the sender's or recipient's private address key.
     pub fn onchain_unconstrained() -> OnchainDelivery {
         OnchainDelivery::new(OnchainDeliveryMode::onchain_unconstrained())
     }
@@ -171,15 +174,17 @@ impl MessageDelivery {
     ///
     /// ## Privacy
     ///
-    /// No information is revealed on-chain about sender, recipient, or the message contents. The message itself
-    /// reveals no information about the sender or recipient, and requires knowledge of the recipient's private address
-    /// keys in order to obtain the plaintext.
+    /// The message itself reveals no information on-chain about sender, recipient, or contents: obtaining the plaintext
+    /// requires the recipient's private address keys, and recognizing that a log was sent between a given sender and
+    /// recipient requires their shared tagging secret, which no third party can compute.
+    ///
+    /// The exception is the discovery tag. Constrained delivery is always backed by a handshake, established by
+    /// default as a non-interactive one the first time the sender reaches the recipient. A non-interactive handshake
+    /// reveals, to anyone who knows the recipient's address, that a handshake was made with them, but not by whom,
+    /// nor the contents. An interactive handshake would not leak this, but it requires coordination with the recipient.
     ///
     /// Delivering the message does produce on-chain information in the form of private logs and nullifiers, so
     /// transactions that deliver many messages this way might be identifiable by these markers.
-    ///
-    /// Identifying that a log corresponds to a message between a given sender and recipient requires, among other
-    /// things, knowledge of both of their addresses **and** either the sender's or recipient's private address key.
     pub fn onchain_constrained() -> OnchainDelivery {
         OnchainDelivery::new(OnchainDeliveryMode::onchain_constrained())
     }
