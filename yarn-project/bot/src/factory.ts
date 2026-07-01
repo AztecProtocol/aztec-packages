@@ -225,9 +225,6 @@ export class BotFactory {
 
   private async setupAccountWithPrivateKey(privateKey: Fr) {
     const salt = this.config.senderSalt ?? Fr.ONE;
-    // The configured private key is the account's signing key. Reinterpret its bytes as a Grumpkin scalar (always
-    // valid, since the BN254 scalar field is smaller than Grumpkin's) and derive the privacy secret from it, keeping
-    // the signing key independent of anything PXE holds.
     const signingKey = GrumpkinScalar.fromBuffer(privateKey.toBuffer());
     const secret = await deriveSecretKeyFromSigningKey(signingKey);
     const accountManager = await this.wallet.createSchnorrInitializerlessAccount(secret, salt, signingKey);

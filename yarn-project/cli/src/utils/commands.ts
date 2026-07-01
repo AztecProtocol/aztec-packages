@@ -51,16 +51,6 @@ export const l1ChainIdOption = new Option('-c, --l1-chain-id <number>', 'Chain I
     return parsedValue;
   });
 
-export const createSecretKeyOption = (
-  description: string,
-  mandatory: boolean,
-  argsParser?: (value: string, previous: Fr) => Fr,
-) =>
-  new Option('-sk, --secret-key <string>', description)
-    .env('SECRET_KEY')
-    .argParser(argsParser ?? parseSecretKey)
-    .makeOptionMandatory(mandatory);
-
 export const createSigningKeyOption = (
   description: string,
   mandatory: boolean,
@@ -364,20 +354,6 @@ export function parsePartialAddress(address: string): Fr {
     return Fr.fromHexString(address);
   } catch {
     throw new InvalidArgumentError(`Invalid partial address: ${address}`);
-  }
-}
-
-/**
- * Parses a secret key from a string.
- * @param privateKey - A string
- * @returns A secret key
- * @throws InvalidArgumentError if the input string is not valid.
- */
-export function parseSecretKey(secretKey: string): Fr {
-  try {
-    return Fr.fromHexString(secretKey);
-  } catch {
-    throw new InvalidArgumentError(`Invalid encryption secret key: ${secretKey}`);
   }
 }
 
