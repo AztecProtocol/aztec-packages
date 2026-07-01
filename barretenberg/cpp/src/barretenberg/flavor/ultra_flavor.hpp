@@ -8,6 +8,7 @@
 
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/flavor_concepts.hpp"
 #include "barretenberg/flavor/generated/ultra_flavor_generated.hpp"
 #include "barretenberg/flavor/generated/ultra_zk_flavor_generated.hpp"
 #include "barretenberg/flavor/partially_evaluated_multivariates.hpp"
@@ -114,6 +115,9 @@ class UltraFlavor : public UltraFlavor_Generated {
     };
 
     using AllValues = AllValues_<HasZK>;
+
+    static_assert(gemini_masking_layout_consistent<UltraFlavor>(),
+                  "UltraFlavor gemini masking flag must match its entity layout");
 
     /**
      * @brief A container for polynomials handles.

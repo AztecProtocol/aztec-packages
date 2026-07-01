@@ -132,7 +132,8 @@ struct RecursionConstraint {
  * @param chonk_recursion_data pair of (ChonkRecursionConstraints, ChonkRecursionConstraintsOriginalOpcodeIndices)
  */
 template <typename Builder>
-HonkRecursionConstraintsOutput<Builder> create_recursion_constraints(
+[[nodiscard("pairing points and IPA claim must be accumulated")]] HonkRecursionConstraintsOutput<Builder>
+create_recursion_constraints(
     Builder& builder,
     GateCounter<Builder>& gate_counter,
     std::vector<size_t>& gates_per_opcode,

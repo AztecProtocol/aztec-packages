@@ -238,6 +238,9 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
      */
     size_t from_field_elements(const std::span<const DataType>& elements)
     {
+        BB_ASSERT_EQ(elements.size(),
+                     calc_num_data_types(),
+                     "VerificationKey::from_field_elements received the wrong number of field elements");
 
         size_t idx = 0;
         auto deserialize = [&idx, &elements]<typename T>(T& target) {
@@ -418,6 +421,9 @@ class StdlibVerificationKey_ : public PrecomputedCommitments {
         for (Commitment& commitment : this->get_all()) {
             commitment = Codec::template deserialize_from_frs<Commitment>(elements, num_frs_read);
         }
+        BB_ASSERT_EQ(num_frs_read,
+                     elements.size(),
+                     "StdlibVerificationKey deserialization received the wrong number of field elements");
     }
 
     /**

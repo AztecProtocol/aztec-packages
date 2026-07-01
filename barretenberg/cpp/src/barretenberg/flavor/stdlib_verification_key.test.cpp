@@ -90,3 +90,43 @@ TYPED_TEST(StdlibVerificationKeyTests, VKHashingConsistency)
     FF vk_hash_2 = vk.hash_with_origin_tagging(transcript);
     EXPECT_EQ(vk_hash_1.get_value(), vk_hash_2.get_value());
 }
+
+// The span constructor must require an exact field count, not just enough fields.
+TYPED_TEST(StdlibVerificationKeyTests, SpanConstructorRejectsWrongSize)
+{
+    using Flavor = TypeParam;
+    using NativeFlavor = typename Flavor::NativeFlavor;
+    using NativeVerificationKey = typename NativeFlavor::VerificationKey;
+    using StdlibVerificationKey = typename Flavor::VerificationKey;
+    using OuterBuilder = typename Flavor::CircuitBuilder;
+    using FF = stdlib::field_t<OuterBuilder>;
+    using Codec = stdlib::StdlibCodec<FF>;
+    using ProverInstance = ProverInstance_<NativeFlavor>;
+    using InnerBuilder = typename NativeFlavor::CircuitBuilder;
+
+    InnerBuilder builder;
+    stdlib::recursion::honk::DefaultIO<InnerBuilder>::add_default(builder);
+    auto prover_instance = std::make_shared<ProverInstance>(builder);
+    auto native_vk = std::make_shared<NativeVerificationKey>(prover_instance->get_precomputed());
+
+    OuterBuilder outer_builder;
+    StdlibVerificationKey vk(&outer_builder, native_vk);
+
+    std::vector<FF> fields;
+    auto append = [&]<typename T>(const T& input) {
+        std::vector<FF> input_fields = Codec::template serialize_to_fields<T>(input);
+        fields.insert(fields.end(), input_fields.begin(), input_fields.end());
+    };
+    append(vk.log_circuit_size);
+    append(vk.num_public_inputs);
+    append(vk.pub_inputs_offset);
+    for (const auto& commitment : vk.get_all()) {
+        append(commitment);
+    }
+
+    EXPECT_NO_THROW(StdlibVerificationKey{ std::span<FF>(fields) });
+
+    std::vector<FF> oversize = fields;
+    oversize.push_back(fields.back());
+    EXPECT_ANY_THROW(StdlibVerificationKey{ std::span<FF>(oversize) });
+}

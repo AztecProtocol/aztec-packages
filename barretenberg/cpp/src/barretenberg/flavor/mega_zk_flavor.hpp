@@ -10,6 +10,7 @@
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa_utils.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/flavor_concepts.hpp"
 #include "barretenberg/flavor/generated/mega_zk_flavor_generated.hpp"
 #include "barretenberg/flavor/partially_evaluated_multivariates.hpp"
 #include "barretenberg/flavor/prover_polynomials.hpp"
@@ -103,6 +104,10 @@ class MegaZKFlavor : public MegaZKFlavor_Generated {
     }
 
     using AllValues = AllEntities<FF>;
+
+    static_assert(gemini_masking_layout_consistent<MegaZKFlavor>(),
+                  "MegaZKFlavor gemini masking flag must match its entity layout");
+
     using ProverPolynomials = ProverPolynomialsBase<AllEntities<Polynomial>, AllValues, Polynomial>;
     using PrecomputedData = PrecomputedData_<Polynomial, NUM_PRECOMPUTED_ENTITIES>;
     using VerificationKey = NativeVerificationKey_<PrecomputedEntities<Commitment>, Codec, HashFunction, CommitmentKey>;

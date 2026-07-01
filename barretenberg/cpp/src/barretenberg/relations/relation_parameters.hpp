@@ -48,6 +48,7 @@ template <typename T> struct RelationParameters {
         beta = beta_challenge;
         beta_sqr = beta * beta;
         beta_cube = beta_sqr * beta;
+        beta_quartic = beta_cube * beta;
     }
 
     // Multilinear batching (γ^0, ..., γ^{num_claims - 1}); entries past the claim count are left untouched so that
@@ -92,7 +93,8 @@ template <typename T> struct RelationParameters {
         RelationParameters result;
         result.compute_eta_powers(T::random_element()); // eta, eta_two = eta², eta_three = eta³
         result.rom_logup_gamma = T::random_element();
-        result.compute_beta_powers(T::random_element()); // beta, beta_sqr = beta², beta_cube = beta³
+        result.compute_beta_powers(
+            T::random_element()); // beta, beta_sqr = beta², beta_cube = beta³, beta_quartic = beta⁴
         result.gamma = T::random_element();
         result.public_input_delta = T::random_element();
         auto first_term_tag = result.beta_quartic; // FIRST_TERM_TAG (= 1) * beta_quartic

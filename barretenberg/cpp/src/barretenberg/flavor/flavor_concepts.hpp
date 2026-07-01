@@ -107,5 +107,21 @@ constexpr bool flavor_has_gemini_masking()
     }
 }
 
+// Whether a flavor's entity layout actually carries a gemini_masking_poly column.
+template <typename Flavor>
+constexpr bool flavor_entities_have_gemini_masking()
+{
+    return requires(typename Flavor::AllValues values) { values.gemini_masking_poly(); };
+}
+
+// The masking invariant: the advertised flag must match the real entity layout. A flavor that
+// declares Gemini masking (via HasGeminiMasking / HasZK) must actually carry the gemini_masking_poly
+// column, and vice versa.
+template <typename Flavor>
+constexpr bool gemini_masking_layout_consistent()
+{
+    return flavor_has_gemini_masking<Flavor>() == flavor_entities_have_gemini_masking<Flavor>();
+}
+
 // clang-format on
 } // namespace bb
