@@ -119,11 +119,18 @@ const CONTENT_TYPES = {
   '.gz': 'application/gzip',
 };
 
-function setCommonHeaders(res) {
+function setCommonHeaders(res, req) {
   // Cross-origin isolation for SharedArrayBuffer (required for multi-threaded
   // WASM). The bb.js worker bootstrap fails without these.
-  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-  res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+  // `?nocoi=1` opts the document OUT of isolation: crossOriginIsolated becomes
+  // false, so bb.js uses a NON-shared WebAssembly.Memory that grows on demand
+  // instead of a shared SAB that reserves its full max upfront. Needed on iOS
+  // Safari, where the reserved SAB is counted against the WebContent budget and
+  // kills the tab; pair with `threads=1` (no SAB means single-threaded only).
+  if (!/[?&]nocoi=1\b/.test(req?.url ?? '')) {
+    res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
+    res.setHeader('Cross-Origin-Embedder-Policy', 'require-corp');
+  }
   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
   // No-cache so re-running `yarn webpack` and refreshing the page picks up
   // the new bundle without the browser holding onto stale chunks.
@@ -142,7 +149,7 @@ function serveFile(res, filePath) {
 }
 
 const server = createServer((req, res) => {
-  setCommonHeaders(res);
+  setCommonHeaders(res, req);
   const url = req.url ?? '/';
   const reqStart = Date.now();
   res.on('finish', () => {
