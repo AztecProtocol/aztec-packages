@@ -75,8 +75,7 @@ use crate::protocol::{address::AztecAddress, hash::{poseidon2_hash, sha256_to_fi
 use crate::utils::array;
 
 /// Fact-collection type id shared by every partial-note reception in the [fact store](crate::facts).
-pub(crate) global PARTIAL_NOTE_RECEPTION_TYPE_ID: Field =
-    sha256_to_field("AZTEC_NR::PARTIAL_NOTE_RECEPTION_TYPE_ID".as_bytes());
+global PARTIAL_NOTE_RECEPTION_TYPE_ID: Field = sha256_to_field("AZTEC_NR::PARTIAL_NOTE_RECEPTION_TYPE_ID".as_bytes());
 
 /// Fact type id of the birth fact carrying the delivered private partial note.
 global PARTIAL_NOTE_DELIVERED: Field = sha256_to_field("AZTEC_NR::PARTIAL_NOTE_DELIVERED".as_bytes());
@@ -122,7 +121,7 @@ impl PartialNoteFsm {
     }
 
     /// The fact-collection id identifying a specific partial note.
-    pub(crate) fn id_for(pending: DeliveredPendingPartialNote) -> Field {
+    fn id_for(pending: DeliveredPendingPartialNote) -> Field {
         poseidon2_hash(pending.serialize())
     }
 
@@ -137,7 +136,7 @@ impl PartialNoteFsm {
     }
 
     /// Whether the partial note FSM is in `completed` state, i.e. its note was discovered and enqueued.
-    pub(crate) unconstrained fn is_completed(self) -> bool {
+    unconstrained fn is_completed(self) -> bool {
         self.collection.facts.any(|f: Fact| f.fact_type_id == PARTIAL_NOTE_COMPLETED)
     }
 
@@ -157,7 +156,7 @@ impl PartialNoteFsm {
     }
 
     /// Transition the partial note FSM as `completed`, conditional to `origin_block`.
-    pub(crate) unconstrained fn mark_completed(self, origin_block: OriginBlock) {
+    unconstrained fn mark_completed(self, origin_block: OriginBlock) {
         let empty_payload: EphemeralArray<Field> = EphemeralArray::empty();
         record_retractable_fact(
             self.collection.contract_address,
@@ -171,7 +170,7 @@ impl PartialNoteFsm {
     }
 
     /// Terminates this partial note FSM.
-    pub(crate) unconstrained fn terminate(self) {
+    unconstrained fn terminate(self) {
         delete_fact_collection(
             self.collection.contract_address,
             self.collection.scope,
