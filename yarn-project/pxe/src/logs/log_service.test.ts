@@ -315,7 +315,7 @@ describe('LogService', () => {
       // scanned, which only happens when the sender is registered.
       const recipientIvsk = await keyStore.getMasterIncomingViewingSecretKey(recipient);
       const sharedSecret = await computeSharedTaggingSecret(recipientCompleteAddress, recipientIvsk, sender);
-      const appSecret = await AppTaggingSecret.compute(sharedSecret!, contractAddress, recipient);
+      const appSecret = await AppTaggingSecret.computeDirectional(sharedSecret!, contractAddress, recipient);
       senderIndex0Tag = await SiloedTag.compute({ extendedSecret: appSecret, index: 0 });
 
       // Past the anchor block, so the log is unfinalized and the scan completes in a single round.
