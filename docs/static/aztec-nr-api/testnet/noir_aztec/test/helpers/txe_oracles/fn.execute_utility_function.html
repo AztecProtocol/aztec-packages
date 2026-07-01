@@ -47,8 +47,10 @@
 <li><a href="fn.get_next_block_timestamp.html">get_next_block_timestamp</a></div></li>
 <li><a href="fn.private_call_new_flow.html">private_call_new_flow</a></div></li>
 <li><a href="fn.public_call_new_flow.html">public_call_new_flow</a></div></li>
+<li><a href="fn.send_l1_to_l2_message.html">send_l1_to_l2_message</a></div></li>
 <li><a href="fn.set_private_txe_context.html">set_private_txe_context</a></div></li>
 <li><a href="fn.set_public_txe_context.html">set_public_txe_context</a></div></li>
+<li><a href="fn.set_tagging_secret_strategy.html">set_tagging_secret_strategy</a></div></li>
 <li><a href="fn.set_top_level_txe_context.html">set_top_level_txe_context</a></div></li>
 <li><a href="fn.set_utility_txe_context.html">set_utility_txe_context</a></div></li>
 </ul>
@@ -61,6 +63,7 @@
 <div><a href="../../../../index.html">aztec-nr</a> - <a href="../../../index.html">noir_aztec</a>::<a href="../../index.html">test</a>::<a href="../index.html">helpers</a>::<a href="index.html">txe_oracles</a></div>
 <h1>Function <span class="fn">execute_utility_function</span></h1>
 <pre><code>pub unconstrained fn execute_utility_function&lt;let M: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>, let T: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
+    from: <a href="../../../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>&gt;,
     contract_address: <a href="../../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
     function_selector: <a href="../../../../protocol_types/abis/function_selector/struct.FunctionSelector.html" class="struct">FunctionSelector</a>,
     args: [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; M],
