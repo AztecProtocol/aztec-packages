@@ -13,4 +13,4 @@ import { MAX_PRIVATE_LOGS_PER_TX } from '@aztec/constants';
 // ordinary transfers use far fewer logs per tx, so the same margin covers many more of those. Keep the margin
 // additive rather than another multiple of the floor — a larger window also makes recipient-side sync more
 // expensive, since discovery has to probe ahead of the last finalized index for every active secret.
-export const UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN = MAX_PRIVATE_LOGS_PER_TX + 20;
+export const UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN = 20;
