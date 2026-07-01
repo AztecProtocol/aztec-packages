@@ -1,0 +1,6 @@
+apiVersion: v2
+name: otel-metrics-collector
+description: OpenTelemetry Collector for scraping Prometheus metrics and exporting OTLP/HTTP
+type: application
+version: 0.1.0
+appVersion: "0.154.0"
