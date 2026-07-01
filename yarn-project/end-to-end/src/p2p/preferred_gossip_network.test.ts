@@ -365,10 +365,12 @@ describe('e2e_p2p_preferred_network', () => {
 
     // Send the required number of transactions to each node
     t.logger.info('Submitting transactions');
-    for (const node of nodes) {
-      const txs = await submitTransactions(t.logger, node, NUM_TXS_PER_NODE, t.fundedAccount);
-      txsSentViaDifferentNodes.push(txs);
-    }
+    // Each submitTransactions call builds its own wallet/PXE, so submissions are independent and can run
+    // concurrently. Promise.all preserves node order, keeping txsSentViaDifferentNodes[i] aligned with nodes[i].
+    const submitted = await Promise.all(
+      nodes.map(node => submitTransactions(t.logger, node, NUM_TXS_PER_NODE, t.fundedAccount)),
+    );
+    txsSentViaDifferentNodes.push(...submitted);
 
     t.logger.info('Waiting for transactions to be mined');
     // now ensure that all txs were successfully mined
