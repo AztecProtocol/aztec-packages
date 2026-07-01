@@ -239,6 +239,11 @@ function build {
   fi
 }
 
+function pinned_chonk_test_flow_names {
+  ensure_pinned_chonk_inputs "$(pinned_chonk_inputs_dir)" >&2
+  list_pinned_chonk_input_flows "$(pinned_chonk_inputs_dir)"
+}
+
 function test_cmds_native {
   # E.g. build, build-debug or build-coverage
   cd $native_build_dir
@@ -273,7 +278,9 @@ function test_cmds_native {
       done || (echo "Failed to list tests in $bin" && exit 1)
   done
 
-  echo "$hash:CPUS=8:MEM=32g:TIMEOUT=20m barretenberg/cpp/scripts/run_test.sh bbapi_tests ChonkPinnedIvcInputsTest.AllPinnedFlows"
+  while IFS= read -r flow; do
+    echo "$hash:CPUS=8:MEM=32g:TIMEOUT=20m CHONK_PINNED_IVC_FLOW=$flow barretenberg/cpp/scripts/run_test.sh bbapi_tests ChonkPinnedIvcInputsTest.AllPinnedFlows"
+  done < <(pinned_chonk_test_flow_names)
   echo "$hash barretenberg/cpp/scripts/chonk_inputs.sh check"
 }
 
