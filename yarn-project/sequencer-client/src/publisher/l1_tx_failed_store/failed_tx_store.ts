@@ -58,6 +58,17 @@ export type FailedL1Tx = {
     gasLimit?: string; // bigint as string
     /** Nonce used for the sent tx. */
     nonce?: number;
+    /**
+     * For timeouts: the escalating gas prices used across the initial send and each speed-up retry,
+     * in order. Compare against windowBlocks[].minIncludedPriorityFee to see if any attempt cleared the bar.
+     */
+    sentGasPriceLadder?: {
+      maxFeePerGas: string;
+      maxPriorityFeePerGas: string;
+      maxFeePerBlobGas?: string;
+    }[];
+    /** Number of send attempts (initial send + speed-ups). */
+    attempts?: number;
     /** L1 base fee at time of failure. */
     l1BaseFee?: string;
     /** Blob base fee at time of failure. */
@@ -74,22 +85,31 @@ export type FailedL1Tx = {
     pendingBlobCount?: number;
     /** L1 block number the fee snapshot was anchored to. */
     feeSnapshotBlockNumber?: string;
-    /** Info from the next mined L1 block — the definitive inclusion threshold. */
-    nextMinedBlock?: {
+    /**
+     * Per-block fee data for the L1 blocks the tx could have been included in (the target L2 slot's
+     * inclusion window), in chronological order. Compare sentGasPrice against these to see whether
+     * the tx was underpriced for each block it competed for. May be a partial or empty list if the
+     * window was not yet mined when the failure was recorded (e.g. an early send failure).
+     */
+    windowBlocks?: {
       blockNumber: string;
-      /** Minimum priority fee among all included txs. */
+      /** Unix timestamp (seconds) of the block. */
+      timestamp: string;
+      /** Base fee of the block. */
+      baseFeePerGas: string;
+      /** 75th percentile priority fee among the block's txs. */
+      p75PriorityFee: string;
+      /** Minimum priority fee among all included txs — the inclusion bar for this block. */
       minIncludedPriorityFee: string;
       /** Minimum priority fee among included blob txs. */
       minIncludedBlobPriorityFee: string;
       /** Whether the block's blob space was full. */
       blockBlobsFull: boolean;
-      /** Base fee of the mined block. */
-      baseFeePerGas: string;
       /** Number of blob txs included. */
       includedBlobTxCount: number;
       /** Total blob count included. */
       includedBlobCount: number;
-    };
+    }[];
   };
   /** Timing info relative to the L2 slot. */
   timing?: {

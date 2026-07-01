@@ -61,6 +61,11 @@ export interface L1TxUtilsConfig {
    * How long a tx nonce can be unseen in the mempool before considering it dropped
    */
   txUnseenConsideredDroppedMs?: number;
+  /**
+   * Whether to retain the per-attempt gas-price ladder (initial send + each speed-up) on the tx state,
+   * so a timeout can report what was paid. Set by the sequencer only when a failed-tx store is configured.
+   */
+  captureGasPriceHistory?: boolean;
   /** Enable tx delayer. When true, wraps the viem client to intercept and delay txs. Test-only. */
   enableDelayer?: boolean;
   /** Max seconds into an L1 slot for tx inclusion. Txs sent later are deferred to next slot. Only used when enableDelayer is true. */
@@ -148,6 +153,10 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
     description: 'How long a tx nonce can be unseen in the mempool before considering it dropped',
     env: 'L1_TX_MONITOR_TX_UNSEEN_CONSIDERED_DROPPED_MS',
     ...numberConfigHelper(6 * 12 * 1000), // 6 L1 blocks
+  },
+  captureGasPriceHistory: {
+    description: 'Retain the per-attempt gas-price ladder on tx state for failed-tx diagnostics.',
+    ...booleanConfigHelper(false),
   },
   enableDelayer: {
     description: 'Enable tx delayer for testing.',

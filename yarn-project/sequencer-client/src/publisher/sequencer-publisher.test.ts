@@ -10,6 +10,7 @@ import {
   type SlashingProposerContract,
 } from '@aztec/ethereum/contracts';
 import {
+  L1TxTimeoutError,
   type L1TxUtils,
   type L1TxUtilsConfig,
   MAX_L1_TX_LIMIT,
@@ -28,6 +29,9 @@ import { CheckpointHeader } from '@aztec/stdlib/rollup';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
+import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   type GetCodeReturnType,
   type GetTransactionReceiptReturnType,
@@ -42,8 +46,22 @@ import {
 import { privateKeyToAccount } from 'viem/accounts';
 
 import type { PublisherConfig, TxSenderConfig } from './config.js';
+import type { FailedL1Tx } from './l1_tx_failed_store/index.js';
 import type { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
 import { type Action, SequencerPublisher, compareActions } from './sequencer-publisher.js';
+
+// The failed-tx backup is fire-and-forget, so poll the store directory until the record lands.
+async function waitForFailedTxRecord(dir: string): Promise<FailedL1Tx> {
+  for (let i = 0; i < 40; i++) {
+    const files = await readdir(dir).catch(() => [] as string[]);
+    const jsonFile = files.find(f => f.endsWith('.json'));
+    if (jsonFile) {
+      return JSON.parse((await readFile(join(dir, jsonFile))).toString()) as FailedL1Tx;
+    }
+    await sleep(100);
+  }
+  throw new Error(`No failed-tx record was written to ${dir}`);
+}
 
 // Ensures proposal actions are sorted before slashing votes/signals
 
@@ -950,5 +968,73 @@ describe('SequencerPublisher', () => {
     ).toEqual(false);
 
     expect(governanceProposerContract.hasActiveProposalWithPayload).toHaveBeenCalledTimes(2);
+  });
+
+  describe('failed-tx store: timeout gas-price ladder (integration)', () => {
+    let storeDir: string;
+    let storedPublisher: SequencerPublisher;
+
+    beforeEach(async () => {
+      storeDir = await mkdtemp(join(tmpdir(), 'failed-tx-store-'));
+      const config = {
+        ...defaultL1TxUtilsConfig,
+        l1RpcUrls: ['http://127.0.0.1:8545'],
+        l1ChainId: 1,
+        ethereumSlotDuration: 12,
+        aztecSlotDuration: 36,
+        l1TxFailedStore: `file://${storeDir}`,
+      } as any;
+
+      storedPublisher = new SequencerPublisher(config, {
+        blobClient,
+        rollupContract: rollup,
+        l1TxUtils,
+        epochCache,
+        slashingProposerContract,
+        governanceProposerContract,
+        dateProvider: new TestDateProvider(),
+        metrics: l1Metrics,
+        lastActions: {},
+      });
+      storedPublisher.l1TxUtils = l1TxUtils;
+    });
+
+    afterEach(async () => {
+      await rm(storeDir, { recursive: true, force: true });
+    });
+
+    it('writes the gas-price ladder into the failed-tx record when a propose times out', async () => {
+      const ladder = {
+        gasPriceHistory: [
+          { maxFeePerGas: 100n, maxPriorityFeePerGas: 1n },
+          { maxFeePerGas: 150n, maxPriorityFeePerGas: 3n },
+        ],
+        finalGasPrice: { maxFeePerGas: 150n, maxPriorityFeePerGas: 3n },
+        attempts: 2,
+        nonce: 5,
+        gasLimit: 21_000n,
+      };
+      forwardSpy.mockRejectedValueOnce(new L1TxTimeoutError('timed out', ladder));
+
+      await storedPublisher.enqueueProposeCheckpoint(
+        new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
+        CommitteeAttestationsAndSigners.empty(testSignatureContext),
+        Signature.empty(),
+      );
+
+      const result = await storedPublisher.sendRequests();
+      expect(result).toBeUndefined();
+
+      const record = await waitForFailedTxRecord(join(storeDir, 'timeout'));
+
+      expect(record.failureType).toBe('timeout');
+      expect(record.gasInfo?.sentGasPriceLadder).toEqual([
+        { maxFeePerGas: '100', maxPriorityFeePerGas: '1' },
+        { maxFeePerGas: '150', maxPriorityFeePerGas: '3' },
+      ]);
+      expect(record.gasInfo?.attempts).toBe(2);
+      expect(record.gasInfo?.gasLimit).toBe('21000');
+      expect(record.gasInfo?.nonce).toBe(5);
+    }, 20_000);
   });
 });

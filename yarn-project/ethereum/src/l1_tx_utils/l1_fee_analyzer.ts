@@ -839,10 +839,14 @@ export async function captureFeeSnapshot(client: ViemClient): Promise<FeeSnapsho
   }
 }
 
-/** Fee thresholds from a mined L1 block for underpricing analysis. */
-export interface MinedBlockFees {
+/** Per-block fee data for one mined L1 block, used to diagnose whether a tx was underpriced for it. */
+export interface WindowBlockFees {
   blockNumber: bigint;
+  timestamp: bigint;
   baseFeePerGas: bigint;
+  /** 75th percentile priority fee among the block's txs. */
+  p75PriorityFee: bigint;
+  /** Minimum priority fee among all included txs — the inclusion bar for that block. */
   minIncludedPriorityFee: bigint;
   minIncludedBlobPriorityFee: bigint;
   blockBlobsFull: boolean;
@@ -850,31 +854,50 @@ export interface MinedBlockFees {
   includedBlobCount: number;
 }
 
-/** Waits for the next L1 block and extracts inclusion fee thresholds. Never throws. */
-export async function captureNextMinedBlockFees(
+/** Safety bound on how far back the window scan walks if the chain head is far ahead of the window. */
+const MAX_WINDOW_SCAN_BLOCKS = 64;
+
+/**
+ * Reads the already-mined L1 blocks whose timestamps fall in [windowStartS, windowEndS) — the L1
+ * inclusion window of an L2 slot — and extracts per-block fee data. Historical reads only, so it
+ * never waits on a future block. Returns the blocks in chronological order, [] on error, or the
+ * subset mined so far if the window is still in progress. Never throws.
+ */
+export async function captureWindowBlockFees(
   client: ViemClient,
-  currentBlockNumber: bigint,
-): Promise<MinedBlockFees | undefined> {
+  windowStartS: bigint,
+  windowEndS: bigint,
+): Promise<WindowBlockFees[]> {
   try {
-    await retryUntil(
-      async () => (await client.getBlockNumber()) > currentBlockNumber,
-      'Wait for next block for fee capture',
-      15_000,
-      0.5,
-    );
-    const minedBlock = await client.getBlock({ includeTransactions: true });
-    const processed = processTransactions(minedBlock.transactions);
-    const blobsInBlock = minedBlock.blobGasUsed ? Number(minedBlock.blobGasUsed / GAS_PER_BLOB) : 0;
-    return {
-      blockNumber: minedBlock.number,
-      baseFeePerGas: minedBlock.baseFeePerGas ?? 0n,
-      minIncludedPriorityFee: minBigInt(processed.allPriorityFees),
-      minIncludedBlobPriorityFee: minBigInt(processed.blobPriorityFees),
-      blockBlobsFull: blobsInBlock >= getMaxBlobCapacity(minedBlock.timestamp),
-      includedBlobTxCount: processed.blobTxs.length,
-      includedBlobCount: processed.totalBlobCount,
-    };
+    const results: WindowBlockFees[] = [];
+    let current = await client.getBlock({ blockTag: 'latest', includeTransactions: true });
+    let scanned = 0;
+    // Walk back from the head, collecting blocks inside the window and skipping any past its end,
+    // until we cross below the window start (or hit the safety cap / genesis).
+    while (current.timestamp >= windowStartS && scanned < MAX_WINDOW_SCAN_BLOCKS) {
+      if (current.timestamp < windowEndS) {
+        const processed = processTransactions(current.transactions);
+        const blobsInBlock = current.blobGasUsed ? Number(current.blobGasUsed / GAS_PER_BLOB) : 0;
+        results.push({
+          blockNumber: current.number,
+          timestamp: current.timestamp,
+          baseFeePerGas: current.baseFeePerGas ?? 0n,
+          p75PriorityFee: calculatePercentile(processed.allPriorityFees, 75),
+          minIncludedPriorityFee: minBigInt(processed.allPriorityFees),
+          minIncludedBlobPriorityFee: minBigInt(processed.blobPriorityFees),
+          blockBlobsFull: blobsInBlock >= getMaxBlobCapacity(current.timestamp),
+          includedBlobTxCount: processed.blobTxs.length,
+          includedBlobCount: processed.totalBlobCount,
+        });
+      }
+      if (current.number === 0n) {
+        break;
+      }
+      current = await client.getBlock({ blockNumber: current.number - 1n, includeTransactions: true });
+      scanned++;
+    }
+    return results.reverse();
   } catch {
-    return undefined;
+    return [];
   }
 }
