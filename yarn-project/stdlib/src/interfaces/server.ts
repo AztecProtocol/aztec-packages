@@ -18,7 +18,6 @@ export * from './processed-tx-handler.js';
 export * from './prover-agent.js';
 export * from './prover-broker.js';
 export * from './prover-client.js';
-export * from './prover-coordination.js';
 export * from './prover-node.js';
 export * from './proving-job-source.js';
 export * from './proving-job.js';

@@ -21,7 +21,6 @@ export * from './tx_effect.js';
 export * from './public_simulation_output.js';
 export * from './tx_execution_request.js';
 export * from './validator/tx_validator.js';
-export * from './validator/empty_validator.js';
 export * from './validator/error_texts.js';
 export * from './capsule.js';
 export * from './fee_provider.js';
