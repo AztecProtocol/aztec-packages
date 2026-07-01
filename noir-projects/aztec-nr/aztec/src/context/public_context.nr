@@ -67,8 +67,8 @@ use crate::protocol::{
 /// fundamentally different from optimising a public function.
 ///
 pub struct PublicContext {
-    pub args_hash: Option<Field>,
-    pub compute_args_hash: fn() -> Field,
+    args_hash: Option<Field>,
+    compute_args_hash: fn() -> Field,
 }
 
 impl Eq for PublicContext {
