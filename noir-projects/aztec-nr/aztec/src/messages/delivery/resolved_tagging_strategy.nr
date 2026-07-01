@@ -23,6 +23,10 @@ impl ResolvedTaggingStrategy {
         Self { kind: UNCONSTRAINED_SECRET, secret }
     }
 
+    pub fn is_unconstrained_secret(self) -> bool {
+        self.kind == UNCONSTRAINED_SECRET
+    }
+
     /// Validates a raw discriminant, as deserialization must always reject unknown values.
     fn from_parts(kind: u8, secret: Field) -> Self {
         let resolved = Self { kind, secret };
