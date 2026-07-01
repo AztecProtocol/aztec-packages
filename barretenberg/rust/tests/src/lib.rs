@@ -1,6 +1,6 @@
 //! Barretenberg Rust test suite
 //!
-//! This test suite parallels the TypeScript test suite in barretenberg/ts/src/barretenberg.
+//! This test suite parallels the TypeScript test suite in barretenberg/ts/bb.js/src/barretenberg.
 //!
 //! ## Running Tests
 //!

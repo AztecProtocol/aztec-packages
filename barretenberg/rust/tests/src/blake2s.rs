@@ -1,6 +1,6 @@
 //! Blake2s hash tests
 //!
-//! Parallels barretenberg/ts/src/barretenberg/blake2s.test.ts
+//! Parallels barretenberg/ts/bb.js/src/barretenberg/blake2s.test.ts
 //!
 //! These tests require the BB binary to be built. They are skipped if the binary is not found.
 

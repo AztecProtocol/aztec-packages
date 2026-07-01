@@ -229,9 +229,12 @@ class SpawnedBackend implements IpcClientAsync {
     private exitPromise: Promise<void>,
     private logPath: string | undefined,
   ) {
-    // Detect unexpected server death. Over SHM there is no connection to break,
+${supportsShm
+  ? `    // Detect unexpected server death. Over SHM there is no connection to break,
     // so without this an in-flight call waits forever for a reply that will
-    // never arrive. Reject in-flight calls and point at the log file.
+    // never arrive. Reject in-flight calls and point at the log file.`
+  : `    // Detect unexpected server death and reject in-flight calls with the
+    // child log path included in the error.`}
     this.child.on('exit', (code, signal) => {
       if (this.destroying) {
         return;
@@ -253,9 +256,13 @@ class SpawnedBackend implements IpcClientAsync {
 
     const transport = options.transport ?? '${defaultTransport}';
     const instanceId = '${toSnakeCase(prefix)}-' + process.pid + '-' + threadId + '-' + instanceCounter++;
-    const ipcPath = transport === 'shm'
+    const ipcPath = ${
+      supportsShm
+        ? `transport === 'shm'
       ? instanceId + '.shm'
-      : join(tmpdir(), instanceId + '.sock');
+      : join(tmpdir(), instanceId + '.sock')`
+        : `join(tmpdir(), instanceId + '.sock')`
+    };
 
     if (transport === 'uds' && existsSync(ipcPath)) {
       unlinkSync(ipcPath);
@@ -315,6 +322,12 @@ class SpawnedBackend implements IpcClientAsync {
     return this.client.call(input);
   }
 
+  sendProcessSignal(signal: NodeJS.Signals): void {
+    if (this.child.exitCode === null) {
+      this.child.kill(signal);
+    }
+  }
+
   async destroy(): Promise<void> {
     // Mark intentional teardown so the exit handler doesn't report it as an
     // unexpected death.
@@ -372,7 +385,7 @@ function cleanupIpcPath(ipcPath: string, transport: ${serviceTransport}) {
     if (transport === 'uds' && existsSync(ipcPath)) {
       unlinkSync(ipcPath);
     }
-    if (transport === 'shm') {
+${supportsShm ? `    if (transport === 'shm') {
       const shmName = ipcPath.replace(/\\.shm$/, '');
       for (const suffix of ['_request', '_response']) {
         const shmPath = '/dev/shm/' + shmName + suffix;
@@ -381,6 +394,7 @@ function cleanupIpcPath(ipcPath: string, transport: ${serviceTransport}) {
         }
       }
     }
+` : ""}
   } catch {}
 }
 
@@ -396,6 +410,10 @@ export class ${serviceClass} extends AsyncApi {
 
   getIpcPath(): string {
     return this.spawnedBackend.getIpcPath();
+  }
+
+  sendProcessSignal(signal: NodeJS.Signals): void {
+    this.spawnedBackend.sendProcessSignal(signal);
   }
 }
 `;

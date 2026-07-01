@@ -1,2 +1,6 @@
 ^barretenberg/ts/.*$
 ^barretenberg/ts/bootstrap.sh
+^ipc-codegen/src/.*\.ts$
+^ipc-codegen/templates/
+^barretenberg/cpp/src/barretenberg/avm/avm_schema\.json$
+^barretenberg/cpp/src/barretenberg/cdb/cdb_schema\.json$

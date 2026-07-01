@@ -43,8 +43,8 @@ const LANGUAGE_GENERATORS: LanguageGenerator[] = [
     generate: (compiled) => {
       const rustGen = new RustCodegen();
       return [
-        { path: '../../../rust/barretenberg-rs/src/generated_types.rs', content: rustGen.generateTypes(compiled) },
-        { path: '../../../rust/barretenberg-rs/src/api.rs', content: rustGen.generateApi(compiled) },
+        { path: '../../../../rust/barretenberg-rs/src/generated_types.rs', content: rustGen.generateTypes(compiled) },
+        { path: '../../../../rust/barretenberg-rs/src/api.rs', content: rustGen.generateApi(compiled) },
       ];
     },
   },
@@ -54,7 +54,7 @@ const LANGUAGE_GENERATORS: LanguageGenerator[] = [
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 async function generate() {
-  const bbBuildPath = process.env.BB_BINARY_PATH || join(__dirname, '../../../cpp/build/bin/bb');
+  const bbBuildPath = process.env.BB_BINARY_PATH || join(__dirname, '../../../../cpp/build/bin/bb');
 
   // Get schema from bb
   console.log('Fetching msgpack schema from bb...');
