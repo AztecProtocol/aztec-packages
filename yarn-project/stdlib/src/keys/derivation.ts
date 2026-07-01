@@ -97,21 +97,50 @@ export function derivePublicKeyFromSecretKey(secretKey: Fq): Promise<PublicKey> 
 }
 
 /**
+ * The six master secret keys that fully define an account's privacy keys.
+ */
+export type MasterSecretKeys = {
+  masterNullifierHidingKey: GrumpkinScalar;
+  masterIncomingViewingSecretKey: GrumpkinScalar;
+  masterOutgoingViewingSecretKey: GrumpkinScalar;
+  masterTaggingSecretKey: GrumpkinScalar;
+  masterMessageSigningSecretKey: GrumpkinScalar;
+  masterFallbackSecretKey: GrumpkinScalar;
+};
+
+/**
  * Computes secret and public keys and public keys hash from a secret key.
  * @param secretKey - The secret key to derive keys from.
  * @returns The derived keys.
  */
-export async function deriveKeys(secretKey: Fr) {
+export function deriveKeys(secretKey: Fr) {
   // First we derive master secret/hiding keys -  we use sha512 here because this derivation will never take place
   // in a circuit
-  const masterNullifierHidingKey = deriveMasterNullifierHidingKey(secretKey);
-  const masterIncomingViewingSecretKey = deriveMasterIncomingViewingSecretKey(secretKey);
-  const masterOutgoingViewingSecretKey = deriveMasterOutgoingViewingSecretKey(secretKey);
-  const masterTaggingSecretKey = sha512ToGrumpkinScalar([secretKey, DomainSeparator.TSK_M]);
-  const masterMessageSigningSecretKey = deriveMasterMessageSigningSecretKey(secretKey);
-  const masterFallbackSecretKey = deriveMasterFallbackSecretKey(secretKey);
+  return deriveKeysFromMasterSecretKeys({
+    masterNullifierHidingKey: deriveMasterNullifierHidingKey(secretKey),
+    masterIncomingViewingSecretKey: deriveMasterIncomingViewingSecretKey(secretKey),
+    masterOutgoingViewingSecretKey: deriveMasterOutgoingViewingSecretKey(secretKey),
+    masterTaggingSecretKey: sha512ToGrumpkinScalar([secretKey, DomainSeparator.TSK_M]),
+    masterMessageSigningSecretKey: deriveMasterMessageSigningSecretKey(secretKey),
+    masterFallbackSecretKey: deriveMasterFallbackSecretKey(secretKey),
+  });
+}
 
-  // Then we derive master public keys
+/**
+ * Derives the master public keys and the {@link PublicKeys} struct from a set of master secret keys.
+ * @param secretKeys - The master secret keys to derive public keys from.
+ * @returns The provided secret keys alongside the derived public keys.
+ */
+export async function deriveKeysFromMasterSecretKeys(secretKeys: MasterSecretKeys) {
+  const {
+    masterNullifierHidingKey,
+    masterIncomingViewingSecretKey,
+    masterOutgoingViewingSecretKey,
+    masterTaggingSecretKey,
+    masterMessageSigningSecretKey,
+    masterFallbackSecretKey,
+  } = secretKeys;
+
   const masterNullifierPublicKey = await derivePublicKeyFromSecretKey(masterNullifierHidingKey);
   const masterIncomingViewingPublicKey = await derivePublicKeyFromSecretKey(masterIncomingViewingSecretKey);
   const masterOutgoingViewingPublicKey = await derivePublicKeyFromSecretKey(masterOutgoingViewingSecretKey);

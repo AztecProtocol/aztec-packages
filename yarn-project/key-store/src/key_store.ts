@@ -11,9 +11,11 @@ import { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import {
   KEY_PREFIXES,
   type KeyPrefix,
+  type MasterSecretKeys,
   type PublicKey,
   computeAppSecretKey,
   deriveKeys,
+  deriveKeysFromMasterSecretKeys,
   derivePublicKeyFromSecretKey,
   hashPublicKey,
 } from '@aztec/stdlib/keys';
@@ -47,63 +49,26 @@ export class KeyStore {
   }
 
   /**
-   * Adds an account to the key store from the provided secret key.
-   * @param sk - The secret key of the account.
+   * Adds an account to the key store.
+   *
+   * The account's privacy keys may be provided either as a single master secret key, from which all master keys are
+   * derived, or as the full set of master private secret keys supplied directly (e.g. for an account whose privacy keys
+   * were generated independently rather than from one seed).
+   *
+   * @param secretKeyOrKeys - The account's master secret key, or its full set of master secret keys.
    * @param partialAddress - The partial address of the account.
    * @returns The account's complete address.
+   * @throws If any of the provided secret keys is zero.
    */
-  public async addAccount(sk: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
-    const {
-      masterNullifierHidingKey,
-      masterIncomingViewingSecretKey,
-      masterOutgoingViewingSecretKey,
-      masterTaggingSecretKey,
-      masterMessageSigningSecretKey,
-      masterFallbackSecretKey,
-      masterNullifierPublicKey,
-      masterOutgoingViewingPublicKey,
-      masterTaggingPublicKey,
-      masterMessageSigningPublicKey,
-      masterFallbackPublicKey,
-      publicKeys,
-    } = await deriveKeys(sk);
-
-    const completeAddress = await CompleteAddress.fromPublicKeysAndPartialAddress(publicKeys, partialAddress);
-    const { address: account } = completeAddress;
-
-    // The kernel cannot check that nhpk/ovpk/tpk are on-curve or non-infinity, so the PXE/key-store
-    // must guarantee it before persistence. By design, the above derivation produces points that are on
-    // the curve and not at infinity.
-
-    // The npk/ovpk/tpk hashes are already in publicKeys; ivpk_m_hash is computed for indexing.
-    const masterIncomingViewingPublicKeyHash = await hashPublicKey(publicKeys.ivpkM);
-
-    await this.#db.transactionAsync(async () => {
-      // Naming of keys is as follows ${account}-${n/iv/ov/t/ms/fb}${sk/pk}_m
-      await this.#keys.set(`${account.toString()}-ivsk_m`, masterIncomingViewingSecretKey.toBuffer());
-      await this.#keys.set(`${account.toString()}-ovsk_m`, masterOutgoingViewingSecretKey.toBuffer());
-      await this.#keys.set(`${account.toString()}-tsk_m`, masterTaggingSecretKey.toBuffer());
-      await this.#keys.set(`${account.toString()}-nhk_m`, masterNullifierHidingKey.toBuffer());
-      await this.#keys.set(`${account.toString()}-mssk_m`, masterMessageSigningSecretKey.toBuffer());
-      await this.#keys.set(`${account.toString()}-fbsk_m`, masterFallbackSecretKey.toBuffer());
-
-      await this.#keys.set(`${account.toString()}-npk_m`, masterNullifierPublicKey.toBuffer());
-      await this.#keys.set(`${account.toString()}-ivpk_m`, publicKeys.ivpkM.toBuffer());
-      await this.#keys.set(`${account.toString()}-ovpk_m`, masterOutgoingViewingPublicKey.toBuffer());
-      await this.#keys.set(`${account.toString()}-tpk_m`, masterTaggingPublicKey.toBuffer());
-      await this.#keys.set(`${account.toString()}-mspk_m`, masterMessageSigningPublicKey.toBuffer());
-      await this.#keys.set(`${account.toString()}-fbpk_m`, masterFallbackPublicKey.toBuffer());
-
-      // We store pk_m_hash under `account-{n/iv/ov/t}pk_m_hash` key to be able to obtain address and key prefix
-      // using the #getKeyPrefixAndAccount function later on
-      await this.#keys.set(`${account.toString()}-npk_m_hash`, publicKeys.npkMHash.toBuffer());
-      await this.#keys.set(`${account.toString()}-ivpk_m_hash`, masterIncomingViewingPublicKeyHash.toBuffer());
-      await this.#keys.set(`${account.toString()}-ovpk_m_hash`, publicKeys.ovpkMHash.toBuffer());
-      await this.#keys.set(`${account.toString()}-tpk_m_hash`, publicKeys.tpkMHash.toBuffer());
-    });
-
-    // At last, we return the newly derived account address
-    return completeAddress;
+  public async addAccount(
+    secretKeyOrKeys: Fr | MasterSecretKeys,
+    partialAddress: PartialAddress,
+  ): Promise<CompleteAddress> {
+    const derivedKeys =
+      secretKeyOrKeys instanceof Fr
+        ? await deriveKeys(secretKeyOrKeys)
+        : await deriveKeysFromMasterSecretKeys(this.#assertNonZeroSecretKeys(secretKeyOrKeys));
+    return this.#storeDerivedKeys(derivedKeys, partialAddress);
   }
 
   /**
@@ -246,6 +211,23 @@ export class KeyStore {
   }
 
   /**
+   * Retrieves all six master secret keys for an account. Paired with {@link addAccount}, this allows exporting an
+   * account's privacy keys, e.g. to re-register it on another PXE.
+   *
+   * @throws If the account does not exist in the key store.
+   */
+  public async getAccountSecretKeys(account: AztecAddress): Promise<MasterSecretKeys> {
+    return {
+      masterNullifierHidingKey: GrumpkinScalar.fromBuffer(await this.#getMasterKeyBuffer(account, 'nhk_m')),
+      masterIncomingViewingSecretKey: GrumpkinScalar.fromBuffer(await this.#getMasterKeyBuffer(account, 'ivsk_m')),
+      masterOutgoingViewingSecretKey: GrumpkinScalar.fromBuffer(await this.#getMasterKeyBuffer(account, 'ovsk_m')),
+      masterTaggingSecretKey: GrumpkinScalar.fromBuffer(await this.#getMasterKeyBuffer(account, 'tsk_m')),
+      masterMessageSigningSecretKey: GrumpkinScalar.fromBuffer(await this.#getMasterKeyBuffer(account, 'mssk_m')),
+      masterFallbackSecretKey: GrumpkinScalar.fromBuffer(await this.#getMasterKeyBuffer(account, 'fbsk_m')),
+    };
+  }
+
+  /**
    * Retrieves application outgoing viewing secret key.
    * @throws If the account does not exist in the key store.
    * @param account - The account to retrieve the application outgoing viewing secret key for.
@@ -338,6 +320,75 @@ export class KeyStore {
       }
     }
     throw new Error(`Could not find key prefix.`);
+  }
+
+  /** Throws if any of the provided master secret keys is zero, which would derive the point at infinity. */
+  #assertNonZeroSecretKeys(secretKeys: MasterSecretKeys): MasterSecretKeys {
+    for (const [name, secretKey] of Object.entries(secretKeys)) {
+      if (secretKey.isZero()) {
+        throw new Error(`Cannot register an account with a zero ${name}.`);
+      }
+    }
+    return secretKeys;
+  }
+
+  /**
+   * Persists a fully derived set of account keys and returns the resulting complete address.
+   */
+  async #storeDerivedKeys(
+    derivedKeys: Awaited<ReturnType<typeof deriveKeysFromMasterSecretKeys>>,
+    partialAddress: PartialAddress,
+  ): Promise<CompleteAddress> {
+    const {
+      masterNullifierHidingKey,
+      masterIncomingViewingSecretKey,
+      masterOutgoingViewingSecretKey,
+      masterTaggingSecretKey,
+      masterMessageSigningSecretKey,
+      masterFallbackSecretKey,
+      masterNullifierPublicKey,
+      masterOutgoingViewingPublicKey,
+      masterTaggingPublicKey,
+      masterMessageSigningPublicKey,
+      masterFallbackPublicKey,
+      publicKeys,
+    } = derivedKeys;
+
+    const completeAddress = await CompleteAddress.fromPublicKeysAndPartialAddress(publicKeys, partialAddress);
+    const { address: account } = completeAddress;
+
+    // The kernel cannot check that nhpk/ovpk/tpk are on-curve or non-infinity, so the PXE/key-store
+    // must guarantee it before persistence. By design, derivation from non-zero secret keys produces points
+    // that are on the curve and not at infinity.
+
+    // The npk/ovpk/tpk hashes are already in publicKeys; ivpk_m_hash is computed for indexing.
+    const masterIncomingViewingPublicKeyHash = await hashPublicKey(publicKeys.ivpkM);
+
+    await this.#db.transactionAsync(async () => {
+      // Naming of keys is as follows ${account}-${n/iv/ov/t/ms/fb}${sk/pk}_m
+      await this.#keys.set(`${account.toString()}-ivsk_m`, masterIncomingViewingSecretKey.toBuffer());
+      await this.#keys.set(`${account.toString()}-ovsk_m`, masterOutgoingViewingSecretKey.toBuffer());
+      await this.#keys.set(`${account.toString()}-tsk_m`, masterTaggingSecretKey.toBuffer());
+      await this.#keys.set(`${account.toString()}-nhk_m`, masterNullifierHidingKey.toBuffer());
+      await this.#keys.set(`${account.toString()}-mssk_m`, masterMessageSigningSecretKey.toBuffer());
+      await this.#keys.set(`${account.toString()}-fbsk_m`, masterFallbackSecretKey.toBuffer());
+
+      await this.#keys.set(`${account.toString()}-npk_m`, masterNullifierPublicKey.toBuffer());
+      await this.#keys.set(`${account.toString()}-ivpk_m`, publicKeys.ivpkM.toBuffer());
+      await this.#keys.set(`${account.toString()}-ovpk_m`, masterOutgoingViewingPublicKey.toBuffer());
+      await this.#keys.set(`${account.toString()}-tpk_m`, masterTaggingPublicKey.toBuffer());
+      await this.#keys.set(`${account.toString()}-mspk_m`, masterMessageSigningPublicKey.toBuffer());
+      await this.#keys.set(`${account.toString()}-fbpk_m`, masterFallbackPublicKey.toBuffer());
+
+      // We store pk_m_hash under `account-{n/iv/ov/t}pk_m_hash` key to be able to obtain address and key prefix
+      // using the #getKeyPrefixAndAccount function later on
+      await this.#keys.set(`${account.toString()}-npk_m_hash`, publicKeys.npkMHash.toBuffer());
+      await this.#keys.set(`${account.toString()}-ivpk_m_hash`, masterIncomingViewingPublicKeyHash.toBuffer());
+      await this.#keys.set(`${account.toString()}-ovpk_m_hash`, publicKeys.ovpkMHash.toBuffer());
+      await this.#keys.set(`${account.toString()}-tpk_m_hash`, publicKeys.tpkMHash.toBuffer());
+    });
+
+    return completeAddress;
   }
 
   /**

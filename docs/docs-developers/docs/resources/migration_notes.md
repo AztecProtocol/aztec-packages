@@ -9,6 +9,29 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.js] `AccountWithSecretKey` removed, read account keys from the `AccountManager` or PXE
+
+`AccountWithSecretKey` was a thin wrapper that bundled an account's transaction signer with its master secret key, used mainly to print or export the secret. It has been removed, and `AccountManager.getAccount()` now returns the plain `Account` signer. The wrapper's extra methods are no longer available on that value:
+
+- `getSecretKey()`: read it from the `AccountManager`, which still exposes `getSecretKey()`.
+- `getEncryptionSecret()`: this was unused and has been removed. To recover an account's encryption (address) secret, pass its master incoming viewing secret key to `computeAddressSecret`. You can read that key, along with the account's other master secret keys, from `pxe.getAccountSecretKeys(address)`.
+
+**Migration:**
+
+```diff
+
+- import { AccountWithSecretKey } from '@aztec/aztec.js/account';
+-
+- const account = await accountManager.getAccount();
+- const secretKey = account.getSecretKey();
++ const secretKey = accountManager.getSecretKey();
+```
+
+To do what `AccountWithSecretKey` was meant for (exporting an account into a separate PXE or wallet), account registration now also accepts a full set of master secret keys instead of only a single seed. `wallet.registerContract(instance, artifact?, secretKeyOrKeys?)` and `pxe.registerAccount(secretKeyOrKeys, partialAddress)` take either an `Fr` (as before) or a `MasterSecretKeys` object (exported from `@aztec/aztec.js/keys`), and `pxe.getAccountSecretKeys(address)` returns those keys. These keys guard the account's privacy, so they should never be exposed to applications.
+
+**Impact**: Importing `AccountWithSecretKey`, or calling `getSecretKey()`/`getEncryptionSecret()` on the result of `getAccount()`, no longer compiles. The signer `getAccount()` returns is otherwise unchanged, and passing a single `Fr` to the registration methods keeps working.
+
+
 ### [PXE] Unconstrained delivery defaults to a non-interactive handshake for external recipients
 
 When no `resolveTaggingSecretStrategy` hook is configured, onchain unconstrained delivery now defaults to a non-interactive handshake when the recipient is external (an account whose keys the wallet does not hold), instead of an address-derived shared secret. A self-send (the recipient is one of the wallet's own accounts) still uses an address-derived secret, which needs no handshake and leaves no onchain trace.

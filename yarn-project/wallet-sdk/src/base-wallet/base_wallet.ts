@@ -54,6 +54,7 @@ import {
   computeSiloedPublicInitializationNullifier,
 } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import type { MasterSecretKeys } from '@aztec/stdlib/keys';
 import {
   BlockHeader,
   ExecutionPayload,
@@ -354,7 +355,7 @@ export abstract class BaseWallet implements Wallet {
   async registerContract(
     instance: ContractInstanceWithAddress,
     artifact?: ContractArtifact,
-    secretKey?: Fr,
+    secretKeyOrKeys?: Fr | MasterSecretKeys,
   ): Promise<ContractInstanceWithAddress> {
     const existingInstance = await this.pxe.getContractInstance(instance.address);
 
@@ -383,8 +384,8 @@ export abstract class BaseWallet implements Wallet {
       await this.pxe.registerContract({ artifact, instance });
     }
 
-    if (secretKey) {
-      await this.pxe.registerAccount(secretKey, await computePartialAddress(instance));
+    if (secretKeyOrKeys) {
+      await this.pxe.registerAccount(secretKeyOrKeys, await computePartialAddress(instance));
     }
     return instance;
   }

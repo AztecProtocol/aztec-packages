@@ -343,7 +343,6 @@ export class ClientFlowsBenchmark {
 
   public async createAndFundBenchmarkingAccountOnUserWallet(accountType: AccountType) {
     const benchysAccountManager = await this.createBenchmarkingAccountManager(this.adminWallet, accountType);
-    const benchysAccount = await benchysAccountManager.getAccount();
     const benchysAddress = benchysAccountManager.address;
     const claim = await this.feeJuiceBridgeTestHarness.prepareTokensOnL1(benchysAddress);
     const behchysDeployMethod = await benchysAccountManager.getDeployMethod();
@@ -353,7 +352,7 @@ export class ClientFlowsBenchmark {
     });
     // Register benchy on the user's Wallet, where we're going to be interacting from
     const accountManager = await this.userWallet.createAccount({
-      secret: benchysAccount.getSecretKey(),
+      secret: benchysAccountManager.getSecretKey(),
       salt: new Fr(benchysAccountManager.getInstance().salt),
       contract: benchysAccountManager.getAccountContract(),
     });

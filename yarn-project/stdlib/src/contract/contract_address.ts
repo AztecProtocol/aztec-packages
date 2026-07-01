@@ -7,6 +7,7 @@ import type { AztecAddress } from '../aztec-address/index.js';
 import { computeVarArgsHash } from '../hash/hash.js';
 import { computeAddress } from '../keys/index.js';
 import type { ContractInstance } from './interfaces/contract_instance.js';
+import type { PartialAddress } from './partial_address.js';
 
 // TODO(@spalladino): Review all generator indices in this file
 
@@ -36,7 +37,7 @@ export async function computePartialAddress(
   instance:
     | Pick<ContractInstance, 'originalContractClassId' | 'initializationHash' | 'salt' | 'deployer' | 'immutablesHash'>
     | { originalContractClassId: Fr; saltedInitializationHash: Fr },
-): Promise<Fr> {
+): Promise<PartialAddress> {
   const saltedInitializationHash =
     'saltedInitializationHash' in instance
       ? instance.saltedInitializationHash

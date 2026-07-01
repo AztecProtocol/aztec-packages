@@ -33,6 +33,7 @@ import type {
   PrivateKernelExecutionProofOutput,
   PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/stdlib/kernel';
+import type { MasterSecretKeys } from '@aztec/stdlib/keys';
 import {
   BlockHeader,
   type ContractOverrides,
@@ -655,18 +656,26 @@ export class PXE {
   }
 
   /**
-   * Registers a user account in PXE given its master encryption private key.
-   * Once a new account is registered, the PXE will trial-decrypt all published notes on
-   * the chain and store those that correspond to the registered account. Will do nothing if the
-   * account is already registered.
+   * Registers a user account in PXE.
    *
-   * @param secretKey - Secret key of the corresponding user master public key.
+   * The account's privacy keys may be provided either as a single master secret key, from which all keys are derived,
+   * or as the full set of master secret keys (for an account whose privacy keys were generated independently rather
+   * than from one seed).
+   *
+   * Does nothing if the account is already registered.
+   *
+   * The keys can be retrieved later with {@link getAccountSecretKeys}.
+   *
+   * @param secretKeyOrKeys - The account's master secret key, or its full set of master secret keys.
    * @param partialAddress - The partial address of the account contract corresponding to the account being registered.
    * @returns The complete address of the account.
    */
-  public async registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
+  public async registerAccount(
+    secretKeyOrKeys: Fr | MasterSecretKeys,
+    partialAddress: PartialAddress,
+  ): Promise<CompleteAddress> {
     const accounts = await this.keyStore.getAccounts();
-    const accountCompleteAddress = await this.keyStore.addAccount(secretKey, partialAddress);
+    const accountCompleteAddress = await this.keyStore.addAccount(secretKeyOrKeys, partialAddress);
     if (accounts.some(a => a.equals(accountCompleteAddress.address))) {
       this.log.info(`Account:\n "${accountCompleteAddress.address.toString()}"\n already registered.`);
       return accountCompleteAddress;
@@ -677,6 +686,23 @@ export class PXE {
 
     await this.addressStore.addCompleteAddress(accountCompleteAddress);
     return accountCompleteAddress;
+  }
+
+  /**
+   * Retrieves the master privacy secret keys of a registered account.
+   *
+   * These do NOT grant control over an account's assets, e.g. they are insufficient to impersonate the account or to
+   * spend notes, but they _do_ guard the account's privacy. Parties that have knowledge of these keys can decrypt all
+   * messages sent to the account, discover all of their on-chain activity, including notes, events, etc.
+   *
+   * Security is paramount when handling these keys, which should itself be a very rare occurrence. Other than exporting
+   * and then importing an account into a separate PXE/wallet, there is typically no need for a wallet to ever access
+   * these keys. Applications should NEVER be given access to them.
+   *
+   * @throws If the account is not registered.
+   */
+  public getAccountSecretKeys(account: AztecAddress): Promise<MasterSecretKeys> {
+    return this.keyStore.getAccountSecretKeys(account);
   }
 
   /**
