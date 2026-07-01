@@ -16,6 +16,7 @@ import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchma
 jest.setTimeout(1_600_000);
 
 const AMOUNT_PER_NOTE = 1_000_000;
+const APPS_PER_ONCHAIN_HANDSHAKE_DELIVERY = 2;
 
 const MINIMUM_NOTES_FOR_RECURSION_LEVEL = [0, 2, 10];
 
@@ -144,6 +145,7 @@ describe('Transfer benchmark', () => {
               expectedExecutionSteps(
                 1 + // Account entrypoint
                   paymentMethod.apps + // Payment method apps
+                  APPS_PER_ONCHAIN_HANDSHAKE_DELIVERY +
                   1 + // CandyBarCoin transfer
                   recursions, // CandyBarCoin _recurse_subtract_balance per recursion
               ),
