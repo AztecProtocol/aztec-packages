@@ -34,7 +34,18 @@ describe('single-node/block-building/multiple_blobs', () => {
   let test: SingleNodeTestContext;
 
   beforeAll(async () => {
-    test = await setupBlockProducer({ ...PIPELINING_SETUP_OPTS, numberOfAccounts: 1 });
+    // Anchor the PXE on the checkpointed tip rather than setupBlockProducer's default proposed tip.
+    // At cold start the node can boot inside a slot whose checkpoint-proposal deadline has already
+    // elapsed; the sequencer then never proposes that slot's checkpoint to L1 and the archiver
+    // orphan-prunes the uncheckpointed block. A tx anchored on the proposed tip loses its anchor
+    // block in that prune and is dropped ("Tx dropped by P2P node"). This test only needs its txs
+    // mined and checkpointed (which is what waitForTxs waits for), so the checkpointed anchor is both
+    // sufficient and immune to the orphan-prune.
+    test = await setupBlockProducer({
+      ...PIPELINING_SETUP_OPTS,
+      numberOfAccounts: 1,
+      pxeOpts: { syncChainTip: 'checkpointed' },
+    });
     ({
       logger,
       wallet,
