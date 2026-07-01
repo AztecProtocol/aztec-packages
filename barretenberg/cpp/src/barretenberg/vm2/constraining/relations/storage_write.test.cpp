@@ -29,6 +29,8 @@
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
 namespace bb::avm2::constraining {
+
+using namespace bb::crypto::merkle_tree;
 namespace {
 
 using tracegen::ExecutionTraceBuilder;

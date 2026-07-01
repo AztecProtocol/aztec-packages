@@ -14,7 +14,6 @@
 
 using namespace bb::avm2::simulation;
 using Poseidon2 = bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>;
-using namespace bb::world_state;
 
 namespace bb::avm2::fuzzer {
 
@@ -185,50 +184,23 @@ FuzzerWorldStateManager* FuzzerWorldStateManager::instance = nullptr;
 
 void FuzzerWorldStateManager::initialize_world_state()
 {
-    std::unordered_map<simulation::MerkleTreeId, uint32_t> tree_heights{
-        { simulation::MerkleTreeId::NULLIFIER_TREE, NULLIFIER_TREE_HEIGHT },
-        { simulation::MerkleTreeId::NOTE_HASH_TREE, NOTE_HASH_TREE_HEIGHT },
-        { simulation::MerkleTreeId::PUBLIC_DATA_TREE, PUBLIC_DATA_TREE_HEIGHT },
-        { simulation::MerkleTreeId::L1_TO_L2_MESSAGE_TREE, L1_TO_L2_MSG_TREE_HEIGHT },
-        { simulation::MerkleTreeId::ARCHIVE, ARCHIVE_HEIGHT },
-    };
-    std::unordered_map<simulation::MerkleTreeId, index_t> tree_prefill{
-        { simulation::MerkleTreeId::NULLIFIER_TREE, 128 },
-        { simulation::MerkleTreeId::PUBLIC_DATA_TREE, 128 },
-    };
-    uint32_t initial_header_generator_point = 2064783670; // DomainSeparator.BLOCK_HEADER_HASH
-    ws = std::make_unique<world_state::WorldState>(
-        /*thread_pool_size=*/4, DATA_DIR, MAP_SIZE_KB, tree_heights, tree_prefill, initial_header_generator_point);
-
-    fork_ids.push(ws->create_fork(std::nullopt));
+    mem_db = std::make_unique<simulation::MemoryMerkleDB>(
+        /*nullifier_tree_prefill=*/128, /*public_data_tree_prefill=*/128);
 }
 
-WorldStateRevision FuzzerWorldStateManager::get_current_revision() const
+void FuzzerWorldStateManager::reseed_to_genesis()
 {
-    return WorldStateRevision{ .forkId = fork_ids.top(), .includeUncommitted = true };
+    // Called once per transaction, before applying that transaction's genesis state, so each input starts
+    // from the same state.
+    initialize_world_state();
 }
 
-WorldStateRevision FuzzerWorldStateManager::fork()
-{
-    auto fork_id = ws->create_fork(std::nullopt);
-    fork_ids.push(fork_id);
-    return WorldStateRevision{ .forkId = fork_id, .includeUncommitted = true };
-}
-void FuzzerWorldStateManager::reset_world_state()
-{
-    // We keep the initial fork, so pop until only one remains
-    while (fork_ids.size() != 1) {
-        ws->delete_fork(fork_ids.top());
-        fork_ids.pop();
-    }
-}
 void FuzzerWorldStateManager::register_contract_address(const AztecAddress& contract_address)
 {
     NullifierLeafValue contract_nullifier =
         unconstrained_silo_nullifier(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS, contract_address);
     fuzz_info("Registering contract address in world state: ", contract_nullifier.nullifier);
-    auto fork_id = fork_ids.top();
-    ws->insert_indexed_leaves<NullifierLeafValue>(MerkleTreeId::NULLIFIER_TREE, { contract_nullifier }, fork_id);
+    mem_db->insert_indexed_leaves_nullifier_tree(contract_nullifier);
 }
 
 void FuzzerWorldStateManager::write_fee_payer_balance(const AztecAddress& fee_payer, const FF& balance)
@@ -240,25 +212,20 @@ void FuzzerWorldStateManager::write_fee_payer_balance(const AztecAddress& fee_pa
         Poseidon2::hash({ DOM_SEP__PUBLIC_STORAGE_MAP_SLOT, FEE_JUICE_BALANCES_SLOT, fee_payer });
     FF leaf_slot = Poseidon2::hash({ DOM_SEP__PUBLIC_LEAF_SLOT, FF(FEE_JUICE_ADDRESS), fee_juice_balance_slot });
 
-    // Write to public data tree using current fork
-    auto fork_id = fork_ids.top();
-    ws->update_public_data(PublicDataLeafValue(leaf_slot, balance), fork_id);
+    mem_db->insert_indexed_leaves_public_data_tree(PublicDataLeafValue(leaf_slot, balance));
 }
 
 void FuzzerWorldStateManager::public_data_write(const bb::crypto::merkle_tree::PublicDataLeafValue& public_data)
 {
-    auto fork_id = fork_ids.top();
-    ws->update_public_data(public_data, fork_id);
+    mem_db->insert_indexed_leaves_public_data_tree(public_data);
 }
 
 void FuzzerWorldStateManager::append_note_hashes(const std::vector<FF>& note_hashes)
 {
-    auto fork_id = fork_ids.top();
-
     uint64_t padding_leaves = MAX_NOTE_HASHES_PER_TX - (note_hashes.size() % MAX_NOTE_HASHES_PER_TX);
 
-    ws->append_leaves(MerkleTreeId::NOTE_HASH_TREE, note_hashes, fork_id);
-    ws->append_leaves(MerkleTreeId::NOTE_HASH_TREE, std::vector<FF>(padding_leaves, FF(0)), fork_id);
+    mem_db->append_leaves(simulation::MerkleTreeId::NOTE_HASH_TREE, note_hashes);
+    mem_db->append_leaves(simulation::MerkleTreeId::NOTE_HASH_TREE, std::vector<FF>(padding_leaves, FF(0)));
 }
 
 } // namespace bb::avm2::fuzzer

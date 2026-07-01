@@ -5,12 +5,11 @@
 
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/merkle_tree_id.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/vm2/common/avm_io.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
-#include "barretenberg/world_state/types.hpp"
-#include "barretenberg/world_state/world_state.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -32,14 +31,15 @@ class ContractDBInterface {
 };
 
 // Aliases.
-using MerkleTreeId = ::bb::world_state::MerkleTreeId;
+using MerkleTreeId = ::bb::crypto::merkle_tree::MerkleTreeId;
+using GetLowIndexedLeafResponse = ::bb::crypto::merkle_tree::GetLowIndexedLeafResponse;
 using SiblingPath = ::bb::crypto::merkle_tree::fr_sibling_path;
 using index_t = ::bb::crypto::merkle_tree::index_t;
 using PublicDataLeafValue = ::bb::crypto::merkle_tree::PublicDataLeafValue;
 using NullifierLeafValue = ::bb::crypto::merkle_tree::NullifierLeafValue;
 template <typename LeafValueType> using IndexedLeaf = ::bb::crypto::merkle_tree::IndexedLeaf<LeafValueType>;
 template <typename LeafValueType>
-using SequentialInsertionResult = ::bb::world_state::SequentialInsertionResult<LeafValueType>;
+using SequentialInsertionResult = ::bb::crypto::merkle_tree::SequentialInsertionResult<LeafValueType>;
 
 // Low level access to a merkle db. In general these will not be constrained.
 class LowLevelMerkleDBInterface {

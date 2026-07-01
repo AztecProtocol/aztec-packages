@@ -34,12 +34,10 @@ class FuzzTest : public ::testing::Test {
         if (ws_mgr == nullptr) {
             ws_mgr = FuzzerWorldStateManager::getInstance();
         }
-        ws_mgr->fork();
+        ws_mgr->reseed_to_genesis();
         context = FuzzerContext();
         register_functions(context);
     }
-
-    void TearDown() override { ws_mgr->reset_world_state(); }
 
     SimulatorResult simulate_with_default_tx(std::vector<uint8_t>& bytecode, std::vector<FF> calldata)
     {
@@ -50,8 +48,6 @@ class FuzzTest : public ::testing::Test {
                                              std::vector<FF> calldata,
                                              const std::vector<FF>& note_hashes)
     {
-        ws_mgr->checkpoint();
-
         ws_mgr->append_note_hashes(note_hashes);
 
         auto contract_address = context.register_contract_from_bytecode(bytecode);
@@ -71,8 +67,6 @@ class FuzzTest : public ::testing::Test {
                                              /*public_data_writes=*/{},
                                              /*note_hashes=*/{},
                                              /*protocol_contracts=*/{});
-
-        ws_mgr->revert();
 
         return result;
     }

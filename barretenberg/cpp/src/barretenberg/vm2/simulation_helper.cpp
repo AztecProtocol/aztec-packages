@@ -556,26 +556,6 @@ TxSimulationResult AvmSimulationHelper::simulate_fast_internal(ContractDBInterfa
  * Entry points
  ************************************/
 
-TxSimulationResult AvmSimulationHelper::simulate_fast_with_existing_ws(
-    simulation::ContractDBInterface& raw_contract_db,
-    const world_state::WorldStateRevision& world_state_revision,
-    world_state::WorldState& ws,
-    const PublicSimulatorConfig& config,
-    const Tx& tx,
-    const GlobalVariables& global_variables,
-    const ProtocolContracts& protocol_contracts,
-    CancellationTokenPtr cancellation_token)
-{
-    // For collecting hints, use the other method.
-    BB_ASSERT(!config.collect_hints && "Use simulate_for_hint_collection instead");
-
-    // Create PureRawMerkleDB with the provided WorldState instance and cancellation token
-    PureRawMerkleDB raw_merkle_db(world_state_revision, ws, /*cache_tree_roots=*/true, cancellation_token);
-
-    return simulate_fast_internal(
-        raw_contract_db, raw_merkle_db, config, tx, global_variables, protocol_contracts, cancellation_token);
-}
-
 TxSimulationResult AvmSimulationHelper::simulate_for_hint_collection_internal(
     simulation::ContractDBInterface& raw_contract_db,
     simulation::LowLevelMerkleDBInterface& raw_merkle_db,
@@ -606,26 +586,6 @@ TxSimulationResult AvmSimulationHelper::simulate_for_hint_collection_internal(
     tx_result.hints = std::move(collected_hints);
 
     return std::move(tx_result);
-}
-
-TxSimulationResult AvmSimulationHelper::simulate_for_hint_collection(
-    simulation::ContractDBInterface& raw_contract_db,
-    const world_state::WorldStateRevision& world_state_revision,
-    world_state::WorldState& ws,
-    const PublicSimulatorConfig& config,
-    const Tx& tx,
-    const GlobalVariables& global_variables,
-    const ProtocolContracts& protocol_contracts,
-    CancellationTokenPtr cancellation_token)
-{
-    // If you are not collecting hints, don't use this method.
-    BB_ASSERT(config.collect_hints && "Use simulate_fast_with_existing_ws instead");
-
-    // Create PureRawMerkleDB with the provided WorldState instance and cancellation token
-    PureRawMerkleDB raw_merkle_db(world_state_revision, ws, /*cache_tree_roots=*/true, cancellation_token);
-
-    return simulate_for_hint_collection_internal(
-        raw_contract_db, raw_merkle_db, config, tx, global_variables, protocol_contracts, cancellation_token);
 }
 
 EventsContainer AvmSimulationHelper::simulate_for_witgen(const ExecutionHints& hints)

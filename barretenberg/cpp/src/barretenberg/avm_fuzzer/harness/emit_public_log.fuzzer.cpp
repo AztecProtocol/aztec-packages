@@ -305,15 +305,15 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
     if (!error) {
         // TODO(MW): use below to check values:
         // auto public_logs = side_effect_tracker.get_side_effects().public_logs;
-        trace.set(avm2::Column::public_inputs_cols_0_, pi_row, log_fields.size());
-        trace.set(avm2::Column::public_inputs_sel, pi_row, 1);
+        trace.set(bb::avm2::Column::public_inputs_cols_0_, pi_row, log_fields.size());
+        trace.set(bb::avm2::Column::public_inputs_sel, pi_row, 1);
 
         // Set public input columns
         for (FF log_field : log_fields) {
             pi_row++;
-            trace.set(avm2::Column::public_inputs_sel, pi_row, 1);
+            trace.set(bb::avm2::Column::public_inputs_sel, pi_row, 1);
             // Logs only use cols_0
-            trace.set(avm2::Column::public_inputs_cols_0_, pi_row, log_field);
+            trace.set(bb::avm2::Column::public_inputs_cols_0_, pi_row, log_field);
         }
     }
 
@@ -330,10 +330,10 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
                                 .inputs = { MemoryValue::from<uint32_t>(input.log_size) },
                                 .after_context_event = fill_context_event(context) };
     ex_builder.process({ ex_event }, trace);
-    auto exec_log_row = trace.get_column_rows(avm2::Column::execution_sel_exec_dispatch_emit_public_log);
-    trace.set(avm2::Column::execution_rop_1_, exec_log_row - 1, input.log_offset);
-    trace.set(avm2::Column::execution_register_0_, exec_log_row - 1, input.log_size);
-    trace.set(avm2::Column::execution_sel_opcode_error, exec_log_row - 1, error ? 1 : 0);
+    auto exec_log_row = trace.get_column_rows(bb::avm2::Column::execution_sel_exec_dispatch_emit_public_log);
+    trace.set(bb::avm2::Column::execution_rop_1_, exec_log_row - 1, input.log_offset);
+    trace.set(bb::avm2::Column::execution_register_0_, exec_log_row - 1, input.log_size);
+    trace.set(bb::avm2::Column::execution_sel_opcode_error, exec_log_row - 1, error ? 1 : 0);
 
     range_check_builder.process(context_helper.range_check_emitter.dump_events(), trace);
     field_gt_builder.process(context_helper.field_gt_emitter.dump_events(), trace);

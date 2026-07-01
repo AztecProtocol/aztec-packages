@@ -117,7 +117,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 {
     FuzzerWorldStateManager* ws_mgr = FuzzerWorldStateManager::getInstance();
     FuzzerContractDB contract_db;
-    ws_mgr->fork();
+    ws_mgr->reseed_to_genesis();
 
     FuzzerContext context;
 
@@ -141,7 +141,6 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
 
     auto simulation_result = fuzz_tx(*ws_mgr, contract_db, tx_data);
     update_effects_counters(simulation_result);
-    ws_mgr->reset_world_state();
 
     return 0;
 }

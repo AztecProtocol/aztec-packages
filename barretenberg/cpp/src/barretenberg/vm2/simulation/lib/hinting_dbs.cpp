@@ -191,13 +191,13 @@ void HintingContractsDB::dump_hints(ExecutionHints& hints)
 }
 
 // Hinting MerkleDB starts.
-AppendOnlyTreeSnapshot HintingRawDB::get_tree_info(world_state::MerkleTreeId tree_id) const
+AppendOnlyTreeSnapshot HintingRawDB::get_tree_info(MerkleTreeId tree_id) const
 {
     auto roots = db.get_tree_roots();
     return get_tree_info_helper(tree_id, roots);
 }
 
-SiblingPath HintingRawDB::get_sibling_path(world_state::MerkleTreeId tree_id, index_t leaf_index) const
+SiblingPath HintingRawDB::get_sibling_path(MerkleTreeId tree_id, index_t leaf_index) const
 {
     AppendOnlyTreeSnapshot tree_info = get_tree_info(tree_id);
     SiblingPath path = db.get_sibling_path(tree_id, leaf_index);
@@ -208,7 +208,7 @@ SiblingPath HintingRawDB::get_sibling_path(world_state::MerkleTreeId tree_id, in
     return path;
 }
 
-GetLowIndexedLeafResponse HintingRawDB::get_low_indexed_leaf(world_state::MerkleTreeId tree_id, const FF& value) const
+GetLowIndexedLeafResponse HintingRawDB::get_low_indexed_leaf(MerkleTreeId tree_id, const FF& value) const
 {
     AppendOnlyTreeSnapshot tree_info = get_tree_info(tree_id);
     GetLowIndexedLeafResponse resp = db.get_low_indexed_leaf(tree_id, value);
@@ -224,7 +224,7 @@ GetLowIndexedLeafResponse HintingRawDB::get_low_indexed_leaf(world_state::Merkle
     return resp;
 }
 
-FF HintingRawDB::get_leaf_value(world_state::MerkleTreeId tree_id, index_t leaf_index) const
+FF HintingRawDB::get_leaf_value(MerkleTreeId tree_id, index_t leaf_index) const
 {
     AppendOnlyTreeSnapshot tree_info = get_tree_info(tree_id);
     FF value = db.get_leaf_value(tree_id, leaf_index);
@@ -236,7 +236,7 @@ FF HintingRawDB::get_leaf_value(world_state::MerkleTreeId tree_id, index_t leaf_
 
 IndexedLeaf<PublicDataLeafValue> HintingRawDB::get_leaf_preimage_public_data_tree(index_t leaf_index) const
 {
-    AppendOnlyTreeSnapshot tree_info = get_tree_info(world_state::MerkleTreeId::PUBLIC_DATA_TREE);
+    AppendOnlyTreeSnapshot tree_info = get_tree_info(MerkleTreeId::PUBLIC_DATA_TREE);
     IndexedLeaf<PublicDataLeafValue> preimage = db.get_leaf_preimage_public_data_tree(leaf_index);
 
     GetLeafPreimageKey key = { tree_info, leaf_index };
@@ -248,7 +248,7 @@ IndexedLeaf<PublicDataLeafValue> HintingRawDB::get_leaf_preimage_public_data_tre
 
 IndexedLeaf<NullifierLeafValue> HintingRawDB::get_leaf_preimage_nullifier_tree(index_t leaf_index) const
 {
-    AppendOnlyTreeSnapshot tree_info = get_tree_info(world_state::MerkleTreeId::NULLIFIER_TREE);
+    AppendOnlyTreeSnapshot tree_info = get_tree_info(MerkleTreeId::NULLIFIER_TREE);
     IndexedLeaf<NullifierLeafValue> preimage = db.get_leaf_preimage_nullifier_tree(leaf_index);
     GetLeafPreimageKey key = { tree_info, leaf_index };
     merkle_hints.get_leaf_preimage_hints_nullifier_tree[key] = GetLeafPreimageHint<NullifierTreeLeafPreimage>{
@@ -260,22 +260,22 @@ IndexedLeaf<NullifierLeafValue> HintingRawDB::get_leaf_preimage_nullifier_tree(i
 SequentialInsertionResult<PublicDataLeafValue> HintingRawDB::insert_indexed_leaves_public_data_tree(
     const PublicDataLeafValue& leaf_value)
 {
-    AppendOnlyTreeSnapshot tree_info = get_tree_info(world_state::MerkleTreeId::PUBLIC_DATA_TREE);
+    AppendOnlyTreeSnapshot tree_info = get_tree_info(MerkleTreeId::PUBLIC_DATA_TREE);
     SequentialInsertionResult<PublicDataLeafValue> result = db.insert_indexed_leaves_public_data_tree(leaf_value);
     // The underlying db should update its state post insertion:
     AppendOnlyTreeSnapshot state_after = db.get_tree_roots().public_data_tree;
 
-    SequentialInsertHintPublicDataTreeKey key = { tree_info, world_state::MerkleTreeId::PUBLIC_DATA_TREE, leaf_value };
+    SequentialInsertHintPublicDataTreeKey key = { tree_info, MerkleTreeId::PUBLIC_DATA_TREE, leaf_value };
     BB_ASSERT(!result.low_leaf_witness_data.empty(), "Expected non-empty low_leaf_witness_data after insertion");
     BB_ASSERT(!result.insertion_witness_data.empty(), "Expected non-empty insertion_witness_data after insertion");
-    SequentialInsertHint<PublicDataLeafValue> sequential_insert_hint = {
-        .hint_key = tree_info,
-        .tree_id = world_state::MerkleTreeId::PUBLIC_DATA_TREE,
-        .leaf = leaf_value,
-        .low_leaves_witness_data = result.low_leaf_witness_data.back(),
-        .insertion_witness_data = result.insertion_witness_data.back(),
-        .state_after = state_after
-    };
+    SequentialInsertHint<PublicDataLeafValue> sequential_insert_hint = { .hint_key = tree_info,
+                                                                         .tree_id = MerkleTreeId::PUBLIC_DATA_TREE,
+                                                                         .leaf = leaf_value,
+                                                                         .low_leaves_witness_data =
+                                                                             result.low_leaf_witness_data.back(),
+                                                                         .insertion_witness_data =
+                                                                             result.insertion_witness_data.back(),
+                                                                         .state_after = state_after };
     merkle_hints.sequential_insert_hints_public_data_tree[key] = sequential_insert_hint;
 
     return result;
@@ -284,22 +284,22 @@ SequentialInsertionResult<PublicDataLeafValue> HintingRawDB::insert_indexed_leav
 SequentialInsertionResult<NullifierLeafValue> HintingRawDB::insert_indexed_leaves_nullifier_tree(
     const NullifierLeafValue& leaf_value)
 {
-    AppendOnlyTreeSnapshot tree_info = get_tree_info(world_state::MerkleTreeId::NULLIFIER_TREE);
+    AppendOnlyTreeSnapshot tree_info = get_tree_info(MerkleTreeId::NULLIFIER_TREE);
     SequentialInsertionResult<NullifierLeafValue> result = db.insert_indexed_leaves_nullifier_tree(leaf_value);
     // The underlying db should update its state post insertion:
     auto state_after = db.get_tree_roots().nullifier_tree;
 
-    SequentialInsertHintNullifierTreeKey key = { tree_info, world_state::MerkleTreeId::NULLIFIER_TREE, leaf_value };
+    SequentialInsertHintNullifierTreeKey key = { tree_info, MerkleTreeId::NULLIFIER_TREE, leaf_value };
     BB_ASSERT(!result.low_leaf_witness_data.empty(), "Expected non-empty low_leaf_witness_data after insertion");
     BB_ASSERT(!result.insertion_witness_data.empty(), "Expected non-empty insertion_witness_data after insertion");
-    SequentialInsertHint<NullifierLeafValue> sequential_insert_hint = {
-        .hint_key = tree_info,
-        .tree_id = world_state::MerkleTreeId::NULLIFIER_TREE,
-        .leaf = leaf_value,
-        .low_leaves_witness_data = result.low_leaf_witness_data.back(),
-        .insertion_witness_data = result.insertion_witness_data.back(),
-        .state_after = state_after
-    };
+    SequentialInsertHint<NullifierLeafValue> sequential_insert_hint = { .hint_key = tree_info,
+                                                                        .tree_id = MerkleTreeId::NULLIFIER_TREE,
+                                                                        .leaf = leaf_value,
+                                                                        .low_leaves_witness_data =
+                                                                            result.low_leaf_witness_data.back(),
+                                                                        .insertion_witness_data =
+                                                                            result.insertion_witness_data.back(),
+                                                                        .state_after = state_after };
     merkle_hints.sequential_insert_hints_nullifier_tree[key] = sequential_insert_hint;
 
     return result;
@@ -358,13 +358,13 @@ void HintingRawDB::revert_checkpoint()
     checkpoint_action_counter++;
 }
 
-void HintingRawDB::pad_tree(world_state::MerkleTreeId tree_id, size_t num_leaves)
+void HintingRawDB::pad_tree(MerkleTreeId tree_id, size_t num_leaves)
 {
     // Padding the tree does not require any hints:
     db.pad_tree(tree_id, num_leaves);
 }
 
-void HintingRawDB::append_leaves(world_state::MerkleTreeId tree_id, std::span<const FF> leaves)
+void HintingRawDB::append_leaves(MerkleTreeId tree_id, std::span<const FF> leaves)
 {
     AppendOnlyTreeSnapshot state_before = get_tree_info(tree_id);
     AppendLeavesHintKey append_key = { state_before, tree_id, std::vector<FF>(leaves.begin(), leaves.end()) };
