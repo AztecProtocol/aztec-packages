@@ -112,10 +112,17 @@ export async function createWasmPippenger(
   memory?: { initialPages?: number; maxPages?: number },
 ): Promise<WasmPippengerHandle> {
   const log = logger ?? (() => {});
+  // Slow networks (e.g. a phone loading the page over an SSH/Cloudflare tunnel)
+  // need far longer than the default to pull + compile the ~3 MB threaded wasm.
+  // Override with `?wasmtimeout=<seconds>`; default 180 s.
+  const bootTimeoutMs = (() => {
+    const v = parseInt(new URLSearchParams(window.location.search).get('wasmtimeout') ?? '', 10);
+    return Number.isFinite(v) && v > 0 ? v * 1000 : 180_000;
+  })();
   log(`createMainWorker: spawning main bb Worker`);
   const worker = await withTimeout(
     "createMainWorker (waiting for the worker's Ready postMessage)",
-    10_000,
+    Math.min(bootTimeoutMs, 60_000),
     createMainWorker(),
   );
   // Surface worker-thread errors in the page log. By default these only
@@ -130,7 +137,7 @@ export async function createWasmPippenger(
   log(`fetchModuleAndThreads: ${requestedThreads} threads requested, fetching wasm`);
   const { module, threads } = await withTimeout(
     'fetchModuleAndThreads (WASM download + compile)',
-    30_000,
+    bootTimeoutMs,
     fetchModuleAndThreads(requestedThreads, WASM_PATH, log),
   );
   log(
@@ -140,7 +147,7 @@ export async function createWasmPippenger(
   );
   await withTimeout(
     'wasm.init (pthread sub-worker spawn + WASM instantiation)',
-    30_000,
+    bootTimeoutMs,
     wasm.init(module, threads, undefined, memory?.initialPages, memory?.maxPages),
   );
   log(`wasm.init: complete`);

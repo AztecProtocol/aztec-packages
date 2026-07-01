@@ -106,6 +106,19 @@ const SWEEP_LOGN: number[] = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 const NOBLE_REFERENCE_LOGN = 16;
 const SWEEP_REPS = 5;
 
+// Optional `?maxlogn=N` cap (clamped to [LOGN_MIN, LOGN_MAX]): shrinks both the
+// SRS prefix downloaded at page load and the sweep's top size, so a bandwidth- or
+// memory-constrained device (e.g. a phone loading over a tunnel) can avoid the
+// full 2^20 / 32 MB SRS pull. Absent → full range, unchanged.
+const URL_MAX_LOGN: number = (() => {
+  const raw = new URLSearchParams(window.location.search).get('maxlogn');
+  if (raw === null) return LOGN_MAX;
+  const v = parseInt(raw, 10);
+  return Number.isFinite(v) ? Math.max(LOGN_MIN, Math.min(LOGN_MAX, v)) : LOGN_MAX;
+})();
+const SWEEP_LOGN_EFF: number[] = SWEEP_LOGN.filter(n => n <= URL_MAX_LOGN);
+const SRS_NUM_POINTS_EFF: number = 1 << URL_MAX_LOGN;
+
 // GPU pipeline knobs from the URL — forwarded to every MsmV2 (unset = defaults).
 // Lets index.html A/B-test a knob against the WASM Pippenger, e.g. ?s=4&wgi=128.
 const gpuKnobs: MsmConfig = (() => {
@@ -1727,14 +1740,18 @@ $runBench.addEventListener('click', async () => {
 async function performSweep(opts: {
   mtThreads: number;
   noble: boolean;
+  webgpuOnly?: boolean;
   onProgress?: (logN: number, rep: number) => void;
   onRows?: (rows: SweepRow[]) => void;
 }): Promise<SweepRow[]> {
-  const { mtThreads, noble: nobleEnabled } = opts;
-  log('info', `[sweep] start: mt-threads=${mtThreads}, noble=${nobleEnabled ? 'on' : 'off'}`);
+  const { mtThreads, noble: nobleEnabled, webgpuOnly = false } = opts;
+  log(
+    'info',
+    `[sweep] start: mt-threads=${mtThreads}, noble=${nobleEnabled ? 'on' : 'off'}${webgpuOnly ? ', webgpu-only (no WASM)' : ''}`,
+  );
   logMemSnapshot('sweep-start');
 
-  const rows: SweepRow[] = SWEEP_LOGN.map(logN => ({
+  const rows: SweepRow[] = SWEEP_LOGN_EFF.map(logN => ({
     logN,
     webgpu: [],
     wasmMt: [],
@@ -1772,20 +1789,24 @@ async function performSweep(opts: {
       log('info', `[sweep] step 2/4: noble skipped`);
     }
 
-    log('info', `[sweep] step 3/4: ensure the WASM worker is booted, then load this size's inputs`);
-    // Pre-warm the WASM boot before the timed reps so we don't fold
-    // the spawn time into the first rep's wall clock. Also if Stop
-    // hits during boot we abort here cleanly rather than mid-MSM.
-    await ensureWasmBooted();
-    throwIfAborted();
-    // Decode + upload the WASM inputs once per size — untimed, kept
-    // out of every rep's measured window.
-    await loadWasmInputs(inputs);
-    throwIfAborted();
-    await yieldToBrowser();
-    log('info', `[sweep] step 3/4 done`);
+    if (!webgpuOnly) {
+      log('info', `[sweep] step 3/4: ensure the WASM worker is booted, then load this size's inputs`);
+      // Pre-warm the WASM boot before the timed reps so we don't fold
+      // the spawn time into the first rep's wall clock. Also if Stop
+      // hits during boot we abort here cleanly rather than mid-MSM.
+      await ensureWasmBooted();
+      throwIfAborted();
+      // Decode + upload the WASM inputs once per size — untimed, kept
+      // out of every rep's measured window.
+      await loadWasmInputs(inputs);
+      throwIfAborted();
+      await yieldToBrowser();
+      log('info', `[sweep] step 3/4 done`);
+    } else {
+      log('info', `[sweep] step 3/4: WASM skipped (webgpu-only)`);
+    }
 
-    log('info', `[sweep] step 4/4: ${SWEEP_REPS} reps × {gpu, wasm-mt}`);
+    log('info', `[sweep] step 4/4: ${SWEEP_REPS} reps × {${webgpuOnly ? 'gpu' : 'gpu, wasm-mt'}}`);
     for (let i = 0; i < SWEEP_REPS; i++) {
       throwIfAborted();
       setBusy(true, `sweeping log₂(n)=${row.logN} (rep ${i + 1}/${SWEEP_REPS})…`);
@@ -1795,18 +1816,24 @@ async function performSweep(opts: {
       await yieldToBrowser();
       throwIfAborted();
 
-      const mt = await runWasmOnce();
-      await yieldToBrowser();
-
       row.webgpu.push(gpu);
-      row.wasmMt.push(mt);
+      let mt: { ms: number; xy: { x: bigint; y: bigint } } | null = null;
+      if (!webgpuOnly) {
+        mt = await runWasmOnce();
+        await yieldToBrowser();
+        row.wasmMt.push(mt);
+      }
       if (i === 0) {
-        row.crossOk = pointsEqual(gpu.xy, mt.xy);
         if (noble !== null) row.nobleOk = pointsEqual(noble, gpu.xy);
-        if (!row.crossOk) {
-          log('err', `[sweep]   cross-check FAILED at log₂(n)=${row.logN}`);
-          log('err', `         gpu.x=${gpu.xy.x.toString(16)}`);
-          log('err', `         mt.x =${mt.xy.x.toString(16)}`);
+        if (mt !== null) {
+          row.crossOk = pointsEqual(gpu.xy, mt.xy);
+          if (!row.crossOk) {
+            log('err', `[sweep]   cross-check FAILED at log₂(n)=${row.logN}`);
+            log('err', `         gpu.x=${gpu.xy.x.toString(16)}`);
+            log('err', `         mt.x =${mt.xy.x.toString(16)}`);
+          }
+        } else if (noble !== null) {
+          row.crossOk = row.nobleOk;
         }
       }
       renderSweepTable(rows);
@@ -2637,7 +2664,7 @@ function hideProgress(): void {
     // fetch / decompress both report 0 ms; when not, the final phase events
     // for each phase carry the cumulative `elapsedMs`.
     setupTimings.srs_cached = true;
-    srsBuf = await loadSrsPoints(SRS_NUM_POINTS, event => {
+    srsBuf = await loadSrsPoints(SRS_NUM_POINTS_EFF, event => {
       if (event.kind === 'info') {
         // A non-cache info line means we went through the download/decompress
         // path; flip srs_cached so the 0 ms timings get reported as real.
@@ -2651,7 +2678,7 @@ function hideProgress(): void {
         hideProgress();
       }
     });
-    log('ok', `SRS loaded: ${SRS_NUM_POINTS.toLocaleString()} points available.`);
+    log('ok', `SRS loaded: ${SRS_NUM_POINTS_EFF.toLocaleString()} points available.`);
     log(
       'info',
       `WASM not booted yet (lazy). Click Run / Sweep — it'll spin up ` +
@@ -2845,7 +2872,7 @@ function hideProgress(): void {
       for (let i = 0; i < $log.children.length; i++) out.push($log.children[i].textContent ?? '');
       return out.slice(-80);
     };
-    const baseParams = { page: 'msm-sweep', sweep: SWEEP_LOGN, reps: SWEEP_REPS, mtThreads, noble: nobleEnabled };
+    const baseParams = { page: 'msm-sweep', sweep: SWEEP_LOGN_EFF, reps: SWEEP_REPS, mtThreads, noble: nobleEnabled };
     let captured: SweepRow[] = [];
     try {
       await waitForRun();
