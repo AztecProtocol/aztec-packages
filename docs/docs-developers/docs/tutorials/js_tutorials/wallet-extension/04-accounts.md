@@ -24,23 +24,21 @@ An Aztec account has:
 
 ## Key Derivation
 
-The wallet uses the standard derivation from `@aztec/stdlib/keys`:
+The wallet generates a random secret for the account's privacy keys and a separate, independent signing key for transaction authorization. The signing key is an ownership key, so it is kept independent of the privacy secret rather than derived from it (deriving it from the secret would let anything holding the secret, such as the PXE, reconstruct the ownership key):
 
 ```typescript
-import { deriveSigningKey } from '@aztec/stdlib/keys';
+import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
 
-// Generate a random secret
+// Generate a random privacy secret and an independent signing key
 const secret = Fr.random();
-
-// Derive the signing key
-const signingKey = deriveSigningKey(secret);
+const signingKey = GrumpkinScalar.random();
 ```
 
-The derivation uses SHA-512 with domain separators to derive different keys:
+The nullifier, viewing, and tagging keys are derived from the secret with SHA-512 and domain separators, while the signing key is supplied to the account contract directly:
 
 ```typescript
 // From stdlib/src/keys/derivation.ts
-export function deriveSigningKey(secretKey: Fr): GrumpkinScalar {
+export function deriveMasterIncomingViewingSecretKey(secretKey: Fr): GrumpkinScalar {
   return sha512ToGrumpkinScalar([secretKey, GeneratorIndex.IVSK_M]);
 }
 
