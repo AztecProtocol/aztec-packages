@@ -15,7 +15,10 @@ describe('single-node/partial-proofs/single_root', () => {
   let test: SingleNodeTestContext;
 
   beforeEach(async () => {
-    test = await setupWithProver({ aztecEpochDuration: 1000 });
+    // Run at the 4s/12s slot-cadence floor: the body waits in real wall-clock for the sequencer to publish
+    // empty checkpoints one per L2 slot, so a shorter slot shortens that wait. 12s is the floor for the
+    // 3s-block timing model. A clock warp here races the sequencer's building and trips EmptyEpochError.
+    test = await setupWithProver({ aztecEpochDuration: 1000, ethereumSlotDuration: 4, aztecSlotDurationInL1Slots: 3 });
     ({ monitor, logger } = test);
   });
 

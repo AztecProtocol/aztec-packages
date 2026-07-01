@@ -434,15 +434,18 @@ describe('multi-node/governance/add_rollup', () => {
       context.aztecNodeConfig.l1RpcUrls,
     );
 
-    // REFACTOR: while(true) polling loop with sleep is hand-rolled; replace with retryUntil
-    let govData;
-    while (true) {
-      govData = await govInfo();
-      if (govData.leaderVotes >= quorumSize) {
-        break;
-      }
-      await sleep(context.aztecNodeConfig.ethereumSlotDuration * context.aztecNodeConfig.aztecSlotDuration * 1000);
-    }
+    // Poll once per L2 slot for the round leader to reach quorum, since validators signal once per slot
+    const govData = await retryUntil(
+      async () => {
+        const govData = await govInfo();
+        if (govData.leaderVotes >= quorumSize) {
+          return govData;
+        }
+      },
+      'governance leader reaches quorum',
+      600,
+      context.aztecNodeConfig.aztecSlotDuration,
+    );
 
     const currentSlot2 = await rollup.getSlotNumber();
     const nextRoundSlot2 = SlotNumber.fromBigInt((BigInt(currentSlot2) / roundSize) * roundSize + roundSize);

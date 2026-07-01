@@ -22,7 +22,7 @@ import {
   deployAztecL1Contracts,
 } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import type { Delayer } from '@aztec/ethereum/l1-tx-utils';
-import { EthCheatCodes, EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
+import { EthCheatCodes, EthCheatCodesWithState, startAnvil, warmBlobKzg } from '@aztec/ethereum/test';
 import type { Anvil } from '@aztec/ethereum/test';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
@@ -76,6 +76,7 @@ import { MNEMONIC, TEST_MAX_PENDING_TX_POOL_COUNT, TEST_PEER_CHECK_INTERVAL_MS }
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
+import { testSpan } from './timing.js';
 import { getEndToEndTestTelemetryClient } from './with_telemetry_utils.js';
 
 export { startAnvil };
@@ -299,39 +300,29 @@ function assertContractArtifactsVersion() {
 }
 
 /**
- * Records a function-level timing span into the shared collector installed by the e2e timing
- * environment. No-op unless TEST_TIMING_FILE is set (the env only installs the collector then). The
- * span is tagged with the name of the currently running test so the env can attribute it to the
- * right line; `null` during beforeAll/afterAll lands it on the suite-scoped line.
- */
-function recordFnSpan(kind: 'setup' | 'teardown', ms: number) {
-  const collector = (globalThis as { __e2eTimings?: { current: string | null; fnSpans: unknown[] } }).__e2eTimings;
-  collector?.fnSpans.push({ name: collector.current, kind, ms });
-}
-
-/**
  * Sets up the environment for the end-to-end tests.
  * @param numberOfAccounts - The number of new accounts to be created once the PXE is initiated.
  * @param opts - Options to pass to the node initialization and to the setup script.
  * @param pxeOpts - Options to pass to the PXE initialization.
  */
-export async function setup(
+export function setup(
   numberOfAccounts = 1,
   opts: SetupOptions = {},
   pxeOpts: Partial<PXEConfig> = {},
   chain: Chain = foundry,
 ): Promise<EndToEndContext> {
-  const setupStart = performance.now();
-  try {
+  // Tag the top-level env spin-up with the prover mode (none → fake → real), the largest config-driven
+  // swing in setup cost, so the three factories are comparable on the span leaderboard. The internals
+  // (anvil / l1-deploy / sequencer-start / pxe / wallet:create) decompose this further.
+  const proverMode = opts.realProofs ? 'real' : opts.startProverNode ? 'fake' : 'none';
+  return testSpan(`setup:env:${proverMode}`, async () => {
     const ctx = await setupInner(numberOfAccounts, opts, pxeOpts, chain);
     if (process.env.EXIT_E2E_AFTER_SETUP) {
       ctx.logger.info('EXIT_E2E_AFTER_SETUP is set; aborting before the test body runs');
       throw new Error('EXIT_E2E_AFTER_SETUP');
     }
     return ctx;
-  } finally {
-    recordFnSpan('setup', performance.now() - setupStart);
-  }
+  });
 }
 
 async function setupInner(
@@ -379,13 +370,15 @@ async function setupInner(
       if (!isAnvilTestChain(chain.id)) {
         throw new Error(`No ETHEREUM_HOSTS set but non anvil chain requested`);
       }
-      const res = await startAnvil({
-        l1BlockTime: opts.ethereumSlotDuration,
-        accounts: opts.anvilAccounts,
-        port: opts.anvilPort ?? (process.env.ANVIL_PORT ? parseInt(process.env.ANVIL_PORT) : undefined),
-        slotsInAnEpoch: opts.anvilSlotsInAnEpoch,
-        dateProvider,
-      });
+      const res = await testSpan('setup:env:anvil', () =>
+        startAnvil({
+          l1BlockTime: opts.ethereumSlotDuration,
+          accounts: opts.anvilAccounts,
+          port: opts.anvilPort ?? (process.env.ANVIL_PORT ? parseInt(process.env.ANVIL_PORT) : undefined),
+          slotsInAnEpoch: opts.anvilSlotsInAnEpoch,
+          dateProvider,
+        }),
+      );
       anvil = res.anvil;
       config.l1RpcUrls = [res.rpcUrl];
     }
@@ -467,6 +460,11 @@ async function setupInner(
 
     const l1Client = createExtendedL1Client(config.l1RpcUrls, publisherHdAccount!, chain);
 
+    // Warm both KZG trusted setups (ours + anvil's) in parallel
+    if (anvil && isAnvilTestChain(chain.id)) {
+      await warmBlobKzg(l1Client, logger);
+    }
+
     // Deploy Multicall3 if running locally
     await deployMulticall3(l1Client, logger);
 
@@ -475,11 +473,8 @@ async function setupInner(
     await l1Client.getTransactionCount({ address: l1Client.account.address });
     logger.trace('Deployed Multicall3');
 
-    const deployL1ContractsValues: DeployAztecL1ContractsReturnType = await deployAztecL1Contracts(
-      config.l1RpcUrls[0],
-      publisherPrivKeyHex!,
-      chain.id,
-      {
+    const deployL1ContractsValues: DeployAztecL1ContractsReturnType = await testSpan('setup:env:l1-deploy', () =>
+      deployAztecL1Contracts(config.l1RpcUrls[0], publisherPrivKeyHex!, chain.id, {
         ...getL1ContractsConfigEnvVars(),
         ...opts,
         ...opts.l1ContractsArgs,
@@ -489,7 +484,7 @@ async function setupInner(
         initialValidators: opts.initialValidators,
         feeJuicePortalInitialBalance: fundingNeeded,
         realVerifier: false,
-      },
+      }),
     );
 
     Object.assign(config, deployL1ContractsValues.l1ContractAddresses);
@@ -584,11 +579,13 @@ async function setupInner(
       : config;
     logger.trace('Prepared aztec node config');
 
-    const aztecNodeService = await withLoggerBindings({ actor: 'node-0' }, () =>
-      createAztecNodeService(
-        initialNodeConfig,
-        { dateProvider, telemetry: telemetryClient, p2pClientDeps },
-        { genesis, dontStartSequencer: opts.skipInitialSequencer },
+    const aztecNodeService = await testSpan('setup:env:sequencer-start', () =>
+      withLoggerBindings({ actor: 'node-0' }, () =>
+        createAztecNodeService(
+          initialNodeConfig,
+          { dateProvider, telemetry: telemetryClient, p2pClientDeps },
+          { genesis, dontStartSequencer: opts.skipInitialSequencer },
+        ),
       ),
     );
     const sequencerClient = aztecNodeService.getSequencer();
@@ -606,15 +603,17 @@ async function setupInner(
         rpcTxProviders: [aztecNodeService],
       };
 
-      ({ proverNode } = await createAndSyncProverNode(
-        proverNodePrivateKeyHex,
-        config,
-        {
-          ...config.proverNodeConfig,
-          dataDirectory: proverNodeDataDirectory,
-        },
-        { dateProvider, p2pClientDeps, telemetry: telemetryClient },
-        { genesis },
+      ({ proverNode } = await testSpan('setup:env:prover-node', () =>
+        createAndSyncProverNode(
+          proverNodePrivateKeyHex,
+          config,
+          {
+            ...config.proverNodeConfig,
+            dataDirectory: proverNodeDataDirectory,
+          },
+          { dateProvider, p2pClientDeps, telemetry: telemetryClient },
+          { genesis },
+        ),
       ));
       logger.trace('Created prover node');
     }
@@ -627,12 +626,14 @@ async function setupInner(
     pxeConfig.dataDirectory = path.join(directoryToCleanup, randomBytes(8).toString('hex'));
     // For tests we only want proving enabled if specifically requested
     pxeConfig.proverEnabled = !!pxeOpts.proverEnabled;
-    const wallet = await TestWallet.create(aztecNodeService, pxeConfig, {
-      loggerActorLabel: 'pxe-0',
-      // In-process node implements the debug API, so register public function signatures for named traces.
-      nodeDebug: aztecNodeService,
-      ...opts.pxeCreationOptions,
-    });
+    const wallet = await testSpan('setup:env:pxe', () =>
+      TestWallet.create(aztecNodeService, pxeConfig, {
+        loggerActorLabel: 'pxe-0',
+        // In-process node implements the debug API, so register public function signatures for named traces.
+        nodeDebug: aztecNodeService,
+        ...opts.pxeCreationOptions,
+      }),
+    );
 
     if (opts.walletMinFeePadding !== undefined) {
       wallet.setMinFeePadding(opts.walletMinFeePadding);
@@ -663,40 +664,39 @@ async function setupInner(
     // + a simulated store call) with no on-chain tx, independent of the sequencer.
     if (numberOfAccounts > 0) {
       logger.info(`Creating ${numberOfAccounts} initializerless test accounts`);
-      await createFundedInitializerlessAccounts(wallet, defaultAccounts);
+      await testSpan('wallet:create', () => createFundedInitializerlessAccounts(wallet, defaultAccounts));
       accounts = defaultAccounts.map(a => a.address);
     }
     logger.trace('Created funded test accounts');
 
-    const teardown = async () => {
-      const teardownStart = performance.now();
-      try {
-        await tryStop(wallet, logger);
-        await tryStop(aztecNodeService, logger);
-        await tryStop(proverNode, logger);
-
-        if (acvmConfig?.cleanup) {
-          await acvmConfig.cleanup();
-        }
-
-        if (bbConfig?.cleanup) {
-          await bbConfig.cleanup();
-        }
-
-        await tryStop(anvil, logger);
-
-        await tryRmDir(directoryToCleanup, logger);
-      } catch (err) {
-        logger.error(`Error during e2e test teardown`, err);
-      } finally {
+    const teardown = () =>
+      testSpan('teardown:env', async () => {
         try {
-          await telemetryClient.stop();
+          await tryStop(wallet, logger);
+          await tryStop(aztecNodeService, logger);
+          await tryStop(proverNode, logger);
+
+          if (acvmConfig?.cleanup) {
+            await acvmConfig.cleanup();
+          }
+
+          if (bbConfig?.cleanup) {
+            await bbConfig.cleanup();
+          }
+
+          await tryStop(anvil, logger);
+
+          await tryRmDir(directoryToCleanup, logger);
         } catch (err) {
-          logger.error(`Error during telemetry client stop`, err);
+          logger.error(`Error during e2e test teardown`, err);
+        } finally {
+          try {
+            await telemetryClient.stop();
+          } catch (err) {
+            logger.error(`Error during telemetry client stop`, err);
+          }
         }
-        recordFnSpan('teardown', performance.now() - teardownStart);
-      }
-    };
+      });
 
     return {
       anvil,

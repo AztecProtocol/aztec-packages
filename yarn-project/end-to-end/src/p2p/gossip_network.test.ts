@@ -1,6 +1,5 @@
 import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { waitForTx } from '@aztec/aztec.js/node';
 import { TxHash } from '@aztec/aztec.js/tx';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Signature } from '@aztec/foundation/eth-signature';
@@ -21,6 +20,7 @@ import {
   createNonValidatorNode,
   createProverNode,
 } from '../fixtures/setup_p2p_test.js';
+import { waitForTxs } from '../fixtures/wait_helpers.js';
 import { type AlertConfig, GrafanaClient } from '../quality_of_service/grafana_client.js';
 import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { submitTransactions } from './shared.js';
@@ -31,9 +31,9 @@ const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';
 const NUM_VALIDATORS = 4;
 const NUM_TXS_PER_NODE = 2;
 const BOOT_NODE_UDP_PORT = process.env.BOOT_NODE_UDP_PORT ? parseInt(process.env.BOOT_NODE_UDP_PORT) : 4500;
-const AZTEC_SLOT_DURATION = 36;
+const AZTEC_SLOT_DURATION = 24;
 const AZTEC_EPOCH_DURATION = 4;
-const BLOCK_DURATION_MS = 16_000;
+const BLOCK_DURATION_MS = 10_000;
 
 const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'gossip-'));
 
@@ -51,7 +51,7 @@ const qosAlerts: AlertConfig[] = [
 
 // Tests end-to-end gossip propagation with 4 validators, a fake prover node, and a non-validator
 // monitoring node (alwaysReexecuteBlockProposals:true). Uses P2PNetworkTest with real libp2p,
-// SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES (ethSlot=4s, aztecSlot=36s, epoch=4, proofSubEpochs=640),
+// SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES (ethSlot=4s, aztecSlot=24s, epoch=4, proofSubEpochs=640),
 // inboxLag=2. Asserts txs are mined from all nodes, attestation signers match the validator set,
 // and the prover node produces a proven block by collecting txs from p2p.
 describe('e2e_p2p_network', () => {
@@ -104,7 +104,6 @@ describe('e2e_p2p_network', () => {
   // Stands up 4 validators + 1 prover + 1 re-execution monitor, submits 2 txs per node, and waits
   // for all txs to mine. Checks attestation signers match the validator set and confirms the prover
   // eventually produces a proven block (collecting txs from p2p rather than RPC).
-  // REFACTOR: Promise.all over waitForTx calls is hand-rolled; extract to a shared helper
   it('should rollup txs from all peers', async () => {
     // create the bootstrap node for the network
     if (!t.bootstrapNodeEnr) {
@@ -185,14 +184,8 @@ describe('e2e_p2p_network', () => {
 
     t.logger.info('Waiting for transactions to be mined');
     // now ensure that all txs were successfully mined
-    await Promise.all(
-      txsSentViaDifferentNodes.flatMap((txs, i) =>
-        txs.map((txHash, j) => {
-          t.logger.info(`Waiting for tx ${i}-${j}: ${txHash.toString()} to be mined`);
-          return waitForTx(nodes[0], txHash, { timeout: WAIT_FOR_TX_TIMEOUT });
-        }),
-      ),
-    );
+    const allTxHashes = txsSentViaDifferentNodes.flat();
+    await waitForTxs(nodes[0], allTxHashes, { timeout: WAIT_FOR_TX_TIMEOUT });
     t.logger.info('All transactions mined');
 
     // Gather signers from attestations downloaded from L1

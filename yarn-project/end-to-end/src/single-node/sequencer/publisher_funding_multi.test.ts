@@ -3,9 +3,10 @@ import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { EthCheatCodes } from '@aztec/aztec/testing';
 import type { L1TxUtils } from '@aztec/ethereum/l1-tx-utils';
-import type { PublisherManager } from '@aztec/ethereum/publisher-manager';
+import { PublisherManager } from '@aztec/ethereum/publisher-manager';
 import { SecretValue } from '@aztec/foundation/config';
 import { retryUntil } from '@aztec/foundation/retry';
+import type { RunningPromise } from '@aztec/foundation/running-promise';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 
@@ -40,6 +41,18 @@ const toPrivateKeyHex = (index: number): Hex => {
 
 const FUNDING_THRESHOLD = parseEther('2');
 const FUNDING_AMOUNT = parseEther('2.1');
+
+/**
+ * Exposes the {@link PublisherManager} internals this suite asserts on without `as any` casts. The
+ * fields are re-declared `public` (they are `protected` on the base) so an `as` cast of the real
+ * instance can read them. Re-exposed as fields rather than methods: the instance is a base
+ * PublisherManager, so subclass methods would not exist on it at runtime — only its fields do.
+ */
+class TestPublisherManager extends PublisherManager {
+  declare public publishers: L1TxUtils[];
+  declare public funder?: L1TxUtils;
+  declare public fundingPromise?: RunningPromise;
+}
 
 // Tests the PublisherManager's automatic L1 ETH top-up logic when a keystore carries two publishers and a
 // dedicated funding account. Uses PIPELINING_SETUP_OPTS (prod sequencer, ethSlot=4s, aztecSlot=12s) with
@@ -110,15 +123,20 @@ describe('single-node/sequencer/publisher_funding_multi', () => {
     await rm(keyStoreDirectory, { recursive: true, force: true });
   });
 
-  // Sets both publisher L1 balances below the funding threshold via ethCheatCodes, waits for the
-  // PublisherManager's periodic funding loop to top them both up (round 1), then drains one publisher
-  // again and waits for a second funding round to confirm the loop is still healthy.
+  // Sets both publisher L1 balances below the funding threshold via ethCheatCodes, drives the
+  // PublisherManager's funding loop to top them both up (round 1), then drains one publisher again
+  // and drives a second funding round to confirm the loop is still healthy.
   it('funds both publishers when balances drop below threshold', async () => {
-    const publishers: L1TxUtils[] = (publisherManager as any).publishers;
-    const funder: L1TxUtils | undefined = (publisherManager as any).funder;
+    const publishers: L1TxUtils[] = (publisherManager as TestPublisherManager).publishers;
+    const funder: L1TxUtils | undefined = (publisherManager as TestPublisherManager).funder;
+    // The PublisherManager runs triggerFundingIfNeeded on a 2-minute RunningPromise. Driving that
+    // RunningPromise directly via trigger() forces an immediate funding cycle, so the test does not
+    // pay the (up to) 2-minute polling interval per round.
+    const fundingPromise: RunningPromise | undefined = (publisherManager as TestPublisherManager).fundingPromise;
 
     expect(publishers.length).toBe(2);
     expect(funder).toBeDefined();
+    expect(fundingPromise).toBeDefined();
 
     const publisher1Address = publishers[0].getSenderAddress();
     const publisher2Address = publishers[1].getSenderAddress();
@@ -134,8 +152,10 @@ describe('single-node/sequencer/publisher_funding_multi', () => {
 
     const funderBalanceBefore = await ethCheatCodes.getBalance(funderAddress);
 
-    // The RunningPromise checks funding every 2 minutes, so we need to wait long enough
-    // for the next cycle to detect the low balances and fund both publishers.
+    // Force the funding cycle now rather than waiting for the next 2-minute poll, then confirm both
+    // publishers were topped up.
+    await fundingPromise!.trigger();
+
     // REFACTOR: hand-rolled poll waiting for PublisherManager funding cycle; a helper like
     // waitForPublisherBalancesAbove(publisherManager, threshold) should replace this retryUntil.
     await retryUntil(
@@ -173,6 +193,9 @@ describe('single-node/sequencer/publisher_funding_multi', () => {
     await ethCheatCodes.setBalance(publisher1Address, LOW_BALANCE);
     const funderBalanceBefore2 = await ethCheatCodes.getBalance(funderAddress);
     logger.info(`Waiting for second funding round`);
+
+    // Force a second funding cycle rather than waiting for the next 2-minute poll.
+    await fundingPromise!.trigger();
 
     // REFACTOR: hand-rolled poll waiting for a second PublisherManager funding cycle; same helper
     // as above should cover this site.

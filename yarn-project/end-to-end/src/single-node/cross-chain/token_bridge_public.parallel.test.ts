@@ -1,5 +1,4 @@
 import { Fr } from '@aztec/aztec.js/fields';
-import { retryUntil } from '@aztec/foundation/retry';
 
 import { jest } from '@jest/globals';
 
@@ -8,6 +7,7 @@ import {
   NO_L1_TO_L2_MSG_ERROR,
   PIPELINING_SETUP_OPTS,
 } from '../../fixtures/fixtures.js';
+import { waitForL2ToL1Witness } from '../../fixtures/wait_helpers.js';
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
 // Public L1→L2 token deposit and L2→L1 withdrawal via the TokenBridge. Uses CrossChainMessagingTest
@@ -105,14 +105,9 @@ describe('single-node/cross-chain/token_bridge_public', () => {
     // Advance the epoch until the tx is proven since the messages are inserted to the outbox when the epoch is proven.
     await t.advanceToEpochProven(l2TxReceipt);
 
-    // REFACTOR: hand-rolled retryUntil polling for L2→L1 membership witness; replace with a
-    // waitForL2ToL1MessageWitness(node, txHash, leaf) helper shared across bridge tests.
-    const l2ToL1MessageResult = await retryUntil(
-      () => aztecNode.getL2ToL1MembershipWitness(l2TxReceipt.txHash, l2ToL1Message),
-      'l2 to l1 membership witness',
-      60,
-      1,
-    );
+    const l2ToL1MessageResult = await waitForL2ToL1Witness(aztecNode, l2TxReceipt.txHash, l2ToL1Message, {
+      timeout: 60,
+    });
 
     // Check balance before and after exit.
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);

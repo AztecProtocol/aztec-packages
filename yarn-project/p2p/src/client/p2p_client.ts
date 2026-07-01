@@ -14,10 +14,10 @@ import {
   type BlockHash,
   type CheckpointId,
   type EthAddress,
+  EventDrivenL2BlockStream,
   type L2Block,
   type L2BlockId,
   type L2BlockSource,
-  L2BlockStream,
   type L2BlockStreamEvent,
   type L2TipsStore,
   type LocalL2Tips,
@@ -74,7 +74,7 @@ export class P2PClient extends WithTracer implements P2P {
 
   private config: P2PConfig;
 
-  private blockStream: L2BlockStream | undefined;
+  private blockStream: EventDrivenL2BlockStream | undefined;
 
   private txProvider: TxProvider;
 
@@ -277,7 +277,7 @@ export class P2PClient extends WithTracer implements P2P {
   private initBlockStream(startingBlock?: BlockNumber) {
     if (!this.blockStream) {
       const { blockRequestBatchSize: batchSize, blockCheckIntervalMS: pollIntervalMS } = this.config;
-      this.blockStream = new L2BlockStream(
+      this.blockStream = new EventDrivenL2BlockStream(
         this.l2BlockSource,
         this,
         this,

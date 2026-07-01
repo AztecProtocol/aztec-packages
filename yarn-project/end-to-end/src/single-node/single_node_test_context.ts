@@ -46,6 +46,7 @@ import {
   SCHNORR_HARDCODED_PRIVATE_KEY,
   SchnorrHardcodedKeyAccountContract,
 } from '../fixtures/schnorr_hardcoded_account_contract.js';
+import { testSpan } from '../fixtures/timing.js';
 import {
   type EndToEndContext,
   type SetupOptions,
@@ -361,30 +362,34 @@ export class SingleNodeTestContext {
     const proverNodePrivateKey = this.getNextPrivateKey();
     const proverIndex = this.proverNodes.length + 1;
     const { mockGossipSubNetwork } = this.context;
-    const { proverNode } = await withLoggerBindings({ actor: `prover-${proverIndex}` }, () =>
-      createAndSyncProverNode(
-        proverNodePrivateKey,
-        {
-          ...this.context.config,
-          p2pEnabled: this.context.config.p2pEnabled || mockGossipSubNetwork !== undefined,
-          proverId: EthAddress.fromNumber(proverIndex),
-          dontStart: opts.dontStart,
-          ...opts,
-        },
-        {
-          dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
-        },
-        {
-          dateProvider: this.context.dateProvider,
-          p2pClientDeps: {
-            p2pServiceFactory: mockGossipSubNetwork ? getMockPubSubP2PServiceFactory(mockGossipSubNetwork) : undefined,
-            rpcTxProviders: [this.context.aztecNode],
+    const { proverNode } = await testSpan('setup:node', () =>
+      withLoggerBindings({ actor: `prover-${proverIndex}` }, () =>
+        createAndSyncProverNode(
+          proverNodePrivateKey,
+          {
+            ...this.context.config,
+            p2pEnabled: this.context.config.p2pEnabled || mockGossipSubNetwork !== undefined,
+            proverId: EthAddress.fromNumber(proverIndex),
+            dontStart: opts.dontStart,
+            ...opts,
           },
-        },
-        {
-          genesis: this.context.genesis,
-          dontStart: opts.dontStart,
-        },
+          {
+            dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
+          },
+          {
+            dateProvider: this.context.dateProvider,
+            p2pClientDeps: {
+              p2pServiceFactory: mockGossipSubNetwork
+                ? getMockPubSubP2PServiceFactory(mockGossipSubNetwork)
+                : undefined,
+              rpcTxProviders: [this.context.aztecNode],
+            },
+          },
+          {
+            genesis: this.context.genesis,
+            dontStart: opts.dontStart,
+          },
+        ),
       ),
     );
     this.proverNodes.push(proverNode);
@@ -408,27 +413,31 @@ export class SingleNodeTestContext {
     const resolvedConfig = { ...this.context.config, ...opts };
     const p2pEnabled = resolvedConfig.p2pEnabled || mockGossipSubNetwork !== undefined;
     const p2pIp = resolvedConfig.p2pIp ?? (p2pEnabled ? '127.0.0.1' : undefined);
-    const node = await withLoggerBindings({ actor: `${actorPrefix}-${nodeIndex}` }, () =>
-      createAztecNodeService(
-        {
-          ...resolvedConfig,
-          dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
-          validatorPrivateKeys: opts.validatorPrivateKeys ?? new SecretValue([]),
-          nodeId: resolvedConfig.nodeId || `${actorPrefix}-${nodeIndex}`,
-          p2pEnabled,
-          p2pIp,
-        },
-        {
-          dateProvider: this.context.dateProvider,
-          p2pClientDeps: {
-            p2pServiceFactory: mockGossipSubNetwork ? getMockPubSubP2PServiceFactory(mockGossipSubNetwork) : undefined,
+    const node = await testSpan('setup:node', () =>
+      withLoggerBindings({ actor: `${actorPrefix}-${nodeIndex}` }, () =>
+        createAztecNodeService(
+          {
+            ...resolvedConfig,
+            dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
+            validatorPrivateKeys: opts.validatorPrivateKeys ?? new SecretValue([]),
+            nodeId: resolvedConfig.nodeId || `${actorPrefix}-${nodeIndex}`,
+            p2pEnabled,
+            p2pIp,
           },
-          slashingProtectionDb: opts.slashingProtectionDb,
-        },
-        {
-          genesis: this.context.genesis,
-          ...opts,
-        },
+          {
+            dateProvider: this.context.dateProvider,
+            p2pClientDeps: {
+              p2pServiceFactory: mockGossipSubNetwork
+                ? getMockPubSubP2PServiceFactory(mockGossipSubNetwork)
+                : undefined,
+            },
+            slashingProtectionDb: opts.slashingProtectionDb,
+          },
+          {
+            genesis: this.context.genesis,
+            ...opts,
+          },
+        ),
       ),
     );
 
@@ -448,11 +457,13 @@ export class SingleNodeTestContext {
     // Cover at least two full epochs of wall time so callers issuing the wait mid-epoch
     // still have headroom — the prior `30 * epochDuration` mixed units (slots vs seconds)
     // and timed out at 120s for configs whose epoch wall time is 144s+.
-    await waitUntilL1Timestamp(
-      this.l1Client,
-      start - BigInt(this.L1_BLOCK_TIME_IN_S),
-      undefined,
-      2 * this.epochDuration * this.L2_SLOT_DURATION_IN_S,
+    await testSpan('wait:epoch', () =>
+      waitUntilL1Timestamp(
+        this.l1Client,
+        start - BigInt(this.L1_BLOCK_TIME_IN_S),
+        undefined,
+        2 * this.epochDuration * this.L2_SLOT_DURATION_IN_S,
+      ),
     );
     return start;
   }
@@ -482,23 +493,74 @@ export class SingleNodeTestContext {
     return target;
   }
 
+  /**
+   * Warps the L1 clock to within `leadSlots` slots of the start of `epoch`, then waits for that boundary in
+   * wall-clock, skipping the dead stretch where the chain just advances one L1 block per slot until an epoch
+   * ends. Anything the post-warp assertions depend on must already be produced before calling this — warping
+   * the tail away does not change what gets proven, and the shared `TestDateProvider` moves the
+   * prover/node/sequencer clocks together so the epoch finalizes right after the warp. The `leadSlots` tail
+   * (default 2) is left in real time so the sequencer can publish the epoch's final checkpoint before the
+   * boundary, and so any post-warp sampler observes an in-epoch slot rather than the epoch's last slot.
+   * Forward-only, so a no-op when already within `leadSlots` of the boundary.
+   */
+  public async warpToEpochStart(epoch: number, opts: { leadSlots?: number } = {}): Promise<bigint> {
+    const leadSlots = opts.leadSlots ?? 2;
+    const [targetTs] = getTimestampRangeForEpoch(EpochNumber(epoch), this.constants);
+    const safeTs = targetTs - BigInt(leadSlots * this.L2_SLOT_DURATION_IN_S);
+    const currentTs = BigInt(await this.context.cheatCodes.eth.lastBlockTimestamp());
+    if (currentTs < safeTs) {
+      this.logger.info(`Warping L1 from ${currentTs} to ${safeTs} (${leadSlots} slots before epoch ${epoch})`);
+      await this.context.cheatCodes.eth.warp(Number(safeTs), { resetBlockInterval: true });
+    }
+    return this.waitUntilEpochStarts(epoch);
+  }
+
+  /**
+   * Most of a proof-submission window is dead wall-clock time, so warp the L1 clock forward to `leadSlots`
+   * (default 2) L2 slots before the window's last slot. A subsequent
+   * {@link waitUntilLastSlotOfProofSubmissionWindow} then only sleeps out the few remaining real slots,
+   * leaving enough real time for any in-flight proving, pruning, and recovery to happen organically. Only
+   * warps forward, so it is a no-op when the chain is already within `leadSlots`+1 slots of the window end.
+   */
+  public async warpNearSubmissionWindowEnd(epoch: number, opts: { leadSlots?: number } = {}): Promise<void> {
+    const leadSlots = opts.leadSlots ?? 2;
+    const { slotDuration } = this.constants;
+    const deadline = getProofSubmissionDeadlineTimestamp(EpochNumber(epoch), this.constants);
+    // Mirror waitUntilLastSlotOfProofSubmissionWindow's target (one slot before the deadline).
+    const lastSlotTs = deadline - BigInt(slotDuration);
+    const target = lastSlotTs - BigInt(leadSlots * slotDuration);
+    const currentTs = BigInt(await this.context.cheatCodes.eth.lastBlockTimestamp());
+    if (currentTs < target) {
+      this.logger.warn(`Warping L1 to ${leadSlots} slots before end of epoch ${epoch} submission window`, {
+        currentTs,
+        target,
+        epoch,
+      });
+      await this.context.cheatCodes.eth.warp(Number(target), { resetBlockInterval: true });
+    }
+  }
+
   /** Waits until the given checkpoint number is mined. */
   public async waitUntilCheckpointNumber(target: CheckpointNumber, timeout = 120) {
-    await retryUntil(
-      () => Promise.resolve(target <= this.monitor.checkpointNumber),
-      `Wait until checkpoint ${target}`,
-      timeout,
-      0.1,
+    await testSpan('wait:checkpoint', () =>
+      retryUntil(
+        () => Promise.resolve(target <= this.monitor.checkpointNumber),
+        `Wait until checkpoint ${target}`,
+        timeout,
+        0.1,
+      ),
     );
   }
 
   /** Waits until the given checkpoint number is marked as proven. */
   public async waitUntilProvenCheckpointNumber(target: CheckpointNumber, timeout = 120) {
-    await retryUntil(
-      () => Promise.resolve(target <= this.monitor.provenCheckpointNumber),
-      `Wait proven checkpoint ${target}`,
-      timeout,
-      0.1,
+    await testSpan('wait:proven-checkpoint', () =>
+      retryUntil(
+        () => Promise.resolve(target <= this.monitor.provenCheckpointNumber),
+        `Wait proven checkpoint ${target}`,
+        timeout,
+        0.1,
+      ),
     );
     return this.monitor.provenCheckpointNumber;
   }
@@ -514,7 +576,9 @@ export class SingleNodeTestContext {
     // Use a timeout that accounts for the full proof submission window
     const proofSubmissionWindowDuration =
       this.constants.proofSubmissionEpochs * this.epochDuration * this.L2_SLOT_DURATION_IN_S;
-    await waitUntilL1Timestamp(this.l1Client, oneSlotBefore, undefined, proofSubmissionWindowDuration * 2);
+    await testSpan('wait:proof-window', () =>
+      waitUntilL1Timestamp(this.l1Client, oneSlotBefore, undefined, proofSubmissionWindowDuration * 2),
+    );
   }
 
   /**
@@ -552,29 +616,31 @@ export class SingleNodeTestContext {
     const target = this.buildWindowTimestampForSlot(slot, { lead: opts.lead });
     const timeout = opts.timeout ?? this.L2_SLOT_DURATION_IN_S * 3;
     this.logger.info(`Waiting until L1 reaches build window of slot ${slot}`, { slot, target });
-    await waitUntilL1Timestamp(this.l1Client, target, undefined, timeout);
+    await testSpan('wait:slot', () => waitUntilL1Timestamp(this.l1Client, target, undefined, timeout));
     return slot;
   }
 
   /** Waits for the aztec node to sync to the target block number. */
   public async waitForNodeToSync(blockNumber: BlockNumber, type: 'proven' | 'finalized' | 'historic') {
     const waitTime = ARCHIVER_POLL_INTERVAL + WORLD_STATE_BLOCK_CHECK_INTERVAL;
-    let synched = false;
-    while (!synched) {
-      await sleep(waitTime);
-      const [syncState, tips] = await Promise.all([
-        this.context.aztecNode.getWorldStateSyncStatus(),
-        await this.context.aztecNode.getChainTips(),
-      ]);
-      this.logger.info(`Wait for node synch ${blockNumber} ${type}`, { blockNumber, type, syncState, tips });
-      if (type === 'proven') {
-        synched = tips.proven.block.number >= blockNumber && syncState.latestBlockNumber >= blockNumber;
-      } else if (type === 'finalized') {
-        synched = syncState.finalizedBlockNumber >= blockNumber;
-      } else {
-        synched = syncState.oldestHistoricBlockNumber >= blockNumber;
+    await testSpan('wait:node-sync', async () => {
+      let synched = false;
+      while (!synched) {
+        await sleep(waitTime);
+        const [syncState, tips] = await Promise.all([
+          this.context.aztecNode.getWorldStateSyncStatus(),
+          await this.context.aztecNode.getChainTips(),
+        ]);
+        this.logger.info(`Wait for node synch ${blockNumber} ${type}`, { blockNumber, type, syncState, tips });
+        if (type === 'proven') {
+          synched = tips.proven.block.number >= blockNumber && syncState.latestBlockNumber >= blockNumber;
+        } else if (type === 'finalized') {
+          synched = syncState.finalizedBlockNumber >= blockNumber;
+        } else {
+          synched = syncState.oldestHistoricBlockNumber >= blockNumber;
+        }
       }
-    }
+    });
   }
 
   /**
@@ -588,16 +654,18 @@ export class SingleNodeTestContext {
     opts: { timeout?: number } = {},
   ): Promise<void> {
     const proverIds = this.proverNodes.map(node => node.getProverNode()!.getProverId());
-    await retryUntil(
-      async () => {
-        const haveSubmitted = await Promise.all(
-          proverIds.map(proverId => this.rollup.getHasSubmittedProof(epoch, epochLength, proverId)),
-        );
-        this.logger.info(`Proof submissions: ${haveSubmitted.join(', ')}`);
-        return haveSubmitted.every(submitted => submitted);
-      },
-      'Provers have submitted proofs',
-      opts.timeout ?? 120,
+    await testSpan('wait:proof-submitted', () =>
+      retryUntil(
+        async () => {
+          const haveSubmitted = await Promise.all(
+            proverIds.map(proverId => this.rollup.getHasSubmittedProof(epoch, epochLength, proverId)),
+          );
+          this.logger.info(`Proof submissions: ${haveSubmitted.join(', ')}`);
+          return haveSubmitted.every(submitted => submitted);
+        },
+        'Provers have submitted proofs',
+        opts.timeout ?? 120,
+      ),
     );
   }
 
@@ -864,20 +932,24 @@ export class SingleNodeTestContext {
     opts: { timeout?: number } = {},
   ): Promise<Parameters<SequencerEvents[E]>[0]> {
     const timeout = opts.timeout ?? 60_000;
-    return executeTimeout(
-      signal =>
-        new Promise<Parameters<SequencerEvents[E]>[0]>(resolve => {
-          const listener = (args: Parameters<SequencerEvents[E]>[0]) => {
-            if (match(args)) {
-              sequencer.off(event, listener as SequencerEvents[E]);
-              resolve(args);
-            }
-          };
-          signal.addEventListener('abort', () => sequencer.off(event, listener as SequencerEvents[E]), { once: true });
-          sequencer.on(event, listener as SequencerEvents[E]);
-        }),
-      timeout,
-      `wait for sequencer event ${String(event)}`,
+    return testSpan('wait:sequencer-state', () =>
+      executeTimeout(
+        signal =>
+          new Promise<Parameters<SequencerEvents[E]>[0]>(resolve => {
+            const listener = (args: Parameters<SequencerEvents[E]>[0]) => {
+              if (match(args)) {
+                sequencer.off(event, listener as SequencerEvents[E]);
+                resolve(args);
+              }
+            };
+            signal.addEventListener('abort', () => sequencer.off(event, listener as SequencerEvents[E]), {
+              once: true,
+            });
+            sequencer.on(event, listener as SequencerEvents[E]);
+          }),
+        timeout,
+        `wait for sequencer event ${String(event)}`,
+      ),
     );
   }
 

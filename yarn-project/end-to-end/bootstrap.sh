@@ -27,44 +27,40 @@ function test_cmds {
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
   local prefix="$hash:ISOLATE=1:TIMEOUT=20m"
 
+  # On full CI we enable real proofs and allocate more resources to the e2e prover tests
   if [ "$CI_FULL" -eq 1 ]; then
-    echo "$prefix:TIMEOUT=20m:CPUS=16:MEM=96g:NAME=e2e_prover_full_real $run_test_script simple single-node/prover/full"
+    for test in src/single-node/prover/server/*.test.ts; do
+      local name=${test#src/}
+      name=${name%.test.ts}
+      echo "$prefix:TIMEOUT=20m:CPUS=16:MEM=96g:NAME=${name}_real $run_test_script simple ${test#src/}"
+    done
+    for test in src/single-node/prover/client/*.test.ts; do
+      local name=${test#src/}
+      name=${name%.test.ts}
+      echo "$prefix:TIMEOUT=10m:CPUS=2:MEM=4g:NAME=${name}_real $run_test_script simple ${test#src/}"
+    done
   else
-    echo "$prefix:NAME=e2e_prover_full_fake FAKE_PROOFS=1 $run_test_script simple single-node/prover/full"
+    for test in src/single-node/prover/**/*.test.ts; do
+      local name=${test#src/}
+      name=${name%.test.ts}
+      echo "$prefix:NAME=${name}_fake FAKE_PROOFS=1 $run_test_script simple ${test#src/}"
+    done
   fi
+
+  # Long-running avm_simulator
   echo "$prefix:TIMEOUT=30m:NAME=automine/simulation/avm_simulator $(set_dump_avm e2e_avm_simulator) $run_test_script simple src/automine/simulation/avm_simulator.test.ts"
 
   local tests=(
     # List all standalone and nested tests, except for the ones listed above.
     src/automine/*.test.ts
-    src/automine/contracts/*.test.ts
-    src/automine/contracts/deploy/*.test.ts
-    src/automine/contracts/nested/*.test.ts
-    src/automine/token/*.test.ts
-    src/automine/accounts/*.test.ts
-    src/automine/effects/*.test.ts
+    src/automine/!(simulation)/**/*.test.ts
     src/automine/simulation/!(avm_simulator).test.ts
-    src/single-node/block-building/*.test.ts
-    src/single-node/proving/*.test.ts
-    src/single-node/l1-reorgs/*.test.ts
-    src/single-node/recovery/*.test.ts
-    src/single-node/partial-proofs/*.test.ts
-    src/single-node/sequencer/*.test.ts
-    src/single-node/fees/*.test.ts
-    src/single-node/cross-chain/*.test.ts
-    src/single-node/bot/*.test.ts
-    src/single-node/sync/*.test.ts
-    src/infra/*.test.ts
-    src/single-node/misc/*.test.ts
-    src/multi-node/block-production/*.test.ts
-    src/multi-node/recovery/*.test.ts
-    src/multi-node/invalid-attestations/*.test.ts
-    src/multi-node/high-availability/*.test.ts
-    src/multi-node/slashing/*.test.ts
-    src/multi-node/governance/*.test.ts
-    src/p2p/*.test.ts
-    src/p2p/reqresp/*.test.ts
+    src/single-node/!(prover)/**/*.test.ts
+    src/infra/**/*.test.ts
+    src/multi-node/**/*.test.ts
+    src/p2p/**/*.test.ts
   )
+
   for test in "${tests[@]}"; do
     # Derive a CI test name from the path: drop the leading "src/" and trailing ".test.ts".
     # This keeps e2e_<dir>/<file> names while also handling the multi-node/ category folder.
@@ -140,9 +136,7 @@ function test_cmds {
     fi
   done
 
-  #echo "$hash:ONLY_TERM_PARENT=1 $run_test_script simple src/e2e_multi_validator/e2e_multi_validator_node.test.ts"
   #echo "$hash:ONLY_TERM_PARENT=1 $run_test_script web3signer src/composed/web3signer/integration_remote_signer.test.ts"
-  #echo "$hash:ONLY_TERM_PARENT=1 $run_test_script web3signer src/e2e_multi_validator/e2e_multi_validator_node_key_store.test.ts"
 
   # compose-based tests with custom scripts
   for flow in ../cli-wallet/test/flows/*.sh; do

@@ -18,15 +18,19 @@ const VALIDATORS_PER_NODE = 3;
 const NUM_VALIDATORS = NUM_NODES * VALIDATORS_PER_NODE;
 const SLOT_COUNT = 3;
 const EPOCH_DURATION = 2;
-const ETHEREUM_SLOT_DURATION = 8;
-const AZTEC_SLOT_DURATION = 36;
+// The body advances through SLOT_COUNT real L2 slots at wall-clock pace, so the slot duration directly
+// sets body time. At eth<8 the sequencer uses the fast (mocked-p2p) operational budgets, which fit a
+// checkpoint comfortably in an 8s slot even with six co-hosted validators; larger durations only add
+// dead wall-clock without exercising new behavior.
+const ETHEREUM_SLOT_DURATION = 4;
+const AZTEC_SLOT_DURATION = 8;
 
 jest.setTimeout(1000 * 60 * 10);
 
 // Regression test for the sentinel correctly tracking attestations for multiple validators co-hosted on
 // the same physical node as the proposer. Uses MultiNodeTestContext on the mock-gossip bus: 2 nodes each
 // carrying 3 validator keys (6 validators total) plus a non-validator sentinel node and a fake prover.
-// ethSlot=8s, aztecSlot=36s, epoch=2, proofSubEpochs=1024, sentinelEnabled. Each it runs as an isolated
+// ethSlot=4s, aztecSlot=8s, epoch=2, proofSubEpochs=1024, sentinelEnabled. Each it runs as an isolated
 // CI job (parallel convention).
 describe('multi-node/slashing/multiple_validators_sentinel', () => {
   let test: MultiNodeTestContext;
@@ -41,7 +45,7 @@ describe('multi-node/slashing/multiple_validators_sentinel', () => {
       aztecTargetCommitteeSize: NUM_VALIDATORS,
       aztecSlotDuration: AZTEC_SLOT_DURATION,
       ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
-      blockDurationMs: 6000,
+      blockDurationMs: 2000,
       aztecProofSubmissionEpochs: 1024, // effectively do not reorg
       listenAddress: '127.0.0.1',
       minTxsPerBlock: 0,
@@ -88,9 +92,15 @@ describe('multi-node/slashing/multiple_validators_sentinel', () => {
     );
   };
 
-  // Waits past the pipelining warm-up period, then observes SLOT_COUNT slots and asserts that every
-  // validator on every node has zero attestation-missed entries in the sentinel history for those slots.
-  it('collects attestations for all validators on a node', async () => {
+  // Two phases share one setup, since each it in a .parallel file re-pays the full beforeAll as its own CI
+  // job. Phase 1 runs with both nodes online and asserts every validator on every node has zero
+  // attestation-missed entries across the observed slots. Phase 2 then stops the second validator node,
+  // finds a slot where a first-node validator is the proposer, and asserts via the sentinel node that
+  // first-node validators have no missed entries for that slot, the offline validators do, and at least one
+  // first-node validator shows a checkpoint-mined/-valid entry. The phases are ordered (phase 1 needs both
+  // nodes online; phase 2 self-anchors on a fresh post-stop slot window).
+  it('collects attestations for all validators, including when a block is not published', async () => {
+    // --- Phase 1: all validators on a node ---
     // Wait until validator nodes have advanced past their first proposed slot and landed a checkpoint so that the
     // pipelining warm-up period (where some attestations may be missed) is behind us.
     await waitForPostWarmupCheckpoint('establishing initial slot');
@@ -126,30 +136,24 @@ describe('multi-node/slashing/multiple_validators_sentinel', () => {
         expect(history.filter(h => h.status === 'attestation-missed').length).toEqual(0);
       }
     }
-  });
 
-  // Stops the second validator node mid-run so it can no longer build blocks. Finds a slot where one
-  // of the first node's validators is the proposer, then queries sentinel stats from the sentinel node
-  // and asserts: first-node validators have no missed entries for that slot; offline validators have
-  // missed entries; and at least one first-node validator has a checkpoint-mined or checkpoint-valid
-  // entry confirming the block was proposed.
-  it('collects attestations for validators in proposer node when block is not published', async () => {
-    await waitForPostWarmupCheckpoint('stopping a validator node and establishing initial slot');
+    // --- Phase 2: validators in proposer node when block is not published ---
+    test.logger.info(`Phase 1 complete; stopping a validator node and establishing a new initial slot`);
 
     // Stop the second node, this means the first node won't be able to propose since won't achieve quorum
     await tryStop(nodes[1]);
 
     await test.monitor.run();
-    const { checkpointNumber: initialBlock, l2SlotNumber: initialSlot } = test.monitor;
+    const { checkpointNumber: initialBlock2, l2SlotNumber: initialSlot2 } = test.monitor;
 
-    const timeout = AZTEC_SLOT_DURATION * SLOT_COUNT * 4;
-    const targetSlot = Number(initialSlot) + SLOT_COUNT;
+    const timeout2 = AZTEC_SLOT_DURATION * SLOT_COUNT * 4;
+    const targetSlot2 = Number(initialSlot2) + SLOT_COUNT;
     const firstNodeValidators = test.validators.slice(0, VALIDATORS_PER_NODE).map(v => v.attester);
     const offlineValidators = test.validators.slice(VALIDATORS_PER_NODE, VALIDATORS_PER_NODE * 2).map(v => v.attester);
 
     test.logger.info(
-      `Waiting until L2 slot ${targetSlot} and proposer is in first node (${firstNodeValidators.join(', ')})`,
-      { initialBlock, initialSlot, timeout, firstNodeValidators },
+      `Waiting until L2 slot ${targetSlot2} and proposer is in first node (${firstNodeValidators.join(', ')})`,
+      { initialBlock: initialBlock2, initialSlot: initialSlot2, timeout: timeout2, firstNodeValidators },
     );
 
     // We want to wait until we see a slot where we query the proposer and find it's one of the first node validators
@@ -160,10 +164,10 @@ describe('multi-node/slashing/multiple_validators_sentinel', () => {
         const timestamp = await rollup.getTimestampForSlot(slotForSentinel);
         const proposerAtTime = await rollup.getProposerAt(timestamp);
         test.logger.info(`At slot ${slotForSentinel}, proposer is ${proposerAtTime}`);
-        return firstNodeValidators.some(v => v.equals(proposerAtTime)) && slotForSentinel >= targetSlot;
+        return firstNodeValidators.some(v => v.equals(proposerAtTime)) && slotForSentinel >= targetSlot2;
       },
       'proposer is first node',
-      timeout,
+      timeout2,
     );
 
     test.logger.info(`Waiting until sentinel processed until slot ${slotForSentinel}`);

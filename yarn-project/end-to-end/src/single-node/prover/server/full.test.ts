@@ -22,9 +22,9 @@ import TOML from '@iarna/toml';
 import { jest } from '@jest/globals';
 import { type GetContractReturnType, getContract } from 'viem';
 
-import { FullProverTest } from '../../fixtures/e2e_prover_test.js';
-import { PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
-import { ProvenTx, proveInteraction } from '../../test-wallet/utils.js';
+import { FullProverTest } from '../../../fixtures/e2e_prover_test.js';
+import { PIPELINING_SETUP_OPTS } from '../../../fixtures/fixtures.js';
+import { ProvenTx, proveInteraction } from '../../../test-wallet/utils.js';
 
 const REAL_PROOFS = !parseBooleanEnv(process.env.FAKE_PROOFS);
 
