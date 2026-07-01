@@ -191,8 +191,13 @@ export class FullProverTest {
       await provenWallet.createSchnorrInitializerlessAccount(
         this.fundedAccounts[i].secret,
         this.fundedAccounts[i].salt,
+        this.fundedAccounts[i].signingKey,
       );
-      await this.wallet.createSchnorrInitializerlessAccount(this.fundedAccounts[i].secret, this.fundedAccounts[i].salt);
+      await this.wallet.createSchnorrInitializerlessAccount(
+        this.fundedAccounts[i].secret,
+        this.fundedAccounts[i].salt,
+        this.fundedAccounts[i].signingKey,
+      );
     }
 
     const asset = TokenContract.at(this.fakeProofsAsset.address, provenWallet);

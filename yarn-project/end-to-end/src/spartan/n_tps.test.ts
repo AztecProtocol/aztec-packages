@@ -10,13 +10,13 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { randomBigInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { BenchmarkingContract } from '@aztec/noir-test-contracts.js/Benchmarking';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
-import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { TopicType } from '@aztec/stdlib/p2p';
 import { Tx, TxHash, TxStatus } from '@aztec/stdlib/tx';
 import { getGasLimits } from '@aztec/wallet-sdk/base-wallet';
@@ -319,14 +319,10 @@ describe('sustained N TPS test', () => {
       wallets.map(async wallet => {
         const secret = Fr.random();
         const salt = Fr.random();
-        const address = await wallet.registerAccount(secret, salt);
+        const signingKey = GrumpkinScalar.random();
+        const address = await wallet.registerAccount(secret, salt, signingKey);
         await registerSponsoredFPC(wallet);
-        const manager = await AccountManager.create(
-          wallet,
-          secret,
-          new SchnorrAccountContract(deriveSigningKey(secret)),
-          { salt },
-        );
+        const manager = await AccountManager.create(wallet, secret, new SchnorrAccountContract(signingKey), { salt });
         const deployMethod = await manager.getDeployMethod();
         // Explicit gas estimation: BaseWallet's fallback bakes ~196_608 daGas into deploys, which exceeds
         // the proposer's per-block fair-share daGas (~94k at 10 blocks/checkpoint

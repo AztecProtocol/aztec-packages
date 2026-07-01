@@ -301,6 +301,7 @@ describe('e2e_p2p_add_rollup', () => {
       const aliceAccountManager = await wallet.createSchnorrInitializerlessAccount(
         aliceAccount.secret,
         aliceAccount.salt,
+        aliceAccount.signingKey,
       );
 
       const aliceAddress = aliceAccountManager.address;

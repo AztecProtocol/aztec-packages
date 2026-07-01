@@ -18,7 +18,7 @@ import type {
   WalletCapabilities,
 } from '@aztec/aztec.js/wallet';
 import type { ChainInfo } from '@aztec/entrypoints/interfaces';
-import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
@@ -194,8 +194,8 @@ export class WorkerWallet implements Wallet {
   }
 
   /** Registers an account inside the worker's TestWallet, populating its accounts map. */
-  registerAccount(secret: Fr, salt: Fr): Promise<AztecAddress> {
-    return this.call('registerAccount', secret, salt);
+  registerAccount(secret: Fr, salt: Fr, signingKey: Fq): Promise<AztecAddress> {
+    return this.call('registerAccount', secret, salt, signingKey);
   }
 
   createAuthWit(from: AztecAddress, messageHashOrIntent: IntentInnerHash | CallIntent): Promise<AuthWitness> {

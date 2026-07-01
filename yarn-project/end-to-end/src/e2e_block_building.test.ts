@@ -562,7 +562,11 @@ describe('e2e_block_building', () => {
 
       const [accountData] = context.additionallyFundedAccounts;
 
-      const accountManager = await (wallet as TestWallet).createSchnorrAccount(accountData.secret, accountData.salt);
+      const accountManager = await (wallet as TestWallet).createSchnorrAccount(
+        accountData.secret,
+        accountData.salt,
+        accountData.signingKey,
+      );
       const deployMethod = await accountManager.getDeployMethod();
       await deployMethod.send({
         from: NO_FROM,

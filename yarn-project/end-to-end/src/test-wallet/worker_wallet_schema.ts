@@ -10,5 +10,5 @@ import { z } from 'zod';
 export const WorkerWalletSchema: ApiSchema = {
   ...WalletSchema,
   proveTx: z.function({ input: z.tuple([ExecutionPayloadSchema, SendOptionsSchema]), output: Tx.schema }),
-  registerAccount: z.function({ input: z.tuple([schemas.Fr, schemas.Fr]), output: AztecAddress.schema }),
+  registerAccount: z.function({ input: z.tuple([schemas.Fr, schemas.Fr, schemas.Fq]), output: AztecAddress.schema }),
 };

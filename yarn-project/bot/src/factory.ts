@@ -21,6 +21,7 @@ import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
@@ -69,7 +70,8 @@ export class BotFactory {
     recipient: AztecAddress;
   }> {
     const defaultAccountAddress = await this.setupAccount();
-    const recipient = (await this.wallet.createSchnorrAccount(Fr.random(), Fr.random())).address;
+    const recipient = (await this.wallet.createSchnorrAccount(Fr.random(), Fr.random(), GrumpkinScalar.random()))
+      .address;
     await this.ensureFeeJuiceBalance(defaultAccountAddress);
     const token = await this.setupToken(defaultAccountAddress);
     await this.mintTokens(token, defaultAccountAddress);
