@@ -279,16 +279,20 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
    * arbitrary checkpoint property (e.g. one published in the first half of its slot). Rejects after
    * `opts.timeout` ms if provided; otherwise waits indefinitely.
    *
-   * By default this is purely event-driven and only resolves on the *next* matching checkpoint. Pass
-   * `opts.guard` to first take a fresh {@link run} snapshot and short-circuit if the current
-   * checkpoint already satisfies `match` — this avoids missing a checkpoint that advanced before the
-   * listener was attached, at the cost of not distinguishing an already-satisfied state from a new one.
+   * By default this is purely event-driven and only resolves on the *next* matching checkpoint that
+   * arrives after the call. Set `checkCurrentCheckpoint` to also test the current checkpoint first (via
+   * a fresh {@link run} snapshot) and short-circuit if it already satisfies `match`. Use it only for
+   * latching state predicates (e.g. "checkpoint number has passed N"), where an already-satisfied
+   * result is valid and you want to avoid missing an advance that landed before the listener attached.
+   * Do NOT set it when the predicate depends on observing the checkpoint live (e.g. one published
+   * mid-slot that the caller then times against wall-clock), since it may return a checkpoint whose
+   * slot has already elapsed.
    */
   public async waitForCheckpoint(
     match: (event: ChainMonitorEventMap['checkpoint'][0]) => boolean,
-    opts: { timeout?: number; guard?: boolean } = {},
+    opts: { timeout?: number; checkCurrentCheckpoint?: boolean } = {},
   ): Promise<ChainMonitorEventMap['checkpoint'][0]> {
-    if (opts.guard) {
+    if (opts.checkCurrentCheckpoint) {
       await this.run();
       const current: ChainMonitorEventMap['checkpoint'][0] = {
         checkpointNumber: this.checkpointNumber,

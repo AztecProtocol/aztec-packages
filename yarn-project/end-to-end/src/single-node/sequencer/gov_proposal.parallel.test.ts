@@ -243,7 +243,7 @@ describe('single-node/sequencer/gov_proposal', () => {
     // moment the tx misses L2 sync, not the moment the L1 tx lands.
     const checkpointAfterBlobDisable = await monitor.waitForCheckpoint(
       event => event.checkpointNumber > lastCheckpointOnL1,
-      { timeout: (AZTEC_SLOT_DURATION + 5) * 1000, guard: true },
+      { timeout: (AZTEC_SLOT_DURATION + 5) * 1000, checkCurrentCheckpoint: true },
     );
     expect(checkpointAfterBlobDisable.checkpointNumber).toBeGreaterThan(lastCheckpointOnL1);
     logger.warn(`L1 checkpoint number has increased`, {
