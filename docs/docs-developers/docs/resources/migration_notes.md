@@ -15,6 +15,25 @@ When no `resolveTaggingSecretStrategy` hook is configured, onchain unconstrained
 
 **Impact**: An external recipient can now discover unconstrained-delivered messages without having registered the sender in advance, but establishing the handshake publishes an onchain marker derived from the recipient's address (anyone who knows that address can tell a handshake was created for them, though not by whom nor the contents). Wallets that want the previous behavior can configure a `resolveTaggingSecretStrategy` hook that returns an `address-derived` strategy.
 
+### [Aztec.nr] `PrivateContext` data fields are no longer public
+
+`PrivateContext`'s data fields are now private (or crate-internal): its public API is now exclusively its methods. Contracts that read these fields directly must switch to the corresponding getter. A new `get_side_effect_counter()` getter exposes the side-effect counter, and a new `is_static_call()` getter replaces reaching into `inputs.call_context`. The `get_anchor_block_header()` getter already existed.
+
+**Migration:**
+
+```diff
+- let header = context.anchor_block_header;
++ let header = context.get_anchor_block_header();
+
+- let counter = context.side_effect_counter;
++ let counter = context.get_side_effect_counter();
+
+- let is_static = context.inputs.call_context.is_static_call;
++ let is_static = context.is_static_call();
+```
+
+**Impact**: Direct field access on `PrivateContext` (e.g. `context.anchor_block_header`, `context.side_effect_counter`, `context.inputs`) no longer compiles. Contract state should be read through the context's methods.
+
 ### [PXE] Browser KV-store default is now SQLite-OPFS; the IndexedDB entrypoint moved and will be deprecated
 
 The browser PXE data store and the embedded wallet (`@aztec/wallets`) now persist to SQLite-OPFS instead of IndexedDB by default. The recommended way to obtain the browser backend is `@aztec/kv-store/sqlite-opfs`.

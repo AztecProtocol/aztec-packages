@@ -17,6 +17,7 @@ import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
+import type { ResolveCustomRequest } from '../../hooks/resolve_custom_request.js';
 import type {
   ResolveTaggingSecretStrategy,
   TaggingSecretStrategy,
@@ -141,7 +142,7 @@ describe('PrivateExecutionOracle', () => {
       const point = await Point.random();
       const { oracle } = await makeHookedOracle({ strategy: { type: 'arbitrary-secret', secret: point } });
 
-      const expected = await AppTaggingSecret.compute(point, contractAddress, recipient);
+      const expected = await AppTaggingSecret.computeDirectional(point, contractAddress, recipient);
       await expect(
         oracle.resolveTaggingStrategy(sender, recipient, AppTaggingSecretKind.UNCONSTRAINED),
       ).resolves.toEqual({ type: 'unconstrained-secret', secret: expected.secret });
@@ -211,6 +212,30 @@ describe('PrivateExecutionOracle', () => {
       keyStore.hasAccount.mockResolvedValue(ownsRecipient);
       return keyStore;
     };
+  });
+
+  describe('resolveCustomRequest', () => {
+    it('relays the request to the hook with the issuing contract context and returns its result', async () => {
+      const result = [Fr.random(), Fr.random()];
+      const resolveCustomRequest = jest.fn<ResolveCustomRequest>().mockResolvedValue(result);
+      const oracle = makeOracle({ hooks: { resolveCustomRequest } });
+      const contractClassId = Fr.random();
+      jest
+        .spyOn(oracle, 'getContractInstance')
+        .mockResolvedValue(await SerializableContractInstance.random({ currentContractClassId: contractClassId }));
+
+      const kind = Fr.random();
+      const payload = [Fr.random(), Fr.random(), Fr.random()];
+      await expect(oracle.resolveCustomRequest(kind, payload)).resolves.toEqual(result);
+      expect(resolveCustomRequest).toHaveBeenCalledWith({ contractAddress, contractClassId, kind, payload });
+    });
+
+    it('throws when no resolveCustomRequest hook is configured', async () => {
+      const oracle = makeOracle();
+      await expect(oracle.resolveCustomRequest(Fr.random(), [Fr.random()])).rejects.toThrow(
+        'no resolveCustomRequest hook',
+      );
+    });
   });
 
   const makeOracle = (overrides: Partial<PrivateExecutionOracleArgs> = {}): PrivateExecutionOracle => {

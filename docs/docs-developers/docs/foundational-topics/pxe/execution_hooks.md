@@ -95,3 +95,13 @@ let env = TestEnvironment::new_opts(
 Pass a `resolveTaggingSecretStrategy` hook when [creating the PXE](#configuring-hooks). It receives a `TaggingSecretStrategyRequest` with the executing contract's address and the message's sender, recipient, and delivery mode (`'constrained'` or `'unconstrained'`), so a wallet can apply per-application or per-recipient policies, or surface the decision to the user, instead of returning a fixed value.
 
 When the hook is absent, the PXE applies a default: both delivery modes use a [non-interactive handshake](../../aztec-nr/framework-description/note_delivery.md#tagging-secret-strategy) so the recipient can discover the message without prior coordination.
+
+## `resolveCustomRequest`
+
+A general-purpose hook for *custom*, caller-defined requests. A contract reaches for it when it needs something it cannot get on its own: not from its local notes, not from the protocol's existing oracles. The contract gives the request a `kind` and an opaque `payload`, and the wallet returns an opaque response. Because the request is caller-defined, the wallet decides per `kind` how to answer, whether by reading state it holds, contacting another party, or fetching offchain data.
+
+### In production
+
+Pass a `resolveCustomRequest` hook when [creating the PXE](#configuring-hooks). It receives a `CustomRequest` with the issuing contract's address and class ID, the request `kind`, and the opaque `payload`, and returns the response. Because any contract can issue a request, the hook should check both the `kind` and the issuing contract before answering, dispatching on `kind` to the matching resolver.
+
+When the hook is absent, the request cannot be served and simulation fails.
