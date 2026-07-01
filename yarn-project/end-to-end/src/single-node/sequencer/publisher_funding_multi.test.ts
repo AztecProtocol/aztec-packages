@@ -152,22 +152,32 @@ describe('single-node/sequencer/publisher_funding_multi', () => {
 
     const funderBalanceBefore = await ethCheatCodes.getBalance(funderAddress);
 
+    // Polls until every address in `accounts` has an L1 balance strictly above `threshold`.
+    const waitForBalancesAbove = (accounts: EthAddress[], threshold: bigint) =>
+      retryUntil(
+        async () => {
+          const balances = await Promise.all(accounts.map(account => ethCheatCodes.getBalance(account)));
+          return balances.every(balance => balance > threshold) || undefined;
+        },
+        `all balances above ${threshold}`,
+        180,
+        1,
+      );
+
+    // Polls until the funder's L1 spend since `before` reaches at least `amount`.
+    const waitForFunderSpend = (before: bigint, amount: bigint) =>
+      retryUntil(
+        async () => before - (await ethCheatCodes.getBalance(funderAddress)) >= amount || undefined,
+        `funder to spend at least ${amount}`,
+        180,
+        1,
+      );
+
     // Force the funding cycle now rather than waiting for the next 2-minute poll, then confirm both
     // publishers were topped up.
     await fundingPromise!.trigger();
 
-    // REFACTOR: hand-rolled poll waiting for PublisherManager funding cycle; a helper like
-    // waitForPublisherBalancesAbove(publisherManager, threshold) should replace this retryUntil.
-    await retryUntil(
-      async () => {
-        const balance1 = await ethCheatCodes.getBalance(publisher1Address);
-        const balance2 = await ethCheatCodes.getBalance(publisher2Address);
-        return balance1 > LOW_BALANCE && balance2 > LOW_BALANCE ? true : undefined;
-      },
-      'waiting for both publishers to be funded',
-      180,
-      1,
-    );
+    await waitForBalancesAbove([publisher1Address, publisher2Address], LOW_BALANCE);
 
     const publisher1BalanceAfter = await ethCheatCodes.getBalance(publisher1Address);
     const publisher2BalanceAfter = await ethCheatCodes.getBalance(publisher2Address);
@@ -197,17 +207,7 @@ describe('single-node/sequencer/publisher_funding_multi', () => {
     // Force a second funding cycle rather than waiting for the next 2-minute poll.
     await fundingPromise!.trigger();
 
-    // REFACTOR: hand-rolled poll waiting for a second PublisherManager funding cycle; same helper
-    // as above should cover this site.
-    await retryUntil(
-      async () => {
-        const spent = funderBalanceBefore2 - (await ethCheatCodes.getBalance(funderAddress));
-        return spent >= FUNDING_AMOUNT ? true : undefined;
-      },
-      'waiting for second funding round',
-      180,
-      1,
-    );
+    await waitForFunderSpend(funderBalanceBefore2, FUNDING_AMOUNT);
 
     const funderSpent2 = funderBalanceBefore2 - (await ethCheatCodes.getBalance(funderAddress));
     logger.info(`Second funding round: funder spent ${funderSpent2} (expected ~${FUNDING_AMOUNT})`);

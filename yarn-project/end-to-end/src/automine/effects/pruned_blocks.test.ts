@@ -114,21 +114,25 @@ describe('automine/effects/pruned_blocks', () => {
     // The same historical query we performed before should now fail since this block is not available anymore. We poll
     // the node for a bit until it processes the blocks we marked as proven, causing the historical query to fail.
     logger.warn(`Awaiting 'unable to find leaf' error from node due to pruned history`);
-    // REFACTOR: hand-rolled poll waiting for world-state prune to propagate; a DSL helper such as
-    // waitForWorldStatePrune(node, blockNumber) should replace this retryUntil loop.
-    await retryUntil(
-      async () => {
-        try {
-          await aztecNode.findLeavesIndexes(firstMintReceipt.blockNumber!, MerkleTreeId.NOTE_HASH_TREE, [mintedNote!]);
-          return false;
-        } catch (error) {
-          return (error as Error).message.includes('Unable to find leaf');
-        }
-      },
-      'waiting for pruning',
-      60,
-      0.5,
-    );
+    // Polls the historical leaf query until it starts throwing "Unable to find leaf", which is how a
+    // pruned world-state block surfaces to callers once the prune has propagated.
+    const waitForWorldStatePrune = () =>
+      retryUntil(
+        async () => {
+          try {
+            await aztecNode.findLeavesIndexes(firstMintReceipt.blockNumber!, MerkleTreeId.NOTE_HASH_TREE, [
+              mintedNote!,
+            ]);
+            return false;
+          } catch (error) {
+            return (error as Error).message.includes('Unable to find leaf');
+          }
+        },
+        'waiting for pruning',
+        60,
+        0.5,
+      );
+    await waitForWorldStatePrune();
 
     // We've completed the setup we were interested in, and can now simply mint the second half of the amount, transfer
     // the full amount to the recipient (which will require the sender to discover and prove both the old and new notes)

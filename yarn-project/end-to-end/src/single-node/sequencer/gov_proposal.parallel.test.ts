@@ -15,7 +15,6 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Logger } from '@aztec/foundation/log';
-import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { bufferToHex } from '@aztec/foundation/string';
 import type { TestDateProvider } from '@aztec/foundation/timer';
@@ -242,15 +241,9 @@ describe('single-node/sequencer/gov_proposal', () => {
     // Check that the checkpoint number has indeed increased on L1 so sequencers cant pass the sync check.
     // Allow another slot for any in-flight L1 propose to mine, since the work loop above hits its wait timeout the
     // moment the tx misses L2 sync, not the moment the L1 tx lands.
-    // REFACTOR: retryUntil polling ChainMonitor should be replaced with a ChainMonitor.waitForCheckpoint helper
-    const checkpointAfterBlobDisable = await retryUntil(
-      async () => {
-        const snapshot = await monitor.run();
-        return snapshot.checkpointNumber > lastCheckpointOnL1 ? snapshot : undefined;
-      },
-      'L1 checkpoint to advance after disabling blob client',
-      AZTEC_SLOT_DURATION + 5,
-      1,
+    const checkpointAfterBlobDisable = await monitor.waitForCheckpoint(
+      event => event.checkpointNumber > lastCheckpointOnL1,
+      { timeout: (AZTEC_SLOT_DURATION + 5) * 1000, guard: true },
     );
     expect(checkpointAfterBlobDisable.checkpointNumber).toBeGreaterThan(lastCheckpointOnL1);
     logger.warn(`L1 checkpoint number has increased`, {

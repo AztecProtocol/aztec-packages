@@ -278,11 +278,28 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
    * {@link waitUntilCheckpoint} (which waits for a target number), this lets callers wait for an
    * arbitrary checkpoint property (e.g. one published in the first half of its slot). Rejects after
    * `opts.timeout` ms if provided; otherwise waits indefinitely.
+   *
+   * By default this is purely event-driven and only resolves on the *next* matching checkpoint. Pass
+   * `opts.guard` to first take a fresh {@link run} snapshot and short-circuit if the current
+   * checkpoint already satisfies `match` — this avoids missing a checkpoint that advanced before the
+   * listener was attached, at the cost of not distinguishing an already-satisfied state from a new one.
    */
-  public waitForCheckpoint(
+  public async waitForCheckpoint(
     match: (event: ChainMonitorEventMap['checkpoint'][0]) => boolean,
-    opts: { timeout?: number } = {},
+    opts: { timeout?: number; guard?: boolean } = {},
   ): Promise<ChainMonitorEventMap['checkpoint'][0]> {
+    if (opts.guard) {
+      await this.run();
+      const current: ChainMonitorEventMap['checkpoint'][0] = {
+        checkpointNumber: this.checkpointNumber,
+        l1BlockNumber: this.l1BlockNumber,
+        l2SlotNumber: this.l2SlotNumber,
+        timestamp: this.checkpointTimestamp,
+      };
+      if (match(current)) {
+        return current;
+      }
+    }
     return new Promise((resolve, reject) => {
       let timer: NodeJS.Timeout | undefined;
       const listener = (event: ChainMonitorEventMap['checkpoint'][0]) => {

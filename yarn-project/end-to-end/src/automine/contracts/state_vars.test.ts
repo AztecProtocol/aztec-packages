@@ -436,11 +436,15 @@ describe('automine/contracts/state_vars', () => {
       // forces aztecSlotDuration=12s under pipelining (see fixtures/setup.ts), so a fixed
       // `delay(N blocks)` cannot count for the schedule — block timestamp polling is the
       // slot-duration-agnostic way to know we have crossed the schedule.
-      // REFACTOR: hand-rolled loop advancing the chain by sending no-op txs until a target timestamp is
-      // crossed; a DSL helper like advanceChainToTimestamp(node, timestampOfChange) should replace this.
-      while ((await aztecNode.getBlockData('latest'))!.header.globalVariables.timestamp < timestampOfChange) {
-        await authContract.methods.get_authorized().send({ from: defaultAccountAddress });
-      }
+      // Drives the chain forward by sending a no-op tx per iteration (rather than warping wall-clock time)
+      // until the latest block's timestamp reaches `target`. Under the forced 12s slot duration a fixed
+      // block-count delay cannot count for the schedule, so we poll the real block timestamp instead.
+      const advanceChainToTimestamp = async (target: bigint) => {
+        while ((await aztecNode.getBlockData('latest'))!.header.globalVariables.timestamp < target) {
+          await authContract.methods.get_authorized().send({ from: defaultAccountAddress });
+        }
+      };
+      await advanceChainToTimestamp(timestampOfChange);
 
       // We now call our AuthContract to see if the change in expiration timestamp has reflected our delay change.
       // expirationTimestamp is `anchor.timestamp + effective_minimum_delay`, where the anchor is the
