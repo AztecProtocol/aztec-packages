@@ -1,6 +1,6 @@
 import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { createStore, openTmpStore } from '@aztec/kv-store/indexeddb';
+import { createStore, openTmpStore } from '@aztec/kv-store/sqlite-opfs';
 import { type PXE, type PXECreationOptions, createPXE } from '@aztec/pxe/client/lazy';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/config';
 import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry/lazy';
@@ -90,10 +90,3 @@ export { BrowserEmbeddedWallet as EmbeddedWallet };
 export type { EmbeddedWalletOptions, EmbeddedWalletPXEOptions } from '../embedded_wallet.js';
 export { WalletDB } from '../wallet_db.js';
 export type { AccountType } from '../wallet_db.js';
-
-// At-rest encryption helpers are intentionally NOT re-exported here. They live
-// on the `@aztec/wallets/embedded/store-encryption` sub-path so consumers
-// (and bundlers) of this entrypoint don't transitively pull in
-// `@aztec/kv-store/sqlite-opfs` and its `new Worker(new URL('./worker.js'))`
-// chain into `@aztec/sqlite3mc-wasm`. Apps that don't use encryption-at-rest
-// (e.g. the playground) should never see sqlite-opfs in their bundle.

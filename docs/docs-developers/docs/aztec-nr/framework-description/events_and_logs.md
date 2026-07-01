@@ -86,12 +86,14 @@ Public events are emitted as plaintext logs, similar to Solidity events.
 
 ## Emit unstructured public logs
 
-For unstructured data, use `emit_public_log` directly on the context:
+For unstructured data, use `emit_public_log_unsafe` directly on the context. It takes a tag (placed at the first field of the emitted log, which nodes use to index logs) followed by the data:
 
 ```rust
-self.context.emit_public_log("My message");
-self.context.emit_public_log([1, 2, 3]);
+self.context.emit_public_log_unsafe(0, "My message");
+self.context.emit_public_log_unsafe(0, [1, 2, 3]);
 ```
+
+The tag should be domain-separated to prevent collisions with unrelated log types. Prefer `self.emit(event)` where possible, which handles tagging automatically.
 
 ## Query public logs
 
@@ -109,7 +111,7 @@ const publicLogs = block?.body.txEffects.flatMap(tx => tx.publicLogs) ?? [];
 
 Event data published onchain is stored in Ethereum blobs, which incurs costs. Consider:
 
-- Use `OFFCHAIN` delivery for lower costs when you have custom delivery infrastructure
+- Use offchain delivery for lower costs when you have custom delivery infrastructure
 - Only emit events when necessary for your application's functionality
 
 ## Next steps

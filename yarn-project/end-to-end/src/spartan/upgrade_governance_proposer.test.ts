@@ -30,6 +30,9 @@ const config = setupEnvironment(process.env);
 
 const debugLogger = createLogger('e2e:spartan-test:upgrade_governance_proposer');
 
+// Governance proposer upgrade test against a live k8s deployment. Deploys a new GovernanceProposer
+// payload on L1, drives the governance vote to completion, and asserts the rollup contract references
+// the new proposer address.
 describe('spartan_upgrade_governance_proposer', () => {
   let aztecNode: AztecNode;
   let nodeInfo: NodeInfo;

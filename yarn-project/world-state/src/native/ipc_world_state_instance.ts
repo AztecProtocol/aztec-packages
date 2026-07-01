@@ -548,6 +548,9 @@ export class IpcWorldState implements NativeWorldStateInstance {
           blocknumber: Number(b.blockNumber),
           blockstateref: blockStateRefToMap(b.blockStateRef as Map<number, readonly [Buffer, number | bigint]>) as any,
           blockheaderhash: new Uint8Array(b.blockHeaderHash),
+          // Forwarded so the wsdb (IPC) sync path enforces the same archive-root divergence check as the napi path.
+          expectedarchiveroot: new Uint8Array(b.expectedArchiveRoot),
+          expectedpreviousarchiveroot: new Uint8Array(b.expectedPreviousArchiveRoot),
           paddednotehashes: b.paddedNoteHashes.map(l => new Uint8Array(l as Buffer)),
           paddedl1tol2messages: b.paddedL1ToL2Messages.map(l => new Uint8Array(l as Buffer)),
           paddednullifiers: b.paddedNullifiers.map(l => ({
@@ -558,6 +561,7 @@ export class IpcWorldState implements NativeWorldStateInstance {
             value: new Uint8Array((l as { slot: Buffer; value: Buffer }).value),
           })),
         });
+
         return convertStatusFull(resp.status) as WorldStateResponse[T];
       }
 

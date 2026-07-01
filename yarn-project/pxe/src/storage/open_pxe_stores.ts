@@ -7,6 +7,7 @@ import { AddressStore } from './address_store/address_store.js';
 import { AnchorBlockStore } from './anchor_block_store/anchor_block_store.js';
 import { CapsuleStore } from './capsule_store/capsule_store.js';
 import { ContractStore } from './contract_store/contract_store.js';
+import { FactStore } from './fact_store/fact_store.js';
 import { NoteStore } from './note_store/note_store.js';
 import { PrivateEventStore } from './private_event_store/private_event_store.js';
 import { RecipientTaggingStore, SenderTaggingStore, TaggingSecretSourcesStore } from './tagging_store/index.js';
@@ -26,6 +27,7 @@ export type PxeStores = {
   capsuleStore: CapsuleStore;
   keyStore: KeyStore;
   l2TipsStore: L2TipsKVStore;
+  factStore: FactStore;
 };
 
 /**
@@ -45,5 +47,6 @@ export function openPxeStores(store: AztecAsyncKVStore, initialBlockHash: BlockH
     capsuleStore: new CapsuleStore(store),
     keyStore: new KeyStore(store),
     l2TipsStore: new L2TipsKVStore(store, 'pxe', initialBlockHash),
+    factStore: new FactStore(store),
   };
 }

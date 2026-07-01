@@ -226,6 +226,7 @@ NULLIFIEREXISTS
 NULLIFIERSEXISTS
 onramps
 opcdoe
+OPFS
 optimisation
 optimisations
 optimise
@@ -442,4 +443,5 @@ reentrancy
 variadic
 Wonderland
 indistinguishability
+unlinkable
 nightlies

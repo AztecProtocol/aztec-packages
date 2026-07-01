@@ -54,6 +54,8 @@ const TOKEN_TESTS = [
 const maxTxs = Math.max(...[...BENCH_TESTS, ...TOKEN_TESTS].map(t => t[1]));
 const NUM_WALLETS = txRealProofs ? Math.min(10, maxTxs) : 1;
 
+// Block capacity benchmark against a live k8s deployment. Fills blocks with up to 100 transactions per
+// type (noop, nullifier emission, note emission, etc.) and measures inclusion; outputs benchmark JSON.
 describe('block capacity benchmark', () => {
   jest.setTimeout(60 * 60 * 1000); // 60 minutes
 

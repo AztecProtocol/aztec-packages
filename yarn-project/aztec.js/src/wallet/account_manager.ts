@@ -8,8 +8,7 @@ import {
 import { deriveKeys } from '@aztec/stdlib/keys';
 
 import type { AccountContract } from '../account/account_contract.js';
-import { AccountWithSecretKey } from '../account/account_with_secret_key.js';
-import type { Salt } from '../account/index.js';
+import type { Account, Salt } from '../account/index.js';
 import { Contract } from '../contract/contract.js';
 import { DeployAccountMethod } from './deploy_account_method.js';
 import type { Wallet } from './wallet.js';
@@ -106,14 +105,12 @@ export class AccountManager {
   }
 
   /**
-   * Returns a Wallet instance associated with this account. Use it to create Contract
-   * instances to be interacted with from this account.
-   * @returns A Wallet instance.
+   * Returns the account (the transaction signer) backed by this account contract. Use it to build and authorize
+   * transactions from this account.
    */
-  public async getAccount(): Promise<AccountWithSecretKey> {
+  public async getAccount(): Promise<Account> {
     const completeAddress = await this.getCompleteAddress();
-    const account = this.accountContract.getAccount(completeAddress);
-    return new AccountWithSecretKey(account, this.secretKey);
+    return this.accountContract.getAccount(completeAddress);
   }
 
   /**

@@ -82,6 +82,7 @@ members = [
     "contracts/test/storage_proof_test_contract",
     "contracts/test/test_contract",
     "contracts/test/test_log_contract",
+    "contracts/test/test_token_contract",
     "contracts/test/tx_effect_oracle_test_contract",
     "contracts/test/transient_child_contract",
     "contracts/test/transient_parent_contract",

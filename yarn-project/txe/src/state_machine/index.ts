@@ -10,7 +10,7 @@ import {
   ContractSyncService,
   type NoteStore,
 } from '@aztec/pxe/server';
-import { MessageContextService } from '@aztec/pxe/simulator';
+import { TxResolverService } from '@aztec/pxe/simulator';
 import { L2Block, type L2TipsProvider } from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
@@ -36,7 +36,7 @@ export class TXEStateMachine {
     public anchorBlockStore: AnchorBlockStore,
     public contractSyncService: ContractSyncService,
     public contractClassService: ContractClassService,
-    public messageContextService: MessageContextService,
+    public txResolver: TxResolverService,
   ) {}
 
   public static async create(
@@ -49,31 +49,31 @@ export class TXEStateMachine {
     const aztecNodeConfig = {} as AztecNodeConfig;
 
     const log = createLogger('txe_node');
-    const node = new AztecNodeService(
-      aztecNodeConfig,
-      new DummyP2P(),
-      archiver,
-      archiver,
-      archiver,
-      archiver,
-      synchronizer,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      async () => {},
-      VERSION,
-      CHAIN_ID,
-      new TXEGlobalVariablesBuilder(),
-      undefined,
-      new TXEFeeProvider(),
-      new MockEpochCache(),
-      PACKAGE_VERSION,
-      new TestCircuitVerifier(),
-      new TestCircuitVerifier(),
-      undefined,
+    const node = new AztecNodeService({
+      config: aztecNodeConfig,
+      p2pClient: new DummyP2P(),
+      blockSource: archiver,
+      logsSource: archiver,
+      contractDataSource: archiver,
+      l1ToL2MessageSource: archiver,
+      worldStateSynchronizer: synchronizer,
+      sequencer: undefined,
+      proverNode: undefined,
+      slasherClient: undefined,
+      validatorsSentinel: undefined,
+      stopStartedWatchers: async () => {},
+      l1ChainId: CHAIN_ID,
+      version: VERSION,
+      globalVariableBuilder: new TXEGlobalVariablesBuilder(),
+      rollupContract: undefined,
+      feeProvider: new TXEFeeProvider(),
+      epochCache: new MockEpochCache(),
+      packageVersion: PACKAGE_VERSION,
+      peerProofVerifier: new TestCircuitVerifier(),
+      rpcProofVerifier: new TestCircuitVerifier(),
+      telemetry: undefined,
       log,
-    );
+    });
 
     const contractClassService = new ContractClassService(node, contractStore);
     const contractSyncService = new ContractSyncService(
@@ -84,7 +84,7 @@ export class TXEStateMachine {
       createLogger('txe:contract_sync'),
     );
 
-    const messageContextService = new MessageContextService(node);
+    const txResolver = new TxResolverService(node);
 
     return new this(
       node,
@@ -93,7 +93,7 @@ export class TXEStateMachine {
       anchorBlockStore,
       contractSyncService,
       contractClassService,
-      messageContextService,
+      txResolver,
     );
   }
 
@@ -105,7 +105,7 @@ export class TXEStateMachine {
     };
   }
 
-  public async handleL2Block(block: L2Block) {
+  public async handleL2Block(block: L2Block, l1ToL2Messages: Fr[] = []) {
     // Create a checkpoint from the block manually.
     // TXE uses 1-block-per-checkpoint for testing simplicity, so we can use block number as checkpoint number.
     // This uses the deprecated fromBlockNumber method intentionally for the TXE testing environment.
@@ -143,7 +143,7 @@ export class TXEStateMachine {
     this.contractSyncService.wipe();
 
     await Promise.all([
-      this.synchronizer.handleL2Block(block),
+      this.synchronizer.handleL2Block(block, l1ToL2Messages),
       this.archiver.addCheckpoints([publishedCheckpoint], undefined),
       this.anchorBlockStore.setHeader(block.header),
     ]);

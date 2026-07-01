@@ -2,6 +2,7 @@ import { BBBundlePrivateKernelProver } from '@aztec/bb-prover/client/bundle';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
@@ -22,7 +23,11 @@ import {
   GENESIS_CHECKPOINT_HEADER_HASH,
 } from '@aztec/stdlib/block';
 import { emptyChainConfig } from '@aztec/stdlib/config';
-import { SerializableContractInstancePreimage, getContractClassFromArtifact } from '@aztec/stdlib/contract';
+import {
+  CompleteAddress,
+  SerializableContractInstancePreimage,
+  getContractClassFromArtifact,
+} from '@aztec/stdlib/contract';
 import type { AztecNode, AztecNodeDebug, BlockResponse } from '@aztec/stdlib/interfaces/client';
 import {
   randomContractArtifact,
@@ -36,7 +41,7 @@ import { mock } from 'jest-mock-extended';
 import type { MockProxy } from 'jest-mock-extended/lib/Mock.js';
 
 import type { PXEConfig } from './config/index.js';
-import { PXE, type PackedPrivateEvent } from './pxe.js';
+import { PXE, type PackedPrivateEvent, type TaggingSecretSource } from './pxe.js';
 import { PrivateEventStore } from './storage/private_event_store/private_event_store.js';
 
 describe('PXE', () => {
@@ -125,7 +130,9 @@ describe('PXE', () => {
   it('refuses to register an invalid address as a sender', async () => {
     // x = 3 is not a valid x-coordinate on the Grumpkin curve (y^2 = x^3 - 17 = 10 has no square root in Fr)
     const invalidAddress = new AztecAddress(new Fr(3));
-    await expect(pxe.registerSender(invalidAddress)).rejects.toThrow(/not valid/);
+    await expect(pxe.registerTaggingSecretSource({ kind: 'address-derived', sender: invalidAddress })).rejects.toThrow(
+      /not valid/,
+    );
   });
 
   it('does not throw when registering the same account twice (just ignores the second attempt)', async () => {
@@ -138,9 +145,72 @@ describe('PXE', () => {
 
   it('does not add a keystore account to the sender address book when registered as a sender', async () => {
     const { address } = await pxe.registerAccount(Fr.random(), Fr.random());
-    await pxe.registerSender(address);
-    const senders = await pxe.getSenders();
-    expect(senders.map(s => s.toString())).not.toContain(address.toString());
+    await pxe.registerTaggingSecretSource({ kind: 'address-derived', sender: address });
+    const senders = await pxe.getTaggingSecretSources({ kind: 'address-derived' });
+    const senderAddresses = senders.map(s => s.sender.toString());
+    expect(senderAddresses).not.toContain(address.toString());
+  });
+
+  it('lists registered senders and arbitrary secrets together', async () => {
+    const senderSource: TaggingSecretSource = {
+      kind: 'address-derived',
+      sender: (await CompleteAddress.random()).address,
+    };
+    const secretSource: TaggingSecretSource = {
+      kind: 'arbitrary-secret',
+      recipient: (await CompleteAddress.random()).address,
+      secret: await Point.random(),
+    };
+
+    await pxe.registerTaggingSecretSource(senderSource);
+    await pxe.registerTaggingSecretSource(secretSource);
+
+    expect(await pxe.getTaggingSecretSources()).toEqual(expect.arrayContaining([senderSource, secretSource]));
+  });
+
+  it('filters tagging secret sources by kind', async () => {
+    const senderSource: TaggingSecretSource = {
+      kind: 'address-derived',
+      sender: (await CompleteAddress.random()).address,
+    };
+    const secretSource: TaggingSecretSource = {
+      kind: 'arbitrary-secret',
+      recipient: (await CompleteAddress.random()).address,
+      secret: await Point.random(),
+    };
+
+    await pxe.registerTaggingSecretSource(senderSource);
+    await pxe.registerTaggingSecretSource(secretSource);
+
+    const senders = await pxe.getTaggingSecretSources({ kind: 'address-derived' });
+    expect(senders).toContainEqual(senderSource);
+    expect(senders).not.toContainEqual(secretSource);
+
+    const secrets = await pxe.getTaggingSecretSources({ kind: 'arbitrary-secret' });
+    expect(secrets).toContainEqual(secretSource);
+    expect(secrets).not.toContainEqual(senderSource);
+  });
+
+  it('removes registered senders and arbitrary secrets', async () => {
+    const senderSource: TaggingSecretSource = {
+      kind: 'address-derived',
+      sender: (await CompleteAddress.random()).address,
+    };
+    const secretSource: TaggingSecretSource = {
+      kind: 'arbitrary-secret',
+      recipient: (await CompleteAddress.random()).address,
+      secret: await Point.random(),
+    };
+
+    await pxe.registerTaggingSecretSource(senderSource);
+    await pxe.registerTaggingSecretSource(secretSource);
+
+    await pxe.removeTaggingSecretSource(senderSource);
+    await pxe.removeTaggingSecretSource(secretSource);
+
+    const remaining = await pxe.getTaggingSecretSources();
+    expect(remaining).not.toContainEqual(senderSource);
+    expect(remaining).not.toContainEqual(secretSource);
   });
 
   it('successfully adds a contract', async () => {

@@ -1,8 +1,8 @@
 use crate::ephemeral::EphemeralArray;
 use crate::messages::processing::{
     event_validation_request::EventValidationRequest, log_retrieval_request::LogRetrievalRequest,
-    log_retrieval_response::LogRetrievalResponse, MessageContext, NoteValidationRequest,
-    pending_tagged_log::PendingTaggedLog, provided_secret::ProvidedSecret,
+    log_retrieval_response::LogRetrievalResponse, NoteValidationRequest, pending_tagged_log::PendingTaggedLog,
+    provided_secret::ProvidedSecret,
 };
 use crate::protocol::address::AztecAddress;
 use crate::protocol::blob_data::TxEffect;
@@ -58,18 +58,6 @@ pub unconstrained fn get_logs_by_tag(
 unconstrained fn get_logs_by_tag_oracle(
     requests: EphemeralArray<LogRetrievalRequest>,
 ) -> EphemeralArray<EphemeralArray<LogRetrievalResponse>> {}
-
-/// Resolves message contexts for tx hashes in an ephemeral request array and returns a response ephemeral array.
-pub(crate) unconstrained fn get_message_contexts_by_tx_hash(
-    requests: EphemeralArray<Field>,
-) -> EphemeralArray<Option<MessageContext>> {
-    get_message_contexts_by_tx_hash_oracle(requests)
-}
-
-#[oracle(aztec_utl_getMessageContextsByTxHash)]
-unconstrained fn get_message_contexts_by_tx_hash_oracle(
-    requests: EphemeralArray<Field>,
-) -> EphemeralArray<Option<MessageContext>> {}
 
 /// Fetches all effects of a settled transaction by its hash.
 pub unconstrained fn get_tx_effect(tx_hash: Field) -> Option<TxEffect> {

@@ -1,9 +1,22 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { deriveKeys, derivePublicKeyFromSecretKey, hashPublicKey } from '@aztec/stdlib/keys';
+import { type MasterSecretKeys, deriveKeys, derivePublicKeyFromSecretKey, hashPublicKey } from '@aztec/stdlib/keys';
 
 import { KeyStore } from './key_store.js';
+
+/** Picks the six master secret keys out of the full `deriveKeys` output. */
+function masterSecretKeysOf(derived: Awaited<ReturnType<typeof deriveKeys>>): MasterSecretKeys {
+  return {
+    masterNullifierHidingKey: derived.masterNullifierHidingKey,
+    masterIncomingViewingSecretKey: derived.masterIncomingViewingSecretKey,
+    masterOutgoingViewingSecretKey: derived.masterOutgoingViewingSecretKey,
+    masterTaggingSecretKey: derived.masterTaggingSecretKey,
+    masterMessageSigningSecretKey: derived.masterMessageSigningSecretKey,
+    masterFallbackSecretKey: derived.masterFallbackSecretKey,
+  };
+}
 
 describe('KeyStore', () => {
   it('Adds account and returns keys', async () => {
@@ -20,7 +33,7 @@ describe('KeyStore', () => {
 
     const { address: accountAddress } = await keyStore.addAccount(sk, partialAddress);
     expect(accountAddress.toString()).toMatchInlineSnapshot(
-      `"0x25d24398ba1a027cf6879542e7ed726f2d05dfb441e3c564ce44c6cdd7414e16"`,
+      `"0x0a3120bded2afb430e67e4bdb5326a673fbfd95642b6ea7f80d0cc958aac3940"`,
     );
 
     const { pkMHash: returnedNpkMHash } = await keyStore.getKeyValidationRequest(
@@ -61,7 +74,7 @@ describe('KeyStore', () => {
     // Returned accounts are as expected
     const accounts = await keyStore.getAccounts();
     expect(accounts.toString()).toMatchInlineSnapshot(
-      `"0x25d24398ba1a027cf6879542e7ed726f2d05dfb441e3c564ce44c6cdd7414e16"`,
+      `"0x0a3120bded2afb430e67e4bdb5326a673fbfd95642b6ea7f80d0cc958aac3940"`,
     );
 
     // Manages to find master nullifier hiding key for the pk_m hash
@@ -73,5 +86,40 @@ describe('KeyStore', () => {
       computedMasterIncomingViewingPublicKeyHash,
     );
     expect(masterIncomingViewingSecretKeyFromPublicKey.equals(keys.masterIncomingViewingSecretKey)).toBe(true);
+  });
+
+  it('registers an account from master secret keys, matching seed-based registration', async () => {
+    const keyStore = new KeyStore(await openTmpStore('test'));
+
+    const sk = new Fr(8923n);
+    const partialAddress = new Fr(243523n);
+    const secretKeys = masterSecretKeysOf(await deriveKeys(sk));
+
+    // Registering with the keys derived from a secret must yield the same complete address as registering with the
+    // secret directly: the address is a pure function of the (derived) public keys and the partial address.
+    const fromSecretKey = await keyStore.addAccount(sk, partialAddress);
+    const fromKeys = await keyStore.addAccount(secretKeys, partialAddress);
+    expect(fromKeys.equals(fromSecretKey)).toBe(true);
+  });
+
+  it('exports the master secret keys it was registered with', async () => {
+    const keyStore = new KeyStore(await openTmpStore('test'));
+
+    const secretKeys = masterSecretKeysOf(await deriveKeys(new Fr(8923n)));
+    const { address } = await keyStore.addAccount(secretKeys, new Fr(243523n));
+
+    const exported = await keyStore.getAccountSecretKeys(address);
+    for (const name of Object.keys(secretKeys) as (keyof MasterSecretKeys)[]) {
+      expect(exported[name].equals(secretKeys[name])).toBe(true);
+    }
+  });
+
+  it('rejects registering an account with a zero secret key', async () => {
+    const keyStore = new KeyStore(await openTmpStore('test'));
+
+    const secretKeys = masterSecretKeysOf(await deriveKeys(new Fr(8923n)));
+    secretKeys.masterIncomingViewingSecretKey = GrumpkinScalar.ZERO;
+
+    await expect(keyStore.addAccount(secretKeys, new Fr(243523n))).rejects.toThrow('masterIncomingViewingSecretKey');
   });
 });

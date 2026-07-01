@@ -49,6 +49,9 @@ async function checkBalances(testAccounts: TestAccounts, mintAmount: bigint, tot
   ).toBe(totalAmountTransferred * BigInt(testAccounts.accounts.length));
 }
 
+// Reorg resilience test against a live k8s deployment. Runs transfers across multiple epochs, injects a
+// prover failure via Chaos Mesh (CREATE_CHAOS_MESH), waits for chain recovery, and asserts token balances
+// remain consistent after the reorg.
 describe('reorg test', () => {
   jest.setTimeout(210 * 60 * 1000); // 210 minutes
 

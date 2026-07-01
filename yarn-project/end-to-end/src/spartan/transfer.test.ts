@@ -18,6 +18,8 @@ import { ChainHealth, type ServiceEndpoint, getRPCEndpoint, setupEnvironment } f
 
 const config = setupEnvironment(process.env);
 
+// Basic token transfer test against a live k8s deployment. Deploys a sponsored FPC and token contract
+// via the cluster's RPC endpoint, then executes private and public transfers between test accounts.
 describe('token transfer test', () => {
   jest.setTimeout(10 * 60 * 2000); // 20 minutes
 

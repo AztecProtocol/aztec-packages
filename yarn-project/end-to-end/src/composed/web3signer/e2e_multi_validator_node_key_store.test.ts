@@ -26,15 +26,6 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { privateKeyToAccount } from 'viem/accounts';
 
-import {
-  addressForPrivateKey,
-  createKeyFile1,
-  createKeyFile2,
-  createKeyFile3,
-  createKeyFile4,
-  createKeyFile5,
-  createKeyFile6,
-} from '../../e2e_multi_validator/utils.js';
 import { MNEMONIC, PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
 import { getPrivateKeyFromIndex, setup } from '../../fixtures/utils.js';
 import {
@@ -43,6 +34,15 @@ import {
   getWeb3SignerUrl,
   refreshWeb3Signer,
 } from '../../fixtures/web3signer.js';
+import {
+  addressForPrivateKey,
+  createKeyFile1,
+  createKeyFile2,
+  createKeyFile3,
+  createKeyFile4,
+  createKeyFile5,
+  createKeyFile6,
+} from './multi_validator_keystore_utils.js';
 
 const VALIDATOR_COUNT = 7;
 const COMMITTEE_SIZE = VALIDATOR_COUNT;
@@ -156,6 +156,9 @@ function verifyKeyStore(directory: string) {
 
 jest.setTimeout(10 * 60 * 1000);
 
+// Multi-validator key-store test using a Web3Signer sidecar (docker-compose web3signer suite). Runs
+// setup() with PIPELINING_SETUP_OPTS and multiple keystores loaded through the NodeKeystoreAdapter and
+// Web3Signer, then verifies that blocks are proposed and proven across VALIDATOR_COUNT validators.
 describe('e2e_multi_validator_node', () => {
   let initialValidatorPrivateKeys: `0x${string}`[];
   let validatorAddresses: `0x${string}`[];

@@ -19,7 +19,11 @@ function test_cmds {
 }
 
 function test_cmds_internal {
-    echo "cd barretenberg/sol && forge test --no-match-contract Base"
+    # forge reaches out to binaries.soliditylang.org to resolve/fetch solc, which intermittently
+    # fails DNS resolution under heavy parallel merge-queue load ("Temporary failure in name
+    # resolution"). Retry every 10s for ~5 min, but only on connection/DNS failures so genuine test
+    # failures still fail fast.
+    echo "cd barretenberg/sol && RETRY_ATTEMPTS=30 RETRY_SLEEP=10 retry -p 'dns error|Temporary failure in name resolution|error sending request|failed to lookup address|Connection refused|connection reset' 'forge test --no-match-contract Base'"
 }
 
 function build_sol {

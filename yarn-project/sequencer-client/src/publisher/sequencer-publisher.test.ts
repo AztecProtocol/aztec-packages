@@ -54,6 +54,13 @@ describe('compareActions sorting', () => {
 
     expect(sorted.indexOf('propose')).toBeLessThan(sorted.indexOf('vote-offenses'));
   });
+
+  it('places prune before propose', () => {
+    const actions: Action[] = ['propose', 'prune'];
+    const sorted = [...actions].sort(compareActions);
+
+    expect(sorted.indexOf('prune')).toBeLessThan(sorted.indexOf('propose'));
+  });
 });
 
 const mockRollupAddress = EthAddress.random().toString();
@@ -1054,5 +1061,46 @@ describe('SequencerPublisher', () => {
     ).toEqual(false);
 
     expect(governanceProposerContract.hasActiveProposalWithPayload).toHaveBeenCalledTimes(2);
+  });
+
+  describe('enqueuePruneIfPrunable', () => {
+    const pruneData = encodeFunctionData({ abi: RollupAbi, functionName: 'prune', args: [] });
+
+    it('enqueues a prune and bundles it to L1 when the rollup is prunable', async () => {
+      rollup.canPruneAtTime.mockResolvedValue(true);
+
+      expect(await publisher.enqueuePruneIfPrunable(SlotNumber(2))).toEqual(true);
+
+      forwardSpy.mockResolvedValue({ receipt: proposeTxReceipt, stats: undefined, multicallData: '0x' });
+      await publisher.sendRequests();
+
+      expect(forwardSpy).toHaveBeenCalledTimes(1);
+      expect(forwardSpy.mock.calls[0][0]).toEqual([{ to: mockRollupAddress, data: pruneData }]);
+    });
+
+    it('does not enqueue a prune when the rollup is not prunable', async () => {
+      rollup.canPruneAtTime.mockResolvedValue(false);
+
+      expect(await publisher.enqueuePruneIfPrunable(SlotNumber(2))).toEqual(false);
+
+      await publisher.sendRequests();
+      expect(forwardSpy).not.toHaveBeenCalled();
+    });
+
+    it('does not enqueue a duplicate prune for the same slot', async () => {
+      rollup.canPruneAtTime.mockResolvedValue(true);
+
+      expect(await publisher.enqueuePruneIfPrunable(SlotNumber(2))).toEqual(true);
+      expect(await publisher.enqueuePruneIfPrunable(SlotNumber(2))).toEqual(false);
+    });
+
+    it('fails closed (skips prune) when canPruneAtTime rejects', async () => {
+      rollup.canPruneAtTime.mockRejectedValue(new Error('rpc error'));
+
+      expect(await publisher.enqueuePruneIfPrunable(SlotNumber(2))).toEqual(false);
+
+      await publisher.sendRequests();
+      expect(forwardSpy).not.toHaveBeenCalled();
+    });
   });
 });

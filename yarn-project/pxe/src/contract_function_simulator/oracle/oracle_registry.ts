@@ -20,6 +20,7 @@ import {
   DELIVERY_MODE,
   EPHEMERAL_ARRAY,
   EVENT_VALIDATION_REQUEST,
+  FACT_COLLECTION,
   FIELD,
   FUNCTION_SELECTOR,
   type InputSlot,
@@ -27,7 +28,6 @@ import {
   LOG_RETRIEVAL_REQUEST,
   LOG_RETRIEVAL_RESPONSE,
   MEMBERSHIP_WITNESS,
-  MESSAGE_CONTEXT,
   MESSAGE_LOAD_ORACLE_INPUTS,
   type MaybePromise,
   NOTE,
@@ -35,12 +35,15 @@ import {
   NOTE_VALIDATION_REQUEST,
   NULLIFIER_MEMBERSHIP_WITNESS,
   OPTION,
+  ORIGIN_BLOCK,
   type OutputSlot,
   PENDING_TAGGED_LOG,
   POINT,
   PROVIDED_SECRET,
   PUBLIC_DATA_WITNESS,
   PUBLIC_KEYS_AND_PARTIAL_ADDRESS,
+  RESOLVED_TAGGING_STRATEGY,
+  RESOLVED_TX,
   STR,
   TX_EFFECT,
   TX_HASH,
@@ -62,6 +65,7 @@ export {
   BYTE,
   CONTRACT_CLASS_LOG,
   DELIVERY_MODE,
+  RESOLVED_TAGGING_STRATEGY,
   EPHEMERAL_ARRAY,
   EVENT_VALIDATION_REQUEST,
   FIELD,
@@ -69,12 +73,12 @@ export {
   LOG_RETRIEVAL_REQUEST,
   LOG_RETRIEVAL_RESPONSE,
   MEMBERSHIP_WITNESS,
-  MESSAGE_CONTEXT,
   NOTE_VALIDATION_REQUEST,
   OPTION,
   PENDING_TAGGED_LOG,
   POINT,
   PROVIDED_SECRET,
+  RESOLVED_TX,
   STR,
   U32,
   slotsOf,
@@ -242,9 +246,9 @@ export const ORACLE_REGISTRY = {
     returnType: EPHEMERAL_ARRAY(EPHEMERAL_ARRAY(LOG_RETRIEVAL_RESPONSE)),
   }),
 
-  aztec_utl_getMessageContextsByTxHash: makeEntry({
+  aztec_utl_getResolvedTxs: makeEntry({
     params: [{ name: 'requests', type: EPHEMERAL_ARRAY(FIELD) }],
-    returnType: EPHEMERAL_ARRAY(OPTION(MESSAGE_CONTEXT)),
+    returnType: EPHEMERAL_ARRAY(OPTION(RESOLVED_TX)),
   }),
 
   aztec_utl_getTxEffect: makeEntry({
@@ -316,6 +320,46 @@ export const ORACLE_REGISTRY = {
 
   aztec_utl_emitOffchainEffect: makeEntry({
     params: [{ name: 'data', type: ARRAY(FIELD) }],
+  }),
+
+  aztec_utl_recordFact: makeEntry({
+    params: [
+      { name: 'contractAddress', type: AZTEC_ADDRESS },
+      { name: 'scope', type: AZTEC_ADDRESS },
+      { name: 'factCollectionTypeId', type: FIELD },
+      { name: 'factCollectionId', type: FIELD },
+      { name: 'factTypeId', type: FIELD },
+      { name: 'payload', type: EPHEMERAL_ARRAY(FIELD) },
+      { name: 'originBlock', type: OPTION(ORIGIN_BLOCK) },
+    ],
+  }),
+
+  aztec_utl_deleteFactCollection: makeEntry({
+    params: [
+      { name: 'contractAddress', type: AZTEC_ADDRESS },
+      { name: 'scope', type: AZTEC_ADDRESS },
+      { name: 'factCollectionTypeId', type: FIELD },
+      { name: 'factCollectionId', type: FIELD },
+    ],
+  }),
+
+  aztec_utl_getFactCollection: makeEntry({
+    params: [
+      { name: 'contractAddress', type: AZTEC_ADDRESS },
+      { name: 'scope', type: AZTEC_ADDRESS },
+      { name: 'factCollectionTypeId', type: FIELD },
+      { name: 'factCollectionId', type: FIELD },
+    ],
+    returnType: OPTION(FACT_COLLECTION),
+  }),
+
+  aztec_utl_getFactCollectionsByType: makeEntry({
+    params: [
+      { name: 'contractAddress', type: AZTEC_ADDRESS },
+      { name: 'scope', type: AZTEC_ADDRESS },
+      { name: 'factCollectionTypeId', type: FIELD },
+    ],
+    returnType: EPHEMERAL_ARRAY(FACT_COLLECTION),
   }),
 
   aztec_utl_callUtilityFunction: makeEntry({
@@ -509,6 +553,23 @@ export const ORACLE_REGISTRY = {
   }),
 
   aztec_prv_getSenderForTags: makeEntry({ returnType: OPTION(AZTEC_ADDRESS) }),
+
+  aztec_prv_resolveTaggingStrategy: makeEntry({
+    params: [
+      { name: 'sender', type: AZTEC_ADDRESS },
+      { name: 'recipient', type: AZTEC_ADDRESS },
+      { name: 'deliveryMode', type: DELIVERY_MODE },
+    ],
+    returnType: RESOLVED_TAGGING_STRATEGY,
+  }),
+
+  aztec_prv_resolveCustomRequest: makeEntry({
+    params: [
+      { name: 'kind', type: FIELD },
+      { name: 'payload', type: ARRAY(FIELD) },
+    ],
+    returnType: ARRAY(FIELD),
+  }),
 } satisfies Record<string, OracleRegistryEntry>;
 
 // ─── Registry Infrastructure ─────────────────────────────────────────────────

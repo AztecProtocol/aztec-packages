@@ -191,6 +191,7 @@ locals {
     "validator.publisherMnemonicStartIndex"                                       = var.VALIDATOR_PUBLISHER_MNEMONIC_START_INDEX
     "validator.node.env.COINBASE"                                                 = var.VALIDATOR_COINBASE
     "validator.sentinel.enabled"                                                  = var.SENTINEL_ENABLED
+    "validator.offenseCollection.enabled"                                         = var.OFFENSE_COLLECTION_ENABLED
     "validator.slash.inactivityTargetPercentage"                                  = var.SLASH_INACTIVITY_TARGET_PERCENTAGE
     "validator.slash.inactivityPenalty"                                           = var.SLASH_INACTIVITY_PENALTY
     "validator.slash.dataWithholdingPenalty"                                      = var.SLASH_DATA_WITHHOLDING_PENALTY

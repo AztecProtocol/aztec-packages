@@ -18,7 +18,8 @@ import {
   ContractInstancePreimageWithAddressSchema,
 } from '@aztec/stdlib/contract';
 import { Gas, ManaUsageEstimate } from '@aztec/stdlib/gas';
-import { LogCursor, refineTxHashAndRange } from '@aztec/stdlib/logs';
+import type { MasterSecretKeys } from '@aztec/stdlib/keys';
+import { refineTxHashAndRange } from '@aztec/stdlib/logs';
 import {
   AbiDecodedSchema,
   type ApiSchemaFor,
@@ -42,6 +43,7 @@ import {
 
 import { z } from 'zod';
 
+import { EventCursor } from '../api/event_cursor.js';
 import {
   type GasSettingsOption,
   type InteractionWaitOptions,
@@ -168,8 +170,6 @@ export type EventFilterBase = {
    * Optional. If provided, it must be greater than fromBlock.
    */
   toBlock?: BlockNumber;
-  /** Log cursor after which to start fetching logs. Used for pagination. */
-  afterLog?: LogCursor;
 };
 
 /**
@@ -189,6 +189,11 @@ export type PrivateEventFilter = EventFilterBase & {
 export type PublicEventFilter = EventFilterBase & {
   /** The address of the contract that emitted the events. Required. */
   contractAddress: AztecAddress;
+  /**
+   * Cursor to resume strictly after, for pagination. Pass {@link GetPublicEventsResult.nextCursor} from a
+   * previous page here to fetch the next one. Omit to start from the beginning of the range.
+   */
+  afterEvent?: EventCursor;
 };
 
 /**
@@ -280,7 +285,11 @@ export type Wallet = {
   registerSender(address: AztecAddress, alias?: string): Promise<AztecAddress>;
   getAddressBook(): Promise<Aliased<AztecAddress>[]>;
   getAccounts(): Promise<Aliased<AztecAddress>[]>;
-  registerContract(instance: ContractInstancePreimage, artifact?: ContractArtifact, secretKey?: Fr): Promise<void>;
+  registerContract(
+    instance: ContractInstancePreimage,
+    artifact?: ContractArtifact,
+    secretKeyOrKeys?: Fr | MasterSecretKeys,
+  ): Promise<void>;
   /**
    * Registers a contract class artifact in the local PXE without binding it to any instance.
    * Useful for simulation flows that need the artifact available locally before any on-chain
@@ -371,14 +380,11 @@ export const EventMetadataDefinitionSchema = z.object({
 });
 
 // Event filters share `txHash ⊕ block-range` semantics with `LogsQueryBase` (see stdlib `logs_query.ts`)
-// but diverge structurally: wallet filters are scoped to a single ABI event so they carry one optional
-// `afterLog` cursor inline, whereas the stdlib query batches many tags and stores cursors per-tag inside
-// `TagQuery`. We share only the refinement helper from stdlib; the field schemas stay local.
+// but the field schemas stay local.
 const eventFilterBaseShape = {
   txHash: optional(TxHash.schema),
   fromBlock: optional(BlockNumberPositiveSchema),
   toBlock: optional(BlockNumberPositiveSchema),
-  afterLog: optional(LogCursor.schema),
 };
 
 export const PrivateEventFilterSchema = refineTxHashAndRange(
@@ -393,6 +399,7 @@ export const PublicEventFilterSchema = refineTxHashAndRange(
   z.object({
     ...eventFilterBaseShape,
     contractAddress: schemas.AztecAddress,
+    afterEvent: optional(EventCursor.schema),
   }),
 );
 

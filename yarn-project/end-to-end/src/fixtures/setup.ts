@@ -1,5 +1,5 @@
 import { type InitialAccountData, generateSchnorrAccounts } from '@aztec/accounts/testing';
-import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
+import { type AztecNodeConfig, AztecNodeService, createAztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
 import type { ContractMethod } from '@aztec/aztec.js/contracts';
 import { publishContractClass, publishInstance } from '@aztec/aztec.js/deployment';
@@ -22,7 +22,7 @@ import {
   deployAztecL1Contracts,
 } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import type { Delayer } from '@aztec/ethereum/l1-tx-utils';
-import { EthCheatCodes, EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
+import { EthCheatCodes, EthCheatCodesWithState, startAnvil, warmBlobKzg } from '@aztec/ethereum/test';
 import type { Anvil } from '@aztec/ethereum/test';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { SecretValue } from '@aztec/foundation/config';
@@ -30,7 +30,6 @@ import { randomBytes } from '@aztec/foundation/crypto/random';
 import { tryRmDir } from '@aztec/foundation/fs';
 import { withLoggerBindings } from '@aztec/foundation/log/server';
 import { retryUntil } from '@aztec/foundation/retry';
-import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
@@ -77,6 +76,7 @@ import { MNEMONIC, TEST_MAX_PENDING_TX_POOL_COUNT, TEST_PEER_CHECK_INTERVAL_MS }
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
+import { testSpan } from './timing.js';
 import { getEndToEndTestTelemetryClient } from './with_telemetry_utils.js';
 
 export { startAnvil };
@@ -184,7 +184,11 @@ export type SetupOptions = {
   mockGossipSubNetwork?: boolean;
   /** Whether to add simulated latency to the mock gossipsub network (in ms) */
   mockGossipSubNetworkLatency?: number;
-  /** Whether to enable anvil automine during deployment of L1 contracts (consider defaulting this to true). */
+  /**
+   * Whether to mine the L1 setup txs (Multicall3 + rollup contract deployment) under anvil automine
+   * instead of waiting on the block interval. Defaults to `true` (set in `setupInner`); only suites
+   * that assert on genesis-relative L1 timing need to opt out with `false`.
+   */
   automineL1Setup?: boolean;
   /** How many accounts to seed and unlock in anvil. */
   anvilAccounts?: number;
@@ -201,11 +205,6 @@ export type SetupOptions = {
   zkPassportArgs?: ZKPassportArgs;
   /** Whether to fund the sponsored FPC in genesis (defaults to false). */
   fundSponsoredFPC?: boolean;
-  /**
-   * Whether to advance the chain past genesis by mining an empty block during setup (defaults to true).
-   * Set to false for tests that must observe the chain at genesis (block 0).
-   */
-  advancePastGenesis?: boolean;
   /** L1 contracts deployment arguments. */
   l1ContractsArgs?: Partial<DeployAztecL1ContractsArgs>;
   /** Wallet minimum fee padding multiplier */
@@ -306,17 +305,43 @@ function assertContractArtifactsVersion() {
  * @param opts - Options to pass to the node initialization and to the setup script.
  * @param pxeOpts - Options to pass to the PXE initialization.
  */
-export async function setup(
+export function setup(
   numberOfAccounts = 1,
   opts: SetupOptions = {},
   pxeOpts: Partial<PXEConfig> = {},
   chain: Chain = foundry,
 ): Promise<EndToEndContext> {
+  // Tag the top-level env spin-up with the prover mode (none → fake → real), the largest config-driven
+  // swing in setup cost, so the three factories are comparable on the span leaderboard. The internals
+  // (anvil / l1-deploy / sequencer-start / pxe / wallet:create) decompose this further.
+  const proverMode = opts.realProofs ? 'real' : opts.startProverNode ? 'fake' : 'none';
+  return testSpan(`setup:env:${proverMode}`, async () => {
+    const ctx = await setupInner(numberOfAccounts, opts, pxeOpts, chain);
+    if (process.env.EXIT_E2E_AFTER_SETUP) {
+      ctx.logger.info('EXIT_E2E_AFTER_SETUP is set; aborting before the test body runs');
+      throw new Error('EXIT_E2E_AFTER_SETUP');
+    }
+    return ctx;
+  });
+}
+
+async function setupInner(
+  numberOfAccounts: number,
+  opts: SetupOptions,
+  pxeOpts: Partial<PXEConfig>,
+  chain: Chain,
+): Promise<EndToEndContext> {
   assertContractArtifactsVersion();
+  const logger = getLogger();
   let anvil: Anvil | undefined;
   try {
     opts.aztecTargetCommitteeSize ??= 0;
     opts.slasherEnabled ??= false;
+    // Mine the L1 setup txs (Multicall3 + rollup contract deployment) immediately instead of
+    // waiting on anvil's block interval — this is the dominant cost of e2e setup. Suites that
+    // assert on genesis-relative L1 timing can opt out by passing `automineL1Setup: false`.
+    opts.automineL1Setup ??= true;
+    logger.trace('Starting e2e test setup');
 
     const config: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), ...opts };
     // use initialValidators for the node config
@@ -332,8 +357,6 @@ export async function setup(
 
     config.minTxPoolAgeMs = opts.minTxPoolAgeMs ?? 0;
 
-    const logger = getLogger();
-
     // Create a temp directory for any services that need it and cleanup later
     const directoryToCleanup = path.join(tmpdir(), randomBytes(8).toString('hex'));
     await fs.mkdir(directoryToCleanup, { recursive: true });
@@ -347,16 +370,19 @@ export async function setup(
       if (!isAnvilTestChain(chain.id)) {
         throw new Error(`No ETHEREUM_HOSTS set but non anvil chain requested`);
       }
-      const res = await startAnvil({
-        l1BlockTime: opts.ethereumSlotDuration,
-        accounts: opts.anvilAccounts,
-        port: opts.anvilPort ?? (process.env.ANVIL_PORT ? parseInt(process.env.ANVIL_PORT) : undefined),
-        slotsInAnEpoch: opts.anvilSlotsInAnEpoch,
-        dateProvider,
-      });
+      const res = await testSpan('setup:env:anvil', () =>
+        startAnvil({
+          l1BlockTime: opts.ethereumSlotDuration,
+          accounts: opts.anvilAccounts,
+          port: opts.anvilPort ?? (process.env.ANVIL_PORT ? parseInt(process.env.ANVIL_PORT) : undefined),
+          slotsInAnEpoch: opts.anvilSlotsInAnEpoch,
+          dateProvider,
+        }),
+      );
       anvil = res.anvil;
       config.l1RpcUrls = [res.rpcUrl];
     }
+    logger.trace('Started anvil and L1 RPC client');
 
     // Enable logging metrics to a local file named after the test suite
     if (isMetricsLoggingRequested()) {
@@ -373,6 +399,7 @@ export async function setup(
     if (opts.l1StartTime) {
       await ethCheatCodes.warp(opts.l1StartTime, { resetBlockInterval: true });
     }
+    logger.trace('Initialized L1 cheat codes and applied state/time overrides');
 
     let publisherPrivKeyHex: `0x${string}` | undefined = undefined;
     let publisherHdAccount: HDAccount | PrivateKeyAccount | undefined = undefined;
@@ -400,6 +427,7 @@ export async function setup(
     if (config.coinbase === undefined) {
       config.coinbase = EthAddress.fromString(publisherHdAccount.address);
     }
+    logger.trace('Resolved L1 publisher account');
 
     // The accounts setup creates itself: `numberOfAccounts` initializerless accounts, generated here and
     // funded at genesis so they are immediately usable.
@@ -413,6 +441,7 @@ export async function setup(
       const sponsoredFPCAddress = await getSponsoredFPCAddress();
       addressesToFund.push(sponsoredFPCAddress);
     }
+    logger.trace('Generated test accounts to fund at genesis');
 
     const genesisTimestamp = BigInt(Math.floor(Date.now() / 1000));
     const { genesisArchiveRoot, genesis, fundingNeeded } = await getGenesisValues(
@@ -421,6 +450,7 @@ export async function setup(
       opts.genesisPublicData,
       genesisTimestamp,
     );
+    logger.trace('Computed genesis values');
 
     const wasAutomining = await ethCheatCodes.isAutoMining();
     const enableAutomine = opts.automineL1Setup && !wasAutomining && isAnvilTestChain(chain.id);
@@ -430,18 +460,21 @@ export async function setup(
 
     const l1Client = createExtendedL1Client(config.l1RpcUrls, publisherHdAccount!, chain);
 
+    // Warm both KZG trusted setups (ours + anvil's) in parallel
+    if (anvil && isAnvilTestChain(chain.id)) {
+      await warmBlobKzg(l1Client, logger);
+    }
+
     // Deploy Multicall3 if running locally
     await deployMulticall3(l1Client, logger);
 
     // Force viem to refresh its nonce cache to avoid "nonce too low" errors in subsequent transactions
     // This is necessary because deployMulticall3 sends multiple transactions and viem may cache a stale nonce
     await l1Client.getTransactionCount({ address: l1Client.account.address });
+    logger.trace('Deployed Multicall3');
 
-    const deployL1ContractsValues: DeployAztecL1ContractsReturnType = await deployAztecL1Contracts(
-      config.l1RpcUrls[0],
-      publisherPrivKeyHex!,
-      chain.id,
-      {
+    const deployL1ContractsValues: DeployAztecL1ContractsReturnType = await testSpan('setup:env:l1-deploy', () =>
+      deployAztecL1Contracts(config.l1RpcUrls[0], publisherPrivKeyHex!, chain.id, {
         ...getL1ContractsConfigEnvVars(),
         ...opts,
         ...opts.l1ContractsArgs,
@@ -451,7 +484,7 @@ export async function setup(
         initialValidators: opts.initialValidators,
         feeJuicePortalInitialBalance: fundingNeeded,
         realVerifier: false,
-      },
+      }),
     );
 
     Object.assign(config, deployL1ContractsValues.l1ContractAddresses);
@@ -490,13 +523,16 @@ export async function setup(
     if (opts.l2StartTime) {
       await ethCheatCodes.warp(opts.l2StartTime, { resetBlockInterval: true });
     }
+    logger.trace('Deployed L1 rollup contracts');
 
     // Use metricsPort-based telemetry if provided, otherwise use the regular telemetry client
     const telemetryClient = opts.metricsPort
       ? await getEndToEndTestTelemetryClient(opts.metricsPort)
       : await getTelemetryClient(opts.telemetryConfig);
+    logger.trace('Created telemetry client');
 
     await setupSharedBlobStorage(config);
+    logger.trace('Set up shared blob storage');
 
     logger.verbose('Creating and synching an aztec node', config);
 
@@ -505,12 +541,14 @@ export async function setup(
       config.acvmWorkingDirectory = acvmConfig.acvmWorkingDirectory;
       config.acvmBinaryPath = acvmConfig.acvmBinaryPath;
     }
+    logger.trace('Resolved ACVM config');
 
     const bbConfig = await getBBConfig(logger);
     if (bbConfig) {
       config.bbBinaryPath = bbConfig.bbBinaryPath;
       config.bbWorkingDirectory = bbConfig.bbWorkingDirectory;
     }
+    logger.trace('Resolved Barretenberg config');
 
     let mockGossipSubNetwork: MockGossipSubNetwork | undefined;
     let p2pClientDeps: P2PClientDeps | undefined = undefined;
@@ -518,27 +556,6 @@ export async function setup(
     if (opts.mockGossipSubNetwork) {
       mockGossipSubNetwork = new MockGossipSubNetwork(opts.mockGossipSubNetworkLatency);
       p2pClientDeps = { p2pServiceFactory: getMockPubSubP2PServiceFactory(mockGossipSubNetwork) };
-    }
-
-    // Transactions built against the genesis state must be included in block 1, otherwise they are dropped.
-    // To avoid test failures from dropped transactions, we ensure progression beyond genesis before proceeding.
-    const originalMinTxsPerBlock = config.minTxsPerBlock;
-    if (originalMinTxsPerBlock === undefined) {
-      throw new Error('minTxsPerBlock is undefined in e2e test setup');
-    }
-    const originalBuildCheckpointIfEmpty = config.buildCheckpointIfEmpty ?? false;
-
-    // Allow an empty checkpoint so the empty block can be built; leave untouched when not advancing.
-    const advancePastGenesis = (opts.advancePastGenesis ?? true) && !opts.skipInitialSequencer;
-    config.minTxsPerBlock = advancePastGenesis ? 0 : originalMinTxsPerBlock;
-    // Pipelining is always on: the proposer builds during slot N-1 for slot N. A tx submitted at slot N
-    // start arrives after that build, so forcing minTxsPerBlock=1 would stall the chain on alternating
-    // slots -- hence empty checkpoints are allowed (minTxsPerBlock=0) while advancing past genesis.
-    // Automine is unaffected: its runBuild clamps mempool builds to Math.max(minTxsPerBlock ?? 1, 1) and
-    // still requires minValidTxs: 1.
-    const shouldTemporarilyBuildEmptyCheckpoints = advancePastGenesis && config.useAutomineSequencer !== true;
-    if (shouldTemporarilyBuildEmptyCheckpoints) {
-      config.buildCheckpointIfEmpty = true;
     }
 
     config.p2pEnabled = opts.mockGossipSubNetwork || config.p2pEnabled;
@@ -560,15 +577,19 @@ export async function setup(
           ...(opts.mockGossipSubNetwork ? {} : { p2pEnabled: false, bootstrapNodes: [] as string[] }),
         }
       : config;
+    logger.trace('Prepared aztec node config');
 
-    const aztecNodeService = await withLoggerBindings({ actor: 'node-0' }, () =>
-      AztecNodeService.createAndSync(
-        initialNodeConfig,
-        { dateProvider, telemetry: telemetryClient, p2pClientDeps },
-        { genesis, dontStartSequencer: opts.skipInitialSequencer },
+    const aztecNodeService = await testSpan('setup:env:sequencer-start', () =>
+      withLoggerBindings({ actor: 'node-0' }, () =>
+        createAztecNodeService(
+          initialNodeConfig,
+          { dateProvider, telemetry: telemetryClient, p2pClientDeps },
+          { genesis, dontStartSequencer: opts.skipInitialSequencer },
+        ),
       ),
     );
     const sequencerClient = aztecNodeService.getSequencer();
+    logger.trace('Created and synced aztec node');
 
     let proverNode: AztecNodeService | undefined = undefined;
     if (opts.startProverNode) {
@@ -582,16 +603,19 @@ export async function setup(
         rpcTxProviders: [aztecNodeService],
       };
 
-      ({ proverNode } = await createAndSyncProverNode(
-        proverNodePrivateKeyHex,
-        config,
-        {
-          ...config.proverNodeConfig,
-          dataDirectory: proverNodeDataDirectory,
-        },
-        { dateProvider, p2pClientDeps, telemetry: telemetryClient },
-        { genesis },
+      ({ proverNode } = await testSpan('setup:env:prover-node', () =>
+        createAndSyncProverNode(
+          proverNodePrivateKeyHex,
+          config,
+          {
+            ...config.proverNodeConfig,
+            dataDirectory: proverNodeDataDirectory,
+          },
+          { dateProvider, p2pClientDeps, telemetry: telemetryClient },
+          { genesis },
+        ),
       ));
+      logger.trace('Created prover node');
     }
 
     const sequencerDelayer = sequencerClient?.getDelayer();
@@ -602,23 +626,22 @@ export async function setup(
     pxeConfig.dataDirectory = path.join(directoryToCleanup, randomBytes(8).toString('hex'));
     // For tests we only want proving enabled if specifically requested
     pxeConfig.proverEnabled = !!pxeOpts.proverEnabled;
-    const wallet = await TestWallet.create(aztecNodeService, pxeConfig, {
-      loggerActorLabel: 'pxe-0',
-      // In-process node implements the debug API, so register public function signatures for named traces.
-      nodeDebug: aztecNodeService,
-      ...opts.pxeCreationOptions,
-    });
+    const wallet = await testSpan('setup:env:pxe', () =>
+      TestWallet.create(aztecNodeService, pxeConfig, {
+        loggerActorLabel: 'pxe-0',
+        // In-process node implements the debug API, so register public function signatures for named traces.
+        nodeDebug: aztecNodeService,
+        ...opts.pxeCreationOptions,
+      }),
+    );
 
     if (opts.walletMinFeePadding !== undefined) {
       wallet.setMinFeePadding(opts.walletMinFeePadding);
     }
+    logger.trace('Created PXE and test wallet');
 
-    const cheatCodes = await CheatCodes.create(
-      config.l1RpcUrls,
-      aztecNodeService,
-      dateProvider,
-      aztecNodeService.getAutomineSequencer(),
-    );
+    const cheatCodes = await CheatCodes.create(config.l1RpcUrls, aztecNodeService, dateProvider);
+    logger.trace('Created cheat codes');
 
     if (
       (opts.aztecTargetCommitteeSize && opts.aztecTargetCommitteeSize > 0) ||
@@ -632,6 +655,7 @@ export async function setup(
       );
       await cheatCodes.rollup.setupEpoch();
       await cheatCodes.rollup.debugRollup();
+      logger.trace('Advanced chain to set up validator committee');
     }
 
     let accounts: AztecAddress[] = [];
@@ -640,64 +664,39 @@ export async function setup(
     // + a simulated store call) with no on-chain tx, independent of the sequencer.
     if (numberOfAccounts > 0) {
       logger.info(`Creating ${numberOfAccounts} initializerless test accounts`);
-      await createFundedInitializerlessAccounts(wallet, defaultAccounts);
+      await testSpan('wallet:create', () => createFundedInitializerlessAccounts(wallet, defaultAccounts));
       accounts = defaultAccounts.map(a => a.address);
     }
+    logger.trace('Created funded test accounts');
 
-    // Advancing past genesis needs a running sequencer to build the empty block; advancePastGenesis is
-    // already false when skipInitialSequencer is set.
-    if (advancePastGenesis) {
-      logger.info('Mining an empty block to progress past genesis');
-      const automine = aztecNodeService.getAutomineSequencer();
-      if (automine) {
-        await automine.buildEmptyBlock();
-      }
-      while ((await aztecNodeService.getBlockNumber()) === 0) {
-        await sleep(2000);
-      }
-    } else if (opts.skipInitialSequencer) {
-      logger.info('Sequencer not started on initial node, skipping block progression');
-    }
-
-    // Now we restore the original minTxsPerBlock setting if we changed it.
-    if (sequencerClient) {
-      const sequencer = sequencerClient.getSequencer();
-      if (config.minTxsPerBlock !== originalMinTxsPerBlock) {
-        sequencer.updateConfig({ minTxsPerBlock: originalMinTxsPerBlock });
-      }
-      if (shouldTemporarilyBuildEmptyCheckpoints) {
-        sequencer.updateConfig({ buildCheckpointIfEmpty: originalBuildCheckpointIfEmpty });
-        config.buildCheckpointIfEmpty = originalBuildCheckpointIfEmpty;
-      }
-    }
-
-    const teardown = async () => {
-      try {
-        await tryStop(wallet, logger);
-        await tryStop(aztecNodeService, logger);
-        await tryStop(proverNode, logger);
-
-        if (acvmConfig?.cleanup) {
-          await acvmConfig.cleanup();
-        }
-
-        if (bbConfig?.cleanup) {
-          await bbConfig.cleanup();
-        }
-
-        await tryStop(anvil, logger);
-
-        await tryRmDir(directoryToCleanup, logger);
-      } catch (err) {
-        logger.error(`Error during e2e test teardown`, err);
-      } finally {
+    const teardown = () =>
+      testSpan('teardown:env', async () => {
         try {
-          await telemetryClient.stop();
+          await tryStop(wallet, logger);
+          await tryStop(aztecNodeService, logger);
+          await tryStop(proverNode, logger);
+
+          if (acvmConfig?.cleanup) {
+            await acvmConfig.cleanup();
+          }
+
+          if (bbConfig?.cleanup) {
+            await bbConfig.cleanup();
+          }
+
+          await tryStop(anvil, logger);
+
+          await tryRmDir(directoryToCleanup, logger);
         } catch (err) {
-          logger.error(`Error during telemetry client stop`, err);
+          logger.error(`Error during e2e test teardown`, err);
+        } finally {
+          try {
+            await telemetryClient.stop();
+          } catch (err) {
+            logger.error(`Error during telemetry client stop`, err);
+          }
         }
-      }
-    };
+      });
 
     return {
       anvil,
@@ -815,7 +814,7 @@ export function createAndSyncProverNode(
   options: { genesis?: GenesisData; dontStart?: boolean },
 ): Promise<{ proverNode: AztecNodeService }> {
   return withLoggerBindings({ actor: 'prover-0' }, async () => {
-    const proverNode = await AztecNodeService.createAndSync(
+    const proverNode = await createAztecNodeService(
       {
         ...baseConfig,
         ...configOverrides,
