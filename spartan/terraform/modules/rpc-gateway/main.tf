@@ -17,7 +17,7 @@ locals {
   kong_helm_release_name = var.KONG_HELM_RELEASE_NAME != "" ? var.KONG_HELM_RELEASE_NAME : "${var.RELEASE_PREFIX}-rpc-kong"
   kong_ingress_class     = var.KONG_INGRESS_CLASS != "" ? var.KONG_INGRESS_CLASS : "${var.RELEASE_PREFIX}-rpc-kong"
 
-  upstream_policy_name         = "${var.RELEASE_PREFIX}-rpc-upstream-policy"
+  upstream_policy_name         = "${var.RELEASE_PREFIX}-${var.ROUTE_RESOURCE_SUFFIX}-upstream-policy"
   frontend_static_ip_name      = var.FRONTEND_STATIC_IP_NAME != "" ? var.FRONTEND_STATIC_IP_NAME : "${var.RELEASE_PREFIX}-rpc-frontend"
   frontend_service_name        = var.FRONTEND_SERVICE_NAME != "" ? var.FRONTEND_SERVICE_NAME : "${local.kong_helm_release_name}-gateway-proxy"
   frontend_backend_config_name = "${var.RELEASE_PREFIX}-rpc-kong-backend"
@@ -46,12 +46,13 @@ locals {
   route_plugin_names = {
     for name, route in var.ROUTES :
     name => join(",", compact([
-      "${var.RELEASE_PREFIX}-${name}-rpc-key-auth",
-      "${var.RELEASE_PREFIX}-${name}-rpc-prometheus"
+      "${var.RELEASE_PREFIX}-${name}-${var.ROUTE_RESOURCE_SUFFIX}-path-api-key",
+      "${var.RELEASE_PREFIX}-${name}-${var.ROUTE_RESOURCE_SUFFIX}-key-auth",
+      "${var.RELEASE_PREFIX}-${name}-${var.ROUTE_RESOURCE_SUFFIX}-prometheus"
     ]))
   }
 
-  metrics_service_enabled = var.KONG_METRICS_SERVICE_ENABLED || var.KONG_OTEL_METRICS_GCP_SECRET_NAME != ""
+  metrics_service_enabled = var.KONG_METRICS_SERVICE_ENABLED
   metrics_service_name    = var.KONG_METRICS_SERVICE_NAME != "" ? var.KONG_METRICS_SERVICE_NAME : "${var.RELEASE_PREFIX}-kong-metrics"
   metrics_service_selector = length(var.KONG_METRICS_SERVICE_SELECTOR) > 0 ? var.KONG_METRICS_SERVICE_SELECTOR : {
     "app.kubernetes.io/name"      = "gateway"
@@ -59,13 +60,10 @@ locals {
     "app.kubernetes.io/instance"  = local.kong_helm_release_name
   }
 
-  otel_collector_name        = "${var.RELEASE_PREFIX}-rpc-kong-otel-collector"
-  otel_collector_config_name = "${local.otel_collector_name}-config"
-  otel_collector_secret_name = local.otel_collector_name
 
   consumer_credential_secret_names = {
     for name, _ in var.CONSUMERS :
-    name => "${var.RELEASE_PREFIX}-${name}-rpc-key-auth"
+    name => "${var.RELEASE_PREFIX}-${name}-${var.ROUTE_RESOURCE_SUFFIX}-key-auth"
   }
 
   consumers_with_rate_limit = {
@@ -111,12 +109,14 @@ resource "helm_release" "kong" {
         serviceMonitor = {
           enabled = var.KONG_SERVICE_MONITOR_ENABLED
         }
+        nodeSelector = var.KONG_NODE_SELECTOR
       }
       controller = {
         ingressController = {
           ingressClass = local.kong_ingress_class
           installCRDs  = false
         }
+        nodeSelector = var.KONG_NODE_SELECTOR
       }
     })
   ], var.KONG_EXTRA_HELM_VALUES)
@@ -250,6 +250,45 @@ resource "google_dns_record_set" "rpc" {
   depends_on = [kubernetes_manifest.frontend_ingress]
 }
 
+resource "kubernetes_manifest" "path_api_key_plugin" {
+  for_each = var.ROUTES
+
+  manifest = {
+    apiVersion = "configuration.konghq.com/v1"
+    kind       = "KongPlugin"
+    metadata = {
+      name      = "${var.RELEASE_PREFIX}-${each.key}-${var.ROUTE_RESOURCE_SUFFIX}-path-api-key"
+      namespace = each.value.route_namespace
+      annotations = {
+        "kubernetes.io/ingress.class" = local.kong_ingress_class
+      }
+    }
+    plugin = "pre-function"
+    config = {
+      access = [
+        <<-LUA
+        if not kong.request.get_header("${var.API_KEY_HEADER_NAME}") then
+          local path = kong.request.get_path()
+          local api_key, upstream_path = path:match("^/([^/]+)/?(.*)$")
+
+          if api_key and api_key ~= "" then
+            ngx.req.set_header("${var.API_KEY_HEADER_NAME}", ngx.unescape_uri(api_key))
+
+            if upstream_path == "" then
+              kong.service.request.set_path("/")
+            else
+              kong.service.request.set_path("/" .. upstream_path)
+            end
+          end
+        end
+        LUA
+      ]
+    }
+  }
+
+  depends_on = [helm_release.kong]
+}
+
 resource "kubernetes_manifest" "key_auth_plugin" {
   for_each = var.ROUTES
 
@@ -257,7 +296,7 @@ resource "kubernetes_manifest" "key_auth_plugin" {
     apiVersion = "configuration.konghq.com/v1"
     kind       = "KongPlugin"
     metadata = {
-      name      = "${var.RELEASE_PREFIX}-${each.key}-rpc-key-auth"
+      name      = "${var.RELEASE_PREFIX}-${each.key}-${var.ROUTE_RESOURCE_SUFFIX}-key-auth"
       namespace = each.value.route_namespace
       annotations = {
         "kubernetes.io/ingress.class" = local.kong_ingress_class
@@ -288,7 +327,7 @@ resource "kubernetes_manifest" "prometheus_plugin" {
     apiVersion = "configuration.konghq.com/v1"
     kind       = "KongPlugin"
     metadata = {
-      name      = "${var.RELEASE_PREFIX}-${each.key}-rpc-prometheus"
+      name      = "${var.RELEASE_PREFIX}-${each.key}-${var.ROUTE_RESOURCE_SUFFIX}-prometheus"
       namespace = each.value.route_namespace
       annotations = {
         "kubernetes.io/ingress.class" = local.kong_ingress_class
@@ -307,252 +346,8 @@ resource "kubernetes_manifest" "prometheus_plugin" {
   depends_on = [helm_release.kong]
 }
 
-resource "kubernetes_manifest" "otel_collector_external_secret" {
-  count = var.KONG_OTEL_METRICS_GCP_SECRET_NAME != "" ? 1 : 0
-
-  manifest = {
-    apiVersion = "external-secrets.io/v1"
-    kind       = "ExternalSecret"
-    metadata = {
-      name      = local.otel_collector_secret_name
-      namespace = local.kong_namespace
-    }
-    spec = {
-      refreshInterval = var.EXTERNAL_SECRET_REFRESH_INTERVAL
-      secretStoreRef = {
-        name = var.EXTERNAL_SECRET_STORE_NAME
-        kind = var.EXTERNAL_SECRET_STORE_KIND
-      }
-      target = {
-        name           = local.otel_collector_secret_name
-        creationPolicy = "Owner"
-        template = {
-          engineVersion = "v2"
-          type          = "Opaque"
-          data = {
-            endpoint = "{{ .url | trimSuffix \"/v1/metrics\" | trimSuffix \"/\" }}"
-          }
-        }
-      }
-      data = [
-        {
-          secretKey = "url"
-          remoteRef = {
-            key = var.KONG_OTEL_METRICS_GCP_SECRET_NAME
-          }
-        }
-      ]
-    }
-  }
-
-  wait {
-    condition {
-      type   = "Ready"
-      status = "True"
-    }
-  }
-
-  depends_on = [helm_release.kong]
-}
-
-resource "kubernetes_manifest" "otel_collector_config" {
-  count = var.KONG_OTEL_METRICS_GCP_SECRET_NAME != "" ? 1 : 0
-
-  manifest = {
-    apiVersion = "v1"
-    kind       = "ConfigMap"
-    metadata = {
-      name      = local.otel_collector_config_name
-      namespace = local.kong_namespace
-    }
-    data = {
-      "collector.yaml" = yamlencode({
-        extensions = {
-          health_check = {
-            endpoint = "0.0.0.0:13133"
-          }
-        }
-        receivers = {
-          prometheus = {
-            config = {
-              scrape_configs = [
-                {
-                  job_name        = "kong"
-                  scrape_interval = "${var.KONG_OTEL_METRICS_PUSH_INTERVAL_SECONDS}s"
-                  metrics_path    = "/metrics"
-                  static_configs = [
-                    {
-                      targets = ["${local.metrics_service_name}.${local.kong_namespace}.svc.cluster.local:${var.KONG_METRICS_SERVICE_PORT}"]
-                      labels = {
-                        component = "kong"
-                        network   = var.RELEASE_PREFIX
-                      }
-                    }
-                  ]
-                }
-              ]
-            }
-          }
-        }
-        processors = {
-          resource = {
-            attributes = [
-              {
-                action = "upsert"
-                key    = "service.name"
-                value  = "${var.RELEASE_PREFIX}-rpc-kong"
-              },
-              {
-                action = "upsert"
-                key    = "service.namespace"
-                value  = local.kong_namespace
-              },
-              {
-                action = "upsert"
-                key    = "k8s.namespace.name"
-                value  = local.kong_namespace
-              },
-              {
-                action = "upsert"
-                key    = "network"
-                value  = var.RELEASE_PREFIX
-              },
-              {
-                action = "upsert"
-                key    = "aztec.component"
-                value  = "kong"
-              }
-            ]
-          }
-          batch = {}
-        }
-        exporters = {
-          otlphttp = {
-            endpoint    = "$${env:OTEL_EXPORTER_OTLP_ENDPOINT}"
-            compression = "gzip"
-          }
-        }
-        service = {
-          extensions = ["health_check"]
-          pipelines = {
-            metrics = {
-              receivers  = ["prometheus"]
-              processors = ["resource", "batch"]
-              exporters  = ["otlphttp"]
-            }
-          }
-        }
-      })
-    }
-  }
-
-  depends_on = [helm_release.kong]
-}
-
-resource "kubernetes_manifest" "otel_collector_deployment" {
-  count = var.KONG_OTEL_METRICS_GCP_SECRET_NAME != "" ? 1 : 0
-
-  manifest = {
-    apiVersion = "apps/v1"
-    kind       = "Deployment"
-    metadata = {
-      name      = local.otel_collector_name
-      namespace = local.kong_namespace
-      labels = {
-        "app.kubernetes.io/name"      = "kong-otel-collector"
-        "app.kubernetes.io/instance"  = local.kong_helm_release_name
-        "app.kubernetes.io/component" = "metrics"
-      }
-    }
-    spec = {
-      replicas = var.KONG_OTEL_METRICS_COLLECTOR_REPLICAS
-      selector = {
-        matchLabels = {
-          "app.kubernetes.io/name"      = "kong-otel-collector"
-          "app.kubernetes.io/instance"  = local.kong_helm_release_name
-          "app.kubernetes.io/component" = "metrics"
-        }
-      }
-      template = {
-        metadata = {
-          labels = {
-            "app.kubernetes.io/name"      = "kong-otel-collector"
-            "app.kubernetes.io/instance"  = local.kong_helm_release_name
-            "app.kubernetes.io/component" = "metrics"
-          }
-        }
-        spec = {
-          containers = [
-            {
-              name  = "otel-collector"
-              image = var.KONG_OTEL_METRICS_COLLECTOR_IMAGE
-              args  = ["--config=/conf/collector.yaml"]
-              env = [
-                {
-                  name = "OTEL_EXPORTER_OTLP_ENDPOINT"
-                  valueFrom = {
-                    secretKeyRef = {
-                      name = local.otel_collector_secret_name
-                      key  = "endpoint"
-                    }
-                  }
-                }
-              ]
-              ports = [
-                {
-                  name          = "health"
-                  containerPort = 13133
-                  protocol      = "TCP"
-                }
-              ]
-              readinessProbe = {
-                httpGet = {
-                  path = "/"
-                  port = "health"
-                }
-                initialDelaySeconds = 5
-                periodSeconds       = 10
-              }
-              livenessProbe = {
-                httpGet = {
-                  path = "/"
-                  port = "health"
-                }
-                initialDelaySeconds = 15
-                periodSeconds       = 20
-              }
-              resources = var.KONG_OTEL_METRICS_COLLECTOR_RESOURCES
-              volumeMounts = [
-                {
-                  name      = "config"
-                  mountPath = "/conf"
-                  readOnly  = true
-                }
-              ]
-            }
-          ]
-          volumes = [
-            {
-              name = "config"
-              configMap = {
-                name = local.otel_collector_config_name
-              }
-            }
-          ]
-        }
-      }
-    }
-  }
-
-  depends_on = [
-    kubernetes_manifest.otel_collector_external_secret,
-    kubernetes_manifest.otel_collector_config,
-    kubernetes_service_v1.metrics,
-  ]
-}
-
 resource "kubernetes_manifest" "upstream_policy" {
-  for_each = toset(distinct([for _, route in var.ROUTES : route.route_namespace]))
+  for_each = var.UPSTREAM_POLICY_ENABLED ? toset(distinct([for _, route in var.ROUTES : route.route_namespace])) : toset([])
 
   manifest = {
     apiVersion = "configuration.konghq.com/v1beta1"
@@ -602,7 +397,7 @@ resource "kubernetes_manifest" "consumer_rate_limit_plugin" {
     apiVersion = "configuration.konghq.com/v1"
     kind       = "KongPlugin"
     metadata = {
-      name      = "${var.RELEASE_PREFIX}-${each.key}-rpc-rate-limit"
+      name      = "${var.RELEASE_PREFIX}-${each.key}-${var.ROUTE_RESOURCE_SUFFIX}-rate-limit"
       namespace = var.CONSUMER_NAMESPACE
       annotations = {
         "kubernetes.io/ingress.class" = local.kong_ingress_class
@@ -627,7 +422,7 @@ resource "kubernetes_manifest" "consumer_key_external_secret" {
     apiVersion = "external-secrets.io/v1"
     kind       = "ExternalSecret"
     metadata = {
-      name      = "${var.RELEASE_PREFIX}-${each.key}-rpc-key-auth"
+      name      = "${var.RELEASE_PREFIX}-${each.key}-${var.ROUTE_RESOURCE_SUFFIX}-key-auth"
       namespace = var.CONSUMER_NAMESPACE
     }
     spec = {
@@ -689,7 +484,7 @@ resource "kubernetes_manifest" "consumer" {
       each.value.rate_limit_minute > 0 ? {
         annotations = {
           "kubernetes.io/ingress.class" = local.kong_ingress_class
-          "konghq.com/plugins"          = "${var.RELEASE_PREFIX}-${each.key}-rpc-rate-limit"
+          "konghq.com/plugins"          = "${var.RELEASE_PREFIX}-${each.key}-${var.ROUTE_RESOURCE_SUFFIX}-rate-limit"
         }
       } : {}
     )
@@ -710,7 +505,7 @@ resource "kubernetes_manifest" "anonymous_rate_limit_plugin" {
     apiVersion = "configuration.konghq.com/v1"
     kind       = "KongPlugin"
     metadata = {
-      name      = "${var.RELEASE_PREFIX}-${each.key}-anonymous-rpc-rate-limit"
+      name      = "${var.RELEASE_PREFIX}-${each.key}-anonymous-${var.ROUTE_RESOURCE_SUFFIX}-rate-limit"
       namespace = each.value.route_namespace
       annotations = {
         "kubernetes.io/ingress.class" = local.kong_ingress_class
@@ -739,7 +534,7 @@ resource "kubernetes_manifest" "anonymous_consumer" {
       namespace = each.value.route_namespace
       annotations = {
         "kubernetes.io/ingress.class" = local.kong_ingress_class
-        "konghq.com/plugins"          = "${var.RELEASE_PREFIX}-${each.key}-anonymous-rpc-rate-limit"
+        "konghq.com/plugins"          = "${var.RELEASE_PREFIX}-${each.key}-anonymous-${var.ROUTE_RESOURCE_SUFFIX}-rate-limit"
       }
     }
     username = "${var.RELEASE_PREFIX}-${each.key}-anonymous"
@@ -788,13 +583,13 @@ resource "kubernetes_manifest" "rpc_route" {
     apiVersion = "networking.k8s.io/v1"
     kind       = "Ingress"
     metadata = {
-      name      = "${var.RELEASE_PREFIX}-${each.key}-rpc"
+      name      = "${var.RELEASE_PREFIX}-${each.key}-${var.ROUTE_RESOURCE_SUFFIX}"
       namespace = each.value.route_namespace
       annotations = merge(
         {
           "kubernetes.io/ingress.class" = local.kong_ingress_class
           "konghq.com/plugins"          = local.route_plugin_names[each.key]
-          "konghq.com/strip-path"       = "false"
+          "konghq.com/strip-path"       = tostring(each.value.strip_path)
         },
         var.ROUTE_ANNOTATIONS
       )
@@ -808,8 +603,8 @@ resource "kubernetes_manifest" "rpc_route" {
             http = {
               paths = [
                 {
-                  path     = "/"
-                  pathType = "Prefix"
+                  path     = each.value.path
+                  pathType = each.value.path_type
                   backend = {
                     service = {
                       name = each.value.upstream_service_name
@@ -836,6 +631,7 @@ resource "kubernetes_manifest" "rpc_route" {
   }
 
   depends_on = [
+    kubernetes_manifest.path_api_key_plugin,
     kubernetes_manifest.key_auth_plugin,
     kubernetes_manifest.prometheus_plugin,
     kubernetes_manifest.upstream_policy,

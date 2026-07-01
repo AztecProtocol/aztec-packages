@@ -23,6 +23,11 @@ output "key_auth_plugin_names" {
   value       = { for name, plugin in kubernetes_manifest.key_auth_plugin : name => plugin.manifest.metadata.name }
 }
 
+output "path_api_key_plugin_names" {
+  description = "KongPlugin names for path-segment API key extraction, keyed by route."
+  value       = { for name, plugin in kubernetes_manifest.path_api_key_plugin : name => plugin.manifest.metadata.name }
+}
+
 output "prometheus_plugin_names" {
   description = "KongPlugin names for per-consumer Prometheus metrics, keyed by route."
   value       = { for name, plugin in kubernetes_manifest.prometheus_plugin : name => plugin.manifest.metadata.name }
@@ -35,7 +40,7 @@ output "kong_namespace" {
 
 output "upstream_policy_name" {
   description = "KongUpstreamPolicy name for RPC upstream balancing, or null when disabled."
-  value       = local.upstream_policy_name
+  value       = var.UPSTREAM_POLICY_ENABLED ? local.upstream_policy_name : null
 }
 
 output "metrics_service_name" {
@@ -56,11 +61,6 @@ output "metrics_service_port" {
 output "metrics_service_load_balancer_ingress" {
   description = "Kong metrics Service load balancer ingress status, or an empty list when disabled/not assigned yet."
   value       = local.metrics_service_enabled ? try(kubernetes_service_v1.metrics[0].status[0].load_balancer[0].ingress, []) : []
-}
-
-output "otel_collector_deployment_name" {
-  description = "Local OTel collector Deployment name for Kong metrics, or null when disabled."
-  value       = var.KONG_OTEL_METRICS_GCP_SECRET_NAME != "" ? local.otel_collector_name : null
 }
 
 output "frontend_load_balancer_ip" {
