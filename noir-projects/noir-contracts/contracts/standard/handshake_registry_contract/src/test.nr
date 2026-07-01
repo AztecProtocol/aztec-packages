@@ -485,7 +485,7 @@ unconstrained fn repeated_sync_does_not_refetch_logs() {
     assert_eq(after_first.items.len(), 1);
 
     // Mock the log-retrieval oracle so we can assert it is never called on re-sync.
-    let log_oracle = OracleMock::mock("aztec_utl_getLogsByTagV2");
+    let log_oracle = OracleMock::mock("aztec_utl_getLogsByTag");
     let _ = env.execute_utility(registry.get_handshakes(recipient, 0));
     assert_eq(log_oracle.times_called(), 0);
     log_oracle.clear();

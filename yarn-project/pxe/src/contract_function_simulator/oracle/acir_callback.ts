@@ -28,11 +28,7 @@ export function buildACIRCallback(
   const { real = ORACLE_REGISTRY, legacy: legacyRegistry = LEGACY_ORACLE_REGISTRY } = registries;
   const target = {} as ACIRCallback;
   for (const [oracleKey, entry] of Object.entries(real)) {
-    const match = oracleKey.match(/^aztec_(\w+?)_(.+)$/);
-    if (!match) {
-      throw new Error(`Oracle "${oracleKey}" does not follow the aztec_{scope}_{method} convention`);
-    }
-    const [, scope, methodName] = match;
+    const { scope, methodName } = parseOracleName(oracleKey, 'Oracle');
     target[oracleKey] = async (...inputs: ACVMField[][]) => {
       assertHandlerSupportsScope(handler, scope);
       const named = entry.deserializeParams(inputs);
@@ -45,18 +41,12 @@ export function buildACIRCallback(
   // Legacy oracle names: served for contracts compiled against a retired oracle version. Each reuses the current
   // handler of its `modernOracle` and reshapes the wire (params and/or return) back to what the old bytecode expects.
   for (const [legacyKey, legacy] of Object.entries(legacyRegistry)) {
-    const match = legacyKey.match(/^aztec_(\w+?)_(.+)$/);
-    if (!match) {
-      throw new Error(`Legacy oracle "${legacyKey}" does not follow the aztec_{scope}_{method} convention`);
-    }
-    const [, scope] = match;
-    // A legacy name is a retired one; if it still exists in `real` the two loops would both write `target[legacyKey]`
-    // and the legacy wire would silently shadow the live oracle. Fail loudly instead.
+    const { scope } = parseOracleName(legacyKey, 'Legacy oracle');
     if (legacyKey in target) {
       throw new Error(`Legacy oracle "${legacyKey}" collides with a live oracle of the same name in the registry`);
     }
     const modernEntry = real[legacy.modernOracle];
-    const methodName = legacy.modernOracle.match(/^aztec_\w+?_(.+)$/)![1];
+    const { methodName } = parseOracleName(legacy.modernOracle, 'Oracle');
     // Override only the side whose wire changed; inherit the other from the modern entry.
     const paramOverride = legacy.params;
     const paramSource = paramOverride ? makeEntry({ params: [...paramOverride.legacyType] }) : modernEntry;
@@ -71,7 +61,24 @@ export function buildACIRCallback(
     };
   }
 
-  return new Proxy(target, {
+  return new Proxy(target, makeUnknownOracleTrap(handler));
+}
+
+/** Parses an `aztec_{scope}_{method}` oracle name into its parts, throwing if it doesn't follow the convention. */
+function parseOracleName(key: string, label: string): { scope: string; methodName: string } {
+  const match = key.match(/^aztec_(\w+?)_(.+)$/);
+  if (!match) {
+    throw new Error(`${label} "${key}" does not follow the aztec_{scope}_{method} convention`);
+  }
+  return { scope: match[1], methodName: match[2] };
+}
+
+/**
+ * Proxy trap for the callback table: a known oracle name passes through; an unknown one throws a diagnostic keyed on
+ * the contract's oracle version (version unknown, contract newer than this environment, or a same-version mismatch).
+ */
+function makeUnknownOracleTrap(handler: OracleHandler): ProxyHandler<ACIRCallback> {
+  return {
     get(obj, prop: string) {
       if (prop in obj) {
         return (obj as Record<string, unknown>)[prop];
@@ -113,7 +120,7 @@ export function buildACIRCallback(
         }
       };
     },
-  });
+  };
 }
 
 type OracleHandler = IMiscOracle & (IUtilityExecutionOracle | IPrivateExecutionOracle);
