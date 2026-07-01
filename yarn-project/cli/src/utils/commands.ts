@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn } from '@aztec/foundation/log';
 import type { PXE } from '@aztec/pxe/server';
@@ -58,6 +59,16 @@ export const createSecretKeyOption = (
   new Option('-sk, --secret-key <string>', description)
     .env('SECRET_KEY')
     .argParser(argsParser ?? parseSecretKey)
+    .makeOptionMandatory(mandatory);
+
+export const createSigningKeyOption = (
+  description: string,
+  mandatory: boolean,
+  argsParser?: (value: string, previous: GrumpkinScalar) => GrumpkinScalar,
+) =>
+  new Option('-sk, --signing-key <string>', description)
+    .env('SIGNING_KEY')
+    .argParser(argsParser ?? parseSigningKey)
     .makeOptionMandatory(mandatory);
 
 export const logJson = (log: LogFn) => (obj: object) => log(JSON.stringify(obj, null, 2));
@@ -367,6 +378,20 @@ export function parseSecretKey(secretKey: string): Fr {
     return Fr.fromHexString(secretKey);
   } catch {
     throw new InvalidArgumentError(`Invalid encryption secret key: ${secretKey}`);
+  }
+}
+
+/**
+ * Parses an account signing key from a string.
+ * @param signingKey - A string
+ * @returns A signing key
+ * @throws InvalidArgumentError if the input string is not valid.
+ */
+export function parseSigningKey(signingKey: string): GrumpkinScalar {
+  try {
+    return GrumpkinScalar.fromHexString(signingKey);
+  } catch {
+    throw new InvalidArgumentError(`Invalid signing key: ${signingKey}`);
   }
 }
 
