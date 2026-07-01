@@ -27,6 +27,33 @@ describe('RunningPromise', () => {
     await runningPromise.stop();
   });
 
+  describe('idempotency', () => {
+    it('a second start does not spawn a second poll loop', async () => {
+      runningPromise.start();
+      expect(counter).toEqual(1);
+      expect(runningPromise.isRunning()).toBe(true);
+
+      // Starting again while already running must be a no-op, not a second concurrent loop.
+      runningPromise.start();
+      expect(counter).toEqual(1);
+
+      await jest.advanceTimersToNextTimerAsync();
+      // Exactly one loop advanced the counter, not two.
+      expect(counter).toEqual(2);
+    });
+
+    it('stop is safe to call when never started and when already stopped', async () => {
+      await expect(runningPromise.stop()).resolves.toBeUndefined();
+
+      runningPromise.start();
+      await runningPromise.stop();
+      expect(runningPromise.isRunning()).toBe(false);
+
+      await expect(runningPromise.stop()).resolves.toBeUndefined();
+      expect(runningPromise.isRunning()).toBe(false);
+    });
+  });
+
   describe('trigger', () => {
     it('immediately runs the function when not running and awaits for completion', async () => {
       await runningPromise.trigger();

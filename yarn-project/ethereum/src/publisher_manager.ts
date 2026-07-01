@@ -69,8 +69,19 @@ export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
     }
   }
 
-  /** Loads the state of all publishers and the funder, and starts periodic funding checks. */
+  /**
+   * Loads the state of all publishers and the funder, clears any interrupted flag left by a previous
+   * {@link stop} so publishing works again after a restart, and starts periodic funding checks.
+   *
+   * Idempotent and safe to call as a restart after {@link stop}: the funding loop is only started when
+   * it is not already running, so a second call does not orphan a poll loop.
+   */
   public async start(): Promise<void> {
+    // Clear the interrupted flag set by a previous stop() so a restarted manager can publish again.
+    // On a first start this is a no-op (the flag is already clear).
+    this.publishers.forEach(pub => pub.restart());
+    this.funder?.restart();
+
     await Promise.all([
       ...this.publishers.map(pub => pub.loadStateAndResumeMonitoring()),
       this.funder?.loadStateAndResumeMonitoring(),
@@ -79,7 +90,8 @@ export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
     if (
       this.funder &&
       this.config.publisherFundingThreshold !== undefined &&
-      this.config.publisherFundingAmount !== undefined
+      this.config.publisherFundingAmount !== undefined &&
+      !this.fundingPromise?.isRunning()
     ) {
       this.fundingPromise = new RunningPromise(
         () => this.triggerFundingIfNeeded(),
@@ -90,9 +102,14 @@ export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
     }
   }
 
-  /** Stops the funding loop and interrupts all publishers. */
+  /**
+   * Stops the funding loop and interrupts all publishers so no further L1 txs are sent. Idempotent:
+   * safe to call multiple times. After a stop the manager can be restarted via {@link start}, which
+   * clears the interrupted flag.
+   */
   public async stop(): Promise<void> {
     await this.fundingPromise?.stop();
+    this.fundingPromise = undefined;
     this.publishers.forEach(pub => pub.interrupt());
     this.funder?.interrupt();
   }

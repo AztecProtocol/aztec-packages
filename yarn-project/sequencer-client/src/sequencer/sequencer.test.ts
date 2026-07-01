@@ -13,6 +13,7 @@ import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import type { P2P } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
@@ -405,6 +406,103 @@ describe('sequencer', () => {
 
     it('accepts a multiplier at or above the network minimum', () => {
       expect(() => sequencer.updateConfig({ perBlockAllocationMultiplier: 1.5 })).not.toThrow();
+    });
+  });
+
+  describe('lifecycle', () => {
+    afterEach(async () => {
+      await sequencer.stop();
+    });
+
+    it('start is idempotent: a second start does not orphan or replace the poll loop', () => {
+      sequencer.start();
+      const firstLoop = sequencer.getRunningPromise();
+      expect(sequencer.isRunning()).toBe(true);
+
+      sequencer.start();
+      const secondLoop = sequencer.getRunningPromise();
+
+      // The second start must be a no-op reusing the same loop, not a fresh RunningPromise that
+      // leaves the first loop running with no handle to stop it.
+      expect(secondLoop).toBe(firstLoop);
+      expect(sequencer.isRunning()).toBe(true);
+    });
+
+    it('stop is a terminal teardown that stops the poll loop and moves to STOPPED', async () => {
+      sequencer.start();
+      expect(sequencer.isRunning()).toBe(true);
+
+      await sequencer.stop();
+
+      expect(sequencer.isRunning()).toBe(false);
+      expect(sequencer.status().state).toBe(SequencerState.STOPPED);
+    });
+
+    it('stop is idempotent: a second stop is a no-op', async () => {
+      sequencer.start();
+      await sequencer.stop();
+      await expect(sequencer.stop()).resolves.not.toThrow();
+      expect(sequencer.status().state).toBe(SequencerState.STOPPED);
+    });
+
+    it('can be restarted after a stop and resumes the poll loop', async () => {
+      sequencer.start();
+      await sequencer.stop();
+      expect(sequencer.isRunning()).toBe(false);
+
+      sequencer.start();
+
+      expect(sequencer.isRunning()).toBe(true);
+      // The loop is live again (start runs work() immediately, so the exact state may already have
+      // advanced past IDLE); the point is it is no longer STOPPED/STOPPING.
+      expect([SequencerState.STOPPED, SequencerState.STOPPING]).not.toContain(sequencer.status().state);
+    });
+
+    it('drains an in-flight fallback send on stop, leaving nothing dangling across a restart', async () => {
+      // Drive the fire-and-forget fallback path (vote/prune when we cannot build) with a send that
+      // hangs until we release it, mimicking a wrapper publisher sleeping in waitForTargetSlot.
+      const differentHash = Fr.random().toString();
+      worldState.status.mockResolvedValue({
+        state: WorldStateRunningState.IDLE,
+        syncSummary: {
+          latestBlockNumber: BlockNumber(lastBlockNumber + 1),
+          latestBlockHash: differentHash,
+        } as WorldStateSyncStatus,
+      });
+      const startDeadline = sequencer.getTimeTable().getBuildStartDeadline(SlotNumber(newSlotNumber));
+      dateProvider.setTime((startDeadline + 1) * 1000);
+      validatorClient.getValidatorAddresses.mockReturnValue([signer.address]);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+      slasherClient.getProposerActions.mockResolvedValue([
+        { type: 'vote-offenses' as const, round: 1n, votes: [], committees: [] },
+      ]);
+      publisher.enqueueSlashingActions.mockResolvedValue(true);
+
+      // The fallback send resolves only when we release it, and only after the sequencer interrupts it.
+      const { promise: sendHang, resolve: releaseSend } = promiseWithResolvers<undefined>();
+      publisher.sendRequestsAt.mockReturnValueOnce(
+        sendHang.then(() => {
+          if (publisher.interrupt.mock.calls.length === 0) {
+            throw new Error('fallback send completed without being interrupted by stop()');
+          }
+          return undefined;
+        }),
+      );
+
+      await sequencer.work();
+      expect(publisher.sendRequestsAt).toHaveBeenCalled();
+      expect(sequencer.getPendingFallbackSendCount()).toBe(1);
+
+      // stop() must interrupt the fallback wrapper and await it, so once the sleeper is released it
+      // short-circuits (no stale tx) and the tracking set is empty before a restart could clear
+      // the interrupted flag.
+      const stopPromise = sequencer.stop();
+      releaseSend(undefined);
+      await stopPromise;
+
+      expect(publisher.interrupt).toHaveBeenCalled();
+      expect(sequencer.getPendingFallbackSendCount()).toBe(0);
+      expect(sequencer.status().state).toBe(SequencerState.STOPPED);
     });
   });
 
@@ -1703,6 +1801,18 @@ class TestSequencer extends Sequencer {
 
   public async awaitLastProposalSubmission() {
     await this.lastCheckpointProposalJob?.awaitPendingSubmission();
+  }
+
+  public getRunningPromise() {
+    return this.runningPromise;
+  }
+
+  public isRunning() {
+    return this.runningPromise?.isRunning() ?? false;
+  }
+
+  public getPendingFallbackSendCount() {
+    return this.pendingFallbackSends.size;
   }
 
   public checkCanProposeForTest(slot: SlotNumber) {

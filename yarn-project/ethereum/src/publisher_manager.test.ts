@@ -418,6 +418,67 @@ describe('PublisherManager', () => {
     });
   });
 
+  describe('lifecycle', () => {
+    it('stop interrupts all publishers and the funder', async () => {
+      mockPublishers = createMockPublishers(3);
+      const funder = new TestL1TxUtils(EthAddress.random()) as TestL1TxUtils & L1TxUtils;
+      publisherManager = new PublisherManager(mockPublishers, {}, { funder });
+
+      await publisherManager.start();
+      await publisherManager.stop();
+
+      expect(mockPublishers.every(p => p.interrupted)).toBe(true);
+      expect(funder.interrupted).toBe(true);
+    });
+
+    it('start after stop clears the interrupted flag so publishing works again', async () => {
+      mockPublishers = createMockPublishers(3);
+      const funder = new TestL1TxUtils(EthAddress.random()) as TestL1TxUtils & L1TxUtils;
+      publisherManager = new PublisherManager(mockPublishers, {}, { funder });
+
+      await publisherManager.start();
+      await publisherManager.stop();
+      expect(mockPublishers.every(p => p.interrupted)).toBe(true);
+
+      // Restart: interrupted must be cleared, otherwise sendTransaction would throw InterruptError.
+      await publisherManager.start();
+
+      expect(mockPublishers.every(p => !p.interrupted)).toBe(true);
+      expect(funder.interrupted).toBe(false);
+    });
+
+    it('is idempotent on double start (does not orphan a funding loop)', async () => {
+      mockPublishers = createMockPublishers(1);
+      const funder = new TestL1TxUtils(EthAddress.random()) as TestL1TxUtils & L1TxUtils;
+      funder.balance = 5000n;
+      publisherManager = new PublisherManager(
+        mockPublishers,
+        { publisherFundingThreshold: 100n, publisherFundingAmount: 50n },
+        { funder },
+      );
+
+      await publisherManager.start();
+      const loopAfterFirst = (publisherManager as any).fundingPromise;
+      await publisherManager.start();
+      const loopAfterSecond = (publisherManager as any).fundingPromise;
+
+      // A second start must reuse the already-running funding loop, not spawn a new one that leaks.
+      expect(loopAfterSecond).toBe(loopAfterFirst);
+      expect(loopAfterSecond?.isRunning()).toBe(true);
+    });
+
+    it('is idempotent on double stop', async () => {
+      mockPublishers = createMockPublishers(2);
+      publisherManager = new PublisherManager(mockPublishers, {});
+
+      await publisherManager.start();
+      await publisherManager.stop();
+      await expect(publisherManager.stop()).resolves.not.toThrow();
+
+      expect(mockPublishers.every(p => p.interrupted)).toBe(true);
+    });
+  });
+
   function createMockPublishers(count: number, addresses: EthAddress[] = []): (TestL1TxUtils & L1TxUtils)[] {
     const tempAddress = [...addresses];
     return times(
@@ -431,6 +492,9 @@ class TestL1TxUtils {
   public state: TxUtilsState = TxUtilsState.IDLE;
   public lastMinedAtBlockNumber: bigint | undefined = undefined;
   public balance: bigint = 1000n;
+  /** Mirrors the real ReadOnlyL1TxUtils.interrupted flag so tests can assert publishing is re-enabled. */
+  public interrupted = false;
+  public loadCount = 0;
   public sendAndMonitorTransaction = jest.fn<() => Promise<any>>().mockResolvedValue({
     receipt: { transactionHash: '0xabc', status: 'success' },
     state: {},
@@ -446,7 +510,16 @@ class TestL1TxUtils {
     return this.senderAddress;
   }
 
-  public async loadStateAndResumeMonitoring() {}
+  public loadStateAndResumeMonitoring() {
+    this.loadCount++;
+    return Promise.resolve();
+  }
 
-  public interrupt() {}
+  public interrupt() {
+    this.interrupted = true;
+  }
+
+  public restart() {
+    this.interrupted = false;
+  }
 }
