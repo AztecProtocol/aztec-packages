@@ -32,6 +32,7 @@ import {
   setup,
   setupPXEAndGetWallet,
   teardown,
+  waitForProvenChain,
 } from './setup.js';
 
 type ProvenSetup = {
@@ -70,7 +71,7 @@ export class FullProverTest {
   }
   provenAsset!: TokenContract;
   context!: EndToEndContext;
-  private proverAztecNode!: AztecNodeService;
+  private proverAztecNode?: AztecNodeService;
   private simulatedProverAztecNode!: AztecNodeService;
   public l1Contracts!: DeployAztecL1ContractsReturnType;
   public proverAddress!: EthAddress;
@@ -184,7 +185,9 @@ export class FullProverTest {
     await this.context.cheatCodes.rollup.advanceToNextEpoch();
 
     this.logger.verbose(`Marking current block as proven`);
+    const setupTip = await this.aztecNode.getBlockNumber();
     await this.context.cheatCodes.rollup.markAsProven();
+    await waitForProvenChain(this.aztecNode, setupTip, 30, 0.1);
 
     this.logger.verbose(`Main setup completed, initializing full prover PXE, Node, and Prover Node`);
     const { wallet: provenWallet, teardown: provenTeardown } = await setupPXEAndGetWallet(
@@ -279,7 +282,7 @@ export class FullProverTest {
     }
 
     // clean up the full prover node (by stopping its hosting aztec node)
-    await this.proverAztecNode.stop();
+    await this.proverAztecNode?.stop();
 
     await Barretenberg.destroySingleton();
     await this.bbConfigCleanup?.();
