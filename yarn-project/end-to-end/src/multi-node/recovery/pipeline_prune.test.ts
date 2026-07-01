@@ -11,6 +11,7 @@ import { executeTimeout } from '@aztec/foundation/timer';
 import type { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { SequencerEvents } from '@aztec/sequencer-client';
 import { L2BlockSourceEvents } from '@aztec/stdlib/block';
+import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 
 import { jest } from '@jest/globals';
 
@@ -159,6 +160,34 @@ describe('multi-node/recovery/pipeline_prune', () => {
     // The sequencer keeps building blocks and broadcasting via P2P, but won't submit the checkpoint to L1
     targetSequencer.updateConfig({ skipPublishingCheckpointsPercent: 100 });
 
+    // Wait for the orphan blocks to actually exist before warping: the target proposer builds them during
+    // slot proposerSlotToNotPublish - 1 and broadcasts them via P2P carrying that submission slot, but never
+    // publishes the enclosing checkpoint. Only once node[0]'s archiver holds them as a proposed (uncheckpointed)
+    // tip is there anything for pruneOrphanProposedBlocks to prune — warping before they arrive would fire no prune.
+    await test.waitForAllNodesToReachBlockAtSlot(
+      proposerSlotToNotPublish,
+      'proposed',
+      block => block.header.globalVariables.slotNumber >= proposerSlotToNotPublish,
+      { nodes: [nodes[0]], timeout: test.L2_SLOT_DURATION_IN_S * 3 },
+    );
+    logger.warn(`Orphan blocks for slot ${proposerSlotToNotPublish} are present; warping past the prune deadline`);
+
+    // Collapse the ~2-minute dead gap where the chain just waits for the L1 clock to roll past the orphan
+    // slot's checkpoint-proposal-received deadline (targetSlotStart(orphan) - E - D + tolerance) so
+    // pruneOrphanProposedBlocks fires. The archiver reads the shared TestDateProvider that eth.warp advances,
+    // so jumping the clock into the slot after the orphan one takes us safely past that deadline and the next
+    // archiver sync prunes. Sequencers are stopped/drained around the warp so it cannot interrupt a live build;
+    // we keep them stopped (restart:false) until the prune is confirmed so no restarted proposer builds against
+    // the still-unpruned tip before the archiver's next sync prunes it — they are restarted for recovery below.
+    const pruneWarpTarget =
+      getTimestampForSlot(SlotNumber(proposerSlotToNotPublish + 1), test.constants) +
+      BigInt(2 * test.constants.ethereumSlotDuration);
+    await test.stopDrainWarpRestart(
+      nodes,
+      () => test.context.cheatCodes.eth.warp(Number(pruneWarpTarget), { resetBlockInterval: true }),
+      { restart: false },
+    );
+
     const pruneTimeout = test.L2_SLOT_DURATION_IN_S * 5 * 1000;
     logger.warn(`Waiting for uncheckpointed blocks to be pruned (timeout=${pruneTimeout}ms)`);
     await executeTimeout(() => prunePromise, pruneTimeout);
@@ -176,9 +205,13 @@ describe('multi-node/recovery/pipeline_prune', () => {
     }
     logger.warn(`Pruning detected, block number now ${await archiver.getBlockNumber()}`);
 
-    // Re-enable checkpoint publishing
+    // Re-enable checkpoint publishing, then restart the sequencers to build the recovery checkpoint. Restarting
+    // only now (after the prune and after listeners are attached) keeps recovery from racing the prune and
+    // ensures every recovery block is captured for the pipelining assertion.
     logger.warn(`Re-enabling checkpoint publishing for validator ${proposerIndex}`);
     targetSequencer.updateConfig({ skipPublishingCheckpointsPercent: 0 });
+    await test.startSequencers(nodes);
+    logger.warn(`Restarted all sequencers for recovery`);
 
     // Wait for a new checkpoint (recovery) - where all txs end up mined
     const timeout = test.L2_SLOT_DURATION_IN_S * 5;

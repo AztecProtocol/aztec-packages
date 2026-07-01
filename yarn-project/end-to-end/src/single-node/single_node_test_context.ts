@@ -991,4 +991,64 @@ export class SingleNodeTestContext {
     }
     expect(failEvents).toEqual([]);
   }
+
+  /**
+   * Warps the L1 clock forward while no sequencer is building, then (by default) resumes building.
+   *
+   * Warping the shared `TestDateProvider` under live sequencers is what produced the reorg /
+   * `block-build-failed: "Sequencer was interrupted"` events seen in earlier revert attempts: a warp
+   * mid-`work()` jumps every node's clock at once. This primitive removes that hazard by pausing and
+   * draining every sequencer around the warp:
+   *
+   * 1. Wait each sequencer to reach `IDLE`, so its last `work()` iteration has finished and issued any
+   *    L1 submission. This keeps the subsequent `stop()` from landing mid-build and emitting a spurious
+   *    interrupt fail-event. It is test hygiene, not a hard drain — the real drain is step 2's `stop()`.
+   * 2. `stop()` each sequencer. `SequencerClient.stop()` fully drains: it stops the poll loop, awaits the
+   *    in-flight `work()`, awaits the tracked checkpoint job's pending submission, and interrupts+awaits
+   *    every fire-and-forget fallback send. After it resolves, nothing that sequencer enqueued can still
+   *    publish across the warp.
+   * 3. Run `warpFn()` with nobody building.
+   * 4. Restart each sequencer via `start()` (default). `SequencerClient.start()` restarts the publisher
+   *    manager first (clearing the pooled publishers' `interrupted` flag) so post-restart L1 publishing
+   *    works again, then re-arms the poll loop. Pass `restart: false` to leave the sequencers stopped
+   *    (e.g. when the nodes are about to be torn down anyway).
+   *
+   * The warp target is entirely `warpFn`'s responsibility, so this stays reusable across the Phase-2
+   * sites. Only the sequencers of `nodes` are paused; archivers, provers, and the chain monitor keep
+   * running, so any clock-driven effect of the warp (e.g. an orphan-block prune) still fires.
+   *
+   * @param nodes - Nodes whose sequencers are paused around the warp.
+   * @param warpFn - Performs the actual L1-clock warp; invoked once, with every sequencer stopped.
+   * @param opts.restart - Restart the sequencers after the warp (default `true`).
+   * @param opts.idleTimeout - Per-sequencer timeout (ms) for the IDLE pre-wait (default 2 L2 slots).
+   */
+  public async stopDrainWarpRestart(
+    nodes: AztecNodeService[],
+    warpFn: () => Promise<void>,
+    opts: { restart?: boolean; idleTimeout?: number } = {},
+  ): Promise<void> {
+    const restart = opts.restart ?? true;
+    const idleTimeout = opts.idleTimeout ?? this.L2_SLOT_DURATION_IN_S * 2 * 1000;
+    const sequencers = this.getSequencers(nodes);
+
+    await testSpan('warp:stop-drain-warp-restart', async () => {
+      this.logger.warn(`Draining ${sequencers.length} sequencers to IDLE before warp`);
+      await Promise.all(
+        sequencers.map(s =>
+          this.waitForSequencerState(s.getSequencer(), SequencerState.IDLE, { timeout: idleTimeout }),
+        ),
+      );
+
+      this.logger.warn(`Stopping ${sequencers.length} sequencers for warp`);
+      await Promise.all(sequencers.map(s => s.stop()));
+
+      this.logger.warn(`Warping with all sequencers stopped`);
+      await warpFn();
+
+      if (restart) {
+        this.logger.warn(`Restarting ${sequencers.length} sequencers after warp`);
+        await Promise.all(sequencers.map(s => s.start()));
+      }
+    });
+  }
 }
