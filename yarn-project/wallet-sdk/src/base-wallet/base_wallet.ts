@@ -41,12 +41,7 @@ import {
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import {
-  type ContractInstanceWithAddress,
-  type NodeInfo,
-  computePartialAddress,
-  getContractClassFromArtifact,
-} from '@aztec/stdlib/contract';
+import { type ContractInstancePreimage, type NodeInfo, computePartialAddress } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
 import { Gas, GasFees, GasSettings, ManaUsageEstimate } from '@aztec/stdlib/gas';
 import {
@@ -353,36 +348,17 @@ export abstract class BaseWallet implements Wallet {
   }
 
   async registerContract(
-    instance: ContractInstanceWithAddress,
+    instance: ContractInstancePreimage,
     artifact?: ContractArtifact,
     secretKeyOrKeys?: Fr | MasterSecretKeys,
-  ): Promise<ContractInstanceWithAddress> {
-    const existingInstance = await this.pxe.getContractInstance(instance.address);
-
-    if (existingInstance) {
-      // Instance already registered in the wallet
-      if (artifact) {
-        const thisContractClass = await getContractClassFromArtifact(artifact);
-        if (!thisContractClass.id.equals(existingInstance.currentContractClassId)) {
-          // wallet holds an outdated version of this contract
-          await this.pxe.updateContract(instance.address, artifact);
-          instance.currentContractClassId = thisContractClass.id;
-        }
-      }
-      // If no artifact provided, we just use the existing registration
-    } else {
-      // Instance not registered yet
-      if (!artifact) {
-        // Try to get the artifact from the wallet's contract class storage
-        artifact = await this.pxe.getContractArtifact(instance.currentContractClassId);
-        if (!artifact) {
-          throw new Error(
-            `Cannot register contract at ${instance.address.toString()}: artifact is required but not provided, and wallet does not have the artifact for contract class ${instance.currentContractClassId.toString()}`,
-          );
-        }
-      }
-      await this.pxe.registerContract({ artifact, instance });
+  ): Promise<void> {
+    // Classes and instances are registered independently: register the artifact (if provided) then the instance.
+    // Neither call validates that the artifact matches the class the instance runs, a missing artifact only surfaces
+    // when the contract is later simulated.
+    if (artifact) {
+      await this.pxe.registerContractClass(artifact);
     }
+    await this.pxe.registerContract(instance);
 
     if (secretKeyOrKeys) {
       // PXE never receives the account seed (from which the message-signing/fallback secret keys could be re-derived):
@@ -402,7 +378,6 @@ export abstract class BaseWallet implements Wallet {
         );
       }
     }
-    return instance;
   }
 
   registerContractClass(artifact: ContractArtifact): Promise<void> {
@@ -581,7 +556,11 @@ export abstract class BaseWallet implements Wallet {
     if (!instance) {
       return undefined;
     }
-    const artifact = await this.pxe.getContractArtifact(instance.currentContractClassId);
+    // Contract names are class-stable (an upgrade preserves the contract name), so the original class artifact is a
+    // sufficient source for the display name without resolving the current class against the node.
+    // TODO: if a contract were to be upgraded and its original artifact never registered, then this would fail and we'd
+    // want to fallback to the current class.
+    const artifact = await this.pxe.getContractArtifact(instance.originalContractClassId);
     return artifact?.name;
   }
 

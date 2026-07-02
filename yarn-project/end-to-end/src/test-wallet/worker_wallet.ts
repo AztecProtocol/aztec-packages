@@ -29,7 +29,7 @@ import type { PXEConfig } from '@aztec/pxe/config';
 import type { ContractArtifact, EventMetadataDefinition, FunctionCall } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import type { ContractInstancePreimage } from '@aztec/stdlib/contract';
 import type { ExecutionPayload, TxProfileResult, UtilityExecutionResult } from '@aztec/stdlib/tx';
 import { Tx } from '@aztec/stdlib/tx';
 
@@ -158,11 +158,7 @@ export class WorkerWallet implements Wallet {
     return this.call('getAccounts');
   }
 
-  registerContract(
-    instance: ContractInstanceWithAddress,
-    artifact?: ContractArtifact,
-    secretKey?: Fr,
-  ): Promise<ContractInstanceWithAddress> {
+  registerContract(instance: ContractInstancePreimage, artifact?: ContractArtifact, secretKey?: Fr): Promise<void> {
     return this.call('registerContract', instance, artifact, secretKey);
   }
 

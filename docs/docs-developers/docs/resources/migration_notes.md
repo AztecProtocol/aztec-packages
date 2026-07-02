@@ -32,6 +32,34 @@ As a result:
 
 **Impact**: Account addresses change, since both the signing key and the privacy secret feed the address. Code that derived the signing key from the secret, or passed the secret first to the address helpers, no longer compiles.
 
+### [PXE] `pxe.updateContract` removed and `pxe.registerContract` no longer takes an artifact
+
+Registering classes and instances are now separate, unvalidated operations. `registerContractClass(artifact)` registers a class, `registerContract(instance)` registers an instance and no longer takes an artifact. `registerContract` does not check that PXE knows the contract's artifact: a missing artifact surfaces only when the contract is later simulated.
+
+**Migration:**
+
+- `pxe.registerContract` now takes the instance directly (its address preimage) and returns the derived address. Register the class separately via `registerContractClass`:
+
+```diff
+- await pxe.registerContract({ instance, artifact });
++ await pxe.registerContractClass(artifact);
++ await pxe.registerContract(instance);
+```
+
+  If you were calling it without an artifact, just drop the wrapping object: `pxe.registerContract({ instance })` becomes `pxe.registerContract(instance)`. The `wallet.registerContract(instance, artifact?, secretKeyOrKeys?)` convenience is unchanged and performs both registrations for you.
+
+- To make a new class's code available after an onchain upgrade, register the new artifact instead of calling `updateContract`:
+
+```diff
+- await pxe.updateContract(address, newArtifact);
++ await pxe.registerContractClass(newArtifact);
+```
+
+  The new class is used automatically once the upgrade takes effect on chain; no further PXE action is needed. Registering it beforehand is harmless: until the update activates, the node still resolves the contract's current class to the previous one, so it keeps running its old code.
+
+- `pxe.getContractInstance(address)` and `wallet.getContractMetadata(address).instance` now return the contract's **address preimage**, which no longer includes `currentContractClassId`.
+
+
 ### [Aztec.js] `AccountWithSecretKey` removed, read account keys from the `AccountManager` or PXE
 
 `AccountWithSecretKey` was a thin wrapper that bundled an account's transaction signer with its master secret key, used mainly to print or export the secret. It has been removed, and `AccountManager.getAccount()` now returns the plain `Account` signer. The wrapper's extra methods are no longer available on that value:

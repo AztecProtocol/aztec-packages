@@ -23,7 +23,11 @@ import {
   GENESIS_CHECKPOINT_HEADER_HASH,
 } from '@aztec/stdlib/block';
 import { emptyChainConfig } from '@aztec/stdlib/config';
-import { CompleteAddress, getContractClassFromArtifact } from '@aztec/stdlib/contract';
+import {
+  CompleteAddress,
+  SerializableContractInstancePreimage,
+  getContractClassFromArtifact,
+} from '@aztec/stdlib/contract';
 import type { AztecNode, AztecNodeDebug, BlockResponse } from '@aztec/stdlib/interfaces/client';
 import { deriveKeys } from '@aztec/stdlib/keys';
 import {
@@ -213,7 +217,7 @@ describe('PXE', () => {
   it('successfully adds a contract', async () => {
     const contracts = await Promise.all([randomDeployedContract(), randomDeployedContract()]);
     for (const contract of contracts) {
-      await pxe.registerContract(contract);
+      await pxe.registerContract(contract.instance);
     }
 
     const expectedContractAddresses = contracts.map(contract => contract.instance.address);
@@ -224,7 +228,9 @@ describe('PXE', () => {
   it('preloads the standard multi-call entrypoint on creation', async () => {
     const { instance: expectedInstance, artifact: expectedArtifact } = await getStandardMultiCallEntrypoint();
     const instance = await pxe.getContractInstance(STANDARD_MULTI_CALL_ENTRYPOINT_ADDRESS);
-    expect(instance).toEqual(expectedInstance);
+    expect(instance).toEqual(
+      new SerializableContractInstancePreimage(expectedInstance).withAddress(expectedInstance.address),
+    );
 
     const artifact = await pxe.getContractArtifact(expectedInstance.currentContractClassId);
     expect(artifact).toEqual(expectedArtifact);
@@ -239,47 +245,32 @@ describe('PXE', () => {
     await pxe.registerContractClass(artifact);
     expect(await pxe.getContractArtifact(contractClassId)).toEqual(artifact);
 
-    await pxe.registerContract({ instance });
-    expect(await pxe.getContractInstance(instance.address)).toEqual(instance);
+    await pxe.registerContract(instance);
+    expect(await pxe.getContractInstance(instance.address)).toEqual(
+      new SerializableContractInstancePreimage(instance).withAddress(instance.address),
+    );
   });
 
-  it('refuses to register a class with a mismatched address', async () => {
-    const artifact = randomContractArtifact();
-    const contractClass = await getContractClassFromArtifact(artifact);
-    const contractClassId = contractClass.id;
-    const instance = await randomContractInstanceWithAddress({ contractClassId });
-    await expect(
-      pxe.registerContract({
-        instance: {
-          ...instance,
-          address: await AztecAddress.random(),
-        },
-        artifact,
-      }),
-    ).rejects.toThrow(/Added a contract in which the address does not match the contract instance./);
-  });
-
-  it('refuses to register a contract with a class that has not been registered', async () => {
+  it('registers an instance and returns its derived address without checking the class is present', async () => {
+    // Registration performs no validation and ignores any caller-supplied address: it derives the address from the
+    // preimage and stores the instance. A missing class only surfaces when the contract is later simulated.
     const instance = await randomContractInstanceWithAddress();
-    await expect(pxe.registerContract({ instance })).rejects.toThrow(/Artifact not found when registering an instance/);
+    await expect(pxe.registerContract(instance)).resolves.toEqual(instance.address);
+    expect(await pxe.getContractInstance(instance.address)).toEqual(
+      new SerializableContractInstancePreimage(instance).withAddress(instance.address),
+    );
   });
 
-  it('refuses to register a contract with an artifact with mismatching class id', async () => {
+  it('does not call registerContractFunctionSignatures for classes without public functions', async () => {
     const artifact = randomContractArtifact();
-    const instance = await randomContractInstanceWithAddress();
-    await expect(pxe.registerContract({ instance, artifact })).rejects.toThrow(/Artifact does not match/i);
-  });
-
-  it('does not call registerContractFunctionSignatures for contracts without public functions', async () => {
-    const { artifact, instance } = await randomDeployedContract();
     nodeDebug.registerContractFunctionSignatures.mockClear();
 
-    await pxe.registerContract({ artifact, instance });
+    await pxe.registerContractClass(artifact);
 
     expect(nodeDebug.registerContractFunctionSignatures).not.toHaveBeenCalled();
   });
 
-  it('calls registerContractFunctionSignatures for contracts with public functions', async () => {
+  it('calls registerContractFunctionSignatures for classes with public functions', async () => {
     const artifact = randomContractArtifact();
     artifact.functions = [
       {
@@ -295,11 +286,9 @@ describe('PXE', () => {
         debugSymbols: '',
       },
     ];
-    const contractClass = await getContractClassFromArtifact(artifact);
-    const instance = await randomContractInstanceWithAddress({ contractClassId: contractClass.id });
     nodeDebug.registerContractFunctionSignatures.mockClear();
 
-    await pxe.registerContract({ artifact, instance });
+    await pxe.registerContractClass(artifact);
 
     expect(nodeDebug.registerContractFunctionSignatures).toHaveBeenCalledWith(['my_public_fn()']);
   });
@@ -361,7 +350,7 @@ describe('PXE', () => {
       });
 
       // Read when PXE resolves the current class id of a contract instance at the anchor block. Returning undefined
-      // makes readCurrentClassId fall back to the local instance's originalContractClassId.
+      // makes the contract class service fall back to the local instance's originalContractClassId.
       node.getContract.mockResolvedValue(undefined);
 
       // Used to sync private logs from the node - the return array needs to have the same length as the number of tags
@@ -373,9 +362,7 @@ describe('PXE', () => {
       const contractClass = await getContractClassFromArtifact(TestContractArtifact);
       const contractClassId = contractClass.id;
       const contractInstance = await randomContractInstanceWithAddress({ contractClassId });
-      await pxe.registerContract({
-        instance: contractInstance,
-      });
+      await pxe.registerContract(contractInstance);
 
       contractAddress = contractInstance.address;
       eventSelector = EventSelector.random();

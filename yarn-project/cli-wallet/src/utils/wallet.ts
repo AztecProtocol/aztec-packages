@@ -68,7 +68,8 @@ export class CLIWallet extends BaseWallet {
 
   private async registerAuthRegistry(): Promise<void> {
     const { instance, artifact } = await getStandardAuthRegistry();
-    await this.pxe.registerContract({ instance, artifact });
+    await this.pxe.registerContractClass(artifact);
+    await this.pxe.registerContract(instance);
   }
 
   /**

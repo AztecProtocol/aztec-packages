@@ -26,12 +26,11 @@ import type { Logger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { PXEConfig, PXECreationOptions } from '@aztec/pxe/client/lazy';
 import type { PXE } from '@aztec/pxe/server';
-import type { ContractArtifact, EventMetadataDefinition, FunctionCall } from '@aztec/stdlib/abi';
+import type { EventMetadataDefinition, FunctionCall } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type ContractInstanceWithAddress, getContractClassFromArtifact } from '@aztec/stdlib/contract';
+import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import { GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import type { MasterSecretKeys } from '@aztec/stdlib/keys';
 import {
   type ContractOverrides,
   ExecutionPayload,
@@ -261,17 +260,6 @@ export class EmbeddedWallet extends BaseWallet {
   ): Promise<PrivateEvent<T>[]> {
     await this.pxe.sync();
     return super.getPrivateEvents<T>(eventDef, eventFilter);
-  }
-
-  public override async registerContract(
-    instance: ContractInstanceWithAddress,
-    artifact?: ContractArtifact,
-    secretKeyOrKeys?: Fr | MasterSecretKeys,
-  ): Promise<ContractInstanceWithAddress> {
-    // registerContract may call pxe.updateContract under the hood, which depends on a fresh anchor
-    // block to verify the current class id from the node.
-    await this.pxe.sync();
-    return super.registerContract(instance, artifact, secretKeyOrKeys);
   }
 
   /**
