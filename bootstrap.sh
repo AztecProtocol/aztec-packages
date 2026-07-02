@@ -484,6 +484,14 @@ function bench {
 
 }
 
+function bench_if_enabled {
+  if [ "${BENCH_UPLOAD:-1}" == 0 ]; then
+    echo "Skipping benchmarks because BENCH_UPLOAD=0."
+    return
+  fi
+  bench
+}
+
 ### RELEASING ##########################################################################################################
 function versions {
   local noir_version anvil_version node_version cmake_version clang_version zig_version rustc_version wasi_sdk_version
@@ -750,14 +758,14 @@ case "$cmd" in
     export USE_TEST_CACHE=1
     export CI_FULL=1
     build_and_test full
-    bench
+    bench_if_enabled
     ;;
   "ci-full-no-test-cache")
     export CI=1
     export USE_TEST_CACHE=0
     export CI_FULL=1
     build_and_test full
-    bench
+    bench_if_enabled
     ;;
   "ci-chonk-input-update")
     export CI=1

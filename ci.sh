@@ -96,9 +96,17 @@ function multi_job_run {
   export AWS_SHUTDOWN_TIME_ARM=${AWS_SHUTDOWN_TIME_ARM:-90}
   export DENOISE=1
   export DENOISE_WIDTH=32
+  # Only the first full shard should run and upload the bench artifact. Heavy
+  # merge-queue modes already grind tests across many shards; repeating the
+  # post-test bench sweep on every shard is redundant and can overrun the queue.
+  local bench_primary=${1%% *}
+  export bench_primary
   run() {
     [ -n "${4:-}" ] && export REF_NAME=$4
-    PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
+    local bench_upload=${BENCH_UPLOAD:-1}
+    [ "$1" != "$bench_primary" ] && bench_upload=0
+    PARENT_LOG_ID=$RUN_ID JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 BENCH_UPLOAD=$bench_upload \
+      exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
   }
   export -f run
 
