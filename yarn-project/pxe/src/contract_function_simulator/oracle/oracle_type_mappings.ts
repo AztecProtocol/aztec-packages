@@ -54,7 +54,7 @@ import {
   TxHash,
 } from '@aztec/stdlib/tx';
 
-import type { OriginBlock } from '../../storage/fact_store/index.js';
+import type { OriginBlock, RetractableFactOrigin } from '../../storage/fact_store/index.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
 import type { ContractClassLogData } from '../noir-structs/contract_class_log_data.js';
 import type { EmbeddedCurvePoint } from '../noir-structs/embedded_curve_point.js';
@@ -551,17 +551,23 @@ export const ORIGIN_BLOCK: TypeMapping<OriginBlock> = {
   shape: ['scalar', 'scalar'],
 };
 
+/** Read-side origin of a retractable fact, carrying the chain state of its origin block. */
+export const RETRACTABLE_FACT_ORIGIN: TypeMapping<RetractableFactOrigin> = {
+  serialization: { fn: o => [new Fr(o.blockNumber), o.blockHash, new Fr(o.blockState)] },
+  shape: ['scalar', 'scalar', 'scalar'],
+};
+
 // `facts` and `payload` each materialize to a single service-slot id, so a Fact occupies: factTypeId, the payload
-// array slot, and `OPTION(ORIGIN_BLOCK)` (its discriminant plus ORIGIN_BLOCK's two slots).
+// array slot, and `OPTION(RETRACTABLE_FACT_ORIGIN)` (its discriminant plus RETRACTABLE_FACT_ORIGIN's three slots).
 export const FACT: TypeMapping<Fact> = {
   serialization: {
     fn: f => [
       f.factTypeId,
       f.payload.materializeSlot(v => FIELD.serialization!.fn(v).flat() as Fr[]),
-      ...OPTION(ORIGIN_BLOCK).serialization!.fn(f.originBlock),
+      ...OPTION(RETRACTABLE_FACT_ORIGIN).serialization!.fn(f.originBlock),
     ],
   },
-  shape: ['scalar', 'scalar', 'scalar', 'scalar', 'scalar'],
+  shape: ['scalar', 'scalar', 'scalar', 'scalar', 'scalar', 'scalar'],
 };
 
 export const FACT_COLLECTION: TypeMapping<FactCollection> = {

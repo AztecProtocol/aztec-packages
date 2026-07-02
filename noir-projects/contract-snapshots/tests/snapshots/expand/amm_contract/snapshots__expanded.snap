@@ -1145,46 +1145,6 @@ pub contract AMM {
             returns_hash.get_preimage()
         }
 
-        pub fn swap_tokens_for_exact_tokens(self, token_in: AztecAddress, token_out: AztecAddress, amount_out: u128, amount_in_max: u128, authwit_nonce: Field) {
-            let mut serialized_params: [Field; 5] = [0_Field; 5];
-            let mut offset: u32 = 0_u32;
-            let serialized_member: [Field; 1] = <AztecAddress as aztec::protocol::traits::Serialize>::serialize(token_in);
-            let serialized_member_len: u32 = <AztecAddress as aztec::protocol::traits::Serialize>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let serialized_member: [Field; 1] = <AztecAddress as aztec::protocol::traits::Serialize>::serialize(token_out);
-            let serialized_member_len: u32 = <AztecAddress as aztec::protocol::traits::Serialize>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let serialized_member: [Field; 1] = <u128 as aztec::protocol::traits::Serialize>::serialize(amount_out);
-            let serialized_member_len: u32 = <u128 as aztec::protocol::traits::Serialize>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let serialized_member: [Field; 1] = <u128 as aztec::protocol::traits::Serialize>::serialize(amount_in_max);
-            let serialized_member_len: u32 = <u128 as aztec::protocol::traits::Serialize>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let serialized_member: [Field; 1] = <Field as aztec::protocol::traits::Serialize>::serialize(authwit_nonce);
-            let serialized_member_len: u32 = <Field as aztec::protocol::traits::Serialize>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(2620890703_Field);
-            let args_hash: Field = aztec::hash::hash_args(serialized_params);
-            aztec::oracle::execution_cache::store(serialized_params, args_hash);
-            let returns_hash: aztec::context::ReturnsHash = self.context.call_private_function_with_args_hash(self.address, selector, args_hash, false);
-            returns_hash.get_preimage()
-        }
-
         pub fn swap_exact_tokens_for_tokens(self, token_in: AztecAddress, token_out: AztecAddress, amount_in: u128, amount_out_min: u128, authwit_nonce: Field) {
             let mut serialized_params: [Field; 5] = [0_Field; 5];
             let mut offset: u32 = 0_u32;
@@ -1219,6 +1179,46 @@ pub contract AMM {
             };
             offset = offset + serialized_member_len;
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(2960373586_Field);
+            let args_hash: Field = aztec::hash::hash_args(serialized_params);
+            aztec::oracle::execution_cache::store(serialized_params, args_hash);
+            let returns_hash: aztec::context::ReturnsHash = self.context.call_private_function_with_args_hash(self.address, selector, args_hash, false);
+            returns_hash.get_preimage()
+        }
+
+        pub fn swap_tokens_for_exact_tokens(self, token_in: AztecAddress, token_out: AztecAddress, amount_out: u128, amount_in_max: u128, authwit_nonce: Field) {
+            let mut serialized_params: [Field; 5] = [0_Field; 5];
+            let mut offset: u32 = 0_u32;
+            let serialized_member: [Field; 1] = <AztecAddress as aztec::protocol::traits::Serialize>::serialize(token_in);
+            let serialized_member_len: u32 = <AztecAddress as aztec::protocol::traits::Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = <AztecAddress as aztec::protocol::traits::Serialize>::serialize(token_out);
+            let serialized_member_len: u32 = <AztecAddress as aztec::protocol::traits::Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = <u128 as aztec::protocol::traits::Serialize>::serialize(amount_out);
+            let serialized_member_len: u32 = <u128 as aztec::protocol::traits::Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = <u128 as aztec::protocol::traits::Serialize>::serialize(amount_in_max);
+            let serialized_member_len: u32 = <u128 as aztec::protocol::traits::Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = <Field as aztec::protocol::traits::Serialize>::serialize(authwit_nonce);
+            let serialized_member_len: u32 = <Field as aztec::protocol::traits::Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(2620890703_Field);
             let args_hash: Field = aztec::hash::hash_args(serialized_params);
             aztec::oracle::execution_cache::store(serialized_params, args_hash);
             let returns_hash: aztec::context::ReturnsHash = self.context.call_private_function_with_args_hash(self.address, selector, args_hash, false);

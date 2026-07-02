@@ -410,11 +410,6 @@ tests:
     owners:
       - *martin
 
-  - regex: "yarn-project/scripts/run_test.sh bb-prover/src/avm_proving_tests/avm_"
-    error_regex: "timeout: sending signal"
-    owners:
-      - *charlie
-
   - regex: "run_test.sh simple tx_stats_bench"
     error_regex: "✕ verifies transactions at 10 TPS"
     owners:
