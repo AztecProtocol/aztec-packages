@@ -25,12 +25,7 @@ import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { PublicKeys, computeAddressSecret, hashPublicKey } from '@aztec/stdlib/keys';
-import {
-  AppTaggingSecret,
-  FlatPublicLogs,
-  type PendingTaggedLog,
-  deriveAppSiloedSharedSecret,
-} from '@aztec/stdlib/logs';
+import { AppTaggingSecret, FlatPublicLogs, type PendingTaggedLog, appSiloEcdhSharedSecret } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
@@ -635,7 +630,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     ]);
   }
 
-  public async getLogsByTag(
+  public async getLogsByTagV2(
     requests: EphemeralArray<LogRetrievalRequest>,
   ): Promise<EphemeralArray<EphemeralArray<LogRetrievalResponse>>> {
     const logRetrievalRequests = requests.readAll(this.ephemeralArrayService);
@@ -876,7 +871,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 
     const ephPkPoints = ephPks.readAll(this.ephemeralArrayService);
     const secrets = await Promise.all(
-      ephPkPoints.map(({ x, y }) => deriveAppSiloedSharedSecret(addressSecret, new Point(x, y), this.contractAddress)),
+      ephPkPoints.map(({ x, y }) => appSiloEcdhSharedSecret(addressSecret, new Point(x, y), this.contractAddress)),
     );
 
     return EphemeralArray.fromValues(this.ephemeralArrayService, secrets);
@@ -1123,8 +1118,13 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 }
 
-const STANDARD_HANDSHAKE_REGISTRY_GET_HANDSHAKES_SIGNATURE = 'get_handshakes((Field),u32)';
-const STANDARD_HANDSHAKE_REGISTRY_GET_APP_SILOED_SECRET_SIGNATURE = 'get_app_siloed_secret((Field),(Field))';
+// Registry reads that any contract may issue without an `authorizeUtilityCall` hook. The constrained-delivery
+// library calls these implicitly for the app, and they are safe to default-authorize because the registry siloes
+// every returned secret to `msg_sender`, so a caller only ever learns values siloed to its own address.
+const STANDARD_HANDSHAKE_REGISTRY_DEFAULT_AUTHORIZED_READ_SIGNATURES = [
+  'get_handshakes((Field),u32)',
+  'get_app_siloed_secrets((Field),(Field))',
+];
 
 async function doesSelectorHaveSignature(functionSelector: FunctionSelector, signature: string): Promise<boolean> {
   return functionSelector.equals(await FunctionSelector.fromSignature(signature));
@@ -1144,9 +1144,10 @@ async function isStandardHandshakeRegistryUtilityRead(
     return false;
   }
 
-  const [isGetHandshakes, isGetAppSiloedSecret] = await Promise.all([
-    doesSelectorHaveSignature(functionSelector, STANDARD_HANDSHAKE_REGISTRY_GET_HANDSHAKES_SIGNATURE),
-    doesSelectorHaveSignature(functionSelector, STANDARD_HANDSHAKE_REGISTRY_GET_APP_SILOED_SECRET_SIGNATURE),
-  ]);
-  return isGetHandshakes || isGetAppSiloedSecret;
+  const matches = await Promise.all(
+    STANDARD_HANDSHAKE_REGISTRY_DEFAULT_AUTHORIZED_READ_SIGNATURES.map(signature =>
+      doesSelectorHaveSignature(functionSelector, signature),
+    ),
+  );
+  return matches.some(Boolean);
 }

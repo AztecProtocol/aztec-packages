@@ -176,6 +176,8 @@ export class LogService {
       txHash: log.txHash,
       uniqueNoteHashesInTx: noteHashes,
       firstNullifierInTx: nullifiers[0],
+      blockNumber: log.blockNumber,
+      blockTimestamp: log.blockTimestamp,
     };
   }
 
@@ -242,7 +244,7 @@ export class LogService {
       ...(await this.#getSecretsForSenders(recipientCompleteAddress, recipientIvsk)),
       ...(await this.taggingSecretSourcesStore.getSharedSecretsForRecipient(recipient)),
     ];
-    return Promise.all(points.map(secret => AppTaggingSecret.compute(secret, contractAddress, recipient)));
+    return Promise.all(points.map(secret => AppTaggingSecret.computeDirectional(secret, contractAddress, recipient)));
   }
 
   async #getSecretsForSenders(

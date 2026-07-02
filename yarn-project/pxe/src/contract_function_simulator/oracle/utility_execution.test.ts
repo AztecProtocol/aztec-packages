@@ -445,7 +445,7 @@ describe('Utility Execution test suite', () => {
     });
 
     // Pins the production oracle's default-authorization allowlist for cross-contract utility reads of the
-    // standard HandshakeRegistry: only get_handshakes and get_app_siloed_secret are allowed, everything else is
+    // standard HandshakeRegistry: only get_handshakes and get_app_siloed_secrets are allowed, everything else is
     // denied.
     describe('cross-contract utility authorization', () => {
       const prepareNestedUtilityCall = async (
@@ -490,7 +490,7 @@ describe('Utility Execution test suite', () => {
         utilityExecutionOracle = makeOracle({ simulator: nestedSimulator });
         defaultAuthorizedHandshakeRegistryReads = new Map<string, Fr[]>([
           ['get_handshakes', []],
-          ['get_app_siloed_secret', [Fr.random(), Fr.random()]],
+          ['get_app_siloed_secrets', [Fr.random(), Fr.random()]],
         ]);
       });
 

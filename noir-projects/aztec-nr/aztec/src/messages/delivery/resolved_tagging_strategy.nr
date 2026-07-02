@@ -1,4 +1,5 @@
 use crate::protocol::{traits::{Deserialize, Serialize}, utils::reader::Reader};
+use super::tag_secret_source::TagSecretSource;
 
 global NON_INTERACTIVE_HANDSHAKE: u8 = 1;
 global UNCONSTRAINED_SECRET: u8 = 2;
@@ -20,6 +21,10 @@ impl ResolvedTaggingStrategy {
     /// An app-siloed, recipient-directional secret, ready to use. Only sound for unconstrained delivery.
     pub fn unconstrained_secret(secret: Field) -> Self {
         Self { kind: UNCONSTRAINED_SECRET, secret }
+    }
+
+    pub fn is_unconstrained_secret(self) -> bool {
+        self.kind == UNCONSTRAINED_SECRET
     }
 
     /// Validates a raw discriminant, as deserialization must always reject unknown values.
@@ -44,6 +49,16 @@ impl Deserialize for ResolvedTaggingStrategy {
         let kind = reader.read() as u8;
         let secret = reader.read();
         Self::from_parts(kind, secret)
+    }
+}
+
+impl From<ResolvedTaggingStrategy> for TagSecretSource {
+    fn from(strategy: ResolvedTaggingStrategy) -> Self {
+        if strategy.kind == NON_INTERACTIVE_HANDSHAKE {
+            TagSecretSource::new_non_interactive_handshake()
+        } else {
+            TagSecretSource::unconstrained_secret(strategy.secret)
+        }
     }
 }
 
