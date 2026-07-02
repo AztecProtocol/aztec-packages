@@ -14,8 +14,14 @@ import {
   type LogRetrievalRequest,
   LogSource,
 } from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
-import type { LogRetrievalResponse } from '../contract_function_simulator/noir-structs/log_retrieval_response.js';
-import type { PendingTaggedLog } from '../contract_function_simulator/noir-structs/pending_tagged_log.js';
+import type {
+  LogRetrievalResponse,
+  LogRetrievalResponseV2,
+} from '../contract_function_simulator/noir-structs/log_retrieval_response.js';
+import type {
+  PendingTaggedLog,
+  PendingTaggedLogV1,
+} from '../contract_function_simulator/noir-structs/pending_tagged_log.js';
 import { ResolvedTx } from '../contract_function_simulator/noir-structs/resolved_tx.js';
 import { AddressStore } from '../storage/address_store/address_store.js';
 import type { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
@@ -52,6 +58,26 @@ export class LogService {
     contractAddress: AztecAddress,
     logRetrievalRequests: LogRetrievalRequest[],
   ): Promise<LogRetrievalResponse[][]> {
+    const rawLogsPerRequest = await this.#fetchRawLogsByTag(contractAddress, logRetrievalRequests);
+    return rawLogsPerRequest.map(logs => logs.map(LogService.#toLogRetrievalResponse));
+  }
+
+  /**
+   * Compatibility variant of {@link fetchLogsByTag} whose responses carry the origin block timestamp instead of its
+   * hash, backing the `getLogsByTagV2` oracle for already-deployed contracts.
+   */
+  public async fetchLogsByTagV2(
+    contractAddress: AztecAddress,
+    logRetrievalRequests: LogRetrievalRequest[],
+  ): Promise<LogRetrievalResponseV2[][]> {
+    const rawLogsPerRequest = await this.#fetchRawLogsByTag(contractAddress, logRetrievalRequests);
+    return rawLogsPerRequest.map(logs => logs.map(LogService.#toLogRetrievalResponseV2));
+  }
+
+  async #fetchRawLogsByTag(
+    contractAddress: AztecAddress,
+    logRetrievalRequests: LogRetrievalRequest[],
+  ): Promise<LogResult[][]> {
     for (const request of logRetrievalRequests) {
       if (!contractAddress.equals(request.contractAddress)) {
         throw new Error(`Got a log retrieval request from ${request.contractAddress}, expected ${contractAddress}`);
@@ -69,10 +95,7 @@ export class LogService {
       this.#fetchPrivateLogs(logRetrievalRequests, anchorBlockHash),
     ]);
 
-    return logRetrievalRequests.map((_request, i) => [
-      ...publicLogsPerRequest[i].map(LogService.#toLogRetrievalResponse),
-      ...privateLogsPerRequest[i].map(LogService.#toLogRetrievalResponse),
-    ]);
+    return logRetrievalRequests.map((_request, i) => [...publicLogsPerRequest[i], ...privateLogsPerRequest[i]]);
   }
 
   async #fetchPublicLogs(
@@ -157,7 +180,7 @@ export class LogService {
     return groups;
   }
 
-  static #toLogRetrievalResponse(log: LogResult): LogRetrievalResponse {
+  static #toCommonLogFields(log: LogResult) {
     // includeEffects: true was used, so noteHashes and nullifiers are populated. Every tx has at least one nullifier
     // (the first nullifier derived from the tx hash); empty here would indicate a buggy node.
     const noteHashes = log.noteHashes!;
@@ -173,8 +196,16 @@ export class LogService {
       uniqueNoteHashesInTx: noteHashes,
       firstNullifierInTx: nullifiers[0],
       blockNumber: log.blockNumber,
-      blockHash: log.blockHash,
     };
+  }
+
+  static #toLogRetrievalResponse(log: LogResult): LogRetrievalResponse {
+    return { ...LogService.#toCommonLogFields(log), blockHash: log.blockHash };
+  }
+
+  // Compatibility projection whose origin-block field is the block timestamp instead of its hash (for `getLogsByTagV2`).
+  static #toLogRetrievalResponseV2(log: LogResult): LogRetrievalResponseV2 {
+    return { ...LogService.#toCommonLogFields(log), blockTimestamp: log.blockTimestamp };
   }
 
   public async fetchTaggedLogs(
@@ -217,6 +248,27 @@ export class LogService {
         context: new ResolvedTx(log.txHash, noteHashes, nullifiers[0], log.blockNumber, log.blockHash.toFr()),
       };
     });
+  }
+
+  /**
+   * Compatibility variant of {@link fetchTaggedLogs} whose per-log context is the block-less `MessageContext` (the
+   * `ResolvedTx` without its origin block), backing the original `getPendingTaggedLogs` oracle for already-deployed
+   * contracts.
+   */
+  public async fetchTaggedLogsV1(
+    contractAddress: AztecAddress,
+    recipient: AztecAddress,
+    providedSecrets: AppTaggingSecret[],
+  ): Promise<PendingTaggedLogV1[]> {
+    const logs = await this.fetchTaggedLogs(contractAddress, recipient, providedSecrets);
+    return logs.map(({ log, context }) => ({
+      log,
+      context: {
+        txHash: context.txHash,
+        uniqueNoteHashesInTx: context.uniqueNoteHashesInTx,
+        firstNullifierInTx: context.firstNullifierInTx,
+      },
+    }));
   }
 
   /**

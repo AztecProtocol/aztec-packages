@@ -61,11 +61,12 @@ import { EventValidationRequest } from '../noir-structs/event_validation_request
 import type { Fact } from '../noir-structs/fact.js';
 import type { FactCollection } from '../noir-structs/fact_collection.js';
 import { type LogRetrievalRequest, type LogSource, logSourceFromField } from '../noir-structs/log_retrieval_request.js';
-import type { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
+import type { LogRetrievalResponse, LogRetrievalResponseV2 } from '../noir-structs/log_retrieval_response.js';
+import type { MessageContext } from '../noir-structs/message_context.js';
 import type { NoteData } from '../noir-structs/note_data.js';
 import { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import { Option } from '../noir-structs/option.js';
-import type { PendingTaggedLog } from '../noir-structs/pending_tagged_log.js';
+import type { PendingTaggedLog, PendingTaggedLogV1 } from '../noir-structs/pending_tagged_log.js';
 import type { ProvidedSecret } from '../noir-structs/provided_secret.js';
 import {
   type ResolvedTaggingStrategy,
@@ -520,6 +521,17 @@ export const LOG_RETRIEVAL_RESPONSE: TypeMapping<LogRetrievalResponse> = STRUCT<
   { name: 'blockHash', type: BLOCK_HASH },
 ]);
 
+// Compatibility shape for the `getLogsByTagV2` oracle, whose origin-block field is the block timestamp. Kept so
+// already-deployed contracts keep working; `LOG_RETRIEVAL_RESPONSE` above (used by `getLogsByTagV3`) carries the hash.
+export const LOG_RETRIEVAL_RESPONSE_V2: TypeMapping<LogRetrievalResponseV2> = STRUCT<LogRetrievalResponseV2>([
+  { name: 'logPayload', type: FIXED_BOUNDED_VEC(FIELD, PRIVATE_LOG_CIPHERTEXT_LEN) },
+  { name: 'txHash', type: TX_HASH },
+  { name: 'uniqueNoteHashesInTx', type: FIXED_BOUNDED_VEC(FIELD, MAX_NOTE_HASHES_PER_TX) },
+  { name: 'firstNullifierInTx', type: FIELD },
+  { name: 'blockNumber', type: BLOCK_NUMBER },
+  { name: 'blockTimestamp', type: BIGINT },
+]);
+
 // `ResolvedTx.toFields()` packs the whole struct into a single slot: txHash, the uniqueNoteHashesInTx BoundedVec
 // (MAX_NOTE_HASHES_PER_TX storage fields + length), firstNullifierInTx, blockNumber and blockHash.
 export const RESOLVED_TX: TypeMapping<ResolvedTx> = {
@@ -530,6 +542,21 @@ export const RESOLVED_TX: TypeMapping<ResolvedTx> = {
 export const PENDING_TAGGED_LOG: TypeMapping<PendingTaggedLog> = STRUCT<PendingTaggedLog>([
   { name: 'log', type: FIXED_BOUNDED_VEC(FIELD, PRIVATE_LOG_SIZE_IN_FIELDS) },
   { name: 'context', type: RESOLVED_TX },
+]);
+
+// Block-less transaction context: the prefix of `RESOLVED_TX` carried by the original `getPendingTaggedLogs` oracle.
+export const MESSAGE_CONTEXT: TypeMapping<MessageContext> = STRUCT<MessageContext>([
+  { name: 'txHash', type: TX_HASH },
+  { name: 'uniqueNoteHashesInTx', type: FIXED_BOUNDED_VEC(FIELD, MAX_NOTE_HASHES_PER_TX) },
+  { name: 'firstNullifierInTx', type: FIELD },
+]);
+
+// Compatibility shape for the original `getPendingTaggedLogs` oracle, whose context is the block-less `MessageContext`.
+// Kept so already-deployed contracts keep working; `PENDING_TAGGED_LOG` above (used by `getPendingTaggedLogsV2`) carries
+// the full `ResolvedTx`.
+export const PENDING_TAGGED_LOG_V1: TypeMapping<PendingTaggedLogV1> = STRUCT<PendingTaggedLogV1>([
+  { name: 'log', type: FIXED_BOUNDED_VEC(FIELD, PRIVATE_LOG_SIZE_IN_FIELDS) },
+  { name: 'context', type: MESSAGE_CONTEXT },
 ]);
 
 export const ORIGIN_BLOCK: TypeMapping<OriginBlock> = {

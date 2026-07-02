@@ -63,11 +63,11 @@ import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
 import type { EventValidationRequest } from '../noir-structs/event_validation_request.js';
 import { type FactCollection, emptyFactCollection, toNoirFactCollection } from '../noir-structs/fact_collection.js';
 import type { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
-import type { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
+import type { LogRetrievalResponse, LogRetrievalResponseV2 } from '../noir-structs/log_retrieval_response.js';
 import type { NoteData } from '../noir-structs/note_data.js';
 import type { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import { Option } from '../noir-structs/option.js';
-import type { PendingTaggedLog } from '../noir-structs/pending_tagged_log.js';
+import type { PendingTaggedLog, PendingTaggedLogV1 } from '../noir-structs/pending_tagged_log.js';
 import type { ProvidedSecret } from '../noir-structs/provided_secret.js';
 import type { ResolvedTx } from '../noir-structs/resolved_tx.js';
 import type { TxEffectData } from '../noir-structs/tx_effect_data.js';
@@ -573,7 +573,22 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   /** Fetches pending tagged logs into a freshly allocated ephemeral array and returns it. */
+  // Backs the original `getPendingTaggedLogs` oracle for already-deployed contracts: its per-log context is the
+  // block-less `MessageContext`. New syncs call `getPendingTaggedLogsV2` (full `ResolvedTx`) below.
   public async getPendingTaggedLogs(
+    scope: AztecAddress,
+    providedSecrets: EphemeralArray<ProvidedSecret>,
+  ): Promise<EphemeralArray<PendingTaggedLogV1>> {
+    const secrets = providedSecrets
+      .readAll(this.ephemeralArrayService)
+      .map(ps => new AppTaggingSecret(ps.secret, this.contractAddress, ps.mode));
+
+    const logService = this.#createLogService();
+    const logs = await logService.fetchTaggedLogsV1(this.contractAddress, scope, secrets);
+    return EphemeralArray.fromValues(this.ephemeralArrayService, logs);
+  }
+
+  public async getPendingTaggedLogsV2(
     scope: AztecAddress,
     providedSecrets: EphemeralArray<ProvidedSecret>,
   ): Promise<EphemeralArray<PendingTaggedLog>> {
@@ -631,7 +646,25 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     ]);
   }
 
+  // Backs the `getLogsByTagV2` oracle for already-deployed contracts: each response carries the origin block timestamp.
+  // Partial-note completion calls `getLogsByTagV3` (origin block hash) below.
   public async getLogsByTagV2(
+    requests: EphemeralArray<LogRetrievalRequest>,
+  ): Promise<EphemeralArray<EphemeralArray<LogRetrievalResponseV2>>> {
+    const logRetrievalRequests = requests.readAll(this.ephemeralArrayService);
+    const logService = this.#createLogService();
+
+    const logRetrievalResponses = await logService.fetchLogsByTagV2(this.contractAddress, logRetrievalRequests);
+
+    // Create an inner ephemeral array for each request's matching logs, then wrap all slots in an outer array.
+    const innerArrays = logRetrievalResponses.map(responses =>
+      EphemeralArray.fromValues(this.ephemeralArrayService, responses),
+    );
+
+    return EphemeralArray.fromValues(this.ephemeralArrayService, innerArrays);
+  }
+
+  public async getLogsByTagV3(
     requests: EphemeralArray<LogRetrievalRequest>,
   ): Promise<EphemeralArray<EphemeralArray<LogRetrievalResponse>>> {
     const logRetrievalRequests = requests.readAll(this.ephemeralArrayService);
