@@ -18,6 +18,7 @@ import { TxHash } from '@aztec/stdlib/tx';
 import { jest } from '@jest/globals';
 
 import { getPrivateKeyFromIndex } from '../../fixtures/utils.js';
+import { waitForPendingTxCount } from '../../fixtures/wait_helpers.js';
 import type { TestWallet } from '../../test-wallet/test_wallet.js';
 import {
   MultiNodeTestContext,
@@ -244,17 +245,7 @@ describe('multi-node/slashing/attested_invalid_proposal', () => {
       targetSlot,
     });
 
-    // REFACTOR: retryUntil polling pendingTxCount should be replaced with a waitForPendingTxCount helper
-    await retryUntil(
-      async () => {
-        const pendingTxCount = await badProposerNode.getPendingTxCount();
-        test.logger.info(`Bad proposer pending tx count is ${pendingTxCount}`);
-        return pendingTxCount >= 3;
-      },
-      'bad proposer pending txs',
-      AZTEC_SLOT_DURATION,
-      0.5,
-    );
+    await waitForPendingTxCount(badProposerNode, 3, { timeout: AZTEC_SLOT_DURATION, interval: 0.5 });
 
     const badProposerBlockProposedEvents: BlockProposedEvent[] = [];
     badProposerNode

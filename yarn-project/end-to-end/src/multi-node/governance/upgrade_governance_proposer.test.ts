@@ -2,6 +2,7 @@ import { RollupContract } from '@aztec/ethereum/contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import { L1TxUtils, createL1TxUtils } from '@aztec/ethereum/l1-tx-utils';
 import { SlotNumber } from '@aztec/foundation/branded-types';
+import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import {
   GovernanceAbi,
@@ -60,7 +61,6 @@ describe('multi-node/governance/upgrade_governance_proposer', () => {
   // Creates 4 validator nodes configured to signal a new GovernanceProposerPayload. Waits for quorum,
   // warps past round boundary, submits the round winner, then drives the full governance lifecycle
   // (vote, execution delay, execute). Asserts the governance contract's governanceProposer changes.
-  // REFACTOR: while(true) + sleep(12000) polling for quorum is hand-rolled; replace with retryUntil
   it('should cast votes to upgrade governanceProposer', async () => {
     const governanceProposer = getContract({
       address: getAddress(
@@ -146,14 +146,15 @@ describe('multi-node/governance/upgrade_governance_proposer', () => {
     const quorumSize = await governanceProposer.read.QUORUM_SIZE();
     test.logger.info(`Quorum size: ${quorumSize}, round size: ${await governanceProposer.read.ROUND_SIZE()}`);
 
-    let govData;
-    while (true) {
-      govData = await govInfo();
-      if (govData.leaderVotes >= quorumSize) {
-        break;
-      }
-      await sleep(12000);
-    }
+    const govData = await retryUntil(
+      async () => {
+        const data = await govInfo();
+        return data.leaderVotes >= quorumSize ? data : undefined;
+      },
+      'quorum of signals',
+      Number(quorumSize) * GOVERNANCE_TIMING.aztecSlotDuration * 3,
+      GOVERNANCE_TIMING.aztecSlotDuration,
+    );
 
     expect(govData.leaderVotes).toBeGreaterThan(govBefore.leaderVotes);
 

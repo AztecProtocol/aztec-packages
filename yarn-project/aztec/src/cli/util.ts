@@ -94,7 +94,7 @@ export async function createAccountLogs(accountManagers: AccountManager[], walle
     if (registeredAccounts.find(a => a.item.equals(completeAddress.address))) {
       accountLogStrings.push(` Address: ${completeAddress.address.toString()}\n`);
       accountLogStrings.push(` Partial Address: ${completeAddress.partialAddress.toString()}\n`);
-      accountLogStrings.push(` Secret Key: ${account.getSecretKey().toString()}\n`);
+      accountLogStrings.push(` Secret Key: ${accountManager.getSecretKey().toString()}\n`);
       accountLogStrings.push(` Master nullifier public key hash: ${completeAddress.publicKeys.npkMHash.toString()}\n`);
       accountLogStrings.push(` Master incoming viewing public key: ${completeAddress.publicKeys.ivpkM.toString()}\n\n`);
       accountLogStrings.push(

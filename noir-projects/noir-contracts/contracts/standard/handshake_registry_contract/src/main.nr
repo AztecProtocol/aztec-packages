@@ -88,9 +88,13 @@ pub contract HandshakeRegistry {
 
         // The recipient is not involved in this note's delivery: they discover the handshake via the encrypted log
         // emitted below, not via the sender's note. We deliver onchain unconstrained rather than offchain so the
-        // note is discoverable via normal PXE sync.
+        // note is discoverable via normal PXE sync. This is a self-send (the note is owned by and delivered to
+        // `sender`), so the wallet would resolve to an address-derived secret anyway. Pinning that derivation here at
+        // compile time lets this contract, the handshake registry itself, skip the default flow's runtime registry
+        // check, which would otherwise embed the registry's own address in its bytecode and make its deploy address
+        // depend on itself.
         self.storage.handshakes.at(recipient).at(sender).initialize_or_replace(|_| note).deliver(
-            MessageDelivery::onchain_unconstrained().with_sender(sender),
+            MessageDelivery::onchain_unconstrained().with_sender(sender).via_address_derived_secret(),
         );
 
         let log_tag = compute_log_tag(
@@ -121,8 +125,10 @@ pub contract HandshakeRegistry {
         assert(note.app_siloed_secrets_for(self.msg_sender()) == secrets, "no matching handshake");
 
         // `PrivateMutable::get_note` proves the current note by nullifying and recreating it. Deliver the
-        // replacement to the sender so later validation calls can prove the same current handshake again.
-        replacement_note_message.deliver(MessageDelivery::onchain_unconstrained());
+        // replacement to the sender so later validation calls can prove the same current handshake again. As in
+        // `non_interactive_handshake`, the tag derivation is fixed to address-derived so the registry does not
+        // reference its own address when re-tagging its own note.
+        replacement_note_message.deliver(MessageDelivery::onchain_unconstrained().via_address_derived_secret());
     }
 
     /// Returns the app-siloed secrets for an existing handshake.

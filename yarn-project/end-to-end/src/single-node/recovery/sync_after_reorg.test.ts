@@ -1,6 +1,7 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
+import { getTimestampRangeForEpoch } from '@aztec/aztec.js/block';
 import type { Logger } from '@aztec/aztec.js/log';
-import { CheckpointNumber } from '@aztec/foundation/branded-types';
+import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { executeTimeout } from '@aztec/foundation/timer';
 
@@ -54,6 +55,15 @@ describe('single-node/recovery/sync_after_reorg', () => {
     // current L1 block timestamp, which is stricter than the archiver's own check (it looks one L1
     // block further ahead): once it holds for a block, it holds for every later block the fresh
     // archiver could sync to, so the archiver's `handleEpochPrune` is guaranteed to fire.
+    // The node is stopped so this wait is dead clock-time: warp the L1 clock toward epoch 2 to
+    // skip most of the real-time wait, then let retryUntil confirm the prune condition.
+    const [epoch2Start] = getTimestampRangeForEpoch(EpochNumber(2), test.constants);
+    const warpTarget = epoch2Start - BigInt(2 * L2_SLOT_DURATION_IN_S);
+    const currentTs = BigInt(await context.cheatCodes.eth.lastBlockTimestamp());
+    if (currentTs < warpTarget) {
+      logger.info(`Warping L1 from ${currentTs} to ${warpTarget} (2 slots before epoch 2)`);
+      await context.cheatCodes.eth.warp(Number(warpTarget), { resetBlockInterval: true });
+    }
     logger.warn(`Waiting until the rollup can prune the unproven checkpoints`);
     await retryUntil(
       async () => test.rollup.canPruneAtTime(BigInt(await context.cheatCodes.eth.lastBlockTimestamp())),

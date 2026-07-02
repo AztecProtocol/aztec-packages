@@ -111,7 +111,7 @@ const publicLogs = block?.body.txEffects.flatMap(tx => tx.publicLogs) ?? [];
 
 Event data published onchain is stored in Ethereum blobs, which incurs costs. Consider:
 
-- Use `OFFCHAIN` delivery for lower costs when you have custom delivery infrastructure
+- Use offchain delivery for lower costs when you have custom delivery infrastructure
 - Only emit events when necessary for your application's functionality
 
 ## Next steps

@@ -13,6 +13,7 @@ import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type ContractInstanceWithAddress, ContractInstanceWithAddressSchema } from '@aztec/stdlib/contract';
 import { Gas, ManaUsageEstimate } from '@aztec/stdlib/gas';
+import type { MasterSecretKeys } from '@aztec/stdlib/keys';
 import { refineTxHashAndRange } from '@aztec/stdlib/logs';
 import {
   AbiDecodedSchema,
@@ -282,7 +283,7 @@ export type Wallet = {
   registerContract(
     instance: ContractInstanceWithAddress,
     artifact?: ContractArtifact,
-    secretKey?: Fr,
+    secretKeyOrKeys?: Fr | MasterSecretKeys,
   ): Promise<ContractInstanceWithAddress>;
   /**
    * Registers a contract class artifact in the local PXE without binding it to any instance.
