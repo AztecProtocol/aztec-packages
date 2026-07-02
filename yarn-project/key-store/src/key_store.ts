@@ -227,11 +227,12 @@ export class KeyStore {
    * @throws If the account does not exist in the key store.
    */
   public async getAccountSecretKeys(account: AztecAddress): Promise<AccountPrivacySecretKeys> {
+    const [nhkM, ivskM, ovskM, tskM] = await this.#getMasterKeyBuffers(account, ['nhk_m', 'ivsk_m', 'ovsk_m', 'tsk_m']);
     return {
-      masterNullifierHidingSecretKey: GrumpkinScalar.fromBuffer(await this.#getMasterKeyBuffer(account, 'nhk_m')),
-      masterIncomingViewingSecretKey: GrumpkinScalar.fromBuffer(await this.#getMasterKeyBuffer(account, 'ivsk_m')),
-      masterOutgoingViewingSecretKey: GrumpkinScalar.fromBuffer(await this.#getMasterKeyBuffer(account, 'ovsk_m')),
-      masterTaggingSecretKey: GrumpkinScalar.fromBuffer(await this.#getMasterKeyBuffer(account, 'tsk_m')),
+      masterNullifierHidingSecretKey: GrumpkinScalar.fromBuffer(nhkM),
+      masterIncomingViewingSecretKey: GrumpkinScalar.fromBuffer(ivskM),
+      masterOutgoingViewingSecretKey: GrumpkinScalar.fromBuffer(ovskM),
+      masterTaggingSecretKey: GrumpkinScalar.fromBuffer(tskM),
     };
   }
 
@@ -388,12 +389,24 @@ export class KeyStore {
    * @throws If the account does not exist in the key store.
    */
   async #getMasterKeyBuffer(account: AztecAddress, suffix: string): Promise<Buffer> {
-    const buffer = await this.#db.transactionAsync(() => this.#keys.getAsync(`${account.toString()}-${suffix}`));
-    if (!buffer) {
+    const [buffer] = await this.#getMasterKeyBuffers(account, [suffix]);
+    return buffer;
+  }
+
+  /**
+   * Fetches multiple stored master key buffers for an account in a single transaction, returning them in the order of
+   * the requested storage suffixes.
+   * @throws If any of the keys is missing (i.e. the account does not exist in the key store).
+   */
+  async #getMasterKeyBuffers(account: AztecAddress, suffixes: string[]): Promise<Buffer[]> {
+    const buffers = await this.#db.transactionAsync(() =>
+      Promise.all(suffixes.map(suffix => this.#keys.getAsync(`${account.toString()}-${suffix}`))),
+    );
+    if (!buffers.every((buffer): buffer is Buffer => buffer !== undefined)) {
       throw new Error(
         `Account ${account.toString()} does not exist. Registered accounts: ${await this.getAccounts()}.`,
       );
     }
-    return buffer;
+    return buffers;
   }
 }
