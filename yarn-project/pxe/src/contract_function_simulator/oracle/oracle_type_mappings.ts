@@ -54,7 +54,7 @@ import {
   TxHash,
 } from '@aztec/stdlib/tx';
 
-import type { OriginBlock } from '../../storage/fact_store/index.js';
+import type { OriginBlock, RetractableFactOrigin } from '../../storage/fact_store/index.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
 import type { ContractClassLogData } from '../noir-structs/contract_class_log_data.js';
 import type { EmbeddedCurvePoint } from '../noir-structs/embedded_curve_point.js';
@@ -518,6 +518,8 @@ export const LOG_RETRIEVAL_RESPONSE: TypeMapping<LogRetrievalResponse> = STRUCT<
   { name: 'txHash', type: TX_HASH },
   { name: 'uniqueNoteHashesInTx', type: FIXED_BOUNDED_VEC(FIELD, MAX_NOTE_HASHES_PER_TX) },
   { name: 'firstNullifierInTx', type: FIELD },
+  { name: 'blockNumber', type: BLOCK_NUMBER },
+  { name: 'blockTimestamp', type: BIGINT },
 ]);
 
 export const MESSAGE_CONTEXT: TypeMapping<MessageContext> = STRUCT<MessageContext>([
@@ -549,17 +551,23 @@ export const ORIGIN_BLOCK: TypeMapping<OriginBlock> = {
   shape: ['scalar', 'scalar'],
 };
 
+/** Read-side origin of a retractable fact, carrying the chain state of its origin block. */
+export const RETRACTABLE_FACT_ORIGIN: TypeMapping<RetractableFactOrigin> = {
+  serialization: { fn: o => [new Fr(o.blockNumber), o.blockHash, new Fr(o.blockState)] },
+  shape: ['scalar', 'scalar', 'scalar'],
+};
+
 // `facts` and `payload` each materialize to a single service-slot id, so a Fact occupies: factTypeId, the payload
-// array slot, and `OPTION(ORIGIN_BLOCK)` (its discriminant plus ORIGIN_BLOCK's two slots).
+// array slot, and `OPTION(RETRACTABLE_FACT_ORIGIN)` (its discriminant plus RETRACTABLE_FACT_ORIGIN's three slots).
 export const FACT: TypeMapping<Fact> = {
   serialization: {
     fn: f => [
       f.factTypeId,
       f.payload.materializeSlot(v => FIELD.serialization!.fn(v).flat() as Fr[]),
-      ...OPTION(ORIGIN_BLOCK).serialization!.fn(f.originBlock),
+      ...OPTION(RETRACTABLE_FACT_ORIGIN).serialization!.fn(f.originBlock),
     ],
   },
-  shape: ['scalar', 'scalar', 'scalar', 'scalar', 'scalar'],
+  shape: ['scalar', 'scalar', 'scalar', 'scalar', 'scalar', 'scalar'],
 };
 
 export const FACT_COLLECTION: TypeMapping<FactCollection> = {
@@ -691,7 +699,7 @@ export function BOUNDED_VEC<T>(
  * (zero-padded) followed by the actual length, with no length prefix, so the width is statically known. Serialize-only.
  * Throws if the input exceeds `maxLength`.
  */
-function FIXED_BOUNDED_VEC<T>(element: TypeMapping<T>, maxLength: number): TypeMapping<T[]> {
+export function FIXED_BOUNDED_VEC<T>(element: TypeMapping<T>, maxLength: number): TypeMapping<T[]> {
   const width = fieldWidth(element.shape);
   return {
     serialization: element.serialization
@@ -811,7 +819,7 @@ type StructField<TName extends string = string, T = any> = { name: TName; type: 
  * `shape`. `T` is the struct's TS value type and must match the field layout — serialization reads each field by name
  * off the value, deserialization returns the decoded bag as `T`; convert in the handler, not here, when `T` differs.
  */
-function STRUCT<T>(fields: readonly StructField[]): TypeMapping<T> {
+export function STRUCT<T>(fields: readonly StructField[]): TypeMapping<T> {
   return {
     serialization: fields.every(f => f.type.serialization)
       ? {

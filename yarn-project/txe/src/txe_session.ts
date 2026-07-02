@@ -29,6 +29,7 @@ import {
   type IMiscOracle,
   type IPrivateExecutionOracle,
   type IUtilityExecutionOracle,
+  LEGACY_ORACLE_REGISTRY,
   Option,
   TransientArrayService,
   UtilityExecutionOracle,
@@ -57,6 +58,7 @@ import { z } from 'zod';
 import { DEFAULT_ADDRESS, MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY, MAX_OFFCHAIN_EFFECT_LEN } from './constants.js';
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
 import { TXEOraclePublicContext } from './oracle/txe_oracle_public_context.js';
+import { callTxeLegacyHandler } from './oracle/txe_oracle_registry.js';
 import { TXEOracleTopLevelContext } from './oracle/txe_oracle_top_level_context.js';
 import { TXE_ORACLE_VERSION_MAJOR, TXE_ORACLE_VERSION_MINOR } from './oracle/txe_oracle_version.js';
 import { TXEPrivateExecutionOracle } from './oracle/txe_private_execution_oracle.js';
@@ -397,6 +399,18 @@ export class TXESession implements TXESessionStateHandler {
    */
   processFunction(functionName: TXEOracleFunctionName, inputs: ForeignCallArgs): Promise<ForeignCallResult> {
     try {
+      // Oracles retired into the PXE legacy registry have no translator method; dispatch them through the same
+      // buildACIRCallback legacy path that contract execution uses, keeping TXE's two oracle paths in sync.
+      // Use an own-property check: `in` would match inherited `Object.prototype` keys (e.g. `constructor`), routing
+      // them into the legacy path instead of letting them fall through to the unknown-oracle error.
+      if (Object.hasOwn(LEGACY_ORACLE_REGISTRY, functionName)) {
+        return callTxeLegacyHandler(
+          functionName,
+          inputs,
+          this.oracleHandler as Parameters<typeof buildACIRCallback>[0],
+        );
+      }
+
       const translator = new RPCTranslator(this, this.oracleHandler) as any;
       // We perform a runtime validation to check that the function name corresponds to a real oracle handler.
       const validatedFunctionName = z
