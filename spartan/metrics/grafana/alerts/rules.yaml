@@ -1281,7 +1281,7 @@ groups:
               datasourceUid: spartan-metrics-prometheus
               model:
                 editorMode: code
-                expr: (sum by (k8s_namespace_name) (increase(aztec_sequencer_slot_filled_count{k8s_namespace_name=~"__INTERNAL_NETWORK_NAMESPACES_REGEX__"}[10m])) / sum by (k8s_namespace_name) (increase(aztec_sequencer_slot_total_count{k8s_namespace_name=~"__INTERNAL_NETWORK_NAMESPACES_REGEX__"}[10m]))) and on (k8s_namespace_name) (sum by (k8s_namespace_name) (increase(aztec_sequencer_slot_total_count{k8s_namespace_name=~"__INTERNAL_NETWORK_NAMESPACES_REGEX__"}[10m])) >= 5)
+                expr: (sum by (k8s_namespace_name) (increase(aztec_sequencer_slot_filled_count{k8s_namespace_name=~"__INTERNAL_NETWORK_NAMESPACES_REGEX__"}[10m])) / sum by (k8s_namespace_name) (max by (k8s_namespace_name, aztec_block_proposer) (increase(aztec_sequencer_slot_total_count{k8s_namespace_name=~"__INTERNAL_NETWORK_NAMESPACES_REGEX__"}[10m])))) and on (k8s_namespace_name) (sum by (k8s_namespace_name) (max by (k8s_namespace_name, aztec_block_proposer) (increase(aztec_sequencer_slot_total_count{k8s_namespace_name=~"__INTERNAL_NETWORK_NAMESPACES_REGEX__"}[10m]))) >= 5)
                 instant: true
                 intervalMs: 60000
                 legendFormat: __auto
