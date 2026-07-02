@@ -153,7 +153,7 @@ export class TXEOraclePublicContext implements IAvmExecutionOracle {
     return { member: accessor(instance), exists: true };
   }
 
-  returndataSize(): Promise<Fr> {
+  returndataSize(): Promise<number> {
     throw new Error(
       'Contract calls are forbidden inside a `TestEnvironment::public_context`, use `public_call` instead',
     );
