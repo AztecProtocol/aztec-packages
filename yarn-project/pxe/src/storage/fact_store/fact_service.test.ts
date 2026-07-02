@@ -6,8 +6,14 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { FactService } from './fact_service.js';
 import { FactStore } from './fact_store.js';
 import { FactCollectionKey, FactCollectionTypeKey } from './fact_store_keys.js';
+import { OriginBlockState, type TipBlockNumbers } from './origin_state.js';
 
 describe('FactService', () => {
+  const makeTips = (finalized: number, proven: number): TipBlockNumbers => ({
+    finalizedBlockNumber: finalized,
+    provenBlockNumber: proven,
+  });
+
   let kv: AztecAsyncKVStore;
   let store: FactStore;
 
@@ -34,7 +40,7 @@ describe('FactService', () => {
     const service = new FactService(store, [allowedScope]);
     await service.recordFact(factCollectionKey, factTypeId, [factPayload], undefined, jobId);
 
-    const collection = await service.getFactCollection(factCollectionKey, jobId);
+    const collection = await service.getFactCollection(factCollectionKey, makeTips(0, 0), jobId);
     expect(collection?.facts).toEqual([{ factTypeId, payload: [factPayload], originBlock: undefined }]);
   });
 
@@ -42,7 +48,7 @@ describe('FactService', () => {
     const service = new FactService(store, [allowedScope]);
     await service.recordFact(factCollectionKey, factTypeId, [factPayload], undefined, jobId);
 
-    const collections = await service.getFactCollectionsByType(factCollectionTypeKey, jobId);
+    const collections = await service.getFactCollectionsByType(factCollectionTypeKey, makeTips(0, 0), jobId);
     expect(collections).toEqual([
       { key: factCollectionKey, facts: [{ factTypeId, payload: [factPayload], originBlock: undefined }] },
     ]);
@@ -53,7 +59,7 @@ describe('FactService', () => {
     await service.recordFact(factCollectionKey, factTypeId, [factPayload], undefined, jobId);
     await service.deleteFactCollection(factCollectionKey, jobId);
 
-    expect(await service.getFactCollection(factCollectionKey, jobId)).toBeUndefined();
+    expect(await service.getFactCollection(factCollectionKey, makeTips(0, 0), jobId)).toBeUndefined();
   });
 
   it('rejects a disallowed scope on recordFact', () => {
@@ -68,15 +74,32 @@ describe('FactService', () => {
     expect(() => service.deleteFactCollection(disallowedCollectionKey, jobId)).toThrow(/not in the allowed scopes/);
   });
 
-  it('rejects a disallowed scope on getFactCollection', () => {
+  it('rejects a disallowed scope on getFactCollection', async () => {
     const service = new FactService(store, [allowedScope]);
-    expect(() => service.getFactCollection(disallowedCollectionKey, jobId)).toThrow(/not in the allowed scopes/);
-  });
-
-  it('rejects a disallowed scope on getFactCollectionsByType', () => {
-    const service = new FactService(store, [allowedScope]);
-    expect(() => service.getFactCollectionsByType(disallowedCollectionTypeKey, jobId)).toThrow(
+    await expect(service.getFactCollection(disallowedCollectionKey, makeTips(0, 0), jobId)).rejects.toThrow(
       /not in the allowed scopes/,
     );
+  });
+
+  it('rejects a disallowed scope on getFactCollectionsByType', async () => {
+    const service = new FactService(store, [allowedScope]);
+    await expect(service.getFactCollectionsByType(disallowedCollectionTypeKey, makeTips(0, 0), jobId)).rejects.toThrow(
+      /not in the allowed scopes/,
+    );
+  });
+
+  it('annotates a retractable fact with its origin block state', async () => {
+    const service = new FactService(store, [allowedScope]);
+    const blockHash = new Fr(123);
+    await service.recordFact(factCollectionKey, factTypeId, [factPayload], { blockNumber: 4, blockHash }, jobId);
+
+    const collection = await service.getFactCollection(factCollectionKey, makeTips(5, 10), jobId);
+    expect(collection?.facts).toEqual([
+      {
+        factTypeId,
+        payload: [factPayload],
+        originBlock: { blockNumber: 4, blockHash, blockState: OriginBlockState.Finalized },
+      },
+    ]);
   });
 });

@@ -50,7 +50,7 @@ import { ORACLE_VERSION_MAJOR } from '../../oracle_version.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
-import { FactCollectionKey, FactCollectionTypeKey } from '../../storage/fact_store/index.js';
+import { FactCollectionKey, FactCollectionTypeKey, anchoredTipBlockNumbers } from '../../storage/fact_store/index.js';
 import type { FactService, OriginBlock } from '../../storage/fact_store/index.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
@@ -772,8 +772,10 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     factCollectionId: Fr,
   ): Promise<Option<FactCollection>> {
     this.#assertOwnContract(contractAddress);
+    const tips = anchoredTipBlockNumbers(await this.l2TipsStore.getL2Tips(), this.anchorBlockHeader.getBlockNumber());
     const collection = await this.factService.getFactCollection(
       new FactCollectionKey(contractAddress, scope, factCollectionTypeId, factCollectionId),
+      tips,
       this.jobId,
     );
     return collection
@@ -797,8 +799,10 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     factCollectionTypeId: Fr,
   ): Promise<EphemeralArray<FactCollection>> {
     this.#assertOwnContract(contractAddress);
+    const tips = anchoredTipBlockNumbers(await this.l2TipsStore.getL2Tips(), this.anchorBlockHeader.getBlockNumber());
     const collections = await this.factService.getFactCollectionsByType(
       new FactCollectionTypeKey(contractAddress, scope, factCollectionTypeId),
+      tips,
       this.jobId,
     );
     return EphemeralArray.fromValues(

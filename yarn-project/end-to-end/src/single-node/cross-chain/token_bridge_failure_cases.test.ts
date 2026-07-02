@@ -17,7 +17,15 @@ import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 // inboxLag=2, minTxsPerBlock=0), EpochTestSettler for auto-proving, and CrossChainTestHarness for
 // L1↔L2 token portal bridging.
 describe('single-node/cross-chain/token_bridge_failure_cases', () => {
-  const t = new CrossChainMessagingTest('token_bridge_failure_cases', {}, {}, {}, L1_DIRECT_WRITE_ACCOUNT_INDEX);
+  const t = new CrossChainMessagingTest(
+    'token_bridge_failure_cases',
+    {},
+    {},
+    {},
+    {
+      l1HarnessAccountIndex: L1_DIRECT_WRITE_ACCOUNT_INDEX,
+    },
+  );
   let version: number = 1;
 
   let { crossChainTestHarness, ethAccount, l2Bridge, ownerAddress, user1Address, user2Address, rollup } = t;
