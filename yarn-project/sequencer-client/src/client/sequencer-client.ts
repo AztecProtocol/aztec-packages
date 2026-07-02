@@ -180,19 +180,27 @@ export class SequencerClient {
     this.validatorClient?.updateConfig(config);
   }
 
-  /** Starts the sequencer. */
+  /**
+   * Starts (or restarts) the sequencer, validator, publishers, and metrics. Each underlying start is
+   * idempotent, so this is safe to call after a previous {@link stop} to resume building and publishing.
+   * The publisher manager must start before the sequencer's poll loop so the publishers' interrupted
+   * flag (set by stop) is cleared before the sequencer first tries to publish to L1.
+   */
   public async start() {
     await this.validatorClient?.start();
+    await this.publisherManager.start();
     this.sequencer.start();
     this.l1Metrics?.start();
-    await this.publisherManager.start();
   }
 
   /**
-   * Stops the sequencer from processing new txs.
+   * Stops the sequencer, validator, publishers, and metrics, draining in-flight work. Idempotent, and the
+   * client may be restarted afterwards via {@link start}. Pass `graceful` to let the in-flight sequencer
+   * iteration and its pending L1 submission complete instead of interrupting them (see
+   * {@link Sequencer.stop}).
    */
-  public async stop() {
-    await this.sequencer.stop();
+  public async stop(opts: { graceful?: boolean } = {}) {
+    await this.sequencer.stop(opts);
     await this.validatorClient?.stop();
     await this.publisherManager.stop();
     this.l1Metrics?.stop();

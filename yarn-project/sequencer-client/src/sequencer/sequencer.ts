@@ -79,7 +79,7 @@ type SequencerSlotContext = {
  * - Votes for proposals and slashes on L1
  */
 export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<SequencerEvents>) {
-  private runningPromise?: RunningPromise;
+  protected runningPromise?: RunningPromise;
   private state = SequencerState.STOPPED;
   private stateSlotNumber: SlotNumber | undefined;
   /** Wall-clock time (ms, via the date provider) at which the current state was entered. */
@@ -109,6 +109,15 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
   /** The last checkpoint proposal job, tracked so we can await its pending L1 submission during shutdown. */
   protected lastCheckpointProposalJob: CheckpointProposalJob | undefined;
+
+  /**
+   * In-flight fire-and-forget fallback submissions (votes/prune when we cannot build, or escape-hatch votes),
+   * keyed by the wrapper publisher whose interruptible target-slot sleep gates each send. Each wrapper is
+   * created for a single send, so it appears at most once. {@link stop} interrupts every wrapper — a wrapper
+   * is never restarted, so once interrupted its sleeper can never publish, even after the pooled publishers
+   * are restarted by a later {@link start} — and awaits the sends so that stop remains a complete drain.
+   */
+  protected pendingFallbackSends = new Map<SequencerPublisher, Promise<void>>();
 
   /** Proposer schedule and block sub-slot timetable for the sequencer, rebuilt on every config update. */
   protected timetable!: ProposerTimetable;
@@ -273,8 +282,22 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     getKzg();
   }
 
-  /** Starts the sequencer and moves to IDLE state. */
+  /**
+   * Starts (or restarts) the sequencer and moves it to the IDLE state. Idempotent: a start while already
+   * running is a no-op, so it never orphans the previous poll loop. A start while STOPPING is refused,
+   * since the in-flight stop would mark the fresh loop's state STOPPED and orphan it. Safe to call after
+   * a previous {@link stop} has resolved; the caller must also restart the publishers (see
+   * {@link SequencerClient.start}) so L1 publishing is re-enabled.
+   */
   public start() {
+    if (this.state === SequencerState.STOPPING) {
+      this.log.warn('Attempted to start sequencer while it is stopping; ignoring');
+      return;
+    }
+    if (this.runningPromise?.isRunning()) {
+      this.log.warn('Attempted to start sequencer that is already running');
+      return;
+    }
     this.runningPromise = new RunningPromise(
       this.safeWork.bind(this),
       this.log,
@@ -290,16 +313,71 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     return this.runningPromise?.trigger();
   }
 
-  /** Stops the sequencer from building blocks and moves to STOPPED state. */
-  public async stop(): Promise<void> {
+  /**
+   * Stops the sequencer from building blocks and moves it to STOPPED state, fully draining before
+   * returning. Idempotent: a second call while already stopped or stopping is a no-op. The sequencer may
+   * be started again afterwards via {@link start}. Lifecycle calls are expected to be serialized by the
+   * caller.
+   *
+   * By default the current work() iteration is interrupted for a fast shutdown. With `graceful` the poll
+   * loop is halted first so the in-flight iteration and its pending L1 submission complete untouched —
+   * no interrupt lands mid-build, so no spurious checkpoint-error is emitted and no enqueued checkpoint
+   * is dropped. Used by tests that pause sequencers around an L1 clock warp and then restart them.
+   */
+  public async stop(opts: { graceful?: boolean } = {}): Promise<void> {
+    if (this.state === SequencerState.STOPPED || this.state === SequencerState.STOPPING) {
+      this.log.debug(`Sequencer already ${this.state.toLowerCase()}, ignoring stop`);
+      return;
+    }
+    if (opts.graceful) {
+      // Drain before entering STOPPING: once the state is STOPPING, the in-flight iteration's own
+      // (non-forced) setState calls throw SequencerInterruptedError, which would fail the very
+      // iteration we are letting finish.
+      this.log.info('Draining sequencer before stopping');
+      await this.runningPromise?.stop();
+      await this.lastCheckpointProposalJob?.awaitPendingSubmission();
+    }
     this.log.info(`Stopping sequencer`);
     this.setState(SequencerState.STOPPING, undefined, { force: true });
     this.lastCheckpointProposalJob?.interrupt();
     await this.publisherFactory.stopAll();
+    // Stop the poll loop and await the in-flight work() iteration (already stopped if graceful). work()
+    // registers its fire-and-forget fallback sends synchronously before returning, so once the loop has
+    // stopped, pendingFallbackSends holds every send that will ever exist and can be drained. Draining
+    // any earlier could miss a send registered by the last in-flight iteration.
     await this.runningPromise?.stop();
     await this.lastCheckpointProposalJob?.awaitPendingSubmission();
+    await this.drainPendingFallbackSends();
     this.setState(SequencerState.STOPPED, undefined, { force: true });
     this.log.info('Stopped sequencer');
+  }
+
+  /**
+   * Interrupts every pending fallback sender, waking its target-slot sleep so the send short-circuits
+   * without publishing, then awaits all sends to settle. Must run after the poll loop has stopped, so the
+   * set of pending sends is final.
+   */
+  private async drainPendingFallbackSends(): Promise<void> {
+    for (const publisher of this.pendingFallbackSends.keys()) {
+      publisher.interrupt();
+    }
+    await Promise.all([...this.pendingFallbackSends.values()]);
+  }
+
+  /**
+   * Registers a fire-and-forget fallback send so {@link stop} can interrupt its wrapper publisher and
+   * await its completion. The entry removes itself once the send settles.
+   */
+  protected trackFallbackSend(publisher: SequencerPublisher, send: Promise<unknown>): void {
+    const done = send.then(
+      () => {
+        this.pendingFallbackSends.delete(publisher);
+      },
+      () => {
+        this.pendingFallbackSends.delete(publisher);
+      },
+    );
+    this.pendingFallbackSends.set(publisher, done);
   }
 
   /** Main sequencer loop with a try/catch */
@@ -1023,10 +1101,11 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // Votes are EIP-712-signed for `targetSlot` (the pipelined slot in which the multicall is
     // expected to mine). Delay submission to the start of `targetSlot` so the tx mines in the
     // slot the votes were signed for. We fire-and-forget so we don't block the sequencer's
-    // work loop while waiting for the target slot to start.
-    void publisher.sendRequestsAt(targetSlot).catch(err => {
+    // work loop while waiting for the target slot to start, but track it so stop() can drain it.
+    const send = publisher.sendRequestsAt(targetSlot).catch(err => {
       this.log.error(`Failed to publish fallback requests despite sync failure for slot ${slot}`, err, { slot });
     });
+    this.trackFallbackSend(publisher, send);
   }
 
   private async tryEnqueuePruneIfPrunable(targetSlot: SlotNumber, publisher: SequencerPublisher): Promise<boolean> {
@@ -1096,10 +1175,12 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // the multicall mines in the slot the votes were signed for; otherwise the L1 contract reads
     // `signaler = getCurrentProposer()` against the wrong slot and signature verification fails
     // silently inside Multicall3. Fire-and-forget so we don't block the sequencer's work loop while
-    // waiting for the target slot to start, mirroring tryVoteAndPruneWhenCannotBuild.
-    void publisher.sendRequestsAt(targetSlot).catch(err => {
+    // waiting for the target slot to start, mirroring tryVoteAndPruneWhenCannotBuild, but tracked so
+    // stop() can drain it.
+    const send = publisher.sendRequestsAt(targetSlot).catch(err => {
       this.log.error(`Failed to publish escape-hatch votes for slot ${slot}`, err, { slot, targetSlot });
     });
+    this.trackFallbackSend(publisher, send);
   }
 
   /**
