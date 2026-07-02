@@ -10,6 +10,9 @@ export TMPFS_SIZE=${TMPFS_SIZE:-1g}
 export USE_HOME_TMP=${USE_HOME_TMP:-0}
 
 function cleanup {
+  if [ -f "${run_err:-}" ]; then
+    rm -f "$run_err"
+  fi
   if [ -n "${cid:-}" ]; then
     docker rm -f "$cid" &>/dev/null
   fi
@@ -66,33 +69,57 @@ fi
 # Launch the container in the background.
 # Don't launch in the foreground or you can't process SIGINT/SIGTERM.
 # Don't use & as we want to block, and be sure it starts before processing any signals.
-set -x
-cid=$(docker run -d \
-  ${name_arg:-} \
-  ${network_arg:-} \
-  ${cpuset_arg:-} \
-  --cpus=$CPUS \
-  --memory=$MEM \
-  --user $(id -u):$(id -g) \
-  -v$HOME:$HOME \
-  $tmp_mount \
-  --workdir $PWD \
-  -e HOME \
-  -e VERBOSE \
-  -e GIT_CONFIG_GLOBAL=$root/build-images/src/home/.gitconfig \
-  -e FORCE_COLOR=true \
-  -e CPUS \
-  -e MEM \
-  -e TMPFS_SIZE \
-  -e USE_HOME_TMP \
-  -e AVM \
-  -e ELU_MONITOR_FILE \
-  -e TEST_TIMING_FILE \
-  -e RUN_ID \
-  "${arg_env_vars[@]}" \
-  aztecprotocol/build:3.0 \
-  /bin/bash -c "$cmd")
-set +x
+# Even after the inspect wait above, dockerd can release the old container's name a beat after
+# the container stops being inspectable (teardown/name-registry race), so `docker run --name`
+# can still hit "Conflict, name already in use". Retry a bounded number of times, force-removing
+# the name's holder between attempts.
+run_err=$(mktemp)
+max_attempts=5
+for attempt in $(seq 1 $max_attempts); do
+  set -x +e
+  cid=$(docker run -d \
+    ${name_arg:-} \
+    ${network_arg:-} \
+    ${cpuset_arg:-} \
+    --cpus=$CPUS \
+    --memory=$MEM \
+    --user $(id -u):$(id -g) \
+    -v$HOME:$HOME \
+    $tmp_mount \
+    --workdir $PWD \
+    -e HOME \
+    -e VERBOSE \
+    -e GIT_CONFIG_GLOBAL=$root/build-images/src/home/.gitconfig \
+    -e FORCE_COLOR=true \
+    -e CPUS \
+    -e MEM \
+    -e TMPFS_SIZE \
+    -e USE_HOME_TMP \
+    -e AVM \
+    -e ELU_MONITOR_FILE \
+    -e TEST_TIMING_FILE \
+    -e RUN_ID \
+    "${arg_env_vars[@]}" \
+    aztecprotocol/build:3.0 \
+    /bin/bash -c "$cmd" 2>"$run_err")
+  run_code=$?
+  set +x -e
+  # Surface docker's stderr (warnings on success, the error on failure).
+  if [ -s "$run_err" ]; then
+    cat "$run_err" >&2
+  fi
+  if [ "$run_code" -eq 0 ]; then
+    break
+  fi
+  if [ "$attempt" -lt "$max_attempts" ] && [ -n "${name:-}" ] \
+      && grep -qi "already in use by container" "$run_err"; then
+    echo "docker_isolate: name conflict for $name (attempt $attempt/$max_attempts), removing and retrying" >&2
+    docker rm -f "$name" &>/dev/null || true
+    sleep 1
+    continue
+  fi
+  exit "$run_code"
+done
 # At this point we know it's started, and can handle SIGTERM to kill the container.
 
 # Output logs, but use & so we can still handle signals.

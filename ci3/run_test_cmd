@@ -422,6 +422,11 @@ else
 
   echo -e "${yellow}RETRYING${reset}${log_info}: $test_cmd"
 
+  # Give the retry fresh container/compose-project names. The failed attempt's containers can
+  # still be mid-teardown in dockerd, and reusing the same name races into "Conflict, name
+  # already in use" (docker_isolate and run_compose_test append NAME_POSTFIX to their names).
+  export NAME_POSTFIX="${NAME_POSTFIX:-}_retry_$(uuid)"
+
   run_test
 
   if [ $code -eq 0 ]; then
