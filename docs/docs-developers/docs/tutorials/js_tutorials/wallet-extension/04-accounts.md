@@ -43,7 +43,7 @@ export function deriveMasterIncomingViewingSecretKey(secretKey: Fr): GrumpkinSca
   return sha512ToGrumpkinScalar([secretKey, GeneratorIndex.IVSK_M]);
 }
 
-export function deriveMasterNullifierHidingKey(secretKey: Fr): GrumpkinScalar {
+export function deriveMasterNullifierHidingSecretKey(secretKey: Fr): GrumpkinScalar {
   return sha512ToGrumpkinScalar([secretKey, GeneratorIndex.NHK_M]);
 }
 ```

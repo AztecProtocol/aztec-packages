@@ -6,6 +6,7 @@ import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundatio
 import { SerialQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
 import { KeyStore } from '@aztec/key-store';
+import type { AccountPrivacyKeys, AccountPrivacySecretKeys } from '@aztec/key-store';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { type ProtocolContractsProvider, protocolContractNames } from '@aztec/protocol-contracts';
 import type { CircuitSimulator } from '@aztec/simulator/client';
@@ -655,18 +656,22 @@ export class PXE {
   }
 
   /**
-   * Registers a user account in PXE given its master encryption private key.
-   * Once a new account is registered, the PXE will trial-decrypt all published notes on
-   * the chain and store those that correspond to the registered account. Will do nothing if the
-   * account is already registered.
+   * Registers a user account in PXE.
    *
-   * @param secretKey - Secret key of the corresponding user master public key.
+   * PXE holds the account's four privacy secret keys but only the *public* message-signing and fallback keys: their
+   * secret keys are withheld, since PXE is not trusted to hold them.
+   *
+   * Does nothing if the account is already registered.
+   *
+   * The four privacy secret keys can be retrieved later with {@link getAccountSecretKeys}.
+   *
+   * @param keys - The account's privacy keys: four secret keys plus the message-signing and fallback public keys.
    * @param partialAddress - The partial address of the account contract corresponding to the account being registered.
    * @returns The complete address of the account.
    */
-  public async registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
+  public async registerAccount(keys: AccountPrivacyKeys, partialAddress: PartialAddress): Promise<CompleteAddress> {
     const accounts = await this.keyStore.getAccounts();
-    const accountCompleteAddress = await this.keyStore.addAccount(secretKey, partialAddress);
+    const accountCompleteAddress = await this.keyStore.addAccount(keys, partialAddress);
     if (accounts.some(a => a.equals(accountCompleteAddress.address))) {
       this.log.info(`Account:\n "${accountCompleteAddress.address.toString()}"\n already registered.`);
       return accountCompleteAddress;
@@ -677,6 +682,24 @@ export class PXE {
 
     await this.addressStore.addCompleteAddress(accountCompleteAddress);
     return accountCompleteAddress;
+  }
+
+  /**
+   * Retrieves the four privacy secret keys PXE holds for a registered account (nullifier-hiding, incoming-viewing,
+   * outgoing-viewing, tagging).
+   *
+   * These do NOT grant control over an account's assets, e.g. they are insufficient to impersonate the account or to
+   * spend notes, but they _do_ guard the account's privacy. Parties that have knowledge of these keys can decrypt all
+   * messages sent to the account, discover all of their on-chain activity, including notes, events, etc.
+   *
+   * Security is paramount when handling these keys, which should itself be a very rare occurrence. Other than exporting
+   * and then importing an account into a separate PXE/wallet, there is typically no need for a wallet to ever access
+   * these keys. Applications should NEVER be given access to them.
+   *
+   * @throws If the account is not registered.
+   */
+  public getAccountSecretKeys(account: AztecAddress): Promise<AccountPrivacySecretKeys> {
+    return this.keyStore.getAccountSecretKeys(account);
   }
 
   /**

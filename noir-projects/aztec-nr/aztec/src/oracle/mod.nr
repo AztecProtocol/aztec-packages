@@ -41,6 +41,8 @@ pub mod fact_store;
 #[generate_oracle_tests]
 pub mod public_call;
 pub mod tx_resolution;
+#[generate_oracle_tests]
+pub mod resolve_custom_request;
 #[generate_oracle_tests_excluding(
     @[
         quote { resolve_tagging_strategy_oracle }, // TODO: implement once we support more complex types

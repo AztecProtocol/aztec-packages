@@ -70,7 +70,8 @@ import {
   PrivateToPublicAccumulatedData,
   PublicCallRequest,
 } from '@aztec/stdlib/kernel';
-import { hashPublicKey } from '@aztec/stdlib/keys';
+import { deriveKeys, hashPublicKey } from '@aztec/stdlib/keys';
+import type { PrivateLog } from '@aztec/stdlib/logs';
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/stdlib/messaging';
 import { ChonkProof } from '@aztec/stdlib/proofs';
 import { makeGlobalVariables } from '@aztec/stdlib/testing';
@@ -183,7 +184,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     return (await this.stateMachine.node.getBlockData('latest'))!.header.globalVariables.timestamp;
   }
 
-  async getLastTxEffects() {
+  async getLastTxEffects(): Promise<{ txHash: TxHash; noteHashes: Fr[]; nullifiers: Fr[]; privateLogs: PrivateLog[] }> {
     const latestBlockNumber = await this.stateMachine.archiver.getBlockNumber();
     const block = await this.stateMachine.archiver.getBlock({ number: latestBlockNumber });
 
@@ -323,7 +324,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     await this.contractStore.addContractInstance(instance);
     await this.contractStore.addContractArtifact(artifact);
 
-    const completeAddress = await this.keyStore.addAccount(secret, partialAddress);
+    const completeAddress = await this.keyStore.addAccount(await deriveKeys(secret), partialAddress);
     await this.accountStore.setAccount(completeAddress.address, completeAddress);
     await this.addressStore.addCompleteAddress(completeAddress);
     this.logger.debug(`Created account ${completeAddress.address}`);
@@ -333,7 +334,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
 
   async createAccount(secret: Fr) {
     // This is a foot gun !
-    const completeAddress = await this.keyStore.addAccount(secret, secret);
+    const completeAddress = await this.keyStore.addAccount(await deriveKeys(secret), secret);
     await this.accountStore.setAccount(completeAddress.address, completeAddress);
     await this.addressStore.addCompleteAddress(completeAddress);
     this.logger.debug(`Created account ${completeAddress.address}`);

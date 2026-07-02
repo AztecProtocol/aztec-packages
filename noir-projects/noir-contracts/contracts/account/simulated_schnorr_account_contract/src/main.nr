@@ -56,7 +56,7 @@ pub contract SimulatedSchnorrAccount {
         self.context.emit_raw_note_log_unsafe(
             seed + 3,
             BoundedVec::from_array(dummy_log),
-            self.context.side_effect_counter,
+            self.context.get_side_effect_counter(),
         );
     }
 

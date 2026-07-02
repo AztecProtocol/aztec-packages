@@ -31,6 +31,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type ContractInstanceWithAddress, getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import { GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import type { MasterSecretKeys } from '@aztec/stdlib/keys';
 import {
   type ContractOverrides,
   ExecutionPayload,
@@ -265,12 +266,12 @@ export class EmbeddedWallet extends BaseWallet {
   public override async registerContract(
     instance: ContractInstanceWithAddress,
     artifact?: ContractArtifact,
-    secretKey?: Fr,
+    secretKeyOrKeys?: Fr | MasterSecretKeys,
   ): Promise<ContractInstanceWithAddress> {
     // registerContract may call pxe.updateContract under the hood, which depends on a fresh anchor
     // block to verify the current class id from the node.
     await this.pxe.sync();
-    return super.registerContract(instance, artifact, secretKey);
+    return super.registerContract(instance, artifact, secretKeyOrKeys);
   }
 
   /**

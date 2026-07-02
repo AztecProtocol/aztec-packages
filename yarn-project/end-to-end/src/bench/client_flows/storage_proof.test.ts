@@ -10,7 +10,7 @@ import { jest } from '@jest/globals';
 import {
   buildStorageProofCapsules,
   loadStorageProofArgs,
-} from '../../e2e_storage_proof/fixtures/storage_proof_fixture.js';
+} from '../../automine/contracts/fixtures/storage_proof_fixture.js';
 import type { TestWallet } from '../../test-wallet/test_wallet.js';
 import { captureProfile, expectedExecutionSteps } from './benchmark.js';
 import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';

@@ -18,6 +18,9 @@ WORKDIR "/usr/src/yarn-project"
 # Ensure the correct version shows in aztec --version
 ARG VERSION
 RUN echo '{".": "'$VERSION'"}' > /usr/src/.release-please-manifest.json
+# Stamp the version into stdlib/package.json, which getPackageVersion() reads at runtime.
+RUN jq --arg v "$VERSION" '.version = $v' /usr/src/yarn-project/stdlib/package.json > /tmp/p.json \
+    && mv /tmp/p.json /usr/src/yarn-project/stdlib/package.json
 
 # Stamp aztec_version into the shipped contract artifacts. The build-time stamp in
 # noir-projects/noir-contracts/bootstrap.sh writes "dev" unconditionally; $VERSION here is the authoritative release

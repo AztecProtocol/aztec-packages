@@ -381,7 +381,7 @@ pub contract Test {
 
     #[external("private")]
     fn assert_header_private(header_hash: Field) {
-        assert(self.context.anchor_block_header.hash() == header_hash, "Invalid header hash");
+        assert(self.context.get_anchor_block_header().hash() == header_hash, "Invalid header hash");
     }
 
     // TODO(4840): add AVM opcodes for getting header (members)

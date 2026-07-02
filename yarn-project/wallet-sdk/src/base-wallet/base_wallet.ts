@@ -54,6 +54,7 @@ import {
   computeSiloedPublicInitializationNullifier,
 } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import { type MasterSecretKeys, deriveKeys, deriveKeysFromMasterSecretKeys } from '@aztec/stdlib/keys';
 import {
   BlockHeader,
   ExecutionPayload,
@@ -354,7 +355,7 @@ export abstract class BaseWallet implements Wallet {
   async registerContract(
     instance: ContractInstanceWithAddress,
     artifact?: ContractArtifact,
-    secretKey?: Fr,
+    secretKeyOrKeys?: Fr | MasterSecretKeys,
   ): Promise<ContractInstanceWithAddress> {
     const existingInstance = await this.pxe.getContractInstance(instance.address);
 
@@ -383,8 +384,23 @@ export abstract class BaseWallet implements Wallet {
       await this.pxe.registerContract({ artifact, instance });
     }
 
-    if (secretKey) {
-      await this.pxe.registerAccount(secretKey, await computePartialAddress(instance));
+    if (secretKeyOrKeys) {
+      // PXE never receives the account seed (from which the message-signing/fallback secret keys could be re-derived):
+      // the wallet derives the keys here. Of these, PXE only reads and stores the four privacy secret keys and the
+      // message-signing and fallback *public* keys — it never touches the message-signing or fallback secret keys.
+      //
+      // Since PXE recomputes the address from those keys, we assert it matches the instance's address: a mismatch means
+      // the provided keys don't correspond to this account.
+      const derivedKeys =
+        secretKeyOrKeys instanceof Fr
+          ? await deriveKeys(secretKeyOrKeys)
+          : await deriveKeysFromMasterSecretKeys(secretKeyOrKeys);
+      const { address } = await this.pxe.registerAccount(derivedKeys, await computePartialAddress(instance));
+      if (!address.equals(instance.address)) {
+        throw new Error(
+          `Registered account address ${address.toString()} does not match contract instance address ${instance.address.toString()}: the provided keys do not correspond to this account.`,
+        );
+      }
     }
     return instance;
   }

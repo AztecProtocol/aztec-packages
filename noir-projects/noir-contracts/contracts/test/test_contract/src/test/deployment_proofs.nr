@@ -43,20 +43,30 @@ unconstrained fn contract_historical_proofs_happy_path() {
     let (env, contract_address, _owner, init_hash) = setup();
 
     env.private_context_opts(PrivateContextOptions::new().at_anchor_block_number(CONTRACT_DEPLOYED_AT - 1), |context| {
-        assert_contract_bytecode_was_not_published_by(context.anchor_block_header, contract_address);
+        assert_contract_bytecode_was_not_published_by(context.get_anchor_block_header(), contract_address);
     });
 
     env.private_context_opts(PrivateContextOptions::new().at_anchor_block_number(CONTRACT_DEPLOYED_AT), |context| {
-        assert_contract_bytecode_was_published_by(context.anchor_block_header, contract_address);
+        assert_contract_bytecode_was_published_by(context.get_anchor_block_header(), contract_address);
     });
 
     env.private_context_opts(
         PrivateContextOptions::new().at_anchor_block_number(CONTRACT_INITIALIZED_AT - 1),
-        |context| { assert_contract_was_not_initialized_by(context.anchor_block_header, contract_address, init_hash); },
+        |context| {
+            assert_contract_was_not_initialized_by(
+                context.get_anchor_block_header(),
+                contract_address,
+                init_hash,
+            );
+        },
     );
 
     env.private_context_opts(PrivateContextOptions::new().at_anchor_block_number(CONTRACT_INITIALIZED_AT), |context| {
-        assert_contract_was_initialized_by(context.anchor_block_header, contract_address, init_hash);
+        assert_contract_was_initialized_by(
+            context.get_anchor_block_header(),
+            contract_address,
+            init_hash,
+        );
     });
 }
 
@@ -67,7 +77,7 @@ unconstrained fn assert_contract_bytecode_was_published_by_before_deployment_fai
     // Note that we're only testing that the function fails, but not that it would correct reject bad hints from an
     // oracle
     env.private_context_opts(PrivateContextOptions::new().at_anchor_block_number(CONTRACT_DEPLOYED_AT - 1), |context| {
-        assert_contract_bytecode_was_published_by(context.anchor_block_header, contract_address);
+        assert_contract_bytecode_was_published_by(context.get_anchor_block_header(), contract_address);
     });
 }
 
@@ -79,7 +89,13 @@ unconstrained fn assert_contract_was_initialized_by_before_initialization_fails(
     // oracle
     env.private_context_opts(
         PrivateContextOptions::new().at_anchor_block_number(CONTRACT_INITIALIZED_AT - 1),
-        |context| { assert_contract_was_initialized_by(context.anchor_block_header, contract_address, init_hash); },
+        |context| {
+            assert_contract_was_initialized_by(
+                context.get_anchor_block_header(),
+                contract_address,
+                init_hash,
+            );
+        },
     );
 }
 
@@ -90,7 +106,7 @@ unconstrained fn assert_contract_bytecode_was_not_published_by_of_deployed_fails
     // Note that we're only testing that the function fails, but not that it would correct reject bad hints from an
     // oracle
     env.private_context_opts(PrivateContextOptions::new().at_anchor_block_number(CONTRACT_DEPLOYED_AT), |context| {
-        assert_contract_bytecode_was_not_published_by(context.anchor_block_header, contract_address);
+        assert_contract_bytecode_was_not_published_by(context.get_anchor_block_header(), contract_address);
     });
 }
 
@@ -99,7 +115,11 @@ unconstrained fn assert_contract_was_initialized_by_with_wrong_init_hash_fails()
     let (env, contract_address, _owner, _init_hash) = setup();
 
     env.private_context_opts(PrivateContextOptions::new().at_anchor_block_number(CONTRACT_INITIALIZED_AT), |context| {
-        assert_contract_was_initialized_by(context.anchor_block_header, contract_address, 0xdeadbeef);
+        assert_contract_was_initialized_by(
+            context.get_anchor_block_header(),
+            contract_address,
+            0xdeadbeef,
+        );
     });
 }
 
@@ -110,6 +130,10 @@ unconstrained fn assert_contract_was_not_initialized_by_of_initialized_fails() {
     // Note that we're only testing that the function fails, but not that it would correct reject bad hints from an
     // oracle
     env.private_context_opts(PrivateContextOptions::new().at_anchor_block_number(CONTRACT_INITIALIZED_AT), |context| {
-        assert_contract_was_not_initialized_by(context.anchor_block_header, contract_address, init_hash);
+        assert_contract_was_not_initialized_by(
+            context.get_anchor_block_header(),
+            contract_address,
+            init_hash,
+        );
     });
 }

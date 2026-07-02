@@ -5,9 +5,9 @@ import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { elapsed } from '@aztec/foundation/timer';
 import {
   type BlockHash,
+  EventDrivenL2BlockStream,
   type L2Block,
   type L2BlockSource,
-  L2BlockStream,
   type L2BlockStreamEvent,
   type L2BlockStreamEventHandler,
   type L2BlockStreamLocalDataProvider,
@@ -48,7 +48,7 @@ export class ServerWorldStateSynchronizer
   private currentState: WorldStateRunningState = WorldStateRunningState.IDLE;
 
   private syncPromise = promiseWithResolvers<void>();
-  protected blockStream: L2BlockStream | undefined;
+  protected blockStream: EventDrivenL2BlockStream | undefined;
 
   // WorldState doesn't track the proven block number, it only tracks the latest tips of the pending chain and the finalized chain
   // store the proven block number here, in the synchronizer, so that we don't end up spamming the logs with 'chain-proved' events
@@ -120,9 +120,9 @@ export class ServerWorldStateSynchronizer
     return this.syncPromise.promise;
   }
 
-  protected createBlockStream(): L2BlockStream {
+  protected createBlockStream(): EventDrivenL2BlockStream {
     const logger = createLogger('world-state:block_stream');
-    return new L2BlockStream(this.l2BlockSource, this, this, logger, {
+    return new EventDrivenL2BlockStream(this.l2BlockSource, this, this, logger, {
       pollIntervalMS: this.config.worldStateBlockCheckIntervalMS,
       batchSize: this.config.worldStateBlockRequestBatchSize,
       ignoreCheckpoints: true,
