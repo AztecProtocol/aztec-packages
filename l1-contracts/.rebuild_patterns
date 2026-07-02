@@ -1,16 +1,12 @@
 ^l1-contracts/src/.*\.sol$
 ^l1-contracts/test/.*\.sol$
 ^l1-contracts/script/.*\.sol$
-<<<<<<< HEAD
 ^l1-contracts/lib/.*
-=======
-^l1-contracts/scripts/forge_broadcast\.js$
->>>>>>> aaf448b89d (feat: merge-train/spartan-v5 (#24384))
 ^l1-contracts/bootstrap.sh
 ^l1-contracts/foundry.toml
 ^l1-contracts/foundry.lock
 ^l1-contracts/package.json
-^l1-contracts/scripts/forge_broadcast.js
+^l1-contracts/scripts/forge_broadcast\.js$
 ^l1-contracts/scripts/network-defaults.json
 ^l1-contracts/l1-artifacts/scripts/.*
 ^l1-contracts/l1-artifacts/package.json
