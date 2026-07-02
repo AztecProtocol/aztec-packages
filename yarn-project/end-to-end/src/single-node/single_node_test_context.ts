@@ -9,6 +9,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { MerkleTreeId } from '@aztec/aztec.js/trees';
 import type { Wallet } from '@aztec/aztec.js/wallet';
+import type { CheatCodes } from '@aztec/aztec/testing';
 import { EpochCache } from '@aztec/epoch-cache';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum/config';
@@ -993,7 +994,7 @@ export class SingleNodeTestContext {
   }
 
   /**
-   * Runs `warpFn` (an L1 clock warp) with every given node's sequencer stopped, then restarts them
+   * Warps the L1 clock to `target` with every given node's sequencer stopped, then restarts them
    * (pass `restart: false` to leave them stopped, e.g. until some clock-driven effect is confirmed).
    *
    * Warping the shared date provider under live sequencers interrupts whatever iteration is mid-build,
@@ -1003,18 +1004,33 @@ export class SingleNodeTestContext {
    * fire with a stale slot after the warp. Only the sequencers (and their validator clients/publishers)
    * are paused; archivers, provers, and the chain monitor keep running, so clock-driven effects of the
    * warp (e.g. an orphan-block prune) still fire.
+   *
+   * The warp is performed here (rather than via a caller-supplied callback) so it happens only after the
+   * graceful stop has drained. A graceful stop can take several slots, so a `target` computed before the
+   * stop may already lie in the past by the time the sequencers are down. The warp is therefore skipped
+   * when the L1 clock has already reached or passed `target` — `evm_setNextBlockTimestamp` rejects a
+   * non-advancing timestamp, so warping there would throw "timestamp in the past".
    */
   public async warpWithSequencersStopped(
     nodes: AztecNodeService[],
-    warpFn: () => Promise<void>,
+    cheatCodes: CheatCodes,
+    target: bigint,
     opts: { restart?: boolean } = {},
   ): Promise<void> {
     const sequencers = this.getSequencers(nodes);
     await testSpan('warp:sequencers-stopped', async () => {
       this.logger.warn(`Gracefully stopping ${sequencers.length} sequencers before warp`);
       await Promise.all(sequencers.map(sequencer => sequencer.stop({ graceful: true })));
-      this.logger.warn(`Warping with all sequencers stopped`);
-      await warpFn();
+      const currentTs = BigInt(await cheatCodes.eth.lastBlockTimestamp());
+      if (currentTs < target) {
+        this.logger.warn(`Warping L1 to ${target} with all sequencers stopped`, { currentTs, target });
+        await cheatCodes.eth.warp(Number(target), { resetBlockInterval: true });
+      } else {
+        this.logger.verbose(`Skipping warp: L1 clock ${currentTs} already at or past target ${target}`, {
+          currentTs,
+          target,
+        });
+      }
       if (opts.restart ?? true) {
         this.logger.warn(`Restarting ${sequencers.length} sequencers after warp`);
         await Promise.all(sequencers.map(sequencer => sequencer.start()));

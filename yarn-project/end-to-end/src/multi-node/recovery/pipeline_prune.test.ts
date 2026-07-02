@@ -181,11 +181,7 @@ describe('multi-node/recovery/pipeline_prune', () => {
     const pruneWarpTarget =
       getTimestampForSlot(SlotNumber(proposerSlotToNotPublish + 1), test.constants) +
       BigInt(2 * test.constants.ethereumSlotDuration);
-    await test.warpWithSequencersStopped(
-      nodes,
-      () => test.context.cheatCodes.eth.warp(Number(pruneWarpTarget), { resetBlockInterval: true }),
-      { restart: false },
-    );
+    await test.warpWithSequencersStopped(nodes, test.context.cheatCodes, pruneWarpTarget, { restart: false });
 
     const pruneTimeout = test.L2_SLOT_DURATION_IN_S * 5 * 1000;
     logger.warn(`Waiting for uncheckpointed blocks to be pruned (timeout=${pruneTimeout}ms)`);
