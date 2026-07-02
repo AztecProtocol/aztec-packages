@@ -28,6 +28,7 @@ jobs:
           types: |
             fix
             feat
+            perf
             chore
             refactor
             docs

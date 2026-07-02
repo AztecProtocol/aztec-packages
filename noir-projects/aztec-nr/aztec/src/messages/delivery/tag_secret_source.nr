@@ -16,6 +16,15 @@ pub(crate) struct TagSecretSource {
     secrets: AppSiloedHandshakeSecrets,
 }
 
+// Hand-written rather than `#[derive(Eq)]`: the derive resolves each field's `Eq` at expansion time and can't see
+// `AppSiloedHandshakeSecrets`'s own derived `Eq` (a cross-module derive dependency), whereas this direct comparison
+// resolves it normally.
+impl Eq for TagSecretSource {
+    fn eq(self, other: Self) -> bool {
+        (self.kind == other.kind) & (self.secrets == other.secrets)
+    }
+}
+
 impl TagSecretSource {
     /// Reuses the secrets of a handshake already registered for the pair (mode-agnostic).
     pub(crate) fn existing_handshake(secrets: AppSiloedHandshakeSecrets) -> Self {

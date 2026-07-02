@@ -5,7 +5,6 @@ import { RollupContract, STATE_VIEW_ADDRESS } from '@aztec/ethereum/contracts';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { retryUntil } from '@aztec/foundation/retry';
-import { sleep } from '@aztec/foundation/sleep';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import { CheckpointAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
@@ -45,7 +44,7 @@ const qosAlerts: AlertConfig[] = [
 
 // Tests that the fee-asset price oracle value set on a mock L1 StateView contract gossips through the
 // real libp2p validator network and converges on the rollup's on-chain price. Uses P2PNetworkTest with
-// SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES (ethSlot=4s, aztecSlot=24s, epoch=4, proofSubEpochs=640) plus a
+// SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES (ethSlot=4s, aztecSlot=12s, epoch=4, proofSubEpochs=640) plus a
 // real prover node. CHECK_ALERTS env var gates optional Grafana alert validation.
 describe('e2e_p2p_network', () => {
   let t: P2PNetworkTest;
@@ -62,7 +61,7 @@ describe('e2e_p2p_network', () => {
       startProverNode: false, // we'll start our own using p2p
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
-        aztecSlotDuration: 24,
+        aztecSlotDuration: 12,
         aztecEpochDuration: 4,
         slashingRoundSizeInEpochs: 2,
         slashingQuorum: 5,
@@ -96,7 +95,6 @@ describe('e2e_p2p_network', () => {
   // Deploys a MockStateView L1 contract, sets an initial oracle price, then starts 4 validator nodes
   // and a prover. Adjusts the oracle price twice and uses retryUntil to confirm the rollup's on-chain
   // price converges to each target within the gossip propagation window.
-  // REFACTOR: sleep(8000) for peer discovery is hand-rolled; replace with t.waitForP2PMeshConnectivity
   it('should rollup txs from all peers', async () => {
     // create the bootstrap node for the network
     if (!t.bootstrapNodeEnr) {
@@ -144,8 +142,8 @@ describe('e2e_p2p_network', () => {
       shouldCollectMetrics(),
     ));
 
-    // wait a bit for peers to discover each other
-    await sleep(8000);
+    // Wait for the validators to discover each other and form a gossip mesh before proceeding.
+    await t.waitForP2PMeshConnectivity(nodes);
 
     // We need to `createNodes` before we setup account, because
     // those nodes actually form the committee, and so we cannot build

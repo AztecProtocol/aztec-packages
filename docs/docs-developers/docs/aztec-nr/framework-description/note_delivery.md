@@ -161,7 +161,11 @@ Ask yourself: **"Is the sender incentivized to deliver this note correctly?"**
 
 ## Tagging secret strategy
 
-Onchain delivery tags every message so the recipient can find it efficiently (see [note discovery](#note-discovery-and-the-sender) below). Computing a tag requires a secret shared between sender and recipient, and there is more than one way for the two parties to come to share it. When an onchain handshake has been registered for the pair, the secret derived from it is reused directly. Otherwise the wallet decides how to proceed, since it knows which secrets it holds and how it wants to reach the recipient.
+Onchain delivery tags every message so the recipient can find it efficiently (see [note discovery](#note-discovery-and-the-sender) below). Computing a tag requires a secret shared between sender and recipient, and there is more than one way for the two parties to come to share it. The derivation is decided in this order:
+
+1. A contract can fix it itself at the point of delivery (see [overriding the strategy from the contract](#overriding-the-strategy-from-the-contract)).
+2. Otherwise, when an onchain handshake has been registered for the pair, the secret derived from it is reused directly.
+3. Otherwise, the wallet decides how to proceed, since it knows which secrets it holds and how it wants to reach the recipient.
 
 The wallet's answer is a **tagging secret strategy**: it expresses *which* secret to use, and if necessary, PXE performs a [Diffie-Hellman key exchange](https://www.geeksforgeeks.org/computer-networks/diffie-hellman-key-exchange-and-perfect-forward-secrecy/) and/or app-siloing before handing the ready-to-use secret to the contract. Wallets therefore never reimplement that derivation. There are three strategies today:
 
@@ -186,6 +190,16 @@ When no `resolveTaggingSecretStrategy` hook is configured, the PXE applies a def
 
 Wallets provide the strategy through the `resolveTaggingSecretStrategy` [execution hook](../../foundational-topics/pxe/execution_hooks.md) when creating their PXE. The hook receives the message context (executing contract, sender, recipient and delivery mode), so a wallet can answer per message instead of with a fixed value. That page also covers how to configure a strategy in Noir tests.
 
+### Overriding the strategy from the contract
+
+A contract can fix the derivation at the point of delivery with the builder's `via_*` methods. When it does, the wallet is not consulted at all; otherwise the wallet resolves the strategy as usual:
+
+```rust
+MessageDelivery::onchain_unconstrained().via_address_derived_secret()
+```
+
+Unconstrained delivery exposes `via_non_interactive_handshake()` and `via_address_derived_secret()`. Constrained delivery exposes only `via_non_interactive_handshake()`, since an address-derived secret cannot back constrained delivery.
+
 ## Note Discovery and the Sender
 
 When a note is delivered, recipients need to discover it among all the encrypted logs on the network. Aztec.nr uses a **tagging system** that requires computing a shared secret between the sender and recipient.
@@ -194,7 +208,7 @@ When a note is delivered, recipients need to discover it among all the encrypted
 
 The "sender" for note discovery is **not the contract calling `.deliver()`**. Instead, it's the **account contract** that initiated the transaction.
 
-When your wallet submits a transaction, it tells PXE which address to use as the sender for tags (typically the originating account). Recipients compute the tag to find their notes from a secret shared between the sender and recipient, and there is [more than one way to establish that secret](#tagging-secret-strategy), chosen by the wallet. Contracts can override the sender at message delivery via the `with_sender` builder method, which works for both constrained and unconstrained delivery, e.g. `MessageDelivery::onchain_constrained().with_sender(address)`.
+When your wallet submits a transaction, it tells PXE which address to use as the sender for tags (typically the originating account). Recipients compute the tag to find their notes from a secret shared between the sender and recipient, and there is [more than one way to establish that secret](#tagging-secret-strategy), chosen by the wallet. Contracts can override the sender at message delivery via the `with_sender` builder method, which works for both constrained and unconstrained delivery, e.g. `MessageDelivery::onchain_constrained().with_sender(address)`. They can similarly override how the tag secret is derived via the builder's `via_*` methods; see [overriding the strategy from the contract](#overriding-the-strategy-from-the-contract).
 
 **Example:** If Alice uses her account contract to call a token contract that mints tokens to Bob, the "sender for tags" is Alice's account contract address, not the token contract address.
 

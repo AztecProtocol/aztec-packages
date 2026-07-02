@@ -7,9 +7,9 @@ import { FeeJuicePortalAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { jest } from '@jest/globals';
 import { type GetContractReturnType, getContract } from 'viem';
 
-import { FullProverTest } from '../../fixtures/e2e_prover_test.js';
-import { PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
-import { proveInteraction } from '../../test-wallet/utils.js';
+import { FullProverTest } from '../../../fixtures/e2e_prover_test.js';
+import { PIPELINING_SETUP_OPTS } from '../../../fixtures/fixtures.js';
+import { proveInteraction } from '../../../test-wallet/utils.js';
 
 // Set a very long 20 minute timeout.
 const TIMEOUT = 1_200_000;

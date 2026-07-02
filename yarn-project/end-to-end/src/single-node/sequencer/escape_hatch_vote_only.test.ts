@@ -2,13 +2,12 @@ import { CheatCodes, EthCheatCodes } from '@aztec/aztec/testing';
 import { GovernanceProposerContract, RollupContract } from '@aztec/ethereum/contracts';
 import type { DeployAztecL1ContractsReturnType } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
-import { EpochNumber } from '@aztec/foundation/branded-types';
+import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Logger } from '@aztec/foundation/log';
-import { retryUntil } from '@aztec/foundation/retry';
 import { EscapeHatchAbi } from '@aztec/l1-artifacts/EscapeHatchAbi';
 import { EscapeHatchBytecode } from '@aztec/l1-artifacts/EscapeHatchBytecode';
 import { EscapeHatchStorage } from '@aztec/l1-artifacts/EscapeHatchStorage';
@@ -27,8 +26,13 @@ import type { SingleNodeTestContext } from '../single_node_test_context.js';
 
 const OPEN_THE_HATCH = true;
 
-const ETHEREUM_SLOT_DURATION = 12;
-const AZTEC_SLOT_DURATION = 36;
+// Run at the PIPELINING_SETUP_OPTS fast profile (eth=4s, aztec=12s). Every escape-hatch parameter below
+// is in epochs/slots (counts), not wall-clock seconds, so the open/closed-window math and the per-slot
+// vote-count assertions are invariant to slot duration — only the wall-clock cost of living through the
+// vote slots changes. The body has no proving-deadline assertion (aztecProofSubmissionEpochs=15), so the
+// eth<8 fast timing budgets are safe.
+const ETHEREUM_SLOT_DURATION = 4;
+const AZTEC_SLOT_DURATION = 12;
 const AZTEC_EPOCH_DURATION = 4;
 const ROUND_SIZE = AZTEC_EPOCH_DURATION * 64;
 const QUORUM_SIZE = ROUND_SIZE - 1; // Don't matter if almost impossible, not what we test
@@ -40,9 +44,9 @@ const ESCAPE_HATCH_ACTIVE_DURATION = 16n;
 jest.setTimeout(1000 * 60 * 5);
 
 // Tests the sequencer's behavior during an EscapeHatch voting window. One node running a 4-validator
-// committee with pipelining opts (ethSlot=12s, aztecSlot=36s, epoch=4, proofSubEpochs=15). The
+// committee with pipelining opts (ethSlot=4s, aztecSlot=12s, epoch=4, proofSubEpochs=15). The
 // beforeEach deploys a custom EscapeHatch L1 contract and wires it into the rollup. Timing driven by
-// cheatCodes.rollup.advanceToEpoch + retryUntil waits.
+// cheatCodes.rollup.advanceToEpoch + waitForEpoch/waitForSlot waits.
 // Setup: setupBlockProducer (no prover node) with { ...PIPELINING_SETUP_OPTS, overridden slots,
 // aztecTargetCommitteeSize=4 }.
 describe('single-node/sequencer/escape_hatch_vote_only', () => {
@@ -78,10 +82,11 @@ describe('single-node/sequencer/escape_hatch_vote_only', () => {
       validatorPrivateKeys: new SecretValue(validators.map(v => v.privateKey)),
       governanceProposerRoundSize: ROUND_SIZE,
       governanceProposerQuorum: QUORUM_SIZE,
-      // Override PIPELINING_SETUP_OPTS slot durations for the longer cadence this test needs.
+      // Inherit the PIPELINING_SETUP_OPTS fast slot durations (eth=4s, aztec=12s, blockDurationMs=3000).
+      // These slots are restated as named constants so the wait timeouts below scale with them.
       ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
       aztecSlotDuration: AZTEC_SLOT_DURATION,
-      blockDurationMs: 12000,
+      blockDurationMs: 3000,
       aztecEpochDuration: AZTEC_EPOCH_DURATION,
       // Keep pruning far away for this test.
       aztecProofSubmissionEpochs: 15, // needed so ACTIVE_DURATION=2 is a valid EscapeHatch config
@@ -156,7 +161,7 @@ describe('single-node/sequencer/escape_hatch_vote_only', () => {
 
   // Verifies that when the escape hatch is open the sequencer casts governance votes every slot without
   // building blocks or checkpoints, and that no failure events are emitted in the vote-only window.
-  // Waits two full epochs via retryUntil, then checks vote count >= slots elapsed and checkpoint count = 0.
+  // Waits two full epochs, then checks vote count >= slots elapsed and checkpoint count = 0.
   it('casts governance signals and advances checkpoints while escape hatch is closed', async () => {
     const sequencer = sequencerClient!.getSequencer();
 
@@ -240,14 +245,9 @@ describe('single-node/sequencer/escape_hatch_vote_only', () => {
     const initialStats = await getStats();
 
     // We will wait until epochs advance
-    // REFACTOR: retryUntil on epoch arithmetic should be replaced with a cheatCodes.rollup.waitForEpoch helper
-    await retryUntil(
-      async () =>
-        (await rollup.getEpochNumberForSlotNumber(await rollup.getSlotNumber())) >= initialStats.epoch + EpochNumber(2),
-      'epoch to advance',
-      AZTEC_SLOT_DURATION * AZTEC_EPOCH_DURATION * 3,
-      1,
-    );
+    await cheatCodes.rollup.waitForEpoch(EpochNumber(initialStats.epoch + EpochNumber(2)), {
+      timeout: AZTEC_SLOT_DURATION * AZTEC_EPOCH_DURATION * 3,
+    });
 
     // Snapshot the slot we will assert against now; under proposer pipelining the sequencer signs a vote in build
     // slot N for target slot N+1 and submits it at the start of N+1, so the votes corresponding to slots up through
@@ -256,14 +256,8 @@ describe('single-node/sequencer/escape_hatch_vote_only', () => {
     const slotAtMeasurement = await rollup.getSlotNumber();
     const slotsPassed = slotAtMeasurement - initialStats.slot;
     expect(slotsPassed).toBeGreaterThan(0);
-    const drainTarget = slotAtMeasurement + 2;
-    // REFACTOR: retryUntil on slot polling should be replaced with a rollup slot-wait helper
-    await retryUntil(
-      () => rollup.getSlotNumber().then(s => s >= drainTarget),
-      'pipelined vote drain',
-      AZTEC_SLOT_DURATION * 4,
-      1,
-    );
+    const drainTarget = SlotNumber(slotAtMeasurement + 2);
+    await cheatCodes.rollup.waitForSlot(drainTarget, { timeout: AZTEC_SLOT_DURATION * 4 });
 
     const finalStats = await getStats();
     expect(finalStats.votes - initialStats.votes).toBeGreaterThanOrEqual(slotsPassed);

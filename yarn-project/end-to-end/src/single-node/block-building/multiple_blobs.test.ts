@@ -3,7 +3,7 @@ import { BatchCall, NO_WAIT } from '@aztec/aztec.js/contracts';
 import { publishContractClass } from '@aztec/aztec.js/deployment';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
-import { type AztecNode, waitForTx } from '@aztec/aztec.js/node';
+import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { encodeCheckpointBlobDataFromBlocks } from '@aztec/blob-lib/encoding';
 import { FIELDS_PER_BLOB } from '@aztec/constants';
@@ -15,6 +15,7 @@ import { L2Block } from '@aztec/stdlib/block';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
 import { PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
+import { waitForTxs } from '../../fixtures/wait_helpers.js';
 import { setupBlockProducer } from '../setup.js';
 import type { SingleNodeTestContext } from '../single_node_test_context.js';
 
@@ -81,13 +82,10 @@ describe('single-node/block-building/multiple_blobs', () => {
 
     // Send them simultaneously to be picked up by the sequencer
     const sendResults = await Promise.all(provenTxs.map(tx => tx.send({ from: defaultAccountAddress, wait: NO_WAIT })));
-    // REFACTOR: Promise.all over individual waitForTx calls; a waitForTxs batch helper would
-    // consolidate this into a single polling loop.
     // Wait for all to be mined
-    const receipts = await Promise.all(
-      sendResults.map(({ txHash }) => {
-        return waitForTx(aztecNode, txHash);
-      }),
+    const receipts = await waitForTxs(
+      aztecNode,
+      sendResults.map(({ txHash }) => txHash),
     );
     // Check that all txs are in the same block.
     const blockNumber = receipts[0].blockNumber!;
