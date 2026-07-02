@@ -27,17 +27,6 @@ if [ -n "${NAME:-}" ]; then
   name_arg="--name $name"
   # Kill any existing container with the same name.
   docker rm -f "$name" &>/dev/null || true
-  # Under host load, dockerd can leave a container "Dead" or mid-removal for several
-  # seconds after `rm -f` returns, so wait for it to actually disappear before reusing
-  # the name below. Otherwise `docker run --name` races into "Conflict, name already in use".
-  for _ in $(seq 1 30); do
-    docker container inspect "$name" &>/dev/null || break
-    sleep 1
-  done
-  if docker container inspect "$name" &>/dev/null; then
-    echo "docker_isolate: dockerd failed to remove stale container $name within 30s" >&2
-    exit 1
-  fi
 fi
 
 # For pinning to given CPUs.
@@ -69,12 +58,12 @@ fi
 # Launch the container in the background.
 # Don't launch in the foreground or you can't process SIGINT/SIGTERM.
 # Don't use & as we want to block, and be sure it starts before processing any signals.
-# Even after the inspect wait above, dockerd can release the old container's name a beat after
-# the container stops being inspectable (teardown/name-registry race), so `docker run --name`
-# can still hit "Conflict, name already in use". Retry a bounded number of times, force-removing
+# Under host load, dockerd can release a removed container's name several seconds after
+# `rm -f` returns (teardown/name-registry race), so `docker run --name` can hit
+# "Conflict, name already in use". Retry with backoff (~30s total), force-removing
 # the name's holder between attempts.
 run_err=$(mktemp)
-max_attempts=5
+max_attempts=6
 for attempt in $(seq 1 $max_attempts); do
   set -x +e
   cid=$(docker run -d \
@@ -115,7 +104,7 @@ for attempt in $(seq 1 $max_attempts); do
       && grep -qi "already in use by container" "$run_err"; then
     echo "docker_isolate: name conflict for $name (attempt $attempt/$max_attempts), removing and retrying" >&2
     docker rm -f "$name" &>/dev/null || true
-    sleep 1
+    sleep $((1 << (attempt - 1)))
     continue
   fi
   exit "$run_code"
