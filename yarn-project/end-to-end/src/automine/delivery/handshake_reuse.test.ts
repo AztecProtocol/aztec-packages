@@ -20,7 +20,7 @@ describe('handshake_reuse', () => {
       return Promise.resolve({ type: 'non-interactive-handshake' });
     },
     additionalTests: () => {
-      it('the strategy hook fires exactly once, to bootstrap the handshake on the first (constrained) send', () => {
+      it('the strategy hook fires exactly once, to bootstrap the handshake on the first constrained send', () => {
         expect(forwardHookCalls).toHaveLength(1);
         expect(forwardHookCalls[0]).toBe(AppTaggingSecretKind.CONSTRAINED);
       });
@@ -41,7 +41,7 @@ describe('handshake_reuse', () => {
       return Promise.resolve({ type: 'non-interactive-handshake' });
     },
     additionalTests: () => {
-      it('the strategy hook fires exactly once, to bootstrap the handshake on the first (unconstrained) send', () => {
+      it('the strategy hook fires exactly once, to bootstrap the handshake on the first unconstrained send', () => {
         expect(reverseHookCalls).toHaveLength(1);
         expect(reverseHookCalls[0]).toBe(AppTaggingSecretKind.UNCONSTRAINED);
       });
