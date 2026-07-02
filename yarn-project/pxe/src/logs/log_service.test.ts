@@ -8,6 +8,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2TipsProvider } from '@aztec/stdlib/block';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
+import { deriveKeys } from '@aztec/stdlib/keys';
 import { AppTaggingSecret, type LogResult, SiloedTag, Tag, computeSharedTaggingSecret } from '@aztec/stdlib/logs';
 import { makeBlockHeader, makeL2Tips, randomPrivateLogResult } from '@aztec/stdlib/testing';
 
@@ -320,7 +321,7 @@ describe('LogService', () => {
       l2TipsProvider.getL2Tips.mockResolvedValue(makeL2Tips(testContext.anchorBlockHeader.globalVariables.blockNumber));
 
       // A real recipient account, so the ECDH tag derivation has the keys and address preimage it needs.
-      recipientCompleteAddress = await keyStore.addAccount(new Fr(1), Fr.random());
+      recipientCompleteAddress = await keyStore.addAccount(await deriveKeys(new Fr(1)), Fr.random());
       recipient = recipientCompleteAddress.address;
       await addressStore.addCompleteAddress(recipientCompleteAddress);
 
