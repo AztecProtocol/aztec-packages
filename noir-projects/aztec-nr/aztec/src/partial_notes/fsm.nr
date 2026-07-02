@@ -3,22 +3,22 @@
 //! A partial note arrives in two parts: a private part (delivered first, carrying the owner, randomness, completion-log
 //! tag, note type, and packed private content) and a public *completion log* (storage slot + packed public content).
 //! The note can only be discovered and stored once both are combined. The state chart below summarizes how a single
-//! partial note's reception advances, including how reorgs fold it back.
+//! partial note's process unfolds, including how reorgs cause it to rewind.
 //!
 //! ```text
-//!                   init() (partial note delivered)
+//!                   init() (partial note delivery message, including tx and block data)
 //!                         |
 //!                         v
-//!                     +-----------+    completion log found     +-----------+
-//!                ---- |           | --------------------------> |           |
-//!  log not found |    |           |                             |           |     discover note(s),
-//!                |--> |  PENDING  |                             | COMPLETED | ~~> enqueue for validation
-//!                     |           | <-------------------------- |           |
-//!                     |           |  completion block re-orged  |           |
-//!                     +-----------+                             +-----------+
-//!                         |                                         |
-//!                         |  delivery block re-orged                |  completion block finalized
-//!                         v                                         v
+//!                     +-----------+    completion log found         +-----------+
+//!                ---- |           | ------------------------------> |           |
+//!  log not found |    |           |                                 |           |     discover note(s),
+//!                |--> |  PENDING  |                                 | COMPLETED | ~~> enqueue for storage, etc
+//!                     |           | <------------------------------ |           |
+//!                     |           |  completion log block re-orged  |           |
+//!                     +-----------+                                 +-----------+
+//!                         |                                               |
+//!                         |  delivery message block re-orged              |  completion log block finalized
+//!                         v                                               v
 //!                   +---------------------------------------------------------+
 //!                   |               TERMINATED (process ends)                 |
 //!                   +---------------------------------------------------------+
@@ -28,7 +28,7 @@
 //!
 //! - **Pending**: the private part has been received but the completion log has not been found yet. While in this
 //!   state, message discovery keeps searching for that log on each sync.
-//! - **Completed**: the completion log was found, so the note was discovered and enqueued for storage. Because the
+//! - **Completed**: the completion log was found, so the note was completed and enqueued for storage. Because the
 //!   block containing the completion log can be dropped by a reorg, this state is not terminal until the block
 //!   finalizes: a reorg dropping it rewinds the FSM back to `Pending` state.
 //! - **Terminated**: nothing else can be done with the partial note, either because its delivery block was re-orged
@@ -56,8 +56,11 @@
 //!   the pending note), whose payload is the serialized [`DeliveredPendingPartialNote`];
 //! - once the completion log is found, a retractable `PARTIAL_NOTE_COMPLETED` fact tied to the completion log block.
 //!
-//! Status folds from the canonical fact set: `delivered` only ⇒ Pending; `delivered` + canonical `completed` ⇒
-//! Completed. A reorg retracting either fact folds the reception back accordingly.
+//! Status folds from the canonical fact set:
+//!     - `delivered` only ⇒ Pending
+//!     - `delivered` + `completed` ⇒ Completed
+//!
+//! A reorg retracting either fact folds the reception back accordingly.
 use crate::ephemeral::EphemeralArray;
 use crate::facts::{
     delete_fact_collection, Fact, FactCollection, get_fact_collections_by_type, OriginBlock, record_retractable_fact,
@@ -81,7 +84,7 @@ global PARTIAL_NOTE_DELIVERED: Field = sha256_to_field("AZTEC_NR::PARTIAL_NOTE_D
 /// Fact type id marking a partial note as completed (its note has been discovered and enqueued).
 global PARTIAL_NOTE_COMPLETED: Field = sha256_to_field("AZTEC_NR::PARTIAL_NOTE_COMPLETED".as_bytes());
 
-/// A single partial note's reception machine, backed by a [`FactCollection`](crate::facts::FactCollection).
+/// A single partial note's finite state machine, backed by a [`FactCollection`](crate::facts::FactCollection).
 #[derive(Deserialize, Serialize)]
 pub(crate) struct PartialNoteFsm {
     collection: FactCollection,
