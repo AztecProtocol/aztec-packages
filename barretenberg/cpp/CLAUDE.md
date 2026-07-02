@@ -196,7 +196,7 @@ For bb.js, run:
 
 ```bash
 barretenberg/cpp/scripts/chonk_inputs.sh download
-barretenberg/ts/scripts/run_test.sh bbapi/chonk_pinned_inputs.test.js
+barretenberg/ts/bb.js/scripts/run_test.sh bbapi/chonk_pinned_inputs.test.js
 ```
 
 Typical workflow

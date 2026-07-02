@@ -40,6 +40,24 @@ variable "OTEL_COLLECTOR_ENDPOINT_GCP_SECRET_NAME" {
   default     = "otel-collector-url"
 }
 
+variable "EXTERNAL_SECRET_STORE_NAME" {
+  description = "ExternalSecrets SecretStore or ClusterSecretStore name."
+  type        = string
+  default     = "gcp-secret-store"
+}
+
+variable "EXTERNAL_SECRET_STORE_KIND" {
+  description = "ExternalSecrets store kind."
+  type        = string
+  default     = "ClusterSecretStore"
+}
+
+variable "EXTERNAL_SECRET_REFRESH_INTERVAL" {
+  description = "ExternalSecret refresh interval."
+  type        = string
+  default     = "1m"
+}
+
 variable "IRM_METRICS_ENABLED" {
   description = "Whether to deploy Alloy to forward allowlisted RPC gateway metrics to Grafana Cloud."
   type        = bool

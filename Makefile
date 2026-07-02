@@ -47,7 +47,7 @@ endef
 # PHONY TARGETS - List every target that has a file/dir of the same name.
 #==============================================================================
 
-.PHONY: noir barretenberg noir-projects l1-contracts release-image boxes playground docs aztec-up spartan wsdb
+.PHONY: noir barretenberg noir-projects l1-contracts release-image boxes playground docs aztec-up spartan wsdb bb-avm-sim
 
 #==============================================================================
 # BOOTSTRAP TARGETS
@@ -69,7 +69,7 @@ full: fast bb-full-tests bb-cpp-full yarn-project-benches
 bench: yarn-project-benches bb-sol bb-acir
 
 # Release. Everything plus copy bb cross compiles to ts projects.
-release: fast bb-cpp-release-dir bb-ts-cross-copy ipc-runtime-cross
+release: fast bb-cpp-release-dir bb-ts-cross-copy bb-avm-sim-cross-copy ipc-runtime-cross
 
 #==============================================================================
 # Noir
@@ -104,7 +104,7 @@ avm-transpiler-cross: avm-transpiler-cross-amd64-macos avm-transpiler-cross-arm6
 #==============================================================================
 
 # Barretenberg - Aggregate target for all barretenberg sub-projects.
-barretenberg: bb-cpp bb-ts bb-rs bb-acir bb-docs bb-sol bb-bbup bb-crs
+barretenberg: bb-cpp bb-ts bb-avm-sim bb-rs bb-acir bb-docs bb-sol bb-bbup bb-crs
 
 # BB C++ - Main aggregate target.
 bb-cpp: bb-cpp-native bb-cpp-wasm bb-cpp-wasm-threads
@@ -225,11 +225,17 @@ bb-cpp-full: bb-cpp bb-cpp-gcc bb-cpp-fuzzing bb-cpp-windows bb-cpp-asan bb-cpp-
 
 # BB TypeScript - TypeScript bindings
 bb-ts: bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-native ipc-runtime
-	$(call build,$@,barretenberg/ts)
+	$(call build,$@,barretenberg/ts,build_bb_js)
 
 # Copies the cross-compiles into bb.js.
 bb-ts-cross-copy: bb-ts bb-cpp-cross
-	$(call build,$@,barretenberg/ts,cross_copy)
+	$(call build,$@,barretenberg/ts,cross_copy_bb_js)
+
+bb-avm-sim: ipc-codegen ipc-runtime bb-cpp-native
+	$(call build,$@,barretenberg/ts,build_bb_avm_sim)
+
+bb-avm-sim-cross-copy: bb-avm-sim bb-cpp-cross
+	$(call build,$@,barretenberg/ts,cross_copy_bb_avm_sim)
 
 # BB Rust - barretenberg-rs FFI crate
 bb-rs: bb-ts bb-cpp-native
@@ -415,7 +421,7 @@ l1-contracts-tests: l1-contracts-verifier
 # Yarn Project - TypeScript monorepo with all TS packages
 #==============================================================================
 
-yarn-project: bb-ts noir-projects l1-contracts wsdb
+yarn-project: bb-ts noir-projects l1-contracts wsdb bb-avm-sim
 	$(call build,$@,yarn-project)
 
 yarn-project-tests: yarn-project

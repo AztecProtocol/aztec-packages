@@ -20,10 +20,16 @@ dependencies:
   - "@aztec/pxe"
   - "@aztec/noir-contracts.js"
   # Packages outside yarn-project/ - use explicit link paths
-  - "link:@aztec/bb.js:barretenberg/ts"
+  - "link:@aztec/bb.js:barretenberg/ts/bb.js"
   - "link:@aztec/noir-noir_js:noir/packages/noir_js"
   # Transitive dependencies of @aztec/noir-noir_js
   - "link:@aztec/noir-acvm_js:noir/packages/acvm_js"
   - "link:@aztec/noir-noirc_abi:noir/packages/noirc_abi"
   - "link:@aztec/noir-types:noir/packages/types"
+  # Runtime deps of @aztec/bb.js (linked, so its own deps are not auto-installed)
   - "npm:pako"
+  - "npm:msgpackr"
+  - "npm:comlink"
+  - "npm:idb-keyval"
+  - "npm:commander"
+  - "npm:tslib"

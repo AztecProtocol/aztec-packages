@@ -150,18 +150,34 @@ if [ "${NO_SPOT:-0}" -ne 1 ]; then
   done
 fi
 
-# On-demand fallback (cheapest pool) only if spot couldn't be had.
+# On-demand fallback (cheapest pool) only if spot couldn't be had. Some pinned pools (e.g.
+# m6a.metal for benchmarks) can hit InsufficientInstanceCapacity even on-demand, so retry
+# the whole request until a time budget expires rather than giving up on the first miss.
 if [ -z "$iid" ]; then
-  echo "Requesting on-demand fleet $info..."
-  resp=$(aws ec2 create-fleet \
-    --type instant \
-    --target-capacity-specification "TotalTargetCapacity=1,DefaultTargetCapacityType=on-demand" \
-    --on-demand-options "AllocationStrategy=lowest-price" \
-    --launch-template-configs "$ltc" \
-    --output json 2>"$state_dir/fleet_err") || true
-  iid=$(echo "$resp" | jq -r '.Instances[0].InstanceIds[0] // empty' 2>/dev/null || true)
-  instance_type=$(echo "$resp" | jq -r '.Instances[0].InstanceType // empty')
-  lifecycle=ondemand
+  ondemand_timeout=${CI_ONDEMAND_TIMEOUT:-300}
+  ondemand_poll=${CI_ONDEMAND_POLL:-20}
+  SECONDS=0
+  while true; do
+    echo "Requesting on-demand fleet $info..."
+    resp=$(aws ec2 create-fleet \
+      --type instant \
+      --target-capacity-specification "TotalTargetCapacity=1,DefaultTargetCapacityType=on-demand" \
+      --on-demand-options "AllocationStrategy=lowest-price" \
+      --launch-template-configs "$ltc" \
+      --output json 2>"$state_dir/fleet_err") || true
+    iid=$(echo "$resp" | jq -r '.Instances[0].InstanceIds[0] // empty' 2>/dev/null || true)
+    if [ -n "$iid" ]; then
+      instance_type=$(echo "$resp" | jq -r '.Instances[0].InstanceType // empty')
+      lifecycle=ondemand
+      break
+    fi
+    if (( SECONDS + ondemand_poll >= ondemand_timeout )); then
+      echo "On-demand fleet unfulfilled after ${ondemand_timeout}s; giving up."
+      break
+    fi
+    echo "On-demand capacity unavailable$(echo "$resp" | jq -r '.Errors[0].ErrorCode // "" | if . == "" then "" else " (" + . + ")" end' 2>/dev/null); retrying in ${ondemand_poll}s (elapsed ${SECONDS}s)..."
+    sleep "$ondemand_poll"
+  done
 fi
 
 if [ -z "$iid" ]; then

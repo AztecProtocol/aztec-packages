@@ -68,6 +68,12 @@ variable "KONG_TRUSTED_IP_RANGES" {
   default     = []
 }
 
+variable "KONG_NODE_SELECTOR" {
+  description = "Node selector applied to Kong gateway and controller pods."
+  type        = map(string)
+  default     = {}
+}
+
 variable "KONG_EXTRA_HELM_VALUES" {
   description = "Additional YAML values passed to the Kong Helm chart."
   type        = list(string)
@@ -81,7 +87,7 @@ variable "KONG_SERVICE_MONITOR_ENABLED" {
 }
 
 variable "KONG_METRICS_SERVICE_ENABLED" {
-  description = "Whether to expose Kong's status /metrics endpoint through a Kubernetes Service. The service is also created automatically when local OTel collection is enabled."
+  description = "Whether to expose Kong's status /metrics endpoint through a Kubernetes Service."
   type        = bool
   default     = false
 }
@@ -134,48 +140,6 @@ variable "KONG_METRICS_SERVICE_SELECTOR" {
   default     = {}
 }
 
-variable "KONG_OTEL_METRICS_GCP_SECRET_NAME" {
-  description = "GCP Secret Manager secret name containing the central OTLP/HTTP collector endpoint. When empty, no local Kong metrics collector is deployed."
-  type        = string
-  default     = ""
-}
-
-variable "KONG_OTEL_METRICS_PUSH_INTERVAL_SECONDS" {
-  description = "How often the local OTel collector scrapes Kong metrics before exporting to the central collector."
-  type        = number
-  default     = 15
-}
-
-variable "KONG_OTEL_METRICS_COLLECTOR_IMAGE" {
-  description = "Container image for the local OTel collector that scrapes Kong metrics."
-  type        = string
-  default     = "otel/opentelemetry-collector-contrib:0.154.0"
-}
-
-variable "KONG_OTEL_METRICS_COLLECTOR_REPLICAS" {
-  description = "Replica count for the local Kong metrics OTel collector."
-  type        = number
-  default     = 1
-}
-
-variable "KONG_OTEL_METRICS_COLLECTOR_RESOURCES" {
-  description = "Resource requests and limits for the local Kong metrics OTel collector."
-  type = object({
-    requests = map(string)
-    limits   = map(string)
-  })
-  default = {
-    requests = {
-      cpu    = "50m"
-      memory = "128Mi"
-    }
-    limits = {
-      cpu    = "200m"
-      memory = "256Mi"
-    }
-  }
-}
-
 variable "API_KEY_HEADER_NAME" {
   description = "Header checked by Kong's key-auth plugin."
   type        = string
@@ -203,6 +167,9 @@ variable "ROUTES" {
     upstream_service_port       = number
     auth_mode                   = string
     anonymous_rate_limit_minute = number
+    path                        = optional(string, "/")
+    path_type                   = optional(string, "Prefix")
+    strip_path                  = optional(bool, false)
   }))
 
   validation {
@@ -221,10 +188,22 @@ variable "ROUTES" {
   }
 }
 
+variable "ROUTE_RESOURCE_SUFFIX" {
+  description = "Suffix used in generated route and plugin resource names."
+  type        = string
+  default     = "rpc"
+}
+
 variable "ROUTE_ANNOTATIONS" {
   description = "Additional annotations applied to every Kong-managed RPC Ingress."
   type        = map(string)
   default     = {}
+}
+
+variable "UPSTREAM_POLICY_ENABLED" {
+  description = "Whether to create the shared KongUpstreamPolicy used by annotated upstream Services."
+  type        = bool
+  default     = true
 }
 
 variable "CONSUMERS" {

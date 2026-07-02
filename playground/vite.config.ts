@@ -120,7 +120,7 @@ export default defineConfig(({ mode }) => {
           '../yarn-project/noir-protocol-circuits-types/artifacts',
           '../noir/packages/noirc_abi/web',
           '../noir/packages/acvm_js/web',
-          '../barretenberg/ts/dest/browser',
+          '../barretenberg/ts/bb.js/dest/browser',
         ],
       },
     },
@@ -158,9 +158,11 @@ export default defineConfig(({ mode }) => {
         // greatly needed here.
         // - Dec 2025: bumped from 4500 --> 4600 as SimpleToken grew a bit again.
         // PR: https://github.com/AztecProtocol/aztec-packages/pull/18815
+        // - 2026-06-18: bumped from 4600 => 4700 after rebuilding the bb.js browser package at its new
+        //   barretenberg/ts/bb.js path produced assets/barretenberg-*.js at 4641.65 KB.
         {
           pattern: /.*/,
-          maxSizeKB: 4600,
+          maxSizeKB: 4700,
           description: 'Detect if json artifacts or bb.js wasm get out of control',
         },
       ]),

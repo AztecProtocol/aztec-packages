@@ -28,6 +28,7 @@
 <h3>Methods</h3>
 <ul class="sidebar-list">
 <li><a href="#call">call</a></li>
+<li><a href="#msg_sender">msg_sender</a></li>
 <li><a href="#new">new</a></li>
 </ul>
 <h2>In module contract_self_utility</h2>
@@ -91,6 +92,17 @@ refer to our docs: <a href="https://docs.aztec.network/developers/docs/guides/sm
 <p>Creates a new <code>ContractSelfUtility</code> instance for a utility function.</p>
 <p>This constructor is called automatically by the macro system and should not be called directly.</p>
 </div>
+</div><code id="msg_sender" class="code-header">pub unconstrained fn <a href="#msg_sender"><span class="fn">msg_sender</span></a>(self) -> <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code>
+
+<div class="padded-description"><div class="comments">
+<p>The address of the contract that made this function call.</p>
+<p>This is similar to Solidity's <code>msg.sender</code> value.</p>
+<h4>Direct Invocation</h4>
+<p>A utility function invoked directly (e.g. by a wallet or dApp) rather than from another contract has no caller,
+and this function panics. Only a nested (cross-contract) utility call has a <code>msg_sender</code>.</p>
+<p>If you need to handle the no-caller case, use <a href="../../../noir_aztec/context/struct.UtilityContext.html#maybe_msg_sender"><code>UtilityContext::maybe_msg_sender</code></a>.</p>
+<p>Note that utility functions are simulated client-side and never proven, so this value is unconstrained: see
+<a href="../../../noir_aztec/context/struct.UtilityContext.html#maybe_msg_sender"><code>UtilityContext::maybe_msg_sender</code></a> for why it must not be relied on as a security guarantee.</p></div>
 </div><code id="call" class="code-header">pub unconstrained fn <a href="#call"><span class="fn">call</span></a>&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
     _self: Self,
     call: <a href="../../../noir_aztec/context/calls/struct.UtilityCall.html" class="struct">UtilityCall</a>&lt;M, N, T&gt;,

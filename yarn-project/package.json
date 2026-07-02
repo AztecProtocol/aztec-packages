@@ -84,7 +84,7 @@
     "typescript": "^5.3.3"
   },
   "resolutions": {
-    "@aztec/bb.js": "portal:../barretenberg/ts",
+    "@aztec/bb.js": "portal:../barretenberg/ts/bb.js",
     "@aztec/ipc-runtime": "portal:../ipc-runtime/ts",
     "@aztec/wsdb": "portal:../wsdb/ts",
     "@aztec/wsdb-darwin-arm64": "portal:../wsdb/ts/packages/wsdb-darwin-arm64",

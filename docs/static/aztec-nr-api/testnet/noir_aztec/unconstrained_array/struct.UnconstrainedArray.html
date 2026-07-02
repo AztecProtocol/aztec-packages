@@ -150,10 +150,10 @@ the index is out of bounds.</p>
 
 <div class="padded-description"><div class="comments">
 <p>Calls a function on each element of the array.</p>
-<p>The function <code>f</code> is called once with each array value and its corresponding index. Iteration proceeds
-backwards so that it is safe to remove the current element (and only the current element) inside the
-callback.</p>
-<p>It is <strong>not</strong> safe to push new elements from inside the callback.</p>
+<p>The function <code>f</code> is called once with each array value and its corresponding index, in order (from the first
+element to the last).</p>
+<p>Structurally mutating the array from inside the callback (e.g. via <code>push</code>, <code>pop</code>, <code>remove</code> or <code>clear</code>) is
+<strong>not</strong> supported: it can cause elements to be skipped, visited more than once, or read out of bounds.</p>
 </div>
 </div><code id="map" class="code-header">pub unconstrained fn <a href="#map"><span class="fn">map</span></a>&lt;U, Env&gt;(
     self,

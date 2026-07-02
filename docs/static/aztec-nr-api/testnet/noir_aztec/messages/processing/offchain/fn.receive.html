@@ -46,12 +46,9 @@
 message to the recipient through an external channel (e.g. a URL accessible by the recipient). The recipient then
 calls this function to hand the messages to the contract so they can be processed through the same mechanisms as
 onchain messages.</p>
-<p>Each message is routed to the inbox scoped to its <code>recipient</code> field, so messages for different accounts are
-automatically isolated.</p>
 <p>Messages are processed when their originating transaction is found onchain (providing the context needed to
 validate resulting notes and events).</p>
-<p>Messages are kept in the inbox until they expire. The effective expiration is
-<code>anchor_block_timestamp + MAX_MSG_TTL</code>.</p>
+<p>Messages are kept in the inbox until they expire. The expiration is set to <code>anchor_block_timestamp + MAX_MSG_TTL</code></p>
 <p>Processing order is not guaranteed.</p>
 </div>
 </main>
