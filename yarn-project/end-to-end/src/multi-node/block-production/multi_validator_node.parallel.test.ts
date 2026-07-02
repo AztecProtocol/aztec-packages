@@ -27,7 +27,7 @@ const COMMITTEE_SIZE = VALIDATOR_COUNT - 2;
 // Tests that a single AztecNodeService hosting multiple validator keys correctly signs attestations
 // and filters signing to only active committee members. One node, 5 validators staked, committee
 // size 3. Uses MultiNodeTestContext on the mock-gossip bus: all 5 validators on a single physical
-// node, ethSlot=8s, aztecSlot=36s, epoch=2, proofSubEpochs=NO_REORG_SUBMISSION_EPOCHS. Each it is an isolated CI job
+// node, ethSlot=8s, aztecSlot=16s, epoch=2, proofSubEpochs=NO_REORG_SUBMISSION_EPOCHS. Each it is an isolated CI job
 // (parallel convention).
 describe('multi-node/block-production/multi_validator_node', () => {
   jest.setTimeout(15 * 60 * 1000);
@@ -51,10 +51,10 @@ describe('multi-node/block-production/multi_validator_node', () => {
       aztecTargetCommitteeSize: COMMITTEE_SIZE,
       aztecEpochDuration: 2,
       ethereumSlotDuration: 8,
-      aztecSlotDuration: 36,
+      aztecSlotDuration: 16,
       aztecProofSubmissionEpochs: NO_REORG_SUBMISSION_EPOCHS,
       anvilSlotsInAnEpoch: 4,
-      blockDurationMs: 6000,
+      blockDurationMs: 2000,
       minTxsPerBlock: 0,
       inboxLag: 2,
     });
