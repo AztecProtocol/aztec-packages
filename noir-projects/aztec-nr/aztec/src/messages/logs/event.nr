@@ -62,8 +62,8 @@ where
 
 /// Decodes the plaintext from a private event message (i.e. one of type [`PRIVATE_EVENT_MSG_TYPE_ID`]).
 ///
-/// Returns `None` if `msg_content` has too few fields. This plaintext is meant to have originated
-/// from [`encode_private_event_message`].
+/// Returns `None` if `msg_content` is too short to contain the reserved fields. This plaintext is meant to have
+/// originated from [`encode_private_event_message`].
 ///
 /// Note that while [`encode_private_event_message`] returns a fixed-size array, this function takes a [`BoundedVec`]
 /// instead. This is because when decoding we're typically processing runtime-sized plaintexts, more specifically,
@@ -72,7 +72,7 @@ pub(crate) unconstrained fn decode_private_event_message(
     msg_metadata: u64,
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
 ) -> Option<(EventSelector, Field, BoundedVec<Field, MAX_EVENT_SERIALIZED_LEN>)> {
-    if msg_content.len() <= PRIVATE_EVENT_MSG_PLAINTEXT_RESERVED_FIELDS_LEN {
+    if msg_content.len() < PRIVATE_EVENT_MSG_PLAINTEXT_RESERVED_FIELDS_LEN {
         Option::none()
     } else {
         let event_type_id = EventSelector::from_field(msg_metadata as Field);
@@ -93,14 +93,14 @@ pub(crate) unconstrained fn decode_private_event_message(
 
 mod test {
     use crate::{
-        event::event_interface::EventInterface,
+        event::{event_interface::EventInterface, EventSelector},
         messages::{
             encoding::decode_message,
             logs::event::{decode_private_event_message, encode_private_event_message},
             msg_type::PRIVATE_EVENT_MSG_TYPE_ID,
         },
     };
-    use crate::protocol::traits::Serialize;
+    use crate::protocol::traits::{FromField, Serialize};
     use crate::test::mocks::mock_event::MockEvent;
 
     global VALUE: Field = 7;
@@ -125,6 +125,32 @@ mod test {
         assert_eq(serialized_event, BoundedVec::from_array(event.serialize()));
     }
 
+    #[derive(Serialize)]
+    struct EmptyEvent {}
+
+    impl EventInterface for EmptyEvent {
+        fn get_event_type_id() -> EventSelector {
+            EventSelector::from_field(90)
+        }
+    }
+
+    #[test]
+    unconstrained fn encode_decode_empty_event() {
+        let message_plaintext = encode_private_event_message(EmptyEvent {}, RANDOMNESS);
+
+        let (msg_type_id, msg_metadata, msg_content) =
+            decode_message(BoundedVec::from_array(message_plaintext)).unwrap();
+
+        assert_eq(msg_type_id, PRIVATE_EVENT_MSG_TYPE_ID);
+
+        let (event_type_id, randomness, serialized_event) =
+            decode_private_event_message(msg_metadata, msg_content).unwrap();
+
+        assert_eq(event_type_id, EmptyEvent::get_event_type_id());
+        assert_eq(randomness, RANDOMNESS);
+        assert_eq(serialized_event.len(), 0);
+    }
+
     #[test]
     unconstrained fn decode_empty_content_returns_none() {
         let empty = BoundedVec::new();
@@ -132,8 +158,12 @@ mod test {
     }
 
     #[test]
-    unconstrained fn decode_with_only_reserved_fields_returns_none() {
-        let content = BoundedVec::from_array([0]);
-        assert(decode_private_event_message(0, content).is_none());
+    unconstrained fn decode_succeeds_with_only_reserved_fields() {
+        let content = BoundedVec::from_array([RANDOMNESS]);
+
+        let (_, randomness, serialized_event) = decode_private_event_message(0, content).unwrap();
+
+        assert_eq(randomness, RANDOMNESS);
+        assert_eq(serialized_event.len(), 0);
     }
 }

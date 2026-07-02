@@ -1,10 +1,6 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import {
-  CompleteAddress,
-  type ContractInstanceWithAddress,
-  getContractClassFromArtifact,
-} from '@aztec/stdlib/contract';
+import { CompleteAddress } from '@aztec/stdlib/contract';
 import type { TxExecutionRequest, TxReceipt, UtilityExecutionResult } from '@aztec/stdlib/tx';
 import { OFFCHAIN_MESSAGE_IDENTIFIER } from '@aztec/stdlib/tx';
 
@@ -21,7 +17,6 @@ describe('Contract Class', () => {
   let contractAddress: AztecAddress;
   let account: MockProxy<Account>;
   let accountAddress: CompleteAddress;
-  let contractInstance: ContractInstanceWithAddress;
 
   const mockTxRequest = { type: 'TxRequest' } as any as TxExecutionRequest;
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;
@@ -40,17 +35,11 @@ describe('Contract Class', () => {
     account = mock<Account>();
     accountAddress = await CompleteAddress.random();
     account.getCompleteAddress.mockReturnValue(accountAddress);
-    const contractClass = await getContractClassFromArtifact(testContractArtifact);
-    contractInstance = {
-      address: contractAddress,
-      currentContractClassId: contractClass.id,
-      originalContractClassId: contractClass.id,
-    } as ContractInstanceWithAddress;
 
     wallet = mock<Wallet>();
     wallet.simulateTx.mockResolvedValue(mockTxSimulationResultWithAppOffset);
     account.createTxExecutionRequest.mockResolvedValue(mockTxRequest);
-    wallet.registerContract.mockResolvedValue(contractInstance);
+    wallet.registerContract.mockResolvedValue(undefined);
     wallet.sendTx.mockResolvedValue({ receipt: mockTxReceipt, offchainEffects: [], offchainMessages: [] });
     wallet.executeUtility.mockResolvedValue(mockUtilityResultValue);
   });

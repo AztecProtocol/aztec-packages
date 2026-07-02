@@ -9,6 +9,33 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [PXE] `pxe.updateContract` removed and `pxe.registerContract` no longer takes an artifact
+
+Registering classes and instances are now separate, unvalidated operations. `registerContractClass(artifact)` registers a class, `registerContract(instance)` registers an instance and no longer takes an artifact. `registerContract` does not check that PXE knows the contract's artifact: a missing artifact surfaces only when the contract is later simulated.
+
+**Migration:**
+
+- `pxe.registerContract` now takes the instance directly (its address preimage) and returns the derived address. Register the class separately via `registerContractClass`:
+
+```diff
+- await pxe.registerContract({ instance, artifact });
++ await pxe.registerContractClass(artifact);
++ await pxe.registerContract(instance);
+```
+
+  If you were calling it without an artifact, just drop the wrapping object: `pxe.registerContract({ instance })` becomes `pxe.registerContract(instance)`. The `wallet.registerContract(instance, artifact?, secretKeyOrKeys?)` convenience is unchanged and performs both registrations for you.
+
+- To make a new class's code available after an onchain upgrade, register the new artifact instead of calling `updateContract`:
+
+```diff
+- await pxe.updateContract(address, newArtifact);
++ await pxe.registerContractClass(newArtifact);
+```
+
+  The new class is used automatically once the upgrade takes effect on chain; no further PXE action is needed. Registering it beforehand is harmless: until the update activates, the node still resolves the contract's current class to the previous one, so it keeps running its old code.
+
+- `pxe.getContractInstance(address)` and `wallet.getContractMetadata(address).instance` now return the contract's **address preimage**, which no longer includes `currentContractClassId`.
+
 ### [Aztec.js] `AccountWithSecretKey` removed, read account keys from the `AccountManager` or PXE
 
 `AccountWithSecretKey` was a thin wrapper that bundled an account's transaction signer with its master secret key, used mainly to print or export the secret. It has been removed, and `AccountManager.getAccount()` now returns the plain `Account` signer. The wrapper's extra methods are no longer available on that value:
@@ -27,9 +54,11 @@ Aztec is in active development. Each version may introduce breaking changes that
 + const secretKey = accountManager.getSecretKey();
 ```
 
-To do what `AccountWithSecretKey` was meant for (exporting an account into a separate PXE or wallet), account registration now also accepts a full set of master secret keys instead of only a single seed. `wallet.registerContract(instance, artifact?, secretKeyOrKeys?)` and `pxe.registerAccount(secretKeyOrKeys, partialAddress)` take either an `Fr` (as before) or a `MasterSecretKeys` object (exported from `@aztec/aztec.js/keys`), and `pxe.getAccountSecretKeys(address)` returns those keys. These keys guard the account's privacy, so they should never be exposed to applications.
+To do what `AccountWithSecretKey` was meant for (exporting an account into a separate PXE or wallet), account registration accepts a full set of master secret keys instead of only a single seed. `wallet.registerContract(instance, artifact?, secretKeyOrKeys?)` takes either an `Fr` seed (as before) or a `MasterSecretKeys` object (exported from `@aztec/aztec.js/keys`), for an account whose privacy keys were generated independently rather than from one seed.
 
-**Impact**: Importing `AccountWithSecretKey`, or calling `getSecretKey()`/`getEncryptionSecret()` on the result of `getAccount()`, no longer compiles. The signer `getAccount()` returns is otherwise unchanged, and passing a single `Fr` to the registration methods keeps working.
+The PXE never receives the seed nor the message-signing and fallback secret keys: it is not trusted to hold them. The wallet derives the account's privacy keys and passes the PXE only the four privacy secret keys (nullifier-hiding, incoming-viewing, outgoing-viewing, tagging) plus the message-signing and fallback *public* keys. Accordingly, `pxe.getAccountSecretKeys(address)` returns only those four privacy secret keys.
+
+**Impact**: Importing `AccountWithSecretKey`, or calling `getSecretKey()`/`getEncryptionSecret()` on the result of `getAccount()`, no longer compiles. The signer `getAccount()` returns is otherwise unchanged, and passing a single `Fr` or a `MasterSecretKeys` to `wallet.registerContract` keeps working.
 
 
 ### [PXE] Unconstrained delivery defaults to a non-interactive handshake for external recipients
