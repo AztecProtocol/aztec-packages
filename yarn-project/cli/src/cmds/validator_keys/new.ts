@@ -6,7 +6,7 @@ import type { LogFn } from '@aztec/foundation/log';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { wordlist } from '@scure/bip39/wordlists/english.js';
-import { writeFile } from 'fs/promises';
+import { readFile, writeFile } from 'fs/promises';
 import { basename, dirname, join } from 'path';
 import { createPublicClient, fallback, http } from 'viem';
 import { generateMnemonic, mnemonicToAccount } from 'viem/accounts';
@@ -42,6 +42,7 @@ export type NewValidatorKeystoreOptions = {
   ikm?: string;
   blsPath?: string;
   password?: string;
+  passwordFile?: string;
   encryptedKeystoreDir?: string;
   json?: boolean;
   feeRecipient: AztecAddress;
@@ -52,6 +53,41 @@ export type NewValidatorKeystoreOptions = {
   l1RpcUrls?: string[];
   l1ChainId?: number;
 };
+
+function validatePassword(password: string, source: string): string {
+  if (password.length === 0) {
+    throw new Error(`${source} cannot be empty`);
+  }
+  return password;
+}
+
+function stripOneTrailingNewline(password: string): string {
+  if (password.endsWith('\n')) {
+    password = password.slice(0, -1);
+  }
+  if (password.endsWith('\r')) {
+    password = password.slice(0, -1);
+  }
+  return password;
+}
+
+async function resolvePassword(options: Pick<NewValidatorKeystoreOptions, 'password' | 'passwordFile'>) {
+  if (options.password !== undefined && options.passwordFile !== undefined) {
+    throw new Error('--password and --password-file cannot be used together');
+  }
+  if (options.password !== undefined) {
+    return validatePassword(options.password, '--password');
+  }
+  if (options.passwordFile !== undefined) {
+    if (options.passwordFile.length === 0) {
+      throw new Error('--password-file cannot be empty');
+    }
+    const password = stripOneTrailingNewline(await readFile(options.passwordFile, 'utf-8'));
+    return validatePassword(password, '--password-file');
+  }
+
+  return undefined;
+}
 
 export async function newValidatorKeystore(options: NewValidatorKeystoreOptions, log: LogFn) {
   // validate bls-path inputs before proceeding with key generation
@@ -78,7 +114,8 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
     blsPath,
     ikm,
     mnemonic: _mnemonic,
-    password,
+    password: passwordOption,
+    passwordFile,
     encryptedKeystoreDir,
     stakerOutput,
     gseAddress,
@@ -86,9 +123,11 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
     l1ChainId,
   } = options;
 
+  const password = await resolvePassword({ password: passwordOption, passwordFile });
+  const shouldEncryptKeystores = password !== undefined;
   const mnemonic = _mnemonic ?? generateMnemonic(wordlist);
 
-  if (!_mnemonic && !json) {
+  if (!_mnemonic && !json && !shouldEncryptKeystores) {
     log('No mnemonic provided, generating new one...');
     log(`Using new mnemonic:`);
     log('');
@@ -115,7 +154,7 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
   });
 
   // If password provided, write ETH JSON V3 and BLS BN254 keystores and replace plaintext
-  if (password !== undefined) {
+  if (shouldEncryptKeystores) {
     const encryptedKeystoreOutDir =
       encryptedKeystoreDir && encryptedKeystoreDir.length > 0 ? encryptedKeystoreDir : keystoreOutDir;
     await writeEthJsonV3ToFile(validators, { outDir: encryptedKeystoreOutDir, password });
@@ -160,7 +199,7 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
     }
   }
 
-  const outputData = !_mnemonic ? { ...keystore, generatedMnemonic: mnemonic } : keystore;
+  const outputData = !_mnemonic && !shouldEncryptKeystores ? { ...keystore, generatedMnemonic: mnemonic } : keystore;
 
   // Handle JSON output
   if (json) {
