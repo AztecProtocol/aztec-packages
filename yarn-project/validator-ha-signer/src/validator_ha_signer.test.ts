@@ -4,12 +4,14 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
+import { type AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { type BaseSignerConfig, defaultValidatorHASignerConfig } from '@aztec/stdlib/ha-signing';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { PGlite } from '@electric-sql/pglite';
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
+import { LmdbSlashingProtectionDatabase } from './db/lmdb.js';
 import { PostgresSlashingProtectionDatabase } from './db/postgres.js';
 import { setupTestSchema } from './db/test_helper.js';
 import { DutyStatus, DutyType } from './db/types.js';
@@ -85,6 +87,53 @@ describe('ValidatorHASigner', () => {
       const signer = new ValidatorHASigner(db, config, { metrics, dateProvider });
       await signer.start();
       await signer.stop();
+    });
+
+    // A stopped-then-restarted signer must keep signing. stop() pauses background tasks but must not
+    // close the slashing-protection store, or restarted sequencers throw "Store is closed" on every
+    // block-proposal signing attempt (the failure that stalled recovery e2e tests after a restart).
+    describe('restart (LMDB-backed)', () => {
+      let store: AztecLMDBStoreV2;
+      let lmdbDb: LmdbSlashingProtectionDatabase;
+      let signer: ValidatorHASigner;
+      let signFn: jest.Mock<(messageHash: Buffer32) => Promise<Signature>>;
+
+      beforeEach(async () => {
+        store = await openTmpStore('ha-signer-restart-test', true);
+        lmdbDb = new LmdbSlashingProtectionDatabase(store, dateProvider);
+        const metrics = new HASignerMetrics(telemetryClient, 'local');
+        signer = new ValidatorHASigner(lmdbDb, { ...config, nodeId: 'local' }, { metrics, dateProvider });
+        signFn = jest.fn<(messageHash: Buffer32) => Promise<Signature>>();
+        signFn.mockResolvedValue(mockSignature);
+      });
+
+      afterEach(async () => {
+        await lmdbDb.close();
+      });
+
+      const signAtSlot = (slot: number) =>
+        signer.signWithProtection(
+          VALIDATOR_ADDRESS,
+          MESSAGE_HASH,
+          {
+            slot: SlotNumber(slot),
+            blockNumber: BlockNumber(slot),
+            checkpointNumber: CheckpointNumber(1),
+            dutyType: DutyType.BLOCK_PROPOSAL,
+            blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
+          },
+          signFn,
+        );
+
+      it('keeps the slashing-protection store usable across a stop/start cycle', async () => {
+        await signer.start();
+        await expect(signAtSlot(100)).resolves.toBe(mockSignature);
+
+        await signer.stop();
+        await signer.start();
+
+        await expect(signAtSlot(101)).resolves.toBe(mockSignature);
+      });
     });
   });
 
