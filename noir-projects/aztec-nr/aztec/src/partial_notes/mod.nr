@@ -59,7 +59,7 @@ pub(crate) unconstrained fn process_partial_note_private_msg(
 }
 
 /// Drives every active partial-note FSM forward.
-pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs(
+pub(crate) unconstrained fn sync(
     contract_address: AztecAddress,
     compute_note_hash: ComputeNoteHash,
     compute_note_nullifier: ComputeNoteNullifier,
@@ -75,7 +75,7 @@ pub(crate) unconstrained fn fetch_and_process_partial_note_completion_logs(
     // Keeping both the completion and termination logic inside `PartialNoteFsm::step` is what lets the orchestrator
     // stay this small, the price is the somewhat less elegant two-pass shape that the batched fetch forces on us.
     let pending_partial_note_fsms = active_partial_note_fsms.filter(|fsm: PartialNoteFsm| fsm.is_pending());
-    let pending_partial_notes = pending_partial_note_fsms.map(|fsm: PartialNoteFsm| fsm.read_pending());
+    let pending_partial_notes = pending_partial_note_fsms.map(|fsm: PartialNoteFsm| fsm.read_pending_partial_note());
 
     aztecnr_debug_log_format!("{} pending partial notes")([pending_partial_notes.len() as Field]);
 

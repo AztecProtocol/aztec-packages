@@ -127,7 +127,7 @@ impl PartialNoteFsm {
     }
 
     /// Reads and decodes the delivered partial note this FSM processes.
-    pub(crate) unconstrained fn read_pending(self) -> DeliveredPendingPartialNote {
+    pub(crate) unconstrained fn read_pending_partial_note(self) -> DeliveredPendingPartialNote {
         let delivered = self.collection.facts.find(|f: Fact| f.fact_type_id == PARTIAL_NOTE_DELIVERED).unwrap();
         let mut fields = [0; <DeliveredPendingPartialNote as Deserialize>::N];
         for i in 0..fields.len() {
@@ -136,7 +136,7 @@ impl PartialNoteFsm {
         Deserialize::deserialize(fields)
     }
 
-    /// Whether the partial note FSM is in `completed` state, i.e. its note was discovered and enqueued.
+    /// Whether the partial note FSM is in `completed` state, i.e. its note was completed and stored.
     unconstrained fn is_completed(self) -> bool {
         self.collection.facts.any(|f: Fact| f.fact_type_id == PARTIAL_NOTE_COMPLETED)
     }
@@ -223,7 +223,7 @@ impl PartialNoteFsm {
         compute_note_hash: ComputeNoteHash,
         compute_note_nullifier: ComputeNoteNullifier,
     ) {
-        let pending = self.read_pending();
+        let pending = self.read_pending_partial_note();
 
         // The first field in the completion log payload is the storage slot, followed by the public note content.
         let storage_slot = log.log_payload.get(0);
@@ -340,7 +340,7 @@ mod test {
             let address = context.this_address();
             PartialNoteFsm::init(address, scope, make_pending(scope), finalized_block());
 
-            let pending = PartialNoteFsm::load_all(address, scope).get(0).read_pending();
+            let pending = PartialNoteFsm::load_all(address, scope).get(0).read_pending_partial_note();
             assert_eq(pending.owner, scope);
             assert_eq(pending.randomness, 0x11);
             assert_eq(pending.note_completion_log_tag, 0x22);
