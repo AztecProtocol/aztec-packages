@@ -518,6 +518,8 @@ export const LOG_RETRIEVAL_RESPONSE: TypeMapping<LogRetrievalResponse> = STRUCT<
   { name: 'txHash', type: TX_HASH },
   { name: 'uniqueNoteHashesInTx', type: FIXED_BOUNDED_VEC(FIELD, MAX_NOTE_HASHES_PER_TX) },
   { name: 'firstNullifierInTx', type: FIELD },
+  { name: 'blockNumber', type: BLOCK_NUMBER },
+  { name: 'blockTimestamp', type: BIGINT },
 ]);
 
 export const MESSAGE_CONTEXT: TypeMapping<MessageContext> = STRUCT<MessageContext>([
@@ -691,7 +693,7 @@ export function BOUNDED_VEC<T>(
  * (zero-padded) followed by the actual length, with no length prefix, so the width is statically known. Serialize-only.
  * Throws if the input exceeds `maxLength`.
  */
-function FIXED_BOUNDED_VEC<T>(element: TypeMapping<T>, maxLength: number): TypeMapping<T[]> {
+export function FIXED_BOUNDED_VEC<T>(element: TypeMapping<T>, maxLength: number): TypeMapping<T[]> {
   const width = fieldWidth(element.shape);
   return {
     serialization: element.serialization
@@ -811,7 +813,7 @@ type StructField<TName extends string = string, T = any> = { name: TName; type: 
  * `shape`. `T` is the struct's TS value type and must match the field layout — serialization reads each field by name
  * off the value, deserialization returns the decoded bag as `T`; convert in the handler, not here, when `T` differs.
  */
-function STRUCT<T>(fields: readonly StructField[]): TypeMapping<T> {
+export function STRUCT<T>(fields: readonly StructField[]): TypeMapping<T> {
   return {
     serialization: fields.every(f => f.type.serialization)
       ? {
