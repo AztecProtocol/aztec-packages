@@ -30,7 +30,8 @@ export async function getSponsoredFPCContract() {
  */
 export async function registerSponsoredFPC(pxe: PXE) {
   const contract = await getSponsoredFPCContract();
-  await pxe.registerContract(contract);
+  await pxe.registerContractClass(contract.artifact);
+  await pxe.registerContract(contract.instance);
   return contract.instance.address;
 }
 // docs:end:register-fpc

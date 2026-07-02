@@ -7,6 +7,7 @@ import { BlockHash, randomDataInBlock } from '@aztec/stdlib/block';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import { deriveKeys } from '@aztec/stdlib/keys';
 import { NoteDao, NoteStatus } from '@aztec/stdlib/note';
 import { makeBlockHeader } from '@aztec/stdlib/testing';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
@@ -42,7 +43,7 @@ describe('NoteService', () => {
 
     contractAddress = await AztecAddress.random();
 
-    recipient = await keyStore.addAccount(new Fr(69), Fr.random());
+    recipient = await keyStore.addAccount(await deriveKeys(new Fr(69)), Fr.random());
 
     const notes = await noteStore.getNotes({ contractAddress, scopes: [recipient.address] }, 'test');
     expect(notes).toHaveLength(0);
@@ -180,8 +181,8 @@ describe('NoteService', () => {
   });
 
   it('should search for notes from all accounts', async () => {
-    await keyStore.addAccount(Fr.random(), Fr.random());
-    await keyStore.addAccount(Fr.random(), Fr.random());
+    await keyStore.addAccount(await deriveKeys(Fr.random()), Fr.random());
+    await keyStore.addAccount(await deriveKeys(Fr.random()), Fr.random());
 
     expect(await keyStore.getAccounts()).toHaveLength(3);
 

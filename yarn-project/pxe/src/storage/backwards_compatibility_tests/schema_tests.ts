@@ -15,7 +15,7 @@ import { BlockHash, Body, GENESIS_BLOCK_HEADER_HASH, L2Block } from '@aztec/stdl
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { CompleteAddress, SerializableContractInstance } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
-import { PublicKey, PublicKeys } from '@aztec/stdlib/keys';
+import { PublicKey, PublicKeys, deriveKeys } from '@aztec/stdlib/keys';
 import {
   AppTaggingSecret,
   ContractClassLog,
@@ -255,7 +255,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
     name: 'KeyStore',
     writeToStore: async kvStore => {
       const keyStore = new KeyStore(kvStore);
-      await keyStore.addAccount(new Fr(2n), new Fr(3n));
+      await keyStore.addAccount(await deriveKeys(new Fr(2n)), new Fr(3n));
     },
     snapshotStore: async kvStore => ({
       key_store: await snapshotMap(kvStore.openMap<string, Buffer>('key_store')),

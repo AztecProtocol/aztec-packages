@@ -43,7 +43,7 @@ export interface IAvmExecutionOracle {
   getContractInstanceClassId(address: AztecAddress): Promise<{ member: Fr; exists: boolean }>;
   getContractInstanceInitializationHash(address: AztecAddress): Promise<{ member: Fr; exists: boolean }>;
   getContractInstanceImmutablesHash(address: AztecAddress): Promise<{ member: Fr; exists: boolean }>;
-  returndataSize(): Promise<Fr>;
+  returndataSize(): Promise<number>;
   returndataCopy(rdOffset: number, copySize: number): Promise<Fr[]>;
   call(l2Gas: number, daGas: number, address: AztecAddress, argsLength: number, args: Fr[]): Promise<void>;
   staticCall(l2Gas: number, daGas: number, address: AztecAddress, argsLength: number, args: Fr[]): Promise<void>;
