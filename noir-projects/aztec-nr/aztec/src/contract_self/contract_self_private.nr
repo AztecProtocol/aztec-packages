@@ -440,7 +440,8 @@ impl<CallSelf> PrivateUtilityCalls<CallSelf> {
     /// circuit proof: use it to inform logic, never as an input to a constrained assertion without validating it
     /// first.
     ///
-    /// The callee observes this contract's address as its `msg_sender`: see [`ContractSelfUtility::msg_sender`].
+    /// The callee observes this contract's address as its `msg_sender`: see the `msg_sender` docs on
+    /// [`ContractSelfUtility`](crate::contract_self::ContractSelfUtility).
     ///
     /// To call one of this contract's own utility functions, prefer the type-safe `self.utility.call_self` stubs.
     ///
