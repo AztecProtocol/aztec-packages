@@ -1,71 +1,20 @@
-import { MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_CIPHERTEXT_LEN } from '@aztec/constants';
-import { range } from '@aztec/foundation/array';
-import { Fr } from '@aztec/foundation/curves/bn254';
+import type { BlockNumber } from '@aztec/foundation/branded-types';
+import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { BlockHash } from '@aztec/stdlib/block';
 import type { TxHash } from '@aztec/stdlib/tx';
 
-const MAX_LOG_CONTENT_LEN = PRIVATE_LOG_CIPHERTEXT_LEN;
-
 /**
- * Intermediate struct used to perform batch log retrieval by PXE. The `utilityBulkRetrieveLogs` oracle stores values of this
- * type in a `EphemeralArray`.
+ * Intermediate struct used to perform batch log retrieval by PXE. The `utilityBulkRetrieveLogs` oracle stores values of
+ * this type in a `EphemeralArray`.
+ *
+ * The `blockNumber`/`blockHash` pair mirrors the noir `origin_block: OriginBlock` field: it anchors a discovered note's
+ * completion to the block the log was mined in, so the resulting fact is pruned if that block is reorged away.
  */
-export class LogRetrievalResponse {
-  constructor(
-    public logPayload: Fr[],
-    public txHash: TxHash,
-    public uniqueNoteHashesInTx: Fr[],
-    public firstNullifierInTx: Fr,
-    public blockNumber: number,
-    public blockHash: Fr,
-  ) {}
-
-  toFields(): Fr[] {
-    return [
-      // We need to trim the payload since public logs can be larger than MAX_LOG_CONTENT_LEN.
-      // This is currently not a problem since this class is only used with public logs for note completion.
-      ...serializeBoundedVec(this.logPayload.slice(0, MAX_LOG_CONTENT_LEN), MAX_LOG_CONTENT_LEN),
-      this.txHash.hash,
-      ...serializeBoundedVec(this.uniqueNoteHashesInTx, MAX_NOTE_HASHES_PER_TX),
-      this.firstNullifierInTx,
-      new Fr(this.blockNumber),
-      this.blockHash,
-    ];
-  }
-
-  static toEmptyFields(): Fr[] {
-    const serializationLen =
-      MAX_LOG_CONTENT_LEN +
-      1 /* logPayload BVec */ +
-      1 /* txHash */ +
-      MAX_NOTE_HASHES_PER_TX +
-      1 /* uniqueNoteHashesInTx BVec */ +
-      1 /* firstNullifierInTx */ +
-      2; /* blockNumber + blockHash */
-    return range(serializationLen).map(_ => Fr.zero());
-  }
-
-  static toSerializedOption(response: LogRetrievalResponse | null): Fr[] {
-    if (response) {
-      return [new Fr(1), ...response.toFields()];
-    } else {
-      return [new Fr(0), ...LogRetrievalResponse.toEmptyFields()];
-    }
-  }
-}
-
-/**
- * Helper function to serialize a bounded vector according to Noir's BoundedVec format
- * @param values - The values to serialize
- * @param maxLength - The maximum length of the bounded vector
- * @returns The serialized bounded vector as Fr[]
- */
-function serializeBoundedVec(values: Fr[], maxLength: number): Fr[] {
-  if (values.length > maxLength) {
-    throw new Error(`Attempted to serialize ${values} values into a BoundedVec with max length ${maxLength}`);
-  }
-
-  const lengthDiff = maxLength - values.length;
-  const zeroPaddingArray = Array(lengthDiff).fill(Fr.ZERO);
-  const storage = values.concat(zeroPaddingArray);
-  return [...storage, new Fr(values.length)];
-}
+export type LogRetrievalResponse = {
+  logPayload: Fr[];
+  txHash: TxHash;
+  uniqueNoteHashesInTx: Fr[];
+  firstNullifierInTx: Fr;
+  blockNumber: BlockNumber;
+  blockHash: BlockHash;
+};

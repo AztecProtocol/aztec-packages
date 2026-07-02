@@ -1,3 +1,4 @@
+import { PRIVATE_LOG_CIPHERTEXT_LEN } from '@aztec/constants';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import type { GrumpkinScalar, Point } from '@aztec/foundation/curves/grumpkin';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
@@ -13,8 +14,9 @@ import {
   type LogRetrievalRequest,
   LogSource,
 } from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
-import { LogRetrievalResponse } from '../contract_function_simulator/noir-structs/log_retrieval_response.js';
-import { PendingTaggedLog } from '../contract_function_simulator/noir-structs/pending_tagged_log.js';
+import type { LogRetrievalResponse } from '../contract_function_simulator/noir-structs/log_retrieval_response.js';
+import type { PendingTaggedLog } from '../contract_function_simulator/noir-structs/pending_tagged_log.js';
+import { ResolvedTx } from '../contract_function_simulator/noir-structs/resolved_tx.js';
 import { AddressStore } from '../storage/address_store/address_store.js';
 import type { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
 import type { TaggingSecretSourcesStore } from '../storage/tagging_store/tagging_secret_sources_store.js';
@@ -163,14 +165,16 @@ export class LogService {
     if (nullifiers.length === 0) {
       throw new Error(`Log for tx ${log.txHash} returned no nullifiers from the node`);
     }
-    return new LogRetrievalResponse(
-      log.logData.slice(1), // Skip the tag
-      log.txHash,
-      noteHashes,
-      nullifiers[0],
-      log.blockNumber,
-      log.blockHash.toFr(),
-    );
+    return {
+      // Skip the tag, and clip to the wire cap: public logs can exceed PRIVATE_LOG_CIPHERTEXT_LEN (the fixed size of
+      // the oracle's BoundedVec slot). A no-op for private logs, which are already within the cap.
+      logPayload: log.logData.slice(1, 1 + PRIVATE_LOG_CIPHERTEXT_LEN),
+      txHash: log.txHash,
+      uniqueNoteHashesInTx: noteHashes,
+      firstNullifierInTx: nullifiers[0],
+      blockNumber: log.blockNumber,
+      blockHash: log.blockHash,
+    };
   }
 
   public async fetchTaggedLogs(
@@ -208,14 +212,10 @@ export class LogService {
       if (nullifiers.length === 0) {
         throw new Error(`Log for tx ${log.txHash} returned no nullifiers from the node`);
       }
-      return new PendingTaggedLog(
-        log.logData,
-        log.txHash,
-        noteHashes,
-        nullifiers[0],
-        log.blockNumber,
-        log.blockHash.toFr(),
-      );
+      return {
+        log: log.logData,
+        context: new ResolvedTx(log.txHash, noteHashes, nullifiers[0], log.blockNumber, log.blockHash.toFr()),
+      };
     });
   }
 

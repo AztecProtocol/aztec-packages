@@ -9,6 +9,7 @@ import {
   MAX_PRIVATE_LOGS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
   NULLIFIER_TREE_HEIGHT,
+  PRIVATE_LOG_CIPHERTEXT_LEN,
   PRIVATE_LOG_SIZE_IN_FIELDS,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
@@ -510,16 +511,14 @@ export const LOG_RETRIEVAL_REQUEST: TypeMapping<LogRetrievalRequest> = STRUCT<Lo
   { name: 'toBlock', type: OPTION(BLOCK_NUMBER) },
 ]);
 
-// `LogRetrievalResponse.toFields()` clips `logPayload` to the wire cap: public logs can exceed
-// PRIVATE_LOG_CIPHERTEXT_LEN (the fixed BoundedVec slot size), which a plain STRUCT/FIXED_BOUNDED_VEC would reject.
-export const LOG_RETRIEVAL_RESPONSE: TypeMapping<LogRetrievalResponse> = {
-  serialization: { fn: resp => [resp.toFields()] },
-};
-
-// `PendingTaggedLog.toFields()` packs the log BoundedVec followed by its `ResolvedTx` context.
-export const PENDING_TAGGED_LOG: TypeMapping<PendingTaggedLog> = {
-  serialization: { fn: log => [log.toFields()] },
-};
+export const LOG_RETRIEVAL_RESPONSE: TypeMapping<LogRetrievalResponse> = STRUCT<LogRetrievalResponse>([
+  { name: 'logPayload', type: FIXED_BOUNDED_VEC(FIELD, PRIVATE_LOG_CIPHERTEXT_LEN) },
+  { name: 'txHash', type: TX_HASH },
+  { name: 'uniqueNoteHashesInTx', type: FIXED_BOUNDED_VEC(FIELD, MAX_NOTE_HASHES_PER_TX) },
+  { name: 'firstNullifierInTx', type: FIELD },
+  { name: 'blockNumber', type: BLOCK_NUMBER },
+  { name: 'blockHash', type: BLOCK_HASH },
+]);
 
 // `ResolvedTx.toFields()` packs the whole struct into a single slot: txHash, the uniqueNoteHashesInTx BoundedVec
 // (MAX_NOTE_HASHES_PER_TX storage fields + length), firstNullifierInTx, blockNumber and blockHash.
@@ -527,6 +526,11 @@ export const RESOLVED_TX: TypeMapping<ResolvedTx> = {
   serialization: { fn: resolved => [resolved.toFields()] },
   shape: [{ len: MAX_NOTE_HASHES_PER_TX + 5 }],
 };
+
+export const PENDING_TAGGED_LOG: TypeMapping<PendingTaggedLog> = STRUCT<PendingTaggedLog>([
+  { name: 'log', type: FIXED_BOUNDED_VEC(FIELD, PRIVATE_LOG_SIZE_IN_FIELDS) },
+  { name: 'context', type: RESOLVED_TX },
+]);
 
 export const ORIGIN_BLOCK: TypeMapping<OriginBlock> = {
   serialization: { fn: ob => [new Fr(ob.blockNumber), ob.blockHash] },

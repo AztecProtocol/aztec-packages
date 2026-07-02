@@ -115,7 +115,7 @@ describe('LogService', () => {
       expect(responses[0][1].txHash).toEqual(privateLog.txHash);
     });
 
-    it('threads the origin block number and timestamp from the source log', async () => {
+    it('threads the origin block number and hash from the source log', async () => {
       const publicLog = randomPrivateLogResult({ includeEffects: true });
       const privateLog = randomPrivateLogResult({ includeEffects: true });
 
@@ -126,9 +126,9 @@ describe('LogService', () => {
       const responses = await logService.fetchLogsByTag(contractAddress, [request]);
 
       expect(responses[0][0].blockNumber).toEqual(publicLog.blockNumber);
-      expect(responses[0][0].blockTimestamp).toEqual(publicLog.blockTimestamp);
+      expect(responses[0][0].blockHash).toEqual(publicLog.blockHash);
       expect(responses[0][1].blockNumber).toEqual(privateLog.blockNumber);
-      expect(responses[0][1].blockTimestamp).toEqual(privateLog.blockTimestamp);
+      expect(responses[0][1].blockHash).toEqual(privateLog.blockHash);
     });
 
     it('rejects a batch where at least one request targets a different contract', async () => {
