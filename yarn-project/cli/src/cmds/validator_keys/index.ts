@@ -101,6 +101,13 @@ export function injectCommands(program: Command, log: LogFn) {
       'Coinbase ETH address to use when proposing. Defaults to attester address.',
       parseEthereumAddress,
     )
+<<<<<<< HEAD
+=======
+    .option(
+      '--funding-account <privateKey|address>',
+      'ETH funding account used to top up publisher EOAs. Provide a private key, or an address together with --remote-signer.',
+    )
+>>>>>>> f00bd74268 (feat(cli): support --funding-account in validator-keys new/add)
     .option('--remote-signer <url>', 'Default remote signer URL for accounts in this file')
     .option('--ikm <hex>', 'Initial keying material for BLS (alternative to mnemonic)', value => parseHex(value, 32))
     .option('--bls-path <path>', `EIP-2334 path (default ${defaultBlsPath})`)

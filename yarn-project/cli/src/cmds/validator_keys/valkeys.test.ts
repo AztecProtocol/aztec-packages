@@ -1067,7 +1067,11 @@ describe('validator keys utilities', () => {
           count: 1,
           mnemonic: TEST_MNEMONIC,
           fundingAccount: '0x' + 'cd'.repeat(32),
+<<<<<<< HEAD
           password: 'funding-test-pw',
+=======
+          password: '',
+>>>>>>> f00bd74268 (feat(cli): support --funding-account in validator-keys new/add)
           encryptedKeystoreDir: tmp,
           feeRecipient: ('0x' + '15'.repeat(32)) as unknown as AztecAddress,
         },
@@ -1150,6 +1154,61 @@ describe('validator keys utilities', () => {
           () => {},
         ),
       ).rejects.toThrow('Schema validation failed');
+    });
+
+    it('sets a funding account on a keystore that has none', async () => {
+      const existing = join(tmp, 'add-funding.json');
+      const baseKeystore = {
+        schemaVersion: 1,
+        validators: [{ attester: '0x' + '0a'.repeat(32), feeRecipient: ('0x' + '06'.repeat(32)) as unknown as string }],
+      } as any;
+      writeFileSync(existing, JSON.stringify(baseKeystore, null, 2), 'utf-8');
+      const fundingKey = '0x' + 'ab'.repeat(32);
+
+      const logs: string[] = [];
+      await addValidatorKeys(
+        existing,
+        {
+          dataDir: tmp,
+          count: 1,
+          mnemonic: TEST_MNEMONIC,
+          fundingAccount: fundingKey,
+          feeRecipient: ('0x' + '06'.repeat(32)) as unknown as AztecAddress,
+        },
+        s => logs.push(s),
+      );
+
+      const updated: KeyStore = loadKeystoreFile(existing);
+      expect(updated.fundingAccount).toBe(fundingKey);
+      expect(logs.some(l => l.includes('Replacing existing funding account'))).toBe(false);
+    });
+
+    it('overwrites an existing funding account and warns', async () => {
+      const existing = join(tmp, 'replace-funding.json');
+      const baseKeystore = {
+        schemaVersion: 1,
+        validators: [{ attester: '0x' + '0a'.repeat(32), feeRecipient: ('0x' + '06'.repeat(32)) as unknown as string }],
+        fundingAccount: '0x' + 'aa'.repeat(32),
+      } as any;
+      writeFileSync(existing, JSON.stringify(baseKeystore, null, 2), 'utf-8');
+      const newFundingKey = '0x' + 'bb'.repeat(32);
+
+      const logs: string[] = [];
+      await addValidatorKeys(
+        existing,
+        {
+          dataDir: tmp,
+          count: 1,
+          mnemonic: TEST_MNEMONIC,
+          fundingAccount: newFundingKey,
+          feeRecipient: ('0x' + '06'.repeat(32)) as unknown as AztecAddress,
+        },
+        s => logs.push(s),
+      );
+
+      const updated: KeyStore = loadKeystoreFile(existing);
+      expect(updated.fundingAccount).toBe(newFundingKey);
+      expect(logs.some(l => l.includes('Replacing existing funding account'))).toBe(true);
     });
   });
 
