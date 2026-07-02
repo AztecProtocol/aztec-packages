@@ -209,6 +209,24 @@ describe('SenderTaggingStore', () => {
           ),
         ).resolves.not.toThrow();
       });
+
+      it('throws after pending txs exhaust window', async () => {
+        // One single-index pending tx per index, mirroring how an un-mined backlog accumulates one log per tx on a
+        // shared secret (e.g. the self-send chain in bench_build_block). A fresh secret treats the
+        // finalized floor as 0, so indexes 0..WINDOW fit...
+        for (let i = 0; i <= UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN; i++) {
+          await taggingStore.storePendingIndexes([range(secret1, i)], TxHash.random(), 'test');
+        }
+
+        // ...and the next tx throws, even with a single additional tag.
+        await expect(
+          taggingStore.storePendingIndexes(
+            [range(secret1, UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1)],
+            TxHash.random(),
+            'test',
+          ),
+        ).rejects.toThrow(/configured too low/);
+      });
     });
   });
 
