@@ -1,4 +1,4 @@
-//! Per-contract storage of immutable facts grouped into collections, backed by PXE's FactStore.
+//! Per-contract storage of immutable facts grouped into collections.
 //!
 //! A fact is a contract-defined, typed, immutable datum. Facts are grouped into collections identified by a
 //! `(collection type, collection id)` tuple.
@@ -256,7 +256,7 @@ mod test {
             assert_eq(origin.block_number, origin_block_number);
             assert_eq(origin.block_hash, 0xabc);
             // TXE finalizes every mined block, so an origin at the latest block is Finalized.
-            assert(origin.block_state.is_finalized(), "origin block should be finalized");
+            assert(origin.block_state.is_finalized());
         });
     }
 
@@ -282,7 +282,7 @@ mod test {
                 .get(0)
                 .origin_block
                 .unwrap();
-            assert(origin.block_state.is_pending(), "future origin block should be pending");
+            assert(origin.block_state.is_pending());
         });
     }
 
