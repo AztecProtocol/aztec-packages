@@ -17,7 +17,6 @@ import { jest } from '@jest/globals';
 import { L1_DIRECT_WRITE_ACCOUNT_INDEX, PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
 import { sendL1ToL2Message } from '../../fixtures/l1_to_l2_messaging.js';
 import { waitForBlockNumber } from '../../fixtures/wait_helpers.js';
-import type { CrossChainTestHarness } from '../../shared/cross_chain_test_harness.js';
 import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
 jest.setTimeout(300_000);
@@ -30,7 +29,6 @@ jest.setTimeout(300_000);
 describe('single-node/cross-chain/l1_to_l2', () => {
   let t: CrossChainMessagingTest;
   let log: Logger;
-  let crossChainTestHarness: CrossChainTestHarness;
   let aztecNode: AztecNode;
   let wallet: Wallet;
   let user1Address: AztecAddress;
@@ -63,17 +61,27 @@ describe('single-node/cross-chain/l1_to_l2', () => {
       // (e.g. a missed checkpoint publish that prunes the pipelined proposed chain) doesn't
       // drop the wallet's in-flight tx via handlePrunedBlocks.
       { syncChainTip: 'checkpointed' },
-      L1_DIRECT_WRITE_ACCOUNT_INDEX,
+      // This suite only passes arbitrary L1→L2 messages to its own TestContract; it never bridges
+      // tokens, so skip the token+portal+bridge deploy and use the test's L1 handles directly.
+      { l1HarnessAccountIndex: L1_DIRECT_WRITE_ACCOUNT_INDEX, deployTokenBridge: false },
     );
     await t.setup();
 
-    ({ logger: log, crossChainTestHarness, wallet, user1Address, aztecNode } = t);
+    ({ logger: log, wallet, user1Address, aztecNode } = t);
     ({ contract: testContract } = await TestContract.deploy(wallet).send({ from: user1Address }));
   }, 300_000);
 
   afterEach(async () => {
     await t.teardown();
   });
+
+  // Sends an L1→L2 message from the harness L1 account. This suite skips the token bridge, so the
+  // message context is built from the test's L1 handles rather than a CrossChainTestHarness.
+  const sendMessageToL2 = (message: { recipient: AztecAddress; content: Fr; secretHash: Fr }) =>
+    sendL1ToL2Message(message, {
+      l1Client: t.harnessL1Client,
+      l1ContractAddresses: t.deployL1ContractsValues.l1ContractAddresses,
+    });
 
   const getConsumeMethod = (scope: 'private' | 'public') =>
     scope === 'private'
@@ -183,10 +191,7 @@ describe('single-node/cross-chain/l1_to_l2', () => {
     // Generate and send the message to the L1 contract
     const [secret, secretHash] = await generateClaimSecret();
     const message = { recipient: testContract.address, content: Fr.random(), secretHash };
-    const { msgHash: message1Hash, globalLeafIndex: actualMessage1Index } = await sendL1ToL2Message(
-      message,
-      crossChainTestHarness,
-    );
+    const { msgHash: message1Hash, globalLeafIndex: actualMessage1Index } = await sendMessageToL2(message);
 
     await waitForMessageReady(message1Hash, scope);
 
@@ -194,7 +199,7 @@ describe('single-node/cross-chain/l1_to_l2', () => {
     expect(actualMessage1Index.toBigInt()).toBe(message1Index);
 
     const sendConsumeMsgTx = async (index: Fr) => {
-      const call = getConsumeMethod(scope)(message.content, secret, crossChainTestHarness.ethAccount, index);
+      const call = getConsumeMethod(scope)(message.content, secret, t.ethAccount, index);
       if (scope === 'public') {
         await call.simulate({ from: user1Address });
       }
@@ -206,10 +211,7 @@ describe('single-node/cross-chain/l1_to_l2', () => {
 
     // We send and consume the exact same message the second time to test that oracles correctly return the new
     // non-nullified message
-    const { msgHash: message2Hash, globalLeafIndex: actualMessage2Index } = await sendL1ToL2Message(
-      message,
-      crossChainTestHarness,
-    );
+    const { msgHash: message2Hash, globalLeafIndex: actualMessage2Index } = await sendMessageToL2(message);
 
     // We check that the duplicate message was correctly inserted by checking that its message index is defined
     await waitForMessageReady(message2Hash, scope);
@@ -268,7 +270,7 @@ describe('single-node/cross-chain/l1_to_l2', () => {
     log.warn(`Sending L1 to L2 message`);
     const [secret, secretHash] = await generateClaimSecret();
     const message = { recipient: testContract.address, content: Fr.random(), secretHash };
-    const { msgHash, globalLeafIndex } = await sendL1ToL2Message(message, crossChainTestHarness);
+    const { msgHash, globalLeafIndex } = await sendMessageToL2(message);
 
     // Wait until the Aztec node has synced it
     const msgCheckpointNumber = await waitForMessageFetched(msgHash);
@@ -295,8 +297,7 @@ describe('single-node/cross-chain/l1_to_l2', () => {
     expect(await aztecNode.getL1ToL2MessageMembershipWitness('latest', msgHash)).toBeUndefined();
 
     // Define L2 function to consume the message
-    const consume = () =>
-      getConsumeMethod(scope)(message.content, secret, crossChainTestHarness.ethAccount, globalLeafIndex);
+    const consume = () => getConsumeMethod(scope)(message.content, secret, t.ethAccount, globalLeafIndex);
 
     // Wait until the message is ready to be consumed, checking that it cannot be consumed beforehand
     await waitForMessageReady(msgHash, scope, async () => {

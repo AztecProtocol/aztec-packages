@@ -27,7 +27,7 @@ describe('single-node/cross-chain/token_bridge_private', () => {
     { startProverNode: true },
     {},
     {},
-    L1_DIRECT_WRITE_ACCOUNT_INDEX,
+    { l1HarnessAccountIndex: L1_DIRECT_WRITE_ACCOUNT_INDEX },
   );
 
   let crossChainTestHarness: CrossChainTestHarness;
