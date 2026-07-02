@@ -186,6 +186,12 @@ export class CLIWallet extends BaseWallet {
       throw new Error('Cannot retrieve an account without a wallet database');
     }
     const { type, signingKey, secretKey, salt } = await this.db.retrieveAccount(address);
+    if (type !== 'ecdsasecp256r1ssh' && !signingKey) {
+      throw new Error(
+        `Account ${address} has no stored signing key: it was created with an older version of aztec-wallet and is ` +
+          `incompatible with this one. Create a new account to continue.`,
+      );
+    }
     const publicSigningKey =
       type === 'ecdsasecp256r1ssh' ? await this.db.retrieveAccountMetadata(address, 'publicSigningKey') : undefined;
     return this.buildAccount(type, salt, signingKey, secretKey, publicSigningKey);

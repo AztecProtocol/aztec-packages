@@ -39,7 +39,7 @@ export async function createAccount(
 ) {
   let secretKey: Fr;
   if (accountType === 'ecdsasecp256r1ssh') {
-    // SSH accounts sign with a key held in the agent, and so we cannot derive their privacy secret key from it. Insted
+    // SSH accounts sign with a key held in the agent, and so we cannot derive their privacy secret key from it. Instead
     // we pick a random value.
     secretKey = Fr.random();
   } else {

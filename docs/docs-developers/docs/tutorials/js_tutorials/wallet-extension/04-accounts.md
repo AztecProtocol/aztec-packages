@@ -40,11 +40,11 @@ The nullifier, viewing, and tagging keys are then derived from that secret with 
 ```typescript
 // From stdlib/src/keys/derivation.ts
 export function deriveMasterIncomingViewingSecretKey(secretKey: Fr): GrumpkinScalar {
-  return sha512ToGrumpkinScalar([secretKey, GeneratorIndex.IVSK_M]);
+  return sha512ToGrumpkinScalar([secretKey, DomainSeparator.IVSK_M]);
 }
 
 export function deriveMasterNullifierHidingSecretKey(secretKey: Fr): GrumpkinScalar {
-  return sha512ToGrumpkinScalar([secretKey, GeneratorIndex.NHK_M]);
+  return sha512ToGrumpkinScalar([secretKey, DomainSeparator.NHK_M]);
 }
 ```
 
