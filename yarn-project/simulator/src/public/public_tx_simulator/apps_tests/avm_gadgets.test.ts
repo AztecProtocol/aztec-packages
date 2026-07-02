@@ -8,16 +8,8 @@ import { NativeWorldStateService } from '@aztec/world-state';
 import { PublicTxSimulationTester, defaultGlobals } from '../../fixtures/public_tx_simulation_tester.js';
 
 describe('Public TX simulator apps tests: gadgets', () => {
-<<<<<<< HEAD
   describe('Public TX simulator apps tests: gadgets (via Cpp Simulator)', () => {
-    const deployer = AztecAddress.fromNumber(42);
-=======
-  describe.each([
-    { useCppSimulator: false, simulatorName: 'TS Simulator' },
-    { useCppSimulator: true, simulatorName: 'Cpp Simulator' },
-  ])('Public TX simulator apps tests: gadgets (via $simulatorName)', ({ useCppSimulator }) => {
     const deployer = AztecAddress.fromNumberUnsafe(42);
->>>>>>> c81bb25cb7 (feat: merge-train/fairies-v5 (#24223))
 
     let worldStateService: NativeWorldStateService;
     let tester: PublicTxSimulationTester;

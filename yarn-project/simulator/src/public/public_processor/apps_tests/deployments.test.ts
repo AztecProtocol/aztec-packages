@@ -18,18 +18,9 @@ import { PublicTxSimulator } from '../../public_tx_simulator/public_tx_simulator
 import { GuardedMerkleTreeOperations } from '../guarded_merkle_tree.js';
 import { PublicProcessor } from '../public_processor.js';
 
-<<<<<<< HEAD
 describe('Public processor contract registration/deployment tests', () => {
-  const admin = AztecAddress.fromNumber(42);
-  const sender = AztecAddress.fromNumber(111);
-=======
-describe.each([
-  { useCppSimulator: false, simulatorName: 'TS Simulator' },
-  { useCppSimulator: true, simulatorName: 'Cpp Simulator' },
-])('Public processor contract registration/deployment tests ($simulatorName)', ({ useCppSimulator }) => {
   const admin = AztecAddress.fromNumberUnsafe(42);
   const sender = AztecAddress.fromNumberUnsafe(111);
->>>>>>> c81bb25cb7 (feat: merge-train/fairies-v5 (#24223))
 
   let worldStateService: NativeWorldStateService;
   let contractsDB: PublicContractsDB;

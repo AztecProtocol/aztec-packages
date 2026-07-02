@@ -9,7 +9,6 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
-<<<<<<< HEAD
 ### [Protocol] `PrivateCircuitPublicInputs` and `PrivateContextInputs` gain a `tx_request_salt` field
 
 The init kernel now always injects the protocol nullifier (`H(tx_request)`) as the transaction's first nullifier and binds the entry-point proof to the tx request's salt. To support this, `PrivateCircuitPublicInputs` and `PrivateContextInputs` each carry a new `tx_request_salt` field (set by the framework), and the `first_nullifier_hint` input to the init kernel is removed. This is handled automatically by the framework and PXE; contracts using the standard entrypoint need no changes beyond recompiling against the new protocol circuits.
@@ -17,7 +16,7 @@ The init kernel now always injects the protocol nullifier (`H(tx_request)`) as t
 The salt serves two purposes. It keeps `H(tx_request)` (the protocol nullifier) unpredictable, preventing a dictionary attack that guesses the tx-request preimage to recompute the nullifier. It also lets the init kernel bind the proof to a specific tx request: the kernel asserts `tx_request_salt` equals `tx_request.salt`, so a third party holding the proof cannot rebind it to a different request (and thus a different protocol nullifier).
 
 Because `tx_request_salt` is now part of the private function's public inputs, an app or account contract can read it. Together with the other public inputs (the call context, `args_hash`, `tx_context`, and the function selector), an entrypoint can reconstruct the full `tx_request` and verify a signature over `tx_request.hash()`, instead of over a separate payload. This lets an account authorize the complete, kernel-checked transaction request rather than just the calls it contains. Building on that, the protocol nullifier can be made to provide a transaction's replay protection and cancellation directly, reducing the number of nullifiers an account needs to emit. This is not done by the standard entrypoint today; see issues #461 (the protocol/design direction) and #462 (the Aztec.nr account-layer work) for the full picture.
-=======
+
 ### [Aztec.js] `getPublicEvents` is now cursor-paginated
 
 `getPublicEvents` returns a single page of events (at most `MAX_LOGS_PER_TAG`, the node's per-tag page size) and pages instead of the `maxLogsHit` flag, which didn't provide any way to fetch the next page of events:
@@ -76,7 +75,6 @@ The synchronous `AztecAddress` constructors that build an address from a raw val
 ```
 
 For a random, genuinely valid address in tests use `AztecAddress.random()`, and to check an untrusted value use `address.isValid()`. The serialization constructors `fromBuffer` and `fromFields` keep their names (they are part of the (de)serialization interface and read addresses from already-validated data), but their docs now note that they perform no validation either.
->>>>>>> c81bb25cb7 (feat: merge-train/fairies-v5 (#24223))
 
 ### Cross-contract utility calls now have a `msg_sender`
 

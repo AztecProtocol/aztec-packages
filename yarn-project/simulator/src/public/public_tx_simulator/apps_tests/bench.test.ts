@@ -106,13 +106,8 @@ describe('Public TX simulator apps tests: benchmarks', () => {
       });
 
       it('AVM large calldata test', async () => {
-<<<<<<< HEAD
         tester.setMetricsPrefix('AvmTest contract tests');
-        const deployer = AztecAddress.fromNumber(42);
-=======
-        tester.setMetricsPrefix(`${metricsPrefixPrefix}AvmTest contract tests`);
         const deployer = AztecAddress.fromNumberUnsafe(42);
->>>>>>> c81bb25cb7 (feat: merge-train/fairies-v5 (#24223))
 
         const avmTestContract = await tester.registerAndDeployContract(
           /*constructorArgs=*/ [],
@@ -137,13 +132,8 @@ describe('Public TX simulator apps tests: benchmarks', () => {
 
       it('PublicFnsWithEmitRepro contract test', async () => {
         // See comments on the contract source for motivation as to including this contract in our benchmarks.
-<<<<<<< HEAD
         tester.setMetricsPrefix('PublicFnsWithEmitRepro contract tests');
-        const deployer = AztecAddress.fromNumber(42);
-=======
-        tester.setMetricsPrefix(`${metricsPrefixPrefix}PublicFnsWithEmitRepro contract tests`);
         const deployer = AztecAddress.fromNumberUnsafe(42);
->>>>>>> c81bb25cb7 (feat: merge-train/fairies-v5 (#24223))
 
         const reproContract = await tester.registerAndDeployContract(
           /*constructorArgs=*/ [],
@@ -167,13 +157,8 @@ describe('Public TX simulator apps tests: benchmarks', () => {
       });
 
       it('Storage proof test', async () => {
-<<<<<<< HEAD
         tester.setMetricsPrefix('StorageProof contract tests');
-        const deployer = AztecAddress.fromNumber(42);
-=======
-        tester.setMetricsPrefix(`${metricsPrefixPrefix}StorageProof contract tests`);
         const deployer = AztecAddress.fromNumberUnsafe(42);
->>>>>>> c81bb25cb7 (feat: merge-train/fairies-v5 (#24223))
 
         const storageProofContract = await tester.registerAndDeployContract(
           /*constructorArgs=*/ [],
