@@ -20,7 +20,7 @@ the cryptographic soundness of the proving system itself (treated as an assumpti
 | User | Executes private functions locally, produces a client-side proof, submits the tx to a node via RPC. |
 | Node | Syncs L2 state from L1 and p2p, maintains a mempool, serves RPC. Every other server-side actor runs one. |
 | Proposer | The validator elected for a slot. Builds blocks, collects attestations, submits the checkpoint to L1. |
-| Committee | Per-epoch sample of validators. Re-executes proposals and attests to checkpoints. |
+| Committee | Per-epoch sample of validators. Re-executes proposals and attests to checkpoints; its attestations gate proof acceptance (training wheels for the proving system, A2) and back data availability (A8). |
 | Prover | Generates the epoch validity proof and submits it to L1. Permissionless. |
 | Escape hatch proposer | Bonded candidate, randomly selected, may propose without a committee during periodic windows. |
 | Vetoer | Designated L1 role that can block slash payloads during the execution delay. |
@@ -37,7 +37,7 @@ Ethereum's RANDAO. Both inputs are taken from the past: the validator set is sna
 epochs before N and the seed `lagInEpochsForRandao` epochs before N, with set lag ≥ seed lag — by the time the
 randomness is known, the population it samples from can no longer be changed. L1 stores a commitment to each epoch's
 committee to prevent substitution (`ValidatorSelectionLib`); nodes mirror the computation locally
-([epoch-cache README](../epoch-cache/README.md)). The proposer for a slot is
+([epoch-cache README](epoch-cache/README.md)). The proposer for a slot is
 `keccak(epoch, slot, seed) % committeeSize` — deterministic and computable by anyone.
 
 Selection bias is an audit surface in its own right: seed grinding via L1 `prevrandao`, and timing games against the
@@ -49,22 +49,22 @@ attestation validation.
 
 1. **Submission.** A user sends a tx (with its client-side proof) to a node via JSON-RPC `sendTx`. The node fully
    validates it — proof verification plus protocol rules (double-spend, fees, gas limits, expiration, metadata) —
-   before admitting it to the mempool ([server.ts](../aztec-node/src/aztec-node/server.ts),
-   [tx validators](../p2p/src/msg_validators/tx_validator/)).
+   before admitting it to the mempool ([server.ts](aztec-node/src/aztec-node/server.ts),
+   [tx validators](p2p/src/msg_validators/tx_validator/)).
 2. **Propagation.** The node gossips the tx on the p2p `tx` topic. Every receiving node runs the same validation
    pipeline *before* the message is re-propagated: gossipsub only forwards messages the local node accepted. Peers that
    originate invalid data are penalized; validation outcomes that could be another node's fault are dropped without
    penalty (see §6).
-3. **Mempool.** The pool ([tx_pool_v2](../p2p/src/mem_pools/tx_pool_v2/)) admits txs subject to nullifier-conflict,
+3. **Mempool.** The pool ([tx_pool_v2](p2p/src/mem_pools/tx_pool_v2/)) admits txs subject to nullifier-conflict,
    fee-payer-balance, and priority rules, and evicts txs that become ineligible (nullifiers mined by a block, expired
    timestamps, insufficient fee-payer balance, invalid anchor block after a reorg, lowest priority when full).
 4. **Block building.** The proposer for a slot builds several blocks back-to-back (sub-slots), pulling txs from its
    mempool and executing public calls against a fork of world state. Each block is signed and broadcast as a
    `BlockProposal`; the last block ships inside the `CheckpointProposal` that closes the slot. Production runs
-   pipelined: blocks for slot N are built during slot N−1 ([sequencer-client README](../sequencer-client/README.md)).
+   pipelined: blocks for slot N are built during slot N−1 ([sequencer-client README](sequencer-client/README.md)).
 5. **Attestation.** Committee members re-execute every block in the proposal and, if the result matches, sign a
    `CheckpointAttestation` over the checkpoint header and archive root. Attestations are checkpoint-only; individual
-   blocks are never attested ([validator-client README](../validator-client/README.md)).
+   blocks are never attested ([validator-client README](validator-client/README.md)).
 6. **L1 submission.** Once the proposer holds a quorum of attestations — ⌊2n/3⌋+1 of the committee — it submits the
    checkpoint to the rollup contract in a single Multicall3 tx (invalidations first, then propose, then
    governance/slashing votes). At propose time L1 validates the header, blob commitments, and the proposer signature,
@@ -73,7 +73,7 @@ attestation validation.
    pushed into the archiver as provisional blocks. The **checkpointed (pending) chain** comes from L1
    `CheckpointProposed` events: each node verifies the posted attestations from calldata (committee membership and
    quorum, per *delayed attestation verification*) before fetching and decoding blobs; checkpointed blocks are **not**
-   re-executed ([archiver README](../archiver/README.md), [validation.ts](../archiver/src/modules/validation.ts)).
+   re-executed ([archiver README](archiver/README.md), [validation.ts](archiver/src/modules/validation.ts)).
 8. **Proving.** Prover nodes prove epochs optimistically, starting sub-tree work as checkpoints land on L1. The rollup
    accepts an epoch proof only if the proof verifies **and** the last checkpoint in the range carries valid committee
    attestations (`EpochProofLib`). The proven tip then advances. If no proof
@@ -96,23 +96,26 @@ attestation validation.
 
 | Topic | Document |
 | --- | --- |
-| Proposer flow, pipelining, timetable, L1 publisher | [sequencer-client README](../sequencer-client/README.md) |
-| Proposal validation, attestation creation, building limits | [validator-client README](../validator-client/README.md) |
-| Committee/proposer selection, RANDAO seed, epoch caching | [epoch-cache README](../epoch-cache/README.md) |
-| Gossip topics, message validation, peer scoring, req/resp | [p2p README](../p2p/README.md) and sub-READMEs |
-| Mempool state machine and eviction | [tx_pool_v2 README](../p2p/src/mem_pools/tx_pool_v2/README.md) |
-| L1 sync, reorgs, invalid checkpoints, pruning | [archiver README](../archiver/README.md) |
-| Epoch proving pipeline | [prover-node README](../prover-node/README.md) |
-| Slashing architecture and offenses | [slasher README](../slasher/README.md) |
-| Operator-facing slashing guide (amounts, veto, ejection) | [slashing configuration guide](../../docs/docs-operate/operators/sequencer-management/slashing-configuration.md) |
+| Proposer flow, pipelining, timetable, L1 publisher | [sequencer-client README](sequencer-client/README.md) |
+| Proposal validation, attestation creation, building limits | [validator-client README](validator-client/README.md) |
+| Committee/proposer selection, RANDAO seed, epoch caching | [epoch-cache README](epoch-cache/README.md) |
+| Gossip topics, message validation, peer scoring, req/resp | [p2p README](p2p/README.md) and sub-READMEs |
+| Mempool state machine and eviction | [tx_pool_v2 README](p2p/src/mem_pools/tx_pool_v2/README.md) |
+| L1 sync, reorgs, invalid checkpoints, pruning | [archiver README](archiver/README.md) |
+| Epoch proving pipeline | [prover-node README](prover-node/README.md) |
+| Slashing architecture and offenses | [slasher README](slasher/README.md) |
+| Operator-facing slashing guide (amounts, veto, ejection) | [slashing configuration guide](../docs/docs-operate/operators/sequencer-management/slashing-configuration.md) |
 
 ## 2. Trust assumptions
 
 - **A1 — Committee quorum.** Safety of the *pending* chain assumes fewer than ⌊2n/3⌋+1 members of any epoch committee
   are malicious; liveness assumes at least ⌊2n/3⌋+1 are honest and online (`computeQuorum` in
-  [epoch-helpers](../stdlib/src/epoch-helpers/), mirrored in `InvalidateLib`).
-- **A2 — Proven-chain soundness.** The *proven* chain does not rely on the committee: it assumes the protocol circuits
-  are sound and the L1 verifier is correct. It must be impossible to prove an invalid state transition.
+  [epoch-helpers](stdlib/src/epoch-helpers/), mirrored in `InvalidateLib`).
+- **A2 — Proven-chain soundness.** It must be impossible to prove an invalid state transition: the *proven* chain
+  assumes the protocol circuits are sound and the L1 verifier is correct, without relying on committee honesty. The
+  committee is nevertheless a second, independent gate: proof submission requires committee attestations on the proven
+  range (V4), so it acts as training wheels for the proving system — exploiting a soundness bug also requires a
+  colluding quorum (or an escape-hatch bond, §7). Invalid state reaches the proven chain only if *both* layers fail.
 - **A3 — Completeness.** Every state transition the network considers valid must be provable. An unprovable-but-attested
   checkpoint forces a prune, so a completeness bug converts into a liveness attack.
 - **A4 — Prover liveness.** At least one prover is willing and able to prove each epoch; otherwise the chain reorgs at
@@ -135,7 +138,7 @@ attestation validation.
 | Malicious proposer | Censor txs; waste its own slot and the next one (pipelining); post an unattested/badly-attested checkpoint to L1; equivocate | Convince honest nodes of an invalid state transition; corrupt state beyond slot N+1; brick other nodes' sync | Re-execution before attestation/adoption; pipeline depth capped at 2; delayed attestation verification + permissionless invalidation; slashing (§5) |
 | Committee minority (< quorum, not proposer) | Withhold their own attestations; equivocate (slashable) | Prevent a slot from being attested; get honest members slashed | Quorum only needs ⌊2n/3⌋+1 of n; equivocation slashing |
 | Committee quorum (≥ ⌊2n/3⌋+1 malicious) | Post invalid-but-attested checkpoints that nodes follow blindly; withhold tx data; halt the pending chain until the epoch prune | Get invalid state proven or exited on L1 (A2); avoid slashing for data withholding / attested-invalid | Unprovable state → prune at proof-window expiry; archiver preemptive unwind; slashing incl. `DATA_WITHHOLDING` |
-| Malicious prover | Nothing by proving (proofs are verified); grief by *not* proving | Prove an invalid transition (A2); steal fees/rewards via forged proof calldata | Proof verification; fees bound to attested headers (see §4.4); A4 for liveness |
+| Malicious prover | Nothing by proving (proofs are verified); grief by *not* proving | Prove an invalid transition (A2); steal fees/rewards via forged proof calldata | Proof verification; attestation gate at proof submission (A2); fees bound to attested headers (see §4.4); A4 for liveness |
 | Escape hatch proposer | Same as a malicious committee during its hatch window: post arbitrary unattested checkpoints, halt pending chain until prune | Exceed malicious-committee damage; escape its bond | Bond + punishment for failing to propose-and-prove; hatch windows are bounded (`ACTIVE_DURATION` out of every `FREQUENCY` epochs) |
 | Malicious slashing majority | Vote through an unfair slash (requires >50% of a round's proposers) | Execute it silently or instantly | Execution delay + vetoer; offense votes are public on L1 |
 
@@ -186,7 +189,7 @@ notable caveats.
 - **B4 — Bounded proposer blast radius.** Pipelining lets a proposer build on an in-flight parent, so a failed or
   malicious slot can waste the *next* proposer's work, but no more: pipeline depth is capped at 2 checkpoints beyond the
   confirmed tip, and a parent that fails to land cleanly causes the child's work to be discarded and an invalidation to
-  be enqueued ([checkpoint_proposal_job.ts](../sequencer-client/src/sequencer/checkpoint_proposal_job.ts)).
+  be enqueued ([checkpoint_proposal_job.ts](sequencer-client/src/sequencer/checkpoint_proposal_job.ts)).
 - **B5 — Attestation quorum.** A checkpoint is valid only with ⌊2n/3⌋+1 committee signatures over the consensus payload
   (EIP-712, slot-bound). Enforced off-chain by every syncing node, and on-chain at proof submission and in
   `invalidateInsufficientAttestations`.
@@ -198,7 +201,7 @@ L1 does **not** verify committee attestations at propose time (gas optimization)
 - **C1 — Nodes never follow bad-attestation checkpoints.** Every node validates attestations (signatures, committee
   membership at the correct index, quorum) from L1 **calldata** before fetching or decoding blobs, so a checkpoint with
   invalid attestations is rejected without touching potentially malformed blob data
-  ([validation.ts](../archiver/src/modules/validation.ts)).
+  ([validation.ts](archiver/src/modules/validation.ts)).
 - **C2 — Sync never bricks.** The archiver skips invalid checkpoints, advances its syncpoint past them, and keeps
   processing. The `inHash` check cannot be weaponized: L1 enforces `header.inHash == inbox.consume(...)` at propose
   time, so a local mismatch indicates a node bug, not attacker-controlled input (`ProposeLib`).
@@ -226,8 +229,8 @@ L1 does **not** verify committee attestations at propose time (gas optimization)
   data is not free calldata — fees and rewards derive from checkpoint headers that L1 re-hashes against the
   committee-attested header hashes, so a forged proof cannot redirect or inflate fees; (b) proof submission
   requires valid committee attestations on the range's last checkpoint, so a lone prover cannot promote arbitrary state
-  — it needs a colluding quorum (or a hatch window, see §7). Residual exposure: Outbox withdrawals from a
-  maliciously-proven state; tracked as a known gap in §7.
+  — it needs a colluding quorum (or a hatch window, see §7). This is the committee's training-wheels role from A2.
+  Residual exposure: Outbox withdrawals from a maliciously-proven state; tracked as a known gap in §7.
 
 ### 4.5 L1 sync completeness
 
@@ -238,7 +241,7 @@ L1 does **not** verify committee attestations at propose time (gas optimization)
   the proven chain, and a node that refuses to sync them forks itself off.
 - **S2 — L1 reorg resilience.** Message and checkpoint sync detect L1 reorgs (rolling hashes, archive root comparison),
   unwind to the common ancestor, and re-fetch — including the subtle case of checkpoints added *behind* the syncpoint.
-  See [archiver README](../archiver/README.md) § Edge Cases.
+  See [archiver README](archiver/README.md) § Edge Cases.
 
 ### 4.6 Slashing fairness
 
@@ -246,7 +249,7 @@ L1 does **not** verify committee attestations at propose time (gas optimization)
   (proposals, attestations — EIP-712 slot-bound, so replay across slots is impossible) or sustained, locally-observable
   inactivity. An honest validator signs only what it built or successfully re-executed, so no message from a malicious
   peer can route it into slashable behavior. HA deployments coordinate signing via a shared store to prevent
-  self-equivocation ([validator-ha-signer](../validator-ha-signer/)).
+  self-equivocation ([validator-ha-signer](validator-ha-signer/)).
 - **F2 — Individual accountability.** Offenses target individuals: an honest committee member is not slashed because
   the majority misbehaved. Note `DATA_WITHHOLDING` targets *all attesters* of the checkpoint — making the data
   available is part of the attester's duty, and any single honest attester publishing the txs clears the whole
@@ -258,7 +261,7 @@ L1 does **not** verify committee attestations at propose time (gas optimization)
 
 Consensus-based: proposers vote (2 bits per validator: 0–3 slash units) during round N on offenses from round N−2; the
 L1 `SlashingProposer` tallies and executes after the delay unless vetoed. Full mechanics in
-[slasher README](../slasher/README.md); offense rationale in AZIP-7.
+[slasher README](slasher/README.md); offense rationale in AZIP-7.
 
 | Offense | Target | Trigger |
 | --- | --- | --- |
@@ -284,14 +287,14 @@ veto/delay windows vs validator exit timing, and whether any honest behavior can
 ## 6. P2P peer penalization
 
 Peer standing combines two layers. The **application-level score**
-([peer_scoring.ts](../p2p/src/services/peer-manager/peer_scoring.ts))
+([peer_scoring.ts](p2p/src/services/peer-manager/peer_scoring.ts))
 accumulates penalties only (there is no reward path), decays by ×0.9 per minute, and drives the peer manager: score
 below −50 → GOODBYE + disconnect on the next heartbeat (~30s); below −100 → 24h ban. While banned, the score is frozen
 (no decaying out early) and fresh inbound connections are refused; a mere "disconnect"-scored peer may reconnect. The
 **gossipsub score** independently combines the app score (weight 10, `-Infinity` for unauthenticated peers when the
 node only accepts validator peers via `p2pAllowOnlyValidators`), per-topic delivery scoring (rewards up to +33/topic on predictable-rate topics; the `tx`
 topic has no delivery scoring), an invalid-message penalty (P4, weight −20, ~4-slot decay, incremented by every gossip
-`REJECT`), and an IP-colocation penalty (−5). Tuning math: [gossipsub README](../p2p/src/services/gossipsub/README.md).
+`REJECT`), and an IP-colocation penalty (−5). Tuning math: [gossipsub README](p2p/src/services/gossipsub/README.md).
 
 Application-level severities (penalty points against the −50/−100 thresholds; boundaries are strict, so e.g. two
 `LowTolerance` strikes reach exactly −100 and a third is needed to ban):
@@ -316,13 +319,13 @@ denial until 1h passes without failures. Trusted/private/preferred peers are exe
 disconnection and capacity eviction, but **not** from scoring or gossipsub graylisting.
 
 The reject-vs-ignore mapping per message type (which failures penalize the sender vs get silently dropped) is the
-enforcement of P2 and is catalogued per validator in [message validator READMEs](../p2p/src/msg_validators/).
+enforcement of P2 and is catalogued per validator in [message validator READMEs](p2p/src/msg_validators/).
 
 ## 7. Known gaps
 
 1. **Descendants of invalid checkpoints.** If a malicious quorum attests to a *descendant* of an invalid-attestation
    checkpoint, nodes currently follow it (they assume an honest majority) instead of ignoring it until proven. Flagged
-   in [archiver README](../archiver/README.md); the corresponding slash (`PROPOSED_DESCENDANT_…`) exists, but node-side
+   in [archiver README](archiver/README.md); the corresponding slash (`PROPOSED_DESCENDANT_…`) exists, but node-side
    chain-selection does not.
 2. **Escape hatch × unsound verifier.** `submitEpochRootProof` skips attestation verification for hatch epochs (there
    is no committee), so during a hatch window the attestation gate of V4(b) is absent: a malicious hatch proposer plus
