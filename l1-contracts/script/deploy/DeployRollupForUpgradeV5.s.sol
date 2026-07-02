@@ -49,8 +49,7 @@ import {Epoch, Timestamp} from "@aztec/shared/libraries/TimeMath.sol";
 
 import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
 
-import {HonkVerifier} from "@generated/HonkVerifier.sol";
-
+import {HonkVerifier} from "./HonkVerifier.sol";
 import {DeployRollupLib, RollupAddressOutput} from "./DeployRollupLib.sol";
 import {IRollupConfiguration, RollupConfiguration} from "./RollupConfiguration.sol";
 
@@ -145,9 +144,10 @@ contract DeployRollupForUpgradeV5 is Script, StdAssertions {
   bytes32 internal constant STAKING_SLOT = keccak256("aztec.core.staking.storage");
   uint256 internal constant STAKING_QUEUE_CONFIG_SLOT_OFFSET = 5;
 
-  bytes32 internal constant EXPECTED_VK_TREE_ROOT = 0x2f1ae34d4c35a5ca7384c39630d44e96d001cdcf601fec1d78706e0054d5e0db;
+  // Constants taken from aztec-packages-private/v5-next@e56e4904ba75f38e041de3a5ed663b815c8f48f8
+  bytes32 internal constant EXPECTED_VK_TREE_ROOT = 0x2b3b6ea4412b9c8f6457a37f91a2870306f8641e07e16a49b68bda6f8bc02892;
   bytes32 internal constant EXPECTED_PROTOCOL_CONTRACTS_HASH =
-    0x016d8ee101b952bcb395235a0ab89707008374dda24f70c1f3911f1b0539d6c4;
+    0x2c075866eafc88a1f6f9addc7e337c6e64e45d1cb7fd7c0d612ebcec72aab2ca;
   bytes32 internal constant EXPECTED_GENESIS_ARCHIVE_ROOT =
     0x177a4955b31ecaafad999753938a44e526b54c5ba5d536688227f85f15cfbdf5;
 
@@ -359,14 +359,6 @@ contract DeployRollupForUpgradeV5 is Script, StdAssertions {
   }
 
   function run() public {
-    // TODO(GK-696): the EXPECTED_VK_TREE_ROOT / EXPECTED_PROTOCOL_CONTRACTS_HASH /
-    // EXPECTED_GENESIS_ARCHIVE_ROOT pins are placeholders; swap in the final roots from
-    // AztecProtocol/aztec-packages-private and remove this gate before deploying to mainnet.
-    // https://linear.app/aztec-labs/issue/GK-696
-    if (block.chainid == MAINNET_CHAIN_ID) {
-      require(vm.envOr("DANGEROUSLY_DEPLOY_TO_MAINNET", false), DeployRollupForUpgradeV5__MainnetDeploymentBlocked());
-    }
-
     ExpectedAddresses memory expected = _assertExpectedAddresses();
     Registry registry = Registry(expected.registry);
     address deployer = vm.envOr("DEPLOYER_ADDRESS", msg.sender);

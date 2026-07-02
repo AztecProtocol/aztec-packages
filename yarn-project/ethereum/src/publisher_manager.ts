@@ -40,11 +40,11 @@ export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
   private log: Logger;
   private config: PublisherManagerConfig;
   private static readonly FUNDING_CHECK_INTERVAL_MS = 2 * 60 * 1000;
-  private funder?: UtilsType;
-  private fundingPromise?: RunningPromise;
+  protected funder?: UtilsType;
+  protected fundingPromise?: RunningPromise;
 
   constructor(
-    private publishers: UtilsType[],
+    protected publishers: UtilsType[],
     config: PublisherManagerConfig,
     opts?: { bindings?: LoggerBindings; funder?: UtilsType },
   ) {

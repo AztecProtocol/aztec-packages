@@ -27,7 +27,7 @@ describe('ContractAddress', () => {
     const mockInstance = {
       initializationHash: new Fr(1),
       salt: new Fr(2),
-      deployer: AztecAddress.fromField(new Fr(4)),
+      deployer: AztecAddress.fromFieldUnsafe(new Fr(4)),
       immutablesHash: new Fr(3),
     };
     const result = await computeSaltedInitializationHash(mockInstance);
@@ -62,7 +62,7 @@ describe('ContractAddress', () => {
     const contractClassId = new Fr(4n);
     const initializationHash = new Fr(5n);
     const immutablesHash = new Fr(6n);
-    const deployer = AztecAddress.fromField(new Fr(7));
+    const deployer = AztecAddress.fromFieldUnsafe(new Fr(7));
     const publicKeys = (await deriveKeys(secretKey)).publicKeys;
     const instance = {
       publicKeys,
@@ -78,7 +78,7 @@ describe('ContractAddress', () => {
     const logger = createLogger('stdlib:contract_address:test');
     logger.info(`Computed contract address from instance in ${ms}ms`);
     expect(address.toString()).toMatchInlineSnapshot(
-      `"0x0d6b714c841fa9de697706f8c80975d8103e7c8808c3a38802bb07e9b3166cc0"`,
+      `"0x0c295919fa5b94d9b9fa5e24e9cef2e8e757c17e2cecd366055571c88d9e2a44"`,
     );
   });
 });

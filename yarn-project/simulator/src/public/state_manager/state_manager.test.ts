@@ -195,8 +195,8 @@ describe('state_manager', () => {
   //  // merge journals
   //  // t2 -> journal0 -> read  | 2
 
-  //  const contractAddress = AztecAddress.fromNumber(1);
-  //  const aztecContractAddress = AztecAddress.fromField(contractAddress);
+  //  const contractAddress = AztecAddress.fromNumberUnsafe(1);
+  //  const aztecContractAddress = AztecAddress.fromFieldUnsafe(contractAddress);
   //  const key = new Fr(2);
   //  const value = new Fr(1);
   //  const valueT1 = new Fr(2);
@@ -283,12 +283,12 @@ describe('state_manager', () => {
   //  ]);
   //  expect(journalUpdates.newLogs).toEqual([
   //    new UnencryptedL2Log(
-  //      AztecAddress.fromBigInt(log.address),
+  //      AztecAddress.fromBigIntUnsafe(log.address),
   //      new EventSelector(log.selector),
   //      Buffer.concat(log.data.map(f => f.toBuffer())),
   //    ),
   //    new UnencryptedL2Log(
-  //      AztecAddress.fromBigInt(logT1.address),
+  //      AztecAddress.fromBigIntUnsafe(logT1.address),
   //      new EventSelector(logT1.selector),
   //      Buffer.concat(logT1.data.map(f => f.toBuffer())),
   //    ),
@@ -328,8 +328,8 @@ describe('state_manager', () => {
   //  // merge journals
   //  // t2 -> journal0 -> read  | 1
 
-  //  const contractAddress = AztecAddress.fromNumber(1);
-  //  const aztecContractAddress = AztecAddress.fromField(contractAddress);
+  //  const contractAddress = AztecAddress.fromNumberUnsafe(1);
+  //  const aztecContractAddress = AztecAddress.fromFieldUnsafe(contractAddress);
   //  const key = new Fr(2);
   //  const value = new Fr(1);
   //  const valueT1 = new Fr(2);
@@ -437,7 +437,7 @@ describe('state_manager', () => {
   //  // Check that rejected Accrued Substate is absent
   //  expect(journalUpdates.newLogs).toEqual([
   //    new UnencryptedL2Log(
-  //      AztecAddress.fromBigInt(log.address),
+  //      AztecAddress.fromBigIntUnsafe(log.address),
   //      new EventSelector(log.selector),
   //      Buffer.concat(log.data.map(f => f.toBuffer())),
   //    ),

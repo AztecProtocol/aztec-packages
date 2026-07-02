@@ -62,7 +62,7 @@ export function CreateAuthwitDialog({ open, contract, fnName, args, isPrivate, o
     setCreating(true);
     const call = await contract.methods[fnName](...args).getFunctionCall();
     const intent = {
-      caller: AztecAddress.fromString(caller),
+      caller: AztecAddress.fromStringUnsafe(caller),
       call,
     };
     try {

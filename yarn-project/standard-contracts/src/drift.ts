@@ -37,7 +37,7 @@ function generateSalts(names: string[]) {
 function generateAddresses(names: string[], contractData: ContractData[]) {
   return `
     export const StandardContractAddress: Record<StandardContractName, AztecAddress> = {
-      ${contractData.map((d, i) => `${names[i]}: AztecAddress.fromString('${d.address.toString()}')`).join(',\n')}
+      ${contractData.map((d, i) => `${names[i]}: AztecAddress.fromStringUnsafe('${d.address.toString()}')`).join(',\n')}
     };
   `;
 }

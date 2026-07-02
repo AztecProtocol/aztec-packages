@@ -12,7 +12,7 @@ import {Registry} from "@aztec/governance/Registry.sol";
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {ProposedHeader} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
+import {ProposedHeader, ProposedHeaderLib} from "@aztec/core/libraries/rollup/ProposedHeaderLib.sol";
 
 import {
   IRollupCore,
@@ -459,6 +459,7 @@ contract RollupTest is RollupBase {
 
       // We mess up the fees and say that someone is paying a massive priority which surpass the amount available.
       interim.feeAmount = interim.manaUsed * interim.minFee + interim.portalBalance;
+      header.accumulatedFees = interim.feeAmount;
 
       // Assert that balance have NOT been increased by proposing the checkpoint
       ProposeArgs memory args = ProposeArgs({header: header, archive: data.archive, oracleInput: OracleInput(0)});
@@ -469,6 +470,8 @@ contract RollupTest is RollupBase {
         attestationsAndSignersSignature,
         data.blobCommitments
       );
+
+      proposedHeaders[1] = header;
       assertEq(testERC20.balanceOf(header.coinbase), 0, "invalid coinbase balance");
     }
 
@@ -487,17 +490,7 @@ contract RollupTest is RollupBase {
           interim.feeAmount
         )
       );
-      _submitEpochProof(
-        1,
-        1,
-        checkpoint.archive,
-        data.archive,
-        data.batchedBlobInputs,
-        data.header.outHash,
-        prover,
-        header.coinbase,
-        interim.feeAmount
-      );
+      _submitEpochProof(1, 1, checkpoint.archive, data.archive, data.batchedBlobInputs, data.header.outHash, prover);
     }
     assertEq(testERC20.balanceOf(header.coinbase), 0, "invalid coinbase balance");
     assertEq(rollup.getSequencerRewards(header.coinbase), 0, "invalid sequencer rewards");
@@ -510,15 +503,7 @@ contract RollupTest is RollupBase {
 
       // When the checkpoint is proven we should have received the funds
       _submitEpochProof(
-        1,
-        1,
-        checkpoint.archive,
-        data.archive,
-        data.batchedBlobInputs,
-        data.header.outHash,
-        address(42),
-        header.coinbase,
-        interim.feeAmount
+        1, 1, checkpoint.archive, data.archive, data.batchedBlobInputs, data.header.outHash, address(42)
       );
 
       {
@@ -889,6 +874,47 @@ contract RollupTest is RollupBase {
     assertEq(outbox.getRootData(Epoch.wrap(0), 2), outHash2, "Root at K=2 should be outHash2");
   }
 
+  // getEpochProofPublicInputs is the view that the prover-publisher calls off-chain to validate its inputs before
+  // submitting. Because the fee recipient/value public inputs are taken from the supplied headers, the header check
+  // must run here too - not only on the submit path - so a mismatch is caught before publishing rather than reverting
+  // on-chain.
+  function testGetEpochProofPublicInputsVerifiesHeaders() public setUpFor("empty_checkpoint_1") {
+    _proposeCheckpoint("empty_checkpoint_1", 1);
+
+    DecoderBase.Data memory data = load("empty_checkpoint_1").checkpoint;
+    CheckpointLog memory checkpoint = rollup.getCheckpoint(0);
+
+    PublicInputArgs memory args = PublicInputArgs({
+      previousArchive: checkpoint.archive, endArchive: data.archive, outHash: data.header.outHash, proverId: address(0)
+    });
+
+    ProposedHeader[] memory headers = new ProposedHeader[](1);
+    headers[0] = proposedHeaders[1];
+
+    // With the canonical header, the getter assembles the public inputs, sourcing the fee recipient/value from the
+    // header.
+    bytes32[] memory publicInputs = rollup.getEpochProofPublicInputs(1, 1, args, headers, data.batchedBlobInputs);
+    assertEq(publicInputs.length, Constants.ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH, "Unexpected public inputs length");
+
+    uint256 feesOffset = 3 + Constants.MAX_CHECKPOINTS_PER_EPOCH;
+    assertEq(
+      publicInputs[feesOffset], bytes32(uint256(uint160(headers[0].coinbase))), "Coinbase not sourced from header"
+    );
+    assertEq(
+      publicInputs[feesOffset + 1], bytes32(headers[0].accumulatedFees), "Accumulated fees not sourced from header"
+    );
+
+    // Tamper a fee field so the header no longer hashes to the stored value; the getter must reject it.
+    bytes32 expectedHeaderHash = ProposedHeaderLib.hash(headers[0]);
+    headers[0].accumulatedFees += 1;
+    bytes32 providedHeaderHash = ProposedHeaderLib.hash(headers[0]);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.Rollup__InvalidCheckpointHeader.selector, expectedHeaderHash, providedHeaderHash)
+    );
+    rollup.getEpochProofPublicInputs(1, 1, args, headers, data.batchedBlobInputs);
+  }
+
   function _submitEpochProof(
     uint256 _start,
     uint256 _end,
@@ -897,7 +923,7 @@ contract RollupTest is RollupBase {
     bytes memory _blobInputs,
     bytes32 _outHash
   ) internal {
-    _submitEpochProof(_start, _end, _prevArchive, _archive, _blobInputs, _outHash, address(0), address(0), 0);
+    _submitEpochProof(_start, _end, _prevArchive, _archive, _blobInputs, _outHash, address(0));
   }
 
   function _submitEpochProof(
@@ -907,24 +933,24 @@ contract RollupTest is RollupBase {
     bytes32 _archive,
     bytes memory _blobInputs,
     bytes32 _outHash,
-    address _prover,
-    address _coinbase,
-    uint256 _fee
+    address _prover
   ) internal {
     PublicInputArgs memory args = PublicInputArgs({
       previousArchive: _prevArchive, endArchive: _archive, outHash: _outHash, proverId: _prover
     });
 
-    bytes32[] memory fees = new bytes32[](Constants.MAX_CHECKPOINTS_PER_EPOCH * 2);
-    fees[0] = bytes32(uint256(uint160(bytes20(_coinbase)))); // Need the address to be left padded within the bytes32
-    fees[1] = bytes32(_fee);
+    uint256 size = _end - _start + 1;
+    ProposedHeader[] memory headers = new ProposedHeader[](size);
+    for (uint256 i = 0; i < size; i++) {
+      headers[i] = proposedHeaders[_start + i];
+    }
 
     rollup.submitEpochRootProof(
       SubmitEpochRootProofArgs({
         start: _start,
         end: _end,
         args: args,
-        fees: fees,
+        headers: headers,
         attestations: CommitteeAttestations({signatureIndices: "", signaturesOrAddresses: ""}),
         blobInputs: _blobInputs,
         proof: ""

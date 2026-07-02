@@ -1,7 +1,7 @@
 /**
  * Test fixtures and utilities to set up and run a test using multiple validators
  */
-import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
+import { type AztecNodeConfig, AztecNodeService, createAztecNodeService } from '@aztec/aztec-node';
 import { range } from '@aztec/foundation/array';
 import { SecretValue } from '@aztec/foundation/config';
 import { withLoggerBindings } from '@aztec/foundation/log/server';
@@ -109,7 +109,7 @@ export async function createNode(
   return await withLoggerBindings({ actor: `validator-${actorIndex}` }, async () => {
     const validatorConfig = await createValidatorConfig(config, bootstrapNode, tcpPort, addressIndex, dataDirectory);
     const telemetry = await getEndToEndTestTelemetryClient(metricsPort);
-    return await AztecNodeService.createAndSync(
+    return await createAztecNodeService(
       validatorConfig,
       { telemetry, dateProvider },
       { genesis, dontStartSequencer: config.dontStartSequencer },
@@ -137,7 +137,7 @@ export async function createNonValidatorNode(
       sequencerPublisherPrivateKeys: [],
     };
     const telemetry = await getEndToEndTestTelemetryClient(metricsPort);
-    return await AztecNodeService.createAndSync(config, { telemetry, dateProvider }, { genesis });
+    return await createAztecNodeService(config, { telemetry, dateProvider }, { genesis });
   });
 }
 

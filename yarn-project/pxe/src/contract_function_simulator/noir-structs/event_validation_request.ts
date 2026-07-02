@@ -21,7 +21,7 @@ export class EventValidationRequest {
   static fromFields(fields: Fr[] | FieldReader): EventValidationRequest {
     const reader = FieldReader.asReader(fields);
 
-    const contractAddress = AztecAddress.fromField(reader.readField());
+    const contractAddress = AztecAddress.fromFieldUnsafe(reader.readField());
     const eventTypeId = EventSelector.fromField(reader.readField());
 
     const randomness = reader.readField();

@@ -85,7 +85,10 @@ export class ScopedPrivateLogData {
 
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
-    return new ScopedPrivateLogData(reader.readObject(PrivateLogData), AztecAddress.fromField(reader.readField()));
+    return new ScopedPrivateLogData(
+      reader.readObject(PrivateLogData),
+      AztecAddress.fromFieldUnsafe(reader.readField()),
+    );
   }
 
   isEmpty() {

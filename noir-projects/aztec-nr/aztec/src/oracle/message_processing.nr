@@ -54,6 +54,8 @@ pub unconstrained fn get_logs_by_tag(
     get_logs_by_tag_oracle(requests)
 }
 
+// TODO: PXE also exposes `getLogsByTagV2`, whose response additionally carries the origin block number and timestamp
+// of each log. Switch this oracle (and `LogRetrievalResponse`) over to it once a consumer needs that context.
 #[oracle(aztec_utl_getLogsByTag)]
 unconstrained fn get_logs_by_tag_oracle(
     requests: EphemeralArray<LogRetrievalRequest>,

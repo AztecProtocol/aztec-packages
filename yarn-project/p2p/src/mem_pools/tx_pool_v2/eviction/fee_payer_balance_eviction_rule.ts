@@ -86,7 +86,7 @@ export class FeePayerBalanceEvictionRule implements EvictionRule {
     publicStateSource: DatabasePublicStateSource,
     pool: PoolOperations,
   ): Promise<string[]> {
-    const feePayer = AztecAddress.fromString(feePayerStr);
+    const feePayer = AztecAddress.fromStringUnsafe(feePayerStr);
     const initialBalance = (
       await publicStateSource.storageRead(
         ProtocolContractAddress.FeeJuice,

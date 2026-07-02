@@ -183,6 +183,12 @@ export type P2P = P2PClient & {
   getPendingTxCount(): Promise<number>;
 
   /**
+   * Returns whether at least `minCount` pending txs have been in the pool long enough to be eligible for block
+   * building. Early-exits once the threshold is met instead of counting every eligible tx.
+   */
+  hasEligiblePendingTxs(minCount: number): Promise<boolean>;
+
+  /**
    * Protects existing transactions by hash for a given slot.
    * Returns hashes of transactions that weren't found in the pool.
    * @param txHashes - Hashes of the transactions to protect.

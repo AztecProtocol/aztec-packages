@@ -23,43 +23,47 @@ In Aztec, each emitted log is an array of fields, e.g. `[tag, x, y, z]`. The fir
 
 #### Tag derivation
 
-The sender and recipient share a predictable scheme for generating tags. Tags are derived through a layered hashing process that makes them specific to a particular sender-recipient pair, contract, and sequence number.
+Every tag is derived the same way: `poseidon2(secret, index)`.
+
+What varies is how the sender and recipient come to share `secret`. This is the [tagging secret strategy](../../../aztec-nr/framework-description/note_delivery.md#tagging-secret-strategy), chosen by the wallet by default, though a contract can [override it at delivery](../../../aztec-nr/framework-description/note_delivery.md#overriding-the-strategy-from-the-contract).
+
+There are three strategies, described below. They differ only in how `secret` is established. Once `secret` exists, the tag is derived from it the same way for all three.
+
+##### Arbitrary secret
+
+Two parties that already share a secret point out of band can use it directly. PXE app-siloes the point to the contract (`poseidon2(point.x, point.y, contract)`) and then folds in the recipient (`poseidon2(appSecret, recipient)`) to make the secret directional, so tags from Alice to Bob differ from tags from Bob to Alice. The recipient registers the secret point with their PXE so it can scan for the resulting tags. This leaves no onchain trace, but nothing onchain backs the secret, so it cannot be used for [constrained delivery](../../../aztec-nr/framework-description/note_delivery.md#tagging-secret-strategy).
+
+##### Address-derived secret
+
+An address-derived secret is the same, except the shared secret point is computed instead of supplied. The sender and recipient each derive it via Diffie-Hellman on the Grumpkin curve from their own [incoming viewing secret key](../../accounts/keys.md#incoming-viewing-keys) (`ivsk`) and the other party's address point: `S = (preaddress + ivsk) × AddressPoint`. The app-siloing and directional fold are then identical. Because the point comes from the parties' addresses, the recipient registers the sender's address with their PXE (rather than a secret point) so it can compute the tags. Like an arbitrary secret, it cannot back [constrained delivery](../../../aztec-nr/framework-description/note_delivery.md#tagging-secret-strategy).
+
+##### Non-interactive handshake
+
+To establish a handshake, the sender publishes an ephemeral public key onchain, encrypted to the recipient, under a log tagged with the recipient's address. During sync the recipient scans for handshakes addressed to them, decrypts the ephemeral key, and derives the shared secret via Diffie-Hellman against their own `ivsk`. Because that secret is already derived against the recipient, it is app-siloed to the contract but left bare, with no directional fold.
+
+This lets the recipient discover messages from a sender they never registered, at the cost of publishing onchain that a handshake was made with them. It is the default for reaching a new external recipient, and unlike an address-derived or arbitrary secret it can back [constrained delivery](../../../aztec-nr/framework-description/note_delivery.md#tagging-secret-strategy).
+
+##### Deriving the tag from the secret
+
+Whichever strategy produced it, the resulting app-siloed tagging secret is turned into a tag the same way:
 
 ```mermaid
 flowchart LR
-    A[Sender ivsk + Address] --> B["Shared Secret (DH)"]
-    C[Recipient Address Point] --> B
-    B --> D{{"poseidon2(S.x, S.y, contract)"}}
-    D --> E[App Tagging Secret]
-    E --> F{{"poseidon2(appSecret, recipient)"}}
-    F --> G[Directional Secret]
-    G --> H{{"poseidon2(secret, index)"}}
+    G["Tagging Secret"] --> H{{"poseidon2(secret, index)"}}
     H --> I[Tag]
     I --> J{{"silo(contract, tag)"}}
     J --> K[Siloed Tag]
 ```
 
-The derivation has four stages:
-
-1. **Shared secret**: The sender and recipient compute the same shared secret via Diffie-Hellman key exchange on the Grumpkin curve. Each party uses their [incoming viewing secret key](../../accounts/keys.md#incoming-viewing-keys) (`ivsk`) and the other party's address point: `S = (preaddress + ivsk) × AddressPoint`.
-
-2. **App tagging secret**: The shared secret is hashed with the contract address to produce a per-contract secret: `poseidon2(S.x, S.y, contract_address)`. This ensures tags from different contracts cannot be linked.
-
-3. **Directional secret**: The app secret is hashed with the recipient address: `poseidon2(appSecret, recipient)`. This makes the secret asymmetric — tags from Alice to Bob differ from tags from Bob to Alice.
-
-4. **Tag**: The directional secret is hashed with an index (a counter that increments for each log the sender emits to this recipient in this contract): `poseidon2(directionalSecret, index)`.
-
-When the log is emitted, the protocol kernel **siloes** the tag with the contract address before it appears onchain. This siloed tag is what the node stores and indexes. Both the sender and recipient can independently compute the siloed tags and use them to query the node.
+The tagging secret is hashed with an index, a counter that increments for each log the sender emits to this recipient in this contract: `poseidon2(secret, index)`. When the log is emitted, the protocol kernel **siloes** the resulting tag with the contract address before it appears onchain. This siloed tag is what the node stores and indexes. Both the sender and recipient can independently compute the siloed tags and use them to query the node.
 
 #### The sender in note tagging
 
-The "sender" in note tagging is **not necessarily the transaction sender**. It's the **sender for tags**, which the wallet supplies as a default (typically the originating account address). Contracts can override this at message delivery by using `MessageDelivery::onchain_unconstrained().with_sender(address)`.
-
-This sender address is used along with the recipient address to compute the shared secret via Diffie-Hellman key exchange, which is then used to derive the tag.
+The "sender" in note tagging is **not necessarily the transaction sender**. It's the **sender for tags**, which the wallet supplies as a default (typically the originating account address). Contracts can override this at message delivery by using `with_sender`, for both constrained and unconstrained delivery, e.g. `MessageDelivery::onchain_constrained().with_sender(address)`.
 
 #### Registering known senders
 
-To discover notes from a particular sender, the recipient's PXE must know the sender's address in advance so it can compute the shared tagging secret. Register senders using the wallet API:
+To discover notes from a particular sender via an [address-derived secret](#address-derived-secret), the recipient's PXE must know the sender's address in advance so it can compute the shared tagging secret. Register senders using the wallet API:
 
 ```typescript
 // Register a sender so your PXE can discover notes from them
@@ -72,7 +76,7 @@ Notes sent to yourself are always discoverable — the PXE automatically adds al
 
 The `#[aztec]` macro automatically injects an unconstrained `sync_state` utility function into every contract. This function is invoked by the PXE during note syncing to orchestrate discovery via oracles; manual execution is forbidden by the PXE to prevent inconsistencies. The process works as follows:
 
-1. **Fetch tagged logs**: The contract calls the `fetchTaggedLogs` oracle. The PXE computes tags for every (sender, recipient) pair it knows about, queries the node for matching logs, and returns them to the contract.
+1. **Fetch tagged logs**: The contract calls the `fetchTaggedLogs` oracle. The PXE computes tags for every secret it can use for this recipient, queries the node for matching logs, and returns them to the contract.
 
 2. **Decrypt**: For each log, the contract strips the tag and attempts AES-128 decryption using a symmetric key derived from the recipient's private key (via ECDH). Logs that don't decrypt are silently discarded (they were not intended for this recipient).
 
@@ -96,26 +100,17 @@ This means there's a practical limit on how many logs a single sender can emit t
 
 ### Limitations and solutions
 
-#### You cannot receive tagged notes from an unknown sender
+#### You cannot receive address-derived tagged notes from an unknown sender
 
-Without knowing the sender's address, you cannot create the shared secret needed to derive the note tag. This is a fundamental limitation of the current tagging scheme.
+When the tag's secret is [address-derived](#address-derived-secret), you cannot compute it without knowing the sender's address, so you cannot discover those notes from a sender you haven't registered. This is a limitation of address-derived tagging, not of tagging in general.
 
 There are three broad families of solutions to this problem:
 
 **a) Brute force search** - Scan every single log and test if it decrypts. This has obvious performance issues as the network grows and becomes prohibitively expensive.
 
-**b) Tagging with known sender** (current implementation) - You know who will send you messages and search for those specifically. This is very fast and allows you to remove senders who spam you. However, we don't currently have a mechanism for constraining this (i.e., guaranteeing that the recipient will find the message).
+**b) Tagging with known sender** - You know who will send you messages and search for those specifically. This is very fast and allows you to remove senders who spam you. However, it cannot be constrained, i.e., it cannot guarantee that the recipient will find the message. It also requires registering each sender's address in advance with `wallet.registerSender(address)`, so you must learn that address first.
 
-**c) Tagging with handshaking** - An intermediate solution where you can be notified of new senders. A handshake occurs onchain that lets the recipient discover a new sender, and from that point on there's regular tagging. This design either:
-- Is fast but leaks privacy (e.g., a public event with "new handshake for Alice!")
-- Is slow but doesn't leak (you brute force scan all logs from a handshake contract, testing if any handshakes are for you)
-
-The handshaking design space is large — for example, you could set up infrastructure where a server searches handshakes for you, trading off infrastructure requirements for performance.
-
-**Handshaking is not currently implemented in Aztec.nr.** For now, if you need to receive notes from unknown senders, potential workarounds include:
-- Having senders register themselves in a contract first, allowing recipients to search for note tags from all registered senders
-- Using offchain communication to share sender addresses with recipients, who then call `wallet.registerSender(address)` to enable discovery
-- Implementing a custom discovery mechanism in your contract
+**c) Tagging with a handshake** - The sender and recipient execute a handshake to agree on a tagging secret, after which regular tagging works, so the recipient can discover messages without having registered the sender in advance. A handshake can be interactive (the two coordinate offchain) or non-interactive (published onchain, which needs no prior coordination but reveals a sender has done a handshake with the recipient). By default the wallet determines the type of handshake to use, though a contract can override the choice at delivery (see [tagging secret strategy](../../../aztec-nr/framework-description/note_delivery.md#tagging-secret-strategy)).
 
 See the [Note Delivery](../../../aztec-nr/framework-description/note_delivery.md) documentation for more details on how the sender is used when delivering notes.
 

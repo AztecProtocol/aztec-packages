@@ -168,6 +168,12 @@ let balance = env.view_public(Token::at(token_address).balance_of_public(owner))
 ```rust
 // Simulate utility/view functions (unconstrained)
 let total = env.execute_utility(Token::at(token_address).balance_of_private(owner));
+
+// To set the `msg_sender` the utility function observes, use the `_opts` variant
+let secret = env.execute_utility_opts(
+    ExecuteUtilityOptions::new().with_from(caller),
+    Registry::at(registry_address).get_app_siloed_secret(sender, recipient),
+).map(|secrets| secrets.shared);
 ```
 
 :::tip Helper function pattern

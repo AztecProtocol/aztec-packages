@@ -1036,7 +1036,7 @@ describe('TxPoolV2', () => {
       });
 
       it('pre-protected tx bypasses insufficient balance pre-add rule', async () => {
-        const sharedFeePayer = AztecAddress.fromBigInt(999n);
+        const sharedFeePayer = AztecAddress.fromBigIntUnsafe(999n);
         // Set balance to 0 - normally tx would be ignored
         setFeePayerBalanceForPreProtect(0n);
 
@@ -1129,7 +1129,7 @@ describe('TxPoolV2', () => {
       });
 
       it('pre-protected tx does not trigger post-add eviction rules', async () => {
-        const sharedFeePayer = AztecAddress.fromBigInt(999n);
+        const sharedFeePayer = AztecAddress.fromBigIntUnsafe(999n);
         // Balance covers only one tx
         setFeePayerBalanceForPreProtect(DEFAULT_TX_FEE_LIMIT + DEFAULT_TX_FEE_LIMIT / 2n);
 
@@ -1294,7 +1294,7 @@ describe('TxPoolV2', () => {
         });
 
         it('tx ignored due to insufficient balance succeeds after pre-protection', async () => {
-          const sharedFeePayer = AztecAddress.fromBigInt(999n);
+          const sharedFeePayer = AztecAddress.fromBigIntUnsafe(999n);
           // Set balance to 0
           setFeePayerBalanceForPreProtect(0n);
 
@@ -3441,7 +3441,7 @@ describe('TxPoolV2', () => {
     });
 
     it('high priority tx evicts lower priority tx from same fee payer', async () => {
-      const sharedFeePayer = AztecAddress.fromBigInt(999n);
+      const sharedFeePayer = AztecAddress.fromBigIntUnsafe(999n);
       // Set balance to cover only one tx
       setFeePayerBalance(DEFAULT_TX_FEE_LIMIT + DEFAULT_TX_FEE_LIMIT / 2n);
 
@@ -3470,7 +3470,7 @@ describe('TxPoolV2', () => {
     });
 
     it('low priority tx ignored when fee payer balance exhausted by existing tx', async () => {
-      const sharedFeePayer = AztecAddress.fromBigInt(999n);
+      const sharedFeePayer = AztecAddress.fromBigIntUnsafe(999n);
       // Balance covers only one tx
       setFeePayerBalance(DEFAULT_TX_FEE_LIMIT + DEFAULT_TX_FEE_LIMIT / 2n);
 
@@ -3498,7 +3498,7 @@ describe('TxPoolV2', () => {
     });
 
     it('batch from same fee payer - only top N by priority accepted', async () => {
-      const sharedFeePayer = AztecAddress.fromBigInt(999n);
+      const sharedFeePayer = AztecAddress.fromBigIntUnsafe(999n);
       // Balance covers exactly 2 tx fee limits
       setFeePayerBalance(DEFAULT_TX_FEE_LIMIT * 2n + DEFAULT_TX_FEE_LIMIT / 2n);
 
@@ -3546,7 +3546,7 @@ describe('TxPoolV2', () => {
     };
 
     it('evicts low-priority txs after BLOCK_MINED when balance is insufficient', async () => {
-      const sharedFeePayer = AztecAddress.fromBigInt(999n);
+      const sharedFeePayer = AztecAddress.fromBigIntUnsafe(999n);
       // Initial balance covers all 3 txs
       setFeePayerBalance(DEFAULT_TX_FEE_LIMIT * 3n + DEFAULT_TX_FEE_LIMIT / 2n);
 
@@ -3587,7 +3587,7 @@ describe('TxPoolV2', () => {
     });
 
     it('evicts low-priority txs after CHAIN_PRUNED when balance is insufficient', async () => {
-      const sharedFeePayer = AztecAddress.fromBigInt(999n);
+      const sharedFeePayer = AztecAddress.fromBigIntUnsafe(999n);
       // Initial balance covers both txs
       setFeePayerBalance(DEFAULT_TX_FEE_LIMIT * 2n + DEFAULT_TX_FEE_LIMIT / 2n);
 
@@ -3621,7 +3621,7 @@ describe('TxPoolV2', () => {
     });
 
     it('priority ordering is correct - highest priority funded first', async () => {
-      const sharedFeePayer = AztecAddress.fromBigInt(999n);
+      const sharedFeePayer = AztecAddress.fromBigIntUnsafe(999n);
       // Initial balance covers all 3 txs
       setFeePayerBalance(DEFAULT_TX_FEE_LIMIT * 3n + DEFAULT_TX_FEE_LIMIT / 2n);
 
@@ -3663,7 +3663,7 @@ describe('TxPoolV2', () => {
     });
 
     it('does not evict when balance is sufficient', async () => {
-      const sharedFeePayer = AztecAddress.fromBigInt(999n);
+      const sharedFeePayer = AztecAddress.fromBigIntUnsafe(999n);
       // Balance covers all txs
       setFeePayerBalance(BigInt(1e18));
 
@@ -4737,7 +4737,7 @@ describe('TxPoolV2', () => {
     });
 
     it('fee payer balance + nullifier conflict - higher priority wins both', async () => {
-      const sharedFeePayer = AztecAddress.fromBigInt(999n);
+      const sharedFeePayer = AztecAddress.fromBigIntUnsafe(999n);
       // Set balance to only cover 1 tx
       db.getLeafPreimage.mockImplementation((tree, index) => {
         if (tree === MerkleTreeId.PUBLIC_DATA_TREE) {
@@ -4781,8 +4781,8 @@ describe('TxPoolV2', () => {
     });
 
     it('batch with nullifier conflicts across different fee payers', async () => {
-      const feePayerA = AztecAddress.fromBigInt(111n);
-      const feePayerB = AztecAddress.fromBigInt(222n);
+      const feePayerA = AztecAddress.fromBigIntUnsafe(111n);
+      const feePayerB = AztecAddress.fromBigIntUnsafe(222n);
 
       // tx1 (fee payer A, low priority) and tx2 (fee payer B, high priority) share nullifier
       const tx1 = await mockTx(1, {
@@ -5412,6 +5412,39 @@ describe('TxPoolV2', () => {
 
       const eligible = await agePool.getEligiblePendingTxHashes();
       expect(toStrings(eligible)).toEqual([hashOf(tx)]);
+    });
+
+    it('hasEligiblePendingTxs is false for fresh txs and true once they age in', async () => {
+      const txs = await Promise.all([mockTxWithFee(1, 10), mockTxWithFee(2, 20), mockTxWithFee(3, 30)]);
+      await agePool.addPendingTxs(txs);
+
+      // Fresh txs (added at 10000, cutoff 10000 - 2000 = 8000) are pending but not yet eligible
+      expect(await agePool.getPendingTxCount()).toBe(3);
+      expect(await agePool.hasEligiblePendingTxs(1)).toBe(false);
+      // A threshold of 0 is always satisfied, even when nothing is eligible yet
+      expect(await agePool.hasEligiblePendingTxs(0)).toBe(true);
+
+      // Once the minimum age elapses they all become eligible
+      currentTime = 12_001;
+      expect(await agePool.hasEligiblePendingTxs(3)).toBe(true);
+      // The pool only holds 3 txs, so it can never satisfy a higher threshold
+      expect(await agePool.hasEligiblePendingTxs(4)).toBe(false);
+    });
+
+    it('hasEligiblePendingTxs counts only txs old enough at a partial cutoff', async () => {
+      const tx1 = await mockTxWithFee(1, 10);
+      await agePool.addPendingTxs([tx1]);
+
+      currentTime = 11_000;
+      const tx2 = await mockTxWithFee(2, 20);
+      await agePool.addPendingTxs([tx2]);
+
+      // At 12500: tx1 (added at 10000) is old enough, tx2 (added at 11000) is not
+      currentTime = 12_500;
+      expect(await agePool.getPendingTxCount()).toBe(2);
+      expect(await agePool.hasEligiblePendingTxs(1)).toBe(true);
+      // Two txs pending but only one eligible, so the threshold of 2 is not met
+      expect(await agePool.hasEligiblePendingTxs(2)).toBe(false);
     });
 
     it('tx becomes eligible at exactly minTxPoolAgeMs', async () => {

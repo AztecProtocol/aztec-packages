@@ -2883,7 +2883,7 @@ pub contract Token {
         };
         let within_revertible_phase: bool = self.context.in_revertible_phase();
         aztec::macros::functions::initialization_utils::assert_is_initialized_private(self.context);
-        assert(self.context.inputs.call_context.is_static_call, "Function private_get_decimals can only be called statically");
+        assert(self.context.is_static_call(), "Function private_get_decimals can only be called statically");
         let macro__returned__values: u8 = self.storage.decimals.read();
         let serialized_params: [Field; 1] = <u8 as aztec::protocol::traits::Serialize>::serialize(macro__returned__values);
         self.context.set_return_hash(serialized_params);
@@ -2910,7 +2910,7 @@ pub contract Token {
         };
         let within_revertible_phase: bool = self.context.in_revertible_phase();
         aztec::macros::functions::initialization_utils::assert_is_initialized_private(self.context);
-        assert(self.context.inputs.call_context.is_static_call, "Function private_get_name can only be called statically");
+        assert(self.context.is_static_call(), "Function private_get_name can only be called statically");
         let macro__returned__values: FieldCompressedString = self.storage.name.read();
         let serialized_params: [Field; 1] = <FieldCompressedString as aztec::protocol::traits::Serialize>::serialize(macro__returned__values);
         self.context.set_return_hash(serialized_params);
@@ -2937,7 +2937,7 @@ pub contract Token {
         };
         let within_revertible_phase: bool = self.context.in_revertible_phase();
         aztec::macros::functions::initialization_utils::assert_is_initialized_private(self.context);
-        assert(self.context.inputs.call_context.is_static_call, "Function private_get_symbol can only be called statically");
+        assert(self.context.is_static_call(), "Function private_get_symbol can only be called statically");
         let macro__returned__values: FieldCompressedString = self.storage.symbol.read();
         let serialized_params: [Field; 1] = <FieldCompressedString as aztec::protocol::traits::Serialize>::serialize(macro__returned__values);
         self.context.set_return_hash(serialized_params);

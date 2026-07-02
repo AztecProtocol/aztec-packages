@@ -128,6 +128,7 @@ impl<let NumBlobs: u32> CheckpointRollupPublicInputsComposer<NumBlobs> {
             fee_recipient: constants.fee_recipient,
             gas_fees: constants.gas_fees,
             total_mana_used: merged_rollup.accumulated_mana_used,
+            accumulated_fees: merged_rollup.accumulated_fees,
         }
     }
 

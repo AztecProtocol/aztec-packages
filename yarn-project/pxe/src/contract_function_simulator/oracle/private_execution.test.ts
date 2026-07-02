@@ -62,8 +62,8 @@ import type { FactStore } from '../../storage/fact_store/index.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
-import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_address_book_store.js';
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
+import type { TaggingSecretSourcesStore } from '../../storage/tagging_store/tagging_secret_sources_store.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 
 jest.setTimeout(60_000);
@@ -108,7 +108,7 @@ describe('Private Execution test suite', () => {
   let keyStore: MockProxy<KeyStore>;
   let senderTaggingStore: MockProxy<SenderTaggingStore>;
   let recipientTaggingStore: MockProxy<RecipientTaggingStore>;
-  let senderAddressBookStore: MockProxy<SenderAddressBookStore>;
+  let taggingSecretSourcesStore: MockProxy<TaggingSecretSourcesStore>;
   let aztecNode: MockProxy<AztecNode>;
   let capsuleStore: MockProxy<CapsuleStore>;
   let factStore: MockProxy<FactStore>;
@@ -208,13 +208,11 @@ describe('Private Execution test suite', () => {
     });
 
     return acirSimulator.run(txRequest, {
-      contractAddress,
-      selector,
       msgSender,
       anchorBlockHeader,
       senderForTags,
       jobId: TEST_JOB_ID,
-      scopes: [owner],
+      scopes: [owner, senderForTags],
     });
   };
 
@@ -294,7 +292,7 @@ describe('Private Execution test suite', () => {
     factStore.getFactCollectionsByType.mockResolvedValue([]);
     l2TipsStore = mock<L2TipsProvider>();
     privateEventStore = mock<PrivateEventStore>();
-    senderAddressBookStore = mock<SenderAddressBookStore>();
+    taggingSecretSourcesStore = mock<TaggingSecretSourcesStore>();
     contractSyncService = mock<ContractSyncService>();
     txResolver = mock<TxResolverService>();
     txResolver.resolveTxs.mockResolvedValue([]);
@@ -317,11 +315,17 @@ describe('Private Execution test suite', () => {
     senderTaggingStore.getTxHashesOfPendingIndexes.mockResolvedValue([]);
     senderTaggingStore.storePendingIndexes.mockResolvedValue();
 
-    senderAddressBookStore.getSenders.mockResolvedValue([]);
+    taggingSecretSourcesStore.getSenders.mockResolvedValue([]);
+    taggingSecretSourcesStore.getSharedSecretsForRecipient.mockResolvedValue([]);
 
     // Mock aztec node methods - the return array needs to have the same length as the number of tags
     // on the input.
     aztecNode.getPrivateLogsByTags.mockImplementation(query => Promise.resolve(query.tags.map(() => [])));
+
+    // Constrained-delivery tag derivation calls `doesNullifierExist` (e.g. the handshake bootstrap), which reads the
+    // node's nullifier tree. Default to "not found" so the destructured result is iterable; tests that need a specific
+    // nullifier override this.
+    aztecNode.findLeavesIndexes.mockResolvedValue([]);
 
     // Mock getL2Tips and getBlockHeader for syncTaggedPrivateLogs
     l2TipsStore.getL2Tips.mockResolvedValue(makeL2Tips(anchorBlockHeader.globalVariables.blockNumber));
@@ -461,7 +465,7 @@ describe('Private Execution test suite', () => {
       l2TipsStore,
       senderTaggingStore,
       recipientTaggingStore,
-      senderAddressBookStore,
+      taggingSecretSourcesStore,
       capsuleStore,
       factStore,
       privateEventStore,
@@ -485,40 +489,6 @@ describe('Private Execution test suite', () => {
       const privateLogs = result.entrypoint.publicInputs.privateLogs;
       expect(privateLogs.claimedLength).toBe(1);
     });
-  });
-
-  it('throws when request origin does not match contract address', async () => {
-    const contractAddress = await mockContractInstance(TestContractArtifact);
-    const differentAddress = await AztecAddress.random();
-    contracts[differentAddress.toString()] = TestContractArtifact;
-
-    const functionArtifact = getFunctionArtifactByName(TestContractArtifact, 'emit_array_as_encrypted_log');
-    const selector = await FunctionSelector.fromNameAndParameters(functionArtifact.name, functionArtifact.parameters);
-    const hashedArguments = await HashedValues.fromArgs(
-      encodeArguments(functionArtifact, [Fr.ZERO, times(5, () => Fr.random()), owner, false]),
-    );
-
-    const txRequest = TxExecutionRequest.from({
-      origin: differentAddress,
-      firstCallArgsHash: hashedArguments.hash,
-      functionSelector: selector,
-      txContext: TxContext.from(txContextFields),
-      argsOfCalls: [hashedArguments],
-      authWitnesses: [],
-      capsules: [],
-      salt: Fr.random(),
-    });
-
-    await expect(
-      acirSimulator.run(txRequest, {
-        contractAddress,
-        selector,
-        anchorBlockHeader,
-        senderForTags,
-        jobId: TEST_JOB_ID,
-        scopes: [owner],
-      }),
-    ).rejects.toThrow('Request origin does not match contract address');
   });
 
   describe('stateful test contract', () => {
@@ -575,7 +545,7 @@ describe('Private Execution test suite', () => {
         anchorBlockHeader,
         functionName: 'constructor',
         contractAddress: instance.address,
-        msgSender: AztecAddress.fromNumber(1234),
+        msgSender: AztecAddress.fromNumberUnsafe(1234),
       });
       const result = executionResult.entrypoint.nestedExecutionResults[0];
 

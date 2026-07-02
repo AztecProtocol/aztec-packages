@@ -141,7 +141,7 @@ export function CreateContractDialog({
   const registerExistingContract = async () => {
     setIsRegistering(true);
     try {
-      const contract = await node.getContract(AztecAddress.fromString(address));
+      const contract = await node.getContract(AztecAddress.fromStringUnsafe(address));
       if (!contract) {
         throw new Error('Contract with this address was not found in node');
       }

@@ -19,8 +19,8 @@ export type SharedNodeConfig = {
   /** Force verification of tx Chonk proofs. Only used for testnet */
   debugForceTxProofVerification: boolean;
 
-  /** Check if the node version matches the latest version for the network */
-  enableVersionCheck: boolean;
+  /** Soft-shutdown the node when the canonical rollup is no longer compatible, keeping the health server up for K8s probes */
+  enableAutoShutdown: boolean;
 };
 
 export const sharedNodeConfigMappings: ConfigMappingsType<SharedNodeConfig> = {
@@ -77,9 +77,10 @@ export const sharedNodeConfigMappings: ConfigMappingsType<SharedNodeConfig> = {
     ...booleanConfigHelper(false),
   },
 
-  enableVersionCheck: {
-    env: 'ENABLE_VERSION_CHECK',
-    description: 'Check if the node is running the latest version and is following the latest rollup',
-    ...booleanConfigHelper(true),
+  enableAutoShutdown: {
+    env: 'ENABLE_AUTO_SHUTDOWN',
+    description:
+      'Soft-shutdown the node when the canonical rollup is no longer compatible (protocol constants diverge), keeping the health server up so K8s probes keep passing. Only applies to nodes following the canonical rollup.',
+    ...booleanConfigHelper(false),
   },
 };

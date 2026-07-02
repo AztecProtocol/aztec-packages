@@ -352,7 +352,7 @@ export function Landing() {
         const artifactAsString = await playgroundDB.retrieveAlias(`artifacts:${contract.item}`);
         const contractArtifact = loadContractArtifact(parse(artifactAsString));
         if (contractArtifact.name === contractArtifactJSON.name) {
-          deployedContractAddress = AztecAddress.fromString(contract.item);
+          deployedContractAddress = AztecAddress.fromStringUnsafe(contract.item);
           break;
         }
       }
