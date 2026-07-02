@@ -10,6 +10,7 @@ import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import type { AztecNodeAdmin, AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 
+import { testSpan } from '../fixtures/timing.js';
 import { waitForL1ToL2MessageSeen } from './wait_for_l1_to_l2_message.js';
 
 /** Aztec node that may expose the debug mining API in local e2e setups. */
@@ -159,11 +160,13 @@ export class GasBridgingTestHarness implements IGasBridgingTestHarness {
   }
 
   async bridgeFromL1ToL2(owner: AztecAddress, claimer: AztecAddress) {
-    // Prepare the tokens on the L1 side
-    const claim = await this.prepareTokensOnL1(owner);
+    await testSpan('setup:bridge', async () => {
+      // Prepare the tokens on the L1 side
+      const claim = await this.prepareTokensOnL1(owner);
 
-    // Consume L1 -> L2 message and claim tokens privately on L2
-    await this.consumeMessageOnAztecAndClaimPrivately(owner, claimer, claim);
+      // Consume L1 -> L2 message and claim tokens privately on L2
+      await this.consumeMessageOnAztecAndClaimPrivately(owner, claimer, claim);
+    });
   }
 
   private async advanceL2Block() {

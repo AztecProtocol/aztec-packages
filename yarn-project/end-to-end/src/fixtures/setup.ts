@@ -928,14 +928,16 @@ export async function expectMappingDelta<K, V extends number | bigint>(
  * surface as generic "Assertion failed:" and tests that match on the real message fail).
  */
 export async function ensureAuthRegistryPublished(wallet: Wallet, from: AztecAddress) {
-  const { instance, contractClass } = await getStandardAuthRegistry();
-  if (!(await wallet.getContractClassMetadata(contractClass.id)).isContractClassPubliclyRegistered) {
-    await (await publishContractClass(wallet, AuthRegistryArtifact)).send({ from });
-  }
-  if (!(await wallet.getContractMetadata(instance.address)).isContractPublished) {
-    await publishInstance(wallet, instance).send({ from });
-  }
-  await wallet.registerContract(instance, AuthRegistryArtifact);
+  await testSpan('setup:auth-registry', async () => {
+    const { instance, contractClass } = await getStandardAuthRegistry();
+    if (!(await wallet.getContractClassMetadata(contractClass.id)).isContractClassPubliclyRegistered) {
+      await (await publishContractClass(wallet, AuthRegistryArtifact)).send({ from });
+    }
+    if (!(await wallet.getContractMetadata(instance.address)).isContractPublished) {
+      await publishInstance(wallet, instance).send({ from });
+    }
+    await wallet.registerContract(instance, AuthRegistryArtifact);
+  });
 }
 
 /**

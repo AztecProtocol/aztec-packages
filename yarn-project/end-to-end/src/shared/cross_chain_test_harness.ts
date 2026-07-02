@@ -24,6 +24,7 @@ import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 
 import { type Hex, getContract } from 'viem';
 
+import { testSpan } from '../fixtures/timing.js';
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
 import { waitForL1ToL2MessageSeen } from './wait_for_l1_to_l2_message.js';
 
@@ -76,14 +77,18 @@ export async function deployAndInitializeTokenAndBridgeContracts(
   });
 
   // deploy l2 token
-  const { contract: token } = await TokenContract.deploy(wallet, owner, 'TokenName', 'TokenSymbol', 18).send({
-    from: owner,
-  });
+  const { contract: token } = await testSpan('deploy:token', () =>
+    TokenContract.deploy(wallet, owner, 'TokenName', 'TokenSymbol', 18).send({
+      from: owner,
+    }),
+  );
 
   // deploy l2 token bridge and attach to the portal
-  const { contract: bridge } = await TokenBridgeContract.deploy(wallet, token.address, tokenPortalAddress).send({
-    from: owner,
-  });
+  const { contract: bridge } = await testSpan('deploy:bridge', () =>
+    TokenBridgeContract.deploy(wallet, token.address, tokenPortalAddress).send({
+      from: owner,
+    }),
+  );
 
   if ((await token.methods.get_admin().simulate({ from: owner })).result !== owner.toBigInt()) {
     throw new Error(`Token admin is not ${owner}`);
@@ -241,11 +246,13 @@ export class CrossChainTestHarness {
 
   async mintTokensPublicOnL2(amount: bigint) {
     this.logger.info('Minting tokens on L2 publicly');
-    await this.l2Token.methods.mint_to_public(this.ownerAddress, amount).send({ from: this.ownerAddress });
+    await testSpan('tx:mint', () =>
+      this.l2Token.methods.mint_to_public(this.ownerAddress, amount).send({ from: this.ownerAddress }),
+    );
   }
 
   async mintTokensPrivateOnL2(amount: bigint) {
-    await mintTokensToPrivate(this.l2Token, this.ownerAddress, this.ownerAddress, amount);
+    await testSpan('tx:mint', () => mintTokensToPrivate(this.l2Token, this.ownerAddress, this.ownerAddress, amount));
   }
 
   async sendL2PublicTransfer(transferAmount: bigint, receiverAddress: AztecAddress) {
