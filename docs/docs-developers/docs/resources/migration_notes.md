@@ -11,7 +11,7 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ### [Aztec.nr] `MessageContext` removed: message processing uses `ResolvedTx`
 
-`aztec::messages::processing::MessageContext` has been removed. It had become an exact duplicate of `ResolvedTx` (the resolved on-chain context of a transaction), so the two are unified on `ResolvedTx`, which carries the same `tx_hash`, `unique_note_hashes_in_tx`, and `first_nullifier_in_tx`, plus the originating `block_number` and `block_hash`. The offchain handoff type `OffchainMessageWithContext` is likewise renamed to `OffchainMessageWithTx`.
+`aztec::messages::processing::MessageContext` has been removed in favor of the new `ResolvedTx`, which carries the same `tx_hash`, `unique_note_hashes_in_tx`, and `first_nullifier_in_tx`, plus `block_number` and `block_hash`. The offchain handoff type `OffchainMessageWithContext` is likewise renamed to `OffchainMessageWithTx`.
 
 This affects contracts that implement a custom message handler (registered via `AztecConfig::custom_message_handler`): the handler's context parameter is now a `ResolvedTx`.
 
