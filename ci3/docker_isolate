@@ -23,7 +23,18 @@ if [ -n "${NAME:-}" ]; then
   name="$(echo "${NAME}" | sed 's/^[^a-zA-Z0-9]*//' | tr '/' '_')${NAME_POSTFIX:-}"
   name_arg="--name $name"
   # Kill any existing container with the same name.
-  docker rm -f $name &>/dev/null || true
+  docker rm -f "$name" &>/dev/null || true
+  # Under host load, dockerd can leave a container "Dead" or mid-removal for several
+  # seconds after `rm -f` returns, so wait for it to actually disappear before reusing
+  # the name below. Otherwise `docker run --name` races into "Conflict, name already in use".
+  for _ in $(seq 1 30); do
+    docker container inspect "$name" &>/dev/null || break
+    sleep 1
+  done
+  if docker container inspect "$name" &>/dev/null; then
+    echo "docker_isolate: dockerd failed to remove stale container $name within 30s" >&2
+    exit 1
+  fi
 fi
 
 # For pinning to given CPUs.
