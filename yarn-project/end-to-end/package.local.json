@@ -3,7 +3,11 @@
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests src/fixtures"
   },
   "jest": {
-    "setupFilesAfterEnv": ["../../foundation/src/jest/setupAfterEnv.mjs", "jest-extended/all", "./shared/jest_setup.ts"],
+    "setupFilesAfterEnv": [
+      "../../foundation/src/jest/setupAfterEnv.mjs",
+      "jest-extended/all",
+      "./shared/jest_setup.ts"
+    ],
     "testEnvironment": "./shared/timing_env.mjs"
   }
 }
