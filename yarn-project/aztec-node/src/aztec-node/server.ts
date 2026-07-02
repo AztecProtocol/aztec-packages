@@ -562,7 +562,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     await this.stopStartedWatchers();
     await tryStop(this.slasherClient);
     await Promise.all([tryStop(this.peerProofVerifier), tryStop(this.rpcProofVerifier)]);
-    await tryStop(this.sequencer);
+    // Close (not just stop) the sequencer so it releases resources owned for good — notably the
+    // validator's slashing-protection database, which a plain stop() leaves open to allow restart.
+    await this.sequencer?.close().catch(err => this.log.error(`Error closing sequencer`, err));
     await tryStop(this.automineSequencer);
     await tryStop(this.proverNode);
     await tryStop(this.p2pClient);

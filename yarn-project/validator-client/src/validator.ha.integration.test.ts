@@ -295,6 +295,8 @@ describe('ValidatorClient HA Integration', () => {
         config,
         blobClient,
         slashingProtectionSigner,
+        // Test double: no real slashing-protection database is owned, so nothing to close on teardown.
+        false,
         dateProvider,
         telemetry,
       );

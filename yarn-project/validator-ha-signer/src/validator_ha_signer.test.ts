@@ -134,6 +134,15 @@ describe('ValidatorHASigner', () => {
 
         await expect(signAtSlot(101)).resolves.toBe(mockSignature);
       });
+
+      it('releases the slashing-protection store on close(), unlike stop()', async () => {
+        await signer.start();
+        await expect(signAtSlot(100)).resolves.toBe(mockSignature);
+
+        await signer.close();
+
+        await expect(signAtSlot(101)).rejects.toThrow('Store is closed');
+      });
     });
   });
 

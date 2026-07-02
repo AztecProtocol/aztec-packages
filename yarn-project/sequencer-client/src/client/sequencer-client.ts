@@ -206,6 +206,16 @@ export class SequencerClient {
     this.l1Metrics?.stop();
   }
 
+  /**
+   * Stops the client for good and releases owned resources — notably the validator's slashing-protection
+   * database, which {@link stop} deliberately leaves open so the sequencer can be restarted. Use this for
+   * final teardown (node shutdown); use {@link stop} for a restartable pause.
+   */
+  public async close() {
+    await this.stop();
+    await this.validatorClient?.close();
+  }
+
   /** Triggers an immediate run of the sequencer, bypassing the polling interval. */
   public trigger() {
     return this.sequencer.trigger();
