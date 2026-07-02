@@ -75,7 +75,17 @@ impl<Storage, CallSelf> ContractSelfUtility<Storage, CallSelf> {
 
     /// Makes a utility contract call from another utility function.
     ///
-    /// Note: only same-contract utility calls are currently supported. See TODO(F-29).
+    /// The call runs entirely offchain in PXE and is never proven, so no guarantees are made on the correctness of
+    /// its result.
+    ///
+    /// The callee observes this contract's address as its `msg_sender`: see [`ContractSelfUtility::msg_sender`].
+    ///
+    /// To call one of this contract's own utility functions, prefer the type-safe `self.call_self` stubs.
+    ///
+    /// ## Authorization
+    ///
+    /// A call to this contract itself always succeeds. A call to a different contract can expose that contract's
+    /// private state to the caller, so it requires explicit authorization. A call that is not authorized fails.
     ///
     /// # Example
     /// ```noir
