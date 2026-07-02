@@ -87,7 +87,16 @@ pub contract HandshakeRegistry {
     fn non_interactive_handshake(sender: AztecAddress, recipient: AztecAddress) -> AppSiloedHandshakeSecrets {
         let (eph_pk, s_raw) = self.internal._generate_shared_secret(recipient);
         let secrets = self.internal._store(sender, recipient, s_raw, NON_INTERACTIVE_HANDSHAKE);
-        self.internal._announce(recipient, eph_pk);
+
+        // Announce the handshake: an encrypted private log under the recipient-keyed tag carrying `[eph_pk.x]`, so
+        // the recipient can discover the handshake by scanning their tag and recover `S` via their own ECDH.
+        let log_tag = compute_log_tag(
+            recipient.to_field(),
+            DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
+        );
+        let ciphertext = AES128::encrypt([eph_pk.x], recipient, self.context.this_address());
+        self.context.emit_private_log_unsafe(log_tag, BoundedVec::from_array(ciphertext));
+
         secrets
     }
 
@@ -190,10 +199,8 @@ pub contract HandshakeRegistry {
         (eph_pk, s_raw)
     }
 
-    /// Stores the handshake note and returns its app-siloed secrets.
-    ///
-    /// Inserts or replaces the current [`HandshakeNote`] owned by `sender` for `recipient` (holding `s_raw` and a
-    /// fresh sender-only random secret) and returns the app-siloed secrets for the caller (`msg_sender()`).
+    /// Inserts or replaces the current [`HandshakeNote`] owned by `sender` for `recipient` and returns the
+    /// app-siloed secrets for the caller (`msg_sender()`).
     #[internal("private")]
     fn _store(
         sender: AztecAddress,
@@ -217,23 +224,6 @@ pub contract HandshakeRegistry {
         );
 
         note.app_siloed_secrets_for(self.msg_sender())
-    }
-
-    /// Announces the handshake to `recipient` for later discovery.
-    ///
-    /// Emits an encrypted private log under the recipient-keyed tag carrying `[eph_pk.x]`, so the recipient can
-    /// discover the handshake by scanning their tag and recover `S` via their own ECDH. Only the non-interactive
-    /// flow announces; interactive recipients already know `eph_pk` from signing. Announcing reveals that the
-    /// recipient was contacted (see [`HandshakeRegistry::non_interactive_handshake`]).
-    #[internal("private")]
-    fn _announce(recipient: AztecAddress, eph_pk: EmbeddedCurvePoint) {
-        let log_tag = compute_log_tag(
-            recipient.to_field(),
-            DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
-        );
-
-        let ciphertext = AES128::encrypt([eph_pk.x], recipient, self.context.this_address());
-        self.context.emit_private_log_unsafe(log_tag, BoundedVec::from_array(ciphertext));
     }
 
     /// Requests and verifies the recipient's handshake authorization.

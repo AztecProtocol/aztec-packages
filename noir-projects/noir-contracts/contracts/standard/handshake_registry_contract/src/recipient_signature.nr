@@ -8,7 +8,7 @@ use aztec::{
     },
     utils::point::point_from_x_coord_and_sign,
 };
-use std::embedded_curve_ops::{EmbeddedCurvePoint, EmbeddedCurveScalar};
+use std::embedded_curve_ops::EmbeddedCurveScalar;
 
 /// The recipient's signed authorization for an interactive handshake.
 ///
@@ -26,9 +26,9 @@ pub struct RecipientSignature {
     /// The x-coordinate of the recipient's master message-signing public key. `PublicKeys` exposes this key only as
     /// its `mspk_m_hash`, so the point travels separately and is reconstructed on-curve, then tied back to that hash.
     pub mspk_x: Field,
-    /// The sign of that key's y-coordinate (0 for negative, 1 for positive), used to pick the correct y when
-    /// reconstructing the point from `mspk_x`.
-    pub mspk_y_sign: Field,
+    /// Whether that key's y-coordinate is positive, used to pick the correct y when reconstructing the point from
+    /// `mspk_x`.
+    pub mspk_y_is_positive: bool,
     /// The schnorr signature over the handshake message: its response scalar `s` and challenge `e`.
     pub signature: (EmbeddedCurveScalar, EmbeddedCurveScalar),
 }
@@ -37,9 +37,10 @@ impl RecipientSignature {
     /// Verifies that `recipient` authorized a handshake using ephemeral key `eph_pk.x` on this chain.
     ///
     /// # Panics
-    /// If the returned public keys do not derive `recipient`'s address, the signing key does not match the
-    /// address-committed `mspk_m_hash`, or the signature does not verify. Note that an off-curve `ivpk_m` fails
-    /// inside the embedded-curve addition in [`AztecAddress::compute`] rather than with this method's error messages.
+    /// If the returned public keys do not derive `recipient`'s address, `mspk_x` is not on the curve, the signing
+    /// key does not match the address-committed `mspk_m_hash`, or the signature does not verify. Note that an
+    /// off-curve `ivpk_m` fails inside the embedded-curve addition in [`AztecAddress::compute`] rather than with
+    /// this method's error messages.
     pub fn verify(
         self,
         recipient: AztecAddress,
@@ -56,8 +57,9 @@ impl RecipientSignature {
         );
 
         // Reconstruct the signing key on-curve and tie it to the authenticated hash.
-        let mspk =
-            point_from_x_coord_and_sign(self.mspk_x, self.mspk_y_sign != 0).unwrap_or(EmbeddedCurvePoint::generator());
+        let mspk = point_from_x_coord_and_sign(self.mspk_x, self.mspk_y_is_positive).expect(
+            f"mspk_x is not a valid curve x-coordinate",
+        );
         assert(
             hash_public_key(mspk) == self.public_keys.mspk_m_hash,
             "handshake signature key does not match recipient",
@@ -100,7 +102,16 @@ mod test {
     #[test(should_fail_with = "handshake signature key does not match recipient")]
     unconstrained fn interactive_signature_rejects_wrong_signing_key() {
         let (mut response, recipient, chain_id, version, registry, eph_pk_x) = interactive_handshake_fixture();
-        response.mspk_x += 1;
+        // x = 1 is the generator's x-coordinate: a valid curve point, but not the recipient's signing key.
+        response.mspk_x = 1;
+        response.verify(recipient, chain_id, version, registry, eph_pk_x);
+    }
+
+    #[test(should_fail_with = "mspk_x is not a valid curve x-coordinate")]
+    unconstrained fn interactive_signature_rejects_off_curve_signing_key() {
+        let (mut response, recipient, chain_id, version, registry, eph_pk_x) = interactive_handshake_fixture();
+        // x = 3 is a non-residue for the curve, so no point has this x-coordinate.
+        response.mspk_x = 3;
         response.verify(recipient, chain_id, version, registry, eph_pk_x);
     }
 
@@ -150,7 +161,7 @@ mod test {
             public_keys,
             partial_address: PartialAddress::from_field(0x0fedcba987654321),
             mspk_x: 0x22d507026547e1bd19b507a234a689833ab1604c00ff093574c44aea7176cfd5,
-            mspk_y_sign: 1,
+            mspk_y_is_positive: true,
             signature: (
                 EmbeddedCurveScalar { lo: 0xd88c1b23cafce3c85432b3393c8f1975, hi: 0x04f3972857d4b92ef44c2ea1d15e6abb },
                 EmbeddedCurveScalar { lo: 0x01b6f5567970c74d567270c239f235ab, hi: 0x0db0cf5e2cfba9c07df49a357b6dcb2c },
