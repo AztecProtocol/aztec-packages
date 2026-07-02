@@ -1,7 +1,8 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import type { Fact as FactFromStore, OriginBlock } from '../../storage/fact_store/index.js';
+import type { FactWithOriginState, RetractableFactOrigin } from '../../storage/fact_store/index.js';
+import { OriginBlockState } from '../../storage/fact_store/index.js';
 import type { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { EphemeralArray } from './ephemeral_array.js';
 import type { Fact } from './fact.js';
@@ -27,7 +28,7 @@ export function toNoirFactCollection(
   scope: AztecAddress,
   factCollectionTypeId: Fr,
   factCollectionId: Fr,
-  facts: FactFromStore[],
+  facts: FactWithOriginState[],
 ): FactCollection {
   return {
     contractAddress,
@@ -37,12 +38,16 @@ export function toNoirFactCollection(
     facts: EphemeralArray.fromValues(
       service,
       facts.map(
-        (fact: FactFromStore): Fact => ({
+        (fact: FactWithOriginState): Fact => ({
           factTypeId: fact.factTypeId,
           payload: EphemeralArray.fromValues(service, fact.payload),
           originBlock: fact.originBlock
             ? Option.some(fact.originBlock)
-            : Option.none<OriginBlock>({ blockNumber: 0, blockHash: Fr.ZERO }),
+            : Option.none<RetractableFactOrigin>({
+                blockNumber: 0,
+                blockHash: Fr.ZERO,
+                blockState: OriginBlockState.Pending,
+              }),
         }),
       ),
     ),
