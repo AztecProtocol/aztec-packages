@@ -111,10 +111,12 @@ describe('e2e_p2p_rediscovery', () => {
 
     await t.waitForP2PMeshConnectivity(newNodes, NUM_VALIDATORS, 120);
 
-    for (const node of newNodes) {
-      const txs = await submitTransactions(t.logger, node, NUM_TXS_PER_NODE, t.fundedAccount);
-      txsSentViaDifferentNodes.push(txs);
-    }
+    // Each submitTransactions call builds its own wallet/PXE, so submissions are independent and can run
+    // concurrently. Promise.all preserves node order, keeping txsSentViaDifferentNodes[i] aligned with newNodes[i].
+    const submitted = await Promise.all(
+      newNodes.map(node => submitTransactions(t.logger, node, NUM_TXS_PER_NODE, t.fundedAccount)),
+    );
+    txsSentViaDifferentNodes.push(...submitted);
 
     // now ensure that all txs were successfully mined
     await Promise.all(

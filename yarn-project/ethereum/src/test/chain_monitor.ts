@@ -36,9 +36,20 @@ export type ChainMonitorEventMap = {
   'l2-fees': [L2FeeData];
 };
 
+/** Options for tuning what the {@link ChainMonitor} polls on each new L1 block. */
+export type ChainMonitorOptions = {
+  /**
+   * Whether to fetch L2 fee/oracle data (5 extra rollup reads per new L1 block) and emit `l2-fees`.
+   * Defaults to `true`. Set to `false` for tests that only care about slot/checkpoint/proven state to
+   * avoid the extra round-trips.
+   */
+  includeFeeData?: boolean;
+};
+
 /** Utility class that polls the chain on quick intervals and logs new L1 blocks, L2 blocks, and L2 proofs. */
 export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
   private readonly l1Client: ViemClient;
+  private readonly includeFeeData: boolean;
   private inbox: InboxContract | undefined;
   private handle: NodeJS.Timeout | undefined;
   // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
@@ -68,9 +79,11 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
     private readonly dateProvider: DateProvider = new DateProvider(),
     private readonly logger = createLogger('aztecjs:utils:chain_monitor'),
     private readonly intervalMs = 200,
+    options: ChainMonitorOptions = {},
   ) {
     super();
     this.l1Client = rollup.client;
+    this.includeFeeData = options.includeFeeData ?? true;
   }
 
   start() {
@@ -183,11 +196,13 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
       this.emit('l2-slot', { l2SlotNumber, timestamp });
     }
 
-    const feeData = await this.fetchFeeData(timestamp);
-    if (this.hasFeeDataChanged(feeData)) {
-      msg += ` with L2 min fee ${feeData.minFeePerMana}`;
-      this.l2FeeData = feeData;
-      this.emit('l2-fees', feeData);
+    if (this.includeFeeData) {
+      const feeData = await this.fetchFeeData(timestamp);
+      if (this.hasFeeDataChanged(feeData)) {
+        msg += ` with L2 min fee ${feeData.minFeePerMana}`;
+        this.l2FeeData = feeData;
+        this.emit('l2-fees', feeData);
+      }
     }
 
     this.logger.info(msg, {
