@@ -9,6 +9,12 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] `set_as_fee_payer` now asserts it is called during the setup phase
+
+`PrivateContext::set_as_fee_payer` now asserts that execution is still in the setup (non-revertible) phase, i.e. that `end_setup` has not yet been called by any function in the transaction. Electing a fee payer in the revertible phase was never safe: compensation collected by the fee payer after `end_setup` can be discarded if a public call later reverts, while the protocol still debits the fee payer's fee-juice balance.
+
+**Impact**: A transaction in which `set_as_fee_payer` runs after the setup phase has ended now fails with `fee payer must be elected during the setup phase`. Standard fee payment flows, which call `set_as_fee_payer` before or together with `end_setup`, are unaffected.
+
 ### [Aztec.js] `AccountWithSecretKey` removed, read account keys from the `AccountManager` or PXE
 
 `AccountWithSecretKey` was a thin wrapper that bundled an account's transaction signer with its master secret key, used mainly to print or export the secret. It has been removed, and `AccountManager.getAccount()` now returns the plain `Account` signer. The wrapper's extra methods are no longer available on that value:

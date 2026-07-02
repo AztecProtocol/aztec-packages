@@ -1,16 +1,44 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
+import { BatchCall } from '@aztec/aztec.js/contracts';
+import { type FeePaymentMethod, SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { SponsoredFPCNoEndSetupContract } from '@aztec/noir-test-contracts.js/SponsoredFPCNoEndSetup';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
+import type { GasSettings } from '@aztec/stdlib/gas';
 import { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
+import { ExecutionPayload } from '@aztec/stdlib/tx';
 import { defaultInitialAccountFeeJuice } from '@aztec/world-state/testing';
 
 import type { TestWallet } from '../test-wallet/test_wallet.js';
 import { AutomineTestContext } from './automine_test_context.js';
+
+/**
+ * Declares a contract as the tx fee payer without contributing any call to the fee payload, unlike
+ * SponsoredFeePaymentMethod which prepends the sponsor call (and thus makes the election run before any app call).
+ * This lets a test place the electing call anywhere in the app payload, e.g. after the setup phase has ended.
+ */
+class DeferredSponsoredFeePaymentMethod implements FeePaymentMethod {
+  constructor(private paymentContract: AztecAddress) {}
+
+  getAsset(): Promise<AztecAddress> {
+    throw new Error('Asset is not required for sponsored fpc.');
+  }
+
+  getFeePayer() {
+    return Promise.resolve(this.paymentContract);
+  }
+
+  getExecutionPayload(): Promise<ExecutionPayload> {
+    return Promise.resolve(new ExecutionPayload([], [], [], [], this.paymentContract));
+  }
+
+  getGasSettings(): GasSettings | undefined {
+    return undefined;
+  }
+}
 
 // Private functions should receive automatically a phase check that avoids any nested call changing the phase.
 // Functions that opt out of this phase check can be marked with #[allow_phase_change].
@@ -77,5 +105,20 @@ describe('automine/phase_check', () => {
         paymentMethod: new SponsoredFeePaymentMethod(sponsoredFPC.address),
       },
     });
+  });
+
+  it('should fail when the fee payer is elected after the setup phase has ended', async () => {
+    const lateElection = new BatchCall(wallet, [
+      contract.methods.call_function_that_ends_setup_without_phase_check(),
+      sponsoredFPC.methods.sponsor_unconditionally(),
+    ]);
+    await expect(
+      lateElection.simulate({
+        from: defaultAccountAddress,
+        fee: {
+          paymentMethod: new DeferredSponsoredFeePaymentMethod(sponsoredFPC.address),
+        },
+      }),
+    ).rejects.toThrow('fee payer must be elected during the setup phase');
   });
 });
