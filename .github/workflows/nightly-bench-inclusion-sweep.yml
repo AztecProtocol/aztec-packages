@@ -1,8 +1,15 @@
-name: Nightly Bench 10 TPS
+name: Nightly Bench Inclusion Sweep
+
+# Inclusion sweep: deploys ONE network and runs the
+# 1/5/10 TPS points SEQUENTIALLY against it, all tagged with a shared sweepId so
+# the dashboard groups them. The scraper drains the mempool to zero between
+# points. Each point is the reusable bench-inclusion-point.yml workflow
+# (SKIP_NETWORK_DEPLOY=1); the next point's call `needs` the previous one so they
+# don't overlap. Deploy / wait-for-first-block / teardown happen once.
 
 on:
   schedule:
-    - cron: "30 6 * * *"
+    - cron: "30 3 * * *"
   workflow_dispatch:
     inputs:
       docker_image:
@@ -19,7 +26,7 @@ on:
         type: string
 
 concurrency:
-  group: nightly-bench-10tps-${{ github.ref }}
+  group: nightly-bench-inclusion-sweep-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -29,6 +36,7 @@ jobs:
       docker_image: ${{ steps.docker-image.outputs.docker_image }}
       image_label: ${{ steps.docker-image.outputs.image_label }}
       source_ref: ${{ steps.docker-image.outputs.source_ref }}
+      sweep_id: ${{ steps.sweep.outputs.sweep_id }}
     steps:
       - name: Checkout
         uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
@@ -71,18 +79,15 @@ jobs:
           echo "Using source ref: $source_ref"
 
       - name: Verify source git ref
-        id: verify-source
         run: |
           set -euo pipefail
           source_ref="${{ steps.docker-image.outputs.source_ref }}"
           git fetch --depth 1 origin "refs/tags/${source_ref}:refs/tags/${source_ref}"
-          source_sha=$(git rev-parse "${source_ref}^{}")
-          echo "Nightly source commit: $source_sha"
+          git rev-parse "${source_ref}^{}"
 
       - name: Check if Docker image exists
         run: |
           DOCKER_IMAGE="${{ steps.docker-image.outputs.docker_image }}"
-          echo "Checking if Docker image exists: $DOCKER_IMAGE"
           if docker manifest inspect "$DOCKER_IMAGE" > /dev/null 2>&1; then
             echo "Docker image exists: $DOCKER_IMAGE"
           else
@@ -90,59 +95,92 @@ jobs:
             exit 1
           fi
 
-  deploy-bench-10tps-network:
+      - name: Compute shared sweep id
+        id: sweep
+        run: |
+          # Shared across all three points so the dashboard groups the sweep.
+          echo "sweep_id=incl-$(date -u +%Y%m%d)-${{ github.run_id }}" >> "$GITHUB_OUTPUT"
+
+  # ---- Deploy the single network the whole sweep runs against ----
+  deploy:
     needs: select-image
     uses: ./.github/workflows/deploy-network.yml
     with:
-      network: bench-10tps
-      namespace: bench-10tps
+      network: bench-inclusion-sweep
+      namespace: bench-inclusion-sweep
       aztec_docker_image: ${{ needs.select-image.outputs.docker_image }}
       ref: ${{ needs.select-image.outputs.source_ref }}
       notify_on_failure: false
     secrets: inherit
 
-  wait-for-first-l2-block:
-    needs:
-      - select-image
-      - deploy-bench-10tps-network
+  wait:
+    needs: [select-image, deploy]
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - name: Checkout
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: ${{ needs.select-image.outputs.source_ref }}
-
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
-
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+      - uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
         with:
           install_components: gke-gcloud-auth-plugin
-
       - name: Wait for first L2 block
         env:
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-        run: |
-          cd spartan
-          ./bootstrap.sh wait_for_l2_block bench-10tps
+          NAMESPACE: bench-inclusion-sweep
+        run: cd spartan && ./bootstrap.sh wait_for_l2_block bench-inclusion-sweep
 
-  benchmark:
-    needs:
-      - select-image
-      - wait-for-first-l2-block
+  # ---- Three points, sequential, on the SAME network ----
+  point-1tps:
+    needs: [select-image, wait]
+    uses: ./.github/workflows/bench-inclusion-point.yml
+    with:
+      tps: "1"
+      namespace: bench-inclusion-sweep
+      docker_image: ${{ needs.select-image.outputs.docker_image }}
+      source_ref: ${{ needs.select-image.outputs.source_ref }}
+      sweep_id: ${{ needs.select-image.outputs.sweep_id }}
+    secrets: inherit
+
+  # 5 TPS runs after 1 TPS finishes — gated on the network being up (wait), not
+  # on the 1 TPS result, so a failed point drops only itself.
+  point-5tps:
+    needs: [select-image, wait, point-1tps]
+    if: ${{ !cancelled() && needs.wait.result == 'success' }}
+    uses: ./.github/workflows/bench-inclusion-point.yml
+    with:
+      tps: "5"
+      namespace: bench-inclusion-sweep
+      docker_image: ${{ needs.select-image.outputs.docker_image }}
+      source_ref: ${{ needs.select-image.outputs.source_ref }}
+      sweep_id: ${{ needs.select-image.outputs.sweep_id }}
+    secrets: inherit
+
+  point-10tps:
+    needs: [select-image, wait, point-5tps]
+    if: ${{ !cancelled() && needs.wait.result == 'success' }}
+    uses: ./.github/workflows/bench-inclusion-point.yml
+    with:
+      tps: "10"
+      namespace: bench-inclusion-sweep
+      docker_image: ${{ needs.select-image.outputs.docker_image }}
+      source_ref: ${{ needs.select-image.outputs.source_ref }}
+      sweep_id: ${{ needs.select-image.outputs.sweep_id }}
+    secrets: inherit
+
+  # ---- Tear the network down once, regardless of point outcomes ----
+  cleanup:
+    if: always()
+    needs: [select-image, deploy, wait, point-1tps, point-5tps, point-10tps]
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: ${{ needs.select-image.outputs.source_ref }}
-
-      - name: Run 10 TPS benchmark
-        timeout-minutes: 240
+      - name: Cleanup network resources
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -150,51 +188,23 @@ jobs:
           BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
           GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
           GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          RUN_ID: ${{ github.run_id }}
-          AWS_SHUTDOWN_TIME: 240
           NO_SPOT: 1
-          SKIP_NETWORK_DEPLOY: "1"
-        run: |
-          ./.github/ci3.sh network-bench-10tps bench-10tps bench-10tps "${{ needs.select-image.outputs.docker_image }}"
-
-  cleanup:
-    if: always()
-    needs:
-      - select-image
-      - deploy-bench-10tps-network
-      - wait-for-first-l2-block
-      - benchmark
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
-        with:
-          ref: ${{ needs.select-image.outputs.source_ref }}
-
-      - name: Cleanup network resources
-        uses: ./.github/actions/network-teardown
-        with:
-          env_file: bench-10tps
-          namespace: bench-10tps
-          gcp_sa_key: ${{ secrets.GCP_SA_KEY }}
-          gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
+        run: ./.github/ci3.sh network-teardown bench-inclusion-sweep bench-inclusion-sweep
 
   notify-failure:
     if: ${{ always() && failure() && github.event_name != 'workflow_dispatch' }}
     needs:
       - select-image
-      - deploy-bench-10tps-network
-      - wait-for-first-l2-block
-      - benchmark
-      - cleanup
+      - deploy
+      - wait
+      - point-1tps
+      - point-5tps
+      - point-10tps
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           ref: ${{ needs.select-image.outputs.source_ref }}
-
       - name: Notify Slack on failure
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
@@ -203,6 +213,6 @@ jobs:
           IMAGE="${{ needs.select-image.outputs.image_label || 'unknown' }}"
           RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           ./ci3/slack_notify_with_claudebox_kickoff "#alerts-next-scenario" \
-            "Nightly 10 TPS benchmark FAILED (image ${IMAGE}): <${RUN_URL}|View Run> (🤖)" \
-            "Nightly 10 TPS benchmark failed (image ${IMAGE}). CI run: ${RUN_URL}. Investigate the benchmark failure and identify the root cause." \
+            "Nightly inclusion sweep FAILED (image ${IMAGE}): <${RUN_URL}|View Run> (🤖)" \
+            "Nightly inclusion sweep failed (image ${IMAGE}). CI run: ${RUN_URL}. Deploy/wait failures fail the whole sweep; a failed individual point drops only that point." \
             --link "$RUN_URL"
