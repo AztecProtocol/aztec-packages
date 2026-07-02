@@ -15,8 +15,8 @@ import {
   LogSource,
 } from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
 import type {
+  LegacyLogRetrievalResponseV2,
   LogRetrievalResponse,
-  LogRetrievalResponseV2,
 } from '../contract_function_simulator/noir-structs/log_retrieval_response.js';
 import type {
   PendingTaggedLog,
@@ -69,9 +69,9 @@ export class LogService {
   public async fetchLogsByTagV2(
     contractAddress: AztecAddress,
     logRetrievalRequests: LogRetrievalRequest[],
-  ): Promise<LogRetrievalResponseV2[][]> {
+  ): Promise<LegacyLogRetrievalResponseV2[][]> {
     const rawLogsPerRequest = await this.#fetchRawLogsByTag(contractAddress, logRetrievalRequests);
-    return rawLogsPerRequest.map(logs => logs.map(LogService.#toLogRetrievalResponseV2));
+    return rawLogsPerRequest.map(logs => logs.map(LogService.#toLegacyLogRetrievalResponseV2));
   }
 
   async #fetchRawLogsByTag(
@@ -204,7 +204,7 @@ export class LogService {
   }
 
   // Compatibility projection whose origin-block field is the block timestamp instead of its hash (for `getLogsByTagV2`).
-  static #toLogRetrievalResponseV2(log: LogResult): LogRetrievalResponseV2 {
+  static #toLegacyLogRetrievalResponseV2(log: LogResult): LegacyLogRetrievalResponseV2 {
     return { ...LogService.#toCommonLogFields(log), blockTimestamp: log.blockTimestamp };
   }
 

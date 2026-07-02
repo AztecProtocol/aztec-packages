@@ -25,9 +25,9 @@ import {
   FUNCTION_SELECTOR,
   type InputSlot,
   KEY_VALIDATION_REQUEST,
+  LEGACY_LOG_RETRIEVAL_RESPONSE_V2,
   LOG_RETRIEVAL_REQUEST,
   LOG_RETRIEVAL_RESPONSE,
-  LOG_RETRIEVAL_RESPONSE_V2,
   MEMBERSHIP_WITNESS,
   MESSAGE_CONTEXT,
   MESSAGE_LOAD_ORACLE_INPUTS,
@@ -260,7 +260,7 @@ export const ORACLE_REGISTRY = {
   // partial-note completion uses `getLogsByTagV3`, whose response carries the origin block hash instead.
   aztec_utl_getLogsByTagV2: makeEntry({
     params: [{ name: 'requests', type: EPHEMERAL_ARRAY(LOG_RETRIEVAL_REQUEST) }],
-    returnType: EPHEMERAL_ARRAY(EPHEMERAL_ARRAY(LOG_RETRIEVAL_RESPONSE_V2)),
+    returnType: EPHEMERAL_ARRAY(EPHEMERAL_ARRAY(LEGACY_LOG_RETRIEVAL_RESPONSE_V2)),
   }),
 
   // Like `getLogsByTagV2`, but each response carries the origin block number and hash (as `origin_block`), which

@@ -23,7 +23,7 @@ pub(crate) unconstrained fn get_pending_tagged_logs(
 }
 
 // `getPendingTaggedLogsV2` carries each log's transaction context as a `ResolvedTx` (which includes the origin block
-// number and hash), needed to anchor discovered partial notes to their delivery block. The PXE keeps the original
+// number and hash), needed to anchor discovered partial notes to their delivery block. PXE keeps the original
 // `getPendingTaggedLogs` (whose context is the block-less `MessageContext`) for older deployed contracts.
 #[oracle(aztec_utl_getPendingTaggedLogsV2)]
 unconstrained fn get_pending_tagged_logs_oracle(
@@ -57,11 +57,7 @@ pub unconstrained fn get_logs_by_tag(
     get_logs_by_tag_oracle(requests)
 }
 
-// `getLogsByTagV3` additionally carries each log's origin block number and hash (as
-// `LogRetrievalResponse.origin_block`),
-// which partial-note completion needs to anchor the completed fact to that block. The PXE keeps `getLogsByTagV2`
-// (origin
-// block number + timestamp) and the legacy `getLogsByTag` (no origin block) for older deployed contracts.
+// PXE keeps `getLogsByTagV2` and the also legacy `getLogsByTag` (no origin block) for older deployed contracts.
 #[oracle(aztec_utl_getLogsByTagV3)]
 unconstrained fn get_logs_by_tag_oracle(
     requests: EphemeralArray<LogRetrievalRequest>,

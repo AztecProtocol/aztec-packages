@@ -61,7 +61,7 @@ import { EventValidationRequest } from '../noir-structs/event_validation_request
 import type { Fact } from '../noir-structs/fact.js';
 import type { FactCollection } from '../noir-structs/fact_collection.js';
 import { type LogRetrievalRequest, type LogSource, logSourceFromField } from '../noir-structs/log_retrieval_request.js';
-import type { LogRetrievalResponse, LogRetrievalResponseV2 } from '../noir-structs/log_retrieval_response.js';
+import type { LegacyLogRetrievalResponseV2, LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import type { MessageContext } from '../noir-structs/message_context.js';
 import type { NoteData } from '../noir-structs/note_data.js';
 import { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
@@ -523,14 +523,15 @@ export const LOG_RETRIEVAL_RESPONSE: TypeMapping<LogRetrievalResponse> = STRUCT<
 
 // Compatibility shape for the `getLogsByTagV2` oracle, whose origin-block field is the block timestamp. Kept so
 // already-deployed contracts keep working; `LOG_RETRIEVAL_RESPONSE` above (used by `getLogsByTagV3`) carries the hash.
-export const LOG_RETRIEVAL_RESPONSE_V2: TypeMapping<LogRetrievalResponseV2> = STRUCT<LogRetrievalResponseV2>([
-  { name: 'logPayload', type: FIXED_BOUNDED_VEC(FIELD, PRIVATE_LOG_CIPHERTEXT_LEN) },
-  { name: 'txHash', type: TX_HASH },
-  { name: 'uniqueNoteHashesInTx', type: FIXED_BOUNDED_VEC(FIELD, MAX_NOTE_HASHES_PER_TX) },
-  { name: 'firstNullifierInTx', type: FIELD },
-  { name: 'blockNumber', type: BLOCK_NUMBER },
-  { name: 'blockTimestamp', type: BIGINT },
-]);
+export const LEGACY_LOG_RETRIEVAL_RESPONSE_V2: TypeMapping<LegacyLogRetrievalResponseV2> =
+  STRUCT<LegacyLogRetrievalResponseV2>([
+    { name: 'logPayload', type: FIXED_BOUNDED_VEC(FIELD, PRIVATE_LOG_CIPHERTEXT_LEN) },
+    { name: 'txHash', type: TX_HASH },
+    { name: 'uniqueNoteHashesInTx', type: FIXED_BOUNDED_VEC(FIELD, MAX_NOTE_HASHES_PER_TX) },
+    { name: 'firstNullifierInTx', type: FIELD },
+    { name: 'blockNumber', type: BLOCK_NUMBER },
+    { name: 'blockTimestamp', type: BIGINT },
+  ]);
 
 // `ResolvedTx.toFields()` packs the whole struct into a single slot: txHash, the uniqueNoteHashesInTx BoundedVec
 // (MAX_NOTE_HASHES_PER_TX storage fields + length), firstNullifierInTx, blockNumber and blockHash.

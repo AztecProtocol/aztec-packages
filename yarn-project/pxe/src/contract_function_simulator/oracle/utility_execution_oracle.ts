@@ -63,7 +63,7 @@ import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
 import type { EventValidationRequest } from '../noir-structs/event_validation_request.js';
 import { type FactCollection, emptyFactCollection, toNoirFactCollection } from '../noir-structs/fact_collection.js';
 import type { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
-import type { LogRetrievalResponse, LogRetrievalResponseV2 } from '../noir-structs/log_retrieval_response.js';
+import type { LegacyLogRetrievalResponseV2, LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import type { NoteData } from '../noir-structs/note_data.js';
 import type { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import { Option } from '../noir-structs/option.js';
@@ -650,7 +650,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   // Partial-note completion calls `getLogsByTagV3` (origin block hash) below.
   public async getLogsByTagV2(
     requests: EphemeralArray<LogRetrievalRequest>,
-  ): Promise<EphemeralArray<EphemeralArray<LogRetrievalResponseV2>>> {
+  ): Promise<EphemeralArray<EphemeralArray<LegacyLogRetrievalResponseV2>>> {
     const logRetrievalRequests = requests.readAll(this.ephemeralArrayService);
     const logService = this.#createLogService();
 

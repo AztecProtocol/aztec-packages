@@ -25,7 +25,7 @@ export type LogRetrievalResponse = {
  * block timestamp rather than its hash. Retained only so the PXE can keep serving that oracle to already-deployed
  * contracts; partial-note completion uses `getLogsByTagV3`, which carries `blockHash`.
  */
-export type LogRetrievalResponseV2 = {
+export type LegacyLogRetrievalResponseV2 = {
   logPayload: Fr[];
   txHash: TxHash;
   uniqueNoteHashesInTx: Fr[];
