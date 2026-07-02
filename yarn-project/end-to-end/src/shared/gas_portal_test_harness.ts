@@ -181,7 +181,12 @@ export class GasBridgingTestHarness implements IGasBridgingTestHarness {
     }
 
     try {
-      await retryUntil(async () => (await this.aztecNode.getBlockNumber()) >= initialBlockNumber + 1);
+      await retryUntil(
+        async () => (await this.aztecNode.getBlockNumber()) >= initialBlockNumber + 1,
+        'gas portal block advance',
+        0,
+        0.25,
+      );
     } finally {
       if (this.aztecNodeAdmin && minTxsPerBlock !== undefined) {
         await this.aztecNodeAdmin.setConfig({ minTxsPerBlock });

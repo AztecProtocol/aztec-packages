@@ -821,7 +821,12 @@ export async function registerSponsoredFPC(wallet: Wallet): Promise<void> {
   await wallet.registerContract(await getSponsoredFPCInstance(), SponsoredFPCContract.artifact);
 }
 
-export async function waitForProvenChain(node: AztecNode, targetBlock?: BlockNumber, timeoutSec = 60, intervalSec = 1) {
+export async function waitForProvenChain(
+  node: AztecNode,
+  targetBlock?: BlockNumber,
+  timeoutSec = 60,
+  intervalSec = 0.25,
+) {
   targetBlock ??= await node.getBlockNumber();
 
   await retryUntil(

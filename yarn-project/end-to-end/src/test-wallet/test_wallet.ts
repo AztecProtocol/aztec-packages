@@ -59,6 +59,13 @@ export interface AccountData {
  * utilities
  * It is intended to be used in e2e tests.
  */
+/**
+ * Poll interval (in seconds) for in-process TestWallet tx waits. In-process nodes reach CHECKPOINTED synchronously
+ * under automine and cheaply otherwise, so a sub-second cadence removes almost-pure dead time from every send().wait().
+ * Spartan tests run against remote JSON-RPC nodes and restore the 1s default via setDefaultWaitInterval.
+ */
+export const IN_PROCESS_WAIT_INTERVAL_SECONDS = 0.25;
+
 export class TestWallet extends BaseWallet {
   constructor(
     pxe: PXE,
@@ -66,6 +73,15 @@ export class TestWallet extends BaseWallet {
   ) {
     super(pxe, nodeRef);
     this.minFeePadding = DEFAULT_MIN_FEE_PADDING;
+    this.defaultWaitInterval = IN_PROCESS_WAIT_INTERVAL_SECONDS;
+  }
+
+  /**
+   * Overrides the poll interval (in seconds) used when a send().wait() caller does not specify one. Pass `undefined`
+   * to fall back to the DefaultWaitOpts cadence. Spartan tests set this to 1 so they do not hammer remote nodes.
+   */
+  setDefaultWaitInterval(interval?: number): void {
+    this.defaultWaitInterval = interval;
   }
 
   static async create(

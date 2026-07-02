@@ -21,7 +21,7 @@ export type WaitForBlockOpts = {
   compare?: (actual: number, target: number) => boolean;
   /** Seconds before the poll rejects; defaults to 60. */
   timeout?: number;
-  /** Seconds between polls; defaults to 1. */
+  /** Seconds between polls; defaults to 0.25. */
   interval?: number;
 };
 
@@ -45,7 +45,7 @@ export function waitForBlockNumber(node: AztecNode, target: number, opts: WaitFo
       },
       `block ${tag} ${compare} ${target}`,
       opts.timeout ?? 60,
-      opts.interval ?? 1,
+      opts.interval ?? 0.25,
     ).then(({ blockNumber }) => blockNumber),
   );
 }
@@ -118,7 +118,10 @@ export function waitForNodeProvenCheckpoint(
  * {@link waitForTx}; resolves with the receipts in input order.
  */
 export function waitForTxs(node: AztecNode, txHashes: TxHash[], opts?: WaitOpts): Promise<TxReceipt[]> {
-  return testSpan('wait:tx-mined', () => Promise.all(txHashes.map(txHash => waitForTx(node, txHash, opts))));
+  const optsWithInterval = { ...opts, interval: opts?.interval ?? 0.25 };
+  return testSpan('wait:tx-mined', () =>
+    Promise.all(txHashes.map(txHash => waitForTx(node, txHash, optsWithInterval))),
+  );
 }
 
 /** Options for {@link waitForBlocksAtSlots}. */
@@ -129,7 +132,7 @@ export type WaitForBlocksAtSlotsOpts = {
   limit?: number;
   /** Seconds before the poll rejects; defaults to 20. */
   timeout?: number;
-  /** Seconds between polls; defaults to 1. */
+  /** Seconds between polls; defaults to 0.25. */
   interval?: number;
 };
 
@@ -153,7 +156,7 @@ export async function waitForBlocksAtSlots(
       },
       `blocks at slots ${slots.join(', ')}`,
       opts.timeout ?? 20,
-      opts.interval ?? 1,
+      opts.interval ?? 0.25,
     ),
   );
 }
@@ -174,7 +177,7 @@ export function waitForL2ToL1Witness(
       () => node.getL2ToL1MembershipWitness(txHash, message),
       `L2-to-L1 membership witness for ${txHash.toString()}`,
       opts.timeout ?? 30,
-      opts.interval ?? 1,
+      opts.interval ?? 0.25,
     ),
   );
 }
@@ -183,7 +186,7 @@ export function waitForL2ToL1Witness(
 export type WaitForTxReceiptOpts = {
   /** Seconds before the poll rejects; defaults to 30. */
   timeout?: number;
-  /** Seconds between polls; defaults to 1. */
+  /** Seconds between polls; defaults to 0.25. */
   interval?: number;
 };
 
@@ -207,7 +210,7 @@ export function waitForTxReceipt(
       },
       `tx receipt for ${txHash.toString()}`,
       opts.timeout ?? 30,
-      opts.interval ?? 1,
+      opts.interval ?? 0.25,
     ).then(({ receipt }) => receipt),
   );
 }
@@ -231,7 +234,7 @@ export type WaitForPendingTxCountOpts = {
   compare?: PendingTxCountComparator;
   /** Seconds before the poll rejects; defaults to 30. */
   timeout?: number;
-  /** Seconds between polls; defaults to 1. */
+  /** Seconds between polls; defaults to 0.25. */
   interval?: number;
 };
 
@@ -256,7 +259,7 @@ export function waitForPendingTxCount(
       },
       `pending tx count ${compare} ${target}`,
       opts.timeout ?? 30,
-      opts.interval ?? 1,
+      opts.interval ?? 0.25,
     ).then(({ count }) => count),
   );
 }
