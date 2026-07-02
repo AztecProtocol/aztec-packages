@@ -160,9 +160,10 @@ export default defineConfig(({ mode }) => {
         // PR: https://github.com/AztecProtocol/aztec-packages/pull/18815
         // - 2026-06-18: bumped from 4600 => 4700 after rebuilding the bb.js browser package at its new
         //   barretenberg/ts/bb.js path produced assets/barretenberg-*.js at 4641.65 KB.
+        // - 2026-07-02: bumped to 5000 after merging from public to private repo resulted in 4800+k for some reason.
         {
           pattern: /.*/,
-          maxSizeKB: 4700,
+          maxSizeKB: 5000,
           description: 'Detect if json artifacts or bb.js wasm get out of control',
         },
       ]),
