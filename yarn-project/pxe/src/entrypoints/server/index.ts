@@ -1,3 +1,5 @@
+export { type AccountPrivacyKeys, type AccountPrivacySecretKeys } from '@aztec/key-store';
+
 export * from '../../notes_filter.js';
 export * from '../../pxe.js';
 export * from '../../config/index.js';

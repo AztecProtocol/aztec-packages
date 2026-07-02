@@ -6,6 +6,7 @@ import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundatio
 import { SerialQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
 import { KeyStore } from '@aztec/key-store';
+import type { AccountPrivacyKeys, AccountPrivacySecretKeys } from '@aztec/key-store';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { type ProtocolContractsProvider, protocolContractNames } from '@aztec/protocol-contracts';
 import type { CircuitSimulator } from '@aztec/simulator/client';
@@ -33,7 +34,6 @@ import type {
   PrivateKernelExecutionProofOutput,
   PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/stdlib/kernel';
-import type { MasterSecretKeys } from '@aztec/stdlib/keys';
 import {
   BlockHeader,
   type ContractOverrides,
@@ -658,24 +658,20 @@ export class PXE {
   /**
    * Registers a user account in PXE.
    *
-   * The account's privacy keys may be provided either as a single master secret key, from which all keys are derived,
-   * or as the full set of master secret keys (for an account whose privacy keys were generated independently rather
-   * than from one seed).
+   * PXE holds the account's four privacy secret keys but only the *public* message-signing and fallback keys: their
+   * secret keys are withheld, since PXE is not trusted to hold them.
    *
    * Does nothing if the account is already registered.
    *
-   * The keys can be retrieved later with {@link getAccountSecretKeys}.
+   * The four privacy secret keys can be retrieved later with {@link getAccountSecretKeys}.
    *
-   * @param secretKeyOrKeys - The account's master secret key, or its full set of master secret keys.
+   * @param keys - The account's privacy keys: four secret keys plus the message-signing and fallback public keys.
    * @param partialAddress - The partial address of the account contract corresponding to the account being registered.
    * @returns The complete address of the account.
    */
-  public async registerAccount(
-    secretKeyOrKeys: Fr | MasterSecretKeys,
-    partialAddress: PartialAddress,
-  ): Promise<CompleteAddress> {
+  public async registerAccount(keys: AccountPrivacyKeys, partialAddress: PartialAddress): Promise<CompleteAddress> {
     const accounts = await this.keyStore.getAccounts();
-    const accountCompleteAddress = await this.keyStore.addAccount(secretKeyOrKeys, partialAddress);
+    const accountCompleteAddress = await this.keyStore.addAccount(keys, partialAddress);
     if (accounts.some(a => a.equals(accountCompleteAddress.address))) {
       this.log.info(`Account:\n "${accountCompleteAddress.address.toString()}"\n already registered.`);
       return accountCompleteAddress;
@@ -689,7 +685,8 @@ export class PXE {
   }
 
   /**
-   * Retrieves the master privacy secret keys of a registered account.
+   * Retrieves the four privacy secret keys PXE holds for a registered account (nullifier-hiding, incoming-viewing,
+   * outgoing-viewing, tagging).
    *
    * These do NOT grant control over an account's assets, e.g. they are insufficient to impersonate the account or to
    * spend notes, but they _do_ guard the account's privacy. Parties that have knowledge of these keys can decrypt all
@@ -701,7 +698,7 @@ export class PXE {
    *
    * @throws If the account is not registered.
    */
-  public getAccountSecretKeys(account: AztecAddress): Promise<MasterSecretKeys> {
+  public getAccountSecretKeys(account: AztecAddress): Promise<AccountPrivacySecretKeys> {
     return this.keyStore.getAccountSecretKeys(account);
   }
 

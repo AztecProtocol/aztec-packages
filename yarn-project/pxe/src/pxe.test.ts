@@ -25,6 +25,7 @@ import {
 import { emptyChainConfig } from '@aztec/stdlib/config';
 import { CompleteAddress, getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import type { AztecNode, AztecNodeDebug, BlockResponse } from '@aztec/stdlib/interfaces/client';
+import { deriveKeys } from '@aztec/stdlib/keys';
 import {
   randomContractArtifact,
   randomContractInstanceWithAddress,
@@ -114,9 +115,9 @@ describe('PXE', () => {
   }, 120_000);
 
   it('registers an account and returns it as an account only and not as a recipient', async () => {
-    const randomSecretKey = Fr.random();
+    const privacyKeys = await deriveKeys(Fr.random());
     const randomPartialAddress = Fr.random();
-    const completeAddress = await pxe.registerAccount(randomSecretKey, randomPartialAddress);
+    const completeAddress = await pxe.registerAccount(privacyKeys, randomPartialAddress);
 
     // Check that the account is correctly registered using the getAccounts and getRecipients methods
     const accounts = await pxe.getRegisteredAccounts();
@@ -132,15 +133,15 @@ describe('PXE', () => {
   });
 
   it('does not throw when registering the same account twice (just ignores the second attempt)', async () => {
-    const randomSecretKey = Fr.random();
+    const privacyKeys = await deriveKeys(Fr.random());
     const randomPartialAddress = Fr.random();
 
-    await pxe.registerAccount(randomSecretKey, randomPartialAddress);
-    await pxe.registerAccount(randomSecretKey, randomPartialAddress);
+    await pxe.registerAccount(privacyKeys, randomPartialAddress);
+    await pxe.registerAccount(privacyKeys, randomPartialAddress);
   });
 
   it('does not add a keystore account to the sender address book when registered as a sender', async () => {
-    const { address } = await pxe.registerAccount(Fr.random(), Fr.random());
+    const { address } = await pxe.registerAccount(await deriveKeys(Fr.random()), Fr.random());
     await pxe.registerTaggingSecretSource({ kind: 'address-derived', sender: address });
     const senders = await pxe.getTaggingSecretSources({ kind: 'address-derived' });
     const senderAddresses = senders.map(s => s.sender.toString());
