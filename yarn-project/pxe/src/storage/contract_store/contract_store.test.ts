@@ -83,10 +83,10 @@ describe('ContractStore', () => {
       // Inconsistency: the artifact is present but lacks the selector, so the registered artifact does not match the
       // resolved class id. That is not a normal "not found", so it throws rather than returning undefined.
       await expect(contractStore.getFunctionArtifact(classId, missingSelector)).rejects.toThrow(
-        'does not match the resolved class id',
+        'does not match the class id',
       );
       await expect(contractStore.getFunctionArtifactWithDebugMetadata(classId, missingSelector)).rejects.toThrow(
-        'does not match the resolved class id',
+        'does not match the class id',
       );
     });
 
