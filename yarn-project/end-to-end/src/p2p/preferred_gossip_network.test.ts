@@ -180,8 +180,6 @@ describe('e2e_p2p_preferred_network', () => {
   // Creates a 7-node topology (2 regular + 2 preferred + 2 validators + 1 no-discovery validator),
   // installs gossip monitors to verify no-discovery validators only receive traffic from preferred nodes,
   // submits txs from regular nodes, and asserts all txs mine with attestations from all validators.
-  // REFACTOR: peer-count polling loop in waitForNodeToAcquirePeers is hand-rolled; consider
-  // using t.waitForP2PMeshConnectivity with a peer-count predicate
   it('should rollup txs from all peers', async () => {
     // create the bootstrap node for the network
     if (!t.bootstrapNodeEnr) {

@@ -58,8 +58,6 @@ describe('e2e_p2p_rediscovery', () => {
   // Forms an initial 4-node mesh, stops the bootstrap node, then restarts each validator from its data
   // directory without any bootstrap ENR. Submits txs to each restarted node and asserts they mine,
   // proving that discv5 peer-store entries are sufficient for re-discovery.
-  // REFACTOR: sequential sleep(2500) between node restarts is hand-rolled; the delay exists to avoid
-  // port conflicts but should be replaced with a port-readiness check or staggered createNode calls
   it('should re-discover stored peers without bootstrap node', async () => {
     const txsSentViaDifferentNodes: TxHash[][] = [];
     nodes = await createNodes(

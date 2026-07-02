@@ -54,6 +54,14 @@ describe('single-node/fees/bridging_race', () => {
     bobsAddress = bobsAccountManager.address;
   });
 
+  // Sleeps until 500ms before the current L2 slot ends, so the subsequent bridge lands right at the slot
+  // boundary (this is what reproduces the "message not in state" race the test guards against).
+  const sleepUntilNearSlotEnd = async () => {
+    const sleepTime = (Number(t.monitor.checkpointTimestamp) + AZTEC_SLOT_DURATION) * 1000 - Date.now() - 500;
+    logger.info(`Sleeping for ${sleepTime}ms until near end of L2 slot before sending L1 fee juice to L2 inbox`);
+    await sleep(sleepTime);
+  };
+
   // Reproduces a timing race where an L1→L2 fee-juice bridge message lands just before the end of an
   // L2 slot, causing the archiver to miss it. The fix was to wait for the archiver to see the message
   // before waiting for the required two-block confirmation. The sleep injected into approve() simulates
@@ -65,11 +73,7 @@ describe('single-node/fees/bridging_race', () => {
     const origApprove = l1TokenManager.approve.bind(l1TokenManager);
     l1TokenManager.approve = async (amount: bigint, address: Hex, addressName = '') => {
       await origApprove(amount, address, addressName);
-      const sleepTime = (Number(t.monitor.checkpointTimestamp) + AZTEC_SLOT_DURATION) * 1000 - Date.now() - 500;
-      logger.info(`Sleeping for ${sleepTime}ms until near end of L2 slot before sending L1 fee juice to L2 inbox`);
-      // REFACTOR: hand-rolled slot-boundary sleep; replace with a timing helper that derives the remaining
-      // slot time from the chain monitor's slot boundaries rather than computing it inline.
-      await sleep(sleepTime);
+      await sleepUntilNearSlotEnd();
     };
 
     // Waiting for the archiver to sync the message _before_ waiting for the mandatory 2 L2 blocks to pass fixed it
