@@ -20,6 +20,7 @@ locals {
   irm_extra_labels = {
     "app.kubernetes.io/component" = "metrics"
   }
+  rpc_gateway_metrics_enabled = var.OTEL_COLLECTOR_ENDPOINT_GCP_SECRET_NAME != "" || var.IRM_METRICS_ENABLED
 
   routed_rpcs = {
     for name, rpc in var.RPCS : name => rpc
@@ -85,11 +86,47 @@ module "rpc_gateway" {
 
   KONG_TRUSTED_IP_RANGES = ["35.191.0.0/16", "130.211.0.0/22"] # Google LB IP ranges https://docs.cloud.google.com/load-balancing/docs/firewall-rules
 
-  ROUTES                            = local.rpc_routes
-  CONSUMERS                         = var.CONSUMERS
-  KONG_OTEL_METRICS_GCP_SECRET_NAME = var.OTEL_COLLECTOR_ENDPOINT_GCP_SECRET_NAME
+  ROUTES                       = local.rpc_routes
+  CONSUMERS                    = var.CONSUMERS
+  KONG_METRICS_SERVICE_ENABLED = local.rpc_gateway_metrics_enabled
 
   depends_on = [module.rpc]
+}
+
+module "rpc_gateway_metrics_collector" {
+  count = var.OTEL_COLLECTOR_ENDPOINT_GCP_SECRET_NAME != "" ? 1 : 0
+
+  source = "../../../modules/otel-metrics-collector"
+
+  providers = {
+    helm = helm
+  }
+
+  NAMESPACE                               = var.NAMESPACE
+  RELEASE_NAME                            = "${var.RELEASE_PREFIX}-rpc-kong-otel-collector"
+  OTEL_COLLECTOR_ENDPOINT_GCP_SECRET_NAME = var.OTEL_COLLECTOR_ENDPOINT_GCP_SECRET_NAME
+  SCRAPE_CONFIGS = [
+    {
+      job_name        = "kong"
+      scrape_interval = "15s"
+      metrics_path    = "/metrics"
+      targets         = ["${module.rpc_gateway.metrics_service_name}.${module.rpc_gateway.metrics_service_namespace}.svc.cluster.local:${module.rpc_gateway.metrics_service_port}"]
+      labels = {
+        component = "kong"
+        network   = var.RELEASE_PREFIX
+      }
+    }
+  ]
+  RESOURCE_ATTRIBUTES = {
+    "service.name"    = "${var.RELEASE_PREFIX}-rpc-kong"
+    "network"         = var.RELEASE_PREFIX
+    "aztec.component" = "kong"
+  }
+  EXTERNAL_SECRET_STORE_NAME       = var.EXTERNAL_SECRET_STORE_NAME
+  EXTERNAL_SECRET_STORE_KIND       = var.EXTERNAL_SECRET_STORE_KIND
+  EXTERNAL_SECRET_REFRESH_INTERVAL = var.EXTERNAL_SECRET_REFRESH_INTERVAL
+
+  depends_on = [module.rpc_gateway]
 }
 
 resource "kubernetes_manifest" "irm_grafana_cloud_secret" {
@@ -103,10 +140,10 @@ resource "kubernetes_manifest" "irm_grafana_cloud_secret" {
       namespace = var.NAMESPACE
     }
     spec = {
-      refreshInterval = "1m"
+      refreshInterval = var.EXTERNAL_SECRET_REFRESH_INTERVAL
       secretStoreRef = {
-        name = "gcp-secret-store"
-        kind = "ClusterSecretStore"
+        name = var.EXTERNAL_SECRET_STORE_NAME
+        kind = var.EXTERNAL_SECRET_STORE_KIND
       }
       target = {
         name           = local.irm_secret_name

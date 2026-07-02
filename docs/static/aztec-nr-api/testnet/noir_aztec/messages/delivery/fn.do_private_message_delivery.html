@@ -19,6 +19,7 @@
 <div id="crate-version">0.0.0</div>
 <h2>In module delivery</h2>
 <h3>Modules</h3><ul class="item-list">
+<li><a href="constrained_delivery/index.html">constrained_delivery</a></div></li>
 <li><a href="handshake/index.html">handshake</a></div></li>
 </ul>
 <h3>Structs</h3><ul class="item-list">
@@ -27,6 +28,7 @@
 <li><a href="struct.OnchainConstrainedDelivery.html">OnchainConstrainedDelivery</a></div></li>
 <li><a href="struct.OnchainDeliveryMode.html">OnchainDeliveryMode</a></div></li>
 <li><a href="struct.OnchainUnconstrainedDelivery.html">OnchainUnconstrainedDelivery</a></div></li>
+<li><a href="struct.ResolvedTaggingStrategy.html">ResolvedTaggingStrategy</a></div></li>
 </ul>
 <h3>Traits</h3><ul class="item-list">
 <li><a href="trait.MessageDeliveryBuilder.html">MessageDeliveryBuilder</a></div></li>
@@ -57,7 +59,7 @@ message in scenarios where the plaintext will be encrypted with unconstrained en
 note hash's side effect counter is passed and constrained tagging is not in use, then the log will be squashed
 alongside the note should its nullifier be emitted in the current transaction. Constrained-tagged logs are not tied
 to note squashing, because recipient discovery scans those tags sequentially and a removed log would break the
-per-secret index chain.</p>
+per-secret index sequence.</p>
 <h2>Privacy</h2>
 <p>The emitted log always has the same length regardless of <code>MESSAGE_PLAINTEXT_LEN</code>, because all message ciphertexts
 also have the same length. This prevents accidental privacy leakage via the log length.</p>
