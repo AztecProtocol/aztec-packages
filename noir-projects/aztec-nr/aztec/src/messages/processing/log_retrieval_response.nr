@@ -20,6 +20,6 @@ pub struct LogRetrievalResponse {
     pub unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
     /// The first nullifier created by `tx_hash`
     pub first_nullifier_in_tx: Field,
-    /// The block `tx_hash` was mined in. Lets the partial-note `completed` fact anchor to the completion block.
+    /// The block `tx_hash` was mined in
     pub origin_block: OriginBlock,
 }
