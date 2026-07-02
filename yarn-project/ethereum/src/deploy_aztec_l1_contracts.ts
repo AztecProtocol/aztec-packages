@@ -19,7 +19,7 @@ import { mainnet, sepolia } from 'viem/chains';
 
 import { createEthereumChain, isAnvilTestChain } from './chain.js';
 import { createExtendedL1Client } from './client.js';
-import type { L1ContractsConfig } from './config.js';
+import { type L1ContractsConfig, assertValidSlotDurations } from './config.js';
 import { deployMulticall3 } from './contracts/multicall.js';
 import { RollupContract } from './contracts/rollup.js';
 import type { L1ContractAddresses } from './l1_contract_addresses.js';
@@ -282,6 +282,7 @@ export async function deployAztecL1Contracts(
   args: DeployAztecL1ContractsArgs,
 ): Promise<DeployAztecL1ContractsReturnType> {
   logger.info(`Deploying L1 contracts with config: ${jsonStringify(args)}`);
+  assertValidSlotDurations(args);
   if (args.initialValidators && args.initialValidators.length > 0 && args.existingTokenAddress) {
     throw new Error(
       'Cannot deploy with both initialValidators and existingTokenAddress. ' +

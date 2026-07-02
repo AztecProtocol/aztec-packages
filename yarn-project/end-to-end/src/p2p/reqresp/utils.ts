@@ -34,7 +34,7 @@ export async function createReqrespTest(options: ReqrespOptions = {}): Promise<P
     // To collect metrics - run in aztec-packages `docker compose --profile metrics up`
     metricsPort: shouldCollectMetrics(),
     initialConfig: {
-      ethereumSlotDuration: 8,
+      ethereumSlotDuration: 12,
       aztecSlotDuration: 36,
       blockDurationMs: 6000,
       minTxsPerBlock: 1,
