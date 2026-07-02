@@ -23,4 +23,6 @@ pub struct LogRetrievalResponse {
     pub block_number: u32,
     /// The timestamp of the block in which `tx_hash` was included
     pub block_timestamp: u64,
+    /// The hash of the block in which `tx_hash` was included
+    pub block_hash: Field,
 }

@@ -1,10 +1,7 @@
 use aztec::{
     context::UtilityContext,
     ephemeral::EphemeralArray,
-    facts::{
-        delete_fact_collection, Fact, FactCollection, get_fact_collection, get_fact_collections_by_type, OriginBlock,
-        record_retractable_fact,
-    },
+    facts::{delete_fact_collection, Fact, FactCollection, get_fact_collection, OriginBlock, record_retractable_fact},
     messages::{
         delivery::handshake::DiscoveredHandshake,
         discovery::{
@@ -21,19 +18,22 @@ use aztec::{
     protocol::{
         address::AztecAddress,
         constants::DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
-        hash::{compute_log_tag, poseidon2_hash, sha256_to_field},
-        traits::{Deserialize, Serialize, ToField},
+        hash::{compute_log_tag, sha256_to_field},
+        traits::{Deserialize, Hash, Serialize, ToField},
     },
     utils::point::point_from_x_coord_and_sign,
 };
 
 /// Fact-collection type id of the per-recipient discovered handshakes populated by [`handshake_registry_sync`] and
-/// read by [`get_all_handshakes`]. Each discovered handshake lives in its own collection (see
-/// [`handshake_collection_id`]).
+/// read by [`get_all_handshakes`]. Each recipient (the fact scope) has a single collection of this type holding one
+/// fact per discovered handshake, in discovery order.
 pub(crate) global DISCOVERED_HANDSHAKES_TYPE_ID: Field =
     sha256_to_field("HANDSHAKE_REGISTRY::DISCOVERED_HANDSHAKES".as_bytes());
 
-/// Fact type id of the fact storing a serialized [`DiscoveredHandshake`] inside a discovered-handshake collection.
+/// Collection id of the singleton discovered-handshakes collection.
+pub(crate) global DISCOVERED_HANDSHAKES_COLLECTION_ID: Field = 0;
+
+/// Fact type id of the fact storing a serialized [`DiscoveredHandshake`] inside the discovered-handshakes collection.
 pub(crate) global HANDSHAKE_DISCOVERED: Field = sha256_to_field("HANDSHAKE_REGISTRY::HANDSHAKE_DISCOVERED".as_bytes());
 
 /// Fact-collection type id of the per-recipient sync cursor.
@@ -68,7 +68,8 @@ pub(crate) unconstrained fn handshake_registry_sync(
     scope: AztecAddress,
 ) {
     let cursor = load_sync_cursor(contract_address, scope);
-    let anchor_block = UtilityContext::new().block_number();
+    let anchor_block_header = UtilityContext::new().block_header();
+    let anchor_block = anchor_block_header.block_number();
 
     // `to_block` is exclusive, so we add 1 to include the anchor block in the scan
     let next_block = anchor_block + 1;
@@ -79,17 +80,26 @@ pub(crate) unconstrained fn handshake_registry_sync(
         let logs = get_handshake_logs_in_range(contract_address, tag, cursor, Option::some(next_block));
 
         // Record all valid handshakes
-        logs.for_each(|_i, log| {
+        logs.for_each(|_i, log: LogRetrievalResponse| {
             let ciphertext = aztec::utils::array::subbvec(log.log_payload, 0);
 
             let _ = AES128::decrypt(ciphertext, scope, contract_address)
                 .and_then(|pt| {
                     point_from_x_coord_and_sign(pt.get(0), true).map(|pk| DiscoveredHandshake { eph_pk: pk })
                 })
-                .map(|h| record_discovered_handshake(contract_address, scope, h, log.block_number));
+                .map(|h| record_discovered_handshake(
+                    contract_address,
+                    scope,
+                    h,
+                    OriginBlock { block_number: log.block_number, block_hash: log.block_hash },
+                ));
         });
 
-        store_sync_cursor(contract_address, scope, anchor_block);
+        store_sync_cursor(
+            contract_address,
+            scope,
+            OriginBlock { block_number: anchor_block, block_hash: anchor_block_header.hash() },
+        );
     }
 
     do_sync_state_without_handshake_discovery(
@@ -102,46 +112,46 @@ pub(crate) unconstrained fn handshake_registry_sync(
     );
 }
 
-/// Returns the discovered handshakes for `recipient`, one per canonical handshake fact collection.
+/// Returns the discovered handshakes for `recipient`, in discovery order.
 ///
-/// Ordering is unspecified.
+/// Facts within a collection are insertion-ordered, so new handshakes only ever append, keeping
+/// [`HandshakeRegistry::get_handshakes`] pagination stable across pages.
 pub(crate) unconstrained fn get_all_handshakes(
     contract_address: AztecAddress,
     recipient: AztecAddress,
 ) -> EphemeralArray<DiscoveredHandshake> {
-    get_fact_collections_by_type(contract_address, recipient, DISCOVERED_HANDSHAKES_TYPE_ID)
-        .map(|collection: FactCollection| {
-            let fact = collection.facts.find(|f: Fact| f.fact_type_id == HANDSHAKE_DISCOVERED).unwrap();
-            handshake_from_payload(fact.payload)
-        })
+    let maybe_collection = get_fact_collection(
+        contract_address,
+        recipient,
+        DISCOVERED_HANDSHAKES_TYPE_ID,
+        DISCOVERED_HANDSHAKES_COLLECTION_ID,
+    );
+    if maybe_collection.is_some() {
+        maybe_collection.unwrap().facts.map(|fact: Fact| handshake_from_payload(fact.payload))
+    } else {
+        EphemeralArray::empty()
+    }
 }
 
 /// Records a discovered handshake as a retractable fact originated at the block its announcement log landed in.
 ///
-/// The collection id is a hash of the handshake, so re-recording the same handshake at the same origin (e.g. when
-/// rescanning after the cursor was retracted by a reorg) is a no-op, and the same `eph_pk` can never appear twice.
+/// Fact identity covers the payload and origin block, so re-recording the same handshake at the same origin (e.g.
+/// when rescanning after the cursor was retracted by a reorg) is a no-op.
 unconstrained fn record_discovered_handshake(
     contract_address: AztecAddress,
     scope: AztecAddress,
     handshake: DiscoveredHandshake,
-    block_number: u32,
+    origin_block: OriginBlock,
 ) {
     record_retractable_fact(
         contract_address,
         scope,
         DISCOVERED_HANDSHAKES_TYPE_ID,
-        handshake_collection_id(handshake),
+        DISCOVERED_HANDSHAKES_COLLECTION_ID,
         HANDSHAKE_DISCOVERED,
         handshake_to_payload(handshake),
-        // The log retrieval oracle intentionally exposes only the origin block number, and FactStore retraction and
-        // origin-state classification key on block number alone, so no real hash is available or needed.
-        OriginBlock { block_number, block_hash: 0 },
+        origin_block,
     );
-}
-
-/// Computes the fact-collection id identifying `handshake` in the [fact store](aztec::facts).
-fn handshake_collection_id(handshake: DiscoveredHandshake) -> Field {
-    poseidon2_hash(handshake.serialize())
 }
 
 /// Serializes a [`DiscoveredHandshake`] into a fact payload.
@@ -179,7 +189,7 @@ unconstrained fn load_sync_cursor(contract_address: AztecAddress, scope: AztecAd
 
 /// Replaces the cursor fact with one originated at `anchor_block` (the block the completed scan ran against), so a
 /// reorg pruning any scanned block also retracts the cursor and the next sync rescans.
-unconstrained fn store_sync_cursor(contract_address: AztecAddress, scope: AztecAddress, anchor_block: u32) {
+unconstrained fn store_sync_cursor(contract_address: AztecAddress, scope: AztecAddress, anchor_block: OriginBlock) {
     delete_fact_collection(
         contract_address,
         scope,
@@ -193,7 +203,7 @@ unconstrained fn store_sync_cursor(contract_address: AztecAddress, scope: AztecA
         SYNC_CURSOR_COLLECTION_ID,
         SYNC_CURSOR,
         EphemeralArray::empty(),
-        OriginBlock { block_number: anchor_block, block_hash: 0 },
+        anchor_block,
     );
 }
 
