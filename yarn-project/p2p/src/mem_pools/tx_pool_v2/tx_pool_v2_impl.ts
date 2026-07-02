@@ -830,6 +830,11 @@ export class TxPoolV2Impl {
     return this.#indices.getPendingTxCount();
   }
 
+  hasEligiblePendingTxs(minCount: number): boolean {
+    const maxReceivedAt = this.#dateProvider.now() - this.#config.minTxPoolAgeMs;
+    return this.#indices.hasEligiblePendingTxs(maxReceivedAt, minCount);
+  }
+
   getMinedTxHashes(): [TxHash, L2BlockId][] {
     return this.#indices.getMinedTxs().map(([hash, blockId]) => [TxHash.fromString(hash), blockId]);
   }
@@ -1155,7 +1160,7 @@ export class TxPoolV2Impl {
         const publicStateSource = new DatabasePublicStateSource(db);
         const balance = await publicStateSource.storageRead(
           ProtocolContractAddress.FeeJuice,
-          await computeFeePayerBalanceStorageSlot(AztecAddress.fromString(feePayer)),
+          await computeFeePayerBalanceStorageSlot(AztecAddress.fromStringUnsafe(feePayer)),
         );
         return balance.toBigInt();
       },

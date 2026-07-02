@@ -3,14 +3,17 @@ import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { waitForL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
 import { TxExecutionResult } from '@aztec/aztec.js/tx';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
+import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 
 import { jest } from '@jest/globals';
 
 import { sendL1ToL2Message } from '../../fixtures/l1_to_l2_messaging.js';
 import type { EndToEndContext } from '../../fixtures/utils.js';
 import { waitForProvenBlock } from '../../fixtures/wait_helpers.js';
+import { setupWithProver } from '../setup.js';
 import { SingleNodeTestContext } from '../single_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
@@ -33,7 +36,7 @@ describe('single-node/proving/cross_chain_public_message', () => {
   let test: SingleNodeTestContext;
 
   beforeEach(async () => {
-    test = await SingleNodeTestContext.setup({
+    test = await setupWithProver({
       numberOfAccounts: 1,
       minTxsPerBlock: 1,
       sequencerPublisherAllowInvalidStates: true,
@@ -79,6 +82,16 @@ describe('single-node/proving/cross_chain_public_message', () => {
       )
       .send({ from: context.accounts[0] });
     expect(txReceipt.blockNumber).toBeGreaterThan(0);
+
+    // The consume tx lands in the first slot of its epoch, so the chain otherwise idles through the rest of
+    // that epoch before the fake proof can be assembled. Warp over that dead stretch to the epoch where the
+    // proof becomes submittable (txEpoch + proofSubmissionEpochs); the consume block is already produced, so
+    // warping the tail doesn't change what gets proven, only how long we wait for it.
+    const txBlock = (await context.aztecNode.getBlock(txReceipt.blockNumber!))!;
+    const txEpoch = getEpochAtSlot(txBlock.header.globalVariables.slotNumber, test.constants);
+    const proofEpoch = EpochNumber(Number(txEpoch) + test.constants.proofSubmissionEpochs);
+    logger.warn(`Consume tx landed in epoch ${txEpoch}; warping to proof-submission epoch ${proofEpoch}`);
+    await test.warpToEpochStart(Number(proofEpoch));
 
     // Wait until a proof lands for the transaction
     logger.warn(`Waiting for proof for tx ${txReceipt.txHash} mined at ${txReceipt.blockNumber!}`);

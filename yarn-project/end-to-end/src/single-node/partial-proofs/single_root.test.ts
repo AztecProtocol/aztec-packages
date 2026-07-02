@@ -2,7 +2,7 @@ import type { Logger } from '@aztec/aztec.js/log';
 import type { ChainMonitor } from '@aztec/ethereum/test';
 import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 
-import { SingleNodeTestContext, jest } from './setup.js';
+import { SingleNodeTestContext, jest, setupWithProver } from './setup.js';
 
 // Co-located with the multi-root suite: both manually drive partial-epoch proving on a single node
 // with a very long epoch. This one is the only coverage of the prover-node `startProof` path (the
@@ -15,7 +15,10 @@ describe('single-node/partial-proofs/single_root', () => {
   let test: SingleNodeTestContext;
 
   beforeEach(async () => {
-    test = await SingleNodeTestContext.setup({ aztecEpochDuration: 1000 });
+    // Run at the 4s/12s slot-cadence floor: the body waits in real wall-clock for the sequencer to publish
+    // empty checkpoints one per L2 slot, so a shorter slot shortens that wait. 12s is the floor for the
+    // 3s-block timing model. A clock warp here races the sequencer's building and trips EmptyEpochError.
+    test = await setupWithProver({ aztecEpochDuration: 1000, ethereumSlotDuration: 4, aztecSlotDurationInL1Slots: 3 });
     ({ monitor, logger } = test);
   });
 

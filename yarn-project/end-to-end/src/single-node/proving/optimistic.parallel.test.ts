@@ -13,6 +13,7 @@ import { expect, jest } from '@jest/globals';
 import type { EndToEndContext } from '../../fixtures/utils.js';
 import { waitForNodeCheckpoint } from '../../fixtures/wait_helpers.js';
 import { proveInteraction } from '../../test-wallet/utils.js';
+import { setupWithProver } from '../setup.js';
 import { FAST_REORG_TIMING, SingleNodeTestContext } from '../single_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 20);
@@ -20,7 +21,7 @@ jest.setTimeout(1000 * 60 * 20);
 /**
  * E2E tests for optimistic (checkpoint-driven) proving with reorg scenarios.
  *
- * Setup: a single sequencer/validator node from `SingleNodeTestContext.setup` plus the context's fake prover-node (no
+ * Setup: a single sequencer/validator node from `setupWithProver` plus the context's fake prover-node (no
  * `mockGossipSubNetwork`, so no gossip bus), making this a `single-node` test on the production `Sequencer`. Each of the
  * six `describe` blocks builds a fresh context in its own `beforeEach` and tears it down in the shared `afterEach`. The
  * happy-path pair uses defaults (`numberOfAccounts: 1`; ethSlot=8s local/12s CI, aztecSlot=16s/24s, epoch=6,
@@ -95,26 +96,29 @@ describe('single-node/proving/optimistic', () => {
    * The check has to be more than "a session exists for the epoch": full sessions only
    * open once the epoch is complete on L1, and even a non-optimistic prover would start
    * the moment the epoch's last checkpoint is pushed (a few L1 slots before the epoch's
-   * final L2 slot). So instead we watch the long-lived `CheckpointStore`: at each tick we
-   * record, per epoch, the earliest wall-clock slot at which *some* `CheckpointProver`
-   * for that epoch has been registered. Sub-trees are spawned at registration, so this
-   * slot is strictly before the epoch's last slot when optimistic proving is active.
+   * final L2 slot). So instead we watch the long-lived `CheckpointStore` while it is live
+   * (provers are reaped once the epoch's proof-submission window closes, so we cannot read
+   * this back after the fact) and record, per epoch, the *lowest checkpoint header slot* of
+   * any `CheckpointProver` registered for that epoch. A sub-tree is spawned at registration,
+   * so a registered prover whose checkpoint sits at a slot strictly before the epoch's last
+   * slot means proving began for an in-epoch (non-final) checkpoint — the optimistic path.
+   *
+   * We key off the prover's own checkpoint header slot rather than the wall-clock slot at
+   * observation time: the latter races the 100ms sampler tick (a checkpoint with header slot
+   * N can first be observed in wall-clock slot N+1), whereas the header slot is the
+   * deterministic property the assertion actually cares about.
    */
   const startMidEpochProvingSampler = (proverNode: TestProverNode) => {
-    /** epoch -> earliest wall-clock slot at which a CheckpointProver for that epoch was registered. */
-    const provingStartedAtSlot = new Map<EpochNumber, SlotNumber>();
+    /** epoch -> lowest checkpoint header slot of any CheckpointProver observed for that epoch. */
+    const lowestProvenSlotByEpoch = new Map<EpochNumber, SlotNumber>();
     let stopped = false;
-    // REFACTOR: hand-rolled setTimeout sampler loop with a `stopped` flag — a polling/observe helper
-    // (e.g. a sampler that records earliest-observed values per key until disposed) should replace it.
     const loop = (async () => {
       while (!stopped) {
-        const { epoch, slot } = test.epochCache.getEpochAndSlotNow();
-        const hasProverThisEpoch = proverNode
-          .getCheckpointStore()
-          .listAll()
-          .some(p => p.epochNumber === epoch);
-        if (hasProverThisEpoch && !provingStartedAtSlot.has(epoch)) {
-          provingStartedAtSlot.set(epoch, slot);
+        for (const prover of proverNode.getCheckpointStore().listAll()) {
+          const current = lowestProvenSlotByEpoch.get(prover.epochNumber);
+          if (current === undefined || prover.slotNumber < current) {
+            lowestProvenSlotByEpoch.set(prover.epochNumber, prover.slotNumber);
+          }
         }
         await new Promise(resolve => setTimeout(resolve, 100));
       }
@@ -122,17 +126,37 @@ describe('single-node/proving/optimistic', () => {
     return async () => {
       stopped = true;
       await loop;
-      return provingStartedAtSlot;
+      return lowestProvenSlotByEpoch;
     };
   };
 
-  /** Asserts a CheckpointProver for `epoch` was registered before the epoch's last L2 slot. */
-  const expectOptimisticProving = (provingStartedAtSlot: Map<EpochNumber, SlotNumber>, epoch: EpochNumber) => {
-    const observedSlot = provingStartedAtSlot.get(epoch);
+  /** Asserts a CheckpointProver was registered for `epoch` for a checkpoint before the epoch's last L2 slot. */
+  const expectOptimisticProving = (lowestProvenSlotByEpoch: Map<EpochNumber, SlotNumber>, epoch: EpochNumber) => {
+    const lowestProvenSlot = lowestProvenSlotByEpoch.get(epoch);
     const [, lastSlot] = getSlotRangeForEpoch(epoch, test.constants);
-    expect(observedSlot).toBeDefined();
-    expect(observedSlot!).toBeLessThan(lastSlot);
+    expect(lowestProvenSlot).toBeDefined();
+    expect(lowestProvenSlot!).toBeLessThan(lastSlot);
   };
+
+  /**
+   * Waits until the prover-node has registered a CheckpointProver for `epoch`. The happy-path tests
+   * warp the L1 clock to near the epoch boundary to skip dead wall-clock; that warp must not race
+   * ahead of the prover registering its sub-tree, or the optimistic-proving sampler would record the
+   * post-warp (near-last) slot instead of the early in-epoch slot the assertion checks for.
+   */
+  const waitForProverToRegisterEpoch = (proverNode: TestProverNode, epoch: EpochNumber | number) =>
+    retryUntil(
+      () =>
+        Promise.resolve(
+          proverNode
+            .getCheckpointStore()
+            .listAll()
+            .some(p => p.epochNumber === Number(epoch)),
+        ),
+      `prover registers a sub-tree for epoch ${epoch}`,
+      30,
+      0.1,
+    );
 
   afterEach(async () => {
     await test.teardown();
@@ -140,7 +164,7 @@ describe('single-node/proving/optimistic', () => {
 
   describe('happy path', () => {
     beforeEach(async () => {
-      test = await SingleNodeTestContext.setup({ numberOfAccounts: 1 });
+      test = await setupWithProver({ numberOfAccounts: 1 });
       ({ rollup, logger, context } = test);
       ({ L2_SLOT_DURATION_IN_S } = test);
       node = context.aztecNode;
@@ -148,6 +172,15 @@ describe('single-node/proving/optimistic', () => {
 
     it('proves an epoch via checkpoint-driven flow', async () => {
       const proverNode = test.proverNodes[0].getProverNode() as TestProverNode;
+
+      // Anchor on a freshly-started epoch so the sequencer is already warmed up when the epoch
+      // under test begins. Epoch 0 starts the instant genesis is set, but cold setup (L1 deploy
+      // mining warps the simulated clock forward several slots) can leave the sequencer dormant
+      // until slot 4-5 of epoch 0, so its first — and only — checkpoint lands at the epoch's last
+      // slot and there is nothing to prove mid-epoch. Anchoring guarantees a full epoch with
+      // checkpoints produced from its start, which is the premise the optimistic check needs.
+      await test.waitUntilNextEpochStarts();
+
       const stopSampler = startMidEpochProvingSampler(proverNode);
 
       // Land a real tx in the epoch so we prove actual tx effects, not just empty blocks.
@@ -161,7 +194,8 @@ describe('single-node/proving/optimistic', () => {
       logger.info(`Tx ${txReceipt.txHash} landed in checkpoint ${txCheckpoint} (epoch ${txEpoch})`);
 
       logger.info(`Waiting for epoch ${txEpoch} to end`);
-      await test.waitUntilEpochStarts(txEpoch + 1);
+      await waitForProverToRegisterEpoch(proverNode, txEpoch);
+      await test.warpToEpochStart(txEpoch + 1);
       const epochEndCheckpointNumber = (await test.monitor.run(true)).checkpointNumber;
       logger.info(`Epoch ${txEpoch} ended with checkpoint number ${epochEndCheckpointNumber}`);
       expect(epochEndCheckpointNumber).toBeGreaterThanOrEqual(txCheckpoint);
@@ -174,15 +208,21 @@ describe('single-node/proving/optimistic', () => {
       // The tx is in a proven block.
       expect((await node.getTxReceipt(txReceipt.txHash)).executionResult).toEqual(TxExecutionResult.SUCCESS);
 
-      // A CheckpointProver for the epoch was registered before the epoch's last slot — i.e.
-      // the prover-node started proving optimistically rather than waiting for the epoch to end.
-      const provingStartedAtSlot = await stopSampler();
-      logger.info(`Optimistic proving start slots by epoch: ${JSON.stringify([...provingStartedAtSlot])}`);
-      expectOptimisticProving(provingStartedAtSlot, txEpoch);
+      // A CheckpointProver for the epoch was registered for a checkpoint before the epoch's last
+      // slot — i.e. the prover-node started proving optimistically rather than waiting for the epoch
+      // to end.
+      const lowestProvenSlotByEpoch = await stopSampler();
+      logger.info(`Lowest proven checkpoint slot by epoch: ${JSON.stringify([...lowestProvenSlotByEpoch])}`);
+      expectOptimisticProving(lowestProvenSlotByEpoch, txEpoch);
     });
 
     it('proves multiple epochs via checkpoint-driven flow', async () => {
       const proverNode = test.proverNodes[0].getProverNode() as TestProverNode;
+
+      // Anchor on a freshly-started epoch before sampling — see the single-epoch test above for
+      // why epoch 0 of a cold-started chain can lack any in-epoch checkpoint before its last slot.
+      await test.waitUntilNextEpochStarts();
+
       const stopSampler = startMidEpochProvingSampler(proverNode);
       const contract = await test.registerTestContract(context.wallet);
 
@@ -200,7 +240,8 @@ describe('single-node/proving/optimistic', () => {
         logger.info(`Tx ${txReceipt.txHash} landed in checkpoint ${txCheckpoint} (epoch ${txEpoch})`);
 
         logger.info(`Waiting for epoch ${txEpoch} to end`);
-        await test.waitUntilEpochStarts(txEpoch + 1);
+        await waitForProverToRegisterEpoch(proverNode, txEpoch);
+        await test.warpToEpochStart(txEpoch + 1);
         const cp = (await test.monitor.run(true)).checkpointNumber;
         expect(cp).toBeGreaterThanOrEqual(txCheckpoint);
 
@@ -211,19 +252,19 @@ describe('single-node/proving/optimistic', () => {
         expect((await node.getTxReceipt(txReceipt.txHash)).executionResult).toEqual(TxExecutionResult.SUCCESS);
       }
 
-      // Every epoch the prover-node proved should have had a CheckpointProver registered
-      // before the epoch's last slot — i.e. proving started mid-epoch, not after.
-      const provingStartedAtSlot = await stopSampler();
-      logger.info(`Optimistic proving start slots by epoch: ${JSON.stringify([...provingStartedAtSlot])}`);
+      // Every epoch the prover-node proved should have had a CheckpointProver registered for a
+      // checkpoint before the epoch's last slot — i.e. proving started mid-epoch, not after.
+      const lowestProvenSlotByEpoch = await stopSampler();
+      logger.info(`Lowest proven checkpoint slot by epoch: ${JSON.stringify([...lowestProvenSlotByEpoch])}`);
       for (const epoch of provenEpochs) {
-        expectOptimisticProving(provingStartedAtSlot, epoch);
+        expectOptimisticProving(lowestProvenSlotByEpoch, epoch);
       }
     });
   });
 
   describe('mid-epoch checkpoint reorg with replacement', () => {
     beforeEach(async () => {
-      test = await SingleNodeTestContext.setup({
+      test = await setupWithProver({
         ...FAST_REORG_TIMING,
         maxSpeedUpAttempts: 0,
         cancelTxOnTimeout: false,
@@ -353,7 +394,7 @@ describe('single-node/proving/optimistic', () => {
       // production has been resumed and may produce additional checkpoints before the
       // next epoch starts; we only assert that the chain advanced past the replacement
       // and that the replacement itself ends up proven.
-      await test.waitUntilEpochStarts(currentEpoch + 1);
+      await test.warpToEpochStart(currentEpoch + 1);
       const epochEndCheckpoint = (await test.monitor.run(true)).checkpointNumber;
       expect(epochEndCheckpoint).toBeGreaterThanOrEqual(replacementCheckpoint);
 
@@ -364,7 +405,7 @@ describe('single-node/proving/optimistic', () => {
 
   describe('mid-epoch checkpoint reorg moving a tx', () => {
     beforeEach(async () => {
-      test = await SingleNodeTestContext.setup({
+      test = await setupWithProver({
         ...FAST_REORG_TIMING,
         numberOfAccounts: 1,
         maxSpeedUpAttempts: 0,
@@ -453,7 +494,7 @@ describe('single-node/proving/optimistic', () => {
       // archiver indexes the replacement checkpoint only after the sequencer's slot completes
       // (~slot duration) and the L1 propose tx confirms — far longer than the default 30s.
       const currentEpoch = await epochOfCheckpoint(reminedCheckpoint, 120);
-      await test.waitUntilEpochStarts(currentEpoch + 1);
+      await test.warpToEpochStart(currentEpoch + 1);
       const epochEndCheckpoint = (await test.monitor.run(true)).checkpointNumber;
       expect(epochEndCheckpoint).toBeGreaterThanOrEqual(reminedCheckpoint);
 
@@ -465,7 +506,7 @@ describe('single-node/proving/optimistic', () => {
 
   describe('mid-epoch checkpoint reorg without replacement', () => {
     beforeEach(async () => {
-      test = await SingleNodeTestContext.setup({
+      test = await setupWithProver({
         ...FAST_REORG_TIMING,
         maxSpeedUpAttempts: 0,
         cancelTxOnTimeout: false,
@@ -528,8 +569,9 @@ describe('single-node/proving/optimistic', () => {
       expect(survivingCheckpoints.length).toEqual(epochCheckpointsBeforeReorg.length - 1);
       expect(survivingCheckpoints.at(-1)).toEqual(afterReorgCheckpoint);
 
-      // Wait for the epoch to end and proof to land with the surviving checkpoints.
-      await test.waitUntilEpochStarts(currentEpoch + 1);
+      // Wait for the epoch to end and proof to land with the surviving checkpoints. Publishing is
+      // suppressed, so no checkpoints land in the remaining slots — warp the dead tail away.
+      await test.warpToEpochStart(currentEpoch + 1);
       const epochEndCheckpoint = (await test.monitor.run(true)).checkpointNumber;
 
       // (3) The epoch proved up to and including the last surviving checkpoint (the (N-1)th).
@@ -543,7 +585,7 @@ describe('single-node/proving/optimistic', () => {
 
   describe('last-slot checkpoint reorg without replacement', () => {
     beforeEach(async () => {
-      test = await SingleNodeTestContext.setup({
+      test = await setupWithProver({
         ...FAST_REORG_TIMING,
         maxSpeedUpAttempts: 0,
         cancelTxOnTimeout: false,
@@ -562,6 +604,11 @@ describe('single-node/proving/optimistic', () => {
       // Anchor on a freshly-started epoch so the full slot range is ahead of us.
       const epoch = await test.waitUntilNextEpochStarts();
       const [, epochEndSlot] = getSlotRangeForEpoch(epoch, test.constants);
+
+      // Warp to the build window of the slot two before the last, skipping the dead advance through
+      // the epoch's first slot. This leaves the sequencer the remaining slots to build: at least one
+      // survivor checkpoint before `epochEndSlot` plus the last-slot checkpoint we then reorg out.
+      await test.warpToBuildWindowForSlot(SlotNumber(Math.max(Number(epochEndSlot) - 2, 0)));
 
       // Wait until the wall clock crosses into the last slot of the epoch.
       await retryUntil(
@@ -611,7 +658,7 @@ describe('single-node/proving/optimistic', () => {
       });
 
       // Wait for the next epoch to start, then for proof to land with the surviving checkpoints.
-      await test.waitUntilEpochStarts(epoch + 1);
+      await test.warpToEpochStart(epoch + 1);
       const epochEndCheckpoint = (await test.monitor.run(true)).checkpointNumber;
       expect(epochEndCheckpoint).toEqual(afterReorgCheckpoint);
 
@@ -623,7 +670,7 @@ describe('single-node/proving/optimistic', () => {
 
   describe('checkpoint reorg during proving', () => {
     beforeEach(async () => {
-      test = await SingleNodeTestContext.setup({
+      test = await setupWithProver({
         ...FAST_REORG_TIMING,
         maxSpeedUpAttempts: 0,
         cancelTxOnTimeout: false,
@@ -758,7 +805,7 @@ describe('single-node/proving/optimistic', () => {
 
   describe('prover-node starts mid-epoch', () => {
     beforeEach(async () => {
-      test = await SingleNodeTestContext.setup({
+      test = await setupWithProver({
         ...FAST_REORG_TIMING,
         // Don't start the prover-node automatically — we spin it up mid-epoch in the test.
         startProverNode: false,
@@ -807,7 +854,7 @@ describe('single-node/proving/optimistic', () => {
       logger.info(`Prover-node started with id ${proverNode.getProverId().toString()}`);
 
       // Wait for the anchored epoch to end and its proof to land on L1.
-      await test.waitUntilEpochStarts(epoch + 1);
+      await test.warpToEpochStart(epoch + 1);
       const epochEndCheckpoint = (await test.monitor.run(true)).checkpointNumber;
       const lastPreSpawn = preSpawnCheckpointNumbers[preSpawnCheckpointNumbers.length - 1];
       expect(epochEndCheckpoint).toBeGreaterThanOrEqual(lastPreSpawn);

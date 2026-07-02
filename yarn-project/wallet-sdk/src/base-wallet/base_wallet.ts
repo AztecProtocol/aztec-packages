@@ -54,6 +54,7 @@ import {
   computeSiloedPublicInitializationNullifier,
 } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import type { MasterSecretKeys } from '@aztec/stdlib/keys';
 import {
   BlockHeader,
   ExecutionPayload,
@@ -129,7 +130,7 @@ export abstract class BaseWallet implements Wallet {
   protected scopesFrom(from: AztecAddress | NoFrom, additionalScopes: AztecAddress[] = []): AztecAddress[] {
     const allScopes = from === NO_FROM ? additionalScopes : [from, ...additionalScopes];
     const scopeSet = new Set(allScopes.map(address => address.toString()));
-    return [...scopeSet].map(AztecAddress.fromString);
+    return [...scopeSet].map(AztecAddress.fromStringUnsafe);
   }
 
   /**
@@ -155,8 +156,8 @@ export abstract class BaseWallet implements Wallet {
    * @returns The aliased collection of AztecAddresses that form this wallet's address book
    */
   async getAddressBook(): Promise<Aliased<AztecAddress>[]> {
-    const senders: AztecAddress[] = await this.pxe.getSenders();
-    return senders.map(sender => ({ item: sender, alias: '' }));
+    const sources = await this.pxe.getTaggingSecretSources({ kind: 'address-derived' });
+    return sources.map(source => ({ item: source.sender, alias: '' }));
   }
 
   /**
@@ -346,14 +347,15 @@ export abstract class BaseWallet implements Wallet {
     }
   }
 
-  registerSender(address: AztecAddress, _alias: string = ''): Promise<AztecAddress> {
-    return this.pxe.registerSender(address);
+  async registerSender(address: AztecAddress, _alias: string = ''): Promise<AztecAddress> {
+    await this.pxe.registerTaggingSecretSource({ kind: 'address-derived', sender: address });
+    return address;
   }
 
   async registerContract(
     instance: ContractInstanceWithAddress,
     artifact?: ContractArtifact,
-    secretKey?: Fr,
+    secretKeyOrKeys?: Fr | MasterSecretKeys,
   ): Promise<ContractInstanceWithAddress> {
     const existingInstance = await this.pxe.getContractInstance(instance.address);
 
@@ -382,8 +384,8 @@ export abstract class BaseWallet implements Wallet {
       await this.pxe.registerContract({ artifact, instance });
     }
 
-    if (secretKey) {
-      await this.pxe.registerAccount(secretKey, await computePartialAddress(instance));
+    if (secretKeyOrKeys) {
+      await this.pxe.registerAccount(secretKeyOrKeys, await computePartialAddress(instance));
     }
     return instance;
   }

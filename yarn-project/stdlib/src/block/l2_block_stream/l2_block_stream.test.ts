@@ -1472,6 +1472,41 @@ describe('L2BlockStream', () => {
       expect(prune!.block.number).toBe(9);
     });
   });
+
+  describe('no-op polling invariant', () => {
+    let localData: TestL2BlockStreamLocalDataProvider;
+    let handler: TestL2BlockStreamEventHandler;
+    let blockStream: TestL2BlockStream;
+
+    beforeEach(() => {
+      localData = new TestL2BlockStreamLocalDataProvider();
+      handler = new TestL2BlockStreamEventHandler();
+      blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, { batchSize: 10 });
+    });
+
+    // A fully-synced pass must read getL2Tips exactly once and touch no block data: the source's getL2Tips
+    // (backed by L2TipsCache for the archiver) is the only call on a no-op poll. Regressions here re-introduce
+    // per-poll block-body reads that the L2TipsCache fast path is meant to avoid.
+    it('reads getL2Tips once and never fetches blocks or block data when fully synced', async () => {
+      // Local tips equal the source tips at every tier (matching numbers ⇒ matching mock hashes).
+      setRemoteTips(5, 5, 5, 5);
+      localData.setProposed(5);
+      localData.setCheckpointed(5, 5);
+      localData.setProven(5);
+      localData.setFinalized(5);
+
+      blockSource.getL2Tips.mockClear();
+      blockSource.getBlocks.mockClear();
+      blockSource.getBlockData.mockClear();
+
+      await blockStream.sync();
+
+      expect(blockSource.getL2Tips).toHaveBeenCalledTimes(1);
+      expect(blockSource.getBlockData).not.toHaveBeenCalled();
+      expect(blockSource.getBlocks).not.toHaveBeenCalled();
+      expect(handler.events).toEqual([]);
+    });
+  });
 });
 
 /** Collapses runs of identical adjacent items into one, so a batched event run (e.g. blocks-added) counts once. */

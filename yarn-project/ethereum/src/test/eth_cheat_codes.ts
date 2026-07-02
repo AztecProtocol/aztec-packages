@@ -478,56 +478,44 @@ export class EthCheatCodes {
   }
 
   /**
-   * Mines an empty block by temporarily removing all pending transactions from the mempool,
-   * mining a block, and then re-adding the transactions back to the pool.
+   * Mines empty blocks while leaving any pending transactions untouched in the mempool.
+   *
+   * Never manipulates the mempool, so it is immune to the race that dropping and re-adding txs has against a
+   * concurrent publisher that is monitoring and re-broadcasting the same in-flight tx (with that approach the
+   * in-flight tx could reappear in the pool and be swept into the "empty" block, mining a proposal the caller
+   * expected to stay pending). Works in two steps: first the block gas limit is temporarily lowered below the
+   * intrinsic cost of any transaction (21000 gas) and the blocks are mined, so no pending tx is includable;
+   * then those blocks are reorged out and replaced with empty blocks mined at the restored gas limit. The
+   * reorg is needed because anvil applies a new gas limit only to future blocks: without it the just-mined
+   * blocks would keep the tiny gas limit, and an `eth_call` against `latest` (whose gas is capped by the
+   * block gas limit) would revert with "intrinsic gas too high".
    */
   public async mineEmptyBlock(blockCount: number = 1): Promise<void> {
     await this.execWithPausedAnvil(async () => {
-      // Get all pending and queued transactions from the pool
-      const txs = await this.getTxPoolContents();
-
-      this.logger.debug(`Found ${txs.length} transactions in pool`);
-
-      // Get raw transactions before dropping them
-      const rawTxs: Hex[] = [];
-      for (const tx of txs) {
-        try {
-          const rawTx = await this.doRpcCall('debug_getRawTransaction', [tx.hash]);
-          if (rawTx) {
-            rawTxs.push(rawTx);
-            this.logger.debug(`Got raw tx for ${tx.hash}`);
-          } else {
-            this.logger.warn(`No raw tx found for ${tx.hash}`);
-          }
-        } catch {
-          this.logger.warn(`Failed to get raw transaction for ${tx.hash}`);
-        }
+      const originalGasLimit = await this.getBlockGasLimit();
+      try {
+        await this.setBlockGasLimit(1n);
+        await this.doMine(blockCount);
+      } finally {
+        await this.setBlockGasLimit(originalGasLimit);
       }
-
-      this.logger.debug(`Retrieved ${rawTxs.length} raw transactions`);
-
-      // Drop all transactions from the mempool
-      await this.doRpcCall('anvil_dropAllTransactions', []);
-
-      // Mine an empty block
-      await this.doMine(blockCount);
-
-      // Re-add the transactions to the pool
-      for (const rawTx of rawTxs) {
-        try {
-          const txHash = await this.doRpcCall('eth_sendRawTransaction', [rawTx]);
-          this.logger.debug(`Re-added transaction ${txHash}`);
-        } catch (err) {
-          this.logger.warn(`Failed to re-add transaction: ${err}`);
-        }
-      }
-
-      if (rawTxs.length !== txs.length) {
-        this.logger.warn(`Failed to add all txs back: had ${txs.length} but re-added ${rawTxs.length}`);
-      }
+      // Replace the tiny-gas-limit blocks with empty blocks at the restored gas limit, keeping the same
+      // height and timestamps. The reorged-out blocks held no transactions, so nothing returns to the pool.
+      await this.doRpcCall('anvil_reorg', [blockCount, []]);
     });
 
     this.logger.warn(`Mined ${blockCount} empty L1 ${pluralize('block', blockCount)}`);
+  }
+
+  /** Returns the gas limit of the latest mined L1 block. */
+  public async getBlockGasLimit(): Promise<bigint> {
+    const block = await this.doRpcCall('eth_getBlockByNumber', ['latest', false]);
+    return BigInt(block.gasLimit);
+  }
+
+  /** Sets the block gas limit applied to subsequently mined L1 blocks. */
+  public async setBlockGasLimit(gasLimit: bigint): Promise<void> {
+    await this.doRpcCall('anvil_setBlockGasLimit', [toHex(gasLimit)]);
   }
 
   public async execWithPausedAnvil<T>(fn: () => Promise<T>): Promise<T> {

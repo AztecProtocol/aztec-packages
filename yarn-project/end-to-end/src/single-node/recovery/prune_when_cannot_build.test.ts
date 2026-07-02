@@ -7,6 +7,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { jest } from '@jest/globals';
 
 import type { EndToEndContext } from '../../fixtures/utils.js';
+import { setupWithProver } from '../setup.js';
 import { SingleNodeTestContext } from '../single_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
@@ -29,7 +30,7 @@ describe('single-node/recovery/prune_when_cannot_build', () => {
   let test: SingleNodeTestContext;
 
   beforeEach(async () => {
-    test = await SingleNodeTestContext.setup({
+    test = await setupWithProver({
       startProverNode: false, // Nothing ever proves epoch 0, so its pending chain stays unproven and becomes prunable.
       ethereumSlotDuration: 8,
       aztecEpochDuration: 8, // Long enough to land a few checkpoints in epoch 0.
@@ -66,6 +67,9 @@ describe('single-node/recovery/prune_when_cannot_build', () => {
     // Let epoch 0's proof submission window expire so canPruneAtTime becomes true. Advance one more slot
     // past the deadline so the proposer gets a fresh slot to run its fallback in.
     logger.info(`Waiting for the proof submission window of epoch 0 to expire`);
+    // Most of this window is dead clock (sync is paused; nothing builds), so warp to near its end and let
+    // only the final couple of real slots elapse — the proposer needs those real slots for its fallback prune.
+    await test.warpNearSubmissionWindowEnd(0);
     await test.waitUntilLastSlotOfProofSubmissionWindow(0);
     const lastBlockTs = BigInt(await context.cheatCodes.eth.lastBlockTimestamp());
     await context.cheatCodes.eth.warp(Number(lastBlockTs) + L2_SLOT_DURATION_IN_S * 2, { resetBlockInterval: true });

@@ -254,7 +254,7 @@ describe('decoder', () => {
       ],
     );
 
-    expect(decoded).toEqual([1n, 2n, false, 'xyz', AztecAddress.fromBigInt(1n), { x: 1n, y: 2n }]);
+    expect(decoded).toEqual([1n, 2n, false, 'xyz', AztecAddress.fromBigIntUnsafe(1n), { x: 1n, y: 2n }]);
   });
 
   it('decodes Option::Some as the wrapped value', () => {

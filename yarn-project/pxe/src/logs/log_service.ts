@@ -1,20 +1,29 @@
+import { PRIVATE_LOG_CIPHERTEXT_LEN } from '@aztec/constants';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
+import type { GrumpkinScalar, Point } from '@aztec/foundation/curves/grumpkin';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { BlockHash, L2TipsProvider } from '@aztec/stdlib/block';
+import type { CompleteAddress } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { AppTaggingSecret, type LogResult, PendingTaggedLog, SiloedTag } from '@aztec/stdlib/logs';
+import {
+  AppTaggingSecret,
+  type LogResult,
+  type PendingTaggedLog,
+  SiloedTag,
+  computeSharedTaggingSecret,
+} from '@aztec/stdlib/logs';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import {
   type LogRetrievalRequest,
   LogSource,
 } from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
-import { LogRetrievalResponse } from '../contract_function_simulator/noir-structs/log_retrieval_response.js';
+import type { LogRetrievalResponse } from '../contract_function_simulator/noir-structs/log_retrieval_response.js';
 import { AddressStore } from '../storage/address_store/address_store.js';
 import type { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
-import type { SenderAddressBookStore } from '../storage/tagging_store/sender_address_book_store.js';
+import type { TaggingSecretSourcesStore } from '../storage/tagging_store/tagging_secret_sources_store.js';
 import {
   getAllPrivateLogsByTags,
   getAllPublicLogsByTagsFromContract,
@@ -34,7 +43,7 @@ export class LogService {
     private readonly l2TipsStore: L2TipsProvider,
     private readonly keyStore: KeyStore,
     private readonly recipientTaggingStore: RecipientTaggingStore,
-    private readonly senderAddressBookStore: SenderAddressBookStore,
+    private readonly taggingSecretSourcesStore: TaggingSecretSourcesStore,
     private readonly addressStore: AddressStore,
     private readonly jobId: string,
     bindings?: LoggerBindings,
@@ -139,12 +148,14 @@ export class LogService {
   ): Map<RangeKey, { fromBlock?: BlockNumber; toBlock?: BlockNumber; entries: typeof entries }> {
     const groups = new Map<RangeKey, { fromBlock?: BlockNumber; toBlock?: BlockNumber; entries: typeof entries }>();
     for (const entry of entries) {
-      const key = rangeKey(entry.request.fromBlock, entry.request.toBlock);
+      const fromBlock = entry.request.fromBlock.value;
+      const toBlock = entry.request.toBlock.value;
+      const key = rangeKey(fromBlock, toBlock);
       const existing = groups.get(key);
       if (existing) {
         existing.entries.push(entry);
       } else {
-        groups.set(key, { fromBlock: entry.request.fromBlock, toBlock: entry.request.toBlock, entries: [entry] });
+        groups.set(key, { fromBlock, toBlock, entries: [entry] });
       }
     }
     return groups;
@@ -158,12 +169,16 @@ export class LogService {
     if (nullifiers.length === 0) {
       throw new Error(`Log for tx ${log.txHash} returned no nullifiers from the node`);
     }
-    return new LogRetrievalResponse(
-      log.logData.slice(1), // Skip the tag
-      log.txHash,
-      noteHashes,
-      nullifiers[0],
-    );
+    return {
+      // Skip the tag, and clip to the wire cap: public logs can exceed PRIVATE_LOG_CIPHERTEXT_LEN, which is the fixed
+      // size of the oracle's BoundedVec slot. A no-op for private logs, which are already within the cap.
+      logPayload: log.logData.slice(1, 1 + PRIVATE_LOG_CIPHERTEXT_LEN),
+      txHash: log.txHash,
+      uniqueNoteHashesInTx: noteHashes,
+      firstNullifierInTx: nullifiers[0],
+      blockNumber: log.blockNumber,
+      blockTimestamp: log.blockTimestamp,
+    };
   }
 
   public async fetchTaggedLogs(
@@ -171,12 +186,20 @@ export class LogService {
     recipient: AztecAddress,
     providedSecrets: AppTaggingSecret[],
   ): Promise<PendingTaggedLog[]> {
-    this.log.verbose(`Fetching tagged logs for ${contractAddress.toString()}`);
+    this.log.verbose(
+      `Fetching tagged logs for contract ${contractAddress.toString()} and recipient ${recipient.toString()}`,
+    );
 
     const l2Tips = await this.l2TipsStore.getL2Tips();
-    // The secrets PXE derives or stores internally, plus any the app supplies explicitly for secrets PXE cannot
-    // enumerate itself (e.g. handshake-derived ones).
-    const secrets = [...(await this.#getSecretsForSenders(contractAddress, recipient)), ...providedSecrets];
+
+    // Secrets PXE can enumerate for this recipient (senders via ECDH + pre-shared store secrets), plus any the app
+    // supplies explicitly for secrets PXE cannot enumerate itself (e.g. handshake-derived ones). The latter arrive
+    // already computed and are searched even when the recipient's account is unknown locally, since they need no ECDH.
+    const combinedSecrets = [...(await this.#getPointDerivedSecrets(contractAddress, recipient)), ...providedSecrets];
+
+    // These sources can overlap (a sender that is also a PXE account, or a pre-shared secret that coincides with a
+    // sender-derived one), so we deduplicate the combined set.
+    const secrets = Array.from(new Map(combinedSecrets.map(secret => [secret.toString(), secret])).values());
 
     const logs = await syncTaggedPrivateLogs(
       secrets,
@@ -193,44 +216,57 @@ export class LogService {
       if (nullifiers.length === 0) {
         throw new Error(`Log for tx ${log.txHash} returned no nullifiers from the node`);
       }
-      return new PendingTaggedLog(log.logData, log.txHash, noteHashes, nullifiers[0]);
+      return {
+        log: log.logData,
+        context: { txHash: log.txHash, uniqueNoteHashesInTx: noteHashes, firstNullifierInTx: nullifiers[0] },
+      };
     });
   }
 
-  async #getSecretsForSenders(contractAddress: AztecAddress, recipient: AztecAddress): Promise<AppTaggingSecret[]> {
+  /**
+   * Computes the tagging secrets PXE can enumerate for a recipient: one per known sender (via ECDH) plus any
+   * pre-shared secret points registered directly for the recipient, each siloed to `contractAddress` and directed to
+   * `recipient`. These require knowing the recipient's address preimage and keys, so returns an empty array when those
+   * are unavailable. App-supplied secrets (e.g. handshake-derived) are handled separately by the caller and do not go
+   * through here.
+   */
+  async #getPointDerivedSecrets(contractAddress: AztecAddress, recipient: AztecAddress): Promise<AppTaggingSecret[]> {
     const recipientCompleteAddress = await this.addressStore.getCompleteAddress(recipient);
-    if (!recipientCompleteAddress) {
+    if (!recipientCompleteAddress || !(await this.keyStore.hasAccount(recipient))) {
+      this.log.warn(
+        `Skipping sender-derived tag retrieval for ${recipient.toString()} due to unknown address preimage`,
+      );
       return [];
     }
     const recipientIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(recipient);
 
-    // We implicitly add all PXE accounts as senders, this helps us find tagged logs with messages that are sent to a
-    // local account (recipient = us, sender = us)
-    const allSenders = [...(await this.senderAddressBookStore.getSenders()), ...(await this.keyStore.getAccounts())];
+    const points = [
+      ...(await this.#getSecretsForSenders(recipientCompleteAddress, recipientIvsk)),
+      ...(await this.taggingSecretSourcesStore.getSharedSecretsForRecipient(recipient)),
+    ];
+    return Promise.all(points.map(secret => AppTaggingSecret.computeDirectional(secret, contractAddress, recipient)));
+  }
 
-    // We deduplicate the senders by adding them to a set and then converting the set back to an array
-    const deduplicatedSenders = Array.from(new Set(allSenders.map(sender => sender.toString()))).map(sender =>
-      AztecAddress.fromString(sender),
-    );
+  async #getSecretsForSenders(
+    recipientCompleteAddress: CompleteAddress,
+    recipientIvsk: GrumpkinScalar,
+  ): Promise<Point[]> {
+    // We implicitly add all PXE accounts as senders, this helps us decrypt tags on notes that we send to ourselves
+    // (recipient = us, sender = us).
+    const allSenders = [...(await this.taggingSecretSourcesStore.getSenders()), ...(await this.keyStore.getAccounts())];
 
     return Promise.all(
-      deduplicatedSenders.map(async sender => {
-        const secret = await AppTaggingSecret.computeUnconstrained(
-          recipientCompleteAddress,
-          recipientIvsk,
-          sender,
-          contractAddress,
-          recipient,
-        );
+      allSenders.map(async sender => {
+        const taggingSecretPoint = await computeSharedTaggingSecret(recipientCompleteAddress, recipientIvsk, sender);
 
-        if (!secret) {
-          // Note that all senders originate from either the SenderAddressBookStore or the KeyStore.
+        if (!taggingSecretPoint) {
+          // Note that all senders originate from either the TaggingSecretSourcesStore or the KeyStore.
           throw new Error(
             `Failed to compute a tagging secret for sender ${sender} - this implies this is an invalid address, which should not happen as they have been previously registered in PXE.`,
           );
         }
 
-        return secret;
+        return taggingSecretPoint;
       }),
     );
   }

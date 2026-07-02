@@ -27,30 +27,40 @@ function test_cmds {
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
   local prefix="$hash:ISOLATE=1:TIMEOUT=20m"
 
+  # On full CI we enable real proofs and allocate more resources to the e2e prover tests
   if [ "$CI_FULL" -eq 1 ]; then
-    echo "$prefix:TIMEOUT=20m:CPUS=16:MEM=96g:NAME=e2e_prover_full_real $run_test_script simple e2e_prover/full"
+    for test in src/single-node/prover/server/*.test.ts; do
+      local name=${test#src/}
+      name=${name%.test.ts}
+      echo "$prefix:TIMEOUT=20m:CPUS=16:MEM=96g:NAME=${name}_real $run_test_script simple ${test#src/}"
+    done
+    for test in src/single-node/prover/client/*.test.ts; do
+      local name=${test#src/}
+      name=${name%.test.ts}
+      echo "$prefix:TIMEOUT=10m:CPUS=2:MEM=4g:NAME=${name}_real $run_test_script simple ${test#src/}"
+    done
   else
-    echo "$prefix:NAME=e2e_prover_full_fake FAKE_PROOFS=1 $run_test_script simple e2e_prover/full"
+    for test in src/single-node/prover/**/*.test.ts; do
+      local name=${test#src/}
+      name=${name%.test.ts}
+      echo "$prefix:NAME=${name}_fake FAKE_PROOFS=1 $run_test_script simple ${test#src/}"
+    done
   fi
-  echo "$prefix:TIMEOUT=25m:NAME=e2e_block_building $(set_dump_avm e2e_block_building) $run_test_script simple e2e_block_building"
-  echo "$prefix:TIMEOUT=30m:NAME=e2e_avm_simulator $(set_dump_avm e2e_avm_simulator) $run_test_script simple src/e2e_avm_simulator.test.ts"
+
+  # Long-running avm_simulator
+  echo "$prefix:TIMEOUT=30m:NAME=automine/simulation/avm_simulator $(set_dump_avm e2e_avm_simulator) $run_test_script simple src/automine/simulation/avm_simulator.test.ts"
 
   local tests=(
     # List all standalone and nested tests, except for the ones listed above.
-    src/e2e_!(prover)/*.test.ts
-    src/single-node/proving/*.test.ts
-    src/single-node/l1-reorgs/*.test.ts
-    src/single-node/recovery/*.test.ts
-    src/single-node/partial-proofs/*.test.ts
-    src/single-node/misc/*.test.ts
-    src/multi-node/block-production/*.test.ts
-    src/multi-node/recovery/*.test.ts
-    src/multi-node/invalid-attestations/*.test.ts
-    src/multi-node/high-availability/*.test.ts
-    src/multi-node/slashing/*.test.ts
-    src/e2e_p2p/reqresp/*.test.ts
-    src/e2e_!(block_building|avm_simulator).test.ts
+    src/automine/*.test.ts
+    src/automine/!(simulation)/**/*.test.ts
+    src/automine/simulation/!(avm_simulator).test.ts
+    src/single-node/!(prover)/**/*.test.ts
+    src/infra/**/*.test.ts
+    src/multi-node/**/*.test.ts
+    src/p2p/**/*.test.ts
   )
+
   for test in "${tests[@]}"; do
     # Derive a CI test name from the path: drop the leading "src/" and trailing ".test.ts".
     # This keeps e2e_<dir>/<file> names while also handling the multi-node/ category folder.
@@ -60,11 +70,16 @@ function test_cmds {
     # Per-test bash TIMEOUT overrides — keep in sync with the test file's jest.setTimeout.
     local test_prefix="$prefix"
     case "$name" in
-      e2e_p2p/add_rollup)
+      multi-node/governance/add_rollup)
         test_prefix="$prefix:TIMEOUT=20m"
         ;;
-      e2e_cross_chain_messaging/l1_to_l2)
+      single-node/cross-chain/l1_to_l2.parallel)
         test_prefix="$prefix:TIMEOUT=20m"
+        ;;
+      single-node/block-building/block_building)
+        # Block-building covers the full multi-tx / reorg surface and dumps AVM circuit inputs
+        # (via set_dump_avm in the loop below) for downstream avm_check_circuit.
+        test_prefix="$prefix:TIMEOUT=25m"
         ;;
       single-node/proving/long_proving_time)
         # The long-proving-time scenario waits out a multi-epoch prover delay.
@@ -121,9 +136,7 @@ function test_cmds {
     fi
   done
 
-  #echo "$hash:ONLY_TERM_PARENT=1 $run_test_script simple src/e2e_multi_validator/e2e_multi_validator_node.test.ts"
   #echo "$hash:ONLY_TERM_PARENT=1 $run_test_script web3signer src/composed/web3signer/integration_remote_signer.test.ts"
-  #echo "$hash:ONLY_TERM_PARENT=1 $run_test_script web3signer src/e2e_multi_validator/e2e_multi_validator_node_key_store.test.ts"
 
   # compose-based tests with custom scripts
   for flow in ../cli-wallet/test/flows/*.sh; do
@@ -226,14 +239,15 @@ function avm_check_circuit_cmds {
   # small and the AVM can run check-circuit with limited resources.
   local prefix="$hash:ISOLATE=1:TIMEOUT=30s"
 
-  # Find all .bin files in the dump directory (handles nested dirs)
-  for input_file in "$default_avm_inputs_dump_dir"/*/*.bin "$default_avm_inputs_dump_dir"/*/*/*.bin; do
+  # Find all .bin files in the dump directory (handles nested dirs, e.g. the 3-segment
+  # single-node/block-building/block_building dump path needs the 4-level glob).
+  for input_file in "$default_avm_inputs_dump_dir"/*/*.bin "$default_avm_inputs_dump_dir"/*/*/*.bin "$default_avm_inputs_dump_dir"/*/*/*/*.bin; do
     # Skip if no matches (glob didn't expand)
     [ -e "$input_file" ] || continue
 
     # Extract test name and tx hash for the command name
-    # e.g., dumped-avm-circuit-inputs/e2e_block_building/avm-circuit-inputs-tx-0x1234.bin
-    # -> avm_cc_e2e_block_building_0x1234
+    # e.g., dumped-avm-circuit-inputs/single-node/block-building/block_building/avm-circuit-inputs-tx-0x1234.bin
+    # -> avm_cc_single-node_block-building_block_building_0x1234
     local rel_path="${input_file#$default_avm_inputs_dump_dir/}"
     local test_dir=$(dirname "$rel_path")
     local filename=$(basename "$input_file" .bin)
@@ -271,10 +285,9 @@ function avm_check_circuit {
 
 # Generates e2e test commands using contract artifacts from a prior release version.
 # Only includes simple (jest-based) tests since compose/docker tests don't use the legacy jest resolver.
-# Excludes prover, block_building, and epochs tests (not relevant for contract artifact compat; epochs
-# tests are known-flaky and provide no additional backwards-compat coverage). Also excludes
-# kernelless_simulation, which asserts on the exact number of nullifiers emitted and breaks whenever
-# contracts add/remove nullifier emissions across versions (unrelated to the compat contract surface).
+# Excludes kernelless_simulation, which asserts on the exact number of nullifiers emitted and breaks
+# whenever contracts add/remove nullifier emissions across versions (unrelated to the compat contract
+# surface).
 function compat_test_cmds {
   local version=${1:?version is required}
   local run_test_script="yarn-project/end-to-end/scripts/run_test.sh"
@@ -282,13 +295,34 @@ function compat_test_cmds {
   local compat_env="CONTRACT_ARTIFACTS_VERSION=$version"
 
   local tests=(
-    src/e2e_!(prover|block_building|epochs)/*.test.ts
-    src/e2e_p2p/reqresp/*.test.ts
-    src/e2e_!(block_building|prover_*|kernelless_simulation).test.ts
+    src/automine/*.test.ts
+    src/automine/contracts/*.test.ts
+    src/automine/contracts/deploy/*.test.ts
+    src/automine/contracts/nested/*.test.ts
+    src/automine/token/*.test.ts
+    src/automine/accounts/*.test.ts
+    src/automine/effects/*.test.ts
+    src/automine/simulation/!(kernelless_simulation).test.ts
+    src/single-node/fees/*.test.ts
+    src/single-node/cross-chain/*.test.ts
+    src/single-node/bot/*.test.ts
+    src/infra/*.test.ts
+    src/p2p/*.test.ts
+    src/p2p/reqresp/*.test.ts
   )
   for test in "${tests[@]}"; do
-    local name=${test#*e2e_}
-    name=e2e_${name%.test.ts}
+    local name
+    if [[ "$test" == src/p2p/* || "$test" == src/automine/* ]]; then
+      # The p2p/ and automine/ folders have no `e2e_` prefix to strip; flatten their path into an
+      # e2e_<path> name (matching the historical e2e_p2p/<file> names) by dropping "src/", ".test.ts",
+      # and slashes.
+      name=${test#src/}
+      name=e2e_${name%.test.ts}
+      name=${name//\//_}
+    else
+      name=${test#*e2e_}
+      name=e2e_${name%.test.ts}
+    fi
 
     if [[ "$test" == *.parallel.test.ts ]]; then
       while IFS= read -r test_name; do

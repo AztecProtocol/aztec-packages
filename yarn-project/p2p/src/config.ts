@@ -740,7 +740,7 @@ export function parseAllowList(value: string): AllowedElement[] {
 
     if (typeString === 'I') {
       entries.push({
-        address: AztecAddress.fromString(identifierString),
+        address: AztecAddress.fromStringUnsafe(identifierString),
         selector,
         ...flags,
       });

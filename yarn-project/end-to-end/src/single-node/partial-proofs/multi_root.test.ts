@@ -1,7 +1,8 @@
 import { EthAddress } from '@aztec/aztec.js/addresses';
+import { NO_WAIT } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
-import type { AztecNode } from '@aztec/aztec.js/node';
+import { type AztecNode, waitForTx } from '@aztec/aztec.js/node';
 import { EpochTestSettler } from '@aztec/aztec/testing';
 import { MAX_CHECKPOINTS_PER_EPOCH } from '@aztec/constants';
 import { OutboxContract, type ViemL2ToL1Msg } from '@aztec/ethereum/contracts';
@@ -23,7 +24,7 @@ import { type TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 import { type Hex, decodeEventLog } from 'viem';
 
 import { waitForL2ToL1Witness } from '../../fixtures/wait_helpers.js';
-import { SingleNodeTestContext, jest } from './setup.js';
+import { SingleNodeTestContext, jest, setupWithProver } from './setup.js';
 
 // Suite: verifies the AZIP-14 partial-proof multi-root Outbox design. Drives an EpochTestSettler
 // manually to stage progressively deeper partial-proof roots (K=1, 2, 3) for the same epoch, then
@@ -48,7 +49,7 @@ describe('single-node/partial-proofs/multi_root', () => {
   let recipient: EthAddress;
 
   beforeEach(async () => {
-    test = await SingleNodeTestContext.setup({
+    test = await setupWithProver({
       numberOfAccounts: 1,
       minTxsPerBlock: 1,
       // With the enforced timetable this setup can have 5 blocks per checkpoint. The default
@@ -138,9 +139,17 @@ describe('single-node/partial-proofs/multi_root', () => {
       const msg = makeMsg(content);
       const leaf = computeLeaf(msg);
       logger.warn(`Sending L2-to-L1 message ${i} (content=${content.toString()})`);
-      const { receipt } = await contract.methods
+      // The production sequencer builds the tx's block for the next slot, then publishes the checkpoint
+      // only once L1 time reaches that slot's start (~2 ethereum slots of wall-clock per tx). So send
+      // without waiting, let the block get built (PROPOSED), then warp L1 straight to the built block's
+      // slot to publish the checkpoint immediately. The warp lands exactly where the checkpoint would have
+      // published on its own, so the per-checkpoint layout the assertions below depend on is unchanged.
+      const { txHash } = await contract.methods
         .create_l2_to_l1_message_arbitrary_recipient_private(content, recipient)
-        .send({ from, wait: { waitForStatus: TxStatus.CHECKPOINTED } });
+        .send({ from, wait: NO_WAIT });
+      const proposed = await waitForTx(node, txHash, { waitForStatus: TxStatus.PROPOSED });
+      await test.context.cheatCodes.rollup.advanceToSlot(proposed.slotNumber!);
+      const receipt = await waitForTx(node, txHash, { waitForStatus: TxStatus.CHECKPOINTED });
       logger.warn(`Tx ${i} checkpointed`, {
         txHash: receipt.txHash.toString(),
         blockNumber: receipt.blockNumber,

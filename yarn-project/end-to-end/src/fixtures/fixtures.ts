@@ -53,8 +53,8 @@ export const PIPELINING_SETUP_OPTS = {
 /**
  * Setup option preset that opts a test into the deterministic AutomineSequencer path.
  * Use only for single-sequencer tests that don't exercise block-building or consensus
- * (e.g. e2e_token, e2e_amm, e2e_authwit). Not compatible with `e2e_p2p/*`,
- * `multi-node/*`, `e2e_slashing/*`, `e2e_block_building`, or any multi-validator suite.
+ * (e.g. e2e_token, e2e_amm, e2e_authwit). Not compatible with `p2p/*`,
+ * `multi-node/*`, `e2e_block_building`, or any multi-validator suite.
  *
  *     await setup(N, { ...AUTOMINE_E2E_OPTS, ...otherOpts });
  *
@@ -64,8 +64,10 @@ export const PIPELINING_SETUP_OPTS = {
  *   serial queue (see `sequencer-client/src/sequencer/automine/automine_sequencer.ts`).
  * - Disables the validator client (the AutomineSequencer needs none).
  * - Uses `inboxLag: 1` (synchronous) since the AutomineSequencer publishes one block per tx.
- * - Switches anvil into automine mode at setup time (no interval mining); each L1 tx
- *   mines an L1 block immediately.
+ * - Runs anvil at a 4s interval (`ethereumSlotDuration: 4`); at runtime the AutomineSequencer
+ *   flips anvil into automine so each submitted tx mines its L1 block immediately. Initial L1
+ *   contract deployment (which runs before the sequencer starts) is mined immediately too via the
+ *   global `automineL1Setup` default in `setup()`, instead of stalling on the 4s interval.
  *
  * Requires `aztecTargetCommitteeSize: 0`, which is the e2e default at `setup.ts:317`.
  */
