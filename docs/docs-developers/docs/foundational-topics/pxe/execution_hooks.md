@@ -105,3 +105,7 @@ A general-purpose hook for *custom*, caller-defined requests. A contract reaches
 Pass a `resolveCustomRequest` hook when [creating the PXE](#configuring-hooks). It receives a `CustomRequest` with the issuing contract's address and class ID, the request `kind`, and the opaque `payload`, and returns the response. Because any contract can issue a request, the hook should check both the `kind` and the issuing contract before answering, dispatching on `kind` to the matching resolver.
 
 When the hook is absent, the request cannot be served and simulation fails.
+
+### Example: interactive handshakes
+
+The `HandshakeRegistry`'s `interactive_handshake` uses this hook to obtain the recipient's signed authorization. The payload carries what the signer needs to decide: who the recipient is, the handshake being authorized, and the chain context, but never the sender. The response carries what the registry needs to verify the recipient's signature in-circuit. Before signing, the recipient should check the chain context against the network they are on, since the signature is valid on whichever chain it commits to.

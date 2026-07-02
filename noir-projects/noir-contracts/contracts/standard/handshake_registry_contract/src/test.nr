@@ -82,8 +82,8 @@ unconstrained fn non_interactive_handshake_stores_handshake_for_sender_and_recip
 }
 
 // The DH-direct flow lifts `recipient` to a curve point and fails loud if the address has no
-// corresponding point. We deliberately do not replicate AES128's "king of the hill" fallback here; see
-// the doc comment on [`HandshakeRegistry::non_interactive_handshake`] for the rationale.
+// corresponding point. We deliberately do not replicate AES128's "king of the hill" fallback here: a fallback
+// would insert a permanent note recording a handshake with an invalid recipient, polluting registry state.
 #[test(should_fail_with = "recipient address is not on the curve")]
 unconstrained fn handshake_to_invalid_recipient_panics() {
     let (env, registry_address, sender, _, _) = setup();
@@ -94,6 +94,25 @@ unconstrained fn handshake_to_invalid_recipient_panics() {
     assert(!invalid_recipient.is_valid());
 
     let _ = env.call_private(sender, registry.non_interactive_handshake(sender, invalid_recipient));
+}
+
+#[test(should_fail_with = "recipient address is not on the curve")]
+unconstrained fn interactive_handshake_to_invalid_recipient_panics() {
+    let (env, registry_address, sender, _, _) = setup();
+    let registry = HandshakeRegistry::at(registry_address);
+
+    let invalid_recipient = AztecAddress::from_field(3);
+    let _ = env.call_private(sender, registry.interactive_handshake(sender, invalid_recipient));
+}
+
+// `interactive_handshake` must obtain the recipient's signature from a `resolveCustomRequest` resolver before
+// storing anything. The TXE test environment configures no such resolver, so the call fails at the resolver hop.
+#[test(should_fail_with = "no resolveCustomRequest hook is configured")]
+unconstrained fn interactive_handshake_requires_a_resolver() {
+    let (env, registry_address, sender, _, recipient) = setup();
+    let registry = HandshakeRegistry::at(registry_address);
+
+    let _ = env.call_private(sender, registry.interactive_handshake(sender, recipient));
 }
 
 // The handshake tag depends only on the recipient, so multiple senders posting to
