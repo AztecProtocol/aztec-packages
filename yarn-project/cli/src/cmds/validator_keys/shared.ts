@@ -228,7 +228,7 @@ export async function writeBn254BlsKeystore(
 ): Promise<string> {
   mkdirSync(outDir, { recursive: true });
 
-  const keystore = createBn254Keystore(password, privateKeyHex, pubkeyHex, derivationPath);
+  const keystore = await createBn254Keystore(password, privateKeyHex, pubkeyHex, derivationPath);
 
   const safeBase = fileNameBase.replace(/[^a-zA-Z0-9_-]/g, '_');
   const outPath = join(outDir, `keystore-${safeBase}.json`);
@@ -241,28 +241,29 @@ export async function writeBlsBn254ToFile(
   validators: ValidatorKeyStore[],
   options: { outDir: string; password: string; blsPath?: string },
 ): Promise<void> {
-  for (let i = 0; i < validators.length; i++) {
-    const v = validators[i];
-    if (!v || typeof v !== 'object' || !('attester' in v)) {
-      continue;
-    }
-    const att = (v as any).attester;
+  await Promise.all(
+    validators.map(async (v, i) => {
+      if (!v || typeof v !== 'object' || !('attester' in v)) {
+        return;
+      }
+      const att = (v as any).attester;
 
-    // Shapes: { bls: <hex> } or { eth: <ethAccount>, bls?: <hex> } or plain EthAccount
-    const blsKey: string | undefined = typeof att === 'object' && 'bls' in att ? (att as any).bls : undefined;
-    if (!blsKey || typeof blsKey !== 'string') {
-      continue;
-    }
+      // Shapes: { bls: <hex> } or { eth: <ethAccount>, bls?: <hex> } or plain EthAccount
+      const blsKey: string | undefined = typeof att === 'object' && 'bls' in att ? (att as any).bls : undefined;
+      if (!blsKey || typeof blsKey !== 'string') {
+        return;
+      }
 
-    const pub = await computeBlsPublicKeyCompressed(blsKey);
-    const path = options.blsPath ?? defaultBlsPath;
-    const fileBase = `${String(i + 1)}_${pub.slice(2, 18)}`;
-    const keystorePath = await writeBn254BlsKeystore(options.outDir, fileBase, options.password, blsKey, pub, path);
+      const pub = await computeBlsPublicKeyCompressed(blsKey);
+      const path = options.blsPath ?? defaultBlsPath;
+      const fileBase = `${String(i + 1)}_${pub.slice(2, 18)}`;
+      const keystorePath = await writeBn254BlsKeystore(options.outDir, fileBase, options.password, blsKey, pub, path);
 
-    if (typeof att === 'object') {
-      (att as any).bls = { path: keystorePath, password: options.password };
-    }
-  }
+      if (typeof att === 'object') {
+        (att as any).bls = { path: keystorePath, password: options.password };
+      }
+    }),
+  );
 }
 
 /** Writes an Ethereum JSON V3 keystore using ethers, returns absolute path */
@@ -295,32 +296,31 @@ export async function writeEthJsonV3ToFile(
     return account;
   };
 
-  for (let i = 0; i < validators.length; i++) {
-    const v = validators[i];
-    if (!v || typeof v !== 'object') {
-      continue;
-    }
-
-    // attester may be string (eth), object with eth, or remote signer
-    const att = (v as any).attester;
-    if (typeof att === 'string') {
-      (v as any).attester = await maybeEncryptEth(att, `attester_${i + 1}`);
-    } else if (att && typeof att === 'object' && 'eth' in att) {
-      (att as any).eth = await maybeEncryptEth((att as any).eth, `attester_${i + 1}`);
-    }
-
-    // publisher can be single or array
-    if ('publisher' in v) {
-      const pub = (v as any).publisher;
-      if (Array.isArray(pub)) {
-        const out: any[] = [];
-        for (let j = 0; j < pub.length; j++) {
-          out.push(await maybeEncryptEth(pub[j], `publisher_${i + 1}_${j + 1}`));
-        }
-        (v as any).publisher = out;
-      } else if (pub !== undefined) {
-        (v as any).publisher = await maybeEncryptEth(pub, `publisher_${i + 1}`);
+  await Promise.all(
+    validators.map(async (v, i) => {
+      if (!v || typeof v !== 'object') {
+        return;
       }
-    }
-  }
+
+      // attester may be string (eth), object with eth, or remote signer
+      const att = (v as any).attester;
+      if (typeof att === 'string') {
+        (v as any).attester = await maybeEncryptEth(att, `attester_${i + 1}`);
+      } else if (att && typeof att === 'object' && 'eth' in att) {
+        (att as any).eth = await maybeEncryptEth((att as any).eth, `attester_${i + 1}`);
+      }
+
+      // publisher can be single or array
+      if ('publisher' in v) {
+        const pub = (v as any).publisher;
+        if (Array.isArray(pub)) {
+          (v as any).publisher = await Promise.all(
+            pub.map((account, j) => maybeEncryptEth(account, `publisher_${i + 1}_${j + 1}`)),
+          );
+        } else if (pub !== undefined) {
+          (v as any).publisher = await maybeEncryptEth(pub, `publisher_${i + 1}`);
+        }
+      }
+    }),
+  );
 }
