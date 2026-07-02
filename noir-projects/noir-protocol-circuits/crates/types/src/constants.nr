@@ -732,6 +732,8 @@ pub global DOM_SEP__UNCONSTRAINED_MSG_LOG_TAG: u32 = 1485357192;
 pub global DOM_SEP__CONSTRAINED_MSG_LOG_TAG: u32 = 3715244738;
 /// Domain separator for nullifiers used during constrained delivery.
 pub global DOM_SEP__CONSTRAINED_MSG_NULLIFIER: u32 = 3723577546;
+/// Domain separator for the sender-only secret folded into constrained-delivery nullifiers.
+pub global DOM_SEP__CONSTRAINED_MSG_SENDER_SECRET: u32 = 1182889476;
 /// Domain separator for non-interactive handshake log tags emitted by the handshake registry contract. Used by
 /// [`crate::hash::compute_log_tag`].
 pub global DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG: u32 = 4046403018;
@@ -773,6 +775,8 @@ pub global DOM_SEP__NHK_M: u32 = 242137788;
 pub global DOM_SEP__IVSK_M: u32 = 2747825907;
 pub global DOM_SEP__OVSK_M: u32 = 4272201051;
 pub global DOM_SEP__TSK_M: u32 = 1546190975;
+pub global DOM_SEP__MSSK_M: u32 = 617962565;
+pub global DOM_SEP__FBSK_M: u32 = 787738027;
 pub global DOM_SEP__PUBLIC_KEYS_HASH: u32 = 777457226;
 pub global DOM_SEP__SINGLE_PUBLIC_KEY_HASH: u32 = 3452068255;
 

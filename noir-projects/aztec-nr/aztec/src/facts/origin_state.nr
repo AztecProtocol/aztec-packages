@@ -1,12 +1,11 @@
 use crate::protocol::{traits::{Deserialize, Serialize}, utils::reader::Reader};
 
 /// Chain state of a retractable fact's origin block, mirroring the L2 chain tips.
-///
-/// Note: Noir has no enums, so this wraps a `u8` discriminant. The discriminant values must stay in sync with the
-/// TypeScript `OriginBlockState` enum in `yarn-project/pxe/src/storage/fact_store/origin_state.ts`, which PXE
-/// serializes into the `Fact` oracle response that `from_u8` below deserializes.
 #[derive(Serialize)]
 pub struct OriginBlockState {
+    // Noir has no enums, so this wraps a `u8` discriminant. The discriminant values must stay in sync with the
+    // TypeScript `OriginBlockState` enum in `yarn-project/pxe/src/storage/fact_store/origin_state.ts`, which PXE
+    // serializes into the `Fact` oracle response that `from_u8` below deserializes.
     inner: u8,
 }
 

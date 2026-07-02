@@ -33,6 +33,7 @@ import { PostgresSlashingProtectionDatabase } from '@aztec/validator-ha-signer/d
 import { type DutyRow, DutyStatus, DutyType } from '@aztec/validator-ha-signer/types';
 
 import { jest } from '@jest/globals';
+import getPort, { portNumbers } from 'get-port';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -62,6 +63,14 @@ import { proveInteraction } from '../../test-wallet/utils.js';
 const NODE_COUNT = 5;
 const VALIDATOR_COUNT = 4;
 const COMMITTEE_SIZE = 4;
+
+// Allocate p2p listen ports from above the OS ephemeral range (Linux default tops out at 60999) so they
+// never collide with an ephemeral socket the OS may already have handed out -- e.g. the in-process prover
+// node (which listens on p2pPort 0) or any outbound connection. The previous fixed 4040x ports sat inside
+// the ephemeral range, so an ephemeral socket occasionally held a node's port at bind time, surfacing as
+// libp2p ERR_NO_VALID_ADDRESSES and aborting beforeAll. get-port also locks each returned port briefly, so
+// concurrent calls within this process never hand back the same one.
+const getFreeP2PPort = () => getPort({ port: portNumbers(61000, 65535) });
 
 async function registerTestContract(wallet: TestWallet): Promise<TestContract> {
   const instance = await getContractInstanceFromInstantiationParams(TestContract.artifact, {
@@ -206,6 +215,8 @@ describe('HA Full Setup', () => {
 
     const initialValidators = createInitialValidatorsFromPrivateKeys(attesterPrivateKeys);
 
+    const bootstrapP2PPort = await getFreeP2PPort();
+
     ({ teardown, logger, wallet, aztecNode, config, accounts, dateProvider, deployL1ContractsValues, genesis } =
       await setup(
         // A single default initializerless account, created/funded/registered by setup with no on-chain
@@ -232,11 +243,15 @@ describe('HA Full Setup', () => {
           startProverNode: true,
           // The bootstrap node is only an RPC/P2P anchor. HA validators are the first block producers in this suite.
           disableValidator: true,
-          // This node cannot build blocks (validation is disabled and the committee's HA nodes start later),
-          // so setup must not wait for a block past genesis.
-          advancePastGenesis: false,
           // Enable P2P for transaction gossip
           p2pEnabled: true,
+          // Bind the bootstrap node above the ephemeral range too (see getFreeP2PPort), so it can't lose
+          // its port to an ephemeral socket and abort the whole suite before any HA node is created. Set
+          // the broadcast port explicitly to the same value: discv5 otherwise defaults p2pBroadcastPort to
+          // p2pPort by mutating this config object in place, and that mutated value would then leak into the
+          // HA nodes' configs below (built by spreading `config`), making them advertise the wrong port.
+          p2pPort: bootstrapP2PPort,
+          p2pBroadcastPort: bootstrapP2PPort,
           // Enable slashing for testing governance + slashing vote coordination
           slasherEnabled: true,
           slashingRoundSizeInEpochs: 1, // 32 slots (1 epoch)
@@ -301,6 +316,7 @@ describe('HA Full Setup', () => {
 
       const dataDirectory = config.dataDirectory ? `${config.dataDirectory}-${i}` : undefined;
 
+      const nodeP2PPort = await getFreeP2PPort();
       const nodeConfig: AztecNodeConfig = {
         ...config,
         nodeId,
@@ -316,7 +332,11 @@ describe('HA Full Setup', () => {
         disableValidator: false,
         // Enable P2P for transaction and block gossip
         p2pEnabled: true,
-        p2pPort: (config.p2pPort ?? 40400) + i + 1,
+        // Each HA node gets its own free port above the ephemeral range. Override the broadcast port too:
+        // `...config` carries the bootstrap node's broadcast port (discv5 sets it in place), which would
+        // otherwise make every HA node advertise the bootstrap's port instead of its own.
+        p2pPort: nodeP2PPort,
+        p2pBroadcastPort: nodeP2PPort,
         // Connect to bootstrap node for tx gossip
         bootstrapNodes: [bootstrapNodeEnr],
         web3SignerUrl,

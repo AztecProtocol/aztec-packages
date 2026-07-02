@@ -8,7 +8,7 @@ const shouldRun = (import.meta as ImportMeta & { env?: { VITE_BENCH?: string } }
 if (shouldRun) {
   const [{ createLogger }, { AztecIndexedDBStore }, { mockLogger }, { describeAztecMapBench }] = await Promise.all([
     import('@aztec/foundation/log'),
-    import('../../indexeddb/store.js'),
+    import('../../deprecated/indexeddb/store.js'),
     import('../../interfaces/utils.js'),
     import('../shared_map_bench.js'),
   ]);

@@ -1,6 +1,6 @@
 import { BBLazyPrivateKernelProver } from '@aztec/bb-prover/client/lazy';
 import { createLogger } from '@aztec/foundation/log';
-import { createStore } from '@aztec/kv-store/indexeddb';
+import { createStore } from '@aztec/kv-store/sqlite-opfs';
 import { LazyProtocolContractsProvider } from '@aztec/protocol-contracts/providers/lazy';
 import { WASMSimulator } from '@aztec/simulator/client';
 import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry/lazy';
@@ -37,7 +37,7 @@ export async function createPXE(
 
   const loggers = options.loggers ?? {};
 
-  const storeLogger = loggers.store ?? createLogger('pxe:data:idb', { actor });
+  const storeLogger = loggers.store ?? createLogger('pxe:data', { actor });
 
   const store =
     options.store ?? (await createStore('pxe_data', configWithContracts, PXE_DATA_SCHEMA_VERSION, storeLogger));

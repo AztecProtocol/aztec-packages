@@ -123,12 +123,12 @@ See the [aztec.js documentation](../../aztec-js/index.md) for more details on ac
 
 **Onchain delivery with no content guarantees.**
 
-This mode provides the same low proving time as `OFFCHAIN` while avoiding the need to implement custom delivery infrastructure. The tradeoff: you pay for DA (blob space) without gaining additional guarantees. If you're willing to build offchain delivery, use `OFFCHAIN` instead - it's strictly cheaper with the same guarantees.
+This mode provides the same low proving time as offchain delivery while avoiding the need to implement custom delivery infrastructure. The tradeoff: you pay for DA (blob space) without gaining additional guarantees. If you're willing to build offchain delivery, use it instead - it's strictly cheaper with the same guarantees.
 
 - **Use when:** The sender is incentivized to deliver correctly but you don't want to implement offchain delivery infrastructure
 - **Costs:** DA gas fees for the encrypted log, zero proving time overhead
 - **Guarantees:** Message stored onchain and retrievable, but sender can deliver incorrect content or wrong tag
-- **Privacy:** High - encrypted log reveals minimal information
+- **Privacy:** High for the message contents. By default, reaching a recipient the sender has not handshaked with before establishes a handshake that reveals the recipient was contacted (see [Tagging secret strategy](#tagging-secret-strategy))
 
 ```rust
 // Minting to an admin who controls the contract
@@ -140,12 +140,10 @@ self.storage.balances.at(admin).add(amount)
 
 **Onchain delivery with guaranteed correct content.**
 
-**WARNING**: This mode is [currently NOT fully constrained](https://github.com/AztecProtocol/aztec-packages/issues/14565). The log's tag is unconstrained, meaning a malicious sender could prevent the recipient from finding the message.
-
-- **Use when:** The sender cannot be trusted to deliver correctly (e.g., paying fees, creating notes for others, multisig configuration changes). Use this when you need to prove to a contract that the delivery has been done correctly. You can imagine a private NFT sale escrow contract where the escrow would be holding the NFT (the contract itself would be the NFT note owner) and then the escrow would release the NFT to the buyer once the NFT buyer pays the seller. In this case the `NFTSale::buy(...)` function would trigger the payment token transfer from the buyer to the seller and it would need to use `ONCHAIN_CONSTRAINED` delivery otherwise the escrow contract would be willing to transfer the NFT without the NFT seller actually being able to then spend the money. Note that for the transfer of the NFT from the escrow contract to the buyer you could use `OFFCHAIN` delivery because the delivery and encryption would be done in the buyer's PXE and hence there is alignment.
+- **Use when:** The sender cannot be trusted to deliver correctly (e.g., paying fees, creating notes for others, multisig configuration changes). Use this when you need to prove to a contract that the delivery has been done correctly. You can imagine a private NFT sale escrow contract where the escrow would be holding the NFT (the contract itself would be the NFT note owner) and then the escrow would release the NFT to the buyer once the NFT buyer pays the seller. In this case the `NFTSale::buy(...)` function would trigger the payment token transfer from the buyer to the seller and it would need to use constrained delivery otherwise the escrow contract would be willing to transfer the NFT without the NFT seller actually being able to then spend the money. Note that for the transfer of the NFT from the escrow contract to the buyer you could use offchain delivery because the delivery and encryption would be done in the buyer's PXE and hence there is alignment.
 - **Costs:** DA gas fees for the encrypted log, proving time overhead for encryption and tagging
-- **Guarantees:** Recipient receives correctly encrypted content (once tag constraining is implemented, recipient will be able to find it)
-- **Privacy:** High - encrypted log reveals minimal information
+- **Guarantees:** Recipient will always be able to find correctly encrypted content: both the encryption and the discovery tag are constrained and stored onchain.
+- **Privacy:** High for the message contents. By default, reaching a recipient the sender has not handshaked with before establishes a handshake that reveals the recipient was contacted (see [Tagging secret strategy](#tagging-secret-strategy))
 
 ```rust
 // Minting to an arbitrary recipient - must guarantee delivery
@@ -157,13 +155,17 @@ self.storage.balances.at(recipient).add(amount)
 
 Ask yourself: **"Is the sender incentivized to deliver this note correctly?"**
 
-- **Yes, and they can contact the recipient offchain** Use `OFFCHAIN`
-- **Yes, but they cannot or prefer not to contact them offchain or you don't want to implement offchain delivery** Use `ONCHAIN_UNCONSTRAINED`
-- **No, the sender might not deliver correctly** Use `ONCHAIN_CONSTRAINED`
+- **Yes, and they can contact the recipient offchain** Use offchain delivery
+- **Yes, but they cannot or prefer not to contact them offchain or you don't want to implement offchain delivery** Use unconstrained delivery
+- **No, the sender might not deliver correctly** Use constrained delivery
 
 ## Tagging secret strategy
 
-Onchain delivery tags every message so the recipient can find it efficiently (see [note discovery](#note-discovery-and-the-sender) below). Computing a tag requires a secret shared between sender and recipient, and there is more than one way for the two parties to come to share it. When an onchain handshake has been registered for the pair, the secret derived from it is reused directly. Otherwise the wallet decides how to proceed, since it knows which secrets it holds and how it wants to reach the recipient.
+Onchain delivery tags every message so the recipient can find it efficiently (see [note discovery](#note-discovery-and-the-sender) below). Computing a tag requires a secret shared between sender and recipient, and there is more than one way for the two parties to come to share it. The derivation is decided in this order:
+
+1. A contract can fix it itself at the point of delivery (see [overriding the strategy from the contract](#overriding-the-strategy-from-the-contract)).
+2. Otherwise, when an onchain handshake has been registered for the pair, the secret derived from it is reused directly.
+3. Otherwise, the wallet decides how to proceed, since it knows which secrets it holds and how it wants to reach the recipient.
 
 The wallet's answer is a **tagging secret strategy**: it expresses *which* secret to use, and if necessary, PXE performs a [Diffie-Hellman key exchange](https://www.geeksforgeeks.org/computer-networks/diffie-hellman-key-exchange-and-perfect-forward-secrecy/) and/or app-siloing before handing the ready-to-use secret to the contract. Wallets therefore never reimplement that derivation. There are three strategies today:
 
@@ -179,14 +181,24 @@ The wallet's answer is a **tagging secret strategy**: it expresses *which* secre
 
 ### Defaults
 
-When no `resolveTaggingSecretStrategy` hook is configured, the PXE applies a privacy-safe default:
+When no `resolveTaggingSecretStrategy` hook is configured, the PXE applies a default:
 
-- **Unconstrained delivery**: an address-derived (Diffie-Hellman) shared secret. It leaves no onchain trace, but the recipient only finds the message if they registered the sender in their PXE.
-- **Constrained delivery**: fails, rather than silently revealing the recipient through a non-interactive handshake.
+- **Unconstrained delivery**: a non-interactive handshake when the recipient is external, so the recipient discovers the message without having registered the sender in advance. When the recipient is one of the wallet's own accounts (a self-send), an address-derived secret is used instead: the wallet holds both sides' keys, so no handshake is needed and nothing is revealed onchain.
+- **Constrained delivery**: a non-interactive handshake (constrained delivery must be backed by a handshake).
 
 ### Configuring the strategy
 
 Wallets provide the strategy through the `resolveTaggingSecretStrategy` [execution hook](../../foundational-topics/pxe/execution_hooks.md) when creating their PXE. The hook receives the message context (executing contract, sender, recipient and delivery mode), so a wallet can answer per message instead of with a fixed value. That page also covers how to configure a strategy in Noir tests.
+
+### Overriding the strategy from the contract
+
+A contract can fix the derivation at the point of delivery with the builder's `via_*` methods. When it does, the wallet is not consulted at all; otherwise the wallet resolves the strategy as usual:
+
+```rust
+MessageDelivery::onchain_unconstrained().via_address_derived_secret()
+```
+
+Unconstrained delivery exposes `via_non_interactive_handshake()` and `via_address_derived_secret()`. Constrained delivery exposes only `via_non_interactive_handshake()`, since an address-derived secret cannot back constrained delivery.
 
 ## Note Discovery and the Sender
 
@@ -196,7 +208,7 @@ When a note is delivered, recipients need to discover it among all the encrypted
 
 The "sender" for note discovery is **not the contract calling `.deliver()`**. Instead, it's the **account contract** that initiated the transaction.
 
-When your wallet submits a transaction, it tells PXE which address to use as the sender for tags (typically the originating account). Recipients compute the tag to find their notes from a secret shared between the sender and recipient, and there is [more than one way to establish that secret](#tagging-secret-strategy), chosen by the wallet. Contracts can override the sender at message delivery via the `with_sender` builder method, which works for both constrained and unconstrained delivery, e.g. `MessageDelivery::onchain_constrained().with_sender(address)`.
+When your wallet submits a transaction, it tells PXE which address to use as the sender for tags (typically the originating account). Recipients compute the tag to find their notes from a secret shared between the sender and recipient, and there is [more than one way to establish that secret](#tagging-secret-strategy), chosen by the wallet. Contracts can override the sender at message delivery via the `with_sender` builder method, which works for both constrained and unconstrained delivery, e.g. `MessageDelivery::onchain_constrained().with_sender(address)`. They can similarly override how the tag secret is derived via the builder's `via_*` methods; see [overriding the strategy from the contract](#overriding-the-strategy-from-the-contract).
 
 **Example:** If Alice uses her account contract to call a token contract that mints tokens to Bob, the "sender for tags" is Alice's account contract address, not the token contract address.
 

@@ -17,6 +17,7 @@ import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
 import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
+import type { ResolveCustomRequest } from '../../hooks/resolve_custom_request.js';
 import type {
   ResolveTaggingSecretStrategy,
   TaggingSecretStrategy,
@@ -89,8 +90,16 @@ describe('PrivateExecutionOracle', () => {
       recipient = await AztecAddress.random();
     });
 
-    it('defaults unconstrained delivery to an address-derived shared secret when no hooks are configured', async () => {
-      const oracle = makeOracle();
+    it('defaults unconstrained delivery to an external recipient to a non-interactive handshake', async () => {
+      const oracle = makeOracle({ keyStore: makeKeyStore({ ownsRecipient: false }) });
+
+      await expect(
+        oracle.resolveTaggingStrategy(sender, recipient, AppTaggingSecretKind.UNCONSTRAINED),
+      ).resolves.toEqual({ type: 'non-interactive-handshake' });
+    });
+
+    it('defaults an unconstrained self-send to an address-derived shared secret', async () => {
+      const oracle = makeOracle({ keyStore: makeKeyStore({ ownsRecipient: true }) });
       const secret = Fr.random();
       jest.spyOn(oracle, 'getAppTaggingSecret').mockResolvedValue(Option.some(secret));
 
@@ -99,16 +108,18 @@ describe('PrivateExecutionOracle', () => {
       ).resolves.toEqual({ type: 'unconstrained-secret', secret });
     });
 
-    it('fails constrained delivery when no hooks are configured', async () => {
+    it('defaults constrained delivery to a non-interactive handshake when no hooks are configured', async () => {
       const oracle = makeOracle();
 
-      await expect(oracle.resolveTaggingStrategy(sender, recipient, AppTaggingSecretKind.CONSTRAINED)).rejects.toThrow(
-        /requires a configured resolveTaggingSecretStrategy hook/,
+      await expect(oracle.resolveTaggingStrategy(sender, recipient, AppTaggingSecretKind.CONSTRAINED)).resolves.toEqual(
+        {
+          type: 'non-interactive-handshake',
+        },
       );
     });
 
     it('resolves a non-interactive-handshake strategy', async () => {
-      const { oracle } = await makeHookedOracle({ type: 'non-interactive-handshake' }, Fr.random());
+      const { oracle } = await makeHookedOracle({ strategy: { type: 'non-interactive-handshake' } });
 
       await expect(oracle.resolveTaggingStrategy(sender, recipient, AppTaggingSecretKind.CONSTRAINED)).resolves.toEqual(
         {
@@ -118,7 +129,7 @@ describe('PrivateExecutionOracle', () => {
     });
 
     it('resolves an address-derived strategy to the unconstrained secret', async () => {
-      const { oracle } = await makeHookedOracle({ type: 'address-derived' }, Fr.random());
+      const { oracle } = await makeHookedOracle({ strategy: { type: 'address-derived' } });
       const secret = Fr.random();
       jest.spyOn(oracle, 'getAppTaggingSecret').mockResolvedValue(Option.some(secret));
 
@@ -129,20 +140,44 @@ describe('PrivateExecutionOracle', () => {
 
     it('app-silos a raw arbitrary-secret point before handing it to the contract', async () => {
       const point = await Point.random();
-      const { oracle } = await makeHookedOracle({ type: 'arbitrary-secret', secret: point }, Fr.random());
+      const { oracle } = await makeHookedOracle({ strategy: { type: 'arbitrary-secret', secret: point } });
 
-      const expected = await AppTaggingSecret.compute(point, contractAddress, recipient);
+      const expected = await AppTaggingSecret.computeDirectional(point, contractAddress, recipient);
       await expect(
         oracle.resolveTaggingStrategy(sender, recipient, AppTaggingSecretKind.UNCONSTRAINED),
       ).resolves.toEqual({ type: 'unconstrained-secret', secret: expected.secret });
     });
 
+    it('overrides a hooked non-interactive handshake on an unconstrained self-send with an address-derived secret', async () => {
+      const { oracle } = await makeHookedOracle({
+        strategy: { type: 'non-interactive-handshake' },
+        keyStore: makeKeyStore({ ownsRecipient: true }),
+      });
+      const secret = Fr.random();
+      jest.spyOn(oracle, 'getAppTaggingSecret').mockResolvedValue(Option.some(secret));
+
+      await expect(
+        oracle.resolveTaggingStrategy(sender, recipient, AppTaggingSecretKind.UNCONSTRAINED),
+      ).resolves.toEqual({ type: 'unconstrained-secret', secret });
+    });
+
+    it('keeps a hooked non-interactive handshake under constrained delivery even when the wallet owns the recipient', async () => {
+      const { oracle } = await makeHookedOracle({
+        strategy: { type: 'non-interactive-handshake' },
+        keyStore: makeKeyStore({ ownsRecipient: true }),
+      });
+
+      await expect(oracle.resolveTaggingStrategy(sender, recipient, AppTaggingSecretKind.CONSTRAINED)).resolves.toEqual(
+        { type: 'non-interactive-handshake' },
+      );
+    });
+
     it('passes the correct message context to the hook', async () => {
       const contractClassId = Fr.random();
-      const { oracle, resolveTaggingSecretStrategy } = await makeHookedOracle(
-        { type: 'non-interactive-handshake' },
+      const { oracle, resolveTaggingSecretStrategy } = await makeHookedOracle({
+        strategy: { type: 'non-interactive-handshake' },
         contractClassId,
-      );
+      });
 
       await oracle.resolveTaggingStrategy(sender, recipient, AppTaggingSecretKind.CONSTRAINED);
 
@@ -155,14 +190,52 @@ describe('PrivateExecutionOracle', () => {
       });
     });
 
-    const makeHookedOracle = async (strategy: TaggingSecretStrategy, contractClassId: Fr) => {
+    const makeHookedOracle = async ({
+      strategy,
+      contractClassId = Fr.random(),
+      keyStore = makeKeyStore({ ownsRecipient: false }),
+    }: {
+      strategy: TaggingSecretStrategy;
+      contractClassId?: Fr;
+      keyStore?: KeyStore;
+    }) => {
       const resolveTaggingSecretStrategy = jest.fn<ResolveTaggingSecretStrategy>().mockResolvedValue(strategy);
-      const oracle = makeOracle({ hooks: { resolveTaggingSecretStrategy } });
+      const oracle = makeOracle({ hooks: { resolveTaggingSecretStrategy }, keyStore });
       jest
         .spyOn(oracle, 'getContractInstance')
         .mockResolvedValue(await SerializableContractInstance.random({ currentContractClassId: contractClassId }));
       return { oracle, resolveTaggingSecretStrategy };
     };
+
+    const makeKeyStore = ({ ownsRecipient }: { ownsRecipient: boolean }) => {
+      const keyStore = mock<KeyStore>();
+      keyStore.hasAccount.mockResolvedValue(ownsRecipient);
+      return keyStore;
+    };
+  });
+
+  describe('resolveCustomRequest', () => {
+    it('relays the request to the hook with the issuing contract context and returns its result', async () => {
+      const result = [Fr.random(), Fr.random()];
+      const resolveCustomRequest = jest.fn<ResolveCustomRequest>().mockResolvedValue(result);
+      const oracle = makeOracle({ hooks: { resolveCustomRequest } });
+      const contractClassId = Fr.random();
+      jest
+        .spyOn(oracle, 'getContractInstance')
+        .mockResolvedValue(await SerializableContractInstance.random({ currentContractClassId: contractClassId }));
+
+      const kind = Fr.random();
+      const payload = [Fr.random(), Fr.random(), Fr.random()];
+      await expect(oracle.resolveCustomRequest(kind, payload)).resolves.toEqual(result);
+      expect(resolveCustomRequest).toHaveBeenCalledWith({ contractAddress, contractClassId, kind, payload });
+    });
+
+    it('throws when no resolveCustomRequest hook is configured', async () => {
+      const oracle = makeOracle();
+      await expect(oracle.resolveCustomRequest(Fr.random(), [Fr.random()])).rejects.toThrow(
+        'no resolveCustomRequest hook',
+      );
+    });
   });
 
   const makeOracle = (overrides: Partial<PrivateExecutionOracleArgs> = {}): PrivateExecutionOracle => {

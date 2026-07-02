@@ -26,15 +26,6 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { privateKeyToAccount } from 'viem/accounts';
 
-import {
-  addressForPrivateKey,
-  createKeyFile1,
-  createKeyFile2,
-  createKeyFile3,
-  createKeyFile4,
-  createKeyFile5,
-  createKeyFile6,
-} from '../../e2e_multi_validator/utils.js';
 import { MNEMONIC, PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
 import { getPrivateKeyFromIndex, setup } from '../../fixtures/utils.js';
 import {
@@ -43,6 +34,15 @@ import {
   getWeb3SignerUrl,
   refreshWeb3Signer,
 } from '../../fixtures/web3signer.js';
+import {
+  addressForPrivateKey,
+  createKeyFile1,
+  createKeyFile2,
+  createKeyFile3,
+  createKeyFile4,
+  createKeyFile5,
+  createKeyFile6,
+} from './multi_validator_keystore_utils.js';
 
 const VALIDATOR_COUNT = 7;
 const COMMITTEE_SIZE = VALIDATOR_COUNT;

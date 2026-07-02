@@ -228,6 +228,29 @@ export class TxPoolIndices {
     return this.#pendingByPriority.length;
   }
 
+  /**
+   * Returns whether at least `minCount` pending transactions were received at or before maxReceivedAt,
+   * i.e. are old enough to be eligible for block building. Stops as soon as the threshold is met, so it
+   * does not scan the whole pool when only a handful of eligible txs are needed. The total pending count
+   * is an upper bound on the eligible count, so a pool with fewer than `minCount` pending can never
+   * satisfy the threshold and short-circuits without scanning.
+   */
+  hasEligiblePendingTxs(maxReceivedAt: number, minCount: number): boolean {
+    if (minCount <= 0) {
+      return true;
+    }
+    if (this.#pendingByPriority.length < minCount) {
+      return false;
+    }
+    let count = 0;
+    for (const _ of this.iterateEligiblePendingByPriority('desc', maxReceivedAt)) {
+      if (++count >= minCount) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   /** Gets the lowest priority pending transaction hashes (up to limit) */
   getLowestPriorityPending(limit: number): string[] {
     if (limit <= 0) {
