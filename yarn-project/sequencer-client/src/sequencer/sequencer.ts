@@ -55,6 +55,7 @@ import { CheckpointVoter } from './checkpoint_voter.js';
 import { SequencerInterruptedError } from './errors.js';
 import type { SequencerEvents } from './events.js';
 import { SequencerMetrics } from './metrics.js';
+import { RequestsTracker } from './requests_tracker.js';
 import type { SequencerRollupConstants } from './types.js';
 import { SequencerState } from './utils.js';
 
@@ -111,13 +112,13 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   protected lastCheckpointProposalJob: CheckpointProposalJob | undefined;
 
   /**
-   * In-flight fire-and-forget fallback submissions (votes/prune when we cannot build, or escape-hatch votes),
-   * keyed by the wrapper publisher whose interruptible target-slot sleep gates each send. Each wrapper is
-   * created for a single send, so it appears at most once. {@link stop} interrupts every wrapper — a wrapper
-   * is never restarted, so once interrupted its sleeper can never publish, even after the pooled publishers
-   * are restarted by a later {@link start} — and awaits the sends so that stop remains a complete drain.
+   * In-flight fire-and-forget fallback submissions (votes/prune when we cannot build, or escape-hatch votes)
+   * that {@link stop} drains before returning. Each send is gated by its wrapper publisher's interruptible
+   * target-slot sleep; the tracked interrupt wakes that sleep so the send short-circuits without publishing.
+   * A wrapper is created for a single send and is never restarted, so once interrupted its sleeper can never
+   * publish a stale-slot tx, even after the pooled publishers are restarted by a later {@link start}.
    */
-  protected pendingFallbackSends = new Map<SequencerPublisher, Promise<void>>();
+  protected readonly pendingFallbackSends = new RequestsTracker();
 
   /** Proposer schedule and block sub-slot timetable for the sequencer, rebuilt on every config update. */
   protected timetable!: ProposerTimetable;
@@ -284,15 +285,15 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
   /**
    * Starts (or restarts) the sequencer and moves it to the IDLE state. Idempotent: a start while already
-   * running is a no-op, so it never orphans the previous poll loop. A start while STOPPING is refused,
-   * since the in-flight stop would mark the fresh loop's state STOPPED and orphan it. Safe to call after
+   * running is a no-op, so it never orphans the previous poll loop. A start while STOPPING throws, since the
+   * in-flight stop would mark the fresh loop's state STOPPED and orphan it — silently doing nothing would
+   * leave the caller believing the sequencer is running when it is on its way to STOPPED. Safe to call after
    * a previous {@link stop} has resolved; the caller must also restart the publishers (see
    * {@link SequencerClient.start}) so L1 publishing is re-enabled.
    */
   public start() {
     if (this.state === SequencerState.STOPPING) {
-      this.log.warn('Attempted to start sequencer while it is stopping; ignoring');
-      return;
+      throw new Error('Cannot start sequencer while it is stopping');
     }
     if (this.runningPromise?.isRunning()) {
       this.log.warn('Attempted to start sequencer that is already running');
@@ -343,41 +344,14 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     await this.publisherFactory.stopAll();
     // Stop the poll loop and await the in-flight work() iteration (already stopped if graceful). work()
     // registers its fire-and-forget fallback sends synchronously before returning, so once the loop has
-    // stopped, pendingFallbackSends holds every send that will ever exist and can be drained. Draining
-    // any earlier could miss a send registered by the last in-flight iteration.
+    // stopped, pendingFallbackSends holds every send that will ever exist. Interrupting any earlier could
+    // miss a send registered by the last in-flight iteration.
     await this.runningPromise?.stop();
     await this.lastCheckpointProposalJob?.awaitPendingSubmission();
-    await this.drainPendingFallbackSends();
+    this.pendingFallbackSends.interruptRequests();
+    await this.pendingFallbackSends.awaitRequests();
     this.setState(SequencerState.STOPPED, undefined, { force: true });
     this.log.info('Stopped sequencer');
-  }
-
-  /**
-   * Interrupts every pending fallback sender, waking its target-slot sleep so the send short-circuits
-   * without publishing, then awaits all sends to settle. Must run after the poll loop has stopped, so the
-   * set of pending sends is final.
-   */
-  private async drainPendingFallbackSends(): Promise<void> {
-    for (const publisher of this.pendingFallbackSends.keys()) {
-      publisher.interrupt();
-    }
-    await Promise.all([...this.pendingFallbackSends.values()]);
-  }
-
-  /**
-   * Registers a fire-and-forget fallback send so {@link stop} can interrupt its wrapper publisher and
-   * await its completion. The entry removes itself once the send settles.
-   */
-  protected trackFallbackSend(publisher: SequencerPublisher, send: Promise<unknown>): void {
-    const done = send.then(
-      () => {
-        this.pendingFallbackSends.delete(publisher);
-      },
-      () => {
-        this.pendingFallbackSends.delete(publisher);
-      },
-    );
-    this.pendingFallbackSends.set(publisher, done);
   }
 
   /** Main sequencer loop with a try/catch */
@@ -1105,7 +1079,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const send = publisher.sendRequestsAt(targetSlot).catch(err => {
       this.log.error(`Failed to publish fallback requests despite sync failure for slot ${slot}`, err, { slot });
     });
-    this.trackFallbackSend(publisher, send);
+    this.pendingFallbackSends.trackRequest(send, () => publisher.interrupt());
   }
 
   private async tryEnqueuePruneIfPrunable(targetSlot: SlotNumber, publisher: SequencerPublisher): Promise<boolean> {
@@ -1180,7 +1154,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     const send = publisher.sendRequestsAt(targetSlot).catch(err => {
       this.log.error(`Failed to publish escape-hatch votes for slot ${slot}`, err, { slot, targetSlot });
     });
-    this.trackFallbackSend(publisher, send);
+    this.pendingFallbackSends.trackRequest(send, () => publisher.interrupt());
   }
 
   /**

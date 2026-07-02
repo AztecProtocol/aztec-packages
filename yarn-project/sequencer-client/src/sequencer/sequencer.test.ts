@@ -464,8 +464,9 @@ describe('sequencer', () => {
       const stopPromise = sequencer.stop();
       expect(sequencer.status().state).toBe(SequencerState.STOPPING);
 
-      // A start() landing mid-stop must be refused, not allocate a new loop the stop would orphan.
-      sequencer.start();
+      // A start() landing mid-stop must throw rather than silently allocate a new loop the stop would
+      // orphan while leaving the caller believing the sequencer is running.
+      expect(() => sequencer.start()).toThrow('Cannot start sequencer while it is stopping');
       expect(sequencer.getRunningPromise()).toBe(loopBeforeStop);
 
       releaseStopAll();
