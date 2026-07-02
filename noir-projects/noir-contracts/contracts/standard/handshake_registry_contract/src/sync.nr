@@ -1,7 +1,10 @@
 use aztec::{
-    capsules::CapsuleArray,
     context::UtilityContext,
     ephemeral::EphemeralArray,
+    facts::{
+        delete_fact_collection, Fact, FactCollection, get_fact_collection, get_fact_collections_by_type, OriginBlock,
+        record_retractable_fact,
+    },
     messages::{
         delivery::handshake::DiscoveredHandshake,
         discovery::{
@@ -14,22 +17,34 @@ use aztec::{
             offchain::OffchainInboxSync,
         },
     },
-    oracle::{capsules, message_processing},
+    oracle::message_processing,
     protocol::{
         address::AztecAddress,
         constants::DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
-        hash::{compute_log_tag, sha256_to_field},
-        traits::ToField,
+        hash::{compute_log_tag, poseidon2_hash, sha256_to_field},
+        traits::{Deserialize, Serialize, ToField},
     },
     utils::point::point_from_x_coord_and_sign,
 };
 
-/// Capsule base slot for the per-recipient list of discovered handshakes populated by
-/// [`handshake_registry_sync`] and read by [`get_all_handshakes`].
-global HANDSHAKES_CAPSULE_SLOT: Field = sha256_to_field("HANDSHAKE_REGISTRY::HANDSHAKES".as_bytes());
+/// Fact-collection type id of the per-recipient discovered handshakes populated by [`handshake_registry_sync`] and
+/// read by [`get_all_handshakes`]. Each discovered handshake lives in its own collection (see
+/// [`handshake_collection_id`]).
+pub(crate) global DISCOVERED_HANDSHAKES_TYPE_ID: Field =
+    sha256_to_field("HANDSHAKE_REGISTRY::DISCOVERED_HANDSHAKES".as_bytes());
 
-/// Capsule slot for the per-recipient sync cursor: the next block (inclusive) the discovery scan should start from.
-global SYNC_CURSOR_CAPSULE_SLOT: Field = sha256_to_field("HANDSHAKE_REGISTRY::SYNC_CURSOR".as_bytes());
+/// Fact type id of the fact storing a serialized [`DiscoveredHandshake`] inside a discovered-handshake collection.
+pub(crate) global HANDSHAKE_DISCOVERED: Field = sha256_to_field("HANDSHAKE_REGISTRY::HANDSHAKE_DISCOVERED".as_bytes());
+
+/// Fact-collection type id of the per-recipient sync cursor.
+pub(crate) global SYNC_CURSOR_TYPE_ID: Field = sha256_to_field("HANDSHAKE_REGISTRY::SYNC_CURSOR".as_bytes());
+
+/// Fact type id of the single fact in the cursor collection. The fact has an empty payload: the cursor value is its
+/// origin block (the anchor block of the last completed scan).
+pub(crate) global SYNC_CURSOR: Field = sha256_to_field("HANDSHAKE_REGISTRY::SYNC_CURSOR_FACT".as_bytes());
+
+/// Collection id of the singleton cursor collection.
+pub(crate) global SYNC_CURSOR_COLLECTION_ID: Field = 0;
 
 /// Ephemeral-array slot used by [`get_handshake_logs_in_range`] to batch a single log-retrieval request to the oracle.
 global LOG_RETRIEVAL_REQUEST_ARRAY_SLOT: Field =
@@ -38,11 +53,11 @@ global LOG_RETRIEVAL_REQUEST_ARRAY_SLOT: Field =
 /// Discovers non-interactive handshakes addressed to the syncing account.
 ///
 /// On every sync, scans the recipient-keyed bootstrap tag over the blocks mined since the previous sync, decrypts
-/// each matching log to recover the handshake `eph_pk`, and appends it to the recipient's
-/// capsule list. It then falls through to [`do_sync_state`] so that normal note/event/partial-note discovery still
-/// happens.
+/// each matching log to recover the handshake `eph_pk`, and records it as a retractable fact whose origin is the block
+/// the log landed in, so a reorg pruning that block makes the handshake invisible again. It then falls through to
+/// [`do_sync_state`] so that normal note/event/partial-note discovery still happens.
 ///
-/// `scope` is the account PXE is syncing for, which doubles as both the recipient whose tag we scan and the capsule
+/// `scope` is the account PXE is syncing for, which doubles as both the recipient whose tag we scan and the fact
 /// scope we persist under, so handshakes for one account never leak into another's list.
 pub(crate) unconstrained fn handshake_registry_sync(
     contract_address: AztecAddress,
@@ -52,7 +67,7 @@ pub(crate) unconstrained fn handshake_registry_sync(
     offchain_inbox_sync: Option<OffchainInboxSync>,
     scope: AztecAddress,
 ) {
-    let cursor = capsules::load::<u32>(contract_address, SYNC_CURSOR_CAPSULE_SLOT, scope);
+    let cursor = load_sync_cursor(contract_address, scope);
     let anchor_block = UtilityContext::new().block_number();
 
     // `to_block` is exclusive, so we add 1 to include the anchor block in the scan
@@ -63,9 +78,7 @@ pub(crate) unconstrained fn handshake_registry_sync(
         let tag = compute_log_tag(scope.to_field(), DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG);
         let logs = get_handshake_logs_in_range(contract_address, tag, cursor, Option::some(next_block));
 
-        // Store all valid handshakes
-        let handshakes: CapsuleArray<DiscoveredHandshake> =
-            CapsuleArray::at(contract_address, HANDSHAKES_CAPSULE_SLOT, scope);
+        // Record all valid handshakes
         logs.for_each(|_i, log| {
             let ciphertext = aztec::utils::array::subbvec(log.log_payload, 0);
 
@@ -73,16 +86,10 @@ pub(crate) unconstrained fn handshake_registry_sync(
                 .and_then(|pt| {
                     point_from_x_coord_and_sign(pt.get(0), true).map(|pk| DiscoveredHandshake { eph_pk: pk })
                 })
-                .map(|h| handshakes.push(h));
+                .map(|h| record_discovered_handshake(contract_address, scope, h, log.block_number));
         });
 
-        // Update the cursor
-        capsules::store(
-            contract_address,
-            SYNC_CURSOR_CAPSULE_SLOT,
-            next_block,
-            scope,
-        );
+        store_sync_cursor(contract_address, scope, anchor_block);
     }
 
     do_sync_state_without_handshake_discovery(
@@ -95,12 +102,99 @@ pub(crate) unconstrained fn handshake_registry_sync(
     );
 }
 
-/// Returns the capsule array of discovered handshakes for `recipient`.
+/// Returns the discovered handshakes for `recipient`, one per canonical handshake fact collection.
+///
+/// Ordering is unspecified.
 pub(crate) unconstrained fn get_all_handshakes(
     contract_address: AztecAddress,
     recipient: AztecAddress,
-) -> CapsuleArray<DiscoveredHandshake> {
-    CapsuleArray::at(contract_address, HANDSHAKES_CAPSULE_SLOT, recipient)
+) -> EphemeralArray<DiscoveredHandshake> {
+    get_fact_collections_by_type(contract_address, recipient, DISCOVERED_HANDSHAKES_TYPE_ID)
+        .map(|collection: FactCollection| {
+            let fact = collection.facts.find(|f: Fact| f.fact_type_id == HANDSHAKE_DISCOVERED).unwrap();
+            handshake_from_payload(fact.payload)
+        })
+}
+
+/// Records a discovered handshake as a retractable fact originated at the block its announcement log landed in.
+///
+/// The collection id is a hash of the handshake, so re-recording the same handshake at the same origin (e.g. when
+/// rescanning after the cursor was retracted by a reorg) is a no-op, and the same `eph_pk` can never appear twice.
+unconstrained fn record_discovered_handshake(
+    contract_address: AztecAddress,
+    scope: AztecAddress,
+    handshake: DiscoveredHandshake,
+    block_number: u32,
+) {
+    record_retractable_fact(
+        contract_address,
+        scope,
+        DISCOVERED_HANDSHAKES_TYPE_ID,
+        handshake_collection_id(handshake),
+        HANDSHAKE_DISCOVERED,
+        handshake_to_payload(handshake),
+        // The log retrieval oracle intentionally exposes only the origin block number, and FactStore retraction and
+        // origin-state classification key on block number alone, so no real hash is available or needed.
+        OriginBlock { block_number, block_hash: 0 },
+    );
+}
+
+/// Computes the fact-collection id identifying `handshake` in the [fact store](aztec::facts).
+fn handshake_collection_id(handshake: DiscoveredHandshake) -> Field {
+    poseidon2_hash(handshake.serialize())
+}
+
+/// Serializes a [`DiscoveredHandshake`] into a fact payload.
+unconstrained fn handshake_to_payload(handshake: DiscoveredHandshake) -> EphemeralArray<Field> {
+    let fields = handshake.serialize();
+    let payload: EphemeralArray<Field> = EphemeralArray::empty();
+    for i in 0..fields.len() {
+        payload.push(fields[i]);
+    }
+    payload
+}
+
+/// Deserializes a [`DiscoveredHandshake`] from a fact payload.
+unconstrained fn handshake_from_payload(payload: EphemeralArray<Field>) -> DiscoveredHandshake {
+    let n = <DiscoveredHandshake as Deserialize>::N;
+    let mut fields = [0; <DiscoveredHandshake as Deserialize>::N];
+    for i in 0..n {
+        fields[i] = payload.get(i);
+    }
+    Deserialize::deserialize(fields)
+}
+
+/// Returns the next block (inclusive) the discovery scan should start from, or `None` if no canonical cursor exists,
+/// either because this scope never synced or because the cursor fact's origin block was reorg'd away. In the latter
+/// case the caller rescans the full range and fact idempotency deduplicates re-discovered handshakes.
+unconstrained fn load_sync_cursor(contract_address: AztecAddress, scope: AztecAddress) -> Option<u32> {
+    get_fact_collection(
+        contract_address,
+        scope,
+        SYNC_CURSOR_TYPE_ID,
+        SYNC_CURSOR_COLLECTION_ID,
+    )
+        .map(|collection: FactCollection| collection.facts.get(0).origin_block.unwrap().block_number + 1)
+}
+
+/// Replaces the cursor fact with one originated at `anchor_block` (the block the completed scan ran against), so a
+/// reorg pruning any scanned block also retracts the cursor and the next sync rescans.
+unconstrained fn store_sync_cursor(contract_address: AztecAddress, scope: AztecAddress, anchor_block: u32) {
+    delete_fact_collection(
+        contract_address,
+        scope,
+        SYNC_CURSOR_TYPE_ID,
+        SYNC_CURSOR_COLLECTION_ID,
+    );
+    record_retractable_fact(
+        contract_address,
+        scope,
+        SYNC_CURSOR_TYPE_ID,
+        SYNC_CURSOR_COLLECTION_ID,
+        SYNC_CURSOR,
+        EphemeralArray::empty(),
+        OriginBlock { block_number: anchor_block, block_hash: 0 },
+    );
 }
 
 /// Fetches all private logs emitted under `tag` in the block range `[from_block, to_block)`.
