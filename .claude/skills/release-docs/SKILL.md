@@ -383,6 +383,17 @@ versioned docs at cut time in Step 11)
 - Update the install command and any hardcoded version references to the new version.
 - Review the page for correctness: CLI commands, FPC registration, fee payment
   instructions, block explorer links.
+- **Update every versioned snapshot, not just the source.** Testnet is a single
+  live network, so `NODE_URL` and `SPONSORED_FPC_ADDRESS` must be current in *all*
+  versioned `getting_started_on_testnet.md` files, not only `docs/docs-developers/`
+  and the version being cut. Every snapshot directory present under
+  `docs/developer_versioned_docs/` is served (including an older version that is the
+  site default, for example the current mainnet docs version), so a stale one leaves
+  the default guide's first commands pointing at a dead host and FPC. Apply the same
+  `NODE_URL` and `SPONSORED_FPC_ADDRESS` (Step 4) to every
+  `docs/developer_versioned_docs/version-*/getting_started_on_testnet.md`, then verify:
+  `grep -Ern 'NODE_URL=|SPONSORED_FPC_ADDRESS=' docs/developer_versioned_docs/version-*/getting_started_on_testnet.md`
+  shows the current RPC and canonical FPC.
 
 Also:
 
