@@ -43,12 +43,8 @@ function print_usage {
   echo_cmd "shell-container"       "Shell into a running build container. Optional filter tokens (e.g. 'pr-123 bench') select the instance; defaults to the current branch."
   echo_cmd "shell-host"            "Shell into a running build host. Same instance selection as shell-container."
   echo_cmd "log"                   "Display the log of the given log ID."
-<<<<<<< HEAD
-  echo_cmd "kill"                  "Terminate running build instances matching the filter tokens (default: current branch)."
-=======
   echo_cmd "test-timings"          "Download per-test timing JSONL for a job: test-timings <ci_log_id> <folder>."
-  echo_cmd "kill"                  "Terminate running EC2 instance with instance_name."
->>>>>>> 5239f8c01c (feat: merge-train/spartan-v5 (#24272))
+  echo_cmd "kill"                  "Terminate running build instances matching the filter tokens (default: current branch)."
   echo_cmd "draft"                 "Mark the current PR as draft (no automatic CI runs when pushing)."
   echo_cmd "ready"                 "Mark the current PR as ready (enable automatic CI runs when pushing)."
   echo_cmd "pr-url"                "Print the URL of the current PR associated with the branch."
