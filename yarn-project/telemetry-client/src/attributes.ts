@@ -73,7 +73,7 @@ export const OK = 'aztec.ok';
 export const STATUS = 'aztec.status';
 /** Generic error type attribute */
 export const ERROR_TYPE = 'aztec.error_type';
-/** The cause of an archiver prune (unproven / uncheckpointed / l1_conflict / orphan) */
+/** The cause of an archiver prune (unproven / uncheckpointed / l1_conflict / orphan / l1_mismatch) */
 export const PRUNE_TYPE = 'aztec.archiver.prune_type';
 /** The type of the transaction */
 export const L1_TX_TYPE = 'aztec.l1.tx_type';

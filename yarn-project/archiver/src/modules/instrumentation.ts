@@ -85,7 +85,7 @@ export class ArchiverInstrumentation {
     this.pruneDuration = meter.createHistogram(Metrics.ARCHIVER_PRUNE_DURATION);
 
     this.pruneCount = createUpDownCounterWithDefault(meter, Metrics.ARCHIVER_PRUNE_COUNT, {
-      [Attributes.PRUNE_TYPE]: ['unproven', 'uncheckpointed', 'l1_conflict', 'orphan'],
+      [Attributes.PRUNE_TYPE]: ['unproven', 'uncheckpointed', 'l1_conflict', 'orphan', 'l1_mismatch'],
     });
 
     this.blockProposalTxTargetCount = createUpDownCounterWithDefault(
