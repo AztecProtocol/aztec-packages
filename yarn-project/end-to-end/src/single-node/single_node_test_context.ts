@@ -991,4 +991,34 @@ export class SingleNodeTestContext {
     }
     expect(failEvents).toEqual([]);
   }
+
+  /**
+   * Runs `warpFn` (an L1 clock warp) with every given node's sequencer stopped, then restarts them
+   * (pass `restart: false` to leave them stopped, e.g. until some clock-driven effect is confirmed).
+   *
+   * Warping the shared date provider under live sequencers interrupts whatever iteration is mid-build,
+   * producing spurious `block-build-failed` / `checkpoint-error` events and dropped checkpoints. The
+   * sequencers are therefore stopped gracefully first: the poll loop halts, the in-flight iteration and
+   * its pending L1 submission complete untouched, and any pending fallback vote is drained so it cannot
+   * fire with a stale slot after the warp. Only the sequencers (and their validator clients/publishers)
+   * are paused; archivers, provers, and the chain monitor keep running, so clock-driven effects of the
+   * warp (e.g. an orphan-block prune) still fire.
+   */
+  public async warpWithSequencersStopped(
+    nodes: AztecNodeService[],
+    warpFn: () => Promise<void>,
+    opts: { restart?: boolean } = {},
+  ): Promise<void> {
+    const sequencers = this.getSequencers(nodes);
+    await testSpan('warp:sequencers-stopped', async () => {
+      this.logger.warn(`Gracefully stopping ${sequencers.length} sequencers before warp`);
+      await Promise.all(sequencers.map(sequencer => sequencer.stop({ graceful: true })));
+      this.logger.warn(`Warping with all sequencers stopped`);
+      await warpFn();
+      if (opts.restart ?? true) {
+        this.logger.warn(`Restarting ${sequencers.length} sequencers after warp`);
+        await Promise.all(sequencers.map(sequencer => sequencer.start()));
+      }
+    });
+  }
 }
