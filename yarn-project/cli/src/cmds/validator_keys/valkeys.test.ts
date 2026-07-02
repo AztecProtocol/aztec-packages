@@ -24,7 +24,7 @@ import {
   writeEthJsonV3ToFile,
   writeKeystoreFile,
 } from './shared.js';
-import { validatePublisherOptions } from './utils.js';
+import { validateFundingAccountOptions, validatePublisherOptions } from './utils.js';
 
 const TEST_MNEMONIC = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
 
@@ -399,6 +399,44 @@ describe('validator keys utilities', () => {
       const options = { publishers: [validPrivateKey, anotherKey] };
       expect(() => validatePublisherOptions(options)).not.toThrow();
       expect(options.publishers).toEqual([validPrivateKeyWith0x, anotherKeyWith0x]);
+    });
+  });
+
+  describe('validateFundingAccountOptions', () => {
+    const validPrivateKey = '0x' + '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+    const validAddress = '0x' + '01'.repeat(20);
+
+    it('accepts a private key and leaves it normalized', () => {
+      const options = { fundingAccount: validPrivateKey };
+      expect(() => validateFundingAccountOptions(options)).not.toThrow();
+      expect(options.fundingAccount).toBe(validPrivateKey);
+    });
+
+    it('adds a missing 0x prefix', () => {
+      const options = { fundingAccount: validPrivateKey.slice(2) };
+      expect(() => validateFundingAccountOptions(options)).not.toThrow();
+      expect(options.fundingAccount).toBe(validPrivateKey);
+    });
+
+    it('accepts an address when a remote signer is set', () => {
+      const options = { fundingAccount: validAddress, remoteSigner: 'http://localhost:9000' };
+      expect(() => validateFundingAccountOptions(options)).not.toThrow();
+      expect(options.fundingAccount).toBe(validAddress);
+    });
+
+    it('throws for an address without a remote signer', () => {
+      const options = { fundingAccount: validAddress };
+      expect(() => validateFundingAccountOptions(options)).toThrow(/requires --remote-signer/);
+    });
+
+    it('throws for a malformed value', () => {
+      const options = { fundingAccount: '0x1234' };
+      expect(() => validateFundingAccountOptions(options)).toThrow(/Invalid funding account/);
+    });
+
+    it('is a no-op when unset', () => {
+      const options = {};
+      expect(() => validateFundingAccountOptions(options)).not.toThrow();
     });
   });
 
@@ -946,6 +984,99 @@ describe('validator keys utilities', () => {
       expect(Array.isArray(validator.publisher)).toBe(true);
       expect(validator.publisher).toEqual([publisherKey1, publisherKey2]);
     });
+
+    it('writes a top-level funding account from a private key', async () => {
+      const path = join(tmp, 'with-funding-key.json');
+      const fundingKey = '0x' + 'ab'.repeat(32);
+      await newValidatorKeystore(
+        {
+          dataDir: tmp,
+          file: 'with-funding-key.json',
+          count: 1,
+          mnemonic: TEST_MNEMONIC,
+          fundingAccount: fundingKey,
+          feeRecipient: ('0x' + '11'.repeat(32)) as unknown as AztecAddress,
+        },
+        s => s,
+      );
+      const keystore: KeyStore = loadKeystoreFile(path);
+      expect(keystore.fundingAccount).toBe(fundingKey);
+    });
+
+    it('writes a remote-signer funding account from an address', async () => {
+      const path = join(tmp, 'with-funding-address.json');
+      const fundingAddress = '0x' + '02'.repeat(20);
+      const remoteSigner = 'http://localhost:9000';
+      await newValidatorKeystore(
+        {
+          dataDir: tmp,
+          file: 'with-funding-address.json',
+          count: 1,
+          mnemonic: TEST_MNEMONIC,
+          fundingAccount: fundingAddress,
+          remoteSigner,
+          feeRecipient: ('0x' + '12'.repeat(32)) as unknown as AztecAddress,
+        },
+        s => s,
+      );
+      const keystore: KeyStore = loadKeystoreFile(path);
+      const funder = keystore.fundingAccount as any;
+      expect(funder.remoteSignerUrl).toBe(remoteSigner);
+      expect(funder.address.toString().toLowerCase()).toBe(fundingAddress);
+    });
+
+    it('rejects a funding-account address without a remote signer', async () => {
+      await expect(
+        newValidatorKeystore(
+          {
+            dataDir: tmp,
+            file: 'funding-address-no-signer.json',
+            count: 1,
+            mnemonic: TEST_MNEMONIC,
+            fundingAccount: '0x' + '03'.repeat(20),
+            feeRecipient: ('0x' + '13'.repeat(32)) as unknown as AztecAddress,
+          },
+          s => s,
+        ),
+      ).rejects.toThrow(/requires --remote-signer/);
+    });
+
+    it('rejects a malformed funding account', async () => {
+      await expect(
+        newValidatorKeystore(
+          {
+            dataDir: tmp,
+            file: 'funding-malformed.json',
+            count: 1,
+            mnemonic: TEST_MNEMONIC,
+            fundingAccount: '0xdead',
+            feeRecipient: ('0x' + '14'.repeat(32)) as unknown as AztecAddress,
+          },
+          s => s,
+        ),
+      ).rejects.toThrow(/Invalid funding account/);
+    });
+
+    it('encrypts a plaintext funding account when a password is provided', async () => {
+      const path = join(tmp, 'with-funding-encrypted.json');
+      await newValidatorKeystore(
+        {
+          dataDir: tmp,
+          file: 'with-funding-encrypted.json',
+          count: 1,
+          mnemonic: TEST_MNEMONIC,
+          fundingAccount: '0x' + 'cd'.repeat(32),
+          password: '',
+          encryptedKeystoreDir: tmp,
+          feeRecipient: ('0x' + '15'.repeat(32)) as unknown as AztecAddress,
+        },
+        s => s,
+      );
+      const keystore: KeyStore = loadKeystoreFile(path);
+      const funder = keystore.fundingAccount as any;
+      expect(typeof funder.path).toBe('string');
+      expect(existsSync(funder.path)).toBe(true);
+    });
   });
 
   describe('materialization helpers (invoked directly)', () => {
@@ -1018,6 +1149,61 @@ describe('validator keys utilities', () => {
           () => {},
         ),
       ).rejects.toThrow('Schema validation failed');
+    });
+
+    it('sets a funding account on a keystore that has none', async () => {
+      const existing = join(tmp, 'add-funding.json');
+      const baseKeystore = {
+        schemaVersion: 1,
+        validators: [{ attester: '0x' + '0a'.repeat(32), feeRecipient: ('0x' + '06'.repeat(32)) as unknown as string }],
+      } as any;
+      writeFileSync(existing, JSON.stringify(baseKeystore, null, 2), 'utf-8');
+      const fundingKey = '0x' + 'ab'.repeat(32);
+
+      const logs: string[] = [];
+      await addValidatorKeys(
+        existing,
+        {
+          dataDir: tmp,
+          count: 1,
+          mnemonic: TEST_MNEMONIC,
+          fundingAccount: fundingKey,
+          feeRecipient: ('0x' + '06'.repeat(32)) as unknown as AztecAddress,
+        },
+        s => logs.push(s),
+      );
+
+      const updated: KeyStore = loadKeystoreFile(existing);
+      expect(updated.fundingAccount).toBe(fundingKey);
+      expect(logs.some(l => l.includes('Replacing existing funding account'))).toBe(false);
+    });
+
+    it('overwrites an existing funding account and warns', async () => {
+      const existing = join(tmp, 'replace-funding.json');
+      const baseKeystore = {
+        schemaVersion: 1,
+        validators: [{ attester: '0x' + '0a'.repeat(32), feeRecipient: ('0x' + '06'.repeat(32)) as unknown as string }],
+        fundingAccount: '0x' + 'aa'.repeat(32),
+      } as any;
+      writeFileSync(existing, JSON.stringify(baseKeystore, null, 2), 'utf-8');
+      const newFundingKey = '0x' + 'bb'.repeat(32);
+
+      const logs: string[] = [];
+      await addValidatorKeys(
+        existing,
+        {
+          dataDir: tmp,
+          count: 1,
+          mnemonic: TEST_MNEMONIC,
+          fundingAccount: newFundingKey,
+          feeRecipient: ('0x' + '06'.repeat(32)) as unknown as AztecAddress,
+        },
+        s => logs.push(s),
+      );
+
+      const updated: KeyStore = loadKeystoreFile(existing);
+      expect(updated.fundingAccount).toBe(newFundingKey);
+      expect(logs.some(l => l.includes('Replacing existing funding account'))).toBe(true);
     });
   });
 

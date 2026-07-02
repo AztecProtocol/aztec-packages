@@ -33,8 +33,10 @@ export function injectCommands(program: Command, log: LogFn) {
       'Coinbase ETH address to use when proposing. Defaults to attester address.',
       parseEthereumAddress,
     )
-    // TODO: add funding account back in when implemented
-    // .option('--funding-account <privateKey|address>', 'ETH private key (or address for remote signer setup) to fund publishers')
+    .option(
+      '--funding-account <privateKey|address>',
+      'ETH funding account used to top up publisher EOAs. Provide a private key, or an address together with --remote-signer.',
+    )
     .option('--remote-signer <url>', 'Default remote signer URL for accounts in this file')
     .option('--ikm <hex>', 'Initial keying material for BLS (alternative to mnemonic)', value => parseHex(value, 32))
     .option('--bls-path <path>', `EIP-2334 path (default ${defaultBlsPath})`)
@@ -99,8 +101,10 @@ export function injectCommands(program: Command, log: LogFn) {
       'Coinbase ETH address to use when proposing. Defaults to attester address.',
       parseEthereumAddress,
     )
-    // TODO: add funding account back in when implemented
-    // .option('--funding-account <privateKey|address>', 'ETH private key (or address for remote signer setup) to fund publishers')
+    .option(
+      '--funding-account <privateKey|address>',
+      'ETH funding account used to top up publisher EOAs. Provide a private key, or an address together with --remote-signer.',
+    )
     .option('--remote-signer <url>', 'Default remote signer URL for accounts in this file')
     .option('--ikm <hex>', 'Initial keying material for BLS (alternative to mnemonic)', value => parseHex(value, 32))
     .option('--bls-path <path>', `EIP-2334 path (default ${defaultBlsPath})`)

@@ -9,12 +9,14 @@ import { wordlist } from '@scure/bip39/wordlists/english.js';
 import { readFile, writeFile } from 'fs/promises';
 import { basename, dirname, join } from 'path';
 import { createPublicClient, fallback, http } from 'viem';
-import { generateMnemonic, mnemonicToAccount } from 'viem/accounts';
+import { generateMnemonic, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 import {
   buildValidatorEntries,
+  encryptFundingAccountToFile,
   logValidatorSummaries,
   maybePrintJson,
+  resolveFundingAccount,
   resolveKeystoreOutputPath,
   writeBlsBn254ToFile,
   writeEthJsonV3ToFile,
@@ -23,6 +25,7 @@ import {
 import { processAttesterAccounts } from './staker.js';
 import {
   validateBlsPathOptions,
+  validateFundingAccountOptions,
   validatePublisherOptions,
   validateRemoteSignerOptions,
   validateStakerOutputOptions,
@@ -51,6 +54,7 @@ export type NewValidatorKeystoreOptions = {
   json?: boolean;
   feeRecipient: AztecAddress;
   coinbase?: EthAddress;
+  fundingAccount?: string;
   remoteSigner?: string;
   stakerOutput?: boolean;
   gseAddress?: EthAddress;
@@ -147,6 +151,8 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
   validatePublisherOptions(options);
   // validate remote signer options
   validateRemoteSignerOptions(options);
+  // validate funding account option
+  validateFundingAccountOptions(options);
 
   const {
     dataDir,
@@ -156,6 +162,7 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
     publishers,
     json,
     coinbase,
+    fundingAccount,
     accountIndex = 0,
     addressIndex = 0,
     feeRecipient,
@@ -213,17 +220,26 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
     remoteSigner,
   });
 
+  let resolvedFundingAccount = fundingAccount ? resolveFundingAccount(fundingAccount, remoteSigner) : undefined;
+
   // If password provided, write ETH JSON V3 and BLS BN254 keystores and replace plaintext
   if (shouldEncryptKeystores) {
     const encryptedKeystoreOutDir =
       encryptedKeystoreDir && encryptedKeystoreDir.length > 0 ? encryptedKeystoreDir : keystoreOutDir;
     await writeEthJsonV3ToFile(validators, { outDir: encryptedKeystoreOutDir, password: ethPassword });
     await writeBlsBn254ToFile(validators, { outDir: encryptedKeystoreOutDir, password: blsPassword });
+    if (resolvedFundingAccount) {
+      resolvedFundingAccount = await encryptFundingAccountToFile(resolvedFundingAccount, {
+        outDir: encryptedKeystoreOutDir,
+        password: ethPassword,
+      });
+    }
   }
 
   const keystore = {
     schemaVersion: 1,
     validators,
+    ...(resolvedFundingAccount ? { fundingAccount: resolvedFundingAccount } : {}),
   };
 
   await writeKeystoreFile(outputPath, keystore);
@@ -285,6 +301,11 @@ export async function newValidatorKeystore(options: NewValidatorKeystoreOptions,
   // print a concise summary of public keys (addresses and BLS pubkeys) if no --json options was selected
   if (!json) {
     logValidatorSummaries(log, summaries);
+    if (fundingAccount) {
+      const funderAddress =
+        fundingAccount.length === 66 ? privateKeyToAccount(fundingAccount as `0x${string}`).address : fundingAccount;
+      log(`funding account: ${funderAddress}`);
+    }
   }
 
   if (mnemonic && remoteSigner && !json) {

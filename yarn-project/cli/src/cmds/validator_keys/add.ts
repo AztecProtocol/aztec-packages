@@ -10,13 +10,20 @@ import { generateMnemonic } from 'viem/accounts';
 import type { NewValidatorKeystoreOptions } from './new.js';
 import {
   buildValidatorEntries,
+  encryptFundingAccountToFile,
   logValidatorSummaries,
   maybePrintJson,
+  resolveFundingAccount,
   writeBlsBn254ToFile,
   writeEthJsonV3ToFile,
   writeKeystoreFile,
 } from './shared.js';
-import { validateBlsPathOptions, validatePublisherOptions, validateRemoteSignerOptions } from './utils.js';
+import {
+  validateBlsPathOptions,
+  validateFundingAccountOptions,
+  validatePublisherOptions,
+  validateRemoteSignerOptions,
+} from './utils.js';
 
 export type AddValidatorKeysOptions = NewValidatorKeystoreOptions;
 
@@ -27,6 +34,8 @@ export async function addValidatorKeys(existing: string, options: AddValidatorKe
   validatePublisherOptions(options);
   // validate remote signer options
   validateRemoteSignerOptions(options);
+  // validate funding account option
+  validateFundingAccountOptions(options);
 
   const {
     dataDir,
@@ -43,6 +52,7 @@ export async function addValidatorKeys(existing: string, options: AddValidatorKe
     feeRecipient: feeRecipientOpt,
     coinbase: coinbaseOpt,
     remoteSigner: remoteSignerOpt,
+    fundingAccount,
     password,
     encryptedKeystoreDir,
   } = options;
@@ -88,18 +98,31 @@ export async function addValidatorKeys(existing: string, options: AddValidatorKe
 
   keystore.validators.push(...validators);
 
+  const encryptedKeystoreOutDir =
+    encryptedKeystoreDir && encryptedKeystoreDir.length > 0
+      ? encryptedKeystoreDir
+      : dataDir && dataDir.length > 0
+        ? dataDir
+        : dirname(existing);
+
   // If password provided, write ETH JSON V3 and BLS BN254 keystores and replace plaintext
   if (password !== undefined) {
-    let targetDir: string;
-    if (encryptedKeystoreDir && encryptedKeystoreDir.length > 0) {
-      targetDir = encryptedKeystoreDir;
-    } else if (dataDir && dataDir.length > 0) {
-      targetDir = dataDir;
-    } else {
-      targetDir = dirname(existing);
+    await writeEthJsonV3ToFile(keystore.validators, { outDir: encryptedKeystoreOutDir, password });
+    await writeBlsBn254ToFile(keystore.validators, { outDir: encryptedKeystoreOutDir, password, blsPath });
+  }
+
+  if (fundingAccount) {
+    let resolvedFundingAccount = resolveFundingAccount(fundingAccount, remoteSigner);
+    if (password !== undefined) {
+      resolvedFundingAccount = await encryptFundingAccountToFile(resolvedFundingAccount, {
+        outDir: encryptedKeystoreOutDir,
+        password,
+      });
     }
-    await writeEthJsonV3ToFile(keystore.validators, { outDir: targetDir, password });
-    await writeBlsBn254ToFile(keystore.validators, { outDir: targetDir, password, blsPath });
+    if (keystore.fundingAccount) {
+      log('Replacing existing funding account in keystore');
+    }
+    keystore.fundingAccount = resolvedFundingAccount;
   }
 
   let outputPath = existing;
