@@ -15,7 +15,7 @@
 //!                     |           |   tx block re-orged         |           |
 //!                     +-----------+                             +-----------+
 //!                         |                                         |
-//!                         |  TTL expired                            |  TTL expired
+//!                         |  TTL expired                            |  tx block finalized
 //!                         v                                         v
 //!                   +---------------------------------------------------------+
 //!                   |               TERMINATED (process ends)                 |
@@ -28,9 +28,11 @@
 //!   message is tx-less; see below). While the reception process is in this state, it keeps looking for the
 //    transaction onchain.
 //! - **Processed**: the message has been handed off for processing. If there weren't reorgs, reaching this state would
-//!   be equivalent to terminating the reception process. Since reorgs are a possibility, this state is not terminal.
-//! - **Terminated**: the message has reached its TTL which means nothing else can be done with it. This is the
-//!   terminal state of this process.
+//!   be equivalent to terminating the reception process. Since reorgs are a possibility, this state is not terminal
+//!   until the block the originating transaction was found in finalizes.
+//! - **Terminated**: nothing else can be done with the message, either because its originating transaction never
+//!   appeared within the TTL, or because the block it was processed in has finalized. This is the terminal state of
+//!   this process.
 //!
 //! ## Transitions (each evaluated by [`OffchainReception::step`])
 //!
@@ -38,9 +40,10 @@
 //!   transaction context) is queued to have its actual contents processed (which can lead for example to the discovery
 //!   of notes and events).
 //! - **Processed -> Received**: the block where the message transaction was originally found is re-orged out.
-//! - **Received -> Terminated**: the message TTL has elapsed (see below), so the message is no longer processable.
-//! - **Processed -> Terminated**: the message TTL has elapsed (see below), so the effects of its processing are
-//!   permanent.
+//! - **Received -> Terminated**: the message TTL has elapsed (see below), so the originating transaction can no longer
+//!   appear and the message is no longer processable.
+//! - **Processed -> Terminated**: the block the originating transaction was found in has finalized, so the effects of
+//!   its processing are permanent and reorg-proof.
 //!
 //! # Message reception lifecycle and the TTL
 //!
@@ -50,15 +53,13 @@
 //! window (plus a safety margin of 2 hours) has elapsed the originating transaction can no longer appear, and it is
 //! safe to stop looking for it.
 //!
-//! Already-processed receptions reuse the same TTL: we could instead wait for the block that included the transaction
-//! to finalize, but we currently do not have the primitives to reliably get that information.
+//! The TTL only matters for unprocessed messages. Already-processed message receptions complete when the block that
+//! included the originating transaction finalizes, which is exactly when the processing becomes reorg-proof.
 //!
 //! # Current limitations, future plans
 //!
 //! - Tx-less messages never reach `Processed` and are only ever removed by expiry. This will be supported in the
 //!   future.
-//! - Already-processed receptions stay active longer than needed. As discussed, we need access to block finality
-//!   information to properly implement that case, which will be added in the future.
 //!
 //! # Implementation
 //!
@@ -81,15 +82,14 @@
 //! Note that since this fact is retractable, a reorg dropping said block would result in the fact being automatically
 //! removed by PXE, effectively pushing the reception process back to `RECEIVED` state.
 //!
-//! To determine in which state of the reception process we are we just need to analyze the recorded facts available
-//! in combination with the TTL:
+//! To determine in which state of the reception process we are we just analyze the recorded facts:
 //!
-//! - If the TTL has elapsed, we reached the end of the process and the [fact collection](crate::facts::FactCollection)
-//! can (and should) be deleted.
-//! - Otherwise:
-//!     - If there is an `OFFCHAIN_MESSAGE_PROCESSED` fact we are in PROCESSED state and there is nothing to do.
-//!     - If there is only an `OFFCHAIN_MESSAGE_RECEIVED` fact we are in RECEIVED state, so we need to check if the
-//!       message transaction is now available onchain, and if so, exercise the RECEIVED->PROCESSED transition.
+//! - If there is an `OFFCHAIN_MESSAGE_PROCESSED` fact we are in PROCESSED state. Once that fact's origin block has
+//!   finalized the processing is reorg-proof, so the [fact collection](crate::facts::FactCollection) can (and should)
+//!   be deleted; until then there is nothing to do.
+//! - If there is only an `OFFCHAIN_MESSAGE_RECEIVED` fact we are in RECEIVED state, so we check if the message
+//!   transaction is now available onchain, and if so, exercise the RECEIVED->PROCESSED transition. Otherwise, once the
+//!   TTL has elapsed the originating transaction can no longer appear and the collection can (and should) be deleted.
 //!
 //! The PROCESSED->RECEIVED transition is transparently handled by PXE: if a re-org caused the message transaction to
 //! fall off the chain, the `OFFCHAIN_MESSAGE_PROCESSED` fact disappears, taking us back to the RECEIVED state.
@@ -207,13 +207,11 @@ impl OffchainReception {
         maybe_resolved_tx: Option<ResolvedTx>,
         now: u64,
     ) -> Option<OffchainMessageWithContext> {
-        // TODO(@mverzilli): we could annotate retractable facts as "final" when their corresponding blocks are below
-        // the final tip. Then we could use that as termination condition instead of relying on timestamp arithmetics.
         let message = self.read_message();
-        let expired = now > message.anchor_block_timestamp + MAX_MSG_TTL;
-        let already_processed = self.collection.facts.any(|f: Fact| f.fact_type_id == OFFCHAIN_MESSAGE_PROCESSED);
+        let processed_fact = self.collection.facts.find(|f: Fact| f.fact_type_id == OFFCHAIN_MESSAGE_PROCESSED);
 
-        if !already_processed & maybe_resolved_tx.is_some() {
+        if processed_fact.is_none() & maybe_resolved_tx.is_some() {
+            // Received -> Processed: the originating tx is onchain.
             let resolved = maybe_resolved_tx.unwrap();
             self.mark_processed(resolved.block_number, resolved.block_hash);
             let message_context = MessageContext {
@@ -224,10 +222,19 @@ impl OffchainReception {
             Option::some(
                 OffchainMessageWithContext { message_ciphertext: message.ciphertext, message_context },
             )
-        } else if expired {
-            self.terminate();
+        } else if processed_fact.is_some() {
+            if processed_fact.unwrap().origin_block.unwrap().block_state.is_finalized() {
+                // Processed -> Terminated: once the marker's origin block finalizes, the processing is reorg-proof and
+                // the reception is complete. Until then we wait: a reorg dropping that block removes the retractable
+                // marker and PXE pushes us back to Received.
+                self.terminate();
+            }
             Option::none()
         } else {
+            // Received -> Terminated: the TTL caps how long we keep looking for the originating tx.
+            if now > message.anchor_block_timestamp + MAX_MSG_TTL {
+                self.terminate();
+            }
             Option::none()
         }
     }
@@ -306,15 +313,21 @@ mod test {
         OffchainMessage { ciphertext: BoundedVec::new(), recipient, tx_hash, anchor_block_timestamp }
     }
 
-    /// Builds the resolved-tx context PXE would return for `tx_hash`.
-    fn resolved_tx(tx_hash: Field) -> ResolvedTx {
+    /// Builds the resolved-tx context PXE would return for `tx_hash`, found in `block_number`.
+    fn resolved_tx_at_block(tx_hash: Field, block_number: u32) -> ResolvedTx {
         ResolvedTx {
             tx_hash,
             unique_note_hashes_in_tx: BoundedVec::new(),
             first_nullifier_in_tx: 0,
-            block_number: 1,
+            block_number,
             block_hash: 0,
         }
+    }
+
+    /// Builds a resolved-tx context found in a low block, which TXE (proven == finalized == latest) reports as
+    /// `Finalized`.
+    fn resolved_tx(tx_hash: Field) -> ResolvedTx {
+        resolved_tx_at_block(tx_hash, 1)
     }
 
     #[test]
@@ -377,6 +390,8 @@ mod test {
         let (env, scope) = setup();
         let tx_hash = random();
         let msg = make_msg(scope, Option::some(tx_hash), 0);
+        // A future origin block stays unfinalized, so the reception lingers in Processed across steps.
+        let future_block = env.last_block_number() + 100;
 
         env.utility_context(|context| {
             let address = context.this_address();
@@ -384,18 +399,21 @@ mod test {
 
             // First step processes the message.
             let reception = OffchainReception::load_all(address, scope).get(0);
-            assert(reception.step(Option::some(resolved_tx(tx_hash)), 100).is_some());
+            assert(reception.step(Option::some(resolved_tx_at_block(tx_hash, future_block)), 100).is_some());
             assert(OffchainReception::is_processed(address, scope, msg), "should be processed");
 
-            // Second step (still resolved, not expired) recognizes it as processed and does not re-push it.
+            // Second step (still resolved, not finalized) recognizes it as processed and does not re-push it.
             let reloaded = OffchainReception::load_all(address, scope).get(0);
-            assert(reloaded.step(Option::some(resolved_tx(tx_hash)), 100).is_none(), "already processed");
+            assert(
+                reloaded.step(Option::some(resolved_tx_at_block(tx_hash, future_block)), 100).is_none(),
+                "already processed",
+            );
             assert(OffchainReception::is_active(address, scope, msg), "processed reception should still be active");
         });
     }
 
     #[test]
-    unconstrained fn expired_resolved_reception_is_processed_once_before_termination() {
+    unconstrained fn processed_reception_terminates_once_its_origin_block_finalizes() {
         let (env, scope) = setup();
         let tx_hash = random();
         let msg = make_msg(scope, Option::some(tx_hash), 0);
@@ -404,18 +422,65 @@ mod test {
             let address = context.this_address();
             OffchainReception::init(address, msg);
 
-            // Expired but resolved: the message is processed once (not terminated yet).
+            // Process the message against a finalized block.
+            let reception = OffchainReception::load_all(address, scope).get(0);
+            assert(reception.step(Option::some(resolved_tx(tx_hash)), 100).is_some());
+            assert(OffchainReception::is_processed(address, scope, msg), "should be processed");
+
+            // Next step, still well within the TTL: a finalized origin block makes the processing reorg-proof, so the
+            // reception terminates regardless of the TTL.
+            let reloaded = OffchainReception::load_all(address, scope).get(0);
+            assert(reloaded.step(Option::some(resolved_tx(tx_hash)), 100).is_none());
+            assert(
+                !OffchainReception::is_active(address, scope, msg),
+                "finalized processed reception should be terminated",
+            );
+        });
+    }
+
+    #[test]
+    unconstrained fn unfinalized_processed_reception_survives_past_the_ttl() {
+        let (env, scope) = setup();
+        let tx_hash = random();
+        let msg = make_msg(scope, Option::some(tx_hash), 0);
+        // A future origin block never finalizes here, so the reception must not be terminated by the TTL.
+        let future_block = env.last_block_number() + 100;
+
+        env.utility_context(|context| {
+            let address = context.this_address();
+            OffchainReception::init(address, msg);
+
+            let reception = OffchainReception::load_all(address, scope).get(0);
+            assert(reception.step(Option::some(resolved_tx_at_block(tx_hash, future_block)), 100).is_some());
+            assert(OffchainReception::is_processed(address, scope, msg), "should be processed");
+
+            // Past the TTL, but the origin block has not finalized: the reception stays active. The TTL no longer
+            // governs an already-processed reception.
+            let reloaded = OffchainReception::load_all(address, scope).get(0);
+            assert(reloaded.step(Option::some(resolved_tx_at_block(tx_hash, future_block)), MAX_MSG_TTL + 1).is_none());
+            assert(
+                OffchainReception::is_active(address, scope, msg),
+                "unfinalized processed reception should survive past the TTL",
+            );
+        });
+    }
+
+    #[test]
+    unconstrained fn expired_reception_is_still_processed_when_its_tx_resolves() {
+        let (env, scope) = setup();
+        let tx_hash = random();
+        let msg = make_msg(scope, Option::some(tx_hash), 0);
+
+        env.utility_context(|context| {
+            let address = context.this_address();
+            OffchainReception::init(address, msg);
+
+            // Even past the TTL, a freshly resolved tx is still handed off: expiry only caps the search for the
+            // originating tx, it does not pre-empt processing once that tx is found.
             let reception = OffchainReception::load_all(address, scope).get(0);
             assert(reception.step(Option::some(resolved_tx(tx_hash)), MAX_MSG_TTL + 1).is_some());
             assert(OffchainReception::is_processed(address, scope, msg), "should be processed");
-
-            // Next step: still expired and now processed, so the reception is terminated.
-            let reloaded = OffchainReception::load_all(address, scope).get(0);
-            assert(reloaded.step(Option::some(resolved_tx(tx_hash)), MAX_MSG_TTL + 1).is_none());
-            assert(
-                !OffchainReception::is_active(address, scope, msg),
-                "expired processed reception is terminated on the next step",
-            );
+            assert(OffchainReception::is_active(address, scope, msg), "just-processed reception should stay active");
         });
     }
 }
