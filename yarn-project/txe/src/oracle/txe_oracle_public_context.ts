@@ -5,7 +5,7 @@ import type { ContractStore } from '@aztec/pxe/server';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
-import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import type { ContractInstancePreimageWithAddress } from '@aztec/stdlib/contract';
 import { computePublicDataTreeLeafSlot, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import {
   MerkleTreeId,
@@ -130,7 +130,8 @@ export class TXEOraclePublicContext implements IAvmExecutionOracle {
   }
 
   getContractInstanceClassId(address: AztecAddress): Promise<{ member: Fr; exists: boolean }> {
-    return this.getContractInstanceMember(address, i => i.currentContractClassId);
+    // TXE has no contract updates, so the current class always equals the original.
+    return this.getContractInstanceMember(address, i => i.originalContractClassId);
   }
 
   getContractInstanceInitializationHash(address: AztecAddress): Promise<{ member: Fr; exists: boolean }> {
@@ -143,7 +144,7 @@ export class TXEOraclePublicContext implements IAvmExecutionOracle {
 
   private async getContractInstanceMember(
     address: AztecAddress,
-    accessor: (instance: ContractInstanceWithAddress) => Fr,
+    accessor: (instance: ContractInstancePreimageWithAddress) => Fr,
   ): Promise<{ member: Fr; exists: boolean }> {
     const instance = await this.contractStore.getContractInstance(address);
     if (!instance) {

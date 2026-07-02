@@ -22,30 +22,45 @@ import type { NullifierMembershipWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 import type { VerificationKeyAsFields } from '@aztec/stdlib/vks';
 
+import type { ContractClassService } from '../contract/contract_class_service.js';
+import { AnchoredContractData } from '../contract_function_simulator/anchored_contract_data.js';
 import type { ContractStore } from '../storage/contract_store/contract_store.js';
 
 /**
  * Provides functionality needed by the private kernel for interacting with our state trees.
  */
 export class PrivateKernelOracle {
+  private readonly anchoredContractData: AnchoredContractData;
+
   constructor(
     private contractStore: ContractStore,
+    contractClassService: ContractClassService,
     private keyStore: KeyStore,
     private node: AztecNode,
     private blockHeader: BlockHeader,
-  ) {}
+  ) {
+    // Kernels never use contract overrides (those are confined to simulations, which skip proving), so this view is
+    // built without them.
+    this.anchoredContractData = new AnchoredContractData(contractStore, contractClassService, blockHeader);
+  }
 
   /** Retrieves the preimage of a contract address from the registered contract instances db. */
   public async getContractAddressPreimage(
     address: AztecAddress,
   ): Promise<ContractInstanceWithAddress & { saltedInitializationHash: Fr }> {
-    const instance = await this.contractStore.getContractInstance(address);
+    const instance = await this.anchoredContractData.getContractInstance(address);
     if (!instance) {
       throw new Error(`Contract instance not found when getting address preimage. Contract address: ${address}.`);
+    }
+    // Local instance existence was checked above, so resolution below cannot come back empty.
+    const currentContractClassId = await this.anchoredContractData.getCurrentClassId(address);
+    if (!currentContractClassId) {
+      throw new Error(`Could not resolve the current class id for registered contract ${address}.`);
     }
     return {
       saltedInitializationHash: await computeSaltedInitializationHash(instance),
       ...instance,
+      currentContractClassId,
     };
   }
 
@@ -114,8 +129,12 @@ export class PrivateKernelOracle {
   }
 
   /** Use debug data to get the function name corresponding to a selector. */
-  public getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
-    return this.contractStore.getDebugFunctionName(contractAddress, selector);
+  public async getDebugFunctionName(
+    contractAddress: AztecAddress,
+    selector: FunctionSelector,
+  ): Promise<string | undefined> {
+    const classId = await this.anchoredContractData.getCurrentClassId(contractAddress);
+    return classId ? this.contractStore.getDebugFunctionName(classId, selector) : undefined;
   }
 
   /**
