@@ -541,8 +541,7 @@ async function setupInner<TDeployExtraL1ContractsReturnType = unknown>(
     }
 
     if (enableAutomine) {
-      await ethCheatCodes.setAutomine(false);
-      await ethCheatCodes.setIntervalMining(config.ethereumSlotDuration);
+      await ethCheatCodes.startIntervalMiningWithFreshBlock(config.ethereumSlotDuration);
     }
 
     // In compose mode (no local anvil), sync dateProvider to L1 time since it may have drifted
