@@ -2,10 +2,6 @@ import type { AztecNodeService } from '@aztec/aztec-node';
 import { waitForTx } from '@aztec/aztec.js/node';
 import { TxHash } from '@aztec/aztec.js/tx';
 
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
-
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNode, createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
@@ -16,8 +12,6 @@ const NUM_VALIDATORS = 4;
 const NUM_TXS_PER_NODE = 2;
 const BOOT_NODE_UDP_PORT = 4500;
 const BLOCK_DURATION_MS = 10_000;
-
-const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'rediscovery-'));
 
 // Tests that nodes can rediscover each other from their stored peer tables after a full restart,
 // without a bootstrap node. Uses P2PNetworkTest real libp2p, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES
@@ -50,9 +44,6 @@ describe('e2e_p2p_rediscovery', () => {
     t.logger.info('Stopping nodes and cleaning up data directories');
     await t.stopNodes(nodes);
     await t.teardown();
-    for (let i = 0; i < NUM_VALIDATORS; i++) {
-      fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
-    }
   });
 
   // Forms an initial 4-node mesh, stops the bootstrap node, then restarts each validator from its data
@@ -67,7 +58,7 @@ describe('e2e_p2p_rediscovery', () => {
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
       t.genesis,
-      DATA_DIR,
+      t.dataDirFor('validator'),
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up`
       shouldCollectMetrics(),
     );
@@ -102,7 +93,7 @@ describe('e2e_p2p_rediscovery', () => {
         undefined,
         i,
         t.genesis,
-        `${DATA_DIR}-${i}`,
+        `${t.dataDirFor('validator')}-${i}`,
       );
       t.logger.info(`Node ${i} restarted`);
       newNodes.push(newNode);
