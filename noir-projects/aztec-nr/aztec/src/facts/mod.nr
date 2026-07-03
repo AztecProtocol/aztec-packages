@@ -14,9 +14,6 @@ use crate::protocol::{address::AztecAddress, traits::{Deserialize, Serialize}};
 mod origin_state;
 pub use origin_state::OriginBlockState;
 
-mod retractable_register;
-pub use retractable_register::RetractableRegister;
-
 /// The block a retractable fact originates from.
 #[derive(Deserialize, Eq, Serialize)]
 pub struct OriginBlock {

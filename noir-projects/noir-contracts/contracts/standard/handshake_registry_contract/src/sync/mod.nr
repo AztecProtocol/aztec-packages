@@ -1,7 +1,12 @@
+pub(crate) mod cursor;
+pub(crate) mod discovered_handshakes;
+pub(crate) mod rewindable_register;
+
+use crate::sync::{cursor::SyncCursor, discovered_handshakes::record_discovered_handshake};
 use aztec::{
     context::UtilityContext,
     ephemeral::EphemeralArray,
-    facts::{get_fact_collection, OriginBlock, record_retractable_fact, RetractableRegister},
+    facts::OriginBlock,
     messages::{
         delivery::handshake::DiscoveredHandshake,
         discovery::{
@@ -19,29 +24,10 @@ use aztec::{
         address::AztecAddress,
         constants::DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
         hash::{compute_log_tag, sha256_to_field},
-        traits::{Deserialize, Hash, Serialize, ToField},
+        traits::ToField,
     },
     utils::point::point_from_x_coord_and_sign,
 };
-
-/// Fact-collection type id of the per-recipient discovered handshakes populated by [`handshake_registry_sync`] and
-/// read by [`get_all_handshakes`]. Each recipient (the fact scope) has a single collection of this type holding one
-/// fact per discovered handshake, in discovery order.
-pub(crate) global DISCOVERED_HANDSHAKES_TYPE_ID: Field =
-    sha256_to_field("HANDSHAKE_REGISTRY::DISCOVERED_HANDSHAKES".as_bytes());
-
-/// Collection id of the singleton discovered-handshakes collection.
-pub(crate) global DISCOVERED_HANDSHAKES_COLLECTION_ID: Field = 0;
-
-/// Fact type id of the fact storing a serialized [`DiscoveredHandshake`] inside the discovered-handshakes collection.
-pub(crate) global HANDSHAKE_DISCOVERED: Field = sha256_to_field("HANDSHAKE_REGISTRY::HANDSHAKE_DISCOVERED".as_bytes());
-
-/// Fact-collection type id of the per-recipient sync cursor: a [`RetractableRegister`] holding the anchor block of
-/// the last completed scan.
-pub(crate) global SYNC_CURSOR_TYPE_ID: Field = sha256_to_field("HANDSHAKE_REGISTRY::SYNC_CURSOR".as_bytes());
-
-/// Collection id of the singleton cursor register.
-pub(crate) global SYNC_CURSOR_COLLECTION_ID: Field = 0;
 
 /// Ephemeral-array slot used by [`get_handshake_logs_in_range`] to batch a single log-retrieval request to the oracle.
 global LOG_RETRIEVAL_REQUEST_ARRAY_SLOT: Field =
@@ -64,25 +50,18 @@ pub(crate) unconstrained fn handshake_registry_sync(
     offchain_inbox_sync: Option<OffchainInboxSync>,
     scope: AztecAddress,
 ) {
-    let cursor_register = RetractableRegister::at(
-        contract_address,
-        scope,
-        SYNC_CURSOR_TYPE_ID,
-        SYNC_CURSOR_COLLECTION_ID,
-    );
-
-    // The scan starts one past the last scanned anchor.
-    let cursor = cursor_register.read().map(|(anchor, _)| anchor + 1);
+    let cursor = SyncCursor::at(contract_address, scope);
+    let from_block = cursor.next_block_to_scan();
     let anchor_block_header = UtilityContext::new().block_header();
     let anchor_block = anchor_block_header.block_number();
 
     // `to_block` is exclusive, so we add 1 to include the anchor block in the scan
     let next_block = anchor_block + 1;
-    let should_scan = cursor.map(|c| c != next_block).unwrap_or(true);
+    let should_scan = from_block.map(|b| b != next_block).unwrap_or(true);
     if should_scan {
         // Find all handshakes for the given recipient
         let tag = compute_log_tag(scope.to_field(), DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG);
-        let logs = get_handshake_logs_in_range(contract_address, tag, cursor, Option::some(next_block));
+        let logs = get_handshake_logs_in_range(contract_address, tag, from_block, Option::some(next_block));
 
         // Record all valid handshakes
         logs.for_each(|_i, log| {
@@ -100,11 +79,7 @@ pub(crate) unconstrained fn handshake_registry_sync(
                 ));
         });
 
-        // Update the cursor
-        cursor_register.write(
-            anchor_block,
-            OriginBlock { block_number: anchor_block, block_hash: anchor_block_header.hash() },
-        );
+        cursor.advance(anchor_block_header);
     }
 
     do_sync_state_without_handshake_discovery(
@@ -115,62 +90,6 @@ pub(crate) unconstrained fn handshake_registry_sync(
         offchain_inbox_sync,
         scope,
     );
-}
-
-/// Returns the discovered handshakes for `recipient`, in discovery order.
-///
-/// Facts within a collection are insertion-ordered, so new handshakes only ever append, keeping
-/// [`HandshakeRegistry::get_handshakes`] pagination stable across pages.
-pub(crate) unconstrained fn get_all_handshakes(
-    contract_address: AztecAddress,
-    recipient: AztecAddress,
-) -> EphemeralArray<DiscoveredHandshake> {
-    get_fact_collection(
-        contract_address,
-        recipient,
-        DISCOVERED_HANDSHAKES_TYPE_ID,
-        DISCOVERED_HANDSHAKES_COLLECTION_ID,
-    )
-        .map_or(EphemeralArray::empty(), |collection| collection.facts.map(|fact| handshake_from_payload(fact.payload)))
-}
-
-/// Records a discovered handshake as a retractable fact.
-///
-/// The fact originates at the block its announcement log landed in. Fact identity covers the payload and origin
-/// block, so re-recording the same handshake at the same origin is a no-op.
-unconstrained fn record_discovered_handshake(
-    contract_address: AztecAddress,
-    scope: AztecAddress,
-    handshake: DiscoveredHandshake,
-    origin_block: OriginBlock,
-) {
-    record_retractable_fact(
-        contract_address,
-        scope,
-        DISCOVERED_HANDSHAKES_TYPE_ID,
-        DISCOVERED_HANDSHAKES_COLLECTION_ID,
-        HANDSHAKE_DISCOVERED,
-        handshake_to_payload(handshake),
-        origin_block,
-    );
-}
-
-unconstrained fn handshake_to_payload(handshake: DiscoveredHandshake) -> EphemeralArray<Field> {
-    let fields = handshake.serialize();
-    let payload = EphemeralArray::empty();
-    for i in 0..fields.len() {
-        payload.push(fields[i]);
-    }
-    payload
-}
-
-unconstrained fn handshake_from_payload(payload: EphemeralArray<Field>) -> DiscoveredHandshake {
-    let n = <DiscoveredHandshake as Deserialize>::N;
-    let mut fields = [0; <DiscoveredHandshake as Deserialize>::N];
-    for i in 0..n {
-        fields[i] = payload.get(i);
-    }
-    Deserialize::deserialize(fields)
 }
 
 /// Fetches all private logs emitted under `tag` in the block range `[from_block, to_block)`.

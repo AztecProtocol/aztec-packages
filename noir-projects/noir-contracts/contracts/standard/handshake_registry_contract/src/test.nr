@@ -1,8 +1,8 @@
 use crate::HandshakeRegistry;
-use crate::sync::{DISCOVERED_HANDSHAKES_TYPE_ID, SYNC_CURSOR_COLLECTION_ID, SYNC_CURSOR_TYPE_ID};
+use crate::sync::cursor::SyncCursor;
+use crate::sync::discovered_handshakes::origin_block_numbers;
 
 use aztec::{
-    facts::{delete_fact_collection, get_fact_collections_by_type},
     messages::delivery::{
         constrained_delivery::VALIDATE_HANDSHAKE_SELECTOR,
         handshake::{
@@ -588,12 +588,7 @@ unconstrained fn rescan_after_cursor_retraction_does_not_duplicate_handshakes() 
 
     // Emulate a reorg that pruned back past every recorded scan but not past the handshake log: scans anchor at the
     // chain tip while handshake facts anchor at their earlier log blocks, so only the cursor facts get retracted.
-    env.utility_context_at(registry_address, |_| delete_fact_collection(
-        registry_address,
-        recipient,
-        SYNC_CURSOR_TYPE_ID,
-        SYNC_CURSOR_COLLECTION_ID,
-    ));
+    env.utility_context_at(registry_address, |_| SyncCursor::at(registry_address, recipient).clear());
     // Advance the anchor so a fact wrongly originated at the sync anchor would get a distinct origin and duplicate.
     env.mine_block();
 
@@ -618,11 +613,11 @@ unconstrained fn handshake_fact_originates_at_the_log_block() {
     let discovered = env.execute_utility(registry.get_handshakes(recipient, 0));
     assert_eq(discovered.items.len(), 1);
 
-    // Ephemeral arrays are frame-scoped, so read the fact and extract the origin inside the registry's context.
+    // Ephemeral arrays are frame-scoped, so read the origins and extract the value inside the registry's context.
     let origin_block_number = env.utility_context_at(registry_address, |_| {
-        let collections = get_fact_collections_by_type(registry_address, recipient, DISCOVERED_HANDSHAKES_TYPE_ID);
-        assert_eq(collections.len(), 1);
-        collections.get(0).facts.get(0).origin_block.unwrap().block_number
+        let origins = origin_block_numbers(registry_address, recipient);
+        assert_eq(origins.len(), 1);
+        origins.get(0)
     });
     // The origin must be the log's block, not the sync anchor, so a reorg retracts exactly the handshakes carried by
     // pruned blocks.
