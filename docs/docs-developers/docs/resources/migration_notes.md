@@ -9,7 +9,6 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
-<<<<<<< HEAD
 ### [Protocol] `PrivateCircuitPublicInputs` and `PrivateContextInputs` gain a `tx_request_salt` field
 
 The init kernel now always injects the protocol nullifier (`H(tx_request)`) as the transaction's first nullifier and binds the entry-point proof to the tx request's salt. To support this, `PrivateCircuitPublicInputs` and `PrivateContextInputs` each carry a new `tx_request_salt` field (set by the framework), and the `first_nullifier_hint` input to the init kernel is removed. This is handled automatically by the framework and PXE; contracts using the standard entrypoint need no changes beyond recompiling against the new protocol circuits.
@@ -17,7 +16,7 @@ The init kernel now always injects the protocol nullifier (`H(tx_request)`) as t
 The salt serves two purposes. It keeps `H(tx_request)` (the protocol nullifier) unpredictable, preventing a dictionary attack that guesses the tx-request preimage to recompute the nullifier. It also lets the init kernel bind the proof to a specific tx request: the kernel asserts `tx_request_salt` equals `tx_request.salt`, so a third party holding the proof cannot rebind it to a different request (and thus a different protocol nullifier).
 
 Because `tx_request_salt` is now part of the private function's public inputs, an app or account contract can read it. Together with the other public inputs (the call context, `args_hash`, `tx_context`, and the function selector), an entrypoint can reconstruct the full `tx_request` and verify a signature over `tx_request.hash()`, instead of over a separate payload. This lets an account authorize the complete, kernel-checked transaction request rather than just the calls it contains. Building on that, the protocol nullifier can be made to provide a transaction's replay protection and cancellation directly, reducing the number of nullifiers an account needs to emit. This is not done by the standard entrypoint today; see issues #461 (the protocol/design direction) and #462 (the Aztec.nr account-layer work) for the full picture.
-=======
+
 ### [PXE] `pxe.updateContract` removed and `pxe.registerContract` no longer takes an artifact
 
 Registering classes and instances are now separate, unvalidated operations. `registerContractClass(artifact)` registers a class, `registerContract(instance)` registers an instance and no longer takes an artifact. `registerContract` does not check that PXE knows the contract's artifact: a missing artifact surfaces only when the contract is later simulated.
@@ -44,7 +43,6 @@ Registering classes and instances are now separate, unvalidated operations. `reg
   The new class is used automatically once the upgrade takes effect on chain; no further PXE action is needed. Registering it beforehand is harmless: until the update activates, the node still resolves the contract's current class to the previous one, so it keeps running its old code.
 
 - `pxe.getContractInstance(address)` and `wallet.getContractMetadata(address).instance` now return the contract's **address preimage**, which no longer includes `currentContractClassId`.
->>>>>>> 3ea5deef07 (feat: merge-train/fairies-v5 (#24470))
 
 ### [Aztec.js] `AccountWithSecretKey` removed, read account keys from the `AccountManager` or PXE
 
