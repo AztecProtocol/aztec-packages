@@ -884,6 +884,49 @@ describe('sequencer', () => {
       );
     });
 
+    it('should not enqueue a standalone prune when sync fails before the build start deadline', async () => {
+      // Before the deadline the proposer still intends to build and would bundle any prune inside propose,
+      // so a transient sync miss here must not race that with a standalone prune.
+      const startDeadline = sequencer.getTimeTable().getBuildStartDeadline(SlotNumber(newSlotNumber));
+      dateProvider.setTime((startDeadline - 1) * 1000);
+
+      // Set us as the proposer and make the rollup prunable, so the only thing keeping prune from firing
+      // is the build-start deadline gate.
+      validatorClient.getValidatorAddresses.mockReturnValue([signer.address]);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+      publisher.enqueuePruneIfPrunable.mockResolvedValue(true);
+
+      await sequencer.work();
+
+      expect(publisher.enqueuePruneIfPrunable).not.toHaveBeenCalled();
+    });
+
+    it('should still enqueue a standalone prune post-deadline even after a pre-deadline vote pass in the same slot', async () => {
+      // A pre-deadline vote pass must not consume the slot's later prune opportunity: if sync stays broken
+      // and we cross the deadline within the same slot, the standalone prune (the stuck-chain recovery path)
+      // must still fire rather than being starved by the vote guard.
+      const startDeadline = sequencer.getTimeTable().getBuildStartDeadline(SlotNumber(newSlotNumber));
+
+      // Set us as the proposer, with a vote to cast pre-deadline and a prunable rollup.
+      validatorClient.getValidatorAddresses.mockReturnValue([signer.address]);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+      slasherClient.getProposerActions.mockResolvedValue(mockSlashActions);
+      publisher.enqueueSlashingActions.mockResolvedValue(true);
+      publisher.enqueuePruneIfPrunable.mockResolvedValue(true);
+
+      // First tick, before the deadline: vote fallback runs, prune must not.
+      dateProvider.setTime((startDeadline - 1) * 1000);
+      await sequencer.work();
+      expect(publisher.enqueueSlashingActions).toHaveBeenCalledTimes(1);
+      expect(publisher.enqueuePruneIfPrunable).not.toHaveBeenCalled();
+
+      // Second tick, same slot but now past the deadline: prune fires, votes are not re-cast.
+      dateProvider.setTime((startDeadline + 1) * 1000);
+      await sequencer.work();
+      expect(publisher.enqueuePruneIfPrunable).toHaveBeenCalledWith(SlotNumber(newSlotNumber));
+      expect(publisher.enqueueSlashingActions).toHaveBeenCalledTimes(1);
+    });
+
     it('should not vote when sync fails but not a proposer', async () => {
       // Set time past the start deadline for the target slot.
       const startDeadline = sequencer.getTimeTable().getBuildStartDeadline(SlotNumber(newSlotNumber));

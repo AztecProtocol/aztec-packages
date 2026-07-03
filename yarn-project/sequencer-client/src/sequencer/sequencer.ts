@@ -88,8 +88,15 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   private checkpointProposalJobMetrics: CheckpointProposalJobMetrics;
   private readonly stateLog: Logger;
 
-  /** The last slot for which we attempted to perform our fallback duties (votes and/or prune) with degraded block production */
-  private lastSlotForFallbackAction: SlotNumber | undefined;
+  /** The last slot for which we attempted fallback voting (governance/slashing) with degraded block production. */
+  private lastSlotForFallbackVote: SlotNumber | undefined;
+
+  /**
+   * The last slot for which we attempted a standalone fallback prune. Tracked separately from
+   * {@link lastSlotForFallbackVote} because the prune is only attempted once we are past the build-start
+   * deadline, so a pre-deadline vote pass must not consume the slot's later prune opportunity.
+   */
+  private lastSlotForFallbackPrune: SlotNumber | undefined;
 
   /** The (checkpoint, slot) of the last invalidation request we successfully simulated, to prevent
    * re-simulating and re-submitting the same invalidation across the many ticks within a single slot. */
@@ -944,71 +951,87 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   }
 
   /**
-   * Tries to vote on slashing actions and governance and to prune when we cannot build and are past the
-   * block-building window. This allows the sequencer to participate in governance/slashing votes even when it
-   * cannot build blocks, and to prune the pending chain so it can recover from bad data that is blocking sync.
+   * Tries to vote on slashing actions and governance when we cannot build, and to enqueue a standalone
+   * prune only once we are past the build-start deadline for the target slot. This lets the sequencer keep
+   * participating in governance/slashing votes even when it cannot build, while reserving the standalone
+   * prune for when building is genuinely no longer possible. On the happy path a proposer bundles the prune
+   * inside `propose`, so a pre-deadline sync miss (typically transient) must not race that with a standalone
+   * prune; it should just retry and, if sync recovers, build normally.
    */
   @trackSpan('Sequencer.tryVoteAndPruneWhenCannotBuild', ({ slot }) => ({ [Attributes.SLOT_NUMBER]: slot }))
   protected async tryVoteAndPruneWhenCannotBuild(args: { slot: SlotNumber; targetSlot: SlotNumber }): Promise<void> {
     const { slot, targetSlot } = args;
 
-    // Prevent duplicate attempts in the same slot
-    if (this.lastSlotForFallbackAction === slot) {
-      this.log.trace(`Already attempted fallback actions in slot ${slot} (skipping)`);
+    // Votes do not give up the slot: if sync recovers, a later work-loop iteration can still build. Under
+    // proposer pipelining the work loop reasons about the next L1 slot, so waiting for the target slot's
+    // build-start deadline can miss the whole fallback window when the target advances with the clock; votes
+    // therefore fire regardless of the deadline. The standalone prune is different: before the deadline the
+    // proposer still intends to build and would bundle the prune inside `propose`, so a pre-deadline standalone
+    // prune would race the imminent build and land alone (resetting the checkpoint). We only fall back to a
+    // standalone prune once building is no longer possible (past the build-start deadline), and track votes and
+    // prune with separate per-slot guards so a pre-deadline vote pass does not consume the slot's later prune.
+    const nowSeconds = this.dateProvider.now() / 1000;
+    const startDeadline = this.timetable.getBuildStartDeadline(targetSlot);
+    const pastBuildStartDeadline = nowSeconds > startDeadline;
+
+    const shouldVote = this.lastSlotForFallbackVote !== slot;
+    const shouldPrune = pastBuildStartDeadline && this.lastSlotForFallbackPrune !== slot;
+    if (!shouldVote && !shouldPrune) {
+      this.log.trace(`Already attempted fallback actions in slot ${slot} (skipping)`, { slot, pastBuildStartDeadline });
       return;
     }
 
-    // Vote-only actions do not give up the slot: if sync recovers, a later work-loop iteration can still build.
-    // Under proposer pipelining the work loop reasons about the next L1 slot, so waiting for the target slot's
-    // build-start deadline can miss the whole fallback window when the target advances with the clock.
-    const nowSeconds = this.dateProvider.now() / 1000;
-    const startDeadline = this.timetable.getBuildStartDeadline(targetSlot);
-
-    this.log.trace(`Cannot build for slot ${slot}, checking for voting opportunities`, {
+    this.log.trace(`Cannot build for slot ${slot}, checking for fallback actions`, {
       nowSeconds,
       startDeadline,
+      shouldVote,
+      shouldPrune,
     });
 
     // Check if we're a proposer or proposal is open
     const [canPropose, proposer] = await this.checkCanPropose(targetSlot);
     if (!canPropose) {
-      this.log.trace(`Cannot vote in slot ${slot} since we are not a proposer`, { slot, proposer });
+      this.log.trace(`Cannot run fallback actions in slot ${slot} since we are not a proposer`, { slot, proposer });
       return;
     }
 
-    // Mark this slot as attempted
-    this.lastSlotForFallbackAction = slot;
-
-    // Get a publisher for voting
+    // Get a publisher for the fallback multicall
     const { attestorAddress, publisher } = await this.publisherFactory.create(proposer);
 
-    this.log.debug(`Attempting to vote despite sync failure at slot ${slot}`, {
-      attestorAddress,
-      slot,
-    });
+    // Enqueue governance and slashing votes (voter uses the target slot for L1 submission). Mark the vote
+    // guard as soon as we attempt them so we don't re-cast within the same slot, even if there was nothing
+    // to vote on this tick.
+    let votes: (boolean | undefined)[] = [];
+    if (shouldVote) {
+      this.lastSlotForFallbackVote = slot;
+      this.log.debug(`Attempting to vote despite sync failure at slot ${slot}`, { attestorAddress, slot });
+      const voter = new CheckpointVoter(
+        targetSlot,
+        publisher,
+        attestorAddress,
+        this.validatorClient,
+        this.slasherClient,
+        this.l1Constants,
+        this.config,
+        this.metrics,
+        this.log,
+      );
+      votes = await Promise.all(voter.enqueueVotes());
+    }
 
-    // Enqueue governance and slashing votes (voter uses the target slot for L1 submission)
-    const voter = new CheckpointVoter(
-      targetSlot,
-      publisher,
-      attestorAddress,
-      this.validatorClient,
-      this.slasherClient,
-      this.l1Constants,
-      this.config,
-      this.metrics,
-      this.log,
-    );
-    const votesPromises = voter.enqueueVotes();
-    const votes = await Promise.all(votesPromises);
-
-    // Even if we cannot build, try to prune so a stuck pending chain (e.g. bad data blocking sync) can
-    // recover. prune() is permissionless, so it rides the same fallback multicall as the votes.
-    const pruneEnqueued = await this.tryEnqueuePruneIfPrunable(targetSlot, publisher);
+    // prune() is permissionless, so it rides the same fallback multicall as any votes. Mark the prune guard on
+    // attempt so we don't re-check prunability on every post-deadline tick. Re-read the clock here: the deadline
+    // may have passed during checkCanPropose / publisher creation / vote enqueueing above, in which case we can
+    // prune within this same invocation rather than waiting for the next work tick.
+    let pruneEnqueued = false;
+    if (this.dateProvider.now() / 1000 > startDeadline && this.lastSlotForFallbackPrune !== slot) {
+      this.lastSlotForFallbackPrune = slot;
+      pruneEnqueued = await this.tryEnqueuePruneIfPrunable(targetSlot, publisher);
+    }
 
     // Bail if nothing to do
     if (votes.every(p => !p) && !pruneEnqueued) {
-      this.log.debug(`Nothing to enqueue for slot ${slot} (no votes, not prunable)`);
+      this.log.debug(`Nothing to enqueue for slot ${slot} (no votes, not prunable)`, { slot, pastBuildStartDeadline });
       return;
     }
 
@@ -1016,6 +1039,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     this.log.info(`Submitting fallback requests in slot ${slot} despite sync failure`, {
       slot,
       pruneEnqueued,
+      pastBuildStartDeadline,
       governanceVoteEnqueued: !!governanceVoteEnqueued,
       slashingVoteEnqueued: !!slashingVoteEnqueued,
     });
@@ -1050,14 +1074,15 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
   }): Promise<void> {
     const { slot, targetSlot, proposer } = args;
 
-    // Prevent duplicate attempts in the same slot
-    if (this.lastSlotForFallbackAction === slot) {
+    // Prevent duplicate attempts in the same slot. Escape-hatch fallback is vote-only, so it shares the
+    // vote guard with tryVoteAndPruneWhenCannotBuild (the two paths are mutually exclusive per slot).
+    if (this.lastSlotForFallbackVote === slot) {
       this.log.trace(`Already attempted to vote in slot ${slot} (escape hatch open, skipping)`);
       return;
     }
 
     // Mark this slot as attempted
-    this.lastSlotForFallbackAction = slot;
+    this.lastSlotForFallbackVote = slot;
 
     const { attestorAddress, publisher } = await this.publisherFactory.create(proposer);
 
