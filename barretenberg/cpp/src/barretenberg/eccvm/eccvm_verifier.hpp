@@ -94,7 +94,7 @@ template <typename Flavor> class ECCVMVerifier_ {
         // G1 identity is the first point of the SRS (used for PCS operations)
         auto native_pcs_g1_identity = ECCVMFlavor::VerifierCommitmentKey(1).get_g1_identity();
         if constexpr (IsRecursive) {
-            builder = proof.back().get_context();
+            builder = proof.get_context();
             key = std::make_shared<VerificationKey>(builder, native_vk);
             vk_hash = key->get_hash();
             pcs_g1_identity = Commitment(native_pcs_g1_identity);

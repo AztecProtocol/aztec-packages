@@ -129,15 +129,20 @@ template <class Fr, size_t domain_end, size_t num_evals> class BarycentricDataFu
     // for each x_k in the big domain, build set of domain size-many denominator inverses
     // 1/(d_i*(x_k - x_j)). will multiply against each of these (rather than to divide by something)
     // for each barycentric evaluation
-    // special case for stdlib path: if num_evals == 1, we output the barycentric weights result[j] = 1 / d_j.
-    // This case does not arise on the native (compile-time) path.
+    //
+    // Storage layout: `result` has domain_size * num_evals entries, but only the block for k in
+    // [domain_size, num_evals) is populated. The leading domain_size * domain_size region (k < domain_size) is
+    // left at 0: consumers only index `result[k * domain_size + j]` with k >= domain_size, and `batch_invert`
+    // skips zero entries, so that region is never read.
     static constexpr std::array<Fr, domain_size * num_evals> construct_denominator_inverses(
         const auto& big_domain, const auto& lagrange_denominators)
     {
-        std::array<Fr, domain_size * num_evals> result{}; // default init to 0 since below does not init all elements
+        // stdlib special case: if num_evals == 1, the result is just the barycentric weights result[j] = 1 / d_j.
+        // This case does not arise on the native (compile-time) path.
         if constexpr (!is_field_type_v<Fr> && num_evals == 1) {
-            result = lagrange_denominators;
+            return batch_invert(lagrange_denominators);
         } else {
+            std::array<Fr, domain_size * num_evals> result{}; // leading domain_size^2 region stays 0 (never read)
             // Used in Univariate's `extend_to` method to extend univariates given by > 4 evaluations ( deg>3 ) to a
             // bigger evaluation domain.
             for (size_t k = domain_size; k < num_evals; ++k) {
@@ -147,8 +152,8 @@ template <class Fr, size_t domain_end, size_t num_evals> class BarycentricDataFu
                     result[(k * domain_size) + j] = inv;
                 }
             }
+            return batch_invert(result);
         }
-        return batch_invert(result);
     }
 
     // get full numerator values
@@ -160,7 +165,7 @@ template <class Fr, size_t domain_end, size_t num_evals> class BarycentricDataFu
         std::array<Fr, num_evals> result;
         for (size_t i = 0; i != num_evals; ++i) {
             result[i] = 1;
-            Fr v_i = i;
+            Fr v_i = big_domain[i];
             for (size_t j = 0; j != domain_size; ++j) {
                 result[i] *= v_i - big_domain[j];
             }

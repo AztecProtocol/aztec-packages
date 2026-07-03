@@ -80,7 +80,7 @@ template <typename Flavor> class TranslatorVerifier_ {
         // Translator VK is constant
         auto native_vk = std::make_shared<TranslatorFlavor::VerificationKey>();
         if constexpr (IsRecursive) {
-            builder = proof.back().get_context();
+            builder = proof.get_context();
             key = std::make_shared<VerificationKey>(builder, native_vk);
             vk_hash = key->get_hash();
         } else {

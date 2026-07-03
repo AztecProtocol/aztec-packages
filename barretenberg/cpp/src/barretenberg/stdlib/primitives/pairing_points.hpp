@@ -95,6 +95,9 @@ template <typename Curve> struct PairingPoints {
     {
         size_t num_points = pairing_points.size();
         BB_ASSERT_GT(num_points, 0UL, "Must provide at least one PairingPoints for aggregation");
+        for (const auto& points : pairing_points) {
+            BB_ASSERT(points.has_data_, "Cannot aggregate null pairing points.");
+        }
         if (num_points == 1) {
             return pairing_points[0];
         }
@@ -233,6 +236,7 @@ template <typename Curve> struct PairingPoints {
             return set_default_to_public(builder);
         }
         Builder* builder = validate_context<Builder>(ctx, P0().get_context(), P1().get_context());
+        BB_ASSERT(builder != nullptr, "set_public on pairing points requires a builder context.");
         builder->pairing_points_tagging.set_public_pairing_points();
         uint32_t start_idx = P0().set_public();
         P1().set_public();

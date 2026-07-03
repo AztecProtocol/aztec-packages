@@ -37,7 +37,7 @@ typename BatchedHonkTranslatorVerifier_<Curve>::OinkResult BatchedHonkTranslator
     transcript->load_proof(mega_zk_proof);
 
     if constexpr (IsRecursive) {
-        builder = mega_zk_proof.back().get_context();
+        builder = mega_zk_proof.get_context();
     }
 
     mega_zk_verifier_instance = std::make_shared<MegaZKVerifierInstance>(mega_zk_vk_and_hash);

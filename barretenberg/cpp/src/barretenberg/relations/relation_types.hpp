@@ -9,9 +9,6 @@
 #include "nested_containers.hpp"
 #include <algorithm>
 
-template <typename T>
-concept IsField = std::same_as<T, bb::fr> /* || std::same_as<T, grumpkin::fr> */;
-
 namespace bb {
 
 /**
@@ -74,6 +71,12 @@ template <typename Relation, size_t subrelation_index> constexpr bool subrelatio
  * optimized away based on a single check
  *
  * @details The skip function should return true if relation can be skipped and false if it can't
+ *
+ * @note The prover's row-skipping and effective-round-size optimizations
+ * (SumcheckProverRound::compute_effective_round_size) assume every subrelation term carries a witness factor, so a
+ * row with all witnesses zero contributes nothing. A new relation that violates this must not rely on those
+ * optimizations.
+ *
  * @tparam Relation The relation type
  * @tparam AllEntities The type containing UnivariateViews with witness and selector values
  */

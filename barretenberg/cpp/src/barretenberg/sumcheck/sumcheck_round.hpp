@@ -69,10 +69,6 @@ template <typename Flavor> class SumcheckProverRound {
     // for better load balance; other flavors use 64.
     static constexpr size_t ROWS_PER_CHUNK = isAvmFlavor<Flavor> ? 16 : 64;
     using ZKData = ZKSumcheckData<Flavor>;
-    /**
-     * @brief In Round \f$i = 0,\ldots, d-1\f$, equals \f$2^{d-i}\f$.
-     */
-    size_t round_size;
 
     // Number of rows excluded from the main sumcheck loop and handled by compute_offset_area_contribution.
     // In round 0, the RowDisablingPolynomial disables TRACE_OFFSET rows (2 edge pairs for TRACE_OFFSET=4)
@@ -106,6 +102,7 @@ template <typename Flavor> class SumcheckProverRound {
     // Prover constructor
     SumcheckProverRound(size_t initial_round_size)
         : round_size(initial_round_size)
+        , multivariate_d(numeric::get_msb(initial_round_size))
     {
         BB_BENCH_NAME("SumcheckProverRound constructor");
 
@@ -114,10 +111,38 @@ template <typename Flavor> class SumcheckProverRound {
     }
 
     /**
+     * @brief Advance to the next regular sumcheck round: halve the active hypercube size and increment the round
+     * index.
+     * @details Called exactly once per regular round. After the multivariate_d regular rounds, round_index equals
+     * multivariate_d, so the remaining zero-extension (virtual) rounds satisfy is_virtual_round().
+     */
+    void advance_round()
+    {
+        round_size >>= 1;
+        ++round_index;
+    }
+
+    /**
+     * @brief A virtual (zero-extension) round is any round at or beyond the multivariate_d regular rounds. Used to
+     * enforce that compute_virtual_contribution only runs after all regular rounds have completed.
+     */
+    bool is_virtual_round() const { return round_index >= multivariate_d; }
+
+    /**
      * @brief Compute the effective round size by finding the maximum end_index() across witness polynomials.
-     * @details Witness polynomials only contain meaningful data up to their end_index(), and we can avoid
-     * iterating over the zero region beyond that point. The disabled head rows are handled separately by
-     * compute_offset_area_contribution, so we don't include them here.
+     * @details Witness polynomials only contain meaningful data up to their end_index(), so we cap per-round
+     * iteration there and skip the trailing zero region. The disabled head rows are handled separately by
+     * compute_offset_area_contribution, so they are not included here.
+     *
+     * INVARIANT: capping at the maximum *witness* end_index (rather than the full round_size) is only sound while
+     * the following hold:
+     *   1. Every subrelation term carries at least one witness factor, so on any row where all witnesses are zero
+     *      (i.e. beyond the witness support) every relation contribution is zero.
+     *   2. The support of the precomputed/selector polynomials is contained in the witness support, so no relation
+     *      becomes active on a row past the max witness end_index.
+     *   3. end_index() upper-bounds a polynomial's non-zero support
+     * A relation term with no witness factor, or a precomputed column whose support exceeds the witnesses, would
+     * make this cap drop non-zero rows.
      */
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
     size_t compute_effective_round_size(const ProverPolynomialsOrPartiallyEvaluatedMultivariates& multivariates) const
@@ -159,7 +184,6 @@ template <typename Flavor> class SumcheckProverRound {
      * In the case when witness polynomials are masked (ZK Flavors), this method has to distinguish between witness and
      * non-witness polynomials. The witness univariates obtained from witness multilinears are corrected by a masking
      * quadratic term extended to the same length MAX_PARTIAL_RELATION_LENGTH.
-     * Should only be called externally with relation_idx equal to 0.
      * In practice, #multivariates is either ProverPolynomials or PartiallyEvaluatedMultivariates.
      *
      * @param edge_idx A point \f$(0, \vec \ell) \in \{0,1\}^{d-i} \f$, where \f$ i\in \{0,\ldots, d-1\}\f$ is Round
@@ -176,7 +200,9 @@ template <typename Flavor> class SumcheckProverRound {
             if constexpr (Flavor::USE_SHORT_MONOMIALS) {
                 extended_edge = bb::Univariate<FF, 2>({ multivariate[edge_idx], multivariate[edge_idx + 1] });
             } else {
-                if (multivariate.end_index() < edge_idx) {
+                // end_index() is exclusive, so end_index() == edge_idx already means the pair
+                // {multivariate[edge_idx], multivariate[edge_idx + 1]} lies entirely in the zero region.
+                if (multivariate.end_index() <= edge_idx) {
                     static const auto zero_univariate = bb::Univariate<FF, MAX_PARTIAL_RELATION_LENGTH>::zero();
                     extended_edge = zero_univariate;
                 } else {
@@ -616,7 +642,7 @@ template <typename Flavor> class SumcheckProverRound {
      * multiplying the whole head-edge accumulation by `(1 - L)`.
      */
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
-    SumcheckRoundUnivariate compute_offset_area_contribution(
+    [[nodiscard]] SumcheckRoundUnivariate compute_offset_area_contribution(
         ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
         const bb::RelationParameters<FF>& relation_parameters,
         const bb::GateSeparatorPolynomial<FF>& gate_separators,
@@ -641,13 +667,18 @@ template <typename Flavor> class SumcheckProverRound {
      * @brief Virtual (zero-extension) round univariate contribution.
      */
     template <typename ProverPolynomialsOrPartiallyEvaluatedMultivariates>
-    SumcheckRoundUnivariate compute_virtual_contribution(
+    [[nodiscard]] SumcheckRoundUnivariate compute_virtual_contribution(
         ProverPolynomialsOrPartiallyEvaluatedMultivariates& polynomials,
         const bb::RelationParameters<FF>& relation_parameters,
         const GateSeparatorPolynomial<FF>& gate_separator,
         const SubrelationSeparators& alphas,
         const RowDisablingPolynomial<FF>* row_disabling_polynomial = nullptr)
     {
+        // A virtual (zero-extension) contribution is only well-defined once all multivariate_d regular rounds have
+        // run: it treats the prover polynomials as padded by zero beyond the real hypercube.
+        BB_ASSERT(is_virtual_round(),
+                  "compute_virtual_contribution must only run in virtual rounds (after all regular rounds)");
+
         // Note: {} is required to initialize the tuple contents. Otherwise the univariates contain garbage.
         SumcheckTupleOfTuplesOfUnivariates univariate_accumulator{};
 
@@ -823,6 +854,8 @@ template <typename Flavor> class SumcheckProverRound {
      */
     static SumcheckRoundUnivariate compute_libra_univariate(const ZKData& zk_sumcheck_data, size_t round_idx)
     {
+        BB_ASSERT(round_idx < zk_sumcheck_data.libra_univariates.size(),
+                  "compute_libra_univariate: round_idx out of range");
         bb::Univariate<FF, LIBRA_UNIVARIATES_LENGTH> libra_round_univariate;
         // select the i'th column of Libra book-keeping table
         const auto& current_column = zk_sumcheck_data.libra_univariates[round_idx];
@@ -901,6 +934,16 @@ template <typename Flavor> class SumcheckProverRound {
             }
         });
     }
+
+    /**
+     * @brief In regular round i = 0,...,multivariate_d-1, equals 2^{multivariate_d - i}; halved once per regular
+     * round via advance_round().
+     */
+    size_t round_size;
+    // Number of regular sumcheck rounds, i.e. log2 of the initial hypercube size passed to the constructor.
+    size_t multivariate_d;
+    // Incremented once per regular round via advance_round(); reaches multivariate_d after all regular rounds.
+    size_t round_index = 0;
 };
 
 /*!\brief Implementation of the Sumcheck Verifier Round

@@ -44,8 +44,14 @@ template <typename Curve> class ShpleminiProver_ {
                               const std::vector<std::array<FF, 3>>& sumcheck_round_evaluations = {})
     {
         BB_BENCH_NAME("ShpleminiProver::prove");
-        // While Shplemini is not templated on Flavor, we derive ZK flag this way
+        // While Shplemini is not templated on Flavor, we derive the ZK flag from the presence of the Libra
+        // polynomials. They are either all populated (ZK) or all empty (non-ZK); assert this consistency so a
+        // partially-populated array cannot silently take the wrong path based on entry [0] alone.
         const bool has_zk = (libra_polynomials[0].size() > 0);
+        for (const auto& libra_poly : libra_polynomials) {
+            BB_ASSERT((libra_poly.size() > 0) == has_zk,
+                      "ShpleminiProver: libra_polynomials must be either all populated (ZK) or all empty (non-ZK)");
+        }
 
         // When padding is enabled, the size of the multilinear challenge may be bigger than the log of `circuit_size`.
         const size_t virtual_log_n = multilinear_challenge.size();
@@ -99,14 +105,14 @@ template <typename Curve> class ShpleminiProver_ {
         const std::vector<Polynomial>& sumcheck_round_univariates,
         const std::vector<std::array<FF, 3>>& sumcheck_round_evaluations)
     {
-        OpeningClaim new_claim;
         std::vector<OpeningClaim> sumcheck_round_claims = {};
 
         const size_t log_n = numeric::get_msb(circuit_size);
         for (size_t idx = 0; idx < log_n; idx++) {
             const std::vector<FF> evaluation_points = { FF(0), FF(1), multilinear_challenge[idx] };
             size_t eval_idx = 0;
-            new_claim.polynomial = std::move(sumcheck_round_univariates[idx]);
+            OpeningClaim new_claim;
+            new_claim.polynomial = sumcheck_round_univariates[idx];
 
             for (auto& eval_point : evaluation_points) {
                 new_claim.opening_pair.challenge = eval_point;
@@ -211,6 +217,14 @@ template <typename Curve, bool HasZK = false, bool HasGeminiMasking = HasZK> cla
     {
         const size_t virtual_log_n = multivariate_challenge.size();
 
+        // An empty multivariate challenge yields virtual_log_n == 0, which underflows the `virtual_log_n - 1`
+        // computations in the Gemini fold/evaluation loops below. Reject it before that can happen.
+        if (virtual_log_n == 0) {
+            throw_or_abort("Shplemini: multivariate_challenge must be non-empty");
+        }
+
+        BB_ASSERT(sumcheck_round_commitments.empty() == sumcheck_round_evaluations.empty(),
+                  "Shplemini: sumcheck_round_commitments and sumcheck_round_evaluations must be consistently empty");
         const bool committed_sumcheck = !sumcheck_round_evaluations.empty();
 
         Fr batched_evaluation = Fr{ 0 };

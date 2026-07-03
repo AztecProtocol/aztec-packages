@@ -250,6 +250,8 @@ void SmallSubgroupIPAProver<Flavor>::compute_eccvm_challenge_polynomial(const FF
  */
 template <typename Flavor> void SmallSubgroupIPAProver<Flavor>::compute_grand_sum_polynomial()
 {
+    // The masking accumulation below (`+=`) relies on the constructor's zero-initialization of
+    // grand_sum_polynomial, so this must run exactly once per instance.
     grand_sum_lagrange_coeffs[0] = 0;
 
     // Compute the grand sum coefficients recursively
@@ -284,6 +286,8 @@ template <typename Flavor> void SmallSubgroupIPAProver<Flavor>::compute_grand_su
  */
 template <typename Flavor> void SmallSubgroupIPAProver<Flavor>::compute_grand_sum_identity_polynomial()
 {
+    // The accumulations below (`+=` / `-=`) rely on the constructor's zero-initialization of
+    // grand_sum_identity_polynomial, so this must run exactly once per instance.
     // Compute shifted grand sum polynomial A(gX)
     Polynomial<FF> shifted_grand_sum(MASKED_GRAND_SUM_LENGTH);
 
@@ -331,7 +335,14 @@ template <typename Flavor> void SmallSubgroupIPAProver<Flavor>::compute_grand_su
     }
 }
 /**
- * @brief Compute monomial coefficients of the first and last Lagrange polynomials
+ * @brief Compute monomial coefficients of the first and last Lagrange polynomials over the subgroup \f$ H \f$.
+ *
+ * @details For a multiplicative subgroup \f$ H = \{1, g, \ldots, g^{n-1}\} \f$ of order \f$ n \f$, the Lagrange
+ * polynomial associated with \f$ h \in H \f$ is \f$ L_h(X) = \tfrac{1}{n}\sum_{i=0}^{n-1} h^{-i} X^i \f$. Hence the
+ * closed forms used here:
+ * - \f$ L_1 \f$ (first Lagrange polynomial, \f$ h = 1 \f$): every monomial coefficient equals \f$ 1/n \f$.
+ * - \f$ L_{|H|} \f$ (last Lagrange polynomial, \f$ h = g^{-1} \f$): the \f$ i \f$-th monomial coefficient is
+ *   \f$ g^i / n \f$.
  *
  * @param interpolation_domain
  * @param bn_evaluation_domain
@@ -404,7 +415,7 @@ typename Flavor::Curve::ScalarField SmallSubgroupIPAProver<Flavor>::compute_clai
 }
 
 /**
- * @brief For test purposes: compute the batched evaluation of the last NUM_DISABLED_ROWS_IN_SUMCHECK rows of the ECCVM
+ * @brief Compute the batched evaluation of the last NUM_DISABLED_ROWS_IN_SUMCHECK rows of the ECCVM
  * transcript polynomials `Op`, `Px`, `Py`, `z1`, `z2`.
  *
  * @param translation_data Contains concatenated ECCVM Transcript polynomials.

@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/constants.hpp"
 #include "barretenberg/eccvm/eccvm_flavor.hpp"
 #include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -27,8 +28,8 @@ template <typename Transcript> class TranslationData {
     using Polynomial = typename Flavor::Polynomial;
     static constexpr size_t SUBGROUP_SIZE = Flavor::Curve::SUBGROUP_SIZE;
 
-    // A masking term of length 2 (degree 1) is required to mask [G] and G(r).
-    static constexpr size_t WITNESS_MASKING_TERM_LENGTH = 2;
+    // WITNESS_MASKING_TERM_LENGTH (shared, from constants.hpp) is the degree-1 masking term added to G to hide [G]
+    // and G(r); it must match the length the SmallSubgroupIPAProver consumes.
     static constexpr size_t MASKED_CONCATENATED_WITNESS_LENGTH = SUBGROUP_SIZE + WITNESS_MASKING_TERM_LENGTH;
 
     // M(X) whose Lagrange coefficients are given by (m_0||m_1|| ... || m_{NUM_TRANSLATION_EVALUATIONS-1} || 0 ||...||0)

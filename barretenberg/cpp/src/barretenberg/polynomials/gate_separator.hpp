@@ -5,6 +5,7 @@
 // =====================
 
 #pragma once
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/common/compiler_hints.hpp"
 #include "barretenberg/common/thread.hpp"
@@ -92,8 +93,10 @@ template <typename FF> struct GateSeparatorPolynomial {
      */
     FF const& operator[](size_t idx) const
     {
-        // At round i, we only iterate over beta_products of indices that are multiples of 2^i,
-        // Hence for the idx-th element we need to get the (idx * 2^i)-th element in #beta_products.
+        // At round i (periodicity == 2^{i+1}), the idx-th surviving evaluation lives at beta_products index
+        // (idx >> 1) * periodicity, i.e. the (idx * 2^i)-th element. Sumcheck consumes edges pairwise, so only
+        // even indices are meaningful; an odd idx would silently alias to the idx - 1 slot.
+        BB_ASSERT_DEBUG(idx % 2 == 0, "GateSeparatorPolynomial: edge index must be even");
         return beta_products.at((idx >> 1) * periodicity);
     }
     /**

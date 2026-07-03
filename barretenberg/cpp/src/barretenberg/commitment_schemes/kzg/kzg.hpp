@@ -10,6 +10,7 @@
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/commitment_schemes/pairing_points.hpp"
 #include "barretenberg/commitment_schemes/verification_key.hpp"
+#include "barretenberg/common/assert.hpp"
 #include "barretenberg/common/bb_bench.hpp"
 #include "barretenberg/stdlib/primitives/pairing_points.hpp"
 #include "barretenberg/transcript/transcript.hpp"
@@ -128,7 +129,7 @@ template <typename Curve_> class KZG {
      *         - \f$ P_1 = - [W(x)]_1 \f$
      */
     template <typename Transcript>
-    static PairingPointsType reduce_verify_batch_opening_claim(BatchOpeningClaim<Curve>&& batch_opening_claim,
+    static PairingPointsType reduce_verify_batch_opening_claim(BatchOpeningClaim<Curve> batch_opening_claim,
                                                                const std::shared_ptr<Transcript>& transcript,
                                                                const size_t expected_final_msm_size = 0)
     {
@@ -164,6 +165,9 @@ template <typename Curve_> class KZG {
         }
 
         // Compute C + [W]₁ ⋅ z
+        BB_ASSERT_EQ(batch_opening_claim.commitments.size(),
+                     batch_opening_claim.scalars.size(),
+                     "BatchOpeningClaim: commitments and scalars must have equal length");
         P_0 = GroupElement::batch_mul(batch_opening_claim.commitments,
                                       batch_opening_claim.scalars,
                                       /*max_num_bits=*/0,

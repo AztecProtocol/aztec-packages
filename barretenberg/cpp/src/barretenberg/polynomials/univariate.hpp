@@ -66,6 +66,10 @@ template <class Fr, size_t domain_end> class Univariate {
     // Compute Lagrange coefficients of a given linear polynomial represented in monomial basis.
     template <bool has_a0_plus_a1> Univariate(const UnivariateCoefficientBasis<Fr, 2, has_a0_plus_a1>& monomial)
     {
+        // For domain_end == 1 the loop below never runs and the linear coefficient a1 would be silently
+        // discarded, so this constructor cannot represent a linear polynomial on a single point.
+        static_assert(domain_end >= 2);
+
         Fr to_add = monomial.coefficients[1];
         evaluations[0] = monomial.coefficients[0];
         auto prev = evaluations[0];
@@ -385,7 +389,7 @@ template <class Fr, size_t domain_end> class Univariate {
             Fr b = value_at(1) - a - value_at(0);
             Fr a2 = a + a;
             Fr a_mul = a2;
-            // compute 2a * domain_end - 2
+            // compute 2a * (domain_end - 1)
             for (size_t i = 0; i < domain_end - 2; i++) {
                 a_mul += a2;
             }
@@ -591,7 +595,11 @@ template <class Fr, size_t domain_end> class UnivariateView {
 
     template <size_t full_domain_end>
     explicit UnivariateView(const Univariate<Fr, full_domain_end>& univariate_in)
-        : evaluations(std::span<const Fr>(univariate_in.evaluations.data(), LENGTH)){};
+        : evaluations(std::span<const Fr>(univariate_in.evaluations.data(), LENGTH))
+    {
+        // Viewing more evaluations than the source holds would span out-of-bounds memory.
+        static_assert(LENGTH <= full_domain_end);
+    };
 
     explicit operator UnivariateCoefficientBasis<Fr, 2, true>() const
         requires(LENGTH > 1)
