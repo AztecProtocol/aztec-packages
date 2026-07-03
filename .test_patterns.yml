@@ -397,7 +397,7 @@ tests:
     owners:
       - *spyros
 
-  - regex: "yarn-project/end-to-end/scripts/run_test.sh ha src/composed/ha/e2e_ha_distribute_work.parallel.test.ts"
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh ha src/composed/ha/e2e_ha_distribute_work.test.ts"
     owners:
       - *spyros
 

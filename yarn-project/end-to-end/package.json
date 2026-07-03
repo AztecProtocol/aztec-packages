@@ -68,7 +68,6 @@
     "@aztec/wallet-sdk": "workspace:^",
     "@aztec/wallets": "workspace:^",
     "@aztec/world-state": "workspace:^",
-    "@electric-sql/pglite": "^0.3.14",
     "@iarna/toml": "^2.2.5",
     "@jest/globals": "^30.0.0",
     "@noble/curves": "=1.0.0",
