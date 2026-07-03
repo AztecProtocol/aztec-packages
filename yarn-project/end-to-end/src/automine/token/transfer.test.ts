@@ -60,10 +60,7 @@ describe('automine/token/transfer', () => {
 
   // Transfers to a randomly generated non-deployed address. Because the recipient's keys aren't in the PXE,
   // the note can't be decrypted; TokenSimulator models this as a transfer to AztecAddress.ZERO.
-  // TODO(F-741): the unconstrained delivery now establishes a non-interactive handshake, and checking the
-  // non-deployed recipient's private balance throws "No public key registered". Handshake discovery
-  // (get_shared_secrets) needs the scope's keys, which this PXE lacks for a foreign account.
-  it.skip('transfer less than balance to non-deployed account', async () => {
+  it('transfer less than balance to non-deployed account', async () => {
     const { result: balance0 } = await asset.methods.balance_of_private(adminAddress).simulate({ from: adminAddress });
     const amount = balance0 / 2n;
     expect(amount).toBeGreaterThan(0n);
