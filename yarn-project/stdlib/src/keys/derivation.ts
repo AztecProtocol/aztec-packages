@@ -11,8 +11,11 @@ import { PublicKey, hashPublicKey } from './public_key.js';
 import { PublicKeys } from './public_keys.js';
 import { getKeyGenerator } from './utils.js';
 
-export function computeAppNullifierHidingKey(masterNullifierHidingKey: GrumpkinScalar, app: AztecAddress): Promise<Fr> {
-  return computeAppSecretKey(masterNullifierHidingKey, app, 'n'); // 'n' is the key prefix for nullifier hiding key
+export function computeAppNullifierHidingKey(
+  masterNullifierHidingSecretKey: GrumpkinScalar,
+  app: AztecAddress,
+): Promise<Fr> {
+  return computeAppSecretKey(masterNullifierHidingSecretKey, app, 'n'); // 'n' is the key prefix for nullifier hiding key
 }
 
 export function computeAppSecretKey(skM: GrumpkinScalar, app: AztecAddress, keyPrefix: KeyPrefix): Promise<Fr> {
@@ -27,7 +30,7 @@ export async function computeOvskApp(ovsk: GrumpkinScalar, app: AztecAddress): P
   return GrumpkinScalar.fromBuffer(ovskAppFr.toBuffer());
 }
 
-export function deriveMasterNullifierHidingKey(secretKey: Fr): GrumpkinScalar {
+export function deriveMasterNullifierHidingSecretKey(secretKey: Fr): GrumpkinScalar {
   return sha512ToGrumpkinScalar([secretKey, DomainSeparator.NHK_M]);
 }
 
@@ -93,6 +96,11 @@ export async function computeAddressSecret(preaddress: Fr, ivsk: Fq) {
 }
 
 export function derivePublicKeyFromSecretKey(secretKey: Fq): Promise<PublicKey> {
+  // 0 * G is the point at infinity. The WASM encodes infinity with an out-of-field x coordinate that Point cannot
+  // deserialize, so return the point directly instead of calling into it.
+  if (secretKey.isZero()) {
+    return Promise.resolve(PublicKey.INFINITY);
+  }
   return Grumpkin.mul(Grumpkin.generator, secretKey);
 }
 
@@ -100,7 +108,7 @@ export function derivePublicKeyFromSecretKey(secretKey: Fq): Promise<PublicKey> 
  * The six master secret keys that fully define an account's privacy keys.
  */
 export type MasterSecretKeys = {
-  masterNullifierHidingKey: GrumpkinScalar;
+  masterNullifierHidingSecretKey: GrumpkinScalar;
   masterIncomingViewingSecretKey: GrumpkinScalar;
   masterOutgoingViewingSecretKey: GrumpkinScalar;
   masterTaggingSecretKey: GrumpkinScalar;
@@ -117,7 +125,7 @@ export function deriveKeys(secretKey: Fr) {
   // First we derive master secret/hiding keys -  we use sha512 here because this derivation will never take place
   // in a circuit
   return deriveKeysFromMasterSecretKeys({
-    masterNullifierHidingKey: deriveMasterNullifierHidingKey(secretKey),
+    masterNullifierHidingSecretKey: deriveMasterNullifierHidingSecretKey(secretKey),
     masterIncomingViewingSecretKey: deriveMasterIncomingViewingSecretKey(secretKey),
     masterOutgoingViewingSecretKey: deriveMasterOutgoingViewingSecretKey(secretKey),
     masterTaggingSecretKey: sha512ToGrumpkinScalar([secretKey, DomainSeparator.TSK_M]),
@@ -133,7 +141,7 @@ export function deriveKeys(secretKey: Fr) {
  */
 export async function deriveKeysFromMasterSecretKeys(secretKeys: MasterSecretKeys) {
   const {
-    masterNullifierHidingKey,
+    masterNullifierHidingSecretKey,
     masterIncomingViewingSecretKey,
     masterOutgoingViewingSecretKey,
     masterTaggingSecretKey,
@@ -141,7 +149,7 @@ export async function deriveKeysFromMasterSecretKeys(secretKeys: MasterSecretKey
     masterFallbackSecretKey,
   } = secretKeys;
 
-  const masterNullifierPublicKey = await derivePublicKeyFromSecretKey(masterNullifierHidingKey);
+  const masterNullifierHidingPublicKey = await derivePublicKeyFromSecretKey(masterNullifierHidingSecretKey);
   const masterIncomingViewingPublicKey = await derivePublicKeyFromSecretKey(masterIncomingViewingSecretKey);
   const masterOutgoingViewingPublicKey = await derivePublicKeyFromSecretKey(masterOutgoingViewingSecretKey);
   const masterTaggingPublicKey = await derivePublicKeyFromSecretKey(masterTaggingSecretKey);
@@ -153,7 +161,7 @@ export async function deriveKeysFromMasterSecretKeys(secretKeys: MasterSecretKey
   // store can persist them under `${account}-{n|ov|t|ms|fb}pk_m` (only their hashes live in publicKeys).
   // The ivpk_m point isn't returned separately because it already lives in publicKeys.ivpkM.
   const publicKeys = new PublicKeys(
-    await hashPublicKey(masterNullifierPublicKey),
+    await hashPublicKey(masterNullifierHidingPublicKey),
     masterIncomingViewingPublicKey,
     await hashPublicKey(masterOutgoingViewingPublicKey),
     await hashPublicKey(masterTaggingPublicKey),
@@ -162,13 +170,13 @@ export async function deriveKeysFromMasterSecretKeys(secretKeys: MasterSecretKey
   );
 
   return {
-    masterNullifierHidingKey,
+    masterNullifierHidingSecretKey,
     masterIncomingViewingSecretKey,
     masterOutgoingViewingSecretKey,
     masterTaggingSecretKey,
     masterMessageSigningSecretKey,
     masterFallbackSecretKey,
-    masterNullifierPublicKey,
+    masterNullifierHidingPublicKey,
     masterOutgoingViewingPublicKey,
     masterTaggingPublicKey,
     masterMessageSigningPublicKey,

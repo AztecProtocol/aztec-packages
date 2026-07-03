@@ -1,7 +1,7 @@
 import { generateSchnorrAccounts } from '@aztec/accounts/testing';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { GrumpkinScalar } from '@aztec/aztec.js/fields';
-import { computeAppNullifierHidingKey, deriveMasterNullifierHidingKey } from '@aztec/aztec.js/keys';
+import { computeAppNullifierHidingKey, deriveMasterNullifierHidingSecretKey } from '@aztec/aztec.js/keys';
 import type { Logger } from '@aztec/aztec.js/log';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { toBufferLE } from '@aztec/foundation/bigint-buffer';
@@ -68,7 +68,7 @@ describe('automine/card_game', () => {
   let teardown: () => Promise<void>;
 
   let wallet: TestWallet;
-  let masterNullifierHidingKeys: GrumpkinScalar[];
+  let masterNullifierHidingSecretKeys: GrumpkinScalar[];
 
   let firstPlayer: AztecAddress;
   let secondPlayer: AztecAddress;
@@ -78,8 +78,8 @@ describe('automine/card_game', () => {
 
   const getPackedCards = async (accountIndex: number, seed: bigint): Promise<Card[]> => {
     // First we get the app nullifier hiding key for the account
-    const masterNullifierHidingKey = masterNullifierHidingKeys[accountIndex];
-    const appNullifierHidingKey = await computeAppNullifierHidingKey(masterNullifierHidingKey, contract.address);
+    const masterNullifierHidingSecretKey = masterNullifierHidingSecretKeys[accountIndex];
+    const appNullifierHidingKey = await computeAppNullifierHidingKey(masterNullifierHidingSecretKey, contract.address);
     // Then we compute the mix from it and hash it to get the random bytes the same way as in the contract
     const mix = appNullifierHidingKey.toBigInt() + seed;
     const randomBytes = sha256(toBufferLE(mix, 32));
@@ -106,7 +106,7 @@ describe('automine/card_game', () => {
     }
     [firstPlayer, secondPlayer, thirdPlayer] = players.map(p => p.address);
 
-    masterNullifierHidingKeys = players.map(({ secret }) => deriveMasterNullifierHidingKey(secret));
+    masterNullifierHidingSecretKeys = players.map(({ secret }) => deriveMasterNullifierHidingSecretKey(secret));
   });
 
   beforeEach(async () => {
