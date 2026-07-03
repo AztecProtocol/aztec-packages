@@ -436,11 +436,24 @@ pub struct PrivateUtilityCalls<CallSelf> {
 impl<CallSelf> PrivateUtilityCalls<CallSelf> {
     /// Makes a utility contract call from a private function.
     ///
-    /// Note: only same-contract utility calls are currently supported. See TODO(F-29).
+    /// The call executes unconstrained code, so it must be wrapped in `unsafe`, and its result is not part of any
+    /// circuit proof: use it to inform logic, never as an input to a constrained assertion without validating it
+    /// first.
+    ///
+    /// The callee observes this contract's address as its `msg_sender`: see the `msg_sender` docs on
+    /// [`ContractSelfUtility`](crate::contract_self::ContractSelfUtility).
+    ///
+    /// To call one of this contract's own utility functions, prefer the type-safe `self.utility.call_self` stubs.
+    ///
+    /// ## Authorization
+    ///
+    /// A call to this contract itself always succeeds. A call to a different contract can expose that contract's
+    /// private state to the caller, so it requires explicit authorization. A call that is not authorized fails.
     ///
     /// # Example
     /// ```noir
-    /// unsafe { self.utility.call(Token::at(self.address).get_balance_of(owner)) }
+    /// // Safety: result is unconstrained
+    /// unsafe { self.utility.call(Token::at(address).get_balance_of(owner)) }
     /// ```
     pub unconstrained fn call<let M: u32, let N: u32, T>(_self: Self, call: UtilityCall<M, N, T>) -> T
     where

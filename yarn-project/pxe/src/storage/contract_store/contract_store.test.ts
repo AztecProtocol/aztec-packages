@@ -1,9 +1,13 @@
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { BenchmarkingContractArtifact } from '@aztec/noir-test-contracts.js/Benchmarking';
 import { TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
-import { FunctionType } from '@aztec/stdlib/abi';
+import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { SerializableContractInstance, getContractClassFromArtifact } from '@aztec/stdlib/contract';
+import {
+  SerializableContractInstance,
+  SerializableContractInstancePreimage,
+  getContractClassFromArtifact,
+} from '@aztec/stdlib/contract';
 
 import { jest } from '@jest/globals';
 
@@ -35,11 +39,12 @@ describe('ContractStore', () => {
     );
   });
 
-  it('stores a contract instance', async () => {
+  it('stores a contract instance as its address preimage', async () => {
     const address = await AztecAddress.random();
     const instance = (await SerializableContractInstance.random()).withAddress(address);
     await contractStore.addContractInstance(instance);
-    await expect(contractStore.getContractInstance(address)).resolves.toEqual(instance);
+    const expected = new SerializableContractInstancePreimage(instance).withAddress(address);
+    await expect(contractStore.getContractInstance(address)).resolves.toEqual(expected);
   });
 
   it('reconstructs contract class with correct preimage fields', async () => {
@@ -59,6 +64,41 @@ describe('ContractStore', () => {
       expect(result!.privateFunctions[i].selector).toEqual(expected.privateFunctions[i].selector);
       expect(result!.privateFunctions[i].vkHash).toEqual(expected.privateFunctions[i].vkHash);
     }
+  });
+
+  describe('function artifact resolution', () => {
+    const artifact = BenchmarkingContractArtifact;
+
+    it('returns undefined when the class artifact is not registered', async () => {
+      const classId = (await getContractClassFromArtifact(artifact)).id;
+      const selector = await FunctionSelector.fromSignature('not_a_real_function()');
+
+      await expect(contractStore.getFunctionArtifact(classId, selector)).resolves.toBeUndefined();
+      await expect(contractStore.getFunctionArtifactWithDebugMetadata(classId, selector)).resolves.toBeUndefined();
+    });
+
+    it('throws when the selector is absent from a registered artifact', async () => {
+      const classId = await contractStore.addContractArtifact(artifact);
+      const missingSelector = await FunctionSelector.fromSignature('not_a_real_function()');
+      // Inconsistency: the artifact is present but lacks the selector, so the registered artifact does not match the
+      // resolved class id. That is not a normal "not found", so it throws rather than returning undefined.
+      await expect(contractStore.getFunctionArtifact(classId, missingSelector)).rejects.toThrow(
+        'does not match the class id',
+      );
+      await expect(contractStore.getFunctionArtifactWithDebugMetadata(classId, missingSelector)).rejects.toThrow(
+        'does not match the class id',
+      );
+    });
+
+    it('returns the function artifact when the selector is present', async () => {
+      const classId = await contractStore.addContractArtifact(artifact);
+      const fn = artifact.functions.find(f => f.functionType === FunctionType.PRIVATE)!;
+      const selector = await FunctionSelector.fromNameAndParameters(fn.name, fn.parameters);
+      await expect(contractStore.getFunctionArtifact(classId, selector)).resolves.toMatchObject({
+        name: fn.name,
+        contractName: artifact.name,
+      });
+    });
   });
 
   it('skips KV write on cache hit', async () => {

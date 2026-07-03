@@ -3,7 +3,13 @@ import { TestCircuitVerifier } from '@aztec/bb-prover/test';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
-import { type AnchorBlockStore, type ContractStore, ContractSyncService, type NoteStore } from '@aztec/pxe/server';
+import {
+  type AnchorBlockStore,
+  ContractClassService,
+  type ContractStore,
+  ContractSyncService,
+  type NoteStore,
+} from '@aztec/pxe/server';
 import { TxResolverService } from '@aztec/pxe/simulator';
 import { L2Block, type L2TipsProvider } from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
@@ -29,6 +35,7 @@ export class TXEStateMachine {
     public archiver: TXEArchiver,
     public anchorBlockStore: AnchorBlockStore,
     public contractSyncService: ContractSyncService,
+    public contractClassService: ContractClassService,
     public txResolver: TxResolverService,
   ) {}
 
@@ -68,16 +75,26 @@ export class TXEStateMachine {
       log,
     });
 
+    const contractClassService = new ContractClassService(node, contractStore);
     const contractSyncService = new ContractSyncService(
       node,
       contractStore,
+      contractClassService,
       noteStore,
       createLogger('txe:contract_sync'),
     );
 
     const txResolver = new TxResolverService(node);
 
-    return new this(node, synchronizer, archiver, anchorBlockStore, contractSyncService, txResolver);
+    return new this(
+      node,
+      synchronizer,
+      archiver,
+      anchorBlockStore,
+      contractSyncService,
+      contractClassService,
+      txResolver,
+    );
   }
 
   /** Returns an {@link L2TipsProvider} backed by this node's chain tips. */

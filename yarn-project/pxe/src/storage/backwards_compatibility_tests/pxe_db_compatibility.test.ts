@@ -21,7 +21,8 @@ import { createStoreSpy } from './store_spy.js';
 // detect whether the list of stores PXE uses changed, and whether snapshot test for each element in said list exists.
 expect.extend({ toMatchFile });
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const PRE_DERIVED_MESSAGE_AND_FALLBACK_KEYS_PXE_SCHEMA_VERSION = 9;
+// The last schema in which the key store still persisted the message-signing and fallback secret keys.
+const PRE_MESSAGE_AND_FALLBACK_SECRET_KEY_REMOVAL_PXE_SCHEMA_VERSION = 10;
 
 /**
  * Asserts that `value` matches the per-store snapshot file `__snapshots__/<name>.json`. Each store gets its own file
@@ -156,7 +157,7 @@ async function collectOpenedStores() {
  *     class and compares the resulting bytes to a committed per-store snapshot.
  */
 describe('PXE storage compatibility test suite', () => {
-  it('resets schema 9 key-store rows that cannot fetch derived message-signing keys', async () => {
+  it('wipes key-store rows written before the message-signing and fallback secret keys were removed', async () => {
     const account = AztecAddress.fromStringUnsafe('0x0b3683ee9df3ed6ed7027145bd6093f783b0bb4d8354501d906db7bb8cb58ea3');
     const dataDirectory = await mkdtemp(join(tmpdir(), 'pxe-schema-reset-'));
     const config = {
@@ -166,7 +167,11 @@ describe('PXE storage compatibility test suite', () => {
     };
 
     try {
-      const oldStore = await createStore('pxe_data', PRE_DERIVED_MESSAGE_AND_FALLBACK_KEYS_PXE_SCHEMA_VERSION, config);
+      const oldStore = await createStore(
+        'pxe_data',
+        PRE_MESSAGE_AND_FALLBACK_SECRET_KEY_REMOVAL_PXE_SCHEMA_VERSION,
+        config,
+      );
       try {
         await oldStore
           .openMap<string, Buffer>('key_store')
@@ -181,9 +186,8 @@ describe('PXE storage compatibility test suite', () => {
       const currentStore = await createStore('pxe_data', PXE_DATA_SCHEMA_VERSION, config);
       try {
         const keyStore = new KeyStore(currentStore);
-        if (await keyStore.hasAccount(account)) {
-          await keyStore.getMasterMessageSigningPublicKey(account);
-        }
+        // Opening a below-current-version DB triggers DatabaseVersionManager to wipe it, so the account written under
+        // the old schema is gone and the new code never reads its now-incompatible rows.
         await expect(keyStore.hasAccount(account)).resolves.toBe(false);
       } finally {
         await currentStore.close();
