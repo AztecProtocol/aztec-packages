@@ -233,6 +233,26 @@ mod test {
         });
     }
 
+    #[test]
+    unconstrained fn get_handshake_secrets_returns_empty_when_scope_keys_not_held() {
+        let env = TestEnvironment::new();
+        let scope = AztecAddress::from_field(1);
+        let contract_address = AztecAddress { inner: 0xdeadbeef };
+
+        env.utility_context_at(contract_address, |_| {
+            let mut items = BoundedVec::new();
+            items.push(DiscoveredHandshake { eph_pk: point_from_x_coord(1).unwrap() });
+            let page = HandshakePage { items, total_count: 1 };
+            let _ = OracleMock::mock("aztec_utl_callUtilityFunction").returns(page.serialize());
+
+            let empty: [Field; 0] = [];
+            mock_get_shared_secrets(empty);
+
+            let secrets = get_handshake_secrets(contract_address, scope);
+            assert_eq(secrets.len(), 0);
+        });
+    }
+
     unconstrained fn mock_get_shared_secrets<let N: u32>(response_values: [Field; N]) {
         let response_slot: Field = 99;
         let response_array: EphemeralArray<Field> = EphemeralArray::at(response_slot);

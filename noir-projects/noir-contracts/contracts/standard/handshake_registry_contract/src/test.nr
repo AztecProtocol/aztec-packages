@@ -468,7 +468,7 @@ unconstrained fn non_interactive_handshake_is_discovered_by_recipient() {
     // The recipient derives the same app-siloed secret from the discovered eph_pk via ECDH.
     let handshake = discovered.items.get(0);
     let recipient_secret = env.utility_context_at(sender, |_| get_shared_secret(recipient, handshake.eph_pk, sender));
-    assert_eq(recipient_secret, returned_secrets.shared);
+    assert_eq(recipient_secret.unwrap(), returned_secrets.shared);
 
     // The custom sync hook falls through to `do_sync_state`, so default note discovery still works.
     let utility_secrets = env
