@@ -32,13 +32,13 @@ const qosAlerts: AlertConfig[] = [
 // deployed with initial public and private mint.
 describe('automine/token/transfer', () => {
   const t = new TokenContractTest('transfer');
-  let { asset, adminAddress, wallet, account1Address, tokenSim } = t;
+  let { asset, adminAddress, wallet, otherAddress, tokenSim } = t;
 
   beforeAll(async () => {
     t.applyBaseSnapshots();
-    t.applyMintSnapshot();
     await t.setup();
-    ({ asset, adminAddress, wallet, account1Address, tokenSim } = t);
+    await t.applyMint();
+    ({ asset, adminAddress, wallet, otherAddress, tokenSim } = t);
   });
 
   afterAll(async () => {
@@ -57,25 +57,25 @@ describe('automine/token/transfer', () => {
 
   // Top-level private-to-private transfer() entry point.
   describe('transfer', () => {
-    // Transfers half of admin's private balance to account1, verifies via TokenSimulator, and asserts that
+    // Transfers half of admin's private balance to other, verifies via TokenSimulator, and asserts that
     // the private Transfer event is emitted and readable in the recipient's scope.
     it('transfer less than balance', async () => {
       const amount = await halfBalanceOf(asset, 'private', adminAddress);
 
-      const { receipt: txReceipt } = await asset.methods.transfer(account1Address, amount).send({ from: adminAddress });
-      tokenSim.transferPrivate(adminAddress, account1Address, amount);
+      const { receipt: txReceipt } = await asset.methods.transfer(otherAddress, amount).send({ from: adminAddress });
+      tokenSim.transferPrivate(adminAddress, otherAddress, amount);
 
       const events = await wallet.getPrivateEvents<Transfer>(TokenContract.events.Transfer, {
         contractAddress: asset.address,
         fromBlock: txReceipt.blockNumber!,
         toBlock: BlockNumber(txReceipt.blockNumber! + 1),
-        scopes: [account1Address],
+        scopes: [otherAddress],
       });
 
       expect(events[0]).toEqual({
         event: {
           from: adminAddress,
-          to: account1Address,
+          to: otherAddress,
           amount: amount,
         },
         metadata: {
@@ -115,20 +115,20 @@ describe('automine/token/transfer', () => {
     // then confirms replay reverts with a duplicate-nullifier error.
     it('transfer on behalf of other', async () => {
       const amount = await halfBalanceOf(asset, 'private', adminAddress);
-      const action = asset.methods.transfer_in_private(adminAddress, account1Address, amount, Fr.random());
+      const action = asset.methods.transfer_in_private(adminAddress, otherAddress, amount, Fr.random());
       await assertAuthwitProxyReplayRejected(t.authwitProxy, wallet, adminAddress, action, () =>
-        tokenSim.transferPrivate(adminAddress, account1Address, amount),
+        tokenSim.transferPrivate(adminAddress, otherAddress, amount),
       );
     });
   });
 
   // Public transfer, direct and delegated via a public authwit.
   describe('transfer_in_public', () => {
-    // Transfers half of admin's public balance to account1 and verifies via TokenSimulator.
+    // Transfers half of admin's public balance to other and verifies via TokenSimulator.
     it('transfer less than balance', async () => {
       const amount = await halfBalanceOf(asset, 'public', adminAddress);
-      await asset.methods.transfer_in_public(adminAddress, account1Address, amount, 0).send({ from: adminAddress });
-      tokenSim.transferPublic(adminAddress, account1Address, amount);
+      await asset.methods.transfer_in_public(adminAddress, otherAddress, amount, 0).send({ from: adminAddress });
+      tokenSim.transferPublic(adminAddress, otherAddress, amount);
     });
 
     // Transfers half of admin's public balance to themselves; verifies balance is unchanged via TokenSimulator.
@@ -138,13 +138,13 @@ describe('automine/token/transfer', () => {
       tokenSim.transferPublic(adminAddress, adminAddress, amount);
     });
 
-    // Sets a public authwit allowing account1 to transfer admin's tokens, executes, verifies TokenSimulator,
+    // Sets a public authwit allowing other to transfer admin's tokens, executes, verifies TokenSimulator,
     // then confirms replay reverts with unauthorized.
     it('transfer on behalf of other', async () => {
       const amount = await halfBalanceOf(asset, 'public', adminAddress);
-      const action = asset.methods.transfer_in_public(adminAddress, account1Address, amount, Fr.random());
-      await assertPublicAuthwitReplayRejected(wallet, adminAddress, action, account1Address, () =>
-        tokenSim.transferPublic(adminAddress, account1Address, amount),
+      const action = asset.methods.transfer_in_public(adminAddress, otherAddress, amount, Fr.random());
+      await assertPublicAuthwitReplayRejected(wallet, adminAddress, action, otherAddress, () =>
+        tokenSim.transferPublic(adminAddress, otherAddress, amount),
       );
     });
   });
@@ -158,11 +158,11 @@ describe('automine/token/transfer', () => {
       tokenSim.transferToPrivate(adminAddress, adminAddress, amount);
     });
 
-    // Transfers half of admin's public balance to account1's private balance and verifies via TokenSimulator.
+    // Transfers half of admin's public balance to other's private balance and verifies via TokenSimulator.
     it('to someone else', async () => {
       const amount = await halfBalanceOf(asset, 'public', adminAddress);
-      await asset.methods.transfer_to_private(account1Address, amount).send({ from: adminAddress });
-      tokenSim.transferToPrivate(adminAddress, account1Address, amount);
+      await asset.methods.transfer_to_private(otherAddress, amount).send({ from: adminAddress });
+      tokenSim.transferToPrivate(adminAddress, otherAddress, amount);
     });
   });
 
@@ -175,13 +175,13 @@ describe('automine/token/transfer', () => {
       tokenSim.transferToPublic(adminAddress, adminAddress, amount);
     });
 
-    // Creates a private authwit for transfer_to_public to account1, sends through proxy, verifies
+    // Creates a private authwit for transfer_to_public to other, sends through proxy, verifies
     // TokenSimulator, then asserts replay reverts with a duplicate-nullifier error.
     it('on behalf of other', async () => {
       const amount = await halfBalanceOf(asset, 'private', adminAddress);
-      const action = asset.methods.transfer_to_public(adminAddress, account1Address, amount, Fr.random());
+      const action = asset.methods.transfer_to_public(adminAddress, otherAddress, amount, Fr.random());
       await assertAuthwitProxyReplayRejected(t.authwitProxy, wallet, adminAddress, action, () =>
-        tokenSim.transferToPublic(adminAddress, account1Address, amount),
+        tokenSim.transferToPublic(adminAddress, otherAddress, amount),
       );
     });
   });

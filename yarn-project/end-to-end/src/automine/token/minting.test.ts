@@ -65,9 +65,9 @@ describe('automine/token/minting', () => {
     });
 
     describe('failure cases', () => {
-      // Attempts to mint from account1 (not a minter); expects 'caller is not minter'.
+      // Attempts to mint from other (not a minter); expects 'caller is not minter'.
       it('as non-minter', async () => {
-        await expect(p.mint(t.adminAddress, 10000n).simulate({ from: t.account1Address })).rejects.toThrow(
+        await expect(p.mint(t.adminAddress, 10000n).simulate({ from: t.otherAddress })).rejects.toThrow(
           'Assertion failed: caller is not minter',
         );
       });
@@ -83,7 +83,7 @@ describe('automine/token/minting', () => {
       // Mints an amount that would overflow total supply across accounts; expects U128_OVERFLOW_ERROR.
       it('mint <u128 but such that total supply >u128', async () => {
         const amount = 2n ** 128n - p.simBalance(t.adminAddress);
-        await expect(p.mint(t.account1Address, amount).simulate({ from: t.adminAddress })).rejects.toThrow(
+        await expect(p.mint(t.otherAddress, amount).simulate({ from: t.adminAddress })).rejects.toThrow(
           U128_OVERFLOW_ERROR,
         );
       });

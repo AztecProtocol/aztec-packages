@@ -1,17 +1,19 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { computeAuthWitMessageHash } from '@aztec/aztec.js/authorization';
 import type { ContractFunctionInteraction } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 
+import { simulateThroughAuthwitProxy } from '../../fixtures/authwit_proxy.js';
 import { U128_UNDERFLOW_ERROR } from '../../fixtures/index.js';
 import { BlacklistTokenContractTest } from './blacklist_token_contract_test.js';
 import {
-  type AuthwitKind,
   type BalanceKind,
-  type TokenFailureRow,
+  INVALID_AUTHWIT_NONCE_ERROR,
+  amountAboveBalance,
   assertAuthwitProxyReplayRejected,
   assertPublicAuthwitReplayRejected,
+  balanceOf,
   halfBalanceOf,
-  runTokenFailureCases,
 } from './token_test_helpers.js';
 
 const BALANCE_TOO_LOW = 'Assertion failed: Balance too low';
@@ -19,7 +21,7 @@ const BALANCE_TOO_LOW = 'Assertion failed: Balance too low';
 /** A TokenBlacklist transfer mechanism: private transfers use a proxy authwit, public a public authwit. */
 interface TransferMechanism {
   name: string;
-  authwitKind: AuthwitKind;
+  authwitKind: 'public' | 'private-proxy';
   balanceKind: BalanceKind;
   overBalanceError: string;
   transfer(from: AztecAddress, to: AztecAddress, amount: bigint, nonce: Fr | number): ContractFunctionInteraction;
@@ -28,9 +30,9 @@ interface TransferMechanism {
 
 // Private and public token transfers on TokenBlacklist, parameterized by authwit mechanism (private proxy
 // vs public authwit): direct and self transfers, delegated transfers with single-use replay protection,
-// the shared failure matrix, and blacklist enforcement on both sender and recipient. Both mechanisms share
-// one harness — private transfers only touch private balances and public transfers only public balances,
-// so neither disturbs the other's starting mint. Setup: single node with AutomineSequencer, 3 accounts +
+// the failure cases, and blacklist enforcement on both sender and recipient. Both mechanisms share one
+// harness — private transfers only touch private balances and public transfers only public balances, so
+// neither disturbs the other's starting mint. Setup: single node with AutomineSequencer, 3 accounts +
 // authwit proxy, TokenBlacklist deployed with initial mint (warps past the 86400s role-change delay).
 describe('automine/token/blacklist_transfer', () => {
   const t = new BlacklistTokenContractTest('blacklist_transfer');
@@ -96,38 +98,92 @@ describe('automine/token/blacklist_transfer', () => {
     });
 
     describe('failure cases', () => {
-      const rows: TokenFailureRow[] = [
-        { failureMode: 'over-balance', expectedError: m.overBalanceError, title: 'transfer more than balance' },
-        { failureMode: 'invalid-nonce', title: 'transfer on behalf of self with non-zero nonce' },
-        { failureMode: 'no-approval', title: 'transfer on behalf of other without approval' },
-        {
-          failureMode: 'over-balance-via-authwit',
-          expectedError: m.overBalanceError,
-          assertBalancesUnchanged: true,
-          title: 'transfer more than balance on behalf of other',
-        },
-        {
-          failureMode: 'wrong-caller',
-          assertBalancesUnchanged: true,
-          title: 'transfer on behalf of other, wrong designated caller',
-        },
-      ];
+      it('transfer more than balance', async () => {
+        const amount = await amountAboveBalance(t.asset, m.balanceKind, t.adminAddress);
+        await expect(
+          m.transfer(t.adminAddress, t.otherAddress, amount, 0).simulate({ from: t.adminAddress }),
+        ).rejects.toThrow(m.overBalanceError);
+      });
 
-      runTokenFailureCases(
-        () => ({
-          balanceAsset: t.asset,
-          wallet: t.wallet,
-          proxy: t.authwitProxy,
-          owner: t.adminAddress,
-          other: t.otherAddress,
-        }),
-        {
-          balanceKind: m.balanceKind,
-          authwitKind: m.authwitKind,
-          buildAction: (r, amount, nonce) => m.transfer(r.owner, r.other, amount, nonce),
-        },
-        rows,
-      );
+      it('transfer on behalf of self with non-zero nonce', async () => {
+        const amount = await halfBalanceOf(t.asset, m.balanceKind, t.adminAddress);
+        await expect(
+          m.transfer(t.adminAddress, t.otherAddress, amount, 1).simulate({ from: t.adminAddress }),
+        ).rejects.toThrow(INVALID_AUTHWIT_NONCE_ERROR);
+      });
+
+      it('transfer on behalf of other without approval', async () => {
+        if (m.authwitKind === 'public') {
+          const amount = await amountAboveBalance(t.asset, m.balanceKind, t.adminAddress);
+          await expect(
+            m.transfer(t.adminAddress, t.otherAddress, amount, Fr.random()).simulate({ from: t.otherAddress }),
+          ).rejects.toThrow(/unauthorized/);
+        } else {
+          const amount = await halfBalanceOf(t.asset, m.balanceKind, t.adminAddress);
+          const action = m.transfer(t.adminAddress, t.otherAddress, amount, Fr.random());
+          const call = await action.getFunctionCall();
+          const messageHash = await computeAuthWitMessageHash(
+            { caller: t.authwitProxy.address, call },
+            await t.wallet.getChainInfo(),
+          );
+          await expect(simulateThroughAuthwitProxy(t.authwitProxy, action, { from: t.adminAddress })).rejects.toThrow(
+            `Unknown auth witness for message hash ${messageHash.toString()}`,
+          );
+        }
+      });
+
+      it('transfer more than balance on behalf of other', async () => {
+        const amount = await amountAboveBalance(t.asset, m.balanceKind, t.adminAddress);
+        const action = m.transfer(t.adminAddress, t.otherAddress, amount, Fr.random());
+        const ownerBefore = await balanceOf(t.asset, m.balanceKind, t.adminAddress);
+        const otherBefore = await balanceOf(t.asset, m.balanceKind, t.otherAddress);
+
+        if (m.authwitKind === 'public') {
+          const grant = await t.wallet.setPublicAuthWit(t.adminAddress, { caller: t.otherAddress, action }, true);
+          await grant.send();
+          await expect(action.simulate({ from: t.otherAddress })).rejects.toThrow(m.overBalanceError);
+        } else {
+          const witness = await t.wallet.createAuthWit(t.adminAddress, { caller: t.authwitProxy.address, action });
+          await expect(
+            simulateThroughAuthwitProxy(t.authwitProxy, action, { from: t.adminAddress, authWitnesses: [witness] }),
+          ).rejects.toThrow(m.overBalanceError);
+        }
+
+        expect(await balanceOf(t.asset, m.balanceKind, t.adminAddress)).toEqual(ownerBefore);
+        expect(await balanceOf(t.asset, m.balanceKind, t.otherAddress)).toEqual(otherBefore);
+      });
+
+      it('transfer on behalf of other, wrong designated caller', async () => {
+        if (m.authwitKind === 'public') {
+          const amount = await amountAboveBalance(t.asset, m.balanceKind, t.adminAddress, 2n);
+          const action = m.transfer(t.adminAddress, t.otherAddress, amount, Fr.random());
+          const ownerBefore = await balanceOf(t.asset, m.balanceKind, t.adminAddress);
+          const otherBefore = await balanceOf(t.asset, m.balanceKind, t.otherAddress);
+          // Approve the owner as caller, but execute from `other`: the message hashes don't match.
+          const grant = await t.wallet.setPublicAuthWit(t.adminAddress, { caller: t.adminAddress, action }, true);
+          await grant.send();
+          await expect(action.simulate({ from: t.otherAddress })).rejects.toThrow(/unauthorized/);
+          expect(await balanceOf(t.asset, m.balanceKind, t.adminAddress)).toEqual(ownerBefore);
+          expect(await balanceOf(t.asset, m.balanceKind, t.otherAddress)).toEqual(otherBefore);
+        } else {
+          const amount = await halfBalanceOf(t.asset, m.balanceKind, t.adminAddress);
+          const action = m.transfer(t.adminAddress, t.otherAddress, amount, Fr.random());
+          const call = await action.getFunctionCall();
+          const expectedMessageHash = await computeAuthWitMessageHash(
+            { caller: t.authwitProxy.address, call },
+            await t.wallet.getChainInfo(),
+          );
+          // Designate `other` as caller (not the proxy), then send through the proxy: the hashes don't match.
+          const witness = await t.wallet.createAuthWit(t.adminAddress, { caller: t.otherAddress, action });
+          const ownerBefore = await balanceOf(t.asset, m.balanceKind, t.adminAddress);
+          const otherBefore = await balanceOf(t.asset, m.balanceKind, t.otherAddress);
+          await expect(
+            simulateThroughAuthwitProxy(t.authwitProxy, action, { from: t.adminAddress, authWitnesses: [witness] }),
+          ).rejects.toThrow(`Unknown auth witness for message hash ${expectedMessageHash.toString()}`);
+          expect(await balanceOf(t.asset, m.balanceKind, t.adminAddress)).toEqual(ownerBefore);
+          expect(await balanceOf(t.asset, m.balanceKind, t.otherAddress)).toEqual(otherBefore);
+        }
+      });
 
       it.skip('transfer into account to overflow', () => {
         // This should already be covered by the mint case earlier. e.g., since we cannot mint to overflow, there is

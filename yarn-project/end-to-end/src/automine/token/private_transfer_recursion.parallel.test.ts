@@ -9,19 +9,19 @@ import { TokenContractTest } from './token_contract_test.js';
 // events are emitted and readable. Setup: single node with AutomineSequencer, 3 accounts, Token deployed.
 describe('automine/token/private_transfer_recursion', () => {
   const t = new TokenContractTest('odd_transfer_private');
-  let { asset, wallet, adminAddress, account1Address, node } = t;
+  let { asset, wallet, adminAddress, otherAddress, node } = t;
 
   beforeAll(async () => {
     t.applyBaseSnapshots();
     await t.setup();
-    ({ asset, wallet, adminAddress, account1Address, node } = t);
+    ({ asset, wallet, adminAddress, otherAddress, node } = t);
   });
 
   afterAll(async () => {
     await t.teardown();
   });
 
-  // Mints 16 separate notes of 10 tokens each, transfers the full balance to account1, then verifies that
+  // Mints 16 separate notes of 10 tokens each, transfers the full balance to other, then verifies that
   // all 16 notes were nullified, one new note was created, and the Transfer event is readable.
   it('transfer full balance', async () => {
     // We insert 16 notes, which is large enough to guarantee that the token will need to do two recursive calls to
@@ -29,7 +29,7 @@ describe('automine/token/private_transfer_recursion', () => {
     const totalNotes = 16;
     const totalBalance = await mintNotes(wallet, adminAddress, adminAddress, asset, Array(totalNotes).fill(10n));
     const { receipt: txReceipt } = await asset.methods
-      .transfer(account1Address, totalBalance)
+      .transfer(otherAddress, totalBalance)
       .send({ from: adminAddress });
     const txEffects = await node.getTxEffect(txReceipt.txHash);
 
@@ -42,13 +42,13 @@ describe('automine/token/private_transfer_recursion', () => {
       contractAddress: asset.address,
       fromBlock: BlockNumber(txReceipt.blockNumber!),
       toBlock: BlockNumber(txReceipt.blockNumber! + 1),
-      scopes: [account1Address],
+      scopes: [otherAddress],
     });
 
     expect(events[0]).toEqual({
       event: {
         from: adminAddress,
-        to: account1Address,
+        to: otherAddress,
         amount: totalBalance,
       },
       metadata: {
@@ -69,7 +69,7 @@ describe('automine/token/private_transfer_recursion', () => {
     const totalBalance = await mintNotes(wallet, adminAddress, adminAddress, asset, noteAmounts);
     const toSend = totalBalance - expectedChange;
 
-    const { receipt: txReceipt } = await asset.methods.transfer(account1Address, toSend).send({ from: adminAddress });
+    const { receipt: txReceipt } = await asset.methods.transfer(otherAddress, toSend).send({ from: adminAddress });
     const txEffects = await node.getTxEffect(txReceipt.txHash);
 
     // We should have nullified all notes, plus an extra nullifier for the transaction and one for the event commitment.
@@ -86,13 +86,13 @@ describe('automine/token/private_transfer_recursion', () => {
       contractAddress: asset.address,
       fromBlock: BlockNumber(txReceipt.blockNumber!),
       toBlock: BlockNumber(txReceipt.blockNumber! + 1),
-      scopes: [account1Address],
+      scopes: [otherAddress],
     });
 
     expect(events[0]).toEqual({
       event: {
         from: adminAddress,
-        to: account1Address,
+        to: otherAddress,
         amount: toSend,
       },
       metadata: {
@@ -114,7 +114,7 @@ describe('automine/token/private_transfer_recursion', () => {
       const amount = balance0 + 1n;
       expect(amount).toBeGreaterThan(0n);
 
-      await expect(asset.methods.transfer(account1Address, amount).simulate({ from: adminAddress })).rejects.toThrow(
+      await expect(asset.methods.transfer(otherAddress, amount).simulate({ from: adminAddress })).rejects.toThrow(
         'Assertion failed: Balance too low',
       );
     });

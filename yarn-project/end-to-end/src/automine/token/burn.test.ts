@@ -1,61 +1,43 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { computeAuthWitMessageHash } from '@aztec/aztec.js/authorization';
 import type { ContractFunctionInteraction } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
-import type { GenericProxyContract } from '@aztec/noir-test-contracts.js/GenericProxy';
 
+import { simulateThroughAuthwitProxy } from '../../fixtures/authwit_proxy.js';
 import { U128_UNDERFLOW_ERROR } from '../../fixtures/index.js';
-import type { TokenSimulator } from '../../simulators/token_simulator.js';
-import type { TestWallet } from '../../test-wallet/test_wallet.js';
 import { BlacklistTokenContractTest } from './blacklist_token_contract_test.js';
 import { TokenContractTest } from './token_contract_test.js';
 import {
-  type BalanceReadable,
-  type TokenFailureRefs,
+  INVALID_AUTHWIT_NONCE_ERROR,
+  amountAboveBalance,
   assertAuthwitProxyReplayRejected,
   assertPublicAuthwitReplayRejected,
   halfBalanceOf,
-  runTokenFailureCases,
 } from './token_test_helpers.js';
 
 const BALANCE_TOO_LOW = 'Assertion failed: Balance too low';
 const BLACKLISTED_SENDER = 'Assertion failed: Blacklisted: Sender';
 
 /**
- * Uniform view over a burn harness (Token or TokenBlacklist), hiding the differing private-burn method name
- * (`burn_private` vs `burn`), delegated-caller account, and blacklist surface behind one interface.
+ * A ready-to-exercise burn harness: the underlying {@link TokenContractTest} or
+ * {@link BlacklistTokenContractTest} plus the one operation whose method name differs between them
+ * (`burn_private` vs `burn`). `burn_public` is identical on both, so tests call it off `t` directly.
  */
-interface BurnScenario {
-  teardown(): Promise<void>;
-  tokenSim: TokenSimulator;
-  asset: BalanceReadable;
-  wallet: TestWallet;
-  proxy: GenericProxyContract;
-  owner: AztecAddress;
-  other: AztecAddress;
+interface BurnHarness {
+  t: TokenContractTest | BlacklistTokenContractTest;
+  privateBurn: (from: AztecAddress, amount: bigint, nonce: Fr | number) => ContractFunctionInteraction;
   blacklistedAddress?: AztecAddress;
-  publicBurn(from: AztecAddress, amount: bigint, nonce: Fr | number): ContractFunctionInteraction;
-  privateBurn(from: AztecAddress, amount: bigint, nonce: Fr | number): ContractFunctionInteraction;
 }
 
-const scenarios: { name: string; setup: () => Promise<BurnScenario> }[] = [
+const scenarios: { name: string; setup: () => Promise<BurnHarness> }[] = [
   {
     name: 'Token',
     setup: async () => {
       const t = new TokenContractTest('burn');
       t.applyBaseSnapshots();
-      t.applyMintSnapshot();
       await t.setup();
-      return {
-        teardown: () => t.teardown(),
-        tokenSim: t.tokenSim,
-        asset: t.asset,
-        wallet: t.wallet,
-        proxy: t.authwitProxy,
-        owner: t.adminAddress,
-        other: t.account1Address,
-        publicBurn: (from, amount, nonce) => t.asset.methods.burn_public(from, amount, nonce),
-        privateBurn: (from, amount, nonce) => t.asset.methods.burn_private(from, amount, nonce),
-      };
+      await t.applyMint();
+      return { t, privateBurn: (from, amount, nonce) => t.asset.methods.burn_private(from, amount, nonce) };
     },
   },
   {
@@ -66,28 +48,21 @@ const scenarios: { name: string; setup: () => Promise<BurnScenario> }[] = [
       // Adds the admin as minter, which is slow because it needs multiple blocks and role-change warps.
       await t.applyMint();
       return {
-        teardown: () => t.teardown(),
-        tokenSim: t.tokenSim,
-        asset: t.asset,
-        wallet: t.wallet,
-        proxy: t.authwitProxy,
-        owner: t.adminAddress,
-        other: t.otherAddress,
-        blacklistedAddress: t.blacklistedAddress,
-        publicBurn: (from, amount, nonce) => t.asset.methods.burn_public(from, amount, nonce),
+        t,
         privateBurn: (from, amount, nonce) => t.asset.methods.burn(from, amount, nonce),
+        blacklistedAddress: t.blacklistedAddress,
       };
     },
   },
 ];
 
 // Public and private burn coverage across both the plain Token and the TokenBlacklist contracts: direct
-// burns, authwit-delegated burns (public authwit / private proxy), the shared failure matrix, and the
+// burns, authwit-delegated burns (public authwit / private proxy), the failure cases, and the
 // blacklist-only "sender is blacklisted" cases. Setup per harness: single node with AutomineSequencer,
 // 3 accounts + authwit proxy, token deployed with initial public and private mint (the blacklist harness
 // additionally warps past the 86400s role-change delay).
 describe.each(scenarios)('automine/token/burn ($name)', ({ name, setup }) => {
-  let s: BurnScenario;
+  let s: BurnHarness;
   const isBlacklist = name === 'TokenBlacklist';
 
   beforeAll(async () => {
@@ -95,65 +70,75 @@ describe.each(scenarios)('automine/token/burn ($name)', ({ name, setup }) => {
   }, 600_000);
 
   afterAll(async () => {
-    await s.teardown();
+    await s.t.teardown();
   });
 
   afterEach(async () => {
-    await s.tokenSim.check();
-  });
-
-  const refs = (): TokenFailureRefs => ({
-    balanceAsset: s.asset,
-    wallet: s.wallet,
-    proxy: s.proxy,
-    owner: s.owner,
-    other: s.other,
+    await s.t.tokenSim.check();
   });
 
   describe('public', () => {
     // Burns half the admin's public balance and verifies via TokenSimulator.
     it('burn less than balance', async () => {
-      const amount = await halfBalanceOf(s.asset, 'public', s.owner);
-      await s.publicBurn(s.owner, amount, 0).send({ from: s.owner });
-      s.tokenSim.burnPublic(s.owner, amount);
+      const amount = await halfBalanceOf(s.t.asset, 'public', s.t.adminAddress);
+      await s.t.asset.methods.burn_public(s.t.adminAddress, amount, 0).send({ from: s.t.adminAddress });
+      s.t.tokenSim.burnPublic(s.t.adminAddress, amount);
     });
 
     // Grants a public authwit for burn, burns via the delegated caller, then confirms the authwit is
     // single-use (replay reverts with unauthorized).
     it('burn on behalf of other', async () => {
-      const amount = await halfBalanceOf(s.asset, 'public', s.owner);
-      const action = s.publicBurn(s.owner, amount, Fr.random());
-      await assertPublicAuthwitReplayRejected(s.wallet, s.owner, action, s.other, () =>
-        s.tokenSim.burnPublic(s.owner, amount),
+      const amount = await halfBalanceOf(s.t.asset, 'public', s.t.adminAddress);
+      const action = s.t.asset.methods.burn_public(s.t.adminAddress, amount, Fr.random());
+      await assertPublicAuthwitReplayRejected(s.t.wallet, s.t.adminAddress, action, s.t.otherAddress, () =>
+        s.t.tokenSim.burnPublic(s.t.adminAddress, amount),
       );
     });
 
     describe('failure cases', () => {
-      runTokenFailureCases(
-        refs,
-        {
-          balanceKind: 'public',
-          authwitKind: 'public',
-          buildAction: (r, amount, nonce) => s.publicBurn(r.owner, amount, nonce),
-        },
-        [
-          { failureMode: 'over-balance', expectedError: U128_UNDERFLOW_ERROR, title: 'burn more than balance' },
-          { failureMode: 'invalid-nonce', title: 'burn on behalf of self with non-zero nonce' },
-          { failureMode: 'no-approval', title: 'burn on behalf of other without "approval"' },
-          {
-            failureMode: 'over-balance-via-authwit',
-            expectedError: U128_UNDERFLOW_ERROR,
-            title: 'burn more than balance on behalf of other',
-          },
-          { failureMode: 'wrong-caller', title: 'burn on behalf of other, wrong designated caller' },
-        ],
-      );
+      it('burn more than balance', async () => {
+        const amount = await amountAboveBalance(s.t.asset, 'public', s.t.adminAddress);
+        await expect(
+          s.t.asset.methods.burn_public(s.t.adminAddress, amount, 0).simulate({ from: s.t.adminAddress }),
+        ).rejects.toThrow(U128_UNDERFLOW_ERROR);
+      });
+
+      it('burn on behalf of self with non-zero nonce', async () => {
+        const amount = await halfBalanceOf(s.t.asset, 'public', s.t.adminAddress);
+        await expect(
+          s.t.asset.methods.burn_public(s.t.adminAddress, amount, 1).simulate({ from: s.t.adminAddress }),
+        ).rejects.toThrow(INVALID_AUTHWIT_NONCE_ERROR);
+      });
+
+      it('burn on behalf of other without "approval"', async () => {
+        const amount = await amountAboveBalance(s.t.asset, 'public', s.t.adminAddress);
+        await expect(
+          s.t.asset.methods.burn_public(s.t.adminAddress, amount, Fr.random()).simulate({ from: s.t.otherAddress }),
+        ).rejects.toThrow(/unauthorized/);
+      });
+
+      it('burn more than balance on behalf of other', async () => {
+        const amount = await amountAboveBalance(s.t.asset, 'public', s.t.adminAddress);
+        const action = s.t.asset.methods.burn_public(s.t.adminAddress, amount, Fr.random());
+        const grant = await s.t.wallet.setPublicAuthWit(s.t.adminAddress, { caller: s.t.otherAddress, action }, true);
+        await grant.send();
+        await expect(action.simulate({ from: s.t.otherAddress })).rejects.toThrow(U128_UNDERFLOW_ERROR);
+      });
+
+      it('burn on behalf of other, wrong designated caller', async () => {
+        const amount = await amountAboveBalance(s.t.asset, 'public', s.t.adminAddress, 2n);
+        const action = s.t.asset.methods.burn_public(s.t.adminAddress, amount, Fr.random());
+        // Approve the owner as caller, but execute from `other`: the message hashes don't match.
+        const grant = await s.t.wallet.setPublicAuthWit(s.t.adminAddress, { caller: s.t.adminAddress, action }, true);
+        await grant.send();
+        await expect(action.simulate({ from: s.t.otherAddress })).rejects.toThrow(/unauthorized/);
+      });
 
       if (isBlacklist) {
         // Blacklist-only: a blacklisted account cannot burn its own tokens.
         it('burn from blacklisted account', async () => {
           await expect(
-            s.publicBurn(s.blacklistedAddress!, 1n, 0).simulate({ from: s.blacklistedAddress! }),
+            s.t.asset.methods.burn_public(s.blacklistedAddress!, 1n, 0).simulate({ from: s.blacklistedAddress! }),
           ).rejects.toThrow(BLACKLISTED_SENDER);
         });
       }
@@ -163,41 +148,72 @@ describe.each(scenarios)('automine/token/burn ($name)', ({ name, setup }) => {
   describe('private', () => {
     // Burns half the admin's private balance and verifies via TokenSimulator.
     it('burn less than balance', async () => {
-      const amount = await halfBalanceOf(s.asset, 'private', s.owner);
-      await s.privateBurn(s.owner, amount, 0).send({ from: s.owner });
-      s.tokenSim.burnPrivate(s.owner, amount);
+      const amount = await halfBalanceOf(s.t.asset, 'private', s.t.adminAddress);
+      await s.privateBurn(s.t.adminAddress, amount, 0).send({ from: s.t.adminAddress });
+      s.t.tokenSim.burnPrivate(s.t.adminAddress, amount);
     });
 
     // Creates a private authwit for burn, sends through the proxy, then confirms replay reverts with a
     // duplicate-nullifier error.
     it('burn on behalf of other', async () => {
-      const amount = await halfBalanceOf(s.asset, 'private', s.owner);
-      const action = s.privateBurn(s.owner, amount, Fr.random());
-      await assertAuthwitProxyReplayRejected(s.proxy, s.wallet, s.owner, action, () =>
-        s.tokenSim.burnPrivate(s.owner, amount),
+      const amount = await halfBalanceOf(s.t.asset, 'private', s.t.adminAddress);
+      const action = s.privateBurn(s.t.adminAddress, amount, Fr.random());
+      await assertAuthwitProxyReplayRejected(s.t.authwitProxy, s.t.wallet, s.t.adminAddress, action, () =>
+        s.t.tokenSim.burnPrivate(s.t.adminAddress, amount),
       );
     });
 
     describe('failure cases', () => {
-      runTokenFailureCases(
-        refs,
-        {
-          balanceKind: 'private',
-          authwitKind: 'private-proxy',
-          buildAction: (r, amount, nonce) => s.privateBurn(r.owner, amount, nonce),
-        },
-        [
-          { failureMode: 'over-balance', expectedError: BALANCE_TOO_LOW, title: 'burn more than balance' },
-          { failureMode: 'invalid-nonce', title: 'burn on behalf of self with non-zero nonce' },
-          {
-            failureMode: 'over-balance-via-authwit',
-            expectedError: BALANCE_TOO_LOW,
-            title: 'burn more than balance on behalf of other',
-          },
-          { failureMode: 'no-approval', title: 'burn on behalf of other without approval' },
-          { failureMode: 'wrong-caller', title: 'on behalf of other (invalid designated caller)' },
-        ],
-      );
+      it('burn more than balance', async () => {
+        const amount = await amountAboveBalance(s.t.asset, 'private', s.t.adminAddress);
+        await expect(s.privateBurn(s.t.adminAddress, amount, 0).simulate({ from: s.t.adminAddress })).rejects.toThrow(
+          BALANCE_TOO_LOW,
+        );
+      });
+
+      it('burn on behalf of self with non-zero nonce', async () => {
+        const amount = await halfBalanceOf(s.t.asset, 'private', s.t.adminAddress);
+        await expect(s.privateBurn(s.t.adminAddress, amount, 1).simulate({ from: s.t.adminAddress })).rejects.toThrow(
+          INVALID_AUTHWIT_NONCE_ERROR,
+        );
+      });
+
+      it('burn more than balance on behalf of other', async () => {
+        const amount = await amountAboveBalance(s.t.asset, 'private', s.t.adminAddress);
+        const action = s.privateBurn(s.t.adminAddress, amount, Fr.random());
+        const witness = await s.t.wallet.createAuthWit(s.t.adminAddress, { caller: s.t.authwitProxy.address, action });
+        await expect(
+          simulateThroughAuthwitProxy(s.t.authwitProxy, action, { from: s.t.adminAddress, authWitnesses: [witness] }),
+        ).rejects.toThrow(BALANCE_TOO_LOW);
+      });
+
+      it('burn on behalf of other without approval', async () => {
+        const amount = await halfBalanceOf(s.t.asset, 'private', s.t.adminAddress);
+        const action = s.privateBurn(s.t.adminAddress, amount, Fr.random());
+        const call = await action.getFunctionCall();
+        const messageHash = await computeAuthWitMessageHash(
+          { caller: s.t.authwitProxy.address, call },
+          await s.t.wallet.getChainInfo(),
+        );
+        await expect(simulateThroughAuthwitProxy(s.t.authwitProxy, action, { from: s.t.adminAddress })).rejects.toThrow(
+          `Unknown auth witness for message hash ${messageHash.toString()}`,
+        );
+      });
+
+      it('on behalf of other (invalid designated caller)', async () => {
+        const amount = await halfBalanceOf(s.t.asset, 'private', s.t.adminAddress);
+        const action = s.privateBurn(s.t.adminAddress, amount, Fr.random());
+        const call = await action.getFunctionCall();
+        const expectedMessageHash = await computeAuthWitMessageHash(
+          { caller: s.t.authwitProxy.address, call },
+          await s.t.wallet.getChainInfo(),
+        );
+        // Designate `other` as caller (not the proxy), then send through the proxy: the hashes don't match.
+        const witness = await s.t.wallet.createAuthWit(s.t.adminAddress, { caller: s.t.otherAddress, action });
+        await expect(
+          simulateThroughAuthwitProxy(s.t.authwitProxy, action, { from: s.t.adminAddress, authWitnesses: [witness] }),
+        ).rejects.toThrow(`Unknown auth witness for message hash ${expectedMessageHash.toString()}`);
+      });
 
       if (isBlacklist) {
         // Blacklist-only: a blacklisted account cannot private-burn its own tokens.
