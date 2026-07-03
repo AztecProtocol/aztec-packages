@@ -30,7 +30,6 @@ shift
 # Handle list-targets command
 if [ "$COMMAND" = "list-targets" ]; then
     echo "Available fuzzing options (<target_name>):"
-    echo "  avm - AVM fuzzer (avm_fuzzer_avm_differential_fuzzer)"
     echo "  tx - Transaction fuzzer (avm_fuzzer_tx_fuzzer)"
     echo "  prover - Prover fuzzer (avm_fuzzer_prover_fuzzer)"
     echo "  alu - ALU fuzzer (harness_alu_fuzzer)"
@@ -103,7 +102,6 @@ fi
 
 # Validate and map fuzzer type
 case "$FUZZER_ALIAS" in
-    avm) FUZZER_TYPE="avm_fuzzer_avm_differential_fuzzer" ;;
     tx) FUZZER_TYPE="avm_fuzzer_tx_fuzzer" ;;
     prover) FUZZER_TYPE="avm_fuzzer_prover_fuzzer" ;;
     alu) FUZZER_TYPE="harness_alu_fuzzer" ;;
@@ -117,7 +115,7 @@ case "$FUZZER_ALIAS" in
     external_call) FUZZER_TYPE="harness_external_call_fuzzer" ;;
     *)
         echo "Error: Invalid fuzzer type '$FUZZER_ALIAS'"
-        echo "Valid options: 'avm', 'tx', 'prover', 'alu', 'bitwise', 'ecc', 'gt', 'merkle_check', 'calldata', 'emit_public_log', 'internal_call', or 'external_call'"
+        echo "Valid options: 'tx', 'prover', 'alu', 'bitwise', 'ecc', 'gt', 'merkle_check', 'calldata', 'emit_public_log', 'internal_call', or 'external_call'"
         exit 1
         ;;
 esac
@@ -125,23 +123,8 @@ esac
 # Get the script directory and project root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BARRETENBERG_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
-PROJECT_ROOT="$(cd "$BARRETENBERG_ROOT/.." && pwd)"
 CPP_DIR="$BARRETENBERG_ROOT/cpp"
 COVERAGE_OUTPUT_DIR="$SCRIPT_DIR/coverage"
-
-# Set AVM_SIMULATOR_BIN environment variable (relative to PROJECT_ROOT)
-export AVM_SIMULATOR_BIN="${AVM_SIMULATOR_BIN:-$PROJECT_ROOT/yarn-project/simulator/dest/public/fuzzing/avm_simulator_bin.js}"
-
-# Check if AVM_SIMULATOR_BIN exists (only for avm, tx, and prover fuzzers)
-if [ "$COMMAND" = "fuzz" ] && { [ "$FUZZER_ALIAS" = "avm" ] || [ "$FUZZER_ALIAS" = "tx" ] || [ "$FUZZER_ALIAS" = "prover" ]; } && [ ! -f "$AVM_SIMULATOR_BIN" ]; then
-    echo "Error: AVM simulator binary not found at: $AVM_SIMULATOR_BIN"
-    echo ""
-    echo "To build the AVM simulator fuzzer binary:"
-    echo "  cd $PROJECT_ROOT/yarn-project/simulator"
-    echo "  yarn build:fuzzer"
-    echo ""
-    exit 1
-fi
 
 # Set build directory based on command
 if [ "$COMMAND" = "coverage" ]; then

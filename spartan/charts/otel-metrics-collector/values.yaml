@@ -1,0 +1,28 @@
+fullnameOverride: ""
+
+externalSecret:
+  gcpSecretName: ""
+  refreshInterval: "1m"
+  secretStore:
+    name: "gcp-secret-store"
+    kind: "ClusterSecretStore"
+
+scrapeConfigs: []
+
+resourceAttributes: {}
+
+labels: {}
+
+image: "otel/opentelemetry-collector-contrib:0.154.0"
+
+replicas: 1
+
+nodeSelector: {}
+
+resources:
+  requests:
+    cpu: "50m"
+    memory: "128Mi"
+  limits:
+    cpu: "200m"
+    memory: "256Mi"

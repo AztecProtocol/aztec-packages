@@ -1,0 +1,1529 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Reth",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Reth scrape up",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 4,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "wideLayout": true,
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "showPercentChange": false,
+        "percentChangeColorMode": "standard"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "min(up{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_client=\"reth\"})",
+          "legendFormat": "",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "pluginVersion": "12.3.6"
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Connected peers",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 1,
+        "w": 4,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "wideLayout": true,
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "showPercentChange": false,
+        "percentChangeColorMode": "standard"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "max(reth_network_connected_peers{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_client=\"reth\"})",
+          "legendFormat": "",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "pluginVersion": "12.3.6"
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Headers downloaded",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 1,
+        "w": 4,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "wideLayout": true,
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "showPercentChange": false,
+        "percentChangeColorMode": "standard"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "max(reth_downloaders_headers_total_downloaded{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_client=\"reth\"})",
+          "legendFormat": "",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "pluginVersion": "12.3.6"
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Bodies downloaded",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 4,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "wideLayout": true,
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "showPercentChange": false,
+        "percentChangeColorMode": "standard"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "max(reth_downloaders_bodies_total_downloaded{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_client=\"reth\"})",
+          "legendFormat": "",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "pluginVersion": "12.3.6"
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Txpool total",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 1,
+        "w": 4,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "wideLayout": true,
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "showPercentChange": false,
+        "percentChangeColorMode": "standard"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "max(reth_transaction_pool_total_transactions{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_client=\"reth\"})",
+          "legendFormat": "",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "pluginVersion": "12.3.6"
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "Base fee",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 1,
+        "w": 4,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "wideLayout": true,
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "showPercentChange": false,
+        "percentChangeColorMode": "standard"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "max(reth_transaction_pool_base_fee{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_client=\"reth\"})",
+          "legendFormat": "",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "pluginVersion": "12.3.6"
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "RPC calls by method",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "topk(12, sum by (method) (rate(reth_rpc_server_calls_started_total{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_client=\"reth\"}[$__rate_interval])))",
+          "legendFormat": "{{method}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "pluginVersion": "12.3.6"
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Downloader progress rate",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 6,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "sum by (eth_chain) (rate(reth_downloaders_headers_total_downloaded{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_client=\"reth\"}[$__rate_interval]))",
+          "legendFormat": "headers {{eth_chain}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "sum by (eth_chain) (rate(reth_downloaders_bodies_total_downloaded{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_client=\"reth\"}[$__rate_interval]))",
+          "legendFormat": "bodies {{eth_chain}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "pluginVersion": "12.3.6"
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Txpool by subpool",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "max(reth_transaction_pool_pending_pool_transactions{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_client=\"reth\"})",
+          "legendFormat": "pending",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "max(reth_transaction_pool_basefee_pool_transactions{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_client=\"reth\"})",
+          "legendFormat": "basefee",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "max(reth_transaction_pool_queued_pool_transactions{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_client=\"reth\"})",
+          "legendFormat": "queued",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "max(reth_transaction_pool_blob_pool_transactions{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_client=\"reth\"})",
+          "legendFormat": "blob",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "pluginVersion": "12.3.6"
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Engine sync/forkchoice responses",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 14,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "rate(reth_consensus_engine_beacon_forkchoice_updated_valid{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_client=\"reth\"}[$__rate_interval])",
+          "legendFormat": "forkchoice valid",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "rate(reth_consensus_engine_beacon_forkchoice_updated_syncing{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_client=\"reth\"}[$__rate_interval])",
+          "legendFormat": "forkchoice syncing",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "rate(reth_consensus_engine_beacon_new_payload_valid{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_client=\"reth\"}[$__rate_interval])",
+          "legendFormat": "payload valid",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "rate(reth_consensus_engine_beacon_new_payload_syncing{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_client=\"reth\"}[$__rate_interval])",
+          "legendFormat": "payload syncing",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "pluginVersion": "12.3.6"
+    },
+    {
+      "id": 12,
+      "type": "row",
+      "title": "Lighthouse",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 13,
+      "type": "stat",
+      "title": "Lighthouse scrape up",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 23,
+        "w": 4,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "wideLayout": true,
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "showPercentChange": false,
+        "percentChangeColorMode": "standard"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "min(up{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_client=\"lighthouse\"})",
+          "legendFormat": "",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "pluginVersion": "12.3.6"
+    },
+    {
+      "id": 14,
+      "type": "stat",
+      "title": "Synced",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 23,
+        "w": 4,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "wideLayout": true,
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "showPercentChange": false,
+        "percentChangeColorMode": "standard"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "max(sync_eth2_synced{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_client=\"lighthouse\"})",
+          "legendFormat": "",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "pluginVersion": "12.3.6"
+    },
+    {
+      "id": 15,
+      "type": "stat",
+      "title": "Head slot",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 23,
+        "w": 4,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "wideLayout": true,
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "showPercentChange": false,
+        "percentChangeColorMode": "standard"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "max(beacon_head_slot{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_client=\"lighthouse\"})",
+          "legendFormat": "",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "pluginVersion": "12.3.6"
+    },
+    {
+      "id": 16,
+      "type": "stat",
+      "title": "Finalized epoch",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 23,
+        "w": 4,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "wideLayout": true,
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "showPercentChange": false,
+        "percentChangeColorMode": "standard"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "max(beacon_finalized_epoch{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_client=\"lighthouse\"})",
+          "legendFormat": "",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "pluginVersion": "12.3.6"
+    },
+    {
+      "id": 17,
+      "type": "stat",
+      "title": "Slots/sec",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 23,
+        "w": 4,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 2,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "wideLayout": true,
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "showPercentChange": false,
+        "percentChangeColorMode": "standard"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "max(sync_slots_per_second{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_client=\"lighthouse\"})",
+          "legendFormat": "",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "pluginVersion": "12.3.6"
+    },
+    {
+      "id": 18,
+      "type": "stat",
+      "title": "Peers",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 23,
+        "w": 4,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "auto",
+        "wideLayout": true,
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "showPercentChange": false,
+        "percentChangeColorMode": "standard"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "max(libp2p_peers{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_client=\"lighthouse\"})",
+          "legendFormat": "",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "pluginVersion": "12.3.6"
+    },
+    {
+      "id": 19,
+      "type": "timeseries",
+      "title": "Beacon chain head",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "max by (eth_chain) (beacon_head_slot{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_client=\"lighthouse\"})",
+          "legendFormat": "head {{eth_chain}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "max by (eth_chain) (beacon_head_state_finalized_epoch{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_client=\"lighthouse\"})",
+          "legendFormat": "finalized epoch {{eth_chain}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "pluginVersion": "12.3.6"
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "Lighthouse bandwidth",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 28,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "sum by (direction) (rate(libp2p_bandwidth_bytes_total{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_client=\"lighthouse\"}[$__rate_interval]))",
+          "legendFormat": "{{direction}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "pluginVersion": "12.3.6"
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "Lighthouse storage and memory",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 36,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "max by (eth_chain) (store_disk_db_size{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_client=\"lighthouse\"})",
+          "legendFormat": "db {{eth_chain}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "max by (eth_chain) (process_resident_memory_bytes{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_client=\"lighthouse\"})",
+          "legendFormat": "rss {{eth_chain}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "pluginVersion": "12.3.6"
+    },
+    {
+      "id": 22,
+      "type": "timeseries",
+      "title": "Gossipsub messages",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${data_source}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 36,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "sum by (msg_type) (rate(gossipsub_topic_msg_recv_counts_total{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_client=\"lighthouse\"}[$__rate_interval]))",
+          "legendFormat": "recv {{msg_type}}",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${data_source}"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(gossipsub_topic_msg_sent_counts_total{network=\"ethereum\",eth_chain=~\"$eth_chain\",eth_client=\"lighthouse\"}[$__rate_interval]))",
+          "legendFormat": "sent",
+          "range": true,
+          "instant": false,
+          "refId": "A"
+        }
+      ],
+      "pluginVersion": "12.3.6"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 41,
+  "tags": [
+    "ethereum",
+    "l1",
+    "reth",
+    "lighthouse"
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "data_source",
+        "type": "datasource",
+        "query": "prometheus",
+        "refresh": 1,
+        "regex": "",
+        "includeAll": false,
+        "options": [],
+        "current": {
+          "selected": false,
+          "text": "default",
+          "value": "default"
+        }
+      },
+      {
+        "name": "eth_chain",
+        "label": "chain",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${data_source}"
+        },
+        "definition": "label_values(up{network=\"ethereum\",eth_chain!=\"\",component=\"ethereum-node\"}, eth_chain)",
+        "query": {
+          "qryType": 1,
+          "query": "label_values(up{network=\"ethereum\",eth_chain!=\"\",component=\"ethereum-node\"}, eth_chain)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 1,
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "sort": 1,
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        }
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Ethereum L1 Nodes",
+  "uid": "l1-ethereum-nodes",
+  "version": 1,
+  "weekStart": ""
+}

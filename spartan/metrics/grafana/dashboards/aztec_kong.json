@@ -97,7 +97,7 @@
             "uid": "${data_source}"
           },
           "editorMode": "code",
-          "expr": "count(count by (k8s_namespace_name, node_id) (kong_node_info{k8s_namespace_name=~\"$namespace\"}))",
+          "expr": "count(count by (k8s_namespace_name, node_id) (kong_node_info{network!=\"\", network!=\"ethereum\", network=~\"$network\", k8s_namespace_name=~\"$namespace\"}))",
           "instant": false,
           "legendFormat": "nodes",
           "range": true,
@@ -167,7 +167,7 @@
             "uid": "${data_source}"
           },
           "editorMode": "code",
-          "expr": "sum(rate(kong_http_requests_total{k8s_namespace_name=~\"$namespace\", route=~\"$route\", consumer=~\"$consumer\"}[$__rate_interval]))",
+          "expr": "sum(rate(kong_http_requests_total{network!=\"\", network!=\"ethereum\", network=~\"$network\", k8s_namespace_name=~\"$namespace\", route=~\"$route\", consumer=~\"$consumer\"}[$__rate_interval]))",
           "instant": false,
           "legendFormat": "requests",
           "range": true,
@@ -245,7 +245,7 @@
             "uid": "${data_source}"
           },
           "editorMode": "code",
-          "expr": "((sum(rate(kong_http_requests_total{k8s_namespace_name=~\"$namespace\", route=~\"$route\", consumer=~\"$consumer\", code=~\"5..\"}[$__rate_interval])) or vector(0)) / clamp_min((sum(rate(kong_http_requests_total{k8s_namespace_name=~\"$namespace\", route=~\"$route\", consumer=~\"$consumer\"}[$__rate_interval])) or vector(0)), 0.000000001))",
+          "expr": "((sum(rate(kong_http_requests_total{network!=\"\", network!=\"ethereum\", network=~\"$network\", k8s_namespace_name=~\"$namespace\", route=~\"$route\", consumer=~\"$consumer\", code=~\"5..\"}[$__rate_interval])) or vector(0)) / clamp_min((sum(rate(kong_http_requests_total{network!=\"\", network!=\"ethereum\", network=~\"$network\", k8s_namespace_name=~\"$namespace\", route=~\"$route\", consumer=~\"$consumer\"}[$__rate_interval])) or vector(0)), 0.000000001))",
           "instant": false,
           "legendFormat": "5xx",
           "range": true,
@@ -323,7 +323,7 @@
             "uid": "${data_source}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(kong_request_latency_ms_bucket{k8s_namespace_name=~\"$namespace\", route=~\"$route\"}[$__rate_interval]))) or histogram_quantile(0.95, sum by (le) (rate(kong_latency_bucket{k8s_namespace_name=~\"$namespace\", route=~\"$route\", type=\"request\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(kong_request_latency_ms_bucket{network!=\"\", network!=\"ethereum\", network=~\"$network\", k8s_namespace_name=~\"$namespace\", route=~\"$route\"}[$__rate_interval]))) or histogram_quantile(0.95, sum by (le) (rate(kong_latency_bucket{network!=\"\", network!=\"ethereum\", network=~\"$network\", k8s_namespace_name=~\"$namespace\", route=~\"$route\", type=\"request\"}[$__rate_interval])))",
           "instant": false,
           "legendFormat": "p95",
           "range": true,
@@ -397,7 +397,7 @@
             "uid": "${data_source}"
           },
           "editorMode": "code",
-          "expr": "sum(kong_upstream_target_health{k8s_namespace_name=~\"$namespace\", state=~\"unhealthy|dns_error\"}) or vector(0)",
+          "expr": "sum(kong_upstream_target_health{network!=\"\", network!=\"ethereum\", network=~\"$network\", k8s_namespace_name=~\"$namespace\", state=~\"unhealthy|dns_error\"}) or vector(0)",
           "instant": false,
           "legendFormat": "targets",
           "range": true,
@@ -510,7 +510,7 @@
             "uid": "${data_source}"
           },
           "editorMode": "code",
-          "expr": "sum by (route, code) (rate(kong_http_requests_total{k8s_namespace_name=~\"$namespace\", route=~\"$route\", consumer=~\"$consumer\"}[$__rate_interval]))",
+          "expr": "sum by (route, code) (rate(kong_http_requests_total{network!=\"\", network!=\"ethereum\", network=~\"$network\", k8s_namespace_name=~\"$namespace\", route=~\"$route\", consumer=~\"$consumer\"}[$__rate_interval]))",
           "instant": false,
           "legendFormat": "{{route}} {{code}}",
           "range": true,
@@ -609,7 +609,7 @@
             "uid": "${data_source}"
           },
           "editorMode": "code",
-          "expr": "sum by (consumer, code) (rate(kong_http_requests_total{k8s_namespace_name=~\"$namespace\", route=~\"$route\", consumer!=\"\", consumer=~\"$consumer\"}[$__rate_interval])) or sum by (consumer, code) (label_replace(rate(kong_http_requests_total{k8s_namespace_name=~\"$namespace\", route=~\"$route\", consumer=\"\"}[$__rate_interval]), \"consumer\", \"unauthenticated\", \"__name__\", \".*\"))",
+          "expr": "sum by (consumer, code) (rate(kong_http_requests_total{network!=\"\", network!=\"ethereum\", network=~\"$network\", k8s_namespace_name=~\"$namespace\", route=~\"$route\", consumer!=\"\", consumer=~\"$consumer\"}[$__rate_interval])) or sum by (consumer, code) (label_replace(rate(kong_http_requests_total{network!=\"\", network!=\"ethereum\", network=~\"$network\", k8s_namespace_name=~\"$namespace\", route=~\"$route\", consumer=\"\"}[$__rate_interval]), \"consumer\", \"unauthenticated\", \"__name__\", \".*\"))",
           "instant": false,
           "legendFormat": "{{consumer}} {{code}}",
           "range": true,
@@ -707,7 +707,7 @@
             "uid": "${data_source}"
           },
           "editorMode": "code",
-          "expr": "sum by (direction) (rate(kong_bandwidth_bytes_total{k8s_namespace_name=~\"$namespace\", route=~\"$route\", consumer=~\"$consumer\", direction=~\"ingress|egress\"}[$__rate_interval]))",
+          "expr": "sum by (direction) (rate(kong_bandwidth_bytes_total{network!=\"\", network!=\"ethereum\", network=~\"$network\", k8s_namespace_name=~\"$namespace\", route=~\"$route\", consumer=~\"$consumer\", direction=~\"ingress|egress\"}[$__rate_interval]))",
           "instant": false,
           "legendFormat": "{{direction}}",
           "range": true,
@@ -805,7 +805,7 @@
             "uid": "${data_source}"
           },
           "editorMode": "code",
-          "expr": "sum by (state) (kong_nginx_connections_total{k8s_namespace_name=~\"$namespace\", subsystem=\"http\", state=~\"active|reading|writing|waiting\"}) or sum by (state) (kong_nginx_http_current_connections{k8s_namespace_name=~\"$namespace\", state=~\"active|reading|writing|waiting\"})",
+          "expr": "sum by (state) (kong_nginx_connections_total{network!=\"\", network!=\"ethereum\", network=~\"$network\", k8s_namespace_name=~\"$namespace\", subsystem=\"http\", state=~\"active|reading|writing|waiting\"}) or sum by (state) (kong_nginx_http_current_connections{network!=\"\", network!=\"ethereum\", network=~\"$network\", k8s_namespace_name=~\"$namespace\", state=~\"active|reading|writing|waiting\"})",
           "instant": false,
           "legendFormat": "{{state}}",
           "range": true,
@@ -917,7 +917,7 @@
             "uid": "${data_source}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.50, sum by (le, route) (rate(kong_request_latency_ms_bucket{k8s_namespace_name=~\"$namespace\", route=~\"$route\"}[$__rate_interval]))) or histogram_quantile(0.50, sum by (le, route) (rate(kong_latency_bucket{k8s_namespace_name=~\"$namespace\", route=~\"$route\", type=\"request\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.50, sum by (le, route) (rate(kong_request_latency_ms_bucket{network!=\"\", network!=\"ethereum\", network=~\"$network\", k8s_namespace_name=~\"$namespace\", route=~\"$route\"}[$__rate_interval]))) or histogram_quantile(0.50, sum by (le, route) (rate(kong_latency_bucket{network!=\"\", network!=\"ethereum\", network=~\"$network\", k8s_namespace_name=~\"$namespace\", route=~\"$route\", type=\"request\"}[$__rate_interval])))",
           "instant": false,
           "legendFormat": "{{route}} p50",
           "range": true,
@@ -929,7 +929,7 @@
             "uid": "${data_source}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le, route) (rate(kong_request_latency_ms_bucket{k8s_namespace_name=~\"$namespace\", route=~\"$route\"}[$__rate_interval]))) or histogram_quantile(0.95, sum by (le, route) (rate(kong_latency_bucket{k8s_namespace_name=~\"$namespace\", route=~\"$route\", type=\"request\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.95, sum by (le, route) (rate(kong_request_latency_ms_bucket{network!=\"\", network!=\"ethereum\", network=~\"$network\", k8s_namespace_name=~\"$namespace\", route=~\"$route\"}[$__rate_interval]))) or histogram_quantile(0.95, sum by (le, route) (rate(kong_latency_bucket{network!=\"\", network!=\"ethereum\", network=~\"$network\", k8s_namespace_name=~\"$namespace\", route=~\"$route\", type=\"request\"}[$__rate_interval])))",
           "instant": false,
           "legendFormat": "{{route}} p95",
           "range": true,
@@ -941,7 +941,7 @@
             "uid": "${data_source}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.99, sum by (le, route) (rate(kong_request_latency_ms_bucket{k8s_namespace_name=~\"$namespace\", route=~\"$route\"}[$__rate_interval]))) or histogram_quantile(0.99, sum by (le, route) (rate(kong_latency_bucket{k8s_namespace_name=~\"$namespace\", route=~\"$route\", type=\"request\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.99, sum by (le, route) (rate(kong_request_latency_ms_bucket{network!=\"\", network!=\"ethereum\", network=~\"$network\", k8s_namespace_name=~\"$namespace\", route=~\"$route\"}[$__rate_interval]))) or histogram_quantile(0.99, sum by (le, route) (rate(kong_latency_bucket{network!=\"\", network!=\"ethereum\", network=~\"$network\", k8s_namespace_name=~\"$namespace\", route=~\"$route\", type=\"request\"}[$__rate_interval])))",
           "instant": false,
           "legendFormat": "{{route}} p99",
           "range": true,
@@ -1039,7 +1039,7 @@
             "uid": "${data_source}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(kong_kong_latency_ms_bucket{k8s_namespace_name=~\"$namespace\", route=~\"$route\"}[$__rate_interval]))) or histogram_quantile(0.95, sum by (le) (rate(kong_latency_bucket{k8s_namespace_name=~\"$namespace\", route=~\"$route\", type=\"kong\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(kong_kong_latency_ms_bucket{network!=\"\", network!=\"ethereum\", network=~\"$network\", k8s_namespace_name=~\"$namespace\", route=~\"$route\"}[$__rate_interval]))) or histogram_quantile(0.95, sum by (le) (rate(kong_latency_bucket{network!=\"\", network!=\"ethereum\", network=~\"$network\", k8s_namespace_name=~\"$namespace\", route=~\"$route\", type=\"kong\"}[$__rate_interval])))",
           "instant": false,
           "legendFormat": "kong p95",
           "range": true,
@@ -1051,7 +1051,7 @@
             "uid": "${data_source}"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(kong_upstream_latency_ms_bucket{k8s_namespace_name=~\"$namespace\", route=~\"$route\"}[$__rate_interval]))) or histogram_quantile(0.95, sum by (le) (rate(kong_latency_bucket{k8s_namespace_name=~\"$namespace\", route=~\"$route\", type=\"upstream\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(kong_upstream_latency_ms_bucket{network!=\"\", network!=\"ethereum\", network=~\"$network\", k8s_namespace_name=~\"$namespace\", route=~\"$route\"}[$__rate_interval]))) or histogram_quantile(0.95, sum by (le) (rate(kong_latency_bucket{network!=\"\", network!=\"ethereum\", network=~\"$network\", k8s_namespace_name=~\"$namespace\", route=~\"$route\", type=\"upstream\"}[$__rate_interval])))",
           "instant": false,
           "legendFormat": "upstream p95",
           "range": true,
@@ -1167,7 +1167,7 @@
             "uid": "${data_source}"
           },
           "editorMode": "code",
-          "expr": "rate(kong_nginx_metric_errors_total{k8s_namespace_name=~\"$namespace\"}[$__rate_interval])",
+          "expr": "rate(kong_nginx_metric_errors_total{network!=\"\", network!=\"ethereum\", network=~\"$network\", k8s_namespace_name=~\"$namespace\"}[$__rate_interval])",
           "instant": false,
           "legendFormat": "metric errors",
           "range": true,
@@ -1265,7 +1265,7 @@
             "uid": "${data_source}"
           },
           "editorMode": "code",
-          "expr": "sum by (node_id) (kong_memory_workers_lua_vms_bytes{k8s_namespace_name=~\"$namespace\"})",
+          "expr": "sum by (node_id) (kong_memory_workers_lua_vms_bytes{network!=\"\", network!=\"ethereum\", network=~\"$network\", k8s_namespace_name=~\"$namespace\"})",
           "instant": false,
           "legendFormat": "{{node_id}}",
           "range": true,
@@ -1371,7 +1371,7 @@
             "uid": "${data_source}"
           },
           "editorMode": "code",
-          "expr": "100 * sum by (shared_dict) (kong_memory_lua_shared_dict_bytes{k8s_namespace_name=~\"$namespace\"}) / sum by (shared_dict) (kong_memory_lua_shared_dict_total_bytes{k8s_namespace_name=~\"$namespace\"})",
+          "expr": "100 * sum by (shared_dict) (kong_memory_lua_shared_dict_bytes{network!=\"\", network!=\"ethereum\", network=~\"$network\", k8s_namespace_name=~\"$namespace\"}) / sum by (shared_dict) (kong_memory_lua_shared_dict_total_bytes{network!=\"\", network!=\"ethereum\", network=~\"$network\", k8s_namespace_name=~\"$namespace\"})",
           "instant": false,
           "legendFormat": "{{shared_dict}}",
           "range": true,
@@ -1408,6 +1408,32 @@
         "type": "datasource"
       },
       {
+        "allValue": ".+",
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${data_source}"
+        },
+        "definition": "label_values(kong_node_info{network!=\"\", network!=\"ethereum\"}, network)",
+        "includeAll": true,
+        "label": "Aztec RPC network",
+        "multi": true,
+        "name": "network",
+        "options": [],
+        "query": {
+          "qryType": 1,
+          "query": "label_values(kong_node_info{network!=\"\", network!=\"ethereum\"}, network)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "type": "query"
+      },
+      {
         "allValue": ".*",
         "current": {
           "selected": true,
@@ -1418,7 +1444,7 @@
           "type": "prometheus",
           "uid": "${data_source}"
         },
-        "definition": "label_values(kong_node_info,k8s_namespace_name)",
+        "definition": "label_values(kong_node_info{network!=\"\", network!=\"ethereum\", network=~\"$network\"}, k8s_namespace_name)",
         "includeAll": true,
         "label": "Kong namespace",
         "multi": true,
@@ -1426,7 +1452,7 @@
         "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values(kong_node_info,k8s_namespace_name)",
+          "query": "label_values(kong_node_info{network!=\"\", network!=\"ethereum\", network=~\"$network\"}, k8s_namespace_name)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 1,
@@ -1444,7 +1470,7 @@
           "type": "prometheus",
           "uid": "${data_source}"
         },
-        "definition": "label_values(kong_http_requests_total{k8s_namespace_name=~\"$namespace\"}, route)",
+        "definition": "label_values(kong_http_requests_total{network!=\"\", network!=\"ethereum\", network=~\"$network\", k8s_namespace_name=~\"$namespace\"}, route)",
         "includeAll": true,
         "label": "Route",
         "multi": true,
@@ -1452,7 +1478,7 @@
         "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values(kong_http_requests_total{k8s_namespace_name=~\"$namespace\"}, route)",
+          "query": "label_values(kong_http_requests_total{network!=\"\", network!=\"ethereum\", network=~\"$network\", k8s_namespace_name=~\"$namespace\"}, route)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 1,
@@ -1470,7 +1496,7 @@
           "type": "prometheus",
           "uid": "${data_source}"
         },
-        "definition": "label_values(kong_http_requests_total{k8s_namespace_name=~\"$namespace\", route=~\"$route\"}, consumer)",
+        "definition": "label_values(kong_http_requests_total{network!=\"\", network!=\"ethereum\", network=~\"$network\", k8s_namespace_name=~\"$namespace\", route=~\"$route\"}, consumer)",
         "includeAll": true,
         "label": "Consumer",
         "multi": true,
@@ -1478,7 +1504,7 @@
         "options": [],
         "query": {
           "qryType": 1,
-          "query": "label_values(kong_http_requests_total{k8s_namespace_name=~\"$namespace\", route=~\"$route\"}, consumer)",
+          "query": "label_values(kong_http_requests_total{network!=\"\", network!=\"ethereum\", network=~\"$network\", k8s_namespace_name=~\"$namespace\", route=~\"$route\"}, consumer)",
           "refId": "PrometheusVariableQueryEditor-VariableQuery"
         },
         "refresh": 1,

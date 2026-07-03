@@ -1,6 +1,6 @@
 # @aztec/entrypoints
 
-Version: v5.0.0-rc.1
+Version: v5.0.0-rc.2
 
 ## Quick Import Reference
 
@@ -76,9 +76,9 @@ new EncodedAppEntrypointCalls(encodedFunctionCalls: EncodedFunctionCall[], hashe
 - `tx_nonce: Fr` - A nonce to inject into the payload of the transaction. When used with cancellable=true, this nonce will be used to compute a nullifier that allows cancelling this transaction by submitting a new one with the same nonce but higher fee. The nullifier ensures only one transaction can succeed.
 
 **Methods**
-- `static create(functionCalls: any, txNonce: any) => Promise<EncodedAppEntrypointCalls>` - Encodes the functions for the app-portion of a transaction from a set of function calls and a nonce
-- `functionCallsToFields() => any[]` - Serializes the function calls to an array of fields.
-- `hash() => any` - Hashes the payload
+- `static create(functionCalls: FunctionCall[] | [], txNonce: Fr) => Promise<EncodedAppEntrypointCalls>` - Encodes the functions for the app-portion of a transaction from a set of function calls and a nonce
+- `functionCallsToFields() => Fr[]` - Serializes the function calls to an array of fields.
+- `hash() => Promise<Fr>` - Hashes the payload
 - `toFields() => Fr[]` - Serializes the payload to an array of fields
 
 ## Interfaces
@@ -88,7 +88,7 @@ new EncodedAppEntrypointCalls(encodedFunctionCalls: EncodedFunctionCall[], hashe
 Creates authorization witnesses.
 
 **Methods**
-- `createAuthWit(messageHash: any) => Promise<AuthWitness>` - Computes an authentication witness from either a message hash
+- `createAuthWit(messageHash: Fr | Buffer<ArrayBufferLike>) => Promise<AuthWitness>` - Computes an authentication witness from either a message hash
 
 ### EntrypointInterface
 
@@ -143,3 +143,13 @@ Encoded function call for an Aztec entrypoint
 The mechanism via which an account contract will pay for a transaction in which it gets invoked.
 
 Values: `0`, `2`, `1`
+
+## Cross-Package References
+
+This package references types from other Aztec packages:
+
+**@aztec/foundation**
+- `Fr`
+
+**@aztec/stdlib**
+- `AuthWitness`, `AztecAddress`, `ExecutionPayload`, `FunctionCall`, `GasSettings`, `HashedValues`, `TxExecutionRequest`

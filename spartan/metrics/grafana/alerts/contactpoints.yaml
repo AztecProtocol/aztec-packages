@@ -109,6 +109,30 @@ contactPoints:
         disableResolveMessage: false
 
   - orgId: 1
+    name: "Slack #alerts-testnet by eth chain"
+    receivers:
+      - uid: alertstestnetbyethchain
+        type: slack
+        settings:
+          url: $SLACK_WEBHOOK_TESTNET_URL
+          mentionUsers: $SLACK_ALERT_MENTION_USER_IDS
+          text: |-
+            {{ template "aztec.slack.by_eth_chain" . }}
+        disableResolveMessage: false
+
+  - orgId: 1
+    name: "Slack #alerts-mainnet by eth chain"
+    receivers:
+      - uid: alertsmainnetbyethchain
+        type: slack
+        settings:
+          url: $SLACK_WEBHOOK_MAINNET_URL
+          mentionUsers: $SLACK_ALERT_MENTION_USER_IDS
+          text: |-
+            {{ template "aztec.slack.by_eth_chain" . }}
+        disableResolveMessage: false
+
+  - orgId: 1
     name: "Slack #alerts-devnet by namespace"
     receivers:
       - uid: alertsdevnetbynamespace

@@ -3,13 +3,16 @@
 #include <utility>
 #include <vector>
 
-#include "barretenberg/api/file_io.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
+#include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/simulation/events/alu_event.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/simulation_helper.hpp"
+#include "barretenberg/vm2/testing/bytecode_builder.hpp"
+#include "barretenberg/vm2/testing/instruction_builder.hpp"
+#include "barretenberg/vm2/testing/public_tx_simulation_tester.hpp"
 #include "barretenberg/vm2/tracegen_helper.hpp"
 
 using bb::avm2::tracegen::TestTraceContainer;
@@ -183,11 +186,43 @@ ContractClass random_contract_class(size_t bytecode_size)
                           .packed_bytecode = random_bytes(bytecode_size) };
 }
 
+AvmProvingInputs get_minimal_proving_inputs()
+{
+    // Minimal program: SET 1 -> [0], SET 2 -> [1], ADD [0]+[1] -> [2], RETURN mem[0..mem[0]) from [2].
+    auto bytecode = BytecodeBuilder()
+                        .add(InstructionBuilder(WireOpCode::SET_8)
+                                 .operand<uint8_t>(0)
+                                 .operand(MemoryTag::U32)
+                                 .operand<uint8_t>(1)
+                                 .build())
+                        .add(InstructionBuilder(WireOpCode::SET_8)
+                                 .operand<uint8_t>(1)
+                                 .operand(MemoryTag::U32)
+                                 .operand<uint8_t>(2)
+                                 .build())
+                        .add(InstructionBuilder(WireOpCode::ADD_8)
+                                 .operand<uint8_t>(0)
+                                 .operand<uint8_t>(1)
+                                 .operand<uint8_t>(2)
+                                 .build())
+                        .add(InstructionBuilder(WireOpCode::RETURN).operand<uint16_t>(0).operand<uint16_t>(2).build())
+                        .build();
+
+    PublicTxSimulationTester tester;
+    const auto deployed = tester.deploy_contract(bytecode);
+
+    PublicSimulatorConfig config = PublicTxSimulationTester::default_config();
+    config.collect_hints = true;
+    config.collect_public_inputs = true;
+    const TxSimulationResult result =
+        tester.simulate_tx({ TestEnqueuedCall{ .contract_address = deployed.address } }, config);
+
+    return AvmProvingInputs{ .public_inputs = result.public_inputs.value(), .hints = result.hints.value() };
+}
+
 std::pair<tracegen::TraceContainer, PublicInputs> get_minimal_trace_with_pi()
 {
-    // cwd is expected to be barretenberg/cpp/build.
-    auto data = read_file("../src/barretenberg/vm2/testing/minimal_tx.testdata.bin");
-    AvmProvingInputs inputs = AvmProvingInputs::from(data);
+    AvmProvingInputs inputs = get_minimal_proving_inputs();
 
     AvmSimulationHelper simulation_helper;
 

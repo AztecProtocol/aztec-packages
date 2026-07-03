@@ -3,7 +3,6 @@
 
 #include "barretenberg/avm_fuzzer/common/interfaces/dbs.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/constants.hpp"
-#include "barretenberg/avm_fuzzer/fuzz_lib/fuzz.hpp"
 #include "barretenberg/avm_fuzzer/fuzz_lib/simulator.hpp"
 #include "barretenberg/avm_fuzzer/fuzzer_lib.hpp"
 #include "barretenberg/aztec/aztec_constants.hpp"
@@ -99,12 +98,6 @@ extern "C" int LLVMFuzzerInitialize(int*, char***)
     memset(l2_to_l1_msgs_counter, 0, sizeof(l2_to_l1_msgs_counter));
     memset(public_logs_counter, 0, sizeof(public_logs_counter));
 
-    const char* simulator_path = std::getenv("AVM_SIMULATOR_BIN");
-    if (simulator_path == nullptr) {
-        throw std::runtime_error("AVM_SIMULATOR_BIN is not set");
-    }
-    std::string simulator_path_str(simulator_path);
-    JsSimulator::initialize(simulator_path_str);
     FuzzerWorldStateManager::initialize();
     return 0;
 }

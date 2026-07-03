@@ -88,18 +88,11 @@ A reasonable strategy is to make the base slot a hash of a unique value.</p>
 
 <div class="padded-description"><div class="comments">
 <p>Calls a function on each element of the array.</p>
-<p>The function <code>f</code> is called once with each array value and its corresponding index. The order in which values
-are processed is arbitrary.</p>
-<h4>Array Mutation</h4>
-<p>It is safe to delete the current element (and only the current element) from inside the callback via <code>remove</code>:</p>
-<pre><code>array.for_each(|index, value| {
-  <span class="kw">if</span> some_condition(value) {
-    array.remove(index); <span class="comment">// safe only for this index</span>
-  }
-}</code></pre>
-<p>If all elements in the array need to iterated over and then removed, then using <code>for_each</code> results in optimal
-efficiency.</p>
-<p>It is <strong>not</strong> safe to push new elements into the array from inside the callback.</p></div>
+<p>The function <code>f</code> is called once with each array value and its corresponding index, in order (from the first
+element to the last).</p>
+<p>Structurally mutating the array from inside the callback (e.g. via <code>push</code> or <code>remove</code>) is <strong>not</strong> supported:
+it can cause elements to be skipped, visited more than once, or read out of bounds.</p>
+</div>
 </div></div></main>
 </span>
 </body>
