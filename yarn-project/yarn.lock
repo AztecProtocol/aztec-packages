@@ -1233,6 +1233,7 @@ __metadata:
     "@aztec/wallet-sdk": "workspace:^"
     "@aztec/wallets": "workspace:^"
     "@aztec/world-state": "workspace:^"
+    "@electric-sql/pglite": "npm:^0.3.14"
     "@iarna/toml": "npm:^2.2.5"
     "@jest/globals": "npm:^30.0.0"
     "@noble/curves": "npm:=1.0.0"
