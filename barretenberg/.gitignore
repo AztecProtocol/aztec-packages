@@ -18,4 +18,5 @@ ts/src/cbind/generated/
 **/generated/
 # ...but these are committed source dirs, not codegen output:
 !cpp/src/barretenberg/flavor/generated/
+!cpp/src/barretenberg/vm2/generated/
 !cpp/src/barretenberg/honk/execution_trace/generated/

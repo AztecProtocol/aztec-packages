@@ -378,7 +378,7 @@ pol commit sel_instruction_fetching_failure; // @boolean (by definition below)
 
 pol commit exec_opcode;
 pol commit addressing_mode;
-pol commit op[7];  // operands
+pol commit op[5];  // operands
 
 // We now proceed to fetch the instruction.
 
@@ -419,9 +419,7 @@ sel_instruction_fetching_success {
     op[1],
     op[2],
     op[3],
-    op[4],
-    op[5],
-    op[6]
+    op[4]
 } in instr_fetching.sel {
     instr_fetching.pc,
     instr_fetching.bytecode_id,
@@ -432,9 +430,7 @@ sel_instruction_fetching_success {
     instr_fetching.op2,
     instr_fetching.op3,
     instr_fetching.op4,
-    instr_fetching.op5,
-    instr_fetching.op6,
-    instr_fetching.op7
+    instr_fetching.op5
 };
 
 /**************************************************************************************************
@@ -457,8 +453,6 @@ sel_instruction_fetching_success {
     sel_op_is_address[2],
     sel_op_is_address[3],
     sel_op_is_address[4],
-    sel_op_is_address[5],
-    sel_op_is_address[6],
     // decomposed selectors
     subtrace_id,
     subtrace_operation_id,
@@ -468,7 +462,7 @@ sel_instruction_fetching_success {
     sel_mem_op_reg[1],
     sel_mem_op_reg[2],
     sel_mem_op_reg[3],
-    sel_mem_op_reg[4],
+    sel_mem_op_reg[4], // TODO(MW): Remove when reducing max registers
     sel_mem_op_reg[5],
     // read / write per register
     rw_reg[0],
@@ -506,8 +500,6 @@ precomputed.sel_exec_spec {
     precomputed.sel_op_is_address[2],
     precomputed.sel_op_is_address[3],
     precomputed.sel_op_is_address[4],
-    precomputed.sel_op_is_address[5],
-    precomputed.sel_op_is_address[6],
     // decomposed selectors
     precomputed.subtrace_id,
     precomputed.subtrace_operation_id,
@@ -549,7 +541,7 @@ precomputed.sel_exec_spec {
 pol SEL_RESOLVE_ADDRESS = sel_instruction_fetching_success;
 
 // resolved operands
-pol commit rop[7];
+pol commit rop[5];
 
 // NOTE: Constraints on the resolved operands are in addressing.pil.
 // The "output we want" is sel_addressing_error from addressing.pil.
@@ -565,6 +557,10 @@ sel_read_registers = SEL_RESOLVE_ADDRESS - sel_addressing_error;
 
 // Registers
 pol commit register[6];
+
+// TODO(MW): Remove when reducing max registers (below prevents IsolatedCommittedColumn)
+sel_read_registers * register[5] = 0;
+
 // Memory Accesses
 pol commit sel_mem_op_reg[6]; // @boolean (when `sel_instruction_fetching_success == 1`)
 // Read / Write selectors
