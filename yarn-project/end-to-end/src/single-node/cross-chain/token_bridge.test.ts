@@ -25,17 +25,18 @@ describe('single-node/cross-chain/token_bridge', () => {
   // needs more than the default 300s per-test budget.
   jest.setTimeout(15 * 60 * 1000);
 
-  const t = new CrossChainMessagingTest(
-    'token_bridge',
-    { startProverNode: true },
-    {},
-    {},
-    { l1HarnessAccountIndex: L1_DIRECT_WRITE_ACCOUNT_INDEX },
-  );
+  let t: CrossChainMessagingTest;
 
   let version = 1;
 
   beforeAll(async () => {
+    t = new CrossChainMessagingTest(
+      'token_bridge',
+      { startProverNode: true },
+      {},
+      {},
+      { l1HarnessAccountIndex: L1_DIRECT_WRITE_ACCOUNT_INDEX },
+    );
     await t.setup({ ...PIPELINING_SETUP_OPTS });
     version = Number(await t.rollup.getVersion());
   }, 300_000);

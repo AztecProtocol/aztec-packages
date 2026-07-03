@@ -28,9 +28,7 @@ describe('single-node/cross-chain/l2_to_l1', () => {
   // multi-tx flows exceed the default 300s per-test budget.
   jest.setTimeout(15 * 60 * 1000);
 
-  // This suite only passes arbitrary L2→L1 messages from its own TestContract; it never bridges
-  // tokens, so skip the token+portal+bridge deploy and use the test's L1 handles directly.
-  const t = new CrossChainMessagingTest('l2_to_l1', { startProverNode: true }, {}, {}, { deployTokenBridge: false });
+  let t: CrossChainMessagingTest;
 
   let aztecNode: AztecNode;
   let aztecNodeAdmin: AztecNodeAdmin;
@@ -44,6 +42,9 @@ describe('single-node/cross-chain/l2_to_l1', () => {
   let contract: TestContract;
 
   beforeAll(async () => {
+    // This suite only passes arbitrary L2→L1 messages from its own TestContract; it never bridges
+    // tokens, so skip the token+portal+bridge deploy and use the test's L1 handles directly.
+    t = new CrossChainMessagingTest('l2_to_l1', { startProverNode: true }, {}, {}, { deployTokenBridge: false });
     await t.setup({ ...PIPELINING_SETUP_OPTS }, { syncChainTip: 'checkpointed' });
 
     ({ aztecNode, aztecNodeAdmin, wallet, user1Address, rollup, outbox } = t);

@@ -74,8 +74,11 @@ function test_cmds {
         test_prefix="$prefix:TIMEOUT=20m"
         ;;
       single-node/cross-chain/l1_to_l2)
-        # Both scenarios (duplicate-message + inbox drift) run over private and public scope serially
-        # in one container now that the file is no longer .parallel.
+        # The duplicate-message scenario runs over private and public scope serially in one container.
+        test_prefix="$prefix:TIMEOUT=25m"
+        ;;
+      single-node/cross-chain/l1_to_l2_inbox_drift)
+        # The inbox-drift scenario runs over private and public scope serially in one container.
         test_prefix="$prefix:TIMEOUT=25m"
         ;;
       single-node/cross-chain/l2_to_l1)
