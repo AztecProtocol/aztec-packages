@@ -39,11 +39,23 @@ export function injectCommands(program: Command, log: LogFn) {
     .option('--ikm <hex>', 'Initial keying material for BLS (alternative to mnemonic)', value => parseHex(value, 32))
     .option('--bls-path <path>', `EIP-2334 path (default ${defaultBlsPath})`)
     .addOption(
-      new Option('--password <str>', 'Password for writing keystore files (ETH JSON V3 and BLS EIP-2335)').env(
+      new Option('--password <str>', 'Shared password for writing ETH JSON V3 and BLS EIP-2335 keystore files').env(
         'AZTEC_KEYSTORE_PASSWORD',
       ),
     )
-    .option('--password-file <path>', 'File containing the password for writing keystore files')
+    .option('--password-file <path>', 'File containing the shared password for writing keystore files')
+    .addOption(
+      new Option('--eth-password <str>', 'Password for writing ETH JSON V3 keystore files').env(
+        'AZTEC_ETH_KEYSTORE_PASSWORD',
+      ),
+    )
+    .option('--eth-password-file <path>', 'File containing the password for writing ETH JSON V3 keystore files')
+    .addOption(
+      new Option('--bls-password <str>', 'Password for writing BLS EIP-2335 keystore files').env(
+        'AZTEC_BLS_KEYSTORE_PASSWORD',
+      ),
+    )
+    .option('--bls-password-file <path>', 'File containing the password for writing BLS EIP-2335 keystore files')
     .option('--encrypted-keystore-dir <dir>', 'Output directory for encrypted keystore file(s)')
     .option('--json', 'Echo resulting JSON to stdout')
     .option('--staker-output', 'Generate a single staker output JSON file with an array of validator entries')
