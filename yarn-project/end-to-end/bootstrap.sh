@@ -85,6 +85,11 @@ function test_cmds {
         # The long-proving-time scenario waits out a multi-epoch prover delay.
         test_prefix="$prefix:TIMEOUT=15m"
         ;;
+      multi-node/slashing/inactivity_slash)
+        # Two multi-epoch inactivity scenarios (single- and consecutive-epoch) share one container,
+        # each waiting out several epochs for a slash to execute; give the pair headroom over the default.
+        test_prefix="$prefix:TIMEOUT=25m"
+        ;;
     esac
 
     # Check if this is a .parallel.test.ts file
