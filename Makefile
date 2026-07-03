@@ -156,19 +156,19 @@ bb-cpp-cross-arm64-macos-objects: bb-cpp-yarn
 	$(call build,$@,barretenberg/cpp,build_cross_objects arm64-macos)
 
 # Cross-compile for ARM64 Linux (release only)
-bb-cpp-cross-arm64-linux: bb-cpp-cross-arm64-linux-objects avm-transpiler-cross-arm64-linux bb-cpp-yarn
+bb-cpp-cross-arm64-linux: bb-cpp-native bb-cpp-cross-arm64-linux-objects avm-transpiler-cross-arm64-linux bb-cpp-yarn
 	$(call build,$@,barretenberg/cpp,build_preset arm64-linux)
 
 # Cross-compile for AMD64 macOS (release only)
-bb-cpp-cross-amd64-macos: bb-cpp-cross-amd64-macos-objects avm-transpiler-cross-amd64-macos bb-cpp-yarn
+bb-cpp-cross-amd64-macos: bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos-objects avm-transpiler-cross-amd64-macos bb-cpp-yarn
 	$(call build,$@,barretenberg/cpp,build_preset amd64-macos)
 
 # Cross-compile for ARM64 macOS (release or CI_FULL)
-bb-cpp-cross-arm64-macos: bb-cpp-cross-arm64-macos-objects avm-transpiler-cross-arm64-macos bb-cpp-yarn
+bb-cpp-cross-arm64-macos: bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos-objects avm-transpiler-cross-arm64-macos bb-cpp-yarn
 	$(call build,$@,barretenberg/cpp,build_preset arm64-macos)
 
 # Cross-compile for AMD64 Windows (release only)
-bb-cpp-cross-amd64-windows: avm-transpiler-cross-amd64-windows
+bb-cpp-cross-amd64-windows: bb-cpp-cross-arm64-macos avm-transpiler-cross-amd64-windows
 	$(call build,$@,barretenberg/cpp,build_preset amd64-windows)
 
 # iOS SDK download (shared by all iOS cross-compile targets)
@@ -180,19 +180,19 @@ bb-cpp-android-sysroot:
 	$(call run_command,$@,$(ROOT)/barretenberg/cpp,bash scripts/download-android-sysroot.sh)
 
 # Cross-compile for ARM64 iOS (release only, static lib only)
-bb-cpp-cross-arm64-ios: bb-cpp-ios-sdk
+bb-cpp-cross-arm64-ios: bb-cpp-cross-amd64-windows bb-cpp-ios-sdk
 	$(call build,$@,barretenberg/cpp,build_preset arm64-ios)
 
 # Cross-compile for ARM64 iOS Simulator (release only, static lib only)
-bb-cpp-cross-arm64-ios-sim: bb-cpp-ios-sdk
+bb-cpp-cross-arm64-ios-sim: bb-cpp-cross-arm64-ios bb-cpp-ios-sdk
 	$(call build,$@,barretenberg/cpp,build_preset arm64-ios-sim)
 
 # Cross-compile for ARM64 Android (release only, static lib only)
-bb-cpp-cross-arm64-android: bb-cpp-android-sysroot
+bb-cpp-cross-arm64-android: bb-cpp-cross-arm64-ios-sim bb-cpp-android-sysroot
 	$(call build,$@,barretenberg/cpp,build_preset arm64-android)
 
 # Cross-compile for x86_64 Android (release only, static lib only)
-bb-cpp-cross-x86_64-android: bb-cpp-android-sysroot
+bb-cpp-cross-x86_64-android: bb-cpp-cross-arm64-android bb-cpp-android-sysroot
 	$(call build,$@,barretenberg/cpp,build_preset x86_64-android)
 
 bb-cpp-cross: bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos bb-cpp-cross-amd64-windows bb-cpp-cross-arm64-ios bb-cpp-cross-arm64-ios-sim bb-cpp-cross-arm64-android bb-cpp-cross-x86_64-android
