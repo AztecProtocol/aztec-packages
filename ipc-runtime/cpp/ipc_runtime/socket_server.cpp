@@ -57,6 +57,15 @@ void SocketServer::close_internal()
     fd_to_client_id_.clear();
     num_clients_ = 0;
 
+    if (wake_read_fd_ >= 0) {
+        ::close(wake_read_fd_);
+        wake_read_fd_ = -1;
+    }
+    if (wake_write_fd_ >= 0) {
+        ::close(wake_write_fd_);
+        wake_write_fd_ = -1;
+    }
+
     if (fd_ >= 0) {
         ::close(fd_);
         fd_ = -1;
@@ -82,6 +91,64 @@ int SocketServer::find_free_slot()
 
     // No free slot found, allocate new one at end
     return static_cast<int>(client_fds_.size());
+}
+
+bool SocketServer::setup_wake_pipe()
+{
+    int fds[2];
+    if (::pipe(fds) < 0) {
+        return false;
+    }
+    // Both ends non-blocking + close-on-exec: the non-blocking read end bounds
+    // drain_wake_pipe()'s loop, and the non-blocking write end keeps notify()
+    // from ever blocking (a full pipe already means a wake is pending).
+    for (int fd : fds) {
+        int fl = fcntl(fd, F_GETFL, 0);
+        if (fl < 0 || fcntl(fd, F_SETFL, fl | O_NONBLOCK) < 0) {
+            ::close(fds[0]);
+            ::close(fds[1]);
+            return false;
+        }
+        int fdfl = fcntl(fd, F_GETFD, 0);
+        if (fdfl >= 0) {
+            fcntl(fd, F_SETFD, fdfl | FD_CLOEXEC);
+        }
+    }
+    wake_read_fd_ = fds[0];
+    wake_write_fd_ = fds[1];
+
+#ifdef __APPLE__
+    struct kevent kev;
+    EV_SET(&kev, wake_read_fd_, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, nullptr);
+    return kevent(fd_, &kev, 1, nullptr, 0, nullptr) >= 0;
+#else
+    struct epoll_event ev;
+    ev.events = EPOLLIN;
+    ev.data.fd = wake_read_fd_;
+    return epoll_ctl(fd_, EPOLL_CTL_ADD, wake_read_fd_, &ev) >= 0;
+#endif
+}
+
+void SocketServer::drain_wake_pipe()
+{
+    if (wake_read_fd_ < 0) {
+        return;
+    }
+    uint8_t buf[256];
+    while (::read(wake_read_fd_, buf, sizeof(buf)) > 0) {
+        // Level-triggered: drain everything so we don't spin on a stale wake.
+    }
+}
+
+void SocketServer::notify()
+{
+    if (wake_write_fd_ < 0) {
+        return;
+    }
+    // One byte is enough to make the read end readable; ignore EAGAIN (pipe
+    // already full ⇒ a wake is already pending) so notify() never blocks.
+    const uint8_t one = 1;
+    [[maybe_unused]] ssize_t n = ::write(wake_write_fd_, &one, 1);
 }
 
 bool SocketServer::send(int client_id, const void* data, size_t len)
@@ -277,6 +344,12 @@ bool SocketServer::listen()
         return false;
     }
 
+    // Self-pipe for run_reactor()'s completion wakeups.
+    if (!setup_wake_pipe()) {
+        close_internal();
+        return false;
+    }
+
     return true;
 }
 
@@ -369,6 +442,13 @@ int SocketServer::wait_for_data(uint64_t timeout_ns)
     }
 
     int ready_fd = static_cast<int>(ev.ident);
+
+    // Completion wakeup from notify(): drain the self-pipe and report "no client
+    // request". The caller drains its completion queue on every wake.
+    if (ready_fd == wake_read_fd_) {
+        drain_wake_pipe();
+        return -1;
+    }
 
     // Check if it's listen socket (new connection) or client data
     if (ready_fd == listen_fd_) {
@@ -482,6 +562,12 @@ bool SocketServer::listen()
         return false;
     }
 
+    // Self-pipe for run_reactor()'s completion wakeups.
+    if (!setup_wake_pipe()) {
+        close_internal();
+        return false;
+    }
+
     return true;
 }
 
@@ -566,6 +652,13 @@ int SocketServer::wait_for_data(uint64_t timeout_ns)
     }
     int n = epoll_wait(fd_, &ev, 1, timeout_ms);
     if (n <= 0) {
+        return -1;
+    }
+
+    // Completion wakeup from notify(): drain the self-pipe and report "no client
+    // request". The caller drains its completion queue on every wake.
+    if (ev.data.fd == wake_read_fd_) {
+        drain_wake_pipe();
         return -1;
     }
 

@@ -60,7 +60,7 @@
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
-    "@aztec/l1-artifacts": "workspace:^",
+    "@aztec/l1-artifacts": "portal:../../l1-contracts/l1-artifacts",
     "@aztec/stdlib": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "source-map-support": "^0.5.21",

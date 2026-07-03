@@ -43,6 +43,21 @@ policies:
             - =~
             - $DEVNET_NAMESPACES_REGEX
 
+
+      # Ethereum L1 mainnet - by eth_chain label
+      - receiver: "Slack #alerts-mainnet by eth chain"
+        object_matchers:
+          - - eth_chain
+            - =
+            - mainnet
+
+      # Ethereum L1 sepolia - by eth_chain label
+      - receiver: "Slack #alerts-testnet by eth chain"
+        object_matchers:
+          - - eth_chain
+            - =
+            - sepolia
+
       # Testnet - by namespace
       - receiver: "Slack #alerts-testnet by namespace"
         object_matchers:

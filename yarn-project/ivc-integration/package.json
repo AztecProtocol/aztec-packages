@@ -59,7 +59,7 @@
     ]
   },
   "dependencies": {
-    "@aztec/bb.js": "../../ts",
+    "@aztec/bb.js": "portal:../../barretenberg/ts/bb.js",
     "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/noir-noir_codegen": "portal:../../noir/packages/noir_codegen",

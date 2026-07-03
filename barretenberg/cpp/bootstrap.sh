@@ -7,7 +7,7 @@ if [ "${AVM:-1}" -eq "1" ]; then
 else
   export native_preset=${NATIVE_PRESET:-clang20-no-avm}
 fi
-export hash=$(hash_str $(../../avm-transpiler/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
+export hash=$(hash_str $(../../avm-transpiler/bootstrap.sh hash) $(../../ipc-runtime/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
 export native_build_dir=$(scripts/preset-build-dir $native_preset)
 
 # Injects version number into a given bb binary.

@@ -1,0 +1,117 @@
+# Aztec TypeScript API Summary
+Version: v5.0.0-rc.2
+Generated: 2026-06-30T21:39:45.174Z
+
+This file provides an index of the Aztec TypeScript API packages.
+For detailed API documentation, see the individual package .md files.
+
+## Package Overview
+
+### Client SDKs
+
+**@aztec/aztec.js** - Main SDK for building Aztec applications
+  - Contract deployment and interaction
+  - Transaction creation and submission
+  - Account management
+  - RPC client for connecting to Aztec nodes
+Exports: 40 classes, 24 interfaces, 32 functions, 82 types
+Key: AccountManager, Contract, Fq, Fr
+
+**@aztec/accounts** - Sample account contract implementations
+  - ECDSA accounts (Ethereum-compatible signatures)
+  - Schnorr accounts (native Aztec signatures)
+  - Testing utilities
+Exports: 6 classes, 1 interfaces, 4 functions, 9 types
+
+**@aztec/pxe** - Private eXecution Environment client
+  - Orchestrates private transaction execution and proving
+  - Manages encrypted notes and nullifiers
+  - Provides privacy-preserving state queries
+Exports: 19 classes, 3 interfaces, 11 functions, 30 types
+Key: PXE, createPXE
+
+**@aztec/entrypoints** - Transaction entrypoint implementations
+  - Account abstraction patterns
+  - Fee payment handling
+Exports: 4 classes, 2 interfaces, 1 functions, 5 types
+
+**@aztec/wallet-sdk** - Wallet SDK for browser and extension integrations
+  - Browser wallet integration
+  - Key management utilities
+Exports: 9 classes, 37 interfaces, 18 functions, 13 types
+
+**@aztec/wallets** - Embedded wallet for browser and Node.js environments
+  - EmbeddedWallet with browser and Node.js flavors
+  - Account creation and management
+  - Transaction simulation and proving
+Exports: 3 classes, 2 functions, 3 types
+
+### Core Libraries
+
+**@aztec/stdlib** - Protocol-level types and domain interfaces
+  - Transaction and block types
+  - Proof types and verification
+  - Kernel circuit types
+  - Tree structures (note hash, nullifier, public data)
+Exports: 86 classes, 42 interfaces, 151 functions, 158 types
+Key: AztecAddress, BlockHeader, CompleteAddress, EthAddress
+
+**@aztec/foundation** - Low-level utilities and primitives
+  - Cryptographic primitives
+  - Serialization utilities
+  - Async helpers and collections
+  - Logging infrastructure
+Exports: 22 classes, 6 interfaces, 146 functions, 35 types
+Key: EthAddress
+
+**@aztec/constants** - Protocol constants shared between TypeScript and Noir
+  - Circuit size limits
+  - Gas and fee constants
+  - Tree heights and sizes
+Exports: 512 types
+
+## Key Types Quick Reference
+
+### Field Elements
+- `Fq` (@aztec/aztec.js)
+- `Fr` (@aztec/aztec.js)
+
+### Addresses
+- `AztecAddress` (@aztec/stdlib)
+- `CompleteAddress` (@aztec/stdlib)
+- `EthAddress` (@aztec/foundation)
+
+### Transactions
+- `Tx` (@aztec/aztec.js)
+- `TxHash` (@aztec/aztec.js)
+- `TxReceipt` (@aztec/aztec.js)
+
+### Notes & Nullifiers
+- `Note` (@aztec/stdlib)
+
+### Blocks
+- `BlockHeader` (@aztec/stdlib)
+- `L2Block` (@aztec/stdlib)
+
+### Accounts & Wallets
+- `Account` (@aztec/aztec.js)
+- `AccountContract` (@aztec/aztec.js)
+- `AccountManager` (@aztec/aztec.js)
+- `createPXE` (@aztec/pxe)
+- `PXE` (@aztec/pxe)
+- `Wallet` (@aztec/aztec.js)
+
+### Contracts
+- `Contract` (@aztec/aztec.js)
+
+## Package Dependencies
+
+accounts → aztec.js, entrypoints, foundation, stdlib
+aztec.js → entrypoints, ethereum, foundation, stdlib
+entrypoints → foundation, stdlib
+pxe → aztec.js, ethereum, foundation, kv-store, stdlib
+stdlib → blob-lib, constants, ethereum, foundation
+wallet-sdk → aztec.js, entrypoints, foundation, pxe, stdlib
+wallets → accounts, aztec.js, entrypoints, foundation, kv-store, pxe, stdlib, wallet-sdk
+
+For detailed API documentation, see the individual package files.

@@ -102,24 +102,25 @@ Your contract can verify the deployment or initialization state of other contrac
 - Conditional logic based on initialization
 
 ```rust
-use aztec::history::contract_inclusion::{
-    ProveContractDeployment,
-    ProveContractNonDeployment,
-    ProveContractInitialization,
-    ProveContractNonInitialization,
+use aztec::history::deployment::{
+    assert_contract_bytecode_was_not_published_by,
+    assert_contract_bytecode_was_published_by,
+    assert_contract_was_initialized_by,
+    assert_contract_was_not_initialized_by,
 };
 
-// Prove a contract is deployed
-header.prove_contract_deployment(contract_address);
+// Prove a contract's bytecode was published by a given block
+assert_contract_bytecode_was_published_by(block_header, contract_address);
 
-// Prove a contract is NOT deployed
-header.prove_contract_non_deployment(contract_address);
+// Prove a contract's bytecode was NOT published by a given block
+assert_contract_bytecode_was_not_published_by(block_header, contract_address);
 
-// Prove a contract is initialized
-header.prove_contract_initialization(contract_address);
+// Prove a contract was initialized by a given block
+// (init_hash is the contract's initialization hash, obtainable via get_contract_instance)
+assert_contract_was_initialized_by(block_header, contract_address, init_hash);
 
-// Prove a contract is NOT initialized
-header.prove_contract_non_initialization(contract_address);
+// Prove a contract was NOT initialized by a given block
+assert_contract_was_not_initialized_by(block_header, contract_address, init_hash);
 ```
 
 These functions prove inclusion or non-inclusion of the corresponding nullifiers in the nullifier tree at a given block.

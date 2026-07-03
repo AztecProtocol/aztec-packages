@@ -39,7 +39,6 @@
     { "path": "telemetry-client/tsconfig.json" },
     { "path": "end-to-end/tsconfig.json" },
     { "path": "key-store/tsconfig.json" },
-    { "path": "l1-artifacts/tsconfig.json" },
     { "path": "ethereum/tsconfig.json" },
     { "path": "native/tsconfig.json" },
     { "path": "kv-store/tsconfig.json" },

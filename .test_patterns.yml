@@ -382,6 +382,14 @@ tests:
     owners:
       - *palla
 
+  # http://ci.aztec-labs.com/e5938ff415312e06
+  # ChainMonitor teardown race: its poll loop calls the L1 Inbox getState() after
+  # Jest has torn down the module env (ERR_VM_MODULE_NOT_MODULE). Test itself passes.
+  - regex: "src/e2e_sequencer/gov_proposal.parallel.test.ts"
+    error_regex: "a file after the Jest environment has been torn down"
+    owners:
+      - *palla
+
   # http://ci.aztec-labs.com/153f5dcbb0f3799c
   - regex: "src/e2e_offchain_payment.test.ts"
     error_regex: "✕ reprocesses an offchain-delivered payment after an L1 reorg"
@@ -403,5 +411,15 @@ tests:
   # the test's wait timeout — same family as #23501.
   - regex: "src/e2e_p2p/duplicate_proposal_slash.test.ts"
     error_regex: "TimeoutError: Timeout awaiting duplicate proposal offense"
+    owners:
+      - *palla
+
+  # http://ci.aztec-labs.com/620b664d9d37ad65
+  # Wall-clock-deadline flake under CI CPU contention: the public processor can be
+  # descheduled past its block-build deadline before processing a single tx, so
+  # re-execution applies 0 txs and the validator rejects a block the test expects
+  # accepted. Scoped to that end-state-mismatch signature; not a logic regression.
+  - regex: "validator-client/src/validator.integration.test.ts"
+    error_regex: "✕ rejects block that would exceed checkpoint mana limit"
     owners:
       - *palla

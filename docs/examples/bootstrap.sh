@@ -183,6 +183,19 @@ function validate-webapp-tutorial {
         }
       }
 
+      // Also pick up @aztec packages that the monorepo declares as local portals
+      // in yarn-project's root resolutions but that live outside the scanned dirs
+      // above (e.g. the generated native service packages @aztec/wsdb and
+      // @aztec/bb-avm-sim, and @aztec/ipc-runtime). These are workspace-local
+      // and unpublished, so the closure walk must link them rather than fall back
+      // to an npm lookup that 404s.
+      const rootManifest = JSON.parse(fs.readFileSync(path.join(yp, 'package.json'), 'utf8'));
+      for (const [name, ver] of Object.entries(rootManifest.resolutions || {})) {
+        if (!name.startsWith('@aztec/')) continue;
+        const m = /^(portal:|file:)(.*)$/.exec(String(ver));
+        if (m) addPackageDir(path.resolve(yp, m[2]));
+      }
+
       function setLinkedDependency(name, dir) {
         let replaced = false;
         for (const section of ['dependencies', 'devDependencies']) {
@@ -243,7 +256,11 @@ function validate-webapp-tutorial {
         const manifest = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));
         for (const section of ['dependencies', 'peerDependencies']) {
           for (const [dep, ver] of Object.entries(manifest[section] || {})) {
-            if (!queued.has(dep) && registerLocalDependency(dir, dep, ver)) {
+            // Link any @aztec dep we have a local dir for — either resolved by
+            // version (workspace:/portal:/file:) or discovered as a local portal
+            // in the root resolutions above. Otherwise it's a published npm dep.
+            const localByDir = dep.startsWith('@aztec/') && packageDirs.has(dep);
+            if (!queued.has(dep) && (registerLocalDependency(dir, dep, ver) || localByDir)) {
               queue.push(dep);
               queued.add(dep);
             } else if (section === 'dependencies') {

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Function get_logs_by_tag documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">get_logs_by_tag</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2>In module message_processing</h2>
+<h3>Functions</h3><ul class="item-list">
+<li><a href="fn.get_logs_by_tag.html">get_logs_by_tag</a></div></li>
+<li><a href="fn.get_tx_effect.html">get_tx_effect</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">oracle</a>::<a href="index.html">message_processing</a></div>
+<h1>Function <span class="fn">get_logs_by_tag</span></h1>
+<pre><code>pub unconstrained fn get_logs_by_tag(
+    requests: <a href="../../../noir_aztec/ephemeral/type.EphemeralArray.html" class="type">EphemeralArray</a>&lt;<a href="../../../noir_aztec/messages/processing/log_retrieval_request/struct.LogRetrievalRequest.html" class="struct">LogRetrievalRequest</a>&gt;,
+) -> <a href="../../../noir_aztec/ephemeral/type.EphemeralArray.html" class="type">EphemeralArray</a>&lt;<a href="../../../noir_aztec/ephemeral/type.EphemeralArray.html" class="type">EphemeralArray</a>&lt;<a href="../../../noir_aztec/messages/processing/log_retrieval_response/struct.LogRetrievalResponse.html" class="struct">LogRetrievalResponse</a>&gt;&gt;</code></pre>
+
+<div class="comments">
+<p>Fetches all logs matching each request's tag and returns a nested ephemeral array.</p>
+<p>Each element in the outer array is an inner <code>EphemeralArray&lt;LogRetrievalResponse&gt;</code> containing all matching logs for
+the request at the same index (which may be empty if no logs were found).</p>
+</div>
+</main>
+</span>
+</body>
+</html>

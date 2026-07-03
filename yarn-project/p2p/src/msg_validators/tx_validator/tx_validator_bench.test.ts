@@ -150,7 +150,7 @@ describe('TxValidator: Benchmarks', () => {
       prefilledPublicData: [new PublicDataTreeLeaf(feePayerLeafSlot, new Fr(10n ** 18n))],
       genesisTimestamp: 0n,
     };
-    worldStateService = await NativeWorldStateService.tmp(undefined, true, genesis);
+    worldStateService = await NativeWorldStateService.tmp(true, genesis);
     const merkleTree = worldStateService.getCommitted();
 
     const nullifierSource: NullifierSource = {
@@ -368,7 +368,7 @@ describe('TxValidator: Benchmarks', () => {
 
       // Create world state with fee payer balance only (initial tree size limits prefilled data)
       const feePayerLeafSlot = await computeFeePayerBalanceLeafSlot(gasTx.data.feePayer);
-      localWs = await NativeWorldStateService.tmp(undefined, true, {
+      localWs = await NativeWorldStateService.tmp(true, {
         prefilledPublicData: [new PublicDataTreeLeaf(feePayerLeafSlot, new Fr(10n ** 18n))],
         genesisTimestamp: 0n,
       });

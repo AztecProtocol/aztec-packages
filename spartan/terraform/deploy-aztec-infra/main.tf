@@ -308,7 +308,34 @@ locals {
     })
   } : {}
 
-  # Define all releases in a map
+  p2p_bootstrap_release = {
+    name  = "${var.RELEASE_PREFIX}-p2p-bootstrap"
+    chart = "aztec-node"
+    values = [
+      "common.yaml",
+      "p2p-bootstrap.yaml",
+      "p2p-bootstrap-resources-${var.P2P_BOOTSTRAP_RESOURCE_PROFILE}.yaml"
+    ]
+    inline_values = [yamlencode({
+      service = {
+        p2p = { publicIP = var.P2P_PUBLIC_IP }
+      }
+    })]
+    custom_settings = {
+      "nodeType"                          = "p2p-bootstrap"
+      "service.p2p.nodePortEnabled"       = var.P2P_NODEPORT_ENABLED
+      "service.p2p.hostPortEnabled"       = var.P2P_HOSTPORT_ENABLED
+      "service.p2p.announcePort"          = local.p2p_port_p2p_bootstrap
+      "service.p2p.port"                  = local.p2p_port_p2p_bootstrap
+      "node.env.P2P_MAX_PENDING_TX_COUNT" = var.P2P_MAX_PENDING_TX_COUNT
+    }
+    boot_node_host_path  = ""
+    bootstrap_nodes_path = ""
+    wait                 = true
+  }
+
+  # Define all non-bootstrap releases in a map. The p2p bootstrap release is
+  # applied first so nodes cannot fetch an ENR from an old bootstrap pod.
   helm_releases = merge({
     snapshot = var.STORE_SNAPSHOT_URL != null ? {
       name   = "${var.RELEASE_PREFIX}-snapshot"
@@ -319,32 +346,6 @@ locals {
         "snapshots.uploadLocation"    = var.STORE_SNAPSHOT_URL
         "snapshots.frequency"         = var.SNAPSHOT_CRON
         "nodeSelector.node-type"      = "network"
-      }
-      boot_node_host_path  = ""
-      bootstrap_nodes_path = ""
-      wait                 = true
-    } : null
-
-    p2p_bootstrap = var.DEPLOY_INTERNAL_BOOTNODE ? {
-      name  = "${var.RELEASE_PREFIX}-p2p-bootstrap"
-      chart = "aztec-node"
-      values = [
-        "common.yaml",
-        "p2p-bootstrap.yaml",
-        "p2p-bootstrap-resources-${var.P2P_BOOTSTRAP_RESOURCE_PROFILE}.yaml"
-      ]
-      inline_values = [yamlencode({
-        service = {
-          p2p = { publicIP = var.P2P_PUBLIC_IP }
-        }
-      })]
-      custom_settings = {
-        "nodeType"                          = "p2p-bootstrap"
-        "service.p2p.nodePortEnabled"       = var.P2P_NODEPORT_ENABLED
-        "service.p2p.hostPortEnabled"       = var.P2P_HOSTPORT_ENABLED
-        "service.p2p.announcePort"          = local.p2p_port_p2p_bootstrap
-        "service.p2p.port"                  = local.p2p_port_p2p_bootstrap
-        "node.env.P2P_MAX_PENDING_TX_COUNT" = var.P2P_MAX_PENDING_TX_COUNT
       }
       boot_node_host_path  = ""
       bootstrap_nodes_path = ""
@@ -677,6 +678,58 @@ locals {
   }, local.validator_releases)
 }
 
+# The p2p bootstrap release used to be an entry in the helm_releases map (applied
+# via helm_release.releases["p2p_bootstrap"]). It is now its own resource so it can
+# be applied before the other releases. Tell Terraform it is the same release to
+# avoid destroying and recreating the running bootstrap node.
+moved {
+  from = helm_release.releases["p2p_bootstrap"]
+  to   = helm_release.p2p_bootstrap[0]
+}
+
+resource "helm_release" "p2p_bootstrap" {
+  count = var.DEPLOY_INTERNAL_BOOTNODE ? 1 : 0
+
+  provider         = helm.gke-cluster
+  name             = local.p2p_bootstrap_release.name
+  repository       = "../../"
+  chart            = local.p2p_bootstrap_release.chart
+  namespace        = var.NAMESPACE
+  create_namespace = true
+  upgrade_install  = true
+  force_update     = true
+  recreate_pods    = true
+  reuse_values     = false
+  timeout          = lookup(local.p2p_bootstrap_release, "timeout", 600)
+  wait             = local.p2p_bootstrap_release.wait
+  wait_for_jobs    = true
+
+  values = concat(
+    [for v in local.p2p_bootstrap_release.values : file("./values/${v}")],
+    [local.common_inline_values],
+    lookup(local.p2p_bootstrap_release, "inline_values", [])
+  )
+
+  dynamic "set" {
+    for_each = { for k, v in merge(
+      local.common_settings,
+      local.p2p_bootstrap_release.custom_settings
+    ) : k => v if v != null }
+    content {
+      name  = set.key
+      value = set.value
+    }
+  }
+
+  dynamic "set_list" {
+    for_each = { for k, v in local.common_list_settings : k => v if v != null }
+    content {
+      name  = set_list.key
+      value = set_list.value
+    }
+  }
+}
+
 # Create all helm releases using for_each
 resource "helm_release" "releases" {
   for_each = { for k, v in local.helm_releases : k => v if v != null }
@@ -694,6 +747,8 @@ resource "helm_release" "releases" {
   timeout          = lookup(each.value, "timeout", 600)
   wait             = each.value.wait
   wait_for_jobs    = true
+  # Safe for networks without an internal bootnode: helm_release.p2p_bootstrap has count 0.
+  depends_on = [helm_release.p2p_bootstrap]
 
   values = concat(
     [for v in each.value.values : file("./values/${v}")],
@@ -744,22 +799,15 @@ module "rpc_gateway" {
   RELEASE_PREFIX     = var.RELEASE_PREFIX
   CONSUMER_NAMESPACE = var.NAMESPACE
 
-  KONG_NAMESPACE                                   = var.RPC_GATEWAY_KONG_NAMESPACE != "" ? var.RPC_GATEWAY_KONG_NAMESPACE : var.NAMESPACE
-  KONG_HELM_RELEASE_NAME                           = var.RPC_GATEWAY_KONG_HELM_RELEASE_NAME
-  KONG_HELM_CHART_VERSION                          = var.RPC_GATEWAY_KONG_HELM_CHART_VERSION
-  KONG_INGRESS_CLASS                               = var.RPC_GATEWAY_KONG_INGRESS_CLASS
-  KONG_PROXY_SERVICE_TYPE                          = var.RPC_GATEWAY_KONG_PROXY_SERVICE_TYPE
-  KONG_PROXY_SERVICE_ANNOTATIONS                   = var.RPC_GATEWAY_KONG_PROXY_SERVICE_ANNOTATIONS
-  KONG_EXTRA_HELM_VALUES                           = var.RPC_GATEWAY_KONG_EXTRA_HELM_VALUES
-  KONG_SERVICE_MONITOR_ENABLED                     = var.RPC_GATEWAY_KONG_SERVICE_MONITOR_ENABLED
-  KONG_METRICS_SERVICE_ENABLED                     = var.RPC_GATEWAY_KONG_METRICS_SERVICE_ENABLED
-  KONG_METRICS_SERVICE_NAME                        = var.RPC_GATEWAY_KONG_METRICS_SERVICE_NAME
-  KONG_METRICS_SERVICE_TYPE                        = var.RPC_GATEWAY_KONG_METRICS_SERVICE_TYPE
-  KONG_METRICS_SERVICE_ANNOTATIONS                 = var.RPC_GATEWAY_KONG_METRICS_SERVICE_ANNOTATIONS
-  KONG_METRICS_SERVICE_LOAD_BALANCER_IP            = var.RPC_GATEWAY_KONG_METRICS_SERVICE_LOAD_BALANCER_IP
-  KONG_METRICS_SERVICE_LOAD_BALANCER_SOURCE_RANGES = var.RPC_GATEWAY_KONG_METRICS_SERVICE_LOAD_BALANCER_SOURCE_RANGES
-  KONG_METRICS_SERVICE_EXTERNAL_TRAFFIC_POLICY     = var.RPC_GATEWAY_KONG_METRICS_SERVICE_EXTERNAL_TRAFFIC_POLICY
-  KONG_OTEL_METRICS_GCP_SECRET_NAME                = var.RPC_GATEWAY_KONG_OTEL_METRICS_GCP_SECRET_NAME
+  KONG_NAMESPACE                 = var.RPC_GATEWAY_KONG_NAMESPACE != "" ? var.RPC_GATEWAY_KONG_NAMESPACE : var.NAMESPACE
+  KONG_HELM_RELEASE_NAME         = var.RPC_GATEWAY_KONG_HELM_RELEASE_NAME
+  KONG_HELM_CHART_VERSION        = var.RPC_GATEWAY_KONG_HELM_CHART_VERSION
+  KONG_INGRESS_CLASS             = var.RPC_GATEWAY_KONG_INGRESS_CLASS
+  KONG_PROXY_SERVICE_TYPE        = var.RPC_GATEWAY_KONG_PROXY_SERVICE_TYPE
+  KONG_PROXY_SERVICE_ANNOTATIONS = var.RPC_GATEWAY_KONG_PROXY_SERVICE_ANNOTATIONS
+  KONG_EXTRA_HELM_VALUES         = var.RPC_GATEWAY_KONG_EXTRA_HELM_VALUES
+  KONG_SERVICE_MONITOR_ENABLED   = var.RPC_GATEWAY_KONG_SERVICE_MONITOR_ENABLED
+  KONG_METRICS_SERVICE_ENABLED   = var.RPC_GATEWAY_KONG_OTEL_METRICS_GCP_SECRET_NAME != ""
 
   API_KEY_HEADER_NAME              = var.RPC_GATEWAY_API_KEY_HEADER_NAME
   ROUTES                           = local.rpc_gateway_routes
@@ -778,4 +826,40 @@ module "rpc_gateway" {
   GCP_MANAGED_CERTIFICATE_ENABLED = var.RPC_GATEWAY_GCP_MANAGED_CERTIFICATE_ENABLED
 
   depends_on = [helm_release.releases]
+}
+
+module "rpc_gateway_metrics_collector" {
+  count = var.RPC_GATEWAY_ENABLED && var.RPC_GATEWAY_KONG_OTEL_METRICS_GCP_SECRET_NAME != "" ? 1 : 0
+
+  source = "../modules/otel-metrics-collector"
+
+  providers = {
+    helm = helm.gke-cluster
+  }
+
+  NAMESPACE                               = module.rpc_gateway[0].metrics_service_namespace
+  RELEASE_NAME                            = "${var.RELEASE_PREFIX}-rpc-kong-otel-collector"
+  OTEL_COLLECTOR_ENDPOINT_GCP_SECRET_NAME = var.RPC_GATEWAY_KONG_OTEL_METRICS_GCP_SECRET_NAME
+  SCRAPE_CONFIGS = [
+    {
+      job_name        = "kong"
+      scrape_interval = "15s"
+      metrics_path    = "/metrics"
+      targets         = ["${module.rpc_gateway[0].metrics_service_name}.${module.rpc_gateway[0].metrics_service_namespace}.svc.cluster.local:${module.rpc_gateway[0].metrics_service_port}"]
+      labels = {
+        component = "kong"
+        network   = var.RELEASE_PREFIX
+      }
+    }
+  ]
+  RESOURCE_ATTRIBUTES = {
+    "service.name"    = "${var.RELEASE_PREFIX}-rpc-kong"
+    "network"         = var.RELEASE_PREFIX
+    "aztec.component" = "kong"
+  }
+  EXTERNAL_SECRET_STORE_NAME       = var.RPC_GATEWAY_EXTERNAL_SECRET_STORE_NAME
+  EXTERNAL_SECRET_STORE_KIND       = var.RPC_GATEWAY_EXTERNAL_SECRET_STORE_KIND
+  EXTERNAL_SECRET_REFRESH_INTERVAL = var.RPC_GATEWAY_EXTERNAL_SECRET_REFRESH_INTERVAL
+
+  depends_on = [module.rpc_gateway]
 }

@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="../../../styles.css">
+<script defer src="../../../nargo_doc.js"></script>
+<title>Struct ContractSelfUtility documentation</title>
+</head>
+<body>
+<div id="sidebar-toggle">
+<button id="sidebar-toggle-button"></button>
+<div id="sidebar-toggle-title">ContractSelfUtility</div>
+</div>
+<span id="main-contents">
+<nav class="sidebar">
+<h1><a href="../../../index.html">aztec-nr</a></h1>
+<div><a href="../../../all.html">All items</a></div>
+<h2 id="crate-name"><a href="../../index.html">noir_aztec</a></h2>
+<div id="crate-version">0.0.0</div>
+<h2><a href="#struct">Struct ContractSelfUtility</a></h2>
+<h3>Fields</h3>
+<ul class="sidebar-list">
+<li><a href="#structfield.address">address</a></li>
+<li><a href="#structfield.call_self">call_self</a></li>
+<li><a href="#structfield.context">context</a></li>
+<li><a href="#structfield.storage">storage</a></li>
+</ul>
+<h3>Methods</h3>
+<ul class="sidebar-list">
+<li><a href="#call">call</a></li>
+<li><a href="#msg_sender">msg_sender</a></li>
+<li><a href="#new">new</a></li>
+</ul>
+<h2>In module contract_self_utility</h2>
+<h3>Structs</h3><ul class="item-list">
+<li><a href="struct.ContractSelfUtility.html">ContractSelfUtility</a></div></li>
+</ul>
+</nav>
+<main>
+<div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">contract_self</a>::<a href="index.html">contract_self_utility</a></div>
+<h1>Struct <span id="struct" class="struct">ContractSelfUtility</span></h1>
+<pre><code>pub struct ContractSelfUtility&lt;Storage, CallSelf&gt; {
+    pub address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
+    pub storage: Storage,
+    pub context: <a href="../../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a>,
+    pub call_self: CallSelf,
+}
+</code></pre>
+<div class="comments">
+<p>Core interface for interacting with aztec-nr contract features in utility execution contexts.</p>
+<p>This struct is automatically injected into every <a href="../../../noir_aztec/macros/functions/fn.external.html"><code>external</code></a> contract function
+marked with <code>&quot;utility&quot;</code> by the Aztec macro system and is accessible through the <code>self</code> variable.</p>
+<h2>Type Parameters</h2>
+<ul>
+<li><code>Storage</code>: The contract's storage struct (defined with <a href="../../../noir_aztec/macros/storage/fn.storage.html"><code>storage</code></a>, or <code>()</code> if
+the contract has no storage</li>
+<li><code>CallSelf</code>: Macro-generated type for calling the contract's own utility functions (same type
+as <code>CallSelf</code> in [<code>PrivateUtilityCalls</code>])</li>
+</ul></div>
+<h2>Fields</h2>
+<div id="structfield.address" class="struct-field"><code class="code-header">address: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></div>
+<div class="padded-description"><div class="comments">
+<p>The address of this contract</p>
+</div>
+</div><div id="structfield.storage" class="struct-field"><code class="code-header">storage: Storage</code></div>
+<div class="padded-description"><div class="comments">
+<p>The contract's storage instance, representing the struct to which the
+<a href="../../../noir_aztec/macros/storage/fn.storage.html"><code>storage</code></a> macro was applied in your contract. If the contract has no
+storage, the type of this will be <code>()</code>.</p>
+<p>This storage instance is specialized for the current execution context (utility) and
+provides access to the contract's state variables.</p>
+<h4>Developer Note</h4>
+<p>If you've arrived here while trying to access your contract's storage while the <code>Storage</code> generic type is set
+to unit type <code>()</code>, it means you haven't yet defined a Storage struct using the
+<a href="../../../noir_aztec/macros/storage/fn.storage.html"><code>storage</code></a> macro in your contract. For guidance on setting this up, please
+refer to our docs: <a href="https://docs.aztec.network/developers/docs/guides/smart_contracts/storage">https://docs.aztec.network/developers/docs/guides/smart_contracts/storage</a></p></div>
+</div><div id="structfield.context" class="struct-field"><code class="code-header">context: <a href="../../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a></code></div>
+<div class="padded-description"><div class="comments">
+<p>The utility execution context.</p>
+</div>
+</div><div id="structfield.call_self" class="struct-field"><code class="code-header">call_self: CallSelf</code></div>
+<div class="padded-description"><div class="comments">
+<p>Provides type-safe methods for calling this contract's own utility functions.</p>
+<p>Example API:</p>
+<pre><code>self.call_self.some_utility_function(args)</code></pre></div>
+</div><h2>Implementations</h2>
+<h3><code class="code-header">impl&lt;CallSelf, Storage&gt; <a href="../../../noir_aztec/contract_self/contract_self_utility/struct.ContractSelfUtility.html" class="struct">ContractSelfUtility</a>&lt;Storage, CallSelf&gt;</code></h3>
+
+<div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(context: <a href="../../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a>, storage: Storage, call_self: CallSelf) -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>Creates a new <code>ContractSelfUtility</code> instance for a utility function.</p>
+<p>This constructor is called automatically by the macro system and should not be called directly.</p>
+</div>
+</div><code id="msg_sender" class="code-header">pub unconstrained fn <a href="#msg_sender"><span class="fn">msg_sender</span></a>(self) -> <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code>
+
+<div class="padded-description"><div class="comments">
+<p>The address of the contract that made this function call.</p>
+<p>This is similar to Solidity's <code>msg.sender</code> value.</p>
+<h4>Direct Invocation</h4>
+<p>A utility function invoked directly (e.g. by a wallet or dApp) rather than from another contract has no caller,
+and this function panics. Only a nested (cross-contract) utility call has a <code>msg_sender</code>.</p>
+<p>If you need to handle the no-caller case, use <a href="../../../noir_aztec/context/struct.UtilityContext.html#maybe_msg_sender"><code>UtilityContext::maybe_msg_sender</code></a>.</p>
+<p>Note that utility functions are simulated client-side and never proven, so this value is unconstrained: see
+<a href="../../../noir_aztec/context/struct.UtilityContext.html#maybe_msg_sender"><code>UtilityContext::maybe_msg_sender</code></a> for why it must not be relied on as a security guarantee.</p></div>
+</div><code id="call" class="code-header">pub unconstrained fn <a href="#call"><span class="fn">call</span></a>&lt;let M: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, let N: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>, T&gt;(
+    _self: Self,
+    call: <a href="../../../noir_aztec/context/calls/struct.UtilityCall.html" class="struct">UtilityCall</a>&lt;M, N, T&gt;,
+) -> T
+<div class="where-clause">where
+    T: <a href="../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code>
+
+<div class="padded-description"><div class="comments">
+<p>Makes a utility contract call from another utility function.</p>
+<p>Note: only same-contract utility calls are currently supported. See TODO(F-29).</p>
+<h4>Example</h4>
+<pre><code>self.call(Token::at(address).get_balance_of(owner));</code></pre></div>
+</div></div></main>
+</span>
+</body>
+</html>

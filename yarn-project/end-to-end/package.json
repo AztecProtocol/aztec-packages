@@ -46,7 +46,7 @@
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
-    "@aztec/l1-artifacts": "workspace:^",
+    "@aztec/l1-artifacts": "portal:../../l1-contracts/l1-artifacts",
     "@aztec/node-keystore": "workspace:^",
     "@aztec/noir-contracts.js": "workspace:^",
     "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi",

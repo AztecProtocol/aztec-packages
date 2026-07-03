@@ -18,8 +18,9 @@ $NODE "$CODEGEN/src/generate.ts" \
   --ipc-runtime-dependency "file:../../../ipc-runtime/ts"
 
 (cd "$DIR/../cpp" && ./bootstrap.sh)
-(cd "$REPO_ROOT/ipc-runtime" && ./bootstrap.sh)
-(cd "$REPO_ROOT/ipc-runtime/ts" && yarn install --immutable && yarn build)
+# ipc-runtime is built by the Makefile (ipc-codegen depends on it) so its ts/dest
+# and NAPI addon are ready for the file: link below; don't reinstall the shared
+# ipc-runtime/ts here — concurrent build units doing so corrupt its node_modules.
 
 platform_dir="$(
   node -e "const arch = { x64: 'amd64', arm64: 'arm64' }[process.arch] ?? process.arch; const os = { linux: 'linux', darwin: 'macos' }[process.platform] ?? process.platform; console.log(arch + '-' + os);"

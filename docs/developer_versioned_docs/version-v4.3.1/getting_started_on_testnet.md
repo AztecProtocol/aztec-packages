@@ -32,11 +32,11 @@ If you want to develop and iterate quickly, start with the [local network guide]
 Install the testnet version of the Aztec CLI:
 
 ```bash
-VERSION=4.3.1 bash -i <(curl -sL https://install.aztec.network/4.3.1)
+VERSION=5.0.0-rc.2 bash -i <(curl -sL https://install.aztec.network/5.0.0-rc.2)
 ```
 
 :::warning
-Testnet is version-dependent. It is currently running version `4.3.1`. Maintain version consistency when interacting with the testnet to avoid errors.
+Testnet is version-dependent. It is currently running version `5.0.0-rc.2`. Maintain version consistency when interacting with the testnet to avoid errors.
 :::
 
 This installs:
@@ -52,8 +52,8 @@ This installs:
 Set the required environment variables:
 
 ```bash
-export NODE_URL=https://rpc.testnet.aztec-labs.com
-export SPONSORED_FPC_ADDRESS=0x08b888c4be63ed67f61a622fdd013ea028326bac22a8982a3b5a7e9ec62f765b
+export NODE_URL=https://v5.testnet.rpc.aztec-labs.com
+export SPONSORED_FPC_ADDRESS=0x1969946536f0c09269e2c75e414eef4e21a76e763c5514125208db33d7d944d7
 ```
 
 ### Step 2: Register the Sponsored FPC

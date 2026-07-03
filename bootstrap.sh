@@ -472,7 +472,7 @@ function build_and_test {
 
 function bench_cmds {
   if [ "$#" -eq 0 ]; then
-    set -- yarn-project/end-to-end yarn-project barretenberg/{ts,cpp,sol} noir-projects/noir-protocol-circuits l1-contracts
+    set -- yarn-project/end-to-end yarn-project barretenberg/{ts,cpp,sol} noir-projects/{noir-protocol-circuits,noir-contracts} l1-contracts
   fi
   parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@
 }

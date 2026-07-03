@@ -1,3 +1,8 @@
+output "namespace" {
+  description = "Kubernetes namespace for RPC workloads and Kong routes."
+  value       = var.NAMESPACE
+}
+
 output "rpc_services" {
   description = "RPC Service names and ports keyed by alias."
   value = {
@@ -26,8 +31,7 @@ output "kong_metrics_service" {
     namespace      = module.rpc_gateway.metrics_service_namespace
     service        = module.rpc_gateway.metrics_service_name
     port           = module.rpc_gateway.metrics_service_port
-    ingress        = module.rpc_gateway.metrics_service_load_balancer_ingress
-    otel_collector = module.rpc_gateway.otel_collector_deployment_name
+    otel_collector = try(module.rpc_gateway_metrics_collector[0].deployment_name, null)
   }
 }
 

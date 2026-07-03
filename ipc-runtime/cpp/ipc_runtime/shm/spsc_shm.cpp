@@ -19,6 +19,10 @@ namespace ipc {
 
 namespace {
 
+// Rings up to this size are pre-faulted at creation (see create()); larger
+// rings are left demand-paged.
+inline constexpr size_t PREFAULT_MAX_BYTES = 1UL << 20; // 1 MiB
+
 inline uint64_t pow2_ceil_u64(uint64_t x)
 {
     if (x < 2) {
@@ -136,7 +140,14 @@ SpscShm SpscShm::create(const std::string& name, size_t min_capacity)
         throw std::runtime_error(error_msg);
     }
 
-    std::memset(mem, 0, map_len);
+    // Pre-fault small rings so the benchmark hot path takes no page faults; the
+    // segment is fresh (ftruncate zero-fills) and every meaningful SpscCtrl
+    // field is set explicitly below, so the memset is purely a pre-fault and is
+    // not needed for correctness. Skip it for large rings — touching every page
+    // would force the whole mapping resident up front and defeat demand paging.
+    if (map_len <= PREFAULT_MAX_BYTES) {
+        std::memset(mem, 0, map_len);
+    }
     auto* ctrl = static_cast<SpscCtrl*>(mem);
 
     // Initialize non-atomic fields first

@@ -13,6 +13,19 @@ _DB_PATH = os.getenv('METRICS_DB_PATH',
                      os.path.join(os.getenv('LOGS_DISK_PATH', '/logs-disk'), 'metrics.db'))
 _local = threading.local()
 
+# WAL maintenance. get_db() hands each worker thread a long-lived connection,
+# so a reader snapshot is almost always open. SQLite's automatic *passive*
+# checkpoint can never truncate the -wal while any older snapshot is held, so
+# the -wal file grows without bound (it reached 45 GB in prod and filled the
+# bastion disk, taking claudebox.work down). Bound it two ways:
+#   1. journal_size_limit truncates the -wal file back down after a checkpoint.
+#   2. a background thread forces wal_checkpoint(TRUNCATE) on an interval, which
+#      resets the -wal to zero whenever readers momentarily clear.
+_WAL_SIZE_LIMIT_BYTES = int(os.getenv('METRICS_WAL_SIZE_LIMIT_BYTES', str(64 * 1024 * 1024)))
+_WAL_CHECKPOINT_SECS = int(os.getenv('METRICS_WAL_CHECKPOINT_SECS', '60'))
+_checkpoint_lock = threading.Lock()
+_checkpoint_started = False
+
 SCHEMA = """
 PRAGMA journal_mode=WAL;
 
@@ -174,6 +187,10 @@ def get_db() -> sqlite3.Connection:
         os.makedirs(os.path.dirname(_DB_PATH), exist_ok=True)
         conn = sqlite3.connect(_DB_PATH)
         conn.execute('PRAGMA busy_timeout = 5000')
+        # Cap the on-disk -wal so a checkpoint truncates it instead of letting
+        # it grow forever.
+        conn.execute(f'PRAGMA journal_size_limit = {_WAL_SIZE_LIMIT_BYTES}')
+        conn.execute('PRAGMA wal_autocheckpoint = 1000')
         conn.row_factory = sqlite3.Row
         conn.executescript(SCHEMA)
         # Run migrations (ignore "duplicate column" errors for idempotency)
@@ -184,7 +201,35 @@ def get_db() -> sqlite3.Connection:
                 pass
         conn.commit()
         _local.conn = conn
+        _ensure_wal_checkpointer()
     return conn
+
+
+def _wal_checkpoint_loop():
+    """Periodically force a TRUNCATE checkpoint so the -wal cannot grow without
+    bound under long-lived reader connections. Uses its own connection so it
+    never races a request thread's cursor."""
+    conn = sqlite3.connect(_DB_PATH)
+    conn.execute('PRAGMA busy_timeout = 5000')
+    conn.execute(f'PRAGMA journal_size_limit = {_WAL_SIZE_LIMIT_BYTES}')
+    while True:
+        time.sleep(_WAL_CHECKPOINT_SECS)
+        try:
+            conn.execute('PRAGMA wal_checkpoint(TRUNCATE)')
+        except sqlite3.OperationalError:
+            # Busy (a reader held it the whole window); next tick retries.
+            pass
+
+
+def _ensure_wal_checkpointer():
+    """Start the background checkpointer exactly once per process."""
+    global _checkpoint_started
+    with _checkpoint_lock:
+        if _checkpoint_started:
+            return
+        threading.Thread(target=_wal_checkpoint_loop, name='wal-checkpoint',
+                         daemon=True).start()
+        _checkpoint_started = True
 
 
 def query(sql: str, params=()) -> list[dict]:

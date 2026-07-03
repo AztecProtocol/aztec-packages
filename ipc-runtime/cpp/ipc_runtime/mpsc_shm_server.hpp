@@ -82,6 +82,31 @@ class MpscShmServer : public IpcServer {
         return request_consumer_->wait_for_data(timeout_ns);
     }
 
+    int wait_for_data_or_ready(uint64_t timeout_ns, const std::function<bool()>& also_ready) override
+    {
+        if (!request_consumer_.has_value()) {
+            return -1;
+        }
+        // The predicate is evaluated inside the consumer's seq-latched window so
+        // a completion posted (and notify()'d) just before the futex_wait is not
+        // slept through. See MpscConsumer::wait_for_data / notify().
+        return request_consumer_->wait_for_data(timeout_ns, also_ready);
+    }
+
+    void notify() override
+    {
+        if (request_consumer_.has_value()) {
+            request_consumer_->notify();
+        }
+    }
+
+    bool has_pending_request() override
+    {
+        // Side-effect-free ring scan — must not perturb the consumer's spin /
+        // round-robin state, which a wait_for_data(0) peek would.
+        return request_consumer_.has_value() && request_consumer_->has_data();
+    }
+
     std::span<const uint8_t> receive(int client_id) override
     {
         if (!request_consumer_.has_value() || client_id < 0 || static_cast<size_t>(client_id) >= max_clients_) {

@@ -187,7 +187,7 @@ process.exit(result.status ?? 1);
       : this.opts.transports[0]!;
 
     return `import { spawn, type ChildProcess } from 'node:child_process';
-import { existsSync, unlinkSync } from 'node:fs';
+import { closeSync, existsSync, openSync, unlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { threadId } from 'node:worker_threads';
@@ -218,13 +218,35 @@ let instanceCounter = 0;
 const DEFAULT_CONNECT_TIMEOUT_MS = 30_000;
 
 class SpawnedBackend implements IpcClientAsync {
+  private destroying = false;
+  private exitError?: Error;
+
   private constructor(
     private child: ChildProcess,
     private client: IpcClientAsync,
     private ipcPath: string,
     private transport: ${serviceTransport},
     private exitPromise: Promise<void>,
-  ) {}
+    private logPath: string | undefined,
+  ) {
+${supportsShm
+  ? `    // Detect unexpected server death. Over SHM there is no connection to break,
+    // so without this an in-flight call waits forever for a reply that will
+    // never arrive. Reject in-flight calls and point at the log file.`
+  : `    // Detect unexpected server death and reject in-flight calls with the
+    // child log path included in the error.`}
+    this.child.on('exit', (code, signal) => {
+      if (this.destroying) {
+        return;
+      }
+      this.exitError = new Error(
+        '${this.opts.binaryName} exited unexpectedly (code=' + code + ', signal=' + signal + ')' +
+          (this.logPath ? '; see logs: ' + this.logPath : ''),
+      );
+      console.error(this.exitError.message);
+      void this.client.destroy();
+    });
+  }
 
   static async spawn(options: ${serviceOptions} = {}): Promise<SpawnedBackend> {
     const binaryPath = ${findBinary}(options.binaryPath);
@@ -234,19 +256,38 @@ class SpawnedBackend implements IpcClientAsync {
 
     const transport = options.transport ?? '${defaultTransport}';
     const instanceId = '${toSnakeCase(prefix)}-' + process.pid + '-' + threadId + '-' + instanceCounter++;
-    const ipcPath = transport === 'shm'
+    const ipcPath = ${
+      supportsShm
+        ? `transport === 'shm'
       ? instanceId + '.shm'
-      : join(tmpdir(), instanceId + '.sock');
+      : join(tmpdir(), instanceId + '.sock')`
+        : `join(tmpdir(), instanceId + '.sock')`
+    };
 
     if (transport === 'uds' && existsSync(ipcPath)) {
       unlinkSync(ipcPath);
     }
 
+    // Without a live logger, capture the child's stdout/stderr to a temp file
+    // (a plain fd, not a pipe — a pipe would keep the libuv loop referenced and
+    // break clean process exit). The path is surfaced if the child dies, so its
+    // errors are recoverable instead of vanishing into an ignored stream.
+    const logPath = options.logger ? undefined : join(tmpdir(), instanceId + '.log');
+    const logFd = logPath !== undefined ? openSync(logPath, 'a') : undefined;
+
     const ipcPathArgs = ${ipcPathArgs}.map((arg: string) => arg === '{path}' ? ipcPath : arg);
     const child = spawn(binaryPath, [...ipcPathArgs, ...(options.extraArgs ?? [])], {
-      stdio: ['ignore', options.logger ? 'pipe' : 'ignore', options.logger ? 'pipe' : 'ignore'],
+      stdio: [
+        'ignore',
+        options.logger ? 'pipe' : (logFd as number),
+        options.logger ? 'pipe' : (logFd as number),
+      ],
       env: { ...process.env, ...(options.env ?? {}) },
     });
+    if (logFd !== undefined) {
+      // The child holds its own dup of the fd; the parent's copy isn't needed.
+      closeSync(logFd);
+    }
 
     if (options.logger) {
       child.stdout?.on('data', (data: Buffer) => options.logger?.('[${this.opts.binaryName} stdout] ' + data.toString().trimEnd()));
@@ -267,7 +308,7 @@ class SpawnedBackend implements IpcClientAsync {
     });
 
     const client = await Promise.race([connectClient(child, ipcPath, transport, options), childReadyFailure]);
-    return new SpawnedBackend(child, client, ipcPath, transport, exitPromise);
+    return new SpawnedBackend(child, client, ipcPath, transport, exitPromise, logPath);
   }
 
   getIpcPath(): string {
@@ -275,10 +316,22 @@ class SpawnedBackend implements IpcClientAsync {
   }
 
   call(input: Uint8Array): Promise<Uint8Array> {
+    if (this.exitError) {
+      return Promise.reject(this.exitError);
+    }
     return this.client.call(input);
   }
 
+  sendProcessSignal(signal: NodeJS.Signals): void {
+    if (this.child.exitCode === null) {
+      this.child.kill(signal);
+    }
+  }
+
   async destroy(): Promise<void> {
+    // Mark intentional teardown so the exit handler doesn't report it as an
+    // unexpected death.
+    this.destroying = true;
     await this.client.destroy();
     if (this.child.exitCode === null) {
       this.child.kill('SIGTERM');
@@ -311,7 +364,9 @@ async function connectClient(
       }
 ${supportsShm ? `      if (transport === 'shm') {
         return createNapiShmAsyncClient(ipcPath.replace(/\\.shm$/, ''), {
-          clientId: options.clientId ?? 0,
+          // Pass clientId through as-is: when unset, the client self-allocates a
+          // free producer slot (don't default to 0, which aliases every client).
+          clientId: options.clientId,
           customAddonPath: options.napiPath,
         });
       }
@@ -330,7 +385,7 @@ function cleanupIpcPath(ipcPath: string, transport: ${serviceTransport}) {
     if (transport === 'uds' && existsSync(ipcPath)) {
       unlinkSync(ipcPath);
     }
-    if (transport === 'shm') {
+${supportsShm ? `    if (transport === 'shm') {
       const shmName = ipcPath.replace(/\\.shm$/, '');
       for (const suffix of ['_request', '_response']) {
         const shmPath = '/dev/shm/' + shmName + suffix;
@@ -339,6 +394,7 @@ function cleanupIpcPath(ipcPath: string, transport: ${serviceTransport}) {
         }
       }
     }
+` : ""}
   } catch {}
 }
 
@@ -354,6 +410,10 @@ export class ${serviceClass} extends AsyncApi {
 
   getIpcPath(): string {
     return this.spawnedBackend.getIpcPath();
+  }
+
+  sendProcessSignal(signal: NodeJS.Signals): void {
+    this.spawnedBackend.sendProcessSignal(signal);
   }
 }
 `;
