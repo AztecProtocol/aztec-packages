@@ -401,10 +401,8 @@ impl MessageEncryption for AES128 {
                             array::subarray(ciphertext_without_eph_pk_x.storage(), header_start);
                         // We need to convert the array to a BoundedVec because the oracle expects a BoundedVec as it's
                         // designed to work with messages with unknown length at compile time. This would not be
-                        // necessary
-                        // here as the header ciphertext length is fixed. But we do it anyway to not have to have
-                        // duplicate
-                        // oracles.
+                        // necessary here as the header ciphertext length is fixed. But we do it anyway to not have to
+                        // have duplicate oracles.
                         let header_ciphertext_bvec =
                             BoundedVec::<u8, HEADER_CIPHERTEXT_SIZE_IN_BYTES>::from_array(header_ciphertext);
 
