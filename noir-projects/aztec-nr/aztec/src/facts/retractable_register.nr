@@ -286,7 +286,7 @@ mod test {
 
     #[test]
     unconstrained fn collapses_history_behind_newest_finalized_version() {
-        let (mut env, scope) = setup();
+        let (env, scope) = setup();
         env.mine_block();
         env.mine_block();
         let block_number = env.last_block_number();
