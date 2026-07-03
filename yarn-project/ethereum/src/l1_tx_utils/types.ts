@@ -57,8 +57,9 @@ export type L1TxState = {
   gasLimit: bigint;
   gasPrice: GasPrice;
   /**
-   * Prices used for each attempt (initial send followed by each speed-up), in order. Only populated
-   * when captureGasPriceHistory is enabled. In-memory only — not persisted by the state store.
+   * Prices used for each attempt (initial send followed by each speed-up), in order. Always set on
+   * newly sent txs; optional because states restored from the state store predate the field.
+   * In-memory only — not persisted by the state store.
    */
   gasPriceHistory?: GasPrice[];
   txConfigOverrides: L1TxConfig;
@@ -92,7 +93,7 @@ export class DroppedTransactionError extends Error {
 
 /** Snapshot of what a timed-out L1 tx tried to pay, taken when the timeout is raised. */
 export type TimedOutTxState = {
-  /** Prices used across the initial send and each speed-up, in order (undefined if not retained). */
+  /** Prices used across the initial send and each speed-up, in order (undefined only for restored states). */
   gasPriceHistory?: GasPrice[];
   /** The last price the tx was sent at before timing out. */
   finalGasPrice: GasPrice;

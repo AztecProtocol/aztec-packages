@@ -302,7 +302,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
         txConfigOverrides: gasConfigOverrides ?? {},
         sentAtL1Ts: now,
         lastSentAtL1Ts: now,
-        gasPriceHistory: this.config.captureGasPriceHistory ? [baseState.gasPrice] : undefined,
+        gasPriceHistory: [baseState.gasPrice],
       };
 
       // And persist it

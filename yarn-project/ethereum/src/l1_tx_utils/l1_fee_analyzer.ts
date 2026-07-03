@@ -792,15 +792,11 @@ export class L1FeeAnalyzer {
   }
 
   private minBigInt(values: bigint[]): bigint {
-    return minBigInt(values);
+    if (values.length === 0) {
+      return 0n;
+    }
+    return values.reduce((min, val) => (val < min ? val : min), values[0]);
   }
-}
-
-function minBigInt(values: bigint[]): bigint {
-  if (values.length === 0) {
-    return 0n;
-  }
-  return values.reduce((min, val) => (val < min ? val : min), values[0]);
 }
 
 /** Per-block fee data for one mined L1 block, used to diagnose whether a tx was underpriced for it. */
@@ -808,13 +804,11 @@ export interface WindowBlockFees {
   blockNumber: bigint;
   timestamp: bigint;
   baseFeePerGas: bigint;
-  /** 75th percentile priority fee among the block's txs. */
+  /** 75th percentile priority fee among the block's txs (gas-weighted, from eth_feeHistory). */
   p75PriorityFee: bigint;
   /** Minimum priority fee among all included txs — the inclusion bar for that block. */
   minIncludedPriorityFee: bigint;
-  minIncludedBlobPriorityFee: bigint;
   blockBlobsFull: boolean;
-  includedBlobTxCount: number;
   includedBlobCount: number;
 }
 
@@ -823,9 +817,12 @@ const MAX_WINDOW_SCAN_BLOCKS = 64;
 
 /**
  * Reads the already-mined L1 blocks whose timestamps fall in [windowStartS, windowEndS) — the L1
- * inclusion window of an L2 slot — and extracts per-block fee data. Historical reads only, so it
- * never waits on a future block. Returns the blocks in chronological order, [] on error, or the
- * subset mined so far if the window is still in progress. Never throws.
+ * inclusion window of an L2 slot — and extracts per-block fee data. Walks block headers to map the
+ * window to block numbers, then reads the priority-fee stats from a single eth_feeHistory call
+ * (percentile 0 is the cheapest included tx, i.e. the inclusion bar), so no transaction bodies are
+ * ever downloaded. Historical reads only, so it never waits on a future block. Returns the blocks in
+ * chronological order, [] on error, or the subset mined so far if the window is still in progress.
+ * Never throws.
  */
 export async function captureWindowBlockFees(
   client: ViemClient,
@@ -833,34 +830,45 @@ export async function captureWindowBlockFees(
   windowEndS: bigint,
 ): Promise<WindowBlockFees[]> {
   try {
-    const results: WindowBlockFees[] = [];
-    let current = await client.getBlock({ blockTag: 'latest', includeTransactions: true });
+    let current = await client.getBlock({ blockTag: 'latest' });
+    const inWindow: (typeof current)[] = [];
     let scanned = 0;
     // Walk back from the head, collecting blocks inside the window and skipping any past its end,
     // until we cross below the window start (or hit the safety cap / genesis).
     while (current.timestamp >= windowStartS && scanned < MAX_WINDOW_SCAN_BLOCKS) {
       if (current.timestamp < windowEndS) {
-        const processed = processTransactions(current.transactions);
-        const blobsInBlock = current.blobGasUsed ? Number(current.blobGasUsed / GAS_PER_BLOB) : 0;
-        results.push({
-          blockNumber: current.number,
-          timestamp: current.timestamp,
-          baseFeePerGas: current.baseFeePerGas ?? 0n,
-          p75PriorityFee: calculatePercentile(processed.allPriorityFees, 75),
-          minIncludedPriorityFee: minBigInt(processed.allPriorityFees),
-          minIncludedBlobPriorityFee: minBigInt(processed.blobPriorityFees),
-          blockBlobsFull: blobsInBlock >= getMaxBlobCapacity(current.timestamp),
-          includedBlobTxCount: processed.blobTxs.length,
-          includedBlobCount: processed.totalBlobCount,
-        });
+        inWindow.push(current);
       }
       if (current.number === 0n) {
         break;
       }
-      current = await client.getBlock({ blockNumber: current.number - 1n, includeTransactions: true });
+      current = await client.getBlock({ blockNumber: current.number - 1n });
       scanned++;
     }
-    return results.reverse();
+    if (inWindow.length === 0) {
+      return [];
+    }
+    inWindow.reverse();
+    const newest = inWindow[inWindow.length - 1];
+    const feeHistory = await client.getFeeHistory({
+      blockCount: Number(newest.number - inWindow[0].number) + 1,
+      blockNumber: newest.number,
+      rewardPercentiles: [0, 75],
+    });
+    return inWindow.map(block => {
+      const idx = Number(block.number - feeHistory.oldestBlock);
+      const [minIncludedPriorityFee, p75PriorityFee] = feeHistory.reward?.[idx] ?? [0n, 0n];
+      const blobsInBlock = block.blobGasUsed ? Number(block.blobGasUsed / GAS_PER_BLOB) : 0;
+      return {
+        blockNumber: block.number,
+        timestamp: block.timestamp,
+        baseFeePerGas: block.baseFeePerGas ?? 0n,
+        p75PriorityFee,
+        minIncludedPriorityFee,
+        blockBlobsFull: blobsInBlock >= getMaxBlobCapacity(block.timestamp),
+        includedBlobCount: blobsInBlock,
+      };
+    });
   } catch {
     return [];
   }

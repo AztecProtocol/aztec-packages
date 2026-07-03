@@ -20,6 +20,7 @@ import {
 import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { jsonParseWithSchema } from '@aztec/foundation/json-rpc';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, RollupAbi } from '@aztec/l1-artifacts';
@@ -47,7 +48,7 @@ import {
 import { privateKeyToAccount } from 'viem/accounts';
 
 import type { PublisherConfig, TxSenderConfig } from './config.js';
-import type { FailedL1Tx } from './l1_tx_failed_store/index.js';
+import { type FailedL1Tx, FailedL1TxSchema } from './l1_tx_failed_store/index.js';
 import type { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
 import { type Action, SequencerPublisher, compareActions } from './sequencer-publisher.js';
 
@@ -57,7 +58,7 @@ async function waitForFailedTxRecord(dir: string): Promise<FailedL1Tx> {
     const files = await readdir(dir).catch(() => [] as string[]);
     const jsonFile = files.find(f => f.endsWith('.json'));
     if (jsonFile) {
-      return JSON.parse((await readFile(join(dir, jsonFile))).toString()) as FailedL1Tx;
+      return jsonParseWithSchema((await readFile(join(dir, jsonFile))).toString(), FailedL1TxSchema);
     }
     await sleep(100);
   }
@@ -1050,11 +1051,11 @@ describe('SequencerPublisher', () => {
 
       expect(record.failureType).toBe('timeout');
       expect(record.gasInfo?.sentGasPriceLadder).toEqual([
-        { maxFeePerGas: '100', maxPriorityFeePerGas: '1' },
-        { maxFeePerGas: '150', maxPriorityFeePerGas: '3' },
+        { maxFeePerGas: 100n, maxPriorityFeePerGas: 1n },
+        { maxFeePerGas: 150n, maxPriorityFeePerGas: 3n },
       ]);
       expect(record.gasInfo?.attempts).toBe(2);
-      expect(record.gasInfo?.gasLimit).toBe('21000');
+      expect(record.gasInfo?.gasLimit).toBe(21_000n);
       expect(record.gasInfo?.nonce).toBe(5);
     }, 20_000);
   });

@@ -165,8 +165,6 @@ export class SequencerPublisher {
   private bundleSimulator: SequencerBundleSimulator;
   public epochCache: EpochCache;
   private failedTxStore?: Promise<L1TxFailedStore | undefined>;
-  /** Whether publishers should retain the gas-price ladder — only worthwhile when a failed-tx store is configured. */
-  private readonly captureGasPriceHistory: boolean;
 
   /**
    * ABI used to decode raw revert payloads from dropped bundle entries when the original
@@ -270,10 +268,6 @@ export class SequencerPublisher {
     // Initialize failed L1 tx store (optional, for test networks)
     this.failedTxStore = createL1TxFailedStore(config.l1TxFailedStore, this.log);
 
-    // Only retain the gas-price ladder on publishers when we'll actually store failures with it.
-    this.captureGasPriceHistory = !!config.l1TxFailedStore;
-    this.l1TxUtils.updateConfig({ captureGasPriceHistory: this.captureGasPriceHistory });
-
     this.bundleSimulator = new SequencerBundleSimulator({
       getL1TxUtils: () => this.l1TxUtils,
       rollupContract: this.rollupContract,
@@ -283,10 +277,10 @@ export class SequencerPublisher {
   }
 
   /**
-   * Backs up a failed L1 transaction to the configured store for debugging.
-   * Does nothing if no store is configured.
-   * When captureFeeSummary is true, captures L1 fee environment and waits for the next
-   * mined block (~12s) to record the definitive inclusion threshold before saving.
+   * Logs the gas-pricing data of a failed L1 transaction at warn — so underpricing is diagnosable
+   * from logs even with no failed-tx store configured — and backs the record up to the store when
+   * one is. When captureFeeSummary is true, also records the fee data of the already-mined L1
+   * blocks in the target slot's inclusion window.
    */
   private backupFailedTx(
     failedTx: Omit<FailedL1Tx, 'timestamp'>,
@@ -300,21 +294,29 @@ export class SequencerPublisher {
     // Fire and forget - don't block on backup
     void (async () => {
       try {
-        // Resolve the store first: with no failed-tx store configured we skip all capture work
-        // (the store is an always-assigned promise that resolves to undefined when disabled).
-        const store = await this.failedTxStore;
-        if (!store) {
-          return;
-        }
         // Prefer a pre-captured summary (shared across a batch of failures in the same slot) so we
-        // don't re-read the fee window per record.
+        // don't re-read the fee window per record. A capture error must not lose the record itself.
         const feeSummary =
           opts?.sharedFeeSummary ??
-          (opts?.captureFeeSummary ? await this.captureFeeEnvironment(opts.targetSlot) : undefined);
+          (opts?.captureFeeSummary
+            ? await this.captureFeeEnvironment(opts.targetSlot).catch(() => undefined)
+            : undefined);
         if (feeSummary) {
           tx.gasInfo = { ...tx.gasInfo, ...feeSummary };
         }
-        await store.saveFailedTx(tx);
+        if (tx.gasInfo) {
+          this.log.warn(`Gas pricing data for failed L1 tx (${tx.failureType})`, {
+            failureType: tx.failureType,
+            actions: tx.context.actions,
+            slot: tx.context.slot,
+            ...tx.gasInfo,
+            ...tx.timing,
+          });
+        }
+        const store = await this.failedTxStore;
+        if (store) {
+          await store.saveFailedTx(tx);
+        }
       } catch (err) {
         this.log.warn(`Failed to backup failed L1 tx to store`, err);
       }
@@ -341,19 +343,7 @@ export class SequencerPublisher {
     if (windowBlocks.length === 0) {
       return undefined;
     }
-    return {
-      windowBlocks: windowBlocks.map(b => ({
-        blockNumber: b.blockNumber.toString(),
-        timestamp: b.timestamp.toString(),
-        baseFeePerGas: b.baseFeePerGas.toString(),
-        p75PriorityFee: b.p75PriorityFee.toString(),
-        minIncludedPriorityFee: b.minIncludedPriorityFee.toString(),
-        minIncludedBlobPriorityFee: b.minIncludedBlobPriorityFee.toString(),
-        blockBlobsFull: b.blockBlobsFull,
-        includedBlobTxCount: b.includedBlobTxCount,
-        includedBlobCount: b.includedBlobCount,
-      })),
-    };
+    return { windowBlocks };
   }
 
   /** Computes timing info relative to the L2 slot deadline. */
@@ -366,7 +356,7 @@ export class SequencerPublisher {
     const slotDeadlineMs = Number(slotDeadlineS) * 1000;
     return {
       targetL2Slot: Number(targetL2Slot),
-      slotDeadlineTimestampS: slotDeadlineS.toString(),
+      slotDeadlineTimestampS: slotDeadlineS,
       msUntilSlotDeadline: slotDeadlineMs - this.dateProvider.now(),
     };
   }
@@ -582,17 +572,11 @@ export class SequencerPublisher {
       const viemError = formatViemError(err);
       this.log.error(`Failed to publish bundled transactions`, viemError);
       if (err instanceof TimeoutError) {
-        // The gas-price ladder is only present when the failed-tx store enabled capture (see L1TxUtils).
         const timeoutState = err instanceof L1TxTimeoutError ? err.txState : undefined;
-        // getBlockNumber is an RPC call and the RPC is likely degraded right after a timeout, so
-        // guard it: fall back to block '0' rather than leaking an unhandled rejection.
         void (async () => {
-          let l1BlockNumber = 0n;
-          try {
-            l1BlockNumber = await this.l1TxUtils.getBlockNumber();
-          } catch {
-            // ignore - back up without the block number
-          }
+          // The RPC is likely degraded right after a timeout, so back up without the block number
+          // rather than leaking an unhandled rejection.
+          const l1BlockNumber = await this.l1TxUtils.getBlockNumber().catch(() => 0n);
           this.backupFailedTx(
             {
               id: this.failureRecordId(
@@ -601,7 +585,7 @@ export class SequencerPublisher {
               ),
               failureType: 'timeout',
               request: { to: MULTI_CALL_3_ADDRESS as Hex, data: '0x' as Hex },
-              l1BlockNumber: l1BlockNumber.toString(),
+              l1BlockNumber,
               error: { message: viemError.message, name: 'TimeoutError' },
               context: {
                 actions: validRequests.map(r => r.action),
@@ -614,13 +598,9 @@ export class SequencerPublisher {
               timing: this.computeTimingInfo(currentL2Slot),
               gasInfo: timeoutState
                 ? {
-                    sentGasPriceLadder: timeoutState.gasPriceHistory?.map(g => ({
-                      maxFeePerGas: g.maxFeePerGas.toString(),
-                      maxPriorityFeePerGas: g.maxPriorityFeePerGas.toString(),
-                      maxFeePerBlobGas: g.maxFeePerBlobGas?.toString(),
-                    })),
+                    sentGasPriceLadder: timeoutState.gasPriceHistory,
                     attempts: timeoutState.attempts,
-                    gasLimit: timeoutState.gasLimit.toString(),
+                    gasLimit: timeoutState.gasLimit,
                     nonce: timeoutState.nonce,
                   }
                 : undefined,
@@ -662,14 +642,10 @@ export class SequencerPublisher {
     }
     // Invoked as `void backupDroppedInSim(...)` on the publish path, so it must not throw.
     try {
-      // Skip all capture work when no failed-tx store is configured.
-      if (!(await this.failedTxStore)) {
-        return;
-      }
       const l1BlockNumber = await this.l1TxUtils.getBlockNumber();
       // Every dropped entry failed in the same slot against the same L1 fee conditions, so capture
-      // the fee environment once and share it rather than firing one next-block poll per entry.
-      const sharedFeeSummary = await this.captureFeeEnvironment(targetSlot);
+      // the fee environment once and share it rather than re-reading the window per entry.
+      const sharedFeeSummary = await this.captureFeeEnvironment(targetSlot).catch(() => undefined);
       const timing = this.computeTimingInfo(targetSlot);
       for (const { request: req } of dropped) {
         this.backupFailedTx(
@@ -677,7 +653,7 @@ export class SequencerPublisher {
             id: keccak256(req.request.data!),
             failureType: 'simulation',
             request: { to: req.request.to! as Hex, data: req.request.data! },
-            l1BlockNumber: l1BlockNumber.toString(),
+            l1BlockNumber,
             error: { message: 'Bundle entry dropped: action reverted in sim' },
             context: {
               actions: [req.action],
@@ -763,7 +739,6 @@ export class SequencerPublisher {
           this.backupSendFailure(validRequests, viemError, currentPublisher, targetSlot);
           return undefined;
         }
-        nextPublisher.updateConfig({ captureGasPriceHistory: this.captureGasPriceHistory });
         currentPublisher = nextPublisher;
       }
     }
@@ -781,11 +756,11 @@ export class SequencerPublisher {
         id: err.receipt.transactionHash,
         failureType: 'revert',
         request: { to: MULTI_CALL_3_ADDRESS as Hex, data: '0x' as Hex },
-        l1BlockNumber: err.receipt.blockNumber.toString(),
+        l1BlockNumber: err.receipt.blockNumber,
         receipt: {
           transactionHash: err.receipt.transactionHash,
-          blockNumber: err.receipt.blockNumber.toString(),
-          gasUsed: err.receipt.gasUsed.toString(),
+          blockNumber: err.receipt.blockNumber,
+          gasUsed: err.receipt.gasUsed,
           status: 'reverted',
         },
         error: { message: err.message, name: err.name },
@@ -799,12 +774,8 @@ export class SequencerPublisher {
         },
         gasInfo: err.txState
           ? {
-              sentGasPrice: {
-                maxFeePerGas: err.txState.gasPrice.maxFeePerGas.toString(),
-                maxPriorityFeePerGas: err.txState.gasPrice.maxPriorityFeePerGas.toString(),
-                maxFeePerBlobGas: err.txState.gasPrice.maxFeePerBlobGas?.toString(),
-              },
-              gasLimit: err.txState.gasLimit.toString(),
+              sentGasPrice: err.txState.gasPrice,
+              gasLimit: err.txState.gasLimit,
               nonce: err.txState.nonce,
             }
           : undefined,
@@ -821,8 +792,10 @@ export class SequencerPublisher {
     publisher: L1TxUtils,
     targetSlot?: SlotNumber,
   ): void {
+    // If we can't get the block number, still back up without it.
     void this.l1TxUtils
       .getBlockNumber()
+      .catch(() => 0n)
       .then(l1BlockNumber => {
         this.backupFailedTx(
           {
@@ -832,7 +805,7 @@ export class SequencerPublisher {
             ),
             failureType: 'send-error',
             request: { to: MULTI_CALL_3_ADDRESS as Hex, data: '0x' as Hex },
-            l1BlockNumber: l1BlockNumber.toString(),
+            l1BlockNumber,
             error: {
               message: error.message,
               name: 'name' in error ? error.name : undefined,
@@ -842,31 +815,6 @@ export class SequencerPublisher {
               requests: requests
                 .filter(r => r.request.to !== null)
                 .map(r => ({ action: r.action, to: r.request.to! as Hex, data: r.request.data! })),
-              sender: publisher.getSenderAddress().toString(),
-              slot: targetSlot !== undefined ? Number(targetSlot) : undefined,
-            },
-            timing: this.computeTimingInfo(targetSlot),
-          },
-          { captureFeeSummary: true, targetSlot },
-        );
-      })
-      .catch(() => {
-        // If we can't get the block number, still try without it
-        this.backupFailedTx(
-          {
-            id: this.failureRecordId(
-              requests.map(r => r.action),
-              targetSlot,
-            ),
-            failureType: 'send-error',
-            request: { to: MULTI_CALL_3_ADDRESS as Hex, data: '0x' as Hex },
-            l1BlockNumber: '0',
-            error: {
-              message: error.message,
-              name: 'name' in error ? error.name : undefined,
-            },
-            context: {
-              actions: requests.map(r => r.action),
               sender: publisher.getSenderAddress().toString(),
               slot: targetSlot !== undefined ? Number(targetSlot) : undefined,
             },
@@ -1107,8 +1055,8 @@ export class SequencerPublisher {
         {
           id: keccak256(request.data!),
           failureType: 'simulation',
-          request: { to: request.to!, data: request.data!, value: request.value?.toString() },
-          l1BlockNumber: l1BlockNumber.toString(),
+          request: { to: request.to!, data: request.data!, value: request.value },
+          l1BlockNumber,
           error: { message: viemError.message, name: viemError.name },
           context: {
             actions: [`invalidate-${reason}`],
@@ -1525,7 +1473,7 @@ export class SequencerPublisher {
               failureType: 'simulation',
               request: { to: this.rollupContract.address as Hex, data: validateBlobsData },
               blobData: encodedData.blobs.map(b => toHex(b.data)) as Hex[],
-              l1BlockNumber: l1BlockNumber.toString(),
+              l1BlockNumber,
               error: { message: viemError.message, name: viemError.name },
               context: {
                 actions: ['validate-blobs'],

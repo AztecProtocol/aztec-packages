@@ -96,12 +96,14 @@ describe('L1TxUtils gas-price ladder capture (integration)', () => {
     await anvil.stop().catch(err => createLogger('cleanup').error(err));
   }, 10_000);
 
-  it('captures the escalating gas-price ladder and surfaces it on timeout when enabled', async () => {
-    const gasUtils = makeGasUtils({ captureGasPriceHistory: true, maxSpeedUpAttempts: 3 });
+  it('captures the escalating gas-price ladder and surfaces it on timeout', async () => {
+    const gasUtils = makeGasUtils({ maxSpeedUpAttempts: 3 });
 
     const err = await runUntilTimeout(gasUtils, cheatCodes);
 
     expect(err).toBeInstanceOf(L1TxTimeoutError);
+    // Subclass relationship must hold so the publish path keeps treating it as a timeout.
+    expect(err).toBeInstanceOf(TimeoutError);
     const { txState } = err as L1TxTimeoutError;
 
     // Initial send plus at least one speed-up.
@@ -119,20 +121,6 @@ describe('L1TxUtils gas-price ladder capture (integration)', () => {
     expect(txState.finalGasPrice.maxPriorityFeePerGas).toBe(priorityFees[priorityFees.length - 1]);
     expect(txState.gasLimit).toBeGreaterThan(0n);
     expect(txState.nonce).toBeGreaterThanOrEqual(0);
-
-    gasUtils.interrupt();
-    await gasUtils.waitMonitoringStopped(5);
-  }, 40_000);
-
-  it('does not retain the ladder when disabled, but still throws an L1TxTimeoutError', async () => {
-    const gasUtils = makeGasUtils({ captureGasPriceHistory: false, maxSpeedUpAttempts: 3 });
-
-    const err = await runUntilTimeout(gasUtils, cheatCodes);
-
-    // Subclass relationship must hold so the publish path keeps treating it as a timeout.
-    expect(err).toBeInstanceOf(L1TxTimeoutError);
-    expect(err).toBeInstanceOf(TimeoutError);
-    expect((err as L1TxTimeoutError).txState.gasPriceHistory).toBeUndefined();
 
     gasUtils.interrupt();
     await gasUtils.waitMonitoringStopped(5);
