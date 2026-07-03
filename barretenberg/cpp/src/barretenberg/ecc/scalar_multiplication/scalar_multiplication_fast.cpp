@@ -1070,16 +1070,9 @@ template <typename Curve>
     const uint32_t last_round_bits =
         static_cast<uint32_t>(NUM_BITS - (static_cast<size_t>(num_rounds - 1) * window_bits));
 
-    // Each thread owns a num_buckets-sized scratch slice and runs num_rounds passes; below
-    // ~256 points per thread the parallel_for wakeup + per-call bucket reset dominate.
-    // wasm is forced single-threaded — its barrier cost is much higher than native.
-#ifdef __wasm__
-    constexpr size_t MIN_PTS_PER_THREAD_DEFAULT = SIZE_MAX;
-#else
-    constexpr size_t MIN_PTS_PER_THREAD_DEFAULT = 256;
-#endif
+    // Cap the worker count so each gets at least MSM_MIN_PTS_PER_THREAD points.
     const size_t MIN_PTS_PER_THREAD =
-        (min_pts_per_thread_override == 0) ? MIN_PTS_PER_THREAD_DEFAULT : min_pts_per_thread_override;
+        (min_pts_per_thread_override == 0) ? MSM_MIN_PTS_PER_THREAD : min_pts_per_thread_override;
     const size_t hw_threads = max_threads == 0 ? get_num_cpus() : std::min(max_threads, get_num_cpus());
     size_t num_threads = std::min(std::max<size_t>(1, n / MIN_PTS_PER_THREAD), hw_threads);
     if (num_threads == 0) {
