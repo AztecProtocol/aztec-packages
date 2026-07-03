@@ -1109,6 +1109,40 @@ pub contract Token {
             }
         }
 
+        pub fn constructor(self, admin: AztecAddress, name: str<31>, symbol: str<31>, decimals: u8) {
+            let mut serialized_params: [Field; 64] = [0_Field; 64];
+            let mut offset: u32 = 0_u32;
+            let serialized_member: [Field; 1] = <AztecAddress as aztec::protocol::traits::Serialize>::serialize(admin);
+            let serialized_member_len: u32 = <AztecAddress as aztec::protocol::traits::Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 31] = <str<31> as aztec::protocol::traits::Serialize>::serialize(name);
+            let serialized_member_len: u32 = <str<31> as aztec::protocol::traits::Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 31] = <str<31> as aztec::protocol::traits::Serialize>::serialize(symbol);
+            let serialized_member_len: u32 = <str<31> as aztec::protocol::traits::Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = <u8 as aztec::protocol::traits::Serialize>::serialize(decimals);
+            let serialized_member_len: u32 = <u8 as aztec::protocol::traits::Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1578322623_Field);
+            // Safety: comment added by `nargo expand`
+            unsafe {
+                aztec::context::calls::PublicCall::<11, 64, ()>::new(self.address, selector, "constructor", serialized_params).call(self.context)
+            }
+        }
+
         pub fn mint_to_public(self, to: AztecAddress, amount: u128) {
             let mut serialized_params: [Field; 2] = [0_Field; 2];
             let mut offset: u32 = 0_u32;
@@ -1153,40 +1187,6 @@ pub contract Token {
             }
         }
 
-        pub fn constructor(self, admin: AztecAddress, name: str<31>, symbol: str<31>, decimals: u8) {
-            let mut serialized_params: [Field; 64] = [0_Field; 64];
-            let mut offset: u32 = 0_u32;
-            let serialized_member: [Field; 1] = <AztecAddress as aztec::protocol::traits::Serialize>::serialize(admin);
-            let serialized_member_len: u32 = <AztecAddress as aztec::protocol::traits::Serialize>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let serialized_member: [Field; 31] = <str<31> as aztec::protocol::traits::Serialize>::serialize(name);
-            let serialized_member_len: u32 = <str<31> as aztec::protocol::traits::Serialize>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let serialized_member: [Field; 31] = <str<31> as aztec::protocol::traits::Serialize>::serialize(symbol);
-            let serialized_member_len: u32 = <str<31> as aztec::protocol::traits::Serialize>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let serialized_member: [Field; 1] = <u8 as aztec::protocol::traits::Serialize>::serialize(decimals);
-            let serialized_member_len: u32 = <u8 as aztec::protocol::traits::Serialize>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1578322623_Field);
-            // Safety: comment added by `nargo expand`
-            unsafe {
-                aztec::context::calls::PublicCall::<11, 64, ()>::new(self.address, selector, "constructor", serialized_params).call(self.context)
-            }
-        }
-
         pub fn finalize_mint_to_private(self, amount: u128, partial_note: PartialUintNote) {
             let mut serialized_params: [Field; 2] = [0_Field; 2];
             let mut offset: u32 = 0_u32;
@@ -1206,15 +1206,6 @@ pub contract Token {
             // Safety: comment added by `nargo expand`
             unsafe {
                 aztec::context::calls::PublicCall::<24, 2, ()>::new(self.address, selector, "finalize_mint_to_private", serialized_params).call(self.context)
-            }
-        }
-
-        pub fn _reduce_total_supply(self, amount: u128) {
-            let serialized_params: [Field; 1] = <u128 as aztec::protocol::traits::Serialize>::serialize(amount);
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(2253390209_Field);
-            // Safety: comment added by `nargo expand`
-            unsafe {
-                aztec::context::calls::PublicCall::<20, 1, ()>::new(self.address, selector, "_reduce_total_supply", serialized_params).call(self.context)
             }
         }
 
@@ -1249,6 +1240,15 @@ pub contract Token {
             // Safety: comment added by `nargo expand`
             unsafe {
                 aztec::context::calls::PublicCall::<18, 4, ()>::new(self.address, selector, "transfer_in_public", serialized_params).call(self.context)
+            }
+        }
+
+        pub fn _reduce_total_supply(self, amount: u128) {
+            let serialized_params: [Field; 1] = <u128 as aztec::protocol::traits::Serialize>::serialize(amount);
+            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(2253390209_Field);
+            // Safety: comment added by `nargo expand`
+            unsafe {
+                aztec::context::calls::PublicCall::<20, 1, ()>::new(self.address, selector, "_reduce_total_supply", serialized_params).call(self.context)
             }
         }
 
@@ -1335,28 +1335,6 @@ pub contract Token {
     }
 
     impl CallSelf<&mut aztec::context::PrivateContext> {
-        pub fn transfer(self, to: AztecAddress, amount: u128) {
-            let mut serialized_params: [Field; 2] = [0_Field; 2];
-            let mut offset: u32 = 0_u32;
-            let serialized_member: [Field; 1] = <AztecAddress as aztec::protocol::traits::Serialize>::serialize(to);
-            let serialized_member_len: u32 = <AztecAddress as aztec::protocol::traits::Serialize>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let serialized_member: [Field; 1] = <u128 as aztec::protocol::traits::Serialize>::serialize(amount);
-            let serialized_member_len: u32 = <u128 as aztec::protocol::traits::Serialize>::N;
-            for i in 0_u32..serialized_member_len {
-                serialized_params[i + offset] = serialized_member[i];
-            };
-            offset = offset + serialized_member_len;
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1968158567_Field);
-            let args_hash: Field = aztec::hash::hash_args(serialized_params);
-            aztec::oracle::execution_cache::store(serialized_params, args_hash);
-            let returns_hash: aztec::context::ReturnsHash = self.context.call_private_function_with_args_hash(self.address, selector, args_hash, false);
-            returns_hash.get_preimage()
-        }
-
         pub fn _recurse_subtract_balance(self, account: AztecAddress, amount: u128) -> u128 {
             let mut serialized_params: [Field; 2] = [0_Field; 2];
             let mut offset: u32 = 0_u32;
@@ -1373,6 +1351,28 @@ pub contract Token {
             };
             offset = offset + serialized_member_len;
             let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1536394406_Field);
+            let args_hash: Field = aztec::hash::hash_args(serialized_params);
+            aztec::oracle::execution_cache::store(serialized_params, args_hash);
+            let returns_hash: aztec::context::ReturnsHash = self.context.call_private_function_with_args_hash(self.address, selector, args_hash, false);
+            returns_hash.get_preimage()
+        }
+
+        pub fn transfer(self, to: AztecAddress, amount: u128) {
+            let mut serialized_params: [Field; 2] = [0_Field; 2];
+            let mut offset: u32 = 0_u32;
+            let serialized_member: [Field; 1] = <AztecAddress as aztec::protocol::traits::Serialize>::serialize(to);
+            let serialized_member_len: u32 = <AztecAddress as aztec::protocol::traits::Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let serialized_member: [Field; 1] = <u128 as aztec::protocol::traits::Serialize>::serialize(amount);
+            let serialized_member_len: u32 = <u128 as aztec::protocol::traits::Serialize>::N;
+            for i in 0_u32..serialized_member_len {
+                serialized_params[i + offset] = serialized_member[i];
+            };
+            offset = offset + serialized_member_len;
+            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1968158567_Field);
             let args_hash: Field = aztec::hash::hash_args(serialized_params);
             aztec::oracle::execution_cache::store(serialized_params, args_hash);
             let returns_hash: aztec::context::ReturnsHash = self.context.call_private_function_with_args_hash(self.address, selector, args_hash, false);
@@ -1711,18 +1711,18 @@ pub contract Token {
     }
 
     impl CallSelfStatic<&mut aztec::context::PrivateContext> {
-        pub fn private_get_symbol(self) -> FieldCompressedString {
+        pub fn private_get_name(self) -> FieldCompressedString {
             let serialized_params: [Field; 0] = [];
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1295669651_Field);
+            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(3516522363_Field);
             let args_hash: Field = aztec::hash::hash_args(serialized_params);
             aztec::oracle::execution_cache::store(serialized_params, args_hash);
             let returns_hash: aztec::context::ReturnsHash = self.context.call_private_function_with_args_hash(self.address, selector, args_hash, true);
             returns_hash.get_preimage()
         }
 
-        pub fn private_get_name(self) -> FieldCompressedString {
+        pub fn private_get_symbol(self) -> FieldCompressedString {
             let serialized_params: [Field; 0] = [];
-            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(3516522363_Field);
+            let selector: aztec::protocol::abis::function_selector::FunctionSelector = <aztec::protocol::abis::function_selector::FunctionSelector as aztec::protocol::traits::FromField>::from_field(1295669651_Field);
             let args_hash: Field = aztec::hash::hash_args(serialized_params);
             aztec::oracle::execution_cache::store(serialized_params, args_hash);
             let returns_hash: aztec::context::ReturnsHash = self.context.call_private_function_with_args_hash(self.address, selector, args_hash, true);
