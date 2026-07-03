@@ -28,8 +28,8 @@ describe('BN254 Keystore', () => {
   });
 
   describe('createBn254Keystore', () => {
-    it('creates a valid BN254 keystore structure', () => {
-      const keystore = createBn254Keystore(testPassword, testPrivateKey, testPublicKey, testPath);
+    it('creates a valid BN254 keystore structure', async () => {
+      const keystore = await createBn254Keystore(testPassword, testPrivateKey, testPublicKey, testPath);
 
       expect(keystore.version).toBe(4);
       expect(keystore.path).toBe(testPath);
@@ -50,8 +50,8 @@ describe('BN254 Keystore', () => {
       expect(keystore.crypto.checksum.message).toMatch(/^[0-9a-f]{64}$/);
     });
 
-    it('encrypts the private key so it can be decrypted', () => {
-      const keystore = createBn254Keystore(testPassword, testPrivateKey, testPublicKey, testPath);
+    it('encrypts the private key so it can be decrypted', async () => {
+      const keystore = await createBn254Keystore(testPassword, testPrivateKey, testPublicKey, testPath);
 
       // Derive the decryption key using the same KDF
       const salt = Buffer.from(keystore.crypto.kdf.params.salt, 'hex');
@@ -74,87 +74,87 @@ describe('BN254 Keystore', () => {
       expect('0x' + decrypted.toString('hex')).toBe(testPrivateKey);
     });
 
-    it('produces different ciphertexts for the same key with different passwords', () => {
-      const keystore1 = createBn254Keystore('password1', testPrivateKey, testPublicKey, testPath);
-      const keystore2 = createBn254Keystore('password2', testPrivateKey, testPublicKey, testPath);
+    it('produces different ciphertexts for the same key with different passwords', async () => {
+      const keystore1 = await createBn254Keystore('password1', testPrivateKey, testPublicKey, testPath);
+      const keystore2 = await createBn254Keystore('password2', testPrivateKey, testPublicKey, testPath);
 
       expect(keystore1.crypto.cipher.message).not.toBe(keystore2.crypto.cipher.message);
       expect(keystore1.crypto.checksum.message).not.toBe(keystore2.crypto.checksum.message);
     });
 
-    it('produces different ciphertexts on each call due to random salt and IV', () => {
-      const keystore1 = createBn254Keystore(testPassword, testPrivateKey, testPublicKey, testPath);
-      const keystore2 = createBn254Keystore(testPassword, testPrivateKey, testPublicKey, testPath);
+    it('produces different ciphertexts on each call due to random salt and IV', async () => {
+      const keystore1 = await createBn254Keystore(testPassword, testPrivateKey, testPublicKey, testPath);
+      const keystore2 = await createBn254Keystore(testPassword, testPrivateKey, testPublicKey, testPath);
 
       expect(keystore1.crypto.kdf.params.salt).not.toBe(keystore2.crypto.kdf.params.salt);
       expect(keystore1.crypto.cipher.params.iv).not.toBe(keystore2.crypto.cipher.params.iv);
       expect(keystore1.crypto.cipher.message).not.toBe(keystore2.crypto.cipher.message);
     });
 
-    it('accepts private keys with or without 0x prefix', () => {
-      const withPrefix = createBn254Keystore(testPassword, '0x' + '42'.repeat(32), testPublicKey, testPath);
-      const withoutPrefix = createBn254Keystore(testPassword, '42'.repeat(32), testPublicKey, testPath);
+    it('accepts private keys with or without 0x prefix', async () => {
+      const withPrefix = await createBn254Keystore(testPassword, '0x' + '42'.repeat(32), testPublicKey, testPath);
+      const withoutPrefix = await createBn254Keystore(testPassword, '42'.repeat(32), testPublicKey, testPath);
 
       // Both should produce valid keystores with same length ciphertext
       expect(withPrefix.crypto.cipher.message.length).toBe(64);
       expect(withoutPrefix.crypto.cipher.message.length).toBe(64);
     });
 
-    it('stores public key without 0x prefix in description field', () => {
+    it('stores public key without 0x prefix in description field', async () => {
       const pubkeyWithPrefix = '0x' + 'ab'.repeat(33);
-      const keystore = createBn254Keystore(testPassword, testPrivateKey, pubkeyWithPrefix, testPath);
+      const keystore = await createBn254Keystore(testPassword, testPrivateKey, pubkeyWithPrefix, testPath);
 
       expect(keystore.description).toBe('ab'.repeat(33));
       expect(keystore.pubkey).toBe(pubkeyWithPrefix);
     });
 
-    it('throws error for invalid private key length', () => {
+    it('throws error for invalid private key length', async () => {
       const shortKey = '0x1234';
-      expect(() => createBn254Keystore(testPassword, shortKey, testPublicKey, testPath)).toThrow(
+      await expect(createBn254Keystore(testPassword, shortKey, testPublicKey, testPath)).rejects.toThrow(
         'BLS private key must be 32-byte hex',
       );
 
       const longKey = '0x' + '42'.repeat(33);
-      expect(() => createBn254Keystore(testPassword, longKey, testPublicKey, testPath)).toThrow(
+      await expect(createBn254Keystore(testPassword, longKey, testPublicKey, testPath)).rejects.toThrow(
         'BLS private key must be 32-byte hex',
       );
     });
 
-    it('throws error for non-hex private key', () => {
+    it('throws error for non-hex private key', async () => {
       const invalidKey = '0xGGGG' + '42'.repeat(30);
-      expect(() => createBn254Keystore(testPassword, invalidKey, testPublicKey, testPath)).toThrow(
+      await expect(createBn254Keystore(testPassword, invalidKey, testPublicKey, testPath)).rejects.toThrow(
         'BLS private key must be 32-byte hex',
       );
     });
 
-    it('normalizes password using NFKD', () => {
+    it('normalizes password using NFKD', async () => {
       // Password with combining characters
       const password = 'café'; // é can be represented as single char or e + combining accent
-      const keystore = createBn254Keystore(password, testPrivateKey, testPublicKey, testPath);
+      const keystore = await createBn254Keystore(password, testPrivateKey, testPublicKey, testPath);
 
       // Should successfully create keystore (normalization happens internally)
       expect(keystore).toBeDefined();
       expect(keystore.version).toBe(4);
     });
 
-    it('handles empty password', () => {
-      const keystore = createBn254Keystore('', testPrivateKey, testPublicKey, testPath);
+    it('handles empty password', async () => {
+      const keystore = await createBn254Keystore('', testPrivateKey, testPublicKey, testPath);
 
       expect(keystore).toBeDefined();
       expect(keystore.crypto.cipher.message).toMatch(/^[0-9a-f]{64}$/);
     });
 
-    it('preserves derivation path exactly as provided', () => {
+    it('preserves derivation path exactly as provided', async () => {
       const customPath = 'm/12381/3600/99/88/77';
-      const keystore = createBn254Keystore(testPassword, testPrivateKey, testPublicKey, customPath);
+      const keystore = await createBn254Keystore(testPassword, testPrivateKey, testPublicKey, customPath);
 
       expect(keystore.path).toBe(customPath);
     });
   });
 
   describe('loadBn254Keystore', () => {
-    it('loads and validates a valid BN254 keystore file', () => {
-      const keystore = createBn254Keystore(testPassword, testPrivateKey, testPublicKey, testPath);
+    it('loads and validates a valid BN254 keystore file', async () => {
+      const keystore = await createBn254Keystore(testPassword, testPrivateKey, testPublicKey, testPath);
       const filePath = join(tempDir, 'valid-keystore.json');
       writeFileSync(filePath, JSON.stringify(keystore));
 
@@ -191,8 +191,8 @@ describe('BN254 Keystore', () => {
   });
 
   describe('decryptBn254Keystore', () => {
-    it('successfully decrypts a keystore with correct password', () => {
-      const keystore = createBn254Keystore(testPassword, testPrivateKey, testPublicKey, testPath);
+    it('successfully decrypts a keystore with correct password', async () => {
+      const keystore = await createBn254Keystore(testPassword, testPrivateKey, testPublicKey, testPath);
       const filePath = join(tempDir, 'decrypt-test.json');
       writeFileSync(filePath, JSON.stringify(keystore));
 
@@ -201,8 +201,8 @@ describe('BN254 Keystore', () => {
       expect(decrypted).toBe(testPrivateKey);
     });
 
-    it('throws on incorrect password', () => {
-      const keystore = createBn254Keystore(testPassword, testPrivateKey, testPublicKey, testPath);
+    it('throws on incorrect password', async () => {
+      const keystore = await createBn254Keystore(testPassword, testPrivateKey, testPublicKey, testPath);
       const filePath = join(tempDir, 'wrong-password-test.json');
       writeFileSync(filePath, JSON.stringify(keystore));
 
@@ -210,9 +210,9 @@ describe('BN254 Keystore', () => {
       expect(() => decryptBn254Keystore(filePath, 'wrong-password')).toThrow(/Checksum verification failed/);
     });
 
-    it('works with empty password if keystore was created with empty password', () => {
+    it('works with empty password if keystore was created with empty password', async () => {
       const emptyPassword = '';
-      const keystore = createBn254Keystore(emptyPassword, testPrivateKey, testPublicKey, testPath);
+      const keystore = await createBn254Keystore(emptyPassword, testPrivateKey, testPublicKey, testPath);
       const filePath = join(tempDir, 'empty-password-test.json');
       writeFileSync(filePath, JSON.stringify(keystore));
 
@@ -223,16 +223,16 @@ describe('BN254 Keystore', () => {
   });
 
   describe('decryptBn254KeystoreFromObject', () => {
-    it('decrypts from an in-memory keystore object', () => {
-      const keystore = createBn254Keystore(testPassword, testPrivateKey, testPublicKey, testPath);
+    it('decrypts from an in-memory keystore object', async () => {
+      const keystore = await createBn254Keystore(testPassword, testPrivateKey, testPublicKey, testPath);
 
       const decrypted = decryptBn254KeystoreFromObject(keystore, testPassword);
 
       expect(decrypted).toBe(testPrivateKey);
     });
 
-    it('throws on unsupported KDF function', () => {
-      const keystore = createBn254Keystore(testPassword, testPrivateKey, testPublicKey, testPath);
+    it('throws on unsupported KDF function', async () => {
+      const keystore = await createBn254Keystore(testPassword, testPrivateKey, testPublicKey, testPath);
       // Manually modify to unsupported KDF
       (keystore.crypto.kdf as any).function = 'scrypt';
 
@@ -240,8 +240,8 @@ describe('BN254 Keystore', () => {
       expect(() => decryptBn254KeystoreFromObject(keystore, testPassword)).toThrow(/Unsupported KDF function/);
     });
 
-    it('throws on unsupported cipher function', () => {
-      const keystore = createBn254Keystore(testPassword, testPrivateKey, testPublicKey, testPath);
+    it('throws on unsupported cipher function', async () => {
+      const keystore = await createBn254Keystore(testPassword, testPrivateKey, testPublicKey, testPath);
       // Manually modify to unsupported cipher
       (keystore.crypto.cipher as any).function = 'aes-256-gcm';
 
@@ -251,14 +251,14 @@ describe('BN254 Keystore', () => {
   });
 
   describe('round-trip encryption and decryption', () => {
-    it('encrypts and then decrypts to get original key', () => {
+    it('encrypts and then decrypts to get original key', async () => {
       const originalKey = '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef';
       const password = 'super-secret';
       const pubkey = '0x' + 'ff'.repeat(33);
       const path = 'm/12381/3600/5/0/0';
 
       // Create encrypted keystore
-      const encrypted = createBn254Keystore(password, originalKey, pubkey, path);
+      const encrypted = await createBn254Keystore(password, originalKey, pubkey, path);
 
       // Decrypt it
       const decrypted = decryptBn254KeystoreFromObject(encrypted, password);
@@ -266,7 +266,7 @@ describe('BN254 Keystore', () => {
       expect(decrypted).toBe(originalKey);
     });
 
-    it('round-trips multiple different keys', () => {
+    it('round-trips multiple different keys', async () => {
       const testCases = [
         { key: '0x' + '11'.repeat(32), password: 'pass1' },
         { key: '0x' + '22'.repeat(32), password: 'pass2' },
@@ -274,7 +274,7 @@ describe('BN254 Keystore', () => {
       ];
 
       for (const { key, password } of testCases) {
-        const encrypted = createBn254Keystore(password, key, testPublicKey, testPath);
+        const encrypted = await createBn254Keystore(password, key, testPublicKey, testPath);
         const decrypted = decryptBn254KeystoreFromObject(encrypted, password);
         expect(decrypted).toBe(key);
       }
