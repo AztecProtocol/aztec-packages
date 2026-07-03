@@ -211,15 +211,13 @@ jobs:
             "Nightly 10 TPS benchmark PASSED (image ${IMAGE}) :white_check_mark: <${RUN_URL}|View Run>" \
             "#alerts-next-scenario"
 
-      - name: Notify Slack and dispatch ClaudeBox on failure
+      - name: Notify Slack on failure
         if: failure()
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
           IMAGE="${{ needs.select-image.outputs.image_label || 'unknown' }}"
           RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          ./ci3/slack_notify_with_claudebox_kickoff "#alerts-next-scenario" \
-            "Nightly 10 TPS benchmark FAILED (image ${IMAGE}): <${RUN_URL}|View Run> (🤖)" \
-            "Nightly 10 TPS benchmark failed (image ${IMAGE}). CI run: ${RUN_URL}. Investigate the benchmark failure and identify the root cause." \
-            --link "$RUN_URL"
+          ./ci3/slack_notify \
+            "Nightly 10 TPS benchmark FAILED (image ${IMAGE}): <${RUN_URL}|View Run>" \
+            "#alerts-next-scenario"

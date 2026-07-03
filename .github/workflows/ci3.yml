@@ -318,19 +318,17 @@ jobs:
         uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba # v1.22.1
         with: *ci_benchmark_args
 
-      - name: Notify Slack and dispatch ClaudeBox on failure
+      - name: Notify Slack on failure
         if: failure() && startsWith(github.ref, 'refs/tags/v')
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           GIT_REF: ${{ github.ref }}
           RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           TEST_SET: ${{ matrix.test_set }}
         run: |
-          ./ci3/slack_notify_with_claudebox_kickoff "#alerts-next-scenario" \
-            "Nightly Spartan Scenario FAILED in ci3.yml (set ${TEST_SET}, nightly tag ${GIT_REF}): <${RUN_URL}|View Run> (🤖)" \
-            "Nightly Spartan Scenario tests failed (matrix set ${TEST_SET}, nightly tag ${GIT_REF}). CI run: ${RUN_URL}. Investigate the scenario test failure and identify the root cause." \
-            --link "$RUN_URL"
+          ./ci3/slack_notify \
+            "Nightly Spartan Scenario FAILED in ci3.yml (set ${TEST_SET}, nightly tag ${GIT_REF}): <${RUN_URL}|View Run>" \
+            "#alerts-next-scenario"
 
   # Spartan network benchmarks triggered on-demand from a PR label.
   # Runs TPS and proving benchmarks in parallel, uploads results to a PR-specific

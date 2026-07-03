@@ -232,18 +232,16 @@ jobs:
             "Nightly Spartan TPS benchmarks PASSED (nightly tag ${TAG}) :white_check_mark: <${RUN_URL}|View Run>" \
             "#alerts-next-scenario"
 
-      - name: Notify Slack and dispatch ClaudeBox on failure
+      - name: Notify Slack on failure
         if: ${{ needs.benchmark.result != 'success' }}
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
           TAG="${{ needs.select-image.outputs.nightly_tag || 'unknown' }}"
           RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          ./ci3/slack_notify_with_claudebox_kickoff "#alerts-next-scenario" \
-            "Nightly Spartan Benchmarks FAILED (nightly tag ${TAG}): <${RUN_URL}|View Run> (🤖)" \
-            "Nightly Spartan benchmarks failed (nightly tag ${TAG}). CI run: ${RUN_URL}. Investigate the benchmark failure and identify the root cause." \
-            --link "$RUN_URL"
+          ./ci3/slack_notify \
+            "Nightly Spartan Benchmarks FAILED (nightly tag ${TAG}): <${RUN_URL}|View Run>" \
+            "#alerts-next-scenario"
 
   # ---------------------------------------------------------------------------
   # Proving benchmark (env prove-n-tps-fake, namespace prove-n-tps-fake)
@@ -397,18 +395,16 @@ jobs:
             "Nightly proving benchmarks passed (nightly tag ${TAG}) :white_check_mark: <${RUN_URL}|View Run>" \
             "#alerts-next-scenario"
 
-      - name: Notify Slack and dispatch ClaudeBox on failure
+      - name: Notify Slack on failure
         if: ${{ needs.proving-benchmark.result != 'success' }}
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
           TAG="${{ needs.select-image.outputs.nightly_tag || 'unknown' }}"
           RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          ./ci3/slack_notify_with_claudebox_kickoff "#alerts-next-scenario" \
-            "Nightly Proving Benchmarks FAILED (nightly tag ${TAG}): <${RUN_URL}|View Run> (🤖)" \
-            "Nightly proving benchmarks failed (nightly tag ${TAG}). CI run: ${RUN_URL}. Investigate the benchmark failure and identify the root cause." \
-            --link "$RUN_URL"
+          ./ci3/slack_notify \
+            "Nightly Proving Benchmarks FAILED (nightly tag ${TAG}): <${RUN_URL}|View Run>" \
+            "#alerts-next-scenario"
 
   # ---------------------------------------------------------------------------
   # Block capacity benchmark (env block-capacity, namespace nightly-block-capacity)
@@ -562,18 +558,16 @@ jobs:
             "Nightly block capacity benchmarks passed (nightly tag ${TAG}) :white_check_mark: <${RUN_URL}|View Run>" \
             "#alerts-next-scenario"
 
-      - name: Notify Slack and dispatch ClaudeBox on failure
+      - name: Notify Slack on failure
         if: ${{ needs.block-capacity-benchmark.result != 'success' }}
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
           TAG="${{ needs.select-image.outputs.nightly_tag || 'unknown' }}"
           RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          ./ci3/slack_notify_with_claudebox_kickoff "#alerts-next-scenario" \
-            "Nightly Block Capacity Benchmarks FAILED (nightly tag ${TAG}): <${RUN_URL}|View Run> (🤖)" \
-            "Nightly block capacity benchmarks failed (nightly tag ${TAG}). CI run: ${RUN_URL}. Investigate the benchmark failure and identify the root cause." \
-            --link "$RUN_URL"
+          ./ci3/slack_notify \
+            "Nightly Block Capacity Benchmarks FAILED (nightly tag ${TAG}): <${RUN_URL}|View Run>" \
+            "#alerts-next-scenario"
 
   status:
     runs-on: ubuntu-latest

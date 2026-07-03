@@ -75,14 +75,12 @@ jobs:
           gcp_sa_key: ${{ secrets.GCP_SA_KEY }}
           gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
 
-      - name: Notify Slack and dispatch ClaudeBox on failure
+      - name: Notify Slack on failure
         if: failure()
         env:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
         run: |
           RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          ./ci3/slack_notify_with_claudebox_kickoff "#alerts-next-scenario" \
-            "Scenario Tests FAILED (set ${{ matrix.test_set }}, image ${{ inputs.docker_image }}, env ${{ inputs.env_file }}): <${RUN_URL}|View Run> (🤖)" \
-            "Scenario tests failed (set ${{ matrix.test_set }}, image ${{ inputs.docker_image }}, env ${{ inputs.env_file }}). CI run: ${RUN_URL}. Investigate the scenario test failure and identify the root cause." \
-            --link "$RUN_URL"
+          ./ci3/slack_notify \
+            "Scenario Tests FAILED (set ${{ matrix.test_set }}, image ${{ inputs.docker_image }}, env ${{ inputs.env_file }}): <${RUN_URL}|View Run>" \
+            "#alerts-next-scenario"
