@@ -1,7 +1,7 @@
 use aztec::{
     context::UtilityContext,
     ephemeral::EphemeralArray,
-    facts::{delete_fact_collection, Fact, FactCollection, get_fact_collection, OriginBlock, record_retractable_fact},
+    facts::{get_fact_collection, OriginBlock, record_retractable_fact, RetractableRegister},
     messages::{
         delivery::handshake::DiscoveredHandshake,
         discovery::{
@@ -36,14 +36,11 @@ pub(crate) global DISCOVERED_HANDSHAKES_COLLECTION_ID: Field = 0;
 /// Fact type id of the fact storing a serialized [`DiscoveredHandshake`] inside the discovered-handshakes collection.
 pub(crate) global HANDSHAKE_DISCOVERED: Field = sha256_to_field("HANDSHAKE_REGISTRY::HANDSHAKE_DISCOVERED".as_bytes());
 
-/// Fact-collection type id of the per-recipient sync cursor.
+/// Fact-collection type id of the per-recipient sync cursor: a [`RetractableRegister`] holding the anchor block of
+/// the last completed scan.
 pub(crate) global SYNC_CURSOR_TYPE_ID: Field = sha256_to_field("HANDSHAKE_REGISTRY::SYNC_CURSOR".as_bytes());
 
-/// Fact type id of the single fact in the cursor collection. The fact has an empty payload: the cursor value is its
-/// origin block (the anchor block of the last completed scan).
-pub(crate) global SYNC_CURSOR: Field = sha256_to_field("HANDSHAKE_REGISTRY::SYNC_CURSOR_FACT".as_bytes());
-
-/// Collection id of the singleton cursor collection.
+/// Collection id of the singleton cursor register.
 pub(crate) global SYNC_CURSOR_COLLECTION_ID: Field = 0;
 
 /// Ephemeral-array slot used by [`get_handshake_logs_in_range`] to batch a single log-retrieval request to the oracle.
@@ -67,7 +64,15 @@ pub(crate) unconstrained fn handshake_registry_sync(
     offchain_inbox_sync: Option<OffchainInboxSync>,
     scope: AztecAddress,
 ) {
-    let cursor = load_sync_cursor(contract_address, scope);
+    let cursor_register = RetractableRegister::at(
+        contract_address,
+        scope,
+        SYNC_CURSOR_TYPE_ID,
+        SYNC_CURSOR_COLLECTION_ID,
+    );
+
+    // The scan starts one past the last scanned anchor.
+    let cursor = cursor_register.read().map(|(anchor, _)| anchor + 1);
     let anchor_block_header = UtilityContext::new().block_header();
     let anchor_block = anchor_block_header.block_number();
 
@@ -80,7 +85,7 @@ pub(crate) unconstrained fn handshake_registry_sync(
         let logs = get_handshake_logs_in_range(contract_address, tag, cursor, Option::some(next_block));
 
         // Record all valid handshakes
-        logs.for_each(|_i, log: LogRetrievalResponse| {
+        logs.for_each(|_i, log| {
             let ciphertext = aztec::utils::array::subbvec(log.log_payload, 0);
 
             let _ = AES128::decrypt(ciphertext, scope, contract_address)
@@ -95,9 +100,9 @@ pub(crate) unconstrained fn handshake_registry_sync(
                 ));
         });
 
-        store_sync_cursor(
-            contract_address,
-            scope,
+        // Update the cursor
+        cursor_register.write(
+            anchor_block,
             OriginBlock { block_number: anchor_block, block_hash: anchor_block_header.hash() },
         );
     }
@@ -120,23 +125,19 @@ pub(crate) unconstrained fn get_all_handshakes(
     contract_address: AztecAddress,
     recipient: AztecAddress,
 ) -> EphemeralArray<DiscoveredHandshake> {
-    let maybe_collection = get_fact_collection(
+    get_fact_collection(
         contract_address,
         recipient,
         DISCOVERED_HANDSHAKES_TYPE_ID,
         DISCOVERED_HANDSHAKES_COLLECTION_ID,
-    );
-    if maybe_collection.is_some() {
-        maybe_collection.unwrap().facts.map(|fact: Fact| handshake_from_payload(fact.payload))
-    } else {
-        EphemeralArray::empty()
-    }
+    )
+        .map_or(EphemeralArray::empty(), |collection| collection.facts.map(|fact| handshake_from_payload(fact.payload)))
 }
 
-/// Records a discovered handshake as a retractable fact originated at the block its announcement log landed in.
+/// Records a discovered handshake as a retractable fact.
 ///
-/// Fact identity covers the payload and origin block, so re-recording the same handshake at the same origin (e.g.
-/// when rescanning after the cursor was retracted by a reorg) is a no-op.
+/// The fact originates at the block its announcement log landed in. Fact identity covers the payload and origin
+/// block, so re-recording the same handshake at the same origin is a no-op.
 unconstrained fn record_discovered_handshake(
     contract_address: AztecAddress,
     scope: AztecAddress,
@@ -154,17 +155,15 @@ unconstrained fn record_discovered_handshake(
     );
 }
 
-/// Serializes a [`DiscoveredHandshake`] into a fact payload.
 unconstrained fn handshake_to_payload(handshake: DiscoveredHandshake) -> EphemeralArray<Field> {
     let fields = handshake.serialize();
-    let payload: EphemeralArray<Field> = EphemeralArray::empty();
+    let payload = EphemeralArray::empty();
     for i in 0..fields.len() {
         payload.push(fields[i]);
     }
     payload
 }
 
-/// Deserializes a [`DiscoveredHandshake`] from a fact payload.
 unconstrained fn handshake_from_payload(payload: EphemeralArray<Field>) -> DiscoveredHandshake {
     let n = <DiscoveredHandshake as Deserialize>::N;
     let mut fields = [0; <DiscoveredHandshake as Deserialize>::N];
@@ -172,39 +171,6 @@ unconstrained fn handshake_from_payload(payload: EphemeralArray<Field>) -> Disco
         fields[i] = payload.get(i);
     }
     Deserialize::deserialize(fields)
-}
-
-/// Returns the next block (inclusive) the discovery scan should start from, or `None` if no canonical cursor exists,
-/// either because this scope never synced or because the cursor fact's origin block was reorg'd away. In the latter
-/// case the caller rescans the full range and fact idempotency deduplicates re-discovered handshakes.
-unconstrained fn load_sync_cursor(contract_address: AztecAddress, scope: AztecAddress) -> Option<u32> {
-    get_fact_collection(
-        contract_address,
-        scope,
-        SYNC_CURSOR_TYPE_ID,
-        SYNC_CURSOR_COLLECTION_ID,
-    )
-        .map(|collection: FactCollection| collection.facts.get(0).origin_block.unwrap().block_number + 1)
-}
-
-/// Replaces the cursor fact with one originated at `anchor_block` (the block the completed scan ran against), so a
-/// reorg pruning any scanned block also retracts the cursor and the next sync rescans.
-unconstrained fn store_sync_cursor(contract_address: AztecAddress, scope: AztecAddress, anchor_block: OriginBlock) {
-    delete_fact_collection(
-        contract_address,
-        scope,
-        SYNC_CURSOR_TYPE_ID,
-        SYNC_CURSOR_COLLECTION_ID,
-    );
-    record_retractable_fact(
-        contract_address,
-        scope,
-        SYNC_CURSOR_TYPE_ID,
-        SYNC_CURSOR_COLLECTION_ID,
-        SYNC_CURSOR,
-        EphemeralArray::empty(),
-        anchor_block,
-    );
 }
 
 /// Fetches all private logs emitted under `tag` in the block range `[from_block, to_block)`.

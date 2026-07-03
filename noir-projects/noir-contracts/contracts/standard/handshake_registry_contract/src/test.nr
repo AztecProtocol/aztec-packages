@@ -576,9 +576,6 @@ unconstrained fn get_handshakes_out_of_bounds_offset_returns_empty() {
     assert_eq(page.total_count, 1);
 }
 
-// The cursor fact is retractable: a reorg pruning its origin block deletes it, forcing the next sync to rescan the
-// full range. Simulate that state by deleting the cursor collection and verify the rescan does not duplicate
-// handshakes whose facts survived (they are content-addressed, so re-recording them is a no-op).
 #[test]
 unconstrained fn rescan_after_cursor_retraction_does_not_duplicate_handshakes() {
     let (env, registry_address, sender, _, recipient) = setup();
@@ -589,6 +586,8 @@ unconstrained fn rescan_after_cursor_retraction_does_not_duplicate_handshakes() 
     let after_first = env.execute_utility(registry.get_handshakes(recipient, 0));
     assert_eq(after_first.items.len(), 1);
 
+    // Emulate a reorg that pruned back past every recorded scan but not past the handshake log: scans anchor at the
+    // chain tip while handshake facts anchor at their earlier log blocks, so only the cursor facts get retracted.
     env.utility_context_at(registry_address, |_| delete_fact_collection(
         registry_address,
         recipient,
@@ -598,13 +597,12 @@ unconstrained fn rescan_after_cursor_retraction_does_not_duplicate_handshakes() 
     // Advance the anchor so a fact wrongly originated at the sync anchor would get a distinct origin and duplicate.
     env.mine_block();
 
+    // With no cursor the rescan covers the full range again; re-recording the surviving handshake is a no-op.
     let after_rescan = env.execute_utility(registry.get_handshakes(recipient, 0));
     assert_eq(after_rescan.items.len(), 1);
     assert_eq(after_rescan.items.get(0).eph_pk.x, after_first.items.get(0).eph_pk.x);
 }
 
-// The handshake fact must originate at the block its announcement log landed in (not the sync anchor) so a reorg
-// retracts exactly the handshakes carried by pruned blocks.
 #[test]
 unconstrained fn handshake_fact_originates_at_the_log_block() {
     let (env, registry_address, sender, _, recipient) = setup();
@@ -626,5 +624,7 @@ unconstrained fn handshake_fact_originates_at_the_log_block() {
         assert_eq(collections.len(), 1);
         collections.get(0).facts.get(0).origin_block.unwrap().block_number
     });
+    // The origin must be the log's block, not the sync anchor, so a reorg retracts exactly the handshakes carried by
+    // pruned blocks.
     assert_eq(origin_block_number, handshake_block);
 }
