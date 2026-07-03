@@ -4,8 +4,10 @@
 !/barretenberg/ts/bb-avm-sim/package.json
 !/barretenberg/ts/bb-avm-sim/packages/*/package.json
 !/noir/packages/*/package.json
-!/wsdb/ts/package.json
-!/wsdb/ts/packages/*/package.json
+!/native-packages/wsdb/ts/package.json
+!/native-packages/wsdb/ts/packages/*/package.json
+!/native-packages/kvdb/ts/package.json
+!/native-packages/kvdb/ts/packages/*/package.json
 !/ipc-runtime/ts/package.json
 !/yarn-project/package.json
 !/yarn-project/yarn.lock

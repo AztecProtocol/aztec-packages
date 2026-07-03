@@ -5,6 +5,9 @@ import { fileURLToPath } from 'url';
 const NOIR_CONSTANTS_FILE = '../../../../noir-projects/noir-protocol-circuits/crates/types/src/constants.nr';
 const TS_CONSTANTS_FILE = '../constants.gen.ts';
 const CPP_AZTEC_CONSTANTS_FILE = '../../../../barretenberg/cpp/src/barretenberg/aztec/aztec_constants.hpp';
+// The wsdb native package is barretenberg-header-free, so it keeps its own copy of the same
+// generated constants rather than including bb's. Regenerated here to stay in lockstep.
+const WSDB_CPP_AZTEC_CONSTANTS_FILE = '../../../../native-packages/wsdb/cpp/src/common/aztec_constants.hpp';
 const PIL_AZTEC_CONSTANTS_FILE = '../../../../barretenberg/cpp/pil/vm2/constants_gen.pil';
 const SOLIDITY_CONSTANTS_FILE = '../../../../l1-contracts/src/core/libraries/ConstantsGen.sol';
 
@@ -672,6 +675,10 @@ function main(): void {
   // Cpp
   const cppTargetPath = join(__dirname, CPP_AZTEC_CONSTANTS_FILE);
   generateCppConstants(parsedContent, cppTargetPath);
+
+  // Cpp (wsdb native package's bb-header-free copy — identical content)
+  const wsdbCppTargetPath = join(__dirname, WSDB_CPP_AZTEC_CONSTANTS_FILE);
+  generateCppConstants(parsedContent, wsdbCppTargetPath);
 
   // PIL
   const pilTargetPath = join(__dirname, PIL_AZTEC_CONSTANTS_FILE);

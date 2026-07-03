@@ -1,0 +1,13 @@
+{
+  "name": "@aztec/kvdb-packages",
+  "packageManager": "yarn@4.13.0",
+  "private": true,
+  "scripts": {
+    "build": "yarn workspace @aztec/kvdb build",
+    "clean": "yarn workspaces foreach -A -p -v run clean"
+  },
+  "workspaces": [
+    "ts",
+    "ts/packages/*"
+  ]
+}

@@ -1,0 +1,6 @@
+^native-packages/kvdb/bootstrap\.sh$
+^native-packages/kvdb/package\.json$
+^native-packages/kvdb/\.rebuild_patterns$
+^native-packages/kvdb/cpp/
+^native-packages/kvdb/ts/src/
+^native-packages/lmdblib/

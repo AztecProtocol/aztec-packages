@@ -231,14 +231,8 @@ case "$cmd" in
   grind)
     # Grind a default of 5 times.
     export CI_DASHBOARD="local"
-    export DENOISE=1
-    export DENOISE_WIDTH=32
-    run() {
-      JOB_ID=$1 INSTANCE_POSTFIX=$1 ARCH=$2 exec denoise "bootstrap_ec2 './bootstrap.sh $3'"
-    }
-    export -f run
-    seq 1 ${1:-5} | parallel --jobs 100 --termseq 'TERM,10000' --tagstring '{= $_=~s/run (\w+).*/$1/; =}' --line-buffered \
-      'run $USER-x{}-full amd64 ci-full-no-test-cache'
+    multi_job_run \
+      $USER'-x'{1..${1:-5}}'-full amd64 ci-full-no-test-cache'
     ;;
   merge-queue)
     # We perform full runs of all tests on multiple x86, and a single fast run on arm64.

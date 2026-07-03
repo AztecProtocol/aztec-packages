@@ -3,7 +3,8 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 hash=$(hash_str \
   $(cache_content_hash ^release-image/Dockerfile ^release-image/Dockerfile.base.dockerignore ^release-image/Dockerfile.dockerignore ^build-images/src/Dockerfile ^ipc-runtime/ts/package.json ^yarn-project/yarn.lock) \
-  $(../wsdb/bootstrap.sh hash) \
+  $(../native-packages/kvdb/bootstrap.sh hash) \
+  $(../native-packages/wsdb/bootstrap.sh hash) \
   $(../barretenberg/ts/bootstrap.sh hash))
 
 function prepare_crs {

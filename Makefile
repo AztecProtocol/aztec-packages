@@ -47,7 +47,7 @@ endef
 # PHONY TARGETS - List every target that has a file/dir of the same name.
 #==============================================================================
 
-.PHONY: noir barretenberg noir-projects l1-contracts release-image boxes playground docs aztec-up spartan wsdb bb-avm-sim
+.PHONY: noir barretenberg noir-projects l1-contracts release-image boxes playground docs aztec-up spartan lmdblib kvdb wsdb bb-avm-sim
 
 #==============================================================================
 # BOOTSTRAP TARGETS
@@ -55,7 +55,7 @@ endef
 
 # Fast bootstrap.
 fast: release-image barretenberg boxes playground docs aztec-up \
-		  bb-tests l1-contracts-tests yarn-project-tests boxes-tests playground-tests aztec-up-tests docs-tests noir-protocol-circuits-tests release-image-tests spartan claude-tests ipc-codegen-tests
+		  bb-tests l1-contracts-tests yarn-project-tests boxes-tests playground-tests aztec-up-tests docs-tests noir-protocol-circuits-tests release-image-tests spartan claude-tests ipc-codegen-tests lmdblib-tests wsdb-tests
 
 # Full bootstrap.
 full: fast bb-full-tests bb-cpp-full yarn-project-benches
@@ -321,11 +321,29 @@ ipc-runtime-cross-arm64-macos:
 ipc-runtime-cross: ipc-runtime ipc-runtime-cross-arm64-linux ipc-runtime-cross-amd64-macos ipc-runtime-cross-arm64-macos
 
 #==============================================================================
-# WSDB
+# Native packages (lmdblib, kvdb, wsdb)
 #==============================================================================
 
-wsdb: ipc-codegen ipc-runtime bb-cpp-native
-	$(call build,$@,wsdb)
+# lmdblib and kvdb are barretenberg-free: they build against their own deps
+# (lmdb, msgpack-c, node-addon-api) only, never bb.
+.PHONY: lmdblib kvdb lmdblib-tests wsdb-tests
+lmdblib:
+	$(call build,$@,native-packages/lmdblib)
+
+kvdb: lmdblib
+	$(call build,$@,native-packages/kvdb)
+
+wsdb: ipc-codegen ipc-runtime bb-cpp-native lmdblib
+	$(call build,$@,native-packages/wsdb)
+
+# Native-package C++ tests (self-contained gtest binaries). kvdb has no C++ tests
+# (its NAPI is exercised by yarn-project's kv-store tests). wsdb_tests use no bb
+# headers; the bb-header parity/equivalence target is manual (WSDB_BUILD_BB_TESTS).
+lmdblib-tests: lmdblib
+	$(call test,$@,native-packages/lmdblib)
+
+wsdb-tests: wsdb
+	$(call test,$@,native-packages/wsdb)
 
 #==============================================================================
 # .claude tooling
@@ -402,7 +420,7 @@ l1-contracts-tests: l1-contracts-verifier
 # Yarn Project - TypeScript monorepo with all TS packages
 #==============================================================================
 
-yarn-project: bb-ts noir-projects l1-contracts wsdb bb-avm-sim
+yarn-project: bb-ts noir-projects l1-contracts wsdb kvdb bb-avm-sim
 	$(call build,$@,yarn-project)
 
 yarn-project-tests: yarn-project

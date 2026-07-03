@@ -1,16 +1,23 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-hash=$(hash_str $(cache_content_hash ^aztec-up/) $(../ipc-runtime/bootstrap.sh hash) $(../wsdb/bootstrap.sh hash) $(../barretenberg/ts/bootstrap.sh hash) $(../yarn-project/bootstrap.sh hash))
+hash=$(hash_str $(cache_content_hash ^aztec-up/) $(../ipc-runtime/bootstrap.sh hash) $(../native-packages/kvdb/bootstrap.sh hash) $(../native-packages/wsdb/bootstrap.sh hash) $(../barretenberg/ts/bootstrap.sh hash) $(../yarn-project/bootstrap.sh hash))
 
 # Bare aliases ("nightly", "latest") resolve to this major version.
 DEFAULT_MAJOR_VERSION=${AZTEC_TOOLCHAIN_DEFAULT_MAJOR_VERSION:-4}
 
 function wsdb_package_dirs {
-  for package_dir in "$root"/wsdb/ts/packages/*; do
+  for package_dir in "$root"/native-packages/wsdb/ts/packages/*; do
     [ -d "$package_dir" ] && echo "$package_dir"
   done
-  echo "$root/wsdb/ts"
+  echo "$root/native-packages/wsdb/ts"
+}
+
+function kvdb_package_dirs {
+  for package_dir in "$root"/native-packages/kvdb/ts/packages/*; do
+    [ -d "$package_dir" ] && echo "$package_dir"
+  done
+  echo "$root/native-packages/kvdb/ts"
 }
 
 function barretenberg_ts_package_dirs {
@@ -117,6 +124,7 @@ EOF
       echo $root/ipc-runtime/ts
       barretenberg_ts_package_dirs
       wsdb_package_dirs
+      kvdb_package_dirs
       # l1-artifacts lives under l1-contracts, so it isn't enumerated by yarn-project's get_projects;
       # publish it explicitly or @aztec/aztec's portal dependency can't resolve from the local registry.
       echo $root/l1-contracts/l1-artifacts

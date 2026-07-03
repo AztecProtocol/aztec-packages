@@ -212,8 +212,8 @@ TEST_P(UpdateCheckHashNonzeroTest, WithHash)
     EXPECT_CALL(merkle_db, get_tree_state()).WillRepeatedly(Return(tree_states));
     EXPECT_CALL(merkle_db, as_unconstrained()).WillRepeatedly(ReturnRef(mock_low_level_merkle_db));
 
-    EXPECT_CALL(mock_low_level_merkle_db, get_low_indexed_leaf(world_state::MerkleTreeId::PUBLIC_DATA_TREE, _))
-        .WillRepeatedly([&](world_state::MerkleTreeId, const FF& leaf_slot) {
+    EXPECT_CALL(mock_low_level_merkle_db, get_low_indexed_leaf(crypto::merkle_tree::MerkleTreeId::PUBLIC_DATA_TREE, _))
+        .WillRepeatedly([&](crypto::merkle_tree::MerkleTreeId, const FF& leaf_slot) {
             for (size_t i = 0; i < update_preimage_slots.size(); ++i) {
                 if (leaf_slot == update_preimage_slots[i]) {
                     return GetLowIndexedLeafResponse(true, static_cast<uint64_t>(i));
@@ -297,8 +297,8 @@ TEST(AvmSimulationUpdateCheck, HashMismatch)
     EXPECT_CALL(mock_low_level_merkle_db, get_tree_roots()).WillRepeatedly(Return(trees));
     EXPECT_CALL(merkle_db, as_unconstrained()).WillRepeatedly(ReturnRef(mock_low_level_merkle_db));
 
-    EXPECT_CALL(mock_low_level_merkle_db, get_low_indexed_leaf(world_state::MerkleTreeId::PUBLIC_DATA_TREE, _))
-        .WillRepeatedly([&](world_state::MerkleTreeId, const FF& leaf_slot) {
+    EXPECT_CALL(mock_low_level_merkle_db, get_low_indexed_leaf(crypto::merkle_tree::MerkleTreeId::PUBLIC_DATA_TREE, _))
+        .WillRepeatedly([&](crypto::merkle_tree::MerkleTreeId, const FF& leaf_slot) {
             return GetLowIndexedLeafResponse(true, static_cast<uint64_t>(leaf_slot - delayed_public_mutable_leaf_slot));
         });
 
