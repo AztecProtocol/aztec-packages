@@ -10,7 +10,7 @@ import { siloNullifier } from '@aztec/stdlib/hash';
 import {
   computeAppNullifierHidingKey,
   computeAppSecretKey,
-  deriveMasterNullifierHidingKey,
+  deriveMasterNullifierHidingSecretKey,
   deriveMasterOutgoingViewingSecretKey,
   derivePublicKeyFromSecretKey,
   hashPublicKey,
@@ -74,8 +74,8 @@ describe('automine/accounts/keys', () => {
     // Creates a note, asserts 0 nullified notes. Destroys the note, scans all blocks for matching
     // nullifiers derived from nhk_app and asserts exactly 1 nullified note.
     it('nhk_app and contract address are enough to detect note nullification', async () => {
-      const masterNullifierHidingKey = deriveMasterNullifierHidingKey(secret);
-      const nhkApp = await computeAppNullifierHidingKey(masterNullifierHidingKey, testContract.address);
+      const masterNullifierHidingSecretKey = deriveMasterNullifierHidingSecretKey(secret);
+      const nhkApp = await computeAppNullifierHidingKey(masterNullifierHidingSecretKey, testContract.address);
 
       const noteValue = 5;
       const noteStorageSlot = 12;

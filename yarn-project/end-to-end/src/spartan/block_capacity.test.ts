@@ -371,9 +371,12 @@ describe('block capacity benchmark', () => {
       logger.info('BenchmarkingContract deployed', { address: benchmarkContract.address.toString() });
 
       // Register benchmark contract with all other wallets
-      const benchMetadata = await wallets[0].getContractMetadata(benchmarkContract.address);
+      const benchInstance = await wallets[0].getContractMetadata(benchmarkContract.address).then(m => ({
+        ...m.instance!,
+        currentContractClassId: m.instance!.originalContractClassId,
+      }));
       await Promise.all(
-        wallets.slice(1).map(wallet => wallet.registerContract(benchMetadata.instance!, BenchmarkingContract.artifact)),
+        wallets.slice(1).map(wallet => wallet.registerContract(benchInstance, BenchmarkingContract.artifact)),
       );
       logger.info('Benchmark contract registered with all wallets');
     });
@@ -410,10 +413,11 @@ describe('block capacity benchmark', () => {
       logger.info('TokenContract deployed', { address: tokenContract.address.toString() });
 
       // Register token contract with all other wallets
-      const tokenMetadata = await wallets[0].getContractMetadata(tokenContract.address);
-      await Promise.all(
-        wallets.slice(1).map(wallet => wallet.registerContract(tokenMetadata.instance!, TokenContract.artifact)),
-      );
+      const tokenInstance = await wallets[0].getContractMetadata(tokenContract.address).then(m => ({
+        ...m.instance!,
+        currentContractClassId: m.instance!.originalContractClassId,
+      }));
+      await Promise.all(wallets.slice(1).map(wallet => wallet.registerContract(tokenInstance, TokenContract.artifact)));
       logger.info('Token contract registered with all wallets');
 
       // Mint tokens publicly to each account (enough for TX_COUNT transfers).

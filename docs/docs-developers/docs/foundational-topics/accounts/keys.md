@@ -66,7 +66,7 @@ The nullifier hiding key (`nhk`) — sometimes referred to in older documentatio
 |---------|----------|----------------|
 | Private (constrained) | `context.request_nhk_app(owner_npk_m_hash)` | Called on `&mut PrivateContext` |
 | Unconstrained | `get_nhk_app(owner_npk_m_hash)` | `use aztec::keys::getters::get_nhk_app` |
-| TypeScript (master key) | `deriveMasterNullifierHidingKey(secretKey)` | `import { deriveMasterNullifierHidingKey } from '@aztec/aztec.js/keys'` |
+| TypeScript (master key) | `deriveMasterNullifierHidingSecretKey(secretKey)` | `import { deriveMasterNullifierHidingSecretKey } from '@aztec/aztec.js/keys'` |
 | TypeScript (app-siloed) | `computeAppNullifierHidingKey(nhkM, app)` | `import { computeAppNullifierHidingKey } from '@aztec/aztec.js/keys'` |
 
 To get the owner's master nullifier public key hash (needed as input):
@@ -75,7 +75,7 @@ To get the owner's master nullifier public key hash (needed as input):
 let owner_npk_m_hash = get_public_keys(owner).npk_m_hash;
 ```
 
-`PublicKeys` exposes the nullifier, outgoing-viewing, and tagging keys directly as their hashes; only `ivpk_m` is held as a Grumpkin point (it is required as a point for address derivation and encrypt-to-address).
+`PublicKeys` exposes the nullifier, outgoing-viewing, tagging, message-signing, and fallback keys as their hashes; only `ivpk_m` is held as a Grumpkin point (it is required as a point for address derivation and encrypt-to-address).
 
 :::warning
 Do not compute nullifier keys by hand or derive custom blinding factors. The protocol kernel validates that `nhk_app` derives correctly from the master key — a hand-rolled value will fail verification.
@@ -159,7 +159,7 @@ The `Ovpk` (outgoing viewing key) and `Tpk` (tagging key) exist in the protocol'
 :::
 
 :::note
-The `Mspk` (master message-signing key) and `Fbpk` (master fallback key) hash slots exist in `PublicKeys` and participate in the address derivation above, but there is **no canonical derivation path for them yet**. `deriveKeys(secretKey)` stamps the canonical default hashes (`DEFAULT_MSPK_M_HASH`, `DEFAULT_FBPK_M_HASH`) into every account, so today they contribute no per-account entropy. When a real derivation lands in a future release, the address derived from the same secret will change — see the migration notes.
+The `Mspk` (master message-signing key) and `Fbpk` (master fallback key) are reserved for future protocol features (message signing and account recovery, respectively). Their public keys are derived per account and participate in the address derivation above. Unlike the other privacy keys, their **secret keys are held by the wallet, not the PXE**: the PXE receives only the corresponding public keys, since it is not trusted to hold these secrets.
 :::
 
 ## Key Management
@@ -215,9 +215,9 @@ Aztec's multi-key architecture is fundamental to its privacy and security model:
 | **Incoming Viewing** (`Ivpk_m`) | Decrypt received notes | No | No | Protocol (PXE) |
 | **Outgoing Viewing** (`Ovpk_m`) | Reserved | N/A | No | Protocol (PXE) |
 | **Tagging** (`Tpk_m`) | Reserved | N/A | No | Protocol (PXE) |
-| **Message-Signing** (`Mspk_m`) | Reserved | N/A | No | Protocol (PXE) |
-| **Fallback** (`Fbpk_m`) | Reserved | N/A | No | Protocol (PXE) |
-| **Signing** | Transaction authorization | N/A | Yes | Application |
+| **Message-Signing** (`Mspk_m`) | Reserved | N/A | No | Application (Wallet) |
+| **Fallback** (`Fbpk_m`) | Reserved | N/A | No | Application (Wallet) |
+| **Signing** | Transaction authorization | N/A | Yes | Account Contract (Wallet) |
 
 **Key takeaways:**
 

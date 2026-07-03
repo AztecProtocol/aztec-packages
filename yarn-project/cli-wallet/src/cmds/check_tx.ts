@@ -197,21 +197,22 @@ type ContractArtifactWithClassId = ContractArtifact & { classId: Fr };
 
 async function getKnownArtifacts(wallet: CLIWallet): Promise<ArtifactMap> {
   const knownContractAddresses = await wallet.getContracts();
-  const knownContracts = (
-    await Promise.all(knownContractAddresses.map(contractAddress => wallet.getContractMetadata(contractAddress)))
-  ).map(contractMetadata => contractMetadata.instance);
-  const classIds = [...new Set(knownContracts.map(contract => contract?.currentContractClassId))];
+  const knownContracts = await Promise.all(
+    knownContractAddresses.map(contractAddress => wallet.getContractMetadata(contractAddress)),
+  );
+  const classIdFor = (metadata: (typeof knownContracts)[number]): Fr | undefined =>
+    metadata.updatedContractClassId ?? metadata.instance?.originalContractClassId;
+  const classIds = [...new Set(knownContracts.map(classIdFor))];
   const knownArtifacts = (
     await Promise.all(classIds.map(classId => (classId ? wallet.getContractArtifact(classId) : undefined)))
   ).map((artifact, index) => (artifact ? { ...artifact, classId: classIds[index] } : undefined));
   const map: Record<string, ContractArtifactWithClassId> = {};
-  for (const instance of knownContracts) {
-    if (instance) {
-      const artifact = knownArtifacts.find(a =>
-        a?.classId?.equals(instance.currentContractClassId),
-      ) as ContractArtifactWithClassId;
+  for (const metadata of knownContracts) {
+    const classId = classIdFor(metadata);
+    if (metadata.instance && classId) {
+      const artifact = knownArtifacts.find(a => a?.classId?.equals(classId)) as ContractArtifactWithClassId;
       if (artifact) {
-        map[instance.address.toString()] = artifact;
+        map[metadata.instance.address.toString()] = artifact;
       }
     }
   }

@@ -7,6 +7,7 @@ import { openEphemeralStore } from '@aztec/kv-store/lmdb-v2';
 import {
   AddressStore,
   AnchorBlockStore,
+  AnchoredContractData,
   CapsuleService,
   CapsuleStore,
   ContractStore,
@@ -731,6 +732,11 @@ export class TXESession implements TXESessionStateHandler {
 
     const utilityExecutor = this.utilityExecutorForContractSync(anchorBlock);
     const transientArrayService = new TransientArrayService();
+    const anchoredContractData = new AnchoredContractData(
+      this.contractStore,
+      this.stateMachine.contractClassService,
+      anchorBlock!,
+    );
     const taggingSecretStrategy = this.taggingSecretStrategy;
     this.oracleHandler = new TXEPrivateExecutionOracle({
       argsHash: Fr.ZERO,
@@ -744,7 +750,7 @@ export class TXESession implements TXESessionStateHandler {
       executionCache: new HashedValuesCache(),
       noteCache,
       taggingIndexCache,
-      contractStore: this.contractStore,
+      anchoredContractData,
       noteStore: this.noteStore,
       keyStore: this.keyStore,
       addressStore: this.addressStore,
@@ -842,7 +848,11 @@ export class TXESession implements TXESessionStateHandler {
       authWitnesses: [],
       capsules: [],
       anchorBlockHeader,
-      contractStore: this.contractStore,
+      anchoredContractData: new AnchoredContractData(
+        this.contractStore,
+        this.stateMachine.contractClassService,
+        anchorBlockHeader,
+      ),
       noteStore: this.noteStore,
       keyStore: this.keyStore,
       addressStore: this.addressStore,
@@ -938,7 +948,18 @@ export class TXESession implements TXESessionStateHandler {
 
   private utilityExecutorForContractSync(anchorBlock: any) {
     return async (call: FunctionCall, scopes: AztecAddress[]) => {
-      const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(call.to, call.selector);
+      const anchoredContractData = new AnchoredContractData(
+        this.contractStore,
+        this.stateMachine.contractClassService,
+        anchorBlock!,
+      );
+      const entryPointArtifact = await anchoredContractData.getFunctionArtifactWithDebugMetadata(
+        call.to,
+        call.selector,
+      );
+      if (!entryPointArtifact) {
+        throw new Error(`Cannot run function ${call.selector} on ${call.to}: the contract is not registered.`);
+      }
       if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
         throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);
       }
@@ -955,7 +976,7 @@ export class TXESession implements TXESessionStateHandler {
           authWitnesses: [],
           capsules: [],
           anchorBlockHeader: anchorBlock!,
-          contractStore: this.contractStore,
+          anchoredContractData,
           noteStore: this.noteStore,
           keyStore: this.keyStore,
           addressStore: this.addressStore,

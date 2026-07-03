@@ -937,7 +937,7 @@
 [[redirects]]
     # PXE: cross-contract utility call denied by execution hook
     from = "/errors/11"
-    to = "/developers/docs/aztec-nr/debugging#cross-contract-utility-call-denied"
+    to = "/developers/docs/aztec-nr/framework-description/calling_contracts#cross-contract-authorization"
 
 [[redirects]]
     # Incompatible oracle version between test and test environment

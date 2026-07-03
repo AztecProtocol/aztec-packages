@@ -187,10 +187,12 @@ Public functions can be called either directly in a public context (as shown abo
 
 ### Utility
 
-Contract functions marked with `#[external("utility")]` cannot be called as part of a transaction. They are only invoked by applications that interact with contracts for:
+Contract functions marked with `#[external("utility")]` are never proven as part of a transaction, even when called from a private function. They are invoked by applications that interact with contracts for:
 
 - **State queries**: Reading from both private and public state via an offchain client
 - **Local state management**: Modifying contract-related PXE state (e.g., processing logs in Aztec.nr)
+
+Utility functions can also be called from other utility functions, and from private functions as unconstrained code. Calls that cross a contract boundary require wallet authorization. See [utility calls](../aztec-nr/framework-description/calling_contracts.md#utility-calls) for how to make them.
 
 Since utility execution is unconstrained and relies heavily on oracle calls, no guarantees are made on the correctness of results. However, you can verify that the bytecode being executed is correct, since a contract's address includes a commitment to all of its utility functions.
 

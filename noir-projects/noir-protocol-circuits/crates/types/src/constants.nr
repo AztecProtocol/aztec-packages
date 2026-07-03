@@ -759,6 +759,9 @@ pub global DOM_SEP__CONSTRAINED_MSG_SENDER_SECRET: u32 = 1182889476;
 /// Domain separator for non-interactive handshake log tags emitted by the handshake registry contract. Used by
 /// [`crate::hash::compute_log_tag`].
 pub global DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG: u32 = 4046403018;
+/// Domain separator for the message a recipient signs to authorize an interactive handshake, hashed via
+/// [`crate::hash::poseidon2_hash_with_separator`] and verified in-circuit by the handshake registry contract.
+pub global DOM_SEP__INTERACTIVE_HANDSHAKE_SIGNATURE: u32 = 3098455647;
 /// Domain separator for private log tags.
 ///
 /// Used by [`crate::hash::compute_siloed_private_log_first_field`].
