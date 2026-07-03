@@ -4,7 +4,6 @@
 
 use crate::context::PrivateContext;
 use crate::messages::delivery::{
-    constrained_delivery::emit_sequence_nullifier,
     OnchainDeliveryMode,
     tag_derivation::{existing_handshake_secrets_or_else, TagDerivation},
     tag_secret_source::TagSecretSource,
@@ -55,25 +54,23 @@ fn default_tag_secret_source(
 }
 
 fn tag_with(
-    source: TagSecretSource,
+    mut source: TagSecretSource,
     context: &mut PrivateContext,
     mode: OnchainDeliveryMode,
     sender: AztecAddress,
     recipient: AztecAddress,
 ) -> Field {
-    let secrets = source.obtain_secrets(context, sender, recipient);
+    let secret = source.resolve_tag_secret(context, sender, recipient);
 
     // Safety: the index is untrusted. Constrained delivery constrains it below before emitting the tag; unconstrained
     // discovery tolerates gaps, so a wrong index only yields an undiscoverable tag.
-    let index = unsafe { get_next_tagging_index(secrets.shared, mode) };
+    let index = unsafe { get_next_tagging_index(secret, mode) };
 
     if mode == OnchainDeliveryMode::onchain_constrained() {
-        source.constrain_secrets(context, sender, recipient, secrets, index);
-        emit_sequence_nullifier(context, sender, recipient, secrets, index);
+        source.constrain_tag_secret(context, sender, recipient, index);
     }
 
-    // The discovery tag stays derived from the shared secret only, so the recipient still finds every message.
-    tag_from_secret_and_index(secrets.shared, index, mode)
+    tag_from_secret_and_index(secret, index, mode)
 }
 
 fn tag_domain_separator(mode: OnchainDeliveryMode) -> u32 {

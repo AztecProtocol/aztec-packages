@@ -41,7 +41,7 @@ impl TagDerivation {
     /// Resolves this choice into the [`TagSecretSource`] backing the message tag.
     pub(crate) fn into_tag_secret_source(self, sender: AztecAddress, recipient: AztecAddress) -> TagSecretSource {
         if self.kind == NON_INTERACTIVE_HANDSHAKE {
-            // A fresh handshake is created in a constrained manner in `obtain_secrets`.
+            // A fresh handshake is created in a constrained manner in `TagSecretSource::resolve_tag_secret`.
             existing_handshake_secrets_or_else(
                 sender,
                 recipient,
