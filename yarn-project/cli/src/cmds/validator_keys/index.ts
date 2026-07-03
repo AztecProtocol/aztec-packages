@@ -1,6 +1,6 @@
 import type { LogFn } from '@aztec/foundation/log';
 
-import { Command } from 'commander';
+import { Command, Option } from 'commander';
 
 import { parseAztecAddress, parseEthereumAddress, parseHex, parseOptionalInteger } from '../../utils/commands.js';
 import { defaultBlsPath } from './utils.js';
@@ -38,10 +38,12 @@ export function injectCommands(program: Command, log: LogFn) {
     .option('--remote-signer <url>', 'Default remote signer URL for accounts in this file')
     .option('--ikm <hex>', 'Initial keying material for BLS (alternative to mnemonic)', value => parseHex(value, 32))
     .option('--bls-path <path>', `EIP-2334 path (default ${defaultBlsPath})`)
-    .option(
-      '--password <str>',
-      'Password for writing keystore files (ETH JSON V3 and BLS EIP-2335). Empty string allowed',
+    .addOption(
+      new Option('--password <str>', 'Password for writing keystore files (ETH JSON V3 and BLS EIP-2335)').env(
+        'AZTEC_KEYSTORE_PASSWORD',
+      ),
     )
+    .option('--password-file <path>', 'File containing the password for writing keystore files')
     .option('--encrypted-keystore-dir <dir>', 'Output directory for encrypted keystore file(s)')
     .option('--json', 'Echo resulting JSON to stdout')
     .option('--staker-output', 'Generate a single staker output JSON file with an array of validator entries')
