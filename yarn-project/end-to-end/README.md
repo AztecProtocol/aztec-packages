@@ -20,7 +20,7 @@ yarn test:e2e src/single-node/block-building/block_building.test.ts -t 'rejects 
 Turn up logging with `LOG_LEVEL` (`verbose` is the useful default; `debug:sequencer,archiver` scopes it):
 
 ```bash
-LOG_LEVEL=verbose yarn test:e2e src/single-node/proving/empty_blocks.test.ts
+LOG_LEVEL=verbose yarn test:e2e src/single-node/proving/default_node.test.ts
 ```
 
 Compose-based tests (those under `src/composed/`) need a running local network — see
@@ -37,7 +37,7 @@ its environment, so a test file only describes the scenario, not the wiring.
 | [`automine/`](src/automine/README.md) | One node, deterministic `AutomineSequencer` — one block per tx, no committee/prover/validator. Fast. | it exercises contract or protocol behavior that doesn't depend on real block-building or consensus (transfers, nested calls, note discovery, tx semantics). | yes |
 | [`single-node/`](src/single-node/README.md) | One node, production sequencer (interval block production), optional prover. | it asserts on sequencer, proving, partial-proof, L1-reorg, recovery, fee, or cross-chain behavior on a single sequencer. | yes |
 | [`multi-node/`](src/multi-node/README.md) | N validators on an in-memory mock-gossip bus. | it needs a committee: consensus, attestations, slashing, governance, or multi-validator block production. | yes |
-| `p2p/` | Real libp2p transport between nodes. | the networking transport itself is under test (gossip, rediscovery, req/resp). | — |
+| [`p2p/`](src/p2p/README.md) | Real libp2p transport between nodes. | the networking transport itself is under test (gossip, rediscovery, req/resp). | yes |
 | [`infra/`](src/infra/README.md) | Targets a deployed/external network (local anvil or a public testnet). | its concern is deployment or network targeting, not a specific protocol behavior. | yes |
 
 A handful of tests live **outside** this package, next to the code they test — see
@@ -91,8 +91,8 @@ Categories expose thin factories over their base's static `setup`, named by what
 calls the factory instead of spreading option presets:
 
 - `single-node/setup.ts`: `setupWithProver` (fake in-process prover — the single-node default) and
-  `setupBlockProducer` (no prover; raises `aztecProofSubmissionEpochs` to `1024` so unproven blocks
-  aren't pruned, and points the PXE at `syncChainTip: 'proposed'`).
+  `setupBlockProducer` (no prover; raises `aztecProofSubmissionEpochs` to `NO_REORG_SUBMISSION_EPOCHS`
+  (1024) so unproven blocks aren't pruned, and points the PXE at `syncChainTip: 'proposed'`).
 - `automine` tests call `AutomineTestContext.setup({ numberOfAccounts })` directly.
 
 ### The harness pattern (domain setup on top of a category)
