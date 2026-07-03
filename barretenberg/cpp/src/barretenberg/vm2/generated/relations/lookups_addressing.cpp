@@ -30,7 +30,5 @@ INSTANTIATE_LOOKUP(lookup_addressing_relative_overflow_result_1_relation);
 INSTANTIATE_LOOKUP(lookup_addressing_relative_overflow_result_2_relation);
 INSTANTIATE_LOOKUP(lookup_addressing_relative_overflow_result_3_relation);
 INSTANTIATE_LOOKUP(lookup_addressing_relative_overflow_result_4_relation);
-INSTANTIATE_LOOKUP(lookup_addressing_relative_overflow_result_5_relation);
-INSTANTIATE_LOOKUP(lookup_addressing_relative_overflow_result_6_relation);
 
 } // namespace bb::avm2

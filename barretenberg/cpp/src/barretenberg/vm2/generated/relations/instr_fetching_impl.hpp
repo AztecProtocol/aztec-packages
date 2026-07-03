@@ -19,8 +19,8 @@ void instr_fetchingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     const auto instr_fetching_PARSING_ERROR_EXCEPT_TAG_ERROR = in.get(C::instr_fetching_pc_out_of_range) +
                                                                in.get(C::instr_fetching_opcode_out_of_range) +
                                                                in.get(C::instr_fetching_instr_out_of_range);
-    const auto instr_fetching_SEL_OP_DC_17 =
-        in.get(C::instr_fetching_sel_op_dc_2) + in.get(C::instr_fetching_sel_op_dc_6);
+    const auto instr_fetching_SEL_OP_DC_16 =
+        in.get(C::instr_fetching_sel_op_dc_1) + in.get(C::instr_fetching_sel_op_dc_5);
 
     {
         using View = typename std::tuple_element_t<0, ContainerOverSubrelations>::View;
@@ -129,7 +129,7 @@ void instr_fetchingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                  (static_cast<View>(in.get(C::instr_fetching_sel_op_dc_0)) *
                       (static_cast<View>(in.get(C::instr_fetching_bd1)) * FF(256) +
                        static_cast<View>(in.get(C::instr_fetching_bd2)) * FF(1)) +
-                  CView(instr_fetching_SEL_OP_DC_17) * static_cast<View>(in.get(C::instr_fetching_bd1)) * FF(1)));
+                  CView(instr_fetching_SEL_OP_DC_16) * static_cast<View>(in.get(C::instr_fetching_bd1)) * FF(1)));
         std::get<14>(evals) += (tmp * scaling_factor);
     }
     { // OP1_BYTES_DECOMPOSITION
@@ -139,12 +139,12 @@ void instr_fetchingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                         (static_cast<View>(in.get(C::instr_fetching_sel_op_dc_0)) *
                              (static_cast<View>(in.get(C::instr_fetching_bd3)) * FF(256) +
                               static_cast<View>(in.get(C::instr_fetching_bd4)) * FF(1)) +
-                         static_cast<View>(in.get(C::instr_fetching_sel_op_dc_2)) *
+                         static_cast<View>(in.get(C::instr_fetching_sel_op_dc_1)) *
                              (static_cast<View>(in.get(C::instr_fetching_bd2)) * FF(256) +
                               static_cast<View>(in.get(C::instr_fetching_bd3)) * FF(1)) +
-                         static_cast<View>(in.get(C::instr_fetching_sel_op_dc_6)) *
+                         static_cast<View>(in.get(C::instr_fetching_sel_op_dc_5)) *
                              static_cast<View>(in.get(C::instr_fetching_bd2)) * FF(1) +
-                         static_cast<View>(in.get(C::instr_fetching_sel_op_dc_15)) *
+                         static_cast<View>(in.get(C::instr_fetching_sel_op_dc_14)) *
                              (static_cast<View>(in.get(C::instr_fetching_bd1)) * FF(16777216) +
                               static_cast<View>(in.get(C::instr_fetching_bd2)) * FF(65536) +
                               static_cast<View>(in.get(C::instr_fetching_bd3)) * FF(256) +
@@ -158,14 +158,14 @@ void instr_fetchingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                         (static_cast<View>(in.get(C::instr_fetching_sel_op_dc_0)) *
                              (static_cast<View>(in.get(C::instr_fetching_bd5)) * FF(256) +
                               static_cast<View>(in.get(C::instr_fetching_bd6)) * FF(1)) +
-                         static_cast<View>(in.get(C::instr_fetching_sel_op_dc_3)) *
+                         static_cast<View>(in.get(C::instr_fetching_sel_op_dc_2)) *
                              (static_cast<View>(in.get(C::instr_fetching_bd4)) * FF(256) +
                               static_cast<View>(in.get(C::instr_fetching_bd5)) * FF(1)) +
-                         static_cast<View>(in.get(C::instr_fetching_sel_op_dc_6)) *
+                         static_cast<View>(in.get(C::instr_fetching_sel_op_dc_5)) *
                              static_cast<View>(in.get(C::instr_fetching_bd3)) * FF(1) +
-                         static_cast<View>(in.get(C::instr_fetching_sel_op_dc_8)) *
+                         static_cast<View>(in.get(C::instr_fetching_sel_op_dc_7)) *
                              static_cast<View>(in.get(C::instr_fetching_bd4)) * FF(1) +
-                         static_cast<View>(in.get(C::instr_fetching_sel_op_dc_16)) *
+                         static_cast<View>(in.get(C::instr_fetching_sel_op_dc_15)) *
                              (static_cast<View>(in.get(C::instr_fetching_bd4)) * FF(16777216) +
                               static_cast<View>(in.get(C::instr_fetching_bd5)) * FF(65536) +
                               static_cast<View>(in.get(C::instr_fetching_bd6)) * FF(256) +
@@ -180,12 +180,12 @@ void instr_fetchingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                  (static_cast<View>(in.get(C::instr_fetching_sel_op_dc_0)) *
                       (static_cast<View>(in.get(C::instr_fetching_bd7)) * FF(256) +
                        static_cast<View>(in.get(C::instr_fetching_bd8)) * FF(1)) +
-                  static_cast<View>(in.get(C::instr_fetching_sel_op_dc_4)) *
+                  static_cast<View>(in.get(C::instr_fetching_sel_op_dc_3)) *
                       (static_cast<View>(in.get(C::instr_fetching_bd6)) * FF(256) +
                        static_cast<View>(in.get(C::instr_fetching_bd7)) * FF(1)) +
-                  static_cast<View>(in.get(C::instr_fetching_sel_op_dc_7)) *
+                  static_cast<View>(in.get(C::instr_fetching_sel_op_dc_6)) *
                       static_cast<View>(in.get(C::instr_fetching_bd6)) * FF(1) +
-                  static_cast<View>(in.get(C::instr_fetching_sel_op_dc_9)) *
+                  static_cast<View>(in.get(C::instr_fetching_sel_op_dc_8)) *
                       (static_cast<View>(in.get(C::instr_fetching_bd5)) *
                            FF(uint256_t{ 0UL, 0UL, 0UL, 72057594037927936UL }) +
                        static_cast<View>(in.get(C::instr_fetching_bd6)) *
@@ -229,7 +229,7 @@ void instr_fetchingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                        static_cast<View>(in.get(C::instr_fetching_bd34)) * FF(65536) +
                        static_cast<View>(in.get(C::instr_fetching_bd35)) * FF(256) +
                        static_cast<View>(in.get(C::instr_fetching_bd36)) * FF(1)) +
-                  static_cast<View>(in.get(C::instr_fetching_sel_op_dc_10)) *
+                  static_cast<View>(in.get(C::instr_fetching_sel_op_dc_9)) *
                       (static_cast<View>(in.get(C::instr_fetching_bd5)) *
                            FF(uint256_t{ 0UL, 72057594037927936UL, 0UL, 0UL }) +
                        static_cast<View>(in.get(C::instr_fetching_bd6)) *
@@ -249,7 +249,7 @@ void instr_fetchingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                        static_cast<View>(in.get(C::instr_fetching_bd18)) * FF(65536) +
                        static_cast<View>(in.get(C::instr_fetching_bd19)) * FF(256) +
                        static_cast<View>(in.get(C::instr_fetching_bd20)) * FF(1)) +
-                  static_cast<View>(in.get(C::instr_fetching_sel_op_dc_11)) *
+                  static_cast<View>(in.get(C::instr_fetching_sel_op_dc_10)) *
                       (static_cast<View>(in.get(C::instr_fetching_bd5)) * FF(72057594037927936UL) +
                        static_cast<View>(in.get(C::instr_fetching_bd6)) * FF(281474976710656UL) +
                        static_cast<View>(in.get(C::instr_fetching_bd7)) * FF(1099511627776UL) +
@@ -258,15 +258,15 @@ void instr_fetchingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                        static_cast<View>(in.get(C::instr_fetching_bd10)) * FF(65536) +
                        static_cast<View>(in.get(C::instr_fetching_bd11)) * FF(256) +
                        static_cast<View>(in.get(C::instr_fetching_bd12)) * FF(1)) +
-                  static_cast<View>(in.get(C::instr_fetching_sel_op_dc_12)) *
+                  static_cast<View>(in.get(C::instr_fetching_sel_op_dc_11)) *
                       (static_cast<View>(in.get(C::instr_fetching_bd5)) * FF(16777216) +
                        static_cast<View>(in.get(C::instr_fetching_bd6)) * FF(65536) +
                        static_cast<View>(in.get(C::instr_fetching_bd7)) * FF(256) +
                        static_cast<View>(in.get(C::instr_fetching_bd8)) * FF(1)) +
-                  static_cast<View>(in.get(C::instr_fetching_sel_op_dc_13)) *
+                  static_cast<View>(in.get(C::instr_fetching_sel_op_dc_12)) *
                       (static_cast<View>(in.get(C::instr_fetching_bd5)) * FF(256) +
                        static_cast<View>(in.get(C::instr_fetching_bd6)) * FF(1)) +
-                  static_cast<View>(in.get(C::instr_fetching_sel_op_dc_14)) *
+                  static_cast<View>(in.get(C::instr_fetching_sel_op_dc_13)) *
                       static_cast<View>(in.get(C::instr_fetching_bd4)) * FF(1)));
         std::get<17>(evals) += (tmp * scaling_factor);
     }
@@ -277,7 +277,7 @@ void instr_fetchingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                         (static_cast<View>(in.get(C::instr_fetching_sel_op_dc_0)) *
                              (static_cast<View>(in.get(C::instr_fetching_bd9)) * FF(256) +
                               static_cast<View>(in.get(C::instr_fetching_bd10)) * FF(1)) +
-                         static_cast<View>(in.get(C::instr_fetching_sel_op_dc_5)) *
+                         static_cast<View>(in.get(C::instr_fetching_sel_op_dc_4)) *
                              (static_cast<View>(in.get(C::instr_fetching_bd8)) * FF(256) +
                               static_cast<View>(in.get(C::instr_fetching_bd9)) * FF(1))));
         std::get<18>(evals) += (tmp * scaling_factor);
@@ -289,28 +289,10 @@ void instr_fetchingImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
                         (static_cast<View>(in.get(C::instr_fetching_sel_op_dc_0)) *
                              (static_cast<View>(in.get(C::instr_fetching_bd11)) * FF(256) +
                               static_cast<View>(in.get(C::instr_fetching_bd12)) * FF(1)) +
-                         static_cast<View>(in.get(C::instr_fetching_sel_op_dc_5)) *
+                         static_cast<View>(in.get(C::instr_fetching_sel_op_dc_4)) *
                              (static_cast<View>(in.get(C::instr_fetching_bd10)) * FF(256) +
                               static_cast<View>(in.get(C::instr_fetching_bd11)) * FF(1))));
         std::get<19>(evals) += (tmp * scaling_factor);
-    }
-    { // OP6_BYTES_DECOMPOSITION
-        using View = typename std::tuple_element_t<20, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::instr_fetching_op6)) -
-                    (FF(1) - CView(instr_fetching_PARSING_ERROR_EXCEPT_TAG_ERROR)) *
-                        static_cast<View>(in.get(C::instr_fetching_sel_op_dc_1)) *
-                        (static_cast<View>(in.get(C::instr_fetching_bd13)) * FF(256) +
-                         static_cast<View>(in.get(C::instr_fetching_bd14)) * FF(1)));
-        std::get<20>(evals) += (tmp * scaling_factor);
-    }
-    { // OP7_BYTES_DECOMPOSITION
-        using View = typename std::tuple_element_t<21, ContainerOverSubrelations>::View;
-        auto tmp = (static_cast<View>(in.get(C::instr_fetching_op7)) -
-                    (FF(1) - CView(instr_fetching_PARSING_ERROR_EXCEPT_TAG_ERROR)) *
-                        static_cast<View>(in.get(C::instr_fetching_sel_op_dc_1)) *
-                        (static_cast<View>(in.get(C::instr_fetching_bd15)) * FF(256) +
-                         static_cast<View>(in.get(C::instr_fetching_bd16)) * FF(1)));
-        std::get<21>(evals) += (tmp * scaling_factor);
     }
 }
 

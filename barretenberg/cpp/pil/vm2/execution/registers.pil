@@ -77,9 +77,10 @@ is memory.sel_register_op[3] { memory.clk, memory.space_id, memory.address, memo
 #[MEM_OP_4]
 sel_op_reg_effective[4]      { clk,        context_id,      rop[4],         register[4],  mem_tag_reg[4], rw_reg[4] }
 is memory.sel_register_op[4] { memory.clk, memory.space_id, memory.address, memory.value, memory.tag,     memory.rw };
-#[MEM_OP_5]
-sel_op_reg_effective[5]      { clk,        context_id,      rop[5],         register[5],  mem_tag_reg[5], rw_reg[5] }
-is memory.sel_register_op[5] { memory.clk, memory.space_id, memory.address, memory.value, memory.tag,     memory.rw };
+// TODO(MW): check when reducing max registers
+// #[MEM_OP_5]
+// sel_op_reg_effective[5]      { clk,        context_id,      rop[5],         register[5],  mem_tag_reg[5], rw_reg[5] }
+// is memory.sel_register_op[5] { memory.clk, memory.space_id, memory.address, memory.value, memory.tag,     memory.rw };
 
 // This error is true iff the following "batch" check failed. That is if some tag is not the expected one.
 // Observe that we don't need to know exactly which one failed.

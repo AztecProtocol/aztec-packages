@@ -26,8 +26,7 @@ comptime fn generate_event_interface_and_get_selector(s: TypeDefinition) -> (Quo
                     $from_field($event_selector)
                 }
             }
-        },
-        event_selector,
+        }, event_selector,
     )
 }
 
