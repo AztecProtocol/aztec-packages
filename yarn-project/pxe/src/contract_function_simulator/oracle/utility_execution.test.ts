@@ -33,19 +33,21 @@ import { BlockHeader, CallContext, Capsule, GlobalVariables, TxHash } from '@azt
 import { mock } from 'jest-mock-extended';
 import type { _MockProxy } from 'jest-mock-extended/lib/Mock.js';
 
-import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
+import type { ContractClassService } from '../../contract/contract_class_service.js';
+import type { ContractSyncService } from '../../contract/contract_sync_service.js';
 import { TxResolverService } from '../../messages/tx_resolver_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
 import { FactService, FactStore } from '../../storage/fact_store/index.js';
-import type { OriginBlock } from '../../storage/fact_store/index.js';
+import { type OriginBlock, OriginBlockState } from '../../storage/fact_store/index.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
 import type { TaggingSecretSourcesStore } from '../../storage/tagging_store/tagging_secret_sources_store.js';
+import { AnchoredContractData } from '../anchored_contract_data.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
@@ -60,6 +62,7 @@ describe('Utility Execution test suite', () => {
   const simulator = new WASMSimulator();
 
   let contractStore: ReturnType<typeof mock<ContractStore>>;
+  let contractClassService: ReturnType<typeof mock<ContractClassService>>;
   let noteStore: ReturnType<typeof mock<NoteStore>>;
   let keyStore: ReturnType<typeof mock<KeyStore>>;
   let addressStore: ReturnType<typeof mock<AddressStore>>;
@@ -85,6 +88,8 @@ describe('Utility Execution test suite', () => {
 
   beforeEach(async () => {
     contractStore = mock<ContractStore>();
+    contractClassService = mock<ContractClassService>();
+    contractClassService.getCurrentClassId.mockResolvedValue(new Fr(42));
     noteStore = mock<NoteStore>();
     keyStore = mock<KeyStore>();
     addressStore = mock<AddressStore>();
@@ -119,6 +124,7 @@ describe('Utility Execution test suite', () => {
     });
     acirSimulator = new ContractFunctionSimulator({
       contractStore,
+      contractClassService,
       noteStore,
       keyStore,
       addressStore,
@@ -695,6 +701,11 @@ describe('Utility Execution test suite', () => {
       });
 
       it('stores a retractable fact when given an origin block', async () => {
+        // Pin the anchor above the origin block so it classifies deterministically as finalized.
+        anchorBlockHeader = BlockHeader.empty({
+          globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(100) }),
+        });
+        l2TipsStore.getL2Tips.mockResolvedValue(makeL2Tips(100));
         const oracle = makeOracle({ scopes: [scope] });
         const originBlock = Option.some<OriginBlock>({ blockNumber: 5, blockHash: new Fr(0xabc) });
         await oracle.recordFact(contractAddress, scope, typeId, collectionId, factTypeId, payloadOf(42), originBlock);
@@ -704,7 +715,11 @@ describe('Utility Execution test suite', () => {
         const facts = result.value!.facts.readAll(service);
         expect(facts).toHaveLength(1);
         expect(facts[0].originBlock.isSome()).toBe(true);
-        expect(facts[0].originBlock.value!).toEqual({ blockNumber: 5, blockHash: new Fr(0xabc) });
+        expect(facts[0].originBlock.value!).toEqual({
+          blockNumber: 5,
+          blockHash: new Fr(0xabc),
+          blockState: OriginBlockState.Finalized,
+        });
       });
 
       it('rejects access to another contract', async () => {
@@ -737,7 +752,7 @@ describe('Utility Execution test suite', () => {
         authWitnesses: [],
         capsules: [],
         anchorBlockHeader,
-        contractStore,
+        anchoredContractData: new AnchoredContractData(contractStore, contractClassService, anchorBlockHeader),
         noteStore,
         keyStore,
         addressStore,

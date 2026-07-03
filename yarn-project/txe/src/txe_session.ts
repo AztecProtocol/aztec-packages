@@ -7,6 +7,7 @@ import { openEphemeralStore } from '@aztec/kv-store/lmdb-v2';
 import {
   AddressStore,
   AnchorBlockStore,
+  AnchoredContractData,
   CapsuleService,
   CapsuleStore,
   ContractStore,
@@ -29,6 +30,7 @@ import {
   type IMiscOracle,
   type IPrivateExecutionOracle,
   type IUtilityExecutionOracle,
+  LEGACY_ORACLE_REGISTRY,
   Option,
   TransientArrayService,
   UtilityExecutionOracle,
@@ -57,6 +59,7 @@ import { z } from 'zod';
 import { DEFAULT_ADDRESS, MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY, MAX_OFFCHAIN_EFFECT_LEN } from './constants.js';
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
 import { TXEOraclePublicContext } from './oracle/txe_oracle_public_context.js';
+import { callTxeLegacyHandler } from './oracle/txe_oracle_registry.js';
 import { TXEOracleTopLevelContext } from './oracle/txe_oracle_top_level_context.js';
 import { TXE_ORACLE_VERSION_MAJOR, TXE_ORACLE_VERSION_MINOR } from './oracle/txe_oracle_version.js';
 import { TXEPrivateExecutionOracle } from './oracle/txe_private_execution_oracle.js';
@@ -397,6 +400,18 @@ export class TXESession implements TXESessionStateHandler {
    */
   processFunction(functionName: TXEOracleFunctionName, inputs: ForeignCallArgs): Promise<ForeignCallResult> {
     try {
+      // Oracles retired into the PXE legacy registry have no translator method; dispatch them through the same
+      // buildACIRCallback legacy path that contract execution uses, keeping TXE's two oracle paths in sync.
+      // Use an own-property check: `in` would match inherited `Object.prototype` keys (e.g. `constructor`), routing
+      // them into the legacy path instead of letting them fall through to the unknown-oracle error.
+      if (Object.hasOwn(LEGACY_ORACLE_REGISTRY, functionName)) {
+        return callTxeLegacyHandler(
+          functionName,
+          inputs,
+          this.oracleHandler as Parameters<typeof buildACIRCallback>[0],
+        );
+      }
+
       const translator = new RPCTranslator(this, this.oracleHandler) as any;
       // We perform a runtime validation to check that the function name corresponds to a real oracle handler.
       const validatedFunctionName = z
@@ -717,6 +732,11 @@ export class TXESession implements TXESessionStateHandler {
 
     const utilityExecutor = this.utilityExecutorForContractSync(anchorBlock);
     const transientArrayService = new TransientArrayService();
+    const anchoredContractData = new AnchoredContractData(
+      this.contractStore,
+      this.stateMachine.contractClassService,
+      anchorBlock!,
+    );
     const taggingSecretStrategy = this.taggingSecretStrategy;
     this.oracleHandler = new TXEPrivateExecutionOracle({
       argsHash: Fr.ZERO,
@@ -729,7 +749,7 @@ export class TXESession implements TXESessionStateHandler {
       executionCache: new HashedValuesCache(),
       noteCache,
       taggingIndexCache,
-      contractStore: this.contractStore,
+      anchoredContractData,
       noteStore: this.noteStore,
       keyStore: this.keyStore,
       addressStore: this.addressStore,
@@ -827,7 +847,11 @@ export class TXESession implements TXESessionStateHandler {
       authWitnesses: [],
       capsules: [],
       anchorBlockHeader,
-      contractStore: this.contractStore,
+      anchoredContractData: new AnchoredContractData(
+        this.contractStore,
+        this.stateMachine.contractClassService,
+        anchorBlockHeader,
+      ),
       noteStore: this.noteStore,
       keyStore: this.keyStore,
       addressStore: this.addressStore,
@@ -923,7 +947,18 @@ export class TXESession implements TXESessionStateHandler {
 
   private utilityExecutorForContractSync(anchorBlock: any) {
     return async (call: FunctionCall, scopes: AztecAddress[]) => {
-      const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(call.to, call.selector);
+      const anchoredContractData = new AnchoredContractData(
+        this.contractStore,
+        this.stateMachine.contractClassService,
+        anchorBlock!,
+      );
+      const entryPointArtifact = await anchoredContractData.getFunctionArtifactWithDebugMetadata(
+        call.to,
+        call.selector,
+      );
+      if (!entryPointArtifact) {
+        throw new Error(`Cannot run function ${call.selector} on ${call.to}: the contract is not registered.`);
+      }
       if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
         throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);
       }
@@ -940,7 +975,7 @@ export class TXESession implements TXESessionStateHandler {
           authWitnesses: [],
           capsules: [],
           anchorBlockHeader: anchorBlock!,
-          contractStore: this.contractStore,
+          anchoredContractData,
           noteStore: this.noteStore,
           keyStore: this.keyStore,
           addressStore: this.addressStore,

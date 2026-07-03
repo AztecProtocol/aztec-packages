@@ -3,7 +3,6 @@ import { createLogger } from '@aztec/foundation/log';
 import { executeTimeout } from '@aztec/foundation/timer';
 import { FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { makeBlockHeader } from '@aztec/stdlib/testing';
 
@@ -12,11 +11,13 @@ import { mock } from 'jest-mock-extended';
 
 import type { ContractStore } from '../storage/contract_store/contract_store.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
+import type { ContractClassService } from './contract_class_service.js';
 import { ContractSyncService, MAX_CONCURRENT_SCOPE_SYNCS } from './contract_sync_service.js';
 
 describe('ContractSyncService', () => {
   let aztecNode: ReturnType<typeof mock<AztecNode>>;
   let contractStore: ReturnType<typeof mock<ContractStore>>;
+  let contractClassService: ReturnType<typeof mock<ContractClassService>>;
   let noteStore: ReturnType<typeof mock<NoteStore>>;
   let service: ContractSyncService;
   let utilityExecutor: jest.Mock<(call: FunctionCall, scopes: AztecAddress[]) => Promise<void>>;
@@ -48,22 +49,22 @@ describe('ContractSyncService', () => {
         }),
       ),
     );
-    contractStore.getContractInstance.mockResolvedValue({
-      currentContractClassId: classId,
-      originalContractClassId: classId,
-      address: contractAddress,
-    } as ContractInstanceWithAddress);
+    contractClassService = mock<ContractClassService>();
+    contractClassService.getCurrentClassId.mockResolvedValue(classId);
 
     aztecNode = mock<AztecNode>();
-    // verifyCurrentClassId reads the instance from the node at the anchor block; returning undefined causes
-    // readCurrentClassId to fall back to the local originalContractClassId, which matches so verification passes.
-    aztecNode.getContract.mockResolvedValue(undefined);
 
     noteStore = mock<NoteStore>();
     // syncNoteNullifiers returns early when no notes
     noteStore.getNotes.mockResolvedValue([]);
 
-    service = new ContractSyncService(aztecNode, contractStore, noteStore, createLogger('test:contract-sync'));
+    service = new ContractSyncService(
+      aztecNode,
+      contractStore,
+      contractClassService,
+      noteStore,
+      createLogger('test:contract-sync'),
+    );
   });
 
   describe('ensureContractSynced', () => {
@@ -251,53 +252,6 @@ describe('ContractSyncService', () => {
     });
   });
 
-  describe('class ID verification deduplication', () => {
-    const contract2 = AztecAddress.fromBigIntUnsafe(300n);
-
-    it('verifies class ID only once per contract across scope batches', async () => {
-      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
-      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeB]);
-      expectVerifiedContracts(contractAddress);
-    });
-
-    it('verifies class ID separately for different contracts', async () => {
-      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
-      await service.ensureContractSynced(contract2, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
-      expectVerifiedContracts(contractAddress, contract2);
-    });
-
-    it('re-verifies class ID after wipe', async () => {
-      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
-      service.wipe();
-      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeB]);
-      expectVerifiedContracts(contractAddress, contractAddress);
-    });
-
-    it('re-verifies class ID after discardStaged', async () => {
-      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
-      await service.discardStaged(jobId);
-      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
-      expectVerifiedContracts(contractAddress, contractAddress);
-    });
-
-    it('re-verifies class ID after verification failure', async () => {
-      contractStore.getContractInstance.mockRejectedValueOnce(new Error('node unavailable'));
-      await expect(
-        service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]),
-      ).rejects.toThrow('node unavailable');
-
-      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
-      expectVerifiedContracts(contractAddress, contractAddress);
-    });
-
-    it('does not re-verify class ID when only scope cache is invalidated', async () => {
-      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
-      service.invalidateContractForScopes(contractAddress, [scopeA]);
-      await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [scopeA]);
-      expectVerifiedContracts(contractAddress);
-    });
-  });
-
   describe('multi-scope sync batching', () => {
     it('batches nullifier sync across all unsynced scopes', async () => {
       await service.ensureContractSynced(contractAddress, null, utilityExecutor, anchorBlockHeader, jobId, [
@@ -462,14 +416,6 @@ describe('ContractSyncService', () => {
       const [call, actualScopes] = utilityExecutor.mock.calls[i];
       expect(call.to).toEqual(expected[i][0]);
       expect(actualScopes).toEqual(expected[i][1]);
-    }
-  };
-
-  /** Asserts that class ID verification was triggered for each contract address in the given sequence. */
-  const expectVerifiedContracts = (...addresses: AztecAddress[]) => {
-    expect(contractStore.getContractInstance).toHaveBeenCalledTimes(addresses.length);
-    for (let i = 0; i < addresses.length; i++) {
-      expect(contractStore.getContractInstance).toHaveBeenNthCalledWith(i + 1, addresses[i]);
     }
   };
 

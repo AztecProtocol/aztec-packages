@@ -52,8 +52,9 @@ import { jest } from '@jest/globals';
 import { Matcher, type MatcherCreator, type MockProxy, mock } from 'jest-mock-extended';
 import { toFunctionSelector } from 'viem';
 
-import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
-import { syncScope } from '../../contract_sync/helpers.js';
+import type { ContractClassService } from '../../contract/contract_class_service.js';
+import type { ContractSyncService } from '../../contract/contract_sync_service.js';
+import { syncScope } from '../../contract/helpers.js';
 import type { TxResolverService } from '../../messages/tx_resolver_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
@@ -103,6 +104,7 @@ describe('Private Execution test suite', () => {
   const simulator = new WASMSimulator();
 
   let contractStore: MockProxy<ContractStore>;
+  let contractClassService: MockProxy<ContractClassService>;
   let noteStore: MockProxy<NoteStore>;
   let addressStore: MockProxy<AddressStore>;
   let keyStore: MockProxy<KeyStore>;
@@ -248,14 +250,15 @@ describe('Private Execution test suite', () => {
 
     const ownerPartialAddress = Fr.random();
     ownerCompleteAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(ownerSk, ownerPartialAddress);
-    ({ masterNullifierHidingKey: ownerNhkM, masterIncomingViewingSecretKey: ownerIvskM } = await deriveKeys(ownerSk));
+    ({ masterNullifierHidingSecretKey: ownerNhkM, masterIncomingViewingSecretKey: ownerIvskM } =
+      await deriveKeys(ownerSk));
 
     const recipientPartialAddress = Fr.random();
     recipientCompleteAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(
       recipientSk,
       recipientPartialAddress,
     );
-    ({ masterNullifierHidingKey: recipientNhkM, masterIncomingViewingSecretKey: recipientIvskM } =
+    ({ masterNullifierHidingSecretKey: recipientNhkM, masterIncomingViewingSecretKey: recipientIvskM } =
       await deriveKeys(recipientSk));
 
     const senderForTagsPartialAddress = Fr.random();
@@ -263,7 +266,7 @@ describe('Private Execution test suite', () => {
       senderForTagsSk,
       senderForTagsPartialAddress,
     );
-    ({ masterNullifierHidingKey: senderForTagsNhkM, masterIncomingViewingSecretKey: senderForTagsIvskM } =
+    ({ masterNullifierHidingSecretKey: senderForTagsNhkM, masterIncomingViewingSecretKey: senderForTagsIvskM } =
       await deriveKeys(senderForTagsSk));
 
     owner = ownerCompleteAddress.address;
@@ -280,6 +283,12 @@ describe('Private Execution test suite', () => {
     ws = await NativeWorldStateService.tmp();
     fork = await ws.fork();
     contractStore = mock<ContractStore>();
+    contractClassService = mock<ContractClassService>();
+    // No upgrades in these tests: an address resolves to a class id whose string matches the address, so the
+    // address-keyed `contracts` map and store mocks below keep working when keyed by the resolved class id.
+    contractClassService.getCurrentClassId.mockImplementation(address =>
+      Promise.resolve(Fr.fromHexString(address.toString())),
+    );
     noteStore = mock<NoteStore>();
     noteStore.getNotes.mockResolvedValue([]);
     addressStore = mock<AddressStore>();
@@ -300,7 +309,15 @@ describe('Private Execution test suite', () => {
     contractSyncService.ensureContractSynced.mockImplementation(
       async (contractAddress, functionToInvokeAfterSync, utilityExecutor, _anchorBlockHeader, _jobId, scopes) => {
         for (const scope of scopes) {
-          await syncScope(contractAddress, contractStore, functionToInvokeAfterSync, utilityExecutor, scope);
+          await syncScope(
+            contractAddress,
+            contractStore,
+            contractClassService,
+            _anchorBlockHeader,
+            functionToInvokeAfterSync,
+            utilityExecutor,
+            scope,
+          );
         }
       },
     );
@@ -458,6 +475,7 @@ describe('Private Execution test suite', () => {
 
     acirSimulator = new ContractFunctionSimulator({
       contractStore,
+      contractClassService,
       noteStore,
       keyStore,
       addressStore,
@@ -710,7 +728,7 @@ describe('Private Execution test suite', () => {
 
       expect(
         contractStore.getFunctionArtifact.mock.calls.some(
-          ([addr, sel]) => addr.equals(childAddress) && sel.equals(childSelector),
+          ([classId, sel]) => classId.toString() === childAddress.toString() && sel.equals(childSelector),
         ),
       ).toBe(true);
       expect(result.nestedExecutionResults).toHaveLength(1);
@@ -737,7 +755,12 @@ describe('Private Execution test suite', () => {
         contractAddress: parentAddress,
       });
 
-      expect(contractStore.getFunctionCall).toHaveBeenCalledWith('sync_state', [owner], childAddress);
+      expect(contractStore.getFunctionCall).toHaveBeenCalledWith(
+        'sync_state',
+        [owner],
+        childAddress,
+        expect.anything(),
+      );
     });
   });
 

@@ -2,21 +2,18 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type MasterSecretKeys, deriveKeys, derivePublicKeyFromSecretKey, hashPublicKey } from '@aztec/stdlib/keys';
+import { PublicKey, deriveKeys, derivePublicKeyFromSecretKey, hashPublicKey } from '@aztec/stdlib/keys';
 
+import type { AccountPrivacySecretKeys } from './account_privacy_keys.js';
 import { KeyStore } from './key_store.js';
 
-/** Picks the six master secret keys out of the full `deriveKeys` output. */
-function masterSecretKeysOf(derived: Awaited<ReturnType<typeof deriveKeys>>): MasterSecretKeys {
-  return {
-    masterNullifierHidingKey: derived.masterNullifierHidingKey,
-    masterIncomingViewingSecretKey: derived.masterIncomingViewingSecretKey,
-    masterOutgoingViewingSecretKey: derived.masterOutgoingViewingSecretKey,
-    masterTaggingSecretKey: derived.masterTaggingSecretKey,
-    masterMessageSigningSecretKey: derived.masterMessageSigningSecretKey,
-    masterFallbackSecretKey: derived.masterFallbackSecretKey,
-  };
-}
+/** The four privacy secret keys the key store holds and returns from `getAccountSecretKeys`. */
+const PRIVACY_SECRET_KEY_NAMES = [
+  'masterNullifierHidingSecretKey',
+  'masterIncomingViewingSecretKey',
+  'masterOutgoingViewingSecretKey',
+  'masterTaggingSecretKey',
+] as const satisfies readonly (keyof AccountPrivacySecretKeys)[];
 
 describe('KeyStore', () => {
   it('Adds account and returns keys', async () => {
@@ -25,22 +22,24 @@ describe('KeyStore', () => {
     // Arbitrary fixed values
     const sk = new Fr(8923n);
     const keys = await deriveKeys(sk);
-    const derivedMasterNullifierPublicKey = await derivePublicKeyFromSecretKey(keys.masterNullifierHidingKey);
-    const computedMasterNullifierPublicKeyHash = await hashPublicKey(derivedMasterNullifierPublicKey);
+    const derivedMasterNullifierHidingPublicKey = await derivePublicKeyFromSecretKey(
+      keys.masterNullifierHidingSecretKey,
+    );
+    const computedMasterNullifierHidingPublicKeyHash = await hashPublicKey(derivedMasterNullifierHidingPublicKey);
     const computedMasterIncomingViewingPublicKeyHash = await hashPublicKey(keys.publicKeys.ivpkM);
 
     const partialAddress = new Fr(243523n);
 
-    const { address: accountAddress } = await keyStore.addAccount(sk, partialAddress);
+    const { address: accountAddress } = await keyStore.addAccount(keys, partialAddress);
     expect(accountAddress.toString()).toMatchInlineSnapshot(
       `"0x0a3120bded2afb430e67e4bdb5326a673fbfd95642b6ea7f80d0cc958aac3940"`,
     );
 
     const { pkMHash: returnedNpkMHash } = await keyStore.getKeyValidationRequest(
-      computedMasterNullifierPublicKeyHash,
+      computedMasterNullifierHidingPublicKeyHash,
       await AztecAddress.random(), // Address is random because we are not interested in the app secret key here
     );
-    expect(returnedNpkMHash.equals(computedMasterNullifierPublicKeyHash)).toBe(true);
+    expect(returnedNpkMHash.equals(computedMasterNullifierHidingPublicKeyHash)).toBe(true);
 
     const masterIncomingViewingPublicKey = await keyStore.getMasterIncomingViewingPublicKey(accountAddress);
     expect(masterIncomingViewingPublicKey.equals(keys.publicKeys.ivpkM)).toBe(true);
@@ -58,13 +57,13 @@ describe('KeyStore', () => {
     const appAddress = AztecAddress.fromBigIntUnsafe(624n);
 
     const { pkMHash: obtainedNpkMHash, skApp: appNullifierHidingKey } = await keyStore.getKeyValidationRequest(
-      computedMasterNullifierPublicKeyHash,
+      computedMasterNullifierHidingPublicKeyHash,
       appAddress,
     );
     expect(appNullifierHidingKey.toString()).toMatchInlineSnapshot(
       `"0x165cc265d187ed42f0e3f5adbb5a0055a77e205daeb68dd1735796ee402e502f"`,
     );
-    expect(obtainedNpkMHash).toEqual(computedMasterNullifierPublicKeyHash);
+    expect(obtainedNpkMHash).toEqual(computedMasterNullifierHidingPublicKeyHash);
 
     const appOutgoingViewingSecretKey = await keyStore.getAppOutgoingViewingSecretKey(accountAddress, appAddress);
     expect(appOutgoingViewingSecretKey.toString()).toMatchInlineSnapshot(
@@ -78,8 +77,10 @@ describe('KeyStore', () => {
     );
 
     // Manages to find master nullifier hiding key for the pk_m hash
-    const masterNullifierHidingKey = await keyStore.getMasterSecretKey(computedMasterNullifierPublicKeyHash);
-    expect(masterNullifierHidingKey.equals(keys.masterNullifierHidingKey)).toBe(true);
+    const masterNullifierHidingSecretKey = await keyStore.getMasterSecretKey(
+      computedMasterNullifierHidingPublicKeyHash,
+    );
+    expect(masterNullifierHidingSecretKey.equals(keys.masterNullifierHidingSecretKey)).toBe(true);
 
     // Manages to find master incoming viewing secret key for the pk_m hash
     const masterIncomingViewingSecretKeyFromPublicKey = await keyStore.getMasterSecretKey(
@@ -88,38 +89,33 @@ describe('KeyStore', () => {
     expect(masterIncomingViewingSecretKeyFromPublicKey.equals(keys.masterIncomingViewingSecretKey)).toBe(true);
   });
 
-  it('registers an account from master secret keys, matching seed-based registration', async () => {
+  it('exports the privacy secret keys it was registered with', async () => {
     const keyStore = new KeyStore(await openTmpStore('test'));
 
-    const sk = new Fr(8923n);
-    const partialAddress = new Fr(243523n);
-    const secretKeys = masterSecretKeysOf(await deriveKeys(sk));
-
-    // Registering with the keys derived from a secret must yield the same complete address as registering with the
-    // secret directly: the address is a pure function of the (derived) public keys and the partial address.
-    const fromSecretKey = await keyStore.addAccount(sk, partialAddress);
-    const fromKeys = await keyStore.addAccount(secretKeys, partialAddress);
-    expect(fromKeys.equals(fromSecretKey)).toBe(true);
-  });
-
-  it('exports the master secret keys it was registered with', async () => {
-    const keyStore = new KeyStore(await openTmpStore('test'));
-
-    const secretKeys = masterSecretKeysOf(await deriveKeys(new Fr(8923n)));
-    const { address } = await keyStore.addAccount(secretKeys, new Fr(243523n));
+    const privacyKeys = await deriveKeys(new Fr(8923n));
+    const { address } = await keyStore.addAccount(privacyKeys, new Fr(243523n));
 
     const exported = await keyStore.getAccountSecretKeys(address);
-    for (const name of Object.keys(secretKeys) as (keyof MasterSecretKeys)[]) {
-      expect(exported[name].equals(secretKeys[name])).toBe(true);
+    for (const name of PRIVACY_SECRET_KEY_NAMES) {
+      expect(exported[name].equals(privacyKeys[name])).toBe(true);
     }
   });
 
-  it('rejects registering an account with a zero secret key', async () => {
+  it('rejects registering an account with secret key resulting in infinity public keys', async () => {
     const keyStore = new KeyStore(await openTmpStore('test'));
 
-    const secretKeys = masterSecretKeysOf(await deriveKeys(new Fr(8923n)));
-    secretKeys.masterIncomingViewingSecretKey = GrumpkinScalar.ZERO;
+    const privacyKeys = await deriveKeys(new Fr(8923n));
+    privacyKeys.masterIncomingViewingSecretKey = GrumpkinScalar.ZERO;
 
-    await expect(keyStore.addAccount(secretKeys, new Fr(243523n))).rejects.toThrow('masterIncomingViewingSecretKey');
+    await expect(keyStore.addAccount(privacyKeys, new Fr(243523n))).rejects.toThrow('masterIncomingViewingPublicKey');
+  });
+
+  it('rejects registering an account with an infinity message-signing or fallback public key', async () => {
+    const keyStore = new KeyStore(await openTmpStore('test'));
+
+    const privacyKeys = await deriveKeys(new Fr(8923n));
+    privacyKeys.masterMessageSigningPublicKey = PublicKey.INFINITY;
+
+    await expect(keyStore.addAccount(privacyKeys, new Fr(243523n))).rejects.toThrow('masterMessageSigningPublicKey');
   });
 });
