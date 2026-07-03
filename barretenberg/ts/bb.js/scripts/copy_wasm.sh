@@ -6,7 +6,7 @@ set -e
 cd $(dirname $0)/..
 
 if [ "${BUILD_CPP:-0}" -eq 1 ]; then
-  parallel --line-buffered --tag '../cpp/bootstrap.sh {}' ::: build_wasm build_wasm_threads
+  parallel --line-buffered --tag '../../cpp/bootstrap.sh {}' ::: build_wasm build_wasm_threads
 fi
 
 # Copy the wasm to its home in the bb.js dest folder.
@@ -18,7 +18,7 @@ mkdir -p ./dest/node/barretenberg_wasm
 mkdir -p ./dest/node-cjs/barretenberg_wasm
 mkdir -p ./dest/browser/barretenberg_wasm
 
-cp ../cpp/build-wasm-threads/bin/barretenberg.wasm.gz ./dest/node/barretenberg_wasm/barretenberg-threads.wasm.gz
-cp ../cpp/build-wasm-threads/bin/barretenberg.wasm.gz ./dest/node-cjs/barretenberg_wasm/barretenberg-threads.wasm.gz
-cp ../cpp/build-wasm-threads/bin/barretenberg.wasm.gz ./dest/browser/barretenberg_wasm/barretenberg-threads.wasm.gz
-cp ../cpp/build-wasm/bin/barretenberg.wasm.gz ./dest/browser/barretenberg_wasm/barretenberg.wasm.gz
+cp ../../cpp/build-wasm-threads/bin/barretenberg.wasm.gz ./dest/node/barretenberg_wasm/barretenberg-threads.wasm.gz
+cp ../../cpp/build-wasm-threads/bin/barretenberg.wasm.gz ./dest/node-cjs/barretenberg_wasm/barretenberg-threads.wasm.gz
+cp ../../cpp/build-wasm-threads/bin/barretenberg.wasm.gz ./dest/browser/barretenberg_wasm/barretenberg-threads.wasm.gz
+cp ../../cpp/build-wasm/bin/barretenberg.wasm.gz ./dest/browser/barretenberg_wasm/barretenberg.wasm.gz

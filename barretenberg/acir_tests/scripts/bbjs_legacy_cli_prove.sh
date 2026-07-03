@@ -6,7 +6,7 @@ export HARDWARE_CONCURRENCY=8
 cd ../acir_tests/$1
 
 # NOTE The bb.js main file is deprecated!
-bbjs_bin="../../../ts/dest/node/main.js"
+bbjs_bin="../../../ts/bb.js/dest/node/main.js"
 
 output_dir=$(mktemp -d ./output-XXXXXX)
 trap "rm -rf $output_dir" EXIT

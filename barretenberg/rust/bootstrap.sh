@@ -10,7 +10,7 @@ function build {
 
   if ! cache_download barretenberg-rs-$hash.tar.gz; then
     # Generate Rust bindings from msgpack schema (uses ts-node, no build needed)
-    (cd ../ts && yarn generate)
+    (cd ../ts/bb.js && yarn generate)
 
     # Build all targets
     # BB_LIB_DIR tells build.rs to use local lib instead of downloading (ffi feature is on by default)
@@ -57,7 +57,7 @@ function release {
   # Generated files must exist (created during build step, or generate now)
   if [ ! -f barretenberg-rs/src/api.rs ] || [ ! -f barretenberg-rs/src/generated_types.rs ]; then
     echo "Generated files not found, running yarn generate..."
-    (cd ../ts && yarn generate)
+    (cd ../ts/bb.js && yarn generate)
   fi
 
   # Check if this version is already published on crates.io (idempotent re-runs).
