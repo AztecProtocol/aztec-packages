@@ -120,9 +120,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     private config: ValidatorClientFullConfig,
     private blobClient: BlobClientInterface,
     private slashingProtectionSigner: ValidatorHASigner,
-    // True when this client created the slashing-protection database (so {@link close} owns closing it);
-    // false when the database was injected as a shared instance whose lifecycle the caller owns.
-    private readonly ownsSlashingProtectionDb: boolean,
     private dateProvider: DateProvider = new DateProvider(),
     telemetry: TelemetryClient = getTelemetryClient(),
     log = createLogger('validator'),
@@ -294,8 +291,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       config,
       blobClient,
       slashingProtectionSigner,
-      // We own (and must close) the slashing-protection database unless it was injected as a shared one.
-      !slashingProtectionDb,
       dateProvider,
       telemetry,
     );
@@ -383,18 +378,6 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
   public async stop() {
     await this.epochCacheUpdateLoop.stop();
     await this.keyStore.stop();
-  }
-
-  /**
-   * Final teardown: stops the client and, when this client created the slashing-protection database (i.e. it
-   * was not injected as a shared instance), closes it to release its connection / file lock. Not restartable
-   * afterwards — use {@link stop} for a pause that can be resumed.
-   */
-  public async close() {
-    await this.stop();
-    if (this.ownsSlashingProtectionDb) {
-      await this.slashingProtectionSigner.close();
-    }
   }
 
   /** Register handlers on the p2p client */

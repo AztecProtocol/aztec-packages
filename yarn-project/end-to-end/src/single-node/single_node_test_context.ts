@@ -994,36 +994,37 @@ export class SingleNodeTestContext {
   }
 
   /**
-   * Warps the L1 clock to `target` with every given node's sequencer stopped, then restarts them
-   * (pass `restart: false` to leave them stopped, e.g. until some clock-driven effect is confirmed).
+   * Warps the L1 clock to `target` with every given node's sequencer paused, then resumes them
+   * (pass `restart: false` to leave them paused, e.g. until some clock-driven effect is confirmed).
    *
    * Warping the shared date provider under live sequencers interrupts whatever iteration is mid-build,
    * producing spurious `block-build-failed` / `checkpoint-error` events and dropped checkpoints. The
-   * sequencers are therefore stopped gracefully first: the poll loop halts, the in-flight iteration and
-   * its pending L1 submission complete untouched, and any pending fallback vote is drained so it cannot
-   * fire with a stale slot after the warp. Only the sequencers (and their validator clients/publishers)
-   * are paused; archivers, provers, and the chain monitor keep running, so clock-driven effects of the
-   * warp (e.g. an orphan-block prune) still fire.
+   * sequencers are therefore paused first: the poll loop halts and the in-flight iteration, its pending L1
+   * submission, and any pending fallback vote all finish untouched before the warp, so nothing fires with a
+   * stale slot afterwards. Pausing leaves the validator clients (and their slashing-protection stores) and
+   * publishers running, so a later {@link SequencerClient.start} cleanly resumes; archivers, provers, and
+   * the chain monitor keep running throughout, so clock-driven effects of the warp (e.g. an orphan-block
+   * prune) still fire.
    *
    * The warp is performed here (rather than via a caller-supplied callback) so it happens only after the
-   * graceful stop has drained. A graceful stop can take several slots, so a `target` computed before the
-   * stop may already lie in the past by the time the sequencers are down. The warp is therefore skipped
-   * when the L1 clock has already reached or passed `target` — `evm_setNextBlockTimestamp` rejects a
-   * non-advancing timestamp, so warping there would throw "timestamp in the past".
+   * pause has drained. Draining can take several slots, so a `target` computed before the pause may already
+   * lie in the past by the time the sequencers are down. The warp is therefore skipped when the L1 clock has
+   * already reached or passed `target` — `evm_setNextBlockTimestamp` rejects a non-advancing timestamp, so
+   * warping there would throw "timestamp in the past".
    */
-  public async warpWithSequencersStopped(
+  public async warpWithSequencersPaused(
     nodes: AztecNodeService[],
     cheatCodes: CheatCodes,
     target: bigint,
     opts: { restart?: boolean } = {},
   ): Promise<void> {
     const sequencers = this.getSequencers(nodes);
-    await testSpan('warp:sequencers-stopped', async () => {
-      this.logger.warn(`Gracefully stopping ${sequencers.length} sequencers before warp`);
-      await Promise.all(sequencers.map(sequencer => sequencer.stop({ graceful: true })));
+    await testSpan('warp:sequencers-paused', async () => {
+      this.logger.warn(`Pausing ${sequencers.length} sequencers before warp`);
+      await Promise.all(sequencers.map(sequencer => sequencer.pause()));
       const currentTs = BigInt(await cheatCodes.eth.lastBlockTimestamp());
       if (currentTs < target) {
-        this.logger.warn(`Warping L1 to ${target} with all sequencers stopped`, { currentTs, target });
+        this.logger.warn(`Warping L1 to ${target} with all sequencers paused`, { currentTs, target });
         await cheatCodes.eth.warp(Number(target), { resetBlockInterval: true });
       } else {
         this.logger.verbose(`Skipping warp: L1 clock ${currentTs} already at or past target ${target}`, {
@@ -1032,7 +1033,7 @@ export class SingleNodeTestContext {
         });
       }
       if (opts.restart ?? true) {
-        this.logger.warn(`Restarting ${sequencers.length} sequencers after warp`);
+        this.logger.warn(`Resuming ${sequencers.length} sequencers after warp`);
         await Promise.all(sequencers.map(sequencer => sequencer.start()));
       }
     });

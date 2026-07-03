@@ -169,26 +169,17 @@ export class ValidatorHASigner {
 
   /**
    * Start the HA signer background tasks (cleanup of stuck duties).
-   * Idempotent and safe to call after a previous {@link stop} to resume signing.
+   * Should be called after construction and before signing operations.
    */
   async start() {
     await this.slashingProtection.start();
   }
 
   /**
-   * Pause the HA signer background tasks. The slashing-protection store is deliberately left open so the
-   * signer can be restarted via {@link start} — closing it here would leave a restarted signer throwing
-   * "Store is closed" on every signing attempt. Use {@link close} for final teardown that releases the store.
+   * Stop the HA signer background tasks and close database connection.
+   * Should be called during graceful shutdown.
    */
   async stop() {
-    await this.slashingProtection.stop();
-  }
-
-  /**
-   * Final teardown: stop background tasks and close the slashing-protection store, releasing its database
-   * connection / file lock. Not restartable afterwards — use {@link stop} to pause instead.
-   */
-  async close() {
     await this.slashingProtection.stop();
     await this.slashingProtection.close();
   }

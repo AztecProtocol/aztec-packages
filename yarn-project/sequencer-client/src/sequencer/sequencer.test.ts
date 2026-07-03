@@ -474,30 +474,38 @@ describe('sequencer', () => {
       expect(sequencer.status().state).toBe(SequencerState.STOPPED);
     });
 
-    it('graceful stop lets the in-flight iteration finish before interrupting anything', async () => {
+    it('pause lets the in-flight iteration finish untouched and leaves the sequencer resumable', async () => {
       const checkpointErrors: Error[] = [];
       sequencer.on('checkpoint-error', ({ error }) => checkpointErrors.push(error));
 
-      // Park the in-flight work() at its proposer lookup, so the graceful stop finds a live iteration.
-      // Once released, we are not the proposer, so the iteration finishes on the cheap non-proposer path.
+      // Park the in-flight work() at its proposer lookup, so pause finds a live iteration. Once released,
+      // we are not the proposer, so the iteration finishes on the cheap non-proposer path.
       const { promise: proposerHang, resolve: releaseProposer } = promiseWithResolvers<EthAddress | undefined>();
       epochCache.getProposerAttesterAddressInSlot.mockReturnValueOnce(proposerHang);
       validatorClient.getValidatorAddresses.mockReturnValue([]);
 
       sequencer.start();
-      const stopPromise = sequencer.stop({ graceful: true });
+      const pausePromise = sequencer.pause();
       await new Promise(resolve => setTimeout(resolve, 0));
 
-      // While the iteration is parked, nothing may be interrupted and STOPPING may not be entered:
-      // entering it would make the iteration's own setState calls throw SequencerInterruptedError.
+      // While the iteration is parked, nothing may be interrupted and STOPPING may not be entered: entering
+      // it would make the iteration's own setState calls throw SequencerInterruptedError. pause also leaves
+      // the publishers running (no stopAll), unlike stop().
       expect(publisherFactory.stopAll).not.toHaveBeenCalled();
       expect(sequencer.status().state).not.toBe(SequencerState.STOPPING);
 
       releaseProposer(signer.address);
-      await stopPromise;
+      await pausePromise;
 
+      // A clean pause emits no spurious checkpoint-error and, unlike stop(), leaves the sequencer resumable:
+      // the poll loop is halted but the state is neither STOPPED nor STOPPING.
       expect(checkpointErrors).toEqual([]);
-      expect(sequencer.status().state).toBe(SequencerState.STOPPED);
+      expect(sequencer.isRunning()).toBe(false);
+      expect([SequencerState.STOPPED, SequencerState.STOPPING]).not.toContain(sequencer.status().state);
+
+      // And a subsequent start() resumes the poll loop.
+      sequencer.start();
+      expect(sequencer.isRunning()).toBe(true);
     });
 
     it('drains an in-flight fallback send on stop, leaving nothing pending across a restart', async () => {
@@ -524,7 +532,7 @@ describe('sequencer', () => {
 
       await sequencer.work();
       expect(publisher.sendRequestsAt).toHaveBeenCalled();
-      expect(sequencer.getPendingFallbackSendCount()).toBe(1);
+      expect(sequencer.getPendingRequestCount()).toBe(1);
 
       // stop() must interrupt the fallback wrapper (waking its sleep so it short-circuits without
       // publishing) and await it, so nothing pending survives into a later restart.
@@ -533,7 +541,7 @@ describe('sequencer', () => {
       await stopPromise;
 
       expect(publisher.interrupt).toHaveBeenCalled();
-      expect(sequencer.getPendingFallbackSendCount()).toBe(0);
+      expect(sequencer.getPendingRequestCount()).toBe(0);
       expect(sequencer.status().state).toBe(SequencerState.STOPPED);
     });
   });
@@ -1832,7 +1840,7 @@ class TestSequencer extends Sequencer {
   }
 
   public async awaitLastProposalSubmission() {
-    await this.lastCheckpointProposalJob?.awaitPendingSubmission();
+    await this.pendingRequests.awaitRequests();
   }
 
   public getRunningPromise() {
@@ -1843,8 +1851,8 @@ class TestSequencer extends Sequencer {
     return this.runningPromise?.isRunning() ?? false;
   }
 
-  public getPendingFallbackSendCount() {
-    return this.pendingFallbackSends.size;
+  public getPendingRequestCount() {
+    return this.pendingRequests.size;
   }
 
   public checkCanProposeForTest(slot: SlotNumber) {

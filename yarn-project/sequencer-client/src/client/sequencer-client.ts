@@ -181,10 +181,10 @@ export class SequencerClient {
   }
 
   /**
-   * Starts (or restarts) the sequencer, validator, publishers, and metrics. Each underlying start is
-   * idempotent, so this is safe to call after a previous {@link stop} to resume building and publishing.
-   * The publisher manager must start before the sequencer's poll loop so the publishers' interrupted
-   * flag (set by stop) is cleared before the sequencer first tries to publish to L1.
+   * Starts (or resumes) the sequencer, validator, publishers, and metrics. Each underlying start is
+   * idempotent, so this is safe to call after a previous {@link pause} to resume building and publishing.
+   * The publisher manager is started before the sequencer's poll loop so publishing is ready before the
+   * sequencer first tries to publish to L1.
    */
   public async start() {
     await this.validatorClient?.start();
@@ -194,26 +194,24 @@ export class SequencerClient {
   }
 
   /**
-   * Stops the sequencer, validator, publishers, and metrics, draining in-flight work. Idempotent, and the
-   * client may be restarted afterwards via {@link start}. Pass `graceful` to let the in-flight sequencer
-   * iteration and its pending L1 submission complete instead of interrupting them (see
-   * {@link Sequencer.stop}).
+   * Stops the sequencer, validator, publishers, and metrics for good, draining in-flight work. This is the
+   * final teardown path: stopping the validator client closes its slashing-protection database. For a
+   * restartable pause (e.g. around a test clock warp) use {@link pause} instead.
    */
-  public async stop(opts: { graceful?: boolean } = {}) {
-    await this.sequencer.stop(opts);
+  public async stop() {
+    await this.sequencer.stop();
     await this.validatorClient?.stop();
     await this.publisherManager.stop();
     this.l1Metrics?.stop();
   }
 
   /**
-   * Stops the client for good and releases owned resources — notably the validator's slashing-protection
-   * database, which {@link stop} deliberately leaves open so the sequencer can be restarted. Use this for
-   * final teardown (node shutdown); use {@link stop} for a restartable pause.
+   * Gracefully pauses block production, waiting for in-flight work to finish rather than interrupting it,
+   * while leaving the validator, publishers, and metrics running so the sequencer can be resumed with
+   * {@link start}. Used by tests that pause sequencers around an L1 clock warp.
    */
-  public async close() {
-    await this.stop();
-    await this.validatorClient?.close();
+  public async pause() {
+    await this.sequencer.pause();
   }
 
   /** Triggers an immediate run of the sequencer, bypassing the polling interval. */
