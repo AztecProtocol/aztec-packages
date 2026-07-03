@@ -1,5 +1,6 @@
 import { NO_FROM } from '@aztec/aztec.js/account';
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import type { ContractFunctionInteraction } from '@aztec/aztec.js/contracts';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { NestedUtilityContract } from '@aztec/noir-test-contracts.js/NestedUtility';
@@ -48,27 +49,27 @@ describe('automine/contracts/nested_utility_calls', () => {
     expect(result).toEqual(2n ** 10n);
   });
 
-  // Simulates pow_private(2, 10) which calls pow_utility from a private function context; expects
-  // 1024.
+  // Simulates pow_private(2, 10) which calls pow_utility from a private function context; expects 1024.
   it('pow_private 2 to the 10 returns 1024 - private function calling utility', async () => {
     const { result } = await contractA.methods.pow_private(2n, 10).simulate({ from: defaultAccountAddress });
     expect(result).toEqual(2n ** 10n);
   });
 
-  // Simulates contractA.delegate_pow_utility(contractB, 2, 3) with no hook registered; expects
-  // 'Cross-contract utility call denied'.
-  it('denies cross-contract utility call from utility context by default', async () => {
-    await expect(
-      contractA.methods.delegate_pow_utility(contractB.address, 2n, 3n).simulate({ from: defaultAccountAddress }),
-    ).rejects.toThrow('Cross-contract utility call denied');
-  });
-
-  // Simulates contractA.delegate_pow_private(contractB, 2, 3) with no hook; expects 'Cross-contract
-  // utility call denied'.
-  it('denies cross-contract utility call from private function by default', async () => {
-    await expect(
-      contractA.methods.delegate_pow_private(contractB.address, 2n, 3n).simulate({ from: defaultAccountAddress }),
-    ).rejects.toThrow('Cross-contract utility call denied');
+  // With no authorizeUtilityCall hook registered, a cross-contract utility call is denied by default
+  // whether it originates from a utility or a private function.
+  it.each([
+    {
+      context: 'utility context',
+      getInteraction: () => contractA.methods.delegate_pow_utility(contractB.address, 2n, 3n),
+    },
+    {
+      context: 'private function',
+      getInteraction: () => contractA.methods.delegate_pow_private(contractB.address, 2n, 3n),
+    },
+  ])('denies cross-contract utility call from $context by default', async ({ getInteraction }) => {
+    await expect(getInteraction().simulate({ from: defaultAccountAddress })).rejects.toThrow(
+      'Cross-contract utility call denied',
+    );
   });
 
   it('top-level utility has no caller, so its msg_sender is none', async () => {
@@ -128,39 +129,58 @@ describe('authorizeUtilityCall hook', () => {
     lastRequest = undefined;
   });
 
-  // Calls delegate_pow_utility with hookAllows=false; expects denial and checks lastRequest fields.
-  it('denies cross-contract utility call from utility context when hook returns false', async () => {
-    await expect(
-      contractA.methods.delegate_pow_utility(contractB.address, 2n, 3n).simulate({ from: defaultAccountAddress }),
-    ).rejects.toThrow('Cross-contract utility call denied');
-    expect(lastRequest).toMatchObject({
-      caller: contractA.address,
-      callerClassId: contractClassId,
-      target: contractB.address,
-      targetClassId: contractClassId,
-      functionSelector: await contractB.methods.pow_utility.selector(),
-      functionName: 'pow_utility',
+  const hookRows: {
+    context: string;
+    callerContext: string;
+    allow: boolean;
+    getInteraction: () => ContractFunctionInteraction;
+  }[] = [
+    {
+      context: 'utility',
       callerContext: 'utility',
-    });
-  });
+      getInteraction: () => contractA.methods.delegate_pow_utility(contractB.address, 2n, 3n),
+    },
+    {
+      context: 'private function',
+      callerContext: 'private',
+      getInteraction: () => contractA.methods.delegate_pow_private(contractB.address, 2n, 3n),
+    },
+    {
+      context: 'view function',
+      callerContext: 'private view',
+      getInteraction: () => contractA.methods.delegate_pow_view(contractB.address, 2n, 3n),
+    },
+  ].flatMap(row => [
+    { ...row, allow: false },
+    { ...row, allow: true },
+  ]);
 
-  // Sets hookAllows=true, calls delegate_pow_utility, and asserts result=8 and lastRequest fields.
-  it('allows cross-contract utility call from utility context when hook returns true', async () => {
-    hookAllows = true;
-    const { result } = await contractA.methods
-      .delegate_pow_utility(contractB.address, 2n, 3n)
-      .simulate({ from: defaultAccountAddress });
-    expect(result).toEqual(8n); // 2^3
-    expect(lastRequest).toMatchObject({
-      caller: contractA.address,
-      callerClassId: contractClassId,
-      target: contractB.address,
-      targetClassId: contractClassId,
-      functionSelector: await contractB.methods.pow_utility.selector(),
-      functionName: 'pow_utility',
-      callerContext: 'utility',
-    });
-  });
+  // The hook is consulted for every cross-contract utility call; its boolean return governs access, and
+  // the request it receives carries the caller/target class ids, the target selector, and the caller
+  // context (utility / private / private view). A denied call throws; an allowed one returns 2^3 = 8.
+  it.each(hookRows)(
+    '$context context: hook returning $allow governs the cross-contract utility call',
+    async ({ getInteraction, callerContext, allow }) => {
+      hookAllows = allow;
+      if (allow) {
+        const { result } = await getInteraction().simulate({ from: defaultAccountAddress });
+        expect(result).toEqual(8n);
+      } else {
+        await expect(getInteraction().simulate({ from: defaultAccountAddress })).rejects.toThrow(
+          'Cross-contract utility call denied',
+        );
+      }
+      expect(lastRequest).toMatchObject({
+        caller: contractA.address,
+        callerClassId: contractClassId,
+        target: contractB.address,
+        targetClassId: contractClassId,
+        functionSelector: await contractB.methods.pow_utility.selector(),
+        functionName: 'pow_utility',
+        callerContext,
+      });
+    },
+  );
 
   it('nested utility call sees the calling contract as its msg_sender', async () => {
     hookAllows = true;
@@ -168,75 +188,6 @@ describe('authorizeUtilityCall hook', () => {
       .delegate_get_msg_sender(contractB.address)
       .simulate({ from: defaultAccountAddress });
     expect(result).toEqual(contractA.address);
-  });
-
-  // Calls delegate_pow_private with hookAllows=false; expects denial and checks lastRequest
-  // callerContext is 'private'.
-  it('denies cross-contract utility call from private function when hook returns false', async () => {
-    await expect(
-      contractA.methods.delegate_pow_private(contractB.address, 2n, 3n).simulate({ from: defaultAccountAddress }),
-    ).rejects.toThrow('Cross-contract utility call denied');
-    expect(lastRequest).toMatchObject({
-      caller: contractA.address,
-      callerClassId: contractClassId,
-      target: contractB.address,
-      targetClassId: contractClassId,
-      functionSelector: await contractB.methods.pow_utility.selector(),
-      functionName: 'pow_utility',
-      callerContext: 'private',
-    });
-  });
-
-  // Sets hookAllows=true, calls delegate_pow_private, and asserts result=8 with 'private' context.
-  it('allows cross-contract utility call from private function when hook returns true', async () => {
-    hookAllows = true;
-    const { result } = await contractA.methods
-      .delegate_pow_private(contractB.address, 2n, 3n)
-      .simulate({ from: defaultAccountAddress });
-    expect(result).toEqual(8n); // 2^3
-    expect(lastRequest).toMatchObject({
-      caller: contractA.address,
-      callerClassId: contractClassId,
-      target: contractB.address,
-      targetClassId: contractClassId,
-      functionSelector: await contractB.methods.pow_utility.selector(),
-      functionName: 'pow_utility',
-      callerContext: 'private',
-    });
-  });
-
-  // Calls delegate_pow_view with hookAllows=false; expects denial with 'private view' context.
-  it('denies cross-contract utility call from view function when hook returns false', async () => {
-    await expect(
-      contractA.methods.delegate_pow_view(contractB.address, 2n, 3n).simulate({ from: defaultAccountAddress }),
-    ).rejects.toThrow('Cross-contract utility call denied');
-    expect(lastRequest).toMatchObject({
-      caller: contractA.address,
-      callerClassId: contractClassId,
-      target: contractB.address,
-      targetClassId: contractClassId,
-      functionSelector: await contractB.methods.pow_utility.selector(),
-      functionName: 'pow_utility',
-      callerContext: 'private view',
-    });
-  });
-
-  // Sets hookAllows=true, calls delegate_pow_view, and asserts result=8 with 'private view' context.
-  it('allows cross-contract utility call from view function when hook returns true', async () => {
-    hookAllows = true;
-    const { result } = await contractA.methods
-      .delegate_pow_view(contractB.address, 2n, 3n)
-      .simulate({ from: defaultAccountAddress });
-    expect(result).toEqual(8n);
-    expect(lastRequest).toMatchObject({
-      caller: contractA.address,
-      callerClassId: contractClassId,
-      target: contractB.address,
-      targetClassId: contractClassId,
-      functionSelector: await contractB.methods.pow_utility.selector(),
-      functionName: 'pow_utility',
-      callerContext: 'private view',
-    });
   });
 
   // Stores pow args as notes on contractB, then calls delegate_pow_from_storage from contractA
