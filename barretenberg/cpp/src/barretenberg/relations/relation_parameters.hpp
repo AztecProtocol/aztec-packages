@@ -87,6 +87,43 @@ template <typename T> struct RelationParameters {
                                    { T(0), T(0), T(0), T(0), T(0) },
                                    { T(0), T(0), T(0), T(0), T(0) },
                                    { T(0), T(0), T(0), T(0), T(0) } } };
+
+    // Re-instantiate this struct under a different element type `U` (e.g. `RelationParameters<FF>` ->
+    // `RelationParameters<VectorField>`) by per-field conversion through `U`'s implicit `Field` ctor.
+    // Lives next to the field declarations so adding a new parameter forces updating the conversion in the
+    // same diff, instead of getting silently dropped by a distant consumer.
+    template <typename U> RelationParameters<U> convert_to() const
+    {
+        RelationParameters<U> result;
+        result.eta = U(eta);
+        result.eta_two = U(eta_two);
+        result.eta_three = U(eta_three);
+        result.rom_logup_gamma = U(rom_logup_gamma);
+        result.beta = U(beta);
+        result.gamma = U(gamma);
+        result.public_input_delta = U(public_input_delta);
+        result.beta_sqr = U(beta_sqr);
+        result.beta_cube = U(beta_cube);
+        result.beta_quartic = U(beta_quartic);
+        result.eccvm_set_permutation_delta = U(eccvm_set_permutation_delta);
+        result.num_multilinear_batching_challenges = num_multilinear_batching_challenges;
+        for (size_t i = 0; i < multilinear_batching_challenges.size(); ++i) {
+            result.multilinear_batching_challenges[i] = U(multilinear_batching_challenges[i]);
+        }
+        for (size_t i = 0; i < accumulated_result.size(); ++i) {
+            result.accumulated_result[i] = U(accumulated_result[i]);
+        }
+        for (size_t i = 0; i < evaluation_input_x.size(); ++i) {
+            result.evaluation_input_x[i] = U(evaluation_input_x[i]);
+        }
+        for (size_t i = 0; i < batching_challenge_v.size(); ++i) {
+            for (size_t j = 0; j < batching_challenge_v[i].size(); ++j) {
+                result.batching_challenge_v[i][j] = U(batching_challenge_v[i][j]);
+            }
+        }
+        return result;
+    }
+
     // only used for testing
     static RelationParameters get_random()
     {

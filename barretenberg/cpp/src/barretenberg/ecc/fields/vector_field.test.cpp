@@ -98,19 +98,19 @@ TEST(VectorFieldTest, EqualityDetectsMatchesAndMismatches)
 
     // Same values — all 5 bits set.
     Vec vb(a);
-    EXPECT_EQ(va.eq(vb), 0b11111u);
+    EXPECT_EQ(va.eq_mask(vb), 0b11111u);
 
     // Flip lane 0: bit 0 clears.
     auto a2 = a;
     a2[0] = a2[0] + fr(1);
     Vec vc(a2);
-    EXPECT_EQ(va.eq(vc), 0b11110u);
+    EXPECT_EQ(va.eq_mask(vc), 0b11110u);
 
     // Flip lane 3: bit 3 clears.
     auto a3 = a;
     a3[3] = a3[3] + fr(1);
     Vec vd(a3);
-    EXPECT_EQ(va.eq(vd), 0b10111u);
+    EXPECT_EQ(va.eq_mask(vd), 0b10111u);
 }
 
 TEST(VectorFieldTest, EqualityAcceptsAliasedCoarseRepresentations)
@@ -131,7 +131,7 @@ TEST(VectorFieldTest, EqualityAcceptsAliasedCoarseRepresentations)
 
     Vec va(a);
     Vec vb(a_plus_p);
-    EXPECT_EQ(va.eq(vb), 0b11111u);
+    EXPECT_EQ(va.eq_mask(vb), 0b11111u);
 }
 
 TEST(VectorFieldTest, IsZeroDetectsZeroAndP)
@@ -144,7 +144,7 @@ TEST(VectorFieldTest, IsZeroDetectsZeroAndP)
     vals[4] = fr::zero();
 
     Vec v(vals);
-    uint32_t iz = v.is_zero();
+    uint32_t iz = v.is_zero_mask();
     // Lanes 0, 2, 4 should be zero; lanes 1, 3 non-zero.
     EXPECT_EQ(iz & 1u, 1u);
     EXPECT_EQ(iz & 2u, 0u);
@@ -162,7 +162,7 @@ TEST(VectorFieldTest, IsZeroAcceptsAliasedZero)
                              bb::Bn254FrParams::modulus_3 };
     std::array<fr, 5> vals{ fr::zero(), p_as_field, fr::zero(), p_as_field, fr::one() };
     Vec v(vals);
-    uint32_t iz = v.is_zero();
+    uint32_t iz = v.is_zero_mask();
     EXPECT_EQ(iz, 0b01111u);
 }
 
@@ -620,12 +620,12 @@ TEST(VectorFieldFqTest, EqualityDetectsMatchesAndMismatches)
     VecFq va(a);
 
     VecFq vb(a);
-    EXPECT_EQ(va.eq(vb), 0b11111u);
+    EXPECT_EQ(va.eq_mask(vb), 0b11111u);
 
     auto a_flipped = a;
     a_flipped[0] = a[0] + fq::one();
     VecFq vc(a_flipped);
-    EXPECT_EQ(va.eq(vc), 0b11110u);
+    EXPECT_EQ(va.eq_mask(vc), 0b11110u);
 }
 
 TEST(VectorFieldFqTest, IsZeroDetectsZeroAndP)
@@ -635,12 +635,12 @@ TEST(VectorFieldFqTest, IsZeroDetectsZeroAndP)
         x = fq::zero();
     }
     VecFq v_zero(zeros);
-    EXPECT_EQ(v_zero.is_zero(), 0b11111u);
+    EXPECT_EQ(v_zero.is_zero_mask(), 0b11111u);
 
     auto non_zero = random_five_fq();
     non_zero[0] = fq::one();
     VecFq v_nz(non_zero);
-    EXPECT_EQ(v_nz.is_zero(), 0u);
+    EXPECT_EQ(v_nz.is_zero_mask(), 0u);
 }
 
 TEST(VectorFieldFqTest, DistributivityMulOverAdd)
@@ -675,6 +675,76 @@ TEST(VectorFieldFqTest, ScalarTypeAlias)
 {
     static_assert(std::is_same_v<typename VecFq::scalar_type, bb::fq>);
     SUCCEED();
+}
+
+// `Vec` as a drop-in for `field<Params>` in templated relations / Univariate<Vec, K>: the static
+// identities, scalar-broadcast ctors, sqr, and lane-wise invert.
+
+TEST(VectorFieldTest, OneIsAllOnes)
+{
+    auto a = Vec::one().to_array();
+    for (size_t k = 0; k < 5; ++k) {
+        EXPECT_EQ(a[k], fr::one()) << "lane " << k;
+    }
+}
+
+TEST(VectorFieldTest, ZeroIsAllZeros)
+{
+    auto a = Vec::zero().to_array();
+    for (size_t k = 0; k < 5; ++k) {
+        EXPECT_TRUE(a[k].is_zero()) << "lane " << k;
+    }
+}
+
+TEST(VectorFieldTest, ScalarBroadcastCtors)
+{
+    fr s = fr::random_element();
+    auto a = Vec(s).to_array();
+    for (size_t k = 0; k < 5; ++k) {
+        EXPECT_EQ(a[k], s) << "lane " << k;
+    }
+
+    auto b = Vec(-2).to_array();
+    fr neg2 = fr(-2);
+    for (size_t k = 0; k < 5; ++k) {
+        EXPECT_EQ(b[k], neg2) << "lane " << k;
+    }
+
+    auto c = Vec(uint64_t{ 42 }).to_array();
+    fr forty_two = fr(uint64_t{ 42 });
+    for (size_t k = 0; k < 5; ++k) {
+        EXPECT_EQ(c[k], forty_two) << "lane " << k;
+    }
+}
+
+TEST(VectorFieldTest, SqrMatchesSelfMul)
+{
+    for (int trial = 0; trial < 16; ++trial) {
+        auto a = random_five();
+        std::array<fr, 5> expected;
+        for (size_t k = 0; k < 5; ++k) {
+            expected[k] = a[k] * a[k];
+        }
+        auto got = Vec(a).sqr().to_array();
+        EXPECT_TRUE(field_array_eq(expected, got)) << "trial " << trial;
+    }
+}
+
+TEST(VectorFieldTest, InvertLanewise)
+{
+    auto a = random_five();
+    std::array<fr, 5> expected;
+    for (size_t k = 0; k < 5; ++k) {
+        expected[k] = a[k].invert();
+    }
+    auto got = Vec(a).invert().to_array();
+    EXPECT_TRUE(field_array_eq(expected, got));
+
+    // x * x.invert() == 1 lane-wise.
+    auto prod = (Vec(a) * Vec(a).invert()).to_array();
+    for (size_t k = 0; k < 5; ++k) {
+        EXPECT_EQ(prod[k], fr::one()) << "lane " << k;
+    }
 }
 
 // Contiguous/gather transposes for Fq — the MSM production path (g1 coordinates are Fq),

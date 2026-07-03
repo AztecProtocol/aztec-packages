@@ -57,6 +57,9 @@
 
 namespace bb {
 
+// `if constexpr`-friendly form of BB_VECTOR_FIELD_SIMD: lets dispatch sites stay templated instead of `#if`d.
+inline constexpr bool vector_field_simd_enabled = BB_VECTOR_FIELD_SIMD;
+
 // ---------------------------------------------------------------------------
 // Compile-time constants derived from Params.
 // ---------------------------------------------------------------------------
@@ -129,7 +132,12 @@ inline constexpr bool simd_available_v = (BB_VECTOR_FIELD_SIMD != 0) && has_simd
 template <class Params> struct alignas(32) VectorField {
     using Field = field<Params>;
     using scalar_type = Field;
+    // Relation algebra resolves View / CoefficientAccumulator / modulus off the element type, so
+    // VectorField must mirror those names from `field<Params>` to drop in as the element type.
+    using View = VectorField;
+    using CoefficientAccumulator = VectorField;
     static constexpr size_t SIZE = 5;
+    static constexpr auto modulus = Field::modulus;
 
     // load_contiguous, store_contiguous, and the linear-memory ctor read/write
     // raw Field bytes at fixed offsets (+32, +48, ...). Catch any future drift
@@ -173,6 +181,31 @@ template <class Params> struct alignas(32) VectorField {
     // native).
     explicit VectorField(const std::array<Field, 5>& in) noexcept { store_from_array(in); }
 
+    // Implicit broadcast ctors -- mirror `field<Params>(int)`, `field<Params>(uint64_t)`, `field<Params>(Field)`
+    // so generic relation code like `q_arith_m - FF(1)` or multiplying an accumulator by a loop-invariant scalar
+    // constant (e.g. Poseidon round constants, typed as raw `fr`) compiles unchanged when FF=VectorField. The
+    // scalar value is broadcast to every lane.
+    VectorField(const Field& s) noexcept { *this = broadcast(s); }
+    VectorField(int s) noexcept { *this = broadcast(Field(s)); }
+    VectorField(uint64_t s) noexcept { *this = broadcast(Field(s)); }
+
+    static VectorField zero() noexcept { return broadcast(Field::zero()); }
+    static VectorField one() noexcept { return broadcast(Field::one()); }
+
+    VectorField sqr() const noexcept { return (*this) * (*this); }
+    void self_sqr() noexcept { *this = (*this) * (*this); }
+    VectorField operator-() const noexcept { return zero() - *this; }
+    // Per-lane scalar invert. Slow path -- for static-init constants and rare relation use. For batched
+    // inversions of independent values use the K=5 batch-inversion pattern in ecc/groups/element_impl.hpp.
+    VectorField invert() const noexcept
+    {
+        auto a = to_array();
+        for (auto& v : a) {
+            v = v.invert();
+        }
+        return VectorField(a);
+    }
+
     // Construct from 5 fields linear in memory (lane L = base[L] for L in
     // 0..4). This is the canonical construction path used by the
     // vectorised loop abstraction in place of `gather` — no random-access
@@ -191,6 +224,16 @@ template <class Params> struct alignas(32) VectorField {
         std::array<Field, 5> out;
         load_to_array(out);
         return out;
+    }
+
+    Field horizontal_sum() const noexcept
+    {
+        const std::array<Field, SIZE> lanes = to_array();
+        Field sum = lanes[0];
+        for (size_t lane = 1; lane < SIZE; ++lane) {
+            sum += lanes[lane];
+        }
+        return sum;
     }
 
     // Test/debug helpers — both pack/unpack the full 5-lane payload. Do not
@@ -216,6 +259,22 @@ template <class Params> struct alignas(32) VectorField {
     // requires clause would change the symbol mangling and break the explicit-specialization match, so
     // the declaration is left unconstrained and callers route unsupported Params through the scalar path.
     VectorField operator*(const VectorField& other) const noexcept;
+
+    VectorField& operator+=(const VectorField& other) noexcept
+    {
+        *this = (*this) + other;
+        return *this;
+    }
+    VectorField& operator-=(const VectorField& other) noexcept
+    {
+        *this = (*this) - other;
+        return *this;
+    }
+    VectorField& operator*=(const VectorField& other) noexcept
+    {
+        *this = (*this) * other;
+        return *this;
+    }
 
     // SLOW PATH — for random-access patterns only. For contiguous loads/stores
     // use `load_contiguous` / `store_contiguous`, which avoid the per-lane
@@ -312,8 +371,15 @@ template <class Params> struct alignas(32) VectorField {
     }
 
     // Returns a 5-bit mask: bit 0 = scalar, bits 1..4 = quad lanes 0..3.
-    uint32_t eq(const VectorField& other) const noexcept;
-    uint32_t is_zero() const noexcept;
+    uint32_t eq_mask(const VectorField& other) const noexcept;
+    uint32_t is_zero_mask() const noexcept;
+
+    // Bool form: true iff EVERY lane satisfies the predicate. Prover relation gates coerce these to bool
+    // (e.g. `if (selector.is_zero()) skip`); a partially-non-zero lane pattern must read as not-zero, or
+    // the gate skips a subrelation that should fire on at least one of the rows packed into the lanes.
+    // The `_mask` form stays available for tests/microbenches that need per-lane visibility.
+    bool eq(const VectorField& other) const noexcept { return eq_mask(other) == 0b11111u; }
+    bool is_zero() const noexcept { return is_zero_mask() == 0b11111u; }
 
   private:
     void store_from_array(const std::array<Field, 5>& in) noexcept;
@@ -1035,7 +1101,7 @@ template <class Params>
 // a 4-lane all-ones/zero compare into a 4-bit integer mask in one instruction.
 
 template <class Params>
-[[gnu::always_inline]] inline uint32_t VectorField<Params>::eq(const VectorField& other) const noexcept
+[[gnu::always_inline]] inline uint32_t VectorField<Params>::eq_mask(const VectorField& other) const noexcept
 {
     const VectorField d = (*this) - other;
 
@@ -1119,7 +1185,7 @@ template <class Params>
     return scalar_eq | (lanes_eq << 1);
 }
 
-template <class Params> [[gnu::always_inline]] inline uint32_t VectorField<Params>::is_zero() const noexcept
+template <class Params> [[gnu::always_inline]] inline uint32_t VectorField<Params>::is_zero_mask() const noexcept
 {
     // Same pattern as eq, but on (*this) directly (no subtract).
     uint64_t sacc_z = scalar_data[0];
@@ -1316,7 +1382,7 @@ inline VectorField<Params> VectorField<Params>::operator*(const VectorField& oth
     return r;
 }
 
-template <class Params> inline uint32_t VectorField<Params>::eq(const VectorField& other) const noexcept
+template <class Params> inline uint32_t VectorField<Params>::eq_mask(const VectorField& other) const noexcept
 {
     uint32_t m = 0;
     for (size_t i = 0; i < 5; ++i) {
@@ -1327,7 +1393,7 @@ template <class Params> inline uint32_t VectorField<Params>::eq(const VectorFiel
     return m;
 }
 
-template <class Params> inline uint32_t VectorField<Params>::is_zero() const noexcept
+template <class Params> inline uint32_t VectorField<Params>::is_zero_mask() const noexcept
 {
     uint32_t m = 0;
     for (size_t i = 0; i < 5; ++i) {

@@ -123,6 +123,8 @@ template <class Fr, size_t domain_end> class Univariate {
     bool is_zero() const
     {
         for (size_t i = 0; i < LENGTH; ++i) {
+            // Fr::is_zero() returns bool for both scalar Fr and VectorField (the new VectorField::is_zero
+            // returns true only when ALL lanes are zero — see VectorField for rationale and is_zero_mask).
             if (!evaluations[i].is_zero()) {
                 return false;
             }

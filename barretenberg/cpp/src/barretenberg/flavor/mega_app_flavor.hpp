@@ -44,6 +44,8 @@ class MegaAppFlavor : public MegaAppFlavor_Generated {
 
     static constexpr size_t VIRTUAL_LOG_N = CONST_FOLDING_LOG_N;
     static constexpr bool USE_SHORT_MONOMIALS = true;
+    // opt in to the row-parallel (SIMD) sumcheck path; see SupportsSimdSumcheck in flavor_concepts.hpp
+    static constexpr bool USE_SIMD_SUMCHECK = true;
     static constexpr bool HasZK = false;
     static constexpr bool USE_PADDING = true;
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;

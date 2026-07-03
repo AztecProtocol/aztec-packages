@@ -99,6 +99,18 @@ template <typename FF> struct GateSeparatorPolynomial {
         BB_ASSERT_DEBUG(idx % 2 == 0, "GateSeparatorPolynomial: edge index must be even");
         return beta_products.at((idx >> 1) * periodicity);
     }
+
+    /**
+     * @brief Read `Element::SIZE` consecutive edge-pair `pow_beta` factors starting at `edge_idx`,
+     * packed as a single `Element` value. Lane j reads `(*this)[edge_idx + 2j]`.
+     * @details Uniform stride-2 gather for the scalar (`Element = FF`) and SIMD
+     * (`Element = VectorField<...>`) sumcheck paths: `FF::from_lanes` is a width-1 identity so
+     * this reduces to `(*this)[edge_idx]` for scalar; for `VectorField` it fills all lanes.
+     */
+    template <typename Element> Element gather(size_t edge_idx) const
+    {
+        return Element::from_lanes([&](size_t j) { return (*this)[edge_idx + (2 * j)]; });
+    }
     /**
      * @brief Computes the component  at index #current_element_idx in #betas.
      *

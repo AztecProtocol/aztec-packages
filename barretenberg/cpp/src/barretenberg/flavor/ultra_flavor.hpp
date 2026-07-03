@@ -43,6 +43,8 @@ class UltraFlavor : public UltraFlavor_Generated {
     static constexpr size_t VIRTUAL_LOG_N = CONST_PROOF_SIZE_LOG_N;
     // indicates when evaluating sumcheck, edges can be left as degree-1 monomials
     static constexpr bool USE_SHORT_MONOMIALS = true;
+    // opt in to the row-parallel (SIMD) sumcheck path; see SupportsSimdSumcheck in flavor_concepts.hpp
+    static constexpr bool USE_SIMD_SUMCHECK = true;
 
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = false;

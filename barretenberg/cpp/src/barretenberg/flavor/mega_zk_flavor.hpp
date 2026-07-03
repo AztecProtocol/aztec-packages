@@ -57,6 +57,8 @@ class MegaZKFlavor : public MegaZKFlavor_Generated {
     // MegaZK is only used in production to prove the Hiding Kernel.
     static constexpr size_t VIRTUAL_LOG_N = HIDING_KERNEL_LOG_N;
     static constexpr bool USE_SHORT_MONOMIALS = true;
+    // opt in to the row-parallel (SIMD) sumcheck path; see SupportsSimdSumcheck in flavor_concepts.hpp
+    static constexpr bool USE_SIMD_SUMCHECK = true;
     // Runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
     static constexpr bool USE_PADDING = true;
