@@ -76,11 +76,14 @@ export type BlockProductionWithProverFixture = {
   failEvents: TrackedSequencerEvent[];
 };
 
+/** Per-validator node config, or a function deriving it from the validator's 0-based index. */
+type ValidatorNodeOpts = Partial<AztecNodeConfig> & { dontStartSequencer?: boolean };
+
 /** Shared spine: builds N mock-gossip validators, sets up the context, spawns one node per validator. */
 async function buildValidatorCluster(opts: {
   nodeCount: number;
   setupOpts: Partial<MultiNodeTestOpts>;
-  nodeOpts?: Partial<AztecNodeConfig> & { dontStartSequencer?: boolean };
+  nodeOpts?: ValidatorNodeOpts | ((index: number) => ValidatorNodeOpts);
 }): Promise<SimpleBlockProductionFixture> {
   const validators = buildMockGossipValidators(opts.nodeCount);
 
@@ -93,8 +96,11 @@ async function buildValidatorCluster(opts: {
   const from = context.accounts[0];
 
   logger.warn(`Initial setup complete. Starting ${opts.nodeCount} validator nodes.`);
-  const nodes = await asyncMap(validators, ({ privateKey }) =>
-    test.createValidatorNode([privateKey], { ...opts.nodeOpts }),
+  const nodes = await asyncMap(validators, ({ privateKey }, i) =>
+    test.createValidatorNode(
+      [privateKey],
+      typeof opts.nodeOpts === 'function' ? opts.nodeOpts(i) : { ...opts.nodeOpts },
+    ),
   );
   logger.warn(`Started ${opts.nodeCount} validator nodes.`, { validators: validators.map(v => v.attester.toString()) });
 
@@ -124,16 +130,33 @@ export function setupSimpleBlockProduction(opts: {
 /**
  * Creates validators and sets up a wide-slot test context with the pipelining timing profile and a prover
  * node, then starts (paused) validator nodes and points the wallet at node 0. Mirrors the per-test
- * setup from the dissolved `mbps.parallel` file.
+ * setup from the dissolved `mbps.parallel` file. The blob-promotion and pipeline-prune suites layer their
+ * adverse-network shape on via `mockGossipSubNetworkLatency`, `maxTxsPerCheckpoint`, `clearInheritedCoinbase`,
+ * and `disableCheckpointPromotionOnFirstNode`.
  */
 export async function setupBlockProductionWithProver(opts: {
   syncChainTip: 'proposed' | 'checkpointed';
   minTxsPerBlock?: number;
   maxTxsPerBlock?: number;
+  maxTxsPerCheckpoint?: number;
   buildCheckpointIfEmpty?: boolean;
   skipPushProposedBlocksToArchiver?: boolean;
+  /** Injects artificial mock-gossip propagation latency (ms) to model adverse network conditions. */
+  mockGossipSubNetworkLatency?: number;
+  /** Clears each validator node's inherited coinbase so it derives one from its own attester key. */
+  clearInheritedCoinbase?: boolean;
+  /**
+   * Disables checkpoint promotion on node 0 (`skipPromoteProposedCheckpointDuringL1Sync`), so node 0 fetches
+   * blobs during L1 sync while its peers promote their own proposed checkpoints and skip the blob fetch.
+   */
+  disableCheckpointPromotionOnFirstNode?: boolean;
 }): Promise<BlockProductionWithProverFixture> {
-  const { syncChainTip = 'checkpointed', ...setupOpts } = opts;
+  const {
+    syncChainTip = 'checkpointed',
+    clearInheritedCoinbase = false,
+    disableCheckpointPromotionOnFirstNode = false,
+    ...setupOpts
+  } = opts;
 
   // WIDE_SLOT_TIMING is the wide 72s/12s pipelining cadence (see A-914 on why the tighter 36s/4s breaks
   // non-proposer nodes); the JSDoc on the profile carries the full rationale.
@@ -149,7 +172,13 @@ export async function setupBlockProductionWithProver(opts: {
       skipInitialSequencer: true,
       inboxLag: 2,
     },
-    nodeOpts: { dontStartSequencer: true },
+    nodeOpts: (index: number) => ({
+      dontStartSequencer: true,
+      ...(clearInheritedCoinbase ? { coinbase: undefined } : {}),
+      ...(disableCheckpointPromotionOnFirstNode && index === 0
+        ? { skipPromoteProposedCheckpointDuringL1Sync: true }
+        : {}),
+    }),
   });
 
   const { rollup } = test;

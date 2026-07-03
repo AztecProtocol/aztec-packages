@@ -40,6 +40,53 @@ const VALIDATOR_COUNT = 6;
 
 const BASE_ANVIL_PORT = getAnvilPort();
 
+/** Sequencer-config overrides that force (`attackConfig`) then clear (`disableConfig`) one invalid-attestations attack. */
+interface InvalidationCase {
+  attackConfig: Record<string, unknown>;
+  disableConfig: Record<string, unknown>;
+}
+
+// Attack configs shared by the runInvalidationTest / runDoubleInvalidationTest its below: each turns on one
+// (or more) malicious sequencer flag to force an invalid checkpoint, then flips the same flags off to recover.
+const INVALIDATION_CASES = {
+  insufficientAttestations: {
+    attackConfig: { skipCollectingAttestations: true },
+    disableConfig: { skipCollectingAttestations: false },
+  },
+  fakeAttestation: {
+    attackConfig: { injectFakeAttestation: true },
+    disableConfig: { injectFakeAttestation: false },
+  },
+  highSValue: {
+    attackConfig: { injectHighSValueAttestation: true },
+    disableConfig: { injectHighSValueAttestation: false },
+  },
+  unrecoverableSignature: {
+    attackConfig: { injectUnrecoverableSignatureAttestation: true },
+    disableConfig: { injectUnrecoverableSignatureAttestation: false },
+  },
+  shuffledAttestations: {
+    attackConfig: { shuffleAttestationOrdering: true },
+    disableConfig: { shuffleAttestationOrdering: false },
+  },
+  withheldBlob: {
+    // skipCollectingAttestations makes the checkpoint invalid; skipBroadcastProposals withholds the p2p
+    // proposal so peers only see it on L1; skipPushProposedBlocksToArchiver denies even the proposer's own
+    // archiver a local copy — otherwise it could promote that copy, skip the blob fetch, detect the bad
+    // attestations and invalidate without ever exercising the calldata-first path, masking a regression.
+    attackConfig: {
+      skipCollectingAttestations: true,
+      skipBroadcastProposals: true,
+      skipPushProposedBlocksToArchiver: true,
+    },
+    disableConfig: {
+      skipCollectingAttestations: false,
+      skipBroadcastProposals: false,
+      skipPushProposedBlocksToArchiver: false,
+    },
+  },
+} satisfies Record<string, InvalidationCase>;
+
 // Six-validator suite (one key per node) exercising checkpoint invalidation paths. All nodes use
 // a mocked gossip bus. The setup injects bad configs (insufficient attestations, fake/high-s/
 // unrecoverable signatures, shuffled attestations, parent-validity bypasses) to force invalid
@@ -778,56 +825,36 @@ describe('multi-node/invalid-attestations/invalidate_block', () => {
   // Slot S:   Checkpoint N is proposed with invalid attestations
   // Slot S+1: Checkpoint N is invalidated, and checkpoint N' (same number) is proposed instead, but also has invalid attestations
   // Slot S+2: Proposer tries to invalidate checkpoint N, when they should invalidate checkpoint N' instead, and fails
-  it('chain progresses if a checkpoint with insufficient attestations is invalidated with an invalid one', async () => {
-    await runDoubleInvalidationTest({
-      attackConfig: { skipCollectingAttestations: true },
-      disableConfig: { skipCollectingAttestations: false },
-    });
-  });
+  it('chain progresses if a checkpoint with insufficient attestations is invalidated with an invalid one', () =>
+    runDoubleInvalidationTest(INVALIDATION_CASES.insufficientAttestations));
 
   // Same double-invalidation scenario as above but using injectFakeAttestation instead of
   // skipCollectingAttestations. Regression for a London Q4-2025 attack vector.
   // Regression for Joe's Q42025 London attack. Same as above but with an invalid signature instead of insufficient ones.
-  it('chain progresses if a checkpoint with an invalid attestation is invalidated with an invalid one', async () => {
-    await runDoubleInvalidationTest({
-      attackConfig: { injectFakeAttestation: true },
-      disableConfig: { injectFakeAttestation: false },
-    });
-  });
+  it('chain progresses if a checkpoint with an invalid attestation is invalidated with an invalid one', () =>
+    runDoubleInvalidationTest(INVALIDATION_CASES.fakeAttestation));
 
   // Injects a high-s ECDSA signature (rejected by L1 OpenZeppelin ECDSA but valid offchain),
   // waits for the resulting bad checkpoint, then verifies a good proposer invalidates it.
   // Regression for A-71: Ensure the node correctly invalidates checkpoints where an attestation has a malleable
   // signature (high-s value). The Rollup contract uses OpenZeppelin's ECDSA recover which rejects high-s values
   // per EIP-2, so these signatures recover to address(0) on L1 but may succeed offchain.
-  it('proposer invalidates checkpoint with high-s value attestation', async () => {
-    await runInvalidationTest({
-      attackConfig: { injectHighSValueAttestation: true },
-      disableConfig: { injectHighSValueAttestation: false },
-    });
-  });
+  it('proposer invalidates checkpoint with high-s value attestation', () =>
+    runInvalidationTest(INVALIDATION_CASES.highSValue));
 
   // Injects an unrecoverable signature (e.g. r=0; ecrecover returns address(0) on L1).
   // Waits for the bad checkpoint then verifies a good proposer invalidates it. Regression for A-71.
   // Regression for A-71: Ensure the node correctly invalidates checkpoints where an attestation's signature
   // cannot be recovered (e.g. r=0). On L1, ecrecover returns address(0) for such signatures.
-  it('proposer invalidates checkpoint with unrecoverable signature attestation', async () => {
-    await runInvalidationTest({
-      attackConfig: { injectUnrecoverableSignatureAttestation: true },
-      disableConfig: { injectUnrecoverableSignatureAttestation: false },
-    });
-  });
+  it('proposer invalidates checkpoint with unrecoverable signature attestation', () =>
+    runInvalidationTest(INVALIDATION_CASES.unrecoverableSignature));
 
   // Injects shuffled attestation ordering (accepted offchain but rejected by L1 which requires the
   // committee order). Waits for the bad checkpoint then verifies a good proposer invalidates it.
   // Regression for the node accepting attestations that did not conform to the committee order,
   // but L1 requires the same ordering. See #18219.
-  it('proposer invalidates previous block with shuffled attestations', async () => {
-    await runInvalidationTest({
-      attackConfig: { shuffleAttestationOrdering: true },
-      disableConfig: { shuffleAttestationOrdering: false },
-    });
-  });
+  it('proposer invalidates previous block with shuffled attestations', () =>
+    runInvalidationTest(INVALIDATION_CASES.shuffledAttestations));
 
   // A checkpoint with invalid attestations must be rejected from L1 calldata, before its blob is fetched.
   // The attack forces the bad checkpoint to be reachable only from L1 calldata — no blob, no local blocks
@@ -842,22 +869,7 @@ describe('multi-node/invalid-attestations/invalidate_block', () => {
       jest.spyOn(node.getBlobClient()!, 'sendBlobsToFilestore').mockResolvedValue(false),
     );
 
-    await runInvalidationTest({
-      // skipCollectingAttestations makes the checkpoint invalid; skipBroadcastProposals withholds the p2p
-      // proposal so peers only see it on L1; skipPushProposedBlocksToArchiver denies even the proposer's own
-      // archiver a local copy — otherwise it could promote that copy, skip the blob fetch, detect the bad
-      // attestations and invalidate without ever exercising the calldata-first path, masking a regression.
-      attackConfig: {
-        skipCollectingAttestations: true,
-        skipBroadcastProposals: true,
-        skipPushProposedBlocksToArchiver: true,
-      },
-      disableConfig: {
-        skipCollectingAttestations: false,
-        skipBroadcastProposals: false,
-        skipPushProposedBlocksToArchiver: false,
-      },
-    });
+    await runInvalidationTest(INVALIDATION_CASES.withheldBlob);
 
     // The bad checkpoint's blob upload was intercepted, so it never reached the shared store: the
     // invalidation above proves a proposer rejected it from L1 calldata without ever fetching its blob.
