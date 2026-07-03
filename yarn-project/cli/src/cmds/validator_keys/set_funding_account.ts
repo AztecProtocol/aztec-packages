@@ -28,10 +28,17 @@ export async function setFundingAccount(
 ) {
   const { remoteSigner, password, encryptedKeystoreDir, json } = options;
 
+<<<<<<< HEAD
   const keystore: KeyStore = loadKeystoreFile(existing);
 
   const validated = { fundingAccount, remoteSigner };
   validateFundingAccountOptions(validated, !!keystore.remoteSigner);
+=======
+  const validated = { fundingAccount, remoteSigner };
+  validateFundingAccountOptions(validated);
+
+  const keystore: KeyStore = loadKeystoreFile(existing);
+>>>>>>> dd60c3ced7 (refactor(cli): move funding account setting to set-funding-account subcommand)
 
   let resolved = resolveFundingAccount(validated.fundingAccount!, remoteSigner);
   if (password !== undefined) {
