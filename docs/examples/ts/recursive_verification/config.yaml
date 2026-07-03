@@ -11,7 +11,7 @@ contracts:
 # Dependencies:
 #   - @aztec/* packages are auto-linked from yarn-project/
 #   - Use link:path for packages outside yarn-project/
-#   - Use npm:package-name for external npm packages
+#   - Use npm:package-name or npm:package-name@range for external npm packages
 dependencies:
   - "@aztec/aztec.js"
   - "@aztec/accounts"
@@ -27,7 +27,7 @@ dependencies:
   - "link:@aztec/noir-noirc_abi:noir/packages/noirc_abi"
   - "link:@aztec/noir-types:noir/packages/types"
   # Runtime deps of @aztec/bb.js (linked, so its own deps are not auto-installed)
-  - "npm:pako"
+  - "npm:pako@^2.1.0"
   - "npm:msgpackr"
   - "npm:comlink"
   - "npm:idb-keyval"
