@@ -29,3 +29,8 @@ dependencies:
   - "link:@aztec/noir-acvm_js:noir/packages/acvm_js"
   - "link:@aztec/noir-noirc_abi:noir/packages/noirc_abi"
   - "link:@aztec/noir-types:noir/packages/types"
+  # Runtime dep of @aztec/noir-noir_js (used by its debug.mjs). noir_js is link:'d (not portal:'d)
+  # because its @aztec/noir-* deps are pinned to unpublished versions, so portal can't fetch them —
+  # link: does not install a package's own deps, so pako must be supplied here. Pinned to noir_js's
+  # own range (^2.1.0) so it can't float to the breaking pako 3.0.0.
+  - "npm:pako@^2.1.0"
