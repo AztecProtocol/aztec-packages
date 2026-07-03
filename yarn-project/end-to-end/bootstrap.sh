@@ -73,8 +73,18 @@ function test_cmds {
       multi-node/governance/add_rollup)
         test_prefix="$prefix:TIMEOUT=20m"
         ;;
-      single-node/cross-chain/l1_to_l2.parallel)
-        test_prefix="$prefix:TIMEOUT=20m"
+      single-node/cross-chain/l1_to_l2)
+        # Both scenarios (duplicate-message + inbox drift) run over private and public scope serially
+        # in one container now that the file is no longer .parallel.
+        test_prefix="$prefix:TIMEOUT=25m"
+        ;;
+      single-node/cross-chain/l2_to_l1)
+        # Six message-shape / reorg its run serially in one container (was .parallel, one per it).
+        test_prefix="$prefix:TIMEOUT=25m"
+        ;;
+      single-node/cross-chain/token_bridge)
+        # Private + public round trips and the failure cases share one node and run serially.
+        test_prefix="$prefix:TIMEOUT=25m"
         ;;
       single-node/block-building/block_building)
         # Block-building covers the full multi-tx / reorg surface and dumps AVM circuit inputs

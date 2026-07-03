@@ -195,114 +195,67 @@ describe('single-node/cross-chain/l2_to_l1', () => {
     await expectConsumeMessageToSucceed(message, withMessageReceipt.txHash);
   });
 
-  // Two txs with 3 and 4 messages respectively. Verifies the mixed-height subtree structure is
-  // built correctly and representative messages from each tx are consumable after epoch proving.
-  it('2 txs (balanced), one with 3 messages (unbalanced), one with 4 messages (balanced)', async () => {
-    // Force txs to be in the same block.
-    await aztecNodeAdmin!.setConfig({ minTxsPerBlock: 2 });
+  // Multiple txs of differing message counts packed into a single block, exercising the balanced and
+  // unbalanced L2→L1 message subtree shapes. Verifies all txs land in the same block, the block
+  // contents match the recomputed leaves (for the two-tx case), and representative messages from each
+  // tx — chosen to span the different subtree heights — are consumable after epoch proving. The
+  // `consume` tuples are `[txIndex, messageIndex]` pairs.
+  it.each([
+    {
+      name: '2 txs (balanced), one with 3 messages (unbalanced), one with 4 messages (balanced)',
+      messageCounts: [3, 4],
+      consume: [
+        [0, 0],
+        [0, 2],
+        [1, 0],
+      ],
+      checkBlockContents: true,
+    },
+    {
+      name: '3 txs (unbalanced), one with 3 messages (unbalanced), one with 1 message (the subtree root), one with 2 messages (balanced)',
+      messageCounts: [3, 1, 2],
+      consume: [
+        [0, 0],
+        [0, 2],
+        [1, 0],
+        [2, 1],
+      ],
+      checkBlockContents: false,
+    },
+  ])('$name', async ({ messageCounts, consume, checkBlockContents }) => {
+    // Force all txs into the same block.
+    await aztecNodeAdmin.setConfig({ minTxsPerBlock: messageCounts.length });
     await waitForSequencerState(t.context.sequencer!.getSequencer(), SequencerState.IDLE);
 
-    const tx0 = generateMessages(3);
-    const tx1 = generateMessages(4);
+    const txs = messageCounts.map(count => generateMessages(count));
+    const calls = txs.map(tx => createBatchCall(wallet, tx.recipients, tx.contents));
 
-    const call0 = createBatchCall(wallet, tx0.recipients, tx0.contents);
-    const call1 = createBatchCall(wallet, tx1.recipients, tx1.contents);
+    const receipts = await Promise.all(calls.map(async call => (await call.send({ from: user1Address })).receipt));
 
-    const [{ receipt: l2TxReceipt0 }, { receipt: l2TxReceipt1 }] = await Promise.all([
-      call0.send({ from: user1Address }),
-      call1.send({ from: user1Address }),
-    ]);
+    // Check that all txs are in the same block.
+    const blockNumber = receipts[0].blockNumber!;
+    for (const receipt of receipts.slice(1)) {
+      expect(receipt.blockNumber).toEqual(blockNumber);
+    }
 
-    // Check that the 2 txs are in the same block.
-    const blockNumber = l2TxReceipt0.blockNumber!;
-    expect(l2TxReceipt1.blockNumber).toEqual(blockNumber);
-
-    // Check that the block contains all the messages.
-    {
+    if (checkBlockContents) {
+      // Check that the block contains all the messages.
       const block = (await aztecNode.getBlock(blockNumber, { includeTransactions: true }))!;
       const messagesForAllTxs = block.body.txEffects.map(txEffect => txEffect.l2ToL1Msgs);
-      // We cannot guarantee the order of txs in a block, so we rearrange the leaves if call1 was rolled up first.
-      const [firstTx, secondTx] = messagesForAllTxs[0].length === 3 ? [tx0, tx1] : [tx1, tx0];
+      // We cannot guarantee the order of txs in a block, so we rearrange the leaves if the second tx was rolled up first.
+      const [firstTx, secondTx] =
+        messagesForAllTxs[0].length === txs[0].messages.length ? [txs[0], txs[1]] : [txs[1], txs[0]];
       const expectedLeaves = firstTx.messages.concat(secondTx.messages).map(msg => computeMessageLeaf(msg));
       expect(messagesForAllTxs.flat()).toEqual(expectedLeaves);
     }
 
     // Advance the epoch until the tx is proven since the messages are inserted to the outbox when the epoch is proven.
-    await t.advanceToEpochProven(l2TxReceipt1);
+    await t.advanceToEpochProven(receipts[receipts.length - 1]);
 
-    // Consume messages in tx0.
-    {
-      // Consume messages[0], which is in the subtree of height 2.
-      const msg = tx0.messages[0];
-      await expectConsumeMessageToSucceed(msg, l2TxReceipt0.txHash);
-    }
-    {
-      // Consume messages[2], which is in the subtree of height 1.
-      const msg = tx0.messages[2];
-      await expectConsumeMessageToSucceed(msg, l2TxReceipt0.txHash);
-    }
-
-    // Consume messages in tx1.
-    {
-      // Consume messages[2], which is in the subtree of height 2.
-      const msg = tx1.messages[0];
-      await expectConsumeMessageToSucceed(msg, l2TxReceipt1.txHash);
-    }
-  });
-
-  // Three txs with 3, 1, and 2 messages. The 1-message tx's subtree root is the leaf itself; the
-  // 3-message tx is unbalanced. Verifies representative messages from each tx are consumable.
-  it('3 txs (unbalanced), one with 3 messages (unbalanced), one with 1 message (the subtree root), one with 2 messages (balanced)', async () => {
-    // Force txs to be in the same block.
-    await aztecNodeAdmin!.setConfig({ minTxsPerBlock: 3 });
-    await waitForSequencerState(t.context.sequencer!.getSequencer(), SequencerState.IDLE);
-
-    const tx0 = generateMessages(3);
-    const tx1 = generateMessages(1);
-    const tx2 = generateMessages(2);
-
-    const call0 = createBatchCall(wallet, tx0.recipients, tx0.contents);
-    const call1 = createBatchCall(wallet, tx1.recipients, tx1.contents);
-    const call2 = createBatchCall(wallet, tx2.recipients, tx2.contents);
-
-    const [{ receipt: l2TxReceipt0 }, { receipt: l2TxReceipt1 }, { receipt: l2TxReceipt2 }] = await Promise.all([
-      call0.send({ from: user1Address }),
-      call1.send({ from: user1Address }),
-      call2.send({ from: user1Address }),
-    ]);
-
-    // Check that all txs are in the same block.
-    const blockNumber = l2TxReceipt0.blockNumber!;
-    expect(l2TxReceipt1.blockNumber).toEqual(blockNumber);
-    expect(l2TxReceipt2.blockNumber).toEqual(blockNumber);
-
-    // Advance the epoch until the tx is proven since the messages are inserted to the outbox when the epoch is proven.
-    await t.advanceToEpochProven(l2TxReceipt2);
-
-    // Consume messages in tx0.
-    {
-      // Consume messages[0], which is in the subtree of height 2.
-      const msg = tx0.messages[0];
-      await expectConsumeMessageToSucceed(msg, l2TxReceipt0.txHash);
-    }
-    {
-      // Consume messages[2], which is in the subtree of height 1.
-      const msg = tx0.messages[2];
-      await expectConsumeMessageToSucceed(msg, l2TxReceipt0.txHash);
-    }
-
-    // Consume messages in tx1.
-    {
-      // Consume messages[0], which is the tx subtree root.
-      const msg = tx1.messages[0];
-      await expectConsumeMessageToSucceed(msg, l2TxReceipt1.txHash);
-    }
-
-    // Consume messages in tx2.
-    {
-      // Consume messages[1], which is in the subtree of height 1.
-      const msg = tx2.messages[1];
-      await expectConsumeMessageToSucceed(msg, l2TxReceipt2.txHash);
+    // Consume a representative message from each tx (spanning the different subtree heights) and
+    // assert each consume succeeds and cannot be replayed.
+    for (const [txIndex, messageIndex] of consume) {
+      await expectConsumeMessageToSucceed(txs[txIndex].messages[messageIndex], receipts[txIndex].txHash);
     }
   });
 

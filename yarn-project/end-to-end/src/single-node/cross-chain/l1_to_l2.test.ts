@@ -25,9 +25,25 @@ jest.setTimeout(300_000);
 // reorg. Uses CrossChainMessagingTest (prod sequencer, pipelining preset: ethSlot=4s, aztecSlot=12s,
 // inboxLag=2, minTxsPerBlock=1, aztecProofSubmissionEpochs=2, aztecEpochDuration=4) with
 // EpochTestSettler for auto-proving and CrossChainTestHarness for L1↔L2 token portal bridging.
-// Each it is run as an independent CI job (*.parallel.test.ts convention).
+// The two scenarios (duplicate-message consumption and inbox drift) each run over private and public
+// scope via it.each, all sharing one node stood up once in beforeAll.
 describe('single-node/cross-chain/l1_to_l2', () => {
-  let t: CrossChainMessagingTest;
+  const t = new CrossChainMessagingTest(
+    'l1_to_l2',
+    // PIPELINING_SETUP_OPTS sets minTxsPerBlock=0; this test needs minTxsPerBlock=1 because it
+    // manually mines blocks one tx at a time via advanceBlock() and counts checkpoints, so empty
+    // pipelined checkpoints interleaving between txs would break the exact block-number assertions.
+    { ...PIPELINING_SETUP_OPTS, minTxsPerBlock: 1 },
+    { aztecProofSubmissionEpochs: 2, aztecEpochDuration: 4 },
+    // Anchor PXE to the checkpointed chain so that a proposed-chain invalidation cascade
+    // (e.g. a missed checkpoint publish that prunes the pipelined proposed chain) doesn't
+    // drop the wallet's in-flight tx via handlePrunedBlocks.
+    { syncChainTip: 'checkpointed' },
+    // This suite only passes arbitrary L1→L2 messages to its own TestContract; it never bridges
+    // tokens, so skip the token+portal+bridge deploy and use the test's L1 handles directly.
+    { l1HarnessAccountIndex: L1_DIRECT_WRITE_ACCOUNT_INDEX, deployTokenBridge: false },
+  );
+
   let log: Logger;
   let aztecNode: AztecNode;
   let wallet: Wallet;
@@ -48,30 +64,19 @@ describe('single-node/cross-chain/l1_to_l2', () => {
     await t.cheatCodes.rollup.markAsProven();
   };
 
-  beforeEach(async () => {
-    markProvenEnabled = true;
-    t = new CrossChainMessagingTest(
-      'l1_to_l2',
-      // PIPELINING_SETUP_OPTS sets minTxsPerBlock=0; this test needs minTxsPerBlock=1 because it
-      // manually mines blocks one tx at a time via advanceBlock() and counts checkpoints, so empty
-      // pipelined checkpoints interleaving between txs would break the exact block-number assertions.
-      { ...PIPELINING_SETUP_OPTS, minTxsPerBlock: 1 },
-      { aztecProofSubmissionEpochs: 2, aztecEpochDuration: 4 },
-      // Anchor PXE to the checkpointed chain so that a proposed-chain invalidation cascade
-      // (e.g. a missed checkpoint publish that prunes the pipelined proposed chain) doesn't
-      // drop the wallet's in-flight tx via handlePrunedBlocks.
-      { syncChainTip: 'checkpointed' },
-      // This suite only passes arbitrary L1→L2 messages to its own TestContract; it never bridges
-      // tokens, so skip the token+portal+bridge deploy and use the test's L1 handles directly.
-      { l1HarnessAccountIndex: L1_DIRECT_WRITE_ACCOUNT_INDEX, deployTokenBridge: false },
-    );
+  beforeAll(async () => {
     await t.setup();
 
     ({ logger: log, wallet, user1Address, aztecNode } = t);
     ({ contract: testContract } = await TestContract.deploy(wallet).send({ from: user1Address }));
   }, 300_000);
 
-  afterEach(async () => {
+  // Reset the proving gate before every it so a scenario that disabled it can't leak into the next.
+  beforeEach(() => {
+    markProvenEnabled = true;
+  });
+
+  afterAll(async () => {
     await t.teardown();
   });
 
@@ -225,19 +230,6 @@ describe('single-node/cross-chain/l1_to_l2', () => {
     await sendConsumeMsgTx(actualMessage2Index);
   };
 
-  // Sends the same L1→L2 message content twice via a non-registered portal, waits for each to be
-  // ready, and consumes both from private. Verifies duplicate messages are indexed correctly and
-  // the second consumption uses the non-nullified duplicate leaf.
-  it('can send an L1 to L2 message from a non-registered portal address consumed from private repeatedly', async () => {
-    await canSendMessageFromNonRegisteredPortal('private');
-  });
-
-  // Same as above but the message is consumed from public state. Verifies the public consumption
-  // path handles duplicate messages and the oracle returns the correct non-nullified leaf index.
-  it('can send an L1 to L2 message from a non-registered portal address consumed from public repeatedly', async () => {
-    await canSendMessageFromNonRegisteredPortal('public');
-  });
-
   // Inbox checkpoint number can drift on two scenarios: if the rollup reorgs and rolls back its own
   // checkpoint number, or if the inbox receives too many messages and they are inserted faster than
   // they are consumed. In this test, we mine several checkpoints without marking them as proven until
@@ -332,16 +324,24 @@ describe('single-node/cross-chain/l1_to_l2', () => {
     }
   };
 
-  // Mines four checkpoints without proving, inserting an L1→L2 message after the drift, then
-  // triggers a rollup prune back to the pre-drift block. Verifies the message can be consumed from
-  // private only after the chain re-syncs to the message's checkpoint, not before.
-  it('can consume L1 to L2 message in private after inbox drifts away from the rollup', async () => {
-    await canConsumeMessageAfterInboxDrift('private');
-  });
+  // Sends the same L1→L2 message content twice via a non-registered portal, waits for each to be
+  // ready, and consumes both. Verifies duplicate messages are indexed correctly and the second
+  // consumption uses the non-nullified duplicate leaf, from both private and public scope.
+  it.each(['private', 'public'] as const)(
+    'can send an L1 to L2 message from a non-registered portal address consumed from %s repeatedly',
+    async scope => {
+      await canSendMessageFromNonRegisteredPortal(scope);
+    },
+  );
 
-  // Same drift scenario but consuming from public. Uses a send+dontThrowOnRevert loop to probe when
-  // the message becomes consumable, then verifies the successful tx is in the message's checkpoint.
-  it('can consume L1 to L2 message in public after inbox drifts away from the rollup', async () => {
-    await canConsumeMessageAfterInboxDrift('public');
-  });
+  // Mines four checkpoints without proving, inserting an L1→L2 message after the drift, then
+  // triggers a rollup prune back to the pre-drift block. Verifies the message can be consumed only
+  // after the chain re-syncs to the message's checkpoint, not before, from both private and public
+  // scope (public uses a send+dontThrowOnRevert loop to probe when the message becomes consumable).
+  it.each(['private', 'public'] as const)(
+    'can consume L1 to L2 message in %s after inbox drifts away from the rollup',
+    async scope => {
+      await canConsumeMessageAfterInboxDrift(scope);
+    },
+  );
 });
