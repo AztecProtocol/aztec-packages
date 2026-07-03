@@ -125,7 +125,7 @@ function verify_refreshed_inputs {
   CHONK_PINNED_IVC_FLOW="$flow" CHONK_PINNED_IVC_FLOW_LIMIT=1 \
     barretenberg/cpp/scripts/run_test.sh bbapi_tests ChonkPinnedIvcInputsTest.AllPinnedFlows
   CHONK_PINNED_IVC_FLOW="$flow" CHONK_PINNED_IVC_FLOW_LIMIT=1 CHONK_PINNED_IVC_WASM_FLOW_LIMIT=1 \
-    barretenberg/ts/scripts/run_test.sh bbapi/chonk_pinned_inputs.test.js
+    barretenberg/ts/bb.js/scripts/run_test.sh bbapi/chonk_pinned_inputs.test.js
 }
 
 remove_pr_label "$refresh_label"

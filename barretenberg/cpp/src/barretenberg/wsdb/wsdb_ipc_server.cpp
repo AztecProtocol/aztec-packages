@@ -191,7 +191,7 @@ int execute_wsdb_server(const std::string& input_path,
     // → close+exit, plus parent-death monitoring via prctl/kqueue).
     ipc::ServerOptions opts;
     // TS backend (client 0) + the AVM simulator pool (one connection per
-    // aztec-vm-sim process). Sized to cover a default-size pool with headroom so
+    // bb-avm-sim process). Sized to cover a default-size pool with headroom so
     // SHM isn't capped to a single AVM client. (UDS, the default transport, is
     // unaffected — it admits connections via the listen backlog.)
     opts.max_shm_clients = 8;
