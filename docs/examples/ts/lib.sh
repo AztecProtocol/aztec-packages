@@ -5,10 +5,18 @@
 # parse_dependencies <config_file> <repo_root>
 #
 # Reads a config.yaml via yq and classifies each dependency entry into one of
-# three global arrays:
+# these global arrays:
 #   AZTEC_DEPS          — @aztec/* packages resolved to pkg@link:<repo_root>/yarn-project/<name>
 #   EXPLICIT_LINK_DEPS  — link: packages resolved to pkg@link:<repo_root>/<path>
+#   PORTAL_DEPS         — portal: packages resolved to pkg@portal:<repo_root>/<path>
 #   NPM_DEPS            — npm: packages (bare names, e.g. viem)
+#
+# link: vs portal:: link: symlinks the package but does NOT install its own dependencies (the
+# consumer must supply them), whereas portal: also installs the package's declared dependencies at
+# the versions it pins. Use portal: for standalone packages whose runtime deps the example needs
+# (e.g. @aztec/bb.js, which needs pako/msgpackr/...) so the package's own package.json is the single
+# source of truth — rather than hand-mirroring its dependency list here (which drifts and, when left
+# unversioned, floats to breaking majors).
 #
 # Also sets PARSED_DEPS_FOUND to "true" if any dependency was found, "false" otherwise.
 parse_dependencies() {
@@ -17,6 +25,7 @@ parse_dependencies() {
 
     AZTEC_DEPS=()
     EXPLICIT_LINK_DEPS=()
+    PORTAL_DEPS=()
     NPM_DEPS=()
     PARSED_DEPS_FOUND=false
 
@@ -42,12 +51,19 @@ parse_dependencies() {
             local link_pkg_name="${link_spec%%:*}"
             local link_path="${link_spec#*:}"
             EXPLICIT_LINK_DEPS+=("${link_pkg_name}@link:${repo_root}/${link_path}")
+        elif [[ "$pkg" =~ ^portal: ]]; then
+            # Portal (installs the package's own deps): portal:@aztec/bb.js:barretenberg/ts/bb.js
+            #   -> @aztec/bb.js@portal:$repo_root/barretenberg/ts/bb.js
+            local portal_spec="${pkg#portal:}"
+            local portal_pkg_name="${portal_spec%%:*}"
+            local portal_path="${portal_spec#*:}"
+            PORTAL_DEPS+=("${portal_pkg_name}@portal:${repo_root}/${portal_path}")
         elif [[ "$pkg" =~ ^@ ]]; then
             # @aztec/* package - auto-link from yarn-project/
             local pkg_name="${pkg#@aztec/}"
             AZTEC_DEPS+=("${pkg}@link:${repo_root}/yarn-project/${pkg_name}")
         else
-            echo "Warning: Unknown dependency format '$pkg' (use '@aztec/pkg', 'link:pkg:path', or 'npm:pkg')" >&2
+            echo "Warning: Unknown dependency format '$pkg' (use '@aztec/pkg', 'link:pkg:path', 'portal:pkg:path', or 'npm:pkg')" >&2
         fi
     done < <(yq eval '.dependencies[]' "$config_file")
 }

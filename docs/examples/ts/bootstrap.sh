@@ -147,6 +147,7 @@ validate_project() {
 
         local aztec_deps=("${AZTEC_DEPS[@]}")
         local explicit_link_deps=("${EXPLICIT_LINK_DEPS[@]}")
+        local portal_deps=("${PORTAL_DEPS[@]}")
         local npm_deps=("${NPM_DEPS[@]}")
 
         if [ "$PARSED_DEPS_FOUND" = true ]; then
@@ -160,6 +161,12 @@ validate_project() {
             if [ ${#explicit_link_deps[@]} -gt 0 ]; then
                 echo_stderr "Adding explicit link deps: ${explicit_link_deps[*]}"
                 yarn add "${explicit_link_deps[@]}"
+            fi
+
+            # Install portal dependencies (like link:, but also installs the package's own deps)
+            if [ ${#portal_deps[@]} -gt 0 ]; then
+                echo_stderr "Adding portal deps: ${portal_deps[*]}"
+                yarn add "${portal_deps[@]}"
             fi
 
             # Install external npm dependencies

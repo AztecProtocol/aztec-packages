@@ -19,17 +19,13 @@ dependencies:
   - "@aztec/kv-store"
   - "@aztec/pxe"
   - "@aztec/noir-contracts.js"
-  # Packages outside yarn-project/ - use explicit link paths
-  - "link:@aztec/bb.js:barretenberg/ts/bb.js"
+  # Packages outside yarn-project/. bb.js is pulled via portal: (not link:) so its own runtime deps
+  # (pako, msgpackr, comlink, ...) are installed automatically at the versions bb.js pins — instead of
+  # hand-listing them here, which drifts from bb.js and, left unversioned, floated to a breaking major
+  # (pako 3.0.0 dropped the ESM default export bb.js relies on).
+  - "portal:@aztec/bb.js:barretenberg/ts/bb.js"
   - "link:@aztec/noir-noir_js:noir/packages/noir_js"
   # Transitive dependencies of @aztec/noir-noir_js
   - "link:@aztec/noir-acvm_js:noir/packages/acvm_js"
   - "link:@aztec/noir-noirc_abi:noir/packages/noirc_abi"
   - "link:@aztec/noir-types:noir/packages/types"
-  # Runtime deps of @aztec/bb.js (linked, so its own deps are not auto-installed)
-  - "npm:pako"
-  - "npm:msgpackr"
-  - "npm:comlink"
-  - "npm:idb-keyval"
-  - "npm:commander"
-  - "npm:tslib"
