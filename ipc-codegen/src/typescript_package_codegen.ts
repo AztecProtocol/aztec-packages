@@ -268,7 +268,7 @@ ${supportsShm ? "  napiPath?: string;\n  clientId?: number;\n" : ""}}
 let instanceCounter = 0;
 const DEFAULT_CONNECT_TIMEOUT_MS = 30_000;
 
-class SpawnedBackend implements IpcClientAsync {
+export class SpawnedBackend implements IpcClientAsync {
   private destroying = false;
   private exitError?: Error;
 
@@ -459,6 +459,24 @@ ${
   } catch {}
 }
 
+/**
+ * Create the native backend: spawns the service binary and connects over IPC (UDS/SHM). Returns a
+ * plain backend, so you construct the client symmetrically with every other backend:
+ *
+ *     const api = new AsyncApi(await createNativeBackend());   // native (IPC)
+ *     const api = new SyncApi(await createWasmBackend());      // wasm  (in-process)
+ *
+ * The returned SpawnedBackend also exposes getIpcPath()/sendProcessSignal() for process control.
+ */
+export function createNativeBackend(options: ${serviceOptions} = {}): Promise<SpawnedBackend> {
+  return SpawnedBackend.spawn(options);
+}
+
+/**
+ * Convenience wrapper that fuses {@link createNativeBackend} + AsyncApi into one object. Equivalent
+ * to \`new AsyncApi(await createNativeBackend(options))\`; prefer the backend factory when you want
+ * the symmetric "construct a backend, wrap it in the API" shape.
+ */
 export class ${serviceClass} extends AsyncApi {
   private constructor(private spawnedBackend: SpawnedBackend, createError?: IpcErrorFactory) {
     super(spawnedBackend, createError);
