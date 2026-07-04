@@ -5,7 +5,9 @@ name: Deploy Next Net
 
 on:
   schedule:
-    # Run every morning at 6:00 AM UTC, after the nightly tag has been created
+    # Run every morning at 6:00 AM UTC, after the nightly tag has been created.
+    # If you change this time, also update the Grafana nightly_deployment mute
+    # window in spartan/metrics/grafana/alerts/mutetimes.yaml so alerts stay muted.
     - cron: "0 6 * * *"
   workflow_dispatch:
     inputs:
