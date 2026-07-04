@@ -5,8 +5,10 @@ muteTimes:
       time_intervals:
         # Covers the nightly deploy workflows, which run at 06:00 UTC
         # (deploy-next-net / deploy-staging-* crons in .github/workflows).
-        # If those deploy times change, update this window to match.
+        # 2.5h window accounts for imprecise GitHub cron scheduling, the deploy
+        # itself, and the network taking ~3 epochs (~38 min each) to form a
+        # committee. If those deploy times change, update this window to match.
         - times:
             - start_time: "06:00"
-              end_time: "07:00"
+              end_time: "08:30"
           weekdays: [monday, tuesday, wednesday, thursday, friday, saturday, sunday]
