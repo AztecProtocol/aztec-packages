@@ -57,6 +57,7 @@ interface Args {
   out: string;
   prefix: string;
   server: boolean;
+  serverFfi: boolean;
   client: boolean;
   packageDir: string;
   packageName: string;
@@ -84,6 +85,7 @@ Required:
 
 Optional:
   --server                 Generate server dispatch
+  --server-ffi             Generate server dispatch + FFI/wasm marshalling helpers (rust)
   --client                 Generate client
   --package <dir>          Generate a TS package shell around a spawned IPC service (ts only)
   --package-name <name>    TS package name for --package
@@ -113,6 +115,7 @@ function parseArgs(argv: string[]): Args {
     out: "",
     prefix: "",
     server: false,
+    serverFfi: false,
     client: false,
     packageDir: "",
     packageName: "",
@@ -155,6 +158,10 @@ function parseArgs(argv: string[]): Args {
         break;
       case "--server":
         args.server = true;
+        break;
+      case "--server-ffi":
+        args.server = true;
+        args.serverFfi = true;
         break;
       case "--client":
         args.client = true;
@@ -390,7 +397,9 @@ function generate(args: Args) {
           transports: args.packageTransports
             .split(",")
             .map((t) => t.trim())
-            .filter(Boolean),
+            .filter(Boolean)
+            .filter((t) => t !== "wasm"),
+          wasm: args.packageTransports.includes("wasm"),
           ipcPathArgs: args.packageIpcPathArgs
             .split(",")
             .map((arg) => arg.trim())
@@ -429,6 +438,9 @@ function generate(args: Args) {
           packageGen.generatePrepareArchPackagesScript(),
           { executable: true },
         );
+        if (args.packageTransports.includes("wasm")) {
+          writePackage("src/wasm.ts", packageGen.generateWasm());
+        }
       }
       break;
     }
@@ -442,10 +454,10 @@ function generate(args: Args) {
         gen.generateTypes(compiled, schemaHash),
       );
       if (args.server) {
-        writeFile(
-          `${toSnakeCase(prefix)}_server.rs`,
-          gen.generateServer(compiled),
-        );
+        const server = args.serverFfi
+          ? gen.generateServer(compiled) + gen.generateServerFfi()
+          : gen.generateServer(compiled);
+        writeFile(`${toSnakeCase(prefix)}_server.rs`, server);
       }
       if (args.client) {
         writeFile(

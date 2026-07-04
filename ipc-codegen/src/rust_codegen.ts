@@ -794,4 +794,66 @@ pub fn handle_request(handler: &mut dyn Handler, request_bytes: &[u8]) -> Vec<u8
 }
 `;
   }
+
+  /**
+   * FFI / wasm entrypoint helpers, appended to the server module under `--server-ffi`.
+   * Codegen owns the (error-prone) linear-memory marshalling; the consumer exposes the raw
+   * `ipc_ffi_*` C symbols with thin, handler-constructing wrappers, e.g.:
+   *
+   *     use crate::generated::my_server as srv;
+   *     #[no_mangle] pub extern "C" fn ipc_ffi_alloc(len: usize) -> *mut u8 { srv::ffi_alloc(len) }
+   *     #[no_mangle] pub unsafe extern "C" fn ipc_ffi_free(p: *mut u8, l: usize) { srv::ffi_free(p, l) }
+   *     #[no_mangle] pub unsafe extern "C" fn ipc_ffi_entry(a: *const u8, b: usize, c: *mut *mut u8, d: *mut usize) {
+   *         srv::ffi_dispatch(&mut MyHandler, a, b, c, d)
+   *     }
+   */
+  generateServerFfi(): string {
+    return `
+// ---------------------------------------------------------------------------
+// FFI / wasm entrypoint helpers (--server-ffi). Pairs \`handle_request\` above with the
+// shared \`ipc_ffi_entry\` ABI (msgpack in -> msgpack out via a single C symbol). See the
+// consumer wrapper snippet in the generator docs.
+// ---------------------------------------------------------------------------
+
+/// Allocate \`len\` bytes in linear memory for the host to write a request into.
+pub fn ffi_alloc(len: usize) -> *mut u8 {
+    let mut buf = Vec::<u8>::with_capacity(len);
+    let ptr = buf.as_mut_ptr();
+    core::mem::forget(buf);
+    ptr
+}
+
+/// Free a buffer of \`len\` bytes previously produced by \`ffi_alloc\` or \`ffi_dispatch\`.
+///
+/// # Safety
+/// \`ptr\`/\`len\` must originate from this module's alloc/dispatch.
+pub unsafe fn ffi_free(ptr: *mut u8, len: usize) {
+    if !ptr.is_null() {
+        drop(Vec::from_raw_parts(ptr, 0, len));
+    }
+}
+
+/// Decode a msgpack request, dispatch it via \`handler\`, and write the response frame's
+/// \`(ptr, len)\` into the out-params. The host owns the returned buffer and frees it via \`ffi_free\`.
+///
+/// # Safety
+/// \`input_ptr\`/\`input_len\` must describe a valid buffer; the out-pointers must be writable.
+pub unsafe fn ffi_dispatch(
+    handler: &mut dyn Handler,
+    input_ptr: *const u8,
+    input_len: usize,
+    output_ptr_out: *mut *mut u8,
+    output_len_out: *mut usize,
+) {
+    let request = core::slice::from_raw_parts(input_ptr, input_len);
+    let mut response = handle_request(handler, request);
+    response.shrink_to_fit();
+    let len = response.len();
+    let ptr = response.as_mut_ptr();
+    core::mem::forget(response);
+    *output_ptr_out = ptr;
+    *output_len_out = len;
+}
+`;
+  }
 }

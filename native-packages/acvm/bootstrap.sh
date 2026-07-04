@@ -18,7 +18,7 @@ function generate_code {
   node --experimental-strip-types --experimental-transform-types --no-warnings \
     "$ROOT/ipc-codegen/src/generate.ts" \
     --schema "$ACVM_SCHEMA" \
-    --lang rust --server --client --uds \
+    --lang rust --server-ffi --client --uds \
     --out "$PKG/rust/src/generated"
   node --experimental-strip-types --experimental-transform-types --no-warnings \
     "$ROOT/ipc-codegen/src/generate.ts" \
@@ -29,7 +29,7 @@ function generate_code {
     --package "$PKG/ts" \
     --package-name @aztec/acvm-sim \
     --binary-name "$ACVM_BINARY" \
-    --package-transports uds \
+    --package-transports uds,wasm \
     --package-ipc-path-args 'serve,--input,{path}'
 }
 
@@ -43,10 +43,20 @@ function build_native {
   cp "rust/target/release/$ACVM_BINARY" "$target_dir/$ACVM_BINARY"
 }
 
+# Build the wasm32-wasip1 module (the in-process wasm backend). Excludes ipc-runtime (WASI only);
+# getrandom uses the WASI random_get import. The generated ts wasm.ts loads it from the package root.
+function build_wasm {
+  (cd rust && cargo build --release --locked --lib --target wasm32-wasip1 --no-default-features --features wasm)
+  local wasm="rust/target/wasm32-wasip1/release/acvm_sim.wasm"
+  command -v wasm-opt &>/dev/null && wasm-opt "$wasm" -O -o "$wasm"
+  cp "$wasm" "ts/$ACVM_BINARY.wasm"
+}
+
 function build {
   echo_header "acvm-sim build"
   generate_code
   build_native
+  build_wasm
   npm_install_deps
   yarn build
   (cd ts && ./scripts/prepare_arch_packages.sh "$(arch)-$(os)=build/$(arch)-$(os)/$ACVM_BINARY")
@@ -79,7 +89,7 @@ function release {
   (cd ts && retry "deploy_npm ${REF_NAME#v}")
 }
 
-export -f generate_code build_native build test_cmds test clean release
+export -f generate_code build_native build_wasm build test_cmds test clean release
 
 case "$cmd" in
   "")

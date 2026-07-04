@@ -116,40 +116,27 @@ impl Handler for AcvmHandler {
     }
 }
 
-/// FFI/wasm backend entrypoint: the same msgpack request/response contract as the IPC server,
-/// exposed as a single C symbol (`ipc_ffi_entry`) that the generated client's FFI/wasm backend
-/// calls in-process. The host allocates input space via `ipc_ffi_alloc`, writes the request,
-/// calls `ipc_ffi_entry`, reads the returned `(ptr, len)`, then frees both with `ipc_ffi_free`.
-/// This mirrors ipc-codegen's client-side `ffi_backend` ABI; it will be moved into a codegen
-/// template (see plan) — kept here for now to prove the wasm backend end to end.
+/// FFI/wasm entrypoint: exposes the shared `ipc_ffi_entry` C ABI (msgpack in -> msgpack out) that
+/// the generated client's wasm/FFI backend calls in-process. The marshalling lives in the generated
+/// server module (`--server-ffi`); these are the thin `#[no_mangle]` symbols the host looks up,
+/// constructing the stateless `AcvmHandler` per call.
 #[cfg(feature = "wasm")]
 pub mod wasm_ffi {
-    use crate::generated::acvm_server::handle_request;
+    use crate::generated::acvm_server as srv;
     use crate::AcvmHandler;
 
-    /// Allocate `len` bytes in linear memory for the host to write a request into.
     #[no_mangle]
     pub extern "C" fn ipc_ffi_alloc(len: usize) -> *mut u8 {
-        let mut buf = Vec::<u8>::with_capacity(len);
-        let ptr = buf.as_mut_ptr();
-        std::mem::forget(buf);
-        ptr
+        srv::ffi_alloc(len)
     }
 
-    /// Free a buffer (input or output) of `len` bytes previously produced by alloc/entry.
-    ///
     /// # Safety
     /// `ptr`/`len` must come from `ipc_ffi_alloc` or an `ipc_ffi_entry` output.
     #[no_mangle]
     pub unsafe extern "C" fn ipc_ffi_free(ptr: *mut u8, len: usize) {
-        if !ptr.is_null() {
-            drop(Vec::from_raw_parts(ptr, 0, len));
-        }
+        srv::ffi_free(ptr, len)
     }
 
-    /// Decode a msgpack request frame, dispatch it, and write the msgpack response frame's
-    /// `(ptr, len)` into the out-params. The host owns the returned buffer and must free it.
-    ///
     /// # Safety
     /// `input_ptr`/`input_len` must describe a valid buffer; the out-pointers must be writable.
     #[no_mangle]
@@ -159,15 +146,13 @@ pub mod wasm_ffi {
         output_ptr_out: *mut *mut u8,
         output_len_out: *mut usize,
     ) {
-        let request = std::slice::from_raw_parts(input_ptr, input_len);
-        let mut handler = AcvmHandler;
-        let mut response = handle_request(&mut handler, request);
-        response.shrink_to_fit();
-        let len = response.len();
-        let ptr = response.as_mut_ptr();
-        std::mem::forget(response);
-        *output_ptr_out = ptr;
-        *output_len_out = len;
+        srv::ffi_dispatch(
+            &mut AcvmHandler,
+            input_ptr,
+            input_len,
+            output_ptr_out,
+            output_len_out,
+        );
     }
 }
 
