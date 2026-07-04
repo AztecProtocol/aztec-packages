@@ -29,6 +29,7 @@ template <typename Builder> class Proof : public std::vector<bb::stdlib::field_t
     // Constructor from a native Proof
     Proof(Builder& builder, const HonkProof& native_proof)
     {
+        this->reserve(native_proof.size());
         for (const auto& element : native_proof) {
             this->push_back(bb::stdlib::witness_t<Builder>(&builder, element));
         }

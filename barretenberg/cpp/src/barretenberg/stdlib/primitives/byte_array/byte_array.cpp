@@ -214,9 +214,8 @@ byte_array<Builder>::byte_array(Builder* parent_context, bytes_t&& input)
 template <typename Builder>
 byte_array<Builder>::byte_array(const byte_array& other)
     : context(other.context)
-{
-    std::copy(other.values.begin(), other.values.end(), std::back_inserter(values));
-}
+    , values(other.values)
+{}
 
 template <typename Builder>
 byte_array<Builder>::byte_array(byte_array&& other) noexcept
@@ -227,8 +226,7 @@ byte_array<Builder>::byte_array(byte_array&& other) noexcept
 template <typename Builder> byte_array<Builder>& byte_array<Builder>::operator=(const byte_array& other)
 {
     context = other.context;
-    values = std::vector<field_t<Builder>>();
-    std::copy(other.values.begin(), other.values.end(), std::back_inserter(values));
+    values = other.values;
     return *this;
 }
 

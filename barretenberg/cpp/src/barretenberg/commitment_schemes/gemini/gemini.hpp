@@ -95,8 +95,9 @@ template <class Fr> inline std::vector<Fr> powers_of_rho(const Fr& rho, const si
  */
 template <class Fr> inline std::vector<Fr> powers_of_evaluation_challenge(const Fr& r, const size_t num_squares)
 {
-    std::vector<Fr> squares = { r };
+    std::vector<Fr> squares;
     squares.reserve(num_squares);
+    squares.emplace_back(r);
     for (size_t j = 1; j < num_squares; j++) {
         squares.emplace_back(squares[j - 1].sqr());
     }

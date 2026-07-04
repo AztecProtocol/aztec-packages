@@ -357,7 +357,9 @@ template <typename Curve, bool HasZK = false, bool HasGeminiMasking = HasZK> cla
         commitments.emplace_back(g1_identity);
         scalars.emplace_back(constant_term_accumulator);
 
-        BatchOpeningClaim<Curve> batch_opening_claim{ commitments, scalars, shplonk_evaluation_challenge };
+        BatchOpeningClaim<Curve> batch_opening_claim{ std::move(commitments),
+                                                      std::move(scalars),
+                                                      shplonk_evaluation_challenge };
         ShpleminiVerifierOutput output = [&]() {
             if constexpr (HasZK) {
                 return ShpleminiVerifierOutput{ batch_opening_claim, consistency_checked };
@@ -603,7 +605,8 @@ template <typename Curve, bool HasZK = false, bool HasGeminiMasking = HasZK> cla
                                             const std::vector<std::array<Fr, 3>>& sumcheck_round_evaluations)
     {
 
-        std::vector<Fr> denominators = {};
+        std::vector<Fr> denominators;
+        denominators.reserve(multilinear_challenge.size());
 
         // The number of Gemini claims is equal to `2 * log_n` and `log_n` is equal to the size of
         // `multilinear_challenge`, as this method is never used with padding.

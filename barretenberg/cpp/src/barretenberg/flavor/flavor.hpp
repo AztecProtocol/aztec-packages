@@ -220,6 +220,7 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
         };
 
         std::vector<DataType> elements;
+        elements.reserve(calc_num_data_types());
 
         serialize(this->log_circuit_size, elements);
         serialize(this->num_public_inputs, elements);
@@ -279,6 +280,7 @@ class NativeVerificationKey_ : public PrecomputedCommitments {
     {
         static constexpr bool in_circuit = InCircuit<DataType>;
         std::vector<DataType> vk_elements;
+        vk_elements.reserve(calc_num_data_types());
 
         // Tag, serialize, and append to vk_elements
         auto tag_and_append = [&]<typename T>(const T& component) {

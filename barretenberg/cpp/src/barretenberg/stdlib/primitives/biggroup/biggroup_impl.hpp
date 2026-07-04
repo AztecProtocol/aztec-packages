@@ -757,9 +757,9 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::multiple_montgomery_ladder(
         // `builder::evaluate_partial_non_native_field_multiplication` is called. (the 1st mul_left, mul_right elements
         // will trigger builder::evaluate_non_native_field_multiplication
         //  when Fq::mult_madd is called - this term cannot be cached so we want to make sure it is unique)
-        std::copy(previous_y.mul_left.begin(), previous_y.mul_left.end(), std::back_inserter(y_4.mul_left));
-        std::copy(previous_y.mul_right.begin(), previous_y.mul_right.end(), std::back_inserter(y_4.mul_right));
-        std::copy(previous_y.add.begin(), previous_y.add.end(), std::back_inserter(y_4.add));
+        y_4.mul_left.insert(y_4.mul_left.end(), previous_y.mul_left.begin(), previous_y.mul_left.end());
+        y_4.mul_right.insert(y_4.mul_right.end(), previous_y.mul_right.begin(), previous_y.mul_right.end());
+        y_4.add.insert(y_4.add.end(), previous_y.add.begin(), previous_y.add.end());
 
         previous_x = x_4;
         previous_y = y_4;

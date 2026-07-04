@@ -75,6 +75,7 @@ template <typename Flavor> struct RoundUnivariateHandler<Flavor, true> {
     {
         // Compute the vector {0, 1, \ldots, BATCHED_RELATION_PARTIAL_LENGTH-1} needed to transform
         // the round univariates from Lagrange to monomial basis
+        eval_domain.reserve(BATCHED_RELATION_PARTIAL_LENGTH);
         for (size_t idx = 0; idx < BATCHED_RELATION_PARTIAL_LENGTH; idx++) {
             eval_domain.push_back(FF(idx));
         }
@@ -113,9 +114,10 @@ template <typename Flavor> struct RoundUnivariateHandler<Flavor, true> {
         round_evaluations[multivariate_d - 1][2] = round_univariate.evaluate(last_challenge);
     }
 
-    std::vector<std::array<FF, 3>> get_evaluations() { return round_evaluations; }
-    std::vector<Polynomial<FF>> get_univariates() { return round_univariates; }
-    std::vector<Commitment> get_commitments() { return round_commitments; }
+    // The members are moved out: each getter is called once at the end of `prove`, after which the handler is dead.
+    std::vector<std::array<FF, 3>> get_evaluations() { return std::move(round_evaluations); }
+    std::vector<Polynomial<FF>> get_univariates() { return std::move(round_univariates); }
+    std::vector<Commitment> get_commitments() { return std::move(round_commitments); }
 };
 
 /**

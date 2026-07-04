@@ -86,10 +86,10 @@ straus_scalar_slices<Builder>::straus_scalar_slices(Builder* context,
     auto hi_slices = compute_scalar_slices(context, scalar.hi(), hi_bits, table_bits);
     auto lo_slices = compute_scalar_slices(context, scalar.lo(), lo_bits, table_bits);
 
-    std::copy(lo_slices.first.begin(), lo_slices.first.end(), std::back_inserter(slices));
-    std::copy(hi_slices.first.begin(), hi_slices.first.end(), std::back_inserter(slices));
-    std::copy(lo_slices.second.begin(), lo_slices.second.end(), std::back_inserter(slices_native));
-    std::copy(hi_slices.second.begin(), hi_slices.second.end(), std::back_inserter(slices_native));
+    slices = std::move(lo_slices.first);
+    slices.insert(slices.end(), hi_slices.first.begin(), hi_slices.first.end());
+    slices_native = std::move(lo_slices.second);
+    slices_native.insert(slices_native.end(), hi_slices.second.begin(), hi_slices.second.end());
 
     const auto tag = scalar.get_origin_tag();
     for (auto& element : slices) {

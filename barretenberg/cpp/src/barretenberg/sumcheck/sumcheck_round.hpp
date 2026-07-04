@@ -583,9 +583,7 @@ template <typename Flavor> class SumcheckProverRound {
             }
 
             for (const auto& thread_ranges : all_thread_ranges) {
-                for (const auto range : thread_ranges) {
-                    result.push_back(range);
-                }
+                result.insert(result.end(), thread_ranges.begin(), thread_ranges.end());
             }
             merge_edge_ranges(result);
         } else {

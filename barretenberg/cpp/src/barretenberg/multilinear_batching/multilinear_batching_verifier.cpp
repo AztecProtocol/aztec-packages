@@ -119,10 +119,10 @@ MultilinearBatchingVerifierInternal<Flavor_>::verify_proof(const std::vector<Ver
         merge_scalars[idx] = merge_scalars[idx - 1] * claim_merge_challenge;
     }
 
-    VerifierClaim verifier_claim = compute_new_claim(sumcheck_result, claims, merge_scalars);
+    VerifierClaim verifier_claim = compute_new_claim(sumcheck_result, claims, std::move(merge_scalars));
     bool verified = sumcheck_result.verified && eq_consistent;
 
-    return { verified, verifier_claim };
+    return { verified, std::move(verifier_claim) };
 }
 
 template <bool IsRecursive_>

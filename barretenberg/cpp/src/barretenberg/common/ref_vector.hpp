@@ -63,6 +63,7 @@ template <typename T> class RefVector {
     static RefVector from_span(const std::span<T>& span)
     {
         RefVector ret;
+        ret.storage.reserve(span.size());
         for (std::size_t i = 0; i < span.size(); ++i) {
             ret.push_back(span[i]);
         }
@@ -124,6 +125,7 @@ template <typename T> class RefVector {
     template <typename ConvertibleFromT> operator std::vector<ConvertibleFromT>() const
     {
         std::vector<ConvertibleFromT> ret;
+        ret.reserve(storage.size());
         for (T* elem : storage) {
             ret.push_back(*elem);
         }

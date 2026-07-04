@@ -183,7 +183,7 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
     const Fr final_eval = last.at(0) + u_last * (last.at(1) - last.at(0));
     Polynomial const_fold(1);
     const_fold.at(0) = final_eval;
-    fold_polynomials.emplace_back(const_fold);
+    fold_polynomials.emplace_back(std::move(const_fold));
 
     // FOLD_{log_n+1}, ..., FOLD_{d_v-1}
     Fr tail = Fr(1);
@@ -191,7 +191,7 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
         tail *= (Fr(1) - multilinear_challenge[k]); // multiply by (1 - u_k)
         Polynomial next_const(1);
         next_const.at(0) = final_eval * tail;
-        fold_polynomials.emplace_back(next_const);
+        fold_polynomials.emplace_back(std::move(next_const));
     }
 
     return fold_polynomials;
@@ -227,6 +227,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::construc
     const Fr& r_challenge)
 {
     std::vector<Claim> claims;
+    claims.reserve(log_n + 1);
 
     // Compute evaluation of partially evaluated batch polynomial (positive) A₀₊(r)
     Fr a_0_pos = A_0_pos.evaluate(r_challenge);
