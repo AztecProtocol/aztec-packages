@@ -7,6 +7,8 @@ license = "MIT OR Apache-2.0"
 
 [lib]
 name = "acvm_sim"
+# cdylib: the wasm backend module (exports ipc_ffi_entry). rlib: the native lib for the bin + tests.
+crate-type = ["cdylib", "rlib"]
 path = "src/lib.rs"
 
 [[bin]]
@@ -16,8 +18,11 @@ path = "src/main.rs"
 [features]
 default = ["ipc-runtime"]
 # Enables the generated `impl Backend for ipc_runtime::IpcClient` in backend.rs and
-# the server host in main.rs. On by default; the crate is only ever built native.
+# the IPC server host in main.rs. On by default for the native build.
 ipc-runtime = ["dep:ipc-runtime"]
+# Enables the ipc_ffi_entry export for the wasm (and future FFI/NAPI) backend. Built with
+# `--no-default-features --features wasm` for wasm32.
+wasm = []
 
 [dependencies]
 # Same-repo transport crate (compiles its own C++ via `cc`); no publishing needed.
