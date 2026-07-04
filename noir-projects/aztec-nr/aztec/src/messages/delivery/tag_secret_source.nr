@@ -1,7 +1,7 @@
 use crate::context::PrivateContext;
 use crate::messages::delivery::{
     constrained_delivery::{constrain_preexisting_handshake_secrets, emit_sequence_nullifier},
-    handshake::{AppSiloedHandshakeSecrets, create_non_interactive_handshake},
+    handshake::{AppSiloedHandshakeSecrets, create_interactive_handshake, create_non_interactive_handshake},
 };
 use crate::protocol::address::AztecAddress;
 use crate::standard_addresses::STANDARD_HANDSHAKE_REGISTRY_ADDRESS;
@@ -9,6 +9,7 @@ use crate::standard_addresses::STANDARD_HANDSHAKE_REGISTRY_ADDRESS;
 global EXISTING_HANDSHAKE: u8 = 1;
 global NEW_NON_INTERACTIVE_HANDSHAKE: u8 = 2;
 global UNCONSTRAINED_SECRET: u8 = 3;
+global NEW_INTERACTIVE_HANDSHAKE: u8 = 4;
 
 /// How a message's tag secret is sourced and, for constrained delivery, constrained.
 #[derive(Eq)]
@@ -32,6 +33,13 @@ impl TagSecretSource {
         Self { kind: NEW_NON_INTERACTIVE_HANDSHAKE, tag_secret: 0, sender_only: 0 }
     }
 
+    /// Establishes a fresh interactive handshake, publishing nothing about the recipient onchain. See
+    /// [`create_interactive_handshake`](super::handshake::create_interactive_handshake) for how the registry obtains
+    /// the recipient's signed authorization.
+    pub(crate) fn new_interactive_handshake() -> Self {
+        Self { kind: NEW_INTERACTIVE_HANDSHAKE, tag_secret: 0, sender_only: 0 }
+    }
+
     /// A ready-to-use unconstrained secret the wallet resolved. Sound only for unconstrained delivery, which never
     /// anchors a sequence, so no sender-only secret is involved.
     pub(crate) fn unconstrained_secret(secret: Field) -> Self {
@@ -47,6 +55,15 @@ impl TagSecretSource {
     ) -> Field {
         if self.kind == NEW_NON_INTERACTIVE_HANDSHAKE {
             let secrets = create_non_interactive_handshake(
+                context,
+                STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
+                sender,
+                recipient,
+            );
+            self.tag_secret = secrets.shared;
+            self.sender_only = secrets.sender_only;
+        } else if self.kind == NEW_INTERACTIVE_HANDSHAKE {
+            let secrets = create_interactive_handshake(
                 context,
                 STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
                 sender,
@@ -78,7 +95,7 @@ impl TagSecretSource {
                 secrets,
                 index,
             );
-        } else if self.kind == NEW_NON_INTERACTIVE_HANDSHAKE {
+        } else if (self.kind == NEW_NON_INTERACTIVE_HANDSHAKE) | (self.kind == NEW_INTERACTIVE_HANDSHAKE) {
             // The secrets were already obtained in a constrained manner, so we only need to verify that the index is 0.
             assert(index == 0, "freshly bootstrapped secret must start at index 0");
         } else {
@@ -153,12 +170,48 @@ mod test {
         });
     }
 
+    #[test]
+    unconstrained fn new_interactive_handshake_resolves_and_constrains_the_bootstrapped_secrets() {
+        let env = TestEnvironment::new();
+        let secrets = AppSiloedHandshakeSecrets { shared: 12, sender_only: 34 };
+
+        env.private_context(|context| {
+            // The registry's `interactive_handshake` call returns the app-siloed secrets via the returns cache.
+            let returns = secrets.serialize();
+            let returns_hash = hash_args(returns);
+            execution_cache::store(returns, returns_hash);
+            let child_call_end_counter = context.get_side_effect_counter() + 1;
+            let _ = OracleMock::mock("aztec_prv_callPrivateFunction")
+                .returns((child_call_end_counter, returns_hash))
+                .times(1);
+
+            let mut source = TagSecretSource::new_interactive_handshake();
+            assert_eq(source.resolve_tag_secret(context, SENDER, RECIPIENT), secrets.shared);
+
+            source.constrain_tag_secret(context, SENDER, RECIPIENT, 0);
+            assert_emitted_sequence_nullifier(context, secrets, 0);
+        });
+    }
+
     // A freshly bootstrapped handshake secret is the source of truth, so its sequence must start at index 0.
     #[test(should_fail_with = "freshly bootstrapped secret must start at index 0")]
     unconstrained fn fresh_handshake_secret_must_start_at_index_zero() {
         let env = TestEnvironment::new();
         env.private_context(|context| {
             TagSecretSource::new_non_interactive_handshake().constrain_tag_secret(
+                context,
+                AztecAddress::zero(),
+                AztecAddress::zero(),
+                1,
+            );
+        });
+    }
+
+    #[test(should_fail_with = "freshly bootstrapped secret must start at index 0")]
+    unconstrained fn fresh_interactive_handshake_secret_must_start_at_index_zero() {
+        let env = TestEnvironment::new();
+        env.private_context(|context| {
+            TagSecretSource::new_interactive_handshake().constrain_tag_secret(
                 context,
                 AztecAddress::zero(),
                 AztecAddress::zero(),

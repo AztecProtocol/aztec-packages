@@ -22,7 +22,7 @@ use crate::protocol::{
 ///
 /// The TypeScript counterparts are in `yarn-project/txe/src/txe_oracle_version.ts`.
 pub global TXE_ORACLE_VERSION_MAJOR: Field = 2;
-pub global TXE_ORACLE_VERSION_MINOR: Field = 2;
+pub global TXE_ORACLE_VERSION_MINOR: Field = 3;
 
 /// Asserts that the TXE oracle interface version is compatible.
 pub unconstrained fn assert_compatible_txe_oracle_version() {

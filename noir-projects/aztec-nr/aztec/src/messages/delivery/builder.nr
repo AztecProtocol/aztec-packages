@@ -134,9 +134,10 @@ impl MessageDelivery {
     ///
     /// The exception is the discovery tag. Reaching a recipient the sender has not handshaked with before establishes,
     /// by default, a non-interactive handshake. This reveals to anyone who knows the recipient's address that a
-    /// handshake was made with them, but not by whom, nor the contents. An interactive handshake would not leak this,
-    /// but it requires coordination with the recipient. Delivering to one of the wallet's own accounts instead uses an
-    /// address-derived secret and reveals nothing.
+    /// handshake was made with them, but not by whom, nor the contents. An interactive handshake
+    /// ([`OnchainUnconstrainedDelivery::via_interactive_handshake`]) does not leak this, but it requires the
+    /// recipient's cooperation. Delivering to one of the wallet's own accounts instead uses an address-derived
+    /// secret and reveals nothing.
     ///
     /// Delivering the message does produce on-chain information in the form of private logs, so transactions that
     /// deliver many messages this way might be identifiable by the large number of logs.
@@ -187,7 +188,8 @@ impl MessageDelivery {
     /// The exception is the discovery tag. Constrained delivery is always backed by a handshake, established by
     /// default as a non-interactive one the first time the sender reaches the recipient. A non-interactive handshake
     /// reveals, to anyone who knows the recipient's address, that a handshake was made with them, but not by whom,
-    /// nor the contents. An interactive handshake would not leak this, but it requires coordination with the recipient.
+    /// nor the contents. An interactive handshake ([`OnchainConstrainedDelivery::via_interactive_handshake`]) does
+    /// not leak this, but it requires the recipient's cooperation.
     ///
     /// Delivering the message does produce on-chain information in the form of private logs and nullifiers, so
     /// transactions that deliver many messages this way might be identifiable by these markers.
@@ -257,6 +259,18 @@ impl OnchainUnconstrainedDelivery {
         *self
     }
 
+    /// Derives the discovery tag from an interactive handshake.
+    ///
+    /// Reuses an existing handshake for the pair, creating a fresh interactive one only when none exists.
+    ///
+    /// Unlike a non-interactive handshake, establishing an interactive one announces nothing onchain, but it requires
+    /// the recipient's cooperation: they must answer the registry's signed-authorization request, so the send fails
+    /// if they cannot be reached.
+    pub fn via_interactive_handshake(&mut self) -> Self {
+        self.tag_derivation = Option::some(TagDerivation::interactive_handshake());
+        *self
+    }
+
     /// Derives the discovery tag from the address-derived secret for the `(sender, recipient)` pair, established via
     /// Diffie-Hellman between their addresses. Leaves no on-chain trace and never consults the handshake registry.
     ///
@@ -322,6 +336,19 @@ impl OnchainConstrainedDelivery {
     /// Constrained delivery only supports constrained secrets (e.g., handshake-registry backed derivations)
     pub fn via_non_interactive_handshake(&mut self) -> Self {
         self.tag_derivation = Option::some(TagDerivation::non_interactive_handshake());
+        *self
+    }
+
+    /// Derives the discovery tag from an interactive handshake.
+    ///
+    /// Reuses an existing handshake for the pair, creating a fresh interactive one only when none exists. Overrides
+    /// the wallet's default resolution.
+    ///
+    /// Unlike a non-interactive handshake, establishing an interactive one announces nothing onchain, but it requires
+    /// the recipient's cooperation: they must answer the registry's signed-authorization request, so the send fails
+    /// if they cannot be reached.
+    pub fn via_interactive_handshake(&mut self) -> Self {
+        self.tag_derivation = Option::some(TagDerivation::interactive_handshake());
         *self
     }
 }
@@ -402,5 +429,13 @@ mod test {
         let constrained_delivery =
             MessageDelivery::onchain_constrained().via_non_interactive_handshake().build_message_delivery();
         assert_eq(constrained_delivery.tag_derivation(), Option::some(TagDerivation::non_interactive_handshake()));
+
+        let unconstrained_interactive =
+            MessageDelivery::onchain_unconstrained().via_interactive_handshake().build_message_delivery();
+        assert_eq(unconstrained_interactive.tag_derivation(), Option::some(TagDerivation::interactive_handshake()));
+
+        let constrained_interactive =
+            MessageDelivery::onchain_constrained().via_interactive_handshake().build_message_delivery();
+        assert_eq(constrained_interactive.tag_derivation(), Option::some(TagDerivation::interactive_handshake()));
     }
 }

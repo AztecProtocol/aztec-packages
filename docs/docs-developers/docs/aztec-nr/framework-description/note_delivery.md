@@ -167,17 +167,19 @@ Onchain delivery tags every message so the recipient can find it efficiently (se
 2. Otherwise, when an onchain handshake has been registered for the pair, the secret derived from it is reused directly.
 3. Otherwise, the wallet decides how to proceed, since it knows which secrets it holds and how it wants to reach the recipient.
 
-The wallet's answer is a **tagging secret strategy**: it expresses *which* secret to use, and if necessary, PXE performs a [Diffie-Hellman key exchange](https://www.geeksforgeeks.org/computer-networks/diffie-hellman-key-exchange-and-perfect-forward-secrecy/) and/or app-siloing before handing the ready-to-use secret to the contract. Wallets therefore never reimplement that derivation. There are three strategies today:
+The wallet's answer is a **tagging secret strategy**: it expresses *which* secret to use, and if necessary, PXE performs a [Diffie-Hellman key exchange](https://www.geeksforgeeks.org/computer-networks/diffie-hellman-key-exchange-and-perfect-forward-secrecy/) and/or app-siloing before handing the ready-to-use secret to the contract. Wallets therefore never reimplement that derivation. There are four strategies today:
 
 - **Non-interactive handshake**: the secret comes from a handshake published onchain that the recipient can derive. A non-recipient can at most learn that a sender did a handshake with the recipient, not the message itself, but the recipient discovers it without any prior coordination. Works for both constrained and unconstrained delivery.
+- **Interactive handshake**: the secret comes from a handshake the recipient authorizes with a signature, which the registry requests through the custom request oracle and verifies in-circuit. Nothing announcing the handshake is published onchain (the recipient learns the secret while signing), but the recipient must be reachable to answer the request, or the send fails. Works for both constrained and unconstrained delivery.
 - **Address-derived secret**: the PXE derives the secret from the sender's and recipient's address keys via Diffie-Hellman. The wallet supplies no material, only the choice. It leaves no onchain trace, but the recipient only finds the message if they registered the sender in their PXE. Unconstrained delivery only.
 - **Arbitrary secret**: a raw secret point the two parties already share offchain, having coordinated out of band to agree on it. The wallet supplies the point and the PXE app-silos it. It leaves no onchain trace, but no onchain handshake backs the secret. Unconstrained delivery only.
 
-| | Non-interactive handshake | Address-derived secret | Arbitrary secret |
-|---|---|---|---|
-| Onchain footprint when establishing | A handshake revealing information about the recipient | None | None |
-| Who provides the material | The onchain registry | Nobody (PXE computes it) | The wallet (a raw point) |
-| Constrained delivery | Supported | Not sound: not backed by an onchain handshake | Not sound: not backed by an onchain handshake |
+| | Non-interactive handshake | Interactive handshake | Address-derived secret | Arbitrary secret |
+|---|---|---|---|---|
+| Onchain footprint when establishing | A handshake revealing information about the recipient | None | None | None |
+| Who provides the material | The onchain registry | The onchain registry, with the recipient's signed authorization | Nobody (PXE computes it) | The wallet (a raw point) |
+| Recipient coordination | None | The recipient must answer the signature request | The recipient must have registered the sender | Agreed out of band |
+| Constrained delivery | Supported | Supported | Not sound: not backed by an onchain handshake | Not sound: not backed by an onchain handshake |
 
 ### Defaults
 
@@ -185,6 +187,8 @@ When no `resolveTaggingSecretStrategy` hook is configured, the PXE applies a def
 
 - **Unconstrained delivery**: a non-interactive handshake when the recipient is external, so the recipient discovers the message without having registered the sender in advance. When the recipient is one of the wallet's own accounts (a self-send), an address-derived secret is used instead: the wallet holds both sides' keys, so no handshake is needed and nothing is revealed onchain.
 - **Constrained delivery**: a non-interactive handshake (constrained delivery must be backed by a handshake).
+
+An interactive handshake is never the default, since it fails when the recipient cannot be reached: a wallet opts in through the hook when it knows how to reach them.
 
 ### Configuring the strategy
 
@@ -198,7 +202,7 @@ A contract can fix the derivation at the point of delivery with the builder's `v
 MessageDelivery::onchain_unconstrained().via_address_derived_secret()
 ```
 
-Unconstrained delivery exposes `via_non_interactive_handshake()` and `via_address_derived_secret()`. Constrained delivery exposes only `via_non_interactive_handshake()`, since an address-derived secret cannot back constrained delivery.
+Unconstrained delivery exposes `via_non_interactive_handshake()`, `via_interactive_handshake()` and `via_address_derived_secret()`. Constrained delivery exposes only `via_non_interactive_handshake()` and `via_interactive_handshake()`, since an address-derived secret cannot back constrained delivery.
 
 ## Note Discovery and the Sender
 

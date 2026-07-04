@@ -3,6 +3,7 @@ use super::tag_secret_source::TagSecretSource;
 
 global NON_INTERACTIVE_HANDSHAKE: u8 = 1;
 global UNCONSTRAINED_SECRET: u8 = 2;
+global INTERACTIVE_HANDSHAKE: u8 = 3;
 
 /// The tagging secret the PXE hands to the contract after applying the wallet's tagging secret strategy. It is already
 /// app-siloed, so the contract uses it directly to derive the message tag and never sees raw key material.
@@ -23,6 +24,14 @@ impl ResolvedTaggingStrategy {
         Self { kind: UNCONSTRAINED_SECRET, secret }
     }
 
+    /// An interactive handshake: the recipient learns the secret while signing its authorization, and nothing
+    /// announcing the handshake is published onchain. See
+    /// [`create_interactive_handshake`](super::handshake::create_interactive_handshake) for how the registry obtains
+    /// that authorization.
+    pub fn interactive_handshake() -> Self {
+        Self { kind: INTERACTIVE_HANDSHAKE, secret: 0 }
+    }
+
     pub fn is_unconstrained_secret(self) -> bool {
         self.kind == UNCONSTRAINED_SECRET
     }
@@ -31,7 +40,8 @@ impl ResolvedTaggingStrategy {
     fn from_parts(kind: u8, secret: Field) -> Self {
         let resolved = Self { kind, secret };
         assert(
-            ((kind == NON_INTERACTIVE_HANDSHAKE) & (secret == 0)) | (kind == UNCONSTRAINED_SECRET),
+            (((kind == NON_INTERACTIVE_HANDSHAKE) | (kind == INTERACTIVE_HANDSHAKE)) & (secret == 0))
+                | (kind == UNCONSTRAINED_SECRET),
             f"unrecognized resolved tagging strategy kind: {kind}",
         );
         resolved
@@ -56,6 +66,8 @@ impl From<ResolvedTaggingStrategy> for TagSecretSource {
     fn from(strategy: ResolvedTaggingStrategy) -> Self {
         if strategy.kind == NON_INTERACTIVE_HANDSHAKE {
             TagSecretSource::new_non_interactive_handshake()
+        } else if strategy.kind == INTERACTIVE_HANDSHAKE {
+            TagSecretSource::new_interactive_handshake()
         } else {
             TagSecretSource::unconstrained_secret(strategy.secret)
         }
@@ -70,9 +82,11 @@ mod test {
     fn resolved_roundtrips_through_serialization() {
         let non_interactive = ResolvedTaggingStrategy::non_interactive_handshake();
         let unconstrained_secret = ResolvedTaggingStrategy::unconstrained_secret(42);
+        let interactive = ResolvedTaggingStrategy::interactive_handshake();
 
         assert(ResolvedTaggingStrategy::deserialize(non_interactive.serialize()) == non_interactive);
         assert(ResolvedTaggingStrategy::deserialize(unconstrained_secret.serialize()) == unconstrained_secret);
+        assert(ResolvedTaggingStrategy::deserialize(interactive.serialize()) == interactive);
     }
 
     #[test(should_fail_with = "unrecognized resolved tagging strategy kind")]
@@ -83,5 +97,10 @@ mod test {
     #[test(should_fail_with = "unrecognized resolved tagging strategy kind")]
     fn deserializing_handshake_with_nonzero_secret_fails() {
         let _ = ResolvedTaggingStrategy::deserialize([1, 123]);
+    }
+
+    #[test(should_fail_with = "unrecognized resolved tagging strategy kind")]
+    fn deserializing_interactive_handshake_with_nonzero_secret_fails() {
+        let _ = ResolvedTaggingStrategy::deserialize([3, 123]);
     }
 }

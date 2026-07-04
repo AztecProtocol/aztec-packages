@@ -57,6 +57,14 @@ pub contract ConstrainedDeliveryTest {
     }
 
     #[external("private")]
+    fn emit_event_via_interactive_handshake(recipient: AztecAddress, value: Field) {
+        self.emit(DeliveryEvent { value }).deliver_to(
+            recipient,
+            MessageDelivery::onchain_constrained().via_interactive_handshake(),
+        );
+    }
+
+    #[external("private")]
     fn emit_two_events(recipient: AztecAddress) {
         self.emit(DeliveryEvent { value: 1 }).deliver_to(recipient, MessageDelivery::onchain_constrained());
         self.emit(DeliveryEvent { value: 2 }).deliver_to(recipient, MessageDelivery::onchain_constrained());
