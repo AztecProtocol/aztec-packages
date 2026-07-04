@@ -5,6 +5,7 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <span>
 #include <tuple>
 #include <type_traits>
@@ -30,6 +31,15 @@
 // The final fewer-than-W elements do not fill a VectorField; they wait in a small staging array (the
 // "tail") and the caller handles them one at a time via tail_elem() / tail_data(). reset() rewinds
 // the span to empty so the same borrowed memory can be refilled for the next batch.
+//
+// ⚠ FOOTGUN — the push cursor (count/lane) is STICKY and is NOT cleared between logical uses. push() /
+// push_point() APPEND at the current cursor; only reset() (and gather_from, which resets first) returns
+// it to empty. So whenever a span — or, worse, a borrowed BACKING shared by two spans — is reused for a
+// fresh fill, the new producer MUST reset() before its first push(), or the appends pile onto the stale
+// cursor and write past the backing: an out-of-bounds store, asserted in debug, SILENT CORRUPTION in
+// release. This is especially easy to hit when two stages share one backing and one stage advances the
+// cursor the other does not expect. Rule: a fill helper that resets internally (gather_from) is safe to
+// reuse; a raw push()/push_point() loop must reset() the span first.
 //
 // When SIMD is compiled out, a VectorField is just W plain field elements, so every loop here becomes
 // an ordinary scalar loop — one source compiles for both native and WASM.
@@ -92,6 +102,7 @@ template <typename Params> struct VectorFieldPushSpan {
     Field& tail_elem(size_t t) noexcept { return partial[t]; }             // t < tail()
     const Field& tail_elem(size_t t) const noexcept { return partial[t]; } // t < tail()
     size_t size() const noexcept { return count; }
+    size_t capacity() const noexcept { return vector_fields.size() * W; } // max elements the backing holds
 
     // True if `other` views the same backing storage (same first VectorField). Lets in-place
     // primitives assert their no-alias preconditions (e.g. batch_invert needs in and out distinct)
@@ -131,6 +142,16 @@ template <typename Params> struct VectorFieldPushSpan {
     }
 };
 
+// Column (struct-of-arrays) view of affine points: x[i] and y[i] are point i's coordinates, each
+// coordinate array contiguous in its own column. This is NOT a span<AffineElement> (which interleaves
+// x, y per point) — the per-column contiguity is exactly what lets VectorField::gather / scatter pull
+// or place W lanes from one column in a single shuffle. Borrowed storage; the view does not own it.
+template <typename Field> struct AffineColumnSpan {
+    std::span<Field> x;
+    std::span<Field> y;
+    size_t size() const noexcept { return x.size(); }
+};
+
 // A sequence of affine points in packed SIMD form, kept as two parallel coordinate spans (x and y).
 // A point is split across them: point W*g + j has its x-coordinate in lane j of x's g-th VectorField
 // and its y-coordinate in lane j of y's g-th VectorField — so a lane holds one coordinate, not a
@@ -161,6 +182,51 @@ template <typename Params> struct VectorAffineElementPushSpan {
     size_t num_full_vectors() const noexcept { return x.num_full_vectors(); }
     size_t tail() const noexcept { return x.tail(); }
     size_t size() const noexcept { return x.size(); }
+    size_t capacity() const noexcept { return x.capacity(); }
+
+    // Fill this packed span by gathering `count` points out of a column view: the k-th pushed point is
+    // buckets at index index_of(k). reset()s first. The scalar -> packed half of the bridge between
+    // scalar bucket storage and packed compute.
+    template <typename IndexFn> void gather_from(const AffineColumnSpan<Field>& buckets, IndexFn index_of, size_t count)
+    {
+        reset();
+        for (size_t k = 0; k < count; ++k) {
+            const size_t b = index_of(k);
+            push_point(buckets.x[b], buckets.y[b]);
+        }
+    }
+
+    // Visit each pushed point (x, y) in push order, with its running index k, invoking
+    // kernel(const Field& x, const Field& y, size_t k). Each full VectorField group is unpacked once
+    // (to_array); the sub-W tail is read element-wise. Centralises the bulk/tail split and the running
+    // index so drain-style callers supply only the per-point body.
+    template <typename Kernel> void for_each_point(Kernel kernel) const
+    {
+        size_t k = 0;
+        for (size_t g = 0; g < x.num_full_vectors(); ++g) {
+            const auto xs = x[g].to_array();
+            const auto ys = y[g].to_array();
+            for (size_t l = 0; l < Vec::SIZE; ++l) {
+                kernel(xs[l], ys[l], k++);
+            }
+        }
+        for (size_t t = 0; t < x.tail(); ++t) {
+            kernel(x.tail_elem(t), y.tail_elem(t), k++);
+        }
+    }
+
+    // Drain every completed point back into a column view: the k-th point (push order) lands at column
+    // index index_of(k). The packed -> scalar half of the bridge; for_each_point owns the per-group
+    // unpack and the sub-W tail, so this is just the indexed store.
+    template <typename IndexFn> void scatter_to(AffineColumnSpan<Field>& buckets, IndexFn index_of) const
+    {
+        for_each_point([&](const Field& xe, const Field& ye, size_t k) {
+            const size_t b = index_of(k);
+            buckets.x[b] = xe;
+            buckets.y[b] = ye;
+        });
+    }
+
     void reset() noexcept
     {
         x.reset();
@@ -221,17 +287,21 @@ template <typename... Args> [[gnu::always_inline]] inline void zip_for_each(Args
     detail::zip_for_each_impl(spans, std::get<n - 1>(spans), std::make_index_sequence<n - 1>{});
 }
 
+// Direction of an order-sensitive walk. Backed by bool so Forward/Backward map onto the false/true a
+// bare reverse flag would use, which keeps a migration from such a flag mechanical.
+enum class Direction : bool { Forward = false, Backward = true };
+
 // Map-accumulate over a push-span (cf. Haskell's mapAccumL / mapAccumR): thread an accumulator through
 // the elements, calling step(acc, in_elem, out_elem) at each one — step writes a per-element output and
 // advances the accumulator. Full groups carry the VectorField accumulator (bulk_acc),
 // the tail carries the Field one (tail_acc), so `step` is written once as a generic lambda over both.
 // The two accumulators are seeded by the bulk_acc / tail_acc arguments, and the final accumulators are returned. When
-// Reverse is true the groups and the tail are walked back-to-front.
+// Dir is Direction::Backward the groups and the tail are walked back-to-front.
 //
 // WARNING: The q1s1 layout interleaves elements across the W lanes, so the per-lane partials recombine to the
 // whole-stream result only when step's operation is _commutative_ (e.g. field + or *); an
 // order-dependent op (a true global prefix) would not survive the lane split.
-template <bool Reverse, typename Params, typename Step>
+template <Direction Dir, typename Params, typename Step>
 [[gnu::always_inline]] inline std::pair<VectorField<Params>, field<Params>> map_accumulate(
     const VectorFieldPushSpan<Params>& in,
     VectorFieldPushSpan<Params>& out,
@@ -241,7 +311,7 @@ template <bool Reverse, typename Params, typename Step>
 {
     const size_t num_full = in.num_full_vectors();
     const size_t ntail = in.tail();
-    if constexpr (Reverse) {
+    if constexpr (Dir == Direction::Backward) {
         for (size_t g = num_full; g-- > 0;) {
             step(bulk_acc, in[g], out[g]);
         }
@@ -258,6 +328,62 @@ template <bool Reverse, typename Params, typename Step>
     }
     out.adopt_cursor(in); // result reports the same size() / tail() as the input — callers need not adopt
     return { bulk_acc, tail_acc };
+}
+
+// Walk `pairs` over a column (SoA) view, handing the kernel references straight into each pair's dst
+// and src buckets — kernel(x_dst&, y_dst&, x_src, y_src, i) — so the body is plain field arithmetic
+// with no index or pointer bookkeeping. The dst coordinates are mutable (the kernel may update them in
+// place); the src coordinates are read-only. The walker owns the software prefetch: it warms the random
+// bucket addresses PREFETCH_AHEAD steps further along the walk (write hint for dst, read hint for src).
+// Direction::Backward walks high index to low. always_inline so the kernel fuses into the loop with no
+// call overhead. (Linear scratch the kernel may touch is left to the hardware prefetcher.)
+template <Direction Dir, typename Field, typename Kernel>
+[[gnu::always_inline]] inline void for_each_indexed_pair(AffineColumnSpan<Field>& buckets,
+                                                         const std::pair<uint32_t, uint32_t>* pairs,
+                                                         size_t n,
+                                                         Kernel kernel) noexcept
+{
+    constexpr int64_t PREFETCH_AHEAD = 4;
+    Field* const px = buckets.x.data();
+    Field* const py = buckets.y.data();
+    for (size_t s = 0; s < n; ++s) {
+        const size_t i = (Dir == Direction::Backward) ? n - 1 - s : s;
+        const int64_t pf = (Dir == Direction::Backward) ? static_cast<int64_t>(i) - PREFETCH_AHEAD
+                                                        : static_cast<int64_t>(i) + PREFETCH_AHEAD;
+        if (pf >= 0 && static_cast<size_t>(pf) < n) {
+            __builtin_prefetch(px + pairs[pf].first, 1, 3);
+            __builtin_prefetch(px + pairs[pf].second, 0, 3);
+            __builtin_prefetch(py + pairs[pf].first, 1, 3);
+            __builtin_prefetch(py + pairs[pf].second, 0, 3);
+        }
+        const uint32_t dst = pairs[i].first;
+        const uint32_t src = pairs[i].second;
+        kernel(px[dst], py[dst], px[src], py[src], i);
+    }
+}
+
+// As for_each_indexed_pair, but one bucket per step (for doublings): kernel(x&, y&, i) over
+// buckets[indices[i]], with the same prefetch and direction handling.
+template <Direction Dir, typename Field, typename Kernel>
+[[gnu::always_inline]] inline void for_each_indexed_point(AffineColumnSpan<Field>& buckets,
+                                                          const uint32_t* indices,
+                                                          size_t n,
+                                                          Kernel kernel) noexcept
+{
+    constexpr int64_t PREFETCH_AHEAD = 4;
+    Field* const px = buckets.x.data();
+    Field* const py = buckets.y.data();
+    for (size_t s = 0; s < n; ++s) {
+        const size_t i = (Dir == Direction::Backward) ? n - 1 - s : s;
+        const int64_t pf = (Dir == Direction::Backward) ? static_cast<int64_t>(i) - PREFETCH_AHEAD
+                                                        : static_cast<int64_t>(i) + PREFETCH_AHEAD;
+        if (pf >= 0 && static_cast<size_t>(pf) < n) {
+            __builtin_prefetch(px + indices[pf], 1, 3);
+            __builtin_prefetch(py + indices[pf], 1, 3);
+        }
+        const uint32_t b = indices[i];
+        kernel(px[b], py[b], i);
+    }
 }
 
 } // namespace bb

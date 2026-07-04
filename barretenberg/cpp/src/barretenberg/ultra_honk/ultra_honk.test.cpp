@@ -1,9 +1,11 @@
 #include "ultra_honk.test.hpp"
 #include "barretenberg/honk/proof_length.hpp"
 #include "barretenberg/honk/relation_checker.hpp"
+#include "barretenberg/honk/utils/honk_key_gen.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 
 #include <gtest/gtest.h>
+#include <sstream>
 
 using namespace bb;
 
@@ -553,4 +555,29 @@ TYPED_TEST(UltraHonkTests, RepeatedCommitmentsIndicesCorrect)
                   commitments[repeated.first.duplicate_start + offset + i])
             << "REPEATED_COMMITMENTS commitment mismatch at index " << i;
     }
+}
+
+namespace {
+size_t count_occurrences(const std::string& haystack, const std::string& needle)
+{
+    size_t count = 0;
+    for (size_t pos = haystack.find(needle); pos != std::string::npos;
+         pos = haystack.find(needle, pos + needle.size())) {
+        ++count;
+    }
+    return count;
+}
+} // namespace
+
+// Finding #1: the Solidity VK generator hand-codes the G1 emission list. Couple the number of
+// emitted G1 points to the flavor's precomputed entity count so the list cannot silently drift.
+TEST(HonkKeyGen, EmittedG1CountMatchesPrecomputedEntities)
+{
+    using VerificationKey = UltraKeccakFlavor::VerificationKey;
+    auto vk = std::make_shared<VerificationKey>();
+
+    std::ostringstream os;
+    output_vk_sol_ultra_honk(os, vk, "TestHonkVerificationKey", /*include_types_import=*/true);
+
+    EXPECT_EQ(count_occurrences(os.str(), "Honk.G1Point"), VerificationKey::size());
 }

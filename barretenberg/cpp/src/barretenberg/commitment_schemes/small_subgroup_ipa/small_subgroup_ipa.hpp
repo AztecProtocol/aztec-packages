@@ -74,8 +74,8 @@ template <typename Flavor> class SmallSubgroupIPAProver {
     // The size of a multiplicative subgroup in the ScalarField of a curve
     static constexpr size_t SUBGROUP_SIZE = Curve::SUBGROUP_SIZE;
 
-    // A masking term of length 2 (degree 1) is required to mask [G] and G(r).
-    static constexpr size_t WITNESS_MASKING_TERM_LENGTH = 2;
+    // WITNESS_MASKING_TERM_LENGTH (shared, from constants.hpp) is the degree-1 masking term added to G to hide [G]
+    // and G(r); it must match the padding used by the builders of G (ZKSumcheckData, TranslationData).
     static constexpr size_t MASKED_CONCATENATED_WITNESS_LENGTH = SUBGROUP_SIZE + WITNESS_MASKING_TERM_LENGTH;
 
     // A masking term of length 3 (degree 2) is required to mask [A], A(r), and A(g*r)
@@ -122,6 +122,17 @@ template <typename Flavor> class SmallSubgroupIPAProver {
     // Quotient of the grand sum identity polynomial C(X) by the vanishing polynomial Z_H = X^{|H|} - 1
     Polynomial<FF> grand_sum_identity_quotient;
 
+    // Steps of prove(). Each accumulates into a zero-initialized member, so each must run exactly once per
+    // instance; they are private so prove() is the only production entry point. ShpleminiTest drives them
+    // directly to construct forged witnesses without sending honest commitments.
+    void compute_grand_sum_polynomial();
+
+    void compute_grand_sum_identity_polynomial();
+
+    void compute_grand_sum_identity_quotient();
+
+    template <typename> friend class ShpleminiTest;
+
     // Either "Translation:" or "Libra:".
     std::string label_prefix;
 
@@ -157,14 +168,8 @@ template <typename Flavor> class SmallSubgroupIPAProver {
 
     void compute_eccvm_challenge_polynomial(const FF evaluation_challenge_x, const FF batching_challenge_v);
 
-    void compute_grand_sum_polynomial();
-
-    void compute_grand_sum_identity_polynomial();
-
     std::array<Polynomial<FF>, 2> static compute_lagrange_first_and_last(
         const std::array<FF, SUBGROUP_SIZE>& interpolation_domain, const EvaluationDomain<FF>& bn_evaluation_domain);
-
-    void compute_grand_sum_identity_quotient();
 
     static FF compute_claimed_inner_product(ZKSumcheckData<Flavor>& zk_sumcheck_data,
                                             const std::vector<FF>& multivariate_challenge,
@@ -426,6 +431,13 @@ static std::vector<typename Curve::ScalarField> compute_challenge_polynomial_coe
 {
 
     using FF = typename Curve::ScalarField;
+
+    // An empty challenge would index multivariate_challenge[0] out of bounds below (and yields a degenerate
+    // challenge polynomial of length 1), so reject it up front.
+    if (multivariate_challenge.empty()) {
+        throw_or_abort("SmallSubgroupIPA: multivariate_challenge must be non-empty");
+    }
+
     std::vector<FF> challenge_polynomial_lagrange(Curve::SUBGROUP_SIZE);
     static constexpr size_t libra_univariates_length = Curve::LIBRA_UNIVARIATES_LENGTH;
 

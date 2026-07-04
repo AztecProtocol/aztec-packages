@@ -8,7 +8,7 @@ Implementation references:
 - `barretenberg/cpp/src/barretenberg/chonk/chonk_verifier.{hpp,cpp}`
 - `barretenberg/cpp/src/barretenberg/chonk/chonk_batch_verifier.{hpp,cpp}`
 
-Notation: TripleIPA reduces three structured opening claims to one ordinary IPA claim. The curve is Grumpkin, $\mathbb{F}$ is its scalar field, and $n = 2^k$ with $k = \texttt{log\_poly\_length}$; ECCVM instantiates $n = \texttt{ECCVM\_FIXED\_SIZE}$. The SRS is $\vec{G} = (G_0,\dots,G_{n-1})$. For a coefficient vector $a \in \mathbb{F}^n$, $\langle a, \vec{G}\rangle = \sum_i a_i G_i$ and $\langle a, b\rangle = \sum_i a_i b_i$.
+Notation: TripleIPA reduces three structured opening claims to one ordinary IPA claim. The curve is Grumpkin, $\mathbb{F}$ is its scalar field, and $n = 2^k$ with $k =$ `log_poly_length`; ECCVM instantiates $n =$ `ECCVM_FIXED_SIZE`. The SRS is $\vec{G} = (G_0,\dots,G_{n-1})$. For a coefficient vector $a \in \mathbb{F}^n$, $\langle a, \vec{G}\rangle = \sum_i a_i G_i$ and $\langle a, b\rangle = \sum_i a_i b_i$.
 
 ---
 
@@ -19,7 +19,7 @@ The ECCVM PCS round produces three opening families against length-$n$ coefficie
 | Kind | Tensor vector $b$ | Inner product realises |
 |---|---|---|
 | $\mathsf{Eq}$ | $b_{\mathrm{eq}}(\vec{u})_i = \mathrm{eq}(\vec{u}, \mathrm{bits}(i))$ | multilinear evaluation $f(\vec{u})$ |
-| $\mathsf{Shift}$ | $b_{\mathrm{sh}}(\vec{u})_0 = 0,\; b_{\mathrm{sh}}(\vec{u})_i = b_{\mathrm{eq}}(\vec{u})_{i-1}\ (1\le i<n)$; omits $b_{\mathrm{eq}}(\vec{u})_{n-1}=\prod_i u_i$ | $\langle g,b_{\mathrm{sh}}(\vec{u})\rangle$ (non-cyclic shift) |
+| $\mathsf{Shift}$ | $b_{\mathrm{sh}}(\vec{u})[0] = 0, b_{\mathrm{sh}}(\vec{u})[i] = b_{\mathrm{eq}}(\vec{u})[i-1]\ (1\le i<n)$; omits $b_{\mathrm{eq}}(\vec{u})[n-1]=\prod_i u_i$ | $\langle g,b_{\mathrm{sh}}(\vec{u})\rangle$ (non-cyclic shift) |
 | $\mathsf{Pow}$ | $b_{\mathrm{pow}}(x)_i = x^i$ | univariate evaluation $P(x)$ |
 
 Concretely (`triple_ipa.hpp`):
@@ -52,7 +52,7 @@ $$
 \langle P, b_{\mathrm{pow}}(x)\rangle = P(x).
 $$
 
-Each claim $([\,\cdot\,],\ \text{evaluation},\ \text{tensor metadata})$ is absorbed into the Fiat–Shamir hash buffer under labels `TripleIPA:F`, `TripleIPA:F_shift`, `TripleIPA:P`. In code, the verifier's symbolic representation of the combined tensor (the weighted eq / shifted-eq / pow vectors above) is `IpaOpeningVector` (with the shifted-eq and eq folds in `ShiftedEqPolynomial`).
+Each claim $([\cdot],\ \text{evaluation},\ \text{tensor metadata})$ is absorbed into the Fiat–Shamir hash buffer under labels `TripleIPA:F`, `TripleIPA:F_shift`, `TripleIPA:P`. In code, the verifier's symbolic representation of the combined tensor (the weighted eq / shifted-eq / pow vectors above) is `IpaOpeningVector` (with the shifted-eq and eq folds in `ShiftedEqPolynomial`).
 
 ## 3. Stage 2 — reduction to a single IPA claim
 
@@ -131,7 +131,7 @@ Since the cross-sums are fixed before $\vec\zeta$ is sampled, a wrong coefficien
 
 #### Shiftable polynomials: no constant-term constraint
 
-TripleIPA does not require $F'_0 = 0$ for a to-be-shifted polynomial, and — unlike Gemini — provides no mechanism to enforce it (the non-cyclic shift is structural in $b_{\mathrm{sh}}$, which never reads $F'_0$). Consequently, if a protocol needs that constraint, it must be imposed explicitly, via a relation or an extra opening.
+TripleIPA does not require $F^\prime_0 = 0$ for a to-be-shifted polynomial, and — unlike Gemini — provides no mechanism to enforce it (the non-cyclic shift is structural in $b_{\mathrm{sh}}$, which never reads $F^\prime_0$). Consequently, if a protocol needs that constraint, it must be imposed explicitly, via a relation or an extra opening.
 
 ### Zero knowledge
 
@@ -225,7 +225,7 @@ and the folded tensor value $b_{\mathrm{fold}} = b^{(k)}$ **in closed form**, $O
 - $\mathsf{Shift}$ term at point $\vec{u}$ (prefix/suffix product expansion over the lowest set bit $\ell$ of the shifted index):
   $$ b^{\mathrm{sh}}_{\mathrm{fold}} = \sum_{\ell<k} \Bigl(\prod_{i<\ell} \vec{u}_i\Bigr)\,(1-\vec{u}_\ell)\, s_\ell \prod_{i>\ell}\bigl((1-\vec{u}_i)+\vec{u}_i\,s_i\bigr). $$
 
-The combined $b_{\mathrm{fold}} = \zeta_1 b^{\mathrm{eq}}_{\mathrm{fold}} + \zeta_2 b^{\mathrm{sh}}_{\mathrm{fold}} + \zeta_3 b^{\mathrm{pow}}_{\mathrm{fold}}$.
+The combined $b_{\mathrm{fold}} = \zeta_1 b_{\mathrm{fold}}^{\mathrm{eq}} + \zeta_2 b_{\mathrm{fold}}^{\mathrm{sh}} + \zeta_3 b_{\mathrm{fold}}^{\mathrm{pow}}$.
 
 ### 4.2 The two verification checks
 
@@ -249,7 +249,7 @@ Taking $\lambda = \alpha_r$ each round moves the inverse off the SRS and onto th
 
 $$\vec{G}^{(r+1)} = \alpha_r\bigl(\vec{G}^{(r)}_{\mathrm{lo}} + \alpha_r^{-1}\vec{G}^{(r)}_{\mathrm{hi}}\bigr) = \alpha_r\,\vec{G}^{(r)}_{\mathrm{lo}} + \vec{G}^{(r)}_{\mathrm{hi}}, \qquad \vec{a}^{(r+1)} = \alpha_r^{-1}\bigl(\vec{a}^{(r)}_{\mathrm{lo}} + \alpha_r\,\vec{a}^{(r)}_{\mathrm{hi}}\bigr) = \alpha_r^{-1}\vec{a}^{(r)}_{\mathrm{lo}} + \vec{a}^{(r)}_{\mathrm{hi}}$$
 
-(and $\vec{b}^{(r+1)} = \alpha_r\,\vec{b}^{(r)}_{\mathrm{lo}} + \vec{b}^{(r)}_{\mathrm{hi}}$) — the §4 fold scaled by $\alpha_r$ on the SRS/tensor and $\alpha_r^{-1}$ on the witness. The SRS scalar-multiply is then by the raw 127-bit $\alpha_r$ instead of the 254-bit $\alpha_r^{-1}$, while every message ($\langle \vec{a},\vec{G}\rangle$, $\langle \vec{a},\vec{b}\rangle$, $L_r$, $R_r$) is unchanged by the identity above. The accumulated $\prod_r \alpha_r$ (SRS) and $\prod_r \alpha_r^{-1}$ (witness) are divided back out of the single $G_0$, $a_0$ before they are sent.
+(and $\vec{b}^{(r+1)} = \alpha_r \vec b_{\mathrm{lo}}^{(r)} + \vec b_{\mathrm{hi}}^{(r)}$) — the §4 fold scaled by $\alpha_r$ on the SRS/tensor and $\alpha_r^{-1}$ on the witness. The SRS scalar-multiply is then by the raw 127-bit $\alpha_r$ instead of the 254-bit $\alpha_r^{-1}$, while every message ($\langle \vec{a},\vec{G}\rangle$, $\langle \vec{a},\vec{b}\rangle$, $L_r$, $R_r$) is unchanged by the identity above. The accumulated $\prod_r \alpha_r$ (SRS) and $\prod_r \alpha_r^{-1}$ (witness) are divided back out of the single $G_0$, $a_0$ before they are sent.
 
 **Fused pairs.** Consecutive rounds are folded two at a time on one shared doubling chain by `batch_two_round_fold`: the first round's SRS fold is deferred, and the second round's $L$/$R$ are computed against the un-folded SRS.
 
@@ -292,7 +292,7 @@ $$
 
 ## 7. Batched discharge
 
-`ECCVMVerifier::batch_verify_accumulators` discharges many deferred openings with one SRS MSM. Given accumulators $\{(\vec{u}^{(i),-1},\, G^{(i)}_{\mathrm{fold}},\, \mathrm{ok}_i)\}_{i<B}$:
+`ECCVMVerifier::batch_verify_accumulators` discharges many deferred openings with one SRS MSM. Given accumulators $\lbrace(\vec{u}^{(i),-1}, G_{\mathrm{fold}}^{(i)}, \mathrm{ok}(i))\rbrace_{i<B}$:
 
 1. **Rehash (Halo2-style binding).** A fresh `NativeTranscript` absorbs every $\vec{u}^{(i),-1}$ and $G^{(i)}_{\mathrm{fold}}$ (`IPA:batch_u_i`, `IPA:batch_U_i`), then squeezes one batching challenge $\rho_b$ (`IPA:batch_rho`). This binds the prover-supplied commitments before they are randomly combined.
 2. **Combine.**
@@ -306,7 +306,7 @@ $$
    \qquad \wedge \qquad \bigwedge_{i<B} \mathrm{ok}_i .
    $$
 
-Cost: a single size-$n$ Pippenger MSM amortised over the whole batch (plus $B$ cheap $O(n)$ field passes to build $h_{\mathrm{comb}}$ and a size-$B$ commitment combination), versus $B$ size-$n$ MSMs unbatched. Soundness: by Schwartz–Zippel over $\rho_b$, equality of the combined MSM implies $G^{(i)}_{\mathrm{fold}} = \langle h_{\vec{u}^{(i)}}, \vec{G}\rangle$ for every $i$ except with probability $\approx (B-1)/|\mathbb{F}|$.
+Cost: a single size-$n$ Pippenger MSM amortised over the whole batch (plus $B$ cheap $O(n)$ field passes to build $h_{\mathrm{comb}}$ and a size-$B$ commitment combination), versus $B$ size-$n$ MSMs unbatched. Soundness: by Schwartz–Zippel over $\rho_b$, equality of the combined MSM implies $G_{\mathrm{fold}}^{(i)} = \langle h_{\vec{u}^{(i)}}, \vec{G}\rangle$ for every $i$ except with probability $\approx (B-1)/|\mathbb{F}|$.
 
 ## 8. The `ChonkBatchVerifier` service
 

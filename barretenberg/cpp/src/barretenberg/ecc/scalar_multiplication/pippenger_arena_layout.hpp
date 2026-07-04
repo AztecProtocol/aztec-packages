@@ -243,7 +243,11 @@ template <typename Curve> struct PerWorkerArenaLayout {
         if (windows_per_batch != 0) {
             const size_t dense_total = windows_per_batch * dense_stride_est;
             const size_t dense_pair_max = dense_total / 2;
-            layout_add(per_worker_per_wpb_layout, sizeof(AffineElement) * dense_total, alignof(AffineElement));
+            // dense_buckets is a column (SoA) view: two BaseField coordinate arrays, not one
+            // AffineElement array. Same total bytes (AffineElement == 2 * BaseField), but the live
+            // allocator bumps them as two separate spans, so the sizer must too.
+            layout_add(per_worker_per_wpb_layout, sizeof(BaseField) * dense_total, alignof(BaseField));
+            layout_add(per_worker_per_wpb_layout, sizeof(BaseField) * dense_total, alignof(BaseField));
             layout_add(per_worker_per_wpb_layout, sizeof(uint8_t) * dense_total, alignof(uint8_t));
             layout_add(per_worker_per_wpb_layout,
                        sizeof(std::pair<uint32_t, uint32_t>) * dense_pair_max,

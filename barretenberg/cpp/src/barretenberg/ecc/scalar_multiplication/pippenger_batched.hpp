@@ -175,15 +175,18 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
         }
     }
 
-    // Split members by size. Small MSMs (≤ SMALL_MSM_BATCH_THRESHOLD points) dispatch
-    // one-per-pool-worker with a single-threaded (max_threads=1) pipeline: at a few
-    // thousand points per member, the sequential path's per-stage parallel_for barriers
-    // and understuffed per-thread chunks cost more than the parallelism returns (the
-    // ECCVM wires batch — ~86 MSMs of 1k-7k points spanning the transcript/precompute/
-    // msm trace tables — ran at ~47% parallel efficiency). Large members keep the
-    // sequential internally-parallel dispatch: for them, interleaving would K-multiply
-    // the per-thread working set (see the header comment).
+    // Batch split by n_input: members >= MSM_MIN_PTS_PER_THREAD * pool_width (large enough to clear the
+    // per-worker floor even when split across all workers) run sequentially, each internally
+    // multithreaded; smaller members run concurrently, one per worker, single-threaded. Keyed on
+    // n_input (span), not the active/non-zero count: the deciding cost is the concurrent working-set
+    // footprint, which tracks the span. A sparse-but-wide MSM (few non-zeros, large domain) must stay
+    // "large" — splitting by active count instead drops it into the concurrent pool and thrashes cache.
     const size_t pool_width = bb::get_num_cpus();
+    // overflow-safe MSM_MIN_PTS_PER_THREAD * pool_width
+    const size_t mt_threshold =
+        (pool_width <= 1 || MSM_MIN_PTS_PER_THREAD > std::numeric_limits<size_t>::max() / pool_width)
+            ? std::numeric_limits<size_t>::max()
+            : MSM_MIN_PTS_PER_THREAD * pool_width;
     std::vector<size_t> small_members;
     std::vector<size_t> large_members;
     small_members.reserve(K);
@@ -192,7 +195,7 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
         if (n_input[m] == 0) {
             continue;
         }
-        if (pool_width > 1 && n_input[m] <= SMALL_MSM_BATCH_THRESHOLD) {
+        if (pool_width > 1 && n_input[m] < mt_threshold) {
             small_members.push_back(m);
         } else {
             large_members.push_back(m);
@@ -216,26 +219,49 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
         return {};
     };
 
+    // Run the large members concurrently (one per worker, single-threaded, below) instead of
+    // sequentially at full width. It keeps a live arena per worker vs the sequential path's single
+    // reused arena, so gate it to a large, balanced, sufficiently-threaded batch:
+    //   - size > CONCURRENT_MIN_MEMBERS: only a commitment over a whole wide trace batches this many
+    //     columns at once (100s-1000s); every other is <= ~86, so 100 keeps them sequential while
+    //     the wide-trace case (385+) qualifies — paying the extra arenas only where it pays off.
+    //   - max n <= Σn / pool_width (n is the work proxy): with largest-first ordering (below) the
+    //     makespan is max(largest, Σn / pool_width), so a dominant member can't strand one worker.
+    //   - pool_width >= CONCURRENT_MIN_POOL_WIDTH: fewer threads make the win too small to justify.
+    static constexpr size_t CONCURRENT_MIN_MEMBERS = 100;
+    static constexpr size_t CONCURRENT_MIN_POOL_WIDTH = 4;
+    size_t total_large_n = 0;
+    size_t max_large_n = 0;
+    for (size_t m : large_members) {
+        total_large_n += n_input[m];
+        max_large_n = std::max(max_large_n, n_input[m]);
+    }
+    const bool large_members_concurrent = pool_width >= CONCURRENT_MIN_POOL_WIDTH &&
+                                          large_members.size() > CONCURRENT_MIN_MEMBERS &&
+                                          max_large_n <= total_large_n / pool_width;
+
     // Shared dynamically-sized arena for the sequential (large-member) calls. Sized to
     // the max requirement across those members so each MSM_fast finds enough space; a
     // single allocation across the batch (vs one per MSM_fast if we passed {} down).
     // dedup_active varies per MSM_fast (gated by per-MSM_fast hint), so the budget query must
     // mirror the predicate used inside pippenger_round_parallel.
     size_t shared_arena_bytes = 0;
-    for (size_t m : large_members) {
-        const bool ext_glv = !external_glv_for(m, n_input[m]).empty();
-        // The internal short-circuits to trivial_msm_threaded for tiny MSMs, so the hint
-        // alone is the right arena-sizing predicate (over-sizing for a path that bails
-        // is harmless — under-sizing would crash).
-        const size_t bytes = compute_arena_bytes_for_msm<Curve>(n_input[m], ext_glv, info_for(m));
-        shared_arena_bytes = std::max(shared_arena_bytes, bytes);
-    }
     std::unique_ptr<std::byte[]> shared_arena_owner; // NOLINT(cppcoreguidelines-avoid-c-arrays)
     std::span<std::byte> shared_arena;
-    if (shared_arena_bytes > 0) {
-        shared_arena_owner =
-            std::make_unique_for_overwrite<std::byte[]>(shared_arena_bytes); // NOLINT(cppcoreguidelines-avoid-c-arrays)
-        shared_arena = std::span<std::byte>(shared_arena_owner.get(), shared_arena_bytes);
+    if (!large_members_concurrent) {
+        for (size_t m : large_members) {
+            const bool ext_glv = !external_glv_for(m, n_input[m]).empty();
+            // The internal short-circuits to trivial_msm_threaded for tiny MSMs, so the hint
+            // alone is the right arena-sizing predicate (over-sizing for a path that bails
+            // is harmless — under-sizing would crash).
+            const size_t bytes = compute_arena_bytes_for_msm<Curve>(n_input[m], ext_glv, info_for(m));
+            shared_arena_bytes = std::max(shared_arena_bytes, bytes);
+        }
+        if (shared_arena_bytes > 0) {
+            shared_arena_owner = std::make_unique_for_overwrite<std::byte[]>(
+                shared_arena_bytes); // NOLINT(cppcoreguidelines-avoid-c-arrays)
+            shared_arena = std::span<std::byte>(shared_arena_owner.get(), shared_arena_bytes);
+        }
     }
     // Concurrent small-member dispatch: workers pull members off an atomic cursor and run
     // each with a thread-capped pipeline (max_threads=1, so the member never re-enters the
@@ -282,15 +308,44 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
         });
     }
 
-    // Sequential large-member dispatch. Each call runs the full single-MSM_fast pipeline (its
-    // own from-Mont and to-Mont, schedule, Stage 1-6b) at full pool width. The only batched
-    // amortisation we share is the doubled SRS prefix above; the rest of the hot path runs
-    // at single-MSM_fast cost.
-    for (size_t m : large_members) {
-        const size_t n = n_input[m];
-        PolynomialSpan<const ScalarField> sp(0, std::span<const ScalarField>(scalar_arrays[m].data(), n));
-        out_results[m] =
-            pippenger_round_parallel<Curve>(sp, point_arrays[m], info_for(m), external_glv_for(m, n), shared_arena);
+    if (large_members_concurrent) {
+        // Workers pull members off an atomic cursor. Each member runs single-threaded
+        // (max_threads=1). This skips the member's cross-thread reduction. It also keeps the member
+        // off the pool, so there is no nested parallel_for. The gate above guarantees at least
+        // pool_width members, so every worker stays busy. Each call self-allocates its arena (empty
+        // span), because a shared num_workers × max-member arena would exceed BATCH_MEM_BUDGET and
+        // cap num_workers below pool_width. Members run largest-first (longest-processing-time
+        // order) to bound the tail imbalance.
+        BB_BENCH_NAME("MSM_fast::pippenger_round_parallel_batched/large_members_concurrent");
+        std::sort(
+            large_members.begin(), large_members.end(), [&](size_t a, size_t b) { return n_input[a] > n_input[b]; });
+        const size_t num_workers = std::min(pool_width, large_members.size());
+        std::atomic<size_t> next_large{ 0 };
+        bb::parallel_for(num_workers, [&](size_t) {
+            while (true) {
+                const size_t s = next_large.fetch_add(1, std::memory_order_relaxed);
+                if (s >= large_members.size()) {
+                    break;
+                }
+                const size_t m = large_members[s];
+                const size_t n = n_input[m];
+                PolynomialSpan<const ScalarField> sp(0, std::span<const ScalarField>(scalar_arrays[m].data(), n));
+                out_results[m] = pippenger_round_parallel<Curve>(
+                    sp, point_arrays[m], info_for(m), external_glv_for(m, n), {}, /*max_threads=*/1);
+            }
+        });
+    } else {
+        // Sequential large-member dispatch: one member at a time, each running the full single-
+        // MSM_fast pipeline (its own from-Mont and to-Mont, schedule, Stage 1-6b) across the whole
+        // pool. Taken when the concurrent gate above does not hold — too few members to fill the
+        // pool, or a member large enough to warrant the full pool on its own. The only batched
+        // amortisation shared is the doubled SRS prefix above.
+        for (size_t m : large_members) {
+            const size_t n = n_input[m];
+            PolynomialSpan<const ScalarField> sp(0, std::span<const ScalarField>(scalar_arrays[m].data(), n));
+            out_results[m] =
+                pippenger_round_parallel<Curve>(sp, point_arrays[m], info_for(m), external_glv_for(m, n), shared_arena);
+        }
     }
 }
 } // namespace

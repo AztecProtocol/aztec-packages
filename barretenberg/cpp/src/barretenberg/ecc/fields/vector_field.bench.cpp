@@ -210,7 +210,7 @@ static void bench_vector_eq(State& state)
     volatile uint32_t sink = 0;
     for (auto _ : state) {
         for (int64_t it = 0; it < ITERATIONS; ++it) {
-            sink += a.eq(b);
+            sink += a.eq_mask(b);
             DoNotOptimize(sink);
         }
     }
@@ -225,7 +225,7 @@ static void bench_vector_is_zero(State& state)
     volatile uint32_t sink = 0;
     for (auto _ : state) {
         for (int64_t it = 0; it < ITERATIONS; ++it) {
-            sink += a.is_zero();
+            sink += a.is_zero_mask();
             DoNotOptimize(sink);
         }
     }

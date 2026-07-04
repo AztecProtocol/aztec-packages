@@ -24,6 +24,29 @@
         "cwd": "${workspaceFolder}/noir-projects/noir-contracts"
       },
       "problemMatcher": []
+    },
+    {
+      // Extract bytecode from a protocol circuit artifact for `bb write_vk`.
+      // Change the artifact to any protocol circuit, e.g. private_kernel_init_2.json,
+      // private_kernel_inner.json, private_kernel_inner_3.json (see target/ for the full list).
+      // Bytecode is kept gzipped; bb handles decompression.
+      "label": "Extract protocol circuit bytecode",
+      "type": "shell",
+      "command": "jq -r '.bytecode' ./target/private_kernel_init_3.json | base64 -d > ./target/bytecode.bin",
+      "options": {
+        "cwd": "${workspaceFolder}/noir-projects/noir-protocol-circuits"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Cleanup protocol circuit bytecode",
+      "type": "shell",
+      "command": "rm",
+      "args": ["-f", "./target/bytecode.bin"],
+      "options": {
+        "cwd": "${workspaceFolder}/noir-projects/noir-protocol-circuits"
+      },
+      "problemMatcher": []
     }
   ]
 }

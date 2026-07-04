@@ -137,7 +137,9 @@ template <typename Flavor> class RelationUtils {
                                                                         const FF& partial_evaluation_result)
     {
         constexpr_for<0, NUM_RELATIONS, 1>([&]<size_t rel_index>() {
-            // FIXME: You wan't /*consider_skipping=*/false here, but tests need to be fixed.
+            // Skipping is disabled here because this path evaluates the relations at the random sumcheck
+            // challenge: the per-row skip optimization is only valid on the boolean hypercube (where a
+            // witness selector may be exactly zero), not at an arbitrary evaluation point.
             accumulate_single_relation<Parameters, rel_index, /*consider_skipping=*/false>(
                 evaluations, relation_evaluations, relation_parameters, partial_evaluation_result);
         });
@@ -207,12 +209,6 @@ template <typename Flavor> class RelationUtils {
     };
 
     /**
-     * @brief Scale elements, representing evaluations of subrelations, by separate challenges then sum them
-     * @param challenges Array of NUM_SUBRELATIONS - 1 challenges (because the first subrelation does not need to be
-     * scaled)
-     * @param result Batched result
-     */
-    /**
      * @brief Scale per-subrelation evaluations by α powers and row-disabling factors, then sum.
      *
      * @details Returns
@@ -267,7 +263,7 @@ template <typename Flavor> class RelationUtils {
     }
 
     /**
-     * @brief Recursive template function to apply a specific operation on each element of several arrays in a tuple
+     * @brief Apply a specific operation on each element of several arrays in a tuple
      *
      * @details We need this method in addition to the apply_to_tuple_of_arrays when we aim to perform different
      * operations depending on the array element. More explicitly, in our codebase this method is used when the elements

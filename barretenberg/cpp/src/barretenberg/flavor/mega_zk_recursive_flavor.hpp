@@ -6,6 +6,7 @@
 
 #pragma once
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
+#include "barretenberg/flavor/flavor_concepts.hpp"
 #include "barretenberg/flavor/mega_zk_flavor.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
@@ -77,6 +78,9 @@ template <typename BuilderType> class MegaZKRecursiveFlavor_ {
         using Base = MegaZKFlavor::AllEntities<FF>;
         using Base::Base;
     };
+
+    static_assert(gemini_masking_layout_consistent<MegaZKRecursiveFlavor_>(),
+                  "MegaZKRecursiveFlavor gemini masking flag must match its entity layout");
 
     using VerificationKey = StdlibVerificationKey_<CircuitBuilder,
                                                    NativeFlavor::PrecomputedEntities<Commitment>,

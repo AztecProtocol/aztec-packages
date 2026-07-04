@@ -70,10 +70,11 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     // Construct the d-1 Gemini foldings of A₀(X)
     std::vector<Polynomial> fold_polynomials = compute_fold_polynomials(log_n, multilinear_challenge, A_0);
 
-    // If virtual_log_n >= log_n, pad the fold commitments with dummy group elements [1]_1.
+    // Commit to the virtual_log_n - 1 fold polynomials. When virtual_log_n > log_n, the trailing fold polynomials
+    // for the virtual rounds were appended as constant polynomials by compute_fold_polynomials; their commitments
+    // contribute nothing to the Shplonk quotient and are zeroed by the verifier.
     for (size_t l = 0; l < virtual_log_n - 1; l++) {
         std::string label = "Gemini:FOLD_" + std::to_string(l + 1);
-        // Virtual-round fold polynomials are constant; their commitments are zeroed by the verifier.
         transcript->send_to_verifier(label, commitment_key.commit(fold_polynomials[l]));
     }
     const Fr r_challenge = transcript->template get_challenge<Fr>("Gemini:r");
@@ -125,7 +126,7 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
     // At minimum, the disabled head region must be covered (masking values live at rows 1..3).
     size_t actual_size = std::max(A_0.end_index(), static_cast<size_t>(NUM_DISABLED_ROWS_IN_SUMCHECK));
 
-    // Reserve and allocate space for m-1 Fold polynomials, the foldings of the full batched polynomial A₀
+    // Reserve space for the virtual_log_n - 1 Fold polynomials, the foldings of the full batched polynomial A₀
     std::vector<Polynomial> fold_polynomials;
     fold_polynomials.reserve(virtual_log_n - 1);
     for (size_t l = 0; l < log_n - 1; ++l) {

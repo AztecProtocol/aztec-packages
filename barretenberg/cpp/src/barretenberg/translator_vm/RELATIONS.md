@@ -4,21 +4,24 @@ The translator VM enforces several relations/constraints to ensure the correctne
 
 Since we follow a two-row trace structure, some relations are only active on even rows, while others are only active on odd rows. Below is a summary of the relations and their activation patterns.
 
-| Constraint                    | No of subrelations | Active on even rows | Active on odd rows |
-| ----------------------------- | ------------------ | ------------------- | ------------------ |
-| Non-Native Field Relation     | 3                  | ✓                   | ✗                  |
-| Decomposition Relation        | 48                 | ✓                   | ✓                  |
-| Permutation Relation          | 2                  | ✓                   | ✓                  |
-| Delta Range Constraint        | 10                 | ✓                   | ✓                  |
-| Opcode Constraint Relation    | 5                  | ✓                   | ✓                  |
-| Accumulator Transfer Relation | 12                 | ✗                   | ✓ (propagation)    |
-| Zero Constraints Relation     | 68                 | ✓                   | ✓                  |
+| Constraint                       | Relation class (`relations/translator_vm/`)  | Subrelations | Active on even rows | Active on odd rows |
+| -------------------------------- | -------------------------------------------- | ------------ | ------------------- | ------------------ |
+| Non-Native Field Relation        | `TranslatorNonNativeFieldRelation`           | 3            | ✓                   | ✗                  |
+| Decomposition Relation           | `TranslatorDecompositionRelation`            | 48           | ✓                   | ✓                  |
+| Permutation Relation             | `TranslatorPermutationRelation`              | 3            | ✓                   | ✓                  |
+| Delta Range Constraint           | `TranslatorDeltaRangeConstraintRelation`     | 10           | ✓                   | ✓                  |
+| Opcode Constraint Relation       | `TranslatorOpcodeConstraintRelation`         | 5            | ✓                   | ✓                  |
+| Accumulator Transfer Relation    | `TranslatorAccumulatorTransferRelation`      | 12           | ✗                   | ✓ (propagation)    |
+| Zero Constraints Relation        | `TranslatorZeroConstraintsRelation`          | 68           | ✓                   | ✓                  |
+| Shiftable First-Coefficient Zero | `TranslatorShiftableFirstCoeffZeroRelation`  | 5            | first row only      | first row only     |
+
+The subrelation counts are the sizes of each relation's `SUBRELATION_PARTIAL_LENGTHS` array, so a count drift here surfaces against the code.
 
 Lagrange selectors for activation:
 
 - $L_{\text{even}}$: Equals 1 on even rows, 0 elsewhere
 - $L_{\text{odd}}$: Equals 1 on odd rows, 0 elsewhere
-- $L_{\text{last\_in\_minicircuit}}$: Equals 1 at the last row before masking in the mini-circuit, 0 elsewhere
+- $L_{\text{last in minicircuit}}$: Equals 1 at the last row before masking in the mini-circuit, 0 elsewhere
 
 ## Table of Contents
 
@@ -31,6 +34,7 @@ Lagrange selectors for activation:
    - (a) [Opcode Constraint Relation](#opcode-constraint-relation)
    - (b) [Accumulator Transfer Relation](#accumulator-transfer-relation)
    - (c) [Zero Constraints Relation](#zero-constraints-relation)
+   - (d) [Shiftable First-Coefficient Zero Relation](#shiftable-first-coefficient-zero-relation)
 
 ---
 
@@ -332,7 +336,7 @@ Range constraints:
 
 ### Categories 1 and 2: Microlimb Decomposition (Subrelations 0-19)
 
-General pattern for decomposing a limb $\ell_i$ into microlimbs $\{\ell_{i,j}\}$:
+General pattern for decomposing a limb $\ell_i$ into microlimbs $\lbrace \ell_{i,j}\rbrace$:
 $$\boxed{L_{\text{selector}} \cdot \left( \sum_{j=0}^{k} \ell_{i,j} \cdot 2^{14j} - \ell_i \right) = 0}$$
 
 where $k=4$ for 68/60-bit limbs and $k=3$ for 50/52-bit limbs.
@@ -449,7 +453,7 @@ The relation consists of 3 subrelations:
 
 The Permutation Relation works alongside the Delta Range Constraints to enforce microlimb ranges. We use a permutation argument to show that the multiset of microlimb values used in the circuit matches an ordered multiset containing all integers from $0$ to $2^{14} - 1 = 16383$. Instead of including all integers in the range $[0, 2^{14} - 1]$ explicitly, we use a "step" sequence with a fixed step size of 3:
 
-$$\{0, 3, 6, 9, \ldots, 16380, 16383\}$$
+$$\lbrace 0, 3, 6, 9, \ldots, 16380, 16383\rbrace$$
 
 resulting in $\left\lceil\frac{16384}{3}\right\rceil = 5462$ values. This ensures that any microlimb value $ \leq 16383$ can be proven to be in range by showing it appears in the ordered multiset. We prove equality of multisets using a grand product argument. The correctness of the ordered multiset is proven by the Delta Range Constraints described in the next section.
 
@@ -463,7 +467,7 @@ resulting in $\left\lceil\frac{16384}{3}\right\rceil = 5462$ values. This ensure
 
 The grand product polynomial $z_{\text{perm}}$ is defined recursively:
 
-$$\boxed{z_{\text{perm}}[i+1] \cdot \prod_{j=0}^{4} \left( w_j^{\text{ordered}}[i] + \beta \cdot L_{\text{ordered\_masking}}[i] + \gamma \right) = z_{\text{perm}}[i] \cdot \prod_{j=0}^{3} \left( w_j^{\text{concatenated}}[i] + \beta \cdot L_{\text{masking}}[i] + \gamma \right) \cdot \left( w_4^{\text{concatenated}}[i] + \beta \cdot L_{\text{ordered\_masking}}[i] + \gamma \right)}$$
+$$\boxed{z_{\text{perm}}[i+1] \cdot \prod_{j=0}^{4} \left( w_j^{\text{ordered}}[i] + \beta \cdot L_{\text{ordered masking}}[i] + \gamma \right) = z_{\text{perm}}[i] \cdot \prod_{j=0}^{3} \left( w_j^{\text{concatenated}}[i] + \beta \cdot L_{\text{masking}}[i] + \gamma \right) \cdot \left( w_4^{\text{concatenated}}[i] + \beta \cdot L_{\text{ordered masking}}[i] + \gamma \right)}$$
 
 where:
 
@@ -471,15 +475,15 @@ where:
 - $w_j^{\text{ordered}}[i]$: The $j$-th ordered (sorted) range constraint wire at row $i$
 - $\beta, \gamma$: Random challenges (from Fiat-Shamir)
 - $L_{\text{masking}}[i]$: Lagrange polynomial indicating masking rows for the 4 concatenated range constraint wires (scattered across the 16 blocks)
-- $L_{\text{ordered\_masking}}[i]$: Lagrange polynomial indicating masking rows for the ordered wires and the extra numerator wire (contiguous at the end)
+- $L_{\text{ordered masking}}[i]$: Lagrange polynomial indicating masking rows for the ordered wires and the extra numerator wire (contiguous at the end)
 
 The beta masking terms enforce that the zero-knowledge masking values in both sets are identical.
-The numerator uses TWO different masking selectors: $L_{\text{masking}}$ for the 4 concatenated range constraint factors (scattered across 16 blocks), and $L_{\text{ordered\_masking}}$ for the extra numerator factor.
-The denominator uses $L_{\text{ordered\_masking}}$ for all 5 ordered factors.
+The numerator uses TWO different masking selectors: $L_{\text{masking}}$ for the 4 concatenated range constraint factors (scattered across 16 blocks), and $L_{\text{ordered masking}}$ for the extra numerator factor.
+The denominator uses $L_{\text{ordered masking}}$ for all 5 ordered factors.
 These are added only to the masking regions, to avoid interfering with the actual circuit values (which must be in the range $[0, 2^{14} - 1]$).
 The subrelation is then expressed, with boundary conditions, as:
 
-$$\boxed{\left( z_{\text{perm}} + L_{\text{first}} \right) \cdot \prod_{j=0}^{3} \left( w_j^{\text{concatenated}} + \beta \cdot L_{\text{masking}} + \gamma \right) \cdot \left( w_4^{\text{concatenated}} + \beta \cdot L_{\text{ordered\_masking}} + \gamma \right) = \left( z_{\text{perm}}^{\text{shift}} + L_{\text{last}} \right) \cdot \prod_{j=0}^{4} \left( w_j^{\text{ordered}} + \beta \cdot L_{\text{ordered\_masking}} + \gamma \right)}$$
+$$\boxed{\left( z_{\text{perm}} + L_{\text{first}} \right) \cdot \prod_{j=0}^{3} \left( w_j^{\text{concatenated}} + \beta \cdot L_{\text{masking}} + \gamma \right) \cdot \left( w_4^{\text{concatenated}} + \beta \cdot L_{\text{ordered masking}} + \gamma \right) = \left( z_{\text{perm}}^{\text{shift}} + L_{\text{last}} \right) \cdot \prod_{j=0}^{4} \left( w_j^{\text{ordered}} + \beta \cdot L_{\text{ordered masking}} + \gamma \right)}$$
 
 where:
 
@@ -555,17 +559,17 @@ The relation consists of 10 subrelations:
 
 Purpose: Enforce that each ordered wire is in non-descending order with maximum step 3.
 
-For each ordered wire $j \in \{0, 1, 2, 3, 4\}$:
+For each ordered wire $j \in \lbrace 0, 1, 2, 3, 4\rbrace$:
 
-$$\boxed{\left( L_{\text{real\_last}} - 1 \right) \cdot \left( L_{\text{ordered\_masking\_adjacent}} - 1 \right) \cdot \Delta_j \cdot (\Delta_j - 1) \cdot (\Delta_j - 2) \cdot (\Delta_j - 3) = 0}$$
+$$\boxed{\left( L_{\text{real last}} - 1 \right) \cdot \left( L_{\text{ordered masking adjacent}} - 1 \right) \cdot \Delta_j \cdot (\Delta_j - 1) \cdot (\Delta_j - 2) \cdot (\Delta_j - 3) = 0}$$
 
 where:
 $$\Delta_j := w_j^{\text{ordered}}[i+1] - w_j^{\text{ordered}}[i].$$
 
-When active, it forces: $\Delta_j \in \{0, 1, 2, 3\}$. The constraint is disabled when EITHER:
+When active, it forces: $\Delta_j \in \lbrace 0, 1, 2, 3\rbrace$. The constraint is disabled when EITHER:
 
-- $L_{\text{real\_last}} = 1$ (the last real row), OR
-- $L_{\text{ordered\_masking\_adjacent}} = 1$ (an ordered masking row or its neighbor)
+- $L_{\text{real last}} = 1$ (the last real row), OR
+- $L_{\text{ordered masking adjacent}} = 1$ (an ordered masking row or its neighbor)
 
 Why maximum step 3?
 To ensure full coverage of $[0, 2^{14} - 1]$, we insert "step values" into the sorted array:
@@ -574,7 +578,7 @@ To ensure full coverage of $[0, 2^{14} - 1]$, we insert "step values" into the s
 - Insert values: 0, 3, 6, 9, ..., 16383
 - This creates `SORTED_STEPS_COUNT = (2^14 - 1) / 3 + 1 = 5462` steps
 
-Between these steps, actual microlimbs fill in the gaps. With $\Delta \in \{0, 1, 2, 3\}$:
+Between these steps, actual microlimbs fill in the gaps. With $\Delta \in \lbrace 0, 1, 2, 3\rbrace$:
 
 - No value can "jump over" a step value
 - Every value $\leq 16383$ has a step value within distance 3
@@ -587,11 +591,11 @@ Degree: 6 (product of 6 linear polynomials)
 ### Subrelations 6-10: Maximum Value Constraints
 
 Ensure the final value in each sorted column is exactly $2^{14} - 1 = 16383$.
-For each ordered wire $j \in \{0, 1, 2, 3, 4\}$:
+For each ordered wire $j \in \lbrace 0, 1, 2, 3, 4\rbrace$:
 
-$$\boxed{L_{\text{real\_last}} \cdot \left( w_j^{\text{ordered}} - (2^{14} - 1) \right) = 0}$$
+$$\boxed{L_{\text{real last}} \cdot \left( w_j^{\text{ordered}} - (2^{14} - 1) \right) = 0}$$
 
-At the last real row ($L_{\text{real\_last}} = 1$):
+At the last real row ($L_{\text{real last}} = 1$):
 $$w_j^{\text{ordered}}[\text{last}] = 2^{14} - 1 = 16383$$
 
 This ensures:
@@ -600,7 +604,7 @@ This ensures:
 2. The maximum value $2^{14} - 1$ is present in the sorted multiset
 3. Combined with the difference constraint, all values are $\leq 2^{14} - 1$
 
-Active when: Last real row only ($L_{\text{real\_last}} = 1$)
+Active when: Last real row only ($L_{\text{real last}} = 1$)
 
 Degree: 2 (Lagrange × difference)
 
@@ -608,11 +612,14 @@ Degree: 2 (Lagrange × difference)
 
 To enforce the correctness of the opcodes and the accumulator lifecycle, we have a few additional relations.
 
-### Opcode Validity Check
+### Opcode Constraint Relation
 
-The Opcode Validity Check enforces that all operation codes (`op`) belong to the valid set:
+The Opcode Validity Check (subrelation 0) enforces valid opcodes on even rows and **`op = 0` on odd rows**:
 
-$$\boxed{\texttt{op} \in \{0, 3, 4, 8\}}$$
+$$\boxed{L_{\text{even}} \cdot \texttt{op} \cdot (\texttt{op} - 3)(\texttt{op} - 4)(\texttt{op} - 8) \;+\; L_{\text{odd}} \cdot \texttt{op} \;=\; 0}$$
+
+- On **even** rows ($L_{\text{even}} = 1$): the degree-4 factor forces $\texttt{op} \in \lbrace 0, 3, 4, 8\rbrace$.
+- On **odd** rows ($L_{\text{odd}} = 1$): the second term forces $\texttt{op} = 0$.
 
 Valid opcodes:
 
@@ -621,13 +628,11 @@ Valid opcodes:
 - `4`: Scalar multiplication
 - `8`: Point addition
 
-The constraint is expressed as a polynomial that has roots at the valid opcode values:
+**Why odd rows must carry `op = 0` (soundness).** The non-native accumulator is updated only on even rows, gated by $L_{\text{even}} \cdot \texttt{op}$. Without the $L_{\text{odd}} \cdot \texttt{op}$ term a prover could place a genuine opcode (`3`/`4`/`8`) on an odd row: it would satisfy a bare $\texttt{op} \in \lbrace 0, 3, 4, 8\rbrace$ check yet be skipped by the accumulator, excluding that ECC operation from the batched evaluation. Forcing $\texttt{op} = 0$ on odd rows closes this gap.
 
-$$\boxed{\left( L_{\text{mini\_mask}} - 1 \right) \cdot \texttt{op} \cdot (\texttt{op} - 3) \cdot (\texttt{op} - 4) \cdot (\texttt{op} - 8) = 0}$$
+Masking rows are exempt: both $L_{\text{even}}$ and $L_{\text{odd}}$ are zero in the mini-circuit masking regions, so random masking ops are unconstrained here.
 
-The constraint is active when $L_{\text{mini\_mask}} = 0$ (i.e., not a masking row in the mini-circuit).
-
-Degree: 5 (degree-1 Lagrange × degree-4 polynomial in `op`)
+Degree: 5 (degree-1 Lagrange × degree-4 polynomial in `op`).
 
 ---
 
@@ -635,7 +640,7 @@ Degree: 5 (degree-1 Lagrange × degree-4 polynomial in `op`)
 
 These subrelations ensure that when the opcode is `0` (no-op), the accumulator remains unchanged between even rows.
 For the other opcodes (`3`, `4`, `8`), this constraint does not apply and must be skipped.
-Thus, for each accumulator limb $i \in \{0, 1, 2, 3\}$, we must enforce:
+Thus, for each accumulator limb $i \in \lbrace 0, 1, 2, 3\rbrace$, we must enforce:
 
 $$\boxed{L_{\text{even}} \cdot (\texttt{op} - 3) \cdot (\texttt{op} - 4) \cdot (\texttt{op} - 8) \cdot \left( a_i^{\text{current}} - a_i^{\text{shifted}} \right) = 0}$$
 
@@ -663,9 +668,9 @@ Ensure that we correctly copy the accumulator from each odd row to the next even
 This is because the previous accumulator value (in this iteration) becomes the "current" value on the next iteration.
 Refer to the [Witness Trace Structure](../translator_vm/README.md#witness-trace-structure) for details on how we compute the accumulator iteratively.
 
-Thus, for each limb $i \in \{0, 1, 2, 3\}$:
+Thus, for each limb $i \in \lbrace 0, 1, 2, 3\rbrace$:
 
-$$\boxed{L_{\text{odd}} \cdot (L_{\text{last\_in\_minicircuit}} - 1) \cdot \left( a_i^{\text{current}} - a_i^{\text{shifted}} \right) = 0}$$
+$$\boxed{L_{\text{odd}} \cdot (L_{\text{last in minicircuit}} - 1) \cdot \left( a_i^{\text{current}} - a_i^{\text{shifted}} \right) = 0}$$
 
 This correctly "propagates" the accumulator value in computing the final accumulator.
 
@@ -675,9 +680,9 @@ Degree: 3
 
 #### Subrelations 5-8: Initialization
 
-Ensure the accumulator starts at zero at the beginning of the computation. Recall that we process the opcodes in reverse order, so the first "previous" accumulator corresponds to the last opcode processed. Thus, for each limb $i \in \{0, 1, 2, 3\}$:
+Ensure the accumulator starts at zero at the beginning of the computation. Recall that we process the opcodes in reverse order, so the first "previous" accumulator corresponds to the last opcode processed. Thus, for each limb $i \in \lbrace 0, 1, 2, 3\rbrace$:
 
-$$\boxed{L_{\text{last\_in\_minicircuit}} \cdot a_i^{\text{current}} = 0}$$
+$$\boxed{L_{\text{last in minicircuit}} \cdot a_i^{\text{current}} = 0}$$
 
 This implies that at the last row in the mini-circuit (before masking), all limbs of the accumulator are zero, ensuring the accumulator starts at 0.
 
@@ -686,7 +691,7 @@ Degree: 2 (Lagrange × limb)
 #### Subrelations 9-12: Finalization
 
 Verify the final accumulator value matches the expected result from ECCVM.
-For each limb $i \in \{0, 1, 2, 3\}$:
+For each limb $i \in \lbrace 0, 1, 2, 3\rbrace$:
 
 $$\boxed{L_{\text{result}} \cdot \left( a_i^{\text{current}} - a_i^{\text{expected}} \right) = 0}$$
 
@@ -712,10 +717,29 @@ Due to concatenation, the full circuit is 16× larger than the mini-circuit:
 
 Rows outside the mini-circuit (rows 8,192 to 131,071) must be zero. All the range constraint microlimb wires and transcript wires should be zero outside the mini-circuit. Thus, for each such wire $w$, we enforce:
 
-$$\boxed{\left( L_{\text{even}} + L_{\text{odd}} + L_{\text{mini\_mask}} - 1 \right) \cdot w = 0}$$
+$$\boxed{\left( L_{\text{even}} + L_{\text{odd}} + L_{\text{mini mask}} - 1 \right) \cdot w = 0}$$
 
-Note that since $L_{\text{even}}$, $L_{\text{odd}}$, and $L_{\text{mini\_mask}}$ are mutually exclusive Lagrange polynomials that sum to 1 in the mini-circuit, the product is zero inside the mini-circuit and non-zero outside.
+Note that since $L_{\text{even}}$, $L_{\text{odd}}$, and $L_{\text{mini mask}}$ are mutually exclusive Lagrange polynomials that sum to 1 in the mini-circuit, the product is zero inside the mini-circuit and non-zero outside.
 
 Degree: 2 (Lagrange term × wire)
+
+---
+
+### Shiftable First-Coefficient Zero Relation
+
+Implemented by `TranslatorShiftableFirstCoeffZeroRelation` (5 subrelations).
+
+A to-be-shifted polynomial $g$ is opened as the left-shift $g/X$ off the *same* commitment, so the Gemini/Shplemini PCS already forces $g[0] = 0$. This relation makes that invariant explicit at the relation level for the five shiftable `ordered_range_constraints_0..4` wires — the only shiftable Translator polynomials whose first coefficient is not already pinned to 0 by another relation:
+
+- `z_perm` is pinned by the [Permutation Relation](#permutation-relation) (its `z_perm` initialization subrelation);
+- the range-constraint and op-queue wires are pinned by the [Zero Constraints Relation](#zero-constraints-relation), which forces them to 0 on every row outside the mini-circuit (including the first row).
+
+For each of the five ordered range-constraint wires $w$:
+
+$$\boxed{\texttt{lagrange first} \cdot w = 0}$$
+
+Anchoring the lower endpoint of each sorted range here removes the [Delta Range Constraint](#delta-range-constraint-relation) argument's dependence on the PCS shift property.
+
+Degree: 2 (`lagrange_first` × wire), partial length 3.
 
 ---

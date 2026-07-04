@@ -34,7 +34,9 @@ template <typename Flavor, bool CommittedSumcheck = UsesCommittedSumcheck<Flavor
 
     RoundUnivariateHandler(std::shared_ptr<Transcript> transcript)
         : transcript(std::move(transcript))
-    {}
+    {
+        BB_ASSERT(this->transcript != nullptr, "RoundUnivariateHandler: transcript must not be null");
+    }
 
     void process_round_univariate(size_t round_idx,
                                   bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& round_univariate)
@@ -73,6 +75,7 @@ template <typename Flavor> struct RoundUnivariateHandler<Flavor, true> {
         : transcript(std::move(transcript))
         , ck(BATCHED_RELATION_PARTIAL_LENGTH)
     {
+        BB_ASSERT(this->transcript != nullptr, "RoundUnivariateHandler: transcript must not be null");
         // Compute the vector {0, 1, \ldots, BATCHED_RELATION_PARTIAL_LENGTH-1} needed to transform
         // the round univariates from Lagrange to monomial basis
         eval_domain.reserve(BATCHED_RELATION_PARTIAL_LENGTH);
@@ -158,15 +161,18 @@ template <typename Flavor> struct VerifierZKCorrectionHandler<Flavor, true> {
     FF libra_challenge = FF{ 0 };
     FF libra_evaluation = FF{ 0 };
 
-    // If running zero-knowledge sumcheck the target total sum is corrected by the claimed sum of libra masking
-    // multivariate over the hypercube
     VerifierZKCorrectionHandler(std::shared_ptr<Transcript> transcript)
         : transcript(std::move(transcript))
-        , libra_total_sum(this->transcript->template receive_from_prover<FF>("Libra:Sum"))
-        , libra_challenge(this->transcript->template get_challenge<FF>("Libra:Challenge"))
     {}
 
-    void initialize_target_sum(SumcheckRound& round) { round.target_total_sum = libra_total_sum * libra_challenge; }
+    // If running zero-knowledge sumcheck the target total sum is corrected by the claimed sum of libra masking
+    // multivariate over the hypercube.
+    void initialize_target_sum(SumcheckRound& round)
+    {
+        libra_total_sum = transcript->template receive_from_prover<FF>("Libra:Sum");
+        libra_challenge = transcript->template get_challenge<FF>("Libra:Challenge");
+        round.target_total_sum = libra_total_sum * libra_challenge;
+    }
 
     void apply_zk_corrections(FF& full_honk_purported_value, std::vector<FF>& multivariate_challenge)
     {
@@ -219,7 +225,9 @@ bb::SumcheckProverRound "Sumcheck Round Prover".
  - \f$ d \f$ \ref multivariate_d "the number of variables" in the multilinear polynomials
  - \f$ n \f$ \ref multivariate_n "the size of the hypercube", i.e. \f$ 2^d\f$.
  - \f$ D = \f$  \ref bb::SumcheckProverRound< Flavor >::BATCHED_RELATION_PARTIAL_LENGTH "total degree of"
-\f$\tilde{F}\f$ as a polynomial in \f$P_1,\ldots, P_N\f$ <b> incremented by </b> 1.
+\f$F\f$ as a polynomial in \f$P_1,\ldots, P_N\f$ <b> incremented by </b> 1. The extra degree comes from the
+\f$pow_\beta\f$ gate-separator factor, which is linear in each variable. (The masked \f$\tilde{F}\f$ is not itself a
+polynomial in the \f$P_i\f$.)
 
 
  ## Honk Polynomials and Partially Evaluated Polynomials
@@ -267,7 +275,7 @@ is computed as follows. First, we introduce notation
  - \f$ c_i = pow_{\beta}(u_0,\ldots, u_{i-1}) \f$
  - \f$ T^{i}( X_i ) =  \sum_{ \ell = 0} ^{2^{d-i-1}-1} \beta_{i+1}^{\ell_{i+1}} \cdot \ldots \cdot
 \beta_{d-1}^{\ell_{d-1}} \cdot S^i_{\ell}( X_i )  \f$
- - \f$ S^i_{\ell} (X_i) = F \left(P_1(u_0,\ldots, u_{i-1}, X_i, \vec \ell), \ldots,  P_1(u_0,\ldots, u_{i-1}, X_i, \vec
+ - \f$ S^i_{\ell} (X_i) = F \left(P_1(u_0,\ldots, u_{i-1}, X_i, \vec \ell), \ldots,  P_N(u_0,\ldots, u_{i-1}, X_i, \vec
 \ell) \right) \f$
 
  As explained in \ref bb::GateSeparatorPolynomial "GateSeparatorPolynomial",
@@ -364,10 +372,21 @@ template <typename Flavor> class SumcheckProver {
         , relation_parameters(relation_parameters)
         , virtual_log_n(virtual_log_n)
     {
+        // multivariate_d = get_msb(multivariate_n) only gives the correct round count for a power-of-two size.
+        BB_ASSERT(multivariate_n != 0 && (multivariate_n & (multivariate_n - 1)) == 0,
+                  "SumcheckProver: multivariate_n must be a power of two");
         if constexpr (isMultilinearBatchingFlavor) {
             BB_ASSERT_EQ(relation_parameters.num_multilinear_batching_challenges,
                          Flavor::NUM_CLAIMS,
                          "Incorrect number of computed multilinear batching challenges.");
+            BB_ASSERT_EQ(gate_challenges.size(),
+                         0U,
+                         "Sumcheck Prover: Multilinear batching flavor has only dependent relations, no gate "
+                         "challenges should be provided.");
+        } else {
+            // The rounds index gate_challenges through GateSeparatorPolynomial assuming at least multivariate_d
+            // entries.
+            BB_ASSERT_GTE(gate_challenges.size(), multivariate_d, "SumcheckProver: fewer gate challenges than rounds");
         }
     };
     /**
@@ -377,6 +396,7 @@ template <typename Flavor> class SumcheckProver {
      * @return SumcheckOutput
      */
     SumcheckOutput<Flavor> prove()
+        requires(!Flavor::HasZK)
     {
         vinfo("starting sumcheck rounds...");
 
@@ -401,7 +421,7 @@ template <typename Flavor> class SumcheckProver {
             // Populate the book-keeping table
             auto result = partially_evaluate_first_round(full_polynomials, round_challenge);
             gate_separators.partially_evaluate(round_challenge);
-            round.round_size = round.round_size >> 1;
+            round.advance_round();
             return result;
         }();
         for (size_t round_idx = 1; round_idx < multivariate_d; round_idx++) {
@@ -417,7 +437,7 @@ template <typename Flavor> class SumcheckProver {
             // Prepare sumcheck book-keeping table for the next round.
             partially_evaluate_in_place(partially_evaluated_polynomials, round_challenge);
             gate_separators.partially_evaluate(round_challenge);
-            round.round_size = round.round_size >> 1;
+            round.advance_round();
         }
         vinfo("completed ", multivariate_d, " rounds of sumcheck");
 
@@ -460,7 +480,6 @@ template <typename Flavor> class SumcheckProver {
 
         ClaimedEvaluations multivariate_evaluations = extract_claimed_evaluations(partially_evaluated_polynomials);
         transcript->send_to_verifier("Sumcheck:evaluations", multivariate_evaluations.get_all());
-        // For ZK Flavors: the evaluations of Libra univariates are included in the Sumcheck Output
 
         vinfo("finished sumcheck");
         return SumcheckOutput<Flavor>{ .challenge = multivariate_challenge,
@@ -517,7 +536,7 @@ template <typename Flavor> class SumcheckProver {
         zk_sumcheck_data.update_zk_sumcheck_data(round_challenge, round_idx);
         row_disabling_polynomial.update_evaluations(round_challenge, round_idx);
         gate_separators.partially_evaluate(round_challenge);
-        round.round_size = round.round_size >> 1;
+        round.advance_round();
         if constexpr (UseRowDisablingPolynomial<Flavor>) {
             round.excluded_head_size = 2; // After round 0, disabled zone collapses to 1 edge pair
         }
@@ -565,7 +584,7 @@ template <typename Flavor> class SumcheckProver {
             row_disabling_polynomial.update_evaluations(round_challenge, round_idx);
 
             gate_separators.partially_evaluate(round_challenge);
-            round.round_size = round.round_size >> 1;
+            round.advance_round();
         }
 
         handler.finalize_last_round(multivariate_d, round_univariate, multivariate_challenge[multivariate_d - 1]);

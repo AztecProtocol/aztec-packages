@@ -8,6 +8,7 @@
 
 #include "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa_utils.hpp"
 #include "barretenberg/constants.hpp"
+#include "barretenberg/flavor/flavor_concepts.hpp"
 #include "barretenberg/flavor/ultra_keccak_flavor.hpp"
 
 namespace bb {
@@ -44,6 +45,10 @@ class UltraKeccakZKFlavor : public UltraKeccakFlavor {
     }
 
     using AllValues = UltraFlavor::AllValues_<HasZK>;
+
+    static_assert(gemini_masking_layout_consistent<UltraKeccakZKFlavor>(),
+                  "UltraKeccakZKFlavor gemini masking flag must match its entity layout");
+
     using ProverPolynomials = UltraFlavor::ProverPolynomials_<HasZK>;
     using PartiallyEvaluatedMultivariates = UltraFlavor::PartiallyEvaluatedMultivariates_<HasZK>;
 

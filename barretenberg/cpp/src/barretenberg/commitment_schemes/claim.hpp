@@ -67,7 +67,8 @@ template <typename Curve> class OpeningClaim {
 
     static constexpr bool IS_GRUMPKIN =
         std::is_same_v<Curve, curve::Grumpkin> || std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>;
-    // Size of public inputs representation of an opening claim over Grumpkin: 2 * 4 + 2 = 10
+    // Size of public inputs representation of an opening claim over Grumpkin: challenge (2) + evaluation (2) +
+    // commitment (2) = 6
     static constexpr size_t PUBLIC_INPUTS_SIZE = IS_GRUMPKIN ? GRUMPKIN_OPENING_CLAIM_SIZE : INVALID_PUBLIC_INPUTS_SIZE;
 
     /**

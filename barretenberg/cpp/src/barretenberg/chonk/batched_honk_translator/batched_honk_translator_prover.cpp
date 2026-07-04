@@ -155,7 +155,7 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
         }
         zk_sumcheck_data.update_zk_sumcheck_data(u, round_idx);
         gate_sep.partially_evaluate(u);
-        translator_round.round_size >>= 1;
+        translator_round.advance_round();
     };
 
     // Per-round helper: compute U_joint = U_MZK + α^{K_H}·U_translator from given polynomial
@@ -215,7 +215,7 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
             }
         }
         rdp.update_evaluations(u, 0);
-        mega_zk_round.round_size >>= 1;
+        mega_zk_round.advance_round();
         mega_zk_round.excluded_head_size = 2; // After round 0, disabled zone collapses to 1 edge pair
         update_round_state(0, u);
     }
@@ -238,7 +238,7 @@ void BatchedHonkTranslatorProver::execute_joint_sumcheck_rounds()
             }
         }
         rdp.update_evaluations(u, round_idx);
-        mega_zk_round.round_size >>= 1;
+        mega_zk_round.advance_round();
         update_round_state(round_idx, u);
     }
 

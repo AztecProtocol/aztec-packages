@@ -44,13 +44,14 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateCoef
 
     /**
      * @brief Storage for polynomial coefficients (always 3 elements for uniform layout).
-     * @details This class represents a polynomial P(X) = a0 + a1.X + a2.X^2
-     *          `coefficients[0] = a0`, `coefficients[1] = a1`.
-     *          The meaning of `coefficients[2]` depends on the template parameters:
-     *            - LENGTH == 2 AND has_a0_plus_a1 == true:  coefficients[2] = a0 + a1
-     *              (precomputed for Karatsuba multiplication; NOT a polynomial coefficient)
-     *            - LENGTH == 2 AND has_a0_plus_a1 == false: coefficients[2] is unused
-     *            - LENGTH == 3:                             coefficients[2] = a2
+     * @details This class represents a polynomial P(X) = a0 + a1.X + a2.X^2. `coefficients[0] = a0` in all
+     *          cases; the meaning of `coefficients[1]` and `coefficients[2]` depends on the template parameters:
+     *            - LENGTH == 2 AND has_a0_plus_a1 == true:  coefficients[1] = a1, coefficients[2] = a0 + a1
+     *              (coefficients[2] precomputed for Karatsuba multiplication; NOT a polynomial coefficient)
+     *            - LENGTH == 2 AND has_a0_plus_a1 == false: coefficients[1] = a1, coefficients[2] is unused
+     *            - LENGTH == 3:                             coefficients[1] = a1 + a2, coefficients[2] = a2
+     *              (coefficients[1] holds the first forward difference P(1) - P(0) = a1 + a2, not the bare
+     *              linear coefficient, so the Lagrange reconstruction can extend by repeated addition)
      */
     std::array<Fr, 3> coefficients;
 
@@ -126,8 +127,8 @@ template <class Fr, size_t domain_end, bool has_a0_plus_a1> class UnivariateCoef
         requires(LENGTH == 2)
     {
         UnivariateCoefficientBasis<Fr, 3, false> result;
-        // result.coefficients[0] = a0 * a0;
-        // result.coefficients[1] = a1 * a1
+        // result.coefficients[0] = a0 * b0;
+        // result.coefficients[2] = a1 * b1
         result.coefficients[0] = coefficients[0] * other.coefficients[0];
         result.coefficients[2] = coefficients[1] * other.coefficients[1];
 

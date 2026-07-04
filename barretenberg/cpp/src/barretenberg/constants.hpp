@@ -47,6 +47,13 @@ static constexpr uint32_t NUM_MASKED_ROWS = 3;
 // but the gate separator vanishes there, so the first row where relations are active is TRACE_OFFSET.
 static constexpr uint32_t NUM_DISABLED_ROWS_IN_SUMCHECK = NUM_MASKED_ROWS + 1;
 
+// Length (degree + 1) of the masking term (r_0 + r_1·X)·Z_H(X) added to a concatenated witness polynomial G in the
+// small-subgroup-IPA argument. It is degree-1 (length 2) because a single random linear term suffices to hide both
+// the commitment [G] and the evaluation G(r). This value is shared by every party that touches G's length: the
+// builders that pad G (ZKSumcheckData for Libra, TranslationData for ECCVM) and the SmallSubgroupIPAProver that
+// consumes it; they must all agree, so the constant lives here rather than being duplicated per class.
+static constexpr size_t WITNESS_MASKING_TERM_LENGTH = 2;
+
 // Number of wires in Ultra and Mega arithmetization
 static constexpr uint32_t NUM_WIRES = 4;
 

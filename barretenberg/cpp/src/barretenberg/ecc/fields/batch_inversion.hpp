@@ -59,7 +59,7 @@ inline void batch_invert(const VectorFieldPushSpan<Params>& in, VectorFieldPushS
 
     // Forward prefix products: out[i] holds the running prefix; the returned accumulators are each
     // lane's product (bulk) and the tail's product.
-    auto [acc, tail_acc] = map_accumulate<false>(
+    auto [acc, tail_acc] = map_accumulate<Direction::Forward>(
         in, out, Vec::broadcast(Field::one()), Field::one(), [](auto& a, const auto& in_e, auto& out_e) {
             out_e = a;
             a = a * in_e;
@@ -81,10 +81,11 @@ inline void batch_invert(const VectorFieldPushSpan<Params>& in, VectorFieldPushS
     const std::array<Field, W> lane_inv = compute_lane_inverses<Field, W>(acc_lanes, inv_bulk_product);
 
     // Backward: thread each lane's inverse back through out's stored prefixes.
-    map_accumulate<true>(in, out, Vec(lane_inv), inv_tail_acc, [](auto& state, const auto& in_e, auto& out_e) {
-        out_e = state * out_e;
-        state = state * in_e;
-    });
+    map_accumulate<Direction::Backward>(
+        in, out, Vec(lane_inv), inv_tail_acc, [](auto& state, const auto& in_e, auto& out_e) {
+            out_e = state * out_e;
+            state = state * in_e;
+        });
     // map_accumulate already adopted out's cursor from in, so out reports the same size() / tail().
 }
 

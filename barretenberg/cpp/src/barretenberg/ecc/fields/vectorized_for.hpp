@@ -9,13 +9,11 @@
 
 namespace bb {
 
-// Compile-time trait: does VectorField<Fr::Params> have a SIMD operator*
-// body on this target? Delegates to `has_simd_mont_mul_v`, which is
-// specialized in vector_field.hpp next to each operator* declaration.
-// Adding a new Params with a SIMD body widens this trait automatically —
-// no edits needed here. Fr's without a body (e.g. stdlib::field_t today)
-// take the scalar path even under WASM SIMD.
-template <typename Fr> inline constexpr bool simd_supported_v = has_simd_mont_mul_v<typename Fr::Params>;
+// Compile-time trait: is a SIMD VectorField<Fr::Params> operator* body actually compiled on this
+// target? Delegates to `simd_available_v` (vector_field.hpp), which is target-aware — false on a
+// non-SIMD build and false for any Fr without a body (e.g. stdlib::field_t today). Because it is
+// target-aware, callers branch on it with a plain `if constexpr` and need no `#if __wasm_simd128__`.
+template <typename Fr> inline constexpr bool simd_supported_v = simd_available_v<typename Fr::Params>;
 
 // Number of field elements per ContiguousVectorIndex<N> / VectorIndex<N>
 // token, equal to VectorField's q1s1 lane count (4 SIMD lanes + 1 scalar
@@ -100,7 +98,8 @@ template <size_t N> constexpr ContiguousVectorIndex<N> shift(ContiguousVectorInd
 template <size_t N, typename Fr, typename K>
 [[gnu::always_inline]] inline void vectorized_for(size_t start, size_t end, K&& kernel)
 {
-#if defined(__wasm_simd128__)
+    // simd_supported_v<Fr> is target-aware, so on native (and for any Fr without a SIMD body) it is
+    // false and the packed branch below is discarded by `if constexpr` — no `#if __wasm_simd128__`.
     if constexpr (simd_supported_v<Fr>) {
         size_t i = start;
         // Bulk: emit ContiguousVectorIndex<N> so the kernel routes through the
@@ -121,19 +120,13 @@ template <size_t N, typename Fr, typename K>
             ++i;
         }
     } else {
-        // SIMD not supported for this Fr (e.g. bb::fq under ECCVM/Translator).
-        // Degenerate to scalar so the kernel body never instantiates against
-        // VectorField<NonBn254FrParams>::operator*, which is undefined.
+        // Scalar fallback: native (avoids the round-trip through the VectorField scalar fallback), or an
+        // Fr without a SIMD body (e.g. bb::fq under ECCVM/Translator) so the kernel never instantiates
+        // against an undefined VectorField<Params>::operator*.
         for (size_t i = start; i < end; ++i) {
             BB_INLINE_STMT kernel(ScalarIndex{ i });
         }
     }
-#else
-    // Native: plain scalar — see design note above.
-    for (size_t i = start; i < end; ++i) {
-        BB_INLINE_STMT kernel(ScalarIndex{ i });
-    }
-#endif
 }
 
 // Sparse variant of vectorized_for. Walks [start, end), invokes `predicate(i)` for each i,
@@ -151,7 +144,8 @@ template <size_t N, typename Fr, typename K>
 template <size_t N, typename Fr, typename P, typename K>
 void vectorized_for_if(size_t start, size_t end, P&& predicate, K&& kernel)
 {
-#if defined(__wasm_simd128__)
+    // Target-aware via simd_supported_v (see vectorized_for): the gather path is discarded by
+    // `if constexpr` on native and for any Fr without a SIMD body — no `#if __wasm_simd128__` needed.
     if constexpr (simd_supported_v<Fr>) {
         VectorIndex<N> buf{};
         size_t count = 0;
@@ -169,24 +163,14 @@ void vectorized_for_if(size_t start, size_t end, P&& predicate, K&& kernel)
             kernel(ScalarIndex{ buf.idx[k] });
         }
     } else {
-        // SIMD not supported for this Fr — scalar-only path.
+        // Scalar fallback: native (VectorIndex<N> would otherwise round-trip through VectorField::gather)
+        // or an Fr without a SIMD body.
         for (size_t i = start; i < end; ++i) {
             if (predicate(i)) {
                 kernel(ScalarIndex{ i });
             }
         }
     }
-#else
-    // Native: plain scalar — see design note on vectorized_for above.
-    // Same reasoning applies: VectorIndex<N> on native routes through
-    // VectorField::gather, which is a struct-round-trip wrapper around N
-    // scalar reads.
-    for (size_t i = start; i < end; ++i) {
-        if (predicate(i)) {
-            kernel(ScalarIndex{ i });
-        }
-    }
-#endif
 }
 
 } // namespace bb

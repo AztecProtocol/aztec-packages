@@ -43,6 +43,8 @@ class MegaAvmFlavor : public MegaAVMFlavor_Generated {
 
     static constexpr size_t VIRTUAL_LOG_N = MEGA_AVM_LOG_N;
     static constexpr bool USE_SHORT_MONOMIALS = true;
+    // No USE_SIMD_SUMCHECK: the SIMD sumcheck path is WASM-only today and the AVM proves natively. Opt in
+    // here once native SIMD field operations exist and can be routed through sumcheck's relation evaluation.
     static constexpr bool HasZK = false;
     static constexpr bool USE_PADDING = true;
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;

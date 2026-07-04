@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include <cstdint>
 
@@ -34,6 +35,19 @@ template <typename Builder> class Proof : public std::vector<bb::stdlib::field_t
             this->push_back(bb::stdlib::witness_t<Builder>(&builder, element));
         }
     };
+
+    // Extract the circuit builder context shared by the proof's witnesses.
+    // Recursive verifiers recover their builder from the proof elements; validate_context checks that every
+    // element belongs to the same builder and returns it (nullptr if the proof is empty or all-constant), so
+    // we reject that case rather than dereferencing past the end of an empty proof.
+    Builder* get_context() const
+    {
+        Builder* context = validate_context<Builder>(*this);
+        if (context == nullptr) {
+            throw_or_abort("stdlib::Proof::get_context: cannot extract builder from an empty or constant proof");
+        }
+        return context;
+    }
 
     // Extract the native HonkProof
     HonkProof get_value() const
