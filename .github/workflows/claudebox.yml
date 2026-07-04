@@ -19,6 +19,14 @@ on:
         description: 'Git ref the session should work against (e.g., origin/merge-train/barretenberg)'
         required: false
         type: string
+      repo:
+        description: 'Repo the work targets (owner/repo). Defaults to this repo. A private target (…-private) makes the session run in private mode.'
+        required: false
+        type: string
+      mode:
+        description: 'ClaudeBox repo-access mode (public|private). Leave empty to infer from the target repo.'
+        required: false
+        type: string
       slack_channel:
         description: 'Slack channel ID to thread status into (set by the kickoff script)'
         required: false
@@ -124,15 +132,19 @@ jobs:
           CLAUDEBOX_LINK: ${{ steps.parse.outputs.link }}
           COMMENT_ID: ${{ github.event.comment.id || '' }}
           RUN_COMMENT_ID: ${{ steps.status_comment.outputs.run_comment_id || '' }}
-          REPO: ${{ github.repository }}
+          REPO: ${{ inputs.repo || github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           AUTHOR: ${{ github.event.comment.user.login || github.actor }}
           SLACK_CHANNEL: ${{ inputs.slack_channel || '' }}
           SLACK_THREAD_TS: ${{ inputs.slack_thread_ts || '' }}
-          # Public mode grants the session read-write access to public repos
-          # (aztec-packages). Without it the session only gets the group's
-          # unscoped repos and cannot open PRs against aztec-packages.
-          CLAUDEBOX_MODE: ${{ vars.CLAUDEBOX_MODE || 'public' }}
+          # Mode selection, in priority order:
+          #   1. an explicit `mode` input (caller knows best);
+          #   2. private, when the target repo is a private mirror (…-private) —
+          #      e.g. a merge-train dequeue on aztec-packages-private, which a
+          #      public-mode session cannot read or open a fix PR against;
+          #   3. the repo/org default (public) for ordinary /claudebox work on
+          #      aztec-packages.
+          CLAUDEBOX_MODE: ${{ inputs.mode || (endsWith(inputs.repo || github.repository, '-private') && 'private' || vars.CLAUDEBOX_MODE || 'public') }}
         run: |
           if [ -z "${CLAUDEBOX_API_SECRET:-}" ]; then
             echo "ERROR: CLAUDEBOX_API_SECRET is not set; cannot dispatch ClaudeBox v2"
