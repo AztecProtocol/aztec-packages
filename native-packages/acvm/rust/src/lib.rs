@@ -197,4 +197,59 @@ mod tests {
     fn deserialize_error_is_reported() {
         assert!(execute_acir(&[0xff, 0xff, 0xff], &[]).is_err());
     }
+
+    /// Exercises both branches of the generated `ffi_dispatch` in-out scratch ABI: a large scratch
+    /// (response fits, no allocation) and a tiny scratch (falls back to allocation) must produce the
+    /// identical response frame.
+    #[test]
+    fn ffi_dispatch_scratch_and_fallback() {
+        use crate::generated::acvm_server::{ffi_dispatch, ffi_free};
+        use crate::generated::acvm_types::{AcvmExecuteProgram, Bin32, Command, WitnessEntry};
+
+        let initial = vec![
+            WitnessEntry {
+                index: 0,
+                value: Bin32(be32(3)),
+            },
+            WitnessEntry {
+                index: 1,
+                value: Bin32(be32(5)),
+            },
+        ];
+        let request = rmp_serde::to_vec_named(&vec![Command::AcvmExecuteProgram(
+            AcvmExecuteProgram::new(addition_program(), initial),
+        )])
+        .unwrap();
+
+        unsafe fn run(request: &[u8], scratch_cap: usize) -> (Vec<u8>, bool) {
+            let mut scratch = vec![0u8; scratch_cap.max(1)];
+            let scratch_ptr = scratch.as_mut_ptr();
+            let mut out_ptr = scratch_ptr;
+            let mut out_len = scratch_cap;
+            ffi_dispatch(
+                &mut AcvmHandler,
+                request.as_ptr(),
+                request.len(),
+                &mut out_ptr,
+                &mut out_len,
+            );
+            let allocated = out_ptr != scratch_ptr;
+            let bytes = std::slice::from_raw_parts(out_ptr, out_len).to_vec();
+            if allocated {
+                ffi_free(out_ptr, out_len);
+            }
+            (bytes, allocated)
+        }
+
+        unsafe {
+            let (fit, alloc_fit) = run(&request, 64 * 1024);
+            assert!(!alloc_fit, "response should fit the large scratch");
+            let (big, alloc_big) = run(&request, 1);
+            assert!(alloc_big, "tiny scratch should force allocation");
+            assert_eq!(
+                fit, big,
+                "both scratch paths must yield the same response frame"
+            );
+        }
+    }
 }

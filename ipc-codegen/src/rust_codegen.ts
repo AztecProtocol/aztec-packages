@@ -833,26 +833,45 @@ pub unsafe fn ffi_free(ptr: *mut u8, len: usize) {
     }
 }
 
-/// Decode a msgpack request, dispatch it via \`handler\`, and write the response frame's
-/// \`(ptr, len)\` into the out-params. The host owns the returned buffer and frees it via \`ffi_free\`.
+/// Decode a msgpack request, dispatch it via \`handler\`, and return the response frame using an
+/// **in-out scratch** convention so the hot path needs no allocation:
+///
+/// On entry the host passes a reusable scratch buffer via the out-params — \`*output_ptr_inout\` is
+/// the scratch pointer and \`*output_len_inout\` its capacity. If the response fits it is copied into
+/// the scratch and only \`*output_len_inout\` is updated (pointer unchanged -> host sees "used
+/// scratch", nothing to free). Otherwise a buffer is allocated and \`*output_ptr_inout\` repointed at
+/// it (the host copies it out, frees it via \`ffi_free\`, and typically grows its scratch so the next
+/// response fits). Pass a null/zero scratch to always allocate.
 ///
 /// # Safety
-/// \`input_ptr\`/\`input_len\` must describe a valid buffer; the out-pointers must be writable.
+/// \`input_ptr\`/\`input_len\` must describe a valid buffer; the out-pointers must be writable, and any
+/// non-null scratch must have \`*output_len_inout\` writable bytes.
 pub unsafe fn ffi_dispatch(
     handler: &mut dyn Handler,
     input_ptr: *const u8,
     input_len: usize,
-    output_ptr_out: *mut *mut u8,
-    output_len_out: *mut usize,
+    output_ptr_inout: *mut *mut u8,
+    output_len_inout: *mut usize,
 ) {
     let request = core::slice::from_raw_parts(input_ptr, input_len);
-    let mut response = handle_request(handler, request);
-    response.shrink_to_fit();
-    let len = response.len();
-    let ptr = response.as_mut_ptr();
-    core::mem::forget(response);
-    *output_ptr_out = ptr;
-    *output_len_out = len;
+    let response = handle_request(handler, request);
+
+    let scratch_ptr = *output_ptr_inout;
+    let scratch_cap = *output_len_inout;
+    if !scratch_ptr.is_null() && response.len() <= scratch_cap {
+        // Fits in the host-provided scratch: copy in place, leave the pointer unchanged.
+        core::ptr::copy_nonoverlapping(response.as_ptr(), scratch_ptr, response.len());
+        *output_len_inout = response.len();
+    } else {
+        // Oversized: hand back an owned allocation for the host to copy out and free.
+        let mut resp = response;
+        resp.shrink_to_fit();
+        let len = resp.len();
+        let ptr = resp.as_mut_ptr();
+        core::mem::forget(resp);
+        *output_ptr_inout = ptr;
+        *output_len_inout = len;
+    }
 }
 `;
   }

@@ -16,11 +16,24 @@ import type { IpcClientSync } from "./types.js";
  * shimmed (random_get, fd_write, environ_*, proc_exit, clock_time_get); mirrors the minimal shim
  * bb.js uses. Single-threaded; a wasi-threads variant is a future addition.
  */
+/** Scratch buffers grow to at least this, and in this granularity, to avoid re-alloc churn. */
+const SCRATCH_GRANULARITY = 64 * 1024;
+
 export class WasiModuleBackend implements IpcClientSync {
+  /** Persistent 8-byte in-out slot `[dataPtr: u32, dataLen: u32]`, reused across calls. */
+  private readonly metaPtr: number;
+  // Persistent, growable input/output scratch — no per-call alloc/free in the steady state.
+  private inPtr = 0;
+  private inCap = 0;
+  private outPtr = 0;
+  private outCap = 0;
+
   private constructor(
     private readonly instance: WebAssembly.Instance,
     private readonly exports: WasiFfiExports,
-  ) {}
+  ) {
+    this.metaPtr = exports.ipc_ffi_alloc(8);
+  }
 
   /** Instantiate a wasip1 module from its bytes (or a compiled Module). */
   static async create(
@@ -51,31 +64,60 @@ export class WasiModuleBackend implements IpcClientSync {
   }
 
   call(input: Uint8Array): Uint8Array {
-    const { ipc_ffi_alloc, ipc_ffi_entry, ipc_ffi_free } = this.exports;
+    const { ipc_ffi_entry, ipc_ffi_free } = this.exports;
 
-    const inPtr = ipc_ffi_alloc(input.length);
+    // Grow-and-reuse persistent scratch; both potential allocs happen before we touch memory.
+    const inPtr = this.ensureInput(input.length);
+    const outScratchPtr = this.ensureOutput(1);
+
     this.mem().set(input, inPtr);
+    // Hand the wasm our output scratch (ptr, capacity) via the in-out metadata slot.
+    const dvIn = this.view();
+    dvIn.setUint32(this.metaPtr, outScratchPtr, true);
+    dvIn.setUint32(this.metaPtr + 4, this.outCap, true);
 
-    // Two u32 out-slots: [out_ptr, out_len].
-    const metaPtr = ipc_ffi_alloc(8);
-    ipc_ffi_entry(inPtr, input.length, metaPtr, metaPtr + 4);
+    ipc_ffi_entry(inPtr, input.length, this.metaPtr, this.metaPtr + 4);
 
-    // The call may have grown memory — re-view before reading.
-    const dv = new DataView(
-      (this.instance.exports.memory as WebAssembly.Memory).buffer,
-    );
-    const outPtr = dv.getUint32(metaPtr, true);
-    const outLen = dv.getUint32(metaPtr + 4, true);
-    const output = this.mem().slice(outPtr, outPtr + outLen);
+    // Re-view (the call may have grown memory), then read where the wasm put the response.
+    const dvOut = this.view();
+    const outDataPtr = dvOut.getUint32(this.metaPtr, true);
+    const outLen = dvOut.getUint32(this.metaPtr + 4, true);
+    const output = this.mem().slice(outDataPtr, outDataPtr + outLen);
 
-    ipc_ffi_free(outPtr, outLen);
-    ipc_ffi_free(metaPtr, 8);
-    ipc_ffi_free(inPtr, input.length);
+    if (outDataPtr !== outScratchPtr) {
+      // Response didn't fit the scratch: the wasm allocated. Free it and grow scratch for next time.
+      ipc_ffi_free(outDataPtr, outLen);
+      this.ensureOutput(outLen);
+    }
     return output;
   }
 
   destroy(): void {
-    // Nothing to release: the module is dropped with this object.
+    const { ipc_ffi_free } = this.exports;
+    ipc_ffi_free(this.metaPtr, 8);
+    if (this.inPtr) ipc_ffi_free(this.inPtr, this.inCap);
+    if (this.outPtr) ipc_ffi_free(this.outPtr, this.outCap);
+    this.inPtr = this.outPtr = this.inCap = this.outCap = 0;
+  }
+
+  /** Ensure the input scratch holds `need` bytes (growing, retaining across calls). */
+  private ensureInput(need: number): number {
+    if (need > this.inCap) {
+      if (this.inPtr) this.exports.ipc_ffi_free(this.inPtr, this.inCap);
+      this.inCap = roundUp(need);
+      this.inPtr = this.exports.ipc_ffi_alloc(this.inCap);
+    }
+    return this.inPtr;
+  }
+
+  /** Ensure the output scratch holds `need` bytes (growing, retaining across calls). */
+  private ensureOutput(need: number): number {
+    if (need > this.outCap) {
+      if (this.outPtr) this.exports.ipc_ffi_free(this.outPtr, this.outCap);
+      this.outCap = roundUp(need);
+      this.outPtr = this.exports.ipc_ffi_alloc(this.outCap);
+    }
+    return this.outPtr;
   }
 
   private mem(): Uint8Array {
@@ -83,6 +125,19 @@ export class WasiModuleBackend implements IpcClientSync {
       (this.instance.exports.memory as WebAssembly.Memory).buffer,
     );
   }
+
+  private view(): DataView {
+    return new DataView(
+      (this.instance.exports.memory as WebAssembly.Memory).buffer,
+    );
+  }
+}
+
+function roundUp(n: number): number {
+  return Math.max(
+    SCRATCH_GRANULARITY,
+    Math.ceil(n / SCRATCH_GRANULARITY) * SCRATCH_GRANULARITY,
+  );
 }
 
 interface WasiFfiExports {
