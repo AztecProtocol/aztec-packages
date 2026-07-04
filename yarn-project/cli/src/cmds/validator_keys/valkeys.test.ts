@@ -4,6 +4,7 @@ import { loadKeystoreFile } from '@aztec/node-keystore/loader';
 import type { KeyStore } from '@aztec/node-keystore/types';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
+import { Command, Option } from 'commander';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -27,13 +28,43 @@ import { validatePublisherOptions } from './utils.js';
 
 const TEST_MNEMONIC = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
 
+function getEncryptedAttester(keystore: KeyStore) {
+  const validator = keystore.validators?.[0];
+  if (!validator || typeof validator.attester !== 'object' || !('eth' in validator.attester)) {
+    throw new Error('Expected encrypted attester with ETH and BLS key references');
+  }
+  return validator.attester as any;
+}
+
 describe('validator keys utilities', () => {
   let tmp: string;
   let feeRecipient: AztecAddress;
+  let originalKeystorePasswords: Record<string, string | undefined>;
 
   beforeAll(async () => {
     feeRecipient = await AztecAddress.random();
     tmp = mkdtempSync(join(tmpdir(), 'aztec-valkeys-'));
+  });
+
+  beforeEach(() => {
+    originalKeystorePasswords = {
+      AZTEC_KEYSTORE_PASSWORD: process.env.AZTEC_KEYSTORE_PASSWORD,
+      AZTEC_ETH_KEYSTORE_PASSWORD: process.env.AZTEC_ETH_KEYSTORE_PASSWORD,
+      AZTEC_BLS_KEYSTORE_PASSWORD: process.env.AZTEC_BLS_KEYSTORE_PASSWORD,
+    };
+    delete process.env.AZTEC_KEYSTORE_PASSWORD;
+    delete process.env.AZTEC_ETH_KEYSTORE_PASSWORD;
+    delete process.env.AZTEC_BLS_KEYSTORE_PASSWORD;
+  });
+
+  afterEach(() => {
+    for (const [key, value] of Object.entries(originalKeystorePasswords)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
   });
 
   afterAll(() => {
@@ -418,6 +449,7 @@ describe('validator keys utilities', () => {
 
     it('writes keys to files when password is provided', async () => {
       const path = join(tmp, 'created-files.json');
+      const password = 'test-password-123';
       const logs: string[] = [];
       const log = (s: string) => logs.push(s);
       await newValidatorKeystore(
@@ -427,7 +459,7 @@ describe('validator keys utilities', () => {
           count: 1,
           publisherCount: 1,
           mnemonic: TEST_MNEMONIC,
-          password: '',
+          password,
           encryptedKeystoreDir: tmp,
           feeRecipient: ('0x' + '07'.repeat(32)) as unknown as AztecAddress,
         },
@@ -435,13 +467,335 @@ describe('validator keys utilities', () => {
       );
       const keystore: KeyStore = loadKeystoreFile(path);
       expect(keystore.validators).toBeDefined();
-      const v = keystore.validators![0];
-      // attester may be plain object or contain eth+bls
-      const att = typeof v.attester === 'object' && 'eth' in v.attester ? v.attester : { eth: v.attester };
-      expect(typeof (att.eth as any).path).toBe('string');
-      if ('bls' in att && att.bls) {
-        expect(typeof (att.bls as any).path).toBe('string');
-      }
+      const att = getEncryptedAttester(keystore);
+      expect(typeof att.eth.path).toBe('string');
+      expect(att.eth.password).toBe(password);
+      expect(typeof att.bls.path).toBe('string');
+      expect(att.bls.password).toBe(password);
+    });
+
+    it('rejects empty passwords', async () => {
+      const logs: string[] = [];
+      const log = (s: string) => logs.push(s);
+
+      await expect(
+        newValidatorKeystore(
+          {
+            dataDir: tmp,
+            file: 'empty-password.json',
+            count: 1,
+            mnemonic: TEST_MNEMONIC,
+            password: '',
+            feeRecipient: ('0x' + '07'.repeat(32)) as unknown as AztecAddress,
+          },
+          log,
+        ),
+      ).rejects.toThrow(/--password cannot be empty/);
+    });
+
+    it('reads password from a file and strips one trailing newline', async () => {
+      const path = join(tmp, 'password-file.json');
+      const passwordFile = join(tmp, 'keystore-password.txt');
+      const password = 'file-password-123';
+      writeFileSync(passwordFile, `${password}\n`, 'utf-8');
+      const logs: string[] = [];
+      const log = (s: string) => logs.push(s);
+
+      await newValidatorKeystore(
+        {
+          dataDir: tmp,
+          file: 'password-file.json',
+          count: 1,
+          mnemonic: TEST_MNEMONIC,
+          passwordFile,
+          encryptedKeystoreDir: tmp,
+          feeRecipient: ('0x' + '07'.repeat(32)) as unknown as AztecAddress,
+        },
+        log,
+      );
+
+      const att = getEncryptedAttester(loadKeystoreFile(path));
+      expect(att.eth.password).toBe(password);
+      expect(att.bls.password).toBe(password);
+    });
+
+    it('reads password from AZTEC_KEYSTORE_PASSWORD through the command option', async () => {
+      const path = join(tmp, 'env-password.json');
+      const password = 'env-password-123';
+      process.env.AZTEC_KEYSTORE_PASSWORD = password;
+      const logs: string[] = [];
+      const log = (s: string) => logs.push(s);
+      const program = new Command();
+      program.exitOverride();
+      program
+        .command('new')
+        .addOption(new Option('--password <str>').env('AZTEC_KEYSTORE_PASSWORD'))
+        .option('--data-dir <path>')
+        .option('--file <name>')
+        .option('--mnemonic <mnemonic>')
+        .option('--encrypted-keystore-dir <dir>')
+        .action(async options => {
+          await newValidatorKeystore({ ...options, feeRecipient }, log);
+        });
+
+      await program.parseAsync(
+        [
+          'new',
+          '--data-dir',
+          tmp,
+          '--file',
+          'env-password.json',
+          '--mnemonic',
+          TEST_MNEMONIC,
+          '--encrypted-keystore-dir',
+          tmp,
+        ],
+        { from: 'user' },
+      );
+
+      const att = getEncryptedAttester(loadKeystoreFile(path));
+      expect(att.eth.password).toBe(password);
+      expect(att.bls.password).toBe(password);
+    });
+
+    it('rejects empty password sources', async () => {
+      const emptyPasswordFile = join(tmp, 'empty-keystore-password.txt');
+      writeFileSync(emptyPasswordFile, '\n', 'utf-8');
+      const logs: string[] = [];
+      const log = (s: string) => logs.push(s);
+
+      await expect(
+        newValidatorKeystore(
+          {
+            dataDir: tmp,
+            file: 'empty-password-file.json',
+            count: 1,
+            mnemonic: TEST_MNEMONIC,
+            passwordFile: emptyPasswordFile,
+            feeRecipient: ('0x' + '07'.repeat(32)) as unknown as AztecAddress,
+          },
+          log,
+        ),
+      ).rejects.toThrow(/--password-file cannot be empty/);
+    });
+
+    it('rejects using password and passwordFile together', async () => {
+      const passwordFile = join(tmp, 'conflicting-keystore-password.txt');
+      writeFileSync(passwordFile, 'file-password', 'utf-8');
+      const logs: string[] = [];
+      const log = (s: string) => logs.push(s);
+
+      await expect(
+        newValidatorKeystore(
+          {
+            dataDir: tmp,
+            file: 'conflicting-password-source.json',
+            count: 1,
+            mnemonic: TEST_MNEMONIC,
+            password: 'flag-password',
+            passwordFile,
+            feeRecipient: ('0x' + '07'.repeat(32)) as unknown as AztecAddress,
+          },
+          log,
+        ),
+      ).rejects.toThrow(/--password and --password-file cannot be used together/);
+    });
+
+    it('writes ETH and BLS keystores with different passwords', async () => {
+      const path = join(tmp, 'separate-passwords.json');
+      const ethPassword = 'eth-password-123';
+      const blsPassword = 'bls-password-123';
+      const logs: string[] = [];
+      const log = (s: string) => logs.push(s);
+
+      await newValidatorKeystore(
+        {
+          dataDir: tmp,
+          file: 'separate-passwords.json',
+          count: 1,
+          mnemonic: TEST_MNEMONIC,
+          ethPassword,
+          blsPassword,
+          encryptedKeystoreDir: tmp,
+          feeRecipient: ('0x' + '07'.repeat(32)) as unknown as AztecAddress,
+        },
+        log,
+      );
+
+      const att = getEncryptedAttester(loadKeystoreFile(path));
+      expect(att.eth.password).toBe(ethPassword);
+      expect(att.bls.password).toBe(blsPassword);
+    });
+
+    it('uses role-specific passwords over the shared password', async () => {
+      const path = join(tmp, 'shared-with-bls-override.json');
+      const sharedPassword = 'shared-password-123';
+      const blsPassword = 'bls-password-override';
+      const logs: string[] = [];
+      const log = (s: string) => logs.push(s);
+
+      await newValidatorKeystore(
+        {
+          dataDir: tmp,
+          file: 'shared-with-bls-override.json',
+          count: 1,
+          mnemonic: TEST_MNEMONIC,
+          password: sharedPassword,
+          blsPassword,
+          encryptedKeystoreDir: tmp,
+          feeRecipient: ('0x' + '07'.repeat(32)) as unknown as AztecAddress,
+        },
+        log,
+      );
+
+      const att = getEncryptedAttester(loadKeystoreFile(path));
+      expect(att.eth.password).toBe(sharedPassword);
+      expect(att.bls.password).toBe(blsPassword);
+    });
+
+    it('reads ETH and BLS passwords from role-specific environment variables through command options', async () => {
+      const path = join(tmp, 'role-env-passwords.json');
+      const ethPassword = 'eth-env-password-123';
+      const blsPassword = 'bls-env-password-123';
+      process.env.AZTEC_ETH_KEYSTORE_PASSWORD = ethPassword;
+      process.env.AZTEC_BLS_KEYSTORE_PASSWORD = blsPassword;
+      const logs: string[] = [];
+      const log = (s: string) => logs.push(s);
+      const program = new Command();
+      program.exitOverride();
+      program
+        .command('new')
+        .addOption(new Option('--eth-password <str>').env('AZTEC_ETH_KEYSTORE_PASSWORD'))
+        .addOption(new Option('--bls-password <str>').env('AZTEC_BLS_KEYSTORE_PASSWORD'))
+        .option('--data-dir <path>')
+        .option('--file <name>')
+        .option('--mnemonic <mnemonic>')
+        .option('--encrypted-keystore-dir <dir>')
+        .action(async options => {
+          await newValidatorKeystore({ ...options, feeRecipient }, log);
+        });
+
+      await program.parseAsync(
+        [
+          'new',
+          '--data-dir',
+          tmp,
+          '--file',
+          'role-env-passwords.json',
+          '--mnemonic',
+          TEST_MNEMONIC,
+          '--encrypted-keystore-dir',
+          tmp,
+        ],
+        { from: 'user' },
+      );
+
+      const att = getEncryptedAttester(loadKeystoreFile(path));
+      expect(att.eth.password).toBe(ethPassword);
+      expect(att.bls.password).toBe(blsPassword);
+    });
+
+    it('rejects role-specific password sources without a password for the other role', async () => {
+      const logs: string[] = [];
+      const log = (s: string) => logs.push(s);
+
+      await expect(
+        newValidatorKeystore(
+          {
+            dataDir: tmp,
+            file: 'only-eth-password.json',
+            count: 1,
+            mnemonic: TEST_MNEMONIC,
+            ethPassword: 'eth-password-123',
+            feeRecipient: ('0x' + '07'.repeat(32)) as unknown as AztecAddress,
+          },
+          log,
+        ),
+      ).rejects.toThrow(/Both ETH and BLS passwords are required/);
+    });
+
+    it('rejects conflicting role-specific password sources', async () => {
+      const ethPasswordFile = join(tmp, 'conflicting-eth-password.txt');
+      writeFileSync(ethPasswordFile, 'eth-file-password', 'utf-8');
+      const logs: string[] = [];
+      const log = (s: string) => logs.push(s);
+
+      await expect(
+        newValidatorKeystore(
+          {
+            dataDir: tmp,
+            file: 'conflicting-eth-password-source.json',
+            count: 1,
+            mnemonic: TEST_MNEMONIC,
+            ethPassword: 'eth-password-123',
+            ethPasswordFile,
+            blsPassword: 'bls-password-123',
+            feeRecipient: ('0x' + '07'.repeat(32)) as unknown as AztecAddress,
+          },
+          log,
+        ),
+      ).rejects.toThrow(/--eth-password and --eth-password-file cannot be used together/);
+    });
+
+    it('does not output a generated mnemonic when writing encrypted keystores', async () => {
+      const logs: string[] = [];
+      const log = (s: string) => logs.push(s);
+
+      await newValidatorKeystore(
+        {
+          dataDir: tmp,
+          file: 'encrypted-generated-mnemonic.json',
+          count: 1,
+          password: 'test-password-123',
+          encryptedKeystoreDir: tmp,
+          feeRecipient: ('0x' + '07'.repeat(32)) as unknown as AztecAddress,
+        },
+        log,
+      );
+
+      expect(logs.join('\n')).not.toMatch(/No mnemonic provided|Using new mnemonic/);
+    });
+
+    it('omits generatedMnemonic from JSON output when writing encrypted keystores', async () => {
+      const logs: string[] = [];
+      const log = (s: string) => logs.push(s);
+
+      await newValidatorKeystore(
+        {
+          dataDir: tmp,
+          file: 'encrypted-json-output.json',
+          count: 1,
+          password: 'test-password-123',
+          encryptedKeystoreDir: tmp,
+          json: true,
+          feeRecipient: ('0x' + '07'.repeat(32)) as unknown as AztecAddress,
+        },
+        log,
+      );
+
+      const output = JSON.parse(logs[0]);
+      expect(output.generatedMnemonic).toBeUndefined();
+      expect(output.validators).toBeDefined();
+    });
+
+    it('keeps generatedMnemonic in JSON output when not writing encrypted keystores', async () => {
+      const logs: string[] = [];
+      const log = (s: string) => logs.push(s);
+
+      await newValidatorKeystore(
+        {
+          dataDir: tmp,
+          file: 'plaintext-json-output.json',
+          count: 1,
+          json: true,
+          feeRecipient: ('0x' + '07'.repeat(32)) as unknown as AztecAddress,
+        },
+        log,
+      );
+
+      const output = JSON.parse(logs[0]);
+      expect(typeof output.generatedMnemonic).toBe('string');
+      expect(output.validators).toBeDefined();
     });
 
     it('creates BN254 encrypted keystores that can be loaded and decrypted', async () => {
