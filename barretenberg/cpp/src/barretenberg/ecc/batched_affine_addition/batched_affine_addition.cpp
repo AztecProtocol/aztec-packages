@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <execution>
 #include <set>
+#include <utility>
 
 namespace bb {
 
@@ -26,6 +27,7 @@ std::vector<typename BatchedAffineAddition<Curve>::G1> BatchedAffineAddition<Cur
 
     // Construct a vector of the reduced points, accounting for sequences that may have been split across threads
     std::vector<G1> reduced_points;
+    reduced_points.reserve(sequence_counts.size());
     size_t prev_tag = std::numeric_limits<size_t>::max();
     for (auto [sequences, tags] : zip_view(addition_sequences, sequence_tags)) {
         // Extract the first num-sequence-counts many points from each add sequence
@@ -48,6 +50,7 @@ typename BatchedAffineAddition<Curve>::ThreadData BatchedAffineAddition<Curve>::
 {
     // Compute the endpoints of the sequences within the points array from the sequence counts
     std::vector<size_t> sequence_endpoints;
+    sequence_endpoints.reserve(sequence_counts.size());
     size_t total_count = 0;
     for (const auto& count : sequence_counts) {
         total_count += count;
@@ -73,8 +76,11 @@ typename BatchedAffineAddition<Curve>::ThreadData BatchedAffineAddition<Curve>::
 
     // Construct the point spans for each thread according to the distribution determined above
     std::vector<std::span<G1>> thread_points;
+    thread_points.reserve(num_threads);
     std::vector<std::span<Fq>> thread_scratch_space;
+    thread_scratch_space.reserve(num_threads);
     std::vector<size_t> thread_endpoints;
+    thread_endpoints.reserve(num_threads);
     size_t point_index = 0;
     for (auto size : thread_sizes) {
         thread_points.push_back(points.subspan(point_index, size));
@@ -119,12 +125,13 @@ typename BatchedAffineAddition<Curve>::ThreadData BatchedAffineAddition<Curve>::
 
     // Construct the addition sequences for each thread
     std::vector<AdditionSequences> addition_sequences;
+    addition_sequences.reserve(num_threads);
     for (size_t i = 0; i < num_threads; ++i) {
         addition_sequences.push_back(
-            AdditionSequences{ thread_sequence_counts[i], thread_points[i], thread_scratch_space[i] });
+            AdditionSequences{ std::move(thread_sequence_counts[i]), thread_points[i], thread_scratch_space[i] });
     }
 
-    return { addition_sequences, thread_sequence_tags };
+    return { std::move(addition_sequences), std::move(thread_sequence_tags) };
 }
 
 template <typename Curve>
@@ -132,7 +139,7 @@ std::span<typename BatchedAffineAddition<Curve>::Fq> BatchedAffineAddition<
     Curve>::batch_compute_point_addition_slope_inverses(const AdditionSequences& add_sequences)
 {
     auto points = add_sequences.points;
-    auto sequence_counts = add_sequences.sequence_counts;
+    const auto& sequence_counts = add_sequences.sequence_counts;
 
     // Count the total number of point pairs to be added across all addition sequences
     size_t total_num_pairs{ 0 };
@@ -195,7 +202,7 @@ void BatchedAffineAddition<Curve>::batched_affine_add_in_place(AdditionSequences
     std::span<Fq> denominators = batch_compute_point_addition_slope_inverses(add_sequences);
 
     auto points = add_sequences.points;
-    auto sequence_counts = add_sequences.sequence_counts;
+    auto& sequence_counts = add_sequences.sequence_counts;
 
     // Compute pairwise in-place additions for all sequences with more than 1 point
     size_t point_idx = 0;        // index for points to be summed
@@ -232,7 +239,7 @@ void BatchedAffineAddition<Curve>::batched_affine_add_in_place(AdditionSequences
         const size_t updated_point_count = result_point_idx;
         std::span<G1> updated_points(&points[0], updated_point_count);
         return batched_affine_add_in_place(
-            AdditionSequences{ sequence_counts, updated_points, add_sequences.scratch_space });
+            AdditionSequences{ std::move(sequence_counts), updated_points, add_sequences.scratch_space });
     }
 }
 

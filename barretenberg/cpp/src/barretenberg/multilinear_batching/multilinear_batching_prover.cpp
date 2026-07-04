@@ -120,17 +120,8 @@ template <typename Flavor> MultilinearBatchingProverClaim MultilinearBatchingPro
         }
     }
 
-    std::vector<Commitment> non_shifted_commitments;
-    std::vector<Commitment> shifted_commitments;
-    non_shifted_commitments.reserve(Flavor::NUM_CLAIMS);
-    shifted_commitments.reserve(Flavor::NUM_CLAIMS);
-    for (size_t idx = 0; idx < Flavor::NUM_CLAIMS; ++idx) {
-        non_shifted_commitments.emplace_back(key.non_shifted_commitments[idx]);
-        shifted_commitments.emplace_back(key.shifted_commitments[idx]);
-    }
-
-    auto new_non_shifted_commitment = Commitment::batch_mul(non_shifted_commitments, scalars);
-    auto new_shifted_commitment = Commitment::batch_mul(shifted_commitments, scalars);
+    auto new_non_shifted_commitment = Commitment::batch_mul(key.non_shifted_commitments, scalars);
+    auto new_shifted_commitment = Commitment::batch_mul(key.shifted_commitments, scalars);
 
     return MultilinearBatchingProverClaim{ .challenge = std::move(sumcheck_output.challenge),
                                            .non_shifted_evaluation = new_non_shifted_evaluation,

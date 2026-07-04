@@ -448,6 +448,7 @@ template <typename T> std::vector<T> many_from_buffer(std::vector<uint8_t> const
 {
     const size_t num_elements = buffer.size() / sizeof(T);
     std::vector<T> elements;
+    elements.reserve(num_elements);
     for (size_t i = 0; i < num_elements; ++i) {
         elements.push_back(from_buffer<T>(buffer, i * sizeof(T)));
     }
@@ -462,7 +463,7 @@ template <bool include_size = false, typename T> std::vector<uint8_t> to_buffer(
     if (include_size) {
         write(buf, value);
     } else {
-        for (auto e : value) {
+        for (const auto& e : value) {
             write(buf, e);
         }
     }

@@ -215,7 +215,7 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
      */
     void load_proof(const std::vector<DataType>& proof)
     {
-        std::copy(proof.begin(), proof.end(), std::back_inserter(proof_data));
+        proof_data.insert(proof_data.end(), proof.begin(), proof.end());
     }
 
     // Return the size of proof_data
@@ -498,7 +498,7 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
         return Codec::template deserialize_from_fields<T>(frs);
     }
 
-    [[nodiscard]] TranscriptManifest get_manifest() const { return manifest; };
+    [[nodiscard]] const TranscriptManifest& get_manifest() const { return manifest; };
 
     void print()
     {
