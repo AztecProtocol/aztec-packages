@@ -75,6 +75,9 @@ describe('e2e_snapshot_sync', () => {
     );
   };
 
+  const waitForSnapshotFiles = (dir: string) =>
+    retryUntil(() => readdir(dir).then(files => files.length > 0), 'snapshot-created', 90, 1);
+
   const expectNodeSyncedToL2Block = async (node: AztecNode, blockNumber: number) => {
     const tips = await node.getChainTips();
     expect(tips.proposed.number).toBeGreaterThanOrEqual(blockNumber);
@@ -86,9 +89,7 @@ describe('e2e_snapshot_sync', () => {
   // enough chain history for the subsequent snapshot tests.
   it('waits until a few checkpoints have been mined', async () => {
     log.warn(`Waiting for checkpoints to be mined`);
-    // REFACTOR: hand-rolled poll on ChainMonitor.checkpointNumber; EpochsTestContext.waitUntilCheckpointNumber
-    // or a shared helper should replace this retryUntil.
-    await retryUntil(() => monitor.checkpointNumber > TARGET_CHECKPOINT_NUMBER, 'checkpoints-mined', 90, 1);
+    await monitor.waitUntilCheckpoint(CheckpointNumber(TARGET_CHECKPOINT_NUMBER + 1));
     log.warn(`Checkpoint height is now ${monitor.checkpointNumber}.`);
   });
 
@@ -97,9 +98,7 @@ describe('e2e_snapshot_sync', () => {
   it('creates a snapshot', async () => {
     log.warn(`Creating snapshot`);
     await context.aztecNodeAdmin.startSnapshotUpload(snapshotLocation);
-    // REFACTOR: hand-rolled poll waiting for snapshot files to appear; a helper like
-    // waitForSnapshotUpload(adminNode, snapshotDir) should replace this.
-    await retryUntil(() => readdir(snapshotDir).then(files => files.length > 0), 'snapshot-created', 90, 1);
+    await waitForSnapshotFiles(snapshotDir);
     log.warn(`Snapshot created`);
   });
 

@@ -112,8 +112,6 @@ describe('single-node/proving/optimistic', () => {
     /** epoch -> lowest checkpoint header slot of any CheckpointProver observed for that epoch. */
     const lowestProvenSlotByEpoch = new Map<EpochNumber, SlotNumber>();
     let stopped = false;
-    // REFACTOR: hand-rolled setTimeout sampler loop with a `stopped` flag — a polling/observe helper
-    // (e.g. a sampler that records earliest-observed values per key until disposed) should replace it.
     const loop = (async () => {
       while (!stopped) {
         for (const prover of proverNode.getCheckpointStore().listAll()) {

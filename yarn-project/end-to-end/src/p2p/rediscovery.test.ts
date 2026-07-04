@@ -58,8 +58,6 @@ describe('e2e_p2p_rediscovery', () => {
   // Forms an initial 4-node mesh, stops the bootstrap node, then restarts each validator from its data
   // directory without any bootstrap ENR. Submits txs to each restarted node and asserts they mine,
   // proving that discv5 peer-store entries are sufficient for re-discovery.
-  // REFACTOR: sequential sleep(2500) between node restarts is hand-rolled; the delay exists to avoid
-  // port conflicts but should be replaced with a port-readiness check or staggered createNode calls
   it('should re-discover stored peers without bootstrap node', async () => {
     const txsSentViaDifferentNodes: TxHash[][] = [];
     nodes = await createNodes(
@@ -113,10 +111,12 @@ describe('e2e_p2p_rediscovery', () => {
 
     await t.waitForP2PMeshConnectivity(newNodes, NUM_VALIDATORS, 120);
 
-    for (const node of newNodes) {
-      const txs = await submitTransactions(t.logger, node, NUM_TXS_PER_NODE, t.fundedAccount);
-      txsSentViaDifferentNodes.push(txs);
-    }
+    // Each submitTransactions call builds its own wallet/PXE, so submissions are independent and can run
+    // concurrently. Promise.all preserves node order, keeping txsSentViaDifferentNodes[i] aligned with newNodes[i].
+    const submitted = await Promise.all(
+      newNodes.map(node => submitTransactions(t.logger, node, NUM_TXS_PER_NODE, t.fundedAccount)),
+    );
+    txsSentViaDifferentNodes.push(...submitted);
 
     // now ensure that all txs were successfully mined
     await Promise.all(
