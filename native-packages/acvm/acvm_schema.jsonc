@@ -1,0 +1,43 @@
+// acvm_schema.jsonc — the ACVM circuit-execution IPC service, human-authored.
+// Owns the wire contract shared by the Rust server (in native-packages/acvm/rust,
+// linking the noir submodule's acvm lib) and the generated TS client (@aztec/acvm-sim).
+{
+  "service": "Acvm",
+
+  // 32-byte canonical field element (big-endian), matching acir's FieldElement
+  // msgpack `bin` encoding.
+  "aliases": {
+    "Fr": "bin32"
+  },
+
+  // A single (witness index -> field value) entry. The witness map crosses the
+  // wire as an array of these (the schema has no map type; mirrors wsdb's use of
+  // struct arrays).
+  "types": {
+    "WitnessEntry": {
+      "index": "u32",
+      "value": "Fr"
+    }
+  },
+
+  // Error variant shared by every command.
+  "error": { "message": "string" },
+
+  "commands": {
+    // Execute a compiled ACIR program against an initial witness and return the
+    // solved witness. `bytecode` is the raw ACIR blob exactly as produced by
+    // `Program::serialize_program` (self-describing msgpack with a leading format
+    // byte), decoded server-side by `Program::deserialize_program`. Protocol
+    // circuits make no foreign calls, so this is a pure execute; foreign-call /
+    // user-circuit support would need a later server->client callback pattern.
+    "ExecuteProgram": {
+      "request": {
+        "bytecode": "bytes",
+        "initialWitness": "WitnessEntry[]"
+      },
+      "response": {
+        "witness": "WitnessEntry[]"
+      }
+    }
+  }
+}
