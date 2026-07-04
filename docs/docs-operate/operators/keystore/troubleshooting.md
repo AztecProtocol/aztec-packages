@@ -370,6 +370,13 @@ aztec validator-keys new [options]
 | `--gse-address <address>` | GSE contract address (required with --staker-output) | None |
 | `--l1-rpc-urls <urls>` | L1 RPC endpoints (required with --staker-output) | None |
 | `--legacy` | Use 2.1.4 BLS derivation path (only for regenerating old keys) | `false` |
+| `--password <str>` | Shared password for encrypted ETH and BLS keystore files | `AZTEC_KEYSTORE_PASSWORD` if set |
+| `--password-file <path>` | File containing the shared encrypted-keystore password | None |
+| `--eth-password <str>` | Password for encrypted ETH keystore files | `AZTEC_ETH_KEYSTORE_PASSWORD`, then shared password |
+| `--eth-password-file <path>` | File containing the ETH encrypted-keystore password | None |
+| `--bls-password <str>` | Password for encrypted BLS keystore files | `AZTEC_BLS_KEYSTORE_PASSWORD`, then shared password |
+| `--bls-password-file <path>` | File containing the BLS encrypted-keystore password | None |
+| `--encrypted-keystore-dir <path>` | Directory for encrypted ETH and BLS keystore files | Keystore output directory |
 | `--data-dir <path>` | Output directory | `~/.aztec/keystore` |
 | `--file <name>` | Keystore filename | `key1.json` |
 
