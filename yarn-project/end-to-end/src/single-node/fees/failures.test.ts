@@ -97,10 +97,7 @@ describe('single-node/fees/failures', () => {
     await expectMapping(t.getGasBalanceFn, [aliceAddress, bananaFPC.address], [initialAliceGas, initialFPCGas]);
 
     // We wait until the proven chain is caught up so all previous fees are paid out.
-    // REFACTOR: manual advanceToNextEpoch + catchUpProvenChain sequence; replace with a single
-    // waitForEpochProven() helper on FeesTest that encapsulates this pattern.
-    await t.cheatCodes.rollup.advanceToNextEpoch();
-    await t.catchUpProvenChain();
+    await t.waitForEpochProven();
 
     const currentSequencerRewards = await t.getCoinbaseSequencerRewards();
     const provenCheckpointBefore = await t.rollupContract.getProvenCheckpointNumber();

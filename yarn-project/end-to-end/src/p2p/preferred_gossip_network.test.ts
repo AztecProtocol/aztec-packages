@@ -180,8 +180,6 @@ describe('e2e_p2p_preferred_network', () => {
   // Creates a 7-node topology (2 regular + 2 preferred + 2 validators + 1 no-discovery validator),
   // installs gossip monitors to verify no-discovery validators only receive traffic from preferred nodes,
   // submits txs from regular nodes, and asserts all txs mine with attestations from all validators.
-  // REFACTOR: peer-count polling loop in waitForNodeToAcquirePeers is hand-rolled; consider
-  // using t.waitForP2PMeshConnectivity with a peer-count predicate
   it('should rollup txs from all peers', async () => {
     // create the bootstrap node for the network
     if (!t.bootstrapNodeEnr) {
@@ -365,10 +363,12 @@ describe('e2e_p2p_preferred_network', () => {
 
     // Send the required number of transactions to each node
     t.logger.info('Submitting transactions');
-    for (const node of nodes) {
-      const txs = await submitTransactions(t.logger, node, NUM_TXS_PER_NODE, t.fundedAccount);
-      txsSentViaDifferentNodes.push(txs);
-    }
+    // Each submitTransactions call builds its own wallet/PXE, so submissions are independent and can run
+    // concurrently. Promise.all preserves node order, keeping txsSentViaDifferentNodes[i] aligned with nodes[i].
+    const submitted = await Promise.all(
+      nodes.map(node => submitTransactions(t.logger, node, NUM_TXS_PER_NODE, t.fundedAccount)),
+    );
+    txsSentViaDifferentNodes.push(...submitted);
 
     t.logger.info('Waiting for transactions to be mined');
     // now ensure that all txs were successfully mined

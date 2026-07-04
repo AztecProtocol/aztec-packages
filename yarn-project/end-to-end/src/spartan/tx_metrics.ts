@@ -161,6 +161,7 @@ export class TxInclusionMetrics {
   private mempoolMinedDelay:
     | { txP50: number; txP95: number; attestationP50: number; attestationP95: number }
     | undefined;
+  private inclusionOutcome: { mined: number; failed: number } | undefined;
 
   constructor(
     private aztecNode: AztecNode,
@@ -247,6 +248,16 @@ export class TxInclusionMetrics {
       data.minedAtMs = Number(block.header.globalVariables.timestamp) * 1000;
       data.positionInBlock = block.body.txEffects.findIndex(txEffect => txEffect.txHash.equals(txHash));
     }
+  }
+
+  /**
+   * Whether this tx was ever observed in a block (by the block-watcher or a mined receipt).
+   * Idempotent first-sighting semantics: a later reorg / pool eviction never clears it, so callers
+   * can treat "ever mined" as included regardless of what happens to the tx afterwards.
+   */
+  public wasMined(txHash: string): boolean {
+    const d = this.data.get(txHash);
+    return !!d && d.minedAtMs !== -1;
   }
 
   /** Per-tx inclusion records for a group. Used to serialise out for downstream tooling. */
@@ -342,6 +353,11 @@ export class TxInclusionMetrics {
     this.mempoolMinedDelay = { txP50, txP95, attestationP50, attestationP95 };
   }
 
+  /** Mined vs failed counts for the high-value lane — recorded instead of asserting strict 1:1 inclusion. */
+  public recordInclusionOutcome(mined: number, failed: number): void {
+    this.inclusionOutcome = { mined, failed };
+  }
+
   toGithubActionBenchmarkJSON(): Array<{ name: string; unit: string; value: number; range?: number; extra?: string }> {
     const data: Array<{ name: string; unit: string; value: number; range?: number; extra?: string }> = [];
     for (const group of this.groups) {
@@ -420,6 +436,16 @@ export class TxInclusionMetrics {
         { name: 'mempool/tx_mined_delay_p95', unit: 'ms', value: this.mempoolMinedDelay.txP95 },
         { name: 'mempool/attestation_mined_delay_p50', unit: 'ms', value: this.mempoolMinedDelay.attestationP50 },
         { name: 'mempool/attestation_mined_delay_p95', unit: 'ms', value: this.mempoolMinedDelay.attestationP95 },
+      );
+    }
+
+    if (this.inclusionOutcome) {
+      const { mined, failed } = this.inclusionOutcome;
+      const total = mined + failed;
+      data.push(
+        { name: 'inclusion/mined_count', unit: 'count', value: mined },
+        { name: 'inclusion/failed_count', unit: 'count', value: failed },
+        { name: 'inclusion/success_ratio', unit: 'ratio', value: total > 0 ? mined / total : 0 },
       );
     }
 
