@@ -14,8 +14,11 @@ on:
   merge_group: {}
 
 concurrency:
-  # Allow full concurrency for merge-train PRs, one-run-per-branch for everything else.
-  group: ci3-${{ (startsWith(github.event.pull_request.head.ref, 'merge-train/') && github.run_id) || github.event.merge_group.head_ref || github.ref_name }}
+  # merge-train PRs: one run per commit — distinct commits run concurrently (each is a real
+  # train state to test), but duplicate events for the same commit (synchronize + the bot's
+  # label re-applies) collapse. Keying on head.sha instead of run_id is what collapses them;
+  # run_id is unique per run and never collapsed anything. Everything else: one run per branch.
+  group: ci3-${{ (startsWith(github.event.pull_request.head.ref, 'merge-train/') && github.event.pull_request.head.sha) || github.event.merge_group.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
