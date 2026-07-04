@@ -81,6 +81,13 @@ function redis_cli {
 }
 
 function redis_setexz {
+  # No-op when redis is unavailable, but still drain stdin: otherwise the upstream
+  # producer feeding this pipeline gets SIGPIPE, which under `set -o pipefail` fails
+  # the caller (e.g. bootstrap_ec2's "CI booting..." log write killing the whole run).
+  if [ "$CI_REDIS_AVAILABLE" -ne 1 ]; then
+    cat >/dev/null
+    return 0
+  fi
   gzip | redis_cli -x SETEX $1 $2 &>/dev/null
 }
 
