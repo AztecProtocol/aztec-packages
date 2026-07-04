@@ -178,6 +178,7 @@ export class LogService {
       firstNullifierInTx: nullifiers[0],
       blockNumber: log.blockNumber,
       blockTimestamp: log.blockTimestamp,
+      blockHash: log.blockHash,
     };
   }
 

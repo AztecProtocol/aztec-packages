@@ -19,4 +19,10 @@ pub struct LogRetrievalResponse {
     pub unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
     /// The first nullifier created by `tx_hash`
     pub first_nullifier_in_tx: Field,
+    /// The number of the block in which `tx_hash` was included
+    pub block_number: u32,
+    /// The timestamp of the block in which `tx_hash` was included
+    pub block_timestamp: u64,
+    /// The hash of the block in which `tx_hash` was included
+    pub block_hash: Field,
 }

@@ -1,4 +1,6 @@
 use crate::HandshakeRegistry;
+use crate::sync::cursor::SyncCursor;
+use crate::sync::discovered_handshakes::origin_block_numbers;
 
 use aztec::{
     messages::delivery::{
@@ -504,7 +506,7 @@ unconstrained fn repeated_sync_does_not_refetch_logs() {
     assert_eq(after_first.items.len(), 1);
 
     // Mock the log-retrieval oracle so we can assert it is never called on re-sync.
-    let log_oracle = OracleMock::mock("aztec_utl_getLogsByTag");
+    let log_oracle = OracleMock::mock("aztec_utl_getLogsByTagV2");
     let _ = env.execute_utility(registry.get_handshakes(recipient, 0));
     assert_eq(log_oracle.times_called(), 0);
     log_oracle.clear();
@@ -572,4 +574,52 @@ unconstrained fn get_handshakes_out_of_bounds_offset_returns_empty() {
     let page = env.execute_utility(registry.get_handshakes(recipient, 999));
     assert_eq(page.items.len(), 0);
     assert_eq(page.total_count, 1);
+}
+
+#[test]
+unconstrained fn rescan_after_cursor_retraction_does_not_duplicate_handshakes() {
+    let (env, registry_address, sender, _, recipient) = setup();
+    let registry = HandshakeRegistry::at(registry_address);
+
+    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
+
+    let after_first = env.execute_utility(registry.get_handshakes(recipient, 0));
+    assert_eq(after_first.items.len(), 1);
+
+    // Emulate a reorg that pruned back past every recorded scan but not past the handshake log: scans anchor at the
+    // chain tip while handshake facts anchor at their earlier log blocks, so only the cursor facts get retracted.
+    env.utility_context_at(registry_address, |_| SyncCursor::at(registry_address, recipient).clear());
+    // Advance the anchor so a fact wrongly originated at the sync anchor would get a distinct origin and duplicate.
+    env.mine_block();
+
+    // With no cursor the rescan covers the full range again; re-recording the surviving handshake is a no-op.
+    let after_rescan = env.execute_utility(registry.get_handshakes(recipient, 0));
+    assert_eq(after_rescan.items.len(), 1);
+    assert_eq(after_rescan.items.get(0).eph_pk.x, after_first.items.get(0).eph_pk.x);
+}
+
+#[test]
+unconstrained fn handshake_fact_originates_at_the_log_block() {
+    let (env, registry_address, sender, _, recipient) = setup();
+    let registry = HandshakeRegistry::at(registry_address);
+
+    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
+    let handshake_block = env.last_block_number();
+
+    // Advance the chain so the sync anchor is later than the block carrying the handshake log.
+    env.mine_block();
+    env.mine_block();
+
+    let discovered = env.execute_utility(registry.get_handshakes(recipient, 0));
+    assert_eq(discovered.items.len(), 1);
+
+    // Ephemeral arrays are frame-scoped, so read the origins and extract the value inside the registry's context.
+    let origin_block_number = env.utility_context_at(registry_address, |_| {
+        let origins = origin_block_numbers(registry_address, recipient);
+        assert_eq(origins.len(), 1);
+        origins.get(0)
+    });
+    // The origin must be the log's block, not the sync anchor, so a reorg retracts exactly the handshakes carried by
+    // pruned blocks.
+    assert_eq(origin_block_number, handshake_block);
 }

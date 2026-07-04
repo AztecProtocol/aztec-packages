@@ -1,7 +1,12 @@
+pub(crate) mod cursor;
+pub(crate) mod discovered_handshakes;
+pub(crate) mod rewindable_register;
+
+use crate::sync::{cursor::SyncCursor, discovered_handshakes::record_discovered_handshake};
 use aztec::{
-    capsules::CapsuleArray,
     context::UtilityContext,
     ephemeral::EphemeralArray,
+    facts::OriginBlock,
     messages::{
         delivery::handshake::DiscoveredHandshake,
         discovery::{
@@ -14,7 +19,7 @@ use aztec::{
             offchain::OffchainInboxSync,
         },
     },
-    oracle::{capsules, message_processing},
+    oracle::message_processing,
     protocol::{
         address::AztecAddress,
         constants::DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG,
@@ -24,13 +29,6 @@ use aztec::{
     utils::point::point_from_x_coord_and_sign,
 };
 
-/// Capsule base slot for the per-recipient list of discovered handshakes populated by
-/// [`handshake_registry_sync`] and read by [`get_all_handshakes`].
-global HANDSHAKES_CAPSULE_SLOT: Field = sha256_to_field("HANDSHAKE_REGISTRY::HANDSHAKES".as_bytes());
-
-/// Capsule slot for the per-recipient sync cursor: the next block (inclusive) the discovery scan should start from.
-global SYNC_CURSOR_CAPSULE_SLOT: Field = sha256_to_field("HANDSHAKE_REGISTRY::SYNC_CURSOR".as_bytes());
-
 /// Ephemeral-array slot used by [`get_handshake_logs_in_range`] to batch a single log-retrieval request to the oracle.
 global LOG_RETRIEVAL_REQUEST_ARRAY_SLOT: Field =
     sha256_to_field("HANDSHAKE_REGISTRY::LOG_RETRIEVAL_REQUEST_ARRAY".as_bytes());
@@ -38,11 +36,11 @@ global LOG_RETRIEVAL_REQUEST_ARRAY_SLOT: Field =
 /// Discovers non-interactive handshakes addressed to the syncing account.
 ///
 /// On every sync, scans the recipient-keyed bootstrap tag over the blocks mined since the previous sync, decrypts
-/// each matching log to recover the handshake `eph_pk`, and appends it to the recipient's
-/// capsule list. It then falls through to [`do_sync_state`] so that normal note/event/partial-note discovery still
-/// happens.
+/// each matching log to recover the handshake `eph_pk`, and records it as a retractable fact whose origin is the block
+/// the log landed in, so a reorg pruning that block makes the handshake invisible again. It then falls through to
+/// [`do_sync_state`] so that normal note/event/partial-note discovery still happens.
 ///
-/// `scope` is the account PXE is syncing for, which doubles as both the recipient whose tag we scan and the capsule
+/// `scope` is the account PXE is syncing for, which doubles as both the recipient whose tag we scan and the fact
 /// scope we persist under, so handshakes for one account never leak into another's list.
 pub(crate) unconstrained fn handshake_registry_sync(
     contract_address: AztecAddress,
@@ -52,20 +50,20 @@ pub(crate) unconstrained fn handshake_registry_sync(
     offchain_inbox_sync: Option<OffchainInboxSync>,
     scope: AztecAddress,
 ) {
-    let cursor = capsules::load::<u32>(contract_address, SYNC_CURSOR_CAPSULE_SLOT, scope);
-    let anchor_block = UtilityContext::new().block_number();
+    let cursor = SyncCursor::at(contract_address, scope);
+    let from_block = cursor.next_block_to_scan();
+    let anchor_block_header = UtilityContext::new().block_header();
+    let anchor_block = anchor_block_header.block_number();
 
     // `to_block` is exclusive, so we add 1 to include the anchor block in the scan
     let next_block = anchor_block + 1;
-    let should_scan = cursor.map(|c| c != next_block).unwrap_or(true);
+    let should_scan = from_block.map(|b| b != next_block).unwrap_or(true);
     if should_scan {
         // Find all handshakes for the given recipient
         let tag = compute_log_tag(scope.to_field(), DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG);
-        let logs = get_handshake_logs_in_range(contract_address, tag, cursor, Option::some(next_block));
+        let logs = get_handshake_logs_in_range(contract_address, tag, from_block, Option::some(next_block));
 
-        // Store all valid handshakes
-        let handshakes: CapsuleArray<DiscoveredHandshake> =
-            CapsuleArray::at(contract_address, HANDSHAKES_CAPSULE_SLOT, scope);
+        // Record all valid handshakes
         logs.for_each(|_i, log| {
             let ciphertext = aztec::utils::array::subbvec(log.log_payload, 0);
 
@@ -73,16 +71,15 @@ pub(crate) unconstrained fn handshake_registry_sync(
                 .and_then(|pt| {
                     point_from_x_coord_and_sign(pt.get(0), true).map(|pk| DiscoveredHandshake { eph_pk: pk })
                 })
-                .map(|h| handshakes.push(h));
+                .map(|h| record_discovered_handshake(
+                    contract_address,
+                    scope,
+                    h,
+                    OriginBlock { block_number: log.block_number, block_hash: log.block_hash },
+                ));
         });
 
-        // Update the cursor
-        capsules::store(
-            contract_address,
-            SYNC_CURSOR_CAPSULE_SLOT,
-            next_block,
-            scope,
-        );
+        cursor.advance(anchor_block_header);
     }
 
     do_sync_state_without_handshake_discovery(
@@ -93,14 +90,6 @@ pub(crate) unconstrained fn handshake_registry_sync(
         offchain_inbox_sync,
         scope,
     );
-}
-
-/// Returns the capsule array of discovered handshakes for `recipient`.
-pub(crate) unconstrained fn get_all_handshakes(
-    contract_address: AztecAddress,
-    recipient: AztecAddress,
-) -> CapsuleArray<DiscoveredHandshake> {
-    CapsuleArray::at(contract_address, HANDSHAKES_CAPSULE_SLOT, recipient)
 }
 
 /// Fetches all private logs emitted under `tag` in the block range `[from_block, to_block)`.
