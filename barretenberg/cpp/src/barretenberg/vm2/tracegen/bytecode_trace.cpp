@@ -415,8 +415,7 @@ void BytecodeTraceBuilder::process_instruction_fetching(
             event.error == INSTRUCTION_OUT_OF_RANGE ? instr_size - bytes_to_read - 1 : bytes_to_read - instr_size;
 
         trace.set(row,
-                  { {
-                      { C::instr_fetching_sel, 1 },
+                  { { { C::instr_fetching_sel, 1 },
                       // Unique pair defining the instruction.
                       { C::instr_fetching_pc, event.pc },
                       { C::instr_fetching_bytecode_id, event.bytecode_id },
@@ -453,8 +452,6 @@ void BytecodeTraceBuilder::process_instruction_fetching(
                       { C::instr_fetching_op3, get_operand(2) },
                       { C::instr_fetching_op4, get_operand(3) },
                       { C::instr_fetching_op5, get_operand(4) },
-                      { C::instr_fetching_op6, get_operand(5) },
-                      { C::instr_fetching_op7, get_operand(6) },
 
                       // Single instruction bytes.
                       { C::instr_fetching_bd0, wire_opcode },
@@ -511,9 +508,7 @@ void BytecodeTraceBuilder::process_instruction_fetching(
                       { C::instr_fetching_sel_op_dc_12, op_dc_selectors.at(12) },
                       { C::instr_fetching_sel_op_dc_13, op_dc_selectors.at(13) },
                       { C::instr_fetching_sel_op_dc_14, op_dc_selectors.at(14) },
-                      { C::instr_fetching_sel_op_dc_15, op_dc_selectors.at(15) },
-                      { C::instr_fetching_sel_op_dc_16, op_dc_selectors.at(16) },
-                  } });
+                      { C::instr_fetching_sel_op_dc_15, op_dc_selectors.at(15) } } });
         row++;
     }
 }

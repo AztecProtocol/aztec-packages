@@ -4,7 +4,6 @@ export * from './checkpoint_attestation.js';
 export * from './checkpoint_proposal.js';
 export * from './consensus_payload.js';
 export * from './gossipable.js';
-export * from './interface.js';
 export * from './signature_utils.js';
 export * from './signed_txs.js';
 export * from './topic_type.js';

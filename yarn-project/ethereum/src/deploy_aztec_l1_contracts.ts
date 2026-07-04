@@ -5,12 +5,12 @@ import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import type { Fr } from '@aztec/foundation/schemas';
-import { fileURLToPath } from '@aztec/foundation/url';
 
 import { bn254 } from '@noble/curves/bn254';
 import type { Abi, Narrow } from 'abitype';
 import { spawn } from 'child_process';
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { createRequire } from 'node:module';
 import { tmpdir } from 'os';
 import { dirname, join, resolve } from 'path';
 import readline from 'readline';
@@ -26,6 +26,8 @@ import type { L1ContractAddresses } from './l1_contract_addresses.js';
 import type { ExtendedViemWalletClient } from './types.js';
 
 const logger = createLogger('ethereum:deploy_aztec_l1_contracts');
+
+const require = createRequire(import.meta.url);
 
 const JSON_DEPLOY_RESULT_PREFIX = 'JSON DEPLOY RESULT:';
 
@@ -123,15 +125,13 @@ export interface ValidatorJson {
 }
 
 /**
- * Gets the path to the l1-contracts foundry artifacts directory.
- * These are copied from l1-contracts to yarn-project/l1-artifacts/l1-contracts
- * during build to make yarn-project self-contained.
+ * Gets the path to the l1-contracts foundry artifacts directory bundled inside @aztec/l1-artifacts.
+ * Resolved through the package (its "." export -> dest/index.js) so it works whether the package is
+ * linked via portal (monorepo) or installed under node_modules (published npm) — resolution follows
+ * the symlink in the portal case. The bundled foundry subtree sits alongside dest/, at <pkg>/l1-contracts.
  */
 export function getL1ContractsPath(): string {
-  const currentDir = dirname(fileURLToPath(import.meta.url));
-  // Go up from yarn-project/ethereum/dest to yarn-project, then to l1-artifacts/l1-contracts
-  const l1ContractsPath = resolve(currentDir, '..', '..', 'l1-artifacts', 'l1-contracts');
-  return l1ContractsPath;
+  return resolve(dirname(require.resolve('@aztec/l1-artifacts')), '..', 'l1-contracts');
 }
 
 // Cached deployment directory

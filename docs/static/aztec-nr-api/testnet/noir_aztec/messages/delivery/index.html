@@ -41,6 +41,7 @@
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">messages</a>::delivery</div>
 <h1>Module <span id="mod" class="module">delivery</span></h1>
 <h2 id="modules">Modules</h2><ul class="item-list">
+<li><div class="item-name"><a href="constrained_delivery/index.html" class="module">constrained_delivery</a></div><div class="item-description">Sender-side helpers for constrained message delivery.</div></li>
 <li><div class="item-name"><a href="handshake/index.html" class="module">handshake</a></div><div class="item-description"></div></li>
 </ul>
 <h2 id="structs">Structs</h2><ul class="item-list">
@@ -49,6 +50,8 @@
 <li><div class="item-name"><a href="struct.OnchainConstrainedDelivery.html" class="struct">OnchainConstrainedDelivery</a></div><div class="item-description">On-chain delivery with constrained encryption/tagging. Returned by <a href="../../../noir_aztec/messages/delivery/struct.MessageDelivery.html#onchain_constrained"><code>MessageDelivery::onchain_constrained</code></a>.</div></li>
 <li><div class="item-name"><a href="struct.OnchainDeliveryMode.html" class="struct">OnchainDeliveryMode</a></div><div class="item-description">The mode of an on-chain message delivery: unconstrained or constrained tagging.</div></li>
 <li><div class="item-name"><a href="struct.OnchainUnconstrainedDelivery.html" class="struct">OnchainUnconstrainedDelivery</a></div><div class="item-description">On-chain delivery without constrained encryption/tagging. Returned by <a href="../../../noir_aztec/messages/delivery/struct.MessageDelivery.html#onchain_unconstrained"><code>MessageDelivery::onchain_unconstrained</code></a>.</div></li>
+<li><div class="item-name"><a href="struct.ResolvedTaggingStrategy.html" class="struct">ResolvedTaggingStrategy</a></div><div class="item-description">The tagging secret the PXE hands to the contract after applying the wallet's tagging secret strategy. It is already
+app-siloed, so the contract uses it directly to derive the message tag and never sees raw key material.</div></li>
 </ul>
 <h2 id="traits">Traits</h2><ul class="item-list">
 <li><div class="item-name"><a href="trait.MessageDeliveryBuilder.html" class="trait">MessageDeliveryBuilder</a></div><div class="item-description">Builds the <a href="../../../noir_aztec/messages/delivery/struct.MessageDelivery.html"><code>MessageDelivery</code></a> configuration consumed by the message delivery APIs (e.g. <code>NoteMessage::deliver</code> and

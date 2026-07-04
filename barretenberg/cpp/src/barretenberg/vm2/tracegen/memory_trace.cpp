@@ -133,15 +133,12 @@ const InteractionDefinition MemoryTraceBuilder::interactions =
              perm_addressing_indirect_from_memory_2_settings,
              perm_addressing_indirect_from_memory_3_settings,
              perm_addressing_indirect_from_memory_4_settings,
-             perm_addressing_indirect_from_memory_5_settings,
-             perm_addressing_indirect_from_memory_6_settings,
              // Registers.
              perm_registers_mem_op_0_settings,
              perm_registers_mem_op_1_settings,
              perm_registers_mem_op_2_settings,
              perm_registers_mem_op_3_settings,
              perm_registers_mem_op_4_settings,
-             perm_registers_mem_op_5_settings,
              // Data Copy.
              perm_data_copy_mem_read_settings,
              perm_data_copy_mem_write_settings,

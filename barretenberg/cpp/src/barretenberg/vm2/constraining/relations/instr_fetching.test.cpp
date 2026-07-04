@@ -5,6 +5,7 @@
 #include <memory>
 #include <vector>
 
+#include "barretenberg/aztec/aztec_constants.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
@@ -175,19 +176,15 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongOperand)
         instr_fetching::SR_OP3_BYTES_DECOMPOSITION,
         instr_fetching::SR_OP4_BYTES_DECOMPOSITION,
         instr_fetching::SR_OP5_BYTES_DECOMPOSITION,
-        instr_fetching::SR_OP6_BYTES_DECOMPOSITION,
-        instr_fetching::SR_OP7_BYTES_DECOMPOSITION,
     };
 
-    constexpr std::array<C, 8> operand_cols = {
+    constexpr std::array<C, AVM_MAX_OPERANDS + 1> operand_cols = {
         C::instr_fetching_addressing_mode,
         C::instr_fetching_op1,
         C::instr_fetching_op2,
         C::instr_fetching_op3,
         C::instr_fetching_op4,
         C::instr_fetching_op5,
-        C::instr_fetching_op6,
-        C::instr_fetching_op7,
     };
 
     for (const auto& opcode : opcodes) {
@@ -587,14 +584,14 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongWireInstructionSpecInteractions
 
         ASSERT_EQ(trace.get(C::lookup_instr_fetching_wire_instruction_info_counts, static_cast<uint32_t>(opcode)), 1);
 
-        constexpr std::array<C, 21> mutated_cols = {
+        constexpr std::array<C, 20> mutated_cols = {
             C::instr_fetching_exec_opcode,    C::instr_fetching_instr_size,   C::instr_fetching_sel_has_tag,
             C::instr_fetching_sel_tag_is_op2, C::instr_fetching_sel_op_dc_0,  C::instr_fetching_sel_op_dc_1,
             C::instr_fetching_sel_op_dc_2,    C::instr_fetching_sel_op_dc_3,  C::instr_fetching_sel_op_dc_4,
             C::instr_fetching_sel_op_dc_5,    C::instr_fetching_sel_op_dc_6,  C::instr_fetching_sel_op_dc_7,
             C::instr_fetching_sel_op_dc_8,    C::instr_fetching_sel_op_dc_9,  C::instr_fetching_sel_op_dc_10,
             C::instr_fetching_sel_op_dc_11,   C::instr_fetching_sel_op_dc_12, C::instr_fetching_sel_op_dc_13,
-            C::instr_fetching_sel_op_dc_14,   C::instr_fetching_sel_op_dc_15, C::instr_fetching_sel_op_dc_16,
+            C::instr_fetching_sel_op_dc_14,   C::instr_fetching_sel_op_dc_15
         };
 
         // Mutate execution opcode

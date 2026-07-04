@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+# Use ci3 script base.
+source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+
+# We mix if we're a release into the hash, as releases have all architectures built.
+# Include AVM_TRANSPILER setting to prevent cache poisoning: ci-barretenberg-full builds
+# with AVM_TRANSPILER=0, producing a bb binary without AVM transpiler support. Without this,
+# that build can populate the bb.js cache with a non-AVM bb, which ci-fast then downloads.
+hash=$(hash_str \
+  $(../../cpp/bootstrap.sh hash) \
+  $(cache_content_hash ../.rebuild_patterns) \
+  $(semver check $REF_NAME && echo 1 || echo 0) \
+  ${AVM_TRANSPILER:-1})
+
+function build {
+  echo_header "bb.js build"
+  (cd .. && ./bootstrap.sh generate_bb_avm_sim_package)
+  (cd .. && npm_install_deps)
+
+  if ! cache_download bb.js-$hash.tar.gz; then
+    find . -exec touch -d "@0" {} + 2>/dev/null || true
+    yarn clean
+    yarn generate
+    yarn build:wasm
+    yarn build:native
+    parallel -v --line-buffered --tag 'denoise "yarn {}"' ::: build:esm build:cjs build:browser
+    cache_upload bb.js-$hash.tar.gz dest build
+  fi
+
+  # We copy snapshot dirs to dest so we can run tests from dest.
+  # This is because web-workers run into issues with transpilation.
+  for snapshot_dir in src/**/__snapshots__; do
+    dest_dir="${snapshot_dir/src\//dest\/node\/}"
+    rm -rf "$dest_dir"
+    cp -r "$snapshot_dir" "$dest_dir"
+    for file in $dest_dir/*.test.ts.snap; do
+      mv "$file" "${file/.test.ts.snap/.test.js.snap}"
+    done
+  done
+}
+
+function test_cmds {
+  cd dest/node
+  for test in **/*.test.js; do
+    # Skip benchmarks here.
+    [[ "$test" =~ \.bench\.test\.js$ ]] && continue
+    [[ "$test" == "bbapi/chonk_pinned_inputs.test.js" ]] && continue
+
+    local prefix=$hash
+    # Extra resource.
+    if [[ "$test" =~ ^examples/ ]]; then
+      prefix="$prefix:CPUS=16"
+    fi
+    echo "$prefix barretenberg/ts/bb.js/scripts/run_test.sh $test"
+  done
+  echo "$hash:CPUS=8:MEM=32g:TIMEOUT=20m barretenberg/cpp/scripts/chonk_inputs.sh download && barretenberg/ts/bb.js/scripts/run_test.sh bbapi/chonk_pinned_inputs.test.js"
+}
+
+function bench_cmds {
+  echo "$hash:CPUS=4 barretenberg/ts/bb.js/scripts/run_test.sh poseidon.bench.test.js"
+}
+
+function test {
+  echo_header "bb.js test"
+  test_cmds | filter_test_cmds | parallelize
+}
+
+function release {
+  cross_copy
+  retry "deploy_npm ${REF_NAME#v}"
+}
+
+function cross_copy {
+  ./scripts/copy_cross.sh "$@"
+}
+
+case "$cmd" in
+  "")
+    build
+    ;;
+  "hash")
+    echo "$hash"
+    ;;
+  *)
+    default_cmd_handler "$@"
+    ;;
+esac

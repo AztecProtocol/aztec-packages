@@ -13,10 +13,10 @@ template <typename FF_> class addressingImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 62> SUBRELATION_PARTIAL_LENGTHS = {
-        3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 5, 3, 5, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5,
-        5, 5, 5, 5, 4, 4, 4, 4, 4, 4, 4, 3, 4, 4, 4, 4, 4, 4, 4, 3, 3, 3, 3, 3, 3, 3, 3, 5, 3, 4, 3
-    };
+    static constexpr std::array<size_t, 52> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
+                                                                            3, 3, 3, 3, 3, 5, 3, 5, 4, 4, 4, 4, 4,
+                                                                            5, 5, 5, 5, 5, 4, 4, 4, 4, 4, 3, 4, 4,
+                                                                            4, 4, 4, 3, 3, 3, 3, 3, 3, 5, 3, 4, 3 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -47,32 +47,24 @@ template <typename FF> class addressing : public Relation<addressingImpl<FF>> {
     static constexpr size_t SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_2 = 23;
     static constexpr size_t SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_3 = 24;
     static constexpr size_t SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_4 = 25;
-    static constexpr size_t SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_5 = 26;
-    static constexpr size_t SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_6 = 27;
-    static constexpr size_t SR_RELATIVE_RESOLUTION_0 = 28;
-    static constexpr size_t SR_RELATIVE_RESOLUTION_1 = 29;
-    static constexpr size_t SR_RELATIVE_RESOLUTION_2 = 30;
-    static constexpr size_t SR_RELATIVE_RESOLUTION_3 = 31;
-    static constexpr size_t SR_RELATIVE_RESOLUTION_4 = 32;
-    static constexpr size_t SR_RELATIVE_RESOLUTION_5 = 33;
-    static constexpr size_t SR_RELATIVE_RESOLUTION_6 = 34;
-    static constexpr size_t SR_INDIRECT_GATING_0 = 43;
-    static constexpr size_t SR_INDIRECT_GATING_1 = 44;
-    static constexpr size_t SR_INDIRECT_GATING_2 = 45;
-    static constexpr size_t SR_INDIRECT_GATING_3 = 46;
-    static constexpr size_t SR_INDIRECT_GATING_4 = 47;
-    static constexpr size_t SR_INDIRECT_GATING_5 = 48;
-    static constexpr size_t SR_INDIRECT_GATING_6 = 49;
-    static constexpr size_t SR_INDIRECT_PROPAGATION_0 = 50;
-    static constexpr size_t SR_INDIRECT_PROPAGATION_1 = 51;
-    static constexpr size_t SR_INDIRECT_PROPAGATION_2 = 52;
-    static constexpr size_t SR_INDIRECT_PROPAGATION_3 = 53;
-    static constexpr size_t SR_INDIRECT_PROPAGATION_4 = 54;
-    static constexpr size_t SR_INDIRECT_PROPAGATION_5 = 55;
-    static constexpr size_t SR_INDIRECT_PROPAGATION_6 = 56;
-    static constexpr size_t SR_BATCHED_TAGS_DIFF_CHECK = 58;
-    static constexpr size_t SR_ADDRESSING_COLLECTION_INV_CHECK = 60;
-    static constexpr size_t SR_NO_ADDRESSING_ERROR_IF_NOT_RESOLVING = 61;
+    static constexpr size_t SR_RELATIVE_RESOLUTION_0 = 26;
+    static constexpr size_t SR_RELATIVE_RESOLUTION_1 = 27;
+    static constexpr size_t SR_RELATIVE_RESOLUTION_2 = 28;
+    static constexpr size_t SR_RELATIVE_RESOLUTION_3 = 29;
+    static constexpr size_t SR_RELATIVE_RESOLUTION_4 = 30;
+    static constexpr size_t SR_INDIRECT_GATING_0 = 37;
+    static constexpr size_t SR_INDIRECT_GATING_1 = 38;
+    static constexpr size_t SR_INDIRECT_GATING_2 = 39;
+    static constexpr size_t SR_INDIRECT_GATING_3 = 40;
+    static constexpr size_t SR_INDIRECT_GATING_4 = 41;
+    static constexpr size_t SR_INDIRECT_PROPAGATION_0 = 42;
+    static constexpr size_t SR_INDIRECT_PROPAGATION_1 = 43;
+    static constexpr size_t SR_INDIRECT_PROPAGATION_2 = 44;
+    static constexpr size_t SR_INDIRECT_PROPAGATION_3 = 45;
+    static constexpr size_t SR_INDIRECT_PROPAGATION_4 = 46;
+    static constexpr size_t SR_BATCHED_TAGS_DIFF_CHECK = 48;
+    static constexpr size_t SR_ADDRESSING_COLLECTION_INV_CHECK = 50;
+    static constexpr size_t SR_NO_ADDRESSING_ERROR_IF_NOT_RESOLVING = 51;
 
     static std::string get_subrelation_label(size_t index)
     {
@@ -94,10 +86,6 @@ template <typename FF> class addressing : public Relation<addressingImpl<FF>> {
             return "NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_3";
         case SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_4:
             return "NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_4";
-        case SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_5:
-            return "NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_5";
-        case SR_NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_6:
-            return "NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_6";
         case SR_RELATIVE_RESOLUTION_0:
             return "RELATIVE_RESOLUTION_0";
         case SR_RELATIVE_RESOLUTION_1:
@@ -108,10 +96,6 @@ template <typename FF> class addressing : public Relation<addressingImpl<FF>> {
             return "RELATIVE_RESOLUTION_3";
         case SR_RELATIVE_RESOLUTION_4:
             return "RELATIVE_RESOLUTION_4";
-        case SR_RELATIVE_RESOLUTION_5:
-            return "RELATIVE_RESOLUTION_5";
-        case SR_RELATIVE_RESOLUTION_6:
-            return "RELATIVE_RESOLUTION_6";
         case SR_INDIRECT_GATING_0:
             return "INDIRECT_GATING_0";
         case SR_INDIRECT_GATING_1:
@@ -122,10 +106,6 @@ template <typename FF> class addressing : public Relation<addressingImpl<FF>> {
             return "INDIRECT_GATING_3";
         case SR_INDIRECT_GATING_4:
             return "INDIRECT_GATING_4";
-        case SR_INDIRECT_GATING_5:
-            return "INDIRECT_GATING_5";
-        case SR_INDIRECT_GATING_6:
-            return "INDIRECT_GATING_6";
         case SR_INDIRECT_PROPAGATION_0:
             return "INDIRECT_PROPAGATION_0";
         case SR_INDIRECT_PROPAGATION_1:
@@ -136,10 +116,6 @@ template <typename FF> class addressing : public Relation<addressingImpl<FF>> {
             return "INDIRECT_PROPAGATION_3";
         case SR_INDIRECT_PROPAGATION_4:
             return "INDIRECT_PROPAGATION_4";
-        case SR_INDIRECT_PROPAGATION_5:
-            return "INDIRECT_PROPAGATION_5";
-        case SR_INDIRECT_PROPAGATION_6:
-            return "INDIRECT_PROPAGATION_6";
         case SR_BATCHED_TAGS_DIFF_CHECK:
             return "BATCHED_TAGS_DIFF_CHECK";
         case SR_ADDRESSING_COLLECTION_INV_CHECK:

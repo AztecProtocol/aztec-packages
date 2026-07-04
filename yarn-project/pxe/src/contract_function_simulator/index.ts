@@ -5,12 +5,14 @@ export {
   type NamedValue,
   type OracleRegistryEntry,
   type ParamTypes,
+  type RegistryParam,
   type StripOraclePrefix,
 } from './oracle/oracle_registry.js';
 export {
   ARRAY,
   AZTEC_ADDRESS,
   BIGINT,
+  BLOCK_HASH,
   BLOCK_NUMBER,
   BOOL,
   BOUNDED_VEC,
@@ -26,6 +28,7 @@ export {
   LOG_RETRIEVAL_RESPONSE,
   MEMBERSHIP_WITNESS,
   MESSAGE_CONTEXT,
+  NOTE_SELECTOR,
   NOTE_VALIDATION_REQUEST,
   OPTION,
   PENDING_TAGGED_LOG,

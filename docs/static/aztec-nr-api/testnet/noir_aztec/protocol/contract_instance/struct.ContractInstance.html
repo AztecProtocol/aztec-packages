@@ -20,10 +20,10 @@
 <h2><a href="#struct">Struct ContractInstance</a></h2>
 <h3>Fields</h3>
 <ul class="sidebar-list">
-<li><a href="#structfield.contract_class_id">contract_class_id</a></li>
 <li><a href="#structfield.deployer">deployer</a></li>
 <li><a href="#structfield.immutables_hash">immutables_hash</a></li>
 <li><a href="#structfield.initialization_hash">initialization_hash</a></li>
+<li><a href="#structfield.original_contract_class_id">original_contract_class_id</a></li>
 <li><a href="#structfield.public_keys">public_keys</a></li>
 <li><a href="#structfield.salt">salt</a></li>
 </ul>
@@ -49,16 +49,22 @@
 <pre><code>pub struct ContractInstance {
     pub salt: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
     pub deployer: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a>,
-    pub contract_class_id: <a href="../../../protocol_types/contract_class_id/struct.ContractClassId.html" class="struct">ContractClassId</a>,
+    pub original_contract_class_id: <a href="../../../protocol_types/contract_class_id/struct.ContractClassId.html" class="struct">ContractClassId</a>,
     pub initialization_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
     pub immutables_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
     pub public_keys: <a href="../../../protocol_types/public_keys/struct.PublicKeys.html" class="struct">PublicKeys</a>,
 }
 </code></pre>
+<div class="comments">
+<p>The complete preimage of an <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html"><code>AztecAddress</code></a>.</p>
+<p>All of these values are hashed into the contract's <code>AztecAddress</code> (see <a href="../../../protocol_types/contract_instance/struct.ContractInstance.html#to_address"><code>Self::to_address</code></a>), so they are fixed
+at deployment time and never change.</p>
+<p>In particular, <code>original_contract_class_id</code> is the class the contract was <em>deployed</em> with. For upgradeable contracts
+which utilize the <code>ContractInstanceRegistry</code> this is NOT the class currently executing i.e. the 'current' class.</p></div>
 <h2>Fields</h2>
 <div id="structfield.salt" class="struct-field"><code class="code-header">salt: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
 <div class="padded-description"></div><div id="structfield.deployer" class="struct-field"><code class="code-header">deployer: <a href="../../../protocol_types/address/aztec_address/struct.AztecAddress.html" class="struct">AztecAddress</a></code></div>
-<div class="padded-description"></div><div id="structfield.contract_class_id" class="struct-field"><code class="code-header">contract_class_id: <a href="../../../protocol_types/contract_class_id/struct.ContractClassId.html" class="struct">ContractClassId</a></code></div>
+<div class="padded-description"></div><div id="structfield.original_contract_class_id" class="struct-field"><code class="code-header">original_contract_class_id: <a href="../../../protocol_types/contract_class_id/struct.ContractClassId.html" class="struct">ContractClassId</a></code></div>
 <div class="padded-description"></div><div id="structfield.initialization_hash" class="struct-field"><code class="code-header">initialization_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
 <div class="padded-description"></div><div id="structfield.immutables_hash" class="struct-field"><code class="code-header">immutables_hash: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
 <div class="padded-description"></div><div id="structfield.public_keys" class="struct-field"><code class="code-header">public_keys: <a href="../../../protocol_types/public_keys/struct.PublicKeys.html" class="struct">PublicKeys</a></code></div>

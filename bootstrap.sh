@@ -472,7 +472,7 @@ function build_and_test {
 
 function bench_cmds {
   if [ "$#" -eq 0 ]; then
-    set -- yarn-project/end-to-end yarn-project barretenberg/{ts,cpp,sol} noir-projects/noir-protocol-circuits l1-contracts
+    set -- yarn-project/end-to-end yarn-project barretenberg/{ts,cpp,sol} noir-projects/{noir-protocol-circuits,noir-contracts} l1-contracts
   fi
   parallel -k --line-buffer './{}/bootstrap.sh bench_cmds' ::: $@
 }
@@ -657,11 +657,21 @@ function private_release {
     done
   fi
 
-  # Publish for real, in dependency order: bb.js, the noir packages, and wsdb must be on the registry
-  # before yarn-project's release smoke-tests installing the @aztec packages that depend on them
-  # (@aztec/world-state has a runtime dependency on @aztec/wsdb). npm packages are platform-independent,
-  # so only the docker image is published on arm64.
-  local publish=(barretenberg/ts noir wsdb yarn-project release-image)
+  # Publish @aztec/l1-artifacts to the internal registry. 13 yarn-project packages depend on it at the
+  # release version, so it must exist before yarn-project's release smoke-test installs them. We call
+  # only the npm publish, not l1-contracts' full `release` — that also git-mirrors tags to the public
+  # AztecProtocol/l1-contracts repo, which the private flow must not do. amd64 only (npm packages are
+  # platform-independent; mirrors the publish guard below).
+  if [ $(arch) != arm64 ]; then
+    l1-contracts/bootstrap.sh release_l1_artifacts_npm
+  fi
+
+  # Publish for real, in dependency order: bb.js, the noir packages, ipc-runtime, and wsdb must be on
+  # the registry before yarn-project's release smoke-tests installing the @aztec packages that depend on
+  # them. @aztec/world-state has a runtime dependency on @aztec/wsdb, and the ipc-codegen-generated
+  # @aztec/wsdb in turn has a runtime dependency on @aztec/ipc-runtime, so ipc-runtime must precede wsdb.
+  # npm packages are platform-independent, so only the docker image is published on arm64.
+  local publish=(barretenberg/ts noir ipc-runtime wsdb yarn-project release-image)
   if [ $(arch) == arm64 ]; then
     publish=(release-image)
   fi

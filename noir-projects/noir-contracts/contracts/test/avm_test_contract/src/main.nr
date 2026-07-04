@@ -654,6 +654,16 @@ pub contract AvmTest {
         }
     }
 
+    // Writes the same storage slot `num` times. Because every write targets the same slot they are
+    // squashed and do not count against the per-tx public-data-write limit, so a large `num` keeps
+    // the public data tree being written continuously until the call runs out of gas.
+    #[external("public")]
+    fn n_storage_writes_to_same_slot(num: u32) {
+        for i in 0..num {
+            self.storage.single.write(i as Field);
+        }
+    }
+
     #[external("public")]
     fn n_new_note_hashes(num: u32) {
         for i in 0..num {

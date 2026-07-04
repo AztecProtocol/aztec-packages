@@ -183,7 +183,7 @@ void PrecomputedTraceBuilder::process_wire_instruction_spec(TraceContainer& trac
         C::precomputed_sel_op_dc_6,  C::precomputed_sel_op_dc_7,  C::precomputed_sel_op_dc_8,
         C::precomputed_sel_op_dc_9,  C::precomputed_sel_op_dc_10, C::precomputed_sel_op_dc_11,
         C::precomputed_sel_op_dc_12, C::precomputed_sel_op_dc_13, C::precomputed_sel_op_dc_14,
-        C::precomputed_sel_op_dc_15, C::precomputed_sel_op_dc_16,
+        C::precomputed_sel_op_dc_15,
     };
 
     // First set the selector for this table lookup.
@@ -252,10 +252,11 @@ void PrecomputedTraceBuilder::process_exec_instruction_spec(TraceContainer& trac
     };
 
     constexpr std::array<Column, AVM_MAX_OPERANDS> SEL_OP_IS_ADDRESS_COLUMNS = {
-        Column::precomputed_sel_op_is_address_0_, Column::precomputed_sel_op_is_address_1_,
-        Column::precomputed_sel_op_is_address_2_, Column::precomputed_sel_op_is_address_3_,
-        Column::precomputed_sel_op_is_address_4_, Column::precomputed_sel_op_is_address_5_,
-        Column::precomputed_sel_op_is_address_6_,
+        Column::precomputed_sel_op_is_address_0_,
+        Column::precomputed_sel_op_is_address_1_,
+        Column::precomputed_sel_op_is_address_2_,
+        Column::precomputed_sel_op_is_address_3_,
+        Column::precomputed_sel_op_is_address_4_
     };
 
     for (const auto& [exec_opcode, exec_instruction_spec] : get_exec_instruction_spec()) {

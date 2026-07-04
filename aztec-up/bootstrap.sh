@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
-hash=$(hash_str $(cache_content_hash ^aztec-up/) $(../ipc-runtime/bootstrap.sh hash) $(../wsdb/bootstrap.sh hash) $(../yarn-project/bootstrap.sh hash))
+hash=$(hash_str $(cache_content_hash ^aztec-up/) $(../ipc-runtime/bootstrap.sh hash) $(../wsdb/bootstrap.sh hash) $(../barretenberg/ts/bootstrap.sh hash) $(../yarn-project/bootstrap.sh hash))
 
 # Bare aliases ("nightly", "latest") resolve to this major version.
 DEFAULT_MAJOR_VERSION=${AZTEC_TOOLCHAIN_DEFAULT_MAJOR_VERSION:-4}
@@ -11,6 +11,10 @@ function wsdb_package_dirs {
     [ -d "$package_dir" ] && echo "$package_dir"
   done
   echo "$root/wsdb/ts"
+}
+
+function barretenberg_ts_package_dirs {
+  "$root"/barretenberg/ts/bootstrap.sh get_projects
 }
 
 function build {
@@ -111,8 +115,11 @@ EOF
     echo "Deploying packages to local npm registry (version: $version)..."
     {
       echo $root/ipc-runtime/ts
-      echo $root/barretenberg/ts
+      barretenberg_ts_package_dirs
       wsdb_package_dirs
+      # l1-artifacts lives under l1-contracts, so it isn't enumerated by yarn-project's get_projects;
+      # publish it explicitly or @aztec/aztec's portal dependency can't resolve from the local registry.
+      echo $root/l1-contracts/l1-artifacts
       $root/noir/bootstrap.sh get_projects
       $root/yarn-project/bootstrap.sh get_projects
     } | DRY_RUN= parallel --tag --line-buffer --halt now,fail=1 "retry 'cd {} && dump_fail \"deploy_npm $version\" >/dev/null'"
@@ -187,7 +194,8 @@ function prep_test_mac {
 
   # Ensure we've cross-compiled bb for macos. Normally this is only done on releases.
   ../barretenberg/cpp/bootstrap.sh build_cross amd64-macos true
-  ../barretenberg/ts/bootstrap.sh cross_copy amd64-macos
+  ../barretenberg/ts/bootstrap.sh cross_copy_bb_js amd64-macos
+  ../barretenberg/ts/bootstrap.sh cross_copy_bb_avm_sim amd64-macos
 
   # Ensure build artifacts exist.
   if [ ! -f ./bin/0.0.1/versions ] || [ ! -d ./verdaccio-storage ]; then

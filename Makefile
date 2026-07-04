@@ -47,7 +47,7 @@ endef
 # PHONY TARGETS - List every target that has a file/dir of the same name.
 #==============================================================================
 
-.PHONY: noir barretenberg noir-projects l1-contracts release-image boxes playground docs aztec-up spartan wsdb
+.PHONY: noir barretenberg noir-projects l1-contracts release-image boxes playground docs aztec-up spartan wsdb bb-avm-sim
 
 #==============================================================================
 # BOOTSTRAP TARGETS
@@ -69,7 +69,7 @@ full: fast bb-full-tests bb-cpp-full yarn-project-benches
 bench: yarn-project-benches bb-sol bb-acir
 
 # Release. Everything plus copy bb cross compiles to ts projects.
-release: fast bb-cpp-release-dir bb-ts-cross-copy ipc-runtime-cross
+release: fast bb-cpp-release-dir bb-ts-cross-copy bb-avm-sim-cross-copy ipc-runtime-cross
 
 #==============================================================================
 # Noir
@@ -104,7 +104,7 @@ avm-transpiler-cross: avm-transpiler-cross-amd64-macos avm-transpiler-cross-arm6
 #==============================================================================
 
 # Barretenberg - Aggregate target for all barretenberg sub-projects.
-barretenberg: bb-cpp bb-ts bb-rs bb-acir bb-docs bb-sol bb-bbup bb-crs
+barretenberg: bb-cpp bb-ts bb-avm-sim bb-rs bb-acir bb-docs bb-sol bb-bbup bb-crs
 
 # BB C++ - Main aggregate target.
 bb-cpp: bb-cpp-native bb-cpp-wasm bb-cpp-wasm-threads
@@ -156,19 +156,19 @@ bb-cpp-cross-arm64-macos-objects: bb-cpp-yarn
 	$(call build,$@,barretenberg/cpp,build_cross_objects arm64-macos)
 
 # Cross-compile for ARM64 Linux (release only)
-bb-cpp-cross-arm64-linux: bb-cpp-cross-arm64-linux-objects avm-transpiler-cross-arm64-linux bb-cpp-yarn
+bb-cpp-cross-arm64-linux: bb-cpp-native bb-cpp-cross-arm64-linux-objects avm-transpiler-cross-arm64-linux bb-cpp-yarn
 	$(call build,$@,barretenberg/cpp,build_preset arm64-linux)
 
 # Cross-compile for AMD64 macOS (release only)
-bb-cpp-cross-amd64-macos: bb-cpp-cross-amd64-macos-objects avm-transpiler-cross-amd64-macos bb-cpp-yarn
+bb-cpp-cross-amd64-macos: bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos-objects avm-transpiler-cross-amd64-macos bb-cpp-yarn
 	$(call build,$@,barretenberg/cpp,build_preset amd64-macos)
 
 # Cross-compile for ARM64 macOS (release or CI_FULL)
-bb-cpp-cross-arm64-macos: bb-cpp-cross-arm64-macos-objects avm-transpiler-cross-arm64-macos bb-cpp-yarn
+bb-cpp-cross-arm64-macos: bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos-objects avm-transpiler-cross-arm64-macos bb-cpp-yarn
 	$(call build,$@,barretenberg/cpp,build_preset arm64-macos)
 
 # Cross-compile for AMD64 Windows (release only)
-bb-cpp-cross-amd64-windows: avm-transpiler-cross-amd64-windows
+bb-cpp-cross-amd64-windows: bb-cpp-cross-arm64-macos avm-transpiler-cross-amd64-windows
 	$(call build,$@,barretenberg/cpp,build_preset amd64-windows)
 
 # iOS SDK download (shared by all iOS cross-compile targets)
@@ -180,19 +180,19 @@ bb-cpp-android-sysroot:
 	$(call run_command,$@,$(ROOT)/barretenberg/cpp,bash scripts/download-android-sysroot.sh)
 
 # Cross-compile for ARM64 iOS (release only, static lib only)
-bb-cpp-cross-arm64-ios: bb-cpp-ios-sdk
+bb-cpp-cross-arm64-ios: bb-cpp-cross-amd64-windows bb-cpp-ios-sdk
 	$(call build,$@,barretenberg/cpp,build_preset arm64-ios)
 
 # Cross-compile for ARM64 iOS Simulator (release only, static lib only)
-bb-cpp-cross-arm64-ios-sim: bb-cpp-ios-sdk
+bb-cpp-cross-arm64-ios-sim: bb-cpp-cross-arm64-ios bb-cpp-ios-sdk
 	$(call build,$@,barretenberg/cpp,build_preset arm64-ios-sim)
 
 # Cross-compile for ARM64 Android (release only, static lib only)
-bb-cpp-cross-arm64-android: bb-cpp-android-sysroot
+bb-cpp-cross-arm64-android: bb-cpp-cross-arm64-ios-sim bb-cpp-android-sysroot
 	$(call build,$@,barretenberg/cpp,build_preset arm64-android)
 
 # Cross-compile for x86_64 Android (release only, static lib only)
-bb-cpp-cross-x86_64-android: bb-cpp-android-sysroot
+bb-cpp-cross-x86_64-android: bb-cpp-cross-arm64-android bb-cpp-android-sysroot
 	$(call build,$@,barretenberg/cpp,build_preset x86_64-android)
 
 bb-cpp-cross: bb-cpp-cross-arm64-linux bb-cpp-cross-amd64-macos bb-cpp-cross-arm64-macos bb-cpp-cross-amd64-windows bb-cpp-cross-arm64-ios bb-cpp-cross-arm64-ios-sim bb-cpp-cross-arm64-android bb-cpp-cross-x86_64-android
@@ -225,11 +225,17 @@ bb-cpp-full: bb-cpp bb-cpp-gcc bb-cpp-fuzzing bb-cpp-windows bb-cpp-asan bb-cpp-
 
 # BB TypeScript - TypeScript bindings
 bb-ts: bb-cpp-wasm bb-cpp-wasm-threads bb-cpp-native ipc-runtime
-	$(call build,$@,barretenberg/ts)
+	$(call build,$@,barretenberg/ts,build_bb_js)
 
 # Copies the cross-compiles into bb.js.
 bb-ts-cross-copy: bb-ts bb-cpp-cross
-	$(call build,$@,barretenberg/ts,cross_copy)
+	$(call build,$@,barretenberg/ts,cross_copy_bb_js)
+
+bb-avm-sim: ipc-codegen ipc-runtime bb-cpp-native
+	$(call build,$@,barretenberg/ts,build_bb_avm_sim)
+
+bb-avm-sim-cross-copy: bb-avm-sim bb-cpp-cross
+	$(call build,$@,barretenberg/ts,cross_copy_bb_avm_sim)
 
 # BB Rust - barretenberg-rs FFI crate
 bb-rs: bb-ts bb-cpp-native
@@ -396,8 +402,17 @@ l1-contracts-src: l1-contracts-solc
 l1-contracts-verifier: noir-protocol-circuits l1-contracts-src
 	$(call build,$@,l1-contracts,build_verifier)
 
+# l1-contracts-artifacts: Generate the @aztec/l1-artifacts TS package (ABIs/bytecode/storage) and the
+# self-contained foundry bundle used by the runtime forge deploy path. Must depend on the verifier, not
+# just build_src: the generated artifact list includes HonkVerifier, and its real implementation is only
+# produced by build_verifier (which compiles generated/HonkVerifier.sol, copied from noir-projects).
+# build_src only compiles the src/ coverage mock of the same name, which collides on the same out/ path
+# and would be published instead if the verifier had not run last.
+l1-contracts-artifacts: l1-contracts-verifier
+	$(call build,$@,l1-contracts,build_artifacts)
+
 # l1-contracts: Complete build (aggregate target)
-l1-contracts: l1-contracts-src l1-contracts-verifier
+l1-contracts: l1-contracts-src l1-contracts-verifier l1-contracts-artifacts
 
 l1-contracts-tests: l1-contracts-verifier
 	$(call test,$@,l1-contracts)
@@ -406,7 +421,7 @@ l1-contracts-tests: l1-contracts-verifier
 # Yarn Project - TypeScript monorepo with all TS packages
 #==============================================================================
 
-yarn-project: bb-ts noir-projects l1-contracts wsdb
+yarn-project: bb-ts noir-projects l1-contracts wsdb bb-avm-sim
 	$(call build,$@,yarn-project)
 
 yarn-project-tests: yarn-project

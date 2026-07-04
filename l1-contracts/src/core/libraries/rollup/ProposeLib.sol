@@ -12,6 +12,7 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {CommitteeAttestations} from "@aztec/core/libraries/rollup/AttestationLib.sol";
 import {CoordinationSignatureLib} from "@aztec/core/libraries/rollup/CoordinationSignatureLib.sol";
 import {OracleInput, FeeLib, ManaMinFeeComponents} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {FieldLib} from "@aztec/core/libraries/rollup/FieldLib.sol";
 import {ValidatorSelectionLib} from "@aztec/core/libraries/rollup/ValidatorSelectionLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {CompressedSlot, CompressedTimeMath} from "@aztec/shared/libraries/CompressedTimeMath.sol";
@@ -125,6 +126,7 @@ library ProposeLib {
    *          - Proposer signature is valid for designated slot proposer:
    *            Errors.ValidatorSelection__MissingProposerSignature
    *          - Inbox hash matches expected value: Errors.Rollup__InvalidInHash
+   *          - Archive root is within the scalar field: Errors.Rollup__FieldElementOutOfRange
    *
    *          Validations NOT performed:
    *          - Committee attestations (only proposer signature verified)
@@ -183,6 +185,10 @@ library ProposeLib {
     (v.blobHashes, v.blobsHashesCommitment, v.blobCommitments) = BlobLib.validateBlobs(_blobsInput, _checkBlob);
 
     v.header = _args.header;
+
+    // The new checkpoint archive root is not part of the header, so it is range-checked here rather than in
+    // validateHeader.
+    FieldLib.requireValidFieldElement(_args.archive);
 
     // Compute header hash for computing the payload digest
     v.headerHash = ProposedHeaderLib.hash(v.header);
@@ -305,6 +311,7 @@ library ProposeLib {
    *      for proposers to check header validity before submitting transactions
    *
    *      Header validations performed:
+   *      - Fr-encoded header fields are within the scalar field: Errors.Rollup__FieldElementOutOfRange
    *      - Coinbase address is non-zero: Errors.Rollup__InvalidCoinbase
    *      - Mana usage within limits: Errors.Rollup__ManaLimitExceeded
    *      - Builds on correct parent checkpoint (archive root check): Errors.Rollup__InvalidArchive
@@ -319,6 +326,12 @@ library ProposeLib {
    * @param _args Validation arguments including header, digest, mana min fee, and flags
    */
   function validateHeader(ValidateHeaderArgs memory _args) internal view {
+    // Check that header fields that map to an Fr are within range.
+    FieldLib.requireValidFieldElement(_args.header.blockHeadersHash);
+    FieldLib.requireValidFieldElement(_args.header.outHash);
+    FieldLib.requireValidFieldElement(_args.header.feeRecipient);
+    FieldLib.requireValidFieldElement(bytes32(_args.header.accumulatedFees));
+
     require(_args.header.coinbase != address(0), Errors.Rollup__InvalidCoinbase());
     require(_args.header.totalManaUsed <= FeeLib.getManaLimit(), Errors.Rollup__ManaLimitExceeded());
 

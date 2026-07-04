@@ -809,50 +809,8 @@ variable "RPC_GATEWAY_KONG_SERVICE_MONITOR_ENABLED" {
   default     = false
 }
 
-variable "RPC_GATEWAY_KONG_METRICS_SERVICE_ENABLED" {
-  description = "Whether to expose Kong's /metrics endpoint through a dedicated Service."
-  type        = bool
-  default     = false
-}
-
-variable "RPC_GATEWAY_KONG_METRICS_SERVICE_NAME" {
-  description = "Optional Kong metrics Service name. Defaults to RELEASE_PREFIX-kong-metrics."
-  type        = string
-  default     = ""
-}
-
-variable "RPC_GATEWAY_KONG_METRICS_SERVICE_TYPE" {
-  description = "Kong metrics Service type."
-  type        = string
-  default     = "ClusterIP"
-}
-
-variable "RPC_GATEWAY_KONG_METRICS_SERVICE_ANNOTATIONS" {
-  description = "Annotations applied to the Kong metrics Service."
-  type        = map(string)
-  default     = {}
-}
-
-variable "RPC_GATEWAY_KONG_METRICS_SERVICE_LOAD_BALANCER_IP" {
-  description = "Optional static IP assigned to the Kong metrics LoadBalancer Service."
-  type        = string
-  default     = ""
-}
-
-variable "RPC_GATEWAY_KONG_METRICS_SERVICE_LOAD_BALANCER_SOURCE_RANGES" {
-  description = "Optional source CIDRs allowed to reach the Kong metrics Service."
-  type        = list(string)
-  default     = []
-}
-
-variable "RPC_GATEWAY_KONG_METRICS_SERVICE_EXTERNAL_TRAFFIC_POLICY" {
-  description = "External traffic policy for the Kong metrics Service."
-  type        = string
-  default     = null
-}
-
 variable "RPC_GATEWAY_KONG_OTEL_METRICS_GCP_SECRET_NAME" {
-  description = "GCP Secret Manager secret name containing the central OTLP/HTTP collector endpoint. When empty, no local Kong metrics collector is deployed."
+  description = "GCP Secret Manager secret name containing the central OTLP/HTTP collector endpoint. When empty, no local Kong metrics collector is deployed by deploy-aztec-infra."
   type        = string
   default     = ""
 }

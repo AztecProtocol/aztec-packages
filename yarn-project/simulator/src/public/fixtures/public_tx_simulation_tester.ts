@@ -11,16 +11,15 @@ import { PublicCallRequest } from '@aztec/stdlib/kernel';
 import { GlobalVariables, PublicCallRequestWithCalldata, type Tx } from '@aztec/stdlib/tx';
 import { NativeWorldStateService } from '@aztec/world-state';
 
-import { BaseAvmSimulationTester } from '../avm/fixtures/base_avm_simulation_tester.js';
+import { BaseAvmSimulationTester } from '../avm/testing/base_avm_simulation_tester.js';
 import {
   DEFAULT_BLOCK_NUMBER,
   DEFAULT_TIMESTAMP,
   getContractFunctionAbi,
   getFunctionSelector,
-} from '../avm/fixtures/utils.js';
+} from '../avm/testing/utils.js';
 import { PublicContractsDB } from '../public_db_sources.js';
-import { MeasuredCppPublicTxSimulator } from '../public_tx_simulator/cpp_public_tx_simulator.js';
-import { MeasuredCppVsTsPublicTxSimulator } from '../public_tx_simulator/cpp_vs_ts_public_tx_simulator.js';
+import { MeasuredPublicTxSimulator } from '../public_tx_simulator/public_tx_simulator.js';
 import type { MeasuredPublicTxSimulatorInterface } from '../public_tx_simulator/public_tx_simulator_interface.js';
 import { TestExecutorMetrics } from '../test_executor_metrics.js';
 import { SimpleContractDataSource } from './simple_contract_data_source.js';
@@ -83,7 +82,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     if (simulatorFactory) {
       this.simulator = simulatorFactory(merkleTree, contractsDB, globals, this.metrics, config);
     } else {
-      this.simulator = new MeasuredCppPublicTxSimulator(merkleTree, contractsDB, globals, this.metrics, config);
+      this.simulator = new MeasuredPublicTxSimulator(merkleTree, contractsDB, globals, this.metrics, config);
     }
   }
 
@@ -91,14 +90,12 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     worldStateService: NativeWorldStateService, // make sure to close this later
     globals: GlobalVariables = defaultGlobals(),
     metrics: TestExecutorMetrics = new TestExecutorMetrics(),
-    useCppSimulator = false,
     config: PublicSimulatorConfig = defaultConfig,
   ): Promise<PublicTxSimulationTester> {
     const contractDataSource = new SimpleContractDataSource();
     const merkleTree = await worldStateService.fork();
-    const simulatorFactory: MeasuredSimulatorFactory = useCppSimulator
-      ? (mt, cdb, g, m, c) => new MeasuredCppPublicTxSimulator(mt, cdb, g, m, c)
-      : (mt, cdb, g, m, c) => new MeasuredCppVsTsPublicTxSimulator(mt, cdb, g, m, c);
+    const simulatorFactory: MeasuredSimulatorFactory = (mt, cdb, g, m, c) =>
+      new MeasuredPublicTxSimulator(mt, cdb, g, m, c);
     return new PublicTxSimulationTester(merkleTree, contractDataSource, globals, metrics, simulatorFactory, config);
   }
 
@@ -165,8 +162,6 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
       );
     }
     const avmResult = await this.simulator.simulate(tx, fullTxLabel);
-
-    await this.#recordBytecodeSizes(fullTxLabel, [...setupCalls, ...appCalls, ...(teardownCall ? [teardownCall] : [])]);
 
     // Something like this is often useful for debugging:
     //if (avmResult.revertReason) {
@@ -295,27 +290,6 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     const request = await PublicCallRequest.fromCalldata(sender, address, isStaticCall, calldata);
 
     return new PublicCallRequestWithCalldata(request, calldata);
-  }
-
-  // WARNING: Deduplicates by artifact name, so two different artifacts with the same name
-  // in a single tx would only record the first one's bytecode size.
-  async #recordBytecodeSizes(txLabel: string, calls: TestEnqueuedCall[]) {
-    const seenArtifactNames = new Set<string>();
-    for (const call of calls) {
-      const artifact = await this.contractDataSource.getContractArtifact(call.address);
-      if (!artifact || seenArtifactNames.has(artifact.name)) {
-        continue;
-      }
-      seenArtifactNames.add(artifact.name);
-      const instance = await this.contractDataSource.getContract(call.address);
-      if (!instance) {
-        continue;
-      }
-      const contractClass = await this.contractDataSource.getContractClass(instance.currentContractClassId);
-      if (contractClass) {
-        this.metrics.recordBytecodeSize(txLabel, artifact.name, contractClass.packedBytecode.length);
-      }
-    }
   }
 }
 

@@ -21,7 +21,6 @@
 <h3>Fields</h3>
 <ul class="sidebar-list">
 <li><a href="#structfield.eph_pk">eph_pk</a></li>
-<li><a href="#structfield.mode">mode</a></li>
 </ul>
 <h3>Trait implementations</h3>
 <ul class="sidebar-list">
@@ -35,7 +34,10 @@
 <li><a href="struct.HandshakePage.html">HandshakePage</a></div></li>
 </ul>
 <h3>Globals</h3><ul class="item-list">
+<li><a href="global.GET_APP_SILOED_SECRET_SELECTOR.html">GET_APP_SILOED_SECRET_SELECTOR</a></div></li>
+<li><a href="global.GET_HANDSHAKES_SELECTOR.html">GET_HANDSHAKES_SELECTOR</a></div></li>
 <li><a href="global.MAX_HANDSHAKES_PER_PAGE.html">MAX_HANDSHAKES_PER_PAGE</a></div></li>
+<li><a href="global.NON_INTERACTIVE_HANDSHAKE_SELECTOR.html">NON_INTERACTIVE_HANDSHAKE_SELECTOR</a></div></li>
 </ul>
 </nav>
 <main>
@@ -43,19 +45,17 @@
 <h1>Struct <span id="struct" class="struct">DiscoveredHandshake</span></h1>
 <pre><code>pub struct DiscoveredHandshake {
     pub eph_pk: <a href="../../../../protocol_types/point/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a>,
-    pub mode: <a href="../../../../noir_aztec/messages/delivery/struct.OnchainDeliveryMode.html" class="struct">OnchainDeliveryMode</a>,
 }
 </code></pre>
 <div class="comments">
-<p>A handshake discovered during sync: the sender's ephemeral public key and the delivery mode.</p>
+<p>A handshake discovered during sync: the sender's ephemeral public key.</p>
 </div>
 <h2>Fields</h2>
 <div id="structfield.eph_pk" class="struct-field"><code class="code-header">eph_pk: <a href="../../../../protocol_types/point/struct.EmbeddedCurvePoint.html" class="struct">EmbeddedCurvePoint</a></code></div>
-<div class="padded-description"></div><div id="structfield.mode" class="struct-field"><code class="code-header">mode: <a href="../../../../noir_aztec/messages/delivery/struct.OnchainDeliveryMode.html" class="struct">OnchainDeliveryMode</a></code></div>
 <div class="padded-description"></div><h2>Trait implementations</h2>
 <h3 id="impl-Deserialize-for-DiscoveredHandshake"><code class="code-header">impl <a href="../../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../../noir_aztec/messages/delivery/handshake/struct.DiscoveredHandshake.html" class="struct">DiscoveredHandshake</a></code></h3>
 
-<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; 3]) -> Self</code>
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; 2]) -> Self</code>
 
 <code class="code-header">pub fn <span class="fn">stream_deserialize</span>&lt;let K: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(reader: &mut <a href="../../../../serde/reader/struct.Reader.html" class="struct">Reader</a>&lt;K&gt;) -> Self</code>
 
@@ -65,7 +65,7 @@
 
 </div><h3 id="impl-Serialize-for-DiscoveredHandshake"><code class="code-header">impl <a href="../../../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../../../noir_aztec/messages/delivery/handshake/struct.DiscoveredHandshake.html" class="struct">DiscoveredHandshake</a></code></h3>
 
-<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; 3]</code>
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../../std/primitive.Field.html" class="primitive">Field</a>; 2]</code>
 
 <code class="code-header">pub fn <span class="fn">stream_serialize</span>&lt;let K: <a href="../../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../../../../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;)</code>
 
