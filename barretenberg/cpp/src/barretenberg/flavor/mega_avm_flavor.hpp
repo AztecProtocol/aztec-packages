@@ -55,9 +55,6 @@ class MegaAvmFlavor : public MegaAVMFlavor_Generated {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
-    static constexpr size_t num_frs_comm = FrCodec::calc_num_fields<Commitment>();
-    static constexpr size_t num_frs_fr = FrCodec::calc_num_fields<FF>();
-
     static constexpr size_t NUM_SUBRELATIONS = compute_number_of_subrelations<Relations>();
     using SubrelationSeparator = FF;
 
