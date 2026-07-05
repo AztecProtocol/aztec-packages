@@ -2,7 +2,13 @@ import type { Logger } from '@aztec/aztec.js/log';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { sleep } from '@aztec/foundation/sleep';
 
-import { SingleNodeTestContext, jest, setupWithProver } from './setup.js';
+import {
+  NO_REORG_SUBMISSION_EPOCHS,
+  PROVING_SLOT_TIMING,
+  SingleNodeTestContext,
+  jest,
+  setupWithProver,
+} from './setup.js';
 
 const MAX_JOB_COUNT = 20;
 
@@ -25,18 +31,13 @@ describe('single-node/proving/long_proving_time', () => {
     // So we delay proving of each circuit such that each epoch takes 3 epochs to prove.
     const aztecEpochDuration = 2;
     // The body is bounded by the real-wall-clock prover delay (a `sleep`, not the date provider, so warping
-    // cannot shrink it): a single agent serially sleeps `proverTestDelayMs` per circuit. Both the
-    // block-build cadence and the proving delay scale with the slot duration, so a shorter L1 slot scales
-    // the whole timeline down while keeping the delay-to-slot ratio — and hence the "proving lags block
-    // production by ~3 epochs" assertion — intact. The L2 slot stays at 3 L1 slots (12s): the timing model
-    // needs S >= ~8.5s with the default 3s block duration to fit one block per checkpoint, so 12s is the
-    // floor — an 8s slot derives 0 blocks per checkpoint and trips the timing-config guard.
-    const ethereumSlotDuration = 4;
-    const aztecSlotDurationInL1Slots = 3;
+    // cannot shrink it): a single agent serially sleeps `proverTestDelayMs` per circuit. Both the block-build
+    // cadence and the proving delay scale with the slot duration, so the PROVING_SLOT_TIMING floor scales the
+    // whole timeline down while keeping the delay-to-slot ratio — and hence the "proving lags block production
+    // by ~3 epochs" assertion — intact.
     const { aztecSlotDuration } = SingleNodeTestContext.getSlotDurations({
       aztecEpochDuration,
-      ethereumSlotDuration,
-      aztecSlotDurationInL1Slots,
+      ...PROVING_SLOT_TIMING,
     });
     const epochDurationInSeconds = aztecSlotDuration * aztecEpochDuration;
     const proverTestDelayMs = (epochDurationInSeconds * 1000 * 3) / 4;
@@ -44,9 +45,8 @@ describe('single-node/proving/long_proving_time', () => {
     // at least that many epochs to avoid rejecting jobs as stale.
     test = await setupWithProver({
       aztecEpochDuration,
-      ethereumSlotDuration,
-      aztecSlotDurationInL1Slots,
-      aztecProofSubmissionEpochs: 1000, // Effectively don't re-org
+      ...PROVING_SLOT_TIMING,
+      aztecProofSubmissionEpochs: NO_REORG_SUBMISSION_EPOCHS, // Effectively don't re-org
       proverTestDelayMs,
       proverNodeMaxPendingJobs: MAX_JOB_COUNT, // Prove multiple epochs concurrently
       proverBrokerMaxEpochsToKeepResultsFor: 10,
