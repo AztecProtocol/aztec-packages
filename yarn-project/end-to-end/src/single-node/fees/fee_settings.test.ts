@@ -16,6 +16,7 @@ import { DEFAULT_MIN_FEE_PADDING } from '../../fixtures/fixtures.js';
 import { waitForBlockNumber, waitForNodeCheckpoint } from '../../fixtures/wait_helpers.js';
 import type { TestWallet } from '../../test-wallet/test_wallet.js';
 import { proveInteraction } from '../../test-wallet/utils.js';
+import { NO_REORG_SUBMISSION_EPOCHS } from '../setup.js';
 import { FeesTest } from './fees_test.js';
 
 /**
@@ -55,7 +56,7 @@ async function spikeL1BaseFeeUntilMinFee(
 
 // Fee oracle and wallet fee-padding behaviour under L1 base-fee spikes and governance fee-config bumps.
 // Uses FeesTest with a custom timing preset (ethSlot=4s, aztecSlot=12s, inboxLag=2, minTxsPerBlock=0,
-// aztecProofSubmissionEpochs=640, manaTarget=4M, walletMinFeePadding=30) and fake in-proc prover node.
+// aztecProofSubmissionEpochs=NO_REORG_SUBMISSION_EPOCHS, manaTarget=4M, walletMinFeePadding=30) and fake in-proc prover node.
 // No token bridging involved — all L1 interaction is L1 base-fee cheat codes and Rollup oracle calls.
 // (Category: single-node despite using FeesTest, since no cross-chain token transfer or fee-juice
 // portal bridging occurs in any test body — L1 is active only for oracle updates.)
@@ -79,7 +80,7 @@ describe('single-node/fees/fee_settings', () => {
     minTxsPerBlock: 0,
     aztecSlotDuration: AZTEC_SLOT_DURATION,
     ethereumSlotDuration: 4,
-    aztecProofSubmissionEpochs: 640,
+    aztecProofSubmissionEpochs: NO_REORG_SUBMISSION_EPOCHS,
     walletMinFeePadding: 30,
     manaTarget: 4_000_000n,
   });

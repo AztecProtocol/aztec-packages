@@ -9,7 +9,7 @@ import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { jest } from '@jest/globals';
 
 import { proveAndSendTxs } from '../../test-wallet/utils.js';
-import { setupWithProver } from '../setup.js';
+import { NO_REORG_SUBMISSION_EPOCHS, setupWithProver } from '../setup.js';
 import { SingleNodeTestContext } from '../single_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
@@ -90,7 +90,7 @@ describe('single-node/misc/missed_l1_slot', () => {
       ethereumSlotDuration: 6,
       aztecSlotDurationInL1Slots: L1_SLOTS_PER_L2_SLOT,
       startProverNode: false,
-      aztecProofSubmissionEpochs: 1024,
+      aztecProofSubmissionEpochs: NO_REORG_SUBMISSION_EPOCHS,
       // Required for the proposer's own broadcasts to route through the local
       // proposal handler (the dummy p2p service drops them). Without this, the
       // archiver's #proposedCheckpoints map stays empty and the pipelining

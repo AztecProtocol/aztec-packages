@@ -73,8 +73,21 @@ function test_cmds {
       multi-node/governance/add_rollup)
         test_prefix="$prefix:TIMEOUT=20m"
         ;;
-      single-node/cross-chain/l1_to_l2.parallel)
-        test_prefix="$prefix:TIMEOUT=20m"
+      single-node/cross-chain/l1_to_l2)
+        # The duplicate-message scenario runs over private and public scope serially in one container.
+        test_prefix="$prefix:TIMEOUT=25m"
+        ;;
+      single-node/cross-chain/l1_to_l2_inbox_drift)
+        # The inbox-drift scenario runs over private and public scope serially in one container.
+        test_prefix="$prefix:TIMEOUT=25m"
+        ;;
+      single-node/cross-chain/l2_to_l1)
+        # Six message-shape / reorg its run serially in one container (was .parallel, one per it).
+        test_prefix="$prefix:TIMEOUT=25m"
+        ;;
+      single-node/cross-chain/token_bridge)
+        # Private + public round trips and the failure cases share one node and run serially.
+        test_prefix="$prefix:TIMEOUT=25m"
         ;;
       single-node/block-building/block_building)
         # Block-building covers the full multi-tx / reorg surface and dumps AVM circuit inputs
@@ -106,6 +119,10 @@ function test_cmds {
 
   # compose-based tests (use running local network)
   tests=(
+    # integration_proof_verification and e2e_persistence are excluded and run nowhere: the former's committed
+    # epoch-proof fixture is stale (the proof no longer verifies), and the latter's beforeAll no longer
+    # completes on the current branch (the single-node sequencer stalls in checkpoint proposal). See each
+    # file's header comment. Both stay excluded until fixed/regenerated.
     src/composed/!(integration_proof_verification|e2e_persistence).test.ts
     src/guides/*.test.ts
   )

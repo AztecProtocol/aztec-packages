@@ -26,7 +26,14 @@ import { getLogger, startAnvil } from '../fixtures/utils.js';
  */
 // Standalone Honk proof verifier integration test. Starts its own anvil, deploys a HonkVerifier contract,
 // loads a serialised RootRollupPublicInputs fixture, and verifies the proof on-chain via BBCircuitVerifier.
-// No Aztec node. Excluded from compose glob; requires a pre-generated proof fixture (AZTEC_GENERATE_TEST_DATA).
+// No Aztec node.
+//
+// EXCLUDED from every CI test list (see bootstrap.sh) and does NOT run anywhere. The committed
+// fixtures/dumps/epoch_proof_result.json is stale: it was last regenerated in Feb 2026, but the rollup
+// circuits and verification key have changed since, so bb and the on-chain HonkVerifier both reject the
+// proof ("Failed to verify RootRollupArtifact proof!"). Re-enabling it needs the fixture regenerated
+// against the current circuits (see the command above) and is better relocated alongside the bb-prover
+// circuit tests than kept here.
 describe('proof_verification', () => {
   let proof: Proof;
   let publicInputs: RootRollupPublicInputs;

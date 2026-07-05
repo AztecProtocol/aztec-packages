@@ -78,8 +78,14 @@ export class ContractInstanceStore {
         if (isProtocolContract(contractInstance.address)) {
           return;
         }
+        const existingBlockNumber = await this.#contractInstancePublishedAt.getAsync(key);
+        // An L1 reorg can re-present an already-stored checkpoint, replaying this instance at the same
+        // block; treat that as a no-op. A duplicate at a different block still signals double-processing.
+        if (existingBlockNumber === blockNumber) {
+          return;
+        }
         throw new Error(
-          `Contract instance at ${key} already exists (deployed at block ${await this.#contractInstancePublishedAt.getAsync(key)}), cannot add again at block ${blockNumber}`,
+          `Contract instance at ${key} already exists (deployed at block ${existingBlockNumber}), cannot add again at block ${blockNumber}`,
         );
       }
       await this.#contractInstances.set(key, new SerializableContractInstance(contractInstance).toBuffer());

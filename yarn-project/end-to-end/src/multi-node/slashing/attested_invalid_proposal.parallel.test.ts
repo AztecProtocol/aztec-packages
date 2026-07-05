@@ -25,7 +25,7 @@ import {
   SLASHER_ENABLED_MULTI_VALIDATOR_OPTS,
   buildMockGossipValidators,
 } from '../multi_node_test_context.js';
-import { awaitCommitteeExists } from './setup.js';
+import { SENTINEL_TIMING, awaitCommitteeExists, findSlashOffense } from './setup.js';
 
 const TEST_TIMEOUT = 1_000_000;
 
@@ -33,7 +33,8 @@ jest.setTimeout(TEST_TIMEOUT);
 
 const NUM_VALIDATORS = 3;
 const COMMITTEE_SIZE = NUM_VALIDATORS;
-const ETHEREUM_SLOT_DURATION = 4;
+// Long 36s L2 slots (vs SENTINEL_TIMING's 8s): the bad proposer serializes an AVM-heavy 3-block
+// checkpoint, which must fit inside a single slot for honest receivers to accept and attest to it.
 const AZTEC_SLOT_DURATION = 36;
 const BLOCK_DURATION_MS = 8_000;
 const BLOCKS_PER_CHECKPOINT = 3;
@@ -44,16 +45,6 @@ const OFFENSE_DETECTION_TIMEOUT = AZTEC_SLOT_DURATION * 3;
 const INVALID_BLOCK_REMOVAL_TIMEOUT = AZTEC_SLOT_DURATION * 3;
 
 type BlockProposedEvent = Parameters<SequencerEvents['block-proposed']>[0];
-type SlashOffense = Awaited<ReturnType<AztecNodeService['getSlashOffenses']>>[number];
-
-function findSlashOffense(offenses: SlashOffense[], validator: EthAddress, offenseType: OffenseType, slot: SlotNumber) {
-  return offenses.find(
-    offense =>
-      offense.validator.equals(validator) &&
-      offense.offenseType === offenseType &&
-      offense.epochOrSlot === BigInt(slot),
-  );
-}
 
 // Validators are keyed from `getPrivateKeyFromIndex(i + 3)` (the `buildMockGossipValidators` convention),
 // so the signer for validator `index` is derived from the same key its node signs proposals with.
@@ -160,11 +151,9 @@ describe('multi-node/slashing/attested_invalid_proposal', () => {
   beforeEach(async () => {
     test = await MultiNodeTestContext.setup({
       ...SLASHER_ENABLED_MULTI_VALIDATOR_OPTS,
-      anvilSlotsInAnEpoch: 4,
-      listenAddress: '127.0.0.1',
-      aztecEpochDuration: 2,
-      ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
-      aztecSlotDuration: AZTEC_SLOT_DURATION,
+      ...SENTINEL_TIMING,
+      sentinelEnabled: false, // reuse only the fast base timing; this test does not use the sentinel
+      aztecSlotDuration: AZTEC_SLOT_DURATION, // override SENTINEL_TIMING's 8s slot with 36s (see const above)
       aztecTargetCommitteeSize: COMMITTEE_SIZE,
       aztecProofSubmissionEpochs: 1024,
       slashInactivityConsecutiveEpochThreshold: 32,
