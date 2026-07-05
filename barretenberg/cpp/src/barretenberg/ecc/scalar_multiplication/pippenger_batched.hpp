@@ -182,11 +182,19 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
     // footprint, which tracks the span. A sparse-but-wide MSM (few non-zeros, large domain) must stay
     // "large" — splitting by active count instead drops it into the concurrent pool and thrashes cache.
     const size_t pool_width = bb::get_num_cpus();
+#ifdef __wasm__
+    // wasm runs every MSM single-threaded, so the split uses a fixed point-count bound rather than
+    // MSM_MIN_PTS_PER_THREAD (SIZE_MAX here, which would classify every member as small). The loop
+    // below tests `n < mt_threshold` and the intended classification is `n <= SMALL_MSM_BATCH_THRESHOLD`,
+    // so the exclusive bound is one past it.
+    const size_t mt_threshold = SMALL_MSM_BATCH_THRESHOLD + 1;
+#else
     // overflow-safe MSM_MIN_PTS_PER_THREAD * pool_width
     const size_t mt_threshold =
         (pool_width <= 1 || MSM_MIN_PTS_PER_THREAD > std::numeric_limits<size_t>::max() / pool_width)
             ? std::numeric_limits<size_t>::max()
             : MSM_MIN_PTS_PER_THREAD * pool_width;
+#endif
     std::vector<size_t> small_members;
     std::vector<size_t> large_members;
     small_members.reserve(K);
@@ -228,6 +236,11 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
     //   - max n <= Σn / pool_width (n is the work proxy): with largest-first ordering (below) the
     //     makespan is max(largest, Σn / pool_width), so a dominant member can't strand one worker.
     //   - pool_width >= CONCURRENT_MIN_POOL_WIDTH: fewer threads make the win too small to justify.
+#ifdef __wasm__
+    // wasm keeps large members on the sequential shared-arena dispatch: with single-threaded MSMs the
+    // concurrent path's per-worker live arenas buy nothing over one reused arena.
+    const bool large_members_concurrent = false;
+#else
     static constexpr size_t CONCURRENT_MIN_MEMBERS = 100;
     static constexpr size_t CONCURRENT_MIN_POOL_WIDTH = 4;
     size_t total_large_n = 0;
@@ -239,6 +252,7 @@ void pippenger_round_parallel_batched(std::span<std::span<typename Curve::Scalar
     const bool large_members_concurrent = pool_width >= CONCURRENT_MIN_POOL_WIDTH &&
                                           large_members.size() > CONCURRENT_MIN_MEMBERS &&
                                           max_large_n <= total_large_n / pool_width;
+#endif
 
     // Shared dynamically-sized arena for the sequential (large-member) calls. Sized to
     // the max requirement across those members so each MSM_fast finds enough space; a
