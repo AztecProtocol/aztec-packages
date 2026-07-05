@@ -2,6 +2,7 @@ import { BBBundlePrivateKernelProver } from '@aztec/bb-prover/client/bundle';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { BlockNumber, CheckpointNumber, IndexWithinCheckpoint } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AztecLMDBStoreV2, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
@@ -22,8 +23,13 @@ import {
   GENESIS_CHECKPOINT_HEADER_HASH,
 } from '@aztec/stdlib/block';
 import { emptyChainConfig } from '@aztec/stdlib/config';
-import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
+import {
+  CompleteAddress,
+  SerializableContractInstancePreimage,
+  getContractClassFromArtifact,
+} from '@aztec/stdlib/contract';
 import type { AztecNode, AztecNodeDebug, BlockResponse } from '@aztec/stdlib/interfaces/client';
+import { deriveKeys } from '@aztec/stdlib/keys';
 import {
   randomContractArtifact,
   randomContractInstanceWithAddress,
@@ -36,7 +42,7 @@ import { mock } from 'jest-mock-extended';
 import type { MockProxy } from 'jest-mock-extended/lib/Mock.js';
 
 import type { PXEConfig } from './config/index.js';
-import { PXE, type PackedPrivateEvent } from './pxe.js';
+import { PXE, type PackedPrivateEvent, type TaggingSecretSource } from './pxe.js';
 import { PrivateEventStore } from './storage/private_event_store/private_event_store.js';
 
 describe('PXE', () => {
@@ -113,9 +119,9 @@ describe('PXE', () => {
   }, 120_000);
 
   it('registers an account and returns it as an account only and not as a recipient', async () => {
-    const randomSecretKey = Fr.random();
+    const privacyKeys = await deriveKeys(Fr.random());
     const randomPartialAddress = Fr.random();
-    const completeAddress = await pxe.registerAccount(randomSecretKey, randomPartialAddress);
+    const completeAddress = await pxe.registerAccount(privacyKeys, randomPartialAddress);
 
     // Check that the account is correctly registered using the getAccounts and getRecipients methods
     const accounts = await pxe.getRegisteredAccounts();
@@ -125,28 +131,93 @@ describe('PXE', () => {
   it('refuses to register an invalid address as a sender', async () => {
     // x = 3 is not a valid x-coordinate on the Grumpkin curve (y^2 = x^3 - 17 = 10 has no square root in Fr)
     const invalidAddress = new AztecAddress(new Fr(3));
-    await expect(pxe.registerSender(invalidAddress)).rejects.toThrow(/not valid/);
+    await expect(pxe.registerTaggingSecretSource({ kind: 'address-derived', sender: invalidAddress })).rejects.toThrow(
+      /not valid/,
+    );
   });
 
   it('does not throw when registering the same account twice (just ignores the second attempt)', async () => {
-    const randomSecretKey = Fr.random();
+    const privacyKeys = await deriveKeys(Fr.random());
     const randomPartialAddress = Fr.random();
 
-    await pxe.registerAccount(randomSecretKey, randomPartialAddress);
-    await pxe.registerAccount(randomSecretKey, randomPartialAddress);
+    await pxe.registerAccount(privacyKeys, randomPartialAddress);
+    await pxe.registerAccount(privacyKeys, randomPartialAddress);
   });
 
   it('does not add a keystore account to the sender address book when registered as a sender', async () => {
-    const { address } = await pxe.registerAccount(Fr.random(), Fr.random());
-    await pxe.registerSender(address);
-    const senders = await pxe.getSenders();
-    expect(senders.map(s => s.toString())).not.toContain(address.toString());
+    const { address } = await pxe.registerAccount(await deriveKeys(Fr.random()), Fr.random());
+    await pxe.registerTaggingSecretSource({ kind: 'address-derived', sender: address });
+    const senders = await pxe.getTaggingSecretSources({ kind: 'address-derived' });
+    const senderAddresses = senders.map(s => s.sender.toString());
+    expect(senderAddresses).not.toContain(address.toString());
+  });
+
+  it('lists registered senders and arbitrary secrets together', async () => {
+    const senderSource: TaggingSecretSource = {
+      kind: 'address-derived',
+      sender: (await CompleteAddress.random()).address,
+    };
+    const secretSource: TaggingSecretSource = {
+      kind: 'arbitrary-secret',
+      recipient: (await CompleteAddress.random()).address,
+      secret: await Point.random(),
+    };
+
+    await pxe.registerTaggingSecretSource(senderSource);
+    await pxe.registerTaggingSecretSource(secretSource);
+
+    expect(await pxe.getTaggingSecretSources()).toEqual(expect.arrayContaining([senderSource, secretSource]));
+  });
+
+  it('filters tagging secret sources by kind', async () => {
+    const senderSource: TaggingSecretSource = {
+      kind: 'address-derived',
+      sender: (await CompleteAddress.random()).address,
+    };
+    const secretSource: TaggingSecretSource = {
+      kind: 'arbitrary-secret',
+      recipient: (await CompleteAddress.random()).address,
+      secret: await Point.random(),
+    };
+
+    await pxe.registerTaggingSecretSource(senderSource);
+    await pxe.registerTaggingSecretSource(secretSource);
+
+    const senders = await pxe.getTaggingSecretSources({ kind: 'address-derived' });
+    expect(senders).toContainEqual(senderSource);
+    expect(senders).not.toContainEqual(secretSource);
+
+    const secrets = await pxe.getTaggingSecretSources({ kind: 'arbitrary-secret' });
+    expect(secrets).toContainEqual(secretSource);
+    expect(secrets).not.toContainEqual(senderSource);
+  });
+
+  it('removes registered senders and arbitrary secrets', async () => {
+    const senderSource: TaggingSecretSource = {
+      kind: 'address-derived',
+      sender: (await CompleteAddress.random()).address,
+    };
+    const secretSource: TaggingSecretSource = {
+      kind: 'arbitrary-secret',
+      recipient: (await CompleteAddress.random()).address,
+      secret: await Point.random(),
+    };
+
+    await pxe.registerTaggingSecretSource(senderSource);
+    await pxe.registerTaggingSecretSource(secretSource);
+
+    await pxe.removeTaggingSecretSource(senderSource);
+    await pxe.removeTaggingSecretSource(secretSource);
+
+    const remaining = await pxe.getTaggingSecretSources();
+    expect(remaining).not.toContainEqual(senderSource);
+    expect(remaining).not.toContainEqual(secretSource);
   });
 
   it('successfully adds a contract', async () => {
     const contracts = await Promise.all([randomDeployedContract(), randomDeployedContract()]);
     for (const contract of contracts) {
-      await pxe.registerContract(contract);
+      await pxe.registerContract(contract.instance);
     }
 
     const expectedContractAddresses = contracts.map(contract => contract.instance.address);
@@ -157,7 +228,9 @@ describe('PXE', () => {
   it('preloads the standard multi-call entrypoint on creation', async () => {
     const { instance: expectedInstance, artifact: expectedArtifact } = await getStandardMultiCallEntrypoint();
     const instance = await pxe.getContractInstance(STANDARD_MULTI_CALL_ENTRYPOINT_ADDRESS);
-    expect(instance).toEqual(expectedInstance);
+    expect(instance).toEqual(
+      new SerializableContractInstancePreimage(expectedInstance).withAddress(expectedInstance.address),
+    );
 
     const artifact = await pxe.getContractArtifact(expectedInstance.currentContractClassId);
     expect(artifact).toEqual(expectedArtifact);
@@ -172,47 +245,32 @@ describe('PXE', () => {
     await pxe.registerContractClass(artifact);
     expect(await pxe.getContractArtifact(contractClassId)).toEqual(artifact);
 
-    await pxe.registerContract({ instance });
-    expect(await pxe.getContractInstance(instance.address)).toEqual(instance);
+    await pxe.registerContract(instance);
+    expect(await pxe.getContractInstance(instance.address)).toEqual(
+      new SerializableContractInstancePreimage(instance).withAddress(instance.address),
+    );
   });
 
-  it('refuses to register a class with a mismatched address', async () => {
-    const artifact = randomContractArtifact();
-    const contractClass = await getContractClassFromArtifact(artifact);
-    const contractClassId = contractClass.id;
-    const instance = await randomContractInstanceWithAddress({ contractClassId });
-    await expect(
-      pxe.registerContract({
-        instance: {
-          ...instance,
-          address: await AztecAddress.random(),
-        },
-        artifact,
-      }),
-    ).rejects.toThrow(/Added a contract in which the address does not match the contract instance./);
-  });
-
-  it('refuses to register a contract with a class that has not been registered', async () => {
+  it('registers an instance and returns its derived address without checking the class is present', async () => {
+    // Registration performs no validation and ignores any caller-supplied address: it derives the address from the
+    // preimage and stores the instance. A missing class only surfaces when the contract is later simulated.
     const instance = await randomContractInstanceWithAddress();
-    await expect(pxe.registerContract({ instance })).rejects.toThrow(/Artifact not found when registering an instance/);
+    await expect(pxe.registerContract(instance)).resolves.toEqual(instance.address);
+    expect(await pxe.getContractInstance(instance.address)).toEqual(
+      new SerializableContractInstancePreimage(instance).withAddress(instance.address),
+    );
   });
 
-  it('refuses to register a contract with an artifact with mismatching class id', async () => {
+  it('does not call registerContractFunctionSignatures for classes without public functions', async () => {
     const artifact = randomContractArtifact();
-    const instance = await randomContractInstanceWithAddress();
-    await expect(pxe.registerContract({ instance, artifact })).rejects.toThrow(/Artifact does not match/i);
-  });
-
-  it('does not call registerContractFunctionSignatures for contracts without public functions', async () => {
-    const { artifact, instance } = await randomDeployedContract();
     nodeDebug.registerContractFunctionSignatures.mockClear();
 
-    await pxe.registerContract({ artifact, instance });
+    await pxe.registerContractClass(artifact);
 
     expect(nodeDebug.registerContractFunctionSignatures).not.toHaveBeenCalled();
   });
 
-  it('calls registerContractFunctionSignatures for contracts with public functions', async () => {
+  it('calls registerContractFunctionSignatures for classes with public functions', async () => {
     const artifact = randomContractArtifact();
     artifact.functions = [
       {
@@ -228,11 +286,9 @@ describe('PXE', () => {
         debugSymbols: '',
       },
     ];
-    const contractClass = await getContractClassFromArtifact(artifact);
-    const instance = await randomContractInstanceWithAddress({ contractClassId: contractClass.id });
     nodeDebug.registerContractFunctionSignatures.mockClear();
 
-    await pxe.registerContract({ artifact, instance });
+    await pxe.registerContractClass(artifact);
 
     expect(nodeDebug.registerContractFunctionSignatures).toHaveBeenCalledWith(['my_public_fn()']);
   });
@@ -293,9 +349,9 @@ describe('PXE', () => {
         finalized: tipId,
       });
 
-      // This is read when PXE tries to resolve the
-      // class id of a contract instance
-      node.getPublicStorageAt.mockResolvedValue(Fr.ZERO);
+      // Read when PXE resolves the current class id of a contract instance at the anchor block. Returning undefined
+      // makes the contract class service fall back to the local instance's originalContractClassId.
+      node.getContract.mockResolvedValue(undefined);
 
       // Used to sync private logs from the node - the return array needs to have the same length as the number of tags
       // on the input.
@@ -306,9 +362,7 @@ describe('PXE', () => {
       const contractClass = await getContractClassFromArtifact(TestContractArtifact);
       const contractClassId = contractClass.id;
       const contractInstance = await randomContractInstanceWithAddress({ contractClassId });
-      await pxe.registerContract({
-        instance: contractInstance,
-      });
+      await pxe.registerContract(contractInstance);
 
       contractAddress = contractInstance.address;
       eventSelector = EventSelector.random();

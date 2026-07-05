@@ -26,9 +26,9 @@ import type { Logger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { PXEConfig, PXECreationOptions } from '@aztec/pxe/client/lazy';
 import type { PXE } from '@aztec/pxe/server';
-import type { ContractArtifact, EventMetadataDefinition, FunctionCall } from '@aztec/stdlib/abi';
+import type { EventMetadataDefinition, FunctionCall } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type ContractInstanceWithAddress, getContractClassFromArtifact } from '@aztec/stdlib/contract';
+import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import { GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
@@ -131,15 +131,17 @@ export class EmbeddedWallet extends BaseWallet {
 
   override async registerSender(address: AztecAddress, alias: string) {
     await this.walletDB.storeSender(address, alias);
-    return this.pxe.registerSender(address);
+    await this.pxe.registerTaggingSecretSource({ kind: 'address-derived', sender: address });
+    return address;
   }
 
   override async getAddressBook(): Promise<Aliased<AztecAddress>[]> {
-    const senders = await this.pxe.getSenders();
+    const sources = await this.pxe.getTaggingSecretSources({ kind: 'address-derived' });
+    const senders = sources.map(source => source.sender);
     const storedSenders = await this.walletDB.listSenders();
     for (const storedSender of storedSenders) {
       if (senders.findIndex(sender => sender.equals(storedSender.item)) === -1) {
-        await this.pxe.registerSender(storedSender.item);
+        await this.pxe.registerTaggingSecretSource({ kind: 'address-derived', sender: storedSender.item });
       }
     }
     return storedSenders;
@@ -259,17 +261,6 @@ export class EmbeddedWallet extends BaseWallet {
   ): Promise<PrivateEvent<T>[]> {
     await this.pxe.sync();
     return super.getPrivateEvents<T>(eventDef, eventFilter);
-  }
-
-  public override async registerContract(
-    instance: ContractInstanceWithAddress,
-    artifact?: ContractArtifact,
-    secretKey?: Fr,
-  ): Promise<ContractInstanceWithAddress> {
-    // registerContract may call pxe.updateContract under the hood, which depends on a fresh anchor
-    // block to verify the current class id from the node.
-    await this.pxe.sync();
-    return super.registerContract(instance, artifact, secretKey);
   }
 
   /**

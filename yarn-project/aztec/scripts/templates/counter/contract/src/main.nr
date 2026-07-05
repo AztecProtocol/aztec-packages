@@ -24,17 +24,17 @@ pub contract Counter {
     #[initializer]
     #[external("private")]
     fn constructor(initial_value: u128, owner: AztecAddress) {
-        // Delivers the note to the recipient onchain with provable correctness.
+        // Delivers the note to the recipient onchain.
         // Without delivery, the recipient can't find or decrypt the note.
         self.storage.counters.at(owner).add(initial_value).deliver(
-            MessageDelivery::onchain_constrained(),
+            MessageDelivery::onchain_unconstrained(),
         );
     }
 
     // Adds 1 to the owner's counter.
     #[external("private")]
     fn increment(owner: AztecAddress) {
-        self.storage.counters.at(owner).add(1).deliver(MessageDelivery::onchain_constrained());
+        self.storage.counters.at(owner).add(1).deliver(MessageDelivery::onchain_unconstrained());
     }
 
     // Returns the current value of the owner's counter.

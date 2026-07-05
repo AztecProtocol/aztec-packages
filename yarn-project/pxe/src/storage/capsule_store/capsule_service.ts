@@ -2,6 +2,7 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { Capsule } from '@aztec/stdlib/tx';
 
+import { assertAllowedScope } from '../allowed_scopes.js';
 import type { CapsuleStore } from './capsule_store.js';
 
 /**
@@ -9,10 +10,15 @@ import type { CapsuleStore } from './capsule_store.js';
  * allowed scopes list before delegating to the underlying store.
  */
 export class CapsuleService {
+  private readonly allowedScopes: AztecAddress[];
+
   constructor(
     private readonly capsuleStore: CapsuleStore,
-    private readonly allowedScopes: AztecAddress[],
-  ) {}
+    allowedScopes: AztecAddress[],
+  ) {
+    // The zero address denotes the global capsule scope, which is always permitted.
+    this.allowedScopes = [...allowedScopes, AztecAddress.ZERO];
+  }
 
   setCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], jobId: string, scope: AztecAddress) {
     assertAllowedScope(scope, this.allowedScopes);
@@ -75,16 +81,5 @@ export class CapsuleService {
   setCapsuleArray(contractAddress: AztecAddress, baseSlot: Fr, content: Fr[][], jobId: string, scope: AztecAddress) {
     assertAllowedScope(scope, this.allowedScopes);
     return this.capsuleStore.setCapsuleArray(contractAddress, baseSlot, content, jobId, scope);
-  }
-}
-
-function assertAllowedScope(scope: AztecAddress, allowedScopes: AztecAddress[]) {
-  if (scope.equals(AztecAddress.ZERO)) {
-    return;
-  }
-  if (!allowedScopes.some((allowed: AztecAddress) => allowed.equals(scope))) {
-    throw new Error(
-      `Scope ${scope.toString()} is not in the allowed scopes list: [${allowedScopes.map((s: AztecAddress) => s.toString()).join(', ')}]. See https://docs.aztec.network/errors/10`,
-    );
   }
 }

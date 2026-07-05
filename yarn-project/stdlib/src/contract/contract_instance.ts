@@ -18,7 +18,12 @@ import {
   computeInitializationHash,
   computeInitializationHashFromEncodedArgs,
 } from './contract_address.js';
-import type { ContractInstance, ContractInstanceWithAddress } from './interfaces/contract_instance.js';
+import type {
+  ContractInstance,
+  ContractInstancePreimage,
+  ContractInstancePreimageWithAddress,
+  ContractInstanceWithAddress,
+} from './interfaces/contract_instance.js';
 
 const VERSION = 2 as const;
 
@@ -111,6 +116,62 @@ export class SerializableContractInstance {
       initializationHash: Fr.zero(),
       immutablesHash: Fr.zero(),
       publicKeys: PublicKeys.default(),
+    });
+  }
+}
+
+export class SerializableContractInstancePreimage {
+  public readonly version = VERSION;
+  public readonly salt: Fr;
+  public readonly deployer: AztecAddress;
+  public readonly originalContractClassId: Fr;
+  public readonly initializationHash: Fr;
+  public readonly immutablesHash: Fr;
+  public readonly publicKeys: PublicKeys;
+
+  constructor(instance: ContractInstancePreimage) {
+    if (instance.version !== VERSION) {
+      throw new Error(`Unexpected contract class version ${instance.version}`);
+    }
+    this.salt = instance.salt;
+    this.deployer = instance.deployer;
+    this.originalContractClassId = instance.originalContractClassId;
+    this.initializationHash = instance.initializationHash;
+    this.immutablesHash = instance.immutablesHash;
+    this.publicKeys = instance.publicKeys;
+  }
+
+  public toBuffer() {
+    return serializeToBuffer(
+      numToUInt8(this.version),
+      this.salt,
+      this.deployer,
+      this.originalContractClassId,
+      this.initializationHash,
+      this.immutablesHash,
+      this.publicKeys,
+    );
+  }
+
+  /** Returns a copy of this object with its address included. */
+  withAddress(address: AztecAddress): ContractInstancePreimageWithAddress {
+    return { ...this, address };
+  }
+
+  static fromBuffer(bufferOrReader: Buffer | BufferReader): SerializableContractInstancePreimage {
+    const reader = BufferReader.asReader(bufferOrReader);
+    const version = reader.readUInt8();
+    if (version !== VERSION) {
+      throw new Error(`Unexpected contract instance preimage version ${version}`);
+    }
+    return new SerializableContractInstancePreimage({
+      version: VERSION,
+      salt: reader.readObject(Fr),
+      deployer: reader.readObject(AztecAddress),
+      originalContractClassId: reader.readObject(Fr),
+      initializationHash: reader.readObject(Fr),
+      immutablesHash: reader.readObject(Fr),
+      publicKeys: reader.readObject(PublicKeys),
     });
   }
 }

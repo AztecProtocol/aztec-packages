@@ -38,10 +38,9 @@ pub unconstrained fn try_get_public_keys(account: AztecAddress) -> Option<Public
 mod test {
     use super::get_public_keys;
 
+    use crate::protocol::{address::PartialAddress, point::EmbeddedCurvePoint, public_keys::{IvpkM, PublicKeys}};
     use crate::test::helpers::test_environment::TestEnvironment;
     use std::test::OracleMock;
-
-    global KEY_ORACLE_RESPONSE_LENGTH: u32 = 8; // 5 key hashes + 1 key point + 1 partial address
 
     #[test(should_fail_with = "Invalid public keys hint for address")]
     unconstrained fn get_public_keys_fails_with_bad_hint() {
@@ -49,29 +48,28 @@ mod test {
         let account = env.create_light_account();
 
         // Instead of querying for some unknown account, which would result in the oracle erroring out, we mock a bad
-        // oracle response to check that the circuit properly checks the address derivation.
-        // Wire shape: [npk_m_hash, ivpk_m.x, ivpk_m.y, ovpk_m_hash, tpk_m_hash, mspk_m_hash, fbpk_m_hash,
-        // partial_address].
-        let mut random_keys_and_partial_address = [0; KEY_ORACLE_RESPONSE_LENGTH];
-        // npk_m_hash
-        random_keys_and_partial_address[0] = 0x292364b852c6c6f01472951e76a39cbcf074591fd0e063a81965e7b51ad868a5;
-        // ivpk_m (x, y) -- arbitrary, doesn't have to be on-curve to make this test fail
-        random_keys_and_partial_address[1] = 0x173c5229a00c5425255680dd6edc27e278c48883991f348fe6985de43b4ec25f;
-        random_keys_and_partial_address[2] = 0x1698608e23b5f6c2f43c49a559108bb64e2247b8fc2da842296a416817f40b7f;
-        // ovpk_m_hash
-        random_keys_and_partial_address[3] = 0x1bad2f7d1ad960a1bd0fe4d2c8d17f5ab4a86ef8b103e0a9e7f67ec0d3b4795e;
-        // tpk_m_hash
-        random_keys_and_partial_address[4] = 0x05e3bd9cfe6b47daa139613619cf7d7fd8bb0112b6f2908caa6d9b536ed948ed;
-        // mspk_m_hash
-        random_keys_and_partial_address[5] = 0x1a4f87ed20a8ce7e8d2b2c731f9b3d39f37e2d4ab2c6db66f7c8e3e9f1b6b39d;
-        // fbpk_m_hash
-        random_keys_and_partial_address[6] = 0x0fbb9c2bf6cb4d4a1d4ee2f8b3a2c5e3d4b9c1a8e5f2d6b7c8e3f4a5b6c7d8e9;
-        // partial address
-        random_keys_and_partial_address[7] = 0x236703e2cb00a182e024e98e9f759231b556d25ff19f98896cebb69e9e678cc9;
+        // oracle response to check that the circuit properly checks the address derivation. The values below are
+        // arbitrary; `ivpk_m` does not have to be on-curve to make this test fail.
+        let public_keys = PublicKeys {
+            npk_m_hash: 0x292364b852c6c6f01472951e76a39cbcf074591fd0e063a81965e7b51ad868a5,
+            ivpk_m: IvpkM {
+                inner: EmbeddedCurvePoint {
+                    x: 0x173c5229a00c5425255680dd6edc27e278c48883991f348fe6985de43b4ec25f,
+                    y: 0x1698608e23b5f6c2f43c49a559108bb64e2247b8fc2da842296a416817f40b7f,
+                },
+            },
+            ovpk_m_hash: 0x1bad2f7d1ad960a1bd0fe4d2c8d17f5ab4a86ef8b103e0a9e7f67ec0d3b4795e,
+            tpk_m_hash: 0x05e3bd9cfe6b47daa139613619cf7d7fd8bb0112b6f2908caa6d9b536ed948ed,
+            mspk_m_hash: 0x1a4f87ed20a8ce7e8d2b2c731f9b3d39f37e2d4ab2c6db66f7c8e3e9f1b6b39d,
+            fbpk_m_hash: 0x0fbb9c2bf6cb4d4a1d4ee2f8b3a2c5e3d4b9c1a8e5f2d6b7c8e3f4a5b6c7d8e9,
+        };
+        let partial_address = PartialAddress::from_field(
+            0x236703e2cb00a182e024e98e9f759231b556d25ff19f98896cebb69e9e678cc9,
+        );
 
-        let _ = OracleMock::mock("aztec_utl_getPublicKeysAndPartialAddress").returns(Option::some(
-            random_keys_and_partial_address,
-        ));
+        let _ = OracleMock::mock("aztec_utl_getPublicKeysAndPartialAddress").returns(Option::some((
+            public_keys, partial_address,
+        )));
         let _ = get_public_keys(account);
     }
 }

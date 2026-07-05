@@ -3,7 +3,7 @@ title: Call Types
 sidebar_position: 6
 tags: [calls, contracts, execution]
 description: Understand the different types of contract calls in Aztec, including private and public execution modes, and how they compare to Ethereum's call types.
-references: ["noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr", "noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr", "noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr", "noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr", "yarn-project/end-to-end/src/e2e_card_game.test.ts", "yarn-project/end-to-end/src/e2e_crowdfunding_and_claim.test.ts"]
+references: ["noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr", "noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr", "noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr", "noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr", "yarn-project/end-to-end/src/automine/card_game.test.ts", "yarn-project/end-to-end/src/automine/token/crowdfunding_and_claim.test.ts"]
 
 ---
 
@@ -187,10 +187,12 @@ Public functions can be called either directly in a public context (as shown abo
 
 ### Utility
 
-Contract functions marked with `#[external("utility")]` cannot be called as part of a transaction. They are only invoked by applications that interact with contracts for:
+Contract functions marked with `#[external("utility")]` are never proven as part of a transaction, even when called from a private function. They are invoked by applications that interact with contracts for:
 
 - **State queries**: Reading from both private and public state via an offchain client
 - **Local state management**: Modifying contract-related PXE state (e.g., processing logs in Aztec.nr)
+
+Utility functions can also be called from other utility functions, and from private functions as unconstrained code. Calls that cross a contract boundary require wallet authorization. See [utility calls](../aztec-nr/framework-description/calling_contracts.md#utility-calls) for how to make them.
 
 Since utility execution is unconstrained and relies heavily on oracle calls, no guarantees are made on the correctness of results. However, you can verify that the bytecode being executed is correct, since a contract's address includes a commitment to all of its utility functions.
 
@@ -212,11 +214,11 @@ No correctness is guaranteed on the result of `simulate`! Correct execution is e
 
 This creates a transaction, generates proofs for private execution, broadcasts the transaction to the network, and returns a receipt. This is how transactions are sent, getting them to be included in blocks and spending gas. It is similar to [`eth_sendTransaction`](#eth_sendtransaction), except it also performs work on the user's device, namely the production of the proof for the private part of the transaction.
 
-#include_code send_tx yarn-project/end-to-end/src/e2e_card_game.test.ts typescript
+#include_code send_tx yarn-project/end-to-end/src/automine/card_game.test.ts typescript
 
 You can also use `send` to check for execution failures in testing contexts by expecting the transaction to throw:
 
-#include_code local-tx-fails /yarn-project/end-to-end/src/e2e_crowdfunding_and_claim.test.ts typescript
+#include_code local-tx-fails /yarn-project/end-to-end/src/automine/token/crowdfunding_and_claim.test.ts typescript
 
 ## Next Steps
 

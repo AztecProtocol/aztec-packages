@@ -68,7 +68,8 @@ export class CLIWallet extends BaseWallet {
 
   private async registerAuthRegistry(): Promise<void> {
     const { instance, artifact } = await getStandardAuthRegistry();
-    await this.pxe.registerContract({ instance, artifact });
+    await this.pxe.registerContractClass(artifact);
+    await this.pxe.registerContract(instance);
   }
 
   /**
@@ -95,7 +96,7 @@ export class CLIWallet extends BaseWallet {
     return Promise.resolve(
       accounts.map(({ key, value }) => {
         const alias = key.includes(':') ? key.slice(key.indexOf(':') + 1) : key;
-        return { alias, item: AztecAddress.fromString(value) };
+        return { alias, item: AztecAddress.fromStringUnsafe(value) };
       }),
     );
   }

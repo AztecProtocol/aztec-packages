@@ -25,12 +25,14 @@ pub contract NoteGetter {
         packed_set: Owned<PrivateSet<PackedNote, Context>, Context>,
     }
 
+    // This function is called from tests that execute it across many parallel txs.
+    // Since constrained delivery doesn't support it, this function must use unconstrained delivery instead.
     #[external("private")]
     fn insert_note(value: Field) {
         let owner = self.msg_sender();
         let note = FieldNote { value };
 
-        self.storage.set.at(owner).insert(note).deliver(MessageDelivery::onchain_constrained());
+        self.storage.set.at(owner).insert(note).deliver(MessageDelivery::onchain_unconstrained());
     }
 
     #[external("utility")]
@@ -48,7 +50,7 @@ pub contract NoteGetter {
         let owner = self.msg_sender();
         let note = PackedNote { high, low };
 
-        self.storage.packed_set.at(owner).insert(note).deliver(MessageDelivery::onchain_constrained());
+        self.storage.packed_set.at(owner).insert(note).deliver(MessageDelivery::onchain_unconstrained());
     }
 
     #[external("utility")]

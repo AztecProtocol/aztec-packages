@@ -8,8 +8,10 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import type { BlockSynchronizerConfig } from '../config/index.js';
-import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
+import type { ContractClassService } from '../contract/contract_class_service.js';
+import type { ContractSyncService } from '../contract/contract_sync_service.js';
 import type { AnchorBlockStore } from '../storage/anchor_block_store/index.js';
+import type { FactStore } from '../storage/fact_store/fact_store.js';
 import type { NoteStore } from '../storage/note_store/index.js';
 import type { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 import { blockStreamSourceFromAztecNode } from './block_stream_source.js';
@@ -26,14 +28,16 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
   protected readonly blockStream: L2BlockStream;
 
   constructor(
-    private node: AztecNode,
-    private store: AztecAsyncKVStore,
-    private anchorBlockStore: AnchorBlockStore,
-    private noteStore: NoteStore,
-    private privateEventStore: PrivateEventStore,
-    private l2TipsStore: L2TipsKVStore,
-    private contractSyncService: ContractSyncService,
-    private config: Partial<BlockSynchronizerConfig> = {},
+    private readonly node: AztecNode,
+    private readonly store: AztecAsyncKVStore,
+    private readonly anchorBlockStore: AnchorBlockStore,
+    private readonly noteStore: NoteStore,
+    private readonly privateEventStore: PrivateEventStore,
+    private readonly factStore: FactStore,
+    private readonly l2TipsStore: L2TipsKVStore,
+    private readonly contractSyncService: ContractSyncService,
+    private readonly contractClassService: ContractClassService,
+    private readonly config: Partial<BlockSynchronizerConfig> = {},
     bindings?: LoggerBindings,
   ) {
     this.log = createLogger('pxe:block_synchronizer', bindings);
@@ -152,6 +156,7 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
         await this.store.transactionAsync(async () => {
           await this.noteStore.rollback(event.block.number);
           await this.privateEventStore.rollback(event.block.number);
+          await this.factStore.rollback(event.block.number);
           await this.updateAnchorBlockHeader(newAnchorBlockHeader);
         });
         break;
@@ -174,6 +179,12 @@ export class BlockSynchronizer implements L2BlockStreamEventHandler {
     // Therefore, we clear the contract synchronization cache here such that the sync is re-triggered upon new
     // execution.
     this.contractSyncService.wipe();
+
+    // The contract class service keeps a per-block cache - since updating our anchor means it is very unlikely we'd
+    // ever re-simulate at past anchors, we wipe its cache to prevent runaway memory growth on very long-lived PXE
+    // instances.
+    this.contractClassService.wipe();
+
     this.log.verbose(`Updated pxe last block to ${blockHeader.getBlockNumber()}`, blockHeader.toInspect());
     await this.anchorBlockStore.setHeader(blockHeader);
   }

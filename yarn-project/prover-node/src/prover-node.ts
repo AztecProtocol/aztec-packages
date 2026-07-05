@@ -12,9 +12,9 @@ import { getLastSiblingPath } from '@aztec/prover-client/helpers';
 import { ChonkCache } from '@aztec/prover-client/orchestrator';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import {
+  EventDrivenL2BlockStream,
   type L2BlockId,
   type L2BlockSource,
-  L2BlockStream,
   type L2BlockStreamEvent,
   type L2BlockStreamEventHandler,
   L2TipsMemoryStore,
@@ -87,7 +87,7 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
   /** In-memory store for the L2BlockStream's local data provider. */
   private tipsStore: L2TipsMemoryStore;
   /** Block stream for checkpoint and reorg detection. */
-  private blockStream: L2BlockStream | undefined;
+  private blockStream: EventDrivenL2BlockStream | undefined;
   /**
    * Highest epoch whose proof-submission window has passed. Monotonic high-water mark.
    * Seeded from the last fully-proven epoch at start(); advanced on every block-stream
@@ -510,7 +510,7 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
     const { lastFullyProvenEpoch } = await this.resolveLastFullyProvenEpoch();
     this.lastExpiredEpoch = lastFullyProvenEpoch;
     this.lastProcessedCheckpoint = await this.computeStartingCheckpoint(lastFullyProvenEpoch);
-    this.blockStream = new L2BlockStream(this.l2BlockSource, this.tipsStore, this, this.log, {
+    this.blockStream = new EventDrivenL2BlockStream(this.l2BlockSource, this.tipsStore, this, this.log, {
       pollIntervalMS: this.config.proverNodePollingIntervalMs,
       tipsOnly: true,
     });

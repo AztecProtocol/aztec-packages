@@ -20,13 +20,13 @@ pub contract Counter {
     #[external("private")]
     // We can name our initializer anything we want as long as it's marked as aztec(initializer)
     fn initialize(headstart: u64, owner: AztecAddress) {
-        self.storage.counters.at(owner).add(headstart as u128).deliver(MessageDelivery::onchain_constrained());
+        self.storage.counters.at(owner).add(headstart as u128).deliver(MessageDelivery::onchain_unconstrained());
     }
 
     #[external("private")]
     fn increment(owner: AztecAddress) {
         debug_log_format("Incrementing counter for owner {0}", [owner.to_field()]);
-        self.storage.counters.at(owner).add(1).deliver(MessageDelivery::onchain_constrained());
+        self.storage.counters.at(owner).add(1).deliver(MessageDelivery::onchain_unconstrained());
     }
 
     #[external("private")]
@@ -35,8 +35,8 @@ pub contract Counter {
             "Incrementing counter twice for owner {0}",
             [owner.to_field()],
         );
-        self.storage.counters.at(owner).add(1).deliver(MessageDelivery::onchain_constrained());
-        self.storage.counters.at(owner).add(1).deliver(MessageDelivery::onchain_constrained());
+        self.storage.counters.at(owner).add(1).deliver(MessageDelivery::onchain_unconstrained());
+        self.storage.counters.at(owner).add(1).deliver(MessageDelivery::onchain_unconstrained());
     }
 
     #[external("private")]
@@ -45,14 +45,14 @@ pub contract Counter {
             "Incrementing and decrementing counter for owner {0}",
             [owner.to_field()],
         );
-        self.storage.counters.at(owner).add(1).deliver(MessageDelivery::onchain_constrained());
-        self.storage.counters.at(owner).sub(1).deliver(MessageDelivery::onchain_constrained());
+        self.storage.counters.at(owner).add(1).deliver(MessageDelivery::onchain_unconstrained());
+        self.storage.counters.at(owner).sub(1).deliver(MessageDelivery::onchain_unconstrained());
     }
 
     #[external("private")]
     fn decrement(owner: AztecAddress) {
         debug_log_format("Decrementing counter for owner {0}", [owner.to_field()]);
-        self.storage.counters.at(owner).sub(1).deliver(MessageDelivery::onchain_constrained());
+        self.storage.counters.at(owner).sub(1).deliver(MessageDelivery::onchain_unconstrained());
     }
 
     #[external("utility")]
@@ -64,7 +64,7 @@ pub contract Counter {
     fn increment_self_and_other(other_counter: AztecAddress, owner: AztecAddress) {
         debug_log_format("Incrementing counter for other {0}", [owner.to_field()]);
 
-        self.storage.counters.at(owner).add(1).deliver(MessageDelivery::onchain_constrained());
+        self.storage.counters.at(owner).add(1).deliver(MessageDelivery::onchain_unconstrained());
 
         self.call(Counter::at(other_counter).increment(owner));
     }

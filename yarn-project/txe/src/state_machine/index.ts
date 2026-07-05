@@ -3,8 +3,14 @@ import { TestCircuitVerifier } from '@aztec/bb-prover/test';
 import { CheckpointNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
-import { type AnchorBlockStore, type ContractStore, ContractSyncService, type NoteStore } from '@aztec/pxe/server';
-import { MessageContextService } from '@aztec/pxe/simulator';
+import {
+  type AnchorBlockStore,
+  ContractClassService,
+  type ContractStore,
+  ContractSyncService,
+  type NoteStore,
+} from '@aztec/pxe/server';
+import { TxResolverService } from '@aztec/pxe/simulator';
 import { L2Block, type L2TipsProvider } from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
@@ -29,7 +35,8 @@ export class TXEStateMachine {
     public archiver: TXEArchiver,
     public anchorBlockStore: AnchorBlockStore,
     public contractSyncService: ContractSyncService,
-    public messageContextService: MessageContextService,
+    public contractClassService: ContractClassService,
+    public txResolver: TxResolverService,
   ) {}
 
   public static async create(
@@ -68,16 +75,26 @@ export class TXEStateMachine {
       log,
     });
 
+    const contractClassService = new ContractClassService(node, contractStore);
     const contractSyncService = new ContractSyncService(
       node,
       contractStore,
+      contractClassService,
       noteStore,
       createLogger('txe:contract_sync'),
     );
 
-    const messageContextService = new MessageContextService(node);
+    const txResolver = new TxResolverService(node);
 
-    return new this(node, synchronizer, archiver, anchorBlockStore, contractSyncService, messageContextService);
+    return new this(
+      node,
+      synchronizer,
+      archiver,
+      anchorBlockStore,
+      contractSyncService,
+      contractClassService,
+      txResolver,
+    );
   }
 
   /** Returns an {@link L2TipsProvider} backed by this node's chain tips. */
@@ -88,7 +105,7 @@ export class TXEStateMachine {
     };
   }
 
-  public async handleL2Block(block: L2Block) {
+  public async handleL2Block(block: L2Block, l1ToL2Messages: Fr[] = []) {
     // Create a checkpoint from the block manually.
     // TXE uses 1-block-per-checkpoint for testing simplicity, so we can use block number as checkpoint number.
     // This uses the deprecated fromBlockNumber method intentionally for the TXE testing environment.
@@ -126,7 +143,7 @@ export class TXEStateMachine {
     this.contractSyncService.wipe();
 
     await Promise.all([
-      this.synchronizer.handleL2Block(block),
+      this.synchronizer.handleL2Block(block, l1ToL2Messages),
       this.archiver.addCheckpoints([publishedCheckpoint], undefined),
       this.anchorBlockStore.setHeader(block.header),
     ]);

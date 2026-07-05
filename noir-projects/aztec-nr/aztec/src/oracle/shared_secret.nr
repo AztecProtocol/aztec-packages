@@ -11,15 +11,21 @@ unconstrained fn get_shared_secrets_oracle(
 ) -> EphemeralArray<Field> {}
 
 /// Convenience wrapper around [`get_shared_secrets`] for a single ephemeral public key.
+///
+/// Returns `none` when the PXE does not hold `address`'s keys and therefore cannot derive the secret.
 pub unconstrained fn get_shared_secret(
     address: AztecAddress,
     eph_pk: EmbeddedCurvePoint,
     contract_address: AztecAddress,
-) -> Field {
+) -> Option<Field> {
     let eph_pks: EphemeralArray<EmbeddedCurvePoint> = EphemeralArray::empty_at(GET_SHARED_SECRET_SINGLE_SLOT);
     eph_pks.push(eph_pk);
     let secrets = get_shared_secrets(address, eph_pks, contract_address);
-    secrets.get(0)
+    if secrets.len() == 1 {
+        Option::some(secrets.get(0))
+    } else {
+        Option::none()
+    }
 }
 
 /// Returns app-siloed shared secrets between `address` and someone who knows the secret keys behind the given
@@ -41,19 +47,26 @@ pub unconstrained fn get_shared_secret(
 ///
 /// Callers derive indexed subkeys from `s_app` via
 /// [`derive_shared_secret_subkey`](crate::keys::ecdh_shared_secret::derive_shared_secret_subkey).
+///
+/// Returns an empty array when the PXE does not hold `address`'s keys and therefore cannot derive any secrets. This
+/// happens when syncing the scope of an address the PXE does not control, and is an expected outcome rather than an
+/// error. Any other response length mismatch is a malformed oracle response.
 pub unconstrained fn get_shared_secrets(
     address: AztecAddress,
     eph_pks: EphemeralArray<EmbeddedCurvePoint>,
     contract_address: AztecAddress,
 ) -> EphemeralArray<Field> {
     let response = get_shared_secrets_oracle(address, eph_pks, contract_address);
-    assert(response.len() == eph_pks.len(), "get_shared_secrets: response length does not match request length");
+    assert(
+        (response.len() == eph_pks.len()) | (response.len() == 0),
+        "get_shared_secrets: response length does not match request length",
+    );
     response
 }
 
 mod test {
     use crate::ephemeral::EphemeralArray;
-    use crate::oracle::shared_secret::get_shared_secrets;
+    use crate::oracle::shared_secret::{get_shared_secret, get_shared_secrets};
     use crate::protocol::{address::AztecAddress, traits::FromField};
     use crate::test::helpers::test_environment::TestEnvironment;
     use crate::utils::point::point_from_x_coord;
@@ -107,6 +120,54 @@ mod test {
             assert_eq(results.get(0), 111);
             assert_eq(results.get(1), 222);
             assert_eq(results.get(2), 333);
+        });
+    }
+
+    #[test]
+    unconstrained fn returns_empty_when_pxe_does_not_hold_keys() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let empty: [Field; 0] = [];
+            let _ = mock_get_shared_secrets(empty);
+
+            let pk = point_from_x_coord(1).unwrap();
+            let eph_pks: EphemeralArray<_> = EphemeralArray::empty_at(200);
+            eph_pks.push(pk);
+
+            let results: EphemeralArray<Field> = get_shared_secrets(
+                AztecAddress::from_field(1),
+                eph_pks,
+                AztecAddress::from_field(2),
+            );
+
+            assert_eq(results.len(), 0);
+        });
+    }
+
+    #[test]
+    unconstrained fn single_secret_returns_the_secret() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let _ = mock_get_shared_secrets([111]);
+
+            let pk = point_from_x_coord(1).unwrap();
+            let secret = get_shared_secret(AztecAddress::from_field(1), pk, AztecAddress::from_field(2));
+
+            assert_eq(secret.unwrap(), 111);
+        });
+    }
+
+    #[test]
+    unconstrained fn single_secret_returns_none_when_pxe_does_not_hold_keys() {
+        let env = TestEnvironment::new();
+        env.utility_context(|_| {
+            let empty: [Field; 0] = [];
+            let _ = mock_get_shared_secrets(empty);
+
+            let pk = point_from_x_coord(1).unwrap();
+            let secret = get_shared_secret(AztecAddress::from_field(1), pk, AztecAddress::from_field(2));
+
+            assert(secret.is_none());
         });
     }
 

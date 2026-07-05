@@ -1,6 +1,6 @@
 # @aztec/sqlite3mc-wasm
 
-SQLite3 Multiple Ciphers v2.2.4 (based on SQLite 3.50.4) packaged as a WASM
+SQLite3 Multiple Ciphers v2.3.5 (based on SQLite 3.53.2) packaged as a WASM
 module.
 
 Upstream: https://github.com/utelle/SQLite3MultipleCiphers
@@ -21,7 +21,7 @@ Upstream WASM/JS artifacts under `vendor/jswasm/` are fetched at build time. The
 |-----------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|
 | `.gitignore`                      | Allowlist that keeps the rest of `vendor/jswasm/` out of git                                                                           |
 | `SHA256SUMS`                      | Per-file integrity manifest. Pinned at vendoring time; verified at every build                                                         |
-| `sqlite3-bundler-friendly.d.mts`  | Locally-authored TypeScript declaration companion for the upstream `.mjs`. Required by TS NodeNext module resolution.                  |
+| `sqlite3.d.mts`                   | Locally-authored TypeScript declaration companion for the upstream `sqlite3.mjs`. Required by TS NodeNext module resolution.           |
 
 Everything else in `vendor/jswasm/` (the actual `.wasm`, `.mjs`, `.js`) is populated by `scripts/vendor.sh`, which is
 invoked from `yarn-project/bootstrap.sh` before any package compiles. It downloads the upstream release zip, verifies
@@ -31,9 +31,9 @@ files come back via the build cache without re-fetching from upstream.
 The pinned upstream version lives in `scripts/vendor.pin`:
 
 ```sh
-MC_VERSION=2.2.4
-SQLITE_VERSION=3.50.4
-SHA256=e73514200d76286d7d4a239589589b4f64d24ac4f4f7b2760e1f07b14ac5f6a5
+MC_VERSION=2.3.5
+SQLITE_VERSION=3.53.2
+SHA256=3d0d5ebe4c54a9a22012410726ecef711e4e3e15ec11dffddf09488c72a10670
 ```
 
 ## Verification (full chain)
@@ -79,7 +79,7 @@ unzip -q /tmp/sqlite3mc.zip -d /tmp/sqlite3mc-check
 (cd /tmp/sqlite3mc-check/sqlite3mc-wasm-* && cd jswasm && sha256sum -- * | sort -k2) > /tmp/upstream-sums
 
 # Compare against repo's SHA256SUMS, excluding our locally-authored d.mts
-grep -v 'sqlite3-bundler-friendly\.d\.mts' vendor/jswasm/SHA256SUMS | sort -k2 > /tmp/repo-sums
+grep -v 'sqlite3\.d\.mts' vendor/jswasm/SHA256SUMS | sort -k2 > /tmp/repo-sums
 diff /tmp/upstream-sums /tmp/repo-sums
 ```
 
