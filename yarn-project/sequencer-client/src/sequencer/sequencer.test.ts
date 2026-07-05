@@ -863,7 +863,10 @@ describe('sequencer', () => {
       expect(publisher.sendRequestsAt).toHaveBeenCalled();
     });
 
-    it('should vote when sync fails even within the build time limit', async () => {
+    it('does not run fallback actions when sync fails before the build start deadline', async () => {
+      // A transient sync miss with time still left to build must not trigger fallback actions: the
+      // work loop should retry on a later tick once sync recovers. In particular it must not send a
+      // standalone prune, which would give up the slot prematurely.
       const startDeadline = sequencer.getTimeTable().getBuildStartDeadline(SlotNumber(newSlotNumber));
       dateProvider.setTime((startDeadline - 1) * 1000);
 
@@ -876,12 +879,11 @@ describe('sequencer', () => {
 
       await sequencer.work();
 
-      expect(publisher.enqueueSlashingActions).toHaveBeenCalledWith(
-        mockSlashActions,
-        SlotNumber(newSlotNumber),
-        expect.any(EthAddress),
-        expect.any(Function),
-      );
+      expect(publisher.enqueueSlashingActions).not.toHaveBeenCalled();
+      expect(publisher.enqueuePruneIfPrunable).not.toHaveBeenCalled();
+      expect(publisher.sendRequestsAt).not.toHaveBeenCalled();
+      // The slot is left unmarked so a later work-loop tick can retry once sync recovers.
+      expect(sequencer.getLastSlotForCheckpointProposalJob()).toBeUndefined();
     });
 
     it('should not vote when sync fails but not a proposer', async () => {
@@ -977,6 +979,26 @@ describe('sequencer', () => {
       await sequencer.work();
 
       expect(publisher.enqueuePruneIfPrunable).toHaveBeenCalledWith(SlotNumber(newSlotNumber));
+      expect(publisher.sendRequestsAt).not.toHaveBeenCalled();
+    });
+
+    it('does not enqueue a standalone prune before the build deadline even when the rollup is prunable', async () => {
+      // Standalone prune is reserved for when we can no longer build the slot (past the build start
+      // deadline). Before the deadline, a transient sync miss must retry rather than prune the pending
+      // chain, even if the rollup happens to be prunable at the target slot.
+      const startDeadline = sequencer.getTimeTable().getBuildStartDeadline(SlotNumber(newSlotNumber));
+      dateProvider.setTime((startDeadline - 1) * 1000);
+
+      // Set us as the proposer
+      validatorClient.getValidatorAddresses.mockReturnValue([signer.address]);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+
+      // The rollup is prunable, but we are still within the build window.
+      publisher.enqueuePruneIfPrunable.mockResolvedValue(true);
+
+      await sequencer.work();
+
+      expect(publisher.enqueuePruneIfPrunable).not.toHaveBeenCalled();
       expect(publisher.sendRequestsAt).not.toHaveBeenCalled();
     });
 

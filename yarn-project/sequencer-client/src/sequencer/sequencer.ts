@@ -452,13 +452,6 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       return undefined;
     }
 
-    // We are the proposer and the escape hatch is closed: now run the full sync check before building.
-    const syncedTo = await this.checkSync({ ts, slot });
-    if (!syncedTo) {
-      await this.tryVoteAndPruneWhenCannotBuild({ slot, targetSlot });
-      return undefined;
-    }
-
     // Explicit build-loop entry gate: if we are past the latest useful block-building start for the
     // target slot, abandon building for this slot. The proposer prioritizes the ideal L1-publish path
     // and does not plan around the late consensus-handoff path. This is the proposer build path's
@@ -477,6 +470,13 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       // still need to run because sync can succeed even when it is too late to start building a checkpoint.
       await this.tryVoteAndPruneWhenCannotBuild({ slot, targetSlot });
       this.lastSlotForCheckpointProposalJob = targetSlot;
+      return undefined;
+    }
+
+    // We are the proposer, the escape hatch is closed, and we have time before the build start deadline.
+    // Now run the full sync check before building.
+    const syncedTo = await this.checkSync({ ts, slot });
+    if (!syncedTo) {
       return undefined;
     }
 
