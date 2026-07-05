@@ -1,33 +1,22 @@
-import type { Archiver } from '@aztec/archiver';
-import type { AztecNodeService } from '@aztec/aztec-node';
-import type { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
+import type { EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
-import type { Logger } from '@aztec/aztec.js/log';
 import { waitForTx } from '@aztec/aztec.js/node';
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { executeTimeout } from '@aztec/foundation/timer';
-import type { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { SequencerEvents } from '@aztec/sequencer-client';
 import { L2BlockSourceEvents } from '@aztec/stdlib/block';
 
-import { jest } from '@jest/globals';
-
-import type { EndToEndContext } from '../../fixtures/utils.js';
-import type { TestWallet } from '../../test-wallet/test_wallet.js';
 import { proveAndSendTxs } from '../../test-wallet/utils.js';
 import {
+  type BlockProductionWithProverFixture,
   type BlockProposedEvent,
-  MultiNodeTestContext,
-  type RegisteredValidator,
-  WIDE_SLOT_TIMING,
-  buildMockGossipValidators,
-} from '../multi_node_test_context.js';
+  jest,
+  setupBlockProductionWithProver,
+} from '../block-production/setup.js';
 
 jest.setTimeout(1000 * 60 * 20);
 
-const NODE_COUNT = 4;
 const EXPECTED_BLOCKS_PER_CHECKPOINT = 8;
 
 // Send enough transactions to trigger multiple blocks within a checkpoint assuming 2 txs per block.
@@ -45,68 +34,11 @@ const TX_COUNT = 34;
  * with mockGossipSubNetwork and no initial sequencer.
  */
 describe('multi-node/recovery/pipeline_prune', () => {
-  let context: EndToEndContext;
-  let logger: Logger;
-  let archiver: Archiver;
-
-  let test: MultiNodeTestContext;
-  let validators: RegisteredValidator[];
-  let nodes: AztecNodeService[];
-  let contract: TestContract;
-  let wallet: TestWallet;
-  let from: AztecAddress;
-
-  /** Creates validators and sets up the test context with MBPS and proposer pipelining. */
-  async function setupTest(opts: {
-    syncChainTip: 'proposed' | 'checkpointed';
-    minTxsPerBlock?: number;
-    maxTxsPerBlock?: number;
-  }) {
-    const { syncChainTip = 'checkpointed', ...setupOpts } = opts;
-
-    validators = buildMockGossipValidators(NODE_COUNT);
-
-    test = await MultiNodeTestContext.setup({
-      ...WIDE_SLOT_TIMING,
-      numberOfAccounts: 0,
-      initialValidators: validators,
-      mockGossipSubNetwork: true,
-      mockGossipSubNetworkLatency: 500, // adverse network conditions
-      startProverNode: true,
-      maxTxsPerCheckpoint: 24,
-      inboxLag: 2,
-      ...setupOpts,
-      pxeOpts: { syncChainTip },
-      skipInitialSequencer: true,
-    });
-
-    ({ context, logger } = test);
-    wallet = context.wallet as TestWallet;
-    from = context.accounts[0]; // auto-created by setup
-
-    logger.warn(`Initial setup complete. Starting ${NODE_COUNT} validator nodes.`);
-    // Clear inherited coinbase so each validator derives coinbase from its own attester key
-    nodes = await asyncMap(validators, ({ privateKey }, i) =>
-      test.createValidatorNode([privateKey], {
-        dontStartSequencer: true,
-        coinbase: undefined,
-        // Disable checkpoint promotion on the first node so it always fetches blobs,
-        // allowing us to assert that other nodes skip blob fetching via promotion.
-        ...(i === 0 ? { skipPromoteProposedCheckpointDuringL1Sync: true } : {}),
-      }),
-    );
-    logger.warn(`Started ${NODE_COUNT} validator nodes.`, { validators: validators.map(v => v.attester.toString()) });
-
-    wallet.updateNode(nodes[0]);
-    archiver = nodes[0].getBlockSource() as Archiver;
-
-    contract = await test.registerTestContract(wallet);
-    logger.warn(`Test setup completed.`, { validators: validators.map(v => v.attester.toString()) });
-  }
+  let fixture: BlockProductionWithProverFixture;
 
   afterEach(async () => {
     jest.restoreAllMocks();
-    await test?.teardown();
+    await fixture?.test?.teardown();
   });
 
   // Establishes a baseline at checkpoint 1. Identifies the next proposer and disables its
@@ -114,7 +46,18 @@ describe('multi-node/recovery/pipeline_prune', () => {
   // re-enables publishing. Waits for all txs to be mined, asserts a MBPS checkpoint exists,
   // verifies the pipelining offset, and checks recovery blockNumber > baseline.
   it('prunes uncheckpointed blocks when proposer fails to deliver', async () => {
-    await setupTest({ syncChainTip: 'checkpointed', minTxsPerBlock: 1, maxTxsPerBlock: 2 });
+    // Same wide-slot prover-backed cluster as block-production, under adverse gossip latency with node 0's
+    // checkpoint promotion disabled (see setupBlockProductionWithProver).
+    fixture = await setupBlockProductionWithProver({
+      syncChainTip: 'checkpointed',
+      minTxsPerBlock: 1,
+      maxTxsPerBlock: 2,
+      maxTxsPerCheckpoint: 24,
+      mockGossipSubNetworkLatency: 500,
+      clearInheritedCoinbase: true,
+      disableCheckpointPromotionOnFirstNode: true,
+    });
+    const { test, context, logger, archiver, validators, nodes, contract, from } = fixture;
 
     const blockProposedEvents: BlockProposedEvent[] = [];
     const sequencers = test.getSequencers(nodes);
