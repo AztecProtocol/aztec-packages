@@ -760,7 +760,12 @@ ${traitMethods}
 }
 
 /// Dispatch a single decoded command, building the typed responder.
-pub fn dispatch(handler: &mut dyn Handler, command: Command, raw: RawRespond) {
+///
+/// Generic over \`H: Handler\` (rather than \`&mut dyn Handler\`) so the \`handler.<command>()\` call is a
+/// *direct*, monomorphized call. This matters for the wasm FFI backend: it keeps the whole call chain
+/// from \`ipc_ffi_entry\` down to a suspending host import free of \`call_indirect\`, so Asyncify's
+/// \`ignore-indirect\` scoping stays sound (only functions that truly reach the import are instrumented).
+pub fn dispatch<H: Handler + ?Sized>(handler: &mut H, command: Command, raw: RawRespond) {
     match command {
 ${dispatchArms}
     }
@@ -774,7 +779,7 @@ fn error_frame(message: String) -> Vec<u8> {
 /// Assumes the handler responds synchronously (the sync-transport case used by
 /// the generated server glue); an async transport would instead pass its own
 /// RawRespond to dispatch() and let the handler respond when ready.
-pub fn handle_request(handler: &mut dyn Handler, request_bytes: &[u8]) -> Vec<u8> {
+pub fn handle_request<H: Handler + ?Sized>(handler: &mut H, request_bytes: &[u8]) -> Vec<u8> {
     let slot = std::sync::Arc::new(std::sync::Mutex::new(None::<Vec<u8>>));
     let sink_slot = slot.clone();
     let raw: RawRespond = Box::new(move |bytes| {
@@ -807,7 +812,7 @@ pub fn handle_request(handler: &mut dyn Handler, request_bytes: &[u8]) -> Vec<u8
    *         srv::ffi_dispatch(&mut MyHandler, a, b, c, d)
    *     }
    */
-  generateServerFfi(): string {
+  generateServerFfi(reverseChannel = false): string {
     return `
 // ---------------------------------------------------------------------------
 // FFI / wasm entrypoint helpers (--server-ffi). Pairs \`handle_request\` above with the
@@ -846,8 +851,8 @@ pub unsafe fn ffi_free(ptr: *mut u8, len: usize) {
 /// # Safety
 /// \`input_ptr\`/\`input_len\` must describe a valid buffer; the out-pointers must be writable, and any
 /// non-null scratch must have \`*output_len_inout\` writable bytes.
-pub unsafe fn ffi_dispatch(
-    handler: &mut dyn Handler,
+pub unsafe fn ffi_dispatch<H: Handler + ?Sized>(
+    handler: &mut H,
     input_ptr: *const u8,
     input_len: usize,
     output_ptr_inout: *mut *mut u8,
@@ -871,6 +876,51 @@ pub unsafe fn ffi_dispatch(
         core::mem::forget(resp);
         *output_ptr_inout = ptr;
         *output_len_inout = len;
+    }
+}
+${reverseChannel ? this.generateReverseChannel() : ""}`;
+  }
+
+  /**
+   * Reverse channel (schema `reverseChannel: true`): the wasm-side outbound-call primitive, symmetric
+   * to `ffi_dispatch` (inbound). Lets the service call *other* services from inside the wasm module —
+   * the same role a native ipc-runtime client plays — over the `host_call` import. wasm32-only: the
+   * import doesn't exist on native targets, where outbound calls use a real IPC client instead.
+   */
+  private generateReverseChannel(): string {
+    const hostModule = `${toSnakeCase(this.opts.prefix || "ipc")}_host`;
+    return `
+// ---------------------------------------------------------------------------
+// Reverse channel (reverseChannel: true) — outbound calls to other services from wasm.
+// ---------------------------------------------------------------------------
+
+/// Make a blocking outbound request to another service from inside the wasm module — the wasm
+/// analogue of an ipc-runtime client call (\`bytes -> bytes\`) over the \`host_call\` import. \`target\`
+/// selects which outbound dependency the host routes to; \`req\` and the response are that service's
+/// own msgpack frame, opaque here. The call blocks from Rust's view; the host suspends the module
+/// (Asyncify today, JSPI later), resolves the request — forwarding to the target over IPC or
+/// in-process — and resumes, so nothing about suspension leaks into the handler or schema.
+#[cfg(target_arch = "wasm32")]
+pub fn host_call_bytes(target: u32, req: &[u8]) -> Vec<u8> {
+    #[link(wasm_import_module = "${hostModule}")]
+    extern "C" {
+        fn host_call(
+            target: u32,
+            req_ptr: *const u8,
+            req_len: usize,
+            resp_ptr_out: *mut *mut u8,
+            resp_len_out: *mut usize,
+        );
+    }
+    let mut resp_ptr: *mut u8 = core::ptr::null_mut();
+    let mut resp_len: usize = 0;
+    unsafe {
+        host_call(target, req.as_ptr(), req.len(), &mut resp_ptr, &mut resp_len);
+        if resp_ptr.is_null() || resp_len == 0 {
+            Vec::new()
+        } else {
+            core::slice::from_raw_parts(resp_ptr, resp_len).to_vec()
+        }
     }
 }
 `;

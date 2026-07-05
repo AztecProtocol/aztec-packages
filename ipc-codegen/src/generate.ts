@@ -244,6 +244,7 @@ function loadSchema(schemaPath: string): {
   compiled: CompiledSchema;
   schemaHash: string;
   service?: string;
+  reverseChannel: boolean;
 } {
   const rawJson = readFileSync(schemaPath, "utf-8").trim();
   const parsed = JSON.parse(stripJsonc(rawJson));
@@ -263,7 +264,10 @@ function loadSchema(schemaPath: string): {
   const visitor = new SchemaVisitor();
   const compiled = visitor.visit(commandsUnion, responsesUnion);
   const schemaHash = computeSchemaHash(rawJson);
-  return { compiled, schemaHash, service };
+  // A service that makes outbound (reverse-channel) calls to other services; drives the generated
+  // `host_call` import + `host_call_bytes` in the Rust FFI output (see --server-ffi).
+  const reverseChannel = parsed.reverseChannel === true;
+  return { compiled, schemaHash, service, reverseChannel };
 }
 
 /** Detect common prefix from command names (e.g. WsdbGetTreeInfo, WsdbCreateFork → Wsdb) */
@@ -335,7 +339,8 @@ function generate(args: Args) {
   const absOut = resolve(args.out);
   mkdirSync(absOut, { recursive: true });
 
-  const { compiled, schemaHash, service } = loadSchema(absSchema);
+  const { compiled, schemaHash, service, reverseChannel } =
+    loadSchema(absSchema);
   // Friendly schemas fold the type prefix and method-prefix stripping into
   // `service`: generated type names are `service + command`, method names are
   // the bare command. Positional schemas keep the legacy --prefix/--strip flags.
@@ -455,7 +460,7 @@ function generate(args: Args) {
       );
       if (args.server) {
         const server = args.serverFfi
-          ? gen.generateServer(compiled) + gen.generateServerFfi()
+          ? gen.generateServer(compiled) + gen.generateServerFfi(reverseChannel)
           : gen.generateServer(compiled);
         writeFile(`${toSnakeCase(prefix)}_server.rs`, server);
       }
