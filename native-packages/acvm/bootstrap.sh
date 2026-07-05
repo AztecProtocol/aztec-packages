@@ -48,7 +48,17 @@ function build_native {
 function build_wasm {
   (cd rust && cargo build --release --locked --lib --target wasm32-wasip1 --no-default-features --features wasm)
   local wasm="rust/target/wasm32-wasip1/release/acvm_sim.wasm"
-  command -v wasm-opt &>/dev/null && wasm-opt "$wasm" -O -o "$wasm"
+  # Asyncify makes the blocking `host_call` (oracle reverse channel) suspendable from JS with no
+  # SharedArrayBuffer. Scoping is load-bearing: `asyncify-imports` marks only host_call as unwinding
+  # and `asyncify-ignore-indirect` keeps the Brillig interpreter + crypto uninstrumented (the whole
+  # suspend path is direct calls by construction — see REVERSE_CHANNEL_SPIKE.md). Without both, the
+  # module bloats ~3x and the hot path pays Asyncify overhead.
+  if command -v wasm-opt &>/dev/null; then
+    wasm-opt "$wasm" -O2 --asyncify \
+      --pass-arg=asyncify-imports@acvm_host.host_call \
+      --pass-arg=asyncify-ignore-indirect \
+      -o "$wasm"
+  fi
   cp "$wasm" "ts/$ACVM_BINARY.wasm"
 }
 

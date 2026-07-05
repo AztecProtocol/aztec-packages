@@ -4,6 +4,11 @@
 {
   "service": "Acvm",
 
+  // This service makes outbound (reverse-channel) calls: a Brillig foreign call (oracle) is resolved
+  // by calling out to a resolver service. Emits the wasm `host_call` import + `host_call_bytes` in the
+  // generated Rust FFI (see --server-ffi); native resolves via a real ipc-runtime client instead.
+  "reverseChannel": true,
+
   // 32-byte canonical field element (big-endian), matching acir's FieldElement
   // msgpack `bin` encoding.
   "aliases": {
@@ -27,9 +32,8 @@
     // Execute a compiled ACIR program against an initial witness and return the
     // solved witness. `bytecode` is the raw ACIR blob exactly as produced by
     // `Program::serialize_program` (self-describing msgpack with a leading format
-    // byte), decoded server-side by `Program::deserialize_program`. Protocol
-    // circuits make no foreign calls, so this is a pure execute; foreign-call /
-    // user-circuit support would need a later server->client callback pattern.
+    // byte), decoded server-side by `Program::deserialize_program`. Brillig foreign
+    // calls (oracles) are resolved over the reverse channel (see `reverseChannel`).
     "ExecuteProgram": {
       "request": {
         "bytecode": "bytes",
