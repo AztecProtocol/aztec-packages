@@ -418,7 +418,7 @@ tests:
   # http://ci.aztec-labs.com/930ddc9ede87059f
   # Pipelining race: slasher doesn't record the duplicate proposal offense before
   # the test's wait timeout — same family as #23501.
-  - regex: "src/multi-node/slashing/duplicate_proposal.test.ts.*duplicate proposals"
+  - regex: "src/multi-node/slashing/equivocation_offenses.test.ts.*duplicate proposals"
     error_regex: "TimeoutError: Timeout awaiting duplicate proposal offense"
     owners:
       - *palla
