@@ -55,6 +55,7 @@ import { CheckpointVoter } from './checkpoint_voter.js';
 import { SequencerInterruptedError } from './errors.js';
 import type { SequencerEvents } from './events.js';
 import { SequencerMetrics } from './metrics.js';
+import { RequestsTracker } from './requests_tracker.js';
 import type { SequencerRollupConstants } from './types.js';
 import { SequencerState } from './utils.js';
 
@@ -79,7 +80,7 @@ type SequencerSlotContext = {
  * - Votes for proposals and slashes on L1
  */
 export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<SequencerEvents>) {
-  private runningPromise?: RunningPromise;
+  protected runningPromise?: RunningPromise;
   private state = SequencerState.STOPPED;
   private stateSlotNumber: SlotNumber | undefined;
   /** Wall-clock time (ms, via the date provider) at which the current state was entered. */
@@ -109,6 +110,17 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
 
   /** The last checkpoint proposal job, tracked so we can await its pending L1 submission during shutdown. */
   protected lastCheckpointProposalJob: CheckpointProposalJob | undefined;
+
+  /**
+   * In-flight fire-and-forget requests that {@link stop} interrupts and drains, and {@link pause} awaits
+   * untouched: the checkpoint proposal jobs' backgrounded L1 submissions (each job is handed this shared
+   * tracker) plus the sequencer's own fallback submissions (votes/prune when we cannot build, or
+   * escape-hatch votes). Each fallback send is gated by its wrapper publisher's interruptible target-slot
+   * sleep; the tracked interrupt wakes that sleep so the send short-circuits without publishing. A wrapper
+   * is created for a single send and is never restarted, so once interrupted its sleeper can never publish
+   * a stale-slot tx, even after the pooled publishers are restarted by a later {@link start}.
+   */
+  protected readonly pendingRequests = new RequestsTracker();
 
   /** Proposer schedule and block sub-slot timetable for the sequencer, rebuilt on every config update. */
   protected timetable!: ProposerTimetable;
@@ -273,8 +285,22 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     getKzg();
   }
 
-  /** Starts the sequencer and moves to IDLE state. */
+  /**
+   * Starts (or restarts) the sequencer and moves it to the IDLE state. Idempotent: a start while already
+   * running is a no-op, so it never orphans the previous poll loop. A start while STOPPING throws, since the
+   * in-flight stop would mark the fresh loop's state STOPPED and orphan it — silently doing nothing would
+   * leave the caller believing the sequencer is running when it is on its way to STOPPED. Safe to call after
+   * a previous {@link stop} has resolved; the caller must also restart the publishers (see
+   * {@link SequencerClient.start}) so L1 publishing is re-enabled.
+   */
   public start() {
+    if (this.state === SequencerState.STOPPING) {
+      throw new Error('Cannot start sequencer while it is stopping');
+    }
+    if (this.runningPromise?.isRunning()) {
+      this.log.warn('Attempted to start sequencer that is already running');
+      return;
+    }
     this.runningPromise = new RunningPromise(
       this.safeWork.bind(this),
       this.log,
@@ -290,16 +316,54 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     return this.runningPromise?.trigger();
   }
 
-  /** Stops the sequencer from building blocks and moves to STOPPED state. */
+  /**
+   * Stops the sequencer from building blocks and moves it to STOPPED state, interrupting the in-flight
+   * work() iteration and its pending L1 submissions for a fast shutdown, then draining before returning.
+   * Idempotent: a second call while already stopped or stopping is a no-op. Lifecycle calls are expected
+   * to be serialized by the caller. For a restartable pause that lets in-flight work finish untouched
+   * (e.g. around a test clock warp), use {@link pause} instead.
+   */
   public async stop(): Promise<void> {
+    if (this.state === SequencerState.STOPPED || this.state === SequencerState.STOPPING) {
+      this.log.debug(`Sequencer already ${this.state.toLowerCase()}, ignoring stop`);
+      return;
+    }
     this.log.info(`Stopping sequencer`);
     this.setState(SequencerState.STOPPING, undefined, { force: true });
     this.lastCheckpointProposalJob?.interrupt();
     await this.publisherFactory.stopAll();
+    // Stop the poll loop and await the in-flight work() iteration. work() registers its fire-and-forget
+    // requests synchronously before returning, so once the loop has stopped, pendingRequests holds every
+    // request that will ever exist. Interrupting any earlier could miss a request registered by the last
+    // in-flight iteration.
     await this.runningPromise?.stop();
-    await this.lastCheckpointProposalJob?.awaitPendingSubmission();
+    this.pendingRequests.interruptRequests();
+    await this.pendingRequests.awaitRequests();
     this.setState(SequencerState.STOPPED, undefined, { force: true });
     this.log.info('Stopped sequencer');
+  }
+
+  /**
+   * Gracefully pauses block production so the sequencer can later be resumed with {@link start}: halts the
+   * poll loop and waits for the in-flight work() iteration and every pending L1 submission / fallback send
+   * to finish, without interrupting them. No interrupt lands mid-build, so no spurious checkpoint-error is
+   * emitted and no enqueued checkpoint is dropped. Deliberately does not stop inner services (validator/HA
+   * signer, publishers), so the slashing-protection store stays open and the sequencer stays restartable.
+   * Used by tests that pause sequencers around an L1 clock warp. Idempotent.
+   */
+  public async pause(): Promise<void> {
+    if (!this.runningPromise?.isRunning()) {
+      this.log.debug('Sequencer not running, ignoring pause');
+      return;
+    }
+    this.log.info('Pausing sequencer');
+    // Halt the poll loop and let the in-flight iteration finish naturally — no interrupt, and no STOPPING
+    // state, since entering STOPPING would make the iteration's own setState calls throw and fail it.
+    // work() registers its fire-and-forget requests synchronously before returning, so once the loop has
+    // stopped pendingRequests holds every request that will ever exist; awaiting it lets them all finish.
+    await this.runningPromise.stop();
+    await this.pendingRequests.awaitRequests();
+    this.log.info('Paused sequencer');
   }
 
   /** Main sequencer loop with a try/catch */
@@ -707,6 +771,7 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
       this.metrics,
       this.checkpointProposalJobMetrics.createRecorder(),
       this,
+      this.pendingRequests,
       this.setState.bind(this),
       this.tracer,
       this.log.getBindings(),
@@ -1023,10 +1088,11 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // Votes are EIP-712-signed for `targetSlot` (the pipelined slot in which the multicall is
     // expected to mine). Delay submission to the start of `targetSlot` so the tx mines in the
     // slot the votes were signed for. We fire-and-forget so we don't block the sequencer's
-    // work loop while waiting for the target slot to start.
-    void publisher.sendRequestsAt(targetSlot).catch(err => {
+    // work loop while waiting for the target slot to start, but track it so stop() can drain it.
+    const send = publisher.sendRequestsAt(targetSlot).catch(err => {
       this.log.error(`Failed to publish fallback requests despite sync failure for slot ${slot}`, err, { slot });
     });
+    this.pendingRequests.trackRequest(send, () => publisher.interrupt());
   }
 
   private async tryEnqueuePruneIfPrunable(targetSlot: SlotNumber, publisher: SequencerPublisher): Promise<boolean> {
@@ -1096,10 +1162,12 @@ export class Sequencer extends (EventEmitter as new () => TypedEventEmitter<Sequ
     // the multicall mines in the slot the votes were signed for; otherwise the L1 contract reads
     // `signaler = getCurrentProposer()` against the wrong slot and signature verification fails
     // silently inside Multicall3. Fire-and-forget so we don't block the sequencer's work loop while
-    // waiting for the target slot to start, mirroring tryVoteAndPruneWhenCannotBuild.
-    void publisher.sendRequestsAt(targetSlot).catch(err => {
+    // waiting for the target slot to start, mirroring tryVoteAndPruneWhenCannotBuild, but tracked so
+    // stop() can drain it.
+    const send = publisher.sendRequestsAt(targetSlot).catch(err => {
       this.log.error(`Failed to publish escape-hatch votes for slot ${slot}`, err, { slot, targetSlot });
     });
+    this.pendingRequests.trackRequest(send, () => publisher.interrupt());
   }
 
   /**

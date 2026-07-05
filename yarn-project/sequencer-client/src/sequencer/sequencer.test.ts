@@ -13,6 +13,7 @@ import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import type { P2P } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
@@ -405,6 +406,143 @@ describe('sequencer', () => {
 
     it('accepts a multiplier at or above the network minimum', () => {
       expect(() => sequencer.updateConfig({ perBlockAllocationMultiplier: 1.5 })).not.toThrow();
+    });
+  });
+
+  describe('lifecycle', () => {
+    afterEach(async () => {
+      await sequencer.stop();
+    });
+
+    it('start is idempotent: a second start does not replace the poll loop', () => {
+      sequencer.start();
+      const firstLoop = sequencer.getRunningPromise();
+      expect(sequencer.isRunning()).toBe(true);
+
+      sequencer.start();
+
+      // The second start must be a no-op reusing the same loop, not a fresh RunningPromise that
+      // leaves the first loop running with no handle to stop it.
+      expect(sequencer.getRunningPromise()).toBe(firstLoop);
+      expect(sequencer.isRunning()).toBe(true);
+    });
+
+    it('stop halts the poll loop, moves to STOPPED, and is idempotent', async () => {
+      sequencer.start();
+      expect(sequencer.isRunning()).toBe(true);
+
+      await sequencer.stop();
+
+      expect(sequencer.isRunning()).toBe(false);
+      expect(sequencer.status().state).toBe(SequencerState.STOPPED);
+
+      await expect(sequencer.stop()).resolves.not.toThrow();
+      expect(sequencer.status().state).toBe(SequencerState.STOPPED);
+    });
+
+    it('can be restarted after a stop and resumes the poll loop', async () => {
+      sequencer.start();
+      await sequencer.stop();
+      expect(sequencer.isRunning()).toBe(false);
+
+      sequencer.start();
+
+      expect(sequencer.isRunning()).toBe(true);
+      // The loop is live again (start runs work() immediately, so the exact state may already have
+      // advanced past IDLE); the point is it is no longer STOPPED/STOPPING.
+      expect([SequencerState.STOPPED, SequencerState.STOPPING]).not.toContain(sequencer.status().state);
+    });
+
+    it('refuses to start while stopping, so no fresh poll loop is orphaned mid-stop', async () => {
+      sequencer.start();
+      const loopBeforeStop = sequencer.getRunningPromise();
+
+      // Park stop() in the STOPPING state by hanging stopAll until we release it.
+      const { promise: stopAllHang, resolve: releaseStopAll } = promiseWithResolvers<void>();
+      publisherFactory.stopAll.mockReturnValueOnce(stopAllHang);
+
+      const stopPromise = sequencer.stop();
+      expect(sequencer.status().state).toBe(SequencerState.STOPPING);
+
+      // A start() landing mid-stop must throw rather than silently allocate a new loop the stop would
+      // orphan while leaving the caller believing the sequencer is running.
+      expect(() => sequencer.start()).toThrow('Cannot start sequencer while it is stopping');
+      expect(sequencer.getRunningPromise()).toBe(loopBeforeStop);
+
+      releaseStopAll();
+      await stopPromise;
+      expect(sequencer.status().state).toBe(SequencerState.STOPPED);
+    });
+
+    it('pause lets the in-flight iteration finish untouched and leaves the sequencer resumable', async () => {
+      const checkpointErrors: Error[] = [];
+      sequencer.on('checkpoint-error', ({ error }) => checkpointErrors.push(error));
+
+      // Park the in-flight work() at its proposer lookup, so pause finds a live iteration. Once released,
+      // we are not the proposer, so the iteration finishes on the cheap non-proposer path.
+      const { promise: proposerHang, resolve: releaseProposer } = promiseWithResolvers<EthAddress | undefined>();
+      epochCache.getProposerAttesterAddressInSlot.mockReturnValueOnce(proposerHang);
+      validatorClient.getValidatorAddresses.mockReturnValue([]);
+
+      sequencer.start();
+      const pausePromise = sequencer.pause();
+      await new Promise(resolve => setTimeout(resolve, 0));
+
+      // While the iteration is parked, nothing may be interrupted and STOPPING may not be entered: entering
+      // it would make the iteration's own setState calls throw SequencerInterruptedError. pause also leaves
+      // the publishers running (no stopAll), unlike stop().
+      expect(publisherFactory.stopAll).not.toHaveBeenCalled();
+      expect(sequencer.status().state).not.toBe(SequencerState.STOPPING);
+
+      releaseProposer(signer.address);
+      await pausePromise;
+
+      // A clean pause emits no spurious checkpoint-error and, unlike stop(), leaves the sequencer resumable:
+      // the poll loop is halted but the state is neither STOPPED nor STOPPING.
+      expect(checkpointErrors).toEqual([]);
+      expect(sequencer.isRunning()).toBe(false);
+      expect([SequencerState.STOPPED, SequencerState.STOPPING]).not.toContain(sequencer.status().state);
+
+      // And a subsequent start() resumes the poll loop.
+      sequencer.start();
+      expect(sequencer.isRunning()).toBe(true);
+    });
+
+    it('drains an in-flight fallback send on stop, leaving nothing pending across a restart', async () => {
+      // Drive the fire-and-forget fallback vote path: past the build-start deadline with a governance
+      // payload to vote for, and us as the proposer (mirrors 'votes without building' above).
+      const startDeadline = sequencer.getTimeTable().getBuildStartDeadline(SlotNumber(newSlotNumber));
+      dateProvider.setTime((startDeadline + 1) * 1000);
+      sequencer.updateConfig({ governanceProposerPayload: EthAddress.random() });
+      validatorClient.getValidatorAddresses.mockReturnValue([signer.address]);
+      epochCache.getProposerAttesterAddressInSlot.mockResolvedValue(signer.address);
+      publisher.enqueueGovernanceCastSignal.mockResolvedValue(true);
+
+      // The fallback send resolves only when released, and only after the sequencer interrupts it,
+      // mimicking a wrapper publisher sleeping in waitForTargetSlot.
+      const { promise: sendHang, resolve: releaseSend } = promiseWithResolvers<undefined>();
+      publisher.sendRequestsAt.mockReturnValueOnce(
+        sendHang.then(() => {
+          if (publisher.interrupt.mock.calls.length === 0) {
+            throw new Error('fallback send completed without being interrupted by stop()');
+          }
+          return undefined;
+        }),
+      );
+
+      await sequencer.work();
+      expect(publisher.sendRequestsAt).toHaveBeenCalled();
+      expect(sequencer.getPendingRequestCount()).toBe(1);
+
+      // stop() must interrupt the fallback wrapper (waking its sleep so it short-circuits without
+      // publishing) and await it, so nothing pending survives into a later restart.
+      const stopPromise = sequencer.stop();
+      releaseSend(undefined);
+      await stopPromise;
+
+      expect(publisher.interrupt).toHaveBeenCalled();
+      expect(sequencer.getPendingRequestCount()).toBe(0);
+      expect(sequencer.status().state).toBe(SequencerState.STOPPED);
     });
   });
 
@@ -1724,7 +1862,19 @@ class TestSequencer extends Sequencer {
   }
 
   public async awaitLastProposalSubmission() {
-    await this.lastCheckpointProposalJob?.awaitPendingSubmission();
+    await this.pendingRequests.awaitRequests();
+  }
+
+  public getRunningPromise() {
+    return this.runningPromise;
+  }
+
+  public isRunning() {
+    return this.runningPromise?.isRunning() ?? false;
+  }
+
+  public getPendingRequestCount() {
+    return this.pendingRequests.size;
   }
 
   public checkCanProposeForTest(slot: SlotNumber) {
