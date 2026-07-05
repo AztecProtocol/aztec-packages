@@ -9,9 +9,6 @@ import { timesAsync } from '@aztec/foundation/collection';
 import { retryUntil } from '@aztec/foundation/retry';
 
 import { expect, jest } from '@jest/globals';
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
 
 import { getBootNodeUdpPort, shouldCollectMetrics } from '../../fixtures/fixtures.js';
 import { createNodes } from '../../fixtures/setup_p2p_test.js';
@@ -22,8 +19,6 @@ import { prepareTransactions } from '../shared.js';
 export const NUM_VALIDATORS = 6;
 export const NUM_TXS_PER_NODE = 4;
 export const BOOT_NODE_UDP_PORT = getBootNodeUdpPort();
-
-export const createReqrespDataDir = () => fs.mkdtempSync(path.join(os.tmpdir(), 'reqresp-'));
 
 type ReqrespOptions = {
   disableStatusHandshake?: boolean;
@@ -58,25 +53,21 @@ export async function createReqrespTest(options: ReqrespOptions = {}): Promise<P
   return t;
 }
 
-export async function cleanupReqrespTest(params: { t: P2PNetworkTest; nodes?: AztecNodeService[]; dataDir: string }) {
-  const { t, nodes, dataDir } = params;
+export async function cleanupReqrespTest(params: { t: P2PNetworkTest; nodes?: AztecNodeService[] }) {
+  const { t, nodes } = params;
   if (nodes) {
     await t.stopNodes(nodes);
   }
   await t.teardown();
-  for (let i = 0; i < NUM_VALIDATORS; i++) {
-    fs.rmSync(`${dataDir}-${i}`, { recursive: true, force: true, maxRetries: 3 });
-  }
 }
 
 const getNodePort = (nodeIndex: number) => BOOT_NODE_UDP_PORT + 1 + nodeIndex;
 
 export async function runReqrespTxTest(params: {
   t: P2PNetworkTest;
-  dataDir: string;
   disableStatusHandshake?: boolean;
 }): Promise<AztecNodeService[]> {
-  const { t, dataDir, disableStatusHandshake = false } = params;
+  const { t, disableStatusHandshake = false } = params;
 
   if (!t.bootstrapNodeEnr) {
     throw new Error('Bootstrap node ENR is not available');
@@ -94,7 +85,7 @@ export async function runReqrespTxTest(params: {
     NUM_VALIDATORS,
     BOOT_NODE_UDP_PORT,
     t.genesis,
-    dataDir,
+    t.dataDirFor('validator'),
     shouldCollectMetrics(),
   );
 
