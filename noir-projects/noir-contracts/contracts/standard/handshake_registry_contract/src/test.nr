@@ -543,19 +543,6 @@ unconstrained fn multiple_senders_discovered_for_same_recipient() {
         discovered.items.get(0).eph_pk.x != discovered.items.get(1).eph_pk.x,
         "distinct senders should produce distinct ephemeral public keys",
     );
-<<<<<<< HEAD
-    // Both handshakes are discovered, but their relative order is not a guaranteed property: each is sent in a
-    // separate tx, so which one lands in the earlier block (and therefore comes first in the oldest-first discovery
-    // scan) depends on tx/block ordering, which in turn depends on the senders' addresses. Assert set membership
-    // rather than a fixed index -> mode mapping.
-    let mode_0 = discovered.items.get(0).mode;
-    let mode_1 = discovered.items.get(1).mode;
-    let constrained_count = (mode_0 == ONCHAIN_CONSTRAINED) as u32 + (mode_1 == ONCHAIN_CONSTRAINED) as u32;
-    let unconstrained_count = (mode_0 == ONCHAIN_UNCONSTRAINED) as u32 + (mode_1 == ONCHAIN_UNCONSTRAINED) as u32;
-    assert_eq(constrained_count, 1, "expected exactly one constrained handshake");
-    assert_eq(unconstrained_count, 1, "expected exactly one unconstrained handshake");
-=======
->>>>>>> origin/public-v5-next
 }
 
 #[test]
