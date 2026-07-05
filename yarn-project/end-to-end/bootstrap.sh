@@ -119,6 +119,10 @@ function test_cmds {
 
   # compose-based tests (use running local network)
   tests=(
+    # integration_proof_verification and e2e_persistence are excluded and run nowhere: the former's committed
+    # epoch-proof fixture is stale (the proof no longer verifies), and the latter's beforeAll no longer
+    # completes on the current branch (the single-node sequencer stalls in checkpoint proposal). See each
+    # file's header comment. Both stay excluded until fixed/regenerated.
     src/composed/!(integration_proof_verification|e2e_persistence).test.ts
     src/guides/*.test.ts
   )

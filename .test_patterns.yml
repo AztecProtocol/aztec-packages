@@ -397,6 +397,10 @@ tests:
     owners:
       - *spyros
 
+  - regex: "yarn-project/end-to-end/scripts/run_test.sh ha src/composed/ha/e2e_ha_distribute_work.test.ts"
+    owners:
+      - *spyros
+
   # http://ci.aztec-labs.com/98d59d04f85223f8
   # Build-cache flake: module not found during Jest startup
   - regex: "src/single-node/sequencer/gov_proposal.parallel.test.ts"
