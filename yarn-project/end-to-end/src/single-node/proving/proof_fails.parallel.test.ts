@@ -7,7 +7,6 @@ import { ChainMonitor } from '@aztec/ethereum/test';
 import type { ViemClient } from '@aztec/ethereum/types';
 import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
-import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import type { TestProverNode } from '@aztec/prover-node/test';
 import type { SequencerEvents } from '@aztec/sequencer-client';
@@ -106,27 +105,24 @@ describe('single-node/proving/proof_fails', () => {
     // timestamp gate moves with the warp), then releases, reverts past the deadline, and the
     // post-deadline propose triggers the prune in real time.
     await test.warpToEpochStart(2);
-    // REFACTOR: hand-rolled retryUntil polling rollup.getCheckpointNumber for rollback detection;
-    // a DSL helper like waitForRollback(checkpoint) would make the intent clearer.
-    await retryUntil(
-      async () => (await rollup.getCheckpointNumber()) < checkpointBeforeRollback,
-      'rollup rolled back',
-      L2_SLOT_DURATION_IN_S * 4,
-      0.2,
-    );
+
+    // Wait until the prune is processed and a new checkpoint mined.
+    const checkpointAfterRollback = await context.cheatCodes.rollup.waitForCheckpointBelow(checkpointBeforeRollback, {
+      timeout: L2_SLOT_DURATION_IN_S * 4,
+      interval: 0.2,
+    });
+
+    // The post-rollback chain tip should be in epoch 2, since the rollback-triggering propose
+    // was made during epoch 2, after the deadline.
+    expect(checkpointAfterRollback).toBeLessThan(checkpointBeforeRollback);
+    const latestCheckpoint = await rollup.getCheckpoint(checkpointAfterRollback);
+    expect(getEpochAtSlot(latestCheckpoint.slotNumber, test.constants)).toEqual(EpochNumber(2));
 
     // The prover tx should have been rejected as it was submitted past the deadline
     const lastProverTxHash = proverDelayer.getSentTxHashes().at(-1);
     expect(lastProverTxHash).toBeDefined();
     const lastProverTxReceipt = await l1Client.getTransactionReceipt({ hash: lastProverTxHash! });
     expect(lastProverTxReceipt.status).toEqual('reverted');
-
-    // The post-rollback chain tip should be in epoch 2 (the rollback-triggering propose was made
-    // during epoch 2, after the deadline)
-    const checkpointAfterRollback = await rollup.getCheckpointNumber();
-    expect(checkpointAfterRollback).toBeLessThan(checkpointBeforeRollback);
-    const latestCheckpoint = await rollup.getCheckpoint(checkpointAfterRollback);
-    expect(getEpochAtSlot(latestCheckpoint.slotNumber, test.constants)).toEqual(EpochNumber(2));
 
     logger.warn(`Test succeeded`);
   });

@@ -45,8 +45,7 @@ describe('single-node/fees/private_payments', () => {
     ({ wallet, aliceAddress, bobAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings, aztecNode } = t);
 
     // Prove up until the current state by advancing the epoch and waiting for the prover node.
-    await t.cheatCodes.rollup.advanceToNextEpoch();
-    await t.catchUpProvenChain();
+    await t.waitForEpochProven();
   });
 
   afterAll(async () => {

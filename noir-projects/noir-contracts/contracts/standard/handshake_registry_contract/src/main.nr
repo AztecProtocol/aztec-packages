@@ -35,7 +35,7 @@ global INTERACTIVE_HANDSHAKE: u8 = 2;
 pub contract HandshakeRegistry {
     use crate::{
         handshake_note::HandshakeNote, INTERACTIVE_HANDSHAKE, NON_INTERACTIVE_HANDSHAKE,
-        recipient_signature::RecipientSignature, sync::get_all_handshakes,
+        recipient_signature::RecipientSignature, sync::discovered_handshakes::get_all_handshakes,
     };
     use aztec::{
         keys::{ecdh_shared_secret::derive_ecdh_shared_secret, ephemeral::generate_positive_ephemeral_key_pair},

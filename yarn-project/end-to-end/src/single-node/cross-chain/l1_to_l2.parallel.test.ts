@@ -134,9 +134,8 @@ describe('single-node/cross-chain/l1_to_l2', () => {
     }
   };
 
-  // Waits until the message is fetched by the archiver of the node and returns the msg target checkpoint
-  // REFACTOR: hand-rolled retryUntil loop that also advances blocks on each retry; replace with a
-  // waitForL1ToL2MessageIndexed(node, msgHash, advanceBlock) helper in the e2e fixture or harness.
+  // Waits until the message is fetched by the archiver of the node and returns the msg target checkpoint.
+  // Advances a block on each retry because an L1->L2 message is only indexed once further L2 blocks build.
   const waitForMessageFetched = async (msgHash: Fr) => {
     log.warn(`Waiting until the message is fetched by the node`);
     return await retryUntil(
