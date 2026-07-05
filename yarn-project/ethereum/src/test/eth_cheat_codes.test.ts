@@ -3,7 +3,7 @@ import { times, timesAsync } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import { DateProvider } from '@aztec/foundation/timer';
+import { DateProvider, TestDateProvider } from '@aztec/foundation/timer';
 import { getErrorCause } from '@aztec/foundation/types';
 import { TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 
@@ -275,6 +275,40 @@ describe('EthCheatCodes', () => {
       const blockNumber = await cheatCodes.blockNumber();
       await cheatCodes.mine(increment);
       expect(await cheatCodes.blockNumber()).toBe(blockNumber + increment);
+    });
+  });
+
+  describe('startIntervalMiningWithFreshBlock', () => {
+    const expectAutoBlockAfter = async (blockNumber: number) => {
+      for (let i = 0; i < 20; i++) {
+        await sleep(100);
+        if ((await cheatCodes.blockNumber()) > blockNumber) {
+          return;
+        }
+      }
+      expect(await cheatCodes.blockNumber()).toBeGreaterThan(blockNumber);
+    };
+
+    it('starts interval mining from a freshly mined block and syncs the date provider', async () => {
+      const interval = 1;
+      const dateProvider = new TestDateProvider();
+      cheatCodes = new EthCheatCodes([rpcUrl], dateProvider);
+
+      const blockNumber = await cheatCodes.blockNumber();
+      const timestamp = await cheatCodes.lastBlockTimestamp();
+
+      await sleep((interval + 1) * 1000);
+      await cheatCodes.startIntervalMiningWithFreshBlock(interval);
+
+      const minedBlockNumber = await cheatCodes.blockNumber();
+      const minedTimestamp = await cheatCodes.lastBlockTimestamp();
+
+      expect(minedBlockNumber).toBe(blockNumber + 1);
+      expect(minedTimestamp).toBeGreaterThan(timestamp);
+      expect(await cheatCodes.isAutoMining()).toBe(false);
+      expect(await cheatCodes.getIntervalMining()).toBe(interval);
+      expect(Math.abs(dateProvider.now() - minedTimestamp * 1000)).toBeLessThan(1_000);
+      await expectAutoBlockAfter(minedBlockNumber);
     });
   });
 
