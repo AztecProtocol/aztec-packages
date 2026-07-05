@@ -75,6 +75,7 @@ import { CheckpointProposalJob } from './checkpoint_proposal_job.js';
 import type { CheckpointProposalJobMetricsRecorder } from './checkpoint_proposal_job_metrics.js';
 import type { SequencerEvents } from './events.js';
 import type { SequencerMetrics } from './metrics.js';
+import { RequestsTracker } from './requests_tracker.js';
 
 describe('CheckpointProposalJob', () => {
   let publisher: MockProxy<SequencerPublisher>;
@@ -807,6 +808,7 @@ describe('CheckpointProposalJob', () => {
       metrics,
       checkpointMetrics,
       eventEmitter,
+      new RequestsTracker(),
       setStateFn,
       getTelemetryClient().getTracer('test'),
       { actor: 'test' }, // bindings
@@ -1763,6 +1765,11 @@ class TestCheckpointProposalJob extends CheckpointProposalJob {
   public override waitUntilNextSubslot(nextSubslotStart: number): Promise<void> {
     this.log.warn(`Skipping waitUntilNextSubslot(${nextSubslotStart}) in test`);
     return Promise.resolve();
+  }
+
+  /** Awaits the sequencer's shared tracker so tests observe the backgrounded L1 submission completing. */
+  public async awaitPendingSubmission(): Promise<void> {
+    await this.pendingRequests.awaitRequests();
   }
 
   /** Wraps execute + awaitPendingSubmission so tests see the full pipeline complete. */

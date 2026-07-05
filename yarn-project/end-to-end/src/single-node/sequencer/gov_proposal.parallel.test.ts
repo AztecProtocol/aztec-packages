@@ -29,7 +29,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 
 import { PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
 import { getPrivateKeyFromIndex } from '../../fixtures/utils.js';
-import { setupBlockProducer } from '../setup.js';
+import { NO_REORG_SUBMISSION_EPOCHS, setupBlockProducer } from '../setup.js';
 import type { SingleNodeTestContext } from '../single_node_test_context.js';
 
 const ETHEREUM_SLOT_DURATION = 8;
@@ -45,8 +45,8 @@ jest.setTimeout(1000 * 60 * 5);
 // Tests that a single sequencer node running a 16-validator committee can propose blocks while
 // simultaneously casting governance votes, and can cast votes even when block building is disabled.
 // Setup: setupBlockProducer (no prover node) with { ...PIPELINING_SETUP_OPTS, ethSlot=8s,
-// aztecSlot=16s, committee=16, aztecProofSubmissionEpochs=128 } — the high proof-submission window
-// pins blocks against pruning (v5 always enforces the timetable, so the former enforceTimeTable
+// aztecSlot=16s, committee=16, aztecProofSubmissionEpochs=NO_REORG_SUBMISSION_EPOCHS } — the high
+// proof-submission window pins blocks against pruning (v5 always enforces the timetable, so the former enforceTimeTable
 // override is gone). Uses cheatCodes.eth.warp + retryUntil for timing.
 describe('single-node/sequencer/gov_proposal', () => {
   let logger: Logger;
@@ -83,7 +83,7 @@ describe('single-node/sequencer/gov_proposal', () => {
       governanceProposerQuorum: QUORUM_SIZE,
       ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
       aztecSlotDuration: AZTEC_SLOT_DURATION,
-      aztecProofSubmissionEpochs: 128, // no pruning
+      aztecProofSubmissionEpochs: NO_REORG_SUBMISSION_EPOCHS, // no pruning
       minTxsPerBlock: TXS_PER_BLOCK,
       automineL1Setup: true, // speed up setup
       // Force the L1 sync to fetch blobs rather than promote the locally-proposed checkpoint.

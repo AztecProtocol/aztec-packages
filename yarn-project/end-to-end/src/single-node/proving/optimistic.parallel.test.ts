@@ -13,7 +13,7 @@ import { expect, jest } from '@jest/globals';
 import type { EndToEndContext } from '../../fixtures/utils.js';
 import { waitForNodeCheckpoint } from '../../fixtures/wait_helpers.js';
 import { proveInteraction } from '../../test-wallet/utils.js';
-import { setupWithProver } from '../setup.js';
+import { NO_REORG_SUBMISSION_EPOCHS, setupWithProver } from '../setup.js';
 import { FAST_REORG_TIMING, SingleNodeTestContext } from '../single_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 20);
@@ -26,7 +26,7 @@ jest.setTimeout(1000 * 60 * 20);
  * six `describe` blocks builds a fresh context in its own `beforeEach` and tears it down in the shared `afterEach`. The
  * happy-path pair uses defaults (`numberOfAccounts: 1`; ethSlot=8s local/12s CI, aztecSlot=16s/24s, epoch=6,
  * proofSubEpochs=1); the five reorg describes use a faster cadence (ethSlot=4s, aztecSlot=36s, epoch=4 — or 8 for the
- * with-replacement case so the replacement lands in-epoch — proofSubEpochs=1000, blockDurationMs=8s, minTxsPerBlock=0,
+ * with-replacement case so the replacement lands in-epoch — proofSubEpochs=NO_REORG_SUBMISSION_EPOCHS, blockDurationMs=8s, minTxsPerBlock=0,
  * anvilSlotsInAnEpoch=32, maxSpeedUpAttempts=0, cancelTxOnTimeout=false). The `prover-node starts mid-epoch` describe
  * sets `startProverNode: false` and spins up the prover via `test.createProverNode()` partway through the epoch.
  *
@@ -275,7 +275,7 @@ describe('single-node/proving/optimistic', () => {
         // next epoch).
         aztecEpochDuration: 8,
         minTxsPerBlock: 0,
-        aztecProofSubmissionEpochs: 1000,
+        aztecProofSubmissionEpochs: NO_REORG_SUBMISSION_EPOCHS,
       });
       ({ rollup, logger, context } = test);
       ({ L2_SLOT_DURATION_IN_S } = test);
@@ -411,7 +411,7 @@ describe('single-node/proving/optimistic', () => {
         maxSpeedUpAttempts: 0,
         cancelTxOnTimeout: false,
         minTxsPerBlock: 0,
-        aztecProofSubmissionEpochs: 1000,
+        aztecProofSubmissionEpochs: NO_REORG_SUBMISSION_EPOCHS,
       });
       ({ rollup, logger, context } = test);
       ({ L2_SLOT_DURATION_IN_S } = test);
@@ -511,7 +511,7 @@ describe('single-node/proving/optimistic', () => {
         maxSpeedUpAttempts: 0,
         cancelTxOnTimeout: false,
         minTxsPerBlock: 0,
-        aztecProofSubmissionEpochs: 1000,
+        aztecProofSubmissionEpochs: NO_REORG_SUBMISSION_EPOCHS,
       });
       ({ rollup, logger, context } = test);
       ({ L2_SLOT_DURATION_IN_S } = test);
@@ -590,7 +590,7 @@ describe('single-node/proving/optimistic', () => {
         maxSpeedUpAttempts: 0,
         cancelTxOnTimeout: false,
         minTxsPerBlock: 0,
-        aztecProofSubmissionEpochs: 1000,
+        aztecProofSubmissionEpochs: NO_REORG_SUBMISSION_EPOCHS,
         // Apply a delay between "epoch complete on L1" and the prover-node hand-off so
         // the reorg below has time to be processed before finalization starts.
         proverNodeConfig: { proverNodeEpochProvingDelayMs: 10_000 },
@@ -675,7 +675,7 @@ describe('single-node/proving/optimistic', () => {
         maxSpeedUpAttempts: 0,
         cancelTxOnTimeout: false,
         minTxsPerBlock: 0,
-        aztecProofSubmissionEpochs: 1000,
+        aztecProofSubmissionEpochs: NO_REORG_SUBMISSION_EPOCHS,
       });
       ({ rollup, logger, context } = test);
       ({ L2_SLOT_DURATION_IN_S } = test);
@@ -812,7 +812,7 @@ describe('single-node/proving/optimistic', () => {
         maxSpeedUpAttempts: 0,
         cancelTxOnTimeout: false,
         minTxsPerBlock: 0,
-        aztecProofSubmissionEpochs: 1000,
+        aztecProofSubmissionEpochs: NO_REORG_SUBMISSION_EPOCHS,
       });
       ({ rollup, logger, context } = test);
       ({ L2_SLOT_DURATION_IN_S } = test);

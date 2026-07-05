@@ -23,10 +23,11 @@ import { jest } from '@jest/globals';
 
 import { PIPELINED_FEE_PADDING, PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
 import { getPrivateKeyFromIndex, setup } from '../../fixtures/utils.js';
+import { NO_REORG_SUBMISSION_EPOCHS } from '../setup.js';
 
 // Tests the transaction bot implementations (transfer bot, AMM bot, cross-chain bot).
-// Uses setup(0, PIPELINING_SETUP_OPTS + aztecProofSubmissionEpochs:640) with one node, production
-// sequencer (ethereumSlotDuration=4s, aztecSlotDuration=12s, proofSubEpochs=640, minTxsPerBlock=0;
+// Uses setup(0, PIPELINING_SETUP_OPTS + aztecProofSubmissionEpochs:NO_REORG_SUBMISSION_EPOCHS) with one node, production
+// sequencer (ethereumSlotDuration=4s, aztecSlotDuration=12s, proofSubEpochs=NO_REORG_SUBMISSION_EPOCHS, minTxsPerBlock=0;
 // aztecEpochDuration is the setup() default). The bridge-resume, setup-via-bridging, and
 // cross-chain-bot subsuites actively drive L1 cross-chain bridging: fee-juice portal deposits,
 // advanceInboxInProgress, and L2→L1 messages via CrossChainBot.
@@ -43,7 +44,7 @@ describe('single-node/bot/bot', () => {
     const [botAccount] = await getInitialTestAccountsData();
     const setupResult = await setup(0, {
       ...PIPELINING_SETUP_OPTS,
-      aztecProofSubmissionEpochs: 640,
+      aztecProofSubmissionEpochs: NO_REORG_SUBMISSION_EPOCHS,
       additionallyFundedAccounts: [botAccount],
     });
     ({
