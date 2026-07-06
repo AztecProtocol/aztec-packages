@@ -6,7 +6,9 @@ import { Tx, TxArray, TxHash, TxHashArray } from '@aztec/stdlib/tx';
 import { describe, expect, it, jest } from '@jest/globals';
 import type { PeerId } from '@libp2p/interface';
 import { type MockProxy, mock } from 'jest-mock-extended';
+import type { Libp2p } from 'libp2p';
 
+import { OversizedReqRespRequestError } from '../../errors/reqresp.error.js';
 import {
   MOCK_SUB_PROTOCOL_HANDLERS,
   type ReqRespNode,
@@ -15,11 +17,13 @@ import {
   startNodes,
   stopNodes,
 } from '../../test-helpers/reqresp-nodes.js';
-import { ResponseSizeLimitExceededError } from '../encoding.js';
+import { ResponseSizeLimitExceededError, SnappyTransform } from '../encoding.js';
 import type { PeerManager } from '../peer-manager/peer_manager.js';
 import type { PeerScoring } from '../peer-manager/peer_scoring.js';
+import { MAX_REQRESP_REQUEST_SIZE_BYTES, type P2PReqRespConfig } from './config.js';
 import { type ReqRespResponse, ReqRespSubProtocol } from './interface.js';
 import { GoodByeReason, reqGoodbyeHandler } from './protocols/goodbye.js';
+import { ReqResp } from './reqresp.js';
 import { ReqRespStatus } from './status.js';
 
 const PING_REQUEST = Buffer.from('ping');
@@ -490,6 +494,65 @@ describe('ReqResp', () => {
       await expect((req as any).readMessage(source(), 10)).rejects.toBeInstanceOf(ResponseSizeLimitExceededError);
 
       expect(pulled).toBeLessThan(totalDataChunks);
+    });
+  });
+
+  // A request must fit in a single muxer frame: yamux splits larger writes into multiple frames, each arriving as
+  // its own chunk, and the responder never reassembles them into one request. Guard against a request type growing
+  // past that limit and surfacing as a confusing decoding error on the responder.
+  describe('sendRequestToPeer', () => {
+    let req: ReqResp;
+
+    beforeEach(() => {
+      const config: P2PReqRespConfig = {
+        overallRequestTimeoutMs: 4000,
+        individualRequestTimeoutMs: 2000,
+        dialTimeoutMs: 1000,
+        p2pOptimisticNegotiation: false,
+      };
+      req = new ReqResp(config, mock<Libp2p>(), peerScoring);
+    });
+
+    afterEach(async () => {
+      // Stop the connection sampler so its cleanup interval does not leak past the test.
+      await (req as any).connectionSampler.stop();
+    });
+
+    it('rejects a request payload that does not fit in a single muxer frame, without dialing the peer', async () => {
+      const dialSpy = jest.spyOn((req as any).connectionSampler, 'dialProtocol');
+      const payload = Buffer.alloc(MAX_REQRESP_REQUEST_SIZE_BYTES + 1);
+
+      await expect(req.sendRequestToPeer(mock<PeerId>(), ReqRespSubProtocol.PING, payload)).rejects.toThrow(
+        OversizedReqRespRequestError,
+      );
+
+      expect(dialSpy).not.toHaveBeenCalled();
+      // The oversized request is our own bug, so the remote peer must not be penalized for it.
+      expect(peerScoring.penalizePeer).not.toHaveBeenCalled();
+    });
+
+    it('sends a request payload at exactly the single-frame limit', async () => {
+      const snappy = new SnappyTransform();
+      const stream = {
+        id: 'test-stream',
+        metadata: {},
+        source: (async function* () {
+          yield Buffer.from([ReqRespStatus.SUCCESS]);
+          yield snappy.outboundTransformData(Buffer.from('pong'));
+        })(),
+        sink: async (source: AsyncIterable<Buffer>) => {
+          for await (const _chunk of source) {
+            // Consume the request.
+          }
+        },
+        close: () => Promise.resolve(),
+      };
+      jest.spyOn((req as any).connectionSampler, 'dialProtocol').mockResolvedValue(stream);
+
+      const payload = Buffer.alloc(MAX_REQRESP_REQUEST_SIZE_BYTES);
+      const response = await req.sendRequestToPeer(mock<PeerId>(), ReqRespSubProtocol.PING, payload);
+
+      expect(response).toEqual({ status: ReqRespStatus.SUCCESS, data: Buffer.from('pong') });
     });
   });
 });

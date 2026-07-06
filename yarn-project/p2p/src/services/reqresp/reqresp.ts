@@ -10,7 +10,7 @@ import type { Libp2p } from 'libp2p';
 import { pipeline } from 'node:stream/promises';
 import type { Uint8ArrayList } from 'uint8arraylist';
 
-import { IndividualReqRespTimeoutError } from '../../errors/reqresp.error.js';
+import { IndividualReqRespTimeoutError, OversizedReqRespRequestError } from '../../errors/reqresp.error.js';
 import {
   DEFAULT_MAX_RESPONSE_SIZE_KB,
   OversizedSnappyResponseError,
@@ -21,6 +21,7 @@ import type { PeerScoring } from '../peer-manager/peer_scoring.js';
 import {
   DEFAULT_INDIVIDUAL_REQUEST_TIMEOUT_MS,
   DEFAULT_REQRESP_DIAL_TIMEOUT_MS,
+  MAX_REQRESP_REQUEST_SIZE_BYTES,
   type P2PReqRespConfig,
 } from './config.js';
 import { ConnectionSampler, RandomSampler } from './connection-sampler/connection_sampler.js';
@@ -212,6 +213,11 @@ export class ReqResp implements ReqRespInterface {
     payload: Buffer,
     dialTimeout: number = this.dialTimeoutMs,
   ): Promise<ReqRespResponse> {
+    // Thrown before the try block so the generic error handling below does not penalize the peer for our own bug.
+    if (payload.length > MAX_REQRESP_REQUEST_SIZE_BYTES) {
+      throw new OversizedReqRespRequestError(subProtocol, payload.length, MAX_REQRESP_REQUEST_SIZE_BYTES);
+    }
+
     let stream: Stream | undefined;
     try {
       this.metrics.recordRequestSent(subProtocol);
