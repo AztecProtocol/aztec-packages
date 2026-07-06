@@ -61,7 +61,7 @@ import { EventValidationRequest } from '../noir-structs/event_validation_request
 import type { Fact } from '../noir-structs/fact.js';
 import type { FactCollection } from '../noir-structs/fact_collection.js';
 import { type LogRetrievalRequest, type LogSource, logSourceFromField } from '../noir-structs/log_retrieval_request.js';
-import type { LegacyLogRetrievalResponseV2, LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
+import type { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import type { MessageContext } from '../noir-structs/message_context.js';
 import type { NoteData } from '../noir-structs/note_data.js';
 import { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
@@ -518,21 +518,9 @@ export const LOG_RETRIEVAL_RESPONSE: TypeMapping<LogRetrievalResponse> = STRUCT<
   { name: 'uniqueNoteHashesInTx', type: FIXED_BOUNDED_VEC(FIELD, MAX_NOTE_HASHES_PER_TX) },
   { name: 'firstNullifierInTx', type: FIELD },
   { name: 'blockNumber', type: BLOCK_NUMBER },
+  { name: 'blockTimestamp', type: BIGINT },
   { name: 'blockHash', type: BLOCK_HASH },
 ]);
-
-// Legacy shape for the `getLogsByTagV2` oracle. Kept so already-deployed contracts keep working. New versions use
-// `LOG_RETRIEVAL_RESPONSE` (used by `getLogsByTagV3`).
-export const LEGACY_LOG_RETRIEVAL_RESPONSE_V2: TypeMapping<LegacyLogRetrievalResponseV2> =
-  STRUCT<LegacyLogRetrievalResponseV2>([
-    { name: 'logPayload', type: FIXED_BOUNDED_VEC(FIELD, PRIVATE_LOG_CIPHERTEXT_LEN) },
-    { name: 'txHash', type: TX_HASH },
-    { name: 'uniqueNoteHashesInTx', type: FIXED_BOUNDED_VEC(FIELD, MAX_NOTE_HASHES_PER_TX) },
-    { name: 'firstNullifierInTx', type: FIELD },
-    { name: 'blockNumber', type: BLOCK_NUMBER },
-    { name: 'blockTimestamp', type: BIGINT },
-    { name: 'blockHash', type: BLOCK_HASH },
-  ]);
 
 export const RESOLVED_TX: TypeMapping<ResolvedTx> = {
   serialization: { fn: resolved => [resolved.toFields()] },

@@ -273,7 +273,7 @@ impl PartialNoteFsm {
             );
         });
 
-        self.mark_completed(log.origin_block);
+        self.mark_completed(OriginBlock { block_number: log.block_number, block_hash: log.block_hash });
     }
 }
 

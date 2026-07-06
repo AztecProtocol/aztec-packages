@@ -63,7 +63,7 @@ import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
 import type { EventValidationRequest } from '../noir-structs/event_validation_request.js';
 import { type FactCollection, emptyFactCollection, toNoirFactCollection } from '../noir-structs/fact_collection.js';
 import type { LogRetrievalRequest } from '../noir-structs/log_retrieval_request.js';
-import type { LegacyLogRetrievalResponseV2, LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
+import type { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
 import type { NoteData } from '../noir-structs/note_data.js';
 import type { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import { Option } from '../noir-structs/option.js';
@@ -646,25 +646,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     ]);
   }
 
-  // Backs the `getLogsByTagV2` oracle for already-deployed contracts: each response carries the origin block timestamp
-  // in addition to its hash. Partial-note completion calls `getLogsByTagV3` (origin block hash only) below.
   public async getLogsByTagV2(
-    requests: EphemeralArray<LogRetrievalRequest>,
-  ): Promise<EphemeralArray<EphemeralArray<LegacyLogRetrievalResponseV2>>> {
-    const logRetrievalRequests = requests.readAll(this.ephemeralArrayService);
-    const logService = this.#createLogService();
-
-    const logRetrievalResponses = await logService.fetchLogsByTagV2(this.contractAddress, logRetrievalRequests);
-
-    // Create an inner ephemeral array for each request's matching logs, then wrap all slots in an outer array.
-    const innerArrays = logRetrievalResponses.map(responses =>
-      EphemeralArray.fromValues(this.ephemeralArrayService, responses),
-    );
-
-    return EphemeralArray.fromValues(this.ephemeralArrayService, innerArrays);
-  }
-
-  public async getLogsByTagV3(
     requests: EphemeralArray<LogRetrievalRequest>,
   ): Promise<EphemeralArray<EphemeralArray<LogRetrievalResponse>>> {
     const logRetrievalRequests = requests.readAll(this.ephemeralArrayService);

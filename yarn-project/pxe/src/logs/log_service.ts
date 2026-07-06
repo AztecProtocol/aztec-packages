@@ -14,10 +14,7 @@ import {
   type LogRetrievalRequest,
   LogSource,
 } from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
-import type {
-  LegacyLogRetrievalResponseV2,
-  LogRetrievalResponse,
-} from '../contract_function_simulator/noir-structs/log_retrieval_response.js';
+import type { LogRetrievalResponse } from '../contract_function_simulator/noir-structs/log_retrieval_response.js';
 import type {
   LegacyPendingTaggedLog,
   PendingTaggedLog,
@@ -58,26 +55,6 @@ export class LogService {
     contractAddress: AztecAddress,
     logRetrievalRequests: LogRetrievalRequest[],
   ): Promise<LogRetrievalResponse[][]> {
-    const rawLogsPerRequest = await this.#fetchRawLogsByTag(contractAddress, logRetrievalRequests);
-    return rawLogsPerRequest.map(logs => logs.map(LogService.#toLogRetrievalResponse));
-  }
-
-  /**
-   * Compatibility variant of {@link fetchLogsByTag} whose responses carry the origin block timestamp in addition to
-   * its hash, backing the `getLogsByTagV2` oracle for already-deployed contracts.
-   */
-  public async fetchLogsByTagV2(
-    contractAddress: AztecAddress,
-    logRetrievalRequests: LogRetrievalRequest[],
-  ): Promise<LegacyLogRetrievalResponseV2[][]> {
-    const rawLogsPerRequest = await this.#fetchRawLogsByTag(contractAddress, logRetrievalRequests);
-    return rawLogsPerRequest.map(logs => logs.map(LogService.#toLegacyLogRetrievalResponseV2));
-  }
-
-  async #fetchRawLogsByTag(
-    contractAddress: AztecAddress,
-    logRetrievalRequests: LogRetrievalRequest[],
-  ): Promise<LogResult[][]> {
     for (const request of logRetrievalRequests) {
       if (!contractAddress.equals(request.contractAddress)) {
         throw new Error(`Got a log retrieval request from ${request.contractAddress}, expected ${contractAddress}`);
@@ -95,7 +72,10 @@ export class LogService {
       this.#fetchPrivateLogs(logRetrievalRequests, anchorBlockHash),
     ]);
 
-    return logRetrievalRequests.map((_request, i) => [...publicLogsPerRequest[i], ...privateLogsPerRequest[i]]);
+    return logRetrievalRequests.map((_request, i) => [
+      ...publicLogsPerRequest[i].map(LogService.#toLogRetrievalResponse),
+      ...privateLogsPerRequest[i].map(LogService.#toLogRetrievalResponse),
+    ]);
   }
 
   async #fetchPublicLogs(
@@ -180,7 +160,7 @@ export class LogService {
     return groups;
   }
 
-  static #toCommonLogFields(log: LogResult) {
+  static #toLogRetrievalResponse(log: LogResult): LogRetrievalResponse {
     // includeEffects: true was used, so noteHashes and nullifiers are populated. Every tx has at least one nullifier
     // (the first nullifier derived from the tx hash); empty here would indicate a buggy node.
     const noteHashes = log.noteHashes!;
@@ -189,23 +169,16 @@ export class LogService {
       throw new Error(`Log for tx ${log.txHash} returned no nullifiers from the node`);
     }
     return {
-      // Skip the tag, and clip to the wire cap: public logs can exceed PRIVATE_LOG_CIPHERTEXT_LEN (the fixed size of
-      // the oracle's BoundedVec slot). A no-op for private logs, which are already within the cap.
+      // Skip the tag, and clip to the wire cap: public logs can exceed PRIVATE_LOG_CIPHERTEXT_LEN, which is the fixed
+      // size of the oracle's BoundedVec slot. A no-op for private logs, which are already within the cap.
       logPayload: log.logData.slice(1, 1 + PRIVATE_LOG_CIPHERTEXT_LEN),
       txHash: log.txHash,
       uniqueNoteHashesInTx: noteHashes,
       firstNullifierInTx: nullifiers[0],
       blockNumber: log.blockNumber,
+      blockTimestamp: log.blockTimestamp,
+      blockHash: log.blockHash,
     };
-  }
-
-  static #toLogRetrievalResponse(log: LogResult): LogRetrievalResponse {
-    return { ...LogService.#toCommonLogFields(log), blockHash: log.blockHash };
-  }
-
-  // Compatibility projection for `getLogsByTagV2`, which carries the block timestamp in addition to the hash.
-  static #toLegacyLogRetrievalResponseV2(log: LogResult): LegacyLogRetrievalResponseV2 {
-    return { ...LogService.#toCommonLogFields(log), blockTimestamp: log.blockTimestamp, blockHash: log.blockHash };
   }
 
   public async fetchTaggedLogs(

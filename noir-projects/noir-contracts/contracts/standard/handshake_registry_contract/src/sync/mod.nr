@@ -6,6 +6,7 @@ use crate::sync::{cursor::SyncCursor, discovered_handshakes::record_discovered_h
 use aztec::{
     context::UtilityContext,
     ephemeral::EphemeralArray,
+    facts::OriginBlock,
     messages::{
         delivery::handshake::DiscoveredHandshake,
         discovery::{
@@ -74,7 +75,7 @@ pub(crate) unconstrained fn handshake_registry_sync(
                     contract_address,
                     scope,
                     h,
-                    log.origin_block,
+                    OriginBlock { block_number: log.block_number, block_hash: log.block_hash },
                 ));
         });
 

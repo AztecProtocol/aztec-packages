@@ -5,22 +5,10 @@ import type { TxHash } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
 /**
- * Intermediate struct used to perform batch log retrieval by PXE.
- **/
-export type LogRetrievalResponse = {
-  logPayload: Fr[];
-  txHash: TxHash;
-  uniqueNoteHashesInTx: Fr[];
-  firstNullifierInTx: Fr;
-  blockNumber: BlockNumber;
-  blockHash: BlockHash;
-};
-
-/**
- * Legacy variant of {@link LogRetrievalResponse} used by the `getLogsByTagV2` oracle. Retained only so PXE can keep
- * serving that oracle to already-deployed contracts.
+ * Intermediate struct used to perform batch log retrieval by PXE. The `utilityBulkRetrieveLogs` oracle stores values of this
+ * type in a `EphemeralArray`.
  */
-export type LegacyLogRetrievalResponseV2 = {
+export type LogRetrievalResponse = {
   logPayload: Fr[];
   txHash: TxHash;
   uniqueNoteHashesInTx: Fr[];

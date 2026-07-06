@@ -64,7 +64,7 @@ export { Option } from './noir-structs/option.js';
 export type { UtilityContext } from './noir-structs/utility_context.js';
 export { EventValidationRequest } from './noir-structs/event_validation_request.js';
 export type { LogRetrievalRequest } from './noir-structs/log_retrieval_request.js';
-export type { LegacyLogRetrievalResponseV2, LogRetrievalResponse } from './noir-structs/log_retrieval_response.js';
+export type { LogRetrievalResponse } from './noir-structs/log_retrieval_response.js';
 export { NoteValidationRequest } from './noir-structs/note_validation_request.js';
 export type { LegacyPendingTaggedLog, PendingTaggedLog } from './noir-structs/pending_tagged_log.js';
 export type { TxEffectData } from './noir-structs/tx_effect_data.js';

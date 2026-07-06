@@ -25,7 +25,6 @@ import {
   FUNCTION_SELECTOR,
   type InputSlot,
   KEY_VALIDATION_REQUEST,
-  LEGACY_LOG_RETRIEVAL_RESPONSE_V2,
   LEGACY_PENDING_TAGGED_LOG,
   LOG_RETRIEVAL_REQUEST,
   LOG_RETRIEVAL_RESPONSE,
@@ -253,13 +252,7 @@ export const ORACLE_REGISTRY = {
     ],
   }),
 
-  // Legacy oracle, retained unchanged for already-deployed contracts. New versions use `getLogsByTagV3`.
   aztec_utl_getLogsByTagV2: makeEntry({
-    params: [{ name: 'requests', type: EPHEMERAL_ARRAY(LOG_RETRIEVAL_REQUEST) }],
-    returnType: EPHEMERAL_ARRAY(EPHEMERAL_ARRAY(LEGACY_LOG_RETRIEVAL_RESPONSE_V2)),
-  }),
-
-  aztec_utl_getLogsByTagV3: makeEntry({
     params: [{ name: 'requests', type: EPHEMERAL_ARRAY(LOG_RETRIEVAL_REQUEST) }],
     returnType: EPHEMERAL_ARRAY(EPHEMERAL_ARRAY(LOG_RETRIEVAL_RESPONSE)),
   }),
