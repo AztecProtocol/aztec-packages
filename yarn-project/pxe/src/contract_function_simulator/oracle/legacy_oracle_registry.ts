@@ -1,8 +1,10 @@
 /* eslint-disable camelcase */
-import { MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_CIPHERTEXT_LEN } from '@aztec/constants';
+import { MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_CIPHERTEXT_LEN, PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 
 import type { EphemeralArray } from '../noir-structs/ephemeral_array.js';
 import type { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
+import type { PendingTaggedLog } from '../noir-structs/pending_tagged_log.js';
+import type { ResolvedTx } from '../noir-structs/resolved_tx.js';
 import {
   type InferDeserializedParams,
   ORACLE_REGISTRY,
@@ -26,6 +28,19 @@ const LEGACY_LOG_RETRIEVAL_RESPONSE: TypeMapping<LegacyLogRetrievalResponse> = S
   { name: 'firstNullifierInTx', type: FIELD },
 ]);
 
+// Block-less transaction context: the prefix of `ResolvedTx`'s wire carried by the original `getPendingTaggedLogs`
+// oracle. Known as `MessageContext` in the Aztec.nr versions that call that oracle.
+const LEGACY_MESSAGE_CONTEXT: TypeMapping<LegacyMessageContext> = STRUCT<LegacyMessageContext>([
+  { name: 'txHash', type: TX_HASH },
+  { name: 'uniqueNoteHashesInTx', type: FIXED_BOUNDED_VEC(FIELD, MAX_NOTE_HASHES_PER_TX) },
+  { name: 'firstNullifierInTx', type: FIELD },
+]);
+
+const LEGACY_PENDING_TAGGED_LOG: TypeMapping<LegacyPendingTaggedLog> = STRUCT<LegacyPendingTaggedLog>([
+  { name: 'log', type: FIXED_BOUNDED_VEC(FIELD, PRIVATE_LOG_SIZE_IN_FIELDS) },
+  { name: 'context', type: LEGACY_MESSAGE_CONTEXT },
+]);
+
 /**
  * Wire shapes that already-deployed contracts still call by their original oracle name, keyed by that retired name.
  * New Aztec.nr calls the current name in `ORACLE_REGISTRY`; old bytecode keeps calling the name compiled into it and
@@ -43,12 +58,27 @@ export const LEGACY_ORACLE_REGISTRY: Record<string, LegacyOracleEntry> = {
       mapping: result => result as unknown as EphemeralArray<EphemeralArray<LegacyLogRetrievalResponse>>,
     },
   }),
+  aztec_utl_getPendingTaggedLogs: legacyOracle({
+    modernOracle: 'aztec_utl_getPendingTaggedLogsV2',
+    returnType: {
+      legacyType: EPHEMERAL_ARRAY(LEGACY_PENDING_TAGGED_LOG),
+      // We can map this directly, since `ResolvedTx` carries the legacy context's fields under the same names
+      mapping: result => result as unknown as EphemeralArray<LegacyPendingTaggedLog>,
+    },
+  }),
 };
 
 type LegacyLogRetrievalResponse = Pick<
   LogRetrievalResponse,
   'logPayload' | 'txHash' | 'uniqueNoteHashesInTx' | 'firstNullifierInTx'
 >;
+
+type LegacyMessageContext = Pick<ResolvedTx, 'txHash' | 'uniqueNoteHashesInTx' | 'firstNullifierInTx'>;
+
+type LegacyPendingTaggedLog = {
+  log: PendingTaggedLog['log'];
+  context: LegacyMessageContext;
+};
 
 type Registry = typeof ORACLE_REGISTRY;
 

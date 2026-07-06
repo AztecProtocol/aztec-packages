@@ -22,7 +22,7 @@ pub(crate) unconstrained fn get_pending_tagged_logs(
     get_pending_tagged_logs_oracle(scope, provided_secrets)
 }
 
-#[oracle(aztec_utl_getPendingTaggedLogs)]
+#[oracle(aztec_utl_getPendingTaggedLogsV2)]
 unconstrained fn get_pending_tagged_logs_oracle(
     scope: AztecAddress,
     provided_secrets: EphemeralArray<ProvidedSecret>,
