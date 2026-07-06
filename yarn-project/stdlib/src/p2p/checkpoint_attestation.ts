@@ -1,5 +1,6 @@
 import { CheckpointProposalHash, type SlotNumber } from '@aztec/foundation/branded-types';
 import { type BaseBuffer32, Buffer32 } from '@aztec/foundation/buffer';
+import { normalizeSignature } from '@aztec/foundation/crypto/secp256k1-signer';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
@@ -95,6 +96,17 @@ export class CheckpointAttestation extends Gossipable {
       this.cachedProposer = proposal.getSender() ?? null;
     }
     return this.cachedProposer ?? undefined;
+  }
+
+  /**
+   * Returns a copy with the attester signature canonicalized to v ∈ {27, 28}. Callers store attestations
+   * received from gossip verbatim; normalizing on ingress keeps a signature emitted in yParity form
+   * (v = 0/1) — whether by a malicious committee member or a peer mutating the byte in flight — from
+   * reaching the L1 bundle in a non-canonical form. Must only be called once the signature has recovered
+   * a sender (so it is non-empty and low-s); `normalizeSignature` throws on an all-zero signature.
+   */
+  withNormalizedSignature(): CheckpointAttestation {
+    return new CheckpointAttestation(this.payload, normalizeSignature(this.signature), this.proposerSignature);
   }
 
   getPayload(): Buffer {

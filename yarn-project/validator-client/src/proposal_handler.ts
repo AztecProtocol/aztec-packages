@@ -591,7 +591,7 @@ export class ProposalHandler {
     }
 
     // If we succeeded, push this block into the archiver (unless disabled)
-    if (reexecutionResult?.block && this.config.skipPushProposedBlocksToArchiver === false) {
+    if (reexecutionResult?.block && !this.config.skipPushProposedBlocksToArchiver) {
       await this.blockSource.addBlock(reexecutionResult.block);
     }
 

@@ -11,18 +11,15 @@ import {
   SLASHER_ENABLED_MULTI_VALIDATOR_OPTS,
   buildMockGossipValidators,
 } from '../multi_node_test_context.js';
-import { advanceToEpochBeforeProposer, awaitCommitteeExists } from './setup.js';
+import { SENTINEL_TIMING, advanceToEpochBeforeProposer, awaitCommitteeExists } from './setup.js';
 
 const NUM_VALIDATORS = 4;
 const COMMITTEE_SIZE = NUM_VALIDATORS;
-const ETHEREUM_SLOT_DURATION = 4;
-const AZTEC_SLOT_DURATION = ETHEREUM_SLOT_DURATION * 2;
-const BLOCK_DURATION_MS = 2000;
+const AZTEC_SLOT_DURATION = SENTINEL_TIMING.aztecSlotDuration;
 
 const slashingUnit = BigInt(1e18);
 const slashingQuorum = 3;
 const slashingRoundSize = 4;
-const aztecEpochDuration = 2;
 
 /**
  * Test that slashing occurs when a validator broadcasts an invalid block proposal.
@@ -48,19 +45,16 @@ describe('multi-node/slashing/broadcasted_invalid_block_proposal_slash', () => {
   beforeEach(async () => {
     test = await MultiNodeTestContext.setup({
       ...SLASHER_ENABLED_MULTI_VALIDATOR_OPTS,
-      anvilSlotsInAnEpoch: 4,
-      listenAddress: '127.0.0.1',
-      aztecEpochDuration,
-      ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
-      aztecSlotDuration: AZTEC_SLOT_DURATION,
-      blockDurationMs: BLOCK_DURATION_MS,
+      ...SENTINEL_TIMING,
+      sentinelEnabled: false, // reuse only the fast 8s-slot timing; this test does not use the sentinel
+      blockDurationMs: 2000,
       aztecTargetCommitteeSize: COMMITTEE_SIZE,
       inboxLag: 2,
       aztecProofSubmissionEpochs: 1024, // effectively do not reorg
       slashInactivityConsecutiveEpochThreshold: 32, // effectively do not slash for inactivity
       minTxsPerBlock: 0, // always be building
       slashingQuorum,
-      slashingRoundSizeInEpochs: slashingRoundSize / aztecEpochDuration,
+      slashingRoundSizeInEpochs: slashingRoundSize / SENTINEL_TIMING.aztecEpochDuration,
       slashAmountSmall: slashingUnit,
       slashAmountMedium: slashingUnit * 2n,
       slashAmountLarge: slashingUnit * 3n,
