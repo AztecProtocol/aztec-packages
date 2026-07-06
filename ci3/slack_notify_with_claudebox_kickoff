@@ -2,10 +2,17 @@
 set -eu
 # Post a Slack notification and dispatch ClaudeBox to investigate.
 #
-# Usage: slack_notify_with_claudebox_kickoff <channel> <slack_text> <claudebox_prompt> [--link <url>] [--target-ref <ref>]
+# Usage: slack_notify_with_claudebox_kickoff <channel> <slack_text> <claudebox_prompt> [--link <url>] [--target-ref <ref>] [--mode <public|private>] [--repo <owner/repo>]
+#
+# --mode  forces the ClaudeBox session's repo-access mode. Leave unset to let
+#         claudebox.yml pick it (private for a private target repo, else public).
+# --repo  the repo the work targets (e.g. AztecProtocol/aztec-packages-private).
+#         Passed to ClaudeBox so a private target lands in private mode; without
+#         it, work aimed at a private repo dead-ends in a public-mode session.
 #
 # Requires: SLACK_BOT_TOKEN
-# Optional: CLAUDEBOX_REPO (default: AztecProtocol/aztec-packages)
+# Optional: CLAUDEBOX_REPO (default: AztecProtocol/aztec-packages) -- the repo
+#           whose claudebox.yml is dispatched (holds the CLAUDEBOX_API_SECRET).
 
 NO_CD=1 source "$(git rev-parse --show-toplevel)/ci3/source_base"
 
@@ -21,10 +28,14 @@ shift 3
 
 link=""
 target_ref=""
+mode=""
+work_repo=""
 while [[ $# -gt 0 ]]; do
   case $1 in
     --link) link="$2"; shift 2 ;;
     --target-ref) target_ref="$2"; shift 2 ;;
+    --mode) mode="$2"; shift 2 ;;
+    --repo) work_repo="$2"; shift 2 ;;
     *) shift ;;
   esac
 done
@@ -53,6 +64,12 @@ fi
 extra_args=()
 if [[ -n "$target_ref" ]]; then
   extra_args+=(-f "target_ref=$target_ref")
+fi
+if [[ -n "$mode" ]]; then
+  extra_args+=(-f "mode=$mode")
+fi
+if [[ -n "$work_repo" ]]; then
+  extra_args+=(-f "repo=$work_repo")
 fi
 if [[ -n "${CHANNEL_ID:-}" ]]; then
   extra_args+=(-f "slack_channel=$CHANNEL_ID")
