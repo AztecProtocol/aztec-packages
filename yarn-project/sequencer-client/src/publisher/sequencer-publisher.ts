@@ -912,7 +912,11 @@ export class SequencerPublisher {
     const logData = { ...checkpoint, reason };
     this.log.debug(`Building invalidate checkpoint ${checkpoint.checkpointNumber} request`, logData);
 
-    const attestationsAndSigners = CommitteeAttestationsAndSigners.packAttestations(validationResult.attestations);
+    // Use the exact packed tuple posted to L1 verbatim. A repack via `packAttestations` is not a
+    // byte-faithful inverse of `fromPacked` (a canonicalized yParity byte or an all-zero signature slot
+    // round-trips differently), so it would diverge from the stored `attestationsHash` and revert the
+    // invalidation.
+    const attestationsAndSigners = validationResult.verbatimAttestations;
 
     if (reason === 'invalid-attestation') {
       return this.rollupContract.buildInvalidateBadAttestationRequest(

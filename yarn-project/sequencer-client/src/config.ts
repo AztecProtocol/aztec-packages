@@ -62,6 +62,7 @@ export const DefaultSequencerConfig = {
   injectFakeAttestation: false,
   injectHighSValueAttestation: false,
   injectUnrecoverableSignatureAttestation: false,
+  injectYParityAttestation: false,
   fishermanMode: false,
   shuffleAttestationOrdering: false,
   skipPushProposedBlocksToArchiver: false,
@@ -224,6 +225,10 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   injectUnrecoverableSignatureAttestation: {
     description: 'Inject an attestation with an unrecoverable signature (for testing only)',
     ...booleanConfigHelper(DefaultSequencerConfig.injectUnrecoverableSignatureAttestation),
+  },
+  injectYParityAttestation: {
+    description: 'Inject a non-proposer attestation slot in yParity form in the packed L1 tuple (for testing only)',
+    ...booleanConfigHelper(DefaultSequencerConfig.injectYParityAttestation),
   },
   fishermanMode: {
     env: 'FISHERMAN_MODE',
