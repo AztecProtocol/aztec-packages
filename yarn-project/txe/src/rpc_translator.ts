@@ -229,6 +229,16 @@ export class RPCTranslator {
     });
   }
 
+  // eslint-disable-next-line camelcase
+  aztec_txe_setTaggingSecretStrategiesByDeliveryMode(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_txe_setTaggingSecretStrategiesByDeliveryMode',
+      inputs,
+      handler: ([unconstrained, constrained]) =>
+        this.handlerAsTxe().setTaggingSecretStrategiesByDeliveryMode(unconstrained, constrained),
+    });
+  }
+
   // PXE oracles
 
   // eslint-disable-next-line camelcase

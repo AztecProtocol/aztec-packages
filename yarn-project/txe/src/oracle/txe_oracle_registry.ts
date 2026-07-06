@@ -319,6 +319,13 @@ export const TXE_ORACLE_REGISTRY = {
     params: [{ name: 'strategy', type: OPTION(TAGGING_SECRET_STRATEGY) }],
   }),
 
+  aztec_txe_setTaggingSecretStrategiesByDeliveryMode: makeEntry({
+    params: [
+      { name: 'unconstrained', type: TAGGING_SECRET_STRATEGY },
+      { name: 'constrained', type: TAGGING_SECRET_STRATEGY },
+    ],
+  }),
+
   aztec_txe_getLastBlockTimestamp: makeEntry({
     returnType: BIGINT,
   }),

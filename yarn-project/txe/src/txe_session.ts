@@ -20,7 +20,6 @@ import {
   RecipientTaggingStore,
   SenderTaggingStore,
   TaggingSecretSourcesStore,
-  type TaggingSecretStrategy,
   composeHooks,
 } from '@aztec/pxe/server';
 import {
@@ -58,6 +57,10 @@ import { z } from 'zod';
 
 import { DEFAULT_ADDRESS, MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY, MAX_OFFCHAIN_EFFECT_LEN } from './constants.js';
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
+import {
+  type TXETaggingSecretStrategy,
+  makeResolveTaggingSecretStrategyHook,
+} from './oracle/tagging_secret_strategy.js';
 import { TXEOraclePublicContext } from './oracle/txe_oracle_public_context.js';
 import { callTxeLegacyHandler } from './oracle/txe_oracle_registry.js';
 import { TXEOracleTopLevelContext } from './oracle/txe_oracle_top_level_context.js';
@@ -237,7 +240,7 @@ function emptyLastCallState(): LastCallState {
 export class TXESession implements TXESessionStateHandler {
   private state: SessionState = { name: 'TOP_LEVEL' };
   private authwits: Map<string, AuthWitness> = new Map();
-  private taggingSecretStrategy: TaggingSecretStrategy | undefined = undefined;
+  private taggingSecretStrategy: TXETaggingSecretStrategy | undefined = undefined;
   private lastCallInfo: LastCallState = emptyLastCallState();
   private txeOracleVersion: { major: number; minor: number } | undefined;
 
@@ -767,7 +770,7 @@ export class TXESession implements TXESessionStateHandler {
       txResolver: this.stateMachine.txResolver,
       simulator: new WASMSimulator(),
       hooks: composeHooks({
-        resolveTaggingSecretStrategy: taggingSecretStrategy ? () => Promise.resolve(taggingSecretStrategy) : undefined,
+        resolveTaggingSecretStrategy: makeResolveTaggingSecretStrategyHook(taggingSecretStrategy),
       }),
       transientArrayService,
     });

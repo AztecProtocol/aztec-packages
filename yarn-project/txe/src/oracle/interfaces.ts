@@ -74,6 +74,10 @@ export interface ITxeExecutionOracle {
   addAuthWitness(address: AztecAddress, messageHash: Fr): Promise<void>;
   sendL1ToL2Message(content: Fr, secretHash: Fr, sender: EthAddress, recipient: AztecAddress): Promise<Fr>;
   setTaggingSecretStrategy(strategy: Option<TaggingSecretStrategy>): void;
+  setTaggingSecretStrategiesByDeliveryMode(
+    unconstrained: TaggingSecretStrategy,
+    constrained: TaggingSecretStrategy,
+  ): void;
   getLastBlockTimestamp(): Promise<bigint>;
   getLastTxEffects(): Promise<{
     txHash: TxHash;

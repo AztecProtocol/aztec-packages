@@ -99,6 +99,7 @@ import type { TXEAccountStore } from '../utils/txe_account_store.js';
 import type { TXEArtifactResolver } from '../utils/txe_artifact_resolver.js';
 import { TXEPublicContractDataSource } from '../utils/txe_public_contract_data_source.js';
 import type { ITxeExecutionOracle } from './interfaces.js';
+import { type TXETaggingSecretStrategy, makeResolveTaggingSecretStrategyHook } from './tagging_secret_strategy.js';
 
 export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracle {
   isMisc = true as const;
@@ -123,7 +124,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     private version: Fr,
     private chainId: Fr,
     private authwits: Map<string, AuthWitness>,
-    private taggingSecretStrategy: TaggingSecretStrategy | undefined,
+    private taggingSecretStrategy: TXETaggingSecretStrategy | undefined,
     private readonly artifactResolver: TXEArtifactResolver,
     private readonly rootPath: string,
     private readonly packageName: string,
@@ -360,6 +361,13 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     this.taggingSecretStrategy = strategy.value;
   }
 
+  setTaggingSecretStrategiesByDeliveryMode(
+    unconstrained: TaggingSecretStrategy,
+    constrained: TaggingSecretStrategy,
+  ): void {
+    this.taggingSecretStrategy = { type: 'by-delivery-mode', unconstrained, constrained };
+  }
+
   async sendL1ToL2Message(content: Fr, secretHash: Fr, sender: EthAddress, recipient: AztecAddress): Promise<Fr> {
     // Messages are appended to the tree, so the next free slot is simply the current tree size.
     const { size } = await this.stateMachine.synchronizer
@@ -512,7 +520,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         ),
         // Only configure the hook when a strategy was explicitly set, so that otherwise the default tagging secret
         // strategy is exercised.
-        resolveTaggingSecretStrategy: taggingSecretStrategy ? () => Promise.resolve(taggingSecretStrategy) : undefined,
+        resolveTaggingSecretStrategy: makeResolveTaggingSecretStrategyHook(taggingSecretStrategy),
       }),
       transientArrayService,
     });
@@ -964,7 +972,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     }
   }
 
-  close(): [bigint, Map<string, AuthWitness>, TaggingSecretStrategy | undefined] {
+  close(): [bigint, Map<string, AuthWitness>, TXETaggingSecretStrategy | undefined] {
     this.logger.debug('Exiting Top Level Context');
     return [this.nextBlockTimestamp, this.authwits, this.taggingSecretStrategy];
   }

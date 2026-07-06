@@ -22,7 +22,7 @@ use crate::protocol::{
 ///
 /// The TypeScript counterparts are in `yarn-project/txe/src/txe_oracle_version.ts`.
 pub global TXE_ORACLE_VERSION_MAJOR: Field = 2;
-pub global TXE_ORACLE_VERSION_MINOR: Field = 2;
+pub global TXE_ORACLE_VERSION_MINOR: Field = 3;
 
 /// Asserts that the TXE oracle interface version is compatible.
 pub unconstrained fn assert_compatible_txe_oracle_version() {
@@ -267,6 +267,12 @@ pub unconstrained fn send_l1_to_l2_message(
 
 #[oracle(aztec_txe_setTaggingSecretStrategy)]
 pub unconstrained fn set_tagging_secret_strategy(strategy: Option<TaggingSecretStrategy>) {}
+
+#[oracle(aztec_txe_setTaggingSecretStrategiesByDeliveryMode)]
+pub unconstrained fn set_tagging_secret_strategies_by_delivery_mode(
+    unconstrained_strategy: TaggingSecretStrategy,
+    constrained_strategy: TaggingSecretStrategy,
+) {}
 
 #[oracle(aztec_txe_privateCallNewFlow)]
 unconstrained fn private_call_new_flow_oracle<let M: u32, let N: u32, let S: u32, let T: u32>(

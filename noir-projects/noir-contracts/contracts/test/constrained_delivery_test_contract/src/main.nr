@@ -9,7 +9,7 @@ pub contract ConstrainedDeliveryTest {
         macros::{events::event, functions::external, storage::storage},
         messages::delivery::MessageDelivery,
         note::note_viewer_options::NoteViewerOptions,
-        oracle::notes::get_next_tagging_index,
+        oracle::notes::{get_app_tagging_secret, get_next_tagging_index},
         protocol::{
             address::AztecAddress,
             constants::DOM_SEP__CONSTRAINED_MSG_LOG_TAG,
@@ -42,6 +42,24 @@ pub contract ConstrainedDeliveryTest {
     }
 
     #[external("private")]
+    fn next_unconstrained_index_for_secret(secret: Field) -> u32 {
+        // Safety: test-only observation of the index the PXE hands out next for this secret.
+        unsafe {
+            get_next_tagging_index(secret, MessageDelivery::onchain_unconstrained())
+        }
+    }
+
+    #[external("private")]
+    fn address_derived_secret(sender: AztecAddress, recipient: AztecAddress) -> Field {
+        // Safety: test-only observation of the PXE's address-derived tagging secret.
+        unsafe {
+            let secret: Field =
+                get_app_tagging_secret(sender, recipient).expect(f"expected an address-derived tagging secret");
+            secret
+        }
+    }
+
+    #[external("private")]
     fn emit_note(recipient: AztecAddress, value: Field) {
         self.storage.notes.at(recipient).insert(FieldNote { value }).deliver(MessageDelivery::onchain_constrained());
     }
@@ -54,6 +72,11 @@ pub contract ConstrainedDeliveryTest {
     #[external("private")]
     fn emit_event(recipient: AztecAddress, value: Field) {
         self.emit(DeliveryEvent { value }).deliver_to(recipient, MessageDelivery::onchain_constrained());
+    }
+
+    #[external("private")]
+    fn emit_unconstrained_event(recipient: AztecAddress, value: Field) {
+        self.emit(DeliveryEvent { value }).deliver_to(recipient, MessageDelivery::onchain_unconstrained());
     }
 
     #[external("private")]
