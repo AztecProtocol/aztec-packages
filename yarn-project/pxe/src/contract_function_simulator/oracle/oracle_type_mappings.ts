@@ -631,7 +631,7 @@ export function ARRAY<T>(inner: TypeMapping<T>): TypeMapping<T[]> & { kind: 'arr
  * zero-padded to exactly `maxLength * elementWidth` fields, and deserializes all `maxLength` elements back. An absent
  * element is the zero encoding, so the padding is derived from the shape.
  */
-function FIXED_ARRAY<T>(element: TypeMapping<T>, maxLength: number): TypeMapping<T[]> {
+export function FIXED_ARRAY<T>(element: TypeMapping<T>, maxLength: number): TypeMapping<T[]> {
   const elementWidth = fieldWidth(element.shape);
   return {
     serialization: element.serialization
