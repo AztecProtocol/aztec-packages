@@ -7,6 +7,7 @@ import { ChainMonitor } from '@aztec/ethereum/test';
 import type { ViemClient } from '@aztec/ethereum/types';
 import { CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
+import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import type { TestProverNode } from '@aztec/prover-node/test';
 import type { SequencerEvents } from '@aztec/sequencer-client';
@@ -106,13 +107,31 @@ describe('single-node/proving/proof_fails', () => {
     await test.warpToEpochStart(2);
 
     // Wait until the prune is processed and a new checkpoint mined.
-    const checkpointAfterRollback = await context.cheatCodes.rollup.waitForCheckpointBelow(checkpointBeforeRollback, {
+    let checkpointAfterRollback = await context.cheatCodes.rollup.waitForCheckpointBelow(checkpointBeforeRollback, {
       timeout: L2_SLOT_DURATION_IN_S * 4,
       interval: 0.2,
     });
 
-    // The post-rollback chain tip should be in epoch 2, since the rollback-triggering propose
-    // was made during epoch 2, after the deadline.
+    // The rollback may land via a standalone prune tx (the sequencer's fallback path) instead of a
+    // prune-and-propose, in which case the tip right after the prune is the proven checkpoint (genesis,
+    // epoch 0) rather than a fresh epoch-2 checkpoint. Wait until the sequencer mines the first
+    // post-rollback checkpoint in epoch 2 before asserting on the chain tip.
+    await retryUntil(
+      async () => {
+        checkpointAfterRollback = await rollup.getCheckpointNumber();
+        const tipCheckpoint = await rollup.getCheckpoint(checkpointAfterRollback);
+        return (
+          checkpointAfterRollback < checkpointBeforeRollback &&
+          getEpochAtSlot(tipCheckpoint.slotNumber, test.constants) === EpochNumber(2)
+        );
+      },
+      'post-rollback checkpoint mined in epoch 2',
+      L2_SLOT_DURATION_IN_S * 4,
+      0.2,
+    );
+
+    // The post-rollback chain tip should be in epoch 2, since the checkpoint was proposed
+    // during epoch 2, after the deadline.
     expect(checkpointAfterRollback).toBeLessThan(checkpointBeforeRollback);
     const latestCheckpoint = await rollup.getCheckpoint(checkpointAfterRollback);
     expect(getEpochAtSlot(latestCheckpoint.slotNumber, test.constants)).toEqual(EpochNumber(2));
