@@ -10,7 +10,7 @@ import { MAX_PRIVATE_LOGS_PER_TX } from '@aztec/constants';
 // The +20 on top is headroom for multiple pending ordinary txs to the same counterparty stacking up
 // before the first one is observed as mined. Only a run of near-MAX_PRIVATE_LOGS_PER_TX txs back-to-back would
 // exhaust this; ordinary transfers use far fewer logs per tx, so the same margin covers many more of those. Keep the
-// margin additive rather than another multiple of the floor.A  larger window also makes recipient-side sync more
+// margin additive rather than another multiple of the floor. A larger window also makes recipient-side sync more
 // expensive, since discovery has to probe ahead of the last finalized index for every active secret.
 //
 // TODO(F-783): MAX_PRIVATE_LOGS_PER_TX is not a hard ceiling in general — a tx that creates and nullifies (squashes)
