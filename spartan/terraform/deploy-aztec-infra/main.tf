@@ -728,8 +728,6 @@ resource "helm_release" "p2p_bootstrap" {
   namespace        = var.NAMESPACE
   create_namespace = true
   upgrade_install  = true
-  force_update     = true
-  recreate_pods    = true
   reuse_values     = false
   timeout          = lookup(local.p2p_bootstrap_release, "timeout", 600)
   wait             = local.p2p_bootstrap_release.wait
@@ -772,8 +770,6 @@ resource "helm_release" "releases" {
   namespace        = var.NAMESPACE
   create_namespace = true
   upgrade_install  = true
-  force_update     = true
-  recreate_pods    = true
   reuse_values     = false
   timeout          = lookup(each.value, "timeout", 600)
   wait             = each.value.wait
