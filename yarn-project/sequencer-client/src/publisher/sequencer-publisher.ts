@@ -469,7 +469,9 @@ export class SequencerPublisher {
 
       if (bundleResult.kind === 'aborted') {
         this.logDroppedInSim(bundleResult.droppedRequests);
-        void this.backupDroppedInSim(bundleResult.droppedRequests);
+        void this.backupDroppedInSim(bundleResult.droppedRequests).catch(err =>
+          this.log.error(`Failed to backup requests dropped in simulation`, err),
+        );
         return undefined;
       }
 
