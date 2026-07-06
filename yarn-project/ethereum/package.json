@@ -40,7 +40,6 @@
     "build": "yarn clean && ../scripts/tsc.sh",
     "build:dev": "../scripts/tsc.sh --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
-    "generate": "./scripts/generate.sh",
     "start:dev": "concurrently -k \"../scripts/tsc.sh --watch\" \"nodemon --watch dest --exec yarn start\"",
     "start": "node ./dest/index.js",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}",

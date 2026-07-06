@@ -1,28 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Load L1 contract defaults from network-defaults.yml for a given network.
-# Exports AZTEC_* and ETHEREUM_* env vars with YAML anchor inheritance resolved.
+# Load the canonical L1 contract defaults from network-defaults.json.
+# Exports every key in the file as an env var (all AZTEC_* / ETHEREUM_*).
 #
 # Usage:
-#   source ./scripts/load_network_defaults.sh <network>
-#
-# Networks: mainnet, testnet, devnet
+#   source ./scripts/load_network_defaults.sh
 
-network="${1:?Usage: $0 <network>}"
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-network_defaults="${script_dir}/../../spartan/environments/network-defaults.yml"
+network_defaults="${script_dir}/network-defaults.json"
 
 if [[ ! -f "$network_defaults" ]]; then
-  echo "ERROR: network-defaults.yml not found at $network_defaults" >&2
+  echo "ERROR: network-defaults.json not found at $network_defaults" >&2
   exit 1
 fi
 
-# explode(.) resolves YAML anchors (<<: *prodlike inheritance)
-# Output as props, filter comments, normalize spacing
+# jq preserves large integer literals verbatim (e.g. 100000000000000000000), which vm.envUint requires.
 while IFS='=' read -r key value; do
   export "$key"="$value"
-done < <(yq -o=props "explode(.) | .networks.$network | with_entries(select(.key | test(\"^AZTEC_|^ETHEREUM_\")))" "$network_defaults" \
-  | grep -v '^#' \
-  | grep -v '^$' \
-  | sed 's/ = /=/')
+done < <(jq -r 'to_entries[] | "\(.key)=\(.value)"' "$network_defaults")

@@ -589,6 +589,11 @@ export function getDeployRollupForUpgradeEnvVars(
     AZTEC_SLASH_AMOUNT_SMALL: args.slashAmountSmall.toString(),
     AZTEC_SLASH_AMOUNT_MEDIUM: args.slashAmountMedium.toString(),
     AZTEC_SLASH_AMOUNT_LARGE: args.slashAmountLarge.toString(),
+    AZTEC_ENTRY_QUEUE_BOOTSTRAP_VALIDATOR_SET_SIZE: args.entryQueueBootstrapValidatorSetSize.toString(),
+    AZTEC_ENTRY_QUEUE_BOOTSTRAP_FLUSH_SIZE: args.entryQueueBootstrapFlushSize.toString(),
+    AZTEC_ENTRY_QUEUE_FLUSH_SIZE_MIN: args.entryQueueFlushSizeMin.toString(),
+    AZTEC_ENTRY_QUEUE_FLUSH_SIZE_QUOTIENT: args.entryQueueFlushSizeQuotient.toString(),
+    AZTEC_ENTRY_QUEUE_MAX_FLUSH_SIZE: args.entryQueueMaxFlushSize.toString(),
   } as const;
 }
 
