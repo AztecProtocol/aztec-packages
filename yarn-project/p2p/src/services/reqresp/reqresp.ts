@@ -11,7 +11,12 @@ import { pipeline } from 'node:stream/promises';
 import type { Uint8ArrayList } from 'uint8arraylist';
 
 import { IndividualReqRespTimeoutError } from '../../errors/reqresp.error.js';
-import { OversizedSnappyResponseError, SnappyTransform } from '../encoding.js';
+import {
+  DEFAULT_MAX_RESPONSE_SIZE_KB,
+  OversizedSnappyResponseError,
+  ResponseSizeLimitExceededError,
+  SnappyTransform,
+} from '../encoding.js';
 import type { PeerScoring } from '../peer-manager/peer_scoring.js';
 import {
   DEFAULT_INDIVIDUAL_REQUEST_TIMEOUT_MS,
@@ -291,6 +296,14 @@ export class ReqResp implements ReqRespInterface {
    * - The first chunk should contain a control byte, indicating the status of the response see `ReqRespStatus`
    * - The second chunk should contain the response data
    *
+   * To bound memory usage we abort reception as soon as the accumulated compressed bytes exceed a
+   * bound derived from `maxSizeKb`, before the full stream has been buffered. Without this a peer we
+   * dialed could stream data up to the request timeout, forcing us to buffer arbitrarily much (the
+   * `maxSizeKb` guard in `inboundTransformData` only runs after the whole compressed payload is
+   * concatenated, so it does nothing to cap reception memory). Snappy can expand incompressible input
+   * to ~1.17x its size, so we allow 2x `maxSizeKb`: comfortably above the worst-case expansion of a
+   * legitimate max-size response, while still capping buffered memory at twice the permitted size.
+   *
    * @param source - The async iterable source of data chunks
    * @param maxSizeKb - Optional maximum expected size in KB for the decompressed response
    */
@@ -298,10 +311,20 @@ export class ReqResp implements ReqRespInterface {
     let status: ReqRespStatus | undefined;
     const chunks: Uint8Array[] = [];
 
+    const maxAccumulatedBytes = (maxSizeKb ?? DEFAULT_MAX_RESPONSE_SIZE_KB) * 1024 * 2;
+    let accumulatedBytes = 0;
+
     try {
       for await (const chunk of source) {
         const statusParsed = status !== undefined;
         if (statusParsed) {
+          // Use `byteLength` (the logical length) rather than `chunk.subarray().length`: calling
+          // `subarray()` on a `Uint8ArrayList` consolidates its backing buffers into a single copy,
+          // which would materialize the very chunk we are trying to reject.
+          accumulatedBytes += chunk.byteLength;
+          if (accumulatedBytes > maxAccumulatedBytes) {
+            throw new ResponseSizeLimitExceededError(accumulatedBytes, maxAccumulatedBytes);
+          }
           chunks.push(chunk.subarray());
           continue;
         }
@@ -560,6 +583,13 @@ export class ReqResp implements ReqRespInterface {
     // Oversized snappy response: the peer is sending data that exceeds the allowed size.
     // This is a protocol violation that wastes bandwidth, so penalize harshly.
     if (e instanceof OversizedSnappyResponseError) {
+      this.logger.warn(`Oversized response from peer ${peerId.toString()} in ${subProtocol}: ${e.message}`, logTags);
+      return PeerErrorSeverity.LowToleranceError;
+    }
+
+    // Response exceeded the reception buffer bound: the peer streamed more compressed data than the
+    // per-request size limit allows. Same protocol violation as above, penalize harshly.
+    if (e instanceof ResponseSizeLimitExceededError) {
       this.logger.warn(`Oversized response from peer ${peerId.toString()} in ${subProtocol}: ${e.message}`, logTags);
       return PeerErrorSeverity.LowToleranceError;
     }
