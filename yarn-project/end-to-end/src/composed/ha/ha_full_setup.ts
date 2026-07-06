@@ -208,7 +208,8 @@ export class HaFullTestContext {
     // Create database pools for HA nodes
     this.haNodePools = Array.from({ length: NODE_COUNT }, () => {
       const pool = new Pool({ connectionString: this.databaseConfig.databaseUrl.getValue()! });
-      // Without an 'error' listener, pg re-emitting an idle-client error would crash the test process.
+      // pg-pool re-emits idle-client errors on the pool; with no listener the emit throws - in production this
+      // crashes the validator process.
       pool.on('error', (err: Error) => this.logger?.warn(`HA node pool error: ${err.message}`));
       return pool;
     });
