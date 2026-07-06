@@ -199,9 +199,10 @@ impl PartialNoteFsm {
         }
     }
 
-    /// Advances an FSM in `pending` state: completes the partial note if its completion log was found. Otherwise the
-    /// FSM stays pending and the log is searched for again on future syncs, until it is found or the delivery block
-    /// is reorg'd away (which prunes this FSM automatically).
+    /// Processes a partial note in pending state
+    ///
+    /// Completes the partial note if its completion log is given. If not, the partial note remains in pending state
+    /// and its completion log is searched for again on future syncs.
     unconstrained fn step_pending(
         self,
         maybe_completion_logs: Option<EphemeralArray<LogRetrievalResponse>>,
@@ -218,7 +219,7 @@ impl PartialNoteFsm {
         }
     }
 
-    /// Advances an FSM in `completed` state: terminates it once the completion log block finalizes, since the
+    /// Advances partial note in `completed` state: terminates it once the completion log block finalizes, since the
     /// discovered note is then permanent and there is nothing left to track.
     unconstrained fn step_completed(self) {
         if self.completion_log_origin().unwrap().block_state.is_finalized() {
