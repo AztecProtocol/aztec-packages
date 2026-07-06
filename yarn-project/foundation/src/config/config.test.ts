@@ -3,9 +3,11 @@ import { jest } from '@jest/globals';
 import {
   type ConfigMappingsType,
   bigintConfigHelper,
+  floatConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
   optionalNumberConfigHelper,
+  percentageConfigHelper,
 } from './index.js';
 
 describe('Config', () => {
@@ -146,9 +148,9 @@ describe('Config', () => {
       expect(parseEnv!('-7')).toBe(-7);
     });
 
-    it('returns the default value for non-numeric input', () => {
+    it('throws for non-numeric input instead of falling back to the default', () => {
       const { parseEnv } = numberConfigHelper(5);
-      expect(parseEnv!('not-a-number')).toBe(5);
+      expect(() => parseEnv!('not-a-number')).toThrow();
     });
 
     it('throws instead of silently truncating a decimal value', () => {
@@ -161,6 +163,79 @@ describe('Config', () => {
       const { parseEnv } = numberConfigHelper(5);
       expect(() => parseEnv!('1e30')).toThrow();
       expect(() => parseEnv!('Infinity')).toThrow();
+    });
+
+    it('applies the default only when the env var is unset, not when it is invalid', () => {
+      const originalEnv = process.env;
+      const envVar = 'L1_MINIMUM_PRIORITY_FEE_PER_GAS_GWEI';
+      try {
+        interface TestConfig {
+          value: number;
+        }
+        const mappings: ConfigMappingsType<TestConfig> = {
+          value: { env: envVar, description: 'test', ...numberConfigHelper(5) },
+        };
+
+        // Unset -> default
+        process.env = { ...originalEnv };
+        delete process.env[envVar];
+        expect(getConfigFromMappings(mappings).value).toBe(5);
+
+        // Empty -> default
+        process.env = { ...originalEnv, [envVar]: '' };
+        expect(getConfigFromMappings(mappings).value).toBe(5);
+
+        // Set but invalid -> throws
+        process.env = { ...originalEnv, [envVar]: 'not-a-number' };
+        expect(() => getConfigFromMappings(mappings)).toThrow();
+      } finally {
+        process.env = originalEnv;
+      }
+    });
+  });
+
+  describe('floatConfigHelper', () => {
+    it('parses floating-point strings', () => {
+      const { parseEnv } = floatConfigHelper(1.5);
+      expect(parseEnv!('0.8')).toBe(0.8);
+      expect(parseEnv!('42')).toBe(42);
+      expect(parseEnv!('-2.5')).toBe(-2.5);
+    });
+
+    it('throws for invalid input instead of falling back to the default', () => {
+      const { parseEnv } = floatConfigHelper(1.5);
+      expect(() => parseEnv!('not-a-number')).toThrow();
+      expect(() => parseEnv!('Infinity')).toThrow();
+    });
+
+    it('runs the validation function on the parsed value', () => {
+      const { parseEnv } = floatConfigHelper(1.5, val => {
+        if (val < 0) {
+          throw new Error('must be non-negative');
+        }
+      });
+      expect(parseEnv!('2.5')).toBe(2.5);
+      expect(() => parseEnv!('-1')).toThrow('must be non-negative');
+    });
+  });
+
+  describe('percentageConfigHelper', () => {
+    it('parses 0-1 values', () => {
+      const { parseEnv } = percentageConfigHelper(0.5);
+      expect(parseEnv!('0.25')).toBe(0.25);
+      expect(parseEnv!('0')).toBe(0);
+      expect(parseEnv!('1')).toBe(1);
+    });
+
+    it('throws for out-of-range values', () => {
+      const { parseEnv } = percentageConfigHelper(0.5);
+      expect(() => parseEnv!('1.5')).toThrow();
+      expect(() => parseEnv!('-0.1')).toThrow();
+    });
+
+    it('throws for invalid input instead of falling back to the default', () => {
+      const { parseEnv } = percentageConfigHelper(0.5);
+      expect(() => parseEnv!('not-a-number')).toThrow();
     });
   });
 
