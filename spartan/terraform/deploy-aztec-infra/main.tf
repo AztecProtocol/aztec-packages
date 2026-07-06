@@ -113,26 +113,57 @@ locals {
   # Detect local kind context (e.g., "kind-kind") to gate Service types
   is_kind = can(regex("^kind", var.K8S_CLUSTER_CONTEXT))
 
-  rpc_gateway_simple_consumers = {
-    for secret_name in var.RPC_GATEWAY_API_KEY_SECRET_NAMES : secret_name => {
+  kong_gateway_enabled = var.RPC_GATEWAY_ENABLED || var.PROVER_NODE_RPC_GATEWAY_ENABLED
+
+  rpc_gateway_consumer_group             = "rpc"
+  prover_node_rpc_gateway_consumer_group = "prover-node-rpc"
+
+  rpc_gateway_auth_secret_names             = var.RPC_GATEWAY_ENABLED ? var.RPC_GATEWAY_API_KEY_SECRET_NAMES : []
+  prover_node_rpc_gateway_auth_secret_names = var.PROVER_NODE_RPC_GATEWAY_ENABLED ? var.PROVER_NODE_RPC_GATEWAY_API_KEY_SECRET_NAMES : []
+  rpc_gateway_consumer_secret_names         = toset(concat(local.rpc_gateway_auth_secret_names, local.prover_node_rpc_gateway_auth_secret_names))
+
+  rpc_gateway_consumers = {
+    for secret_name in local.rpc_gateway_consumer_secret_names : secret_name => {
       username                       = secret_name
       gcp_secret_manager_secret_name = secret_name
       rate_limit_minute              = 0
+      consumer_groups = compact([
+        contains(local.rpc_gateway_auth_secret_names, secret_name) ? local.rpc_gateway_consumer_group : "",
+        contains(local.prover_node_rpc_gateway_auth_secret_names, secret_name) ? local.prover_node_rpc_gateway_consumer_group : "",
+      ])
     }
   }
 
-  rpc_gateway_consumers = merge(local.rpc_gateway_simple_consumers, var.RPC_GATEWAY_CONSUMERS)
-
-  rpc_gateway_routes = {
-    canonical = {
-      hosts                       = var.RPC_GATEWAY_HOSTS
-      route_namespace             = var.NAMESPACE
-      upstream_service_name       = "${var.RELEASE_PREFIX}-rpc-aztec-node"
-      upstream_service_port       = 8080
-      auth_mode                   = var.RPC_GATEWAY_ALLOW_ANONYMOUS ? "keyed_with_anonymous" : "keyed_only"
-      anonymous_rate_limit_minute = var.RPC_GATEWAY_ANONYMOUS_RATE_LIMIT_MINUTE
-    }
-  }
+  rpc_gateway_routes = merge(
+    var.RPC_GATEWAY_ENABLED ? {
+      rpc = {
+        hosts                       = var.RPC_GATEWAY_HOSTS
+        route_namespace             = var.NAMESPACE
+        upstream_service_name       = "${var.RELEASE_PREFIX}-rpc-aztec-node"
+        upstream_service_port       = 8080
+        auth_mode                   = var.RPC_GATEWAY_ALLOW_ANONYMOUS ? "keyed_with_anonymous" : "keyed_only"
+        anonymous_rate_limit_minute = var.RPC_GATEWAY_ANONYMOUS_RATE_LIMIT_MINUTE
+        path                        = "/"
+        path_type                   = "Prefix"
+        strip_path                  = false
+        allowed_consumer_groups     = [local.rpc_gateway_consumer_group]
+      }
+    } : {},
+    var.PROVER_NODE_RPC_GATEWAY_ENABLED ? {
+      "prover-node-rpc" = {
+        hosts                       = var.PROVER_NODE_RPC_GATEWAY_HOSTS
+        route_namespace             = var.NAMESPACE
+        upstream_service_name       = "${var.RELEASE_PREFIX}-prover-node"
+        upstream_service_port       = 8080
+        auth_mode                   = "keyed_only"
+        anonymous_rate_limit_minute = 0
+        path                        = var.PROVER_NODE_RPC_GATEWAY_PATH
+        path_type                   = "Prefix"
+        strip_path                  = var.PROVER_NODE_RPC_GATEWAY_STRIP_PATH
+        allowed_consumer_groups     = [local.prover_node_rpc_gateway_consumer_group]
+      }
+    } : {}
+  )
 
   internal_boot_node_url = var.DEPLOY_INTERNAL_BOOTNODE ? "http://${var.RELEASE_PREFIX}-p2p-bootstrap-node.${var.NAMESPACE}.svc.cluster.local:8080" : ""
 
@@ -786,7 +817,7 @@ resource "helm_release" "releases" {
 }
 
 module "rpc_gateway" {
-  count = var.RPC_GATEWAY_ENABLED ? 1 : 0
+  count = local.kong_gateway_enabled ? 1 : 0
 
   source = "../modules/rpc-gateway"
 
@@ -829,7 +860,7 @@ module "rpc_gateway" {
 }
 
 module "rpc_gateway_metrics_collector" {
-  count = var.RPC_GATEWAY_ENABLED && var.RPC_GATEWAY_KONG_OTEL_METRICS_GCP_SECRET_NAME != "" ? 1 : 0
+  count = local.kong_gateway_enabled && var.RPC_GATEWAY_KONG_OTEL_METRICS_GCP_SECRET_NAME != "" ? 1 : 0
 
   source = "../modules/otel-metrics-collector"
 
