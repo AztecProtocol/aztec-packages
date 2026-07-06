@@ -52,22 +52,22 @@ export function synthesizeDefaultFixtures(
  * (`noir-projects/aztec-nr/.../macros/oracle_testing.nr`).
  */
 const TEST_VALUE_IMPLS: TestValueImpl[] = [
-  singleton(FIELD, seed => new Fr(seed)),
-  singleton(U32, seed => seed),
-  singleton(BLOCK_NUMBER, seed => BlockNumber(seed)),
-  singleton(BIGINT, seed => BigInt(seed)),
-  singleton(BYTE, seed => seed),
-  singleton(BOOL, seed => seed % 2 !== 0),
-  singleton(AZTEC_ADDRESS, seed => AztecAddress.fromNumberUnsafe(seed)),
-  singleton(ETH_ADDRESS, seed => EthAddress.fromField(new Fr(seed))),
-  singleton(FUNCTION_SELECTOR, seed => FunctionSelector.fromField(new Fr(seed))),
-  singleton(NOTE_SELECTOR, seed => NoteSelector.fromField(new Fr(seed))),
-  singleton(BLOCK_HASH, seed => new BlockHash(new Fr(seed))),
+  scalar(FIELD, seed => new Fr(seed)),
+  scalar(U32, seed => seed),
+  scalar(BLOCK_NUMBER, seed => BlockNumber(seed)),
+  scalar(BIGINT, seed => BigInt(seed)),
+  scalar(BYTE, seed => seed),
+  scalar(BOOL, seed => seed % 2 !== 0),
+  scalar(AZTEC_ADDRESS, seed => AztecAddress.fromNumberUnsafe(seed)),
+  scalar(ETH_ADDRESS, seed => EthAddress.fromField(new Fr(seed))),
+  scalar(FUNCTION_SELECTOR, seed => FunctionSelector.fromField(new Fr(seed))),
+  scalar(NOTE_SELECTOR, seed => NoteSelector.fromField(new Fr(seed))),
+  scalar(BLOCK_HASH, seed => new BlockHash(new Fr(seed))),
   // Only two delivery modes are valid for tagging, so the seed alternates between them, matching the Noir impl.
-  singleton(DELIVERY_MODE, seed =>
+  scalar(DELIVERY_MODE, seed =>
     seed % 2 === 0 ? AppTaggingSecretKind.UNCONSTRAINED : AppTaggingSecretKind.CONSTRAINED,
   ),
-  singleton(CONTRACT_INSTANCE_MEMBER, seed => [{ exists: seed % 2 !== 0, member: new Fr(seed + 1) }]),
+  scalar(CONTRACT_INSTANCE_MEMBER, seed => [{ exists: seed % 2 !== 0, member: new Fr(seed + 1) }]),
   composite(isOption, (type, seed) => [
     named(Option.some(firstValue(type.inner, seed)), 'some'),
     named(Option.none(firstValue(type.inner, seed)), 'none'),
@@ -124,8 +124,8 @@ interface TestValueImpl {
   scenarios: (type: TypeMapping<any>, seed: number) => Scenario[];
 }
 
-/** A singleton impl: matches one specific mapping by identity and yields a single unnamed scenario. */
-function singleton(type: TypeMapping<any>, value: (seed: number) => unknown): TestValueImpl {
+/** A scalar impl: matches the singleton `type` by identity and yields a single unnamed scenario. */
+function scalar(type: TypeMapping<any>, value: (seed: number) => unknown): TestValueImpl {
   return { match: t => t === type, scenarios: (_type, seed) => [unnamed(value(seed))] };
 }
 
