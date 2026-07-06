@@ -119,21 +119,29 @@ export function omitConfigMappings<T, K extends keyof T>(
 }
 
 /**
- * Generates parseEnv and default values for a numerical config value.
- * @param defaultVal - The default numerical value to use if the environment variable is not set or is invalid
- * @returns Object with parseEnv and default values for a numerical config value
+ * Generates parseEnv and default values for an integer config value.
+ *
+ * The default is used only when the environment variable is unset or empty. A set-but-invalid
+ * value (non-numeric, fractional, or outside the safe-integer range) throws rather than silently
+ * falling back to the default.
+ * @param defaultVal - The default value to use when the environment variable is unset
+ * @returns Object with parseEnv and default values for an integer config value
  */
 export function numberConfigHelper(defaultVal: number): Pick<ConfigMapping<number>, 'parseEnv' | 'defaultValue'> {
   return {
-    parseEnv: (val: string) => safeParseNumber(val, defaultVal),
+    parseEnv: (val: string) => parseSafeInteger(val),
     defaultValue: defaultVal,
   };
 }
 
 /**
- * Generates parseEnv and default values for a numerical config value.
- * @param defaultVal - The default numerical value to use if the environment variable is not set or is invalid
- * @returns Object with parseEnv and default values for a numerical config value
+ * Generates parseEnv and default values for a floating-point config value.
+ *
+ * The default is used only when the environment variable is unset or empty. A set-but-invalid
+ * value (not a finite number) throws rather than silently falling back to the default.
+ * @param defaultVal - The default value to use when the environment variable is unset
+ * @param validationFn - Optional extra validation applied to the parsed value; should throw on invalid input
+ * @returns Object with parseEnv and default values for a floating-point config value
  */
 export function floatConfigHelper(
   defaultVal: number,
@@ -141,7 +149,7 @@ export function floatConfigHelper(
 ): Pick<ConfigMapping<number>, 'parseEnv' | 'defaultValue'> {
   return {
     parseEnv: (val: string): number => {
-      const parsed = safeParseFloat(val, defaultVal);
+      const parsed = parseFiniteNumber(val);
       validationFn?.(parsed);
       return parsed;
     },
@@ -150,12 +158,17 @@ export function floatConfigHelper(
 }
 
 /**
- * Parses an environment variable to a 0-1 percentage value
+ * Generates parseEnv and default values for a 0-1 percentage config value.
+ *
+ * The default is used only when the environment variable is unset or empty. A set-but-invalid
+ * value (not a finite number, or outside the 0-1 range) throws rather than silently falling back
+ * to the default.
+ * @param defaultVal - The default value to use when the environment variable is unset
  */
 export function percentageConfigHelper(defaultVal: number): Pick<ConfigMapping<number>, 'parseEnv' | 'defaultValue'> {
   return {
     parseEnv: (val: string): number => {
-      const parsed = safeParseFloat(val, defaultVal);
+      const parsed = parseFiniteNumber(val);
       if (parsed < 0 || parsed > 1) {
         throw new TypeError(`Invalid percentage value: ${parsed} should be between 0 and 1`);
       }
@@ -205,13 +218,7 @@ export function bigintConfigHelper(
  */
 export function optionalNumberConfigHelper(): Pick<ConfigMapping<number>, 'parseEnv'> {
   return {
-    parseEnv: (val: string) => {
-      const parsedValue = parseInt(val);
-      if (!Number.isSafeInteger(parsedValue)) {
-        throw new Error(`Invalid number: ${val}`);
-      }
-      return parsedValue;
-    },
+    parseEnv: (val: string) => parseSafeInteger(val),
   };
 }
 
@@ -344,27 +351,36 @@ export function secretFqConfigHelper(defaultValue?: Fq): {
 }
 
 /**
- * Safely parses a number from a string.
- * If the value is not a number or is not a safe integer, the default value is returned.
+ * Parses a string into a safe integer, throwing if the value is numeric but not an integer.
+ *
+ * Unlike `parseInt`, this does not silently truncate decimals: `'0.8'` throws rather than
+ * becoming `0`. A fractional value indicates the caller intended a non-integer where only
+ * integers are supported (use `floatConfigHelper`/`percentageConfigHelper` for those).
  * @param value - The string value to parse
- * @param defaultValue - The default value to return
- * @returns Either parsed value or default value
+ * @returns The parsed integer value
  */
-function safeParseNumber(value: string, defaultValue: number): number {
-  const parsedValue = parseInt(value, 10);
-  return Number.isSafeInteger(parsedValue) ? parsedValue : defaultValue;
+function parseSafeInteger(value: string): number {
+  const parsedValue = parseFloat(value);
+  if (!Number.isSafeInteger(parsedValue)) {
+    throw new Error(`Invalid integer config value '${value}'; expected a whole number`);
+  }
+  return parsedValue;
 }
 
 /**
- * Safely parses a floating point number from a string.
- * If the value is not a number, the default value is returned.
+ * Parses a string into a finite floating-point number, throwing if the value is not a finite number.
+ *
+ * Invalid input (e.g. `'abc'`, or an overflow to `Infinity`) throws rather than being silently
+ * swallowed, so a misconfigured value fails loudly instead of falling back to the config default.
  * @param value - The string value to parse
- * @param defaultValue - The default value to return
- * @returns Either parsed value or default value
+ * @returns The parsed number
  */
-function safeParseFloat(value: string, defaultValue: number): number {
+function parseFiniteNumber(value: string): number {
   const parsedValue = parseFloat(value);
-  return Number.isNaN(parsedValue) ? defaultValue : parsedValue;
+  if (!Number.isFinite(parsedValue)) {
+    throw new Error(`Invalid number config value '${value}'`);
+  }
+  return parsedValue;
 }
 
 /**

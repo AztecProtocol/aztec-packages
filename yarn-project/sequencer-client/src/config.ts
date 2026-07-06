@@ -129,7 +129,7 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description:
       'Per-block budget multiplier applied to DA gas and blob fields in place of perBlockAllocationMultiplier.' +
       ' Defaults higher than the general multiplier so the largest contract class deploy fits a single block.',
-    ...numberConfigHelper(DefaultSequencerConfig.perBlockDAAllocationMultiplier),
+    ...floatConfigHelper(DefaultSequencerConfig.perBlockDAAllocationMultiplier),
   },
   redistributeCheckpointBudget: {
     env: 'SEQ_REDISTRIBUTE_CHECKPOINT_BUDGET',
