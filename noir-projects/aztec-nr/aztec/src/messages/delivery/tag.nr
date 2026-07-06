@@ -72,6 +72,7 @@ fn tag_with(
         source.constrain_tag_secret(context, sender, recipient, index);
     }
 
+    // The discovery tag stays derived from the tag secret only, so the recipient still finds every message.
     tag_from_secret_and_index(secret, index, mode)
 }
 

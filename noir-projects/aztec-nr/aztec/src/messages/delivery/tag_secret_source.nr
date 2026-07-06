@@ -63,7 +63,7 @@ impl TagSecretSource {
         recipient: AztecAddress,
         index: u32,
     ) {
-        let secrets = AppSiloedHandshakeSecrets { shared: self.tag_secret, sender_only: self.sender_only };
+        let secrets = AppSiloedHandshakeSecrets::from(self);
         if self.kind == EXISTING_HANDSHAKE {
             constrain_preexisting_handshake_secrets(
                 context,
@@ -82,6 +82,14 @@ impl TagSecretSource {
             );
         }
         emit_sequence_nullifier(context, sender, recipient, secrets, index);
+    }
+}
+
+/// The handshake-secrets view of a source. For a source that is not handshake-backed the sender-only secret is a
+/// filler zero, which constrained delivery (the only consumer of it) rejects.
+impl From<TagSecretSource> for AppSiloedHandshakeSecrets {
+    fn from(source: TagSecretSource) -> Self {
+        Self { shared: source.tag_secret, sender_only: source.sender_only }
     }
 }
 
