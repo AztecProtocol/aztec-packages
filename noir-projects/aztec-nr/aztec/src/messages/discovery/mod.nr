@@ -264,7 +264,7 @@ mod test {
             // Mock the oracle call to return a known base slot, then populate an ephemeral
             // array at that slot so do_sync_state processes a non-empty log list.
             let base_slot = 42;
-            let mock = std::test::OracleMock::mock("aztec_utl_getPendingTaggedLogs");
+            let mock = std::test::OracleMock::mock("aztec_utl_getPendingTaggedLogsV2");
             let _ = mock.returns(base_slot);
 
             let logs: EphemeralArray<PendingTaggedLog> = EphemeralArray::at(base_slot);
@@ -281,6 +281,10 @@ mod test {
                 no_inbox_sync,
                 scope,
             );
+
+            // Guards against the mocked oracle name going stale: if sync stops calling it, the crafted empty log
+            // above is never consumed and the test silently stops covering the empty-payload path.
+            assert_eq(mock.times_called(), 1);
         });
     }
 
