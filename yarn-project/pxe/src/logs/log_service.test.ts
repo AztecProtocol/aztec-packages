@@ -305,9 +305,7 @@ describe('LogService', () => {
     });
   });
 
-  // Address-derived discovery is gated on registering the sender: the recipient can only reconstruct a sender's tags
-  // for senders in `getSenders()` (plus its own accounts). This pins that gate through `fetchTaggedLogs` end to end.
-  describe('address-derived sender gate', () => {
+  describe('address-derived discovery requires a registered sender', () => {
     let recipientCompleteAddress: CompleteAddress;
     let recipient: AztecAddress;
     let sender: AztecAddress;

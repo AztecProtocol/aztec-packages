@@ -2,9 +2,8 @@ import { AppTaggingSecretKind } from '@aztec/stdlib/logs';
 
 import { buildMessageDeliveryTest } from './onchain_delivery_harness.js';
 
-// Regression coverage for mode-agnostic handshake reuse. That file only pins that
-// each (strategy, mode) cell delivers; this file pins the stronger claim that a handshake bootstrapped under one
-// delivery mode is reused, not re-bootstrapped, when the other mode sends next.
+// Pins mode-agnostic handshake reuse: a handshake bootstrapped under one delivery mode must be reused when the other
+// mode sends next.
 describe('handshake_reuse', () => {
   const forwardHookCalls: AppTaggingSecretKind[] = [];
   buildMessageDeliveryTest({
@@ -21,6 +20,9 @@ describe('handshake_reuse', () => {
       });
     },
   });
+
+  // Reverse direction also pins the constrained sequence to a fresh index 0 after an unconstrained bootstrap; a leaked
+  // unconstrained counter would make the first constrained send require a predecessor nullifier that does not exist.
   const reverseHookCalls: AppTaggingSecretKind[] = [];
   buildMessageDeliveryTest({
     strategy: 'non-interactive handshake',
