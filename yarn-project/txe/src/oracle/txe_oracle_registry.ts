@@ -17,6 +17,7 @@ import {
   BIGINT,
   BLOCK_NUMBER,
   BOOL,
+  DELIVERY_MODE,
   ETH_ADDRESS,
   FIELD,
   FIXED_ARRAY,
@@ -316,13 +317,9 @@ export const TXE_ORACLE_REGISTRY = {
   }),
 
   aztec_txe_setTaggingSecretStrategy: makeEntry({
-    params: [{ name: 'strategy', type: OPTION(TAGGING_SECRET_STRATEGY) }],
-  }),
-
-  aztec_txe_setTaggingSecretStrategiesByDeliveryMode: makeEntry({
     params: [
-      { name: 'unconstrained', type: TAGGING_SECRET_STRATEGY },
-      { name: 'constrained', type: TAGGING_SECRET_STRATEGY },
+      { name: 'deliveryMode', type: DELIVERY_MODE },
+      { name: 'strategy', type: OPTION(TAGGING_SECRET_STRATEGY) },
     ],
   }),
 

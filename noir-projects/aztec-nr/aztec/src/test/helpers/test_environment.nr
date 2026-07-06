@@ -13,6 +13,7 @@ use crate::{
     event::{event_interface::EventInterface, EventMessage},
     hash::{compute_secret_hash, hash_args},
     messages::{
+        delivery::OnchainDeliveryMode,
         discovery::{
             ComputeNoteHash, ComputeNoteNullifier, CustomMessageHandler, process_message::process_message_plaintext,
         },
@@ -23,11 +24,7 @@ use crate::{
     },
     note::{note_interface::{NoteHash, NoteType}, NoteMessage},
     oracle::version::assert_compatible_oracle_version,
-    test::helpers::{
-        tagging_secret_strategy::{TaggingSecretStrategiesByDeliveryMode, TaggingSecretStrategy},
-        txe_oracles,
-        utils::ContractDeployment,
-    },
+    test::helpers::{tagging_secret_strategy::TaggingSecretStrategy, txe_oracles, utils::ContractDeployment},
     utils::array::subarray,
 };
 
@@ -96,14 +93,17 @@ pub struct TestEnvironment {
 /// );
 /// ```
 pub struct TestEnvironmentOptions {
-    tagging_secret_strategy: Option<TaggingSecretStrategy>,
-    tagging_secret_strategies_by_delivery_mode: Option<TaggingSecretStrategiesByDeliveryMode>,
+    unconstrained_tagging_secret_strategy: Option<TaggingSecretStrategy>,
+    constrained_tagging_secret_strategy: Option<TaggingSecretStrategy>,
 }
 
 impl TestEnvironmentOptions {
     /// Creates a new `TestEnvironmentOptions` with default values.
     pub fn new() -> Self {
-        Self { tagging_secret_strategy: Option::none(), tagging_secret_strategies_by_delivery_mode: Option::none() }
+        Self {
+            unconstrained_tagging_secret_strategy: Option::none(),
+            constrained_tagging_secret_strategy: Option::none(),
+        }
     }
 
     /// Sets the [`TaggingSecretStrategy`] the wallet reports through the
@@ -112,8 +112,8 @@ impl TestEnvironmentOptions {
     ///
     /// If not set, the wallet hook is left unconfigured and the private execution environment applies its own default.
     pub fn with_tagging_secret_strategy(&mut self, strategy: TaggingSecretStrategy) -> Self {
-        self.tagging_secret_strategy = Option::some(strategy);
-        self.tagging_secret_strategies_by_delivery_mode = Option::none();
+        self.unconstrained_tagging_secret_strategy = Option::some(strategy);
+        self.constrained_tagging_secret_strategy = Option::some(strategy);
         *self
     }
 
@@ -124,11 +124,8 @@ impl TestEnvironmentOptions {
         unconstrained_strategy: TaggingSecretStrategy,
         constrained_strategy: TaggingSecretStrategy,
     ) -> Self {
-        self.tagging_secret_strategy = Option::none();
-        self.tagging_secret_strategies_by_delivery_mode = Option::some(TaggingSecretStrategiesByDeliveryMode::new(
-            unconstrained_strategy,
-            constrained_strategy,
-        ));
+        self.unconstrained_tagging_secret_strategy = Option::some(unconstrained_strategy);
+        self.constrained_tagging_secret_strategy = Option::some(constrained_strategy);
         *self
     }
 }
@@ -638,16 +635,14 @@ impl TestEnvironment {
         assert_compatible_oracle_version();
         txe_oracles::assert_compatible_txe_oracle_version();
 
-        // Forward the configured strategy to the wallet.
-        if options.tagging_secret_strategies_by_delivery_mode.is_some() {
-            let strategies = options.tagging_secret_strategies_by_delivery_mode.unwrap_unchecked();
-            txe_oracles::set_tagging_secret_strategies_by_delivery_mode(
-                strategies.unconstrained_strategy,
-                strategies.constrained_strategy,
-            );
-        } else {
-            txe_oracles::set_tagging_secret_strategy(options.tagging_secret_strategy);
-        }
+        txe_oracles::set_tagging_secret_strategy(
+            OnchainDeliveryMode::onchain_unconstrained(),
+            options.unconstrained_tagging_secret_strategy,
+        );
+        txe_oracles::set_tagging_secret_strategy(
+            OnchainDeliveryMode::onchain_constrained(),
+            options.constrained_tagging_secret_strategy,
+        );
 
         Self {
             // Use an offset to avoid secret collision with account secrets. Without this, when

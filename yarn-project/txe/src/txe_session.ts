@@ -58,7 +58,7 @@ import { z } from 'zod';
 import { DEFAULT_ADDRESS, MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY, MAX_OFFCHAIN_EFFECT_LEN } from './constants.js';
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
 import {
-  type TXETaggingSecretStrategy,
+  type TXETaggingSecretStrategies,
   makeResolveTaggingSecretStrategyHook,
 } from './oracle/tagging_secret_strategy.js';
 import { TXEOraclePublicContext } from './oracle/txe_oracle_public_context.js';
@@ -240,7 +240,7 @@ function emptyLastCallState(): LastCallState {
 export class TXESession implements TXESessionStateHandler {
   private state: SessionState = { name: 'TOP_LEVEL' };
   private authwits: Map<string, AuthWitness> = new Map();
-  private taggingSecretStrategy: TXETaggingSecretStrategy | undefined = undefined;
+  private taggingSecretStrategies: TXETaggingSecretStrategies = new Map();
   private lastCallInfo: LastCallState = emptyLastCallState();
   private txeOracleVersion: { major: number; minor: number } | undefined;
 
@@ -360,7 +360,7 @@ export class TXESession implements TXESessionStateHandler {
       version,
       chainId,
       new Map(),
-      undefined,
+      new Map(),
       artifactResolver,
       rootPath,
       packageName,
@@ -690,7 +690,7 @@ export class TXESession implements TXESessionStateHandler {
       this.version,
       this.chainId,
       this.authwits,
-      this.taggingSecretStrategy,
+      this.taggingSecretStrategies,
       this.artifactResolver,
       this.rootPath,
       this.packageName,
@@ -740,7 +740,7 @@ export class TXESession implements TXESessionStateHandler {
       this.stateMachine.contractClassService,
       anchorBlock!,
     );
-    const taggingSecretStrategy = this.taggingSecretStrategy;
+    const taggingSecretStrategies = this.taggingSecretStrategies;
     this.oracleHandler = new TXEPrivateExecutionOracle({
       argsHash: Fr.ZERO,
       txContext: new TxContext(this.chainId, this.version, gasSettings),
@@ -770,7 +770,7 @@ export class TXESession implements TXESessionStateHandler {
       txResolver: this.stateMachine.txResolver,
       simulator: new WASMSimulator(),
       hooks: composeHooks({
-        resolveTaggingSecretStrategy: makeResolveTaggingSecretStrategyHook(taggingSecretStrategy),
+        resolveTaggingSecretStrategy: makeResolveTaggingSecretStrategyHook(taggingSecretStrategies),
       }),
       transientArrayService,
     });
@@ -899,7 +899,7 @@ export class TXESession implements TXESessionStateHandler {
     // TODO: persisting authwits this way is quite unfortunate: they create a temporary utility context that would
     // otherwise reset them, so we'd not be able to pass more than one per execution. Ideally authwits would be passed
     // alongside a contract call instead of pre-seeded.
-    [this.nextBlockTimestamp, this.authwits, this.taggingSecretStrategy] = (
+    [this.nextBlockTimestamp, this.authwits, this.taggingSecretStrategies] = (
       this.oracleHandler as TXEOracleTopLevelContext
     ).close();
   }

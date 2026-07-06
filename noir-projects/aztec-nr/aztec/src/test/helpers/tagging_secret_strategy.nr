@@ -48,17 +48,6 @@ impl TaggingSecretStrategy {
     }
 }
 
-pub struct TaggingSecretStrategiesByDeliveryMode {
-    pub unconstrained_strategy: TaggingSecretStrategy,
-    pub constrained_strategy: TaggingSecretStrategy,
-}
-
-impl TaggingSecretStrategiesByDeliveryMode {
-    pub fn new(unconstrained_strategy: TaggingSecretStrategy, constrained_strategy: TaggingSecretStrategy) -> Self {
-        Self { unconstrained_strategy, constrained_strategy }
-    }
-}
-
 impl Deserialize for TaggingSecretStrategy {
     let N: u32 = 3;
 

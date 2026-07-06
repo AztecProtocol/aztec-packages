@@ -1,7 +1,7 @@
 use crate::{
     context::inputs::PrivateContextInputs,
     event::EventSelector,
-    messages::encoding::MESSAGE_CIPHERTEXT_LEN,
+    messages::{delivery::OnchainDeliveryMode, encoding::MESSAGE_CIPHERTEXT_LEN},
     test::helpers::{tagging_secret_strategy::TaggingSecretStrategy, utils::TestAccount},
 };
 
@@ -21,8 +21,8 @@ use crate::protocol::{
 /// [`oracle::version`](crate::oracle::version), which covers oracles used during contract execution by PXE.
 ///
 /// The TypeScript counterparts are in `yarn-project/txe/src/txe_oracle_version.ts`.
-pub global TXE_ORACLE_VERSION_MAJOR: Field = 2;
-pub global TXE_ORACLE_VERSION_MINOR: Field = 3;
+pub global TXE_ORACLE_VERSION_MAJOR: Field = 3;
+pub global TXE_ORACLE_VERSION_MINOR: Field = 0;
 
 /// Asserts that the TXE oracle interface version is compatible.
 pub unconstrained fn assert_compatible_txe_oracle_version() {
@@ -266,12 +266,9 @@ pub unconstrained fn send_l1_to_l2_message(
 ) -> Field {}
 
 #[oracle(aztec_txe_setTaggingSecretStrategy)]
-pub unconstrained fn set_tagging_secret_strategy(strategy: Option<TaggingSecretStrategy>) {}
-
-#[oracle(aztec_txe_setTaggingSecretStrategiesByDeliveryMode)]
-pub unconstrained fn set_tagging_secret_strategies_by_delivery_mode(
-    unconstrained_strategy: TaggingSecretStrategy,
-    constrained_strategy: TaggingSecretStrategy,
+pub unconstrained fn set_tagging_secret_strategy(
+    delivery_mode: OnchainDeliveryMode,
+    strategy: Option<TaggingSecretStrategy>,
 ) {}
 
 #[oracle(aztec_txe_privateCallNewFlow)]

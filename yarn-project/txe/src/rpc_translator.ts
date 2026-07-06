@@ -225,17 +225,7 @@ export class RPCTranslator {
     return callTxeHandler({
       oracle: 'aztec_txe_setTaggingSecretStrategy',
       inputs,
-      handler: ([strategy]) => this.handlerAsTxe().setTaggingSecretStrategy(strategy),
-    });
-  }
-
-  // eslint-disable-next-line camelcase
-  aztec_txe_setTaggingSecretStrategiesByDeliveryMode(...inputs: ForeignCallArgs) {
-    return callTxeHandler({
-      oracle: 'aztec_txe_setTaggingSecretStrategiesByDeliveryMode',
-      inputs,
-      handler: ([unconstrained, constrained]) =>
-        this.handlerAsTxe().setTaggingSecretStrategiesByDeliveryMode(unconstrained, constrained),
+      handler: ([deliveryMode, strategy]) => this.handlerAsTxe().setTaggingSecretStrategy(deliveryMode, strategy),
     });
   }
 
