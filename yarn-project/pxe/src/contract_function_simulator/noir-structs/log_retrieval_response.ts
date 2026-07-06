@@ -5,12 +5,8 @@ import type { TxHash } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
 /**
- * Intermediate struct used to perform batch log retrieval by PXE. The `getLogsByTagV3` oracle stores values of this type
- * in a `EphemeralArray`.
- *
- * The `blockNumber`/`blockHash` pair mirrors the noir `origin_block: OriginBlock` field: it anchors a discovered note's
- * completion to the block the log was mined in, so the resulting fact is pruned if that block is reorged away.
- */
+ * Intermediate struct used to perform batch log retrieval by PXE.
+ **/
 export type LogRetrievalResponse = {
   logPayload: Fr[];
   txHash: TxHash;
@@ -21,9 +17,8 @@ export type LogRetrievalResponse = {
 };
 
 /**
- * The variant of {@link LogRetrievalResponse} carried by the `getLogsByTagV2` oracle, whose origin-block field is the
- * block timestamp rather than its hash. Retained only so the PXE can keep serving that oracle to already-deployed
- * contracts; partial-note completion uses `getLogsByTagV3`, which carries `blockHash`.
+ * Legacy variant of {@link LogRetrievalResponse} used by the `getLogsByTagV2` oracle. Retained only so PXE can keep
+ * serving that oracle to already-deployed contracts.
  */
 export type LegacyLogRetrievalResponseV2 = {
   logPayload: Fr[];

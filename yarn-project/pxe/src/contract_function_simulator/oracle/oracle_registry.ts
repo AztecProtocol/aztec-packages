@@ -26,6 +26,7 @@ import {
   type InputSlot,
   KEY_VALIDATION_REQUEST,
   LEGACY_LOG_RETRIEVAL_RESPONSE_V2,
+  LEGACY_PENDING_TAGGED_LOG,
   LOG_RETRIEVAL_REQUEST,
   LOG_RETRIEVAL_RESPONSE,
   MEMBERSHIP_WITNESS,
@@ -40,7 +41,6 @@ import {
   ORIGIN_BLOCK,
   type OutputSlot,
   PENDING_TAGGED_LOG,
-  PENDING_TAGGED_LOG_V1,
   POINT,
   PROVIDED_SECRET,
   PUBLIC_DATA_WITNESS,
@@ -228,18 +228,15 @@ export const ORACLE_REGISTRY = {
     returnType: BOUNDED_VEC(NOTE),
   }),
 
-  // Original oracle: its per-log context is the block-less `MessageContext`. Retained unchanged for already-deployed
-  // contracts. New syncs use `getPendingTaggedLogsV2`.
+  // Legacy oracle, retained unchanged for already-deployed contracts. New versions use `getPendingTaggedLogsV2`.
   aztec_utl_getPendingTaggedLogs: makeEntry({
     params: [
       { name: 'scope', type: AZTEC_ADDRESS },
       { name: 'providedSecrets', type: EPHEMERAL_ARRAY(PROVIDED_SECRET) },
     ],
-    returnType: EPHEMERAL_ARRAY(PENDING_TAGGED_LOG_V1),
+    returnType: EPHEMERAL_ARRAY(LEGACY_PENDING_TAGGED_LOG),
   }),
 
-  // Like `getPendingTaggedLogs`, but each log's context is a full `ResolvedTx` (adds the origin block number and hash),
-  // which partial-note discovery needs to anchor a delivered note to its block.
   aztec_utl_getPendingTaggedLogsV2: makeEntry({
     params: [
       { name: 'scope', type: AZTEC_ADDRESS },
@@ -256,15 +253,12 @@ export const ORACLE_REGISTRY = {
     ],
   }),
 
-  // Each response carries the origin block number and timestamp. Retained unchanged for already-deployed contracts;
-  // partial-note completion uses `getLogsByTagV3`, whose response carries the origin block hash instead.
+  // Legacy oracle, retained unchanged for already-deployed contracts. New versions use `getLogsByTagV3`.
   aztec_utl_getLogsByTagV2: makeEntry({
     params: [{ name: 'requests', type: EPHEMERAL_ARRAY(LOG_RETRIEVAL_REQUEST) }],
     returnType: EPHEMERAL_ARRAY(EPHEMERAL_ARRAY(LEGACY_LOG_RETRIEVAL_RESPONSE_V2)),
   }),
 
-  // Like `getLogsByTagV2`, but each response carries the origin block number and hash (as `origin_block`), which
-  // partial-note completion needs to anchor the completed fact to that block.
   aztec_utl_getLogsByTagV3: makeEntry({
     params: [{ name: 'requests', type: EPHEMERAL_ARRAY(LOG_RETRIEVAL_REQUEST) }],
     returnType: EPHEMERAL_ARRAY(EPHEMERAL_ARRAY(LOG_RETRIEVAL_RESPONSE)),

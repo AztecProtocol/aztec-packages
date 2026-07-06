@@ -67,7 +67,7 @@ import type { LegacyLogRetrievalResponseV2, LogRetrievalResponse } from '../noir
 import type { NoteData } from '../noir-structs/note_data.js';
 import type { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import { Option } from '../noir-structs/option.js';
-import type { PendingTaggedLog, PendingTaggedLogV1 } from '../noir-structs/pending_tagged_log.js';
+import type { LegacyPendingTaggedLog, PendingTaggedLog } from '../noir-structs/pending_tagged_log.js';
 import type { ProvidedSecret } from '../noir-structs/provided_secret.js';
 import type { ResolvedTx } from '../noir-structs/resolved_tx.js';
 import type { TxEffectData } from '../noir-structs/tx_effect_data.js';
@@ -578,13 +578,13 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   public async getPendingTaggedLogs(
     scope: AztecAddress,
     providedSecrets: EphemeralArray<ProvidedSecret>,
-  ): Promise<EphemeralArray<PendingTaggedLogV1>> {
+  ): Promise<EphemeralArray<LegacyPendingTaggedLog>> {
     const secrets = providedSecrets
       .readAll(this.ephemeralArrayService)
       .map(ps => new AppTaggingSecret(ps.secret, this.contractAddress, ps.mode));
 
     const logService = this.#createLogService();
-    const logs = await logService.fetchTaggedLogsV1(this.contractAddress, scope, secrets);
+    const logs = await logService.fetchLegacyTaggedLogs(this.contractAddress, scope, secrets);
     return EphemeralArray.fromValues(this.ephemeralArrayService, logs);
   }
 

@@ -19,8 +19,8 @@ import type {
   LogRetrievalResponse,
 } from '../contract_function_simulator/noir-structs/log_retrieval_response.js';
 import type {
+  LegacyPendingTaggedLog,
   PendingTaggedLog,
-  PendingTaggedLogV1,
 } from '../contract_function_simulator/noir-structs/pending_tagged_log.js';
 import { ResolvedTx } from '../contract_function_simulator/noir-structs/resolved_tx.js';
 import { AddressStore } from '../storage/address_store/address_store.js';
@@ -255,11 +255,11 @@ export class LogService {
    * `ResolvedTx` without its origin block), backing the original `getPendingTaggedLogs` oracle for already-deployed
    * contracts.
    */
-  public async fetchTaggedLogsV1(
+  public async fetchLegacyTaggedLogs(
     contractAddress: AztecAddress,
     recipient: AztecAddress,
     providedSecrets: AppTaggingSecret[],
-  ): Promise<PendingTaggedLogV1[]> {
+  ): Promise<LegacyPendingTaggedLog[]> {
     const logs = await this.fetchTaggedLogs(contractAddress, recipient, providedSecrets);
     return logs.map(({ log, context }) => ({
       log,

@@ -7,8 +7,7 @@ import { TxHash } from '@aztec/stdlib/tx';
  * The resolved on-chain context of a transaction.
  *
  * Carries the note hashes and first nullifier needed to discover notes that originated from the transaction, plus the
- * number and hash of the block in which it was mined. Message processing uses this both for the on-chain tagged-log
- * path and the offchain reception path; it is the single context attached to a message being processed.
+ * number and hash of the block in which it was mined.
  *
  * A TS version of the `ResolvedTx` struct in `oracle/tx_resolution.nr`.
  */

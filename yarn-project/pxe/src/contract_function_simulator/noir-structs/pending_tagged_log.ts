@@ -13,11 +13,11 @@ export type PendingTaggedLog = {
 };
 
 /**
- * The block-less variant of {@link PendingTaggedLog} carried by the original `getPendingTaggedLogs` oracle: its context
- * is a {@link MessageContext} rather than a {@link ResolvedTx}. Retained only so the PXE can keep serving that oracle to
- * already-deployed contracts; current syncs use `getPendingTaggedLogsV2`.
+ * Legacy variant of {@link PendingTaggedLog} used by the original `getPendingTaggedLogs` oracle: its context is a
+ * {@link MessageContext} rather than a {@link ResolvedTx}. Retained only so the PXE can keep serving that oracle to
+ * already-deployed contracts.
  */
-export type PendingTaggedLogV1 = {
+export type LegacyPendingTaggedLog = {
   log: Fr[];
   context: MessageContext;
 };
