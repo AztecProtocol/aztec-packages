@@ -15,10 +15,7 @@ import {
   LogSource,
 } from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
 import type { LogRetrievalResponse } from '../contract_function_simulator/noir-structs/log_retrieval_response.js';
-import type {
-  LegacyPendingTaggedLog,
-  PendingTaggedLog,
-} from '../contract_function_simulator/noir-structs/pending_tagged_log.js';
+import type { PendingTaggedLog } from '../contract_function_simulator/noir-structs/pending_tagged_log.js';
 import { ResolvedTx } from '../contract_function_simulator/noir-structs/resolved_tx.js';
 import { AddressStore } from '../storage/address_store/address_store.js';
 import type { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
@@ -221,27 +218,6 @@ export class LogService {
         context: new ResolvedTx(log.txHash, noteHashes, nullifiers[0], log.blockNumber, log.blockHash.toFr()),
       };
     });
-  }
-
-  /**
-   * Compatibility variant of {@link fetchTaggedLogs} whose per-log context is the block-less `MessageContext` (the
-   * `ResolvedTx` without its origin block), backing the original `getPendingTaggedLogs` oracle for already-deployed
-   * contracts.
-   */
-  public async fetchLegacyTaggedLogs(
-    contractAddress: AztecAddress,
-    recipient: AztecAddress,
-    providedSecrets: AppTaggingSecret[],
-  ): Promise<LegacyPendingTaggedLog[]> {
-    const logs = await this.fetchTaggedLogs(contractAddress, recipient, providedSecrets);
-    return logs.map(({ log, context }) => ({
-      log,
-      context: {
-        txHash: context.txHash,
-        uniqueNoteHashesInTx: context.uniqueNoteHashesInTx,
-        firstNullifierInTx: context.firstNullifierInTx,
-      },
-    }));
   }
 
   /**

@@ -25,7 +25,6 @@ import {
   FUNCTION_SELECTOR,
   type InputSlot,
   KEY_VALIDATION_REQUEST,
-  LEGACY_PENDING_TAGGED_LOG,
   LOG_RETRIEVAL_REQUEST,
   LOG_RETRIEVAL_RESPONSE,
   MEMBERSHIP_WITNESS,
@@ -224,15 +223,6 @@ export const ORACLE_REGISTRY = {
       { name: 'packedHintedNoteLength', type: U32 },
     ],
     returnType: BOUNDED_VEC(NOTE),
-  }),
-
-  // Legacy oracle, retained unchanged for already-deployed contracts. New versions use `getPendingTaggedLogsV2`.
-  aztec_utl_getPendingTaggedLogs: makeEntry({
-    params: [
-      { name: 'scope', type: AZTEC_ADDRESS },
-      { name: 'providedSecrets', type: EPHEMERAL_ARRAY(PROVIDED_SECRET) },
-    ],
-    returnType: EPHEMERAL_ARRAY(LEGACY_PENDING_TAGGED_LOG),
   }),
 
   aztec_utl_getPendingTaggedLogsV2: makeEntry({
