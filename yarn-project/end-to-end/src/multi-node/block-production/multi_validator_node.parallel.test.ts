@@ -6,6 +6,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { Signature } from '@aztec/foundation/eth-signature';
+import { retryUntil } from '@aztec/foundation/retry';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { CheckpointAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
@@ -84,7 +85,14 @@ describe('multi-node/block-production/multi_validator_node', () => {
 
     const dataStore = validatorNode.getBlockSource() as Archiver;
     const blockData = await dataStore.getBlockData({ number: BlockNumber(tx.blockNumber!) });
-    const [publishedCheckpoint] = await dataStore.getCheckpoints({ from: blockData!.checkpointNumber, limit: 1 });
+    // The receipt turns mined as soon as the block is built locally, but the archiver only stores the
+    // published checkpoint (with its attestations) once it syncs the L1 propose tx, so poll for it.
+    const publishedCheckpoint = await retryUntil(
+      async () => (await dataStore.getCheckpoints({ from: blockData!.checkpointNumber, limit: 1 }))[0],
+      `archiver indexes checkpoint ${blockData!.checkpointNumber}`,
+      120,
+      0.5,
+    );
     const signatureContext = {
       chainId: config.l1ChainId,
       rollupAddress: deployL1ContractsValues.l1ContractAddresses.rollupAddress,
