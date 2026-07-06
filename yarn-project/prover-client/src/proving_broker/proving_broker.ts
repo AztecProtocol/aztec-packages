@@ -87,13 +87,6 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
   // keep track of which proving job has been retried
   private retries = new Map<ProvingJobId, number>();
 
-  // jobs that were cancelled/aborted by the orchestrator (as opposed to genuinely failing).
-  // An abort is not a terminal result: if the same job is enqueued again (e.g. because an
-  // epoch is re-orchestrated after a prover-node restart) it must be re-run rather than
-  // returning the stale aborted status, otherwise a single abort permanently poisons the
-  // job id and blocks the whole epoch from ever being proven.
-  private abortedJobs = new Set<ProvingJobId>();
-
   // a map of promises that will be resolved when a job is settled
   private promises = new Map<ProvingJobId, PromiseWithResolvers<ProvingJobSettledResult>>();
 
@@ -279,27 +272,15 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
 
   async #enqueueProvingJob(job: ProvingJob): Promise<ProvingJobStatus> {
     // We return the job status at the start of this call
-    let jobStatus = this.#getProvingJobStatus(job.id);
+    const jobStatus = this.#getProvingJobStatus(job.id);
     if (this.jobsCache.has(job.id)) {
       const existing = this.jobsCache.get(job.id);
       assert.deepStrictEqual(job, existing, 'Duplicate proving job ID');
-
-      if (!this.abortedJobs.has(job.id)) {
-        this.logger.warn(`Cached proving job id=${job.id} epochNumber=${job.epochNumber}. Not enqueuing again`, {
-          provingJobId: job.id,
-        });
-        this.instrumentation.incCachedJobs(job.type);
-        return jobStatus;
-      }
-
-      // The job was previously aborted. Clear its cached (aborted) state so it can be
-      // re-run, and recompute the start-of-call status so the caller sees a fresh enqueue
-      // instead of the stale abort.
-      this.logger.info(`Re-enqueuing previously aborted proving job id=${job.id} epochNumber=${job.epochNumber}`, {
+      this.logger.warn(`Cached proving job id=${job.id} epochNumber=${job.epochNumber}. Not enqueuing again`, {
         provingJobId: job.id,
       });
-      this.cleanUpProvingJobState([job.id]);
-      jobStatus = this.#getProvingJobStatus(job.id);
+      this.instrumentation.incCachedJobs(job.type);
+      return jobStatus;
     }
 
     if (this.isJobStale(job)) {
@@ -350,7 +331,6 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
       this.inProgress.delete(id);
       this.retries.delete(id);
       this.enqueuedAt.delete(id);
-      this.abortedJobs.delete(id);
     }
     this.completedJobNotifications = this.completedJobNotifications.filter(id => !idsToClean.has(id));
   }
@@ -483,7 +463,6 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     this.completedJobNotifications.push(id);
 
     if (aborted) {
-      this.abortedJobs.add(id);
       this.instrumentation.incAbortedJobs(item.type);
     } else {
       this.instrumentation.incRejectedJobs(item.type);
@@ -493,9 +472,12 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
       this.instrumentation.recordJobDuration(item.type, duration);
     }
 
-    // An aborted job is not a terminal failure, so we don't persist it: keeping it out of
-    // the database means the abort can't survive a broker restart and permanently block the
-    // job. It stays cached in memory only (to notify current waiters) and can be re-enqueued.
+    // An abort is a cancellation, not a terminal result, so we deliberately do not persist
+    // it. The in-memory rejection above notifies any current waiter, but the database keeps
+    // the job as pending. A deploy restarts both the prover node and the broker, and on
+    // startup the broker re-enqueues every persisted job that has no result - so the aborted
+    // job is retried instead of coming back as a permanent 'Aborted' rejection that would
+    // block its epoch from ever being proven.
     if (!aborted) {
       try {
         await this.database.setProvingJobError(id, err);
