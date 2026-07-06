@@ -1276,12 +1276,12 @@ groups:
           data:
             - refId: A
               relativeTimeRange:
-                from: 600
+                from: 900
                 to: 0
               datasourceUid: spartan-metrics-prometheus
               model:
                 editorMode: code
-                expr: (sum by (k8s_namespace_name) (increase(aztec_sequencer_slot_filled_count{k8s_namespace_name=~"__INTERNAL_NETWORK_NAMESPACES_REGEX__"}[10m])) / sum by (k8s_namespace_name) (increase(aztec_sequencer_slot_total_count{k8s_namespace_name=~"__INTERNAL_NETWORK_NAMESPACES_REGEX__"}[10m]))) and on (k8s_namespace_name) (sum by (k8s_namespace_name) (increase(aztec_sequencer_slot_total_count{k8s_namespace_name=~"__INTERNAL_NETWORK_NAMESPACES_REGEX__"}[10m])) >= 5)
+                expr: (sum by (k8s_namespace_name) (increase(aztec_sequencer_slot_filled_count{k8s_namespace_name=~"__INTERNAL_NETWORK_NAMESPACES_REGEX__"}[15m])) / sum by (k8s_namespace_name) (increase(aztec_sequencer_slot_total_count{k8s_namespace_name=~"__INTERNAL_NETWORK_NAMESPACES_REGEX__"}[15m]))) and on (k8s_namespace_name) (sum by (k8s_namespace_name) (increase(aztec_sequencer_slot_total_count{k8s_namespace_name=~"__INTERNAL_NETWORK_NAMESPACES_REGEX__"}[15m])) >= 10)
                 instant: true
                 intervalMs: 60000
                 legendFormat: __auto
@@ -1290,7 +1290,7 @@ groups:
                 refId: A
             - refId: B
               relativeTimeRange:
-                from: 600
+                from: 900
                 to: 0
               datasourceUid: __expr__
               model:
@@ -1318,14 +1318,14 @@ groups:
                 type: reduce
             - refId: C
               relativeTimeRange:
-                from: 600
+                from: 900
                 to: 0
               datasourceUid: __expr__
               model:
                 conditions:
                     - evaluator:
                         params:
-                            - 0.8
+                            - 0.9
                         type: lt
                       operator:
                         type: and
@@ -1350,7 +1350,7 @@ groups:
           execErrState: Error
           for: 5m
           annotations:
-            summary: Sequencer slot fill rate is below 80% in {{ $labels.k8s_namespace_name }}
+            summary: Sequencer slot fill rate is below 90% in {{ $labels.k8s_namespace_name }}
           labels:
             <<: *common_labels
           isPaused: false
