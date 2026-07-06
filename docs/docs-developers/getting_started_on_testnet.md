@@ -80,7 +80,7 @@ aztec-wallet create-account \
 ```
 
 :::note
-The first transaction will take longer as it downloads proving keys. If you see `Timeout awaiting isMined`, the transaction is still processing — this is normal on testnet.
+The first transaction will take longer as it downloads proving keys. If you see `Timeout awaiting isMined`, the transaction is still processing: this is normal on testnet.
 :::
 
 ### Step 4: Deploy a contract
