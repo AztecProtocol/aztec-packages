@@ -10,18 +10,18 @@ include "../gt.pil";
 // (permutation/lookup).
 
 // This gadget constrains the resolution of the operands from instruction fetching.
-// The input operands are op[0], ..., op[6] (from execution.pil).
-// The output operands are rop[0], ..., rop[6] (from execution.pil).
+// The input operands are op[0], ..., op[4] (from execution.pil).
+// The output operands are rop[0], ..., rop[4] (from execution.pil).
 // We guarantee that the resolved operands are either immediates or valid addresses.
 
 // Inputs (from execution.pil):
 //  - SEL_RESOLVE_ADDRESS (alias for sel_instruction_fetching_success)
-//  - sel_op_is_address[7] (via exec spec; derived from ExecInstructionSpec.num_addresses)
+//  - sel_op_is_address[5] (via exec spec; derived from ExecInstructionSpec.num_addresses)
 //  - addressing_mode (via instruction fetching)
-//  - op[7] (via instruction fetching)
+//  - op[5] (via instruction fetching)
 // Outputs (to execution.pil):
 //  - sel_addressing_error
-//  - rop[7]
+//  - rop[5]
 
 // Errors:
 // - sel_base_address_failure: the base address is invalid
@@ -253,7 +253,7 @@ sel_op_do_overflow_check[4] { op_after_relative[4], highest_address, sel_relativ
 
 // Whether a given operand should be indirection-resolved.
 // We only do this if the indirect bit is set AND nothing else failed so far (for this operand).
-// Recall that from #[NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_i] (i = 0, ..., 6), we have:
+// Recall that from #[NOT_RELATIVE_OR_BASE_FAILURE_NO_OVERFLOW_i] (i = 0, ..., 4), we have:
 // `sel_base_address_failure == 1` ==> `sel_relative_overflow[i] == 0` and therefore they are mutually exclusive.
 pol commit sel_apply_indirection[5]; // @boolean (from definition and above remark)
 #[INDIRECT_GATING_0]

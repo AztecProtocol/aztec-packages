@@ -110,24 +110,21 @@ sel = 0;
 
 // Permutation selectors (execution/addressing.pil).
 pol commit sel_addressing_base; // @boolean
-pol commit sel_addressing_indirect[7]; // @boolean
+pol commit sel_addressing_indirect[5]; // @boolean
 sel_addressing_base * (1 - sel_addressing_base) = 0;
 sel_addressing_indirect[0] * (1 - sel_addressing_indirect[0]) = 0;
 sel_addressing_indirect[1] * (1 - sel_addressing_indirect[1]) = 0;
 sel_addressing_indirect[2] * (1 - sel_addressing_indirect[2]) = 0;
 sel_addressing_indirect[3] * (1 - sel_addressing_indirect[3]) = 0;
 sel_addressing_indirect[4] * (1 - sel_addressing_indirect[4]) = 0;
-sel_addressing_indirect[5] * (1 - sel_addressing_indirect[5]) = 0;
-sel_addressing_indirect[6] * (1 - sel_addressing_indirect[6]) = 0;
 
 // Permutation selectors (execution/registers.pil)
-pol commit sel_register_op[6]; // @boolean
+pol commit sel_register_op[5]; // @boolean
 sel_register_op[0] * (1 - sel_register_op[0]) = 0;
 sel_register_op[1] * (1 - sel_register_op[1]) = 0;
 sel_register_op[2] * (1 - sel_register_op[2]) = 0;
 sel_register_op[3] * (1 - sel_register_op[3]) = 0;
 sel_register_op[4] * (1 - sel_register_op[4]) = 0;
-sel_register_op[5] * (1 - sel_register_op[5]) = 0;
 
 // Permutation selectors (data_copy.pil).
 pol commit sel_data_copy_read; // @boolean
@@ -189,10 +186,9 @@ sel_to_radix_write * (1 - sel_to_radix_write) = 0;
 sel = // Addressing.
       sel_addressing_base
     + sel_addressing_indirect[0] + sel_addressing_indirect[1] + sel_addressing_indirect[2] + sel_addressing_indirect[3]
-    + sel_addressing_indirect[4] + sel_addressing_indirect[5] + sel_addressing_indirect[6]
+    + sel_addressing_indirect[4]
     // Registers.
     + sel_register_op[0] + sel_register_op[1] + sel_register_op[2] + sel_register_op[3] + sel_register_op[4]
-    + sel_register_op[5]
     // Data Copy.
     + sel_data_copy_read
     + sel_data_copy_write

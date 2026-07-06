@@ -325,7 +325,6 @@ TEST(AddressingConstrainingTest, RelativeOverflowCheck)
             { C::execution_sel_op_is_relative_wire_0_, 1 },
             { C::execution_sel_op_is_relative_wire_2_, 1 },
             { C::execution_sel_op_is_relative_wire_4_, 1 },
-            { C::execution_sel_op_is_relative_wire_6_, 1 },
             { C::execution_sel_op_is_address_0_, 1 },
             { C::execution_sel_op_is_address_2_, 1 },
             { C::execution_sel_op_is_address_4_, 1 },
@@ -350,7 +349,7 @@ TEST(AddressingConstrainingTest, RelativeOverflowCheck)
     });
 
     // GT trace.
-    for (uint32_t i = 0; i < 7; i++) {
+    for (uint32_t i = 0; i < AVM_MAX_OPERANDS; i++) {
         trace.set(C::gt_sel, i, 1);
         trace.set(C::gt_input_a, i, resolved_addrs[i]);
         trace.set(C::gt_input_b, i, AVM_HIGHEST_MEM_ADDRESS);

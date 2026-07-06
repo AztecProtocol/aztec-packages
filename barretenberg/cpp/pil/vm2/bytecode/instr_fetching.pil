@@ -31,7 +31,7 @@ include "../precomputed.pil";
  * The operands' encoding is determined per opcode by the WIRE_INSTRUCTION_SPEC in precomputed.pil.
  * This specification provides: exec_opcode, instr_size, operand decomposition selectors (sel_op_dc_0..16)
  * and tag metadata (sel_has_tag, sel_tag_is_op2). We use the decomposition selectors to transform the
- * fetched bytecode bytes (bd0..36) into the operands (addressing_mode, op1..7)).
+ * fetched bytecode bytes (bd0..36) into the operands (addressing_mode, op1..5).
  *
  * The remaining work of this trace uses other specification data to handle errors (see ERROR HANDLING).
  *
@@ -57,13 +57,13 @@ include "../precomputed.pil";
  *      sel_instruction_fetching_success {
  *          pc, bytecode_id, exec_opcode,
  *          instr_size, addressing_mode,
- *          op[0], op[1], op[2], op[3], op[4],
-            op[5], op[6]
+ *          op[0], op[1], op[2],
+ *          op[3], op[4]
  *      } in instr_fetching.sel {
  *          instr_fetching.pc, instr_fetching.bytecode_id, instr_fetching.exec_opcode,
  *          instr_fetching.instr_size, instr_fetching.addressing_mode,
- *          instr_fetching.op1, instr_fetching.op2, instr_fetching.op3, instr_fetching.op4,
- *          instr_fetching.op5
+ *          instr_fetching.op1, instr_fetching.op2, instr_fetching.op3,
+ *          instr_fetching.op4, instr_fetching.op5
  *      };
  *
  * ERROR HANDLING:
