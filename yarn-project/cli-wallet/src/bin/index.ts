@@ -6,9 +6,9 @@ import { ProtocolContractAddress } from '@aztec/aztec.js/protocol';
 import { BackendType, Barretenberg } from '@aztec/bb.js';
 import { LOCALHOST } from '@aztec/cli/cli-utils';
 import { type LogFn, createConsoleLogger, createLogger } from '@aztec/foundation/log';
+import { getPackageVersion } from '@aztec/foundation/version';
 import { openStoreAt } from '@aztec/kv-store/lmdb-v2';
 import type { PXEConfig } from '@aztec/pxe/config';
-import { getPackageVersion } from '@aztec/stdlib/update-checker';
 
 import { Argument, Command, Option } from 'commander';
 import { homedir } from 'os';

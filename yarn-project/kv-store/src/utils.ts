@@ -1,7 +1,7 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Logger } from '@aztec/foundation/log';
-import { DatabaseVersion } from '@aztec/stdlib/database-version/version';
 
+import { DatabaseVersion } from './database-version/database_version.js';
 import type { AztecAsyncSingleton, AztecSingleton } from './interfaces/singleton.js';
 import type { AztecAsyncKVStore, AztecKVStore } from './interfaces/store.js';
 import { isSyncStore } from './interfaces/utils.js';

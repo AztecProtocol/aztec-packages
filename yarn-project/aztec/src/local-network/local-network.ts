@@ -23,7 +23,6 @@ import { SequencerState } from '@aztec/sequencer-client';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
 import { TxStatus } from '@aztec/stdlib/tx';
-import type { GenesisData } from '@aztec/stdlib/world-state';
 import {
   type TelemetryClient,
   getConfigEnvVars as getTelemetryClientConfig,
@@ -31,6 +30,7 @@ import {
 } from '@aztec/telemetry-client';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
 import { deployFundedSchnorrAccounts } from '@aztec/wallets/testing';
+import type { GenesisData } from '@aztec/world-state';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { type Hex, createPublicClient, fallback, http as httpViemTransport } from 'viem';

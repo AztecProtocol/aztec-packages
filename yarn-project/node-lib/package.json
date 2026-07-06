@@ -16,7 +16,9 @@
     "./config": "./dest/config/index.js",
     "./factories": "./dest/factories/index.js",
     "./metrics": "./dest/metrics/index.js",
-    "./stores": "./dest/stores/index.js"
+    "./snapshots": "./dest/snapshots/index.js",
+    "./stores": "./dest/stores/index.js",
+    "./update-checker": "./dest/update-checker/version_checker.js"
   },
   "inherits": [
     "../package.common.json"
@@ -72,6 +74,7 @@
     "@aztec/constants": "workspace:^",
     "@aztec/epoch-cache": "workspace:^",
     "@aztec/ethereum": "workspace:^",
+    "@aztec/file-store": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/p2p": "workspace:^",

@@ -1,7 +1,7 @@
 import { IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import type { BlockProposal, CheckpointAttestation, CheckpointProposalCore } from '@aztec/stdlib/p2p';
+import type { BlockProposal, CheckpointAttestation, CheckpointProposalCore } from '@aztec/stdlib/consensus';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import {
   makeBlockHeader,

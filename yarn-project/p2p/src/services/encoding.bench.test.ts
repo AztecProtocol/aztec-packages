@@ -1,12 +1,13 @@
 import { asyncPool } from '@aztec/foundation/async-pool';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { sha256 } from '@aztec/foundation/crypto/sha256';
-import { MAX_L2_BLOCK_SIZE_KB, MAX_MESSAGE_SIZE_KB, MAX_TX_SIZE_KB } from '@aztec/stdlib/p2p';
 
 import { createHash } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { type RecordableHistogram, createHistogram } from 'node:perf_hooks';
+
+import { MAX_L2_BLOCK_SIZE_KB, MAX_MESSAGE_SIZE_KB, MAX_TX_SIZE_KB } from '../types/index.js';
 
 const HASH_COUNT = 20;
 const TOPIC = '/aztec/tx/0.1.0';

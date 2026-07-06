@@ -16,7 +16,7 @@ import { type EthPrivateKey, KeystoreManager, loadKeystores, mergeKeystores } fr
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import type { Sequencer, SequencerClient, SequencerPublisherFactory } from '@aztec/sequencer-client';
 import type { TestSequencer, TestSequencerClient } from '@aztec/sequencer-client/test';
-import type { BlockProposalOptions } from '@aztec/stdlib/p2p';
+import type { BlockProposalOptions } from '@aztec/stdlib/consensus';
 import type { BlockHeader, Tx } from '@aztec/stdlib/tx';
 import { NodeKeystoreAdapter, ValidatorClient } from '@aztec/validator-client';
 

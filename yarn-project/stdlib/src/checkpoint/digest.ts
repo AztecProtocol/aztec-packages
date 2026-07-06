@@ -1,8 +1,8 @@
 import type { Buffer32 } from '@aztec/foundation/buffer';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 
-import { ConsensusPayload } from '../p2p/consensus_payload.js';
-import { type CoordinationSignatureContext, getHashedSignaturePayloadTypedData } from '../p2p/signature_utils.js';
+import { ConsensusPayload } from '../consensus/consensus_payload.js';
+import { type CoordinationSignatureContext, getHashedSignaturePayloadTypedData } from '../consensus/signature_utils.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
 
 /**

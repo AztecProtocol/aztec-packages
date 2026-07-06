@@ -5,11 +5,10 @@ import {
   type BlockProposal,
   type CheckpointProposalCore,
   type CoordinationSignatureContext,
-  PeerErrorSeverity,
-  type ValidationResult,
   hasValidSignatureContext,
-} from '@aztec/stdlib/p2p';
+} from '@aztec/stdlib/consensus';
 
+import { PeerErrorSeverity, type ValidationResult } from '../../types/index.js';
 import { PipeliningWindow, isWithinClockTolerance } from '../clock_tolerance.js';
 
 /** Validates header-level and tx-level fields of block and checkpoint proposals. */

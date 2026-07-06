@@ -24,14 +24,6 @@ import {
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CommitteeAttestationsAndSigners, L2BlockSink, L2BlockSource } from '@aztec/stdlib/block';
 import type { CheckpointReexecutionTracker } from '@aztec/stdlib/checkpoint';
-import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
-import type {
-  ITxProvider,
-  Validator,
-  ValidatorClientFullConfig,
-  WorldStateSynchronizer,
-} from '@aztec/stdlib/interfaces/server';
-import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import {
   type BlockProposal,
   type BlockProposalOptions,
@@ -40,7 +32,15 @@ import {
   type CheckpointProposalCore,
   type CheckpointProposalOptions,
   type CoordinationSignatureContext,
-} from '@aztec/stdlib/p2p';
+} from '@aztec/stdlib/consensus';
+import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
+import type {
+  ITxProvider,
+  Validator,
+  ValidatorClientFullConfig,
+  WorldStateSynchronizer,
+} from '@aztec/stdlib/interfaces/server';
+import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { BlockHeader, Tx } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';

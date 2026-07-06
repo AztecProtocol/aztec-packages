@@ -3,8 +3,8 @@ import { compactArray } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { elapsed } from '@aztec/foundation/timer';
 import type { L2Block, L2BlockInfo } from '@aztec/stdlib/block';
+import type { BlockProposal } from '@aztec/stdlib/consensus';
 import type { ITxProvider } from '@aztec/stdlib/interfaces/server';
-import type { BlockProposal } from '@aztec/stdlib/p2p';
 import { type BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 

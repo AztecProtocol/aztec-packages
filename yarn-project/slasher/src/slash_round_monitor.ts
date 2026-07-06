@@ -3,7 +3,8 @@ import { createLogger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { Prettify } from '@aztec/foundation/types';
 import { type L1RollupConstants, getSlotAtTimestamp } from '@aztec/stdlib/epoch-helpers';
-import { getRoundForSlot } from '@aztec/stdlib/slashing';
+
+import { getRoundForSlot } from './slashing/helpers.js';
 
 export type SlashRoundMonitorSettings = Prettify<
   Pick<L1RollupConstants, 'epochDuration' | 'l1GenesisTime' | 'slotDuration'> & { slashingRoundSize: number }

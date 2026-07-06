@@ -1,6 +1,6 @@
 import { Blob, type BlobJson, computeEthVersionedBlobHash } from '@aztec/blob-lib';
+import type { FileStore, ReadOnlyFileStore } from '@aztec/file-store';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import type { FileStore, ReadOnlyFileStore } from '@aztec/stdlib/file-store';
 
 import { inboundTransform, outboundTransform } from '../encoding/index.js';
 import { HEALTHCHECK_CONTENT, HEALTHCHECK_FILENAME } from './healthcheck.js';

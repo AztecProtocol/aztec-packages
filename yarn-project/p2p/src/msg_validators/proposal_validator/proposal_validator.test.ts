@@ -3,7 +3,6 @@ import { NoCommitteeError } from '@aztec/ethereum/contracts';
 import { EpochNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import {
   TEST_COORDINATION_SIGNATURE_CONTEXT,
   makeBlockHeader,
@@ -16,6 +15,7 @@ import { TxHash } from '@aztec/stdlib/tx';
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import { PeerErrorSeverity } from '../../types/index.js';
 import { ProposalValidator } from './proposal_validator.js';
 
 describe('ProposalValidator', () => {

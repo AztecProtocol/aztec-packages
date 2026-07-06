@@ -1,5 +1,5 @@
+import type { FileStore } from '@aztec/file-store';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import type { FileStore } from '@aztec/stdlib/file-store';
 
 import type { FailedL1Tx, FailedL1TxUri, L1TxFailedStore } from './failed_tx_store.js';
 

@@ -1,5 +1,5 @@
+import { MIN_EXECUTION_TIME } from '@aztec/epoch-cache';
 import { createLogger } from '@aztec/foundation/log';
-import { MIN_EXECUTION_TIME } from '@aztec/stdlib/timetable';
 
 import { SequencerTimetable } from './timetable.js';
 import { SequencerState } from './utils.js';

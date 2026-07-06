@@ -1,11 +1,11 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
-import { MAX_TX_SIZE_KB } from '@aztec/stdlib/p2p';
 import { TxArray, type TxHash, TxHashArray } from '@aztec/stdlib/tx';
 
 import { createHash } from 'node:crypto';
 
+import { MAX_TX_SIZE_KB } from '../../../../types/index.js';
 import { BitVector } from './bitvector.js';
 
 /** Minimal interface for a block source that provides tx hashes and an archive root. */

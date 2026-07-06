@@ -1,5 +1,5 @@
+import { createFileStore } from '@aztec/file-store';
 import { createLogger } from '@aztec/foundation/log';
-import { createFileStore } from '@aztec/stdlib/file-store';
 
 import { FileStoreProofStore } from './file_store_proof_store.js';
 import { InlineProofStore } from './inline_proof_store.js';

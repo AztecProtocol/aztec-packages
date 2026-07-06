@@ -8,7 +8,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { unfreeze } from '@aztec/foundation/types';
 import type { LibP2PService, P2PClient } from '@aztec/p2p';
 import type { PublicTxResult, PublicTxSimulator } from '@aztec/simulator/server';
-import { BlockProposal } from '@aztec/stdlib/p2p';
+import { BlockProposal } from '@aztec/stdlib/consensus';
 import { ReExFailedTxsError, ReExStateMismatchError, ReExTimeoutError } from '@aztec/stdlib/validators';
 import type { ValidatorKeyStore } from '@aztec/validator-client';
 

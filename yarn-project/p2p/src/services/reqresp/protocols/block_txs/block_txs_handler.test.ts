@@ -2,7 +2,7 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { L2Block, type L2BlockSource } from '@aztec/stdlib/block';
-import type { BlockProposal } from '@aztec/stdlib/p2p';
+import type { BlockProposal } from '@aztec/stdlib/consensus';
 import { makeBlockHeader, makeBlockProposal } from '@aztec/stdlib/testing';
 import { Tx, TxHash, TxHashArray } from '@aztec/stdlib/tx';
 

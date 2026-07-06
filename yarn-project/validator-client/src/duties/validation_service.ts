@@ -14,7 +14,7 @@ import {
   ConsensusPayload,
   type CoordinationSignatureContext,
   getCoordinationSignatureTypedData,
-} from '@aztec/stdlib/p2p';
+} from '@aztec/stdlib/consensus';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { BlockHeader, Tx } from '@aztec/stdlib/tx';
 import { DutyAlreadySignedError, SlashingProtectionError } from '@aztec/validator-ha-signer/errors';

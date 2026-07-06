@@ -4,8 +4,9 @@ import { SerialQueue } from '@aztec/foundation/queue';
 import type { Prettify } from '@aztec/foundation/types';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
-import { type Offense, getOffenseTypeName, getSlotForOffense } from '@aztec/stdlib/slashing';
+import { type Offense, getOffenseTypeName } from '@aztec/stdlib/slashing';
 
+import { getSlotForOffense } from './slashing/helpers.js';
 import type { SlasherOffensesStore } from './stores/offenses_store.js';
 import {
   WANT_TO_CLEAR_SLASH_EVENT,

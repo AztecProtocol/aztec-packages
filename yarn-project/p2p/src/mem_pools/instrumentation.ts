@@ -1,4 +1,4 @@
-import type { Gossipable } from '@aztec/stdlib/p2p';
+import type { Gossipable } from '@aztec/stdlib/consensus';
 import type { Tx } from '@aztec/stdlib/tx';
 import {
   Attributes,

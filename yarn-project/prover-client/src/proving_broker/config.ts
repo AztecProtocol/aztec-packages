@@ -7,8 +7,8 @@ import {
   optionalNumberConfigHelper,
 } from '@aztec/foundation/config';
 import { pickConfigMappings } from '@aztec/foundation/config';
+import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
-import { type DataStoreConfig, dataConfigMappings } from '@aztec/stdlib/kv-store';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 
 import { z } from 'zod';

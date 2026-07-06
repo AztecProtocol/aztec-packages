@@ -1,7 +1,7 @@
 import { ManualDateProvider } from '@aztec/foundation/timer';
-import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 
 import { getP2PDefaultConfig } from '../../config.js';
+import { PeerErrorSeverity } from '../../types/index.js';
 import { PeerScoreState, PeerScoring } from './peer_scoring.js';
 
 describe('PeerScoring', () => {

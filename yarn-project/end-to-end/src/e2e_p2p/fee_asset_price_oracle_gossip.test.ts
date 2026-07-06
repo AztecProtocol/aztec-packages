@@ -7,8 +7,8 @@ import { Signature } from '@aztec/foundation/eth-signature';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import type { SequencerClient } from '@aztec/sequencer-client';
+import { CheckpointAttestation, ConsensusPayload } from '@aztec/stdlib/consensus';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
-import { CheckpointAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';

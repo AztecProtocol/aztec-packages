@@ -7,10 +7,10 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
 import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
+import { BlockProposal, type CheckpointAttestation } from '@aztec/stdlib/consensus';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { ClientProtocolCircuitVerifier } from '@aztec/stdlib/interfaces/server';
-import { BlockProposal, type CheckpointAttestation, PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import {
   TEST_COORDINATION_SIGNATURE_CONTEXT,
   makeBlockHeader,
@@ -40,6 +40,7 @@ import {
 import type { MemPools } from '../../mem_pools/interface.js';
 import type { TxPoolV2 } from '../../mem_pools/tx_pool_v2/interfaces.js';
 import type { TransactionValidator } from '../../msg_validators/tx_validator/factory.js';
+import { PeerErrorSeverity } from '../../types/index.js';
 import type { PubSubLibp2p } from '../../util.js';
 import type { PeerManagerInterface } from '../peer-manager/interface.js';
 import type { ReqRespInterface } from '../reqresp/interface.js';

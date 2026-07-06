@@ -2,8 +2,8 @@ import { recoverAddress } from '@aztec/foundation/crypto/secp256k1-signer';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 
 import { Checkpoint } from '../checkpoint/checkpoint.js';
-import { ConsensusPayload } from '../p2p/consensus_payload.js';
-import { type CoordinationSignatureContext, getHashedSignaturePayloadTypedData } from '../p2p/signature_utils.js';
+import { ConsensusPayload } from '../consensus/consensus_payload.js';
+import { type CoordinationSignatureContext, getHashedSignaturePayloadTypedData } from '../consensus/signature_utils.js';
 import type { CommitteeAttestation } from './proposal/committee_attestation.js';
 
 /**

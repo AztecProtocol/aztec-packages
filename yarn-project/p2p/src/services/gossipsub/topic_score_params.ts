@@ -1,5 +1,5 @@
-import { TopicType, createTopicString } from '@aztec/stdlib/p2p';
-import { createCheckpointTimingModel } from '@aztec/stdlib/timetable';
+import { createCheckpointTimingModel } from '@aztec/epoch-cache';
+import { TopicType, createTopicString } from '@aztec/stdlib/consensus';
 
 import { createTopicScoreParams } from '@chainsafe/libp2p-gossipsub/score';
 
@@ -27,7 +27,7 @@ export type TopicScoringNetworkParams = {
 
 /**
  * Calculates the number of blocks per slot based on timing parameters.
- * Uses the shared calculation from @aztec/stdlib/timetable.
+ * Uses the shared calculation from @aztec/epoch-cache.
  *
  * @param slotDurationMs - L2 slot duration in milliseconds
  * @param blockDurationMs - Duration per block in milliseconds (undefined = single block mode)

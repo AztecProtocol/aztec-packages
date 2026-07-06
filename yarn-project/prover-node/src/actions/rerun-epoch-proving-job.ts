@@ -1,12 +1,12 @@
 import { createArchiverStore, createContractDataSource } from '@aztec/archiver';
 import type { L1ContractsConfig } from '@aztec/ethereum/config';
 import type { Logger } from '@aztec/foundation/log';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { type ProverClientConfig, createProverClient } from '@aztec/prover-client';
 import { ProverBrokerConfig, createAndStartProvingBroker } from '@aztec/prover-client/broker';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
-import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
-import type { GenesisData } from '@aztec/stdlib/world-state';
 import { getTelemetryClient } from '@aztec/telemetry-client';
+import type { GenesisData } from '@aztec/world-state';
 import { createWorldState } from '@aztec/world-state';
 
 import { readFileSync } from 'fs';

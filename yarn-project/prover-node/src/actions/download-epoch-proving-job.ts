@@ -1,9 +1,10 @@
+import { createReadOnlyFileStore } from '@aztec/file-store';
 import { jsonParseWithSchema } from '@aztec/foundation/json-rpc';
 import type { Logger } from '@aztec/foundation/log';
 import { urlJoin } from '@aztec/foundation/string';
 import { snapshotSync } from '@aztec/node-lib/actions';
-import { createReadOnlyFileStore } from '@aztec/stdlib/file-store';
-import { UploadSnapshotMetadataSchema, makeSnapshotPaths } from '@aztec/stdlib/snapshots';
+import { makeSnapshotPaths } from '@aztec/node-lib/snapshots';
+import { UploadSnapshotMetadataSchema } from '@aztec/stdlib/snapshots';
 
 import { readFileSync } from 'fs';
 

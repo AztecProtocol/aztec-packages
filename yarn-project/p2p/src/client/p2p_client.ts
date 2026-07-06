@@ -23,10 +23,15 @@ import {
   type L2Tips,
   type L2TipsStore,
 } from '@aztec/stdlib/block';
+import {
+  type BlockProposal,
+  CheckpointAttestation,
+  type CheckpointProposal,
+  type TopicType,
+} from '@aztec/stdlib/consensus';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { type PeerInfo, tryStop } from '@aztec/stdlib/interfaces/server';
-import { type BlockProposal, CheckpointAttestation, type CheckpointProposal, type TopicType } from '@aztec/stdlib/p2p';
 import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 import { Attributes, type TelemetryClient, WithTracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 

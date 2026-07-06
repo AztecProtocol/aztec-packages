@@ -1,7 +1,7 @@
 import { MEGA_VK_LENGTH_IN_FIELDS } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { DEV_VERSION } from '@aztec/foundation/version';
 import { type ContractArtifact, FunctionType } from '@aztec/stdlib/abi';
-import { DEV_VERSION } from '@aztec/stdlib/update-checker';
 
 /**
  * A minimal but representative `ContractArtifact` shared by unit tests in this package. Covers

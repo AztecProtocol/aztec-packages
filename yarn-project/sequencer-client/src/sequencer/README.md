@@ -69,7 +69,7 @@ These four windows total `checkpointAssembleTime + blockDuration + 2 * p2pPropag
 
 ## Timing constants
 
-These constants come from `@aztec/stdlib/timetable` (see `stdlib/src/timetable/index.ts`). Some are fixed across the network, some are inputs from configuration.
+These constants come from `@aztec/epoch-cache` (see `epoch-cache/src/timetable.ts`). Some are fixed across the network, some are inputs from configuration.
 
 | Constant                          | Source                                  | Typical value | Purpose                                              |
 | --------------------------------- | --------------------------------------- | ------------- | ---------------------------------------------------- |

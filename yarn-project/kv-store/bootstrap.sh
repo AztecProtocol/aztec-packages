@@ -4,9 +4,14 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 hash=$(../bootstrap.sh hash)
 
 function test_cmds {
-  # Node tests (mocha): files outside the browser-test and bench dirs.
-  # Mirrors .mocharc.json's spec.
-  for test in src/**/!(indexeddb|sqlite-opfs|bench)/*.test.ts; do
+  # Jest node tests, run via the generic yarn-project jest runner (they are not
+  # in vitest.config.ts's include globs and use the jest API).
+  for test in src/database-version/*.test.ts; do
+    echo "$hash yarn-project/scripts/run_test.sh kv-store/$test"
+  done
+
+  # Node tests (vitest node project): files outside the browser-test, bench and jest dirs.
+  for test in src/**/!(indexeddb|sqlite-opfs|bench|database-version)/*.test.ts; do
     echo "$hash yarn-project/kv-store/scripts/run_test.sh $test"
   done
 

@@ -28,6 +28,9 @@
       "path": "../ethereum"
     },
     {
+      "path": "../file-store"
+    },
+    {
       "path": "../foundation"
     },
     {

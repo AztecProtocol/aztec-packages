@@ -7,8 +7,8 @@ import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundati
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { emptyChainConfig } from '@aztec/stdlib/config';
+import { BlockProposal, CheckpointAttestation } from '@aztec/stdlib/consensus';
 import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { BlockProposal, CheckpointAttestation } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { type MakeConsensusPayloadOptions, makeBlockProposal } from '@aztec/stdlib/testing';
 import { Tx, TxHash } from '@aztec/stdlib/tx';

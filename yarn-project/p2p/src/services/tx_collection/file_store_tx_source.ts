@@ -1,7 +1,7 @@
+import { type ReadOnlyFileStore, createReadOnlyFileStore } from '@aztec/file-store';
 import { partitionAsync } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import { type ReadOnlyFileStore, createReadOnlyFileStore } from '@aztec/stdlib/file-store';
 import { Tx, type TxHash, type TxValidator } from '@aztec/stdlib/tx';
 import {
   type Histogram,

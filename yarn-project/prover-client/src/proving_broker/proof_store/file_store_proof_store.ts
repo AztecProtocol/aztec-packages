@@ -1,5 +1,5 @@
+import type { FileStore } from '@aztec/file-store';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
-import type { FileStore } from '@aztec/stdlib/file-store';
 import {
   type ProofUri,
   type ProvingJobId,

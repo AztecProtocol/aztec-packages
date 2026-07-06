@@ -5,6 +5,9 @@
   "exports": {
     ".": "./dest/interfaces/index.js",
     "./interfaces": "./dest/interfaces/index.js",
+    "./config": "./dest/config.js",
+    "./database-version/version": "./dest/database-version/database_version.js",
+    "./database-version/manager": "./dest/database-version/version_manager.js",
     "./lmdb": "./dest/lmdb/index.js",
     "./lmdb-v2": "./dest/lmdb-v2/index.js",
     "./indexeddb": "./dest/indexeddb/index.js",
@@ -46,7 +49,8 @@
     "lmdb": "^3.2.0",
     "msgpackr": "^1.11.2",
     "ohash": "^2.0.11",
-    "ordered-binary": "^1.5.3"
+    "ordered-binary": "^1.5.3",
+    "zod": "^4"
   },
   "devDependencies": {
     "@jest/globals": "^30.0.0",

@@ -1,5 +1,5 @@
 import type { L2Block } from '@aztec/stdlib/block';
-import type { BlockProposal } from '@aztec/stdlib/p2p';
+import type { BlockProposal } from '@aztec/stdlib/consensus';
 import { type Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';

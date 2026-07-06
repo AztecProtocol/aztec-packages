@@ -1,6 +1,6 @@
 import { findBbBinary } from '@aztec/bb.js';
 import type { LogFn } from '@aztec/foundation/log';
-import { getPackageVersion } from '@aztec/stdlib/update-checker';
+import { getPackageVersion } from '@aztec/foundation/version';
 
 import { execFileSync } from 'child_process';
 import type { Command } from 'commander';

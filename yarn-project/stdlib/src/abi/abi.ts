@@ -2,11 +2,11 @@
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { schemas, zodFor } from '@aztec/foundation/schemas';
+import { DEV_VERSION } from '@aztec/foundation/version';
 
 import { inflate } from 'pako';
 import { z } from 'zod';
 
-import { DEV_VERSION } from '../update-checker/dev_version.js';
 import { FunctionSelector } from './function_selector.js';
 
 /** A basic value. */

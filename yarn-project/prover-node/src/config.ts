@@ -7,6 +7,7 @@ import {
   pickConfigMappings,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { type KeyStoreConfig, keyStoreConfigMappings } from '@aztec/node-keystore/config';
 import { ethPrivateKeySchema } from '@aztec/node-keystore/schemas';
 import type { KeyStore } from '@aztec/node-keystore/types';
@@ -24,7 +25,6 @@ import {
   proverPublisherConfigMappings,
   proverTxSenderConfigMappings,
 } from '@aztec/sequencer-client/config';
-import { type DataStoreConfig, dataConfigMappings } from '@aztec/stdlib/kv-store';
 
 export type ProverNodeConfig = ProverClientUserConfig &
   ProverPublisherConfig &

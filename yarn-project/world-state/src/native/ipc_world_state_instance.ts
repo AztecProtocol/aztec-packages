@@ -13,7 +13,7 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import type { IndexedTreeId, TreeInfo } from '@aztec/stdlib/interfaces/server';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
-import type { GenesisData, WorldStateRevision } from '@aztec/stdlib/world-state';
+import type { WorldStateRevision } from '@aztec/stdlib/world-state';
 import { AsyncApi, WsdbService } from '@aztec/wsdb';
 import type {
   WorldStateDBStats as WsdbDBStats,
@@ -28,6 +28,7 @@ import type {
 
 import { cpus } from 'node:os';
 
+import type { GenesisData } from '../genesis_data.js';
 import type { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import type { WorldStateTreeMapSizes } from '../synchronizer/factory.js';
 import type {

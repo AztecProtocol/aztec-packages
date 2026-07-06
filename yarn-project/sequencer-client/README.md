@@ -190,7 +190,7 @@ The deadlines passed to `CheckpointBuilder.buildBlock` are absolute timestamps (
 
 ### Timetable
 
-`SequencerTimetable` (`src/sequencer/timetable.ts`) is a thin wrapper around `CheckpointTiming` (from `@aztec/stdlib/timetable`). It owns two responsibilities:
+`SequencerTimetable` (`src/sequencer/timetable.ts`) is a thin wrapper around `CheckpointTiming` (from `@aztec/epoch-cache`). It owns two responsibilities:
 
 - **Sub-slot scheduling**: `canStartNextBlock(secondsIntoSlot)` finds the next sub-slot with at least `minExecutionTime` remaining and returns its deadline and whether it is the last sub-slot. If we are running late, sub-slots are skipped; we never start a block we cannot finish.
 - **Per-state deadlines**: `getMaxAllowedTime(state)` returns the latest seconds-into-slot value a state is allowed to be entered; `assertTimeLeft()` enforces it.

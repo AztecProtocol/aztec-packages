@@ -12,7 +12,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { getPXEConfig } from '@aztec/pxe/server';
 import type { SequencerEvents } from '@aztec/sequencer-client';
 import { OffenseType } from '@aztec/slasher';
-import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
+import type { CoordinationSignatureContext } from '@aztec/stdlib/consensus';
 import { makeBlockHeader, makeBlockProposal } from '@aztec/stdlib/testing';
 import { TxHash } from '@aztec/stdlib/tx';
 

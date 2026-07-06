@@ -1,13 +1,13 @@
 import type { SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
 import type {
   BlockProposal,
   CheckpointAttestation,
   CheckpointProposalCore,
   Gossipable,
   TopicType,
-} from '@aztec/stdlib/p2p';
+} from '@aztec/stdlib/consensus';
+import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
 import type { Tx } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';

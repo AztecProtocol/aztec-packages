@@ -16,14 +16,14 @@ import type {
   StatusMessage,
 } from '@aztec/p2p';
 import type { EthAddress, L2BlockStreamEvent, L2Tips } from '@aztec/stdlib/block';
-import type { ITxProvider, PeerInfo } from '@aztec/stdlib/interfaces/server';
 import type {
   BlockProposal,
   CheckpointAttestation,
   CheckpointProposal,
   CheckpointProposalCore,
   TopicType,
-} from '@aztec/stdlib/p2p';
+} from '@aztec/stdlib/consensus';
+import type { ITxProvider, PeerInfo } from '@aztec/stdlib/interfaces/server';
 import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 
 export class DummyP2P implements P2P {

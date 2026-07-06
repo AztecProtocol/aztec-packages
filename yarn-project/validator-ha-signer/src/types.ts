@@ -7,11 +7,11 @@ import {
   DutyType,
   type HAProtectedSigningContext,
   type SigningContext,
-  type ValidatorHASignerConfig,
   getBlockNumberFromSigningContext as getBlockNumberFromSigningContextFromStdlib,
   getCheckpointNumberFromSigningContext as getCheckpointNumberFromSigningContextFromStdlib,
   isHAProtectedContext,
-} from '@aztec/stdlib/ha-signing';
+} from '@aztec/stdlib/consensus';
+import type { ValidatorHASignerConfig } from '@aztec/stdlib/ha-signing';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import type { Pool } from 'pg';

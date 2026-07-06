@@ -1,4 +1,3 @@
-import type { Logger } from '@aztec/foundation/log';
 import {
   CHECKPOINT_ASSEMBLE_TIME,
   CHECKPOINT_INITIALIZATION_TIME,
@@ -6,7 +5,8 @@ import {
   DEFAULT_P2P_PROPAGATION_TIME,
   MIN_EXECUTION_TIME,
   createCheckpointTimingModel,
-} from '@aztec/stdlib/timetable';
+} from '@aztec/epoch-cache';
+import type { Logger } from '@aztec/foundation/log';
 
 import { SequencerTooSlowError } from './errors.js';
 import type { SequencerMetrics } from './metrics.js';

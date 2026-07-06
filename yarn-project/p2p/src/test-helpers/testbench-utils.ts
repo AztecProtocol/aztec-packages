@@ -3,8 +3,8 @@ import type { CheckpointProposalHash } from '@aztec/foundation/branded-types';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import type { Logger } from '@aztec/foundation/log';
 import type { L2Block, L2BlockId } from '@aztec/stdlib/block';
+import type { BlockProposal, CheckpointAttestation, CheckpointProposalCore } from '@aztec/stdlib/consensus';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import type { BlockProposal, CheckpointAttestation, CheckpointProposalCore } from '@aztec/stdlib/p2p';
 import { type BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 
 import EventEmitter from 'events';

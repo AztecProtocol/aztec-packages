@@ -8,8 +8,8 @@ import { omit } from '@aztec/foundation/collection';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
-import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import type { L1TxScope } from '../metrics/l1_tx_metrics.js';

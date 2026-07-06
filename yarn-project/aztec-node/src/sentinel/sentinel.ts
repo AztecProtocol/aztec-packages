@@ -30,8 +30,8 @@ import {
 } from '@aztec/stdlib/block';
 import type { CheckpointReexecutionTracker } from '@aztec/stdlib/checkpoint';
 import type { ChainConfig } from '@aztec/stdlib/config';
+import { ConsensusPayload, type CoordinationSignatureContext } from '@aztec/stdlib/consensus';
 import { getEpochAtSlot, getSlotRangeForEpoch, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
-import { ConsensusPayload, type CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import type {
   SingleValidatorStats,
   ValidatorStats,

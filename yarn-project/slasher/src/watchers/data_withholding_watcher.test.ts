@@ -3,9 +3,9 @@ import { SlotNumber } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { CheckpointReexecutionTracker, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import type { CoordinationSignatureContext } from '@aztec/stdlib/consensus';
 import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { ITxProvider, P2PApi } from '@aztec/stdlib/interfaces/server';
-import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import { OffenseType } from '@aztec/stdlib/slashing';
 import { TxHash } from '@aztec/stdlib/tx';
 

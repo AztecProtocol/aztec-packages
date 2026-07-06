@@ -1,12 +1,12 @@
 import type { EpochCache } from '@aztec/epoch-cache';
 import { createLogger } from '@aztec/foundation/log';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import type { P2PClient } from '@aztec/p2p';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { CheckpointReexecutionTracker } from '@aztec/stdlib/checkpoint';
 import type { ChainConfig } from '@aztec/stdlib/config';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
-import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 
 import type { SentinelConfig } from './config.js';
 import { Sentinel } from './sentinel.js';

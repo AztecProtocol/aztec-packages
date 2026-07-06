@@ -6,7 +6,9 @@ import {
 } from '@aztec/foundation/config';
 
 import type { SequencerConfig } from '../interfaces/configs.js';
-import { DEFAULT_P2P_PROPAGATION_TIME } from '../timetable/index.js';
+
+/** Default one-way P2P propagation time for proposals and attestations in seconds */
+export const DEFAULT_P2P_PROPAGATION_TIME = 2;
 
 /** Default maximum number of transactions per block. */
 export const DEFAULT_MAX_TXS_PER_BLOCK = 32;

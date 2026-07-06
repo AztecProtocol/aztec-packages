@@ -6,7 +6,6 @@ import { createLogger } from '@aztec/foundation/log';
 import { bufferToHex } from '@aztec/foundation/string';
 import { DateProvider } from '@aztec/foundation/timer';
 import type { PeerInfo, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import type { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import type { Connection, PeerId } from '@libp2p/interface';
@@ -16,6 +15,7 @@ import { ENR } from '@nethermindeth/enr';
 import { inspect } from 'util';
 
 import type { P2PConfig } from '../../config.js';
+import type { PeerErrorSeverity } from '../../types/index.js';
 import { PeerEvent } from '../../types/index.js';
 import type { FullLibp2p } from '../../util.js';
 import { ReqRespSubProtocol } from '../reqresp/interface.js';

@@ -1,13 +1,9 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import {
-  type CheckpointAttestation,
-  type CoordinationSignatureContext,
-  PeerErrorSeverity,
-  type ValidationResult,
-} from '@aztec/stdlib/p2p';
+import type { CheckpointAttestation, CoordinationSignatureContext } from '@aztec/stdlib/consensus';
 import { Attributes, Metrics, type TelemetryClient, createUpDownCounterWithDefault } from '@aztec/telemetry-client';
 
 import type { AttestationPoolApi } from '../../mem_pools/attestation_pool/attestation_pool.js';
+import { PeerErrorSeverity, type ValidationResult } from '../../types/index.js';
 import { CheckpointAttestationValidator } from './attestation_validator.js';
 
 /**

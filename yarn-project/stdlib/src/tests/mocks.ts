@@ -16,6 +16,7 @@ import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
+import { DEV_VERSION } from '@aztec/foundation/version';
 
 import { type TypedDataDefinition, hashTypedData } from 'viem';
 
@@ -29,6 +30,11 @@ import { AztecAddress } from '../aztec-address/index.js';
 import { L2Block } from '../block/index.js';
 import type { CommitteeAttestationsAndSigners } from '../block/proposal/attestations_and_signers.js';
 import { Checkpoint } from '../checkpoint/checkpoint.js';
+import { BlockProposal } from '../consensus/block_proposal.js';
+import { CheckpointAttestation } from '../consensus/checkpoint_attestation.js';
+import { CheckpointProposal } from '../consensus/checkpoint_proposal.js';
+import { ConsensusPayload } from '../consensus/consensus_payload.js';
+import { type CoordinationSignatureContext, getHashedSignaturePayloadTypedData } from '../consensus/signature_utils.js';
 import { computeContractAddressFromInstance } from '../contract/contract_address.js';
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
 import { SerializableContractInstance } from '../contract/contract_instance.js';
@@ -49,11 +55,6 @@ import { PrivateToAvmAccumulatedData } from '../kernel/private_to_avm_accumulate
 import { PrivateToPublicAccumulatedDataBuilder } from '../kernel/private_to_public_accumulated_data_builder.js';
 import { PublicCallRequestArrayLengths } from '../kernel/public_call_request.js';
 import { computeInHashFromL1ToL2Messages } from '../messaging/in_hash.js';
-import { BlockProposal } from '../p2p/block_proposal.js';
-import { CheckpointAttestation } from '../p2p/checkpoint_attestation.js';
-import { CheckpointProposal } from '../p2p/checkpoint_proposal.js';
-import { ConsensusPayload } from '../p2p/consensus_payload.js';
-import { type CoordinationSignatureContext, getHashedSignaturePayloadTypedData } from '../p2p/signature_utils.js';
 import { ChonkProof } from '../proofs/chonk_proof.js';
 import { ProvingRequestType } from '../proofs/proving_request_type.js';
 import { CheckpointHeader } from '../rollup/checkpoint_header.js';
@@ -74,7 +75,6 @@ import { NestedProcessReturnValues, PublicSimulationOutput } from '../tx/public_
 import { TxSimulationResult } from '../tx/simulated_tx.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { TxHash } from '../tx/tx_hash.js';
-import { DEV_VERSION } from '../update-checker/dev_version.js';
 import {
   makeAvmCircuitInputs,
   makeAztecAddress,

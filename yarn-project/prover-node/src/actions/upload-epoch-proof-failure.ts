@@ -1,14 +1,15 @@
 import { ARCHIVER_DB_VERSION, type Archiver } from '@aztec/archiver';
+import { type FileStore, createFileStore } from '@aztec/file-store';
 import { tryRmDir } from '@aztec/foundation/fs';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import type { Logger } from '@aztec/foundation/log';
 import { isoDate } from '@aztec/foundation/string';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { buildSnapshotMetadata, createBackups } from '@aztec/node-lib/actions';
+import { getBasePath, uploadSnapshotData } from '@aztec/node-lib/snapshots';
 import type { ChainConfig } from '@aztec/stdlib/config';
-import { type FileStore, createFileStore } from '@aztec/stdlib/file-store';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
-import { type UploadSnapshotMetadata, getBasePath, uploadSnapshotData } from '@aztec/stdlib/snapshots';
+import type { UploadSnapshotMetadata } from '@aztec/stdlib/snapshots';
 import { WORLD_STATE_DB_VERSION } from '@aztec/world-state';
 
 import { mkdtemp } from 'fs/promises';

@@ -1,10 +1,10 @@
 import type { LoggerBindings } from '@aztec/foundation/log';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
 import type { L2BlockSource } from '@aztec/stdlib/block';
-import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import { EMPTY_GENESIS_DATA, type GenesisData, isGenesisData } from '@aztec/stdlib/world-state';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
+import { EMPTY_GENESIS_DATA, type GenesisData, isGenesisData } from '../genesis_data.js';
 import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js';
 import { NativeWorldStateService } from '../native/native_world_state.js';
 import type { WorldStateConfig } from './config.js';

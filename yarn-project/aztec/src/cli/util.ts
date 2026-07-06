@@ -6,8 +6,9 @@ import type { ViemClient } from '@aztec/ethereum/types';
 import type { ConfigMappingsType, NetworkNames } from '@aztec/foundation/config';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { type LogFn, createLogger } from '@aztec/foundation/log';
+import { getPackageVersion } from '@aztec/foundation/version';
+import type { VersionCheck } from '@aztec/node-lib/update-checker';
 import type { ProverConfig } from '@aztec/stdlib/interfaces/server';
-import { type VersionCheck, getPackageVersion } from '@aztec/stdlib/update-checker';
 import type { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import chalk from 'chalk';
@@ -303,7 +304,7 @@ export async function setupVersionChecker(
     return;
   }
 
-  const { VersionChecker } = await import('@aztec/stdlib/update-checker');
+  const { VersionChecker } = await import('@aztec/node-lib/update-checker');
 
   const logger = createLogger('version_check');
   const registry = new RegistryContract(publicClient, networkConfig.registryAddress as Hex);

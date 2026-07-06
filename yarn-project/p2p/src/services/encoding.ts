@@ -1,6 +1,6 @@
 // Taken from lodestar: https://github.com/ChainSafe/lodestar
 import { createLogger } from '@aztec/foundation/log';
-import { MAX_TX_SIZE_KB, TopicType, getTopicFromString } from '@aztec/stdlib/p2p';
+import { TopicType, getTopicFromString } from '@aztec/stdlib/consensus';
 
 import type { RPC } from '@chainsafe/libp2p-gossipsub/message';
 import type { DataTransform } from '@chainsafe/libp2p-gossipsub/types';
@@ -8,6 +8,8 @@ import type { Message } from '@libp2p/interface';
 import { webcrypto } from 'node:crypto';
 import { compressSync, uncompressSync } from 'snappy';
 import xxhashFactory from 'xxhash-wasm';
+
+import { MAX_TX_SIZE_KB } from '../types/index.js';
 
 /** Thrown when a Snappy-compressed response exceeds the allowed decompressed size. */
 export class OversizedSnappyResponseError extends Error {

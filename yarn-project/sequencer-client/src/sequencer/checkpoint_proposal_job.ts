@@ -40,6 +40,15 @@ import {
   getPreviousCheckpointOutHashes,
   validateCheckpoint,
 } from '@aztec/stdlib/checkpoint';
+import type {
+  BlockProposal,
+  BlockProposalOptions,
+  CheckpointAttestation,
+  CheckpointProposal,
+  CheckpointProposalOptions,
+  CoordinationSignatureContext,
+} from '@aztec/stdlib/consensus';
+import { orderAttestations, trimAttestations } from '@aztec/stdlib/consensus';
 import { computeQuorum, getSlotStartBuildTimestamp, getTimestampForSlot } from '@aztec/stdlib/epoch-helpers';
 import { Gas } from '@aztec/stdlib/gas';
 import {
@@ -49,15 +58,6 @@ import {
   type WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
 import { type L1ToL2MessageSource, computeInHashFromL1ToL2Messages } from '@aztec/stdlib/messaging';
-import type {
-  BlockProposal,
-  BlockProposalOptions,
-  CheckpointAttestation,
-  CheckpointProposal,
-  CheckpointProposalOptions,
-  CoordinationSignatureContext,
-} from '@aztec/stdlib/p2p';
-import { orderAttestations, trimAttestations } from '@aztec/stdlib/p2p';
 import type { L2BlockBuiltStats } from '@aztec/stdlib/stats';
 import { type FailedTx, Tx } from '@aztec/stdlib/tx';
 import { AttestationTimeoutError } from '@aztec/stdlib/validators';
