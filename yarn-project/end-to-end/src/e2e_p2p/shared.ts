@@ -163,13 +163,20 @@ export async function awaitCommitteeExists({
  *
  * Returns the target epoch and the concrete target slot so the caller can warp to it after starting
  * sequencers.
+ *
+ * The default `maxAttempts` accounts for the worst-case caller: with a 2-slot epoch and
+ * `warmupSlots = 1`, each attempt checks a single slot, and with a 4-member committee the target is
+ * the proposer with probability 1/4 per attempt (proposer index is keccak(epoch, slot, seed) mod
+ * committee size, so attempts are independent). 50 attempts bound the miss probability at
+ * (3/4)^50 ≈ 6e-7; each attempt is just a committee query plus an anvil warp, so the extra
+ * headroom costs almost nothing.
  */
 export async function advanceToEpochBeforeProposer({
   epochCache,
   cheatCodes,
   targetProposer,
   logger,
-  maxAttempts = 20,
+  maxAttempts = 50,
   warmupSlots = 1,
 }: {
   epochCache: EpochCacheInterface;
