@@ -6,11 +6,6 @@ import { buildMessageDeliveryTest } from './onchain_delivery_harness.js';
 // each (strategy, mode) cell delivers; this file pins the stronger claim that a handshake bootstrapped under one
 // delivery mode is reused, not re-bootstrapped, when the other mode sends next.
 describe('handshake_reuse', () => {
-  // one handshake serves both modes. The constrained events bootstrap the handshake; the unconstrained notes reuse
-  // it. Reuse resolves an existing registry handshake before the wallet's strategy hook is ever consulted (see
-  // `tag.nr`'s `reuses_an_existing_handshake_secret`), so the hook should fire exactly once: for the first
-  // (constrained) send that bootstraps the handshake. The hook records every call it receives, so the assertion below
-  // pins that count and mode directly instead of tripwiring on an unexpected one.
   const forwardHookCalls: AppTaggingSecretKind[] = [];
   buildMessageDeliveryTest({
     strategy: 'non-interactive handshake',
