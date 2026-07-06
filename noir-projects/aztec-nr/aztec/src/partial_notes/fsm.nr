@@ -193,19 +193,35 @@ impl PartialNoteFsm {
         compute_note_nullifier: ComputeNoteNullifier,
     ) {
         if self.is_pending() {
-            if maybe_completion_logs.is_some() {
-                let completion_logs = maybe_completion_logs.unwrap();
-                let num_logs = completion_logs.len();
-                if num_logs != 0 {
-                    assert(num_logs == 1, f"Expected at most 1 completion log per partial note, got {num_logs}");
-                    self.complete_with_log(completion_logs.get(0), compute_note_hash, compute_note_nullifier);
-                }
-                // No completion log yet: stay pending and keep searching on future syncs, until it is found or the
-                // delivery block is reorg'd away (which prunes this FSM automatically).
+            self.step_pending(maybe_completion_logs, compute_note_hash, compute_note_nullifier);
+        } else {
+            self.step_completed();
+        }
+    }
+
+    /// Advances an FSM in `pending` state: completes the partial note if its completion log was found. Otherwise the
+    /// FSM stays pending and the log is searched for again on future syncs, until it is found or the delivery block
+    /// is reorg'd away (which prunes this FSM automatically).
+    unconstrained fn step_pending(
+        self,
+        maybe_completion_logs: Option<EphemeralArray<LogRetrievalResponse>>,
+        compute_note_hash: ComputeNoteHash,
+        compute_note_nullifier: ComputeNoteNullifier,
+    ) {
+        if maybe_completion_logs.is_some() {
+            let completion_logs = maybe_completion_logs.unwrap();
+            let num_logs = completion_logs.len();
+            if num_logs != 0 {
+                assert(num_logs == 1, f"Expected at most 1 completion log per partial note, got {num_logs}");
+                self.complete_with_log(completion_logs.get(0), compute_note_hash, compute_note_nullifier);
             }
-        } else if self.completion_log_origin().unwrap().block_state.is_finalized() {
-            // Completed -> Terminated: the completion log block finalized, so the discovered note is permanent and
-            // there is nothing left to track.
+        }
+    }
+
+    /// Advances an FSM in `completed` state: terminates it once the completion log block finalizes, since the
+    /// discovered note is then permanent and there is nothing left to track.
+    unconstrained fn step_completed(self) {
+        if self.completion_log_origin().unwrap().block_state.is_finalized() {
             self.terminate();
         }
     }
