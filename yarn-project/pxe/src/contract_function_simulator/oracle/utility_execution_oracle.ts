@@ -1142,10 +1142,11 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 }
 
 // Registry reads that any contract may issue without an `authorizeUtilityCall` hook. The constrained-delivery
-// library calls these implicitly for the app, and they are safe to default-authorize because the registry siloes
-// every returned secret to `msg_sender`, so a caller only ever learns values siloed to its own address.
+// library calls these implicitly for the app, and they are safe to default-authorize: `get_app_siloed_secrets`
+// siloes every returned secret to `msg_sender`, and `get_non_interactive_handshakes` only exposes ephemeral public
+// keys, from which the shared secret cannot be derived without the recipient's secret keys.
 const STANDARD_HANDSHAKE_REGISTRY_DEFAULT_AUTHORIZED_READ_SIGNATURES = [
-  'get_handshakes((Field),u32)',
+  'get_non_interactive_handshakes((Field),u32)',
   'get_app_siloed_secrets((Field),(Field))',
 ];
 
