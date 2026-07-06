@@ -41,7 +41,7 @@ on:
         description: Optional Terraform list of Slack user IDs to mention on Grafana alert notifications
         required: false
         type: string
-        default: '["U0AHB6VR8N5"]'
+        default: '["U0AQPRA1FSL"]'
     secrets:
       GCP_SA_KEY:
         required: true
@@ -78,7 +78,7 @@ on:
       slack_alert_mention_user_ids:
         description: Optional Terraform list of Slack user IDs to mention on Grafana alert notifications
         required: false
-        default: '["U0AHB6VR8N5"]'
+        default: '["U0AQPRA1FSL"]'
 
 jobs:
   metrics_deployment:

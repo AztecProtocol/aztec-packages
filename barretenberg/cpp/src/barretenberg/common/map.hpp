@@ -21,8 +21,6 @@ Cont<OutElem> map(Cont<InElem, Args...> const& in, F&& op)
 
 /*
  * Generic map function for mapping a std::array's elements to another type.
- * TODO: this has only been added because I (Mike) couldn't get the above to work
- * with an array.
  */
 template <std::size_t SIZE,
           typename InElem,
@@ -34,5 +32,8 @@ std::array<OutElem, SIZE> map(std::array<InElem, SIZE> const& in, F&& op)
     std::transform(in.begin(), in.end(), result.begin(), op);
     return result;
 }
+<<<<<<< HEAD
 
+=======
+>>>>>>> origin/next
 } // namespace bb::transform

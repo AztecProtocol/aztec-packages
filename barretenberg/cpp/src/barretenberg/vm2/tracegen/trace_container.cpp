@@ -3,6 +3,8 @@
 #include <algorithm>
 
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/compiler_hints.hpp"
+#include "barretenberg/common/log.hpp"
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/vm2/tracegen/lib/trace_conversion.hpp"
 
@@ -11,6 +13,18 @@ namespace {
 
 // We need a zero value to return (a reference to) when a value is not found.
 const FF zero = FF::zero();
+
+// Writes each 64-bit limb of the field with a relaxed atomic store. Each limb is naturally aligned (FF is
+// alignas(32), 4x uint64_t), so this lowers to 4 plain `movq` stores on x86-64 — no lock, no libatomic call
+// (unlike a whole-field std::atomic_ref<FF>, whose 32 bytes exceed the lock-free width). Lets set() make a
+// same-cell concurrent write data-race-free when every writer stores the same value.
+inline void store_per_limb(FF& cell, const FF& value)
+{
+    static_assert(sizeof(FF) == 4 * sizeof(uint64_t));
+    for (size_t i = 0; i < 4; ++i) {
+        std::atomic_ref<uint64_t>(cell.data[i]).store(value.data[i], std::memory_order_relaxed);
+    }
+}
 
 } // namespace
 
@@ -59,7 +73,7 @@ TraceContainer::ColumnInterval& TraceContainer::get_or_create_shard(SparseColumn
     return *expected; // CAS failure loaded the winning pointer into `expected` (acquire).
 }
 
-void TraceContainer::set(Column col, uint32_t row, const FF& value)
+void TraceContainer::set(Column col, uint32_t row, const FF& value, bool use_atomic_limbs)
 {
     auto& column_data = (*trace)[static_cast<size_t>(col)];
     const size_t shard_idx = row / INTERVAL_SIZE;
@@ -70,12 +84,22 @@ void TraceContainer::set(Column col, uint32_t row, const FF& value)
         // Lock-free: a single atomic load finds the shard (created on first write), then we write our
         // own dense cell directly. Different rows are distinct array elements, so concurrent writers of
         // this column (or even of the same shard, at a chunk boundary) never race and never serialize.
-        get_or_create_shard(column_data, shard_idx).rows[offset] = value;
+        auto& cell = get_or_create_shard(column_data, shard_idx).rows[offset];
+        if (BB_UNLIKELY(use_atomic_limbs)) {
+            store_per_limb(cell, value);
+        } else {
+            cell = value;
+        }
     } else {
-        // Zero value: clear if present. We never create a shard (clearing an absent row is a no-op).
+        // Zero value: clear if present. We never create a shard, so sparse (mostly-zero) columns are not
+        // materialized (an unset cell already reads as zero).
         ColumnInterval* shard = column_data.slots[shard_idx].load(std::memory_order_acquire);
         if (shard != nullptr) {
-            shard->rows[offset] = zero;
+            if (BB_UNLIKELY(use_atomic_limbs)) {
+                store_per_limb(shard->rows[offset], zero);
+            } else {
+                shard->rows[offset] = zero;
+            }
         }
     }
 }

@@ -72,7 +72,11 @@ class TraceContainer {
     // Extended version of get that works with shifted columns. More expensive.
     const FF& get_column_or_shift(ColumnAndShifts col, uint32_t row) const;
 
-    void set(Column col, uint32_t row, const FF& value);
+    // Sets the value of a cell. Thread-safe if the same cell is not written to from multiple threads.
+    // If writing to the same cell from multiple threads, use_atomic_limbs=true to use atomic limbs.
+    // This makes the write slower, but it will not be UB. However, it is also not thread-safe.
+    // Use only if you know what you are doing.
+    void set(Column col, uint32_t row, const FF& value, bool use_atomic_limbs = false);
     // Bulk setting for a given row.
     void set(uint32_t row, std::span<const std::pair<Column, FF>> values);
     // Reserve column size. Useful for precomputed columns.
