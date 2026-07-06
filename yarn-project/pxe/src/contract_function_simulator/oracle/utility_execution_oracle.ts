@@ -25,7 +25,7 @@ import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { PublicKeys, computeAddressSecret, hashPublicKey } from '@aztec/stdlib/keys';
-import { AppTaggingSecret, FlatPublicLogs, type PendingTaggedLog, appSiloEcdhSharedSecret } from '@aztec/stdlib/logs';
+import { AppTaggingSecret, FlatPublicLogs, appSiloEcdhSharedSecret } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
@@ -67,6 +67,7 @@ import type { LogRetrievalResponse } from '../noir-structs/log_retrieval_respons
 import type { NoteData } from '../noir-structs/note_data.js';
 import type { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import { Option } from '../noir-structs/option.js';
+import type { PendingTaggedLog } from '../noir-structs/pending_tagged_log.js';
 import type { ProvidedSecret } from '../noir-structs/provided_secret.js';
 import type { ResolvedTx } from '../noir-structs/resolved_tx.js';
 import type { TxEffectData } from '../noir-structs/tx_effect_data.js';
@@ -572,7 +573,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   /** Fetches pending tagged logs into a freshly allocated ephemeral array and returns it. */
-  public async getPendingTaggedLogs(
+  public async getPendingTaggedLogsV2(
     scope: AztecAddress,
     providedSecrets: EphemeralArray<ProvidedSecret>,
   ): Promise<EphemeralArray<PendingTaggedLog>> {
@@ -1142,10 +1143,11 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 }
 
 // Registry reads that any contract may issue without an `authorizeUtilityCall` hook. The constrained-delivery
-// library calls these implicitly for the app, and they are safe to default-authorize because the registry siloes
-// every returned secret to `msg_sender`, so a caller only ever learns values siloed to its own address.
+// library calls these implicitly for the app, and they are safe to default-authorize: `get_app_siloed_secrets`
+// siloes every returned secret to `msg_sender`, and `get_non_interactive_handshakes` only exposes ephemeral public
+// keys, from which the shared secret cannot be derived without the recipient's secret keys.
 const STANDARD_HANDSHAKE_REGISTRY_DEFAULT_AUTHORIZED_READ_SIGNATURES = [
-  'get_handshakes((Field),u32)',
+  'get_non_interactive_handshakes((Field),u32)',
   'get_app_siloed_secrets((Field),(Field))',
 ];
 

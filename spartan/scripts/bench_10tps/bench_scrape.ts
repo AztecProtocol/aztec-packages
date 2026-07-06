@@ -1,8 +1,14 @@
 #!/usr/bin/env -S node --experimental-strip-types --no-warnings
 //
-// Scrape a completed bench-10tps run into a schema-conformant JSON payload.
-// Contract: bench_output.schema.json (v3). Invoked by the bench_10tps function
-// in spartan/bootstrap.sh after n_tps.test.ts finishes.
+// Scrape a completed inclusion-sweep run into a schema-conformant JSON payload.
+// Contract: bench_output.schema.json (v5). Invoked by the bench_inclusion_point
+// function in spartan/bootstrap.sh after n_tps.test.ts finishes.
+//
+// Alongside the inclusion timeSeries the payload carries two PromQL sections:
+//   - provingInfra: prover-node hint-gen (tx re-execution) + proving-queue
+//     behaviour broken down by job_type.
+//   - saturation:   per-role ELU/CPU/memory, each as max (hottest pod) + avg.
+// Both scrape independently so one failing does not abort the others.
 //
 // Two independent scrape paths so one failing does not abort the other:
 //   1. Prometheus (port-forward to the cluster-shared metrics-prometheus-server)
@@ -56,6 +62,9 @@ type Args = {
   inclusionRecords: string | undefined;
   waitForPendingZero: boolean;
   maxPendingWaitSeconds: number;
+  sweepId: string | undefined;
+  sweepLabel: string | undefined;
+  benchmarkType: string | undefined;
 };
 
 function parseArgs(): Args {
@@ -94,6 +103,10 @@ function parseArgs(): Args {
           String(DEFAULT_MAX_PENDING_WAIT_SECONDS),
       ),
     ),
+    sweepId: get("--sweep-id", env.BENCH_SWEEP_ID ?? "") || undefined,
+    sweepLabel: get("--sweep-label", env.BENCH_SWEEP_LABEL ?? "") || undefined,
+    benchmarkType:
+      get("--benchmark-type", env.BENCH_BENCHMARK_TYPE ?? "") || undefined,
   };
 }
 
@@ -373,6 +386,87 @@ const TIME_SERIES_DEFS: Record<string, TimeSeriesDef> = {
     unit: "tps",
     query: `sum(rate(aztec_node_receive_tx_count${NS}[1m]))`,
   },
+  // Throughput funnel — tx rate at three stages, as three labeled series (source=
+  // gossip|rpc_receive|mined) in one entry so the dashboard overlays them on one
+  // chart. gossip: per-node accepted tx-topic gossipsub messages, avg across pods
+  // (every node accepts each unique tx once, so avg ~= unique-tx propagation rate;
+  // sum would overcount by the pod count). rpc_receive: receiveTx on the single
+  // submission node (= ingressTps). mined: archiver block tx rate, avg across
+  // archivers (= inclusionTps).
+  throughputTps: {
+    metric:
+      "gossipsub_accepted_messages_total|aztec_node_receive_tx_count|aztec_archiver_block_tx_count_sum",
+    unit: "tps",
+    query:
+      `label_replace(avg(rate(gossipsub_accepted_messages_total{k8s_namespace_name="${NAMESPACE}",topic="tx"}[1m])), "source", "gossip", "", "") or ` +
+      `label_replace(sum(rate(aztec_node_receive_tx_count${NS}[1m])), "source", "rpc_receive", "", "") or ` +
+      `label_replace(avg(rate(aztec_archiver_block_tx_count_sum${NS}[1m])), "source", "mined", "", "")`,
+  },
+  // Gossipsub P2P wire bandwidth (all topics), as four labeled series: receive and
+  // send, each as the per-pod average and the hottest pod (max). Per pod, not
+  // summed, since the question is whether any node's bandwidth is a wall — the max
+  // series surfaces gossip load that isn't evenly spread. No libp2p-level transport
+  // metric is exported, so these gossipsub RPC byte counters are the bandwidth
+  // signal (they dominate P2P traffic).
+  p2pBandwidthBytesPerSec: {
+    metric: "gossipsub_rpc_recv_bytes_total|gossipsub_rpc_sent_bytes_total",
+    unit: "bytes/sec",
+    query:
+      `label_replace(avg(rate(gossipsub_rpc_recv_bytes_total${NS}[1m])), "source", "recv_avg", "", "") or ` +
+      `label_replace(max(rate(gossipsub_rpc_recv_bytes_total${NS}[1m])), "source", "recv_max", "", "") or ` +
+      `label_replace(avg(rate(gossipsub_rpc_sent_bytes_total${NS}[1m])), "source", "sent_avg", "", "") or ` +
+      `label_replace(max(rate(gossipsub_rpc_sent_bytes_total${NS}[1m])), "source", "sent_max", "", "")`,
+  },
+  // Duration of the RPC node's receiveTx handler (aztec.node.receive_tx.duration,
+  // a histogram). This is the tx-ingest cost on the submission path — the metric
+  // to watch when RPC ingress is the bottleneck (climbs as the RPC saturates).
+  ingressTxDurationP50: {
+    metric: "aztec_node_receive_tx_duration_milliseconds",
+    unit: "ms",
+    query: histQuantile(
+      0.5,
+      "aztec_node_receive_tx_duration_milliseconds_bucket",
+    ),
+  },
+  ingressTxDurationP99: {
+    metric: "aztec_node_receive_tx_duration_milliseconds",
+    unit: "ms",
+    query: histQuantile(
+      0.99,
+      "aztec_node_receive_tx_duration_milliseconds_bucket",
+    ),
+  },
+  // Pool-side pending->mined delay measured inside the tx pool
+  // (aztec_mempool_tx_mined_delay, recorded as now - receivedAt at the mined
+  // transition). This is the node's own view of how long txs sat in the mempool
+  // before being mined, across ALL pool txs. Distinct from txMinedDelay* below,
+  // which is the client-observed inclusion latency for the high-value lane only.
+  // No aztec_pool_name filter needed: the attestation pool uses a different
+  // metric name (aztec_mempool_attestations_mined_delay).
+  mempoolTxMinedDelayP50: {
+    metric: "aztec_mempool_tx_mined_delay_milliseconds",
+    unit: "ms",
+    query: histQuantile(
+      0.5,
+      "aztec_mempool_tx_mined_delay_milliseconds_bucket",
+    ),
+  },
+  mempoolTxMinedDelayP95: {
+    metric: "aztec_mempool_tx_mined_delay_milliseconds",
+    unit: "ms",
+    query: histQuantile(
+      0.95,
+      "aztec_mempool_tx_mined_delay_milliseconds_bucket",
+    ),
+  },
+  mempoolTxMinedDelayP99: {
+    metric: "aztec_mempool_tx_mined_delay_milliseconds",
+    unit: "ms",
+    query: histQuantile(
+      0.99,
+      "aztec_mempool_tx_mined_delay_milliseconds_bucket",
+    ),
+  },
   // Pending mempool size sliced by pod role. Three single-series slugs make cross-run
   // overlay clean: pod names are unstable (replica counts and restart suffixes
   // change between runs) but role is stable. Each query filters to TxPool to
@@ -500,6 +594,40 @@ const TIME_SERIES_DEFS: Record<string, TimeSeriesDef> = {
     // code records attestationTimeAllowed in seconds.
     query: `avg(aztec_sequencer_attestations_collect_allowance_milliseconds${NS}) * 1000`,
   },
+  // Attester-side attestation failures, broken down by error_type. The
+  // error_type=timeout slice is the signal that diagnosed the 10 TPS reorgs: an
+  // attester that could not re-execute the proposed checkpoint in time, dragging
+  // the committee below quorum. Summed across pods (validators emit this) so the
+  // series is the network-wide failure rate per cause.
+  attestationFailedNodeIssueByErrorTypeRate: {
+    metric: "aztec_validator_attestation_failed_node_issue_count",
+    unit: "tps",
+    query: `sum by (aztec_error_type)(rate(aztec_validator_attestation_failed_node_issue_count${NS}[1m]))`,
+  },
+  // Attestations rejected because the proposal itself was bad (invalid_proposal,
+  // state_mismatch, failed_txs, …) — distinct from the node-side issues above.
+  attestationFailedBadProposalByErrorTypeRate: {
+    metric: "aztec_validator_attestation_failed_bad_proposal_count",
+    unit: "tps",
+    query: `sum by (aztec_error_type)(rate(aztec_validator_attestation_failed_bad_proposal_count${NS}[1m]))`,
+  },
+  // Successful attestations, the denominator for a failure ratio.
+  attestationSuccessRate: {
+    metric: "aztec_validator_attestation_success_count",
+    unit: "tps",
+    query: `sum(rate(aztec_validator_attestation_success_count${NS}[1m]))`,
+  },
+  // Archiver prunes broken down by cause (prune_type). 'unproven' is the
+  // proven/epoch prune; 'uncheckpointed'/'l1_conflict'/'orphan'/'l1_mismatch' are pending-chain
+  // reorgs that move a node's proposed tip (world-state then logs "Chain pruned").
+  // Summed across pods, so a value here is the network-wide prune rate per cause;
+  // see summary.reorgCount for how many distinct pods diverged. Requires the
+  // prune_type-attributed metric (new image); empty on older images.
+  pruneCountByType: {
+    metric: "aztec_archiver_prune_count",
+    unit: "tps",
+    query: `sum by (aztec_archiver_prune_type)(rate(aztec_archiver_prune_count${NS}[1m]))`,
+  },
   checkpointBlockCountMean: {
     metric: "aztec_sequencer_checkpoint_block_count",
     unit: "count",
@@ -560,12 +688,169 @@ const TIME_SERIES_DEFS: Record<string, TimeSeriesDef> = {
   },
 };
 
-async function scrapeTimeSeries(
+// --- v4: per-role resource saturation (ELU / CPU / memory) ---
+// Roles are matched by pod-name prefix within the namespace. The proposer
+// rotates, so never hand-pick a pod: emit max() (hottest pod) AND avg() per role.
+const SATURATION_ROLES: Record<string, string> = {
+  validator: `${NAMESPACE}-validator.*`,
+  rpc: `${NAMESPACE}-rpc.*`,
+  fullNode: `${NAMESPACE}-full-node.*`,
+  proverNode: `${NAMESPACE}-prover-node.*`,
+  broker: `${NAMESPACE}-prover-broker.*`,
+  agent: `${NAMESPACE}-prover-agent.*`,
+};
+
+// OTel metric -> Prometheus name. ELU + heap come from
+// telemetry-client/src/nodejs_metrics_monitor.ts (nodejs.* prefix, NOT aztec_).
+// CPU comes from @opentelemetry/host-metrics (process.cpu.utilization), not the
+// nodejs monitor. NOTE: ELU and especially CPU may be telemetry-gated in the
+// bench env — if so these series come back empty (verify on the live env and
+// adjust the metric name / enable the exporter as needed).
+const SATURATION_METRICS: { key: string; metric: string; unit: string }[] = [
+  { key: "elu", metric: "nodejs_eventloop_utilization", unit: "ratio" },
+  { key: "cpu", metric: "process_cpu_utilization", unit: "ratio" },
+  // OTel exports the v8 heap gauge with a `_bytes` unit suffix.
+  { key: "mem", metric: "nodejs_memory_v8_heap_usage_bytes", unit: "bytes" },
+  // Event-loop delay (mean of the per-scrape distribution), raw nanoseconds. The
+  // max-across-pods series surfaces the role's most event-loop-blocked pod — e.g.
+  // the prover node, whose synchronous hint-gen blocks its main thread for seconds.
+  {
+    key: "eventLoopDelay",
+    metric: "nodejs_eventloop_delay_mean_nanoseconds",
+    unit: "ns",
+  },
+];
+
+function buildSaturationDefs(): Record<string, TimeSeriesDef> {
+  const defs: Record<string, TimeSeriesDef> = {};
+  for (const [role, podPattern] of Object.entries(SATURATION_ROLES)) {
+    const sel = `{k8s_namespace_name="${NAMESPACE}",k8s_pod_name=~"${podPattern}"}`;
+    const cap = role.charAt(0).toUpperCase() + role.slice(1);
+    for (const { key, metric, unit } of SATURATION_METRICS) {
+      // max() across pods = hottest pod; avg() = role average. Single series each.
+      defs[`${key}${cap}Max`] = { metric, unit, query: `max(${metric}${sel})` };
+      defs[`${key}${cap}Avg`] = { metric, unit, query: `avg(${metric}${sel})` };
+    }
+  }
+  return defs;
+}
+const SATURATION_DEFS = buildSaturationDefs();
+
+// --- v4: proving-infra (hint-gen on the prover-node + proving-queue by job_type) ---
+// "Hint generation" is the prover node re-executing the epoch's txs. There is no
+// `aztec.prover_node.execution.duration` metric; the re-execution is instrumented
+// as public_processor.* + prover_node.*_processing.duration on the prover-node
+// pod. Proving-queue behaviour is broken down by the aztec_proving_job_type label.
+const PROVER_NODE_SEL = `{k8s_namespace_name="${NAMESPACE}",k8s_pod_name=~"${NAMESPACE}-prover-node.*"}`;
+const JOB_TYPE = "aztec_proving_job_type";
+const proverNodeHist = (q: number, bucket: string) =>
+  `histogram_quantile(${q}, sum by (le)(rate(${bucket}${PROVER_NODE_SEL}[1m])))`;
+const queueByJobType = (metric: string) =>
+  `sum by (${JOB_TYPE})(${metric}${NS})`;
+const queueRateByJobType = (metric: string) =>
+  `sum by (${JOB_TYPE})(rate(${metric}${NS}[1m]))`;
+const queueHistByJobType = (q: number, bucket: string) =>
+  `histogram_quantile(${q}, sum by (le, ${JOB_TYPE})(rate(${bucket}${NS}[1m])))`;
+
+const PROVING_INFRA_DEFS: Record<string, TimeSeriesDef> = {
+  // Hint-gen: prover-node tx re-execution (the proving bottleneck at high TPS).
+  hintGenPublicTxDurationP50: {
+    metric: "aztec_public_processor_tx_duration",
+    unit: "ms",
+    query: proverNodeHist(
+      0.5,
+      "aztec_public_processor_tx_duration_milliseconds_bucket",
+    ),
+  },
+  hintGenPublicTxDurationP99: {
+    metric: "aztec_public_processor_tx_duration",
+    unit: "ms",
+    query: proverNodeHist(
+      0.99,
+      "aztec_public_processor_tx_duration_milliseconds_bucket",
+    ),
+  },
+  hintGenPublicPhaseDurationP50: {
+    metric: "aztec_public_processor_phase_duration",
+    unit: "ms",
+    query: proverNodeHist(
+      0.5,
+      "aztec_public_processor_phase_duration_milliseconds_bucket",
+    ),
+  },
+  hintGenBlockProcessingDurationP50: {
+    metric: "aztec_prover_node_block_processing_duration",
+    unit: "ms",
+    query: proverNodeHist(
+      0.5,
+      "aztec_prover_node_block_processing_duration_milliseconds_bucket",
+    ),
+  },
+  hintGenBlockProcessingDurationP99: {
+    metric: "aztec_prover_node_block_processing_duration",
+    unit: "ms",
+    query: proverNodeHist(
+      0.99,
+      "aztec_prover_node_block_processing_duration_milliseconds_bucket",
+    ),
+  },
+  hintGenCheckpointProcessingDurationP50: {
+    metric: "aztec_prover_node_checkpoint_processing_duration",
+    unit: "ms",
+    query: proverNodeHist(
+      0.5,
+      "aztec_prover_node_checkpoint_processing_duration_milliseconds_bucket",
+    ),
+  },
+  // Proving queue, broken down by job_type (one series per job type).
+  provingQueueSizeByJobType: {
+    metric: "aztec_proving_queue_size",
+    unit: "count",
+    query: queueByJobType("aztec_proving_queue_size"),
+  },
+  provingQueueActiveJobsByJobType: {
+    metric: "aztec_proving_queue_active_jobs_count",
+    unit: "count",
+    query: queueByJobType("aztec_proving_queue_active_jobs_count"),
+  },
+  provingQueueJobDurationP50ByJobType: {
+    metric: "aztec_proving_queue_job_duration",
+    unit: "ms",
+    query: queueHistByJobType(
+      0.5,
+      "aztec_proving_queue_job_duration_milliseconds_bucket",
+    ),
+  },
+  provingQueueJobDurationP99ByJobType: {
+    metric: "aztec_proving_queue_job_duration",
+    unit: "ms",
+    query: queueHistByJobType(
+      0.99,
+      "aztec_proving_queue_job_duration_milliseconds_bucket",
+    ),
+  },
+  // Rates of terminal job outcomes — the run #95 stall showed up as timeouts.
+  provingQueueTimedOutJobsByJobType: {
+    metric: "aztec_proving_queue_timed_out_jobs_count",
+    unit: "count",
+    query: queueRateByJobType("aztec_proving_queue_timed_out_jobs_count"),
+  },
+  provingQueueResolvedJobsByJobType: {
+    metric: "aztec_proving_queue_resolved_jobs_count",
+    unit: "count",
+    query: queueRateByJobType("aztec_proving_queue_resolved_jobs_count"),
+  },
+};
+
+// Scrape a map of slug -> PromQL def via query_range. One failing query emits an
+// empty series for that slug rather than aborting the whole section.
+async function scrapeDefs(
+  defs: Record<string, TimeSeriesDef>,
   startedAtEpoch: number,
   endedAtEpoch: number,
 ): Promise<Record<string, unknown>> {
   const out: Record<string, unknown> = {};
-  for (const [slug, def] of Object.entries(TIME_SERIES_DEFS)) {
+  for (const [slug, def] of Object.entries(defs)) {
     try {
       const series = await queryRange(def.query, startedAtEpoch, endedAtEpoch);
       out[slug] = {
@@ -577,7 +862,7 @@ async function scrapeTimeSeries(
         series,
       };
     } catch (err) {
-      log(`timeSeries.${slug} scrape failed, emitting empty series`, {
+      log(`series.${slug} scrape failed, emitting empty series`, {
         err: err instanceof Error ? err.message : String(err),
       });
       out[slug] = {
@@ -592,6 +877,9 @@ async function scrapeTimeSeries(
   }
   return out;
 }
+
+const scrapeTimeSeries = (startedAtEpoch: number, endedAtEpoch: number) =>
+  scrapeDefs(TIME_SERIES_DEFS, startedAtEpoch, endedAtEpoch);
 
 // --- gcloud log scrape ---
 
@@ -645,17 +933,27 @@ const timeFilter = (startedAt: string, endedAt: string) =>
 
 // --- Run-context capture (image + aztec config env) ---
 
+// CPU/memory requests and limits for a pod's main container, captured verbatim
+// from the Kubernetes pod spec (e.g. {cpu: "3500m", memory: "12Gi"}). For the
+// bench profiles request==limit (guaranteed QoS), so both are usually equal.
+type ContainerResources = {
+  requests?: Record<string, string>;
+  limits?: Record<string, string>;
+};
+
 type RoleNode = {
   role: string;
   podName: string;
   nodeName: string;
   instanceType?: string;
   nodePool?: string;
+  resources?: ContainerResources;
 };
 
 type RoleInfrastructure = {
   instanceTypes: string[];
   nodePools: string[];
+  resourceProfiles: ContainerResources[];
   nodes: RoleNode[];
 };
 
@@ -663,11 +961,15 @@ type Infrastructure = {
   roles: Record<string, RoleInfrastructure>;
 };
 
+// Patterns are matched against the pod name with the namespace prefix removed
+// and anchored with ^, so the L1 infra pods (eth-validator / eth-execution /
+// eth-beacon) are not misread as aztec roles — an unanchored /-validator/ would
+// match "<ns>-eth-validator-0".
 const INFRASTRUCTURE_ROLE_PATTERNS = [
-  { role: "validator", pattern: /-validator(?:-|$)/ },
-  { role: "prover", pattern: /-prover-(?:agent|node|broker)(?:-|$)/ },
-  { role: "rpc", pattern: /-rpc(?:-|$)/ },
-  { role: "fullNode", pattern: /-full-node(?:-|$)/ },
+  { role: "validator", pattern: /^validator(?:-|$)/ },
+  { role: "prover", pattern: /^prover-(?:agent|node|broker)(?:-|$)/ },
+  { role: "rpc", pattern: /^rpc(?:-|$)/ },
+  { role: "fullNode", pattern: /^full-node(?:-|$)/ },
 ];
 
 // Curated subset of env vars worth recording per run so the dashboard can
@@ -771,7 +1073,13 @@ async function captureInfrastructure(): Promise<Infrastructure | undefined> {
     const podsJson = JSON.parse(podsOut) as {
       items?: Array<{
         metadata?: { name?: string };
-        spec?: { nodeName?: string };
+        spec?: {
+          nodeName?: string;
+          containers?: Array<{
+            name?: string;
+            resources?: ContainerResources;
+          }>;
+        };
       }>;
     };
     const nodesJson = JSON.parse(nodesOut) as {
@@ -814,6 +1122,7 @@ async function captureInfrastructure(): Promise<Infrastructure | undefined> {
           nodePool:
             labels["cloud.google.com/gke-nodepool"] ??
             labels["eks.amazonaws.com/nodegroup"],
+          resources: resourcesForPod(pod.spec?.containers),
         };
       })
       .filter((node): node is RoleNode => node !== undefined)
@@ -841,15 +1150,50 @@ async function captureInfrastructure(): Promise<Infrastructure | undefined> {
 }
 
 function roleForPodName(podName: string): string | undefined {
-  if (!podName.startsWith(`${NAMESPACE}-`)) {
+  const prefix = `${NAMESPACE}-`;
+  if (!podName.startsWith(prefix)) {
     return undefined;
   }
+  const suffix = podName.slice(prefix.length);
   return INFRASTRUCTURE_ROLE_PATTERNS.find(({ pattern }) =>
-    pattern.test(podName),
+    pattern.test(suffix),
   )?.role;
 }
 
+// Resource requests/limits of a pod's main "aztec" container (falls back to the
+// first container if none is named "aztec"). Returns undefined when the spec
+// declares no resources, so a pod without sizing is simply omitted.
+function resourcesForPod(
+  containers:
+    | Array<{ name?: string; resources?: ContainerResources }>
+    | undefined,
+): ContainerResources | undefined {
+  const container =
+    containers?.find((c) => c.name === "aztec") ?? containers?.[0];
+  const resources = container?.resources;
+  if (!resources) {
+    return undefined;
+  }
+  const out: ContainerResources = {};
+  if (resources.requests && Object.keys(resources.requests).length > 0) {
+    out.requests = resources.requests;
+  }
+  if (resources.limits && Object.keys(resources.limits).length > 0) {
+    out.limits = resources.limits;
+  }
+  return out.requests || out.limits ? out : undefined;
+}
+
 function infrastructureForNodes(nodes: RoleNode[]): RoleInfrastructure {
+  // Pods of a role normally share one resource profile, but dedupe by content
+  // so a mid-run resize or a stray pod surfaces as a second distinct profile
+  // rather than being silently collapsed.
+  const profilesByKey = new Map<string, ContainerResources>();
+  for (const node of nodes) {
+    if (node.resources) {
+      profilesByKey.set(JSON.stringify(node.resources), node.resources);
+    }
+  }
   return {
     instanceTypes: Array.from(
       new Set(
@@ -859,6 +1203,7 @@ function infrastructureForNodes(nodes: RoleNode[]): RoleInfrastructure {
     nodePools: Array.from(
       new Set(nodes.flatMap((node) => (node.nodePool ? [node.nodePool] : []))),
     ).sort(),
+    resourceProfiles: [...profilesByKey.values()],
     nodes,
   };
 }
@@ -1084,6 +1429,11 @@ type ChainPrunedEvent = {
   source: "log";
   fromBlock?: number;
   toBlock?: number;
+  // Distinct VALIDATOR pods that logged this prune (same toBlock within the
+  // dedupe window). Compared against the validator fleet size to decide whether
+  // the canonical chain reorged: < fleet = some validators diverged locally and
+  // re-synced; == fleet = every validator rewound, a genuine chain reorg.
+  validatorPruneCount: number;
 };
 
 type SlotSummaryEvent = {
@@ -1163,10 +1513,12 @@ async function scrapeChainPrunedEvents(
         at: entry.timestamp,
         time: Date.parse(entry.timestamp),
         toBlock: Number(m[1]),
+        pod: entry.resource?.labels?.pod_name ?? "unknown",
       };
     })
     .filter(
-      (x): x is { at: string; time: number; toBlock: number } => x !== null,
+      (x): x is { at: string; time: number; toBlock: number; pod: string } =>
+        x !== null,
     )
     .sort((a, b) => a.time - b.time);
 
@@ -1181,6 +1533,23 @@ async function scrapeChainPrunedEvents(
     }
   }
 
+  // Distinct VALIDATOR pods that pruned to the same toBlock within the dedupe
+  // window. A genuine chain reorg means every validator rewound; a lone validator
+  // (or non-validator follower) pruning is a local divergence that self-heals.
+  const validatorPrefix = `${NAMESPACE}-validator-`;
+  const validatorPruneCountFor = (toBlock: number, time: number) =>
+    new Set(
+      parsed
+        .filter(
+          (p) =>
+            p.toBlock === toBlock &&
+            p.time >= time &&
+            p.time - time < DEDUPE_WINDOW_MS &&
+            p.pod.startsWith(validatorPrefix),
+        )
+        .map((p) => p.pod),
+    ).size;
+
   return deduped.map(({ at, time, toBlock }) => {
     // fromBlock is reconstructed because server_world_state_synchronizer.ts:459
     // doesn't log it structurally. Correlate with the latest block we've seen
@@ -1194,8 +1563,40 @@ async function scrapeChainPrunedEvents(
       source: "log" as const,
       fromBlock: before || undefined,
       toBlock,
+      validatorPruneCount: validatorPruneCountFor(toBlock, time),
     };
   });
+}
+
+// Number of validator pods actively following the chain — distinct validators
+// that logged l2-block-handled in the window. Denominator for chain-reorg
+// detection: a genuine reorg requires every following validator to have pruned,
+// so down validators are excluded (they can't report and shouldn't gate the
+// count). Returns 0 on scrape failure, which disables reorg detection (every
+// prune is then treated as node-local) rather than false-positiving.
+async function scrapeValidatorFleetSize(
+  startedAt: string,
+  endedAt: string,
+): Promise<number> {
+  const filter = [
+    `resource.labels.namespace_name="${NAMESPACE}"`,
+    `resource.labels.pod_name=~"${NAMESPACE}-validator-"`,
+    `jsonPayload.eventName="l2-block-handled"`,
+    timeFilter(startedAt, endedAt),
+  ].join(" AND ");
+  try {
+    const entries = await gcloudRead(filter);
+    return new Set(
+      entries
+        .map((e) => e.resource?.labels?.pod_name)
+        .filter((p): p is string => !!p),
+    ).size;
+  } catch (err) {
+    log("validator fleet-size scrape failed", {
+      err: err instanceof Error ? err.message : String(err),
+    });
+    return 0;
+  }
 }
 
 async function scrapeSlotSummaryEvents(
@@ -1527,6 +1928,9 @@ type SummaryArgs = {
   targetTps: number;
   startedAtEpoch: number;
   inclusionEndedAtEpoch: number;
+  // Load-stop time (when the generator stopped sending), distinct from
+  // inclusionEndedAtEpoch (the drain end). Bounds the steady-state window.
+  loadEndedAtEpoch: number;
   windowSec: number;
   histogramWindowSec: number;
   endedAtEpoch: number;
@@ -1534,7 +1938,55 @@ type SummaryArgs = {
   blocks: BlockRecord[];
   events: Event[];
   inclusionRecords: InclusionRecord[];
+  // Number of validator pods following the chain; the denominator for deciding
+  // whether a prune was a network-wide chain reorg (all validators) vs local.
+  validatorCount: number;
 };
+
+type BlockBuildPerTx = {
+  blockBuildAvgTxsPerBlock: number | null;
+  blockBuildPerTxMsAggregate: number | null;
+  blockBuildMarginalMsPerTx: number | null;
+  blockBuildFixedOverheadMsPerBlock: number | null;
+};
+
+// Decomposes block build time into a fixed per-block overhead and a marginal
+// per-tx cost via an ordinary least-squares fit of build-ms against tx count
+// over non-empty blocks (buildMs = fixed + marginal * txCount). The marginal
+// slope is the (load-invariant) cost of adding one tx to a block; the intercept
+// is the per-block overhead that grows with block size / system load. The
+// aggregate is the simpler sum(buildMs)/sum(tx) — a single "build-ms per tx"
+// headline. The OLS slope needs >= 2 blocks with differing tx counts, so
+// marginal/fixed are null for a run with too few or uniform-width blocks.
+function blockBuildPerTx(blocks: BlockRecord[]): BlockBuildPerTx {
+  const pts = blocks
+    .filter(
+      (b) => b.successfulCount > 0 && Number.isFinite(b.buildDurationSeconds),
+    )
+    .map((b) => ({ x: b.successfulCount, y: b.buildDurationSeconds * 1000 }));
+  if (pts.length === 0) {
+    return {
+      blockBuildAvgTxsPerBlock: null,
+      blockBuildPerTxMsAggregate: null,
+      blockBuildMarginalMsPerTx: null,
+      blockBuildFixedOverheadMsPerBlock: null,
+    };
+  }
+  const n = pts.length;
+  const sx = pts.reduce((s, p) => s + p.x, 0);
+  const sy = pts.reduce((s, p) => s + p.y, 0);
+  const sxx = pts.reduce((s, p) => s + p.x * p.x, 0);
+  const sxy = pts.reduce((s, p) => s + p.x * p.y, 0);
+  const denom = n * sxx - sx * sx;
+  const marginal = n >= 2 && denom !== 0 ? (n * sxy - sx * sy) / denom : null;
+  const fixed = marginal !== null ? (sy - marginal * sx) / n : null;
+  return {
+    blockBuildAvgTxsPerBlock: sx / n,
+    blockBuildPerTxMsAggregate: sx > 0 ? sy / sx : null,
+    blockBuildMarginalMsPerTx: marginal,
+    blockBuildFixedOverheadMsPerBlock: fixed,
+  };
+}
 
 async function buildSummary(a: SummaryArgs): Promise<Record<string, unknown>> {
   // inclusionTps is single-series; series[0] holds all points.
@@ -1557,10 +2009,42 @@ async function buildSummary(a: SummaryArgs): Promise<Record<string, unknown>> {
     ? inclusionBlocks.reduce((s, b) => s + b.successfulCount, 0)
     : null;
   const promInclusionTpsMean = meanNonNull(inclusionPoints);
-  const inclusionTpsMean =
+  // Whole-observed-window mean: total mined / observed window. Diluted by the
+  // warmup ramp and the post-load drain tail; kept for transparency.
+  const inclusionTpsWindowMean =
     totalTxsMined !== null && a.windowSec > 0
       ? totalTxsMined / a.windowSec
       : promInclusionTpsMean;
+  // Steady-state rate from the block log: start at the first block that actually
+  // included txs (trims the warmup ramp) and end at load stop, not the drain end
+  // (trims the cooldown tail), so the headline reflects sustained-load throughput
+  // and only drops below target when the network genuinely can't keep up. Falls
+  // back to the window mean when block logs are unavailable.
+  const minedBlocks = a.blocks
+    .map((b) => ({
+      epoch: Math.floor(Date.parse(b.minedAt) / 1000),
+      n: b.successfulCount,
+    }))
+    .filter((b) => Number.isFinite(b.epoch));
+  const firstInclusionEpoch = minedBlocks
+    .filter(
+      (b) =>
+        b.n > 0 && b.epoch >= a.startedAtEpoch && b.epoch <= a.loadEndedAtEpoch,
+    )
+    .reduce((min, b) => Math.min(min, b.epoch), Number.POSITIVE_INFINITY);
+  const steadySec = Number.isFinite(firstInclusionEpoch)
+    ? a.loadEndedAtEpoch - firstInclusionEpoch
+    : 0;
+  const steadyTxs = Number.isFinite(firstInclusionEpoch)
+    ? minedBlocks
+        .filter(
+          (b) =>
+            b.epoch >= firstInclusionEpoch && b.epoch <= a.loadEndedAtEpoch,
+        )
+        .reduce((s, b) => s + b.n, 0)
+    : 0;
+  const inclusionTpsMean =
+    steadySec > 0 ? steadyTxs / steadySec : inclusionTpsWindowMean;
   const inclusionTpsPeak = maxNonNull(inclusionPoints);
 
   if (!hasInclusionBlockRecords && promInclusionTpsMean !== null) {
@@ -1599,7 +2083,18 @@ async function buildSummary(a: SummaryArgs): Promise<Record<string, unknown>> {
     log("No inclusion records loaded; summary.inclusionLatencyP* will be null");
   }
 
-  const [buildP50, buildP95, ppTxP50, ppTxP95] = await Promise.all([
+  const [
+    buildP50,
+    buildP95,
+    ppTxP50,
+    ppTxP95,
+    mempoolMinedP50,
+    mempoolMinedP95,
+    mempoolMinedP99,
+    attestationFailedNodeIssueCount,
+    attestationFailedBadProposalCount,
+    attestationSuccessCount,
+  ] = await Promise.all([
     safeInstant(
       oneShotQuantile(
         0.5,
@@ -1623,28 +2118,96 @@ async function buildSummary(a: SummaryArgs): Promise<Record<string, unknown>> {
         0.95,
         "aztec_public_processor_tx_duration_milliseconds_bucket",
       ),
+    ),
+    // Pool-side pending->mined delay (now - receivedAt at the mined transition),
+    // across all pool txs. Companion to the time series of the same name; lets
+    // the dashboard trend it and compare against the client-observed
+    // inclusionLatency* (high-value lane only).
+    safeInstant(
+      oneShotQuantile(0.5, "aztec_mempool_tx_mined_delay_milliseconds_bucket"),
+    ),
+    safeInstant(
+      oneShotQuantile(0.95, "aztec_mempool_tx_mined_delay_milliseconds_bucket"),
+    ),
+    safeInstant(
+      oneShotQuantile(0.99, "aztec_mempool_tx_mined_delay_milliseconds_bucket"),
+    ),
+    // Total attestation outcomes over the observed window. The node-issue count
+    // is the headline reorg-diagnostic number (e.g. the run #95 "184" of failed
+    // attestations); success gives a denominator for a failure ratio.
+    safeInstant(
+      `sum(increase(aztec_validator_attestation_failed_node_issue_count${NS}[${windowSpec}]))`,
+    ),
+    safeInstant(
+      `sum(increase(aztec_validator_attestation_failed_bad_proposal_count${NS}[${windowSpec}]))`,
+    ),
+    safeInstant(
+      `sum(increase(aztec_validator_attestation_success_count${NS}[${windowSpec}]))`,
     ),
   ]);
 
-  const reorgs = a.events.filter((e) => e.type === "chainPruned");
-  const deepest = reorgs.reduce((max, e) => {
-    const d = (e.fromBlock ?? 0) - (e.toBlock ?? 0);
-    return d > max ? d : max;
-  }, 0);
+  // A genuine chain reorg requires EVERY following validator to have rewound to
+  // the same block (validatorPruneCount >= validatorCount). Anything less is a
+  // local divergence — a subset of validators (or non-validator followers) that
+  // pruned and re-synced while the canonical chain held — and does not
+  // destabilise the chain or the headline. If the validator fleet size is
+  // unknown (scrape failed) no prune is treated as a chain reorg.
+  const chainPrunes = a.events.filter(
+    (e): e is ChainPrunedEvent => e.type === "chainPruned",
+  );
+  const chainReorgs =
+    a.validatorCount > 0
+      ? chainPrunes.filter(
+          (e) => (e.validatorPruneCount ?? 0) >= a.validatorCount,
+        )
+      : [];
+  const nodeLocalPruneCount = chainPrunes.length - chainReorgs.length;
+  const deepest = chainReorgs.reduce(
+    (max, e) => Math.max(max, (e.fromBlock ?? 0) - (e.toBlock ?? 0)),
+    0,
+  );
+
+  // Prune totals by cause from the prune_type-attributed metric (new image; empty
+  // on older images). Complements the log-derived reorg classification above.
+  const pruneTypes = [
+    "unproven",
+    "uncheckpointed",
+    "l1_conflict",
+    "orphan",
+    "l1_mismatch",
+  ] as const;
+  const pruneTypeTotals = await Promise.all(
+    pruneTypes.map((t) =>
+      safeInstant(
+        `sum(increase(aztec_archiver_prune_count{k8s_namespace_name="${NAMESPACE}",aztec_archiver_prune_type="${t}"}[${windowSpec}]))`,
+      ),
+    ),
+  );
+  const prunesByType = Object.fromEntries(
+    pruneTypes.map((t, i) => [t, pruneTypeTotals[i]]),
+  ) as Record<(typeof pruneTypes)[number], number | null>;
 
   return {
     headlineKpi:
       inclusionTpsMean === null ? null : inclusionTpsMean / a.targetTps,
     targetTps: a.targetTps,
     inclusionTpsMean,
+    inclusionTpsWindowMean,
     inclusionTpsPeak,
     inclusionLatencyP50Ms: inclLatP50,
     inclusionLatencyP95Ms: inclLatP95,
     inclusionLatencyP99Ms: inclLatP99,
     blockBuildDurationP50Ms: buildP50,
     blockBuildDurationP95Ms: buildP95,
+    ...blockBuildPerTx(inclusionBlocks),
     publicProcessorTxDurationP50Ms: ppTxP50,
     publicProcessorTxDurationP95Ms: ppTxP95,
+    mempoolTxMinedDelayP50Ms: mempoolMinedP50,
+    mempoolTxMinedDelayP95Ms: mempoolMinedP95,
+    mempoolTxMinedDelayP99Ms: mempoolMinedP99,
+    attestationFailedNodeIssueCount,
+    attestationFailedBadProposalCount,
+    attestationSuccessCount,
     totalTxsMined,
     totalTxsFailed: hasInclusionBlockRecords
       ? inclusionBlocks.reduce((s, b) => s + b.failedCount, 0)
@@ -1655,7 +2218,10 @@ async function buildSummary(a: SummaryArgs): Promise<Record<string, unknown>> {
     totalSilentSkipDurationMs: hasInclusionBlockRecords
       ? inclusionBlocks.reduce((s, b) => s + b.silentlySkippedDurationMs, 0)
       : null,
-    reorgCount: reorgs.length,
+    reorgCount: chainReorgs.length,
+    nodeLocalPruneCount,
+    validatorCount: a.validatorCount,
+    prunesByType,
     deepestReorgBlocks: deepest,
   };
 }
@@ -1668,6 +2234,8 @@ function assertShape(payload: Record<string, unknown>): void {
     "run",
     "summary",
     "timeSeries",
+    "provingInfra",
+    "saturation",
     "blocks",
     "events",
   ] as const;
@@ -1676,9 +2244,9 @@ function assertShape(payload: Record<string, unknown>): void {
       throw new Error(`output missing required top-level key: ${key}`);
     }
   }
-  if (payload.schemaVersion !== "3") {
+  if (payload.schemaVersion !== "5") {
     throw new Error(
-      `schemaVersion must be "3", got ${String(payload.schemaVersion)}`,
+      `schemaVersion must be "5", got ${String(payload.schemaVersion)}`,
     );
   }
   const run = payload.run as Record<string, unknown>;
@@ -1913,6 +2481,22 @@ async function main(): Promise<void> {
     log("Scraping Prometheus time-series");
     const timeSeries = await scrapeTimeSeries(startedAtEpoch, promEndEpoch);
 
+    // v4: proving-infra (hint-gen + queue by job_type) and per-role saturation.
+    // Independent of the inclusion timeSeries scrape so a failure here cannot
+    // drop inclusion data, and vice versa.
+    log("Scraping proving-infra series (hint-gen + queue by job_type)");
+    const provingInfra = await scrapeDefs(
+      PROVING_INFRA_DEFS,
+      startedAtEpoch,
+      promEndEpoch,
+    );
+    log("Scraping per-role saturation series (ELU/CPU/memory, max + avg)");
+    const saturation = await scrapeDefs(
+      SATURATION_DEFS,
+      startedAtEpoch,
+      promEndEpoch,
+    );
+
     log("Loading client-observed inclusion records");
     const inclusionRecords = await loadInclusionRecords(args.inclusionRecords);
     // Compute the headline inclusion-latency time series from per-tx records
@@ -1966,6 +2550,12 @@ async function main(): Promise<void> {
       });
     }
 
+    const validatorCount = await scrapeValidatorFleetSize(
+      args.startedAt,
+      logEndedAt,
+    );
+    log(`Chain-following validator fleet size: ${validatorCount}`);
+
     log("Scraping sequencer state transition logs from gcloud");
     let sequencerStateSlots: SequencerStateSlot[] = [];
     try {
@@ -1989,6 +2579,7 @@ async function main(): Promise<void> {
       targetTps: args.targetTps,
       startedAtEpoch,
       inclusionEndedAtEpoch: drain.inclusionEndedAtEpoch,
+      loadEndedAtEpoch: endedAtEpoch,
       windowSec: observedWindowSec,
       histogramWindowSec: observedWindowSec,
       endedAtEpoch: drain.inclusionEndedAtEpoch,
@@ -1996,10 +2587,11 @@ async function main(): Promise<void> {
       blocks,
       events,
       inclusionRecords,
+      validatorCount,
     });
 
     const payload = {
-      schemaVersion: "3",
+      schemaVersion: "5",
       run: {
         runId: args.runId,
         startedAt: args.startedAt,
@@ -2014,6 +2606,11 @@ async function main(): Promise<void> {
         gkeCluster: GKE_CLUSTER,
         ...(image !== undefined && { image }),
         targetTps: args.targetTps,
+        ...(args.sweepId !== undefined && { sweepId: args.sweepId }),
+        ...(args.sweepLabel !== undefined && { sweepLabel: args.sweepLabel }),
+        ...(args.benchmarkType !== undefined && {
+          benchmarkType: args.benchmarkType,
+        }),
         testDurationSeconds: windowSec,
         workload: args.workload,
         ...(Object.keys(aztecConfig).length > 0 && { aztecConfig }),
@@ -2031,6 +2628,8 @@ async function main(): Promise<void> {
       },
       summary,
       timeSeries,
+      provingInfra,
+      saturation,
       blocks,
       events,
       sequencerStateSlots,

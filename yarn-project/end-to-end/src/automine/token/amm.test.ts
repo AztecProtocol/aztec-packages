@@ -1,14 +1,15 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
-import { AMMContract } from '@aztec/noir-contracts.js/AMM';
+import type { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import type { TestTokenContract } from '@aztec/noir-test-contracts.js/TestToken';
 
 import { jest } from '@jest/globals';
 
-import { deployTestToken, mintTokensToPrivate } from '../../fixtures/token_utils.js';
+import { deployTestToken } from '../../fixtures/token_utils.js';
 import type { TestWallet } from '../../test-wallet/test_wallet.js';
 import { AutomineTestContext } from '../automine_test_context.js';
+import { deployAmmWithTokens } from './token_test_helpers.js';
 
 const TIMEOUT = 900_000;
 
@@ -55,27 +56,12 @@ describe('automine/token/amm', () => {
       logger,
     } = (await AutomineTestContext.setup({ numberOfAccounts: 4, pxeOpts: { syncChainTip: 'checkpointed' } })).context);
 
-    ({ contract: token0 } = await deployTestToken(wallet, adminAddress, 0n, logger));
-    ({ contract: token1 } = await deployTestToken(wallet, adminAddress, 0n, logger));
-    ({ contract: liquidityToken } = await deployTestToken(wallet, adminAddress, 0n, logger));
-
-    ({ contract: amm } = await AMMContract.deploy(wallet, token0.address, token1.address, liquidityToken.address).send({
-      from: adminAddress,
+    ({ token0, token1, liquidityToken, amm } = await deployAmmWithTokens(wallet, adminAddress, deployTestToken, {
+      liquidityProviders: [liquidityProviderAddress, otherLiquidityProviderAddress],
+      swapper: swapperAddress,
+      initialBalance: INITIAL_TOKEN_BALANCE,
+      logger,
     }));
-
-    // TODO(#9480): consider deploying the token by some factory when the AMM is deployed, and making the AMM be the
-    // minter there.
-    await liquidityToken.methods.set_minter(amm.address, true).send({ from: adminAddress });
-
-    // We mint the tokens to both liquidity providers and the swapper
-    await mintTokensToPrivate(token0, adminAddress, liquidityProviderAddress, INITIAL_TOKEN_BALANCE);
-    await mintTokensToPrivate(token1, adminAddress, liquidityProviderAddress, INITIAL_TOKEN_BALANCE);
-
-    await mintTokensToPrivate(token0, adminAddress, otherLiquidityProviderAddress, INITIAL_TOKEN_BALANCE);
-    await mintTokensToPrivate(token1, adminAddress, otherLiquidityProviderAddress, INITIAL_TOKEN_BALANCE);
-
-    // Note that the swapper only holds token0, not token1
-    await mintTokensToPrivate(token0, adminAddress, swapperAddress, INITIAL_TOKEN_BALANCE);
   });
 
   afterAll(() => teardown());

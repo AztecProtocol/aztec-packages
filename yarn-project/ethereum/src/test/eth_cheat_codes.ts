@@ -207,6 +207,22 @@ export class EthCheatCodes {
   }
 
   /**
+   * Starts interval mining from a freshly mined block and syncs the date provider to the block timestamp.
+   */
+  public async startIntervalMiningWithFreshBlock(seconds: number): Promise<void> {
+    if (seconds <= 0) {
+      throw new Error(`Interval mining requires a positive interval, got ${seconds}`);
+    }
+
+    await this.setAutomine(false);
+    await this.setIntervalMining(0, { silent: true });
+    await this.evmMine();
+    await this.syncDateProvider();
+    await this.setIntervalMining(seconds);
+    this.logger.warn(`Started L1 interval mining at ${seconds} seconds from a fresh block`);
+  }
+
+  /**
    * Set the automine status of the underlying anvil chain
    * @param automine - The automine status to set
    */

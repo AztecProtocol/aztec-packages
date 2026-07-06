@@ -1,5 +1,5 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { BatchCall } from '@aztec/aztec.js/contracts';
+import { BatchCall, type ContractFunctionInteraction } from '@aztec/aztec.js/contracts';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum/config';
 import { AuthContract } from '@aztec/noir-contracts.js/Auth';
@@ -41,6 +41,12 @@ describe('automine/contracts/state_vars', () => {
   });
 
   afterAll(() => teardown());
+
+  // Simulates an `is_*_initialized` view and asserts its boolean result, collapsing the repeated
+  // initialization-status checks across the PrivateMutable and PrivateImmutable suites.
+  const expectInitialized = async (isInitialized: ContractFunctionInteraction, expected: boolean) => {
+    expect((await isInitialized.simulate({ from: defaultAccountAddress })).result).toEqual(expected);
+  };
 
   // Tests for PublicImmutable: initialize-once semantics, reading from private/public/utility contexts,
   // and rejection of double-initialization.
@@ -139,13 +145,7 @@ describe('automine/contracts/state_vars', () => {
     // Asserts is_private_mutable_initialized returns false before initialization, then confirms
     // get_private_mutable throws on an uninitialized slot.
     it('fail to read uninitialized PrivateMutable', async () => {
-      expect(
-        (
-          await contract.methods
-            .is_private_mutable_initialized(defaultAccountAddress)
-            .simulate({ from: defaultAccountAddress })
-        ).result,
-      ).toEqual(false);
+      await expectInitialized(contract.methods.is_private_mutable_initialized(defaultAccountAddress), false);
       await expect(
         contract.methods.get_private_mutable(defaultAccountAddress).simulate({ from: defaultAccountAddress }),
       ).rejects.toThrow();
@@ -154,13 +154,7 @@ describe('automine/contracts/state_vars', () => {
     // Sends initialize_private(RANDOMNESS, VALUE), verifies the tx produces 2 nullifiers (one for the
     // tx and one for the initializer), and asserts is_private_mutable_initialized returns true after.
     it('initialize PrivateMutable', async () => {
-      expect(
-        (
-          await contract.methods
-            .is_private_mutable_initialized(defaultAccountAddress)
-            .simulate({ from: defaultAccountAddress })
-        ).result,
-      ).toEqual(false);
+      await expectInitialized(contract.methods.is_private_mutable_initialized(defaultAccountAddress), false);
       // Send the transaction and wait for it to be mined (wait function throws if the tx is not mined)
       const { receipt: txReceipt } = await contract.methods
         .initialize_private(RANDOMNESS, VALUE)
@@ -170,46 +164,22 @@ describe('automine/contracts/state_vars', () => {
 
       // 1 for the tx, another for the initializer
       expect(txEffects?.data.nullifiers.length).toEqual(2);
-      expect(
-        (
-          await contract.methods
-            .is_private_mutable_initialized(defaultAccountAddress)
-            .simulate({ from: defaultAccountAddress })
-        ).result,
-      ).toEqual(true);
+      await expectInitialized(contract.methods.is_private_mutable_initialized(defaultAccountAddress), true);
     });
 
     // Attempts to call initialize_private a second time; asserts it throws and the initialized flag
     // remains true.
     it('fail to reinitialize', async () => {
-      expect(
-        (
-          await contract.methods
-            .is_private_mutable_initialized(defaultAccountAddress)
-            .simulate({ from: defaultAccountAddress })
-        ).result,
-      ).toEqual(true);
+      await expectInitialized(contract.methods.is_private_mutable_initialized(defaultAccountAddress), true);
       await expect(
         contract.methods.initialize_private(RANDOMNESS, VALUE).send({ from: defaultAccountAddress }),
       ).rejects.toThrow();
-      expect(
-        (
-          await contract.methods
-            .is_private_mutable_initialized(defaultAccountAddress)
-            .simulate({ from: defaultAccountAddress })
-        ).result,
-      ).toEqual(true);
+      await expectInitialized(contract.methods.is_private_mutable_initialized(defaultAccountAddress), true);
     });
 
     // Reads the PrivateMutable after initialization; asserts the stored value matches VALUE.
     it('read initialized PrivateMutable', async () => {
-      expect(
-        (
-          await contract.methods
-            .is_private_mutable_initialized(defaultAccountAddress)
-            .simulate({ from: defaultAccountAddress })
-        ).result,
-      ).toEqual(true);
+      await expectInitialized(contract.methods.is_private_mutable_initialized(defaultAccountAddress), true);
       const {
         result: { value },
       } = await contract.methods.get_private_mutable(defaultAccountAddress).simulate({ from: defaultAccountAddress });
@@ -219,13 +189,7 @@ describe('automine/contracts/state_vars', () => {
     // Calls update_private_mutable with the same RANDOMNESS and VALUE; asserts one new note hash and
     // 2 nullifiers (tx + old note), and the stored value is unchanged.
     it('replace with same value', async () => {
-      expect(
-        (
-          await contract.methods
-            .is_private_mutable_initialized(defaultAccountAddress)
-            .simulate({ from: defaultAccountAddress })
-        ).result,
-      ).toEqual(true);
+      await expectInitialized(contract.methods.is_private_mutable_initialized(defaultAccountAddress), true);
       const { result: noteBefore } = await contract.methods
         .get_private_mutable(defaultAccountAddress)
         .simulate({ from: defaultAccountAddress });
@@ -249,13 +213,7 @@ describe('automine/contracts/state_vars', () => {
     // Calls update_private_mutable with different RANDOMNESS and VALUE; asserts one new note hash,
     // 2 nullifiers, and the stored value matches the new VALUE.
     it('replace PrivateMutable with other values', async () => {
-      expect(
-        (
-          await contract.methods
-            .is_private_mutable_initialized(defaultAccountAddress)
-            .simulate({ from: defaultAccountAddress })
-        ).result,
-      ).toEqual(true);
+      await expectInitialized(contract.methods.is_private_mutable_initialized(defaultAccountAddress), true);
       const { receipt: txReceipt } = await contract.methods
         .update_private_mutable(RANDOMNESS + 2n, VALUE + 1n)
         .send({ from: defaultAccountAddress });
@@ -275,13 +233,7 @@ describe('automine/contracts/state_vars', () => {
     // Calls increase_private_value (reads then updates in private); asserts the new value is exactly
     // the prior value + 1, verifying read-then-write consistency.
     it('replace PrivateMutable dependent on prior value', async () => {
-      expect(
-        (
-          await contract.methods
-            .is_private_mutable_initialized(defaultAccountAddress)
-            .simulate({ from: defaultAccountAddress })
-        ).result,
-      ).toEqual(true);
+      await expectInitialized(contract.methods.is_private_mutable_initialized(defaultAccountAddress), true);
       const { result: noteBefore } = await contract.methods
         .get_private_mutable(defaultAccountAddress)
         .simulate({ from: defaultAccountAddress });
@@ -307,13 +259,7 @@ describe('automine/contracts/state_vars', () => {
   describe('PrivateImmutable', () => {
     // Asserts is_priv_imm_initialized is false before initialization and that view_private_immutable throws.
     it('fail to read uninitialized PrivateImmutable', async () => {
-      expect(
-        (
-          await contract.methods
-            .is_priv_imm_initialized(defaultAccountAddress)
-            .simulate({ from: defaultAccountAddress })
-        ).result,
-      ).toEqual(false);
+      await expectInitialized(contract.methods.is_priv_imm_initialized(defaultAccountAddress), false);
       await expect(
         contract.methods.view_private_immutable(defaultAccountAddress).simulate({ from: defaultAccountAddress }),
       ).rejects.toThrow();
@@ -322,13 +268,7 @@ describe('automine/contracts/state_vars', () => {
     // Calls initialize_private_immutable(RANDOMNESS, VALUE); asserts 1 note hash and 2 nullifiers are
     // emitted, and is_priv_imm_initialized becomes true.
     it('initialize PrivateImmutable', async () => {
-      expect(
-        (
-          await contract.methods
-            .is_priv_imm_initialized(defaultAccountAddress)
-            .simulate({ from: defaultAccountAddress })
-        ).result,
-      ).toEqual(false);
+      await expectInitialized(contract.methods.is_priv_imm_initialized(defaultAccountAddress), false);
       const { receipt: txReceipt } = await contract.methods
         .initialize_private_immutable(RANDOMNESS, VALUE)
         .send({ from: defaultAccountAddress });
@@ -338,45 +278,21 @@ describe('automine/contracts/state_vars', () => {
       expect(txEffects?.data.noteHashes.length).toEqual(1);
       // 1 for the tx, another for the initializer
       expect(txEffects?.data.nullifiers.length).toEqual(2);
-      expect(
-        (
-          await contract.methods
-            .is_priv_imm_initialized(defaultAccountAddress)
-            .simulate({ from: defaultAccountAddress })
-        ).result,
-      ).toEqual(true);
+      await expectInitialized(contract.methods.is_priv_imm_initialized(defaultAccountAddress), true);
     });
 
     // Calls initialize_private_immutable a second time; asserts it throws and the flag remains true.
     it('fail to reinitialize', async () => {
-      expect(
-        (
-          await contract.methods
-            .is_priv_imm_initialized(defaultAccountAddress)
-            .simulate({ from: defaultAccountAddress })
-        ).result,
-      ).toEqual(true);
+      await expectInitialized(contract.methods.is_priv_imm_initialized(defaultAccountAddress), true);
       await expect(
         contract.methods.initialize_private_immutable(RANDOMNESS, VALUE).send({ from: defaultAccountAddress }),
       ).rejects.toThrow();
-      expect(
-        (
-          await contract.methods
-            .is_priv_imm_initialized(defaultAccountAddress)
-            .simulate({ from: defaultAccountAddress })
-        ).result,
-      ).toEqual(true);
+      await expectInitialized(contract.methods.is_priv_imm_initialized(defaultAccountAddress), true);
     });
 
     // Reads the PrivateImmutable after initialization; asserts the stored value matches VALUE.
     it('read initialized PrivateImmutable', async () => {
-      expect(
-        (
-          await contract.methods
-            .is_priv_imm_initialized(defaultAccountAddress)
-            .simulate({ from: defaultAccountAddress })
-        ).result,
-      ).toEqual(true);
+      await expectInitialized(contract.methods.is_priv_imm_initialized(defaultAccountAddress), true);
       const {
         result: { value },
       } = await contract.methods
@@ -405,6 +321,15 @@ describe('automine/contracts/state_vars', () => {
         );
       }
     });
+
+    // Drives the chain forward by sending a no-op tx per iteration (rather than warping wall-clock time)
+    // until the latest block's timestamp reaches `target`. Under the forced 12s slot duration a fixed
+    // block-count delay cannot count for the schedule, so we poll the real block timestamp instead.
+    const advanceChainToTimestamp = async (target: bigint) => {
+      while ((await aztecNode.getBlockData('latest'))!.header.globalVariables.timestamp < target) {
+        await authContract.methods.get_authorized().send({ from: defaultAccountAddress });
+      }
+    };
 
     // Changes the authorized delay from 5 slots (360s) to 2 slots, advances the chain past the
     // scheduled timestamp_of_change by sending no-op txs, then proves the private read and asserts
@@ -436,11 +361,7 @@ describe('automine/contracts/state_vars', () => {
       // forces aztecSlotDuration=12s under pipelining (see fixtures/setup.ts), so a fixed
       // `delay(N blocks)` cannot count for the schedule — block timestamp polling is the
       // slot-duration-agnostic way to know we have crossed the schedule.
-      // REFACTOR: hand-rolled loop advancing the chain by sending no-op txs until a target timestamp is
-      // crossed; a DSL helper like advanceChainToTimestamp(node, timestampOfChange) should replace this.
-      while ((await aztecNode.getBlockData('latest'))!.header.globalVariables.timestamp < timestampOfChange) {
-        await authContract.methods.get_authorized().send({ from: defaultAccountAddress });
-      }
+      await advanceChainToTimestamp(timestampOfChange);
 
       // We now call our AuthContract to see if the change in expiration timestamp has reflected our delay change.
       // expirationTimestamp is `anchor.timestamp + effective_minimum_delay`, where the anchor is the

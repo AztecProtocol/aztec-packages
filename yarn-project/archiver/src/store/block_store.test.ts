@@ -98,7 +98,7 @@ describe('BlockStore', () => {
 
   describe('addCheckpoints', () => {
     it('returns success when adding checkpoints', async () => {
-      await expect(blockStore.addCheckpoints(publishedCheckpoints)).resolves.toBe(true);
+      await expect(blockStore.addCheckpoints(publishedCheckpoints)).resolves.toEqual(publishedCheckpoints);
     });
 
     it('accepts duplicate checkpoints with matching archives and updates L1 info', async () => {
@@ -118,8 +118,10 @@ describe('BlockStore', () => {
         makeL1PublishedData(999),
         first3[2].attestations,
       );
-      // Also add checkpoint 4 (the next one) in the same batch
-      await blockStore.addCheckpoints([cp3WithNewL1, publishedCheckpoints[3]]);
+      // Also add checkpoint 4 (the next one) in the same batch; only checkpoint 4 is newly inserted.
+      await expect(blockStore.addCheckpoints([cp3WithNewL1, publishedCheckpoints[3]])).resolves.toEqual([
+        publishedCheckpoints[3],
+      ]);
 
       // Checkpoint 3's L1 info should be updated
       const afterData = await blockStore.getCheckpointData(CheckpointNumber(3));
@@ -135,8 +137,8 @@ describe('BlockStore', () => {
       const first3 = publishedCheckpoints.slice(0, 3);
       await blockStore.addCheckpoints(first3);
 
-      // Re-add the same 3 checkpoints — should succeed without error
-      await expect(blockStore.addCheckpoints(first3)).resolves.toBe(true);
+      // Re-add the same 3 checkpoints — should succeed without inserting anything new
+      await expect(blockStore.addCheckpoints(first3)).resolves.toEqual([]);
     });
 
     it('throws on duplicate checkpoints with mismatching archives', async () => {
@@ -284,7 +286,7 @@ describe('BlockStore', () => {
       );
       const publishedCheckpoint = makePublishedCheckpoint(checkpoint, 10);
 
-      await expect(blockStore.addCheckpoints([publishedCheckpoint])).resolves.toBe(true);
+      await expect(blockStore.addCheckpoints([publishedCheckpoint])).resolves.toEqual([publishedCheckpoint]);
     });
 
     it('throws on duplicate checkpoint with different content', async () => {
@@ -314,7 +316,7 @@ describe('BlockStore', () => {
       );
       const publishedCheckpoint2 = makePublishedCheckpoint(checkpoint2, 10);
 
-      await expect(blockStore.addCheckpoints([publishedCheckpoint])).resolves.toBe(true);
+      await expect(blockStore.addCheckpoints([publishedCheckpoint])).resolves.toEqual([publishedCheckpoint]);
       await expect(blockStore.addCheckpoints([publishedCheckpoint2])).rejects.toThrow(
         'already exists in store but with a different archive',
       );
@@ -352,7 +354,7 @@ describe('BlockStore', () => {
         blocksPerCheckpoint: 2,
       });
 
-      await expect(blockStore.addCheckpoints(checkpoints)).resolves.toBe(true);
+      await expect(blockStore.addCheckpoints(checkpoints)).resolves.toEqual(checkpoints);
 
       // Verify blocks have correct checkpoint assignments
       const block1 = await blockStore.getBlock({ number: BlockNumber(1) });
@@ -2081,7 +2083,7 @@ describe('BlockStore', () => {
       const publishedCheckpoint2 = makePublishedCheckpoint(checkpoint2, 10);
 
       // This should NOT throw - addCheckpoints uses .set() which is idempotent
-      await expect(blockStore.addCheckpoints([publishedCheckpoint2])).resolves.toBe(true);
+      await expect(blockStore.addCheckpoints([publishedCheckpoint2])).resolves.toEqual([publishedCheckpoint2]);
 
       // Verify block exists and is consistent
       const storedBlock = await blockStore.getBlock({ number: BlockNumber(2) });

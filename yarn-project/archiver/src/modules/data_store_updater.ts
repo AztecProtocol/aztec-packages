@@ -123,10 +123,11 @@ export class ArchiverDataStoreUpdater {
       // Before adding checkpoints, check for conflicts with local blocks if any
       const { prunedBlocks, lastAlreadyInsertedBlockNumber } = await this.pruneMismatchingLocalBlocks(checkpoints);
 
-      await this.stores.blocks.addCheckpoints(checkpoints);
+      const insertedCheckpoints = await this.stores.blocks.addCheckpoints(checkpoints);
 
-      // Filter out blocks that were already inserted via addProposedBlock() to avoid duplicating logs/contract data
-      const newBlocks = checkpoints
+      // Skip blocks already inserted via addProposedBlock() and blocks of already-stored checkpoints
+      // re-included by an L1 reorg: their logs/contract data were extracted when first inserted.
+      const newBlocks = insertedCheckpoints
         .flatMap((ch: PublishedCheckpoint) => ch.checkpoint.blocks)
         .filter(b => lastAlreadyInsertedBlockNumber === undefined || b.number > lastAlreadyInsertedBlockNumber);
 

@@ -26,12 +26,7 @@ describe('automine/mempool_limit', () => {
       aztecNodeAdmin,
       wallet,
       accounts: [defaultAccountAddress],
-    } = (
-      await AutomineTestContext.setup({
-        numberOfAccounts: 1,
-        proverTestVerificationDelayMs: undefined,
-      })
-    ).context);
+    } = (await AutomineTestContext.setup({ numberOfAccounts: 1 })).context);
 
     if (!aztecNodeAdmin) {
       throw new Error('Aztec node admin API must be available for this test');

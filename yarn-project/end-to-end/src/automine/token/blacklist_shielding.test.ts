@@ -3,6 +3,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 
 import { U128_UNDERFLOW_ERROR } from '../../fixtures/index.js';
 import { BlacklistTokenContractTest } from './blacklist_token_contract_test.js';
+import { INVALID_AUTHWIT_NONCE_ERROR, amountAboveBalance, halfBalanceOf } from './token_test_helpers.js';
 
 // Covers the shield (public→private) and redeem_shield operations on TokenBlacklist, including
 // authwit-delegated shielding and blacklist enforcement. Setup: single node with AutomineSequencer,
@@ -36,12 +37,7 @@ describe('automine/token/blacklist_shielding', () => {
   // Shields half the admin's public balance to private, registers the note in PXE, redeems it, and
   // verifies the result against TokenSimulator.
   it('on behalf of self', async () => {
-    const balancePub = await asset.methods
-      .balance_of_public(adminAddress)
-      .simulate({ from: adminAddress })
-      .then(r => r.result);
-    const amount = balancePub / 2n;
-    expect(amount).toBeGreaterThan(0n);
+    const amount = await halfBalanceOf(asset, 'public', adminAddress);
 
     const { receipt } = await asset.methods.shield(adminAddress, amount, secretHash, 0).send({ from: adminAddress });
 
@@ -57,13 +53,8 @@ describe('automine/token/blacklist_shielding', () => {
   // Sets a public authwit allowing otherAddress to shield admin's tokens, executes the shield from
   // otherAddress, verifies replay fails (unauthorized), redeems, and checks TokenSimulator.
   it('on behalf of other', async () => {
-    const balancePub = await asset.methods
-      .balance_of_public(adminAddress)
-      .simulate({ from: adminAddress })
-      .then(r => r.result);
-    const amount = balancePub / 2n;
+    const amount = await halfBalanceOf(asset, 'public', adminAddress);
     const authwitNonce = Fr.random();
-    expect(amount).toBeGreaterThan(0n);
 
     // We need to compute the message we want to sign and add it to the wallet as approved
     const action = asset.methods.shield(adminAddress, amount, secretHash, authwitNonce);
@@ -94,13 +85,7 @@ describe('automine/token/blacklist_shielding', () => {
   describe('failure cases', () => {
     // Shields more than public balance (self); expects U128_UNDERFLOW_ERROR.
     it('on behalf of self (more than balance)', async () => {
-      const balancePub = await asset.methods
-        .balance_of_public(adminAddress)
-        .simulate({ from: adminAddress })
-        .then(r => r.result);
-      const amount = balancePub + 1n;
-      expect(amount).toBeGreaterThan(0n);
-
+      const amount = await amountAboveBalance(asset, 'public', adminAddress);
       await expect(
         asset.methods.shield(adminAddress, amount, secretHash, 0).simulate({ from: adminAddress }),
       ).rejects.toThrow(U128_UNDERFLOW_ERROR);
@@ -108,32 +93,18 @@ describe('automine/token/blacklist_shielding', () => {
 
     // Self-shield with nonce=1; expects invalid-nonce assertion failure.
     it('on behalf of self (invalid authwit nonce)', async () => {
-      const balancePub = await asset.methods
-        .balance_of_public(adminAddress)
-        .simulate({ from: adminAddress })
-        .then(r => r.result);
-      const amount = balancePub + 1n;
-      expect(amount).toBeGreaterThan(0n);
-
+      const amount = await amountAboveBalance(asset, 'public', adminAddress);
       await expect(
         asset.methods.shield(adminAddress, amount, secretHash, 1).simulate({ from: adminAddress }),
-      ).rejects.toThrow(
-        "Assertion failed: Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero",
-      );
+      ).rejects.toThrow(INVALID_AUTHWIT_NONCE_ERROR);
     });
 
     // Authwit-shields more than balance via otherAddress; expects U128_UNDERFLOW_ERROR.
     it('on behalf of other (more than balance)', async () => {
-      const balancePub = await asset.methods
-        .balance_of_public(adminAddress)
-        .simulate({ from: adminAddress })
-        .then(r => r.result);
-      const amount = balancePub + 1n;
-      const authwitNonce = Fr.random();
-      expect(amount).toBeGreaterThan(0n);
+      const amount = await amountAboveBalance(asset, 'public', adminAddress);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
-      const action = asset.methods.shield(adminAddress, amount, secretHash, authwitNonce);
+      const action = asset.methods.shield(adminAddress, amount, secretHash, Fr.random());
       const validateActionInteraction = await wallet.setPublicAuthWit(
         adminAddress,
         { caller: otherAddress, action },
@@ -146,16 +117,10 @@ describe('automine/token/blacklist_shielding', () => {
 
     // Approves otherAddress as caller, executes from blacklistedAddress; expects unauthorized.
     it('on behalf of other (wrong designated caller)', async () => {
-      const balancePub = await asset.methods
-        .balance_of_public(adminAddress)
-        .simulate({ from: adminAddress })
-        .then(r => r.result);
-      const amount = balancePub + 1n;
-      const authwitNonce = Fr.random();
-      expect(amount).toBeGreaterThan(0n);
+      const amount = await amountAboveBalance(asset, 'public', adminAddress);
 
       // We need to compute the message we want to sign and add it to the wallet as approved
-      const action = asset.methods.shield(adminAddress, amount, secretHash, authwitNonce);
+      const action = asset.methods.shield(adminAddress, amount, secretHash, Fr.random());
       const validateActionInteraction = await wallet.setPublicAuthWit(
         adminAddress,
         { caller: otherAddress, action },
@@ -168,16 +133,9 @@ describe('automine/token/blacklist_shielding', () => {
 
     // Calls shield for admin from otherAddress without any authwit; expects unauthorized.
     it('on behalf of other (without approval)', async () => {
-      const balance = await asset.methods
-        .balance_of_public(adminAddress)
-        .simulate({ from: adminAddress })
-        .then(r => r.result);
-      const amount = balance / 2n;
-      const authwitNonce = Fr.random();
-      expect(amount).toBeGreaterThan(0n);
-
+      const amount = await halfBalanceOf(asset, 'public', adminAddress);
       await expect(
-        asset.methods.shield(adminAddress, amount, secretHash, authwitNonce).simulate({ from: otherAddress }),
+        asset.methods.shield(adminAddress, amount, secretHash, Fr.random()).simulate({ from: otherAddress }),
       ).rejects.toThrow(/unauthorized/);
     });
 
