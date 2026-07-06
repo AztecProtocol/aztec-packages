@@ -66,12 +66,6 @@ export type ValidatorClientConfig = ValidatorHASignerConfig &
     /** Agree to attest to equivocated checkpoint proposals (for testing purposes only) */
     attestToEquivocatedProposals?: boolean;
 
-    /**
-     * Rewrite this validator's own attestation signature to yParity (v ∈ {0, 1}) form after signing,
-     * modelling a malicious committee member (for testing purposes only).
-     */
-    injectYParityOwnAttestation?: boolean;
-
     /** Accept proposal validation regardless of slot timing (for testing only) */
     skipProposalSlotValidation?: boolean;
 
@@ -126,7 +120,6 @@ export const ValidatorClientConfigSchema = zodFor<Omit<ValidatorClientConfig, 'v
     skipCheckpointProposalValidation: z.boolean().optional(),
     skipPushProposedBlocksToArchiver: z.boolean().optional(),
     attestToEquivocatedProposals: z.boolean().optional(),
-    injectYParityOwnAttestation: z.boolean().optional(),
     skipProposalSlotValidation: z.boolean().optional(),
     validateMaxL2BlockGas: z.number().optional(),
     validateMaxDABlockGas: z.number().optional(),

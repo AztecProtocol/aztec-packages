@@ -671,12 +671,7 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       return undefined;
     }
 
-    let attestations = await this.validationService.attestToCheckpointProposal(proposal, attestors, checkpointNumber);
-
-    if (this.config.injectYParityOwnAttestation) {
-      this.log.warn(`Injecting yParity form into own attestations for slot ${proposal.slotNumber}`);
-      attestations = attestations.map(a => toYParityAttestation(a));
-    }
+    const attestations = await this.validationService.attestToCheckpointProposal(proposal, attestors, checkpointNumber);
 
     // Track the proposal we attested to (to prevent equivocation)
     this.lastAttestedProposal = proposal;
@@ -1132,18 +1127,4 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const authResponse = new AuthResponse(statusMessage, signature);
     return authResponse.toBuffer();
   }
-}
-
-/**
- * Rewrites an attestation's recovery byte to yParity (v ∈ {0, 1}) form, preserving (r, s) and the recovery
- * parity so it still recovers to the same signer. Models a malicious committee member; for testing only.
- */
-function toYParityAttestation(attestation: CheckpointAttestation): CheckpointAttestation {
-  const signature = attestation.signature;
-  const yParityV = signature.v >= 27 ? signature.v - 27 : signature.v;
-  return new CheckpointAttestation(
-    attestation.payload,
-    new Signature(signature.r, signature.s, yParityV),
-    attestation.proposerSignature,
-  );
 }
