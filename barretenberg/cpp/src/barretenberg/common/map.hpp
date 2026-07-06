@@ -32,8 +32,4 @@ std::array<OutElem, SIZE> map(std::array<InElem, SIZE> const& in, F&& op)
     std::transform(in.begin(), in.end(), result.begin(), op);
     return result;
 }
-<<<<<<< HEAD
-
-=======
->>>>>>> origin/next
 } // namespace bb::transform
