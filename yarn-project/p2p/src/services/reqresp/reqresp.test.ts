@@ -21,7 +21,7 @@ import { ResponseSizeLimitExceededError, SnappyTransform } from '../encoding.js'
 import type { PeerManager } from '../peer-manager/peer_manager.js';
 import type { PeerScoring } from '../peer-manager/peer_scoring.js';
 import { MAX_REQRESP_REQUEST_SIZE_BYTES, type P2PReqRespConfig } from './config.js';
-import { type ReqRespResponse, ReqRespSubProtocol } from './interface.js';
+import { type ReqRespResponse, ReqRespSubProtocol, type ReqRespSubProtocolHandler } from './interface.js';
 import { GoodByeReason, reqGoodbyeHandler } from './protocols/goodbye.js';
 import { ReqResp } from './reqresp.js';
 import { ReqRespStatus } from './status.js';
@@ -44,6 +44,64 @@ describe('ReqResp', () => {
     if (nodes) {
       await stopNodes(nodes);
     }
+  });
+
+  // Req/resp is one-request-one-response, but a malicious peer can write many request frames on a single
+  // stream. Each frame arrives as its own chunk, and the rate limiter is only checked once per stream, so
+  // processing every chunk would let one token drive unbounded handler invocations. processStream must
+  // therefore invoke the handler at most once per stream.
+  describe('processStream', () => {
+    let req: ReqResp;
+
+    beforeEach(() => {
+      const config: P2PReqRespConfig = {
+        overallRequestTimeoutMs: 4000,
+        individualRequestTimeoutMs: 2000,
+        dialTimeoutMs: 1000,
+        p2pOptimisticNegotiation: false,
+      };
+      req = new ReqResp(config, mock<Libp2p>(), peerScoring);
+    });
+
+    afterEach(async () => {
+      // Stop the connection sampler so its cleanup interval does not leak past the test.
+      await (req as any).connectionSampler.stop();
+    });
+
+    it('invokes the handler at most once per stream, ignoring extra frames', async () => {
+      const handler = jest.fn<ReqRespSubProtocolHandler>().mockResolvedValue(Buffer.from('pong'));
+      // Register via a fresh handlers object so we do not mutate the shared MOCK_SUB_PROTOCOL_HANDLERS.
+      (req as any).subProtocolHandlers = { [ReqRespSubProtocol.PING]: handler };
+
+      const received: Buffer[] = [];
+      const incomingStream = {
+        connection: { remotePeer: mock<PeerId>() },
+        stream: {
+          metadata: {},
+          // A malicious peer pushes three request frames on the one stream it opened.
+          source: (async function* () {
+            for (const frame of [Buffer.from('req-1'), Buffer.from('req-2'), Buffer.from('req-3')]) {
+              yield frame;
+            }
+          })(),
+          sink: async (source: AsyncIterable<Buffer>) => {
+            for await (const chunk of source) {
+              received.push(chunk);
+            }
+          },
+        },
+      };
+
+      await (req as any).processStream(ReqRespSubProtocol.PING, incomingStream);
+
+      // Only the first frame is handled; the remaining two are discarded when the stream closes.
+      expect(handler).toHaveBeenCalledTimes(1);
+
+      // The sink receives exactly one SUCCESS status byte followed by one response payload.
+      expect(received).toHaveLength(2);
+      expect(received[0][0]).toBe(ReqRespStatus.SUCCESS);
+      expect(new SnappyTransform().inboundTransformData(Buffer.from(received[1])).toString('utf-8')).toEqual('pong');
+    });
   });
 
   it('should perform a ping request', async () => {

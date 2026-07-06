@@ -469,6 +469,9 @@ export class ReqResp implements ReqRespInterface {
     await pipeline(
       stream.source,
       async function* (source: any) {
+        // Req/resp is one-request-one-response: an honest sender writes a single payload and half-closes.
+        // Process only the first chunk and return, so extra frames a peer queues on the same stream cannot
+        // drive further handler invocations that bypass the per-stream rate-limit check in streamHandler.
         for await (const chunk of source) {
           const response = await handler(connection.remotePeer, chunk.subarray());
 
@@ -483,6 +486,7 @@ export class ReqResp implements ReqRespInterface {
 
           yield SUCCESS;
           yield snappy.outboundTransformData(response);
+          return;
         }
       },
       stream.sink,
