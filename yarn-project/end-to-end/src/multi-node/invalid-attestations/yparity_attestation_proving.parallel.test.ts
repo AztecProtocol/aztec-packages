@@ -31,8 +31,10 @@ const NODE_COUNT = 3;
 // produces no on-chain event, so proven-tip advancement is the only observable signal. Modelled on
 // block-production/proof_boundary.parallel.test.ts (createProverNode + Delayer). To reproduce the red
 // state, revert the three A-1351 normalization layers (orderAttestations, the attestation pool ingress,
-// CheckpointAttestation.withNormalizedSignature) and the packAttestations v-canonicalization: the proof
-// tx is still sent but reverts on L1 and the proven tip stays at 0.
+// CheckpointAttestation.withNormalizedSignature) and the packAttestations v-canonicalization. The proven
+// tip then stays at 0 and the test times out: on a pre-A-1401 tree the proof tx is sent but reverts on L1
+// (ECDSA.recover), while on this branch A-1401's own detection invalidates the non-canonical checkpoint
+// before it can be proven. Either way, without A-1351 the epoch never proves.
 describe('multi-node/invalid-attestations/yparity_attestation_proving', () => {
   let context: EndToEndContext;
   let logger: Logger;
