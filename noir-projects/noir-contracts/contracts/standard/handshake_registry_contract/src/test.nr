@@ -6,7 +6,7 @@ use aztec::{
     messages::delivery::{
         constrained_delivery::VALIDATE_HANDSHAKE_SELECTOR,
         handshake::{
-            AppSiloedHandshakeSecrets, GET_APP_SILOED_SECRETS_SELECTOR, GET_HANDSHAKES_SELECTOR,
+            AppSiloedHandshakeSecrets, GET_APP_SILOED_SECRETS_SELECTOR, GET_NON_INTERACTIVE_HANDSHAKES_SELECTOR,
             MAX_HANDSHAKES_PER_PAGE, NON_INTERACTIVE_HANDSHAKE_SELECTOR,
         },
     },
@@ -59,7 +59,7 @@ unconstrained fn selectors_match_the_constrained_delivery_helper() {
     assert_eq(registry.get_app_siloed_secrets(sender, recipient).selector, GET_APP_SILOED_SECRETS_SELECTOR);
     assert_eq(registry.non_interactive_handshake(sender, recipient).selector, NON_INTERACTIVE_HANDSHAKE_SELECTOR);
     assert_eq(registry.validate_handshake(sender, recipient, secrets).selector, VALIDATE_HANDSHAKE_SELECTOR);
-    assert_eq(registry.get_handshakes(recipient, 0).selector, GET_HANDSHAKES_SELECTOR);
+    assert_eq(registry.get_non_interactive_handshakes(recipient, 0).selector, GET_NON_INTERACTIVE_HANDSHAKES_SELECTOR);
 }
 
 #[test]
@@ -460,7 +460,7 @@ unconstrained fn non_interactive_handshake_is_discovered_by_recipient() {
 
     let returned_secrets = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
 
-    let discovered = env.execute_utility(registry.get_handshakes(recipient, 0));
+    let discovered = env.execute_utility(registry.get_non_interactive_handshakes(recipient, 0));
 
     assert_eq(discovered.items.len(), 1);
     assert_eq(discovered.total_count, 1);
@@ -488,8 +488,8 @@ unconstrained fn handshake_to_one_recipient_not_discovered_by_another() {
 
     let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient_a));
 
-    let discovered_a = env.execute_utility(registry.get_handshakes(recipient_a, 0));
-    let discovered_b = env.execute_utility(registry.get_handshakes(recipient_b, 0));
+    let discovered_a = env.execute_utility(registry.get_non_interactive_handshakes(recipient_a, 0));
+    let discovered_b = env.execute_utility(registry.get_non_interactive_handshakes(recipient_b, 0));
 
     assert_eq(discovered_a.items.len(), 1);
     assert_eq(discovered_b.items.len(), 0);
@@ -502,12 +502,12 @@ unconstrained fn repeated_sync_does_not_refetch_logs() {
 
     let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
 
-    let after_first = env.execute_utility(registry.get_handshakes(recipient, 0));
+    let after_first = env.execute_utility(registry.get_non_interactive_handshakes(recipient, 0));
     assert_eq(after_first.items.len(), 1);
 
     // Mock the log-retrieval oracle so we can assert it is never called on re-sync.
     let log_oracle = OracleMock::mock("aztec_utl_getLogsByTagV2");
-    let _ = env.execute_utility(registry.get_handshakes(recipient, 0));
+    let _ = env.execute_utility(registry.get_non_interactive_handshakes(recipient, 0));
     assert_eq(log_oracle.times_called(), 0);
     log_oracle.clear();
 }
@@ -519,11 +519,11 @@ unconstrained fn later_handshake_appends_after_cursor_advances() {
 
     let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
 
-    let after_first = env.execute_utility(registry.get_handshakes(recipient, 0));
+    let after_first = env.execute_utility(registry.get_non_interactive_handshakes(recipient, 0));
     assert_eq(after_first.items.len(), 1);
 
     let _ = env.call_private(other_sender, registry.non_interactive_handshake(other_sender, recipient));
-    let after_second = env.execute_utility(registry.get_handshakes(recipient, 0));
+    let after_second = env.execute_utility(registry.get_non_interactive_handshakes(recipient, 0));
     assert_eq(after_second.items.len(), 2);
 }
 
@@ -536,7 +536,7 @@ unconstrained fn multiple_senders_discovered_for_same_recipient() {
     let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
     let _ = env.call_private(other_sender, registry.non_interactive_handshake(other_sender, recipient));
 
-    let discovered = env.execute_utility(registry.get_handshakes(recipient, 0));
+    let discovered = env.execute_utility(registry.get_non_interactive_handshakes(recipient, 0));
 
     assert_eq(discovered.items.len(), 2);
     assert(
@@ -546,7 +546,7 @@ unconstrained fn multiple_senders_discovered_for_same_recipient() {
 }
 
 #[test]
-unconstrained fn get_handshakes_paginates_across_full_pages() {
+unconstrained fn get_non_interactive_handshakes_paginates_across_full_pages() {
     let (env, registry_address, sender, _, recipient) = setup();
     let registry = HandshakeRegistry::at(registry_address);
 
@@ -555,8 +555,8 @@ unconstrained fn get_handshakes_paginates_across_full_pages() {
         let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
     }
 
-    let page_0 = env.execute_utility(registry.get_handshakes(recipient, 0));
-    let page_1 = env.execute_utility(registry.get_handshakes(recipient, MAX_HANDSHAKES_PER_PAGE));
+    let page_0 = env.execute_utility(registry.get_non_interactive_handshakes(recipient, 0));
+    let page_1 = env.execute_utility(registry.get_non_interactive_handshakes(recipient, MAX_HANDSHAKES_PER_PAGE));
 
     assert_eq(page_0.items.len(), MAX_HANDSHAKES_PER_PAGE);
     assert_eq(page_0.total_count, total_handshakes);
@@ -565,13 +565,13 @@ unconstrained fn get_handshakes_paginates_across_full_pages() {
 }
 
 #[test]
-unconstrained fn get_handshakes_out_of_bounds_offset_returns_empty() {
+unconstrained fn get_non_interactive_handshakes_out_of_bounds_offset_returns_empty() {
     let (env, registry_address, sender, _, recipient) = setup();
     let registry = HandshakeRegistry::at(registry_address);
 
     let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
 
-    let page = env.execute_utility(registry.get_handshakes(recipient, 999));
+    let page = env.execute_utility(registry.get_non_interactive_handshakes(recipient, 999));
     assert_eq(page.items.len(), 0);
     assert_eq(page.total_count, 1);
 }
@@ -583,7 +583,7 @@ unconstrained fn rescan_after_cursor_retraction_does_not_duplicate_handshakes() 
 
     let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
 
-    let after_first = env.execute_utility(registry.get_handshakes(recipient, 0));
+    let after_first = env.execute_utility(registry.get_non_interactive_handshakes(recipient, 0));
     assert_eq(after_first.items.len(), 1);
 
     // Emulate a reorg that pruned back past every recorded scan but not past the handshake log: scans anchor at the
@@ -593,7 +593,7 @@ unconstrained fn rescan_after_cursor_retraction_does_not_duplicate_handshakes() 
     env.mine_block();
 
     // With no cursor the rescan covers the full range again; re-recording the surviving handshake is a no-op.
-    let after_rescan = env.execute_utility(registry.get_handshakes(recipient, 0));
+    let after_rescan = env.execute_utility(registry.get_non_interactive_handshakes(recipient, 0));
     assert_eq(after_rescan.items.len(), 1);
     assert_eq(after_rescan.items.get(0).eph_pk.x, after_first.items.get(0).eph_pk.x);
 }
@@ -610,7 +610,7 @@ unconstrained fn handshake_fact_originates_at_the_log_block() {
     env.mine_block();
     env.mine_block();
 
-    let discovered = env.execute_utility(registry.get_handshakes(recipient, 0));
+    let discovered = env.execute_utility(registry.get_non_interactive_handshakes(recipient, 0));
     assert_eq(discovered.items.len(), 1);
 
     // Ephemeral arrays are frame-scoped, so read the origins and extract the value inside the registry's context.
