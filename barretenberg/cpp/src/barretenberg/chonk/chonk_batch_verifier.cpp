@@ -316,7 +316,7 @@ void ChonkBatchVerifier::bisect(std::vector<ReduceResult>& results,
     if (indices.size() == 1) {
         auto& rr = results[indices[0]];
         auto result = VerifyResult::failed(rr.request_id, "batch check failed (bisected to individual)");
-        result.time_in_queue_ms = ms_between(rr.enqueue_time, std::chrono::steady_clock::now());
+        result.time_in_queue_ms = ms_between(rr.enqueue_time, reduce_start);
         result.time_in_verify_ms = rr.reduce_ms;
         result.batch_failure_count = depth + 1;
         dispatch(std::move(result));
