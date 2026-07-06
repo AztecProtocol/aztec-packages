@@ -26,7 +26,7 @@ describe('TaggingSecretSourcesStore', () => {
   });
 
   describe('shared secrets', () => {
-    it('adds and retrieves shared secrets scoped to a recipient', async () => {
+    it('adds and retrieves an arbitrary secret scoped to a recipient', async () => {
       const recipient = await AztecAddress.random();
       const secret = await Point.random();
 

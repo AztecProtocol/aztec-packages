@@ -9,14 +9,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2TipsProvider } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { deriveKeys } from '@aztec/stdlib/keys';
-import {
-  AppTaggingSecret,
-  AppTaggingSecretKind,
-  type LogResult,
-  SiloedTag,
-  Tag,
-  appSiloEcdhSharedSecretPoint,
-} from '@aztec/stdlib/logs';
+import { AppTaggingSecret, AppTaggingSecretKind, type LogResult, SiloedTag, Tag } from '@aztec/stdlib/logs';
 import { makeBlockHeader, makeL2Tips, randomPrivateLogResult } from '@aztec/stdlib/testing';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -433,11 +426,10 @@ describe('LogService', () => {
       expect(txHashes).not.toContainEqual(directionalLog.txHash);
     });
 
-    async function handshakeTags(secret: Point, app: AztecAddress): Promise<SiloedTag[]> {
-      const appSiloedSecret = await appSiloEcdhSharedSecretPoint(secret, app);
+    function handshakeTags(secret: Point, app: AztecAddress): Promise<SiloedTag[]> {
       return Promise.all(
-        [AppTaggingSecretKind.UNCONSTRAINED, AppTaggingSecretKind.CONSTRAINED].map(kind =>
-          SiloedTag.compute({ extendedSecret: new AppTaggingSecret(appSiloedSecret, app, kind), index: 0 }),
+        [AppTaggingSecretKind.UNCONSTRAINED, AppTaggingSecretKind.CONSTRAINED].map(async kind =>
+          SiloedTag.compute({ extendedSecret: await AppTaggingSecret.computeAppSiloed(secret, app, kind), index: 0 }),
         ),
       );
     }

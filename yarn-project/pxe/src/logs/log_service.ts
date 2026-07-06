@@ -229,11 +229,9 @@ export class LogService {
   /**
    * Computes the tagging secrets PXE can enumerate for a recipient: one per known sender (via ECDH) plus any
    * pre-shared secrets registered directly for the recipient. Each registered secret is scanned under the tag
-   * streams its kind can back: sender-derived and arbitrary secrets are siloed to `contractAddress` and directed to
-   * `recipient`, while handshake secrets back the bare handshake tag domains (one per delivery mode), since a
-   * handshake may have no announcement to discover (e.g. an interactive one). These require knowing the recipient's
-   * address preimage and keys, so returns an empty array when those are unavailable. App-supplied secrets (e.g.
-   * derived from discovered handshakes) are handled separately by the caller and do not go through here.
+   * streams its kind can back. Deriving the sender-based secrets requires the recipient's address preimage and keys,
+   * so returns an empty array when those are unavailable. App-supplied secrets (e.g. derived from discovered
+   * handshakes) are handled separately by the caller and do not go through here.
    */
   async #getPointDerivedSecrets(contractAddress: AztecAddress, recipient: AztecAddress): Promise<AppTaggingSecret[]> {
     const recipientCompleteAddress = await this.addressStore.getCompleteAddress(recipient);
@@ -249,18 +247,21 @@ export class LogService {
       this.#getSecretsForSenders(recipientCompleteAddress, recipientIvsk),
       this.taggingSecretSourcesStore.getSharedSecretsForRecipient(recipient),
     ]);
-    const arbitraryPoints = registeredSecrets.filter(s => s.kind === 'arbitrary-secret').map(s => s.secret);
-    const handshakePoints = registeredSecrets.filter(s => s.kind === 'handshake').map(s => s.secret);
-
     return Promise.all([
-      ...[...senderPoints, ...arbitraryPoints].map(secret =>
-        AppTaggingSecret.computeDirectional(secret, contractAddress, recipient),
-      ),
-      // A handshake-backed sender tags messages with the bare app-siloed secret, one tag domain per delivery mode.
-      ...handshakePoints.flatMap(secret => [
-        AppTaggingSecret.computeAppSiloed(secret, contractAddress, AppTaggingSecretKind.UNCONSTRAINED),
-        AppTaggingSecret.computeAppSiloed(secret, contractAddress, AppTaggingSecretKind.CONSTRAINED),
-      ]),
+      ...senderPoints.map(secret => AppTaggingSecret.computeDirectional(secret, contractAddress, recipient)),
+      ...registeredSecrets.flatMap(({ kind, secret }) => {
+        switch (kind) {
+          case 'arbitrary-secret':
+            return [AppTaggingSecret.computeDirectional(secret, contractAddress, recipient)];
+          case 'handshake':
+            // A handshake-backed sender tags messages with the bare app-siloed secret, one tag domain per delivery
+            // mode.
+            return [
+              AppTaggingSecret.computeAppSiloed(secret, contractAddress, AppTaggingSecretKind.UNCONSTRAINED),
+              AppTaggingSecret.computeAppSiloed(secret, contractAddress, AppTaggingSecretKind.CONSTRAINED),
+            ];
+        }
+      }),
     ]);
   }
 

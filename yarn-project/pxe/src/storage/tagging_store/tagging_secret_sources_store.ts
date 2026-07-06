@@ -21,8 +21,8 @@ export type SharedSecret = { kind: SharedSecretKind; secret: Point };
  * - Pre-shared tagging secrets: shared secret points registered directly, bypassing ECDH. These are scoped to a
  *   specific recipient, since the derivation of the directional app tagging secret does not require any secret
  *   recipient data: given the original secret anyone can derive a recipient's app-siloed directional tagging secret,
- *   and so these must not be reused to preserve privacy. Each carries the {@link SharedSecretKind} it was
- *   registered through, which determines the tag streams it is scanned under.
+ *   and so these must not be reused across recipients to preserve privacy. Each carries the {@link SharedSecretKind}
+ *   it was registered through, which determines the tag streams it is scanned under.
  */
 export class TaggingSecretSourcesStore {
   #store: AztecAsyncKVStore;
