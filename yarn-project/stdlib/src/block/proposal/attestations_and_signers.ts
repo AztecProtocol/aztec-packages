@@ -76,8 +76,10 @@ export class CommitteeAttestationsAndSigners implements Signable {
     let totalDataSize = 0;
     for (const attestation of viemAttestations) {
       const signature = attestation.signature;
-      // Check if signature is empty (v = 0)
-      const isEmpty = signature.v === 0;
+      // A slot is empty (a non-signing member, packed as its address) only when r, s and v are all zero
+      // — matching Signature.isEmpty() and getSigners(), so the bitmap popcount and the signers list can
+      // never disagree (which would revert propose() with SignersSizeMismatch).
+      const isEmpty = signature.v === 0 && BigInt(signature.r) === 0n && BigInt(signature.s) === 0n;
 
       if (!isEmpty) {
         totalDataSize += 65; // v (1) + r (32) + s (32)
@@ -93,8 +95,8 @@ export class CommitteeAttestationsAndSigners implements Signable {
     for (const [i, attestation] of viemAttestations.entries()) {
       const signature = attestation.signature;
 
-      // Check if signature is empty
-      const isEmpty = signature.v === 0;
+      // Empty iff r, s and v are all zero (see the size-tally loop above).
+      const isEmpty = signature.v === 0 && BigInt(signature.r) === 0n && BigInt(signature.s) === 0n;
 
       if (!isEmpty) {
         // Set bit in bitmap (bit 7-0 in each byte, left to right)
@@ -102,8 +104,10 @@ export class CommitteeAttestationsAndSigners implements Signable {
         const bitIndex = 7 - (i % 8);
         signatureIndices[byteIndex] = (signatureIndices[byteIndex] ?? 0) | (1 << bitIndex);
 
-        // Pack signature: v + r + s
-        signaturesOrAddresses[dataIndex] = signature.v;
+        // Pack signature: v + r + s. Canonicalize a yParity recovery byte (v = 0/1) to 27/28 — it
+        // recovers to the same signer, but L1 ECDSA.recover only accepts 27/28. Any other value is left
+        // as-is so a genuinely malformed signature still fails on L1 rather than being silently rewritten.
+        signaturesOrAddresses[dataIndex] = signature.v === 0 || signature.v === 1 ? signature.v + 27 : signature.v;
         dataIndex++;
 
         // Pack r (32 bytes)

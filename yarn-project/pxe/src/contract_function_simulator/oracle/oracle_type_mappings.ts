@@ -520,6 +520,7 @@ export const LOG_RETRIEVAL_RESPONSE: TypeMapping<LogRetrievalResponse> = STRUCT<
   { name: 'firstNullifierInTx', type: FIELD },
   { name: 'blockNumber', type: BLOCK_NUMBER },
   { name: 'blockTimestamp', type: BIGINT },
+  { name: 'blockHash', type: BLOCK_HASH },
 ]);
 
 export const MESSAGE_CONTEXT: TypeMapping<MessageContext> = STRUCT<MessageContext>([

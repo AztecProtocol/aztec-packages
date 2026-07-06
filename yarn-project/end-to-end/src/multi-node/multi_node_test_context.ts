@@ -21,12 +21,14 @@ import { privateKeyToAccount } from 'viem/accounts';
 
 import { testSpan } from '../fixtures/timing.js';
 import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
+import { NO_REORG_SUBMISSION_EPOCHS } from '../single-node/setup.js';
 import {
   SingleNodeTestContext,
   type SingleNodeTestOpts,
   type TrackedSequencerEvent,
 } from '../single-node/single_node_test_context.js';
 
+export { NO_REORG_SUBMISSION_EPOCHS, PROVING_SLOT_TIMING } from '../single-node/setup.js';
 export {
   WORLD_STATE_CHECKPOINT_HISTORY,
   WORLD_STATE_BLOCK_CHECK_INTERVAL,
@@ -73,7 +75,7 @@ export const MOCK_GOSSIP_MULTI_VALIDATOR_OPTS = {
   mockGossipSubNetwork: true,
   skipInitialSequencer: true,
   startProverNode: false,
-  aztecProofSubmissionEpochs: 1024,
+  aztecProofSubmissionEpochs: NO_REORG_SUBMISSION_EPOCHS,
   numberOfAccounts: 0,
 } as const;
 

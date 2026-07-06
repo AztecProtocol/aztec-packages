@@ -1,24 +1,16 @@
-import { RollupContract } from '@aztec/ethereum/contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import { L1TxUtils, createL1TxUtils } from '@aztec/ethereum/l1-tx-utils';
-import { SlotNumber } from '@aztec/foundation/branded-types';
-import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
-import {
-  GovernanceAbi,
-  GovernanceProposerAbi,
-  NewGovernanceProposerPayloadAbi,
-  NewGovernanceProposerPayloadBytecode,
-} from '@aztec/l1-artifacts';
+import { NewGovernanceProposerPayloadAbi, NewGovernanceProposerPayloadBytecode } from '@aztec/l1-artifacts';
 
-import { encodeFunctionData, getAddress, getContract } from 'viem';
+import { getAddress } from 'viem';
 
 import {
   MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
   MultiNodeTestContext,
   buildMockGossipValidators,
 } from '../multi_node_test_context.js';
-import { GOVERNANCE_TIMING, jest } from './setup.js';
+import { GOVERNANCE_TIMING, createGovernanceTestDriver, driveGovernanceRound, jest } from './setup.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_VALIDATORS = 4;
@@ -62,40 +54,12 @@ describe('multi-node/governance/upgrade_governance_proposer', () => {
   // warps past round boundary, submits the round winner, then drives the full governance lifecycle
   // (vote, execution delay, execute). Asserts the governance contract's governanceProposer changes.
   it('should cast votes to upgrade governanceProposer', async () => {
-    const governanceProposer = getContract({
-      address: getAddress(
-        test.context.deployL1ContractsValues.l1ContractAddresses.governanceProposerAddress.toString(),
-      ),
-      abi: GovernanceProposerAbi,
-      client: test.context.deployL1ContractsValues.l1Client,
-    });
-
-    const roundSize = await governanceProposer.read.ROUND_SIZE();
-
-    const governance = getContract({
-      address: getAddress(test.context.deployL1ContractsValues.l1ContractAddresses.governanceAddress.toString()),
-      abi: GovernanceAbi,
-      client: test.context.deployL1ContractsValues.l1Client,
-    });
-
-    const rollup = new RollupContract(
-      test.context.deployL1ContractsValues.l1Client,
-      test.context.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
-    );
+    const driver = await createGovernanceTestDriver(test, l1TxUtils);
+    const { governance, rollup } = driver;
 
     const gseAddress = await rollup.getGSE();
 
-    const waitL1Block = async () => {
-      await l1TxUtils.sendAndMonitorTransaction({
-        to: emperor.address,
-        value: 1n,
-      });
-    };
-
-    const currentSlot = await rollup.getSlotNumber();
-    const nextRoundSlot = SlotNumber.fromBigInt((BigInt(currentSlot) / roundSize) * roundSize + roundSize);
-    const nextRoundTimestamp = await rollup.getTimestampForSlot(nextRoundSlot);
-    await test.context.cheatCodes.eth.warp(Number(nextRoundTimestamp));
+    await driver.warpToNextRound();
 
     const { address: newPayloadAddress } = await deployL1Contract(
       test.context.deployL1ContractsValues.l1Client,
@@ -103,34 +67,11 @@ describe('multi-node/governance/upgrade_governance_proposer', () => {
       NewGovernanceProposerPayloadBytecode,
       [test.context.deployL1ContractsValues.l1ContractAddresses.registryAddress.toString(), gseAddress.toString()],
     );
-
     test.logger.info(`Deployed new payload at ${newPayloadAddress}`);
 
-    const emperor = test.context.deployL1ContractsValues.l1Client.account;
+    await driver.waitL1Block();
 
-    const govInfo = async () => {
-      const bn = await test.context.cheatCodes.eth.blockNumber();
-      const slot = await rollup.getSlotNumber();
-      const round = await governanceProposer.read.computeRound([BigInt(slot)]);
-
-      const info = await governanceProposer.read.getRoundData([
-        test.context.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
-        round,
-      ]);
-      const leaderVotes = await governanceProposer.read.signalCount([
-        test.context.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
-        round,
-        info.payloadWithMostSignals,
-      ]);
-      test.logger.info(
-        `Governance stats for round ${round} (Slot: ${slot}, BN: ${bn}). Leader: ${info.payloadWithMostSignals} have ${leaderVotes} signals`,
-      );
-      return { bn, slot, round, info, leaderVotes };
-    };
-
-    await waitL1Block();
-
-    const govBefore = await govInfo();
+    const govBefore = await driver.govInfo();
 
     test.logger.info('Creating nodes');
     // Nodes are torn down by test.teardown(); they only need to be running to signal the payload.
@@ -143,78 +84,29 @@ describe('multi-node/governance/upgrade_governance_proposer', () => {
     await sleep(4000);
 
     test.logger.info('Start progressing time to cast signals');
-    const quorumSize = await governanceProposer.read.QUORUM_SIZE();
-    test.logger.info(`Quorum size: ${quorumSize}, round size: ${await governanceProposer.read.ROUND_SIZE()}`);
+    const quorumSize = await driver.governanceProposer.read.QUORUM_SIZE();
+    test.logger.info(`Quorum size: ${quorumSize}, round size: ${driver.roundSize}`);
 
-    const govData = await retryUntil(
-      async () => {
-        const data = await govInfo();
-        return data.leaderVotes >= quorumSize ? data : undefined;
-      },
-      'quorum of signals',
-      Number(quorumSize) * GOVERNANCE_TIMING.aztecSlotDuration * 3,
-      GOVERNANCE_TIMING.aztecSlotDuration,
-    );
+    const { govData } = await driveGovernanceRound(driver, {
+      quorumTimeoutSeconds: Number(quorumSize) * GOVERNANCE_TIMING.aztecSlotDuration * 3,
+    });
 
     expect(govData.leaderVotes).toBeGreaterThan(govBefore.leaderVotes);
 
-    const currentSlot2 = await rollup.getSlotNumber();
-    const nextRoundSlot2 = SlotNumber.fromBigInt((BigInt(currentSlot2) / roundSize) * roundSize + roundSize);
-    const nextRoundTimestamp2 = await rollup.getTimestampForSlot(nextRoundSlot2);
-    test.logger.info(`Warping to ${nextRoundTimestamp2}`);
-    await test.context.cheatCodes.eth.warp(Number(nextRoundTimestamp2));
-
-    await waitL1Block();
-
-    test.logger.info(`Submitting winner of round ${govData.round}`);
-
-    await l1TxUtils.sendAndMonitorTransaction({
-      to: governanceProposer.address,
-      data: encodeFunctionData({
-        abi: GovernanceProposerAbi,
-        functionName: 'submitRoundWinner',
-        args: [govData.round],
-      }),
-    });
-
-    test.logger.info(`Submitted winner of round ${govData.round}`);
-
-    const proposal = await governance.read.getProposal([0n]);
-
-    const timeToActive = proposal.creation + proposal.config.votingDelay;
-    test.logger.info(`Warping to ${timeToActive + 1n}`);
-    await test.context.cheatCodes.eth.warp(Number(timeToActive + 1n));
-    test.logger.info(`Warped to ${timeToActive + 1n}`);
-    await waitL1Block();
-
-    test.logger.info(`Voting`);
-    const voteTx = await rollup.vote(l1TxUtils, 0n);
-    expect(voteTx.receipt?.status).toBe('success');
-    test.logger.info(`Voted`);
-
-    const proposalState = await governance.read.getProposal([0n]);
-    test.logger.info(`Proposal state`, proposalState);
-
-    const timeToExecutable = timeToActive + proposal.config.votingDuration + proposal.config.executionDelay + 1n;
-    test.logger.info(`Warping to ${timeToExecutable}`);
-    await test.context.cheatCodes.eth.warp(Number(timeToExecutable));
-    test.logger.info(`Warped to ${timeToExecutable}`);
-    await waitL1Block();
+    const governanceProposerAddress = getAddress(
+      test.context.deployL1ContractsValues.l1ContractAddresses.governanceProposerAddress.toString(),
+    );
 
     test.logger.info(`Checking governance proposer`);
-    expect(await governance.read.governanceProposer()).toEqual(
-      getAddress(test.context.deployL1ContractsValues.l1ContractAddresses.governanceProposerAddress.toString()),
-    );
+    expect(await governance.read.governanceProposer()).toEqual(governanceProposerAddress);
     test.logger.info(`Governance proposer is correct`);
 
     test.logger.info(`Executing proposal`);
-    const executeTx = await governance.write.execute([0n], { account: emperor });
+    const executeTx = await governance.write.execute([0n], { account: driver.emperor });
     await test.context.deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash: executeTx });
     test.logger.info(`Executed proposal`);
     const newGovernanceProposer = await governance.read.governanceProposer();
-    expect(newGovernanceProposer).not.toEqual(
-      getAddress(test.context.deployL1ContractsValues.l1ContractAddresses.governanceProposerAddress.toString()),
-    );
+    expect(newGovernanceProposer).not.toEqual(governanceProposerAddress);
     expect(await governance.read.getProposalState([0n])).toEqual(5);
     test.logger.info(`Governance proposer is correct`);
   }, 1_000_000);

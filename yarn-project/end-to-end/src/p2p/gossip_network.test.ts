@@ -1,33 +1,30 @@
-import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { TxHash } from '@aztec/aztec.js/tx';
-import { BlockNumber } from '@aztec/foundation/branded-types';
-import { Signature } from '@aztec/foundation/eth-signature';
+import { EthAddress } from '@aztec/aztec.js/addresses';
+import { Fr } from '@aztec/aztec.js/fields';
+import { addL1Validator } from '@aztec/cli/l1/validators';
+import { RollupContract } from '@aztec/ethereum/contracts';
+import { EpochNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
-import type { SequencerClient } from '@aztec/sequencer-client';
+import { sleep } from '@aztec/foundation/sleep';
+import { MockZKPassportVerifierAbi } from '@aztec/l1-artifacts/MockZKPassportVerifierAbi';
+import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
-import { CheckpointAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
+import { TopicType } from '@aztec/stdlib/p2p';
+import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
 
 import { jest } from '@jest/globals';
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
+import { getContract } from 'viem';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import {
   ATTESTER_PRIVATE_KEYS_START_INDEX,
-  createNodes,
   createNonValidatorNode,
   createProverNode,
 } from '../fixtures/setup_p2p_test.js';
-import { waitForTxs } from '../fixtures/wait_helpers.js';
-import { type AlertConfig, GrafanaClient } from '../quality_of_service/grafana_client.js';
-import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
-import { submitTransactions } from './shared.js';
+import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES } from './p2p_network.js';
+import { maybeCheckQosAlerts, runGossipScenario, waitForNodesToSync } from './shared.js';
 
-const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';
-
-// Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
+// Don't set NUM_VALIDATORS higher than 9 because each node uses a different L1 publisher account and anvil seeds.
 const NUM_VALIDATORS = 4;
 const NUM_TXS_PER_NODE = 2;
 const BOOT_NODE_UDP_PORT = process.env.BOOT_NODE_UDP_PORT ? parseInt(process.env.BOOT_NODE_UDP_PORT) : 4500;
@@ -35,193 +32,277 @@ const AZTEC_SLOT_DURATION = 24;
 const AZTEC_EPOCH_DURATION = 4;
 const BLOCK_DURATION_MS = 10_000;
 
-const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'gossip-'));
-
 jest.setTimeout(1000 * 60 * 10);
 
-const qosAlerts: AlertConfig[] = [
-  {
-    alert: 'SequencerTimeToCollectAttestations',
-    expr: 'aztec_sequencer_time_to_collect_attestations > 3500',
-    labels: { severity: 'error' },
-    for: '10m',
-    annotations: {},
-  },
-];
-
-// Tests end-to-end gossip propagation with 4 validators, a fake prover node, and a non-validator
-// monitoring node (alwaysReexecuteBlockProposals:true). Uses P2PNetworkTest with real libp2p,
-// SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES (ethSlot=4s, aztecSlot=24s, epoch=4, proofSubEpochs=640),
-// inboxLag=2. Asserts txs are mined from all nodes, attestation signers match the validator set,
-// and the prover node produces a proven block by collecting txs from p2p.
+// End-to-end gossip propagation over real libp2p with 4 validators, using the shared
+// bootstrap->createNodes->mesh->account->submit->verify skeleton (runGossipScenario). Both describes use
+// P2PNetworkTest with SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES (ethSlot=4s, proofSubEpochs=640), aztecSlot=24s,
+// blockDurationMs=10000, inboxLag=2, and differ only in how the validator set is registered.
 describe('e2e_p2p_network', () => {
-  let t: P2PNetworkTest;
-  let nodes: AztecNodeService[];
-  let proverAztecNode: AztecNodeService;
-  let monitoringNode: AztecNodeService;
+  // Registers validators via applyBaseSetup()'s MultiAdder cheat shortcut, then stands up 4 validators +
+  // a fake prover node (p2p-only tx collection) + a non-validator monitoring node
+  // (alwaysReexecuteBlockProposals:true). Asserts txs mine from every node, attestation signers match the
+  // validator set, and the prover eventually produces a proven block by collecting txs from p2p.
+  describe('cheat-registered validators', () => {
+    let t: P2PNetworkTest;
+    let nodes: AztecNodeService[];
+    let proverAztecNode: AztecNodeService;
+    let monitoringNode: AztecNodeService;
 
-  beforeEach(async () => {
-    t = await P2PNetworkTest.create({
-      testName: 'e2e_p2p_network',
-      numberOfNodes: 0,
-      numberOfValidators: NUM_VALIDATORS,
-      basePort: BOOT_NODE_UDP_PORT,
-      metricsPort: shouldCollectMetrics(),
-      startProverNode: false, // we'll start our own using p2p
-      initialConfig: {
-        ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
-        aztecSlotDuration: AZTEC_SLOT_DURATION,
-        aztecEpochDuration: AZTEC_EPOCH_DURATION,
-        blockDurationMs: BLOCK_DURATION_MS,
-        slashingRoundSizeInEpochs: 2,
-        slashingQuorum: 5,
-        listenAddress: '127.0.0.1',
-        inboxLag: 2,
-      },
+    beforeEach(async () => {
+      t = await P2PNetworkTest.create({
+        testName: 'e2e_p2p_network',
+        numberOfNodes: 0,
+        numberOfValidators: NUM_VALIDATORS,
+        basePort: BOOT_NODE_UDP_PORT,
+        metricsPort: shouldCollectMetrics(),
+        startProverNode: false, // we'll start our own using p2p
+        initialConfig: {
+          ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
+          aztecSlotDuration: AZTEC_SLOT_DURATION,
+          aztecEpochDuration: AZTEC_EPOCH_DURATION,
+          blockDurationMs: BLOCK_DURATION_MS,
+          slashingRoundSizeInEpochs: 2,
+          slashingQuorum: 5,
+          listenAddress: '127.0.0.1',
+          inboxLag: 2,
+        },
+      });
+
+      await t.setup();
+      await t.applyBaseSetup();
     });
 
-    await t.setup();
-    await t.applyBaseSetup();
+    afterEach(async () => {
+      await tryStop(proverAztecNode);
+      await tryStop(monitoringNode);
+      await t.stopNodes(nodes);
+      await t.teardown();
+    });
+
+    afterAll(async () => {
+      await maybeCheckQosAlerts(t.logger);
+    });
+
+    it('should rollup txs from all peers', async () => {
+      nodes = await runGossipScenario({
+        t,
+        numValidators: NUM_VALIDATORS,
+        bootNodePort: BOOT_NODE_UDP_PORT,
+        txsPerNode: NUM_TXS_PER_NODE,
+        createExtraNodes: async () => {
+          // A prover node that uses p2p only (not rpc) to gather txs, to test prover tx collection.
+          t.logger.warn(`Creating prover node`);
+          ({ proverNode: proverAztecNode } = await createProverNode(
+            t.ctx.aztecNodeConfig,
+            BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 1,
+            t.bootstrapNodeEnr,
+            ATTESTER_PRIVATE_KEYS_START_INDEX + NUM_VALIDATORS + 1,
+            { dateProvider: t.ctx.dateProvider },
+            t.genesis,
+            t.dataDirFor('prover'),
+            shouldCollectMetrics(),
+          ));
+
+          t.logger.warn(`Creating non validator node`);
+          const monitoringNodeConfig: AztecNodeConfig = {
+            ...t.ctx.aztecNodeConfig,
+            alwaysReexecuteBlockProposals: true,
+          };
+          monitoringNode = await createNonValidatorNode(
+            monitoringNodeConfig,
+            t.ctx.dateProvider,
+            BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 2,
+            t.bootstrapNodeEnr,
+            t.genesis,
+            t.dataDirFor('monitor'),
+            shouldCollectMetrics(),
+          );
+        },
+        beforeSubmit: nodes => waitForNodesToSync(t, nodes),
+        afterVerify: async nodes => {
+          // Ensure prover node did its job and collected txs from p2p
+          await retryUntil(
+            async () => {
+              const provenBlock = await nodes[0].getBlockNumber('proven');
+              return provenBlock > 0;
+            },
+            'proven block',
+            SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES.aztecProofSubmissionEpochs *
+              AZTEC_EPOCH_DURATION *
+              AZTEC_SLOT_DURATION,
+          );
+        },
+      });
+    });
   });
 
-  afterEach(async () => {
-    await tryStop(proverAztecNode);
-    await tryStop(monitoringNode);
-    await t.stopNodes(nodes);
-    await t.teardown();
-    for (let i = 0; i < NUM_VALIDATORS; i++) {
-      fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
-    }
-  });
+  // Registers validators via the real addL1Validator CLI path (with a ZkPassport mock proof) instead of
+  // the MultiAdder cheat shortcut, then submits txs to each node. Asserts the registration took effect
+  // on-chain, all txs mine, and attestation signers match the registered validator set.
+  describe('on-chain-registered validators (no cheats)', () => {
+    let t: P2PNetworkTest;
+    let nodes: AztecNodeService[];
 
-  afterAll(async () => {
-    if (CHECK_ALERTS) {
-      const checker = new GrafanaClient(t.logger);
-      await checker.runAlertCheck(qosAlerts);
-    }
-  });
+    beforeEach(async () => {
+      t = await P2PNetworkTest.create({
+        testName: 'e2e_p2p_network',
+        numberOfNodes: 0,
+        numberOfValidators: NUM_VALIDATORS,
+        basePort: BOOT_NODE_UDP_PORT,
+        metricsPort: shouldCollectMetrics(),
+        initialConfig: {
+          ...SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES,
+          aztecSlotDuration: AZTEC_SLOT_DURATION,
+          blockDurationMs: BLOCK_DURATION_MS,
+          listenAddress: '127.0.0.1',
+          // Allow empty blocks so the first checkpoint can be published before any txs are submitted.
+          // Without this, no blocks are built until txs arrive, and a failed checkpoint during tx
+          // submission causes block pruning that invalidates tx references.
+          minTxsPerBlock: 0,
+          inboxLag: 2,
+        },
+      });
 
-  // Stands up 4 validators + 1 prover + 1 re-execution monitor, submits 2 txs per node, and waits
-  // for all txs to mine. Checks attestation signers match the validator set and confirms the prover
-  // eventually produces a proven block (collecting txs from p2p rather than RPC).
-  it('should rollup txs from all peers', async () => {
-    // create the bootstrap node for the network
-    if (!t.bootstrapNodeEnr) {
-      throw new Error('Bootstrap node ENR is not available');
-    }
+      await t.setup();
+      await t.addBootstrapNode();
+    });
 
-    // create our network of nodes and submit txs into each of them
-    // the number of txs per node and the number of txs per rollup
-    // should be set so that the only way for rollups to be built
-    // is if the txs are successfully gossiped around the nodes.
-    const txsSentViaDifferentNodes: TxHash[][] = [];
-    t.logger.info('Creating validator nodes');
-    nodes = await createNodes(
-      t.ctx.aztecNodeConfig,
-      t.ctx.dateProvider,
-      t.bootstrapNodeEnr,
-      NUM_VALIDATORS,
-      BOOT_NODE_UDP_PORT,
-      t.genesis,
-      DATA_DIR,
-      // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
-      shouldCollectMetrics(),
-    );
+    afterEach(async () => {
+      await t.stopNodes(nodes);
+      await t.teardown();
+    });
 
-    // create a prover node that uses p2p only (not rpc) to gather txs to test prover tx collection
-    t.logger.warn(`Creating prover node`);
-    ({ proverNode: proverAztecNode } = await createProverNode(
-      t.ctx.aztecNodeConfig,
-      BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 1,
-      t.bootstrapNodeEnr,
-      ATTESTER_PRIVATE_KEYS_START_INDEX + NUM_VALIDATORS + 1,
-      { dateProvider: t.ctx.dateProvider },
-      t.genesis,
-      `${DATA_DIR}-prover`,
-      shouldCollectMetrics(),
-    ));
+    afterAll(async () => {
+      await maybeCheckQosAlerts(t.logger);
+    });
 
-    t.logger.warn(`Creating non validator node`);
-    const monitoringNodeConfig: AztecNodeConfig = { ...t.ctx.aztecNodeConfig, alwaysReexecuteBlockProposals: true };
-    monitoringNode = await createNonValidatorNode(
-      monitoringNodeConfig,
-      t.ctx.dateProvider,
-      BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 2,
-      t.bootstrapNodeEnr,
-      t.genesis,
-      `${DATA_DIR}-monitor`,
-      shouldCollectMetrics(),
-    );
+    it('should rollup txs from all peers (and add the validators without cheating)', async () => {
+      nodes = await runGossipScenario({
+        t,
+        numValidators: NUM_VALIDATORS,
+        bootNodePort: BOOT_NODE_UDP_PORT,
+        txsPerNode: NUM_TXS_PER_NODE,
+        submitSequentially: true,
+        // A full mesh (N-1 peers per node) on the proposal/checkpoint topics is required: with
+        // skipInitialSequencer the first blocks are built by this committee, and the first checkpoint must
+        // reach quorum (all 4 validators) to land on L1. If those meshes are only partly formed, some
+        // committee members miss the first proposal, the checkpoint stalls at 2/3, and every later slot
+        // rebuilds a competing un-checkpointed block 1 that peers reject as `block_number_already_exists`
+        // — a permanent 2/3 deadlock.
+        mesh: {
+          expectedNodeCount: NUM_VALIDATORS,
+          timeoutSeconds: 60,
+          checkIntervalSeconds: 0.5,
+          topics: [TopicType.block_proposal, TopicType.checkpoint_proposal, TopicType.checkpoint_attestation],
+          minMeshPeerCount: NUM_VALIDATORS - 1,
+        },
+        beforeCreateNodes: async () => {
+          expect(t.ctx.deployL1ContractsValues.l1ContractAddresses.stakingAssetHandlerAddress).toBeDefined();
 
-    t.logger.info('Waiting for nodes to connect');
-    await t.waitForP2PMeshConnectivity(nodes, NUM_VALIDATORS);
+          const { validators } = t.getValidators();
 
-    // We need to `createNodes` before we setup account, because
-    // those nodes actually form the committee, and so we cannot build
-    // blocks without them (since targetCommitteeSize is set to the number of nodes)
-    await t.setupAccount();
+          const rollupWrapper = RollupContract.getFromL1ContractsValues(t.ctx.deployL1ContractsValues);
 
-    // Wait until the other nodes sync to the block from which we sent the tx
-    const targetBlock = await t.ctx.aztecNode.getBlockNumber();
-    t.logger.warn(`Waiting for all nodes to sync to block number ${targetBlock}`);
-    await retryUntil(
-      async () => {
-        const blockNumbers = await Promise.all(nodes.map(node => node.getBlockNumber()));
-        const checkpointNumber = (await t.monitor.run()).checkpointNumber;
-        t.logger.info(`Current block numbers ${blockNumbers} (checkpoint number on L1 is ${checkpointNumber})`);
-        return blockNumbers.every(bn => bn >= targetBlock);
-      },
-      `nodes to sync to block number ${targetBlock}`,
-      30,
-      0.5,
-    );
+          const rollup = getContract({
+            address: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
+            abi: RollupAbi,
+            client: t.ctx.deployL1ContractsValues.l1Client,
+          });
 
-    t.logger.info('Submitting transactions');
-    for (const node of nodes) {
-      const context = await submitTransactions(t.logger, node, NUM_TXS_PER_NODE, t.fundedAccount);
-      txsSentViaDifferentNodes.push(context);
-    }
+          const zkPassportVerifier = getContract({
+            address: t.ctx.deployL1ContractsValues.l1ContractAddresses.zkPassportVerifierAddress!.toString(),
+            abi: MockZKPassportVerifierAbi,
+            client: t.ctx.deployL1ContractsValues.l1Client,
+          });
 
-    t.logger.info('Waiting for transactions to be mined');
-    // now ensure that all txs were successfully mined
-    const allTxHashes = txsSentViaDifferentNodes.flat();
-    await waitForTxs(nodes[0], allTxHashes, { timeout: WAIT_FOR_TX_TIMEOUT });
-    t.logger.info('All transactions mined');
+          expect((await rollupWrapper.getAttesters()).length).toBe(0);
 
-    // Gather signers from attestations downloaded from L1
-    const receipt = await nodes[0].getTxReceipt(txsSentViaDifferentNodes[0][0]);
-    const blockNumber = receipt.blockNumber!;
-    const dataStore = (nodes[0] as AztecNodeService).getBlockSource() as Archiver;
-    const blockData = await dataStore.getBlockData({ number: BlockNumber(blockNumber) });
-    const [publishedCheckpoint] = await dataStore.getCheckpoints({ from: blockData!.checkpointNumber, limit: 1 });
-    const signatureContext = {
-      chainId: t.ctx.aztecNodeConfig.l1ChainId,
-      rollupAddress: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
-    };
-    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint, signatureContext);
-    const attestations = publishedCheckpoint.attestations
-      .filter(a => !a.signature.isEmpty())
-      .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));
-    const signers = await Promise.all(attestations.map(att => att.getSender()!.toString()));
-    t.logger.info(`Attestation signers`, { signers });
+          // Use the base account as the withdrawer for all validators in this test
+          const withdrawerAddress = EthAddress.fromString(t.baseAccount.address);
 
-    // Check that the signers found are part of the proposer nodes to ensure the archiver fetched them right
-    const validatorAddresses = nodes.flatMap(node =>
-      ((node as AztecNodeService).getSequencer() as SequencerClient).validatorAddresses?.map(a => a.toString()),
-    );
-    t.logger.info(`Validator addresses`, { addresses: validatorAddresses });
-    for (const signer of signers) {
-      expect(validatorAddresses).toContain(signer);
-    }
+          // Add the validators to the rollup using the same function as the CLI
+          for (let i = 0; i < validators.length; i++) {
+            const validator = validators[i];
+            const mockPassportProof = ZkPassportProofParams.random().toBuffer();
+            await addL1Validator({
+              rpcUrls: t.ctx.aztecNodeConfig.l1RpcUrls,
+              chainId: t.ctx.aztecNodeConfig.l1ChainId,
+              privateKey: t.baseAccountPrivateKey,
+              mnemonic: undefined,
+              attesterAddress: EthAddress.fromString(validator.attester.toString()),
+              withdrawerAddress,
+              stakingAssetHandlerAddress: t.ctx.deployL1ContractsValues.l1ContractAddresses.stakingAssetHandlerAddress!,
+              proofParams: mockPassportProof,
+              blsSecretKey: Fr.random().toBigInt(),
+              log: t.logger.info,
+              debugLogger: t.logger,
+            });
 
-    // Ensure prover node did its job and collected txs from p2p
-    await retryUntil(
-      async () => {
-        const provenBlock = await nodes[0].getBlockNumber('proven');
-        return provenBlock > 0;
-      },
-      'proven block',
-      SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES.aztecProofSubmissionEpochs * AZTEC_EPOCH_DURATION * AZTEC_SLOT_DURATION,
-    );
+            // mock nullifiers - increment the id in the mock zk passport verifier
+            t.logger.info('Incrementing unique identifier in mock zk passport verifier');
+            await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({
+              hash: await zkPassportVerifier.write.incrementUniqueIdentifier(),
+            });
+          }
+
+          await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({
+            hash: await rollup.write.flushEntryQueue(),
+          });
+
+          const attestersImmedatelyAfterAdding = await rollupWrapper.getAttesters();
+          expect(attestersImmedatelyAfterAdding.length).toBe(validators.length);
+
+          // Check that the validators are added correctly
+          for (const validator of validators) {
+            const info = await rollupWrapper.getAttesterView(validator.attester.toString());
+            expect(info.config.withdrawer.toChecksumString()).toBe(withdrawerAddress.toChecksumString());
+          }
+
+          // Wait for the validators to be added to the rollup
+          const timestamp = await t.ctx.cheatCodes.rollup.advanceToEpoch(
+            EpochNumber(t.ctx.aztecNodeConfig.lagInEpochsForValidatorSet + 1),
+          );
+
+          // Changes have now taken effect
+          const attesters = await rollupWrapper.getAttesters();
+          expect(attesters.length).toBe(validators.length);
+          expect(attesters.length).toBe(NUM_VALIDATORS);
+
+          // Send and await a tx to make sure we mine a block for the warp to correctly progress.
+          await t.ctx.deployL1ContractsValues.l1Client.waitForTransactionReceipt({
+            hash: await t.ctx.deployL1ContractsValues.l1Client.sendTransaction({
+              to: t.baseAccount.address,
+              value: 1n,
+              account: t.baseAccount,
+            }),
+          });
+
+          // Set the system time in the node, only after we have warped the time and waited for a block
+          // Time is only set in the NEXT block
+          t.ctx.dateProvider.setTime(Number(timestamp) * 1000);
+        },
+        beforeSubmit: async nodes => {
+          // Wait for the first checkpoint to be published to L1 before submitting transactions.
+          // With skipInitialSequencer, no blocks exist from setup, so the first blocks are built by the
+          // validator committee. If we submit txs before a checkpoint lands on L1, a failed checkpoint
+          // publish can prune locally-proposed blocks, causing txs to reference pruned block headers.
+          t.logger.info('Waiting for first checkpoint to be published');
+          await retryUntil(
+            async () => (await nodes[0].getBlockNumber('checkpointed')) > 0,
+            'first checkpoint published',
+            120,
+          );
+          t.logger.info('First checkpoint published');
+
+          // Wait for the next L1 block so that all nodes' getCurrentMinFees() caches are
+          // refreshed after the first L2 checkpoint is published. Without this, some wallets
+          // may estimate fees based on pre-checkpoint values (very low due to fee decay),
+          // while receiving nodes already see the post-checkpoint fees (much higher).
+          const ethereumSlotDuration = t.ctx.aztecNodeConfig.ethereumSlotDuration ?? 4;
+          await sleep((ethereumSlotDuration + 1) * 1000);
+        },
+      });
+    });
   });
 });

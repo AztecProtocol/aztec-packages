@@ -1,9 +1,14 @@
 import { computeAuthWitMessageHash } from '@aztec/aztec.js/authorization';
 import { Fr } from '@aztec/aztec.js/fields';
 
-import { sendThroughAuthwitProxy, simulateThroughAuthwitProxy } from '../../fixtures/authwit_proxy.js';
-import { DUPLICATE_NULLIFIER_ERROR } from '../../fixtures/fixtures.js';
+import { simulateThroughAuthwitProxy } from '../../fixtures/authwit_proxy.js';
 import { BlacklistTokenContractTest } from './blacklist_token_contract_test.js';
+import {
+  INVALID_AUTHWIT_NONCE_ERROR,
+  amountAboveBalance,
+  assertAuthwitProxyReplayRejected,
+  halfBalanceOf,
+} from './token_test_helpers.js';
 
 // Covers the unshield (private→public) operation on TokenBlacklist, including authwit-delegated unshielding
 // and blacklist enforcement on sender and recipient. Setup: single node with AutomineSequencer, 3 accounts,
@@ -30,53 +35,26 @@ describe('automine/token/blacklist_unshielding', () => {
 
   // Unshields half of admin's private balance to admin's public balance and verifies via TokenSimulator.
   it('on behalf of self', async () => {
-    const balancePriv = await asset.methods
-      .balance_of_private(adminAddress)
-      .simulate({ from: adminAddress })
-      .then(r => r.result);
-    const amount = balancePriv / 2n;
-    expect(amount).toBeGreaterThan(0n);
-
+    const amount = await halfBalanceOf(asset, 'private', adminAddress);
     await asset.methods.unshield(adminAddress, adminAddress, amount, 0).send({ from: adminAddress });
-
     tokenSim.transferToPublic(adminAddress, adminAddress, amount);
   });
 
   // Creates a private authwit for unshield, sends through proxy to other's public balance, verifies
-  // TokenSimulator, then asserts replay fails with DUPLICATE_NULLIFIER_ERROR.
+  // TokenSimulator, then asserts replay fails with a duplicate-nullifier error.
   it('on behalf of other', async () => {
-    const balancePriv0 = await asset.methods
-      .balance_of_private(adminAddress)
-      .simulate({ from: adminAddress })
-      .then(r => r.result);
-    const amount = balancePriv0 / 2n;
-    const authwitNonce = Fr.random();
-    expect(amount).toBeGreaterThan(0n);
-
-    const action = asset.methods.unshield(adminAddress, otherAddress, amount, authwitNonce);
-    const witness = await wallet.createAuthWit(adminAddress, { caller: t.authwitProxy.address, action });
-
-    // Admin sends through proxy so their keys are in scope, while proxy becomes msg_sender to trigger authwit.
-    await sendThroughAuthwitProxy(t.authwitProxy, action, { from: adminAddress, authWitnesses: [witness] });
-    tokenSim.transferToPublic(adminAddress, otherAddress, amount);
-
-    // Perform the transfer again, should fail
-    await expect(
-      sendThroughAuthwitProxy(t.authwitProxy, action, { from: adminAddress, authWitnesses: [witness] }),
-    ).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
+    const amount = await halfBalanceOf(asset, 'private', adminAddress);
+    const action = asset.methods.unshield(adminAddress, otherAddress, amount, Fr.random());
+    await assertAuthwitProxyReplayRejected(t.authwitProxy, wallet, adminAddress, action, () =>
+      tokenSim.transferToPublic(adminAddress, otherAddress, amount),
+    );
   });
 
   // Error paths: more-than-balance, invalid nonce, over-balance via authwit, wrong caller, blacklist.
   describe('failure cases', () => {
     // Unshields more than private balance (self); expects 'Balance too low'.
     it('on behalf of self (more than balance)', async () => {
-      const balancePriv = await asset.methods
-        .balance_of_private(adminAddress)
-        .simulate({ from: adminAddress })
-        .then(r => r.result);
-      const amount = balancePriv + 1n;
-      expect(amount).toBeGreaterThan(0n);
-
+      const amount = await amountAboveBalance(asset, 'private', adminAddress);
       await expect(
         asset.methods.unshield(adminAddress, adminAddress, amount, 0).simulate({ from: adminAddress }),
       ).rejects.toThrow('Assertion failed: Balance too low');
@@ -84,31 +62,16 @@ describe('automine/token/blacklist_unshielding', () => {
 
     // Self-unshield with nonce=1; expects the invalid-nonce assertion failure.
     it('on behalf of self (invalid authwit nonce)', async () => {
-      const balancePriv = await asset.methods
-        .balance_of_private(adminAddress)
-        .simulate({ from: adminAddress })
-        .then(r => r.result);
-      const amount = balancePriv + 1n;
-      expect(amount).toBeGreaterThan(0n);
-
+      const amount = await amountAboveBalance(asset, 'private', adminAddress);
       await expect(
         asset.methods.unshield(adminAddress, adminAddress, amount, 1).simulate({ from: adminAddress }),
-      ).rejects.toThrow(
-        "Assertion failed: Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero",
-      );
+      ).rejects.toThrow(INVALID_AUTHWIT_NONCE_ERROR);
     });
 
     // Authwit-unshields more than private balance via proxy; expects 'Balance too low'.
     it('on behalf of other (more than balance)', async () => {
-      const balancePriv0 = await asset.methods
-        .balance_of_private(adminAddress)
-        .simulate({ from: adminAddress })
-        .then(r => r.result);
-      const amount = balancePriv0 + 2n;
-      const authwitNonce = Fr.random();
-      expect(amount).toBeGreaterThan(0n);
-
-      const action = asset.methods.unshield(adminAddress, otherAddress, amount, authwitNonce);
+      const amount = await amountAboveBalance(asset, 'private', adminAddress, 2n);
+      const action = asset.methods.unshield(adminAddress, otherAddress, amount, Fr.random());
       const witness = await wallet.createAuthWit(adminAddress, { caller: t.authwitProxy.address, action });
 
       // Admin sends through proxy so their keys are in scope, while proxy becomes msg_sender to trigger authwit.
@@ -120,15 +83,8 @@ describe('automine/token/blacklist_unshielding', () => {
     // Creates authwit designating otherAddress as caller but sends through proxy; expects unknown-authwit
     // error because the message hash references the proxy address.
     it('on behalf of other (invalid designated caller)', async () => {
-      const balancePriv0 = await asset.methods
-        .balance_of_private(adminAddress)
-        .simulate({ from: adminAddress })
-        .then(r => r.result);
-      const amount = balancePriv0 + 2n;
-      const authwitNonce = Fr.random();
-      expect(amount).toBeGreaterThan(0n);
-
-      const action = asset.methods.unshield(adminAddress, otherAddress, amount, authwitNonce);
+      const amount = await amountAboveBalance(asset, 'private', adminAddress, 2n);
+      const action = asset.methods.unshield(adminAddress, otherAddress, amount, Fr.random());
       const call = await action.getFunctionCall();
       const expectedMessageHash = await computeAuthWitMessageHash(
         { caller: t.authwitProxy.address, call },
