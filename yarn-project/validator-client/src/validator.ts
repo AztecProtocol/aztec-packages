@@ -4,7 +4,7 @@ import type { EpochCache } from '@aztec/epoch-cache';
 import { CheckpointNumber, EpochNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import type { Signature } from '@aztec/foundation/eth-signature';
+import { Signature } from '@aztec/foundation/eth-signature';
 import { FifoSet } from '@aztec/foundation/fifo-set';
 import { type LogData, type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -35,7 +35,7 @@ import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import {
   type BlockProposal,
   type BlockProposalOptions,
-  type CheckpointAttestation,
+  CheckpointAttestation,
   CheckpointProposal,
   type CheckpointProposalCore,
   type CheckpointProposalOptions,
@@ -671,7 +671,12 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       return undefined;
     }
 
-    const attestations = await this.validationService.attestToCheckpointProposal(proposal, attestors, checkpointNumber);
+    let attestations = await this.validationService.attestToCheckpointProposal(proposal, attestors, checkpointNumber);
+
+    if (this.config.injectYParityOwnAttestation) {
+      this.log.warn(`Injecting yParity form into own attestations for slot ${proposal.slotNumber}`);
+      attestations = attestations.map(a => toYParityAttestation(a));
+    }
 
     // Track the proposal we attested to (to prevent equivocation)
     this.lastAttestedProposal = proposal;
@@ -1127,4 +1132,18 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
     const authResponse = new AuthResponse(statusMessage, signature);
     return authResponse.toBuffer();
   }
+}
+
+/**
+ * Rewrites an attestation's recovery byte to yParity (v ∈ {0, 1}) form, preserving (r, s) and the recovery
+ * parity so it still recovers to the same signer. Models a malicious committee member; for testing only.
+ */
+function toYParityAttestation(attestation: CheckpointAttestation): CheckpointAttestation {
+  const signature = attestation.signature;
+  const yParityV = signature.v >= 27 ? signature.v - 27 : signature.v;
+  return new CheckpointAttestation(
+    attestation.payload,
+    new Signature(signature.r, signature.s, yParityV),
+    attestation.proposerSignature,
+  );
 }

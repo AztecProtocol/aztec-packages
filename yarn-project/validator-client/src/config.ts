@@ -90,6 +90,10 @@ export const validatorClientConfigMappings: ConfigMappingsType<
     description: 'Agree to attest to equivocated checkpoint proposals (for testing purposes only)',
     ...booleanConfigHelper(false),
   },
+  injectYParityOwnAttestation: {
+    description: "Rewrite this validator's own attestation to yParity form after signing (for testing only)",
+    ...booleanConfigHelper(false),
+  },
   skipProposalSlotValidation: {
     description: 'Accept proposal validation regardless of slot timing (for testing only)',
     ...booleanConfigHelper(false),

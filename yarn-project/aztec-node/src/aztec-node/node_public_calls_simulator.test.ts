@@ -452,6 +452,7 @@ function makeInvalidStatus(firstInvalid: CheckpointNumber): ValidateCheckpointRe
     seed: 0n,
     attestors: [],
     attestations: [],
+    packedAttestations: { signatureIndices: '0x', signaturesOrAddresses: '0x' },
     reason: 'insufficient-attestations',
   };
 }

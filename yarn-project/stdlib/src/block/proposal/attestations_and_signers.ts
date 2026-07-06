@@ -1,5 +1,5 @@
 import type { ViemCommitteeAttestations } from '@aztec/ethereum/contracts';
-import { hexToBuffer } from '@aztec/foundation/string';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { encodeAbiParameters, parseAbiParameters } from 'viem';
 import { z } from 'zod';
@@ -155,5 +155,50 @@ export class MaliciousCommitteeAttestationsAndSigners extends CommitteeAttestati
 
   override getSigners(): EthAddress[] {
     return this.signers;
+  }
+}
+
+/**
+ * Malicious extension of CommitteeAttestationsAndSigners that rewrites one non-empty signature slot's
+ * recovery byte to yParity form (v ∈ {0, 1}) in the packed output, after the honest `packAttestations`
+ * has already canonicalized it to v ∈ {27, 28}. Models a malicious selected proposer that hand-crafts
+ * `propose()` calldata L1 accepts but no honest node can byte-replay: the signature still recovers to the
+ * same member (r, s and the recovery parity are preserved), the bitmap bit stays set, and `getSigners()`
+ * stays consistent, so `propose()` does not revert `SignersSizeMismatch` -- yet the checkpoint can never
+ * be proven (`ECDSA.recover` rejects v ∉ {27, 28}). For testing only.
+ */
+export class YParityCommitteeAttestationsAndSigners extends CommitteeAttestationsAndSigners {
+  constructor(
+    attestations: CommitteeAttestation[],
+    /** Committee index of the (non-empty, non-proposer) signature slot whose recovery byte to force to yParity. */
+    private targetIndex: number,
+    signatureContext: CoordinationSignatureContext,
+  ) {
+    super(attestations, signatureContext);
+  }
+
+  override getPackedAttestations(): ViemCommitteeAttestations {
+    const packed = super.getPackedAttestations();
+    const data = hexToBuffer(packed.signaturesOrAddresses);
+
+    // Walk the packed byte-vector to find the v-byte offset of the target slot. A signed slot occupies
+    // 65 bytes (v, r, s); an empty slot occupies 20 bytes (address only).
+    let offset = 0;
+    for (let i = 0; i < this.attestations.length; i++) {
+      const isSigned = !this.attestations[i].signature.isEmpty();
+      if (i === this.targetIndex) {
+        if (!isSigned) {
+          throw new Error(`Target slot ${i} is not a signature slot; cannot force a yParity recovery byte`);
+        }
+        // `packAttestations` canonicalized v to 27/28; rewrite back to the equivalent yParity byte (0/1),
+        // preserving the recovery parity so the signature still recovers to the same member.
+        const v = data[offset];
+        data[offset] = v >= 27 ? v - 27 : v;
+        break;
+      }
+      offset += isSigned ? 65 : 20;
+    }
+
+    return { signatureIndices: packed.signatureIndices, signaturesOrAddresses: bufferToHex(data) };
   }
 }

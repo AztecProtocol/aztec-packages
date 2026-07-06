@@ -34,6 +34,12 @@ type CheckpointData = {
   archiveRoot: Fr;
   header: CheckpointHeader;
   attestations: CommitteeAttestation[];
+  /**
+   * The exact packed `CommitteeAttestations` tuple as it appears in the propose calldata, preserved
+   * verbatim (never re-derived from {@link attestations}) so invalidation evidence stays byte-faithful to
+   * the on-chain `attestationsHash`.
+   */
+  packedAttestations: ViemCommitteeAttestations;
   blockHash: string;
   feeAssetPriceModifier: bigint;
 };
@@ -458,6 +464,7 @@ export class CalldataRetriever {
         archiveRoot,
         header,
         attestations,
+        packedAttestations,
         blockHash,
         feeAssetPriceModifier,
       };

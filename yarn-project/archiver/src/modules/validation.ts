@@ -1,4 +1,5 @@
 import type { EpochCache } from '@aztec/epoch-cache';
+import type { ViemCommitteeAttestations } from '@aztec/ethereum/contracts';
 import { type CheckpointNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { compactArray } from '@aztec/foundation/collection';
 import type { Fr } from '@aztec/foundation/curves/bn254';
@@ -6,6 +7,7 @@ import type { Logger } from '@aztec/foundation/log';
 import {
   type AttestationInfo,
   type CommitteeAttestation,
+  CommitteeAttestationsAndSigners,
   type ValidateCheckpointNegativeResult,
   type ValidateCheckpointResult,
   getAttestationInfoFromPayload,
@@ -42,7 +44,18 @@ export function validateCheckpointAttestations(
 ): Promise<ValidateCheckpointResult> {
   const { checkpoint, attestations } = publishedCheckpoint;
   const payload = ConsensusPayload.fromCheckpoint(checkpoint, signatureContext);
-  return validateAttestations(payload, attestations, checkpoint.toCheckpointInfo(), epochCache, constants, logger);
+  // The blob path has no production callers (invalidation always originates from the calldata path), so a
+  // repack is acceptable here to satisfy the required packedAttestations field on a negative result.
+  const packedAttestations = CommitteeAttestationsAndSigners.packAttestations(attestations);
+  return validateAttestations(
+    payload,
+    attestations,
+    packedAttestations,
+    checkpoint.toCheckpointInfo(),
+    epochCache,
+    constants,
+    logger,
+  );
 }
 
 /** The subset of a calldata-only checkpoint needed to validate its committee attestations. */
@@ -52,6 +65,8 @@ export type CalldataCheckpointForAttestations = {
   feeAssetPriceModifier: bigint;
   header: CheckpointHeader;
   attestations: CommitteeAttestation[];
+  /** The exact packed attestations tuple from L1 calldata, carried verbatim for byte-faithful invalidation. */
+  packedAttestations: ViemCommitteeAttestations;
 };
 
 /**
@@ -80,7 +95,15 @@ export function validateCheckpointAttestationsFromCalldata(
     checkpointNumber: checkpoint.checkpointNumber,
     timestamp: checkpoint.header.timestamp,
   };
-  return validateAttestations(payload, checkpoint.attestations, checkpointInfo, epochCache, constants, logger);
+  return validateAttestations(
+    payload,
+    checkpoint.attestations,
+    checkpoint.packedAttestations,
+    checkpointInfo,
+    epochCache,
+    constants,
+    logger,
+  );
 }
 
 /**
@@ -91,6 +114,7 @@ export function validateCheckpointAttestationsFromCalldata(
 async function validateAttestations(
   payload: ConsensusPayload,
   attestations: CommitteeAttestation[],
+  packedAttestations: ViemCommitteeAttestations,
   checkpointInfo: CheckpointInfo,
   epochCache: EpochCache,
   constants: Pick<L1RollupConstants, 'epochDuration'>,
@@ -137,6 +161,7 @@ async function validateAttestations(
     epoch,
     attestors,
     attestations,
+    packedAttestations,
   });
 
   for (let i = 0; i < attestorInfos.length; i++) {

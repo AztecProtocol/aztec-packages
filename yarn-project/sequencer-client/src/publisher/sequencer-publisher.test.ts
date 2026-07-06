@@ -8,6 +8,7 @@ import {
   MulticallForwarderRevertedError,
   type RollupContract,
   type SlashingProposerContract,
+  type ViemCommitteeAttestations,
 } from '@aztec/ethereum/contracts';
 import {
   type L1TxUtils,
@@ -15,13 +16,20 @@ import {
   MAX_L1_TX_LIMIT,
   defaultL1TxUtilsConfig,
 } from '@aztec/ethereum/l1-tx-utils';
-import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
+import { bufferToHex } from '@aztec/foundation/string';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { CommitteeAttestationsAndSigners, L2Block, Signature } from '@aztec/stdlib/block';
+import {
+  CommitteeAttestationsAndSigners,
+  L2Block,
+  Signature,
+  type ValidateCheckpointResult,
+} from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
@@ -1101,6 +1109,52 @@ describe('SequencerPublisher', () => {
 
       await publisher.sendRequests();
       expect(forwardSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('buildInvalidateCheckpointRequest', () => {
+    const checkpointNumber = CheckpointNumber(5);
+    const committee = [EthAddress.random(), EthAddress.random()];
+    const checkpoint = {
+      archive: Fr.random(),
+      lastArchive: Fr.random(),
+      slotNumber: SlotNumber(1),
+      checkpointNumber,
+      timestamp: 0n,
+    };
+
+    const makeInvalidResult = (packedAttestations: ViemCommitteeAttestations): ValidateCheckpointResult => ({
+      valid: false,
+      reason: 'invalid-attestation',
+      checkpoint,
+      committee,
+      epoch: EpochNumber(1),
+      seed: 0n,
+      attestors: [],
+      invalidIndex: 1,
+      attestations: [],
+      packedAttestations,
+    });
+
+    beforeEach(() => {
+      rollup.getCheckpointNumber.mockResolvedValue(checkpointNumber);
+      rollup.buildInvalidateBadAttestationRequest.mockReturnValue({
+        to: mockRollupAddress,
+        data: '0x',
+        abi: [],
+      } as any);
+    });
+
+    it('passes the raw packed attestations tuple verbatim to invalidateBadAttestation', async () => {
+      const packed = { signatureIndices: '0x80', signaturesOrAddresses: bufferToHex(Buffer.alloc(65, 7)) } as const;
+      await publisher.simulateInvalidateCheckpoint(makeInvalidResult(packed));
+      expect(rollup.buildInvalidateBadAttestationRequest).toHaveBeenCalledWith(checkpointNumber, packed, committee, 1);
+    });
+
+    it('throws rather than repacking when the raw packed tuple is missing', async () => {
+      await expect(publisher.simulateInvalidateCheckpoint(makeInvalidResult(undefined as any))).rejects.toThrow(
+        /missing packed attestations/,
+      );
     });
   });
 });

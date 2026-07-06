@@ -1,10 +1,31 @@
+import type { ViemCommitteeAttestations } from '@aztec/ethereum/contracts';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
+import { bufferToHex } from '@aztec/foundation/string';
+
+import { type AbiParameter, encodeAbiParameters, keccak256 } from 'viem';
 
 import { TEST_COORDINATION_SIGNATURE_CONTEXT } from '../../tests/mocks.js';
-import { CommitteeAttestationsAndSigners } from './attestations_and_signers.js';
+import { CommitteeAttestationsAndSigners, YParityCommitteeAttestationsAndSigners } from './attestations_and_signers.js';
 import { CommitteeAttestation } from './committee_attestation.js';
+
+const committeeAttestationsStruct: AbiParameter = {
+  type: 'tuple',
+  components: [
+    { name: 'signatureIndices', type: 'bytes' },
+    { name: 'signaturesOrAddresses', type: 'bytes' },
+  ],
+};
+
+/** keccak256 of the ABI-encoded CommitteeAttestations tuple, matching the on-chain attestationsHash. */
+function attestationsHash(packed: ViemCommitteeAttestations): string {
+  return keccak256(encodeAbiParameters([committeeAttestationsStruct], [packed]));
+}
+
+function repack(packed: ViemCommitteeAttestations, committeeSize: number): ViemCommitteeAttestations {
+  return CommitteeAttestationsAndSigners.packAttestations(CommitteeAttestation.fromPacked(packed, committeeSize));
+}
 
 function popcount(hex: `0x${string}`): number {
   let count = 0;
@@ -57,5 +78,84 @@ describe('CommitteeAttestationsAndSigners.packAttestations', () => {
 
     expect(bundle.getSigners().map(s => s.toString())).not.toContain(address.toString());
     expect(popcount(bundle.getPackedAttestations().signatureIndices)).toEqual(1);
+  });
+});
+
+// A repack (packAttestations ∘ fromPacked) is not a byte-faithful inverse of the raw L1 tuple, so the
+// invalidation evidence must carry the raw bytes verbatim rather than re-derive them. These cases document
+// exactly where the repacked bytes (and thus the attestationsHash) diverge from a maliciously-crafted tuple.
+describe('packAttestations is not a byte-faithful inverse of fromPacked', () => {
+  it('diverges for a yParity (v=0) signature slot: repack canonicalizes v to 27', () => {
+    const raw: ViemCommitteeAttestations = {
+      signatureIndices: '0x80', // bit 7 set -> slot 0 is a signature
+      signaturesOrAddresses: bufferToHex(
+        Buffer.concat([Buffer.from([0]), Buffer32.random().toBuffer(), Buffer32.random().toBuffer()]),
+      ),
+    };
+
+    const repacked = repack(raw, 1);
+
+    expect(repacked).not.toEqual(raw);
+    expect(attestationsHash(repacked)).not.toEqual(attestationsHash(raw));
+  });
+
+  it('diverges for an all-zero signature slot: repack clears the bit and packs it as an address', () => {
+    const raw: ViemCommitteeAttestations = {
+      signatureIndices: '0x80', // bit set, but the 65-byte payload is all zero (v, r, s)
+      signaturesOrAddresses: bufferToHex(Buffer.alloc(65)),
+    };
+
+    const repacked = repack(raw, 1);
+
+    // fromPacked reads it as an empty signature, so the repack drops the bit and emits a 20-byte address.
+    expect(repacked.signatureIndices).not.toEqual(raw.signatureIndices);
+    expect(attestationsHash(repacked)).not.toEqual(attestationsHash(raw));
+  });
+});
+
+describe('YParityCommitteeAttestationsAndSigners', () => {
+  it('rewrites only the target slot to yParity form while keeping getSigners and the bitmap consistent', () => {
+    const attestations = [signing(27), signing(28), CommitteeAttestation.fromAddress(EthAddress.random()), signing(27)];
+    const targetIndex = 1;
+    const bundle = new YParityCommitteeAttestationsAndSigners(
+      attestations,
+      targetIndex,
+      TEST_COORDINATION_SIGNATURE_CONTEXT,
+    );
+
+    const packed = bundle.getPackedAttestations();
+    const unpacked = CommitteeAttestation.fromPacked(packed, attestations.length);
+
+    // The target slot carries a non-canonical yParity recovery byte; all other signed slots stay canonical.
+    expect([0, 1]).toContain(unpacked[targetIndex].signature.v);
+    expect([27, 28]).toContain(unpacked[0].signature.v);
+    expect([27, 28]).toContain(unpacked[3].signature.v);
+
+    // The bitmap and signers are untouched, so propose() would not revert SignersSizeMismatch.
+    const honest = new CommitteeAttestationsAndSigners(attestations, TEST_COORDINATION_SIGNATURE_CONTEXT);
+    expect(packed.signatureIndices).toEqual(honest.getPackedAttestations().signatureIndices);
+    expect(popcount(packed.signatureIndices)).toEqual(bundle.getSigners().length);
+  });
+
+  it('preserves (r, s) of the target slot so it still recovers to the same signer', () => {
+    const attestations = [signing(27), signing(28)];
+    const targetIndex = 1;
+    const honest = new CommitteeAttestationsAndSigners(attestations, TEST_COORDINATION_SIGNATURE_CONTEXT);
+    const bundle = new YParityCommitteeAttestationsAndSigners(
+      attestations,
+      targetIndex,
+      TEST_COORDINATION_SIGNATURE_CONTEXT,
+    );
+
+    const honestTarget = CommitteeAttestation.fromPacked(honest.getPackedAttestations(), attestations.length)[
+      targetIndex
+    ];
+    const maliciousTarget = CommitteeAttestation.fromPacked(bundle.getPackedAttestations(), attestations.length)[
+      targetIndex
+    ];
+
+    expect(maliciousTarget.signature.r).toEqual(honestTarget.signature.r);
+    expect(maliciousTarget.signature.s).toEqual(honestTarget.signature.s);
+    expect(maliciousTarget.signature.v).toEqual(honestTarget.signature.v - 27);
   });
 });

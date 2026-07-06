@@ -232,6 +232,30 @@ describe('validateCheckpointAttestations', () => {
       expect(result.invalidIndex).toBe(2);
     });
 
+    it('fails if an attestation is in yParity (v in {0, 1}) form even though it recovers to the right member', async () => {
+      const checkpoint = await makeCheckpoint(signers.slice(0, 4), committee);
+
+      // Rewrite index 2's canonical signature to its yParity form: same (r, s), recovery byte 0/1. It still
+      // recovers to the same committee member off-chain, but L1 ECDSA.recover rejects v not in {27, 28}.
+      const original = checkpoint.attestations[2];
+      const yParity = new Signature(original.signature.r, original.signature.s, original.signature.v - 27);
+      checkpoint.attestations[2] = new CommitteeAttestation(original.address, yParity);
+
+      const attestations = getAttestationInfoFromPublishedCheckpoint(checkpoint, TEST_COORDINATION_SIGNATURE_CONTEXT);
+      expect(attestations[2].status).toBe('invalid-signature');
+
+      const result = await validateCheckpointAttestations(
+        checkpoint,
+        epochCache,
+        constants,
+        TEST_COORDINATION_SIGNATURE_CONTEXT,
+        logger,
+      );
+      assert(!result.valid);
+      assert(result.reason === 'invalid-attestation');
+      expect(result.invalidIndex).toBe(2);
+    });
+
     it('reports correct index when invalid attestation follows provided address', async () => {
       const checkpoint = await makeCheckpoint(signers.slice(0, 3), committee);
 

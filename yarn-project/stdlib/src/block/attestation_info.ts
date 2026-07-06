@@ -60,9 +60,14 @@ export function getAttestationInfoFromPayload(
       return { address: attestation.address, status: 'provided-as-address' as const };
     }
 
-    // Try to recover address from signature
+    // Try to recover address from signature. Recover with default opts (no allowYParityAsV): a slot
+    // whose recovery byte is in yParity form (v ∈ {0, 1}) is judged invalid here, matching L1 proving
+    // (ValidatorSelectionLib.verifyAttestations → ECDSA.recover only accepts v ∈ {27, 28}). A malicious
+    // proposer that lands such a slot cannot have it silently treated as valid off-chain; it is routed to
+    // invalid-attestation and invalidated. The gossip receipt path (recoverCoordinationSigner) stays
+    // lenient with allowYParityAsV; A-1351 normalizes on pool ingress and before the L1 bundle.
     try {
-      const recoveredAddress = recoverAddress(hashedPayload, attestation.signature, { allowYParityAsV: true });
+      const recoveredAddress = recoverAddress(hashedPayload, attestation.signature);
       return { address: recoveredAddress, status: 'recovered-from-signature' as const };
     } catch {
       // Signature present but recovery failed

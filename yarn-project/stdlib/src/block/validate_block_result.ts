@@ -1,7 +1,9 @@
+import type { ViemCommitteeAttestations } from '@aztec/ethereum/contracts';
 import { EpochNumber, EpochNumberSchema } from '@aztec/foundation/branded-types';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { z } from 'zod';
 
@@ -30,6 +32,14 @@ export type ValidateCheckpointNegativeResult =
       attestors: EthAddress[];
       /** Committee attestations for this checkpoint as they were posted to L1 */
       attestations: CommitteeAttestation[];
+      /**
+       * The exact packed `CommitteeAttestations` tuple as posted to L1 calldata, carried verbatim so the
+       * invalidation evidence is byte-faithful to the stored `attestationsHash`. A repack via
+       * `packAttestations` is not a round-trip inverse of `fromPacked`, so it would diverge from the hash
+       * and revert `invalidateBadAttestation`/`invalidateInsufficientAttestations`. Always populated on the
+       * calldata validation path, the only production source of invalidation evidence.
+       */
+      packedAttestations: ViemCommitteeAttestations;
       /** Reason for the checkpoint being invalid: not enough attestations were posted */
       reason: 'insufficient-attestations';
     }
@@ -47,6 +57,12 @@ export type ValidateCheckpointNegativeResult =
       attestors: EthAddress[];
       /** Committee attestations for this checkpoint as they were posted to L1 */
       attestations: CommitteeAttestation[];
+      /**
+       * The exact packed `CommitteeAttestations` tuple as posted to L1 calldata, carried verbatim so the
+       * invalidation evidence is byte-faithful to the stored `attestationsHash`. See the same field on the
+       * insufficient-attestations variant for why a repack cannot be used.
+       */
+      packedAttestations: ViemCommitteeAttestations;
       /** Reason for the checkpoint being invalid: an invalid attestation was posted */
       reason: 'invalid-attestation';
       /** Index in the attestations array of the invalid attestation posted */
@@ -55,6 +71,12 @@ export type ValidateCheckpointNegativeResult =
 
 /** Result type for validating checkpoint attestations */
 export type ValidateCheckpointResult = { valid: true } | ValidateCheckpointNegativeResult;
+
+/** Zod schema for the raw packed `CommitteeAttestations` viem tuple (two 0x-prefixed hex strings). */
+const ViemCommitteeAttestationsSchema: ZodFor<ViemCommitteeAttestations> = z.object({
+  signatureIndices: schemas.HexStringWith0x,
+  signaturesOrAddresses: schemas.HexStringWith0x,
+});
 
 export const ValidateCheckpointResultSchema: ZodFor<ValidateCheckpointResult> = z.union([
   z.object({ valid: z.literal(true) }),
@@ -66,6 +88,7 @@ export const ValidateCheckpointResultSchema: ZodFor<ValidateCheckpointResult> = 
     seed: schemas.BigInt,
     attestors: z.array(schemas.EthAddress),
     attestations: z.array(CommitteeAttestation.schema),
+    packedAttestations: ViemCommitteeAttestationsSchema,
     reason: z.literal('insufficient-attestations'),
   }),
   z.object({
@@ -76,6 +99,7 @@ export const ValidateCheckpointResultSchema: ZodFor<ValidateCheckpointResult> = 
     seed: schemas.BigInt,
     attestors: z.array(schemas.EthAddress),
     attestations: z.array(CommitteeAttestation.schema),
+    packedAttestations: ViemCommitteeAttestationsSchema,
     reason: z.literal('invalid-attestation'),
     invalidIndex: z.number(),
   }),
@@ -87,6 +111,8 @@ export function serializeValidateCheckpointResult(result: ValidateCheckpointResu
   }
 
   const checkpointBuffer = serializeCheckpointInfo(result.checkpoint);
+  const signatureIndices = hexToBuffer(result.packedAttestations.signatureIndices);
+  const signaturesOrAddresses = hexToBuffer(result.packedAttestations.signaturesOrAddresses);
   return serializeToBuffer(
     result.valid,
     result.reason,
@@ -101,6 +127,10 @@ export function serializeValidateCheckpointResult(result: ValidateCheckpointResu
     result.attestations.length,
     result.attestations,
     result.reason === 'invalid-attestation' ? result.invalidIndex : 0,
+    signatureIndices.length,
+    signatureIndices,
+    signaturesOrAddresses.length,
+    signaturesOrAddresses,
   );
 }
 
@@ -118,10 +148,26 @@ export function deserializeValidateCheckpointResult(bufferOrReader: Buffer | Buf
   const attestors = reader.readVector(EthAddress, MAX_COMMITTEE_SIZE);
   const attestations = reader.readVector(CommitteeAttestation, MAX_COMMITTEE_SIZE);
   const invalidIndex = reader.readNumber();
+  const packedAttestations: ViemCommitteeAttestations = {
+    signatureIndices: bufferToHex(reader.readBuffer()),
+    signaturesOrAddresses: bufferToHex(reader.readBuffer()),
+  };
+
   if (reason === 'insufficient-attestations') {
-    return { valid, reason, checkpoint, committee, epoch, seed, attestors, attestations };
+    return { valid, reason, checkpoint, committee, epoch, seed, attestors, attestations, packedAttestations };
   } else if (reason === 'invalid-attestation') {
-    return { valid, reason, checkpoint, committee, epoch, seed, attestors, invalidIndex, attestations };
+    return {
+      valid,
+      reason,
+      checkpoint,
+      committee,
+      epoch,
+      seed,
+      attestors,
+      invalidIndex,
+      attestations,
+      packedAttestations,
+    };
   } else {
     const _: never = reason;
     throw new Error(`Unknown reason: ${reason}`);
