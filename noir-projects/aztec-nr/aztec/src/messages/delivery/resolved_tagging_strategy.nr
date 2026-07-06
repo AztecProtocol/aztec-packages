@@ -1,4 +1,5 @@
-use crate::protocol::{traits::{Deserialize, Serialize}, utils::reader::Reader};
+use crate::context::PrivateContext;
+use crate::protocol::{address::AztecAddress, traits::{Deserialize, Serialize}, utils::reader::Reader};
 use super::tag_secret_source::TagSecretSource;
 
 global NON_INTERACTIVE_HANDSHAKE: u8 = 1;
@@ -27,6 +28,20 @@ impl ResolvedTaggingStrategy {
         self.kind == UNCONSTRAINED_SECRET
     }
 
+    /// Resolves this strategy into the [`TagSecretSource`] backing the message tag.
+    pub(crate) fn into_tag_secret_source(
+        self,
+        context: &mut PrivateContext,
+        sender: AztecAddress,
+        recipient: AztecAddress,
+    ) -> TagSecretSource {
+        if self.kind == NON_INTERACTIVE_HANDSHAKE {
+            TagSecretSource::new_non_interactive_handshake(context, sender, recipient)
+        } else {
+            TagSecretSource::unconstrained_secret(self.secret)
+        }
+    }
+
     /// Validates a raw discriminant, as deserialization must always reject unknown values.
     fn from_parts(kind: u8, secret: Field) -> Self {
         let resolved = Self { kind, secret };
@@ -49,16 +64,6 @@ impl Deserialize for ResolvedTaggingStrategy {
         let kind = reader.read() as u8;
         let secret = reader.read();
         Self::from_parts(kind, secret)
-    }
-}
-
-impl From<ResolvedTaggingStrategy> for TagSecretSource {
-    fn from(strategy: ResolvedTaggingStrategy) -> Self {
-        if strategy.kind == NON_INTERACTIVE_HANDSHAKE {
-            TagSecretSource::new_non_interactive_handshake()
-        } else {
-            TagSecretSource::unconstrained_secret(strategy.secret)
-        }
     }
 }
 

@@ -27,15 +27,17 @@ pub(crate) fn derive_log_tag(
     recipient: AztecAddress,
     tag_derivation: Option<TagDerivation>,
 ) -> Field {
-    let source = tag_derivation.map_or_else(|| default_tag_secret_source(sender, recipient, mode), |derivation| {
-        derivation.into_tag_secret_source(sender, recipient)
-    });
+    let source = tag_derivation.map_or_else(
+        || default_tag_secret_source(context, sender, recipient, mode),
+        |derivation| derivation.into_tag_secret_source(context, sender, recipient),
+    );
     tag_with(source, context, mode, sender, recipient)
 }
 
 /// The wallet-resolved default: reuse a handshake already registered for the pair, otherwise let the wallet resolve
 /// the tagging secret strategy.
 fn default_tag_secret_source(
+    context: &mut PrivateContext,
     sender: AztecAddress,
     recipient: AztecAddress,
     mode: OnchainDeliveryMode,
@@ -48,19 +50,19 @@ fn default_tag_secret_source(
             // secret before a constrained tag is emitted, so an untrusted strategy can't produce a valid unbacked
             // constrained tag.
             let strategy = unsafe { resolve_tagging_strategy(sender, recipient, mode) };
-            strategy.into()
+            strategy.into_tag_secret_source(context, sender, recipient)
         },
     )
 }
 
 fn tag_with(
-    mut source: TagSecretSource,
+    source: TagSecretSource,
     context: &mut PrivateContext,
     mode: OnchainDeliveryMode,
     sender: AztecAddress,
     recipient: AztecAddress,
 ) -> Field {
-    let secret = source.resolve_tag_secret(context, sender, recipient);
+    let secret = source.tag_secret();
 
     // Safety: the index is untrusted. Constrained delivery constrains it below before emitting the tag; unconstrained
     // discovery tolerates gaps, so a wrong index only yields an undiscoverable tag.
