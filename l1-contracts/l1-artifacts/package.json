@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
+    "./network-defaults.json": "./l1-contracts/scripts/network-defaults.json",
     "./*": "./dest/*.js",
     ".": "./dest/index.js"
   },

@@ -9,8 +9,8 @@ import {
   optionalNumberConfigHelper,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import l1ContractsDefaultEnv from '@aztec/l1-artifacts/network-defaults.json' with { type: 'json' };
 
-import { l1ContractsDefaultEnv } from './generated/l1-contracts-defaults.js';
 import { type L1TxUtilsConfig, l1TxUtilsConfigMappings } from './l1_tx_utils/config.js';
 
 export type GenesisStateConfig = {
@@ -81,11 +81,21 @@ export type L1ContractsConfig = {
   initialEthPerFeeAsset: bigint;
   /** The number of seconds to wait for an exit */
   exitDelaySeconds: number;
+  /** Validator set size at or below which the entry queue uses the bootstrap flush size. */
+  entryQueueBootstrapValidatorSetSize: number;
+  /** Number of validators admitted from the entry queue per flush during the bootstrap phase. */
+  entryQueueBootstrapFlushSize: number;
+  /** Minimum number of validators admitted from the entry queue per flush. */
+  entryQueueFlushSizeMin: number;
+  /** Divisor applied to the queue size to derive the normal per-flush admission count. */
+  entryQueueFlushSizeQuotient: number;
+  /** Maximum number of validators admitted from the entry queue per flush. */
+  entryQueueMaxFlushSize: number;
 } & L1TxUtilsConfig;
 
 /**
  * Config mappings for L1ContractsConfig.
- * Default values come from generated l1-contracts-defaults.json (source: defaults.yml).
+ * Default values come from l1-contracts/scripts/network-defaults.json (published via @aztec/l1-artifacts).
  * Real deployments use forge scripts which require explicit env vars (vm.envUint).
  */
 export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = {
@@ -237,12 +247,37 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     description: 'The delay before a validator can exit the set',
     ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_EXIT_DELAY_SECONDS),
   },
+  entryQueueBootstrapValidatorSetSize: {
+    env: 'AZTEC_ENTRY_QUEUE_BOOTSTRAP_VALIDATOR_SET_SIZE',
+    description: 'Validator set size at or below which the entry queue uses the bootstrap flush size.',
+    ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_ENTRY_QUEUE_BOOTSTRAP_VALIDATOR_SET_SIZE),
+  },
+  entryQueueBootstrapFlushSize: {
+    env: 'AZTEC_ENTRY_QUEUE_BOOTSTRAP_FLUSH_SIZE',
+    description: 'Number of validators admitted from the entry queue per flush during the bootstrap phase.',
+    ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_ENTRY_QUEUE_BOOTSTRAP_FLUSH_SIZE),
+  },
+  entryQueueFlushSizeMin: {
+    env: 'AZTEC_ENTRY_QUEUE_FLUSH_SIZE_MIN',
+    description: 'Minimum number of validators admitted from the entry queue per flush.',
+    ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_ENTRY_QUEUE_FLUSH_SIZE_MIN),
+  },
+  entryQueueFlushSizeQuotient: {
+    env: 'AZTEC_ENTRY_QUEUE_FLUSH_SIZE_QUOTIENT',
+    description: 'Divisor applied to the queue size to derive the normal per-flush admission count.',
+    ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_ENTRY_QUEUE_FLUSH_SIZE_QUOTIENT),
+  },
+  entryQueueMaxFlushSize: {
+    env: 'AZTEC_ENTRY_QUEUE_MAX_FLUSH_SIZE',
+    description: 'Maximum number of validators admitted from the entry queue per flush.',
+    ...numberConfigHelper(l1ContractsDefaultEnv.AZTEC_ENTRY_QUEUE_MAX_FLUSH_SIZE),
+  },
   ...omitConfigMappings(l1TxUtilsConfigMappings, ['ethereumSlotDuration']),
 };
 
 /**
  * Default L1 contracts configuration derived from l1ContractsConfigMappings.
- * Source of truth: spartan/environments/defaults.yml -> defaults.l1-contracts
+ * Source of truth: l1-contracts/scripts/network-defaults.json (published via @aztec/l1-artifacts).
  */
 export const DefaultL1ContractsConfig = getDefaultConfig(l1ContractsConfigMappings);
 
