@@ -19,6 +19,7 @@ import {
   BOOL,
   ETH_ADDRESS,
   FIELD,
+  FIXED_ARRAY,
   FUNCTION_SELECTOR,
   type InputSlot,
   type MaybePromise,
@@ -28,6 +29,7 @@ import {
   type OutputSlot,
   type ParamTypes,
   STR,
+  STRUCT,
   type SlotShape,
   type TypeMapping,
   U32,
@@ -193,10 +195,13 @@ const TXE_CALL_CONTEXT: TypeMapping<{ txHash: Fr; anchorBlockTimestamp: bigint }
   shape: ['scalar', 'scalar', 'scalar'], // discriminant, txHash, anchor block timestamp
 };
 
-const CONTRACT_INSTANCE_MEMBER: TypeMapping<{ member: Fr; exists: boolean }> = {
-  serialization: { fn: ({ member, exists }) => [member, new Fr(exists)] },
-  shape: ['scalar', 'scalar'],
-};
+export const CONTRACT_INSTANCE_MEMBER: TypeMapping<{ exists: boolean; member: Fr }[]> = FIXED_ARRAY(
+  STRUCT([
+    { name: 'exists', type: BOOL },
+    { name: 'member', type: FIELD },
+  ]),
+  1,
+);
 
 const EVENT_SELECTOR: TypeMapping<EventSelector> = {
   serialization: { fn: v => [v.toField()] },

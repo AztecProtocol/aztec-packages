@@ -55,6 +55,8 @@
 //! produces two tests: `some+some` and `none+none`. Each scenario becomes its own `#[test]`, suffixed by index
 //! (`__0`, `__1`, …).
 
+use crate::messages::delivery::OnchainDeliveryMode;
+use crate::oracle::get_contract_instance::GetContractInstanceResult;
 use crate::protocol::{
     abis::function_selector::FunctionSelector,
     address::{AztecAddress, EthAddress},
@@ -141,6 +143,26 @@ impl OracleTestValue<1> for FunctionSelector {
 impl OracleTestValue<1> for EthAddress {
     fn oracle_test_value(seed: u32) -> [Scenario<Self>; 1] {
         [Scenario::unnamed(EthAddress::from_field(seed as Field))]
+    }
+}
+impl OracleTestValue<1> for OnchainDeliveryMode {
+    fn oracle_test_value(seed: u32) -> [Scenario<Self>; 1] {
+        // The seed alternates between the only two valid modes
+        let mode = if (seed % 2) == 0 {
+            OnchainDeliveryMode::onchain_unconstrained()
+        } else {
+            OnchainDeliveryMode::onchain_constrained()
+        };
+        [Scenario::unnamed(mode)]
+    }
+}
+impl OracleTestValue<1> for GetContractInstanceResult {
+    fn oracle_test_value(seed: u32) -> [Scenario<Self>; 1] {
+        [
+            Scenario::unnamed(
+                GetContractInstanceResult { exists: (seed % 2) != 0, member: (seed + 1) as Field },
+            ),
+        ]
     }
 }
 impl<T> OracleTestValue<2> for Option<T>
@@ -390,8 +412,9 @@ pub(crate) unconstrained fn add_scenario_to_oracle_test(_name: BoundedVec<u8, MA
 global TEST_COLLECTION_LEN: u32 = 3;
 global TEST_BOUNDED_VEC_CAP: u32 = 5;
 
-/// Rewrites `typ`, replacing every array length with [`TEST_COLLECTION_LEN`] and every bounded-vec capacity with
-/// [`TEST_BOUNDED_VEC_CAP`] (recursing through `Option` inners). Returns it as a `Quoted` type to splice into the test.
+/// Rewrites `typ`, replacing every generic array length with [`TEST_COLLECTION_LEN`] and every bounded-vec capacity
+/// with [`TEST_BOUNDED_VEC_CAP`] (recursing through `Option` inners). Returns it as a `Quoted` type to splice into the
+/// test.
 ///
 /// This exists because the annotated oracles are *generic* over their lengths (e.g.
 /// `get_hash_preimage_oracle<let N: u32>(...) -> [Field; N]`), but the generated test is not generic, so it has no `N`
@@ -401,9 +424,14 @@ global TEST_BOUNDED_VEC_CAP: u32 = 5;
 comptime fn pinned_type(typ: Type) -> Quoted {
     let array = typ.as_array();
     if array.is_some() {
-        let (element_type, _generic_length) = array.unwrap();
+        let (element_type, length_type) = array.unwrap();
         let pinned_element = pinned_type(element_type);
-        let len = f"{TEST_COLLECTION_LEN}".quoted_contents();
+        // A concrete length (e.g. `[T; 1]`) is part of the oracle's signature and must be kept; only a generic
+        // length has no value to instantiate and gets pinned.
+        let len = length_type
+            .as_constant()
+            .map(|concrete_length| f"{concrete_length}".quoted_contents())
+            .unwrap_or_else(|| f"{TEST_COLLECTION_LEN}".quoted_contents());
         quote { [$pinned_element; $len] }
     } else if is_data_type_named(typ, quote { BoundedVec }) {
         let element_type = typ.as_data_type().unwrap().1[0];
