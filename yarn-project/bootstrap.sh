@@ -129,7 +129,6 @@ function compile_all {
     accounts \
     aztec.js \
     cli \
-    ethereum \
     slasher \
     stdlib \
     ivc-integration \

@@ -21,11 +21,10 @@ contract DeployAztecL1ContractsTest is Test {
     return vm.envOr("FORGE_COVERAGE", false);
   }
 
-  // Load environment variables from generated/default.json
-  // This file is copied from spartan/environments/default.json by bootstrap.sh
+  // Load environment variables from scripts/network-defaults.json (the canonical L1 config defaults).
   function setUp() public skipWhenCoverage {
     string memory root = vm.projectRoot();
-    string memory path = string.concat(root, "/generated/default.json");
+    string memory path = string.concat(root, "/scripts/network-defaults.json");
     string memory json = vm.readFile(path);
 
     // Timing config
@@ -42,6 +41,20 @@ contract DeployAztecL1ContractsTest is Test {
     vm.setEnv("AZTEC_LAG_IN_EPOCHS_FOR_RANDAO", vm.toString(json.readUint(".AZTEC_LAG_IN_EPOCHS_FOR_RANDAO")));
     vm.setEnv("AZTEC_LOCAL_EJECTION_THRESHOLD", json.readString(".AZTEC_LOCAL_EJECTION_THRESHOLD"));
     vm.setEnv("AZTEC_EXIT_DELAY_SECONDS", vm.toString(json.readUint(".AZTEC_EXIT_DELAY_SECONDS")));
+
+    // Entry queue config
+    vm.setEnv(
+      "AZTEC_ENTRY_QUEUE_BOOTSTRAP_VALIDATOR_SET_SIZE",
+      vm.toString(json.readUint(".AZTEC_ENTRY_QUEUE_BOOTSTRAP_VALIDATOR_SET_SIZE"))
+    );
+    vm.setEnv(
+      "AZTEC_ENTRY_QUEUE_BOOTSTRAP_FLUSH_SIZE", vm.toString(json.readUint(".AZTEC_ENTRY_QUEUE_BOOTSTRAP_FLUSH_SIZE"))
+    );
+    vm.setEnv("AZTEC_ENTRY_QUEUE_FLUSH_SIZE_MIN", vm.toString(json.readUint(".AZTEC_ENTRY_QUEUE_FLUSH_SIZE_MIN")));
+    vm.setEnv(
+      "AZTEC_ENTRY_QUEUE_FLUSH_SIZE_QUOTIENT", vm.toString(json.readUint(".AZTEC_ENTRY_QUEUE_FLUSH_SIZE_QUOTIENT"))
+    );
+    vm.setEnv("AZTEC_ENTRY_QUEUE_MAX_FLUSH_SIZE", vm.toString(json.readUint(".AZTEC_ENTRY_QUEUE_MAX_FLUSH_SIZE")));
 
     // Fees config
     vm.setEnv("AZTEC_MANA_TARGET", vm.toString(json.readUint(".AZTEC_MANA_TARGET")));
