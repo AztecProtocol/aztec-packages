@@ -48,9 +48,16 @@ locals {
     if length(route.allowed_consumer_groups) > 0
   }
 
+  default_cors_allowed_headers = distinct(compact([
+    "Accept",
+    "Content-Type",
+    var.API_KEY_HEADER_NAME,
+  ]))
+
   route_plugin_names = {
     for name, route in var.ROUTES :
     name => join(",", compact([
+      "${var.RELEASE_PREFIX}-${name}-${var.ROUTE_RESOURCE_SUFFIX}-cors",
       "${var.RELEASE_PREFIX}-${name}-${var.ROUTE_RESOURCE_SUFFIX}-path-api-key",
       "${var.RELEASE_PREFIX}-${name}-${var.ROUTE_RESOURCE_SUFFIX}-key-auth",
       length(route.allowed_consumer_groups) > 0 ? "${var.RELEASE_PREFIX}-${name}-${var.ROUTE_RESOURCE_SUFFIX}-acl" : "",
@@ -324,6 +331,34 @@ resource "kubernetes_manifest" "path_api_key_plugin" {
         end
         LUA
       ]
+    }
+  }
+
+  depends_on = [helm_release.kong]
+}
+
+resource "kubernetes_manifest" "cors_plugin" {
+  for_each = var.ROUTES
+
+  manifest = {
+    apiVersion = "configuration.konghq.com/v1"
+    kind       = "KongPlugin"
+    metadata = {
+      name      = "${var.RELEASE_PREFIX}-${each.key}-${var.ROUTE_RESOURCE_SUFFIX}-cors"
+      namespace = each.value.route_namespace
+      annotations = {
+        "kubernetes.io/ingress.class" = local.kong_ingress_class
+      }
+    }
+    plugin = "cors"
+    config = {
+      origins            = ["*"]
+      methods            = ["GET", "POST", "OPTIONS"]
+      headers            = local.default_cors_allowed_headers
+      exposed_headers    = []
+      credentials        = false
+      max_age            = 3600
+      preflight_continue = false
     }
   }
 
@@ -751,6 +786,7 @@ resource "kubernetes_manifest" "rpc_route" {
   }
 
   depends_on = [
+    kubernetes_manifest.cors_plugin,
     kubernetes_manifest.path_api_key_plugin,
     kubernetes_manifest.key_auth_plugin,
     kubernetes_manifest.acl_plugin,
