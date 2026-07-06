@@ -25,8 +25,20 @@ export type BaseSignerConfig = {
   nodeId: string;
   /** How long to wait between polls when a duty is being signed (ms) */
   pollingIntervalMs: number;
-  /** Maximum time to wait for a duty being signed to complete (ms) */
+  /**
+   * Maximum time (ms) to wait for ANOTHER node's in-progress signing to complete before giving up
+   * and treating the duty as already handled. This is the cross-node wait/poll timeout, distinct
+   * from signingOperationTimeoutMs (this node's own hard upper bound on a single signing call).
+   */
   signingTimeoutMs: number;
+  /**
+   * Hard upper bound (ms) on a single signing operation on this node. If the (possibly remote)
+   * signer does not return within this time, the operation is aborted, the duty lock is released,
+   * and signing fails so it can be safely retried. Must stay well below maxStuckDutiesAgeMs so a
+   * slow signer's lock is released before the stuck-duty cleanup could reclaim it. Defaults to
+   * 30_000 when unset.
+   */
+  signingOperationTimeoutMs?: number;
   /** Maximum age of a stuck duty in ms (defaults to 2x hardcoded Aztec slot duration if not set) */
   maxStuckDutiesAgeMs?: number;
   /** Optional: clean up old duties after this many hours (disabled if not set) */
@@ -46,8 +58,13 @@ export const baseSignerConfigMappings: ConfigMappingsType<BaseSignerConfig> = {
   },
   signingTimeoutMs: {
     env: 'VALIDATOR_HA_SIGNING_TIMEOUT_MS',
-    description: 'The maximum time to wait for a duty being signed to complete',
+    description: "The maximum time to wait for another node's in-progress signing to complete",
     ...numberConfigHelper(3_000),
+  },
+  signingOperationTimeoutMs: {
+    env: 'VALIDATOR_SIGNING_OPERATION_TIMEOUT_MS',
+    description: 'Hard upper bound in ms on a single signing operation before it is aborted (default 30000)',
+    ...numberConfigHelper(30_000),
   },
   maxStuckDutiesAgeMs: {
     env: 'VALIDATOR_HA_MAX_STUCK_DUTIES_AGE_MS',
@@ -66,6 +83,7 @@ export const BaseSignerConfigSchema = z.object({
   nodeId: z.string(),
   pollingIntervalMs: z.number().min(0),
   signingTimeoutMs: z.number().min(0),
+  signingOperationTimeoutMs: z.number().min(0).optional(),
   maxStuckDutiesAgeMs: z.number().min(0).optional(),
   cleanupOldDutiesAfterHours: z.number().min(0).optional(),
   ...pickL1ContractAddressesSchema('rollupAddress'),

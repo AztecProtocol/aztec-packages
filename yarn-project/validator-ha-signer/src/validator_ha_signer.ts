@@ -9,7 +9,7 @@ import type { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import type { DateProvider } from '@aztec/foundation/timer';
+import { type DateProvider, executeTimeout } from '@aztec/foundation/timer';
 import {
   type BaseSignerConfig,
   DutyType,
@@ -28,6 +28,12 @@ export interface ValidatorHASignerDeps {
   metrics: HASignerMetrics;
   dateProvider: DateProvider;
 }
+
+/** Default hard timeout (ms) for a single signing operation when not configured. */
+const DEFAULT_SIGNING_OPERATION_TIMEOUT_MS = 30_000;
+
+/** Default max stuck-duty age (ms), mirrored from SlashingProtectionService for the config sanity check. */
+const DEFAULT_MAX_STUCK_DUTIES_AGE_MS = 144_000;
 
 /**
  * Validator High Availability Signer
@@ -55,6 +61,7 @@ export class ValidatorHASigner {
 
   private readonly dateProvider: DateProvider;
   private readonly metrics: HASignerMetrics;
+  private readonly signingOperationTimeoutMs: number;
 
   constructor(
     db: SlashingProtectionDatabase,
@@ -65,6 +72,7 @@ export class ValidatorHASigner {
 
     this.metrics = deps.metrics;
     this.dateProvider = deps.dateProvider;
+    this.signingOperationTimeoutMs = config.signingOperationTimeoutMs ?? DEFAULT_SIGNING_OPERATION_TIMEOUT_MS;
 
     if (!config.nodeId || config.nodeId === '') {
       throw new Error('NODE_ID is required for high-availability setups');
@@ -74,9 +82,19 @@ export class ValidatorHASigner {
       metrics: deps.metrics,
       dateProvider: deps.dateProvider,
     });
+
+    const maxStuckDutiesAgeMs = config.maxStuckDutiesAgeMs ?? DEFAULT_MAX_STUCK_DUTIES_AGE_MS;
+    if (this.signingOperationTimeoutMs >= maxStuckDutiesAgeMs / 2) {
+      this.log.warn(
+        'signingOperationTimeoutMs is not comfortably below half of maxStuckDutiesAgeMs; a slow signer could be reclaimed by stuck-duty cleanup before it times out',
+        { signingOperationTimeoutMs: this.signingOperationTimeoutMs, maxStuckDutiesAgeMs },
+      );
+    }
+
     this.log.info('Validator HA Signer initialized with slashing protection', {
       nodeId: config.nodeId,
       rollupAddress: this.rollupAddress.toString(),
+      signingOperationTimeoutMs: this.signingOperationTimeoutMs,
     });
   }
 
@@ -136,10 +154,20 @@ export class ValidatorHASigner {
       nodeId: this.config.nodeId,
     });
 
-    // Perform signing
+    // Perform signing under a hard timeout. If the signer hangs, executeTimeout aborts and rejects;
+    // the orphaned signFn promise resolving later is discarded (never broadcast). A timeout takes the
+    // same failure path as any signing error: release the lock so the duty can be retried safely.
     let signature: Signature;
     try {
-      signature = await signFn(messageHash);
+      signature = await executeTimeout(
+        () => signFn(messageHash),
+        this.signingOperationTimeoutMs,
+        () =>
+          new Error(
+            `Signing operation for ${dutyType} at slot ${context.slot} timed out after ` +
+              `${this.signingOperationTimeoutMs}ms`,
+          ),
+      );
     } catch (error: any) {
       // Delete duty to allow retry (only succeeds if we own the lock)
       await this.slashingProtection.deleteDuty({ ...dutyIdentifier, lockToken });

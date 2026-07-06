@@ -196,6 +196,42 @@ describe('ValidatorHASigner', () => {
       expect(signFn).toHaveBeenCalledTimes(1);
     });
 
+    it('should time out a hung signing, release the lock, and allow a later retry', async () => {
+      const shortTimeoutConfig = { ...config, signingOperationTimeoutMs: 100 };
+      const metrics = new HASignerMetrics(telemetryClient, shortTimeoutConfig.nodeId);
+      const timeoutSigner = new ValidatorHASigner(db, shortTimeoutConfig, { metrics, dateProvider });
+      await timeoutSigner.start();
+
+      const context = {
+        slot: SlotNumber(100),
+        blockNumber: BlockNumber(50),
+        checkpointNumber: CheckpointNumber(1),
+        dutyType: DutyType.BLOCK_PROPOSAL,
+        blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
+      } as const;
+
+      try {
+        // Signer never returns - the operation must time out rather than hang forever.
+        const hangingSignFn = jest.fn<(messageHash: Buffer32) => Promise<Signature>>();
+        hangingSignFn.mockReturnValue(new Promise<Signature>(() => {}));
+
+        await expect(
+          timeoutSigner.signWithProtection(VALIDATOR_ADDRESS, MESSAGE_HASH, context, hangingSignFn),
+        ).rejects.toThrow(/timed out/i);
+
+        // The lock was released on timeout: a fresh signing for the same duty with different data
+        // succeeds, proving nothing was broadcast and the SIGNING row was deleted.
+        const retrySignFn = jest.fn<(messageHash: Buffer32) => Promise<Signature>>();
+        retrySignFn.mockResolvedValue(mockSignature);
+        const result = await timeoutSigner.signWithProtection(VALIDATOR_ADDRESS, MESSAGE_HASH_2, context, retrySignFn);
+
+        expect(result).toBe(mockSignature);
+        expect(retrySignFn).toHaveBeenCalledTimes(1);
+      } finally {
+        await timeoutSigner.stop();
+      }
+    });
+
     it('should throw DutyAlreadySignedError when duty already signed', async () => {
       // First signing
       await signer.signWithProtection(
