@@ -420,7 +420,10 @@ export class EpochProvingJob implements Traceable {
 
   private interruptProcessing() {
     this.abortController.abort();
-    this.prover.cancel();
+    // On a clean shutdown ('stopped') we are just restarting, so leave the in-flight jobs in the
+    // broker for the restarted node to reuse rather than re-proving them. Other terminal states
+    // (reorg, timeout, failure) fall back to the prover's configured cancellation behaviour.
+    this.prover.cancel(this.state === 'stopped' ? false : undefined);
   }
 
   private scheduleDeadlineStop() {

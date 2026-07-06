@@ -118,7 +118,8 @@ export class ProvingOrchestrator extends TopTreeProvingScheduler implements Epoc
   }
 
   protected override cancelInternal(): void {
-    this.cancel();
+    // A graceful stop leaves the in-flight broker jobs alone so a restart can reuse them.
+    this.cancel(false);
   }
 
   protected override wrapCircuitCall<T>(
@@ -523,11 +524,13 @@ export class ProvingOrchestrator extends TopTreeProvingScheduler implements Epoc
 
   /**
    * Cancel any further proving.
-   * If cancelJobsOnStop is true, aborts all pending jobs with the broker (which marks them as 'Aborted').
-   * If cancelJobsOnStop is false (default), jobs remain in the broker queue and can be reused on restart/reorg.
+   * @param abortJobs - Whether to abort all pending jobs with the broker (marking them as 'Aborted').
+   * Aborting is right on a reorg (the in-flight inputs are no longer valid) and wrong on a clean
+   * shutdown (leaving the jobs lets a restart reuse them). Defaults to the configured
+   * `cancelJobsOnStop` when not specified.
    */
-  public cancel() {
-    this.resetSchedulerState(this.cancelJobsOnStop);
+  public cancel(abortJobs: boolean = this.cancelJobsOnStop) {
+    this.resetSchedulerState(abortJobs);
 
     this.provingState?.cancel();
 

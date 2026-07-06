@@ -50,8 +50,8 @@ export class ServerEpochProver implements EpochProver {
   finalizeEpoch(): Promise<{ publicInputs: RootRollupPublicInputs; proof: Proof; batchedBlobInputs: BatchedBlob }> {
     return this.orchestrator.finalizeEpoch();
   }
-  cancel(): void {
-    this.orchestrator.cancel();
+  cancel(abortJobs?: boolean): void {
+    this.orchestrator.cancel(abortJobs);
   }
   getProverId(): EthAddress {
     return this.orchestrator.getProverId();

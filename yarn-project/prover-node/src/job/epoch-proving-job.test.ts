@@ -278,6 +278,8 @@ describe('epoch-proving-job', () => {
     await job.stop();
 
     expect(job.getState()).toEqual('stopped');
+    // A clean shutdown must not abort the broker jobs, so a restart can reuse them.
+    expect(prover.cancel).toHaveBeenCalledWith(false);
     expect(publisher.submitEpochProof).not.toHaveBeenCalled();
   });
 
@@ -326,7 +328,9 @@ describe('epoch-proving-job', () => {
 
     expect(job.getState()).toEqual('reorg');
     expect(publisher.submitEpochProof).not.toHaveBeenCalled();
+    // A reorg is not a clean shutdown, so it must not force-preserve the jobs with abortJobs=false.
     expect(prover.cancel).toHaveBeenCalled();
+    expect(prover.cancel).not.toHaveBeenCalledWith(false);
   });
 
   it('analyzes estimated fees and does not publish when skipSubmitProof is enabled', async () => {

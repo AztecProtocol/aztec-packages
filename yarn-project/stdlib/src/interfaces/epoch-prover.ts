@@ -61,8 +61,13 @@ export interface EpochProver extends Omit<IBlockFactory, 'setBlockCompleted' | '
   /** Pads the epoch with empty block roots if needed and blocks until proven. Throws if proving has failed. */
   finalizeEpoch(): Promise<{ publicInputs: RootRollupPublicInputs; proof: Proof; batchedBlobInputs: BatchedBlob }>;
 
-  /** Cancels all proving jobs. */
-  cancel(): void;
+  /**
+   * Cancels the current epoch proving.
+   * @param abortJobs - Whether to abort the in-flight jobs at the broker. Pass `false` on a clean
+   * shutdown so the jobs remain in the broker queue and can be reused when the node restarts. When
+   * omitted, the prover's configured `cancelJobsOnStop` behaviour is used.
+   */
+  cancel(abortJobs?: boolean): void;
 
   /** Returns an identifier for the prover or zero if not set. */
   getProverId(): EthAddress;
