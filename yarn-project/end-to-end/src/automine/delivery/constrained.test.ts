@@ -11,9 +11,7 @@ import { jest } from '@jest/globals';
 import { AUTOMINE_E2E_OPTS } from '../../fixtures/fixtures.js';
 import { ensureHandshakeRegistryPublished, setup } from '../../fixtures/setup.js';
 
-// Delivery-method-specific tests that don't fit the generic (strategy, mode) matrix in `onchain.test.ts`:
-// the strict ordering of a constrained sequence (handshake reuse, concurrency, batching) and the soundness boundary
-// that rejects an arbitrary secret backing constrained delivery.
+// Delivery-method-specific tests that don't fit the generic (strategy, mode) matrix in `onchain.test.ts`
 describe('automine/delivery/constrained', () => {
   jest.setTimeout(300_000);
 
