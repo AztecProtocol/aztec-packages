@@ -11,21 +11,6 @@ This changelog documents all configuration changes, new features, and breaking c
 
 ## Version history
 
-### [v5.0.0](./v5.md)
-
-Validator signing hardening for node operators.
-
-**Key changes:**
-- Configurable timeout for validator signing operations (`VALIDATOR_SIGNING_OPERATION_TIMEOUT_MS`)
-- Signing fails instead of broadcasting when the slashing-protection record is lost
-- Postgres connection errors no longer crash high-availability validators
-
-**Migration difficulty**: Low
-
-[View full changelog →](./v5.md)
-
----
-
 ### [v4.2.0](./v4.2.md)
 
 New features and configuration options for node operators.
