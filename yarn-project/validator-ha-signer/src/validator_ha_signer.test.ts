@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals
 import { PostgresSlashingProtectionDatabase } from './db/postgres.js';
 import { setupTestSchema } from './db/test_helper.js';
 import { DutyStatus, DutyType } from './db/types.js';
-import { DutyAlreadySignedError, SlashingProtectionError } from './errors.js';
+import { DutyAlreadySignedError, SigningLockLostError, SlashingProtectionError } from './errors.js';
 import { HASignerMetrics } from './metrics.js';
 import { Pool } from './test/pglite_pool.js';
 import { ValidatorHASigner } from './validator_ha_signer.js';
@@ -171,6 +171,29 @@ describe('ValidatorHASigner', () => {
         nodeId: NODE_ID,
       });
       expect(dutyResult.isNew).toBe(true);
+    });
+
+    it('should fail signing and not return a signature when the protection record is lost', async () => {
+      // Simulate the SIGNING row being deleted (e.g. by stuck-duty cleanup) while the remote signer
+      // was slow: recordSuccess can no longer find/own the row and returns false.
+      jest.spyOn(db, 'updateDutySigned').mockResolvedValue(false);
+
+      await expect(
+        signer.signWithProtection(
+          VALIDATOR_ADDRESS,
+          MESSAGE_HASH,
+          {
+            slot: SlotNumber(100),
+            blockNumber: BlockNumber(50),
+            checkpointNumber: CheckpointNumber(1),
+            dutyType: DutyType.BLOCK_PROPOSAL,
+            blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
+          },
+          signFn,
+        ),
+      ).rejects.toThrow(SigningLockLostError);
+
+      expect(signFn).toHaveBeenCalledTimes(1);
     });
 
     it('should throw DutyAlreadySignedError when duty already signed', async () => {

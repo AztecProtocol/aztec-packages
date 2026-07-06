@@ -19,6 +19,7 @@ import {
 } from '@aztec/stdlib/ha-signing';
 
 import type { DutyIdentifier } from './db/types.js';
+import { SigningLockLostError } from './errors.js';
 import type { HASignerMetrics } from './metrics.js';
 import { SlashingProtectionService } from './slashing_protection_service.js';
 import type { SlashingProtectionDatabase } from './types.js';
@@ -146,13 +147,21 @@ export class ValidatorHASigner {
       throw error;
     }
 
-    // Record success (only succeeds if we own the lock)
-    await this.slashingProtection.recordSuccess({
+    // Record success (only succeeds if we still own the lock).
+    // A false result means our SIGNING row is gone or no longer ours (e.g. deleted by stuck-duty
+    // cleanup while signing was slow). We must not broadcast this signature: without a protection
+    // record, a later attempt for the same duty with different data would sign freely (slashable).
+    // Do not delete the duty here - we no longer own it, and another node may legitimately hold it.
+    const recorded = await this.slashingProtection.recordSuccess({
       ...dutyIdentifier,
       signature,
       nodeId: this.config.nodeId,
       lockToken,
     });
+    if (!recorded) {
+      this.metrics.recordSigningError(dutyType);
+      throw new SigningLockLostError(context.slot, dutyType, this.config.nodeId);
+    }
 
     const duration = this.dateProvider.now() - startTime;
     this.metrics.recordSigningSuccess(dutyType, duration);
