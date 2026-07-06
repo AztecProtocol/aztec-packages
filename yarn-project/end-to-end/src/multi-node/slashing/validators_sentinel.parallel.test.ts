@@ -12,14 +12,12 @@ import {
   SLASHER_ENABLED_MULTI_VALIDATOR_OPTS,
   buildMockGossipValidators,
 } from '../multi_node_test_context.js';
+import { SENTINEL_TIMING } from './setup.js';
 
 const NUM_NODES = 5;
 const NUM_VALIDATORS = NUM_NODES + 1; // We create an extra validator, who will not have a running node
 const BLOCK_COUNT = 3;
-const EPOCH_DURATION = 2;
-const ETHEREUM_SLOT_DURATION = 4;
-const AZTEC_SLOT_DURATION = 8;
-const BLOCK_DURATION_MS = 2000;
+const AZTEC_SLOT_DURATION = SENTINEL_TIMING.aztecSlotDuration;
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -37,17 +35,12 @@ describe('multi-node/slashing/validators_sentinel', () => {
   beforeAll(async () => {
     test = await MultiNodeTestContext.setup({
       ...SLASHER_ENABLED_MULTI_VALIDATOR_OPTS,
-      anvilSlotsInAnEpoch: 4,
+      ...SENTINEL_TIMING,
       aztecTargetCommitteeSize: NUM_VALIDATORS,
-      aztecSlotDuration: AZTEC_SLOT_DURATION,
-      ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
-      blockDurationMs: BLOCK_DURATION_MS,
+      blockDurationMs: 2000,
       aztecProofSubmissionEpochs: 1024, // effectively do not reorg
-      listenAddress: '127.0.0.1',
       minTxsPerBlock: 0,
-      aztecEpochDuration: EPOCH_DURATION,
       slashingRoundSizeInEpochs: 2,
-      sentinelEnabled: true,
       slashInactivityPenalty: 0n, // Set to 0 to disable
       inboxLag: 2,
       initialValidators: buildMockGossipValidators(NUM_VALIDATORS),

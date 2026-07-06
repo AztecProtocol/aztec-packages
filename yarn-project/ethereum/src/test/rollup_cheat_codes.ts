@@ -272,6 +272,30 @@ export class RollupCheatCodes {
   }
 
   /**
+   * Polls the rollup until its pending checkpoint settles below `checkpoint` on a freshly mined, non-zero
+   * checkpoint, and returns that new pending checkpoint number. Reads the L1 rollup contract directly
+   * rather than a node, since a rollback lands on L1 first.
+   *
+   * A prune can momentarily drop the pending checkpoint to 0 before the post-deadline propose mines its
+   * replacement, so a caller detecting a rollback wants the new lower checkpoint, not that transient
+   * empty state — hence the non-zero guard.
+   */
+  public async waitForCheckpointBelow(
+    checkpoint: CheckpointNumber,
+    opts: { timeout?: number; interval?: number } = {},
+  ): Promise<CheckpointNumber> {
+    return await retryUntil(
+      async () => {
+        const { pending } = await this.getTips();
+        return pending > 0 && pending < checkpoint ? pending : undefined;
+      },
+      `rollup checkpoint in (0, ${checkpoint})`,
+      opts.timeout ?? 60,
+      opts.interval ?? 1,
+    );
+  }
+
+  /**
    * Overrides the inProgress field of the Inbox contract state
    * @param howMuch - How many checkpoints to move it forward
    */

@@ -12,18 +12,17 @@ import {
   SLASHER_ENABLED_MULTI_VALIDATOR_OPTS,
   buildMockGossipValidators,
 } from '../multi_node_test_context.js';
+import { SENTINEL_TIMING } from './setup.js';
 
 const NUM_NODES = 2;
 const VALIDATORS_PER_NODE = 3;
 const NUM_VALIDATORS = NUM_NODES * VALIDATORS_PER_NODE;
 const SLOT_COUNT = 3;
-const EPOCH_DURATION = 2;
 // The body advances through SLOT_COUNT real L2 slots at wall-clock pace, so the slot duration directly
-// sets body time. At eth<8 the sequencer uses the fast (mocked-p2p) operational budgets, which fit a
-// checkpoint comfortably in an 8s slot even with six co-hosted validators; larger durations only add
+// sets body time. SENTINEL_TIMING's 8s slot (eth 4s) uses the fast (mocked-p2p) operational budgets,
+// which fit a checkpoint comfortably even with six co-hosted validators; larger durations only add
 // dead wall-clock without exercising new behavior.
-const ETHEREUM_SLOT_DURATION = 4;
-const AZTEC_SLOT_DURATION = 8;
+const AZTEC_SLOT_DURATION = SENTINEL_TIMING.aztecSlotDuration;
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -41,17 +40,12 @@ describe('multi-node/slashing/multiple_validators_sentinel', () => {
   beforeAll(async () => {
     test = await MultiNodeTestContext.setup({
       ...SLASHER_ENABLED_MULTI_VALIDATOR_OPTS,
-      anvilSlotsInAnEpoch: 4,
+      ...SENTINEL_TIMING,
       aztecTargetCommitteeSize: NUM_VALIDATORS,
-      aztecSlotDuration: AZTEC_SLOT_DURATION,
-      ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
       blockDurationMs: 2000,
       aztecProofSubmissionEpochs: 1024, // effectively do not reorg
-      listenAddress: '127.0.0.1',
       minTxsPerBlock: 0,
-      aztecEpochDuration: EPOCH_DURATION,
       slashingRoundSizeInEpochs: 2,
-      sentinelEnabled: true,
       slashInactivityPenalty: 0n, // Set to 0 to disable
       inboxLag: 2,
       initialValidators: buildMockGossipValidators(NUM_VALIDATORS),

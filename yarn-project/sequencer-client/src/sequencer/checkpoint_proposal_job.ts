@@ -74,6 +74,7 @@ import { CheckpointVoter } from './checkpoint_voter.js';
 import { SequencerInterruptedError } from './errors.js';
 import type { SequencerEvents } from './events.js';
 import type { SequencerMetrics } from './metrics.js';
+import type { RequestsTracker } from './requests_tracker.js';
 import type { SequencerRollupConstants } from './types.js';
 import { SequencerState } from './utils.js';
 
@@ -105,8 +106,6 @@ export class CheckpointProposalJob implements Traceable {
   protected readonly log: Logger;
   private readonly checkpointEventLog: Logger;
 
-  /** Tracks the fire-and-forget L1 submission promise so it can be awaited during shutdown. */
-  private pendingL1Submission: Promise<void> | undefined;
   private readonly interruptibleSleep = new InterruptibleSleep();
   private interrupted = false;
 
@@ -151,6 +150,9 @@ export class CheckpointProposalJob implements Traceable {
     private readonly metrics: SequencerMetrics,
     private readonly checkpointMetrics: CheckpointProposalJobMetricsRecorder,
     protected readonly eventEmitter: TypedEventEmitter<SequencerEvents>,
+    // Shared with the owning sequencer, which drains it during shutdown; the fire-and-forget L1
+    // submission this job backgrounds is tracked here rather than in a job-local tracker.
+    protected readonly pendingRequests: RequestsTracker,
     private readonly setStateFn: (state: SequencerState, slot: SlotNumber) => void,
     public readonly tracer: Tracer,
     bindings?: LoggerBindings,
@@ -181,12 +183,6 @@ export class CheckpointProposalJob implements Traceable {
    */
   private setState(state: SequencerState): void {
     this.setStateFn(state, this.targetSlot);
-  }
-
-  /** Awaits the pending L1 submission if one is in progress. Call during shutdown. */
-  public async awaitPendingSubmission(): Promise<void> {
-    this.log.info('Awaiting pending L1 payload submission');
-    await this.pendingL1Submission;
   }
 
   /** Interrupts job-owned waits, including the publisher's send-at-slot sleep, so shutdown can finish. */
@@ -257,7 +253,7 @@ export class CheckpointProposalJob implements Traceable {
       // signature verification to fail silently inside Multicall3. Delay submission to the
       // start of `targetSlot` so the tx mines in the slot the vote was signed for.
       if (!this.config.fishermanMode) {
-        this.pendingL1Submission = this.publisher.sendRequestsAt(this.targetSlot).then(() => {});
+        this.pendingRequests.trackRequest(this.publisher.sendRequestsAt(this.targetSlot), () => this.interrupt());
       }
       return undefined;
     }
@@ -272,7 +268,9 @@ export class CheckpointProposalJob implements Traceable {
     }
 
     // Background the attestation → signing → L1 pipeline so the work loop is unblocked
-    this.pendingL1Submission = this.waitForAttestationsAndEnqueueSubmissionAsync(broadcast, votesPromises);
+    this.pendingRequests.trackRequest(this.waitForAttestationsAndEnqueueSubmissionAsync(broadcast, votesPromises), () =>
+      this.interrupt(),
+    );
 
     // Return the built checkpoint immediately — the work loop is now unblocked
     return checkpoint;
@@ -280,7 +278,7 @@ export class CheckpointProposalJob implements Traceable {
 
   /**
    * Background pipeline: collects attestations, signs them, enqueues the checkpoint, and submits to L1.
-   * Runs as a fire-and-forget task stored in `pendingL1Submission` so the work loop is unblocked.
+   * Runs as a fire-and-forget task tracked in the sequencer's shared tracker so the work loop is unblocked.
    */
   private async waitForAttestationsAndEnqueueSubmissionAsync(
     broadcast: CheckpointProposalBroadcast,

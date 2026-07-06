@@ -1,7 +1,8 @@
 import { randomBytes } from '@aztec/foundation/crypto/random';
 
-import { createCipheriv, createDecipheriv, createHash, pbkdf2Sync, randomUUID } from 'crypto';
+import { createCipheriv, createDecipheriv, createHash, pbkdf2, pbkdf2Sync, randomUUID } from 'crypto';
 import { readFileSync } from 'fs';
+import { promisify } from 'util';
 import { z } from 'zod';
 
 /**
@@ -100,24 +101,15 @@ export interface Bn254KeystoreInterface {
   version: number;
 }
 
-/**
- * Creates a BN254 keystore object for a BN254 BLS private key.
- *
- * Uses PBKDF2 with SHA-256 for key derivation and AES-128-CTR for encryption,
- * following the EIP-2335 specification format.
- *
- * @param password - Password for encrypting the private key
- * @param privateKeyHex - Private key as 0x-prefixed hex string (32 bytes)
- * @param pubkeyHex - Public key as hex string (compressed or uncompressed)
- * @param derivationPath - BIP-44 style derivation path (e.g., "m/12381/3600/0/0/0")
- * @returns BN254 keystore object ready to be serialized to JSON
- * @throws Error if private key is not 32-byte hex
- */
-export function createBn254Keystore(
-  password: string,
+const pbkdf2Async = promisify(pbkdf2);
+
+function createBn254KeystoreFromDerivedKey(
   privateKeyHex: string,
   pubkeyHex: string,
   derivationPath: string,
+  salt: Buffer,
+  iv: Buffer,
+  dk: Buffer,
 ): Bn254Keystore {
   const ensureHex = (hex: string) => hex.replace(/^0x/i, '');
   const privHex = ensureHex(privateKeyHex);
@@ -125,11 +117,7 @@ export function createBn254Keystore(
     throw new Error('BLS private key must be 32-byte hex');
   }
 
-  const salt = randomBytes(32);
-  const iv = randomBytes(16);
-  const dk = pbkdf2Sync(Buffer.from(password.normalize('NFKD'), 'utf8'), salt, 262144, 32, 'sha256');
   const cipherKey = dk.subarray(0, 16);
-
   const cipher = createCipheriv('aes-128-ctr', cipherKey, iv);
   const plaintext = Buffer.from(privHex, 'hex');
   const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
@@ -164,6 +152,31 @@ export function createBn254Keystore(
     uuid,
     version: 4,
   };
+}
+
+/**
+ * Creates a BN254 keystore object for a BN254 BLS private key.
+ *
+ * Uses PBKDF2 with SHA-256 for key derivation and AES-128-CTR for encryption,
+ * following the EIP-2335 specification format.
+ *
+ * @param password - Password for encrypting the private key
+ * @param privateKeyHex - Private key as 0x-prefixed hex string (32 bytes)
+ * @param pubkeyHex - Public key as hex string (compressed or uncompressed)
+ * @param derivationPath - BIP-44 style derivation path (e.g., "m/12381/3600/0/0/0")
+ * @returns BN254 keystore object ready to be serialized to JSON
+ * @throws Error if private key is not 32-byte hex
+ */
+export async function createBn254Keystore(
+  password: string,
+  privateKeyHex: string,
+  pubkeyHex: string,
+  derivationPath: string,
+): Promise<Bn254Keystore> {
+  const salt = randomBytes(32);
+  const iv = randomBytes(16);
+  const dk = await pbkdf2Async(Buffer.from(password.normalize('NFKD'), 'utf8'), salt, 262144, 32, 'sha256');
+  return createBn254KeystoreFromDerivedKey(privateKeyHex, pubkeyHex, derivationPath, salt, iv, dk);
 }
 
 /**
