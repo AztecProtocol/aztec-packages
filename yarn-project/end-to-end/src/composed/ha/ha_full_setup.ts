@@ -206,10 +206,12 @@ export class HaFullTestContext {
     await refreshWeb3Signer(this.web3SignerUrl, ...this.attesterAddresses, ...this.publisherAddresses);
 
     // Create database pools for HA nodes
-    this.haNodePools = Array.from(
-      { length: NODE_COUNT },
-      () => new Pool({ connectionString: this.databaseConfig.databaseUrl.getValue()! }),
-    );
+    this.haNodePools = Array.from({ length: NODE_COUNT }, () => {
+      const pool = new Pool({ connectionString: this.databaseConfig.databaseUrl.getValue()! });
+      // Without an 'error' listener, pg re-emitting an idle-client error would crash the test process.
+      pool.on('error', (err: Error) => this.logger?.warn(`HA node pool error: ${err.message}`));
+      return pool;
+    });
 
     const initialValidators = createInitialValidatorsFromPrivateKeys(this.attesterPrivateKeys);
 

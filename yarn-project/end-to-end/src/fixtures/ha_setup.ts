@@ -54,6 +54,9 @@ export function setupHADatabase(databaseUrl: string, logger?: Logger): Pool {
     // Migrations are already run by docker-compose entrypoint before tests start
     const pool = new Pool({ connectionString: databaseUrl });
 
+    // Without an 'error' listener, pg re-emitting an idle-client error would crash the test process.
+    pool.on('error', (err: Error) => logger?.warn(`HA database pool error: ${err.message}`));
+
     logger?.info('Connected to HA database (migrations should already be applied)');
 
     return pool;
