@@ -543,29 +543,22 @@ TEST_F(UltraCircuitBuilderArithmetic, QArith3Gate)
         uint32_t w4_next_idx = builder.add_variable(w_4_next);
 
         // Gate 1: q_arith = 3
-        builder.blocks.arithmetic.populate_wires(w1_idx, w2_idx, w3_idx, w4_idx);
-        builder.blocks.arithmetic.q_m().emplace_back(q_m);
-        builder.blocks.arithmetic.q_1().emplace_back(q_1);
-        builder.blocks.arithmetic.q_2().emplace_back(q_2);
-        builder.blocks.arithmetic.q_3().emplace_back(q_3);
-        builder.blocks.arithmetic.q_4().emplace_back(q_4);
-        builder.blocks.arithmetic.q_5().emplace_back(0);
-        builder.blocks.arithmetic.q_c().emplace_back(q_c);
-        builder.blocks.arithmetic.set_gate_selector(GateKind::Arith, 3);
-        builder.check_selector_length_consistency();
+        builder.blocks.arithmetic.append_gate({ .wires = { w1_idx, w2_idx, w3_idx, w4_idx },
+                                                .q_m = q_m,
+                                                .q_c = q_c,
+                                                .q_1 = q_1,
+                                                .q_2 = q_2,
+                                                .q_3 = q_3,
+                                                .q_4 = q_4,
+                                                .gate_kind = GateKind::Arith,
+                                                .gate_value = 3 });
         builder.increment_num_gates();
 
         // Gate 2: provides w_1_shift and w_4_shift
-        builder.blocks.arithmetic.populate_wires(w1_next_idx, builder.zero_idx(), builder.zero_idx(), w4_next_idx);
-        builder.blocks.arithmetic.q_m().emplace_back(0);
-        builder.blocks.arithmetic.q_1().emplace_back(0);
-        builder.blocks.arithmetic.q_2().emplace_back(0);
-        builder.blocks.arithmetic.q_3().emplace_back(0);
-        builder.blocks.arithmetic.q_4().emplace_back(0);
-        builder.blocks.arithmetic.q_5().emplace_back(0);
-        builder.blocks.arithmetic.q_c().emplace_back(0);
-        builder.blocks.arithmetic.set_gate_selector(GateKind::Arith, 1);
-        builder.check_selector_length_consistency();
+        builder.blocks.arithmetic.append_gate(
+            { .wires = { w1_next_idx, builder.zero_idx(), builder.zero_idx(), w4_next_idx },
+              .gate_kind = GateKind::Arith,
+              .gate_value = 1 });
         builder.increment_num_gates();
 
         if (expect_valid) {

@@ -33,6 +33,10 @@ void check_mul_add_gate(Builder& builder, const QuadConstraint& mul_quad, const 
 {
     using FF = Builder::FF;
 
+    if (builder.failed() || builder.is_write_vk_mode()) {
+        return;
+    }
+
     FF result = mul_quad.const_scaling + next_wire_w4;
     result += builder.get_variable(mul_quad.a) * builder.get_variable(mul_quad.b) * mul_quad.mul_scaling;
     result += builder.get_variable(mul_quad.a) * mul_quad.a_scaling;
@@ -40,7 +44,7 @@ void check_mul_add_gate(Builder& builder, const QuadConstraint& mul_quad, const 
     result += builder.get_variable(mul_quad.c) * mul_quad.c_scaling;
     result += builder.get_variable(mul_quad.d) * mul_quad.d_scaling;
 
-    if (result != FF::zero() && !builder.failed() && !builder.is_write_vk_mode()) {
+    if (result != FF::zero()) {
         builder.failure("mul_add_gate");
     }
 }
@@ -50,6 +54,11 @@ void check_bilinear_batched_eq_gate(Builder& builder,
                                     const bilinear_batched_eq_gate_<typename Builder::FF>& bilinear_batched_eq)
 {
     using FF = typename Builder::FF;
+
+    if (builder.failed() || builder.is_write_vk_mode()) {
+        return;
+    }
+
     auto value_from_witness = [&](uint32_t w) { return builder.get_variable(w); };
 
     FF half_1;
@@ -71,7 +80,7 @@ void check_bilinear_batched_eq_gate(Builder& builder,
                  bilinear_batched_eq.q_4 * value_from_witness(bilinear_batched_eq.d) + bilinear_batched_eq.q_m;
     }
 
-    if ((half_1 != FF::zero() || half_2 != FF::zero()) && !builder.failed() && !builder.is_write_vk_mode()) {
+    if (half_1 != FF::zero() || half_2 != FF::zero()) {
         builder.failure("bilinear_batched_eq_gate");
     }
 }

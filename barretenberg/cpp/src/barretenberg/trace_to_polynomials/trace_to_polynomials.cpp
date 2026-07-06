@@ -44,14 +44,13 @@ void TraceToPolynomials<Flavor>::populate(Builder& builder, typename Flavor::Pro
 }
 
 template <class Flavor>
-std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_selectors_and_compute_copy_cycles(
+CopyCycles TraceToPolynomials<Flavor>::populate_wires_and_selectors_and_compute_copy_cycles(
     Builder& builder, ProverPolynomials& polynomials)
 {
 
     BB_BENCH_NAME("construct_trace_data");
 
-    std::vector<CyclicPermutation> copy_cycles;
-    copy_cycles.resize(builder.get_num_variables()); // at most one copy cycle per variable
+    CopyCycles copy_cycles; // at most one copy cycle per variable
 
     RefArray<Polynomial, NUM_WIRES> wires = polynomials.get_wires();
     auto selectors = polynomials.get_selectors();
@@ -65,6 +64,7 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
     // reserve()d once before the serial concat in phase 1.5, avoiding repeated reallocations.
     {
         BB_BENCH_NAME("counting copy_cycles");
+        const size_t num_cycles = builder.get_num_variables();
         std::vector<uint32_t> cycle_counts(builder.real_variable_index.size(), 0);
         for (auto& block : blocks_array) {
             const uint32_t block_size = static_cast<uint32_t>(block.size());
@@ -72,15 +72,22 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
                 for (uint32_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
                     uint32_t var_idx = block.wires[wire_idx][block_row_idx];
                     // var_idx may be untrusted (e.g. from ACIR) so use .at() to catch OOB. This validates real_var_idx
-                    // as an in-range index for both cycle_counts and copy_cycles (same size), which is why phase 1.5
-                    // below can index copy_cycles[real_var_idx] without .at().
+                    // as an in-range index for both cycle_counts and the CSR offsets (same size), which is why phase
+                    // 1.5 below can index the cursor array without .at().
                     ++cycle_counts.at(builder.real_variable_index.at(var_idx));
                 }
             }
         }
-        for (size_t i = 0; i < copy_cycles.size(); ++i) {
-            copy_cycles[i].reserve(cycle_counts[i]);
+        // Exclusive prefix sum of cycle counts gives the CSR offsets; a single flat node array
+        // replaces one heap-allocated vector per variable.
+        copy_cycles.offsets.resize(num_cycles + 1);
+        uint32_t running = 0;
+        for (size_t i = 0; i < num_cycles; ++i) {
+            copy_cycles.offsets[i] = running;
+            running += cycle_counts[i];
         }
+        copy_cycles.offsets[num_cycles] = running;
+        copy_cycles.nodes.resize(running);
     }
 
     // Phase 1: per-block parallel pass over wires and emit copy-cycle nodes.
@@ -112,9 +119,10 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
     // Phase 1.5: Serial concat in block order to preserve cycle-node ordering within each variable's cycle list.
     {
         BB_BENCH_NAME("fill_copy_cycles");
+        std::vector<uint32_t> cursors(copy_cycles.offsets.begin(), copy_cycles.offsets.end() - 1);
         for (const auto& block_nodes : per_block_nodes) {
             for (const auto& [real_var_idx, node] : block_nodes) {
-                copy_cycles[real_var_idx].emplace_back(node);
+                copy_cycles.nodes[cursors[real_var_idx]++] = node;
             }
         }
     }
@@ -159,8 +167,14 @@ std::vector<CyclicPermutation> TraceToPolynomials<Flavor>::populate_wires_and_se
         parallel_for(selector_tasks.size(), [&](size_t task_idx) {
             const auto& task = selector_tasks[task_idx];
             const auto& source = *task.source;
-            for (uint32_t row_idx = 0; row_idx < task.block_size; ++row_idx) {
-                selectors[task.target_poly_idx].set_if_valid_index(row_idx + task.trace_offset, source[row_idx]);
+            auto& poly = selectors[task.target_poly_idx];
+            // Bulk-copy the range that lands inside the polynomial's backing store (tile-wise, no
+            // per-element virtual call); rows clamped off by the store bounds would previously have
+            // been dropped by set_if_valid_index and must be zero.
+            const size_t dst_begin = std::max<size_t>(task.trace_offset, poly.start_index());
+            const size_t dst_end = std::min<size_t>(task.trace_offset + task.block_size, poly.end_index());
+            if (dst_begin < dst_end) {
+                source.copy_into(&poly.at(dst_begin), dst_begin - task.trace_offset, dst_end - dst_begin);
             }
         });
     }

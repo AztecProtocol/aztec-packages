@@ -133,7 +133,7 @@ HARDWARE_CONCURRENCY=8 BB_BENCH=1 \
 The wasmtime wrapper sets:
 - `-Wthreads=y -Sthreads=y` — enable WASM threads and shared memory
 - `--env HARDWARE_CONCURRENCY` — thread count
-- `--env BB_BENCH` — enable operation counting (`ENABLE_WASM_BENCH=ON` is set by the `wasm-threads` preset)
+- `--env BB_BENCH` — enable operation counting (requires configuring with `-DENABLE_WASM_BENCH=ON`; it is OFF by default in the `wasm-threads` preset to keep the shipped wasm fast)
 - `--dir=$HOME/.bb-crs --dir=.` — filesystem access for CRS and working directory
 
 ## Local runs are noisy — average 3 runs
@@ -322,7 +322,7 @@ The generic Google-Benchmark A/B scripts still exist for non-Chonk targets:
 - **Use `./bootstrap.sh` for initial builds** — it downloads cached artifacts and avoids build issues. Use `cmake --preset clang20 && cd build && ninja bb` for incremental rebuilds after code changes.
 - **Build dir is `build/`** — the `clang20` preset outputs to `build/`, not `build-no-avm`. The `clang20-no-avm` preset also uses `build/` (it disables AVM at cmake level, not via directory name).
 - **If the zig cache breaks** (missing `libubsan_rt.a` errors), delete `build/` and reconfigure: `rm -rf build && cmake --preset clang20`.
-- **WASM preset:** `wasm-threads`. Build dir is `build-wasm-threads/`. The preset enables `ENABLE_WASM_BENCH=ON` automatically.
+- **WASM preset:** `wasm-threads`. Build dir is `build-wasm-threads/`. `ENABLE_WASM_BENCH` is OFF by default (the shipped wasm carries no BB_BENCH instrumentation); configure with `cmake --preset wasm-threads -DENABLE_WASM_BENCH=ON` when you need wasm op counts, and reconfigure without it afterwards.
 - **WASM is ~2.8x slower than native** — this ratio is consistent across all circuit types.
 - **CRS:** Ensure `~/.bb-crs` exists. For WASM, wasmtime needs `--dir=$HOME/.bb-crs`.
 - **`BB_BENCH=1` vs `--print_bench`:** Either activates profiling. `--print_bench` also triggers the hierarchical tree output to stderr. In Google-Benchmark targets that wrap their loops with `GOOGLE_BB_BENCH_REPORTER`, the same activation happens automatically when `BB_BENCH=1` is set.

@@ -216,6 +216,18 @@ template <typename FF_> class CircuitBuilderBase {
      */
     virtual uint32_t add_variable(const FF& in);
 
+    /**
+     * @brief Reserve capacity for `capacity` variables across the per-variable bookkeeping vectors.
+     */
+    void reserve_variables(size_t capacity)
+    {
+        variables.reserve(capacity);
+        real_variable_index.reserve(capacity);
+        next_var_index.reserve(capacity);
+        prev_var_index.reserve(capacity);
+        real_variable_tags.reserve(capacity);
+    }
+
     // Disallow add_variable for non-FF types to prevent implicit conversions (specifically, using indices rather
     // than values)
     template <typename OT> uint32_t add_variable(const OT& in) = delete;

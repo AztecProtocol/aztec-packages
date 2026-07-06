@@ -251,6 +251,14 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
                          const bool is_write_vk_mode)
         : CircuitBuilderBase<FF>(is_write_vk_mode)
     {
+        // Real (ACIR) circuits create far more variables than the witness count (limb
+        // decompositions, gadget internals — typically 4-40x); reserve generously so the
+        // per-variable bookkeeping vectors do not repeatedly reallocate during construction.
+        // 4x keeps the transient over-allocation for large-witness circuits within a few MB.
+        constexpr size_t VARIABLES_PER_ACIR_WITNESS_HINT = 4;
+        constexpr size_t MIN_VARIABLES_RESERVE = 1 << 16;
+        this->reserve_variables(
+            std::max(witness_values.size() * VARIABLES_PER_ACIR_WITNESS_HINT, MIN_VARIABLES_RESERVE));
         for (const auto value : witness_values) {
             this->add_variable(value);
         }
@@ -270,29 +278,6 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     UltraCircuitBuilder_& operator=(const UltraCircuitBuilder_& other) = default;
     UltraCircuitBuilder_& operator=(UltraCircuitBuilder_&& other) = default;
     ~UltraCircuitBuilder_() override = default;
-
-    /**
-     * @brief Debug helper method for ensuring all selectors have the same size
-     * @details Each gate construction method manually appends values to the selectors. Failing to update one of the
-     * selectors will lead to an unsatisfiable circuit. This method provides a mechanism for ensuring that each selector
-     * has been updated as expected. Its logic is only active in debug mode.
-     *
-     */
-    void check_selector_length_consistency()
-    {
-#if NDEBUG
-        // do nothing
-#else
-        for (auto& block : blocks.get()) {
-            const auto& block_selectors = block.get_selectors();
-            size_t nominal_size = block_selectors[0].size();
-            for (size_t idx = 1; idx < block_selectors.size(); ++idx) {
-                BB_ASSERT_EQ(block_selectors[idx].size(), nominal_size);
-            }
-        }
-
-#endif // NDEBUG
-    }
 
     void finalize_circuit();
 
@@ -330,7 +315,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      */
     void create_small_range_constraint(const uint32_t variable_index,
                                        const uint64_t target_range,
-                                       std::string const msg = "create_small_range_constraint");
+                                       std::string_view msg = "create_small_range_constraint");
 
     /**
      * @brief Entry point for range constraints where the upper bound is a power of 2 (i.e., dyadic). Dispatches to
@@ -342,7 +327,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
      * @note The upper bound of the range is specified via `num_bits`, i.e., the range-constrained constructed is for `1
      * << num_bits -1`.
      */
-    void create_dyadic_range_constraint(const uint32_t variable_index, const size_t num_bits, std::string const& msg)
+    void create_dyadic_range_constraint(const uint32_t variable_index, const size_t num_bits, std::string_view msg)
     {
         if (num_bits == 1) {
             create_bool_gate(variable_index);
@@ -473,7 +458,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         const uint32_t variable_index,
         const uint64_t num_bits,
         const uint64_t target_range_bitnum = DEFAULT_PLOOKUP_RANGE_BITNUM,
-        std::string const& msg = "create_limbed_range_constraint");
+        std::string_view msg = "create_limbed_range_constraint");
 
     /**
      * @brief Create a gate with no constraints but with possibly non-trivial wire values
@@ -486,17 +471,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     void create_unconstrained_gate(
         auto& block, const uint32_t& idx_1, const uint32_t& idx_2, const uint32_t& idx_3, const uint32_t& idx_4)
     {
-        block.populate_wires(idx_1, idx_2, idx_3, idx_4);
-        block.q_m().emplace_back(0);
-        block.q_1().emplace_back(0);
-        block.q_2().emplace_back(0);
-        block.q_3().emplace_back(0);
-        block.q_c().emplace_back(0);
-        block.q_4().emplace_back(0);
-        block.q_5().emplace_back(0);
-        block.set_gate_selector(0); // all selectors zero
-
-        check_selector_length_consistency();
+        block.append_gate({ .wires = { idx_1, idx_2, idx_3, idx_4 } });
         this->increment_num_gates();
     }
     void create_unconstrained_gates(const std::vector<uint32_t>& variable_index);
@@ -585,8 +560,11 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     /**
      * Custom Gate Selectors
      **/
-    void apply_memory_selectors(const MEMORY_SELECTORS type);
-    void apply_nnf_selectors(const NNF_SELECTORS type);
+    using GateRowT = GateRow<FF, ExecutionTrace::NUM_WIRES>;
+    // Build the selector/gate-kind part of a memory or nnf gate row; the caller fills in the wires
+    // and appends the completed row.
+    GateRowT memory_selectors_row(const MEMORY_SELECTORS type) const;
+    GateRowT nnf_selectors_row(const NNF_SELECTORS type) const;
 
     /**
      * Non Native Field Arithmetic
@@ -595,7 +573,7 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
                                    const uint32_t hi_idx,
                                    const size_t lo_limb_bits = DEFAULT_NON_NATIVE_FIELD_LIMB_BITS,
                                    const size_t hi_limb_bits = DEFAULT_NON_NATIVE_FIELD_LIMB_BITS,
-                                   std::string const& msg = "range_constrain_two_limbs");
+                                   std::string_view msg = "range_constrain_two_limbs");
     std::array<uint32_t, 2> evaluate_non_native_field_multiplication(
         const non_native_multiplication_witnesses<FF>& input);
     std::array<uint32_t, 2> queue_partial_non_native_field_multiplication(
