@@ -153,12 +153,7 @@ describe('delivery/constrained', () => {
 });
 
 // This test builds its own PXE via setup() rather than reusing the wallet from the describe block above, because
-// it needs a resolveTaggingSecretStrategy hook that only exists as a PXE-creation-time option. It must stay a
-// top-level describe, not merged (nested describe, or plain `it`) into 'delivery/constrained' above: that
-// describe's own afterAll teardown only fires once every test inside it has finished, so nesting this one in there
-// would leave that describe's sandbox (and its anvil) alive while this test starts a second one. The second anvil
-// then fails to bind to the same port, and the wrapper script that launches it never surfaces that failure, so the
-// test hangs for the full jest timeout instead of failing fast.
+// it needs a resolveTaggingSecretStrategy hook that only exists as a PXE-creation-time option.
 describe('delivery/constrained: rejects unsound sources', () => {
   jest.setTimeout(300_000);
 
