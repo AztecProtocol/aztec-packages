@@ -23,7 +23,7 @@ if [ -n "${NAME:-}" ]; then
   name="$(echo "${NAME}" | sed 's/^[^a-zA-Z0-9]*//' | tr '/' '_')${NAME_POSTFIX:-}"
   name_arg="--name $name"
   # Kill any existing container with the same name.
-  docker rm -f "$name" &>/dev/null || true
+  docker rm -f $name &>/dev/null || true
 fi
 
 # For pinning to given CPUs.
