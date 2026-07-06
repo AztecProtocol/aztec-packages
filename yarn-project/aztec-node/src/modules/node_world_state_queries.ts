@@ -3,6 +3,7 @@ import { BlockNumber, type CheckpointNumber, type EpochNumber } from '@aztec/fou
 import { chunkBy } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { sleep } from '@aztec/foundation/sleep';
 import { MembershipWitness, type SiblingPath } from '@aztec/foundation/trees';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
@@ -10,6 +11,7 @@ import {
   type BlockParameter,
   type DataInBlock,
   type L2BlockSource,
+  type NormalizedBlockParameter,
   inspectBlockParameter,
 } from '@aztec/stdlib/block';
 import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
@@ -23,8 +25,15 @@ import {
   PublicDataWitness,
 } from '@aztec/stdlib/trees';
 import type { TxHash } from '@aztec/stdlib/tx';
+import { WorldStateSynchronizerError } from '@aztec/world-state';
 
 import { normalizeBlockParameter } from './block_parameter.js';
+
+/** Attempts at resolving a query and syncing world state to it before giving up (see {@link NodeWorldStateQueries.getWorldState}). */
+const WORLD_STATE_SYNC_ATTEMPTS = 3;
+
+/** Delay between world-state sync attempts. */
+const WORLD_STATE_SYNC_RETRY_DELAY_MS = 100;
 
 /** Dependencies required to build a {@link NodeWorldStateQueries}. */
 export interface NodeWorldStateQueriesDeps {
@@ -128,7 +137,7 @@ export class NodeWorldStateQueries {
     // The Noir circuit checks the archive membership proof against `anchor_block_header.last_archive.root`,
     // which is the archive tree root BEFORE the anchor block was added (i.e. the state after block N-1).
     // So we need the world state at block N-1, not block N, to produce a sibling path matching that root.
-    const referenceBlockNumber = await this.resolveBlockNumber(referenceBlock);
+    const referenceBlockNumber = await this.#resolveBlockNumber(referenceBlock);
     if (referenceBlockNumber === BlockNumber.ZERO) {
       // Block 0 (the initial block) has an empty archive, so no membership witness can exist.
       return undefined;
@@ -270,91 +279,96 @@ export class NodeWorldStateQueries {
   }
 
   /**
-   * Returns an instance of MerkleTreeOperations having first ensured the world state is fully synched
-   * @param block - The block parameter (block number, block hash, or 'latest') at which to get the data.
+   * Returns an instance of MerkleTreeOperations having first ensured the world state is synced to the requested
+   * block on the correct fork. Every query variant is resolved to a concrete (block number, block hash), which is
+   * threaded through both the sync and the snapshot read so a reorg that replaced the block at that height is
+   * detected rather than served silently. Transient failures — a prune landing between resolution and sync, or a
+   * fork flip caught at either the sync or the snapshot stage — are retried a few times, re-resolving the query
+   * against the updated chain each time; resolution failures such as an unknown block hash are terminal and thrown
+   * immediately.
+   * @param block - The block parameter (block number, block hash, or tag) at which to get the data.
    * @returns An instance of a committed MerkleTreeOperations
    */
   public async getWorldState(block: BlockParameter) {
     const query = normalizeBlockParameter(block);
 
-    // When the request anchors on a specific block hash, resolve it against the archiver up front and
-    // drive the world-state sync to that exact block number and hash. Resolving against the archiver
-    // first fails fast with a clear reorg error if the hash is unknown, and passing the hash to the
-    // synchronizer makes the sync reorg-aware: it barriers until the archive-tree commit for that block
-    // has landed and verifies it matches the requested fork, instead of syncing to bare latest height
-    // and then racing the snapshot read below against an in-flight archive-tree write.
-    const requestedHash = 'hash' in query ? query.hash : undefined;
-    const anchorBlockNumber = requestedHash !== undefined ? await this.resolveBlockNumber(query) : undefined;
-
-    let blockSyncedTo: BlockNumber = BlockNumber.ZERO;
-    try {
-      // Attempt to sync the world state if necessary
-      blockSyncedTo = await this.#syncWorldState(anchorBlockNumber, requestedHash);
-    } catch (err) {
-      this.log.error(`Error getting world state: ${err}`);
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await this.#resolveWorldState(query);
+      } catch (err) {
+        if (attempt >= WORLD_STATE_SYNC_ATTEMPTS || !(err instanceof WorldStateSynchronizerError)) {
+          throw err;
+        }
+        this.log.verbose(`Retrying world state query after sync failure: ${err.message}`, {
+          attempt,
+          block: inspectBlockParameter(block),
+        });
+        await sleep(WORLD_STATE_SYNC_RETRY_DELAY_MS);
+      }
     }
+  }
 
+  /**
+   * Resolves `query` to a concrete (block number, block hash), syncs world state to that exact fork, and returns
+   * the committed db (for `proposed` queries) or the fork-verified snapshot at the resolved block.
+   */
+  async #resolveWorldState(query: NormalizedBlockParameter) {
+    // User requests 'latest on the current fork', so the committed db is returned unverified
     if ('tag' in query && query.tag === 'proposed') {
-      this.log.debug(`Using committed db for latest block, world state synced upto ${blockSyncedTo}`);
+      this.log.debug(`Using committed db for latest block`);
+      await this.worldStateSynchronizer.syncImmediate();
       return this.worldStateSynchronizer.getCommitted();
     }
 
-    const blockNumber = anchorBlockNumber ?? (await this.resolveBlockNumber(query));
+    // Resolve the query against the block source BEFORE syncing to a concrete (number, hash), and drive the sync to
+    // that exact fork. Resolving after the sync races the block source: the resolved tip can advance past what world
+    // state synced while the sync is in flight. Passing the hash makes the sync reorg-aware — it barriers until the
+    // archive-tree commit for that block has landed and verifies it matches the requested fork, throwing otherwise.
+    const { blockNumber, blockHash } = await this.#resolveBlockNumberAndHash(query);
+    const blockSyncedTo = await this.worldStateSynchronizer.syncImmediate(blockNumber, blockHash);
 
-    // Check it's within world state sync range
-    if (blockNumber > blockSyncedTo) {
-      throw new Error(
-        `Queried block ${inspectBlockParameter(block)} not yet synced by the node (node is synced upto ${blockSyncedTo}).`,
-      );
+    // The fork could flip between it returning and the snapshot being read, so getVerifiedSnapshot pins the
+    // returned view to the resolved fork (re-resolved by the retry loop on mismatch).
+    this.log.debug(`Using verified snapshot for block ${blockNumber}, world state synced upto ${blockSyncedTo}`);
+    return await this.worldStateSynchronizer.getVerifiedSnapshot(blockNumber, blockHash);
+  }
+
+  /** Resolves any {@link BlockParameter} variant to its concrete `(blockNumber, blockHash)` via the block source. */
+  async #resolveBlockNumberAndHash(
+    query: NormalizedBlockParameter,
+  ): Promise<{ blockNumber: BlockNumber; blockHash: BlockHash }> {
+    const blockData = await this.blockSource.getBlockData(query);
+    if (blockData === undefined) {
+      this.#throwOnUndefinedBlockData(query);
     }
-    this.log.debug(`Using snapshot for block ${blockNumber}, world state synced upto ${blockSyncedTo}`);
-
-    const snapshot = this.worldStateSynchronizer.getSnapshot(blockNumber);
-
-    // Double-check world-state synced to the same block hash as was requested.
-    // Block 0 is skipped: the snapshot returned by `getSnapshot(0)` is the *pre*-genesis archive
-    // (size 0), so leaf 0 is not yet inserted from that snapshot's view even though block 0's hash
-    // does live at archive index 0 in the committed tree. The genesis hash is already validated by
-    // the archiver when it resolves the hash query to block number 0.
-    if (requestedHash !== undefined && blockNumber !== BlockNumber.ZERO) {
-      const blockHash = await snapshot.getLeafValue(MerkleTreeId.ARCHIVE, BigInt(blockNumber));
-      if (!blockHash || !requestedHash.equals(blockHash)) {
-        throw new Error(
-          `Block hash ${requestedHash.toString()} not found in world state at block number ${blockNumber} (world state has ${blockHash?.toString() ?? 'no hash'} at that index, genesis header hash is ${this.blockSource.getGenesisBlockHash().toString()}). If the node API has been queried with anchor block hash possibly a reorg has occurred.`,
-        );
-      }
-    }
-
-    return snapshot;
+    return { blockNumber: blockData.header.getBlockNumber(), blockHash: blockData.blockHash };
   }
 
   /** Resolves any {@link BlockParameter} variant to a concrete block number. */
-  public async resolveBlockNumber(block: BlockParameter): Promise<BlockNumber> {
-    const query = normalizeBlockParameter(block);
-    const blockNumber = await this.blockSource.getBlockNumber(query);
+  async #resolveBlockNumber(block: BlockParameter): Promise<BlockNumber> {
+    const blockQuery = normalizeBlockParameter(block);
+    const blockNumber = await this.blockSource.getBlockNumber(blockQuery);
     if (blockNumber === undefined) {
-      if ('hash' in query) {
-        throw new Error(
-          `Block hash ${query.hash.toString()} not found when querying world state. If the node API has been queried with anchor block hash possibly a reorg has occurred.`,
-        );
-      }
-      if ('archive' in query) {
-        throw new Error(`Block with archive ${query.archive.toString()} not found.`);
-      }
-      throw new Error(`Block not found for ${inspectBlockParameter(block)}.`);
+      this.#throwOnUndefinedBlockData(blockQuery);
     }
     return blockNumber;
   }
 
   /**
-   * Ensure the world state is synced.
-   * @param targetBlockNumber - Block to sync up to. Defaults to the latest block known to the archiver.
-   * @param blockHash - If provided, the synchronizer verifies the block at `targetBlockNumber` matches this
-   * hash, resyncing (and so detecting reorgs) if it does not yet match or has been reorged away.
-   * @returns A promise that fulfils once the world state is synced
+   * Hash and archive misses are terminal (an unknown block, likely a reorg); tag and number misses are transient —
+   * the block may have been pruned between the tag->number resolution and this data read, or may simply not have
+   * arrived yet — and surface as {@link WorldStateSynchronizerError} so the retry loop re-resolves against the
+   * current chain.
    */
-  async #syncWorldState(targetBlockNumber?: BlockNumber, blockHash?: BlockHash): Promise<BlockNumber> {
-    const target = targetBlockNumber ?? (await this.blockSource.getBlockNumber());
-    return await this.worldStateSynchronizer.syncImmediate(target, blockHash);
+  #throwOnUndefinedBlockData(query: NormalizedBlockParameter): never {
+    if ('hash' in query) {
+      throw new Error(
+        `Block hash ${query.hash.toString()} not found when resolving query. If the node API has been queried with anchor block hash possibly a reorg has occurred.`,
+      );
+    }
+    if ('archive' in query) {
+      throw new Error(`Block with archive ${query.archive.toString()} not found when resolving query.`);
+    }
+    throw new WorldStateSynchronizerError(`Block not found for ${inspectBlockParameter(query)} when resolving query.`);
   }
 }
