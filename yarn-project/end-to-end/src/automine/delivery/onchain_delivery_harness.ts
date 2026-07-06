@@ -111,6 +111,7 @@ export function buildMessageDeliveryTest(opts: {
       const recipientAccount = await walletRecipient.createSchnorrAccount(
         additionallyFundedAccounts[0].secret,
         additionallyFundedAccounts[0].salt,
+        additionallyFundedAccounts[0].signingKey,
       );
       await (await recipientAccount.getDeployMethod()).send({ from: NO_FROM });
       recipient = recipientAccount.address;
