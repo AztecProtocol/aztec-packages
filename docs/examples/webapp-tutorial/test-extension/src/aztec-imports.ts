@@ -14,29 +14,30 @@
 
 /** Core imports needed for account operations (key derivation, contract setup) */
 export interface AztecCoreImports {
-  Fr: typeof import('@aztec/aztec.js/fields').Fr;
-  AztecAddress: typeof import('@aztec/aztec.js/addresses').AztecAddress;
-  deriveKeys: typeof import('@aztec/stdlib/keys').deriveKeys;
-  deriveSigningKey: typeof import('@aztec/stdlib/keys').deriveSigningKey;
-  SchnorrAccountContract: typeof import('@aztec/accounts/schnorr/lazy').SchnorrAccountContract;
-  getContractInstanceFromInstantiationParams: typeof import('@aztec/aztec.js/contracts').getContractInstanceFromInstantiationParams;
-  AccountManager: typeof import('@aztec/aztec.js/wallet').AccountManager;
+  Fr: typeof import("@aztec/aztec.js/fields").Fr;
+  GrumpkinScalar: typeof import("@aztec/aztec.js/fields").GrumpkinScalar;
+  AztecAddress: typeof import("@aztec/aztec.js/addresses").AztecAddress;
+  deriveKeys: typeof import("@aztec/stdlib/keys").deriveKeys;
+  deriveSecretKeyFromSigningKey: typeof import("@aztec/accounts/utils").deriveSecretKeyFromSigningKey;
+  SchnorrAccountContract: typeof import("@aztec/accounts/schnorr/lazy").SchnorrAccountContract;
+  getContractInstanceFromInstantiationParams: typeof import("@aztec/aztec.js/contracts").getContractInstanceFromInstantiationParams;
+  AccountManager: typeof import("@aztec/aztec.js/wallet").AccountManager;
 }
 
 /** Additional imports for the wallet runtime (BaseWallet, serialization) */
 export interface AztecWalletImports extends AztecCoreImports {
-  BaseWallet: typeof import('@aztec/wallet-sdk/base-wallet').BaseWallet;
-  SignerlessAccount: typeof import('@aztec/aztec.js/account').SignerlessAccount;
-  WalletSchema: typeof import('@aztec/aztec.js/wallet').WalletSchema;
-  jsonStringify: typeof import('@aztec/foundation/json-rpc').jsonStringify;
-  schemaHasMethod: typeof import('@aztec/foundation/schemas').schemaHasMethod;
+  BaseWallet: typeof import("@aztec/wallet-sdk/base-wallet").BaseWallet;
+  SignerlessAccount: typeof import("@aztec/aztec.js/account").SignerlessAccount;
+  WalletSchema: typeof import("@aztec/aztec.js/wallet").WalletSchema;
+  jsonStringify: typeof import("@aztec/foundation/json-rpc").jsonStringify;
+  schemaHasMethod: typeof import("@aztec/foundation/schemas").schemaHasMethod;
 }
 
 /** Deploy-specific imports (fee payment, SponsoredFPC) */
 export interface AztecDeployImports extends AztecCoreImports {
-  SponsoredFeePaymentMethod: typeof import('@aztec/aztec.js/fee').SponsoredFeePaymentMethod;
-  SponsoredFPCContract: typeof import('@aztec/noir-contracts.js/SponsoredFPC').SponsoredFPCContract;
-  SPONSORED_FPC_SALT: typeof import('@aztec/constants').SPONSORED_FPC_SALT;
+  SponsoredFeePaymentMethod: typeof import("@aztec/aztec.js/fee").SponsoredFeePaymentMethod;
+  SponsoredFPCContract: typeof import("@aztec/noir-contracts.js/SponsoredFPC").SponsoredFPCContract;
+  SPONSORED_FPC_SALT: typeof import("@aztec/constants").SPONSORED_FPC_SALT;
 }
 
 let coreCache: AztecCoreImports | null = null;
@@ -50,22 +51,26 @@ let deployCache: AztecDeployImports | null = null;
 export async function getAztecCore(): Promise<AztecCoreImports> {
   if (coreCache) return coreCache;
 
-  const [fields, addresses, keys, schnorr, contracts, wallet] = await Promise.all([
-    import('@aztec/aztec.js/fields'),
-    import('@aztec/aztec.js/addresses'),
-    import('@aztec/stdlib/keys'),
-    import('@aztec/accounts/schnorr/lazy'),
-    import('@aztec/aztec.js/contracts'),
-    import('@aztec/aztec.js/wallet'),
-  ]);
+  const [fields, addresses, keys, accountUtils, schnorr, contracts, wallet] =
+    await Promise.all([
+      import("@aztec/aztec.js/fields"),
+      import("@aztec/aztec.js/addresses"),
+      import("@aztec/stdlib/keys"),
+      import("@aztec/accounts/utils"),
+      import("@aztec/accounts/schnorr/lazy"),
+      import("@aztec/aztec.js/contracts"),
+      import("@aztec/aztec.js/wallet"),
+    ]);
 
   coreCache = {
     Fr: fields.Fr,
+    GrumpkinScalar: fields.GrumpkinScalar,
     AztecAddress: addresses.AztecAddress,
     deriveKeys: keys.deriveKeys,
-    deriveSigningKey: keys.deriveSigningKey,
+    deriveSecretKeyFromSigningKey: accountUtils.deriveSecretKeyFromSigningKey,
     SchnorrAccountContract: schnorr.SchnorrAccountContract,
-    getContractInstanceFromInstantiationParams: contracts.getContractInstanceFromInstantiationParams,
+    getContractInstanceFromInstantiationParams:
+      contracts.getContractInstanceFromInstantiationParams,
     AccountManager: wallet.AccountManager,
   };
 
@@ -81,11 +86,11 @@ export async function getAztecWallet(): Promise<AztecWalletImports> {
 
   const [core, bw, account, walletMod, jsonRpc, schemas] = await Promise.all([
     getAztecCore(),
-    import('@aztec/wallet-sdk/base-wallet'),
-    import('@aztec/aztec.js/account'),
-    import('@aztec/aztec.js/wallet'),
-    import('@aztec/foundation/json-rpc'),
-    import('@aztec/foundation/schemas'),
+    import("@aztec/wallet-sdk/base-wallet"),
+    import("@aztec/aztec.js/account"),
+    import("@aztec/aztec.js/wallet"),
+    import("@aztec/foundation/json-rpc"),
+    import("@aztec/foundation/schemas"),
   ]);
 
   walletCache = {
@@ -109,9 +114,9 @@ export async function getAztecDeploy(): Promise<AztecDeployImports> {
 
   const [core, fee, sponsoredFpc, constants] = await Promise.all([
     getAztecCore(),
-    import('@aztec/aztec.js/fee'),
-    import('@aztec/noir-contracts.js/SponsoredFPC'),
-    import('@aztec/constants'),
+    import("@aztec/aztec.js/fee"),
+    import("@aztec/noir-contracts.js/SponsoredFPC"),
+    import("@aztec/constants"),
   ]);
 
   deployCache = {
