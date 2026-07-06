@@ -11,7 +11,7 @@ contracts:
 # Dependencies:
 #   - @aztec/* packages are auto-linked from yarn-project/
 #   - Use link:path for packages outside yarn-project/
-#   - Use npm:package-name for external npm packages
+#   - Use npm:package-name or npm:package-name@range for external npm packages
 dependencies:
   - "@aztec/aztec.js"
   - "@aztec/accounts"

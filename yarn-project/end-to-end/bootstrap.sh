@@ -250,7 +250,7 @@ function avm_check_circuit {
   fi
 
   # Run check-circuit
-  avm_check_circuit_cmds | parallelize
+  avm_check_circuit_cmds | parallelize 16
 }
 
 # Generates e2e test commands using contract artifacts from a prior release version.

@@ -74,9 +74,6 @@ class UltraFlavor : public UltraFlavor_Generated {
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
-    static constexpr size_t num_frs_comm = FrCodec::calc_num_fields<Commitment>();
-    static constexpr size_t num_frs_fr = FrCodec::calc_num_fields<FF>();
-
     // HasZK_-parameterized AllEntities — switches between the non-ZK and ZK generated
     // AllEntities so UltraFlavorWithZK can reuse this surface (UltraZK only adds a masking column,
     // not any new entity *shapes*). The base-class `AllEntities<DataType>` from

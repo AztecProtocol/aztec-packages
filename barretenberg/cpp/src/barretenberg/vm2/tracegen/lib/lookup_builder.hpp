@@ -50,10 +50,10 @@ template <typename LookupSettings_> class IndexedLookupTraceBuilder : public Int
             }
 
             trace.set(LookupSettings::COUNTS, dst_row, trace.get(LookupSettings::COUNTS, dst_row) + 1);
-            // Set the fine grained inner selector if it's not already one.
-            if (LookupSettings::DST_SELECTOR != this->outer_dst_selector &&
-                trace.get(LookupSettings::DST_SELECTOR, dst_row) != 1) {
-                trace.set(LookupSettings::DST_SELECTOR, dst_row, 1);
+            if (LookupSettings::DST_SELECTOR != this->outer_dst_selector) {
+                // This step might write to the same cell from multiple threads, so we use atomic limbs to avoid UB.
+                // Since we are always writing a 1, the end result will be 1 even under concurrency.
+                trace.set(LookupSettings::DST_SELECTOR, dst_row, 1, /*use_atomic_limbs=*/true);
             }
         });
     }
@@ -198,10 +198,10 @@ template <typename LookupSettings> class LookupIntoDynamicTableSequential : publ
                 if (dst_selector == 1 && src_values == trace.get_multiple(LookupSettings::DST_COLUMNS, dst_row)) {
                     trace.set(LookupSettings::COUNTS, dst_row, trace.get(LookupSettings::COUNTS, dst_row) + 1);
 
-                    // Set the fine grained inner selector if it's not already one.
-                    if (LookupSettings::DST_SELECTOR != this->outer_dst_selector &&
-                        trace.get(LookupSettings::DST_SELECTOR, dst_row) != 1) {
-                        trace.set(LookupSettings::DST_SELECTOR, dst_row, 1);
+                    if (LookupSettings::DST_SELECTOR != this->outer_dst_selector) {
+                        // This step might write to the same cell from multiple threads, so we use atomic limbs to avoid
+                        // UB. Since we are always writing a 1, the end result will be 1 even under concurrency.
+                        trace.set(LookupSettings::DST_SELECTOR, dst_row, 1, /*use_atomic_limbs=*/true);
                     }
 
                     found = true;
