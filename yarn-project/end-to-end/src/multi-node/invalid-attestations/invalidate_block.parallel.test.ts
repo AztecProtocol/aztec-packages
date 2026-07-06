@@ -66,7 +66,7 @@ describe('multi-node/invalid-attestations/invalidate_block', () => {
     // Uses multiple-blocks-per-slot timing configuration.
     test = await MultiNodeTestContext.setup({
       ...MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
-      ethereumSlotDuration: 8,
+      ethereumSlotDuration: 12,
       aztecSlotDuration: 36,
       blockDurationMs: 6000,
       initialValidators: validators,

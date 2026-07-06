@@ -246,6 +246,41 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
  */
 export const DefaultL1ContractsConfig = getDefaultConfig(l1ContractsConfigMappings);
 
+/**
+ * Validates that `ethereumSlotDuration` and `aztecSlotDuration` are positive and that the L2 slot is an exact
+ * multiple of the L1 slot. Every L2 slot boundary must land on an L1 slot boundary; a non-multiple pairing
+ * desyncs the epoch/checkpoint timing math throughout the sequencer, validator client, and timetables. Returns
+ * a list of error messages (empty when valid).
+ */
+export function validateSlotDurations(
+  config: Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration'>,
+): string[] {
+  const errors: string[] = [];
+  if (config.ethereumSlotDuration <= 0) {
+    errors.push(`ethereumSlotDuration must be positive (got ${config.ethereumSlotDuration})`);
+  }
+  if (config.aztecSlotDuration <= 0) {
+    errors.push(`aztecSlotDuration must be positive (got ${config.aztecSlotDuration})`);
+  }
+  if (config.ethereumSlotDuration > 0 && config.aztecSlotDuration % config.ethereumSlotDuration !== 0) {
+    errors.push(
+      `aztecSlotDuration (${config.aztecSlotDuration}s) must be a multiple of ethereumSlotDuration ` +
+        `(${config.ethereumSlotDuration}s)`,
+    );
+  }
+  return errors;
+}
+
+/** Throws if {@link validateSlotDurations} reports any errors. */
+export function assertValidSlotDurations(
+  config: Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration'>,
+): void {
+  const errors = validateSlotDurations(config);
+  if (errors.length > 0) {
+    throw new Error(`Invalid slot duration configuration:\n${errors.map(e => `  - ${e}`).join('\n')}`);
+  }
+}
+
 export const genesisStateConfigMappings: ConfigMappingsType<GenesisStateConfig> = {
   testAccounts: {
     env: 'TEST_ACCOUNTS',
