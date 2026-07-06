@@ -711,7 +711,11 @@ append_optional_tfvar "${DEPLOY_AZTEC_INFRA_DIR}/terraform.tfvars" RPC_GATEWAY_A
 append_optional_tfvar "${DEPLOY_AZTEC_INFRA_DIR}/terraform.tfvars" RPC_GATEWAY_ALLOW_ANONYMOUS
 append_optional_tfvar "${DEPLOY_AZTEC_INFRA_DIR}/terraform.tfvars" RPC_GATEWAY_ANONYMOUS_RATE_LIMIT_MINUTE
 append_optional_tfvar "${DEPLOY_AZTEC_INFRA_DIR}/terraform.tfvars" RPC_GATEWAY_API_KEY_HEADER_NAME string
-append_optional_tfvar "${DEPLOY_AZTEC_INFRA_DIR}/terraform.tfvars" RPC_GATEWAY_CONSUMERS
+append_optional_tfvar "${DEPLOY_AZTEC_INFRA_DIR}/terraform.tfvars" PROVER_NODE_RPC_GATEWAY_ENABLED
+append_optional_tfvar "${DEPLOY_AZTEC_INFRA_DIR}/terraform.tfvars" PROVER_NODE_RPC_GATEWAY_HOSTS
+append_optional_tfvar "${DEPLOY_AZTEC_INFRA_DIR}/terraform.tfvars" PROVER_NODE_RPC_GATEWAY_PATH string
+append_optional_tfvar "${DEPLOY_AZTEC_INFRA_DIR}/terraform.tfvars" PROVER_NODE_RPC_GATEWAY_STRIP_PATH
+append_optional_tfvar "${DEPLOY_AZTEC_INFRA_DIR}/terraform.tfvars" PROVER_NODE_RPC_GATEWAY_API_KEY_SECRET_NAMES
 append_optional_tfvar "${DEPLOY_AZTEC_INFRA_DIR}/terraform.tfvars" RPC_GATEWAY_CREATE_DNS
 append_optional_tfvar "${DEPLOY_AZTEC_INFRA_DIR}/terraform.tfvars" RPC_GATEWAY_DNS_ZONE_NAME string
 append_optional_tfvar "${DEPLOY_AZTEC_INFRA_DIR}/terraform.tfvars" RPC_GATEWAY_DNS_TTL

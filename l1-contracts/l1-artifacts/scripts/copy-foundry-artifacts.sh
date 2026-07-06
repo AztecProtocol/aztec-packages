@@ -24,9 +24,11 @@ mkdir -p "l1-contracts/test/script"
 cp -p "$src/test/shouting.t.sol" "l1-contracts/test/"
 cp -p "$src"/test/script/*.sol "l1-contracts/test/script/"
 cp -p "$src"/{foundry.toml,foundry.lock,package.json,solc-*} "l1-contracts/"
-# Copy the forge broadcast wrapper (now a plain .js source file).
+# Copy the forge broadcast wrapper (now a plain .js source file) and the network defaults
+# (read at deploy time via foundry fs_permissions / vm.readFile).
 mkdir -p "l1-contracts/scripts"
 cp -p "$src/scripts/forge_broadcast.js" "l1-contracts/scripts/"
+cp -p "$src/scripts/network-defaults.json" "l1-contracts/scripts/"
 abs_dest=$(pwd)/l1-contracts
 # Keep only the foundry relevant files from lib
 (cd "$src" && find lib \( -name "*.sol" -o -name "remappings.txt" -o -name "foundry.toml" \) -exec cp --parents -t "$abs_dest" {} +)

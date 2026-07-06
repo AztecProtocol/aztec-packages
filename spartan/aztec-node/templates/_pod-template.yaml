@@ -7,8 +7,16 @@ metadata:
     {{- include "chart.selectorLabels" . | nindent 4 }}
     app: node
   annotations:
-    {{- /* Recreate the pods on every upgrade in order to refresh configmaps and secrets */}}
-    rollme: {{ randAlphaNum 5 | quote }}
+    checksum/scripts: {{ include (print $.Template.BasePath "/scripts.configmap.yaml") . | sha256sum | quote }}
+    {{- if .Values.node.secret.envEnabled }}
+    checksum/env-secret: {{ include (print $.Template.BasePath "/env.secret.yaml") . | sha256sum | quote }}
+    {{- end }}
+    {{- if .Values.node.configMap.envEnabled }}
+    checksum/env-config: {{ toJson .Values | sha256sum | quote }}
+    {{- end }}
+    {{- with .Values.node.podAnnotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
 spec:
   {{- if .Values.serviceAccount.create }}
   serviceAccountName: {{ include "chart.serviceAccountName" . }}

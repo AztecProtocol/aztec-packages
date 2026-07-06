@@ -71,7 +71,7 @@ log "L1 Network: $L1_NETWORK"
 # Load network defaults
 if [[ -n "${NETWORK:-}" ]]; then
   log "Loading L1 contract defaults from network-defaults.yml for $NETWORK"
-  source "${repo_root}/l1-contracts/scripts/load_network_defaults.sh" "$NETWORK"
+  source "${repo_root}/spartan/scripts/load_network_defaults.sh" "$NETWORK"
 else
   # No NETWORK specified - load base l1-contracts defaults, env vars will override
   log "Loading base l1-contracts defaults (env vars will override)"
