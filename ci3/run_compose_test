@@ -27,7 +27,7 @@ down
 
 # Image pulls can fail on transient registry errors (e.g. Docker Hub 502s); retry only those.
 pull_flake='Bad Gateway|Service Unavailable|Gateway Time-?out|Internal Server Error|unexpected status from HEAD request|TLS handshake timeout|i/o timeout|connection reset|connection refused|Temporary failure in name resolution|unexpected EOF|toomanyrequests'
-retry -p "$pull_flake" "docker compose -p '$name' up -d --force-recreate"
+retry -p "$pull_flake" "docker compose -p \"$name\" up -d --force-recreate"
 
 cid="$(docker ps -aq \
   --filter "label=com.docker.compose.project=$name" \
