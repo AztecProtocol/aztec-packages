@@ -73,7 +73,9 @@ export interface WorldStateSynchronizer extends ReadonlyWorldStateAccess, ForkMe
    *
    * Rejects if the block at `blockNumber` does not match `blockHash` (a reorg), or if the block's hash cannot be
    * read from the requested view. Both are transient from a caller's perspective: re-resolving the query against
-   * the current chain and retrying may succeed or produce a more precise error.
+   * the current chain and retrying may succeed or produce a more precise error. However, if the block's history
+   * has been pruned away (it predates the oldest historical block kept by world state), the rejection is terminal:
+   * retrying cannot bring the data back.
    */
   getVerifiedSnapshot(blockNumber: BlockNumber, blockHash: BlockHash): Promise<MerkleTreeReadOperations>;
 

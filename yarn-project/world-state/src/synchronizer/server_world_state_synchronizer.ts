@@ -89,6 +89,15 @@ export class ServerWorldStateSynchronizer
         : (await snapshot.getLeafValue(MerkleTreeId.ARCHIVE, BigInt(blockNumber)))?.toString();
 
     if (actualHash === undefined) {
+      // A missing archive leaf means either the block's history has been pruned away (permanent: the block predates
+      // the oldest historical block kept by world state) or a reorg flipped the fork between the sync and this read
+      // (transient). Only the latter is worth retrying, so it alone surfaces as WorldStateSynchronizerError.
+      const { oldestHistoricalBlock } = await this.merkleTreeDb.getStatusSummary();
+      if (blockNumber < oldestHistoricalBlock) {
+        throw new Error(
+          `Unable to find leaf for block ${blockNumber} in the archive tree: world state history has been pruned to block ${oldestHistoricalBlock}`,
+        );
+      }
       throw new WorldStateSynchronizerError(`Unable to read block hash at block ${blockNumber} to verify snapshot`, {
         cause: { reason: 'block_not_available', targetBlockNumber: blockNumber },
       });

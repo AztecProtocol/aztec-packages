@@ -15,6 +15,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { MerkleTreeAdminDatabase, WorldStateConfig } from '../index.js';
 import { type WorldStateStatusSummary, buildEmptyWorldStateStatusFull } from '../native/message.js';
+import { WorldStateSynchronizerError } from './errors.js';
 import { ServerWorldStateSynchronizer } from './server_world_state_synchronizer.js';
 
 describe('ServerWorldStateSynchronizer', () => {
@@ -303,12 +304,27 @@ describe('ServerWorldStateSynchronizer', () => {
       );
     });
 
-    it('throws when the archive leaf cannot be read', async () => {
+    it('throws a retryable error when the archive leaf cannot be read', async () => {
       snapshot.getLeafValue.mockResolvedValue(undefined);
 
-      await expect(server.getVerifiedSnapshot(BlockNumber(4), new BlockHash(new Fr(123n)))).rejects.toThrow(
-        /unable to read block hash/i,
-      );
+      const error = await server.getVerifiedSnapshot(BlockNumber(4), new BlockHash(new Fr(123n))).catch(err => err);
+      expect(error).toBeInstanceOf(WorldStateSynchronizerError);
+      expect(error.message).toMatch(/unable to read block hash/i);
+    });
+
+    it('throws a terminal error when the block predates the oldest historical block', async () => {
+      snapshot.getLeafValue.mockResolvedValue(undefined);
+      merkleTreeDb.getStatusSummary.mockResolvedValue({
+        unfinalizedBlockNumber: BlockNumber(6),
+        finalizedBlockNumber: BlockNumber(4),
+        oldestHistoricalBlock: BlockNumber(4),
+        treesAreSynched: true,
+      } satisfies WorldStateStatusSummary);
+
+      const error = await server.getVerifiedSnapshot(BlockNumber(2), new BlockHash(new Fr(123n))).catch(err => err);
+      expect(error).not.toBeInstanceOf(WorldStateSynchronizerError);
+      expect(error.message).toMatch(/unable to find leaf/i);
+      expect(error.message).toMatch(/pruned/i);
     });
 
     it('verifies block 0 against the initial header hash rather than the empty archive', async () => {

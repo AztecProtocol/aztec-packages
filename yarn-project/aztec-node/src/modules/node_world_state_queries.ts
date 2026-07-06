@@ -284,8 +284,8 @@ export class NodeWorldStateQueries {
    * threaded through both the sync and the snapshot read so a reorg that replaced the block at that height is
    * detected rather than served silently. Transient failures — a prune landing between resolution and sync, or a
    * fork flip caught at either the sync or the snapshot stage — are retried a few times, re-resolving the query
-   * against the updated chain each time; resolution failures such as an unknown block hash are terminal and thrown
-   * immediately.
+   * against the updated chain each time; terminal failures — an unknown block hash at resolution, or a block whose
+   * history world state has pruned away — are thrown immediately.
    * @param block - The block parameter (block number, block hash, or tag) at which to get the data.
    * @returns An instance of a committed MerkleTreeOperations
    */
