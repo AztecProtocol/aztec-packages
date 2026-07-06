@@ -39,12 +39,14 @@ The kit ships as three [agent skills](../../ai_tooling.md), each scoped to one j
 | `write-escrow-contract`   | Designs and adapts the Noir contract (storage, roles, lifecycle, token calls, and SDK helpers)               |
 | `build-escrow-contract`   | Compiles the Noir contract and regenerates the TypeScript bindings                                           |
 
-To use them, add the skills to your coding agent (for Claude Code, place the skill folders under `.claude/skills/`; for Codex, reference them from your `AGENTS.md`), then ask the agent to run `scaffold-escrow-project`. See [AI Tooling](../../ai_tooling.md) for how to set up an agent for Aztec and Noir development.
+To use them, add the skills to your coding agent (for Claude Code, place the skill folders under `.claude/skills/`; for Codex, reference them from your `AGENTS.md`). See [AI Tooling](../../ai_tooling.md) for how to set up an agent for Aztec and Noir development.
+
+For a fresh escrow, start your agent in Plan mode and ask it to run `scaffold-escrow-project`. The scaffold skill behaves like a short escrow wizard before it writes files. It asks about lifecycle phases, release conditions, timing windows, role boundaries, and the config-versus-state split so the protocol intent is explicit. If you run it in a project that already has contracts, tests, SDK helpers, or design notes, the skill uses that existing context to infer the escrow shape and asks about the parts it cannot determine safely.
 
 A typical session looks like this:
 
 1. **Describe the escrow.** Give your agent a one-sentence use case, for example "an OTC desk where a maker swaps a fixed amount of token A for token B, cancelable until filled."
-2. **Confirm the design.** For a fresh project the skill runs a short [design intake](#design-intake) to pin down phases, timing windows, and which terms are config versus state. Plan mode is preferred here so design decisions are explicit.
+2. **Confirm the design.** For a fresh project the skill runs a wizard-style [design intake](#design-intake) to pin down phases, timing windows, and which terms are config versus state. In an existing project, it first reads the current files and carries forward clear project context, then asks about unresolved lifecycle or release-condition choices.
 3. **Scaffold and refine.** The skill generates the contract and SDK. You review and adjust the protocol logic, trigger conditions, and privacy decisions.
 4. **Build, test, deploy.** Compile the contract, run the localnet tests, and deploy.
 
@@ -338,7 +340,7 @@ To move beyond the OTC default, change four things together and let the `write-e
 
 ### Design intake
 
-Before scaffolding a fresh project or changing the lifecycle, the skill runs a short intake to avoid wrong protocol assumptions. It confirms:
+Before scaffolding a fresh project or changing the lifecycle, the skill runs a short intake to avoid wrong protocol assumptions. In an existing project, it starts from the contract, SDK, tests, and any design notes already present, then confirms the remaining choices. It asks about:
 
 - the **phase set** (a preset such as Atomic, Accept, or Delayed settlement, or your own list);
 - **timing windows** for any accept, settlement, or recovery phases;
