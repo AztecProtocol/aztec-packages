@@ -197,6 +197,7 @@ describe('ValidatorClient Integration', () => {
         skipCheckpointProposalValidation: false,
         skipPushProposedBlocksToArchiver: false,
         dataStoreMapSizeKb: 128 * 1024,
+        allowEphemeralSigningProtection: true,
         nodeId: 'test-node',
         pollingIntervalMs: 100,
         peerSigningTimeoutMs: 3000,
