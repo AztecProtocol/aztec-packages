@@ -306,6 +306,10 @@ jd/fix-something
 
 Conventional commit types, branch strategy, merge-train routing, and base-branch detection live in the root `CLAUDE.md` under `<git_workflow>`. The sections below cover only yarn-project-specific additions.
 
+### Worktrees
+
+For yarn-project work, create worktrees with `$(git rev-parse --show-toplevel)/scripts/worktrees.sh create <name> [base-ref]` instead of bare `git worktree add` plus a full bootstrap — it seeds the worktree from cached build artifacts (shared read-only store + copies of the yarn layer) in minutes. Only when `CACHE_LOCAL_DIR` is set in the environment; if it is not, fall back to a vanilla `git worktree add` + `./bootstrap.sh`. Upstream artifacts in such worktrees are read-only symlinks — run `worktrees.sh thaw <path>` before rebuilding an upstream component locally. See the `worktrees` skill.
+
 ### Port Commits
 
 When porting PRs between branches, include reference to original PR(s) in the PR body. Use the exact same commit message with the original PR number.
