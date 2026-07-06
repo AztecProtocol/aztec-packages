@@ -9,6 +9,31 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] `MessageContext` removed: message processing uses `ResolvedTx`
+
+`aztec::messages::processing::MessageContext` has been removed in favor of the new `ResolvedTx`, which carries the same `tx_hash`, `unique_note_hashes_in_tx`, and `first_nullifier_in_tx`, plus `block_number` and `block_hash`. The offchain handoff type `OffchainMessageWithContext` is likewise renamed to `OffchainMessageWithTx`.
+
+This affects contracts that implement a custom message handler (registered via `AztecConfig::custom_message_handler`): the handler's context parameter is now a `ResolvedTx`.
+
+**Migration:**
+
+```diff
+  use aztec::messages::processing::{
+-     enqueue_event_for_validation, MessageContext,
++     enqueue_event_for_validation, ResolvedTx,
+  };
+
+  unconstrained fn handle_my_message(
+      // ...
+-     message_context: MessageContext,
++     resolved_tx: ResolvedTx,
+      scope: AztecAddress,
+  ) {
+-     // ...message_context.tx_hash...
++     // ...resolved_tx.tx_hash...
+  }
+```
+
 ### [PXE] `pxe.updateContract` removed and `pxe.registerContract` no longer takes an artifact
 
 Registering classes and instances are now separate, unvalidated operations. `registerContractClass(artifact)` registers a class, `registerContract(instance)` registers an instance and no longer takes an artifact. `registerContract` does not check that PXE knows the contract's artifact: a missing artifact surfaces only when the contract is later simulated.
