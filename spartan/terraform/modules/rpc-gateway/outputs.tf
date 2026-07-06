@@ -28,6 +28,11 @@ output "path_api_key_plugin_names" {
   value       = { for name, plugin in kubernetes_manifest.path_api_key_plugin : name => plugin.manifest.metadata.name }
 }
 
+output "cors_plugin_names" {
+  description = "KongPlugin names for CORS handling, keyed by route."
+  value       = { for name, plugin in kubernetes_manifest.cors_plugin : name => plugin.manifest.metadata.name }
+}
+
 output "prometheus_plugin_names" {
   description = "KongPlugin names for per-consumer Prometheus metrics, keyed by route."
   value       = { for name, plugin in kubernetes_manifest.prometheus_plugin : name => plugin.manifest.metadata.name }

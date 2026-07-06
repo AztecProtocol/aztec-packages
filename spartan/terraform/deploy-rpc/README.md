@@ -21,3 +21,5 @@ RPC node environment is configured through each RPC entry's single `env` map. Co
 API key consumers are Terraform inputs, but API key values are not. For each `CONSUMERS` entry, provide `gcp_secret_manager_secret_name`. Set `ALLOW_ANONYMOUS = true` on the environment module to allow anonymous usage, with `ANONYMOUS_RATE_LIMIT_MINUTE` controlling rate limit.
 
 RPC gateway routes accept `https://host/<api-key>` in addition to the configured API key header. Kong copies the first path segment into the auth header before `key-auth` runs, then strips that segment before proxying to the upstream service.
+
+Kong answers browser CORS preflights for gateway routes with wildcard origins and allows the configured API key header.
