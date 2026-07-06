@@ -41,7 +41,8 @@ export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
   private config: PublisherManagerConfig;
   private static readonly FUNDING_CHECK_INTERVAL_MS = 2 * 60 * 1000;
   protected funder?: UtilsType;
-  protected fundingPromise?: RunningPromise;
+  protected readonly fundingPromise?: RunningPromise;
+  private started = false;
 
   constructor(
     protected publishers: UtilsType[],
@@ -67,31 +68,50 @@ export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
         this.funder = undefined;
       }
     }
-  }
 
-  /** Loads the state of all publishers and the funder, and starts periodic funding checks. */
-  public async start(): Promise<void> {
-    await Promise.all([
-      ...this.publishers.map(pub => pub.loadStateAndResumeMonitoring()),
-      this.funder?.loadStateAndResumeMonitoring(),
-    ]);
-
-    if (
-      this.funder &&
-      this.config.publisherFundingThreshold !== undefined &&
-      this.config.publisherFundingAmount !== undefined
-    ) {
+    if (this.funder && hasThreshold && hasAmount) {
       this.fundingPromise = new RunningPromise(
         () => this.triggerFundingIfNeeded(),
         this.log,
         PublisherManager.FUNDING_CHECK_INTERVAL_MS,
       );
-      this.fundingPromise.start();
     }
   }
 
-  /** Stops the funding loop and interrupts all publishers. */
+  /**
+   * Clears any interrupted flag left by a previous {@link stop} so publishing works again after a restart,
+   * loads the state of all publishers and the funder, and starts periodic funding checks. Idempotent: a
+   * start while already started is a no-op, so it never re-runs `loadStateAndResumeMonitoring` (which
+   * would spawn a duplicate background monitor per pending nonce). Lifecycle calls are expected to be
+   * serialized by the caller.
+   */
+  public async start(): Promise<void> {
+    if (this.started) {
+      this.log.debug('PublisherManager already started, ignoring start');
+      return;
+    }
+
+    // Clear the interrupted flag set by a previous stop() so a restarted manager can publish again.
+    // On a first start this is a no-op (the flag is already clear).
+    this.publishers.forEach(pub => pub.restart());
+    this.funder?.restart();
+
+    await Promise.all([
+      ...this.publishers.map(pub => pub.loadStateAndResumeMonitoring()),
+      this.funder?.loadStateAndResumeMonitoring(),
+    ]);
+
+    this.fundingPromise?.start();
+    // Marked started only once fully up, so a start that failed to load state can be retried.
+    this.started = true;
+  }
+
+  /**
+   * Stops the funding loop and interrupts all publishers so no further L1 txs are sent. Idempotent, and
+   * the manager may be restarted afterwards via {@link start}, which clears the interrupted flag.
+   */
   public async stop(): Promise<void> {
+    this.started = false;
     await this.fundingPromise?.stop();
     this.publishers.forEach(pub => pub.interrupt());
     this.funder?.interrupt();

@@ -12,9 +12,8 @@ import { InactivityTest } from './inactivity_setup.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
-// Verifies that consecutive-epoch threshold is respected: 2 validators are offline, but one is re-enabled
-// after the first epoch. Only the permanently-offline validator should be slashed. Uses MultiNodeTestContext
-// on the mock-gossip bus (6 nodes, fake prover, epoch=2, proofSubEpochs=1024, threshold=3 consecutive epochs).
+// Inactivity slashing on the shared `InactivityTest` fixture (mock-gossip bus, 6 nodes, fake prover,
+// epoch=2, proofSubEpochs=1024, sentinelEnabled).
 describe('multi-node/slashing/inactivity_slash_with_consecutive_epochs', () => {
   let test: InactivityTest;
 
@@ -31,9 +30,9 @@ describe('multi-node/slashing/inactivity_slash_with_consecutive_epochs', () => {
     await test?.teardown();
   });
 
-  // Re-enables one of the two offline validators after the first epoch, then waits for INACTIVITY
-  // offenses to appear. Asserts that offenses are only emitted for the permanently-offline validator
-  // and that the re-enabled validator is never included in the slash.
+  // Consecutive-epoch threshold is respected: 2 validators start offline, but one is re-enabled after
+  // the first epoch. Asserts that offenses and slash events target only the permanently-offline
+  // validator (never the re-enabled one).
   it('only slashes validator inactive for N consecutive epochs', async () => {
     const [offlineValidator, reenabledValidator] = test.offlineValidators;
 

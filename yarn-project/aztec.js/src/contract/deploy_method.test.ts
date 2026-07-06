@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type ContractInstanceWithAddress, getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
+import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
 import { Gas } from '@aztec/stdlib/gas';
 import { OFFCHAIN_MESSAGE_IDENTIFIER, type OffchainEffect } from '@aztec/stdlib/tx';
 
@@ -16,7 +16,7 @@ describe('DeployMethod', () => {
   let wallet: MockProxy<Wallet>;
   beforeEach(() => {
     wallet = mock<Wallet>();
-    wallet.registerContract.mockResolvedValue({} as ContractInstanceWithAddress);
+    wallet.registerContract.mockResolvedValue(undefined);
     wallet.getContractClassMetadata.mockResolvedValue({ isContractClassPubliclyRegistered: true } as any);
     wallet.getContractMetadata.mockResolvedValue({ isContractPubliclyDeployed: true } as any);
   });

@@ -414,7 +414,7 @@ export const TXE_ORACLE_REGISTRY = {
     params: [{ name: 'message', type: ARRAY(FIELD) }],
   }),
 
-  aztec_avm_returndataSize: makeEntry({ returnType: FIELD }),
+  aztec_avm_returndataSize: makeEntry({ returnType: U32 }),
 
   aztec_avm_returndataCopy: makeEntry({
     params: [

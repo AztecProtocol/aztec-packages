@@ -57,6 +57,20 @@ describe('automine/effects/offchain_payment', () => {
     logger.info(`Empty block mined. New L2 block: ${await aztecNode.getBlockNumber()}`);
   }
 
+  // Polls the PXE note view until `owner`'s balance equals `expected`. The PXE syncs asynchronously from the
+  // archiver, so the balance may lag briefly after a block is mined.
+  function waitForNoteBalance(owner: AztecAddress, expected: bigint) {
+    return retryUntil(
+      async () => {
+        const { result } = await contract.methods.get_balance(owner).simulate({ from: owner });
+        return result === expected;
+      },
+      `note balance of ${owner} to reach ${expected}`,
+      30,
+      0.1,
+    );
+  }
+
   // Reverts the chain to `checkpointBeforeTx`. Pauses the AutomineSequencer first: reverting restores the
   // un-mined transfer tx to the pending pool, and the sequencer's mempool poller would otherwise re-mine it
   // within ~50ms, racing the post-reorg balance assertions. Pausing only gates the poller; explicit ops
@@ -211,18 +225,7 @@ describe('automine/effects/offchain_payment', () => {
     await forceEmptyBlock();
 
     // Wait for the PXE to process the re-mined block and update its note view.
-    // The PXE syncs asynchronously from the archiver, so the balance may lag briefly.
-    // REFACTOR: hand-rolled poll waiting for PXE to reprocess re-mined offchain notes; a DSL helper
-    // (e.g. waitForNoteBalance or waitForPXESync) should replace this retryUntil loop.
-    await retryUntil(
-      async () => {
-        const { result } = await contract.methods.get_balance(bob).simulate({ from: bob });
-        return result === paymentAmount;
-      },
-      'Bob balance restored after re-mine',
-      30,
-      0.1,
-    );
+    await waitForNoteBalance(bob, paymentAmount);
 
     // Check that the message was reprocessed and Bob has his payment again.
     // Notice what we want to test here is that the offchain effects don't need to be re-enqueued

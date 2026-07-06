@@ -50,11 +50,17 @@ export class ContractClassStore {
   ): Promise<void> {
     await this.db.transactionAsync(async () => {
       const key = contractClass.id.toString();
-      if (await this.#contractClasses.hasAsync(key)) {
+      const existing = await this.#contractClasses.getAsync(key);
+      if (existing !== undefined) {
         // Protocol contracts are preloaded at block 0, so a later on-chain (re-)publish of a bundled
         // protocol class id is valid and must be a no-op. Keep the existing block-0 entry untouched
         // (do not bump its block number) so it survives reorgs of the publishing block.
         if (isProtocolContractClass(contractClass.id)) {
+          return;
+        }
+        // An L1 reorg can re-present an already-stored checkpoint, replaying this class at the same
+        // block; treat that as a no-op. A duplicate at a different block still signals double-processing.
+        if (deserializeContractClassPublic(existing).l2BlockNumber === blockNumber) {
           return;
         }
         throw new Error(`Contract class ${key} already exists, cannot add again at block ${blockNumber}`);

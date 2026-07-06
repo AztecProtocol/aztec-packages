@@ -1,4 +1,6 @@
 use crate::HandshakeRegistry;
+use crate::sync::cursor::SyncCursor;
+use crate::sync::discovered_handshakes::origin_block_numbers;
 
 use aztec::{
     messages::delivery::{
@@ -82,8 +84,8 @@ unconstrained fn non_interactive_handshake_stores_handshake_for_sender_and_recip
 }
 
 // The DH-direct flow lifts `recipient` to a curve point and fails loud if the address has no
-// corresponding point. We deliberately do not replicate AES128's "king of the hill" fallback here; see
-// the doc comment on [`HandshakeRegistry::non_interactive_handshake`] for the rationale.
+// corresponding point. We deliberately do not replicate AES128's "king of the hill" fallback here: a fallback
+// would insert a permanent note recording a handshake with an invalid recipient, polluting registry state.
 #[test(should_fail_with = "recipient address is not on the curve")]
 unconstrained fn handshake_to_invalid_recipient_panics() {
     let (env, registry_address, sender, _, _) = setup();
@@ -94,6 +96,25 @@ unconstrained fn handshake_to_invalid_recipient_panics() {
     assert(!invalid_recipient.is_valid());
 
     let _ = env.call_private(sender, registry.non_interactive_handshake(sender, invalid_recipient));
+}
+
+#[test(should_fail_with = "recipient address is not on the curve")]
+unconstrained fn interactive_handshake_to_invalid_recipient_panics() {
+    let (env, registry_address, sender, _, _) = setup();
+    let registry = HandshakeRegistry::at(registry_address);
+
+    let invalid_recipient = AztecAddress::from_field(3);
+    let _ = env.call_private(sender, registry.interactive_handshake(sender, invalid_recipient));
+}
+
+// `interactive_handshake` must obtain the recipient's signature from a `resolveCustomRequest` resolver before
+// storing anything. The TXE test environment configures no such resolver, so the call fails at the resolver hop.
+#[test(should_fail_with = "no resolveCustomRequest hook is configured")]
+unconstrained fn interactive_handshake_requires_a_resolver() {
+    let (env, registry_address, sender, _, recipient) = setup();
+    let registry = HandshakeRegistry::at(registry_address);
+
+    let _ = env.call_private(sender, registry.interactive_handshake(sender, recipient));
 }
 
 // The handshake tag depends only on the recipient, so multiple senders posting to
@@ -447,7 +468,7 @@ unconstrained fn non_interactive_handshake_is_discovered_by_recipient() {
     // The recipient derives the same app-siloed secret from the discovered eph_pk via ECDH.
     let handshake = discovered.items.get(0);
     let recipient_secret = env.utility_context_at(sender, |_| get_shared_secret(recipient, handshake.eph_pk, sender));
-    assert_eq(recipient_secret, returned_secrets.shared);
+    assert_eq(recipient_secret.unwrap(), returned_secrets.shared);
 
     // The custom sync hook falls through to `do_sync_state`, so default note discovery still works.
     let utility_secrets = env
@@ -485,7 +506,7 @@ unconstrained fn repeated_sync_does_not_refetch_logs() {
     assert_eq(after_first.items.len(), 1);
 
     // Mock the log-retrieval oracle so we can assert it is never called on re-sync.
-    let log_oracle = OracleMock::mock("aztec_utl_getLogsByTag");
+    let log_oracle = OracleMock::mock("aztec_utl_getLogsByTagV2");
     let _ = env.execute_utility(registry.get_handshakes(recipient, 0));
     assert_eq(log_oracle.times_called(), 0);
     log_oracle.clear();
@@ -553,4 +574,52 @@ unconstrained fn get_handshakes_out_of_bounds_offset_returns_empty() {
     let page = env.execute_utility(registry.get_handshakes(recipient, 999));
     assert_eq(page.items.len(), 0);
     assert_eq(page.total_count, 1);
+}
+
+#[test]
+unconstrained fn rescan_after_cursor_retraction_does_not_duplicate_handshakes() {
+    let (env, registry_address, sender, _, recipient) = setup();
+    let registry = HandshakeRegistry::at(registry_address);
+
+    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
+
+    let after_first = env.execute_utility(registry.get_handshakes(recipient, 0));
+    assert_eq(after_first.items.len(), 1);
+
+    // Emulate a reorg that pruned back past every recorded scan but not past the handshake log: scans anchor at the
+    // chain tip while handshake facts anchor at their earlier log blocks, so only the cursor facts get retracted.
+    env.utility_context_at(registry_address, |_| SyncCursor::at(registry_address, recipient).clear());
+    // Advance the anchor so a fact wrongly originated at the sync anchor would get a distinct origin and duplicate.
+    env.mine_block();
+
+    // With no cursor the rescan covers the full range again; re-recording the surviving handshake is a no-op.
+    let after_rescan = env.execute_utility(registry.get_handshakes(recipient, 0));
+    assert_eq(after_rescan.items.len(), 1);
+    assert_eq(after_rescan.items.get(0).eph_pk.x, after_first.items.get(0).eph_pk.x);
+}
+
+#[test]
+unconstrained fn handshake_fact_originates_at_the_log_block() {
+    let (env, registry_address, sender, _, recipient) = setup();
+    let registry = HandshakeRegistry::at(registry_address);
+
+    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
+    let handshake_block = env.last_block_number();
+
+    // Advance the chain so the sync anchor is later than the block carrying the handshake log.
+    env.mine_block();
+    env.mine_block();
+
+    let discovered = env.execute_utility(registry.get_handshakes(recipient, 0));
+    assert_eq(discovered.items.len(), 1);
+
+    // Ephemeral arrays are frame-scoped, so read the origins and extract the value inside the registry's context.
+    let origin_block_number = env.utility_context_at(registry_address, |_| {
+        let origins = origin_block_numbers(registry_address, recipient);
+        assert_eq(origins.len(), 1);
+        origins.get(0)
+    });
+    // The origin must be the log's block, not the sync anchor, so a reorg retracts exactly the handshakes carried by
+    // pruned blocks.
+    assert_eq(origin_block_number, handshake_block);
 }

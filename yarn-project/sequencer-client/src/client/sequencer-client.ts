@@ -180,22 +180,38 @@ export class SequencerClient {
     this.validatorClient?.updateConfig(config);
   }
 
-  /** Starts the sequencer. */
+  /**
+   * Starts (or resumes) the sequencer, validator, publishers, and metrics. Each underlying start is
+   * idempotent, so this is safe to call after a previous {@link pause} to resume building and publishing.
+   * The publisher manager is started before the sequencer's poll loop so publishing is ready before the
+   * sequencer first tries to publish to L1.
+   */
   public async start() {
     await this.validatorClient?.start();
+    await this.publisherManager.start();
     this.sequencer.start();
     this.l1Metrics?.start();
-    await this.publisherManager.start();
   }
 
   /**
-   * Stops the sequencer from processing new txs.
+   * Stops the sequencer, validator, publishers, and metrics for good, draining in-flight work. This is the
+   * final teardown path: stopping the validator client closes its slashing-protection database. For a
+   * restartable pause (e.g. around a test clock warp) use {@link pause} instead.
    */
   public async stop() {
     await this.sequencer.stop();
     await this.validatorClient?.stop();
     await this.publisherManager.stop();
     this.l1Metrics?.stop();
+  }
+
+  /**
+   * Gracefully pauses block production, waiting for in-flight work to finish rather than interrupting it,
+   * while leaving the validator, publishers, and metrics running so the sequencer can be resumed with
+   * {@link start}. Used by tests that pause sequencers around an L1 clock warp.
+   */
+  public async pause() {
+    await this.sequencer.pause();
   }
 
   /** Triggers an immediate run of the sequencer, bypassing the polling interval. */

@@ -27,4 +27,5 @@ export type LegacyLogRetrievalResponseV2 = {
   firstNullifierInTx: Fr;
   blockNumber: BlockNumber;
   blockTimestamp: UInt64;
+  blockHash: BlockHash;
 };

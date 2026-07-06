@@ -63,8 +63,8 @@ export class LogService {
   }
 
   /**
-   * Compatibility variant of {@link fetchLogsByTag} whose responses carry the origin block timestamp instead of its
-   * hash, backing the `getLogsByTagV2` oracle for already-deployed contracts.
+   * Compatibility variant of {@link fetchLogsByTag} whose responses carry the origin block timestamp in addition to
+   * its hash, backing the `getLogsByTagV2` oracle for already-deployed contracts.
    */
   public async fetchLogsByTagV2(
     contractAddress: AztecAddress,
@@ -203,9 +203,9 @@ export class LogService {
     return { ...LogService.#toCommonLogFields(log), blockHash: log.blockHash };
   }
 
-  // Compatibility projection whose origin-block field is the block timestamp instead of its hash (for `getLogsByTagV2`).
+  // Compatibility projection for `getLogsByTagV2`, which carries the block timestamp in addition to the hash.
   static #toLegacyLogRetrievalResponseV2(log: LogResult): LegacyLogRetrievalResponseV2 {
-    return { ...LogService.#toCommonLogFields(log), blockTimestamp: log.blockTimestamp };
+    return { ...LogService.#toCommonLogFields(log), blockTimestamp: log.blockTimestamp, blockHash: log.blockHash };
   }
 
   public async fetchTaggedLogs(

@@ -24,7 +24,7 @@ import { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { PublicDataWrite, RevertCode } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash } from '@aztec/stdlib/block';
-import type { ContractInstance, PartialAddress } from '@aztec/stdlib/contract';
+import type { ContractInstancePreimage, PartialAddress } from '@aztec/stdlib/contract';
 import type { GasFees } from '@aztec/stdlib/gas';
 import { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import type { PublicKeys } from '@aztec/stdlib/keys';
@@ -86,7 +86,7 @@ export type {
   AppTaggingSecretKind,
   BlockHash,
   BlockHeader,
-  ContractInstance,
+  ContractInstancePreimage,
   MembershipWitness,
   NullifierMembershipWitness,
   PendingTaggedLog,
@@ -353,7 +353,7 @@ const PUBLIC_KEYS: TypeMapping<PublicKeys> = STRUCT<PublicKeys>([
   { name: 'fbpkMHash', type: FIELD },
 ]);
 
-export const CONTRACT_INSTANCE: TypeMapping<ContractInstance> = STRUCT<ContractInstance>([
+export const CONTRACT_INSTANCE: TypeMapping<ContractInstancePreimage> = STRUCT<ContractInstancePreimage>([
   { name: 'salt', type: FIELD },
   { name: 'deployer', type: AZTEC_ADDRESS },
   // Note that the nr side of this struct does not contain the current class, only original
@@ -531,6 +531,7 @@ export const LEGACY_LOG_RETRIEVAL_RESPONSE_V2: TypeMapping<LegacyLogRetrievalRes
     { name: 'firstNullifierInTx', type: FIELD },
     { name: 'blockNumber', type: BLOCK_NUMBER },
     { name: 'blockTimestamp', type: BIGINT },
+    { name: 'blockHash', type: BLOCK_HASH },
   ]);
 
 export const RESOLVED_TX: TypeMapping<ResolvedTx> = {
