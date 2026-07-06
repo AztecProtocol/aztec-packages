@@ -53,6 +53,13 @@ export class SlashingProtectionService {
   private cleanupRunningPromise: RunningPromise;
   private lastOldDutiesCleanupAtMs?: number;
 
+  /**
+   * Lock tokens for signings currently in-flight on this process. These are excluded from
+   * stuck-duty cleanup so a slow signer's SIGNING row is not deleted out from under it, which
+   * would let a later signature for the same duty be produced without a protection record.
+   */
+  private readonly activeLockTokens = new Set<string>();
+
   constructor(
     private readonly db: SlashingProtectionDatabase,
     private readonly config: BaseSignerConfig,
@@ -104,6 +111,7 @@ export class SlashingProtectionService {
           nodeId,
         });
         this.metrics.recordLockAcquire(true);
+        this.activeLockTokens.add(record.lockToken);
         return record.lockToken;
       }
 
@@ -166,29 +174,35 @@ export class SlashingProtectionService {
     const { rollupAddress, validatorAddress, slot, dutyType, signature, nodeId, lockToken } = params;
     const blockIndexWithinCheckpoint = getBlockIndexFromDutyIdentifier(params);
 
-    const success = await this.db.updateDutySigned(
-      rollupAddress,
-      validatorAddress,
-      slot,
-      dutyType,
-      signature.toString(),
-      lockToken,
-      blockIndexWithinCheckpoint,
-    );
+    try {
+      const success = await this.db.updateDutySigned(
+        rollupAddress,
+        validatorAddress,
+        slot,
+        dutyType,
+        signature.toString(),
+        lockToken,
+        blockIndexWithinCheckpoint,
+      );
 
-    if (success) {
-      this.log.verbose(`Recorded successful signing for duty ${dutyType} at slot ${slot}`, {
-        validatorAddress: validatorAddress.toString(),
-        nodeId,
-      });
-    } else {
-      this.log.warn(`Failed to record successful signing for duty ${dutyType} at slot ${slot}: invalid token`, {
-        validatorAddress: validatorAddress.toString(),
-        nodeId,
-      });
+      if (success) {
+        this.log.verbose(`Recorded successful signing for duty ${dutyType} at slot ${slot}`, {
+          validatorAddress: validatorAddress.toString(),
+          nodeId,
+        });
+      } else {
+        this.log.warn(`Failed to record successful signing for duty ${dutyType} at slot ${slot}: invalid token`, {
+          validatorAddress: validatorAddress.toString(),
+          nodeId,
+        });
+      }
+
+      return success;
+    } finally {
+      // Release the in-flight token even if the DB call threw, otherwise a DB hiccup would
+      // permanently shield this row from stuck-duty cleanup.
+      this.activeLockTokens.delete(lockToken);
     }
-
-    return success;
   }
 
   /**
@@ -202,26 +216,30 @@ export class SlashingProtectionService {
     const { rollupAddress, validatorAddress, slot, dutyType, lockToken } = params;
     const blockIndexWithinCheckpoint = getBlockIndexFromDutyIdentifier(params);
 
-    const success = await this.db.deleteDuty(
-      rollupAddress,
-      validatorAddress,
-      slot,
-      dutyType,
-      lockToken,
-      blockIndexWithinCheckpoint,
-    );
+    try {
+      const success = await this.db.deleteDuty(
+        rollupAddress,
+        validatorAddress,
+        slot,
+        dutyType,
+        lockToken,
+        blockIndexWithinCheckpoint,
+      );
 
-    if (success) {
-      this.log.info(`Deleted duty ${dutyType} at slot ${slot} to allow retry`, {
-        validatorAddress: validatorAddress.toString(),
-      });
-    } else {
-      this.log.warn(`Failed to delete duty ${dutyType} at slot ${slot}: invalid token`, {
-        validatorAddress: validatorAddress.toString(),
-      });
+      if (success) {
+        this.log.info(`Deleted duty ${dutyType} at slot ${slot} to allow retry`, {
+          validatorAddress: validatorAddress.toString(),
+        });
+      } else {
+        this.log.warn(`Failed to delete duty ${dutyType} at slot ${slot}: invalid token`, {
+          validatorAddress: validatorAddress.toString(),
+        });
+      }
+
+      return success;
+    } finally {
+      this.activeLockTokens.delete(lockToken);
     }
-
-    return success;
   }
 
   /**
@@ -275,8 +293,11 @@ export class SlashingProtectionService {
    * Runs in the background via RunningPromise.
    */
   private async cleanup() {
-    // 1. Clean up stuck duties (our own node's duties that got stuck in 'signing' status)
-    const numStuckDuties = await this.db.cleanupOwnStuckDuties(this.config.nodeId, this.maxStuckDutiesAgeMs);
+    // 1. Clean up stuck duties (our own node's duties that got stuck in 'signing' status),
+    // excluding signings still in-flight on this process.
+    const numStuckDuties = await this.db.cleanupOwnStuckDuties(this.config.nodeId, this.maxStuckDutiesAgeMs, [
+      ...this.activeLockTokens,
+    ]);
     if (numStuckDuties > 0) {
       this.log.verbose(`Cleaned up ${numStuckDuties} stuck duties`, {
         nodeId: this.config.nodeId,

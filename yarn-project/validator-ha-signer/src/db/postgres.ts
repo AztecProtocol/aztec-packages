@@ -254,11 +254,11 @@ export class PostgresSlashingProtectionDatabase implements SlashingProtectionDat
   }
 
   /**
-   * Cleanup own stuck duties
+   * Cleanup own stuck duties, excluding any lock tokens still in-flight on this process.
    * @returns the number of duties cleaned up
    */
-  async cleanupOwnStuckDuties(nodeId: string, maxAgeMs: number): Promise<number> {
-    const result = await this.pool.query(CLEANUP_OWN_STUCK_DUTIES, [nodeId, maxAgeMs]);
+  async cleanupOwnStuckDuties(nodeId: string, maxAgeMs: number, excludeLockTokens: string[] = []): Promise<number> {
+    const result = await this.pool.query(CLEANUP_OWN_STUCK_DUTIES, [nodeId, maxAgeMs, excludeLockTokens]);
     return result.rowCount ?? 0;
   }
 

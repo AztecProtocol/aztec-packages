@@ -132,10 +132,12 @@ export interface SlashingProtectionDatabase {
   ): Promise<boolean>;
 
   /**
-   * Cleanup own stuck duties
+   * Cleanup own stuck duties (SIGNING status older than maxAgeMs) for the given node.
+   * Lock tokens in `excludeLockTokens` are never removed, so in-flight signings on this
+   * process are not swept out from under an operation that is still running.
    * @returns the number of duties cleaned up
    */
-  cleanupOwnStuckDuties(nodeId: string, maxAgeMs: number): Promise<number>;
+  cleanupOwnStuckDuties(nodeId: string, maxAgeMs: number, excludeLockTokens?: string[]): Promise<number>;
 
   /**
    * Cleanup duties with outdated rollup address.
