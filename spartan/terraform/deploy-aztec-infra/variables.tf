@@ -711,7 +711,7 @@ variable "RPC_GATEWAY_HOSTS" {
 }
 
 variable "RPC_GATEWAY_API_KEY_SECRET_NAMES" {
-  description = "GCP Secret Manager secret names containing API keys allowed by the RPC gateway. Raw key values must not go here."
+  description = "GCP Secret Manager secret names containing API keys allowed by the node RPC gateway."
   type        = list(string)
   default     = []
 }
@@ -732,16 +732,6 @@ variable "RPC_GATEWAY_API_KEY_HEADER_NAME" {
   description = "Header checked by Kong key-auth."
   type        = string
   default     = "x-aztec-api-key"
-}
-
-variable "RPC_GATEWAY_CONSUMERS" {
-  description = "Kong consumers keyed by team name. Each value must use exactly one credential source."
-  type = map(object({
-    username                       = string
-    gcp_secret_manager_secret_name = string
-    rate_limit_minute              = number
-  }))
-  default = {}
 }
 
 variable "RPC_GATEWAY_KONG_NAMESPACE" {
@@ -863,6 +853,36 @@ variable "RPC_GATEWAY_GCP_MANAGED_CERTIFICATE_ENABLED" {
   description = "Whether to create a GKE ManagedCertificate for RPC_GATEWAY_HOSTS."
   type        = bool
   default     = true
+}
+
+variable "PROVER_NODE_RPC_GATEWAY_ENABLED" {
+  description = "Enable an API-key-only Kong route for the prover-node JSON-RPC service. When RPC_GATEWAY_ENABLED=true, this adds a route to the same gateway."
+  type        = bool
+  default     = false
+}
+
+variable "PROVER_NODE_RPC_GATEWAY_HOSTS" {
+  description = "Hostnames served by the prover-node RPC gateway. Required when PROVER_NODE_RPC_GATEWAY_ENABLED=true."
+  type        = list(string)
+  default     = []
+}
+
+variable "PROVER_NODE_RPC_GATEWAY_PATH" {
+  description = "Path prefix for the prover-node RPC route. Use / for a dedicated host."
+  type        = string
+  default     = "/"
+}
+
+variable "PROVER_NODE_RPC_GATEWAY_STRIP_PATH" {
+  description = "Whether Kong should strip PROVER_NODE_RPC_GATEWAY_PATH before proxying to the prover node."
+  type        = bool
+  default     = false
+}
+
+variable "PROVER_NODE_RPC_GATEWAY_API_KEY_SECRET_NAMES" {
+  description = "GCP Secret Manager secret names containing API keys allowed by the prover-node RPC gateway. Raw key values must not go here."
+  type        = list(string)
+  default     = []
 }
 
 variable "PROVER_FAILED_PROOF_STORE" {

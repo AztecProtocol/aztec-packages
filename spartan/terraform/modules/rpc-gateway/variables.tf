@@ -170,6 +170,7 @@ variable "ROUTES" {
     path                        = optional(string, "/")
     path_type                   = optional(string, "Prefix")
     strip_path                  = optional(bool, false)
+    allowed_consumer_groups     = optional(list(string), [])
   }))
 
   validation {
@@ -212,6 +213,7 @@ variable "CONSUMERS" {
     username                       = string
     gcp_secret_manager_secret_name = string
     rate_limit_minute              = number
+    consumer_groups                = optional(list(string), [])
   }))
   default = {}
 }
