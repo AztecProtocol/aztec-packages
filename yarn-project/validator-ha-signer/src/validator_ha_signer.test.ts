@@ -52,7 +52,7 @@ describe('ValidatorHASigner', () => {
       rollupAddress: EthAddress.random(),
       nodeId: NODE_ID,
       pollingIntervalMs: 50,
-      signingTimeoutMs: 1000,
+      peerSigningTimeoutMs: 1000,
       maxStuckDutiesAgeMs: 60_000,
     };
   });
@@ -197,7 +197,7 @@ describe('ValidatorHASigner', () => {
     });
 
     it('should time out a hung signing, release the lock, and allow a later retry', async () => {
-      const shortTimeoutConfig = { ...config, signingOperationTimeoutMs: 100 };
+      const shortTimeoutConfig = { ...config, signerCallTimeoutMs: 100 };
       const metrics = new HASignerMetrics(telemetryClient, shortTimeoutConfig.nodeId);
       const timeoutSigner = new ValidatorHASigner(db, shortTimeoutConfig, { metrics, dateProvider });
       await timeoutSigner.start();
@@ -235,7 +235,7 @@ describe('ValidatorHASigner', () => {
     it('should clamp the signing timeout to half of maxStuckDutiesAgeMs', async () => {
       // Configured timeout (5s) exceeds maxStuckDutiesAgeMs / 2 (200ms), so the clamp must win:
       // a hung signing times out at 200ms, not at the configured 5s.
-      const clampedConfig = { ...config, maxStuckDutiesAgeMs: 400, signingOperationTimeoutMs: 5000 };
+      const clampedConfig = { ...config, maxStuckDutiesAgeMs: 400, signerCallTimeoutMs: 5000 };
       const metrics = new HASignerMetrics(telemetryClient, clampedConfig.nodeId);
       const clampedSigner = new ValidatorHASigner(db, clampedConfig, { metrics, dateProvider });
 

@@ -29,8 +29,8 @@ export interface ValidatorHASignerDeps {
   dateProvider: DateProvider;
 }
 
-/** Default hard timeout (ms) for a single signing operation when not configured. */
-const DEFAULT_SIGNING_OPERATION_TIMEOUT_MS = 30_000;
+/** Default hard timeout (ms) for a single signer call when not configured. */
+const DEFAULT_SIGNER_CALL_TIMEOUT_MS = 30_000;
 
 /**
  * Validator High Availability Signer
@@ -58,7 +58,7 @@ export class ValidatorHASigner {
 
   private readonly dateProvider: DateProvider;
   private readonly metrics: HASignerMetrics;
-  private readonly signingOperationTimeoutMs: number;
+  private readonly signerCallTimeoutMs: number;
 
   constructor(
     db: SlashingProtectionDatabase,
@@ -70,15 +70,15 @@ export class ValidatorHASigner {
     this.metrics = deps.metrics;
     this.dateProvider = deps.dateProvider;
 
-    // Clamp the signing-operation timeout below half the stuck-duty max age. This maintains the
+    // Clamp the signer-call timeout below half the stuck-duty max age. This maintains the
     // invariant that an in-flight signing always times out and releases its SIGNING row well before
     // stuck-duty cleanup could consider it stuck, so cleanup can never delete a live duty (only
     // signWithProtection writes SIGNING rows, and every path through it is bounded by this timeout).
     // If timers misbehave anyway, the recordSuccess-returns-false throw is the backstop: the duty
     // fails instead of broadcasting an unprotected signature.
     const maxStuckDutiesAgeMs = config.maxStuckDutiesAgeMs ?? DEFAULT_MAX_STUCK_DUTIES_AGE_MS;
-    this.signingOperationTimeoutMs = Math.min(
-      config.signingOperationTimeoutMs ?? DEFAULT_SIGNING_OPERATION_TIMEOUT_MS,
+    this.signerCallTimeoutMs = Math.min(
+      config.signerCallTimeoutMs ?? DEFAULT_SIGNER_CALL_TIMEOUT_MS,
       maxStuckDutiesAgeMs / 2,
     );
 
@@ -94,7 +94,7 @@ export class ValidatorHASigner {
     this.log.info('Validator HA Signer initialized with slashing protection', {
       nodeId: config.nodeId,
       rollupAddress: this.rollupAddress.toString(),
-      signingOperationTimeoutMs: this.signingOperationTimeoutMs,
+      signerCallTimeoutMs: this.signerCallTimeoutMs,
     });
   }
 
@@ -161,11 +161,11 @@ export class ValidatorHASigner {
     try {
       signature = await executeTimeout(
         () => signFn(messageHash),
-        this.signingOperationTimeoutMs,
+        this.signerCallTimeoutMs,
         () =>
           new Error(
             `Signing operation for ${dutyType} at slot ${context.slot} timed out after ` +
-              `${this.signingOperationTimeoutMs}ms`,
+              `${this.signerCallTimeoutMs}ms`,
           ),
       );
     } catch (error: any) {

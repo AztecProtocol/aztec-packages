@@ -32,7 +32,7 @@ import { ValidatorHASigner } from './validator_ha_signer.js';
  *   databaseUrl: process.env.DATABASE_URL,
  *   nodeId: 'validator-node-1',
  *   pollingIntervalMs: 100,
- *   signingTimeoutMs: 3000,
+ *   peerSigningTimeoutMs: 3000,
  * });
  * signer.start(); // Start background cleanup
  *
@@ -186,7 +186,7 @@ export function createSignerFromSharedDb(
   db: SlashingProtectionDatabase,
   config: Pick<
     ValidatorHASignerConfig,
-    'nodeId' | 'pollingIntervalMs' | 'signingTimeoutMs' | 'maxStuckDutiesAgeMs' | 'rollupAddress'
+    'nodeId' | 'pollingIntervalMs' | 'peerSigningTimeoutMs' | 'maxStuckDutiesAgeMs' | 'rollupAddress'
   >,
   deps?: CreateLocalSignerWithProtectionDeps,
 ): { signer: ValidatorHASigner; db: SlashingProtectionDatabase } {

@@ -338,7 +338,7 @@ export class HaFullTestContext {
         dataDirectory,
         databaseUrl: this.databaseConfig.databaseUrl,
         pollingIntervalMs: this.databaseConfig.pollingIntervalMs,
-        signingTimeoutMs: this.databaseConfig.signingTimeoutMs,
+        peerSigningTimeoutMs: this.databaseConfig.peerSigningTimeoutMs,
         maxStuckDutiesAgeMs: this.databaseConfig.maxStuckDutiesAgeMs,
         haSigningEnabled: true,
         disableValidator: false,

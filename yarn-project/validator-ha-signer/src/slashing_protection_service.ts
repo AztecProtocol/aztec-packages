@@ -47,7 +47,7 @@ export const DEFAULT_MAX_STUCK_DUTIES_AGE_MS = 144_000;
 export class SlashingProtectionService {
   private readonly log: Logger;
   private readonly pollingIntervalMs: number;
-  private readonly signingTimeoutMs: number;
+  private readonly peerSigningTimeoutMs: number;
   private readonly maxStuckDutiesAgeMs: number;
 
   private readonly metrics: HASignerMetrics;
@@ -63,7 +63,7 @@ export class SlashingProtectionService {
   ) {
     this.log = createLogger('slashing-protection');
     this.pollingIntervalMs = config.pollingIntervalMs;
-    this.signingTimeoutMs = config.signingTimeoutMs;
+    this.peerSigningTimeoutMs = config.peerSigningTimeoutMs;
     this.maxStuckDutiesAgeMs = config.maxStuckDutiesAgeMs ?? DEFAULT_MAX_STUCK_DUTIES_AGE_MS;
 
     this.cleanupRunningPromise = new RunningPromise(this.cleanup.bind(this), this.log, this.maxStuckDutiesAgeMs);
@@ -134,10 +134,10 @@ export class SlashingProtectionService {
         throw new DutyAlreadySignedError(slot, dutyType, record.blockIndexWithinCheckpoint, record.nodeId);
       } else if (record.status === DutyStatus.SIGNING) {
         // Another node is currently signing - check for timeout
-        if (this.dateProvider.now() - startTime > this.signingTimeoutMs) {
+        if (this.dateProvider.now() - startTime > this.peerSigningTimeoutMs) {
           this.log.warn(`Timeout waiting for signing to complete for duty ${dutyType} at slot ${slot}`, {
             validatorAddress: validatorAddress.toString(),
-            timeoutMs: this.signingTimeoutMs,
+            timeoutMs: this.peerSigningTimeoutMs,
             signingNodeId: record.nodeId,
           });
           this.metrics.recordDutyAlreadySigned(dutyType);

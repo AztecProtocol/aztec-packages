@@ -199,7 +199,7 @@ describe('ValidatorClient Integration', () => {
         dataStoreMapSizeKb: 128 * 1024,
         nodeId: 'test-node',
         pollingIntervalMs: 100,
-        signingTimeoutMs: 3000,
+        peerSigningTimeoutMs: 3000,
       },
       checkpointsBuilder,
       synchronizer,

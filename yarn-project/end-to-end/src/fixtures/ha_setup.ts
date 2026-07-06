@@ -18,8 +18,8 @@ export interface HADatabaseConfig {
   haSigningEnabled: boolean;
   /** Polling interval in ms */
   pollingIntervalMs: number;
-  /** Signing timeout in ms */
-  signingTimeoutMs: number;
+  /** How long to wait for a peer node's in-progress signing in ms */
+  peerSigningTimeoutMs: number;
   /** Max stuck duties age in ms */
   maxStuckDutiesAgeMs: number;
 }
@@ -37,7 +37,7 @@ export function createHADatabaseConfig(nodeId: string): HADatabaseConfig {
     nodeId,
     haSigningEnabled: true,
     pollingIntervalMs: 100,
-    signingTimeoutMs: 3000,
+    peerSigningTimeoutMs: 3000,
     maxStuckDutiesAgeMs: 72000,
   };
 }
