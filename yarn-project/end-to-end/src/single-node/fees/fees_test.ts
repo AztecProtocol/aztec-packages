@@ -136,6 +136,12 @@ export class FeesTest extends SingleNodeTestContext {
     }
   }
 
+  /** Advances to the next epoch and waits for the proven chain to catch up, so all prior fees are paid out. */
+  async waitForEpochProven() {
+    await this.cheatCodes.rollup.advanceToNextEpoch();
+    await this.catchUpProvenChain();
+  }
+
   async getBlockRewards() {
     const blockReward = await this.rollupContract.getCheckpointReward();
     const rewardConfig = await this.rollupContract.getRewardConfig();

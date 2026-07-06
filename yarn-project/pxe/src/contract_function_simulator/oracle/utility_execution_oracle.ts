@@ -852,7 +852,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param address - The recipient address.
    * @param ephPks - Ephemeral array containing the serialized Points.
    * @param contractAddress - The contract address for app-siloing (validated against execution context).
-   * @returns A new ephemeral array containing the computed shared secrets.
+   * @returns A new ephemeral array containing the computed shared secrets, or an empty array when the PXE does not
+   * hold the keys for `address`, signaling that no secrets can be derived for it.
    */
   public async getSharedSecrets(
     address: AztecAddress,
@@ -864,7 +865,17 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
         `getSharedSecrets called with contract address ${contractAddress}, expected ${this.contractAddress}`,
       );
     }
-    const recipientCompleteAddress = await this.getCompleteAddressOrFail(address);
+    const recipientCompleteAddress = await this.addressStore.getCompleteAddress(address);
+    if (!recipientCompleteAddress) {
+      this.logger.warn(
+        `Computing shared secrets for address ${address} whose keys are not held - returning no secrets`,
+        {
+          address,
+          contractAddress: this.contractAddress,
+        },
+      );
+      return EphemeralArray.fromValues<Fr>(this.ephemeralArrayService, []);
+    }
     const ivpkMHash = await hashPublicKey(recipientCompleteAddress.publicKeys.ivpkM);
     const ivskM = await this.keyStore.getMasterSecretKey(ivpkMHash);
     const addressSecret = await computeAddressSecret(await recipientCompleteAddress.getPreaddress(), ivskM);
@@ -1131,10 +1142,11 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 }
 
 // Registry reads that any contract may issue without an `authorizeUtilityCall` hook. The constrained-delivery
-// library calls these implicitly for the app, and they are safe to default-authorize because the registry siloes
-// every returned secret to `msg_sender`, so a caller only ever learns values siloed to its own address.
+// library calls these implicitly for the app, and they are safe to default-authorize: `get_app_siloed_secrets`
+// siloes every returned secret to `msg_sender`, and `get_non_interactive_handshakes` only exposes ephemeral public
+// keys, from which the shared secret cannot be derived without the recipient's secret keys.
 const STANDARD_HANDSHAKE_REGISTRY_DEFAULT_AUTHORIZED_READ_SIGNATURES = [
-  'get_handshakes((Field),u32)',
+  'get_non_interactive_handshakes((Field),u32)',
   'get_app_siloed_secrets((Field),(Field))',
 ];
 

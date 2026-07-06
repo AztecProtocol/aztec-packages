@@ -17,8 +17,8 @@ const { METRICS_PORT: metricsPort } = process.env;
 /**
  * Token-domain harness over the automine topology: extends {@link AutomineTestContext} with a
  * {@link TokenSimulator}, the USDC Token deploy plus a bad-account and authwit proxy, and an optional
- * mint. The base/mint steps are opt-in via {@link applyBaseSnapshots}/{@link applyMintSnapshot}, run
- * after `super.setup()`.
+ * mint. Base setup is opt-in via {@link applyBaseSnapshots} (run during `setup()`); {@link applyMint}
+ * is called explicitly after `setup()`.
  */
 export class TokenContractTest extends AutomineTestContext {
   static TOKEN_NAME = 'USDC';
@@ -32,11 +32,10 @@ export class TokenContractTest extends AutomineTestContext {
   badAccount!: InvalidAccountContract;
   authwitProxy!: GenericProxyContract;
   adminAddress!: AztecAddress;
-  account1Address!: AztecAddress;
+  otherAddress!: AztecAddress;
   account2Address!: AztecAddress;
 
   private shouldApplyBaseSetup = false;
-  private shouldApplyMint = false;
   private testName: string;
 
   constructor(testName: string) {
@@ -54,14 +53,6 @@ export class TokenContractTest extends AutomineTestContext {
   }
 
   /**
-   * Registers that mint should be applied during setup().
-   * Call this before setup() to mint tokens to the admin account.
-   */
-  applyMintSnapshot() {
-    this.shouldApplyMint = true;
-  }
-
-  /**
    * Applies base setup: deploys 3 accounts, publicly deploys accounts, token contract and a "bad account".
    */
   private async applyBaseSetup() {
@@ -70,7 +61,7 @@ export class TokenContractTest extends AutomineTestContext {
 
     this.node = this.context.aztecNodeService;
     this.wallet = this.context.wallet;
-    [this.adminAddress, this.account1Address, this.account2Address] = this.context.accounts;
+    [this.adminAddress, this.otherAddress, this.account2Address] = this.context.accounts;
 
     this.logger.info('Applying base setup - deploying token contract');
     await ensureAuthRegistryPublished(this.wallet, this.adminAddress);
@@ -102,7 +93,7 @@ export class TokenContractTest extends AutomineTestContext {
 
     this.tokenSim = new TokenSimulator(this.asset, this.wallet, this.adminAddress, this.logger, [
       this.adminAddress,
-      this.account1Address,
+      this.otherAddress,
     ]);
 
     expect((await this.asset.methods.get_admin().simulate({ from: this.adminAddress })).result).toBe(
@@ -118,13 +109,10 @@ export class TokenContractTest extends AutomineTestContext {
     if (this.shouldApplyBaseSetup) {
       await this.applyBaseSetup();
     }
-
-    if (this.shouldApplyMint) {
-      await this.applyMint();
-    }
   }
 
-  private async applyMint() {
+  /** Mints an initial public and private balance to the admin account. Call after {@link setup}. */
+  async applyMint() {
     this.logger.info('Applying mint setup');
     const { asset, adminAddress, tokenSim } = this;
     const amount = 10000n;

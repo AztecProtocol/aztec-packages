@@ -1,3 +1,4 @@
+import { Fr } from '@aztec/aztec.js/fields';
 import { ImportTestContract } from '@aztec/noir-test-contracts.js/ImportTest';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 
@@ -25,21 +26,37 @@ describe('automine/contracts/nested/importer', () => {
     await t.teardown();
   });
 
-  // Calls importerContract.call_no_args(testContract.address) and awaits inclusion.
+  // call_no_args routes a private call into Test.get_this_address; asserts the imported call returns the
+  // Test contract's own address, and that the tx is included on-chain.
   it('calls a method no arguments', async () => {
     logger.info(`Calling noargs on importer contract`);
+    const { result } = await importerContract.methods
+      .call_no_args(testContract.address)
+      .simulate({ from: defaultAccountAddress });
+    expect(result).toEqual(testContract.address);
+
     await importerContract.methods.call_no_args(testContract.address).send({ from: defaultAccountAddress });
   });
 
-  // Calls importerContract.call_public_fn(testContract.address) and awaits inclusion.
+  // call_public_fn enqueues Test.emit_nullifier_public(1); asserts the nullifier landed by checking that
+  // re-emitting the same nullifier on the Test contract is rejected as a duplicate.
   it('calls a public function', async () => {
     logger.info(`Calling public_fn on importer contract`);
     await importerContract.methods.call_public_fn(testContract.address).send({ from: defaultAccountAddress });
+
+    await expect(
+      testContract.methods.emit_nullifier_public(new Fr(1)).simulate({ from: defaultAccountAddress }),
+    ).rejects.toThrow(/duplicate nullifier/);
   });
 
-  // Calls importerContract.pub_call_public_fn(testContract.address) and awaits inclusion.
+  // pub_call_public_fn calls Test.emit_nullifier_public(1) from a public function; asserts the nullifier
+  // landed by checking that re-emitting the same nullifier on the Test contract is rejected as a duplicate.
   it('calls a public function from a public function', async () => {
     logger.info(`Calling pub_public_fn on importer contract`);
     await importerContract.methods.pub_call_public_fn(testContract.address).send({ from: defaultAccountAddress });
+
+    await expect(
+      testContract.methods.emit_nullifier_public(new Fr(1)).simulate({ from: defaultAccountAddress }),
+    ).rejects.toThrow(/duplicate nullifier/);
   });
 });

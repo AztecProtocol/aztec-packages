@@ -16,14 +16,14 @@ import { type Hex, decodeFunctionData, encodeFunctionData, multicall3Abi } from 
 
 import { getPrivateKeyFromIndex } from '../../fixtures/utils.js';
 import { waitForBlockNumber } from '../../fixtures/wait_helpers.js';
-import { setupBlockProducer } from '../setup.js';
+import { NO_REORG_SUBMISSION_EPOCHS, setupBlockProducer } from '../setup.js';
 import type { SingleNodeTestContext } from '../single_node_test_context.js';
 
 // Tests that the sequencer can successfully process blocks when L1 block proposals are forwarded
 // via a proxy contract (Forwarder). Also tests that a corrupted first propose call (failing with
 // allowFailure:true) followed by a valid second call still produces blocks.
 // Uses setupBlockProducer (no prover node) with numberOfAccounts:2, ethereumSlotDuration:4,
-// aztecSlotDuration:12, aztecEpochDuration:32, aztecProofSubmissionEpochs:640, minTxsPerBlock:0 —
+// aztecSlotDuration:12, aztecEpochDuration:32, aztecProofSubmissionEpochs:NO_REORG_SUBMISSION_EPOCHS, minTxsPerBlock:0 —
 // production sequencer, anvil interval mining. The L1 interaction is Forwarder/Multicall3/Rollup
 // contract interception for block-proposal routing, not cross-chain bridging.
 describe('single-node/block-building/debug_trace', () => {
@@ -58,7 +58,7 @@ describe('single-node/block-building/debug_trace', () => {
       // boundary at slot 6; the proposer-corruption test intercepts every propose and runs long
       // enough to reach it, where the proposer selection changes and the propose silently reverts.
       aztecEpochDuration: 32,
-      aztecProofSubmissionEpochs: 640,
+      aztecProofSubmissionEpochs: NO_REORG_SUBMISSION_EPOCHS,
       inboxLag: 2,
     });
     ({ aztecNode, logger, aztecNodeAdmin, config } = test.context);

@@ -242,7 +242,7 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     ...booleanConfigHelper(DefaultSequencerConfig.buildCheckpointIfEmpty),
   },
   skipPushProposedBlocksToArchiver: {
-    description: 'Skip pushing proposed blocks to archiver (default: true)',
+    description: 'Skip pushing proposed blocks to archiver (test only)',
     ...booleanConfigHelper(DefaultSequencerConfig.skipPushProposedBlocksToArchiver),
   },
   minBlocksForCheckpoint: {

@@ -1,5 +1,6 @@
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { BlockHash } from '@aztec/stdlib/block';
 import type { TxHash } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
@@ -14,4 +15,5 @@ export type LogRetrievalResponse = {
   firstNullifierInTx: Fr;
   blockNumber: BlockNumber;
   blockTimestamp: UInt64;
+  blockHash: BlockHash;
 };

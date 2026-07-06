@@ -35,7 +35,7 @@ global INTERACTIVE_HANDSHAKE: u8 = 2;
 pub contract HandshakeRegistry {
     use crate::{
         handshake_note::HandshakeNote, INTERACTIVE_HANDSHAKE, NON_INTERACTIVE_HANDSHAKE,
-        recipient_signature::RecipientSignature, sync::get_all_handshakes,
+        recipient_signature::RecipientSignature, sync::discovered_handshakes::get_all_discovered_handshakes,
     };
     use aztec::{
         keys::{ecdh_shared_secret::derive_ecdh_shared_secret, ephemeral::generate_positive_ephemeral_key_pair},
@@ -166,12 +166,21 @@ pub contract HandshakeRegistry {
         }
     }
 
-    /// Returns a page of discovered handshakes addressed to `recipient`.
+    /// Returns a page of discovered non-interactive handshakes addressed to `recipient`.
+    ///
+    /// Only non-interactive handshakes appear here: they are the ones announced in a log the recipient's sync scan
+    /// discovers.
     ///
     /// `total_count` is the full list length, so callers can determine whether more pages remain.
+    ///
+    /// # Privacy
+    /// PXE authorizes this read for any calling contract without consulting the wallet's `authorizeUtilityCall`
+    /// hook, so any contract executing for `recipient` can see that account's discovered handshakes: their count and
+    /// their ephemeral public keys. This does not weaken message secrecy, as deriving the shared secret from an
+    /// ephemeral key requires the recipient's secret keys.
     #[external("utility")]
-    unconstrained fn get_handshakes(recipient: AztecAddress, page_offset: u32) -> HandshakePage {
-        let handshakes = get_all_handshakes(self.context.this_address(), recipient);
+    unconstrained fn get_non_interactive_handshakes(recipient: AztecAddress, page_offset: u32) -> HandshakePage {
+        let handshakes = get_all_discovered_handshakes(self.context.this_address(), recipient);
         let total_count = handshakes.len();
         let offset = std::cmp::min(page_offset, total_count);
         let page_len = std::cmp::min(MAX_HANDSHAKES_PER_PAGE, total_count - offset);

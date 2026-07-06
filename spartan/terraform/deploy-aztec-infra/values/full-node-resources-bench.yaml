@@ -1,0 +1,61 @@
+# Bench profile: deterministic full-node sizing for benchmarking.
+# Full nodes still validate every gossiped tx and apply every block, so at
+# 10 TPS they need the same 4-core tier as validators/RPC (request=limit,
+# Guaranteed QoS, 3.5 CPU). The `cores: "4"` selector pins them to the dedicated
+# 4-core spot pool (cluster/main.tf spot_nodes_4core) — one full node per spot
+# box — instead of packing several onto 8-core spot. Spot affinity is REQUIRED
+# (as in the prod-spot profile) so full nodes always land on spot; validators /
+# RPC / prover stay on-demand so a mid-block spot eviction cannot corrupt the
+# inclusion measurement (full nodes are not on the measurement path).
+nodeSelector:
+  local-ssd: "false"
+  node-type: "network"
+  pool: "spot"
+  cores: "4"
+
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: cloud.google.com/gke-spot
+              operator: Exists
+
+tolerations:
+  - key: "cloud.google.com/gke-spot"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"
+
+replicaCount: 1
+
+node:
+  resources:
+    requests:
+      cpu: "3.5"
+      memory: "8Gi"
+    limits:
+      cpu: "3.5"
+      memory: "8Gi"
+persistence:
+  enabled: true
+
+statefulSet:
+  enabled: true
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 16Gi
+
+service:
+  p2p:
+    enabled: true
+    nodePortEnabled: false
+  admin:
+    enabled: true
+  headless:
+    enabled: false

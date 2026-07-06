@@ -54,8 +54,8 @@ pub global NON_INTERACTIVE_HANDSHAKE_SELECTOR: FunctionSelector =
     comptime { FunctionSelector::from_signature("non_interactive_handshake((Field),(Field))") };
 pub global INTERACTIVE_HANDSHAKE_SELECTOR: FunctionSelector =
     comptime { FunctionSelector::from_signature("interactive_handshake((Field),(Field))") };
-pub global GET_HANDSHAKES_SELECTOR: FunctionSelector =
-    comptime { FunctionSelector::from_signature("get_handshakes((Field),u32)") };
+pub global GET_NON_INTERACTIVE_HANDSHAKES_SELECTOR: FunctionSelector =
+    comptime { FunctionSelector::from_signature("get_non_interactive_handshakes((Field),u32)") };
 
 /// Reads the existing app-siloed handshake secrets for `(sender, recipient)` from the registry.
 ///
@@ -157,12 +157,12 @@ pub(crate) unconstrained fn get_handshake_secrets(
     provided_secrets
 }
 
-/// Calls the HandshakeRegistry's `get_handshakes` utility function and deserializes the response.
+/// Calls the HandshakeRegistry's `get_non_interactive_handshakes` utility function and deserializes the response.
 unconstrained fn fetch_handshake_page(recipient: AztecAddress, page_offset: u32) -> HandshakePage {
     let args: [Field; 2] = [recipient.to_field(), page_offset as Field];
     let response = call_utility_function(
         STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
-        GET_HANDSHAKES_SELECTOR,
+        GET_NON_INTERACTIVE_HANDSHAKES_SELECTOR,
         args,
     );
     HandshakePage::deserialize(response)
@@ -252,6 +252,26 @@ mod test {
             assert(secrets.get(4).mode == OnchainDeliveryMode::onchain_unconstrained());
             assert_eq(secrets.get(5).secret, 333);
             assert(secrets.get(5).mode == OnchainDeliveryMode::onchain_constrained());
+        });
+    }
+
+    #[test]
+    unconstrained fn get_handshake_secrets_returns_empty_when_scope_keys_not_held() {
+        let env = TestEnvironment::new();
+        let scope = AztecAddress::from_field(1);
+        let contract_address = AztecAddress { inner: 0xdeadbeef };
+
+        env.utility_context_at(contract_address, |_| {
+            let mut items = BoundedVec::new();
+            items.push(DiscoveredHandshake { eph_pk: point_from_x_coord(1).unwrap() });
+            let page = HandshakePage { items, total_count: 1 };
+            let _ = OracleMock::mock("aztec_utl_callUtilityFunction").returns(page.serialize());
+
+            let empty: [Field; 0] = [];
+            mock_get_shared_secrets(empty);
+
+            let secrets = get_handshake_secrets(contract_address, scope);
+            assert_eq(secrets.len(), 0);
         });
     }
 
