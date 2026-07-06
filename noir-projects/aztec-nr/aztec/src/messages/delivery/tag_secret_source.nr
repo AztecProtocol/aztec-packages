@@ -29,15 +29,35 @@ impl TagSecretSource {
     }
 
     /// Establishes a fresh non-interactive handshake, publishing information about the recipient onchain.
-    pub(crate) fn new_non_interactive_handshake() -> Self {
-        Self { kind: NEW_NON_INTERACTIVE_HANDSHAKE, tag_secret: 0, sender_only: 0 }
+    pub(crate) fn new_non_interactive_handshake(
+        context: &mut PrivateContext,
+        sender: AztecAddress,
+        recipient: AztecAddress,
+    ) -> Self {
+        let secrets = create_non_interactive_handshake(
+            context,
+            STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
+            sender,
+            recipient,
+        );
+        Self { kind: NEW_NON_INTERACTIVE_HANDSHAKE, tag_secret: secrets.shared, sender_only: secrets.sender_only }
     }
 
     /// Establishes a fresh interactive handshake, publishing nothing about the recipient onchain. See
     /// [`create_interactive_handshake`](super::handshake::create_interactive_handshake) for how the registry obtains
     /// the recipient's signed authorization.
-    pub(crate) fn new_interactive_handshake() -> Self {
-        Self { kind: NEW_INTERACTIVE_HANDSHAKE, tag_secret: 0, sender_only: 0 }
+    pub(crate) fn new_interactive_handshake(
+        context: &mut PrivateContext,
+        sender: AztecAddress,
+        recipient: AztecAddress,
+    ) -> Self {
+        let secrets = create_interactive_handshake(
+            context,
+            STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
+            sender,
+            recipient,
+        );
+        Self { kind: NEW_INTERACTIVE_HANDSHAKE, tag_secret: secrets.shared, sender_only: secrets.sender_only }
     }
 
     /// A ready-to-use unconstrained secret the wallet resolved. Sound only for unconstrained delivery, which never
@@ -46,38 +66,14 @@ impl TagSecretSource {
         Self { kind: UNCONSTRAINED_SECRET, tag_secret: secret, sender_only: 0 }
     }
 
-    /// Returns the tag secret backing the message tag, performing any handshake creation the source requires.
-    pub(crate) fn resolve_tag_secret(
-        &mut self,
-        context: &mut PrivateContext,
-        sender: AztecAddress,
-        recipient: AztecAddress,
-    ) -> Field {
-        if self.kind == NEW_NON_INTERACTIVE_HANDSHAKE {
-            let secrets = create_non_interactive_handshake(
-                context,
-                STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
-                sender,
-                recipient,
-            );
-            self.tag_secret = secrets.shared;
-            self.sender_only = secrets.sender_only;
-        } else if self.kind == NEW_INTERACTIVE_HANDSHAKE {
-            let secrets = create_interactive_handshake(
-                context,
-                STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
-                sender,
-                recipient,
-            );
-            self.tag_secret = secrets.shared;
-            self.sender_only = secrets.sender_only;
-        }
+    /// The secret the message tag derives from.
+    pub(crate) fn tag_secret(self) -> Field {
         self.tag_secret
     }
 
     /// Constrains `(tag secret, index)` for constrained delivery and emits the sequence nullifier, each source
     /// proving its secrets its own way. A source that cannot back constrained delivery rejects it here. Only called
-    /// for constrained delivery, after [`Self::resolve_tag_secret`].
+    /// for constrained delivery.
     pub(crate) fn constrain_tag_secret(
         self,
         context: &mut PrivateContext,
@@ -122,7 +118,7 @@ mod test {
     global RECIPIENT: AztecAddress = AztecAddress::from_field(8);
 
     #[test]
-    unconstrained fn existing_handshake_resolves_and_constrains_its_secrets() {
+    unconstrained fn existing_handshake_holds_and_constrains_its_secrets() {
         let env = TestEnvironment::new();
         let secrets = AppSiloedHandshakeSecrets { shared: 42, sender_only: 7 };
         let index: u32 = 3;
@@ -130,8 +126,8 @@ mod test {
         env.private_context(|context| {
             let _ = OracleMock::mock("aztec_prv_isNullifierPending").returns(false).times(1);
 
-            let mut source = TagSecretSource::existing_handshake(secrets);
-            assert_eq(source.resolve_tag_secret(context, SENDER, RECIPIENT), secrets.shared);
+            let source = TagSecretSource::existing_handshake(secrets);
+            assert_eq(source.tag_secret(), secrets.shared);
 
             source.constrain_tag_secret(context, SENDER, RECIPIENT, index);
             assert_emitted_sequence_nullifier(context, secrets, index);
@@ -139,31 +135,20 @@ mod test {
     }
 
     #[test]
-    unconstrained fn unconstrained_secret_resolves_its_secret() {
-        let env = TestEnvironment::new();
-        env.private_context(|context| {
-            let mut source = TagSecretSource::unconstrained_secret(42);
-            assert_eq(source.resolve_tag_secret(context, SENDER, RECIPIENT), 42);
-        });
+    unconstrained fn unconstrained_secret_holds_its_secret() {
+        assert_eq(TagSecretSource::unconstrained_secret(42).tag_secret(), 42);
     }
 
     #[test]
-    unconstrained fn new_non_interactive_handshake_resolves_and_constrains_the_bootstrapped_secrets() {
+    unconstrained fn new_non_interactive_handshake_creates_and_constrains_the_bootstrapped_secrets() {
         let env = TestEnvironment::new();
         let secrets = AppSiloedHandshakeSecrets { shared: 7, sender_only: 9 };
 
         env.private_context(|context| {
-            // The registry's `non_interactive_handshake` call returns the app-siloed secrets via the returns cache.
-            let returns = secrets.serialize();
-            let returns_hash = hash_args(returns);
-            execution_cache::store(returns, returns_hash);
-            let child_call_end_counter = context.get_side_effect_counter() + 1;
-            let _ = OracleMock::mock("aztec_prv_callPrivateFunction")
-                .returns((child_call_end_counter, returns_hash))
-                .times(1);
+            mock_handshake_creation(context, secrets);
 
-            let mut source = TagSecretSource::new_non_interactive_handshake();
-            assert_eq(source.resolve_tag_secret(context, SENDER, RECIPIENT), secrets.shared);
+            let source = TagSecretSource::new_non_interactive_handshake(context, SENDER, RECIPIENT);
+            assert_eq(source.tag_secret(), secrets.shared);
 
             source.constrain_tag_secret(context, SENDER, RECIPIENT, 0);
             assert_emitted_sequence_nullifier(context, secrets, 0);
@@ -171,22 +156,15 @@ mod test {
     }
 
     #[test]
-    unconstrained fn new_interactive_handshake_resolves_and_constrains_the_bootstrapped_secrets() {
+    unconstrained fn new_interactive_handshake_creates_and_constrains_the_bootstrapped_secrets() {
         let env = TestEnvironment::new();
         let secrets = AppSiloedHandshakeSecrets { shared: 12, sender_only: 34 };
 
         env.private_context(|context| {
-            // The registry's `interactive_handshake` call returns the app-siloed secrets via the returns cache.
-            let returns = secrets.serialize();
-            let returns_hash = hash_args(returns);
-            execution_cache::store(returns, returns_hash);
-            let child_call_end_counter = context.get_side_effect_counter() + 1;
-            let _ = OracleMock::mock("aztec_prv_callPrivateFunction")
-                .returns((child_call_end_counter, returns_hash))
-                .times(1);
+            mock_handshake_creation(context, secrets);
 
-            let mut source = TagSecretSource::new_interactive_handshake();
-            assert_eq(source.resolve_tag_secret(context, SENDER, RECIPIENT), secrets.shared);
+            let source = TagSecretSource::new_interactive_handshake(context, SENDER, RECIPIENT);
+            assert_eq(source.tag_secret(), secrets.shared);
 
             source.constrain_tag_secret(context, SENDER, RECIPIENT, 0);
             assert_emitted_sequence_nullifier(context, secrets, 0);
@@ -198,10 +176,15 @@ mod test {
     unconstrained fn fresh_handshake_secret_must_start_at_index_zero() {
         let env = TestEnvironment::new();
         env.private_context(|context| {
-            TagSecretSource::new_non_interactive_handshake().constrain_tag_secret(
+            mock_handshake_creation(
                 context,
-                AztecAddress::zero(),
-                AztecAddress::zero(),
+                AppSiloedHandshakeSecrets { shared: 0, sender_only: 0 },
+            );
+
+            TagSecretSource::new_non_interactive_handshake(context, SENDER, RECIPIENT).constrain_tag_secret(
+                context,
+                SENDER,
+                RECIPIENT,
                 1,
             );
         });
@@ -211,10 +194,15 @@ mod test {
     unconstrained fn fresh_interactive_handshake_secret_must_start_at_index_zero() {
         let env = TestEnvironment::new();
         env.private_context(|context| {
-            TagSecretSource::new_interactive_handshake().constrain_tag_secret(
+            mock_handshake_creation(
                 context,
-                AztecAddress::zero(),
-                AztecAddress::zero(),
+                AppSiloedHandshakeSecrets { shared: 0, sender_only: 0 },
+            );
+
+            TagSecretSource::new_interactive_handshake(context, SENDER, RECIPIENT).constrain_tag_secret(
+                context,
+                SENDER,
+                RECIPIENT,
                 1,
             );
         });
@@ -243,5 +231,15 @@ mod test {
             context.nullifiers.get(0).inner.value,
             compute_constrained_msg_nullifier(SENDER, RECIPIENT, secrets, index),
         );
+    }
+
+    // The registry's handshake creation call returns the app-siloed secrets via the returns cache.
+    unconstrained fn mock_handshake_creation(context: &mut PrivateContext, secrets: AppSiloedHandshakeSecrets) {
+        let returns = secrets.serialize();
+        let returns_hash = hash_args(returns);
+        execution_cache::store(returns, returns_hash);
+        let child_call_end_counter = context.get_side_effect_counter() + 1;
+        let _ =
+            OracleMock::mock("aztec_prv_callPrivateFunction").returns((child_call_end_counter, returns_hash)).times(1);
     }
 }
