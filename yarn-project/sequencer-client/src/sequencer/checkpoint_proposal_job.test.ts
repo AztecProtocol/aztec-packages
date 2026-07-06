@@ -1014,7 +1014,7 @@ describe('CheckpointProposalJob', () => {
         attestors: [EthAddress.random()],
         invalidIndex: 0,
         attestations: [CommitteeAttestation.random()],
-        packedAttestations: { signatureIndices: '0x', signaturesOrAddresses: '0x' },
+        verbatimAttestations: { signatureIndices: '0x', signaturesOrAddresses: '0x' },
       };
       l2BlockSource.getPendingChainValidationStatus.mockResolvedValue(invalidValidation);
 
@@ -1052,7 +1052,7 @@ describe('CheckpointProposalJob', () => {
         attestors: [EthAddress.random()],
         invalidIndex: 0,
         attestations: [CommitteeAttestation.random()],
-        packedAttestations: { signatureIndices: '0x', signaturesOrAddresses: '0x' },
+        verbatimAttestations: { signatureIndices: '0x', signaturesOrAddresses: '0x' },
       });
 
       await pipelinedJob.executeAndAwait();
@@ -1086,7 +1086,7 @@ describe('CheckpointProposalJob', () => {
         attestors: [EthAddress.random()],
         invalidIndex: 0,
         attestations: [CommitteeAttestation.random()],
-        packedAttestations: { signatureIndices: '0x', signaturesOrAddresses: '0x' },
+        verbatimAttestations: { signatureIndices: '0x', signaturesOrAddresses: '0x' },
       };
       l2BlockSource.getPendingChainValidationStatus.mockResolvedValue(invalidValidation);
 

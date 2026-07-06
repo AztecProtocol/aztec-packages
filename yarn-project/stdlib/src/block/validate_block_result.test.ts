@@ -15,7 +15,7 @@ import {
 describe('ValidateCheckpointResult', () => {
   // A non-trivial packed tuple with a signature slot and an address-only slot, so the round-trip exercises
   // both packed segments rather than the empty (0x, 0x) tuple.
-  const packedAttestations = CommitteeAttestationsAndSigners.packAttestations([
+  const verbatimAttestations = CommitteeAttestationsAndSigners.packAttestations([
     new CommitteeAttestation(EthAddress.ZERO, new Signature(Buffer32.random(), Buffer32.random(), 27)),
     CommitteeAttestation.fromAddress(EthAddress.random()),
   ]);
@@ -39,7 +39,7 @@ describe('ValidateCheckpointResult', () => {
         attestors: [EthAddress.random(), EthAddress.random()],
         invalidIndex: 4,
         attestations: [CommitteeAttestation.random(), CommitteeAttestation.random()],
-        packedAttestations,
+        verbatimAttestations,
       };
       const serialized = serializeValidateCheckpointResult(result);
       const deserialized = deserializeValidateCheckpointResult(serialized);
@@ -56,7 +56,7 @@ describe('ValidateCheckpointResult', () => {
         seed: 2n,
         attestors: [EthAddress.random(), EthAddress.random()],
         attestations: [CommitteeAttestation.random(), CommitteeAttestation.random()],
-        packedAttestations,
+        verbatimAttestations,
       };
       const serialized = serializeValidateCheckpointResult(result);
       const deserialized = deserializeValidateCheckpointResult(serialized);
@@ -74,11 +74,11 @@ describe('ValidateCheckpointResult', () => {
         attestors: [EthAddress.random()],
         invalidIndex: 0,
         attestations: [CommitteeAttestation.random()],
-        packedAttestations,
+        verbatimAttestations,
       };
       const deserialized = deserializeValidateCheckpointResult(serializeValidateCheckpointResult(result));
       expect(deserialized.valid).toBe(false);
-      expect((deserialized as typeof result).packedAttestations).toEqual(packedAttestations);
+      expect((deserialized as typeof result).verbatimAttestations).toEqual(verbatimAttestations);
     });
   });
 });

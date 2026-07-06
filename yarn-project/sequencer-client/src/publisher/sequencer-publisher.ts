@@ -915,13 +915,8 @@ export class SequencerPublisher {
     // Use the exact packed tuple posted to L1 verbatim. A repack via `packAttestations` is not a
     // byte-faithful inverse of `fromPacked` (a canonicalized yParity byte or an all-zero signature slot
     // round-trips differently), so it would diverge from the stored `attestationsHash` and revert the
-    // invalidation. Fail loud rather than fall back to a repack, which would silently re-wedge the chain.
-    const attestationsAndSigners = validationResult.packedAttestations;
-    if (!attestationsAndSigners) {
-      throw new Error(
-        `Cannot build invalidation for checkpoint ${checkpoint.checkpointNumber}: missing packed attestations from L1 calldata`,
-      );
-    }
+    // invalidation.
+    const attestationsAndSigners = validationResult.verbatimAttestations;
 
     if (reason === 'invalid-attestation') {
       return this.rollupContract.buildInvalidateBadAttestationRequest(

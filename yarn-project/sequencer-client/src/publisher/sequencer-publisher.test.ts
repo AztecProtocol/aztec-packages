@@ -1123,7 +1123,7 @@ describe('SequencerPublisher', () => {
       timestamp: 0n,
     };
 
-    const makeInvalidResult = (packedAttestations: ViemCommitteeAttestations): ValidateCheckpointResult => ({
+    const makeInvalidResult = (verbatimAttestations: ViemCommitteeAttestations): ValidateCheckpointResult => ({
       valid: false,
       reason: 'invalid-attestation',
       checkpoint,
@@ -1133,7 +1133,7 @@ describe('SequencerPublisher', () => {
       attestors: [],
       invalidIndex: 1,
       attestations: [],
-      packedAttestations,
+      verbatimAttestations,
     });
 
     beforeEach(() => {
@@ -1149,12 +1149,6 @@ describe('SequencerPublisher', () => {
       const packed = { signatureIndices: '0x80', signaturesOrAddresses: bufferToHex(Buffer.alloc(65, 7)) } as const;
       await publisher.simulateInvalidateCheckpoint(makeInvalidResult(packed));
       expect(rollup.buildInvalidateBadAttestationRequest).toHaveBeenCalledWith(checkpointNumber, packed, committee, 1);
-    });
-
-    it('throws rather than repacking when the raw packed tuple is missing', async () => {
-      await expect(publisher.simulateInvalidateCheckpoint(makeInvalidResult(undefined as any))).rejects.toThrow(
-        /missing packed attestations/,
-      );
     });
   });
 });

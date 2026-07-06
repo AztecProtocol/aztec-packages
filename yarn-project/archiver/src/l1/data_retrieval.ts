@@ -61,7 +61,7 @@ export type RetrievedCheckpointFromCalldata = RetrievedCheckpointBase & {
    * The exact packed `CommitteeAttestations` tuple from the propose calldata, carried verbatim so that
    * attestation validation can attach byte-faithful invalidation evidence to a negative result.
    */
-  packedAttestations: ViemCommitteeAttestations;
+  verbatimAttestations: ViemCommitteeAttestations;
 };
 
 export async function retrievedToPublishedCheckpoint({

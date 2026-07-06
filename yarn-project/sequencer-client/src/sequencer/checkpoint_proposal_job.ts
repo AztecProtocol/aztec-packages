@@ -31,9 +31,9 @@ import {
   type L2BlockSink,
   type L2BlockSource,
   MaliciousCommitteeAttestationsAndSigners,
+  MaliciousYParityCommitteeAttestationsAndSigners,
   type ProposedCheckpointSink,
   type ValidateCheckpointResult,
-  YParityCommitteeAttestationsAndSigners,
 } from '@aztec/stdlib/block';
 import {
   type Checkpoint,
@@ -1487,21 +1487,16 @@ export class CheckpointProposalJob implements Traceable {
     }
 
     if (this.config.injectYParityAttestation) {
-      // Pick a non-proposer signed slot and force its recovery byte to yParity (v ∈ {0, 1}) form in the
-      // packed L1 tuple, after packAttestations has canonicalized it. Models a malicious proposer landing
-      // a slot L1 accepts at propose() but that can never be proven (ECDSA.recover rejects v ∉ {27, 28}).
-      const nonProposerIndices: number[] = [];
-      for (let i = 0; i < attestations.length; i++) {
-        if (!attestations[i].signature.isEmpty() && i !== proposerIndex) {
-          nonProposerIndices.push(i);
-        }
-      }
-      if (nonProposerIndices.length > 0) {
-        const targetIndex = nonProposerIndices[randomInt(nonProposerIndices.length)];
-        this.log.warn(`Injecting yParity attestation in checkpoint for slot ${slotNumber} at index ${targetIndex}`);
-        return new YParityCommitteeAttestationsAndSigners(attestations, targetIndex, this.getSignatureContext());
-      }
-      return new CommitteeAttestationsAndSigners(attestations, this.getSignatureContext());
+      // Force every non-proposer signed slot's recovery byte to yParity (v ∈ {0, 1}) form in the packed L1
+      // tuple, after packAttestations has canonicalized it. The proposer's own slot is left canonical so
+      // propose() still passes verifyProposer. Models a malicious proposer landing a checkpoint L1 accepts
+      // but that can never be proven (ECDSA.recover rejects v ∉ {27, 28}).
+      this.log.warn(`Injecting yParity attestations in checkpoint for slot ${slotNumber} (proposer #${proposerIndex})`);
+      return new MaliciousYParityCommitteeAttestationsAndSigners(
+        attestations,
+        proposerIndex,
+        this.getSignatureContext(),
+      );
     }
 
     if (this.config.shuffleAttestationOrdering) {

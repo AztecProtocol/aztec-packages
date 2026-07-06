@@ -39,7 +39,7 @@ export type ValidateCheckpointNegativeResult =
        * and revert `invalidateBadAttestation`/`invalidateInsufficientAttestations`. Always populated on the
        * calldata validation path, the only production source of invalidation evidence.
        */
-      packedAttestations: ViemCommitteeAttestations;
+      verbatimAttestations: ViemCommitteeAttestations;
       /** Reason for the checkpoint being invalid: not enough attestations were posted */
       reason: 'insufficient-attestations';
     }
@@ -62,7 +62,7 @@ export type ValidateCheckpointNegativeResult =
        * invalidation evidence is byte-faithful to the stored `attestationsHash`. See the same field on the
        * insufficient-attestations variant for why a repack cannot be used.
        */
-      packedAttestations: ViemCommitteeAttestations;
+      verbatimAttestations: ViemCommitteeAttestations;
       /** Reason for the checkpoint being invalid: an invalid attestation was posted */
       reason: 'invalid-attestation';
       /** Index in the attestations array of the invalid attestation posted */
@@ -88,7 +88,7 @@ export const ValidateCheckpointResultSchema: ZodFor<ValidateCheckpointResult> = 
     seed: schemas.BigInt,
     attestors: z.array(schemas.EthAddress),
     attestations: z.array(CommitteeAttestation.schema),
-    packedAttestations: ViemCommitteeAttestationsSchema,
+    verbatimAttestations: ViemCommitteeAttestationsSchema,
     reason: z.literal('insufficient-attestations'),
   }),
   z.object({
@@ -99,7 +99,7 @@ export const ValidateCheckpointResultSchema: ZodFor<ValidateCheckpointResult> = 
     seed: schemas.BigInt,
     attestors: z.array(schemas.EthAddress),
     attestations: z.array(CommitteeAttestation.schema),
-    packedAttestations: ViemCommitteeAttestationsSchema,
+    verbatimAttestations: ViemCommitteeAttestationsSchema,
     reason: z.literal('invalid-attestation'),
     invalidIndex: z.number(),
   }),
@@ -111,8 +111,8 @@ export function serializeValidateCheckpointResult(result: ValidateCheckpointResu
   }
 
   const checkpointBuffer = serializeCheckpointInfo(result.checkpoint);
-  const signatureIndices = hexToBuffer(result.packedAttestations.signatureIndices);
-  const signaturesOrAddresses = hexToBuffer(result.packedAttestations.signaturesOrAddresses);
+  const signatureIndices = hexToBuffer(result.verbatimAttestations.signatureIndices);
+  const signaturesOrAddresses = hexToBuffer(result.verbatimAttestations.signaturesOrAddresses);
   return serializeToBuffer(
     result.valid,
     result.reason,
@@ -148,13 +148,13 @@ export function deserializeValidateCheckpointResult(bufferOrReader: Buffer | Buf
   const attestors = reader.readVector(EthAddress, MAX_COMMITTEE_SIZE);
   const attestations = reader.readVector(CommitteeAttestation, MAX_COMMITTEE_SIZE);
   const invalidIndex = reader.readNumber();
-  const packedAttestations: ViemCommitteeAttestations = {
+  const verbatimAttestations: ViemCommitteeAttestations = {
     signatureIndices: bufferToHex(reader.readBuffer()),
     signaturesOrAddresses: bufferToHex(reader.readBuffer()),
   };
 
   if (reason === 'insufficient-attestations') {
-    return { valid, reason, checkpoint, committee, epoch, seed, attestors, attestations, packedAttestations };
+    return { valid, reason, checkpoint, committee, epoch, seed, attestors, attestations, verbatimAttestations };
   } else if (reason === 'invalid-attestation') {
     return {
       valid,
@@ -166,7 +166,7 @@ export function deserializeValidateCheckpointResult(bufferOrReader: Buffer | Buf
       attestors,
       invalidIndex,
       attestations,
-      packedAttestations,
+      verbatimAttestations,
     };
   } else {
     const _: never = reason;

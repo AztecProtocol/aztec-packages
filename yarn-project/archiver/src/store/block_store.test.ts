@@ -1989,7 +1989,7 @@ describe('BlockStore', () => {
         seed: 456n,
         attestors: [EthAddress.random()],
         attestations: [CommitteeAttestation.random()],
-        packedAttestations: { signatureIndices: '0x', signaturesOrAddresses: '0x' },
+        verbatimAttestations: { signatureIndices: '0x', signaturesOrAddresses: '0x' },
         reason: 'insufficient-attestations',
       };
 
@@ -2008,7 +2008,7 @@ describe('BlockStore', () => {
         epoch: EpochNumber(789),
         seed: 101n,
         attestations: [CommitteeAttestation.random()],
-        packedAttestations: { signatureIndices: '0x', signaturesOrAddresses: '0x' },
+        verbatimAttestations: { signatureIndices: '0x', signaturesOrAddresses: '0x' },
         reason: 'invalid-attestation',
         invalidIndex: 5,
       };
@@ -2029,7 +2029,7 @@ describe('BlockStore', () => {
         seed: 888n,
         attestors: [EthAddress.random()],
         attestations: [CommitteeAttestation.random()],
-        packedAttestations: { signatureIndices: '0x', signaturesOrAddresses: '0x' },
+        verbatimAttestations: { signatureIndices: '0x', signaturesOrAddresses: '0x' },
         reason: 'insufficient-attestations',
       };
 
@@ -2049,7 +2049,7 @@ describe('BlockStore', () => {
         seed: 0n,
         attestors: [],
         attestations: [],
-        packedAttestations: { signatureIndices: '0x', signaturesOrAddresses: '0x' },
+        verbatimAttestations: { signatureIndices: '0x', signaturesOrAddresses: '0x' },
         reason: 'insufficient-attestations',
       };
 

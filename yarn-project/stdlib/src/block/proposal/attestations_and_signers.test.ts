@@ -7,7 +7,10 @@ import { bufferToHex } from '@aztec/foundation/string';
 import { type AbiParameter, encodeAbiParameters, keccak256 } from 'viem';
 
 import { TEST_COORDINATION_SIGNATURE_CONTEXT } from '../../tests/mocks.js';
-import { CommitteeAttestationsAndSigners, YParityCommitteeAttestationsAndSigners } from './attestations_and_signers.js';
+import {
+  CommitteeAttestationsAndSigners,
+  MaliciousYParityCommitteeAttestationsAndSigners,
+} from './attestations_and_signers.js';
 import { CommitteeAttestation } from './committee_attestation.js';
 
 const committeeAttestationsStruct: AbiParameter = {
@@ -113,23 +116,23 @@ describe('packAttestations is not a byte-faithful inverse of fromPacked', () => 
   });
 });
 
-describe('YParityCommitteeAttestationsAndSigners', () => {
-  it('rewrites only the target slot to yParity form while keeping getSigners and the bitmap consistent', () => {
+describe('MaliciousYParityCommitteeAttestationsAndSigners', () => {
+  it('rewrites every non-proposer signed slot to yParity form while keeping getSigners and the bitmap consistent', () => {
     const attestations = [signing(27), signing(28), CommitteeAttestation.fromAddress(EthAddress.random()), signing(27)];
-    const targetIndex = 1;
-    const bundle = new YParityCommitteeAttestationsAndSigners(
+    const proposerIndex = 0;
+    const bundle = new MaliciousYParityCommitteeAttestationsAndSigners(
       attestations,
-      targetIndex,
+      proposerIndex,
       TEST_COORDINATION_SIGNATURE_CONTEXT,
     );
 
     const packed = bundle.getPackedAttestations();
     const unpacked = CommitteeAttestation.fromPacked(packed, attestations.length);
 
-    // The target slot carries a non-canonical yParity recovery byte; all other signed slots stay canonical.
-    expect([0, 1]).toContain(unpacked[targetIndex].signature.v);
-    expect([27, 28]).toContain(unpacked[0].signature.v);
-    expect([27, 28]).toContain(unpacked[3].signature.v);
+    // The proposer's own slot stays canonical; every other signed slot carries a yParity recovery byte.
+    expect([27, 28]).toContain(unpacked[proposerIndex].signature.v);
+    expect([0, 1]).toContain(unpacked[1].signature.v);
+    expect([0, 1]).toContain(unpacked[3].signature.v);
 
     // The bitmap and signers are untouched, so propose() would not revert SignersSizeMismatch.
     const honest = new CommitteeAttestationsAndSigners(attestations, TEST_COORDINATION_SIGNATURE_CONTEXT);
@@ -137,25 +140,26 @@ describe('YParityCommitteeAttestationsAndSigners', () => {
     expect(popcount(packed.signatureIndices)).toEqual(bundle.getSigners().length);
   });
 
-  it('preserves (r, s) of the target slot so it still recovers to the same signer', () => {
+  it('preserves (r, s) of the rewritten slots so they still recover to the same signer', () => {
     const attestations = [signing(27), signing(28)];
-    const targetIndex = 1;
+    const proposerIndex = 0;
+    const flippedIndex = 1;
     const honest = new CommitteeAttestationsAndSigners(attestations, TEST_COORDINATION_SIGNATURE_CONTEXT);
-    const bundle = new YParityCommitteeAttestationsAndSigners(
+    const bundle = new MaliciousYParityCommitteeAttestationsAndSigners(
       attestations,
-      targetIndex,
+      proposerIndex,
       TEST_COORDINATION_SIGNATURE_CONTEXT,
     );
 
-    const honestTarget = CommitteeAttestation.fromPacked(honest.getPackedAttestations(), attestations.length)[
-      targetIndex
+    const honestSlot = CommitteeAttestation.fromPacked(honest.getPackedAttestations(), attestations.length)[
+      flippedIndex
     ];
-    const maliciousTarget = CommitteeAttestation.fromPacked(bundle.getPackedAttestations(), attestations.length)[
-      targetIndex
+    const maliciousSlot = CommitteeAttestation.fromPacked(bundle.getPackedAttestations(), attestations.length)[
+      flippedIndex
     ];
 
-    expect(maliciousTarget.signature.r).toEqual(honestTarget.signature.r);
-    expect(maliciousTarget.signature.s).toEqual(honestTarget.signature.s);
-    expect(maliciousTarget.signature.v).toEqual(honestTarget.signature.v - 27);
+    expect(maliciousSlot.signature.r).toEqual(honestSlot.signature.r);
+    expect(maliciousSlot.signature.s).toEqual(honestSlot.signature.s);
+    expect(maliciousSlot.signature.v).toEqual(honestSlot.signature.v - 27);
   });
 });

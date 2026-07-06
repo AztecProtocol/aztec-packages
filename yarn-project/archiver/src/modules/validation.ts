@@ -7,7 +7,6 @@ import type { Logger } from '@aztec/foundation/log';
 import {
   type AttestationInfo,
   type CommitteeAttestation,
-  CommitteeAttestationsAndSigners,
   type ValidateCheckpointNegativeResult,
   type ValidateCheckpointResult,
   getAttestationInfoFromPayload,
@@ -31,33 +30,6 @@ export function getAttestationInfoFromPublishedCheckpoint(
   return getAttestationInfoFromPayload(payload, attestations);
 }
 
-/**
- * Validates the attestations of a checkpoint already retrieved (with its blocks) from blobs.
- * Returns true if the attestations are valid and sufficient, false otherwise.
- */
-export function validateCheckpointAttestations(
-  publishedCheckpoint: PublishedCheckpoint,
-  epochCache: EpochCache,
-  constants: Pick<L1RollupConstants, 'epochDuration'>,
-  signatureContext: CoordinationSignatureContext,
-  logger?: Logger,
-): Promise<ValidateCheckpointResult> {
-  const { checkpoint, attestations } = publishedCheckpoint;
-  const payload = ConsensusPayload.fromCheckpoint(checkpoint, signatureContext);
-  // The blob path has no production callers (invalidation always originates from the calldata path), so a
-  // repack is acceptable here to satisfy the required packedAttestations field on a negative result.
-  const packedAttestations = CommitteeAttestationsAndSigners.packAttestations(attestations);
-  return validateAttestations(
-    payload,
-    attestations,
-    packedAttestations,
-    checkpoint.toCheckpointInfo(),
-    epochCache,
-    constants,
-    logger,
-  );
-}
-
 /** The subset of a calldata-only checkpoint needed to validate its committee attestations. */
 export type CalldataCheckpointForAttestations = {
   checkpointNumber: CheckpointNumber;
@@ -66,7 +38,7 @@ export type CalldataCheckpointForAttestations = {
   header: CheckpointHeader;
   attestations: CommitteeAttestation[];
   /** The exact packed attestations tuple from L1 calldata, carried verbatim for byte-faithful invalidation. */
-  packedAttestations: ViemCommitteeAttestations;
+  verbatimAttestations: ViemCommitteeAttestations;
 };
 
 /**
@@ -98,7 +70,7 @@ export function validateCheckpointAttestationsFromCalldata(
   return validateAttestations(
     payload,
     checkpoint.attestations,
-    checkpoint.packedAttestations,
+    checkpoint.verbatimAttestations,
     checkpointInfo,
     epochCache,
     constants,
@@ -111,10 +83,10 @@ export function validateCheckpointAttestationsFromCalldata(
  * independent of whether the checkpoint's blocks have been decoded from blobs. Returns true if the
  * attestations are valid and sufficient, false otherwise.
  */
-async function validateAttestations(
+export async function validateAttestations(
   payload: ConsensusPayload,
   attestations: CommitteeAttestation[],
-  packedAttestations: ViemCommitteeAttestations,
+  verbatimAttestations: ViemCommitteeAttestations,
   checkpointInfo: CheckpointInfo,
   epochCache: EpochCache,
   constants: Pick<L1RollupConstants, 'epochDuration'>,
@@ -161,7 +133,7 @@ async function validateAttestations(
     epoch,
     attestors,
     attestations,
-    packedAttestations,
+    verbatimAttestations,
   });
 
   for (let i = 0; i < attestorInfos.length; i++) {
