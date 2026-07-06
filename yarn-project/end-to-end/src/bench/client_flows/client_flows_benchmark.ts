@@ -13,6 +13,7 @@ import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestERC20Abi } from '@aztec/l1-artifacts/TestERC20Abi';
 import { TestERC20Bytecode } from '@aztec/l1-artifacts/TestERC20Bytecode';
@@ -26,7 +27,6 @@ import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/server';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
-import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { AppTaggingSecretKind } from '@aztec/stdlib/logs';
 
 import {
@@ -192,7 +192,7 @@ export class ClientFlowsBenchmark {
 
     let benchysPrivateSigningKey;
     if (type === 'schnorr') {
-      benchysPrivateSigningKey = deriveSigningKey(benchysSecret);
+      benchysPrivateSigningKey = GrumpkinScalar.random();
       return wallet.createSchnorrAccount(benchysSecret, salt, benchysPrivateSigningKey);
     } else if (type === 'ecdsar1') {
       benchysPrivateSigningKey = randomBytes(32);
