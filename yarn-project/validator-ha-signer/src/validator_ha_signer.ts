@@ -21,7 +21,7 @@ import {
 import type { DutyIdentifier } from './db/types.js';
 import { SigningLockLostError } from './errors.js';
 import type { HASignerMetrics } from './metrics.js';
-import { SlashingProtectionService } from './slashing_protection_service.js';
+import { DEFAULT_MAX_STUCK_DUTIES_AGE_MS, SlashingProtectionService } from './slashing_protection_service.js';
 import type { SlashingProtectionDatabase } from './types.js';
 
 export interface ValidatorHASignerDeps {
@@ -31,9 +31,6 @@ export interface ValidatorHASignerDeps {
 
 /** Default hard timeout (ms) for a single signing operation when not configured. */
 const DEFAULT_SIGNING_OPERATION_TIMEOUT_MS = 30_000;
-
-/** Default max stuck-duty age (ms), mirrored from SlashingProtectionService for the config sanity check. */
-const DEFAULT_MAX_STUCK_DUTIES_AGE_MS = 144_000;
 
 /**
  * Validator High Availability Signer
@@ -72,7 +69,18 @@ export class ValidatorHASigner {
 
     this.metrics = deps.metrics;
     this.dateProvider = deps.dateProvider;
-    this.signingOperationTimeoutMs = config.signingOperationTimeoutMs ?? DEFAULT_SIGNING_OPERATION_TIMEOUT_MS;
+
+    // Clamp the signing-operation timeout below half the stuck-duty max age. This maintains the
+    // invariant that an in-flight signing always times out and releases its SIGNING row well before
+    // stuck-duty cleanup could consider it stuck, so cleanup can never delete a live duty (only
+    // signWithProtection writes SIGNING rows, and every path through it is bounded by this timeout).
+    // If timers misbehave anyway, the recordSuccess-returns-false throw is the backstop: the duty
+    // fails instead of broadcasting an unprotected signature.
+    const maxStuckDutiesAgeMs = config.maxStuckDutiesAgeMs ?? DEFAULT_MAX_STUCK_DUTIES_AGE_MS;
+    this.signingOperationTimeoutMs = Math.min(
+      config.signingOperationTimeoutMs ?? DEFAULT_SIGNING_OPERATION_TIMEOUT_MS,
+      maxStuckDutiesAgeMs / 2,
+    );
 
     if (!config.nodeId || config.nodeId === '') {
       throw new Error('NODE_ID is required for high-availability setups');
@@ -82,14 +90,6 @@ export class ValidatorHASigner {
       metrics: deps.metrics,
       dateProvider: deps.dateProvider,
     });
-
-    const maxStuckDutiesAgeMs = config.maxStuckDutiesAgeMs ?? DEFAULT_MAX_STUCK_DUTIES_AGE_MS;
-    if (this.signingOperationTimeoutMs >= maxStuckDutiesAgeMs / 2) {
-      this.log.warn(
-        'signingOperationTimeoutMs is not comfortably below half of maxStuckDutiesAgeMs; a slow signer could be reclaimed by stuck-duty cleanup before it times out',
-        { signingOperationTimeoutMs: this.signingOperationTimeoutMs, maxStuckDutiesAgeMs },
-      );
-    }
 
     this.log.info('Validator HA Signer initialized with slashing protection', {
       nodeId: config.nodeId,

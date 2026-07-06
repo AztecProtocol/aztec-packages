@@ -232,6 +232,38 @@ describe('ValidatorHASigner', () => {
       }
     });
 
+    it('should clamp the signing timeout to half of maxStuckDutiesAgeMs', async () => {
+      // Configured timeout (5s) exceeds maxStuckDutiesAgeMs / 2 (200ms), so the clamp must win:
+      // a hung signing times out at 200ms, not at the configured 5s.
+      const clampedConfig = { ...config, maxStuckDutiesAgeMs: 400, signingOperationTimeoutMs: 5000 };
+      const metrics = new HASignerMetrics(telemetryClient, clampedConfig.nodeId);
+      const clampedSigner = new ValidatorHASigner(db, clampedConfig, { metrics, dateProvider });
+
+      try {
+        const hangingSignFn = jest.fn<(messageHash: Buffer32) => Promise<Signature>>();
+        hangingSignFn.mockReturnValue(new Promise<Signature>(() => {}));
+
+        const startedAt = Date.now();
+        await expect(
+          clampedSigner.signWithProtection(
+            VALIDATOR_ADDRESS,
+            MESSAGE_HASH,
+            {
+              slot: SlotNumber(100),
+              blockNumber: BlockNumber(50),
+              checkpointNumber: CheckpointNumber(1),
+              dutyType: DutyType.BLOCK_PROPOSAL,
+              blockIndexWithinCheckpoint: IndexWithinCheckpoint(0),
+            },
+            hangingSignFn,
+          ),
+        ).rejects.toThrow(/timed out after 200ms/);
+        expect(Date.now() - startedAt).toBeLessThan(5000);
+      } finally {
+        await clampedSigner.stop();
+      }
+    });
+
     it('should throw DutyAlreadySignedError when duty already signed', async () => {
       // First signing
       await signer.signWithProtection(

@@ -258,29 +258,6 @@ describe('LmdbSlashingProtectionDatabase', () => {
       const count = await db.cleanupOwnStuckDuties(NODE_ID, 60_000);
       expect(count).toBe(0);
     });
-
-    it('should not remove stuck duties whose lock token is excluded', async () => {
-      const { record } = await db.tryInsertOrGetExisting(defaultParams());
-
-      dateProvider.advanceTime(120);
-      const count = await db.cleanupOwnStuckDuties(NODE_ID, 60_000, [record.lockToken]);
-      expect(count).toBe(0);
-
-      // The in-flight row must survive, so re-inserting finds the existing record.
-      const retry = await db.tryInsertOrGetExisting(defaultParams());
-      expect(retry.isNew).toBe(false);
-    });
-
-    it('should remove stuck duties whose lock token is not in the exclude list', async () => {
-      await db.tryInsertOrGetExisting(defaultParams());
-
-      dateProvider.advanceTime(120);
-      const count = await db.cleanupOwnStuckDuties(NODE_ID, 60_000, ['some-other-token']);
-      expect(count).toBe(1);
-
-      const retry = await db.tryInsertOrGetExisting(defaultParams());
-      expect(retry.isNew).toBe(true);
-    });
   });
 
   describe('cleanupOutdatedRollupDuties', () => {

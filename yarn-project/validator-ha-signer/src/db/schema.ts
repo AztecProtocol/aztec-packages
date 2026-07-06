@@ -217,17 +217,14 @@ WHERE status = 'signed'
 
 /**
  * Query to cleanup own stuck duties
- * Removes duties in 'signing' status for a specific node that are older than maxAgeMs,
- * excluding any lock tokens passed in $3 (in-flight signings on this process).
- * Uses DB's CURRENT_TIMESTAMP to avoid clock skew issues between nodes.
- * An empty $3 array excludes nothing (lock_token = ANY('{}') is always false).
+ * Removes duties in 'signing' status for a specific node that are older than maxAgeMs
+ * Uses DB's CURRENT_TIMESTAMP to avoid clock skew issues between nodes
  */
 export const CLEANUP_OWN_STUCK_DUTIES = `
 DELETE FROM validator_duties
 WHERE node_id = $1
   AND status = 'signing'
-  AND started_at < CURRENT_TIMESTAMP - ($2 || ' milliseconds')::INTERVAL
-  AND NOT (lock_token = ANY($3::text[]));
+  AND started_at < CURRENT_TIMESTAMP - ($2 || ' milliseconds')::INTERVAL;
 `;
 
 /**

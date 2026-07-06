@@ -1435,22 +1435,7 @@ describe('PostgresSlashingProtectionDatabase', () => {
       );
     };
 
-    it('removes stuck duties but never those whose lock token is excluded', async () => {
-      const spDb = new PostgresSlashingProtectionDatabase(pool);
-      await insertStuckDuty(100, 'held-token');
-      await insertStuckDuty(200, 'stuck-token');
-
-      const cleaned = await spDb.cleanupOwnStuckDuties(NODE_ID, 60_000, ['held-token']);
-      expect(cleaned).toBe(1);
-
-      const remaining = await pglite.query<{ lock_token: string }>(
-        `SELECT lock_token FROM validator_duties WHERE node_id = $1`,
-        [NODE_ID],
-      );
-      expect(remaining.rows.map(r => r.lock_token)).toEqual(['held-token']);
-    });
-
-    it('removes all stuck duties when no lock tokens are excluded', async () => {
+    it('removes stuck SIGNING duties older than maxAgeMs', async () => {
       const spDb = new PostgresSlashingProtectionDatabase(pool);
       await insertStuckDuty(100, 'token-a');
       await insertStuckDuty(200, 'token-b');

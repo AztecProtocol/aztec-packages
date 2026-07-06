@@ -244,22 +244,15 @@ export class LmdbSlashingProtectionDatabase implements SlashingProtectionDatabas
   }
 
   /**
-   * Cleanup own stuck duties (SIGNING status older than maxAgeMs), skipping any whose lock token is
-   * still in-flight on this process (passed via excludeLockTokens).
+   * Cleanup own stuck duties (SIGNING status older than maxAgeMs).
    */
-  public cleanupOwnStuckDuties(nodeId: string, maxAgeMs: number, excludeLockTokens: string[] = []): Promise<number> {
+  public cleanupOwnStuckDuties(nodeId: string, maxAgeMs: number): Promise<number> {
     const cutoffMs = this.dateProvider.now() - maxAgeMs;
-    const excluded = new Set(excludeLockTokens);
 
     return this.store.transactionAsync(async () => {
       const keysToDelete: string[] = [];
       for await (const [key, record] of this.duties.entriesAsync()) {
-        if (
-          record.nodeId === nodeId &&
-          record.status === DutyStatus.SIGNING &&
-          record.startedAtMs < cutoffMs &&
-          !excluded.has(record.lockToken)
-        ) {
+        if (record.nodeId === nodeId && record.status === DutyStatus.SIGNING && record.startedAtMs < cutoffMs) {
           keysToDelete.push(key);
         }
       }

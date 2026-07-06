@@ -34,9 +34,9 @@ export type BaseSignerConfig = {
   /**
    * Hard upper bound (ms) on a single signing operation on this node. If the (possibly remote)
    * signer does not return within this time, the operation is aborted, the duty lock is released,
-   * and signing fails so it can be safely retried. Must stay well below maxStuckDutiesAgeMs so a
-   * slow signer's lock is released before the stuck-duty cleanup could reclaim it. Defaults to
-   * 30_000 when unset.
+   * and signing fails so it can be safely retried. The effective value is clamped to
+   * maxStuckDutiesAgeMs / 2 at construction, so a slow signer's lock is always released before
+   * stuck-duty cleanup could reclaim it. Defaults to 30_000 when unset.
    */
   signingOperationTimeoutMs?: number;
   /** Maximum age of a stuck duty in ms (defaults to 2x hardcoded Aztec slot duration if not set) */
