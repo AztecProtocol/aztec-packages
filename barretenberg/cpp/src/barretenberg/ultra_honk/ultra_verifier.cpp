@@ -177,6 +177,17 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
     vinfo("Ultra Verifier sumcheck_verified: ", sumcheck_output.verified ? "true" : "false");
     result.reduction_succeeded = sumcheck_output.verified && consistency_checked;
 
+    // A malformed proof can drive PCS reduction to a point at infinity (e.g. a "KZG:W" transcript element of
+    // infinity forces P_1 = -quotient_commitment to infinity). The native verifier must reject that here as an
+    // ordinary verification failure, rather than let it reach PairingPoints::aggregate's internal-misuse guard.
+    if constexpr (!IsRecursive) {
+        using Point = typename PairingPoints::Point;
+        if (result.pairing_points.P0() == Point::infinity() || result.pairing_points.P1() == Point::infinity()) {
+            vinfo("Ultra Verifier: PCS reduction produced a pairing point at infinity");
+            result.reduction_succeeded = false;
+        }
+    }
+
     return result;
 }
 
