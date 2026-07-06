@@ -4,10 +4,7 @@
 #include <ranges>
 
 #include "barretenberg/common/assert.hpp"
-<<<<<<< HEAD
-=======
 #include "barretenberg/common/compiler_hints.hpp"
->>>>>>> origin/public-v5-next
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/vm2/common/field.hpp"
@@ -78,11 +75,7 @@ TraceContainer::ColumnInterval& TraceContainer::get_or_create_shard(SparseColumn
     return *expected; // CAS failure loaded the winning pointer into `expected` (acquire).
 }
 
-<<<<<<< HEAD
-void TraceContainer::set(Column col, uint32_t row, const FF& value)
-=======
 void TraceContainer::set(Column col, uint32_t row, const FF& value, bool use_atomic_limbs)
->>>>>>> origin/public-v5-next
 {
     auto& column_data = (*trace)[static_cast<size_t>(col)];
     const size_t shard_idx = row / INTERVAL_SIZE;
@@ -93,14 +86,6 @@ void TraceContainer::set(Column col, uint32_t row, const FF& value, bool use_ato
         // Lock-free: a single atomic load finds the shard (created on first write), then we write our
         // own dense cell directly. Different rows are distinct array elements, so concurrent writers of
         // this column (or even of the same shard, at a chunk boundary) never race and never serialize.
-<<<<<<< HEAD
-        get_or_create_shard(column_data, shard_idx).rows[offset] = value;
-    } else {
-        // Zero value: clear if present. We never create a shard (clearing an absent row is a no-op).
-        ColumnInterval* shard = column_data.slots[shard_idx].load(std::memory_order_acquire);
-        if (shard != nullptr) {
-            shard->rows[offset] = FF::zero();
-=======
         auto& cell = get_or_create_shard(column_data, shard_idx).rows[offset];
         if (BB_UNLIKELY(use_atomic_limbs)) {
             store_per_limb(cell, value);
@@ -117,7 +102,6 @@ void TraceContainer::set(Column col, uint32_t row, const FF& value, bool use_ato
             } else {
                 shard->rows[offset] = FF::zero();
             }
->>>>>>> origin/public-v5-next
         }
     }
 }

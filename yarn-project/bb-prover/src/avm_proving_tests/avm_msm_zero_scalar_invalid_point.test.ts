@@ -24,7 +24,7 @@ describe('AVM MSM zero-scalar invalid-point regression', () => {
   let tester: AvmProvingTester;
   let worldStateService: NativeWorldStateService;
 
-  const sender = AztecAddress.fromNumber(42);
+  const sender = AztecAddress.fromNumberUnsafe(42);
   let contract: ContractInstanceWithAddress;
 
   beforeEach(async () => {
