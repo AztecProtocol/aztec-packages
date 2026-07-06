@@ -11,9 +11,6 @@
 /// immediately if AZTEC_NR_MINOR > PXE_MINOR because if a contract is updated to use a newer Aztec.nr dependency
 /// without actually using any of the new oracles then there is no reason to throw.
 pub global ORACLE_VERSION_MAJOR: Field = 30;
-// Unlike the major version, the minor version is NOT kept in sync with the aztec-nr and PXE copies: bumping it would
-// change protocol contract bytecode (and thus their class ids and addresses) for oracles the protocol contracts do not
-// use. Bump it only if a protocol contract starts using an oracle added after this minor.
 pub global ORACLE_VERSION_MINOR: Field = 0;
 
 /// Asserts that the version of the oracle is compatible with the version expected by the contract.
