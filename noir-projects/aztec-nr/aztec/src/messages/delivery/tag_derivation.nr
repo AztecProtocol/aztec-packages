@@ -1,3 +1,4 @@
+use crate::context::PrivateContext;
 use crate::messages::delivery::{
     handshake::get_existing_app_siloed_handshake_secrets, tag_secret_source::TagSecretSource,
 };
@@ -39,13 +40,17 @@ impl TagDerivation {
     }
 
     /// Resolves this choice into the [`TagSecretSource`] backing the message tag.
-    pub(crate) fn into_tag_secret_source(self, sender: AztecAddress, recipient: AztecAddress) -> TagSecretSource {
+    pub(crate) fn into_tag_secret_source(
+        self,
+        context: &mut PrivateContext,
+        sender: AztecAddress,
+        recipient: AztecAddress,
+    ) -> TagSecretSource {
         if self.kind == NON_INTERACTIVE_HANDSHAKE {
-            // A fresh handshake is created in a constrained manner in `obtain_secrets`.
             existing_handshake_secrets_or_else(
                 sender,
                 recipient,
-                || TagSecretSource::new_non_interactive_handshake(),
+                || TagSecretSource::new_non_interactive_handshake(context, sender, recipient),
             )
         } else {
             // Safety: the secret is untrusted, but address-derived tagging is unconstrained-only, where a wrong
@@ -73,8 +78,11 @@ pub(crate) fn existing_handshake_secrets_or_else<Env>(
 }
 
 mod test {
+    use crate::context::PrivateContext;
+    use crate::hash::hash_args;
     use crate::messages::delivery::handshake::AppSiloedHandshakeSecrets;
     use crate::messages::delivery::tag_secret_source::TagSecretSource;
+    use crate::oracle::execution_cache;
     use crate::protocol::{address::AztecAddress, traits::{FromField, Serialize}};
     use crate::test::helpers::test_environment::TestEnvironment;
     use super::TagDerivation;
@@ -88,10 +96,10 @@ mod test {
         let env = TestEnvironment::new();
         let secret: Field = 7;
 
-        env.private_context(|_context| {
+        env.private_context(|context| {
             let _ = OracleMock::mock("aztec_prv_getAppTaggingSecret").returns(Option::some(secret));
 
-            let source = TagDerivation::address_derived().into_tag_secret_source(SENDER, RECIPIENT);
+            let source = TagDerivation::address_derived().into_tag_secret_source(context, SENDER, RECIPIENT);
             assert_eq(source, TagSecretSource::unconstrained_secret(secret));
         });
     }
@@ -101,11 +109,11 @@ mod test {
         let env = TestEnvironment::new();
         let random_secret: Field = 999;
 
-        env.private_context(|_context| {
+        env.private_context(|context| {
             let _ = OracleMock::mock("aztec_prv_getAppTaggingSecret").returns(Option::<Field>::none());
             let _ = OracleMock::mock("aztec_misc_getRandomField").returns(random_secret);
 
-            let source = TagDerivation::address_derived().into_tag_secret_source(SENDER, RECIPIENT);
+            let source = TagDerivation::address_derived().into_tag_secret_source(context, SENDER, RECIPIENT);
             assert_eq(source, TagSecretSource::unconstrained_secret(random_secret));
         });
     }
@@ -115,10 +123,10 @@ mod test {
         let env = TestEnvironment::new();
         let secrets = AppSiloedHandshakeSecrets { shared: 7, sender_only: 99 };
 
-        env.private_context(|_context| {
+        env.private_context(|context| {
             mock_existing_handshake_secrets(Option::some(secrets));
 
-            let source = TagDerivation::non_interactive_handshake().into_tag_secret_source(SENDER, RECIPIENT);
+            let source = TagDerivation::non_interactive_handshake().into_tag_secret_source(context, SENDER, RECIPIENT);
             assert_eq(source, TagSecretSource::existing_handshake(secrets));
         });
     }
@@ -126,16 +134,28 @@ mod test {
     #[test]
     unconstrained fn non_interactive_handshake_creates_a_fresh_one_when_none_exists() {
         let env = TestEnvironment::new();
+        let secrets = AppSiloedHandshakeSecrets { shared: 7, sender_only: 99 };
 
-        env.private_context(|_context| {
+        env.private_context(|context| {
             mock_existing_handshake_secrets(Option::none());
+            mock_handshake_creation(context, secrets);
 
-            let source = TagDerivation::non_interactive_handshake().into_tag_secret_source(SENDER, RECIPIENT);
-            assert_eq(source, TagSecretSource::new_non_interactive_handshake());
+            let source = TagDerivation::non_interactive_handshake().into_tag_secret_source(context, SENDER, RECIPIENT);
+            assert_eq(source.tag_secret(), secrets.shared);
         });
     }
 
     unconstrained fn mock_existing_handshake_secrets(maybe_secrets: Option<AppSiloedHandshakeSecrets>) {
         let _ = OracleMock::mock("aztec_utl_callUtilityFunction").returns(maybe_secrets.serialize());
+    }
+
+    // The registry's `non_interactive_handshake` call returns the app-siloed secrets via the returns cache.
+    unconstrained fn mock_handshake_creation(context: &mut PrivateContext, secrets: AppSiloedHandshakeSecrets) {
+        let returns = secrets.serialize();
+        let returns_hash = hash_args(returns);
+        execution_cache::store(returns, returns_hash);
+        let child_call_end_counter = context.get_side_effect_counter() + 1;
+        let _ =
+            OracleMock::mock("aztec_prv_callPrivateFunction").returns((child_call_end_counter, returns_hash)).times(1);
     }
 }
