@@ -591,6 +591,15 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
+  aztec_utl_getPendingTaggedLogsV2(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getPendingTaggedLogsV2',
+      inputs,
+      handler: ([scope, providedSecrets]) => this.handlerAsUtility().getPendingTaggedLogsV2(scope, providedSecrets),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
   aztec_utl_validateAndStoreEnqueuedNotesAndEvents(...inputs: ForeignCallArgs) {
     return callTxeHandler({
       oracle: 'aztec_utl_validateAndStoreEnqueuedNotesAndEvents',
