@@ -55,6 +55,7 @@ import type { EmbeddedCurvePoint } from '../noir-structs/embedded_curve_point.js
 import { EphemeralArray } from '../noir-structs/ephemeral_array.js';
 import { Option } from '../noir-structs/option.js';
 import type { ProvidedSecret } from '../noir-structs/provided_secret.js';
+import { ResolvedTx } from '../noir-structs/resolved_tx.js';
 import { TransientArrayService } from '../transient_array_service.js';
 import { UtilityExecutionOracle, type UtilityExecutionOracleArgs } from './utility_execution_oracle.js';
 
@@ -160,11 +161,9 @@ describe('Utility Execution test suite', () => {
       return Promise.resolve(GrumpkinScalar.random());
     });
 
+    // Like the real AddressStore, resolve undefined for addresses never registered via registerAccount.
     addressStore.getCompleteAddress.mockImplementation((account: AztecAddress) => {
-      if (account.equals(owner)) {
-        return Promise.resolve(ownerCompleteAddress);
-      }
-      throw new Error(`Unknown address ${account}`);
+      return Promise.resolve(account.equals(owner) ? ownerCompleteAddress : undefined);
     });
   });
 
@@ -451,8 +450,8 @@ describe('Utility Execution test suite', () => {
     });
 
     // Pins the production oracle's default-authorization allowlist for cross-contract utility reads of the
-    // standard HandshakeRegistry: only get_handshakes and get_app_siloed_secrets are allowed, everything else is
-    // denied.
+    // standard HandshakeRegistry: only get_non_interactive_handshakes and get_app_siloed_secrets are allowed,
+    // everything else is denied.
     describe('cross-contract utility authorization', () => {
       const prepareNestedUtilityCall = async (
         targetContractAddress: AztecAddress,
@@ -495,7 +494,7 @@ describe('Utility Execution test suite', () => {
         nestedSimulator = makeNestedSimulator();
         utilityExecutionOracle = makeOracle({ simulator: nestedSimulator });
         defaultAuthorizedHandshakeRegistryReads = new Map<string, Fr[]>([
-          ['get_handshakes', []],
+          ['get_non_interactive_handshakes', []],
           ['get_app_siloed_secrets', [Fr.random(), Fr.random()]],
         ]);
       });
@@ -581,9 +580,20 @@ describe('Utility Execution test suite', () => {
           /expected/,
         );
       });
+
+      it('returns no secrets when the PXE does not hold the keys for the address', async () => {
+        const ephSk = GrumpkinScalar.random();
+        const ephPk = await Grumpkin.mul(Grumpkin.generator, ephSk);
+
+        const foreignAddress = await AztecAddress.random();
+        const ephPksArray = EphemeralArray.fromValues<EmbeddedCurvePoint>(service, [ephPk]);
+        const response = await utilityExecutionOracle.getSharedSecrets(foreignAddress, ephPksArray, contractAddress);
+
+        expect(response.readAll(service)).toEqual([]);
+      });
     });
 
-    describe('getPendingTaggedLogs', () => {
+    describe('getPendingTaggedLogsV2', () => {
       const service = new EphemeralArrayService();
 
       it("uses the provided secret's delivery mode when querying pending log tags", async () => {
@@ -621,7 +631,7 @@ describe('Utility Execution test suite', () => {
           );
         });
 
-        const result = await utilityExecutionOracle.getPendingTaggedLogs(
+        const result = await utilityExecutionOracle.getPendingTaggedLogsV2(
           owner,
           EphemeralArray.fromValues(service, providedSecrets),
         );
@@ -635,11 +645,13 @@ describe('Utility Execution test suite', () => {
         expect(resultLogs).toEqual([
           {
             log: log.logData,
-            context: {
-              txHash: log.txHash,
-              uniqueNoteHashesInTx: log.noteHashes,
-              firstNullifierInTx: log.nullifiers[0],
-            },
+            context: new ResolvedTx(
+              log.txHash,
+              log.noteHashes,
+              log.nullifiers[0],
+              log.blockNumber,
+              log.blockHash.toFr(),
+            ),
           },
         ]);
       });

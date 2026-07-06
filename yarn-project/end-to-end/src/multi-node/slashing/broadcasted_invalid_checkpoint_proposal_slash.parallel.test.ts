@@ -1,5 +1,6 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import type { TestAztecNodeService } from '@aztec/aztec-node/test';
+import type { EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr } from '@aztec/aztec.js/fields';
 import { BlockNumber, EpochNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
@@ -24,7 +25,13 @@ import {
   SLASHER_ENABLED_MULTI_VALIDATOR_OPTS,
   buildMockGossipValidators,
 } from '../multi_node_test_context.js';
-import { advanceToEpochBeforeProposer, awaitCommitteeExists } from './setup.js';
+import {
+  SENTINEL_TIMING,
+  type SlashOffense,
+  advanceToEpochBeforeProposer,
+  awaitCommitteeExists,
+  findSlashOffense,
+} from './setup.js';
 
 const TEST_TIMEOUT = 1_000_000;
 
@@ -32,16 +39,11 @@ jest.setTimeout(TEST_TIMEOUT);
 
 const NUM_VALIDATORS = 2;
 const COMMITTEE_SIZE = NUM_VALIDATORS;
-const ETHEREUM_SLOT_DURATION = 4;
-const AZTEC_EPOCH_DURATION = 2;
-const AZTEC_SLOT_DURATION = ETHEREUM_SLOT_DURATION * AZTEC_EPOCH_DURATION;
-const BLOCK_DURATION_MS = 2000;
+const AZTEC_SLOT_DURATION = SENTINEL_TIMING.aztecSlotDuration;
 const SLASHING_QUORUM = 5;
 const SLASHING_ROUND_SIZE = 8;
 const TERMINAL_BLOCK_INDEX = IndexWithinCheckpoint(1);
 const HIGHER_BLOCK_INDEX = IndexWithinCheckpoint(2);
-
-type SlashOffense = Awaited<ReturnType<AztecNodeService['getSlashOffenses']>>[number];
 
 // Validators are keyed from `getPrivateKeyFromIndex(i + 3)` (the `buildMockGossipValidators` convention),
 // so the signer for validator `index` is derived from the same key its node signs proposals with.
@@ -52,15 +54,10 @@ function getAttesterSigner(validatorIndex: number) {
 
 function findBroadcastedInvalidCheckpointOffense(
   offenses: SlashOffense[],
-  validator: string,
+  validator: EthAddress,
   slot: SlotNumber,
 ): SlashOffense | undefined {
-  return offenses.find(
-    offense =>
-      offense.validator.toString() === validator &&
-      offense.offenseType === OffenseType.BROADCASTED_INVALID_CHECKPOINT_PROPOSAL &&
-      offense.epochOrSlot === BigInt(slot),
-  );
+  return findSlashOffense(offenses, validator, OffenseType.BROADCASTED_INVALID_CHECKPOINT_PROPOSAL, slot);
 }
 
 async function awaitBroadcastedInvalidCheckpointOffense({
@@ -69,7 +66,7 @@ async function awaitBroadcastedInvalidCheckpointOffense({
   slot,
 }: {
   node: AztecNodeService;
-  validator: string;
+  validator: EthAddress;
   slot: SlotNumber;
 }) {
   return await retryUntil(
@@ -88,14 +85,14 @@ async function awaitAnyBroadcastedInvalidCheckpointOffense({
   validator,
 }: {
   nodes: AztecNodeService[];
-  validator: string;
+  validator: EthAddress;
 }) {
   return await retryUntil(
     async () => {
       const offenses = (await Promise.all(nodes.map(node => node.getSlashOffenses('all')))).flat();
       const matchingOffenses = offenses.filter(
         offense =>
-          offense.validator.toString() === validator &&
+          offense.validator.equals(validator) &&
           offense.offenseType === OffenseType.BROADCASTED_INVALID_CHECKPOINT_PROPOSAL,
       );
       return matchingOffenses.length > 0 ? matchingOffenses : undefined;
@@ -112,7 +109,7 @@ async function expectNoBroadcastedInvalidCheckpointOffense({
   slot,
 }: {
   node: AztecNodeService;
-  validator: string;
+  validator: EthAddress;
   slot: SlotNumber;
 }) {
   // The watcher polls every second with this test's slot timing; wait long enough
@@ -237,18 +234,15 @@ describe('multi-node/slashing/broadcasted_invalid_checkpoint_proposal_slash', ()
   beforeEach(async () => {
     test = await MultiNodeTestContext.setup({
       ...SLASHER_ENABLED_MULTI_VALIDATOR_OPTS,
-      anvilSlotsInAnEpoch: 4,
-      listenAddress: '127.0.0.1',
-      aztecEpochDuration: AZTEC_EPOCH_DURATION,
-      ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
-      aztecSlotDuration: AZTEC_SLOT_DURATION,
-      blockDurationMs: BLOCK_DURATION_MS,
+      ...SENTINEL_TIMING,
+      sentinelEnabled: false, // reuse only the fast 8s-slot timing; this test does not use the sentinel
+      blockDurationMs: 2000,
       aztecTargetCommitteeSize: COMMITTEE_SIZE,
       aztecProofSubmissionEpochs: 1024,
       minTxsPerBlock: 0,
       inboxLag: 2,
       slashingQuorum: SLASHING_QUORUM,
-      slashingRoundSizeInEpochs: SLASHING_ROUND_SIZE / AZTEC_EPOCH_DURATION,
+      slashingRoundSizeInEpochs: SLASHING_ROUND_SIZE / SENTINEL_TIMING.aztecEpochDuration,
       slashAmountSmall: slashingUnit,
       slashAmountMedium: slashingUnit * 2n,
       slashAmountLarge: slashingUnit * 3n,
@@ -292,7 +286,7 @@ describe('multi-node/slashing/broadcasted_invalid_checkpoint_proposal_slash', ()
     expect(currentSlot).toBeGreaterThan(2);
 
     const signer = getAttesterSigner(0);
-    const validator = test.addressAt(0).toString();
+    const validator = test.addressAt(0);
     const signatureContext: CoordinationSignatureContext = {
       chainId: test.context.config.l1ChainId,
       rollupAddress: test.context.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
@@ -327,11 +321,11 @@ describe('multi-node/slashing/broadcasted_invalid_checkpoint_proposal_slash', ()
       checkpointCount: 1,
     });
     expect(firstProposals.blockProposals.map(proposal => proposal.getSender()?.toString())).toEqual([
-      validator,
-      validator,
-      validator,
+      validator.toString(),
+      validator.toString(),
+      validator.toString(),
     ]);
-    expect(firstProposals.checkpointProposals[0].getSender()?.toString()).toEqual(validator);
+    expect(firstProposals.checkpointProposals[0].getSender()?.toString()).toEqual(validator.toString());
 
     const firstOffense = await awaitBroadcastedInvalidCheckpointOffense({
       node,
@@ -387,7 +381,7 @@ describe('multi-node/slashing/broadcasted_invalid_checkpoint_proposal_slash', ()
 
     const offenses = await awaitAnyBroadcastedInvalidCheckpointOffense({
       nodes: honestNodes,
-      validator: invalidProposer.toString(),
+      validator: invalidProposer,
     });
 
     test.logger.warn(`Collected broadcasted invalid checkpoint proposal offenses`, { offenses });
@@ -424,15 +418,15 @@ describe('multi-node/slashing/broadcasted_invalid_checkpoint_proposal_slash', ()
       checkpointCount: 1,
     });
     expect(validProposals.blockProposals.map(proposal => proposal.getSender()?.toString())).toEqual([
-      validator,
-      validator,
+      validator.toString(),
+      validator.toString(),
     ]);
     const terminalProposal = validProposals.blockProposals.find(
       proposal => proposal.indexWithinCheckpoint === TERMINAL_BLOCK_INDEX,
     );
     expect(terminalProposal?.archive.toString()).toEqual(lateHigherBlockProposals.terminalBlock.archive.toString());
-    expect(terminalProposal?.getSender()?.toString()).toEqual(validator);
-    expect(validProposals.checkpointProposals[0].getSender()?.toString()).toEqual(validator);
+    expect(terminalProposal?.getSender()?.toString()).toEqual(validator.toString());
+    expect(validProposals.checkpointProposals[0].getSender()?.toString()).toEqual(validator.toString());
     await expectNoBroadcastedInvalidCheckpointOffense({ node, validator, slot: targetSlot });
 
     await node.getP2P().broadcastProposal(lateHigherBlockProposals.higherBlock);
@@ -444,9 +438,9 @@ describe('multi-node/slashing/broadcasted_invalid_checkpoint_proposal_slash', ()
       checkpointCount: 1,
     });
     expect(invalidProposals.blockProposals.map(proposal => proposal.getSender()?.toString())).toEqual([
-      validator,
-      validator,
-      validator,
+      validator.toString(),
+      validator.toString(),
+      validator.toString(),
     ]);
 
     const offense = await awaitBroadcastedInvalidCheckpointOffense({

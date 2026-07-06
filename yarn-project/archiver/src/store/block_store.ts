@@ -306,12 +306,18 @@ export class BlockStore {
 
   /**
    * Append new checkpoints to the store's list.
+   * Checkpoints at the start of the batch that are already stored (e.g. re-included by an L1 reorg)
+   * are accepted if their archive root matches: their L1 metadata is updated but they are not
+   * re-inserted, and they are excluded from the returned array.
    * @param checkpoints - The L2 checkpoints to be added to the store.
-   * @returns True if the operation is successful.
+   * @returns The checkpoints that were actually inserted (excluding already-stored ones).
    */
-  async addCheckpoints(checkpoints: PublishedCheckpoint[], opts: { force?: boolean } = {}): Promise<boolean> {
+  async addCheckpoints(
+    checkpoints: PublishedCheckpoint[],
+    opts: { force?: boolean } = {},
+  ): Promise<PublishedCheckpoint[]> {
     if (checkpoints.length === 0) {
-      return true;
+      return [];
     }
 
     return await this.db.transactionAsync(async () => {
@@ -324,7 +330,7 @@ export class BlockStore {
       if (!opts.force && firstCheckpointNumber <= previousCheckpointNumber) {
         checkpoints = await this.skipOrUpdateAlreadyStoredCheckpoints(checkpoints, previousCheckpointNumber);
         if (checkpoints.length === 0) {
-          return true;
+          return [];
         }
         // Re-check sequentiality after skipping
         const newFirstNumber = checkpoints[0].checkpoint.number;
@@ -387,7 +393,7 @@ export class BlockStore {
       }
 
       await this.advanceSynchedL1BlockNumber(checkpoints[checkpoints.length - 1].l1.blockNumber);
-      return true;
+      return checkpoints;
     });
   }
 

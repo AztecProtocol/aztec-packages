@@ -6,9 +6,6 @@ import { tryStop } from '@aztec/stdlib/interfaces/server';
 import type { Tx } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { ATTESTER_PRIVATE_KEYS_START_INDEX, createNodes, createProverNode } from '../fixtures/setup_p2p_test.js';
@@ -26,8 +23,6 @@ const NUM_TXS = 2;
 const BOOT_NODE_UDP_PORT = process.env.BOOT_NODE_UDP_PORT ? parseInt(process.env.BOOT_NODE_UDP_PORT) : 4900;
 const AZTEC_SLOT_DURATION = 12;
 const AZTEC_EPOCH_DURATION = 4;
-
-const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'late-prover-'));
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -69,10 +64,6 @@ describe('e2e_p2p_late_prover_tx_collection', () => {
     await tryStop(proverNode);
     await t.stopNodes(nodes);
     await t.teardown();
-    for (let i = 0; i < NUM_VALIDATORS; i++) {
-      fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
-    }
-    fs.rmSync(`${DATA_DIR}-late-prover`, { recursive: true, force: true, maxRetries: 3 });
   });
 
   // Mines a block with 2 txs via 4 validators, then starts a prover node late (after gossip has already
@@ -92,7 +83,7 @@ describe('e2e_p2p_late_prover_tx_collection', () => {
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
       t.genesis,
-      DATA_DIR,
+      t.dataDirFor('validator'),
       shouldCollectMetrics(),
     );
     await t.waitForP2PMeshConnectivity(nodes, NUM_VALIDATORS);
@@ -128,7 +119,7 @@ describe('e2e_p2p_late_prover_tx_collection', () => {
       ATTESTER_PRIVATE_KEYS_START_INDEX + NUM_VALIDATORS + 1,
       { dateProvider: t.ctx.dateProvider },
       t.genesis,
-      `${DATA_DIR}-late-prover`,
+      t.dataDirFor('late-prover'),
       shouldCollectMetrics(),
     ));
 

@@ -12,15 +12,22 @@ import {
   SLASHER_ENABLED_MULTI_VALIDATOR_OPTS,
   buildMockGossipValidators,
 } from '../multi_node_test_context.js';
-import { awaitCommitteeExists, awaitOffenseDetected, getMinedSlot, submitTxsThroughNode } from './setup.js';
+import {
+  SENTINEL_TIMING,
+  awaitCommitteeExists,
+  awaitOffenseDetected,
+  getMinedSlot,
+  submitTxsThroughNode,
+} from './setup.js';
 
 const TEST_TIMEOUT = 1_000_000;
 jest.setTimeout(TEST_TIMEOUT);
 
 const NUM_VALIDATORS = 4;
 const COMMITTEE_SIZE = NUM_VALIDATORS;
-const ETHEREUM_SLOT_DURATION = 4;
-const AZTEC_SLOT_DURATION = ETHEREUM_SLOT_DURATION * 3;
+// Longer 12s L2 slots (3 eth-slots) than SENTINEL_TIMING's default 8s, giving the data-withholding
+// tolerance window room to settle before the watchers probe their mempools.
+const AZTEC_SLOT_DURATION = SENTINEL_TIMING.ethereumSlotDuration * 3;
 const TOLERANCE_SLOTS = 3;
 
 /**
@@ -62,17 +69,15 @@ describe('multi-node/slashing/data_withholding_slash', () => {
   // (~23% probability). Extending slashOffenseExpirationRounds gives us several rounds to
   // hit quorum before the offense expires.
   const slashingRoundSize = 4;
-  const aztecEpochDuration = 2;
+  const aztecEpochDuration = SENTINEL_TIMING.aztecEpochDuration;
   const slashingAmount = slashingUnit * 3n;
 
   beforeEach(async () => {
     test = await MultiNodeTestContext.setup({
       ...SLASHER_ENABLED_MULTI_VALIDATOR_OPTS,
-      anvilSlotsInAnEpoch: 4,
-      listenAddress: '127.0.0.1',
-      aztecEpochDuration,
-      ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
-      aztecSlotDuration: AZTEC_SLOT_DURATION,
+      ...SENTINEL_TIMING,
+      sentinelEnabled: false, // reuse only the fast base timing; this test does not use the sentinel
+      aztecSlotDuration: AZTEC_SLOT_DURATION, // override SENTINEL_TIMING's 8s slot with 12s (see const above)
       aztecTargetCommitteeSize: COMMITTEE_SIZE,
       // Long proof submission window so the legacy L1-prune path is irrelevant.
       aztecProofSubmissionEpochs: 1024,

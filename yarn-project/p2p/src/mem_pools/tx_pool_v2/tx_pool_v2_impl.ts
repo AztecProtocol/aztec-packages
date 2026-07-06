@@ -51,10 +51,18 @@ const FINALIZE_BLOCK_CHUNK_SIZE = 100;
 /**
  * Callbacks for the implementation to notify the outer class about events and metrics.
  */
+/** A tx that has just transitioned to mined, with the time it spent in the pool. */
+export interface MinedTxInfo {
+  txHash: string;
+  /** Wall-clock ms from receipt into the pool to being marked mined. Undefined when the
+   * receive time is unknown (e.g. a tx hydrated from the DB on restart, receivedAt === 0). */
+  minedDelayMs?: number;
+}
+
 export interface TxPoolV2Callbacks {
   onTxsAdded: (txs: Tx[], opts: { source?: string }) => void;
   onTxsRemoved: (txHashes: string[] | bigint[]) => void;
-  onTxsMined: (txHashes: string[]) => void;
+  onTxsMined: (minedTxs: MinedTxInfo[]) => void;
 }
 
 /**
@@ -560,7 +568,15 @@ export class TxPoolV2Impl {
     });
 
     if (found.length > 0) {
-      this.#callbacks.onTxsMined(found.map(m => m.txHash));
+      // receivedAt is 0 for txs hydrated from the DB on restart (true receive time lost) — leave
+      // their delay undefined so the metric isn't polluted by epoch-sized values.
+      const now = this.#dateProvider.now();
+      this.#callbacks.onTxsMined(
+        found.map(m => ({
+          txHash: m.txHash,
+          minedDelayMs: m.receivedAt > 0 ? now - m.receivedAt : undefined,
+        })),
+      );
     }
 
     this.#log.info(`Marked ${found.length} txs as mined in block ${blockId.number}`);

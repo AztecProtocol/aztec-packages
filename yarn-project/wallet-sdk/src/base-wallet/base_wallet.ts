@@ -358,7 +358,7 @@ export abstract class BaseWallet implements Wallet {
     if (artifact) {
       await this.pxe.registerContractClass(artifact);
     }
-    const instanceAddress = await this.pxe.registerContract(instance);
+    const contractAddress = await this.pxe.registerContract(instance);
 
     if (secretKeyOrKeys) {
       // PXE never receives the account seed (from which the message-signing/fallback secret keys could be re-derived):
@@ -372,9 +372,9 @@ export abstract class BaseWallet implements Wallet {
           ? await deriveKeys(secretKeyOrKeys)
           : await deriveKeysFromMasterSecretKeys(secretKeyOrKeys);
       const { address } = await this.pxe.registerAccount(derivedKeys, await computePartialAddress(instance));
-      if (!address.equals(instanceAddress)) {
+      if (!address.equals(contractAddress)) {
         throw new Error(
-          `Registered account address ${address.toString()} does not match contract instance address ${instanceAddress.toString()}: the provided keys do not correspond to this account.`,
+          `Registered account address ${address.toString()} does not match contract instance address ${contractAddress.toString()}: the provided keys do not correspond to this account.`,
         );
       }
     }

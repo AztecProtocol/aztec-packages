@@ -31,8 +31,6 @@ import type { PublicKeys } from '@aztec/stdlib/keys';
 import {
   type AppTaggingSecretKind,
   type FlatPublicLogs,
-  type MessageContext,
-  type PendingTaggedLog,
   PrivateLog,
   Tag,
   appTaggingSecretKindFromDeliveryMode,
@@ -67,6 +65,7 @@ import type { LogRetrievalResponse } from '../noir-structs/log_retrieval_respons
 import type { NoteData } from '../noir-structs/note_data.js';
 import { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import { Option } from '../noir-structs/option.js';
+import type { PendingTaggedLog } from '../noir-structs/pending_tagged_log.js';
 import type { ProvidedSecret } from '../noir-structs/provided_secret.js';
 import {
   type ResolvedTaggingStrategy,
@@ -88,7 +87,6 @@ export type {
   BlockHeader,
   ContractInstancePreimage,
   MembershipWitness,
-  MessageContext,
   NullifierMembershipWitness,
   PendingTaggedLog,
   PublicDataWitness,
@@ -520,17 +518,7 @@ export const LOG_RETRIEVAL_RESPONSE: TypeMapping<LogRetrievalResponse> = STRUCT<
   { name: 'firstNullifierInTx', type: FIELD },
   { name: 'blockNumber', type: BLOCK_NUMBER },
   { name: 'blockTimestamp', type: BIGINT },
-]);
-
-export const MESSAGE_CONTEXT: TypeMapping<MessageContext> = STRUCT<MessageContext>([
-  { name: 'txHash', type: TX_HASH },
-  { name: 'uniqueNoteHashesInTx', type: FIXED_BOUNDED_VEC(FIELD, MAX_NOTE_HASHES_PER_TX) },
-  { name: 'firstNullifierInTx', type: FIELD },
-]);
-
-export const PENDING_TAGGED_LOG: TypeMapping<PendingTaggedLog> = STRUCT<PendingTaggedLog>([
-  { name: 'log', type: FIXED_BOUNDED_VEC(FIELD, PRIVATE_LOG_SIZE_IN_FIELDS) },
-  { name: 'context', type: MESSAGE_CONTEXT },
+  { name: 'blockHash', type: BLOCK_HASH },
 ]);
 
 // `ResolvedTx.toFields()` packs the whole struct into a single slot: txHash, the uniqueNoteHashesInTx BoundedVec
@@ -539,6 +527,11 @@ export const RESOLVED_TX: TypeMapping<ResolvedTx> = {
   serialization: { fn: resolved => [resolved.toFields()] },
   shape: [{ len: MAX_NOTE_HASHES_PER_TX + 5 }],
 };
+
+export const PENDING_TAGGED_LOG: TypeMapping<PendingTaggedLog> = STRUCT([
+  { name: 'log', type: FIXED_BOUNDED_VEC(FIELD, PRIVATE_LOG_SIZE_IN_FIELDS) },
+  { name: 'context', type: RESOLVED_TX },
+]);
 
 export const ORIGIN_BLOCK: TypeMapping<OriginBlock> = {
   serialization: { fn: ob => [new Fr(ob.blockNumber), ob.blockHash] },
@@ -630,7 +623,7 @@ export function ARRAY<T>(inner: TypeMapping<T>): TypeMapping<T[]> & { kind: 'arr
  * zero-padded to exactly `maxLength * elementWidth` fields, and deserializes all `maxLength` elements back. An absent
  * element is the zero encoding, so the padding is derived from the shape.
  */
-function FIXED_ARRAY<T>(element: TypeMapping<T>, maxLength: number): TypeMapping<T[]> {
+export function FIXED_ARRAY<T>(element: TypeMapping<T>, maxLength: number): TypeMapping<T[]> {
   const elementWidth = fieldWidth(element.shape);
   return {
     serialization: element.serialization

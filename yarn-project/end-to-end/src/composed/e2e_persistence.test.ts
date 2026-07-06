@@ -22,9 +22,15 @@ import type { TestWallet } from '../test-wallet/test_wallet.js';
 
 jest.setTimeout(15 * 60 * 1000);
 
-// Node and PXE persistence tests. Uses setup() directly with PIPELINING_SETUP_OPTS; excluded from the
-// compose glob for unknown reasons (migrate-later candidate). Spawns and tears down node/PXE with
-// varying combinations of persisted vs empty data directories to cover five restart scenarios.
+// Node and PXE persistence tests: an in-process single-node test (uses setup() directly with
+// PIPELINING_SETUP_OPTS) that spawns and tears down node/PXE across five persisted-vs-empty data-directory
+// restart scenarios.
+//
+// EXCLUDED from every CI test list (see bootstrap.sh) and does NOT run anywhere. It is a candidate to
+// refile under single-node/, but on the current branch its beforeAll no longer completes: the single-node
+// sequencer stalls in checkpoint proposal (waitForAttestationsAndEnqueueSubmissionAsync) and the 600s hook
+// times out before setup finishes. Re-enabling it needs that setup stall fixed (the root cause is in the
+// shared setup/sequencer, not this file); until then it stays excluded.
 describe('Aztec persistence', () => {
   /**
    * These tests check that the Aztec Node and PXE can be shutdown and restarted without losing data.

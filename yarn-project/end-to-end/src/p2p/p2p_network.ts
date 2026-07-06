@@ -25,7 +25,10 @@ import type { GenesisData } from '@aztec/stdlib/world-state';
 import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
+import fs from 'fs';
 import getPort from 'get-port';
+import os from 'os';
+import path from 'path';
 import { type GetContractReturnType, getAddress, getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
@@ -83,6 +86,9 @@ export class P2PNetworkTest {
   public spamContract?: SpamContract;
 
   public bootstrapNode?: BootstrapNode;
+
+  // Root temp directory holding every node's data dir. Created in setup(), removed in teardown().
+  public dataDir!: string;
 
   // Store setup options for use in setup()
   private setupOptions: SetupOptions;
@@ -192,6 +198,19 @@ export class P2PNetworkTest {
       throw new Error('Call setup to initialize the hardcoded account.');
     }
     return this.hardcodedAccountData;
+  }
+
+  /**
+   * Returns a per-role data directory nested under this test's root data dir. The multi-node factories
+   * (`createNodes`) append `-<index>` to this base for each node they spawn; single-node factories
+   * (`createProverNode`, `createNonValidatorNode`, `createNode`) use it verbatim. Everything lives under
+   * `this.dataDir`, so a single recursive remove in teardown() cleans up all of it.
+   */
+  dataDirFor(label: string): string {
+    if (!this.dataDir) {
+      throw new Error('Call setup to initialize the data directory.');
+    }
+    return path.join(this.dataDir, label);
   }
 
   async addBootstrapNode() {
@@ -356,6 +375,8 @@ export class P2PNetworkTest {
   async setup() {
     this.logger.info('Setting up subsystems from fresh');
 
+    this.dataDir = fs.mkdtempSync(path.join(os.tmpdir(), `${this.testName}-`));
+
     // Pre-compute hardcoded account data so it gets funded in genesis.
     const contract = new SchnorrHardcodedKeyAccountContract();
     const secret = Fr.random();
@@ -488,6 +509,9 @@ export class P2PNetworkTest {
     await this.monitor.stop();
     await tryStop(this.bootstrapNode, this.logger);
     await teardown(this.context);
+    if (this.dataDir) {
+      fs.rmSync(this.dataDir, { recursive: true, force: true, maxRetries: 3 });
+    }
   }
 
   async getContracts(): Promise<{

@@ -7,7 +7,7 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { jest } from '@jest/globals';
 
 import type { EndToEndContext } from '../../fixtures/utils.js';
-import { setupWithProver } from '../setup.js';
+import { PROVING_SLOT_TIMING, setupWithProver } from '../setup.js';
 import { SingleNodeTestContext } from '../single_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
@@ -18,7 +18,7 @@ jest.setTimeout(1000 * 60 * 10);
 // its proof-submission window closes the chain becomes prunable and the proposer's fallback must call
 // `prune()` despite being unable to propose.
 //
-// Timing: ethSlot=8s, aztecSlot=2×8=16s, epoch=8, proofSubmissionEpochs=1.
+// Timing: PROVING_SLOT_TIMING (ethSlot=4s, aztecSlot=12s), epoch=8, proofSubmissionEpochs=1.
 describe('single-node/recovery/prune_when_cannot_build', () => {
   let context: EndToEndContext;
   let logger: Logger;
@@ -31,10 +31,9 @@ describe('single-node/recovery/prune_when_cannot_build', () => {
 
   beforeEach(async () => {
     test = await setupWithProver({
+      ...PROVING_SLOT_TIMING,
       startProverNode: false, // Nothing ever proves epoch 0, so its pending chain stays unproven and becomes prunable.
-      ethereumSlotDuration: 8,
       aztecEpochDuration: 8, // Long enough to land a few checkpoints in epoch 0.
-      aztecSlotDurationInL1Slots: 2,
       aztecProofSubmissionEpochs: 1, // Pending chain becomes prunable one proof window after epoch 0.
       minTxsPerBlock: 0, // Solo proposer advances the pending chain on empty checkpoints.
     });
