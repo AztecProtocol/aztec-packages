@@ -205,13 +205,7 @@ export function bigintConfigHelper(
  */
 export function optionalNumberConfigHelper(): Pick<ConfigMapping<number>, 'parseEnv'> {
   return {
-    parseEnv: (val: string) => {
-      const parsedValue = parseInt(val);
-      if (!Number.isSafeInteger(parsedValue)) {
-        throw new Error(`Invalid number: ${val}`);
-      }
-      return parsedValue;
-    },
+    parseEnv: (val: string) => parseSafeInteger(val),
   };
 }
 
@@ -344,15 +338,35 @@ export function secretFqConfigHelper(defaultValue?: Fq): {
 }
 
 /**
- * Safely parses a number from a string.
- * If the value is not a number or is not a safe integer, the default value is returned.
+ * Parses a string into a safe integer, throwing if the value is numeric but not an integer.
+ *
+ * Unlike `parseInt`, this does not silently truncate decimals: `'0.8'` throws rather than
+ * becoming `0`. A fractional value indicates the caller intended a non-integer where only
+ * integers are supported (use `floatConfigHelper`/`percentageConfigHelper` for those).
+ * @param value - The string value to parse
+ * @returns The parsed integer value
+ */
+function parseSafeInteger(value: string): number {
+  const parsedValue = parseFloat(value);
+  if (!Number.isSafeInteger(parsedValue)) {
+    throw new Error(`Invalid integer config value '${value}'; expected a whole number`);
+  }
+  return parsedValue;
+}
+
+/**
+ * Safely parses an integer from a string.
+ * If the value is not a number, the default value is returned. Numeric values that are not safe
+ * integers (e.g. decimals like `0.8`) throw rather than being silently truncated to an integer.
  * @param value - The string value to parse
  * @param defaultValue - The default value to return
- * @returns Either parsed value or default value
+ * @returns Either the parsed value or the default value
  */
 function safeParseNumber(value: string, defaultValue: number): number {
-  const parsedValue = parseInt(value, 10);
-  return Number.isSafeInteger(parsedValue) ? parsedValue : defaultValue;
+  if (Number.isNaN(parseFloat(value))) {
+    return defaultValue;
+  }
+  return parseSafeInteger(value);
 }
 
 /**

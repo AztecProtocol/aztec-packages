@@ -1,6 +1,12 @@
 import { jest } from '@jest/globals';
 
-import { type ConfigMappingsType, bigintConfigHelper, getConfigFromMappings, numberConfigHelper } from './index.js';
+import {
+  type ConfigMappingsType,
+  bigintConfigHelper,
+  getConfigFromMappings,
+  numberConfigHelper,
+  optionalNumberConfigHelper,
+} from './index.js';
 
 describe('Config', () => {
   describe('getConfigFromMappings', () => {
@@ -129,6 +135,51 @@ describe('Config', () => {
 
         consoleSpy.mockRestore();
       });
+    });
+  });
+
+  describe('numberConfigHelper', () => {
+    it('parses integer strings', () => {
+      const { parseEnv } = numberConfigHelper(5);
+      expect(parseEnv!('42')).toBe(42);
+      expect(parseEnv!('0')).toBe(0);
+      expect(parseEnv!('-7')).toBe(-7);
+    });
+
+    it('returns the default value for non-numeric input', () => {
+      const { parseEnv } = numberConfigHelper(5);
+      expect(parseEnv!('not-a-number')).toBe(5);
+    });
+
+    it('throws instead of silently truncating a decimal value', () => {
+      const { parseEnv } = numberConfigHelper(5);
+      expect(() => parseEnv!('0.8')).toThrow();
+      expect(() => parseEnv!('3.14')).toThrow();
+    });
+
+    it('throws for values that are not safe integers', () => {
+      const { parseEnv } = numberConfigHelper(5);
+      expect(() => parseEnv!('1e30')).toThrow();
+      expect(() => parseEnv!('Infinity')).toThrow();
+    });
+  });
+
+  describe('optionalNumberConfigHelper', () => {
+    it('parses integer strings', () => {
+      const { parseEnv } = optionalNumberConfigHelper();
+      expect(parseEnv!('42')).toBe(42);
+      expect(parseEnv!('0')).toBe(0);
+    });
+
+    it('throws instead of silently truncating a decimal value', () => {
+      const { parseEnv } = optionalNumberConfigHelper();
+      expect(() => parseEnv!('0.5')).toThrow();
+      expect(() => parseEnv!('3.14')).toThrow();
+    });
+
+    it('throws for non-numeric input', () => {
+      const { parseEnv } = optionalNumberConfigHelper();
+      expect(() => parseEnv!('not-a-number')).toThrow();
     });
   });
 
