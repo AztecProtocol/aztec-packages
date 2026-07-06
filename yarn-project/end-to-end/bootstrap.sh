@@ -53,13 +53,6 @@ function test_cmds {
   local tests=(
     # List all standalone and nested tests, except for the ones listed above.
     src/automine/*.test.ts
-    src/automine/contracts/*.test.ts
-    src/automine/contracts/deploy/*.test.ts
-    src/automine/contracts/nested/*.test.ts
-    src/automine/token/*.test.ts
-    src/automine/accounts/*.test.ts
-    src/automine/effects/*.test.ts
-    src/automine/delivery/*.test.ts
     src/automine/!(simulation)/**/*.test.ts
     src/automine/simulation/!(avm_simulator).test.ts
     src/single-node/!(prover)/**/*.test.ts
