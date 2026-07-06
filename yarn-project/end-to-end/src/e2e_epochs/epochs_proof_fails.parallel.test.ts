@@ -105,9 +105,27 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     const lastProverTxReceipt = await l1Client.getTransactionReceipt({ hash: lastProverTxHash! });
     expect(lastProverTxReceipt.status).toEqual('reverted');
 
-    // The post-rollback chain tip should be in epoch 2 (the rollback-triggering propose was made
-    // during epoch 2, after the deadline)
-    const checkpointAfterRollback = await rollup.getCheckpointNumber();
+    // The rollback may land via a standalone prune tx (the sequencer's fallback path) instead of a
+    // prune-and-propose, in which case the tip right after the prune is the proven checkpoint (genesis,
+    // epoch 0) rather than a fresh epoch-2 checkpoint. Wait until the sequencer mines the first
+    // post-rollback checkpoint in epoch 2 before asserting on the chain tip.
+    let checkpointAfterRollback = await rollup.getCheckpointNumber();
+    await retryUntil(
+      async () => {
+        checkpointAfterRollback = await rollup.getCheckpointNumber();
+        const tipCheckpoint = await rollup.getCheckpoint(checkpointAfterRollback);
+        return (
+          checkpointAfterRollback < checkpointBeforeRollback &&
+          getEpochAtSlot(tipCheckpoint.slotNumber, test.constants) === EpochNumber(2)
+        );
+      },
+      'post-rollback checkpoint mined in epoch 2',
+      L2_SLOT_DURATION_IN_S * 4,
+      0.2,
+    );
+
+    // The post-rollback chain tip should be in epoch 2 (the checkpoint was proposed during epoch 2,
+    // after the deadline)
     expect(checkpointAfterRollback).toBeLessThan(checkpointBeforeRollback);
     const latestCheckpoint = await rollup.getCheckpoint(checkpointAfterRollback);
     expect(getEpochAtSlot(latestCheckpoint.slotNumber, test.constants)).toEqual(EpochNumber(2));
