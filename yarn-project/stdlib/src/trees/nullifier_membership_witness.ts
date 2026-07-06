@@ -1,5 +1,4 @@
 import { NULLIFIER_TREE_HEIGHT } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/curves/bn254';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
 
 import { z } from 'zod';
@@ -51,15 +50,5 @@ export class NullifierMembershipWitness {
 
   public withoutPreimage(): MembershipWitness<typeof NULLIFIER_TREE_HEIGHT> {
     return new MembershipWitness(NULLIFIER_TREE_HEIGHT, this.index, this.siblingPath.toTuple());
-  }
-
-  /** Serializes as `(NullifierLeafPreimage, MembershipWitness)` to match the Noir oracle return type. */
-  public toNoirRepresentation(): (string | string[])[] {
-    // TODO(#12874): remove the stupid as string conversion by modifying ForeignCallOutput type in acvm.js
-    return [
-      ...(this.leafPreimage.toFields().map(fr => fr.toString()) as string[]),
-      new Fr(this.index).toString() as string,
-      this.siblingPath.toFields().map(fr => fr.toString()) as string[],
-    ];
   }
 }

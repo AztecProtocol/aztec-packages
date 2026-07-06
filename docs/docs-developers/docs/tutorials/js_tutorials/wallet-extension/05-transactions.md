@@ -173,7 +173,7 @@ case 'sendTx': {
 
   // 1. Deserialize the payload
   const payload = deserializeExecutionPayload(executionPayload);
-  const fromAddress = AztecAddress.fromString(from || options.from);
+  const fromAddress = AztecAddress.fromStringUnsafe(from || options.from);
 
   // 2. Call wallet.sendTx (inherited from BaseWallet)
   const result = await wallet.sendTx(payload, {
@@ -297,7 +297,7 @@ For gas estimation or validation, dApps use `simulateTx`:
 case 'simulateTx': {
   const { executionPayload, options } = args;
   const payload = deserializeExecutionPayload(executionPayload);
-  const fromAddress = AztecAddress.fromString(from || options.from);
+  const fromAddress = AztecAddress.fromStringUnsafe(from || options.from);
 
   const result = await wallet.simulateTx(payload, {
     ...options,
@@ -342,7 +342,7 @@ For delegated actions (like approving token spending), the wallet creates auth w
 ```typescript
 case 'createAuthWit': {
   const { from: authFrom, messageHashOrIntent } = args;
-  const fromAddress = AztecAddress.fromString(authFrom);
+  const fromAddress = AztecAddress.fromStringUnsafe(authFrom);
 
   const authWit = await wallet.createAuthWit(fromAddress, messageHashOrIntent);
 

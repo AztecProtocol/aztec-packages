@@ -41,6 +41,7 @@ import {
   type L2BlockSource,
   type L2BlockTag,
   type L2Tips,
+  inspectBlockParameter,
 } from '@aztec/stdlib/block';
 import type {
   ContractClassPublic,
@@ -49,6 +50,7 @@ import type {
   NodeInfo,
   ProtocolContractAddresses,
 } from '@aztec/stdlib/contract';
+import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees, type ManaUsageEstimate, getNetworkTxGasLimits } from '@aztec/stdlib/gas';
 import type {
   AztecNode,
@@ -283,7 +285,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return this.blockSource.getL2Tips();
   }
 
-  public getL1Constants() {
+  public getL1Constants(): Promise<L1RollupConstants> {
     return this.blockSource.getL1Constants();
   }
 
@@ -488,8 +490,17 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return this.contractDataSource.getContractClass(id);
   }
 
-  public getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
-    return this.contractDataSource.getContract(address);
+  public async getContract(
+    address: AztecAddress,
+    referenceBlock: BlockParameter = 'latest',
+  ): Promise<ContractInstanceWithAddress | undefined> {
+    const blockData = await this.getBlockData(referenceBlock);
+    if (!blockData) {
+      throw new Error(
+        `Reference block ${inspectBlockParameter(referenceBlock)} not found when querying contract ${address}. If the node API has been queried with an anchor block hash, possibly a reorg has occurred.`,
+      );
+    }
+    return this.contractDataSource.getContract(address, blockData.header.globalVariables.timestamp);
   }
 
   public getPrivateLogsByTags(query: PrivateLogsQuery): Promise<LogResult[][]> {

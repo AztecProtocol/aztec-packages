@@ -29,7 +29,7 @@ pub contract EcdsaKAccount {
         // The deployment transaction is typically sent from a separate account (e.g. a fee-paying deployer), which
         // would otherwise be used as the sender for tags. We override it with this account's own address so the
         // recipient can discover the note by registering the account address, regardless of who deployed it.
-        self.storage.signing_public_key.initialize(pub_key_note).deliver(MessageDelivery::onchain_constrained()
+        self.storage.signing_public_key.initialize(pub_key_note).deliver(MessageDelivery::onchain_unconstrained()
             .with_sender(self.address));
     }
 

@@ -18,7 +18,7 @@ describe.skip('AVM proven gadgets test', () => {
   const metrics = new TestExecutorMetrics();
   let worldStateService: NativeWorldStateService;
 
-  const sender = AztecAddress.fromNumber(42);
+  const sender = AztecAddress.fromNumberUnsafe(42);
   let avmGadgetsTestContract: ContractInstanceWithAddress;
 
   beforeEach(async () => {
@@ -107,7 +107,7 @@ describe('AVM proven gadgets test: test vectors', () => {
   let tester: AvmProvingTester;
   let worldStateService: NativeWorldStateService;
 
-  const sender = AztecAddress.fromNumber(42);
+  const sender = AztecAddress.fromNumberUnsafe(42);
   let avmGadgetsTestContract: ContractInstanceWithAddress;
 
   beforeEach(async () => {

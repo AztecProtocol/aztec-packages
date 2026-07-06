@@ -30,7 +30,7 @@ describe('AVM completeness — bitwise/sha256 error row collision (regression gu
   // the collision impossible.
   it('proves honest tx with sha256 XOR(U32(0), U32(0)) after inner bitwise error', async () => {
     const { innerContract, outerContract } = await deployBitwiseSha256ErrorRowCollisionContracts(tester);
-    const sender = AztecAddress.fromNumber(42);
+    const sender = AztecAddress.fromNumberUnsafe(42);
 
     // Inner call reverts (tag mismatch), outer runs SHA256, outer RETURNs OK.
     const simRes = await tester.simulateTx(

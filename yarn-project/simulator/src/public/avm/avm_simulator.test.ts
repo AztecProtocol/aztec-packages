@@ -89,7 +89,7 @@ import {
 
 const siloAddress = (contractAddress: AztecAddress) => {
   const contractAddressNullifier = siloNullifier(
-    AztecAddress.fromNumber(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
+    AztecAddress.fromNumberUnsafe(CONTRACT_INSTANCE_REGISTRY_CONTRACT_ADDRESS),
     contractAddress.toField(),
   );
   return contractAddressNullifier;
@@ -159,7 +159,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
   it('execution of a non-existent contract immediately reverts and consumes all allocated gas', async () => {
     const treesDB = mock<PublicTreesDB>();
     const persistableState = initPersistableStateManager({ treesDB });
-    const address = AztecAddress.fromNumber(1234);
+    const address = AztecAddress.fromNumberUnsafe(1234);
     const env = initExecutionEnvironment({ address });
     const context = initContext({ env, persistableState });
     mockCheckNullifierExists(treesDB, false);
@@ -619,8 +619,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
   });
 
   describe('Side effects, world state, nested calls', () => {
-    const address = AztecAddress.fromNumber(1);
-    const sender = AztecAddress.fromNumber(42);
+    const address = AztecAddress.fromNumberUnsafe(1);
+    const sender = AztecAddress.fromNumberUnsafe(42);
     const leafIndex = 7n;
     const slotNumber = 1; // must update Noir contract if changing this
     const slot = new Fr(slotNumber);
@@ -947,7 +947,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         const contractInstance = new SerializableContractInstance({
           version: 2 as const,
           salt: new Fr(0x123),
-          deployer: AztecAddress.fromBigInt(0x456n),
+          deployer: AztecAddress.fromBigIntUnsafe(0x456n),
           currentContractClassId: new Fr(0x789),
           originalContractClassId: new Fr(0x789),
           initializationHash: new Fr(0x101112),
@@ -1213,8 +1213,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
   });
 
   describe('Side effects including merkle checks', () => {
-    const address = AztecAddress.fromNumber(1);
-    const sender = AztecAddress.fromNumber(42);
+    const address = AztecAddress.fromNumberUnsafe(1);
+    const sender = AztecAddress.fromNumberUnsafe(42);
 
     const value0 = new Fr(420);
 

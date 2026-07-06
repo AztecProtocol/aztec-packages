@@ -36,9 +36,20 @@ export type ChainMonitorEventMap = {
   'l2-fees': [L2FeeData];
 };
 
+/** Options for tuning what the {@link ChainMonitor} polls on each new L1 block. */
+export type ChainMonitorOptions = {
+  /**
+   * Whether to fetch L2 fee/oracle data (5 extra rollup reads per new L1 block) and emit `l2-fees`.
+   * Defaults to `true`. Set to `false` for tests that only care about slot/checkpoint/proven state to
+   * avoid the extra round-trips.
+   */
+  includeFeeData?: boolean;
+};
+
 /** Utility class that polls the chain on quick intervals and logs new L1 blocks, L2 blocks, and L2 proofs. */
 export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
   private readonly l1Client: ViemClient;
+  private readonly includeFeeData: boolean;
   private inbox: InboxContract | undefined;
   private handle: NodeJS.Timeout | undefined;
   // eslint-disable-next-line aztec-custom/no-non-primitive-in-collections
@@ -68,9 +79,11 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
     private readonly dateProvider: DateProvider = new DateProvider(),
     private readonly logger = createLogger('aztecjs:utils:chain_monitor'),
     private readonly intervalMs = 200,
+    options: ChainMonitorOptions = {},
   ) {
     super();
     this.l1Client = rollup.client;
+    this.includeFeeData = options.includeFeeData ?? true;
   }
 
   start() {
@@ -183,11 +196,13 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
       this.emit('l2-slot', { l2SlotNumber, timestamp });
     }
 
-    const feeData = await this.fetchFeeData(timestamp);
-    if (this.hasFeeDataChanged(feeData)) {
-      msg += ` with L2 min fee ${feeData.minFeePerMana}`;
-      this.l2FeeData = feeData;
-      this.emit('l2-fees', feeData);
+    if (this.includeFeeData) {
+      const feeData = await this.fetchFeeData(timestamp);
+      if (this.hasFeeDataChanged(feeData)) {
+        msg += ` with L2 min fee ${feeData.minFeePerMana}`;
+        this.l2FeeData = feeData;
+        this.emit('l2-fees', feeData);
+      }
     }
 
     this.logger.info(msg, {
@@ -270,6 +285,74 @@ export class ChainMonitor extends EventEmitter<ChainMonitorEventMap> {
         }
       };
       this.on('checkpoint', listener);
+    });
+  }
+
+  /**
+   * Resolves with the first `checkpoint` event whose payload satisfies `match`. Unlike
+   * {@link waitUntilCheckpoint} (which waits for a target number), this lets callers wait for an
+   * arbitrary checkpoint property (e.g. one published in the first half of its slot). Rejects after
+   * `opts.timeout` ms if provided; otherwise waits indefinitely.
+   *
+   * By default this is purely event-driven and only resolves on the *next* matching checkpoint that
+   * arrives after the call. Set `checkCurrentCheckpoint` to also test the current checkpoint first (via
+   * a fresh {@link run} snapshot) and short-circuit if it already satisfies `match`. Use it only for
+   * latching state predicates (e.g. "checkpoint number has passed N"), where an already-satisfied
+   * result is valid and you want to avoid missing an advance that landed before the listener attached.
+   * Do NOT set it when the predicate depends on observing the checkpoint live (e.g. one published
+   * mid-slot that the caller then times against wall-clock), since it may return a checkpoint whose
+   * slot has already elapsed.
+   */
+  public async waitForCheckpoint(
+    match: (event: ChainMonitorEventMap['checkpoint'][0]) => boolean,
+    opts: { timeout?: number; checkCurrentCheckpoint?: boolean } = {},
+  ): Promise<ChainMonitorEventMap['checkpoint'][0]> {
+    if (opts.checkCurrentCheckpoint) {
+      await this.run();
+      const current: ChainMonitorEventMap['checkpoint'][0] = {
+        checkpointNumber: this.checkpointNumber,
+        l1BlockNumber: this.l1BlockNumber,
+        l2SlotNumber: this.l2SlotNumber,
+        timestamp: this.checkpointTimestamp,
+      };
+      if (match(current)) {
+        return current;
+      }
+    }
+    return new Promise((resolve, reject) => {
+      let timer: NodeJS.Timeout | undefined;
+      const listener = (event: ChainMonitorEventMap['checkpoint'][0]) => {
+        if (match(event)) {
+          if (timer) {
+            clearTimeout(timer);
+          }
+          this.off('checkpoint', listener);
+          resolve(event);
+        }
+      };
+      if (opts.timeout !== undefined) {
+        timer = setTimeout(() => {
+          this.off('checkpoint', listener);
+          reject(new Error(`Timed out after ${opts.timeout}ms waiting for a matching checkpoint`));
+        }, opts.timeout);
+      }
+      this.on('checkpoint', listener);
+    });
+  }
+
+  /** Resolves once the proven checkpoint number reaches `checkpointNumber`. */
+  public waitUntilCheckpointProven(checkpointNumber: CheckpointNumber): Promise<void> {
+    if (this.provenCheckpointNumber >= checkpointNumber) {
+      return Promise.resolve();
+    }
+    return new Promise(resolve => {
+      const listener = (data: { provenCheckpointNumber: CheckpointNumber; timestamp: bigint }) => {
+        if (data.provenCheckpointNumber >= checkpointNumber) {
+          this.off('checkpoint-proven', listener);
+          resolve();
+        }
+      };
+      this.on('checkpoint-proven', listener);
     });
   }
 

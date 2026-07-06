@@ -192,7 +192,7 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     gasLimits?: Gas,
   ) {
     await this.simProveVerify(
-      /*sender=*/ AztecAddress.fromNumber(42),
+      /*sender=*/ AztecAddress.fromNumberUnsafe(42),
       /*setupCalls=*/ [],
       [appCall],
       undefined,

@@ -5,6 +5,8 @@ set -u # not -e
 # By default retries any non-zero exit. With "-p <regex>" only failures whose (combined) output
 # matches the extended regex are retried; any other failure exits immediately so genuine errors
 # (e.g. a real compile error) are not masked by retries.
+# The attempt count and the inter-attempt sleep are tunable via RETRY_ATTEMPTS (default 3) and
+# RETRY_SLEEP (default 5s), e.g. RETRY_ATTEMPTS=30 RETRY_SLEEP=10 retries every 10s for ~5 min.
 # Usage: retry [-p <retry-on-regex>] "<command>"
 pattern=
 if [ "${1:-}" = "-p" ]; then
@@ -18,10 +20,10 @@ if [ -n "${RETRY_DISABLED:-}" ]; then
   exit
 fi
 
-ATTEMPTS=3
+ATTEMPTS=${RETRY_ATTEMPTS:-3}
 out=
 [ -n "$pattern" ] && out=$(mktemp)
-# Retries up to 3 times with 5 second intervals
+# Retries up to $ATTEMPTS times, sleeping ${RETRY_SLEEP:-5}s between attempts.
 trap 'kill -SIGTERM $pid &>/dev/null || true; [ -n "$out" ] && rm -f "$out"' SIGTERM EXIT
 for i in $(seq 1 $ATTEMPTS); do
   if [ -n "$pattern" ]; then

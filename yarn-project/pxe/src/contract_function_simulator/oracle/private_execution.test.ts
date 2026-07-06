@@ -52,17 +52,19 @@ import { jest } from '@jest/globals';
 import { Matcher, type MatcherCreator, type MockProxy, mock } from 'jest-mock-extended';
 import { toFunctionSelector } from 'viem';
 
-import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
-import { syncScope } from '../../contract_sync/helpers.js';
-import type { MessageContextService } from '../../messages/message_context_service.js';
+import type { ContractClassService } from '../../contract/contract_class_service.js';
+import type { ContractSyncService } from '../../contract/contract_sync_service.js';
+import { syncScope } from '../../contract/helpers.js';
+import type { TxResolverService } from '../../messages/tx_resolver_service.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
+import type { FactStore } from '../../storage/fact_store/index.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
-import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_address_book_store.js';
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
+import type { TaggingSecretSourcesStore } from '../../storage/tagging_store/tagging_secret_sources_store.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 
 jest.setTimeout(60_000);
@@ -102,17 +104,19 @@ describe('Private Execution test suite', () => {
   const simulator = new WASMSimulator();
 
   let contractStore: MockProxy<ContractStore>;
+  let contractClassService: MockProxy<ContractClassService>;
   let noteStore: MockProxy<NoteStore>;
   let addressStore: MockProxy<AddressStore>;
   let keyStore: MockProxy<KeyStore>;
   let senderTaggingStore: MockProxy<SenderTaggingStore>;
   let recipientTaggingStore: MockProxy<RecipientTaggingStore>;
-  let senderAddressBookStore: MockProxy<SenderAddressBookStore>;
+  let taggingSecretSourcesStore: MockProxy<TaggingSecretSourcesStore>;
   let aztecNode: MockProxy<AztecNode>;
   let capsuleStore: MockProxy<CapsuleStore>;
+  let factStore: MockProxy<FactStore>;
   let privateEventStore: MockProxy<PrivateEventStore>;
   let contractSyncService: MockProxy<ContractSyncService>;
-  let messageContextService: MockProxy<MessageContextService>;
+  let txResolver: MockProxy<TxResolverService>;
   let l2TipsStore: MockProxy<L2TipsProvider>;
   let acirSimulator: ContractFunctionSimulator;
   let anchorBlockHeader = BlockHeader.empty();
@@ -210,7 +214,7 @@ describe('Private Execution test suite', () => {
       anchorBlockHeader,
       senderForTags,
       jobId: TEST_JOB_ID,
-      scopes: [owner],
+      scopes: [owner, senderForTags],
     });
   };
 
@@ -246,14 +250,15 @@ describe('Private Execution test suite', () => {
 
     const ownerPartialAddress = Fr.random();
     ownerCompleteAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(ownerSk, ownerPartialAddress);
-    ({ masterNullifierHidingKey: ownerNhkM, masterIncomingViewingSecretKey: ownerIvskM } = await deriveKeys(ownerSk));
+    ({ masterNullifierHidingSecretKey: ownerNhkM, masterIncomingViewingSecretKey: ownerIvskM } =
+      await deriveKeys(ownerSk));
 
     const recipientPartialAddress = Fr.random();
     recipientCompleteAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(
       recipientSk,
       recipientPartialAddress,
     );
-    ({ masterNullifierHidingKey: recipientNhkM, masterIncomingViewingSecretKey: recipientIvskM } =
+    ({ masterNullifierHidingSecretKey: recipientNhkM, masterIncomingViewingSecretKey: recipientIvskM } =
       await deriveKeys(recipientSk));
 
     const senderForTagsPartialAddress = Fr.random();
@@ -261,7 +266,7 @@ describe('Private Execution test suite', () => {
       senderForTagsSk,
       senderForTagsPartialAddress,
     );
-    ({ masterNullifierHidingKey: senderForTagsNhkM, masterIncomingViewingSecretKey: senderForTagsIvskM } =
+    ({ masterNullifierHidingSecretKey: senderForTagsNhkM, masterIncomingViewingSecretKey: senderForTagsIvskM } =
       await deriveKeys(senderForTagsSk));
 
     owner = ownerCompleteAddress.address;
@@ -278,6 +283,12 @@ describe('Private Execution test suite', () => {
     ws = await NativeWorldStateService.tmp();
     fork = await ws.fork();
     contractStore = mock<ContractStore>();
+    contractClassService = mock<ContractClassService>();
+    // No upgrades in these tests: an address resolves to a class id whose string matches the address, so the
+    // address-keyed `contracts` map and store mocks below keep working when keyed by the resolved class id.
+    contractClassService.getCurrentClassId.mockImplementation(address =>
+      Promise.resolve(Fr.fromHexString(address.toString())),
+    );
     noteStore = mock<NoteStore>();
     noteStore.getNotes.mockResolvedValue([]);
     addressStore = mock<AddressStore>();
@@ -286,17 +297,27 @@ describe('Private Execution test suite', () => {
     aztecNode = mock<AztecNode>();
     keyStore = mock<KeyStore>();
     capsuleStore = mock<CapsuleStore>();
+    factStore = mock<FactStore>();
+    factStore.getFactCollectionsByType.mockResolvedValue([]);
     l2TipsStore = mock<L2TipsProvider>();
     privateEventStore = mock<PrivateEventStore>();
-    senderAddressBookStore = mock<SenderAddressBookStore>();
+    taggingSecretSourcesStore = mock<TaggingSecretSourcesStore>();
     contractSyncService = mock<ContractSyncService>();
-    messageContextService = mock<MessageContextService>();
-    messageContextService.getMessageContextsByTxHash.mockResolvedValue([]);
+    txResolver = mock<TxResolverService>();
+    txResolver.resolveTxs.mockResolvedValue([]);
     // Configure mock to actually perform sync_state calls (needed for nested call tests)
     contractSyncService.ensureContractSynced.mockImplementation(
       async (contractAddress, functionToInvokeAfterSync, utilityExecutor, _anchorBlockHeader, _jobId, scopes) => {
         for (const scope of scopes) {
-          await syncScope(contractAddress, contractStore, functionToInvokeAfterSync, utilityExecutor, scope);
+          await syncScope(
+            contractAddress,
+            contractStore,
+            contractClassService,
+            _anchorBlockHeader,
+            functionToInvokeAfterSync,
+            utilityExecutor,
+            scope,
+          );
         }
       },
     );
@@ -311,11 +332,17 @@ describe('Private Execution test suite', () => {
     senderTaggingStore.getTxHashesOfPendingIndexes.mockResolvedValue([]);
     senderTaggingStore.storePendingIndexes.mockResolvedValue();
 
-    senderAddressBookStore.getSenders.mockResolvedValue([]);
+    taggingSecretSourcesStore.getSenders.mockResolvedValue([]);
+    taggingSecretSourcesStore.getSharedSecretsForRecipient.mockResolvedValue([]);
 
     // Mock aztec node methods - the return array needs to have the same length as the number of tags
     // on the input.
     aztecNode.getPrivateLogsByTags.mockImplementation(query => Promise.resolve(query.tags.map(() => [])));
+
+    // Constrained-delivery tag derivation calls `doesNullifierExist` (e.g. the handshake bootstrap), which reads the
+    // node's nullifier tree. Default to "not found" so the destructured result is iterable; tests that need a specific
+    // nullifier override this.
+    aztecNode.findLeavesIndexes.mockResolvedValue([]);
 
     // Mock getL2Tips and getBlockHeader for syncTaggedPrivateLogs
     l2TipsStore.getL2Tips.mockResolvedValue(makeL2Tips(anchorBlockHeader.globalVariables.blockNumber));
@@ -448,6 +475,7 @@ describe('Private Execution test suite', () => {
 
     acirSimulator = new ContractFunctionSimulator({
       contractStore,
+      contractClassService,
       noteStore,
       keyStore,
       addressStore,
@@ -455,12 +483,13 @@ describe('Private Execution test suite', () => {
       l2TipsStore,
       senderTaggingStore,
       recipientTaggingStore,
-      senderAddressBookStore,
+      taggingSecretSourcesStore,
       capsuleStore,
+      factStore,
       privateEventStore,
       simulator,
       contractSyncService,
-      messageContextService,
+      txResolver,
     });
   });
 
@@ -534,7 +563,7 @@ describe('Private Execution test suite', () => {
         anchorBlockHeader,
         functionName: 'constructor',
         contractAddress: instance.address,
-        msgSender: AztecAddress.fromNumber(1234),
+        msgSender: AztecAddress.fromNumberUnsafe(1234),
       });
       const result = executionResult.entrypoint.nestedExecutionResults[0];
 
@@ -699,7 +728,7 @@ describe('Private Execution test suite', () => {
 
       expect(
         contractStore.getFunctionArtifact.mock.calls.some(
-          ([addr, sel]) => addr.equals(childAddress) && sel.equals(childSelector),
+          ([classId, sel]) => classId.toString() === childAddress.toString() && sel.equals(childSelector),
         ),
       ).toBe(true);
       expect(result.nestedExecutionResults).toHaveLength(1);
@@ -726,7 +755,12 @@ describe('Private Execution test suite', () => {
         contractAddress: parentAddress,
       });
 
-      expect(contractStore.getFunctionCall).toHaveBeenCalledWith('sync_state', [owner], childAddress);
+      expect(contractStore.getFunctionCall).toHaveBeenCalledWith(
+        'sync_state',
+        [owner],
+        childAddress,
+        expect.anything(),
+      );
     });
   });
 

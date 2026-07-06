@@ -7,6 +7,7 @@ import { BlockHash, randomDataInBlock } from '@aztec/stdlib/block';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import { deriveKeys } from '@aztec/stdlib/keys';
 import { NoteDao, NoteStatus } from '@aztec/stdlib/note';
 import { makeBlockHeader } from '@aztec/stdlib/testing';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
@@ -15,7 +16,7 @@ import { type IndexedTxEffect, TxEffect, TxHash } from '@aztec/stdlib/tx';
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
-import { NoteValidationRequest } from '../contract_function_simulator/noir-structs/note_validation_request.js';
+import type { NoteValidationRequest } from '../contract_function_simulator/noir-structs/note_validation_request.js';
 import { NoteStore } from '../storage/note_store/note_store.js';
 import { NoteService } from './note_service.js';
 
@@ -42,7 +43,7 @@ describe('NoteService', () => {
 
     contractAddress = await AztecAddress.random();
 
-    recipient = await keyStore.addAccount(new Fr(69), Fr.random());
+    recipient = await keyStore.addAccount(await deriveKeys(new Fr(69)), Fr.random());
 
     const notes = await noteStore.getNotes({ contractAddress, scopes: [recipient.address] }, 'test');
     expect(notes).toHaveLength(0);
@@ -180,8 +181,8 @@ describe('NoteService', () => {
   });
 
   it('should search for notes from all accounts', async () => {
-    await keyStore.addAccount(Fr.random(), Fr.random());
-    await keyStore.addAccount(Fr.random(), Fr.random());
+    await keyStore.addAccount(await deriveKeys(Fr.random()), Fr.random());
+    await keyStore.addAccount(await deriveKeys(Fr.random()), Fr.random());
 
     expect(await keyStore.getAccounts()).toHaveLength(3);
 
@@ -253,18 +254,17 @@ describe('NoteService', () => {
        */
       setSyncedBlockNumber(blockNumber);
 
-      buildRequest = (overrides = {}) =>
-        new NoteValidationRequest(
-          overrides.contractAddress ?? contractAddress,
-          overrides.owner ?? owner,
-          overrides.storageSlot ?? storageSlot,
-          overrides.randomness ?? randomness,
-          overrides.noteNonce ?? noteNonce,
-          overrides.content ?? content,
-          overrides.noteHash ?? noteHash,
-          overrides.nullifier ?? nullifier,
-          overrides.txHash ?? txHash,
-        );
+      buildRequest = (overrides = {}) => ({
+        contractAddress: overrides.contractAddress ?? contractAddress,
+        owner: overrides.owner ?? owner,
+        storageSlot: overrides.storageSlot ?? storageSlot,
+        randomness: overrides.randomness ?? randomness,
+        noteNonce: overrides.noteNonce ?? noteNonce,
+        content: overrides.content ?? content,
+        noteHash: overrides.noteHash ?? noteHash,
+        nullifier: overrides.nullifier ?? nullifier,
+        txHash: overrides.txHash ?? txHash,
+      });
 
       aztecNode.findLeavesIndexes.mockImplementation((_queryBlockParam, _treeId, leaves) => {
         // By default the notes are not yet nullified.

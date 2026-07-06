@@ -22,16 +22,17 @@ export function makeLoggingErrorHandler(
  * at a specified polling interval. It allows starting, stopping, and checking the status of the
  * internally managed promise. The class also supports interrupting the polling process when stopped.
  */
-export class RunningPromise {
+export class RunningPromise<T = void> {
   private running = false;
   private runningPromise = Promise.resolve();
   private interruptibleSleep = new InterruptibleSleep();
   private requested: PromiseWithResolvers<void> | undefined = undefined;
+  private requestedArg: T | undefined = undefined;
 
   public static readonly EXIT: typeof EXIT = EXIT;
 
   constructor(
-    private fn: () => void | Promise<void>,
+    private fn: (arg?: T) => void | Promise<void>,
     private logger = createLogger('running-promise'),
     private pollingIntervalMS = 10000,
     private handleError: ErrorHandler = makeLoggingErrorHandler(logger),
@@ -51,7 +52,7 @@ export class RunningPromise {
       while (this.running) {
         const hasRequested = this.requested !== undefined;
         try {
-          await this.fn();
+          await this.fn(this.requestedArg);
         } catch (err) {
           const code = await this.handleError(err);
           if (code === RunningPromise.EXIT) {
@@ -64,6 +65,7 @@ export class RunningPromise {
         if (hasRequested) {
           this.requested!.resolve();
           this.requested = undefined;
+          this.requestedArg = undefined;
         }
 
         // If no immediate run was requested, sleep for the polling interval.
@@ -101,15 +103,16 @@ export class RunningPromise {
    * Triggers an immediate run of the function, bypassing the polling interval.
    * If the function is currently running, it will be allowed to continue and then called again immediately.
    */
-  public async trigger() {
+  public async trigger(arg?: T): Promise<void> {
     if (!this.running) {
-      return this.fn();
+      return this.fn(arg);
     }
 
     let requested = this.requested;
     if (!requested) {
       requested = promiseWithResolvers<void>();
       this.requested = requested;
+      this.requestedArg = arg;
       this.interruptibleSleep.interrupt();
     }
     await requested!.promise;

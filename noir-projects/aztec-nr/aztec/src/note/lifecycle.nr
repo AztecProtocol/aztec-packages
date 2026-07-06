@@ -46,7 +46,7 @@ pub fn create_note<Note>(
 where
     Note: NoteType + NoteHash + Packable,
 {
-    let note_hash_counter = context.side_effect_counter;
+    let note_hash_counter = context.get_side_effect_counter();
 
     // Safety: We use the randomness to preserve the privacy of the note recipient by preventing brute-forcing, so a
     // malicious sender could use non-random values to make the note less private. But they already know the full note

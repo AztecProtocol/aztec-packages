@@ -76,4 +76,4 @@ pub fn _share_escrow(
 }
 ```
 
-`_get_escrow` reconstructs the escrow address deterministically from the calling contract's address (used as the salt) and a set of master secret keys. `_share_escrow` emits an encrypted log so that the designated `account` can discover the escrow address and the keys needed to access its notes. Without this notification, the user's PXE would have no way to find the escrow or decrypt notes held there. The `ONCHAIN_CONSTRAINED` delivery mode ensures the log is validated against the note hash tree before the recipient's PXE trusts it.
+`_get_escrow` reconstructs the escrow address deterministically from the calling contract's address (used as the salt) and a set of master secret keys. `_share_escrow` emits an encrypted log so that the designated `account` can discover the escrow address and the keys needed to access its notes. Without this notification, the user's PXE would have no way to find the escrow or decrypt notes held there. Constrained delivery ensures the log is validated against the note hash tree before the recipient's PXE trusts it.

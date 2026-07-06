@@ -122,7 +122,7 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
   getContractClass: z.function({ input: z.tuple([schemas.Fr]), output: ContractClassPublicSchema.optional() }),
   getBytecodeCommitment: z.function({ input: z.tuple([schemas.Fr]), output: schemas.Fr }),
   getContract: z.function({
-    input: z.tuple([schemas.AztecAddress, optional(schemas.BigInt)]),
+    input: z.tuple([schemas.AztecAddress, schemas.BigInt]),
     output: ContractInstanceWithAddressSchema.optional(),
   }),
   getContractClassIds: z.function({ input: z.tuple([]), output: z.array(schemas.Fr) }),
