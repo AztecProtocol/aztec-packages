@@ -21,12 +21,6 @@ describe('handshake_reuse', () => {
       });
     },
   });
-
-  // the stricter cross-mode direction: the unconstrained events bootstrap the handshake; the constrained notes reuse
-  // it. This also pins the constrained sequence to a fresh index 0: index 0 validates against the registry, higher
-  // indices assert a predecessor nullifier, so a sender index leaked from the unconstrained counter would make the
-  // first note demand a predecessor that was never emitted and fail the actual send during delivery, before the
-  // hook-call assertion below ever runs.
   const reverseHookCalls: AppTaggingSecretKind[] = [];
   buildMessageDeliveryTest({
     strategy: 'non-interactive handshake',
