@@ -80,6 +80,7 @@ pub(crate) unconstrained fn sync(
     aztecnr_debug_log_format!("{} pending partial notes")([pending_partial_notes.len() as Field]);
 
     let completion_logs = get_pending_partial_notes_completion_logs(contract_address, pending_partial_notes);
+    assert_eq(completion_logs.len(), pending_partial_notes.len());
 
     pending_partial_note_fsms.for_each(|i, fsm: PartialNoteFsm| {
         fsm.step(Option::some(completion_logs.get(i)), compute_note_hash, compute_note_nullifier);
