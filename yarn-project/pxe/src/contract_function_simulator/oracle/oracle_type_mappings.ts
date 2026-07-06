@@ -528,7 +528,7 @@ export const RESOLVED_TX: TypeMapping<ResolvedTx> = {
   shape: [{ len: MAX_NOTE_HASHES_PER_TX + 5 }],
 };
 
-export const PENDING_TAGGED_LOG: TypeMapping<PendingTaggedLog> = STRUCT<PendingTaggedLog>([
+export const PENDING_TAGGED_LOG: TypeMapping<PendingTaggedLog> = STRUCT([
   { name: 'log', type: FIXED_BOUNDED_VEC(FIELD, PRIVATE_LOG_SIZE_IN_FIELDS) },
   { name: 'context', type: RESOLVED_TX },
 ]);
