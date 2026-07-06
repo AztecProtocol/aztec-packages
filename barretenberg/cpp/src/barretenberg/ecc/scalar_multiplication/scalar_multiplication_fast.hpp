@@ -181,10 +181,21 @@ extern template class MSM_fast<curve::BN254>;
 // and bench targets can pin behaviour at the boundary.
 inline constexpr size_t MIN_PTS_PER_THREAD_FOR_PIPPENGER = 24;
 
-// Batch members at or below this point count dispatch one-per-worker with a
-// single-threaded pipeline (max_threads=1) instead of sequentially with
-// full-width parallel_for stages; below ~2^13 the per-stage barrier cost and
-// understuffed per-thread chunks outweigh intra-MSM parallelism.
+// Points-per-worker floor below which intra-MSM multithreading loses to its parallel_for barrier
+// overhead. Drives both the worker-count pick in pippenger_round_parallel and the batch driver's
+// concurrent/sequential split. SIZE_MAX forces single-threaded on wasm.
+#ifdef __wasm__
+inline constexpr size_t MSM_MIN_PTS_PER_THREAD = SIZE_MAX;
+#else
+inline constexpr size_t MSM_MIN_PTS_PER_THREAD = 256;
+#endif
+
+// Point-count bound for the batch driver's concurrent/sequential split on wasm. Intra-MSM work is
+// always single-threaded on wasm (MSM_MIN_PTS_PER_THREAD == SIZE_MAX), so the native split rule
+// `n < MSM_MIN_PTS_PER_THREAD * pool_width` would classify every member as small and route them all
+// through the concurrent pool, whose per-worker arena is sized to the largest member and caps the
+// worker count by memory budget. This finite bound keeps large members on the sequential shared-arena
+// path so the concurrent pool retains full worker width. Members at or below it dispatch one-per-worker.
 inline constexpr size_t SMALL_MSM_BATCH_THRESHOLD = size_t{ 1 } << 13;
 
 // Per-MSM_fast arena sizer. Returns 0 for shapes that fall back to the Jacobian-fast path

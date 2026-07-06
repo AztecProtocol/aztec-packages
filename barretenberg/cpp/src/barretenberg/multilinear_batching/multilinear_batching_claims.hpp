@@ -36,6 +36,7 @@ template <typename Curve> struct MultilinearBatchingVerifierClaim {
         requires Curve::is_stdlib_type
     {
         MultilinearBatchingVerifierClaim<RecursiveCurve> result;
+        result.challenge.reserve(native_claim.challenge.size());
 
         for (auto& element : native_claim.challenge) {
             result.challenge.emplace_back(FF::from_witness(builder, element));

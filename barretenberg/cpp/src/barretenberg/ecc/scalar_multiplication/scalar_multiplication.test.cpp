@@ -521,11 +521,10 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
     /**
      * @brief Pin the concurrent small-member dispatch in the batch driver.
      *
-     *        ECCVM-shaped batch: many MSMs at or below SMALL_MSM_BATCH_THRESHOLD (run
-     *        one-per-worker with a thread-capped pipeline out of per-worker arenas, the
-     *        dedup-hinted members exercising Phase A at num_threads=1) mixed with
-     *        boundary-size and large members that stay on the sequential shared-arena
-     *        path.
+     *        Mixed-size batch: many small MSMs (run one-per-worker with a thread-capped
+     *        pipeline out of per-worker arenas, the dedup-hinted members exercising Phase A at
+     *        num_threads=1) mixed with boundary-size and large members that stay on the
+     *        sequential shared-arena path.
      */
     void test_batch_multi_scalar_mul_small_member_dispatch()
     {
@@ -533,9 +532,17 @@ template <class Curve> class ScalarMultiplicationTest : public ::testing::Test {
         for (size_t k = 0; k < 24; ++k) {
             sizes.push_back(600 + (257 * k));
         }
-        sizes.push_back(scalar_multiplication::SMALL_MSM_BATCH_THRESHOLD);
-        sizes.push_back(scalar_multiplication::SMALL_MSM_BATCH_THRESHOLD + 1);
-        sizes.push_back(16384);
+        // Add members straddling the driver's small/large boundary (MSM_MIN_PTS_PER_THREAD * pool_width)
+        // to exercise both dispatch paths. On wasm MSM_MIN_PTS_PER_THREAD is SIZE_MAX and a single-core
+        // pool has no concurrent path — neither has a finite boundary, so there the cluster above is the
+        // whole batch (and 256 * pool_width never overflows).
+        const size_t pool_width = get_num_cpus();
+        if (scalar_multiplication::MSM_MIN_PTS_PER_THREAD != std::numeric_limits<size_t>::max() && pool_width > 1) {
+            const size_t boundary = scalar_multiplication::MSM_MIN_PTS_PER_THREAD * pool_width;
+            sizes.push_back(boundary - 1);
+            sizes.push_back(boundary);
+            sizes.push_back(boundary * 2);
+        }
         const size_t num_msms = sizes.size();
 
         const uint256_t high_bit(0, 0, 0, uint64_t{ 1 } << (200 - 192));

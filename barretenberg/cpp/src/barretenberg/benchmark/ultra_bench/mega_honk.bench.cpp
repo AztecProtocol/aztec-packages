@@ -94,7 +94,9 @@ BENCHMARK(construct_proof_megahonk_power_of_2)
 
 int main(int argc, char** argv)
 {
+#if !defined(__wasm__) || defined(ENABLE_WASM_BENCH)
     bb::detail::use_bb_bench = true;
+#endif
 
     ::benchmark::Initialize(&argc, argv);
     if (::benchmark::ReportUnrecognizedArguments(argc, argv))
@@ -102,8 +104,10 @@ int main(int argc, char** argv)
     ::benchmark::RunSpecifiedBenchmarks();
     ::benchmark::Shutdown();
 
+#if !defined(__wasm__) || defined(ENABLE_WASM_BENCH)
     std::cout << "\n=== Detailed BB_BENCH Profiling Stats ===\n";
     bb::detail::GLOBAL_BENCH_STATS.print_aggregate_counts_hierarchical(std::cout);
+#endif
 
     return 0;
 }

@@ -213,12 +213,16 @@ Chonk::PublicInputsResult Chonk::process_kernel_public_inputs(std::vector<Stdlib
 
     // ============= Perform databus consistency checks ===============================
 
+#ifndef NDEBUG
     bool kernel_return_data_match =
         kernel_input.kernel_return_data.get_value() == witness_commitments.kernel_calldata().get_value();
-    BB_ASSERT_DEBUG(kernel_return_data_match,
-                    "kernel_return_data mismatch: proof contains "
-                        << kernel_input.kernel_return_data.get_value() << " but kernel_calldata commitment is "
-                        << witness_commitments.kernel_calldata().get_value());
+    if (!kernel_return_data_match) {
+        info("kernel_return_data mismatch: proof contains ",
+             kernel_input.kernel_return_data.get_value(),
+             " but kernel_calldata commitment is ",
+             witness_commitments.kernel_calldata().get_value());
+    }
+#endif
     kernel_input.kernel_return_data.incomplete_assert_equal(witness_commitments.kernel_calldata());
 
     const std::array app_calldata_commitments{ &witness_commitments.first_app_calldata(),
@@ -229,12 +233,18 @@ Chonk::PublicInputsResult Chonk::process_kernel_public_inputs(std::vector<Stdlib
     static_assert(std::tuple_size_v<decltype(app_calldata_commitments)> == MAX_APPS_PER_KERNEL,
                   "app_calldata_commitments must list one commitment per app bus column");
     for (size_t idx = 0; idx < MAX_APPS_PER_KERNEL; ++idx) {
+#ifndef NDEBUG
         bool app_return_data_match =
             kernel_input.app_return_data[idx].get_value() == app_calldata_commitments[idx]->get_value();
-        BB_ASSERT_DEBUG(app_return_data_match,
-                        "app_return_data mismatch: proof contains " << kernel_input.app_return_data[idx].get_value()
-                                                                    << " but app calldata commitment " << idx << " is "
-                                                                    << app_calldata_commitments[idx]->get_value());
+        if (!app_return_data_match) {
+            info("app_return_data mismatch: proof contains ",
+                 kernel_input.app_return_data[idx].get_value(),
+                 " but app calldata commitment ",
+                 idx,
+                 " is ",
+                 app_calldata_commitments[idx]->get_value());
+        }
+#endif
         kernel_input.app_return_data[idx].incomplete_assert_equal(*app_calldata_commitments[idx]);
     }
 
@@ -242,11 +252,15 @@ Chonk::PublicInputsResult Chonk::process_kernel_public_inputs(std::vector<Stdlib
 
     info("Accumulator hash from IO: ", kernel_input.output_hn_accum_hash);
     BB_ASSERT(prev_accum_hash.has_value());
+#ifndef NDEBUG
     bool accum_hash_match = kernel_input.output_hn_accum_hash.get_value() == prev_accum_hash->get_value();
-    BB_ASSERT_DEBUG(accum_hash_match,
-                    "output_hn_accum_hash mismatch: proof contains " << kernel_input.output_hn_accum_hash.get_value()
-                                                                     << " but expected "
-                                                                     << prev_accum_hash->get_value());
+    if (!accum_hash_match) {
+        info("output_hn_accum_hash mismatch: proof contains ",
+             kernel_input.output_hn_accum_hash.get_value(),
+             " but expected ",
+             prev_accum_hash->get_value());
+    }
+#endif
     kernel_input.output_hn_accum_hash.assert_equal(*prev_accum_hash);
 
     bus_depot.set_kernel_return_data_commitment(witness_commitments.return_data());

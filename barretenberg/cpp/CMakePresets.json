@@ -434,7 +434,7 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "MULTITHREADING": "ON",
-        "ENABLE_WASM_BENCH": "ON"
+        "ENABLE_WASM_BENCH": "OFF"
       }
     },
     {

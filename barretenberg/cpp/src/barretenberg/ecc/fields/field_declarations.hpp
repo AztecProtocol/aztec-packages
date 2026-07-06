@@ -333,6 +333,14 @@ template <class Params_> struct alignas(32) field {
     BB_INLINE constexpr field sqr() const noexcept;
     BB_INLINE constexpr void self_sqr() & noexcept;
 
+    // Reducing a scalar field's single lane returns itself. Lets `field` substitute for `VectorField` as a
+    // lane element type so per-lane reduction code (e.g. sumcheck's `reduce_accumulator`) needs no branch.
+    BB_INLINE constexpr field horizontal_sum() const noexcept { return *this; }
+
+    // Width-1 counterpart of `VectorField::from_lanes`: a scalar field has one lane, so it just evaluates
+    // `value_at` at lane 0. Lets `field` be gathered through the same lane-generic edge code as `VectorField`.
+    template <typename Fn> BB_INLINE static field from_lanes(const Fn& value_at) noexcept { return value_at(0); }
+
     BB_INLINE constexpr field pow(const uint256_t& exponent) const noexcept;
     BB_INLINE constexpr field pow(uint64_t exponent) const noexcept;
     // STARKNET: next line was commented as stark252 violates the assertion

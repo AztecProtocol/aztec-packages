@@ -1,6 +1,8 @@
 # Batch Merge Protocol
 
-For a more detailed explanation of Chonk, see [REFERENCE TO CHONK DOC].
+For a more detailed explanation of Chonk, see the [Chonk README](../chonk/README.md). The final
+pairwise (latest) merge that this protocol hands off to is documented in
+[MERGE_PROTOCOL.md](./MERGE_PROTOCOL.md).
 
 During Chonk, circuits perform BN254 elliptic-curve operations that are delegated to Goblin rather than executed directly in the circuit. Each circuit exposes four `ecc_op_wire` commitments, one for each operation-table column.
 
@@ -10,7 +12,7 @@ There are two distinct merge mechanisms:
   $$
   M_j(X) = L_j(X) + X^\ell R_j(X)
   $$
-  for each column $j \in \{1,2,3,4\}$, together with a degree check for the left table. It should be read as the latest-merge protocol, including the soundness and degree-of-freedom analysis for that final merge.
+  for each column $j \in \lbrace 1,2,3,4\rbrace$, together with a degree check for the left table. It should be read as the latest-merge protocol, including the soundness and degree-of-freedom analysis for that final merge.
 - The **Batch Merge Protocol** proves, in one proof, that a committed aggregate table is the concatenation of all accumulated subtables bound by a running commitment hash, with a zero-knowledge prefix prepended by the batch merge prover.
 
 The batch merge protocol therefore does not replace the latest merge proof. Batch merge establishes the accumulated table up to the batch-merge output: all subtables bound by the running hash, plus the ZK prefix. The latest merge protocol is then responsible for the final pairwise merge involving the hiding-kernel table.
@@ -35,7 +37,7 @@ $$
 
 Here:
 
-- $j \in \{1,2,3,4\}$ indexes the op-queue columns.
+- $j \in \lbrace 1,2,3,4\rbrace$ indexes the op-queue columns.
 - $f_{0,j}$ is the ZK-prefix column.
 - $f_{i,j}$ is the $j$-th column of the $i$-th accumulated subtable.
 - $s_0$ is the fixed ZK-prefix size.
@@ -201,7 +203,7 @@ The batch merge algebra above is written without duplicating the trace-layout di
 The important separation is:
 
 - Batch merge proves the hash-bound accumulated subtables plus the ZK prefix.
-- Latest merge proves the final append/prepend relation for the current hiding-kernel table and performs the final layout alignment discussed in `MERGE_PROTOCOL.md`.
+- Latest merge proves the final append relation for the current hiding-kernel table and performs the final layout alignment discussed in `MERGE_PROTOCOL.md`.
 
 ## Soundness Considerations
 

@@ -75,10 +75,7 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::po
     // Update the public inputs block
     for (const auto& idx : this->public_inputs()) {
         // first two wires get a copy of the public inputs
-        blocks.pub_inputs.populate_wires(idx, idx, this->zero_idx(), this->zero_idx());
-        for (auto& selector : this->blocks.pub_inputs.get_selectors()) {
-            selector.emplace_back(0);
-        }
+        blocks.pub_inputs.append_gate({ .wires = { idx, idx, this->zero_idx(), this->zero_idx() } });
     }
 }
 
@@ -117,20 +114,19 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_big_mul_add_gate(const mul_qua
                                                                    const bool include_next_gate_w_4)
 {
     this->assert_valid_variables({ in.a, in.b, in.c, in.d });
-    blocks.arithmetic.populate_wires(in.a, in.b, in.c, in.d);
     // If include_next_gate_w_4 is true then we set q_arith = 2. In this case, the linear term in the ArithmeticRelation
     // is scaled by a factor of 2. We compensate here by scaling the quadratic term by 2 to achieve the constraint:
     //      2 * [q_m * w_1 * w_2 + \sum_{i=1..4} q_i * w_i + q_c + w_4_shift] = 0
     const FF mul_scaling = include_next_gate_w_4 ? in.mul_scaling * FF(2) : in.mul_scaling;
-    blocks.arithmetic.q_m().emplace_back(mul_scaling);
-    blocks.arithmetic.q_1().emplace_back(in.a_scaling);
-    blocks.arithmetic.q_2().emplace_back(in.b_scaling);
-    blocks.arithmetic.q_3().emplace_back(in.c_scaling);
-    blocks.arithmetic.q_c().emplace_back(in.const_scaling);
-    blocks.arithmetic.q_4().emplace_back(in.d_scaling);
-    blocks.arithmetic.q_5().emplace_back(0);
-    blocks.arithmetic.set_gate_selector(GateKind::Arith, include_next_gate_w_4 ? 2 : 1);
-    check_selector_length_consistency();
+    blocks.arithmetic.append_gate({ .wires = { in.a, in.b, in.c, in.d },
+                                    .q_m = mul_scaling,
+                                    .q_c = in.const_scaling,
+                                    .q_1 = in.a_scaling,
+                                    .q_2 = in.b_scaling,
+                                    .q_3 = in.c_scaling,
+                                    .q_4 = in.d_scaling,
+                                    .gate_kind = GateKind::Arith,
+                                    .gate_value = include_next_gate_w_4 ? 2 : 1 });
     this->increment_num_gates();
 }
 
@@ -147,16 +143,14 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_big_add_gate(const add_quad_<F
                                                                const bool include_next_gate_w_4)
 {
     this->assert_valid_variables({ in.a, in.b, in.c, in.d });
-    blocks.arithmetic.populate_wires(in.a, in.b, in.c, in.d);
-    blocks.arithmetic.q_m().emplace_back(0);
-    blocks.arithmetic.q_1().emplace_back(in.a_scaling);
-    blocks.arithmetic.q_2().emplace_back(in.b_scaling);
-    blocks.arithmetic.q_3().emplace_back(in.c_scaling);
-    blocks.arithmetic.q_c().emplace_back(in.const_scaling);
-    blocks.arithmetic.q_4().emplace_back(in.d_scaling);
-    blocks.arithmetic.q_5().emplace_back(0);
-    blocks.arithmetic.set_gate_selector(GateKind::Arith, include_next_gate_w_4 ? 2 : 1);
-    check_selector_length_consistency();
+    blocks.arithmetic.append_gate({ .wires = { in.a, in.b, in.c, in.d },
+                                    .q_c = in.const_scaling,
+                                    .q_1 = in.a_scaling,
+                                    .q_2 = in.b_scaling,
+                                    .q_3 = in.c_scaling,
+                                    .q_4 = in.d_scaling,
+                                    .gate_kind = GateKind::Arith,
+                                    .gate_value = include_next_gate_w_4 ? 2 : 1 });
     this->increment_num_gates();
 }
 
@@ -174,7 +168,6 @@ template <typename ExecutionTrace>
 void UltraCircuitBuilder_<ExecutionTrace>::create_bilinear_batched_eq_gate(const bilinear_batched_eq_gate_<FF>& in)
 {
     this->assert_valid_variables({ in.a, in.b, in.c, in.d });
-    blocks.arithmetic.populate_wires(in.a, in.b, in.c, in.d);
 
     // BILINEAR: q_m·a·b + q_5·a·c + q_l·a + q_r·b + q_o·c + q_4·d + q_c = 0 (two products sharing wire a,
     //           on the pairs (a, b) and (a, c) via q_m and q_5; q_l..q_4 the per-wire linear coefficients,
@@ -182,16 +175,21 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_bilinear_batched_eq_gate(const
     // BATCHED_EQ:     q_l·a + q_r·b + q_c = 0 and q_o·c + q_4·d + q_m = 0 (q_m repurposed as the 2nd
     //           constant; q_5 unused). Selectors are written raw; only the q_bilinear_batched_eq gate
     //           selector value distinguishes the two modes.
-    blocks.arithmetic.q_m().emplace_back(in.q_m);
-    blocks.arithmetic.q_1().emplace_back(in.q_l);
-    blocks.arithmetic.q_2().emplace_back(in.q_r);
-    blocks.arithmetic.q_3().emplace_back(in.q_o);
-    blocks.arithmetic.q_4().emplace_back(in.q_4);
-    blocks.arithmetic.q_c().emplace_back(in.q_c);
-    blocks.arithmetic.q_5().emplace_back(in.mode == BilinearBatchedEqMode::Bilinear ? in.q_5 : FF(0));
-    blocks.arithmetic.set_gate_selector(GateKind::BilinearBatchedEq,
-                                        in.mode == BilinearBatchedEqMode::Bilinear ? 1 : 2);
-    check_selector_length_consistency();
+    {
+        auto& block_for_row = blocks.arithmetic;
+        GateRowT row{};
+        row.wires = { in.a, in.b, in.c, in.d };
+        row.q_m = in.q_m;
+        row.q_c = in.q_c;
+        row.q_1 = in.q_l;
+        row.q_2 = in.q_r;
+        row.q_3 = in.q_o;
+        row.q_4 = in.q_4;
+        row.q_5 = in.mode == BilinearBatchedEqMode::Bilinear ? in.q_5 : FF(0);
+        row.gate_kind = GateKind::BilinearBatchedEq;
+        row.gate_value = in.mode == BilinearBatchedEqMode::Bilinear ? 1 : 2;
+        block_for_row.append_gate(row);
+    }
     this->increment_num_gates();
 }
 
@@ -205,16 +203,11 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_bool_gate(const uint32_t varia
 {
     this->assert_valid_variables({ variable_index });
 
-    blocks.arithmetic.populate_wires(variable_index, variable_index, this->zero_idx(), this->zero_idx());
-    blocks.arithmetic.q_m().emplace_back(1);
-    blocks.arithmetic.q_1().emplace_back(-1);
-    blocks.arithmetic.q_2().emplace_back(0);
-    blocks.arithmetic.q_3().emplace_back(0);
-    blocks.arithmetic.q_c().emplace_back(0);
-    blocks.arithmetic.q_4().emplace_back(0);
-    blocks.arithmetic.q_5().emplace_back(0);
-    blocks.arithmetic.set_gate_selector(GateKind::Arith, 1);
-    check_selector_length_consistency();
+    blocks.arithmetic.append_gate({ .wires = { variable_index, variable_index, this->zero_idx(), this->zero_idx() },
+                                    .q_m = 1,
+                                    .q_1 = -1,
+                                    .gate_kind = GateKind::Arith,
+                                    .gate_value = 1 });
     this->increment_num_gates();
 }
 
@@ -229,16 +222,14 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_arithmetic_gate(const arithmet
 {
     this->assert_valid_variables({ in.a, in.b, in.c });
 
-    blocks.arithmetic.populate_wires(in.a, in.b, in.c, this->zero_idx());
-    blocks.arithmetic.q_m().emplace_back(in.q_m);
-    blocks.arithmetic.q_1().emplace_back(in.q_l);
-    blocks.arithmetic.q_2().emplace_back(in.q_r);
-    blocks.arithmetic.q_3().emplace_back(in.q_o);
-    blocks.arithmetic.q_c().emplace_back(in.q_c);
-    blocks.arithmetic.q_4().emplace_back(0);
-    blocks.arithmetic.q_5().emplace_back(0);
-    blocks.arithmetic.set_gate_selector(GateKind::Arith, 1);
-    check_selector_length_consistency();
+    blocks.arithmetic.append_gate({ .wires = { in.a, in.b, in.c, this->zero_idx() },
+                                    .q_m = in.q_m,
+                                    .q_c = in.q_c,
+                                    .q_1 = in.q_l,
+                                    .q_2 = in.q_r,
+                                    .q_3 = in.q_o,
+                                    .gate_kind = GateKind::Arith,
+                                    .gate_value = 1 });
     this->increment_num_gates();
 }
 
@@ -279,17 +270,15 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_add_gate(const ecc_add_gat
         block.q_1().set(block.size() - 1, q_sign);                            // set q_sign of previous gate
         block.gate_selector_for(GateKind::Elliptic).set(block.size() - 1, 1); // set q_ecc of previous gate to 1
     } else {
-        block.populate_wires(this->zero_idx(), in.x1, in.y1, this->zero_idx());
-        block.q_3().emplace_back(0);
-        block.q_4().emplace_back(0);
-        block.q_5().emplace_back(0);
-        block.q_1().emplace_back(q_sign);
-
-        block.q_2().emplace_back(0);
-        block.q_m().emplace_back(0);
-        block.q_c().emplace_back(0);
-        block.set_gate_selector(1);
-        check_selector_length_consistency();
+        {
+            auto& block_for_row = block;
+            GateRowT row{};
+            row.wires = { this->zero_idx(), in.x1, in.y1, this->zero_idx() };
+            row.q_1 = q_sign;
+            row.gate_kind = GateKind::Elliptic;
+            row.gate_value = 1;
+            block_for_row.append_gate(row);
+        }
         this->increment_num_gates();
     }
     // Create the unconstrained gate with the output of the doubling to be read into by the previous gate via shifts
@@ -330,16 +319,15 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_dbl_gate(const ecc_dbl_gat
         block.gate_selector_for(GateKind::Elliptic).set(block.size() - 1, 1); // set q_ecc of previous gate to 1
         block.q_m().set(block.size() - 1, 1); // set q_m (q_is_double) of previous gate to 1
     } else {
-        block.populate_wires(this->zero_idx(), in.x1, in.y1, this->zero_idx());
-        block.q_m().emplace_back(1);
-        block.q_1().emplace_back(0);
-        block.q_2().emplace_back(0);
-        block.q_3().emplace_back(0);
-        block.q_c().emplace_back(0);
-        block.q_4().emplace_back(0);
-        block.q_5().emplace_back(0);
-        block.set_gate_selector(1);
-        check_selector_length_consistency();
+        {
+            auto& block_for_row = block;
+            GateRowT row{};
+            row.wires = { this->zero_idx(), in.x1, in.y1, this->zero_idx() };
+            row.q_m = 1;
+            row.gate_kind = GateKind::Elliptic;
+            row.gate_value = 1;
+            block_for_row.append_gate(row);
+        }
         this->increment_num_gates();
     }
     // Create the unconstrained gate with the output of the doubling to be read into by the previous gate via shifts
@@ -360,16 +348,11 @@ void UltraCircuitBuilder_<ExecutionTrace>::fix_witness(const uint32_t witness_in
     // Mark as intentionally single-gate for boomerang detection
     update_used_witnesses(witness_index);
 
-    blocks.arithmetic.populate_wires(witness_index, this->zero_idx(), this->zero_idx(), this->zero_idx());
-    blocks.arithmetic.q_m().emplace_back(0);
-    blocks.arithmetic.q_1().emplace_back(1);
-    blocks.arithmetic.q_2().emplace_back(0);
-    blocks.arithmetic.q_3().emplace_back(0);
-    blocks.arithmetic.q_c().emplace_back(-witness_value);
-    blocks.arithmetic.q_4().emplace_back(0);
-    blocks.arithmetic.q_5().emplace_back(0);
-    blocks.arithmetic.set_gate_selector(GateKind::Arith, 1);
-    check_selector_length_consistency();
+    blocks.arithmetic.append_gate({ .wires = { witness_index, this->zero_idx(), this->zero_idx(), this->zero_idx() },
+                                    .q_c = -witness_value,
+                                    .q_1 = 1,
+                                    .gate_kind = GateKind::Arith,
+                                    .gate_value = 1 });
     this->increment_num_gates();
 }
 
@@ -435,17 +418,18 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_lookup_gate(const uint32_t key
 
     table.lookup_gates.emplace_back(entry);
 
-    blocks.lookup.populate_wires(key_idx, val1_idx, val2_idx, this->zero_idx());
-    blocks.lookup.set_gate_selector(1);
-    blocks.lookup.q_3().emplace_back(FF(table.table_index));
-    blocks.lookup.q_2().emplace_back(column_1_step_size);
-    blocks.lookup.q_m().emplace_back(column_2_step_size);
-    blocks.lookup.q_c().emplace_back(column_3_step_size);
-    blocks.lookup.q_1().emplace_back(0);
-    blocks.lookup.q_4().emplace_back(0);
-    blocks.lookup.q_5().emplace_back(0);
-
-    check_selector_length_consistency();
+    {
+        auto& block_for_row = blocks.lookup;
+        GateRowT row{};
+        row.wires = { key_idx, val1_idx, val2_idx, this->zero_idx() };
+        row.gate_kind = GateKind::Lookup;
+        row.gate_value = 1;
+        row.q_m = column_2_step_size;
+        row.q_c = column_3_step_size;
+        row.q_2 = column_1_step_size;
+        row.q_3 = FF(table.table_index);
+        block_for_row.append_gate(row);
+    }
     this->increment_num_gates();
 }
 
@@ -557,7 +541,7 @@ typename UltraCircuitBuilder_<ExecutionTrace>::RangeList UltraCircuitBuilder_<Ex
 
 template <typename ExecutionTrace>
 std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_limbed_range_constraint(
-    const uint32_t variable_index, const uint64_t num_bits, const uint64_t target_range_bitnum, std::string const& msg)
+    const uint32_t variable_index, const uint64_t num_bits, const uint64_t target_range_bitnum, std::string_view msg)
 {
     this->assert_valid_variables({ variable_index });
     // make sure `num_bits` satisfies the correct bounds
@@ -568,7 +552,7 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_limbed_range_
 
     // If the value is out of range, set the CircuitBuilder error to the given msg.
     if (val.get_msb() >= num_bits && !this->failed()) {
-        this->failure(msg);
+        this->failure(std::string(msg));
     }
 
     // compute limb structure
@@ -682,13 +666,13 @@ std::vector<uint32_t> UltraCircuitBuilder_<ExecutionTrace>::create_limbed_range_
 template <typename ExecutionTrace>
 void UltraCircuitBuilder_<ExecutionTrace>::create_small_range_constraint(const uint32_t variable_index,
                                                                          const uint64_t target_range,
-                                                                         std::string const msg)
+                                                                         std::string_view msg)
 {
     // make sure `target_range` is not too big.
     BB_ASSERT_GTE(MAX_SMALL_RANGE_CONSTRAINT_VAL, target_range);
     const bool is_out_of_range = (uint256_t(this->get_variable(variable_index)).data[0] > target_range);
     if (is_out_of_range && !this->failed()) {
-        this->failure(msg);
+        this->failure(std::string(msg));
     }
     if (range_lists.count(target_range) == 0) {
         range_lists.insert({ target_range, create_range_list(target_range) });
@@ -815,19 +799,18 @@ void UltraCircuitBuilder_<ExecutionTrace>::enforce_small_deltas(const std::vecto
     this->assert_valid_variables(variable_indices);
 
     for (size_t i = 0; i < variable_indices.size(); i += gate_width) {
-        blocks.delta_range.populate_wires(
-            variable_indices[i], variable_indices[i + 1], variable_indices[i + 2], variable_indices[i + 3]);
 
         this->increment_num_gates();
-        blocks.delta_range.q_m().emplace_back(0);
-        blocks.delta_range.q_1().emplace_back(0);
-        blocks.delta_range.q_2().emplace_back(0);
-        blocks.delta_range.q_3().emplace_back(0);
-        blocks.delta_range.q_c().emplace_back(0);
-        blocks.delta_range.q_4().emplace_back(0);
-        blocks.delta_range.q_5().emplace_back(0);
-        blocks.delta_range.set_gate_selector(1);
-        check_selector_length_consistency();
+        {
+            auto& block_for_row = blocks.delta_range;
+            GateRowT row{};
+            row.wires = {
+                variable_indices[i], variable_indices[i + 1], variable_indices[i + 2], variable_indices[i + 3]
+            };
+            row.gate_kind = GateKind::DeltaRange;
+            row.gate_value = 1;
+            block_for_row.append_gate(row);
+        }
     }
     // dummy gate needed because of widget's check of next row
     create_unconstrained_gate(blocks.delta_range,
@@ -877,18 +860,17 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint_with_edges(
     // at least two rows.
     for (size_t i = 0; i < variable_indices.size(); i += gate_width) {
 
-        block.populate_wires(
-            variable_indices[i], variable_indices[i + 1], variable_indices[i + 2], variable_indices[i + 3]);
         this->increment_num_gates();
-        block.q_m().emplace_back(0);
-        block.q_1().emplace_back(0);
-        block.q_2().emplace_back(0);
-        block.q_3().emplace_back(0);
-        block.q_c().emplace_back(0);
-        block.q_4().emplace_back(0);
-        block.q_5().emplace_back(0);
-        block.set_gate_selector(1);
-        check_selector_length_consistency();
+        {
+            auto& block_for_row = block;
+            GateRowT row{};
+            row.wires = {
+                variable_indices[i], variable_indices[i + 1], variable_indices[i + 2], variable_indices[i + 3]
+            };
+            row.gate_kind = GateKind::DeltaRange;
+            row.gate_value = 1;
+            block_for_row.append_gate(row);
+        }
     }
 
     // the delta_range constraint has to have access to w_1-shift (it checks that w_1-shift - w_4 is in {0, 1, 2, 3}).
@@ -925,24 +907,20 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_sort_constraint_with_edges(
  * @param type
  */
 template <typename ExecutionTrace>
-void UltraCircuitBuilder_<ExecutionTrace>::apply_memory_selectors(const MEMORY_SELECTORS type)
+typename UltraCircuitBuilder_<ExecutionTrace>::GateRowT UltraCircuitBuilder_<ExecutionTrace>::memory_selectors_row(
+    const MEMORY_SELECTORS type) const
 {
-    auto& block = blocks.memory;
-    block.set_gate_selector(type == MEMORY_SELECTORS::MEM_NONE ? 0 : 1);
+    GateRowT row{};
+    row.gate_kind = GateKind::Memory;
+    row.gate_value = type == MEMORY_SELECTORS::MEM_NONE ? 0 : 1;
     switch (type) {
     case MEMORY_SELECTORS::ROM_CONSISTENCY_CHECK: {
         // Memory read gate used with the sorted list of memory reads.
         // Apply sorted memory read checks with the following additional check:
         // 1. Assert that if index field across two gates does not change, the value field does not change.
         // Used for ROM reads and RAM reads across write/read boundaries
-        block.q_1().emplace_back(1);
-        block.q_2().emplace_back(1);
-        block.q_3().emplace_back(0);
-        block.q_4().emplace_back(0);
-        block.q_5().emplace_back(0);
-        block.q_m().emplace_back(0);
-        block.q_c().emplace_back(0);
-        check_selector_length_consistency();
+        row.q_1 = 1;
+        row.q_2 = 1;
         break;
     }
     case MEMORY_SELECTORS::RAM_CONSISTENCY_CHECK: {
@@ -951,69 +929,41 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_memory_selectors(const MEMORY_S
         // 2. Validate record computation (r = read_write_flag + index * \eta + \timestamp * \eta^2 + value * \eta^3)
         // 3. If adjacent index values across 2 gates does not change, and the next gate's read_write_flag is set to
         // 'read', validate adjacent values do not change Used for ROM reads and RAM reads across read/write boundaries
-        block.q_1().emplace_back(0);
-        block.q_2().emplace_back(0);
-        block.q_3().emplace_back(1);
-        block.q_4().emplace_back(0);
-        block.q_5().emplace_back(0);
-        block.q_m().emplace_back(0);
-        block.q_c().emplace_back(0);
-        check_selector_length_consistency();
+        row.q_3 = 1;
         break;
     }
     case MEMORY_SELECTORS::RAM_TIMESTAMP_CHECK: {
         // For two adjacent RAM entries that share the same index, validate the timestamp value is monotonically
         // increasing
-        block.q_1().emplace_back(1);
-        block.q_2().emplace_back(0);
-        block.q_3().emplace_back(0);
-        block.q_4().emplace_back(1);
-        block.q_5().emplace_back(0);
-        block.q_m().emplace_back(0);
-        block.q_c().emplace_back(0);
-        check_selector_length_consistency();
+        row.q_1 = 1;
+        row.q_4 = 1;
         break;
     }
     case MEMORY_SELECTORS::ROM_READ: {
         // Memory read gate for reading memory cells. Also used for the _initialization_ of ROM memory cells.
         // Validates record witness computation (r = read_write_flag + index * \eta + timestamp * \eta^2 + value *
         // \eta^3)
-        block.q_1().emplace_back(1);
-        block.q_2().emplace_back(0);
-        block.q_3().emplace_back(0);
-        block.q_4().emplace_back(0);
-        block.q_5().emplace_back(0);
-        block.q_m().emplace_back(1); // validate record witness is correctly computed
-        block.q_c().emplace_back(0); // read/write flag stored in q_c
-        check_selector_length_consistency();
+        row.q_1 = 1;
+        row.q_m = 1; // validate record witness is correctly computed
+        // read/write flag stored in q_c
         break;
     }
     case MEMORY_SELECTORS::RAM_READ: {
         // Memory read gate for reading memory cells.
         // Validates record witness computation (r = read_write_flag + index * \eta + timestamp * \eta^2 + value *
         // \eta^3)
-        block.q_1().emplace_back(1);
-        block.q_2().emplace_back(0);
-        block.q_3().emplace_back(0);
-        block.q_4().emplace_back(0);
-        block.q_5().emplace_back(0);
-        block.q_m().emplace_back(1); // validate record witness is correctly computed
-        block.q_c().emplace_back(0); // read/write flag stored in q_c
-        check_selector_length_consistency();
+        row.q_1 = 1;
+        row.q_m = 1; // validate record witness is correctly computed
+        // read/write flag stored in q_c
         break;
     }
     case MEMORY_SELECTORS::RAM_WRITE: {
         // Memory read gate for writing memory cells.
         // Validates record witness computation (r = read_write_flag + index * \eta + timestamp * \eta^2 + value *
         // \eta^3)
-        block.q_1().emplace_back(1);
-        block.q_2().emplace_back(0);
-        block.q_3().emplace_back(0);
-        block.q_4().emplace_back(0);
-        block.q_5().emplace_back(0);
-        block.q_m().emplace_back(1); // validate record witness is correctly computed
-        block.q_c().emplace_back(1); // read/write flag stored in q_c
-        check_selector_length_consistency();
+        row.q_1 = 1;
+        row.q_m = 1; // validate record witness is correctly computed
+        row.q_c = 1; // read/write flag stored in q_c
         break;
     }
     case MEMORY_SELECTORS::ROM_LOGUP_TABLE: {
@@ -1021,14 +971,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_memory_selectors(const MEMORY_S
         // (index, value, multiplicity, inverse) and contributes -m_i * inv to the LogUp sum.
         // Pattern: q_2 = 1 alone (combined with q_1 = 0) uniquely identifies this gate within
         // the q_memory-gated context (ROM_CONSISTENCY_CHECK shares q_2 but also sets q_1).
-        block.q_1().emplace_back(0);
-        block.q_2().emplace_back(1);
-        block.q_3().emplace_back(0);
-        block.q_4().emplace_back(0);
-        block.q_5().emplace_back(0);
-        block.q_m().emplace_back(0);
-        block.q_c().emplace_back(0);
-        check_selector_length_consistency();
+        row.q_2 = 1;
         break;
     }
     case MEMORY_SELECTORS::ROM_LOGUP_READ: {
@@ -1036,28 +979,14 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_memory_selectors(const MEMORY_S
         // (index, value, +1, inverse) and contributes +inv to the LogUp sum.
         // Pattern: q_4 = 1 alone (combined with q_1 = 0) uniquely identifies this gate within
         // the q_memory-gated context (RAM_TIMESTAMP_CHECK shares q_4 but also sets q_1).
-        block.q_1().emplace_back(0);
-        block.q_2().emplace_back(0);
-        block.q_3().emplace_back(0);
-        block.q_4().emplace_back(1);
-        block.q_5().emplace_back(0);
-        block.q_m().emplace_back(0);
-        block.q_c().emplace_back(0);
-        check_selector_length_consistency();
+        row.q_4 = 1;
         break;
     }
     default: {
-        block.q_1().emplace_back(0);
-        block.q_2().emplace_back(0);
-        block.q_3().emplace_back(0);
-        block.q_4().emplace_back(0);
-        block.q_5().emplace_back(0);
-        block.q_m().emplace_back(0);
-        block.q_c().emplace_back(0);
-        check_selector_length_consistency();
         break;
     }
     }
+    return row;
 }
 
 /**
@@ -1084,78 +1013,43 @@ void UltraCircuitBuilder_<ExecutionTrace>::apply_memory_selectors(const MEMORY_S
  * @param type
  */
 template <typename ExecutionTrace>
-void UltraCircuitBuilder_<ExecutionTrace>::apply_nnf_selectors(const NNF_SELECTORS type)
+typename UltraCircuitBuilder_<ExecutionTrace>::GateRowT UltraCircuitBuilder_<ExecutionTrace>::nnf_selectors_row(
+    const NNF_SELECTORS type) const
 {
-    auto& block = blocks.nnf;
-    block.set_gate_selector(type == NNF_SELECTORS::NNF_NONE ? 0 : 1);
+    GateRowT row{};
+    row.gate_kind = GateKind::Nnf;
+    row.gate_value = type == NNF_SELECTORS::NNF_NONE ? 0 : 1;
     switch (type) {
     case NNF_SELECTORS::LIMB_ACCUMULATE_1: {
-        block.q_1().emplace_back(0);
-        block.q_2().emplace_back(0);
-        block.q_3().emplace_back(1);
-        block.q_4().emplace_back(1);
-        block.q_5().emplace_back(0);
-        block.q_m().emplace_back(0);
-        block.q_c().emplace_back(0);
-        check_selector_length_consistency();
+        row.q_3 = 1;
+        row.q_4 = 1;
         break;
     }
     case NNF_SELECTORS::LIMB_ACCUMULATE_2: {
-        block.q_1().emplace_back(0);
-        block.q_2().emplace_back(0);
-        block.q_3().emplace_back(1);
-        block.q_4().emplace_back(0);
-        block.q_5().emplace_back(0);
-        block.q_m().emplace_back(1);
-        block.q_c().emplace_back(0);
-        check_selector_length_consistency();
+        row.q_3 = 1;
+        row.q_m = 1;
         break;
     }
     case NNF_SELECTORS::NON_NATIVE_FIELD_1: {
-        block.q_1().emplace_back(0);
-        block.q_2().emplace_back(1);
-        block.q_3().emplace_back(1);
-        block.q_4().emplace_back(0);
-        block.q_5().emplace_back(0);
-        block.q_m().emplace_back(0);
-        block.q_c().emplace_back(0);
-        check_selector_length_consistency();
+        row.q_2 = 1;
+        row.q_3 = 1;
         break;
     }
     case NNF_SELECTORS::NON_NATIVE_FIELD_2: {
-        block.q_1().emplace_back(0);
-        block.q_2().emplace_back(1);
-        block.q_3().emplace_back(0);
-        block.q_4().emplace_back(1);
-        block.q_5().emplace_back(0);
-        block.q_m().emplace_back(0);
-        block.q_c().emplace_back(0);
-        check_selector_length_consistency();
+        row.q_2 = 1;
+        row.q_4 = 1;
         break;
     }
     case NNF_SELECTORS::NON_NATIVE_FIELD_3: {
-        block.q_1().emplace_back(0);
-        block.q_2().emplace_back(1);
-        block.q_3().emplace_back(0);
-        block.q_4().emplace_back(0);
-        block.q_5().emplace_back(0);
-        block.q_m().emplace_back(1);
-        block.q_c().emplace_back(0);
-        check_selector_length_consistency();
+        row.q_2 = 1;
+        row.q_m = 1;
         break;
     }
     default: {
-        block.q_1().emplace_back(0);
-        block.q_2().emplace_back(0);
-        block.q_3().emplace_back(0);
-        block.q_4().emplace_back(0);
-        block.q_5().emplace_back(0);
-        block.q_m().emplace_back(0);
-        block.q_c().emplace_back(0);
-        check_selector_length_consistency();
         break;
     }
     }
+    return row;
 }
 
 /**
@@ -1173,7 +1067,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::range_constrain_two_limbs(const uint3
                                                                      const uint32_t hi_idx,
                                                                      const size_t lo_limb_bits,
                                                                      const size_t hi_limb_bits,
-                                                                     std::string const& msg)
+                                                                     std::string_view msg)
 {
     // Validate limbs are <= 70 bits. If limbs are larger we require more witnesses and cannot use our limb accumulation
     // custom gate
@@ -1183,11 +1077,11 @@ void UltraCircuitBuilder_<ExecutionTrace>::range_constrain_two_limbs(const uint3
     // If the value is larger than the range, we log the error in builder
     const bool is_lo_out_of_range = (uint256_t(this->get_variable(lo_idx)) >= (uint256_t(1) << lo_limb_bits));
     if (is_lo_out_of_range && !this->failed()) {
-        this->failure(msg + ": lo limb.");
+        this->failure(std::string(msg) + ": lo limb.");
     }
     const bool is_hi_out_of_range = (uint256_t(this->get_variable(hi_idx)) >= (uint256_t(1) << hi_limb_bits));
     if (is_hi_out_of_range && !this->failed()) {
-        this->failure(msg + ": hi limb.");
+        this->failure(std::string(msg) + ": hi limb.");
     }
 
     // Sometimes we try to use limbs that are too large. It's easier to catch this issue here
@@ -1229,13 +1123,21 @@ void UltraCircuitBuilder_<ExecutionTrace>::range_constrain_two_limbs(const uint3
     const std::array<uint32_t, 5> lo_sublimbs = get_sublimbs(lo_idx, lo_masks);
     const std::array<uint32_t, 5> hi_sublimbs = get_sublimbs(hi_idx, hi_masks);
 
-    blocks.nnf.populate_wires(lo_sublimbs[0], lo_sublimbs[1], lo_sublimbs[2], lo_idx);
-    blocks.nnf.populate_wires(lo_sublimbs[3], lo_sublimbs[4], hi_sublimbs[0], hi_sublimbs[1]);
-    blocks.nnf.populate_wires(hi_sublimbs[2], hi_sublimbs[3], hi_sublimbs[4], hi_idx);
-
-    apply_nnf_selectors(NNF_SELECTORS::LIMB_ACCUMULATE_1);
-    apply_nnf_selectors(NNF_SELECTORS::LIMB_ACCUMULATE_2);
-    apply_nnf_selectors(NNF_SELECTORS::NNF_NONE);
+    {
+        auto row = nnf_selectors_row(NNF_SELECTORS::LIMB_ACCUMULATE_1);
+        row.wires = { lo_sublimbs[0], lo_sublimbs[1], lo_sublimbs[2], lo_idx };
+        blocks.nnf.append_gate(row);
+    }
+    {
+        auto row = nnf_selectors_row(NNF_SELECTORS::LIMB_ACCUMULATE_2);
+        row.wires = { lo_sublimbs[3], lo_sublimbs[4], hi_sublimbs[0], hi_sublimbs[1] };
+        blocks.nnf.append_gate(row);
+    }
+    {
+        auto row = nnf_selectors_row(NNF_SELECTORS::NNF_NONE);
+        row.wires = { hi_sublimbs[2], hi_sublimbs[3], hi_sublimbs[4], hi_idx };
+        blocks.nnf.append_gate(row);
+    }
     this->increment_num_gates(3);
 
     for (size_t i = 0; i < 5; i++) {
@@ -1345,8 +1247,11 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     // Constraint: lo_0 = (a1 * b0 + a0 * b1) * 2^b  +  (a0 * b0) - r0
     //              w4 = (w1 * w'2 + w'1 * w2) * 2^b + (w'1 * w'2) - w3
     //
-    blocks.nnf.populate_wires(input.a[1], input.b[1], input.r[0], lo_0_idx);
-    apply_nnf_selectors(NNF_SELECTORS::NON_NATIVE_FIELD_1);
+    {
+        auto row = nnf_selectors_row(NNF_SELECTORS::NON_NATIVE_FIELD_1);
+        row.wires = { input.a[1], input.b[1], input.r[0], lo_0_idx };
+        blocks.nnf.append_gate(row);
+    }
     this->increment_num_gates();
 
     //
@@ -1360,8 +1265,11 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     // Constraint: hi_0 = (a0 * b3 + a3 * b0 - r3) * 2^b + (a0 * b2 + a2 * b0)
     //             w'4 = (w1 * w4 + w2 * w3 - w'3) * 2^b + (w1 * w'2 + w'1 * w2)
     //
-    blocks.nnf.populate_wires(input.a[0], input.b[0], input.a[3], input.b[3]);
-    apply_nnf_selectors(NNF_SELECTORS::NON_NATIVE_FIELD_2);
+    {
+        auto row = nnf_selectors_row(NNF_SELECTORS::NON_NATIVE_FIELD_2);
+        row.wires = { input.a[0], input.b[0], input.a[3], input.b[3] };
+        blocks.nnf.append_gate(row);
+    }
     this->increment_num_gates();
 
     //
@@ -1375,16 +1283,22 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     // Constraint: hi_1 = hi_0 + (a2 * b1 + a1 * b2) * 2^b + (a1 * b1) - r2
     //             w'4 = w4 + (w1 * w'2 + w'1 * w2) * 2^b + (w'1 * w'2) - w'3
     //
-    blocks.nnf.populate_wires(input.a[2], input.b[2], input.r[3], hi_0_idx);
-    apply_nnf_selectors(NNF_SELECTORS::NON_NATIVE_FIELD_3);
+    {
+        auto row = nnf_selectors_row(NNF_SELECTORS::NON_NATIVE_FIELD_3);
+        row.wires = { input.a[2], input.b[2], input.r[3], hi_0_idx };
+        blocks.nnf.append_gate(row);
+    }
     this->increment_num_gates();
 
     //
     // Gate 6: NNF gate with no constraints (q_nnf=0, truly unconstrained)
     // Provides values a[1], b[1], r[2], hi_1 to Gate 5 via shifts (w'1, w'2, w'3, w'4)
     //
-    blocks.nnf.populate_wires(input.a[1], input.b[1], input.r[2], hi_1_idx);
-    apply_nnf_selectors(NNF_SELECTORS::NNF_NONE);
+    {
+        auto row = nnf_selectors_row(NNF_SELECTORS::NNF_NONE);
+        row.wires = { input.a[1], input.b[1], input.r[2], hi_1_idx };
+        blocks.nnf.append_gate(row);
+    }
     this->increment_num_gates();
 
     //
@@ -1446,20 +1360,32 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
     // iterate over the cached items and create constraints
     for (const auto& input : cached_partial_non_native_field_multiplications) {
 
-        blocks.nnf.populate_wires(input.a[1], input.b[1], this->zero_idx(), input.lo_0);
-        apply_nnf_selectors(NNF_SELECTORS::NON_NATIVE_FIELD_1);
+        {
+            auto row = nnf_selectors_row(NNF_SELECTORS::NON_NATIVE_FIELD_1);
+            row.wires = { input.a[1], input.b[1], this->zero_idx(), input.lo_0 };
+            blocks.nnf.append_gate(row);
+        }
         this->increment_num_gates();
 
-        blocks.nnf.populate_wires(input.a[0], input.b[0], input.a[3], input.b[3]);
-        apply_nnf_selectors(NNF_SELECTORS::NON_NATIVE_FIELD_2);
+        {
+            auto row = nnf_selectors_row(NNF_SELECTORS::NON_NATIVE_FIELD_2);
+            row.wires = { input.a[0], input.b[0], input.a[3], input.b[3] };
+            blocks.nnf.append_gate(row);
+        }
         this->increment_num_gates();
 
-        blocks.nnf.populate_wires(input.a[2], input.b[2], this->zero_idx(), input.hi_0);
-        apply_nnf_selectors(NNF_SELECTORS::NON_NATIVE_FIELD_3);
+        {
+            auto row = nnf_selectors_row(NNF_SELECTORS::NON_NATIVE_FIELD_3);
+            row.wires = { input.a[2], input.b[2], this->zero_idx(), input.hi_0 };
+            blocks.nnf.append_gate(row);
+        }
         this->increment_num_gates();
 
-        blocks.nnf.populate_wires(input.a[1], input.b[1], this->zero_idx(), input.hi_1);
-        apply_nnf_selectors(NNF_SELECTORS::NNF_NONE);
+        {
+            auto row = nnf_selectors_row(NNF_SELECTORS::NNF_NONE);
+            row.wires = { input.a[1], input.b[1], this->zero_idx(), input.hi_1 };
+            blocks.nnf.append_gate(row);
+        }
         this->increment_num_gates();
     }
 }
@@ -1582,52 +1508,61 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
      *   Row 3: x.3 * x_mulconst.3 + y.3 * y_mulconst.3 - z.3 + addconst.3 = 0 (q_1*w_1 + q_2*w_2 + q_3*w_3 + q_c = 0)
      **/
     auto& block = blocks.arithmetic;
-    block.populate_wires(y_p, x_0, y_0, x_p);
-    block.populate_wires(z_p, x_1, y_1, z_0);
-    block.populate_wires(x_2, y_2, z_2, z_1);
-    block.populate_wires(x_3, y_3, z_3, this->zero_idx());
 
     // When q_arith == 3, w_4_shift is scaled by 2 (see ArithmeticRelation for details). Therefore, for consistency we
     // also scale each linear term by this factor of 2 so that the constraint is effectively:
     //      (q_l * w_1) + (q_r * w_2) + (q_o * w_3) + (q_4 * w_4) + q_c + w_4_shift = 0
     const FF linear_term_scale_factor = 2;
-    block.q_m().emplace_back(addconstp);
-    block.q_1().emplace_back(0);
-    block.q_2().emplace_back(-x_mulconst0 * linear_term_scale_factor);
-    block.q_3().emplace_back(-y_mulconst0 * linear_term_scale_factor);
-    block.q_4().emplace_back(0);
-    block.q_5().emplace_back(0);
-    block.q_c().emplace_back(-addconst0 * linear_term_scale_factor);
-    block.set_gate_selector(GateKind::Arith, 3);
+    {
+        auto& block_for_row = block;
+        GateRowT row{};
+        row.wires = { y_p, x_0, y_0, x_p };
+        row.q_m = addconstp;
+        row.q_c = -addconst0 * linear_term_scale_factor;
+        row.q_2 = -x_mulconst0 * linear_term_scale_factor;
+        row.q_3 = -y_mulconst0 * linear_term_scale_factor;
+        row.gate_kind = GateKind::Arith;
+        row.gate_value = 3;
+        block_for_row.append_gate(row);
+    }
 
-    block.q_m().emplace_back(0);
-    block.q_1().emplace_back(0);
-    block.q_2().emplace_back(-x_mulconst1);
-    block.q_3().emplace_back(-y_mulconst1);
-    block.q_4().emplace_back(0);
-    block.q_5().emplace_back(0);
-    block.q_c().emplace_back(-addconst1);
-    block.set_gate_selector(GateKind::Arith, 2);
+    {
+        auto& block_for_row = block;
+        GateRowT row{};
+        row.wires = { z_p, x_1, y_1, z_0 };
+        row.q_c = -addconst1;
+        row.q_2 = -x_mulconst1;
+        row.q_3 = -y_mulconst1;
+        row.gate_kind = GateKind::Arith;
+        row.gate_value = 2;
+        block_for_row.append_gate(row);
+    }
 
-    block.q_m().emplace_back(0);
-    block.q_1().emplace_back(-x_mulconst2);
-    block.q_2().emplace_back(-y_mulconst2);
-    block.q_3().emplace_back(1);
-    block.q_4().emplace_back(0);
-    block.q_5().emplace_back(0);
-    block.q_c().emplace_back(-addconst2);
-    block.set_gate_selector(GateKind::Arith, 1);
+    {
+        auto& block_for_row = block;
+        GateRowT row{};
+        row.wires = { x_2, y_2, z_2, z_1 };
+        row.q_c = -addconst2;
+        row.q_1 = -x_mulconst2;
+        row.q_2 = -y_mulconst2;
+        row.q_3 = 1;
+        row.gate_kind = GateKind::Arith;
+        row.gate_value = 1;
+        block_for_row.append_gate(row);
+    }
 
-    block.q_m().emplace_back(0);
-    block.q_1().emplace_back(-x_mulconst3);
-    block.q_2().emplace_back(-y_mulconst3);
-    block.q_3().emplace_back(1);
-    block.q_4().emplace_back(0);
-    block.q_5().emplace_back(0);
-    block.q_c().emplace_back(-addconst3);
-    block.set_gate_selector(GateKind::Arith, 1);
-
-    check_selector_length_consistency();
+    {
+        auto& block_for_row = block;
+        GateRowT row{};
+        row.wires = { x_3, y_3, z_3, this->zero_idx() };
+        row.q_c = -addconst3;
+        row.q_1 = -x_mulconst3;
+        row.q_2 = -y_mulconst3;
+        row.q_3 = 1;
+        row.gate_kind = GateKind::Arith;
+        row.gate_value = 1;
+        block_for_row.append_gate(row);
+    }
 
     this->increment_num_gates(4);
     return std::array<uint32_t, 5>{
@@ -1711,52 +1646,61 @@ std::array<uint32_t, 5> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
      *   Row 3: x.3 * x_mulconst.3 - y.3 * y_mulconst.3 - z.3 + addconst.3 = 0 (q_1*w_1 + q_2*w_2 + q_3*w_3 + q_c = 0)
      **/
     auto& block = blocks.arithmetic;
-    block.populate_wires(y_p, x_0, y_0, z_p);
-    block.populate_wires(x_p, x_1, y_1, z_0);
-    block.populate_wires(x_2, y_2, z_2, z_1);
-    block.populate_wires(x_3, y_3, z_3, this->zero_idx());
 
     // When q_arith == 3, w_4_shift is scaled by 2 (see ArithmeticRelation for details). Therefore, for consistency we
     // also scale each linear term by this factor of 2 so that the constraint is effectively:
     //      (q_l * w_1) + (q_r * w_2) + (q_o * w_3) + (q_4 * w_4) + q_c + w_4_shift = 0
     const FF linear_term_scale_factor = 2;
-    block.q_m().emplace_back(-addconstp);
-    block.q_1().emplace_back(0);
-    block.q_2().emplace_back(-x_mulconst0 * linear_term_scale_factor);
-    block.q_3().emplace_back(y_mulconst0 * linear_term_scale_factor);
-    block.q_4().emplace_back(0);
-    block.q_5().emplace_back(0);
-    block.q_c().emplace_back(-addconst0 * linear_term_scale_factor);
-    block.set_gate_selector(GateKind::Arith, 3);
+    {
+        auto& block_for_row = block;
+        GateRowT row{};
+        row.wires = { y_p, x_0, y_0, z_p };
+        row.q_m = -addconstp;
+        row.q_c = -addconst0 * linear_term_scale_factor;
+        row.q_2 = -x_mulconst0 * linear_term_scale_factor;
+        row.q_3 = y_mulconst0 * linear_term_scale_factor;
+        row.gate_kind = GateKind::Arith;
+        row.gate_value = 3;
+        block_for_row.append_gate(row);
+    }
 
-    block.q_m().emplace_back(0);
-    block.q_1().emplace_back(0);
-    block.q_2().emplace_back(-x_mulconst1);
-    block.q_3().emplace_back(y_mulconst1);
-    block.q_4().emplace_back(0);
-    block.q_5().emplace_back(0);
-    block.q_c().emplace_back(-addconst1);
-    block.set_gate_selector(GateKind::Arith, 2);
+    {
+        auto& block_for_row = block;
+        GateRowT row{};
+        row.wires = { x_p, x_1, y_1, z_0 };
+        row.q_c = -addconst1;
+        row.q_2 = -x_mulconst1;
+        row.q_3 = y_mulconst1;
+        row.gate_kind = GateKind::Arith;
+        row.gate_value = 2;
+        block_for_row.append_gate(row);
+    }
 
-    block.q_m().emplace_back(0);
-    block.q_1().emplace_back(-x_mulconst2);
-    block.q_2().emplace_back(y_mulconst2);
-    block.q_3().emplace_back(1);
-    block.q_4().emplace_back(0);
-    block.q_5().emplace_back(0);
-    block.q_c().emplace_back(-addconst2);
-    block.set_gate_selector(GateKind::Arith, 1);
+    {
+        auto& block_for_row = block;
+        GateRowT row{};
+        row.wires = { x_2, y_2, z_2, z_1 };
+        row.q_c = -addconst2;
+        row.q_1 = -x_mulconst2;
+        row.q_2 = y_mulconst2;
+        row.q_3 = 1;
+        row.gate_kind = GateKind::Arith;
+        row.gate_value = 1;
+        block_for_row.append_gate(row);
+    }
 
-    block.q_m().emplace_back(0);
-    block.q_1().emplace_back(-x_mulconst3);
-    block.q_2().emplace_back(y_mulconst3);
-    block.q_3().emplace_back(1);
-    block.q_4().emplace_back(0);
-    block.q_5().emplace_back(0);
-    block.q_c().emplace_back(-addconst3);
-    block.set_gate_selector(GateKind::Arith, 1);
-
-    check_selector_length_consistency();
+    {
+        auto& block_for_row = block;
+        GateRowT row{};
+        row.wires = { x_3, y_3, z_3, this->zero_idx() };
+        row.q_c = -addconst3;
+        row.q_1 = -x_mulconst3;
+        row.q_2 = y_mulconst3;
+        row.q_3 = 1;
+        row.gate_kind = GateKind::Arith;
+        row.gate_value = 1;
+        block_for_row.append_gate(row);
+    }
 
     this->increment_num_gates(4);
     return std::array<uint32_t, 5>{
@@ -1898,16 +1842,13 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_external_gate(const poseidon2_ex
 {
     if constexpr (requires { this->blocks.poseidon2_external; }) {
         auto& block = this->blocks.poseidon2_external;
-        block.populate_wires(in.a, in.b, in.c, in.d);
-        block.q_m().emplace_back(0);
-        block.q_1().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0]);
-        block.q_2().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][1]);
-        block.q_3().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][2]);
-        block.q_c().emplace_back(0);
-        block.q_4().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][3]);
-        block.q_5().emplace_back(0);
-        block.set_gate_selector(GateKind::Poseidon2Ext, 1);
-        this->check_selector_length_consistency();
+        block.append_gate({ .wires = { in.a, in.b, in.c, in.d },
+                            .q_1 = crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0],
+                            .q_2 = crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][1],
+                            .q_3 = crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][2],
+                            .q_4 = crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][3],
+                            .gate_kind = GateKind::Poseidon2Ext,
+                            .gate_value = 1 });
         this->increment_num_gates();
     } else {
         throw_or_abort("create_poseidon2_external_gate base is Ultra-only (Mega overrides into its poseidon2 block)");
@@ -1923,16 +1864,15 @@ void UltraCircuitBuilder_<FF>::create_poseidon2_internal_gate(const poseidon2_in
 {
     if constexpr (requires { this->blocks.poseidon2_internal; }) {
         auto& block = this->blocks.poseidon2_internal;
-        block.populate_wires(in.a, in.b, in.c, in.d);
-        block.q_m().emplace_back(0);
-        block.q_1().emplace_back(crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0]);
-        block.q_2().emplace_back(0);
-        block.q_3().emplace_back(0);
-        block.q_c().emplace_back(0);
-        block.q_4().emplace_back(0);
-        block.q_5().emplace_back(0);
-        block.set_gate_selector(1);
-        this->check_selector_length_consistency();
+        {
+            auto& block_for_row = block;
+            GateRowT row{};
+            row.wires = { in.a, in.b, in.c, in.d };
+            row.q_1 = crypto::Poseidon2Bn254ScalarFieldParams::round_constants[in.round_idx][0];
+            row.gate_kind = GateKind::Poseidon2Int;
+            row.gate_value = 1;
+            block_for_row.append_gate(row);
+        }
         this->increment_num_gates();
     } else {
         throw_or_abort("create_poseidon2_internal_gate is Ultra-only (Mega uses the compressed block)");

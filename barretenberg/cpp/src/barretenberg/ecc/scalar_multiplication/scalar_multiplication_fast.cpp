@@ -61,9 +61,7 @@ template <typename AffineElement>
 {
     static_assert(sizeof(AffineElement) == 64, "copy_affine64 requires 64-byte affine point");
     static_assert(std::is_trivially_copyable_v<AffineElement>,
-                  "AffineElement must be trivially copyable for memcpy / SIMD bulk copy "
-                  "(also required by the bulk std::memcpy of reduce_chunk output into "
-                  "ThreadScratch::window_pts in recursive_affine_bucket_reduce_strided's caller)");
+                  "AffineElement must be trivially copyable for memcpy / SIMD bulk copy");
 #ifdef __wasm_simd128__
     const auto* s = reinterpret_cast<const v128_t*>(&src);
     auto* d = reinterpret_cast<v128_t*>(&dst);
@@ -144,9 +142,6 @@ inline void record_msb(int msb, uint8_t& dst, std::array<uint32_t, 256>& th_hist
     ++th_hist[static_cast<size_t>(msb) + 1];
 }
 
-/**
- * @brief Build a uniform window schedule.
- */
 // `AffineBucketChunkInfo` is defined in `pippenger_arena_layout.hpp` (included above).
 
 /**
@@ -166,8 +161,8 @@ template <typename Curve> struct ThreadScratch {
     // reduce_chunk's tree-reduce buffer. Per level the inner loop walks with a read cursor
     // `i` and a write cursor `next_len ≤ i`, compacting in-place; the next level re-enters
     // the same buffer without a swap.
-    // it does not make sense to store `curr_pts` in packed form because of the structure of the algorithm; we walk
-    // through marchstep with curr_buckets and perform conditional operations if the digits are the same.
+    // curr_pts is kept in AoS (not SIMD-packed): tree_reduce_in_place walks it alongside curr_buckets,
+    // pairing entries conditionally when their digits match — which a packed layout can't index cheaply.
     std::span<AffineElement> curr_pts;
     std::span<uint32_t> curr_buckets;
 
@@ -193,14 +188,15 @@ template <typename Curve> struct ThreadScratch {
     size_t overflow_len = 0;
 
     // Recursive affine bucket reduction scratch (cross-window batched, sparse-aware).
-    //   `dense_buckets` holds W chunks worth of dense AffineElement arrays back-to-back.
-    //       Layout: dense_buckets[w * affine_bucket_stride + i] for window w and 0-indexed slot i.
+    //   `dense_buckets` holds W chunks worth of dense bucket points back-to-back, in column (SoA) form
+    //       so the Stage 6b reduction gathers/scatters coordinates with VectorField::gather/scatter.
+    //       Layout: dense_buckets.{x,y}[w * affine_bucket_stride + i] for window w and 0-indexed slot i.
     //   `is_present` is a parallel uint8_t array marking non-identity slots (0 = empty, 1 = present).
     //   `affine_bucket_pairs` is the scratch buffer for the real-pairs list (single pass: filtered
     //       inline as candidates are generated, no intermediate candidate buffer).
     //   `affine_bucket_indices` is the scratch index buffer for the doubling kernel.
     //   `affine_bucket_inversion_scratch` is reused for the indexed batch-affine kernels.
-    std::span<AffineElement> dense_buckets;
+    bb::AffineColumnSpan<BaseField> dense_buckets;
     std::span<uint8_t> is_present;
     std::span<std::pair<uint32_t, uint32_t>> affine_bucket_pairs;
     std::span<uint32_t> affine_bucket_indices;
@@ -302,6 +298,12 @@ template <typename Curve> void tree_reduce_in_place(ThreadScratch<Curve>& s, siz
 {
     size_t curr_len = initial_len;
 
+    // The drain spans (lhs/rhs) are scratch shared with the Stage-6b reduction, which leaves a non-zero
+    // cursor behind. The drain trigger below tracks a local pair_count, not the span cursor, so without
+    // this reset a prior 6b fill would make push() accumulate past capacity (and batch-add stale points).
+    s.lhs.reset();
+    s.rhs.reset();
+
     while (true) {
         size_t i = 0;
         size_t next_len = 0;
@@ -391,8 +393,9 @@ void merge_overflow(ThreadScratch<Curve>& s, typename Curve::AffineElement* dst_
 }
 
 /**
- * @brief Tree-reduce one thread's bucket-aligned slice of the bucket-partitioned schedule,
- *        emitting directly into `curr_pts / curr_buckets` for the caller's running-sum pass.
+ * @brief Tree-reduce one thread's bucket-aligned slice of the bucket-partitioned schedule into the
+ *        deduplicated (point, digit) list in `curr_pts / curr_buckets`, which the caller scatters into
+ *        its per-thread dense bucket buffer.
  */
 template <typename Curve>
 void reduce_chunk(ThreadScratch<Curve>& s,
@@ -450,11 +453,8 @@ void reduce_chunk(ThreadScratch<Curve>& s,
             const uint32_t raw_idx = e & SCHEDULE_INDEX_MASK;
             const bool neg = (e & SCHEDULE_SIGN_BIT) != 0;
             s.curr_buckets[valid_len] = bucket_u32;
-            // SIMD-widened gather: 4 × v128.load on WASM (2× faster than the
-            // default 8 × i64.load struct copy on V8 TurboFan); 4 × movdqu on
-            // native (already optimal). The conditional negation runs after the
-            // copy because Fq::operator-() is a modular subtract, not a bit flip,
-            // so it can't be folded into the SIMD load lanes.
+            // Gather via copy_affine64. The conditional negation runs after the copy because
+            // Fq::operator-() is a modular subtract, not a bit flip, so it can't fold into the load.
             auto& dst_pt = s.curr_pts[valid_len];
             // Dedup redirect: if the redirect bit is set, fetch from the dedup
             // extra-points buffer (combined point for a cluster of duplicate scalars)
@@ -492,11 +492,8 @@ void reduce_chunk(ThreadScratch<Curve>& s,
 
 /**
  * @brief Inline filter for one (dst, src) candidate pair, called from each phase's
- *        candidate-emission loop. Replaces the previous two-pass `filter_and_batch_add`
- *        function (which gathered all candidates into a buffer and then filtered into a
- *        real-pairs buffer): the inline version handles each candidate as it's generated,
- *        so we never materialise the candidate buffer at all. Single memory pass per phase
- *        iter, half the buffer scratch.
+ *        candidate-emission loop. Each candidate is handled as it is generated — no candidate
+ *        buffer is materialised, so this is one memory pass per phase iter.
  *
  * Identity / coincidence cases per candidate (handled inline, no batch dispatch):
  *   - src is identity: skip entirely (dst unchanged).
@@ -506,11 +503,12 @@ void reduce_chunk(ThreadScratch<Curve>& s,
  *   - dst and src are inverses (same x, opposite y): result is identity; clear dst.
  * Otherwise emits a "real pair" to `real_pairs[*real_count]` for later batch-affine dispatch.
  *
- * Caller is responsible for invoking `batch_affine_add_indexed_impl` once on the accumulated
- * `real_pairs` array after the candidate-emission loop completes.
+ * Caller is responsible for invoking `batch_affine_add_indexed_scalar` / `_packed` once on the
+ * accumulated `real_pairs` array after the candidate-emission loop completes.
  */
 template <typename Curve>
-[[gnu::always_inline]] inline void try_filter_pair(typename Curve::AffineElement* buckets,
+[[gnu::always_inline]] inline void try_filter_pair(typename Curve::BaseField* dense_x,
+                                                   typename Curve::BaseField* dense_y,
                                                    uint8_t* is_present,
                                                    uint32_t dst_idx,
                                                    uint32_t src_idx,
@@ -524,22 +522,25 @@ template <typename Curve>
         return; // src is identity → no-op
     }
     if (is_present[dst_idx] == 0) {
-        buckets[dst_idx] = buckets[src_idx]; // dst was identity → just copy
+        dense_x[dst_idx] = dense_x[src_idx]; // dst was identity → just copy
+        dense_y[dst_idx] = dense_y[src_idx];
         is_present[dst_idx] = 1;
         return;
     }
     // Edge case: dst.x == src.x. Since both points are on-curve, this means either
     // dst == src (doubling case) or dst == -src (inverse case, result is identity).
-    // batch_affine_add_indexed_impl would invert zero here, so handle out-of-band.
-    if (buckets[dst_idx].x == buckets[src_idx].x) {
-        if (buckets[dst_idx].y == buckets[src_idx].y) {
+    // The batch add would invert zero here, so handle out-of-band.
+    if (dense_x[dst_idx] == dense_x[src_idx]) {
+        if (dense_y[dst_idx] == dense_y[src_idx]) {
             // dst == src → result is 2 * dst.
-            Element doubled = Element(buckets[dst_idx]);
+            Element doubled = Element(AffineElement(dense_x[dst_idx], dense_y[dst_idx]));
             doubled.self_dbl();
-            buckets[dst_idx] = AffineElement{ doubled };
+            const AffineElement r{ doubled };
+            dense_x[dst_idx] = r.x;
+            dense_y[dst_idx] = r.y;
         } else {
-            // dst == -src → result is identity.
-            buckets[dst_idx].self_set_infinity();
+            // dst == -src → result is identity. is_present[dst]=0 makes the slot skipped; an absent
+            // slot's coordinates are never read, so they need not be cleared.
             is_present[dst_idx] = 0;
         }
         return;
@@ -550,7 +551,7 @@ template <typename Curve>
 /**
  * @brief Inline filter for one doubling candidate. If the slot is populated, append its
  *        index to `real_indices`; otherwise skip silently. The caller invokes
- *        `batch_affine_double_indexed_impl` on the accumulated `real_indices` array.
+ *        `batch_affine_double_indexed_scalar` / `_packed` on the accumulated `real_indices` array.
  */
 [[gnu::always_inline]] inline void try_filter_idx(const uint8_t* is_present,
                                                   uint32_t idx,
@@ -595,19 +596,20 @@ template <typename Curve>
  *                            written in place.
  *
  * @note Caller must have densified buckets at `s.dense_buckets[w*stride + i]`, set
- *       is_present[w*stride + i] for populated slots, and called
- *       s.ensure_affine_bucket_capacity(windows_in_batch, stride) with
- *       stride = max_w(buckets_padded_w).
+ *       is_present[w*stride + i] for populated slots, and set `s.affine_bucket_stride` to the
+ *       layout width used for densification (a power of two ≥ max_w(buckets_padded_w)).
  */
 template <typename Curve>
 void recursive_affine_bucket_reduce_strided(ThreadScratch<Curve>& s,
                                             const AffineBucketChunkInfo* chunk_infos,
                                             size_t windows_in_batch,
                                             ChunkOutput<Curve>* outputs_base,
-                                            size_t output_stride) noexcept
+                                            size_t output_stride,
+                                            bool single_threaded) noexcept
 {
     using AffineElement = typename Curve::AffineElement;
     using Element = typename Curve::Element;
+    using BaseField = typename Curve::BaseField;
 
     auto out_at = [outputs_base, output_stride](size_t w) -> ChunkOutput<Curve>& {
         return outputs_base[w * output_stride];
@@ -617,8 +619,8 @@ void recursive_affine_bucket_reduce_strided(ThreadScratch<Curve>& s,
         return;
     }
 
-    // Stride is the caller's pre-sized layout width (`s.affine_bucket_stride`, set via
-    // `ensure_affine_bucket_capacity`). The densification step in the caller scattered buckets at
+    // Stride is the caller's pre-sized layout width (`s.affine_bucket_stride`, set by
+    // pippenger_round_parallel when carving the arena). The densification step in the caller scattered buckets at
     // `w * s.affine_bucket_stride + i`, so we MUST use the same value for our own indexing — any
     // re-derivation that disagrees with the layout would index neighbouring windows. The
     // pre-size already enforces `stride ≥ max_w(buckets_padded_w)` AND `stride ≥ 2` AND
@@ -641,7 +643,8 @@ void recursive_affine_bucket_reduce_strided(ThreadScratch<Curve>& s,
         return;
     }
 
-    AffineElement* const buckets = s.dense_buckets.data();
+    BaseField* const dense_x = s.dense_buckets.x.data();
+    BaseField* const dense_y = s.dense_buckets.y.data();
     uint8_t* const is_present = s.is_present.data();
 
     // Pick L0 (the leaf-partition size). c0 = floor(log2(stride) / 2)
@@ -667,10 +670,11 @@ void recursive_affine_bucket_reduce_strided(ThreadScratch<Curve>& s,
                 if (is_present[base + i] == 0) {
                     continue;
                 }
-                R += Element(buckets[base + i]);
-                L += Element(buckets[base + i]); // weight 1
+                const Element pt = Element(AffineElement(dense_x[base + i], dense_y[base + i]));
+                R += pt;
+                L += pt; // weight 1
                 if (i == 1) {
-                    L += Element(buckets[base + i]); // weight 2 for i=1
+                    L += pt; // weight 2 for i=1
                 }
             }
             out_at(w).R = R;
@@ -695,7 +699,46 @@ void recursive_affine_bucket_reduce_strided(ThreadScratch<Curve>& s,
 
     auto* const reals = s.affine_bucket_pairs.data();
     auto* const dbl_reals = s.affine_bucket_indices.data();
-    auto* const inv_scratch = s.affine_bucket_inversion_scratch.data();
+    [[maybe_unused]] auto* const inv_scratch = s.affine_bucket_inversion_scratch.data();
+
+    // SIMD dispatch for the batched affine kernels. On a WASM-SIMD build the Phase A/B/D adds and
+    // Phase C doublings run W lanes at a time via the packed wrappers (gathering SoA columns into the
+    // now-free Stage-6a drain scratch); otherwise they run the scalar twins. Packed Stage-6b is gated by
+    // the explicit `single_threaded` flag (set by the caller from num_threads), not inferred from
+    // output_stride: SIMD-6b only pays when the reduce dominates the MSM (single-threaded), whereas under
+    // MT the reduce is a memory-bound sliver and the packed gather/scatter bridge outweighs the arithmetic
+    // saving. See stage6_simd_findings.md.
+    using BaseParams = typename BaseField::Params;
+    constexpr bool simd_compiled = bb::simd_available_v<BaseParams>;
+    [[maybe_unused]] const bool use_packed = single_threaded;
+    auto batched_add = [&](size_t count) {
+        if constexpr (simd_compiled) {
+            if (use_packed) {
+                bb::group_elements::batch_affine_add_indexed_packed(
+                    s.dense_buckets, reals, count, s.lhs, s.rhs, s.out, s.add_scratch);
+                return;
+            }
+        }
+        bb::group_elements::batch_affine_add_indexed_scalar(s.dense_buckets, reals, count, inv_scratch);
+    };
+    auto batched_double = [&](size_t count) {
+        if constexpr (simd_compiled) {
+            if (use_packed) {
+                // Reuse the Stage-6a packed-drain backing: `in` over lhs, `out` over rhs, double scratch
+                // over the add scratch's dx / dy / inv runs (xsum is unused by doubling).
+                bb::VectorAffineElementPushSpan<BaseParams> in{ s.lhs.x.vector_fields, s.lhs.y.vector_fields };
+                bb::VectorAffineElementPushSpan<BaseParams> out{ s.rhs.x.vector_fields, s.rhs.y.vector_fields };
+                bb::group_elements::BatchAffineDoubleScratch<BaseParams> dsc{
+                    bb::VectorFieldPushSpan<BaseParams>(s.add_scratch.dx.vector_fields),
+                    bb::VectorFieldPushSpan<BaseParams>(s.add_scratch.dy.vector_fields),
+                    bb::VectorFieldPushSpan<BaseParams>(s.add_scratch.inv.vector_fields)
+                };
+                bb::group_elements::batch_affine_double_indexed_packed(s.dense_buckets, dbl_reals, count, in, out, dsc);
+                return;
+            }
+        }
+        bb::group_elements::batch_affine_double_indexed_scalar(s.dense_buckets, dbl_reals, count, inv_scratch);
+    };
 
     // Phase A: per-sub-partition running-sum (suffix sums).
     // For each window w and each sub-partition d, walk slots from L0-1 down to 1 within the
@@ -719,20 +762,18 @@ void recursive_affine_bucket_reduce_strided(ThreadScratch<Curve>& s,
                     }
                     const uint32_t src = static_cast<uint32_t>(base + l);
                     const uint32_t dst = static_cast<uint32_t>(base + l - 1);
-                    try_filter_pair<Curve>(buckets, is_present, dst, src, reals, real_count);
+                    try_filter_pair<Curve>(dense_x, dense_y, is_present, dst, src, reals, real_count);
                 } else {
                     const size_t my_D = my_M_w >> c0; // ≥ 1
                     for (size_t d = 0; d < my_D; ++d) {
                         const uint32_t src = static_cast<uint32_t>(base + (d * L0) + l);
                         const uint32_t dst = static_cast<uint32_t>(base + (d * L0) + l - 1);
-                        try_filter_pair<Curve>(buckets, is_present, dst, src, reals, real_count);
+                        try_filter_pair<Curve>(dense_x, dense_y, is_present, dst, src, reals, real_count);
                     }
                 }
             }
             if (real_count > 0) {
-                bb::group_elements::batch_affine_add_indexed_impl<typename Curve::AffineElement,
-                                                                  typename Curve::BaseField>(
-                    buckets, reals, real_count, inv_scratch);
+                batched_add(real_count);
             }
         }
     }
@@ -761,13 +802,11 @@ void recursive_affine_bucket_reduce_strided(ThreadScratch<Curve>& s,
                 for (size_t d = 0; d < num_pairs_w; ++d) {
                     const uint32_t dst = static_cast<uint32_t>(base + ((2 * d) * L1));
                     const uint32_t src = static_cast<uint32_t>(base + (((2 * d) + 1) * L1));
-                    try_filter_pair<Curve>(buckets, is_present, dst, src, reals, real_count);
+                    try_filter_pair<Curve>(dense_x, dense_y, is_present, dst, src, reals, real_count);
                 }
             }
             if (real_count > 0) {
-                bb::group_elements::batch_affine_add_indexed_impl<typename Curve::AffineElement,
-                                                                  typename Curve::BaseField>(
-                    buckets, reals, real_count, inv_scratch);
+                batched_add(real_count);
             }
             L1 *= 2;
         }
@@ -780,11 +819,10 @@ void recursive_affine_bucket_reduce_strided(ThreadScratch<Curve>& s,
             out_at(w).R = Curve::Group::point_at_infinity;
             continue;
         }
-        const AffineElement& slot0 = buckets[w * stride];
         if (is_present[w * stride] == 0) {
             out_at(w).R = Curve::Group::point_at_infinity;
         } else {
-            out_at(w).R = Element(slot0);
+            out_at(w).R = Element(AffineElement(dense_x[w * stride], dense_y[w * stride]));
         }
     }
 
@@ -810,9 +848,7 @@ void recursive_affine_bucket_reduce_strided(ThreadScratch<Curve>& s,
         // c0 chained doublings on the same real list.
         if (real_count > 0) {
             for (size_t j = 0; j < c0; ++j) {
-                bb::group_elements::batch_affine_double_indexed_impl<typename Curve::AffineElement,
-                                                                     typename Curve::BaseField>(
-                    buckets, dbl_reals, real_count, inv_scratch);
+                batched_double(real_count);
             }
         }
     }
@@ -837,9 +873,7 @@ void recursive_affine_bucket_reduce_strided(ThreadScratch<Curve>& s,
                 }
             }
             if (real_count > 0) {
-                bb::group_elements::batch_affine_double_indexed_impl<typename Curve::AffineElement,
-                                                                     typename Curve::BaseField>(
-                    buckets, dbl_reals, real_count, inv_scratch);
+                batched_double(real_count);
             }
             L1 *= 2;
         }
@@ -871,7 +905,8 @@ void recursive_affine_bucket_reduce_strided(ThreadScratch<Curve>& s,
             }
             const size_t base = w * stride;
             for (size_t pos = 0; pos + m < my_M; pos += step) {
-                try_filter_pair<Curve>(buckets,
+                try_filter_pair<Curve>(dense_x,
+                                       dense_y,
                                        is_present,
                                        static_cast<uint32_t>(base + pos),
                                        static_cast<uint32_t>(base + pos + m),
@@ -880,8 +915,7 @@ void recursive_affine_bucket_reduce_strided(ThreadScratch<Curve>& s,
             }
         }
         if (real_count > 0) {
-            bb::group_elements::batch_affine_add_indexed_impl<typename Curve::AffineElement, typename Curve::BaseField>(
-                buckets, reals, real_count, inv_scratch);
+            batched_add(real_count);
         }
         m *= 2;
     }
@@ -905,7 +939,7 @@ void recursive_affine_bucket_reduce_strided(ThreadScratch<Curve>& s,
         const size_t live_step = m; // distance between live slots after the affine phase
         for (size_t pos = 0; pos < my_M; pos += live_step) {
             if (is_present[base + pos] != 0) {
-                L += Element(buckets[base + pos]);
+                L += Element(AffineElement(dense_x[base + pos], dense_y[base + pos]));
             }
         }
         out_at(w).L = L;
@@ -1036,16 +1070,9 @@ template <typename Curve>
     const uint32_t last_round_bits =
         static_cast<uint32_t>(NUM_BITS - (static_cast<size_t>(num_rounds - 1) * window_bits));
 
-    // Each thread owns a num_buckets-sized scratch slice and runs num_rounds passes; below
-    // ~256 points per thread the parallel_for wakeup + per-call bucket reset dominate.
-    // wasm is forced single-threaded — its barrier cost is much higher than native.
-#ifdef __wasm__
-    constexpr size_t MIN_PTS_PER_THREAD_DEFAULT = SIZE_MAX;
-#else
-    constexpr size_t MIN_PTS_PER_THREAD_DEFAULT = 256;
-#endif
+    // Cap the worker count so each gets at least MSM_MIN_PTS_PER_THREAD points.
     const size_t MIN_PTS_PER_THREAD =
-        (min_pts_per_thread_override == 0) ? MIN_PTS_PER_THREAD_DEFAULT : min_pts_per_thread_override;
+        (min_pts_per_thread_override == 0) ? MSM_MIN_PTS_PER_THREAD : min_pts_per_thread_override;
     const size_t hw_threads = max_threads == 0 ? get_num_cpus() : std::min(max_threads, get_num_cpus());
     size_t num_threads = std::min(std::max<size_t>(1, n / MIN_PTS_PER_THREAD), hw_threads);
     if (num_threads == 0) {
@@ -1259,9 +1286,8 @@ size_t compute_arena_bytes_for_msm(size_t n_input,
 
     // wpb fallback when fixed_overhead has eaten the BATCH_MEM_BUDGET headroom: the inline
     // `solve_wpb` in `pippenger_round_parallel` returns `W_R` (the whole region) — running
-    // every window in a single batch — when `available_budget == 0`. Previously the sizer
-    // returned `wpb = 1` and relied on a `worst_case_arena = BATCH_MEM_BUDGET + 32K` floor;
-    // that floor failed for large num_threads where fixed_overhead alone exceeds the budget.
+    // every window in a single batch — when `available_budget == 0`. This keeps the sizer correct
+    // for large num_threads, where fixed_overhead alone can exceed the budget.
     const size_t available_budget_outer =
         (BATCH_MEM_BUDGET > fixed_overhead) ? (BATCH_MEM_BUDGET - fixed_overhead) : size_t{ 0 };
     const size_t windows_per_batch =
@@ -1589,8 +1615,7 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
         round_parallel_detail::choose_window_bits(n_for_window, effective_num_bits, n_input, num_logical_threads_for_c);
     const size_t num_buckets = (size_t{ 1 } << (window_bits - 1)) + 1;
 
-    // Schedule-based dedup state. The two arrays are allocated from the per-MSM_fast arena
-    // *from the arena after Phase 1.
+    // Schedule-based dedup state, allocated from the per-MSM arena after Phase 1.
     // Until then, both spans are empty.
     // Lifetimes:
     //   redirect_lookup  — written by Phase A; read by Stage 4b's dedup_patch_schedule per batch
@@ -1599,9 +1624,8 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     // when this function returns).
     round_parallel_detail::DedupResult<Curve> dedup_state;
 
-    // Variable-window split was removed from the production path after Chonk traces showed
-    // it regressing this rewrite. Keep the schedule uniform and run one region over all
-    // non-zero scalars.
+    // The schedule is uniform: one region over all non-zero scalars. (The variable-window split
+    // codepath remains as scaffolding but is not split here.)
     const auto sched = round_parallel_detail::build_window_schedule(effective_num_bits, window_bits);
     BB_ASSERT_LTE(sched.num_windows,
                   round_parallel_detail::MAX_SCHEDULE_WINDOWS,
@@ -1877,7 +1901,9 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
         };
         const size_t dense_total = windows_per_batch * dense_stride_est;
         const size_t dense_pair_max = dense_total / 2;
-        s.dense_buckets = ts_tail_alloc.template operator()<AffineElement>(dense_total);
+        auto dense_x = ts_tail_alloc.template operator()<BaseField>(dense_total);
+        auto dense_y = ts_tail_alloc.template operator()<BaseField>(dense_total);
+        s.dense_buckets = bb::AffineColumnSpan<BaseField>{ dense_x, dense_y };
         s.is_present = ts_tail_alloc.template operator()<uint8_t>(dense_total);
         s.affine_bucket_pairs = ts_tail_alloc.template operator()<std::pair<uint32_t, uint32_t>>(dense_pair_max);
         s.affine_bucket_indices = ts_tail_alloc.template operator()<uint32_t>(dense_pair_max);
@@ -1899,18 +1925,16 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
     // H dies before O is born (Stage 4 cursor advance ends before Stage 6b first writes
     // chunk_outputs / window_partial_sums).
     //
-    // D-class (bucket_partials_dense + bucket_partials_present) previously overlaid this
-    // slot too, but a 10× interleaved WASM Chonk bench showed Stage 6a regressed +1.29%
-    // (t=+58) because of L1 cache aliasing on the `dense[slot]/present[slot]` scatter
-    // writes when D sat at the HIST-overlaid offset. D-class now has its own dedicated
-    // Zone-S DENSE slot below — see "DENSE slot" comment block.
+    // D-class (bucket_partials_dense + bucket_partials_present) lives in its own dedicated Zone-S
+    // DENSE slot (below), not overlaid on this HIST slot: overlaying aliases the
+    // `dense[slot]/present[slot]` scatter writes in L1. See the "DENSE slot" comment block for the
+    // measured Stage-6a regression.
     //
     // Phase 4: `digit_cursors` is dual-role within epoch H. After Stage 1 it holds
     // per-(w, t) counts of digit d; Stage 2 walks each (w, d) column from t = 0..T-1
     // reading the count from slot k and writing back the exclusive prefix-sum offset
     // (the count is consumed into `running` BEFORE the slot is overwritten, so the
-    // in-place transform is mathematically identical to the previous out-of-place
-    // version). Stage 4 then advances each (w, t) slice as a per-thread cursor.
+    // in-place transform is correct). Stage 4 then advances each (w, t) slice as a per-thread cursor.
     // Strict aliasing: every access goes through a std::span<T> obtained by
     //   reinterpret_cast<T*>(hist_slot.data() + offset)
     // which is well-defined because std::byte is allowed by [basic.lval] to alias any
@@ -2637,7 +2661,6 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
             }
             return p;
         };
-        // Drives reduce_chunk's per-thread tree-reduce buffer sizing.
         size_t max_chunk_len = 0;
         for (size_t t = 0; t < num_threads; ++t) {
             for (size_t w = 0; w < windows_in_batch; ++w) {
@@ -2650,8 +2673,8 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
             }
         }
 
-        // global_stride drives the per-thread `dense_buckets` layout (sized via
-        // `ensure_affine_bucket_capacity` below). Stage 6a writes its per-thread bucket
+        // global_stride drives the per-thread `dense_buckets` layout (assigned to each thread's
+        // `affine_bucket_stride` below). Stage 6a writes its per-thread bucket
         // partials into `bucket_partials_dense` (a separate buffer packed via
         // `bucket_partials_offsets`, no power-of-two stride); Stage 6b copies them into
         // `s.dense_buckets` keyed by Stage 6b's uniform bucket-index slice of width
@@ -2871,16 +2894,21 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
                             }
                             const size_t dst_slot = base + (d - lo_d);
                             if (s.is_present[dst_slot] == 0) {
-                                s.dense_buckets[dst_slot] = src_dense[src_slot];
+                                // src_dense is the AoS Stage-6a partials; transpose into the SoA columns.
+                                s.dense_buckets.x[dst_slot] = src_dense[src_slot].x;
+                                s.dense_buckets.y[dst_slot] = src_dense[src_slot].y;
                                 s.is_present[dst_slot] = 1;
                             } else {
                                 // Boundary digit shared between two consecutive originals
                                 // — projective add then re-normalise to affine. Under the
                                 // contiguous-by-schedule-index partition there are at most
                                 // W boundary points per task.
-                                Element acc = Element(s.dense_buckets[dst_slot]);
+                                Element acc =
+                                    Element(AffineElement(s.dense_buckets.x[dst_slot], s.dense_buckets.y[dst_slot]));
                                 acc += Element(src_dense[src_slot]);
-                                s.dense_buckets[dst_slot] = AffineElement(acc);
+                                const AffineElement merged(acc);
+                                s.dense_buckets.x[dst_slot] = merged.x;
+                                s.dense_buckets.y[dst_slot] = merged.y;
                             }
                             has_data = true;
                         }
@@ -2910,8 +2938,13 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
                     return;
                 }
 
-                round_parallel_detail::recursive_affine_bucket_reduce_strided<Curve>(
-                    s, s.chunk_infos.data(), windows_in_batch, chunk_outputs.data() + tprime, num_threads);
+                round_parallel_detail::recursive_affine_bucket_reduce_strided<Curve>(s,
+                                                                                     s.chunk_infos.data(),
+                                                                                     windows_in_batch,
+                                                                                     chunk_outputs.data() + tprime,
+                                                                                     num_threads,
+                                                                                     /*single_threaded=*/num_threads ==
+                                                                                         1);
 
                 for (size_t w = 0; w < windows_in_batch; ++w) {
                     auto& out = chunk_outputs[(w * num_threads) + tprime];
@@ -2951,7 +2984,6 @@ typename Curve::Element pippenger_round_parallel(PolynomialSpan<const typename C
         }
     };
 
-    // Uniform-schedule dispatch over all windows.
     {
         const size_t B_R = (size_t{ 1 } << (window_bits - 1)) + 1;
         for (size_t batch_start = 0; batch_start < sched.num_windows; batch_start += windows_per_batch) {

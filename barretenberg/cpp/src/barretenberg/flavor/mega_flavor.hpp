@@ -8,6 +8,7 @@
 
 #include "barretenberg/commitment_schemes/kzg/kzg.hpp"
 #include "barretenberg/flavor/flavor.hpp"
+#include "barretenberg/flavor/flavor_concepts.hpp"
 #include "barretenberg/flavor/generated/mega_flavor_generated.hpp"
 #include "barretenberg/flavor/partially_evaluated_multivariates.hpp"
 #include "barretenberg/flavor/prover_polynomials.hpp"
@@ -44,6 +45,8 @@ class MegaFlavor : public MegaFlavor_Generated {
     static constexpr size_t VIRTUAL_LOG_N = CONST_FOLDING_LOG_N;
     // indicates when evaluating sumcheck, edges can be left as degree-1 monomials
     static constexpr bool USE_SHORT_MONOMIALS = true;
+    // opt in to the row-parallel (SIMD) sumcheck path; see SupportsSimdSumcheck in flavor_concepts.hpp
+    static constexpr bool USE_SIMD_SUMCHECK = true;
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = false;
     // To achieve fixed proof size and that the recursive verifier circuit is constant, we are using padding in Sumcheck
@@ -84,6 +87,9 @@ class MegaFlavor : public MegaFlavor_Generated {
      * at one point.
      */
     using AllValues = AllEntities<FF>;
+
+    static_assert(gemini_masking_layout_consistent<MegaFlavor>(),
+                  "MegaFlavor gemini masking flag must match its entity layout");
 
     /**
      * @brief A container for the prover polynomials handles.

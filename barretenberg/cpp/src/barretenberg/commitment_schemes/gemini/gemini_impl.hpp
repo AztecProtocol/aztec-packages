@@ -70,10 +70,11 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
     // Construct the d-1 Gemini foldings of A₀(X)
     std::vector<Polynomial> fold_polynomials = compute_fold_polynomials(log_n, multilinear_challenge, A_0);
 
-    // If virtual_log_n >= log_n, pad the fold commitments with dummy group elements [1]_1.
+    // Commit to the virtual_log_n - 1 fold polynomials. When virtual_log_n > log_n, the trailing fold polynomials
+    // for the virtual rounds were appended as constant polynomials by compute_fold_polynomials; their commitments
+    // contribute nothing to the Shplonk quotient and are zeroed by the verifier.
     for (size_t l = 0; l < virtual_log_n - 1; l++) {
         std::string label = "Gemini:FOLD_" + std::to_string(l + 1);
-        // Virtual-round fold polynomials are constant; their commitments are zeroed by the verifier.
         transcript->send_to_verifier(label, commitment_key.commit(fold_polynomials[l]));
     }
     const Fr r_challenge = transcript->template get_challenge<Fr>("Gemini:r");
@@ -125,7 +126,7 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
     // At minimum, the disabled head region must be covered (masking values live at rows 1..3).
     size_t actual_size = std::max(A_0.end_index(), static_cast<size_t>(NUM_DISABLED_ROWS_IN_SUMCHECK));
 
-    // Reserve and allocate space for m-1 Fold polynomials, the foldings of the full batched polynomial A₀
+    // Reserve space for the virtual_log_n - 1 Fold polynomials, the foldings of the full batched polynomial A₀
     std::vector<Polynomial> fold_polynomials;
     fold_polynomials.reserve(virtual_log_n - 1);
     for (size_t l = 0; l < log_n - 1; ++l) {
@@ -183,7 +184,7 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
     const Fr final_eval = last.at(0) + u_last * (last.at(1) - last.at(0));
     Polynomial const_fold(1);
     const_fold.at(0) = final_eval;
-    fold_polynomials.emplace_back(const_fold);
+    fold_polynomials.emplace_back(std::move(const_fold));
 
     // FOLD_{log_n+1}, ..., FOLD_{d_v-1}
     Fr tail = Fr(1);
@@ -191,7 +192,7 @@ std::vector<typename GeminiProver_<Curve>::Polynomial> GeminiProver_<Curve>::com
         tail *= (Fr(1) - multilinear_challenge[k]); // multiply by (1 - u_k)
         Polynomial next_const(1);
         next_const.at(0) = final_eval * tail;
-        fold_polynomials.emplace_back(next_const);
+        fold_polynomials.emplace_back(std::move(next_const));
     }
 
     return fold_polynomials;
@@ -227,6 +228,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::construc
     const Fr& r_challenge)
 {
     std::vector<Claim> claims;
+    claims.reserve(log_n + 1);
 
     // Compute evaluation of partially evaluated batch polynomial (positive) A₀₊(r)
     Fr a_0_pos = A_0_pos.evaluate(r_challenge);

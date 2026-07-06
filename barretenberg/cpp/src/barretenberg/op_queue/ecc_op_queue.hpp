@@ -43,8 +43,31 @@ class ECCOpQueue {
     static constexpr size_t ULTRA_TABLE_WIDTH = UltraEccOpsTable::TABLE_WIDTH;
     Point point_at_infinity = Curve::Group::affine_point_at_infinity;
 
-    // The operations written to the queue are also performed natively; the result is stored in accumulator
-    Point accumulator = point_at_infinity;
+    // The operations written to the queue are also performed natively; the result is stored in accumulator.
+    // The accumulator is kept in jacobian form and scalar muls are deferred and evaluated as a batch on read:
+    // evaluating each mul eagerly on an affine accumulator costs a full scalar mul plus a normalization
+    // (field inversion) per op.
+    Curve::Element accumulator = Curve::Element::infinity();
+    std::vector<Point> deferred_mul_points;
+    std::vector<Fr> deferred_mul_scalars;
+
+    // Fold the deferred scalar muls into the accumulator via a single batched MSM.
+    void flush_deferred_muls()
+    {
+        if (deferred_mul_points.empty()) {
+            return;
+        }
+        accumulator += Curve::Element::straus_msm(deferred_mul_points, deferred_mul_scalars);
+        deferred_mul_points.clear();
+        deferred_mul_scalars.clear();
+    }
+
+    void reset_accumulator()
+    {
+        accumulator.self_set_infinity();
+        deferred_mul_points.clear();
+        deferred_mul_scalars.clear();
+    }
 
     EccvmOpsTable eccvm_ops_table;    // table of ops in the ECCVM format
     UltraEccOpsTable ultra_ops_table; // table of ops in the Ultra-arithmetization format
@@ -236,10 +259,14 @@ class ECCOpQueue {
     void empty_row_for_testing()
     {
         append_eccvm_op(ECCVMOperation{ .base_point = point_at_infinity });
-        accumulator.self_set_infinity();
+        reset_accumulator();
     }
 
-    Point get_accumulator() { return accumulator; }
+    Point get_accumulator()
+    {
+        flush_deferred_muls();
+        return Point(accumulator);
+    }
 
     /**
      * @brief Write point addition op to queue and natively perform addition
@@ -249,7 +276,7 @@ class ECCOpQueue {
     UltraOp add_accumulate(const Point& to_add)
     {
         // Update the accumulator natively
-        accumulator = accumulator + to_add;
+        accumulator += to_add;
         EccOpCode op_code{ .add = true };
         // Store the eccvm operation
         append_eccvm_op(ECCVMOperation{ .op_code = op_code, .base_point = to_add });
@@ -266,8 +293,10 @@ class ECCOpQueue {
     UltraOp mul_accumulate(const Point& to_mul, const Fr& scalar)
     {
         BB_BENCH_NAME("ECCOpQueue::mul_accumulate");
-        // Update the accumulator natively
-        accumulator = accumulator + to_mul * scalar;
+        // Defer the native accumulator update; the buffered muls are folded in as a batch when the
+        // accumulator is next read (see flush_deferred_muls).
+        deferred_mul_points.push_back(to_mul);
+        deferred_mul_scalars.push_back(scalar);
         EccOpCode op_code{ .mul = true };
 
         // Construct and store the operation in the ultra op format
@@ -328,8 +357,8 @@ class ECCOpQueue {
      */
     UltraOp eq_and_reset()
     {
-        auto expected = accumulator;
-        accumulator.self_set_infinity();
+        const Point expected = get_accumulator();
+        reset_accumulator();
         EccOpCode op_code{ .eq = true, .reset = true };
         // Store eccvm operation
         append_eccvm_op(ECCVMOperation{ .op_code = op_code, .base_point = expected });

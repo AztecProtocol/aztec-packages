@@ -91,8 +91,6 @@ class ECCVMRecursiveFlavor {
     // Proof type for recursive verification
     using Proof = stdlib::Proof<CircuitBuilder>;
 
-    using VKAndHash = VKAndHash_<VerificationKey, FF>;
-
 }; // NOLINTEND(cppcoreguidelines-avoid-const-or-ref-data-members)
 
 } // namespace bb

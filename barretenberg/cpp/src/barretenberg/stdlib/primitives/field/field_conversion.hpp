@@ -277,7 +277,7 @@ template <typename Field> class StdlibCodec {
 
             std::vector<field_ct> fr_vec_x = serialize_to_fields<BaseField>(val.x());
             std::vector<field_ct> fr_vec_y = serialize_to_fields<BaseField>(val.y());
-            std::vector<field_ct> fr_vec(fr_vec_x.begin(), fr_vec_x.end());
+            std::vector<field_ct> fr_vec = std::move(fr_vec_x);
             fr_vec.insert(fr_vec.end(), fr_vec_y.begin(), fr_vec_y.end());
             return fr_vec;
         } else {

@@ -68,6 +68,16 @@ concept isMultilinearBatchingFlavor = IsMultilinearBatchingFlavorImpl<T>::value 
 // flavors that don't declare the flag default to the serial loop.
 template <typename T> concept ParallelizesRelationBatching = requires { requires T::PARALLELIZE_RELATION_BATCHING; };
 
+// Sumcheck-prover opt-in: a flavor declares USE_SIMD_SUMCHECK = true to route compute_univariate through the
+// row-parallel SimdLane, which packs several trace rows into each SIMD lane and evaluates the relation set with
+// VectorField as the element type. Flavors that don't declare the flag default to the scalar lane. Requires a
+// Relations_<T> template so the relation set can re-instantiate over the lane element. Whether the SIMD path is
+// actually taken is gated at dispatch on simd_available_v<FF::Params> (build target + field capability), so on
+// native or non-SIMD fields these flavors still run scalar; see SumcheckProverRound::compute_univariate.
+template <typename T>
+concept SupportsSimdSumcheck =
+    requires { requires T::USE_SIMD_SUMCHECK; } && requires { typename T::template Relations_<typename T::FF>; };
+
 // Short-monomial flavors that expose the codegen'd array layout -- a `Generated` member (the generated
 // relation/entity definitions) together with an EntityId-keyed ProverUnivariates -- i.e. native Ultra/Mega.
 // The sumcheck prover materializes their edges lazily per column. ECCVM/Translator are short-monomial but lack the
@@ -105,6 +115,22 @@ constexpr bool flavor_has_gemini_masking()
     } else {
         return Flavor::HasZK;
     }
+}
+
+// Whether a flavor's entity layout actually carries a gemini_masking_poly column.
+template <typename Flavor>
+constexpr bool flavor_entities_have_gemini_masking()
+{
+    return requires(typename Flavor::AllValues values) { values.gemini_masking_poly(); };
+}
+
+// The masking invariant: the advertised flag must match the real entity layout. A flavor that
+// declares Gemini masking (via HasGeminiMasking / HasZK) must actually carry the gemini_masking_poly
+// column, and vice versa.
+template <typename Flavor>
+constexpr bool gemini_masking_layout_consistent()
+{
+    return flavor_has_gemini_masking<Flavor>() == flavor_entities_have_gemini_masking<Flavor>();
 }
 
 // clang-format on

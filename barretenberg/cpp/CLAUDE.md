@@ -97,6 +97,8 @@ These are load-bearing: violating them will compile on native but break WASM, or
 
 **IMPORTANT**: In the barretenberg context, "bench" or "benchmark" almost always means running `benchmark_remote.sh` for the given target on a remote benchmarking machine.
 
+**Never benchmark against test binaries (`*_tests`) — the results will always be wrong.** Test circuits are small mocks whose cost profile does not resemble real proving workloads. Benchmark against real inputs: the pinned Chonk flows (`scripts/chonk_inputs.sh download`, then `bb prove --scheme chonk --ivc_inputs_path chonk-pinned-flows/<flow>/ivc-inputs.msgpack`) or the dedicated `*_bench` targets.
+
 To run benchmarks for a specific target:
 ```bash
 cd barretenberg/cpp
@@ -196,7 +198,7 @@ For bb.js, run:
 
 ```bash
 barretenberg/cpp/scripts/chonk_inputs.sh download
-barretenberg/ts/bb.js/scripts/run_test.sh bbapi/chonk_pinned_inputs.test.js
+barretenberg/ts/scripts/run_test.sh bbapi/chonk_pinned_inputs.test.js
 ```
 
 Typical workflow
