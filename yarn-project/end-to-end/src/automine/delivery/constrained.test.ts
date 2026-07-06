@@ -162,9 +162,6 @@ describe('delivery/constrained', () => {
 describe('delivery/constrained: rejects unsound sources', () => {
   jest.setTimeout(300_000);
 
-  // An unconstrained (arbitrary) secret cannot back constrained delivery, so the circuit rejects the send. This pins
-  // the PXE -> circuit soundness boundary that the PXE deliberately delegates to the circuit. The secret value is
-  // irrelevant to the rejection, so a fresh point per hook call is fine and no recipient registration is needed.
   it('rejects a constrained send backed by an arbitrary secret', async () => {
     const {
       teardown,
