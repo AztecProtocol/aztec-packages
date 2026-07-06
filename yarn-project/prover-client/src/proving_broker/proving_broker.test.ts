@@ -219,6 +219,61 @@ describe.each([
       await assertJobStatus(id, 'rejected');
     });
 
+    it('re-enqueues a job that was previously aborted', async () => {
+      const provingJob: ProvingJob = {
+        id: makeRandomProvingJobId(),
+        type: ProvingRequestType.PARITY_BASE,
+        epochNumber: EpochNumber(1),
+        inputsUri: makeInputsUri(),
+      };
+
+      await broker.enqueueProvingJob(provingJob);
+      await broker.cancelProvingJob(provingJob.id);
+      await assertJobStatus(provingJob.id, 'rejected');
+
+      // Enqueuing the same job again after an abort must re-run it rather than return the
+      // stale aborted status. Otherwise a single abort poisons the job id forever and blocks
+      // the whole epoch from being proven.
+      await expect(broker.enqueueProvingJob(provingJob)).resolves.toEqual({ status: 'not-found' });
+      await assertJobStatus(provingJob.id, 'in-queue');
+
+      // and the re-enqueued job can be picked up and completed successfully
+      const returnedJob = await broker.getProvingJob({ allowList: [ProvingRequestType.PARITY_BASE] });
+      expect(returnedJob?.job).toEqual(provingJob);
+
+      const value = makeOutputsUri();
+      await broker.reportProvingJobSuccess(provingJob.id, value);
+      await assertJobStatus(provingJob.id, 'fulfilled');
+    });
+
+    it('does not let an abort survive a broker restart', async () => {
+      const provingJob: ProvingJob = {
+        id: makeRandomProvingJobId(),
+        type: ProvingRequestType.PARITY_BASE,
+        epochNumber: EpochNumber(1),
+        inputsUri: makeInputsUri(),
+      };
+
+      await broker.enqueueProvingJob(provingJob);
+      await broker.cancelProvingJob(provingJob.id);
+      await assertJobStatus(provingJob.id, 'rejected');
+
+      // restart the broker
+      await broker.stop();
+      broker = new ProvingBroker(database, {
+        proverBrokerJobTimeoutMs: jobTimeoutMs,
+        proverBrokerPollIntervalMs: brokerIntervalMs,
+        proverBrokerJobMaxRetries: maxRetries,
+        proverBrokerMaxEpochsToKeepResultsFor: 1,
+        proverBrokerDebugReplayEnabled: false,
+      });
+      await broker.start();
+
+      // the aborted job must not be restored as a settled rejection: it should be pending
+      // again so the epoch can still be proven after the restart.
+      await assertJobStatus(provingJob.id, 'in-queue');
+    });
+
     it('returns job result if successful', async () => {
       const provingJob: ProvingJob = {
         id: makeRandomProvingJobId(),
