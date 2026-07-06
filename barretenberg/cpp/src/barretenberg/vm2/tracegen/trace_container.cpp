@@ -3,11 +3,8 @@
 #include <algorithm>
 
 #include "barretenberg/common/assert.hpp"
-<<<<<<< HEAD
-=======
 #include "barretenberg/common/compiler_hints.hpp"
 #include "barretenberg/common/log.hpp"
->>>>>>> origin/public-next
 #include "barretenberg/common/ref_vector.hpp"
 #include "barretenberg/vm2/tracegen/lib/trace_conversion.hpp"
 
@@ -16,8 +13,6 @@ namespace {
 
 // We need a zero value to return (a reference to) when a value is not found.
 const FF zero = FF::zero();
-<<<<<<< HEAD
-=======
 
 // Writes each 64-bit limb of the field with a relaxed atomic store. Each limb is naturally aligned (FF is
 // alignas(32), 4x uint64_t), so this lowers to 4 plain `movq` stores on x86-64 — no lock, no libatomic call
@@ -30,7 +25,6 @@ inline void store_per_limb(FF& cell, const FF& value)
         std::atomic_ref<uint64_t>(cell.data[i]).store(value.data[i], std::memory_order_relaxed);
     }
 }
->>>>>>> origin/public-next
 
 } // namespace
 
@@ -101,15 +95,11 @@ void TraceContainer::set(Column col, uint32_t row, const FF& value, bool use_ato
         // materialized (an unset cell already reads as zero).
         ColumnInterval* shard = column_data.slots[shard_idx].load(std::memory_order_acquire);
         if (shard != nullptr) {
-<<<<<<< HEAD
-            shard->rows[offset] = zero;
-=======
             if (BB_UNLIKELY(use_atomic_limbs)) {
                 store_per_limb(shard->rows[offset], zero);
             } else {
-                shard->rows[offset] = FF::zero();
+                shard->rows[offset] = zero;
             }
->>>>>>> origin/public-next
         }
     }
 }
