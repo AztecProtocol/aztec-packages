@@ -621,6 +621,26 @@ export class BlockStore {
     return checkpoints;
   }
 
+  /**
+   * Returns up to `limit` checkpoints anchored at `fromSlot`, ordered nearest-first, walking the slot index.
+   * With `reverse`, takes the checkpoints at or before `fromSlot` (descending by slot); otherwise the
+   * checkpoints at or after it (ascending). `limit: 1, reverse: true` yields the latest checkpoint at or
+   * before the slot in a single range scan.
+   */
+  async getCheckpointsBySlot(fromSlot: SlotNumber, limit: number, reverse: boolean): Promise<CheckpointData[]> {
+    // The KV range bounds are direction-dependent: forward is [start, end), reverse is (start, end], so a
+    // reverse scan uses `end: fromSlot` (inclusive) with no +1 to include the checkpoint at fromSlot itself.
+    const range = reverse ? { end: fromSlot, reverse: true, limit } : { start: fromSlot, limit };
+    const result: CheckpointData[] = [];
+    for await (const [, checkpointNumber] of this.#slotToCheckpoint.entriesAsync(range)) {
+      const checkpointStorage = await this.#checkpoints.getAsync(checkpointNumber);
+      if (checkpointStorage) {
+        result.push(this.checkpointDataFromCheckpointStorage(checkpointStorage));
+      }
+    }
+    return result;
+  }
+
   /** Returns checkpoint data for all checkpoints whose slot falls within the given range (inclusive). */
   async getCheckpointDataForSlotRange(startSlot: SlotNumber, endSlot: SlotNumber): Promise<CheckpointData[]> {
     const result: CheckpointData[] = [];

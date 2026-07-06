@@ -282,6 +282,11 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toEqual([]);
   });
 
+  it('getCheckpointsData (fromSlot)', async () => {
+    const response = await context.client.getCheckpointsData({ fromSlot: SlotNumber(1), limit: 1, reverse: true });
+    expect(response).toEqual([]);
+  });
+
   it('getNodeVersion', async () => {
     const response = await context.client.getNodeVersion();
     expect(response).toBe('1.0.0');
