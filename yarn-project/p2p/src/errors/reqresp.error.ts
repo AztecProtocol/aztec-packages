@@ -12,7 +12,7 @@ export class IndividualReqRespTimeoutError extends Error {
 /** Oversized reqresp request error
  *
  * Thrown locally (before dialing) when a request payload does not fit in a single muxer frame. Such a request would
- * reach the responder split across multiple chunks, and only the first chunk is processed.
+ * reach the responder split across multiple chunks, which are never reassembled into one request.
  * @category Errors
  */
 export class OversizedReqRespRequestError extends Error {
