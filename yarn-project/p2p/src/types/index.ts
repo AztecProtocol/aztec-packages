@@ -36,3 +36,7 @@ export enum GossipSubEvent {
  */
 export const AZTEC_ENR_KEY = 'aztec';
 export const AZTEC_ENR_CLIENT_VERSION_KEY = 'ver';
+
+export * from './constants.js';
+export * from './message_validator.js';
+export * from './peer_error.js';

@@ -20,8 +20,8 @@ import {
   L1PublishedData,
   PublishedCheckpoint,
 } from '@aztec/stdlib/checkpoint';
+import type { CheckpointAttestation } from '@aztec/stdlib/consensus';
 import { type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
-import type { CheckpointAttestation } from '@aztec/stdlib/p2p';
 import {
   TEST_COORDINATION_SIGNATURE_CONTEXT,
   makeCheckpointAttestation,

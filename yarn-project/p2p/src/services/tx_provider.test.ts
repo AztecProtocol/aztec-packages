@@ -1,7 +1,7 @@
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { P2PClient, type PeerId, type TxPoolV2, TxProvider } from '@aztec/p2p';
-import type { BlockProposal } from '@aztec/stdlib/p2p';
+import type { BlockProposal } from '@aztec/stdlib/consensus';
 import { makeBlockProposal, mockTx } from '@aztec/stdlib/testing';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 

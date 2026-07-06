@@ -14,6 +14,7 @@ import { BadRequestError } from '@aztec/foundation/json-rpc';
 import type { Hex } from '@aztec/foundation/string';
 import { DateProvider } from '@aztec/foundation/timer';
 import { unfreeze } from '@aztec/foundation/types';
+import { getPackageVersion } from '@aztec/foundation/version';
 import { type KeyStore, KeystoreManager, RemoteSigner, type ValidatorKeyStore } from '@aztec/node-keystore';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import type { P2P } from '@aztec/p2p';
@@ -67,7 +68,6 @@ import {
   TxHash,
   TxStatus,
 } from '@aztec/stdlib/tx';
-import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import type { ValidatorClient } from '@aztec/validator-client';
 
 import { jest } from '@jest/globals';

@@ -1,5 +1,4 @@
 import { sleep } from '@aztec/foundation/sleep';
-import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { mockTx } from '@aztec/stdlib/testing';
 import { Tx, TxArray, TxHash, TxHashArray } from '@aztec/stdlib/tx';
 
@@ -15,6 +14,7 @@ import {
   startNodes,
   stopNodes,
 } from '../../test-helpers/reqresp-nodes.js';
+import { PeerErrorSeverity } from '../../types/index.js';
 import type { PeerManager } from '../peer-manager/peer_manager.js';
 import type { PeerScoring } from '../peer-manager/peer_scoring.js';
 import { type ReqRespResponse, ReqRespSubProtocol } from './interface.js';

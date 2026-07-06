@@ -1,6 +1,9 @@
-import type { EpochCacheInterface } from '@aztec/epoch-cache';
+import {
+  DEFAULT_P2P_PROPAGATION_TIME,
+  type EpochCacheInterface,
+  createPipelinedCheckpointTimingModel,
+} from '@aztec/epoch-cache';
 import { SlotNumber } from '@aztec/foundation/branded-types';
-import { DEFAULT_P2P_PROPAGATION_TIME, createPipelinedCheckpointTimingModel } from '@aztec/stdlib/timetable';
 
 /**
  * Maximum clock disparity tolerance for P2P message validation (in milliseconds).

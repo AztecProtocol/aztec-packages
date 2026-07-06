@@ -1,6 +1,7 @@
+import { DEV_VERSION } from '@aztec/foundation/version';
+
 import type { ContractArtifact } from '../abi/index.js';
 import { getTestContractArtifact } from '../tests/fixtures.js';
-import { DEV_VERSION } from '../update-checker/dev_version.js';
 import { computeArtifactHash } from './artifact_hash.js';
 
 describe('ArtifactHash', () => {

@@ -2,9 +2,9 @@ import type { CheckpointProposalHash, SlotNumber } from '@aztec/foundation/brand
 
 import { z } from 'zod';
 
-import type { BlockProposal } from '../p2p/block_proposal.js';
-import { CheckpointAttestation } from '../p2p/checkpoint_attestation.js';
-import type { CheckpointProposalCore } from '../p2p/checkpoint_proposal.js';
+import type { BlockProposal } from '../consensus/block_proposal.js';
+import { CheckpointAttestation } from '../consensus/checkpoint_attestation.js';
+import type { CheckpointProposalCore } from '../consensus/checkpoint_proposal.js';
 import { type ApiSchemaFor, optional, schemas } from '../schemas/index.js';
 import { Tx } from '../tx/tx.js';
 import { TxHash } from '../tx/tx_hash.js';

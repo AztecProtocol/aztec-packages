@@ -19,10 +19,10 @@ import { RollupAbi, SlasherAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import type { BootstrapNode } from '@aztec/p2p/bootstrap';
 import { createBootstrapNodeFromPrivateKey, getBootstrapNodeEnr } from '@aztec/p2p/test-helpers';
+import { TopicType } from '@aztec/stdlib/consensus';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
-import { TopicType } from '@aztec/stdlib/p2p';
-import type { GenesisData } from '@aztec/stdlib/world-state';
 import { ZkPassportProofParams } from '@aztec/stdlib/zkpassport';
+import type { GenesisData } from '@aztec/world-state';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import getPort from 'get-port';

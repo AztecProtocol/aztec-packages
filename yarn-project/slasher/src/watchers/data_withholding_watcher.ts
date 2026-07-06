@@ -7,8 +7,8 @@ import { RunningPromise } from '@aztec/foundation/promise';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import { getAttestationInfoFromPublishedCheckpoint } from '@aztec/stdlib/block';
 import type { CheckpointReexecutionTracker, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import { ConsensusPayload, type CoordinationSignatureContext } from '@aztec/stdlib/consensus';
 import type { ITxProvider, P2PApi, SlasherConfig } from '@aztec/stdlib/interfaces/server';
-import { ConsensusPayload, type CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import { OffenseType, getOffenseTypeName } from '@aztec/stdlib/slashing';
 import type { TxHash } from '@aztec/stdlib/tx';
 

@@ -15,7 +15,7 @@ import { ContractClassLogFields } from '@aztec/stdlib/logs';
 import { makeSelector, mockTx, mockTxForRollup } from '@aztec/stdlib/testing';
 import { DatabasePublicStateSource, MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import type { Tx } from '@aztec/stdlib/tx';
-import type { GenesisData } from '@aztec/stdlib/world-state';
+import type { GenesisData } from '@aztec/world-state';
 import { NativeWorldStateService } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';

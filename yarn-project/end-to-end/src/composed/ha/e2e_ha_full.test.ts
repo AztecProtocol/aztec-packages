@@ -27,13 +27,13 @@ import { GovernanceProposerAbi } from '@aztec/l1-artifacts/GovernanceProposerAbi
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { type AttestationInfo, getAttestationInfoFromPublishedCheckpoint } from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
-import { TopicType } from '@aztec/stdlib/p2p';
+import { TopicType } from '@aztec/stdlib/consensus';
 import { OffenseType } from '@aztec/stdlib/slashing';
 import { TxStatus } from '@aztec/stdlib/tx';
-import type { GenesisData } from '@aztec/stdlib/world-state';
 import type { ValidatorClient } from '@aztec/validator-client';
 import { PostgresSlashingProtectionDatabase } from '@aztec/validator-ha-signer/db';
 import { type DutyRow, DutyStatus, DutyType } from '@aztec/validator-ha-signer/types';
+import type { GenesisData } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';

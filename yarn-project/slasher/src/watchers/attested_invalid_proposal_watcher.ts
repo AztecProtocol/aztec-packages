@@ -6,8 +6,8 @@ import { FifoSet } from '@aztec/foundation/fifo-set';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import type { L2BlockSource } from '@aztec/stdlib/block';
+import type { CheckpointAttestation } from '@aztec/stdlib/consensus';
 import type { P2PClient, SlasherConfig } from '@aztec/stdlib/interfaces/server';
-import type { CheckpointAttestation } from '@aztec/stdlib/p2p';
 import { OffenseType, getOffenseTypeName } from '@aztec/stdlib/slashing';
 
 import EventEmitter from 'node:events';

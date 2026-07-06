@@ -6,7 +6,7 @@ import {
   CheckpointProposal,
   ConsensusPayload,
   getHashedSignaturePayloadTypedData,
-} from '@aztec/stdlib/p2p';
+} from '@aztec/stdlib/consensus';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { TEST_COORDINATION_SIGNATURE_CONTEXT } from '@aztec/stdlib/testing';
 

@@ -9,8 +9,8 @@ import {
   getAttestationInfoFromPayload,
 } from '@aztec/stdlib/block';
 import type { PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
+import { ConsensusPayload, type CoordinationSignatureContext } from '@aztec/stdlib/consensus';
 import { type L1RollupConstants, computeQuorum, getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
-import { ConsensusPayload, type CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 
 export type { ValidateCheckpointResult };
 

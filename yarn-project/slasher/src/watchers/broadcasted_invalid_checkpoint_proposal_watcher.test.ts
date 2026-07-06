@@ -3,9 +3,9 @@ import { IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-typ
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { L2BlockSource } from '@aztec/stdlib/block';
+import type { BlockProposal, CheckpointProposalCore } from '@aztec/stdlib/consensus';
 import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import type { P2PClient } from '@aztec/stdlib/interfaces/server';
-import type { BlockProposal, CheckpointProposalCore } from '@aztec/stdlib/p2p';
 import { OffenseType } from '@aztec/stdlib/slashing';
 import {
   makeBlockHeader,

@@ -11,12 +11,12 @@ import type { Signature } from '@aztec/foundation/eth-signature';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
 import {
-  type BaseSignerConfig,
   DutyType,
   type HAProtectedSigningContext,
   getBlockNumberFromSigningContext,
   getCheckpointNumberFromSigningContext,
-} from '@aztec/stdlib/ha-signing';
+} from '@aztec/stdlib/consensus';
+import type { BaseSignerConfig } from '@aztec/stdlib/ha-signing';
 
 import type { DutyIdentifier } from './db/types.js';
 import type { HASignerMetrics } from './metrics.js';

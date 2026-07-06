@@ -9,7 +9,7 @@ import {
   type CoordinationSignatureType,
   type Signable,
   coordinationSignatureContextSchema,
-} from '../../p2p/signature_utils.js';
+} from '../../consensus/signature_utils.js';
 import { CommitteeAttestation, EthAddress } from './committee_attestation.js';
 
 export class CommitteeAttestationsAndSigners implements Signable {

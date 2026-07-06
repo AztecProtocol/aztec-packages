@@ -7,7 +7,7 @@ import {
   CheckpointAttestation,
   CheckpointProposal,
   type CheckpointProposalCore,
-} from '@aztec/stdlib/p2p';
+} from '@aztec/stdlib/consensus';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { PoolInstrumentation, PoolName, type PoolStatsCallback } from '../instrumentation.js';

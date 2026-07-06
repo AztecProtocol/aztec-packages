@@ -2,6 +2,7 @@ import type { ChainInfo } from '@aztec/entrypoints/interfaces';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
+import { DEV_VERSION } from '@aztec/foundation/version';
 import type { ContractArtifact, EventMetadataDefinition } from '@aztec/stdlib/abi';
 import { EventSelector, FunctionCall, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
@@ -18,7 +19,6 @@ import {
   TxSimulationResult,
   UtilityExecutionResult,
 } from '@aztec/stdlib/tx';
-import { DEV_VERSION } from '@aztec/stdlib/update-checker';
 
 import {
   type InteractionWaitOptions,

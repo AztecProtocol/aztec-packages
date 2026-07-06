@@ -8,7 +8,7 @@ import { type ISemaphore, Semaphore } from '@aztec/foundation/queue';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
-import { type BlockProposal, PeerErrorSeverity } from '@aztec/stdlib/p2p';
+import type { BlockProposal } from '@aztec/stdlib/consensus';
 import { makeBlockHeader, makeBlockProposal } from '@aztec/stdlib/testing';
 import { Tx, TxArray, TxHash, type TxValidationResult, type TxValidator } from '@aztec/stdlib/tx';
 
@@ -17,6 +17,7 @@ import type { PeerId } from '@libp2p/interface';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { createSecp256k1PeerId } from '../../../index.js';
+import { PeerErrorSeverity } from '../../../types/index.js';
 import { RequestTracker } from '../../tx_collection/request_tracker.js';
 import type { ConnectionSampler } from '../connection-sampler/connection_sampler.js';
 import type { ReqRespInterface } from '../interface.js';

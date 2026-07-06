@@ -1,10 +1,10 @@
 import { chunk } from '@aztec/foundation/collection';
-import { MAX_TX_SIZE_KB } from '@aztec/stdlib/p2p';
 import { TxArray, TxHash, TxHashArray } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 
 import type { MemPools } from '../../../mem_pools/interface.js';
+import { MAX_TX_SIZE_KB } from '../../../types/index.js';
 import type { ReqRespSubProtocolHandler } from '../interface.js';
 import { ReqRespStatus, ReqRespStatusError } from '../status.js';
 

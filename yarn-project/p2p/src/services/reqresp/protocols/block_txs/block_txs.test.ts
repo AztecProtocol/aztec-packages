@@ -2,12 +2,13 @@ import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { BlockProposal, MAX_TX_SIZE_KB } from '@aztec/stdlib/p2p';
+import { BlockProposal } from '@aztec/stdlib/consensus';
 import { makeBlockHeader, makeBlockProposal, mockTx } from '@aztec/stdlib/testing';
 import { TxArray, TxHash, TxHashArray } from '@aztec/stdlib/tx';
 
 import { describe, expect, it } from '@jest/globals';
 
+import { MAX_TX_SIZE_KB } from '../../../../types/index.js';
 import { BitVector } from './bitvector.js';
 import { BlockTxsRequest, BlockTxsResponse, calculateBlockTxsResponseSize } from './block_txs_reqresp.js';
 

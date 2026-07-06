@@ -7,7 +7,7 @@ import { SecretValue } from '@aztec/foundation/config';
 import { withLoggerBindings } from '@aztec/foundation/log/server';
 import { bufferToHex } from '@aztec/foundation/string';
 import type { DateProvider } from '@aztec/foundation/timer';
-import type { GenesisData } from '@aztec/stdlib/world-state';
+import type { GenesisData } from '@aztec/world-state';
 
 import getPort from 'get-port';
 

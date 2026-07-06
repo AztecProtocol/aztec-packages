@@ -11,6 +11,7 @@ import { type P2P, P2PClientState } from '@aztec/p2p';
 import type { SlasherClientInterface } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block, L2BlockSink, L2BlockSource, ProposedCheckpointSink } from '@aztec/stdlib/block';
+import type { CoordinationSignatureContext } from '@aztec/stdlib/consensus';
 import { type L1RollupConstants, getSlotStartBuildTimestamp } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import type {
@@ -20,7 +21,6 @@ import type {
   WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import { type CheckpointGlobalVariables, GlobalVariables, type Tx } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 import type {

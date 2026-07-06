@@ -37,7 +37,7 @@
     "./tx/tx-hash": "./dest/tx/tx_hash.js",
     "./fees": "./dest/fees/index.js",
     "./note": "./dest/note/index.js",
-    "./p2p": "./dest/p2p/index.js",
+    "./consensus": "./dest/consensus/index.js",
     "./errors": "./dest/errors/index.js",
     "./stats": "./dest/stats/index.js",
     "./auth-witness": "./dest/auth_witness/index.js",
@@ -52,19 +52,13 @@
     "./epoch-helpers": "./dest/epoch-helpers/index.js",
     "./config": "./dest/config/index.js",
     "./testing/jest": "./dest/tests/jest.js",
-    "./database-version/version": "./dest/database-version/database_version.js",
-    "./database-version/manager": "./dest/database-version/version_manager.js",
     "./validators": "./dest/validators/index.js",
     "./ha-signing": "./dest/ha-signing/index.js",
-    "./file-store": "./dest/file-store/index.js",
+    "./kv-store": "./dest/kv-store/index.js",
     "./snapshots": "./dest/snapshots/index.js",
-    "./update-checker": "./dest/update-checker/index.js",
     "./zkpassport": "./dest/zkpassport/index.js",
     "./slashing": "./dest/slashing/index.js",
-    "./l1-contracts": "./dest/l1-contracts/index.js",
-    "./world-state": "./dest/world-state/index.js",
-    "./timetable": "./dest/timetable/index.js",
-    "./kv-store": "./dest/kv-store/index.js"
+    "./world-state": "./dest/world-state/index.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -91,16 +85,12 @@
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.892.0",
     "@aztec/bb.js": "portal:../../barretenberg/ts/bb.js",
     "@aztec/blob-lib": "workspace:^",
     "@aztec/constants": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
-    "@aztec/l1-artifacts": "portal:../../l1-contracts/l1-artifacts",
     "@aztec/noir-noirc_abi": "portal:../../noir/packages/noirc_abi",
-    "@google-cloud/storage": "^7.15.0",
-    "axios": "^1.15.1",
     "json-stringify-deterministic": "1.0.12",
     "lodash.chunk": "^4.2.0",
     "lodash.isequal": "^4.5.0",

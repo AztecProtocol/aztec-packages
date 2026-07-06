@@ -61,19 +61,19 @@ import {
 } from '@aztec/stdlib/block';
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import {
+  CheckpointProposal,
+  ConsensusPayload,
+  CheckpointAttestation as P2PCheckpointAttestation,
+  getHashedSignaturePayloadTypedData,
+  orderAttestations,
+} from '@aztec/stdlib/consensus';
+import {
   type L1RollupConstants,
   getNextL1SlotTimestamp,
   getSlotStartBuildTimestamp,
 } from '@aztec/stdlib/epoch-helpers';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
-import {
-  CheckpointProposal,
-  ConsensusPayload,
-  CheckpointAttestation as P2PCheckpointAttestation,
-  getHashedSignaturePayloadTypedData,
-  orderAttestations,
-} from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { fr, mockProcessedTx } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';

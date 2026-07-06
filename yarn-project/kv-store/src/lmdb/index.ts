@@ -1,8 +1,8 @@
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 
 import { join } from 'path';
 
+import type { DataStoreConfig } from '../config.js';
 import { initStoreForRollupAndSchemaVersion } from '../utils.js';
 import { AztecLmdbStore } from './store.js';
 

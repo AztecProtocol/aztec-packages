@@ -1,6 +1,7 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import type { BlockProposal, CoordinationSignatureContext, P2PValidator, ValidationResult } from '@aztec/stdlib/p2p';
+import type { BlockProposal, CoordinationSignatureContext } from '@aztec/stdlib/consensus';
 
+import type { P2PValidator, ValidationResult } from '../../types/index.js';
 import { ProposalValidator } from '../proposal_validator/proposal_validator.js';
 
 export class BlockProposalValidator implements P2PValidator<BlockProposal> {

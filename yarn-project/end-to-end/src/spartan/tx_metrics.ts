@@ -1,7 +1,7 @@
 import type { AztecNode } from '@aztec/aztec.js/node';
 import type { Logger } from '@aztec/foundation/log';
+import type { TopicType } from '@aztec/stdlib/consensus';
 import type { BlockResponse } from '@aztec/stdlib/interfaces/client';
-import type { TopicType } from '@aztec/stdlib/p2p';
 import { Tx, type TxReceipt } from '@aztec/stdlib/tx';
 
 import { createHistogram } from 'perf_hooks';

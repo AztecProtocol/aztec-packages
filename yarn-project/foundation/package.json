@@ -86,6 +86,7 @@
     "./types": "./dest/types/index.js",
     "./schemas": "./dest/schemas/index.js",
     "./url": "./dest/url/index.js",
+    "./version": "./dest/version/index.js",
     "./committable": "./dest/committable/index.js",
     "./noir": "./dest/noir/index.js",
     "./testing": "./dest/testing/index.js",

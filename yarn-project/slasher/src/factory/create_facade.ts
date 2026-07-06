@@ -7,10 +7,10 @@ import { unique } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { getSlotAtTimestamp } from '@aztec/stdlib/epoch-helpers';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
-import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 
 import { SlasherClientFacade } from '../slasher_client_facade.js';
 import type { SlasherClientInterface } from '../slasher_client_interface.js';

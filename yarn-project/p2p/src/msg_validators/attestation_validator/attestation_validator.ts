@@ -4,12 +4,10 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import {
   type CheckpointAttestation,
   type CoordinationSignatureContext,
-  type P2PValidator,
-  PeerErrorSeverity,
-  type ValidationResult,
   hasValidSignatureContext,
-} from '@aztec/stdlib/p2p';
+} from '@aztec/stdlib/consensus';
 
+import { type P2PValidator, PeerErrorSeverity, type ValidationResult } from '../../types/index.js';
 import { PipeliningWindow, isWithinClockTolerance } from '../clock_tolerance.js';
 
 export class CheckpointAttestationValidator implements P2PValidator<CheckpointAttestation> {

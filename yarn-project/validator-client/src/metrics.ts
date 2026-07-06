@@ -1,6 +1,6 @@
 import type { EpochNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import type { BlockProposal } from '@aztec/stdlib/p2p';
+import type { BlockProposal } from '@aztec/stdlib/consensus';
 import {
   Attributes,
   type Gauge,

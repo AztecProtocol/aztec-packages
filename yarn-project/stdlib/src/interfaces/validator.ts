@@ -4,14 +4,14 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { Signature } from '@aztec/foundation/eth-signature';
 import { schemas, zodFor } from '@aztec/foundation/schemas';
-import type { SequencerConfig, SlasherConfig } from '@aztec/stdlib/interfaces/server';
 import type {
   BlockProposal,
   BlockProposalOptions,
   CheckpointAttestation,
   CheckpointProposal,
   CheckpointProposalOptions,
-} from '@aztec/stdlib/p2p';
+} from '@aztec/stdlib/consensus';
+import type { SequencerConfig, SlasherConfig } from '@aztec/stdlib/interfaces/server';
 import type { CheckpointHeader } from '@aztec/stdlib/rollup';
 import type { BlockHeader, Tx } from '@aztec/stdlib/tx';
 

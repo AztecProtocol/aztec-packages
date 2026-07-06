@@ -15,9 +15,9 @@ import { RunningPromise } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { BenchmarkingContract } from '@aztec/noir-test-contracts.js/Benchmarking';
+import { TopicType } from '@aztec/stdlib/consensus';
 import { type Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
-import { TopicType } from '@aztec/stdlib/p2p';
 import { Tx, TxHash, TxStatus } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';

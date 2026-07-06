@@ -2,6 +2,7 @@ import type { EpochCache } from '@aztec/epoch-cache';
 import { timesParallel } from '@aztec/foundation/collection';
 import { SecretValue } from '@aztec/foundation/config';
 import { createLogger } from '@aztec/foundation/log';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import { type ChainConfig, emptyChainConfig } from '@aztec/stdlib/config';
@@ -12,7 +13,6 @@ import type {
   IVCProofVerificationResult,
   WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
-import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import type { Tx } from '@aztec/stdlib/tx';
 import { compressComponentVersions } from '@aztec/stdlib/versioning';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';

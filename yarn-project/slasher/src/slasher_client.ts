@@ -8,15 +8,7 @@ import { createLogger } from '@aztec/foundation/log';
 import type { DateProvider } from '@aztec/foundation/timer';
 import type { Prettify } from '@aztec/foundation/types';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
-import {
-  type Offense,
-  OffenseType,
-  type ProposerSlashAction,
-  type ProposerSlashActionProvider,
-  getEpochsForRound,
-  getOffenseTypeName,
-  getSlashConsensusVotesFromOffenses,
-} from '@aztec/stdlib/slashing';
+import { type Offense, OffenseType, type ProposerSlashAction, getOffenseTypeName } from '@aztec/stdlib/slashing';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import type { Hex } from 'viem';
@@ -29,6 +21,9 @@ import {
 } from './slash_offenses_collector.js';
 import { SlashRoundMonitor, type SlashRoundMonitorSettings } from './slash_round_monitor.js';
 import type { SlasherClientInterface } from './slasher_client_interface.js';
+import { getEpochsForRound } from './slashing/helpers.js';
+import type { ProposerSlashActionProvider } from './slashing/interfaces.js';
+import { getSlashConsensusVotesFromOffenses } from './slashing/votes.js';
 import type { SlasherOffensesStore } from './stores/offenses_store.js';
 import type { Watcher } from './watcher.js';
 

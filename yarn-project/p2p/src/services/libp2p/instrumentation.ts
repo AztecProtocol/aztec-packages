@@ -1,5 +1,5 @@
 import type { Timer } from '@aztec/foundation/timer';
-import { TopicType } from '@aztec/stdlib/p2p';
+import { TopicType } from '@aztec/stdlib/consensus';
 import {
   Attributes,
   type BatchObservableResult,

@@ -7,6 +7,7 @@ export * from './watchers/checkpoint_equivocation_watcher.js';
 export * from './slasher_client.js';
 export * from './slash_offenses_collector.js';
 export * from './slasher_client_interface.js';
+export * from './slashing/index.js';
 export * from './factory/index.js';
 export * from './watcher.js';
 export * from '@aztec/stdlib/slashing';

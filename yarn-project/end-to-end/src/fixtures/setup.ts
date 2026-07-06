@@ -58,7 +58,6 @@ import { type ContractInstanceWithAddress, getContractInstanceFromInstantiationP
 import type { AztecNodeAdmin, AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 import { tryStop } from '@aztec/stdlib/interfaces/server';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
-import type { GenesisData } from '@aztec/stdlib/world-state';
 import {
   type TelemetryClient,
   type TelemetryClientConfig,
@@ -67,6 +66,7 @@ import {
 } from '@aztec/telemetry-client';
 import { BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
 import { deployFundedSchnorrAccounts } from '@aztec/wallets/testing';
+import type { GenesisData } from '@aztec/world-state';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import fs from 'fs/promises';

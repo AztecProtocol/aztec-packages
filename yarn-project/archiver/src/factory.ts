@@ -1,4 +1,4 @@
-import { EpochCache } from '@aztec/epoch-cache';
+import { EpochCache, MIN_EXECUTION_TIME } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { makeL1HttpTransport } from '@aztec/ethereum/client';
 import { InboxContract, OutboxContract, RollupContract } from '@aztec/ethereum/contracts';
@@ -9,14 +9,13 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { merge } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { DateProvider } from '@aztec/foundation/timer';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { protocolContractNames } from '@aztec/protocol-contracts';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { FunctionType, decodeFunctionSignature } from '@aztec/stdlib/abi';
 import type { ArchiverEmitter, BlockHash } from '@aztec/stdlib/block';
 import { type ContractClassPublicWithCommitment, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
-import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
-import { MIN_EXECUTION_TIME } from '@aztec/stdlib/timetable';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 

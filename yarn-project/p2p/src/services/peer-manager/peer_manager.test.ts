@@ -13,7 +13,6 @@ import type {
   WorldStateSynchronizer,
   WorldStateSynchronizerStatus,
 } from '@aztec/stdlib/interfaces/server';
-import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { Attributes, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
@@ -26,7 +25,7 @@ import { type MockProxy, mock } from 'jest-mock-extended';
 import { generatePrivateKey } from 'viem/accounts';
 
 import { type P2PConfig, getP2PDefaultConfig } from '../../config.js';
-import { PeerEvent } from '../../types/index.js';
+import { PeerErrorSeverity, PeerEvent } from '../../types/index.js';
 import type { FullLibp2p } from '../../util.js';
 import { ReqRespSubProtocol } from '../reqresp/interface.js';
 import { AuthRequest, AuthResponse, GoodByeReason, StatusMessage } from '../reqresp/protocols/index.js';

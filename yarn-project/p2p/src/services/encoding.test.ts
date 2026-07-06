@@ -1,7 +1,8 @@
-import { MAX_TX_SIZE_KB, TopicType } from '@aztec/stdlib/p2p';
+import { TopicType } from '@aztec/stdlib/consensus';
 
 import { compressSync, uncompressSync } from 'snappy';
 
+import { MAX_TX_SIZE_KB } from '../types/index.js';
 import { SnappyTransform, readSnappyPreamble } from './encoding.js';
 
 describe('readSnappyPreamble', () => {

@@ -7,9 +7,6 @@ import { Timer } from '@aztec/foundation/timer';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { EthAddress, L2BlockSource } from '@aztec/stdlib/block';
-import type { ContractDataSource } from '@aztec/stdlib/contract';
-import { type BlockMinFeesProvider, GasFees } from '@aztec/stdlib/gas';
-import type { ClientProtocolCircuitVerifier, PeerInfo, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import {
   BlockProposal,
   CheckpointAttestation,
@@ -17,13 +14,14 @@ import {
   type CheckpointProposalCore,
   type Gossipable,
   P2PMessage,
-  PeerErrorSeverity,
-  PeerErrorSeverityByHarshness,
   TopicType,
   createTopicString,
   getTopicsForConfig,
   metricsTopicStrToLabels,
-} from '@aztec/stdlib/p2p';
+} from '@aztec/stdlib/consensus';
+import type { ContractDataSource } from '@aztec/stdlib/contract';
+import { type BlockMinFeesProvider, GasFees } from '@aztec/stdlib/gas';
+import type { ClientProtocolCircuitVerifier, PeerInfo, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { Tx, type TxValidationResult } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
@@ -76,7 +74,7 @@ import {
   createTxValidatorForBlockProposalReceivedTxs,
 } from '../../msg_validators/tx_validator/factory.js';
 import { TxValidationCache } from '../../msg_validators/tx_validator/tx_validation_cache.js';
-import { GossipSubEvent } from '../../types/index.js';
+import { GossipSubEvent, PeerErrorSeverity, PeerErrorSeverityByHarshness } from '../../types/index.js';
 import { type PubSubLibp2p, convertToMultiaddr } from '../../util.js';
 import { getVersions } from '../../versioning.js';
 import { AztecDatastore } from '../data_store.js';

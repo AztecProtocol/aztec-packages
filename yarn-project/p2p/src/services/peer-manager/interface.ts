@@ -1,9 +1,9 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
-import type { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 
 import type { PeerId } from '@libp2p/interface';
 
+import type { PeerErrorSeverity } from '../../types/index.js';
 import type { AuthRequest, StatusMessage } from '../reqresp/index.js';
 import type { GoodByeReason } from '../reqresp/protocols/goodbye.js';
 

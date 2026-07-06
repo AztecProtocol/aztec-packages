@@ -6,8 +6,8 @@ import {
   numberConfigHelper,
   parseBooleanEnv,
 } from '@aztec/foundation/config';
+import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
-import { type DataStoreConfig, dataConfigMappings } from '@aztec/stdlib/kv-store';
 
 export { getPackageInfo } from './package_info.js';
 

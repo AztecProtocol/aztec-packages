@@ -24,8 +24,7 @@ import {
   StateReference,
   TreeSnapshots,
 } from '@aztec/stdlib/tx';
-import type { GenesisData } from '@aztec/stdlib/world-state';
-import type { MerkleTreeAdminDatabase } from '@aztec/world-state';
+import type { GenesisData, MerkleTreeAdminDatabase } from '@aztec/world-state';
 import { NativeWorldStateService } from '@aztec/world-state/native';
 
 import { promises as fs } from 'fs';

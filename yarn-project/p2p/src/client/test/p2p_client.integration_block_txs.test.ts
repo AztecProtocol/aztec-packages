@@ -6,8 +6,8 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { emptyChainConfig } from '@aztec/stdlib/config';
+import { BlockProposal } from '@aztec/stdlib/consensus';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
-import { BlockProposal, PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { makeBlockHeader, makeBlockProposal } from '@aztec/stdlib/testing';
 import { Tx, TxHash, TxHashArray } from '@aztec/stdlib/tx';
 
@@ -22,6 +22,7 @@ import { BlockTxsRequest, BlockTxsResponse } from '../../services/reqresp/protoc
 import { ReqRespStatus } from '../../services/reqresp/status.js';
 import { makeAndStartTestP2PClients } from '../../test-helpers/index.js';
 import { createMockTxWithMetadata } from '../../test-helpers/mock-tx-helpers.js';
+import { PeerErrorSeverity } from '../../types/index.js';
 import type { P2PClient } from '../p2p_client.js';
 
 const TEST_TIMEOUT = 120000;

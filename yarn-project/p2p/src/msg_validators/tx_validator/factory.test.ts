@@ -7,11 +7,11 @@ import type {
   MerkleTreeReadOperations,
   WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
-import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import type { GlobalVariables } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import { PeerErrorSeverity } from '../../types/index.js';
 import { AggregateTxValidator } from './aggregate_tx_validator.js';
 import { BlockHeaderTxValidator } from './block_header_validator.js';
 import { ContractInstanceTxValidator } from './contract_instance_validator.js';

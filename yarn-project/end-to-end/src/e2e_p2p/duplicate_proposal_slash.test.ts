@@ -5,7 +5,7 @@ import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { bufferToHex } from '@aztec/foundation/string';
 import { OffenseType } from '@aztec/slasher';
-import { TopicType } from '@aztec/stdlib/p2p';
+import { TopicType } from '@aztec/stdlib/consensus';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';

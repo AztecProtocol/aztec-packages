@@ -1,3 +1,4 @@
+import { DEFAULT_P2P_PROPAGATION_TIME } from '@aztec/epoch-cache';
 import { type L1ContractsConfig, l1ContractsConfigMappings } from '@aztec/ethereum/config';
 import { type L1ReaderConfig, l1ReaderConfigMappings } from '@aztec/ethereum/l1-reader';
 import {
@@ -20,7 +21,6 @@ import {
   sharedSequencerConfigMappings,
 } from '@aztec/stdlib/config';
 import type { ResolvedSequencerConfig } from '@aztec/stdlib/interfaces/server';
-import { DEFAULT_P2P_PROPAGATION_TIME } from '@aztec/stdlib/timetable';
 import { type ValidatorClientConfig, validatorClientConfigMappings } from '@aztec/validator-client/config';
 
 import {

@@ -13,12 +13,12 @@ import { type FieldsOf, unfreeze } from '@aztec/foundation/types';
 
 import { z } from 'zod';
 
+import { Gossipable } from '../consensus/gossipable.js';
+import { TopicType } from '../consensus/topic_type.js';
 import type { GasSettings } from '../gas/gas_settings.js';
 import type { PublicCallRequest } from '../kernel/index.js';
 import { PrivateKernelTailCircuitPublicInputs } from '../kernel/private_kernel_tail_circuit_public_inputs.js';
 import { ContractClassLog, ContractClassLogFields } from '../logs/contract_class_log.js';
-import { Gossipable } from '../p2p/gossipable.js';
-import { TopicType } from '../p2p/topic_type.js';
 import { ChonkProof } from '../proofs/chonk_proof.js';
 import type { TxStats } from '../stats/stats.js';
 import { HashedValues } from './hashed_values.js';

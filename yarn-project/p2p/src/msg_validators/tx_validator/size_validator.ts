@@ -1,6 +1,7 @@
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
-import { MAX_TX_SIZE_KB } from '@aztec/stdlib/p2p';
 import { Tx, type TxValidationResult, type TxValidator } from '@aztec/stdlib/tx';
+
+import { MAX_TX_SIZE_KB } from '../../types/index.js';
 
 export class SizeTxValidator implements TxValidator<Tx> {
   #log: Logger;

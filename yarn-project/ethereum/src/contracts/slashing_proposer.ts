@@ -297,8 +297,8 @@ export class SlashingProposerContract {
 /**
  * Decodes a Buffer containing slash votes back into an array of numbers.
  * Each vote is represented as a 2-bit value (0, 1, 2, or 3) representing slashing units.
- * @dev This should live in stdlib next to encodeSlashConsensusVotes but is here since we
- * do not have a dependency to stdlib from the ethereum package. We need a larger refactor to fix this.
+ * @dev This should live in @aztec/slasher next to encodeSlashConsensusVotes but is here since we
+ * do not have a dependency to slasher from the ethereum package. We need a larger refactor to fix this.
  * @param buffer - The Buffer containing encoded slash votes
  * @returns An array of numbers representing the slash votes
  */

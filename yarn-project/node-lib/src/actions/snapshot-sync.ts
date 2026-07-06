@@ -8,28 +8,23 @@ import {
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { type EthereumClientConfig, getPublicClient } from '@aztec/ethereum/client';
 import type { L1ContractsConfig } from '@aztec/ethereum/config';
+import { type ReadOnlyFileStore, createReadOnlyFileStore } from '@aztec/file-store';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { tryRmDir } from '@aztec/foundation/fs';
 import type { Logger } from '@aztec/foundation/log';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
+import { DatabaseVersionManager } from '@aztec/kv-store/database-version/manager';
 import { P2P_STORE_NAME } from '@aztec/p2p';
 import { GENESIS_BLOCK_HEADER_HASH } from '@aztec/stdlib/block';
 import type { ChainConfig } from '@aztec/stdlib/config';
-import { DatabaseVersionManager } from '@aztec/stdlib/database-version/manager';
-import { type ReadOnlyFileStore, createReadOnlyFileStore } from '@aztec/stdlib/file-store';
-import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
-import {
-  type SnapshotMetadata,
-  type SnapshotsIndexMetadata,
-  downloadSnapshot,
-  getLatestSnapshotMetadata,
-  makeSnapshotPaths,
-} from '@aztec/stdlib/snapshots';
+import type { SnapshotMetadata, SnapshotsIndexMetadata } from '@aztec/stdlib/snapshots';
 import { NATIVE_WORLD_STATE_DBS, WORLD_STATE_DB_VERSION, WORLD_STATE_DIR } from '@aztec/world-state';
 
 import { mkdir, mkdtemp, rename } from 'fs/promises';
 import { join } from 'path';
 
 import type { SharedNodeConfig } from '../config/index.js';
+import { downloadSnapshot, getLatestSnapshotMetadata, makeSnapshotPaths } from '../snapshots/index.js';
 
 // Half day worth of L1 blocks
 const MIN_L1_BLOCKS_TO_TRIGGER_REPLACE = 86400 / 2 / 12;

@@ -1,4 +1,4 @@
-import { TopicType, createTopicString } from '@aztec/stdlib/p2p';
+import { TopicType, createTopicString } from '@aztec/stdlib/consensus';
 
 import { describe, expect, it } from '@jest/globals';
 

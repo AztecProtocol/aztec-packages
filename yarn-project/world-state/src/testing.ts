@@ -3,8 +3,8 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
-import type { GenesisData } from '@aztec/stdlib/world-state';
 
+import type { GenesisData } from './genesis_data.js';
 import { NativeWorldStateService } from './native/index.js';
 
 async function generateGenesisValues(genesis: GenesisData) {

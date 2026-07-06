@@ -63,6 +63,7 @@
     "@aztec/constants": "workspace:^",
     "@aztec/epoch-cache": "workspace:^",
     "@aztec/ethereum": "workspace:^",
+    "@aztec/file-store": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/l1-artifacts": "portal:../../l1-contracts/l1-artifacts",

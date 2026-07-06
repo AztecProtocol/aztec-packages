@@ -1,12 +1,13 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
+import type { Gossipable, TopicType } from '@aztec/stdlib/consensus';
 import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
-import type { Gossipable, PeerErrorSeverity, TopicType } from '@aztec/stdlib/p2p';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 import type { ENR } from '@nethermindeth/enr';
 import EventEmitter from 'events';
 
+import type { PeerErrorSeverity } from '../types/index.js';
 import type { PeerManagerInterface } from './peer-manager/interface.js';
 import type { BatchTxRequesterLibP2PService } from './reqresp/batch-tx-requester/interface.js';
 import type { P2PReqRespConfig } from './reqresp/config.js';

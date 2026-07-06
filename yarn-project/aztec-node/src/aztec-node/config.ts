@@ -2,6 +2,7 @@ import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/con
 import { type GenesisStateConfig, genesisStateConfigMappings } from '@aztec/ethereum/config';
 import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import {
   type KeyStore,
   type ValidatorKeyStore,
@@ -25,7 +26,6 @@ import { slasherConfigMappings } from '@aztec/slasher';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type NodeRPCConfig, nodeRpcConfigMappings } from '@aztec/stdlib/config';
 import type { SlasherConfig } from '@aztec/stdlib/interfaces/server';
-import { type DataStoreConfig, dataConfigMappings } from '@aztec/stdlib/kv-store';
 import { type ValidatorClientConfig, validatorClientConfigMappings } from '@aztec/validator-client/config';
 import { type WorldStateConfig, worldStateConfigMappings } from '@aztec/world-state/config';
 

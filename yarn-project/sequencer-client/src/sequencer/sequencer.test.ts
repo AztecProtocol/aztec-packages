@@ -1,5 +1,10 @@
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
-import { type EpochCache, type EpochCommitteeInfo, PROPOSER_PIPELINING_SLOT_OFFSET } from '@aztec/epoch-cache';
+import {
+  type EpochCache,
+  type EpochCommitteeInfo,
+  MIN_EXECUTION_TIME,
+  PROPOSER_PIPELINING_SLOT_OFFSET,
+} from '@aztec/epoch-cache';
 import type { RollupContract } from '@aztec/ethereum/contracts';
 import {
   BlockNumber,
@@ -42,7 +47,6 @@ import {
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
-import { MIN_EXECUTION_TIME } from '@aztec/stdlib/timetable';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, type Tx } from '@aztec/stdlib/tx';
 import type { FullNodeCheckpointsBuilder, ValidatorClient } from '@aztec/validator-client';

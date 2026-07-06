@@ -1,4 +1,4 @@
-import { DEV_VERSION } from '@aztec/stdlib/update-checker';
+import { DEV_VERSION } from '@aztec/foundation/version';
 
 import { afterEach, beforeEach, describe, expect, it } from '@jest/globals';
 import { mkdir, rm, writeFile } from 'fs/promises';

@@ -16,21 +16,21 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
 import type { SiblingPath } from '@aztec/foundation/trees';
+import { DatabaseVersionManager } from '@aztec/kv-store/database-version/manager';
+import { DatabaseVersion } from '@aztec/kv-store/database-version/version';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { L2Block } from '@aztec/stdlib/block';
-import { DatabaseVersionManager } from '@aztec/stdlib/database-version/manager';
-import { DatabaseVersion } from '@aztec/stdlib/database-version/version';
 import type { MerkleTreeLeafType, MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { makeGlobalVariables } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot, MerkleTreeId, PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { BlockHeader } from '@aztec/stdlib/tx';
-import type { GenesisData } from '@aztec/stdlib/world-state';
 
 import { jest } from '@jest/globals';
 import { copyFile, lstat, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
+import type { GenesisData } from '../genesis_data.js';
 import type { WorldStateTreeMapSizes } from '../synchronizer/factory.js';
 import { assertSameState, compareChains, mockBlock, mockEmptyBlock } from '../test/utils.js';
 import { INITIAL_NULLIFIER_TREE_SIZE, INITIAL_PUBLIC_DATA_TREE_SIZE } from '../world-state-db/merkle_tree_db.js';

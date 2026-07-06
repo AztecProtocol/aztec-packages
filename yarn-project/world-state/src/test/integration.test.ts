@@ -6,8 +6,8 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
-import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import { describe, jest } from '@jest/globals';

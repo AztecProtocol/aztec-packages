@@ -4,7 +4,7 @@ import { TestCircuitVerifier } from '@aztec/bb-prover/test';
 import { type BlobClientInterface, createBlobClientWithFileStores } from '@aztec/blob-client/client';
 import { Blob } from '@aztec/blob-lib';
 import { ARCHIVE_HEIGHT, type L1_TO_L2_MSG_TREE_HEIGHT, type NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
-import { EpochCache, type EpochCacheInterface } from '@aztec/epoch-cache';
+import { EpochCache, type EpochCacheInterface, MIN_EXECUTION_TIME } from '@aztec/epoch-cache';
 import { createEthereumChain } from '@aztec/ethereum/chain';
 import { getPublicClient, makeL1HttpTransport } from '@aztec/ethereum/client';
 import { RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
@@ -21,6 +21,7 @@ import { count } from '@aztec/foundation/string';
 import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { MembershipWitness, SiblingPath } from '@aztec/foundation/trees';
 import { isErrorClass } from '@aztec/foundation/types';
+import { getPackageVersion } from '@aztec/foundation/version';
 import { type KeyStore, KeystoreManager, loadKeystores, mergeKeystores } from '@aztec/node-keystore';
 import { trySnapshotSync, uploadSnapshot } from '@aztec/node-lib/actions';
 import { createForwarderL1TxUtilsFromSigners, createL1TxUtilsFromSigners } from '@aztec/node-lib/factories';
@@ -118,7 +119,6 @@ import {
   appendL1ToL2MessagesToTree,
 } from '@aztec/stdlib/messaging';
 import type { Offense } from '@aztec/stdlib/slashing';
-import { MIN_EXECUTION_TIME } from '@aztec/stdlib/timetable';
 import type { NullifierLeafPreimage, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import {
@@ -138,9 +138,7 @@ import {
   TxStatus,
   type TxValidationResult,
 } from '@aztec/stdlib/tx';
-import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import type { SingleValidatorStats, ValidatorsStats } from '@aztec/stdlib/validators';
-import type { GenesisData } from '@aztec/stdlib/world-state';
 import {
   Attributes,
   type TelemetryClient,
@@ -158,6 +156,7 @@ import {
   createValidatorClient,
 } from '@aztec/validator-client';
 import type { SlashingProtectionDatabase } from '@aztec/validator-ha-signer/types';
+import type { GenesisData } from '@aztec/world-state';
 import { createWorldState, createWorldStateSynchronizer } from '@aztec/world-state';
 
 import { createPublicClient } from 'viem';

@@ -11,7 +11,7 @@ import { injectCommands as injectMiscCommands } from '@aztec/cli/misc';
 import { injectCommands as injectValidatorKeysCommands } from '@aztec/cli/validator_keys';
 import { getActiveNetworkName } from '@aztec/foundation/config';
 import { createConsoleLogger, createLogger } from '@aztec/foundation/log';
-import { getPackageVersion } from '@aztec/stdlib/update-checker';
+import { getPackageVersion } from '@aztec/foundation/version';
 
 import { Command } from 'commander';
 

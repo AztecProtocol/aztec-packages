@@ -3,12 +3,12 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { FifoMemoryQueue, type ISemaphore, Semaphore } from '@aztec/foundation/queue';
 import { sleep } from '@aztec/foundation/sleep';
 import { DateProvider } from '@aztec/foundation/timer';
-import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { Tx, TxArray, TxHash, type TxValidator } from '@aztec/stdlib/tx';
 
 import type { PeerId } from '@libp2p/interface';
 import { strict as assert } from 'assert';
 
+import { PeerErrorSeverity } from '../../../types/index.js';
 import type { IRequestTracker } from '../../tx_collection/request_tracker.js';
 import { ReqRespSubProtocol } from '.././interface.js';
 import { BlockTxsRequest, BlockTxsResponse, type BlockTxsSource } from '.././protocols/index.js';

@@ -1,7 +1,6 @@
 import { median } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
-import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import {
   Attributes,
   Metrics,
@@ -14,6 +13,7 @@ import {
 import type { PeerId } from '@libp2p/interface';
 
 import type { P2PConfig } from '../../config.js';
+import { PeerErrorSeverity } from '../../types/index.js';
 
 /**
  * Application-level peer penalties.

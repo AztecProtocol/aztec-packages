@@ -1,9 +1,9 @@
 import type { DateProvider } from '@aztec/foundation/timer';
-import type { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 
 import type { PeerId } from '@libp2p/interface';
 import { peerIdFromString } from '@libp2p/peer-id';
 
+import type { PeerErrorSeverity } from '../../../types/index.js';
 import type { ConnectionSampler } from '../connection-sampler/connection_sampler.js';
 import { DEFAULT_BATCH_TX_REQUESTER_BAD_PEER_THRESHOLD } from './config.js';
 import type { IPeerPenalizer } from './interface.js';

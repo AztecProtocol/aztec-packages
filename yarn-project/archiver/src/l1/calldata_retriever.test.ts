@@ -11,8 +11,8 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { withHexPrefix } from '@aztec/foundation/string';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { Signature } from '@aztec/stdlib/block';
+import { ConsensusPayload, getHashedSignaturePayloadTypedData } from '@aztec/stdlib/consensus';
 import { GasFees } from '@aztec/stdlib/gas';
-import { ConsensusPayload, getHashedSignaturePayloadTypedData } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 
 import { jest } from '@jest/globals';

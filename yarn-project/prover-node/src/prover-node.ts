@@ -7,6 +7,7 @@ import type { Fr } from '@aztec/foundation/curves/bn254';
 import { memoize } from '@aztec/foundation/decorators';
 import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
@@ -22,7 +23,6 @@ import {
   type WorldStateSynchronizer,
   tryStop,
 } from '@aztec/stdlib/interfaces/server';
-import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { Tx } from '@aztec/stdlib/tx';
 import {

@@ -44,12 +44,12 @@ import type {
   PublicProcessorValidator,
   WorldStateSynchronizer,
 } from '@aztec/stdlib/interfaces/server';
-import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { DatabasePublicStateSource, MerkleTreeId, type PublicStateSource } from '@aztec/stdlib/trees';
 import type { GlobalVariables, Tx, TxValidationResult, TxValidator } from '@aztec/stdlib/tx';
 import type { UInt64 } from '@aztec/stdlib/types';
 
 import type { TxMetaData } from '../../mem_pools/tx_pool_v2/tx_metadata.js';
+import { PeerErrorSeverity } from '../../types/index.js';
 import { AggregateTxValidator } from './aggregate_tx_validator.js';
 import { ArchiveCache } from './archive_cache.js';
 import { type ArchiveSource, BlockHeaderTxValidator } from './block_header_validator.js';

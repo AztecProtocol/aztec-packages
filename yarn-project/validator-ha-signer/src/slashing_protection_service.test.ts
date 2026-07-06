@@ -3,7 +3,8 @@ import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
-import { type BaseSignerConfig, DutyType } from '@aztec/stdlib/ha-signing';
+import { DutyType } from '@aztec/stdlib/consensus';
+import type { BaseSignerConfig } from '@aztec/stdlib/ha-signing';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { PGlite } from '@electric-sql/pglite';

@@ -35,6 +35,7 @@
     "entrypoints",
     "epoch-cache",
     "ethereum",
+    "file-store",
     "foundation",
     "ivc-integration",
     "key-store",

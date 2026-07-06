@@ -14,6 +14,7 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CommitteeAttestationsAndSigners, type L2Block, type L2BlockSource } from '@aztec/stdlib/block';
 import { getPreviousCheckpointOutHashes } from '@aztec/stdlib/checkpoint';
 import type { ChainConfig } from '@aztec/stdlib/config';
+import type { CoordinationSignatureContext } from '@aztec/stdlib/consensus';
 import {
   type L1RollupConstants,
   getEpochAtSlot,
@@ -22,7 +23,6 @@ import {
 } from '@aztec/stdlib/epoch-helpers';
 import { InsufficientValidTxsError, type WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import type { CoordinationSignatureContext } from '@aztec/stdlib/p2p';
 import type { FailedTx, Tx } from '@aztec/stdlib/tx';
 import type {
   BuildBlockInCheckpointResult,

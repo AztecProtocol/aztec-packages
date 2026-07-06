@@ -2,7 +2,6 @@ import type { EpochCacheInterface } from '@aztec/epoch-cache';
 import { EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import {
   TEST_COORDINATION_SIGNATURE_CONTEXT,
@@ -16,6 +15,7 @@ import { getTelemetryClient } from '@aztec/telemetry-client';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import type { AttestationPool } from '../../mem_pools/attestation_pool/attestation_pool.js';
+import { PeerErrorSeverity } from '../../types/index.js';
 import { FishermanAttestationValidator } from './fisherman_attestation_validator.js';
 
 describe('FishermanAttestationValidator', () => {

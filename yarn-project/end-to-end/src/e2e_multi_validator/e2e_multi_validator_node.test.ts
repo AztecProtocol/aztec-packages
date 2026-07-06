@@ -18,7 +18,7 @@ import { Signature } from '@aztec/foundation/eth-signature';
 import { retryUntil } from '@aztec/foundation/retry';
 import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
-import { CheckpointAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
+import { CheckpointAttestation, ConsensusPayload } from '@aztec/stdlib/consensus';
 import { TxStatus } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
