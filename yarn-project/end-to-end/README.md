@@ -14,7 +14,7 @@ Run a single test (spawns its own in-process anvil):
 
 ```bash
 yarn test:e2e src/automine/token/access_control.parallel.test.ts
-yarn test:e2e src/single-node/block-building/block_building.test.ts -t 'rejects double spend'
+yarn test:e2e src/single-node/block-building/block_building.test.ts -t 'rejects a private then private double-spend'
 ```
 
 Turn up logging with `LOG_LEVEL` (`verbose` is the useful default; `debug:sequencer,archiver` scopes it):
@@ -22,6 +22,12 @@ Turn up logging with `LOG_LEVEL` (`verbose` is the useful default; `debug:sequen
 ```bash
 LOG_LEVEL=verbose yarn test:e2e src/single-node/proving/default_node.test.ts
 ```
+
+Each run spawns anvil on port 8545, so two tests can only run side by side if each gets its own
+`ANVIL_PORT` (p2p tests additionally bind fixed p2p ports and can never run concurrently — see
+[`src/p2p/README.md`](src/p2p/README.md)). To shake flakiness out of a test,
+`scripts/deflaker.sh yarn test:e2e <file>` reruns it up to 100 times and stops at the first failure
+(output lands in `scripts/deflaker.log`).
 
 Compose-based tests (those under `src/composed/`) need a running local network — see
 [Compose / HA / web3signer tests](#compose--ha--web3signer-tests).
@@ -78,7 +84,7 @@ Each category centralizes its environment in a base class. The hierarchy:
   (both wrap `fixtures/setup.ts:setup()`), but fixes the automine topology and makes `AUTOMINE_E2E_OPTS`
   the default. Exposes `markProvenAndWarp`, `registerContract`, `applyManualParentChild`.
 - `p2p/p2p_network.ts` → **`P2PNetworkTest`**. Real libp2p; node creation goes through
-  `setup_p2p_test.ts`.
+  `fixtures/setup_p2p_test.ts`.
 - `infra/` has no shared base — its tests target a network selected by `L1_CHAIN_ID` (local anvil in CI,
   a public testnet with credentials).
 
@@ -136,15 +142,20 @@ CI splits each `it` in a `.parallel.test.ts` file into its own docker job, runni
 
 ### CI test discovery — `bootstrap.sh`
 
-`end-to-end/bootstrap.sh` enumerates tests in two arrays, and a test must appear in the relevant one or it
-**won't run in CI**:
+`end-to-end/bootstrap.sh` enumerates tests in two arrays, and a test must resolve through the relevant one
+or it **won't run in CI**:
 
-- `test_cmds` (~line 37) — the standard run.
-- `compat_test_cmds` (~line 290) — the forward/legacy-compat run (a subset).
+- `test_cmds` — the standard run. Covers each category with a recursive glob (e.g.
+  `src/automine/!(simulation)/**/*.test.ts`, `src/multi-node/**/*.test.ts`), so a new file or sub-folder
+  inside an existing category is picked up automatically; only a new top-level category needs its own glob
+  line. Tests with bespoke handling sit outside the globs: the `single-node/prover/` lanes at the top of
+  the function (real proofs and custom resources under `CI_FULL`, `FAKE_PROOFS=1` otherwise) and
+  `avm_simulator` (below).
+- `compat_test_cmds` — the forward/legacy-compat run (a subset). This one enumerates **single-level leaf
+  globs** (e.g. `src/automine/token/*.test.ts`), so a new sub-folder whose tests should run against legacy
+  contract artifacts needs its own line here.
 
-Each leaf folder needs its own single-level glob line (e.g. `src/automine/token/*.test.ts`) in each array;
-globs are not recursive, so every sub-folder is listed explicitly. Folders that organize by behavior get
-one line per leaf. Bespoke handling to be aware of:
+Bespoke handling to be aware of:
 
 - **`avm_simulator`** (`automine/simulation/avm_simulator.test.ts`) has a dedicated line in `test_cmds`
   that sets `DUMP_AVM_INPUTS_TO_DIR` (feeds the downstream `avm_check_circuit` job) and is therefore
@@ -153,8 +164,8 @@ one line per leaf. Bespoke handling to be aware of:
 - **`kernelless_simulation`** is excluded from `compat_test_cmds` only.
 
 After editing the arrays, confirm every `*.test.ts` resolves through exactly one line (no duplicate, no
-omission). Per-test bash `TIMEOUT` overrides live in the `case` block in `test_cmds` and must stay in sync
-with the test's `jest.setTimeout`.
+omission — anything excluded via `!(...)` must be matched by its dedicated line). Per-test bash `TIMEOUT`
+overrides live in the `case` block in `test_cmds` and must stay in sync with the test's `jest.setTimeout`.
 
 ### Flaky tests — `.test_patterns.yml`
 
@@ -190,11 +201,12 @@ These run in their own package's test lane (both packages already run anvil-back
 
 ### Support directories (not test categories)
 
-- `fixtures/` — the shared `setup()`, option presets (`fixtures.ts`), `CrossChainTestHarness`,
-  `l1_to_l2_messaging`, and common utils.
-- `shared/` — shared test bodies and `timing_env.mjs`, a **custom jest `testEnvironment`** referenced from
-  this package's `package.json`. `yarn prepare` / the package-json check will try to revert it to the
-  default — don't let it.
+- `fixtures/` — the shared `setup()`, option presets (`fixtures.ts`), the named node-level waiters
+  (`wait_helpers.ts`), the span instrumentation (`timing.ts` — `testSpan`, zero-cost unless
+  `TEST_TIMING_FILE` is set), `l1_to_l2_messaging`, and common utils.
+- `shared/` — shared test bodies, the `CrossChainTestHarness`, and `timing_env.mjs`, a **custom jest
+  `testEnvironment`** referenced from this package's `package.json`. `yarn prepare` / the package-json
+  check will try to revert it to the default — don't let it.
 - `simulators/` — in-TS reference models (`TokenSimulator`, `LendingSimulator`) used to assert contract
   behavior.
 - `test-wallet/`, `bench/`, `spartan/`, `quality_of_service/`, `forward-compatibility/` — helpers,
