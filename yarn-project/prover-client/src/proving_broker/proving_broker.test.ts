@@ -201,7 +201,7 @@ describe.each([
       await assertJobStatus(id, 'in-queue');
 
       await broker.cancelProvingJob(id);
-      await assertJobStatus(id, 'rejected');
+      await assertJobStatus(id, 'aborted');
     });
 
     it('cancels jobs in-progress', async () => {
@@ -216,7 +216,101 @@ describe.each([
       await broker.getProvingJob();
       await assertJobStatus(id, 'in-progress');
       await broker.cancelProvingJob(id);
-      await assertJobStatus(id, 'rejected');
+      await assertJobStatus(id, 'aborted');
+    });
+
+    it('revives an aborted job when its producer re-requests it', async () => {
+      const provingJob: ProvingJob = {
+        id: makeRandomProvingJobId(),
+        type: ProvingRequestType.PARITY_BASE,
+        epochNumber: EpochNumber(1),
+        inputsUri: makeInputsUri(),
+      };
+
+      await broker.enqueueProvingJob(provingJob);
+      await broker.getProvingJob();
+      await assertJobStatus(provingJob.id, 'in-progress');
+
+      await broker.cancelProvingJob(provingJob.id);
+      await assertJobStatus(provingJob.id, 'aborted');
+
+      // Re-requesting the same job (a retry without a restart) revives it rather than returning the
+      // cached abort, and it can then be completed.
+      await expect(broker.enqueueProvingJob(provingJob)).resolves.toEqual({ status: 'not-found' });
+      await assertJobStatus(provingJob.id, 'in-queue');
+      const returnedJob = await broker.getProvingJob({ allowList: [ProvingRequestType.PARITY_BASE] });
+      expect(returnedJob?.job).toEqual(provingJob);
+
+      const retryValue = makeOutputsUri();
+      await broker.reportProvingJobSuccess(provingJob.id, retryValue);
+      await assertJobStatus(provingJob.id, 'fulfilled');
+    });
+
+    it('persists the aborted state across a restart and revives on re-request', async () => {
+      const provingJob: ProvingJob = {
+        id: makeRandomProvingJobId(),
+        type: ProvingRequestType.PARITY_BASE,
+        epochNumber: EpochNumber(1),
+        inputsUri: makeInputsUri(),
+      };
+
+      await broker.enqueueProvingJob(provingJob);
+      await broker.cancelProvingJob(provingJob.id);
+      await assertJobStatus(provingJob.id, 'aborted');
+
+      // A deploy restarts both the prover node and the broker. The aborted state is persisted, so it
+      // survives the restart rather than being lost or restored as a permanent rejection.
+      await broker.stop();
+      broker = new ProvingBroker(database, {
+        proverBrokerJobTimeoutMs: jobTimeoutMs,
+        proverBrokerPollIntervalMs: brokerIntervalMs,
+        proverBrokerJobMaxRetries: maxRetries,
+        proverBrokerMaxEpochsToKeepResultsFor: 1,
+        proverBrokerDebugReplayEnabled: false,
+      });
+      await broker.start();
+      await assertJobStatus(provingJob.id, 'aborted');
+
+      // The prover re-requests the job after the restart, which revives it, and it can be completed.
+      await expect(broker.enqueueProvingJob(provingJob)).resolves.toEqual({ status: 'not-found' });
+      await assertJobStatus(provingJob.id, 'in-queue');
+      const returnedJob = await broker.getProvingJob({ allowList: [ProvingRequestType.PARITY_BASE] });
+      expect(returnedJob?.job).toEqual(provingJob);
+
+      const value = makeOutputsUri();
+      await broker.reportProvingJobSuccess(provingJob.id, value);
+      await assertJobStatus(provingJob.id, 'fulfilled');
+    });
+
+    it('persists the revived (non-aborted) state, so a restart mid-revival stays revived', async () => {
+      const provingJob: ProvingJob = {
+        id: makeRandomProvingJobId(),
+        type: ProvingRequestType.PARITY_BASE,
+        epochNumber: EpochNumber(1),
+        inputsUri: makeInputsUri(),
+      };
+
+      await broker.enqueueProvingJob(provingJob);
+      await broker.cancelProvingJob(provingJob.id);
+      await assertJobStatus(provingJob.id, 'aborted');
+
+      // Revive the job but do not complete it before the broker restarts.
+      await broker.enqueueProvingJob(provingJob);
+      await assertJobStatus(provingJob.id, 'in-queue');
+
+      await broker.stop();
+      broker = new ProvingBroker(database, {
+        proverBrokerJobTimeoutMs: jobTimeoutMs,
+        proverBrokerPollIntervalMs: brokerIntervalMs,
+        proverBrokerJobMaxRetries: maxRetries,
+        proverBrokerMaxEpochsToKeepResultsFor: 1,
+        proverBrokerDebugReplayEnabled: false,
+      });
+      await broker.start();
+
+      // Reviving cleared the persisted aborted state, so the job comes back pending rather than
+      // aborted and keeps being proven without needing another re-request.
+      await assertJobStatus(provingJob.id, 'in-queue');
     });
 
     it('returns job result if successful', async () => {

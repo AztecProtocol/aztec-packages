@@ -272,15 +272,28 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
 
   async #enqueueProvingJob(job: ProvingJob): Promise<ProvingJobStatus> {
     // We return the job status at the start of this call
-    const jobStatus = this.#getProvingJobStatus(job.id);
+    let jobStatus = this.#getProvingJobStatus(job.id);
     if (this.jobsCache.has(job.id)) {
       const existing = this.jobsCache.get(job.id);
       assert.deepStrictEqual(job, existing, 'Duplicate proving job ID');
-      this.logger.warn(`Cached proving job id=${job.id} epochNumber=${job.epochNumber}. Not enqueuing again`, {
-        provingJobId: job.id,
-      });
-      this.instrumentation.incCachedJobs(job.type);
-      return jobStatus;
+
+      if (this.resultsCache.get(job.id)?.status === 'aborted') {
+        // The producer is re-requesting a job it previously cancelled: revive it. Clear the aborted
+        // state (in memory and, so the revival survives a restart, in the database) and re-enqueue as
+        // if new, recomputing the start-of-call status rather than returning the stale aborted status.
+        this.logger.info(`Reviving aborted proving job id=${job.id} epochNumber=${job.epochNumber}`, {
+          provingJobId: job.id,
+        });
+        this.cleanUpProvingJobState([job.id]);
+        await this.database.deleteProvingJobResult(job.id);
+        jobStatus = this.#getProvingJobStatus(job.id);
+      } else {
+        this.logger.warn(`Cached proving job id=${job.id} epochNumber=${job.epochNumber}. Not enqueuing again`, {
+          provingJobId: job.id,
+        });
+        this.instrumentation.incCachedJobs(job.type);
+        return jobStatus;
+      }
     }
 
     if (this.isJobStale(job)) {
@@ -306,15 +319,35 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
   }
 
   async #cancelProvingJob(id: ProvingJobId): Promise<void> {
-    if (!this.jobsCache.has(id)) {
+    const job = this.jobsCache.get(id);
+    if (!job) {
       this.logger.warn(`Can't cancel a job that doesn't exist id=${id}`, { provingJobId: id });
       return;
     }
 
-    // notify listeners of the cancellation
-    if (!this.resultsCache.has(id)) {
-      this.logger.info(`Cancelling job id=${id}`, { provingJobId: id });
-      await this.#reportProvingJobError(id, 'Aborted', false, undefined, true);
+    // Leave jobs that have already settled (completed or failed) alone: those results are terminal.
+    if (this.resultsCache.has(id)) {
+      return;
+    }
+
+    this.logger.info(`Cancelling job id=${id}`, { provingJobId: id });
+    this.inProgress.delete(id);
+
+    // Record the cancellation as its own settled state and persist it, so it survives a restart and
+    // notifies the current waiter. Unlike a completion or failure this is not terminal: re-enqueuing
+    // the same job id revives it (see #enqueueProvingJob), so the abort never permanently blocks the
+    // proof.
+    const result: ProvingJobSettledResult = { status: 'aborted' };
+    this.resultsCache.set(id, result);
+    this.promises.get(id)?.resolve(result);
+    this.completedJobNotifications.push(id);
+    this.instrumentation.incAbortedJobs(job.type);
+
+    try {
+      await this.database.setProvingJobAborted(id);
+    } catch (saveErr) {
+      this.logger.error(`Failed to save proving job aborted status id=${id}`, saveErr, { provingJobId: id });
+      throw saveErr;
     }
   }
 
@@ -401,7 +434,6 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     err: string,
     retry = false,
     filter?: ProvingJobFilter,
-    aborted = false,
   ): Promise<GetProvingJobResponse | undefined> {
     const info = this.inProgress.get(id);
     const item = this.jobsCache.get(id);
@@ -462,11 +494,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     this.promises.get(id)!.resolve(result);
     this.completedJobNotifications.push(id);
 
-    if (aborted) {
-      this.instrumentation.incAbortedJobs(item.type);
-    } else {
-      this.instrumentation.incRejectedJobs(item.type);
-    }
+    this.instrumentation.incRejectedJobs(item.type);
     if (info) {
       const duration = this.msTimeSource() - info.startedAt;
       this.instrumentation.recordJobDuration(item.type, duration);
