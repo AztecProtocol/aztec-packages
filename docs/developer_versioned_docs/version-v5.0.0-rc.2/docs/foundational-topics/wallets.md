@@ -21,6 +21,8 @@ A wallet must support at least one specific account contract implementation, whi
 
 Note that users must be able to receive funds in Aztec before deploying their account. A wallet should let a user generate a [deterministic complete address](./accounts/keys.md#address-derivation) without having to interact with the network, so they can share it with others to receive funds. This requires that the wallet pins a specific contract implementation, its initialization arguments, a deployment salt, and the user's keys. These values yield a deterministic address, so when the account contract is actually deployed, it is available at the precalculated address. Once the account contract is deployed, the user can start sending transactions using it as the transaction origin.
 
+Some account contracts avoid deployment altogether: [initializerless accounts](./accounts/deployment.md) commit their signing key into the address itself, so the wallet only needs to register them locally before they can start transacting.
+
 ## Transaction lifecycle
 
 Every transaction in Aztec is broadcast to the network as a zero-knowledge proof of correct execution, in order to preserve privacy. This means that transaction proofs are generated on the wallet and not on a remote node. This is one of the biggest differences with regard to EVM chain wallets.
