@@ -4,7 +4,7 @@
 //! bootstrap the app-siloed handshake secret, reserve the next per-secret index, constrain that index, emit the
 //! sequence nullifier, then emit the tagged private log. The malformed-log test lands a constrained tag without its
 //! sequence nullifier so the next real delivery must reject the broken sequence.
-use crate::ConstrainedDeliveryTest;
+use crate::OnchainDeliveryTest;
 
 use aztec::{
     protocol::address::AztecAddress,
@@ -24,7 +24,7 @@ unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress, AztecA
         .without_initializer();
     assert_eq(registry_address, STANDARD_HANDSHAKE_REGISTRY_ADDRESS);
 
-    let test_address = env.deploy("ConstrainedDeliveryTest").without_initializer();
+    let test_address = env.deploy("OnchainDeliveryTest").without_initializer();
 
     (env, registry_address, test_address, sender, recipient)
 }
@@ -38,7 +38,7 @@ unconstrained fn authorizing(registry_address: AztecAddress) -> CallPrivateOptio
 #[test]
 unconstrained fn rehandshake_replaces_registry_secret_for_future_delivery() {
     let (env, registry_address, test_address, sender, recipient) = setup();
-    let test_contract = ConstrainedDeliveryTest::at(test_address);
+    let test_contract = OnchainDeliveryTest::at(test_address);
     let registry = HandshakeRegistry::at(registry_address);
 
     env.call_private_opts(sender, authorizing(registry_address), test_contract.emit_event(recipient, 1));
@@ -69,7 +69,7 @@ unconstrained fn rehandshake_replaces_registry_secret_for_future_delivery() {
 #[test(should_fail_with = "reading an unknown nullifier")]
 unconstrained fn fails_at_index_above_zero_without_prior_nullifier() {
     let (env, registry_address, test_address, sender, recipient) = setup();
-    let test_contract = ConstrainedDeliveryTest::at(test_address);
+    let test_contract = OnchainDeliveryTest::at(test_address);
     let registry = HandshakeRegistry::at(registry_address);
 
     let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
