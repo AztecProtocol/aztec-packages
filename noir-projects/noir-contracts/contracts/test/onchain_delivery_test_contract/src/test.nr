@@ -1,9 +1,10 @@
-//! Tests for constrained delivery through the public message-delivery API.
+//! Tests for onchain message delivery through the public message-delivery API.
 //!
-//! These tests exercise the sender-side helper flow indirectly via constrained note/event delivery: resolve or
+//! The constrained tests exercise the sender-side helper flow indirectly via note/event delivery: resolve or
 //! bootstrap the app-siloed handshake secret, reserve the next per-secret index, constrain that index, emit the
 //! sequence nullifier, then emit the tagged private log. The malformed-log test lands a constrained tag without its
-//! sequence nullifier so the next real delivery must reject the broken sequence.
+//! sequence nullifier so the next real delivery must reject the broken sequence. The unconstrained tests cover
+//! delivery in the mode without sequence nullifiers, alongside and independent of the constrained flow.
 use crate::OnchainDeliveryTest;
 
 use aztec::{

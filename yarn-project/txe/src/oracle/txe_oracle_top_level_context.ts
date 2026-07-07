@@ -358,12 +358,19 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     this.authwits.set(authWitness.requestHash.toString(), authWitness);
   }
 
-  setTaggingSecretStrategy(deliveryMode: AppTaggingSecretKind, strategy: Option<TaggingSecretStrategy>): void {
-    if (strategy.isSome()) {
-      this.taggingSecretStrategies.set(deliveryMode, strategy.value);
-    } else {
-      this.taggingSecretStrategies.delete(deliveryMode);
-    }
+  setTaggingSecretStrategies(
+    unconstrainedStrategy: Option<TaggingSecretStrategy>,
+    constrainedStrategy: Option<TaggingSecretStrategy>,
+  ): void {
+    const apply = (mode: AppTaggingSecretKind, strategy: Option<TaggingSecretStrategy>) => {
+      if (strategy.isSome()) {
+        this.taggingSecretStrategies.set(mode, strategy.value);
+      } else {
+        this.taggingSecretStrategies.delete(mode);
+      }
+    };
+    apply(AppTaggingSecretKind.UNCONSTRAINED, unconstrainedStrategy);
+    apply(AppTaggingSecretKind.CONSTRAINED, constrainedStrategy);
   }
 
   async sendL1ToL2Message(content: Fr, secretHash: Fr, sender: EthAddress, recipient: AztecAddress): Promise<Fr> {
@@ -515,8 +522,6 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
           isStaticCall ? 'private view' : 'private',
           authorizedUtilityCallTargets,
         ),
-        // Only configure the hook when a strategy was explicitly set, so that otherwise the default tagging secret
-        // strategy is exercised.
         resolveTaggingSecretStrategy: makeResolveTaggingSecretStrategyHook(this.taggingSecretStrategies),
       }),
       transientArrayService,

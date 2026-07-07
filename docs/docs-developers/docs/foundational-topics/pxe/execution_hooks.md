@@ -82,12 +82,12 @@ For an unconstrained self-send (the recipient is one of the wallet's own account
 
 ### In Noir tests
 
-When testing in Noir, leaving the strategy unset makes `TestEnvironment` fall back to the bare PXE default. Set a strategy when creating the environment to exercise a specific one; it affects message delivery in private executions:
+When testing in Noir, leaving the strategy unset makes `TestEnvironment` fall back to the bare PXE default. Set a strategy when creating the environment to exercise a specific one; it affects message delivery in private executions. Use `with_tag_secret_strategy` to configure a single delivery mode, or `with_tag_secret_strategy_all_modes` for both at once:
 
 ```rust
-let env = TestEnvironment::new_opts(
-    TestEnvironmentOptions::new().with_tagging_secret_strategy(TaggingSecretStrategy::non_interactive_handshake()),
-);
+let env = TestEnvironment::new_opts(TestEnvironmentOptions::new().with_tag_secret_strategy_all_modes(
+    TaggingSecretStrategy::non_interactive_handshake(),
+));
 ```
 
 ### In production

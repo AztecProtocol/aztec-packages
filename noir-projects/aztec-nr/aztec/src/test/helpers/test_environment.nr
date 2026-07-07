@@ -642,12 +642,8 @@ impl TestEnvironment {
         assert_compatible_oracle_version();
         txe_oracles::assert_compatible_txe_oracle_version();
 
-        txe_oracles::set_tagging_secret_strategy(
-            OnchainDeliveryMode::onchain_unconstrained(),
+        txe_oracles::set_tagging_secret_strategies(
             options.unconstrained_tagging_secret_strategy,
-        );
-        txe_oracles::set_tagging_secret_strategy(
-            OnchainDeliveryMode::onchain_constrained(),
             options.constrained_tagging_secret_strategy,
         );
 

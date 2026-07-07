@@ -37,20 +37,31 @@ describe('makeResolveTaggingSecretStrategyHook', () => {
     );
   });
 
-  it('deserializes the mode-aware TXE oracle setter', async () => {
+  it('deserializes the per-mode TXE oracle setter', async () => {
     const received = await callTxeHandler({
-      oracle: 'aztec_txe_setTaggingSecretStrategy',
-      inputs: [toSingle(2), toSingle(1), toSingle(2), toSingle(5), toSingle(6)],
-      handler: ([deliveryMode, strategy]) => {
-        expect(deliveryMode).toBe(AppTaggingSecretKind.UNCONSTRAINED);
-        expect(strategy.isSome()).toBe(true);
-        if (!strategy.isSome()) {
-          throw new Error('Expected tagging secret strategy');
+      oracle: 'aztec_txe_setTaggingSecretStrategies',
+      inputs: [
+        // Unconstrained mode: some(arbitrary-secret with point (5, 6)).
+        toSingle(1),
+        toSingle(2),
+        toSingle(5),
+        toSingle(6),
+        // Constrained mode: none, zero-padded to the option's full width.
+        toSingle(0),
+        toSingle(0),
+        toSingle(0),
+        toSingle(0),
+      ],
+      handler: ([unconstrainedStrategy, constrainedStrategy]) => {
+        expect(constrainedStrategy.isSome()).toBe(false);
+        if (!unconstrainedStrategy.isSome()) {
+          throw new Error('Expected an unconstrained-mode tagging secret strategy');
         }
-        expect(strategy.value.type).toBe('arbitrary-secret');
-        expect(
-          strategy.value.type === 'arbitrary-secret' && strategy.value.secret.equals(new Point(new Fr(5), new Fr(6))),
-        ).toBeTruthy();
+        const strategy = unconstrainedStrategy.value;
+        if (strategy.type !== 'arbitrary-secret') {
+          throw new Error(`Expected an arbitrary-secret strategy, got '${strategy.type}'`);
+        }
+        expect(strategy.secret.equals(new Point(new Fr(5), new Fr(6)))).toBe(true);
       },
     });
 

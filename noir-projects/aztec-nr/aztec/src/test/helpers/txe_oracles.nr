@@ -1,7 +1,7 @@
 use crate::{
     context::inputs::PrivateContextInputs,
     event::EventSelector,
-    messages::{delivery::OnchainDeliveryMode, encoding::MESSAGE_CIPHERTEXT_LEN},
+    messages::encoding::MESSAGE_CIPHERTEXT_LEN,
     test::helpers::{tagging_secret_strategy::TaggingSecretStrategy, utils::TestAccount},
 };
 
@@ -265,10 +265,10 @@ pub unconstrained fn send_l1_to_l2_message(
     recipient: AztecAddress,
 ) -> Field {}
 
-#[oracle(aztec_txe_setTaggingSecretStrategy)]
-pub unconstrained fn set_tagging_secret_strategy(
-    delivery_mode: OnchainDeliveryMode,
-    strategy: Option<TaggingSecretStrategy>,
+#[oracle(aztec_txe_setTaggingSecretStrategies)]
+pub unconstrained fn set_tagging_secret_strategies(
+    unconstrained_strategy: Option<TaggingSecretStrategy>,
+    constrained_strategy: Option<TaggingSecretStrategy>,
 ) {}
 
 #[oracle(aztec_txe_privateCallNewFlow)]
