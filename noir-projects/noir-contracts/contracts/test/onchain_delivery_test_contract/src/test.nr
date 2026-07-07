@@ -52,16 +52,12 @@ unconstrained fn external_recipient() -> AztecAddress {
     AztecAddress::from_field(8)
 }
 
-unconstrained fn arbitrary_secret_point() -> EmbeddedCurvePoint {
-    EmbeddedCurvePoint {
-        x: 0x15d55a5b3b2caa6a6207f313f05c5113deba5da9927d6421bcaa164822b911bc,
-        y: 0x0974c3d0825031ae933243d653ebb1a0b08b90ee7f228f94c5c74739ea3c871e,
-    }
-}
-
 #[test]
 unconstrained fn unconstrained_delivery_works_alongside_constrained_delivery() {
-    let point = arbitrary_secret_point();
+    let point = EmbeddedCurvePoint {
+        x: 0x15d55a5b3b2caa6a6207f313f05c5113deba5da9927d6421bcaa164822b911bc,
+        y: 0x0974c3d0825031ae933243d653ebb1a0b08b90ee7f228f94c5c74739ea3c871e,
+    };
     // Only the unconstrained mode is configured: the constrained mode falls back to the default non-interactive
     // handshake strategy, so the constrained delivery below still bootstraps a registry handshake.
     let options = TestEnvironmentOptions::new().with_tag_secret_strategy(
