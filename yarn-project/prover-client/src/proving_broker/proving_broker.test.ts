@@ -617,7 +617,7 @@ describe.each([
       await broker.getProvingJob();
       await assertJobStatus(id, 'in-progress');
       await broker.cancelProvingJob(id);
-      await assertJobStatus(id, 'rejected');
+      await assertJobStatus(id, 'aborted');
 
       const id2 = makeRandomProvingJobId();
       await broker.enqueueProvingJob({
