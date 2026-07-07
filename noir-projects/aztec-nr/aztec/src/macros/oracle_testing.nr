@@ -308,7 +308,7 @@ comptime fn tuple_synth() -> TestValueSynthesizer {
     }
 }
 
-/// A call to [`oracle_test_tuple2`]/[`oracle_test_tuple3`], with each member's builder and flat wire offset.
+/// A call to [`oracle_test_tuple2`], with each member's builder and flat wire offset.
 comptime fn tuple_value_expr(typ: Type, seed: Quoted) -> Quoted {
     let members = typ.as_tuple().unwrap();
     let mut member_builders: [Quoted] = @[];
@@ -324,13 +324,6 @@ comptime fn tuple_value_expr(typ: Type, seed: Quoted) -> Quoted {
         let b_offset_value = offsets[1];
         let b_offset = f"{b_offset_value}".quoted_contents();
         quote { crate::macros::oracle_testing::oracle_test_tuple2($a, $b, $b_offset, $seed) }
-    } else if members.len() == 3 {
-        let (a, b, c) = (member_builders[0], member_builders[1], member_builders[2]);
-        let b_offset_value = offsets[1];
-        let c_offset_value = offsets[2];
-        let b_offset = f"{b_offset_value}".quoted_contents();
-        let c_offset = f"{c_offset_value}".quoted_contents();
-        quote { crate::macros::oracle_testing::oracle_test_tuple3($a, $b, $c, $b_offset, $c_offset, $seed) }
     } else {
         panic(
             f"cannot build an oracle test value for {typ}: add an oracle_test_tuple helper for this arity",
@@ -345,17 +338,6 @@ pub(crate) fn oracle_test_tuple2<A, B>(
     seed: u32,
 ) -> (A, B) {
     (build_a(seed), build_b(seed + b_offset))
-}
-
-pub(crate) fn oracle_test_tuple3<A, B, C>(
-    build_a: fn(u32) -> A,
-    build_b: fn(u32) -> B,
-    build_c: fn(u32) -> C,
-    b_offset: u32,
-    c_offset: u32,
-    seed: u32,
-) -> (A, B, C) {
-    (build_a(seed), build_b(seed + b_offset), build_c(seed + c_offset))
 }
 
 comptime fn struct_synth() -> TestValueSynthesizer {
