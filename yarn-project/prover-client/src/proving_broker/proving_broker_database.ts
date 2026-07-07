@@ -39,6 +39,14 @@ export interface ProvingBrokerDatabase {
   setProvingJobError(id: ProvingJobId, err: string): Promise<void>;
 
   /**
+   * Records that a proof request was cancelled. Unlike a result or error this is not terminal:
+   * re-enqueuing the same job id revives it, so the aborted state can survive a restart without
+   * permanently blocking the proof.
+   * @param id - The ID of the cancelled proof request
+   */
+  setProvingJobAborted(id: ProvingJobId): Promise<void>;
+
+  /**
    * Closes the database
    */
   close(): Promise<void>;

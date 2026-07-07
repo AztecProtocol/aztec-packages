@@ -441,9 +441,20 @@ export const ProvingJobRejectedResult = z.object({
 });
 export type ProvingJobRejectedResult = z.infer<typeof ProvingJobRejectedResult>;
 
+/**
+ * The result of a job that was cancelled by its producer. Unlike a fulfilled or rejected result it
+ * is not truly terminal: re-enqueuing the same job id revives it, so an abort never permanently
+ * blocks a proof from being produced.
+ */
+export const ProvingJobAbortedResult = z.object({
+  status: z.literal('aborted'),
+});
+export type ProvingJobAbortedResult = z.infer<typeof ProvingJobAbortedResult>;
+
 export const ProvingJobSettledResult = z.discriminatedUnion('status', [
   ProvingJobFulfilledResult,
   ProvingJobRejectedResult,
+  ProvingJobAbortedResult,
 ]);
 export type ProvingJobSettledResult = z.infer<typeof ProvingJobSettledResult>;
 
@@ -453,5 +464,6 @@ export const ProvingJobStatus = z.discriminatedUnion('status', [
   z.object({ status: z.literal('not-found') }),
   ProvingJobFulfilledResult,
   ProvingJobRejectedResult,
+  ProvingJobAbortedResult,
 ]);
 export type ProvingJobStatus = z.infer<typeof ProvingJobStatus>;

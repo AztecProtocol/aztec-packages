@@ -201,7 +201,7 @@ describe.each([
       await assertJobStatus(id, 'in-queue');
 
       await broker.cancelProvingJob(id);
-      await assertJobStatus(id, 'not-found');
+      await assertJobStatus(id, 'aborted');
     });
 
     it('cancels jobs in-progress', async () => {
@@ -216,10 +216,10 @@ describe.each([
       await broker.getProvingJob();
       await assertJobStatus(id, 'in-progress');
       await broker.cancelProvingJob(id);
-      await assertJobStatus(id, 'not-found');
+      await assertJobStatus(id, 'aborted');
     });
 
-    it('does not cache aborted jobs, so a retry re-proves them in the same process', async () => {
+    it('revives an aborted job when its producer re-requests it', async () => {
       const provingJob: ProvingJob = {
         id: makeRandomProvingJobId(),
         type: ProvingRequestType.PARITY_BASE,
@@ -231,12 +231,11 @@ describe.each([
       await broker.getProvingJob();
       await assertJobStatus(provingJob.id, 'in-progress');
 
-      // Cancelling drops the job rather than caching an 'Aborted' rejection.
       await broker.cancelProvingJob(provingJob.id);
-      await assertJobStatus(provingJob.id, 'not-found');
+      await assertJobStatus(provingJob.id, 'aborted');
 
-      // Re-enqueuing the same job (a retry without a restart) runs it again instead of returning a
-      // cached abort, and it can be completed.
+      // Re-requesting the same job (a retry without a restart) revives it rather than returning the
+      // cached abort, and it can then be completed.
       await expect(broker.enqueueProvingJob(provingJob)).resolves.toEqual({ status: 'not-found' });
       await assertJobStatus(provingJob.id, 'in-queue');
       const returnedJob = await broker.getProvingJob({ allowList: [ProvingRequestType.PARITY_BASE] });
@@ -247,7 +246,7 @@ describe.each([
       await assertJobStatus(provingJob.id, 'fulfilled');
     });
 
-    it('does not persist aborted jobs, so they can be re-proven after a restart', async () => {
+    it('persists the aborted state across a restart and revives on re-request', async () => {
       const provingJob: ProvingJob = {
         id: makeRandomProvingJobId(),
         type: ProvingRequestType.PARITY_BASE,
@@ -257,11 +256,10 @@ describe.each([
 
       await broker.enqueueProvingJob(provingJob);
       await broker.cancelProvingJob(provingJob.id);
-      await assertJobStatus(provingJob.id, 'not-found');
+      await assertJobStatus(provingJob.id, 'aborted');
 
-      // A deploy restarts both the prover node and the broker, clearing in-memory state. The abort
-      // must not have been persisted, otherwise the broker restores it as a settled rejection and
-      // the job (and therefore its epoch) can never be proven.
+      // A deploy restarts both the prover node and the broker. The aborted state is persisted, so it
+      // survives the restart rather than being lost or restored as a permanent rejection.
       await broker.stop();
       broker = new ProvingBroker(database, {
         proverBrokerJobTimeoutMs: jobTimeoutMs,
@@ -271,8 +269,10 @@ describe.each([
         proverBrokerDebugReplayEnabled: false,
       });
       await broker.start();
+      await assertJobStatus(provingJob.id, 'aborted');
 
-      // the job is pending again after the restart and can be picked up and completed
+      // The prover re-requests the job after the restart, which revives it, and it can be completed.
+      await expect(broker.enqueueProvingJob(provingJob)).resolves.toEqual({ status: 'not-found' });
       await assertJobStatus(provingJob.id, 'in-queue');
       const returnedJob = await broker.getProvingJob({ allowList: [ProvingRequestType.PARITY_BASE] });
       expect(returnedJob?.job).toEqual(provingJob);

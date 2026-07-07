@@ -207,8 +207,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
   }
 
   public cancelProvingJob(id: ProvingJobId): Promise<void> {
-    this.#cancelProvingJob(id);
-    return Promise.resolve();
+    return this.#cancelProvingJob(id);
   }
 
   public getProvingJobStatus(id: ProvingJobId): Promise<ProvingJobStatus> {
@@ -273,15 +272,27 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
 
   async #enqueueProvingJob(job: ProvingJob): Promise<ProvingJobStatus> {
     // We return the job status at the start of this call
-    const jobStatus = this.#getProvingJobStatus(job.id);
+    let jobStatus = this.#getProvingJobStatus(job.id);
     if (this.jobsCache.has(job.id)) {
       const existing = this.jobsCache.get(job.id);
       assert.deepStrictEqual(job, existing, 'Duplicate proving job ID');
-      this.logger.warn(`Cached proving job id=${job.id} epochNumber=${job.epochNumber}. Not enqueuing again`, {
-        provingJobId: job.id,
-      });
-      this.instrumentation.incCachedJobs(job.type);
-      return jobStatus;
+
+      if (this.resultsCache.get(job.id)?.status === 'aborted') {
+        // The producer is re-requesting a job it previously cancelled: revive it. Clear the aborted
+        // state and re-enqueue as if new (recomputing the start-of-call status) rather than
+        // returning the stale aborted status.
+        this.logger.info(`Reviving aborted proving job id=${job.id} epochNumber=${job.epochNumber}`, {
+          provingJobId: job.id,
+        });
+        this.cleanUpProvingJobState([job.id]);
+        jobStatus = this.#getProvingJobStatus(job.id);
+      } else {
+        this.logger.warn(`Cached proving job id=${job.id} epochNumber=${job.epochNumber}. Not enqueuing again`, {
+          provingJobId: job.id,
+        });
+        this.instrumentation.incCachedJobs(job.type);
+        return jobStatus;
+      }
     }
 
     if (this.isJobStale(job)) {
@@ -306,26 +317,37 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     return jobStatus;
   }
 
-  #cancelProvingJob(id: ProvingJobId): void {
+  async #cancelProvingJob(id: ProvingJobId): Promise<void> {
     const job = this.jobsCache.get(id);
     if (!job) {
       this.logger.warn(`Can't cancel a job that doesn't exist id=${id}`, { provingJobId: id });
       return;
     }
 
-    // Leave jobs that have already legitimately settled (completed or failed) alone: those results
-    // are cached and served to future callers.
+    // Leave jobs that have already settled (completed or failed) alone: those results are terminal.
     if (this.resultsCache.has(id)) {
       return;
     }
 
-    // A cancelled job is not a terminal result, so - unlike a completion or failure - we neither
-    // cache nor persist it. We drop it from the broker entirely so that a retry re-runs it instead
-    // of getting a stale 'Aborted' error, whether the retry happens in the same process or after a
-    // restart (on startup the broker re-enqueues the still-pending database entry).
     this.logger.info(`Cancelling job id=${id}`, { provingJobId: id });
+    this.inProgress.delete(id);
+
+    // Record the cancellation as its own settled state and persist it, so it survives a restart and
+    // notifies the current waiter. Unlike a completion or failure this is not terminal: re-enqueuing
+    // the same job id revives it (see #enqueueProvingJob), so the abort never permanently blocks the
+    // proof.
+    const result: ProvingJobSettledResult = { status: 'aborted' };
+    this.resultsCache.set(id, result);
+    this.promises.get(id)?.resolve(result);
+    this.completedJobNotifications.push(id);
     this.instrumentation.incAbortedJobs(job.type);
-    this.cleanUpProvingJobState([id]);
+
+    try {
+      await this.database.setProvingJobAborted(id);
+    } catch (saveErr) {
+      this.logger.error(`Failed to save proving job aborted status id=${id}`, saveErr, { provingJobId: id });
+      throw saveErr;
+    }
   }
 
   private cleanUpProvingJobState(ids: ProvingJobId[]) {
