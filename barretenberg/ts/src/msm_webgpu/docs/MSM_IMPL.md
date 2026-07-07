@@ -42,7 +42,7 @@ integrated it into the Chonk browser prover, and explored GPU sumcheck.
 | `wip/move-bucket-walk-to-gpu` | suyash | **PARKED / BROKEN** — the `f2cc` commit breaks MSM correctness (§7.7); kept as a marker. |
 | `zw/webgpu-msm` | zac | Zac's clean squashed v2 — bucket-reduction pipeline, addition-schedule combine, CPU/GPU work-split planner. |
 | `zw/msm-webgpu-experiments-v2`, `zw/webgpu-compilation`, `zw/msm-webgpu-{experiments-backup, mont-mul-bench}` | zac | Experiment lines: addition-schedule combine, shader codegen / field arithmetic (`pk` inverse, Karatsuba/Yuval montmul microbench), per-pass dump drivers. |
-| `sb/sumcheck-webgpu`, `sb/multipass-sumcheck-opt`, `sb/skipping-sumcheck-webgpu` | suyash | **GPU sumcheck** (§7.9). ⚠ the *skipping* branch is **local-only** (checkout `sumcheck-webgpu-skipping`, never pushed). |
+| `sb/sumcheck-webgpu`, `sb/multipass-sumcheck-opt`, `sb/skipping-sumcheck-webgpu` | suyash | **GPU sumcheck** (§7.9). The *skipping* branch is the most complete of the three. |
 
 ![Branch & directory map: Zac's zw/* WebGPU-MSM experiments were ported by Suyash into sb/msm-webgpu, which fans into the BatchMsmV2, static-plan (parked) and broken bucket-walk (parked) lines, all converging in the canonical sb/integrate-wgpu-msm, with the clean sb/webgpu-msm-fresh spine and three sumcheck branches downstream.](diagrams/wgpu_branch_map.svg)
 
@@ -514,8 +514,7 @@ speed). Design history: `BATCH_MSM_DESIGN.md` (git history).
 ### 7.9 GPU sumcheck — built, NO-GO standalone / conditional GO resident
 
 The natural next GPU target (~8–10% of e2e, 100% CPU today). A **working
-prototype** exists on the three sumcheck branches (§2 table — note the
-local-only *skipping* branch):
+prototype** exists on the three sumcheck branches (§2 table):
 
 - The `Fr`-vs-`Fq` blocker was solved: `ShaderManager` is
   field-parametric; the Fr generator family covers **all 14 Mega
@@ -732,8 +731,6 @@ In rough order of impact on the e2e number:
 3. **GPU sumcheck only inside a resident-witness pipeline** (§7.9).
 4. **Mobile: the f32-FMA field-multiply rewrite** (§7.12) — the only
    measured path to beating WASM on Adreno/IMG.
-
-First, though: push the local-only `sb/skipping-sumcheck-webgpu` branch.
 
 ### 9.2 Started, showed promise, not finished
 

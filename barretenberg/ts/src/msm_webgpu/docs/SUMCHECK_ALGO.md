@@ -8,8 +8,7 @@ where these protocols sit in the Chonk browser prover).
 
 Unlike the MSM, the GPU sumcheck is a **parked prototype**: the code
 lives on `sb/sumcheck-webgpu`, `sb/multipass-sumcheck-opt` and
-`sb/skipping-sumcheck-webgpu` (local-only, checkout
-`sumcheck-webgpu-skipping`), **not** on `sb/integrate-wgpu-msm`. Status,
+`sb/skipping-sumcheck-webgpu`, **not** on `sb/integrate-wgpu-msm`. Status,
 numbers and the go/no-go verdict: [MSM_IMPL.md](MSM_IMPL.md) §7.9;
 detail reports (`DESIGN_REPORT.html`, `OPTIMIZATION_REPORT.md`,
 `MEMORY_REPORT.md`) sit on the branches under
