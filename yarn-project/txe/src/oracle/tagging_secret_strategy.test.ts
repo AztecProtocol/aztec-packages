@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { Point } from '@aztec/foundation/curves/grumpkin';
-import type { TaggingSecretStrategy } from '@aztec/pxe/server';
+import { DEFAULT_TAGGING_SECRET_STRATEGY, type TaggingSecretStrategy } from '@aztec/pxe/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { AppTaggingSecretKind } from '@aztec/stdlib/logs';
 
@@ -13,22 +13,9 @@ describe('makeResolveTaggingSecretStrategyHook', () => {
     expect(makeResolveTaggingSecretStrategyHook(new Map())).toBeUndefined();
   });
 
-  it('returns a static strategy for every delivery mode', async () => {
-    const strategy = { type: 'non-interactive-handshake' as const };
-    const hook = makeResolveTaggingSecretStrategyHook(
-      new Map([
-        [AppTaggingSecretKind.UNCONSTRAINED, strategy],
-        [AppTaggingSecretKind.CONSTRAINED, strategy],
-      ]),
-    );
-
-    await expect(hook?.(makeRequest(AppTaggingSecretKind.UNCONSTRAINED))).resolves.toBe(strategy);
-    await expect(hook?.(makeRequest(AppTaggingSecretKind.CONSTRAINED))).resolves.toBe(strategy);
-  });
-
   it('selects a strategy by delivery mode', async () => {
-    const unconstrained: TaggingSecretStrategy = { type: 'address-derived' };
-    const constrained: TaggingSecretStrategy = { type: 'arbitrary-secret', secret: await Point.random() };
+    const unconstrained: TaggingSecretStrategy = { type: 'arbitrary-secret', secret: await Point.random() };
+    const constrained: TaggingSecretStrategy = { type: 'non-interactive-handshake' };
     const hook = makeResolveTaggingSecretStrategyHook(
       new Map<AppTaggingSecretKind, TaggingSecretStrategy>([
         [AppTaggingSecretKind.UNCONSTRAINED, unconstrained],
@@ -45,9 +32,9 @@ describe('makeResolveTaggingSecretStrategyHook', () => {
     const hook = makeResolveTaggingSecretStrategyHook(new Map([[AppTaggingSecretKind.UNCONSTRAINED, unconstrained]]));
 
     await expect(hook?.(makeRequest(AppTaggingSecretKind.UNCONSTRAINED))).resolves.toBe(unconstrained);
-    await expect(hook?.(makeRequest(AppTaggingSecretKind.CONSTRAINED))).resolves.toEqual({
-      type: 'non-interactive-handshake',
-    });
+    await expect(hook?.(makeRequest(AppTaggingSecretKind.CONSTRAINED))).resolves.toEqual(
+      DEFAULT_TAGGING_SECRET_STRATEGY,
+    );
   });
 
   it('deserializes the mode-aware TXE oracle setter', async () => {

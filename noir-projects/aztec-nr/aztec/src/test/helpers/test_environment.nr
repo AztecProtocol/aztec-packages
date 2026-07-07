@@ -89,7 +89,10 @@ pub struct TestEnvironment {
 /// methods setting each value, e.g.:
 /// ```noir
 /// let env = TestEnvironment::new_opts(
-///     TestEnvironmentOptions::new().with_tag_secret_strategy_all_modes(strategy),
+///     TestEnvironmentOptions::new().with_tag_secret_strategy(
+///         MessageDelivery::onchain_unconstrained(),
+///         TaggingSecretStrategy::non_interactive_handshake(),
+///     ),
 /// );
 /// ```
 pub struct TestEnvironmentOptions {

@@ -15,7 +15,6 @@ use aztec::{
         test_environment::{
             CallPrivateOptions, DeployOptions, ExecuteUtilityOptions, TestEnvironment, TestEnvironmentOptions,
         },
-        txe_oracles,
     },
 };
 use handshake_registry_contract::HandshakeRegistry;
@@ -60,68 +59,7 @@ unconstrained fn arbitrary_secret_point() -> EmbeddedCurvePoint {
 }
 
 #[test]
-unconstrained fn unconstrained_delivery_uses_configured_arbitrary_secret() {
-    let point = arbitrary_secret_point();
-    let options = TestEnvironmentOptions::new().with_tag_secret_strategy_all_modes(
-        TaggingSecretStrategy::arbitrary_secret(point),
-    );
-    let (env, registry_address, test_address, sender, _) = setup_opts(options);
-    let recipient = external_recipient();
-    let test_contract = ConstrainedDeliveryTest::at(test_address);
-    let registry = HandshakeRegistry::at(registry_address);
-
-    env.call_private(sender, test_contract.emit_unconstrained_event(recipient, 1));
-
-    let effects = txe_oracles::get_last_tx_effects();
-    assert_eq(effects.private_logs.len(), 1);
-
-    let expected_secret = compute_directional_app_secret(point, test_address, recipient);
-    let next_unconstrained_index = env.call_private(
-        sender,
-        test_contract.next_index_for_secret(expected_secret, MessageDelivery::onchain_unconstrained().into()),
-    );
-    let next_constrained_index = env.call_private(
-        sender,
-        test_contract.next_index_for_secret(expected_secret, MessageDelivery::onchain_constrained().into()),
-    );
-    assert_eq(next_unconstrained_index, 1);
-    assert_eq(next_constrained_index, 0);
-
-    let maybe_handshake = env.execute_utility_opts(
-        ExecuteUtilityOptions::new().with_from(test_address),
-        registry.get_app_siloed_secrets(sender, recipient),
-    );
-    assert(maybe_handshake.is_none());
-}
-
-#[test]
-unconstrained fn unconstrained_delivery_uses_address_derived_secret() {
-    let options =
-        TestEnvironmentOptions::new().with_tag_secret_strategy_all_modes(TaggingSecretStrategy::address_derived());
-    let (env, _, test_address, sender, _) = setup_opts(options);
-    let recipient = external_recipient();
-    let test_contract = ConstrainedDeliveryTest::at(test_address);
-    let secret = env.call_private(sender, test_contract.address_derived_secret(sender, recipient));
-
-    env.call_private(sender, test_contract.emit_unconstrained_event(recipient, 1));
-
-    let private_logs = txe_oracles::get_last_tx_effects().private_logs;
-    assert_eq(private_logs.len(), 1);
-
-    let next_unconstrained_index = env.call_private(
-        sender,
-        test_contract.next_index_for_secret(secret, MessageDelivery::onchain_unconstrained().into()),
-    );
-    let next_constrained_index = env.call_private(
-        sender,
-        test_contract.next_index_for_secret(secret, MessageDelivery::onchain_constrained().into()),
-    );
-    assert_eq(next_unconstrained_index, 1);
-    assert_eq(next_constrained_index, 0);
-}
-
-#[test]
-unconstrained fn tagging_secret_strategy_can_differ_by_delivery_mode() {
+unconstrained fn unconstrained_delivery_works_alongside_constrained_delivery() {
     let point = arbitrary_secret_point();
     // Only the unconstrained mode is configured: the constrained mode falls back to the default non-interactive
     // handshake strategy, so the constrained delivery below still bootstraps a registry handshake.
