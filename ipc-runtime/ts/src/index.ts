@@ -21,3 +21,8 @@ export {
   loadIpcRuntimeNapi,
   type Platform,
 } from "./native_loader.js";
+export {
+  WasiModuleBackend,
+  WasiAsyncBackend,
+  type HostCall,
+} from "./wasi_backend.js";

@@ -1,0 +1,41 @@
+[package]
+name = "acvm-sim"
+version = "0.1.0"
+edition = "2021"
+description = "msgpack IPC server wrapping the Noir ACVM for out-of-process ACIR execution."
+license = "MIT OR Apache-2.0"
+
+[lib]
+name = "acvm_sim"
+# cdylib: the wasm backend module (exports ipc_ffi_entry). rlib: the native lib for the bin + tests.
+crate-type = ["cdylib", "rlib"]
+path = "src/lib.rs"
+
+[[bin]]
+name = "acvm-sim"
+path = "src/main.rs"
+
+[features]
+default = ["ipc-runtime"]
+# Enables the generated `impl Backend for ipc_runtime::IpcClient` in backend.rs and
+# the IPC server host in main.rs. On by default for the native build.
+ipc-runtime = ["dep:ipc-runtime"]
+# Enables the ipc_ffi_entry export for the wasm (and future FFI/NAPI) backend. Built with
+# `--no-default-features --features wasm` for wasm32.
+wasm = []
+
+[dependencies]
+# Same-repo transport crate (compiles its own C++ via `cc`); no publishing needed.
+ipc-runtime = { path = "../../../ipc-runtime/rust", optional = true }
+# Noir ACVM lib, path-dep'd into the vendored submodule (version tracks the pinned commit).
+acir = { path = "../../../noir/noir-repo/acvm-repo/acir" }
+acvm = { path = "../../../noir/noir-repo/acvm-repo/acvm" }
+bn254_blackbox_solver = { path = "../../../noir/noir-repo/acvm-repo/bn254_blackbox_solver" }
+rmp-serde = "1.3"
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "1.0"
+
+[dev-dependencies]
+# Build sample ACIR programs and drive the generated client over IPC in the round-trip test.
+acir = { path = "../../../noir/noir-repo/acvm-repo/acir" }
+ipc-runtime = { path = "../../../ipc-runtime/rust" }

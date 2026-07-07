@@ -1,0 +1,7 @@
+# Pin the same rustc as the noir submodule (noir/noir-repo/rust-toolchain.toml). The
+# path-dep'd ACVM crates are edition 2024 with rust-version 1.89, so this crate must
+# build on >= 1.89; pinning keeps it reproducible with the vendored noir commit.
+[toolchain]
+channel = "1.89.0"
+# wasm32-wasip1 is the target for the in-process wasm backend (build_wasm).
+targets = ["wasm32-wasip1"]

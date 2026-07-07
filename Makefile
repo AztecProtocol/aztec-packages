@@ -326,7 +326,7 @@ ipc-runtime-cross: ipc-runtime ipc-runtime-cross-arm64-linux ipc-runtime-cross-a
 
 # lmdblib and kvdb are barretenberg-free: they build against their own deps
 # (lmdb, msgpack-c, node-addon-api) only, never bb.
-.PHONY: lmdblib kvdb lmdblib-tests wsdb-tests
+.PHONY: lmdblib kvdb lmdblib-tests wsdb-tests acvm-sim acvm-sim-tests
 lmdblib:
 	$(call build,$@,native-packages/lmdblib)
 
@@ -344,6 +344,15 @@ lmdblib-tests: lmdblib
 
 wsdb-tests: wsdb
 	$(call test,$@,native-packages/wsdb)
+
+# msgpack IPC server wrapping the noir ACVM (native-packages/acvm). The Rust crate
+# links ipc-runtime and the noir submodule's ACVM crates (path deps); no bb needed.
+# Not yet a yarn-project dependency — the cutover from NativeACVMSimulator is a later PR.
+acvm-sim: ipc-codegen ipc-runtime
+	$(call build,$@,native-packages/acvm)
+
+acvm-sim-tests: acvm-sim
+	$(call test,$@,native-packages/acvm)
 
 #==============================================================================
 # .claude tooling

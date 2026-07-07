@@ -8,6 +8,8 @@ export interface TypeScriptPackageOptions {
   ipcRuntimeDependency: string;
   ipcPathArgs: string[];
   transports: string[];
+  /** Emit an in-process wasm backend (createWasmBackend) alongside the spawned native backend. */
+  wasm?: boolean;
 }
 
 function className(prefix: string): string {
@@ -31,9 +33,7 @@ function envName(binaryName: string): string {
 }
 
 function packageStem(packageName: string): string {
-  return packageName.startsWith("@")
-    ? packageName.split("/")[1]!
-    : packageName;
+  return packageName.startsWith("@") ? packageName.split("/")[1]! : packageName;
 }
 
 function archPackageNames(packageName: string): Record<string, string> {
@@ -49,7 +49,12 @@ const ARCH_PACKAGES = [
   { buildDir: "amd64-linux", suffix: "linux-x64", os: "linux", cpu: "x64" },
   { buildDir: "arm64-linux", suffix: "linux-arm64", os: "linux", cpu: "arm64" },
   { buildDir: "amd64-macos", suffix: "darwin-x64", os: "darwin", cpu: "x64" },
-  { buildDir: "arm64-macos", suffix: "darwin-arm64", os: "darwin", cpu: "arm64" },
+  {
+    buildDir: "arm64-macos",
+    suffix: "darwin-arm64",
+    os: "darwin",
+    cpu: "arm64",
+  },
 ] as const;
 
 export function defaultBinaryEnvVar(binaryName: string): string {
@@ -58,6 +63,46 @@ export function defaultBinaryEnvVar(binaryName: string): string {
 
 export class TypeScriptPackageCodegen {
   constructor(private opts: TypeScriptPackageOptions) {}
+
+  /**
+   * In-process wasm backend (src/wasm.ts). Satisfies the same byte-in/byte-out contract as the
+   * spawned native backend, so the generated SyncApi runs against it unchanged. Emitted only when
+   * the `wasm` package option is set.
+   */
+  generateWasm(): string {
+    const binaryName = this.opts.binaryName;
+    const prefix = this.opts.prefix;
+    return `import { WasiModuleBackend } from '@aztec/ipc-runtime';
+
+/**
+ * Create an in-process wasm backend for the ${prefix} service. Hosts the packaged \`${binaryName}.wasm\`
+ * (a wasm32-wasip1 compute module exporting \`ipc_ffi_entry\`) under WASI and exposes it through the
+ * same \`IpcClientSync\` contract the spawned native backend uses:
+ *
+ *     const api = new ${prefix}SyncApi(await createWasmBackend());
+ *
+ * In Node the packaged wasm is read automatically; other hosts (browser) pass \`wasm\` bytes.
+ */
+export async function createWasmBackend(
+  wasm?: BufferSource,
+  logger: (msg: string) => void = () => {},
+): Promise<WasiModuleBackend> {
+  const bytes = wasm ?? (await loadPackagedWasm());
+  return WasiModuleBackend.create(bytes, logger);
+}
+
+async function loadPackagedWasm(): Promise<Uint8Array> {
+  const isNode = typeof (globalThis as any).process?.versions?.node === 'string';
+  if (!isNode) {
+    throw new Error('createWasmBackend: pass wasm bytes explicitly in non-Node environments');
+  }
+  const { readFile } = await import('node:fs/promises');
+  const { fileURLToPath } = await import('node:url');
+  const url = new URL('../${binaryName}.wasm', import.meta.url);
+  return new Uint8Array(await readFile(fileURLToPath(url)));
+}
+`;
+  }
 
   generatePackageJson(): string {
     const archPackages = archPackageNames(this.opts.packageName);
@@ -92,7 +137,10 @@ export class TypeScriptPackageCodegen {
         tslib: "^2.4.0",
       },
       optionalDependencies: Object.fromEntries(
-        Object.values(archPackages).map((packageName) => [packageName, "0.1.0"]),
+        Object.values(archPackages).map((packageName) => [
+          packageName,
+          "0.1.0",
+        ]),
       ),
       devDependencies: {
         "@types/node": "^22.15.17",
@@ -149,28 +197,30 @@ process.exit(result.status ?? 1);
   }
 
   generateTsconfig(): string {
-    return JSON.stringify(
-      {
-        compilerOptions: {
-          target: "ES2022",
-          module: "NodeNext",
-          moduleResolution: "NodeNext",
-          declaration: true,
-          declarationMap: true,
-          composite: true,
-          outDir: "dest",
-          rootDir: "src",
-          tsBuildInfoFile: ".tsbuildinfo",
-          strict: true,
-          esModuleInterop: true,
-          skipLibCheck: true,
-          forceConsistentCasingInFileNames: true,
+    return (
+      JSON.stringify(
+        {
+          compilerOptions: {
+            target: "ES2022",
+            module: "NodeNext",
+            moduleResolution: "NodeNext",
+            declaration: true,
+            declarationMap: true,
+            composite: true,
+            outDir: "dest",
+            rootDir: "src",
+            tsBuildInfoFile: ".tsbuildinfo",
+            strict: true,
+            esModuleInterop: true,
+            skipLibCheck: true,
+            forceConsistentCasingInFileNames: true,
+          },
+          include: ["src/**/*.ts"],
         },
-        include: ["src/**/*.ts"],
-      },
-      null,
-      2,
-    ) + "\n";
+        null,
+        2,
+      ) + "\n"
+    );
   }
 
   generateIndex(): string {
@@ -201,6 +251,7 @@ import { ${findBinary} } from './platform.js';
 export * from './generated/api_types.js';
 export { AsyncApi } from './generated/async.js';
 export { SyncApi } from './generated/sync.js';
+${this.opts.wasm ? "export { createWasmBackend } from './wasm.js';\n" : ""}
 
 export type ${serviceTransport} = ${transports};
 
@@ -217,7 +268,7 @@ ${supportsShm ? "  napiPath?: string;\n  clientId?: number;\n" : ""}}
 let instanceCounter = 0;
 const DEFAULT_CONNECT_TIMEOUT_MS = 30_000;
 
-class SpawnedBackend implements IpcClientAsync {
+export class SpawnedBackend implements IpcClientAsync {
   private destroying = false;
   private exitError?: Error;
 
@@ -229,12 +280,14 @@ class SpawnedBackend implements IpcClientAsync {
     private exitPromise: Promise<void>,
     private logPath: string | undefined,
   ) {
-${supportsShm
-  ? `    // Detect unexpected server death. Over SHM there is no connection to break,
+${
+  supportsShm
+    ? `    // Detect unexpected server death. Over SHM there is no connection to break,
     // so without this an in-flight call waits forever for a reply that will
     // never arrive. Reject in-flight calls and point at the log file.`
-  : `    // Detect unexpected server death and reject in-flight calls with the
-    // child log path included in the error.`}
+    : `    // Detect unexpected server death and reject in-flight calls with the
+    // child log path included in the error.`
+}
     this.child.on('exit', (code, signal) => {
       if (this.destroying) {
         return;
@@ -362,7 +415,9 @@ async function connectClient(
       if (transport === 'uds') {
         return await UdsIpcClient.connect(ipcPath, { connectTimeoutMs: Math.max(1, deadline - Date.now()) });
       }
-${supportsShm ? `      if (transport === 'shm') {
+${
+  supportsShm
+    ? `      if (transport === 'shm') {
         return createNapiShmAsyncClient(ipcPath.replace(/\\.shm$/, ''), {
           // Pass clientId through as-is: when unset, the client self-allocates a
           // free producer slot (don't default to 0, which aliases every client).
@@ -370,7 +425,9 @@ ${supportsShm ? `      if (transport === 'shm') {
           customAddonPath: options.napiPath,
         });
       }
-` : ""}      throw new Error('Unsupported transport: ' + transport);
+`
+    : ""
+}      throw new Error('Unsupported transport: ' + transport);
     } catch (err) {
       lastError = err;
       await new Promise(resolve => setTimeout(resolve, 50));
@@ -385,7 +442,9 @@ function cleanupIpcPath(ipcPath: string, transport: ${serviceTransport}) {
     if (transport === 'uds' && existsSync(ipcPath)) {
       unlinkSync(ipcPath);
     }
-${supportsShm ? `    if (transport === 'shm') {
+${
+  supportsShm
+    ? `    if (transport === 'shm') {
       const shmName = ipcPath.replace(/\\.shm$/, '');
       for (const suffix of ['_request', '_response']) {
         const shmPath = '/dev/shm/' + shmName + suffix;
@@ -394,10 +453,30 @@ ${supportsShm ? `    if (transport === 'shm') {
         }
       }
     }
-` : ""}
+`
+    : ""
+}
   } catch {}
 }
 
+/**
+ * Create the native backend: spawns the service binary and connects over IPC (UDS/SHM). Returns a
+ * plain backend, so you construct the client symmetrically with every other backend:
+ *
+ *     const api = new AsyncApi(await createNativeBackend());   // native (IPC)
+ *     const api = new SyncApi(await createWasmBackend());      // wasm  (in-process)
+ *
+ * The returned SpawnedBackend also exposes getIpcPath()/sendProcessSignal() for process control.
+ */
+export function createNativeBackend(options: ${serviceOptions} = {}): Promise<SpawnedBackend> {
+  return SpawnedBackend.spawn(options);
+}
+
+/**
+ * Convenience wrapper that fuses {@link createNativeBackend} + AsyncApi into one object. Equivalent
+ * to \`new AsyncApi(await createNativeBackend(options))\`; prefer the backend factory when you want
+ * the symmetric "construct a backend, wrap it in the API" shape.
+ */
 export class ${serviceClass} extends AsyncApi {
   private constructor(private spawnedBackend: SpawnedBackend, createError?: IpcErrorFactory) {
     super(spawnedBackend, createError);

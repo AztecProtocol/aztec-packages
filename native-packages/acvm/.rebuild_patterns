@@ -1,0 +1,11 @@
+^native-packages/acvm/bootstrap\.sh$
+^native-packages/acvm/\.rebuild_patterns$
+^native-packages/acvm/acvm_schema\.jsonc$
+^native-packages/acvm/rust/src/
+^native-packages/acvm/rust/Cargo\.(toml|lock)$
+^native-packages/acvm/rust/rust-toolchain\.toml$
+^native-packages/acvm/ts/src/
+^native-packages/acvm/ts/package\.json$
+^ipc-runtime/
+^ipc-codegen/src/.*\.ts$
+^ipc-codegen/templates/
