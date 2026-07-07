@@ -19,6 +19,9 @@ import { AUTOMINE_E2E_OPTS } from './fixtures/fixtures.js';
 import { ensureHandshakeRegistryPublished, setup, setupPXEAndGetWallet } from './fixtures/setup.js';
 import { TestWallet } from './test-wallet/test_wallet.js';
 
+// Keep in sync with aztec::messages::delivery::OnchainDeliveryMode.
+const ONCHAIN_CONSTRAINED_DELIVERY_MODE = { inner: 3 };
+
 describe('constrained delivery', () => {
   jest.setTimeout(300_000);
 
@@ -63,7 +66,9 @@ describe('constrained delivery', () => {
     // The second send reuses the handshake rather than bootstrapping a new one: the secret is unchanged.
     expect(secret).toEqual(secretAfterFirstSend);
 
-    const { result: index } = await contract.methods.next_index_for_secret(secret).simulate({ from: sender });
+    const { result: index } = await contract.methods
+      .next_index_for_secret(secret, ONCHAIN_CONSTRAINED_DELIVERY_MODE)
+      .simulate({ from: sender });
 
     expect(index).toEqual(2n);
   });
@@ -99,7 +104,9 @@ describe('constrained delivery', () => {
         .simulate({ from: sender });
       expect(secret).toBeDefined();
 
-      const { result: index } = await contract.methods.next_index_for_secret(secret).simulate({ from: sender });
+      const { result: index } = await contract.methods
+        .next_index_for_secret(secret, ONCHAIN_CONSTRAINED_DELIVERY_MODE)
+        .simulate({ from: sender });
       expect(index).toEqual(2n);
     });
 
@@ -118,7 +125,9 @@ describe('constrained delivery', () => {
         .simulate({ from: sender });
       expect(secret).toBeDefined();
 
-      const { result: index } = await contract.methods.next_index_for_secret(secret).simulate({ from: sender });
+      const { result: index } = await contract.methods
+        .next_index_for_secret(secret, ONCHAIN_CONSTRAINED_DELIVERY_MODE)
+        .simulate({ from: sender });
       expect(index).toEqual(2n);
     });
 
@@ -135,7 +144,9 @@ describe('constrained delivery', () => {
         .simulate({ from: sender });
       expect(secret).toBeDefined();
 
-      const { result: index } = await contract.methods.next_index_for_secret(secret).simulate({ from: sender });
+      const { result: index } = await contract.methods
+        .next_index_for_secret(secret, ONCHAIN_CONSTRAINED_DELIVERY_MODE)
+        .simulate({ from: sender });
       expect(index).toEqual(1n);
     });
 
@@ -153,7 +164,9 @@ describe('constrained delivery', () => {
         .simulate({ from: sender });
       expect(secret).toBeDefined();
 
-      const { result: index } = await contract.methods.next_index_for_secret(secret).simulate({ from: sender });
+      const { result: index } = await contract.methods
+        .next_index_for_secret(secret, ONCHAIN_CONSTRAINED_DELIVERY_MODE)
+        .simulate({ from: sender });
       expect(index).toEqual(1n);
     });
   });
