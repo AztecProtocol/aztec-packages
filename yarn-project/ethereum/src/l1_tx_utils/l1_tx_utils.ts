@@ -438,10 +438,23 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
 
     const initialTxHash = txHashes[0];
     let currentTxHash = txHashes.at(-1)!;
-    let l1Timestamp: number;
+    let l1Timestamp = 0;
 
     while (true) {
-      l1Timestamp = await this.getL1Timestamp();
+      try {
+        l1Timestamp = await this.getL1Timestamp();
+      } catch (err) {
+        // A transient RPC failure here must not abort monitoring with a rejection: callers that
+        // fire this loop in the background would surface it as an unhandled rejection (e.g. when a
+        // test tears down its L1 node while a monitor iteration is in flight). Exit quietly if we
+        // are shutting down, otherwise retry on the next interval.
+        if (this.interrupted) {
+          break;
+        }
+        this.logger.error(`Error fetching L1 timestamp while monitoring tx ${currentTxHash}`, err, { nonce, account });
+        await sleep(gasConfig.checkIntervalMs!);
+        continue;
+      }
 
       try {
         const timePassed = l1Timestamp - state.lastSentAtL1Ts.getTime();

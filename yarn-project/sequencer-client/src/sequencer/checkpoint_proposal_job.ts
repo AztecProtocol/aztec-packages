@@ -31,6 +31,7 @@ import {
   type L2BlockSink,
   type L2BlockSource,
   MaliciousCommitteeAttestationsAndSigners,
+  MaliciousYParityCommitteeAttestationsAndSigners,
   type ProposedCheckpointSink,
   type ValidateCheckpointResult,
 } from '@aztec/stdlib/block';
@@ -1383,6 +1384,7 @@ export class CheckpointProposalJob implements Traceable {
         this.config.injectFakeAttestation ||
         this.config.injectHighSValueAttestation ||
         this.config.injectUnrecoverableSignatureAttestation ||
+        this.config.injectYParityAttestation ||
         this.config.shuffleAttestationOrdering
       ) {
         return this.manipulateAttestations(proposal.slotNumber, epoch, seed, committee, sorted);
@@ -1482,6 +1484,19 @@ export class CheckpointProposalJob implements Traceable {
         }
       }
       return new CommitteeAttestationsAndSigners(attestations, this.getSignatureContext());
+    }
+
+    if (this.config.injectYParityAttestation) {
+      // Force every non-proposer signed slot's recovery byte to yParity (v ∈ {0, 1}) form in the packed L1
+      // tuple, after packAttestations has canonicalized it. The proposer's own slot is left canonical so
+      // propose() still passes verifyProposer. Models a malicious proposer landing a checkpoint L1 accepts
+      // but that can never be proven (ECDSA.recover rejects v ∉ {27, 28}).
+      this.log.warn(`Injecting yParity attestations in checkpoint for slot ${slotNumber} (proposer #${proposerIndex})`);
+      return new MaliciousYParityCommitteeAttestationsAndSigners(
+        attestations,
+        proposerIndex,
+        this.getSignatureContext(),
+      );
     }
 
     if (this.config.shuffleAttestationOrdering) {

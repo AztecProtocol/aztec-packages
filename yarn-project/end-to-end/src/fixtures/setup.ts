@@ -821,7 +821,12 @@ export async function registerSponsoredFPC(wallet: Wallet): Promise<void> {
   await wallet.registerContract(await getSponsoredFPCInstance(), SponsoredFPCContract.artifact);
 }
 
-export async function waitForProvenChain(node: AztecNode, targetBlock?: BlockNumber, timeoutSec = 60, intervalSec = 1) {
+export async function waitForProvenChain(
+  node: AztecNode,
+  targetBlock?: BlockNumber,
+  timeoutSec = 60,
+  intervalSec = 0.25,
+) {
   targetBlock ??= await node.getBlockNumber();
 
   await retryUntil(
@@ -923,14 +928,16 @@ export async function expectMappingDelta<K, V extends number | bigint>(
  * surface as generic "Assertion failed:" and tests that match on the real message fail).
  */
 export async function ensureAuthRegistryPublished(wallet: Wallet, from: AztecAddress) {
-  const { instance, contractClass } = await getStandardAuthRegistry();
-  if (!(await wallet.getContractClassMetadata(contractClass.id)).isContractClassPubliclyRegistered) {
-    await (await publishContractClass(wallet, AuthRegistryArtifact)).send({ from });
-  }
-  if (!(await wallet.getContractMetadata(instance.address)).isContractPublished) {
-    await publishInstance(wallet, instance).send({ from });
-  }
-  await wallet.registerContract(instance, AuthRegistryArtifact);
+  await testSpan('setup:auth-registry', async () => {
+    const { instance, contractClass } = await getStandardAuthRegistry();
+    if (!(await wallet.getContractClassMetadata(contractClass.id)).isContractClassPubliclyRegistered) {
+      await (await publishContractClass(wallet, AuthRegistryArtifact)).send({ from });
+    }
+    if (!(await wallet.getContractMetadata(instance.address)).isContractPublished) {
+      await publishInstance(wallet, instance).send({ from });
+    }
+    await wallet.registerContract(instance, AuthRegistryArtifact);
+  });
 }
 
 /**

@@ -18,6 +18,6 @@ export function waitForL1ToL2MessageSeen(
     async () => (await node.getL1ToL2MessageCheckpoint(l1ToL2MessageHash)) !== undefined,
     `L1 to L2 message ${l1ToL2MessageHash.toString()} seen`,
     opts.timeoutSeconds,
-    1,
+    0.25,
   );
 }

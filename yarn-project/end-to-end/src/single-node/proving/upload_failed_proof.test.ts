@@ -88,9 +88,9 @@ describe('single-node/proving/upload_failed_proof', () => {
       return url;
     };
 
-    // Wait until the start of epoch one so prover node starts proving epoch 0,
+    // Warp to the start of epoch one so prover node starts proving epoch 0,
     // and wait for the data to be uploaded to the remote file store
-    await test.waitUntilEpochStarts(1);
+    await test.warpToEpochStart(1);
     const epochUploadUrl = await epochUploaded;
 
     // Stop everything, we're going to prove on a fresh instance
