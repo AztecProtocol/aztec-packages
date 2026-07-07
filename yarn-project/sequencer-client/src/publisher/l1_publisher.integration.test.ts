@@ -893,6 +893,7 @@ describe('L1Publisher integration', () => {
         checkpoint: checkpoint.toCheckpointInfo(),
         attestors: [],
         attestations: badAttestations,
+        verbatimAttestations: CommitteeAttestationsAndSigners.packAttestations(badAttestations),
         epoch: EpochNumber(1),
         seed: 1n,
         reason: 'insufficient-attestations',

@@ -124,6 +124,7 @@ describe('sequencer', () => {
     seed: 0n,
     attestors: [],
     attestations: [],
+    verbatimAttestations: { signatureIndices: '0x', signaturesOrAddresses: '0x' },
     reason: 'insufficient-attestations',
   };
 
@@ -1184,6 +1185,7 @@ describe('sequencer', () => {
         seed: 123n,
         attestors: [],
         attestations: [],
+        verbatimAttestations: { signatureIndices: '0x', signaturesOrAddresses: '0x' },
         reason: 'insufficient-attestations',
       };
 

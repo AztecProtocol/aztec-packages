@@ -31,6 +31,7 @@ const [accData] = await getInitialTestAccountsData();
 const account = await aztecWallet.createSchnorrInitializerlessAccount(
   accData.secret,
   accData.salt,
+  accData.signingKey,
 );
 console.log(`Account: ${account.address.toString()}\n`);
 

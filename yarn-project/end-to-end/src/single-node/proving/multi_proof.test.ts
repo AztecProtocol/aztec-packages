@@ -80,12 +80,12 @@ describe('single-node/proving/multi_proof', () => {
     const proverIds = test.proverNodes.map(node => node.getProverNode()!.getProverId());
     logger.info(`Prover nodes running with ids ${proverIds.map(id => id.toString()).join(', ')}`);
 
-    // Anchor on a freshly-started epoch with the provers already running, then wait for it to fully
-    // elapse. We can't use epoch 0: under CI load the sequencer can come up after the chain has already
+    // Anchor on a freshly-started epoch with the provers already running, then warp past it so it fully
+    // elapses. We can't use epoch 0: under CI load the sequencer can come up after the chain has already
     // advanced past epoch 0's slots, leaving it with no blocks, and the snapshot below would then have
     // nothing to read. Anchoring on the next epoch guarantees its full slot range is ahead of us.
     const epoch = await test.waitUntilNextEpochStarts();
-    await test.waitUntilEpochStarts(epoch + 1);
+    await test.warpToEpochStart(epoch + 1);
 
     // Snapshot the anchored epoch's checkpoints. The epoch is now closed on L1 (no more epoch-N
     // checkpoints can land once epoch N+1 has begun), but the node's archiver may still be catching up.

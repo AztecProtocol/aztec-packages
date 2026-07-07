@@ -30,7 +30,7 @@ export async function deployAccount(
 ) {
   const out: Record<string, any> = {};
 
-  const account = await wallet.createOrRetrieveAccount(address);
+  const account = await wallet.retrieveAccount(address);
   const { partialAddress, publicKeys } = await account.getCompleteAddress();
   const { initializationHash, salt } = account.getInstance();
 

@@ -112,6 +112,15 @@ export function getHashedSignaturePayloadTypedData(signable: Signable): Buffer32
   return Buffer32.fromString(hashTypedData(getCoordinationSignatureTypedData(signable)));
 }
 
+/**
+ * Recovers the sender of a gossiped coordination message. Deliberately lenient (allowYParityAsV): a
+ * signature whose recovery byte is in yParity form (v ∈ {0, 1}) still resolves to its sender, so the P2P
+ * layer can attribute and accept it and then canonicalize on ingress (CheckpointAttestation.
+ * withNormalizedSignature, A-1351) before it reaches the L1 bundle. This is intentionally looser than
+ * on-chain checkpoint validation (getAttestationInfoFromPayload), which recovers strictly to mirror L1's
+ * ECDSA.recover — do not unify the two. These proposal/attestation signatures are P2P-only and never reach
+ * L1 verbatim, so leniency here cannot leak a non-canonical byte onto L1.
+ */
 export function recoverCoordinationSigner(signable: Signable, signature: Signature): EthAddress | undefined {
   const digest = getHashedSignaturePayloadTypedData(signable);
   return tryRecoverAddress(digest, signature, { allowYParityAsV: true });
