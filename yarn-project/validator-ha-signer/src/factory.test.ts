@@ -51,7 +51,7 @@ describe('createLocalSignerWithProtection', () => {
   const baseConfig: LocalSignerConfig = {
     nodeId: 'test-node',
     pollingIntervalMs: 100,
-    signingTimeoutMs: 3_000,
+    peerSigningTimeoutMs: 3_000,
     rollupAddress: EthAddress.random(),
     dataStoreMapSizeKb: 1_024,
   };
