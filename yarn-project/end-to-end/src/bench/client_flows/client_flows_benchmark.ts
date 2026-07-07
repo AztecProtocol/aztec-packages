@@ -13,6 +13,7 @@ import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestERC20Abi } from '@aztec/l1-artifacts/TestERC20Abi';
 import { TestERC20Bytecode } from '@aztec/l1-artifacts/TestERC20Bytecode';
@@ -20,13 +21,13 @@ import { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
-import { TokenContract as BananaCoin, TokenContract } from '@aztec/noir-contracts.js/Token';
+import { TestTokenContract as BananaCoin, TestTokenContract } from '@aztec/noir-test-contracts.js/TestToken';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/server';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
-import { deriveSigningKey } from '@aztec/stdlib/keys';
+import { AppTaggingSecretKind } from '@aztec/stdlib/logs';
 
 import {
   AUTOMINE_E2E_OPTS,
@@ -76,13 +77,13 @@ export class ClientFlowsBenchmark {
   public bananaFPC!: FPCContract;
   public bananaFPCInstance!: ContractInstanceWithAddress;
   // Random asset we want to trade
-  public candyBarCoin!: TokenContract;
+  public candyBarCoin!: TestTokenContract;
   public candyBarCoinInstance!: ContractInstanceWithAddress;
   // AMM contract
   public amm!: AMMContract;
   public ammInstance!: ContractInstanceWithAddress;
   // Liquidity token for AMM
-  public liquidityToken!: TokenContract;
+  public liquidityToken!: TestTokenContract;
   public liquidityTokenInstance!: ContractInstanceWithAddress;
   // Sponsored FPC contract
   public sponsoredFPC!: SponsoredFPCContract;
@@ -139,7 +140,8 @@ export class ClientFlowsBenchmark {
   async setup() {
     this.logger.info('Setting up subsystems from fresh');
     // Token allowlist entries are test-only: FPC-based fee payment with custom tokens won't work on mainnet alpha.
-    const tokenAllowList = await getTokenAllowedSetupFunctions();
+    // BananaCoin is the codegen'd TestToken here, so the allowlist must key on its class, not canonical Token's.
+    const tokenAllowList = await getTokenAllowedSetupFunctions(BananaCoin.artifact);
     this.context = await setup(2, {
       ...this.setupOptions,
       fundSponsoredFPC: true,
@@ -190,7 +192,7 @@ export class ClientFlowsBenchmark {
 
     let benchysPrivateSigningKey;
     if (type === 'schnorr') {
-      benchysPrivateSigningKey = deriveSigningKey(benchysSecret);
+      benchysPrivateSigningKey = GrumpkinScalar.random();
       return wallet.createSchnorrAccount(benchysSecret, salt, benchysPrivateSigningKey);
     } else if (type === 'ecdsar1') {
       benchysPrivateSigningKey = randomBytes(32);
@@ -229,6 +231,19 @@ export class ClientFlowsBenchmark {
     this.userWallet = await TestWallet.create(this.aztecNode, userPXEConfigWithContracts, {
       loggers: {
         prover: this.proxyLogger.createLogger('pxe:bb:wasm:bundle:proxied'),
+      },
+      // The benchmark measures steady-state app cost, not first-send discovery cost. Reproduce the pre-handshake-default
+      // behavior of unconstrained delivery: derive the tagging secret from the (sender, recipient) key pair via ECDH
+      // instead of taking the current default (a non-interactive handshake, which injects two extra private app
+      // executions and a nullifier per cold chain). Constrained delivery is unaffected: the Noir circuit rejects
+      // address-derived for constrained, so the hook falls through to a handshake there.
+      hooks: {
+        resolveTaggingSecretStrategy: ({ deliveryMode }) =>
+          Promise.resolve(
+            deliveryMode === AppTaggingSecretKind.UNCONSTRAINED
+              ? { type: 'address-derived' }
+              : { type: 'non-interactive-handshake' },
+          ),
       },
     });
   }
@@ -272,7 +287,7 @@ export class ClientFlowsBenchmark {
 
   async applyDeployCandyBarToken() {
     this.logger.info('Applying candy bar token deployment');
-    const { contract: candyBarCoin, instance: candyBarCoinInstance } = await TokenContract.deploy(
+    const { contract: candyBarCoin, instance: candyBarCoinInstance } = await TestTokenContract.deploy(
       this.adminWallet,
       this.adminAddress,
       'CBC',
@@ -342,7 +357,6 @@ export class ClientFlowsBenchmark {
 
   public async createAndFundBenchmarkingAccountOnUserWallet(accountType: AccountType) {
     const benchysAccountManager = await this.createBenchmarkingAccountManager(this.adminWallet, accountType);
-    const benchysAccount = await benchysAccountManager.getAccount();
     const benchysAddress = benchysAccountManager.address;
     const claim = await this.feeJuiceBridgeTestHarness.prepareTokensOnL1(benchysAddress);
     const behchysDeployMethod = await benchysAccountManager.getDeployMethod();
@@ -352,7 +366,7 @@ export class ClientFlowsBenchmark {
     });
     // Register benchy on the user's Wallet, where we're going to be interacting from
     const accountManager = await this.userWallet.createAccount({
-      secret: benchysAccount.getSecretKey(),
+      secret: benchysAccountManager.getSecretKey(),
       salt: new Fr(benchysAccountManager.getInstance().salt),
       contract: benchysAccountManager.getAccountContract(),
     });
@@ -361,7 +375,7 @@ export class ClientFlowsBenchmark {
 
   public async applyDeployAmm() {
     this.logger.info('Applying AMM deployment');
-    const { contract: liquidityToken, instance: liquidityTokenInstance } = await TokenContract.deploy(
+    const { contract: liquidityToken, instance: liquidityTokenInstance } = await TestTokenContract.deploy(
       this.adminWallet,
       this.adminAddress,
       'LPT',

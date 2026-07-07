@@ -9,6 +9,7 @@ import { AztecAddress } from '../aztec-address/index.js';
 import type { CompleteAddress } from '../contract/complete_address.js';
 import { computeAddressSecret, computePreaddress } from '../keys/derivation.js';
 import { AppTaggingSecretKind } from './app_tagging_secret_kind.js';
+import { appSiloEcdhSharedSecretPoint } from './shared_secret_derivation.js';
 
 const AppTaggingSecretKindSchema = z.union([
   z.literal(AppTaggingSecretKind.UNCONSTRAINED),
@@ -32,32 +33,35 @@ export class AppTaggingSecret {
   /**
    * Derives an app-siloed, recipient-directional tagging secret from a shared tagging secret point.
    *
+   * App-silos the point via {@link appSiloEcdhSharedSecretPoint}, then directs the result to `recipient`:
+   * `h([s_app, recipient])`. The directional step stops a symmetric shared secret (ECDH against an address, or an
+   * arbitrary registered point) from colliding bidirectionally, so two parties never share a tag sequence.
+   *
    * The point is obtained either via {@link computeSharedTaggingSecret} (an ECDH key exchange against a sender) or
-   * registered directly as a pre-shared secret. Each secret point yields a distinct tagging secret per (app, recipient)
-   * pair.
+   * registered directly as a pre-shared secret.
    *
    * @param taggingSecretPoint - The shared tagging secret point (ECDH output, or a directly registered pre-shared secret)
    * @param app - Contract address to silo the secret to
    * @param recipient - Recipient of the log. Defines the "direction of the secret".
    * @returns The secret that can be used along with an index to compute a tag to be included in a log.
    */
-  static async compute(
+  static async computeDirectional(
     taggingSecretPoint: Point,
     app: AztecAddress,
     recipient: AztecAddress,
   ): Promise<AppTaggingSecret> {
-    const appTaggingSecret = await poseidon2Hash([taggingSecretPoint.x, taggingSecretPoint.y, app]);
-    const directionalAppTaggingSecret = await poseidon2Hash([appTaggingSecret, recipient]);
+    const appSiloedSecret = await appSiloEcdhSharedSecretPoint(taggingSecretPoint, app);
+    const directionalAppTaggingSecret = await poseidon2Hash([appSiloedSecret, recipient]);
 
     return new AppTaggingSecret(directionalAppTaggingSecret, app);
   }
 
   /**
-   * Derives the unconstrained tagging secret for `(externalAddress, recipient, app)` by performing the ECDH key
-   * exchange against `externalAddress` and then siloing and directing the result. Returns undefined if
-   * `externalAddress` is not a valid address.
+   * Derives the tagging secret for `(externalAddress, recipient, app)` by performing an ECDH key exchange against
+   * `externalAddress` to obtain the shared point, then siloing and directing it via {@link computeDirectional}.
+   * Returns undefined if `externalAddress` is not a valid address.
    */
-  static async computeUnconstrained(
+  static async computeViaEcdh(
     localAddress: CompleteAddress,
     localIvsk: Fq,
     externalAddress: AztecAddress,
@@ -69,7 +73,7 @@ export class AppTaggingSecret {
       return undefined;
     }
 
-    return AppTaggingSecret.compute(taggingSecretPoint, app, recipient);
+    return AppTaggingSecret.computeDirectional(taggingSecretPoint, app, recipient);
   }
 
   toString(): string {

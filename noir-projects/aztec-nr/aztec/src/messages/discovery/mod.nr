@@ -4,10 +4,10 @@ use crate::messages::{
     delivery::handshake::{get_handshake_secrets, PROVIDED_SECRETS_ARRAY_BASE_SLOT},
     processing::provided_secret::ProvidedSecret,
 };
+use crate::partial_notes;
 use crate::protocol::address::AztecAddress;
 
 pub(crate) mod nonce_discovery;
-pub(crate) mod partial_notes;
 pub(crate) mod private_events;
 pub mod private_notes;
 pub mod process_message;
@@ -18,8 +18,8 @@ use crate::{
         encoding::MAX_MESSAGE_CONTENT_LEN,
         logs::note::MAX_NOTE_PACKED_LEN,
         processing::{
-            MessageContext, offchain::OffchainInboxSync, OffchainMessageWithContext,
-            pending_tagged_log::PendingTaggedLog, validate_and_store_enqueued_notes_and_events,
+            offchain::OffchainInboxSync, OffchainMessageWithTx, pending_tagged_log::PendingTaggedLog, ResolvedTx,
+            validate_and_store_enqueued_notes_and_events,
         },
     },
     oracle::message_processing,
@@ -108,7 +108,7 @@ pub type CustomMessageHandler = unconstrained fn(
 /* msg_type_id */ u64,
 /* msg_metadata */ u64,
 /* msg_content */ BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
-/* message_context */ MessageContext,
+/* resolved_tx */ ResolvedTx,
 /* scope */ AztecAddress);
 
 /// Custom state synchronization handler.
@@ -209,14 +209,14 @@ unconstrained fn sync_state_with_secrets(
 
     if offchain_inbox_sync.is_some() {
         let msgs = offchain_inbox_sync.unwrap()(contract_address, scope);
-        msgs.for_each(|_i, msg: OffchainMessageWithContext| {
+        msgs.for_each(|_i, msg: OffchainMessageWithTx| {
             process_message_ciphertext(
                 contract_address,
                 compute_note_hash,
                 compute_note_nullifier,
                 process_custom_message,
                 msg.message_ciphertext,
-                msg.message_context,
+                msg.resolved_tx,
                 scope,
             );
         });
@@ -224,7 +224,7 @@ unconstrained fn sync_state_with_secrets(
 
     // Then we process all pending partial notes, regardless of whether they were found in the current or previous
     // executions.
-    partial_notes::fetch_and_process_partial_note_completion_logs(
+    partial_notes::sync(
         contract_address,
         compute_note_hash,
         compute_note_nullifier,
@@ -264,7 +264,7 @@ mod test {
             // Mock the oracle call to return a known base slot, then populate an ephemeral
             // array at that slot so do_sync_state processes a non-empty log list.
             let base_slot = 42;
-            let mock = std::test::OracleMock::mock("aztec_utl_getPendingTaggedLogs");
+            let mock = std::test::OracleMock::mock("aztec_utl_getPendingTaggedLogsV2");
             let _ = mock.returns(base_slot);
 
             let logs: EphemeralArray<PendingTaggedLog> = EphemeralArray::at(base_slot);
@@ -281,6 +281,10 @@ mod test {
                 no_inbox_sync,
                 scope,
             );
+
+            // Guards against the mocked oracle name going stale: if sync stops calling it, the crafted empty log
+            // above is never consumed and the test silently stops covering the empty-payload path.
+            assert_eq(mock.times_called(), 1);
         });
     }
 

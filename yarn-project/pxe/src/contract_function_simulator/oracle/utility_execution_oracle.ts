@@ -20,17 +20,12 @@ import { type FunctionCall, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { BlockHash, type L2TipsProvider } from '@aztec/stdlib/block';
-import type { CompleteAddress, ContractInstance, PartialAddress } from '@aztec/stdlib/contract';
+import type { CompleteAddress, ContractInstancePreimageWithAddress, PartialAddress } from '@aztec/stdlib/contract';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { PublicKeys, computeAddressSecret, hashPublicKey } from '@aztec/stdlib/keys';
-import {
-  AppTaggingSecret,
-  FlatPublicLogs,
-  type PendingTaggedLog,
-  deriveAppSiloedSharedSecret,
-} from '@aztec/stdlib/logs';
+import { AppTaggingSecret, FlatPublicLogs, appSiloEcdhSharedSecret } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
@@ -43,8 +38,8 @@ import {
   type TxHash,
 } from '@aztec/stdlib/tx';
 
+import type { ContractSyncService } from '../../contract/contract_sync_service.js';
 import { createContractLogger, logContractMessage, stripAztecnrLogPrefix } from '../../contract_logging.js';
-import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
 import { EventService } from '../../events/event_service.js';
 import type { UtilityCallAuthorizationRequest } from '../../hooks/authorize_utility_call.js';
 import type { ExecutionHooks } from '../../hooks/index.js';
@@ -54,13 +49,13 @@ import { NoteService } from '../../notes/note_service.js';
 import { ORACLE_VERSION_MAJOR } from '../../oracle_version.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import type { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
-import type { ContractStore } from '../../storage/contract_store/contract_store.js';
-import { FactCollectionKey, FactCollectionTypeKey } from '../../storage/fact_store/index.js';
+import { FactCollectionKey, FactCollectionTypeKey, anchoredTipBlockNumbers } from '../../storage/fact_store/index.js';
 import type { FactService, OriginBlock } from '../../storage/fact_store/index.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
 import type { TaggingSecretSourcesStore } from '../../storage/tagging_store/tagging_secret_sources_store.js';
+import type { AnchoredContractData } from '../anchored_contract_data.js';
 import { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
 import type { EmbeddedCurvePoint } from '../noir-structs/embedded_curve_point.js';
@@ -72,6 +67,7 @@ import type { LogRetrievalResponse } from '../noir-structs/log_retrieval_respons
 import type { NoteData } from '../noir-structs/note_data.js';
 import type { NoteValidationRequest } from '../noir-structs/note_validation_request.js';
 import { Option } from '../noir-structs/option.js';
+import type { PendingTaggedLog } from '../noir-structs/pending_tagged_log.js';
 import type { ProvidedSecret } from '../noir-structs/provided_secret.js';
 import type { ResolvedTx } from '../noir-structs/resolved_tx.js';
 import type { TxEffectData } from '../noir-structs/tx_effect_data.js';
@@ -88,7 +84,7 @@ export type UtilityExecutionOracleArgs = {
   authWitnesses: AuthWitness[];
   capsules: Capsule[]; // TODO(#12425): Rename to transientCapsules
   anchorBlockHeader: BlockHeader;
-  contractStore: ContractStore;
+  anchoredContractData: AnchoredContractData;
   noteStore: NoteStore;
   keyStore: KeyStore;
   addressStore: AddressStore;
@@ -131,7 +127,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   protected readonly authWitnesses: AuthWitness[];
   protected readonly capsules: Capsule[];
   protected readonly anchorBlockHeader: BlockHeader;
-  protected readonly contractStore: ContractStore;
+  protected readonly anchoredContractData: AnchoredContractData;
   protected readonly noteStore: NoteStore;
   protected readonly keyStore: KeyStore;
   protected readonly addressStore: AddressStore;
@@ -156,7 +152,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     this.authWitnesses = args.authWitnesses;
     this.capsules = args.capsules;
     this.anchorBlockHeader = args.anchorBlockHeader;
-    this.contractStore = args.contractStore;
+    this.anchoredContractData = args.anchoredContractData;
     this.noteStore = args.noteStore;
     this.keyStore = args.keyStore;
     this.addressStore = args.addressStore;
@@ -384,8 +380,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param address - Address.
    * @returns A contract instance.
    */
-  public async getContractInstance(address: AztecAddress): Promise<ContractInstance> {
-    const instance = await this.contractStore.getContractInstance(address);
+  public async getContractInstance(address: AztecAddress): Promise<ContractInstancePreimageWithAddress> {
+    const instance = await this.anchoredContractData.getContractInstance(address);
     if (!instance) {
       throw new Error(`No contract instance found for address ${address.toString()}`);
     }
@@ -540,7 +536,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       // to re-use jobId as instanceId here as executions of different PXE jobs are isolated.
       this.contractLogger = await createContractLogger(
         this.contractAddress,
-        addr => this.contractStore.getDebugContractName(addr),
+        addr => this.anchoredContractData.getDebugContractName(addr),
         'user',
         { instanceId: this.jobId },
       );
@@ -557,7 +553,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       // to re-use jobId as instanceId here as executions of different PXE jobs are isolated.
       this.aztecnrLogger = await createContractLogger(
         this.contractAddress,
-        addr => this.contractStore.getDebugContractName(addr),
+        addr => this.anchoredContractData.getDebugContractName(addr),
         'aztecnr',
         { instanceId: this.jobId },
       );
@@ -577,7 +573,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   /** Fetches pending tagged logs into a freshly allocated ephemeral array and returns it. */
-  public async getPendingTaggedLogs(
+  public async getPendingTaggedLogsV2(
     scope: AztecAddress,
     providedSecrets: EphemeralArray<ProvidedSecret>,
   ): Promise<EphemeralArray<PendingTaggedLog>> {
@@ -635,7 +631,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     ]);
   }
 
-  public async getLogsByTag(
+  public async getLogsByTagV2(
     requests: EphemeralArray<LogRetrievalRequest>,
   ): Promise<EphemeralArray<EphemeralArray<LogRetrievalResponse>>> {
     const logRetrievalRequests = requests.readAll(this.ephemeralArrayService);
@@ -777,8 +773,10 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     factCollectionId: Fr,
   ): Promise<Option<FactCollection>> {
     this.#assertOwnContract(contractAddress);
+    const tips = anchoredTipBlockNumbers(await this.l2TipsStore.getL2Tips(), this.anchorBlockHeader.getBlockNumber());
     const collection = await this.factService.getFactCollection(
       new FactCollectionKey(contractAddress, scope, factCollectionTypeId, factCollectionId),
+      tips,
       this.jobId,
     );
     return collection
@@ -802,8 +800,10 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     factCollectionTypeId: Fr,
   ): Promise<EphemeralArray<FactCollection>> {
     this.#assertOwnContract(contractAddress);
+    const tips = anchoredTipBlockNumbers(await this.l2TipsStore.getL2Tips(), this.anchorBlockHeader.getBlockNumber());
     const collections = await this.factService.getFactCollectionsByType(
       new FactCollectionTypeKey(contractAddress, scope, factCollectionTypeId),
+      tips,
       this.jobId,
     );
     return EphemeralArray.fromValues(
@@ -853,7 +853,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param address - The recipient address.
    * @param ephPks - Ephemeral array containing the serialized Points.
    * @param contractAddress - The contract address for app-siloing (validated against execution context).
-   * @returns A new ephemeral array containing the computed shared secrets.
+   * @returns A new ephemeral array containing the computed shared secrets, or an empty array when the PXE does not
+   * hold the keys for `address`, signaling that no secrets can be derived for it.
    */
   public async getSharedSecrets(
     address: AztecAddress,
@@ -865,14 +866,24 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
         `getSharedSecrets called with contract address ${contractAddress}, expected ${this.contractAddress}`,
       );
     }
-    const recipientCompleteAddress = await this.getCompleteAddressOrFail(address);
+    const recipientCompleteAddress = await this.addressStore.getCompleteAddress(address);
+    if (!recipientCompleteAddress) {
+      this.logger.warn(
+        `Computing shared secrets for address ${address} whose keys are not held - returning no secrets`,
+        {
+          address,
+          contractAddress: this.contractAddress,
+        },
+      );
+      return EphemeralArray.fromValues<Fr>(this.ephemeralArrayService, []);
+    }
     const ivpkMHash = await hashPublicKey(recipientCompleteAddress.publicKeys.ivpkM);
     const ivskM = await this.keyStore.getMasterSecretKey(ivpkMHash);
     const addressSecret = await computeAddressSecret(await recipientCompleteAddress.getPreaddress(), ivskM);
 
     const ephPkPoints = ephPks.readAll(this.ephemeralArrayService);
     const secrets = await Promise.all(
-      ephPkPoints.map(({ x, y }) => deriveAppSiloedSharedSecret(addressSecret, new Point(x, y), this.contractAddress)),
+      ephPkPoints.map(({ x, y }) => appSiloEcdhSharedSecret(addressSecret, new Point(x, y), this.contractAddress)),
     );
 
     return EphemeralArray.fromValues(this.ephemeralArrayService, secrets);
@@ -945,23 +956,35 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     functionSelector: FunctionSelector,
     args: Fr[],
   ): Promise<Fr[]> {
-    const targetArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(
+    const targetArtifact = await this.anchoredContractData.getFunctionArtifactWithDebugMetadata(
       targetContractAddress,
       functionSelector,
     );
+    if (!targetArtifact) {
+      throw new Error(
+        `Cannot call ${targetContractAddress}:${functionSelector}: the contract is not registered. ` +
+          `Register it via wallet.registerContract(...).`,
+      );
+    }
 
     if (!targetContractAddress.equals(this.contractAddress)) {
       // Standard handshake registry reads are authorized by default; every other cross-contract call needs the hook.
       if (!(await isStandardHandshakeRegistryUtilityRead(targetContractAddress, functionSelector))) {
-        const [callerInstance, targetInstance] = await Promise.all([
-          this.getContractInstance(this.contractAddress),
-          this.getContractInstance(targetContractAddress),
+        const [callerClassId, targetClassId] = await Promise.all([
+          this.anchoredContractData.getCurrentClassId(this.contractAddress),
+          this.anchoredContractData.getCurrentClassId(targetContractAddress),
         ]);
+        if (!callerClassId || !targetClassId) {
+          throw new Error(
+            `Cannot authorize utility call from ${this.contractAddress} to ${targetContractAddress}: ` +
+              `${!callerClassId ? this.contractAddress : targetContractAddress} is not registered.`,
+          );
+        }
         const request: UtilityCallAuthorizationRequest = {
           caller: this.contractAddress,
-          callerClassId: callerInstance.currentContractClassId,
+          callerClassId,
           target: targetContractAddress,
-          targetClassId: targetInstance.currentContractClassId,
+          targetClassId,
           functionSelector,
           functionName: targetArtifact.name,
           args,
@@ -1006,7 +1029,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       authWitnesses: this.authWitnesses,
       capsules: this.capsules,
       anchorBlockHeader: this.anchorBlockHeader,
-      contractStore: this.contractStore,
+      anchoredContractData: this.anchoredContractData,
       noteStore: this.noteStore,
       keyStore: this.keyStore,
       addressStore: this.addressStore,
@@ -1119,8 +1142,14 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 }
 
-const STANDARD_HANDSHAKE_REGISTRY_GET_HANDSHAKES_SIGNATURE = 'get_handshakes((Field),u32)';
-const STANDARD_HANDSHAKE_REGISTRY_GET_APP_SILOED_SECRET_SIGNATURE = 'get_app_siloed_secret((Field),(Field))';
+// Registry reads that any contract may issue without an `authorizeUtilityCall` hook. The constrained-delivery
+// library calls these implicitly for the app, and they are safe to default-authorize: `get_app_siloed_secrets`
+// siloes every returned secret to `msg_sender`, and `get_non_interactive_handshakes` only exposes ephemeral public
+// keys, from which the shared secret cannot be derived without the recipient's secret keys.
+const STANDARD_HANDSHAKE_REGISTRY_DEFAULT_AUTHORIZED_READ_SIGNATURES = [
+  'get_non_interactive_handshakes((Field),u32)',
+  'get_app_siloed_secrets((Field),(Field))',
+];
 
 async function doesSelectorHaveSignature(functionSelector: FunctionSelector, signature: string): Promise<boolean> {
   return functionSelector.equals(await FunctionSelector.fromSignature(signature));
@@ -1140,9 +1169,10 @@ async function isStandardHandshakeRegistryUtilityRead(
     return false;
   }
 
-  const [isGetHandshakes, isGetAppSiloedSecret] = await Promise.all([
-    doesSelectorHaveSignature(functionSelector, STANDARD_HANDSHAKE_REGISTRY_GET_HANDSHAKES_SIGNATURE),
-    doesSelectorHaveSignature(functionSelector, STANDARD_HANDSHAKE_REGISTRY_GET_APP_SILOED_SECRET_SIGNATURE),
-  ]);
-  return isGetHandshakes || isGetAppSiloedSecret;
+  const matches = await Promise.all(
+    STANDARD_HANDSHAKE_REGISTRY_DEFAULT_AUTHORIZED_READ_SIGNATURES.map(signature =>
+      doesSelectorHaveSignature(functionSelector, signature),
+    ),
+  );
+  return matches.some(Boolean);
 }

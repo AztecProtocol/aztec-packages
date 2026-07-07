@@ -19,17 +19,21 @@ import {
   BOOL,
   ETH_ADDRESS,
   FIELD,
+  FIXED_ARRAY,
   FUNCTION_SELECTOR,
   type InputSlot,
   type MaybePromise,
   OPTION,
   ORACLE_REGISTRY,
   type OracleRegistryEntry,
+  type OutputSlot,
   type ParamTypes,
   STR,
+  STRUCT,
   type SlotShape,
   type TypeMapping,
   U32,
+  buildACIRCallback,
   makeEntry,
 } from '@aztec/pxe/simulator';
 import { EventSelector } from '@aztec/stdlib/abi';
@@ -191,10 +195,13 @@ const TXE_CALL_CONTEXT: TypeMapping<{ txHash: Fr; anchorBlockTimestamp: bigint }
   shape: ['scalar', 'scalar', 'scalar'], // discriminant, txHash, anchor block timestamp
 };
 
-const CONTRACT_INSTANCE_MEMBER: TypeMapping<{ member: Fr; exists: boolean }> = {
-  serialization: { fn: ({ member, exists }) => [member, new Fr(exists)] },
-  shape: ['scalar', 'scalar'],
-};
+export const CONTRACT_INSTANCE_MEMBER: TypeMapping<{ exists: boolean; member: Fr }[]> = FIXED_ARRAY(
+  STRUCT([
+    { name: 'exists', type: BOOL },
+    { name: 'member', type: FIELD },
+  ]),
+  1,
+);
 
 const EVENT_SELECTOR: TypeMapping<EventSelector> = {
   serialization: { fn: v => [v.toField()] },
@@ -412,7 +419,7 @@ export const TXE_ORACLE_REGISTRY = {
     params: [{ name: 'message', type: ARRAY(FIELD) }],
   }),
 
-  aztec_avm_returndataSize: makeEntry({ returnType: FIELD }),
+  aztec_avm_returndataSize: makeEntry({ returnType: U32 }),
 
   aztec_avm_returndataCopy: makeEntry({
     params: [
@@ -487,7 +494,37 @@ export async function callTxeHandler<K extends keyof typeof TXE_ORACLE_REGISTRY>
   const named = entry.deserializeParams(toInputSlots(inputs));
   const positional = named.map((p: { value: unknown }) => p.value);
   const result = await handler(positional as any);
-  const outputSlots = entry.serializeReturn(result);
+  return outputSlotsToForeignCallResult(entry.serializeReturn(result));
+}
+
+/**
+ * Dispatches an oracle that has been retired into the PXE legacy registry. TXE has no explicit handler method for such
+ * names; this runs them through the same `buildACIRCallback` legacy path that contract execution already uses, so
+ * TXE's top-level oracle path and its in-contract path treat the legacy registry identically.
+ */
+const legacyCallbacksByHandler = new WeakMap<object, ReturnType<typeof buildACIRCallback>>();
+
+export async function callTxeLegacyHandler(
+  oracle: string,
+  inputs: ForeignCallArgs,
+  oracleHandler: Parameters<typeof buildACIRCallback>[0],
+): Promise<ForeignCallResult> {
+  // `buildACIRCallback` materializes the whole real+legacy closure set, so memoize it per handler rather than
+  // rebuilding on every call (TXE routes one legacy oracle through here on each top-level discovery).
+  let callback = legacyCallbacksByHandler.get(oracleHandler);
+  if (!callback) {
+    callback = buildACIRCallback(oracleHandler);
+    legacyCallbacksByHandler.set(oracleHandler, callback);
+  }
+  const outputSlots = await callback[oracle](...toInputSlots(inputs));
+  return outputSlotsToForeignCallResult(outputSlots);
+}
+
+/**
+ * Strips the `0x` prefix from each serialized output slot (TXE foreign calls use bare hex strings) and wraps them in a
+ * `ForeignCallResult`.
+ */
+function outputSlotsToForeignCallResult(outputSlots: OutputSlot[]): ForeignCallResult {
   return {
     values: outputSlots.map(slot => (Array.isArray(slot) ? slot.map(withoutHexPrefix) : withoutHexPrefix(slot))),
   };

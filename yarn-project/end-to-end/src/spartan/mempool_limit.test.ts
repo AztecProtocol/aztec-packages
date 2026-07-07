@@ -1,20 +1,3 @@
-// import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-// import { AztecAddress } from '@aztec/aztec.js/addresses';
-// import type { InteractionFeeOptions } from '@aztec/entrypoints/interfaces';
-// import { asyncPool } from '@aztec/foundation/async-pool';
-// import { times } from '@aztec/foundation/collection';
-// import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
-// import { createLogger } from '@aztec/foundation/log';
-// import { TokenContract } from '@aztec/noir-contracts.js/Token';
-// import { createPXE } from '@aztec/pxe/server';
-// import {
-//   type AztecNode,
-//   type AztecNodeAdmin,
-//   createAztecNodeAdminClient,
-//   createAztecNodeClient,
-// } from '@aztec/stdlib/interfaces/client';
-// import { deriveSigningKey } from '@aztec/stdlib/keys';
-// import { makeTracedFetch } from '@aztec/telemetry-client';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { Fr } from '@aztec/aztec.js/fields';

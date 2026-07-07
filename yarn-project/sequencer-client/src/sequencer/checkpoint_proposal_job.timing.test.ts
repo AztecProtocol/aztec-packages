@@ -49,6 +49,7 @@ import { CheckpointProposalJob } from './checkpoint_proposal_job.js';
 import type { CheckpointProposalJobMetricsRecorder } from './checkpoint_proposal_job_metrics.js';
 import type { SequencerEvents } from './events.js';
 import type { SequencerMetrics } from './metrics.js';
+import { RequestsTracker } from './requests_tracker.js';
 import { SequencerState } from './utils.js';
 
 /**
@@ -154,6 +155,11 @@ class TimingTestCheckpointProposalJob extends CheckpointProposalJob {
   /** Public accessor for testing */
   public getSecondsIntoSlotPublic(): number {
     return this.getSecondsIntoSlotFn();
+  }
+
+  /** Awaits the sequencer's shared tracker so tests observe the backgrounded L1 submission completing. */
+  public async awaitPendingSubmission(): Promise<void> {
+    await this.pendingRequests.awaitRequests();
   }
 
   /** Update config for testing */
@@ -292,6 +298,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
   /** Set up p2p mock to return the given transactions */
   function mockP2pWithTxs(txs: Tx[]): void {
     p2p.getPendingTxCount.mockResolvedValue(txs.length);
+    p2p.hasEligiblePendingTxs.mockImplementation(minCount => Promise.resolve(txs.length >= minCount));
     p2p.iterateEligiblePendingTxs.mockImplementation(() => mockTxIterator(Promise.resolve(txs)));
   }
 
@@ -336,6 +343,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
       metrics,
       checkpointMetrics,
       eventEmitter,
+      new RequestsTracker(),
       setStateFn,
       getTelemetryClient().getTracer('timing-test'),
       { actor: 'timing-test' },
@@ -434,6 +442,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
     p2p.broadcastProposal.mockResolvedValue(undefined);
     p2p.broadcastCheckpointProposal.mockResolvedValue(undefined);
     p2p.getPendingTxCount.mockResolvedValue(100); // Always have enough txs
+    p2p.hasEligiblePendingTxs.mockResolvedValue(true); // Always have enough eligible txs
 
     worldState = mockDeep<WorldStateSynchronizer>();
     const mockFork = mock<MerkleTreeWriteOperations>({
@@ -1148,8 +1157,8 @@ describe('CheckpointProposalJob Timing Tests', () => {
     it('passes the target slot (not the build slot) to setState for every build-frame state', async () => {
       const { blocks, txs } = await createTestBlocksAndTxs(2);
       mockP2pWithTxs(txs);
-      // Force a single WAITING_FOR_TXS poll before the first block by reporting no pending txs once.
-      p2p.getPendingTxCount.mockResolvedValueOnce(0);
+      // Force a single WAITING_FOR_TXS poll before the first block by reporting no eligible txs once.
+      p2p.hasEligiblePendingTxs.mockResolvedValueOnce(false);
       checkpointBuilder.seedBlocks(
         blocks,
         blocks.map((_, i) => [txs[i]]),

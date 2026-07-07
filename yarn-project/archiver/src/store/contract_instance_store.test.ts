@@ -49,10 +49,23 @@ describe('ContractInstanceStore', () => {
       ).resolves.toBeUndefined();
     });
 
-    it('throws when adding the same contract instance twice', async () => {
+    it('throws when adding the same contract instance again at a different block', async () => {
       await expect(contractInstanceStore.addContractInstances([contractInstance], BlockNumber(2))).rejects.toThrow(
         /already exists/,
       );
+    });
+
+    it('treats re-adding the same contract instance at the same block as a no-op (A-1350)', async () => {
+      // An L1 reorg can re-present an already-stored checkpoint, replaying this instance at the same block.
+      await expect(
+        contractInstanceStore.addContractInstances([contractInstance], BlockNumber(blockNum)),
+      ).resolves.not.toThrow();
+      await expect(
+        contractInstanceStore.getContractInstance(contractInstance.address, timestamp),
+      ).resolves.toMatchObject(contractInstance);
+      await expect(
+        contractInstanceStore.getContractInstanceDeploymentBlockNumber(contractInstance.address),
+      ).resolves.toEqual(blockNum);
     });
   });
 

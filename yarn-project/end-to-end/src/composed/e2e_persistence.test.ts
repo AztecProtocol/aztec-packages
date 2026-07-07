@@ -15,16 +15,22 @@ import { mkdtemp } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { BlacklistTokenContractTest, Role } from '../e2e_blacklist_token_contract/blacklist_token_contract_test.js';
+import { BlacklistTokenContractTest, Role } from '../automine/token/blacklist_token_contract_test.js';
 import { PIPELINING_SETUP_OPTS } from '../fixtures/fixtures.js';
 import { type EndToEndContext, setup } from '../fixtures/utils.js';
 import type { TestWallet } from '../test-wallet/test_wallet.js';
 
 jest.setTimeout(15 * 60 * 1000);
 
-// Node and PXE persistence tests. Uses setup() directly with PIPELINING_SETUP_OPTS; excluded from the
-// compose glob for unknown reasons (migrate-later candidate). Spawns and tears down node/PXE with
-// varying combinations of persisted vs empty data directories to cover five restart scenarios.
+// Node and PXE persistence tests: an in-process single-node test (uses setup() directly with
+// PIPELINING_SETUP_OPTS) that spawns and tears down node/PXE across five persisted-vs-empty data-directory
+// restart scenarios.
+//
+// EXCLUDED from every CI test list (see bootstrap.sh) and does NOT run anywhere. It is a candidate to
+// refile under single-node/, but on the current branch its beforeAll no longer completes: the single-node
+// sequencer stalls in checkpoint proposal (waitForAttestationsAndEnqueueSubmissionAsync) and the 600s hook
+// times out before setup finishes. Re-enabling it needs that setup stall fixed (the root cause is in the
+// shared setup/sequencer, not this file); until then it stays excluded.
 describe('Aztec persistence', () => {
   /**
    * These tests check that the Aztec Node and PXE can be shutdown and restarted without losing data.
@@ -200,7 +206,11 @@ describe('Aztec persistence', () => {
 
     it('allows spending of private notes', async () => {
       const account = additionallyFundedAccounts[1]; // Not the owner account.
-      const otherAccount = await context.wallet.createSchnorrInitializerlessAccount(account.secret, account.salt);
+      const otherAccount = await context.wallet.createSchnorrInitializerlessAccount(
+        account.secret,
+        account.salt,
+        account.signingKey,
+      );
       const otherAddress = otherAccount.address;
 
       const { result: initialOwnerBalance } = await contract.methods
@@ -277,7 +287,7 @@ describe('Aztec persistence', () => {
       await context.wallet.registerContract(contractInstance, TokenBlacklistContract.artifact);
 
       const account = additionallyFundedAccounts[0];
-      await context.wallet.createSchnorrInitializerlessAccount(account.secret, account.salt);
+      await context.wallet.createSchnorrInitializerlessAccount(account.secret, account.salt, account.signingKey);
       const contract = TokenBlacklistContract.at(contractAddress, context.wallet);
 
       // check that notes total more than 0 so that this test isn't dependent on run order
@@ -307,7 +317,7 @@ describe('Aztec persistence', () => {
       await temporaryContext.wallet.registerContract(contractInstance, TokenBlacklistContract.artifact);
 
       const account = additionallyFundedAccounts[0];
-      await context.wallet.createSchnorrInitializerlessAccount(account.secret, account.salt);
+      await context.wallet.createSchnorrInitializerlessAccount(account.secret, account.salt, account.signingKey);
 
       const contract = TokenBlacklistContract.at(contractAddress, context.wallet);
 
@@ -332,7 +342,7 @@ describe('Aztec persistence', () => {
     beforeEach(async () => {
       context = await setup(0, { ...PIPELINING_SETUP_OPTS, dataDirectory, deployL1ContractsValues }, { dataDirectory });
       const account = additionallyFundedAccounts[0];
-      await context.wallet.createSchnorrInitializerlessAccount(account.secret, account.salt);
+      await context.wallet.createSchnorrInitializerlessAccount(account.secret, account.salt, account.signingKey);
       contract = TokenBlacklistContract.at(contractAddress, context.wallet);
     }, 120_000);
 

@@ -1,4 +1,5 @@
 import { prettyPrintJSON } from '@aztec/cli/utils';
+import { asyncPool } from '@aztec/foundation/async-pool';
 import { deriveBlsPrivateKey } from '@aztec/foundation/crypto/bls';
 import { createBn254Keystore } from '@aztec/foundation/crypto/bls/bn254_keystore';
 import { computeBn254G1PublicKeyCompressed } from '@aztec/foundation/crypto/bn254';
@@ -10,11 +11,59 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Wallet } from '@ethersproject/wallet';
 import { constants as fsConstants, mkdirSync } from 'fs';
 import { access, writeFile } from 'fs/promises';
-import { homedir } from 'os';
+import { availableParallelism, homedir } from 'os';
 import { dirname, isAbsolute, join } from 'path';
 import { mnemonicToAccount } from 'viem/accounts';
+import { Worker } from 'worker_threads';
 
 import { defaultBlsPath } from './utils.js';
+
+type EthJsonV3WorkerResult = { json: string } | { error: { message: string; name?: string; stack?: string } };
+
+// ethers' default scrypt parameters use substantial memory, so keep worker fan-out bounded.
+const maxEthKeystoreWorkers = Math.max(1, Math.min(4, availableParallelism()));
+
+function deserializeWorkerError(error: { message: string; name?: string; stack?: string }) {
+  const result = new Error(error.message);
+  result.name = error.name ?? result.name;
+  result.stack = error.stack;
+  return result;
+}
+
+function encryptEthJsonV3InWorker(privateKeyHex: string, password: string): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const worker = new Worker(new URL('./eth_json_v3_worker.js', import.meta.url), {
+      workerData: { privateKeyHex, password },
+    });
+    let settled = false;
+
+    worker.once('message', (result: EthJsonV3WorkerResult) => {
+      settled = true;
+
+      if ('json' in result) {
+        resolve(result.json);
+      } else {
+        reject(deserializeWorkerError(result.error));
+      }
+    });
+    worker.once('error', error => {
+      settled = true;
+      reject(error);
+    });
+    worker.once('exit', code => {
+      if (!settled) {
+        reject(new Error(`ETH JSON V3 worker stopped with exit code ${code}`));
+      }
+    });
+  });
+}
+
+async function encryptEthJsonV3(privateKeyHex: string, password: string): Promise<string> {
+  if (process.env.JEST_WORKER_ID !== undefined) {
+    return await new Wallet(privateKeyHex).encrypt(password);
+  }
+  return await encryptEthJsonV3InWorker(privateKeyHex, password);
+}
 
 export type ValidatorSummary = { attesterEth?: string; attesterBls?: string; publisherEth?: string[] };
 
@@ -228,7 +277,7 @@ export async function writeBn254BlsKeystore(
 ): Promise<string> {
   mkdirSync(outDir, { recursive: true });
 
-  const keystore = createBn254Keystore(password, privateKeyHex, pubkeyHex, derivationPath);
+  const keystore = await createBn254Keystore(password, privateKeyHex, pubkeyHex, derivationPath);
 
   const safeBase = fileNameBase.replace(/[^a-zA-Z0-9_-]/g, '_');
   const outPath = join(outDir, `keystore-${safeBase}.json`);
@@ -241,28 +290,29 @@ export async function writeBlsBn254ToFile(
   validators: ValidatorKeyStore[],
   options: { outDir: string; password: string; blsPath?: string },
 ): Promise<void> {
-  for (let i = 0; i < validators.length; i++) {
-    const v = validators[i];
-    if (!v || typeof v !== 'object' || !('attester' in v)) {
-      continue;
-    }
-    const att = (v as any).attester;
+  await Promise.all(
+    validators.map(async (v, i) => {
+      if (!v || typeof v !== 'object' || !('attester' in v)) {
+        return;
+      }
+      const att = (v as any).attester;
 
-    // Shapes: { bls: <hex> } or { eth: <ethAccount>, bls?: <hex> } or plain EthAccount
-    const blsKey: string | undefined = typeof att === 'object' && 'bls' in att ? (att as any).bls : undefined;
-    if (!blsKey || typeof blsKey !== 'string') {
-      continue;
-    }
+      // Shapes: { bls: <hex> } or { eth: <ethAccount>, bls?: <hex> } or plain EthAccount
+      const blsKey: string | undefined = typeof att === 'object' && 'bls' in att ? (att as any).bls : undefined;
+      if (!blsKey || typeof blsKey !== 'string') {
+        return;
+      }
 
-    const pub = await computeBlsPublicKeyCompressed(blsKey);
-    const path = options.blsPath ?? defaultBlsPath;
-    const fileBase = `${String(i + 1)}_${pub.slice(2, 18)}`;
-    const keystorePath = await writeBn254BlsKeystore(options.outDir, fileBase, options.password, blsKey, pub, path);
+      const pub = await computeBlsPublicKeyCompressed(blsKey);
+      const path = options.blsPath ?? defaultBlsPath;
+      const fileBase = `${String(i + 1)}_${pub.slice(2, 18)}`;
+      const keystorePath = await writeBn254BlsKeystore(options.outDir, fileBase, options.password, blsKey, pub, path);
 
-    if (typeof att === 'object') {
-      (att as any).bls = { path: keystorePath, password: options.password };
-    }
-  }
+      if (typeof att === 'object') {
+        (att as any).bls = { path: keystorePath, password: options.password };
+      }
+    }),
+  );
 }
 
 /** Writes an Ethereum JSON V3 keystore using ethers, returns absolute path */
@@ -274,8 +324,7 @@ export async function writeEthJsonV3Keystore(
 ): Promise<string> {
   const safeBase = fileNameBase.replace(/[^a-zA-Z0-9_-]/g, '_');
   mkdirSync(outDir, { recursive: true });
-  const wallet = new Wallet(privateKeyHex);
-  const json = await wallet.encrypt(password);
+  const json = await encryptEthJsonV3(privateKeyHex, password);
   const outPath = join(outDir, `keystore-eth-${safeBase}.json`);
   await writeFile(outPath, json, { encoding: 'utf-8' });
   return outPath;
@@ -286,13 +335,16 @@ export async function writeEthJsonV3ToFile(
   validators: ValidatorKeyStore[],
   options: { outDir: string; password: string },
 ): Promise<void> {
-  const maybeEncryptEth = async (account: any, label: string) => {
+  const tasks: (() => Promise<void>)[] = [];
+
+  const maybeQueueEncryptEth = (account: any, label: string, setEncryptedAccount: (account: any) => void) => {
     if (typeof account === 'string' && account.startsWith('0x') && account.length === 66) {
-      const fileBase = `${label}_${account.slice(2, 10)}`;
-      const p = await writeEthJsonV3Keystore(options.outDir, fileBase, options.password, account);
-      return { path: p, password: options.password };
+      tasks.push(async () => {
+        const fileBase = `${label}_${account.slice(2, 10)}`;
+        const path = await writeEthJsonV3Keystore(options.outDir, fileBase, options.password, account);
+        setEncryptedAccount({ path, password: options.password });
+      });
     }
-    return account;
   };
 
   for (let i = 0; i < validators.length; i++) {
@@ -304,23 +356,23 @@ export async function writeEthJsonV3ToFile(
     // attester may be string (eth), object with eth, or remote signer
     const att = (v as any).attester;
     if (typeof att === 'string') {
-      (v as any).attester = await maybeEncryptEth(att, `attester_${i + 1}`);
+      maybeQueueEncryptEth(att, `attester_${i + 1}`, account => ((v as any).attester = account));
     } else if (att && typeof att === 'object' && 'eth' in att) {
-      (att as any).eth = await maybeEncryptEth((att as any).eth, `attester_${i + 1}`);
+      maybeQueueEncryptEth((att as any).eth, `attester_${i + 1}`, account => ((att as any).eth = account));
     }
 
     // publisher can be single or array
     if ('publisher' in v) {
       const pub = (v as any).publisher;
       if (Array.isArray(pub)) {
-        const out: any[] = [];
         for (let j = 0; j < pub.length; j++) {
-          out.push(await maybeEncryptEth(pub[j], `publisher_${i + 1}_${j + 1}`));
+          maybeQueueEncryptEth(pub[j], `publisher_${i + 1}_${j + 1}`, account => (pub[j] = account));
         }
-        (v as any).publisher = out;
       } else if (pub !== undefined) {
-        (v as any).publisher = await maybeEncryptEth(pub, `publisher_${i + 1}`);
+        maybeQueueEncryptEth(pub, `publisher_${i + 1}`, account => ((v as any).publisher = account));
       }
     }
   }
+
+  await asyncPool(maxEthKeystoreWorkers, tasks, task => task());
 }

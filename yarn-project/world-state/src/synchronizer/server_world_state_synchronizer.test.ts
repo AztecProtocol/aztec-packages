@@ -2,7 +2,7 @@ import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { BlockHash, L2Block, type L2BlockSource, type L2BlockStream } from '@aztec/stdlib/block';
+import { BlockHash, type EventDrivenL2BlockStream, L2Block, type L2BlockSource } from '@aztec/stdlib/block';
 import type { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { type MerkleTreeReadOperations, WorldStateRunningState } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
@@ -26,7 +26,7 @@ describe('ServerWorldStateSynchronizer', () => {
   let blockAndMessagesSource: MockProxy<L2BlockSource & L1ToL2MessageSource>;
   let merkleTreeDb: MockProxy<MerkleTreeAdminDatabase>;
   let merkleTreeRead: MockProxy<MerkleTreeReadOperations>;
-  let l2BlockStream: MockProxy<L2BlockStream>;
+  let l2BlockStream: MockProxy<EventDrivenL2BlockStream>;
 
   let server: TestWorldStateSynchronizer;
   let latestHandledBlockNumber: number;
@@ -74,7 +74,7 @@ describe('ServerWorldStateSynchronizer', () => {
       treesAreSynched: true,
     } satisfies WorldStateStatusSummary);
 
-    l2BlockStream = mock<L2BlockStream>();
+    l2BlockStream = mock<EventDrivenL2BlockStream>();
 
     const config: WorldStateConfig = {
       worldStateBlockCheckIntervalMS: 100,
@@ -287,12 +287,12 @@ class TestWorldStateSynchronizer extends ServerWorldStateSynchronizer {
     merkleTrees: MerkleTreeAdminDatabase,
     blockAndMessagesSource: L2BlockSource & L1ToL2MessageSource,
     worldStateConfig: WorldStateConfig,
-    private mockBlockStream: L2BlockStream,
+    private mockBlockStream: EventDrivenL2BlockStream,
   ) {
     super(merkleTrees, blockAndMessagesSource, worldStateConfig);
   }
 
-  protected override createBlockStream(): L2BlockStream {
+  protected override createBlockStream(): EventDrivenL2BlockStream {
     return this.mockBlockStream;
   }
 

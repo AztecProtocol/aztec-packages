@@ -1,4 +1,5 @@
 import type { AuthorizeUtilityCall } from './authorize_utility_call.js';
+import type { ResolveCustomRequest } from './resolve_custom_request.js';
 import type { ResolveTaggingSecretStrategy } from './resolve_tagging_secret_strategy.js';
 
 /**
@@ -28,8 +29,12 @@ import type { ResolveTaggingSecretStrategy } from './resolve_tagging_secret_stra
  *         ? { authorized: true }
  *         : { authorized: false, reason: 'Unknown target' };
  *     },
- *     // When there's no established way to reach the recipient, fall back to a non-interactive handshake.
- *     resolveTaggingSecretStrategy: async () => ({ type: 'non-interactive-handshake' }),
+ *     // Apply per-recipient policy: reach a known contact via their address keys (no onchain trace) and use a
+ *     // non-interactive handshake for everyone else.
+ *     resolveTaggingSecretStrategy: async ({ recipient }) =>
+ *       knownContacts.has(recipient.toString())
+ *         ? { type: 'address-derived' }
+ *         : { type: 'non-interactive-handshake' },
  *   },
  * });
  * ```
@@ -39,10 +44,16 @@ export interface ExecutionHooks {
   authorizeUtilityCall?: AuthorizeUtilityCall;
   /**
    * Resolves a message's tagging secret when none is already established for the sender/recipient pair, letting the
-   * wallet apply per-recipient policy. PXE applies a privacy-safe default when absent.
+   * wallet apply per-recipient policy. PXE applies a default when absent.
    * See {@link ResolveTaggingSecretStrategy} for the request shape and defaults.
    */
   resolveTaggingSecretStrategy?: ResolveTaggingSecretStrategy;
+  /**
+   * Resolves a custom, caller-defined request a circuit cannot serve from local state. Any contract can issue one, so
+   * an implementor should verify both the request `kind` and the issuing contract (its address and class ID) before
+   * fulfilling it. Rejected when absent; see {@link ResolveCustomRequest}.
+   */
+  resolveCustomRequest?: ResolveCustomRequest;
 }
 
 /**

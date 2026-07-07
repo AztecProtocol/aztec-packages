@@ -64,7 +64,7 @@ pub contract AvmTest {
     use aztec::macros::functions::external;
     use aztec::macros::functions::view;
     use aztec::macros::storage::storage;
-    use aztec::oracle::get_contract_instance::get_contract_instance_class_id_avm;
+    use aztec::oracle::get_contract_instance::get_contract_instance_current_class_id_avm;
     use aztec::oracle::get_contract_instance::get_contract_instance_deployer_avm;
     use aztec::oracle::get_contract_instance::get_contract_instance_immutables_hash_avm;
     use aztec::oracle::get_contract_instance::get_contract_instance_initialization_hash_avm;
@@ -389,7 +389,7 @@ pub contract AvmTest {
     #[contract_library_method]
     fn _test_get_contract_instance_matches(address: AztecAddress, expected_deployer: AztecAddress, expected_class_id: ContractClassId, expected_initialization_hash: Field, expected_immutables_hash: Field) {
         let deployer: Option<AztecAddress> = get_contract_instance_deployer_avm(address);
-        let class_id: Option<ContractClassId> = get_contract_instance_class_id_avm(address);
+        let class_id: Option<ContractClassId> = get_contract_instance_current_class_id_avm(address);
         let initialization_hash: Option<Field> = get_contract_instance_initialization_hash_avm(address);
         let immutables_hash: Option<Field> = get_contract_instance_immutables_hash_avm(address);
         assert(deployer.is_some(), "Contract instance not found when getting DEPLOYER!");
@@ -401,7 +401,7 @@ pub contract AvmTest {
         assert(initialization_hash.unwrap().eq(expected_initialization_hash));
         assert(immutables_hash.unwrap().eq(expected_immutables_hash));
         aztec::oracle::logging::debug_log("Get Contract Instance Protocol Contract Instance");
-        let fee_juice_class_id: Option<ContractClassId> = get_contract_instance_class_id_avm(FEE_JUICE_ADDRESS);
+        let fee_juice_class_id: Option<ContractClassId> = get_contract_instance_current_class_id_avm(FEE_JUICE_ADDRESS);
         assert(fee_juice_class_id.is_some(), "Protocol Contract instance not found when getting CLASS_ID!");
     }
 
@@ -6203,7 +6203,7 @@ pub contract AvmTest {
         let mut self: aztec::contract_self::contract_self_public::ContractSelfPublic<Storage<PublicContext>, CallSelf<PublicContext>, CallSelfStatic<PublicContext>, CallInternal<PublicContext>> = __aztec_nr_internals__create_public_self::<1>();
         {
             let deployer: Option<AztecAddress> = get_contract_instance_deployer_avm(address);
-            let class_id: Option<ContractClassId> = get_contract_instance_class_id_avm(address);
+            let class_id: Option<ContractClassId> = get_contract_instance_current_class_id_avm(address);
             let initialization_hash: Option<Field> = get_contract_instance_initialization_hash_avm(address);
             let immutables_hash: Option<Field> = get_contract_instance_immutables_hash_avm(address);
             assert(deployer.is_some(), "Contract instance not found when getting DEPLOYER!");

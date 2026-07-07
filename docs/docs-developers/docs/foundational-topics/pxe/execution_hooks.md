@@ -78,6 +78,8 @@ When the hook is absent, cross-contract utility calls are denied. See [Cross-con
 
 Called as a fallback for message delivery: a registered onchain handshake's secret is reused directly, so this hook only fires when the sender-recipient pair has none yet. The wallet returns a concrete `TaggingSecretStrategy` (and any material the chosen derivation needs); see [Tagging secret strategy](../../aztec-nr/framework-description/note_delivery.md#tagging-secret-strategy) for the variants, the trade-offs, and the defaults in each environment.
 
+For an unconstrained self-send (the recipient is one of the wallet's own accounts), the PXE always uses an [address-derived shared secret](../../aztec-nr/framework-description/note_delivery.md#tagging-secret-strategy) regardless of what the hook returns: both sides' keys are local, so no handshake is needed.
+
 ### In Noir tests
 
 When testing in Noir, leaving the strategy unset makes `TestEnvironment` fall back to the bare PXE default. Set a strategy when creating the environment to exercise a specific one; it affects message delivery in private executions:
@@ -92,4 +94,18 @@ let env = TestEnvironment::new_opts(
 
 Pass a `resolveTaggingSecretStrategy` hook when [creating the PXE](#configuring-hooks). It receives a `TaggingSecretStrategyRequest` with the executing contract's address and the message's sender, recipient, and delivery mode (`'constrained'` or `'unconstrained'`), so a wallet can apply per-application or per-recipient policies, or surface the decision to the user, instead of returning a fixed value.
 
-When the hook is absent, the PXE applies a privacy-safe default: unconstrained delivery uses an [address-derived shared secret](../../aztec-nr/framework-description/note_delivery.md#tagging-secret-strategy), which leaves no onchain trace, while constrained delivery fails rather than silently revealing the recipient through a [non-interactive handshake](../../aztec-nr/framework-description/note_delivery.md#tagging-secret-strategy).
+When the hook is absent, the PXE applies a default: both delivery modes use a [non-interactive handshake](../../aztec-nr/framework-description/note_delivery.md#tagging-secret-strategy) so the recipient can discover the message without prior coordination.
+
+## `resolveCustomRequest`
+
+A general-purpose hook for *custom*, caller-defined requests. A contract reaches for it when it needs something it cannot get on its own: not from its local notes, not from the protocol's existing oracles. The contract gives the request a `kind` and an opaque `payload`, and the wallet returns an opaque response. Because the request is caller-defined, the wallet decides per `kind` how to answer, whether by reading state it holds, contacting another party, or fetching offchain data.
+
+### In production
+
+Pass a `resolveCustomRequest` hook when [creating the PXE](#configuring-hooks). It receives a `CustomRequest` with the issuing contract's address and class ID, the request `kind`, and the opaque `payload`, and returns the response. Because any contract can issue a request, the hook should check both the `kind` and the issuing contract before answering, dispatching on `kind` to the matching resolver.
+
+When the hook is absent, the request cannot be served and simulation fails.
+
+### Example: interactive handshakes
+
+The `HandshakeRegistry`'s `interactive_handshake` uses this hook to obtain the recipient's signed authorization. The payload carries what the signer needs to decide: who the recipient is, the handshake being authorized, and the chain context, but never the sender. The response carries what the registry needs to verify the recipient's signature in-circuit.

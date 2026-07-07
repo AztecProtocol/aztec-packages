@@ -2,6 +2,7 @@ import { MAX_TX_LIFETIME } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { MAX_RPC_LEN } from '@aztec/stdlib/interfaces/api-limit';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import {
   type AppTaggingSecret,
@@ -90,8 +91,11 @@ describe('syncTaggedPrivateLogs', () => {
     expect(logs).toHaveLength(0);
   });
 
-  it('batches tags from multiple secrets into a single RPC call', async () => {
-    const secrets = await makeSecrets(3, AppTaggingSecretKind.UNCONSTRAINED);
+  it('batches tags from multiple secrets across as few RPC calls as MAX_RPC_LEN allows', async () => {
+    // Pick enough secrets that the total tag count spans several MAX_RPC_LEN chunks. A per-secret
+    // implementation would need one RPC per secret; batched behavior needs ceil(totalTags / MAX_RPC_LEN).
+    const numSecrets = 10;
+    const secrets = await makeSecrets(numSecrets, AppTaggingSecretKind.UNCONSTRAINED);
     const finalizedBlockNumber = BlockNumber(10);
 
     aztecNode.getPrivateLogsByTags.mockImplementation((query: PrivateLogsQuery) => {
@@ -101,7 +105,24 @@ describe('syncTaggedPrivateLogs', () => {
 
     await syncTaggedPrivateLogs(secrets, aztecNode, taggingStore, ANCHOR_BLOCK_HEADER, finalizedBlockNumber, JOB_ID);
 
-    expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(1);
+    const expectedTags = await Promise.all(
+      secrets.flatMap(secret =>
+        Array.from({ length: UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1 }, (_, i) =>
+          computeSiloedTagForIndex(secret, i),
+        ),
+      ),
+    );
+    const calledTags = aztecNode.getPrivateLogsByTags.mock.calls.flatMap(([query]) => extractTags(query));
+    const asStrings = (tags: SiloedTag[]) => tags.map(t => t.toString()).sort();
+
+    // Every expected (secret, index) tag was queried exactly once, in some order across the batched RPC calls.
+    expect(asStrings(calledTags)).toEqual(asStrings(expectedTags));
+
+    // Batching invariant: the sync issues ceil(totalTags / MAX_RPC_LEN) calls, which is strictly fewer than one
+    // RPC per secret. This is what a per-secret implementation would degenerate to.
+    const expectedCalls = Math.ceil(expectedTags.length / MAX_RPC_LEN);
+    expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(expectedCalls);
+    expect(expectedCalls).toBeLessThan(numSecrets);
   });
 
   it('syncs logs and updates store independently per secret', async () => {

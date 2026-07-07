@@ -298,7 +298,7 @@ case "$cmd" in
     git clean -fdx
     ;;
   "clean-lite")
-    files=$(git ls-files --ignored --others --exclude-standard | grep -vE '(node_modules/|^\.yarn/)' || true)
+    files=$(git ls-files --ignored --others --exclude-standard | grep -vE '(node_modules/|^\.yarn/|^tmp/)' || true)
     if [ -n "$files" ]; then
       echo "$files" | xargs rm -rf
     fi

@@ -1,7 +1,7 @@
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 
 import type { L2Block } from '../l2_block.js';
-import type { CheckpointId, L2BlockId, L2TipId, LocalL2Tips } from '../l2_block_source.js';
+import type { CheckpointId, L2BlockId, L2TipId, L2Tips, LocalL2Tips } from '../l2_block_source.js';
 
 /** Provides the current chain tips. Implemented by world-state, l2-tips-store, and AztecNode. */
 export interface L2TipsProvider {
@@ -33,6 +33,40 @@ export type LocalChainTips = {
 export interface L2BlockStreamLocalDataProvider {
   getL2Tips(): Promise<LocalChainTips>;
   getL2BlockHash(number: number): Promise<string | undefined>;
+}
+
+/**
+ * Returns whether a local block id differs from a source block id. Compares block number and, when the local hash is
+ * known, block hash. The hash comparison is skipped when the local hash is undefined: world-state legitimately
+ * reports `undefined` hashes for tips ahead of its synced range, and comparing against an undefined hash would treat
+ * such a tip as different on every poll. An `undefined` local block (no local tip yet) always counts as differing.
+ */
+export function localBlockIdDiffers(localBlock: LocalL2BlockId | undefined, sourceBlock: L2BlockId): boolean {
+  if (localBlock === undefined) {
+    return true;
+  }
+  if (sourceBlock.number !== localBlock.number) {
+    return true;
+  }
+  if (localBlock.hash === undefined) {
+    return false;
+  }
+  return sourceBlock.hash !== localBlock.hash;
+}
+
+/**
+ * Returns whether the local chain tips agree with the given source tips on every tier the local provider exposes.
+ * Each tier is compared at the block level via {@link localBlockIdDiffers} (so an unresolved local hash matches on
+ * number alone); checkpoint ids are not compared, mirroring the stream's own tier reconciliation. The optional
+ * `checkpointed` tier is only compared when present (it is absent when the stream ignores checkpoints).
+ */
+export function localTipsMatch(local: LocalChainTips, source: L2Tips): boolean {
+  return (
+    !localBlockIdDiffers(local.proposed, source.proposed) &&
+    (local.checkpointed === undefined || !localBlockIdDiffers(local.checkpointed.block, source.checkpointed.block)) &&
+    !localBlockIdDiffers(local.proven.block, source.proven.block) &&
+    !localBlockIdDiffers(local.finalized.block, source.finalized.block)
+  );
 }
 
 /** Interface to a handler of events emitted. */

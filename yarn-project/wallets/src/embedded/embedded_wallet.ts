@@ -26,12 +26,11 @@ import type { Logger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { PXEConfig, PXECreationOptions } from '@aztec/pxe/client/lazy';
 import type { PXE } from '@aztec/pxe/server';
-import type { ContractArtifact, EventMetadataDefinition, FunctionCall } from '@aztec/stdlib/abi';
+import type { EventMetadataDefinition, FunctionCall } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type ContractInstanceWithAddress, getContractClassFromArtifact } from '@aztec/stdlib/contract';
+import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import { GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import { deriveSigningKey } from '@aztec/stdlib/keys';
 import {
   type ContractOverrides,
   ExecutionPayload,
@@ -263,17 +262,6 @@ export class EmbeddedWallet extends BaseWallet {
     return super.getPrivateEvents<T>(eventDef, eventFilter);
   }
 
-  public override async registerContract(
-    instance: ContractInstanceWithAddress,
-    artifact?: ContractArtifact,
-    secretKey?: Fr,
-  ): Promise<ContractInstanceWithAddress> {
-    // registerContract may call pxe.updateContract under the hood, which depends on a fresh anchor
-    // block to verify the current class id from the node.
-    await this.pxe.sync();
-    return super.registerContract(instance, artifact, secretKey);
-  }
-
   /**
    * Hashes and registers the stub class for every supported account type with PXE, populating
    * stubClassIds. Called on wallet initialization.
@@ -459,14 +447,12 @@ export class EmbeddedWallet extends BaseWallet {
     return accountManager;
   }
 
-  createSchnorrAccount(secret: Fr, salt: Fr, signingKey?: Fq, alias?: string): Promise<AccountManager> {
-    const sk = signingKey ?? deriveSigningKey(secret);
-    return this.createAndStoreAccount(alias ?? '', 'schnorr', secret, salt, sk.toBuffer());
+  createSchnorrAccount(secret: Fr, salt: Fr, signingKey: Fq, alias?: string): Promise<AccountManager> {
+    return this.createAndStoreAccount(alias ?? '', 'schnorr', secret, salt, signingKey.toBuffer());
   }
 
-  createSchnorrInitializerlessAccount(secret: Fr, salt: Fr, signingKey?: Fq, alias?: string): Promise<AccountManager> {
-    const sk = signingKey ?? deriveSigningKey(secret);
-    return this.createAndStoreAccount(alias ?? '', 'schnorr_initializerless', secret, salt, sk.toBuffer());
+  createSchnorrInitializerlessAccount(secret: Fr, salt: Fr, signingKey: Fq, alias?: string): Promise<AccountManager> {
+    return this.createAndStoreAccount(alias ?? '', 'schnorr_initializerless', secret, salt, signingKey.toBuffer());
   }
 
   createECDSARAccount(secret: Fr, salt: Fr, signingKey: Buffer, alias?: string): Promise<AccountManager> {

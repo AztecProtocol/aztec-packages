@@ -50,6 +50,7 @@ import type {
   NodeInfo,
   ProtocolContractAddresses,
 } from '@aztec/stdlib/contract';
+import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees, type ManaUsageEstimate, getNetworkTxGasLimits } from '@aztec/stdlib/gas';
 import type {
   AztecNode,
@@ -284,7 +285,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     return this.blockSource.getL2Tips();
   }
 
-  public getL1Constants() {
+  public getL1Constants(): Promise<L1RollupConstants> {
     return this.blockSource.getL1Constants();
   }
 

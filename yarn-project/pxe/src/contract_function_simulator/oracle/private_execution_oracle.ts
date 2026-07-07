@@ -29,6 +29,7 @@ import {
   type TxContext,
 } from '@aztec/stdlib/tx';
 
+import type { ResolveCustomRequest } from '../../hooks/resolve_custom_request.js';
 import type {
   ResolveTaggingSecretStrategy,
   TaggingSecretStrategy,
@@ -188,29 +189,81 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   }
 
   /**
+   * Resolves a custom, caller-defined request via the {@link ResolveCustomRequest} hook, which produces the response
+   * however it needs to. Throws when no hook is configured, since the request cannot be served.
+   */
+  public async resolveCustomRequest(kind: Fr, payload: Fr[]): Promise<Fr[]> {
+    const hook: ResolveCustomRequest | undefined = this.hooks?.resolveCustomRequest;
+    if (!hook) {
+      throw new Error('Cannot serve a request: no resolveCustomRequest hook is configured');
+    }
+    const contractClassId = await this.#getCurrentContractClassId(this.contractAddress);
+    return hook({ contractAddress: this.contractAddress, contractClassId, kind, payload });
+  }
+
+  /**
    * Resolves the tagging strategy for a message via the wallet's {@link ResolveTaggingSecretStrategy} hook. The contract receives a ready-to-use {@link ResolvedTaggingStrategy}.
-   * When no hook is configured, applies a privacy-safe default.
+   * When no hook is configured, applies a default: a non-interactive handshake, except for an unconstrained self-send,
+   * which uses an address-derived secret.
    */
   public async resolveTaggingStrategy(
     sender: AztecAddress,
     recipient: AztecAddress,
     deliveryMode: AppTaggingSecretKind,
   ): Promise<ResolvedTaggingStrategy> {
-    const hook: ResolveTaggingSecretStrategy | undefined = this.hooks?.resolveTaggingSecretStrategy;
-    let strategy: TaggingSecretStrategy;
-    if (hook) {
-      const { currentContractClassId } = await this.getContractInstance(this.contractAddress);
-      strategy = await hook({
-        contractAddress: this.contractAddress,
-        contractClassId: currentContractClassId,
-        sender,
-        recipient,
-        deliveryMode,
-      });
-    } else {
-      strategy = this.#defaultTaggingSecretStrategy(deliveryMode, recipient);
-    }
+    const [isUnconstrainedSelfSend, chosenStrategy] = await Promise.all([
+      this.#isUnconstrainedSelfSend(recipient, deliveryMode),
+      this.#chooseTaggingSecretStrategy(sender, recipient, deliveryMode),
+    ]);
+
+    // For unconstrained delivery, a self-send uses a local address-derived secret instead of a non-interactive
+    // handshake. A self-send is one where the wallet controls the recipient's keys, so both sides' keys are local: no
+    // handshake is needed and nothing is revealed onchain. It also avoids a recursion: a handshake self-delivers its
+    // note via unconstrained delivery, which would establish yet another handshake. This guard runs regardless of the
+    // resolved strategy (hook or default), to protect wallets from invalid configuration.
+    const strategy: TaggingSecretStrategy = isUnconstrainedSelfSend ? { type: 'address-derived' } : chosenStrategy;
+
     return this.#resolveTaggingSecretStrategy(strategy, sender, recipient);
+  }
+
+  async #chooseTaggingSecretStrategy(
+    sender: AztecAddress,
+    recipient: AztecAddress,
+    deliveryMode: AppTaggingSecretKind,
+  ): Promise<TaggingSecretStrategy> {
+    const hook: ResolveTaggingSecretStrategy | undefined = this.hooks?.resolveTaggingSecretStrategy;
+    if (!hook) {
+      // With no hook, both delivery modes default to a non-interactive handshake
+      return { type: 'non-interactive-handshake' };
+    }
+
+    const contractClassId = await this.#getCurrentContractClassId(this.contractAddress);
+    return hook({
+      contractAddress: this.contractAddress,
+      contractClassId,
+      sender,
+      recipient,
+      deliveryMode,
+    });
+  }
+
+  /**
+   * Resolves the class id the given contract runs at this simulation's anchor block. The instance no longer carries
+   * its class id (it is chain-derived), so it is resolved via the anchored contract data instead.
+   */
+  async #getCurrentContractClassId(address: AztecAddress): Promise<Fr> {
+    const classId = await this.anchoredContractData.getCurrentClassId(address);
+    if (classId === undefined) {
+      throw new Error(`Cannot resolve the current contract class for ${address}`);
+    }
+    return classId;
+  }
+
+  /** Whether this is an unconstrained delivery to one of the wallet's own accounts (a self-send). */
+  #isUnconstrainedSelfSend(recipient: AztecAddress, deliveryMode: AppTaggingSecretKind) {
+    return deliveryMode === AppTaggingSecretKind.UNCONSTRAINED
+      ? this.keyStore.hasAccount(recipient)
+      : Promise.resolve(false);
   }
 
   /** Resolves a wallet-provided {@link TaggingSecretStrategy} into the app-siloed secret handed to the contract. */
@@ -229,23 +282,14 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
         return this.#addressDerivedSecret(sender, recipient);
       case 'arbitrary-secret': {
         // App-silo the raw arbitrary secret point here so wallets never replicate the derivation.
-        const appTaggingSecret = await AppTaggingSecret.compute(strategy.secret, this.contractAddress, recipient);
+        const appTaggingSecret = await AppTaggingSecret.computeDirectional(
+          strategy.secret,
+          this.contractAddress,
+          recipient,
+        );
         return { type: 'unconstrained-secret', secret: appTaggingSecret.secret };
       }
     }
-  }
-
-  /** The privacy-safe tagging secret strategy used when no {@link ResolveTaggingSecretStrategy} hook is configured. */
-  #defaultTaggingSecretStrategy(deliveryMode: AppTaggingSecretKind, recipient: AztecAddress): TaggingSecretStrategy {
-    if (deliveryMode === AppTaggingSecretKind.CONSTRAINED) {
-      // Constrained delivery has no "safe" default: a non-interactive handshake would reveal the recipient onchain,
-      // and an interactive handshake always needs a wallet interaction (i.e. a configured hook). With no hook there is
-      // nothing safe to fall back to, so we always fail.
-      throw new Error(`Constrained delivery to ${recipient} requires a configured resolveTaggingSecretStrategy hook.`);
-    }
-
-    // Unconstrained default: an address-derived (Diffie-Hellman) shared secret, which leaves no onchain trace.
-    return { type: 'address-derived' };
   }
 
   /**
@@ -307,13 +351,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   async #calculateAppTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
     const senderCompleteAddress = await this.getCompleteAddressOrFail(sender);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
-    return AppTaggingSecret.computeUnconstrained(
-      senderCompleteAddress,
-      senderIvsk,
-      recipient,
-      contractAddress,
-      recipient,
-    );
+    return AppTaggingSecret.computeViaEcdh(senderCompleteAddress, senderIvsk, recipient, contractAddress, recipient);
   }
 
   async #getIndexToUseForSecret(secret: AppTaggingSecret): Promise<number> {
@@ -615,10 +653,16 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.scopes,
     );
 
-    const targetArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(
+    const targetArtifact = await this.anchoredContractData.getFunctionArtifactWithDebugMetadata(
       targetContractAddress,
       functionSelector,
     );
+    if (!targetArtifact) {
+      throw new Error(
+        `Cannot call ${targetContractAddress}:${functionSelector}: the contract is not registered. ` +
+          `Register it via wallet.registerContract(...).`,
+      );
+    }
 
     const derivedTxContext = this.txContext.clone();
 
@@ -635,7 +679,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       executionCache: this.executionCache,
       noteCache: this.noteCache,
       taggingIndexCache: this.taggingIndexCache,
-      contractStore: this.contractStore,
+      anchoredContractData: this.anchoredContractData,
       noteStore: this.noteStore,
       keyStore: this.keyStore,
       addressStore: this.addressStore,
@@ -739,7 +783,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   }
 
   public getDebugFunctionName() {
-    return this.contractStore.getDebugFunctionName(this.contractAddress, this.callContext.functionSelector);
+    return this.anchoredContractData.getDebugFunctionName(this.contractAddress, this.callContext.functionSelector);
   }
 
   protected override get callerContext() {

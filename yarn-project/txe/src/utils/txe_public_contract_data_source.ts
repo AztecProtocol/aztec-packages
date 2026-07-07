@@ -36,7 +36,8 @@ export class TXEPublicContractDataSource implements ContractDataSource {
 
   async getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     const instance = await this.contractStore.getContractInstance(address);
-    return instance && { ...instance, address };
+    // TXE has no contract updates, so the current class always equals the original.
+    return instance && { ...instance, address, currentContractClassId: instance.originalContractClassId };
   }
 
   getContractClassIds(): Promise<Fr[]> {
@@ -44,12 +45,13 @@ export class TXEPublicContractDataSource implements ContractDataSource {
   }
 
   async getContractArtifact(address: AztecAddress): Promise<ContractArtifact | undefined> {
-    const instance = await this.contractStore.getContractInstance(address);
-    return instance && this.contractStore.getContractArtifact(instance.currentContractClassId);
+    const instance = await this.getContract(address);
+    return instance && this.contractStore.getContractArtifact(instance.originalContractClassId);
   }
 
   async getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
-    return await this.contractStore.getDebugFunctionName(address, selector);
+    const instance = await this.getContract(address);
+    return instance && this.contractStore.getDebugFunctionName(instance.originalContractClassId, selector);
   }
 
   registerContractFunctionSignatures(_signatures: []): Promise<void> {

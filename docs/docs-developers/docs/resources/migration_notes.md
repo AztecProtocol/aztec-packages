@@ -9,6 +9,197 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.js] Account signing keys are no longer derived from the privacy secret
+
+Schnorr account signing keys used to be derived from the account's privacy secret (via the now-removed `deriveSigningKey`), which meant the ownership key could be reconstructed from a value the PXE holds. The relationship is now reversed: the signing key is the root, and the privacy secret is derived from it with `deriveSecretKeyFromSigningKey` (exported from `@aztec/accounts/utils`).
+
+As a result:
+
+- `deriveSigningKey` is removed.
+- `getSchnorrAccountContractAddress` and `getSchnorrInitializerlessAccountContractAddress` now take the signing key first and an optional secret: `(signingPrivateKey, salt, secretKey?)`. When `secretKey` is omitted it is derived from the signing key.
+- The embedded wallet's `createSchnorrAccount` and `createSchnorrInitializerlessAccount` now require an explicit signing key argument.
+
+**Migration:**
+
+```diff
+- import { deriveSigningKey } from '@aztec/stdlib/keys';
+- const signingKey = deriveSigningKey(secret);
+- const address = await getSchnorrAccountContractAddress(secret, salt, signingKey);
++ import { GrumpkinScalar } from '@aztec/aztec.js/fields';
++ const signingKey = GrumpkinScalar.random(); // supply your own signing key
++ const address = await getSchnorrAccountContractAddress(signingKey, salt, secret);
+```
+
+**Impact**: Account addresses change, since both the signing key and the privacy secret feed the address. Code that derived the signing key from the secret, or passed the secret first to the address helpers, no longer compiles.
+
+### [Aztec.nr] `MessageContext` removed: message processing uses `ResolvedTx`
+
+`aztec::messages::processing::MessageContext` has been removed in favor of the new `ResolvedTx`, which carries the same `tx_hash`, `unique_note_hashes_in_tx`, and `first_nullifier_in_tx`, plus `block_number` and `block_hash`. The offchain handoff type `OffchainMessageWithContext` is likewise renamed to `OffchainMessageWithTx`.
+
+This affects contracts that implement a custom message handler (registered via `AztecConfig::custom_message_handler`): the handler's context parameter is now a `ResolvedTx`.
+
+**Migration:**
+
+```diff
+  use aztec::messages::processing::{
+-     enqueue_event_for_validation, MessageContext,
++     enqueue_event_for_validation, ResolvedTx,
+  };
+
+  unconstrained fn handle_my_message(
+      // ...
+-     message_context: MessageContext,
++     resolved_tx: ResolvedTx,
+      scope: AztecAddress,
+  ) {
+-     // ...message_context.tx_hash...
++     // ...resolved_tx.tx_hash...
+  }
+```
+
+### [PXE] `pxe.updateContract` removed and `pxe.registerContract` no longer takes an artifact
+
+Registering classes and instances are now separate, unvalidated operations. `registerContractClass(artifact)` registers a class, `registerContract(instance)` registers an instance and no longer takes an artifact. `registerContract` does not check that PXE knows the contract's artifact: a missing artifact surfaces only when the contract is later simulated.
+
+**Migration:**
+
+- `pxe.registerContract` now takes the instance directly (its address preimage) and returns the derived address. Register the class separately via `registerContractClass`:
+
+```diff
+- await pxe.registerContract({ instance, artifact });
++ await pxe.registerContractClass(artifact);
++ await pxe.registerContract(instance);
+```
+
+  If you were calling it without an artifact, just drop the wrapping object: `pxe.registerContract({ instance })` becomes `pxe.registerContract(instance)`. The `wallet.registerContract(instance, artifact?, secretKeyOrKeys?)` convenience is unchanged and performs both registrations for you.
+
+- To make a new class's code available after an onchain upgrade, register the new artifact instead of calling `updateContract`:
+
+```diff
+- await pxe.updateContract(address, newArtifact);
++ await pxe.registerContractClass(newArtifact);
+```
+
+  The new class is used automatically once the upgrade takes effect on chain; no further PXE action is needed. Registering it beforehand is harmless: until the update activates, the node still resolves the contract's current class to the previous one, so it keeps running its old code.
+
+- `pxe.getContractInstance(address)` and `wallet.getContractMetadata(address).instance` now return the contract's **address preimage**, which no longer includes `currentContractClassId`.
+
+
+### [Aztec.js] `AccountWithSecretKey` removed, read account keys from the `AccountManager` or PXE
+
+`AccountWithSecretKey` was a thin wrapper that bundled an account's transaction signer with its master secret key, used mainly to print or export the secret. It has been removed, and `AccountManager.getAccount()` now returns the plain `Account` signer. The wrapper's extra methods are no longer available on that value:
+
+- `getSecretKey()`: read it from the `AccountManager`, which still exposes `getSecretKey()`.
+- `getEncryptionSecret()`: this was unused and has been removed. To recover an account's encryption (address) secret, pass its master incoming viewing secret key to `computeAddressSecret`. You can read that key, along with the account's other master secret keys, from `pxe.getAccountSecretKeys(address)`.
+
+**Migration:**
+
+```diff
+
+- import { AccountWithSecretKey } from '@aztec/aztec.js/account';
+-
+- const account = await accountManager.getAccount();
+- const secretKey = account.getSecretKey();
++ const secretKey = accountManager.getSecretKey();
+```
+
+To do what `AccountWithSecretKey` was meant for (exporting an account into a separate PXE or wallet), account registration accepts a full set of master secret keys instead of only a single seed. `wallet.registerContract(instance, artifact?, secretKeyOrKeys?)` takes either an `Fr` seed (as before) or a `MasterSecretKeys` object (exported from `@aztec/aztec.js/keys`), for an account whose privacy keys were generated independently rather than from one seed.
+
+The PXE never receives the seed nor the message-signing and fallback secret keys: it is not trusted to hold them. The wallet derives the account's privacy keys and passes the PXE only the four privacy secret keys (nullifier-hiding, incoming-viewing, outgoing-viewing, tagging) plus the message-signing and fallback *public* keys. Accordingly, `pxe.getAccountSecretKeys(address)` returns only those four privacy secret keys.
+
+**Impact**: Importing `AccountWithSecretKey`, or calling `getSecretKey()`/`getEncryptionSecret()` on the result of `getAccount()`, no longer compiles. The signer `getAccount()` returns is otherwise unchanged, and passing a single `Fr` or a `MasterSecretKeys` to `wallet.registerContract` keeps working.
+
+### [CLI] `aztec-wallet` `--secret-key` is renamed to `--signing-key`
+
+`aztec-wallet` accounts are now rooted on their signing key rather than on a privacy secret. The `--secret-key` option (on `create-account` and `simulate`) is renamed to `--signing-key`, and the `SECRET_KEY` environment variable to `SIGNING_KEY`. When creating an account, a random signing key is generated by default and the privacy secret is derived from it.
+
+**Migration:**
+
+```diff
+- aztec-wallet create-account --secret-key 0x...
++ aztec-wallet create-account --signing-key 0x...
+```
+
+**Impact**: The value you save and restore for an account is now its signing key, and account addresses change, so existing wallet databases and funded addresses are not carried over.
+
+### [Bot] `senderPrivateKey` is now the account signing key
+
+The transaction bot previously derived its account's signing key from the configured `senderPrivateKey`. That value is now used directly as the signing key, with the privacy secret derived from it.
+
+**Impact**: The bot's account address changes for a given `senderPrivateKey`, so the account must be re-funded at its new address.
+
+### [PXE] Unconstrained delivery defaults to a non-interactive handshake for external recipients
+
+When no `resolveTaggingSecretStrategy` hook is configured, onchain unconstrained delivery now defaults to a non-interactive handshake when the recipient is external (an account whose keys the wallet does not hold), instead of an address-derived shared secret. A self-send (the recipient is one of the wallet's own accounts) still uses an address-derived secret, which needs no handshake and leaves no onchain trace.
+
+**Impact**: An external recipient can now discover unconstrained-delivered messages without having registered the sender in advance, but establishing the handshake publishes an onchain marker derived from the recipient's address (anyone who knows that address can tell a handshake was created for them, though not by whom nor the contents). Wallets that want the previous behavior can configure a `resolveTaggingSecretStrategy` hook that returns an `address-derived` strategy.
+
+### [Aztec.nr] `PrivateContext` data fields are no longer public
+
+`PrivateContext`'s data fields are now private (or crate-internal): its public API is now exclusively its methods. Contracts that read these fields directly must switch to the corresponding getter. A new `get_side_effect_counter()` getter exposes the side-effect counter, and a new `is_static_call()` getter replaces reaching into `inputs.call_context`. The `get_anchor_block_header()` getter already existed.
+
+**Migration:**
+
+```diff
+- let header = context.anchor_block_header;
++ let header = context.get_anchor_block_header();
+
+- let counter = context.side_effect_counter;
++ let counter = context.get_side_effect_counter();
+
+- let is_static = context.inputs.call_context.is_static_call;
++ let is_static = context.is_static_call();
+```
+
+**Impact**: Direct field access on `PrivateContext` (e.g. `context.anchor_block_header`, `context.side_effect_counter`, `context.inputs`) no longer compiles. Contract state should be read through the context's methods.
+
+### [PXE] Browser KV-store default is now SQLite-OPFS; the IndexedDB entrypoint moved and will be deprecated
+
+The browser PXE data store and the embedded wallet (`@aztec/wallets`) now persist to SQLite-OPFS instead of IndexedDB by default. The recommended way to obtain the browser backend is `@aztec/kv-store/sqlite-opfs`.
+
+**Migration:**
+
+```diff
+- import { createStore } from '@aztec/kv-store/indexeddb';
++ import { createStore } from '@aztec/kv-store/sqlite-opfs';
+```
+
+If you must stay on IndexedDB for now, import from the deprecated entrypoint instead:
+
+```diff
+- import { createStore } from '@aztec/kv-store/indexeddb';
++ import { createStore } from '@aztec/kv-store/deprecated/indexeddb';
+```
+
+**Impact**: Existing IndexedDB-backed data is not migrated, so browser PXE and wallet state starts fresh on SQLite-OPFS (the v5 protocol upgrade wipes local state regardless). SQLite-OPFS also holds an exclusive, origin-wide lock on its store directory, so a second browser tab opening the same store will fail. Consequently, we recommend to explicitly manage this case in your app if it uses `EmbeddedWallet`.
+
+### [Aztec.js] `getPublicEvents` is now cursor-paginated
+
+`getPublicEvents` returns a single page of events (at most `MAX_LOGS_PER_TAG`, the node's per-tag page size) and pages instead of the `maxLogsHit` flag, which didn't provide any way to fetch the next page of events:
+
+- The result's `maxLogsHit` boolean is replaced by `nextCursor`. When `nextCursor` is present, more events might exist; pass it as the next query's `afterEvent` to fetch the following page. When it is absent, the range is exhausted.
+- The filter's `afterLog` cursor is renamed to `afterEvent`.
+- Both cursors are the new `EventCursor` type (exported from `@aztec/aztec.js/events`), not the node-layer `LogCursor`.
+
+**Migration:**
+
+```diff
+- const { events, maxLogsHit } = await getPublicEvents(node, MyContract.events.MyEvent, { contractAddress });
++ // One page:
++ const { events, nextCursor } = await getPublicEvents(node, MyContract.events.MyEvent, { contractAddress });
++
++ // All events:
++ const all = [];
++ let afterEvent;
++ do {
++   const page = await getPublicEvents(node, MyContract.events.MyEvent, { contractAddress, afterEvent });
++   all.push(...page.events);
++   afterEvent = page.nextCursor;
++ } while (afterEvent);
+```
+
+**Impact**: Reading `maxLogsHit` or passing `afterLog` no longer compiles. Previously a single call was silently capped at `MAX_LOGS_PER_TAG` events with no usable way to continue, so the old API was unusable anyway. You can now page through the full set with `afterEvent`/`nextCursor`.
+
 ### [PXE] Sender and shared-secret registration unified into `TaggingSecretSource`
 
 The PXE methods for registering tagging-secret sources have been replaced by a single set that takes a `TaggingSecretSource` discriminated union. `registerSender`/`getSenders`/`removeSender` and `registerSharedSecret`/`removeSharedSecret` are gone; use `registerTaggingSecretSource`/`removeTaggingSecretSource`/`getTaggingSecretSources` instead. The `Wallet` interface (`wallet.registerSender`, `getAddressBook`) is unchanged, so this only affects code that talks to a `PXE` instance directly.
@@ -54,8 +245,8 @@ In `TestEnvironment`, use `execute_utility_opts` with the new `ExecuteUtilityOpt
 ```rust
 let secret = env.execute_utility_opts(
     ExecuteUtilityOptions::new().with_from(caller),
-    Registry::at(registry_address).get_app_siloed_secret(sender, recipient, mode),
-);
+    Registry::at(registry_address).get_app_siloed_secret(sender, recipient),
+).map(|secrets| secrets.shared);
 ```
 
 ### [Prover Node JSON-RPC] Prover API moved to the admin endpoint; `getL2Tips`/`getWorldStateSyncStatus` removed
