@@ -3,6 +3,7 @@ import {
   SecretValue,
   bigintConfigHelper,
   booleanConfigHelper,
+  floatConfigHelper,
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
@@ -435,17 +436,17 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   gossipsubTxTopicWeight: {
     env: 'P2P_GOSSIPSUB_TX_TOPIC_WEIGHT',
     description: 'The weight of the tx topic for the gossipsub protocol.',
-    ...numberConfigHelper(1),
+    ...floatConfigHelper(1),
   },
   gossipsubTxInvalidMessageDeliveriesWeight: {
     env: 'P2P_GOSSIPSUB_TX_INVALID_MESSAGE_DELIVERIES_WEIGHT',
     description: 'The weight of the tx invalid message deliveries for the gossipsub protocol.',
-    ...numberConfigHelper(-20),
+    ...floatConfigHelper(-20),
   },
   gossipsubTxInvalidMessageDeliveriesDecay: {
     env: 'P2P_GOSSIPSUB_TX_INVALID_MESSAGE_DELIVERIES_DECAY',
     description: 'Determines how quickly the penalty for invalid message deliveries decays over time. Between 0 and 1.',
-    ...numberConfigHelper(0.5),
+    ...floatConfigHelper(0.5),
   },
   peerPenaltyValues: {
     env: 'P2P_PEER_PENALTY_VALUES',

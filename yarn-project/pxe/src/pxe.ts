@@ -36,6 +36,8 @@ import type {
   PrivateKernelExecutionProofOutput,
   PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/stdlib/kernel';
+import { computeAddressSecret } from '@aztec/stdlib/keys';
+import { deriveEcdhSharedSecretPoint } from '@aztec/stdlib/logs';
 import {
   BlockHeader,
   type ContractOverrides,
@@ -87,7 +89,10 @@ import { openPxeStores } from './storage/open_pxe_stores.js';
 import { PrivateEventStore } from './storage/private_event_store/private_event_store.js';
 import { RecipientTaggingStore } from './storage/tagging_store/recipient_tagging_store.js';
 import { SenderTaggingStore } from './storage/tagging_store/sender_tagging_store.js';
-import { TaggingSecretSourcesStore } from './storage/tagging_store/tagging_secret_sources_store.js';
+import {
+  type SharedSecretKind,
+  TaggingSecretSourcesStore,
+} from './storage/tagging_store/tagging_secret_sources_store.js';
 import { persistSenderTaggingIndexRangesForTx } from './tagging/index.js';
 
 export type PackedPrivateEvent = InTx & {
@@ -191,18 +196,33 @@ export type PXECreateArgs = {
   hooks?: ExecutionHooks;
 };
 
-/**
- * A source from which PXE derives the tagging secrets it scans for to discover incoming private logs.
- *
- * - `address-derived`: derives a shared secret via ECDH from an external `sender` address against every account
- *   registered in this PXE (present and future), so registering one sender applies it to all of them. The address is
- *   not secret, so unlike `arbitrary-secret` it can be reused freely across recipients.
- * - `arbitrary-secret`: a shared secret point provided directly, scoped to a single recipient. It bypasses ECDH, so it
- *   must not be reused across recipients (each would then be able to find the others' tags).
- */
+/** A source from which PXE derives the tagging secrets it scans for to discover incoming private logs. */
 export type TaggingSecretSource =
+  /**
+   * Derives a shared secret via ECDH from an external `sender` address against every account registered in this PXE
+   * (present and future), so registering one sender applies it to all of them. The address is not secret, so unlike
+   * `arbitrary-secret` it can be reused freely across recipients.
+   */
   | { kind: 'address-derived'; sender: AztecAddress }
-  | { kind: 'arbitrary-secret'; recipient: AztecAddress; secret: Point };
+  /**
+   * A shared secret point provided directly, scoped to a single recipient. It bypasses ECDH, so it must not be
+   * reused across recipients (each would then be able to find the others' tags).
+   */
+  | { kind: 'arbitrary-secret'; recipient: AztecAddress; secret: Point }
+  /**
+   * A handshake known by the x-coordinate of its ephemeral public key (the value a recipient learns while authorizing
+   * an interactive handshake, which emits no discoverable announcement). The ephemeral key's y-coordinate is always
+   * positive by protocol construction, so the x-coordinate alone identifies it.
+   */
+  | { kind: 'handshake'; recipient: AztecAddress; ephPk: Fr };
+
+/**
+ * The registered form of a {@link TaggingSecretSource}.
+ */
+export type RegisteredTaggingSecretSource =
+  | Exclude<TaggingSecretSource, { kind: 'handshake' }>
+  /** A handshake's resolved shared secret, derived at registration from the handshake's ephemeral key. */
+  | { kind: 'handshake'; recipient: AztecAddress; secret: Point };
 
 /**
  * Private eXecution Environment (PXE) is a library used by wallets to simulate private phase of transactions and to
@@ -769,7 +789,14 @@ export class PXE {
         wasAdded = await this.#registerSender(source.sender);
         break;
       case 'arbitrary-secret':
-        wasAdded = await this.#registerArbitrarySecret(source.recipient, source.secret);
+        wasAdded = await this.#registerSharedSecret(source.recipient, 'arbitrary-secret', source.secret);
+        break;
+      case 'handshake':
+        wasAdded = await this.#registerSharedSecret(
+          source.recipient,
+          'handshake',
+          await this.#deriveHandshakeSecret(source.recipient, source.ephPk),
+        );
         break;
       default: {
         const _: never = source;
@@ -784,9 +811,10 @@ export class PXE {
   }
 
   /**
-   * Removes a previously registered tagging secret source. Does nothing if it was not registered.
+   * Removes a previously registered tagging secret source, identified by its registered form (see
+   * {@link getTaggingSecretSources}). Does nothing if it was not registered.
    */
-  public async removeTaggingSecretSource(source: TaggingSecretSource): Promise<void> {
+  public async removeTaggingSecretSource(source: RegisteredTaggingSecretSource): Promise<void> {
     switch (source.kind) {
       case 'address-derived': {
         const { sender } = source;
@@ -798,13 +826,14 @@ export class PXE {
         );
         break;
       }
-      case 'arbitrary-secret': {
-        const { recipient, secret } = source;
-        const wasRemoved = await this.taggingSecretSourcesStore.removeSharedSecret(recipient, secret);
+      case 'arbitrary-secret':
+      case 'handshake': {
+        const { kind, recipient, secret } = source;
+        const wasRemoved = await this.taggingSecretSourcesStore.removeSharedSecret(recipient, kind, secret);
         this.log.info(
           wasRemoved
-            ? `Removed shared secret for recipient:\n ${recipient.toString()}`
-            : `Shared secret not registered for recipient:\n ${recipient.toString()}`,
+            ? `Removed ${kind} shared secret for recipient:\n ${recipient.toString()}`
+            : `No ${kind} shared secret registered for recipient:\n ${recipient.toString()}`,
         );
         break;
       }
@@ -816,24 +845,24 @@ export class PXE {
   }
 
   /**
-   * Retrieves the tagging secret sources registered in this PXE. Without a filter it returns every source; pass
-   * `{ kind }` to narrow to a single variant. See {@link TaggingSecretSource}.
+   * Retrieves the tagging secret sources registered in this PXE, in their registered form. Without a filter it
+   * returns every source; pass `{ kind }` to narrow to a single variant. See {@link RegisteredTaggingSecretSource}.
    */
-  public getTaggingSecretSources<K extends TaggingSecretSource['kind']>(filter: {
+  public getTaggingSecretSources<K extends RegisteredTaggingSecretSource['kind']>(filter: {
     kind: K;
-  }): Promise<Extract<TaggingSecretSource, { kind: K }>[]>;
-  public getTaggingSecretSources(): Promise<TaggingSecretSource[]>;
+  }): Promise<Extract<RegisteredTaggingSecretSource, { kind: K }>[]>;
+  public getTaggingSecretSources(): Promise<RegisteredTaggingSecretSource[]>;
   public async getTaggingSecretSources(filter?: {
-    kind?: TaggingSecretSource['kind'];
-  }): Promise<TaggingSecretSource[]> {
+    kind?: RegisteredTaggingSecretSource['kind'];
+  }): Promise<RegisteredTaggingSecretSource[]> {
     const [senders, secrets] = await Promise.all([
       this.taggingSecretSourcesStore.getSenders(),
       this.taggingSecretSourcesStore.getAllSharedSecrets(),
     ]);
 
-    const sources: TaggingSecretSource[] = [
-      ...senders.map((sender): TaggingSecretSource => ({ kind: 'address-derived', sender })),
-      ...secrets.map(({ recipient, secret }): TaggingSecretSource => ({ kind: 'arbitrary-secret', recipient, secret })),
+    const sources: RegisteredTaggingSecretSource[] = [
+      ...senders.map((sender): RegisteredTaggingSecretSource => ({ kind: 'address-derived', sender })),
+      ...secrets.map(({ recipient, kind, secret }): RegisteredTaggingSecretSource => ({ kind, recipient, secret })),
     ];
 
     return filter?.kind ? sources.filter(source => source.kind === filter.kind) : sources;
@@ -860,8 +889,36 @@ export class PXE {
     return wasAdded;
   }
 
-  /** Registers a directly-provided shared secret scoped to a recipient. Returns whether it was newly added. */
-  async #registerArbitrarySecret(recipient: AztecAddress, secret: Point): Promise<boolean> {
+  /**
+   * Derives the shared secret of a handshake from its ephemeral public key: `S = addressSecret(recipient) * ephPk`,
+   * the same derivation the recipient-side scan uses for handshakes discovered onchain. The ephemeral key is
+   * reconstructed from its x-coordinate with a positive y, matching how the protocol generates it.
+   *
+   * @throws If `ephPk` is not the x-coordinate of a Grumpkin curve point, or if `recipient` is not an account of
+   * this PXE, since the derivation needs its keys.
+   */
+  async #deriveHandshakeSecret(recipient: AztecAddress, ephPk: Fr): Promise<Point> {
+    let ephPkPoint: Point;
+    try {
+      ephPkPoint = await Point.fromXAndSign(ephPk, true);
+    } catch {
+      throw new Error(`Ephemeral public key x-coordinate ${ephPk} does not correspond to a Grumpkin curve point.`);
+    }
+
+    const completeAddress = await this.addressStore.getCompleteAddress(recipient);
+    if (!completeAddress || !(await this.keyStore.hasAccount(recipient))) {
+      throw new Error(
+        `Recipient ${recipient} is not an account of this PXE. A handshake's shared secret can only be derived for an account whose keys are held.`,
+      );
+    }
+
+    const ivskM = await this.keyStore.getMasterIncomingViewingSecretKey(recipient);
+    const addressSecret = await computeAddressSecret(await completeAddress.getPreaddress(), ivskM);
+    return deriveEcdhSharedSecretPoint(addressSecret, ephPkPoint);
+  }
+
+  /** Registers a resolved shared secret scoped to a recipient. Returns whether it was newly added. */
+  async #registerSharedSecret(recipient: AztecAddress, kind: SharedSecretKind, secret: Point): Promise<boolean> {
     if (!(await recipient.isValid())) {
       throw new Error(
         `Recipient ${recipient} is not valid: it does not correspond to a point on the Grumpkin curve. Cannot register a shared secret for it.`,
@@ -872,11 +929,11 @@ export class PXE {
       throw new Error(`Shared secret ${secret} is not a valid non-zero point on the Grumpkin curve.`);
     }
 
-    const wasAdded = await this.taggingSecretSourcesStore.addSharedSecret(recipient, secret);
+    const wasAdded = await this.taggingSecretSourcesStore.addSharedSecret(recipient, kind, secret);
     this.log.info(
       wasAdded
-        ? `Added shared secret for recipient:\n ${recipient.toString()}`
-        : `Shared secret already registered for recipient:\n ${recipient.toString()}`,
+        ? `Added ${kind} shared secret for recipient:\n ${recipient.toString()}`
+        : `${kind} shared secret already registered for recipient:\n ${recipient.toString()}`,
     );
     return wasAdded;
   }

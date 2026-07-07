@@ -21,9 +21,10 @@ pub fn get_contract_instance(address: AztecAddress) -> ContractInstance {
     instance
 }
 
-struct GetContractInstanceResult {
-    exists: bool,
-    member: Field,
+#[derive(Eq)]
+pub(crate) struct GetContractInstanceResult {
+    pub(crate) exists: bool,
+    pub(crate) member: Field,
 }
 
 // These oracles each return a ContractInstance member plus a boolean indicating whether the instance was found.

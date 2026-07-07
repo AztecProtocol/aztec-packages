@@ -1,8 +1,7 @@
 pub(crate) mod event_validation_request;
 pub mod offchain;
 
-mod message_context;
-pub use message_context::MessageContext;
+pub use crate::oracle::tx_resolution::ResolvedTx;
 
 mod note_validation_request;
 pub use note_validation_request::NoteValidationRequest;
@@ -13,16 +12,15 @@ pub(crate) mod pending_tagged_log;
 pub(crate) mod provided_secret;
 
 use crate::{
-    capsules::CapsuleArray,
     ephemeral::EphemeralArray,
     event::EventSelector,
     messages::{
-        discovery::partial_notes::DeliveredPendingPartialNote,
         encoding::MESSAGE_CIPHERTEXT_LEN,
         logs::{event::MAX_EVENT_SERIALIZED_LEN, note::MAX_NOTE_PACKED_LEN},
         processing::{log_retrieval_request::LogRetrievalRequest, log_retrieval_response::LogRetrievalResponse},
     },
     oracle::message_processing,
+    partial_notes::DeliveredPendingPartialNote,
 };
 use crate::protocol::{
     address::AztecAddress,
@@ -46,9 +44,9 @@ global LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT: Field = sha256_to_field(
 
 /// An offchain-delivered message with resolved context, ready for processing during sync.
 #[derive(Serialize, Deserialize)]
-pub struct OffchainMessageWithContext {
+pub struct OffchainMessageWithTx {
     pub message_ciphertext: BoundedVec<Field, MESSAGE_CIPHERTEXT_LEN>,
-    pub message_context: MessageContext,
+    pub resolved_tx: ResolvedTx,
 }
 
 /// Enqueues a note for validation and storage by PXE.
@@ -145,13 +143,13 @@ pub unconstrained fn validate_and_store_enqueued_notes_and_events(scope: AztecAd
     let _ = EphemeralArray::<EventValidationRequest>::at(EVENT_VALIDATION_REQUESTS_ARRAY_BASE_SLOT).clear();
 }
 
-/// Efficiently queries the node for logs that result in the completion of all `DeliveredPendingPartialNote`s stored in
-/// a `CapsuleArray` by performing all node communication concurrently. Returns a nested `EphemeralArray`, one inner
+/// Efficiently queries the node for logs that result in the completion of all `DeliveredPendingPartialNote`s in an
+/// `EphemeralArray` by performing all node communication concurrently. Returns a nested `EphemeralArray`, one inner
 /// array per pending partial note, each containing all matching `LogRetrievalResponse`s (which may be empty if no
 /// logs were found).
 pub(crate) unconstrained fn get_pending_partial_notes_completion_logs(
     contract_address: AztecAddress,
-    pending_partial_notes: CapsuleArray<DeliveredPendingPartialNote>,
+    pending_partial_notes: EphemeralArray<DeliveredPendingPartialNote>,
 ) -> EphemeralArray<EphemeralArray<LogRetrievalResponse>> {
     let log_retrieval_requests = EphemeralArray::at(LOG_RETRIEVAL_REQUESTS_ARRAY_BASE_SLOT);
 

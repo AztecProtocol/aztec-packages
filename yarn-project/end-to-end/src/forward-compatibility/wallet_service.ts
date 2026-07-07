@@ -33,9 +33,9 @@ async function main() {
   const extraAccountSalt = Fr.ZERO;
   const extraAccountSigningKey = GrumpkinScalar.random();
   const extraAccountAddress = await getSchnorrAccountContractAddress(
-    extraAccountSecret,
-    extraAccountSalt,
     extraAccountSigningKey,
+    extraAccountSalt,
+    extraAccountSecret,
   );
 
   logger.info('Starting wallet service...', { l1RpcUrls });

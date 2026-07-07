@@ -66,7 +66,7 @@ describe('multi-node/invalid-attestations/invalidate_block', () => {
     // Uses multiple-blocks-per-slot timing configuration.
     test = await MultiNodeTestContext.setup({
       ...MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
-      ethereumSlotDuration: 8,
+      ethereumSlotDuration: 12,
       aztecSlotDuration: 36,
       blockDurationMs: 6000,
       initialValidators: validators,
@@ -815,6 +815,19 @@ describe('multi-node/invalid-attestations/invalidate_block', () => {
     await runInvalidationTest({
       attackConfig: { injectUnrecoverableSignatureAttestation: true },
       disableConfig: { injectUnrecoverableSignatureAttestation: false },
+    });
+  });
+
+  // Injects every non-proposer attestation slot in yParity (v ∈ {0, 1}) form in the packed L1 tuple. L1
+  // accepts it at propose() (attestation signatures are not verified there), but the checkpoint can never be
+  // proven (ValidatorSelectionLib.verifyAttestations → ECDSA.recover rejects v ∉ {27, 28}). A repack of the
+  // invalidation evidence would canonicalize the bytes back to 27/28 and diverge from the on-chain
+  // attestationsHash, reverting the invalidation. Verifies an honest proposer detects the bad checkpoint and
+  // invalidates it byte-faithfully from the raw calldata. Regression for A-1401.
+  it('proposer invalidates checkpoint with a yParity attestation slot', async () => {
+    await runInvalidationTest({
+      attackConfig: { injectYParityAttestation: true },
+      disableConfig: { injectYParityAttestation: false },
     });
   });
 

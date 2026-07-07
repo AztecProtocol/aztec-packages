@@ -1,4 +1,5 @@
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
+import { deriveSecretKeyFromSigningKey } from '@aztec/accounts/utils';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import {
   BatchCall,
@@ -21,6 +22,7 @@ import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import type { ExtendedViemWalletClient } from '@aztec/ethereum/types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import { PrivateTokenContract } from '@aztec/noir-contracts.js/PrivateToken';
@@ -29,7 +31,6 @@ import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import type { BlockTag } from '@aztec/stdlib/block';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { AztecNode, AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import { type BotConfig, SupportedTokenContracts } from './config.js';
@@ -69,7 +70,8 @@ export class BotFactory {
     recipient: AztecAddress;
   }> {
     const defaultAccountAddress = await this.setupAccount();
-    const recipient = (await this.wallet.createSchnorrAccount(Fr.random(), Fr.random())).address;
+    const recipient = (await this.wallet.createSchnorrAccount(Fr.random(), Fr.random(), GrumpkinScalar.random()))
+      .address;
     await this.ensureFeeJuiceBalance(defaultAccountAddress);
     const token = await this.setupToken(defaultAccountAddress);
     await this.mintTokens(token, defaultAccountAddress);
@@ -221,9 +223,10 @@ export class BotFactory {
     return accountManager.address;
   }
 
-  private async setupAccountWithPrivateKey(secret: Fr) {
+  private async setupAccountWithPrivateKey(privateKey: Fr) {
     const salt = this.config.senderSalt ?? Fr.ONE;
-    const signingKey = deriveSigningKey(secret);
+    const signingKey = GrumpkinScalar.fromBuffer(privateKey.toBuffer());
+    const secret = await deriveSecretKeyFromSigningKey(signingKey);
     const accountManager = await this.wallet.createSchnorrInitializerlessAccount(secret, salt, signingKey);
     return accountManager.address;
   }

@@ -73,7 +73,7 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
   gasLimitBufferPercentage: {
     description: 'How much to increase calculated gas limit by (percentage)',
     env: 'L1_GAS_LIMIT_BUFFER_PERCENTAGE',
-    ...numberConfigHelper(20),
+    ...floatConfigHelper(20),
   },
   maxGwei: {
     description: 'Maximum gas price in gwei to be used for transactions.',
@@ -90,12 +90,12 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
   priorityFeeBumpPercentage: {
     description: 'How much to increase priority fee by each attempt (percentage)',
     env: 'L1_PRIORITY_FEE_BUMP_PERCENTAGE',
-    ...numberConfigHelper(20),
+    ...floatConfigHelper(20),
   },
   priorityFeeRetryBumpPercentage: {
     description: 'How much to increase priority fee by each retry attempt (percentage)',
     env: 'L1_PRIORITY_FEE_RETRY_BUMP_PERCENTAGE',
-    ...numberConfigHelper(50),
+    ...floatConfigHelper(50),
   },
   minimumPriorityFeePerGas: {
     description:

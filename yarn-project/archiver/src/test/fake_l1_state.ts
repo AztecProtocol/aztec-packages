@@ -682,7 +682,7 @@ export class FakeL1State {
       getHashedSignaturePayloadTypedData(attestationsAndSigners),
     );
 
-    const packedAttestations = attestationsAndSigners.getPackedAttestations();
+    const verbatimAttestations = attestationsAndSigners.getPackedAttestations();
 
     const rollupInput = encodeFunctionData({
       abi: RollupAbi,
@@ -693,7 +693,7 @@ export class FakeL1State {
           archive,
           oracleInput: { feeAssetPriceModifier: 0n },
         },
-        packedAttestations,
+        verbatimAttestations,
         attestationsAndSigners.getSigners().map(signer => signer.toString()),
         attestationsAndSignersSignature.toViemSignature(),
         blobInput,
@@ -716,7 +716,7 @@ export class FakeL1State {
 
     // Compute attestationsHash (same logic as CalldataRetriever)
     const attestationsHash = Buffer32.fromString(
-      keccak256(encodeAbiParameters([this.getCommitteeAttestationsStructDef()], [packedAttestations])),
+      keccak256(encodeAbiParameters([this.getCommitteeAttestationsStructDef()], [verbatimAttestations])),
     );
 
     // Compute payloadDigest (same logic as CalldataRetriever)
