@@ -6,12 +6,17 @@ description: Overview of Aztec, a privacy-first Layer 2 on Ethereum supporting s
 ---
 
 import Image from "@theme/IdealImage";
+import YouTubeEmbed from "@site/src/components/YouTubeEmbed";
 
 This page outlines Aztec's fundamental technical concepts. It is recommended to read this before diving into building on Aztec.
 
 ## What is Aztec?
 
 Aztec is a privacy-first Layer 2 on Ethereum. It supports smart contracts with both private & public state and private & public execution.
+
+Prefer video? This explainer covers the core idea in under 90 seconds, and there are more [video lessons](../resources/video_lessons.mdx) available.
+
+<YouTubeEmbed videoId="urcBvo2QJp0" title="What is Aztec: Explained in Under 90 Seconds" />
 
 <Image img={require("@site/static/img/Aztec_overview.png")} />
 
