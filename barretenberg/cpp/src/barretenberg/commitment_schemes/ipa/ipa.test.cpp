@@ -242,32 +242,9 @@ TEST_F(IPATest, AIsZeroAfterOneRound)
 #endif
 } // namespace bb
 
-// Tests of batched MLPCS, where IPA is the final univariate commitment scheme.
+// Proof tampering rejection tests. Batch verification of accumulators is covered in triple_ipa.test.cpp.
 
-// Batch IPA verification tests
-
-TEST_F(IPATest, BatchVerifyTwoValidProofs)
-{
-    auto [claim1, proof1] = generate_random_proof();
-    auto [claim2, proof2] = generate_random_proof();
-
-    std::vector<OpeningClaim<Curve>> claims = { claim1, claim2 };
-    std::vector<std::shared_ptr<NativeTranscript>> transcripts = { std::make_shared<NativeTranscript>(proof1),
-                                                                   std::make_shared<NativeTranscript>(proof2) };
-
-    EXPECT_TRUE(PCS::batch_reduce_verify(vk, claims, transcripts));
-}
-
-TEST_F(IPATest, BatchVerifySingleProof)
-{
-    // Degenerate case: batch verify with N=1 should match reduce_verify
-    auto [claim, proof_data] = generate_random_proof();
-
-    EXPECT_TRUE(PCS::reduce_verify(vk, claim, std::make_shared<NativeTranscript>(proof_data)));
-    EXPECT_TRUE(PCS::batch_reduce_verify(vk, { claim }, { std::make_shared<NativeTranscript>(proof_data) }));
-}
-
-TEST_F(IPATest, BatchVerifyRejectsTamperedGZero)
+TEST_F(IPATest, RejectsTamperedGZero)
 {
     auto [claim, proof_data] = generate_random_proof();
     auto tampered_proof = proof_data;
@@ -284,10 +261,9 @@ TEST_F(IPATest, BatchVerifyRejectsTamperedGZero)
               tampered_proof.begin() + static_cast<std::ptrdiff_t>(g_zero_offset));
 
     EXPECT_FALSE(PCS::reduce_verify(vk, claim, std::make_shared<NativeTranscript>(tampered_proof)));
-    EXPECT_FALSE(PCS::batch_reduce_verify(vk, { claim }, { std::make_shared<NativeTranscript>(tampered_proof) }));
 }
 
-TEST_F(IPATest, BatchVerifyRejectsTamperedAZero)
+TEST_F(IPATest, RejectsTamperedAZero)
 {
     auto [claim, proof_data] = generate_random_proof();
     auto tampered_proof = proof_data;
@@ -304,41 +280,23 @@ TEST_F(IPATest, BatchVerifyRejectsTamperedAZero)
               tampered_proof.begin() + static_cast<std::ptrdiff_t>(a_zero_offset));
 
     EXPECT_FALSE(PCS::reduce_verify(vk, claim, std::make_shared<NativeTranscript>(tampered_proof)));
-    EXPECT_FALSE(PCS::batch_reduce_verify(vk, { claim }, { std::make_shared<NativeTranscript>(tampered_proof) }));
 }
 
-TEST_F(IPATest, BatchVerifyTamperedProof)
+TEST_F(IPATest, RejectsClaimProofMismatch)
 {
+    // Verification must bind the claim to its proof. Two individually valid proofs should pass
+    // against their own claims but fail when swapped, since each proof's round messages (L_j, R_j)
+    // are coupled to its claim's commitment in C_zero.
     auto [claim1, proof1] = generate_random_proof();
     auto [claim2, proof2] = generate_random_proof();
-
-    // Tamper with the second claim's evaluation
-    claim2.opening_pair.evaluation += Fr::one();
-
-    std::vector<OpeningClaim<Curve>> claims = { claim1, claim2 };
-    std::vector<std::shared_ptr<NativeTranscript>> transcripts = { std::make_shared<NativeTranscript>(proof1),
-                                                                   std::make_shared<NativeTranscript>(proof2) };
-
-    EXPECT_FALSE(PCS::batch_reduce_verify(vk, claims, transcripts));
-}
-
-TEST_F(IPATest, BatchVerifyRejectsClaimTranscriptMismatch)
-{
-    // Batch verification must bind each claim to its own transcript. Two individually valid proofs
-    // should pass when correctly paired but fail when the transcripts are swapped, since each
-    // transcript's round messages (L_j, R_j) are coupled to its claim's commitment in C_zero.
-    auto [claim1, proof1] = generate_random_proof();
-    auto [claim2, proof2] = generate_random_proof();
-
-    std::vector<OpeningClaim<Curve>> claims = { claim1, claim2 };
 
     // Correct pairing: passes
-    EXPECT_TRUE(PCS::batch_reduce_verify(
-        vk, claims, { std::make_shared<NativeTranscript>(proof1), std::make_shared<NativeTranscript>(proof2) }));
+    EXPECT_TRUE(PCS::reduce_verify(vk, claim1, std::make_shared<NativeTranscript>(proof1)));
+    EXPECT_TRUE(PCS::reduce_verify(vk, claim2, std::make_shared<NativeTranscript>(proof2)));
 
     // Swapped pairing: fails
-    EXPECT_FALSE(PCS::batch_reduce_verify(
-        vk, claims, { std::make_shared<NativeTranscript>(proof2), std::make_shared<NativeTranscript>(proof1) }));
+    EXPECT_FALSE(PCS::reduce_verify(vk, claim1, std::make_shared<NativeTranscript>(proof2)));
+    EXPECT_FALSE(PCS::reduce_verify(vk, claim2, std::make_shared<NativeTranscript>(proof1)));
 }
 
 typename IPATest::CK IPATest::ck;
