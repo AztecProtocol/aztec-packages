@@ -282,6 +282,37 @@ describe.each([
       await assertJobStatus(provingJob.id, 'fulfilled');
     });
 
+    it('persists the revived (non-aborted) state, so a restart mid-revival stays revived', async () => {
+      const provingJob: ProvingJob = {
+        id: makeRandomProvingJobId(),
+        type: ProvingRequestType.PARITY_BASE,
+        epochNumber: EpochNumber(1),
+        inputsUri: makeInputsUri(),
+      };
+
+      await broker.enqueueProvingJob(provingJob);
+      await broker.cancelProvingJob(provingJob.id);
+      await assertJobStatus(provingJob.id, 'aborted');
+
+      // Revive the job but do not complete it before the broker restarts.
+      await broker.enqueueProvingJob(provingJob);
+      await assertJobStatus(provingJob.id, 'in-queue');
+
+      await broker.stop();
+      broker = new ProvingBroker(database, {
+        proverBrokerJobTimeoutMs: jobTimeoutMs,
+        proverBrokerPollIntervalMs: brokerIntervalMs,
+        proverBrokerJobMaxRetries: maxRetries,
+        proverBrokerMaxEpochsToKeepResultsFor: 1,
+        proverBrokerDebugReplayEnabled: false,
+      });
+      await broker.start();
+
+      // Reviving cleared the persisted aborted state, so the job comes back pending rather than
+      // aborted and keeps being proven without needing another re-request.
+      await assertJobStatus(provingJob.id, 'in-queue');
+    });
+
     it('returns job result if successful', async () => {
       const provingJob: ProvingJob = {
         id: makeRandomProvingJobId(),

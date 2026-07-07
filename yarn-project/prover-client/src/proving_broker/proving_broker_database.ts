@@ -47,6 +47,14 @@ export interface ProvingBrokerDatabase {
   setProvingJobAborted(id: ProvingJobId): Promise<void>;
 
   /**
+   * Clears any stored result for a proof request, returning it to the pending state while keeping
+   * the job itself. Used when reviving an aborted job so the revival is persisted and a restart
+   * cannot resurrect the stale aborted state.
+   * @param id - The ID of the proof request whose result should be cleared
+   */
+  deleteProvingJobResult(id: ProvingJobId): Promise<void>;
+
+  /**
    * Closes the database
    */
   close(): Promise<void>;

@@ -71,6 +71,10 @@ class SingleEpochDatabase {
     await this.jobResults.set(id, jsonStringify(result));
   }
 
+  async deleteProvingJobResult(id: ProvingJobId): Promise<void> {
+    await this.jobResults.delete(id);
+  }
+
   async setProvingJobResult(id: ProvingJobId, value: ProofUri): Promise<void> {
     const result: ProvingJobSettledResult = { status: 'fulfilled', value };
     await this.jobResults.set(id, jsonStringify(result));
@@ -214,6 +218,11 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
 
   setProvingJobAborted(id: ProvingJobId): Promise<void> {
     return this.batchQueue.put([id, { status: 'aborted' }], getEpochFromProvingJobId(id));
+  }
+
+  async deleteProvingJobResult(id: ProvingJobId): Promise<void> {
+    const db = this.epochs.get(getEpochFromProvingJobId(id));
+    await db?.deleteProvingJobResult(id);
   }
 
   setProvingJobResult(id: ProvingJobId, value: ProofUri): Promise<void> {

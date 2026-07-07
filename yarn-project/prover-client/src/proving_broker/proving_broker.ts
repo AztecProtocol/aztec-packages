@@ -279,12 +279,13 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
 
       if (this.resultsCache.get(job.id)?.status === 'aborted') {
         // The producer is re-requesting a job it previously cancelled: revive it. Clear the aborted
-        // state and re-enqueue as if new (recomputing the start-of-call status) rather than
-        // returning the stale aborted status.
+        // state (in memory and, so the revival survives a restart, in the database) and re-enqueue as
+        // if new, recomputing the start-of-call status rather than returning the stale aborted status.
         this.logger.info(`Reviving aborted proving job id=${job.id} epochNumber=${job.epochNumber}`, {
           provingJobId: job.id,
         });
         this.cleanUpProvingJobState([job.id]);
+        await this.database.deleteProvingJobResult(job.id);
         jobStatus = this.#getProvingJobStatus(job.id);
       } else {
         this.logger.warn(`Cached proving job id=${job.id} epochNumber=${job.epochNumber}. Not enqueuing again`, {
