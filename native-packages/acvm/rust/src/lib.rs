@@ -15,7 +15,10 @@ use acir::brillig::ForeignCallResult;
 use acir::circuit::Program;
 use acir::native_types::{Witness, WitnessMap};
 use acir::{AcirField, FieldElement};
-use acvm::pwg::{ACVMStatus, ForeignCallWaitInfo, ACVM};
+use acvm::pwg::{
+    ACVMStatus, ErrorLocation, ForeignCallWaitInfo, OpcodeResolutionError,
+    ResolvedAssertionPayload, ACVM,
+};
 use bn254_blackbox_solver::Bn254BlackBoxSolver;
 
 /// Signature of a Brillig foreign-call (oracle) resolver: given the pending call, return its result.
@@ -35,19 +38,57 @@ impl<F> ForeignCallResolver for F where
 }
 
 use generated::acvm_server::{Handler, Responder};
-use generated::acvm_types::{AcvmExecuteProgram, AcvmExecuteProgramResponse, Bin32, WitnessEntry};
+use generated::acvm_types::{
+    AcvmExecuteProgram, AcvmExecuteProgramResponse, Bin32, ExecutionFailure, RawAssertionPayload,
+    WitnessEntry,
+};
 
-/// Execute a single-function ACIR program against an initial witness and return the solved
-/// witness as (index, 32-byte big-endian field) pairs.
+/// The solved witness of an ACIR execution: the full witness plus the subset at the circuit's
+/// `return_values` indices, each as (index, 32-byte big-endian field) pairs.
+pub struct SolvedWitness {
+    /// Every solved (witness index, value) pair.
+    pub witness: Vec<(u32, [u8; 32])>,
+    /// The subset of `witness` at the circuit's declared return-value indices, in index order.
+    pub return_witness: Vec<(u32, [u8; 32])>,
+}
+
+/// The outcome of running an ACIR program: either a solved witness, or a structured execution failure
+/// (the generated wire `ExecutionFailure`, mirroring acvm_js's `ExecutionError` fields). Transport and
+/// protocol errors are the `Err` arm of `execute_acir`'s `Result`, not this enum.
+pub enum ExecutionOutcome {
+    Solved(SolvedWitness),
+    Failed(ExecutionFailure),
+}
+
+impl ExecutionOutcome {
+    /// Unwrap to the solved witness, panicking with the failure message otherwise. For tests and
+    /// callers that only ever run circuits expected to solve.
+    pub fn unwrap_solved(self) -> SolvedWitness {
+        match self {
+            ExecutionOutcome::Solved(solved) => solved,
+            ExecutionOutcome::Failed(failure) => {
+                panic!(
+                    "expected a solved witness, got execution failure: {}",
+                    failure.message
+                )
+            }
+        }
+    }
+}
+
+/// Execute a single-function ACIR program against an initial witness and return the outcome: a solved
+/// witness (full + return subset, each as (index, 32-byte big-endian field) pairs) or a structured
+/// execution failure.
 ///
 /// Brillig foreign calls (oracles) are resolved by `resolve_fc`, which the backend supplies (native
-/// IPC client or wasm `host_call`). Multi-function programs and ACIR-to-ACIR calls return an
-/// explicit error rather than silently diverging.
+/// IPC client or wasm `host_call`). Transport/protocol problems (undeserializable bytecode,
+/// multi-function programs, ACIR-to-ACIR calls, resolver failure) are returned as `Err`, distinct from
+/// an `Ok(Failed(..))` execution failure.
 pub fn execute_acir(
     bytecode: &[u8],
     initial: &[(u32, [u8; 32])],
     mut resolve_fc: impl ForeignCallResolver,
-) -> Result<Vec<(u32, [u8; 32])>, String> {
+) -> Result<ExecutionOutcome, String> {
     let program = Program::<FieldElement>::deserialize_program(bytecode)
         .map_err(|e| format!("failed to deserialize ACIR program: {e}"))?;
 
@@ -77,7 +118,9 @@ pub fn execute_acir(
         match acvm.solve() {
             ACVMStatus::Solved => break,
             ACVMStatus::InProgress => continue,
-            ACVMStatus::Failure(err) => return Err(format!("ACIR execution failed: {err:?}")),
+            ACVMStatus::Failure(error) => {
+                return Ok(ExecutionOutcome::Failed(extract_failure(error)));
+            }
             ACVMStatus::RequiresForeignCall(_) => {
                 let wait = acvm
                     .get_pending_foreign_call()
@@ -92,10 +135,94 @@ pub fn execute_acir(
     }
 
     let solved = acvm.finalize();
-    Ok(solved
+
+    // The return witness is the subset of the solved witness at the circuit's declared
+    // `return_values`, in index order. acvm_js treats a missing return witness as an error, so mirror
+    // that rather than silently dropping it.
+    let return_witness = circuit
+        .return_values
+        .0
+        .iter()
+        .map(|w| {
+            solved
+                .get(w)
+                .map(|f| (w.0, field_to_be32(*f)))
+                .ok_or_else(|| format!("return witness {} missing from solved witness", w.0))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let witness = solved
         .into_iter()
         .map(|(w, f)| (w.0, field_to_be32(f)))
-        .collect())
+        .collect();
+
+    Ok(ExecutionOutcome::Solved(SolvedWitness {
+        witness,
+        return_witness,
+    }))
+}
+
+/// Extract acvm_js's structured-error fields from an ACVM opcode-resolution failure: call stack,
+/// brillig function id, and (message, raw assertion payload). Mirrors the logic in
+/// `acvm_js/src/execute.rs` so yarn-project's error resolution sees the same shape from either backend.
+fn extract_failure(error: OpcodeResolutionError<FieldElement>) -> ExecutionFailure {
+    let call_stack = match &error {
+        OpcodeResolutionError::UnsatisfiedConstrain {
+            opcode_location: ErrorLocation::Resolved(loc),
+            ..
+        }
+        | OpcodeResolutionError::IndexOutOfBounds {
+            opcode_location: ErrorLocation::Resolved(loc),
+            ..
+        }
+        | OpcodeResolutionError::InvalidInputBitSize {
+            opcode_location: ErrorLocation::Resolved(loc),
+            ..
+        } => Some(vec![loc.to_string()]),
+        OpcodeResolutionError::BrilligFunctionFailed { call_stack, .. } => {
+            Some(call_stack.iter().map(|loc| loc.to_string()).collect())
+        }
+        _ => None,
+    };
+
+    let brillig_function_id = match &error {
+        OpcodeResolutionError::BrilligFunctionFailed { function_id, .. } => Some(function_id.0),
+        _ => None,
+    };
+
+    // A string assertion message is folded into `message` for backwards compatibility; a raw payload
+    // is passed through undecoded (selector + hex data) for the client to decode against the ABI.
+    let (message, raw_assertion_payload) = match error {
+        OpcodeResolutionError::UnsatisfiedConstrain {
+            payload: Some(payload),
+            ..
+        }
+        | OpcodeResolutionError::BrilligFunctionFailed {
+            payload: Some(payload),
+            ..
+        } => match payload {
+            ResolvedAssertionPayload::Raw(raw) => (
+                "Assertion failed".to_string(),
+                Some(RawAssertionPayload {
+                    selector: raw.selector.as_u64().to_string(),
+                    data: raw.data.iter().map(|f| f.to_hex()).collect(),
+                }),
+            ),
+            ResolvedAssertionPayload::String(message) => {
+                (format!("Assertion failed: {message}"), None)
+            }
+        },
+        other => (other.to_string(), None),
+    };
+
+    ExecutionFailure {
+        message,
+        call_stack,
+        raw_assertion_payload,
+        // Single-function programs only (see the guard above), so the failing ACIR function is 0.
+        acir_function_id: Some(0),
+        brillig_function_id,
+    }
 }
 
 /// Left-pad a field element's big-endian bytes to a fixed 32-byte array.
@@ -239,16 +366,32 @@ impl Handler for AcvmHandler {
             )
         };
 
+        let to_entries = |pairs: Vec<(u32, [u8; 32])>| -> Vec<WitnessEntry> {
+            pairs
+                .into_iter()
+                .map(|(index, bytes)| WitnessEntry {
+                    index,
+                    value: Bin32(bytes),
+                })
+                .collect()
+        };
+
         match execute_acir(&cmd.bytecode, &initial, resolve_fc) {
-            Ok(entries) => {
-                let witness = entries
-                    .into_iter()
-                    .map(|(index, bytes)| WitnessEntry {
-                        index,
-                        value: Bin32(bytes),
-                    })
-                    .collect();
-                respond.ok(AcvmExecuteProgramResponse { witness });
+            Ok(ExecutionOutcome::Solved(solved)) => {
+                respond.ok(AcvmExecuteProgramResponse {
+                    witness: to_entries(solved.witness),
+                    return_witness: to_entries(solved.return_witness),
+                    failure: None,
+                });
+            }
+            // An execution failure is a normal response carrying structured diagnostics, not a
+            // transport error: the witnesses are empty and the client raises a structured error.
+            Ok(ExecutionOutcome::Failed(failure)) => {
+                respond.ok(AcvmExecuteProgramResponse {
+                    witness: vec![],
+                    return_witness: vec![],
+                    failure: Some(failure),
+                });
             }
             Err(message) => respond.error(message),
         }
@@ -345,14 +488,73 @@ mod tests {
             &[(0, be32(3)), (1, be32(5))],
             no_oracle,
         )
-        .unwrap();
-        let w2 = out.iter().find(|(i, _)| *i == 2).expect("w2 solved").1;
+        .unwrap()
+        .unwrap_solved();
+        let w2 = out
+            .witness
+            .iter()
+            .find(|(i, _)| *i == 2)
+            .expect("w2 solved")
+            .1;
         assert_eq!(w2, be32(8));
+    }
+
+    /// A circuit that declares `w2` as its return value must surface `w2` (and only `w2`) in the
+    /// return witness, while the full witness still carries every solved entry.
+    #[test]
+    fn return_witness_is_subset_at_return_values() {
+        use acir::circuit::PublicInputs;
+        use std::collections::BTreeSet;
+
+        let one = FieldElement::one();
+        let expr = Expression {
+            linear_combinations: vec![(one, Witness(0)), (one, Witness(1)), (-one, Witness(2))],
+            ..Default::default()
+        };
+        let circuit = Circuit {
+            opcodes: vec![Opcode::AssertZero(expr)],
+            return_values: PublicInputs(BTreeSet::from([Witness(2)])),
+            ..Default::default()
+        };
+        let program = Program {
+            functions: vec![circuit],
+            unconstrained_functions: vec![],
+        };
+        let bytecode = Program::serialize_program(&program);
+
+        let out = execute_acir(&bytecode, &[(0, be32(3)), (1, be32(5))], no_oracle)
+            .unwrap()
+            .unwrap_solved();
+
+        assert_eq!(out.return_witness, vec![(2, be32(8))]);
+        assert!(out.witness.iter().any(|(i, _)| *i == 0));
     }
 
     #[test]
     fn deserialize_error_is_reported() {
         assert!(execute_acir(&[0xff, 0xff, 0xff], &[], no_oracle).is_err());
+    }
+
+    /// A failed constraint is reported as a structured `Failed` outcome (not a transport `Err`), with
+    /// the resolved opcode location in the call stack — the shape yarn-project's error resolution reads.
+    #[test]
+    fn unsatisfied_constraint_yields_structured_failure() {
+        // w0 + w1 - w2 = 0, but supply all three inconsistently so the constraint cannot hold.
+        let out = execute_acir(
+            &addition_program(),
+            &[(0, be32(3)), (1, be32(5)), (2, be32(99))],
+            no_oracle,
+        )
+        .unwrap();
+
+        match out {
+            ExecutionOutcome::Failed(failure) => {
+                assert_eq!(failure.call_stack, Some(vec!["0".to_string()]));
+                assert_eq!(failure.acir_function_id, Some(0));
+                assert_eq!(failure.brillig_function_id, None);
+            }
+            ExecutionOutcome::Solved(_) => panic!("expected an execution failure"),
+        }
     }
 
     /// Spike 0: the oracle fixture is a valid single-foreign-call circuit, and a resolver that
@@ -371,8 +573,14 @@ mod tests {
             &[(1, be32(2)), (2, be32(3))],
             resolve,
         )
-        .unwrap();
-        let w_oracle = out.iter().find(|(i, _)| *i == 3).expect("oracle solved").1;
+        .unwrap()
+        .unwrap_solved();
+        let w_oracle = out
+            .witness
+            .iter()
+            .find(|(i, _)| *i == 3)
+            .expect("oracle solved")
+            .1;
         assert_eq!(w_oracle, field_to_be32(FieldElement::from(5u64).inverse()));
     }
 

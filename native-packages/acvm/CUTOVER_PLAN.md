@@ -12,7 +12,8 @@ the oracle/reverse-channel machinery).
   `createWasmBackendWithHost`, generated `host_call`, scoped Asyncify build).
 - Worktrees: `acvm-sim` (this branch) and `avm-cutover` (`cl/ipc-5-avm-cutover`, lower in the stack —
   being iterated on separately).
-- Nothing below is implemented yet — this is the plan.
+- **Phase 2a is implemented** (returnWitness + structured `failure` on the response; see below). The
+  native/wasm cutovers (Phase 1 / 2b) are not yet done.
 
 ## Goal
 
@@ -58,14 +59,28 @@ encode/decode, a separate concern.)
 - Caveat: end-to-end untestable in this env (no yarn install); Rust part is testable, and full proof
   validation needs CI.
 
-### Phase 2a — acvm-sim parity  (Rust, testable via `cargo test`)
-- **returnWitness:** subset of the solved witness at `circuit.return_values` (a `BTreeSet<Witness>`);
-  add `returnWitness` to the `ExecuteProgram` response schema.
-- **structured errors:** capture assertion payload / call stack / brillig fn id from the ACVM error
-  (mirror `acvm_js/src/js_execution_error.rs`); enrich the schema error type; `execute_acir` returns a
-  structured error, not just `String`. Consumed by `enrichNoirError`/`extractCallStack`.
-- **multi-function / `RequiresAcirCall`:** verify whether real protocol/user circuits need it before
-  investing — most complex, possibly deferrable.
+### Phase 2a — acvm-sim parity  (Rust, testable via `cargo test`)  ✅ DONE
+- **returnWitness ✅:** subset of the solved witness at `circuit.return_values` (a `BTreeSet<Witness>`),
+  in index order; added `returnWitness` to the `ExecuteProgram` response. A missing return witness is a
+  hard error (mirrors acvm_js).
+- **structured errors ✅ — but on the success channel, not the error channel.** ipc-codegen hard-enforces
+  a message-only error response (`schema_visitor.ts`: error must be exactly `{message: string}`), so the
+  error type can't be enriched. Instead the response carries an optional `failure: ExecutionFailure?`
+  (`{message, callStack?: string[], rawAssertionPayload?: {selector, data[]}, acirFunctionId?, brilligFunctionId?}`);
+  witnesses are empty when it's set. Transport/protocol errors still use the error channel.
+  `execute_acir` returns `ExecutionOutcome::{Solved, Failed}`; `extract_failure` mirrors
+  `acvm_js/src/execute.rs`'s `OpcodeResolutionError` match (selector→decimal, field data→hex,
+  `OpcodeLocation` Display). The TS client (Phase 2b) reconstructs an acvm_js-shaped `ExecutionError`
+  from `failure` for `enrichNoirError`/`extractCallStack`.
+- **multi-function / `RequiresAcirCall`: assessed → not needed, deferred.** Triggered only by `#[fold]`
+  functions; there are zero `#[fold]` attributes in noir-projects (circuits inline to single-function
+  ACIR), so it never fires. The explicit-error guard stays; implement only if a folded circuit appears.
+- **Why not import `nargo::ops::execute_program`?** It would give multi-function + `WitnessStack` +
+  pre-extracted `ExecutionError` for free, but `nargo` pulls in the whole Noir compiler frontend
+  (`noirc_driver`/`noirc_frontend`/`fm`/`rayon`/`walkdir`/`tokio`) — wasm-hostile and huge. `acvm_js`
+  (the official wasm ACVM) depends only on `acvm` + `bn254_blackbox_solver` and hand-rolls its own solve
+  loop for exactly this reason; our `execute_acir` mirrors that. We import the real machinery (`acvm`,
+  `acir`, solver, `OpcodeResolutionError`, `WitnessStack`); only the msgpack wire shaping is local.
 
 ### Phase 2b — wasm cutover  (TS)
 - Reimplement `WASMSimulator` on `createWasmBackendWithHost`. Foreign-call adapter: decode

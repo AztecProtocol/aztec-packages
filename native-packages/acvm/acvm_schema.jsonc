@@ -22,6 +22,29 @@
     "WitnessEntry": {
       "index": "u32",
       "value": "Fr"
+    },
+
+    // A raw (undecoded) assertion payload from a failed constraint: an ABI error selector plus the
+    // field-element data to be decoded against it. Mirrors acvm's `RawAssertionPayload`; selector and
+    // data cross the wire as strings (selector = decimal u64, data = 0x-hex) to match acvm_js's
+    // `rawAssertionPayload` shape that yarn-project's error resolution consumes.
+    "RawAssertionPayload": {
+      "selector": "string",
+      "data": "string[]"
+    },
+
+    // A structured ACIR *execution* failure (assertion failed / brillig trap), as opposed to a
+    // transport/protocol error. Carried on the response's `failure` field (see ExecuteProgram) rather
+    // than the IPC error channel, so the client can reconstruct an acvm_js-shaped `ExecutionError`
+    // (message + call stack + payload + function ids) for source-mapping.
+    "ExecutionFailure": {
+      "message": "string",
+      // Opcode locations of the failing constraint, innermost last, each formatted as acvm's
+      // `OpcodeLocation` Display (e.g. "0" or "3.5" for brillig). Absent when unresolved.
+      "callStack": "string[]?",
+      "rawAssertionPayload": "RawAssertionPayload?",
+      "acirFunctionId": "u32?",
+      "brilligFunctionId": "u32?"
     }
   },
 
@@ -40,7 +63,15 @@
         "initialWitness": "WitnessEntry[]"
       },
       "response": {
-        "witness": "WitnessEntry[]"
+        "witness": "WitnessEntry[]",
+        // The subset of `witness` at the circuit's `return_values` indices, in index order. Mirrors
+        // acvm_js's `executeCircuitWithReturnWitness`, which yarn-project's user-circuit path consumes
+        // as `returnWitness`.
+        "returnWitness": "WitnessEntry[]",
+        // Present iff ACIR execution failed (assertion/brillig trap). When set, `witness`/`returnWitness`
+        // are empty and the client raises a structured error instead of returning a witness. Transport
+        // and protocol errors (bad bytecode, unsupported program, no resolver) still use the error channel.
+        "failure": "ExecutionFailure?"
       }
     }
   }

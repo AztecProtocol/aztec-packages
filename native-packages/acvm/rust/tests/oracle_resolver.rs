@@ -72,11 +72,17 @@ fn native_resolves_oracle_over_second_ipc_connection() {
         &[(1, be32(2)), (2, be32(3))],
         resolve_fc,
     )
-    .expect("execute oracle circuit");
+    .expect("execute oracle circuit")
+    .unwrap_solved();
 
     // Solving only succeeds if the oracle returned the correct inverse (the circuit constrains
     // `w_oracle * z == 1`); assert the witness bytes too for explicit native parity.
-    let w_oracle = out.iter().find(|(i, _)| *i == 3).expect("oracle solved").1;
+    let w_oracle = out
+        .witness
+        .iter()
+        .find(|(i, _)| *i == 3)
+        .expect("oracle solved")
+        .1;
     let inv = FieldElement::from(5u64).inverse().to_be_bytes();
     let mut expected = [0u8; 32];
     expected[32 - inv.len()..].copy_from_slice(&inv);
