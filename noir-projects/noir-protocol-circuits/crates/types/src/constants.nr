@@ -646,6 +646,8 @@ pub global CHECKPOINT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = EPOCH_CONSTANT_DATA_LEN
 pub global ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = 1 /* previous_archive_root */
     + 1 /* end_archive_root */
     + 1 /* out_hash */
+    + 1 /* previous_inbox_rolling_hash */
+    + 1 /* end_inbox_rolling_hash */
     + 1 /* chain_id */
     + 1 /* version */
     + 1 /* vk_tree_root */

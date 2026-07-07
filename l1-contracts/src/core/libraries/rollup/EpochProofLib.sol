@@ -191,6 +191,8 @@ library EpochProofLib {
     //   previous_archive_root: Field,
     //   end_archive_root: Field,
     //   out_hash: Field,
+    //   previous_inbox_rolling_hash: Field,
+    //   end_inbox_rolling_hash: Field,
     //   checkpointHeaderHashes: [Field; Constants.MAX_CHECKPOINTS_PER_EPOCH],
     //   fees: [FeeRecipient; Constants.MAX_CHECKPOINTS_PER_EPOCH],
     //   chain_id: Field,
@@ -208,15 +210,21 @@ library EpochProofLib {
       publicInputs[1] = _args.endArchive;
 
       publicInputs[2] = _args.outHash;
+
+      // Inbox rolling-hash chain segment consumed across the epoch (AZIP-22 Fast Inbox). Deliberately UNVALIDATED
+      // until the Fast Inbox flip, when they get checked against per-checkpoint records written at propose; for now
+      // they are only passed through to the proof's public inputs.
+      publicInputs[3] = _args.previousInboxRollingHash;
+      publicInputs[4] = _args.endInboxRollingHash;
     }
 
     uint256 numCheckpoints = _end - _start + 1;
 
     for (uint256 i = 0; i < numCheckpoints; i++) {
-      publicInputs[3 + i] = STFLib.getHeaderHash(_start + i);
+      publicInputs[5 + i] = STFLib.getHeaderHash(_start + i);
     }
 
-    uint256 offset = 3 + Constants.MAX_CHECKPOINTS_PER_EPOCH;
+    uint256 offset = 5 + Constants.MAX_CHECKPOINTS_PER_EPOCH;
 
     // Taking recipient/value from the checkpoint headers rather than the prover
     // as defense in depth. Slots past numCheckpoints stay zero.

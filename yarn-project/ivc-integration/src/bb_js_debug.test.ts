@@ -69,6 +69,10 @@ describe('BB.js Debug Wrapper', () => {
     const noirInputs = {
       msgs: baseParityInputs.msgs.map(m => m.toString()),
       // eslint-disable-next-line camelcase
+      start_rolling_hash: baseParityInputs.startRollingHash.toString(),
+      // eslint-disable-next-line camelcase
+      num_msgs: baseParityInputs.numMsgs,
+      // eslint-disable-next-line camelcase
       vk_tree_root: baseParityInputs.vkTreeRoot.toString(),
       // eslint-disable-next-line camelcase
       prover_id: baseParityInputs.proverId.toString(),

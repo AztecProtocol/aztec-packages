@@ -119,6 +119,8 @@ pub fn execute(inputs: RootRollupPrivateInputs) -> RootRollupPublicInputs {
         previous_archive_root: merged.previous_archive.root,
         new_archive_root: merged.new_archive.root,
         out_hash: merged.new_out_hash.root,
+        previous_inbox_rolling_hash: merged.start_inbox_rolling_hash,
+        end_inbox_rolling_hash: merged.end_inbox_rolling_hash,
         checkpoint_header_hashes: merged.checkpoint_header_hashes,
         fees: merged.fees,
         constants: merged.constants,

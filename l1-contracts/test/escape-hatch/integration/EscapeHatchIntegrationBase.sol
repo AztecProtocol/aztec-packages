@@ -325,6 +325,8 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
       previousArchive: previousArchive,
       endArchive: endArchive,
       outHash: endFull.checkpoint.header.outHash,
+      previousInboxRollingHash: 0,
+      endInboxRollingHash: 0,
       proverId: _prover
     });
 

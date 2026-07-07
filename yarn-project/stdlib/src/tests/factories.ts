@@ -853,6 +853,8 @@ export function makeRootRollupPublicInputs(seed = 0): RootRollupPublicInputs {
     fr(seed + 0x100),
     fr(seed + 0x200),
     fr(seed + 0x300),
+    fr(seed + 0x320),
+    fr(seed + 0x340),
     makeTuple(MAX_CHECKPOINTS_PER_EPOCH, () => fr(seed), 0x400),
     makeTuple(MAX_CHECKPOINTS_PER_EPOCH, () => makeFeeRecipient(seed), 0x500),
     makeEpochConstantData(seed + 0x600),
