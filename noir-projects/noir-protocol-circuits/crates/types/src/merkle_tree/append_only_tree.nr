@@ -5,6 +5,7 @@ use crate::{
         merkle_tree::{merkle_hash, sha_merkle_hash},
         root::{compute_empty_tree_root_with_hasher, root_from_sibling_path_with_hasher},
     },
+    utils::arrays::assert_trailing_zeros,
 };
 
 pub fn append_leaf_to_snapshot<let TreeHeight: u32>(
@@ -102,6 +103,107 @@ pub fn insert_subtree_root_to_snapshot_with_hasher<let TreeHeight: u32, let Subt
         snapshot.next_available_leaf_index + num_subtree_leaves as Field;
 
     AppendOnlyTreeSnapshot { root: new_root, next_available_leaf_index }
+}
+
+/// Appends up to `MaxLeaves` leaves to a poseidon append-only tree at its current (arbitrary) next-available index.
+///
+/// Unlike `insert_subtree_root_to_snapshot`, the insertion index does not need to be aligned to a power-of-two
+/// boundary: leaves are absorbed one at a time into the tree's frontier (the incremental-merkle-tree "filled
+/// subtrees"), so a compact bundle can start wherever the previous append left off. Only `leaves[0..num_leaves]` are
+/// inserted; the remaining lanes are no-ops and must be zero.
+///
+/// `frontier_hint` is the frontier at `snapshot.next_available_leaf_index`, i.e. `frontier_hint[level]` is the pending
+/// left-sibling node at each level. It is validated against `snapshot.root` before use, pinning it to the snapshot the
+/// same way sibling-path hints are pinned elsewhere. Only the hint entries at levels where the start index is a right
+/// child are read during the append, and those are exactly the entries the root recomputation pins, so an incorrect
+/// hint cannot produce a wrong result: it either fails validation or is overwritten before it is read.
+pub fn append_leaves_to_snapshot<let TreeHeight: u32, let MaxLeaves: u32>(
+    snapshot: AppendOnlyTreeSnapshot,
+    leaves: [Field; MaxLeaves],
+    num_leaves: u32,
+    frontier_hint: [Field; TreeHeight],
+) -> AppendOnlyTreeSnapshot {
+    // We cast the leaf index to a u64, so heights above 64 would insert at the wrong index once the tree grows past
+    // 2^64 leaves.
+    assert(
+        TreeHeight <= 64,
+        "`append_leaves_to_snapshot` does not support trees with height greater than 64",
+    );
+    assert(num_leaves <= MaxLeaves, "num_leaves is greater than the leaves array length");
+    // Hint lanes past `num_leaves` must be zero so they cannot smuggle values into anything a caller later absorbs.
+    assert_trailing_zeros(leaves, num_leaves);
+
+    // `zero_subtree_roots[level]` is the root of an all-zero subtree of height `level`; index 0 is the empty leaf, 0.
+    let mut zero_subtree_roots = [0; TreeHeight];
+    for level in 1..TreeHeight {
+        zero_subtree_roots[level] =
+            merkle_hash(zero_subtree_roots[level - 1], zero_subtree_roots[level - 1]);
+    }
+
+    let start_index = snapshot.next_available_leaf_index as u64;
+    let end_index = start_index + num_leaves as u64;
+    // Guard against wrapping past the tree capacity, which would otherwise silently produce a wrong root.
+    if TreeHeight < 64 {
+        assert(
+            end_index <= (1 as u64 << TreeHeight as u64),
+            "append_leaves_to_snapshot exceeds the tree capacity",
+        );
+    }
+
+    // Validate the hint pins to the snapshot: recompute the root of a tree holding `start_index` leaves from the hint's
+    // left siblings and the zero subtrees to the right.
+    assert(
+        recompute_root_from_frontier(frontier_hint, zero_subtree_roots, start_index)
+            == snapshot.root,
+        "Frontier hint does not match the snapshot root",
+    );
+
+    // Absorb each real leaf into the frontier, tracking the running root; padding lanes are skipped.
+    let mut frontier = frontier_hint;
+    let mut index = start_index;
+    let mut root = snapshot.root;
+    for i in 0..MaxLeaves {
+        if i < num_leaves {
+            let mut node = leaves[i];
+            let mut idx = index;
+            for level in 0..TreeHeight {
+                if idx % 2 == 0 {
+                    frontier[level] = node;
+                    node = merkle_hash(node, zero_subtree_roots[level]);
+                } else {
+                    node = merkle_hash(frontier[level], node);
+                }
+                idx = idx / 2;
+            }
+            root = node;
+            index += 1;
+        }
+    }
+
+    AppendOnlyTreeSnapshot {
+        root,
+        next_available_leaf_index: snapshot.next_available_leaf_index + num_leaves as Field,
+    }
+}
+
+/// Recomputes the root of an append-only tree that holds `index` leaves (positions `0..index` filled, the rest zero)
+/// from its frontier of left siblings and the all-zero subtree roots to the right.
+fn recompute_root_from_frontier<let TreeHeight: u32>(
+    frontier: [Field; TreeHeight],
+    zero_subtree_roots: [Field; TreeHeight],
+    index: u64,
+) -> Field {
+    let mut node = 0; // the empty leaf sitting at `index`
+    let mut idx = index;
+    for level in 0..TreeHeight {
+        node = if idx % 2 == 0 {
+            merkle_hash(node, zero_subtree_roots[level])
+        } else {
+            merkle_hash(frontier[level], node)
+        };
+        idx = idx / 2;
+    }
+    node
 }
 
 mod tests {
@@ -302,5 +404,149 @@ mod tests {
         let empty_snapshot = AppendOnlyTreeSnapshot { root: 0, next_available_leaf_index: 0 };
         let sibling_path: [Field; 0] = [];
         let _ = insert_subtree_root_to_snapshot::<64, 64>(empty_snapshot, sibling_path, 0);
+    }
+}
+
+mod append_leaves_tests {
+    use crate::{
+        abis::append_only_tree_snapshot::AppendOnlyTreeSnapshot,
+        merkle_tree::{
+            compute_empty_tree_root,
+            merkle_tree::{merkle_hash, MerkleTree},
+            test_utils::compute_zero_hashes,
+        },
+        utils::arrays::subarray,
+    };
+    use super::{append_leaves_to_snapshot, insert_subtree_root_to_snapshot};
+
+    fn padded<let N: u32, let M: u32>(items: [Field; N]) -> [Field; M] {
+        let mut out = [0; M];
+        for i in 0..N {
+            out[i] = items[i];
+        }
+        out
+    }
+
+    fn empty_snapshot<let TreeHeight: u32>() -> AppendOnlyTreeSnapshot {
+        AppendOnlyTreeSnapshot {
+            root: compute_empty_tree_root::<TreeHeight>(),
+            next_available_leaf_index: 0,
+        }
+    }
+
+    #[test]
+    fn append_empty_bundle_is_noop() {
+        let snapshot = empty_snapshot::<5>();
+        let result = append_leaves_to_snapshot::<5, 8>(snapshot, [0; 8], 0, [0; 5]);
+        assert_eq(result, snapshot);
+    }
+
+    #[test]
+    fn append_single_leaf() {
+        let snapshot = empty_snapshot::<5>();
+        let leaves: [Field; 8] = padded([42]);
+        let result = append_leaves_to_snapshot::<5, 8>(snapshot, leaves, 1, [0; 5]);
+
+        let expected_root = MerkleTree::<32>::new(padded([42])).get_root();
+        assert_eq(result.root, expected_root);
+        assert_eq(result.next_available_leaf_index, 1);
+    }
+
+    #[test]
+    fn append_at_non_aligned_index() {
+        // Tree already holds 3 leaves, so the next index (3) is not aligned to any power-of-two boundary.
+        let before_root = MerkleTree::<32>::new(padded([11, 22, 33])).get_root();
+        let snapshot = AppendOnlyTreeSnapshot { root: before_root, next_available_leaf_index: 3 };
+        // Frontier at index 3: level 0 left sibling is leaf 2 (33), level 1 left sibling is hash(leaf0, leaf1).
+        // Higher levels are left children at index 3, so their hint entries are unused (and left zero).
+        let frontier = [33, merkle_hash(11, 22), 0, 0, 0];
+
+        let new_leaves: [Field; 8] = padded([44, 55]);
+        let result = append_leaves_to_snapshot::<5, 8>(snapshot, new_leaves, 2, frontier);
+
+        let expected_root = MerkleTree::<32>::new(padded([11, 22, 33, 44, 55])).get_root();
+        assert_eq(result.root, expected_root);
+        assert_eq(result.next_available_leaf_index, 5);
+    }
+
+    #[test]
+    fn append_max_size_bundle() {
+        let snapshot = empty_snapshot::<5>();
+        let leaves = [101, 102, 103, 104, 105, 106, 107, 108];
+        let result = append_leaves_to_snapshot::<5, 8>(snapshot, leaves, 8, [0; 5]);
+
+        let expected_root = MerkleTree::<32>::new(padded(leaves)).get_root();
+        assert_eq(result.root, expected_root);
+        assert_eq(result.next_available_leaf_index, 8);
+    }
+
+    #[test]
+    fn append_partial_bundle_skips_padding_lanes() {
+        let snapshot = empty_snapshot::<5>();
+        let leaves: [Field; 8] = padded([11, 22, 33]);
+        let result = append_leaves_to_snapshot::<5, 8>(snapshot, leaves, 3, [0; 5]);
+
+        let expected_root = MerkleTree::<32>::new(padded([11, 22, 33])).get_root();
+        assert_eq(result.root, expected_root);
+        assert_eq(result.next_available_leaf_index, 3);
+    }
+
+    #[test]
+    fn append_matches_subtree_insert_small() {
+        // Appending 8 compact leaves at aligned index 0 reproduces inserting a height-3 subtree of the same leaves.
+        let snapshot = empty_snapshot::<5>();
+        let leaves = [101, 102, 103, 104, 105, 106, 107, 108];
+
+        let subtree_root = MerkleTree::<8>::new(leaves).get_root();
+        let sibling_path: [Field; 2] = subarray(compute_zero_hashes::<5>(), 2);
+        let ref_snapshot =
+            insert_subtree_root_to_snapshot::<5, 3>(snapshot, sibling_path, subtree_root);
+
+        let leaves8: [Field; 8] = leaves;
+        let app_snapshot = append_leaves_to_snapshot::<5, 8>(snapshot, leaves8, 8, [0; 5]);
+
+        assert_eq(app_snapshot, ref_snapshot);
+    }
+
+    #[test]
+    fn append_matches_subtree_insert_1024() {
+        // The transitional first-block scenario: appending a full 1024-leaf bundle at aligned index 0 into the
+        // production-height (36) tree must reproduce today's fixed height-10 subtree insertion bit-for-bit.
+        let mut leaves = [0; 1024];
+        for i in 0..1024 {
+            leaves[i] = (i + 1) as Field;
+        }
+
+        let snapshot = empty_snapshot::<36>();
+
+        let subtree_root = MerkleTree::<1024>::new(leaves).get_root();
+        let sibling_path: [Field; 26] = subarray(compute_zero_hashes::<36>(), 9);
+        let ref_snapshot =
+            insert_subtree_root_to_snapshot::<36, 10>(snapshot, sibling_path, subtree_root);
+
+        let app_snapshot = append_leaves_to_snapshot::<36, 1024>(snapshot, leaves, 1024, [0; 36]);
+
+        // Both paths produce root 0x27b87d4d3b78d1fc49a6cb4d83e0cc81de7f5972cda7fe29a6a82aa2c255cb3d.
+        assert_eq(app_snapshot.root, ref_snapshot.root);
+        assert_eq(app_snapshot.next_available_leaf_index, 1024);
+    }
+
+    #[test(should_fail_with = "Frontier hint does not match the snapshot root")]
+    fn append_wrong_frontier_hint_fails() {
+        let before_root = MerkleTree::<32>::new(padded([11, 22, 33])).get_root();
+        let snapshot = AppendOnlyTreeSnapshot { root: before_root, next_available_leaf_index: 3 };
+        // Corrupt a pinned frontier entry (level 0), which the root recomputation must reject.
+        let frontier = [34, merkle_hash(11, 22), 0, 0, 0];
+
+        let new_leaves: [Field; 8] = padded([44, 55]);
+        let _ = append_leaves_to_snapshot::<5, 8>(snapshot, new_leaves, 2, frontier);
+    }
+
+    #[test(should_fail_with = "Found non-zero field after breakpoint")]
+    fn append_non_zero_padding_lane_fails() {
+        let snapshot = empty_snapshot::<5>();
+        // num_leaves is 1, but a later lane carries a non-zero value.
+        let leaves = [42, 0, 99, 0, 0, 0, 0, 0];
+        let _ = append_leaves_to_snapshot::<5, 8>(snapshot, leaves, 1, [0; 5]);
     }
 }
