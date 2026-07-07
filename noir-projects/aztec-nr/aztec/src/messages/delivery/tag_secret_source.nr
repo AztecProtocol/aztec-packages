@@ -1,7 +1,7 @@
 use crate::context::PrivateContext;
 use crate::messages::delivery::{
     constrained_delivery::{constrain_preexisting_handshake_secrets, emit_sequence_nullifier},
-    handshake::{AppSiloedHandshakeSecrets, create_non_interactive_handshake},
+    handshake::{AppSiloedHandshakeSecrets, create_interactive_handshake, create_non_interactive_handshake},
 };
 use crate::protocol::address::AztecAddress;
 use crate::standard_addresses::STANDARD_HANDSHAKE_REGISTRY_ADDRESS;
@@ -9,6 +9,7 @@ use crate::standard_addresses::STANDARD_HANDSHAKE_REGISTRY_ADDRESS;
 global EXISTING_HANDSHAKE: u8 = 1;
 global NEW_NON_INTERACTIVE_HANDSHAKE: u8 = 2;
 global UNCONSTRAINED_SECRET: u8 = 3;
+global NEW_INTERACTIVE_HANDSHAKE: u8 = 4;
 
 /// How a message's tag secret is sourced and, for constrained delivery, constrained.
 #[derive(Eq)]
@@ -42,6 +43,21 @@ impl TagSecretSource {
         Self { kind: NEW_NON_INTERACTIVE_HANDSHAKE, tag_secret: secrets.shared, sender_only: secrets.sender_only }
     }
 
+    /// Establishes a fresh interactive handshake, publishing nothing about the recipient onchain.
+    pub(crate) fn new_interactive_handshake(
+        context: &mut PrivateContext,
+        sender: AztecAddress,
+        recipient: AztecAddress,
+    ) -> Self {
+        let secrets = create_interactive_handshake(
+            context,
+            STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
+            sender,
+            recipient,
+        );
+        Self { kind: NEW_INTERACTIVE_HANDSHAKE, tag_secret: secrets.shared, sender_only: secrets.sender_only }
+    }
+
     /// A ready-to-use unconstrained secret the wallet resolved. Sound only for unconstrained delivery, which never
     /// anchors a sequence, so no sender-only secret is involved.
     pub(crate) fn unconstrained_secret(secret: Field) -> Self {
@@ -73,7 +89,7 @@ impl TagSecretSource {
                 secrets,
                 index,
             );
-        } else if self.kind == NEW_NON_INTERACTIVE_HANDSHAKE {
+        } else if (self.kind == NEW_NON_INTERACTIVE_HANDSHAKE) | (self.kind == NEW_INTERACTIVE_HANDSHAKE) {
             // The secrets were already obtained in a constrained manner, so we only need to verify that the index is 0.
             assert(index == 0, "freshly bootstrapped secret must start at index 0");
         } else {
@@ -145,6 +161,22 @@ mod test {
         });
     }
 
+    #[test]
+    unconstrained fn new_interactive_handshake_creates_and_constrains_the_bootstrapped_secrets() {
+        let env = TestEnvironment::new();
+        let secrets = AppSiloedHandshakeSecrets { shared: 12, sender_only: 34 };
+
+        env.private_context(|context| {
+            mock_handshake_creation(context, secrets);
+
+            let source = TagSecretSource::new_interactive_handshake(context, SENDER, RECIPIENT);
+            assert_eq(source.tag_secret(), secrets.shared);
+
+            source.constrain_tag_secret(context, SENDER, RECIPIENT, 0);
+            assert_emitted_sequence_nullifier(context, secrets, 0);
+        });
+    }
+
     // A freshly bootstrapped handshake secret is the source of truth, so its sequence must start at index 0.
     #[test(should_fail_with = "freshly bootstrapped secret must start at index 0")]
     unconstrained fn fresh_handshake_secret_must_start_at_index_zero() {
@@ -156,6 +188,24 @@ mod test {
             );
 
             TagSecretSource::new_non_interactive_handshake(context, SENDER, RECIPIENT).constrain_tag_secret(
+                context,
+                SENDER,
+                RECIPIENT,
+                1,
+            );
+        });
+    }
+
+    #[test(should_fail_with = "freshly bootstrapped secret must start at index 0")]
+    unconstrained fn fresh_interactive_handshake_secret_must_start_at_index_zero() {
+        let env = TestEnvironment::new();
+        env.private_context(|context| {
+            mock_handshake_creation(
+                context,
+                AppSiloedHandshakeSecrets { shared: 0, sender_only: 0 },
+            );
+
+            TagSecretSource::new_interactive_handshake(context, SENDER, RECIPIENT).constrain_tag_secret(
                 context,
                 SENDER,
                 RECIPIENT,
@@ -189,7 +239,7 @@ mod test {
         );
     }
 
-    // The registry's `non_interactive_handshake` call returns the app-siloed secrets via the returns cache.
+    // The registry's handshake creation call returns the app-siloed secrets via the returns cache.
     unconstrained fn mock_handshake_creation(context: &mut PrivateContext, secrets: AppSiloedHandshakeSecrets) {
         let returns = secrets.serialize();
         let returns_hash = hash_args(returns);
