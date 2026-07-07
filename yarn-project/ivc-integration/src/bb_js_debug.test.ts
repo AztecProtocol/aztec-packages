@@ -12,6 +12,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { Noir } from '@aztec/noir-noir_js';
 import { ServerCircuitArtifacts } from '@aztec/noir-protocol-circuits-types/server';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import { L1ToL2MessageSponge } from '@aztec/stdlib/messaging';
 import { ParityBasePrivateInputs } from '@aztec/stdlib/parity';
 
 import { jest } from '@jest/globals';
@@ -61,15 +62,30 @@ describe('BB.js Debug Wrapper', () => {
       l1ToL2Messages,
       0,
       Fr.ZERO,
+      L1ToL2MessageSponge.empty(),
       NUM_MSGS_PER_BASE_PARITY,
       vkTreeRoot,
       Fr.random(),
     );
 
+    const startSponge = baseParityInputs.startSponge;
     const noirInputs = {
       msgs: baseParityInputs.msgs.map(m => m.toString()),
       // eslint-disable-next-line camelcase
       start_rolling_hash: baseParityInputs.startRollingHash.toString(),
+      // eslint-disable-next-line camelcase
+      start_sponge: {
+        sponge: {
+          cache: startSponge.sponge.cache.map(f => f.toString()),
+          state: startSponge.sponge.state.map(f => f.toString()),
+          // eslint-disable-next-line camelcase
+          cache_size: startSponge.sponge.cacheSize,
+          // eslint-disable-next-line camelcase
+          squeeze_mode: startSponge.sponge.squeezeMode,
+        },
+        // eslint-disable-next-line camelcase
+        num_absorbed: startSponge.numAbsorbed,
+      },
       // eslint-disable-next-line camelcase
       num_msgs: baseParityInputs.numMsgs,
       // eslint-disable-next-line camelcase

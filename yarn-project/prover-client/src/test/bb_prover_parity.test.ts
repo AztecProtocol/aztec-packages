@@ -13,7 +13,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { accumulateInboxRollingHash } from '@aztec/stdlib/messaging';
+import { L1ToL2MessageSponge, accumulateInboxRollingHash } from '@aztec/stdlib/messaging';
 import { ParityBasePrivateInputs, ParityPublicInputs, ParityRootPrivateInputs } from '@aztec/stdlib/parity';
 import { makeRecursiveProof } from '@aztec/stdlib/proofs';
 import { VerificationKeyData } from '@aztec/stdlib/vks';
@@ -50,11 +50,22 @@ describe('prover/bb_prover/parity', () => {
     async () => {
       const l1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(null).map(() => Fr.random());
       const proverId = Fr.random();
+      // Thread the message sponge across the four base segments (base i starts from the sponge over the first i chunks).
+      const baseStartSponges: L1ToL2MessageSponge[] = [];
+      let runningSponge = L1ToL2MessageSponge.empty();
+      for (let i = 0; i < NUM_BASE_PARITY_PER_ROOT_PARITY; i++) {
+        baseStartSponges.push(runningSponge.clone());
+        runningSponge = runningSponge.clone();
+        await runningSponge.absorb(
+          l1ToL2Messages.slice(i * NUM_MSGS_PER_BASE_PARITY, (i + 1) * NUM_MSGS_PER_BASE_PARITY),
+        );
+      }
       const baseParityInputs = makeTuple(NUM_BASE_PARITY_PER_ROOT_PARITY, i =>
         ParityBasePrivateInputs.fromSlice(
           l1ToL2Messages,
           i,
           accumulateInboxRollingHash(Fr.ZERO, l1ToL2Messages.slice(0, i * NUM_MSGS_PER_BASE_PARITY)),
+          baseStartSponges[i],
           NUM_MSGS_PER_BASE_PARITY,
           getVKTreeRoot(),
           proverId,
@@ -123,6 +134,8 @@ describe('prover/bb_prover/parity', () => {
           Fr.random(),
           Fr.random(),
           Fr.random(),
+          L1ToL2MessageSponge.empty(),
+          L1ToL2MessageSponge.empty(),
           0,
           getVKTreeRoot(),
           proverId,

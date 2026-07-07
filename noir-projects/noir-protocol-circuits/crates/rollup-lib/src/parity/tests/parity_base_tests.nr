@@ -1,5 +1,8 @@
-use crate::{inbox_rolling_hash::accumulate_inbox_rolling_hash, parity::parity_base::{self, ParityBasePrivateInputs}};
-use types::constants::NUM_MSGS_PER_BASE_PARITY;
+use crate::{
+    abis::L1ToL2MessageSponge, inbox_rolling_hash::accumulate_inbox_rolling_hash,
+    parity::parity_base::{self, ParityBasePrivateInputs},
+};
+use types::{constants::NUM_MSGS_PER_BASE_PARITY, traits::Empty};
 
 #[test]
 fn public_inputs_match_expected() {
@@ -10,6 +13,7 @@ fn public_inputs_match_expected() {
     let private_inputs = ParityBasePrivateInputs {
         msgs,
         start_rolling_hash: 0,
+        start_sponge: L1ToL2MessageSponge::empty(),
         num_msgs: NUM_MSGS_PER_BASE_PARITY,
         vk_tree_root: 42,
         prover_id: 7,
@@ -32,6 +36,12 @@ fn public_inputs_match_expected() {
         public_inputs.end_rolling_hash,
         accumulate_inbox_rolling_hash(0, msgs, NUM_MSGS_PER_BASE_PARITY),
     );
+
+    // The sponge absorbs the full padded batch (all lanes), so it echoes the start and ends on the same leaves.
+    assert_eq(public_inputs.start_sponge, L1ToL2MessageSponge::empty());
+    let mut expected_end_sponge = L1ToL2MessageSponge::empty();
+    expected_end_sponge.absorb(msgs, NUM_MSGS_PER_BASE_PARITY);
+    assert_eq(public_inputs.end_sponge, expected_end_sponge);
 }
 
 #[test]
@@ -43,9 +53,12 @@ fn rolling_hash_ignores_padding_and_threads_start() {
     msgs[2] = 33;
 
     let start = 0x2a;
+    let mut start_sponge = L1ToL2MessageSponge::new();
+    start_sponge.absorb([7, 8], 2);
     let private_inputs = ParityBasePrivateInputs {
         msgs,
         start_rolling_hash: start,
+        start_sponge,
         num_msgs: 3,
         vk_tree_root: 42,
         prover_id: 7,
@@ -58,6 +71,12 @@ fn rolling_hash_ignores_padding_and_threads_start() {
         public_inputs.end_rolling_hash,
         accumulate_inbox_rolling_hash(start, [11, 22, 33], 3),
     );
+
+    // Unlike the rolling hash, the sponge absorbs the full padded batch (padding zeros included), threading the start.
+    assert_eq(public_inputs.start_sponge, start_sponge);
+    let mut expected_end_sponge = start_sponge;
+    expected_end_sponge.absorb(msgs, NUM_MSGS_PER_BASE_PARITY);
+    assert_eq(public_inputs.end_sponge, expected_end_sponge);
 }
 
 #[test(should_fail_with = "Found non-zero field after breakpoint")]
@@ -71,6 +90,7 @@ fn non_zero_padding_lane_fails() {
     let private_inputs = ParityBasePrivateInputs {
         msgs,
         start_rolling_hash: 0,
+        start_sponge: L1ToL2MessageSponge::empty(),
         num_msgs: 2,
         vk_tree_root: 42,
         prover_id: 7,

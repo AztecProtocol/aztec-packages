@@ -1,5 +1,5 @@
 use crate::{
-    abis::ParityPublicInputs,
+    abis::{L1ToL2MessageSponge, ParityPublicInputs},
     parity::parity_root::{self, ParityBaseProofData, ParityRootPrivateInputs},
 };
 use protocol_test_utils::{fixtures::vk_tree::{get_vk_data, vk_tree_root}, pad_end};
@@ -9,6 +9,7 @@ use types::{
         ULTRA_VK_LENGTH_IN_FIELDS,
     },
     proof::{proof_data::ProofData, vk_data::VkData},
+    traits::Empty,
 };
 
 struct TestBuilder {
@@ -27,19 +28,27 @@ impl TestBuilder {
             0x53042d820859d80c474d4694e03778f8dc0ac88fc1c3a97b4369c1096e904a,
         ];
 
-        // Thread the rolling hash across the four base segments: each child's start equals the previous child's end.
-        let mut children = [Self::make_proof_data(0, 0, 0, 0, vk_data); NUM_BASE_PARITY_PER_ROOT_PARITY];
+        // Thread the rolling hash and the message sponge across the four base segments: each child's start equals the
+        // previous child's end.
+        let mut children =
+            [Self::make_proof_data(0, 0, 0, L1ToL2MessageSponge::empty(), L1ToL2MessageSponge::empty(), 0, vk_data); NUM_BASE_PARITY_PER_ROOT_PARITY];
         let mut start_rolling_hash = 100;
+        let mut start_sponge = L1ToL2MessageSponge::empty();
         for i in 0..NUM_BASE_PARITY_PER_ROOT_PARITY {
             let end_rolling_hash = start_rolling_hash + 1000;
+            let mut end_sponge = start_sponge;
+            end_sponge.absorb([(i + 1) as Field, (i + 1) as Field * 7], 2);
             children[i] = Self::make_proof_data(
                 children_sha_roots[i],
                 start_rolling_hash,
                 end_rolling_hash,
+                start_sponge,
+                end_sponge,
                 (i + 1) as u32,
                 vk_data,
             );
             start_rolling_hash = end_rolling_hash;
+            start_sponge = end_sponge;
         }
 
         Self { children }
@@ -49,6 +58,8 @@ impl TestBuilder {
         sha_root: Field,
         start_rolling_hash: Field,
         end_rolling_hash: Field,
+        start_sponge: L1ToL2MessageSponge,
+        end_sponge: L1ToL2MessageSponge,
         num_msgs: u32,
         vk_data: VkData<ULTRA_VK_LENGTH_IN_FIELDS>,
     ) -> ParityBaseProofData {
@@ -57,6 +68,8 @@ impl TestBuilder {
             converted_root: 0,
             start_rolling_hash,
             end_rolling_hash,
+            start_sponge,
+            end_sponge,
             num_msgs,
             vk_tree_root,
             prover_id: 42,
@@ -95,6 +108,15 @@ fn public_inputs_match_expected() {
     assert_eq(public_inputs.start_rolling_hash, 100);
     assert_eq(public_inputs.end_rolling_hash, 100 + NUM_BASE_PARITY_PER_ROOT_PARITY as Field * 1000);
     assert_eq(public_inputs.num_msgs, 1 + 2 + 3 + 4);
+
+    // The message sponge threads the same way: output start is the first child's start (empty), output end is the last
+    // child's end.
+    assert_eq(public_inputs.start_sponge, L1ToL2MessageSponge::empty());
+    let mut expected_end_sponge = L1ToL2MessageSponge::empty();
+    for i in 0..NUM_BASE_PARITY_PER_ROOT_PARITY {
+        expected_end_sponge.absorb([(i + 1) as Field, (i + 1) as Field * 7], 2);
+    }
+    assert_eq(public_inputs.end_sponge, expected_end_sponge);
 }
 
 #[test(should_fail_with = "Inconsistent rolling hash across parity base circuits")]
@@ -103,6 +125,16 @@ fn inconsistent_rolling_hash() {
 
     // Break the chain continuity between the second and third child.
     builder.children[2].public_inputs.start_rolling_hash += 1;
+
+    let _ = builder.execute();
+}
+
+#[test(should_fail_with = "Inconsistent message sponge across parity base circuits")]
+fn inconsistent_message_sponge() {
+    let mut builder = TestBuilder::new();
+
+    // Break the sponge continuity between the second and third child.
+    builder.children[2].public_inputs.start_sponge.num_absorbed += 1;
 
     let _ = builder.execute();
 }

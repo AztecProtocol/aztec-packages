@@ -2,17 +2,19 @@ import { SpongeBlob } from '@aztec/blob-lib';
 import {
   type ARCHIVE_HEIGHT,
   type L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
+  type NESTED_RECURSIVE_PROOF_LENGTH,
   type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+  NUM_BASE_PARITY_PER_ROOT_PARITY,
   NUM_MSGS_PER_BASE_PARITY,
 } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import type { Tuple } from '@aztec/foundation/serialize';
+import { type Tuple, assertLength } from '@aztec/foundation/serialize';
 import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
 import type { PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
-import { accumulateInboxRollingHash } from '@aztec/stdlib/messaging';
-import { ParityBasePrivateInputs } from '@aztec/stdlib/parity';
+import { type L1ToL2MessageSponge, accumulateInboxRollingHash } from '@aztec/stdlib/messaging';
+import { ParityBasePrivateInputs, type ParityPublicInputs, ParityRootPrivateInputs } from '@aztec/stdlib/parity';
 import { BlockMergeRollupPrivateInputs, BlockRollupPublicInputs, CheckpointConstantData } from '@aztec/stdlib/rollup';
 import type { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import type { BlockHeader } from '@aztec/stdlib/tx';
@@ -25,6 +27,11 @@ export class CheckpointProvingState {
   private blockProofs: UnbalancedTreeStore<
     ProofState<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
   >;
+  // Parity proofs moved here from the per-block proving state: parity now gates the checkpoint root, not the first
+  // block root (AZIP-22 Fast Inbox). The parity root proof is surfaced as part of the sub-tree result.
+  private baseParityProofs: (ProofState<ParityPublicInputs, typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined)[] =
+    Array.from({ length: NUM_BASE_PARITY_PER_ROOT_PARITY }).map(() => undefined);
+  private rootParityProof: ProofState<ParityPublicInputs, typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined;
   private blocks: (BlockProvingState | undefined)[] = [];
   private error: string | undefined;
   public readonly firstBlockNumber: BlockNumber;
@@ -51,6 +58,14 @@ export class CheckpointProvingState {
       Fr,
       typeof L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH
     >,
+    // The checkpoint's messages padded to `MAX_L1_TO_L2_MSGS_PER_CHECKPOINT` (the first block's transitional bundle).
+    private readonly paddedL1ToL2Messages: Fr[],
+    // Message-bundle sponge threaded into each base parity circuit (base i starts from the sponge over the first
+    // i * NUM_MSGS_PER_BASE_PARITY padded leaves); `baseParityStartSponges[0]` is empty.
+    private readonly baseParityStartSponges: L1ToL2MessageSponge[],
+    // Message-bundle sponge over the whole (padded) checkpoint. Equals the parity root's end sponge and the sponge the
+    // block roots accumulate, so it is threaded into non-first block roots as their inherited `startMsgSponge`.
+    private readonly checkpointMsgSponge: L1ToL2MessageSponge,
     public readonly epochNumber: number,
     /** Owner's liveness check. `verifyState()` returns false once this returns false. */
     private readonly isAlive: () => boolean,
@@ -59,6 +74,16 @@ export class CheckpointProvingState {
   ) {
     this.blockProofs = new UnbalancedTreeStore(totalNumBlocks);
     this.firstBlockNumber = BlockNumber(headerOfLastBlockInPreviousCheckpoint.globalVariables.blockNumber + 1);
+  }
+
+  /** The checkpoint's messages padded to the per-checkpoint cap (the first block's transitional bundle). */
+  public getPaddedL1ToL2Messages(): Fr[] {
+    return this.paddedL1ToL2Messages;
+  }
+
+  /** The message-bundle sponge over the whole (padded) checkpoint — inherited by non-first block roots. */
+  public getCheckpointMsgSponge(): L1ToL2MessageSponge {
+    return this.checkpointMsgSponge;
   }
 
   public startNewBlock(
@@ -153,13 +178,64 @@ export class CheckpointProvingState {
       this.startInboxRollingHash,
       this.l1ToL2Messages.slice(0, start),
     );
+    // Thread the message sponge: this base starts from the sponge over the first `start` padded leaves, and absorbs
+    // its full padded batch. Unlike the rolling hash, the sponge absorbs padding zeros too (transitional asymmetry).
     return new ParityBasePrivateInputs(
       messages,
       startRollingHash,
+      this.baseParityStartSponges[baseParityIndex],
       realMessages.length,
       this.constants.vkTreeRoot,
       this.constants.proverId,
     );
+  }
+
+  // ---------------- parity proof orchestration ----------------
+
+  public tryStartProvingBaseParity(index: number) {
+    if (this.baseParityProofs[index]?.isProving) {
+      return false;
+    }
+    this.baseParityProofs[index] = { isProving: true };
+    return true;
+  }
+
+  public setBaseParityProof(index: number, provingOutput: PublicInputsAndRecursiveProof<ParityPublicInputs>) {
+    if (index >= NUM_BASE_PARITY_PER_ROOT_PARITY) {
+      throw new Error(
+        `Unable to set a base parity proof at index ${index}. Expected at most ${NUM_BASE_PARITY_PER_ROOT_PARITY} proofs.`,
+      );
+    }
+    this.baseParityProofs[index] = { provingOutput };
+  }
+
+  public isReadyForRootParity() {
+    return this.baseParityProofs.every(p => !!p?.provingOutput);
+  }
+
+  public tryStartProvingRootParity() {
+    if (this.rootParityProof?.isProving) {
+      return false;
+    }
+    this.rootParityProof = { isProving: true };
+    return true;
+  }
+
+  public setRootParityProof(provingOutput: PublicInputsAndRecursiveProof<ParityPublicInputs>) {
+    this.rootParityProof = { provingOutput };
+  }
+
+  public getRootParityProof() {
+    return this.rootParityProof?.provingOutput;
+  }
+
+  public getParityRootInputs() {
+    const baseParityProvingOutputs = this.baseParityProofs.filter(p => !!p?.provingOutput).map(p => p!.provingOutput!);
+    if (baseParityProvingOutputs.length !== this.baseParityProofs.length) {
+      throw new Error('At least one base parity is not ready.');
+    }
+    const children = baseParityProvingOutputs.map(p => toProofData(p));
+    return new ParityRootPrivateInputs(assertLength(children, NUM_BASE_PARITY_PER_ROOT_PARITY));
   }
 
   public getParentLocation(location: TreeNodeLocation) {

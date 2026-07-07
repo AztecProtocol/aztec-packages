@@ -1,19 +1,16 @@
 use crate::{
-    abis::{BlockRollupPublicInputs, ParityPublicInputs},
-    block_root::components::{BlockRollupPublicInputsComposer, validate_parity_root},
+    abis::{BlockRollupPublicInputs, L1ToL2MessageSponge},
+    block_root::components::BlockRollupPublicInputsComposer,
 };
 use types::{
     abis::{
         append_only_tree_snapshot::AppendOnlyTreeSnapshot,
         checkpoint_constant_data::CheckpointConstantData, state_reference::StateReference,
     },
-    constants::{ARCHIVE_HEIGHT, L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH},
-    proof::proof_data::UltraHonkProofData,
+    constants::{ARCHIVE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, MAX_L1_TO_L2_MSGS_PER_BLOCK},
 };
 
 pub struct BlockRootEmptyTxFirstRollupPrivateInputs {
-    pub(crate) parity_root: UltraHonkProofData<ParityPublicInputs>,
-
     pub(crate) previous_archive: AppendOnlyTreeSnapshot,
     pub(crate) previous_state: StateReference,
     // The previous block is not in the same checkpoint as the current block. So we need to provide the constants for
@@ -23,19 +20,22 @@ pub struct BlockRootEmptyTxFirstRollupPrivateInputs {
     // timestamp in the checkpoint root.
     pub(crate) timestamp: u64,
 
-    // Hint for inserting the new l1 to l2 message subtree.
-    pub(crate) new_l1_to_l2_message_subtree_root_sibling_path: [Field; L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH],
+    // L1-to-L2 messages inserted by this block, padded with zeros beyond `num_msgs`.
+    pub(crate) l1_to_l2_messages: [Field; MAX_L1_TO_L2_MSGS_PER_BLOCK],
+    // Number of real (non-padding) leaves in `l1_to_l2_messages`.
+    pub(crate) num_msgs: u32,
+    // Frontier hint for appending the bundle to the l1-to-l2 message tree (validated against `previous_state`).
+    pub(crate) l1_to_l2_message_frontier_hint: [Field; L1_TO_L2_MSG_TREE_HEIGHT],
     // Hint for inserting the new block hash to the last archive.
     pub(crate) new_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
 }
 
 /// The Block Root Empty Tx First Rollup circuit creates the first empty block of a checkpoint.
-/// It processes L1-to-L2 messages and creates the block header.
+/// It inserts the block's L1-to-L2 message bundle and creates the block header.
 /// This variant is used for the first block in a checkpoint that contains no transactions.
 ///
 /// This circuit:
-/// - Verifies the parity root proof containing L1-to-L2 messages for the checkpoint
-/// - Inserts the L1-to-L2 message subtree into the L1-to-L2 message tree
+/// - Appends the block's L1-to-L2 message bundle to the L1-to-L2 message tree and absorbs it into the message sponge
 /// - Initializes an empty sponge blob (since it's the first block in a checkpoint)
 /// - Computes the block header hash and inserts it into the archive tree
 ///
@@ -44,21 +44,19 @@ pub struct BlockRootEmptyTxFirstRollupPrivateInputs {
 ///
 /// VkIndex: BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX
 pub fn execute(inputs: BlockRootEmptyTxFirstRollupPrivateInputs) -> BlockRollupPublicInputs {
-    validate_parity_root(
-        inputs.parity_root,
-        inputs.constants.vk_tree_root,
-        inputs.constants.prover_id,
-    );
-
     BlockRollupPublicInputsComposer::new_from_no_rollups(
         inputs.previous_archive,
         inputs.previous_state,
         inputs.constants,
         inputs.timestamp,
     )
-        .with_new_l1_to_l2_messages(
-            inputs.parity_root.public_inputs,
-            inputs.new_l1_to_l2_message_subtree_root_sibling_path,
+        .with_message_bundle(
+            true,
+            inputs.previous_state.l1_to_l2_message_tree,
+            L1ToL2MessageSponge::new(),
+            inputs.l1_to_l2_messages,
+            inputs.num_msgs,
+            inputs.l1_to_l2_message_frontier_hint,
         )
         .finish(inputs.new_archive_sibling_path)
 }

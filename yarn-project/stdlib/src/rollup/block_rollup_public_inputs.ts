@@ -4,6 +4,7 @@ import { bufferSchemaFor } from '@aztec/foundation/schemas';
 import { BufferReader, bigintToUInt64BE, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
+import { L1ToL2MessageSponge } from '../messaging/l1_to_l2_message_sponge.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { StateReference } from '../tx/state_reference.js';
 import type { UInt64 } from '../types/shared.js';
@@ -53,18 +54,19 @@ export class BlockRollupPublicInputs {
      */
     public blockHeadersHash: Fr,
     /**
-     * SHA256 hash of l1 to l2 messages.
+     * Whether this block range starts at the first block of its checkpoint. Only the first block root sets this true;
+     * merges propagate it from the left rollup. Replaces `inHash`'s former structural role (AZIP-22 Fast Inbox).
      */
-    public inHash: Fr,
+    public isFirstBlock: boolean,
     /**
-     * Inbox rolling hash before consuming this block range's messages. Set (with `endInboxRollingHash`) only by the
-     * first block root of a checkpoint; zero on non-first block roots. The dual of `inHash` (AZIP-22 Fast Inbox).
+     * Message-bundle sponge threaded across the checkpoint's blocks, before this block range absorbs its bundle.
      */
-    public startInboxRollingHash: Fr,
+    public startMsgSponge: L1ToL2MessageSponge,
     /**
-     * Inbox rolling hash after consuming this block range's messages.
+     * Message-bundle sponge after this block range absorbs its bundle. The checkpoint root asserts the final value
+     * matches the parity root's sponge over the same (padded) message list.
      */
-    public endInboxRollingHash: Fr,
+    public endMsgSponge: L1ToL2MessageSponge,
     /**
      * SHA256 hash of L2 to L1 messages created in this block range.
      */
@@ -91,9 +93,9 @@ export class BlockRollupPublicInputs {
       reader.readObject(SpongeBlob),
       reader.readUInt64(),
       Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
+      reader.readBoolean(),
+      reader.readObject(L1ToL2MessageSponge),
+      reader.readObject(L1ToL2MessageSponge),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
@@ -111,9 +113,9 @@ export class BlockRollupPublicInputs {
       this.endSpongeBlob,
       bigintToUInt64BE(this.timestamp),
       this.blockHeadersHash,
-      this.inHash,
-      this.startInboxRollingHash,
-      this.endInboxRollingHash,
+      this.isFirstBlock,
+      this.startMsgSponge,
+      this.endMsgSponge,
       this.outHash,
       this.accumulatedFees,
       this.accumulatedManaUsed,
@@ -137,9 +139,9 @@ export class BlockRollupPublicInputs {
       previousArchiveRoot: this.previousArchive.root.toString(),
       newArchiveRoot: this.newArchive.root.toString(),
       blockHeadersHash: this.blockHeadersHash.toString(),
-      inHash: this.inHash.toString(),
-      startInboxRollingHash: this.startInboxRollingHash.toString(),
-      endInboxRollingHash: this.endInboxRollingHash.toString(),
+      isFirstBlock: this.isFirstBlock,
+      startMsgSpongeNumAbsorbed: this.startMsgSponge.numAbsorbed,
+      endMsgSpongeNumAbsorbed: this.endMsgSponge.numAbsorbed,
       outHash: this.outHash.toString(),
       timestamp: this.timestamp.toString(),
       accumulatedFees: this.accumulatedFees.toString(),

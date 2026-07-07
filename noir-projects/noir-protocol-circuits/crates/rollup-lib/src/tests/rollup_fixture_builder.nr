@@ -1,5 +1,6 @@
 use crate::abis::{
-    BlockRollupPublicInputs, CheckpointRollupPublicInputs, ParityPublicInputs, TxRollupPublicInputs,
+    BlockRollupPublicInputs, CheckpointRollupPublicInputs, L1ToL2MessageSponge, ParityPublicInputs,
+    TxRollupPublicInputs,
 };
 use bigcurve::BigCurve;
 use bignum::BigNum;
@@ -23,10 +24,13 @@ use types::{
     constants::{
         ARCHIVE_HEIGHT, BLOBS_PER_CHECKPOINT, DOM_SEP__BLOB_GAMMA_FINAL, EMPTY_EPOCH_OUT_HASH,
         L1_TO_L2_MSG_SUBTREE_HEIGHT, L1_TO_L2_MSG_TREE_HEIGHT, MAX_CHECKPOINTS_PER_EPOCH,
-        OUT_HASH_TREE_HEIGHT, OUT_HASH_TREE_LEAF_COUNT,
+        MAX_L1_TO_L2_MSGS_PER_BLOCK, OUT_HASH_TREE_HEIGHT, OUT_HASH_TREE_LEAF_COUNT,
     },
     hash::{poseidon2_hash, poseidon2_hash_with_separator},
-    merkle_tree::{compute_empty_tree_root, MerkleTree, test_utils::SingleSubtreeMerkleTree},
+    merkle_tree::{
+        append_only_tree::append_leaves_to_snapshot, compute_empty_tree_root, MerkleTree,
+        test_utils::SingleSubtreeMerkleTree,
+    },
     proof::proof_data::{AvmV2ProofData, ProofData},
     traits::{Deserialize, Empty, Hash},
 };
@@ -176,6 +180,33 @@ impl RollupFixtureBuilder {
         (previous_snapshot, sibling_path_for_insertion, new_snapshot)
     }
 
+    /// Builds a per-block L1-to-L2 message bundle appended to an empty tree, returning
+    /// `(previous_snapshot, leaves, num_msgs, frontier_hint, new_snapshot)`. The empty tree has an all-zero frontier,
+    /// and the resulting `new_snapshot` is exactly what the block root circuit recomputes from the same inputs.
+    pub fn build_l1_to_l2_message_bundle(
+        _self: Self,
+        num_msgs: u32,
+    ) -> (AppendOnlyTreeSnapshot, [Field; MAX_L1_TO_L2_MSGS_PER_BLOCK], [Field; L1_TO_L2_MSG_TREE_HEIGHT], AppendOnlyTreeSnapshot) {
+        let mut leaves = [0; MAX_L1_TO_L2_MSGS_PER_BLOCK];
+        for i in 0..MAX_L1_TO_L2_MSGS_PER_BLOCK {
+            if i < num_msgs {
+                leaves[i] = (i + 1) as Field * 100;
+            }
+        }
+        let previous = AppendOnlyTreeSnapshot {
+            root: compute_empty_tree_root::<L1_TO_L2_MSG_TREE_HEIGHT>(),
+            next_available_leaf_index: 0,
+        };
+        let frontier_hint = [0; L1_TO_L2_MSG_TREE_HEIGHT];
+        let new = append_leaves_to_snapshot::<L1_TO_L2_MSG_TREE_HEIGHT, MAX_L1_TO_L2_MSGS_PER_BLOCK>(
+            previous,
+            leaves,
+            num_msgs,
+            frontier_hint,
+        );
+        (previous, leaves, frontier_hint, new)
+    }
+
     pub fn build_out_hash_tree_for_insertion(
         self,
         slot_number: Field,
@@ -315,19 +346,19 @@ impl RollupFixtureBuilder {
     ) -> BlockRollupPublicInputs {
         let slot_number = self.start_slot_number;
 
-        let in_hash = if start_block_number == self.start_block_number {
-            self.get_in_hash(slot_number)
-        } else {
-            0
-        };
+        // Only the first block of a checkpoint (the leftmost leaf) carries `is_first_block`.
+        let is_first_block = start_block_number == self.start_block_number;
 
-        // Like `in_hash`, the rolling-hash pair is carried only by the first block of a checkpoint (the leftmost leaf).
-        let (start_inbox_rolling_hash, end_inbox_rolling_hash) = if start_block_number
-            == self.start_block_number {
-            (self.get_inbox_rolling_hash(slot_number), self.get_inbox_rolling_hash(slot_number + 1))
+        // The message sponge threads across the checkpoint's blocks. The leftmost block starts from empty; every block
+        // ends at the checkpoint's accumulated sponge (in the fixture, only the first block absorbs, so the sponge stays
+        // constant for the non-first blocks). This matches the transitional wiring where the first block carries the
+        // whole checkpoint's bundle.
+        let start_msg_sponge = if is_first_block {
+            L1ToL2MessageSponge::empty()
         } else {
-            (0, 0)
+            self.get_msg_sponge(slot_number)
         };
+        let end_msg_sponge = self.get_msg_sponge(slot_number);
 
         BlockRollupPublicInputs {
             constants: self.get_checkpoint_constant_data(slot_number),
@@ -339,9 +370,9 @@ impl RollupFixtureBuilder {
             end_sponge_blob: self.get_sponge_blob(end_block_number),
             timestamp: self.get_timestamp(slot_number),
             block_headers_hash: self.get_block_headers_hash(end_block_number),
-            in_hash,
-            start_inbox_rolling_hash,
-            end_inbox_rolling_hash,
+            is_first_block,
+            start_msg_sponge,
+            end_msg_sponge,
             out_hash: self.get_out_hash(end_block_number),
             accumulated_fees: self.get_fee(end_block_number),
             accumulated_mana_used: self.get_mana_used(end_block_number),
@@ -398,10 +429,22 @@ impl RollupFixtureBuilder {
             converted_root: self.get_l1_to_l2_message_subtree_root(slot_number),
             start_rolling_hash: self.get_inbox_rolling_hash(slot_number),
             end_rolling_hash: self.get_inbox_rolling_hash(slot_number + 1),
+            // The message sponge resets per checkpoint, so it starts empty and ends at the checkpoint's accumulated
+            // sponge — the same value the block roots reach across the checkpoint.
+            start_sponge: L1ToL2MessageSponge::empty(),
+            end_sponge: self.get_msg_sponge(slot_number),
             num_msgs: 7,
             vk_tree_root: self.vk_tree_root,
             prover_id: self.prover_id,
         }
+    }
+
+    /// Deterministic non-empty message sponge for a checkpoint, shared by that checkpoint's block roots (as their
+    /// end sponge) and its parity root (as its end sponge), so the checkpoint root's equality check passes.
+    pub fn get_msg_sponge(_self: Self, slot_number: Field) -> L1ToL2MessageSponge {
+        let mut sponge = L1ToL2MessageSponge::new();
+        sponge.absorb([slot_number, slot_number * 7, slot_number * 13], 3);
+        sponge
     }
 
     pub fn get_sponge_blob(self, block_number: u32) -> SpongeBlob {
@@ -470,10 +513,6 @@ impl RollupFixtureBuilder {
 
     pub fn get_out_hash(_self: Self, tx_or_block_or_slot_number: u32) -> Field {
         tx_or_block_or_slot_number as Field * 60415
-    }
-
-    fn get_in_hash(_self: Self, slot_number: Field) -> Field {
-        slot_number * 94297
     }
 
     fn get_inbox_rolling_hash(_self: Self, slot_number: Field) -> Field {

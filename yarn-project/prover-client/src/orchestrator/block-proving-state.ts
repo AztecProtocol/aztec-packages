@@ -1,17 +1,18 @@
 import { type BlockBlobData, type BlockEndBlobData, type SpongeBlob, encodeBlockEndBlobData } from '@aztec/blob-lib';
 import {
   type ARCHIVE_HEIGHT,
+  L1_TO_L2_MSG_SUBTREE_HEIGHT,
   type L1_TO_L2_MSG_SUBTREE_ROOT_SIBLING_PATH_LENGTH,
-  NESTED_RECURSIVE_PROOF_LENGTH,
+  type L1_TO_L2_MSG_TREE_HEIGHT,
+  MAX_L1_TO_L2_MSGS_PER_BLOCK,
   type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-  NUM_BASE_PARITY_PER_ROOT_PARITY,
 } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type Tuple, assertLength } from '@aztec/foundation/serialize';
+import { type Tuple } from '@aztec/foundation/serialize';
 import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
 import type { PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
-import { type ParityPublicInputs, ParityRootPrivateInputs } from '@aztec/stdlib/parity';
 import type { RollupHonkProofData } from '@aztec/stdlib/proofs';
 import {
   BlockRollupPublicInputs,
@@ -46,11 +47,6 @@ export class BlockProvingState {
   private baseOrMergeProofs: UnbalancedTreeStore<
     ProofState<TxRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
   > = new UnbalancedTreeStore(0);
-  private baseParityProofs: (ProofState<ParityPublicInputs, typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined)[] =
-    Array.from({
-      length: NUM_BASE_PARITY_PER_ROOT_PARITY,
-    }).map(_ => undefined);
-  private rootParityProof: ProofState<ParityPublicInputs, typeof NESTED_RECURSIVE_PROOF_LENGTH> | undefined;
   private blockRootProof:
     | ProofState<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>
     | undefined;
@@ -146,38 +142,6 @@ export class BlockProvingState {
     >,
   ) {
     this.baseOrMergeProofs.setNode(location, { provingOutput });
-  }
-
-  public tryStartProvingBaseParity(index: number) {
-    if (this.baseParityProofs[index]?.isProving) {
-      return false;
-    } else {
-      this.baseParityProofs[index] = { isProving: true };
-      return true;
-    }
-  }
-
-  // Stores a set of root parity inputs at the given index
-  public setBaseParityProof(index: number, provingOutput: PublicInputsAndRecursiveProof<ParityPublicInputs>) {
-    if (index >= NUM_BASE_PARITY_PER_ROOT_PARITY) {
-      throw new Error(
-        `Unable to set a base parity proofs at index ${index}. Expected at most ${NUM_BASE_PARITY_PER_ROOT_PARITY} proofs.`,
-      );
-    }
-    this.baseParityProofs[index] = { provingOutput };
-  }
-
-  public tryStartProvingRootParity() {
-    if (this.rootParityProof?.isProving) {
-      return false;
-    } else {
-      this.rootParityProof = { isProving: true };
-      return true;
-    }
-  }
-
-  public setRootParityProof(provingOutput: PublicInputsAndRecursiveProof<ParityPublicInputs>) {
-    this.rootParityProof = { provingOutput };
   }
 
   public tryStartProvingBlockRoot() {
@@ -328,36 +292,53 @@ export class BlockProvingState {
       return this.#getFirstBlockRootRollupTypeAndInputs(previousRollups);
     }
 
+    const { leaves, numMsgs } = this.#getMessageBundle();
+    const frontierHint = this.#getFrontierHint();
+    const startMsgSponge = this.parentCheckpoint.getCheckpointMsgSponge();
+
     const [leftRollup, rightRollup] = previousRollups;
     if (!rightRollup) {
       return {
         rollupType: 'rollup-block-root-single-tx' satisfies CircuitName,
-        inputs: new BlockRootSingleTxRollupPrivateInputs(leftRollup, this.lastArchiveSiblingPath),
+        inputs: new BlockRootSingleTxRollupPrivateInputs(
+          leftRollup,
+          leaves,
+          numMsgs,
+          startMsgSponge,
+          frontierHint,
+          this.lastArchiveSiblingPath,
+        ),
       };
     } else {
       return {
         rollupType: 'rollup-block-root' satisfies CircuitName,
-        inputs: new BlockRootRollupPrivateInputs([leftRollup, rightRollup], this.lastArchiveSiblingPath),
+        inputs: new BlockRootRollupPrivateInputs(
+          [leftRollup, rightRollup],
+          leaves,
+          numMsgs,
+          startMsgSponge,
+          frontierHint,
+          this.lastArchiveSiblingPath,
+        ),
       };
     }
   }
 
   #getFirstBlockRootRollupTypeAndInputs([leftRollup, rightRollup]: RollupHonkProofData<TxRollupPublicInputs>[]) {
-    if (!this.rootParityProof?.provingOutput) {
-      throw new Error('Root parity is not ready.');
-    }
-    const l1ToL2Roots = toProofData(this.rootParityProof.provingOutput);
+    const { leaves, numMsgs } = this.#getMessageBundle();
+    const frontierHint = this.#getFrontierHint();
 
     if (!leftRollup) {
       return {
         rollupType: 'rollup-block-root-first-empty-tx' satisfies CircuitName,
         inputs: new BlockRootEmptyTxFirstRollupPrivateInputs(
-          l1ToL2Roots,
           this.lastArchiveTreeSnapshot,
           this.headerOfLastBlockInPreviousCheckpoint.state,
           this.constants,
           this.timestamp,
-          this.lastL1ToL2MessageSubtreeRootSiblingPath,
+          leaves,
+          numMsgs,
+          frontierHint,
           this.lastArchiveSiblingPath,
         ),
       };
@@ -365,10 +346,11 @@ export class BlockProvingState {
       return {
         rollupType: 'rollup-block-root-first-single-tx' satisfies CircuitName,
         inputs: new BlockRootSingleTxFirstRollupPrivateInputs(
-          l1ToL2Roots,
           leftRollup,
+          leaves,
+          numMsgs,
           this.lastL1ToL2MessageTreeSnapshot,
-          this.lastL1ToL2MessageSubtreeRootSiblingPath,
+          frontierHint,
           this.lastArchiveSiblingPath,
         ),
       };
@@ -376,24 +358,39 @@ export class BlockProvingState {
       return {
         rollupType: 'rollup-block-root-first' satisfies CircuitName,
         inputs: new BlockRootFirstRollupPrivateInputs(
-          l1ToL2Roots,
           [leftRollup, rightRollup],
+          leaves,
+          numMsgs,
           this.lastL1ToL2MessageTreeSnapshot,
-          this.lastL1ToL2MessageSubtreeRootSiblingPath,
+          frontierHint,
           this.lastArchiveSiblingPath,
         ),
       };
     }
   }
 
-  public getParityRootInputs() {
-    const baseParityProvingOutputs = this.baseParityProofs.filter(p => !!p?.provingOutput).map(p => p!.provingOutput!);
-    if (baseParityProvingOutputs.length !== this.baseParityProofs.length) {
-      throw new Error('At lease one base parity is not ready.');
+  /**
+   * The message bundle this block appends. Transitionally the first block carries the whole checkpoint's messages
+   * padded to `MAX_L1_TO_L2_MSGS_PER_BLOCK` (`numMsgs` set to the cap so all leaves — including padding — reproduce
+   * today's aligned subtree insert); non-first blocks carry an empty bundle.
+   */
+  #getMessageBundle(): { leaves: Fr[]; numMsgs: number } {
+    if (this.isFirstBlock) {
+      return { leaves: this.parentCheckpoint.getPaddedL1ToL2Messages(), numMsgs: MAX_L1_TO_L2_MSGS_PER_BLOCK };
     }
+    return { leaves: padArrayEnd([], Fr.ZERO, MAX_L1_TO_L2_MSGS_PER_BLOCK), numMsgs: 0 };
+  }
 
-    const children = baseParityProvingOutputs.map(p => toProofData(p));
-    return new ParityRootPrivateInputs(assertLength(children, NUM_BASE_PARITY_PER_ROOT_PARITY));
+  /**
+   * Full-height frontier hint for the bundle append. The l1-to-l2 tree index is always subtree-aligned in the
+   * transitional wiring, so the bottom `L1_TO_L2_MSG_SUBTREE_HEIGHT` levels are left-child (unread, zero) and the top
+   * levels are exactly the subtree-root sibling path already captured for this block.
+   */
+  #getFrontierHint(): Tuple<Fr, typeof L1_TO_L2_MSG_TREE_HEIGHT> {
+    return [
+      ...Array.from({ length: L1_TO_L2_MSG_SUBTREE_HEIGHT }, () => Fr.ZERO),
+      ...this.lastL1ToL2MessageSubtreeRootSiblingPath,
+    ] as Tuple<Fr, typeof L1_TO_L2_MSG_TREE_HEIGHT>;
   }
 
   // Returns a specific transaction proving state
@@ -413,15 +410,11 @@ export class BlockProvingState {
     return !!this.baseOrMergeProofs.getSibling(location)?.provingOutput;
   }
 
-  // Returns true if we have sufficient inputs to execute the block root rollup
+  // Returns true if we have sufficient inputs to execute the block root rollup. Parity no longer gates the block root
+  // (it moved to the checkpoint root), so the block root is ready once its child tx proofs land.
   public isReadyForBlockRootRollup() {
     const childProofs = this.#getChildProvingOutputsForBlockRoot();
-    return (!this.isFirstBlock || !!this.rootParityProof?.provingOutput) && childProofs.every(p => !!p);
-  }
-
-  // Returns true if we have sufficient root parity inputs to execute the root parity circuit
-  public isReadyForRootParity() {
-    return this.baseParityProofs.every(p => !!p?.provingOutput);
+    return childProofs.every(p => !!p);
   }
 
   public isComplete() {
