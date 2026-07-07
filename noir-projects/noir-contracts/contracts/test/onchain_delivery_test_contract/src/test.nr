@@ -176,7 +176,10 @@ unconstrained fn interactive_handshake_reuses_an_existing_registry_handshake() {
         test_contract.emit_event_via_interactive_handshake(recipient, 1),
     );
 
-    let next_index = env.call_private(sender, test_contract.next_index_for_secret(secret));
+    let next_index = env.call_private(
+        sender,
+        test_contract.next_index_for_secret(secret, MessageDelivery::onchain_constrained().into()),
+    );
     assert_eq(next_index, 1);
 }
 
