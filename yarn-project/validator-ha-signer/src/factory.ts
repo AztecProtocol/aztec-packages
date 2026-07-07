@@ -1,6 +1,7 @@
 /**
  * Factory functions for creating validator HA signers
  */
+import { createLogger } from '@aztec/foundation/log';
 import { DateProvider } from '@aztec/foundation/timer';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import type { LocalSignerConfig, ValidatorHASignerConfig } from '@aztec/stdlib/ha-signing';
@@ -31,7 +32,7 @@ import { ValidatorHASigner } from './validator_ha_signer.js';
  *   databaseUrl: process.env.DATABASE_URL,
  *   nodeId: 'validator-node-1',
  *   pollingIntervalMs: 100,
- *   signingTimeoutMs: 3000,
+ *   peerSigningTimeoutMs: 3000,
  * });
  * signer.start(); // Start background cleanup
  *
@@ -78,6 +79,16 @@ export async function createHASigner(
   } else {
     pool = deps.pool;
   }
+
+  // pg re-emits idle-client errors (e.g. a Postgres restart severing an idle connection) on the
+  // pool. Without an 'error' listener, Node escalates these to an uncaughtException and crashes the
+  // process - taking down every HA replica sharing the DB at once. pg destroys and replaces the
+  // errored client itself, so logging is the only action needed. Log just message/code, never the
+  // raw error object (it can carry connection metadata).
+  const log = createLogger('validator-ha-signer:factory');
+  pool.on('error', (err: NodeJS.ErrnoException) => {
+    log.warn('Postgres pool error on idle client', { message: err.message, code: err.code });
+  });
 
   // Create database instance
   const db = new PostgresSlashingProtectionDatabase(pool);
@@ -175,7 +186,7 @@ export function createSignerFromSharedDb(
   db: SlashingProtectionDatabase,
   config: Pick<
     ValidatorHASignerConfig,
-    'nodeId' | 'pollingIntervalMs' | 'signingTimeoutMs' | 'maxStuckDutiesAgeMs' | 'rollupAddress'
+    'nodeId' | 'pollingIntervalMs' | 'peerSigningTimeoutMs' | 'maxStuckDutiesAgeMs' | 'rollupAddress'
   >,
   deps?: CreateLocalSignerWithProtectionDeps,
 ): { signer: ValidatorHASigner; db: SlashingProtectionDatabase } {

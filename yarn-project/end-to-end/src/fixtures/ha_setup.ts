@@ -18,8 +18,8 @@ export interface HADatabaseConfig {
   haSigningEnabled: boolean;
   /** Polling interval in ms */
   pollingIntervalMs: number;
-  /** Signing timeout in ms */
-  signingTimeoutMs: number;
+  /** How long to wait for a peer node's in-progress signing in ms */
+  peerSigningTimeoutMs: number;
   /** Max stuck duties age in ms */
   maxStuckDutiesAgeMs: number;
 }
@@ -37,7 +37,7 @@ export function createHADatabaseConfig(nodeId: string): HADatabaseConfig {
     nodeId,
     haSigningEnabled: true,
     pollingIntervalMs: 100,
-    signingTimeoutMs: 3000,
+    peerSigningTimeoutMs: 3000,
     maxStuckDutiesAgeMs: 72000,
   };
 }
@@ -53,6 +53,10 @@ export function setupHADatabase(databaseUrl: string, logger?: Logger): Pool {
     // Create connection pool for test usage
     // Migrations are already run by docker-compose entrypoint before tests start
     const pool = new Pool({ connectionString: databaseUrl });
+
+    // pg-pool re-emits idle-client errors on the pool; with no listener the emit throws - in production this crashes
+    // the validator process.
+    pool.on('error', (err: Error) => logger?.warn(`HA database pool error: ${err.message}`));
 
     logger?.info('Connected to HA database (migrations should already be applied)');
 
