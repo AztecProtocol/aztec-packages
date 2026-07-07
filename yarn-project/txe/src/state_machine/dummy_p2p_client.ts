@@ -1,14 +1,12 @@
 import type { CheckpointProposalHash, SlotNumber } from '@aztec/foundation/branded-types';
+import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type {
   AuthRequest,
   ENR,
   P2P,
-  P2PBlockReceivedCallback,
-  P2PCheckpointAttestationCallback,
-  P2PCheckpointReceivedCallback,
   P2PConfig,
-  P2PDuplicateAttestationCallback,
-  P2PDuplicateProposalCallback,
+  P2PProposalHandler,
+  P2PServiceEvents,
   P2PSyncState,
   PeerId,
   ReqRespSubProtocol,
@@ -26,7 +24,9 @@ import type {
 } from '@aztec/stdlib/p2p';
 import type { BlockHeader, Tx, TxHash } from '@aztec/stdlib/tx';
 
-export class DummyP2P implements P2P {
+import EventEmitter from 'events';
+
+export class DummyP2P extends (EventEmitter as new () => TypedEventEmitter<P2PServiceEvents>) implements P2P {
   public validateTxsReceivedInBlockProposal(_txs: Tx[]): Promise<void> {
     return Promise.resolve();
   }
@@ -63,16 +63,8 @@ export class DummyP2P implements P2P {
     throw new Error('DummyP2P does not implement "broadcastCheckpointAttestations"');
   }
 
-  public registerBlockProposalHandler(_handler: P2PBlockReceivedCallback): void {
-    throw new Error('DummyP2P does not implement "registerBlockProposalHandler"');
-  }
-
-  public registerValidatorCheckpointProposalHandler(_handler: P2PCheckpointReceivedCallback): void {
-    throw new Error('DummyP2P does not implement "registerValidatorCheckpointProposalHandler"');
-  }
-
-  public registerAllNodesCheckpointProposalHandler(_handler: P2PCheckpointReceivedCallback): void {
-    throw new Error('DummyP2P does not implement "registerAllNodesCheckpointProposalHandler"');
+  public setProposalHandler(_handler: Partial<P2PProposalHandler>): void {
+    throw new Error('DummyP2P does not implement "setProposalHandler"');
   }
 
   public requestTxs(_txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
@@ -228,18 +220,6 @@ export class DummyP2P implements P2P {
 
   //This is no-op
   public registerThisValidatorAddresses(_address: EthAddress[]): void {}
-
-  public registerDuplicateProposalCallback(_callback: P2PDuplicateProposalCallback): void {
-    throw new Error('DummyP2P does not implement "registerDuplicateProposalCallback"');
-  }
-
-  public registerDuplicateAttestationCallback(_callback: P2PDuplicateAttestationCallback): void {
-    throw new Error('DummyP2P does not implement "registerDuplicateAttestationCallback"');
-  }
-
-  public registerCheckpointAttestationCallback(_callback: P2PCheckpointAttestationCallback): void {
-    throw new Error('DummyP2P does not implement "registerCheckpointAttestationCallback"');
-  }
 
   public hasBlockProposalsForSlot(_slot: SlotNumber): Promise<boolean> {
     throw new Error('DummyP2P does not implement "hasBlockProposalsForSlot"');

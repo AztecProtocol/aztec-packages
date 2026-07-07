@@ -22,6 +22,8 @@ import {
   AuthRequest,
   AuthResponse,
   type P2P,
+  type P2PProposalHandler,
+  type P2PServiceEvents,
   type PeerId,
   StatusMessage,
   type TxProvider,
@@ -398,9 +400,9 @@ describe('ValidatorClient', () => {
       return { checkpointProposal, disposeFork };
     };
     const registerAllNodesCheckpointHandler = () => {
-      let checkpointHandler: Parameters<P2P['registerAllNodesCheckpointProposalHandler']>[0] | undefined;
-      p2pClient.registerAllNodesCheckpointProposalHandler.mockImplementation(handler => {
-        checkpointHandler = handler;
+      let checkpointHandler: P2PProposalHandler['onAllNodesCheckpointProposal'] | undefined;
+      p2pClient.setProposalHandler.mockImplementation(handler => {
+        checkpointHandler = handler.onAllNodesCheckpointProposal ?? checkpointHandler;
       });
 
       validatorClient
@@ -944,7 +946,9 @@ describe('ValidatorClient', () => {
 
     it('records proposal equivocation and emits clear event', async () => {
       await validatorClient.registerHandlers();
-      const duplicateProposalCallback = p2pClient.registerDuplicateProposalCallback.mock.calls[0][0];
+      const duplicateProposalCallback = p2pClient.on.mock.calls.find(
+        ([event]) => event === 'duplicateProposal',
+      )![1] as P2PServiceEvents['duplicateProposal'];
       const emitSpy = jest.spyOn(validatorClient, 'emit');
       blockBuildResult.block.archive.root = Fr.random();
 
@@ -990,7 +994,9 @@ describe('ValidatorClient', () => {
 
     it('emits zero-amount bad attestation offenses when the bad attestation penalty is zero', async () => {
       await validatorClient.registerHandlers();
-      const attestationCallback = p2pClient.registerCheckpointAttestationCallback.mock.calls[0][0];
+      const attestationCallback = p2pClient.on.mock.calls.find(
+        ([event]) => event === 'checkpointAttestation',
+      )![1] as P2PServiceEvents['checkpointAttestation'];
       validatorClient.updateConfig({
         slashBroadcastedInvalidBlockPenalty: 0n,
         slashAttestInvalidCheckpointProposalPenalty: 0n,
@@ -1187,7 +1193,9 @@ describe('ValidatorClient', () => {
     it('records checkpoint proposal equivocation and emits clear event', async () => {
       await validatorClient.registerHandlers();
       const checkpointHandler = registerAllNodesCheckpointHandler();
-      const duplicateProposalCallback = p2pClient.registerDuplicateProposalCallback.mock.calls[0][0];
+      const duplicateProposalCallback = p2pClient.on.mock.calls.find(
+        ([event]) => event === 'duplicateProposal',
+      )![1] as P2PServiceEvents['duplicateProposal'];
       const { checkpointProposal } = await makeCheckpointProposalWithHeaderMismatch();
       const emitSpy = jest.spyOn(validatorClient, 'emit');
 

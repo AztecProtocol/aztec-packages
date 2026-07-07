@@ -588,8 +588,8 @@ describe('LibP2PService', () => {
 
       blockReceivedCallback = jest.fn().mockImplementation(() => Promise.resolve(true));
       duplicateProposalCallback = jest.fn();
-      service.registerBlockReceivedCallback(blockReceivedCallback as any);
-      service.registerDuplicateProposalCallback(duplicateProposalCallback);
+      service.setProposalHandler({ onBlockProposal: blockReceivedCallback as any });
+      service.on('duplicateProposal', duplicateProposalCallback);
     });
 
     it('processes valid block: invokes callback and marks txs non-evictable', async () => {
@@ -865,10 +865,12 @@ describe('LibP2PService', () => {
       allNodesCheckpointReceivedCallback = jest.fn().mockImplementation(() => Promise.resolve([]));
       validatorCheckpointReceivedCallback = jest.fn().mockImplementation(() => Promise.resolve([]));
       duplicateProposalCallback = jest.fn();
-      service.registerBlockReceivedCallback(blockReceivedCallback as any);
-      service.registerValidatorCheckpointReceivedCallback(validatorCheckpointReceivedCallback as any);
-      service.registerAllNodesCheckpointReceivedCallback(allNodesCheckpointReceivedCallback as any);
-      service.registerDuplicateProposalCallback(duplicateProposalCallback);
+      service.setProposalHandler({
+        onBlockProposal: blockReceivedCallback as any,
+        onValidatorCheckpointProposal: validatorCheckpointReceivedCallback as any,
+        onAllNodesCheckpointProposal: allNodesCheckpointReceivedCallback as any,
+      });
+      service.on('duplicateProposal', duplicateProposalCallback);
     });
 
     it('processes valid checkpoint: invokes callback and propagates attestations', async () => {
@@ -972,9 +974,11 @@ describe('LibP2PService', () => {
         mockEpochCache,
         { skipCheckpointProposalValidation: true },
       );
-      service.registerBlockReceivedCallback(blockReceivedCallback as any);
-      service.registerValidatorCheckpointReceivedCallback(validatorCheckpointReceivedCallback as any);
-      service.registerAllNodesCheckpointReceivedCallback(allNodesCheckpointReceivedCallback as any);
+      service.setProposalHandler({
+        onBlockProposal: blockReceivedCallback as any,
+        onValidatorCheckpointProposal: validatorCheckpointReceivedCallback as any,
+        onAllNodesCheckpointProposal: allNodesCheckpointReceivedCallback as any,
+      });
 
       const checkpointHeader = makeCheckpointHeader(1, { slotNumber: targetSlot });
       const blockHeader = makeBlockHeader(1, { slotNumber: targetSlot });
@@ -1239,9 +1243,9 @@ describe('LibP2PService', () => {
       );
 
       duplicateAttestationCallback = jest.fn();
-      service.registerDuplicateAttestationCallback(duplicateAttestationCallback);
+      service.on('duplicateAttestation', duplicateAttestationCallback);
       checkpointAttestationCallback = jest.fn();
-      service.registerCheckpointAttestationCallback(checkpointAttestationCallback);
+      service.on('checkpointAttestation', checkpointAttestationCallback);
     });
 
     // Regression for A-1013: attestations sharing (slot, signer, archive) but differing on

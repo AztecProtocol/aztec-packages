@@ -1,9 +1,10 @@
 import type { EpochCacheInterface } from '@aztec/epoch-cache';
-import { BlockNumber, type SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber } from '@aztec/foundation/branded-types';
 import { maxBy, merge } from '@aztec/foundation/collection';
 import { type Logger, createLibp2pComponentLogger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { Timer } from '@aztec/foundation/timer';
+import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
 import type { EthAddress, L2BlockSource } from '@aztec/stdlib/block';
@@ -55,6 +56,7 @@ import { mplex } from '@libp2p/mplex';
 import { tcp } from '@libp2p/tcp';
 import { multiaddr } from '@multiformats/multiaddr';
 import { ENR } from '@nethermindeth/enr';
+import { EventEmitter } from 'events';
 import { createLibp2p } from 'libp2p';
 
 import type { P2PConfig } from '../../config.js';
@@ -107,14 +109,7 @@ import {
   reqRespTxHandler,
 } from '../reqresp/index.js';
 import { ReqResp } from '../reqresp/reqresp.js';
-import type {
-  P2PBlockReceivedCallback,
-  P2PCheckpointAttestationCallback,
-  P2PCheckpointReceivedCallback,
-  P2PDuplicateAttestationCallback,
-  P2PService,
-  PeerDiscoveryService,
-} from '../service.js';
+import type { P2PProposalHandler, P2PService, P2PServiceEvents, PeerDiscoveryService } from '../service.js';
 import { P2PInstrumentation } from './instrumentation.js';
 
 interface ValidationResult {
@@ -145,38 +140,11 @@ export class LibP2PService extends WithTracer implements P2PService {
   private protocolVersion = '';
   private topicStrings: Record<TopicType, string> = {} as Record<TopicType, string>;
 
-  /** Callback invoked when a duplicate proposal is detected (triggers slashing). */
-  private duplicateProposalCallback?: (info: {
-    slot: SlotNumber;
-    proposer: EthAddress;
-    type: 'checkpoint' | 'block';
-  }) => void;
+  /** Emitter backing the {@link P2PServiceEvents} notifications (equivocations and accepted attestations). */
+  private readonly emitter = new EventEmitter() as TypedEventEmitter<P2PServiceEvents>;
 
-  /** Callback invoked when a duplicate attestation is detected (triggers slashing). */
-  private duplicateAttestationCallback?: P2PDuplicateAttestationCallback;
-
-  /** Callback invoked when a valid checkpoint attestation is accepted into the pool. */
-  private checkpointAttestationCallback?: P2PCheckpointAttestationCallback;
-
-  /**
-   * Callback for when a block is received from a peer.
-   * @param block - The block received from the peer.
-   * @returns The attestation for the block, if any.
-   */
-  private blockReceivedCallback: P2PBlockReceivedCallback;
-
-  /**
-   * Callback for when a checkpoint proposal is received from a peer.
-   * @param checkpoint - The checkpoint proposal received from the peer.
-   * @returns The attestations for the checkpoint, if any.
-   */
-  private allNodesCheckpointReceivedCallback: P2PCheckpointReceivedCallback;
-  /**
-   * Callback for when a checkpoint proposal is received - specifically for validators - from a peer.
-   * @param checkpoint - The checkpoint proposal received from the peer.
-   * @returns The attestations for the checkpoint, if any.
-   */
-  private validatorCheckpointReceivedCallback: P2PCheckpointReceivedCallback;
+  /** Handler invoked on block and checkpoint proposals received from peers. */
+  private proposalHandler: P2PProposalHandler;
 
   private gossipSubEventHandler: (e: CustomEvent<GossipsubMessage>) => void;
 
@@ -258,24 +226,20 @@ export class LibP2PService extends WithTracer implements P2PService {
 
     this.gossipSubEventHandler = this.handleGossipSubEvent.bind(this);
 
-    this.blockReceivedCallback = async (block: BlockProposal): Promise<boolean> => {
-      this.logger.warn(
-        `Handler for block received not yet registered on P2P service. Received block ${block.blockNumber} for slot ${block.slotNumber} from peer.`,
-        { p2pMessageIdentifier: await block.p2pMessageLoggingIdentifier() },
-      );
-      return true;
-    };
-
-    this.allNodesCheckpointReceivedCallback = (
-      _checkpoint: CheckpointProposalCore,
-    ): Promise<CheckpointAttestation[] | undefined> => {
-      throw new CheckpointProposalReceivedCallbackNotRegisteredError();
-    };
-
-    this.validatorCheckpointReceivedCallback = (
-      _checkpoint: CheckpointProposalCore,
-    ): Promise<CheckpointAttestation[] | undefined> => {
-      return Promise.resolve(undefined);
+    this.proposalHandler = {
+      onBlockProposal: async (block: BlockProposal): Promise<boolean> => {
+        this.logger.warn(
+          `Handler for block received not yet registered on P2P service. Received block ${block.blockNumber} for slot ${block.slotNumber} from peer.`,
+          { p2pMessageIdentifier: await block.p2pMessageLoggingIdentifier() },
+        );
+        return true;
+      },
+      onAllNodesCheckpointProposal: (_checkpoint: CheckpointProposalCore): Promise<CheckpointAttestation[] | undefined> => {
+        throw new CheckpointProposalReceivedCallbackNotRegisteredError();
+      },
+      onValidatorCheckpointProposal: (_checkpoint: CheckpointProposalCore): Promise<CheckpointAttestation[] | undefined> => {
+        return Promise.resolve(undefined);
+      },
     };
   }
 
@@ -710,39 +674,37 @@ export class LibP2PService extends WithTracer implements P2PService {
     return this.peerDiscoveryService.getEnr();
   }
 
-  public registerBlockReceivedCallback(callback: P2PBlockReceivedCallback) {
-    this.blockReceivedCallback = callback;
+  public setProposalHandler(handler: Partial<P2PProposalHandler>): void {
+    this.proposalHandler = { ...this.proposalHandler, ...handler };
   }
 
-  public registerValidatorCheckpointReceivedCallback(callback: P2PCheckpointReceivedCallback) {
-    this.validatorCheckpointReceivedCallback = callback;
+  public on<K extends keyof P2PServiceEvents>(event: K, listener: P2PServiceEvents[K]): this {
+    this.emitter.on(event, listener);
+    return this;
   }
 
-  public registerAllNodesCheckpointReceivedCallback(callback: P2PCheckpointReceivedCallback) {
-    this.allNodesCheckpointReceivedCallback = callback;
+  public once<K extends keyof P2PServiceEvents>(event: K, listener: P2PServiceEvents[K]): this {
+    this.emitter.once(event, listener);
+    return this;
   }
 
-  /**
-   * Registers a callback to be invoked when a duplicate proposal is detected.
-   * This callback is triggered on the first duplicate (when count goes from 1 to 2).
-   */
-  public registerDuplicateProposalCallback(
-    callback: (info: { slot: SlotNumber; proposer: EthAddress; type: 'checkpoint' | 'block' }) => void,
-  ): void {
-    this.duplicateProposalCallback = callback;
+  public off<K extends keyof P2PServiceEvents>(event: K, listener: P2PServiceEvents[K]): this {
+    this.emitter.off(event, listener);
+    return this;
   }
 
-  /**
-   * Registers a callback to be invoked when a duplicate attestation is detected.
-   * A validator signing attestations for different proposals at the same slot.
-   * This callback is triggered on the first duplicate (when count goes from 1 to 2).
-   */
-  public registerDuplicateAttestationCallback(callback: P2PDuplicateAttestationCallback): void {
-    this.duplicateAttestationCallback = callback;
+  public emit<K extends keyof P2PServiceEvents>(event: K, ...args: Parameters<P2PServiceEvents[K]>): boolean {
+    return this.emitter.emit(event, ...args);
   }
 
-  public registerCheckpointAttestationCallback(callback: P2PCheckpointAttestationCallback): void {
-    this.checkpointAttestationCallback = callback;
+  public removeListener<K extends keyof P2PServiceEvents>(event: K, listener: P2PServiceEvents[K]): this {
+    this.emitter.removeListener(event, listener);
+    return this;
+  }
+
+  public removeAllListeners<K extends keyof P2PServiceEvents>(event: K): this {
+    this.emitter.removeAllListeners(event);
+    return this;
   }
 
   /**
@@ -1200,12 +1162,12 @@ export class LibP2PService extends WithTracer implements P2PService {
           source: peerId.toString(),
           attester: attester.toString(),
         });
-        this.duplicateAttestationCallback?.({ slot, attester });
+        this.emit('duplicateAttestation', { slot, attester });
       }
     }
 
     // Attestation was added successfully - accept it so other nodes can also detect the equivocation
-    this.checkpointAttestationCallback?.(attestation);
+    this.emit('checkpointAttestation', attestation);
     return { result: TopicValidatorResult.Accept, obj: attestation };
   }
 
@@ -1291,7 +1253,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       });
       // Invoke the duplicate callback on the first duplicate spotted only
       if (proposer && count === 2) {
-        this.duplicateProposalCallback?.({ slot: block.slotNumber, proposer, type: 'block' });
+        this.emit('duplicateProposal', { slot: block.slotNumber, proposer, type: 'block' });
       }
       return { result: TopicValidatorResult.Accept, obj: block, metadata: { isEquivocated } };
     }
@@ -1320,7 +1282,7 @@ export class LibP2PService extends WithTracer implements P2PService {
 
     // Call the block received callback to validate the proposal.
     // Note: Validators do NOT attest to individual blocks, only to checkpoint proposals.
-    const isValid = await this.blockReceivedCallback(block, sender);
+    const isValid = await this.proposalHandler.onBlockProposal(block, sender);
     if (!isValid) {
       this.logger.info(`Block proposal validation failed for block ${block.blockNumber}`, block.toBlockInfo());
     }
@@ -1466,7 +1428,7 @@ export class LibP2PService extends WithTracer implements P2PService {
       });
       // Invoke the duplicate callback on the first duplicate spotted only
       if (proposer && count === 2) {
-        this.duplicateProposalCallback?.({ slot: checkpoint.slotNumber, proposer, type: 'checkpoint' });
+        this.emit('duplicateProposal', { slot: checkpoint.slotNumber, proposer, type: 'checkpoint' });
       }
       return {
         result: TopicValidatorResult.Accept,
@@ -1497,11 +1459,11 @@ export class LibP2PService extends WithTracer implements P2PService {
       source: sender.toString(),
     });
 
-    await this.allNodesCheckpointReceivedCallback(checkpoint, sender);
+    await this.proposalHandler.onAllNodesCheckpointProposal(checkpoint, sender);
 
     // Call the checkpoint received callback with the core version (without lastBlock)
     // to validate and potentially generate attestations
-    const attestations = await this.validatorCheckpointReceivedCallback(checkpoint, sender);
+    const attestations = await this.proposalHandler.onValidatorCheckpointProposal(checkpoint, sender);
     if (attestations && attestations.length > 0) {
       // If the callback returned attestations, add them to the pool and propagate them
       await this.mempools.attestationPool.addOwnCheckpointAttestations(attestations);

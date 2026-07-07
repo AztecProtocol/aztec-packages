@@ -1,5 +1,6 @@
 import type { SlotNumber } from '@aztec/foundation/branded-types';
 import type { EthAddress } from '@aztec/foundation/eth-address';
+import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
 import type {
   BlockProposal,
@@ -74,9 +75,52 @@ export type P2PDuplicateAttestationCallback = (info: DuplicateAttestationInfo) =
 export type P2PCheckpointAttestationCallback = (attestation: CheckpointAttestation) => void;
 
 /**
+ * Handler for block and checkpoint proposals received from peers, set on the P2P service by the
+ * validator client or the standalone proposal handler.
+ */
+export interface P2PProposalHandler {
+  /**
+   * Invoked when a block proposal is received.
+   * Validators validate but DO NOT attest to individual blocks - attestations are only for checkpoints.
+   * Returns true if the proposal is valid, false otherwise.
+   */
+  onBlockProposal: P2PBlockReceivedCallback;
+
+  /**
+   * Invoked on validators when a checkpoint proposal is received, returning the attestations to
+   * gossip, if any. Runs after {@link onAllNodesCheckpointProposal}.
+   */
+  onValidatorCheckpointProposal: P2PCheckpointReceivedCallback;
+
+  /**
+   * Invoked on ALL nodes (not just validators) when a checkpoint proposal is received.
+   * Used to set the proposed checkpoint number on the archiver so the sequencer can build on top
+   * of it. The return value is ignored.
+   */
+  onAllNodesCheckpointProposal: P2PCheckpointReceivedCallback;
+}
+
+/** Events emitted by the P2P service (and forwarded by the P2P client). */
+export type P2PServiceEvents = {
+  /**
+   * Emitted when a duplicate proposal is detected (equivocation), on the first duplicate only
+   * (when count goes from 1 to 2).
+   */
+  duplicateProposal: P2PDuplicateProposalCallback;
+  /**
+   * Emitted when a duplicate attestation is detected (equivocation), i.e. a validator signing
+   * attestations for different proposals at the same slot. Emitted on the first duplicate only
+   * (when count goes from 1 to 2).
+   */
+  duplicateAttestation: P2PDuplicateAttestationCallback;
+  /** Emitted when a valid checkpoint attestation is accepted into the pool. */
+  checkpointAttestation: P2PCheckpointAttestationCallback;
+};
+
+/**
  * The interface for a P2P service implementation.
  */
-export interface P2PService {
+export interface P2PService extends TypedEventEmitter<P2PServiceEvents> {
   /**
    * Starts the service.
    * @returns An empty promise.
@@ -95,27 +139,12 @@ export interface P2PService {
    */
   propagate<T extends Gossipable>(message: T): Promise<void>;
 
-  // Leaky abstraction: fix https://github.com/AztecProtocol/aztec-packages/issues/7963
-  registerBlockReceivedCallback(callback: P2PBlockReceivedCallback): void;
-
-  registerValidatorCheckpointReceivedCallback(callback: P2PCheckpointReceivedCallback): void;
-
-  registerAllNodesCheckpointReceivedCallback(callback: P2PCheckpointReceivedCallback): void;
-
   /**
-   * Registers a callback invoked when a duplicate proposal is detected (equivocation).
-   * The callback is triggered on the first duplicate (when count goes from 1 to 2).
+   * Sets the handlers invoked on block and checkpoint proposals received from peers. Provided handlers
+   * are merged over the current ones, so the validator client can fulfill its handlers without
+   * disturbing the all-nodes checkpoint handler set by the standalone proposal handler (and vice versa).
    */
-  registerDuplicateProposalCallback(callback: P2PDuplicateProposalCallback): void;
-
-  /**
-   * Registers a callback invoked when a duplicate attestation is detected (equivocation).
-   * A validator signing attestations for different proposals at the same slot.
-   * The callback is triggered on the first duplicate (when count goes from 1 to 2).
-   */
-  registerDuplicateAttestationCallback(callback: P2PDuplicateAttestationCallback): void;
-
-  registerCheckpointAttestationCallback(callback: P2PCheckpointAttestationCallback): void;
+  setProposalHandler(handler: Partial<P2PProposalHandler>): void;
 
   getEnr(): ENR | undefined;
 

@@ -409,31 +409,31 @@ export class ValidatorClient extends (EventEmitter as new () => WatcherEmitter) 
       this.hasRegisteredHandlers = true;
       this.log.debug(`Registering validator handlers for p2p client`);
 
-      // Block proposal handler - validates but does NOT attest (validators only attest to checkpoints)
-      const blockHandler = (block: BlockProposal, proposalSender: PeerId): Promise<boolean> =>
-        this.validateBlockProposal(block, proposalSender);
-      this.p2pClient.registerBlockProposalHandler(blockHandler);
-
-      // Checkpoint proposal handler - validates and creates attestations
+      // Replace the non-validator block proposal handler with one that validates (validators only
+      // attest to checkpoints, not blocks), and fulfill the validator checkpoint handler to
+      // validate and create attestations. The all-nodes checkpoint handler set by
+      // ProposalHandler.register() (validation, caching, and pipelining) is left in place.
       // The checkpoint is received as CheckpointProposalCore since the lastBlock is extracted
-      // and processed separately via the block handler above.
-      const checkpointHandler = (
-        checkpoint: CheckpointProposalCore,
-        proposalSender: PeerId,
-      ): Promise<CheckpointAttestation[] | undefined> => this.attestToCheckpointProposal(checkpoint, proposalSender);
-      this.p2pClient.registerValidatorCheckpointProposalHandler(checkpointHandler);
+      // and processed separately via the block handler.
+      this.p2pClient.setProposalHandler({
+        onBlockProposal: (block: BlockProposal, proposalSender: PeerId): Promise<boolean> =>
+          this.validateBlockProposal(block, proposalSender),
+        onValidatorCheckpointProposal: (
+          checkpoint: CheckpointProposalCore,
+          proposalSender: PeerId,
+        ): Promise<CheckpointAttestation[] | undefined> => this.attestToCheckpointProposal(checkpoint, proposalSender),
+      });
 
-      // Duplicate proposal handler - triggers slashing for equivocation
-      this.p2pClient.registerDuplicateProposalCallback((info: DuplicateProposalInfo) => {
+      // Duplicate proposal/attestation events trigger slashing for equivocation
+      this.p2pClient.on('duplicateProposal', (info: DuplicateProposalInfo) => {
         this.handleDuplicateProposal(info);
       });
 
-      // Duplicate attestation handler - triggers slashing for attestation equivocation
-      this.p2pClient.registerDuplicateAttestationCallback((info: DuplicateAttestationInfo) => {
+      this.p2pClient.on('duplicateAttestation', (info: DuplicateAttestationInfo) => {
         this.handleDuplicateAttestation(info);
       });
 
-      this.p2pClient.registerCheckpointAttestationCallback((attestation: CheckpointAttestation) => {
+      this.p2pClient.on('checkpointAttestation', (attestation: CheckpointAttestation) => {
         this.handleCheckpointAttestation(attestation);
       });
 

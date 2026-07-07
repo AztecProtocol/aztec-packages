@@ -39,13 +39,7 @@ import type { ProposalsForSlot } from '../mem_pools/attestation_pool/attestation
 import type { MemPools } from '../mem_pools/interface.js';
 import type { AuthRequest, StatusMessage } from '../services/index.js';
 import { ReqRespSubProtocol, type ReqRespSubProtocolHandler } from '../services/reqresp/interface.js';
-import type {
-  DuplicateAttestationInfo,
-  DuplicateProposalInfo,
-  P2PBlockReceivedCallback,
-  P2PCheckpointReceivedCallback,
-  P2PService,
-} from '../services/service.js';
+import type { P2PProposalHandler, P2PService, P2PServiceEvents } from '../services/service.js';
 import { TxCollection } from '../services/tx_collection/tx_collection.js';
 import type { TxFileStore } from '../services/tx_file_store/tx_file_store.js';
 import { TxProvider } from '../services/tx_provider.js';
@@ -401,30 +395,37 @@ export class P2PClient extends WithTracer implements P2P {
     return this.mempoolClient.hasBlockProposalsForSlot(slot);
   }
 
-  // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
-  // ^ This pattern is not my favorite (md)
-  public registerBlockProposalHandler(handler: P2PBlockReceivedCallback): void {
-    this.p2pService.registerBlockReceivedCallback(handler);
+  public setProposalHandler(handler: Partial<P2PProposalHandler>): void {
+    this.p2pService.setProposalHandler(handler);
   }
 
-  public registerValidatorCheckpointProposalHandler(handler: P2PCheckpointReceivedCallback): void {
-    this.p2pService.registerValidatorCheckpointReceivedCallback(handler);
+  public on<K extends keyof P2PServiceEvents>(event: K, listener: P2PServiceEvents[K]): this {
+    this.p2pService.on(event, listener);
+    return this;
   }
 
-  public registerAllNodesCheckpointProposalHandler(handler: P2PCheckpointReceivedCallback): void {
-    this.p2pService.registerAllNodesCheckpointReceivedCallback(handler);
+  public once<K extends keyof P2PServiceEvents>(event: K, listener: P2PServiceEvents[K]): this {
+    this.p2pService.once(event, listener);
+    return this;
   }
 
-  public registerDuplicateProposalCallback(callback: (info: DuplicateProposalInfo) => void): void {
-    this.p2pService.registerDuplicateProposalCallback(callback);
+  public off<K extends keyof P2PServiceEvents>(event: K, listener: P2PServiceEvents[K]): this {
+    this.p2pService.off(event, listener);
+    return this;
   }
 
-  public registerDuplicateAttestationCallback(callback: (info: DuplicateAttestationInfo) => void): void {
-    this.p2pService.registerDuplicateAttestationCallback(callback);
+  public emit<K extends keyof P2PServiceEvents>(event: K, ...args: Parameters<P2PServiceEvents[K]>): boolean {
+    return this.p2pService.emit(event, ...args);
   }
 
-  public registerCheckpointAttestationCallback(callback: (attestation: CheckpointAttestation) => void): void {
-    this.p2pService.registerCheckpointAttestationCallback(callback);
+  public removeListener<K extends keyof P2PServiceEvents>(event: K, listener: P2PServiceEvents[K]): this {
+    this.p2pService.removeListener(event, listener);
+    return this;
+  }
+
+  public removeAllListeners<K extends keyof P2PServiceEvents>(event: K): this {
+    this.p2pService.removeAllListeners(event);
+    return this;
   }
 
   public async getPendingTxs(limit?: number, after?: TxHash): Promise<Tx[]> {

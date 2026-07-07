@@ -1,4 +1,5 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
+import type { TypedEventEmitter } from '@aztec/foundation/types';
 import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
 import type { Gossipable, PeerErrorSeverity, TopicType } from '@aztec/stdlib/p2p';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
@@ -23,12 +24,9 @@ import type {
 import type { GoodByeReason } from './reqresp/protocols/goodbye.js';
 import { ReqRespStatus } from './reqresp/status.js';
 import {
-  type P2PBlockReceivedCallback,
-  type P2PCheckpointAttestationCallback,
-  type P2PCheckpointReceivedCallback,
-  type P2PDuplicateAttestationCallback,
-  type P2PDuplicateProposalCallback,
+  type P2PProposalHandler,
   type P2PService,
+  type P2PServiceEvents,
   type PeerDiscoveryService,
   PeerDiscoveryState,
 } from './service.js';
@@ -36,9 +34,10 @@ import {
 /**
  * A dummy implementation of the P2P Service.
  */
-export class DummyP2PService implements P2PService {
-  private allNodesCheckpointReceivedCallback?: P2PCheckpointReceivedCallback;
-
+export class DummyP2PService
+  extends (EventEmitter as new () => TypedEventEmitter<P2PServiceEvents>)
+  implements P2PService
+{
   updateConfig(_config: Partial<P2PReqRespConfig>): void {}
 
   /** Returns an empty array for peers. */
@@ -80,30 +79,8 @@ export class DummyP2PService implements P2PService {
    */
   public settledTxs(_: TxHash[]) {}
 
-  /**
-   * Register a callback into the validator client for when a block proposal is received
-   */
-  public registerBlockReceivedCallback(_callback: P2PBlockReceivedCallback) {}
-
-  /**
-   * Register a callback into the validator client for when a checkpoint proposal is received
-   */
-  public registerValidatorCheckpointReceivedCallback(_callback: P2PCheckpointReceivedCallback) {}
-  public registerAllNodesCheckpointReceivedCallback(callback: P2PCheckpointReceivedCallback) {
-    this.allNodesCheckpointReceivedCallback = callback;
-  }
-
-  /**
-   * Register a callback for when a duplicate proposal is detected
-   */
-  public registerDuplicateProposalCallback(_callback: P2PDuplicateProposalCallback): void {}
-
-  /**
-   * Register a callback for when a duplicate attestation is detected
-   */
-  public registerDuplicateAttestationCallback(_callback: P2PDuplicateAttestationCallback): void {}
-
-  public registerCheckpointAttestationCallback(_callback: P2PCheckpointAttestationCallback): void {}
+  /** No-op: the dummy service never receives proposals from peers. */
+  public setProposalHandler(_handler: Partial<P2PProposalHandler>): void {}
 
   /**
    * Sends a request to a peer.

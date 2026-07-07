@@ -220,10 +220,11 @@ export class ProposalHandler {
   }
 
   /**
-   * Registers handlers for block and checkpoint proposals on the p2p client.
+   * Sets the handlers for block and checkpoint proposals on the p2p client.
    * Records the p2p client so validation can inspect retained proposals.
-   * Block proposals are registered for non-validator nodes (validators register their own enhanced handler).
-   * The all-nodes checkpoint proposal handler is always registered for validation, caching, and pipelining.
+   * The block proposal handler serves non-validator nodes (the validator client replaces it with its own
+   * validating handler). The all-nodes checkpoint proposal handler always applies, for validation, caching,
+   * and pipelining.
    * @param archiver - Archiver reference for setting proposed checkpoints (pipelining)
    * @param getOwnValidatorAddresses - Returns current validator addresses for own-proposal detection
    */
@@ -265,8 +266,6 @@ export class ProposalHandler {
         return false;
       }
     };
-
-    p2pClient.registerBlockProposalHandler(blockHandler);
 
     // All-nodes checkpoint proposal handler: validates, caches, and sets proposed checkpoint for pipelining.
     // Runs for all nodes (validators and non-validators). Validators get the cached result in the
@@ -325,7 +324,10 @@ export class ProposalHandler {
       return undefined;
     };
 
-    p2pClient.registerAllNodesCheckpointProposalHandler(checkpointHandler);
+    p2pClient.setProposalHandler({
+      onBlockProposal: blockHandler,
+      onAllNodesCheckpointProposal: checkpointHandler,
+    });
 
     return this;
   }

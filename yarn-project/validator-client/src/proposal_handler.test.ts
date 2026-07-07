@@ -250,8 +250,8 @@ describe('ProposalHandler checkpoint validation', () => {
       const proposal = await makeProposal();
       const p2p = mock<P2P>();
       let checkpointHandler: ((proposal: any, sender: any) => Promise<unknown>) | undefined;
-      p2p.registerAllNodesCheckpointProposalHandler.mockImplementation(handler => {
-        checkpointHandler = handler;
+      p2p.setProposalHandler.mockImplementation(handler => {
+        checkpointHandler = handler.onAllNodesCheckpointProposal ?? checkpointHandler;
       });
 
       const archiver = mock<Pick<Archiver, 'addProposedCheckpoint' | 'getL1Constants'>>();
@@ -315,8 +315,8 @@ describe('ProposalHandler checkpoint validation', () => {
 
       const p2p = mock<P2P>();
       let checkpointHandler: ((proposal: any, sender: any) => Promise<unknown>) | undefined;
-      p2p.registerAllNodesCheckpointProposalHandler.mockImplementation(handler => {
-        checkpointHandler = handler;
+      p2p.setProposalHandler.mockImplementation(handler => {
+        checkpointHandler = handler.onAllNodesCheckpointProposal ?? checkpointHandler;
       });
 
       const archiver = mock<Pick<Archiver, 'addProposedCheckpoint'>>();
