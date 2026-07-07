@@ -127,7 +127,7 @@
     % Leaves at j = zL0, climbing through three levels to a root at zL3.
     % All nodes live at k = khl + 0.5 (centred in the column); the i
     % coordinate of each interior node is the mid-point of the children.
-    % Carry (P_5) keeps its i position across levels.
+    % Carry (P_14) keeps its i position across levels.
     % =================================================================
     % Tree levels live well above the j-axis tip (j = Nj + 1 = 5), so the
     % illustration sits above the cube and its label without intermixing.
@@ -159,19 +159,19 @@
     }
 
     % Cell-to-leaf feeders (short dotted lines lifting each cell up).
-    \foreach \xc/\lbl in {\xA/$P_1$, \xB/$P_2$, \xC/$P_3$, \xD/$P_4$, \xE/$P_5$}
+    \foreach \xc/\lbl in {\xA/$P_0$, \xB/$P_3$, \xC/$P_8$, \xD/$P_{11}$, \xE/$P_{14}$}
         \draw[feedEdge] (\xc, \khl+0.5, \jSlice) -- (\xc, \khl+0.5, \zLeaf);
 
     % Level 0 — leaves with labels (all placed above for consistency).
-    \node[treeLeaf,label={[font=\footnotesize, text=axisColor]above:$P_1$}]
+    \node[treeLeaf,label={[font=\footnotesize, text=axisColor]above:$P_0$}]
         (Ta) at (\xA, \khl+0.5, \zLeaf) {};
-    \node[treeLeaf,label={[font=\footnotesize, text=axisColor]above:$P_2$}]
-        (Tb) at (\xB, \khl+0.5, \zLeaf) {};
     \node[treeLeaf,label={[font=\footnotesize, text=axisColor]above:$P_3$}]
+        (Tb) at (\xB, \khl+0.5, \zLeaf) {};
+    \node[treeLeaf,label={[font=\footnotesize, text=axisColor]above:$P_8$}]
         (Tc) at (\xC, \khl+0.5, \zLeaf) {};
-    \node[treeLeaf,label={[font=\footnotesize, text=axisColor]above:$P_4$}]
+    \node[treeLeaf,label={[font=\footnotesize, text=axisColor]above:$P_{11}$}]
         (Td) at (\xD, \khl+0.5, \zLeaf) {};
-    \node[treeLeaf,label={[font=\footnotesize, text=axisColor]above:$P_5$}]
+    \node[treeLeaf,label={[font=\footnotesize, text=axisColor]above:$P_{14}$}]
         (Te) at (\xE, \khl+0.5, \zLeaf) {};
 
     % Level 1.

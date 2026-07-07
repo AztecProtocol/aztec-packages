@@ -2154,7 +2154,7 @@ $runSanity.addEventListener('click', async () => {
 //   5. Cross-check every per-slot result against its solo counterpart.
 //   6. Report wall ms / GPU ms / speedup.
 //
-// See barretenberg/ts/src/msm_webgpu/BATCH_MSM_DESIGN.md for the algorithm.
+// See barretenberg/ts/src/msm_webgpu/docs/MSM_IMPL.md §3.4 for the algorithm.
 async function runBatchOnce(
   logN: number,
   B: number,

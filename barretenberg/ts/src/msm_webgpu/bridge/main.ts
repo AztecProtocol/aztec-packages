@@ -39,7 +39,7 @@ const MSM_LRU_CAP = 16;
 const MAX_SAME_N_SLOTS = 10;
 
 // Production routing rule for the Tier 2 BatchMsmV2 path. See
-// BATCH_MSM_DESIGN.md "Production deployment recommendation":
+// MSM_IMPL.md §4.4 (design history in git: BATCH_MSM_DESIGN.md):
 //   - B=3 W_L/W_R/W_O at n ≤ 2^17 — solo wins (batch 0.67×-0.82× of solo).
 //     Confirmed empirically on the chonk e2e flow: B=3 batch slows the GPU
 //     MSM phase by ~130 ms vs solo (3.37 s → 3.50 s).
@@ -66,7 +66,7 @@ const batchMaxN = (): number => {
 };
 // Distinct (n, B) BatchMsmV2 instances kept across the prove. Each instance
 // re-uploads the SRS to its own pool (BatchMsmV2 owns the upload — see
-// BATCH_MSM_DESIGN.md "API"), so the cost is one re-upload + Montgomery
+// batch_msm.ts), so the cost is one re-upload + Montgomery
 // convert per cache miss, then amortized across every same-N batch at that
 // (n, B). The chonk flow hits at most ~3 distinct (n, B) keys, so a small
 // LRU is enough. Each cached instance pins ~2 × (n × 32) bytes of GPU
@@ -1185,7 +1185,7 @@ export class WebGpuMsmHost {
       return;
     }
 
-    // Tier 2 BatchMsmV2 path — see BATCH_MSM_DESIGN.md. Uniform same-N
+    // Tier 2 BatchMsmV2 path — see MSM_IMPL.md §3.4. Uniform same-N
     // batches at B ≥ 4 and n ≤ 2^17 win 1.07×-1.17× over the per-MSM
     // submit fallback below. Activated only when the chonk page sets
     // `__bridge_batch_enabled = true` around the run (the third button

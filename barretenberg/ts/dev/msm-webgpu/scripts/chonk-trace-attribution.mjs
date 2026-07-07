@@ -2,7 +2,7 @@
 // Decompose a paired Chonk WebGPU vs WASM e2e Perfetto trace into a rigorous
 // performance attribution, so a single trace pair is never mistaken for the
 // real (median) win. Produced for the WebGPU-MSM optimisation effort; see
-// WEBGPU_MSM_ATTRIBUTION.md at the repo root for the analysis this encodes.
+// src/msm_webgpu/docs/MSM_IMPL.md §5.2 for the analysis this encodes.
 //
 // Usage:
 //   node chonk-trace-attribution.mjs <webgpu-trace.json> <wasm-trace.json> [--median <median.json>]

@@ -4,7 +4,7 @@
 // the scalars are STRUCTURED (the translator range-constraints / masking-shaped
 // columns) rather than uniform-dense.
 //
-// Why this matters (see WEBGPU_MSM_ATTRIBUTION.md §3-5): the per-MSM prepare
+// Why this matters (see src/msm_webgpu/docs/MSM_IMPL.md §7.3): the per-MSM prepare
 // runs a GPU bucket-histogram + readback so the host can size each pair-tree
 // level exactly. That round-trip is the source of the same-N prepare
 // serialization (the dominant host-overhead tax). A *static* plan removes the

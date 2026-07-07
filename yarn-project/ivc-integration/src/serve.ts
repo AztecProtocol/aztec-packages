@@ -511,8 +511,9 @@ const CORRECTNESS_BLOCKLIST: readonly string[] = [
 // commit groups (W_L/W_R/W_O, B=3) and any same-N B≥3 group run one concatenated
 // `prepareAll` instead of N serial per-MSM histogram round-trips. On 16-thread Metal
 // the e2e effect is within run-to-run noise (GPU MSM is at parity with WASM Pippenger
-// — see WEBGPU_MSM_ATTRIBUTION.md), but it is the better-pipelined routing and a clear
-// win on lower-core devices' batch path. Opt out by setting these false before a prove.
+// — see barretenberg/ts/src/msm_webgpu/docs/MSM_IMPL.md §5.2), but it is the better-pipelined
+// routing and a clear win on lower-core devices' batch path. Opt out by setting these false
+// before a prove.
 if ((globalThis as any).__bridge_batch_enabled === undefined) (globalThis as any).__bridge_batch_enabled = true;
 if ((globalThis as any).__bridge_batch_min_b === undefined) (globalThis as any).__bridge_batch_min_b = 3;
 
@@ -2785,7 +2786,7 @@ interface MsmDistRow {
  * cost is just the per-MSM Booth-recode + histogram pass — negligible next
  * to the proving wall time.
  *
- * [1]: barretenberg/ts/src/msm_webgpu/integration/STATUS.md
+ * [1]: barretenberg/ts/src/msm_webgpu/docs/MSM_IMPL.md
  */
 async function runChonkMsmDistribution(flow: string = 'ecdsar1+transfer_1_recursions+sponsored_fpc'): Promise<{
   flow: string;

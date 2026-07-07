@@ -2,8 +2,8 @@
 // batch_msm.ts — Batched same-N MSM driver (Tier 2: virtualised B·W-window
 // single-shader fusion).
 //
-// See BATCH_MSM_DESIGN.md for the full algorithm + the Tier 1 → Tier 2
-// transition story. Brief:
+// See MSM_IMPL.md §3.4 for how this fits the batch routing; the full design
+// doc (BATCH_MSM_DESIGN.md) lives in git history. Brief:
 //
 //   The batch driver wraps ONE `MsmV2` instance configured with
 //   `batchSize = B`. The bucket-histogram and decompose-scalars shaders
@@ -23,7 +23,7 @@
 //
 // Tier 1 (a B-pool slot design with per-pool scratch + per-slot MsmV2)
 // was committed earlier but turned out to be slower than the simpler
-// B-serial-solo baseline at most sizes — see BATCH_MSM_DESIGN.md and the
+// B-serial-solo baseline at most sizes — see MSM_IMPL.md §7 and the
 // commit message for `feat(bb/msm): BatchMsmV2 scaffolding + ...`.
 // This rewrite drops the slot-pool design entirely; the public API
 // (`BatchMsmV2.create / prepareAll / runAll / destroy`) is unchanged so
