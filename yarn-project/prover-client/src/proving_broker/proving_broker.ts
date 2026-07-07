@@ -207,7 +207,8 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
   }
 
   public cancelProvingJob(id: ProvingJobId): Promise<void> {
-    return this.#cancelProvingJob(id);
+    this.#cancelProvingJob(id);
+    return Promise.resolve();
   }
 
   public getProvingJobStatus(id: ProvingJobId): Promise<ProvingJobStatus> {
@@ -305,17 +306,26 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     return jobStatus;
   }
 
-  async #cancelProvingJob(id: ProvingJobId): Promise<void> {
-    if (!this.jobsCache.has(id)) {
+  #cancelProvingJob(id: ProvingJobId): void {
+    const job = this.jobsCache.get(id);
+    if (!job) {
       this.logger.warn(`Can't cancel a job that doesn't exist id=${id}`, { provingJobId: id });
       return;
     }
 
-    // notify listeners of the cancellation
-    if (!this.resultsCache.has(id)) {
-      this.logger.info(`Cancelling job id=${id}`, { provingJobId: id });
-      await this.#reportProvingJobError(id, 'Aborted', false, undefined, true);
+    // Leave jobs that have already legitimately settled (completed or failed) alone: those results
+    // are cached and served to future callers.
+    if (this.resultsCache.has(id)) {
+      return;
     }
+
+    // A cancelled job is not a terminal result, so - unlike a completion or failure - we neither
+    // cache nor persist it. We drop it from the broker entirely so that a retry re-runs it instead
+    // of getting a stale 'Aborted' error, whether the retry happens in the same process or after a
+    // restart (on startup the broker re-enqueues the still-pending database entry).
+    this.logger.info(`Cancelling job id=${id}`, { provingJobId: id });
+    this.instrumentation.incAbortedJobs(job.type);
+    this.cleanUpProvingJobState([id]);
   }
 
   private cleanUpProvingJobState(ids: ProvingJobId[]) {
@@ -401,7 +411,6 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     err: string,
     retry = false,
     filter?: ProvingJobFilter,
-    aborted = false,
   ): Promise<GetProvingJobResponse | undefined> {
     const info = this.inProgress.get(id);
     const item = this.jobsCache.get(id);
@@ -462,32 +471,20 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
     this.promises.get(id)!.resolve(result);
     this.completedJobNotifications.push(id);
 
-    if (aborted) {
-      this.instrumentation.incAbortedJobs(item.type);
-    } else {
-      this.instrumentation.incRejectedJobs(item.type);
-    }
+    this.instrumentation.incRejectedJobs(item.type);
     if (info) {
       const duration = this.msTimeSource() - info.startedAt;
       this.instrumentation.recordJobDuration(item.type, duration);
     }
 
-    // An abort is a cancellation, not a terminal result, so we deliberately do not persist
-    // it. The in-memory rejection above notifies any current waiter, but the database keeps
-    // the job as pending. A deploy restarts both the prover node and the broker, and on
-    // startup the broker re-enqueues every persisted job that has no result - so the aborted
-    // job is retried instead of coming back as a permanent 'Aborted' rejection that would
-    // block its epoch from ever being proven.
-    if (!aborted) {
-      try {
-        await this.database.setProvingJobError(id, err);
-      } catch (saveErr) {
-        this.logger.error(`Failed to save proving job error status id=${id} jobErr=${err}`, saveErr, {
-          provingJobId: id,
-        });
+    try {
+      await this.database.setProvingJobError(id, err);
+    } catch (saveErr) {
+      this.logger.error(`Failed to save proving job error status id=${id} jobErr=${err}`, saveErr, {
+        provingJobId: id,
+      });
 
-        throw saveErr;
-      }
+      throw saveErr;
     }
 
     return this.#getProvingJob(filter);
