@@ -17,7 +17,7 @@ class AvmHardCodedVKAndHash {
     using FF = bb::curve::BN254::ScalarField;
 
     // Precomputed VK hash (hash of all commitments below).
-    static FF vk_hash() { return FF(uint256_t("0x25167d49ed8dc5563599343ed92c9b30c500ad3b4138567130e9eb6a9a278d6b")); }
+    static FF vk_hash() { return FF(uint256_t("0x15098946f4348339fa379e7afbf954ce083e615002dc0f7ac1706d63a400b42d")); }
 
     static constexpr std::array<Commitment, NUM_PRECOMPUTED_ENTITIES> get_all()
     {
@@ -90,8 +90,6 @@ class AvmHardCodedVKAndHash {
                 uint256_t("0x1a3c36c4933c956751e6ca5631077a9418cd0ba4ec29e965508eaf8bc1a7ffd4"),
                 uint256_t(
                     "0x1203bdd1aab5bfc5f3ed6abbefc30ab303770b847d022c1c9c0f8de202a76560")), // precomputed_expected_tag_reg_3_
-            Commitment::infinity(), // precomputed_expected_tag_reg_4_
-            Commitment::infinity(), // precomputed_expected_tag_reg_5_
             Commitment(
                 uint256_t("0x0000000000000000000000000000000000000000000000000000000000000001"),
                 uint256_t(
@@ -227,8 +225,6 @@ class AvmHardCodedVKAndHash {
                 uint256_t(
                     "0x176b78b990ea79d06072fb91fd96b2a8472376baf05016f668d2c3162d0a7984")), // precomputed_rw_reg_2_
             Commitment::infinity(),                                                         // precomputed_rw_reg_3_
-            Commitment::infinity(),                                                         // precomputed_rw_reg_4_
-            Commitment::infinity(),                                                         // precomputed_rw_reg_5_
             Commitment(
                 uint256_t("0x0752e216f6398f2dc16b86cd762f9bd9f961964f9c6a354530c45b04920f06ab"),
                 uint256_t(
@@ -281,8 +277,6 @@ class AvmHardCodedVKAndHash {
                 uint256_t("0x1530ccb47d1198320c163380a82ca8cbaf87b2d40ede856d21c60535e2251262"),
                 uint256_t(
                     "0x29dd7ccea05e6d47a7373ea950a7988caed0d20880612e046af575217a21652a")), // precomputed_sel_mem_op_reg_3_
-            Commitment::infinity(), // precomputed_sel_mem_op_reg_4_
-            Commitment::infinity(), // precomputed_sel_mem_op_reg_5_
             Commitment(
                 uint256_t("0x089cdab4e8e8381977b093cb267a1b7c8c60f4466c39a99af1247e37fe56ebfe"),
                 uint256_t(
@@ -407,8 +401,6 @@ class AvmHardCodedVKAndHash {
                 uint256_t("0x1530ccb47d1198320c163380a82ca8cbaf87b2d40ede856d21c60535e2251262"),
                 uint256_t(
                     "0x29dd7ccea05e6d47a7373ea950a7988caed0d20880612e046af575217a21652a")), // precomputed_sel_tag_check_reg_3_
-            Commitment::infinity(), // precomputed_sel_tag_check_reg_4_
-            Commitment::infinity(), // precomputed_sel_tag_check_reg_5_
             Commitment(
                 uint256_t("0x2b770f46bb0db9c1447e6010b3ca12f1dc2b2a237ff6d2390d9ddf5a056d09ad"),
                 uint256_t(

@@ -296,18 +296,18 @@ pol constant p_decomposition_limb;
 
 // ===== Section 9: Execution instruction spec (EXECUTION_INSTRUCTION_SPEC) =====
 // Each valid row encodes: gas costs (L2 opcode, base DA, dynamic L2, dynamic DA),
-// per-register flags (memory access, read/write, tag check, expected tag) for 6 registers,
+// per-register flags (memory access, read/write, tag check, expected tag) for 4 registers,
 // subtrace/gadget dispatch IDs, dynamic gas ID, and address-operand flags for 5 operands.
 // Used by the execution subtrace to dispatch and constrain instruction behavior.
 //
 // Example trace (idx encodes the ExecutionOpCode; array columns use [a,b,...] notation):
 //
-//   idx              | sel_exec_spec | opcode_gas | base_da | dyn_l2 | dyn_da | mem_op[0..5]       | rw[0..5]           | subtrace_id | sub_op_id | dyn_gas_id | is_addr[0..4]
-//   -----------------+---------------+------------+---------+--------+--------+--------------------+--------------------+-------------+-----------+------------+----------------------
-//   0 (ADD)          |             1 |         12 |       0 |      0 |      0 | [1,1,1,0,0,0]      | [0,0,1,0,0,0]      |           1 |         1 |          0 | [1,1,1,0,0]
-//   1 (SUB)          |             1 |         12 |       0 |      0 |      0 | [1,1,1,0,0,0]      | [0,0,1,0,0,0]      |           1 |         2 |          0 | [1,1,1,0,0]
-//   ...              |           ... |        ... |     ... |    ... |    ... | ...                | ...                |         ... |       ... |        ... | ...
-//   45 (TORADIXBE)   |             1 |         24 |       0 |      3 |      0 | [1,1,1,1,0,0]      | [0,0,0,0,0,0]      |          13 |         0 |          4 | [1,1,1,1,1]
+//   idx              | sel_exec_spec | opcode_gas | base_da | dyn_l2 | dyn_da | mem_op[0..3] | rw[0..3]  | subtrace_id | sub_op_id | dyn_gas_id | is_addr[0..4]
+//   -----------------+---------------+------------+---------+--------+--------+--------------+-----------+-------------+-----------+------------+--------------
+//   0 (ADD)          |             1 |         12 |       0 |      0 |      0 | [1,1,1,0]    | [0,0,1,0] |           1 |         1 |          0 | [1,1,1,0,0]
+//   1 (SUB)          |             1 |         12 |       0 |      0 |      0 | [1,1,1,0]    | [0,0,1,0] |           1 |         2 |          0 | [1,1,1,0,0]
+//   ...              |           ... |        ... |     ... |    ... |    ... | ...          | ...       |         ... |       ... |        ... | ...
+//   45 (TORADIXBE)   |             1 |         24 |       0 |      3 |      0 | [1,1,1,1]    | [0,0,0,0] |          13 |         0 |          4 | [1,1,1,1,1]
 
 pol constant sel_exec_spec;
 // Gas Costs
@@ -316,11 +316,11 @@ pol constant exec_opcode_base_da_gas;
 pol constant exec_opcode_dynamic_l2_gas;
 pol constant exec_opcode_dynamic_da_gas;
 // Registers: Memory Access
-pol constant sel_mem_op_reg[6];
-pol constant rw_reg[6];
+pol constant sel_mem_op_reg[4];
+pol constant rw_reg[4];
 // Registers: Tag Check
-pol constant sel_tag_check_reg[6];
-pol constant expected_tag_reg[6];
+pol constant sel_tag_check_reg[4];
+pol constant expected_tag_reg[4];
 // Decomposed Subtrace/Gadget Selector
 pol constant dyn_gas_id;
 pol constant subtrace_id;

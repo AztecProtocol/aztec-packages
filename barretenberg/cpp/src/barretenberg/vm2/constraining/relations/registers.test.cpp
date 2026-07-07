@@ -50,9 +50,7 @@ TEST(RegistersConstrainingTest, EffectiveRegOpSelectorNoReadNoWrite)
                               registers::SR_SEL_OP_REG_EFFECTIVE_0,
                               registers::SR_SEL_OP_REG_EFFECTIVE_1,
                               registers::SR_SEL_OP_REG_EFFECTIVE_2,
-                              registers::SR_SEL_OP_REG_EFFECTIVE_3,
-                              registers::SR_SEL_OP_REG_EFFECTIVE_4,
-                              registers::SR_SEL_OP_REG_EFFECTIVE_5);
+                              registers::SR_SEL_OP_REG_EFFECTIVE_3);
 
     // Mismatch in effective selector should fail.
     trace.set(0,
@@ -100,9 +98,7 @@ TEST(RegistersConstrainingTest, EffectiveRegOpSelectorOnlyRead)
                               registers::SR_SEL_OP_REG_EFFECTIVE_0,
                               registers::SR_SEL_OP_REG_EFFECTIVE_1,
                               registers::SR_SEL_OP_REG_EFFECTIVE_2,
-                              registers::SR_SEL_OP_REG_EFFECTIVE_3,
-                              registers::SR_SEL_OP_REG_EFFECTIVE_4,
-                              registers::SR_SEL_OP_REG_EFFECTIVE_5);
+                              registers::SR_SEL_OP_REG_EFFECTIVE_3);
 
     // Mismatch in effective selector should fail.
     trace.set(0,
@@ -150,9 +146,7 @@ TEST(RegistersConstrainingTest, EffectiveRegOpSelectorReadThenWrite)
                               registers::SR_SEL_OP_REG_EFFECTIVE_0,
                               registers::SR_SEL_OP_REG_EFFECTIVE_1,
                               registers::SR_SEL_OP_REG_EFFECTIVE_2,
-                              registers::SR_SEL_OP_REG_EFFECTIVE_3,
-                              registers::SR_SEL_OP_REG_EFFECTIVE_4,
-                              registers::SR_SEL_OP_REG_EFFECTIVE_5);
+                              registers::SR_SEL_OP_REG_EFFECTIVE_3);
 
     // Mismatch in effective selector should fail.
     trace.set(0,

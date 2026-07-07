@@ -91,32 +91,46 @@ constexpr std::array<C, TOTAL_INDIRECT_BITS / 2> OPERAND_IS_INDIRECT_WIRE_COLUMN
 };
 
 constexpr std::array<C, AVM_MAX_REGISTERS> REGISTER_COLUMNS = {
-    C::execution_register_0_, C::execution_register_1_, C::execution_register_2_,
-    C::execution_register_3_, C::execution_register_4_, C::execution_register_5_,
+    C::execution_register_0_,
+    C::execution_register_1_,
+    C::execution_register_2_,
+    C::execution_register_3_,
 };
 constexpr std::array<C, AVM_MAX_REGISTERS> REGISTER_MEM_TAG_COLUMNS = {
-    C::execution_mem_tag_reg_0_, C::execution_mem_tag_reg_1_, C::execution_mem_tag_reg_2_,
-    C::execution_mem_tag_reg_3_, C::execution_mem_tag_reg_4_, C::execution_mem_tag_reg_5_,
+    C::execution_mem_tag_reg_0_,
+    C::execution_mem_tag_reg_1_,
+    C::execution_mem_tag_reg_2_,
+    C::execution_mem_tag_reg_3_,
 };
 constexpr std::array<C, AVM_MAX_REGISTERS> REGISTER_IS_WRITE_COLUMNS = {
-    C::execution_rw_reg_0_, C::execution_rw_reg_1_, C::execution_rw_reg_2_,
-    C::execution_rw_reg_3_, C::execution_rw_reg_4_, C::execution_rw_reg_5_,
+    C::execution_rw_reg_0_,
+    C::execution_rw_reg_1_,
+    C::execution_rw_reg_2_,
+    C::execution_rw_reg_3_,
 };
 constexpr std::array<C, AVM_MAX_REGISTERS> REGISTER_MEM_OP_COLUMNS = {
-    C::execution_sel_mem_op_reg_0_, C::execution_sel_mem_op_reg_1_, C::execution_sel_mem_op_reg_2_,
-    C::execution_sel_mem_op_reg_3_, C::execution_sel_mem_op_reg_4_, C::execution_sel_mem_op_reg_5_,
+    C::execution_sel_mem_op_reg_0_,
+    C::execution_sel_mem_op_reg_1_,
+    C::execution_sel_mem_op_reg_2_,
+    C::execution_sel_mem_op_reg_3_,
 };
 constexpr std::array<C, AVM_MAX_REGISTERS> REGISTER_EXPECTED_TAG_COLUMNS = {
-    C::execution_expected_tag_reg_0_, C::execution_expected_tag_reg_1_, C::execution_expected_tag_reg_2_,
-    C::execution_expected_tag_reg_3_, C::execution_expected_tag_reg_4_, C::execution_expected_tag_reg_5_,
+    C::execution_expected_tag_reg_0_,
+    C::execution_expected_tag_reg_1_,
+    C::execution_expected_tag_reg_2_,
+    C::execution_expected_tag_reg_3_,
 };
 constexpr std::array<C, AVM_MAX_REGISTERS> REGISTER_TAG_CHECK_COLUMNS = {
-    C::execution_sel_tag_check_reg_0_, C::execution_sel_tag_check_reg_1_, C::execution_sel_tag_check_reg_2_,
-    C::execution_sel_tag_check_reg_3_, C::execution_sel_tag_check_reg_4_, C::execution_sel_tag_check_reg_5_,
+    C::execution_sel_tag_check_reg_0_,
+    C::execution_sel_tag_check_reg_1_,
+    C::execution_sel_tag_check_reg_2_,
+    C::execution_sel_tag_check_reg_3_,
 };
 constexpr std::array<C, AVM_MAX_REGISTERS> REGISTER_OP_REG_EFFECTIVE_COLUMNS = {
-    C::execution_sel_op_reg_effective_0_, C::execution_sel_op_reg_effective_1_, C::execution_sel_op_reg_effective_2_,
-    C::execution_sel_op_reg_effective_3_, C::execution_sel_op_reg_effective_4_, C::execution_sel_op_reg_effective_5_,
+    C::execution_sel_op_reg_effective_0_,
+    C::execution_sel_op_reg_effective_1_,
+    C::execution_sel_op_reg_effective_2_,
+    C::execution_sel_op_reg_effective_3_,
 };
 
 /**
