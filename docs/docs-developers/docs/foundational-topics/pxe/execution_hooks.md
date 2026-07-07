@@ -87,7 +87,7 @@ When testing in Noir, leaving the strategy unset makes `TestEnvironment` fall ba
 ```rust
 let env = TestEnvironment::new_opts(
     TestEnvironmentOptions::new().with_tag_secret_strategy(
-        OnchainDeliveryMode::onchain_unconstrained(),
+        MessageDelivery::onchain_unconstrained(),
         TaggingSecretStrategy::non_interactive_handshake(),
     ),
 );
