@@ -52,8 +52,8 @@ pub global GET_APP_SILOED_SECRETS_SELECTOR: FunctionSelector =
     comptime { FunctionSelector::from_signature("get_app_siloed_secrets((Field),(Field))") };
 pub global NON_INTERACTIVE_HANDSHAKE_SELECTOR: FunctionSelector =
     comptime { FunctionSelector::from_signature("non_interactive_handshake((Field),(Field))") };
-pub global GET_HANDSHAKES_SELECTOR: FunctionSelector =
-    comptime { FunctionSelector::from_signature("get_handshakes((Field),u32)") };
+pub global GET_NON_INTERACTIVE_HANDSHAKES_SELECTOR: FunctionSelector =
+    comptime { FunctionSelector::from_signature("get_non_interactive_handshakes((Field),u32)") };
 
 /// Reads the existing app-siloed handshake secrets for `(sender, recipient)` from the registry.
 ///
@@ -135,12 +135,12 @@ pub(crate) unconstrained fn get_handshake_secrets(
     provided_secrets
 }
 
-/// Calls the HandshakeRegistry's `get_handshakes` utility function and deserializes the response.
+/// Calls the HandshakeRegistry's `get_non_interactive_handshakes` utility function and deserializes the response.
 unconstrained fn fetch_handshake_page(recipient: AztecAddress, page_offset: u32) -> HandshakePage {
     let args: [Field; 2] = [recipient.to_field(), page_offset as Field];
     let response = call_utility_function(
         STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
-        GET_HANDSHAKES_SELECTOR,
+        GET_NON_INTERACTIVE_HANDSHAKES_SELECTOR,
         args,
     );
     HandshakePage::deserialize(response)

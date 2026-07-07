@@ -37,6 +37,13 @@ pub(crate) mod ephemeral_oracles;
 pub(crate) mod transient_oracles;
 #[generate_oracle_tests]
 pub mod contract_sync;
+#[generate_oracle_tests_excluding(
+    @[
+        quote { record_fact_oracle }, // TODO: implement once we support more complex types
+        quote { get_fact_collection_oracle }, // TODO: implement once we support more complex types
+        quote { get_fact_collections_by_type_oracle }, // TODO: implement once we support more complex types
+    ],
+)]
 pub mod fact_store;
 #[generate_oracle_tests]
 pub mod public_call;
@@ -54,6 +61,11 @@ pub mod tx_phase;
 pub mod execution;
 #[generate_oracle_tests]
 pub mod execution_cache;
+#[generate_oracle_tests_excluding(
+    @[
+        quote { get_contract_instance_oracle }, // TODO: implement once we support more complex types
+    ],
+)]
 pub mod get_contract_instance;
 pub mod get_l1_to_l2_membership_witness;
 pub mod get_nullifier_membership_witness;
@@ -66,7 +78,6 @@ pub mod message_processing;
 #[generate_oracle_tests_excluding(
     @[
         quote { get_notes_oracle }, // TODO: implement once we support more complex types
-        quote { get_next_tagging_index_oracle }, // TODO: implement once we support more complex types
     ],
 )]
 pub mod notes;

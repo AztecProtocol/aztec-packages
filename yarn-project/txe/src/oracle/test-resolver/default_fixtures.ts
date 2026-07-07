@@ -10,6 +10,7 @@ import {
   BOOL,
   BYTE,
   BoundedVec,
+  DELIVERY_MODE,
   ETH_ADDRESS,
   FIELD,
   FUNCTION_SELECTOR,
@@ -21,7 +22,9 @@ import {
 } from '@aztec/pxe/simulator';
 import { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { BlockHash } from '@aztec/stdlib/block';
+import { AppTaggingSecretKind } from '@aztec/stdlib/logs';
 
+import { CONTRACT_INSTANCE_MEMBER } from '../txe_oracle_registry.js';
 import type { OracleTestScenario } from './resolver.js';
 
 /**
@@ -60,6 +63,11 @@ const TEST_VALUE_IMPLS: TestValueImpl[] = [
   scalar(FUNCTION_SELECTOR, seed => FunctionSelector.fromField(new Fr(seed))),
   scalar(NOTE_SELECTOR, seed => NoteSelector.fromField(new Fr(seed))),
   scalar(BLOCK_HASH, seed => new BlockHash(new Fr(seed))),
+  // Only two delivery modes are valid for tagging, so the seed alternates between them, matching the Noir impl.
+  scalar(DELIVERY_MODE, seed =>
+    seed % 2 === 0 ? AppTaggingSecretKind.UNCONSTRAINED : AppTaggingSecretKind.CONSTRAINED,
+  ),
+  scalar(CONTRACT_INSTANCE_MEMBER, seed => [{ exists: seed % 2 !== 0, member: new Fr(seed + 1) }]),
   composite(isOption, (type, seed) => [
     named(Option.some(firstValue(type.inner, seed)), 'some'),
     named(Option.none(firstValue(type.inner, seed)), 'none'),

@@ -45,6 +45,7 @@ pub mod transient;
 pub mod event;
 pub mod facts;
 pub mod messages;
+pub(crate) mod partial_notes;
 pub use protocol_types as protocol;
 pub(crate) mod logging;
 pub mod utils;
