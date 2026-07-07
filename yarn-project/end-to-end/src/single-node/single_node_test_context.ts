@@ -60,7 +60,14 @@ import type { TestWallet } from '../test-wallet/test_wallet.js';
 export const WORLD_STATE_CHECKPOINT_HISTORY = 2;
 export const WORLD_STATE_BLOCK_CHECK_INTERVAL = 50;
 export const ARCHIVER_POLL_INTERVAL = 50;
-export const DEFAULT_L1_BLOCK_TIME = process.env.CI ? 12 : 8;
+/**
+ * Default L1 (ethereum) slot duration in seconds for single-node e2e tests. Kept at 8s, the fast-profile
+ * boundary (`FAST_PROFILE_ETHEREUM_SLOT_DURATION`): at 8s the proposer still uses the production operational
+ * budgets (fast-profile clamping only kicks in strictly below 8s), so the default single-node L2 slot is
+ * `2 x 8 = 16s`. CI previously ran at 12s (24s L2 slots); unifying it with the local value removes a
+ * CI-vs-local cadence asymmetry and cuts every default-cadence single-node suite by a third.
+ */
+export const DEFAULT_L1_BLOCK_TIME = 8;
 
 export type SingleNodeTestOpts = Partial<SetupOptions> & {
   numberOfAccounts?: number;
