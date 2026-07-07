@@ -3,11 +3,9 @@ use itertools::Itertools;
 
 use std::collections::{HashMap, HashSet};
 
-use powdr_ast::{
-    analyzed::{
-        AlgebraicBinaryOperation, AlgebraicBinaryOperator, AlgebraicExpression,
-        AlgebraicUnaryOperation, AlgebraicUnaryOperator, Analyzed,
-    },
+use powdr_ast::analyzed::{
+    AlgebraicBinaryOperation, AlgebraicBinaryOperator, AlgebraicExpression,
+    AlgebraicUnaryOperation, AlgebraicUnaryOperator, Analyzed, PolyID, PolynomialType,
 };
 use powdr_number::FieldElement;
 
@@ -117,12 +115,37 @@ pub fn get_alias_expressions_in_order<F: FieldElement>(
         .collect_vec()
 }
 
-pub fn get_expression_degree<F: FieldElement>(expr: &AlgebraicExpression<F>) -> u64 {
+/// Compute the polynomial degree of an expression with memoization across
+/// intermediate `pol` references.
+///
+/// The naive approach is to call `Analyzed::identities_with_inlined_intermediate_polynomials()`
+/// and walk the resulting tree, but that materializes a deep clone of every
+/// intermediate's definition at every reference site. For PIL files where
+/// intermediates form a deep recursive chain (e.g. `X_n = α·X_{n-1} + …`),
+/// the inlined tree grows as O(branching^depth). This walker instead
+/// recurses through intermediate references on the original expression and
+/// caches the result per `PolyID`, so the work is O(unique intermediates).
+pub fn get_expression_degree_with_intermediates<F: FieldElement>(
+    expr: &AlgebraicExpression<F>,
+    intermediates: &HashMap<PolyID, &AlgebraicExpression<F>>,
+    cache: &mut HashMap<PolyID, u64>,
+) -> u64 {
     match expr {
-        AlgebraicExpression::Reference(_poly) => 1,
+        AlgebraicExpression::Reference(poly) => match poly.poly_id.ptype {
+            PolynomialType::Intermediate => {
+                if let Some(&d) = cache.get(&poly.poly_id) {
+                    return d;
+                }
+                let inner = intermediates[&poly.poly_id];
+                let d = get_expression_degree_with_intermediates(inner, intermediates, cache);
+                cache.insert(poly.poly_id, d);
+                d
+            }
+            _ => 1,
+        },
         AlgebraicExpression::BinaryOperation(AlgebraicBinaryOperation { left, op, right }) => {
-            let lhs_degree = get_expression_degree(left);
-            let rhs_degree = get_expression_degree(right);
+            let lhs_degree = get_expression_degree_with_intermediates(left, intermediates, cache);
+            let rhs_degree = get_expression_degree_with_intermediates(right, intermediates, cache);
             match op {
                 AlgebraicBinaryOperator::Add => std::cmp::max(lhs_degree, rhs_degree),
                 AlgebraicBinaryOperator::Sub => std::cmp::max(lhs_degree, rhs_degree),
@@ -130,10 +153,147 @@ pub fn get_expression_degree<F: FieldElement>(expr: &AlgebraicExpression<F>) -> 
                 _ => unimplemented!("{:?}", op),
             }
         }
-        AlgebraicExpression::UnaryOperation(AlgebraicUnaryOperation { op, expr: operand }) => match op {
-            AlgebraicUnaryOperator::Minus => get_expression_degree(operand),
-        },
+        AlgebraicExpression::UnaryOperation(AlgebraicUnaryOperation { op, expr: operand }) => {
+            match op {
+                AlgebraicUnaryOperator::Minus => {
+                    get_expression_degree_with_intermediates(operand, intermediates, cache)
+                }
+            }
+        }
         _ => 0,
+    }
+}
+
+/// Build the lookup `intermediate PolyID -> defining expression` used by the
+/// memoized walkers in this module. Mirrors what
+/// `Analyzed::identities_with_inlined_intermediate_polynomials` builds
+/// internally, but without invoking the deep-clone substitution pass.
+pub fn build_intermediates_map<F: FieldElement>(
+    analyzed: &Analyzed<F>,
+) -> HashMap<PolyID, &AlgebraicExpression<F>> {
+    analyzed
+        .intermediate_polys_in_source_order()
+        .iter()
+        .flat_map(|(symbol, def)| {
+            symbol
+                .array_elements()
+                .zip(def.iter())
+                .map(|((_, poly_id), def)| (poly_id, def))
+        })
+        .collect()
+}
+
+/// Walk an expression and collect the `PolyID`s of every non-intermediate
+/// reference it (transitively) touches. Intermediate references are followed
+/// via `intermediates`, with the set-valued result memoised per `PolyID`.
+///
+/// Use this in place of walking `identities_with_inlined_intermediate_polynomials()`
+/// when you only need to know *which* columns/constants each identity touches.
+pub fn collect_poly_ids_through_intermediates<F: FieldElement>(
+    expr: &AlgebraicExpression<F>,
+    intermediates: &HashMap<PolyID, &AlgebraicExpression<F>>,
+    cache: &mut HashMap<PolyID, HashSet<PolyID>>,
+    out: &mut HashSet<PolyID>,
+) {
+    match expr {
+        AlgebraicExpression::Reference(r) => match r.poly_id.ptype {
+            PolynomialType::Intermediate => {
+                if let Some(set) = cache.get(&r.poly_id) {
+                    out.extend(set);
+                    return;
+                }
+                let mut inner = HashSet::new();
+                collect_poly_ids_through_intermediates(
+                    intermediates[&r.poly_id],
+                    intermediates,
+                    cache,
+                    &mut inner,
+                );
+                out.extend(&inner);
+                cache.insert(r.poly_id, inner);
+            }
+            _ => {
+                out.insert(r.poly_id);
+            }
+        },
+        AlgebraicExpression::BinaryOperation(op) => {
+            collect_poly_ids_through_intermediates(&op.left, intermediates, cache, out);
+            collect_poly_ids_through_intermediates(&op.right, intermediates, cache, out);
+        }
+        AlgebraicExpression::UnaryOperation(op) => {
+            collect_poly_ids_through_intermediates(&op.expr, intermediates, cache, out);
+        }
+        _ => {}
+    }
+}
+
+/// Walk an expression and collect the names of every column reference that
+/// is shifted (`'`), following intermediate references transitively. Mirrors
+/// the semantics of powdr's `inlined_expression_from_intermediate_poly_id`:
+/// a `next` reference to an intermediate forwards the shift onto every
+/// committed-column reference inside it.
+///
+/// Cache is keyed on `(intermediate PolyID, entered_via_next)` because the
+/// same intermediate contributes a different name set depending on whether
+/// the caller reached it through a shifted reference.
+pub fn collect_shifted_polys_through_intermediates<F: FieldElement>(
+    expr: &AlgebraicExpression<F>,
+    via_next: bool,
+    intermediates: &HashMap<PolyID, &AlgebraicExpression<F>>,
+    cache: &mut HashMap<(PolyID, bool), HashSet<String>>,
+    out: &mut HashSet<String>,
+) {
+    match expr {
+        AlgebraicExpression::Reference(r) => match r.poly_id.ptype {
+            PolynomialType::Intermediate => {
+                let next = via_next || r.next;
+                if let Some(set) = cache.get(&(r.poly_id, next)) {
+                    out.extend(set.iter().cloned());
+                    return;
+                }
+                let mut inner = HashSet::new();
+                collect_shifted_polys_through_intermediates(
+                    intermediates[&r.poly_id],
+                    next,
+                    intermediates,
+                    cache,
+                    &mut inner,
+                );
+                out.extend(inner.iter().cloned());
+                cache.insert((r.poly_id, next), inner);
+            }
+            _ => {
+                if via_next || r.next {
+                    out.insert(r.name.clone());
+                }
+            }
+        },
+        AlgebraicExpression::BinaryOperation(op) => {
+            collect_shifted_polys_through_intermediates(
+                &op.left,
+                via_next,
+                intermediates,
+                cache,
+                out,
+            );
+            collect_shifted_polys_through_intermediates(
+                &op.right,
+                via_next,
+                intermediates,
+                cache,
+                out,
+            );
+        }
+        AlgebraicExpression::UnaryOperation(op) => {
+            collect_shifted_polys_through_intermediates(
+                &op.expr,
+                via_next,
+                intermediates,
+                cache,
+                out,
+            );
+        }
+        _ => {}
     }
 }
 

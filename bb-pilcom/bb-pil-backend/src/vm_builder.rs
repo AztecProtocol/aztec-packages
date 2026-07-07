@@ -1,16 +1,20 @@
+use crate::expression_evaluation::{
+    build_intermediates_map, collect_shifted_polys_through_intermediates,
+};
 use crate::file_writer::BBFiles;
 use crate::flavor_builder::FlavorBuilder;
 use crate::lookup_builder::{
     get_counts_from_lookups, get_inverses_from_lookups, Lookup, LookupBuilder,
 };
 use crate::permutation_builder::{get_inverses_from_permutations, Permutation, PermutationBuilder};
-use crate::relation_builder::{get_shifted_polys, RelationBuilder};
+use crate::relation_builder::RelationBuilder;
 use crate::utils::{flatten, sanitize_name, snake_case, sort_cols};
-use powdr_ast::analyzed::{Analyzed, Symbol};
+use powdr_ast::analyzed::{AlgebraicExpression, Analyzed, PolyID, Symbol};
 
 use dialoguer::Confirm;
 use itertools::Itertools;
 use powdr_number::FieldElement;
+use std::collections::{HashMap, HashSet};
 
 /// All of the combinations of columns that are used in a bberg flavor file
 struct ColumnGroups {
@@ -163,26 +167,37 @@ fn get_all_col_names<F: FieldElement>(
     // both selectors and tuple expressions on each side. Looking only at
     // left.selector misses shifts that appear exclusively in lookup/permutation
     // tuples (e.g. `{ ..., temp_x', temp_y', ... } in ...`).
+    //
+    // We follow intermediate `pol` references with memoisation rather than
+    // calling `identities_with_inlined_intermediate_polynomials()`: the latter
+    // would deep-clone every intermediate's expansion at every reference site,
+    // which blows up exponentially for deeply-recursive `pol` chains.
+    let intermediates: HashMap<PolyID, &AlgebraicExpression<F>> = build_intermediates_map(analyzed);
+    let mut shift_cache: HashMap<(PolyID, bool), HashSet<String>> = HashMap::new();
+    let mut shifted_raw_names: HashSet<String> = HashSet::new();
+    for identity in &analyzed.identities {
+        for expr in identity
+            .left
+            .selector
+            .iter()
+            .chain(identity.left.expressions.iter())
+            .chain(identity.right.selector.iter())
+            .chain(identity.right.expressions.iter())
+        {
+            collect_shifted_polys_through_intermediates(
+                expr,
+                false,
+                &intermediates,
+                &mut shift_cache,
+                &mut shifted_raw_names,
+            );
+        }
+    }
     let to_be_shifted = sort_cols(
-        &get_shifted_polys(
-            analyzed
-                .identities_with_inlined_intermediate_polynomials()
-                .iter()
-                .flat_map(|i| {
-                    i.left
-                        .selector
-                        .iter()
-                        .chain(i.left.expressions.iter())
-                        .chain(i.right.selector.iter())
-                        .chain(i.right.expressions.iter())
-                        .cloned()
-                        .collect_vec()
-                })
-                .collect_vec(),
-        )
-        .iter()
-        .map(|name| sanitize_name(name.as_str()))
-        .collect_vec(),
+        &shifted_raw_names
+            .into_iter()
+            .map(|name| sanitize_name(name.as_str()))
+            .collect_vec(),
     );
     let committed_without_to_be_shifted = sort_cols(
         &analyzed

@@ -173,6 +173,15 @@ renew_project_pin() {
     (
         set -euo pipefail
         cd "$project_dir"
+        # Regenerate the workspace manifest before compiling. Nargo.toml is a gitignored,
+        # generated file (from Nargo.template.toml via generate_variants); a stale copy left
+        # over across a rebase/branch switch can list workspace members that no longer exist,
+        # and nargo loads every member when compiling ANY package, so a single missing member
+        # aborts the compile. The full ./bootstrap.sh does this step; the `compile` subcommand
+        # we invoke below does not.
+        if [[ -f package.json ]] && grep -q '"generate_variants"' package.json; then
+            yarn generate_variants
+        fi
         rm -rf target && mkdir -p target target/keys
         tar xzf pinned-build.tar.gz -C target
         local c
