@@ -565,4 +565,8 @@ class TestL1TxUtils {
   public restart() {
     this.interrupted = false;
   }
+
+  public waitMonitoringStopped(_timeoutSeconds = 10) {
+    return Promise.resolve();
+  }
 }

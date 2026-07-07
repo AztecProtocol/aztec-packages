@@ -1,4 +1,4 @@
-import { type L1ContractsConfig, l1ContractsConfigMappings } from '@aztec/ethereum/config';
+import { type L1ContractsConfig, l1ContractsConfigMappings, validateSlotDurations } from '@aztec/ethereum/config';
 import { type EnvVar, pickConfigMappings } from '@aztec/foundation/config';
 
 import type { SequencerConfig } from '../interfaces/configs.js';
@@ -156,20 +156,9 @@ export function validateNetworkConsensusConfig(config: NetworkConsensusConfig): 
     return errors;
   }
 
-  if (config.ethereumSlotDuration <= 0) {
-    errors.push(`ethereumSlotDuration must be positive (got ${config.ethereumSlotDuration})`);
-  }
+  errors.push(...validateSlotDurations(config));
   if (config.blockDurationMs <= 0) {
     errors.push(`blockDurationMs must be positive (got ${config.blockDurationMs})`);
-  }
-  if (config.aztecSlotDuration <= 0) {
-    errors.push(`aztecSlotDuration must be positive (got ${config.aztecSlotDuration})`);
-  }
-  if (config.ethereumSlotDuration > 0 && config.aztecSlotDuration % config.ethereumSlotDuration !== 0) {
-    errors.push(
-      `aztecSlotDuration (${config.aztecSlotDuration}s) must be a multiple of ethereumSlotDuration ` +
-        `(${config.ethereumSlotDuration}s)`,
-    );
   }
   if (config.blockDurationMs / 1000 > config.aztecSlotDuration) {
     errors.push(
