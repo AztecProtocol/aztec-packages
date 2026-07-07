@@ -60,6 +60,34 @@ describe('syncTaggedPrivateLogs', () => {
     });
   }
 
+  function expectedConstrainedProbeRanges(logCount: number, firstLogIndex = 1): { start: number; end: number }[] {
+    const ranges: { start: number; end: number }[] = [];
+    const lastLogIndex = firstLogIndex + logCount - 1;
+    let start = firstLogIndex;
+    let highestFinalizedIndex = firstLogIndex - 1;
+    let boundEnd = highestFinalizedIndex + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1;
+    let probeLen = INITIAL_CONSTRAINED_PROBE_LEN;
+
+    for (;;) {
+      const end = Math.min(boundEnd, start + probeLen);
+      ranges.push({ start, end });
+
+      const highestHitInRange = Math.min(end - 1, lastLogIndex);
+      const probeFullyConsumed = highestHitInRange === end - 1;
+      if (highestHitInRange >= start) {
+        highestFinalizedIndex = highestHitInRange;
+        boundEnd = Math.max(boundEnd, highestFinalizedIndex + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1);
+      }
+
+      if (!probeFullyConsumed || end >= boundEnd) {
+        return ranges;
+      }
+
+      start = end;
+      probeLen = Math.min(probeLen * 2, UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN);
+    }
+  }
+
   beforeEach(async () => {
     aztecNode.getPrivateLogsByTags.mockReset();
     taggingStore = new RecipientTaggingStore(await openTmpStore('test'));
@@ -462,19 +490,15 @@ describe('syncTaggedPrivateLogs', () => {
       );
     });
 
-    // Pins the effective per-round query cap AND that deep catch-up is linear past the cap, not logarithmic: the probe
-    // ramps 1, 2, 4, 8, 16 (5 doubling rounds covering indexes 1..31), then saturates at WINDOW_LEN (=20) per round
-    // rather than growing without bound, because a probe can never reach more than WINDOW_LEN past the finalized frontier
-    // (the `boundEnd` cap, which the stored-intent `Math.min` mirrors). With 100 new logs the per-round probe sizes are
-    // [1, 2, 4, 8, 16, 20, 20, 20, 20]: 9 rounds (5 doubling + 4 capped windows), the linear regime the ~log2(K) claim is
-    // qualified against, where ~log2(100) would be roughly 7.
+    // Pins the effective per-round query cap and that deep catch-up is linear past the cap, not logarithmic: the probe
+    // doubles until it saturates at WINDOW_LEN per round rather than growing without bound.
     it('doubling caps the probe at WINDOW_LEN and grows linearly past the cap on deep catch-up', async () => {
       const [secret] = await makeSecrets(1, AppTaggingSecretKind.CONSTRAINED);
       const finalizedBlockNumber = BlockNumber(10);
       const agedTimestamp = CURRENT_TIMESTAMP - BigInt(MAX_TX_LIFETIME) - 1000n;
 
-      // Recipient already synced index 0; a deep run of 100 new finalized logs sits at indexes 1..100.
-      const newLogs = 100;
+      // Recipient already synced index 0; a deep run of finalized logs sits past multiple capped probe windows.
+      const newLogs = UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN * 3;
       await taggingStore.updateHighestFinalizedIndex(secret, 0, JOB_ID);
       const hitTags = await Promise.all(
         Array.from({ length: newLogs }, (_, i) => computeSiloedTagForIndex(secret, i + 1)),
@@ -491,10 +515,10 @@ describe('syncTaggedPrivateLogs', () => {
       );
 
       expect(logs).toHaveLength(newLogs);
-      // Geometric ramp, then saturation at WINDOW_LEN: no round ever queries more than 20 tags.
       const callSizes = aztecNode.getPrivateLogsByTags.mock.calls.map(([q]) => extractTags(q).length);
-      expect(callSizes).toEqual([1, 2, 4, 8, 16, 20, 20, 20, 20]);
+      expect(callSizes).toEqual(expectedConstrainedProbeRanges(newLogs).map(({ start, end }) => end - start));
       expect(Math.max(...callSizes)).toBe(UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN);
+      expect(callSizes.filter(size => size === UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN)).toHaveLength(2);
     });
 
     it('batches tags from multiple constrained secrets into a single RPC call', async () => {
@@ -546,8 +570,8 @@ describe('syncTaggedPrivateLogs', () => {
       const finalizedBlockNumber = BlockNumber(10);
       const logBlockTimestamp = CURRENT_TIMESTAMP - BigInt(MAX_TX_LIFETIME) - 1000n;
 
-      // A cold-start run two indexes past one window. The cold-start bound caps the probe at index 20, so reaching the
-      // tail is only possible because boundEnd re-anchors forward to each finalized index found.
+      // A cold-start run two indexes past one window. Reaching the tail is only possible because boundEnd re-anchors
+      // forward to each finalized index found.
       const totalLogs = UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 2;
       const logTags = await Promise.all(
         Array.from({ length: totalLogs }, (_, i) => computeSiloedTagForIndex(secret, i)),
@@ -556,16 +580,20 @@ describe('syncTaggedPrivateLogs', () => {
 
       await syncTaggedPrivateLogs([secret], aztecNode, taggingStore, ANCHOR_BLOCK_HEADER, finalizedBlockNumber, JOB_ID);
 
-      // The probe doubles each round: [1, 2, 4, 8, 16]. The final round queries indexes [15..30], reaching past the
-      // cold-start bound (20) - only possible because boundEnd re-anchored forward to each finalized index found.
+      // The final round reaches past the initial cold-start bound only because boundEnd re-anchored forward.
       const calls = aztecNode.getPrivateLogsByTags.mock.calls;
       const callSizes = calls.map(([q]) => extractTags(q).length);
-      expect(callSizes).toEqual([1, 2, 4, 8, 16]);
+      const expectedRanges = expectedConstrainedProbeRanges(totalLogs, 0);
+      expect(callSizes).toEqual(expectedRanges.map(({ start, end }) => end - start));
       const lastCallTags = extractTags(calls[calls.length - 1][0]);
+      const lastRange = expectedRanges[expectedRanges.length - 1];
       const expectedLastRange = await Promise.all(
-        Array.from({ length: 16 }, (_, i) => computeSiloedTagForIndex(secret, 15 + i)),
+        Array.from({ length: lastRange.end - lastRange.start }, (_, i) =>
+          computeSiloedTagForIndex(secret, lastRange.start + i),
+        ),
       );
       expect(lastCallTags).toEqual(expectedLastRange);
+      expect(lastRange.end - 1).toBeGreaterThan(UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN);
     });
 
     it('resets the probe on the sync after a catch-up', async () => {
@@ -573,9 +601,8 @@ describe('syncTaggedPrivateLogs', () => {
       const finalizedBlockNumber = BlockNumber(10);
       const logBlockTimestamp = CURRENT_TIMESTAMP - BigInt(MAX_TX_LIFETIME) - 1000n;
 
-      // A cold-start run long enough that the first sync grows the in-memory probe through [1, 2, 4, 8, 16]. The probe
-      // length lives only on the in-memory PendingSecret (never persisted), so the next sync must start fresh at the
-      // initial probe rather than inheriting the grown length.
+      // A cold-start run long enough that the first sync grows the in-memory probe. The probe length lives only on the
+      // in-memory PendingSecret, so the next sync must start fresh at the initial probe rather than inheriting it.
       const totalLogs = UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 2;
       const logTags = await Promise.all(
         Array.from({ length: totalLogs }, (_, i) => computeSiloedTagForIndex(secret, i)),
@@ -601,21 +628,16 @@ describe('syncTaggedPrivateLogs', () => {
     });
 
     // Pins the round-trip growth law the ~log2(K) claim is qualified against: catch-up is logarithmic only while the
-    // probe is still doubling (1, 2, 4, 8, 16 cover indexes 1..31 in 5 rounds), then linear at roughly one extra round
-    // per WINDOW_LEN window once the probe saturates the cap. Every round here queries fewer than MAX_RPC_LEN tags and
-    // at most one log per tag, so one sync round is exactly one RPC call.
-    it.each([
-      { newLogs: 1, expectedRounds: 2 }, // [1], then [2,3] finds the miss
-      { newLogs: 3, expectedRounds: 3 }, // [1], [2,3], [4..7] (miss at 4)
-      { newLogs: 20, expectedRounds: 5 }, // last doubling round [16..31] contains the miss
-      { newLogs: 50, expectedRounds: 6 }, // 5 doubling rounds reach 31, then 1 capped window
-      { newLogs: 100, expectedRounds: 9 }, // 5 doubling + 4 capped windows; ~log2(100) would be roughly 7
-    ])(
-      'catch-up round-trips grow logarithmically then linearly: K=$newLogs resolves in $expectedRounds rounds',
-      async ({ newLogs, expectedRounds }) => {
+    // probe is still doubling, then linear at roughly one extra round per WINDOW_LEN once the probe saturates the cap.
+    // Every round here queries fewer than MAX_RPC_LEN tags and at most one log per tag, so one sync round is exactly one
+    // RPC call.
+    it.each([1, 3, 20, 50, 100, UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN * 3])(
+      'catch-up round-trips grow logarithmically then linearly: K=%i',
+      async newLogs => {
         const [secret] = await makeSecrets(1, AppTaggingSecretKind.CONSTRAINED);
         const finalizedBlockNumber = BlockNumber(10);
         const agedTimestamp = CURRENT_TIMESTAMP - BigInt(MAX_TX_LIFETIME) - 1000n;
+        const expectedRounds = expectedConstrainedProbeRanges(newLogs).length;
 
         // Recipient already synced index 0; K new contiguous finalized logs sit at indexes 1..K.
         await taggingStore.updateHighestFinalizedIndex(secret, 0, JOB_ID);

@@ -32,7 +32,7 @@ import {
  *
  * Measures the per-sync cost of `syncTaggedPrivateLogs` for constrained secrets. Constrained streams are gapless, so
  * the scan probes a small initial window (`INITIAL_CONSTRAINED_PROBE_LEN`) and doubles it each round (capped at the
- * `UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN` (=20) window), stopping at the first missing tag instead of fetching the
+ * `UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN` window), stopping at the first missing tag instead of fetching the
  * full window. This validates the shipped doubling policy; the fixed-step sweep that motivated choosing it lives in the
  * PR description (reproducible from this branch's pre-doubling history).
  *
@@ -141,7 +141,7 @@ function probeSchedule(k: number): { tags: number; rounds: number } {
 
 const SCENARIOS: Scenario[] = [
   // steady-state (K = 0): no new logs since the last sync, across recipient secret counts. The dominant case and where
-  // first-miss wins ~20x.
+  // first-miss wins by roughly the window size.
   ...[1, 10, 100, 1000].map(secretCount => ({
     label: `constrained/steady-state/secrets=${secretCount}`,
     kind: AppTaggingSecretKind.CONSTRAINED,
@@ -161,9 +161,9 @@ const SCENARIOS: Scenario[] = [
     })),
   ),
   // Deep catch-up at 100 and 1000 secrets (the negative case): round-trips grow one per probe step while tag-queries stay
-  // at the K + 1 floor. From a full window (catch-up-20) up, the WINDOW_LEN cap forces multiple rounds at any P. As with
-  // light catch-up, round-trips depend only on K and P (not N), so the two secret counts share a round-trip count and
-  // differ only in tag-queries (10x) and blocking time.
+  // at the K + 1 floor. From a full window up, the WINDOW_LEN cap forces multiple rounds at any P. As with light
+  // catch-up, round-trips depend only on K and P (not N), so the two secret counts share a round-trip count and differ
+  // only in tag-queries (10x) and blocking time.
   ...[100, 1000].flatMap(secretCount =>
     [UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN, 50, 100].map(newLogs => ({
       label: `constrained/catch-up-${newLogs}/secrets=${secretCount}`,
