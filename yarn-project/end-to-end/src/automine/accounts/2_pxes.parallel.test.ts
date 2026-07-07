@@ -44,6 +44,7 @@ describe('automine/accounts/2_pxes', () => {
     const accountManager = await wallet.createSchnorrAccount(
       fundedAccounts[accountIndex].secret,
       fundedAccounts[accountIndex].salt,
+      fundedAccounts[accountIndex].signingKey,
     );
     const deployMethod = await accountManager.getDeployMethod();
     await deployMethod.send({ from: NO_FROM });
@@ -214,13 +215,17 @@ describe('automine/accounts/2_pxes', () => {
 
     // setup an account that is shared across PXEs
     const sharedAccount = additionallyFundedAccounts[2];
-    const sharedAccountOnAManager = await walletA.createSchnorrAccount(sharedAccount.secret, sharedAccount.salt);
+    const sharedAccountOnAManager = await walletA.createSchnorrAccount(
+      sharedAccount.secret,
+      sharedAccount.salt,
+      sharedAccount.signingKey,
+    );
     const sharedAccountOnADeployMethod = await sharedAccountOnAManager.getDeployMethod();
     await sharedAccountOnADeployMethod.send({ from: NO_FROM });
     const sharedAccountAddress = sharedAccountOnAManager.address;
 
     // Register the shared account on walletB.
-    await walletB.createSchnorrAccount(sharedAccount.secret, sharedAccount.salt);
+    await walletB.createSchnorrAccount(sharedAccount.secret, sharedAccount.salt, sharedAccount.signingKey);
 
     // deploy the contract on PXE A
     const { contract: token, instance } = await deployToken(walletA, accountAAddress, initialBalance, logger);

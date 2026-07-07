@@ -6,7 +6,7 @@ import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
 import { ValueNotEqualContract } from "./artifacts/ValueNotEqual.js";
 import { EmbeddedWallet } from "@aztec/wallets/embedded";
 import { NO_FROM } from "@aztec/aztec.js/account";
-import { Fr } from "@aztec/aztec.js/fields";
+import { Fr, GrumpkinScalar } from "@aztec/aztec.js/fields";
 import assert from "node:assert";
 import fs from "node:fs";
 
@@ -47,7 +47,11 @@ async function main() {
   // Step 1: Setup wallet and create account
   // Accounts in Aztec are smart contracts (account abstraction)
   const wallet = await setupWallet();
-  const manager = await wallet.createSchnorrAccount(Fr.random(), Fr.random());
+  const manager = await wallet.createSchnorrAccount(
+    Fr.random(),
+    Fr.random(),
+    GrumpkinScalar.random(),
+  );
 
   // Deploy the account contract
   const deployMethod = await manager.getDeployMethod();
