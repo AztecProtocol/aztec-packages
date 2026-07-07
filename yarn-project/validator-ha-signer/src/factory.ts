@@ -112,9 +112,10 @@ export async function createHASigner(
  * high-availability (multi-node) setup. It prevents a proposer from sending two
  * proposals for the same slot if the node crashes and restarts mid-proposal.
  *
- * When `config.dataDirectory` is set, the protection database is persisted to disk
- * and survives crashes/restarts. When unset, an ephemeral in-memory store is
- * used which protects within a single run but not across restarts.
+ * `config.dataDirectory` is required so the protection database is persisted to disk and survives
+ * crashes/restarts. Booting without it throws, since an ephemeral store silently drops all
+ * double-signing protection across restarts. Set `config.allowEphemeralSigningProtection` to opt
+ * into the ephemeral store anyway (dev/test networks only) — a loud warning is logged in that case.
  *
  * @param config - Local signer config
  * @param deps - Optional dependencies (telemetry, date provider).
@@ -129,6 +130,22 @@ export async function createLocalSignerWithProtection(
 }> {
   const telemetryClient = deps?.telemetryClient ?? getTelemetryClient();
   const dateProvider = deps?.dateProvider ?? new DateProvider();
+
+  const log = createLogger('validator-ha-signer:factory');
+
+  if (!config.dataDirectory) {
+    if (!config.allowEphemeralSigningProtection) {
+      throw new Error(
+        'Local signing protection requires a persistent data directory, but none was configured. ' +
+          'Set DATA_DIRECTORY so double-signing protection survives restarts, or explicitly opt into an ' +
+          'ephemeral store (dev/test only) with VALIDATOR_ALLOW_EPHEMERAL_SIGNING_PROTECTION=true.',
+      );
+    }
+    log.warn(
+      'Local signing protection is running with an EPHEMERAL store: no data directory is configured. ' +
+        'Double-signing protection will NOT survive a restart. This is unsafe for production validators.',
+    );
+  }
 
   const kvStore = await createStore(
     'signing-protection',
@@ -148,6 +165,7 @@ export async function createLocalSignerWithProtection(
           config.signingProtectionMapSizeKb ?? config.dataStoreMapSizeKb,
         ),
       schemaVersionMismatchPolicy: 'throw',
+      versionFileReadFailurePolicy: 'throw',
     },
   );
 
