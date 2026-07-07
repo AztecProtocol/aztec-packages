@@ -16,12 +16,7 @@ import type {
   WorldStateStatusSummary,
 } from './message.js';
 
-/**
- * Backend-agnostic handle to a running aztec-wsdb world state, accessed by the TS layer.
- *
- * The legacy in-process NAPI implementation has been removed; the C++ AVM (NAPI) now connects to
- * the same aztec-wsdb process using the IPC path returned by {@link getIpcPath}.
- */
+/** Backend-agnostic handle to a running aztec-wsdb world state, accessed by the TS layer. */
 export interface NativeWorldStateInstance {
   getTreeInfo(treeId: MerkleTreeId, revision: WorldStateRevision): Promise<TreeInfo>;
   getStateReference(revision: WorldStateRevision): Promise<Record<number, TreeStateReference>>;

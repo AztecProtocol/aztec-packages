@@ -1,62 +1,24 @@
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { createLogger } from '@aztec/foundation/log';
-import { TestDateProvider } from '@aztec/foundation/timer';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
-import { PublicSimulatorConfig, RevertCode } from '@aztec/stdlib/avm';
+import { RevertCode } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { GasFees } from '@aztec/stdlib/gas';
-import { GlobalVariables } from '@aztec/stdlib/tx';
-import { getTelemetryClient } from '@aztec/telemetry-client';
-import { NativeWorldStateService } from '@aztec/world-state';
 
-import { PublicContractsDB } from '../../../server.js';
 import { createContractClassAndInstance } from '../../avm/testing/utils.js';
-import { PublicTxSimulationTester, SimpleContractDataSource } from '../../fixtures/index.js';
+import { PublicProcessorTestEnv } from '../../fixtures/index.js';
 import { addNewContractClassToTx, addNewContractInstanceToTx, createTxForPrivateOnly } from '../../fixtures/utils.js';
-import { PublicTxSimulator } from '../../public_tx_simulator/public_tx_simulator.js';
-import { GuardedMerkleTreeOperations } from '../guarded_merkle_tree.js';
-import { PublicProcessor } from '../public_processor.js';
 
 describe('Public processor contract registration/deployment tests', () => {
   const admin = AztecAddress.fromNumber(42);
   const sender = AztecAddress.fromNumber(111);
 
-  let worldStateService: NativeWorldStateService;
-  let contractsDB: PublicContractsDB;
-  let tester: PublicTxSimulationTester;
-  let processor: PublicProcessor;
+  let env: PublicProcessorTestEnv;
+  let tester: PublicProcessorTestEnv['tester'];
+  let processor: PublicProcessorTestEnv['processor'];
 
   beforeEach(async () => {
-    const globals = GlobalVariables.empty();
-    // apply some nonzero default gas fees
-    globals.gasFees = new GasFees(2, 3);
-
-    const contractDataSource = new SimpleContractDataSource();
-    worldStateService = await NativeWorldStateService.tmp();
-    const merkleTrees = await worldStateService.fork();
-    const guardedMerkleTrees = new GuardedMerkleTreeOperations(merkleTrees);
-    contractsDB = new PublicContractsDB(contractDataSource);
-    const config = PublicSimulatorConfig.from({
-      skipFeeEnforcement: false,
-      collectDebugLogs: true,
-      collectHints: false,
-      collectStatistics: false,
-      collectCallMetadata: true,
-    });
-    const simulator = new PublicTxSimulator(guardedMerkleTrees, contractsDB, globals, config);
-
-    processor = new PublicProcessor(
-      globals,
-      guardedMerkleTrees,
-      contractsDB,
-      simulator,
-      new TestDateProvider(),
-      getTelemetryClient(),
-      createLogger('simulator:public-processor'),
-    );
-
-    tester = new PublicTxSimulationTester(merkleTrees, contractDataSource);
+    env = await PublicProcessorTestEnv.create();
+    ({ tester, processor } = env);
 
     // make sure tx senders have fee balance
     await tester.setFeePayerBalance(admin);
@@ -64,7 +26,7 @@ describe('Public processor contract registration/deployment tests', () => {
   });
 
   afterEach(async () => {
-    await worldStateService.close();
+    await env[Symbol.asyncDispose]();
   });
 
   it('can deploy in a private-only tx and call a public function later in the block', async () => {

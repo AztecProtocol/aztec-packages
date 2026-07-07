@@ -13,8 +13,24 @@ namespace bb::avm {
 using namespace bb::avm2;
 using namespace bb::world_state;
 
-// Global cancellation token for the currently active simulation.
-// Set before simulation starts, cleared after. SIGUSR1 handler reads this to cancel.
+// Cancellation for the single in-flight simulation. bb-avm-sim runs exactly one
+// simulation at a time; the SIGUSR1 handler (which may run on any thread) cancels
+// it through g_active_cancellation_token.
+//
+// The token is process-lifetime and never freed. A per-request token would let
+// the signal handler dereference a pointer to a token the completing request had
+// already freed (use-after-free), since the handler can run concurrently with the
+// request thread unwinding. g_active_cancellation_token points at this token only
+// while a simulation runs and is null otherwise, so a signal between simulations
+// is a safe no-op.
+//
+// NOTE: cancellation is process-scoped (a signal), not request-scoped. A signal
+// delivered late — after its target finished and the next simulation began on this
+// process — would cancel the wrong simulation. The pool runs one simulation per
+// process and signals only the in-flight one, so this isn't exercised today;
+// hardening it would need a request-scoped cancel channel rather than a signal.
+const avm2::simulation::CancellationTokenPtr g_sim_cancellation_token =
+    std::make_shared<avm2::simulation::CancellationToken>();
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
 std::atomic<avm2::simulation::CancellationToken*> g_active_cancellation_token{ nullptr };
 
@@ -36,7 +52,10 @@ template <typename T> static T deserialize_from_msgpack(const std::vector<uint8_
 template <>
 void handle_simulate(AvmRequest& request, wire::AvmSimulate&& command, Responder<wire::AvmSimulateResponse> respond)
 {
-    auto cancellation_token = std::make_shared<avm2::simulation::CancellationToken>();
+    // Reuse the process-lifetime token (cleared of any prior cancellation) instead
+    // of allocating a per-request one the signal handler could outlive.
+    g_sim_cancellation_token->reset();
+    const avm2::simulation::CancellationTokenPtr& cancellation_token = g_sim_cancellation_token;
     try {
         auto sim_inputs = deserialize_from_msgpack<AvmFastSimulationInputs>(command.inputs);
 

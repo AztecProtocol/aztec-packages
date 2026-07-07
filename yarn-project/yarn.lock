@@ -754,6 +754,7 @@ __metadata:
   dependencies:
     "@aztec/archiver": "workspace:^"
     "@aztec/bb-prover": "workspace:^"
+    "@aztec/bb.js": "workspace:^"
     "@aztec/blob-client": "workspace:^"
     "@aztec/blob-lib": "workspace:^"
     "@aztec/constants": "workspace:^"
@@ -905,6 +906,59 @@ __metadata:
   bin:
     aztec: ./scripts/aztec.sh
   languageName: unknown
+  linkType: soft
+
+"@aztec/bb-avm-sim-darwin-arm64@portal:../barretenberg/ts/bb-avm-sim/packages/bb-avm-sim-darwin-arm64::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/bb-avm-sim-darwin-arm64@portal:../barretenberg/ts/bb-avm-sim/packages/bb-avm-sim-darwin-arm64::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  conditions: os=darwin & cpu=arm64
+  languageName: node
+  linkType: soft
+
+"@aztec/bb-avm-sim-darwin-x64@portal:../barretenberg/ts/bb-avm-sim/packages/bb-avm-sim-darwin-x64::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/bb-avm-sim-darwin-x64@portal:../barretenberg/ts/bb-avm-sim/packages/bb-avm-sim-darwin-x64::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  conditions: os=darwin & cpu=x64
+  languageName: node
+  linkType: soft
+
+"@aztec/bb-avm-sim-linux-arm64@portal:../barretenberg/ts/bb-avm-sim/packages/bb-avm-sim-linux-arm64::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/bb-avm-sim-linux-arm64@portal:../barretenberg/ts/bb-avm-sim/packages/bb-avm-sim-linux-arm64::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  conditions: os=linux & cpu=arm64
+  languageName: node
+  linkType: soft
+
+"@aztec/bb-avm-sim-linux-x64@portal:../barretenberg/ts/bb-avm-sim/packages/bb-avm-sim-linux-x64::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/bb-avm-sim-linux-x64@portal:../barretenberg/ts/bb-avm-sim/packages/bb-avm-sim-linux-x64::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  conditions: os=linux & cpu=x64
+  languageName: node
+  linkType: soft
+
+"@aztec/bb-avm-sim@portal:../barretenberg/ts/bb-avm-sim::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/bb-avm-sim@portal:../barretenberg/ts/bb-avm-sim::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  dependencies:
+    "@aztec/bb-avm-sim-darwin-arm64": "npm:0.1.0"
+    "@aztec/bb-avm-sim-darwin-x64": "npm:0.1.0"
+    "@aztec/bb-avm-sim-linux-arm64": "npm:0.1.0"
+    "@aztec/bb-avm-sim-linux-x64": "npm:0.1.0"
+    "@aztec/ipc-runtime": "@aztec/ipc-runtime"
+    msgpackr: "npm:^1.11.2"
+    tslib: "npm:^2.4.0"
+  dependenciesMeta:
+    "@aztec/bb-avm-sim-darwin-arm64":
+      optional: true
+    "@aztec/bb-avm-sim-darwin-x64":
+      optional: true
+    "@aztec/bb-avm-sim-linux-arm64":
+      optional: true
+    "@aztec/bb-avm-sim-linux-x64":
+      optional: true
+  bin:
+    bb-avm-sim: ./dest/bin.js
+  languageName: node
   linkType: soft
 
 "@aztec/bb-prover@workspace:^, @aztec/bb-prover@workspace:bb-prover":
@@ -1942,6 +1996,7 @@ __metadata:
   dependencies:
     "@aztec/archiver": "workspace:^"
     "@aztec/bb-prover": "workspace:^"
+    "@aztec/bb.js": "workspace:^"
     "@aztec/blob-client": "workspace:^"
     "@aztec/blob-lib": "workspace:^"
     "@aztec/constants": "workspace:^"
@@ -2096,8 +2151,10 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/simulator@workspace:simulator"
   dependencies:
+    "@aztec/bb-avm-sim": "npm:0.1.0"
     "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
+    "@aztec/ipc-runtime": "npm:0.1.0"
     "@aztec/kv-store": "workspace:^"
     "@aztec/native": "workspace:^"
     "@aztec/noir-acvm_js": "portal:../../noir/packages/acvm_js"
@@ -2123,6 +2180,7 @@ __metadata:
     jest-mock-extended: "npm:^4.0.0"
     lodash.clonedeep: "npm:^4.5.0"
     lodash.merge: "npm:^4.6.2"
+    msgpackr: "npm:^1.11.2"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.3.3"
@@ -2428,7 +2486,6 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/ipc-runtime": "npm:0.1.0"
     "@aztec/kv-store": "workspace:^"
-    "@aztec/native": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"

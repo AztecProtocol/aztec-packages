@@ -54,6 +54,13 @@ class CancellationToken {
     void cancel() { cancelled_.store(true, std::memory_order_release); }
 
     /**
+     * @brief Clear a prior cancellation so the token can be reused. Called from the
+     * simulation thread before starting a new simulation. Lets a single
+     * process-lifetime token back successive simulations without reallocation.
+     */
+    void reset() { cancelled_.store(false, std::memory_order_release); }
+
+    /**
      * @brief Check if cancellation has been signaled. Called from C++ simulation thread.
      *
      * @return true if cancel() has been called

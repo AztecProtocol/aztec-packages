@@ -6,7 +6,7 @@ import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import type { P2PClient, TxProvider } from '@aztec/p2p';
-import type { PublicProcessorFactory } from '@aztec/simulator/server';
+import type { AvmExecutor, PublicProcessorFactory } from '@aztec/simulator/server';
 import {
   CommitteeAttestation,
   GENESIS_BLOCK_HEADER_HASH,
@@ -52,6 +52,7 @@ describe('prover-node', () => {
   let rollupContract: MockProxy<RollupContract>;
   let publisherFactory: MockProxy<ProverPublisherFactory>;
   let l1Metrics: MockProxy<L1Metrics>;
+  let avmExecutor: MockProxy<AvmExecutor>;
 
   // L1 genesis time
   let l1GenesisTime: number;
@@ -84,6 +85,7 @@ describe('prover-node', () => {
       epochMonitor,
       rollupContract,
       l1Metrics,
+      avmExecutor,
       config,
     );
 
@@ -104,6 +106,7 @@ describe('prover-node', () => {
     publisherFactory.create.mockResolvedValue(publisher);
 
     l1Metrics = mock<L1Metrics>();
+    avmExecutor = mock<AvmExecutor>();
 
     p2p = mock<P2PClient>();
     p2p.getTxProvider.mockReturnValue(txProvider);

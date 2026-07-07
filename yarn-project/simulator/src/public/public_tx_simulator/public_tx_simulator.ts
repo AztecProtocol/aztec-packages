@@ -1,7 +1,5 @@
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
-import { type CancellationToken, avmSimulate, cancelSimulation, createCancellationToken } from '@aztec/native';
-import { ProtocolContractsList } from '@aztec/protocol-contracts';
 import {
   AvmFastSimulationInputs,
   AvmTxHint,
@@ -10,14 +8,13 @@ import {
   deserializeFromMessagePack,
 } from '@aztec/stdlib/avm';
 import { SimulationError } from '@aztec/stdlib/errors';
-import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
 import type { GlobalVariables, Tx } from '@aztec/stdlib/tx';
+import { WorldStateRevision } from '@aztec/stdlib/world-state';
 import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
 
+import type { AvmSimulator } from '../avm_simulator.js';
 import { ExecutorMetrics } from '../executor_metrics.js';
 import type { ExecutorMetricsInterface } from '../executor_metrics_interface.js';
-import type { PublicContractsDB } from '../public_db_sources.js';
-import { ContractProviderForCpp } from './contract_provider_for_cpp.js';
 import { PublicTxSimulatorBase } from './public_tx_simulator_base.js';
 import type {
   MeasuredPublicTxSimulatorInterface,
@@ -25,146 +22,129 @@ import type {
 } from './public_tx_simulator_interface.js';
 
 /**
- * Simulates a transaction's public portion using the C++ AVM simulator.
- * The C++ simulator accesses the world state directly/natively within C++.
- * For contract DB accesses, it makes callbacks through NAPI back to the TS PublicContractsDB cache.
+ * Simulates a transaction's public portion by running its public calls through an {@link AvmSimulator}.
+ * `forkId` selects the fork whose contract data the simulation reads.
  */
 export class PublicTxSimulator extends PublicTxSimulatorBase implements PublicTxSimulatorInterface {
   protected override log: Logger;
-  /** Current cancellation token for in-flight simulation. */
-  private cancellationToken?: CancellationToken;
+  /** Aborts the in-flight simulation. */
+  private abortController?: AbortController;
   /** Current simulation promise, used to wait for completion after cancellation. */
-  private simulationPromise?: Promise<Buffer>;
+  private simulationPromise?: Promise<PublicTxResult>;
 
   constructor(
-    merkleTree: MerkleTreeWriteOperations,
-    contractsDB: PublicContractsDB,
+    avmSimulator: AvmSimulator,
     globalVariables: GlobalVariables,
     config?: Partial<PublicSimulatorConfig>,
     bindings?: LoggerBindings,
+    forkId?: number,
   ) {
-    super(merkleTree, contractsDB, globalVariables, config, undefined, bindings);
+    super(avmSimulator, globalVariables, config, undefined, bindings, forkId);
     this.log = createLogger(`simulator:public_tx_simulator`, bindings);
   }
 
   /**
-   * Simulate a transaction's public portion using the C++ avvm simulator.
+   * Simulate a transaction's public portion.
    *
    * @param tx - The transaction to simulate.
    * @returns The result of the transaction's public execution.
    */
   public async simulate(tx: Tx): Promise<PublicTxResult> {
+    this.abortController = new AbortController();
+    this.simulationPromise = this.doSimulate(tx, this.abortController.signal);
+    try {
+      return await this.simulationPromise;
+    } finally {
+      this.abortController = undefined;
+      this.simulationPromise = undefined;
+    }
+  }
+
+  protected async doSimulate(tx: Tx, signal: AbortSignal): Promise<PublicTxResult> {
     const txHash = this.computeTxHash(tx);
-    this.log.debug(`C++ simulation of ${tx.publicFunctionCalldata.length} public calls for tx ${txHash}`, {
-      txHash,
-    });
+    this.log.debug(
+      `Simulating ${tx.publicFunctionCalldata.length} public calls for tx ${txHash}, forkId=${this.forkId ?? 0}`,
+      { txHash },
+    );
 
-    const wsRevision = this.merkleTree.getRevision();
-    const wsdbIpcPath = this.merkleTree.getIpcPath();
-
-    this.log.trace(`Running C++ simulation with world state revision ${JSON.stringify(wsRevision)}`);
-
-    // Create the fast simulation inputs
+    // Create the fast simulation inputs.
     const txHint = AvmTxHint.fromTx(tx, this.globalVariables.gasFees);
-    const protocolContracts = ProtocolContractsList;
     const fastSimInputs = new AvmFastSimulationInputs(
-      wsRevision,
+      // blockNumber: WorldStateRevision.LATEST sentinel so the WSDB walks the fork's current
+      // uncommitted state. Using 0 here makes WSDB treat this as a historical query against
+      // the empty genesis tree and miss any in-fork uncommitted leaves (deployed contracts,
+      // etc.) from earlier txs in the same block.
+      { forkId: this.forkId ?? 0, blockNumber: WorldStateRevision.LATEST, includeUncommitted: true },
       this.config,
       txHint,
       this.globalVariables,
-      protocolContracts,
+      this.protocolContracts,
     );
 
-    // Create contract provider for callbacks to TypeScript PublicContractsDB from C++
-    const contractProvider = new ContractProviderForCpp(this.contractsDB, this.globalVariables, this.bindings);
-
-    // Serialize to msgpack and call the C++ simulator
     this.log.trace(`Serializing fast simulation inputs to msgpack...`);
     const inputBuffer = fastSimInputs.serializeWithMessagePack();
 
-    // Create cancellation token for this simulation
-    this.cancellationToken = createCancellationToken();
-
-    // Store the promise so cancel() can wait for it
-    this.log.debug(`Calling C++ simulator for tx ${txHash}`);
-    this.simulationPromise = avmSimulate(
-      inputBuffer,
-      contractProvider,
-      wsdbIpcPath,
-      this.log.level,
-      undefined,
-      this.cancellationToken,
-    );
-
-    let resultBuffer: Buffer;
+    this.log.debug(`Running AVM simulation for tx ${txHash}`);
+    let resultBuffer: Uint8Array;
     try {
-      resultBuffer = await this.simulationPromise;
+      resultBuffer = await this.avmSimulator.simulate(inputBuffer, signal);
     } catch (error: any) {
-      // Check if this was a cancellation
-      if (error.message?.includes('Simulation cancelled')) {
-        throw new SimulationError(`C++ simulation cancelled`, []);
+      if (error.message?.includes('cancelled')) {
+        throw new SimulationError(`AVM simulation cancelled`, []);
       }
-      throw new SimulationError(`C++ simulation failed: ${error.message}`, []);
-    } finally {
-      this.cancellationToken = undefined;
-      this.simulationPromise = undefined;
+      throw new SimulationError(`AVM simulation failed: ${error.message}`, []);
     }
 
-    // If we've reached this point, C++ succeeded during simulation,
+    this.log.trace(`Deserializing simulation result from buffer (size: ${resultBuffer.length})...`);
+    const resultJSON: object = deserializeFromMessagePack(Buffer.from(resultBuffer));
+    const result = PublicTxResult.fromPlainObject(resultJSON);
 
-    // Deserialize the msgpack result
-    this.log.trace(`Deserializing C++ from buffer (size: ${resultBuffer.length})...`);
-    const cppResultJSON: object = deserializeFromMessagePack(resultBuffer);
-    this.log.trace(`Deserializing C++ result to PublicTxResult...`);
-    const cppResult = PublicTxResult.fromPlainObject(cppResultJSON);
-
-    this.log.trace(`C++ simulation completed for tx ${txHash}`, {
+    this.log.trace(`AVM simulation completed for tx ${txHash}`, {
       txHash,
-      reverted: !cppResult.revertCode.isOK(),
-      cppGasUsed: cppResult.gasUsed.totalGas.l2Gas,
+      reverted: !result.revertCode.isOK(),
+      l2GasUsed: result.gasUsed.totalGas.l2Gas,
     });
 
-    return cppResult;
+    return result;
   }
 
   /**
    * Cancel the current simulation if one is in progress.
-   * This signals the C++ simulator to stop at the next opcode or before the next WorldState write.
-   * Safe to call even if no simulation is in progress.
+   * This signals the underlying simulator to stop at the next safe point (between opcodes, before a
+   * world-state write). Safe to call even if no simulation is in progress.
    *
    * @param waitTimeoutMs - If provided, wait up to this many ms for the simulation to actually stop.
-   *                        This is important because C++ might be in the middle of a slow operation
-   *                        (e.g., pad_trees) and won't check the cancellation flag until it completes.
+   *                        Cancellation is cooperative: the simulator may be mid slow-operation and
+   *                        won't observe the cancellation until it completes.
    *                        Default timeout of 100ms after cancellation.
    */
   public async cancel(waitTimeoutMs: number = 100): Promise<void> {
-    if (this.cancellationToken) {
-      this.log.debug('Cancelling C++ simulation');
-      cancelSimulation(this.cancellationToken);
+    if (this.abortController) {
+      this.log.debug('Cancelling AVM simulation');
+      this.abortController.abort();
     }
 
-    // Wait for the simulation to actually complete if not already done
     if (this.simulationPromise) {
-      this.log.debug(`Waiting up to ${waitTimeoutMs}ms for C++ simulation to stop`);
+      this.log.debug(`Waiting up to ${waitTimeoutMs}ms for AVM simulation to stop`);
       await Promise.race([
         this.simulationPromise.catch(() => {}), // Ignore rejection, just wait for completion
         sleep(waitTimeoutMs),
       ]);
-      this.log.debug('C++ simulation stopped or wait timed out');
+      this.log.debug('AVM simulation stopped or wait timed out');
     }
   }
 }
 
 export class MeasuredPublicTxSimulator extends PublicTxSimulator implements MeasuredPublicTxSimulatorInterface {
   constructor(
-    merkleTree: MerkleTreeWriteOperations,
-    contractsDB: PublicContractsDB,
+    avmSimulator: AvmSimulator,
     globalVariables: GlobalVariables,
     protected readonly metrics: ExecutorMetricsInterface,
     config?: Partial<PublicSimulatorConfig>,
     bindings?: LoggerBindings,
+    forkId?: number,
   ) {
-    super(merkleTree, contractsDB, globalVariables, config, bindings);
+    super(avmSimulator, globalVariables, config, bindings, forkId);
   }
 
   public override async simulate(tx: Tx, txLabel: string = 'unlabeledTx'): Promise<PublicTxResult> {
@@ -180,22 +160,22 @@ export class MeasuredPublicTxSimulator extends PublicTxSimulator implements Meas
 }
 
 /**
- * A C++ public tx simulator that tracks runtime/production metrics with telemetry.
+ * A public tx simulator that tracks runtime/production metrics with telemetry.
  */
 export class TelemetryPublicTxSimulator extends MeasuredPublicTxSimulator {
   /* tracer needed by trackSpans */
   public readonly tracer: Tracer;
 
   constructor(
-    merkleTree: MerkleTreeWriteOperations,
-    contractsDB: PublicContractsDB,
+    avmSimulator: AvmSimulator,
     globalVariables: GlobalVariables,
     telemetryClient: TelemetryClient = getTelemetryClient(),
     config?: Partial<PublicSimulatorConfig>,
     bindings?: LoggerBindings,
+    forkId?: number,
   ) {
     const metrics = new ExecutorMetrics(telemetryClient, 'PublicTxSimulator');
-    super(merkleTree, contractsDB, globalVariables, metrics, config, bindings);
+    super(avmSimulator, globalVariables, metrics, config, bindings, forkId);
     this.tracer = metrics.tracer;
   }
 }
