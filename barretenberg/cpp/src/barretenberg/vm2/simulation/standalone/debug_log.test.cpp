@@ -101,6 +101,59 @@ TEST(DebugLogSimulationTest, MaxMemoryReadsExceeded)
     EXPECT_THAT(debug_logger.dump_logs(), SizeIs(0));
 }
 
+TEST(DebugLogSimulationTest, CumulativeMaxMemoryReadsExceeded)
+{
+    StrictMock<MockMemory> memory;
+    std::vector<std::string> log_messages;
+    // Each DEBUGLOG below consumes 5 reads (1 level + 1 fields_size + 2 message + 1 field). A budget of 9 admits the
+    // first call but must reject the second, since the limit is cumulative across the whole simulation.
+    DebugLogger debug_logger(
+        DebugLogLevel::INFO, 9, [&log_messages](const std::string& message) { log_messages.push_back(message); });
+
+    AztecAddress contract_address = 42;
+    MemoryAddress level_offset = 50;
+    MemoryAddress message_offset = 100;
+    MemoryAddress fields_offset = 200;
+    MemoryAddress fields_size_offset = 300;
+
+    std::array<MemoryValue, 2> message_data = {
+        MemoryValue::from<FF>('H'), // 'H'
+        MemoryValue::from<FF>('i'), // 'i'
+    };
+    uint16_t message_size = message_data.size();
+
+    std::array<MemoryValue, 1> fields_data = { MemoryValue::from<FF>(42) };
+    uint32_t fields_size = fields_data.size();
+
+    MemoryValue level = MemoryValue::from<uint8_t>(static_cast<uint8_t>(DebugLogLevel::FATAL));
+    MemoryValue fields_size_value = MemoryValue::from<uint32_t>(fields_size);
+
+    // Both calls read the level and fields_size; only the first call gets far enough to read the message and fields
+    // (the second throws on the cumulative bounds check before any further reads).
+    EXPECT_CALL(memory, get(level_offset)).Times(2).WillRepeatedly(ReturnRef(level));
+    EXPECT_CALL(memory, get(fields_size_offset)).Times(2).WillRepeatedly(ReturnRef(fields_size_value));
+    for (uint32_t i = 0; i < message_size; ++i) {
+        EXPECT_CALL(memory, get(message_offset + i)).WillOnce(ReturnRef(message_data[i]));
+    }
+    for (uint32_t i = 0; i < fields_size; ++i) {
+        EXPECT_CALL(memory, get(fields_offset + i)).WillOnce(ReturnRef(fields_data[i]));
+    }
+
+    // First call is within budget (5 <= 9) and succeeds.
+    debug_logger.debug_log(
+        memory, contract_address, level_offset, message_offset, message_size, fields_offset, fields_size_offset);
+
+    // Second call would push the cumulative total to 10 > 9 and must throw.
+    EXPECT_THROW(
+        debug_logger.debug_log(
+            memory, contract_address, level_offset, message_offset, message_size, fields_offset, fields_size_offset),
+        std::runtime_error);
+
+    // Only the first log was recorded.
+    EXPECT_THAT(log_messages, ElementsAre("DEBUGLOG(fatal): Hi: [0x2a]"));
+    EXPECT_THAT(debug_logger.dump_logs(), SizeIs(1));
+}
+
 TEST(DebugLogSimulationTest, InvalidLevel)
 {
     StrictMock<MockMemory> memory;
