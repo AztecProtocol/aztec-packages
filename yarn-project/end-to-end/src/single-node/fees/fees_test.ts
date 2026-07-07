@@ -1,4 +1,5 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import { BatchCall } from '@aztec/aztec.js/contracts';
 import { Fr } from '@aztec/aztec.js/fields';
 import { createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
@@ -401,16 +402,24 @@ export class FeesTest extends SingleNodeTestContext {
   public async applyFundAliceWithBananas() {
     this.logger.info('Applying fund Alice with bananas setup');
 
-    // The private and public mints touch disjoint balances, so they are sent concurrently to share a
-    // slot instead of paying one slot each.
-    await Promise.all([
-      this.mintPrivateBananas(this.ALICE_INITIAL_BANANAS, this.aliceAddress),
-      testSpan('tx:mint', () =>
-        this.bananaCoin.methods.mint_to_public(this.aliceAddress, this.ALICE_INITIAL_BANANAS).send({
-          from: this.aliceAddress,
-        }),
-      ),
-    ]);
+    // Both mints are alice sends on BananaCoin touching disjoint balances, so they ride a single
+    // BatchCall tx (one proof, one slot) rather than two concurrent txs. The PXE serializes proving,
+    // so two concurrent sends would still be proven back-to-back and land in consecutive slots.
+    const { result: privateBalanceBefore } = await this.bananaCoin.methods
+      .balance_of_private(this.aliceAddress)
+      .simulate({ from: this.aliceAddress });
+
+    await testSpan('tx:mint', () =>
+      new BatchCall(this.wallet, [
+        this.bananaCoin.methods.mint_to_private(this.aliceAddress, this.ALICE_INITIAL_BANANAS),
+        this.bananaCoin.methods.mint_to_public(this.aliceAddress, this.ALICE_INITIAL_BANANAS),
+      ]).send({ from: this.aliceAddress }),
+    );
+
+    const { result: privateBalanceAfter } = await this.bananaCoin.methods
+      .balance_of_private(this.aliceAddress)
+      .simulate({ from: this.aliceAddress });
+    expect(privateBalanceAfter).toEqual(privateBalanceBefore + this.ALICE_INITIAL_BANANAS);
   }
 
   public async applyFundAliceWithPrivateBananas() {
