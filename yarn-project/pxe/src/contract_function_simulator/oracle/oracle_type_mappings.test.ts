@@ -8,6 +8,7 @@ import { EphemeralArrayService } from '../ephemeral_array_service.js';
 import { BoundedVec } from '../noir-structs/bounded_vec.js';
 import { type LogRetrievalRequest, LogSource } from '../noir-structs/log_retrieval_request.js';
 import { Option } from '../noir-structs/option.js';
+import type { ResolvedTaggingStrategy } from '../noir-structs/resolved_tagging_strategy.js';
 import {
   ARRAY,
   AZTEC_ADDRESS,
@@ -109,18 +110,35 @@ describe('oracle type mappings', () => {
   });
 
   describe('RESOLVED_TAGGING_STRATEGY', () => {
-    it('serializes an interactive handshake to the Noir discriminant', () => {
-      expect(RESOLVED_TAGGING_STRATEGY.serialization!.fn({ type: 'interactive-handshake' })).toEqual([
-        new Fr(3),
-        Fr.ZERO,
-      ]);
+    const secret = new Fr(42);
+    const strategyCases: [string, ResolvedTaggingStrategy, Fr[]][] = [
+      ['non-interactive handshake', { type: 'non-interactive-handshake' }, [new Fr(1), Fr.ZERO]],
+      ['unconstrained secret', { type: 'unconstrained-secret', secret }, [new Fr(2), secret]],
+      ['interactive handshake', { type: 'interactive-handshake' }, [new Fr(3), Fr.ZERO]],
+    ];
+
+    it.each(strategyCases)('serializes %s to the Noir fields', (_name, strategy, fields) => {
+      expect(RESOLVED_TAGGING_STRATEGY.serialization!.fn(strategy)).toEqual(fields);
     });
 
-    it('round-trips an interactive handshake', () => {
-      expect(roundTrip(RESOLVED_TAGGING_STRATEGY, { type: 'interactive-handshake' })).toEqual({
-        type: 'interactive-handshake',
-      });
+    it.each(strategyCases)('deserializes %s from the Noir fields', (_name, strategy, [kind, strategySecret]) => {
+      expect(deserializeStrategy(kind, strategySecret)).toEqual(strategy);
     });
+
+    it('rejects an unknown strategy kind', () => {
+      expect(() => deserializeStrategy(new Fr(99), Fr.ZERO)).toThrow('Unrecognized resolved tagging strategy kind');
+    });
+
+    it.each([
+      ['non-interactive handshake', new Fr(1)],
+      ['interactive handshake', new Fr(3)],
+    ])('rejects %s with a nonzero secret', (_name, kind) => {
+      expect(() => deserializeStrategy(kind, secret)).toThrow('Unrecognized resolved tagging strategy kind');
+    });
+
+    function deserializeStrategy(kind: Fr, secret: Fr): ResolvedTaggingStrategy {
+      return RESOLVED_TAGGING_STRATEGY.deserialization!.fn([new FieldReader([kind]), new FieldReader([secret])]);
+    }
   });
 
   describe('AZTEC_ADDRESS', () => {

@@ -35,7 +35,7 @@ unconstrained fn an_unset_unconstrained_mode_falls_back_to_the_default_strategy(
     // handshake strategy for an external recipient.
     let mut env = TestEnvironment::new_opts(TestEnvironmentOptions::new().with_tag_secret_strategy(
         OnchainDeliveryMode::onchain_constrained(),
-        TaggingSecretStrategy::non_interactive_handshake(),
+        TaggingSecretStrategy::interactive_handshake(),
     ));
     let app = env.create_contract_account();
     let sender = env.create_light_account();
