@@ -13,7 +13,7 @@ pub mod generated {
 
 use acir::brillig::ForeignCallResult;
 use acir::circuit::Program;
-use acir::native_types::{Witness, WitnessMap};
+use acir::native_types::{Witness, WitnessMap, WitnessStack};
 use acir::{AcirField, FieldElement};
 use acvm::pwg::{
     ACVMStatus, ErrorLocation, ForeignCallWaitInfo, OpcodeResolutionError,
@@ -50,6 +50,9 @@ pub struct SolvedWitness {
     pub witness: Vec<(u32, [u8; 32])>,
     /// The subset of `witness` at the circuit's declared return-value indices, in index order.
     pub return_witness: Vec<(u32, [u8; 32])>,
+    /// The full witness serialized as a gzipped acir `WitnessStack` (single frame, index 0) —
+    /// byte-identical to the acvm CLI's `partial-witness.gz`, for handoff to bb proving.
+    pub witness_stack: Vec<u8>,
 }
 
 /// The outcome of running an ACIR program: either a solved witness, or a structured execution failure
@@ -151,6 +154,13 @@ pub fn execute_acir(
         })
         .collect::<Result<Vec<_>, _>>()?;
 
+    // Serialize the full witness as a gzipped WitnessStack (single frame at index 0) for bb proving.
+    // `serialize()` gzips and picks the same format the acvm CLI uses, so the bytes are byte-identical
+    // to today's `partial-witness.gz`.
+    let witness_stack = WitnessStack::from(solved.clone())
+        .serialize()
+        .map_err(|e| format!("failed to serialize witness stack: {e}"))?;
+
     let witness = solved
         .into_iter()
         .map(|(w, f)| (w.0, field_to_be32(f)))
@@ -159,6 +169,7 @@ pub fn execute_acir(
     Ok(ExecutionOutcome::Solved(SolvedWitness {
         witness,
         return_witness,
+        witness_stack,
     }))
 }
 
@@ -381,6 +392,7 @@ impl Handler for AcvmHandler {
                 respond.ok(AcvmExecuteProgramResponse {
                     witness: to_entries(solved.witness),
                     return_witness: to_entries(solved.return_witness),
+                    witness_stack: solved.witness_stack,
                     failure: None,
                 });
             }
@@ -390,6 +402,7 @@ impl Handler for AcvmHandler {
                 respond.ok(AcvmExecuteProgramResponse {
                     witness: vec![],
                     return_witness: vec![],
+                    witness_stack: vec![],
                     failure: Some(failure),
                 });
             }
@@ -528,6 +541,29 @@ mod tests {
 
         assert_eq!(out.return_witness, vec![(2, be32(8))]);
         assert!(out.witness.iter().any(|(i, _)| *i == 0));
+    }
+
+    /// The serialized witness stack must be a valid gzipped acir `WitnessStack` (so it round-trips
+    /// through acir's own deserializer, i.e. it's byte-compatible with what bb proving consumes) whose
+    /// single frame at index 0 carries the full solved witness.
+    #[test]
+    fn witness_stack_is_canonical_gzipped_stack() {
+        let out = execute_acir(
+            &addition_program(),
+            &[(0, be32(3)), (1, be32(5))],
+            no_oracle,
+        )
+        .unwrap()
+        .unwrap_solved();
+
+        let stack = WitnessStack::<FieldElement>::deserialize(&out.witness_stack)
+            .expect("bytes must be a valid gzipped acir WitnessStack");
+        let frame = stack.peek().expect("one frame");
+        assert_eq!(frame.index, 0);
+        assert_eq!(
+            frame.witness.get(&Witness(2)),
+            Some(&FieldElement::from(8u64))
+        );
     }
 
     #[test]
