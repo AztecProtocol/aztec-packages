@@ -15,6 +15,7 @@ import {
   startNodes,
   stopNodes,
 } from '../../test-helpers/reqresp-nodes.js';
+import { ResponseSizeLimitExceededError } from '../encoding.js';
 import type { PeerManager } from '../peer-manager/peer_manager.js';
 import type { PeerScoring } from '../peer-manager/peer_scoring.js';
 import { type ReqRespResponse, ReqRespSubProtocol } from './interface.js';
@@ -462,6 +463,33 @@ describe('ReqResp', () => {
         Buffer.from('request'),
       );
       expectSuccess(txResp);
+    });
+  });
+
+  describe('readMessage response size bounding', () => {
+    it('aborts reception once accumulated bytes exceed the size bound', async () => {
+      nodes = await createNodes(peerScoring, 1);
+      const { req } = nodes[0];
+
+      const totalDataChunks = 20;
+      let pulled = 0;
+
+      // A SUCCESS status chunk followed by oversized data chunks. `pulled` counts how many data
+      // chunks the reader drained, so we can prove reception aborts early instead of buffering the
+      // whole stream: with the fix the first 64KB chunk trips the bound (pulled === 1); without it
+      // the reader drains all 20 (pulled === 20) before the concat/size check.
+      async function* source() {
+        yield Buffer.from([ReqRespStatus.SUCCESS]);
+        for (let i = 0; i < totalDataChunks; i++) {
+          pulled++;
+          yield Buffer.alloc(64 * 1024);
+        }
+      }
+
+      // maxSizeKb = 10 => bound = 10 * 1024 * 2 = 20,480 bytes, so a single 64KB data chunk exceeds it.
+      await expect((req as any).readMessage(source(), 10)).rejects.toBeInstanceOf(ResponseSizeLimitExceededError);
+
+      expect(pulled).toBeLessThan(totalDataChunks);
     });
   });
 });
