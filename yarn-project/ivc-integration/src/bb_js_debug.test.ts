@@ -6,7 +6,7 @@
  */
 import { BBJsInstance, type BBJsProofResult } from '@aztec/bb-prover';
 import { DebugBBJsInstance } from '@aztec/bb-prover/debug';
-import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
+import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, NUM_MSGS_PER_BASE_PARITY } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { Noir } from '@aztec/noir-noir_js';
@@ -57,7 +57,14 @@ describe('BB.js Debug Wrapper', () => {
     // Generate base parity inputs (same approach as base_parity_inputs.test.ts)
     const l1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(null).map(() => Fr.random());
     const vkTreeRoot = getVKTreeRoot();
-    const baseParityInputs = ParityBasePrivateInputs.fromSlice(l1ToL2Messages, 0, vkTreeRoot, Fr.random());
+    const baseParityInputs = ParityBasePrivateInputs.fromSlice(
+      l1ToL2Messages,
+      0,
+      Fr.ZERO,
+      NUM_MSGS_PER_BASE_PARITY,
+      vkTreeRoot,
+      Fr.random(),
+    );
 
     const noirInputs = {
       msgs: baseParityInputs.msgs.map(m => m.toString()),

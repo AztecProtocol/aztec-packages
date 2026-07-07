@@ -20,6 +20,11 @@ pub fn merge_block_rollups(
     // only. It's checked in `validate_consecutive_block_rollups` to make sure only the left rollup carries it.
     let in_hash = left.in_hash;
 
+    // The inbox rolling-hash pair propagates the same way: the first block root carries the checkpoint's `(start, end)`,
+    // so we take the left rollup's pair. `validate_consecutive_block_rollups` asserts the right rollup's pair is zero.
+    let start_inbox_rolling_hash = left.start_inbox_rolling_hash;
+    let end_inbox_rolling_hash = left.end_inbox_rolling_hash;
+
     let out_hash = accumulate_out_hash(left.out_hash, right.out_hash);
 
     let accumulated_fees = left.accumulated_fees + right.accumulated_fees;
@@ -37,6 +42,8 @@ pub fn merge_block_rollups(
         timestamp: left.timestamp, // Both blocks have the same timestamp.
         block_headers_hash,
         in_hash,
+        start_inbox_rolling_hash,
+        end_inbox_rolling_hash,
         out_hash,
         accumulated_fees,
         accumulated_mana_used,

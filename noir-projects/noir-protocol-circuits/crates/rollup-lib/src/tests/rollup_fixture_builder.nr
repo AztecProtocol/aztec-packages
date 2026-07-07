@@ -321,6 +321,14 @@ impl RollupFixtureBuilder {
             0
         };
 
+        // Like `in_hash`, the rolling-hash pair is carried only by the first block of a checkpoint (the leftmost leaf).
+        let (start_inbox_rolling_hash, end_inbox_rolling_hash) = if start_block_number
+            == self.start_block_number {
+            (self.get_inbox_rolling_hash(slot_number), self.get_inbox_rolling_hash(slot_number + 1))
+        } else {
+            (0, 0)
+        };
+
         BlockRollupPublicInputs {
             constants: self.get_checkpoint_constant_data(slot_number),
             previous_archive: self.get_archive(start_block_number - 1),
@@ -332,6 +340,8 @@ impl RollupFixtureBuilder {
             timestamp: self.get_timestamp(slot_number),
             block_headers_hash: self.get_block_headers_hash(end_block_number),
             in_hash,
+            start_inbox_rolling_hash,
+            end_inbox_rolling_hash,
             out_hash: self.get_out_hash(end_block_number),
             accumulated_fees: self.get_fee(end_block_number),
             accumulated_mana_used: self.get_mana_used(end_block_number),
@@ -371,6 +381,10 @@ impl RollupFixtureBuilder {
             checkpoint_header_hashes,
             previous_out_hash: self.get_out_hash_snapshot(start_checkpoint_index),
             new_out_hash: self.get_out_hash_snapshot(end_checkpoint_index + 1),
+            // The chain spans this checkpoint range; consecutive checkpoints chain because each range's end
+            // (`get_inbox_rolling_hash(end_slot + 1)`) equals the next range's start (`get_inbox_rolling_hash(start_slot)`).
+            start_inbox_rolling_hash: self.get_inbox_rolling_hash(start_slot_number),
+            end_inbox_rolling_hash: self.get_inbox_rolling_hash(end_slot_number + 1),
             fees,
             start_blob_accumulator: self.get_blob_accumulator(start_slot_number - 1),
             end_blob_accumulator: self.get_blob_accumulator(end_slot_number),
@@ -382,6 +396,9 @@ impl RollupFixtureBuilder {
         ParityPublicInputs {
             sha_root: slot_number * 85831493,
             converted_root: self.get_l1_to_l2_message_subtree_root(slot_number),
+            start_rolling_hash: self.get_inbox_rolling_hash(slot_number),
+            end_rolling_hash: self.get_inbox_rolling_hash(slot_number + 1),
+            num_msgs: 7,
             vk_tree_root: self.vk_tree_root,
             prover_id: self.prover_id,
         }
@@ -457,6 +474,10 @@ impl RollupFixtureBuilder {
 
     fn get_in_hash(_self: Self, slot_number: Field) -> Field {
         slot_number * 94297
+    }
+
+    fn get_inbox_rolling_hash(_self: Self, slot_number: Field) -> Field {
+        slot_number * 917231
     }
 
     fn get_timestamp(_self: Self, slot_number: Field) -> u64 {

@@ -142,6 +142,7 @@ abstract contract EscapeHatchIntegrationBase is ValidatorSelectionTestBase {
       blockHeadersHash: full.checkpoint.header.blockHeadersHash,
       blobsHash: full.checkpoint.header.blobsHash,
       inHash: full.checkpoint.header.inHash,
+      inboxRollingHash: full.checkpoint.header.inboxRollingHash,
       outHash: full.checkpoint.header.outHash,
       slotNumber: slotNumber,
       timestamp: rollup.getTimestampForSlot(slotNumber),

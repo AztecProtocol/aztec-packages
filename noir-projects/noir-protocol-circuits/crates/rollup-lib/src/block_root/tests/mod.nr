@@ -352,6 +352,16 @@ impl TestBuilder {
         };
         assert_eq(pi.in_hash, expected_in_hash);
 
+        // --- Inbox rolling hash ---
+
+        let (expected_start_rolling_hash, expected_end_rolling_hash) = if self.is_first_block_root {
+            (self.parity_root.start_rolling_hash, self.parity_root.end_rolling_hash)
+        } else {
+            (0, 0)
+        };
+        assert_eq(pi.start_inbox_rolling_hash, expected_start_rolling_hash);
+        assert_eq(pi.end_inbox_rolling_hash, expected_end_rolling_hash);
+
         // --- Out hash --
 
         let expected_out_hash = if is_empty_block {

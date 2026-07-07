@@ -1,8 +1,17 @@
-use crate::abis::ParityPublicInputs;
-use types::{constants::NUM_MSGS_PER_BASE_PARITY, merkle_tree::MerkleTree};
+use crate::{abis::ParityPublicInputs, inbox_rolling_hash::accumulate_inbox_rolling_hash};
+use types::{
+    constants::NUM_MSGS_PER_BASE_PARITY, merkle_tree::MerkleTree,
+    utils::arrays::assert_trailing_zeros,
+};
 
 pub struct ParityBasePrivateInputs {
     pub(crate) msgs: [Field; NUM_MSGS_PER_BASE_PARITY],
+    // Rolling hash of the Inbox message chain before absorbing this batch. The orchestrator threads it so that each
+    // base's start equals the previous base's end, keeping the chain continuous across the four base proofs.
+    pub(crate) start_rolling_hash: Field,
+    // Number of real (non-padding) messages in `msgs`. Only these are absorbed into the rolling hash; the merkle roots
+    // still absorb the full padded batch as before.
+    pub(crate) num_msgs: u32,
     pub(crate) vk_tree_root: Field,
     pub(crate) prover_id: Field,
 }
@@ -22,12 +31,22 @@ pub struct ParityBasePrivateInputs {
 ///
 /// VkIndex: PARITY_BASE_VK_INDEX
 pub fn execute(inputs: ParityBasePrivateInputs) -> ParityPublicInputs {
+    // The merkle roots absorb the full padded batch (frontier-tree semantics unchanged), while the rolling hash chains
+    // only the real messages. Assert the padding lanes are zero so they can't silently contribute to either commitment.
+    assert_trailing_zeros(inputs.msgs, inputs.num_msgs);
+
     let sha_tree = MerkleTree::new_sha(inputs.msgs);
     let poseidon_tree = MerkleTree::new(inputs.msgs);
+
+    let end_rolling_hash =
+        accumulate_inbox_rolling_hash(inputs.start_rolling_hash, inputs.msgs, inputs.num_msgs);
 
     ParityPublicInputs {
         sha_root: sha_tree.get_root(),
         converted_root: poseidon_tree.get_root(),
+        start_rolling_hash: inputs.start_rolling_hash,
+        end_rolling_hash,
+        num_msgs: inputs.num_msgs,
         vk_tree_root: inputs.vk_tree_root,
         prover_id: inputs.prover_id,
     }

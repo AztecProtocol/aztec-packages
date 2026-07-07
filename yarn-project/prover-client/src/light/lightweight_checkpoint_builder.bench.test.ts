@@ -151,6 +151,7 @@ describe('LightweightCheckpointBuilder benchmarks', () => {
         constants,
         [],
         [],
+        Fr.ZERO,
         fork,
       );
 

@@ -249,6 +249,7 @@ export class TestContext {
       { ...constants, timestamp },
       l1ToL2Messages,
       previousCheckpointOutHashes,
+      Fr.ZERO,
       cleanFork,
     );
 

@@ -432,6 +432,7 @@ export class SessionManager {
       txs,
       l1ToL2Messages,
       previousBlockHeader: checkpoints[0].previousBlockHeader,
+      previousInboxRollingHash: checkpoints[0].previousInboxRollingHash,
       attestations: [],
     };
   }

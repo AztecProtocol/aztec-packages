@@ -261,6 +261,7 @@ describe('CheckpointProver', () => {
       attestations: [],
       previousBlockHeader: {} as BlockHeader,
       l1ToL2Messages: [],
+      previousInboxRollingHash: Fr.ZERO,
       previousArchiveSiblingPath: makeTuple(ARCHIVE_HEIGHT, () => Fr.ZERO),
       ...overrides,
     };

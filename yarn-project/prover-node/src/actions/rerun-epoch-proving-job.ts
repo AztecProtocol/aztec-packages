@@ -70,6 +70,8 @@ export async function rerunEpochProvingJob(
     const checkpoint = jobData.checkpoints[i];
     const previousBlockHeader =
       i === 0 ? jobData.previousBlockHeader : jobData.checkpoints[i - 1].blocks.at(-1)!.header;
+    const previousInboxRollingHash =
+      i === 0 ? jobData.previousInboxRollingHash : jobData.checkpoints[i - 1].header.inboxRollingHash;
     const l1ToL2Messages = jobData.l1ToL2Messages[checkpoint.number] ?? [];
     const previousArchiveSiblingPath = await getLastSiblingPath(
       MerkleTreeId.ARCHIVE,
@@ -84,6 +86,7 @@ export async function rerunEpochProvingJob(
           attestations,
           previousBlockHeader,
           l1ToL2Messages,
+          previousInboxRollingHash,
           previousArchiveSiblingPath,
         },
         {

@@ -76,6 +76,7 @@ export type ViemHeader = {
   blockHeadersHash: `0x${string}`;
   blobsHash: `0x${string}`;
   inHash: `0x${string}`;
+  inboxRollingHash: `0x${string}`;
   outHash: `0x${string}`;
   slotNumber: bigint;
   timestamp: bigint;

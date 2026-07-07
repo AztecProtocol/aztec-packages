@@ -27,17 +27,40 @@ impl TestBuilder {
             0x53042d820859d80c474d4694e03778f8dc0ac88fc1c3a97b4369c1096e904a,
         ];
 
-        let children = children_sha_roots.map(|sha_root| Self::make_proof_data(sha_root, vk_data));
+        // Thread the rolling hash across the four base segments: each child's start equals the previous child's end.
+        let mut children = [Self::make_proof_data(0, 0, 0, 0, vk_data); NUM_BASE_PARITY_PER_ROOT_PARITY];
+        let mut start_rolling_hash = 100;
+        for i in 0..NUM_BASE_PARITY_PER_ROOT_PARITY {
+            let end_rolling_hash = start_rolling_hash + 1000;
+            children[i] = Self::make_proof_data(
+                children_sha_roots[i],
+                start_rolling_hash,
+                end_rolling_hash,
+                (i + 1) as u32,
+                vk_data,
+            );
+            start_rolling_hash = end_rolling_hash;
+        }
 
         Self { children }
     }
 
     fn make_proof_data(
         sha_root: Field,
+        start_rolling_hash: Field,
+        end_rolling_hash: Field,
+        num_msgs: u32,
         vk_data: VkData<ULTRA_VK_LENGTH_IN_FIELDS>,
     ) -> ParityBaseProofData {
-        let public_inputs =
-            ParityPublicInputs { sha_root, converted_root: 0, vk_tree_root, prover_id: 42 };
+        let public_inputs = ParityPublicInputs {
+            sha_root,
+            converted_root: 0,
+            start_rolling_hash,
+            end_rolling_hash,
+            num_msgs,
+            vk_tree_root,
+            prover_id: 42,
+        };
 
         let value_offset = sha_root / 2;
         ProofData {
@@ -67,6 +90,21 @@ fn public_inputs_match_expected() {
     assert_eq(public_inputs.converted_root, expected_converted_root);
     assert_eq(public_inputs.vk_tree_root, vk_tree_root);
     assert_eq(public_inputs.prover_id, 42);
+
+    // Output start is the first child's start, output end is the last child's end, and counts are summed.
+    assert_eq(public_inputs.start_rolling_hash, 100);
+    assert_eq(public_inputs.end_rolling_hash, 100 + NUM_BASE_PARITY_PER_ROOT_PARITY as Field * 1000);
+    assert_eq(public_inputs.num_msgs, 1 + 2 + 3 + 4);
+}
+
+#[test(should_fail_with = "Inconsistent rolling hash across parity base circuits")]
+fn inconsistent_rolling_hash() {
+    let mut builder = TestBuilder::new();
+
+    // Break the chain continuity between the second and third child.
+    builder.children[2].public_inputs.start_rolling_hash += 1;
+
+    let _ = builder.execute();
 }
 
 #[test(should_fail_with = "Inconsistent vk tree roots across parity base circuits")]
