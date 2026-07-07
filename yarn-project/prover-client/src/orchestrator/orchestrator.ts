@@ -303,7 +303,7 @@ export class ProvingOrchestrator extends TopTreeProvingScheduler implements Epoc
     if (!txs.length) {
       // To avoid an ugly throw below. If we require an empty block, we can just call setBlockCompleted
       // on a block with no txs. We cannot do that here because we cannot find the blockNumber without any txs.
-      this.logger.warn(`Provided no txs to orchestrator addTxs.`);
+      this.logger.verbose(`Provided no txs to orchestrator addTxs.`);
       return;
     }
 
