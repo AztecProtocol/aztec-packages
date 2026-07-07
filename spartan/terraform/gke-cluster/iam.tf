@@ -108,3 +108,40 @@ data "google_iam_policy" "all_users_storage_read" {
     ]
   }
 }
+
+# CI service account for the aztec-labs-eng/treasury-infra repo (propose-watcher images)
+resource "google_service_account" "treasury_infra_ci" {
+  account_id   = "treasury-infra-ci"
+  display_name = "treasury-infra GitHub Actions CI"
+  description  = "Pushes images from aztec-labs-eng/treasury-infra GitHub Actions via WIF"
+}
+
+# Workload Identity pool for GitHub Actions OIDC tokens
+resource "google_iam_workload_identity_pool" "github" {
+  workload_identity_pool_id = "github"
+  display_name              = "GitHub Actions"
+}
+
+# Trust GitHub-issued tokens, restricted to the treasury-infra repository
+resource "google_iam_workload_identity_pool_provider" "treasury_infra" {
+  workload_identity_pool_id          = google_iam_workload_identity_pool.github.workload_identity_pool_id
+  workload_identity_pool_provider_id = "treasury-infra"
+  display_name                       = "treasury-infra repo"
+
+  attribute_mapping = {
+    "google.subject"       = "assertion.sub"
+    "attribute.repository" = "assertion.repository"
+  }
+  attribute_condition = "assertion.repository == \"aztec-labs-eng/treasury-infra\""
+
+  oidc {
+    issuer_uri = "https://token.actions.githubusercontent.com"
+  }
+}
+
+# Allow workflows from that repository to impersonate the CI service account
+resource "google_service_account_iam_member" "treasury_infra_ci_wif" {
+  service_account_id = google_service_account.treasury_infra_ci.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/aztec-labs-eng/treasury-infra"
+}

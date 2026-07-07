@@ -77,11 +77,11 @@ contract RollupConfiguration is IRollupConfiguration, Test {
 
   function getStakingQueueConfiguration() external view returns (StakingQueueConfig memory) {
     return StakingQueueConfig({
-      bootstrapValidatorSetSize: vm.envOr("AZTEC_ENTRY_QUEUE_BOOTSTRAP_VALIDATOR_SET_SIZE", uint256(0)),
-      bootstrapFlushSize: vm.envOr("AZTEC_ENTRY_QUEUE_BOOTSTRAP_FLUSH_SIZE", uint256(0)),
-      normalFlushSizeMin: vm.envOr("AZTEC_ENTRY_QUEUE_FLUSH_SIZE_MIN", uint256(48)),
-      normalFlushSizeQuotient: vm.envOr("AZTEC_ENTRY_QUEUE_FLUSH_SIZE_QUOTIENT", uint256(2)),
-      maxQueueFlushSize: vm.envOr("AZTEC_ENTRY_QUEUE_MAX_FLUSH_SIZE", uint256(48))
+      bootstrapValidatorSetSize: vm.envUint("AZTEC_ENTRY_QUEUE_BOOTSTRAP_VALIDATOR_SET_SIZE"),
+      bootstrapFlushSize: vm.envUint("AZTEC_ENTRY_QUEUE_BOOTSTRAP_FLUSH_SIZE"),
+      normalFlushSizeMin: vm.envUint("AZTEC_ENTRY_QUEUE_FLUSH_SIZE_MIN"),
+      normalFlushSizeQuotient: vm.envUint("AZTEC_ENTRY_QUEUE_FLUSH_SIZE_QUOTIENT"),
+      maxQueueFlushSize: vm.envUint("AZTEC_ENTRY_QUEUE_MAX_FLUSH_SIZE")
     });
   }
 
@@ -119,7 +119,7 @@ contract RollupConfiguration is IRollupConfiguration, Test {
     config.slashingExecutionDelayInRounds = vm.envUint("AZTEC_SLASHING_EXECUTION_DELAY_IN_ROUNDS");
     config.slashAmounts = _getSlashAmounts();
     config.slashingOffsetInRounds = _getSlashingOffset();
-    config.slasherEnabled = vm.envOr("AZTEC_SLASHER_ENABLED", true);
+    config.slasherEnabled = vm.envBool("AZTEC_SLASHER_ENABLED");
     config.slashingVetoer = vm.envAddress("AZTEC_SLASHING_VETOER");
     config.slashingDisableDuration = vm.envUint("AZTEC_SLASHING_DISABLE_DURATION");
     config.manaTarget = vm.envUint("AZTEC_MANA_TARGET");

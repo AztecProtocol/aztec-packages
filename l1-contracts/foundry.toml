@@ -61,8 +61,8 @@ fs_permissions = [
   { access = "read", path = "./test/fixtures/boosted_rewards/shares.json" },
   { access = "read", path = "./test/fixtures/boosted_rewards/activity_scores.json" },
   { access = "read", path = "./script/registration_data.json" },
-  # Network defaults - copied from spartan/environments/default.json by bootstrap.sh
-  { access = "read", path = "./generated/default.json" }
+  # Network defaults - the canonical L1 contract config values (source of truth).
+  { access = "read", path = "./scripts/network-defaults.json" }
 ]
 no_match_contract = "(ScreamAndShoutTest|UniswapPortalTest|MerkleCheck)"
 
