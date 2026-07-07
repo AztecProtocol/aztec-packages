@@ -77,11 +77,22 @@ fi
 function redis_cli {
   if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
     timeout 30 redis-cli --raw -h $CI_REDIS "$@" || true
+  else
+    for arg in "$@"; do
+      if [ "$arg" = "-x" ]; then
+        cat >/dev/null
+        break
+      fi
+    done
   fi
 }
 
 function redis_setexz {
-  gzip | redis_cli -x SETEX $1 $2 &>/dev/null
+  if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+    gzip | redis_cli -x SETEX "$1" "$2" &>/dev/null
+  else
+    cat >/dev/null
+  fi
 }
 
 function redis_getz {

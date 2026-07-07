@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+
+export CI=1
+export CI_REDIS_AVAILABLE=0
+export DASHBOARD_URL=http://ci.aztec-labs.com
+NO_CD=1 source "$ROOT/ci3/source_base"
+source "$ROOT/ci3/source_redis"
+
+printf 'CI booting...\n' | redis_setexz "redis-test-$$" 1
+head -c 1048576 /dev/zero | redis_cli -x SETEX "redis-test-raw-$$" 1
+
+echo "redis unavailable no-op tests passed"
