@@ -65,6 +65,16 @@ locals {
     ]))
   }
 
+  cors_plugin_config_secret_names = {
+    for name, _ in var.ROUTES :
+    name => "${var.RELEASE_PREFIX}-${name}-${var.ROUTE_RESOURCE_SUFFIX}-cors-config"
+  }
+
+  acl_plugin_config_secret_names = {
+    for name, _ in local.routes_with_consumer_groups :
+    name => "${var.RELEASE_PREFIX}-${name}-${var.ROUTE_RESOURCE_SUFFIX}-acl-config"
+  }
+
   metrics_service_enabled = var.KONG_METRICS_SERVICE_ENABLED
   metrics_service_name    = var.KONG_METRICS_SERVICE_NAME != "" ? var.KONG_METRICS_SERVICE_NAME : "${var.RELEASE_PREFIX}-kong-metrics"
   metrics_service_selector = length(var.KONG_METRICS_SERVICE_SELECTOR) > 0 ? var.KONG_METRICS_SERVICE_SELECTOR : {
@@ -337,6 +347,31 @@ resource "kubernetes_manifest" "path_api_key_plugin" {
   depends_on = [helm_release.kong]
 }
 
+resource "kubernetes_secret_v1" "cors_plugin_config" {
+  for_each = var.ROUTES
+
+  metadata {
+    name      = local.cors_plugin_config_secret_names[each.key]
+    namespace = each.value.route_namespace
+  }
+
+  data = {
+    config = jsonencode({
+      origins            = ["*"]
+      methods            = ["GET", "POST", "OPTIONS"]
+      headers            = local.default_cors_allowed_headers
+      exposed_headers    = []
+      credentials        = false
+      max_age            = 3600
+      preflight_continue = false
+    })
+  }
+
+  type = "Opaque"
+
+  depends_on = [helm_release.kong]
+}
+
 resource "kubernetes_manifest" "cors_plugin" {
   for_each = var.ROUTES
 
@@ -351,18 +386,15 @@ resource "kubernetes_manifest" "cors_plugin" {
       }
     }
     plugin = "cors"
-    config = {
-      origins            = ["*"]
-      methods            = ["GET", "POST", "OPTIONS"]
-      headers            = local.default_cors_allowed_headers
-      exposed_headers    = []
-      credentials        = false
-      max_age            = 3600
-      preflight_continue = false
+    configFrom = {
+      secretKeyRef = {
+        name = local.cors_plugin_config_secret_names[each.key]
+        key  = "config"
+      }
     }
   }
 
-  depends_on = [helm_release.kong]
+  depends_on = [helm_release.kong, kubernetes_secret_v1.cors_plugin_config]
 }
 
 resource "kubernetes_manifest" "key_auth_plugin" {
@@ -396,6 +428,26 @@ resource "kubernetes_manifest" "key_auth_plugin" {
   depends_on = [helm_release.kong, kubernetes_manifest.anonymous_consumer]
 }
 
+resource "kubernetes_secret_v1" "acl_plugin_config" {
+  for_each = local.routes_with_consumer_groups
+
+  metadata {
+    name      = local.acl_plugin_config_secret_names[each.key]
+    namespace = each.value.route_namespace
+  }
+
+  data = {
+    config = jsonencode({
+      allow              = each.value.allowed_consumer_groups
+      hide_groups_header = true
+    })
+  }
+
+  type = "Opaque"
+
+  depends_on = [helm_release.kong]
+}
+
 resource "kubernetes_manifest" "acl_plugin" {
   for_each = local.routes_with_consumer_groups
 
@@ -410,13 +462,15 @@ resource "kubernetes_manifest" "acl_plugin" {
       }
     }
     plugin = "acl"
-    config = {
-      allow              = each.value.allowed_consumer_groups
-      hide_groups_header = true
+    configFrom = {
+      secretKeyRef = {
+        name = local.acl_plugin_config_secret_names[each.key]
+        key  = "config"
+      }
     }
   }
 
-  depends_on = [helm_release.kong]
+  depends_on = [helm_release.kong, kubernetes_secret_v1.acl_plugin_config]
 }
 
 resource "kubernetes_manifest" "prometheus_plugin" {
@@ -580,8 +634,8 @@ resource "kubernetes_manifest" "consumer_acl_secret" {
       }
     }
     type = "Opaque"
-    stringData = {
-      group = each.value.group
+    data = {
+      group = base64encode(each.value.group)
     }
   }
 
@@ -662,8 +716,8 @@ resource "kubernetes_manifest" "anonymous_consumer_acl_secret" {
       }
     }
     type = "Opaque"
-    stringData = {
-      group = each.value.group
+    data = {
+      group = base64encode(each.value.group)
     }
   }
 

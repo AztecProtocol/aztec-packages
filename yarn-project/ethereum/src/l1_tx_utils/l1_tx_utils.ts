@@ -36,6 +36,7 @@ import {
   type L1TxConfig,
   type L1TxRequest,
   type L1TxState,
+  L1TxTimeoutError,
   type SigningCallback,
   TerminalTxUtilsState,
   TxUtilsState,
@@ -301,6 +302,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
         txConfigOverrides: gasConfigOverrides ?? {},
         sentAtL1Ts: now,
         lastSentAtL1Ts: now,
+        gasPriceHistory: [baseState.gasPrice],
       };
 
       // And persist it
@@ -486,6 +488,7 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
         if (timePassed >= stallTimeMs && attempts <= maxSpeedUpAttempts) {
           const newGasPrice = await this.getGasPrice(gasConfig, isBlobTx, attempts, state.gasPrice);
           state.gasPrice = newGasPrice;
+          state.gasPriceHistory?.push(newGasPrice);
 
           this.logger.debug(
             `Tx ${currentTxHash} with nonce ${nonce} from ${account} appears stuck. ` +
@@ -654,8 +657,22 @@ export class L1TxUtils extends ReadOnlyL1TxUtils {
     blobInputs?: L1BlobInputs,
   ): Promise<{ receipt: TransactionReceipt; state: L1TxState }> {
     const { state } = await this.sendTransaction(request, gasConfig, blobInputs);
-    const receipt = await this.monitorTransaction(state);
-    return { receipt, state };
+    try {
+      const receipt = await this.monitorTransaction(state);
+      return { receipt, state };
+    } catch (err) {
+      if (err instanceof TimeoutError) {
+        // Snapshot the ladder now: the fire-and-forget cancellation mutates state.gasPrice moments later.
+        throw new L1TxTimeoutError(err.message, {
+          gasPriceHistory: state.gasPriceHistory ? [...state.gasPriceHistory] : undefined,
+          finalGasPrice: state.gasPrice,
+          attempts: state.txHashes.length,
+          nonce: state.nonce,
+          gasLimit: state.gasLimit,
+        });
+      }
+      throw err;
+    }
   }
 
   public override async simulate(
