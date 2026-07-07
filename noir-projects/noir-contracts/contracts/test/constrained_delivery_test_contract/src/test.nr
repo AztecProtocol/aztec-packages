@@ -7,11 +7,11 @@
 use crate::ConstrainedDeliveryTest;
 
 use aztec::{
-    keys::ecdh_shared_secret::compute_app_siloed_shared_secret,
-    protocol::{address::AztecAddress, hash::poseidon2_hash, point::EmbeddedCurvePoint, traits::{FromField, ToField}},
+    messages::delivery::MessageDelivery,
+    protocol::{address::AztecAddress, point::EmbeddedCurvePoint, traits::FromField},
     standard_addresses::STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
     test::helpers::{
-        tagging_secret_strategy::TaggingSecretStrategy,
+        tagging_secret_strategy::{compute_directional_app_secret, TaggingSecretStrategy},
         test_environment::{
             CallPrivateOptions, DeployOptions, ExecuteUtilityOptions, TestEnvironment, TestEnvironmentOptions,
         },
@@ -62,8 +62,9 @@ unconstrained fn arbitrary_secret_point() -> EmbeddedCurvePoint {
 #[test]
 unconstrained fn unconstrained_delivery_uses_configured_arbitrary_secret() {
     let point = arbitrary_secret_point();
-    let options =
-        TestEnvironmentOptions::new().with_tagging_secret_strategy(TaggingSecretStrategy::arbitrary_secret(point));
+    let options = TestEnvironmentOptions::new().with_tag_secret_strategy_all_modes(
+        TaggingSecretStrategy::arbitrary_secret(point),
+    );
     let (env, registry_address, test_address, sender, _) = setup_opts(options);
     let recipient = external_recipient();
     let test_contract = ConstrainedDeliveryTest::at(test_address);
@@ -74,11 +75,15 @@ unconstrained fn unconstrained_delivery_uses_configured_arbitrary_secret() {
     let effects = txe_oracles::get_last_tx_effects();
     assert_eq(effects.private_logs.len(), 1);
 
-    let app_secret = compute_app_siloed_shared_secret(point, test_address);
-    let expected_secret = poseidon2_hash([app_secret, recipient.to_field()]);
-    let next_unconstrained_index =
-        env.call_private(sender, test_contract.next_unconstrained_index_for_secret(expected_secret));
-    let next_constrained_index = env.call_private(sender, test_contract.next_index_for_secret(expected_secret));
+    let expected_secret = compute_directional_app_secret(point, test_address, recipient);
+    let next_unconstrained_index = env.call_private(
+        sender,
+        test_contract.next_index_for_secret(expected_secret, MessageDelivery::onchain_unconstrained().into()),
+    );
+    let next_constrained_index = env.call_private(
+        sender,
+        test_contract.next_index_for_secret(expected_secret, MessageDelivery::onchain_constrained().into()),
+    );
     assert_eq(next_unconstrained_index, 1);
     assert_eq(next_constrained_index, 0);
 
@@ -91,7 +96,8 @@ unconstrained fn unconstrained_delivery_uses_configured_arbitrary_secret() {
 
 #[test]
 unconstrained fn unconstrained_delivery_uses_address_derived_secret() {
-    let options = TestEnvironmentOptions::new().with_tagging_secret_strategy(TaggingSecretStrategy::address_derived());
+    let options =
+        TestEnvironmentOptions::new().with_tag_secret_strategy_all_modes(TaggingSecretStrategy::address_derived());
     let (env, _, test_address, sender, _) = setup_opts(options);
     let recipient = external_recipient();
     let test_contract = ConstrainedDeliveryTest::at(test_address);
@@ -102,8 +108,14 @@ unconstrained fn unconstrained_delivery_uses_address_derived_secret() {
     let private_logs = txe_oracles::get_last_tx_effects().private_logs;
     assert_eq(private_logs.len(), 1);
 
-    let next_unconstrained_index = env.call_private(sender, test_contract.next_unconstrained_index_for_secret(secret));
-    let next_constrained_index = env.call_private(sender, test_contract.next_index_for_secret(secret));
+    let next_unconstrained_index = env.call_private(
+        sender,
+        test_contract.next_index_for_secret(secret, MessageDelivery::onchain_unconstrained().into()),
+    );
+    let next_constrained_index = env.call_private(
+        sender,
+        test_contract.next_index_for_secret(secret, MessageDelivery::onchain_constrained().into()),
+    );
     assert_eq(next_unconstrained_index, 1);
     assert_eq(next_constrained_index, 0);
 }
@@ -111,9 +123,11 @@ unconstrained fn unconstrained_delivery_uses_address_derived_secret() {
 #[test]
 unconstrained fn tagging_secret_strategy_can_differ_by_delivery_mode() {
     let point = arbitrary_secret_point();
-    let options = TestEnvironmentOptions::new().with_tagging_secret_strategies_by_delivery_mode(
+    // Only the unconstrained mode is configured: the constrained mode falls back to the default non-interactive
+    // handshake strategy, so the constrained delivery below still bootstraps a registry handshake.
+    let options = TestEnvironmentOptions::new().with_tag_secret_strategy(
+        MessageDelivery::onchain_unconstrained(),
         TaggingSecretStrategy::arbitrary_secret(point),
-        TaggingSecretStrategy::non_interactive_handshake(),
     );
     let (env, registry_address, test_address, sender, _) = setup_opts(options);
     let recipient = external_recipient();
@@ -122,10 +136,14 @@ unconstrained fn tagging_secret_strategy_can_differ_by_delivery_mode() {
 
     env.call_private(sender, test_contract.emit_unconstrained_event(recipient, 1));
 
-    let app_secret = compute_app_siloed_shared_secret(point, test_address);
-    let expected_unconstrained_secret = poseidon2_hash([app_secret, recipient.to_field()]);
-    let next_unconstrained_index =
-        env.call_private(sender, test_contract.next_unconstrained_index_for_secret(expected_unconstrained_secret));
+    let expected_unconstrained_secret = compute_directional_app_secret(point, test_address, recipient);
+    let next_unconstrained_index = env.call_private(
+        sender,
+        test_contract.next_index_for_secret(
+            expected_unconstrained_secret,
+            MessageDelivery::onchain_unconstrained().into(),
+        ),
+    );
     assert_eq(next_unconstrained_index, 1);
 
     let maybe_handshake = env.execute_utility_opts(
@@ -144,7 +162,10 @@ unconstrained fn tagging_secret_strategy_can_differ_by_delivery_mode() {
         .expect(f"constrained delivery should have stored a handshake");
     assert(handshake.shared != expected_unconstrained_secret);
 
-    let next_constrained_index = env.call_private(sender, test_contract.next_index_for_secret(handshake.shared));
+    let next_constrained_index = env.call_private(
+        sender,
+        test_contract.next_index_for_secret(handshake.shared, MessageDelivery::onchain_constrained().into()),
+    );
     assert_eq(next_constrained_index, 1);
 }
 
@@ -175,7 +196,10 @@ unconstrained fn rehandshake_replaces_registry_secret_for_future_delivery() {
 
     env.call_private_opts(sender, authorizing(registry_address), test_contract.emit_event(recipient, 1));
 
-    let next_index = env.call_private(sender, test_contract.next_index_for_secret(second_secret));
+    let next_index = env.call_private(
+        sender,
+        test_contract.next_index_for_secret(second_secret, MessageDelivery::onchain_constrained().into()),
+    );
     assert_eq(next_index, 1);
 }
 

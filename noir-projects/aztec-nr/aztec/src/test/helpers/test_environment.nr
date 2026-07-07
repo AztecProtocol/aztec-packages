@@ -89,7 +89,7 @@ pub struct TestEnvironment {
 /// methods setting each value, e.g.:
 /// ```noir
 /// let env = TestEnvironment::new_opts(
-///     TestEnvironmentOptions::new().with_tagging_secret_strategy(TaggingSecretStrategy::non_interactive_handshake()),
+///     TestEnvironmentOptions::new().with_tag_secret_strategy_all_modes(strategy),
 /// );
 /// ```
 pub struct TestEnvironmentOptions {
@@ -106,27 +106,32 @@ impl TestEnvironmentOptions {
         }
     }
 
-    /// Sets the [`TaggingSecretStrategy`] the wallet reports through the
+    /// Sets the [`TaggingSecretStrategy`] the wallet reports for `mode` through the
     /// [`resolve_tagging_strategy`](crate::oracle::resolve_tagging_strategy) oracle, affecting message delivery in
     /// private executions.
     ///
-    /// If not set, the wallet hook is left unconfigured and the private execution environment applies its own default.
-    pub fn with_tagging_secret_strategy(&mut self, strategy: TaggingSecretStrategy) -> Self {
-        self.unconstrained_tagging_secret_strategy = Option::some(strategy);
-        self.constrained_tagging_secret_strategy = Option::some(strategy);
+    /// If no strategy is set for either mode, the wallet hook is left unconfigured and the private execution
+    /// environment applies its own default. A mode left unset while the other is configured falls back to the default
+    /// [`TaggingSecretStrategy::non_interactive_handshake`], the strategy a PXE `resolveTaggingSecretStrategy` hook
+    /// typically hardcodes for modes it does not customize.
+    pub fn with_tag_secret_strategy<M>(&mut self, mode: M, strategy: TaggingSecretStrategy) -> Self
+    where
+        M: Into<OnchainDeliveryMode>,
+    {
+        if mode.into() == OnchainDeliveryMode::onchain_unconstrained() {
+            self.unconstrained_tagging_secret_strategy = Option::some(strategy);
+        } else {
+            self.constrained_tagging_secret_strategy = Option::some(strategy);
+        }
         *self
     }
 
-    /// Sets the [`TaggingSecretStrategy`] the wallet reports by delivery mode through the
-    /// [`resolve_tagging_strategy`](crate::oracle::resolve_tagging_strategy) oracle.
-    pub fn with_tagging_secret_strategies_by_delivery_mode(
-        &mut self,
-        unconstrained_strategy: TaggingSecretStrategy,
-        constrained_strategy: TaggingSecretStrategy,
-    ) -> Self {
-        self.unconstrained_tagging_secret_strategy = Option::some(unconstrained_strategy);
-        self.constrained_tagging_secret_strategy = Option::some(constrained_strategy);
-        *self
+    /// Sets `strategy` for both delivery modes: the equivalent of a PXE `resolveTaggingSecretStrategy` hook that
+    /// ignores the request's mode. See [`with_tag_secret_strategy`](Self::with_tag_secret_strategy) to configure a
+    /// single mode.
+    pub fn with_tag_secret_strategy_all_modes(&mut self, strategy: TaggingSecretStrategy) -> Self {
+        let _ = self.with_tag_secret_strategy(OnchainDeliveryMode::onchain_unconstrained(), strategy);
+        self.with_tag_secret_strategy(OnchainDeliveryMode::onchain_constrained(), strategy)
     }
 }
 
@@ -625,10 +630,9 @@ impl TestEnvironment {
     ///
     /// ### Sample usage
     /// ```noir
+    /// let strategy = TaggingSecretStrategy::non_interactive_handshake();
     /// let env = TestEnvironment::new_opts(
-    ///     TestEnvironmentOptions::new().with_tagging_secret_strategy(
-    ///         TaggingSecretStrategy::non_interactive_handshake(),
-    ///     ),
+    ///     TestEnvironmentOptions::new().with_tag_secret_strategy_all_modes(strategy),
     /// );
     /// ```
     pub unconstrained fn new_opts(options: TestEnvironmentOptions) -> Self {

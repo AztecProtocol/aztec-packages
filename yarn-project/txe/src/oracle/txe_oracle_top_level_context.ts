@@ -477,7 +477,6 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     const simulator = new WASMSimulator();
 
     const transientArrayService = new TransientArrayService();
-    const taggingSecretStrategies = this.taggingSecretStrategies;
     const privateExecutionOracle = new PrivateExecutionOracle({
       argsHash,
       txContext,
@@ -518,7 +517,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         ),
         // Only configure the hook when a strategy was explicitly set, so that otherwise the default tagging secret
         // strategy is exercised.
-        resolveTaggingSecretStrategy: makeResolveTaggingSecretStrategyHook(taggingSecretStrategies),
+        resolveTaggingSecretStrategy: makeResolveTaggingSecretStrategyHook(this.taggingSecretStrategies),
       }),
       transientArrayService,
     });

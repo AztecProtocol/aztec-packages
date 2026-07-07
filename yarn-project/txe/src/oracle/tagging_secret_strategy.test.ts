@@ -4,6 +4,7 @@ import type { TaggingSecretStrategy } from '@aztec/pxe/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { AppTaggingSecretKind } from '@aztec/stdlib/logs';
 
+import { toSingle } from '../utils/encoding.js';
 import { makeResolveTaggingSecretStrategyHook } from './tagging_secret_strategy.js';
 import { callTxeHandler } from './txe_oracle_registry.js';
 
@@ -52,7 +53,7 @@ describe('makeResolveTaggingSecretStrategyHook', () => {
   it('deserializes the mode-aware TXE oracle setter', async () => {
     const received = await callTxeHandler({
       oracle: 'aztec_txe_setTaggingSecretStrategy',
-      inputs: [field(2), field(1), field(2), field(5), field(6)],
+      inputs: [toSingle(2), toSingle(1), toSingle(2), toSingle(5), toSingle(6)],
       handler: ([deliveryMode, strategy]) => {
         expect(deliveryMode).toBe(AppTaggingSecretKind.UNCONSTRAINED);
         expect(strategy.isSome()).toBe(true);
@@ -78,8 +79,4 @@ function makeRequest(deliveryMode: AppTaggingSecretKind) {
     recipient: AztecAddress.ZERO,
     deliveryMode,
   };
-}
-
-function field(value: number) {
-  return new Fr(value).toString().replace(/^0x/, '');
 }

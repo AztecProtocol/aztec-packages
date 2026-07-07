@@ -740,7 +740,6 @@ export class TXESession implements TXESessionStateHandler {
       this.stateMachine.contractClassService,
       anchorBlock!,
     );
-    const taggingSecretStrategies = this.taggingSecretStrategies;
     this.oracleHandler = new TXEPrivateExecutionOracle({
       argsHash: Fr.ZERO,
       txContext: new TxContext(this.chainId, this.version, gasSettings),
@@ -770,7 +769,7 @@ export class TXESession implements TXESessionStateHandler {
       txResolver: this.stateMachine.txResolver,
       simulator: new WASMSimulator(),
       hooks: composeHooks({
-        resolveTaggingSecretStrategy: makeResolveTaggingSecretStrategyHook(taggingSecretStrategies),
+        resolveTaggingSecretStrategy: makeResolveTaggingSecretStrategyHook(this.taggingSecretStrategies),
       }),
       transientArrayService,
     });

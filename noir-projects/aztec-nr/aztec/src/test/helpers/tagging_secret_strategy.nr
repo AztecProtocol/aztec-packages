@@ -1,4 +1,11 @@
-use crate::protocol::{point::EmbeddedCurvePoint, traits::{Deserialize, Serialize}, utils::reader::Reader};
+use crate::keys::ecdh_shared_secret::compute_app_siloed_shared_secret;
+use crate::protocol::{
+    address::AztecAddress,
+    hash::poseidon2_hash,
+    point::EmbeddedCurvePoint,
+    traits::{Deserialize, Serialize, ToField},
+    utils::reader::Reader,
+};
 
 global NON_INTERACTIVE_HANDSHAKE: u8 = 1;
 global ARBITRARY_SECRET: u8 = 2;
@@ -6,7 +13,7 @@ global ADDRESS_DERIVED: u8 = 3;
 
 /// How a message's tagging secret is chosen: the wallet's strategy.
 ///
-/// This type only exists for tests: a Noir test sets it via `with_tagging_secret_strategy` on
+/// This type only exists for tests: a Noir test sets it via `with_tag_secret_strategy` on
 /// [`TestEnvironmentOptions`](crate::test::helpers::test_environment::TestEnvironmentOptions).
 /// Production wallets express the strategy in PXE; the Noir path only consumes the resolved
 /// [`ResolvedTaggingStrategy`](crate::messages::delivery::ResolvedTaggingStrategy).
@@ -46,6 +53,16 @@ impl TaggingSecretStrategy {
         );
         strategy
     }
+}
+
+/// Computes the directional tagging secret PXE derives from an arbitrary shared secret point: the point is app-siloed
+/// and the recipient is folded in for direction. Mirrors `AppTaggingSecret.computeDirectional` on the PXE side; tests
+/// use it to derive the secret they expect an [`arbitrary_secret`](TaggingSecretStrategy::arbitrary_secret) strategy
+/// to produce.
+pub fn compute_directional_app_secret(secret: EmbeddedCurvePoint, app: AztecAddress, recipient: AztecAddress) -> Field {
+    poseidon2_hash(
+        [compute_app_siloed_shared_secret(secret, app), recipient.to_field()],
+    )
 }
 
 impl Deserialize for TaggingSecretStrategy {

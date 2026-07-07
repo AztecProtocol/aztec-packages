@@ -28,6 +28,9 @@ export type TaggingSecretStrategy =
       secret: Point;
     };
 
+/** The strategy PXE applies to both delivery modes when no `resolveTaggingSecretStrategy` hook is configured. */
+export const DEFAULT_TAGGING_SECRET_STRATEGY: TaggingSecretStrategy = { type: 'non-interactive-handshake' };
+
 /** Information about the message delivery requesting a tagging secret strategy. */
 export type TaggingSecretStrategyRequest = {
   contractAddress: AztecAddress;
