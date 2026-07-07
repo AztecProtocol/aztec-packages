@@ -47,12 +47,8 @@ import {
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
-<<<<<<< HEAD
 import type { PublisherConfig, SequencerPublisherConfig, TxSenderConfig } from './config.js';
-=======
-import type { PublisherConfig, TxSenderConfig } from './config.js';
 import { type FailedL1Tx, FailedL1TxSchema } from './l1_tx_failed_store/index.js';
->>>>>>> origin/public-next
 import type { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
 import { type Action, SequencerPublisher, compareActions } from './sequencer-publisher.js';
 
