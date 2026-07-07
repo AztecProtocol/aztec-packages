@@ -113,16 +113,22 @@ mod test {
 
     #[test(should_fail_with = "unrecognized tagging secret strategy kind")]
     fn deserializing_handshake_with_noninfinite_point_fails() {
-        let _ = TaggingSecretStrategy::deserialize([1, 7, 11]);
+        let _ = TaggingSecretStrategy::deserialize([
+            TaggingSecretStrategy::non_interactive_handshake().kind as Field,
+            7,
+            11,
+        ]);
     }
 
     #[test(should_fail_with = "unrecognized tagging secret strategy kind")]
     fn deserializing_address_derived_with_noninfinite_point_fails() {
-        let _ = TaggingSecretStrategy::deserialize([4, 7, 11]);
+        let _ = TaggingSecretStrategy::deserialize(
+            [TaggingSecretStrategy::address_derived().kind as Field, 7, 11],
+        );
     }
 
     #[test(should_fail_with = "unrecognized tagging secret strategy kind")]
     fn deserializing_interactive_handshake_with_noninfinite_point_fails() {
-        let _ = TaggingSecretStrategy::deserialize([3, 7, 11]);
+        let _ = TaggingSecretStrategy::deserialize([TaggingSecretStrategy::interactive_handshake().kind as Field, 7, 11]);
     }
 }
