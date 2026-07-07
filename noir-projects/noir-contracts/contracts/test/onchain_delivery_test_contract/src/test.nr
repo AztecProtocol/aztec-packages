@@ -69,10 +69,10 @@ unconstrained fn unconstrained_delivery_works_alongside_constrained_delivery() {
     );
     let (env, registry_address, test_address, sender, _) = setup_opts(options);
     let recipient = external_recipient();
-    let test_contract = ConstrainedDeliveryTest::at(test_address);
+    let test_contract = OnchainDeliveryTest::at(test_address);
     let registry = HandshakeRegistry::at(registry_address);
 
-    env.call_private(sender, test_contract.emit_unconstrained_event(recipient, 1));
+    env.call_private(sender, test_contract.emit_event_unconstrained(recipient, 1));
 
     let expected_unconstrained_secret = compute_directional_app_secret(point, test_address, recipient);
     let next_unconstrained_index = env.call_private(
