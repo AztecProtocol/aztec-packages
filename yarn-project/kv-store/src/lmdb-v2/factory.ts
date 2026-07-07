@@ -1,6 +1,10 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { type LoggerBindings, createLogger } from '@aztec/foundation/log';
-import { DatabaseVersionManager, type SchemaVersionMismatchPolicy } from '@aztec/stdlib/database-version/manager';
+import {
+  DatabaseVersionManager,
+  type SchemaVersionMismatchPolicy,
+  type VersionFileReadFailurePolicy,
+} from '@aztec/stdlib/database-version/manager';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 
 import { copyFile, mkdir, mkdtemp, rm } from 'fs/promises';
@@ -15,6 +19,7 @@ const MAX_READERS = 16;
 export type CreateStoreOptions = {
   onUpgrade?: (dataDir: string, currentVersion: number, latestVersion: number) => Promise<void>;
   schemaVersionMismatchPolicy?: SchemaVersionMismatchPolicy;
+  versionFileReadFailurePolicy?: VersionFileReadFailurePolicy;
 };
 
 export async function createStore(
@@ -44,6 +49,7 @@ export async function createStore(
         AztecLMDBStoreV2.new(dbDirectory, config.dataStoreMapSizeKb, MAX_READERS, () => Promise.resolve(), bindings),
       onUpgrade: options.onUpgrade,
       schemaVersionMismatchPolicy: options.schemaVersionMismatchPolicy,
+      versionFileReadFailurePolicy: options.versionFileReadFailurePolicy,
     });
 
     log.info(
