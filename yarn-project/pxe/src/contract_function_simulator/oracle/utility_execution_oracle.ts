@@ -26,7 +26,7 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { PublicKeys, computeAddressSecret, hashPublicKey } from '@aztec/stdlib/keys';
 import { AppTaggingSecret, FlatPublicLogs, appSiloEcdhSharedSecret } from '@aztec/stdlib/logs';
-import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
+import { type UnsiloedMessageNullifier, getL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import {
@@ -478,19 +478,17 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
   }
 
   /**
-   * Returns the membership witness of an un-nullified L1 to L2 message.
-   * @param contractAddress - Address of a contract by which the message was emitted.
+   * Returns the membership witness of an L1 to L2 message.
    * @param messageHash - Hash of the message.
-   * @param secret - Secret used to compute a nullifier.
-   * @dev Contract address and secret are only used to compute the nullifier to get non-nullified messages
+   * @param nullifier - When present, the unsiloed nullifier of the message and the address to silo it with. The witness
+   * is only returned if the siloed nullifier is absent from the nullifier tree, i.e. the message has not been consumed.
    * @returns The l1 to l2 membership witness (index of message in the tree and sibling path).
    */
-  public async getL1ToL2MembershipWitness(contractAddress: AztecAddress, messageHash: Fr, secret: Fr) {
-    const [messageIndex, siblingPath] = await getNonNullifiedL1ToL2MessageWitness(
+  public async getL1ToL2MembershipWitnessV2(messageHash: Fr, nullifier: Option<UnsiloedMessageNullifier>) {
+    const [messageIndex, siblingPath] = await getL1ToL2MessageWitness(
       this.aztecNode,
-      contractAddress,
       messageHash,
-      secret,
+      nullifier.value,
       await this.anchorBlockHeader.hash(),
     );
 
