@@ -72,7 +72,7 @@ services:
     environment:
       AZTEC_NODE_URL: http://node:8080
       NODE_NO_WARNINGS: 1
-      SECRET_KEY:
+      SIGNING_KEY:
       ETHEREUM_HOSTS:
     profiles:
       - cli
