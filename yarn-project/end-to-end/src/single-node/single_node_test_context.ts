@@ -94,15 +94,18 @@ export type TrackedSequencerEvent = {
 export type BlockProposedEvent = { blockNumber: BlockNumber; slot: SlotNumber; buildSlot: SlotNumber };
 
 /**
- * The 36s-slot reorg cadence shared by every reorg/prune/HA test, regardless of single-node vs
- * multi-validator topology: a 36s L2 slot, 8s blocks, and a 4-slot epoch. The two concrete reorg
+ * The 24s-slot reorg cadence shared by every reorg/prune/HA test, regardless of single-node vs
+ * multi-validator topology: a 24s L2 slot, 5s blocks, and a 4-slot epoch. The 5s block duration is chosen
+ * so the fast-profile budgets both reorg profiles run under (eth < 8s: p2p 0.5s, prepare 0.5s, init 1s)
+ * still fit ~3 full block sub-slots per checkpoint — `floor((24 - 1 - 5 - 2*0.5 - 0.5) / 5) = 3` — which
+ * the l1-reorgs suites' `assertMultipleBlocksPerSlot(2)` assertions require. The two concrete reorg
  * profiles ({@link FAST_REORG_TIMING}, {@link MULTI_VALIDATOR_REORG_TIMING}) extend this with their topology's L1
  * slot duration and any extra knobs. Kept timing-only — `maxSpeedUpAttempts`, `cancelTxOnTimeout`, and
  * `aztecProofSubmissionEpochs` encode per-test scenario intent and stay explicit at the call site.
  */
 export const REORG_TIMING_BASE = {
-  aztecSlotDuration: 36,
-  blockDurationMs: 8000,
+  aztecSlotDuration: 24,
+  blockDurationMs: 5000,
   aztecEpochDuration: 4,
 } as const;
 
@@ -122,7 +125,7 @@ export const FAST_REORG_TIMING = {
 } as const;
 
 /**
- * Timing-only profile naming the 36s/6s reorg-and-prune cadence copied verbatim across the
+ * Timing-only profile naming the 24s/6s reorg-and-prune cadence copied verbatim across the
  * multi-validator recovery and high-availability tests (`recovery/proposal_failure_recovery`,
  * `recovery/equivocation_recovery`, `high-availability/ha_sync`,
  * `high-availability/ha_checkpoint_handoff`). The multi-validator analogue of
