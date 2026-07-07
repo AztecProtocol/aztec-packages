@@ -46,11 +46,10 @@ describe('single-node/fees/private_payments', () => {
     // cycle: the prover-node submits a proof as soon as the epoch is complete, so ~8x shorter
     // epochs ≈ ~8x faster proof cadence per cycle. Setup itself stays slot-bound.
     await t.setup({ ...PIPELINING_SETUP_OPTS, aztecProofSubmissionEpochs: 640, aztecEpochDuration: 4 });
-    await t.applyFPCSetup();
-    // Register the SponsoredFPC (funded at genesis via FeesTest's fundSponsoredFPC) so the folded
-    // sponsored-payment it can use it; this is a PXE registration, not an L2 tx.
-    await t.applySponsoredFPCSetup();
-    await t.applyFundAliceWithBananas();
+    // The BananaFPC deploy, the SponsoredFPC registration (funded at genesis via FeesTest's
+    // fundSponsoredFPC; a PXE registration, not an L2 tx), and Alice's banana mints each depend only
+    // on the BananaCoin deployed during setup, so they run concurrently and share slots.
+    await Promise.all([t.applyFPCSetup(), t.applySponsoredFPCSetup(), t.applyFundAliceWithBananas()]);
     ({
       wallet,
       aliceAddress,
