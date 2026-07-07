@@ -33,30 +33,37 @@ import {
  * Measures the per-sync cost of `syncTaggedPrivateLogs` for constrained secrets. Constrained streams are gapless, so
  * the scan probes a small initial window (`INITIAL_CONSTRAINED_PROBE_LEN`) and doubles it each round (capped at the
  * `UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN` window), stopping at the first missing tag instead of fetching the
- * full window. This validates the shipped doubling policy; the fixed-step sweep that motivated choosing it lives in the
- * PR description (reproducible from this branch's pre-doubling history).
+ * full window. This validates the shipped doubling policy against the fixed-step alternatives considered when choosing
+ * it.
+ *
+ * Manual run:
+ * ```bash
+ * RUN_TAG_SYNC_BENCH=1 JEST_MAX_WORKERS=1 BENCH_OUTPUT=/tmp/tag-sync-bench-current.json \
+ *   yarn workspace @aztec/pxe test src/tagging/recipient_sync/sync_tagged_private_logs.bench.test.ts
+ * ```
  *
  * Metrics, per scenario:
  * - `tag-queries`: total tags queried, the throughput win. At steady state it drops from a full window per secret to a
  *   single tag; a secret K logs behind costs a little above the K + 1 first-miss floor (the doubling probe overshoots
  *   slightly to cut round-trips). The floor is reported as the reduction baseline.
- * - `rpc-round-trips`: sequential blocking waits on the node (parallel `Promise.all` calls within a round count as one),
- *   via `BenchmarkedNodeFactory`. The latency axis: doubling grows the probe geometrically, so round-trips rise only
- *   ~log2(K) while the probe is still doubling, then linearly at ~K/WINDOW_LEN once it saturates the cap, while
+ * - `rpc-round-trips`: sequential blocking waits on the node (parallel `Promise.all` calls within a round count as
+ *   one), via `BenchmarkedNodeFactory`. The latency axis: doubling grows the probe geometrically, so round-trips rise
+ *   only ~log2(K) while the probe is still doubling, then linearly at ~K/WINDOW_LEN once it saturates the cap, while
  *   tag-queries stay near the floor. Depends only on K, not on secret count. A round's tags are chunked at MAX_RPC_LEN
  *   (=100) into parallel calls internally, but those overlap, so a wide round is still one round-trip; that is why
  *   round-trips, not raw call count, is the latency axis.
- * - `rpc-blocking-time`: measured wall-clock the caller blocks on the node, under a modeled `MODELED_NODE_RPC_LATENCY_MS`
- *   per call plus a little per-round overhead. Parallel calls within a round overlap, so it tracks round-trips (a
- *   1000-secret round is many parallel chunks but ~one round-trip of blocking time). Reported only (varies run to run).
+ * - `rpc-blocking-time`: measured wall-clock the caller blocks on the node, under a modeled
+ *   `MODELED_NODE_RPC_LATENCY_MS` per call plus a little per-round overhead. Parallel calls within a round overlap, so
+ *   it tracks round-trips (a 1000-secret round is many parallel chunks but ~one round-trip of blocking time). Reported
+ *   only (varies run to run).
  *
  * Scenario labels: `steady-state` is no new logs (K = 0); `catch-up-K` is K new contiguous logs per secret since the
- * last sync; `secrets=N` is N secrets synced together in one batched pass. Because round-trips depend only on K (not N),
- * the light catch-up scenarios run at both 100 and 1000 secrets to show tag-queries scale with N while round-trips do
- * not. The `mixed` row is the realistic active sync (999 idle secrets + 1 deep straggler at K = 100): it isolates that
- * tag-queries stay dominated by the idle majority while a single straggler alone sets the round-trip count (round-trips
- * therefore match catch-up-100). The `unconstrained` row is the control: it cannot first-miss (windowed scan), so its
- * cost is fixed.
+ * last sync; `secrets=N` is N secrets synced together in one batched pass. Because round-trips depend only on K (not
+ * N), the light catch-up scenarios run at both 100 and 1000 secrets to show tag-queries scale with N while round-trips
+ * do not. The `mixed` row is the realistic active sync (999 idle secrets + 1 deep straggler at K = 100): it isolates
+ * that tag-queries stay dominated by the idle majority while a single straggler alone sets the round-trip count
+ * (round-trips therefore match catch-up-100). The `unconstrained` row is the control: it cannot first-miss (windowed
+ * scan), so its cost is fixed.
  */
 
 const logger = createLogger('pxe:tagging:bench');
@@ -71,6 +78,8 @@ const JOB_ID = 'bench-job';
 // Models per-call node RPC latency so round-trip blocking time is meaningful against an otherwise-instant mock node.
 // The round-trip *count* is independent of this value; only `rpc-blocking-time` scales with it.
 const MODELED_NODE_RPC_LATENCY_MS = 5;
+
+const describeBench = process.env.RUN_TAG_SYNC_BENCH ? describe : describe.skip;
 
 /** One benchmark measurement in the benchmark JSON shape. */
 type BenchResult = { name: string; value: number; unit: string };
@@ -93,9 +102,9 @@ type Scenario = {
 };
 
 /**
- * The per-secret new-log distribution for a scenario: `deepCohort.count` secrets at `deepCohort.newLogs`, the rest idle,
- * or a uniform `newLogs` for every secret when no cohort is set. Single source for both log seeding and the expected
- * tag-query / round-trip assertions.
+ * The per-secret new-log distribution for a scenario: `deepCohort.count` secrets at `deepCohort.newLogs`, the rest
+ * idle, or a uniform `newLogs` for every secret when no cohort is set. Single source for both log seeding and the
+ * expected tag-query / round-trip assertions.
  */
 function newLogsPerSecret(scenario: Scenario): number[] {
   return Array.from({ length: scenario.secretCount }, (_, i) =>
@@ -105,9 +114,9 @@ function newLogsPerSecret(scenario: Scenario): number[] {
 
 /**
  * Mirrors `processConstrainedResults` for a single secret with `k` new contiguous logs (`priorCursor = 0`): the probe
- * starts at `INITIAL_CONSTRAINED_PROBE_LEN`, doubles each round (capped at WINDOW_LEN), and the queried range is bounded
- * by the WINDOW_LEN-ahead-of-finalized frontier. Returns the total tags queried and the sequential round-trip count.
- * Single source for the expected tag-query / round-trip assertions.
+ * starts at `INITIAL_CONSTRAINED_PROBE_LEN`, doubles each round (capped at WINDOW_LEN), and the queried range is
+ * bounded by the WINDOW_LEN-ahead-of-finalized frontier. Returns the total tags queried and the sequential round-trip
+ * count. Single source for the expected tag-query / round-trip assertions.
  */
 function probeSchedule(k: number): { tags: number; rounds: number } {
   let start = 1; // priorCursor (0) + 1
@@ -160,8 +169,8 @@ const SCENARIOS: Scenario[] = [
       newLogs,
     })),
   ),
-  // Deep catch-up at 100 and 1000 secrets (the negative case): round-trips grow one per probe step while tag-queries stay
-  // at the K + 1 floor. From a full window up, the WINDOW_LEN cap forces multiple rounds at any P. As with light
+  // Deep catch-up at 100 and 1000 secrets (the negative case): round-trips grow one per probe step while tag-queries
+  // stay at the K + 1 floor. From a full window up, the WINDOW_LEN cap forces multiple rounds at any P. As with light
   // catch-up, round-trips depend only on K and P (not N), so the two secret counts share a round-trip count and differ
   // only in tag-queries (10x) and blocking time.
   ...[100, 1000].flatMap(secretCount =>
@@ -194,7 +203,7 @@ const SCENARIOS: Scenario[] = [
   },
 ];
 
-describe('syncTaggedPrivateLogs constrained-sync bench', () => {
+describeBench('syncTaggedPrivateLogs constrained-sync bench', () => {
   const aztecNode: MockProxy<AztecNode> = mock<AztecNode>();
 
   function computeSiloedTagForIndex(secret: AppTaggingSecret, index: number) {
@@ -296,7 +305,8 @@ describe('syncTaggedPrivateLogs constrained-sync bench', () => {
       const perSecretNewLogs = newLogsPerSecret(scenario);
       if (scenario.kind === AppTaggingSecretKind.CONSTRAINED) {
         // `probeSchedule` mirrors the real doubling scan: a secret K logs behind resolves in ~log2(K) round-trips while
-        // the probe is still doubling and ~K/WINDOW_LEN once it saturates the cap, at a little above the K + 1 tag floor.
+        // the probe is still doubling and ~K/WINDOW_LEN once it saturates the cap, at a little above the K + 1 tag
+        // floor.
         // Tags are batched across all secrets per round, so the round-trip count is the deepest secret's.
         const sched = perSecretNewLogs.map(k => probeSchedule(k));
         expect(row.tagQueries).toBe(sched.reduce((sum, s) => sum + s.tags, 0));
