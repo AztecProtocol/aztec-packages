@@ -15,7 +15,7 @@ describe('makeResolveTaggingSecretStrategyHook', () => {
 
   it('selects a strategy by delivery mode', async () => {
     const unconstrained: TaggingSecretStrategy = { type: 'arbitrary-secret', secret: await Point.random() };
-    const constrained: TaggingSecretStrategy = { type: 'non-interactive-handshake' };
+    const constrained: TaggingSecretStrategy = { type: 'interactive-handshake' };
     const hook = makeResolveTaggingSecretStrategyHook(
       new Map<AppTaggingSecretKind, TaggingSecretStrategy>([
         [AppTaggingSecretKind.UNCONSTRAINED, unconstrained],
@@ -46,14 +46,17 @@ describe('makeResolveTaggingSecretStrategyHook', () => {
         toSingle(2),
         toSingle(5),
         toSingle(6),
-        // Constrained mode: none, zero-padded to the option's full width.
-        toSingle(0),
-        toSingle(0),
+        // Constrained mode: some(interactive-handshake).
+        toSingle(1),
+        toSingle(4),
         toSingle(0),
         toSingle(0),
       ],
       handler: ([unconstrainedStrategy, constrainedStrategy]) => {
-        expect(constrainedStrategy.isSome()).toBe(false);
+        if (!constrainedStrategy.isSome()) {
+          throw new Error('Expected a constrained-mode tagging secret strategy');
+        }
+        expect(constrainedStrategy.value).toEqual({ type: 'interactive-handshake' });
         if (!unconstrainedStrategy.isSome()) {
           throw new Error('Expected an unconstrained-mode tagging secret strategy');
         }

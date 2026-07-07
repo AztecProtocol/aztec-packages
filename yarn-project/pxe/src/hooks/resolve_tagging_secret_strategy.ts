@@ -14,6 +14,10 @@ export type TaggingSecretStrategy =
       type: 'non-interactive-handshake';
     }
   | {
+      /** Establish a recipient-authorized interactive handshake via the onchain registry. */
+      type: 'interactive-handshake';
+    }
+  | {
       /** Derive the secret from the sender's and recipient's address keys via ECDH. PXE computes and silos it. */
       type: 'address-derived';
     }

@@ -72,6 +72,7 @@ const GAS_SETTINGS: TypeMapping<GasSettings> = {
 const STRATEGY_NON_INTERACTIVE_HANDSHAKE = 1;
 const STRATEGY_ARBITRARY_SECRET = 2;
 const STRATEGY_ADDRESS_DERIVED = 3;
+const STRATEGY_INTERACTIVE_HANDSHAKE = 4;
 
 const TAGGING_SECRET_STRATEGY: TypeMapping<TaggingSecretStrategy> = {
   serialization: {
@@ -79,6 +80,8 @@ const TAGGING_SECRET_STRATEGY: TypeMapping<TaggingSecretStrategy> = {
       switch (strategy.type) {
         case 'non-interactive-handshake':
           return [new Fr(STRATEGY_NON_INTERACTIVE_HANDSHAKE), Fr.ZERO, Fr.ZERO];
+        case 'interactive-handshake':
+          return [new Fr(STRATEGY_INTERACTIVE_HANDSHAKE), Fr.ZERO, Fr.ZERO];
         case 'address-derived':
           return [new Fr(STRATEGY_ADDRESS_DERIVED), Fr.ZERO, Fr.ZERO];
         case 'arbitrary-secret':
@@ -93,6 +96,8 @@ const TAGGING_SECRET_STRATEGY: TypeMapping<TaggingSecretStrategy> = {
       switch (kind) {
         case STRATEGY_NON_INTERACTIVE_HANDSHAKE:
           return { type: 'non-interactive-handshake' };
+        case STRATEGY_INTERACTIVE_HANDSHAKE:
+          return { type: 'interactive-handshake' };
         case STRATEGY_ADDRESS_DERIVED:
           return { type: 'address-derived' };
         case STRATEGY_ARBITRARY_SECRET:

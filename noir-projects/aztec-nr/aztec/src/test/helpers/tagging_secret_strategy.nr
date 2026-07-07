@@ -10,6 +10,7 @@ use crate::protocol::{
 global NON_INTERACTIVE_HANDSHAKE: u8 = 1;
 global ARBITRARY_SECRET: u8 = 2;
 global ADDRESS_DERIVED: u8 = 3;
+global INTERACTIVE_HANDSHAKE: u8 = 4;
 
 /// How a message's tagging secret is chosen: the wallet's strategy.
 ///
@@ -29,6 +30,11 @@ impl TaggingSecretStrategy {
         Self { kind: NON_INTERACTIVE_HANDSHAKE, secret: EmbeddedCurvePoint { x: 0, y: 0 } }
     }
 
+    /// A secret established through an interactive handshake.
+    pub fn interactive_handshake() -> Self {
+        Self { kind: INTERACTIVE_HANDSHAKE, secret: EmbeddedCurvePoint { x: 0, y: 0 } }
+    }
+
     /// A secret derived from the sender's and recipient's address keys via Diffie-Hellman.
     ///
     /// The PXE performs the key exchange, so the wallet supplies no material.
@@ -46,9 +52,10 @@ impl TaggingSecretStrategy {
     /// Validates a raw discriminant, as deserialization must always reject unknown values.
     fn from_parts(kind: u8, secret: EmbeddedCurvePoint) -> Self {
         let strategy = Self { kind, secret };
+        let is_no_payload_strategy =
+            (kind == NON_INTERACTIVE_HANDSHAKE) | (kind == INTERACTIVE_HANDSHAKE) | (kind == ADDRESS_DERIVED);
         assert(
-            (((kind == NON_INTERACTIVE_HANDSHAKE) | (kind == ADDRESS_DERIVED)) & secret.is_infinite())
-                | (kind == ARBITRARY_SECRET),
+            (is_no_payload_strategy & secret.is_infinite()) | (kind == ARBITRARY_SECRET),
             f"unrecognized tagging secret strategy kind: {kind}",
         );
         strategy
@@ -89,10 +96,12 @@ mod test {
     #[test]
     fn strategy_roundtrips_through_serialization() {
         let non_interactive = TaggingSecretStrategy::non_interactive_handshake();
+        let interactive = TaggingSecretStrategy::interactive_handshake();
         let address = TaggingSecretStrategy::address_derived();
         let provided = TaggingSecretStrategy::arbitrary_secret(EmbeddedCurvePoint { x: 7, y: 11 });
 
         assert(TaggingSecretStrategy::deserialize(non_interactive.serialize()) == non_interactive);
+        assert(TaggingSecretStrategy::deserialize(interactive.serialize()) == interactive);
         assert(TaggingSecretStrategy::deserialize(address.serialize()) == address);
         assert(TaggingSecretStrategy::deserialize(provided.serialize()) == provided);
     }
@@ -105,6 +114,11 @@ mod test {
     #[test(should_fail_with = "unrecognized tagging secret strategy kind")]
     fn deserializing_handshake_with_noninfinite_point_fails() {
         let _ = TaggingSecretStrategy::deserialize([1, 7, 11]);
+    }
+
+    #[test(should_fail_with = "unrecognized tagging secret strategy kind")]
+    fn deserializing_interactive_handshake_with_noninfinite_point_fails() {
+        let _ = TaggingSecretStrategy::deserialize([4, 7, 11]);
     }
 
     #[test(should_fail_with = "unrecognized tagging secret strategy kind")]

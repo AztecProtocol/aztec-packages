@@ -278,6 +278,8 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     switch (strategy.type) {
       case 'non-interactive-handshake':
         return { type: 'non-interactive-handshake' };
+      case 'interactive-handshake':
+        throw new Error('Interactive handshake tagging strategies are not supported by PXE resolution yet');
       case 'address-derived':
         return this.#addressDerivedSecret(sender, recipient);
       case 'arbitrary-secret': {
