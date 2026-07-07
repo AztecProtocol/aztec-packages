@@ -100,13 +100,9 @@ pub(crate) fn create_non_interactive_handshake(
 
 /// Establishes an interactive handshake for `(sender, recipient)` and returns its app-siloed secrets.
 ///
-/// The registry obtains the recipient's signed authorization through a
-/// [`resolve_custom_request`](crate::oracle::resolve_custom_request::resolve_custom_request) oracle call it resolves
-/// internally, verifies it in-circuit, inserts a fresh handshake note and returns the secrets. Nothing announcing the
-/// handshake is published onchain: the recipient learns the shared secret while signing. As with
-/// [`create_non_interactive_handshake`], the constrained return value is the source of truth for the secrets, so
-/// constrained delivery anchoring a freshly bootstrapped handshake needs no separate call to the registry's
-/// `validate_handshake`.
+/// As with [`create_non_interactive_handshake`], the constrained return value is the source of truth for the
+/// secrets, so constrained delivery anchoring a freshly bootstrapped handshake needs no separate call to the
+/// registry's `validate_handshake`.
 ///
 /// Any handshake already registered for the pair is overwritten.
 pub(crate) fn create_interactive_handshake(

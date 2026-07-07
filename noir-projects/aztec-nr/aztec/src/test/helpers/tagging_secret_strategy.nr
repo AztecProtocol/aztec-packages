@@ -24,9 +24,6 @@ impl TaggingSecretStrategy {
     }
 
     /// A secret established through an interactive handshake.
-    ///
-    /// The registry obtains the recipient's signed authorization through a
-    /// [`resolve_custom_request`](crate::oracle::resolve_custom_request::resolve_custom_request) oracle call.
     pub fn interactive_handshake() -> Self {
         Self { kind: INTERACTIVE_HANDSHAKE, secret: EmbeddedCurvePoint { x: 0, y: 0 } }
     }

@@ -43,9 +43,7 @@ impl TagSecretSource {
         Self { kind: NEW_NON_INTERACTIVE_HANDSHAKE, tag_secret: secrets.shared, sender_only: secrets.sender_only }
     }
 
-    /// Establishes a fresh interactive handshake, publishing nothing about the recipient onchain. See
-    /// [`create_interactive_handshake`](super::handshake::create_interactive_handshake) for how the registry obtains
-    /// the recipient's signed authorization.
+    /// Establishes a fresh interactive handshake, publishing nothing about the recipient onchain.
     pub(crate) fn new_interactive_handshake(
         context: &mut PrivateContext,
         sender: AztecAddress,

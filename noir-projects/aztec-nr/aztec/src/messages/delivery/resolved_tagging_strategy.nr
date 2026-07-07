@@ -25,10 +25,7 @@ impl ResolvedTaggingStrategy {
         Self { kind: UNCONSTRAINED_SECRET, secret }
     }
 
-    /// An interactive handshake: the recipient learns the secret while signing its authorization, and nothing
-    /// announcing the handshake is published onchain. See
-    /// [`create_interactive_handshake`](super::handshake::create_interactive_handshake) for how the registry obtains
-    /// that authorization.
+    /// An interactive handshake: the recipient learns the secret while signing its authorization.
     pub fn interactive_handshake() -> Self {
         Self { kind: INTERACTIVE_HANDSHAKE, secret: 0 }
     }
