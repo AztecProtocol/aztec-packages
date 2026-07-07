@@ -7,3 +7,10 @@ export function createWorldState(..._args: unknown[]): never {
 export function createWorldStateSynchronizer(..._args: unknown[]): never {
   throwStub('createWorldStateSynchronizer');
 }
+
+export class WorldStateSynchronizerError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'WorldStateSynchronizerError';
+  }
+}

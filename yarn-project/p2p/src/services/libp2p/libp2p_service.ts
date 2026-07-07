@@ -90,7 +90,7 @@ import type { PeerManagerInterface } from '../peer-manager/interface.js';
 import { PeerManager } from '../peer-manager/peer_manager.js';
 import { PeerScoring } from '../peer-manager/peer_scoring.js';
 import type { BatchTxRequesterLibP2PService } from '../reqresp/batch-tx-requester/interface.js';
-import type { P2PReqRespConfig } from '../reqresp/config.js';
+import { type P2PReqRespConfig, YAMUX_MAX_MESSAGE_SIZE_BYTES } from '../reqresp/config.js';
 import {
   AuthRequest,
   BlockTxsRequest,
@@ -457,7 +457,8 @@ export class LibP2PService extends WithTracer implements P2PService {
       ],
       datastore,
       peerDiscovery,
-      streamMuxers: [yamux(), mplex()],
+      // Pin the yamux frame size: MAX_REQRESP_REQUEST_SIZE_BYTES relies on a reqresp request fitting in one frame.
+      streamMuxers: [yamux({ maxMessageSize: YAMUX_MAX_MESSAGE_SIZE_BYTES }), mplex()],
       connectionEncryption: [noise()],
       connectionManager: {
         minConnections: 0, // Disable libp2p peer dialing, we do it manually
