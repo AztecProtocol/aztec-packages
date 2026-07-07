@@ -180,6 +180,7 @@ locals {
     "global.customAztecNetwork.registryContractAddress"        = var.REGISTRY_CONTRACT_ADDRESS
     "global.customAztecNetwork.feeAssetHandlerContractAddress" = var.FEE_ASSET_HANDLER_CONTRACT_ADDRESS
     "global.customAztecNetwork.l1ChainId"                      = var.L1_CHAIN_ID
+    "global.aztecEnv.ROLLUP_VERSION"                           = var.ROLLUP_VERSION
     "global.otelCollectorEndpoint"                             = var.OTEL_COLLECTOR_ENDPOINT
     "global.sponsoredFPC"                                      = var.SPONSORED_FPC
     "global.testAccounts"                                      = var.TEST_ACCOUNTS
