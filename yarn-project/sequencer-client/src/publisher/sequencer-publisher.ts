@@ -13,11 +13,12 @@ import {
   type SlashingProposerContract,
   buildSimulationOverridesStateOverride,
 } from '@aztec/ethereum/contracts';
-import { type L1FeeAnalysisResult, L1FeeAnalyzer } from '@aztec/ethereum/l1-fee-analysis';
+import { type L1FeeAnalysisResult, L1FeeAnalyzer, captureWindowBlockFees } from '@aztec/ethereum/l1-fee-analysis';
 import {
   type L1BlobInputs,
   type L1TxConfig,
   type L1TxRequest,
+  L1TxTimeoutError,
   type L1TxUtils,
   MAX_L1_TX_LIMIT,
   type TransactionStats,
@@ -276,25 +277,97 @@ export class SequencerPublisher {
   }
 
   /**
-   * Backs up a failed L1 transaction to the configured store for debugging.
-   * Does nothing if no store is configured.
+   * Logs the gas-pricing data of a failed L1 transaction at warn — so underpricing is diagnosable
+   * from logs even with no failed-tx store configured — and backs the record up to the store when
+   * one is. When captureFeeSummary is true, also records the fee data of the already-mined L1
+   * blocks in the target slot's inclusion window.
    */
-  private backupFailedTx(failedTx: Omit<FailedL1Tx, 'timestamp'>): void {
-    if (!this.failedTxStore) {
-      return;
-    }
-
+  private backupFailedTx(
+    failedTx: Omit<FailedL1Tx, 'timestamp'>,
+    opts?: { captureFeeSummary?: boolean; targetSlot?: SlotNumber; sharedFeeSummary?: FailedL1Tx['gasInfo'] },
+  ): void {
     const tx: FailedL1Tx = {
       ...failedTx,
       timestamp: Date.now(),
     };
 
     // Fire and forget - don't block on backup
-    void this.failedTxStore
-      .then(store => store?.saveFailedTx(tx))
-      .catch(err => {
+    void (async () => {
+      try {
+        // Prefer a pre-captured summary (shared across a batch of failures in the same slot) so we
+        // don't re-read the fee window per record. A capture error must not lose the record itself.
+        const feeSummary =
+          opts?.sharedFeeSummary ??
+          (opts?.captureFeeSummary
+            ? await this.captureFeeEnvironment(opts.targetSlot).catch(() => undefined)
+            : undefined);
+        if (feeSummary) {
+          tx.gasInfo = { ...tx.gasInfo, ...feeSummary };
+        }
+        if (tx.gasInfo) {
+          this.log.warn(`Gas pricing data for failed L1 tx (${tx.failureType})`, {
+            failureType: tx.failureType,
+            actions: tx.context.actions,
+            slot: tx.context.slot,
+            ...tx.gasInfo,
+            ...tx.timing,
+          });
+        }
+        const store = await this.failedTxStore;
+        if (store) {
+          await store.saveFailedTx(tx);
+        }
+      } catch (err) {
         this.log.warn(`Failed to backup failed L1 tx to store`, err);
-      });
+      }
+    })();
+  }
+
+  /**
+   * Captures per-block fee data for the L1 blocks in the target slot's inclusion window (the blocks the
+   * tx could have landed in) for underpricing diagnostics. Reads only already-mined blocks, so it never
+   * waits on the chain. Safe to call off the critical path: the underlying capture never throws, and this
+   * returns undefined when there is no target slot or the window is not yet mined (e.g. an early send
+   * failure), in which case the record simply carries no window data.
+   */
+  private async captureFeeEnvironment(targetL2Slot: SlotNumber | undefined): Promise<FailedL1Tx['gasInfo']> {
+    if (targetL2Slot === undefined) {
+      return undefined;
+    }
+    const l1Constants = this.epochCache.getL1Constants();
+    // The inclusion window is [start of slot N, start of slot N+1): all L1 blocks that can include a tx
+    // for this L2 slot. getTimestampForSlot returns seconds, matching block.timestamp.
+    const windowStartS = getTimestampForSlot(targetL2Slot, l1Constants);
+    const windowEndS = getTimestampForSlot(SlotNumber(Number(targetL2Slot) + 1), l1Constants);
+    const windowBlocks = await captureWindowBlockFees(this.l1TxUtils.client, windowStartS, windowEndS);
+    if (windowBlocks.length === 0) {
+      return undefined;
+    }
+    return { windowBlocks };
+  }
+
+  /** Computes timing info relative to the L2 slot deadline. */
+  private computeTimingInfo(targetL2Slot: SlotNumber | undefined): FailedL1Tx['timing'] {
+    if (targetL2Slot === undefined) {
+      return undefined;
+    }
+    const l1Constants = this.epochCache.getL1Constants();
+    const slotDeadlineS = getTimestampForSlot(SlotNumber(Number(targetL2Slot) + 1), l1Constants);
+    const slotDeadlineMs = Number(slotDeadlineS) * 1000;
+    return {
+      targetL2Slot: Number(targetL2Slot),
+      slotDeadlineTimestampS: slotDeadlineS,
+      msUntilSlotDeadline: slotDeadlineMs - this.dateProvider.now(),
+    };
+  }
+
+  /**
+   * Builds an id for a synthetic failure record (send-error/timeout) that has no on-chain tx hash.
+   * Includes the failure time so each attempt — including retries of the same slot — is stored as its
+   * own record rather than overwriting the previous one.
+   */
+  private failureRecordId(actions: string[], targetSlot: SlotNumber | undefined): Hex {
+    return keccak256(toHex(`${actions.join(',')}:${targetSlot ?? ''}:${Date.now()}`));
   }
 
   public getRollupContract(): RollupContract {
@@ -458,7 +531,7 @@ export class SequencerPublisher {
 
       if (bundleResult.kind === 'aborted') {
         this.logDroppedInSim(bundleResult.droppedRequests);
-        void this.backupDroppedInSim(bundleResult.droppedRequests);
+        void this.backupDroppedInSim(bundleResult.droppedRequests, currentL2Slot);
         return undefined;
       }
 
@@ -482,7 +555,7 @@ export class SequencerPublisher {
         requests: requests.map(request => request.action),
         txConfig,
       });
-      const result = await this.forwardWithPublisherRotation(requests, txConfig, blobConfig);
+      const result = await this.forwardWithPublisherRotation(requests, txConfig, blobConfig, currentL2Slot);
       if (result === undefined) {
         return undefined;
       }
@@ -498,6 +571,44 @@ export class SequencerPublisher {
     } catch (err) {
       const viemError = formatViemError(err);
       this.log.error(`Failed to publish bundled transactions`, viemError);
+      if (err instanceof TimeoutError) {
+        const timeoutState = err instanceof L1TxTimeoutError ? err.txState : undefined;
+        void (async () => {
+          // The RPC is likely degraded right after a timeout, so back up without the block number
+          // rather than leaking an unhandled rejection.
+          const l1BlockNumber = await this.l1TxUtils.getBlockNumber().catch(() => 0n);
+          this.backupFailedTx(
+            {
+              id: this.failureRecordId(
+                validRequests.map(r => r.action),
+                currentL2Slot,
+              ),
+              failureType: 'timeout',
+              request: { to: MULTI_CALL_3_ADDRESS as Hex, data: '0x' as Hex },
+              l1BlockNumber,
+              error: { message: viemError.message, name: 'TimeoutError' },
+              context: {
+                actions: validRequests.map(r => r.action),
+                requests: validRequests
+                  .filter(r => r.request.to !== null)
+                  .map(r => ({ action: r.action, to: r.request.to! as Hex, data: r.request.data! })),
+                sender: this.getSenderAddress().toString(),
+                slot: Number(currentL2Slot),
+              },
+              timing: this.computeTimingInfo(currentL2Slot),
+              gasInfo: timeoutState
+                ? {
+                    sentGasPriceLadder: timeoutState.gasPriceHistory,
+                    attempts: timeoutState.attempts,
+                    gasLimit: timeoutState.gasLimit,
+                    nonce: timeoutState.nonce,
+                  }
+                : undefined,
+            },
+            { captureFeeSummary: true, targetSlot: currentL2Slot },
+          );
+        })();
+      }
       return undefined;
     } finally {
       try {
@@ -525,23 +636,37 @@ export class SequencerPublisher {
   }
 
   /** Backs up entries dropped by bundle simulation, one record per dropped action. */
-  private async backupDroppedInSim(dropped: DroppedRequest[]): Promise<void> {
+  private async backupDroppedInSim(dropped: DroppedRequest[], targetSlot?: SlotNumber): Promise<void> {
     if (dropped.length === 0) {
       return;
     }
-    const l1BlockNumber = await this.l1TxUtils.getBlockNumber();
-    for (const { request: req } of dropped) {
-      this.backupFailedTx({
-        id: keccak256(req.request.data!),
-        failureType: 'simulation',
-        request: { to: req.request.to! as Hex, data: req.request.data! },
-        l1BlockNumber: l1BlockNumber.toString(),
-        error: { message: 'Bundle entry dropped: action reverted in sim' },
-        context: {
-          actions: [req.action],
-          sender: this.getSenderAddress().toString(),
-        },
-      });
+    // Invoked as `void backupDroppedInSim(...)` on the publish path, so it must not throw.
+    try {
+      const l1BlockNumber = await this.l1TxUtils.getBlockNumber();
+      // Every dropped entry failed in the same slot against the same L1 fee conditions, so capture
+      // the fee environment once and share it rather than re-reading the window per entry.
+      const sharedFeeSummary = await this.captureFeeEnvironment(targetSlot).catch(() => undefined);
+      const timing = this.computeTimingInfo(targetSlot);
+      for (const { request: req } of dropped) {
+        this.backupFailedTx(
+          {
+            id: keccak256(req.request.data!),
+            failureType: 'simulation',
+            request: { to: req.request.to! as Hex, data: req.request.data! },
+            l1BlockNumber,
+            error: { message: 'Bundle entry dropped: action reverted in sim' },
+            context: {
+              actions: [req.action],
+              sender: this.getSenderAddress().toString(),
+              slot: targetSlot !== undefined ? Number(targetSlot) : undefined,
+            },
+            timing,
+          },
+          { sharedFeeSummary },
+        );
+      }
+    } catch (err) {
+      this.log.warn(`Failed to back up dropped-in-sim entries`, err);
     }
   }
 
@@ -554,6 +679,7 @@ export class SequencerPublisher {
     validRequests: RequestWithExpiry[],
     txConfig: RequestWithExpiry['gasConfig'],
     blobConfig: L1BlobInputs | undefined,
+    targetSlot?: SlotNumber,
   ) {
     if (!txConfig?.gasLimit) {
       throw new Error('gasLimit is required for bundled transactions');
@@ -590,11 +716,13 @@ export class SequencerPublisher {
           this.log.error('Forwarder transaction reverted on-chain; not rotating publisher', err, {
             transactionHash: err.receipt.transactionHash,
           });
+          this.backupRevertFailure(validRequests, err, currentPublisher, targetSlot);
           return undefined;
         }
         const viemError = formatViemError(err);
         if (!this.getNextPublisher) {
           this.log.error('Failed to publish bundled transactions', viemError);
+          this.backupSendFailure(validRequests, viemError, currentPublisher, targetSlot);
           return undefined;
         }
         this.log.warn(
@@ -608,11 +736,93 @@ export class SequencerPublisher {
             viemError,
             { triedAddresses: triedAddresses.map(a => a.toString()) },
           );
+          this.backupSendFailure(validRequests, viemError, currentPublisher, targetSlot);
           return undefined;
         }
         currentPublisher = nextPublisher;
       }
     }
+  }
+
+  /** Backs up an on-chain revert failure to the failed tx store. */
+  private backupRevertFailure(
+    requests: RequestWithExpiry[],
+    err: MulticallForwarderRevertedError,
+    publisher: L1TxUtils,
+    targetSlot?: SlotNumber,
+  ): void {
+    this.backupFailedTx(
+      {
+        id: err.receipt.transactionHash,
+        failureType: 'revert',
+        request: { to: MULTI_CALL_3_ADDRESS as Hex, data: '0x' as Hex },
+        l1BlockNumber: err.receipt.blockNumber,
+        receipt: {
+          transactionHash: err.receipt.transactionHash,
+          blockNumber: err.receipt.blockNumber,
+          gasUsed: err.receipt.gasUsed,
+          status: 'reverted',
+        },
+        error: { message: err.message, name: err.name },
+        context: {
+          actions: requests.map(r => r.action),
+          requests: requests
+            .filter(r => r.request.to !== null)
+            .map(r => ({ action: r.action, to: r.request.to! as Hex, data: r.request.data! })),
+          sender: publisher.getSenderAddress().toString(),
+          slot: targetSlot !== undefined ? Number(targetSlot) : undefined,
+        },
+        gasInfo: err.txState
+          ? {
+              sentGasPrice: err.txState.gasPrice,
+              gasLimit: err.txState.gasLimit,
+              nonce: err.txState.nonce,
+            }
+          : undefined,
+        timing: this.computeTimingInfo(targetSlot),
+      },
+      { captureFeeSummary: true, targetSlot },
+    );
+  }
+
+  /** Backs up a send failure (tx never reached chain) to the failed tx store. */
+  private backupSendFailure(
+    requests: RequestWithExpiry[],
+    error: FormattedViemError | Error,
+    publisher: L1TxUtils,
+    targetSlot?: SlotNumber,
+  ): void {
+    // If we can't get the block number, still back up without it.
+    void this.l1TxUtils
+      .getBlockNumber()
+      .catch(() => 0n)
+      .then(l1BlockNumber => {
+        this.backupFailedTx(
+          {
+            id: this.failureRecordId(
+              requests.map(r => r.action),
+              targetSlot,
+            ),
+            failureType: 'send-error',
+            request: { to: MULTI_CALL_3_ADDRESS as Hex, data: '0x' as Hex },
+            l1BlockNumber,
+            error: {
+              message: error.message,
+              name: 'name' in error ? error.name : undefined,
+            },
+            context: {
+              actions: requests.map(r => r.action),
+              requests: requests
+                .filter(r => r.request.to !== null)
+                .map(r => ({ action: r.action, to: r.request.to! as Hex, data: r.request.data! })),
+              sender: publisher.getSenderAddress().toString(),
+              slot: targetSlot !== undefined ? Number(targetSlot) : undefined,
+            },
+            timing: this.computeTimingInfo(targetSlot),
+          },
+          { captureFeeSummary: true, targetSlot },
+        );
+      });
   }
 
   /*
@@ -841,18 +1051,22 @@ export class SequencerPublisher {
 
       // Otherwise, throw. We cannot build the next checkpoint if we cannot invalidate the previous one.
       this.log.error(`Simulation for invalidate checkpoint ${checkpointNumber} failed`, viemError, logData);
-      this.backupFailedTx({
-        id: keccak256(request.data!),
-        failureType: 'simulation',
-        request: { to: request.to!, data: request.data!, value: request.value?.toString() },
-        l1BlockNumber: l1BlockNumber.toString(),
-        error: { message: viemError.message, name: viemError.name },
-        context: {
-          actions: [`invalidate-${reason}`],
-          checkpointNumber,
-          sender: this.getSenderAddress().toString(),
+      this.backupFailedTx(
+        {
+          id: keccak256(request.data!),
+          failureType: 'simulation',
+          request: { to: request.to!, data: request.data!, value: request.value },
+          l1BlockNumber,
+          error: { message: viemError.message, name: viemError.name },
+          context: {
+            actions: [`invalidate-${reason}`],
+            checkpointNumber,
+            sender: this.getSenderAddress().toString(),
+          },
+          timing: this.computeTimingInfo(this.getCurrentL2Slot()),
         },
-      });
+        { captureFeeSummary: true, targetSlot: this.getCurrentL2Slot() },
+      );
       throw new Error(`Failed to simulate invalidate checkpoint ${checkpointNumber}`, { cause: viemError });
     }
   }
@@ -1253,18 +1467,22 @@ export class SequencerPublisher {
             args: [blobInput],
           });
           const l1BlockNumber = await this.l1TxUtils.getBlockNumber();
-          this.backupFailedTx({
-            id: keccak256(validateBlobsData),
-            failureType: 'simulation',
-            request: { to: this.rollupContract.address as Hex, data: validateBlobsData },
-            blobData: encodedData.blobs.map(b => toHex(b.data)) as Hex[],
-            l1BlockNumber: l1BlockNumber.toString(),
-            error: { message: viemError.message, name: viemError.name },
-            context: {
-              actions: ['validate-blobs'],
-              sender: this.getSenderAddress().toString(),
+          this.backupFailedTx(
+            {
+              id: keccak256(validateBlobsData),
+              failureType: 'simulation',
+              request: { to: this.rollupContract.address as Hex, data: validateBlobsData },
+              blobData: encodedData.blobs.map(b => toHex(b.data)) as Hex[],
+              l1BlockNumber,
+              error: { message: viemError.message, name: viemError.name },
+              context: {
+                actions: ['validate-blobs'],
+                sender: this.getSenderAddress().toString(),
+              },
+              timing: this.computeTimingInfo(this.getCurrentL2Slot()),
             },
-          });
+            { captureFeeSummary: true, targetSlot: this.getCurrentL2Slot() },
+          );
           throw new Error('Failed to validate blobs');
         });
     }
