@@ -767,6 +767,11 @@ export class TxPoolV2Impl {
       return block.globalVariables.blockNumber;
     }
 
+    // The goal here really is to ensure we keep transactions long enough for them to be proven.
+    // So we could be smart and calculate the number of slots until the end of the proof submission window.
+    // Our approach here is a lot simpler however and we just keep transactions for the configured number
+    // of slots past L1 finalisation. This means we may keep transactions in the mined pool for longer
+    // than strictly necessary.
     const targetSlot = block.getSlot() - keepSlots;
     if (targetSlot < 0) {
       // The margin reaches past genesis: keep everything.
