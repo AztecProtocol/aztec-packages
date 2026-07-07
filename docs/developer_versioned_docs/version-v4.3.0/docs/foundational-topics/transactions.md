@@ -7,6 +7,7 @@ references: ["noir-projects/noir-contracts/contracts/account/ecdsa_k_account_con
 ---
 
 import Image from '@theme/IdealImage';
+import YouTubeEmbed from '@site/src/components/YouTubeEmbed';
 
 On this page you'll learn:
 
@@ -14,6 +15,10 @@ On this page you'll learn:
 - The role of components like PXE, Aztec Node, and the sequencer
 - The private and public kernel circuits and how they execute function calls
 - The call stacks for private and public functions and how they determine a transaction's completion
+
+For a two-minute visual overview of how a single transaction spans private and public execution, watch this explainer (find more on the [video lessons](../resources/video_lessons.mdx) page):
+
+<YouTubeEmbed videoId="MayopgQ1FjI" title="One Transaction, Two Worlds: Private and Public State on Aztec" />
 
 ## Simple Example of the (Private) Transaction Lifecycle
 
