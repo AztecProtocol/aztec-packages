@@ -117,12 +117,12 @@ mod test {
     }
 
     #[test(should_fail_with = "unrecognized tagging secret strategy kind")]
-    fn deserializing_interactive_handshake_with_noninfinite_point_fails() {
+    fn deserializing_address_derived_with_noninfinite_point_fails() {
         let _ = TaggingSecretStrategy::deserialize([4, 7, 11]);
     }
 
     #[test(should_fail_with = "unrecognized tagging secret strategy kind")]
-    fn deserializing_address_derived_with_noninfinite_point_fails() {
+    fn deserializing_interactive_handshake_with_noninfinite_point_fails() {
         let _ = TaggingSecretStrategy::deserialize([3, 7, 11]);
     }
 }
