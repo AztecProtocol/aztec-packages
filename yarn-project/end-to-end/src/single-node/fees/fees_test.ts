@@ -408,12 +408,16 @@ export class FeesTest extends SingleNodeTestContext {
   public async applyFundAliceWithBananas() {
     this.logger.info('Applying fund Alice with bananas setup');
 
-    await this.mintPrivateBananas(this.ALICE_INITIAL_BANANAS, this.aliceAddress);
-    await testSpan('tx:mint', () =>
-      this.bananaCoin.methods.mint_to_public(this.aliceAddress, this.ALICE_INITIAL_BANANAS).send({
-        from: this.aliceAddress,
-      }),
-    );
+    // The private and public mints touch disjoint balances, so they are sent concurrently to share a
+    // slot instead of paying one slot each.
+    await Promise.all([
+      this.mintPrivateBananas(this.ALICE_INITIAL_BANANAS, this.aliceAddress),
+      testSpan('tx:mint', () =>
+        this.bananaCoin.methods.mint_to_public(this.aliceAddress, this.ALICE_INITIAL_BANANAS).send({
+          from: this.aliceAddress,
+        }),
+      ),
+    ]);
   }
 
   public async applyFundAliceWithPrivateBananas() {
