@@ -7,11 +7,29 @@ import type { Message } from '@libp2p/interface';
 import { webcrypto } from 'node:crypto';
 import { compressSync, uncompressSync } from 'snappy';
 
+/**
+ * Fallback maximum response size (in KB) applied when no explicit per-request bound is supplied.
+ * Used both as the `SnappyTransform` default and as the reception-side fallback in `readMessage`.
+ */
+export const DEFAULT_MAX_RESPONSE_SIZE_KB = 10 * 1024;
+
 /** Thrown when a Snappy-compressed response exceeds the allowed decompressed size. */
 export class OversizedSnappyResponseError extends Error {
   constructor(decompressedSize: number, maxSizeKb: number) {
     super(`Decompressed size ${decompressedSize} exceeds maximum allowed size of ${maxSizeKb}kb`);
     this.name = 'OversizedSnappyResponseError';
+  }
+}
+
+/**
+ * Thrown when the compressed bytes accumulated while reading a response stream exceed the reception
+ * bound, before the full payload is buffered. Distinct from {@link OversizedSnappyResponseError},
+ * which guards the decompressed size after the stream has already been fully received.
+ */
+export class ResponseSizeLimitExceededError extends Error {
+  constructor(accumulatedBytes: number, limitBytes: number) {
+    super(`Accumulated response size ${accumulatedBytes} bytes exceeds reception limit of ${limitBytes} bytes`);
+    this.name = 'ResponseSizeLimitExceededError';
   }
 }
 
@@ -66,7 +84,7 @@ const DefaultMaxSizesKb: Record<TopicType, number> = {
 export class SnappyTransform implements DataTransform {
   constructor(
     private maxSizesKb: Record<TopicType, number> = DefaultMaxSizesKb,
-    private defaultMaxSizeKb: number = 10 * 1024,
+    private defaultMaxSizeKb: number = DEFAULT_MAX_RESPONSE_SIZE_KB,
     private logger = createLogger('p2p:snappy-transform'),
   ) {}
 

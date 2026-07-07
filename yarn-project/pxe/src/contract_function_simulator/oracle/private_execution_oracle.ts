@@ -279,7 +279,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       case 'non-interactive-handshake':
         return { type: 'non-interactive-handshake' };
       case 'interactive-handshake':
-        throw new Error('Interactive handshake tagging strategies are not supported by PXE resolution yet');
+        return { type: 'interactive-handshake' };
       case 'address-derived':
         return this.#addressDerivedSecret(sender, recipient);
       case 'arbitrary-secret': {

@@ -21,6 +21,7 @@ import {
   OPTION,
   POINT,
   PROVIDED_SECRET,
+  RESOLVED_TAGGING_STRATEGY,
   type SlotShape,
   type TypeMapping,
   U32,
@@ -104,6 +105,21 @@ describe('oracle type mappings', () => {
 
     it('declares the two-field wire shape', () => {
       expect(PROVIDED_SECRET.shape).toEqual([{ len: 2 }]);
+    });
+  });
+
+  describe('RESOLVED_TAGGING_STRATEGY', () => {
+    it('serializes an interactive handshake to the Noir discriminant', () => {
+      expect(RESOLVED_TAGGING_STRATEGY.serialization!.fn({ type: 'interactive-handshake' })).toEqual([
+        new Fr(3),
+        Fr.ZERO,
+      ]);
+    });
+
+    it('round-trips an interactive handshake', () => {
+      expect(roundTrip(RESOLVED_TAGGING_STRATEGY, { type: 'interactive-handshake' })).toEqual({
+        type: 'interactive-handshake',
+      });
     });
   });
 

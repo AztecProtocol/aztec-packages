@@ -128,6 +128,25 @@ unconstrained fn constrained_delivery_succeeds_with_a_configured_strategy() {
 }
 
 #[test]
+unconstrained fn constrained_delivery_succeeds_with_a_configured_interactive_handshake() {
+    let mut env = TestEnvironment::new_opts(TestEnvironmentOptions::new().with_tag_secret_strategy(
+        OnchainDeliveryMode::onchain_constrained(),
+        TaggingSecretStrategy::interactive_handshake(),
+    ));
+    let app = env.create_contract_account();
+    let recipient = env.create_light_account();
+
+    env.private_context_at(app, |_| {
+        let resolved = resolve_tagging_strategy(
+            AztecAddress::from_field(1),
+            recipient,
+            OnchainDeliveryMode::onchain_constrained(),
+        );
+        assert_eq(resolved, ResolvedTaggingStrategy::interactive_handshake());
+    });
+}
+
+#[test]
 unconstrained fn constrained_mode_arbitrary_secret_resolves_without_rejecting() {
     // Mirrors PXE hooks: strategies are resolved without delivery-mode validation. Runtime rejection is covered by
     // `tag_secret_source::test::unconstrained_secret_cannot_back_constrained_delivery` and

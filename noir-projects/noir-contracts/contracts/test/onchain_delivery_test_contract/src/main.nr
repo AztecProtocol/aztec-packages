@@ -57,6 +57,14 @@ pub contract OnchainDeliveryTest {
     }
 
     #[external("private")]
+    fn emit_event_via_interactive_handshake(recipient: AztecAddress, value: Field) {
+        self.emit(DeliveryEvent { value }).deliver_to(
+            recipient,
+            MessageDelivery::onchain_constrained().via_interactive_handshake(),
+        );
+    }
+
+    #[external("private")]
     fn emit_note_unconstrained(recipient: AztecAddress, value: Field) {
         self.storage.notes.at(recipient).insert(FieldNote { value }).deliver(MessageDelivery::onchain_unconstrained());
     }

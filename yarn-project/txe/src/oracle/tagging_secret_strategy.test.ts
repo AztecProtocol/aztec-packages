@@ -27,7 +27,7 @@ describe('makeResolveTaggingSecretStrategyHook', () => {
     await expect(hook?.(makeRequest(AppTaggingSecretKind.CONSTRAINED))).resolves.toBe(constrained);
   });
 
-  it('defaults an unset mode to PXE default strategy when another mode is configured', async () => {
+  it('defaults an unset mode wto PXE default strategy when another mode is configured', async () => {
     const unconstrained = { type: 'address-derived' as const };
     const hook = makeResolveTaggingSecretStrategyHook(new Map([[AppTaggingSecretKind.UNCONSTRAINED, unconstrained]]));
 
