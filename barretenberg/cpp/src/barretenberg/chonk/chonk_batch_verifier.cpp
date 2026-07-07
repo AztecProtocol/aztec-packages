@@ -29,7 +29,19 @@ void ChonkBatchVerifier::start(std::vector<std::shared_ptr<MegaZKFlavor::VKAndHa
         running_ = true;
     }
 
-    coordinator_thread_ = std::thread([this]() { coordinator_loop(); });
+    // No exception may escape the coordinator thread: an uncaught throw would std::terminate the host
+    // process. Individual throw sites are guarded (parallel_reduce, batch_check, dispatch); this outer
+    // guard covers the rest (e.g. allocation or thread-spawn failure) by failing every pending request
+    // so no caller is left waiting on a result that will never arrive.
+    coordinator_thread_ = std::thread([this]() {
+        try {
+            coordinator_loop();
+        } catch (const std::exception& e) {
+            fail_all_pending(std::string("coordinator thread terminated: ") + e.what());
+        } catch (...) {
+            fail_all_pending("coordinator thread terminated: unknown exception");
+        }
+    });
     info("ChonkBatchVerifier started with ", num_cores_, " cores, batch_size=", batch_size_);
 }
 
@@ -120,6 +132,23 @@ ChonkBatchVerifier::~ChonkBatchVerifier()
     }
     if (should_stop) {
         stop();
+    }
+}
+
+void ChonkBatchVerifier::fail_all_pending(const std::string& reason)
+{
+    info("ChonkBatchVerifier: ", reason);
+    std::vector<uint64_t> pending_ids;
+    {
+        std::lock_guard lock(mutex_);
+        // The coordinator thread is exiting and nothing will drain the queue again; set shutdown_ so
+        // later enqueue calls are rejected immediately rather than accepted and never processed.
+        shutdown_ = true;
+        queue_.clear();
+        pending_ids.assign(in_flight_ids_.begin(), in_flight_ids_.end());
+    }
+    for (uint64_t id : pending_ids) {
+        dispatch(VerifyResult::failed(id, reason));
     }
 }
 
@@ -303,6 +332,9 @@ bool ChonkBatchVerifier::batch_check(const std::vector<ReduceResult>& results, c
         return ECCVMVerifier::batch_verify_accumulators(accumulators);
     } catch (const std::exception& e) {
         info("ChonkBatchVerifier: batch_check exception: ", e.what());
+        return false;
+    } catch (...) {
+        info("ChonkBatchVerifier: batch_check threw unknown exception");
         return false;
     }
 }
