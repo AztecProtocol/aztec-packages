@@ -154,12 +154,11 @@ pub fn execute_acir(
         })
         .collect::<Result<Vec<_>, _>>()?;
 
-    // Serialize the full witness as a gzipped WitnessStack (single frame at index 0) for bb proving.
-    // `serialize()` gzips and picks the same format the acvm CLI uses, so the bytes are byte-identical
-    // to today's `partial-witness.gz`.
-    let witness_stack = WitnessStack::from(solved.clone())
-        .serialize()
-        .map_err(|e| format!("failed to serialize witness stack: {e}"))?;
+    // Serialize the full witness as a WitnessStack (single frame at index 0) for bb proving. We emit
+    // the *uncompressed* encoding (acir's `serialize()` gzips it, for on-disk artifacts): this crosses
+    // a local IPC pipe, so compression is pointless overhead and the client feeds the bytes straight to
+    // bb without a decompress step.
+    let witness_stack = serialize_witness_stack(&WitnessStack::from(solved.clone()))?;
 
     let witness = solved
         .into_iter()
@@ -243,6 +242,29 @@ fn field_to_be32(value: FieldElement) -> [u8; 32] {
     let n = be.len().min(32);
     arr[32 - n..].copy_from_slice(&be[be.len() - n..]);
     arr
+}
+
+/// acir's `MsgpackCompact` serialization format marker (see acir's private `serialization::Format`).
+/// It is acir's default and `NOIR_SERIALIZATION_FORMAT` is never set in this repo, so it's always used.
+const WITNESS_STACK_FORMAT_MSGPACK_COMPACT: u8 = 3;
+
+/// Serialize a `WitnessStack` in acir's canonical **uncompressed** on-wire encoding: a leading format
+/// byte followed by msgpack with tuple structs and `ForceIterables` bytes mode. This replicates acir's
+/// private `serialization::serialize_with_format` *minus* the gzip step that `WitnessStack::serialize()`
+/// adds for on-disk artifacts — unnecessary over a local IPC pipe. The `uncompressed_witness_stack_*`
+/// test asserts byte-equality with `ungzip(WitnessStack::serialize())`, so this can't silently drift
+/// from acir (or from what the bb C++ deserializer expects).
+fn serialize_witness_stack(stack: &WitnessStack<FieldElement>) -> Result<Vec<u8>, String> {
+    use rmp_serde::config::BytesMode;
+    use serde::Serialize;
+
+    let mut out = vec![WITNESS_STACK_FORMAT_MSGPACK_COMPACT];
+    let serializer = rmp_serde::Serializer::new(&mut out).with_bytes(BytesMode::ForceIterables);
+    // Fully-qualified: WitnessStack has an inherent `serialize()` (the gzipping one) that would
+    // otherwise shadow the serde trait method.
+    Serialize::serialize(stack, &mut serializer.with_struct_tuple())
+        .map_err(|e| format!("failed to serialize witness stack: {e}"))?;
+    Ok(out)
 }
 
 /// Spike scaffolding (to be removed when Spike 4 lands proper fixtures): a single-oracle circuit
@@ -543,11 +565,36 @@ mod tests {
         assert!(out.witness.iter().any(|(i, _)| *i == 0));
     }
 
-    /// The serialized witness stack must be a valid gzipped acir `WitnessStack` (so it round-trips
-    /// through acir's own deserializer, i.e. it's byte-compatible with what bb proving consumes) whose
-    /// single frame at index 0 carries the full solved witness.
+    /// Our uncompressed witness-stack encoding must be byte-identical to acir's own `serialize()` with
+    /// the gzip stripped — i.e. exactly what the bb C++ deserializer consumes today, just uncompressed.
+    /// This guards `serialize_witness_stack` against drift from acir's private serialization config.
     #[test]
-    fn witness_stack_is_canonical_gzipped_stack() {
+    fn uncompressed_witness_stack_matches_acir() {
+        use std::io::Read;
+
+        let mut wm = WitnessMap::new();
+        wm.insert(Witness(0), FieldElement::from(3u64));
+        wm.insert(Witness(2), FieldElement::from(8u64));
+        let stack = WitnessStack::from(wm);
+
+        let ours = serialize_witness_stack(&stack).unwrap();
+
+        let gz = stack.serialize().expect("acir serialize");
+        let mut acir_uncompressed = Vec::new();
+        flate2::read::GzDecoder::new(gz.as_slice())
+            .read_to_end(&mut acir_uncompressed)
+            .unwrap();
+
+        assert_eq!(
+            ours, acir_uncompressed,
+            "uncompressed bytes must equal acir's serialize() minus gzip"
+        );
+    }
+
+    /// `execute_acir` emits the uncompressed stack (leading MsgpackCompact format byte) with the full
+    /// solved witness in frame 0.
+    #[test]
+    fn witness_stack_carries_solved_witness() {
         let out = execute_acir(
             &addition_program(),
             &[(0, be32(3)), (1, be32(5))],
@@ -556,8 +603,12 @@ mod tests {
         .unwrap()
         .unwrap_solved();
 
-        let stack = WitnessStack::<FieldElement>::deserialize(&out.witness_stack)
-            .expect("bytes must be a valid gzipped acir WitnessStack");
+        assert_eq!(
+            out.witness_stack[0], 3,
+            "leading MsgpackCompact format byte"
+        );
+        let stack: WitnessStack<FieldElement> =
+            rmp_serde::from_slice(&out.witness_stack[1..]).expect("deserialize uncompressed stack");
         let frame = stack.peek().expect("one frame");
         assert_eq!(frame.index, 0);
         assert_eq!(

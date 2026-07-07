@@ -39,3 +39,6 @@ thiserror = "1.0"
 # Build sample ACIR programs and drive the generated client over IPC in the round-trip test.
 acir = { path = "../../../noir/noir-repo/acvm-repo/acir" }
 ipc-runtime = { path = "../../../ipc-runtime/rust" }
+# Only to gunzip acir's canonical WitnessStack::serialize() output and assert our uncompressed
+# encoding is byte-identical to it.
+flate2 = "1.0"
