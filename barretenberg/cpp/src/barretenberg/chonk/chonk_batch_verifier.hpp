@@ -75,6 +75,7 @@ class ChonkBatchVerifier {
 
   private:
     void coordinator_loop();
+    void fail_all_pending(const std::string& reason);
     void dispatch(VerifyResult result);
     std::vector<ReduceResult> parallel_reduce(const std::vector<VerifyRequest>& batch);
     bool batch_check(const std::vector<ReduceResult>& results, const std::vector<size_t>& indices);
