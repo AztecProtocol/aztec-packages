@@ -34,6 +34,12 @@ type CheckpointData = {
   archiveRoot: Fr;
   header: CheckpointHeader;
   attestations: CommitteeAttestation[];
+  /**
+   * The exact packed `CommitteeAttestations` tuple as it appears in the propose calldata, preserved
+   * verbatim (never re-derived from {@link attestations}) so invalidation evidence stays byte-faithful to
+   * the on-chain `attestationsHash`.
+   */
+  verbatimAttestations: ViemCommitteeAttestations;
   blockHash: string;
   feeAssetPriceModifier: bigint;
 };
@@ -406,14 +412,14 @@ export class CalldataRetriever {
         return undefined;
       }
 
-      const [decodedArgs, packedAttestations] = args! as readonly [
+      const [decodedArgs, verbatimAttestations] = args! as readonly [
         { archive: Hex; oracleInput: { feeAssetPriceModifier: bigint }; header: ViemHeader },
         ViemCommitteeAttestations,
         ...unknown[],
       ];
 
       // Verify attestationsHash
-      const computedAttestationsHash = this.computeAttestationsHash(packedAttestations);
+      const computedAttestationsHash = this.computeAttestationsHash(verbatimAttestations);
       if (
         !Buffer.from(hexToBytes(computedAttestationsHash)).equals(
           Buffer.from(hexToBytes(expectedHashes.attestationsHash)),
@@ -441,7 +447,7 @@ export class CalldataRetriever {
         return undefined;
       }
 
-      const attestations = CommitteeAttestation.fromPacked(packedAttestations, this.targetCommitteeSize);
+      const attestations = CommitteeAttestation.fromPacked(verbatimAttestations, this.targetCommitteeSize);
 
       this.logger.trace(`Validated and decoded propose calldata for checkpoint ${checkpointNumber}`, {
         checkpointNumber,
@@ -449,7 +455,7 @@ export class CalldataRetriever {
         header: decodedArgs.header,
         l1BlockHash: blockHash,
         attestations,
-        packedAttestations,
+        verbatimAttestations,
         targetCommitteeSize: this.targetCommitteeSize,
       });
 
@@ -458,6 +464,7 @@ export class CalldataRetriever {
         archiveRoot,
         header,
         attestations,
+        verbatimAttestations,
         blockHash,
         feeAssetPriceModifier,
       };
@@ -467,8 +474,8 @@ export class CalldataRetriever {
   }
 
   /** Computes the keccak256 hash of ABI-encoded CommitteeAttestations. */
-  private computeAttestationsHash(packedAttestations: ViemCommitteeAttestations): Hex {
-    return keccak256(encodeAbiParameters([this.getCommitteeAttestationsStructDef()], [packedAttestations]));
+  private computeAttestationsHash(verbatimAttestations: ViemCommitteeAttestations): Hex {
+    return keccak256(encodeAbiParameters([this.getCommitteeAttestationsStructDef()], [verbatimAttestations]));
   }
 
   /** Computes the keccak256 payload digest from the checkpoint header, archive root, and fee asset price modifier. */

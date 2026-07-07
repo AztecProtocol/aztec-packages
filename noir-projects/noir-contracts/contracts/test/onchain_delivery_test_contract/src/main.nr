@@ -4,7 +4,7 @@ use aztec::macros::aztec;
 mod test;
 
 #[aztec]
-pub contract ConstrainedDeliveryTest {
+pub contract OnchainDeliveryTest {
     use aztec::{
         macros::{events::event, functions::external, storage::storage},
         messages::delivery::{MessageDelivery, OnchainDeliveryMode},
@@ -57,7 +57,12 @@ pub contract ConstrainedDeliveryTest {
     }
 
     #[external("private")]
-    fn emit_unconstrained_event(recipient: AztecAddress, value: Field) {
+    fn emit_note_unconstrained(recipient: AztecAddress, value: Field) {
+        self.storage.notes.at(recipient).insert(FieldNote { value }).deliver(MessageDelivery::onchain_unconstrained());
+    }
+
+    #[external("private")]
+    fn emit_event_unconstrained(recipient: AztecAddress, value: Field) {
         self.emit(DeliveryEvent { value }).deliver_to(recipient, MessageDelivery::onchain_unconstrained());
     }
 

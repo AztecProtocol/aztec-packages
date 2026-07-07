@@ -107,14 +107,21 @@ export class PublisherManager<UtilsType extends L1TxUtils = L1TxUtils> {
   }
 
   /**
-   * Stops the funding loop and interrupts all publishers so no further L1 txs are sent. Idempotent, and
-   * the manager may be restarted afterwards via {@link start}, which clears the interrupted flag.
+   * Stops the funding loop, interrupts all publishers so no further L1 txs are sent, and waits (bounded)
+   * for their in-flight tx monitor loops to wind down. Idempotent, and the manager may be restarted
+   * afterwards via {@link start}, which clears the interrupted flag.
    */
   public async stop(): Promise<void> {
     this.started = false;
     await this.fundingPromise?.stop();
     this.publishers.forEach(pub => pub.interrupt());
     this.funder?.interrupt();
+    // Wait for in-flight tx monitor loops to observe the interrupt, so no L1 requests are still
+    // being issued after shutdown (e.g. against an anvil instance a test is about to tear down).
+    await Promise.all([
+      ...this.publishers.map(pub => pub.waitMonitoringStopped()),
+      this.funder?.waitMonitoringStopped(),
+    ]);
   }
 
   // Finds and prioritises available publishers based on

@@ -1,9 +1,10 @@
+import { DefaultWaitOpts } from '@aztec/aztec.js/contracts';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import type { SendOptions } from '@aztec/aztec.js/wallet';
 import { BackendType, BarretenbergSync } from '@aztec/bb.js';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
-import type { ApiSchema, Fr } from '@aztec/foundation/schemas';
+import type { ApiSchema, Fq, Fr } from '@aztec/foundation/schemas';
 import { getSchemaParameters, parseWithOptionals, schemaHasMethod } from '@aztec/foundation/schemas';
 import { NodeListener, TransportServer } from '@aztec/foundation/transport';
 import { ExecutionPayload, Tx } from '@aztec/stdlib/tx';
@@ -23,6 +24,8 @@ try {
   // Worker sync bb use is limited to crypto and proof serialization helpers.
   await BarretenbergSync.initSingleton({ backend: BackendType.Wasm });
   const wallet = await TestWallet.create(node, pxeConfig);
+  // Worker wallets are only used by spartan tests against remote JSON-RPC nodes: keep the 1s poll cadence.
+  wallet.setDefaultWaitInterval(DefaultWaitOpts.interval);
   logger.info('Worker wallet initialized');
 
   const customMethods = {
@@ -36,8 +39,8 @@ try {
         provenTx.publicFunctionCalldata,
       );
     },
-    registerAccount: async (secret: Fr, salt: Fr) => {
-      const manager = await wallet.createSchnorrAccount(secret, salt);
+    registerAccount: async (secret: Fr, salt: Fr, signingKey: Fq) => {
+      const manager = await wallet.createSchnorrAccount(secret, salt, signingKey);
       return manager.address;
     },
   };

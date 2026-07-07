@@ -24,6 +24,7 @@ import { getContract } from 'viem';
 
 import { L1_DIRECT_WRITE_ACCOUNT_INDEX, MNEMONIC, getPaddedMaxFeesPerGas } from '../../fixtures/fixtures.js';
 import { type SetupOptions, ensureAuthRegistryPublished, setup } from '../../fixtures/setup.js';
+import { testSpan } from '../../fixtures/timing.js';
 import { mintTokensToPrivate } from '../../fixtures/token_utils.js';
 import { type BalancesFn, getBalancesFn, setupSponsoredFPC } from '../../fixtures/utils.js';
 import {
@@ -158,7 +159,9 @@ export class FeesTest extends SingleNodeTestContext {
   async mintAndBridgeFeeJuice(minter: AztecAddress, recipient: AztecAddress) {
     const claim = await this.feeJuiceBridgeTestHarness.prepareTokensOnL1(recipient);
     const { claimSecret: secret, messageLeafIndex: index } = claim;
-    await this.feeJuiceContract.methods.claim(recipient, claim.claimAmount, secret, index).send({ from: minter });
+    await testSpan('setup:bridge', () =>
+      this.feeJuiceContract.methods.claim(recipient, claim.claimAmount, secret, index).send({ from: minter }),
+    );
   }
 
   /** Alice mints bananaCoin tokens privately to the target address and redeems them. */
@@ -167,7 +170,7 @@ export class FeesTest extends SingleNodeTestContext {
       .balance_of_private(address)
       .simulate({ from: address });
 
-    await mintTokensToPrivate(this.bananaCoin, this.aliceAddress, address, amount);
+    await testSpan('tx:mint', () => mintTokensToPrivate(this.bananaCoin, this.aliceAddress, address, amount));
 
     const { result: balanceAfter } = await this.bananaCoin.methods
       .balance_of_private(address)
@@ -236,9 +239,11 @@ export class FeesTest extends SingleNodeTestContext {
   async applyDeployBananaToken() {
     this.logger.info('Applying deploy banana token setup');
 
-    const { contract: bananaCoin } = await BananaCoin.deploy(this.wallet, this.aliceAddress, 'BC', 'BC', 18n).send({
-      from: this.aliceAddress,
-    });
+    const { contract: bananaCoin } = await testSpan('deploy:token', () =>
+      BananaCoin.deploy(this.wallet, this.aliceAddress, 'BC', 'BC', 18n).send({
+        from: this.aliceAddress,
+      }),
+    );
     this.logger.info(`BananaCoin deployed at ${bananaCoin.address}`);
 
     this.bananaCoin = bananaCoin;
@@ -257,12 +262,15 @@ export class FeesTest extends SingleNodeTestContext {
     expect((await this.wallet.getContractMetadata(feeJuiceContract.address)).isContractPublished).toBe(true);
 
     const bananaCoin = this.bananaCoin;
-    const { contract: bananaFPC } = await FPCContract.deploy(this.wallet, bananaCoin.address, this.fpcAdmin).send({
-      from: this.aliceAddress,
-    });
+    const { contract: bananaFPC } = await testSpan('deploy:fpc', () =>
+      FPCContract.deploy(this.wallet, bananaCoin.address, this.fpcAdmin).send({
+        from: this.aliceAddress,
+      }),
+    );
 
     this.logger.info(`BananaPay deployed at ${bananaFPC.address}`);
 
+    // bridgeFromL1ToL2 carries its own setup:bridge span.
     await this.feeJuiceBridgeTestHarness.bridgeFromL1ToL2(bananaFPC.address, this.aliceAddress);
 
     this.bananaFPC = bananaFPC;
@@ -345,9 +353,11 @@ export class FeesTest extends SingleNodeTestContext {
     this.logger.info('Applying fund Alice with bananas setup');
 
     await this.mintPrivateBananas(this.ALICE_INITIAL_BANANAS, this.aliceAddress);
-    await this.bananaCoin.methods
-      .mint_to_public(this.aliceAddress, this.ALICE_INITIAL_BANANAS)
-      .send({ from: this.aliceAddress });
+    await testSpan('tx:mint', () =>
+      this.bananaCoin.methods.mint_to_public(this.aliceAddress, this.ALICE_INITIAL_BANANAS).send({
+        from: this.aliceAddress,
+      }),
+    );
   }
 
   public async applyFundAliceWithPrivateBananas() {

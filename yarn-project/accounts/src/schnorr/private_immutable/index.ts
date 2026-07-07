@@ -10,10 +10,10 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
 import { loadContractArtifact } from '@aztec/stdlib/abi';
-import { deriveSigningKey } from '@aztec/stdlib/keys';
 import type { NoirCompiledContract } from '@aztec/stdlib/noir';
 
 import SchnorrAccountContractJson from '../../../artifacts/SchnorrAccount.json' with { type: 'json' };
+import { deriveSecretKeyFromSigningKey } from '../../utils/key_derivation.js';
 import { SchnorrBaseAccountContract } from '../account_contract.js';
 
 export const SchnorrAccountContractArtifact = loadContractArtifact(SchnorrAccountContractJson as NoirCompiledContract);
@@ -35,16 +35,16 @@ export class SchnorrAccountContract extends SchnorrBaseAccountContract {
 
 /**
  * Compute the address of a schnorr account contract.
- * @param secret - A seed for deriving the signing key and public keys.
+ * @param signingPrivateKey - The account's signing private key.
  * @param salt - The contract address salt.
- * @param signingPrivateKey - A specific signing private key that's not derived from the secret.
+ * @param secretKey - Seed for the account's privacy keys. Derived from the signing key when omitted.
  */
 export async function getSchnorrAccountContractAddress(
-  secret: Fr,
+  signingPrivateKey: GrumpkinScalar,
   salt: Fr,
-  signingPrivateKey?: GrumpkinScalar,
+  secretKey?: Fr,
 ): Promise<AztecAddress> {
-  const signingKey = signingPrivateKey ?? deriveSigningKey(secret);
-  const accountContract = new SchnorrAccountContract(signingKey);
-  return await getAccountContractAddress(accountContract, secret, salt);
+  const resolvedSecretKey = secretKey ?? (await deriveSecretKeyFromSigningKey(signingPrivateKey));
+  const accountContract = new SchnorrAccountContract(signingPrivateKey);
+  return await getAccountContractAddress(accountContract, resolvedSecretKey, salt);
 }

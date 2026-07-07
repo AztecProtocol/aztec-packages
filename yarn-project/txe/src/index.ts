@@ -21,9 +21,11 @@ import {
 } from './utils/encoding.js';
 import { TXEArtifactResolver } from './utils/txe_artifact_resolver.js';
 
-// Protocol contracts TXE registers in its contract store. Only AuthRegistry is needed for the
-// current test suites; add a contract here if a lookup against a `0x000…00X` address fails.
-export const TXE_REQUIRED_PROTOCOL_CONTRACTS: ProtocolContractName[] = [];
+export const TXE_REQUIRED_PROTOCOL_CONTRACTS: ProtocolContractName[] = [
+  'ContractClassRegistry',
+  'ContractInstanceRegistry',
+  'FeeJuice',
+];
 
 const sessions = new Map<number, TXESession>();
 

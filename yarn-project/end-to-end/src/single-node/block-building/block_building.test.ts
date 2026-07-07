@@ -503,7 +503,11 @@ describe('single-node/block-building/block_building', () => {
 
       const [accountData] = test.context.additionallyFundedAccounts;
 
-      const accountManager = await (wallet as TestWallet).createSchnorrAccount(accountData.secret, accountData.salt);
+      const accountManager = await (wallet as TestWallet).createSchnorrAccount(
+        accountData.secret,
+        accountData.salt,
+        accountData.signingKey,
+      );
       const deployMethod = await accountManager.getDeployMethod();
       await deployMethod.send({
         from: NO_FROM,

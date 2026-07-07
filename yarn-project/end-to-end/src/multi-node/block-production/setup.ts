@@ -24,6 +24,7 @@ import { TxStatus } from '@aztec/stdlib/tx';
 import { jest } from '@jest/globals';
 
 import { sendL1ToL2Message } from '../../fixtures/l1_to_l2_messaging.js';
+import { testSpan } from '../../fixtures/timing.js';
 import type { EndToEndContext } from '../../fixtures/utils.js';
 import { waitForBlockNumber, waitForTxs } from '../../fixtures/wait_helpers.js';
 import type { TestWallet } from '../../test-wallet/test_wallet.js';
@@ -208,6 +209,17 @@ export async function waitForProvenCheckpoint(
 
   logger.warn(`Stopping validator sequencers before waiting for checkpoint ${targetCheckpoint} to be proven`);
   await Promise.all(nodes.map(n => n.getSequencer()?.stop()));
+
+  // With the sequencers stopped, no further blocks are produced, so waiting out the rest of the epoch in
+  // wall-clock is dead time. Warp the L1 clock forward past the epoch boundary so the epoch containing
+  // targetCheckpoint closes and the fake prover can prove+submit it; the subsequent wait then only covers
+  // the (real-time) proving+submission. A single next-epoch jump stays inside the proof-submission window
+  // (proofSubmissionEpochs >= 1), so it never crosses the submission deadline. Skipped if already proven,
+  // and forward-only since advanceToNextEpoch never rewinds.
+  const { proven } = await test.context.cheatCodes.rollup.getTips();
+  if (proven < targetCheckpoint) {
+    await testSpan('warp:proven-checkpoint-epoch', () => test.context.cheatCodes.rollup.advanceToNextEpoch());
+  }
 
   const provenTimeout = test.L2_SLOT_DURATION_IN_S * test.epochDuration * 4;
   logger.warn(`Waiting for checkpoint ${targetCheckpoint} to be proven (timeout=${provenTimeout}s)`);
