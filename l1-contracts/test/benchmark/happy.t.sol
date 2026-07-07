@@ -511,6 +511,8 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
           previousArchive: rollup.getCheckpoint(start).archive,
           endArchive: endCheckpoint.archive,
           outHash: endCheckpoint.outHash,
+          previousInboxRollingHash: 0,
+          endInboxRollingHash: 0,
           proverId: address(0)
         });
 

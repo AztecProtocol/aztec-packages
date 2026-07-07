@@ -489,6 +489,8 @@ export function mapRootRollupPublicInputsFromNoir(
     mapFieldFromNoir(rootRollupPublicInputs.previous_archive_root),
     mapFieldFromNoir(rootRollupPublicInputs.new_archive_root),
     mapFieldFromNoir(rootRollupPublicInputs.out_hash),
+    mapFieldFromNoir(rootRollupPublicInputs.previous_inbox_rolling_hash),
+    mapFieldFromNoir(rootRollupPublicInputs.end_inbox_rolling_hash),
     mapTupleFromNoir(rootRollupPublicInputs.checkpoint_header_hashes, MAX_CHECKPOINTS_PER_EPOCH, mapFieldFromNoir),
     mapTupleFromNoir(rootRollupPublicInputs.fees, MAX_CHECKPOINTS_PER_EPOCH, mapFeeRecipientFromNoir),
     mapEpochConstantDataFromNoir(rootRollupPublicInputs.constants),

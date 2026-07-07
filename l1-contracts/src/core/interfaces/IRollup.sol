@@ -27,6 +27,11 @@ struct PublicInputArgs {
   bytes32 previousArchive;
   bytes32 endArchive;
   bytes32 outHash;
+  // Inbox rolling-hash chain segment consumed across the proven epoch (AZIP-22 Fast Inbox). Deliberately UNVALIDATED
+  // until the Fast Inbox flip, when they get checked against per-checkpoint records written at propose; for now they
+  // are only passed through to the proof's public inputs.
+  bytes32 previousInboxRollingHash;
+  bytes32 endInboxRollingHash;
   address proverId;
 }
 

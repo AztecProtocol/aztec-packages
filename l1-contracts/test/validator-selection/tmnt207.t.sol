@@ -230,6 +230,8 @@ contract Tmnt207Test is RollupBase {
           previousArchive: rollup.getCheckpoint(0).archive,
           endArchive: rollup.getCheckpoint(1).archive,
           outHash: rollup.getCheckpoint(1).outHash,
+          previousInboxRollingHash: 0,
+          endInboxRollingHash: 0,
           proverId: address(0)
         }),
         headers: headers,
