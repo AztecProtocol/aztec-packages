@@ -35,9 +35,8 @@ import type { ENR } from '@nethermindeth/enr';
 
 import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
 import { TxPoolError } from '../errors/tx-pool.error.js';
-import type { AttestationPoolApi, ProposalsForSlot } from '../mem_pools/attestation_pool/attestation_pool.js';
+import type { ProposalsForSlot } from '../mem_pools/attestation_pool/attestation_pool.js';
 import type { MemPools } from '../mem_pools/interface.js';
-import type { TxPoolV2 } from '../mem_pools/tx_pool_v2/interfaces.js';
 import type { AuthRequest, StatusMessage } from '../services/index.js';
 import { ReqRespSubProtocol, type ReqRespSubProtocolHandler } from '../services/reqresp/interface.js';
 import type {
@@ -51,6 +50,7 @@ import { TxCollection } from '../services/tx_collection/tx_collection.js';
 import type { TxFileStore } from '../services/tx_file_store/tx_file_store.js';
 import { TxProvider } from '../services/tx_provider.js';
 import { type P2P, P2PClientState, type P2PSyncState } from './interface.js';
+import { MempoolClient } from './mempool_client.js';
 
 /**
  * The P2P client implementation.
@@ -69,8 +69,7 @@ export class P2PClient extends WithTracer implements P2P {
   private l2Tips: L2TipsStore;
   private synchedLatestSlot: AztecAsyncSingleton<bigint>;
 
-  private txPool: TxPoolV2;
-  private attestationPool: AttestationPoolApi;
+  private mempoolClient: MempoolClient;
 
   private config: P2PConfig;
 
@@ -103,12 +102,11 @@ export class P2PClient extends WithTracer implements P2P {
     super(telemetry, 'P2PClient');
 
     this.config = { ...getP2PDefaultConfig(), ...config };
-    this.txPool = mempools.txPool;
-    this.attestationPool = mempools.attestationPool;
+    this.mempoolClient = new MempoolClient(mempools, this.log.createChild('mempool'));
 
     this.txProvider = new TxProvider(
       this.txCollection,
-      this.txPool,
+      mempools.txPool,
       this,
       this.log.createChild('tx-provider'),
       this.telemetry,
@@ -148,7 +146,7 @@ export class P2PClient extends WithTracer implements P2P {
   }
 
   public async updateP2PConfig(config: Partial<P2PConfig>): Promise<void> {
-    await this.txPool.updateConfig(config);
+    await this.mempoolClient.updateConfig(config);
     this.p2pService.updateConfig(config);
   }
 
@@ -212,7 +210,7 @@ export class P2PClient extends WithTracer implements P2P {
     }
 
     // Start the tx pool first, as it needs to hydrate state from persistence
-    await this.txPool.start();
+    await this.mempoolClient.start();
 
     // get the current latest block numbers
     const latestBlockNumbers = await this.l2BlockSource.getL2Tips();
@@ -224,7 +222,7 @@ export class P2PClient extends WithTracer implements P2P {
     const syncedProvenBlock = (await this.getSyncedProvenBlockNum()) + 1;
     const syncedFinalizedBlock = (await this.getSyncedFinalizedBlockNum()) + 1;
 
-    if ((await this.txPool.isEmpty()) && (await this.attestationPool.isEmpty())) {
+    if (await this.mempoolClient.isEmpty()) {
       // if mempools are empty, we don't care about syncing prior blocks
       this.initBlockStream(BlockNumber(this.latestBlockNumberAtStart));
       this.setCurrentState(P2PClientState.RUNNING);
@@ -312,8 +310,7 @@ export class P2PClient extends WithTracer implements P2P {
     this.log.debug('Stopped p2p service');
     await this.blockStream?.stop();
     this.log.debug('Stopped block downloader');
-    await this.txPool.stop();
-    this.log.debug('Stopped tx pool');
+    await this.mempoolClient.stop();
     await this.runningPromise;
     this.setCurrentState(P2PClientState.STOPPED);
     this.log.info('P2P client stopped');
@@ -337,7 +334,7 @@ export class P2PClient extends WithTracer implements P2P {
   public async broadcastProposal(proposal: BlockProposal): Promise<void> {
     this.log.verbose(`Broadcasting proposal for slot ${proposal.slotNumber} to peers`);
     // Store our own proposal so we can respond to req/resp requests for it
-    const { count } = await this.attestationPool.tryAddBlockProposal(proposal);
+    const { count } = await this.mempoolClient.tryAddBlockProposal(proposal);
     if (count > 1) {
       if (this.config.broadcastEquivocatedProposals) {
         this.log.warn(`Broadcasting equivocated block proposal for slot ${proposal.slotNumber}`, {
@@ -362,10 +359,10 @@ export class P2PClient extends WithTracer implements P2P {
     const blockProposal = proposal.getBlockProposal();
     if (blockProposal) {
       // Store our own last-block proposal so we can respond to req/resp requests for it.
-      await this.attestationPool.tryAddBlockProposal(blockProposal);
+      await this.mempoolClient.tryAddBlockProposal(blockProposal);
     }
     const checkpointCore = proposal.toCore();
-    const { count } = await this.attestationPool.tryAddCheckpointProposal(checkpointCore);
+    const { count } = await this.mempoolClient.tryAddCheckpointProposal(checkpointCore);
     if (count > 1) {
       if (this.config.broadcastEquivocatedProposals) {
         this.log.warn(`Broadcasting equivocated checkpoint proposal for slot ${proposal.slotNumber}`, {
@@ -385,25 +382,23 @@ export class P2PClient extends WithTracer implements P2P {
     await Promise.all(attestations.map(att => this.p2pService.propagate(att)));
   }
 
-  public async getCheckpointAttestationsForSlot(
+  public getCheckpointAttestationsForSlot(
     slot: SlotNumber,
     proposalPayloadHash?: CheckpointProposalHash,
   ): Promise<CheckpointAttestation[]> {
-    return await (proposalPayloadHash
-      ? this.attestationPool.getCheckpointAttestationsForSlotAndProposal(slot, proposalPayloadHash)
-      : this.attestationPool.getCheckpointAttestationsForSlot(slot));
+    return this.mempoolClient.getCheckpointAttestationsForSlot(slot, proposalPayloadHash);
   }
 
   public addOwnCheckpointAttestations(attestations: CheckpointAttestation[]): Promise<void> {
-    return this.attestationPool.addOwnCheckpointAttestations(attestations);
+    return this.mempoolClient.addOwnCheckpointAttestations(attestations);
   }
 
   public getProposalsForSlot(slot: SlotNumber): Promise<ProposalsForSlot> {
-    return this.attestationPool.getProposalsForSlot(slot);
+    return this.mempoolClient.getProposalsForSlot(slot);
   }
 
   public hasBlockProposalsForSlot(slot: SlotNumber): Promise<boolean> {
-    return this.attestationPool.hasBlockProposalsForSlot(slot);
+    return this.mempoolClient.hasBlockProposalsForSlot(slot);
   }
 
   // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
@@ -437,44 +432,19 @@ export class P2PClient extends WithTracer implements P2P {
       throw new TypeError('limit must be greater than 0');
     }
 
-    let txHashes = await this.txPool.getPendingTxHashes();
-
-    let startIndex = 0;
-    if (after) {
-      startIndex = txHashes.findIndex(txHash => after.equals(txHash));
-      if (startIndex === -1) {
-        return [];
-      }
-      startIndex++;
-    }
-
-    const endIndex = limit !== undefined ? startIndex + limit : undefined;
-    txHashes = txHashes.slice(startIndex, endIndex);
-
-    const maybeTxs = await Promise.all(txHashes.map(txHash => this.txPool.getTxByHash(txHash)));
-    return maybeTxs.filter((tx): tx is Tx => !!tx);
+    return await this.mempoolClient.getPendingTxs(limit, after);
   }
 
   public getPendingTxCount(): Promise<number> {
-    return this.txPool.getPendingTxCount();
+    return this.mempoolClient.getPendingTxCount();
   }
 
-  public async *iteratePendingTxs(): AsyncIterableIterator<Tx> {
-    for (const txHash of await this.txPool.getPendingTxHashes()) {
-      const tx = await this.txPool.getTxByHash(txHash);
-      if (tx) {
-        yield tx;
-      }
-    }
+  public iteratePendingTxs(): AsyncIterableIterator<Tx> {
+    return this.mempoolClient.iteratePendingTxs();
   }
 
-  public async *iterateEligiblePendingTxs(): AsyncIterableIterator<Tx> {
-    for (const txHash of await this.txPool.getEligiblePendingTxHashes()) {
-      const tx = await this.txPool.getTxByHash(txHash);
-      if (tx) {
-        yield tx;
-      }
-    }
+  public iterateEligiblePendingTxs(): AsyncIterableIterator<Tx> {
+    return this.mempoolClient.iterateEligiblePendingTxs();
   }
 
   /**
@@ -483,7 +453,7 @@ export class P2PClient extends WithTracer implements P2P {
    * @returns A single tx or undefined.
    */
   getTxByHashFromPool(txHash: TxHash): Promise<Tx | undefined> {
-    return this.txPool.getTxByHash(txHash);
+    return this.mempoolClient.getTxByHashFromPool(txHash);
   }
 
   /**
@@ -492,11 +462,11 @@ export class P2PClient extends WithTracer implements P2P {
    * @returns The txs found, in the same order as the requested hashes. If a tx is not found, it will be undefined.
    */
   getTxsByHashFromPool(txHashes: TxHash[]): Promise<(Tx | undefined)[]> {
-    return this.txPool.getTxsByHash(txHashes);
+    return this.mempoolClient.getTxsByHashFromPool(txHashes);
   }
 
   hasTxsInPool(txHashes: TxHash[]): Promise<boolean[]> {
-    return this.txPool.hasTxs(txHashes);
+    return this.mempoolClient.hasTxsInPool(txHashes);
   }
 
   /**
@@ -505,7 +475,7 @@ export class P2PClient extends WithTracer implements P2P {
    * @returns A single tx or undefined.
    */
   getArchivedTxByHash(txHash: TxHash): Promise<Tx | undefined> {
-    return this.txPool.getArchivedTxByHash(txHash);
+    return this.mempoolClient.getArchivedTxByHash(txHash);
   }
 
   /**
@@ -515,7 +485,7 @@ export class P2PClient extends WithTracer implements P2P {
    **/
   public async sendTx(tx: Tx): Promise<void> {
     this.#assertIsReady();
-    const result = await this.txPool.addPendingTxs([tx], { feeComparisonOnly: true });
+    const result = await this.mempoolClient.addPendingTxs([tx], { feeComparisonOnly: true });
     if (result.accepted.length === 1) {
       await this.p2pService.propagate(tx);
       return;
@@ -538,9 +508,8 @@ export class P2PClient extends WithTracer implements P2P {
    * @param txHash - Hash of the tx to query.
    * @returns Pending or mined depending on its status, or undefined if not found.
    */
-  public async getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | 'deleted' | undefined> {
-    const status = await this.txPool.getTxStatus(txHash);
-    return status === 'protected' ? 'pending' : status;
+  public getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | 'deleted' | undefined> {
+    return this.mempoolClient.getTxStatus(txHash);
   }
 
   public getEnr(): ENR | undefined {
@@ -557,7 +526,7 @@ export class P2PClient extends WithTracer implements P2P {
    **/
   public async handleFailedExecution(txHashes: TxHash[]): Promise<void> {
     this.#assertIsReady();
-    await this.txPool.handleFailedExecution(txHashes);
+    await this.mempoolClient.handleFailedExecution(txHashes);
   }
 
   /**
@@ -614,17 +583,6 @@ export class P2PClient extends WithTracer implements P2P {
   }
 
   /**
-   * Handles mined blocks by marking the txs in them as mined.
-   * @param blocks - A list of existing blocks with txs that the P2P client needs to ensure the tx pool is reconciled with.
-   * @returns Empty promise.
-   */
-  private async handleMinedBlocks(blocks: L2Block[]): Promise<void> {
-    for (const block of blocks) {
-      await this.txPool.handleMinedBlock(block);
-    }
-  }
-
-  /**
    * Handles new mined blocks by marking the txs in them as mined.
    * @param blocks - A list of existing blocks with txs that the P2P client needs to ensure the tx pool is reconciled with.
    * @returns Empty promise.
@@ -634,7 +592,7 @@ export class P2PClient extends WithTracer implements P2P {
       return;
     }
 
-    await this.handleMinedBlocks(blocks);
+    await this.mempoolClient.handleMinedBlocks(blocks);
     await this.maybeCallPrepareForSlot();
     await this.collectingMissingTxs(blocks);
     const lastBlock = blocks.at(-1)!;
@@ -654,8 +612,8 @@ export class P2PClient extends WithTracer implements P2P {
       const unprovenBlocks = blocks.filter(block => block.number > provenBlockNumber);
       for (const block of unprovenBlocks) {
         const txHashes = block.body.txEffects.map(txEffect => txEffect.txHash);
-        const missingTxHashes = await this.txPool
-          .hasTxs(txHashes)
+        const missingTxHashes = await this.mempoolClient
+          .hasTxsInPool(txHashes)
           .then(availability => txHashes.filter((_, index) => !availability[index]));
         if (missingTxHashes.length > 0) {
           this.log.verbose(
@@ -686,14 +644,7 @@ export class P2PClient extends WithTracer implements P2P {
    * @returns Empty promise.
    */
   private async handleFinalizedL2Blocks(blocks: BlockData[]): Promise<void> {
-    if (!blocks.length) {
-      return;
-    }
-
-    // Finalization is monotonic, so we only need to call with the last block
-    const lastBlock = blocks.at(-1)!;
-    await this.txPool.handleFinalizedBlock(lastBlock.header);
-    await this.attestationPool.deleteOlderThan(lastBlock.header.getSlot());
+    await this.mempoolClient.handleFinalizedBlocks(blocks);
   }
 
   /**
@@ -704,7 +655,7 @@ export class P2PClient extends WithTracer implements P2P {
    */
   private async handlePruneL2Blocks(latestBlock: L2BlockId, newCheckpoint: CheckpointId): Promise<void> {
     const deleteAllTxs = this.config.txPoolDeleteTxsAfterReorg && (await this.isEpochPrune(newCheckpoint));
-    await this.txPool.handlePrunedBlocks(latestBlock, { deleteAllTxs });
+    await this.mempoolClient.handlePrunedBlocks(latestBlock, { deleteAllTxs });
   }
 
   /**
@@ -751,7 +702,7 @@ export class P2PClient extends WithTracer implements P2P {
       return;
     }
     this.lastSlotProcessed = slot;
-    await this.txPool.prepareForSlot(slot);
+    await this.mempoolClient.prepareForSlot(slot);
   }
 
   private async startServiceIfSynched() {
@@ -803,7 +754,7 @@ export class P2PClient extends WithTracer implements P2P {
    * @returns Hashes of transactions not found in the pool.
    */
   public protectTxs(txHashes: TxHash[], blockHeader: BlockHeader): Promise<TxHash[]> {
-    return this.txPool.protectTxs(txHashes, blockHeader);
+    return this.mempoolClient.protectTxs(txHashes, blockHeader);
   }
 
   /**
@@ -812,7 +763,7 @@ export class P2PClient extends WithTracer implements P2P {
    * @param slotNumber - The slot number to prepare for
    */
   public async prepareForSlot(slotNumber: SlotNumber): Promise<void> {
-    await this.txPool.prepareForSlot(slotNumber);
+    await this.mempoolClient.prepareForSlot(slotNumber);
   }
 
   public handleAuthRequestFromPeer(authRequest: AuthRequest, peerId: PeerId): Promise<StatusMessage> {
