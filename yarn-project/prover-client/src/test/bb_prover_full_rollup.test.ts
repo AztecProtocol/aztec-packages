@@ -103,7 +103,9 @@ describe('prover/bb_prover/full-rollup', () => {
           }
 
           topTreeData.push({
-            blockProofs: subTree.getSubTreeResult().then(r => r.blockProofOutputs),
+            blockProofs: subTree
+              .getSubTreeResult()
+              .then(r => ({ blockProofOutputs: r.blockProofOutputs, parityRootProof: r.parityRootProof })),
             l2ToL1MsgsPerBlock: blocks.map(b => b.txs.map(tx => tx.txEffect.l2ToL1Msgs)),
             blobFields: checkpoint.toBlobFields(),
             previousBlockHeader,

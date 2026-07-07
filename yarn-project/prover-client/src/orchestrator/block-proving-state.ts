@@ -8,9 +8,8 @@ import {
   type NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
 } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
-import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type Tuple } from '@aztec/foundation/serialize';
+import type { Tuple } from '@aztec/foundation/serialize';
 import { type TreeNodeLocation, UnbalancedTreeStore } from '@aztec/foundation/trees';
 import type { PublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
 import type { RollupHonkProofData } from '@aztec/stdlib/proofs';
@@ -378,7 +377,8 @@ export class BlockProvingState {
     if (this.isFirstBlock) {
       return { leaves: this.parentCheckpoint.getPaddedL1ToL2Messages(), numMsgs: MAX_L1_TO_L2_MSGS_PER_BLOCK };
     }
-    return { leaves: padArrayEnd([], Fr.ZERO, MAX_L1_TO_L2_MSGS_PER_BLOCK), numMsgs: 0 };
+    // Array.from (not padArrayEnd) keeps the type `Fr[]` — a padArrayEnd to the literal cap infers a deep tuple type.
+    return { leaves: Array.from({ length: MAX_L1_TO_L2_MSGS_PER_BLOCK }, () => Fr.ZERO), numMsgs: 0 };
   }
 
   /**

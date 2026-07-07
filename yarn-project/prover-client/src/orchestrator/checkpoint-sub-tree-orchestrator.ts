@@ -25,11 +25,7 @@ import type {
   ReadonlyWorldStateAccess,
   ServerCircuitProver,
 } from '@aztec/stdlib/interfaces/server';
-import {
-  L1ToL2MessageSponge,
-  accumulateL1ToL2MessageSponge,
-  appendL1ToL2MessagesToTree,
-} from '@aztec/stdlib/messaging';
+import { L1ToL2MessageSponge, appendL1ToL2MessagesToTree } from '@aztec/stdlib/messaging';
 import type { ParityPublicInputs } from '@aztec/stdlib/parity';
 import {
   type BaseRollupHints,
@@ -530,7 +526,7 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
     // Precompute the message-bundle sponges. The checkpoint's messages are padded to the per-checkpoint cap (the first
     // block's transitional bundle); base parity `i` starts from the sponge over the first `i` chunks, and the whole
     // padded sponge is inherited by non-first block roots.
-    const paddedL1ToL2Messages = padArrayEnd(l1ToL2Messages, Fr.ZERO, MAX_L1_TO_L2_MSGS_PER_CHECKPOINT);
+    const paddedL1ToL2Messages = padArrayEnd<Fr, number>(l1ToL2Messages, Fr.ZERO, MAX_L1_TO_L2_MSGS_PER_CHECKPOINT);
     const baseParityStartSponges: L1ToL2MessageSponge[] = [];
     let runningSponge = L1ToL2MessageSponge.empty();
     for (let i = 0; i < NUM_BASE_PARITY_PER_ROOT_PARITY; i++) {
