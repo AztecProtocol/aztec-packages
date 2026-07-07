@@ -60,7 +60,6 @@ import { EventEmitter } from 'events';
 import { createLibp2p } from 'libp2p';
 
 import type { P2PConfig } from '../../config.js';
-import { CheckpointProposalReceivedCallbackNotRegisteredError } from '../../errors/p2p-service.error.js';
 import type { MemPools } from '../../mem_pools/interface.js';
 import {
   BlockProposalValidator,
@@ -110,6 +109,7 @@ import {
 } from '../reqresp/index.js';
 import { ReqResp } from '../reqresp/reqresp.js';
 import type { P2PProposalHandler, P2PService, P2PServiceEvents, PeerDiscoveryService } from '../service.js';
+import { GossipMessageProcessor, type ReceivedMessageValidationResult } from './gossip_message_processor.js';
 import { P2PInstrumentation } from './instrumentation.js';
 
 interface ValidationResult {
@@ -120,11 +120,6 @@ interface ValidationResult {
 
 type ValidationOutcome = { allPassed: true } | { allPassed: false; failure: ValidationResult };
 
-// REFACTOR: Unify with the type above
-type ReceivedMessageValidationResult<T, M = undefined> =
-  | { obj: T; result: Exclude<TopicValidatorResult, TopicValidatorResult.Reject>; metadata?: M }
-  | { obj?: T; result: TopicValidatorResult.Reject; metadata?: M; severity: PeerErrorSeverity };
-
 /**
  * Lib P2P implementation of the P2PService interface.
  */
@@ -132,19 +127,14 @@ export class LibP2PService extends WithTracer implements P2PService {
   private discoveryRunningPromise?: RunningPromise;
   private msgIdSeenValidators: Record<TopicType, MessageSeenValidator> = {} as Record<TopicType, MessageSeenValidator>;
 
-  // Message validators
-  private blockProposalValidator: BlockProposalValidator;
-  private checkpointProposalValidator: CheckpointProposalValidator;
-  private checkpointAttestationValidator: CheckpointAttestationValidator;
-
   private protocolVersion = '';
   private topicStrings: Record<TopicType, string> = {} as Record<TopicType, string>;
 
   /** Emitter backing the {@link P2PServiceEvents} notifications (equivocations and accepted attestations). */
   private readonly emitter = new EventEmitter() as TypedEventEmitter<P2PServiceEvents>;
 
-  /** Handler invoked on block and checkpoint proposals received from peers. */
-  private proposalHandler: P2PProposalHandler;
+  /** Domain-side processing (validation, mempool storage, equivocation detection) of gossiped consensus messages. */
+  protected messageProcessor: GossipMessageProcessor;
 
   private gossipSubEventHandler: (e: CustomEvent<GossipsubMessage>) => void;
 
@@ -213,34 +203,29 @@ export class LibP2PService extends WithTracer implements P2PService {
         rollupAddress: config.rollupAddress,
       },
     };
-    this.blockProposalValidator = new BlockProposalValidator(epochCache, proposalValidatorOpts);
-    this.checkpointProposalValidator = new CheckpointProposalValidator(epochCache, proposalValidatorOpts);
     const attestationValidatorOpts = {
       l1PublishingTime: config.l1PublishingTime,
       p2pPropagationTime,
       signatureContext: proposalValidatorOpts.signatureContext,
     };
-    this.checkpointAttestationValidator = config.fishermanMode
+    const checkpointAttestationValidator = config.fishermanMode
       ? new FishermanAttestationValidator(epochCache, mempools.attestationPool, telemetry, attestationValidatorOpts)
       : new CheckpointAttestationValidator(epochCache, attestationValidatorOpts);
 
-    this.gossipSubEventHandler = this.handleGossipSubEvent.bind(this);
+    this.messageProcessor = new GossipMessageProcessor(
+      mempools,
+      {
+        blockProposal: new BlockProposalValidator(epochCache, proposalValidatorOpts),
+        checkpointProposal: new CheckpointProposalValidator(epochCache, proposalValidatorOpts),
+        checkpointAttestation: checkpointAttestationValidator,
+      },
+      this.emitter,
+      this,
+      telemetry,
+      this.logger,
+    );
 
-    this.proposalHandler = {
-      onBlockProposal: async (block: BlockProposal): Promise<boolean> => {
-        this.logger.warn(
-          `Handler for block received not yet registered on P2P service. Received block ${block.blockNumber} for slot ${block.slotNumber} from peer.`,
-          { p2pMessageIdentifier: await block.p2pMessageLoggingIdentifier() },
-        );
-        return true;
-      },
-      onAllNodesCheckpointProposal: (_checkpoint: CheckpointProposalCore): Promise<CheckpointAttestation[] | undefined> => {
-        throw new CheckpointProposalReceivedCallbackNotRegisteredError();
-      },
-      onValidatorCheckpointProposal: (_checkpoint: CheckpointProposalCore): Promise<CheckpointAttestation[] | undefined> => {
-        return Promise.resolve(undefined);
-      },
-    };
+    this.gossipSubEventHandler = this.handleGossipSubEvent.bind(this);
   }
 
   public updateConfig(config: Partial<P2PReqRespConfig & Pick<P2PConfig, 'skipIncomingProposals'>>) {
@@ -675,7 +660,7 @@ export class LibP2PService extends WithTracer implements P2PService {
   }
 
   public setProposalHandler(handler: Partial<P2PProposalHandler>): void {
-    this.proposalHandler = { ...this.proposalHandler, ...handler };
+    this.messageProcessor.setProposalHandler(handler);
   }
 
   public on<K extends keyof P2PServiceEvents>(event: K, listener: P2PServiceEvents[K]): this {
@@ -1102,73 +1087,11 @@ export class LibP2PService extends WithTracer implements P2PService {
   }
 
   /** Validates a checkpoint attestation and adds it to the pool. Penalizes the peer if validation fails. */
-  @trackSpan('Libp2pService.validateAndStoreCheckpointAttestation', (_peerId, attestation) => ({
-    [Attributes.SLOT_NUMBER]: attestation.payload.header.slotNumber.toString(),
-  }))
-  protected async validateAndStoreCheckpointAttestation(
+  protected validateAndStoreCheckpointAttestation(
     peerId: PeerId,
     attestation: CheckpointAttestation,
   ): Promise<ReceivedMessageValidationResult<CheckpointAttestation>> {
-    const validationResult = await this.checkpointAttestationValidator.validate(attestation);
-
-    if (validationResult.result === 'reject') {
-      this.logger.warn(`Penalizing peer ${peerId} for checkpoint attestation validation failure`);
-      return { result: TopicValidatorResult.Reject, severity: validationResult.severity };
-    }
-
-    if (validationResult.result === 'ignore') {
-      return { result: TopicValidatorResult.Ignore, obj: attestation };
-    }
-
-    // Try to add the attestation: this handles existence check, cap check, and adding in one call
-    // count is the number of attestations by this signer for this slot (for duplicate detection)
-    const slot = attestation.payload.header.slotNumber;
-    const { added, alreadyExists, count } =
-      await this.mempools.attestationPool.tryAddCheckpointAttestation(attestation);
-
-    this.logger.trace(`Validate propagated checkpoint attestation`, {
-      added,
-      alreadyExists,
-      count,
-      [Attributes.SLOT_NUMBER]: slot.toString(),
-      [Attributes.P2P_ID]: peerId.toString(),
-    });
-
-    // Exact same attestation received, no need to re-broadcast
-    if (alreadyExists) {
-      return { result: TopicValidatorResult.Ignore, obj: attestation };
-    }
-
-    // Could not add (cap reached for signer), penalize and do not re-broadcast
-    if (!added) {
-      this.logger.warn(`Rejecting checkpoint attestation due to cap`, {
-        slot: slot.toString(),
-        archive: attestation.archive.toString(),
-        source: peerId.toString(),
-        attester: attestation.getSender()?.toString(),
-        count,
-      });
-      return { result: TopicValidatorResult.Reject, severity: PeerErrorSeverity.HighToleranceError };
-    }
-
-    // Check if this is a duplicate attestation (signer attested to a different proposal at the same slot)
-    // count is the number of attestations by this signer for this slot
-    if (count === 2) {
-      const attester = attestation.getSender();
-      if (attester) {
-        this.logger.warn(`Detected duplicate attestation (equivocation) at slot ${slot}`, {
-          slot: slot.toString(),
-          archive: attestation.archive.toString(),
-          source: peerId.toString(),
-          attester: attester.toString(),
-        });
-        this.emit('duplicateAttestation', { slot, attester });
-      }
-    }
-
-    // Attestation was added successfully - accept it so other nodes can also detect the equivocation
-    this.emit('checkpointAttestation', attestation);
-    return { result: TopicValidatorResult.Accept, obj: attestation };
+    return this.messageProcessor.validateAndStoreCheckpointAttestation(peerId, attestation);
   }
 
   protected async processBlockFromPeer(payloadData: Buffer, msgId: string, source: PeerId): Promise<void> {
@@ -1192,100 +1115,15 @@ export class LibP2PService extends WithTracer implements P2PService {
   }
 
   /** Validates a block proposal. Triggers a penalization to the peer that sent it if invalid. Adds to the mempool if valid. */
-  @trackSpan('Libp2pService.validateAndStoreBlockProposal', (_peerId, block) => ({
-    [Attributes.BLOCK_NUMBER]: block.blockNumber.toString(),
-    [Attributes.SLOT_NUMBER]: block.slotNumber.toString(),
-  }))
-  protected async validateAndStoreBlockProposal(
+  protected validateAndStoreBlockProposal(
     peerId: PeerId,
     block: BlockProposal,
   ): Promise<ReceivedMessageValidationResult<BlockProposal, { isEquivocated: boolean }>> {
-    const validationResult = await this.blockProposalValidator.validate(block);
-
-    if (validationResult.result === 'reject') {
-      this.logger.warn(`Penalizing peer ${peerId} for block proposal validation failure`);
-      return { result: TopicValidatorResult.Reject, severity: validationResult.severity };
-    }
-
-    if (validationResult.result === 'ignore') {
-      return { result: TopicValidatorResult.Ignore, obj: block };
-    }
-
-    // Try to add the proposal: this handles existence check, cap check, and adding in one call
-    const { added, alreadyExists, count } = await this.mempools.attestationPool.tryAddBlockProposal(block);
-    const isEquivocated = count !== undefined && count > 1;
-
-    // Duplicate proposal received, no need to re-broadcast
-    if (alreadyExists) {
-      this.logger.debug(`Ignoring duplicate block proposal received`, {
-        ...block.toBlockInfo(),
-        indexWithinCheckpoint: block.indexWithinCheckpoint,
-        proposer: block.getSender()?.toString(),
-        source: peerId.toString(),
-      });
-      return { result: TopicValidatorResult.Ignore, obj: block, metadata: { isEquivocated } };
-    }
-
-    // Too many blocks received for this slot and index, penalize peer and do not re-broadcast
-    if (!added) {
-      this.logger.warn(`Penalizing peer for block proposal exceeding per-position cap`, {
-        ...block.toBlockInfo(),
-        indexWithinCheckpoint: block.indexWithinCheckpoint,
-        count,
-        proposer: block.getSender()?.toString(),
-        source: peerId.toString(),
-      });
-      return {
-        result: TopicValidatorResult.Reject,
-        metadata: { isEquivocated },
-        severity: PeerErrorSeverity.HighToleranceError,
-      };
-    }
-
-    // If this was a duplicate proposal, do not process it, but do invoke the duplicate callback,
-    // and do re-broadcast it so other nodes in the network know to slash the proposer
-    if (isEquivocated) {
-      const proposer = block.getSender();
-      this.logger.warn(`Detected duplicate block proposal (equivocation) at slot ${block.slotNumber}`, {
-        ...block.toBlockInfo(),
-        source: peerId.toString(),
-        proposer: proposer?.toString(),
-      });
-      // Invoke the duplicate callback on the first duplicate spotted only
-      if (proposer && count === 2) {
-        this.emit('duplicateProposal', { slot: block.slotNumber, proposer, type: 'block' });
-      }
-      return { result: TopicValidatorResult.Accept, obj: block, metadata: { isEquivocated } };
-    }
-
-    // Otherwise, we're good to go!
-    return { result: TopicValidatorResult.Accept, obj: block };
+    return this.messageProcessor.validateAndStoreBlockProposal(peerId, block);
   }
 
-  // REFACTOR(palla): This method should be moved to the p2p_client or to a separate component,
-  // should not be here as it does not deal with p2p networking.
-  @trackSpan('Libp2pService.processValidBlockProposal', async block => ({
-    [Attributes.SLOT_NUMBER]: block.slotNumber,
-    [Attributes.BLOCK_ARCHIVE]: block.archive.toString(),
-    [Attributes.P2P_ID]: await block.p2pMessageLoggingIdentifier().then(i => i.toString()),
-  }))
-  protected async processValidBlockProposal(block: BlockProposal, sender: PeerId) {
-    const slot = block.slotNumber;
-    this.logger.verbose(`Received block proposal for slot ${slot} from external peer ${sender.toString()}.`, {
-      p2pMessageIdentifier: await block.p2pMessageLoggingIdentifier(),
-      source: sender.toString(),
-      ...block.toBlockInfo(),
-    });
-
-    // Mark the txs in this proposal as protected
-    await this.mempools.txPool.protectTxs(block.txHashes, block.blockHeader);
-
-    // Call the block received callback to validate the proposal.
-    // Note: Validators do NOT attest to individual blocks, only to checkpoint proposals.
-    const isValid = await this.proposalHandler.onBlockProposal(block, sender);
-    if (!isValid) {
-      this.logger.info(`Block proposal validation failed for block ${block.blockNumber}`, block.toBlockInfo());
-    }
+  protected processValidBlockProposal(block: BlockProposal, sender: PeerId): Promise<void> {
+    return this.messageProcessor.processValidBlockProposal(block, sender);
   }
 
   /**
@@ -1337,140 +1175,15 @@ export class LibP2PService extends WithTracer implements P2PService {
    * Validates a checkpoint proposal. Penalizes peer if validation fails. Adds the checkpoint and
    * its last block (if present) to the mempool if valid. Triggers equivocation detection on both.
    */
-  @trackSpan('Libp2pService.validateAndStoreCheckpointProposal', (_peerId, checkpoint) => ({
-    [Attributes.SLOT_NUMBER]: checkpoint.slotNumber.toString(),
-  }))
-  protected async validateAndStoreCheckpointProposal(
+  protected validateAndStoreCheckpointProposal(
     peerId: PeerId,
     checkpoint: CheckpointProposal,
   ): Promise<ReceivedMessageValidationResult<CheckpointProposal, { isEquivocated: boolean; processBlock: boolean }>> {
-    const validationResult = await this.checkpointProposalValidator.validate(checkpoint);
-
-    if (validationResult.result === 'reject') {
-      this.logger.warn(`Penalizing peer ${peerId} for checkpoint proposal validation failure`);
-      return { result: TopicValidatorResult.Reject, severity: validationResult.severity };
-    }
-
-    if (validationResult.result === 'ignore') {
-      return { result: TopicValidatorResult.Ignore, obj: checkpoint };
-    }
-
-    // Extract and try to add the block proposal first if present
-    const blockProposal = checkpoint.getBlockProposal();
-    let processBlock = false;
-    if (blockProposal) {
-      this.logger.debug(`Validating block proposal from propagated checkpoint`, {
-        [Attributes.SLOT_NUMBER]: checkpoint.slotNumber.toString(),
-        [Attributes.P2P_ID]: peerId.toString(),
-      });
-      const blockProposalResult = await this.validateAndStoreBlockProposal(peerId, blockProposal);
-      const { obj, metadata: { isEquivocated } = {} } = blockProposalResult;
-      if (blockProposalResult.result === TopicValidatorResult.Reject || !obj || isEquivocated) {
-        this.logger.debug(`Rejecting checkpoint due to invalid last block proposal`, {
-          [Attributes.SLOT_NUMBER]: checkpoint.slotNumber.toString(),
-          [Attributes.P2P_ID]: peerId.toString(),
-          isEquivocated,
-          result: blockProposalResult.result,
-        });
-        return {
-          result: TopicValidatorResult.Reject,
-          severity:
-            'severity' in blockProposalResult ? blockProposalResult.severity : PeerErrorSeverity.MidToleranceError,
-        };
-      } else if (blockProposalResult.result === TopicValidatorResult.Accept && obj && !isEquivocated) {
-        processBlock = true;
-      }
-    }
-
-    // Try to add the checkpoint proposal core: this handles existence check, cap check, and adding in one call
-    const checkpointCore = checkpoint.toCore();
-    const tryAddResult = await this.mempools.attestationPool.tryAddCheckpointProposal(checkpointCore);
-    const { added, alreadyExists, count } = tryAddResult;
-    const isEquivocated = count !== undefined && count > 1;
-
-    // Duplicate proposal received, do not re-broadcast
-    if (alreadyExists) {
-      this.logger.debug(`Ignoring duplicate checkpoint proposal received`, {
-        ...checkpoint.toCheckpointInfo(),
-        source: peerId.toString(),
-      });
-      return {
-        result: TopicValidatorResult.Ignore,
-        obj: checkpoint,
-        metadata: { isEquivocated, processBlock },
-      };
-    }
-
-    // Too many checkpoint proposals received for this slot, penalize peer and do not re-broadcast
-    // Note: We still return the checkpoint obj so the lastBlock can be processed if valid
-    if (!added) {
-      this.logger.warn(`Penalizing peer for checkpoint proposal exceeding per-slot cap`, {
-        ...checkpoint.toCheckpointInfo(),
-        count,
-        source: peerId.toString(),
-      });
-      return {
-        result: TopicValidatorResult.Reject,
-        obj: checkpoint,
-        metadata: { isEquivocated, processBlock },
-        severity: PeerErrorSeverity.HighToleranceError,
-      };
-    }
-
-    // If this was a duplicate proposal, do not process it, but do invoke the duplicate callback,
-    // and do re-broadcast it so other nodes in the network know to slash the proposer
-    if (isEquivocated) {
-      const proposer = checkpoint.getSender();
-      this.logger.warn(`Detected duplicate checkpoint proposal (equivocation) at slot ${checkpoint.slotNumber}`, {
-        ...checkpoint.toCheckpointInfo(),
-        source: peerId.toString(),
-        proposer: proposer?.toString(),
-      });
-      // Invoke the duplicate callback on the first duplicate spotted only
-      if (proposer && count === 2) {
-        this.emit('duplicateProposal', { slot: checkpoint.slotNumber, proposer, type: 'checkpoint' });
-      }
-      return {
-        result: TopicValidatorResult.Accept,
-        obj: checkpoint,
-        metadata: { isEquivocated, processBlock },
-      };
-    }
-
-    // Otherwise, we're good to go!
-    return { result: TopicValidatorResult.Accept, obj: checkpoint, metadata: { processBlock, isEquivocated } };
+    return this.messageProcessor.validateAndStoreCheckpointProposal(peerId, checkpoint);
   }
 
-  /**
-   * Process a validated checkpoint proposal.
-   * Note: The proposal was already added to the pool by tryAddCheckpointProposal in handleGossipedCheckpointProposal.
-   */
-  @trackSpan('Libp2pService.processValidCheckpointProposal', async checkpoint => ({
-    [Attributes.SLOT_NUMBER]: checkpoint.slotNumber,
-    [Attributes.BLOCK_ARCHIVE]: checkpoint.archive.toString(),
-    [Attributes.P2P_ID]: await checkpoint.p2pMessageLoggingIdentifier().then(i => i.toString()),
-  }))
-  protected async processValidCheckpointProposal(checkpoint: CheckpointProposalCore, sender: PeerId) {
-    const slot = checkpoint.slotNumber;
-    this.logger.verbose(`Received checkpoint proposal for slot ${slot} from external peer ${sender.toString()}.`, {
-      p2pMessageIdentifier: await checkpoint.p2pMessageLoggingIdentifier(),
-      slot: checkpoint.slotNumber,
-      archive: checkpoint.archive.toString(),
-      source: sender.toString(),
-    });
-
-    await this.proposalHandler.onAllNodesCheckpointProposal(checkpoint, sender);
-
-    // Call the checkpoint received callback with the core version (without lastBlock)
-    // to validate and potentially generate attestations
-    const attestations = await this.proposalHandler.onValidatorCheckpointProposal(checkpoint, sender);
-    if (attestations && attestations.length > 0) {
-      // If the callback returned attestations, add them to the pool and propagate them
-      await this.mempools.attestationPool.addOwnCheckpointAttestations(attestations);
-      for (const attestation of attestations) {
-        await this.propagate(attestation);
-      }
-    }
+  protected processValidCheckpointProposal(checkpoint: CheckpointProposalCore, sender: PeerId): Promise<void> {
+    return this.messageProcessor.processValidCheckpointProposal(checkpoint, sender);
   }
 
   /**
