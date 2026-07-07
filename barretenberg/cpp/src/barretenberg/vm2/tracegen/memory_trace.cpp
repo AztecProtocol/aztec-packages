@@ -138,7 +138,6 @@ const InteractionDefinition MemoryTraceBuilder::interactions =
              perm_registers_mem_op_1_settings,
              perm_registers_mem_op_2_settings,
              perm_registers_mem_op_3_settings,
-             perm_registers_mem_op_4_settings,
              // Data Copy.
              perm_data_copy_mem_read_settings,
              perm_data_copy_mem_write_settings,

@@ -462,29 +462,21 @@ sel_instruction_fetching_success {
     sel_mem_op_reg[1],
     sel_mem_op_reg[2],
     sel_mem_op_reg[3],
-    sel_mem_op_reg[4], // TODO(MW): Remove when reducing max registers
-    sel_mem_op_reg[5],
     // read / write per register
     rw_reg[0],
     rw_reg[1],
     rw_reg[2],
     rw_reg[3],
-    rw_reg[4],
-    rw_reg[5],
     // whether we should perform a tag check on the register
     sel_tag_check_reg[0],
     sel_tag_check_reg[1],
     sel_tag_check_reg[2],
     sel_tag_check_reg[3],
-    sel_tag_check_reg[4],
-    sel_tag_check_reg[5],
     // expected register tag to perform the check against
     expected_tag_reg[0],
     expected_tag_reg[1],
     expected_tag_reg[2],
-    expected_tag_reg[3],
-    expected_tag_reg[4],
-    expected_tag_reg[5]
+    expected_tag_reg[3]
 } in
 precomputed.sel_exec_spec {
     // execution opcode
@@ -509,29 +501,21 @@ precomputed.sel_exec_spec {
     precomputed.sel_mem_op_reg[1],
     precomputed.sel_mem_op_reg[2],
     precomputed.sel_mem_op_reg[3],
-    precomputed.sel_mem_op_reg[4],
-    precomputed.sel_mem_op_reg[5],
     // read / write per register
     precomputed.rw_reg[0],
     precomputed.rw_reg[1],
     precomputed.rw_reg[2],
     precomputed.rw_reg[3],
-    precomputed.rw_reg[4],
-    precomputed.rw_reg[5],
     // whether we should perform a tag check on the register
     precomputed.sel_tag_check_reg[0],
     precomputed.sel_tag_check_reg[1],
     precomputed.sel_tag_check_reg[2],
     precomputed.sel_tag_check_reg[3],
-    precomputed.sel_tag_check_reg[4],
-    precomputed.sel_tag_check_reg[5],
     // expected register tag to perform the check against
     precomputed.expected_tag_reg[0],
     precomputed.expected_tag_reg[1],
     precomputed.expected_tag_reg[2],
-    precomputed.expected_tag_reg[3],
-    precomputed.expected_tag_reg[4],
-    precomputed.expected_tag_reg[5]
+    precomputed.expected_tag_reg[3]
 };
 
 //////// ADDRESSING ////////
@@ -556,21 +540,18 @@ pol commit sel_read_registers; // @boolean (by definition)
 sel_read_registers = SEL_RESOLVE_ADDRESS - sel_addressing_error;
 
 // Registers
-pol commit register[6];
-
-// TODO(MW): Remove when reducing max registers (below prevents IsolatedCommittedColumn)
-sel_read_registers * register[5] = 0;
+pol commit register[4];
 
 // Memory Accesses
-pol commit sel_mem_op_reg[6]; // @boolean (when `sel_instruction_fetching_success == 1`)
+pol commit sel_mem_op_reg[4]; // @boolean (when `sel_instruction_fetching_success == 1`)
 // Read / Write selectors
-pol commit rw_reg[6]; // @boolean (when `sel_instruction_fetching_success == 1`)
+pol commit rw_reg[4]; // @boolean (when `sel_instruction_fetching_success == 1`)
 // Memory Tag
-pol commit mem_tag_reg[6];
+pol commit mem_tag_reg[4];
 // Whether we should perform a tag check on the register
-pol commit sel_tag_check_reg[6]; // @boolean (when `sel_instruction_fetching_success == 1`)
+pol commit sel_tag_check_reg[4]; // @boolean (when `sel_instruction_fetching_success == 1`)
 // Expected tag
-pol commit expected_tag_reg[6];
+pol commit expected_tag_reg[4];
 
 // NOTE: Constraints on the registers are in execution/registers.pil.
 // The "output we want is" sel_register_read_error from execution/registers.pil.

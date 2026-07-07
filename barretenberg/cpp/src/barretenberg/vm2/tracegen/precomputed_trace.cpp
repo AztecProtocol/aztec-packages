@@ -232,23 +232,28 @@ void PrecomputedTraceBuilder::process_wire_instruction_spec(TraceContainer& trac
 void PrecomputedTraceBuilder::process_exec_instruction_spec(TraceContainer& trace)
 {
     constexpr std::array<Column, AVM_MAX_REGISTERS> MEM_OP_REG_COLUMNS = {
-        Column::precomputed_sel_mem_op_reg_0_, Column::precomputed_sel_mem_op_reg_1_,
-        Column::precomputed_sel_mem_op_reg_2_, Column::precomputed_sel_mem_op_reg_3_,
-        Column::precomputed_sel_mem_op_reg_4_, Column::precomputed_sel_mem_op_reg_5_,
+        Column::precomputed_sel_mem_op_reg_0_,
+        Column::precomputed_sel_mem_op_reg_1_,
+        Column::precomputed_sel_mem_op_reg_2_,
+        Column::precomputed_sel_mem_op_reg_3_,
     };
     constexpr std::array<Column, AVM_MAX_REGISTERS> RW_COLUMNS = {
-        Column::precomputed_rw_reg_0_, Column::precomputed_rw_reg_1_, Column::precomputed_rw_reg_2_,
-        Column::precomputed_rw_reg_3_, Column::precomputed_rw_reg_4_, Column::precomputed_rw_reg_5_,
+        Column::precomputed_rw_reg_0_,
+        Column::precomputed_rw_reg_1_,
+        Column::precomputed_rw_reg_2_,
+        Column::precomputed_rw_reg_3_,
     };
     constexpr std::array<Column, AVM_MAX_REGISTERS> DO_TAG_CHECK_COLUMNS = {
-        Column::precomputed_sel_tag_check_reg_0_, Column::precomputed_sel_tag_check_reg_1_,
-        Column::precomputed_sel_tag_check_reg_2_, Column::precomputed_sel_tag_check_reg_3_,
-        Column::precomputed_sel_tag_check_reg_4_, Column::precomputed_sel_tag_check_reg_5_,
+        Column::precomputed_sel_tag_check_reg_0_,
+        Column::precomputed_sel_tag_check_reg_1_,
+        Column::precomputed_sel_tag_check_reg_2_,
+        Column::precomputed_sel_tag_check_reg_3_,
     };
     constexpr std::array<Column, AVM_MAX_REGISTERS> EXPECTED_TAG_COLUMNS = {
-        Column::precomputed_expected_tag_reg_0_, Column::precomputed_expected_tag_reg_1_,
-        Column::precomputed_expected_tag_reg_2_, Column::precomputed_expected_tag_reg_3_,
-        Column::precomputed_expected_tag_reg_4_, Column::precomputed_expected_tag_reg_5_,
+        Column::precomputed_expected_tag_reg_0_,
+        Column::precomputed_expected_tag_reg_1_,
+        Column::precomputed_expected_tag_reg_2_,
+        Column::precomputed_expected_tag_reg_3_,
     };
 
     constexpr std::array<Column, AVM_MAX_OPERANDS> SEL_OP_IS_ADDRESS_COLUMNS = {
