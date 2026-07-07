@@ -174,12 +174,6 @@ variable "FEE_ASSET_HANDLER_CONTRACT_ADDRESS" {
   type        = string
 }
 
-variable "ROLLUP_VERSION" {
-  description = "Rollup version selected from the registry. Leave empty to use the canonical rollup."
-  type        = string
-  default     = ""
-}
-
 variable "VALIDATOR_MNEMONIC" {
   description = "The validator mnemonic"
   type        = string
