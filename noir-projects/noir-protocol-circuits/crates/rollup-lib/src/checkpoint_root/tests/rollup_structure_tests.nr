@@ -21,7 +21,7 @@ fn with_both_roots_left_is_first() {
     }
 }
 
-#[test(should_fail_with = "Right rollup must not carry in_hash")]
+#[test(should_fail_with = "Right rollup must not be a first block")]
 fn with_both_roots_right_is_first() {
     TestBuilder::new(
         BLOCK_ROOT_ROLLUP_VK_INDEX,
@@ -32,7 +32,7 @@ fn with_both_roots_right_is_first() {
         .execute_with_mock_and_fail();
 }
 
-#[test(should_fail_with = "Right rollup must not carry in_hash")]
+#[test(should_fail_with = "Right rollup must not be a first block")]
 fn with_both_first_roots() {
     TestBuilder::new(
         BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX,
@@ -43,7 +43,7 @@ fn with_both_first_roots() {
         .execute_with_mock_and_fail();
 }
 
-#[test(should_fail_with = "in_hash must be set via the first block root in the checkpoint")]
+#[test(should_fail_with = "The first block of the checkpoint must be a first block root")]
 fn with_both_non_first_roots() {
     TestBuilder::new(BLOCK_ROOT_ROLLUP_VK_INDEX, 1, BLOCK_ROOT_ROLLUP_VK_INDEX, 1)
         .execute_with_mock_and_fail();
@@ -64,7 +64,7 @@ fn with_left_merge_and_right_root() {
     builder.assert_mock_called(mock);
 }
 
-#[test(should_fail_with = "in_hash must be set via the first block root in the checkpoint")]
+#[test(should_fail_with = "The first block of the checkpoint must be a first block root")]
 fn with_left_non_first_merge_and_right_root() {
     let mut builder = TestBuilder::new(
         // Left rollup is a merge that has 4 blocks.
@@ -75,13 +75,13 @@ fn with_left_non_first_merge_and_right_root() {
         1,
     );
 
-    // The merge at the left has 0 in hash since it does not contain the first block root.
-    builder.left_rollup.in_hash = 0;
+    // The merge at the left is not a first block since it does not contain the first block root.
+    builder.left_rollup.is_first_block = false;
 
     builder.execute_with_mock_and_fail();
 }
 
-#[test(should_fail_with = "Right rollup must not carry in_hash")]
+#[test(should_fail_with = "Right rollup must not be a first block")]
 fn with_left_non_first_merge_and_right_first_root() {
     let mut builder = TestBuilder::new(
         // Left rollup is a merge that has 4 blocks.
@@ -92,8 +92,8 @@ fn with_left_non_first_merge_and_right_first_root() {
         1,
     );
 
-    // The merge at the left has 0 in hash since it does not contain the first block root.
-    builder.left_rollup.in_hash = 0;
+    // The merge at the left is not a first block since it does not contain the first block root.
+    builder.left_rollup.is_first_block = false;
 
     builder.execute_with_mock_and_fail();
 }

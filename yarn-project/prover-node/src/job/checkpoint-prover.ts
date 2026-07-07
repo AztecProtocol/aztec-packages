@@ -41,6 +41,12 @@ export type CheckpointProverDeps = {
   log: Logger;
 };
 
+/**
+ * The proofs a checkpoint's sub-tree hands to the top tree: the per-block rollup proofs plus the checkpoint's parity
+ * root proof (parity moved from the first block root to the checkpoint root in AZIP-22 Fast Inbox).
+ */
+export type CheckpointSubTreeProofs = Pick<SubTreeResult, 'blockProofOutputs' | 'parityRootProof'>;
+
 /** Inputs that fully describe a checkpoint at register time. */
 export type CheckpointProverArgs = {
   checkpoint: Checkpoint;
@@ -89,8 +95,9 @@ export class CheckpointProver {
   /** Per-prover tx map — populated by the internal gather. Empty until then. */
   readonly txs: Map<string, Tx> = new Map();
 
-  /** Resolved by the sub-tree on success, rejected on cancel/failure. */
-  private readonly blockProofs: PromiseWithResolvers<SubTreeResult['blockProofOutputs']> = promiseWithResolvers();
+  /** Resolved by the sub-tree on success, rejected on cancel/failure. Carries the block proofs plus the checkpoint's
+   * parity root proof (which feeds the checkpoint root in the top tree). */
+  private readonly blockProofs: PromiseWithResolvers<CheckpointSubTreeProofs> = promiseWithResolvers();
 
   private cancelled = false;
   private subTree?: CheckpointSubTreeOrchestrator;
@@ -186,8 +193,8 @@ export class CheckpointProver {
     return this.abortController.signal;
   }
 
-  /** Promise that resolves with the block-rollup proofs for this checkpoint (or rejects on cancel/failure). */
-  public whenBlockProofsReady(): Promise<SubTreeResult['blockProofOutputs']> {
+  /** Promise that resolves with the block-rollup proofs and parity root proof for this checkpoint (or rejects). */
+  public whenBlockProofsReady(): Promise<CheckpointSubTreeProofs> {
     return this.blockProofs.promise;
   }
 
@@ -284,7 +291,10 @@ export class CheckpointProver {
           });
           // Spans processing + proving (from executeCheckpoint start, after tx gathering) to proofs ready.
           this.deps.metrics.recordCheckpointProving(checkpointTimer.ms());
-          this.blockProofs.resolve(result.blockProofOutputs);
+          this.blockProofs.resolve({
+            blockProofOutputs: result.blockProofOutputs,
+            parityRootProof: result.parityRootProof,
+          });
         },
         err => this.blockProofs.reject(err),
       );
