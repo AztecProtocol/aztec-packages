@@ -140,17 +140,20 @@ export const MULTI_VALIDATOR_REORG_TIMING = {
 } as const;
 
 /**
- * Timing-only profile naming the 36s/12s multi-validator block-production cadence copied across
- * `block-production/` (`simple`, `high_tps`, `first_slot`, and `proof_boundary`). Uses
- * `aztecSlotDurationInL1Slots: 3` rather than an explicit `aztecSlotDuration: 36` so the L2 slot stays
- * coupled to `ethereumSlotDuration` if a test overrides eth. Deliberately omits
- * `attestationPropagationTime` (per-scenario: default 2, 0.5, or 1) — set it per test. Spread BEFORE
- * per-test overrides.
+ * Timing-only profile naming the 24s/12s multi-validator block-production cadence copied across
+ * `block-production/` (`simple`, `first_slot`, and `proof_boundary`). Uses `aztecSlotDurationInL1Slots: 2`
+ * rather than an explicit `aztecSlotDuration: 24` so the L2 slot stays coupled to `ethereumSlotDuration`
+ * if a test overrides eth. The 4s block duration keeps enough full block sub-slots per checkpoint under
+ * the production budgets these eth=12 tests run with (init 1s, prepare 1s, min-block 2s, p2p =
+ * attestationPropagationTime): `floor((24 - 1 - 4 - 2P - 1) / 4)` = 4 blocks at P<=1, 3 blocks at P=2
+ * (the default). Deliberately omits `attestationPropagationTime` (per-scenario: default 2, 0.5, or 1) —
+ * set it per test. `high_tps` pins the old 36s/6s cadence at its own call site because its 2-txs-x-2.5s
+ * per-block budget does not fit a 4s block. Spread BEFORE per-test overrides.
  */
 export const MULTI_VALIDATOR_BLOCK_PRODUCTION_TIMING = {
   ethereumSlotDuration: 12,
-  aztecSlotDurationInL1Slots: 3,
-  blockDurationMs: 6000,
+  aztecSlotDurationInL1Slots: 2,
+  blockDurationMs: 4000,
 } as const;
 
 /**
