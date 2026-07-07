@@ -26,7 +26,7 @@ describe('generateGenesisValues world state backend equivalence', () => {
   // The consensus-critical guarantee behind computing genesis values on the fsync-off ephemeral
   // backend instead of tmp: both backends must derive the exact same on-chain genesis archive root.
   it('ephemeral and tmp produce identical genesis archive roots', async () => {
-    const tmpWs = await NativeWorldStateService.tmp(undefined /* rollupAddress */, true /* cleanupTmpDir */, genesis);
+    const tmpWs = await NativeWorldStateService.tmp(/*cleanupTmpDir=*/ true, genesis);
     const ephemeralWs = await NativeWorldStateService.ephemeral(genesis);
     try {
       const tmpRoot = await archiveRoot(tmpWs);
