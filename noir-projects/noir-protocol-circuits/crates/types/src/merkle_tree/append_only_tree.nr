@@ -108,15 +108,19 @@ pub fn insert_subtree_root_to_snapshot_with_hasher<let TreeHeight: u32, let Subt
 /// Appends up to `MaxLeaves` leaves to a poseidon append-only tree at its current (arbitrary) next-available index.
 ///
 /// Unlike `insert_subtree_root_to_snapshot`, the insertion index does not need to be aligned to a power-of-two
-/// boundary: leaves are absorbed one at a time into the tree's frontier (the incremental-merkle-tree "filled
-/// subtrees"), so a compact bundle can start wherever the previous append left off. Only `leaves[0..num_leaves]` are
-/// inserted; the remaining lanes are no-ops and must be zero.
+/// boundary: the whole batch is merged into the tree's frontier (the incremental-merkle-tree "filled subtrees") level
+/// by level, so a compact bundle can start wherever the previous append left off. Only `leaves[0..num_leaves]` are
+/// inserted; the remaining lanes are no-ops and must be zero. The pair-hash lanes halve at each level as the batch
+/// rises, so the total cost is ~`MaxLeaves + 3 * TreeHeight` hashes rather than `MaxLeaves * TreeHeight`.
 ///
 /// `frontier_hint` is the frontier at `snapshot.next_available_leaf_index`, i.e. `frontier_hint[level]` is the pending
 /// left-sibling node at each level. It is validated against `snapshot.root` before use, pinning it to the snapshot the
-/// same way sibling-path hints are pinned elsewhere. Only the hint entries at levels where the start index is a right
-/// child are read during the append, and those are exactly the entries the root recomputation pins, so an incorrect
-/// hint cannot produce a wrong result: it either fails validation or is overwritten before it is read.
+/// same way sibling-path hints are pinned elsewhere. The merge only ever reads hint entries at levels where the start
+/// index is a right child, which are exactly the entries the validation pins, so an incorrect hint cannot produce a
+/// wrong result: it either fails validation or is never read.
+///
+/// A completely full tree (`next_available_leaf_index == 2^TreeHeight`) has no representable frontier, so even a
+/// `num_leaves = 0` call against one fails hint validation. This fails closed and is accepted behavior.
 pub fn append_leaves_to_snapshot<let TreeHeight: u32, let MaxLeaves: u32>(
     snapshot: AppendOnlyTreeSnapshot,
     leaves: [Field; MaxLeaves],
@@ -143,11 +147,11 @@ pub fn append_leaves_to_snapshot<let TreeHeight: u32, let MaxLeaves: u32>(
     let start_index = snapshot.next_available_leaf_index as u64;
     let end_index = start_index + num_leaves as u64;
     // Guard against wrapping past the tree capacity, which would otherwise silently produce a wrong root.
+    let mut tree_is_filled_exactly = false;
     if TreeHeight < 64 {
-        assert(
-            end_index <= (1 as u64 << TreeHeight as u64),
-            "append_leaves_to_snapshot exceeds the tree capacity",
-        );
+        let capacity = 1 as u64 << TreeHeight as u64;
+        assert(end_index <= capacity, "append_leaves_to_snapshot exceeds the tree capacity");
+        tree_is_filled_exactly = end_index == capacity;
     }
 
     // Validate the hint pins to the snapshot: recompute the root of a tree holding `start_index` leaves from the hint's
@@ -158,27 +162,58 @@ pub fn append_leaves_to_snapshot<let TreeHeight: u32, let MaxLeaves: u32>(
         "Frontier hint does not match the snapshot root",
     );
 
-    // Absorb each real leaf into the frontier, tracking the running root; padding lanes are skipped.
+    // Merge the batch into the frontier one level at a time. At each level, `working` holds the batch's nodes,
+    // starting at absolute position `s` with `c` real entries (lanes past `c` hold garbage that is never read):
+    // - If `s` is odd the batch starts as a right child, so its pending left sibling — the validated hint entry — is
+    //   prepended via a mux shift (no hashes) to make the batch start even.
+    // - If the count is then odd, the dangling last node sits at an even position: it is the level's new pending left
+    //   child, so it becomes the frontier entry and drops out of pairing. On an even count the old entry is left in
+    //   place; at the new tree size it is unused garbage, just like unread hint lanes.
+    // - The remaining nodes are hashed pairwise into the next level.
     let mut frontier = frontier_hint;
-    let mut index = start_index;
-    let mut root = snapshot.root;
+    let mut working = [0; MaxLeaves + 2];
     for i in 0..MaxLeaves {
-        if i < num_leaves {
-            let mut node = leaves[i];
-            let mut idx = index;
-            for level in 0..TreeHeight {
-                if idx % 2 == 0 {
-                    frontier[level] = node;
-                    node = merkle_hash(node, zero_subtree_roots[level]);
-                } else {
-                    node = merkle_hash(frontier[level], node);
-                }
-                idx = idx / 2;
-            }
-            root = node;
-            index += 1;
-        }
+        working[i] = leaves[i];
     }
+    let mut s = start_index;
+    let mut c = num_leaves;
+    for level in 0..TreeHeight {
+        let prepend = (s % 2 == 1) & (c != 0);
+        let mut shifted = [0; MaxLeaves + 2];
+        shifted[0] = if prepend { frontier[level] } else { working[0] };
+        // The loop bounds below only need to upper-bound the batch size at this level; the shift amounts are clamped
+        // below 32 because a u32 shift by 32+ does not const-fold, and `MaxLeaves >> 31` is already 0.
+        for j in 1..(MaxLeaves >> std::cmp::min(level, 31)) + 2 {
+            shifted[j] = if prepend { working[j - 1] } else { working[j] };
+        }
+        let s2 = s - prepend as u64;
+        let c2 = c + prepend as u32;
+
+        // `c2 - 1` is only meaningful when `c2` is odd (hence >= 1); the subtraction is kept unconditionally safe.
+        let dangling_index = c2 - (c2 != 0) as u32;
+        frontier[level] = if c2 % 2 == 1 {
+            shifted[dangling_index]
+        } else {
+            frontier[level]
+        };
+
+        for i in 0..(MaxLeaves >> std::cmp::min(level + 1, 31)) + 1 {
+            working[i] = merkle_hash(shifted[2 * i], shifted[2 * i + 1]);
+        }
+        s = s2 / 2;
+        c = c2 / 2;
+    }
+
+    // The frontier is now the end-state frontier, so the final root falls out of the same recomputation used to
+    // validate the hint. The exception is an append that fills the tree exactly: a full tree has no representable
+    // frontier, but in that case the batch was merged all the way up and `working[0]` is the root itself.
+    let root = if num_leaves == 0 {
+        snapshot.root
+    } else if tree_is_filled_exactly {
+        working[0]
+    } else {
+        recompute_root_from_frontier(frontier, zero_subtree_roots, end_index)
+    };
 
     AppendOnlyTreeSnapshot {
         root,
@@ -548,5 +583,73 @@ mod append_leaves_tests {
         // num_leaves is 1, but a later lane carries a non-zero value.
         let leaves = [42, 0, 99, 0, 0, 0, 0, 0];
         let _ = append_leaves_to_snapshot::<5, 8>(snapshot, leaves, 1, [0; 5]);
+    }
+
+    /// Extracts the frontier at `index` from a height-4 reference tree: the node at each level's position
+    /// `(index >> level) - 1` when that position is odd, i.e. the pending left sibling.
+    unconstrained fn frontier_of_height_4_tree(tree: MerkleTree<16>, index: u32) -> [Field; 4] {
+        // Level offsets into `MerkleTree.nodes` for N = 16: level 1 starts at 0, level 2 at 8, level 3 at 12.
+        let offsets = [0, 8, 12];
+        let mut frontier = [0; 4];
+        if index % 2 == 1 {
+            frontier[0] = tree.leaves[index - 1];
+        }
+        for level in 1..4 {
+            let p = index >> level;
+            if p % 2 == 1 {
+                frontier[level] = tree.nodes[offsets[level - 1] + p - 1];
+            }
+        }
+        frontier
+    }
+
+    #[test]
+    unconstrained fn append_exhaustive_small_tree_sweep() {
+        // Height-4 tree (capacity 16) with MaxLeaves = 6: every (start, num) with start + num <= capacity, compared
+        // against a reference tree built over the concatenated leaves. Exercises every parity combination of the
+        // prepend/dangling logic, including appends that fill the tree exactly.
+        for start in 0..16 {
+            for num in 0..7 {
+                if start + num <= 16 {
+                    let mut pre_leaves = [0; 16];
+                    for i in 0..start {
+                        pre_leaves[i] = (100 + i) as Field;
+                    }
+                    let pre_tree = MerkleTree::new(pre_leaves);
+                    let snapshot = AppendOnlyTreeSnapshot {
+                        root: pre_tree.get_root(),
+                        next_available_leaf_index: start as Field,
+                    };
+                    let frontier = frontier_of_height_4_tree(pre_tree, start);
+
+                    let mut batch = [0; 6];
+                    let mut all_leaves = pre_leaves;
+                    for i in 0..num {
+                        let value = (200 + start + i) as Field;
+                        batch[i] = value;
+                        all_leaves[start + i] = value;
+                    }
+
+                    let result = append_leaves_to_snapshot::<4, 6>(snapshot, batch, num, frontier);
+
+                    let expected_tree = MerkleTree::new(all_leaves);
+                    assert_eq(result.root, expected_tree.get_root());
+                    assert_eq(result.next_available_leaf_index, (start + num) as Field);
+                }
+            }
+        }
+    }
+
+    #[test(should_fail_with = "Frontier hint does not match the snapshot root")]
+    fn append_to_completely_full_tree_fails() {
+        // A full tree has no representable frontier; even a num_leaves = 0 call fails hint validation (fail-closed).
+        let mut leaves = [0; 16];
+        for i in 0..16 {
+            leaves[i] = (100 + i) as Field;
+        }
+        let tree = MerkleTree::new(leaves);
+        let snapshot =
+            AppendOnlyTreeSnapshot { root: tree.get_root(), next_available_leaf_index: 16 };
+        let _ = append_leaves_to_snapshot::<4, 6>(snapshot, [0; 6], 0, [0; 4]);
     }
 }
