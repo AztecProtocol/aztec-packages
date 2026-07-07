@@ -17,7 +17,7 @@ class AvmHardCodedVKAndHash {
     using FF = bb::curve::BN254::ScalarField;
 
     // Precomputed VK hash (hash of all commitments below).
-    static FF vk_hash() { return FF(uint256_t("0x15098946f4348339fa379e7afbf954ce083e615002dc0f7ac1706d63a400b42d")); }
+    static FF vk_hash() { return FF(uint256_t("0x0addedd4b81da78acb65def08192639b3f7101dd382e758b84817c3288616d3a")); }
 
     static constexpr std::array<Commitment, NUM_PRECOMPUTED_ENTITIES> get_all()
     {
@@ -47,9 +47,9 @@ class AvmHardCodedVKAndHash {
                 uint256_t(
                     "0x0d4cd55a09c6f5b869381c0054f5c5a6912a912176ecec2d130b286984ac3b12")), // precomputed_bitwise_output_xor
             Commitment(
-                uint256_t("0x298cbe8d7aabda5cf9272257c13681843126d8ffaa6087a1773e5c9b3c5dd513"),
+                uint256_t("0x0b93e4bc109d95b07bd127ba23646a0833dfb8e3e911b8564f9d933ac08a8b15"),
                 uint256_t(
-                    "0x1485cbdb64eacfe673a6c4d6a9666d627ce5357fb22551b6f8b4cee23db1b315")), // precomputed_dyn_gas_id
+                    "0x02d3d60e6334bc240128dfe5e19cbf7f0963f68666181229331018e5739fadaf")), // precomputed_dyn_gas_id
             Commitment(
                 uint256_t("0x2e3d6772c0dc1f547adb030a56f4334faa5820f5844fe22d304d69634622e15f"),
                 uint256_t(
@@ -67,9 +67,9 @@ class AvmHardCodedVKAndHash {
                 uint256_t(
                     "0x1ad065dec1d51664807b4d551d0eb8abe0b061b8380dde6d662e2df36a1f85c8")), // precomputed_exec_opcode_dynamic_da_gas
             Commitment(
-                uint256_t("0x0e29fd4ecc673e10c64074235681dcd7e682ee1c78860c17be14a6007384851d"),
+                uint256_t("0x2fc6974982c88b3c85d7d2ec45d01c20999ea2f59516e06f20f611b564ed89fc"),
                 uint256_t(
-                    "0x10e04f2ad41ef637337fbe2d28bf0d0a65291fefbd6695df08166a7d993fb4b5")), // precomputed_exec_opcode_dynamic_l2_gas
+                    "0x20cc4e40e8484240996a59d968fbf87bb8edbfda9534c3c113e940efebaecf3e")), // precomputed_exec_opcode_dynamic_l2_gas
             Commitment(
                 uint256_t("0x1fbccee2ff656d845414c1a520adde56aa3625e29b6fff377044986493023e6d"),
                 uint256_t(
@@ -225,10 +225,6 @@ class AvmHardCodedVKAndHash {
                 uint256_t(
                     "0x176b78b990ea79d06072fb91fd96b2a8472376baf05016f668d2c3162d0a7984")), // precomputed_rw_reg_2_
             Commitment::infinity(),                                                         // precomputed_rw_reg_3_
-            Commitment(
-                uint256_t("0x0752e216f6398f2dc16b86cd762f9bd9f961964f9c6a354530c45b04920f06ab"),
-                uint256_t(
-                    "0x062522db0dc283ad1d328147904f0fdc0e44add870aa0b099cf16c3d73352a9e")), // precomputed_sel_addressing_gas
             Commitment(
                 uint256_t("0x095419f3dc475e499012c5d001c266643669a19173217b51fd5f2a86b3e1a8b2"),
                 uint256_t(

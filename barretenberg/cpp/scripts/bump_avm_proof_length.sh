@@ -14,9 +14,20 @@
 #      then exit. The user updates constants.nr by hand and re-runs the script.
 #   2. Once constants.nr is in sync: run yarn remake-constants (propagates to
 #      aztec_constants.hpp / constants.gen.ts / ConstantsGen.sol / constants_gen.pil),
-#      rebuild Noir (which also regenerates the affected circuit VKs as a byproduct
-#      of bb write_vk during the bootstrap), and regenerate Prover.toml fixtures
-#      via the e2e full.test harness with FAKE_PROOFS=1.
+#      renew the pinned public-base-rollup VKs (see renew-pins below), rebuild Noir
+#      (which also regenerates the remaining circuit VKs as a byproduct of bb write_vk
+#      during the bootstrap), and regenerate Prover.toml fixtures via the e2e full.test
+#      harness with FAKE_PROOFS=1.
+#
+# Subcommands:
+#   (no args)   Run the full two-phase flow described above.
+#   renew-pins  Only rebuild bb-avm and refresh the pinned public-base-rollup VKs in
+#               noir-protocol-circuits and mock-protocol-circuits, without touching
+#               constants or Prover.toml. The public-base-rollup recursively verifies
+#               an AVM proof, so its pinned bytecode+VK go stale on any AVM proof-length
+#               change (and its `./bootstrap.sh` pin check then fails). Run this after
+#               such a change, or after any bb change that rotates just the base-public
+#               VK, then commit the refreshed pinned-build.tar.gz files.
 #
 # Discovery uses a template-instantiation trick to expose
 # COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS in a clang diagnostic — clang resolves
@@ -133,6 +144,65 @@ EOF
     exit 0
 }
 
+# Refresh a single protocol-circuits project's pinned-build.tar.gz for ONLY the
+# public-base-rollup circuit(s). The public-base-rollup recursively verifies an AVM
+# proof, so its committed bytecode hard-codes AVM_V2_PROOF_LENGTH_IN_FIELDS; when that
+# constant changes the pinned bytecode+VK frozen in the tarball go stale and the pin
+# check in the project's ./bootstrap.sh fails while recomputing the VK. We extract the
+# tarball, recompile+re-key just the named circuit(s) against the current constants +
+# bb-avm, and repack — every other pinned artifact is preserved byte-for-byte.
+#
+#   $1     absolute project dir (noir-protocol-circuits or mock-protocol-circuits)
+#   $2...  circuit dir name(s) to recompile (e.g. rollup-tx-base-public [ ...-simulated ])
+renew_project_pin() {
+    local project_dir="$1"; shift
+    local tarball="$project_dir/pinned-build.tar.gz"
+    # mock-protocol-circuits has no standalone per-circuit build; it drives the
+    # noir-protocol-circuits bootstrap with NOIR_PROTOCOL_CIRCUITS_WORKING_DIR set to it.
+    local npc_bootstrap="$ROOT/noir-projects/noir-protocol-circuits/bootstrap.sh"
+
+    if [[ ! -f "$tarball" ]]; then
+        echo "  $(realpath --relative-to="$ROOT" "$tarball") not found; skipping." >&2
+        return 0
+    fi
+
+    local workdir_env=()
+    [[ "$(basename "$project_dir")" == "noir-protocol-circuits" ]] || \
+        workdir_env=(NOIR_PROTOCOL_CIRCUITS_WORKING_DIR="$project_dir")
+
+    (
+        set -euo pipefail
+        cd "$project_dir"
+        rm -rf target && mkdir -p target target/keys
+        tar xzf pinned-build.tar.gz -C target
+        local c
+        for c in "$@"; do
+            step "  recompiling + re-keying $c ($(basename "$project_dir"))"
+            if [[ ${#workdir_env[@]} -gt 0 ]]; then
+                env "${workdir_env[@]}" "$npc_bootstrap" compile "$c"
+            else
+                "$npc_bootstrap" compile "$c"
+            fi
+        done
+        tar czf pinned-build.tar.gz -C target .
+    )
+    echo "  refreshed $(realpath --relative-to="$ROOT" "$tarball")"
+}
+
+# Rebuild bb-avm (so find-bb serves the current AVM shape) and renew the pinned
+# public-base-rollup VKs in both the real and mock protocol-circuit projects.
+renew_base_public_pins() {
+    [[ -d "$CPP_BUILD" ]] || die "C++ build dir missing: $CPP_BUILD (run cmake configure first)"
+    step "Rebuilding bb-avm (find-bb serves it to the pin recompile)"
+    cmake --build "$CPP_BUILD" --target bb-avm
+
+    step "Renewing pinned public-base-rollup VKs (bytecode embeds the AVM proof)"
+    renew_project_pin "$ROOT/noir-projects/noir-protocol-circuits" \
+        rollup-tx-base-public rollup-tx-base-public-simulated
+    renew_project_pin "$ROOT/noir-projects/mock-protocol-circuits" \
+        mock-rollup-tx-base-public
+}
+
 phase2_cascade() {
     step "Phase 2: propagating to mirrors and rebuilding…"
 
@@ -148,6 +218,10 @@ Then re-run barretenberg/cpp/scripts/bump_avm_proof_length.sh.
 EOF
         exit 1
     fi
+
+    # Must precede the noir rebuild: ./bootstrap.sh below runs the pinned-VK check, which
+    # dies on the now-stale public-base-rollup pin before it can proceed.
+    renew_base_public_pins
 
     step "Rebuilding noir-projects (recompiles every circuit using AVM_V2_PROOF_LENGTH_IN_FIELDS)"
     (cd "$ROOT/noir-projects" && ./bootstrap.sh)
@@ -175,8 +249,24 @@ EOF
 }
 
 main() {
-    phase1_check_or_instruct
-    phase2_cascade
+    case "${1:-}" in
+        renew-pins)
+            renew_base_public_pins
+            cat <<EOF
+
+Done. Refreshed the pinned public-base-rollup VKs. Review and commit:
+  git status
+  git diff --stat -- '*pinned-build.tar.gz'
+EOF
+            ;;
+        "")
+            phase1_check_or_instruct
+            phase2_cascade
+            ;;
+        *)
+            die "unknown subcommand: '${1}' (use no args for the full flow, or 'renew-pins')"
+            ;;
+    esac
 }
 
 main "$@"

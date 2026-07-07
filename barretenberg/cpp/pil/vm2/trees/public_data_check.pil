@@ -176,11 +176,11 @@ namespace public_data_check;
 
     #[CLK_DIFF_RANGE_LO]
     not_end { clk_diff_lo }
-    in precomputed.sel_range_16 { precomputed.idx };
+    in precomputed.sel_range_16_active { precomputed.idx };
 
     #[CLK_DIFF_RANGE_HI]
     not_end { clk_diff_hi }
-    in precomputed.sel_range_16 { precomputed.idx };
+    in precomputed.sel_range_16_active { precomputed.idx };
 
     // We enforce reads, which have non looked up clk, to have clk = 0
     // So tracegen must put them at the start of the trace

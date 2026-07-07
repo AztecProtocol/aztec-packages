@@ -23,7 +23,7 @@
  *
  * Valid selectors determining the row ranges:
  *   - sel_range_8:                rows [0, 2^8)   — 8-bit range checks and power-of-2 lookups
- *   - sel_range_16:               rows [0, 2^16)  — 16-bit range checks
+ *   - sel_range_16:               rows [0, 2^16)  — 16-bit range checks (used also for bitwise and addressing gas lookups)
  *   - sel_sha256_compression:     SHA-256 round constants
  *   - sel_tag_parameters:         memory tag metadata (byte length, max bits, max value)
  *   - sel_to_radix_p_limb_counts: safe limb counts for radix decomposition
@@ -32,6 +32,13 @@
  *   - sel_addressing_gas:         addressing-mode bitmask to gas cost
  *   - sel_phase:                  transaction execution phase properties
  *   - sel_keccak:                 keccak round constants
+ *
+ * The above selectors are fixed (precomputed) and do not change per transaction/program. For optimization reasons,
+ * we introduce committed granular destination selectors for:
+ * - 16-bit range check: sel_range_16_active
+ * - bitwise: sel_bitwise
+ * - addressing gas: sel_addressing_gas
+ * Therefore, the lookup's log-derivative inverse is materialised over the used entries instead of the full 2^16-row table.
  *
  * The columns are organized into several logical groups:
  *
@@ -112,6 +119,11 @@ pol constant first_row;
 pol constant sel_range_8;  // 1 in the first 2^8 rows [0, 2^8)
 pol constant sel_range_16; // 1 in the first 2^16 rows [0, 2^16)
 
+// Granular destination selector for the 16-bit range-check lookups.
+pol commit sel_range_16_active; // @boolean
+sel_range_16_active * (1 - sel_range_16_active) = 0;
+// Relation #[GRANULAR_SELECTORS_ON_RANGE_16] ensures that `sel_range_16_active == 1 ==> sel_range_16 == 1`.
+
 // ===== Section 3: Bitwise lookup tables =====
 // Precomputed AND/OR/XOR results for all pairs of 8-bit inputs (256x256 = 65536 rows).
 // Row index = (input_a << 8) | input_b, so all 65536 pairs are covered.
@@ -136,6 +148,11 @@ pol constant bitwise_input_b; // column of all 8-bit numbers.
 pol constant bitwise_output_and; // output = a AND b.
 pol constant bitwise_output_or; // output = a OR b.
 pol constant bitwise_output_xor; // output = a XOR b.
+
+// Granular destination selector for the byte-operations lookup (#[BYTE_OPERATIONS]).
+pol commit sel_bitwise; // @boolean
+sel_bitwise * (1 - sel_bitwise) = 0;
+// Relation #[GRANULAR_SELECTORS_ON_RANGE_16] ensures that `sel_bitwise == 1 ==> sel_range_16 == 1`.
 
 // ===== Section 4: Power of 2 table =====
 // Lookup table for 2^idx, populated for idx in [0, 255]. Note the [0, 255] property is guaranteed by the
@@ -342,7 +359,7 @@ pol constant sel_op_is_address[5];
 //   => 1 indirect + 2 relative => gas = 3 + 1*3 + 2*3 = 12
 //
 // Example trace:
-//   idx   | sel_addressing_gas | addressing_gas
+//   idx   |     sel_range_16   | addressing_gas
 //   ------+--------------------+---------------
 //       0 |                  1 |              0  (no indirect/relative operands)
 //       1 |                  1 |              3  (operand 0 indirect)
@@ -352,7 +369,14 @@ pol constant sel_op_is_address[5];
 //     ... |                  1 |            ...
 //   65535 |                  1 |             33  (all bits above operand 4 are ignored, see addressing.pil for why this table still needs to be 16-bits)
 
-pol constant sel_addressing_gas;
+// Granular destination selector for the addressing-gas lookup (#[ADDRESSING_GAS_READ]). This is sound
+// because the addressing_gas value column is populated over the entire
+// [0, 2^16) range (every 16-bit bitmask), so any row toggled within sel_range_16 carries a valid gas value;
+// a static assertion in precomputed_trace.cpp guarantees the table spans 2^16 rows.
+pol commit sel_addressing_gas; // @boolean
+sel_addressing_gas * (1 - sel_addressing_gas) = 0;
+// Relation #[GRANULAR_SELECTORS_ON_RANGE_16] ensures that `sel_addressing_gas == 1 ==> sel_range_16 == 1`.
+
 pol constant addressing_gas;
 
 // ===== Section 11: Phase table =====
@@ -444,3 +468,7 @@ pol constant is_deployer;
 pol constant is_class_id;
 pol constant is_init_hash;
 pol constant is_immutables_hash;
+
+// Granular destination selectors must be on sel_range_16 range.
+#[GRANULAR_SELECTORS_ON_RANGE_16]
+(sel_range_16_active + sel_bitwise + sel_addressing_gas) * (1 - sel_range_16) = 0;

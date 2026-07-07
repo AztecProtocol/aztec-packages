@@ -19,6 +19,10 @@ template <typename BaseBuilder> class AddChecksToBuilder : public BaseBuilder {
                   "BaseBuilder must be an IndexedLookupTraceBuilder");
 
   public:
+    // Inherit the base constructors (incl. the outer_dst_selector one) so a strict-mode interaction can be
+    // registered with an explicit outer selector.
+    using BaseBuilder::BaseBuilder;
+
     using TupleType = typename BaseBuilder::TupleType;
     ~AddChecksToBuilder() override = default;
 
