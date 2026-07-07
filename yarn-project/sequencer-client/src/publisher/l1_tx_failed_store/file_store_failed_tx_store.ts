@@ -1,7 +1,8 @@
+import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { FileStore } from '@aztec/stdlib/file-store';
 
-import type { FailedL1Tx, FailedL1TxUri, L1TxFailedStore } from './failed_tx_store.js';
+import { type FailedL1Tx, FailedL1TxSchema, type FailedL1TxUri, type L1TxFailedStore } from './failed_tx_store.js';
 
 /**
  * L1TxFailedStore implementation using the FileStore abstraction.
@@ -20,7 +21,7 @@ export class FileStoreL1TxFailedStore implements L1TxFailedStore {
   public async saveFailedTx(tx: FailedL1Tx): Promise<FailedL1TxUri> {
     const prefix = tx.receipt ? 'tx' : 'data';
     const path = `${tx.failureType}/${prefix}-${tx.id}.json`;
-    const json = JSON.stringify(tx, null, 2);
+    const json = jsonStringify(tx, true);
 
     const uri = await this.fileStore.save(path, Buffer.from(json), {
       metadata: {
@@ -41,6 +42,6 @@ export class FileStoreL1TxFailedStore implements L1TxFailedStore {
 
   public async getFailedTx(uri: FailedL1TxUri): Promise<FailedL1Tx> {
     const data = await this.fileStore.read(uri);
-    return JSON.parse(data.toString()) as FailedL1Tx;
+    return jsonParseWithSchema(data.toString(), FailedL1TxSchema);
   }
 }

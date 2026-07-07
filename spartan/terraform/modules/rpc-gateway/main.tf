@@ -43,13 +43,36 @@ locals {
     if route.auth_mode == "keyed_with_anonymous"
   }
 
+  routes_with_consumer_groups = {
+    for name, route in var.ROUTES : name => route
+    if length(route.allowed_consumer_groups) > 0
+  }
+
+  default_cors_allowed_headers = distinct(compact([
+    "Accept",
+    "Content-Type",
+    var.API_KEY_HEADER_NAME,
+  ]))
+
   route_plugin_names = {
     for name, route in var.ROUTES :
     name => join(",", compact([
+      "${var.RELEASE_PREFIX}-${name}-${var.ROUTE_RESOURCE_SUFFIX}-cors",
       "${var.RELEASE_PREFIX}-${name}-${var.ROUTE_RESOURCE_SUFFIX}-path-api-key",
       "${var.RELEASE_PREFIX}-${name}-${var.ROUTE_RESOURCE_SUFFIX}-key-auth",
+      length(route.allowed_consumer_groups) > 0 ? "${var.RELEASE_PREFIX}-${name}-${var.ROUTE_RESOURCE_SUFFIX}-acl" : "",
       "${var.RELEASE_PREFIX}-${name}-${var.ROUTE_RESOURCE_SUFFIX}-prometheus"
     ]))
+  }
+
+  cors_plugin_config_secret_names = {
+    for name, _ in var.ROUTES :
+    name => "${var.RELEASE_PREFIX}-${name}-${var.ROUTE_RESOURCE_SUFFIX}-cors-config"
+  }
+
+  acl_plugin_config_secret_names = {
+    for name, _ in local.routes_with_consumer_groups :
+    name => "${var.RELEASE_PREFIX}-${name}-${var.ROUTE_RESOURCE_SUFFIX}-acl-config"
   }
 
   metrics_service_enabled = var.KONG_METRICS_SERVICE_ENABLED
@@ -64,6 +87,41 @@ locals {
   consumer_credential_secret_names = {
     for name, _ in var.CONSUMERS :
     name => "${var.RELEASE_PREFIX}-${name}-${var.ROUTE_RESOURCE_SUFFIX}-key-auth"
+  }
+
+  consumer_group_credentials = {
+    for credential in flatten([
+      for consumer_name, consumer in var.CONSUMERS : [
+        for group in consumer.consumer_groups : {
+          key           = "${consumer_name}/${group}"
+          consumer_name = consumer_name
+          group         = group
+        }
+      ]
+    ]) : credential.key => credential
+  }
+
+  consumer_acl_credential_secret_names = {
+    for key, credential in local.consumer_group_credentials :
+    key => "${var.RELEASE_PREFIX}-${credential.consumer_name}-${credential.group}-${var.ROUTE_RESOURCE_SUFFIX}-acl"
+  }
+
+  anonymous_consumer_group_credentials = {
+    for credential in flatten([
+      for route_name, route in local.routes_with_anonymous : [
+        for group in route.allowed_consumer_groups : {
+          key             = "${route_name}/${group}"
+          route_name      = route_name
+          route_namespace = route.route_namespace
+          group           = group
+        }
+      ]
+    ]) : credential.key => credential
+  }
+
+  anonymous_consumer_acl_credential_secret_names = {
+    for key, credential in local.anonymous_consumer_group_credentials :
+    key => "${var.RELEASE_PREFIX}-${credential.route_name}-anonymous-${credential.group}-${var.ROUTE_RESOURCE_SUFFIX}-acl"
   }
 
   consumers_with_rate_limit = {
@@ -289,6 +347,56 @@ resource "kubernetes_manifest" "path_api_key_plugin" {
   depends_on = [helm_release.kong]
 }
 
+resource "kubernetes_secret_v1" "cors_plugin_config" {
+  for_each = var.ROUTES
+
+  metadata {
+    name      = local.cors_plugin_config_secret_names[each.key]
+    namespace = each.value.route_namespace
+  }
+
+  data = {
+    config = jsonencode({
+      origins            = ["*"]
+      methods            = ["GET", "POST", "OPTIONS"]
+      headers            = local.default_cors_allowed_headers
+      exposed_headers    = []
+      credentials        = false
+      max_age            = 3600
+      preflight_continue = false
+    })
+  }
+
+  type = "Opaque"
+
+  depends_on = [helm_release.kong]
+}
+
+resource "kubernetes_manifest" "cors_plugin" {
+  for_each = var.ROUTES
+
+  manifest = {
+    apiVersion = "configuration.konghq.com/v1"
+    kind       = "KongPlugin"
+    metadata = {
+      name      = "${var.RELEASE_PREFIX}-${each.key}-${var.ROUTE_RESOURCE_SUFFIX}-cors"
+      namespace = each.value.route_namespace
+      annotations = {
+        "kubernetes.io/ingress.class" = local.kong_ingress_class
+      }
+    }
+    plugin = "cors"
+    configFrom = {
+      secretKeyRef = {
+        name = local.cors_plugin_config_secret_names[each.key]
+        key  = "config"
+      }
+    }
+  }
+
+  depends_on = [helm_release.kong, kubernetes_secret_v1.cors_plugin_config]
+}
+
 resource "kubernetes_manifest" "key_auth_plugin" {
   for_each = var.ROUTES
 
@@ -318,6 +426,51 @@ resource "kubernetes_manifest" "key_auth_plugin" {
   }
 
   depends_on = [helm_release.kong, kubernetes_manifest.anonymous_consumer]
+}
+
+resource "kubernetes_secret_v1" "acl_plugin_config" {
+  for_each = local.routes_with_consumer_groups
+
+  metadata {
+    name      = local.acl_plugin_config_secret_names[each.key]
+    namespace = each.value.route_namespace
+  }
+
+  data = {
+    config = jsonencode({
+      allow              = each.value.allowed_consumer_groups
+      hide_groups_header = true
+    })
+  }
+
+  type = "Opaque"
+
+  depends_on = [helm_release.kong]
+}
+
+resource "kubernetes_manifest" "acl_plugin" {
+  for_each = local.routes_with_consumer_groups
+
+  manifest = {
+    apiVersion = "configuration.konghq.com/v1"
+    kind       = "KongPlugin"
+    metadata = {
+      name      = "${var.RELEASE_PREFIX}-${each.key}-${var.ROUTE_RESOURCE_SUFFIX}-acl"
+      namespace = each.value.route_namespace
+      annotations = {
+        "kubernetes.io/ingress.class" = local.kong_ingress_class
+      }
+    }
+    plugin = "acl"
+    configFrom = {
+      secretKeyRef = {
+        name = local.acl_plugin_config_secret_names[each.key]
+        key  = "config"
+      }
+    }
+  }
+
+  depends_on = [helm_release.kong, kubernetes_secret_v1.acl_plugin_config]
 }
 
 resource "kubernetes_manifest" "prometheus_plugin" {
@@ -467,6 +620,28 @@ resource "kubernetes_manifest" "consumer_key_external_secret" {
   depends_on = [helm_release.kong]
 }
 
+resource "kubernetes_manifest" "consumer_acl_secret" {
+  for_each = local.consumer_group_credentials
+
+  manifest = {
+    apiVersion = "v1"
+    kind       = "Secret"
+    metadata = {
+      name      = local.consumer_acl_credential_secret_names[each.key]
+      namespace = var.CONSUMER_NAMESPACE
+      labels = {
+        "konghq.com/credential" = "acl"
+      }
+    }
+    type = "Opaque"
+    data = {
+      group = base64encode(each.value.group)
+    }
+  }
+
+  depends_on = [helm_release.kong]
+}
+
 resource "kubernetes_manifest" "consumer" {
   for_each = var.CONSUMERS
 
@@ -488,12 +663,16 @@ resource "kubernetes_manifest" "consumer" {
         }
       } : {}
     )
-    username    = each.value.username != "" ? each.value.username : each.key
-    credentials = [local.consumer_credential_secret_names[each.key]]
+    username = each.value.username != "" ? each.value.username : each.key
+    credentials = concat(
+      [local.consumer_credential_secret_names[each.key]],
+      [for group in each.value.consumer_groups : local.consumer_acl_credential_secret_names["${each.key}/${group}"]]
+    )
   }
 
   depends_on = [
     kubernetes_manifest.consumer_key_external_secret,
+    kubernetes_manifest.consumer_acl_secret,
     kubernetes_manifest.consumer_rate_limit_plugin,
   ]
 }
@@ -523,24 +702,54 @@ resource "kubernetes_manifest" "anonymous_rate_limit_plugin" {
   depends_on = [helm_release.kong]
 }
 
+resource "kubernetes_manifest" "anonymous_consumer_acl_secret" {
+  for_each = local.anonymous_consumer_group_credentials
+
+  manifest = {
+    apiVersion = "v1"
+    kind       = "Secret"
+    metadata = {
+      name      = local.anonymous_consumer_acl_credential_secret_names[each.key]
+      namespace = each.value.route_namespace
+      labels = {
+        "konghq.com/credential" = "acl"
+      }
+    }
+    type = "Opaque"
+    data = {
+      group = base64encode(each.value.group)
+    }
+  }
+
+  depends_on = [helm_release.kong]
+}
+
 resource "kubernetes_manifest" "anonymous_consumer" {
   for_each = local.routes_with_anonymous
 
-  manifest = {
-    apiVersion = "configuration.konghq.com/v1"
-    kind       = "KongConsumer"
-    metadata = {
-      name      = "${var.RELEASE_PREFIX}-${each.key}-anonymous"
-      namespace = each.value.route_namespace
-      annotations = {
-        "kubernetes.io/ingress.class" = local.kong_ingress_class
-        "konghq.com/plugins"          = "${var.RELEASE_PREFIX}-${each.key}-anonymous-${var.ROUTE_RESOURCE_SUFFIX}-rate-limit"
+  manifest = merge(
+    {
+      apiVersion = "configuration.konghq.com/v1"
+      kind       = "KongConsumer"
+      metadata = {
+        name      = "${var.RELEASE_PREFIX}-${each.key}-anonymous"
+        namespace = each.value.route_namespace
+        annotations = {
+          "kubernetes.io/ingress.class" = local.kong_ingress_class
+          "konghq.com/plugins"          = "${var.RELEASE_PREFIX}-${each.key}-anonymous-${var.ROUTE_RESOURCE_SUFFIX}-rate-limit"
+        }
       }
-    }
-    username = "${var.RELEASE_PREFIX}-${each.key}-anonymous"
-  }
+      username = "${var.RELEASE_PREFIX}-${each.key}-anonymous"
+    },
+    length(each.value.allowed_consumer_groups) > 0 ? {
+      credentials = [for group in each.value.allowed_consumer_groups : local.anonymous_consumer_acl_credential_secret_names["${each.key}/${group}"]]
+    } : {}
+  )
 
-  depends_on = [kubernetes_manifest.anonymous_rate_limit_plugin]
+  depends_on = [
+    kubernetes_manifest.anonymous_rate_limit_plugin,
+    kubernetes_manifest.anonymous_consumer_acl_secret,
+  ]
 }
 
 resource "kubernetes_service_v1" "metrics" {
@@ -631,8 +840,10 @@ resource "kubernetes_manifest" "rpc_route" {
   }
 
   depends_on = [
+    kubernetes_manifest.cors_plugin,
     kubernetes_manifest.path_api_key_plugin,
     kubernetes_manifest.key_auth_plugin,
+    kubernetes_manifest.acl_plugin,
     kubernetes_manifest.prometheus_plugin,
     kubernetes_manifest.upstream_policy,
   ]

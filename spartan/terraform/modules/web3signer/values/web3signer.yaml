@@ -28,7 +28,7 @@ extraEnv:
 
 config: |
   data-path: "/data"
-  http-host-allowlist: "{{ .Release.Name }}-web3signer.{{ .Release.Namespace }}.svc.cluster.local"
+  http-host-allowlist: "{{ .Release.Name }}-web3signer.{{ .Release.Namespace }}.svc.cluster.local,localhost,127.0.0.1"
   key-store-path: {{ .Values.keystorePath }}
   eth1.chain-id: {{ .Values.chainId }}
 

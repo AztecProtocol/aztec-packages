@@ -19,7 +19,7 @@ mkdir -p "$RESULTS_DIR"
 echo "=== Stress test: $TOTAL_RUNS runs across $WORKERS workers ==="
 echo "=== Results dir: $RESULTS_DIR ==="
 
-source ./scripts/load_network_defaults.sh devnet
+source ./scripts/load_network_defaults.sh
 
 PRIVATE_KEY="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 

@@ -92,6 +92,7 @@ node:
     tag: ""
 
   env: {}
+  podAnnotations: {}
 
   envFrom:
     configMapEnabled: false

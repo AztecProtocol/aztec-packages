@@ -10,6 +10,8 @@ import {
   type SlashingProposerContract,
 } from '@aztec/ethereum/contracts';
 import {
+  type L1TxState,
+  L1TxTimeoutError,
   type L1TxUtils,
   type L1TxUtilsConfig,
   MAX_L1_TX_LIMIT,
@@ -18,6 +20,7 @@ import {
 import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { jsonParseWithSchema } from '@aztec/foundation/json-rpc';
 import { sleep } from '@aztec/foundation/sleep';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, RollupAbi } from '@aztec/l1-artifacts';
@@ -28,6 +31,9 @@ import { CheckpointHeader } from '@aztec/stdlib/rollup';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
+import { mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   type GetCodeReturnType,
   type GetTransactionReceiptReturnType,
@@ -42,8 +48,22 @@ import {
 import { privateKeyToAccount } from 'viem/accounts';
 
 import type { PublisherConfig, SequencerPublisherConfig, TxSenderConfig } from './config.js';
+import { type FailedL1Tx, FailedL1TxSchema } from './l1_tx_failed_store/index.js';
 import type { SequencerPublisherMetrics } from './sequencer-publisher-metrics.js';
 import { type Action, SequencerPublisher, compareActions } from './sequencer-publisher.js';
+
+// The failed-tx backup is fire-and-forget, so poll the store directory until the record lands.
+async function waitForFailedTxRecord(dir: string): Promise<FailedL1Tx> {
+  for (let i = 0; i < 40; i++) {
+    const files = await readdir(dir).catch(() => [] as string[]);
+    const jsonFile = files.find(f => f.endsWith('.json'));
+    if (jsonFile) {
+      return jsonParseWithSchema((await readFile(join(dir, jsonFile))).toString(), FailedL1TxSchema);
+    }
+    await sleep(100);
+  }
+  throw new Error(`No failed-tx record was written to ${dir}`);
+}
 
 // Ensures proposal actions are sorted before slashing votes/signals
 
@@ -243,6 +263,7 @@ describe('SequencerPublisher', () => {
       receipt: proposeTxReceipt,
       stats: undefined,
       multicallData: '0x',
+      state: {} as any,
     });
 
     await publisher.sendRequests();
@@ -304,6 +325,7 @@ describe('SequencerPublisher', () => {
       receipt: proposeTxReceipt,
       stats: undefined,
       multicallData: '0x',
+      state: {} as any,
     });
 
     await publisher.enqueueProposeCheckpoint(
@@ -377,7 +399,7 @@ describe('SequencerPublisher', () => {
     it('rotates to next publisher when forward throws and retries successfully', async () => {
       forwardSpy
         .mockRejectedValueOnce(new Error('RPC error'))
-        .mockResolvedValueOnce({ receipt: proposeTxReceipt, stats: undefined, multicallData: '0x' });
+        .mockResolvedValueOnce({ receipt: proposeTxReceipt, stats: undefined, multicallData: '0x', state: {} as any });
       getNextPublisher.mockResolvedValueOnce(secondL1TxUtils);
 
       await rotatingPublisher.enqueueProposeCheckpoint(
@@ -571,7 +593,12 @@ describe('SequencerPublisher', () => {
       lastValidL2Slot: SlotNumber(5),
       checkSuccess: () => true,
     });
-    forwardSpy.mockResolvedValue({ receipt: proposeTxReceipt, stats: undefined, multicallData: '0x' });
+    forwardSpy.mockResolvedValue({
+      receipt: proposeTxReceipt,
+      stats: undefined,
+      multicallData: '0x',
+      state: {} as any,
+    });
 
     await publisher.sendRequests(SlotNumber(5));
 
@@ -661,7 +688,12 @@ describe('SequencerPublisher', () => {
         .mockResolvedValueOnce({ gasUsed: 500_000n, result: firstResult })
         .mockResolvedValueOnce({ gasUsed: 300_000n, result: secondResult });
 
-      forwardSpy.mockResolvedValue({ receipt: proposeTxReceipt, stats: undefined, multicallData: '0x' });
+      forwardSpy.mockResolvedValue({
+        receipt: proposeTxReceipt,
+        stats: undefined,
+        multicallData: '0x',
+        state: {} as any,
+      });
 
       const result = await publisher.sendRequests();
 
@@ -689,7 +721,12 @@ describe('SequencerPublisher', () => {
         .mockResolvedValueOnce({ gasUsed: 500_000n, result: firstResult })
         .mockResolvedValueOnce({ gasUsed: 1_000_000n, result: '0x' });
 
-      forwardSpy.mockResolvedValue({ receipt: proposeTxReceipt, stats: undefined, multicallData: '0x' });
+      forwardSpy.mockResolvedValue({
+        receipt: proposeTxReceipt,
+        stats: undefined,
+        multicallData: '0x',
+        state: {} as any,
+      });
 
       const result = await publisher.sendRequests();
 
@@ -712,10 +749,12 @@ describe('SequencerPublisher', () => {
           receipt: proposeTxReceipt,
           stats: undefined,
           multicallData: '0x',
+          state: {} as L1TxState,
         }) as Promise<{
           receipt: TransactionReceipt;
           stats: undefined;
           multicallData: Hex;
+          state: L1TxState;
         }>,
     );
     await publisher.enqueueProposeCheckpoint(
@@ -908,6 +947,7 @@ describe('SequencerPublisher', () => {
       receipt: proposeTxReceipt,
       stats: undefined,
       multicallData: '0x',
+      state: {} as any,
     });
 
     await publisher.sendRequests();
@@ -1054,5 +1094,73 @@ describe('SequencerPublisher', () => {
     ).toEqual(false);
 
     expect(governanceProposerContract.hasActiveProposalWithPayload).toHaveBeenCalledTimes(2);
+  });
+
+  describe('failed-tx store: timeout gas-price ladder (integration)', () => {
+    let storeDir: string;
+    let storedPublisher: SequencerPublisher;
+
+    beforeEach(async () => {
+      storeDir = await mkdtemp(join(tmpdir(), 'failed-tx-store-'));
+      const config = {
+        ...defaultL1TxUtilsConfig,
+        l1RpcUrls: ['http://127.0.0.1:8545'],
+        l1ChainId: 1,
+        ethereumSlotDuration: 12,
+        aztecSlotDuration: 36,
+        l1TxFailedStore: `file://${storeDir}`,
+      } as any;
+
+      storedPublisher = new SequencerPublisher(config, {
+        blobClient,
+        rollupContract: rollup,
+        l1TxUtils,
+        epochCache,
+        slashingProposerContract,
+        governanceProposerContract,
+        dateProvider: new TestDateProvider(),
+        metrics: l1Metrics,
+        lastActions: {},
+      });
+      storedPublisher.l1TxUtils = l1TxUtils;
+    });
+
+    afterEach(async () => {
+      await rm(storeDir, { recursive: true, force: true });
+    });
+
+    it('writes the gas-price ladder into the failed-tx record when a propose times out', async () => {
+      const ladder = {
+        gasPriceHistory: [
+          { maxFeePerGas: 100n, maxPriorityFeePerGas: 1n },
+          { maxFeePerGas: 150n, maxPriorityFeePerGas: 3n },
+        ],
+        finalGasPrice: { maxFeePerGas: 150n, maxPriorityFeePerGas: 3n },
+        attempts: 2,
+        nonce: 5,
+        gasLimit: 21_000n,
+      };
+      forwardSpy.mockRejectedValueOnce(new L1TxTimeoutError('timed out', ladder));
+
+      await storedPublisher.enqueueProposeCheckpoint(
+        new Checkpoint(l2Block.archive, header, [l2Block], l2Block.checkpointNumber),
+        CommitteeAttestationsAndSigners.empty(testSignatureContext),
+        Signature.empty(),
+      );
+
+      const result = await storedPublisher.sendRequests();
+      expect(result).toBeUndefined();
+
+      const record = await waitForFailedTxRecord(join(storeDir, 'timeout'));
+
+      expect(record.failureType).toBe('timeout');
+      expect(record.gasInfo?.sentGasPriceLadder).toEqual([
+        { maxFeePerGas: 100n, maxPriorityFeePerGas: 1n },
+        { maxFeePerGas: 150n, maxPriorityFeePerGas: 3n },
+      ]);
+      expect(record.gasInfo?.attempts).toBe(2);
+      expect(record.gasInfo?.gasLimit).toBe(21_000n);
+      expect(record.gasInfo?.nonce).toBe(5);
+    }, 20_000);
   });
 });
