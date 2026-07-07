@@ -77,6 +77,7 @@ import { MNEMONIC, TEST_MAX_PENDING_TX_POOL_COUNT, TEST_PEER_CHECK_INTERVAL_MS }
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
+import { getStandardContractGenesisNullifiers } from './standard_contracts_genesis.js';
 import { testSpan } from './timing.js';
 import { getEndToEndTestTelemetryClient } from './with_telemetry_utils.js';
 
@@ -460,12 +461,20 @@ async function setupInner<TDeployExtraL1ContractsReturnType = unknown>(
     }
     logger.trace('Generated test accounts to fund at genesis');
 
+    // Preload the standard contracts (AuthRegistry, PublicChecks, HandshakeRegistry) so their `ensure*Published` setup
+    // helpers short-circuit their publish txs. The archiver flag seeds the bytecode/instance into every spawned node's
+    // contract store; the genesis nullifiers make the AVM's deployment-nullifier check pass when they are called. Both
+    // must go together (flag alone would recreate the publish-collision bug), so the flag lives here beside the seeding.
+    config.testPreloadStandardContracts = true;
+    const standardContractNullifiers = await getStandardContractGenesisNullifiers();
+
     const genesisTimestamp = BigInt(Math.floor(Date.now() / 1000));
     const { genesisArchiveRoot, genesis, fundingNeeded } = await getGenesisValues(
       addressesToFund,
       opts.initialAccountFeeJuice,
       opts.genesisPublicData,
       genesisTimestamp,
+      standardContractNullifiers,
     );
     logger.trace('Computed genesis values');
 
