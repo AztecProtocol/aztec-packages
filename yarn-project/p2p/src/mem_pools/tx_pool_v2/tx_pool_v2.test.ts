@@ -15,8 +15,10 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { RevertCode } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { Body, L2Block, type L2BlockId, type L2BlockSource } from '@aztec/stdlib/block';
+import { type CheckpointData, L1PublishedData } from '@aztec/stdlib/checkpoint';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import { mockTx } from '@aztec/stdlib/testing';
 import {
   AppendOnlyTreeSnapshot,
@@ -3130,6 +3132,98 @@ describe('TxPoolV2', () => {
       expect(archived).toBeDefined();
       expect(archived!.getTxHash().toString()).toEqual(hashOf(tx));
       expectRemovedTxs(tx); // Now the tx is actually deleted
+    });
+
+    // keepFinalizedTxsForSlots holds finalized txs a margin behind the finalized tip so a prover
+    // still proving an epoch containing already-finalized blocks isn't starved of its txs. The slot margin is resolved
+    // to a block cutoff via the checkpoint at or before `finalizedSlot - margin`.
+    describe('keepFinalizedTxsForSlots retention margin', () => {
+      const headerAt = (blockNumber: number, slotNumber: number) =>
+        BlockHeader.empty({
+          globalVariables: GlobalVariables.empty({
+            blockNumber: BlockNumber(blockNumber),
+            slotNumber: SlotNumber(slotNumber),
+            timestamp: BigInt(slotNumber * 36),
+          }),
+        });
+
+      // Minimal CheckpointData; the cutoff logic only reads startBlock + blockCount.
+      const checkpointData = (startBlock: number, blockCount: number): CheckpointData => ({
+        checkpointNumber: CheckpointNumber(startBlock),
+        header: CheckpointHeader.empty(),
+        startBlock: BlockNumber(startBlock),
+        blockCount,
+        archive: new AppendOnlyTreeSnapshot(Fr.ZERO, 0),
+        checkpointOutHash: Fr.ZERO,
+        feeAssetPriceModifier: 0n,
+        attestations: [],
+        l1: new L1PublishedData(0n, 0n, '0x0'),
+      });
+
+      /** Resolve getCheckpointsData({ fromSlot, limit, reverse }) against a slot -> checkpoint map, nearest-first. */
+      const mockCheckpointsBySlot = (bySlot: Map<number, CheckpointData>) => {
+        mockL2BlockSource.getCheckpointsData.mockImplementation(query => {
+          if (!('fromSlot' in query)) {
+            return Promise.resolve([]);
+          }
+          const slots = [...bySlot.keys()].sort((a, b) => a - b);
+          const matching = query.reverse
+            ? slots.filter(s => s <= Number(query.fromSlot)).reverse()
+            : slots.filter(s => s >= Number(query.fromSlot));
+          return Promise.resolve(matching.slice(0, query.limit).map(s => bySlot.get(s)!));
+        });
+      };
+
+      it('retains a mined tx until finality is the configured slots past its block, then deletes it', async () => {
+        await pool.updateConfig({ keepFinalizedTxsForSlots: 2 });
+        // One checkpoint (one block) per slot; the checkpoint at slot N ends at block N.
+        mockCheckpointsBySlot(
+          new Map([
+            [1, checkpointData(1, 1)],
+            [2, checkpointData(2, 1)],
+          ]),
+        );
+
+        const tx = await mockTx(1);
+        await pool.addMinedTxs([tx], slot2Header); // mined at block 2 / slot 2
+        expectAddedTxs(tx);
+        expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
+
+        // Finalize slot 3: target slot = 3 - 2 = 1 -> cutoff block 1; tx at block 2 is within the margin.
+        await pool.handleFinalizedBlock(headerAt(3, 3));
+        expect(await pool.getTxStatus(tx.getTxHash())).toBe('mined');
+        expectNoCallbacks();
+
+        // Finalize slot 4: target slot = 4 - 2 = 2 -> cutoff block 2; tx at block 2 is now old enough.
+        await pool.handleFinalizedBlock(headerAt(4, 4));
+        expect(await pool.getTxStatus(tx.getTxHash())).toBe('deleted');
+        expectRemovedTxs(tx);
+      });
+
+      it('resolves to the checkpoint at or before the target slot when it falls in a gap', async () => {
+        await pool.updateConfig({ keepFinalizedTxsForSlots: 2 });
+        // Checkpoint at slot 2 ends at block 2; checkpoint at slot 4 spans blocks 3-4. Slot 3 has no
+        // checkpoint of its own, so a target slot of 3 resolves to the checkpoint at slot 2 (cutoff block 2).
+        mockCheckpointsBySlot(
+          new Map([
+            [2, checkpointData(2, 1)],
+            [4, checkpointData(3, 2)],
+          ]),
+        );
+
+        const txA = await mockTx(1);
+        const txB = await mockTx(2);
+        await pool.addMinedTxs([txA], slot2Header); // mined at block 2 / slot 2
+        await pool.addMinedTxs([txB], headerAt(3, 3)); // mined at block 3 / slot 3
+        expectAddedTxs(txA, txB);
+
+        // Finalize slot 5: target slot = 5 - 2 = 3 (no checkpoint) -> resolves to slot 2 -> cutoff block 2.
+        await pool.handleFinalizedBlock(headerAt(4, 5));
+
+        expect(await pool.getTxStatus(txA.getTxHash())).toBe('deleted'); // block 2 <= cutoff
+        expect(await pool.getTxStatus(txB.getTxHash())).toBe('mined'); // block 3 > cutoff
+        expectRemovedTxs(txA);
+      });
     });
   });
 
