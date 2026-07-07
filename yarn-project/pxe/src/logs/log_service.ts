@@ -7,7 +7,13 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { BlockHash, L2TipsProvider } from '@aztec/stdlib/block';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { AppTaggingSecret, type LogResult, SiloedTag, computeSharedTaggingSecret } from '@aztec/stdlib/logs';
+import {
+  AppTaggingSecret,
+  AppTaggingSecretKind,
+  type LogResult,
+  SiloedTag,
+  computeSharedTaggingSecret,
+} from '@aztec/stdlib/logs';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
 import {
@@ -222,10 +228,10 @@ export class LogService {
 
   /**
    * Computes the tagging secrets PXE can enumerate for a recipient: one per known sender (via ECDH) plus any
-   * pre-shared secret points registered directly for the recipient, each siloed to `contractAddress` and directed to
-   * `recipient`. These require knowing the recipient's address preimage and keys, so returns an empty array when those
-   * are unavailable. App-supplied secrets (e.g. handshake-derived) are handled separately by the caller and do not go
-   * through here.
+   * pre-shared secrets registered directly for the recipient. Each registered secret is scanned under the tag
+   * streams its kind can back. Deriving the sender-based secrets requires the recipient's address preimage and keys,
+   * so returns an empty array when those are unavailable. App-supplied secrets (e.g. derived from discovered
+   * handshakes) are handled separately by the caller and do not go through here.
    */
   async #getPointDerivedSecrets(contractAddress: AztecAddress, recipient: AztecAddress): Promise<AppTaggingSecret[]> {
     const recipientCompleteAddress = await this.addressStore.getCompleteAddress(recipient);
@@ -237,11 +243,26 @@ export class LogService {
     }
     const recipientIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(recipient);
 
-    const points = [
-      ...(await this.#getSecretsForSenders(recipientCompleteAddress, recipientIvsk)),
-      ...(await this.taggingSecretSourcesStore.getSharedSecretsForRecipient(recipient)),
-    ];
-    return Promise.all(points.map(secret => AppTaggingSecret.computeDirectional(secret, contractAddress, recipient)));
+    const [senderPoints, registeredSecrets] = await Promise.all([
+      this.#getSecretsForSenders(recipientCompleteAddress, recipientIvsk),
+      this.taggingSecretSourcesStore.getSharedSecretsForRecipient(recipient),
+    ]);
+    return Promise.all([
+      ...senderPoints.map(secret => AppTaggingSecret.computeDirectional(secret, contractAddress, recipient)),
+      ...registeredSecrets.flatMap(({ kind, secret }) => {
+        switch (kind) {
+          case 'arbitrary-secret':
+            return [AppTaggingSecret.computeDirectional(secret, contractAddress, recipient)];
+          case 'handshake':
+            // A handshake-backed sender tags messages with the bare app-siloed secret, one tag domain per delivery
+            // mode.
+            return [
+              AppTaggingSecret.computeAppSiloed(secret, contractAddress, AppTaggingSecretKind.UNCONSTRAINED),
+              AppTaggingSecret.computeAppSiloed(secret, contractAddress, AppTaggingSecretKind.CONSTRAINED),
+            ];
+        }
+      }),
+    ]);
   }
 
   async #getSecretsForSenders(

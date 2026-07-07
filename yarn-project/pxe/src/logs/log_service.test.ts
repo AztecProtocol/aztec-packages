@@ -2,6 +2,7 @@ import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { randomInt } from '@aztec/foundation/crypto/random';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -9,7 +10,14 @@ import type { L2TipsProvider } from '@aztec/stdlib/block';
 import type { CompleteAddress } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import { deriveKeys } from '@aztec/stdlib/keys';
-import { AppTaggingSecret, type LogResult, SiloedTag, Tag, computeSharedTaggingSecret } from '@aztec/stdlib/logs';
+import {
+  AppTaggingSecret,
+  AppTaggingSecretKind,
+  type LogResult,
+  SiloedTag,
+  Tag,
+  computeSharedTaggingSecret,
+} from '@aztec/stdlib/logs';
 import { makeBlockHeader, makeL2Tips, randomPrivateLogResult } from '@aztec/stdlib/testing';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -305,6 +313,103 @@ describe('LogService', () => {
     });
   });
 
+  describe('fetchTaggedLogs', () => {
+    let recipient: AztecAddress;
+    let sharedSecret: Point;
+
+    beforeEach(async () => {
+      contractAddress = await AztecAddress.random();
+
+      const l2TipsProvider = mock<L2TipsProvider>();
+      ({ aztecNode, keyStore, taggingSecretSourcesStore, addressStore, logService } =
+        await createTestLogService(l2TipsProvider));
+      l2TipsProvider.getL2Tips.mockResolvedValue(makeL2Tips(0));
+
+      const completeAddress = await keyStore.addAccount(await deriveKeys(Fr.random()), Fr.random());
+      await addressStore.addCompleteAddress(completeAddress);
+      recipient = completeAddress.address;
+
+      sharedSecret = await Point.random();
+    });
+
+    it('scans handshake secrets under the handshake derivation for both delivery modes', async () => {
+      await taggingSecretSourcesStore.addSharedSecret(recipient, 'handshake', sharedSecret);
+      const [unconstrainedTag, constrainedTag] = await handshakeTags(sharedSecret, contractAddress);
+
+      const unconstrainedLog = randomPrivateLogResult({ includeEffects: true });
+      const constrainedLog = randomPrivateLogResult({ includeEffects: true });
+      servePrivateLogsByTag(
+        aztecNode,
+        new Map([
+          [unconstrainedTag.toString(), unconstrainedLog],
+          [constrainedTag.toString(), constrainedLog],
+        ]),
+      );
+
+      const logs = await logService.fetchTaggedLogs(contractAddress, recipient, []);
+
+      const txHashes = logs.map(l => l.context.txHash);
+      expect(txHashes).toContainEqual(unconstrainedLog.txHash);
+      expect(txHashes).toContainEqual(constrainedLog.txHash);
+    });
+
+    it('does not scan arbitrary secrets under the handshake derivation', async () => {
+      await taggingSecretSourcesStore.addSharedSecret(recipient, 'arbitrary-secret', sharedSecret);
+      const [unconstrainedTag, constrainedTag] = await handshakeTags(sharedSecret, contractAddress);
+
+      const directionalLog = randomPrivateLogResult({ includeEffects: true });
+      const handshakeStreamLog = randomPrivateLogResult({ includeEffects: true });
+      servePrivateLogsByTag(
+        aztecNode,
+        new Map([
+          [(await directionalTag(sharedSecret, contractAddress, recipient)).toString(), directionalLog],
+          [unconstrainedTag.toString(), handshakeStreamLog],
+          [constrainedTag.toString(), handshakeStreamLog],
+        ]),
+      );
+
+      const logs = await logService.fetchTaggedLogs(contractAddress, recipient, []);
+
+      const txHashes = logs.map(l => l.context.txHash);
+      expect(txHashes).toContainEqual(directionalLog.txHash);
+      expect(txHashes).not.toContainEqual(handshakeStreamLog.txHash);
+    });
+
+    it('does not scan handshake secrets under the directional derivation', async () => {
+      await taggingSecretSourcesStore.addSharedSecret(recipient, 'handshake', sharedSecret);
+      const [unconstrainedTag] = await handshakeTags(sharedSecret, contractAddress);
+
+      const handshakeStreamLog = randomPrivateLogResult({ includeEffects: true });
+      const directionalLog = randomPrivateLogResult({ includeEffects: true });
+      servePrivateLogsByTag(
+        aztecNode,
+        new Map([
+          [unconstrainedTag.toString(), handshakeStreamLog],
+          [(await directionalTag(sharedSecret, contractAddress, recipient)).toString(), directionalLog],
+        ]),
+      );
+
+      const logs = await logService.fetchTaggedLogs(contractAddress, recipient, []);
+
+      const txHashes = logs.map(l => l.context.txHash);
+      expect(txHashes).toContainEqual(handshakeStreamLog.txHash);
+      expect(txHashes).not.toContainEqual(directionalLog.txHash);
+    });
+
+    function handshakeTags(secret: Point, app: AztecAddress): Promise<SiloedTag[]> {
+      return Promise.all(
+        [AppTaggingSecretKind.UNCONSTRAINED, AppTaggingSecretKind.CONSTRAINED].map(async kind =>
+          SiloedTag.compute({ extendedSecret: await AppTaggingSecret.computeAppSiloed(secret, app, kind), index: 0 }),
+        ),
+      );
+    }
+
+    async function directionalTag(secret: Point, app: AztecAddress, directedTo: AztecAddress): Promise<SiloedTag> {
+      const directionalSecret = await AppTaggingSecret.computeDirectional(secret, app, directedTo);
+      return SiloedTag.compute({ extendedSecret: directionalSecret, index: 0 });
+    }
+  });
+
   describe('address-derived discovery requires a registered sender', () => {
     let recipientCompleteAddress: CompleteAddress;
     let recipient: AztecAddress;
@@ -393,6 +498,19 @@ async function createTestLogService(l2TipsProvider: MockProxy<L2TipsProvider> = 
     anchorBlockHeader,
     logService,
   };
+}
+
+/** Serves one private log per matching siloed tag and an empty page for every other tag. */
+function servePrivateLogsByTag(aztecNode: MockProxy<AztecNode>, logsByTag: Map<string, LogResult>) {
+  aztecNode.getPrivateLogsByTags.mockImplementation(({ tags }) =>
+    Promise.resolve(
+      tags.map(tagQuery => {
+        const tag = tagQuery instanceof SiloedTag ? tagQuery : tagQuery.tag;
+        const log = logsByTag.get(tag.toString());
+        return log ? [log] : [];
+      }),
+    ),
+  );
 }
 
 function makeLogRetrievalRequest(
