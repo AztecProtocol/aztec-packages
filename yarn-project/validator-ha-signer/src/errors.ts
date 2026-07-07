@@ -23,6 +23,27 @@ export class DutyAlreadySignedError extends Error {
 }
 
 /**
+ * Thrown when the slashing-protection record for an in-flight signing operation can no longer be
+ * updated because it is no longer owned by this node - for example, the stuck-duty cleanup loop
+ * deleted the SIGNING row while the remote signer was slow. The produced signature must be
+ * discarded rather than broadcast: with no protection record in place, a later attempt for the
+ * same duty with different data would sign freely, which is slashable equivocation.
+ */
+export class SigningLockLostError extends Error {
+  constructor(
+    public readonly slot: SlotNumber,
+    public readonly dutyType: DutyType,
+    public readonly nodeId: string,
+  ) {
+    super(
+      `Slashing protection record for ${dutyType} at slot ${slot} was lost before signing completed ` +
+        `(node ${nodeId}); discarding signature`,
+    );
+    this.name = 'SigningLockLostError';
+  }
+}
+
+/**
  * Thrown when attempting to sign data that conflicts with an already-signed duty.
  * This means the same validator tried to sign DIFFERENT data for the same slot.
  *

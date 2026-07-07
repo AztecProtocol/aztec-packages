@@ -452,7 +452,7 @@ describe('LmdbSlashingProtectionDatabase - schema migration', () => {
     rollupAddress: ROLLUP_ADDRESS,
     nodeId: NODE_ID,
     pollingIntervalMs: 100,
-    signingTimeoutMs: 3_000,
+    peerSigningTimeoutMs: 3_000,
     dataDirectory: dataDir,
     dataStoreMapSizeKb: 1024 * 1024,
   });

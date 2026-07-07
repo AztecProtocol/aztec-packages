@@ -58,6 +58,11 @@ export class TXESynchronizer implements WorldStateSynchronizer {
     return this.nativeWorldStateService.getSnapshot(BlockNumber(blockNumber));
   }
 
+  /** Gets a snapshot at the given block number. The TXE has no reorgs, so the fork hash is not verified. */
+  public getVerifiedSnapshot(blockNumber: number, _blockHash: BlockHash): Promise<MerkleTreeReadOperations> {
+    return Promise.resolve(this.getSnapshot(blockNumber));
+  }
+
   /** Backups the db to the target path. */
   public backupTo(dstPath: string, compact?: boolean): Promise<Record<Exclude<SnapshotDataKeys, 'archiver'>, string>> {
     return this.nativeWorldStateService.backupTo(dstPath, compact);
