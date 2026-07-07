@@ -12,6 +12,8 @@ export type EpochProvingJobData = {
   txs: Map<string, Tx>;
   l1ToL2Messages: Record<CheckpointNumber, Fr[]>;
   previousBlockHeader: BlockHeader;
+  /** Inbox rolling hash of the checkpoint before the epoch's first checkpoint (its chain start); genesis is zero. */
+  previousInboxRollingHash: Fr;
   attestations: CommitteeAttestation[];
 };
 
@@ -48,6 +50,7 @@ export function serializeEpochProvingJobData(data: EpochProvingJobData): Buffer 
   return serializeToBuffer(
     data.epochNumber,
     data.previousBlockHeader,
+    data.previousInboxRollingHash,
     checkpoints.length,
     ...checkpoints,
     txs.length,
@@ -63,6 +66,7 @@ export function deserializeEpochProvingJobData(buf: Buffer): EpochProvingJobData
   const reader = BufferReader.asReader(buf);
   const epochNumber = EpochNumber(reader.readNumber());
   const previousBlockHeader = reader.readObject(BlockHeader);
+  const previousInboxRollingHash = Fr.fromBuffer(reader);
   const checkpoints = reader.readVector(Checkpoint);
   const txArray = reader.readVector(Tx);
 
@@ -78,5 +82,13 @@ export function deserializeEpochProvingJobData(buf: Buffer): EpochProvingJobData
 
   const txs = new Map<string, Tx>(txArray.map(tx => [tx.getTxHash().toString(), tx]));
 
-  return { epochNumber, previousBlockHeader, checkpoints, txs, l1ToL2Messages, attestations };
+  return {
+    epochNumber,
+    previousBlockHeader,
+    previousInboxRollingHash,
+    checkpoints,
+    txs,
+    l1ToL2Messages,
+    attestations,
+  };
 }

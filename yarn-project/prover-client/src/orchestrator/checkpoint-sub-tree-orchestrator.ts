@@ -192,6 +192,7 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
     deferredJobQueue: SerialQueue,
     checkpointConstants: CheckpointConstantData,
     l1ToL2Messages: Fr[],
+    startInboxRollingHash: Fr,
     totalNumBlocks: number,
     headerOfLastBlockInPreviousCheckpoint: BlockHeader,
     telemetryClient: TelemetryClient = getTelemetryClient(),
@@ -212,6 +213,7 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
       await subTree.startCheckpoint(
         checkpointConstants,
         l1ToL2Messages,
+        startInboxRollingHash,
         totalNumBlocks,
         headerOfLastBlockInPreviousCheckpoint,
       );
@@ -493,6 +495,7 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
   private async startCheckpoint(
     constants: CheckpointConstantData,
     l1ToL2Messages: Fr[],
+    startInboxRollingHash: Fr,
     totalNumBlocks: number,
     headerOfLastBlockInPreviousCheckpoint: BlockHeader,
   ): Promise<void> {
@@ -525,6 +528,7 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
       headerOfLastBlockInPreviousCheckpoint,
       lastArchiveSiblingPath,
       l1ToL2Messages,
+      startInboxRollingHash,
       lastL1ToL2MessageTreeSnapshot,
       lastL1ToL2MessageSubtreeRootSiblingPath,
       newL1ToL2MessageTreeSnapshot,

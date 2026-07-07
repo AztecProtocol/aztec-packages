@@ -2,6 +2,7 @@ import { BBNativeRollupProver, type BBProverConfig } from '@aztec/bb-prover';
 import {
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
+  NUM_MSGS_PER_BASE_PARITY,
   PARITY_BASE_VK_INDEX,
   RECURSIVE_PROOF_LENGTH,
 } from '@aztec/constants';
@@ -12,6 +13,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import { accumulateInboxRollingHash } from '@aztec/stdlib/messaging';
 import { ParityBasePrivateInputs, ParityPublicInputs, ParityRootPrivateInputs } from '@aztec/stdlib/parity';
 import { makeRecursiveProof } from '@aztec/stdlib/proofs';
 import { VerificationKeyData } from '@aztec/stdlib/vks';
@@ -49,7 +51,14 @@ describe('prover/bb_prover/parity', () => {
       const l1ToL2Messages = new Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(null).map(() => Fr.random());
       const proverId = Fr.random();
       const baseParityInputs = makeTuple(NUM_BASE_PARITY_PER_ROOT_PARITY, i =>
-        ParityBasePrivateInputs.fromSlice(l1ToL2Messages, i, getVKTreeRoot(), proverId),
+        ParityBasePrivateInputs.fromSlice(
+          l1ToL2Messages,
+          i,
+          accumulateInboxRollingHash(Fr.ZERO, l1ToL2Messages.slice(0, i * NUM_MSGS_PER_BASE_PARITY)),
+          NUM_MSGS_PER_BASE_PARITY,
+          getVKTreeRoot(),
+          proverId,
+        ),
       );
 
       // Generate the base parity proofs
@@ -109,7 +118,15 @@ describe('prover/bb_prover/parity', () => {
       shaRoot[0] = 0;
 
       const defectivePublicInputs = toProofData({
-        inputs: new ParityPublicInputs(Fr.fromBuffer(shaRoot), Fr.random(), getVKTreeRoot(), proverId),
+        inputs: new ParityPublicInputs(
+          Fr.fromBuffer(shaRoot),
+          Fr.random(),
+          Fr.random(),
+          Fr.random(),
+          0,
+          getVKTreeRoot(),
+          proverId,
+        ),
         proof: validProof,
         verificationKey: validVk,
       });

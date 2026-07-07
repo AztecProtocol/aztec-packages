@@ -167,6 +167,8 @@ async function buildCheckpointProver(ctx: RerunContext, index: number, log: Logg
   const checkpoint = jobData.checkpoints[index];
   const previousBlockHeader =
     index === 0 ? jobData.previousBlockHeader : jobData.checkpoints[index - 1].blocks.at(-1)!.header;
+  const previousInboxRollingHash =
+    index === 0 ? jobData.previousInboxRollingHash : jobData.checkpoints[index - 1].header.inboxRollingHash;
   const l1ToL2Messages = jobData.l1ToL2Messages[checkpoint.number] ?? [];
   const previousArchiveSiblingPath = await getLastSiblingPath(
     MerkleTreeId.ARCHIVE,

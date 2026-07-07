@@ -469,6 +469,9 @@ function mapParityPublicInputsToNoir(parityPublicInputs: ParityPublicInputs): Pa
   return {
     sha_root: mapFieldToNoir(parityPublicInputs.shaRoot),
     converted_root: mapFieldToNoir(parityPublicInputs.convertedRoot),
+    start_rolling_hash: mapFieldToNoir(parityPublicInputs.startRollingHash),
+    end_rolling_hash: mapFieldToNoir(parityPublicInputs.endRollingHash),
+    num_msgs: mapNumberToNoir(parityPublicInputs.numMsgs),
     vk_tree_root: mapFieldToNoir(parityPublicInputs.vkTreeRoot),
     prover_id: mapFieldToNoir(parityPublicInputs.proverId),
   };
@@ -502,6 +505,9 @@ export function mapParityPublicInputsFromNoir(parityPublicInputs: ParityPublicIn
   return new ParityPublicInputs(
     mapFieldFromNoir(parityPublicInputs.sha_root),
     mapFieldFromNoir(parityPublicInputs.converted_root),
+    mapFieldFromNoir(parityPublicInputs.start_rolling_hash),
+    mapFieldFromNoir(parityPublicInputs.end_rolling_hash),
+    mapNumberFromNoir(parityPublicInputs.num_msgs),
     mapFieldFromNoir(parityPublicInputs.vk_tree_root),
     mapFieldFromNoir(parityPublicInputs.prover_id),
   );
@@ -609,6 +615,8 @@ export function mapBlockRollupPublicInputsFromNoir(inputs: BlockRollupPublicInpu
     mapU64FromNoir(inputs.timestamp),
     mapFieldFromNoir(inputs.block_headers_hash),
     mapFieldFromNoir(inputs.in_hash),
+    mapFieldFromNoir(inputs.start_inbox_rolling_hash),
+    mapFieldFromNoir(inputs.end_inbox_rolling_hash),
     mapFieldFromNoir(inputs.out_hash),
     mapFieldFromNoir(inputs.accumulated_fees),
     mapFieldFromNoir(inputs.accumulated_mana_used),
@@ -627,6 +635,8 @@ export function mapBlockRollupPublicInputsToNoir(inputs: BlockRollupPublicInputs
     timestamp: mapU64ToNoir(inputs.timestamp),
     block_headers_hash: mapFieldToNoir(inputs.blockHeadersHash),
     in_hash: mapFieldToNoir(inputs.inHash),
+    start_inbox_rolling_hash: mapFieldToNoir(inputs.startInboxRollingHash),
+    end_inbox_rolling_hash: mapFieldToNoir(inputs.endInboxRollingHash),
     out_hash: mapFieldToNoir(inputs.outHash),
     accumulated_fees: mapFieldToNoir(inputs.accumulatedFees),
     accumulated_mana_used: mapFieldToNoir(inputs.accumulatedManaUsed),
@@ -640,6 +650,8 @@ export function mapCheckpointRollupPublicInputsFromNoir(inputs: CheckpointRollup
     mapAppendOnlyTreeSnapshotFromNoir(inputs.new_archive),
     mapAppendOnlyTreeSnapshotFromNoir(inputs.previous_out_hash),
     mapAppendOnlyTreeSnapshotFromNoir(inputs.new_out_hash),
+    mapFieldFromNoir(inputs.start_inbox_rolling_hash),
+    mapFieldFromNoir(inputs.end_inbox_rolling_hash),
     mapTupleFromNoir(inputs.checkpoint_header_hashes, MAX_CHECKPOINTS_PER_EPOCH, mapFieldFromNoir),
     mapTupleFromNoir(inputs.fees, MAX_CHECKPOINTS_PER_EPOCH, mapFeeRecipientFromNoir),
     mapBlobAccumulatorFromNoir(inputs.start_blob_accumulator),
@@ -657,6 +669,8 @@ export function mapCheckpointRollupPublicInputsToNoir(
     new_archive: mapAppendOnlyTreeSnapshotToNoir(inputs.newArchive),
     previous_out_hash: mapAppendOnlyTreeSnapshotToNoir(inputs.previousOutHash),
     new_out_hash: mapAppendOnlyTreeSnapshotToNoir(inputs.newOutHash),
+    start_inbox_rolling_hash: mapFieldToNoir(inputs.startInboxRollingHash),
+    end_inbox_rolling_hash: mapFieldToNoir(inputs.endInboxRollingHash),
     checkpoint_header_hashes: mapTuple(inputs.checkpointHeaderHashes, mapFieldToNoir),
     fees: mapTuple(inputs.fees, mapFeeRecipientToNoir),
     start_blob_accumulator: mapBlobAccumulatorToNoir(inputs.startBlobAccumulator),
@@ -702,6 +716,8 @@ function mapTreeSnapshotDiffHintsToNoir(hints: TreeSnapshotDiffHints): TreeSnaps
 export function mapParityBasePrivateInputsToNoir(inputs: ParityBasePrivateInputs): ParityBasePrivateInputsNoir {
   return {
     msgs: mapTuple(inputs.msgs, mapFieldToNoir),
+    start_rolling_hash: mapFieldToNoir(inputs.startRollingHash),
+    num_msgs: mapNumberToNoir(inputs.numMsgs),
     vk_tree_root: mapFieldToNoir(inputs.vkTreeRoot),
     prover_id: mapFieldToNoir(inputs.proverId),
   };

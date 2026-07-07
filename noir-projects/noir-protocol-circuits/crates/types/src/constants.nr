@@ -441,6 +441,7 @@ pub global CHECKPOINT_HEADER_LENGTH: u32 = 1 /* last_archive_root */
     + 1 /* block_headers_hash */
     + 1 /* blobs_hash */
     + 1 /* in_hash */
+    + 1 /* inbox_rolling_hash */
     + 1 /* out_hash */
     + 1 /* slot_number */
     + 1 /* timestamp */
@@ -628,13 +629,17 @@ pub global BLOCK_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = CHECKPOINT_CONSTANT_DATA_LEN
     + 1 /* timestamp */
     + 1 /* block_headers_hash */
     + 1 /* in_hash */
+    + 1 /* start_inbox_rolling_hash */
+    + 1 /* end_inbox_rolling_hash */
     + 1 /* out_hash */
     + 1 /* accumulated_fees */
     + 1 /* accumulated_mana_used */;
 pub global CHECKPOINT_ROLLUP_PUBLIC_INPUTS_LENGTH: u32 = EPOCH_CONSTANT_DATA_LENGTH
     + 2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH /* previous_archive and new_archive */
-    + MAX_CHECKPOINTS_PER_EPOCH /* checkpoint_header_hashes */
     + 2 * APPEND_ONLY_TREE_SNAPSHOT_LENGTH /* start_out_hash and end_out_hash */
+    + 1 /* start_inbox_rolling_hash */
+    + 1 /* end_inbox_rolling_hash */
+    + MAX_CHECKPOINTS_PER_EPOCH /* checkpoint_header_hashes */
     + MAX_CHECKPOINTS_PER_EPOCH * FEE_RECIPIENT_LENGTH /* fees */
     + 2 * BLOB_ACCUMULATOR_LENGTH /* start and end blob accumulators */
     + FINAL_BLOB_BATCHING_CHALLENGES_LENGTH;

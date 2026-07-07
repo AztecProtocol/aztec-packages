@@ -4,7 +4,7 @@
  *
  * Run with: BASE_PARITY_BENCH_DIR=./bench-out yarn workspace @aztec/ivc-integration test src/base_parity_inputs.test.ts
  */
-import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
+import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, NUM_MSGS_PER_BASE_PARITY } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { createLogger } from '@aztec/foundation/log';
 import { Noir } from '@aztec/noir-noir_js';
@@ -37,7 +37,14 @@ describe('Base Parity Benchmark Inputs', () => {
 
     // Create base parity inputs for the first slice
     const vkTreeRoot = getVKTreeRoot();
-    const baseParityInputs = ParityBasePrivateInputs.fromSlice(l1ToL2Messages, 0, vkTreeRoot, Fr.random());
+    const baseParityInputs = ParityBasePrivateInputs.fromSlice(
+      l1ToL2Messages,
+      0,
+      Fr.ZERO,
+      NUM_MSGS_PER_BASE_PARITY,
+      vkTreeRoot,
+      Fr.random(),
+    );
     logger.info('Created base parity inputs');
 
     // Convert inputs to Noir format (inline the mapping since it's simple)

@@ -56,6 +56,7 @@ export interface EpochProverFactory {
     epochNumber: EpochNumber,
     checkpointConstants: CheckpointConstantData,
     l1ToL2Messages: Fr[],
+    startInboxRollingHash: Fr,
     totalNumBlocks: number,
     headerOfLastBlockInPreviousCheckpoint: BlockHeader,
   ): Promise<CheckpointSubTreeOrchestrator>;
@@ -133,6 +134,7 @@ export class ProverClient implements EpochProverManager, EpochProverFactory {
     epochNumber: EpochNumber,
     checkpointConstants: CheckpointConstantData,
     l1ToL2Messages: Fr[],
+    startInboxRollingHash: Fr,
     totalNumBlocks: number,
     headerOfLastBlockInPreviousCheckpoint: BlockHeader,
   ): Promise<CheckpointSubTreeOrchestrator> {
@@ -146,6 +148,7 @@ export class ProverClient implements EpochProverManager, EpochProverFactory {
       this.getDeferredJobQueue(),
       checkpointConstants,
       l1ToL2Messages,
+      startInboxRollingHash,
       totalNumBlocks,
       headerOfLastBlockInPreviousCheckpoint,
       this.telemetry,
