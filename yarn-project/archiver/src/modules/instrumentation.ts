@@ -84,7 +84,9 @@ export class ArchiverInstrumentation {
 
     this.pruneDuration = meter.createHistogram(Metrics.ARCHIVER_PRUNE_DURATION);
 
-    this.pruneCount = createUpDownCounterWithDefault(meter, Metrics.ARCHIVER_PRUNE_COUNT);
+    this.pruneCount = createUpDownCounterWithDefault(meter, Metrics.ARCHIVER_PRUNE_COUNT, {
+      [Attributes.STATUS]: ['unproven'],
+    });
 
     this.blockProposalTxTargetCount = createUpDownCounterWithDefault(
       meter,
@@ -150,7 +152,9 @@ export class ArchiverInstrumentation {
   }
 
   public processPrune(duration: number) {
-    this.pruneCount.add(1);
+    // Only the unproven-epoch prune (L2PruneUnproven) is counted here; routine uncheckpointed
+    // pruning is deliberately excluded so this metric tracks real pending-chain reorgs.
+    this.pruneCount.add(1, { [Attributes.STATUS]: 'unproven' });
     this.pruneDuration.record(Math.ceil(duration));
   }
 

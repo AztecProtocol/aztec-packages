@@ -340,7 +340,7 @@ export const ARCHIVER_PRUNE_DURATION: MetricDefinition = {
 };
 export const ARCHIVER_PRUNE_COUNT: MetricDefinition = {
   name: 'aztec.archiver.prune_count',
-  description: 'Number of prunes detected',
+  description: 'Number of unproven-epoch reorgs detected (pending chain pruned back to the last proven checkpoint)',
   valueType: ValueType.INT,
 };
 

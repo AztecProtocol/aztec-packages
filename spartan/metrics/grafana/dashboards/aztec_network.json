@@ -19,7 +19,7 @@
           "uid": "${data_source}"
         },
         "enable": false,
-        "expr": "max(increase(aztec_archiver_prune_count{k8s_namespace_name=\"$namespace\"}[5m])) > 1",
+        "expr": "max(increase(aztec_archiver_prune_count{k8s_namespace_name=\"$namespace\",aztec_status=\"unproven\"}[5m])) > 1",
         "hide": true,
         "iconColor": "yellow",
         "name": "Reorg",
