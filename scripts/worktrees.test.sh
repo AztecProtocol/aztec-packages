@@ -183,6 +183,11 @@ make_tarballs() {
   echo "old" > "$stage/out/old.txt"
   make_tarball ancient-9999.tar.gz "$stage" out
   touch -m -d '40 days ago' "$CACHE_LOCAL_DIR/ancient-9999.tar.gz"
+
+  stage="$test_root/stage-young"
+  mkdir -p "$stage/out"
+  echo "young" > "$stage/out/young.txt"
+  make_tarball young-8888.tar.gz "$stage" out
 }
 
 # Run cache_download from inside the fixture's l1-contracts dir, as a component bootstrap would.
@@ -225,6 +230,9 @@ scenario_1_dry_run() {
   out=$( (cd "$fixture" && scripts/worktrees.sh create ab/custom-branch --dry-run 2>&1) || true )
   assert_contains "a name with a slash is the full branch" "$out" "branch:   ab/custom-branch"
   assert_contains "slashed name: dir is the last segment" "$out" "$test_root/custom-branch"
+
+  out=$( (cd "$fixture" && scripts/worktrees.sh create featz --branch 2>&1) || true )
+  assert_contains "--branch without a value dies cleanly" "$out" "requires a value"
 }
 
 # ---------------------------------------------------------------------------------------------------
@@ -301,6 +309,17 @@ scenario_3_second_worktree() {
   check "store entry was not re-extracted" test "$mtime_before" = "$mtime_after"
   check "store holds exactly one fake-l1 entry" \
     test "$(ls "$CACHE_LINK_DIR" | grep -c '^fake-l1-')" = "1"
+
+  # Creating onto a pre-existing branch checks it out but must warn that an explicit base-ref is
+  # ignored (the worktree lands wherever the branch already points).
+  git -C "$fixture" branch tt/wt3
+  out=$( (cd "$fixture" && scripts/worktrees.sh create wt3 HEAD 2>&1) || true )
+  assert_contains "existing branch reused with a warning about the ignored base-ref" "$out" "already exists"
+  check "wt3 is on the pre-existing branch" \
+    test "$(git -C "$test_root/wt3" rev-parse --abbrev-ref HEAD 2>/dev/null)" = "tt/wt3"
+  git -C "$fixture" worktree remove --force --force "$test_root/wt3" 2>/dev/null || rm -rf "$test_root/wt3"
+  git -C "$fixture" worktree prune
+  git -C "$fixture" branch -qD tt/wt3
 }
 
 # ---------------------------------------------------------------------------------------------------
@@ -323,6 +342,13 @@ scenario_4_thaw() {
   check "thawed entry dropped from .deps-manifest.json" \
     jq -e '.linked | index("fake-l1-1111") == null' "$wt1/.deps-manifest.json"
   check "wt2's manifest still records the entry" grep -qx "fake-l1-1111" "$wt2/.deps-manifest.linked"
+
+  # thaw must refuse symlinks that do not point into the store (e.g. yarn workspace symlinks):
+  # thawing one would destroy it and materialize a copy of the target in its place.
+  out=$( (cd "$wt2" && ./scripts/worktrees.sh thaw yarn-project/node_modules/@aztec/pkg 2>&1) || true )
+  assert_contains "non-store symlink refused" "$out" "does not point into the deps store"
+  check "workspace symlink left intact" \
+    test "$(readlink "$wt2/yarn-project/node_modules/@aztec/pkg" 2>/dev/null)" = "../../pkg"
 }
 
 # ---------------------------------------------------------------------------------------------------
@@ -403,11 +429,13 @@ scenario_6_concurrency() {
   check "store holds exactly one entry for the tarball" test -d "$CACHE_LINK_DIR/concurrent-4444"
   check_not "no .tmp/.lock residue left in the store" \
     bash -c "ls -A '$CACHE_LINK_DIR' | grep -qE '^[.](tmp|lock)[.]'"
-  local ok=1
+  local ok=1 links=1
   for i in 1 2 3 4 5 6; do
     [[ -e "$test_root/scratch-repo-$i/out/bin/c.txt" ]] || ok=0
+    [[ -L "$test_root/scratch-repo-$i/out/bin" ]] || links=0
   done
   check "every repo's graft resolves through the store" test "$ok" -eq 1
+  check "grafts are symlinks, not extracted copies" test "$links" -eq 1
 }
 
 # ---------------------------------------------------------------------------------------------------
@@ -423,12 +451,21 @@ scenario_7_gc() {
   git -C "$fixture" worktree remove --force --force "$wt2" 2>/dev/null || rm -rf "$wt2"
   git -C "$fixture" worktree prune
 
-  # Shape the fixture's own state: drop fake-l1-1111 (dead: no manifest, no symlink — out/ removed
-  # below) and loose-3333 (manifest line removed but its symlink kept -> safety-net KEEP).
+  # A freshly extracted, unreferenced entry stands in for an in-progress create that has not yet
+  # grafted symlinks or written its manifest — gc's recency guard must keep it.
+  dl young-8888.tar.gz >/dev/null || true
+
+  # Shape the fixture's own state: drop fake-l1-1111 and young-8888 (no manifest, no symlink — out/
+  # removed below) and loose-3333 (manifest line removed but its symlink kept -> safety-net KEEP).
   rm -rf "$fixture/l1-contracts/out"
-  sed -i '/^fake-l1-1111$/d; /^loose-3333$/d' "$fixture/.deps-manifest.linked"
+  sed -i '/^fake-l1-1111$/d; /^loose-3333$/d; /^young-8888$/d' "$fixture/.deps-manifest.linked"
+
+  # Age every other entry past the recency guard so it is eligible for collection / safety-net scan.
+  touch -m -d '2 hours ago' "$CACHE_LINK_DIR/fake-l1-1111" "$CACHE_LINK_DIR/concurrent-4444" \
+    "$CACHE_LINK_DIR/loose-3333" "$CACHE_LINK_DIR/override-2222"
 
   out=$( (cd "$fixture" && scripts/worktrees.sh gc --dry-run 2>&1) || true )
+  assert_contains "dry-run: young unreferenced entry kept (recency guard)" "$out" "KEEP (recently extracted): young-8888"
   assert_contains "dry-run: dead entry would be removed" "$out" "would remove entry: fake-l1-1111"
   assert_contains "dry-run: cross-clone entry is collected (documented limitation: scratch repos are not registered worktrees)" \
     "$out" "would remove entry: concurrent-4444"
@@ -439,6 +476,7 @@ scenario_7_gc() {
   check "dry-run removed nothing" test -d "$CACHE_LINK_DIR/fake-l1-1111"
 
   out=$( (cd "$fixture" && scripts/worktrees.sh gc 2>&1) || true )
+  check "young unreferenced entry survived (recency guard)" test -d "$CACHE_LINK_DIR/young-8888"
   check_not "dead entry removed" test -d "$CACHE_LINK_DIR/fake-l1-1111"
   check_not "cross-clone entry removed (documented limitation)" test -d "$CACHE_LINK_DIR/concurrent-4444"
   check "live entry kept (fixture manifest root)" test -d "$CACHE_LINK_DIR/override-2222"

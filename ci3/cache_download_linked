@@ -236,11 +236,15 @@ if [[ -n "${CACHE_LOCAL_DIR:-}" ]]; then
   fi
 
   echo_stderr "Local cache miss for $tar_file, downloading from remote."
-  if ! download_from_remote > "$local_cache_file"; then
-    rm -f "$local_cache_file"
+  # Download to a temp name and rename into place: a concurrent download of the same artifact
+  # treats an existing file at the final path as a complete tarball.
+  tmp_download="$local_cache_file.tmp.$$"
+  if ! download_from_remote > "$tmp_download"; then
+    rm -f "$tmp_download"
     echo_stderr "Cache download of $tar_file failed."
     exit 1
   fi
+  mv "$tmp_download" "$local_cache_file"
 
   place_tar "$local_cache_file"
   echo_stderr "Cache download and extraction of $tar_file complete in ${SECONDS}s."

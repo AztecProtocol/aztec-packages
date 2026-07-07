@@ -81,7 +81,9 @@ COMMANDS
            yarn build in the worktree. node_modules is still copied when yarn.lock content matches.
         3. Run each upstream component bootstrap inside the worktree in LINK mode. On a store/cache hit
            this is download + extract-once + symlink time only. On a cache MISS the component builds
-           locally (correct, but slow) — pass --frozen-only to abort instead of building.
+           locally (correct, but slow) — pass --frozen-only to abort instead of building. The
+           pre-check is best-effort: it covers each component's top-level artifact only; l1-contracts
+           and noir-projects use per-artifact caches and are not pre-checked.
         4. Write .deps-manifest.json and print a summary.
 
       SYMLINKED vs COPIED
@@ -176,6 +178,17 @@ function yarn_lock_hash {
   sha256sum "$lock" | cut -d' ' -f1
 }
 
+# find -lname matches its argument as a glob; escape metacharacters so a store path containing
+# [, ?, * or \ is matched literally.
+function glob_escape {
+  local s="$1"
+  s="${s//\\/\\\\}"
+  s="${s//\*/\\*}"
+  s="${s//\?/\\?}"
+  s="${s//\[/\\[}"
+  echo "$s"
+}
+
 # True if the given directory looks like an aztec-packages checkout root.
 function is_aztec_checkout {
   local d="$1"
@@ -223,17 +236,17 @@ function default_branch {
 # ---------------------------------------------------------------------------------------------------
 
 function cmd_create {
-  local name="" base_ref="" branch="" frozen_only=0 dry_run=0
+  local name="" base_ref="" branch="" frozen_only=0 dry_run=0 base_ref_explicit=0
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      --branch) branch="$2"; shift 2 ;;
+      --branch) [[ $# -ge 2 ]] || die "--branch requires a value"; branch="$2"; shift 2 ;;
       --frozen-only) frozen_only=1; shift ;;
       --dry-run) dry_run=1; shift ;;
       --help|-h) usage; exit 0 ;;
       -*) die "Unknown option: $1" ;;
       *)
         if [[ -z "$name" ]]; then name="$1";
-        elif [[ -z "$base_ref" ]]; then base_ref="$1";
+        elif [[ -z "$base_ref" ]]; then base_ref="$1"; base_ref_explicit=1;
         else die "Unexpected argument: $1"; fi
         shift ;;
     esac
@@ -276,6 +289,9 @@ function cmd_create {
 
   log "Creating worktree $wt_path on branch $branch (base $base_ref)..."
   if git -C "$source" show-ref --verify --quiet "refs/heads/$branch"; then
+    if [[ "$base_ref_explicit" -eq 1 ]]; then
+      log "WARNING: branch $branch already exists; checking it out and IGNORING base-ref $base_ref."
+    fi
     git -C "$source" worktree add "$wt_path" "$branch"
   else
     git -C "$source" worktree add -b "$branch" "$wt_path" "$base_ref"
@@ -449,7 +465,11 @@ function write_manifest {
   local -n _copied_ref="$3"
   local linked_json copied_json
   linked_json=$(sort -u "$wt/.deps-manifest.linked" 2>/dev/null | jq -R . | jq -s . 2>/dev/null || echo "[]")
-  copied_json=$(printf '%s\n' "${_copied_ref[@]}" | jq -R . | jq -s . 2>/dev/null || echo "[]")
+  if [[ ${#_copied_ref[@]} -eq 0 ]]; then
+    copied_json="[]"
+  else
+    copied_json=$(printf '%s\n' "${_copied_ref[@]}" | jq -R . | jq -s . 2>/dev/null || echo "[]")
+  fi
   jq -n \
     --arg source "$source" \
     --arg sourceCommit "$(git -C "$source" rev-parse HEAD)" \
@@ -525,12 +545,18 @@ function thaw_path {
   local -A thawed_entries=()
 
   if [[ -L "$target" ]]; then
+    # Only store symlinks may be thawed: thawing e.g. a yarn workspace symlink would destroy it and
+    # materialize a copy of its target in its place.
+    if [[ "$(readlink "$target")" != "$CACHE_LINK_DIR"/* ]]; then
+      log "thaw: $target does not point into the deps store ($CACHE_LINK_DIR); skipping."
+      return 0
+    fi
     _thaw_one "$target" thawed_entries
   elif [[ -d "$target" ]]; then
     local link
     while IFS= read -r -d '' link; do
       _thaw_one "$link" thawed_entries
-    done < <(find "$target" -type l -lname "$CACHE_LINK_DIR/*" -print0 2>/dev/null)
+    done < <(find "$target" -type l -lname "$(glob_escape "$CACHE_LINK_DIR")/*" -print0 2>/dev/null)
   else
     log "thaw: $target is not a symlink or directory; skipping."
     return 0
@@ -560,9 +586,14 @@ function _thaw_one {
   local rel="${store_target#"$CACHE_LINK_DIR"/}"
   local entry="${rel%%/*}"
   log "  thawing $link -> writable copy"
+  # Copy fully before removing the symlink, so a failed copy leaves the link (and the checkout)
+  # intact instead of half-thawed.
+  local tmp="$link.thaw.$$"
+  rm -rf "$tmp"
+  cp -a --reflink=auto "$store_target" "$tmp"
+  chmod -R u+w "$tmp"
   rm -f "$link"
-  cp -a --reflink=auto "$store_target" "$link"
-  chmod -R u+w "$link"
+  mv "$tmp" "$link"
   _thawed["$entry"]=1
 }
 
@@ -575,7 +606,7 @@ function cmd_gc {
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --dry-run) dry_run=1; shift ;;
-      --keep-days) keep_days="$2"; shift 2 ;;
+      --keep-days) [[ $# -ge 2 ]] || die "--keep-days requires a value"; keep_days="$2"; shift 2 ;;
       *) die "Unknown gc option: $1" ;;
     esac
   done
@@ -611,13 +642,21 @@ function cmd_gc {
     if [[ -n "${live[$entry]:-}" ]]; then
       continue
     fi
+    # Entries extracted within the last hour may belong to an in-progress create that has not yet
+    # grafted symlinks or appended its manifest; deleting them would leave that checkout dangling.
+    if [[ -n "$(find "$entry_dir" -maxdepth 0 -mmin -60 2>/dev/null)" ]]; then
+      log "  KEEP (recently extracted): $entry"
+      continue
+    fi
     # Safety net: keep if any registered checkout still has a symlink into this entry.
     local referenced=0 co
+    local entry_pattern
+    entry_pattern="$(glob_escape "$CACHE_LINK_DIR/$entry")"
     for co in "${checkouts[@]}"; do
-      if find "$co" -maxdepth 6 -type l -lname "$CACHE_LINK_DIR/$entry/*" -print -quit 2>/dev/null | grep -q .; then
+      if find "$co" -maxdepth 6 -type l -lname "$entry_pattern/*" -print -quit 2>/dev/null | grep -q .; then
         referenced=1; break
       fi
-      if find "$co" -maxdepth 6 -type l -lname "$CACHE_LINK_DIR/$entry" -print -quit 2>/dev/null | grep -q .; then
+      if find "$co" -maxdepth 6 -type l -lname "$entry_pattern" -print -quit 2>/dev/null | grep -q .; then
         referenced=1; break
       fi
     done

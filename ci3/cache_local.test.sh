@@ -234,6 +234,34 @@ test_upload_local_save_without_ci() {
   fi
 }
 
+test_upload_ci_exists_skips_tar() {
+  log "\nTest 10: CI=1 upload of an artifact that already exists in S3 exits before tarring"
+
+  # Stub aws: credentials present, artifact exists in S3. The upload paths are given a NONEXISTENT
+  # file, so if cache_upload tars before checking existence the tar fails and so does the script —
+  # the existence check must short-circuit first.
+  local stub="$test_root/aws-stub"
+  mkdir -p "$stub"
+  cat > "$stub/aws" <<'EOF'
+#!/usr/bin/env bash
+case "$1" in
+  configure) exit 0 ;;
+  s3) [[ "$2" == "ls" ]] && exit 0 || exit 1 ;;
+esac
+exit 1
+EOF
+  chmod +x "$stub/aws"
+
+  unset CACHE_LOCAL_DIR 2>/dev/null || true
+  local stderr_output rc=0
+  stderr_output=$(PATH="$stub:$PATH" CI=1 "$script_dir/cache_upload" "exists-remote.tar.gz" "$test_root/nonexistent-artifact" 2>&1 >/dev/null) || rc=$?
+  if [[ $rc -eq 0 ]] && echo "$stderr_output" | grep -q "already exists"; then
+    pass "Existing remote artifact short-circuits before tarring"
+  else
+    fail "Expected pre-tar short-circuit (rc=$rc, got: $stderr_output)"
+  fi
+}
+
 main() {
   log "=== Local Cache Test Suite ===\n"
 
@@ -248,6 +276,7 @@ main() {
   test_disabled_cache_skips_local
   test_inaccessible_cache_dir_falls_through
   test_upload_local_save_without_ci
+  test_upload_ci_exists_skips_tar
 
   log "\n=== Results ==="
   echo -e "\033[32mPassed: $passed\033[0m"

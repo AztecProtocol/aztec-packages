@@ -22,10 +22,27 @@ if [[ "${NO_CACHE_UPLOAD:-0}" -eq 1 ]]; then
   exit 0
 fi
 
-# Skip tarring entirely when there is nowhere to save: no local cache configured and the S3 upload
-# would be skipped anyway. Tarring large artifacts (e.g. bb build dirs) is not free.
-if [[ -z "${CACHE_LOCAL_DIR:-}" && -z "${S3_FORCE_UPLOAD:-}" && "${CI:-0}" -eq 0 ]]; then
-  echo_stderr "Skipping upload because CI=0, S3_FORCE_UPLOAD not set, and no CACHE_LOCAL_DIR."
+# Decide whether an S3 upload will happen BEFORE tarring, so CI skips the (not free) tar of large
+# artifacts that already exist remotely. No AWS calls are made at CI=0 without S3_FORCE_UPLOAD.
+s3_upload=1
+if [[ -z "${S3_FORCE_UPLOAD:-}" && "${CI:-0}" -eq 0 ]]; then
+  echo_stderr "Skipping S3 upload because CI=0 and S3_FORCE_UPLOAD not set."
+  s3_upload=0
+elif [[ "${CI_SSM_MODE:-0}" -eq 0 && ( -z "${AWS_ACCESS_KEY_ID:-}" || -z "${AWS_SECRET_ACCESS_KEY:-}" ) ]] \
+  && ! aws configure get aws_access_key_id &>/dev/null; then
+  # In SSM/instance-profile mode, AWS CLI falls back to IMDS for credentials.
+  echo_stderr "Skipping S3 upload, no AWS credentials found."
+  s3_upload=0
+elif [ -z "${S3_FORCE_UPLOAD:-}" ] && \
+  aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 ls "s3://aztec-ci-artifacts/build-cache/$name" &>/dev/null; then
+  echo_stderr "Skipping S3 upload, already exists: $name"
+  s3_upload=0
+fi
+
+# Skip tarring entirely when there is nowhere to save. Tarring large artifacts (e.g. bb build dirs)
+# is not free.
+if [[ "$s3_upload" -eq 0 && -z "${CACHE_LOCAL_DIR:-}" ]]; then
+  echo_stderr "Skipping upload: no S3 upload to do and no CACHE_LOCAL_DIR to save into."
   exit 0
 fi
 
@@ -49,24 +66,8 @@ if [[ -n "${CACHE_LOCAL_DIR:-}" ]]; then
   fi
 fi
 
-# Everything below is the S3 upload, gated to CI / S3_FORCE_UPLOAD only.
-if [[ -z "${S3_FORCE_UPLOAD:-}" && "${CI:-0}" -eq 0 ]]; then
-  echo_stderr "Skipping S3 upload because CI=0 and S3_FORCE_UPLOAD not set."
+if [[ "$s3_upload" -eq 0 ]]; then
   exit 0
-fi
-
-# In SSM/instance-profile mode, AWS CLI falls back to IMDS for credentials.
-if [[ "${CI_SSM_MODE:-0}" -eq 0 ]]; then
-  if [[ -z "${AWS_ACCESS_KEY_ID:-}" || -z "${AWS_SECRET_ACCESS_KEY:-}" ]] && ! aws configure get aws_access_key_id &>/dev/null; then
-    echo_stderr "Skipping S3 upload, no AWS credentials found."
-    exit 0
-  fi
-fi
-
-if [ -z "${S3_FORCE_UPLOAD:-}" ] && \
-  aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 ls "s3://aztec-ci-artifacts/build-cache/$name" &>/dev/null; then
-    echo_stderr "Skipping S3 upload, already exists: $name"
-    exit 0
 fi
 
 # Pipe tar directly to AWS S3 cp
