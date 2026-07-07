@@ -227,7 +227,9 @@ export class SessionManager {
     await this.epochTicker?.stop();
     await this.reconcileQueue.cancel();
     const sessions = this.allSessions();
-    await Promise.allSettled(sessions.map(s => s.cancel('prover-node stopping')));
+    // A clean shutdown is just a restart, so preserve the in-flight broker jobs (abortJobs: false)
+    // for the restarted node to reuse rather than re-proving the epoch from scratch.
+    await Promise.allSettled(sessions.map(s => s.cancel('prover-node stopping', { abortJobs: false })));
   }
 
   // ---------------- reconcile ----------------
