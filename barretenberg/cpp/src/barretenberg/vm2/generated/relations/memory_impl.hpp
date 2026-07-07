@@ -63,210 +63,192 @@ void memoryImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
     }
     {
         using View = typename std::tuple_element_t<6, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::memory_sel_addressing_indirect_5_)) *
-                   (FF(1) - static_cast<View>(in.get(C::memory_sel_addressing_indirect_5_)));
+        auto tmp = static_cast<View>(in.get(C::memory_sel_register_op_0_)) *
+                   (FF(1) - static_cast<View>(in.get(C::memory_sel_register_op_0_)));
         std::get<6>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<7, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::memory_sel_addressing_indirect_6_)) *
-                   (FF(1) - static_cast<View>(in.get(C::memory_sel_addressing_indirect_6_)));
+        auto tmp = static_cast<View>(in.get(C::memory_sel_register_op_1_)) *
+                   (FF(1) - static_cast<View>(in.get(C::memory_sel_register_op_1_)));
         std::get<7>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<8, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::memory_sel_register_op_0_)) *
-                   (FF(1) - static_cast<View>(in.get(C::memory_sel_register_op_0_)));
+        auto tmp = static_cast<View>(in.get(C::memory_sel_register_op_2_)) *
+                   (FF(1) - static_cast<View>(in.get(C::memory_sel_register_op_2_)));
         std::get<8>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<9, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::memory_sel_register_op_1_)) *
-                   (FF(1) - static_cast<View>(in.get(C::memory_sel_register_op_1_)));
+        auto tmp = static_cast<View>(in.get(C::memory_sel_register_op_3_)) *
+                   (FF(1) - static_cast<View>(in.get(C::memory_sel_register_op_3_)));
         std::get<9>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<10, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::memory_sel_register_op_2_)) *
-                   (FF(1) - static_cast<View>(in.get(C::memory_sel_register_op_2_)));
+        auto tmp = static_cast<View>(in.get(C::memory_sel_register_op_4_)) *
+                   (FF(1) - static_cast<View>(in.get(C::memory_sel_register_op_4_)));
         std::get<10>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<11, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::memory_sel_register_op_3_)) *
-                   (FF(1) - static_cast<View>(in.get(C::memory_sel_register_op_3_)));
+        auto tmp = static_cast<View>(in.get(C::memory_sel_data_copy_read)) *
+                   (FF(1) - static_cast<View>(in.get(C::memory_sel_data_copy_read)));
         std::get<11>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<12, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::memory_sel_register_op_4_)) *
-                   (FF(1) - static_cast<View>(in.get(C::memory_sel_register_op_4_)));
+        auto tmp = static_cast<View>(in.get(C::memory_sel_data_copy_write)) *
+                   (FF(1) - static_cast<View>(in.get(C::memory_sel_data_copy_write)));
         std::get<12>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<13, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::memory_sel_register_op_5_)) *
-                   (FF(1) - static_cast<View>(in.get(C::memory_sel_register_op_5_)));
+        auto tmp = static_cast<View>(in.get(C::memory_sel_get_contract_instance_exists_write)) *
+                   (FF(1) - static_cast<View>(in.get(C::memory_sel_get_contract_instance_exists_write)));
         std::get<13>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<14, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::memory_sel_data_copy_read)) *
-                   (FF(1) - static_cast<View>(in.get(C::memory_sel_data_copy_read)));
+        auto tmp = static_cast<View>(in.get(C::memory_sel_get_contract_instance_member_write)) *
+                   (FF(1) - static_cast<View>(in.get(C::memory_sel_get_contract_instance_member_write)));
         std::get<14>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<15, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::memory_sel_data_copy_write)) *
-                   (FF(1) - static_cast<View>(in.get(C::memory_sel_data_copy_write)));
+        auto tmp = static_cast<View>(in.get(C::memory_sel_public_log_read)) *
+                   (FF(1) - static_cast<View>(in.get(C::memory_sel_public_log_read)));
         std::get<15>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<16, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::memory_sel_get_contract_instance_exists_write)) *
-                   (FF(1) - static_cast<View>(in.get(C::memory_sel_get_contract_instance_exists_write)));
+        auto tmp = static_cast<View>(in.get(C::memory_sel_poseidon2_read_0_)) *
+                   (FF(1) - static_cast<View>(in.get(C::memory_sel_poseidon2_read_0_)));
         std::get<16>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<17, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::memory_sel_get_contract_instance_member_write)) *
-                   (FF(1) - static_cast<View>(in.get(C::memory_sel_get_contract_instance_member_write)));
+        auto tmp = static_cast<View>(in.get(C::memory_sel_poseidon2_read_1_)) *
+                   (FF(1) - static_cast<View>(in.get(C::memory_sel_poseidon2_read_1_)));
         std::get<17>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<18, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::memory_sel_public_log_read)) *
-                   (FF(1) - static_cast<View>(in.get(C::memory_sel_public_log_read)));
+        auto tmp = static_cast<View>(in.get(C::memory_sel_poseidon2_read_2_)) *
+                   (FF(1) - static_cast<View>(in.get(C::memory_sel_poseidon2_read_2_)));
         std::get<18>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<19, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::memory_sel_poseidon2_read_0_)) *
-                   (FF(1) - static_cast<View>(in.get(C::memory_sel_poseidon2_read_0_)));
+        auto tmp = static_cast<View>(in.get(C::memory_sel_poseidon2_read_3_)) *
+                   (FF(1) - static_cast<View>(in.get(C::memory_sel_poseidon2_read_3_)));
         std::get<19>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<20, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::memory_sel_poseidon2_read_1_)) *
-                   (FF(1) - static_cast<View>(in.get(C::memory_sel_poseidon2_read_1_)));
+        auto tmp = static_cast<View>(in.get(C::memory_sel_poseidon2_write_0_)) *
+                   (FF(1) - static_cast<View>(in.get(C::memory_sel_poseidon2_write_0_)));
         std::get<20>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<21, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::memory_sel_poseidon2_read_2_)) *
-                   (FF(1) - static_cast<View>(in.get(C::memory_sel_poseidon2_read_2_)));
+        auto tmp = static_cast<View>(in.get(C::memory_sel_poseidon2_write_1_)) *
+                   (FF(1) - static_cast<View>(in.get(C::memory_sel_poseidon2_write_1_)));
         std::get<21>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<22, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::memory_sel_poseidon2_read_3_)) *
-                   (FF(1) - static_cast<View>(in.get(C::memory_sel_poseidon2_read_3_)));
+        auto tmp = static_cast<View>(in.get(C::memory_sel_poseidon2_write_2_)) *
+                   (FF(1) - static_cast<View>(in.get(C::memory_sel_poseidon2_write_2_)));
         std::get<22>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<23, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::memory_sel_poseidon2_write_0_)) *
-                   (FF(1) - static_cast<View>(in.get(C::memory_sel_poseidon2_write_0_)));
+        auto tmp = static_cast<View>(in.get(C::memory_sel_poseidon2_write_3_)) *
+                   (FF(1) - static_cast<View>(in.get(C::memory_sel_poseidon2_write_3_)));
         std::get<23>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<24, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::memory_sel_poseidon2_write_1_)) *
-                   (FF(1) - static_cast<View>(in.get(C::memory_sel_poseidon2_write_1_)));
+        auto tmp =
+            static_cast<View>(in.get(C::memory_sel_keccak)) * (FF(1) - static_cast<View>(in.get(C::memory_sel_keccak)));
         std::get<24>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<25, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::memory_sel_poseidon2_write_2_)) *
-                   (FF(1) - static_cast<View>(in.get(C::memory_sel_poseidon2_write_2_)));
+        auto tmp = static_cast<View>(in.get(C::memory_sel_sha256_read)) *
+                   (FF(1) - static_cast<View>(in.get(C::memory_sel_sha256_read)));
         std::get<25>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<26, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::memory_sel_poseidon2_write_3_)) *
-                   (FF(1) - static_cast<View>(in.get(C::memory_sel_poseidon2_write_3_)));
+        auto tmp = static_cast<View>(in.get(C::memory_sel_sha256_op_0_)) *
+                   (FF(1) - static_cast<View>(in.get(C::memory_sel_sha256_op_0_)));
         std::get<26>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<27, ContainerOverSubrelations>::View;
-        auto tmp =
-            static_cast<View>(in.get(C::memory_sel_keccak)) * (FF(1) - static_cast<View>(in.get(C::memory_sel_keccak)));
+        auto tmp = static_cast<View>(in.get(C::memory_sel_sha256_op_1_)) *
+                   (FF(1) - static_cast<View>(in.get(C::memory_sel_sha256_op_1_)));
         std::get<27>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<28, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::memory_sel_sha256_read)) *
-                   (FF(1) - static_cast<View>(in.get(C::memory_sel_sha256_read)));
+        auto tmp = static_cast<View>(in.get(C::memory_sel_sha256_op_2_)) *
+                   (FF(1) - static_cast<View>(in.get(C::memory_sel_sha256_op_2_)));
         std::get<28>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<29, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::memory_sel_sha256_op_0_)) *
-                   (FF(1) - static_cast<View>(in.get(C::memory_sel_sha256_op_0_)));
+        auto tmp = static_cast<View>(in.get(C::memory_sel_sha256_op_3_)) *
+                   (FF(1) - static_cast<View>(in.get(C::memory_sel_sha256_op_3_)));
         std::get<29>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<30, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::memory_sel_sha256_op_1_)) *
-                   (FF(1) - static_cast<View>(in.get(C::memory_sel_sha256_op_1_)));
+        auto tmp = static_cast<View>(in.get(C::memory_sel_sha256_op_4_)) *
+                   (FF(1) - static_cast<View>(in.get(C::memory_sel_sha256_op_4_)));
         std::get<30>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<31, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::memory_sel_sha256_op_2_)) *
-                   (FF(1) - static_cast<View>(in.get(C::memory_sel_sha256_op_2_)));
+        auto tmp = static_cast<View>(in.get(C::memory_sel_sha256_op_5_)) *
+                   (FF(1) - static_cast<View>(in.get(C::memory_sel_sha256_op_5_)));
         std::get<31>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<32, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::memory_sel_sha256_op_3_)) *
-                   (FF(1) - static_cast<View>(in.get(C::memory_sel_sha256_op_3_)));
+        auto tmp = static_cast<View>(in.get(C::memory_sel_sha256_op_6_)) *
+                   (FF(1) - static_cast<View>(in.get(C::memory_sel_sha256_op_6_)));
         std::get<32>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<33, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::memory_sel_sha256_op_4_)) *
-                   (FF(1) - static_cast<View>(in.get(C::memory_sel_sha256_op_4_)));
+        auto tmp = static_cast<View>(in.get(C::memory_sel_sha256_op_7_)) *
+                   (FF(1) - static_cast<View>(in.get(C::memory_sel_sha256_op_7_)));
         std::get<33>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<34, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::memory_sel_sha256_op_5_)) *
-                   (FF(1) - static_cast<View>(in.get(C::memory_sel_sha256_op_5_)));
+        auto tmp = static_cast<View>(in.get(C::memory_sel_ecc_write_0_)) *
+                   (FF(1) - static_cast<View>(in.get(C::memory_sel_ecc_write_0_)));
         std::get<34>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<35, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::memory_sel_sha256_op_6_)) *
-                   (FF(1) - static_cast<View>(in.get(C::memory_sel_sha256_op_6_)));
+        auto tmp = static_cast<View>(in.get(C::memory_sel_ecc_write_1_)) *
+                   (FF(1) - static_cast<View>(in.get(C::memory_sel_ecc_write_1_)));
         std::get<35>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<36, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::memory_sel_sha256_op_7_)) *
-                   (FF(1) - static_cast<View>(in.get(C::memory_sel_sha256_op_7_)));
-        std::get<36>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<37, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::memory_sel_ecc_write_0_)) *
-                   (FF(1) - static_cast<View>(in.get(C::memory_sel_ecc_write_0_)));
-        std::get<37>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<38, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::memory_sel_ecc_write_1_)) *
-                   (FF(1) - static_cast<View>(in.get(C::memory_sel_ecc_write_1_)));
-        std::get<38>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<39, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::memory_sel_to_radix_write)) *
                    (FF(1) - static_cast<View>(in.get(C::memory_sel_to_radix_write)));
-        std::get<39>(evals) += (tmp * scaling_factor);
+        std::get<36>(evals) += (tmp * scaling_factor);
     }
     { // ACTIVE_ROW_NEEDS_PERM_SELECTOR
-        using View = typename std::tuple_element_t<40, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<37, ContainerOverSubrelations>::View;
         auto tmp =
             (static_cast<View>(in.get(C::memory_sel)) -
              (static_cast<View>(in.get(C::memory_sel_addressing_base)) +
@@ -275,14 +257,11 @@ void memoryImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
               static_cast<View>(in.get(C::memory_sel_addressing_indirect_2_)) +
               static_cast<View>(in.get(C::memory_sel_addressing_indirect_3_)) +
               static_cast<View>(in.get(C::memory_sel_addressing_indirect_4_)) +
-              static_cast<View>(in.get(C::memory_sel_addressing_indirect_5_)) +
-              static_cast<View>(in.get(C::memory_sel_addressing_indirect_6_)) +
               static_cast<View>(in.get(C::memory_sel_register_op_0_)) +
               static_cast<View>(in.get(C::memory_sel_register_op_1_)) +
               static_cast<View>(in.get(C::memory_sel_register_op_2_)) +
               static_cast<View>(in.get(C::memory_sel_register_op_3_)) +
               static_cast<View>(in.get(C::memory_sel_register_op_4_)) +
-              static_cast<View>(in.get(C::memory_sel_register_op_5_)) +
               static_cast<View>(in.get(C::memory_sel_data_copy_read)) +
               static_cast<View>(in.get(C::memory_sel_data_copy_write)) +
               static_cast<View>(in.get(C::memory_sel_get_contract_instance_exists_write)) +
@@ -308,116 +287,116 @@ void memoryImpl<FF_>::accumulate(ContainerOverSubrelations& evals,
               static_cast<View>(in.get(C::memory_sel_ecc_write_0_)) +
               static_cast<View>(in.get(C::memory_sel_ecc_write_1_)) +
               static_cast<View>(in.get(C::memory_sel_to_radix_write))));
+        std::get<37>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<38, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::memory_sel)) * (FF(1) - static_cast<View>(in.get(C::memory_sel)));
+        std::get<38>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<39, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::memory_last_access)) *
+                   (FF(1) - static_cast<View>(in.get(C::memory_last_access)));
+        std::get<39>(evals) += (tmp * scaling_factor);
+    }
+    {
+        using View = typename std::tuple_element_t<40, ContainerOverSubrelations>::View;
+        auto tmp = static_cast<View>(in.get(C::memory_rw)) * (FF(1) - static_cast<View>(in.get(C::memory_rw)));
         std::get<40>(evals) += (tmp * scaling_factor);
     }
     {
         using View = typename std::tuple_element_t<41, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::memory_sel)) * (FF(1) - static_cast<View>(in.get(C::memory_sel)));
-        std::get<41>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<42, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::memory_last_access)) *
-                   (FF(1) - static_cast<View>(in.get(C::memory_last_access)));
-        std::get<42>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<43, ContainerOverSubrelations>::View;
-        auto tmp = static_cast<View>(in.get(C::memory_rw)) * (FF(1) - static_cast<View>(in.get(C::memory_rw)));
-        std::get<43>(evals) += (tmp * scaling_factor);
-    }
-    {
-        using View = typename std::tuple_element_t<44, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::memory_sel_tag_is_ff)) *
                    (FF(1) - static_cast<View>(in.get(C::memory_sel_tag_is_ff)));
-        std::get<44>(evals) += (tmp * scaling_factor);
+        std::get<41>(evals) += (tmp * scaling_factor);
     }
     { // MEM_CONTINUITY
-        using View = typename std::tuple_element_t<45, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<42, ContainerOverSubrelations>::View;
         auto tmp =
             ((FF(1) - static_cast<View>(in.get(C::precomputed_first_row))) - static_cast<View>(in.get(C::memory_sel))) *
             static_cast<View>(in.get(C::memory_sel_shift));
-        std::get<45>(evals) += (tmp * scaling_factor);
+        std::get<42>(evals) += (tmp * scaling_factor);
     }
     { // SEL_RNG_CHK
-        using View = typename std::tuple_element_t<46, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<43, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::memory_sel_rng_chk)) -
                     static_cast<View>(in.get(C::memory_sel)) * static_cast<View>(in.get(C::memory_sel_shift)));
-        std::get<46>(evals) += (tmp * scaling_factor);
+        std::get<43>(evals) += (tmp * scaling_factor);
     }
     { // LAST_ACCESS
-        using View = typename std::tuple_element_t<47, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<44, ContainerOverSubrelations>::View;
         auto tmp =
             static_cast<View>(in.get(C::memory_sel_rng_chk)) *
             (CView(memory_GLOBAL_ADDR_DIFF) * ((FF(1) - static_cast<View>(in.get(C::memory_last_access))) *
                                                    (FF(1) - static_cast<View>(in.get(C::memory_glob_addr_diff_inv))) +
                                                static_cast<View>(in.get(C::memory_glob_addr_diff_inv))) -
              static_cast<View>(in.get(C::memory_last_access)));
-        std::get<47>(evals) += (tmp * scaling_factor);
+        std::get<44>(evals) += (tmp * scaling_factor);
     }
     { // DIFF
-        using View = typename std::tuple_element_t<48, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<45, ContainerOverSubrelations>::View;
         auto tmp = (static_cast<View>(in.get(C::memory_diff)) -
                     static_cast<View>(in.get(C::memory_sel_rng_chk)) *
                         (static_cast<View>(in.get(C::memory_last_access)) * CView(memory_GLOBAL_ADDR_DIFF) +
                          (FF(1) - static_cast<View>(in.get(C::memory_last_access))) *
                              (CView(memory_TIMESTAMP_DIFF) - static_cast<View>(in.get(C::memory_rw_shift)) *
                                                                  static_cast<View>(in.get(C::memory_rw)))));
-        std::get<48>(evals) += (tmp * scaling_factor);
+        std::get<45>(evals) += (tmp * scaling_factor);
     }
     { // DIFF_DECOMP
-        using View = typename std::tuple_element_t<49, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<46, ContainerOverSubrelations>::View;
         auto tmp =
             (static_cast<View>(in.get(C::memory_diff)) -
              (static_cast<View>(in.get(C::memory_limb_0_)) + static_cast<View>(in.get(C::memory_limb_1_)) * FF(65536) +
               static_cast<View>(in.get(C::memory_limb_2_)) * FF(4294967296UL)));
-        std::get<49>(evals) += (tmp * scaling_factor);
+        std::get<46>(evals) += (tmp * scaling_factor);
     }
     { // MEMORY_INIT_VALUE
-        using View = typename std::tuple_element_t<50, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<47, ContainerOverSubrelations>::View;
         auto tmp =
             (static_cast<View>(in.get(C::memory_last_access)) + static_cast<View>(in.get(C::precomputed_first_row))) *
             (FF(1) - static_cast<View>(in.get(C::memory_rw_shift))) * static_cast<View>(in.get(C::memory_value_shift));
-        std::get<50>(evals) += (tmp * scaling_factor);
+        std::get<47>(evals) += (tmp * scaling_factor);
     }
     { // MEMORY_INIT_TAG
-        using View = typename std::tuple_element_t<51, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<48, ContainerOverSubrelations>::View;
         auto tmp =
             (static_cast<View>(in.get(C::memory_last_access)) + static_cast<View>(in.get(C::precomputed_first_row))) *
             (FF(1) - static_cast<View>(in.get(C::memory_rw_shift))) *
             (static_cast<View>(in.get(C::memory_tag_shift)) - CView(constants_MEM_TAG_FF));
-        std::get<51>(evals) += (tmp * scaling_factor);
+        std::get<48>(evals) += (tmp * scaling_factor);
     }
     { // READ_WRITE_CONSISTENCY_VALUE
-        using View = typename std::tuple_element_t<52, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<49, ContainerOverSubrelations>::View;
         auto tmp = (FF(1) - static_cast<View>(in.get(C::memory_last_access))) *
                    (FF(1) - static_cast<View>(in.get(C::memory_rw_shift))) *
                    (static_cast<View>(in.get(C::memory_value_shift)) - static_cast<View>(in.get(C::memory_value)));
-        std::get<52>(evals) += (tmp * scaling_factor);
+        std::get<49>(evals) += (tmp * scaling_factor);
     }
     { // READ_WRITE_CONSISTENCY_TAG
-        using View = typename std::tuple_element_t<53, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<50, ContainerOverSubrelations>::View;
         auto tmp = (FF(1) - static_cast<View>(in.get(C::memory_last_access))) *
                    (FF(1) - static_cast<View>(in.get(C::memory_rw_shift))) *
                    (static_cast<View>(in.get(C::memory_tag_shift)) - static_cast<View>(in.get(C::memory_tag)));
-        std::get<53>(evals) += (tmp * scaling_factor);
+        std::get<50>(evals) += (tmp * scaling_factor);
     }
     { // TAG_IS_FF
-        using View = typename std::tuple_element_t<54, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<51, ContainerOverSubrelations>::View;
         auto tmp = static_cast<View>(in.get(C::memory_sel)) *
                    ((CView(memory_TAG_FF_DIFF) * (static_cast<View>(in.get(C::memory_sel_tag_is_ff)) *
                                                       (FF(1) - static_cast<View>(in.get(C::memory_tag_ff_diff_inv))) +
                                                   static_cast<View>(in.get(C::memory_tag_ff_diff_inv))) +
                      static_cast<View>(in.get(C::memory_sel_tag_is_ff))) -
                     FF(1));
-        std::get<54>(evals) += (tmp * scaling_factor);
+        std::get<51>(evals) += (tmp * scaling_factor);
     }
     { // SEL_RNG_WRITE
-        using View = typename std::tuple_element_t<55, ContainerOverSubrelations>::View;
+        using View = typename std::tuple_element_t<52, ContainerOverSubrelations>::View;
         auto tmp =
             (static_cast<View>(in.get(C::memory_sel_rng_write)) -
              static_cast<View>(in.get(C::memory_rw)) * (FF(1) - static_cast<View>(in.get(C::memory_sel_tag_is_ff))));
-        std::get<55>(evals) += (tmp * scaling_factor);
+        std::get<52>(evals) += (tmp * scaling_factor);
     }
 }
 

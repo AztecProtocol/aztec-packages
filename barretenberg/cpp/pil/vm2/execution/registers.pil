@@ -10,7 +10,7 @@ namespace execution;
 // pol commit rw_reg[6]; // Read / Write (only if sel_mem_op_reg[i] = 1)
 // pol commit sel_tag_check_reg[6]; // Tag check (only for read)
 // pol commit expected_tag_reg[6]; // Expected tag (only if sel_tag_check_reg[i] = 1)
-// pol commit rop[6]; // Resolved operands (for read/write), always addresses here.
+// pol commit rop[5]; // Resolved operands (for read/write), always addresses here.
 //
 // Inputs for write, Outputs for read:
 // pol commit register[6];
