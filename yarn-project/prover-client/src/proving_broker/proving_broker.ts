@@ -278,13 +278,25 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Pr
       assert.deepStrictEqual(job, existing, 'Duplicate proving job ID');
 
       if (this.resultsCache.get(job.id)?.status === 'aborted') {
-        // The producer is re-requesting a job it previously cancelled: revive it. Clear the aborted
-        // state (in memory and, so the revival survives a restart, in the database) and re-enqueue as
-        // if new, recomputing the start-of-call status rather than returning the stale aborted status.
+        // The producer is re-requesting a job it previously cancelled: revive it rather than
+        // returning the cached abort, clearing the aborted state in memory and in the database so the
+        // revival survives a restart.
+        //
+        // Concurrency model: `jobsCache` is the enqueue lock. Every path that puts a job on the queue
+        // populates `jobsCache` *synchronously, before its first await* (see the "New proving job"
+        // block below), so a second concurrent enqueue of the same id observes the entry at the top
+        // of this method and takes a cached, no-op branch instead of enqueuing a duplicate. The revive
+        // must keep holding that lock: we tear down the settled state and re-set `jobsCache` in a
+        // single synchronous span (no await in between), and only then await the database. Because a
+        // concurrent re-request can only interleave at that await — by which point `jobsCache` is
+        // populated again and the aborted result is gone — it falls into the cached branch and no-ops,
+        // so the job is enqueued exactly once. (`cleanUpProvingJobState` also drops the promise, which
+        // was resolved with the abort, so `enqueueJobInternal` below mints a fresh one for the retry.)
         this.logger.info(`Reviving aborted proving job id=${job.id} epochNumber=${job.epochNumber}`, {
           provingJobId: job.id,
         });
         this.cleanUpProvingJobState([job.id]);
+        this.jobsCache.set(job.id, job);
         await this.database.deleteProvingJobResult(job.id);
         jobStatus = this.#getProvingJobStatus(job.id);
       } else {
