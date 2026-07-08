@@ -1,3 +1,4 @@
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { KeyStore } from '@aztec/key-store';
 import { createStore, openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -23,6 +24,9 @@ expect.extend({ toMatchFile });
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // The last schema in which the key store still persisted the message-signing and fallback secret keys.
 const PRE_MESSAGE_AND_FALLBACK_SECRET_KEY_REMOVAL_PXE_SCHEMA_VERSION = 10;
+// The last schema in which the tagging stores keyed entries by the legacy two-part AppTaggingSecret format
+// (`<secret>:<app>`) for unconstrained secrets, before F-680 moved every key to `<kind>:<secret>:<app>`.
+const PRE_F680_PXE_SCHEMA_VERSION = 12;
 
 /**
  * Asserts that `value` matches the per-store snapshot file `__snapshots__/<name>.json`. Each store gets its own file
@@ -189,6 +193,41 @@ describe('PXE storage compatibility test suite', () => {
         // Opening a below-current-version DB triggers DatabaseVersionManager to wipe it, so the account written under
         // the old schema is gone and the new code never reads its now-incompatible rows.
         await expect(keyStore.hasAccount(account)).resolves.toBe(false);
+      } finally {
+        await currentStore.close();
+      }
+    } finally {
+      await rm(dataDirectory, { recursive: true, force: true, maxRetries: 3 });
+    }
+  });
+
+  it('wipes tagging-store rows written under the legacy two-part AppTaggingSecret key format', async () => {
+    // The pre-F-680 unconstrained toString() emitted a two-part `<secret>:<app>` key. Build that legacy key by
+    // hand, since the current toString() can only emit the three-part `<kind>:<secret>:<app>` form. These are the
+    // exact secret/app values the RecipientTaggingStore schema fixture uses, i.e. a real pre-migration key.
+    const legacyKey = `${new Fr(2n).toString()}:${AztecAddress.fromBigIntUnsafe(3n).toString()}`;
+    const dataDirectory = await mkdtemp(join(tmpdir(), 'pxe-schema-tagging-reset-'));
+    const config = {
+      dataDirectory,
+      dataStoreMapSizeKb: 1024,
+      rollupAddress: EthAddress.ZERO,
+    };
+
+    try {
+      const oldStore = await createStore('pxe_data', PRE_F680_PXE_SCHEMA_VERSION, config);
+      try {
+        await oldStore.openMap<string, number>('highest_aged_index').set(legacyKey, 13);
+      } finally {
+        await oldStore.close();
+      }
+
+      const currentStore = await createStore('pxe_data', PXE_DATA_SCHEMA_VERSION, config);
+      try {
+        // Opening a mismatched-version DB triggers DatabaseVersionManager to wipe it, so the legacy-format key is
+        // discarded before the new parser (which rejects two-part keys) could ever enumerate it. Assert on the raw
+        // map: a high-level getter would miss the key regardless of the wipe, because the new three-part
+        // toString() never reconstructs the legacy key, so it would false-pass.
+        await expect(currentStore.openMap<string, number>('highest_aged_index').sizeAsync()).resolves.toBe(0);
       } finally {
         await currentStore.close();
       }
