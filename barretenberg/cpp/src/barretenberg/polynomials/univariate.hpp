@@ -132,19 +132,6 @@ template <class Fr, size_t domain_end> class Univariate {
         return true;
     }
 
-    // Write the Univariate evaluations to a buffer
-    [[nodiscard]] std::vector<uint8_t> to_buffer() const { return ::to_buffer(evaluations); }
-
-    // Static method for creating a Univariate from a buffer
-    // IMPROVEMENT: Could be made to identically match equivalent methods in e.g. field.hpp. Currently bypasses
-    // unnecessary ::from_buffer call
-    static Univariate serialize_from_buffer(uint8_t const* buffer)
-    {
-        Univariate result;
-        std::read(buffer, result.evaluations);
-        return result;
-    }
-
     static Univariate get_random()
     {
         auto output = Univariate<Fr, domain_end>();
@@ -542,19 +529,6 @@ template <class Fr, size_t domain_end> class Univariate {
     auto end() { return evaluations.end(); }
     auto end() const { return evaluations.end(); }
 };
-
-template <typename B, class Fr, size_t domain_end> inline void read(B& it, Univariate<Fr, domain_end>& univariate)
-{
-    using serialize::read;
-    read(it, univariate.evaluations);
-}
-
-template <typename B, class Fr, size_t domain_end>
-inline void write(B& it, Univariate<Fr, domain_end> const& univariate)
-{
-    using serialize::write;
-    write(it, univariate.evaluations);
-}
 
 template <class Fr, size_t domain_end>
 Univariate<Fr, domain_end> operator+(const Fr& ff, const Univariate<Fr, domain_end>& uv)
