@@ -100,7 +100,7 @@ use crate::{
         delete_fact_collection, Fact, FactCollection, get_fact_collection, get_fact_collections_by_type, OriginBlock,
         record_non_retractable_fact, record_retractable_fact,
     },
-    messages::processing::{MessageContext, OffchainMessageWithContext},
+    messages::processing::OffchainMessageWithTx,
     oracle::tx_resolution::ResolvedTx,
     protocol::{
         address::AztecAddress,
@@ -206,7 +206,7 @@ impl OffchainReception {
         self,
         maybe_resolved_tx: Option<ResolvedTx>,
         now: u64,
-    ) -> Option<OffchainMessageWithContext> {
+    ) -> Option<OffchainMessageWithTx> {
         let message = self.read_message();
         let processed_fact = self.collection.facts.find(|f: Fact| f.fact_type_id == OFFCHAIN_MESSAGE_PROCESSED);
 
@@ -214,13 +214,8 @@ impl OffchainReception {
             // Received -> Processed: the originating tx is onchain.
             let resolved = maybe_resolved_tx.unwrap();
             self.mark_processed(resolved.block_number, resolved.block_hash);
-            let message_context = MessageContext {
-                tx_hash: resolved.tx_hash,
-                unique_note_hashes_in_tx: resolved.unique_note_hashes_in_tx,
-                first_nullifier_in_tx: resolved.first_nullifier_in_tx,
-            };
             Option::some(
-                OffchainMessageWithContext { message_ciphertext: message.ciphertext, message_context },
+                OffchainMessageWithTx { message_ciphertext: message.ciphertext, resolved_tx: resolved },
             )
         } else if processed_fact.is_some() {
             if processed_fact.unwrap().origin_block.unwrap().block_state.is_finalized() {
@@ -377,7 +372,7 @@ mod test {
             // A resolved tx within the TTL: the message is handed off with its tx context attached.
             let processable = reception.step(Option::some(resolved_tx(tx_hash)), 100);
             assert(processable.is_some());
-            assert_eq(processable.unwrap().message_context.tx_hash, tx_hash);
+            assert_eq(processable.unwrap().resolved_tx.tx_hash, tx_hash);
 
             // It stays active for reorg safety and is now marked processed.
             assert(OffchainReception::is_active(address, scope, msg), "processed reception should stay active");
