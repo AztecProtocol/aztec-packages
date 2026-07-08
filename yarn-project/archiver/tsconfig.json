@@ -34,6 +34,9 @@
       "path": "../protocol-contracts"
     },
     {
+      "path": "../standard-contracts"
+    },
+    {
       "path": "../stdlib"
     },
     {

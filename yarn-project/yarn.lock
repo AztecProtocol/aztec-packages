@@ -727,6 +727,7 @@ __metadata:
     "@aztec/l1-artifacts": "portal:../../l1-contracts/l1-artifacts"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
+    "@aztec/standard-contracts": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@jest/globals": "npm:^30.0.0"
