@@ -57,6 +57,7 @@ contract Inbox is IInbox {
   mapping(uint256 ringIndex => InboxBucket bucket) internal buckets;
 
   uint64 internal currentBucketSeq;
+  uint64 internal consumedBucketSeq;
 
   constructor(
     address _rollup,
@@ -249,8 +250,23 @@ contract Inbox is IInbox {
     return state.inProgress;
   }
 
+  function markBucketConsumed(uint256 _seq) external override(IInbox) {
+    require(msg.sender == ROLLUP, Errors.Inbox__Unauthorized());
+
+    uint64 current = currentBucketSeq;
+    require(_seq <= current, Errors.Inbox__BucketOutOfWindow(_seq, current));
+
+    if (_seq > consumedBucketSeq) {
+      consumedBucketSeq = SafeCast.toUint64(_seq);
+    }
+  }
+
   function getCurrentBucketSeq() external view override(IInbox) returns (uint64) {
     return currentBucketSeq;
+  }
+
+  function getConsumedBucketSeq() external view override(IInbox) returns (uint64) {
+    return consumedBucketSeq;
   }
 
   function getBucket(uint256 _seq) external view override(IInbox) returns (InboxBucket memory) {

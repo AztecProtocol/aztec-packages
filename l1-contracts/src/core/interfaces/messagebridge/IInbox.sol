@@ -101,10 +101,25 @@ interface IInbox {
   function getInProgress() external view returns (uint64);
 
   /**
+   * @notice Records that checkpoint consumption has reached the given bucket
+   * @dev Only callable by the rollup contract. The pointer only ever advances: it is a cache of the
+   * per-checkpoint consumption records kept by the rollup (used for overwrite protection on the ring),
+   * not the source of truth, so it does not rewind when checkpoints are pruned.
+   * @param _seq - The bucket sequence number consumption has reached
+   */
+  function markBucketConsumed(uint256 _seq) external;
+
+  /**
    * @notice Returns the sequence number of the bucket currently accumulating messages
    * @return The current bucket sequence number
    */
   function getCurrentBucketSeq() external view returns (uint64);
+
+  /**
+   * @notice Returns the highest bucket sequence number that checkpoint consumption has reached
+   * @return The consumed bucket sequence number
+   */
+  function getConsumedBucketSeq() external view returns (uint64);
 
   /**
    * @notice Returns the bucket with the given sequence number
