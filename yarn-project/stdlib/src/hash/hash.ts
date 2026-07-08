@@ -188,14 +188,6 @@ export function computeSecretHash(secret: Fr): Promise<Fr> {
   return poseidon2HashWithSeparator([secret], DomainSeparator.SECRET_HASH);
 }
 
-export async function computeL1ToL2MessageNullifier(contract: AztecAddress, messageHash: Fr, secret: Fr) {
-  const innerMessageNullifier = await poseidon2HashWithSeparator(
-    [messageHash, secret],
-    DomainSeparator.MESSAGE_NULLIFIER,
-  );
-  return siloNullifier(contract, innerMessageNullifier);
-}
-
 /**
  * Calculates a siloed hash of a scoped l2 to l1 message.
  * @returns Fr containing 248 bits of information of sha256 hash.
