@@ -114,6 +114,10 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
     ...envConfig,
     ...config,
     skipOrphanProposedBlockPruning: true,
+    // The local network builds node config from env without a DATA_DIRECTORY, so the validator's
+    // local signing protection runs against an ephemeral store. That is acceptable for this dev
+    // network; production validators must persist it and fail-fast when the data directory is unset.
+    allowEphemeralSigningProtection: config.allowEphemeralSigningProtection ?? true,
     txPublicSetupAllowListExtend: [...tokenAllowList, ...(config.txPublicSetupAllowListExtend ?? [])],
     // The local network runs against anvil with no committee, so it defaults to the deterministic
     // AutomineSequencer, which owns L1 time control (warps the dateProvider and L1 timestamps to slot

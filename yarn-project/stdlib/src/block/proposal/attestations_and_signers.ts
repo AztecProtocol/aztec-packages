@@ -1,5 +1,5 @@
 import type { ViemCommitteeAttestations } from '@aztec/ethereum/contracts';
-import { hexToBuffer } from '@aztec/foundation/string';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { encodeAbiParameters, parseAbiParameters } from 'viem';
 import { z } from 'zod';
@@ -155,5 +155,47 @@ export class MaliciousCommitteeAttestationsAndSigners extends CommitteeAttestati
 
   override getSigners(): EthAddress[] {
     return this.signers;
+  }
+}
+
+/**
+ * Malicious extension of CommitteeAttestationsAndSigners that rewrites every non-proposer signature slot's
+ * recovery byte to yParity form (v ∈ {0, 1}) in the packed output, after the honest `packAttestations` has
+ * already canonicalized it to v ∈ {27, 28}. Models a malicious selected proposer that hand-crafts
+ * `propose()` calldata L1 accepts but no honest node can byte-replay: each rewritten signature still
+ * recovers to the same member (r, s and the recovery parity are preserved), the bitmap bits stay set, and
+ * `getSigners()` stays consistent, so `propose()` does not revert `SignersSizeMismatch` -- yet the
+ * checkpoint can never be proven (`ECDSA.recover` rejects v ∉ {27, 28}). The proposer's own slot is left
+ * canonical so L1 `verifyProposer` (which recovers that slot) still accepts the checkpoint. For testing only.
+ */
+export class MaliciousYParityCommitteeAttestationsAndSigners extends CommitteeAttestationsAndSigners {
+  constructor(
+    attestations: CommitteeAttestation[],
+    /** Committee index of the proposer's own slot, left canonical so `propose()` passes `verifyProposer`. */
+    private proposerIndex: number,
+    signatureContext: CoordinationSignatureContext,
+  ) {
+    super(attestations, signatureContext);
+  }
+
+  override getPackedAttestations(): ViemCommitteeAttestations {
+    const packed = super.getPackedAttestations();
+    const data = hexToBuffer(packed.signaturesOrAddresses);
+
+    // Walk the packed byte-vector and rewrite every non-proposer signed slot's v-byte to yParity form. A
+    // signed slot occupies 65 bytes (v, r, s); an empty slot occupies 20 bytes (address only).
+    let offset = 0;
+    for (let i = 0; i < this.attestations.length; i++) {
+      const isSigned = !this.attestations[i].signature.isEmpty();
+      if (isSigned && i !== this.proposerIndex) {
+        // `packAttestations` canonicalized v to 27/28; rewrite back to the equivalent yParity byte (0/1),
+        // preserving the recovery parity so the signature still recovers to the same member.
+        const v = data[offset];
+        data[offset] = v >= 27 ? v - 27 : v;
+      }
+      offset += isSigned ? 65 : 20;
+    }
+
+    return { signatureIndices: packed.signatureIndices, signaturesOrAddresses: bufferToHex(data) };
   }
 }

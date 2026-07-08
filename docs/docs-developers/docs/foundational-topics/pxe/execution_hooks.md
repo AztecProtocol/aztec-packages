@@ -96,6 +96,8 @@ Pass a `resolveTaggingSecretStrategy` hook when [creating the PXE](#configuring-
 
 When the hook is absent, the PXE applies a default: both delivery modes use a [non-interactive handshake](../../aztec-nr/framework-description/note_delivery.md#tagging-secret-strategy) so the recipient can discover the message without prior coordination.
 
+Returning `{ type: 'interactive-handshake' }` makes the handshake registry request the recipient's signed authorization through the [`resolveCustomRequest`](#resolvecustomrequest) hook (see the [example](#example-interactive-handshakes) below), so a wallet should only choose it when that request can be served.
+
 ## `resolveCustomRequest`
 
 A general-purpose hook for *custom*, caller-defined requests. A contract reaches for it when it needs something it cannot get on its own: not from its local notes, not from the protocol's existing oracles. The contract gives the request a `kind` and an opaque `payload`, and the wallet returns an opaque response. Because the request is caller-defined, the wallet decides per `kind` how to answer, whether by reading state it holds, contacting another party, or fetching offchain data.

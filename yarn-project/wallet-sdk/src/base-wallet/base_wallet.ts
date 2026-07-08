@@ -111,6 +111,9 @@ export type CompleteFeeOptionsConfig = {
 export abstract class BaseWallet implements Wallet {
   protected minFeePadding = 0.5;
   protected cancellableTransactions = false;
+  // Poll interval (in seconds) injected into sendTx waits when the caller does not specify one. Left undefined on
+  // production wallets so the DefaultWaitOpts 1s cadence stands; test wallets talking to in-process nodes lower it.
+  protected defaultWaitInterval?: number;
   // A wallet is instantiated for a particular chain, so chain info never changes during its lifetime.
   // We cache it here because getChainInfo is called frequently (every tx simulation, send, auth wit, etc.).
   private nodeInfoPromise: Promise<NodeInfo> | undefined;
@@ -536,7 +539,11 @@ export abstract class BaseWallet implements Wallet {
     }
 
     // Otherwise, wait for the full receipt (default behavior on wait: undefined)
-    const waitOpts = typeof opts.wait === 'object' ? opts.wait : undefined;
+    const callerWaitOpts = typeof opts.wait === 'object' ? opts.wait : undefined;
+    const waitOpts =
+      this.defaultWaitInterval !== undefined && callerWaitOpts?.interval === undefined
+        ? { ...callerWaitOpts, interval: this.defaultWaitInterval }
+        : callerWaitOpts;
     const receipt = await waitForTx(this.aztecNode, txHash, waitOpts);
 
     // Display debug logs from public execution if present (served in test mode only)

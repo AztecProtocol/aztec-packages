@@ -1400,6 +1400,51 @@ describe('PostgresSlashingProtectionDatabase', () => {
     });
   });
 
+  describe('cleanupOwnStuckDuties', () => {
+    const ROLLUP_ADDRESS = EthAddress.random();
+    const VALIDATOR_ADDRESS = EthAddress.random();
+    const NODE_ID = 'node-1';
+
+    beforeEach(async () => {
+      for (const statement of SCHEMA_SETUP) {
+        await pglite.query(statement);
+      }
+      await pglite.query(INSERT_SCHEMA_VERSION, [SCHEMA_VERSION]);
+    });
+
+    const insertStuckDuty = async (slot: number, lockToken: string) => {
+      const oldStartedAt = new Date(Date.now() - 10 * 60 * 1000);
+      await pglite.query(
+        `INSERT INTO validator_duties (
+           rollup_address, validator_address, slot, block_number,
+           block_index_within_checkpoint, duty_type, status, message_hash,
+           node_id, lock_token, started_at
+         ) VALUES ($1, $2, $3, $4, $5, $6, 'signing', $7, $8, $9, $10)`,
+        [
+          ROLLUP_ADDRESS.toString(),
+          VALIDATOR_ADDRESS.toString(),
+          slot,
+          50,
+          0,
+          DutyType.BLOCK_PROPOSAL,
+          Buffer32.random().toString(),
+          NODE_ID,
+          lockToken,
+          oldStartedAt,
+        ],
+      );
+    };
+
+    it('removes stuck SIGNING duties older than maxAgeMs', async () => {
+      const spDb = new PostgresSlashingProtectionDatabase(pool);
+      await insertStuckDuty(100, 'token-a');
+      await insertStuckDuty(200, 'token-b');
+
+      const cleaned = await spDb.cleanupOwnStuckDuties(NODE_ID, 60_000);
+      expect(cleaned).toBe(2);
+    });
+  });
+
   describe('cleanupOutdatedRollupDuties', () => {
     const CURRENT_ROLLUP_ADDRESS = EthAddress.random();
     const OLD_ROLLUP_ADDRESS_1 = EthAddress.random();

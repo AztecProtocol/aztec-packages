@@ -4,7 +4,7 @@ import type { EpochCache } from '@aztec/epoch-cache';
 import { CheckpointNumber, EpochNumber, IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import type { Signature } from '@aztec/foundation/eth-signature';
+import { Signature } from '@aztec/foundation/eth-signature';
 import { FifoSet } from '@aztec/foundation/fifo-set';
 import { type LogData, type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
@@ -35,7 +35,7 @@ import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import {
   type BlockProposal,
   type BlockProposalOptions,
-  type CheckpointAttestation,
+  CheckpointAttestation,
   CheckpointProposal,
   type CheckpointProposalCore,
   type CheckpointProposalOptions,

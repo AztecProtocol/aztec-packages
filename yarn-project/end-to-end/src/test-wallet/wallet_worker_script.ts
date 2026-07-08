@@ -1,3 +1,4 @@
+import { DefaultWaitOpts } from '@aztec/aztec.js/contracts';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import type { SendOptions } from '@aztec/aztec.js/wallet';
 import { BackendType, BarretenbergSync } from '@aztec/bb.js';
@@ -23,6 +24,8 @@ try {
   // Worker sync bb use is limited to crypto and proof serialization helpers.
   await BarretenbergSync.initSingleton({ backend: BackendType.Wasm });
   const wallet = await TestWallet.create(node, pxeConfig);
+  // Worker wallets are only used by spartan tests against remote JSON-RPC nodes: keep the 1s poll cadence.
+  wallet.setDefaultWaitInterval(DefaultWaitOpts.interval);
   logger.info('Worker wallet initialized');
 
   const customMethods = {
