@@ -24,9 +24,9 @@ expect.extend({ toMatchFile });
 const __dirname = dirname(fileURLToPath(import.meta.url));
 // The last schema in which the key store still persisted the message-signing and fallback secret keys.
 const PRE_MESSAGE_AND_FALLBACK_SECRET_KEY_REMOVAL_PXE_SCHEMA_VERSION = 10;
-// The last schema in which the tagging stores keyed entries by the legacy two-part AppTaggingSecret format
-// (`<secret>:<app>`) for unconstrained secrets, before F-680 moved every key to `<kind>:<secret>:<app>`.
-const PRE_F680_PXE_SCHEMA_VERSION = 12;
+// The last schema in which the tagging stores keyed unconstrained entries by the legacy two-part AppTaggingSecret
+// format (`<secret>:<app>`), before every key moved to the self-describing `<kind>:<secret>:<app>` form.
+const PRE_KIND_PREFIXED_TAGGING_KEY_PXE_SCHEMA_VERSION = 12;
 
 /**
  * Asserts that `value` matches the per-store snapshot file `__snapshots__/<name>.json`. Each store gets its own file
@@ -202,9 +202,9 @@ describe('PXE storage compatibility test suite', () => {
   });
 
   it('wipes tagging-store rows written under the legacy two-part AppTaggingSecret key format', async () => {
-    // The pre-F-680 unconstrained toString() emitted a two-part `<secret>:<app>` key. Build that legacy key by
-    // hand, since the current toString() can only emit the three-part `<kind>:<secret>:<app>` form. These are the
-    // exact secret/app values the RecipientTaggingStore schema fixture uses, i.e. a real pre-migration key.
+    // The legacy unconstrained toString() emitted a two-part `<secret>:<app>` key. Build it by hand, since the
+    // current toString() can only emit the three-part `<kind>:<secret>:<app>` form. These are the exact
+    // secret/app values the RecipientTaggingStore schema fixture uses, i.e. a real pre-migration key.
     const legacyKey = `${new Fr(2n).toString()}:${AztecAddress.fromBigIntUnsafe(3n).toString()}`;
     const dataDirectory = await mkdtemp(join(tmpdir(), 'pxe-schema-tagging-reset-'));
     const config = {
@@ -214,7 +214,7 @@ describe('PXE storage compatibility test suite', () => {
     };
 
     try {
-      const oldStore = await createStore('pxe_data', PRE_F680_PXE_SCHEMA_VERSION, config);
+      const oldStore = await createStore('pxe_data', PRE_KIND_PREFIXED_TAGGING_KEY_PXE_SCHEMA_VERSION, config);
       try {
         await oldStore.openMap<string, number>('highest_aged_index').set(legacyKey, 13);
       } finally {

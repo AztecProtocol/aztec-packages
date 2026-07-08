@@ -9,6 +9,12 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [PXE] Local PXE database is reset on upgrade
+
+The persisted tagging stores now key every entry by the self-describing `<kind>:<secret>:<app>` form of `AppTaggingSecret`; unconstrained secrets previously used a two-part `<secret>:<app>` key. This bumps the PXE data schema version, and there is no forward migration for the old keys: on first open the PXE clears any database whose stored schema version differs from the current one. The wipe resets the entire PXE store, not just the tagging data, because all of it shares one backing database.
+
+**Impact**: On upgrade your local PXE state is reset. You must re-register accounts and re-sync from genesis. Wallets should surface a "your local state was reset, please re-register accounts and re-sync" path.
+
 ### [Aztec.js] Account signing keys are no longer derived from the privacy secret
 
 Schnorr account signing keys used to be derived from the account's privacy secret (via the now-removed `deriveSigningKey`), which meant the ownership key could be reconstructed from a value the PXE holds. The relationship is now reversed: the signing key is the root, and the privacy secret is derived from it with `deriveSecretKeyFromSigningKey` (exported from `@aztec/accounts/utils`).
