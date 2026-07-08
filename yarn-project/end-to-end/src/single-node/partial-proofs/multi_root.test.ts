@@ -24,15 +24,15 @@ import { type TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 import { type Hex, decodeEventLog } from 'viem';
 
 import { waitForL2ToL1Witness } from '../../fixtures/wait_helpers.js';
-import { SingleNodeTestContext, jest, setupWithProver } from './setup.js';
+import { NO_REORG_SUBMISSION_EPOCHS, SingleNodeTestContext, jest, setupWithProver } from './setup.js';
 
 // Suite: verifies the AZIP-14 partial-proof multi-root Outbox design. Drives an EpochTestSettler
 // manually to stage progressively deeper partial-proof roots (K=1, 2, 3) for the same epoch, then
 // asserts: (a) the node picks the smallest covering root, (b) any covering root produces a valid
 // consume tx, (c) the shared bitmap blocks double-spend, and (d) K=4 can be staged later.
 // SingleNodeTestContext: single node, no prover, prod-seq, interval mining. Timing: ethSlot=default
-// (8s/12s CI), aztecSlot=default, epoch=1000, proofSubmissionEpochs=1024 (v5: the disableAnvilTestWatcher
-// override was removed and a perBlockAllocationMultiplier=1.3 was added so the first block of the
+// (8s/12s CI), aztecSlot=default, epoch=32, proofSubmissionEpochs=NO_REORG_SUBMISSION_EPOCHS (v5: the
+// disableAnvilTestWatcher override was removed and a perBlockAllocationMultiplier=1.3 was added so the first block of the
 // now-up-to-5-block checkpoint has enough DA budget for the TestContract deploy tx). The test actively
 // calls the Outbox L1 contract to consume L2-to-L1 messages → cross-chain.
 describe('single-node/partial-proofs/multi_root', () => {
@@ -56,12 +56,11 @@ describe('single-node/partial-proofs/multi_root', () => {
       // fallback DA gas for the TestContract deploy is based on a 4-block checkpoint, so give the
       // first block enough of the checkpoint DA budget to include the deploy tx.
       perBlockAllocationMultiplier: 1.3,
-      // Long epoch so 4 well-spaced checkpoints comfortably fit before the boundary.
-      aztecEpochDuration: 1000,
+      // Epoch long enough that the 4 well-spaced checkpoints fit before the boundary.
+      aztecEpochDuration: 32,
       // Don't let the real prover land a partial proof under us. We drive Outbox state via the
-      // settler. `aztecProofSubmissionEpochs` >> test duration makes it impossible to enter the
-      // submission window.
-      aztecProofSubmissionEpochs: 1024,
+      // settler; a never-reorg window makes it impossible to enter the submission window.
+      aztecProofSubmissionEpochs: NO_REORG_SUBMISSION_EPOCHS,
       startProverNode: false,
     });
     ({ logger } = test);

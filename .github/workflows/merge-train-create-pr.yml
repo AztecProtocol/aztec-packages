@@ -55,8 +55,9 @@ jobs:
               if [[ "$branch" == "merge-train/spartan" || "$branch" == "merge-train/spartan-v5" || "$branch" == "merge-train/spartan-v6" || "$branch" == "merge-train/ci" ]]; then
                 labels="$labels,ci-full-no-test-cache"
               fi
-              # Trains targeting the v5 release line are ports into v5-next.
-              if [[ "$base_branch" == "v5-next" ]]; then
+              # Trains targeting a v<N>-next release line (v5-next, v6-next) are
+              # forward-ported into their base via the private-port-next driver.
+              if [[ "$base_branch" =~ ^v[0-9]+-next$ ]]; then
                 labels="$labels,private-port-next"
               fi
               gh pr create --base "$base_branch" --head "$branch" \

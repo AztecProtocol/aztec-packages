@@ -87,6 +87,25 @@ unconstrained fn constrained_delivery_succeeds_with_a_configured_strategy() {
 }
 
 #[test]
+unconstrained fn applies_a_configured_interactive_handshake_strategy() {
+    let mut env = TestEnvironment::new_opts(TestEnvironmentOptions::new().with_tagging_secret_strategy(
+        TaggingSecretStrategy::interactive_handshake(),
+    ));
+    // The hook path looks up the executing contract's class ID, so run in a deployed contract's context.
+    let app = env.create_contract_account();
+    let recipient = AztecAddress::from_field(8);
+
+    env.private_context_at(app, |_| {
+        let resolved = resolve_tagging_strategy(
+            AztecAddress::from_field(1),
+            recipient,
+            OnchainDeliveryMode::onchain_constrained(),
+        );
+        assert_eq(resolved, ResolvedTaggingStrategy::interactive_handshake());
+    });
+}
+
+#[test]
 unconstrained fn applies_the_strategy_set_in_the_options() {
     let mut env = TestEnvironment::new_opts(TestEnvironmentOptions::new().with_tagging_secret_strategy(
         TaggingSecretStrategy::arbitrary_secret(EmbeddedCurvePoint { x: 7, y: 11 }),

@@ -224,23 +224,6 @@ export abstract class ArchiverDataSourceBase
     }
   }
 
-  /**
-   * Resolves a {@link CheckpointsQuery} to a concrete `{from, limit}` pair used by BlockStore,
-   * or undefined when the epoch has no checkpoints.
-   */
-  private async resolveCheckpointsQuery(
-    query: CheckpointsQuery,
-  ): Promise<{ from: CheckpointNumber; limit: number } | undefined> {
-    if ('from' in query) {
-      return query;
-    }
-    const numbers = await this.getCheckpointNumbersForEpoch(query.epoch);
-    if (numbers.length === 0) {
-      return undefined;
-    }
-    return { from: numbers[0], limit: numbers.length };
-  }
-
   public async getCheckpoint(query: CheckpointQuery): Promise<PublishedCheckpoint | undefined> {
     const number = await this.resolveCheckpointQuery(query);
     if (number === undefined || number === 0) {
@@ -254,11 +237,7 @@ export abstract class ArchiverDataSourceBase
   }
 
   public async getCheckpoints(query: CheckpointsQuery): Promise<PublishedCheckpoint[]> {
-    const resolved = await this.resolveCheckpointsQuery(query);
-    if (!resolved) {
-      return [];
-    }
-    const checkpoints = await this.stores.blocks.getRangeOfCheckpoints(resolved.from, resolved.limit);
+    const checkpoints = await this.getCheckpointsData(query);
     return Promise.all(checkpoints.map(ch => this.getPublishedCheckpointFromCheckpointData(ch)));
   }
 
@@ -271,11 +250,14 @@ export abstract class ArchiverDataSourceBase
   }
 
   public async getCheckpointsData(query: CheckpointsQuery): Promise<CheckpointData[]> {
-    const resolved = await this.resolveCheckpointsQuery(query);
-    if (!resolved) {
-      return [];
+    if ('fromSlot' in query) {
+      return this.stores.blocks.getCheckpointsBySlot(query.fromSlot, query.limit, query.reverse ?? false);
     }
-    return this.stores.blocks.getRangeOfCheckpoints(resolved.from, resolved.limit);
+    if ('from' in query) {
+      return this.stores.blocks.getRangeOfCheckpoints(query.from, query.limit);
+    }
+    const numbers = await this.getCheckpointNumbersForEpoch(query.epoch);
+    return numbers.length > 0 ? this.stores.blocks.getRangeOfCheckpoints(numbers[0], numbers.length) : [];
   }
 
   public getProposedCheckpointData(query?: ProposedCheckpointQuery): Promise<ProposedCheckpointData | undefined> {

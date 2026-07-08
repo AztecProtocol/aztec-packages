@@ -21,16 +21,13 @@ import {
   SLASHER_ENABLED_MULTI_VALIDATOR_OPTS,
   buildMockGossipValidators,
 } from '../multi_node_test_context.js';
+import { SENTINEL_TIMING } from './setup.js';
 
 const debugLogger = createLogger('e2e:multi-node:slash-veto-demo');
 
 const VETOER_PRIVATE_KEY_INDEX = 18; // This should be after all keys used by validators
 const NUM_NODES = 3;
 const NUM_VALIDATORS = NUM_NODES + 1; // We create an extra validator, who will not have a running node
-const ETHEREUM_SLOT_DURATION = 4;
-const AZTEC_SLOT_DURATION = 8;
-const BLOCK_DURATION_MS = 2000;
-const EPOCH_DURATION = 2;
 // how many l2 slots make up a slashing round
 const SLASHING_ROUND_SIZE = 4;
 // how many block builders must signal for a single payload in a single round for it to be executable
@@ -70,23 +67,18 @@ describe('veto slash', () => {
   beforeEach(async () => {
     test = await MultiNodeTestContext.setup({
       ...SLASHER_ENABLED_MULTI_VALIDATOR_OPTS,
-      anvilSlotsInAnEpoch: 4,
-      aztecSlotDuration: AZTEC_SLOT_DURATION,
-      ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
-      blockDurationMs: BLOCK_DURATION_MS,
+      ...SENTINEL_TIMING,
+      blockDurationMs: 2000,
       aztecProofSubmissionEpochs: 1024, // effectively do not reorg
-      listenAddress: '127.0.0.1',
       minTxsPerBlock: 0,
       inboxLag: 2,
       aztecTargetCommitteeSize: NUM_VALIDATORS,
-      aztecEpochDuration: EPOCH_DURATION,
-      sentinelEnabled: true,
       slashSelfAllowed: true,
       slashingOffsetInRounds: SLASH_OFFSET_IN_ROUNDS,
       slashAmountSmall: SLASHING_UNIT,
       slashAmountMedium: SLASHING_UNIT * 2n,
       slashAmountLarge: SLASHING_UNIT * 3n,
-      slashingRoundSizeInEpochs: SLASHING_ROUND_SIZE / EPOCH_DURATION,
+      slashingRoundSizeInEpochs: SLASHING_ROUND_SIZE / SENTINEL_TIMING.aztecEpochDuration,
       slashingQuorum: SLASHING_QUORUM,
       slashingLifetimeInRounds: LIFETIME_IN_ROUNDS,
       slashingExecutionDelayInRounds: EXECUTION_DELAY_IN_ROUNDS,
@@ -152,12 +144,11 @@ describe('veto slash', () => {
   }
 
   // Waits for the inactive validator to accumulate inactivity offenses reaching quorum, then the vetoer
-  // calls vetoPayload on the Slasher contract. Asserts the payload either expires (lifetime exceeded)
-  // or a later round is executed, and that the inactive validator's GSE balance is unchanged.
-  // Currently parameterised as shouldVeto=true only (the non-veto branch is present but not exercised).
-  it.each([[true]] as const)(
-    'vetoes %s a slashing payload',
-    async (shouldVeto: boolean) => {
+  // calls vetoPayload on the Slasher contract. Asserts the vetoed payload never executes — its lifetime
+  // expires or a later (non-vetoed) round executes instead.
+  it(
+    'vetoes a slashing payload',
+    async () => {
       //#####################################//
       //                                     //
       // Verify the initial slasher's vetoer //
@@ -230,18 +221,15 @@ describe('veto slash', () => {
       //                              //
       //##############################//
 
-      if (shouldVeto) {
-        const slasherAddress = await rollup.getSlasherAddress();
-        const { receipt } = await vetoerL1TxUtils.sendAndMonitorTransaction({
-          to: slasherAddress.toString() as `0x${string}`,
-          data: encodeFunctionData({
-            abi: SlasherAbi,
-            functionName: 'vetoPayload',
-            args: [submittableRound.payload],
-          }),
-        });
-        debugLogger.info(`\n\nvetoPayload tx receipt: ${receipt.status}\n\n`);
-      }
+      const { receipt } = await vetoerL1TxUtils.sendAndMonitorTransaction({
+        to: slasherAddress.toString() as `0x${string}`,
+        data: encodeFunctionData({
+          abi: SlasherAbi,
+          functionName: 'vetoPayload',
+          args: [submittableRound.payload],
+        }),
+      });
+      debugLogger.info(`\n\nvetoPayload tx receipt: ${receipt.status}\n\n`);
 
       //###################################//
       //                                   //
@@ -266,18 +254,12 @@ describe('veto slash', () => {
       });
 
       const payloadExecutedOrExpired = await Promise.race([awaitPayloadSubmitted.promise, awaitPayloadExpiredPromise]);
-      const badAttesterFinalBalance = await gse.read.effectiveBalanceOf([rollup.address, attester.address]);
-      if (shouldVeto) {
-        // If we vetoed, then either the payload expired, or another more recent payload was executed
-        if (typeof payloadExecutedOrExpired === 'boolean') {
-          expect(payloadExecutedOrExpired).toBe(true);
-        } else {
-          expect(payloadExecutedOrExpired.round).toBeGreaterThan(submittableRound.round);
-        }
+      // The vetoed payload must never execute: either its lifetime expired, or a later (non-vetoed)
+      // round executed instead.
+      if (typeof payloadExecutedOrExpired === 'boolean') {
+        expect(payloadExecutedOrExpired).toBe(true);
       } else {
-        // If we didn't veto, the attester should have their balance decreased by the slashing amount.
-        expect((payloadExecutedOrExpired as { round: bigint }).round).toBe(submittableRound.round);
-        expect(badAttesterFinalBalance).toBe(badAttesterInitialBalance - slashingAmount);
+        expect(payloadExecutedOrExpired.round).toBeGreaterThan(submittableRound.round);
       }
     },
     1000 * 60 * 10,

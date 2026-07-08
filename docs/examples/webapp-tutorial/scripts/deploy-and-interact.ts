@@ -8,15 +8,21 @@ const nodeUrl = process.env.AZTEC_NODE_URL ?? "http://localhost:8080";
 const wallet = await EmbeddedWallet.create(nodeUrl, { ephemeral: true });
 
 const [alice, bob] = await getInitialTestAccountsData();
-await wallet.createSchnorrAccount(alice.secret, alice.salt);
-await wallet.createSchnorrAccount(bob.secret, bob.salt);
-console.log("Accounts ready:", alice.address.toString(), bob.address.toString());
+await wallet.createSchnorrAccount(alice.secret, alice.salt, alice.signingKey);
+await wallet.createSchnorrAccount(bob.secret, bob.salt, bob.signingKey);
+console.log(
+  "Accounts ready:",
+  alice.address.toString(),
+  bob.address.toString(),
+);
 // docs:end:script-setup
 
 // docs:start:script-deploy
-const { contract } = await PodRacingContract.deploy(wallet, alice.address).send({
-  from: alice.address,
-});
+const { contract } = await PodRacingContract.deploy(wallet, alice.address).send(
+  {
+    from: alice.address,
+  },
+);
 console.log("Contract deployed at:", contract.address.toString());
 // docs:end:script-deploy
 

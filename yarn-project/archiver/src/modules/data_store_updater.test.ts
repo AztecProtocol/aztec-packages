@@ -341,6 +341,63 @@ describe('ArchiverDataStoreUpdater', () => {
       expect(await store.contractClasses.getContractClass(contractClassId)).toBeUndefined();
       expect(await store.contractInstances.getContractInstance(instanceAddress, timestamp)).toBeUndefined();
     });
+
+    it('accepts a re-included already-stored checkpoint carrying contract data (A-1350)', async () => {
+      const block = await L2Block.random(BlockNumber(1), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+      });
+      block.body.txEffects[0].contractClassLogs = [contractClassLog];
+      block.body.txEffects[0].privateLogs = [PrivateLog.fromBuffer(getSampleContractInstancePublishedEventPayload())];
+
+      const checkpoint = makeCheckpoint([block]);
+      await updater.addCheckpoints([makePublishedCheckpoint(checkpoint, 10)]);
+      expect(await store.contractClasses.getContractClass(contractClassId)).toBeDefined();
+
+      // Simulate an L1 reorg that re-includes the same checkpoint at a later L1 block.
+      await expect(updater.addCheckpoints([makePublishedCheckpoint(checkpoint, 999)])).resolves.toBeDefined();
+
+      // L1 metadata must reflect the re-inclusion and contract data must still be present.
+      const stored = await store.blocks.getCheckpointData(CheckpointNumber(1));
+      expect(stored?.l1.blockNumber).toBe(999n);
+      expect(await store.contractClasses.getContractClass(contractClassId)).toBeDefined();
+      const timestamp = block.header.globalVariables.timestamp + 1n;
+      expect(await store.contractInstances.getContractInstance(instanceAddress, timestamp)).toBeDefined();
+    });
+
+    it('extracts only the newly-inserted suffix when a re-included checkpoint is batched with a new one (A-1350)', async () => {
+      // Checkpoint 1 (block 1) carries the contract class log; checkpoint 2 (block 2) carries the
+      // contract instance log. Ingest checkpoint 1, then re-present it (at a new L1 block) batched with
+      // the brand-new checkpoint 2. Only checkpoint 2's block is new, so its instance must be extracted
+      // while re-extracting checkpoint 1's already-stored class is skipped rather than throwing.
+      const block1 = await L2Block.random(BlockNumber(1), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+      });
+      block1.body.txEffects[0].contractClassLogs = [contractClassLog];
+
+      const checkpoint1 = makeCheckpoint([block1]);
+      await updater.addCheckpoints([makePublishedCheckpoint(checkpoint1, 10)]);
+      expect(await store.contractClasses.getContractClass(contractClassId)).toBeDefined();
+
+      const block2 = await L2Block.random(BlockNumber(2), {
+        checkpointNumber: CheckpointNumber(2),
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+        lastArchive: block1.archive,
+      });
+      block2.body.txEffects[0].privateLogs = [PrivateLog.fromBuffer(getSampleContractInstancePublishedEventPayload())];
+      const checkpoint2 = makeCheckpoint([block2], CheckpointNumber(2));
+
+      // Re-present checkpoint 1 at a new L1 block, batched with the new checkpoint 2.
+      await expect(
+        updater.addCheckpoints([makePublishedCheckpoint(checkpoint1, 999), makePublishedCheckpoint(checkpoint2, 20)]),
+      ).resolves.toBeDefined();
+
+      // Checkpoint 1's class stays stored (not re-extracted), and checkpoint 2's instance was extracted.
+      expect(await store.contractClasses.getContractClass(contractClassId)).toBeDefined();
+      const timestamp = block2.header.globalVariables.timestamp + 1n;
+      expect(await store.contractInstances.getContractInstance(instanceAddress, timestamp)).toBeDefined();
+    });
   });
 
   describe('logs handling', () => {

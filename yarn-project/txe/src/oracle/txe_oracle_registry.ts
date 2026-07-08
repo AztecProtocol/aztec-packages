@@ -19,6 +19,7 @@ import {
   BOOL,
   ETH_ADDRESS,
   FIELD,
+  FIXED_ARRAY,
   FUNCTION_SELECTOR,
   type InputSlot,
   type MaybePromise,
@@ -28,6 +29,7 @@ import {
   type OutputSlot,
   type ParamTypes,
   STR,
+  STRUCT,
   type SlotShape,
   type TypeMapping,
   U32,
@@ -70,6 +72,7 @@ const GAS_SETTINGS: TypeMapping<GasSettings> = {
 const STRATEGY_NON_INTERACTIVE_HANDSHAKE = 1;
 const STRATEGY_ARBITRARY_SECRET = 2;
 const STRATEGY_ADDRESS_DERIVED = 3;
+const STRATEGY_INTERACTIVE_HANDSHAKE = 4;
 
 const TAGGING_SECRET_STRATEGY: TypeMapping<TaggingSecretStrategy> = {
   serialization: {
@@ -77,6 +80,8 @@ const TAGGING_SECRET_STRATEGY: TypeMapping<TaggingSecretStrategy> = {
       switch (strategy.type) {
         case 'non-interactive-handshake':
           return [new Fr(STRATEGY_NON_INTERACTIVE_HANDSHAKE), Fr.ZERO, Fr.ZERO];
+        case 'interactive-handshake':
+          return [new Fr(STRATEGY_INTERACTIVE_HANDSHAKE), Fr.ZERO, Fr.ZERO];
         case 'address-derived':
           return [new Fr(STRATEGY_ADDRESS_DERIVED), Fr.ZERO, Fr.ZERO];
         case 'arbitrary-secret':
@@ -91,6 +96,8 @@ const TAGGING_SECRET_STRATEGY: TypeMapping<TaggingSecretStrategy> = {
       switch (kind) {
         case STRATEGY_NON_INTERACTIVE_HANDSHAKE:
           return { type: 'non-interactive-handshake' };
+        case STRATEGY_INTERACTIVE_HANDSHAKE:
+          return { type: 'interactive-handshake' };
         case STRATEGY_ADDRESS_DERIVED:
           return { type: 'address-derived' };
         case STRATEGY_ARBITRARY_SECRET:
@@ -193,10 +200,13 @@ const TXE_CALL_CONTEXT: TypeMapping<{ txHash: Fr; anchorBlockTimestamp: bigint }
   shape: ['scalar', 'scalar', 'scalar'], // discriminant, txHash, anchor block timestamp
 };
 
-const CONTRACT_INSTANCE_MEMBER: TypeMapping<{ member: Fr; exists: boolean }> = {
-  serialization: { fn: ({ member, exists }) => [member, new Fr(exists)] },
-  shape: ['scalar', 'scalar'],
-};
+const CONTRACT_INSTANCE_MEMBER: TypeMapping<{ exists: boolean; member: Fr }[]> = FIXED_ARRAY(
+  STRUCT([
+    { name: 'exists', type: BOOL },
+    { name: 'member', type: FIELD },
+  ]),
+  1,
+);
 
 const EVENT_SELECTOR: TypeMapping<EventSelector> = {
   serialization: { fn: v => [v.toField()] },

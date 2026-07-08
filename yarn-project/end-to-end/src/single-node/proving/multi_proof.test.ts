@@ -7,7 +7,7 @@ import { getEpochAtSlot } from '@aztec/stdlib/epoch-helpers';
 import { jest } from '@jest/globals';
 
 import type { EndToEndContext } from '../../fixtures/utils.js';
-import { setupWithProver } from '../setup.js';
+import { PROVING_SLOT_TIMING, setupWithProver } from '../setup.js';
 import { SingleNodeTestContext } from '../single_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
@@ -27,17 +27,12 @@ describe('single-node/proving/multi_proof', () => {
     // Don't start prover node during setup - we'll create and manage all prover nodes in the test
     // This ensures we can apply delay patches before any prover starts proving.
     //
-    // Run at the 4s/12s slot-cadence floor: the body is bounded by the production sequencer building epoch
-    // 0 on the real wall-clock (one empty block per L2 slot) plus the per-prover stagger
-    // (`index * ethereumSlotDuration` ms). Both scale with the slot duration, so a shorter slot shortens the
-    // timeline while keeping the stagger >=1 L1 slot apart (so the three provers still land their proofs on
-    // distinct L1 blocks). 12s is the floor: the timing model needs an L2 slot >= ~8.5s with the default 3s
-    // block to fit one block per checkpoint, so an 8s slot derives 0 blocks per checkpoint. The 6-slot epoch
-    // is kept so epoch 0 still reliably lands >=1 block.
+    // The per-prover stagger (`index * ethereumSlotDuration` ms) scales with the slot duration, so the
+    // PROVING_SLOT_TIMING floor keeps the timeline short while holding the stagger >=1 L1 slot apart (the
+    // three provers still land their proofs on distinct L1 blocks).
     test = await setupWithProver({
       startProverNode: false,
-      ethereumSlotDuration: 4,
-      aztecSlotDurationInL1Slots: 3,
+      ...PROVING_SLOT_TIMING,
     });
     ({ context, logger } = test);
   });
@@ -85,12 +80,12 @@ describe('single-node/proving/multi_proof', () => {
     const proverIds = test.proverNodes.map(node => node.getProverNode()!.getProverId());
     logger.info(`Prover nodes running with ids ${proverIds.map(id => id.toString()).join(', ')}`);
 
-    // Anchor on a freshly-started epoch with the provers already running, then wait for it to fully
-    // elapse. We can't use epoch 0: under CI load the sequencer can come up after the chain has already
+    // Anchor on a freshly-started epoch with the provers already running, then warp past it so it fully
+    // elapses. We can't use epoch 0: under CI load the sequencer can come up after the chain has already
     // advanced past epoch 0's slots, leaving it with no blocks, and the snapshot below would then have
     // nothing to read. Anchoring on the next epoch guarantees its full slot range is ahead of us.
     const epoch = await test.waitUntilNextEpochStarts();
-    await test.waitUntilEpochStarts(epoch + 1);
+    await test.warpToEpochStart(epoch + 1);
 
     // Snapshot the anchored epoch's checkpoints. The epoch is now closed on L1 (no more epoch-N
     // checkpoints can land once epoch N+1 has begun), but the node's archiver may still be catching up.

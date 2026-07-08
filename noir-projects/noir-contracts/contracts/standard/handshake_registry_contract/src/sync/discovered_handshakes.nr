@@ -7,8 +7,8 @@ use aztec::{
 };
 
 /// Fact-collection type id of the per-recipient discovered handshakes populated by [`record_discovered_handshake`]
-/// and read by [`get_all_handshakes`]. Each recipient (the fact scope) has a single collection of this type holding
-/// one fact per discovered handshake, in discovery order.
+/// and read by [`get_all_discovered_handshakes`]. Each recipient (the fact scope) has a single collection of this
+/// type holding one fact per discovered handshake, in discovery order.
 global DISCOVERED_HANDSHAKES_TYPE_ID: Field = sha256_to_field("HANDSHAKE_REGISTRY::DISCOVERED_HANDSHAKES".as_bytes());
 
 /// Collection id of the singleton discovered-handshakes collection.
@@ -39,11 +39,11 @@ pub(crate) unconstrained fn record_discovered_handshake(
     );
 }
 
-/// Returns the discovered handshakes for `recipient`.
+/// Returns the discovered handshakes for `recipient`; only non-interactive handshakes are ever discovered.
 ///
 /// The order of facts within a collection is not specified, but it is stable, keeping
-/// [`HandshakeRegistry::get_handshakes`] pagination consistent across pages.
-pub(crate) unconstrained fn get_all_handshakes(
+/// [`HandshakeRegistry::get_non_interactive_handshakes`] pagination consistent across pages.
+pub(crate) unconstrained fn get_all_discovered_handshakes(
     contract_address: AztecAddress,
     recipient: AztecAddress,
 ) -> EphemeralArray<DiscoveredHandshake> {

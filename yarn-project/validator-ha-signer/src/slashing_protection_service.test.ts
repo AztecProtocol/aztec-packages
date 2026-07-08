@@ -55,7 +55,7 @@ describe('SlashingProtectionService', () => {
       rollupAddress: ROLLUP_ADDRESS,
       nodeId: NODE_ID,
       pollingIntervalMs: 50,
-      signingTimeoutMs: 1000,
+      peerSigningTimeoutMs: 1000,
       maxStuckDutiesAgeMs: 60_000,
     };
     const metrics = new HASignerMetrics(telemetryClient, NODE_ID);
@@ -299,7 +299,7 @@ describe('SlashingProtectionService', () => {
     });
 
     it('should timeout if signing takes too long', async () => {
-      const shortTimeoutConfig = { ...config, signingTimeoutMs: 200 };
+      const shortTimeoutConfig = { ...config, peerSigningTimeoutMs: 200 };
       const serviceWithShortTimeout = new SlashingProtectionService(db, shortTimeoutConfig, {
         metrics: new HASignerMetrics(telemetryClient, shortTimeoutConfig.nodeId),
         dateProvider,
@@ -1200,10 +1200,10 @@ describe('SlashingProtectionService', () => {
         const lockToken = await service.checkAndRecord(dutyParams);
 
         // Advance time past the signing timeout
-        dateProvider.advanceTime(config.signingTimeoutMs / 1000 + 1);
+        dateProvider.advanceTime(config.peerSigningTimeoutMs / 1000 + 1);
 
         // Verify time has advanced
-        expect(dateProvider.now()).toBeGreaterThan(initialTime + config.signingTimeoutMs);
+        expect(dateProvider.now()).toBeGreaterThan(initialTime + config.peerSigningTimeoutMs);
 
         // Complete the duty
         await service.recordSuccess({

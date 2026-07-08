@@ -505,6 +505,7 @@ describe('CalldataRetriever', () => {
             archiveRoot: Fr.random(),
             header: CheckpointHeader.random(),
             attestations: [],
+            verbatimAttestations: { signatureIndices: '0x', signaturesOrAddresses: '0x' },
             blockHash,
             feeAssetPriceModifier: 0n,
           };

@@ -306,12 +306,18 @@ export class BlockStore {
 
   /**
    * Append new checkpoints to the store's list.
+   * Checkpoints at the start of the batch that are already stored (e.g. re-included by an L1 reorg)
+   * are accepted if their archive root matches: their L1 metadata is updated but they are not
+   * re-inserted, and they are excluded from the returned array.
    * @param checkpoints - The L2 checkpoints to be added to the store.
-   * @returns True if the operation is successful.
+   * @returns The checkpoints that were actually inserted (excluding already-stored ones).
    */
-  async addCheckpoints(checkpoints: PublishedCheckpoint[], opts: { force?: boolean } = {}): Promise<boolean> {
+  async addCheckpoints(
+    checkpoints: PublishedCheckpoint[],
+    opts: { force?: boolean } = {},
+  ): Promise<PublishedCheckpoint[]> {
     if (checkpoints.length === 0) {
-      return true;
+      return [];
     }
 
     return await this.db.transactionAsync(async () => {
@@ -324,7 +330,7 @@ export class BlockStore {
       if (!opts.force && firstCheckpointNumber <= previousCheckpointNumber) {
         checkpoints = await this.skipOrUpdateAlreadyStoredCheckpoints(checkpoints, previousCheckpointNumber);
         if (checkpoints.length === 0) {
-          return true;
+          return [];
         }
         // Re-check sequentiality after skipping
         const newFirstNumber = checkpoints[0].checkpoint.number;
@@ -387,7 +393,7 @@ export class BlockStore {
       }
 
       await this.advanceSynchedL1BlockNumber(checkpoints[checkpoints.length - 1].l1.blockNumber);
-      return true;
+      return checkpoints;
     });
   }
 
@@ -619,6 +625,26 @@ export class BlockStore {
       checkpoints.push(this.checkpointDataFromCheckpointStorage(checkpoint));
     }
     return checkpoints;
+  }
+
+  /**
+   * Returns up to `limit` checkpoints anchored at `fromSlot`, ordered nearest-first, walking the slot index.
+   * With `reverse`, takes the checkpoints at or before `fromSlot` (descending by slot); otherwise the
+   * checkpoints at or after it (ascending). `limit: 1, reverse: true` yields the latest checkpoint at or
+   * before the slot in a single range scan.
+   */
+  async getCheckpointsBySlot(fromSlot: SlotNumber, limit: number, reverse: boolean): Promise<CheckpointData[]> {
+    // The KV range bounds are direction-dependent: forward is [start, end), reverse is (start, end], so a
+    // reverse scan uses `end: fromSlot` (inclusive) with no +1 to include the checkpoint at fromSlot itself.
+    const range = reverse ? { end: fromSlot, reverse: true, limit } : { start: fromSlot, limit };
+    const result: CheckpointData[] = [];
+    for await (const [, checkpointNumber] of this.#slotToCheckpoint.entriesAsync(range)) {
+      const checkpointStorage = await this.#checkpoints.getAsync(checkpointNumber);
+      if (checkpointStorage) {
+        result.push(this.checkpointDataFromCheckpointStorage(checkpointStorage));
+      }
+    }
+    return result;
   }
 
   /** Returns checkpoint data for all checkpoints whose slot falls within the given range (inclusive). */

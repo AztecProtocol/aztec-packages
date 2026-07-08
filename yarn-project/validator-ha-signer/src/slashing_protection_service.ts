@@ -26,6 +26,9 @@ export interface SlashingProtectionServiceDeps {
   dateProvider: DateProvider;
 }
 
+/** Default max age (ms) of a stuck SIGNING duty before cleanup reclaims it: 2x the 72s Aztec slot duration. */
+export const DEFAULT_MAX_STUCK_DUTIES_AGE_MS = 144_000;
+
 /**
  * Slashing Protection Service
  *
@@ -44,7 +47,7 @@ export interface SlashingProtectionServiceDeps {
 export class SlashingProtectionService {
   private readonly log: Logger;
   private readonly pollingIntervalMs: number;
-  private readonly signingTimeoutMs: number;
+  private readonly peerSigningTimeoutMs: number;
   private readonly maxStuckDutiesAgeMs: number;
 
   private readonly metrics: HASignerMetrics;
@@ -60,9 +63,8 @@ export class SlashingProtectionService {
   ) {
     this.log = createLogger('slashing-protection');
     this.pollingIntervalMs = config.pollingIntervalMs;
-    this.signingTimeoutMs = config.signingTimeoutMs;
-    // Default to 144s (2x 72s Aztec slot duration) if not explicitly configured
-    this.maxStuckDutiesAgeMs = config.maxStuckDutiesAgeMs ?? 144_000;
+    this.peerSigningTimeoutMs = config.peerSigningTimeoutMs;
+    this.maxStuckDutiesAgeMs = config.maxStuckDutiesAgeMs ?? DEFAULT_MAX_STUCK_DUTIES_AGE_MS;
 
     this.cleanupRunningPromise = new RunningPromise(this.cleanup.bind(this), this.log, this.maxStuckDutiesAgeMs);
     this.metrics = deps.metrics;
@@ -132,10 +134,10 @@ export class SlashingProtectionService {
         throw new DutyAlreadySignedError(slot, dutyType, record.blockIndexWithinCheckpoint, record.nodeId);
       } else if (record.status === DutyStatus.SIGNING) {
         // Another node is currently signing - check for timeout
-        if (this.dateProvider.now() - startTime > this.signingTimeoutMs) {
+        if (this.dateProvider.now() - startTime > this.peerSigningTimeoutMs) {
           this.log.warn(`Timeout waiting for signing to complete for duty ${dutyType} at slot ${slot}`, {
             validatorAddress: validatorAddress.toString(),
-            timeoutMs: this.signingTimeoutMs,
+            timeoutMs: this.peerSigningTimeoutMs,
             signingNodeId: record.nodeId,
           });
           this.metrics.recordDutyAlreadySigned(dutyType);
@@ -275,7 +277,10 @@ export class SlashingProtectionService {
    * Runs in the background via RunningPromise.
    */
   private async cleanup() {
-    // 1. Clean up stuck duties (our own node's duties that got stuck in 'signing' status)
+    // 1. Clean up stuck duties (our own node's duties that got stuck in 'signing' status).
+    // This cannot race an in-flight signing: every signing operation is hard-bounded by a timeout
+    // clamped below maxStuckDutiesAgeMs / 2 (see ValidatorHASigner), so a live SIGNING row is
+    // always released long before it can be considered stuck.
     const numStuckDuties = await this.db.cleanupOwnStuckDuties(this.config.nodeId, this.maxStuckDutiesAgeMs);
     if (numStuckDuties > 0) {
       this.log.verbose(`Cleaned up ${numStuckDuties} stuck duties`, {

@@ -336,122 +336,60 @@ describe('single-node/block-building/block_building', () => {
 
     afterAll(() => test.teardown());
 
-    // Regressions for https://github.com/AztecProtocol/aztec-packages/issues/2502
-    // Note that the order in which the TX are processed is not guaranteed.
-    // Both txs race to the same block; exactly one succeeds and the other fails.
-    describe('in the same block, different tx', () => {
-      // Sends two private emit_nullifier txs with the same nullifier simultaneously;
-      // asserts one succeeds and one rejects with DUPLICATE_NULLIFIER_ERROR.
-      it('private <-> private', async () => {
+    // Regressions for https://github.com/AztecProtocol/aztec-packages/issues/2502.
+    // Note that the order in which the TXs are processed is not guaranteed.
+    type NullifierKind = 'private' | 'public';
+    const emitNullifier = (kind: NullifierKind, nullifier: Fr) =>
+      kind === 'private'
+        ? contract.methods.emit_nullifier(nullifier)
+        : contract.methods.emit_nullifier_public(nullifier);
+
+    // Each row double-spends the same nullifier across the two named emission surfaces. Same-block races
+    // (both txs sent simultaneously) admit one tx and reject the loser at block building. Across-block
+    // cases send sequentially: a private second tx is caught at simulation (TX_ERROR_EXISTING_NULLIFIER),
+    // a public second tx is caught by the sequencer (DUPLICATE_NULLIFIER_ERROR).
+    const doubleSpendCases: {
+      firstKind: NullifierKind;
+      secondKind: NullifierKind;
+      sameBlock: boolean;
+      expectedError: string | RegExp;
+    }[] = [
+      { firstKind: 'private', secondKind: 'private', sameBlock: true, expectedError: DUPLICATE_NULLIFIER_ERROR },
+      { firstKind: 'public', secondKind: 'public', sameBlock: true, expectedError: DUPLICATE_NULLIFIER_ERROR },
+      { firstKind: 'private', secondKind: 'public', sameBlock: true, expectedError: DUPLICATE_NULLIFIER_ERROR },
+      { firstKind: 'public', secondKind: 'private', sameBlock: true, expectedError: DUPLICATE_NULLIFIER_ERROR },
+      { firstKind: 'private', secondKind: 'private', sameBlock: false, expectedError: TX_ERROR_EXISTING_NULLIFIER },
+      { firstKind: 'public', secondKind: 'public', sameBlock: false, expectedError: DUPLICATE_NULLIFIER_ERROR },
+      { firstKind: 'private', secondKind: 'public', sameBlock: false, expectedError: DUPLICATE_NULLIFIER_ERROR },
+      { firstKind: 'public', secondKind: 'private', sameBlock: false, expectedError: TX_ERROR_EXISTING_NULLIFIER },
+    ];
+
+    it.each(doubleSpendCases)(
+      'rejects a $firstKind then $secondKind double-spend (sameBlock=$sameBlock)',
+      async ({ firstKind, secondKind, sameBlock, expectedError }) => {
         const nullifier = Fr.random();
-        const txs = await sendAndWait(
-          [contract.methods.emit_nullifier(nullifier), contract.methods.emit_nullifier(nullifier)],
-          ownerAddress,
-        );
+        if (sameBlock) {
+          const txs = await sendAndWait(
+            [emitNullifier(firstKind, nullifier), emitNullifier(secondKind, nullifier)],
+            ownerAddress,
+          );
 
-        // One transaction should succeed, the other should fail, but in any order.
-        expect(txs).toIncludeSameMembers([
-          { status: 'fulfilled', value: expect.anything() },
-          {
-            status: 'rejected',
-            reason: expect.objectContaining({ message: expect.stringMatching(DUPLICATE_NULLIFIER_ERROR) }),
-          },
-        ]);
-      });
-
-      // Same as private<->private but both txs use public nullifier emission.
-      it('public -> public', async () => {
-        const nullifier = Fr.random();
-        const txs = await sendAndWait(
-          [contract.methods.emit_nullifier_public(nullifier), contract.methods.emit_nullifier_public(nullifier)],
-          ownerAddress,
-        );
-
-        // One transaction should succeed, the other should fail, but in any order.
-        expect(txs).toIncludeSameMembers([
-          { status: 'fulfilled', value: expect.anything() },
-          {
-            status: 'rejected',
-            reason: expect.objectContaining({ message: expect.stringMatching(DUPLICATE_NULLIFIER_ERROR) }),
-          },
-        ]);
-      });
-
-      // One private and one public tx emit the same nullifier simultaneously; one must fail.
-      it('private -> public', async () => {
-        const nullifier = Fr.random();
-        const txs = await sendAndWait(
-          [contract.methods.emit_nullifier(nullifier), contract.methods.emit_nullifier_public(nullifier)],
-          ownerAddress,
-        );
-
-        // One transaction should succeed, the other should fail, but in any order.
-        expect(txs).toIncludeSameMembers([
-          { status: 'fulfilled', value: expect.anything() },
-          {
-            status: 'rejected',
-            reason: expect.objectContaining({ message: expect.stringMatching(DUPLICATE_NULLIFIER_ERROR) }),
-          },
-        ]);
-      });
-
-      // One public and one private tx emit the same nullifier simultaneously; one must fail.
-      it('public -> private', async () => {
-        const nullifier = Fr.random();
-        const txs = await sendAndWait(
-          [contract.methods.emit_nullifier_public(nullifier), contract.methods.emit_nullifier(nullifier)],
-          ownerAddress,
-        );
-
-        // One transaction should succeed, the other should fail, but in any order.
-        expect(txs).toIncludeSameMembers([
-          { status: 'fulfilled', value: expect.anything() },
-          {
-            status: 'rejected',
-            reason: expect.objectContaining({ message: expect.stringMatching(DUPLICATE_NULLIFIER_ERROR) }),
-          },
-        ]);
-      });
-    });
-
-    // Double-spend rejection when the second tx arrives in a later block (nullifier already in the tree).
-    describe('across blocks', () => {
-      // Emits a private nullifier, then tries to emit the same in a subsequent tx and expects rejection.
-      it('private -> private', async () => {
-        const nullifier = Fr.random();
-        await contract.methods.emit_nullifier(nullifier).send({ from: ownerAddress });
-        await expect(contract.methods.emit_nullifier(nullifier).send({ from: ownerAddress })).rejects.toThrow(
-          TX_ERROR_EXISTING_NULLIFIER,
-        );
-      });
-
-      // Emits a public nullifier, then tries again in a subsequent tx and expects rejection.
-      it('public -> public', async () => {
-        const nullifier = Fr.random();
-        await contract.methods.emit_nullifier_public(nullifier).send({ from: ownerAddress });
-        await expect(contract.methods.emit_nullifier_public(nullifier).send({ from: ownerAddress })).rejects.toThrow(
-          DUPLICATE_NULLIFIER_ERROR,
-        );
-      });
-
-      // Emits via private then tries public with the same nullifier in a later block; expects rejection.
-      it('private -> public', async () => {
-        const nullifier = Fr.random();
-        await contract.methods.emit_nullifier(nullifier).send({ from: ownerAddress });
-        await expect(contract.methods.emit_nullifier_public(nullifier).send({ from: ownerAddress })).rejects.toThrow(
-          DUPLICATE_NULLIFIER_ERROR,
-        );
-      });
-
-      // Emits via public then tries private with the same nullifier in a later block; expects rejection.
-      it('public -> private', async () => {
-        const nullifier = Fr.random();
-        await contract.methods.emit_nullifier_public(nullifier).send({ from: ownerAddress });
-        await expect(contract.methods.emit_nullifier(nullifier).send({ from: ownerAddress })).rejects.toThrow(
-          TX_ERROR_EXISTING_NULLIFIER,
-        );
-      });
-    });
+          // One transaction should succeed, the other should fail, but in any order.
+          expect(txs).toIncludeSameMembers([
+            { status: 'fulfilled', value: expect.anything() },
+            {
+              status: 'rejected',
+              reason: expect.objectContaining({ message: expect.stringMatching(expectedError) }),
+            },
+          ]);
+        } else {
+          await emitNullifier(firstKind, nullifier).send({ from: ownerAddress });
+          await expect(emitNullifier(secondKind, nullifier).send({ from: ownerAddress })).rejects.toThrow(
+            expectedError,
+          );
+        }
+      },
+    );
   });
 
   // Verifies that private encrypted logs and unencrypted logs emitted from nested calls are ordered
@@ -565,7 +503,11 @@ describe('single-node/block-building/block_building', () => {
 
       const [accountData] = test.context.additionallyFundedAccounts;
 
-      const accountManager = await (wallet as TestWallet).createSchnorrAccount(accountData.secret, accountData.salt);
+      const accountManager = await (wallet as TestWallet).createSchnorrAccount(
+        accountData.secret,
+        accountData.salt,
+        accountData.signingKey,
+      );
       const deployMethod = await accountManager.getDeployMethod();
       await deployMethod.send({
         from: NO_FROM,

@@ -20,14 +20,14 @@ yarn add @aztec/aztec.js@#include_version_without_prefix @aztec/wallets@#include
 
 ## Create a new account
 
-Using the [`wallet` from the connection guide](./how_to_connect_to_local_network.md), call `createSchnorrAccount` to create a new account with a random secret and salt:
+Using the [`wallet` from the connection guide](./how_to_connect_to_local_network.md), call `createSchnorrAccount` to create a new account with a random secret, salt, and signing key:
 
 #include_code create_account /docs/examples/ts/aztecjs_connection/index.ts typescript
 
-The secret is used to derive the account's encryption keys, and the salt ensures address uniqueness. The signing key is automatically derived from the secret.
+The secret derives the account's encryption keys, the signing key authenticates its transactions, and the salt ensures address uniqueness. The signing key is provided independently and is not derived from the secret: it is an ownership key, so keep it separate from the encryption secret that your PXE holds.
 
-:::warning Store your secret and salt
-Save the `secret` and `salt` values securely. You need both to recover access to your account. If you lose them, you will permanently lose access to the account and any assets it holds.
+:::warning Store your secret, salt, and signing key
+Save the `secret`, `salt`, and `signingKey` values securely. You need all three to recover access to your account. If you lose them, you will permanently lose access to the account and any assets it holds.
 :::
 
 ## Deploy the account
