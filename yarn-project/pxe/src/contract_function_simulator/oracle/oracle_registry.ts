@@ -3,6 +3,7 @@ import { ARCHIVE_HEIGHT, NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { FieldReader } from '@aztec/foundation/serialize';
 import { toACVMField } from '@aztec/simulator/client';
+import type { UnsiloedMessageNullifier } from '@aztec/stdlib/messaging';
 
 import {
   ARRAY,
@@ -45,6 +46,7 @@ import {
   RESOLVED_TAGGING_STRATEGY,
   RESOLVED_TX,
   STR,
+  STRUCT,
   TX_EFFECT,
   TX_HASH,
   type TypeMapping,
@@ -183,11 +185,18 @@ export const ORACLE_REGISTRY = {
     returnType: BOOL,
   }),
 
-  aztec_utl_getL1ToL2MembershipWitness: makeEntry({
+  aztec_utl_getL1ToL2MembershipWitnessV2: makeEntry({
     params: [
-      { name: 'contractAddress', type: AZTEC_ADDRESS },
       { name: 'messageHash', type: FIELD },
-      { name: 'secret', type: FIELD },
+      {
+        name: 'nullifier',
+        type: OPTION(
+          STRUCT<UnsiloedMessageNullifier>([
+            { name: 'contractAddress', type: AZTEC_ADDRESS },
+            { name: 'nullifier', type: FIELD },
+          ]),
+        ),
+      },
     ],
     returnType: MESSAGE_LOAD_ORACLE_INPUTS,
   }),
