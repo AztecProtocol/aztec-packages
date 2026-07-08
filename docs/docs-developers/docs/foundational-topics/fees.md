@@ -103,7 +103,7 @@ In `aztec.js`, the `L1FeeJuicePortalManager` class handles the L1 side (token ap
 
 ### Payment methods
 
-An account with Fee Juice can pay for its transactions directly. A new account can even pay for its own deployment transaction, provided Fee Juice was bridged to its address before deployment.
+An account with Fee Juice can pay for its transactions directly. A new account can even pay for its own deployment transaction, provided Fee Juice was bridged to its address before deployment. [Initializerless accounts](./accounts/deployment.md) skip the deployment transaction entirely, so they only need fees once they send their first real transaction.
 
 Alternatively, accounts can use [fee-paying contracts (FPCs)](../aztec-js/how_to_pay_fees.md#use-fee-payment-contracts) to pay for transactions. An FPC holds its own Fee Juice balance to pay the protocol, and can accept other tokens from users in exchange.
 
