@@ -117,8 +117,7 @@ describe('AppTaggingSecret', () => {
       expect(parsed).toBeInstanceOf(AppTaggingSecret);
       expect(parsed.kind).toBe(AppTaggingSecretKind.UNCONSTRAINED);
       expect(parsed.toString()).toBe(original.toString());
-      // Unconstrained secrets emit the same kind-prefixed format as constrained ones; there is no longer a
-      // legacy two-part form.
+      // Unconstrained secrets emit the same kind-prefixed format as constrained ones
       expect(original.toString()).toBe(
         `${AppTaggingSecretKind.UNCONSTRAINED}:${original.secret.toString()}:${original.app.toString()}`,
       );
@@ -133,7 +132,7 @@ describe('AppTaggingSecret', () => {
       expect(parsed.toString()).toBe(original.toString());
     });
 
-    it('rejects the legacy two-part format', async () => {
+    it('rejects a string that is not three-part', async () => {
       const original = await randomAppTaggingSecret(AppTaggingSecretKind.UNCONSTRAINED);
 
       expect(() => AppTaggingSecret.fromString(`${original.secret.toString()}:${original.app.toString()}`)).toThrow(
