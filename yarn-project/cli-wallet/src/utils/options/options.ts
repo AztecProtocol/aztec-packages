@@ -1,5 +1,5 @@
 import { TxHash } from '@aztec/aztec.js/tx';
-import { parseAztecAddress, parseSecretKey, parseTxHash } from '@aztec/cli/utils';
+import { parseAztecAddress, parseSigningKey, parseTxHash } from '@aztec/cli/utils';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
@@ -64,13 +64,13 @@ export function aliasedAddressParser(defaultPrefix: AliasType, address: string, 
   }
 }
 
-export function aliasedSecretKeyParser(sk: string, db?: WalletDB) {
+export function aliasedSigningKeyParser(sk: string, db?: WalletDB) {
   if (sk.startsWith('0x')) {
-    return parseSecretKey(sk);
+    return parseSigningKey(sk);
   } else {
-    const prefixed = `${sk.startsWith('accounts') ? '' : 'accounts'}:${sk.endsWith(':sk') ? sk : `${sk}:sk`}`;
+    const prefixed = `${sk.startsWith('accounts') ? '' : 'accounts'}:${sk.endsWith(':signing') ? sk : `${sk}:signing`}`;
     const rawSk = db ? db.tryRetrieveAlias(prefixed) : sk;
-    return parseSecretKey(rawSk);
+    return parseSigningKey(rawSk);
   }
 }
 

@@ -52,6 +52,8 @@ pub global GET_APP_SILOED_SECRETS_SELECTOR: FunctionSelector =
     comptime { FunctionSelector::from_signature("get_app_siloed_secrets((Field),(Field))") };
 pub global NON_INTERACTIVE_HANDSHAKE_SELECTOR: FunctionSelector =
     comptime { FunctionSelector::from_signature("non_interactive_handshake((Field),(Field))") };
+pub global INTERACTIVE_HANDSHAKE_SELECTOR: FunctionSelector =
+    comptime { FunctionSelector::from_signature("interactive_handshake((Field),(Field))") };
 pub global GET_NON_INTERACTIVE_HANDSHAKES_SELECTOR: FunctionSelector =
     comptime { FunctionSelector::from_signature("get_non_interactive_handshakes((Field),u32)") };
 
@@ -82,7 +84,7 @@ pub(crate) unconstrained fn get_existing_app_siloed_handshake_secrets(
 ///
 /// The registry inserts a fresh handshake note and returns the app-siloed secrets. The constrained return value is the
 /// source of truth for the secrets, so constrained delivery anchoring a freshly bootstrapped handshake needs no
-/// separate `validate_handshake`.
+/// separate call to the registry's `validate_handshake`.
 ///
 /// Any handshake already registered for the pair is overwritten.
 pub(crate) fn create_non_interactive_handshake(
@@ -91,10 +93,26 @@ pub(crate) fn create_non_interactive_handshake(
     sender: AztecAddress,
     recipient: AztecAddress,
 ) -> AppSiloedHandshakeSecrets {
-    // TODO(F-660): dispatch to `perform_handshake(sender, recipient, handshake_type)` once interactive handshakes
-    // are supported.
     context
         .call_private_function(registry, NON_INTERACTIVE_HANDSHAKE_SELECTOR, [sender.to_field(), recipient.to_field()])
+        .get_preimage()
+}
+
+/// Establishes an interactive handshake for `(sender, recipient)` and returns its app-siloed secrets.
+///
+/// As with [`create_non_interactive_handshake`], the constrained return value is the source of truth for the
+/// secrets, so constrained delivery anchoring a freshly bootstrapped handshake needs no separate call to the
+/// registry's `validate_handshake`.
+///
+/// Any handshake already registered for the pair is overwritten.
+pub(crate) fn create_interactive_handshake(
+    context: &mut PrivateContext,
+    registry: AztecAddress,
+    sender: AztecAddress,
+    recipient: AztecAddress,
+) -> AppSiloedHandshakeSecrets {
+    context
+        .call_private_function(registry, INTERACTIVE_HANDSHAKE_SELECTOR, [sender.to_field(), recipient.to_field()])
         .get_preimage()
 }
 

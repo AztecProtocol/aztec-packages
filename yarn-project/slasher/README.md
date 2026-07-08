@@ -122,6 +122,12 @@ List of all slashable offenses in the system:
 **Target**: Proposer who broadcast the duplicate proposal.
 **Time Unit**: Slot-based offense.
 
+### DUPLICATE_ATTESTATION
+**Description**: A validator signed attestations for different checkpoint proposals (different archives) at the same slot. Validators must attest to at most one checkpoint per slot, so signing conflicting attestations is equivocation.
+**Detection**: The P2P AttestationPool tracks attestations by slot and signer. A second attestation from the same signer for a different proposal at the same slot triggers the duplicate-attestation callback; the duplicate is propagated (Accept) so other validators can witness the offense. The ValidatorClient emits the slash event.
+**Target**: The attester who equivocated.
+**Time Unit**: Slot-based offense.
+
 ### ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL
 **Description**: A committee member attested to a checkpoint proposal in a slot where this node detected a slashable invalid block proposal.
 **Detection**: ValidatorClient marks slots with invalid block proposals detected via reexecution and slashes checkpoint attesters seen for that slot. If proposal equivocation is later detected for the slot, pending bad-attestation offenses are cleared.
@@ -173,6 +179,7 @@ with divergent validation limits.
 - `slashBroadcastedInvalidBlockPenalty`: Penalty for BROADCASTED_INVALID_BLOCK_PROPOSAL
 - `slashBroadcastedInvalidCheckpointProposalPenalty`: Penalty for BROADCASTED_INVALID_CHECKPOINT_PROPOSAL
 - `slashDuplicateProposalPenalty`: Penalty for DUPLICATE_PROPOSAL
+- `slashDuplicateAttestationPenalty`: Penalty for DUPLICATE_ATTESTATION
 - `slashProposeInvalidAttestationsPenalty`: Penalty for PROPOSED_INSUFFICIENT_ATTESTATIONS and PROPOSED_INCORRECT_ATTESTATIONS
 - `slashProposeDescendantOfCheckpointWithInvalidAttestationsPenalty`: Penalty for PROPOSED_DESCENDANT_OF_CHECKPOINT_WITH_INVALID_ATTESTATIONS
 - `slashAttestInvalidCheckpointProposalPenalty`: Penalty for ATTESTED_TO_INVALID_CHECKPOINT_PROPOSAL

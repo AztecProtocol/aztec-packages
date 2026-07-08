@@ -2,6 +2,7 @@ import {
   type ConfigMappingsType,
   SecretValue,
   booleanConfigHelper,
+  floatConfigHelper,
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
@@ -103,7 +104,7 @@ export const BotConfigSchema = zodFor<BotConfig>()(
       privateTransfersPerTx: z.number().int().nonnegative(),
       publicTransfersPerTx: z.number().int().nonnegative(),
       feePaymentMethod: z.literal('fee_juice'),
-      minFeePadding: z.number().int().nonnegative(),
+      minFeePadding: z.number().nonnegative(),
       noStart: z.boolean(),
       txMinedWaitSeconds: z.number(),
       followChain: z.enum(BotFollowChain),
@@ -204,7 +205,7 @@ export const botConfigMappings: ConfigMappingsType<BotConfig> = {
   minFeePadding: {
     env: 'BOT_MIN_FEE_PADDING',
     description: 'How much is the bot willing to overpay vs. the current base fee',
-    ...numberConfigHelper(3),
+    ...floatConfigHelper(3),
   },
   noStart: {
     env: 'BOT_NO_START',

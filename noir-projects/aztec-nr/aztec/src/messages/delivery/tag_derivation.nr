@@ -9,6 +9,7 @@ use crate::standard_addresses::STANDARD_HANDSHAKE_REGISTRY_ADDRESS;
 
 global NON_INTERACTIVE_HANDSHAKE: u8 = 1;
 global ADDRESS_DERIVED: u8 = 2;
+global INTERACTIVE_HANDSHAKE: u8 = 3;
 
 /// A contract's choice of tag-secret derivation.
 ///
@@ -23,9 +24,14 @@ pub(crate) struct TagDerivation {
 }
 
 impl TagDerivation {
-    /// Reuses an existing non-interactive handshake for the pair, creating a fresh one only when none exists.
+    /// Reuses an existing handshake for the pair, creating a fresh non-interactive one only when none exists.
     pub(crate) fn non_interactive_handshake() -> Self {
         Self { kind: NON_INTERACTIVE_HANDSHAKE }
+    }
+
+    /// Reuses an existing handshake for the pair, creating a fresh interactive one only when none exists.
+    pub(crate) fn interactive_handshake() -> Self {
+        Self { kind: INTERACTIVE_HANDSHAKE }
     }
 
     /// Derives the tag from the address-derived secret for the `(sender, recipient)` pair (a Diffie-Hellman exchange
@@ -52,6 +58,12 @@ impl TagDerivation {
                 recipient,
                 || TagSecretSource::new_non_interactive_handshake(context, sender, recipient),
             )
+        } else if self.kind == INTERACTIVE_HANDSHAKE {
+            existing_handshake_secrets_or_else(
+                sender,
+                recipient,
+                || TagSecretSource::new_interactive_handshake(context, sender, recipient),
+            )
         } else {
             // Safety: the secret is untrusted, but address-derived tagging is unconstrained-only, where a wrong
             // secret only yields an undiscoverable tag. An invalid recipient has no shared secret, so we fall back
@@ -62,8 +74,8 @@ impl TagDerivation {
     }
 }
 
-/// Resolves to the secrets of a non-interactive handshake already registered for `(sender, recipient)`, or to
-/// `fallback()` when none exists yet.
+/// Resolves to the secrets of a handshake already registered for `(sender, recipient)` (handshakes of either type
+/// back both delivery modes), or to `fallback()` when none exists yet.
 pub(crate) fn existing_handshake_secrets_or_else<Env>(
     sender: AztecAddress,
     recipient: AztecAddress,
@@ -145,11 +157,38 @@ mod test {
         });
     }
 
+    #[test]
+    unconstrained fn interactive_handshake_reuses_an_existing_handshake() {
+        let env = TestEnvironment::new();
+        let secrets = AppSiloedHandshakeSecrets { shared: 7, sender_only: 99 };
+
+        env.private_context(|context| {
+            mock_existing_handshake_secrets(Option::some(secrets));
+
+            let source = TagDerivation::interactive_handshake().into_tag_secret_source(context, SENDER, RECIPIENT);
+            assert_eq(source, TagSecretSource::existing_handshake(secrets));
+        });
+    }
+
+    #[test]
+    unconstrained fn interactive_handshake_creates_a_fresh_one_when_none_exists() {
+        let env = TestEnvironment::new();
+        let secrets = AppSiloedHandshakeSecrets { shared: 7, sender_only: 99 };
+
+        env.private_context(|context| {
+            mock_existing_handshake_secrets(Option::none());
+            mock_handshake_creation(context, secrets);
+
+            let source = TagDerivation::interactive_handshake().into_tag_secret_source(context, SENDER, RECIPIENT);
+            assert_eq(source.tag_secret(), secrets.shared);
+        });
+    }
+
     unconstrained fn mock_existing_handshake_secrets(maybe_secrets: Option<AppSiloedHandshakeSecrets>) {
         let _ = OracleMock::mock("aztec_utl_callUtilityFunction").returns(maybe_secrets.serialize());
     }
 
-    // The registry's `non_interactive_handshake` call returns the app-siloed secrets via the returns cache.
+    // The registry's handshake creation call returns the app-siloed secrets via the returns cache.
     unconstrained fn mock_handshake_creation(context: &mut PrivateContext, secrets: AppSiloedHandshakeSecrets) {
         let returns = secrets.serialize();
         let returns_hash = hash_args(returns);

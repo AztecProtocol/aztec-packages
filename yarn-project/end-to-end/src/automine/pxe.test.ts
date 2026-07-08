@@ -18,12 +18,15 @@ describe('automine/pxe', () => {
   let contract: TestContract;
 
   beforeAll(async () => {
+    const test = await AutomineTestContext.setup({ numberOfAccounts: 1 });
     ({
       teardown,
       wallet,
       accounts: [defaultAccountAddress],
-    } = (await AutomineTestContext.setup({ numberOfAccounts: 1 })).context);
-    ({ contract } = await TestContract.deploy(wallet).send({ from: defaultAccountAddress }));
+    } = test.context);
+    // The test only calls the noinitcheck private `emit_nullifier`, so register the contract instead of
+    // deploying it — this avoids a deployment tx and its checkpoint cycle.
+    contract = await test.registerContract(wallet, TestContract);
   });
 
   afterAll(() => teardown());

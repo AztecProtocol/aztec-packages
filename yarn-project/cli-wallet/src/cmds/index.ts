@@ -4,7 +4,7 @@ import {
   ETHEREUM_HOSTS,
   PRIVATE_KEY,
   addOptions,
-  createSecretKeyOption,
+  createSigningKeyOption,
   l1ChainIdOption,
   parseBigint,
   parseFieldFromHexString,
@@ -24,7 +24,7 @@ import {
   ARTIFACT_DESCRIPTION,
   CLIFeeArgs,
   aliasedAddressParser,
-  aliasedSecretKeyParser,
+  aliasedSigningKeyParser,
   aliasedTxHashParser,
   artifactPathFromPromiseOrAlias,
   artifactPathParser,
@@ -96,8 +96,8 @@ export function injectCommands(
       'Public key that identifies a private signing key stored outside of the wallet. Used for ECDSA SSH accounts over the secp256r1 curve.',
     )
     .addOption(
-      createSecretKeyOption('Secret key for account. Uses random by default.', false, sk =>
-        aliasedSecretKeyParser(sk, db),
+      createSigningKeyOption('Signing key for account. Uses random by default.', false, sk =>
+        aliasedSigningKeyParser(sk, db),
       ).conflicts('public-key'),
     )
     .addOption(createAliasOption('Alias for the account. Used for easy reference in subsequent commands.', !db))
@@ -124,7 +124,7 @@ export function injectCommands(
     const {
       type,
       from: parsedFromAddress,
-      secretKey,
+      signingKey,
       salt,
       wait,
       waitForStatus: waitForStatusStr,
@@ -156,7 +156,7 @@ export function injectCommands(
       wallet,
       node,
       type,
-      secretKey,
+      signingKey,
       salt,
       publicKey,
       alias,
@@ -174,8 +174,8 @@ export function injectCommands(
       log,
     );
     if (db) {
-      const { address, alias, secretKey, salt } = accountCreationResult;
-      await db.storeAccount(address, { type, secretKey, salt, alias, publicKey }, log);
+      const { address, alias, signingKey, secretKey, salt } = accountCreationResult;
+      await db.storeAccount(address, { type, signingKey, secretKey, salt, alias, publicKey }, log);
     }
   });
 
@@ -399,7 +399,9 @@ export function injectCommands(
     .addOption(createContractAddressOption(db))
     .addOption(createArtifactOption(db))
     .addOption(
-      createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)).conflicts('account'),
+      createSigningKeyOption("The sender's signing key", !db, sk => aliasedSigningKeyParser(sk, db)).conflicts(
+        'account',
+      ),
     )
     .addOption(createAuthwitnessOption('Authorization witness to use for the simulation', !db, db))
     .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))

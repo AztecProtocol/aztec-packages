@@ -292,7 +292,7 @@ export const ETH_ADDRESS: TypeMapping<EthAddress> = {
   shape: ['scalar'],
 };
 
-const SLOT_NUMBER: TypeMapping<SlotNumber> = {
+export const SLOT_NUMBER: TypeMapping<SlotNumber> = {
   serialization: { fn: v => [new Fr(v)] },
   shape: ['scalar'],
 };
@@ -619,20 +619,26 @@ export function ARRAY<T>(inner: TypeMapping<T>): TypeMapping<T[]> & { kind: 'arr
 }
 
 /**
- * Noir's fixed-length array `[T; maxLength]` in one slot: serializes `values` (each flattened via `element`)
- * zero-padded to exactly `maxLength * elementWidth` fields, and deserializes all `maxLength` elements back. An absent
+ * Noir's fixed-length array `[T; length]` in one slot: serializes `values` (each flattened via `element`)
+ * zero-padded to exactly `length * elementWidth` fields, and deserializes all `length` elements back. An absent
  * element is the zero encoding, so the padding is derived from the shape.
  */
-export function FIXED_ARRAY<T>(element: TypeMapping<T>, maxLength: number): TypeMapping<T[]> {
+export function FIXED_ARRAY<T>(
+  element: TypeMapping<T>,
+  length: number,
+): TypeMapping<T[]> & { kind: 'fixed-array'; inner: TypeMapping<T>; length: number } {
   const elementWidth = fieldWidth(element.shape);
   return {
+    kind: 'fixed-array',
+    inner: element,
+    length,
     serialization: element.serialization
-      ? { fn: values => [padArrayEnd(packElements(element, values), Fr.ZERO, maxLength * elementWidth)] }
+      ? { fn: values => [padArrayEnd(packElements(element, values), Fr.ZERO, length * elementWidth)] }
       : undefined,
     deserialization: element.deserialization
-      ? { fn: ([reader]) => unpackElements(element, reader, maxLength) }
+      ? { fn: ([reader]) => unpackElements(element, reader, length) }
       : undefined,
-    shape: [{ len: maxLength * elementWidth }],
+    shape: [{ len: length * elementWidth }],
   };
 }
 
@@ -692,9 +698,15 @@ export function BOUNDED_VEC<T>(
  * (zero-padded) followed by the actual length, with no length prefix, so the width is statically known. Serialize-only.
  * Throws if the input exceeds `maxLength`.
  */
-export function FIXED_BOUNDED_VEC<T>(element: TypeMapping<T>, maxLength: number): TypeMapping<T[]> {
+export function FIXED_BOUNDED_VEC<T>(
+  element: TypeMapping<T>,
+  maxLength: number,
+): TypeMapping<T[]> & { kind: 'fixed-bounded-vec'; inner: TypeMapping<T>; maxLength: number } {
   const width = fieldWidth(element.shape);
   return {
+    kind: 'fixed-bounded-vec',
+    inner: element,
+    maxLength,
     serialization: element.serialization
       ? {
           fn: values => {
@@ -805,15 +817,19 @@ export function EPHEMERAL_ARRAY<T>(element: TypeMapping<T>): TypeMapping<Ephemer
 }
 
 /** A named field within a {@link STRUCT}: it owns however many wire slots its {@link TypeMapping} declares. */
-type StructField<TName extends string = string, T = any> = { name: TName; type: TypeMapping<T> };
+export type StructField<TName extends string = string, T = any> = { name: TName; type: TypeMapping<T> };
 
 /**
  * A Noir struct: its `shape` and (de)serialization are the concatenation of its fields', so callers never hand-write a
  * `shape`. `T` is the struct's TS value type and must match the field layout — serialization reads each field by name
  * off the value, deserialization returns the decoded bag as `T`; convert in the handler, not here, when `T` differs.
  */
-export function STRUCT<T>(fields: readonly StructField[]): TypeMapping<T> {
+export function STRUCT<T>(
+  fields: readonly StructField[],
+): TypeMapping<T> & { kind: 'struct'; fields: readonly StructField[] } {
   return {
+    kind: 'struct',
+    fields,
     serialization: fields.every(f => f.type.serialization)
       ? {
           fn: (value: T) => {
@@ -846,7 +862,7 @@ export function slotsOf(mapping: TypeMapping): number {
 }
 
 /** Number of fields a fully-static shape occupies, or `undefined` if any slot is variable-width. */
-function tryFieldWidth(shape: SlotShape[]): number | undefined {
+export function tryFieldWidth(shape: SlotShape[]): number | undefined {
   let total = 0;
   for (const slot of shape) {
     if (slot === 'scalar') {

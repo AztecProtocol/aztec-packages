@@ -45,11 +45,12 @@ console.log(`Alice's fee juice balance: ${aliceBalance}`);
 // docs:end:check_fee_juice
 
 // docs:start:create_account
-import { Fr } from "@aztec/aztec.js/fields";
+import { Fr, GrumpkinScalar } from "@aztec/aztec.js/fields";
 
 const secret = Fr.random();
 const salt = Fr.random();
-const newAccount = await wallet.createSchnorrAccount(secret, salt);
+const signingKey = GrumpkinScalar.random();
+const newAccount = await wallet.createSchnorrAccount(secret, salt, signingKey);
 console.log("New account address:", newAccount.address.toString());
 // docs:end:create_account
 
@@ -87,9 +88,11 @@ await deployMethod.send({
 // can coexist in one example; in your own code, pick whichever name fits.
 const feeJuiceSecret = Fr.random();
 const feeJuiceSalt = Fr.random();
+const feeJuiceSigningKey = GrumpkinScalar.random();
 const feeJuiceAccount = await wallet.createSchnorrAccount(
   feeJuiceSecret,
   feeJuiceSalt,
+  feeJuiceSigningKey,
 );
 // docs:end:create_fee_juice_account
 

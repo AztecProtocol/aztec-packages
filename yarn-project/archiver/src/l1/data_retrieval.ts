@@ -12,6 +12,7 @@ import type {
   InboxContract,
   MessageSentLog,
   RollupContract,
+  ViemCommitteeAttestations,
   ViemHeader,
 } from '@aztec/ethereum/contracts';
 import type { ViemPublicClient, ViemPublicDebugClient } from '@aztec/ethereum/types';
@@ -56,6 +57,11 @@ export type RetrievedCheckpointFromCalldata = RetrievedCheckpointBase & {
   blobHashes: Buffer[];
   /** Parent beacon block root from the L1 block, used for blob fetching. */
   parentBeaconBlockRoot: string | undefined;
+  /**
+   * The exact packed `CommitteeAttestations` tuple from the propose calldata, carried verbatim so that
+   * attestation validation can attach byte-faithful invalidation evidence to a negative result.
+   */
+  verbatimAttestations: ViemCommitteeAttestations;
 };
 
 export async function retrievedToPublishedCheckpoint({

@@ -160,7 +160,7 @@ describe('ValidatorClient HA Integration', () => {
       haSigningEnabled: true,
       nodeId: 'ha-node-1', // temporary
       pollingIntervalMs: 100,
-      signingTimeoutMs: 3000,
+      peerSigningTimeoutMs: 3000,
       maxStuckDutiesAgeMs: 72000,
       databaseUrl: new SecretValue('postgresql://test'),
       dataStoreMapSizeKb: 128 * 1024 * 1024,
