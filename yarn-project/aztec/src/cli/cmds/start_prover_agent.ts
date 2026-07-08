@@ -72,6 +72,8 @@ export async function startProverAgent(
 
   signalHandlers.push(async () => {
     await Promise.all(agents.map(agent => agent.stop()));
+    // Tear down the acvm-sim witness-generation process the agents shared.
+    await prover.stop?.();
     await telemetry.stop();
   });
 }
