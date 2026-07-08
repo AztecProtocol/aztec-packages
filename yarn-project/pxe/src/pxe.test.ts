@@ -29,7 +29,8 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
 import type { AztecNode, AztecNodeDebug, BlockResponse } from '@aztec/stdlib/interfaces/client';
-import { deriveKeys } from '@aztec/stdlib/keys';
+import { computeAddressSecret, deriveKeys } from '@aztec/stdlib/keys';
+import { deriveEcdhSharedSecretPoint } from '@aztec/stdlib/logs';
 import {
   randomContractArtifact,
   randomContractInstanceWithAddress,
@@ -42,7 +43,7 @@ import { mock } from 'jest-mock-extended';
 import type { MockProxy } from 'jest-mock-extended/lib/Mock.js';
 
 import type { PXEConfig } from './config/index.js';
-import { PXE, type PackedPrivateEvent, type TaggingSecretSource } from './pxe.js';
+import { PXE, type PackedPrivateEvent } from './pxe.js';
 import { PrivateEventStore } from './storage/private_event_store/private_event_store.js';
 
 describe('PXE', () => {
@@ -153,65 +154,114 @@ describe('PXE', () => {
   });
 
   it('lists registered senders and arbitrary secrets together', async () => {
-    const senderSource: TaggingSecretSource = {
-      kind: 'address-derived',
-      sender: (await CompleteAddress.random()).address,
-    };
-    const secretSource: TaggingSecretSource = {
-      kind: 'arbitrary-secret',
-      recipient: (await CompleteAddress.random()).address,
-      secret: await Point.random(),
-    };
+    const sender = (await CompleteAddress.random()).address;
+    const recipient = (await CompleteAddress.random()).address;
+    const secret = await Point.random();
 
-    await pxe.registerTaggingSecretSource(senderSource);
-    await pxe.registerTaggingSecretSource(secretSource);
+    await pxe.registerTaggingSecretSource({ kind: 'address-derived', sender });
+    await pxe.registerTaggingSecretSource({ kind: 'arbitrary-secret', recipient, secret });
 
-    expect(await pxe.getTaggingSecretSources()).toEqual(expect.arrayContaining([senderSource, secretSource]));
+    expect(await pxe.getTaggingSecretSources()).toEqual(
+      expect.arrayContaining([
+        { kind: 'address-derived', sender },
+        { kind: 'arbitrary-secret', recipient, secret },
+      ]),
+    );
   });
 
   it('filters tagging secret sources by kind', async () => {
-    const senderSource: TaggingSecretSource = {
-      kind: 'address-derived',
-      sender: (await CompleteAddress.random()).address,
-    };
-    const secretSource: TaggingSecretSource = {
-      kind: 'arbitrary-secret',
-      recipient: (await CompleteAddress.random()).address,
-      secret: await Point.random(),
-    };
+    const sender = (await CompleteAddress.random()).address;
+    const recipient = (await CompleteAddress.random()).address;
+    const secret = await Point.random();
 
-    await pxe.registerTaggingSecretSource(senderSource);
-    await pxe.registerTaggingSecretSource(secretSource);
+    await pxe.registerTaggingSecretSource({ kind: 'address-derived', sender });
+    await pxe.registerTaggingSecretSource({ kind: 'arbitrary-secret', recipient, secret });
 
     const senders = await pxe.getTaggingSecretSources({ kind: 'address-derived' });
-    expect(senders).toContainEqual(senderSource);
-    expect(senders).not.toContainEqual(secretSource);
+    expect(senders).toContainEqual({ kind: 'address-derived', sender });
+    expect(senders).not.toContainEqual({ kind: 'arbitrary-secret', recipient, secret });
 
     const secrets = await pxe.getTaggingSecretSources({ kind: 'arbitrary-secret' });
-    expect(secrets).toContainEqual(secretSource);
-    expect(secrets).not.toContainEqual(senderSource);
+    expect(secrets).toContainEqual({ kind: 'arbitrary-secret', recipient, secret });
+    expect(secrets).not.toContainEqual({ kind: 'address-derived', sender });
   });
 
   it('removes registered senders and arbitrary secrets', async () => {
-    const senderSource: TaggingSecretSource = {
-      kind: 'address-derived',
-      sender: (await CompleteAddress.random()).address,
-    };
-    const secretSource: TaggingSecretSource = {
-      kind: 'arbitrary-secret',
-      recipient: (await CompleteAddress.random()).address,
-      secret: await Point.random(),
-    };
+    const sender = (await CompleteAddress.random()).address;
+    const recipient = (await CompleteAddress.random()).address;
+    const secret = await Point.random();
 
-    await pxe.registerTaggingSecretSource(senderSource);
-    await pxe.registerTaggingSecretSource(secretSource);
+    await pxe.registerTaggingSecretSource({ kind: 'address-derived', sender });
+    await pxe.registerTaggingSecretSource({ kind: 'arbitrary-secret', recipient, secret });
 
-    await pxe.removeTaggingSecretSource(senderSource);
-    await pxe.removeTaggingSecretSource(secretSource);
+    await pxe.removeTaggingSecretSource({ kind: 'address-derived', sender });
+    await pxe.removeTaggingSecretSource({ kind: 'arbitrary-secret', recipient, secret });
 
     const remaining = await pxe.getTaggingSecretSources();
-    expect(remaining).not.toContainEqual(senderSource);
-    expect(remaining).not.toContainEqual(secretSource);
+    expect(remaining).not.toContainEqual({ kind: 'address-derived', sender });
+    expect(remaining).not.toContainEqual({ kind: 'arbitrary-secret', recipient, secret });
+  });
+
+  it('registers a handshake by ephemeral key and lists its derived shared secret', async () => {
+    const privacyKeys = await deriveKeys(Fr.random());
+    const completeAddress = await pxe.registerAccount(privacyKeys, Fr.random());
+    const recipient = completeAddress.address;
+    const ephPk = (await Point.random()).x;
+
+    await pxe.registerTaggingSecretSource({ kind: 'handshake', recipient, ephPk });
+
+    const addressSecret = await computeAddressSecret(
+      await completeAddress.getPreaddress(),
+      privacyKeys.masterIncomingViewingSecretKey,
+    );
+    const expectedSecret = await deriveEcdhSharedSecretPoint(addressSecret, await Point.fromXAndSign(ephPk, true));
+    expect(await pxe.getTaggingSecretSources({ kind: 'handshake' })).toContainEqual({
+      kind: 'handshake',
+      recipient,
+      secret: expectedSecret,
+    });
+  });
+
+  it('ignores a handshake registered twice for the same ephemeral key', async () => {
+    const { address: recipient } = await pxe.registerAccount(await deriveKeys(Fr.random()), Fr.random());
+    const ephPk = (await Point.random()).x;
+
+    await pxe.registerTaggingSecretSource({ kind: 'handshake', recipient, ephPk });
+    await pxe.registerTaggingSecretSource({ kind: 'handshake', recipient, ephPk });
+
+    const secrets = await pxe.getTaggingSecretSources({ kind: 'handshake' });
+    expect(secrets.filter(s => s.recipient.equals(recipient))).toHaveLength(1);
+  });
+
+  it('refuses to register a handshake for a recipient that is not an account', async () => {
+    const recipient = (await CompleteAddress.random()).address;
+    await expect(
+      pxe.registerTaggingSecretSource({ kind: 'handshake', recipient, ephPk: (await Point.random()).x }),
+    ).rejects.toThrow(/not an account/);
+  });
+
+  it('refuses to register a handshake whose ephemeral key x-coordinate is not on the curve', async () => {
+    const { address: recipient } = await pxe.registerAccount(await deriveKeys(Fr.random()), Fr.random());
+    // x = 3 is not a valid x-coordinate on the Grumpkin curve
+    const ephPk = new Fr(3);
+    await expect(pxe.registerTaggingSecretSource({ kind: 'handshake', recipient, ephPk })).rejects.toThrow(
+      `Ephemeral public key x-coordinate ${ephPk} does not correspond to a Grumpkin curve point.`,
+    );
+  });
+
+  it('removes a registered handshake by its listed secret', async () => {
+    const { address: recipient } = await pxe.registerAccount(await deriveKeys(Fr.random()), Fr.random());
+    const ephPk = (await Point.random()).x;
+
+    await pxe.registerTaggingSecretSource({ kind: 'handshake', recipient, ephPk });
+
+    const [listed] = (await pxe.getTaggingSecretSources({ kind: 'handshake' })).filter(s =>
+      s.recipient.equals(recipient),
+    );
+    await pxe.removeTaggingSecretSource(listed);
+
+    const secrets = await pxe.getTaggingSecretSources({ kind: 'handshake' });
+    expect(secrets.filter(s => s.recipient.equals(recipient))).toHaveLength(0);
   });
 
   it('successfully adds a contract', async () => {

@@ -127,6 +127,40 @@ describe('PrivateExecutionOracle', () => {
       );
     });
 
+    it('resolves an interactive-handshake strategy', async () => {
+      const { oracle } = makeHookedOracle({ strategy: { type: 'interactive-handshake' } });
+
+      await expect(oracle.resolveTaggingStrategy(sender, recipient, AppTaggingSecretKind.CONSTRAINED)).resolves.toEqual(
+        {
+          type: 'interactive-handshake',
+        },
+      );
+    });
+
+    it('overrides a hooked interactive handshake on an unconstrained self-send with an address-derived secret', async () => {
+      const { oracle } = makeHookedOracle({
+        strategy: { type: 'interactive-handshake' },
+        keyStore: makeKeyStore({ ownsRecipient: true }),
+      });
+      const secret = Fr.random();
+      jest.spyOn(oracle, 'getAppTaggingSecret').mockResolvedValue(Option.some(secret));
+
+      await expect(
+        oracle.resolveTaggingStrategy(sender, recipient, AppTaggingSecretKind.UNCONSTRAINED),
+      ).resolves.toEqual({ type: 'unconstrained-secret', secret });
+    });
+
+    it('keeps a hooked interactive handshake under constrained delivery even when the wallet owns the recipient', async () => {
+      const { oracle } = makeHookedOracle({
+        strategy: { type: 'interactive-handshake' },
+        keyStore: makeKeyStore({ ownsRecipient: true }),
+      });
+
+      await expect(oracle.resolveTaggingStrategy(sender, recipient, AppTaggingSecretKind.CONSTRAINED)).resolves.toEqual(
+        { type: 'interactive-handshake' },
+      );
+    });
+
     it('resolves an address-derived strategy to the unconstrained secret', async () => {
       const { oracle } = makeHookedOracle({ strategy: { type: 'address-derived' } });
       const secret = Fr.random();

@@ -32,13 +32,16 @@ export {
   PENDING_TAGGED_LOG,
   POINT,
   PROVIDED_SECRET,
+  SLOT_NUMBER,
   STR,
   STRUCT,
   U32,
+  tryFieldWidth,
   type InputSlot,
   type MaybePromise,
   type OutputSlot,
   type SlotShape,
+  type StructField,
   type TypeMapping,
 } from './oracle/oracle_type_mappings.js';
 export { ExecutionNoteCache } from './execution_note_cache.js';
