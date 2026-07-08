@@ -147,30 +147,6 @@ unconstrained fn applies_a_configured_interactive_handshake_strategy() {
 }
 
 #[test]
-unconstrained fn defers_constrained_arbitrary_secret_validation_to_delivery() {
-    // Resolution derives the wallet strategy without delivery-mode validation; constrained delivery later rejects
-    // unsound unconstrained secrets.
-    let point = EmbeddedCurvePoint { x: 7, y: 11 };
-    let mut env = TestEnvironment::new_opts(TestEnvironmentOptions::new().with_default_tag_secret_strategy(
-        MessageDelivery::onchain_constrained(),
-        TaggingSecretStrategy::arbitrary_secret(point),
-    ));
-    let app = env.create_contract_account();
-    let recipient = AztecAddress::from_field(8);
-
-    env.private_context_at(app, |_| {
-        let resolved = resolve_tagging_strategy(
-            AztecAddress::from_field(1),
-            recipient,
-            OnchainDeliveryMode::onchain_constrained(),
-        );
-
-        let expected_secret = compute_directional_app_secret(point, app, recipient);
-        assert_eq(resolved, ResolvedTaggingStrategy::unconstrained_secret(expected_secret));
-    });
-}
-
-#[test]
 unconstrained fn applies_the_strategy_set_in_the_options() {
     let mut env = TestEnvironment::new_opts(TestEnvironmentOptions::new().with_default_tag_secret_strategy(
         MessageDelivery::onchain_unconstrained(),
@@ -191,23 +167,32 @@ unconstrained fn applies_the_strategy_set_in_the_options() {
 
 #[test]
 unconstrained fn app_silos_an_arbitrary_secret_point() {
+    // Both delivery modes resolve the configured arbitrary secret to the same app-siloed point. Mode-blindness
+    // is deliberate: PXE's tagging-strategy hook resolves whatever the wallet configured regardless of mode, and
+    // the TXE oracle must match that behavior. Constrained delivery rejects unsound secrets later, not here.
     let point = EmbeddedCurvePoint { x: 7, y: 11 };
-    let mut env = TestEnvironment::new_opts(TestEnvironmentOptions::new().with_default_tag_secret_strategy(
-        MessageDelivery::onchain_unconstrained(),
+    let mut env = TestEnvironment::new_opts(TestEnvironmentOptions::new().with_default_tag_secret_strategy_all_modes(
         TaggingSecretStrategy::arbitrary_secret(point),
     ));
     let app = env.create_contract_account();
     let recipient = AztecAddress::from_field(8);
 
     env.private_context_at(app, |_| {
-        let resolved = resolve_tagging_strategy(
+        let expected_secret = compute_directional_app_secret(point, app, recipient);
+
+        let resolved_unconstrained = resolve_tagging_strategy(
             AztecAddress::from_field(1),
             recipient,
             OnchainDeliveryMode::onchain_unconstrained(),
         );
+        assert_eq(resolved_unconstrained, ResolvedTaggingStrategy::unconstrained_secret(expected_secret));
 
-        let expected_secret = compute_directional_app_secret(point, app, recipient);
-        assert_eq(resolved, ResolvedTaggingStrategy::unconstrained_secret(expected_secret));
+        let resolved_constrained = resolve_tagging_strategy(
+            AztecAddress::from_field(1),
+            recipient,
+            OnchainDeliveryMode::onchain_constrained(),
+        );
+        assert_eq(resolved_constrained, ResolvedTaggingStrategy::unconstrained_secret(expected_secret));
     });
 }
 
