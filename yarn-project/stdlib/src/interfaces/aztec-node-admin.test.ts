@@ -143,7 +143,7 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
       haSigningEnabled: false,
       nodeId: 'test-node-id',
       pollingIntervalMs: 50,
-      signingTimeoutMs: 3000,
+      peerSigningTimeoutMs: 3000,
       maxStuckDutiesAgeMs: 72000,
       dataStoreMapSizeKb: 128 * 1024 * 1024,
       l1ChainId: 1,

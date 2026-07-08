@@ -49,6 +49,11 @@ export type TxPoolV2Config = {
   dropTransactionsProbability: number;
   /** Minimum percentage fee increase required to replace an existing tx via RPC (0 = no bump). */
   priceBumpPercentage: bigint;
+  /**
+   * Number of slots behind the finalized tip to keep finalized txs for before deleting them. 0 deletes
+   * at the finalized tip (default).
+   */
+  keepFinalizedTxsForSlots: number;
 };
 
 /**
@@ -61,6 +66,7 @@ export const DEFAULT_TX_POOL_V2_CONFIG: TxPoolV2Config = {
   evictedTxCacheSize: 10_000,
   dropTransactionsProbability: 0,
   priceBumpPercentage: 10n,
+  keepFinalizedTxsForSlots: 0,
 };
 
 /**
