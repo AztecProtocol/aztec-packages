@@ -220,6 +220,14 @@ export type SetupOptions<TDeployExtraL1ContractsReturnType = unknown> = {
   zkPassportArgs?: ZKPassportArgs;
   /** Whether to fund the sponsored FPC in genesis (defaults to false). */
   fundSponsoredFPC?: boolean;
+  /**
+   * Compute extra addresses to fund at genesis from the accounts setup just generated (passed as the
+   * argument). Runs after the default accounts are created and before genesis values are computed, so a
+   * test can genesis-fund a contract whose address derives from a default account (e.g. an FPC whose
+   * admin is the first account) instead of bridging fee juice to it during setup. Each returned address
+   * is funded with the same fee juice as an initial account and included in the L1 portal `fundingNeeded`.
+   */
+  computeExtraGenesisFundedAddresses?: (defaultAccounts: InitialAccountData[]) => Promise<AztecAddress[]>;
   /** L1 contracts deployment arguments. */
   l1ContractsArgs?: Partial<DeployAztecL1ContractsArgs>;
   /** Wallet minimum fee padding multiplier */
@@ -457,6 +465,12 @@ async function setupInner<TDeployExtraL1ContractsReturnType = unknown>(
     if (opts.fundSponsoredFPC) {
       const sponsoredFPCAddress = await getSponsoredFPCAddress();
       addressesToFund.push(sponsoredFPCAddress);
+    }
+
+    // Fund any extra addresses whose value depends on the just-generated accounts (e.g. an FPC admin'd
+    // by a default account), so a test can genesis-fund them instead of bridging fee juice during setup.
+    if (opts.computeExtraGenesisFundedAddresses) {
+      addressesToFund.push(...(await opts.computeExtraGenesisFundedAddresses(defaultAccounts)));
     }
     logger.trace('Generated test accounts to fund at genesis');
 
