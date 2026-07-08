@@ -19,12 +19,6 @@ use aztec::{
 #[derive(Deserialize, Eq, Packable, Serialize)]
 #[note]
 pub struct HandshakeNote {
-    /// Stored so contracts can constrain the kind of handshake they accept (e.g. an app may want to require interactive
-    /// handshakes only).
-    handshake_type: u8,
-    /// The recipient this handshake authorizes. Part of the note preimage so a contract proving note
-    /// existence can bind the proof to the intended recipient.
-    recipient: AztecAddress,
     /// The raw ECDH shared-secret point `S = eph_sk * recipient_address_point`. Only this module can read it for
     /// siloing, and it is never returned by an external function.
     secret: EmbeddedCurvePoint,
@@ -36,13 +30,8 @@ pub struct HandshakeNote {
 }
 
 impl HandshakeNote {
-    pub(crate) fn new(
-        shared_secret: EmbeddedCurvePoint,
-        handshake_type: u8,
-        recipient: AztecAddress,
-        sender_secret: Field,
-    ) -> Self {
-        Self { handshake_type, recipient, secret: shared_secret, sender_secret }
+    pub(crate) fn new(shared_secret: EmbeddedCurvePoint, sender_secret: Field) -> Self {
+        Self { secret: shared_secret, sender_secret }
     }
 
     /// Returns the [app-siloed handshake secrets][AppSiloedHandshakeSecrets] for `caller`: the shared secret (via

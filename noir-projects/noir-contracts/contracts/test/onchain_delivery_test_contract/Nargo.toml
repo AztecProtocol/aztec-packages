@@ -1,5 +1,5 @@
 [package]
-name = "constrained_delivery_test_contract"
+name = "onchain_delivery_test_contract"
 authors = [""]
 compiler_version = ">=0.25.0"
 type = "contract"

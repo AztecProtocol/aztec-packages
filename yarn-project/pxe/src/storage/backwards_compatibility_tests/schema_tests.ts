@@ -553,20 +553,25 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
 
       await taggingSecretSourcesStore.addSharedSecret(
         AztecAddress.fromBigIntUnsafe(7n),
+        'arbitrary-secret',
         new Point(new Fr(2n), new Fr(3n)),
       );
       await taggingSecretSourcesStore.addSharedSecret(
         AztecAddress.fromBigIntUnsafe(7n),
+        'handshake',
         new Point(new Fr(5n), new Fr(7n)),
       );
       await taggingSecretSourcesStore.addSharedSecret(
         AztecAddress.fromBigIntUnsafe(11n),
+        'arbitrary-secret',
         new Point(new Fr(13n), new Fr(17n)),
       );
     },
     snapshotStore: async kvStore => ({
       senders: await snapshotMap(kvStore.openMap<string, true>('senders')),
-      recipient_shared_secrets: await snapshotMap(kvStore.openMultiMap<string, string>('recipient_shared_secrets')),
+      recipient_shared_secrets: await snapshotMap(
+        kvStore.openMultiMap<string, { kind: string; secret: string }>('recipient_shared_secrets'),
+      ),
     }),
   },
 

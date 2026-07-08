@@ -8,8 +8,22 @@ import type { AztecAddress } from '../aztec-address/index.js';
 import type { PublicKey } from '../keys/public_key.js';
 
 /**
- * Derives an app-siloed ECDH shared secret from keys: ECDHs `S = secretKey * publicKey`, then app-silos it via
- * {@link appSiloEcdhSharedSecretPoint}.
+ * Derives the raw ECDH shared secret point `S = secretKey * publicKey`.
+ *
+ * @throws If the publicKey is zero.
+ */
+export function deriveEcdhSharedSecretPoint(secretKey: GrumpkinScalar, publicKey: PublicKey): Promise<Point> {
+  if (publicKey.isZero()) {
+    throw new Error(
+      `Attempting to derive a shared secret with a zero public key. You have probably passed a zero public key in your Noir code somewhere thinking that the note won't be broadcast... but it was.`,
+    );
+  }
+  return Grumpkin.mul(publicKey, secretKey);
+}
+
+/**
+ * Derives an app-siloed ECDH shared secret from keys: ECDHs `S = secretKey * publicKey` via
+ * {@link deriveEcdhSharedSecretPoint}, then app-silos it via {@link appSiloEcdhSharedSecretPoint}.
  *
  * @param secretKey - The secret key used to derive shared secret.
  * @param publicKey - The public key used to derive shared secret.
@@ -22,12 +36,7 @@ export async function appSiloEcdhSharedSecret(
   publicKey: PublicKey,
   contractAddress: AztecAddress,
 ): Promise<Fr> {
-  if (publicKey.isZero()) {
-    throw new Error(
-      `Attempting to derive a shared secret with a zero public key. You have probably passed a zero public key in your Noir code somewhere thinking that the note won't be broadcast... but it was.`,
-    );
-  }
-  const rawSharedSecret = await Grumpkin.mul(publicKey, secretKey);
+  const rawSharedSecret = await deriveEcdhSharedSecretPoint(secretKey, publicKey);
   return appSiloEcdhSharedSecretPoint(rawSharedSecret, contractAddress);
 }
 

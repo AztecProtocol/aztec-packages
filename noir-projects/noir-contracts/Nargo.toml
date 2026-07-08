@@ -46,7 +46,7 @@ members = [
     "contracts/test/benchmarking_contract",
     "contracts/test/calldata_limit_test_contract",
     "contracts/test/child_contract",
-    "contracts/test/constrained_delivery_test_contract",
+    "contracts/test/onchain_delivery_test_contract",
     "contracts/test/counter/counter_contract",
     "contracts/test/custom_message_contract",
     "contracts/test/custom_sync_state_contract",
