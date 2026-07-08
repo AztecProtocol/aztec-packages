@@ -162,6 +162,10 @@ export class ProvingJobController {
         return await this.circuitProver.getBlockRootEmptyTxFirstRollupProof(inputs, signal, this.epochNumber);
       }
 
+      case ProvingRequestType.BLOCK_ROOT_MSGS_ONLY_ROLLUP: {
+        return await this.circuitProver.getBlockRootMsgsOnlyRollupProof(inputs, signal, this.epochNumber);
+      }
+
       case ProvingRequestType.BLOCK_ROOT_ROLLUP: {
         return await this.circuitProver.getBlockRootRollupProof(inputs, signal, this.epochNumber);
       }
