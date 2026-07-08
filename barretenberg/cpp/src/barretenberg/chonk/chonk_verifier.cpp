@@ -179,13 +179,7 @@ template <> ChonkVerifier<true>::Output ChonkVerifier<true>::verify(const Proof&
     pairing_points_to_aggregate.push_back(std::move(merge_result.pairing_points));
     pairing_points_to_aggregate.push_back(std::move(batched_result.pairing_points));
 
-    // Edge case handling disabled: Safe because:
-    // 1. Verifier-computed points (Merge, Batched PCS) are deterministic and won't collide
-    // 2. PI points are added to the result of batching the above points; biggroup addition
-    //    gracefully handles edge cases.
-    constexpr bool handle_edge_cases = false;
-    PairingPoints aggregated_pairing_points =
-        PairingPoints::aggregate_multiple(pairing_points_to_aggregate, handle_edge_cases);
+    PairingPoints aggregated_pairing_points = PairingPoints::aggregate_multiple(pairing_points_to_aggregate);
 
     bool all_checks_passed =
         merge_result.reduction_succeeded && eccvm_result.reduction_succeeded && batched_result.reduction_succeeded;
