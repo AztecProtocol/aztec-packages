@@ -131,15 +131,22 @@ export class FeesTest extends SingleNodeTestContext {
   }
 
   async catchUpProvenChain() {
-    const bn = await this.aztecNode.getBlockNumber();
-    while ((await this.aztecNode.getBlockNumber('proven')) < bn) {
-      await sleep(1000);
-    }
+    await testSpan('wait:proven-checkpoint', async () => {
+      const bn = await this.aztecNode.getBlockNumber();
+      while ((await this.aztecNode.getBlockNumber('proven')) < bn) {
+        await sleep(1000);
+      }
+    });
+  }
+
+  /** Warps L1 to the next epoch boundary so the current epoch closes and can be proven. */
+  async advanceToNextEpoch() {
+    await testSpan('warp:proven-checkpoint-epoch', () => this.cheatCodes.rollup.advanceToNextEpoch());
   }
 
   /** Advances to the next epoch and waits for the proven chain to catch up, so all prior fees are paid out. */
   async waitForEpochProven() {
-    await this.cheatCodes.rollup.advanceToNextEpoch();
+    await this.advanceToNextEpoch();
     await this.catchUpProvenChain();
   }
 
