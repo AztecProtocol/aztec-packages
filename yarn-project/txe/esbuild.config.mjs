@@ -147,6 +147,10 @@ const result = await build({
     // WASM-loading packages.
     '@aztec/noir-acvm_js',
     '@aztec/noir-noirc_abi',
+    // Node-only IPC package (spawns the acvm-sim process, uses @aztec/ipc-runtime UDS sockets). It
+    // lives outside the yarn-project workspace, so its built dest can't resolve @aztec/ipc-runtime
+    // during bundling; and TXE never runs the native simulator anyway (it uses the wasm path).
+    '@aztec/acvm-sim',
     // bb.js loads barretenberg-threads.wasm.gz via a path computed relative to its own module
     // location — bundling moves the JS but not the .wasm.gz, breaking the load.
     '@aztec/bb.js',

@@ -1,7 +1,7 @@
 import { AcvmService, type ExecutionFailure, type WitnessEntry } from '@aztec/acvm-sim';
 import { type Logger, type LoggerBindings, resolveLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
-import type { ExecutionError, ForeignCallHandler, WitnessMap } from '@aztec/noir-acvm_js';
+import type { ExecutionError, ForeignCallHandler } from '@aztec/noir-acvm_js';
 import type { FunctionArtifactWithContractName } from '@aztec/stdlib/abi';
 import type { NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
 
