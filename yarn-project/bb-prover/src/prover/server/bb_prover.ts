@@ -122,6 +122,11 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     return this.instrumentation.tracer;
   }
 
+  /** Terminate the long-lived acvm-sim witness-generation process. */
+  public async stop(): Promise<void> {
+    await this.acvmSimulator.destroy();
+  }
+
   static async new(config: BBProverConfig, telemetry: TelemetryClient = getTelemetryClient()) {
     await fs.access(config.bbBinaryPath, fs.constants.R_OK);
     await fs.mkdir(config.bbWorkingDirectory, { recursive: true });

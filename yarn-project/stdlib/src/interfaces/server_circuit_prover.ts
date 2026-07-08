@@ -190,6 +190,12 @@ export interface ServerCircuitProver {
     signal?: AbortSignal,
     epochNumber?: number,
   ): Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>>;
+
+  /**
+   * Release resources held by the prover (e.g. a long-lived acvm-sim witness-generation process).
+   * Optional: provers with nothing to tear down can omit it.
+   */
+  stop?(): Promise<void>;
 }
 
 export type IVCProofVerificationResult = {

@@ -39,6 +39,12 @@ export interface CircuitSimulator {
     artifact: FunctionArtifactWithContractName,
     callback: ACIRCallback,
   ): Promise<ACIRExecutionResult>;
+
+  /**
+   * Release any resources held by the simulator (e.g. an out-of-process acvm-sim service). Optional:
+   * in-process simulators (wasm) have nothing to tear down.
+   */
+  destroy?(): Promise<void>;
 }
 
 export type DecodedError = ExecutionError & { decodedAssertionPayload?: any; noirCallStack?: string[] };
