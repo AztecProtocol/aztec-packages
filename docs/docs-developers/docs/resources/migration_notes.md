@@ -9,6 +9,7 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+<<<<<<< HEAD
 ## 5.0.1
 
 ### [Aztec.nr] History note nullification helpers renamed and restricted to own-contract notes
@@ -54,6 +55,8 @@ The persisted tagging stores now key every entry by the self-describing `<kind>:
 
 **Impact**: On upgrade your local PXE state is reset. You must re-register accounts and re-sync from genesis. Wallets should surface a "your local state was reset, please re-register accounts and re-sync" path.
 
+=======
+>>>>>>> 6dd127124d (fix(txe): align tagging strategy oracle with PXE (#24561))
 ### [Aztec.nr] `TestEnvironmentOptions::with_tagging_secret_strategy` replaced
 
 `TestEnvironmentOptions::with_tagging_secret_strategy` is now `with_default_tag_secret_strategy_all_modes` for tests
