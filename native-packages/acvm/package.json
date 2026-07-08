@@ -1,0 +1,16 @@
+{
+  "name": "@aztec/acvm-packages",
+  "packageManager": "yarn@4.13.0",
+  "private": true,
+  "scripts": {
+    "build": "yarn workspace @aztec/acvm-sim build",
+    "clean": "yarn workspaces foreach -A -p -v run clean"
+  },
+  "workspaces": [
+    "ts",
+    "ts/packages/*"
+  ],
+  "resolutions": {
+    "@aztec/ipc-runtime": "portal:../../ipc-runtime/ts"
+  }
+}

@@ -64,6 +64,7 @@
     ]
   },
   "dependencies": {
+    "@aztec/acvm-sim": "0.1.0",
     "@aztec/bb-avm-sim": "0.1.0",
     "@aztec/constants": "workspace:^",
     "@aztec/foundation": "workspace:^",

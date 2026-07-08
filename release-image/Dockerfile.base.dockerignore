@@ -8,6 +8,8 @@
 !/native-packages/wsdb/ts/packages/*/package.json
 !/native-packages/kvdb/ts/package.json
 !/native-packages/kvdb/ts/packages/*/package.json
+!/native-packages/acvm/ts/package.json
+!/native-packages/acvm/ts/packages/*/package.json
 !/ipc-runtime/ts/package.json
 !/yarn-project/package.json
 !/yarn-project/yarn.lock

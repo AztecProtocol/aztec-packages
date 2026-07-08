@@ -19,6 +19,10 @@
 !/native-packages/kvdb/ts/build/
 !/native-packages/kvdb/ts/package.json
 !/native-packages/kvdb/ts/packages/
+!/native-packages/acvm/ts/dest/
+!/native-packages/acvm/ts/build/
+!/native-packages/acvm/ts/package.json
+!/native-packages/acvm/ts/packages/
 !/noir/noir-repo/target/release/nargo
 !/noir/noir-repo/target/release/acvm
 !/noir/packages/

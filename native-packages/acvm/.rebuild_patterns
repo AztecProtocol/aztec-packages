@@ -1,5 +1,7 @@
 ^native-packages/acvm/bootstrap\.sh$
 ^native-packages/acvm/\.rebuild_patterns$
+^native-packages/acvm/\.yarnrc\.yml$
+^native-packages/acvm/package\.json$
 ^native-packages/acvm/acvm_schema\.jsonc$
 ^native-packages/acvm/rust/src/
 ^native-packages/acvm/rust/Cargo\.(toml|lock)$

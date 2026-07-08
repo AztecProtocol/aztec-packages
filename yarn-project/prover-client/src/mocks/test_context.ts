@@ -143,6 +143,7 @@ export class TestContext {
   async cleanup() {
     await this.brokerProverFacade.stop();
     await this.broker.stop();
+    await this.prover.stop?.();
     await this.worldState.close();
     for (const dir of this.directoriesToCleanup.filter(x => x !== '')) {
       try {

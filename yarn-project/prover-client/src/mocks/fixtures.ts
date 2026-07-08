@@ -7,7 +7,7 @@ import type { FieldsOf } from '@aztec/foundation/types';
 import { fileURLToPath } from '@aztec/foundation/url';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
-import { type CircuitSimulator, NativeACVMSimulator, WASMSimulatorWithBlobs } from '@aztec/simulator/server';
+import { AcvmSimulator, type CircuitSimulator, WASMSimulatorWithBlobs } from '@aztec/simulator/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasFees } from '@aztec/stdlib/gas';
 import { CheckpointConstantData } from '@aztec/stdlib/rollup';
@@ -65,21 +65,15 @@ export const getEnvironmentConfig = async (logger: Logger) => {
 };
 
 export async function getSimulator(
-  config: { acvmWorkingDirectory: string | undefined; acvmBinaryPath: string | undefined },
+  _config: { acvmWorkingDirectory: string | undefined; acvmBinaryPath: string | undefined },
   logger?: Logger,
 ): Promise<CircuitSimulator> {
-  if (config.acvmBinaryPath && config.acvmWorkingDirectory) {
-    try {
-      await fs.access(config.acvmBinaryPath, fs.constants.R_OK);
-      await fs.mkdir(config.acvmWorkingDirectory, { recursive: true });
-      logger?.info(
-        `Using native ACVM at ${config.acvmBinaryPath} and working directory ${config.acvmWorkingDirectory}`,
-      );
-      const acvmLogger = logger?.createChild('acvm-native');
-      return new NativeACVMSimulator(config.acvmWorkingDirectory, config.acvmBinaryPath, undefined, acvmLogger);
-    } catch {
-      logger?.warn(`Failed to access ACVM at ${config.acvmBinaryPath}, falling back to WASM`);
-    }
+  try {
+    const simulator = await AcvmSimulator.create(logger?.createChild('acvm'));
+    logger?.info('Using native acvm-sim simulation');
+    return simulator;
+  } catch (err) {
+    logger?.warn(`Failed to start native acvm-sim, falling back to WASM: ${err}`);
   }
   logger?.info('Using WASM ACVM simulation');
   return new WASMSimulatorWithBlobs();

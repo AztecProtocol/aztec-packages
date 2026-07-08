@@ -68,6 +68,11 @@
         // acvm_js's `executeCircuitWithReturnWitness`, which yarn-project's user-circuit path consumes
         // as `returnWitness`.
         "returnWitness": "WitnessEntry[]",
+        // The full solved witness serialized as an acir WitnessStack (single frame, index 0), in acir's
+        // canonical *uncompressed* encoding (byte-identical to `ungzip(partial-witness.gz)`) — no gzip,
+        // since this crosses a local IPC pipe. Fed straight to bb.js `generateProof`, replacing the
+        // acvm-CLI temp-file + ungzip handoff. Empty on failure.
+        "witnessStack": "bytes",
         // Present iff ACIR execution failed (assertion/brillig trap). When set, `witness`/`returnWitness`
         // are empty and the client raises a structured error instead of returning a witness. Transport
         // and protocol errors (bad bytecode, unsupported program, no resolver) still use the error channel.

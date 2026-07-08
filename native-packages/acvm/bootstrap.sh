@@ -67,7 +67,9 @@ function build {
   generate_code
   build_native
   build_wasm
-  npm_install_deps
+  # Include .yarnrc.yml in the node_modules cache key: it sets nodeLinker: node-modules, and the
+  # cache is invalid across linker modes (a PnP install produces no node_modules to cache).
+  npm_install_deps "^native-packages/acvm/\.yarnrc\.yml$"
   yarn build
   (cd ts && ./scripts/prepare_arch_packages.sh "$(arch)-$(os)=build/$(arch)-$(os)/$ACVM_BINARY")
 }
@@ -90,7 +92,9 @@ function clean {
 function release {
   generate_code
   build_native
-  npm_install_deps
+  # Include .yarnrc.yml in the node_modules cache key: it sets nodeLinker: node-modules, and the
+  # cache is invalid across linker modes (a PnP install produces no node_modules to cache).
+  npm_install_deps "^native-packages/acvm/\.yarnrc\.yml$"
   yarn build
   (cd ts && ./scripts/prepare_arch_packages.sh)
   for package_dir in ts/packages/*; do

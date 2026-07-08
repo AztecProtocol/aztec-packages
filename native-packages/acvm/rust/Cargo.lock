@@ -54,6 +54,7 @@ dependencies = [
  "acir",
  "acvm",
  "bn254_blackbox_solver",
+ "flate2",
  "ipc-runtime",
  "rmp-serde",
  "serde",

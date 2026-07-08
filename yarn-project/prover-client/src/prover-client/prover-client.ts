@@ -4,7 +4,7 @@ import { times } from '@aztec/foundation/collection';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { NativeACVMSimulator } from '@aztec/simulator/server';
+import { AcvmSimulator } from '@aztec/simulator/server';
 import {
   type ActualProverConfig,
   type EpochProver,
@@ -69,6 +69,8 @@ export interface EpochProverFactory {
 export class ProverClient implements EpochProverManager, EpochProverFactory {
   private running = false;
   private agents: ProvingAgent[] = [];
+  // The single circuit prover shared by all agents; owns the long-lived acvm-sim witness-gen process.
+  private prover?: ServerCircuitProver;
   /**
    * The single broker facade shared by every orchestrator created from this client.
    * Constructed lazily on `start()` and torn down on `stop()` — see the comment on
@@ -264,12 +266,19 @@ export class ProverClient implements EpochProverManager, EpochProverFactory {
     }
 
     const proofStore = new InlineProofStore();
-    const prover = await buildServerCircuitProver(this.config, this.telemetry);
+    this.prover = await buildServerCircuitProver(this.config, this.telemetry);
     const bindings = this.log.getBindings();
     this.agents = times(
       this.config.proverAgentCount,
       () =>
-        new ProvingAgent(this.agentClient!, proofStore, prover, [], this.config.proverAgentPollIntervalMs, bindings),
+        new ProvingAgent(
+          this.agentClient!,
+          proofStore,
+          this.prover!,
+          [],
+          this.config.proverAgentPollIntervalMs,
+          bindings,
+        ),
     );
 
     await Promise.all(this.agents.map(agent => agent.start()));
@@ -277,10 +286,14 @@ export class ProverClient implements EpochProverManager, EpochProverFactory {
 
   private async stopAgents() {
     await Promise.all(this.agents.map(agent => agent.stop()));
+    this.agents = [];
+    // Tear down the acvm-sim witness-generation process once all agents have stopped using it.
+    await this.prover?.stop?.();
+    this.prover = undefined;
   }
 }
 
-export function buildServerCircuitProver(
+export async function buildServerCircuitProver(
   config: Omit<ActualProverConfig, 'enqueueConcurrency'> & ACVMConfig & BBConfig,
   telemetry: TelemetryClient,
 ): Promise<ServerCircuitProver> {
@@ -288,10 +301,13 @@ export function buildServerCircuitProver(
     return BBNativeRollupProver.new(config, telemetry);
   }
 
-  const logger = createLogger('prover-client:acvm-native');
-  const simulator = config.acvmBinaryPath
-    ? new NativeACVMSimulator(config.acvmWorkingDirectory, config.acvmBinaryPath, undefined, logger)
-    : undefined;
+  const logger = createLogger('prover-client:acvm');
+  let simulator: AcvmSimulator | undefined;
+  try {
+    simulator = await AcvmSimulator.create(logger);
+  } catch (err) {
+    logger.warn(`Failed to start native acvm-sim: ${err}`);
+  }
 
-  return Promise.resolve(new TestCircuitProver(simulator, config, telemetry));
+  return new TestCircuitProver(simulator, config, telemetry);
 }

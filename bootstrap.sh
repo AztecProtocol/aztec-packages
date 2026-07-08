@@ -566,6 +566,7 @@ function release {
     native-packages/lmdblib
     native-packages/kvdb
     native-packages/wsdb
+    native-packages/acvm
     barretenberg/ts
     barretenberg/rust
     noir

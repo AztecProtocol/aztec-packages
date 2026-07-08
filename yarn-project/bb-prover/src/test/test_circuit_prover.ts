@@ -120,6 +120,11 @@ export class TestCircuitProver implements ServerCircuitProver {
     return this.instrumentation.tracer;
   }
 
+  /** Tear down the injected witness-generation simulator (e.g. its acvm-sim process). */
+  public async stop(): Promise<void> {
+    await this.simulator?.destroy?.();
+  }
+
   /**
    * Simulates the base parity circuit from its inputs.
    * @param inputs - Inputs to the circuit.

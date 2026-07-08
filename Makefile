@@ -429,7 +429,7 @@ l1-contracts-tests: l1-contracts-verifier
 # Yarn Project - TypeScript monorepo with all TS packages
 #==============================================================================
 
-yarn-project: bb-ts noir-projects l1-contracts wsdb kvdb bb-avm-sim
+yarn-project: bb-ts noir-projects l1-contracts wsdb kvdb bb-avm-sim acvm-sim
 	$(call build,$@,yarn-project)
 
 yarn-project-tests: yarn-project

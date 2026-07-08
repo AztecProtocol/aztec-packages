@@ -6,7 +6,7 @@ import type { NoirCompiledCircuit, NoirCompiledCircuitWithName } from '@aztec/st
 
 import { type ACIRCallback, type ACIRExecutionResult, extractCallStack } from './acvm/acvm.js';
 import type { ACVMWitness } from './acvm/acvm_types.js';
-import type { ACVMSuccess } from './acvm_native.js';
+import type { ACVMSuccess } from './acvm_simulator.js';
 
 /**
  * Low level simulation interface
@@ -39,6 +39,12 @@ export interface CircuitSimulator {
     artifact: FunctionArtifactWithContractName,
     callback: ACIRCallback,
   ): Promise<ACIRExecutionResult>;
+
+  /**
+   * Release any resources held by the simulator (e.g. an out-of-process acvm-sim service). Optional:
+   * in-process simulators (wasm) have nothing to tear down.
+   */
+  destroy?(): Promise<void>;
 }
 
 export type DecodedError = ExecutionError & { decodedAssertionPayload?: any; noirCallStack?: string[] };
