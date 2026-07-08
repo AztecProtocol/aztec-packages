@@ -15,6 +15,9 @@ export const STANDARD_HANDSHAKE_REGISTRY_SALT = StandardContractSalt.HandshakeRe
  * Request kind under which the HandshakeRegistry asks for a recipient's interactive-handshake signature through the
  * `resolveCustomRequest` hook. Mirrors `INTERACTIVE_HANDSHAKE_REQUEST_KIND` in the registry contract.
  */
+// TODO: remove this mirrored constant and read the value from the HandshakeRegistry artifact once the contract
+// global can be `#[abi]`-exported. Fixed upstream but not yet released:
+// https://github.com/noir-lang/noir/pull/12714 and https://github.com/noir-lang/noir/issues/12620.
 export const INTERACTIVE_HANDSHAKE_REQUEST_KIND: Fr = sha256ToField([
   Buffer.from('HANDSHAKE_REGISTRY::INTERACTIVE_HANDSHAKE_REQUEST'),
 ]);
