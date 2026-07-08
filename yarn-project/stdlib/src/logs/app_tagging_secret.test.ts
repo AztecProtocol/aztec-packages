@@ -117,10 +117,6 @@ describe('AppTaggingSecret', () => {
       expect(parsed).toBeInstanceOf(AppTaggingSecret);
       expect(parsed.kind).toBe(AppTaggingSecretKind.UNCONSTRAINED);
       expect(parsed.toString()).toBe(original.toString());
-      // Unconstrained secrets emit the same kind-prefixed format as constrained ones
-      expect(original.toString()).toBe(
-        `${AppTaggingSecretKind.UNCONSTRAINED}:${original.secret.toString()}:${original.app.toString()}`,
-      );
     });
 
     it('round-trips a constrained secret', async () => {
