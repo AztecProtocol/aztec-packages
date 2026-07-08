@@ -20,6 +20,10 @@ export type MessageSentArgs = {
   leaf: Fr;
   checkpointNumber: CheckpointNumber;
   rollingHash: Buffer16;
+  /** Consensus rolling hash (truncated sha256 chain) after this message (AZIP-22 Fast Inbox). Not yet consumed by the node. */
+  inboxRollingHash: Fr;
+  /** Sequence number of the Inbox bucket this message was absorbed into (AZIP-22 Fast Inbox). Not yet consumed by the node. */
+  bucketSeq: bigint;
 };
 
 /** Log type for MessageSent events. */
@@ -100,7 +104,14 @@ export class InboxContract {
     blockNumber: bigint | null;
     blockHash: `0x${string}` | null;
     transactionHash: `0x${string}` | null;
-    args: { index?: bigint; hash?: `0x${string}`; checkpointNumber?: bigint; rollingHash?: `0x${string}` };
+    args: {
+      index?: bigint;
+      hash?: `0x${string}`;
+      checkpointNumber?: bigint;
+      rollingHash?: `0x${string}`;
+      inboxRollingHash?: `0x${string}`;
+      bucketSeq?: bigint;
+    };
   }): MessageSentLog {
     return {
       l1BlockNumber: log.blockNumber!,
@@ -111,6 +122,8 @@ export class InboxContract {
         leaf: Fr.fromString(log.args.hash!),
         checkpointNumber: CheckpointNumber.fromBigInt(log.args.checkpointNumber!),
         rollingHash: Buffer16.fromString(log.args.rollingHash!),
+        inboxRollingHash: Fr.fromString(log.args.inboxRollingHash!),
+        bucketSeq: log.args.bucketSeq!,
       },
     };
   }

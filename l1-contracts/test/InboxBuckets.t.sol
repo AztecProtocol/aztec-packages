@@ -1,0 +1,216 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2024 Aztec Labs.
+pragma solidity >=0.8.27;
+
+import {Test} from "forge-std/Test.sol";
+import {TestERC20} from "src/mock/TestERC20.sol";
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
+import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
+import {InboxHarness} from "./harnesses/InboxHarness.sol";
+import {TestConstants} from "./harnesses/TestConstants.sol";
+import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
+import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
+import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
+
+contract InboxBucketsTest is Test {
+  uint256 internal constant FIRST_REAL_TREE_NUM = Constants.INITIAL_CHECKPOINT_NUMBER + TestConstants.AZTEC_INBOX_LAG;
+  uint256 internal constant HEIGHT = 10;
+  uint256 internal constant SMALL_RING_SIZE = 4;
+
+  InboxHarness internal inbox;
+  uint256 internal version = 0;
+  bytes32 internal expectedRollingHash;
+
+  function setUp() public {
+    inbox = _deployInbox(TestConstants.AZTEC_INBOX_BUCKET_RING_SIZE);
+  }
+
+  function _deployInbox(uint256 _ringSize) internal returns (InboxHarness) {
+    IERC20 feeAsset = new TestERC20("Fee Asset", "FA", address(this));
+    return new InboxHarness(address(this), feeAsset, version, HEIGHT, TestConstants.AZTEC_INBOX_LAG, _ringSize);
+  }
+
+  function _send(InboxHarness _inbox, uint256 _salt) internal returns (bytes32) {
+    (bytes32 leaf,) = _inbox.sendL2Message(
+      DataStructures.L2Actor({actor: bytes32(uint256(0x1000 + _salt)), version: version}),
+      bytes32(uint256(0x2000 + _salt)),
+      bytes32(uint256(0x3000 + _salt))
+    );
+    expectedRollingHash = Hash.accumulateInboxRollingHash(expectedRollingHash, leaf);
+    return leaf;
+  }
+
+  // Shared test vectors for the rolling-hash chain, pinned across the noir circuits, the TS mirror,
+  // and this L1 implementation. Generated from an independent sha256 implementation.
+  function testRollingHashTestVectors() public pure {
+    bytes32 h = Hash.accumulateInboxRollingHash(bytes32(0), bytes32(uint256(11)));
+    assertEq(h, 0x00815fb1e9d2076ae5761439b6144ad11da69eb6c41ab2aca39e770407ad8d12, "chain(0, [11])");
+
+    h = Hash.accumulateInboxRollingHash(h, bytes32(uint256(22)));
+    h = Hash.accumulateInboxRollingHash(h, bytes32(uint256(33)));
+    assertEq(h, 0x0014cae968461979aab6d33266a2310ed234d3f6cf4472737c57551db07bd0da, "chain(0, [11, 22, 33])");
+
+    h = bytes32(0);
+    for (uint256 i = 1; i <= 256; i++) {
+      h = Hash.accumulateInboxRollingHash(h, bytes32(i));
+    }
+    assertEq(h, 0x00ea95b96f17b75be03525b35a2a1918b42f03ad8c00a437cf641751825f3992, "chain(0, [1..=256])");
+
+    h = Hash.accumulateInboxRollingHash(bytes32(uint256(0x2a)), bytes32(uint256(7)));
+    assertEq(h, 0x0032a934005556d1b9d22708666ee8b05f91fafad624dd64a6ea878e048e5438, "chain(0x2a, [7])");
+
+    h = Hash.accumulateInboxRollingHash(h, bytes32(uint256(8)));
+    assertEq(h, 0x0054d96b8a074a5030a5838972d0a3c04ba47cf5956348c853e02e9566233f65, "chain(0x2a, [7, 8])");
+  }
+
+  function testGenesisBucket() public {
+    assertEq(inbox.getCurrentBucketSeq(), 0, "genesis seq");
+
+    IInbox.InboxBucket memory bucket = inbox.getBucket(0);
+    assertEq(bucket.rollingHash, bytes32(0), "genesis rolling hash");
+    assertEq(bucket.totalMsgCount, 0, "genesis total");
+    assertEq(bucket.timestamp, uint64(block.timestamp), "genesis timestamp");
+    assertEq(bucket.msgCount, 0, "genesis msg count");
+
+    vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__BucketOutOfWindow.selector, 1, 0));
+    inbox.getBucket(1);
+  }
+
+  function testFirstMessageOpensBucketOne() public {
+    // Even in the deployment block, the first message must not absorb into the genesis bucket: a
+    // checkpoint consuming no messages needs a bucket whose rolling hash matches its parent's chain
+    // position, which for the first checkpoint is the zero genesis bucket.
+    _send(inbox, 0);
+
+    assertEq(inbox.getCurrentBucketSeq(), 1, "current seq");
+    assertEq(inbox.getBucket(0).rollingHash, bytes32(0), "genesis untouched");
+    assertEq(inbox.getBucket(0).msgCount, 0, "genesis still empty");
+    assertEq(inbox.getBucket(1).msgCount, 1, "bucket 1 has the message");
+  }
+
+  function testAccumulationWithinSingleBlock() public {
+    bytes32 leaf1 = _send(inbox, 1);
+    bytes32 chain1 = Hash.accumulateInboxRollingHash(bytes32(0), leaf1);
+    bytes32 leaf2 = _send(inbox, 2);
+    bytes32 chain2 = Hash.accumulateInboxRollingHash(chain1, leaf2);
+    bytes32 leaf3 = _send(inbox, 3);
+    bytes32 chain3 = Hash.accumulateInboxRollingHash(chain2, leaf3);
+
+    assertEq(inbox.getCurrentBucketSeq(), 1, "all messages share one bucket");
+
+    IInbox.InboxBucket memory bucket = inbox.getBucket(1);
+    assertEq(bucket.rollingHash, chain3, "bucket rolling hash");
+    assertEq(bucket.totalMsgCount, 3, "bucket cumulative total");
+    assertEq(bucket.timestamp, uint64(block.timestamp), "bucket timestamp");
+    assertEq(bucket.msgCount, 3, "bucket msg count");
+  }
+
+  function testMessageSentEventCarriesBucketData() public {
+    DataStructures.L2Actor memory recipient =
+      DataStructures.L2Actor({actor: bytes32(uint256(0x1000)), version: version});
+    bytes32 content = bytes32(uint256(0x2000));
+    bytes32 secretHash = bytes32(uint256(0x3000));
+
+    DataStructures.L1ToL2Msg memory message = DataStructures.L1ToL2Msg({
+      sender: DataStructures.L1Actor(address(this), block.chainid),
+      recipient: recipient,
+      content: content,
+      secretHash: secretHash,
+      index: (FIRST_REAL_TREE_NUM - 1) * (2 ** HEIGHT)
+    });
+    bytes32 leaf = Hash.sha256ToField(message);
+    bytes16 legacyHash = bytes16(keccak256(abi.encodePacked(inbox.getState().rollingHash, leaf)));
+    bytes32 inboxRollingHash = Hash.accumulateInboxRollingHash(bytes32(0), leaf);
+
+    vm.expectEmit(true, true, true, true, address(inbox));
+    emit IInbox.MessageSent(FIRST_REAL_TREE_NUM, message.index, leaf, legacyHash, inboxRollingHash, 1);
+    inbox.sendL2Message(recipient, content, secretHash);
+  }
+
+  function testSnapshotBoundariesAcrossBlocks() public {
+    _send(inbox, 1);
+    _send(inbox, 2);
+    IInbox.InboxBucket memory bucket1 = inbox.getBucket(1);
+
+    vm.roll(block.number + 1);
+    vm.warp(block.timestamp + 12);
+
+    bytes32 leaf3 = _send(inbox, 3);
+
+    assertEq(inbox.getCurrentBucketSeq(), 2, "new block opens a new bucket");
+
+    // The previous bucket's snapshot is frozen at its end-of-block state.
+    IInbox.InboxBucket memory bucket1After = inbox.getBucket(1);
+    assertEq(bucket1After.rollingHash, bucket1.rollingHash, "bucket 1 rolling hash frozen");
+    assertEq(bucket1After.totalMsgCount, 2, "bucket 1 total frozen");
+    assertEq(bucket1After.msgCount, 2, "bucket 1 msg count frozen");
+    assertEq(bucket1After.timestamp, bucket1.timestamp, "bucket 1 timestamp frozen");
+
+    // The new bucket continues the chain from the previous bucket.
+    IInbox.InboxBucket memory bucket2 = inbox.getBucket(2);
+    assertEq(bucket2.rollingHash, Hash.accumulateInboxRollingHash(bucket1.rollingHash, leaf3), "chain continuity");
+    assertEq(bucket2.rollingHash, expectedRollingHash, "chain matches reference");
+    assertEq(bucket2.totalMsgCount, 3, "cumulative total spans buckets");
+    assertEq(bucket2.timestamp, uint64(block.timestamp), "bucket 2 timestamp");
+    assertEq(bucket2.msgCount, 1, "bucket 2 msg count");
+  }
+
+  function testRolloverIntoNextBucket() public {
+    uint256 cap = inbox.MAX_MSGS_PER_BUCKET();
+    for (uint256 i = 0; i < cap; i++) {
+      _send(inbox, i);
+    }
+    assertEq(inbox.getCurrentBucketSeq(), 1, "cap messages fit in one bucket");
+    IInbox.InboxBucket memory bucket1 = inbox.getBucket(1);
+    assertEq(bucket1.msgCount, cap, "bucket 1 full");
+
+    // The next message in the same L1 block spills over into a new bucket with the same timestamp.
+    bytes32 leaf = _send(inbox, cap);
+    assertEq(inbox.getCurrentBucketSeq(), 2, "rollover opened next bucket");
+
+    IInbox.InboxBucket memory bucket2 = inbox.getBucket(2);
+    assertEq(bucket2.rollingHash, Hash.accumulateInboxRollingHash(bucket1.rollingHash, leaf), "chain continuity");
+    assertEq(bucket2.totalMsgCount, cap + 1, "cumulative total");
+    assertEq(bucket2.timestamp, bucket1.timestamp, "same block, same timestamp");
+    assertEq(bucket2.msgCount, 1, "spilled message only");
+
+    assertEq(inbox.getBucket(1).msgCount, cap, "bucket 1 untouched by rollover");
+  }
+
+  function testRingWraparound() public {
+    InboxHarness smallRingInbox = _deployInbox(SMALL_RING_SIZE);
+    expectedRollingHash = 0;
+
+    // One bucket per L1 block; after SMALL_RING_SIZE + 1 buckets the ring has wrapped past bucket 1.
+    for (uint256 i = 1; i <= SMALL_RING_SIZE + 1; i++) {
+      vm.roll(block.number + 1);
+      vm.warp(block.timestamp + 12);
+      _send(smallRingInbox, i);
+    }
+
+    uint256 current = smallRingInbox.getCurrentBucketSeq();
+    assertEq(current, SMALL_RING_SIZE + 1, "one bucket per block");
+
+    // Buckets 0 and 1 have been overwritten (their ring slots were reused by buckets 4 and 5).
+    vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__BucketOutOfWindow.selector, 0, current));
+    smallRingInbox.getBucket(0);
+    vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__BucketOutOfWindow.selector, 1, current));
+    smallRingInbox.getBucket(1);
+
+    // The live window is intact, with per-bucket data at the right ring slots.
+    uint64 previousTimestamp = 0;
+    for (uint256 seq = current - SMALL_RING_SIZE + 1; seq <= current; seq++) {
+      IInbox.InboxBucket memory bucket = smallRingInbox.getBucket(seq);
+      assertEq(bucket.totalMsgCount, seq, "cumulative total");
+      assertEq(bucket.msgCount, 1, "one message per bucket");
+      assertGt(bucket.timestamp, previousTimestamp, "timestamps increase per bucket");
+      previousTimestamp = bucket.timestamp;
+    }
+    assertEq(smallRingInbox.getBucket(current).rollingHash, expectedRollingHash, "chain matches reference");
+
+    // Buckets ahead of the current one do not exist yet.
+    vm.expectRevert(abi.encodeWithSelector(Errors.Inbox__BucketOutOfWindow.selector, current + 1, current));
+    smallRingInbox.getBucket(current + 1);
+  }
+}
