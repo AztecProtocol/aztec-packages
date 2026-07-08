@@ -4,7 +4,6 @@
 
 use crate::context::PrivateContext;
 use crate::messages::delivery::{
-    constrained_delivery::emit_sequence_nullifier,
     OnchainDeliveryMode,
     tag_derivation::{existing_handshake_secrets_or_else, TagDerivation},
     tag_secret_source::TagSecretSource,
@@ -28,15 +27,17 @@ pub(crate) fn derive_log_tag(
     recipient: AztecAddress,
     tag_derivation: Option<TagDerivation>,
 ) -> Field {
-    let source = tag_derivation.map_or_else(|| default_tag_secret_source(sender, recipient, mode), |derivation| {
-        derivation.into_tag_secret_source(sender, recipient)
-    });
+    let source = tag_derivation.map_or_else(
+        || default_tag_secret_source(context, sender, recipient, mode),
+        |derivation| derivation.into_tag_secret_source(context, sender, recipient),
+    );
     tag_with(source, context, mode, sender, recipient)
 }
 
 /// The wallet-resolved default: reuse a handshake already registered for the pair, otherwise let the wallet resolve
 /// the tagging secret strategy.
 fn default_tag_secret_source(
+    context: &mut PrivateContext,
     sender: AztecAddress,
     recipient: AztecAddress,
     mode: OnchainDeliveryMode,
@@ -49,7 +50,7 @@ fn default_tag_secret_source(
             // secret before a constrained tag is emitted, so an untrusted strategy can't produce a valid unbacked
             // constrained tag.
             let strategy = unsafe { resolve_tagging_strategy(sender, recipient, mode) };
-            strategy.into()
+            strategy.into_tag_secret_source(context, sender, recipient)
         },
     )
 }
@@ -61,19 +62,18 @@ fn tag_with(
     sender: AztecAddress,
     recipient: AztecAddress,
 ) -> Field {
-    let secrets = source.obtain_secrets(context, sender, recipient);
+    let secret = source.tag_secret();
 
     // Safety: the index is untrusted. Constrained delivery constrains it below before emitting the tag; unconstrained
     // discovery tolerates gaps, so a wrong index only yields an undiscoverable tag.
-    let index = unsafe { get_next_tagging_index(secrets.shared, mode) };
+    let index = unsafe { get_next_tagging_index(secret, mode) };
 
     if mode == OnchainDeliveryMode::onchain_constrained() {
-        source.constrain_secrets(context, sender, recipient, secrets, index);
-        emit_sequence_nullifier(context, sender, recipient, secrets, index);
+        source.constrain_tag_secret(context, sender, recipient, index);
     }
 
-    // The discovery tag stays derived from the shared secret only, so the recipient still finds every message.
-    tag_from_secret_and_index(secrets.shared, index, mode)
+    // The discovery tag stays derived from the tag secret only, so the recipient still finds every message.
+    tag_from_secret_and_index(secret, index, mode)
 }
 
 fn tag_domain_separator(mode: OnchainDeliveryMode) -> u32 {

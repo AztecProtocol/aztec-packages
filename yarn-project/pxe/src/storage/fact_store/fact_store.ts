@@ -82,7 +82,7 @@ export class FactStore implements StagedStore {
   }
 
   /**
-   * Records a fact in a collection.
+   * Records a fact in a collection, visible under the given scope.
    *
    * The collection is created implicitly on the first fact recorded for its key: recording into an existing collection
    * just adds to it.

@@ -17,14 +17,14 @@ import { RootRollupPublicInputs } from '@aztec/stdlib/rollup';
 import { jest } from '@jest/globals';
 
 import type { EndToEndContext } from '../../fixtures/utils.js';
-import { setupWithProver } from '../setup.js';
+import { PROVING_SLOT_TIMING, setupWithProver } from '../setup.js';
 import { SingleNodeTestContext } from '../single_node_test_context.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
 // Suite: 2 parallel scenarios testing proof-submission failure paths. SingleNodeTestContext with single
-// sequencer node, no initial prover (prover nodes created in test bodies). Timing: ethSlot=8s,
-// aztecSlot=2×8=16s, epoch=8, proofSubmissionEpochs=1 (default), blockDurationMs=3s,
+// sequencer node, no initial prover (prover nodes created in test bodies). Timing: PROVING_SLOT_TIMING
+// (ethSlot=4s, aztecSlot=12s), epoch=8, proofSubmissionEpochs=1 (default), blockDurationMs=3s,
 // cancelTxOnTimeout=false, inboxLag=2 (v5 always enforces the timetable, so the former enforceTimeTable
 // override is gone). Prover Delayer steers proof tx timing.
 describe('single-node/proving/proof_fails', () => {
@@ -42,11 +42,10 @@ describe('single-node/proving/proof_fails', () => {
 
   beforeEach(async () => {
     test = await setupWithProver({
+      ...PROVING_SLOT_TIMING,
       maxSpeedUpAttempts: 0, // No speed ups
       startProverNode: false, // Avoid early proving
-      ethereumSlotDuration: 8,
       aztecEpochDuration: 8, // Bump epoch duration so we can land at least one block in epoch 0
-      aztecSlotDurationInL1Slots: 2,
       blockDurationMs: 3000, // 3s blocks → 2 blocks per checkpoint under pipelining
       cancelTxOnTimeout: false,
     });

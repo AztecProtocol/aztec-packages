@@ -8,7 +8,7 @@ import { unique } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { retryUntil } from '@aztec/foundation/retry';
 import { pluralize } from '@aztec/foundation/string';
-import { getRoundForOffense } from '@aztec/slasher';
+import { type OffenseType, getRoundForOffense } from '@aztec/slasher';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import type { TxHash } from '@aztec/stdlib/tx';
 
@@ -59,6 +59,42 @@ export const baseSlashingOpts = {
   slashDuplicateProposalPenalty: slashingUnit,
   slashingOffsetInRounds: 1,
 };
+
+/**
+ * The fast slot timing shared by the sentinel-observation suites (`sentinel_status_slash`,
+ * `validators_sentinel`, `multiple_validators_sentinel`, `slash_veto_demo`). Slots are 8s (eth 4s ×
+ * epoch 2), which fit a checkpoint comfortably at the fast mocked-p2p operational budgets used at
+ * eth<8, keeping wall-clock down for tests whose bodies advance through real L2 slots. Spread into a
+ * {@link MultiNodeTestContext.setup} call alongside {@link SLASHER_ENABLED_MULTI_VALIDATOR_OPTS},
+ * `initialValidators`, and the per-test slash/penalty config. Non-sentinel offense-detection files
+ * that only need the same fast timing spread this and override `sentinelEnabled: false`.
+ */
+export const SENTINEL_TIMING = {
+  anvilSlotsInAnEpoch: 4,
+  listenAddress: '127.0.0.1',
+  ethereumSlotDuration: 4,
+  aztecSlotDuration: 8,
+  aztecEpochDuration: 2,
+  sentinelEnabled: true,
+} as const;
+
+/** A single detected slash offense as returned by {@link AztecNodeService.getSlashOffenses}. */
+export type SlashOffense = Awaited<ReturnType<AztecNodeService['getSlashOffenses']>>[number];
+
+/** Looks up the offense recorded for `validator` of `offenseType` at `slot`, if any. */
+export function findSlashOffense(
+  offenses: SlashOffense[],
+  validator: EthAddress,
+  offenseType: OffenseType,
+  slot: SlotNumber,
+): SlashOffense | undefined {
+  return offenses.find(
+    offense =>
+      offense.validator.equals(validator) &&
+      offense.offenseType === offenseType &&
+      offense.epochOrSlot === BigInt(slot),
+  );
+}
 
 export function awaitProposalExecution(
   slashingProposer: SlashingProposerContract,
@@ -184,13 +220,20 @@ export function findUpcomingProposerSlot({
  *
  * Returns the target epoch and the concrete target slot so the caller can warp to it after starting
  * sequencers.
+ *
+ * The default `maxAttempts` accounts for the worst-case caller: with a 2-slot epoch and
+ * `warmupSlots = 1`, each attempt checks a single slot, and with a 4-member committee the target is
+ * the proposer with probability 1/4 per attempt (proposer index is keccak(epoch, slot, seed) mod
+ * committee size, so attempts are independent). 50 attempts bound the miss probability at
+ * (3/4)^50 ≈ 6e-7; each attempt is just a committee query plus an anvil warp, so the extra headroom
+ * costs almost nothing.
  */
 export function advanceToEpochBeforeProposer({
   epochCache,
   cheatCodes,
   targetProposer,
   logger,
-  maxAttempts = 20,
+  maxAttempts = 50,
   warmupSlots = 1,
 }: {
   epochCache: EpochCacheInterface;

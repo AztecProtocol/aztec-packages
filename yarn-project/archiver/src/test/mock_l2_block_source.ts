@@ -323,6 +323,13 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
     if ('from' in query) {
       return this.checkpointList.slice(query.from - 1, query.from - 1 + query.limit);
     }
+    if ('fromSlot' in query) {
+      const matching = this.checkpointList.filter(c =>
+        query.reverse ? c.header.slotNumber <= query.fromSlot : c.header.slotNumber >= query.fromSlot,
+      );
+      const nearestFirst = query.reverse ? matching.reverse() : matching;
+      return nearestFirst.slice(0, query.limit);
+    }
     return this.getCheckpointsInEpoch(query.epoch);
   }
 

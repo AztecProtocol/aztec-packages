@@ -44,10 +44,20 @@ describe('ContractClassStore', () => {
       await expect(contractClassStore.getContractClass(contractClass.id)).resolves.toBeUndefined();
     });
 
-    it('throws if the same contract class is added again', async () => {
+    it('throws if the same contract class is added again at a different block', async () => {
       await expect(
         contractClassStore.addContractClasses([await withCommitment(contractClass)], BlockNumber(blockNum + 1)),
       ).rejects.toThrow(/already exists/);
+    });
+
+    it('treats re-adding the same contract class at the same block as a no-op (A-1350)', async () => {
+      // An L1 reorg can re-present an already-stored checkpoint, replaying this class at the same block.
+      const originalCommitment = await computePublicBytecodeCommitment(contractClass.packedBytecode);
+      await expect(
+        contractClassStore.addContractClasses([await withCommitment(contractClass)], BlockNumber(blockNum)),
+      ).resolves.not.toThrow();
+      await expect(contractClassStore.getContractClass(contractClass.id)).resolves.toMatchObject(contractClass);
+      await expect(contractClassStore.getBytecodeCommitment(contractClass.id)).resolves.toEqual(originalCommitment);
     });
 
     it('returns contract class if deleted at a later block number', async () => {

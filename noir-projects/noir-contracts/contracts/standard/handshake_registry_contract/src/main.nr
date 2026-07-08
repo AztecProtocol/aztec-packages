@@ -6,14 +6,6 @@ mod test;
 
 use sync::handshake_registry_sync;
 
-/// Handshake type identifier for non-interactive handshakes (sender-generated random shared secret, no recipient
-/// signature). See [`HandshakeRegistry::non_interactive_handshake`].
-global NON_INTERACTIVE_HANDSHAKE: u8 = 1;
-
-/// Handshake type identifier for interactive handshakes (recipient-signed). See
-/// [`HandshakeRegistry::interactive_handshake`].
-global INTERACTIVE_HANDSHAKE: u8 = 2;
-
 /// Registry for the message-delivery handshake protocol.
 ///
 /// The registry establishes a master shared-secret point `S` between a sender and a recipient and stores one current
@@ -34,8 +26,8 @@ global INTERACTIVE_HANDSHAKE: u8 = 2;
 #[aztec(::aztec::macros::AztecConfig::new().custom_sync_state(crate::handshake_registry_sync))]
 pub contract HandshakeRegistry {
     use crate::{
-        handshake_note::HandshakeNote, INTERACTIVE_HANDSHAKE, NON_INTERACTIVE_HANDSHAKE,
-        recipient_signature::RecipientSignature, sync::discovered_handshakes::get_all_handshakes,
+        handshake_note::HandshakeNote, recipient_signature::RecipientSignature,
+        sync::discovered_handshakes::get_all_discovered_handshakes,
     };
     use aztec::{
         keys::{ecdh_shared_secret::derive_ecdh_shared_secret, ephemeral::generate_positive_ephemeral_key_pair},
@@ -86,7 +78,7 @@ pub contract HandshakeRegistry {
     #[external("private")]
     fn non_interactive_handshake(sender: AztecAddress, recipient: AztecAddress) -> AppSiloedHandshakeSecrets {
         let (eph_pk, s_raw) = self.internal._generate_shared_secret(recipient);
-        let secrets = self.internal._store(sender, recipient, s_raw, NON_INTERACTIVE_HANDSHAKE);
+        let secrets = self.internal._store(sender, recipient, s_raw);
 
         // Announce the handshake: an encrypted private log under the recipient-keyed tag carrying `[eph_pk.x]`, so
         // the recipient can discover the handshake by scanning their tag and recover `S` via their own ECDH.
@@ -118,7 +110,7 @@ pub contract HandshakeRegistry {
     fn interactive_handshake(sender: AztecAddress, recipient: AztecAddress) -> AppSiloedHandshakeSecrets {
         let (eph_pk, s_raw) = self.internal._generate_shared_secret(recipient);
         self.internal._request_and_verify_signature(recipient, eph_pk);
-        self.internal._store(sender, recipient, s_raw, INTERACTIVE_HANDSHAKE)
+        self.internal._store(sender, recipient, s_raw)
     }
 
     /// Asserts that `secrets` match the stored handshake from `sender` to `recipient`, for the caller (`msg_sender()`).
@@ -166,12 +158,21 @@ pub contract HandshakeRegistry {
         }
     }
 
-    /// Returns a page of discovered handshakes addressed to `recipient`.
+    /// Returns a page of discovered non-interactive handshakes addressed to `recipient`.
+    ///
+    /// Only non-interactive handshakes appear here: they are the ones announced in a log the recipient's sync scan
+    /// discovers.
     ///
     /// `total_count` is the full list length, so callers can determine whether more pages remain.
+    ///
+    /// # Privacy
+    /// PXE authorizes this read for any calling contract without consulting the wallet's `authorizeUtilityCall`
+    /// hook, so any contract executing for `recipient` can see that account's discovered handshakes: their count and
+    /// their ephemeral public keys. This does not weaken message secrecy, as deriving the shared secret from an
+    /// ephemeral key requires the recipient's secret keys.
     #[external("utility")]
-    unconstrained fn get_handshakes(recipient: AztecAddress, page_offset: u32) -> HandshakePage {
-        let handshakes = get_all_handshakes(self.context.this_address(), recipient);
+    unconstrained fn get_non_interactive_handshakes(recipient: AztecAddress, page_offset: u32) -> HandshakePage {
+        let handshakes = get_all_discovered_handshakes(self.context.this_address(), recipient);
         let total_count = handshakes.len();
         let offset = std::cmp::min(page_offset, total_count);
         let page_len = std::cmp::min(MAX_HANDSHAKES_PER_PAGE, total_count - offset);
@@ -202,17 +203,12 @@ pub contract HandshakeRegistry {
     /// Inserts or replaces the current [`HandshakeNote`] owned by `sender` for `recipient` and returns the
     /// app-siloed secrets for the caller (`msg_sender()`).
     #[internal("private")]
-    fn _store(
-        sender: AztecAddress,
-        recipient: AztecAddress,
-        s_raw: EmbeddedCurvePoint,
-        handshake_type: u8,
-    ) -> AppSiloedHandshakeSecrets {
+    fn _store(sender: AztecAddress, recipient: AztecAddress, s_raw: EmbeddedCurvePoint) -> AppSiloedHandshakeSecrets {
         // Safety: an uncooperative sender could pick a non-random value, but the sender-only secret only protects
         // the sender's own ability to advance their sequence, so a bad value only harms themselves. It is a fresh
         // random secret known only to the sender, which will be folded into constrained-delivery nullifiers.
         let sender_secret = unsafe { random() };
-        let note = HandshakeNote::new(s_raw, handshake_type, recipient, sender_secret);
+        let note = HandshakeNote::new(s_raw, sender_secret);
 
         // We deliver onchain unconstrained rather than offchain so the note is discoverable via normal PXE sync. This
         // is a self-send (the note is owned by and delivered to `sender`), so the wallet would resolve to an

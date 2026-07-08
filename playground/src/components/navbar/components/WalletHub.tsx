@@ -22,7 +22,6 @@ import { useContext, useEffect, useState, useRef } from 'react';
 import { EmbeddedWallet } from '@aztec/wallets/embedded';
 import { WebLogger } from '../../../utils/web_logger';
 import { getInitialTestAccountsData } from '@aztec/accounts/testing/lazy';
-import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { type DeployOptions, DeployMethod } from '@aztec/aztec.js/contracts';
 import { AztecContext } from '../../../aztecContext';
@@ -93,8 +92,7 @@ async function discoverTestAccounts(wallet: EmbeddedWallet) {
 
   for (let i = 0; i < testAccountData.length; i++) {
     const accountData = testAccountData[i];
-    const sk = deriveSigningKey(accountData.secret);
-    await wallet.createSchnorrAccount(accountData.secret, accountData.salt, sk, `test${i}`);
+    await wallet.createSchnorrAccount(accountData.secret, accountData.salt, accountData.signingKey, `test${i}`);
   }
 }
 

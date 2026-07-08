@@ -19,33 +19,33 @@ describe('automine/token/access_control', () => {
     await t.tokenSim.check();
   });
 
-  // Exercises the full admin/minter role narrative as one test: adminAddress hands admin to account1,
-  // account1 (now admin) grants itself minter, then revokes it. These steps form an ordered chain
+  // Exercises the full admin/minter role narrative as one test: adminAddress hands admin to other,
+  // other (now admin) grants itself minter, then revokes it. These steps form an ordered chain
   // (each builds on the previous), so they live in a single it() — the .parallel split runs every
   // top-level it() in its own isolated container, where separate ordered tests could not see each
   // other's state.
   it('Manages admin and minter roles', async () => {
-    await t.asset.methods.set_admin(t.account1Address).send({ from: t.adminAddress });
+    await t.asset.methods.set_admin(t.otherAddress).send({ from: t.adminAddress });
     expect((await t.asset.methods.get_admin().simulate({ from: t.adminAddress })).result).toBe(
-      t.account1Address.toBigInt(),
+      t.otherAddress.toBigInt(),
     );
 
-    await t.asset.methods.set_minter(t.account1Address, true).send({ from: t.account1Address });
-    expect((await t.asset.methods.is_minter(t.account1Address).simulate({ from: t.adminAddress })).result).toBe(true);
+    await t.asset.methods.set_minter(t.otherAddress, true).send({ from: t.otherAddress });
+    expect((await t.asset.methods.is_minter(t.otherAddress).simulate({ from: t.adminAddress })).result).toBe(true);
 
-    await t.asset.methods.set_minter(t.account1Address, false).send({ from: t.account1Address });
-    expect((await t.asset.methods.is_minter(t.account1Address).simulate({ from: t.adminAddress })).result).toBe(false);
+    await t.asset.methods.set_minter(t.otherAddress, false).send({ from: t.otherAddress });
+    expect((await t.asset.methods.is_minter(t.otherAddress).simulate({ from: t.adminAddress })).result).toBe(false);
   });
 
   // Error cases: unauthorized set_admin and unauthorized set_minter. These assert that calls from
-  // t.adminAddress revert once it is no longer admin, so the block transfers admin to account1 in its
+  // t.adminAddress revert once it is no longer admin, so the block transfers admin to other in its
   // own beforeAll rather than relying on the 'Set admin' test above having run (CI runs tests in
   // isolation). The transfer is idempotent: it is skipped if admin was already moved.
   describe('failure cases', () => {
     beforeAll(async () => {
       const currentAdmin = (await t.asset.methods.get_admin().simulate({ from: t.adminAddress })).result;
       if (currentAdmin === t.adminAddress.toBigInt()) {
-        await t.asset.methods.set_admin(t.account1Address).send({ from: t.adminAddress });
+        await t.asset.methods.set_admin(t.otherAddress).send({ from: t.adminAddress });
       }
     });
 

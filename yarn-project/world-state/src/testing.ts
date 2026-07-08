@@ -14,8 +14,11 @@ async function generateGenesisValues(genesis: GenesisData) {
     };
   }
 
-  // Create a temporary world state to compute the genesis values.
-  const ws = await NativeWorldStateService.tmp(undefined /* rollupAddress */, true /* cleanupTmpDir */, genesis);
+  // Compute the genesis values on a throwaway world state. The archive root derives only from the
+  // prefilled public data and the genesis timestamp, so the fsync-off ephemeral store (no version
+  // manager, no crash-recoverability) produces an identical root while skipping the fsync overhead
+  // that `tmp` pays. close() removes the tmpdir.
+  const ws = await NativeWorldStateService.ephemeral(genesis);
   const genesisArchiveRoot = new Fr((await ws.getCommitted().getTreeInfo(MerkleTreeId.ARCHIVE)).root);
   await ws.close();
 

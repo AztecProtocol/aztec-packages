@@ -8,7 +8,7 @@ import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { randomBytes } from '@aztec/foundation/crypto/random';
 import { Fq } from '@aztec/foundation/curves/bn254';
-import { AMMContract } from '@aztec/noir-contracts.js/AMM';
+import type { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import { type TokenContract, TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { AuthWitTestContract, AuthWitTestContractArtifact } from '@aztec/noir-test-contracts.js/AuthWitTest';
 import { GenericProxyContract } from '@aztec/noir-test-contracts.js/GenericProxy';
@@ -20,9 +20,10 @@ import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { jest } from '@jest/globals';
 
 import { simulateThroughAuthwitProxy } from '../../fixtures/authwit_proxy.js';
-import { deployToken, mintTokensToPrivate } from '../../fixtures/token_utils.js';
+import { deployToken } from '../../fixtures/token_utils.js';
 import type { TestWallet } from '../../test-wallet/test_wallet.js';
 import { AutomineTestContext } from '../automine_test_context.js';
+import { deployAmmWithTokens } from '../token/token_test_helpers.js';
 
 /*
  * Demonstrates the capability of simulating a transaction without executing the kernels, allowing
@@ -46,7 +47,6 @@ describe('automine/simulation/kernelless_simulation', () => {
 
   let token0: TokenContract;
   let token1: TokenContract;
-  let liquidityToken: TokenContract;
 
   let amm: AMMContract;
 
@@ -61,22 +61,12 @@ describe('automine/simulation/kernelless_simulation', () => {
       logger,
     } = (await AutomineTestContext.setup({ numberOfAccounts: 3 })).context);
 
-    ({ contract: token0 } = await deployToken(wallet, adminAddress, 0n, logger));
-    ({ contract: token1 } = await deployToken(wallet, adminAddress, 0n, logger));
-    ({ contract: liquidityToken } = await deployToken(wallet, adminAddress, 0n, logger));
-
-    ({ contract: amm } = await AMMContract.deploy(wallet, token0.address, token1.address, liquidityToken.address).send({
-      from: adminAddress,
+    ({ token0, token1, amm } = await deployAmmWithTokens(wallet, adminAddress, deployToken, {
+      liquidityProviders: [liquidityProviderAddress],
+      swapper: swapperAddress,
+      initialBalance: INITIAL_TOKEN_BALANCE,
+      logger,
     }));
-
-    await liquidityToken.methods.set_minter(amm.address, true).send({ from: adminAddress });
-
-    // We mint the tokens to the liquidity provider
-    await mintTokensToPrivate(token0, adminAddress, liquidityProviderAddress, INITIAL_TOKEN_BALANCE);
-    await mintTokensToPrivate(token1, adminAddress, liquidityProviderAddress, INITIAL_TOKEN_BALANCE);
-
-    // Note that the swapper only holds token0, not token1
-    await mintTokensToPrivate(token0, adminAddress, swapperAddress, INITIAL_TOKEN_BALANCE);
   });
 
   afterAll(() => teardown());

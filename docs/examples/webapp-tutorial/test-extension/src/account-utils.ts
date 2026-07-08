@@ -5,7 +5,7 @@
  * account creation, deployment, and registration.
  */
 
-import { getAztecCore } from './aztec-imports';
+import { getAztecCore } from "./aztec-imports";
 
 /**
  * Derives keys and instantiates a Schnorr account contract from a secret and salt.
@@ -21,17 +21,18 @@ import { getAztecCore } from './aztec-imports';
 export async function instantiateAccount(secret: string, salt: string) {
   const {
     Fr,
+    GrumpkinScalar,
     deriveKeys,
-    deriveSigningKey,
+    deriveSecretKeyFromSigningKey,
     SchnorrAccountContract,
     getContractInstanceFromInstantiationParams,
   } = await getAztecCore();
 
-  const secretFr = Fr.fromString(secret);
+  const signingKey = GrumpkinScalar.fromString(secret);
   const saltFr = Fr.fromString(salt);
 
+  const secretFr = await deriveSecretKeyFromSigningKey(signingKey);
   const { publicKeys } = await deriveKeys(secretFr);
-  const signingKey = deriveSigningKey(secretFr);
   const accountContract = new SchnorrAccountContract(signingKey);
 
   const initInfo = await accountContract.getInitializationFunctionAndArgs();
