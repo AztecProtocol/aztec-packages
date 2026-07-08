@@ -146,25 +146,16 @@ async function collectOpenedStores() {
 }
 
 /**
- * Drives the schema-mismatch wipe path shared by every "wipes rows written under schema vN" test: seeds rows into a
- * `pxe_data` store opened at `oldSchemaVersion`, then reopens the same on-disk directory at the current
+ * Seeds rows into a `pxe_data` store opened at `oldSchemaVersion`, then reopens it at the current
  * `PXE_DATA_SCHEMA_VERSION`. The version mismatch makes DatabaseVersionManager wipe the database on open, so
- * `assertWiped` runs against a freshly-cleared store and can prove the legacy rows are gone. Owns the throwaway
- * data-directory lifecycle and the open/close ceremony so each test only spells out its own legacy write and
- * post-wipe assertion.
- *
- * @param oldSchemaVersion - schema version the legacy rows are written under (a `PRE_..._PXE_SCHEMA_VERSION`)
- * @param tmpDirPrefix - prefix for the throwaway data directory, e.g. `'pxe-schema-reset-'`
- * @param seedLegacyRows - writes rows into the store opened at `oldSchemaVersion`
- * @param assertWiped - asserts against the store reopened at the current schema version
+ * `assertWiped` runs against a cleared store and can prove the legacy rows are gone.
  */
 async function expectStoreWipedOnUpgradeFrom(
   oldSchemaVersion: number,
-  tmpDirPrefix: string,
   seedLegacyRows: (oldStore: AztecAsyncKVStore) => Promise<void>,
   assertWiped: (currentStore: AztecAsyncKVStore) => Promise<void>,
 ) {
-  const dataDirectory = await mkdtemp(join(tmpdir(), tmpDirPrefix));
+  const dataDirectory = await mkdtemp(join(tmpdir(), 'pxe-schema-wipe-'));
   const config = {
     dataDirectory,
     dataStoreMapSizeKb: 1024,
@@ -211,7 +202,6 @@ describe('PXE storage compatibility test suite', () => {
     const account = AztecAddress.fromStringUnsafe('0x0b3683ee9df3ed6ed7027145bd6093f783b0bb4d8354501d906db7bb8cb58ea3');
     await expectStoreWipedOnUpgradeFrom(
       PRE_MESSAGE_AND_FALLBACK_SECRET_KEY_REMOVAL_PXE_SCHEMA_VERSION,
-      'pxe-schema-reset-',
       oldStore =>
         oldStore
           .openMap<string, Buffer>('key_store')
@@ -221,26 +211,21 @@ describe('PXE storage compatibility test suite', () => {
           ),
       async currentStore => {
         const keyStore = new KeyStore(currentStore);
-        // The wipe dropped the account written under the old schema, so the new code never reads its
-        // now-incompatible rows.
         await expect(keyStore.hasAccount(account)).resolves.toBe(false);
       },
     );
   });
 
   it('wipes tagging-store rows written under the legacy two-part AppTaggingSecret key format', async () => {
-    // The legacy unconstrained toString() emitted a two-part `<secret>:<app>` key. Build it by hand, since the
-    // current toString() can only emit the three-part `<kind>:<secret>:<app>` form. These are the exact
-    // secret/app values the RecipientTaggingStore schema fixture uses, i.e. a real pre-migration key.
+    // The current toString() only emits the three-part `<kind>:<secret>:<app>` form, so build the legacy two-part
+    // `<secret>:<app>` key by hand.
     const legacyKey = `${new Fr(2n).toString()}:${AztecAddress.fromBigIntUnsafe(3n).toString()}`;
     await expectStoreWipedOnUpgradeFrom(
       PRE_KIND_PREFIXED_TAGGING_KEY_PXE_SCHEMA_VERSION,
-      'pxe-schema-tagging-reset-',
       oldStore => oldStore.openMap<string, number>('highest_aged_index').set(legacyKey, 13),
       async currentStore => {
-        // The wipe discarded the legacy-format key before the new parser (which rejects two-part keys) could ever
-        // enumerate it. Assert on the raw map: a high-level getter would miss the key regardless of the wipe,
-        // because the new three-part toString() never reconstructs the legacy key, so it would false-pass.
+        // Assert on the raw map, not a high-level getter: the new three-part toString() never reconstructs the
+        // legacy two-part key, so a getter would report it absent (false-pass) whether or not the wipe happened.
         await expect(currentStore.openMap<string, number>('highest_aged_index').sizeAsync()).resolves.toBe(0);
       },
     );
