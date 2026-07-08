@@ -48,6 +48,7 @@ import { TxResolverService } from '../../messages/tx_resolver_service.js';
 import { NoteService } from '../../notes/note_service.js';
 import { ORACLE_VERSION_MAJOR } from '../../oracle_version.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
+import { assertAllowedScope } from '../../storage/allowed_scopes.js';
 import type { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import { FactCollectionKey, FactCollectionTypeKey, anchoredTipBlockNumbers } from '../../storage/fact_store/index.js';
 import type { FactService, OriginBlock } from '../../storage/fact_store/index.js';
@@ -595,6 +596,7 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       this.recipientTaggingStore,
       this.taggingSecretSourcesStore,
       this.addressStore,
+      this.scopes,
       this.jobId,
       this.logger.getBindings(),
     );
@@ -853,8 +855,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param address - The recipient address.
    * @param ephPks - Ephemeral array containing the serialized Points.
    * @param contractAddress - The contract address for app-siloing (validated against execution context).
-   * @returns A new ephemeral array containing the computed shared secrets, or an empty array when the PXE does not
-   * hold the keys for `address`, signaling that no secrets can be derived for it.
+   * @returns A new ephemeral array containing the computed shared secrets.
+   * @throws If `address` is not in the execution's allowed scopes.
    */
   public async getSharedSecrets(
     address: AztecAddress,
@@ -866,17 +868,10 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
         `getSharedSecrets called with contract address ${contractAddress}, expected ${this.contractAddress}`,
       );
     }
-    const recipientCompleteAddress = await this.addressStore.getCompleteAddress(address);
-    if (!recipientCompleteAddress) {
-      this.logger.warn(
-        `Computing shared secrets for address ${address} whose keys are not held - returning no secrets`,
-        {
-          address,
-          contractAddress: this.contractAddress,
-        },
-      );
-      return EphemeralArray.fromValues<Fr>(this.ephemeralArrayService, []);
-    }
+
+    assertAllowedScope(address, this.scopes);
+
+    const recipientCompleteAddress = await this.getCompleteAddressOrFail(address);
     const ivpkMHash = await hashPublicKey(recipientCompleteAddress.publicKeys.ivpkM);
     const ivskM = await this.keyStore.getMasterSecretKey(ivpkMHash);
     const addressSecret = await computeAddressSecret(await recipientCompleteAddress.getPreaddress(), ivskM);
