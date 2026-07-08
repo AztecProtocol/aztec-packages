@@ -14,8 +14,9 @@ Applied before the protocol handler runs.
 | STATUS | 5/s | 10/s | same |
 | AUTH | 5/s | 10/s | same |
 | GOODBYE | 5/s | 10/s | same |
+| BLOCK | 2/s | 5/s | same |
 | BLOCK_TXS | 10/s | 200/s | same |
-| TX | 10/s | 200/s | same |
+| TX | (see rate limits file) | (see rate limits file) | same |
 
 - Per-peer limit exceeded: `HighToleranceError` penalty + `RATE_LIMIT_EXCEEDED` status. Penalty fires inside `RequestResponseRateLimiter.allow()`, not the stream handler.
 - Global limit exceeded: `RATE_LIMIT_EXCEEDED` status only (no peer penalty).
@@ -148,6 +149,26 @@ Protected peers (private/trusted/preferred) are always considered "authenticated
 
 ## Block Data Protocols
 
+### BLOCK Protocol (`/aztec/req/block/1.0.0`)
+
+**Server side**:
+
+| Rule | Consequence | File |
+|------|-------------|------|
+| Request must parse as `Fr` | `BADLY_FORMED_REQUEST` + LowToleranceError | `protocols/block.ts` |
+| Block lookup throws | `INTERNAL_ERROR` status | same |
+| Block not found | SUCCESS + empty buffer (design choice; no `NOT_FOUND` status used) | same |
+
+**Requester side** (Snappy limit: 3 MB):
+
+| Rule | Consequence | File |
+|------|-------------|------|
+| Response block number must match requested | LowToleranceError; rejected | `libp2p_service.ts` (`validateRequestedBlock`) |
+| Local block must exist for hash verification | Rejected (no penalty) | same |
+| Response block hash must equal local block hash | MidToleranceError; rejected | same |
+
+**Limitation**: the local-block requirement means BLOCK req/resp is unusable for initial P2P-only sync (before L1 sync provides local copies for verification). A TODO in the code acknowledges this.
+
 ### BLOCK_TXS Protocol (`/aztec/req/block_txs/1.0.0`)
 
 **Server side**:
@@ -157,7 +178,7 @@ Protected peers (private/trusted/preferred) are always considered "authenticated
 | Request must parse as `BlockTxsRequest` (Fr + TxHashArray + BitVector) | `BADLY_FORMED_REQUEST` + LowToleranceError | `protocols/block_txs/block_txs_handler.ts` |
 | BitVector length: non-negative and <= `MAX_TXS_PER_BLOCK` (65536) | Deserialization throws -> `BADLY_FORMED_REQUEST` | `protocols/block_txs/bitvector.ts` |
 | Archive root not found and no explicit txHashes | `NOT_FOUND` status | handler |
-| Internal error during lookup | Unhandled exception -> stream abort (no `INTERNAL_ERROR` status) | handler |
+| Internal error during lookup | Unhandled exception -> stream abort (no `INTERNAL_ERROR` status, unlike BLOCK) | handler |
 
 Conditional registration: BLOCK_TXS handler only registered when `config.disableTransactions` is false. Otherwise peers get `ERR_UNSUPPORTED_PROTOCOL`.
 

@@ -8,7 +8,7 @@ This package implements the P2P networking layer for Aztec nodes using libp2p. I
 - **LibP2PService** is the core networking layer. Subscribes to gossipsub topics, registers req/resp handlers, runs message validation pipelines. It composes:
   - **PeerManager** — peer scoring (gossipsub + application-level), authentication (STATUS/AUTH handshakes), connection gating.
   - **DiscV5Service** — UDP-based peer discovery using Ethereum's discv5 protocol and ENR records.
-  - **ReqResp** — request-response protocols: BLOCK_TXS, TX, STATUS, AUTH, PING, GOODBYE.
+  - **ReqResp** — request-response protocols: BLOCK, BLOCK_TXS, TX, STATUS, AUTH, PING, GOODBYE.
   - **TxCollection** — coordinates transaction fetching: fast collection for proposals/proving (deadline-driven, falls back to `BatchTxRequester`) and slow background collection for unproven blocks.
 - **Mempools** sit below the service layer:
   - **TxPoolV2** — transaction mempool with explicit state machine (pending, protected, mined, soft-deleted, hard-deleted) and pluggable eviction rules.
@@ -51,7 +51,7 @@ Connection gating: peers with too many failed AUTH attempts (`p2pMaxFailedAuthAt
 | [Transaction Validation](src/msg_validators/tx_validator/README.md) | Validator factories per entry point, individual validator descriptions with benchmarks, coverage table |
 | [Proposal Validation](src/msg_validators/proposal_validator/README.md) | BlockProposal and CheckpointProposal gossipsub validation, pool admission, validator-client processing, slashing |
 | [Attestation Validation](src/msg_validators/attestation_validator/README.md) | CheckpointAttestation gossipsub validation, pool admission, equivocation detection, L1 submission validation |
-| [ReqResp Protocols](src/services/reqresp/README.md) | Handshake protocols (STATUS, AUTH, PING, GOODBYE), block data protocols (BLOCK_TXS, TX), rate limits, transport validation |
+| [ReqResp Protocols](src/services/reqresp/README.md) | Handshake protocols (STATUS, AUTH, PING, GOODBYE), block data protocols (BLOCK, BLOCK_TXS, TX), rate limits, transport validation |
 | [BatchTxRequester](src/services/reqresp/batch-tx-requester/README.md) | Peer classification (pinned/dumb/smart), worker architecture, BLOCK_TXS wire protocol |
 | [TxPool Interface](src/mem_pools/tx_pool/README.md) | TxPool contract, storage structure, priority system, nullifier deduplication, eviction rules |
 | [TxPoolV2](src/mem_pools/tx_pool_v2/README.md) | State machine, soft deletion (slot-based vs prune-based), pre-add vs post-event rules |
@@ -104,8 +104,9 @@ See [ReqResp Protocols](src/services/reqresp/README.md) for full protocol detail
 | STATUS | 5/s | 10/s |
 | AUTH | 5/s | 10/s |
 | GOODBYE | 5/s | 10/s |
+| BLOCK | 2/s | 5/s |
 | BLOCK_TXS | 10/s | 200/s |
-| TX | 10/s | 200/s |
+| TX | (see config) | (see config) |
 
 Per-peer limit exceeded: `HighToleranceError` + `RATE_LIMIT_EXCEEDED` status. Global limit exceeded: `RATE_LIMIT_EXCEEDED` status only (no peer penalty).
 
@@ -128,6 +129,7 @@ and only lifts when the window expires. See [Gossipsub Scoring](src/services/gos
 | AUTH | Random challenge (`Fr`) | Signed challenge response | Validator identity verification on connect |
 | PING | (empty) | `pong` | Liveness check |
 | GOODBYE | Reason byte | (none meaningful) | Graceful disconnect |
+| BLOCK | Block number (`Fr`) | Block data (3 MB snappy) | Block sync |
 | BLOCK_TXS | Archive root + tx hashes + BitVector | Txs + BitVector of availability | Batch tx fetching for proposals/proving |
 | TX | `TxHashArray` | Matching txs | Individual tx fetching |
 
