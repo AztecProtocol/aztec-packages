@@ -18,16 +18,38 @@ configure the TXE default wallet strategy hook; contract-fixed delivery derivati
 For mode-specific defaults and hook semantics, see the
 [`resolveTaggingSecretStrategy` test helper docs](../foundational-topics/pxe/execution_hooks.md#resolvetaggingsecretstrategy).
 
+### [Aztec.nr] L1-to-L2 message consumption takes the secret as an array
+
+`PrivateContext::consume_l1_to_l2_message` and `PublicContext::consume_l1_to_l2_message` now take the message secret as an arbitrary-length array `[Field; N]` instead of a single `Field`, so a consumer can derive its secret hash from more than one field. The helpers `compute_secret_hash` and `compute_l1_to_l2_message_nullifier` are likewise now generic over the secret length. A single-field secret behaves exactly as before (the hashes are unchanged for `N = 1`) — just wrap it in an array.
+
 **Migration:**
 
 ```diff
-- TestEnvironmentOptions::new().with_tagging_secret_strategy(TaggingSecretStrategy::address_derived())
-+ TestEnvironmentOptions::new().with_default_tag_secret_strategy_all_modes(
-+     TaggingSecretStrategy::address_derived(),
-+ )
+- context.consume_l1_to_l2_message(content, secret, sender, leaf_index);
++ context.consume_l1_to_l2_message(content, [secret], sender, leaf_index);
 ```
 
-**Impact**: Noir tests using the old helper name no longer compile until renamed. Message delivery behavior is unchanged.
+```diff
+- let secret_hash = compute_secret_hash(secret);
++ let secret_hash = compute_secret_hash([secret]);
+```
+
+**Impact**: Contracts that consume L1-to-L2 messages, or that call `compute_secret_hash` / `compute_l1_to_l2_message_nullifier`, must wrap their single-field secret in an array. Already-deployed contracts are unaffected: their unchanged bytecode keeps working, as PXE serves the previous L1-to-L2 membership-witness oracle through a compatibility adaptor.
+
+### [Aztec.js] `computeL1ToL2MessageNullifier` replaced by `computeFeeJuiceMessageNullifier`
+
+The `@aztec/stdlib` helper `computeL1ToL2MessageNullifier(contract, messageHash, secret)`, which returned the siloed message nullifier, has been removed. Its replacement `computeFeeJuiceMessageNullifier(messageHash, secret)` returns the **unsiloed** nullifier — siloing now happens at the point where the nullifier is looked up. `getL1ToL2MessageWitness` accordingly takes an optional `{ contractAddress, nullifier }` (unsiloed) and silos internally. `computeSecretHash` is unchanged, and `getNonNullifiedL1ToL2MessageWitness` keeps the same signature.
+
+**Migration:**
+
+```diff
+- const nullifier = await computeL1ToL2MessageNullifier(contract, messageHash, secret);
++ // computeFeeJuiceMessageNullifier returns the UNSILOED nullifier; silo it before looking it up, or hand the
++ // unsiloed value to getL1ToL2MessageWitness which silos for you.
++ const nullifier = await siloNullifier(contract, await computeFeeJuiceMessageNullifier(messageHash, secret));
+```
+
+**Impact**: Only affects code calling these low-level messaging helpers directly - most integrations use `getNonNullifiedL1ToL2MessageWitness`, which is unchanged.
 
 ### [Aztec.js] Account signing keys are no longer derived from the privacy secret
 

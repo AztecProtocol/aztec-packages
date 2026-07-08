@@ -200,7 +200,7 @@ const TXE_CALL_CONTEXT: TypeMapping<{ txHash: Fr; anchorBlockTimestamp: bigint }
   shape: ['scalar', 'scalar', 'scalar'], // discriminant, txHash, anchor block timestamp
 };
 
-export const CONTRACT_INSTANCE_MEMBER: TypeMapping<{ exists: boolean; member: Fr }[]> = FIXED_ARRAY(
+const CONTRACT_INSTANCE_MEMBER: TypeMapping<{ exists: boolean; member: Fr }[]> = FIXED_ARRAY(
   STRUCT([
     { name: 'exists', type: BOOL },
     { name: 'member', type: FIELD },
