@@ -47,12 +47,20 @@ export function resolvedTaggingStrategyToFields(resolved: ResolvedTaggingStrateg
 export function resolvedTaggingStrategyFromFields(kind: number, secret: Fr): ResolvedTaggingStrategy {
   switch (kind) {
     case NON_INTERACTIVE_HANDSHAKE:
+      assertAbsentSecret(kind, secret);
       return { type: 'non-interactive-handshake' };
     case INTERACTIVE_HANDSHAKE:
+      assertAbsentSecret(kind, secret);
       return { type: 'interactive-handshake' };
     case UNCONSTRAINED_SECRET:
       return { type: 'unconstrained-secret', secret };
     default:
       throw new Error(`Unrecognized resolved tagging strategy kind: ${kind}`);
+  }
+}
+
+function assertAbsentSecret(kind: number, secret: Fr): void {
+  if (!secret.isZero()) {
+    throw new Error(`Resolved tagging strategy ${kind} must not include a secret`);
   }
 }
