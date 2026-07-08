@@ -868,14 +868,20 @@ impl PrivateContext {
     ///
     /// # Arguments
     /// * `content` - The message content that was sent from L1
-    /// * `secret` - Secret value used for message privacy (if needed)
+    /// * `secret` - Secret fields used for message privacy (if needed)
     /// * `sender` - Ethereum address that sent the message
     /// * `leaf_index` - Index of the message in the L1-to-L2 message tree
     ///
     /// # Advanced
     /// Validates message existence in the L1-to-L2 message tree and nullifies the message to prevent
     /// double-consumption.
-    pub fn consume_l1_to_l2_message(&mut self, content: Field, secret: Field, sender: EthAddress, leaf_index: Field) {
+    pub fn consume_l1_to_l2_message<let N: u32>(
+        &mut self,
+        content: Field,
+        secret: [Field; N],
+        sender: EthAddress,
+        leaf_index: Field,
+    ) {
         let nullifier = process_l1_to_l2_message(
             self.anchor_block_header.state.l1_to_l2_message_tree.root,
             self.this_address(),

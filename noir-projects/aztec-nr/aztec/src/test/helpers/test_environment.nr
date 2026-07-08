@@ -887,7 +887,7 @@ impl TestEnvironment {
         sender: EthAddress,
         recipient: AztecAddress,
     ) -> Field {
-        self.send_l1_to_l2_message_from_secret_hash(content, compute_secret_hash(secret), sender, recipient)
+        self.send_l1_to_l2_message_from_secret_hash(content, compute_secret_hash([secret]), sender, recipient)
     }
 
     /// Variant of [`send_l1_to_l2_message`](TestEnvironment::send_l1_to_l2_message) that takes the secret hash
