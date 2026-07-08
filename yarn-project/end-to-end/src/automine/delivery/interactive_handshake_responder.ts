@@ -4,13 +4,12 @@ import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import { Schnorr, type SchnorrSignature } from '@aztec/foundation/crypto/schnorr';
 import { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import type { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
+import type { CustomRequest } from '@aztec/pxe/config';
 import {
   INTERACTIVE_HANDSHAKE_REQUEST_KIND,
   STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
 } from '@aztec/standard-contracts/handshake-registry/constants';
 import { type PublicKeys, derivePublicKeyFromSecretKey } from '@aztec/stdlib/keys';
-
-import type { CustomRequest } from './onchain_delivery_harness.js';
 
 /**
  * The decoded payload of the registry's interactive-handshake signature request. Note it never carries the sender,

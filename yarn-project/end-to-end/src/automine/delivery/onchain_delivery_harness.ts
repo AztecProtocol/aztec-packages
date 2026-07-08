@@ -6,7 +6,7 @@ import type { AztecNode } from '@aztec/aztec.js/node';
 import type { AccountManager } from '@aztec/aztec.js/wallet';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { type DeliveryEvent, OnchainDeliveryTestContract } from '@aztec/noir-test-contracts.js/OnchainDeliveryTest';
-import type { PXECreationOptions } from '@aztec/pxe/server';
+import type { CustomRequest, ResolveCustomRequest, ResolveTaggingSecretStrategy } from '@aztec/pxe/config';
 import type { AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
 
 import { jest } from '@jest/globals';
@@ -15,22 +15,13 @@ import { AUTOMINE_E2E_OPTS } from '../../fixtures/fixtures.js';
 import { ensureHandshakeRegistryPublished, setup, setupPXEAndGetWallet } from '../../fixtures/setup.js';
 import { TestWallet } from '../../test-wallet/test_wallet.js';
 
-// The wallet hook that selects a message's tagging-secret source. Derived from the exported PXE options
-// rather than importing the hook type, which `@aztec/pxe/server` does not re-export.
-export type SenderHook = NonNullable<NonNullable<PXECreationOptions['hooks']>['resolveTaggingSecretStrategy']>;
-
-// The wallet hook resolving a contract's custom request (e.g. the registry's interactive-handshake signature
-// request), derived from the exported PXE options for the same reason as `SenderHook`.
-export type CustomRequestHook = NonNullable<NonNullable<PXECreationOptions['hooks']>['resolveCustomRequest']>;
-export type CustomRequest = Parameters<CustomRequestHook>[0];
-
 // Builds the hook serving custom requests issued during the sender's simulations. Installed on the sender PXE at
 // creation but built only once the recipient exists, since serving typically needs the recipient's wallet and keys.
 export type CustomRequestResponder = (
   recipient: TestWallet,
   recipientAccount: InitialAccountData,
   recipientCompleteAddress: CompleteAddress,
-) => CustomRequestHook;
+) => ResolveCustomRequest;
 
 export type Mode = 'constrained' | 'unconstrained';
 
@@ -54,7 +45,7 @@ export function buildMessageDeliveryTest(opts: {
   strategy: string;
   mode: DeliveryMode;
   // Required: every cell states its source explicitly rather than leaning on the PXE default (covered by unit tests).
-  senderHook: SenderHook;
+  senderHook: ResolveTaggingSecretStrategy;
   // Recipient-side setup the source requires (e.g. registering a raw arbitrary secret); runs once after deployment.
   recipientRegistration?: (
     recipient: TestWallet,
@@ -125,15 +116,14 @@ export function buildMessageDeliveryTest(opts: {
               if (!customRequestResponder) {
                 throw new Error('A custom request arrived but this test cell has no customRequestResponder configured');
               }
-              const account = recipientAccount;
-              if (!account) {
+              if (!recipientAccount) {
                 throw new Error('A custom request arrived before the recipient wallet was created');
               }
               customRequestCount++;
               const respond = customRequestResponder(
                 walletRecipient,
                 additionallyFundedAccounts[0],
-                await account.getCompleteAddress(),
+                await recipientAccount.getCompleteAddress(),
               );
               return respond(request);
             },

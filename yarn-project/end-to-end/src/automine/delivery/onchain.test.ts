@@ -1,6 +1,7 @@
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { CompleteAddress } from '@aztec/aztec.js/addresses';
 import { Point } from '@aztec/foundation/curves/grumpkin';
+import type { ResolveCustomRequest } from '@aztec/pxe/config';
 import { deriveKeys } from '@aztec/stdlib/keys';
 
 import type { TestWallet } from '../../test-wallet/test_wallet.js';
@@ -9,7 +10,7 @@ import {
   recipientSignatureToFields,
   signInteractiveHandshake,
 } from './interactive_handshake_responder.js';
-import { type CustomRequestHook, buildMessageDeliveryTest } from './onchain_delivery_harness.js';
+import { buildMessageDeliveryTest } from './onchain_delivery_harness.js';
 
 describe('onchain delivery', () => {
   let arbitrarySecret: Point;
@@ -74,7 +75,7 @@ describe('onchain delivery', () => {
     recipientWallet: TestWallet,
     recipientAccount: InitialAccountData,
     recipientCompleteAddress: CompleteAddress,
-  ): CustomRequestHook {
+  ): ResolveCustomRequest {
     return async request => {
       const parsed = parseInteractiveHandshakeRequest(request);
 
