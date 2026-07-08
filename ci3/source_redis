@@ -77,6 +77,12 @@ fi
 function redis_cli {
   if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
     timeout 30 redis-cli --raw -h $CI_REDIS "$@" || true
+  elif [ "${1:-}" = "-x" ]; then
+    # Redis unavailable, but the caller streams the value in via stdin (redis-cli's
+    # -x flag). Drain it, otherwise the upstream pipeline producer (e.g. gzip in
+    # redis_setexz) writes into a pipe with no reader, dies with EPIPE ("gzip:
+    # stdout: Broken pipe"), and fails the whole script under `set -o pipefail`.
+    cat >/dev/null 2>&1 || true
   fi
 }
 
