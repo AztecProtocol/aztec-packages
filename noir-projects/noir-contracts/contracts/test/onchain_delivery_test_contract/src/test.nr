@@ -60,7 +60,7 @@ unconstrained fn unconstrained_delivery_works_alongside_constrained_delivery() {
     };
     // Only the unconstrained mode is configured: the constrained mode falls back to the default non-interactive
     // handshake strategy, so the constrained delivery below still bootstraps a registry handshake.
-    let options = TestEnvironmentOptions::new().with_tag_secret_strategy(
+    let options = TestEnvironmentOptions::new().with_default_tag_secret_strategy(
         MessageDelivery::onchain_unconstrained(),
         TaggingSecretStrategy::arbitrary_secret(point),
     );

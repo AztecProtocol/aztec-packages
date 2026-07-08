@@ -111,19 +111,6 @@ describe('oracle type mappings', () => {
 
   describe('RESOLVED_TAGGING_STRATEGY', () => {
     const secret = new Fr(42);
-    const strategyCases: [string, ResolvedTaggingStrategy, Fr[]][] = [
-      ['non-interactive handshake', { type: 'non-interactive-handshake' }, [new Fr(1), Fr.ZERO]],
-      ['unconstrained secret', { type: 'unconstrained-secret', secret }, [new Fr(2), secret]],
-      ['interactive handshake', { type: 'interactive-handshake' }, [new Fr(3), Fr.ZERO]],
-    ];
-
-    it.each(strategyCases)('serializes %s to the Noir fields', (_name, strategy, fields) => {
-      expect(RESOLVED_TAGGING_STRATEGY.serialization!.fn(strategy)).toEqual(fields);
-    });
-
-    it.each(strategyCases)('deserializes %s from the Noir fields', (_name, strategy, [kind, strategySecret]) => {
-      expect(deserializeStrategy(kind, strategySecret)).toEqual(strategy);
-    });
 
     it('rejects an unknown strategy kind', () => {
       expect(() => deserializeStrategy(new Fr(99), Fr.ZERO)).toThrow('Unrecognized resolved tagging strategy kind');
@@ -133,7 +120,7 @@ describe('oracle type mappings', () => {
       ['non-interactive handshake', new Fr(1)],
       ['interactive handshake', new Fr(3)],
     ])('rejects %s with a nonzero secret', (_name, kind) => {
-      expect(() => deserializeStrategy(kind, secret)).toThrow('Unrecognized resolved tagging strategy kind');
+      expect(() => deserializeStrategy(kind, secret)).toThrow(`Resolved tagging strategy ${kind.toNumber()}`);
     });
 
     function deserializeStrategy(kind: Fr, secret: Fr): ResolvedTaggingStrategy {

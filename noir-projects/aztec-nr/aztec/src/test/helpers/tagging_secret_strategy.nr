@@ -14,7 +14,7 @@ global INTERACTIVE_HANDSHAKE: u8 = 4;
 
 /// How a message's tagging secret is chosen: the wallet's strategy.
 ///
-/// This type only exists for tests: a Noir test sets it via `with_tag_secret_strategy` on
+/// This type only exists for tests: a Noir test sets it via `with_default_tag_secret_strategy` on
 /// [`TestEnvironmentOptions`](crate::test::helpers::test_environment::TestEnvironmentOptions).
 /// Production wallets express the strategy in PXE; the Noir path only consumes the resolved
 /// [`ResolvedTaggingStrategy`](crate::messages::delivery::ResolvedTaggingStrategy).

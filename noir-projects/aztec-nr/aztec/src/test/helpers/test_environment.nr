@@ -89,7 +89,7 @@ pub struct TestEnvironment {
 /// methods setting each value, e.g.:
 /// ```noir
 /// let env = TestEnvironment::new_opts(
-///     TestEnvironmentOptions::new().with_tag_secret_strategy(
+///     TestEnvironmentOptions::new().with_default_tag_secret_strategy(
 ///         MessageDelivery::onchain_unconstrained(),
 ///         TaggingSecretStrategy::non_interactive_handshake(),
 ///     ),
@@ -109,15 +109,15 @@ impl TestEnvironmentOptions {
         }
     }
 
-    /// Sets the [`TaggingSecretStrategy`] the wallet reports for `mode` through the
+    /// Sets the default [`TaggingSecretStrategy`] the wallet reports for `mode` through the
     /// [`resolve_tagging_strategy`](crate::oracle::resolve_tagging_strategy) oracle, affecting message delivery in
-    /// private executions.
+    /// private executions that do not fix their own delivery derivation.
     ///
     /// If no strategy is set for either mode, the wallet hook is left unconfigured and the private execution
     /// environment applies its own default. A mode left unset while the other is configured falls back to the default
     /// [`TaggingSecretStrategy::non_interactive_handshake`], the strategy a PXE `resolveTaggingSecretStrategy` hook
     /// typically hardcodes for modes it does not customize.
-    pub fn with_tag_secret_strategy<M>(&mut self, mode: M, strategy: TaggingSecretStrategy) -> Self
+    pub fn with_default_tag_secret_strategy<M>(&mut self, mode: M, strategy: TaggingSecretStrategy) -> Self
     where
         M: Into<OnchainDeliveryMode>,
     {
@@ -130,11 +130,11 @@ impl TestEnvironmentOptions {
     }
 
     /// Sets `strategy` for both delivery modes: the equivalent of a PXE `resolveTaggingSecretStrategy` hook that
-    /// ignores the request's mode. See [`with_tag_secret_strategy`](Self::with_tag_secret_strategy) to configure a
-    /// single mode.
-    pub fn with_tag_secret_strategy_all_modes(&mut self, strategy: TaggingSecretStrategy) -> Self {
-        let _ = self.with_tag_secret_strategy(OnchainDeliveryMode::onchain_unconstrained(), strategy);
-        self.with_tag_secret_strategy(OnchainDeliveryMode::onchain_constrained(), strategy)
+    /// ignores the request's mode. See
+    /// [`with_default_tag_secret_strategy`](Self::with_default_tag_secret_strategy) to configure a single mode.
+    pub fn with_default_tag_secret_strategy_all_modes(&mut self, strategy: TaggingSecretStrategy) -> Self {
+        let _ = self.with_default_tag_secret_strategy(OnchainDeliveryMode::onchain_unconstrained(), strategy);
+        self.with_default_tag_secret_strategy(OnchainDeliveryMode::onchain_constrained(), strategy)
     }
 }
 
@@ -635,7 +635,7 @@ impl TestEnvironment {
     /// ```noir
     /// let strategy = TaggingSecretStrategy::non_interactive_handshake();
     /// let env = TestEnvironment::new_opts(
-    ///     TestEnvironmentOptions::new().with_tag_secret_strategy_all_modes(strategy),
+    ///     TestEnvironmentOptions::new().with_default_tag_secret_strategy_all_modes(strategy),
     /// );
     /// ```
     pub unconstrained fn new_opts(options: TestEnvironmentOptions) -> Self {

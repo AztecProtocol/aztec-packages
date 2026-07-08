@@ -61,7 +61,7 @@ export function resolvedTaggingStrategyFromFields(kind: number, secret: Fr): Res
 
 function assertAbsentSecret(kind: number, secret: Fr): void {
   if (!secret.isZero()) {
-    throw unrecognizedResolvedTaggingStrategy(kind);
+    throw new Error(`Resolved tagging strategy ${kind} must not include a secret`);
   }
 }
 
