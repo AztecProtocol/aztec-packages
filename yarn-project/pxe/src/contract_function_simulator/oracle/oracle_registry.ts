@@ -225,7 +225,7 @@ export const ORACLE_REGISTRY = {
     returnType: BOUNDED_VEC(NOTE),
   }),
 
-  aztec_utl_getPendingTaggedLogs: makeEntry({
+  aztec_utl_getPendingTaggedLogsV2: makeEntry({
     params: [
       { name: 'scope', type: AZTEC_ADDRESS },
       { name: 'providedSecrets', type: EPHEMERAL_ARRAY(PROVIDED_SECRET) },

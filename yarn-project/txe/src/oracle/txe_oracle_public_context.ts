@@ -125,32 +125,33 @@ export class TXEOraclePublicContext implements IAvmExecutionOracle {
     return value;
   }
 
-  getContractInstanceDeployer(address: AztecAddress): Promise<{ member: Fr; exists: boolean }> {
+  getContractInstanceDeployer(address: AztecAddress): Promise<{ member: Fr; exists: boolean }[]> {
     return this.getContractInstanceMember(address, i => i.deployer.toField());
   }
 
-  getContractInstanceClassId(address: AztecAddress): Promise<{ member: Fr; exists: boolean }> {
+  getContractInstanceClassId(address: AztecAddress): Promise<{ member: Fr; exists: boolean }[]> {
     // TXE has no contract updates, so the current class always equals the original.
     return this.getContractInstanceMember(address, i => i.originalContractClassId);
   }
 
-  getContractInstanceInitializationHash(address: AztecAddress): Promise<{ member: Fr; exists: boolean }> {
+  getContractInstanceInitializationHash(address: AztecAddress): Promise<{ member: Fr; exists: boolean }[]> {
     return this.getContractInstanceMember(address, i => i.initializationHash);
   }
 
-  getContractInstanceImmutablesHash(address: AztecAddress): Promise<{ member: Fr; exists: boolean }> {
+  getContractInstanceImmutablesHash(address: AztecAddress): Promise<{ member: Fr; exists: boolean }[]> {
     return this.getContractInstanceMember(address, i => i.immutablesHash);
   }
 
+  // The one-element array mirrors the oracles' Noir return type, `[GetContractInstanceResult; 1]`.
   private async getContractInstanceMember(
     address: AztecAddress,
     accessor: (instance: ContractInstancePreimageWithAddress) => Fr,
-  ): Promise<{ member: Fr; exists: boolean }> {
+  ): Promise<{ member: Fr; exists: boolean }[]> {
     const instance = await this.contractStore.getContractInstance(address);
     if (!instance) {
-      return { member: Fr.ZERO, exists: false };
+      return [{ member: Fr.ZERO, exists: false }];
     }
-    return { member: accessor(instance), exists: true };
+    return [{ member: accessor(instance), exists: true }];
   }
 
   returndataSize(): Promise<number> {

@@ -20,7 +20,6 @@ import {
   MAX_PRIVATE_LOGS_PER_TX,
   MAX_TX_LIFETIME,
   PRIVATE_TX_L2_GAS_OVERHEAD,
-  PUBLIC_DATA_WRITE_LENGTH,
   PUBLIC_TX_L2_GAS_OVERHEAD,
   TX_DA_GAS_OVERHEAD,
 } from '@aztec/constants';
@@ -315,7 +314,8 @@ export class ContractFunctionSimulator {
       );
       const simulatorTeardownTimer = new Timer();
 
-      const firstNullifier = noteCache.getNonceGenerator();
+      noteCache.finish();
+      const firstNullifierHint = noteCache.getNonceGenerator();
 
       const publicCallRequests = collectNested([executionResult], r =>
         r.publicInputs.publicCallRequests
@@ -338,9 +338,9 @@ export class ContractFunctionSimulator {
       }
 
       // Not to be confused with a PrivateCallExecutionResult. This is a superset
-      // of the PrivateCallExecutionResult, containing also firstNullifier
+      // of the PrivateCallExecutionResult, containing also firstNullifierHint
       // and publicFunctionsCalldata.
-      return new PrivateExecutionResult(executionResult, firstNullifier, publicFunctionsCalldata);
+      return new PrivateExecutionResult(executionResult, firstNullifierHint, publicFunctionsCalldata);
     } catch (err) {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
     }
@@ -588,10 +588,10 @@ export async function generateSimulatedProvingResult(
         execution.publicInputs.callContext.functionSelector,
       ),
       timings: execution.profileResult?.timings ?? { witgen: 0, oracles: {} },
+      kind: CircuitKind.App,
       bytecode: execution.acir,
       vk: execution.vk,
       witness: execution.partialWitness,
-      kind: CircuitKind.App,
     });
   }
 
@@ -657,12 +657,12 @@ export async function generateSimulatedProvingResult(
     siloedNullifiers,
     minRevertibleSideEffectCounter,
   );
-  // The protocol nullifier is the nonce generator and the tx's first nullifier. It is injected by the
-  // init kernel (at counter 1, index 0) rather than emitted by any private call, so it is absent from
-  // the executed nullifiers above. Mirror the kernel here by prepending it as the first non-revertible
-  // nullifier.
   const nonceGenerator = privateExecutionResult.firstNullifier;
-  nonRevertibleNullifiers.unshift(nonceGenerator);
+  if (nonRevertibleNullifiers.length === 0) {
+    nonRevertibleNullifiers.push(nonceGenerator);
+  } else if (!nonRevertibleNullifiers[0].equals(nonceGenerator)) {
+    throw new Error('The first non revertible nullifier should be equal to the nonce generator. This is a bug!');
+  }
 
   if (isPrivateOnlyTx) {
     // We must make the note hashes unique by using the
@@ -924,11 +924,6 @@ function meterGasUsed(data: PrivateToRollupAccumulatedData | PrivateToPublicAccu
     0,
   );
   meteredL2Gas += numContractClassLogs * L2_GAS_PER_CONTRACT_CLASS_LOG;
-
-  if (isPrivateOnlyTx) {
-    // The public data write that the private tx base rollup always performs to update the fee payer's balance.
-    meteredDAFields += PUBLIC_DATA_WRITE_LENGTH;
-  }
 
   const meteredDAGas = meteredDAFields * DA_GAS_PER_FIELD;
 

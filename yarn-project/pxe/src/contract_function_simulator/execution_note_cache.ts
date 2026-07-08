@@ -43,6 +43,12 @@ export class ExecutionNoteCache {
 
   private inRevertiblePhase = false;
 
+  /**
+   * Whether the protocol nullifier was used for nonce generation.
+   * We don't need to use the protocol nullifier if a non-revertible nullifier is emitted.
+   */
+  private usedProtocolNullifierForNonces: boolean | undefined;
+
   constructor(private readonly protocolNullifier: Fr) {}
 
   /**
@@ -58,9 +64,12 @@ export class ExecutionNoteCache {
     this.inRevertiblePhase = true;
     this.minRevertibleSideEffectCounter = minRevertibleSideEffectCounter;
 
-    // The protocol nullifier is always the tx's first nullifier (injected by the kernel init), so it is the
-    // nonce generator for every note hash.
-    const nonceGenerator = this.protocolNullifier;
+    const nullifiers = this.getEmittedNullifiers();
+    // If there are no nullifiers emitted by private calls so far, we use the protocol nullifier as the nonce generator.
+    // Note: There could still be nullifiers emitted after the counter is set, but those nullifiers are revertible, so
+    // we don't want to use them as the nonce generator.
+    this.usedProtocolNullifierForNonces = nullifiers.length === 0;
+    const nonceGenerator = this.usedProtocolNullifierForNonces ? this.protocolNullifier : new Fr(nullifiers[0]);
 
     // The existing pending notes are all non-revertible.
     // They cannot be squashed by nullifiers emitted after minRevertibleSideEffectCounter is set.
@@ -91,6 +100,14 @@ export class ExecutionNoteCache {
       return false;
     }
     return sideEffectCounter >= this.minRevertibleSideEffectCounter;
+  }
+
+  public finish() {
+    // If we never entered the revertible phase, and there are no nullifiers emitted, we need to use the protocol
+    // nullifier as the nonce generator.
+    if (!this.inRevertiblePhase) {
+      this.usedProtocolNullifierForNonces = this.getEmittedNullifiers().length === 0;
+    }
   }
 
   /**
@@ -206,15 +223,19 @@ export class ExecutionNoteCache {
   }
 
   /**
-   * @returns All nullifiers of the transaction: the protocol nullifier (the kernel-injected first nullifier),
-   * followed by those emitted by private calls.
+   * @returns All nullifiers emitted by private calls in this transaction. If the protocol nullifier was used as the
+   * nonce generator, it is injected as the first nullifier.
    */
   getAllNullifiers(): Fr[] {
-    return [this.protocolNullifier, ...this.getEmittedNullifiers()];
+    if (this.usedProtocolNullifierForNonces === undefined) {
+      throw new Error('usedProtocolNullifierForNonces is not set yet. Call finish() to complete the transaction.');
+    }
+    const allNullifiers = this.getEmittedNullifiers();
+    return [...(this.usedProtocolNullifierForNonces ? [this.protocolNullifier] : []), ...allNullifiers];
   }
 
   getNonceGenerator(): Fr {
-    return this.protocolNullifier;
+    return this.getAllNullifiers()[0];
   }
 
   #recordNullifier(contractAddress: AztecAddress, siloedNullifier: bigint) {

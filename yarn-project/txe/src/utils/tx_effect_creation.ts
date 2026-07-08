@@ -7,6 +7,8 @@ import { TxEffect, TxHash } from '@aztec/stdlib/tx';
 export async function makeTxEffect(noteCache: ExecutionNoteCache, txBlockNumber: BlockNumber): Promise<TxEffect> {
   const txEffect = TxEffect.empty();
 
+  noteCache.finish();
+
   const nonceGenerator = noteCache.getNonceGenerator();
   txEffect.noteHashes = await Promise.all(
     noteCache
