@@ -4,7 +4,7 @@ import { times } from '@aztec/foundation/collection';
 import type { Fr } from '@aztec/foundation/curves/bn254';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { NativeACVMSimulator } from '@aztec/simulator/server';
+import { AcvmSimulator } from '@aztec/simulator/server';
 import {
   type ActualProverConfig,
   type EpochProver,
@@ -280,7 +280,7 @@ export class ProverClient implements EpochProverManager, EpochProverFactory {
   }
 }
 
-export function buildServerCircuitProver(
+export async function buildServerCircuitProver(
   config: Omit<ActualProverConfig, 'enqueueConcurrency'> & ACVMConfig & BBConfig,
   telemetry: TelemetryClient,
 ): Promise<ServerCircuitProver> {
@@ -288,10 +288,13 @@ export function buildServerCircuitProver(
     return BBNativeRollupProver.new(config, telemetry);
   }
 
-  const logger = createLogger('prover-client:acvm-native');
-  const simulator = config.acvmBinaryPath
-    ? new NativeACVMSimulator(config.acvmWorkingDirectory, config.acvmBinaryPath, undefined, logger)
-    : undefined;
+  const logger = createLogger('prover-client:acvm');
+  let simulator: AcvmSimulator | undefined;
+  try {
+    simulator = await AcvmSimulator.create(logger);
+  } catch (err) {
+    logger.warn(`Failed to start native acvm-sim: ${err}`);
+  }
 
-  return Promise.resolve(new TestCircuitProver(simulator, config, telemetry));
+  return new TestCircuitProver(simulator, config, telemetry);
 }

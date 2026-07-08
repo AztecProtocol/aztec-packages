@@ -50,7 +50,7 @@ import {
 import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
 import { mapProtocolArtifactNameToCircuitName } from '@aztec/noir-protocol-circuits-types/types';
 import type { WitnessMap } from '@aztec/noir-types';
-import { NativeACVMSimulator } from '@aztec/simulator/server';
+import { AcvmSimulator } from '@aztec/simulator/server';
 import type { AvmCircuitInputs, AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
 import { ProvingError } from '@aztec/stdlib/errors';
 import {
@@ -88,7 +88,6 @@ import { Attributes, type TelemetryClient, getTelemetryClient, trackSpan } from 
 
 import { promises as fs } from 'fs';
 import { ungzip } from 'pako';
-import * as path from 'path';
 
 import { BBJsFactory, type BBJsProofResult } from '../../bb/bb_js_backend.js';
 import type { ACVMConfig, BBConfig } from '../../config.js';
@@ -112,6 +111,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
   constructor(
     private config: BBProverConfig,
+    private acvmSimulator: AcvmSimulator,
     telemetry: TelemetryClient,
   ) {
     this.instrumentation = new ProverInstrumentation(telemetry, 'BBNativeRollupProver');
@@ -123,14 +123,15 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   }
 
   static async new(config: BBProverConfig, telemetry: TelemetryClient = getTelemetryClient()) {
-    await fs.access(config.acvmBinaryPath, fs.constants.R_OK);
-    await fs.mkdir(config.acvmWorkingDirectory, { recursive: true });
     await fs.access(config.bbBinaryPath, fs.constants.R_OK);
     await fs.mkdir(config.bbWorkingDirectory, { recursive: true });
     logger.info(`Using bb.js API with binary at ${config.bbBinaryPath}`);
-    logger.info(`Using native ACVM at ${config.acvmBinaryPath} and working directory ${config.acvmWorkingDirectory}`);
 
-    return new BBNativeRollupProver(config, telemetry);
+    // One long-lived acvm-sim service process, reused across all witness generation.
+    const acvmSimulator = await AcvmSimulator.create(logger);
+    logger.info(`Spawned acvm-sim service for witness generation`);
+
+    return new BBNativeRollupProver(config, acvmSimulator, telemetry);
   }
 
   /**
@@ -443,26 +444,16 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     circuitType: ServerProtocolArtifact,
     convertInput: (input: Input) => WitnessMap,
     convertOutput: (outputWitness: WitnessMap) => Output,
-    workingDirectory: string,
+    _workingDirectory: string,
   ): Promise<{ circuitOutput: Output; proofResult: BBJsProofResult }> {
-    // Have the ACVM write the partial witness here (still needs a temp directory)
-    const outputWitnessFile = path.join(workingDirectory, 'partial-witness.gz');
-
-    // Generate the partial witness using the ACVM
-    const simulator = new NativeACVMSimulator(
-      this.config.acvmWorkingDirectory,
-      this.config.acvmBinaryPath,
-      outputWitnessFile,
-      logger,
-    );
-
+    // Generate the partial witness using the long-lived acvm-sim service.
     const artifact = getServerCircuitArtifact(circuitType);
 
     logger.debug(`Generating witness data for ${circuitType}`);
 
     const inputWitness = convertInput(input);
     const foreignCallHandler = undefined;
-    const witnessResult = await simulator.executeProtocolCircuit(inputWitness, artifact, foreignCallHandler);
+    const witnessResult = await this.acvmSimulator.executeProtocolCircuit(inputWitness, artifact, foreignCallHandler);
     const output = convertOutput(witnessResult.witness);
 
     const circuitName = mapProtocolArtifactNameToCircuitName(circuitType);
@@ -478,9 +469,8 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       eventName: 'circuit-witness-generation',
     } satisfies CircuitWitnessGenerationStats);
 
-    // Read and decompress the witness for bb.js
-    const witnessGz = await fs.readFile(outputWitnessFile);
-    const witness = ungzip(witnessGz);
+    // The acvm-sim service already returns the serialized WitnessStack uncompressed, ready for bb.js.
+    const witness = witnessResult.witnessStack!;
 
     // Decompress bytecode for bb.js
     const bytecode = ungzip(Buffer.from(artifact.bytecode, 'base64'));

@@ -713,6 +713,59 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@aztec/acvm-sim-darwin-arm64@portal:../native-packages/acvm/ts/packages/acvm-sim-darwin-arm64::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/acvm-sim-darwin-arm64@portal:../native-packages/acvm/ts/packages/acvm-sim-darwin-arm64::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  conditions: os=darwin & cpu=arm64
+  languageName: node
+  linkType: soft
+
+"@aztec/acvm-sim-darwin-x64@portal:../native-packages/acvm/ts/packages/acvm-sim-darwin-x64::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/acvm-sim-darwin-x64@portal:../native-packages/acvm/ts/packages/acvm-sim-darwin-x64::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  conditions: os=darwin & cpu=x64
+  languageName: node
+  linkType: soft
+
+"@aztec/acvm-sim-linux-arm64@portal:../native-packages/acvm/ts/packages/acvm-sim-linux-arm64::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/acvm-sim-linux-arm64@portal:../native-packages/acvm/ts/packages/acvm-sim-linux-arm64::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  conditions: os=linux & cpu=arm64
+  languageName: node
+  linkType: soft
+
+"@aztec/acvm-sim-linux-x64@portal:../native-packages/acvm/ts/packages/acvm-sim-linux-x64::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/acvm-sim-linux-x64@portal:../native-packages/acvm/ts/packages/acvm-sim-linux-x64::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  conditions: os=linux & cpu=x64
+  languageName: node
+  linkType: soft
+
+"@aztec/acvm-sim@portal:../native-packages/acvm/ts::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/acvm-sim@portal:../native-packages/acvm/ts::locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  dependencies:
+    "@aztec/acvm-sim-darwin-arm64": "npm:0.1.0"
+    "@aztec/acvm-sim-darwin-x64": "npm:0.1.0"
+    "@aztec/acvm-sim-linux-arm64": "npm:0.1.0"
+    "@aztec/acvm-sim-linux-x64": "npm:0.1.0"
+    "@aztec/ipc-runtime": "@aztec/ipc-runtime"
+    msgpackr: "npm:^1.11.2"
+    tslib: "npm:^2.4.0"
+  dependenciesMeta:
+    "@aztec/acvm-sim-darwin-arm64":
+      optional: true
+    "@aztec/acvm-sim-darwin-x64":
+      optional: true
+    "@aztec/acvm-sim-linux-arm64":
+      optional: true
+    "@aztec/acvm-sim-linux-x64":
+      optional: true
+  bin:
+    acvm-sim: ./dest/bin.js
+  languageName: node
+  linkType: soft
+
 "@aztec/archiver@workspace:^, @aztec/archiver@workspace:archiver":
   version: 0.0.0-use.local
   resolution: "@aztec/archiver@workspace:archiver"
@@ -2201,6 +2254,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/simulator@workspace:simulator"
   dependencies:
+    "@aztec/acvm-sim": "npm:0.1.0"
     "@aztec/bb-avm-sim": "npm:0.1.0"
     "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
