@@ -29,6 +29,7 @@ import type {
   BlockRollupPublicInputs,
   BlockRootEmptyTxFirstRollupPrivateInputs,
   BlockRootFirstRollupPrivateInputs,
+  BlockRootMsgsOnlyRollupPrivateInputs,
   BlockRootRollupPrivateInputs,
   BlockRootSingleTxFirstRollupPrivateInputs,
   BlockRootSingleTxRollupPrivateInputs,
@@ -528,6 +529,20 @@ export class BrokerCircuitProverFacade implements ServerCircuitProver {
     return this.enqueueJob(
       this.generateId(ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP, input, epochNumber),
       ProvingRequestType.BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP,
+      input,
+      epochNumber,
+      signal,
+    );
+  }
+
+  getBlockRootMsgsOnlyRollupProof(
+    input: BlockRootMsgsOnlyRollupPrivateInputs,
+    signal?: AbortSignal,
+    epochNumber?: EpochNumber,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
+    return this.enqueueJob(
+      this.generateId(ProvingRequestType.BLOCK_ROOT_MSGS_ONLY_ROLLUP, input, epochNumber),
+      ProvingRequestType.BLOCK_ROOT_MSGS_ONLY_ROLLUP,
       input,
       epochNumber,
       signal,

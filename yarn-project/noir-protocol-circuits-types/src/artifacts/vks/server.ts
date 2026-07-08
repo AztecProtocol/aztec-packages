@@ -2,6 +2,7 @@ import {
   BLOCK_MERGE_ROLLUP_VK_INDEX,
   BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX,
   BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX,
+  BLOCK_ROOT_MSGS_ONLY_ROLLUP_VK_INDEX,
   BLOCK_ROOT_ROLLUP_VK_INDEX,
   BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX,
   BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX,
@@ -39,6 +40,7 @@ import BlockRootRollup from '../../../artifacts/rollup_block_root.json' with { t
 import BlockRootFirstRollup from '../../../artifacts/rollup_block_root_first.json' with { type: 'json' };
 import BlockRootEmptyTxFirstRollup from '../../../artifacts/rollup_block_root_first_empty_tx.json' with { type: 'json' };
 import BlockRootSingleTxFirstRollup from '../../../artifacts/rollup_block_root_first_single_tx.json' with { type: 'json' };
+import BlockRootMsgsOnlyRollup from '../../../artifacts/rollup_block_root_msgs_only.json' with { type: 'json' };
 import BlockRootSingleTxRollup from '../../../artifacts/rollup_block_root_single_tx.json' with { type: 'json' };
 import CheckpointMergeRollup from '../../../artifacts/rollup_checkpoint_merge.json' with { type: 'json' };
 import CheckpointPaddingRollup from '../../../artifacts/rollup_checkpoint_padding.json' with { type: 'json' };
@@ -68,6 +70,7 @@ export const ServerCircuitVks: Record<ServerProtocolCircuitName, VerificationKey
   BlockRootEmptyTxFirstRollupArtifact: abiToVKData(BlockRootEmptyTxFirstRollup),
   BlockRootSingleTxRollupArtifact: abiToVKData(BlockRootSingleTxRollup),
   BlockRootRollupArtifact: abiToVKData(BlockRootRollup),
+  BlockRootMsgsOnlyRollupArtifact: abiToVKData(BlockRootMsgsOnlyRollup),
   BlockMergeRollupArtifact: abiToVKData(BlockMergeRollup),
   CheckpointRootRollupArtifact: abiToVKData(CheckpointRootRollup),
   CheckpointRootSingleBlockRollupArtifact: abiToVKData(CheckpointRootSingleBlockRollup),
@@ -102,6 +105,7 @@ export const ProtocolCircuitVkIndexes: Record<ProtocolCircuitName, number> = {
   BlockRootEmptyTxFirstRollupArtifact: BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX,
   BlockRootRollupArtifact: BLOCK_ROOT_ROLLUP_VK_INDEX,
   BlockRootSingleTxRollupArtifact: BLOCK_ROOT_SINGLE_TX_ROLLUP_VK_INDEX,
+  BlockRootMsgsOnlyRollupArtifact: BLOCK_ROOT_MSGS_ONLY_ROLLUP_VK_INDEX,
   BlockMergeRollupArtifact: BLOCK_MERGE_ROLLUP_VK_INDEX,
   CheckpointRootRollupArtifact: CHECKPOINT_ROOT_ROLLUP_VK_INDEX,
   CheckpointRootSingleBlockRollupArtifact: CHECKPOINT_ROOT_SINGLE_BLOCK_ROLLUP_VK_INDEX,

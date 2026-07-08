@@ -38,6 +38,7 @@ export type ServerProtocolArtifact =
   | 'BlockRootEmptyTxFirstRollupArtifact'
   | 'BlockRootRollupArtifact'
   | 'BlockRootSingleTxRollupArtifact'
+  | 'BlockRootMsgsOnlyRollupArtifact'
   | 'BlockMergeRollupArtifact'
   | 'CheckpointRootRollupArtifact'
   | 'CheckpointRootSingleBlockRollupArtifact'
@@ -81,6 +82,8 @@ export function mapProtocolArtifactNameToCircuitName(artifact: ProtocolArtifact)
       return 'rollup-block-root';
     case 'BlockRootSingleTxRollupArtifact':
       return 'rollup-block-root-single-tx';
+    case 'BlockRootMsgsOnlyRollupArtifact':
+      return 'rollup-block-root-msgs-only';
     case 'BlockMergeRollupArtifact':
       return 'rollup-block-merge';
     case 'CheckpointRootRollupArtifact':

@@ -22,6 +22,7 @@ import type {
   BlockRollupPublicInputs,
   BlockRootEmptyTxFirstRollupPrivateInputs,
   BlockRootFirstRollupPrivateInputs,
+  BlockRootMsgsOnlyRollupPrivateInputs,
   BlockRootRollupPrivateInputs,
   BlockRootSingleTxFirstRollupPrivateInputs,
   BlockRootSingleTxRollupPrivateInputs,
@@ -215,6 +216,20 @@ export class MockProver implements ServerCircuitProver {
 
   getBlockRootEmptyTxFirstRollupProof(
     _input: BlockRootEmptyTxFirstRollupPrivateInputs,
+    _signal?: AbortSignal,
+    _epochNumber?: number,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
+    return Promise.resolve(
+      makePublicInputsAndRecursiveProof(
+        makeBlockRollupPublicInputs(),
+        makeRecursiveProof(NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH),
+        VerificationKeyData.makeFakeRollupHonk(),
+      ),
+    );
+  }
+
+  getBlockRootMsgsOnlyRollupProof(
+    _input: BlockRootMsgsOnlyRollupPrivateInputs,
     _signal?: AbortSignal,
     _epochNumber?: number,
   ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {

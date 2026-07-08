@@ -316,6 +316,18 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     );
   }
 
+  public getBlockRootMsgsOnlyRollupProof(
+    input: BlockRootMsgsOnlyRollupPrivateInputs,
+  ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {
+    return this.createRecursiveProofAndVerify(
+      input,
+      'BlockRootMsgsOnlyRollupArtifact',
+      NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+      convertBlockRootMsgsOnlyRollupPrivateInputsToWitnessMap,
+      convertBlockRootMsgsOnlyRollupOutputsFromWitnessMap,
+    );
+  }
+
   public getBlockMergeRollupProof(
     input: BlockMergeRollupPrivateInputs,
   ): Promise<PublicInputsAndRecursiveProof<BlockRollupPublicInputs, typeof NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH>> {

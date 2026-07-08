@@ -10,16 +10,19 @@ use crate::{
 use types::{
     constants::{
         BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX, BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX,
-        BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX,
+        BLOCK_ROOT_MSGS_ONLY_ROLLUP_VK_INDEX, BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX,
     },
     proof::proof_data::{RollupHonkProofData, UltraHonkProofData},
 };
 
-// If there's only one previous rollup (i.e., one block in the checkpoint), it must be the first block root rollup.
-global ALLOWED_PREVIOUS_VK_INDICES: [u32; 3] = [
+// If there's only one previous rollup (i.e., one block in the checkpoint), it must be a first block root: the inputs
+// validator asserts the leftmost rollup's `is_first_block`. The message-only block root sets `is_first_block = false`,
+// so it is listed here (for symmetry with the multi-block variant) but can never actually pass as the sole block.
+global ALLOWED_PREVIOUS_VK_INDICES: [u32; 4] = [
     BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX,
     BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX,
     BLOCK_ROOT_EMPTY_TX_FIRST_ROLLUP_VK_INDEX,
+    BLOCK_ROOT_MSGS_ONLY_ROLLUP_VK_INDEX,
 ];
 
 pub struct CheckpointRootSingleBlockRollupPrivateInputs {
