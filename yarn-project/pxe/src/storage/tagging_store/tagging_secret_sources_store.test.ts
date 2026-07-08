@@ -26,21 +26,41 @@ describe('TaggingSecretSourcesStore', () => {
   });
 
   describe('shared secrets', () => {
-    it('adds and retrieves shared secrets scoped to a recipient', async () => {
+    it('adds and retrieves an arbitrary secret scoped to a recipient', async () => {
       const recipient = await AztecAddress.random();
       const secret = await Point.random();
 
-      expect(await store.addSharedSecret(recipient, secret)).toBe(true);
-      expect(await store.getSharedSecretsForRecipient(recipient)).toEqual([secret]);
+      expect(await store.addSharedSecret(recipient, 'arbitrary-secret', secret)).toBe(true);
+      expect(await store.getSharedSecretsForRecipient(recipient)).toEqual([{ kind: 'arbitrary-secret', secret }]);
+    });
+
+    it('round-trips the kind of a handshake secret', async () => {
+      const recipient = await AztecAddress.random();
+      const secret = await Point.random();
+
+      expect(await store.addSharedSecret(recipient, 'handshake', secret)).toBe(true);
+      expect(await store.getSharedSecretsForRecipient(recipient)).toEqual([{ kind: 'handshake', secret }]);
     });
 
     it('returns false when adding a duplicate secret for the same recipient', async () => {
       const recipient = await AztecAddress.random();
       const secret = await Point.random();
 
-      expect(await store.addSharedSecret(recipient, secret)).toBe(true);
-      expect(await store.addSharedSecret(recipient, secret)).toBe(false);
-      expect(await store.getSharedSecretsForRecipient(recipient)).toEqual([secret]);
+      expect(await store.addSharedSecret(recipient, 'arbitrary-secret', secret)).toBe(true);
+      expect(await store.addSharedSecret(recipient, 'arbitrary-secret', secret)).toBe(false);
+      expect(await store.getSharedSecretsForRecipient(recipient)).toEqual([{ kind: 'arbitrary-secret', secret }]);
+    });
+
+    it('rejects re-registering a secret under a different kind', async () => {
+      const recipient = await AztecAddress.random();
+      const secret = await Point.random();
+
+      await store.addSharedSecret(recipient, 'handshake', secret);
+
+      await expect(store.addSharedSecret(recipient, 'arbitrary-secret', secret)).rejects.toThrow(
+        `Secret already registered for recipient with kind 'handshake', cannot re-register it as 'arbitrary-secret'.`,
+      );
+      expect(await store.getSharedSecretsForRecipient(recipient)).toEqual([{ kind: 'handshake', secret }]);
     });
 
     it('scopes secrets per recipient', async () => {
@@ -49,11 +69,15 @@ describe('TaggingSecretSourcesStore', () => {
       const secretA = await Point.random();
       const secretB = await Point.random();
 
-      await store.addSharedSecret(recipientA, secretA);
-      await store.addSharedSecret(recipientB, secretB);
+      await store.addSharedSecret(recipientA, 'arbitrary-secret', secretA);
+      await store.addSharedSecret(recipientB, 'arbitrary-secret', secretB);
 
-      expect(await store.getSharedSecretsForRecipient(recipientA)).toEqual([secretA]);
-      expect(await store.getSharedSecretsForRecipient(recipientB)).toEqual([secretB]);
+      expect(await store.getSharedSecretsForRecipient(recipientA)).toEqual([
+        { kind: 'arbitrary-secret', secret: secretA },
+      ]);
+      expect(await store.getSharedSecretsForRecipient(recipientB)).toEqual([
+        { kind: 'arbitrary-secret', secret: secretB },
+      ]);
     });
 
     it('lists every shared secret across recipients', async () => {
@@ -63,18 +87,18 @@ describe('TaggingSecretSourcesStore', () => {
       const secretA2 = await Point.random();
       const secretB = await Point.random();
 
-      await store.addSharedSecret(recipientA, secretA1);
-      await store.addSharedSecret(recipientA, secretA2);
-      await store.addSharedSecret(recipientB, secretB);
+      await store.addSharedSecret(recipientA, 'arbitrary-secret', secretA1);
+      await store.addSharedSecret(recipientA, 'handshake', secretA2);
+      await store.addSharedSecret(recipientB, 'arbitrary-secret', secretB);
 
       const all = await store.getAllSharedSecrets();
 
       expect(all).toHaveLength(3);
       expect(all).toEqual(
         expect.arrayContaining([
-          { recipient: recipientA, secret: secretA1 },
-          { recipient: recipientA, secret: secretA2 },
-          { recipient: recipientB, secret: secretB },
+          { recipient: recipientA, kind: 'arbitrary-secret', secret: secretA1 },
+          { recipient: recipientA, kind: 'handshake', secret: secretA2 },
+          { recipient: recipientB, kind: 'arbitrary-secret', secret: secretB },
         ]),
       );
     });
@@ -87,9 +111,9 @@ describe('TaggingSecretSourcesStore', () => {
       const recipient = await AztecAddress.random();
       const secret = await Point.random();
 
-      await store.addSharedSecret(recipient, secret);
+      await store.addSharedSecret(recipient, 'arbitrary-secret', secret);
 
-      expect(await store.removeSharedSecret(recipient, secret)).toBe(true);
+      expect(await store.removeSharedSecret(recipient, 'arbitrary-secret', secret)).toBe(true);
       expect(await store.getSharedSecretsForRecipient(recipient)).toEqual([]);
     });
 
@@ -97,7 +121,17 @@ describe('TaggingSecretSourcesStore', () => {
       const recipient = await AztecAddress.random();
       const secret = await Point.random();
 
-      expect(await store.removeSharedSecret(recipient, secret)).toBe(false);
+      expect(await store.removeSharedSecret(recipient, 'arbitrary-secret', secret)).toBe(false);
+    });
+
+    it('does not remove a secret when the kind does not match', async () => {
+      const recipient = await AztecAddress.random();
+      const secret = await Point.random();
+
+      await store.addSharedSecret(recipient, 'handshake', secret);
+
+      expect(await store.removeSharedSecret(recipient, 'arbitrary-secret', secret)).toBe(false);
+      expect(await store.getSharedSecretsForRecipient(recipient)).toEqual([{ kind: 'handshake', secret }]);
     });
 
     it('keeps senders and shared secrets separate', async () => {
@@ -106,10 +140,10 @@ describe('TaggingSecretSourcesStore', () => {
       const secret = await Point.random();
 
       await store.addSender(sender);
-      await store.addSharedSecret(recipient, secret);
+      await store.addSharedSecret(recipient, 'arbitrary-secret', secret);
 
       expect(await store.getSenders()).toEqual([sender]);
-      expect(await store.getSharedSecretsForRecipient(recipient)).toEqual([secret]);
+      expect(await store.getSharedSecretsForRecipient(recipient)).toEqual([{ kind: 'arbitrary-secret', secret }]);
     });
   });
 });

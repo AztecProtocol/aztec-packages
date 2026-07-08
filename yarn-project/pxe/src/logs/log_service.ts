@@ -9,8 +9,8 @@ import type { CompleteAddress } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
 import {
   AppTaggingSecret,
+  AppTaggingSecretKind,
   type LogResult,
-  type PendingTaggedLog,
   SiloedTag,
   computeSharedTaggingSecret,
 } from '@aztec/stdlib/logs';
@@ -21,6 +21,8 @@ import {
   LogSource,
 } from '../contract_function_simulator/noir-structs/log_retrieval_request.js';
 import type { LogRetrievalResponse } from '../contract_function_simulator/noir-structs/log_retrieval_response.js';
+import type { PendingTaggedLog } from '../contract_function_simulator/noir-structs/pending_tagged_log.js';
+import { ResolvedTx } from '../contract_function_simulator/noir-structs/resolved_tx.js';
 import { AddressStore } from '../storage/address_store/address_store.js';
 import type { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
 import type { TaggingSecretSourcesStore } from '../storage/tagging_store/tagging_secret_sources_store.js';
@@ -219,17 +221,17 @@ export class LogService {
       }
       return {
         log: log.logData,
-        context: { txHash: log.txHash, uniqueNoteHashesInTx: noteHashes, firstNullifierInTx: nullifiers[0] },
+        context: new ResolvedTx(log.txHash, noteHashes, nullifiers[0], log.blockNumber, log.blockHash.toFr()),
       };
     });
   }
 
   /**
    * Computes the tagging secrets PXE can enumerate for a recipient: one per known sender (via ECDH) plus any
-   * pre-shared secret points registered directly for the recipient, each siloed to `contractAddress` and directed to
-   * `recipient`. These require knowing the recipient's address preimage and keys, so returns an empty array when those
-   * are unavailable. App-supplied secrets (e.g. handshake-derived) are handled separately by the caller and do not go
-   * through here.
+   * pre-shared secrets registered directly for the recipient. Each registered secret is scanned under the tag
+   * streams its kind can back. Deriving the sender-based secrets requires the recipient's address preimage and keys,
+   * so returns an empty array when those are unavailable. App-supplied secrets (e.g. derived from discovered
+   * handshakes) are handled separately by the caller and do not go through here.
    */
   async #getPointDerivedSecrets(contractAddress: AztecAddress, recipient: AztecAddress): Promise<AppTaggingSecret[]> {
     const recipientCompleteAddress = await this.addressStore.getCompleteAddress(recipient);
@@ -241,11 +243,26 @@ export class LogService {
     }
     const recipientIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(recipient);
 
-    const points = [
-      ...(await this.#getSecretsForSenders(recipientCompleteAddress, recipientIvsk)),
-      ...(await this.taggingSecretSourcesStore.getSharedSecretsForRecipient(recipient)),
-    ];
-    return Promise.all(points.map(secret => AppTaggingSecret.computeDirectional(secret, contractAddress, recipient)));
+    const [senderPoints, registeredSecrets] = await Promise.all([
+      this.#getSecretsForSenders(recipientCompleteAddress, recipientIvsk),
+      this.taggingSecretSourcesStore.getSharedSecretsForRecipient(recipient),
+    ]);
+    return Promise.all([
+      ...senderPoints.map(secret => AppTaggingSecret.computeDirectional(secret, contractAddress, recipient)),
+      ...registeredSecrets.flatMap(({ kind, secret }) => {
+        switch (kind) {
+          case 'arbitrary-secret':
+            return [AppTaggingSecret.computeDirectional(secret, contractAddress, recipient)];
+          case 'handshake':
+            // A handshake-backed sender tags messages with the bare app-siloed secret, one tag domain per delivery
+            // mode.
+            return [
+              AppTaggingSecret.computeAppSiloed(secret, contractAddress, AppTaggingSecretKind.UNCONSTRAINED),
+              AppTaggingSecret.computeAppSiloed(secret, contractAddress, AppTaggingSecretKind.CONSTRAINED),
+            ];
+        }
+      }),
+    ]);
   }
 
   async #getSecretsForSenders(

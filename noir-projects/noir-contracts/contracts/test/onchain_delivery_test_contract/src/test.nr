@@ -4,7 +4,7 @@
 //! bootstrap the app-siloed handshake secret, reserve the next per-secret index, constrain that index, emit the
 //! sequence nullifier, then emit the tagged private log. The malformed-log test lands a constrained tag without its
 //! sequence nullifier so the next real delivery must reject the broken sequence.
-use crate::ConstrainedDeliveryTest;
+use crate::OnchainDeliveryTest;
 
 use aztec::{
     protocol::address::AztecAddress,
@@ -24,7 +24,7 @@ unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress, AztecA
         .without_initializer();
     assert_eq(registry_address, STANDARD_HANDSHAKE_REGISTRY_ADDRESS);
 
-    let test_address = env.deploy("ConstrainedDeliveryTest").without_initializer();
+    let test_address = env.deploy("OnchainDeliveryTest").without_initializer();
 
     (env, registry_address, test_address, sender, recipient)
 }
@@ -38,7 +38,7 @@ unconstrained fn authorizing(registry_address: AztecAddress) -> CallPrivateOptio
 #[test]
 unconstrained fn rehandshake_replaces_registry_secret_for_future_delivery() {
     let (env, registry_address, test_address, sender, recipient) = setup();
-    let test_contract = ConstrainedDeliveryTest::at(test_address);
+    let test_contract = OnchainDeliveryTest::at(test_address);
     let registry = HandshakeRegistry::at(registry_address);
 
     env.call_private_opts(sender, authorizing(registry_address), test_contract.emit_event(recipient, 1));
@@ -66,10 +66,52 @@ unconstrained fn rehandshake_replaces_registry_secret_for_future_delivery() {
     assert_eq(next_index, 1);
 }
 
+// The TXE environment configures no `resolveCustomRequest` resolver, so a fresh interactive handshake fails at the
+// registry's signature request. Reaching that failure proves the builder option dispatches through the delivery stack
+// to the registry's `interactive_handshake` entrypoint.
+#[test(should_fail_with = "no resolveCustomRequest hook is configured")]
+unconstrained fn interactive_handshake_dispatches_to_the_registry() {
+    let (env, registry_address, test_address, sender, recipient) = setup();
+    let test_contract = OnchainDeliveryTest::at(test_address);
+
+    let _ = env.call_private_opts(
+        sender,
+        authorizing(registry_address),
+        test_contract.emit_event_via_interactive_handshake(recipient, 1),
+    );
+}
+
+#[test]
+unconstrained fn interactive_handshake_reuses_an_existing_registry_handshake() {
+    let (env, registry_address, test_address, sender, recipient) = setup();
+    let test_contract = OnchainDeliveryTest::at(test_address);
+    let registry = HandshakeRegistry::at(registry_address);
+
+    let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));
+    let secret = env
+        .execute_utility_opts(
+            ExecuteUtilityOptions::new().with_from(test_address),
+            registry.get_app_siloed_secrets(sender, recipient),
+        )
+        .expect(f"handshake should be siloed for the test contract")
+        .shared;
+
+    // No resolver is configured, so this only succeeds because the existing handshake is reused instead of
+    // establishing a fresh interactive one.
+    env.call_private_opts(
+        sender,
+        authorizing(registry_address),
+        test_contract.emit_event_via_interactive_handshake(recipient, 1),
+    );
+
+    let next_index = env.call_private(sender, test_contract.next_index_for_secret(secret));
+    assert_eq(next_index, 1);
+}
+
 #[test(should_fail_with = "reading an unknown nullifier")]
 unconstrained fn fails_at_index_above_zero_without_prior_nullifier() {
     let (env, registry_address, test_address, sender, recipient) = setup();
-    let test_contract = ConstrainedDeliveryTest::at(test_address);
+    let test_contract = OnchainDeliveryTest::at(test_address);
     let registry = HandshakeRegistry::at(registry_address);
 
     let _ = env.call_private(sender, registry.non_interactive_handshake(sender, recipient));

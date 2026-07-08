@@ -57,6 +57,18 @@ export class AppTaggingSecret {
   }
 
   /**
+   * Derives the bare app-siloed tagging secret from a shared secret point via {@link appSiloEcdhSharedSecretPoint},
+   * under the given delivery-mode kind.
+   */
+  static async computeAppSiloed(
+    taggingSecretPoint: Point,
+    app: AztecAddress,
+    kind: AppTaggingSecretKind,
+  ): Promise<AppTaggingSecret> {
+    return new AppTaggingSecret(await appSiloEcdhSharedSecretPoint(taggingSecretPoint, app), app, kind);
+  }
+
+  /**
    * Derives the tagging secret for `(externalAddress, recipient, app)` by performing an ECDH key exchange against
    * `externalAddress` to obtain the shared point, then siloing and directing it via {@link computeDirectional}.
    * Returns undefined if `externalAddress` is not a valid address.

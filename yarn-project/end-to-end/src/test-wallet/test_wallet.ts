@@ -23,7 +23,7 @@ import { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import type { NotesFilter } from '@aztec/pxe/client/lazy';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/config';
-import { PXE, type PXECreationOptions, createPXE } from '@aztec/pxe/server';
+import { PXE, type PXECreationOptions, type TaggingSecretSource, createPXE } from '@aztec/pxe/server';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
@@ -412,6 +412,15 @@ export class TestWallet extends BaseWallet {
 
   sync(): Promise<void> {
     return this.pxe.sync();
+  }
+
+  /**
+   * Registers a non-sender tagging-secret source (e.g. a raw out-of-band shared secret) so this PXE discovers messages
+   * tagged with it. Test-only surface over {@link PXE.registerTaggingSecretSource}, which the base `Wallet` does not
+   * expose. The `address-derived` (sender) variant is excluded: use {@link Wallet.registerSender} for that.
+   */
+  registerTaggingSecretSource(source: Exclude<TaggingSecretSource, { kind: 'address-derived' }>): Promise<void> {
+    return this.pxe.registerTaggingSecretSource(source);
   }
 
   stop(): Promise<void> {

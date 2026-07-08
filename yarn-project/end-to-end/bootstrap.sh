@@ -52,6 +52,9 @@ function test_cmds {
 
   local tests=(
     # List all standalone and nested tests, except for the ones listed above.
+    # Keep these globs non-overlapping: docker_isolate derives the container name from the test path, so a
+    # duplicated path emits two sibling invocations racing on the same name — you'll see docker "Conflict,
+    # name already in use" errors, or one copy's docker rm -f killing the other's live container mid-run.
     src/automine/*.test.ts
     src/automine/!(simulation)/**/*.test.ts
     src/automine/simulation/!(avm_simulator).test.ts
