@@ -140,7 +140,7 @@ describe('single-node/fees/private_payments', () => {
     const provenCheckpointBefore = await t.rollupContract.getProvenCheckpointNumber();
 
     const receipt = await localTx.send({ timeout: 300, interval: 10 });
-    await t.cheatCodes.rollup.advanceToNextEpoch();
+    await t.advanceToNextEpoch();
 
     await waitForProven(aztecNode, receipt, { provenTimeout: 300 });
 
