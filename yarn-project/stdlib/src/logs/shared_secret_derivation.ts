@@ -2,7 +2,7 @@ import { DomainSeparator } from '@aztec/constants';
 import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
 import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto/poseidon';
 import type { Fr } from '@aztec/foundation/curves/bn254';
-import type { GrumpkinScalar, Point } from '@aztec/foundation/curves/grumpkin';
+import { GrumpkinScalar, type Point } from '@aztec/foundation/curves/grumpkin';
 
 import type { AztecAddress } from '../aztec-address/index.js';
 import type { PublicKey } from '../keys/public_key.js';
@@ -50,4 +50,22 @@ export async function appSiloEcdhSharedSecret(
  */
 export function appSiloEcdhSharedSecretPoint(point: Point, app: AztecAddress): Promise<Fr> {
   return poseidon2HashWithSeparator([point.x, point.y, app], DomainSeparator.APP_SILOED_ECDH_SHARED_SECRET);
+}
+
+/**
+ * Protects a handshake's shared secret from being forged by the recipient: `S' = hash(ephPk, recipientPoint) * S`.
+ *
+ * Mirrors aztec-nr's `protect_from_forgery` and must stay byte-compatible with it; that function's docs walk the
+ * full forgery argument (why the ephemeral key and the recipient point are both part of the scalar).
+ *
+ * @param secret - The raw shared secret `S` to protect.
+ * @param ephPk - The handshake's ephemeral public key.
+ * @param recipientPoint - The recipient's address point.
+ */
+export async function protectFromForgery(secret: Point, ephPk: Point, recipientPoint: Point): Promise<Point> {
+  const scalar = await poseidon2HashWithSeparator(
+    [ephPk.x, ephPk.y, recipientPoint.x, recipientPoint.y],
+    DomainSeparator.HANDSHAKE_FORGERY_PROTECTION,
+  );
+  return Grumpkin.mul(secret, new GrumpkinScalar(scalar.toBigInt()));
 }
