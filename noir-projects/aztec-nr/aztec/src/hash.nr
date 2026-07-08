@@ -47,7 +47,7 @@ pub fn compute_l1_to_l2_message_hash(
     sha256_to_field(hash_bytes)
 }
 
-// The nullifier of a l1 to l2 message is the hash of the message salted with the secret.
+// The nullifier of an l1 to l2 message is the hash of the message salted with the secret.
 pub fn compute_l1_to_l2_message_nullifier<let N: u32>(message_hash: Field, secret: [Field; N]) -> Field {
     poseidon2_hash_with_separator([message_hash].concat(secret), DOM_SEP__MESSAGE_NULLIFIER)
 }

@@ -226,7 +226,7 @@ impl PublicContext {
     ///
     /// # Arguments
     /// * `content` - The message content that was sent from L1
-    /// * `secret` - Secret value used for message privacy (if needed)
+    /// * `secret` - Secret fields used for message privacy (if needed)
     /// * `sender` - Ethereum address that sent the message
     /// * `leaf_index` - Index of the message in the L1-to-L2 message tree
     ///
