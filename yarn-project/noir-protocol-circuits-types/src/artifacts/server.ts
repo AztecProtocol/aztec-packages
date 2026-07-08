@@ -10,6 +10,7 @@ import BlockRootEmptyTxFirstRollupJson from '../../artifacts/rollup_block_root_f
 import BlockRootFirstRollupSimulatedJson from '../../artifacts/rollup_block_root_first_simulated.json' with { type: 'json' };
 import BlockRootSingleTxFirstRollupJson from '../../artifacts/rollup_block_root_first_single_tx.json' with { type: 'json' };
 import BlockRootSingleTxFirstRollupSimulatedJson from '../../artifacts/rollup_block_root_first_single_tx_simulated.json' with { type: 'json' };
+import BlockRootMsgsOnlyRollupJson from '../../artifacts/rollup_block_root_msgs_only.json' with { type: 'json' };
 import BlockRootRollupSimulatedJson from '../../artifacts/rollup_block_root_simulated.json' with { type: 'json' };
 import BlockRootSingleTxRollupJson from '../../artifacts/rollup_block_root_single_tx.json' with { type: 'json' };
 import BlockRootSingleTxRollupSimulatedJson from '../../artifacts/rollup_block_root_single_tx_simulated.json' with { type: 'json' };
@@ -39,6 +40,7 @@ export const ServerCircuitArtifacts: Record<ServerProtocolArtifact, NoirCompiled
   BlockRootEmptyTxFirstRollupArtifact: BlockRootEmptyTxFirstRollupJson as NoirCompiledCircuit,
   BlockRootRollupArtifact: BlockRootRollupJson as NoirCompiledCircuit,
   BlockRootSingleTxRollupArtifact: BlockRootSingleTxRollupJson as NoirCompiledCircuit,
+  BlockRootMsgsOnlyRollupArtifact: BlockRootMsgsOnlyRollupJson as NoirCompiledCircuit,
   BlockMergeRollupArtifact: BlockMergeRollupJson as NoirCompiledCircuit,
   CheckpointRootRollupArtifact: CheckpointRootRollupJson as NoirCompiledCircuit,
   CheckpointRootSingleBlockRollupArtifact: CheckpointRootSingleBlockRollupJson as NoirCompiledCircuit,
@@ -59,6 +61,9 @@ export const SimulatedServerCircuitArtifacts: Record<ServerProtocolArtifact, Noi
   BlockRootEmptyTxFirstRollupArtifact: BlockRootEmptyTxFirstRollupJson as NoirCompiledCircuit,
   BlockRootRollupArtifact: BlockRootRollupSimulatedJson as NoirCompiledCircuit,
   BlockRootSingleTxRollupArtifact: BlockRootSingleTxRollupSimulatedJson as NoirCompiledCircuit,
+  // No separate simulated build (mirrors the empty-tx-first variant): the message-only block root verifies no child
+  // proofs, so the constrained artifact is used for simulation too.
+  BlockRootMsgsOnlyRollupArtifact: BlockRootMsgsOnlyRollupJson as NoirCompiledCircuit,
   BlockMergeRollupArtifact: BlockMergeRollupJson as NoirCompiledCircuit,
   CheckpointRootRollupArtifact: CheckpointRootRollupSimulatedJson as NoirCompiledCircuit,
   CheckpointRootSingleBlockRollupArtifact: CheckpointRootSingleBlockRollupSimulatedJson as NoirCompiledCircuit,

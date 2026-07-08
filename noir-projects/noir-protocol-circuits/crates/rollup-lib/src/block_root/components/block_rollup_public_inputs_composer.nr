@@ -42,8 +42,27 @@ impl BlockRollupPublicInputsComposer {
         constants: CheckpointConstantData,
         timestamp: u64,
     ) -> Self {
-        let empty_sponge_blob = SpongeBlob::init();
+        // The first block of a checkpoint starts from an empty sponge blob.
+        Self::new_from_no_rollups_with_start_sponge_blob(
+            previous_archive,
+            previous_state,
+            constants,
+            timestamp,
+            SpongeBlob::init(),
+        )
+    }
 
+    /// Same as `new_from_no_rollups` but for a non-first block, which inherits a (non-empty) sponge blob from the
+    /// previous block instead of starting from empty. The `start_sponge_blob` is threaded unchanged as the end sponge
+    /// blob (before this block's end data is absorbed in `finish`), since a block with no txs adds no tx effects. It is
+    /// pinned against the previous block's `end_sponge_blob` at the block merge or checkpoint root.
+    pub fn new_from_no_rollups_with_start_sponge_blob(
+        previous_archive: AppendOnlyTreeSnapshot,
+        previous_state: StateReference,
+        constants: CheckpointConstantData,
+        timestamp: u64,
+        start_sponge_blob: SpongeBlob,
+    ) -> Self {
         Self {
             constants,
             previous_archive,
@@ -51,9 +70,8 @@ impl BlockRollupPublicInputsComposer {
             // The state remains the same since there are no tx effects in this block.
             start_tree_snapshots: previous_state.partial,
             end_tree_snapshots: previous_state.partial,
-            // Since it's the first block in a checkpoint, the start sponge blob is empty.
-            start_sponge_blob: empty_sponge_blob,
-            end_sponge_blob: empty_sponge_blob,
+            start_sponge_blob,
+            end_sponge_blob: start_sponge_blob,
             timestamp,
             // The followings are 0 since there are no tx effects in this block.
             out_hash: 0,

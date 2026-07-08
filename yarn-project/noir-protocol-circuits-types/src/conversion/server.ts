@@ -41,6 +41,7 @@ import {
   BlockRollupPublicInputs,
   BlockRootEmptyTxFirstRollupPrivateInputs,
   BlockRootFirstRollupPrivateInputs,
+  BlockRootMsgsOnlyRollupPrivateInputs,
   BlockRootRollupPrivateInputs,
   BlockRootSingleTxFirstRollupPrivateInputs,
   BlockRootSingleTxRollupPrivateInputs,
@@ -77,6 +78,7 @@ import type {
   BlockRollupPublicInputs as BlockRollupPublicInputsNoir,
   BlockRootEmptyTxFirstRollupPrivateInputs as BlockRootEmptyTxFirstRollupPrivateInputsNoir,
   BlockRootFirstRollupPrivateInputs as BlockRootFirstRollupPrivateInputsNoir,
+  BlockRootMsgsOnlyRollupPrivateInputs as BlockRootMsgsOnlyRollupPrivateInputsNoir,
   BlockRootRollupPrivateInputs as BlockRootRollupPrivateInputsNoir,
   BlockRootSingleTxFirstRollupPrivateInputs as BlockRootSingleTxFirstRollupPrivateInputsNoir,
   BlockRootSingleTxRollupPrivateInputs as BlockRootSingleTxRollupPrivateInputsNoir,
@@ -873,6 +875,23 @@ export function mapBlockRootEmptyTxFirstRollupPrivateInputsToNoir(
     previous_state: mapStateReferenceToNoir(inputs.previousState),
     constants: mapCheckpointConstantDataToNoir(inputs.constants),
     timestamp: mapU64ToNoir(inputs.timestamp),
+    l1_to_l2_messages: mapFieldArrayToNoir(inputs.l1ToL2Messages),
+    num_msgs: mapNumberToNoir(inputs.numMsgs),
+    l1_to_l2_message_frontier_hint: mapTuple(inputs.l1ToL2MessageFrontierHint, mapFieldToNoir),
+    new_archive_sibling_path: mapTuple(inputs.newArchiveSiblingPath, mapFieldToNoir),
+  };
+}
+
+export function mapBlockRootMsgsOnlyRollupPrivateInputsToNoir(
+  inputs: BlockRootMsgsOnlyRollupPrivateInputs,
+): BlockRootMsgsOnlyRollupPrivateInputsNoir {
+  return {
+    previous_archive: mapAppendOnlyTreeSnapshotToNoir(inputs.previousArchive),
+    previous_state: mapStateReferenceToNoir(inputs.previousState),
+    constants: mapCheckpointConstantDataToNoir(inputs.constants),
+    timestamp: mapU64ToNoir(inputs.timestamp),
+    start_sponge_blob: mapSpongeBlobToNoir(inputs.startSpongeBlob),
+    start_msg_sponge: mapL1ToL2MessageSpongeToNoir(inputs.startMsgSponge),
     l1_to_l2_messages: mapFieldArrayToNoir(inputs.l1ToL2Messages),
     num_msgs: mapNumberToNoir(inputs.numMsgs),
     l1_to_l2_message_frontier_hint: mapTuple(inputs.l1ToL2MessageFrontierHint, mapFieldToNoir),
