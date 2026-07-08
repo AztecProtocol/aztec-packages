@@ -30,9 +30,10 @@ import {
 } from '@aztec/stdlib/tx';
 
 import type { ResolveCustomRequest } from '../../hooks/resolve_custom_request.js';
-import type {
-  ResolveTaggingSecretStrategy,
-  TaggingSecretStrategy,
+import {
+  DEFAULT_TAGGING_SECRET_STRATEGY,
+  type ResolveTaggingSecretStrategy,
+  type TaggingSecretStrategy,
 } from '../../hooks/resolve_tagging_secret_strategy.js';
 import { NoteService } from '../../notes/note_service.js';
 import { assertAllowedScope } from '../../storage/allowed_scopes.js';
@@ -238,8 +239,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   ): Promise<TaggingSecretStrategy> {
     const hook: ResolveTaggingSecretStrategy | undefined = this.hooks?.resolveTaggingSecretStrategy;
     if (!hook) {
-      // With no hook, both delivery modes default to a non-interactive handshake
-      return { type: 'non-interactive-handshake' };
+      return DEFAULT_TAGGING_SECRET_STRATEGY;
     }
 
     const contractClassId = await this.#getCurrentContractClassId(this.contractAddress);

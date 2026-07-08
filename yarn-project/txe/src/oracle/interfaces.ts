@@ -73,7 +73,14 @@ export interface ITxeExecutionOracle {
   addAccount(secret: Fr): Promise<CompleteAddress>;
   addAuthWitness(address: AztecAddress, messageHash: Fr): Promise<void>;
   sendL1ToL2Message(content: Fr, secretHash: Fr, sender: EthAddress, recipient: AztecAddress): Promise<Fr>;
-  setTaggingSecretStrategy(strategy: Option<TaggingSecretStrategy>): void;
+  /**
+   * Configures the tagging secret strategy the test's simulated wallet resolves for each delivery mode. A `none`
+   * clears that mode, so it falls back to the default strategy (or, when both modes end up unset, to no hook at all).
+   */
+  setTaggingSecretStrategies(
+    unconstrainedStrategy: Option<TaggingSecretStrategy>,
+    constrainedStrategy: Option<TaggingSecretStrategy>,
+  ): void;
   getLastBlockTimestamp(): Promise<bigint>;
   getLastTxEffects(): Promise<{
     txHash: TxHash;

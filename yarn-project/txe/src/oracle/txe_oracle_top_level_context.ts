@@ -73,6 +73,7 @@ import {
 } from '@aztec/stdlib/kernel';
 import { deriveKeys, hashPublicKey } from '@aztec/stdlib/keys';
 import type { PrivateLog } from '@aztec/stdlib/logs';
+import { AppTaggingSecretKind } from '@aztec/stdlib/logs';
 import { L1Actor, L1ToL2Message, L2Actor } from '@aztec/stdlib/messaging';
 import { ChonkProof } from '@aztec/stdlib/proofs';
 import { makeGlobalVariables } from '@aztec/stdlib/testing';
@@ -99,6 +100,7 @@ import type { TXEAccountStore } from '../utils/txe_account_store.js';
 import type { TXEArtifactResolver } from '../utils/txe_artifact_resolver.js';
 import { TXEPublicContractDataSource } from '../utils/txe_public_contract_data_source.js';
 import type { ITxeExecutionOracle } from './interfaces.js';
+import { type TXETaggingSecretStrategies, makeResolveTaggingSecretStrategyHook } from './tagging_secret_strategy.js';
 
 export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracle {
   isMisc = true as const;
@@ -123,7 +125,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     private version: Fr,
     private chainId: Fr,
     private authwits: Map<string, AuthWitness>,
-    private taggingSecretStrategy: TaggingSecretStrategy | undefined,
+    private taggingSecretStrategies: TXETaggingSecretStrategies,
     private readonly artifactResolver: TXEArtifactResolver,
     private readonly rootPath: string,
     private readonly packageName: string,
@@ -355,8 +357,19 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     this.authwits.set(authWitness.requestHash.toString(), authWitness);
   }
 
-  setTaggingSecretStrategy(strategy: Option<TaggingSecretStrategy>): void {
-    this.taggingSecretStrategy = strategy.value;
+  setTaggingSecretStrategies(
+    unconstrainedStrategy: Option<TaggingSecretStrategy>,
+    constrainedStrategy: Option<TaggingSecretStrategy>,
+  ): void {
+    const apply = (mode: AppTaggingSecretKind, strategy: Option<TaggingSecretStrategy>) => {
+      if (strategy.isSome()) {
+        this.taggingSecretStrategies.set(mode, strategy.value);
+      } else {
+        this.taggingSecretStrategies.delete(mode);
+      }
+    };
+    apply(AppTaggingSecretKind.UNCONSTRAINED, unconstrainedStrategy);
+    apply(AppTaggingSecretKind.CONSTRAINED, constrainedStrategy);
   }
 
   async sendL1ToL2Message(content: Fr, secretHash: Fr, sender: EthAddress, recipient: AztecAddress): Promise<Fr> {
@@ -470,7 +483,6 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     const simulator = new WASMSimulator();
 
     const transientArrayService = new TransientArrayService();
-    const taggingSecretStrategy = this.taggingSecretStrategy;
     const privateExecutionOracle = new PrivateExecutionOracle({
       argsHash,
       txContext,
@@ -510,9 +522,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
           isStaticCall ? 'private view' : 'private',
           authorizedUtilityCallTargets,
         ),
-        // Only configure the hook when a strategy was explicitly set, so that otherwise the default tagging secret
-        // strategy is exercised.
-        resolveTaggingSecretStrategy: taggingSecretStrategy ? () => Promise.resolve(taggingSecretStrategy) : undefined,
+        resolveTaggingSecretStrategy: makeResolveTaggingSecretStrategyHook(this.taggingSecretStrategies),
       }),
       transientArrayService,
     });
@@ -972,9 +982,9 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     }
   }
 
-  close(): [bigint, Map<string, AuthWitness>, TaggingSecretStrategy | undefined] {
+  close(): [bigint, Map<string, AuthWitness>, TXETaggingSecretStrategies] {
     this.logger.debug('Exiting Top Level Context');
-    return [this.nextBlockTimestamp, this.authwits, this.taggingSecretStrategy];
+    return [this.nextBlockTimestamp, this.authwits, this.taggingSecretStrategies];
   }
 
   private async getLastBlockNumber(): Promise<BlockNumber> {
