@@ -236,6 +236,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       previousArchive: rollup.getCheckpoint(_start).archive,
       endArchive: endCheckpoint.archive,
       outHash: endCheckpoint.outHash,
+      previousInboxRollingHash: 0,
+      endInboxRollingHash: 0,
       proverId: address(0)
     });
 

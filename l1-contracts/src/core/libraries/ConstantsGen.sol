@@ -25,7 +25,7 @@ library Constants {
     355_785_372_471_781_095_838_790_036_702_437_931_769_306_153_278_986_832_745_847_530_947_941_691_539;
   uint256 internal constant FEE_JUICE_ADDRESS = 3;
   uint256 internal constant BLS12_POINT_COMPRESSED_BYTES = 48;
-  uint256 internal constant ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH = 111;
+  uint256 internal constant ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH = 113;
   uint256 internal constant NUM_MSGS_PER_BASE_PARITY = 256;
   uint256 internal constant NUM_BASE_PARITY_PER_ROOT_PARITY = 4;
 }

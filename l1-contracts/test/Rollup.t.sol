@@ -885,7 +885,12 @@ contract RollupTest is RollupBase {
     CheckpointLog memory checkpoint = rollup.getCheckpoint(0);
 
     PublicInputArgs memory args = PublicInputArgs({
-      previousArchive: checkpoint.archive, endArchive: data.archive, outHash: data.header.outHash, proverId: address(0)
+      previousArchive: checkpoint.archive,
+      endArchive: data.archive,
+      outHash: data.header.outHash,
+      previousInboxRollingHash: 0,
+      endInboxRollingHash: data.header.inboxRollingHash,
+      proverId: address(0)
     });
 
     ProposedHeader[] memory headers = new ProposedHeader[](1);
@@ -896,7 +901,7 @@ contract RollupTest is RollupBase {
     bytes32[] memory publicInputs = rollup.getEpochProofPublicInputs(1, 1, args, headers, data.batchedBlobInputs);
     assertEq(publicInputs.length, Constants.ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH, "Unexpected public inputs length");
 
-    uint256 feesOffset = 3 + Constants.MAX_CHECKPOINTS_PER_EPOCH;
+    uint256 feesOffset = 5 + Constants.MAX_CHECKPOINTS_PER_EPOCH;
     assertEq(
       publicInputs[feesOffset], bytes32(uint256(uint160(headers[0].coinbase))), "Coinbase not sourced from header"
     );
@@ -936,7 +941,12 @@ contract RollupTest is RollupBase {
     address _prover
   ) internal {
     PublicInputArgs memory args = PublicInputArgs({
-      previousArchive: _prevArchive, endArchive: _archive, outHash: _outHash, proverId: _prover
+      previousArchive: _prevArchive,
+      endArchive: _archive,
+      outHash: _outHash,
+      previousInboxRollingHash: 0,
+      endInboxRollingHash: 0,
+      proverId: _prover
     });
 
     uint256 size = _end - _start + 1;
