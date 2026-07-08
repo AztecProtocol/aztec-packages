@@ -9,6 +9,26 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [Aztec.nr] `TestEnvironmentOptions::with_tagging_secret_strategy` replaced
+
+`TestEnvironmentOptions::with_tagging_secret_strategy` is now `with_default_tag_secret_strategy_all_modes` for tests
+that want the same default wallet strategy for both onchain delivery modes. The new naming reflects that these helpers
+configure the TXE default wallet strategy hook; contract-fixed delivery derivations bypass that default.
+
+For mode-specific defaults and hook semantics, see the
+[`resolveTaggingSecretStrategy` test helper docs](../foundational-topics/pxe/execution_hooks.md#resolvetaggingsecretstrategy).
+
+**Migration:**
+
+```diff
+- TestEnvironmentOptions::new().with_tagging_secret_strategy(TaggingSecretStrategy::address_derived())
++ TestEnvironmentOptions::new().with_default_tag_secret_strategy_all_modes(
++     TaggingSecretStrategy::address_derived(),
++ )
+```
+
+**Impact**: Noir tests using the old helper name no longer compile until renamed. Message delivery behavior is unchanged.
+
 ### [Aztec.js] Account signing keys are no longer derived from the privacy secret
 
 Schnorr account signing keys used to be derived from the account's privacy secret (via the now-removed `deriveSigningKey`), which meant the ownership key could be reconstructed from a value the PXE holds. The relationship is now reversed: the signing key is the root, and the privacy secret is derived from it with `deriveSecretKeyFromSigningKey` (exported from `@aztec/accounts/utils`).
@@ -133,26 +153,6 @@ The transaction bot previously derived its account's signing key from the config
 When no `resolveTaggingSecretStrategy` hook is configured, onchain unconstrained delivery now defaults to a non-interactive handshake when the recipient is external (an account whose keys the wallet does not hold), instead of an address-derived shared secret. A self-send (the recipient is one of the wallet's own accounts) still uses an address-derived secret, which needs no handshake and leaves no onchain trace.
 
 **Impact**: An external recipient can now discover unconstrained-delivered messages without having registered the sender in advance, but establishing the handshake publishes an onchain marker derived from the recipient's address (anyone who knows that address can tell a handshake was created for them, though not by whom nor the contents). Wallets that want the previous behavior can configure a `resolveTaggingSecretStrategy` hook that returns an `address-derived` strategy.
-
-### [Aztec.nr] `TestEnvironmentOptions::with_tagging_secret_strategy` replaced
-
-`TestEnvironmentOptions::with_tagging_secret_strategy` is now `with_default_tag_secret_strategy_all_modes` for tests
-that want the same default wallet strategy for both onchain delivery modes. The new naming reflects that these helpers
-configure the TXE default wallet strategy hook; contract-fixed delivery derivations bypass that default.
-
-For mode-specific defaults and hook semantics, see the
-[`resolveTaggingSecretStrategy` test helper docs](../foundational-topics/pxe/execution_hooks.md#resolvetaggingsecretstrategy).
-
-**Migration:**
-
-```diff
-- TestEnvironmentOptions::new().with_tagging_secret_strategy(TaggingSecretStrategy::address_derived())
-+ TestEnvironmentOptions::new().with_default_tag_secret_strategy_all_modes(
-+     TaggingSecretStrategy::address_derived(),
-+ )
-```
-
-**Impact**: Noir tests using the old helper name no longer compile until renamed. Message delivery behavior is unchanged.
 
 ### [Aztec.nr] `PrivateContext` data fields are no longer public
 

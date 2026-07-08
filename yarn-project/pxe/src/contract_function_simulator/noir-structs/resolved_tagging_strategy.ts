@@ -55,7 +55,7 @@ export function resolvedTaggingStrategyFromFields(kind: number, secret: Fr): Res
     case UNCONSTRAINED_SECRET:
       return { type: 'unconstrained-secret', secret };
     default:
-      throw unrecognizedResolvedTaggingStrategy(kind);
+      throw new Error(`Unrecognized resolved tagging strategy kind: ${kind}`);
   }
 }
 
@@ -63,8 +63,4 @@ function assertAbsentSecret(kind: number, secret: Fr): void {
   if (!secret.isZero()) {
     throw new Error(`Resolved tagging strategy ${kind} must not include a secret`);
   }
-}
-
-function unrecognizedResolvedTaggingStrategy(kind: number): Error {
-  return new Error(`Unrecognized resolved tagging strategy kind: ${kind}`);
 }

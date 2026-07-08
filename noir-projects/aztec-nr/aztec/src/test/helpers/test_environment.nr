@@ -96,16 +96,16 @@ pub struct TestEnvironment {
 /// );
 /// ```
 pub struct TestEnvironmentOptions {
-    unconstrained_tagging_secret_strategy: Option<TaggingSecretStrategy>,
-    constrained_tagging_secret_strategy: Option<TaggingSecretStrategy>,
+    default_unconstrained_tagging_secret_strategy: Option<TaggingSecretStrategy>,
+    default_constrained_tagging_secret_strategy: Option<TaggingSecretStrategy>,
 }
 
 impl TestEnvironmentOptions {
     /// Creates a new `TestEnvironmentOptions` with default values.
     pub fn new() -> Self {
         Self {
-            unconstrained_tagging_secret_strategy: Option::none(),
-            constrained_tagging_secret_strategy: Option::none(),
+            default_unconstrained_tagging_secret_strategy: Option::none(),
+            default_constrained_tagging_secret_strategy: Option::none(),
         }
     }
 
@@ -122,9 +122,9 @@ impl TestEnvironmentOptions {
         M: Into<OnchainDeliveryMode>,
     {
         if mode.into() == OnchainDeliveryMode::onchain_unconstrained() {
-            self.unconstrained_tagging_secret_strategy = Option::some(strategy);
+            self.default_unconstrained_tagging_secret_strategy = Option::some(strategy);
         } else {
-            self.constrained_tagging_secret_strategy = Option::some(strategy);
+            self.default_constrained_tagging_secret_strategy = Option::some(strategy);
         }
         *self
     }
@@ -643,8 +643,8 @@ impl TestEnvironment {
         txe_oracles::assert_compatible_txe_oracle_version();
 
         txe_oracles::set_tagging_secret_strategies(
-            options.unconstrained_tagging_secret_strategy,
-            options.constrained_tagging_secret_strategy,
+            options.default_unconstrained_tagging_secret_strategy,
+            options.default_constrained_tagging_secret_strategy,
         );
 
         Self {
