@@ -60,10 +60,15 @@ template <typename Curve> class ShpleminiProver_ {
             libra_opening_claims = compute_libra_opening_claims(gemini_r, libra_polynomials, transcript);
         }
 
-        // Currently, only used in the joint BatchedHonkTranslator PCS.
+        // Currently, only used in the joint BatchedHonkTranslator PCS. The nu power offset used by the verifier's
+        // batch_sumcheck_round_claims assumes ZK claims (NUM_SMALL_IPA_OPENING_CLAIMS) precede sumcheck round claims
+        // in the batching order.
         std::vector<OpeningClaim> sumcheck_round_claims;
 
         if (!sumcheck_round_univariates.empty()) {
+            if (!has_zk) {
+                throw_or_abort("ShpleminiProver: committed sumcheck requires ZK for correct nu power indexing");
+            }
             sumcheck_round_claims = compute_sumcheck_round_claims(
                 circuit_size, multilinear_challenge, sumcheck_round_univariates, sumcheck_round_evaluations);
         }
