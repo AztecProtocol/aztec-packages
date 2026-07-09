@@ -35,7 +35,10 @@ std::vector<Fr> stage_scalars(PolynomialSpan<const Fr> scalars, size_t pad)
     std::vector<Fr> staged(pad, Fr::zero());
     staged.reserve(pad + scalars.span.size());
     for (const Fr& s : scalars.span) {
-        staged.emplace_back(s.from_montgomery_form());
+        // The _reduced variant matters: plain from_montgomery_form() may return values
+        // in [r, 2r) for coarse inputs, which the GPU would decompose as a different
+        // integer.
+        staged.emplace_back(s.from_montgomery_form_reduced());
     }
     return staged;
 }
