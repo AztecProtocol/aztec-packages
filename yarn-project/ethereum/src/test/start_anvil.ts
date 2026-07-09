@@ -15,58 +15,25 @@ export interface Anvil {
   stop(): Promise<void>;
 }
 
-// Every anvil we spawn is its own process-group leader (`detached: true`), so killing the group
-// (`process.kill(-pid, …)`) tears down anvil and anything it forked. We track the live children and
-// install best-effort signal/exit handlers so an uncleanly-killed test runner (Ctrl+C, crash) does
-// not leave orphan anvils behind — this replaces the parent-polling shell wrapper we used to spawn.
-const tracked = new Set<ChildProcess>();
-let handlersInstalled = false;
-
-function installHandlers(): void {
-  if (handlersInstalled) {
-    return;
-  }
-  handlersInstalled = true;
-
-  // Async work isn't allowed in `exit` handlers, so SIGKILL the groups synchronously.
-  process.on('exit', () => {
-    for (const child of tracked) {
-      killGroupSync(child, 'SIGKILL');
-    }
-  });
-
-  // Nuke children synchronously, then re-raise the signal so the test runner exits conventionally
-  // (and its own teardown still runs, unlike a bare `process.exit`).
-  for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) {
-    process.on(signal, () => {
-      for (const child of tracked) {
-        killGroupSync(child, 'SIGKILL');
-      }
-      process.removeAllListeners(signal);
-      process.kill(process.pid, signal);
-    });
-  }
-}
-
-function killGroupSync(child: ChildProcess, signal: NodeJS.Signals): void {
-  if (child.exitCode !== null || child.signalCode !== null || child.pid === undefined) {
-    return;
-  }
-  try {
-    if (process.platform === 'win32') {
-      child.kill(signal);
-    } else {
-      // Negative PID → kill the whole process group. Requires `detached: true` at spawn time.
-      process.kill(-child.pid, signal);
-    }
-  } catch {
-    try {
-      child.kill(signal);
-    } catch {
-      /* already dead */
-    }
-  }
-}
+// Watchdog wrapper: instead of spawning anvil directly, we spawn a small bash supervisor that runs
+// anvil as a background child and polls its own parent (this node process). If the parent dies for
+// ANY reason — including SIGKILL / crash / OOM, where node's own exit handlers never run — the poll
+// loop ends and the EXIT trap reaps anvil. This is the guarantee the old `anvil_kill_wrapper.sh`
+// gave us; orphan anvils holding ports were a long-standing source of CI flakiness. The script is
+// inlined (rather than shipped as a `.sh`) so it works from the published npm tarball too, and the
+// resolved anvil binary is passed via `$ANVIL_BIN` so it works without `anvil` on PATH.
+//
+// `$@` is the anvil argv; `bash -c <script> bash <...args>` puts the args in `$@` and `$0` = 'bash'.
+const ANVIL_WATCHDOG = `
+set -u
+parent=$PPID
+anvil_pid=""
+cleanup() { [ -n "$anvil_pid" ] && kill "$anvil_pid" 2>/dev/null || true; }
+trap cleanup EXIT INT TERM
+"$ANVIL_BIN" "$@" &
+anvil_pid=$!
+while kill -0 "$parent" 2>/dev/null; do sleep 1; done
+`;
 
 /**
  * Splice the directories where `aztec-up` installs foundry/nargo binaries into `process.env.PATH`.
@@ -172,9 +139,9 @@ export async function startAnvil(
 
   const anvil = await retry(
     async () => {
-      // Pass `--port 0` to let anvil bind an OS-assigned ephemeral port; the actual port is read
-      // back from its "Listening on host:port" stdout below. This lets independent suites spawn
-      // their own anvil in parallel without fighting over a fixed port.
+      // `--port 0` lets anvil bind an OS-assigned ephemeral port; the actual port is read back from
+      // its "Listening on host:port" stdout below, so independent suites can spawn their own anvil
+      // in parallel without fighting over a fixed port.
       const port = opts.port ?? (process.env.ANVIL_PORT ? parseInt(process.env.ANVIL_PORT) : 8545);
       const args: string[] = [
         '--host',
@@ -196,14 +163,12 @@ export async function startAnvil(
       }
       args.push('--slots-in-an-epoch', String(opts.slotsInAnEpoch ?? 1));
 
-      installHandlers();
-      const child = spawn(anvilBinary, args, {
+      // Spawn the watchdog (see ANVIL_WATCHDOG). It launches anvil with these args and reaps it if we
+      // die; `$0` is 'bash' and `$@` is the anvil argv.
+      const child = spawn('bash', ['-c', ANVIL_WATCHDOG, 'bash', ...args], {
         stdio: ['ignore', 'pipe', 'pipe'],
-        detached: process.platform !== 'win32',
-        env: { ...process.env, RAYON_NUM_THREADS: '1' },
+        env: { ...process.env, ANVIL_BIN: anvilBinary, RAYON_NUM_THREADS: '1' },
       });
-      tracked.add(child);
-      child.once('exit', () => tracked.delete(child));
 
       // Wait for "Listening on" or an early exit.
       await new Promise<void>((resolve, reject) => {
@@ -312,11 +277,12 @@ function syncDateProviderFromAnvilOutput(text: string, dateProvider: TestDatePro
   }
 }
 
-/** Send SIGTERM to the process group, wait up to 5 s, then SIGKILL. All timers are always cleared. */
+/**
+ * Send SIGTERM to the watchdog, wait up to 5 s, then SIGKILL. The watchdog's trap forwards the
+ * signal to anvil, so terminating it tears down anvil too. All timers are always cleared.
+ */
 function killChild(child: ChildProcess): Promise<void> {
   return new Promise<void>(resolve => {
-    tracked.delete(child);
-
     if (child.exitCode !== null || child.killed) {
       child.stdout?.destroy();
       child.stderr?.destroy();
@@ -337,11 +303,11 @@ function killChild(child: ChildProcess): Promise<void> {
     };
 
     child.once('close', onClose);
-    killGroupSync(child, 'SIGTERM');
+    child.kill('SIGTERM');
 
     killTimer = setTimeout(() => {
       killTimer = undefined;
-      killGroupSync(child, 'SIGKILL');
+      child.kill('SIGKILL');
     }, 5000);
 
     // Ensure the timer does not prevent Node from exiting.
