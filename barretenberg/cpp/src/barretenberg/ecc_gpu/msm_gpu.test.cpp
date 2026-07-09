@@ -178,12 +178,32 @@ TEST_F(MsmGpuTest, DiagSizeSweep)
                             std::vector<AffineElement> pair_p{ points[culprits[a]], points[culprits[b]] };
                             bb::PolynomialSpan<const Fr> pair_span{ 0, pair_s };
                             for (int rep = 0; rep < 3; rep++) {
-                                std::cout
-                                    << "DIAG pair (" << culprits[a] << "," << culprits[b] << ") rep" << rep << " "
-                                    << (gpu::pippenger_bn254_oneshot(pair_span, pair_p) == cpu_msm(pair_span, pair_p)
-                                            ? "ok"
-                                            : "MISMATCH")
-                                    << std::endl;
+                                Element gpu_r = gpu::pippenger_bn254_oneshot(pair_span, pair_p);
+                                Element cpu_r = cpu_msm(pair_span, pair_p);
+                                std::cout << "DIAG pair (" << culprits[a] << "," << culprits[b] << ") rep" << rep << " "
+                                          << (gpu_r == cpu_r ? "ok" : "MISMATCH") << std::endl;
+                                if (gpu_r != cpu_r && rep == 0) {
+                                    // Error forensics: if one window digit was mangled,
+                                    // delta = +-m * 2^(10w) * P for small m.
+                                    Element delta = gpu_r - cpu_r;
+                                    for (size_t p = 0; p < 2; p++) {
+                                        Element base = Element(pair_p[p]);
+                                        for (size_t w = 0; w < 26; w++) {
+                                            Fr shift(bb::numeric::uint256_t(1) << (10 * w));
+                                            Element step = base * shift;
+                                            Element acc;
+                                            acc.self_set_infinity();
+                                            for (size_t m = 1; m <= 2048; m++) {
+                                                acc = acc + step;
+                                                if (acc == delta || acc == -delta) {
+                                                    std::cout << "DIAG delta = " << (acc == delta ? "+" : "-") << m
+                                                              << " * 2^" << (10 * w) << " * P_"
+                                                              << (p == 0 ? culprits[a] : culprits[b]) << std::endl;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
