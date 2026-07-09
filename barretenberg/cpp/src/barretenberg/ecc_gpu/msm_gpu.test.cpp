@@ -21,7 +21,8 @@ using Fr = Curve::ScalarField;
 using AffineElement = Curve::AffineElement;
 using Element = Curve::Element;
 
-auto& engine = bb::numeric::get_randomness();
+// Deterministic engine: GPU failures are input-dependent, so tests must be reproducible.
+auto& engine = bb::numeric::get_debug_randomness();
 
 std::vector<AffineElement> random_points(size_t n)
 {
@@ -57,6 +58,47 @@ class MsmGpuTest : public ::testing::Test {
 };
 
 } // namespace
+
+// Temporary spike diagnostic: single-scalar MSMs with adversarial values. Any failure
+// here is a deterministic minimal reproducer (n=1: result = s * P).
+TEST_F(MsmGpuTest, DiagAdversarialScalars)
+{
+    auto points = random_points(1);
+    bb::numeric::uint256_t window_512 = 0;
+    bb::numeric::uint256_t window_511 = 0;
+    bb::numeric::uint256_t window_1023 = 0;
+    for (size_t w = 0; w < 25; w++) {
+        window_512 += bb::numeric::uint256_t(512) << (10 * w);
+        window_511 += bb::numeric::uint256_t(511) << (10 * w);
+        window_1023 += bb::numeric::uint256_t(1023) << (10 * w);
+    }
+    struct Case {
+        const char* name;
+        Fr value;
+    };
+    const Case cases[] = {
+        { "one", Fr::one() },
+        { "minus_one", -Fr::one() },
+        { "r_minus_1_over_2", (-Fr::one()) * Fr(2).invert() },
+        { "2^253", Fr(bb::numeric::uint256_t(1) << 253) },
+        { "2^253-1", Fr((bb::numeric::uint256_t(1) << 253) - 1) },
+        { "2^128", Fr(bb::numeric::uint256_t(1) << 128) },
+        { "windows_512", Fr(window_512) },
+        { "windows_511", Fr(window_511) },
+        { "windows_1023", Fr(window_1023) },
+        { "513", Fr(513) },
+        { "512", Fr(512) },
+        { "511", Fr(511) },
+    };
+    for (const auto& c : cases) {
+        std::vector<Fr> scalar{ c.value };
+        bb::PolynomialSpan<const Fr> span{ 0, scalar };
+        Element gpu_result = gpu::pippenger_bn254_oneshot(span, points);
+        Element cpu_result = cpu_msm(span, points);
+        EXPECT_EQ(gpu_result, cpu_result) << "scalar case " << c.name;
+        std::cout << "DIAG scalar=" << c.name << " " << (gpu_result == cpu_result ? "ok" : "MISMATCH") << std::endl;
+    }
+}
 
 // Temporary spike diagnostic: locates the exact failure boundary over (size, scalar
 // magnitude). Sizes 1-2 pass and 127+ fail in the initial GPU run; this pins down where
