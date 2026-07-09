@@ -446,6 +446,11 @@ const config = {
                 className: "dropdown-subtitle",
               },
               {
+                to: "/developers/docs/resources/video_lessons",
+                label: "Video Lessons",
+                className: "no-external-icon",
+              },
+              {
                 to: "/developers/docs/resources/glossary",
                 label: "Glossary",
                 className: "no-external-icon",

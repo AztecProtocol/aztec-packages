@@ -48,6 +48,11 @@ locals {
     if length(route.allowed_consumer_groups) > 0
   }
 
+  routes_with_cors = {
+    for name, route in var.ROUTES : name => route
+    if var.ENABLE_CORS
+  }
+
   default_cors_allowed_headers = distinct(compact([
     "Accept",
     "Content-Type",
@@ -57,7 +62,7 @@ locals {
   route_plugin_names = {
     for name, route in var.ROUTES :
     name => join(",", compact([
-      "${var.RELEASE_PREFIX}-${name}-${var.ROUTE_RESOURCE_SUFFIX}-cors",
+      var.ENABLE_CORS ? "${var.RELEASE_PREFIX}-${name}-${var.ROUTE_RESOURCE_SUFFIX}-cors" : "",
       "${var.RELEASE_PREFIX}-${name}-${var.ROUTE_RESOURCE_SUFFIX}-path-api-key",
       "${var.RELEASE_PREFIX}-${name}-${var.ROUTE_RESOURCE_SUFFIX}-key-auth",
       length(route.allowed_consumer_groups) > 0 ? "${var.RELEASE_PREFIX}-${name}-${var.ROUTE_RESOURCE_SUFFIX}-acl" : "",
@@ -348,7 +353,7 @@ resource "kubernetes_manifest" "path_api_key_plugin" {
 }
 
 resource "kubernetes_secret_v1" "cors_plugin_config" {
-  for_each = var.ROUTES
+  for_each = local.routes_with_cors
 
   metadata {
     name      = local.cors_plugin_config_secret_names[each.key]
@@ -373,7 +378,7 @@ resource "kubernetes_secret_v1" "cors_plugin_config" {
 }
 
 resource "kubernetes_manifest" "cors_plugin" {
-  for_each = var.ROUTES
+  for_each = local.routes_with_cors
 
   manifest = {
     apiVersion = "configuration.konghq.com/v1"

@@ -601,7 +601,7 @@ groups:
             <<: *common_labels
           isPaused: false
         - uid: def0g11bn64n4a
-          title: Chain - reorg
+          title: Chain - unproven reorg
           condition: C
           data:
             - refId: A
@@ -611,7 +611,7 @@ groups:
               datasourceUid: spartan-metrics-prometheus
               model:
                 editorMode: code
-                expr: max by (k8s_namespace_name) (increase(aztec_archiver_prune_count{k8s_namespace_name!=""}[$__rate_interval]))
+                expr: max by (k8s_namespace_name) (increase(aztec_archiver_prune_count{k8s_namespace_name!="", aztec_archiver_prune_type="unproven"}[$__rate_interval]))
                 instant: true
                 intervalMs: 300000
                 legendFormat: __auto
@@ -680,7 +680,7 @@ groups:
           execErrState: Error
           for: 0s
           annotations:
-            summary: Pending chain has re-orged in {{ $labels.k8s_namespace_name }}
+            summary: Pending chain has undergone an unproven reorg (unproven epoch pruned back to last proven checkpoint) in {{ $labels.k8s_namespace_name }}
           labels:
             <<: *common_labels
           isPaused: false

@@ -8,6 +8,12 @@ references: ["noir-projects/noir-contracts/contracts/app/token_contract/src/main
 
 Authentication witnesses (authwit) allow other contracts to execute actions on behalf of your account. This guide shows you how to implement and use authwits in your Aztec smart contracts.
 
+import YouTubeEmbed from '@site/src/components/YouTubeEmbed';
+
+For a video walkthrough of the concepts and the implementation pattern, watch this explainer (find more on the [video lessons](../../resources/video_lessons.mdx) page):
+
+<YouTubeEmbed videoId="VRZVOCdjGZ4" title="How Authorization Works on Aztec" />
+
 ## Prerequisites
 
 - An Aztec contract project set up with `aztec-nr` dependency

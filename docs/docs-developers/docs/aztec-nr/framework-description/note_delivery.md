@@ -15,7 +15,7 @@ In Aztec, creating a note involves two steps:
 
 Without delivery, the recipient won't know the note exists or be able to access its contents, even though the note hash is onchain.
 
-## The `.deliver()` Method
+## The `.deliver()` method
 
 When you create a note using state variables like `PrivateMutable`, `PrivateSet`, `BalanceSet`, or `SinglePrivateMutable`, the creation methods return a `NoteMessage` or `MaybeNoteMessage` object. A message contains arbitrary information emitted from a contract - currently this includes notes and private events, though developers may define other message types in the future. You must call `.deliver()` on this object to send the message (containing the note) to the recipient.
 
@@ -43,21 +43,23 @@ Aztec provides three delivery modes that offer different tradeoffs between cost,
 
 This delivery method encrypts messages without constraints and emits them via an oracle call as offchain effects, rather than through the protocol's log stream (which would post data to Ethereum blobs). With offchain delivery, you must manually handle both message transmission and processing.
 
-#### How It Works
+#### How it works
 
 Offchain messages bypass Aztec's default private log infrastructure entirely:
 
 1. **Message emission**: The contract encrypts the message (without constraints) and emits it via an oracle call. This creates an "offchain effect" that is included in the transaction but not posted to L1.
 
-2. **Manual extraction**: When the transaction is sent, you must extract the offchain message from the transaction's offchain effects (available via `provenTx.offchainEffects` in aztec.js).
+2. **Extraction**: When the transaction is sent, you read the emitted messages from the send result (`offchainMessages` in aztec.js), or extract them from a proven transaction's offchain effects.
 
-3. **Manual delivery**: You deliver the message through your own channel - Signal, cloud storage, QR codes, peer-to-peer networks, etc.
+3. **Manual delivery**: You deliver the message through your own channel - a claim link, QR code, messaging service, cloud storage, etc.
 
-4. **Manual processing**: The recipient calls `process_message` on the target contract (as an unconstrained function), passing the ciphertext and message context. This decrypts the message and processes it (e.g., adding notes to the PXE database).
+4. **Receipt and processing**: The recipient calls the `offchain_receive` utility function on the contract that emitted the message (this function is generated automatically by the `#[aztec]` macro). The message is stored in a local inbox and processed during private state sync once the transaction that emitted it is found onchain.
 
-The PXE cannot automatically discover offchain messages during private state sync because they are not in the log stream that nodes load from Ethereum blobs. **You are responsible for implementing both the delivery mechanism and ensuring the recipient processes the message.**
+The PXE cannot automatically discover offchain messages during private state sync because they are not in the log stream that nodes load from Ethereum blobs. **You are responsible for implementing the delivery mechanism and ensuring the recipient receives the message.**
 
-#### When to Use
+See [Offchain message delivery](./offchain_message_delivery.md) for the complete workflow, including sender and recipient code, message processing details, and how to test it from Noir.
+
+#### When to use
 
 - **Use when:** The sender is incentivized to deliver correctly (e.g., sending to yourself, payment for goods/services where recipient must receive the note to complete the transaction)
 - **Costs:** Zero delivery fees (no blob space), zero proving time overhead
@@ -66,7 +68,7 @@ The PXE cannot automatically discover offchain messages during private state syn
 
 This is expected to be the most common delivery method when you don't need constrained delivery guarantees, as it completely eliminates blob space costs.
 
-#### Example Use Cases
+#### Example use cases
 
 - Change notes when transferring tokens (you're sending to yourself)
 - Payments where the recipient won't provide goods/services without the note
@@ -79,45 +81,36 @@ self.storage.balances.at(sender).add(change_amount)
     .deliver(MessageDelivery::offchain());
 ```
 
-:::info TODO
-This section will be updated with a complete TypeScript example showing how to extract offchain messages from transaction effects and manually deliver them once the API in Aztec.js is finalized. The full workflow example will make the offchain delivery pattern clearer.
-:::
+#### JavaScript implementation
 
-#### JavaScript Implementation
-
-When using offchain delivery, extract and manually deliver messages in your application:
+When using offchain delivery, extract the emitted messages from the send result and deliver them to the recipient in your application. The recipient hands each message to their wallet via the auto-generated `offchain_receive` utility function:
 
 ```typescript
-import { MessageContext } from "@aztec/stdlib/logs"
+// Sender: send the transaction and extract the emitted offchain messages
+const { receipt, offchainMessages } = await token.methods
+  .transfer_in_private_with_offchain_delivery(alice, bob, amount, 0)
+  .send({ from: alice });
 
-// Prove transaction and get offchain effects
-const txProvingResult = await wallet.pxe.proveTx(txRequest);
-const provenTx = new ProvenTx(
-    wallet.node,
-    await txProvingResult.toTx(),
-    txProvingResult.getOffchainEffects(),
-    txProvingResult.stats,
-);
+const messageForBob = offchainMessages.find((msg) => msg.recipient.equals(bob));
 
-// Extract offchain message
-const offchainEffects = provenTx.offchainEffects;
-const ciphertext = offchainEffects[0].data.slice(2);
+// Deliver via your chosen channel (e.g. a claim link, QR code, messaging service).
+// This is what you'd have to implement.
+await deliverViaMyChannel(messageForBob, receipt.txHash, recipient);
 
-// Send tx
-const sentTx = provenTx.send()
-const tx = await sentTx.wait()
-const txHash = await sentTx.getTxHash()
-
-// Deliver via your chosen channel (e.g., send to recipient via Signal, cloud storage, etc.). This is what you'd have to implement
-await deliverViaMyChannel(ciphertext, recipient);
-
-// Recipient processes the message
-const txEffect = await aztecNode.getTxEffect(txHash);
-const messageContext = MessageContext.fromTxEffectAndRecipient(txEffect, recipient);
-await contract.methods.process_message(ciphertext, messageContext.toNoirStruct()).simulate();
+// Recipient: receive the message so it gets processed during sync
+await token.methods
+  .offchain_receive([
+    {
+      ciphertext: messageForBob.payload,
+      recipient: bob,
+      tx_hash: receipt.txHash.hash,
+      anchor_block_timestamp: messageForBob.anchorBlockTimestamp,
+    },
+  ])
+  .simulate({ from: bob });
 ```
 
-See the [aztec.js documentation](../../aztec-js/index.md) for more details on accessing transaction effects.
+See [Offchain message delivery](./offchain_message_delivery.md) for the full workflow.
 
 ### `MessageDelivery::onchain_unconstrained()`
 
@@ -153,7 +146,7 @@ self.storage.balances.at(recipient).add(amount)
     .deliver(MessageDelivery::onchain_constrained());
 ```
 
-## Choosing a Delivery Mode
+## Choosing a delivery mode
 
 Ask yourself: **"Is the sender incentivized to deliver this note correctly?"**
 
@@ -161,11 +154,11 @@ Ask yourself: **"Is the sender incentivized to deliver this note correctly?"**
 - **Yes, but they cannot or prefer not to contact them offchain or you don't want to implement offchain delivery** Use `ONCHAIN_UNCONSTRAINED`
 - **No, the sender might not deliver correctly** Use `ONCHAIN_CONSTRAINED`
 
-## Note Discovery and the Sender
+## Note discovery and the sender
 
 When a note is delivered, recipients need to discover it among all the encrypted logs on the network. Aztec.nr uses a **tagging system** that requires computing a shared secret between the sender and recipient.
 
-### Who is the "Sender"?
+### Who is the "sender"?
 
 The "sender" for note discovery is **not the contract calling `.deliver()`**. Instead, it's the **account contract** that initiated the transaction.
 
@@ -173,7 +166,7 @@ When your wallet submits a transaction, it tells PXE which address to use as the
 
 **Example:** If Alice uses her account contract to call a token contract that mints tokens to Bob, the "sender for tags" is Alice's account contract address, not the token contract address.
 
-### Discovering Notes from Unknown Senders
+### Discovering notes from unknown senders
 
 **You cannot receive notes from an unknown sender** without additional mechanisms. The tagging system requires you to know the sender's address in advance to compute the shared secret needed to find the note (i.e., the sender needs to be added to your wallet).
 
@@ -192,7 +185,7 @@ There are three approaches to solve this:
 
 See the [Note Discovery](../../foundational-topics/advanced/storage/note_discovery.md) documentation for technical details on the tagging mechanism.
 
-## Delivering to Someone Other Than the Note Owner
+## Delivering to someone other than the note owner
 
 You can deliver a note to an address other than the note's owner using `.deliver_to()`:
 
@@ -209,9 +202,9 @@ self.storage.balances.at(owner).add(amount)
 - Game servers that track all note creation and then quickly serve you the game state (results in better UX)
 - Analytics or monitoring services
 
-## Code Examples
+## Code examples
 
-### Private Token Transfer
+### Private token transfer
 
 ```rust
 #[external("private")]
@@ -228,7 +221,7 @@ fn transfer(amount: u128, sender: AztecAddress, recipient: AztecAddress) {
 }
 ```
 
-### Admin Initialization
+### Admin initialization
 
 ```rust
 #[external("private")]
