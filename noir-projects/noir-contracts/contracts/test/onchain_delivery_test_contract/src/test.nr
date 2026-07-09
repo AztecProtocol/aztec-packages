@@ -1,20 +1,33 @@
-//! Tests for constrained delivery through the public message-delivery API.
+//! Tests for onchain message delivery through the public message-delivery API.
 //!
-//! These tests exercise the sender-side helper flow indirectly via constrained note/event delivery: resolve or
+//! The constrained tests exercise the sender-side helper flow indirectly via note/event delivery: resolve or
 //! bootstrap the app-siloed handshake secret, reserve the next per-secret index, constrain that index, emit the
 //! sequence nullifier, then emit the tagged private log. The malformed-log test lands a constrained tag without its
-//! sequence nullifier so the next real delivery must reject the broken sequence.
+//! sequence nullifier so the next real delivery must reject the broken sequence. The unconstrained tests cover
+//! delivery in the mode without sequence nullifiers, alongside and independent of the constrained flow.
 use crate::OnchainDeliveryTest;
 
 use aztec::{
-    protocol::address::AztecAddress,
+    messages::delivery::MessageDelivery,
+    protocol::{address::AztecAddress, point::EmbeddedCurvePoint, traits::FromField},
     standard_addresses::STANDARD_HANDSHAKE_REGISTRY_ADDRESS,
-    test::helpers::test_environment::{CallPrivateOptions, DeployOptions, ExecuteUtilityOptions, TestEnvironment},
+    test::helpers::{
+        tagging_secret_strategy::{compute_directional_app_secret, TaggingSecretStrategy},
+        test_environment::{
+            CallPrivateOptions, DeployOptions, ExecuteUtilityOptions, TestEnvironment, TestEnvironmentOptions,
+        },
+    },
 };
 use handshake_registry_contract::HandshakeRegistry;
 
 unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, AztecAddress) {
-    let mut env = TestEnvironment::new();
+    setup_opts(TestEnvironmentOptions::new())
+}
+
+unconstrained fn setup_opts(
+    options: TestEnvironmentOptions,
+) -> (TestEnvironment, AztecAddress, AztecAddress, AztecAddress, AztecAddress) {
+    let mut env = TestEnvironment::new_opts(options);
 
     let sender = env.create_light_account();
     let recipient = env.create_light_account();
@@ -33,6 +46,62 @@ unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress, AztecA
 /// denies by default. Authorize the registry as a utility-call target for calls that emit constrained messages.
 unconstrained fn authorizing(registry_address: AztecAddress) -> CallPrivateOptions<0, 1> {
     CallPrivateOptions::new().with_authorized_utility_call_targets([registry_address])
+}
+
+unconstrained fn external_recipient() -> AztecAddress {
+    AztecAddress::from_field(8)
+}
+
+#[test]
+unconstrained fn unconstrained_delivery_works_alongside_constrained_delivery() {
+    let point = EmbeddedCurvePoint {
+        x: 0x15d55a5b3b2caa6a6207f313f05c5113deba5da9927d6421bcaa164822b911bc,
+        y: 0x0974c3d0825031ae933243d653ebb1a0b08b90ee7f228f94c5c74739ea3c871e,
+    };
+    // Only the unconstrained mode is configured: the constrained mode falls back to the default non-interactive
+    // handshake strategy, so the constrained delivery below still bootstraps a registry handshake.
+    let options = TestEnvironmentOptions::new().with_default_tag_secret_strategy(
+        MessageDelivery::onchain_unconstrained(),
+        TaggingSecretStrategy::arbitrary_secret(point),
+    );
+    let (env, registry_address, test_address, sender, _) = setup_opts(options);
+    let recipient = external_recipient();
+    let test_contract = OnchainDeliveryTest::at(test_address);
+    let registry = HandshakeRegistry::at(registry_address);
+
+    env.call_private(sender, test_contract.emit_event_unconstrained(recipient, 1));
+
+    let expected_unconstrained_secret = compute_directional_app_secret(point, test_address, recipient);
+    let next_unconstrained_index = env.call_private(
+        sender,
+        test_contract.next_index_for_secret(
+            expected_unconstrained_secret,
+            MessageDelivery::onchain_unconstrained().into(),
+        ),
+    );
+    assert_eq(next_unconstrained_index, 1);
+
+    let maybe_handshake = env.execute_utility_opts(
+        ExecuteUtilityOptions::new().with_from(test_address),
+        registry.get_app_siloed_secrets(sender, recipient),
+    );
+    assert(maybe_handshake.is_none());
+
+    env.call_private_opts(sender, authorizing(registry_address), test_contract.emit_event(recipient, 1));
+
+    let handshake = env
+        .execute_utility_opts(
+            ExecuteUtilityOptions::new().with_from(test_address),
+            registry.get_app_siloed_secrets(sender, recipient),
+        )
+        .expect(f"constrained delivery should have stored a handshake");
+    assert(handshake.shared != expected_unconstrained_secret);
+
+    let next_constrained_index = env.call_private(
+        sender,
+        test_contract.next_index_for_secret(handshake.shared, MessageDelivery::onchain_constrained().into()),
+    );
+    assert_eq(next_constrained_index, 1);
 }
 
 #[test]
@@ -62,7 +131,10 @@ unconstrained fn rehandshake_replaces_registry_secret_for_future_delivery() {
 
     env.call_private_opts(sender, authorizing(registry_address), test_contract.emit_event(recipient, 1));
 
-    let next_index = env.call_private(sender, test_contract.next_index_for_secret(second_secret));
+    let next_index = env.call_private(
+        sender,
+        test_contract.next_index_for_secret(second_secret, MessageDelivery::onchain_constrained().into()),
+    );
     assert_eq(next_index, 1);
 }
 
@@ -104,7 +176,10 @@ unconstrained fn interactive_handshake_reuses_an_existing_registry_handshake() {
         test_contract.emit_event_via_interactive_handshake(recipient, 1),
     );
 
-    let next_index = env.call_private(sender, test_contract.next_index_for_secret(secret));
+    let next_index = env.call_private(
+        sender,
+        test_contract.next_index_for_secret(secret, MessageDelivery::onchain_constrained().into()),
+    );
     assert_eq(next_index, 1);
 }
 
