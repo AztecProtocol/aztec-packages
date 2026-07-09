@@ -49,7 +49,12 @@ export async function createPXE(
     options.store = await openStoreForIdentity(
       'pxe_data',
       PXE_DATA_SCHEMA_VERSION,
-      configWithContracts,
+      {
+        dataDirectory: configWithContracts.dataDirectory,
+        dataStoreMapSizeKb: configWithContracts.dataStoreMapSizeKb,
+        l1ChainId,
+        rollupAddress: l1ContractAddresses.rollupAddress,
+      },
       storeLogger.getBindings(),
     );
   }

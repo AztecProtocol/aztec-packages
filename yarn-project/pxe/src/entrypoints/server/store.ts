@@ -10,8 +10,8 @@ export type IdentityStoreConfig = {
   dataDirectory?: string;
   /** Maximum LMDB map size in KB. When omitted, the kv-store default map size applies. */
   dataStoreMapSizeKb?: number;
-  l1ChainId?: number;
-  rollupAddress?: EthAddress;
+  l1ChainId: number;
+  rollupAddress: EthAddress;
 };
 
 /**

@@ -17,7 +17,7 @@ describe('openStoreForIdentity', () => {
     await rm(dataDirectory, { recursive: true, force: true });
   });
 
-  const configFor = (rollupAddress?: EthAddress, l1ChainId = 31337) => ({
+  const configFor = (rollupAddress: EthAddress, l1ChainId = 31337) => ({
     dataDirectory,
     dataStoreMapSizeKb: 10 * 1024,
     rollupAddress,
@@ -57,18 +57,6 @@ describe('openStoreForIdentity', () => {
     await v1Again.close();
   });
 
-  it('opens and persists with a zero identity (no rollup, no chain id)', async () => {
-    const config = { dataDirectory, dataStoreMapSizeKb: 10 * 1024 };
-
-    const store = await openStoreForIdentity('test_store', 1, config);
-    await store.openSingleton<string>('payload').set('zero-identity-data');
-    await store.close();
-
-    const reopened = await openStoreForIdentity('test_store', 1, config);
-    expect(await reopened.openSingleton<string>('payload').getAsync()).toEqual('zero-identity-data');
-    await reopened.close();
-  });
-
   it('places stores under a sibling <name>-stores directory, not nested in <name>', async () => {
     const store = await openStoreForIdentity('test_store', 1, configFor(EthAddress.random()));
     await store.close();
@@ -78,7 +66,11 @@ describe('openStoreForIdentity', () => {
   });
 
   it('falls back to an ephemeral tmp store when no data directory is configured', async () => {
-    const store = await openStoreForIdentity('test_store', 1, { dataStoreMapSizeKb: 10 * 1024 });
+    const store = await openStoreForIdentity('test_store', 1, {
+      dataStoreMapSizeKb: 10 * 1024,
+      l1ChainId: 31337,
+      rollupAddress: EthAddress.random(),
+    });
     await store.openSingleton<string>('payload').set('tmp-data');
     expect(await store.openSingleton<string>('payload').getAsync()).toEqual('tmp-data');
     await store.close();
