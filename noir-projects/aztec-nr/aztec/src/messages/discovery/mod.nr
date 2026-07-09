@@ -115,7 +115,9 @@ pub type CustomMessageHandler = unconstrained fn(
 ///
 /// When set via [`crate::macros::AztecConfig::custom_sync_state`], the generated `sync_state` function will call
 /// this handler instead of [`do_sync_state`]. It receives all of the same parameters, so it can run custom logic
-/// (e.g. fetching and decrypting custom logs) before, after, or instead of calling [`do_sync_state`].
+/// before, after, or instead of calling [`do_sync_state`]. Custom handlers that want the standard discovery pipeline
+/// with a custom processing step before storage can call [`discover_enqueued_notes_and_events`] followed by
+/// [`validate_and_store_enqueued_notes_and_events`].
 pub type CustomSyncHandler = unconstrained fn(
 /* contract_address */AztecAddress,
 /* compute_note_hash */ ComputeNoteHash,
@@ -140,16 +142,15 @@ pub unconstrained fn do_sync_state(
     offchain_inbox_sync: Option<OffchainInboxSync>,
     scope: AztecAddress,
 ) {
-    let provided_secrets = get_handshake_secrets(contract_address, scope);
-    sync_state_with_secrets(
+    discover_enqueued_notes_and_events(
         contract_address,
         compute_note_hash,
         compute_note_nullifier,
         process_custom_message,
         offchain_inbox_sync,
         scope,
-        provided_secrets,
     );
+    validate_and_store_enqueued_notes_and_events(scope);
 }
 
 /// Variant of [`do_sync_state`] that skips handshake secret discovery. Used by the HandshakeRegistry to avoid
@@ -162,8 +163,32 @@ pub unconstrained fn do_sync_state_without_handshake_discovery(
     offchain_inbox_sync: Option<OffchainInboxSync>,
     scope: AztecAddress,
 ) {
-    let provided_secrets = EphemeralArray::<ProvidedSecret>::empty_at(PROVIDED_SECRETS_ARRAY_BASE_SLOT);
-    sync_state_with_secrets(
+    discover_enqueued_notes_and_events_without_handshake_discovery(
+        contract_address,
+        compute_note_hash,
+        compute_note_nullifier,
+        process_custom_message,
+        offchain_inbox_sync,
+        scope,
+    );
+    validate_and_store_enqueued_notes_and_events(scope);
+}
+
+/// Runs the standard recipient discovery pipeline and leaves discovered notes/events enqueued for later validation.
+///
+/// This performs the discovery work used by [`do_sync_state`] but intentionally does not call
+/// [`validate_and_store_enqueued_notes_and_events`]. Custom sync handlers can call this function, inspect or mutate the
+/// enqueued requests, then explicitly call [`validate_and_store_enqueued_notes_and_events`] when ready.
+pub unconstrained fn discover_enqueued_notes_and_events(
+    contract_address: AztecAddress,
+    compute_note_hash: ComputeNoteHash,
+    compute_note_nullifier: ComputeNoteNullifier,
+    process_custom_message: Option<CustomMessageHandler>,
+    offchain_inbox_sync: Option<OffchainInboxSync>,
+    scope: AztecAddress,
+) {
+    let provided_secrets = get_handshake_secrets(contract_address, scope);
+    discover_enqueued_notes_and_events_with_secrets(
         contract_address,
         compute_note_hash,
         compute_note_nullifier,
@@ -174,7 +199,28 @@ pub unconstrained fn do_sync_state_without_handshake_discovery(
     );
 }
 
-unconstrained fn sync_state_with_secrets(
+/// Variant of [`discover_enqueued_notes_and_events`] that skips handshake secret discovery.
+pub unconstrained fn discover_enqueued_notes_and_events_without_handshake_discovery(
+    contract_address: AztecAddress,
+    compute_note_hash: ComputeNoteHash,
+    compute_note_nullifier: ComputeNoteNullifier,
+    process_custom_message: Option<CustomMessageHandler>,
+    offchain_inbox_sync: Option<OffchainInboxSync>,
+    scope: AztecAddress,
+) {
+    let provided_secrets = EphemeralArray::<ProvidedSecret>::empty_at(PROVIDED_SECRETS_ARRAY_BASE_SLOT);
+    discover_enqueued_notes_and_events_with_secrets(
+        contract_address,
+        compute_note_hash,
+        compute_note_nullifier,
+        process_custom_message,
+        offchain_inbox_sync,
+        scope,
+        provided_secrets,
+    );
+}
+
+unconstrained fn discover_enqueued_notes_and_events_with_secrets(
     contract_address: AztecAddress,
     compute_note_hash: ComputeNoteHash,
     compute_note_nullifier: ComputeNoteNullifier,
@@ -230,41 +276,33 @@ unconstrained fn sync_state_with_secrets(
         compute_note_nullifier,
         scope,
     );
-
-    // Finally we validate all notes and events that were found as part of the previous processes, resulting in them
-    // being added to PXE's database and retrievable via oracles (get_notes) and our TS API (PXE::getPrivateEvents).
-    validate_and_store_enqueued_notes_and_events(scope);
 }
 
 mod test {
     use crate::ephemeral::EphemeralArray;
     use crate::messages::{
-        delivery::handshake::HandshakePage,
-        discovery::{CustomMessageHandler, do_sync_state},
+        discovery::{
+            CustomMessageHandler, discover_enqueued_notes_and_events_without_handshake_discovery,
+            do_sync_state_without_handshake_discovery,
+        },
         logs::note::MAX_NOTE_PACKED_LEN,
         processing::{offchain::OffchainInboxSync, pending_tagged_log::PendingTaggedLog},
     };
-    use crate::protocol::{address::AztecAddress, traits::Serialize};
+    use crate::protocol::address::AztecAddress;
     use crate::test::helpers::test_environment::TestEnvironment;
     use std::test::OracleMock;
 
     #[test]
     unconstrained fn do_sync_state_does_not_panic_on_empty_logs() {
-        let mut env = TestEnvironment::new();
-        let scope = env.create_light_account();
-
         let contract_address = AztecAddress { inner: 0xdeadbeef };
+        let scope = AztecAddress { inner: 0xfeed };
 
+        let env = TestEnvironment::new();
         env.utility_context_at(contract_address, |_| {
-            // get_handshake_secrets calls the HandshakeRegistry during sync; return an empty page so
-            // no tagging secrets are produced.
-            let empty_page = HandshakePage { items: BoundedVec::new(), total_count: 0 };
-            let _ = OracleMock::mock("aztec_utl_callUtilityFunction").returns(empty_page.serialize());
-
             // Mock the oracle call to return a known base slot, then populate an ephemeral
             // array at that slot so do_sync_state processes a non-empty log list.
             let base_slot = 42;
-            let mock = std::test::OracleMock::mock("aztec_utl_getPendingTaggedLogsV2");
+            let mock = OracleMock::mock("aztec_utl_getPendingTaggedLogsV2");
             let _ = mock.returns(base_slot);
 
             let logs: EphemeralArray<PendingTaggedLog> = EphemeralArray::at(base_slot);
@@ -273,7 +311,7 @@ mod test {
 
             let no_handler: Option<CustomMessageHandler> = Option::none();
             let no_inbox_sync: Option<OffchainInboxSync> = Option::none();
-            do_sync_state(
+            do_sync_state_without_handshake_discovery(
                 contract_address,
                 dummy_compute_note_hash,
                 dummy_compute_note_nullifier,
@@ -285,6 +323,70 @@ mod test {
             // Guards against the mocked oracle name going stale: if sync stops calling it, the crafted empty log
             // above is never consumed and the test silently stops covering the empty-payload path.
             assert_eq(mock.times_called(), 1);
+        });
+    }
+
+    #[test]
+    unconstrained fn discover_enqueued_notes_and_events_does_not_store_enqueued_requests() {
+        let contract_address = AztecAddress { inner: 0xdeadbeef };
+        let scope = AztecAddress { inner: 0xfeed };
+
+        let env = TestEnvironment::new();
+        env.utility_context_at(contract_address, |_| {
+            let logs_slot = 43;
+            let logs_mock = OracleMock::mock("aztec_utl_getPendingTaggedLogsV2");
+            let _ = logs_mock.returns(logs_slot);
+
+            let logs: EphemeralArray<PendingTaggedLog> = EphemeralArray::at(logs_slot);
+            logs.push(PendingTaggedLog { log: BoundedVec::new(), context: std::mem::zeroed() });
+
+            let store_mock = OracleMock::mock("aztec_utl_validateAndStoreEnqueuedNotesAndEvents");
+
+            let no_handler: Option<CustomMessageHandler> = Option::none();
+            let no_inbox_sync: Option<OffchainInboxSync> = Option::none();
+            discover_enqueued_notes_and_events_without_handshake_discovery(
+                contract_address,
+                dummy_compute_note_hash,
+                dummy_compute_note_nullifier,
+                no_handler,
+                no_inbox_sync,
+                scope,
+            );
+
+            assert_eq(logs_mock.times_called(), 1);
+            assert_eq(store_mock.times_called(), 0);
+        });
+    }
+
+    #[test]
+    unconstrained fn do_sync_state_stores_enqueued_requests_after_discovery() {
+        let contract_address = AztecAddress { inner: 0xdeadbeef };
+        let scope = AztecAddress { inner: 0xfeed };
+
+        let env = TestEnvironment::new();
+        env.utility_context_at(contract_address, |_| {
+            let logs_slot = 44;
+            let logs_mock = OracleMock::mock("aztec_utl_getPendingTaggedLogsV2");
+            let _ = logs_mock.returns(logs_slot);
+
+            let logs: EphemeralArray<PendingTaggedLog> = EphemeralArray::at(logs_slot);
+            logs.push(PendingTaggedLog { log: BoundedVec::new(), context: std::mem::zeroed() });
+
+            let store_mock = OracleMock::mock("aztec_utl_validateAndStoreEnqueuedNotesAndEvents");
+
+            let no_handler: Option<CustomMessageHandler> = Option::none();
+            let no_inbox_sync: Option<OffchainInboxSync> = Option::none();
+            do_sync_state_without_handshake_discovery(
+                contract_address,
+                dummy_compute_note_hash,
+                dummy_compute_note_nullifier,
+                no_handler,
+                no_inbox_sync,
+                scope,
+            );
+
+            assert_eq(logs_mock.times_called(), 1);
+            assert_eq(store_mock.times_called(), 1);
         });
     }
 

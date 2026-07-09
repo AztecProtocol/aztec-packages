@@ -64,7 +64,9 @@ impl AztecConfig {
     /// The generated `sync_state` function will call `handler` instead of
     /// [`crate::messages::discovery::do_sync_state`]. The handler receives all of the same parameters, so it can
     /// run custom logic (e.g. fetching and decrypting custom logs) before, after, or instead of calling
-    /// `do_sync_state`.
+    /// `do_sync_state`. Handlers that want the standard discovery flow with custom logic before storage can call
+    /// [`crate::messages::discovery::discover_enqueued_notes_and_events`] and then
+    /// [`crate::messages::processing::validate_and_store_enqueued_notes_and_events`].
     ///
     /// `handler` must be a function that conforms to the
     /// [`crate::messages::discovery::CustomSyncHandler`] type signature.
