@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# Tests for Redis helpers used by CI bootstrap/logging.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+RED=$'\033[0;31m'
+GREEN=$'\033[0;32m'
+NC=$'\033[0m'
+
+TESTS_PASSED=0
+TESTS_FAILED=0
+
+pass() { echo "${GREEN}OK${NC} $1"; ((TESTS_PASSED++)) || true; }
+fail() {
+  echo "${RED}FAIL${NC} $1: $2"
+  ((TESTS_FAILED++)) || true
+}
+
+echo "=== Redis Helper Test Suite ==="
+
+output=""
+code=0
+output=$(
+  env \
+    CI=1 \
+    CI_REDIS_AVAILABLE=0 \
+    DASHBOARD_URL=http://ci.aztec-labs.com \
+    PATH="$PATH" \
+    HOME="$HOME" \
+    bash -c '
+      cd "$1"
+      source ci3/source
+      seq 1 1000 | redis_setexz ci3-redis-test 60
+      printf ok
+    ' bash "$ROOT" 2>&1
+) || code=$?
+
+if [ "$code" -eq 0 ]; then
+  pass "redis_setexz exits 0 when Redis is unavailable"
+else
+  fail "redis_setexz exits 0 when Redis is unavailable" "exit code $code, output: $output"
+fi
+
+if [ "$output" = "ok" ]; then
+  pass "redis_setexz drains stdin without extra output"
+else
+  fail "redis_setexz drains stdin without extra output" "output: $output"
+fi
+
+echo
+if [[ $TESTS_FAILED -eq 0 ]]; then
+  echo "${GREEN}All $TESTS_PASSED tests passed.${NC}"
+  exit 0
+else
+  echo "${RED}$TESTS_FAILED of $((TESTS_PASSED + TESTS_FAILED)) tests failed.${NC}"
+  exit 1
+fi

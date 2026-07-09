@@ -81,7 +81,13 @@ function redis_cli {
 }
 
 function redis_setexz {
-  gzip | redis_cli -x SETEX $1 $2 &>/dev/null
+  local key=${1:?usage: redis_setexz <key> <seconds>}
+  local expire=${2:?usage: redis_setexz <key> <seconds>}
+  if [ "${CI_REDIS_AVAILABLE:-0}" -ne 1 ]; then
+    cat >/dev/null
+    return 0
+  fi
+  gzip | redis_cli -x SETEX "$key" "$expire" &>/dev/null
 }
 
 function redis_getz {
