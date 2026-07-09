@@ -259,6 +259,33 @@ sudo systemctl mask --now apt-daily.timer apt-daily-upgrade.timer apt-daily.serv
 sudo sysctl fs.inotify.max_user_watches=1048576 &>/dev/null
 sudo sysctl fs.inotify.max_user_instances=1048576 &>/dev/null
 
+# GPU=1 (spike): provision the NVIDIA driver + container toolkit at boot on the stock
+# CI AMI, and expose the GPU to the devbox container. The durable path is baking a GPU
+# AMI via aws/ami_update.sh; this keeps GPU instances usable without one.
+if [ "${GPU:-0}" = 1 ]; then
+  if ! command -v nvidia-smi &>/dev/null; then
+    echo "HOST: installing NVIDIA GPU driver (GPU=1)..."
+    sudo apt-get update -qq
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ubuntu-drivers-common
+    sudo ubuntu-drivers install --gpgpu
+    sudo modprobe nvidia || true
+  fi
+  if ! command -v nvidia-ctk &>/dev/null; then
+    echo "HOST: installing NVIDIA container toolkit..."
+    curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | \
+      sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+    curl -fsSL https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
+      sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
+      sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list >/dev/null
+    sudo apt-get update -qq
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq nvidia-container-toolkit
+    sudo nvidia-ctk runtime configure --runtime=docker
+    sudo systemctl restart docker
+  fi
+  nvidia-smi
+  docker_args+=' --gpus all'
+fi
+
 # DNS caching. CI's massively parallel jobs resolve the same handful of hosts (S3,
 # Docker Hub, npm, cargo, github) thousands of times. By default every lookup — from
 # the devbox container and nested docker-in-docker alike — goes straight to the VPC
@@ -400,6 +427,7 @@ start_build() {
     -e BENCH_UPLOAD=${BENCH_UPLOAD:-} \
     -e AZTEC_TOOLCHAIN_DEFAULT_MAJOR_VERSION=${AZTEC_TOOLCHAIN_DEFAULT_MAJOR_VERSION:-} \
     -e DRY_RUN=${DRY_RUN:-} \
+    -e GPU=${GPU:-} \
     --pids-limit=65536 \
     --shm-size=2g \
     --ulimit nofile=1048576:1048576 \

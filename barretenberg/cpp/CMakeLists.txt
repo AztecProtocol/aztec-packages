@@ -46,6 +46,7 @@ option(SYNTAX_ONLY "only check syntax (-fsyntax-only)" OFF)
 option(ENABLE_WASM_BENCH "Enable BB_BENCH benchmarking support in WASM builds (dev only, not for releases)" OFF)
 option(AVM "enable building of vm2 module and bb-avm" ON)
 option(BB_LITE "Exclude server-side subsystems: lmdb, world_state, ipc, nodejs_module" OFF)
+option(GPU "enable CUDA MSM backend (ecc_gpu module, requires nvcc)" OFF)
 
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "arm64")
     message(STATUS "Compiling for ARM.")
@@ -173,6 +174,17 @@ endif()
 
 if(AVM_TRANSPILER_LIB)
     include(cmake/avm-transpiler.cmake)
+endif()
+
+if(GPU)
+    # CUDA TUs are compiled by nvcc with its own host compiler; the GPU module is
+    # opt-in and must never be enabled in cross/wasm/release presets.
+    enable_language(CUDA)
+    if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+        set(CMAKE_CUDA_ARCHITECTURES 89)
+    endif()
+    include(cmake/sppark.cmake)
+    add_compile_definitions(BB_GPU)
 endif()
 
 include(cmake/backward-cpp.cmake)

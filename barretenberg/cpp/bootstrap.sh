@@ -7,6 +7,12 @@ if [ "${AVM:-1}" -eq "1" ]; then
 else
   export native_preset=${NATIVE_PRESET:-clang20-no-avm}
 fi
+
+# GPU=1 (spike): ensure nvcc is available for `cmake --preset gpu` builds. The standard
+# presets/targets are unaffected.
+if [ "${GPU:-0}" -eq 1 ]; then
+  ./scripts/install_cuda_toolkit.sh
+fi
 export hash=$(hash_str $(../../avm-transpiler/bootstrap.sh hash) $(../../ipc-runtime/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
 export native_build_dir=$(scripts/preset-build-dir $native_preset)
 

@@ -115,6 +115,10 @@ add_subdirectory(barretenberg/ultra_honk)
 add_subdirectory(barretenberg/vm2_stub)
 add_subdirectory(barretenberg/wasi)
 
+if(GPU)
+    add_subdirectory(barretenberg/ecc_gpu)
+endif()
+
 if(NOT BB_LITE)
     add_subdirectory(barretenberg/lmdblib)
 endif()

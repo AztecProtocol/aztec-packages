@@ -643,12 +643,51 @@ bool use_legacy_msm() noexcept
     return legacy_selected;
 }
 
+#ifdef BB_GPU
+// GPU dispatch (BB_MSM_GPU env var), compiled only under the `gpu` preset. The hook is a
+// weak declaration so binaries that don't link the ecc_gpu module still link; its
+// address is null unless ecc_gpu's strong definition (bb_msm_gpu.cpp) is pulled in.
+namespace gpu {
+__attribute__((weak)) bool try_pippenger_bn254(curve::BN254::Element& out,
+                                               PolynomialSpan<const curve::BN254::ScalarField> scalars,
+                                               std::span<const curve::BN254::AffineElement> points) noexcept;
+} // namespace gpu
+
+bool use_gpu_msm() noexcept
+{
+    static const bool gpu_selected = std::getenv("BB_MSM_GPU") != nullptr && &gpu::try_pippenger_bn254 != nullptr;
+    return gpu_selected;
+}
+
+// Returns true and sets `out` if the GPU backend is linked, enabled and succeeds;
+// callers fall through to the CPU path otherwise.
+template <typename Curve>
+bool try_gpu_msm(typename Curve::Element& out,
+                 PolynomialSpan<const typename Curve::ScalarField> scalars,
+                 std::span<const typename Curve::AffineElement> points) noexcept
+{
+    if constexpr (std::is_same_v<Curve, curve::BN254>) {
+        return use_gpu_msm() && gpu::try_pippenger_bn254(out, scalars, points);
+    } else {
+        static_cast<void>(out);
+        static_cast<void>(scalars);
+        static_cast<void>(points);
+        return false;
+    }
+}
+#endif
+
 template <typename Curve>
 typename Curve::Element pippenger(PolynomialSpan<const typename Curve::ScalarField> scalars,
                                   std::span<const typename Curve::AffineElement> points,
                                   bool handle_edge_cases,
                                   bool dedup_hint) noexcept
 {
+#ifdef BB_GPU
+    if (typename Curve::Element gpu_result; try_gpu_msm<Curve>(gpu_result, scalars, points)) {
+        return gpu_result;
+    }
+#endif
     if (use_legacy_msm()) {
         return legacy::pippenger<Curve>(scalars, points, handle_edge_cases);
     }
@@ -660,6 +699,11 @@ typename Curve::Element pippenger_unsafe(PolynomialSpan<const typename Curve::Sc
                                          std::span<const typename Curve::AffineElement> points,
                                          bool dedup_hint) noexcept
 {
+#ifdef BB_GPU
+    if (typename Curve::Element gpu_result; try_gpu_msm<Curve>(gpu_result, scalars, points)) {
+        return gpu_result;
+    }
+#endif
     if (use_legacy_msm()) {
         return legacy::pippenger_unsafe<Curve>(scalars, points);
     }
@@ -682,6 +726,27 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
     bool handle_edge_cases,
     std::span<const uint8_t> dedup_hints) noexcept
 {
+#ifdef BB_GPU
+    if constexpr (std::is_same_v<Curve, curve::BN254>) {
+        if (use_gpu_msm()) {
+            // Per-MSM GPU dispatch (the batch shares one resident points upload via the
+            // context cache). Any failure falls back to the CPU path for the whole batch.
+            std::vector<AffineElement> results(scalars.size());
+            bool ok = true;
+            for (size_t i = 0; i < scalars.size() && ok; ++i) {
+                typename Curve::Element gpu_result;
+                ok = try_gpu_msm<Curve>(
+                    gpu_result, { scalars[i].start_index, std::span<const ScalarField>(scalars[i].span) }, points);
+                if (ok) {
+                    results[i] = AffineElement(gpu_result);
+                }
+            }
+            if (ok) {
+                return results;
+            }
+        }
+    }
+#endif
     if (use_legacy_msm()) {
         // Adapt the rewrite's (single shared points + per-MSM PolynomialSpan) shape to the
         // legacy per-MSM (points span, scalar span) shape. dedup_hints are dropped.
