@@ -206,8 +206,7 @@ typename TranslatorVerifier_<Flavor>::ReductionResult TranslatorVerifier_<Flavor
 
     // Receive commitments to Libra masking polynomials
     std::array<Commitment, NUM_SMALL_IPA_COMMITMENTS> libra_commitments = {};
-    libra_commitments[0] =
-        transcript->template receive_from_prover<Commitment>(LIBRA_CONCATENATION_COMMITMENT_LABEL);
+    libra_commitments[0] = transcript->template receive_from_prover<Commitment>(LIBRA_CONCATENATION_COMMITMENT_LABEL);
 
     auto sumcheck_output = sumcheck.verify(relation_parameters, gate_challenges);
 

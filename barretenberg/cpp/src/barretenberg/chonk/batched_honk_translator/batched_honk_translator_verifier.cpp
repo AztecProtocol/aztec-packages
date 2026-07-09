@@ -120,8 +120,7 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
 
     // Receive Libra masking commitments.
     libra_commitments = {};
-    libra_commitments[0] =
-        transcript->template receive_from_prover<Commitment>(LIBRA_CONCATENATION_COMMITMENT_LABEL);
+    libra_commitments[0] = transcript->template receive_from_prover<Commitment>(LIBRA_CONCATENATION_COMMITMENT_LABEL);
 
     // ZK correction: receive Libra:Sum and Libra:Challenge to set initial target sum.
     FF libra_total_sum = transcript->template receive_from_prover<FF>(LIBRA_SUM_LABEL);

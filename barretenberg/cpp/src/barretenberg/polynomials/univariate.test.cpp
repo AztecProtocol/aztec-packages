@@ -114,4 +114,3 @@ TYPED_TEST(UnivariateTest, UnivariateViewMultiplication)
     Univariate<fr, 2> expected_result2{ { 3, 16 } };
     EXPECT_EQ(result2, expected_result2);
 }
-
