@@ -502,6 +502,7 @@ describe('syncTaggedPrivateLogs', () => {
       // Round 1: 4 idle probes + straggler[1]. Rounds 2 and 3 are straggler-only: [2,3], then [4..7] (terminating
       // miss at 4).
       expect(callSizes()).toEqual([5, 2, 4]);
+      expect(await taggingStore.getHighestFinalizedIndex(straggler, JOB_ID)).toBe(3);
 
       // Dropping out also means no writes: the caught-up secrets' finalized indexes are untouched by the
       // straggler-driven rounds.
