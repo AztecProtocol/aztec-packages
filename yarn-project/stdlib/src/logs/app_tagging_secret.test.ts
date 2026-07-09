@@ -128,15 +128,12 @@ describe('AppTaggingSecret', () => {
       expect(parsed.toString()).toBe(original.toString());
     });
 
-    // TODO(F-680): Remove once unconstrained `toString()` always emits the kind-prefixed format.
-    it('parses kind-prefixed unconstrained secrets', async () => {
+    it('rejects a string that is not three-part', async () => {
       const original = await randomAppTaggingSecret(AppTaggingSecretKind.UNCONSTRAINED);
-      const parsed = AppTaggingSecret.fromString(
-        `${AppTaggingSecretKind.UNCONSTRAINED}:${original.secret.toString()}:${original.app.toString()}`,
-      );
 
-      expect(parsed.kind).toBe(AppTaggingSecretKind.UNCONSTRAINED);
-      expect(parsed.toString()).toBe(original.toString());
+      expect(() => AppTaggingSecret.fromString(`${original.secret.toString()}:${original.app.toString()}`)).toThrow(
+        /Invalid AppTaggingSecret string/,
+      );
     });
 
     it('rejects unknown kind prefixes', async () => {
