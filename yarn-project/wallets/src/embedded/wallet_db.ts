@@ -11,6 +11,15 @@ function accountKey(field: string, address: AztecAddress | string): string {
   return `${field}:${address.toString()}`;
 }
 
+/** Bump when the WalletDB layout changes; a new version selects a fresh store, leaving the old one intact. */
+export const WALLET_DATA_SCHEMA_VERSION = 1;
+
+/**
+ * Name of the wallet DB store. Chain-agnostic: accounts and aliases apply across networks, so the name carries
+ * only the schema version.
+ */
+export const WALLET_DATA_STORE_NAME = `wallet_data_v${WALLET_DATA_SCHEMA_VERSION}`;
+
 export class WalletDB {
   private accounts: AztecAsyncMap<string, Buffer>;
   private aliases: AztecAsyncMap<string, Buffer>;

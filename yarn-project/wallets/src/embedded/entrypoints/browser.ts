@@ -1,6 +1,6 @@
 import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { createStore, openTmpStore } from '@aztec/kv-store/sqlite-opfs';
+import { AztecSQLiteOPFSStore, openTmpStore, storePoolDirectory } from '@aztec/kv-store/sqlite-opfs';
 import { type PXE, type PXECreationOptions, createPXE } from '@aztec/pxe/client/lazy';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/config';
 import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry/lazy';
@@ -10,7 +10,7 @@ import { getStandardMultiCallEntrypoint } from '@aztec/standard-contracts/multi-
 import { LazyAccountContractsProvider } from '../account-contract-providers/lazy.js';
 import type { AccountContractsProvider } from '../account-contract-providers/types.js';
 import { EmbeddedWallet, type EmbeddedWalletOptions, splitPxeOptions } from '../embedded_wallet.js';
-import { WalletDB } from '../wallet_db.js';
+import { WALLET_DATA_STORE_NAME, WalletDB } from '../wallet_db.js';
 
 export class BrowserEmbeddedWallet extends EmbeddedWallet {
   static async create<T extends BrowserEmbeddedWallet = BrowserEmbeddedWallet>(
@@ -69,18 +69,12 @@ export class BrowserEmbeddedWallet extends EmbeddedWallet {
       options.walletDb?.store ??
       (options.ephemeral
         ? await openTmpStore(true)
-        : await createStore(
-            'wallet_data',
-            {
-              // Unused in the browser: sqlite-opfs keys stores by name, not directory. Present only to
-              // satisfy the DataStoreConfig type.
-              dataDirectory: 'wallet_data',
-              dataStoreMapSizeKb: pxeConfig.dataStoreMapSizeKb,
-              rollupAddress: l1ContractAddresses.rollupAddress,
-              l1ChainId,
-            },
-            1,
+        : await AztecSQLiteOPFSStore.open(
+            // Chain-agnostic store: keyed by a fixed schema-versioned name, not by network identity.
             rootLogger.createChild('wallet:data'),
+            WALLET_DATA_STORE_NAME,
+            false,
+            storePoolDirectory(WALLET_DATA_STORE_NAME),
           ));
     const walletDB = new WalletDB(walletDBStore, rootLogger.createChild('wallet:db').info);
 
