@@ -42,6 +42,12 @@ export const validatorClientConfigMappings: ConfigMappingsType<
         .map(address => EthAddress.fromString(address.trim())),
     defaultValue: [],
   },
+  l1ChainId: {
+    env: 'L1_CHAIN_ID',
+    description: 'The chain ID of the ethereum host.',
+    parseEnv: (val: string) => +val,
+    defaultValue: 31337,
+  },
   disableValidator: {
     env: 'VALIDATOR_DISABLED',
     description: 'Do not run the validator',

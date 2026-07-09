@@ -9,23 +9,7 @@ import { DatabaseVersion } from './database_version.js';
 export type DatabaseVersionManagerFs = Pick<typeof fs, 'readFile' | 'rm' | 'mkdir' | 'rename' | 'open'>;
 
 export const DATABASE_VERSION_FILE_NAME = 'db_version';
-
-/**
- * How to react when a parsed version file records a schema version incompatible with the current one and no
- * upgrade path applies. `'reset'` (default) wipes and recreates the data directory. `'throw'` refuses to open,
- * leaving data untouched — for stores that must fail closed rather than be silently reset. Only a successfully
- * parsed version file can trigger the throw; first boot (no version file) always proceeds.
- */
 export type SchemaVersionMismatchPolicy = 'reset' | 'throw';
-
-/**
- * How to react when a parsed version file records a different rollup address than the current one. `'reset'`
- * (default) keeps the historical behavior of resetting the data directory when the stored rollup address differs.
- * `'throw'` refuses to open instead, for stores whose location already encodes the rollup identity (a mismatch
- * then indicates a bug, and data must not be destroyed). Only a successfully parsed version file can trigger the
- * throw; first boot (no version file) always proceeds.
- */
-export type RollupAddressMismatchPolicy = 'reset' | 'throw';
 
 /**
  * How to react when the version file exists but cannot be read (permissions, IO error, truncation).
@@ -43,7 +27,6 @@ export type DatabaseVersionManagerOptions<T> = {
   onOpen: (dataDir: string) => Promise<T>;
   onUpgrade?: (dataDir: string, currentVersion: number, latestVersion: number) => Promise<void>;
   schemaVersionMismatchPolicy?: SchemaVersionMismatchPolicy;
-  rollupAddressMismatchPolicy?: RollupAddressMismatchPolicy;
   versionFileReadFailurePolicy?: VersionFileReadFailurePolicy;
   fileSystem?: DatabaseVersionManagerFs;
   log?: Logger;
@@ -64,7 +47,6 @@ export class DatabaseVersionManager<T> {
   private onOpen: (dataDir: string) => Promise<T>;
   private onUpgrade?: (dataDir: string, currentVersion: number, latestVersion: number) => Promise<void>;
   private schemaVersionMismatchPolicy: SchemaVersionMismatchPolicy;
-  private rollupAddressMismatchPolicy: RollupAddressMismatchPolicy;
   private versionFileReadFailurePolicy: VersionFileReadFailurePolicy;
   private fileSystem: DatabaseVersionManagerFs;
   private log: Logger;
@@ -79,10 +61,7 @@ export class DatabaseVersionManager<T> {
    * @param onUpgrade - An optional callback to upgrade the database before opening. If not provided it will reset the
    *   database. Must be idempotent: since the version marker is written only after a successful open, a crash after
    *   onUpgrade but before the marker is written re-runs onUpgrade on the next start.
-   * @param schemaVersionMismatchPolicy - Whether an incompatible schema version in a parsed version file should
-   *   reset data or throw
-   * @param rollupAddressMismatchPolicy - Whether a different rollup address in a parsed version file should reset
-   *   data or throw
+   * @param schemaVersionMismatchPolicy - Whether schema mismatches should reset data or throw
    * @param versionFileReadFailurePolicy - Whether an unreadable (non-missing) version file should reset data or throw
    * @param fileSystem - An interface to access the filesystem
    * @param log - Optional custom logger
@@ -95,7 +74,6 @@ export class DatabaseVersionManager<T> {
     onOpen,
     onUpgrade,
     schemaVersionMismatchPolicy = 'reset',
-    rollupAddressMismatchPolicy = 'reset',
     versionFileReadFailurePolicy = 'reset',
     fileSystem = fs,
     log = createLogger(`foundation:version-manager`),
@@ -111,7 +89,6 @@ export class DatabaseVersionManager<T> {
     this.onOpen = onOpen;
     this.onUpgrade = onUpgrade;
     this.schemaVersionMismatchPolicy = schemaVersionMismatchPolicy;
-    this.rollupAddressMismatchPolicy = rollupAddressMismatchPolicy;
     this.versionFileReadFailurePolicy = versionFileReadFailurePolicy;
     this.fileSystem = fileSystem;
     this.log = log;
@@ -161,14 +138,10 @@ export class DatabaseVersionManager<T> {
     let storedVersion: DatabaseVersion;
     // a flag to suppress logs about 'resetting the data dir' when starting from an empty state
     let shouldLogDataReset = true;
-    // Distinguishes "a version file existed and parsed" from first boot / unreadable file: only a parsed
-    // version file can prove a genuine rollup mismatch, which is what the 'throw' policy protects against.
-    let versionFileParsed = false;
 
     try {
       const versionBuf = await this.fileSystem.readFile(this.versionFile);
       storedVersion = DatabaseVersion.fromBuffer(versionBuf);
-      versionFileParsed = true;
     } catch (err) {
       if (err && (err as Error & { code: string }).code === 'ENOENT') {
         storedVersion = DatabaseVersion.empty();
@@ -211,7 +184,7 @@ export class DatabaseVersionManager<T> {
           needsReset = true;
         }
       } else if (cmp !== 0) {
-        if (versionFileParsed && this.schemaVersionMismatchPolicy === 'throw') {
+        if (this.schemaVersionMismatchPolicy === 'throw') {
           throw new Error(
             `Cannot open database at ${this.dataDirectory}: stored schema version ${storedVersion.schemaVersion} is incompatible with expected schema version ${this.currentVersion.schemaVersion}`,
           );
@@ -224,12 +197,6 @@ export class DatabaseVersionManager<T> {
         needsReset = true;
       }
     } else {
-      if (versionFileParsed && this.rollupAddressMismatchPolicy === 'throw') {
-        throw new Error(
-          `Cannot open database at ${this.dataDirectory}: stored rollup address ` +
-            `${storedVersion.rollupAddress} does not match expected ${this.currentVersion.rollupAddress}`,
-        );
-      }
       if (shouldLogDataReset) {
         this.log.warn('Rollup address has changed, resetting data directory', {
           versionFile: this.versionFile,

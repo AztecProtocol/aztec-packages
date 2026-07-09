@@ -1,11 +1,10 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 
 import { mockLogger } from '../interfaces/utils.js';
 import { AztecSQLiteOPFSStore, StoreIdentityMismatchError, createStore, effectiveStoreName } from './index.js';
 import { deleteStore, listStores, storePoolDirectory } from './manage.js';
 
-const configFor = (rollupAddress: EthAddress, l1ChainId = 31337): DataStoreConfig => ({
+const configFor = (rollupAddress: EthAddress, l1ChainId = 31337) => ({
   dataDirectory: 'test',
   dataStoreMapSizeKb: 1024,
   rollupAddress,

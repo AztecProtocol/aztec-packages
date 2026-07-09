@@ -21,7 +21,7 @@ export type { StoreIdentity } from '../store_identity.js';
  */
 export async function createStore(
   name: string,
-  config: DataStoreConfig,
+  config: DataStoreConfig & { l1ChainId?: number },
   schemaVersion: number | undefined = undefined,
   log: Logger = createLogger('kv-store'),
 ) {

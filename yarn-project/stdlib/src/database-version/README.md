@@ -53,16 +53,11 @@ const dataDir = versionManager.getDataDirectory();
 
 ## Automatic Reset Conditions
 
-The database is reset in the following conditions:
+The database will be reset in the following conditions:
 
-1. First boot: no version file exists yet.
-2. The version file exists but cannot be read or parsed (permissions, IO error, truncation), unless
-   `versionFileReadFailurePolicy: 'throw'` is set — then it refuses to open and leaves data untouched.
-3. The stored schema version is incompatible with the current one and no upgrade path applies (no upgrade callback,
-   or the callback throws), unless `schemaVersionMismatchPolicy: 'throw'` is set — then it refuses to open.
-4. The stored rollup address differs from the current one, unless `rollupAddressMismatchPolicy: 'throw'` is set —
-   then it refuses to open.
+1. No version information exists (first run)
+2. Rollup address has changed
+3. Version has changed and no upgrade callback is provided
+4. Upgrade callback throws an error
 
-The `'throw'` policies only fire when a version file was successfully parsed: first boot always proceeds and never
-throws. When a reset occurs, the data directory is deleted and recreated, and the reset callback is called to
-initialize a fresh database.
+When a reset occurs, the data directory is deleted and recreated, and the reset callback is called to initialize a fresh database.
