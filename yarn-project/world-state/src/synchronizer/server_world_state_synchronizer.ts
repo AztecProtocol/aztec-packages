@@ -78,6 +78,46 @@ export class ServerWorldStateSynchronizer
     return this.merkleTreeDb.getSnapshot(blockNumber);
   }
 
+  public async getVerifiedSnapshot(blockNumber: BlockNumber, blockHash: BlockHash): Promise<MerkleTreeReadOperations> {
+    const snapshot = this.merkleTreeDb.getSnapshot(blockNumber);
+    // Block 0's snapshot is the pre-genesis archive view (size 0), so archive leaf 0 is not visible from it;
+    // verify against the initial header hash instead. For later blocks, read archive leaf `blockNumber` from the
+    // snapshot's own view so the exact handle we return is validated against the requested fork.
+    const actualHash =
+      blockNumber === BlockNumber.ZERO
+        ? (await this.merkleTreeCommitted.getInitialHeader().hash()).toString()
+        : (await snapshot.getLeafValue(MerkleTreeId.ARCHIVE, BigInt(blockNumber)))?.toString();
+
+    if (actualHash === undefined) {
+      // A missing archive leaf means either the block's history has been pruned away (permanent: the block predates
+      // the oldest historical block kept by world state) or a reorg flipped the fork between the sync and this read
+      // (transient). Only the latter is worth retrying, so it alone surfaces as WorldStateSynchronizerError.
+      const { oldestHistoricalBlock } = await this.merkleTreeDb.getStatusSummary();
+      if (blockNumber < oldestHistoricalBlock) {
+        throw new Error(
+          `Unable to find leaf for block ${blockNumber} in the archive tree: world state history has been pruned to block ${oldestHistoricalBlock}`,
+        );
+      }
+      throw new WorldStateSynchronizerError(`Unable to read block hash at block ${blockNumber} to verify snapshot`, {
+        cause: { reason: 'block_not_available', targetBlockNumber: blockNumber },
+      });
+    }
+    if (actualHash !== blockHash.toString()) {
+      throw new WorldStateSynchronizerError(
+        `Block hash mismatch at block ${blockNumber} (expected ${blockHash} but got ${actualHash})`,
+        {
+          cause: {
+            reason: 'block_hash_mismatch',
+            targetBlockNumber: blockNumber,
+            expectedHash: blockHash.toString(),
+            actualHash,
+          },
+        },
+      );
+    }
+    return snapshot;
+  }
+
   public fork(blockNumber?: BlockNumber, opts?: { closeDelayMs?: number }): Promise<MerkleTreeWriteOperations> {
     return this.merkleTreeDb.fork(blockNumber, opts);
   }

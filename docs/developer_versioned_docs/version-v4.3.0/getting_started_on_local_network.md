@@ -21,6 +21,12 @@ What's included in the local network:
 
 This guide will teach you how to install the Aztec local network, run it using the Aztec CLI, and interact with contracts using the wallet CLI. To jump right into the testnet instead, click the `Testnet` tab.
 
+import YouTubeEmbed from '@site/src/components/YouTubeEmbed';
+
+To see the whole flow before you start, watch this one-minute walkthrough (find more on the [video lessons](./docs/resources/video_lessons.mdx) page):
+
+<YouTubeEmbed videoId="_jgHNdNgFOg" title="Get Started on Aztec in Under 60 Seconds" />
+
 ## Prerequisites
 
 import { General, Fees } from '@site/src/components/Snippets/general_snippets';

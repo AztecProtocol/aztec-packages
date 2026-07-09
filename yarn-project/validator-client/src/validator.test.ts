@@ -200,9 +200,10 @@ describe('ValidatorClient', () => {
       rollupAddress: TEST_COORDINATION_SIGNATURE_CONTEXT.rollupAddress,
       nodeId: 'test-node-id',
       pollingIntervalMs: 1000,
-      signingTimeoutMs: 1000,
+      peerSigningTimeoutMs: 1000,
       maxStuckDutiesAgeMs: 72000,
       dataStoreMapSizeKb: 1024 * 1024,
+      allowEphemeralSigningProtection: true,
     };
 
     keyStoreManager = new KeystoreManager(makeKeyStore({ attester: validatorPrivateKeys.map(key => key as Hex<32>) }));

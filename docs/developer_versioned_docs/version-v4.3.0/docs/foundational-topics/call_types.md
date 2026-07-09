@@ -18,6 +18,12 @@ We say that a smart contract is called when one of its functions is invoked and 
 
 There are multiple types of calls, and some of the naming can make things **very** confusing. This page lists the different call types and execution modes, pointing out key differences between them.
 
+import YouTubeEmbed from '@site/src/components/YouTubeEmbed';
+
+A key property of Aztec calls is that contracts can call each other privately, keeping even the call stack itself private. This two-minute explainer covers the idea before we get into the details (find more on the [video lessons](../resources/video_lessons.mdx) page):
+
+<YouTubeEmbed videoId="idxRuGQnQKs" title="What is Private Composability? An Aztec Explainer" />
+
 ## Ethereum Call Types
 
 Aztec's design is heavily influenced by Ethereum, and many APIs and concepts are similar. This section provides background on Ethereum call types for context. If you're already familiar with Ethereum, you can skip to [Aztec Call Types](#aztec-call-types).

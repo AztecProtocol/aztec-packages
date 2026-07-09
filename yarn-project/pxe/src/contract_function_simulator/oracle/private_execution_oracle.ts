@@ -30,9 +30,10 @@ import {
 } from '@aztec/stdlib/tx';
 
 import type { ResolveCustomRequest } from '../../hooks/resolve_custom_request.js';
-import type {
-  ResolveTaggingSecretStrategy,
-  TaggingSecretStrategy,
+import {
+  DEFAULT_TAGGING_SECRET_STRATEGY,
+  type ResolveTaggingSecretStrategy,
+  type TaggingSecretStrategy,
 } from '../../hooks/resolve_tagging_secret_strategy.js';
 import { NoteService } from '../../notes/note_service.js';
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
@@ -233,8 +234,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   ): Promise<TaggingSecretStrategy> {
     const hook: ResolveTaggingSecretStrategy | undefined = this.hooks?.resolveTaggingSecretStrategy;
     if (!hook) {
-      // With no hook, both delivery modes default to a non-interactive handshake
-      return { type: 'non-interactive-handshake' };
+      return DEFAULT_TAGGING_SECRET_STRATEGY;
     }
 
     const contractClassId = await this.#getCurrentContractClassId(this.contractAddress);
@@ -278,6 +278,8 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     switch (strategy.type) {
       case 'non-interactive-handshake':
         return { type: 'non-interactive-handshake' };
+      case 'interactive-handshake':
+        return { type: 'interactive-handshake' };
       case 'address-derived':
         return this.#addressDerivedSecret(sender, recipient);
       case 'arbitrary-secret': {

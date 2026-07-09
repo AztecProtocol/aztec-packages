@@ -179,6 +179,11 @@ function decodeScenarioName(inputs: ForeignCallArgs): string {
 }
 
 function valuesEqual(actual: unknown, expected: unknown): boolean {
+  if (!isNonNullObject(actual) || !isNonNullObject(expected)) {
+    // Primitive scalars; String() bridges bigint vs number representations of the same seed. A primitive compared
+    // against an object is never equal.
+    return isNonNullObject(actual) === isNonNullObject(expected) && String(actual) === String(expected);
+  }
   if (actual instanceof Option && expected instanceof Option) {
     return actual.equals(expected, valuesEqual);
   }
@@ -188,7 +193,49 @@ function valuesEqual(actual: unknown, expected: unknown): boolean {
   if (Array.isArray(actual) && Array.isArray(expected)) {
     return actual.length === expected.length && actual.every((v, i) => valuesEqual(v, expected[i]));
   }
-  return String(actual) === String(expected);
+  if (isPlainObject(actual) && isPlainObject(expected)) {
+    const expectedKeys = Object.keys(expected);
+    return (
+      Object.keys(actual).length === expectedKeys.length &&
+      expectedKeys.every(key => valuesEqual(actual[key], expected[key]))
+    );
+  }
+  if (actual.constructor !== expected.constructor) {
+    return false;
+  }
+  if (hasEquals(actual)) {
+    return actual.equals(expected);
+  }
+  const actualStr = customStringForm(actual);
+  const expectedStr = customStringForm(expected);
+  if (actualStr !== undefined && expectedStr !== undefined) {
+    return actualStr === expectedStr;
+  }
+  // Comparing blindly here could pass vacuously (e.g. two '[object Object]' strings), so refuse instead.
+  throw new Error(
+    `valuesEqual cannot compare a '${actual.constructor?.name}' against a '${expected.constructor?.name}'. Add a branch for the type.`,
+  );
+}
+
+function isNonNullObject(value: unknown): value is object {
+  return typeof value === 'object' && value !== null;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return isNonNullObject(value) && value.constructor === Object;
+}
+
+function hasEquals(value: object): value is { equals(other: unknown): boolean } {
+  return typeof (value as { equals?: unknown }).equals === 'function';
+}
+
+/** The value's string form when its class overrides `toString` (a meaningful representation), undefined otherwise. */
+function customStringForm(value: object): string | undefined {
+  const { toString } = value;
+  if (typeof toString !== 'function' || toString === Object.prototype.toString) {
+    return undefined;
+  }
+  return toString.call(value);
 }
 
 function versionBumpHint(oracle: string): string {

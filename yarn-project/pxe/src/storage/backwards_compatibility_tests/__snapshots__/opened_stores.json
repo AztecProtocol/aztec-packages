@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 11,
+  "schemaVersion": 13,
   "stores": [
     {
       "name": "capsules",

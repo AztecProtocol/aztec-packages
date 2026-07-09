@@ -57,8 +57,8 @@ const VALIDATOR_COUNT = 4;
  * `mockGossipSubNetwork` bus, then 4 validator nodes created via `test.createValidatorNode` in 2 HA pairs. Each pair
  * shares its two validator keys plus an in-memory `createSharedSlashingProtectionDb` (so only one peer signs per duty)
  * — explicitly NOT the Postgres-backed docker-compose HA suite, so this is an in-proc `multi-node` test, not infra.
- * Production `Sequencer`, no prover node. Timing: ethSlot=6s, aztecSlot=36s, epoch=4, proofSubEpochs=1024,
- * blockDurationMs=8s, committeeSize=4, attestationPropagationTime=0.5, inboxLag=2; anvil on interval mining. Nodes build
+ * Production `Sequencer`, no prover node. Timing: ethSlot=6s, aztecSlot=24s, epoch=4, proofSubEpochs=1024,
+ * blockDurationMs=5s, committeeSize=4, attestationPropagationTime=0.5, inboxLag=2; anvil on interval mining. Nodes build
  * empty checkpoints (`buildCheckpointIfEmpty` + `minTxsPerBlock: 0`) so no txs are needed, and each node uses a distinct
  * coinbase so the secondary assertion can prove which peer produced S2. Time is warped with `cheatCodes.eth.warp`:
  * `findConsecutiveSamePairSlots` recovers from `ValidatorSelection__EpochNotStable` by warping forward one epoch, and

@@ -57,6 +57,18 @@ export class AppTaggingSecret {
   }
 
   /**
+   * Derives the bare app-siloed tagging secret from a shared secret point via {@link appSiloEcdhSharedSecretPoint},
+   * under the given delivery-mode kind.
+   */
+  static async computeAppSiloed(
+    taggingSecretPoint: Point,
+    app: AztecAddress,
+    kind: AppTaggingSecretKind,
+  ): Promise<AppTaggingSecret> {
+    return new AppTaggingSecret(await appSiloEcdhSharedSecretPoint(taggingSecretPoint, app), app, kind);
+  }
+
+  /**
    * Derives the tagging secret for `(externalAddress, recipient, app)` by performing an ECDH key exchange against
    * `externalAddress` to obtain the shared point, then siloing and directing it via {@link computeDirectional}.
    * Returns undefined if `externalAddress` is not a valid address.
@@ -77,29 +89,20 @@ export class AppTaggingSecret {
   }
 
   toString(): string {
-    // TODO(F-680): Migrate stored tagging keys and remove the legacy unconstrained format.
-    if (this.kind === AppTaggingSecretKind.UNCONSTRAINED) {
-      return `${this.secret.toString()}:${this.app.toString()}`;
-    }
     return `${this.kind}:${this.secret.toString()}:${this.app.toString()}`;
   }
 
   static fromString(str: string): AppTaggingSecret {
     const parts = str.split(':');
-    if (parts.length === 2) {
-      // TODO(F-680): Remove legacy two-part parsing after stored tagging keys are migrated.
-      const [secretStr, appStr] = parts;
-      return new AppTaggingSecret(Fr.fromString(secretStr), AztecAddress.fromStringUnsafe(appStr));
+    if (parts.length !== 3) {
+      throw new Error(`Invalid AppTaggingSecret string: ${str}`);
     }
-    if (parts.length === 3) {
-      const [kindStr, secretStr, appStr] = parts;
-      return new AppTaggingSecret(
-        Fr.fromString(secretStr),
-        AztecAddress.fromStringUnsafe(appStr),
-        appTaggingSecretKindFromString(kindStr),
-      );
-    }
-    throw new Error(`Invalid AppTaggingSecret string: ${str}`);
+    const [kindStr, secretStr, appStr] = parts;
+    return new AppTaggingSecret(
+      Fr.fromString(secretStr),
+      AztecAddress.fromStringUnsafe(appStr),
+      appTaggingSecretKindFromString(kindStr),
+    );
   }
 }
 
