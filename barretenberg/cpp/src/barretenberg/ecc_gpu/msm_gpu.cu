@@ -67,7 +67,7 @@ int msm_oneshot_bn254(JacobianPointRaw& out,
                                              reinterpret_cast<const affine_t*>(points),
                                              npoints,
                                              reinterpret_cast<const scalar_t*>(scalars),
-                                             /*mont=*/true,
+                                             /*mont=*/false,
                                              sizeof(affine_t));
     std::memcpy(&out, &result, sizeof(out));
     return consume_error(std::move(err));
@@ -111,7 +111,7 @@ int MsmContextBn254::msm(JacobianPointRaw& out, const uint64_t* scalars, size_t 
                                                            /*points=*/static_cast<const affine_t*>(nullptr),
                                                            n,
                                                            reinterpret_cast<const scalar_t*>(scalars),
-                                                           /*mont=*/true,
+                                                           /*mont=*/false,
                                                            sizeof(affine_t));
     std::memcpy(&out, &result, sizeof(out));
     return consume_error(std::move(err));

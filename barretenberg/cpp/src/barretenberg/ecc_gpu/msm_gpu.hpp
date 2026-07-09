@@ -27,7 +27,7 @@ bool available() noexcept;
 
 // One-shot BN254 G1 MSM including host->device point transfer:
 // out = sum_i scalars[i] * points[i].
-// Scalars are canonical (< r) Montgomery-form fr limbs, 4 uint64 per scalar.
+// Scalars are canonical (< r) standard-form (non-Montgomery) fr limbs, 4 uint64 each.
 // Returns 0 on success, a CUDA/sppark error code otherwise.
 int msm_oneshot_bn254(JacobianPointRaw& out,
                       const AffinePointRaw* points,

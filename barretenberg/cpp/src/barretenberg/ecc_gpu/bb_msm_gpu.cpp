@@ -23,16 +23,19 @@ static_assert(std::is_trivially_copyable_v<Curve::BaseField>);
 
 namespace {
 
-// Scalars may be in bb's coarse Montgomery representation ([0, 2r)); the GPU backend
-// requires canonical (< r) values. Stage a reduced copy, leaving caller buffers
-// untouched (unlike the CPU path, which converts in place and restores).
-// `pad` leading zero scalars align scalar j with resident point start_index + j.
+// The GPU boundary takes canonical standard-form (non-Montgomery) scalar limbs; the
+// host-side conversion here costs one field mul per scalar (the CPU MSM pays the same
+// conversion) and side-steps sppark's device-side mont path, which produced wrong
+// results for large scalars on sm_89 while its canonical path matches upstream's own
+// correctness tests. Caller buffers are left untouched (the CPU path converts in place
+// and restores). `pad` leading zero scalars align scalar j with resident point
+// start_index + j.
 std::vector<Fr> stage_scalars(PolynomialSpan<const Fr> scalars, size_t pad)
 {
     std::vector<Fr> staged(pad, Fr::zero());
     staged.reserve(pad + scalars.span.size());
     for (const Fr& s : scalars.span) {
-        staged.emplace_back(s.reduce_once());
+        staged.emplace_back(s.from_montgomery_form());
     }
     return staged;
 }
