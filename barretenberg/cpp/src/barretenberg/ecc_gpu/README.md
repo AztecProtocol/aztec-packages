@@ -23,11 +23,14 @@ cross/release presets are unaffected.
 
 ## Formats
 
-- Points: plain affine `(x, y)`, 64 bytes, Montgomery-form coordinates — bb's SRS layout
-  is bit-identical to sppark's `Affine_t`, so points upload with no conversion.
-  (Do NOT use sppark's `affine_inf_t`: its extra `inf` flag changes the host stride.)
-- Scalars: Montgomery form (`mont=true`), staged through a reduced copy because bb
-  permits coarse `[0, 2r)` encodings and sppark requires canonical.
+- Points: staged into 72-byte `{x, y, inf=0}` records (sppark's `affine_inf_t` with an
+  arkworks-style stride — the instantiation every upstream consumer uses), with each
+  coordinate **canonicalized** from bb's coarse `[0, 2p)` Montgomery form to `[0, p)`
+  (see the correctness section below; this is required, not optional).
+- Scalars: converted to canonical standard form on the host
+  (`from_montgomery_form_reduced`) and passed with `mont=false` — same per-scalar cost
+  as the conversion the CPU MSM performs, and it side-steps sppark's device-side
+  Montgomery path entirely. Caller buffers are never mutated.
 - Results: sppark jacobian `(X, Y, Z)` maps directly onto bb's `element`; `Z == 0` is
   converted to bb's point-at-infinity encoding.
 
@@ -100,32 +103,32 @@ perf/$ for large MSMs, before any tuning. Resident vs one-shot shows the fixed-S
 pattern matters (~2x at large n: point upload dominates one-shot). The batch shape
 amortizes further (21.3 ms vs 30.8 ms for an isolated 2^19).
 
-## Correctness status (spike finding): upstream race suspected on Ada/sm_89
+## Correctness: root cause found and fixed (coarse coordinates)
 
-`ecc_gpu_tests` fails on g6e (L40S, driver 595.71.05, CUDA 12.6): MSMs with >= ~2
-dense (multi-window) scalars intermittently produce wrong results. Extensive bisection
-ruled out our integration as the cause:
+The initial integration produced wrong MSM results whenever a point with a *coarse*
+coordinate met a negative booth digit. Barretenberg keeps field elements lazily reduced
+in [0, 2p) Montgomery form; sppark/blst require canonical [0, p) inputs (the signed
+digit path computes p - y, which is wrong for coarse y). Every upstream sppark consumer
+feeds it arkworks/blst values, which are always canonical, so only our integration hit
+it. Fixed by canonicalizing coordinates in `stage_points` (msm_gpu.cu); scalars were
+already reduced (`from_montgomery_form_reduced`) for the same reason.
 
-- Formats verified: scalar=1 and all sparse/adversarial scalar values pass at every
-  size; single-scalar MSMs always pass; zero handling, infinity mapping, coarse-scalar
-  reduction, buffer constness all pass.
-- Not our flags/types: reproduced identically across mont=true/false, plain
-  `Affine_t` vs `affine_inf_t`, NDEBUG on/off, `-std=c++14/17`, sm_89 SASS vs
-  compute_89 PTX (driver 13.2 JIT — fewer failures but still failing, i.e.
-  codegen/timing-sensitive), CUDA_LAUNCH_BLOCKING, single-threaded host,
-  zero-initialised device allocations.
-- compute-sanitizer: memcheck/synccheck/initcheck clean; **racecheck reports
-  shared-memory write/read races in sppark's `sort` kernel** (which has a 2023 commit
-  "avoid potential race condition" — history of exactly this).
-- Failures are history-sensitive: a captured failing 2-scalar pair fails 3/3 mid-suite
-  and passes in a fresh process; failure onset varies run-to-run with identical inputs.
-- Upstream's own poc test (fixed seed, ONE 2^15 MSM per process) passes 12/12 on the
-  same box — insufficient to catch a probabilistic race.
+Debugging history (for the curious): the failure pattern masqueraded as a GPU race for a
+long day — it was input-dependent, and the test data was drawn from `get_randomness()`
+(non-reproducible) for the first half of the investigation, which made identical builds
+appear nondeterministic and different flags/architectures appear implicated. With a
+deterministic seed every build on every GPU failed identically. The final diagnosis came
+from stage-by-stage device-buffer dumps between a passing arkworks harness and a failing
+C++ harness sharing identical archives and inputs: the first divergent bytes were a
+point coordinate differing by exactly p. `quad_repro.cu` preserves a standalone
+demonstration (it feeds raw sppark a coarse coordinate). compute-sanitizer racecheck
+warnings in sppark's sort kernel appear to be benign warp-synchronous false positives;
+initcheck is clean once buckets are zeroed (and the uninitialized reads it found were
+benign in practice).
 
-Conclusion: latent race in sppark's MSM (most likely the radix sort), exposed by
-Ada/newer-toolchain scheduling. Needs an upstream report with the repro
-(`ecc_gpu_tests --gtest_filter=*DiagSizeSweep*`), and validation on A100/sm_80 (the
-architecture sppark is battle-tested on) before any production use.
+`ecc_gpu_tests` (15 tests incl. a 411-MSM sweep with culprit bisection, captured-input
+regression, adversarial scalars and synthetic bucket collisions) passes 3/3 repeated
+runs on A10G/sm_86; earlier failures on L40S/sm_89 had the same single root cause.
 
 ## Known limitations (spike scope)
 

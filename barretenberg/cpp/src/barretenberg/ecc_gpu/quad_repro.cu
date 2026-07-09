@@ -1,9 +1,9 @@
-// Standalone sppark BN254 MSM reproducer (spike diagnostic; not part of any cmake
-// target). Computes 40454*P0 + 18938*P1 — a combination that returns a wrong result in
-// our build — and checks it against the known-good answer (verified independently by
-// barretenberg CPU naive/Pippenger and arkworks). No barretenberg dependencies, and the
-// TU mirrors upstream's poc/msm-cuda/cuda/pippenger_inf.cu, so it can be compiled with
-// any flag/blst combination to bisect which build ingredient flips the result:
+// Standalone demonstration of the coarse-coordinate hazard (not part of any cmake
+// target). Computes 40454*P0 + 18938*P1 feeding sppark a point whose x-coordinate is
+// in barretenberg coarse form (>= p): the result is wrong unless coordinates are
+// canonicalized first (see msm_gpu.cu stage_points). Expected answer verified by
+// barretenberg CPU Pippenger, arkworks, and independent python. TU mirrors upstream
+// poc/msm-cuda/cuda/pippenger_inf.cu:
 //
 //   nvcc <FLAGS> -I<sppark> -I<blst>/src -I<blst>/bindings \
 //       quad_repro.cu <libblst.a> -o quad_repro && ./quad_repro
