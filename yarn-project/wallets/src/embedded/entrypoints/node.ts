@@ -1,8 +1,8 @@
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { createStore, openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/config';
-import { type PXE, type PXECreationOptions, createPXE } from '@aztec/pxe/server';
+import { type PXE, type PXECreationOptions, createPXE, openStoreForIdentity } from '@aztec/pxe/server';
 import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
 import { getStandardHandshakeRegistry } from '@aztec/standard-contracts/handshake-registry';
 import { getStandardMultiCallEntrypoint } from '@aztec/standard-contracts/multi-call-entrypoint';
@@ -75,7 +75,7 @@ export class NodeEmbeddedWallet extends EmbeddedWallet {
             undefined,
             rootLogger.createChild('wallet:data').getBindings(),
           )
-        : await createStore(
+        : await openStoreForIdentity(
             'wallet_data',
             1,
             {
@@ -85,7 +85,6 @@ export class NodeEmbeddedWallet extends EmbeddedWallet {
               l1ChainId,
             },
             rootLogger.createChild('wallet:data').getBindings(),
-            { partitionByIdentity: true },
           ));
     const walletDB = new WalletDB(walletDBStore, rootLogger.createChild('wallet:db').info);
 

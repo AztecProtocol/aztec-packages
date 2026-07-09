@@ -1,7 +1,6 @@
 import { BBBundlePrivateKernelProver } from '@aztec/bb-prover/client/bundle';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { createLogger } from '@aztec/foundation/log';
-import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { WASMSimulator } from '@aztec/simulator/client';
 import { MemoryCircuitRecorder, SimulatorRecorderWrapper } from '@aztec/simulator/server';
@@ -15,6 +14,7 @@ import type { PXEConfig } from '../../config/index.js';
 import { PXE } from '../../pxe.js';
 import { PXE_DATA_SCHEMA_VERSION } from '../../storage/index.js';
 import { type PXECreationOptions, isPrivateKernelProver } from '../pxe_creation_options.js';
+import { openStoreForIdentity } from './store.js';
 
 type PXEConfigWithoutDefaults = Omit<
   PXEConfig,
@@ -46,12 +46,11 @@ export async function createPXE(
 
   if (!options.store) {
     const storeLogger = loggers.store ?? createLogger('pxe:data:lmdb', { actor });
-    options.store = await createStore(
+    options.store = await openStoreForIdentity(
       'pxe_data',
       PXE_DATA_SCHEMA_VERSION,
       configWithContracts,
       storeLogger.getBindings(),
-      { partitionByIdentity: true },
     );
   }
   const proverLogger = loggers.prover ?? createLogger('pxe:bb:native', { actor });
