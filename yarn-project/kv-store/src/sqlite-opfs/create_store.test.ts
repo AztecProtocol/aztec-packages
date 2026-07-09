@@ -3,7 +3,7 @@ import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 
 import { mockLogger } from '../interfaces/utils.js';
 import { AztecSQLiteOPFSStore, StoreIdentityMismatchError, createStore, effectiveStoreName } from './index.js';
-import { storePoolDirectory } from './manage.js';
+import { deleteStore, listStores, storePoolDirectory } from './manage.js';
 
 const configFor = (rollupAddress: EthAddress, l1ChainId = 31337): DataStoreConfig => ({
   dataDirectory: 'test',
@@ -81,5 +81,34 @@ describe('sqlite-opfs createStore', () => {
     const raw = await AztecSQLiteOPFSStore.open(mockLogger, storeName, false, storePoolDirectory(storeName));
     expect(await raw.openSingleton<string>('payload').getAsync()).toEqual('precious');
     await raw.close();
+  });
+
+  it('lists created stores and deletes them', async () => {
+    const addr = EthAddress.random();
+    const store = await createStore('managed_test', configFor(addr), 1, mockLogger);
+    await store.openSingleton<string>('k').set('v');
+    await store.close();
+
+    const storeName = effectiveStoreName('managed_test', { l1ChainId: 31337, rollupAddress: addr, schemaVersion: 1 });
+    expect(await listStores()).toContain(storeName);
+
+    await deleteStore(storeName);
+    expect(await listStores()).not.toContain(storeName);
+
+    // Recreating after deletion starts empty.
+    const fresh = await createStore('managed_test', configFor(addr), 1, mockLogger);
+    expect(await fresh.openSingleton<string>('k').getAsync()).toBeUndefined();
+    await fresh.close();
+  });
+
+  it('refuses to delete a store that is currently open', async () => {
+    const addr = EthAddress.random();
+    const store = await createStore('locked_test', configFor(addr), 1, mockLogger);
+    const storeName = effectiveStoreName('locked_test', { l1ChainId: 31337, rollupAddress: addr, schemaVersion: 1 });
+
+    await expect(deleteStore(storeName)).rejects.toThrow();
+
+    await store.close();
+    await deleteStore(storeName);
   });
 });
