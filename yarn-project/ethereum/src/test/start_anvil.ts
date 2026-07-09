@@ -24,15 +24,20 @@ export interface Anvil {
 // resolved anvil binary is passed via `$ANVIL_BIN` so it works without `anvil` on PATH.
 //
 // `$@` is the anvil argv; `bash -c <script> bash <...args>` puts the args in `$@` and `$0` = 'bash'.
+//
+// The EXIT trap reaps anvil; INT/TERM just `exit` (which fires the EXIT trap) so a signal terminates
+// the supervisor promptly instead of being swallowed — a trapped TERM does NOT terminate the shell,
+// so trapping the kill directly on TERM would leave the poll loop running and the caller's teardown
+// hanging until its SIGKILL escalation. `sleep & wait` makes the poll interruptible, so INT/TERM are
+// handled immediately rather than after the current `sleep` returns.
 const ANVIL_WATCHDOG = `
 set -u
 parent=$PPID
-anvil_pid=""
-cleanup() { [ -n "$anvil_pid" ] && kill "$anvil_pid" 2>/dev/null || true; }
-trap cleanup EXIT INT TERM
 "$ANVIL_BIN" "$@" &
 anvil_pid=$!
-while kill -0 "$parent" 2>/dev/null; do sleep 1; done
+trap 'kill "$anvil_pid" 2>/dev/null' EXIT
+trap 'exit 0' INT TERM
+while kill -0 "$parent" 2>/dev/null; do sleep 1 & wait $!; done
 `;
 
 /**
