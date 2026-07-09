@@ -505,19 +505,40 @@ export class EthCheatCodes {
    * reorg is needed because anvil applies a new gas limit only to future blocks: without it the just-mined
    * blocks would keep the tiny gas limit, and an `eth_call` against `latest` (whose gas is capped by the
    * block gas limit) would revert with "intrinsic gas too high".
+   *
+   * The replacement blocks advance L1 time. `anvil_reorg` stamps each replacement as `parent + N*interval`,
+   * so on its own it would freeze L1 time at the parent timestamp; callers that measure elapsed L1 time
+   * (L1TxUtils stall/timeout detection, `syncDateProvider`-driven slot advancement) rely on it moving
+   * forward. We reproduce the wall-clock advance the mine step just made (at least 1s per block) via a
+   * temporary block-timestamp interval, then restore any pre-existing interval.
    */
   public async mineEmptyBlock(blockCount: number = 1): Promise<void> {
     await this.execWithPausedAnvil(async () => {
       const originalGasLimit = await this.getBlockGasLimit();
+      const parentTimestamp = await this.lastBlockTimestamp();
+      // anvil has no getter for the block-timestamp interval, but the pending block is stamped
+      // `latest + interval`, so this delta is the standing interval (0 when none is set).
+      const priorInterval = (await this.nextBlockTimestamp()) - parentTimestamp;
       try {
         await this.setBlockGasLimit(1n);
         await this.doMine(blockCount);
       } finally {
         await this.setBlockGasLimit(originalGasLimit);
       }
+      const advance = (await this.lastBlockTimestamp()) - parentTimestamp;
+      const perBlockInterval = Math.max(1, Math.floor(advance / blockCount));
       // Replace the tiny-gas-limit blocks with empty blocks at the restored gas limit, keeping the same
-      // height and timestamps. The reorged-out blocks held no transactions, so nothing returns to the pool.
-      await this.doRpcCall('anvil_reorg', [blockCount, []]);
+      // height. The reorged-out blocks held no transactions, so nothing returns to the pool.
+      await this.doRpcCall('anvil_setBlockTimestampInterval', [perBlockInterval]);
+      try {
+        await this.doRpcCall('anvil_reorg', [blockCount, []]);
+      } finally {
+        if (priorInterval > 0) {
+          await this.doRpcCall('anvil_setBlockTimestampInterval', [priorInterval]);
+        } else {
+          await this.doRpcCall('anvil_removeBlockTimestampInterval', []);
+        }
+      }
     });
 
     this.logger.warn(`Mined ${blockCount} empty L1 ${pluralize('block', blockCount)}`);
