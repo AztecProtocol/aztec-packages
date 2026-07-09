@@ -1,6 +1,6 @@
 #!/usr/bin/env -S node --no-warnings
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
-import { AztecNodeService } from '@aztec/aztec-node';
+import { createAztecNodeService } from '@aztec/aztec-node';
 import { type AztecNodeConfig, getConfigEnvVars } from '@aztec/aztec-node/config';
 import { Fr } from '@aztec/aztec.js/fields';
 import { createLogger } from '@aztec/aztec.js/log';
@@ -114,6 +114,10 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
     ...envConfig,
     ...config,
     skipOrphanProposedBlockPruning: true,
+    // The local network builds node config from env without a DATA_DIRECTORY, so the validator's
+    // local signing protection runs against an ephemeral store. That is acceptable for this dev
+    // network; production validators must persist it and fail-fast when the data directory is unset.
+    allowEphemeralSigningProtection: config.allowEphemeralSigningProtection ?? true,
     txPublicSetupAllowListExtend: [...tokenAllowList, ...(config.txPublicSetupAllowListExtend ?? [])],
     // The local network runs against anvil with no committee, so it defaults to the deterministic
     // AutomineSequencer, which owns L1 time control (warps the dateProvider and L1 timestamps to slot
@@ -166,7 +170,7 @@ export async function createLocalNetwork(config: Partial<LocalNetworkConfig> = {
 
   const bananaFPC = await getBananaFPCAddress(initialAccounts);
   const sponsoredFPC = await getSponsoredFPCAddress();
-  const prefundAddresses = (aztecNodeConfig.prefundAddresses ?? []).map(a => AztecAddress.fromString(a));
+  const prefundAddresses = (aztecNodeConfig.prefundAddresses ?? []).map(a => AztecAddress.fromStringUnsafe(a));
   const fundedAddresses = [
     ...initialAccounts.map(a => a.address),
     ...(initialAccounts.length ? [bananaFPC, sponsoredFPC] : []),
@@ -237,7 +241,7 @@ export async function createAztecNode(
     ...getConfigEnvVars(),
     ...config,
   };
-  const node = await AztecNodeService.createAndSync(
+  const node = await createAztecNodeService(
     aztecNodeConfig,
     { ...deps, proverNodeDeps: { broker: deps.proverBroker } },
     options,

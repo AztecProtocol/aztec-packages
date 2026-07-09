@@ -23,7 +23,7 @@ import { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import type { NotesFilter } from '@aztec/pxe/client/lazy';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/config';
-import { PXE, type PXECreationOptions, createPXE } from '@aztec/pxe/server';
+import { PXE, type PXECreationOptions, type TaggingSecretSource, createPXE } from '@aztec/pxe/server';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
@@ -59,6 +59,13 @@ export interface AccountData {
  * utilities
  * It is intended to be used in e2e tests.
  */
+/**
+ * Poll interval (in seconds) for in-process TestWallet tx waits. In-process nodes reach CHECKPOINTED synchronously
+ * under automine and cheaply otherwise, so a sub-second cadence removes almost-pure dead time from every send().wait().
+ * Spartan tests run against remote JSON-RPC nodes and restore the 1s default via setDefaultWaitInterval.
+ */
+export const IN_PROCESS_WAIT_INTERVAL_SECONDS = 0.25;
+
 export class TestWallet extends BaseWallet {
   constructor(
     pxe: PXE,
@@ -66,6 +73,15 @@ export class TestWallet extends BaseWallet {
   ) {
     super(pxe, nodeRef);
     this.minFeePadding = DEFAULT_MIN_FEE_PADDING;
+    this.defaultWaitInterval = IN_PROCESS_WAIT_INTERVAL_SECONDS;
+  }
+
+  /**
+   * Overrides the poll interval (in seconds) used when a send().wait() caller does not specify one. Pass `undefined`
+   * to fall back to the DefaultWaitOpts cadence. Spartan tests set this to 1 so they do not hammer remote nodes.
+   */
+  setDefaultWaitInterval(interval?: number): void {
+    this.defaultWaitInterval = interval;
   }
 
   static async create(
@@ -396,6 +412,15 @@ export class TestWallet extends BaseWallet {
 
   sync(): Promise<void> {
     return this.pxe.sync();
+  }
+
+  /**
+   * Registers a non-sender tagging-secret source (e.g. a raw out-of-band shared secret) so this PXE discovers messages
+   * tagged with it. Test-only surface over {@link PXE.registerTaggingSecretSource}, which the base `Wallet` does not
+   * expose. The `address-derived` (sender) variant is excluded: use {@link Wallet.registerSender} for that.
+   */
+  registerTaggingSecretSource(source: Exclude<TaggingSecretSource, { kind: 'address-derived' }>): Promise<void> {
+    return this.pxe.registerTaggingSecretSource(source);
   }
 
   stop(): Promise<void> {

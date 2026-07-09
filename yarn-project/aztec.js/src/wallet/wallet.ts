@@ -11,9 +11,15 @@ import {
 } from '@aztec/stdlib/abi';
 import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { type ContractInstanceWithAddress, ContractInstanceWithAddressSchema } from '@aztec/stdlib/contract';
+import {
+  type ContractInstancePreimage,
+  ContractInstancePreimageSchema,
+  type ContractInstancePreimageWithAddress,
+  ContractInstancePreimageWithAddressSchema,
+} from '@aztec/stdlib/contract';
 import { Gas, ManaUsageEstimate } from '@aztec/stdlib/gas';
-import { LogCursor, refineTxHashAndRange } from '@aztec/stdlib/logs';
+import type { MasterSecretKeys } from '@aztec/stdlib/keys';
+import { refineTxHashAndRange } from '@aztec/stdlib/logs';
 import {
   AbiDecodedSchema,
   type ApiSchemaFor,
@@ -37,6 +43,7 @@ import {
 
 import { z } from 'zod';
 
+import { EventCursor } from '../api/event_cursor.js';
 import {
   type GasSettingsOption,
   type InteractionWaitOptions,
@@ -163,8 +170,6 @@ export type EventFilterBase = {
    * Optional. If provided, it must be greater than fromBlock.
    */
   toBlock?: BlockNumber;
-  /** Log cursor after which to start fetching logs. Used for pagination. */
-  afterLog?: LogCursor;
 };
 
 /**
@@ -184,6 +189,11 @@ export type PrivateEventFilter = EventFilterBase & {
 export type PublicEventFilter = EventFilterBase & {
   /** The address of the contract that emitted the events. Required. */
   contractAddress: AztecAddress;
+  /**
+   * Cursor to resume strictly after, for pagination. Pass {@link GetPublicEventsResult.nextCursor} from a
+   * previous page here to fetch the next one. Omit to start from the beginning of the range.
+   */
+  afterEvent?: EventCursor;
 };
 
 /**
@@ -229,8 +239,8 @@ export enum ContractInitializationStatus {
  * Contract metadata including deployment and registration status.
  */
 export type ContractMetadata = {
-  /** The contract instance */
-  instance?: ContractInstanceWithAddress;
+  /** The contract instance preimage and address. */
+  instance?: ContractInstancePreimageWithAddress;
   /** Whether the contract has been initialized. */
   initializationStatus: ContractInitializationStatus;
   /** Whether the contract instance is publicly deployed on-chain */
@@ -276,10 +286,10 @@ export type Wallet = {
   getAddressBook(): Promise<Aliased<AztecAddress>[]>;
   getAccounts(): Promise<Aliased<AztecAddress>[]>;
   registerContract(
-    instance: ContractInstanceWithAddress,
+    instance: ContractInstancePreimage,
     artifact?: ContractArtifact,
-    secretKey?: Fr,
-  ): Promise<ContractInstanceWithAddress>;
+    secretKeyOrKeys?: Fr | MasterSecretKeys,
+  ): Promise<void>;
   /**
    * Registers a contract class artifact in the local PXE without binding it to any instance.
    * Useful for simulation flows that need the artifact available locally before any on-chain
@@ -370,14 +380,11 @@ export const EventMetadataDefinitionSchema = z.object({
 });
 
 // Event filters share `txHash ⊕ block-range` semantics with `LogsQueryBase` (see stdlib `logs_query.ts`)
-// but diverge structurally: wallet filters are scoped to a single ABI event so they carry one optional
-// `afterLog` cursor inline, whereas the stdlib query batches many tags and stores cursors per-tag inside
-// `TagQuery`. We share only the refinement helper from stdlib; the field schemas stay local.
+// but the field schemas stay local.
 const eventFilterBaseShape = {
   txHash: optional(TxHash.schema),
   fromBlock: optional(BlockNumberPositiveSchema),
   toBlock: optional(BlockNumberPositiveSchema),
-  afterLog: optional(LogCursor.schema),
 };
 
 export const PrivateEventFilterSchema = refineTxHashAndRange(
@@ -392,6 +399,7 @@ export const PublicEventFilterSchema = refineTxHashAndRange(
   z.object({
     ...eventFilterBaseShape,
     contractAddress: schemas.AztecAddress,
+    afterEvent: optional(EventCursor.schema),
   }),
 );
 
@@ -410,7 +418,7 @@ export const PublicEventSchema: z.ZodType<PublicEvent<AbiDecoded>> = zodFor<Publ
 );
 
 export const ContractMetadataSchema = z.object({
-  instance: optional(ContractInstanceWithAddressSchema),
+  instance: optional(ContractInstancePreimageWithAddressSchema),
   initializationStatus: z.nativeEnum(ContractInitializationStatus),
   isContractPublished: z.boolean(),
   isContractUpdated: z.boolean(),
@@ -578,8 +586,8 @@ const WalletMethodSchemas = {
     output: z.array(z.object({ alias: z.string(), item: schemas.AztecAddress })),
   }),
   registerContract: z.function({
-    input: z.tuple([ContractInstanceWithAddressSchema, optional(ContractArtifactSchema), optional(schemas.Fr)]),
-    output: ContractInstanceWithAddressSchema,
+    input: z.tuple([ContractInstancePreimageSchema, optional(ContractArtifactSchema), optional(schemas.Fr)]),
+    output: z.void(),
   }),
   registerContractClass: z.function({ input: z.tuple([ContractArtifactSchema]), output: z.void() }),
   simulateTx: z.function({
@@ -631,12 +639,15 @@ function createBatchSchemas<T extends Record<string, z.ZodFunction<z.ZodTuple<an
     }),
   );
 
-  const namesAndReturns = names.map(name =>
-    z.object({
+  const namesAndReturns = names.map(name => {
+    const returnType = getSchemaReturnType(methodSchemas[name]);
+    return z.object({
       name: z.literal(name),
-      result: getSchemaReturnType(methodSchemas[name]),
-    }),
-  );
+      // void-returning methods serialize to a missing `result` key over JSON-RPC, so their field must be optional:
+      // value-returning methods keep it required so a dropped result is still caught.
+      result: returnType instanceof z.ZodVoid ? returnType.optional() : returnType,
+    });
+  });
 
   // Type assertion needed because discriminatedUnion expects a tuple type [T, T, ...T[]]
   // but we're building the array dynamically. The runtime behavior is correct.

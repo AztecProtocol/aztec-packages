@@ -4,419 +4,49 @@
  * Tests a complete HA setup with multiple nodes coordinating via PostgreSQL
  * and Web3Signer for remote signing. Verifies that blocks are produced,
  * attestations are signed, and no double-signing occurs.
+ *
+ * The cluster setup lives in `ha_full_setup.ts` and is shared with `e2e_ha_distribute_work.test.ts`. The
+ * node-killing "distribute work" resilience test lives in that separate file so it gets its own cluster
+ * instead of relying on running last. The clock-skew / timezone DB assertions stay here in the nested
+ * `Clock Skew and Timezone Safety` describe: they exercise the cluster's real dockerized PostgreSQL
+ * slashing-protection database, and timezone/clock divergence between the node and its database can only
+ * be reproduced against a genuine, separate Postgres process (not an in-process one).
  */
-import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
-import { NO_WAIT, getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
-import { Fr } from '@aztec/aztec.js/fields';
-import type { Logger } from '@aztec/aztec.js/log';
-import { type AztecNode, waitForTx } from '@aztec/aztec.js/node';
-import { GovernanceProposerContract } from '@aztec/ethereum/contracts';
-import type { DeployAztecL1ContractsReturnType } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { BlockNumber, CheckpointNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { SecretValue } from '@aztec/foundation/config';
-import { withLoggerBindings } from '@aztec/foundation/log/server';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
-import type { TestDateProvider } from '@aztec/foundation/timer';
 import { GovernanceProposerAbi } from '@aztec/l1-artifacts/GovernanceProposerAbi';
-import { TestContract } from '@aztec/noir-test-contracts.js/Test';
-import { type AttestationInfo, getAttestationInfoFromPublishedCheckpoint } from '@aztec/stdlib/block';
-import { Checkpoint } from '@aztec/stdlib/checkpoint';
-import { TopicType } from '@aztec/stdlib/p2p';
-import { OffenseType } from '@aztec/stdlib/slashing';
-import { TxHash, type TxReceipt, TxStatus } from '@aztec/stdlib/tx';
-import type { GenesisData } from '@aztec/stdlib/world-state';
 import type { ValidatorClient } from '@aztec/validator-client';
 import { PostgresSlashingProtectionDatabase } from '@aztec/validator-ha-signer/db';
 import { type DutyRow, DutyStatus, DutyType } from '@aztec/validator-ha-signer/types';
 
 import { jest } from '@jest/globals';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { Pool } from 'pg';
 
-import { PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
+import { getValidatorDuties, verifyNoDuplicateAttestations } from '../../fixtures/ha_setup.js';
 import {
-  type HADatabaseConfig,
-  cleanupHADatabase,
-  createHADatabaseConfig,
-  createInitialValidatorsFromPrivateKeys,
-  getAddressesFromPrivateKeys,
-  getValidatorDuties,
-  setupHADatabase,
-  verifyNoDuplicateAttestations,
-} from '../../fixtures/ha_setup.js';
-import { getPrivateKeyFromIndex, setup } from '../../fixtures/utils.js';
-import {
-  createWeb3SignerKeystore,
-  getWeb3SignerTestKeystoreDir,
-  getWeb3SignerUrl,
-  refreshWeb3Signer,
-} from '../../fixtures/web3signer.js';
-import type { TestWallet } from '../../test-wallet/test_wallet.js';
-import { proveInteraction } from '../../test-wallet/utils.js';
-
-const NODE_COUNT = 5;
-const VALIDATOR_COUNT = 4;
-const COMMITTEE_SIZE = 4;
-
-async function registerTestContract(wallet: TestWallet): Promise<TestContract> {
-  const instance = await getContractInstanceFromInstantiationParams(TestContract.artifact, {
-    constructorArgs: [],
-    constructorArtifact: undefined,
-    salt: Fr.ZERO,
-    publicKeys: undefined,
-    deployer: undefined,
-  });
-  await wallet.registerContract(instance, TestContract.artifact);
-  return TestContract.at(instance.address, wallet);
-}
-
-async function submitTriggerTx(wallet: TestWallet, testContract: TestContract, from: AztecAddress): Promise<TxHash> {
-  const tx = await proveInteraction(wallet, testContract.methods.emit_nullifier(Fr.random()), { from });
-  return await tx.send({ wait: NO_WAIT });
-}
-
-async function waitForTriggerTx(node: AztecNode, txHash: TxHash): Promise<TxReceipt> {
-  const receipt = await waitForTx(node, txHash, { waitForStatus: TxStatus.CHECKPOINTED });
-  if (!receipt.blockNumber) {
-    throw new Error('Trigger tx was checkpointed without a block number');
-  }
-  return receipt;
-}
+  COMMITTEE_SIZE,
+  HaFullTestContext,
+  NODE_COUNT,
+  VALIDATOR_COUNT,
+  submitTriggerTx,
+  waitForTriggerTx,
+} from './ha_full_setup.js';
 
 describe('HA Full Setup', () => {
   jest.setTimeout(20 * 60 * 1000); // 20 minutes
 
-  let logger: Logger;
-  let wallet: TestWallet;
-  let ownerAddress: AztecAddress;
-  let testContract: TestContract;
-  let aztecNode: AztecNode;
-  let config: AztecNodeConfig;
-  let teardown: () => Promise<void> = async () => {};
-  let accounts: AztecAddress[];
-  let dateProvider: TestDateProvider;
-  let genesis: GenesisData | undefined;
-
-  // HA specific resources
-  let haNodePools: Pool[]; // Database pools for HA nodes (for cleanup)
-  let haNodeServices: AztecNodeService[]; // All N HA peer nodes
-  let haSequencersStarted = false;
-  const stoppedHANodeIndexes = new Set<number>();
-  let haKeystoreDirs: string[];
-  let mainPool: Pool;
-  let databaseConfig: HADatabaseConfig;
-  let attesterPrivateKeys: `0x${string}`[];
-  let attesterAddresses: string[];
-  let publisherPrivateKeys: `0x${string}`[];
-  let publisherAddresses: string[];
-  let web3SignerUrl: string;
-  let deployL1ContractsValues: DeployAztecL1ContractsReturnType;
-  let governanceProposer: GovernanceProposerContract;
-  /** Per-node initial keystore JSON (all 4 attesters, node's own publisher) for restore after reload test */
-  let initialKeystoreJsons: string[];
-  const getSignatureContext = () => ({
-    chainId: config.l1ChainId,
-    rollupAddress: deployL1ContractsValues.l1ContractAddresses.rollupAddress,
-  });
-
-  const startHASequencers = async () => {
-    if (haSequencersStarted) {
-      return;
-    }
-
-    await Promise.all(
-      haNodeServices.map(async (service, i) => {
-        logger.info(`Starting HA peer node ${i} sequencer`);
-        await service.getSequencer()?.start();
-      }),
-    );
-    haSequencersStarted = true;
-    logger.info('All HA peer sequencers started');
-  };
-
-  const sendTriggerTx = async (): Promise<TxReceipt> => {
-    await startHASequencers();
-    const txHash = await submitTriggerTx(wallet, testContract, ownerAddress);
-    return await waitForTriggerTx(aztecNode, txHash);
-  };
-
-  const stopHANode = async (nodeIndex: number) => {
-    if (stoppedHANodeIndexes.has(nodeIndex)) {
-      return;
-    }
-
-    logger.info(`Stopping HA peer node ${nodeIndex}`);
-    await haNodeServices[nodeIndex].stop();
-    stoppedHANodeIndexes.add(nodeIndex);
-  };
+  const t = new HaFullTestContext();
 
   beforeAll(async () => {
-    // Check required environment variables
-    if (!process.env.DATABASE_URL) {
-      throw new Error('DATABASE_URL environment variable must be set for HA tests');
-    }
-
-    web3SignerUrl = getWeb3SignerUrl();
-    if (!web3SignerUrl) {
-      throw new Error('WEB3_SIGNER_URL environment variable must be set for HA tests');
-    }
-
-    // Setup database configuration
-    databaseConfig = createHADatabaseConfig('ha-full-test');
-
-    // Connect to database (migrations already run by docker-compose entrypoint)
-    mainPool = setupHADatabase(databaseConfig.databaseUrl.getValue()!);
-
-    attesterPrivateKeys = Array.from(
-      { length: VALIDATOR_COUNT },
-      (_, i) => `0x${getPrivateKeyFromIndex(i)!.toString('hex')}` as `0x${string}`,
-    );
-
-    publisherPrivateKeys = Array.from(
-      { length: NODE_COUNT },
-      (_, i) => `0x${getPrivateKeyFromIndex(i + VALIDATOR_COUNT)!.toString('hex')}` as `0x${string}`,
-    );
-
-    const web3SignerDir = getWeb3SignerTestKeystoreDir();
-    const allKeys = [...attesterPrivateKeys, ...publisherPrivateKeys];
-    for (const key of allKeys) {
-      await createWeb3SignerKeystore(web3SignerDir, key);
-    }
-
-    attesterAddresses = getAddressesFromPrivateKeys(attesterPrivateKeys);
-
-    publisherAddresses = getAddressesFromPrivateKeys(publisherPrivateKeys);
-
-    // Refresh Web3Signer to load all the keys (attesters + publishers)
-    await refreshWeb3Signer(web3SignerUrl, ...attesterAddresses, ...publisherAddresses);
-
-    // Create database pools for HA nodes
-    haNodePools = Array.from(
-      { length: NODE_COUNT },
-      () => new Pool({ connectionString: databaseConfig.databaseUrl.getValue()! }),
-    );
-
-    const initialValidators = createInitialValidatorsFromPrivateKeys(attesterPrivateKeys);
-
-    ({ teardown, logger, wallet, aztecNode, config, accounts, dateProvider, deployL1ContractsValues, genesis } =
-      await setup(
-        // A single default initializerless account, created/funded/registered by setup with no on-chain
-        // deploy tx -- the bootstrap node can't build blocks (disableValidator), so the owner must be usable
-        // without one.
-        1,
-        {
-          ...PIPELINING_SETUP_OPTS,
-          automineL1Setup: true,
-          initialValidators,
-          sequencerPublisherPrivateKeys: [new SecretValue(publisherPrivateKeys[0])],
-          aztecTargetCommitteeSize: COMMITTEE_SIZE,
-          // The full HA docker/Web3Signer stack can still be joining and syncing after the shared
-          // 12s pipelining preset's 2.5s start window has closed. Keep real sequencing, but give
-          // HA validators enough time to pass the enforced build-start gate in CI.
-          aztecSlotDuration: 16,
-          // This suite validates HA coordination on tx-bearing checkpoints. Requiring one tx avoids a startup empty
-          // checkpoint from occupying the shared HA publisher while the trigger tx is still being prepared.
-          minTxsPerBlock: 1,
-          archiverPollingIntervalMS: 200,
-          sequencerPollingIntervalMS: 200,
-          worldStateBlockCheckIntervalMS: 200,
-          blockCheckIntervalMS: 200,
-          startProverNode: true,
-          // The bootstrap node is only an RPC/P2P anchor. HA validators are the first block producers in this suite.
-          disableValidator: true,
-          // This node cannot build blocks (validation is disabled and the committee's HA nodes start later),
-          // so setup must not wait for a block past genesis.
-          advancePastGenesis: false,
-          // Enable P2P for transaction gossip
-          p2pEnabled: true,
-          // Enable slashing for testing governance + slashing vote coordination
-          slasherEnabled: true,
-          slashingRoundSizeInEpochs: 1, // 32 slots (1 epoch)
-          slashingQuorum: 17, // >50% of 32 slots for tally quorum,
-        },
-        { syncChainTip: 'proven' },
-      ));
-
-    ownerAddress = accounts[0];
-    testContract = await registerTestContract(wallet);
-
-    if (!dateProvider) {
-      throw new Error('dateProvider must be provided by setup for HA tests');
-    }
-
-    logger.info('Bootstrap node setup complete; funded initializerless account and test contract registered locally');
-
-    // Get bootstrap node's P2P ENR for HA nodes to connect to
-    const bootstrapNodeEnr = await aztecNode.getEncodedEnr();
-    if (!bootstrapNodeEnr) {
-      throw new Error('Failed to get bootstrap node ENR - P2P may not be enabled');
-    }
-    logger.info(`Bootstrap node ENR: ${bootstrapNodeEnr}`);
-
-    // L1 contract wrappers for querying votes
-    governanceProposer = new GovernanceProposerContract(
-      deployL1ContractsValues.l1Client,
-      deployL1ContractsValues.l1ContractAddresses.governanceProposerAddress.toString(),
-    );
-    logger.info('L1 contract wrappers initialized');
-
-    haNodeServices = [];
-    haKeystoreDirs = [];
-    logger.info(`Starting ${NODE_COUNT} HA peer nodes...`);
-
-    // Per-node keystore: all attesters but only this node's publisher to avoid nonce conflicts.
-    // When keyStoreDirectory is set the node loads validators/publishers from file only, so we omit them from config.
-    initialKeystoreJsons = [];
-
-    for (let i = 0; i < NODE_COUNT; i++) {
-      const nodeId = `${databaseConfig.nodeId}-${i + 1}`;
-      logger.info(`Starting HA peer node ${i} with nodeId: ${nodeId}`);
-
-      const keystoreContent = {
-        schemaVersion: 1,
-        validators: [
-          {
-            attester: attesterAddresses,
-            feeRecipient: AztecAddress.ZERO.toString(),
-            coinbase: EthAddress.fromString(attesterAddresses[0]).toChecksumString(),
-            remoteSigner: web3SignerUrl,
-            publisher: [publisherAddresses[i]],
-          },
-        ],
-      };
-      const keystoreJson = JSON.stringify(keystoreContent, null, 2);
-      initialKeystoreJsons.push(keystoreJson);
-
-      const keystoreDir = await mkdtemp(join(tmpdir(), `ha-keystore-${i}-`));
-      haKeystoreDirs.push(keystoreDir);
-      await writeFile(join(keystoreDir, 'keystore.json'), keystoreJson);
-
-      const dataDirectory = config.dataDirectory ? `${config.dataDirectory}-${i}` : undefined;
-
-      const nodeConfig: AztecNodeConfig = {
-        ...config,
-        nodeId,
-        keyStoreDirectory: keystoreDir,
-        // Ensure txs are included in proposals to test full signing path
-        publishTxsWithProposals: true,
-        dataDirectory,
-        databaseUrl: databaseConfig.databaseUrl,
-        pollingIntervalMs: databaseConfig.pollingIntervalMs,
-        signingTimeoutMs: databaseConfig.signingTimeoutMs,
-        maxStuckDutiesAgeMs: databaseConfig.maxStuckDutiesAgeMs,
-        haSigningEnabled: true,
-        disableValidator: false,
-        // Enable P2P for transaction and block gossip
-        p2pEnabled: true,
-        p2pPort: (config.p2pPort ?? 40400) + i + 1,
-        // Connect to bootstrap node for tx gossip
-        bootstrapNodes: [bootstrapNodeEnr],
-        web3SignerUrl,
-      };
-
-      const nodeService = await withLoggerBindings({ actor: `HA-${i}` }, async () => {
-        return await AztecNodeService.createAndSync(
-          nodeConfig,
-          { dateProvider },
-          { genesis, dontStartSequencer: true },
-        );
-      });
-
-      haNodeServices.push(nodeService);
-      logger.info(`HA peer node ${i} started successfully`);
-    }
-
-    logger.info(`All ${NODE_COUNT} HA peer nodes started and coordinating via PostgreSQL database`);
-    logger.info('Waiting for HA peer nodes to join the tx gossip mesh');
-    await retryUntil(
-      async () => {
-        const meshStates = await Promise.all(
-          haNodeServices.map(async (service, nodeIndex) => {
-            const p2p = service.getP2P();
-            const [peers, txMeshPeerCount] = await Promise.all([
-              p2p.getPeers(),
-              p2p.getGossipMeshPeerCount(TopicType.tx),
-            ]);
-
-            return { nodeIndex, peerCount: peers.length, txMeshPeerCount };
-          }),
-        );
-
-        logger.debug('HA tx gossip mesh status', { meshStates });
-        return meshStates.every(({ peerCount, txMeshPeerCount }) => peerCount > 0 && txMeshPeerCount > 0)
-          ? true
-          : undefined;
-      },
-      'HA tx gossip mesh readiness',
-      60,
-      1,
-    );
-
-    // The owner is an initializerless account, so it needs no deployment tx -- it was funded at genesis
-    // and registered during setup, and is ready to transact as soon as the HA nodes start building blocks.
-    logger.info(`Test account ready at ${ownerAddress}`);
+    await t.setup();
   });
 
   afterAll(async () => {
-    // Stop all sequencers before tearing down the nodes: a sequencer stop awaits its in-flight
-    // iteration, which can spend tens of seconds finishing a vote or checkpoint publish on L1.
-    // Stops must be awaited fully — jest runs without forceExit, so a node abandoned mid-stop
-    // outlives the test environment and keeps the worker process alive until the CI job timeout.
-    // The dateProvider reset must wait until nodes are stopped: it rewinds the shared clock from
-    // chain time to wall time (minutes apart after the automine deploy burst), and any publisher
-    // deadline armed against the rewound clock would block shutdown until wall time catches up.
-    if (haNodeServices) {
-      await Promise.allSettled(
-        haNodeServices.map(async (service, i) => {
-          try {
-            await service.getSequencer()?.stop();
-          } catch (error) {
-            logger.error(`Failed to stop sequencer of HA peer node ${i}: ${error}`);
-          }
-        }),
-      );
-      await Promise.allSettled(
-        haNodeServices.map((_, i) =>
-          stopHANode(i).catch(error => {
-            logger.error(`Failed to stop HA peer node ${i}: ${error}`);
-          }),
-        ),
-      );
-    }
-
-    dateProvider?.reset();
-
-    // Cleanup HA keystore temp directories
-    if (haKeystoreDirs) {
-      for (let i = 0; i < haKeystoreDirs.length; i++) {
-        try {
-          await rm(haKeystoreDirs[i], { recursive: true });
-        } catch (error) {
-          logger.error(`Failed to remove HA keystore dir ${i}: ${error}`);
-        }
-      }
-    }
-
-    // Cleanup HA resources (database pools, etc.)
-    if (haNodePools) {
-      for (const pool of haNodePools) {
-        try {
-          await pool.end();
-        } catch (error) {
-          logger.error(`Failed to close HA node pool: ${error}`);
-        }
-      }
-    }
-    await cleanupHADatabase(mainPool, logger);
-    await mainPool.end();
-
-    // Cleanup bootstrap node and test infrastructure (this cleans up the shared data directory)
-    await teardown();
+    await t.teardown();
   });
 
   afterEach(async () => {
@@ -424,15 +54,12 @@ describe('HA Full Setup', () => {
     jest.restoreAllMocks();
 
     // Clean up database state between tests
-    try {
-      await mainPool.query('DELETE FROM validator_duties');
-    } catch (error) {
-      // Ignore cleanup errors (table might not exist on first run failure)
-      logger?.warn(`Failed to clean up validator_duties: ${error}`);
-    }
+    await t.resetDutiesTable();
   });
 
   it('should produce blocks with HA coordination and attestations', async () => {
+    const { logger, wallet, testContract, ownerAddress, aztecNode, mainPool, haNodeServices, startHASequencers } = t;
+
     logger.info('Testing full HA setup: block production, attestations, and coordination');
 
     // Send a tx to trigger block building. The account and contract are funded/registered at genesis,
@@ -540,6 +167,9 @@ describe('HA Full Setup', () => {
   });
 
   it('should coordinate governance voting across HA nodes', async () => {
+    const { logger, deployL1ContractsValues, haNodeServices, sendTriggerTx, aztecNode, governanceProposer, mainPool } =
+      t;
+
     logger.info('Testing real governance voting with HA coordination');
 
     const mockGovernancePayload = deployL1ContractsValues.l1ContractAddresses.governanceAddress;
@@ -684,6 +314,18 @@ describe('HA Full Setup', () => {
   });
 
   it('should reload keystore via admin API and keep building blocks after swapping attesters', async () => {
+    const {
+      logger,
+      attesterAddresses,
+      haKeystoreDirs,
+      web3SignerUrl,
+      publisherAddresses,
+      initialKeystoreJsons,
+      haNodeServices,
+      sendTriggerTx,
+      aztecNode,
+    } = t;
+
     logger.info('Testing reloadKeystore: swap all attesters across HA nodes');
 
     const groupA = attesterAddresses.slice(0, 2);
@@ -759,189 +401,11 @@ describe('HA Full Setup', () => {
     }
   });
 
-  // NOTE: this test needs to run last
-  it('should distribute work across multiple HA nodes', async () => {
-    logger.info('Testing HA resilience by killing nodes after they produce blocks');
-
-    // We'll produce NODE_COUNT blocks (5 total with NODE_COUNT=5)
-    // Each node produces exactly 1 block, and we kill it after it produces
-    // The last remaining node will produce the final block
-    const blockCount = NODE_COUNT;
-    const receipts = [];
-    const killedNodes: number[] = []; // Track indices of killed nodes
-    const blockProducers = new Map<number, string>(); // Map block index to node ID
-    let previousBlockNumber: number | undefined;
-
-    const nodeIds: string[] = [];
-    for (const service of haNodeServices) {
-      nodeIds.push((await service.getConfig()).nodeId);
-    }
-
-    for (let i = 0; i < blockCount; i++) {
-      logger.info(`\n=== Producing block ${i + 1}/${blockCount} ===`);
-      logger.info(`Active nodes: ${haNodeServices.length - killedNodes.length}/${NODE_COUNT}`);
-
-      const receipt = await sendTriggerTx();
-
-      expect(receipt.blockNumber).toBeDefined();
-
-      // Verify this transaction is in a different block than the previous one
-      if (previousBlockNumber !== undefined) {
-        expect(receipt.blockNumber).toBeGreaterThan(previousBlockNumber);
-      }
-
-      previousBlockNumber = receipt.blockNumber;
-      receipts.push(receipt);
-
-      // Find which node produced this block
-      const [block] = await aztecNode.getBlocks(receipt.blockNumber!, 1, {
-        includeL1PublishInfo: true,
-        includeAttestations: true,
-        includeTransactions: true,
-        onlyCheckpointed: true,
-      });
-      if (!block) {
-        throw new Error(`Block ${receipt.blockNumber} not found`);
-      }
-      const slotNumber = BigInt(block.header.globalVariables.slotNumber);
-      const duties = await getValidatorDuties(mainPool, slotNumber);
-      const blockProposalDuty = duties.find(d => d.dutyType === 'BLOCK_PROPOSAL');
-
-      if (!blockProposalDuty) {
-        throw new Error(`No block proposal duty found for slot ${slotNumber}`);
-      }
-
-      blockProducers.set(i, blockProposalDuty.nodeId);
-      logger.info(`Block ${receipt.blockNumber} produced by node ${blockProposalDuty.nodeId}`);
-
-      const producerNodeId = blockProposalDuty.nodeId;
-      const producerNodeIndex = nodeIds.findIndex(nodeId => nodeId === producerNodeId);
-
-      if (producerNodeIndex === -1) {
-        throw new Error(`Could not find active node with ID ${producerNodeId}`);
-      }
-
-      // Kill the node that produced this block, unless it's the last block
-      if (i < blockCount - 1) {
-        logger.info(`Killing node ${producerNodeId} that produced this block`);
-        await stopHANode(producerNodeIndex);
-        killedNodes.push(producerNodeIndex);
-      } else {
-        // The final survivor is kept online for the slash-offense assertion below, but its sequencer
-        // is no longer needed. Stop it before running the remaining assertions so it cannot start a
-        // new empty checkpoint and then block service shutdown while awaiting a delayed L1 publish.
-        logger.info(`Last block produced; stopping sequencer for survivor ${producerNodeId}`);
-        await haNodeServices[producerNodeIndex].getSequencer()?.stop();
-      }
-
-      logger.info(`Block ${i + 1}/${blockCount} completed. Killed nodes: ${killedNodes.length}/${NODE_COUNT}`);
-    }
-
-    // Verify we got the expected number of distinct blocks
-    const blockNumbers = receipts.map(r => r.blockNumber!).sort((a, b) => a - b);
-    const uniqueBlockNumbers = new Set(blockNumbers);
-    expect(uniqueBlockNumbers.size).toBe(blockCount);
-    logger.info(`Created ${uniqueBlockNumbers.size} distinct blocks: ${Array.from(uniqueBlockNumbers).join(', ')}`);
-
-    // Verify each node produced at least 1 block
-    const nodeBlockCounts = new Map<string, number>();
-    for (const nodeId of blockProducers.values()) {
-      const count = nodeBlockCounts.get(nodeId) || 0;
-      nodeBlockCounts.set(nodeId, count + 1);
-    }
-
-    logger.info(`Block production by node: ${JSON.stringify(Array.from(nodeBlockCounts.entries()))}`);
-
-    // Verify: each node should have produced at least 1 block
-    // (there may be empty blocks produced during node transitions)
-    for (const [nodeId, count] of nodeBlockCounts.entries()) {
-      expect(count).toBeGreaterThanOrEqual(1);
-      logger.info(`Node ${nodeId} produced ${count} block(s) as expected`);
-    }
-
-    // Verify all nodes participated (NODE_COUNT nodes total)
-    expect(nodeBlockCounts.size).toBe(NODE_COUNT);
-    logger.info(`All ${NODE_COUNT} nodes participated in block production`);
-
-    // Verify no double-signing occurred across all blocks
-    const quorum = Math.floor((COMMITTEE_SIZE * 2) / 3) + 1;
-    for (const receipt of receipts) {
-      const [block] = await aztecNode.getBlocks(receipt.blockNumber!, 1, {
-        includeL1PublishInfo: true,
-        includeAttestations: true,
-        includeTransactions: true,
-        onlyCheckpointed: true,
-      });
-      if (!block) {
-        throw new Error(`Block ${receipt.blockNumber} not found`);
-      }
-      const slotNumber = BigInt(block.header.globalVariables.slotNumber);
-
-      // PRIMARY CHECK: Database records show all attestation duties attempted/completed
-      const duties = await getValidatorDuties(mainPool, slotNumber);
-      const attestationDuties = duties.filter(d => d.dutyType === 'ATTESTATION');
-
-      // Verify no duplicate attestation duties per validator (HA protection ensures 1 per validator)
-      const dutiesByValidator = verifyNoDuplicateAttestations(attestationDuties, logger);
-      expect(dutiesByValidator.size).toBeGreaterThanOrEqual(quorum);
-      logger.info(
-        `Block ${receipt.blockNumber}: Database shows ${dutiesByValidator.size} unique validators attested (quorum: ${quorum}), no double-signing detected in DB`,
-      );
-
-      // SECONDARY CHECK: Verify checkpoint attestations match database records
-      const [publishedCheckpoint] = await aztecNode.getCheckpoints(block.checkpointNumber, 1, {
-        includeAttestations: true,
-      });
-      const attestationInfos = getAttestationInfoFromPublishedCheckpoint(
-        {
-          attestations: publishedCheckpoint.attestations ?? [],
-          checkpoint: new Checkpoint(
-            publishedCheckpoint.archive,
-            publishedCheckpoint.header,
-            [],
-            publishedCheckpoint.number,
-            publishedCheckpoint.feeAssetPriceModifier,
-          ),
-        },
-        getSignatureContext(),
-      );
-
-      // Filter to only valid attestations with recovered addresses
-      const validAttestations = attestationInfos.filter(
-        (info: AttestationInfo) => info.status === 'recovered-from-signature' && info.address !== undefined,
-      );
-
-      // Verify checkpoint has exactly quorum attestations (trimmed to minimum required)
-      const checkpointValidatorAddresses = new Set<string>(validAttestations.map(info => info.address!.toString()));
-      expect(checkpointValidatorAddresses.size).toBe(quorum);
-
-      // Verify every validator in the checkpoint has a corresponding DB duty record
-      // (checkpoint is trimmed to quorum, so it's a subset of DB records)
-      for (const validatorAddress of checkpointValidatorAddresses) {
-        expect(dutiesByValidator.has(validatorAddress)).toBe(true);
-      }
-    }
-
-    // GOSSIP-LAYER CHECK: each HA node's libp2p service detects when a signer attests to two
-    // distinct payloads at the same slot and fires `duplicateAttestationCallback` -> validator
-    // client emits WANT_TO_SLASH_EVENT -> SlashOffensesCollector persists a DUPLICATE_ATTESTATION
-    // offense. We assert no such offense (or DUPLICATE_PROPOSAL) was collected on any surviving
-    // HA node. Killed nodes are unreachable, but the surviving node — which has been alive the
-    // whole test — has observed all gossiped attestations and proposals across every slot.
-    const aliveNodes = haNodeServices.filter((_, idx) => !killedNodes.includes(idx));
-    const allOffenses = (await Promise.all(aliveNodes.map(n => n.getSlashOffenses('all')))).flat();
-    const equivocationOffenses = allOffenses.filter(
-      o => o.offenseType === OffenseType.DUPLICATE_ATTESTATION || o.offenseType === OffenseType.DUPLICATE_PROPOSAL,
-    );
-    expect(equivocationOffenses).toEqual([]);
-
-    await Promise.all(haNodeServices.map((_, nodeIndex) => stopHANode(nodeIndex)));
-  });
-
   describe('Clock Skew and Timezone Safety', () => {
     const rollupAddress = EthAddress.random();
     const validatorAddress = EthAddress.random();
     it('should not be affected by process.env.TZ changes', async () => {
+      const { mainPool } = t;
       const spDb = new PostgresSlashingProtectionDatabase(mainPool);
       const originalTZ = process.env.TZ;
 
@@ -1015,6 +479,7 @@ describe('HA Full Setup', () => {
     });
 
     it('should not delete recent duties via cleanupOldDuties when node clock is ahead', async () => {
+      const { mainPool, dateProvider } = t;
       const spDb = new PostgresSlashingProtectionDatabase(mainPool);
 
       // Ensure clean slate for this test
@@ -1077,6 +542,7 @@ describe('HA Full Setup', () => {
     });
 
     it('should delete old duties via cleanupOldDuties based on DB time, not node time', async () => {
+      const { mainPool, dateProvider } = t;
       const spDb = new PostgresSlashingProtectionDatabase(mainPool);
 
       // Ensure clean slate for this test
@@ -1146,6 +612,7 @@ describe('HA Full Setup', () => {
     });
 
     it('should not delete recent stuck duties via cleanupOwnStuckDuties when node clock is ahead', async () => {
+      const { mainPool, dateProvider } = t;
       const spDb = new PostgresSlashingProtectionDatabase(mainPool);
 
       // Create a signing duty (stuck, not completed) using our actual method

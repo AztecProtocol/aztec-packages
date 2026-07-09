@@ -1,0 +1,11 @@
+[package]
+name = "onchain_delivery_test_contract"
+authors = [""]
+compiler_version = ">=0.25.0"
+type = "contract"
+
+[dependencies]
+aztec = { path = "../../../../aztec-nr/aztec" }
+balance_set = { path = "../../../../aztec-nr/balance-set" }
+field_note = { path = "../../../../aztec-nr/field-note" }
+handshake_registry_contract = { path = "../../standard/handshake_registry_contract" }

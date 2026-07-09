@@ -10,6 +10,9 @@ const ETHEREUM_SLOT_DURATION_SECONDS = 12;
 const BLOCK_DURATION_MS = 200_000;
 const L1_TX_TIMEOUT_MS = 30 * 60 * 1000;
 
+// Block-building latency benchmark. Uses benchmarkSetup() (wraps setup() with telemetry override) and
+// emits BENCH_OUTPUT JSON for the GitHub Benchmark Action. Measures sequencer block-build duration and
+// mana throughput across 32-tx standard and 8-tx compute-heavy block configurations.
 describe('benchmarks/build_block', () => {
   let context: EndToEndContext;
   let contract: BenchmarkingContract;

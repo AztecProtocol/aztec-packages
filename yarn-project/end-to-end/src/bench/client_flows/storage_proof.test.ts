@@ -2,21 +2,23 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { ContractInstanceWithAddress, SimulateInteractionOptions } from '@aztec/aztec.js/contracts';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
-import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { StorageProofTestContract } from '@aztec/noir-test-contracts.js/StorageProofTest';
+import { TestTokenContract } from '@aztec/noir-test-contracts.js/TestToken';
 
 import { jest } from '@jest/globals';
 
 import {
   buildStorageProofCapsules,
   loadStorageProofArgs,
-} from '../../e2e_storage_proof/fixtures/storage_proof_fixture.js';
+} from '../../automine/contracts/fixtures/storage_proof_fixture.js';
 import type { TestWallet } from '../../test-wallet/test_wallet.js';
 import { captureProfile, expectedExecutionSteps } from './benchmark.js';
 import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';
 
 jest.setTimeout(300_000);
 
+// Storage proof round-trip benchmark. Uses ClientFlowsBenchmark with BENCHMARK_CONFIG; profiles the full
+// buildStorageProofCapsules + contract-call flow for multiple account/fee-method combinations.
 describe('Storage proof benchmark', () => {
   const t = new ClientFlowsBenchmark('storage_proof');
   let userWallet: TestWallet;
@@ -63,7 +65,7 @@ describe('Storage proof benchmark', () => {
         await userWallet.registerSender(adminAddress);
         // Register FPC and BananaCoin on the user's Wallet so we can simulate and prove
         await userWallet.registerContract(bananaFPCInstance, FPCContract.artifact);
-        await userWallet.registerContract(bananaCoinInstance, TokenContract.artifact);
+        await userWallet.registerContract(bananaCoinInstance, TestTokenContract.artifact);
         // Register the sponsored FPC on the user's Wallet so we can simulate and prove
         await userWallet.registerContract(sponsoredFPCInstance, SponsoredFPCContract.artifact);
         // Register the StorageProofTestContract on the user's Wallet

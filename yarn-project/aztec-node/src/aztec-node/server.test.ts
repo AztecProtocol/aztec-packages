@@ -33,14 +33,14 @@ import {
   type L2Tips,
 } from '@aztec/stdlib/block';
 import type { CheckpointData, ProposedCheckpointData } from '@aztec/stdlib/checkpoint';
-import type { ContractDataSource } from '@aztec/stdlib/contract';
+import type { ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { EmptyL1RollupConstants, type L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { L2LogsSource, MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { InboxLeaf } from '@aztec/stdlib/messaging';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
-import { mockTx } from '@aztec/stdlib/testing';
+import { mockTx, randomContractInstanceWithAddress } from '@aztec/stdlib/testing';
 import {
   AppendOnlyTreeSnapshot,
   MerkleTreeId,
@@ -69,6 +69,7 @@ import {
 } from '@aztec/stdlib/tx';
 import { getPackageVersion } from '@aztec/stdlib/update-checker';
 import type { ValidatorClient } from '@aztec/validator-client';
+import { WorldStateSynchronizerError } from '@aztec/world-state';
 
 import { jest } from '@jest/globals';
 import { mkdtempSync, rmSync, writeFileSync } from 'fs';
@@ -109,6 +110,15 @@ class TestAztecNodeService extends AztecNodeService {
   }
 }
 
+/** Builds minimal block metadata for a given block number and hash, as returned by the block source. */
+const makeBlockData = (blockNumber: BlockNumber, blockHash: BlockHash = BlockHash.random()): BlockData => ({
+  header: BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber }) }),
+  archive: L2Block.empty().archive,
+  blockHash,
+  checkpointNumber: CheckpointNumber(1),
+  indexWithinCheckpoint: IndexWithinCheckpoint(0),
+});
+
 describe('aztec node', () => {
   let p2p: MockProxy<P2P>;
   let globalVariablesBuilder: MockProxy<GlobalVariableBuilder>;
@@ -116,6 +126,7 @@ describe('aztec node', () => {
   let merkleTreeOps: MockProxy<MerkleTreeReadOperations>;
   let worldState: MockProxy<WorldStateSynchronizer>;
   let l2BlockSource: MockProxy<L2BlockSource>;
+  let contractSource: MockProxy<ContractDataSource>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let lastBlockNumber: BlockNumber;
   let node: TestAztecNodeService;
@@ -184,11 +195,21 @@ describe('aztec node', () => {
     worldState = mock<WorldStateSynchronizer>({
       getCommitted: () => merkleTreeOps,
     });
-    worldState.syncImmediate.mockImplementation(() => Promise.resolve(lastBlockNumber));
+    // Mirrors the real synchronizer contract: resolves with the synced block, rejects when the target is
+    // beyond what the block source can provide.
+    worldState.syncImmediate.mockImplementation((target?: BlockNumber) =>
+      target !== undefined && target > lastBlockNumber
+        ? Promise.reject(
+            new WorldStateSynchronizerError(
+              `Unable to sync to block number ${target} (last synced is ${lastBlockNumber})`,
+            ),
+          )
+        : Promise.resolve(lastBlockNumber),
+    );
 
     l2BlockSource = mock<L2BlockSource>();
     l2BlockSource.getBlockNumber.mockImplementation(((query?: BlockQuery) => {
-      if (!query) {
+      if (!query || 'tag' in query) {
         return Promise.resolve(lastBlockNumber);
       }
       if ('number' in query) {
@@ -196,6 +217,17 @@ describe('aztec node', () => {
       }
       return Promise.resolve(undefined);
     }) as L2BlockSource['getBlockNumber']);
+    // World-state queries resolve every block parameter to a concrete (number, hash) via getBlockData, mirroring
+    // the getBlockNumber resolution above but returning full block metadata.
+    l2BlockSource.getBlockData.mockImplementation(((query?: BlockQuery) => {
+      if (!query || 'tag' in query) {
+        return Promise.resolve(makeBlockData(lastBlockNumber));
+      }
+      if ('number' in query) {
+        return Promise.resolve(query.number <= lastBlockNumber ? makeBlockData(query.number) : undefined);
+      }
+      return Promise.resolve(undefined);
+    }) as L2BlockSource['getBlockData']);
     l2BlockSource.getL1Constants.mockResolvedValue(testL1Constants);
     l2BlockSource.getGenesisBlockHash.mockReturnValue(BlockHash.random());
 
@@ -204,7 +236,7 @@ describe('aztec node', () => {
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
 
     // all txs use the same allowed FPC class
-    const contractSource = mock<ContractDataSource>();
+    contractSource = mock<ContractDataSource>();
 
     const nodeConfigFromEnvVars: AztecNodeConfig = getConfigEnvVars();
     nodeConfig = {
@@ -226,29 +258,29 @@ describe('aztec node', () => {
       new MockDateProvider(),
     );
 
-    node = new TestAztecNodeService(
-      nodeConfig,
-      p2p,
-      l2BlockSource,
-      l2LogsSource,
-      contractSource,
+    node = new TestAztecNodeService({
+      config: nodeConfig,
+      p2pClient: p2p,
+      blockSource: l2BlockSource,
+      logsSource: l2LogsSource,
+      contractDataSource: contractSource,
       l1ToL2MessageSource,
-      worldState,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      async () => {},
-      12345,
-      rollupVersion.toNumber(),
-      globalVariablesBuilder,
+      worldStateSynchronizer: worldState,
+      sequencer: undefined,
+      proverNode: undefined,
+      slasherClient: undefined,
+      validatorsSentinel: undefined,
+      stopStartedWatchers: async () => {},
+      l1ChainId: 12345,
+      version: rollupVersion.toNumber(),
+      globalVariableBuilder: globalVariablesBuilder,
       rollupContract,
       feeProvider,
       epochCache,
-      getPackageVersion(),
-      new TestCircuitVerifier(),
-      new TestCircuitVerifier(),
-    );
+      packageVersion: getPackageVersion(),
+      peerProofVerifier: new TestCircuitVerifier(),
+      rpcProofVerifier: new TestCircuitVerifier(),
+    });
   });
 
   describe('tx validation', () => {
@@ -422,6 +454,46 @@ describe('aztec node', () => {
       });
     });
 
+    describe('getContract', () => {
+      let address: AztecAddress;
+      let instance: ContractInstanceWithAddress;
+      const referenceTimestamp = 4242n;
+
+      beforeEach(async () => {
+        instance = await randomContractInstanceWithAddress();
+        address = instance.address;
+
+        l2BlockSource.getBlockData.mockResolvedValue({
+          header: BlockHeader.empty({
+            globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber(1), timestamp: referenceTimestamp }),
+          }),
+          archive: L2Block.empty().archive,
+          blockHash: BlockHash.random(),
+          checkpointNumber: CheckpointNumber(1),
+          indexWithinCheckpoint: IndexWithinCheckpoint(0),
+        });
+
+        contractSource.getContract.mockImplementation((_address, timestamp) =>
+          Promise.resolve(timestamp === referenceTimestamp ? instance : undefined),
+        );
+      });
+
+      it('resolves the reference block to its timestamp and reads the instance as of that block', async () => {
+        expect(await node.getContract(address, BlockNumber(1))).toEqual(instance);
+      });
+
+      it('defaults to the latest block when no reference block is given', async () => {
+        const getBlockData = jest.spyOn(node, 'getBlockData');
+        expect(await node.getContract(address)).toEqual(instance);
+        expect(getBlockData).toHaveBeenCalledWith('latest');
+      });
+
+      it('throws when the reference block is not part of the chain', async () => {
+        l2BlockSource.getBlockData.mockResolvedValue(undefined);
+        await expect(node.getContract(address, BlockHash.random())).rejects.toThrow(/not found/);
+      });
+    });
+
     describe('getLowNullifierMembershipWitness', () => {
       beforeEach(() => {
         lastBlockNumber = BlockNumber(1);
@@ -576,67 +648,76 @@ describe('aztec node', () => {
     describe('getWorldState', () => {
       let snapshotMerkleTreeOps: MockProxy<MerkleTreeReadOperations>;
       let initialHeader: BlockHeader;
+      let initialBlockHash: BlockHash;
+
+      // A block's fork hash is derived deterministically from its number so tests can assert the exact hash
+      // threaded through resolution -> sync -> snapshot. Block 0 hashes to the genesis header hash.
+      const hashForBlock = (blockNumber: BlockNumber): BlockHash =>
+        blockNumber === BlockNumber.ZERO ? initialBlockHash : new BlockHash(new Fr(1_000_000n + BigInt(blockNumber)));
 
       beforeEach(async () => {
         lastBlockNumber = BlockNumber(5);
         initialHeader = BlockHeader.empty({
           globalVariables: GlobalVariables.empty({ blockNumber: BlockNumber.ZERO }),
         });
-        // Archiver resolves the initial block hash to block number 0 directly.
-        const initialBlockHash = await initialHeader.hash();
-        l2BlockSource.getBlockNumber.mockImplementation(((query?: BlockQuery) =>
+        initialBlockHash = await initialHeader.hash();
+        // The block source resolves each query variant to concrete block metadata: tags and the no-arg case to
+        // the latest block, numbers within range to themselves (undefined past the tip), and the genesis hash to
+        // block 0. Unknown hashes resolve to undefined.
+        l2BlockSource.getBlockData.mockImplementation(((query?: BlockQuery) =>
           Promise.resolve(
-            !query
-              ? lastBlockNumber
+            !query || 'tag' in query
+              ? makeBlockData(lastBlockNumber, hashForBlock(lastBlockNumber))
               : 'number' in query
-                ? query.number
+                ? query.number <= lastBlockNumber
+                  ? makeBlockData(query.number, hashForBlock(query.number))
+                  : undefined
                 : 'hash' in query && query.hash.equals(initialBlockHash)
-                  ? BlockNumber.ZERO
+                  ? makeBlockData(BlockNumber.ZERO, initialBlockHash)
                   : undefined,
-          )) as L2BlockSource['getBlockNumber']);
-        // #getInitialHeaderHash still sources from worldStateSynchronizer (used in error messages).
-        merkleTreeOps.getInitialHeader.mockReturnValue(initialHeader);
+          )) as L2BlockSource['getBlockData']);
         snapshotMerkleTreeOps = mock<MerkleTreeReadOperations>();
-        worldState.getSnapshot.mockReturnValue(snapshotMerkleTreeOps);
+        worldState.getVerifiedSnapshot.mockResolvedValue(snapshotMerkleTreeOps);
       });
 
       it('returns committed db for latest', async () => {
         const result = await node.getWorldState('latest');
         expect(result).toBe(merkleTreeOps);
-        expect(worldState.getSnapshot).not.toHaveBeenCalled();
+        expect(worldState.getVerifiedSnapshot).not.toHaveBeenCalled();
       });
 
       it('returns snapshot for a block number within sync range', async () => {
         const result = await node.getWorldState(BlockNumber(3));
         expect(result).toBe(snapshotMerkleTreeOps);
-        expect(worldState.getSnapshot).toHaveBeenCalledWith(BlockNumber(3));
+        expect(worldState.getVerifiedSnapshot).toHaveBeenCalledWith(BlockNumber(3), hashForBlock(BlockNumber(3)));
       });
 
       it('throws for a block number beyond sync range', async () => {
-        await expect(node.getWorldState(BlockNumber(10))).rejects.toThrow(/not yet synced/);
+        // A number past the tip cannot be resolved to block metadata. This is transient (the block may still
+        // arrive), so it is retried and then surfaced rather than serving state at the wrong height.
+        await expect(node.getWorldState(BlockNumber(10))).rejects.toThrow(/Block not found for number=10/);
       });
 
       it('throws for a block hash whose block number is beyond sync range', async () => {
         const blockHash = BlockHash.random();
-        l2BlockSource.getBlockNumber.mockImplementation(((query?: BlockQuery) =>
+        l2BlockSource.getBlockData.mockImplementation(((query?: BlockQuery) =>
           Promise.resolve(
-            query && 'hash' in query ? BlockNumber(10) : lastBlockNumber,
-          )) as L2BlockSource['getBlockNumber']);
+            query && 'hash' in query ? makeBlockData(BlockNumber(10), blockHash) : undefined,
+          )) as L2BlockSource['getBlockData']);
 
-        await expect(node.getWorldState(blockHash)).rejects.toThrow(/not yet synced/);
+        await expect(node.getWorldState(blockHash)).rejects.toThrow(/Unable to sync to block number 10/);
       });
 
       it('resolves block hash to block number via archiver and returns snapshot', async () => {
         const blockHash = BlockHash.random();
-        l2BlockSource.getBlockNumber.mockImplementation(((query?: BlockQuery) =>
+        l2BlockSource.getBlockData.mockImplementation(((query?: BlockQuery) =>
           Promise.resolve(
-            query && 'hash' in query ? BlockNumber(3) : lastBlockNumber,
-          )) as L2BlockSource['getBlockNumber']);
-        snapshotMerkleTreeOps.getLeafValue.mockResolvedValue(blockHash);
+            query && 'hash' in query ? makeBlockData(BlockNumber(3), blockHash) : undefined,
+          )) as L2BlockSource['getBlockData']);
 
         const result = await node.getWorldState(blockHash);
         expect(result).toBe(snapshotMerkleTreeOps);
-        expect(worldState.getSnapshot).toHaveBeenCalledWith(BlockNumber(3));
+        expect(worldState.getVerifiedSnapshot).toHaveBeenCalledWith(BlockNumber(3), blockHash);
       });
 
       it('drives a reorg-aware sync to the requested block hash', async () => {
@@ -644,52 +725,156 @@ describe('aztec node', () => {
         // exact (number, hash) so the synchronizer barriers on the archive-tree commit and detects reorgs,
         // rather than syncing to bare latest height and racing the snapshot read.
         const blockHash = BlockHash.random();
-        l2BlockSource.getBlockNumber.mockImplementation(((query?: BlockQuery) =>
+        l2BlockSource.getBlockData.mockImplementation(((query?: BlockQuery) =>
           Promise.resolve(
-            query && 'hash' in query ? BlockNumber(3) : lastBlockNumber,
-          )) as L2BlockSource['getBlockNumber']);
-        snapshotMerkleTreeOps.getLeafValue.mockResolvedValue(blockHash);
+            query && 'hash' in query ? makeBlockData(BlockNumber(3), blockHash) : undefined,
+          )) as L2BlockSource['getBlockData']);
 
         await node.getWorldState(blockHash);
 
         expect(worldState.syncImmediate).toHaveBeenCalledWith(BlockNumber(3), blockHash);
       });
 
-      it('syncs to latest height without a hash when querying by block number', async () => {
+      it('syncs to the resolved fork hash when querying by block number', async () => {
+        // Number queries pin a fork too: the resolved hash is threaded to the sync so a reorg that replaced
+        // the block at that height is detected instead of silently served.
         await node.getWorldState(BlockNumber(3));
-        expect(worldState.syncImmediate).toHaveBeenCalledWith(lastBlockNumber, undefined);
+        expect(worldState.syncImmediate).toHaveBeenCalledWith(BlockNumber(3), hashForBlock(BlockNumber(3)));
       });
 
       it('throws when block hash is not found in archiver', async () => {
         const blockHash = BlockHash.random();
 
-        await expect(node.getWorldState(blockHash)).rejects.toThrow(/not found when querying world state/);
+        await expect(node.getWorldState(blockHash)).rejects.toThrow(/not found when resolving query/);
       });
 
-      it('throws when world-state block hash does not match requested hash (reorg)', async () => {
+      it('propagates a reorg (block hash mismatch) error from the synchronizer', async () => {
+        // The synchronizer verifies the requested hash against the synced fork and throws on mismatch;
+        // getWorldState no longer re-checks the hash itself, so once retries are exhausted (the hash keeps
+        // resolving, the sync keeps failing) it must surface that error to the caller.
         const blockHash = BlockHash.random();
-        const differentHash = BlockHash.random();
-        l2BlockSource.getBlockNumber.mockImplementation(((query?: BlockQuery) =>
+        l2BlockSource.getBlockData.mockImplementation(((query?: BlockQuery) =>
           Promise.resolve(
-            query && 'hash' in query ? BlockNumber(3) : lastBlockNumber,
-          )) as L2BlockSource['getBlockNumber']);
-        // World state returns a different hash for the same block number
-        snapshotMerkleTreeOps.getLeafValue.mockResolvedValue(differentHash);
+            query && 'hash' in query ? makeBlockData(BlockNumber(3), blockHash) : undefined,
+          )) as L2BlockSource['getBlockData']);
+        worldState.syncImmediate.mockRejectedValue(new WorldStateSynchronizerError('Block hash mismatch at block 3'));
 
-        await expect(node.getWorldState(blockHash)).rejects.toThrow(/not found in world state at block number/);
+        await expect(node.getWorldState(blockHash)).rejects.toThrow(/Block hash mismatch/);
+      });
+
+      it('throws instead of returning stale committed state when sync fails', async () => {
+        // Regression guard: a sync failure used to be swallowed and the latest committed db returned
+        // regardless, serving stale state with no signal that synchronization had failed.
+        worldState.syncImmediate.mockRejectedValue(new Error('sync failed'));
+
+        await expect(node.getWorldState('latest')).rejects.toThrow(/sync failed/);
+      });
+
+      it('serves a tag query whose tip advances past the pre-sync latest block', async () => {
+        // The tag tip can move while world state syncs (e.g. during catch-up, blocks arrive already proven),
+        // so the query must resolve the tag up front and drive the sync to that exact block, instead of
+        // syncing to a stale latest height and then failing the range check against a newer resolution.
+        l2BlockSource.getBlockData.mockImplementation(((query?: BlockQuery) =>
+          Promise.resolve(
+            query && 'tag' in query && query.tag === 'proven'
+              ? makeBlockData(BlockNumber(7), hashForBlock(BlockNumber(7)))
+              : undefined,
+          )) as L2BlockSource['getBlockData']);
+        worldState.syncImmediate.mockImplementation((target?: BlockNumber) =>
+          Promise.resolve(target ?? lastBlockNumber),
+        );
+
+        const result = await node.getWorldState('proven');
+
+        expect(result).toBe(snapshotMerkleTreeOps);
+        expect(worldState.getVerifiedSnapshot).toHaveBeenCalledWith(BlockNumber(7), hashForBlock(BlockNumber(7)));
+      });
+
+      it('retries with a re-resolved target when a prune makes the sync target unreachable', async () => {
+        // A prune can land between resolving the query and syncing to the resolved block, making the
+        // target permanently unreachable. The retry re-resolves the tag against the post-prune chain.
+        let checkpointedTip = BlockNumber(4);
+        l2BlockSource.getBlockData.mockImplementation(((query?: BlockQuery) =>
+          Promise.resolve(
+            query && 'tag' in query && query.tag === 'checkpointed'
+              ? makeBlockData(checkpointedTip, hashForBlock(checkpointedTip))
+              : undefined,
+          )) as L2BlockSource['getBlockData']);
+        worldState.syncImmediate.mockImplementationOnce(() => {
+          checkpointedTip = BlockNumber(3);
+          return Promise.reject(new WorldStateSynchronizerError('Unable to sync to block number 4 (last synced is 3)'));
+        });
+
+        const result = await node.getWorldState('checkpointed');
+
+        expect(result).toBe(snapshotMerkleTreeOps);
+        expect(worldState.getVerifiedSnapshot).toHaveBeenCalledWith(BlockNumber(3), hashForBlock(BlockNumber(3)));
+      });
+
+      it('converts a mid-query prune of a hash anchor into a clear reorg error', async () => {
+        // The hash resolves before the prune, then the sync fails because the block is gone; the retry
+        // re-resolves the (now unknown) hash, surfacing the descriptive reorg error instead of the raw
+        // sync failure.
+        const blockHash = BlockHash.random();
+        let pruned = false;
+        l2BlockSource.getBlockData.mockImplementation(((query?: BlockQuery) =>
+          Promise.resolve(
+            query && 'hash' in query ? (pruned ? undefined : makeBlockData(BlockNumber(3), blockHash)) : undefined,
+          )) as L2BlockSource['getBlockData']);
+        worldState.syncImmediate.mockImplementation(() => {
+          pruned = true;
+          return Promise.reject(new WorldStateSynchronizerError('Block hash mismatch at block 3'));
+        });
+
+        await expect(node.getWorldState(blockHash)).rejects.toThrow(/not found when resolving query/);
       });
 
       it('returns snapshot at block 0 for initial header hash', async () => {
         // Block 0 is a first-class historical block: its state lives in the trees' persisted block-0
-        // payload. getWorldState resolves the genesis hash to block number 0 and returns the snapshot.
-        const initialBlockHash = await initialHeader.hash();
-        // The archive at block 0 contains the genesis header hash at index 0, which is what the
-        // double-check compares against after the snapshot is resolved.
-        snapshotMerkleTreeOps.getLeafValue.mockResolvedValue(initialBlockHash);
-
+        // payload. getWorldState resolves the genesis hash to block number 0 and returns the verified snapshot.
         const result = await node.getWorldState(initialBlockHash);
         expect(result).toBe(snapshotMerkleTreeOps);
-        expect(worldState.getSnapshot).toHaveBeenCalledWith(BlockNumber.ZERO);
+        expect(worldState.getVerifiedSnapshot).toHaveBeenCalledWith(BlockNumber.ZERO, initialBlockHash);
+      });
+
+      it('re-resolves a tag query onto the new fork when a reorg flips the block hash mid-flight', async () => {
+        // Proven tip is block 10 on fork A; a reorg replaces it with fork B while we sync. The sync rejects the
+        // stale fork-A hash, and the retry must re-resolve the tag and serve fork B rather than silently
+        // returning wrong-fork state.
+        const hashA = new BlockHash(new Fr(0xaa));
+        const hashB = new BlockHash(new Fr(0xbb));
+        let reorged = false;
+        l2BlockSource.getBlockData.mockImplementation(((query?: BlockQuery) =>
+          Promise.resolve(
+            query && 'tag' in query && query.tag === 'proven'
+              ? makeBlockData(BlockNumber(10), reorged ? hashB : hashA)
+              : undefined,
+          )) as L2BlockSource['getBlockData']);
+        worldState.syncImmediate.mockImplementation((target?: BlockNumber, blockHash?: BlockHash) => {
+          reorged = true;
+          return blockHash?.equals(hashB)
+            ? Promise.resolve(target ?? lastBlockNumber)
+            : Promise.reject(new WorldStateSynchronizerError(`Block hash mismatch at block ${target}`));
+        });
+
+        const result = await node.getWorldState('proven');
+
+        expect(result).toBe(snapshotMerkleTreeOps);
+        expect(worldState.getVerifiedSnapshot).toHaveBeenCalledWith(BlockNumber(10), hashB);
+      });
+
+      it('retries when snapshot-stage fork verification fails and heals after re-resolution', async () => {
+        // syncImmediate reports success, but reading the snapshot back detects that the fork flipped
+        // underneath. The retry re-resolves and the second verified snapshot succeeds.
+        worldState.syncImmediate.mockResolvedValue(lastBlockNumber);
+        worldState.getVerifiedSnapshot
+          .mockRejectedValueOnce(new WorldStateSynchronizerError('Block hash mismatch at block 3'))
+          .mockResolvedValue(snapshotMerkleTreeOps);
+
+        const result = await node.getWorldState(BlockNumber(3));
+
+        expect(result).toBe(snapshotMerkleTreeOps);
+        expect(worldState.getVerifiedSnapshot).toHaveBeenCalledTimes(2);
       });
     });
 
@@ -756,34 +941,31 @@ describe('aztec node', () => {
 
         const validatorNodeConfig = { ...nodeConfig, keyStoreDirectory: keyStoreDir };
 
-        nodeWithValidator = new AztecNodeService(
-          validatorNodeConfig,
-          p2p,
-          l2BlockSource,
-          mock<L2LogsSource>(),
-          mock<ContractDataSource>(),
-          mock<L1ToL2MessageSource>(),
-          mock<WorldStateSynchronizer>({ getCommitted: () => merkleTreeOps }),
-          undefined,
-          undefined,
+        nodeWithValidator = new AztecNodeService({
+          config: validatorNodeConfig,
+          p2pClient: p2p,
+          blockSource: l2BlockSource,
+          logsSource: mock<L2LogsSource>(),
+          contractDataSource: mock<ContractDataSource>(),
+          l1ToL2MessageSource: mock<L1ToL2MessageSource>(),
+          worldStateSynchronizer: mock<WorldStateSynchronizer>({ getCommitted: () => merkleTreeOps }),
+          sequencer: undefined,
+          proverNode: undefined,
           slasherClient,
-          undefined,
-          async () => {},
-          12345,
-          rollupVersion.toNumber(),
-          globalVariablesBuilder,
-          undefined,
+          validatorsSentinel: undefined,
+          stopStartedWatchers: async () => {},
+          l1ChainId: 12345,
+          version: rollupVersion.toNumber(),
+          globalVariableBuilder: globalVariablesBuilder,
+          rollupContract: undefined,
           feeProvider,
           epochCache,
-          getPackageVersion(),
-          new TestCircuitVerifier(),
-          new TestCircuitVerifier(),
-          undefined,
-          undefined,
-          undefined,
-          validatorClient as unknown as ValidatorClient,
-          new KeystoreManager(keyStore),
-        );
+          packageVersion: getPackageVersion(),
+          peerProofVerifier: new TestCircuitVerifier(),
+          rpcProofVerifier: new TestCircuitVerifier(),
+          validatorClient: validatorClient as unknown as ValidatorClient,
+          keyStoreManager: new KeystoreManager(keyStore),
+        });
       });
 
       afterEach(() => {
@@ -947,34 +1129,31 @@ describe('aztec node', () => {
         // Only truthiness matters: the code checks `if (this.keyStoreManager && this.sequencer)`
         // and the validation logic uses keyStoreManager, not sequencer methods.
         // The test expects rejection before sequencer.updatePublisherNodeKeyStore() is reached.
-        const nodeWithSequencer = new AztecNodeService(
-          { ...nodeConfig, keyStoreDirectory: keyStoreDir },
-          p2p,
-          l2BlockSource,
-          mock<L2LogsSource>(),
-          mock<ContractDataSource>(),
-          mock<L1ToL2MessageSource>(),
-          mock<WorldStateSynchronizer>({ getCommitted: () => merkleTreeOps }),
-          {} as SequencerClient,
-          undefined,
+        const nodeWithSequencer = new AztecNodeService({
+          config: { ...nodeConfig, keyStoreDirectory: keyStoreDir },
+          p2pClient: p2p,
+          blockSource: l2BlockSource,
+          logsSource: mock<L2LogsSource>(),
+          contractDataSource: mock<ContractDataSource>(),
+          l1ToL2MessageSource: mock<L1ToL2MessageSource>(),
+          worldStateSynchronizer: mock<WorldStateSynchronizer>({ getCommitted: () => merkleTreeOps }),
+          sequencer: {} as SequencerClient,
+          proverNode: undefined,
           slasherClient,
-          undefined,
-          async () => {},
-          12345,
-          rollupVersion.toNumber(),
-          globalVariablesBuilder,
-          undefined,
+          validatorsSentinel: undefined,
+          stopStartedWatchers: async () => {},
+          l1ChainId: 12345,
+          version: rollupVersion.toNumber(),
+          globalVariableBuilder: globalVariablesBuilder,
+          rollupContract: undefined,
           feeProvider,
           epochCache,
-          getPackageVersion(),
-          new TestCircuitVerifier(),
-          new TestCircuitVerifier(),
-          undefined,
-          undefined,
-          undefined,
-          validatorClient as unknown as ValidatorClient,
-          new KeystoreManager(initialKeyStore),
-        );
+          packageVersion: getPackageVersion(),
+          peerProofVerifier: new TestCircuitVerifier(),
+          rpcProofVerifier: new TestCircuitVerifier(),
+          validatorClient: validatorClient as unknown as ValidatorClient,
+          keyStoreManager: new KeystoreManager(initialKeyStore),
+        });
 
         // Write new keystore: new validator uses publisherKeyB (not in the L1 signers)
         const newValidatorKey = generatePrivateKey();
@@ -1019,29 +1198,29 @@ describe('aztec node', () => {
       sequencerClient.getSequencer.mockReturnValue(sequencer);
       sequencerClient.trigger.mockReturnValue(Promise.resolve());
 
-      nodeWithSequencer = new AztecNodeService(
-        nodeConfig,
-        p2p,
-        l2BlockSource,
-        mock(),
-        mock(),
-        mock(),
-        worldState,
-        sequencerClient,
-        undefined,
-        undefined,
-        undefined,
-        async () => {},
-        12345,
-        rollupVersion.toNumber(),
-        globalVariablesBuilder,
-        undefined,
-        mock<FeeProvider>(),
+      nodeWithSequencer = new AztecNodeService({
+        config: nodeConfig,
+        p2pClient: p2p,
+        blockSource: l2BlockSource,
+        logsSource: mock(),
+        contractDataSource: mock(),
+        l1ToL2MessageSource: mock(),
+        worldStateSynchronizer: worldState,
+        sequencer: sequencerClient,
+        proverNode: undefined,
+        slasherClient: undefined,
+        validatorsSentinel: undefined,
+        stopStartedWatchers: async () => {},
+        l1ChainId: 12345,
+        version: rollupVersion.toNumber(),
+        globalVariableBuilder: globalVariablesBuilder,
+        rollupContract: undefined,
+        feeProvider: mock<FeeProvider>(),
         epochCache,
-        getPackageVersion(),
-        new TestCircuitVerifier(),
-        new TestCircuitVerifier(),
-      );
+        packageVersion: getPackageVersion(),
+        peerProofVerifier: new TestCircuitVerifier(),
+        rpcProofVerifier: new TestCircuitVerifier(),
+      });
     });
 
     it('throws when no sequencer is running', async () => {
@@ -1073,29 +1252,29 @@ describe('aztec node', () => {
       sequencerClient = mock<SequencerClient>();
       sequencerClient.getSequencer.mockReturnValue(sequencer);
 
-      nodeWithSequencer = new AztecNodeService(
-        nodeConfig,
-        p2p,
-        l2BlockSource,
-        mock(),
-        mock(),
-        mock(),
-        worldState,
-        sequencerClient,
-        undefined,
-        undefined,
-        undefined,
-        async () => {},
-        12345,
-        rollupVersion.toNumber(),
-        globalVariablesBuilder,
-        undefined,
-        mock<FeeProvider>(),
+      nodeWithSequencer = new AztecNodeService({
+        config: nodeConfig,
+        p2pClient: p2p,
+        blockSource: l2BlockSource,
+        logsSource: mock(),
+        contractDataSource: mock(),
+        l1ToL2MessageSource: mock(),
+        worldStateSynchronizer: worldState,
+        sequencer: sequencerClient,
+        proverNode: undefined,
+        slasherClient: undefined,
+        validatorsSentinel: undefined,
+        stopStartedWatchers: async () => {},
+        l1ChainId: 12345,
+        version: rollupVersion.toNumber(),
+        globalVariableBuilder: globalVariablesBuilder,
+        rollupContract: undefined,
+        feeProvider: mock<FeeProvider>(),
         epochCache,
-        getPackageVersion(),
-        new TestCircuitVerifier(),
-        new TestCircuitVerifier(),
-      );
+        packageVersion: getPackageVersion(),
+        peerProofVerifier: new TestCircuitVerifier(),
+        rpcProofVerifier: new TestCircuitVerifier(),
+      });
     });
 
     it('keeps the sequencer frozen when setConfig updates minTxsPerBlock while paused', async () => {

@@ -62,6 +62,7 @@ export const DefaultSequencerConfig = {
   injectFakeAttestation: false,
   injectHighSValueAttestation: false,
   injectUnrecoverableSignatureAttestation: false,
+  injectYParityAttestation: false,
   fishermanMode: false,
   shuffleAttestationOrdering: false,
   skipPushProposedBlocksToArchiver: false,
@@ -129,7 +130,7 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description:
       'Per-block budget multiplier applied to DA gas and blob fields in place of perBlockAllocationMultiplier.' +
       ' Defaults higher than the general multiplier so the largest contract class deploy fits a single block.',
-    ...numberConfigHelper(DefaultSequencerConfig.perBlockDAAllocationMultiplier),
+    ...floatConfigHelper(DefaultSequencerConfig.perBlockDAAllocationMultiplier),
   },
   redistributeCheckpointBudget: {
     env: 'SEQ_REDISTRIBUTE_CHECKPOINT_BUDGET',
@@ -144,7 +145,7 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   },
   feeRecipient: {
     env: 'FEE_RECIPIENT',
-    parseEnv: (val: string) => AztecAddress.fromString(val),
+    parseEnv: (val: string) => AztecAddress.fromStringUnsafe(val),
     description: 'Address to receive fees.',
   },
   acvmWorkingDirectory: {
@@ -225,6 +226,10 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'Inject an attestation with an unrecoverable signature (for testing only)',
     ...booleanConfigHelper(DefaultSequencerConfig.injectUnrecoverableSignatureAttestation),
   },
+  injectYParityAttestation: {
+    description: 'Inject a non-proposer attestation slot in yParity form in the packed L1 tuple (for testing only)',
+    ...booleanConfigHelper(DefaultSequencerConfig.injectYParityAttestation),
+  },
   fishermanMode: {
     env: 'FISHERMAN_MODE',
     description:
@@ -242,7 +247,7 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     ...booleanConfigHelper(DefaultSequencerConfig.buildCheckpointIfEmpty),
   },
   skipPushProposedBlocksToArchiver: {
-    description: 'Skip pushing proposed blocks to archiver (default: true)',
+    description: 'Skip pushing proposed blocks to archiver (test only)',
     ...booleanConfigHelper(DefaultSequencerConfig.skipPushProposedBlocksToArchiver),
   },
   minBlocksForCheckpoint: {

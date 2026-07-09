@@ -101,7 +101,7 @@ You can derive the Sponsored FPC address from its deployment parameters, registe
 
 Here's a simpler example from the test suite:
 
-#include_code sponsored_fpc_simple yarn-project/end-to-end/src/e2e_fees/sponsored_payments.test.ts typescript
+#include_code sponsored_fpc_simple yarn-project/end-to-end/src/single-node/fees/private_payments.parallel.test.ts typescript
 
 ### Private fee payment
 

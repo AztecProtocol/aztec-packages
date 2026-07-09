@@ -82,6 +82,7 @@ import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   BlockHeader,
   CallContext,
+  type ContractOverrides,
   HashedValues,
   type OffchainEffect,
   PrivateExecutionResult,
@@ -92,18 +93,22 @@ import {
   getFinalMinRevertibleSideEffectCounter,
 } from '@aztec/stdlib/tx';
 
-import type { ContractSyncService } from '../contract_sync/contract_sync_service.js';
+import type { ContractClassService } from '../contract/contract_class_service.js';
+import type { ContractSyncService } from '../contract/contract_sync_service.js';
 import type { ExecutionHooks } from '../hooks/index.js';
-import type { MessageContextService } from '../messages/message_context_service.js';
+import type { TxResolverService } from '../messages/tx_resolver_service.js';
 import type { AddressStore } from '../storage/address_store/address_store.js';
 import { CapsuleService } from '../storage/capsule_store/capsule_service.js';
 import type { CapsuleStore } from '../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../storage/contract_store/contract_store.js';
+import { FactService } from '../storage/fact_store/index.js';
+import type { FactStore } from '../storage/fact_store/index.js';
 import type { NoteStore } from '../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../storage/tagging_store/recipient_tagging_store.js';
-import type { SenderAddressBookStore } from '../storage/tagging_store/sender_address_book_store.js';
 import type { SenderTaggingStore } from '../storage/tagging_store/sender_tagging_store.js';
+import type { TaggingSecretSourcesStore } from '../storage/tagging_store/tagging_secret_sources_store.js';
+import { AnchoredContractData } from './anchored_contract_data.js';
 import type { BenchmarkedNode } from './benchmarked_node.js';
 import { ExecutionNoteCache } from './execution_note_cache.js';
 import { ExecutionTaggingIndexCache } from './execution_tagging_index_cache.js';
@@ -116,10 +121,6 @@ import { TransientArrayService } from './transient_array_service.js';
 
 /** Options for ContractFunctionSimulator.run. */
 export type ContractSimulatorRunOpts = {
-  /** The address of the contract (should match request.origin). */
-  contractAddress: AztecAddress;
-  /** The function selector of the entry point. */
-  selector: FunctionSelector;
   /** The address calling the function. Can be replaced to simulate a call from another contract or account. */
   msgSender?: AztecAddress;
   /** The block header to use as base state for this run. */
@@ -135,6 +136,9 @@ export type ContractSimulatorRunOpts = {
 /** Args for ContractFunctionSimulator constructor. */
 export type ContractFunctionSimulatorArgs = {
   contractStore: ContractStore;
+  contractClassService: ContractClassService;
+  /** Per-simulation contract overrides. */
+  overrides?: ContractOverrides;
   noteStore: NoteStore;
   keyStore: KeyStore;
   addressStore: AddressStore;
@@ -142,12 +146,13 @@ export type ContractFunctionSimulatorArgs = {
   l2TipsStore: L2TipsProvider;
   senderTaggingStore: SenderTaggingStore;
   recipientTaggingStore: RecipientTaggingStore;
-  senderAddressBookStore: SenderAddressBookStore;
+  taggingSecretSourcesStore: TaggingSecretSourcesStore;
   capsuleStore: CapsuleStore;
+  factStore: FactStore;
   privateEventStore: PrivateEventStore;
   simulator: CircuitSimulator;
   contractSyncService: ContractSyncService;
-  messageContextService: MessageContextService;
+  txResolver: TxResolverService;
   hooks?: ExecutionHooks;
 };
 
@@ -157,6 +162,8 @@ export type ContractFunctionSimulatorArgs = {
 export class ContractFunctionSimulator {
   private readonly log: Logger;
   private readonly contractStore: ContractStore;
+  private readonly contractClassService: ContractClassService;
+  private readonly overrides: ContractOverrides | undefined;
   private readonly noteStore: NoteStore;
   private readonly keyStore: KeyStore;
   private readonly addressStore: AddressStore;
@@ -164,16 +171,19 @@ export class ContractFunctionSimulator {
   private readonly l2TipsStore: L2TipsProvider;
   private readonly senderTaggingStore: SenderTaggingStore;
   private readonly recipientTaggingStore: RecipientTaggingStore;
-  private readonly senderAddressBookStore: SenderAddressBookStore;
+  private readonly taggingSecretSourcesStore: TaggingSecretSourcesStore;
   private readonly capsuleStore: CapsuleStore;
+  private readonly factStore: FactStore;
   private readonly privateEventStore: PrivateEventStore;
   private readonly simulator: CircuitSimulator;
   private readonly contractSyncService: ContractSyncService;
-  private readonly messageContextService: MessageContextService;
+  private readonly txResolver: TxResolverService;
   private readonly hooks: ExecutionHooks | undefined;
 
   constructor(args: ContractFunctionSimulatorArgs) {
     this.contractStore = args.contractStore;
+    this.contractClassService = args.contractClassService;
+    this.overrides = args.overrides;
     this.noteStore = args.noteStore;
     this.keyStore = args.keyStore;
     this.addressStore = args.addressStore;
@@ -181,12 +191,13 @@ export class ContractFunctionSimulator {
     this.l2TipsStore = args.l2TipsStore;
     this.senderTaggingStore = args.senderTaggingStore;
     this.recipientTaggingStore = args.recipientTaggingStore;
-    this.senderAddressBookStore = args.senderAddressBookStore;
+    this.taggingSecretSourcesStore = args.taggingSecretSourcesStore;
     this.capsuleStore = args.capsuleStore;
+    this.factStore = args.factStore;
     this.privateEventStore = args.privateEventStore;
     this.simulator = args.simulator;
     this.contractSyncService = args.contractSyncService;
-    this.messageContextService = args.messageContextService;
+    this.txResolver = args.txResolver;
     this.hooks = args.hooks;
     this.log = createLogger('simulator');
   }
@@ -198,9 +209,7 @@ export class ContractFunctionSimulator {
   public async run(
     request: TxExecutionRequest,
     {
-      contractAddress,
-      selector,
-      msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE),
+      msgSender = AztecAddress.NULL_MSG_SENDER,
       anchorBlockHeader,
       senderForTags,
       scopes,
@@ -209,16 +218,28 @@ export class ContractFunctionSimulator {
   ): Promise<PrivateExecutionResult> {
     const simulatorSetupTimer = new Timer();
 
-    const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(contractAddress, selector);
+    const contractAddress = request.origin;
+
+    const anchoredContractData = new AnchoredContractData(
+      this.contractStore,
+      this.contractClassService,
+      anchorBlockHeader,
+      this.overrides,
+    );
+
+    const entryPointArtifact = await anchoredContractData.getFunctionArtifactWithDebugMetadata(
+      contractAddress,
+      request.functionSelector,
+    );
+    if (!entryPointArtifact) {
+      throw new Error(
+        `Cannot run function ${request.functionSelector} on ${contractAddress}: the contract is not registered. ` +
+          `Register it via wallet.registerContract(...).`,
+      );
+    }
 
     if (entryPointArtifact.functionType !== FunctionType.PRIVATE) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as private`);
-    }
-
-    if (request.origin !== contractAddress) {
-      throw new Error(
-        `Request origin does not match contract address in simulation. Request origin: ${request.origin}, contract address: ${contractAddress}`,
-      );
     }
 
     // reserve the first side effect for the tx hash (inserted by the private kernel)
@@ -254,17 +275,18 @@ export class ContractFunctionSimulator {
       executionCache: HashedValuesCache.create(request.argsOfCalls),
       noteCache,
       taggingIndexCache,
-      contractStore: this.contractStore,
+      anchoredContractData,
       noteStore: this.noteStore,
       keyStore: this.keyStore,
       addressStore: this.addressStore,
       aztecNode: this.aztecNode,
       senderTaggingStore: this.senderTaggingStore,
       recipientTaggingStore: this.recipientTaggingStore,
-      senderAddressBookStore: this.senderAddressBookStore,
+      taggingSecretSourcesStore: this.taggingSecretSourcesStore,
       capsuleService: new CapsuleService(this.capsuleStore, scopes),
+      factService: new FactService(this.factStore, scopes),
       privateEventStore: this.privateEventStore,
-      messageContextService: this.messageContextService,
+      txResolver: this.txResolver,
       contractSyncService: this.contractSyncService,
       jobId,
       totalPublicCalldataCount: 0,
@@ -293,7 +315,7 @@ export class ContractFunctionSimulator {
       );
       const simulatorTeardownTimer = new Timer();
 
-      const firstNullifier = noteCache.getNonceGenerator();
+      const firstNullifierHint = noteCache.getNonceGenerator();
 
       const publicCallRequests = collectNested([executionResult], r =>
         r.publicInputs.publicCallRequests
@@ -316,9 +338,9 @@ export class ContractFunctionSimulator {
       }
 
       // Not to be confused with a PrivateCallExecutionResult. This is a superset
-      // of the PrivateCallExecutionResult, containing also firstNullifier
+      // of the PrivateCallExecutionResult, containing also firstNullifierHint
       // and publicFunctionsCalldata.
-      return new PrivateExecutionResult(executionResult, firstNullifier, publicFunctionsCalldata);
+      return new PrivateExecutionResult(executionResult, firstNullifierHint, publicFunctionsCalldata);
     } catch (err) {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
     }
@@ -327,10 +349,6 @@ export class ContractFunctionSimulator {
   /**
    * Runs a utility function.
    * @param call - The function call to execute.
-   * @param authwits - Authentication witnesses required for the function call.
-   * @param anchorBlockHeader - The block header to use as base state for this run.
-   * @param scopes - Optional array of account addresses whose notes can be accessed in this call. Defaults to all
-   * accounts if not specified.
    * @returns A return value of the utility function in a form as returned by the simulator (Noir fields)
    */
   public async runUtility(
@@ -340,7 +358,20 @@ export class ContractFunctionSimulator {
     scopes: AztecAddress[],
     jobId: string,
   ): Promise<{ result: Fr[]; offchainEffects: OffchainEffect[] }> {
-    const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(call.to, call.selector);
+    const anchoredContractData = new AnchoredContractData(
+      this.contractStore,
+      this.contractClassService,
+      anchorBlockHeader,
+      this.overrides,
+    );
+
+    const entryPointArtifact = await anchoredContractData.getFunctionArtifactWithDebugMetadata(call.to, call.selector);
+    if (!entryPointArtifact) {
+      throw new Error(
+        `Cannot run function ${call.selector} on ${call.to}: the contract is not registered. ` +
+          `Register it via wallet.registerContract(...).`,
+      );
+    }
 
     if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
       throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);
@@ -351,20 +382,26 @@ export class ContractFunctionSimulator {
     };
 
     const oracle = new UtilityExecutionOracle({
-      contractAddress: call.to,
+      callContext: CallContext.from({
+        msgSender: AztecAddress.NULL_MSG_SENDER,
+        contractAddress: call.to,
+        functionSelector: call.selector,
+        isStaticCall: true,
+      }),
       authWitnesses: authwits,
       capsules: [],
       anchorBlockHeader,
-      contractStore: this.contractStore,
+      anchoredContractData,
       noteStore: this.noteStore,
       keyStore: this.keyStore,
       addressStore: this.addressStore,
       aztecNode: this.aztecNode,
       recipientTaggingStore: this.recipientTaggingStore,
-      senderAddressBookStore: this.senderAddressBookStore,
+      taggingSecretSourcesStore: this.taggingSecretSourcesStore,
       capsuleService: new CapsuleService(this.capsuleStore, scopes),
+      factService: new FactService(this.factStore, scopes),
       privateEventStore: this.privateEventStore,
-      messageContextService: this.messageContextService,
+      txResolver: this.txResolver,
       contractSyncService: this.contractSyncService,
       l2TipsStore: this.l2TipsStore,
       jobId,
@@ -551,10 +588,10 @@ export async function generateSimulatedProvingResult(
         execution.publicInputs.callContext.functionSelector,
       ),
       timings: execution.profileResult?.timings ?? { witgen: 0, oracles: {} },
+      kind: CircuitKind.App,
       bytecode: execution.acir,
       vk: execution.vk,
       witness: execution.partialWitness,
-      kind: CircuitKind.App,
     });
   }
 

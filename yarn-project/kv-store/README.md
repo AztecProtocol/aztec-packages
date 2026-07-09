@@ -1,13 +1,6 @@
 # KV Store
 
-The Aztec KV store is an implementation of a durable key-value database with a pluggable backend. Four backends are available, each exposed as its own package entrypoint:
-
-- `@aztec/kv-store/lmdb-v2`: server / Node. The current default for node components.
-- `@aztec/kv-store/lmdb`: the legacy LMDB backend, backed by [`lmdb-js`](https://github.com/kriszyp/lmdb-js).
-- `@aztec/kv-store/indexeddb`: browser, backed by IndexedDB.
-- `@aztec/kv-store/sqlite-opfs`: browser, backed by SQLite over the Origin Private File System.
-
-The backend is selected at import time. You import `createStore` (and friends) from the entrypoint you want.
+The Aztec KV store is an implementation of a durable key-value database with a pluggable backend.
 
 This package exports a number of primitive data structures that can be used to build domain-specific databases in each node component (e.g. a PXE database or an Archiver database). The data structures supported:
 
@@ -15,3 +8,12 @@ This package exports a number of primitive data structures that can be used to b
 - array - works like a normal in-memory JS array. It can't contain holes and it can be used as a stack (push-pop mechanics).
 - map - a hashmap where keys can be numbers or strings
 - multi-map - just like a map but each key holds multiple values. Can be used for indexing into other data structures
+
+## Backend selection
+
+The backend is selected at import time, you import `createStore` (and friends) from the entrypoint you want:
+
+- `@aztec/kv-store/lmdb-v2`: server / Node. The current default for node components.
+- `@aztec/kv-store/lmdb`: the legacy LMDB backend, backed by [`lmdb-js`](https://github.com/kriszyp/lmdb-js).
+- `@aztec/kv-store/sqlite-opfs`: the recommended browser backend, encryption-at-rest capable, backed by SQLite over the Origin Private File System (OPFS).
+- `@aztec/kv-store/deprecated/indexeddb`: **deprecated** browser backend, backed by IndexedDB. New browser code must use `@aztec/kv-store/sqlite-opfs`, as this backend is on its way to being fully deprecated.

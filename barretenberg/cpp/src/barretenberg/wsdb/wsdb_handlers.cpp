@@ -616,12 +616,25 @@ void handle_sync_block(WsdbRequest& ctx, wire::WsdbSyncBlock&& cmd, Responder<wi
             public_data_writes.emplace_back(public_data_slot_from_wire(w.slot), public_data_value_from_wire(w.value));
         }
 
+        // The canonical archive roots from the block being synced; sync_block verifies the local archive root
+        // against them and rejects a divergent tree before committing.
+        std::optional<bb::fr> expected_archive_root;
+        if (cmd.expectedArchiveRoot.has_value()) {
+            expected_archive_root = fr_from_wire(cmd.expectedArchiveRoot.value());
+        }
+        std::optional<bb::fr> expected_previous_archive_root;
+        if (cmd.expectedPreviousArchiveRoot.has_value()) {
+            expected_previous_archive_root = fr_from_wire(cmd.expectedPreviousArchiveRoot.value());
+        }
+
         WorldStateStatusFull status = ctx.world_state.sync_block(block_state_ref,
                                                                  block_header_hash,
                                                                  padded_note_hashes,
                                                                  padded_l1_to_l2_messages,
                                                                  padded_nullifiers,
-                                                                 public_data_writes);
+                                                                 public_data_writes,
+                                                                 expected_archive_root,
+                                                                 expected_previous_archive_root);
         return wire::WsdbSyncBlockResponse{ .status = world_state_status_full_to_wire(status) };
     });
 }

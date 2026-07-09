@@ -1,7 +1,7 @@
 import { type InitialAccountData, generateSchnorrAccounts } from '@aztec/accounts/testing';
-import { AztecNodeService } from '@aztec/aztec-node';
+import { AztecNodeService, createAztecNodeService } from '@aztec/aztec-node';
 import { AztecAddress, EthAddress } from '@aztec/aztec.js/addresses';
-import { type Logger, createLogger } from '@aztec/aztec.js/log';
+import { createLogger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { CheatCodes } from '@aztec/aztec/testing';
 import type { ClientProtocolCircuitVerifier } from '@aztec/bb-prover';
@@ -19,18 +19,11 @@ import { type Hex, getContract } from 'viem';
 import { privateKeyToAddress } from 'viem/accounts';
 
 import { TokenSimulator } from '../simulators/token_simulator.js';
+import { SingleNodeTestContext, type SingleNodeTestOpts } from '../single-node/single_node_test_context.js';
 import { TestWallet } from '../test-wallet/test_wallet.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
-import {
-  type EndToEndContext,
-  type SetupOptions,
-  getPrivateKeyFromIndex,
-  getSponsoredFPCAddress,
-  setup,
-  setupPXEAndGetWallet,
-  teardown,
-} from './setup.js';
+import { getPrivateKeyFromIndex, getSponsoredFPCAddress, setup, setupPXEAndGetWallet } from './setup.js';
 
 type ProvenSetup = {
   wallet: TestWallet;
@@ -42,13 +35,17 @@ type ProvenSetup = {
  * However, we then setup a second PXE with a full prover instance.
  * We configure this instance with all of the accounts and contracts.
  * We then prove and verify transactions created via this full prover PXE.
+ *
+ * The real-prover sub-base of the single-node topology: extends {@link SingleNodeTestContext} so it
+ * reuses the base node tracking / chain monitor / teardown machinery, but builds its environment with
+ * the bespoke prover opts below (real BB, `realVerifier` L1, the snapshot/account + TokenSimulator
+ * harness, and a hand-built prover node) rather than the base's default fake-prover config.
  */
 
-export class FullProverTest {
+export class FullProverTest extends SingleNodeTestContext {
   static TOKEN_NAME = 'USDC';
   static TOKEN_SYMBOL = 'USD';
   static TOKEN_DECIMALS = 18n;
-  logger: Logger;
   wallet!: TestWallet;
   provenWallet!: TestWallet;
   accounts: AztecAddress[] = [];
@@ -67,16 +64,18 @@ export class FullProverTest {
     return this.proverAztecNode?.getProofVerifier();
   }
   provenAsset!: TokenContract;
-  context!: EndToEndContext;
   private proverAztecNode!: AztecNodeService;
   private simulatedProverAztecNode!: AztecNodeService;
   public l1Contracts!: DeployAztecL1ContractsReturnType;
   public proverAddress!: EthAddress;
+  private testName: string;
   private minNumberOfTxsPerBlock: number;
   private coinbase: EthAddress;
   private realProofs: boolean;
 
   constructor(testName: string, minNumberOfTxsPerBlock: number, coinbase: EthAddress, realProofs = true) {
+    super();
+    this.testName = testName;
     this.logger = createLogger(`e2e:full_prover_test:${testName}`);
     this.minNumberOfTxsPerBlock = minNumberOfTxsPerBlock;
     this.coinbase = coinbase;
@@ -116,9 +115,9 @@ export class FullProverTest {
     );
   }
 
-  async setup(opts: Partial<SetupOptions> = {}) {
+  override async setup(opts: SingleNodeTestOpts = {}) {
     this.logger.info('Setting up subsystems from fresh');
-    this.context = await setup(0, {
+    const context = await setup(0, {
       ...opts,
       startProverNode: true,
       coinbase: this.coinbase,
@@ -126,6 +125,12 @@ export class FullProverTest {
       additionallyFundedAccounts: await generateSchnorrAccounts(2),
       l1ContractsArgs: { realVerifier: this.realProofs },
     });
+
+    // Reuse the base context machinery (rollup, epoch cache, chain monitor, node tracking, teardown)
+    // over the environment built above. Restore the FullProverTest-named logger afterwards, since
+    // hydrateFromContext repoints `this.logger` at the context logger.
+    await this.hydrateFromContext(context);
+    this.logger = createLogger(`e2e:full_prover_test:${this.testName}`);
 
     await this.applyBaseSetup();
     await this.applyMint();
@@ -226,7 +231,7 @@ export class FullProverTest {
       this.context.genesis!.genesisTimestamp,
     );
 
-    const proverNodeConfig: Parameters<typeof AztecNodeService.createAndSync>[0] = {
+    const proverNodeConfig: Parameters<typeof createAztecNodeService>[0] = {
       ...config,
       enableProverNode: true,
       disableValidator: true,
@@ -251,13 +256,15 @@ export class FullProverTest {
       validatorPrivateKeys: new SecretValue([]),
     };
 
-    this.proverAztecNode = await AztecNodeService.createAndSync(
+    this.proverAztecNode = await createAztecNodeService(
       proverNodeConfig,
       { dateProvider: this.context.dateProvider, p2pClientDeps: { rpcTxProviders: [this.aztecNode] } },
       { genesis },
     );
+    // Track the real prover node so the base teardown stops it (the simulated one created by `setup`
+    // was already stopped above).
+    this.proverNodes = [this.proverAztecNode];
     this.logger.warn(`Proofs are now enabled`, { realProofs: this.realProofs });
-    return this;
   }
 
   private async mintFeeJuice(recipient: Hex) {
@@ -269,20 +276,22 @@ export class FullProverTest {
     await this.context.deployL1ContractsValues.l1Client.waitForTransactionReceipt({ hash });
   }
 
-  async teardown() {
+  override async teardown() {
     // Cleanup related to the full prover PXEs
     for (let i = 0; i < this.provenComponents.length; i++) {
       await this.provenComponents[i].teardown();
     }
 
-    // clean up the full prover node (by stopping its hosting aztec node)
+    // Stop the prover node before destroying the BB singleton it proves with.
     await this.proverAztecNode.stop();
 
     await Barretenberg.destroySingleton();
     await this.bbConfigCleanup?.();
     await this.acvmConfigCleanup?.();
 
-    await teardown(this.context);
+    // Stops the chain monitor, the tracked nodes (main node + the already-stopped prover node, a
+    // safe no-op), and the context.
+    await super.teardown();
   }
 
   private async applyMint() {

@@ -2,6 +2,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { toArray } from '@aztec/foundation/iterable';
 import { BufferReader, numToUInt8, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
+import { isProtocolContractClass } from '@aztec/protocol-contracts';
 import type {
   ContractClassPublic,
   ContractClassPublicWithBlockNumber,
@@ -49,7 +50,19 @@ export class ContractClassStore {
   ): Promise<void> {
     await this.db.transactionAsync(async () => {
       const key = contractClass.id.toString();
-      if (await this.#contractClasses.hasAsync(key)) {
+      const existing = await this.#contractClasses.getAsync(key);
+      if (existing !== undefined) {
+        // Protocol contracts are preloaded at block 0, so a later on-chain (re-)publish of a bundled
+        // protocol class id is valid and must be a no-op. Keep the existing block-0 entry untouched
+        // (do not bump its block number) so it survives reorgs of the publishing block.
+        if (isProtocolContractClass(contractClass.id)) {
+          return;
+        }
+        // An L1 reorg can re-present an already-stored checkpoint, replaying this class at the same
+        // block; treat that as a no-op. A duplicate at a different block still signals double-processing.
+        if (deserializeContractClassPublic(existing).l2BlockNumber === blockNumber) {
+          return;
+        }
         throw new Error(`Contract class ${key} already exists, cannot add again at block ${blockNumber}`);
       }
       await this.#contractClasses.set(
@@ -61,6 +74,11 @@ export class ContractClassStore {
   }
 
   async deleteContractClass(contractClass: ContractClassPublic, blockNumber: number): Promise<void> {
+    // Protocol contracts are preloaded at block 0 and must never be deleted, even when the block that
+    // (re-)published them on-chain is unwound by a reorg.
+    if (isProtocolContractClass(contractClass.id)) {
+      return;
+    }
     const restoredContractClass = await this.#contractClasses.getAsync(contractClass.id.toString());
     if (restoredContractClass && deserializeContractClassPublic(restoredContractClass).l2BlockNumber >= blockNumber) {
       await this.db.transactionAsync(async () => {

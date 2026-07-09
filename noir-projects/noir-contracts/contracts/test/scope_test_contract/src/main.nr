@@ -29,7 +29,7 @@ pub contract ScopeTest {
     #[external("private")]
     fn create_note(owner: AztecAddress, value: Field) {
         let note = FieldNote { value };
-        self.storage.note.at(owner).initialize(note).deliver(MessageDelivery::onchain_constrained());
+        self.storage.note.at(owner).initialize(note).deliver(MessageDelivery::onchain_unconstrained());
     }
 
     /// Reads the note owned by the specified owner and returns its value.

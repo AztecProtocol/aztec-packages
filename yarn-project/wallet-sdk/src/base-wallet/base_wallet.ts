@@ -41,12 +41,7 @@ import {
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import {
-  type ContractInstanceWithAddress,
-  type NodeInfo,
-  computePartialAddress,
-  getContractClassFromArtifact,
-} from '@aztec/stdlib/contract';
+import { type ContractInstancePreimage, type NodeInfo, computePartialAddress } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
 import { Gas, GasFees, GasSettings, ManaUsageEstimate } from '@aztec/stdlib/gas';
 import {
@@ -54,6 +49,7 @@ import {
   computeSiloedPublicInitializationNullifier,
 } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import { type MasterSecretKeys, deriveKeys, deriveKeysFromMasterSecretKeys } from '@aztec/stdlib/keys';
 import {
   BlockHeader,
   ExecutionPayload,
@@ -115,6 +111,9 @@ export type CompleteFeeOptionsConfig = {
 export abstract class BaseWallet implements Wallet {
   protected minFeePadding = 0.5;
   protected cancellableTransactions = false;
+  // Poll interval (in seconds) injected into sendTx waits when the caller does not specify one. Left undefined on
+  // production wallets so the DefaultWaitOpts 1s cadence stands; test wallets talking to in-process nodes lower it.
+  protected defaultWaitInterval?: number;
   // A wallet is instantiated for a particular chain, so chain info never changes during its lifetime.
   // We cache it here because getChainInfo is called frequently (every tx simulation, send, auth wit, etc.).
   private nodeInfoPromise: Promise<NodeInfo> | undefined;
@@ -129,7 +128,7 @@ export abstract class BaseWallet implements Wallet {
   protected scopesFrom(from: AztecAddress | NoFrom, additionalScopes: AztecAddress[] = []): AztecAddress[] {
     const allScopes = from === NO_FROM ? additionalScopes : [from, ...additionalScopes];
     const scopeSet = new Set(allScopes.map(address => address.toString()));
-    return [...scopeSet].map(AztecAddress.fromString);
+    return [...scopeSet].map(AztecAddress.fromStringUnsafe);
   }
 
   /**
@@ -155,8 +154,8 @@ export abstract class BaseWallet implements Wallet {
    * @returns The aliased collection of AztecAddresses that form this wallet's address book
    */
   async getAddressBook(): Promise<Aliased<AztecAddress>[]> {
-    const senders: AztecAddress[] = await this.pxe.getSenders();
-    return senders.map(sender => ({ item: sender, alias: '' }));
+    const sources = await this.pxe.getTaggingSecretSources({ kind: 'address-derived' });
+    return sources.map(source => ({ item: source.sender, alias: '' }));
   }
 
   /**
@@ -346,46 +345,42 @@ export abstract class BaseWallet implements Wallet {
     }
   }
 
-  registerSender(address: AztecAddress, _alias: string = ''): Promise<AztecAddress> {
-    return this.pxe.registerSender(address);
+  async registerSender(address: AztecAddress, _alias: string = ''): Promise<AztecAddress> {
+    await this.pxe.registerTaggingSecretSource({ kind: 'address-derived', sender: address });
+    return address;
   }
 
   async registerContract(
-    instance: ContractInstanceWithAddress,
+    instance: ContractInstancePreimage,
     artifact?: ContractArtifact,
-    secretKey?: Fr,
-  ): Promise<ContractInstanceWithAddress> {
-    const existingInstance = await this.pxe.getContractInstance(instance.address);
-
-    if (existingInstance) {
-      // Instance already registered in the wallet
-      if (artifact) {
-        const thisContractClass = await getContractClassFromArtifact(artifact);
-        if (!thisContractClass.id.equals(existingInstance.currentContractClassId)) {
-          // wallet holds an outdated version of this contract
-          await this.pxe.updateContract(instance.address, artifact);
-          instance.currentContractClassId = thisContractClass.id;
-        }
-      }
-      // If no artifact provided, we just use the existing registration
-    } else {
-      // Instance not registered yet
-      if (!artifact) {
-        // Try to get the artifact from the wallet's contract class storage
-        artifact = await this.pxe.getContractArtifact(instance.currentContractClassId);
-        if (!artifact) {
-          throw new Error(
-            `Cannot register contract at ${instance.address.toString()}: artifact is required but not provided, and wallet does not have the artifact for contract class ${instance.currentContractClassId.toString()}`,
-          );
-        }
-      }
-      await this.pxe.registerContract({ artifact, instance });
+    secretKeyOrKeys?: Fr | MasterSecretKeys,
+  ): Promise<void> {
+    // Classes and instances are registered independently: register the artifact (if provided) then the instance.
+    // Neither call validates that the artifact matches the class the instance runs, a missing artifact only surfaces
+    // when the contract is later simulated.
+    if (artifact) {
+      await this.pxe.registerContractClass(artifact);
     }
+    const contractAddress = await this.pxe.registerContract(instance);
 
-    if (secretKey) {
-      await this.pxe.registerAccount(secretKey, await computePartialAddress(instance));
+    if (secretKeyOrKeys) {
+      // PXE never receives the account seed (from which the message-signing/fallback secret keys could be re-derived):
+      // the wallet derives the keys here. Of these, PXE only reads and stores the four privacy secret keys and the
+      // message-signing and fallback *public* keys — it never touches the message-signing or fallback secret keys.
+      //
+      // Since PXE recomputes the address from those keys, we assert it matches the instance's address: a mismatch means
+      // the provided keys don't correspond to this account.
+      const derivedKeys =
+        secretKeyOrKeys instanceof Fr
+          ? await deriveKeys(secretKeyOrKeys)
+          : await deriveKeysFromMasterSecretKeys(secretKeyOrKeys);
+      const { address } = await this.pxe.registerAccount(derivedKeys, await computePartialAddress(instance));
+      if (!address.equals(contractAddress)) {
+        throw new Error(
+          `Registered account address ${address.toString()} does not match contract instance address ${contractAddress.toString()}: the provided keys do not correspond to this account.`,
+        );
+      }
     }
-    return instance;
   }
 
   registerContractClass(artifact: ContractArtifact): Promise<void> {
@@ -544,7 +539,11 @@ export abstract class BaseWallet implements Wallet {
     }
 
     // Otherwise, wait for the full receipt (default behavior on wait: undefined)
-    const waitOpts = typeof opts.wait === 'object' ? opts.wait : undefined;
+    const callerWaitOpts = typeof opts.wait === 'object' ? opts.wait : undefined;
+    const waitOpts =
+      this.defaultWaitInterval !== undefined && callerWaitOpts?.interval === undefined
+        ? { ...callerWaitOpts, interval: this.defaultWaitInterval }
+        : callerWaitOpts;
     const receipt = await waitForTx(this.aztecNode, txHash, waitOpts);
 
     // Display debug logs from public execution if present (served in test mode only)
@@ -564,7 +563,11 @@ export abstract class BaseWallet implements Wallet {
     if (!instance) {
       return undefined;
     }
-    const artifact = await this.pxe.getContractArtifact(instance.currentContractClassId);
+    // Contract names are class-stable (an upgrade preserves the contract name), so the original class artifact is a
+    // sufficient source for the display name without resolving the current class against the node.
+    // TODO: if a contract were to be upgraded and its original artifact never registered, then this would fail and we'd
+    // want to fallback to the current class.
+    const artifact = await this.pxe.getContractArtifact(instance.originalContractClassId);
     return artifact?.name;
   }
 

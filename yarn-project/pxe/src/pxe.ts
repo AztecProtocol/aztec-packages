@@ -1,10 +1,12 @@
 import type { PrivateEventFilter } from '@aztec/aztec.js/wallet';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { Point } from '@aztec/foundation/curves/grumpkin';
 import { type Logger, type LoggerBindings, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
 import { KeyStore } from '@aztec/key-store';
+import type { AccountPrivacyKeys, AccountPrivacySecretKeys } from '@aztec/key-store';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { type ProtocolContractsProvider, protocolContractNames } from '@aztec/protocol-contracts';
 import type { CircuitSimulator } from '@aztec/simulator/client';
@@ -12,6 +14,7 @@ import {
   type ContractArtifact,
   EventSelector,
   FunctionCall,
+  type FunctionSelector,
   FunctionType,
   decodeFunctionSignature,
 } from '@aztec/stdlib/abi';
@@ -20,10 +23,11 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GENESIS_BLOCK_HEADER_HASH, type L2TipsProvider } from '@aztec/stdlib/block';
 import {
   CompleteAddress,
+  type ContractInstancePreimage,
+  type ContractInstancePreimageWithAddress,
   type ContractInstanceWithAddress,
   type PartialAddress,
   computeContractAddressFromInstance,
-  getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
 import type { AztecNode, AztecNodeDebug, PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
@@ -32,6 +36,8 @@ import type {
   PrivateKernelExecutionProofOutput,
   PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/stdlib/kernel';
+import { computeAddressSecret } from '@aztec/stdlib/keys';
+import { deriveEcdhSharedSecretPoint } from '@aztec/stdlib/logs';
 import {
   BlockHeader,
   type ContractOverrides,
@@ -54,21 +60,20 @@ import { inspect } from 'util';
 
 import { BlockSynchronizer } from './block_synchronizer/index.js';
 import type { PXEConfig } from './config/index.js';
+import { ContractClassService } from './contract/contract_class_service.js';
+import { ContractSyncService } from './contract/contract_sync_service.js';
 import { BenchmarkedNodeFactory } from './contract_function_simulator/benchmarked_node.js';
 import {
   ContractFunctionSimulator,
   generateSimulatedProvingResult,
 } from './contract_function_simulator/contract_function_simulator.js';
-import { ProxiedContractStoreFactory } from './contract_function_simulator/proxied_contract_data_source.js';
 import { displayDebugLogs } from './contract_logging.js';
-import { ContractSyncService } from './contract_sync/contract_sync_service.js';
-import { readCurrentClassId } from './contract_sync/helpers.js';
 import { PXEDebugUtils } from './debug/pxe_debug_utils.js';
 import { enrichPublicSimulationError, enrichSimulationError } from './error_enriching.js';
 import { PrivateEventFilterValidator } from './events/private_event_filter_validator.js';
 import type { ExecutionHooks } from './hooks/index.js';
 import { JobCoordinator } from './job_coordinator/job_coordinator.js';
-import { MessageContextService } from './messages/message_context_service.js';
+import { TxResolverService } from './messages/tx_resolver_service.js';
 import {
   PrivateKernelExecutionProver,
   type PrivateKernelExecutionProverConfig,
@@ -78,12 +83,16 @@ import { AddressStore } from './storage/address_store/address_store.js';
 import { AnchorBlockStore } from './storage/anchor_block_store/anchor_block_store.js';
 import { CapsuleStore } from './storage/capsule_store/capsule_store.js';
 import { ContractStore } from './storage/contract_store/contract_store.js';
+import { FactStore } from './storage/fact_store/index.js';
 import { NoteStore } from './storage/note_store/note_store.js';
 import { openPxeStores } from './storage/open_pxe_stores.js';
 import { PrivateEventStore } from './storage/private_event_store/private_event_store.js';
 import { RecipientTaggingStore } from './storage/tagging_store/recipient_tagging_store.js';
-import { SenderAddressBookStore } from './storage/tagging_store/sender_address_book_store.js';
 import { SenderTaggingStore } from './storage/tagging_store/sender_tagging_store.js';
+import {
+  type SharedSecretKind,
+  TaggingSecretSourcesStore,
+} from './storage/tagging_store/tagging_secret_sources_store.js';
 import { persistSenderTaggingIndexRangesForTx } from './tagging/index.js';
 
 export type PackedPrivateEvent = InTx & {
@@ -187,6 +196,34 @@ export type PXECreateArgs = {
   hooks?: ExecutionHooks;
 };
 
+/** A source from which PXE derives the tagging secrets it scans for to discover incoming private logs. */
+export type TaggingSecretSource =
+  /**
+   * Derives a shared secret via ECDH from an external `sender` address against every account registered in this PXE
+   * (present and future), so registering one sender applies it to all of them. The address is not secret, so unlike
+   * `arbitrary-secret` it can be reused freely across recipients.
+   */
+  | { kind: 'address-derived'; sender: AztecAddress }
+  /**
+   * A shared secret point provided directly, scoped to a single recipient. It bypasses ECDH, so it must not be
+   * reused across recipients (each would then be able to find the others' tags).
+   */
+  | { kind: 'arbitrary-secret'; recipient: AztecAddress; secret: Point }
+  /**
+   * A handshake known by the x-coordinate of its ephemeral public key (the value a recipient learns while authorizing
+   * an interactive handshake, which emits no discoverable announcement). The ephemeral key's y-coordinate is always
+   * positive by protocol construction, so the x-coordinate alone identifies it.
+   */
+  | { kind: 'handshake'; recipient: AztecAddress; ephPk: Fr };
+
+/**
+ * The registered form of a {@link TaggingSecretSource}.
+ */
+export type RegisteredTaggingSecretSource =
+  | Exclude<TaggingSecretSource, { kind: 'handshake' }>
+  /** A handshake's resolved shared secret, derived at registration from the handshake's ephemeral key. */
+  | { kind: 'handshake'; recipient: AztecAddress; secret: Point };
+
 /**
  * Private eXecution Environment (PXE) is a library used by wallets to simulate private phase of transactions and to
  * manage private state of users.
@@ -201,14 +238,16 @@ export class PXE {
     private contractStore: ContractStore,
     private noteStore: NoteStore,
     private capsuleStore: CapsuleStore,
+    private factStore: FactStore,
     private anchorBlockStore: AnchorBlockStore,
     private senderTaggingStore: SenderTaggingStore,
-    private senderAddressBookStore: SenderAddressBookStore,
+    private taggingSecretSourcesStore: TaggingSecretSourcesStore,
     private recipientTaggingStore: RecipientTaggingStore,
     private addressStore: AddressStore,
     private privateEventStore: PrivateEventStore,
     private contractSyncService: ContractSyncService,
-    private messageContextService: MessageContextService,
+    private contractClassService: ContractClassService,
+    private txResolver: TxResolverService,
     private l2TipsStore: L2TipsProvider,
     private simulator: CircuitSimulator,
     private proverEnabled: boolean,
@@ -269,19 +308,22 @@ export class PXE {
       noteStore,
       anchorBlockStore,
       senderTaggingStore,
-      senderAddressBookStore,
+      taggingSecretSourcesStore,
       recipientTaggingStore,
       capsuleStore,
       keyStore,
       l2TipsStore,
+      factStore,
     } = openPxeStores(store, initialBlockHash);
+    const contractClassService = new ContractClassService(node, contractStore);
     const contractSyncService = new ContractSyncService(
       node,
       contractStore,
+      contractClassService,
       noteStore,
       createLogger('pxe:contract_sync', bindings),
     );
-    const messageContextService = new MessageContextService(node);
+    const txResolver = new TxResolverService(node);
 
     const synchronizer = new BlockSynchronizer(
       node,
@@ -289,8 +331,10 @@ export class PXE {
       anchorBlockStore,
       noteStore,
       privateEventStore,
+      factStore,
       l2TipsStore,
       contractSyncService,
+      contractClassService,
       config,
       bindings,
     );
@@ -302,6 +346,7 @@ export class PXE {
       recipientTaggingStore,
       privateEventStore,
       noteStore,
+      factStore,
       contractSyncService,
     ]);
 
@@ -318,14 +363,16 @@ export class PXE {
       contractStore,
       noteStore,
       capsuleStore,
+      factStore,
       anchorBlockStore,
       senderTaggingStore,
-      senderAddressBookStore,
+      taggingSecretSourcesStore,
       recipientTaggingStore,
       addressStore,
       privateEventStore,
       contractSyncService,
-      messageContextService,
+      contractClassService,
+      txResolver,
       l2TipsStore,
       simulator,
       proverEnabled,
@@ -356,10 +403,10 @@ export class PXE {
   // Internal methods
 
   #getSimulatorForTx(overrides?: { contracts?: ContractOverrides }) {
-    const proxyContractStore = ProxiedContractStoreFactory.create(this.contractStore, overrides?.contracts);
-
     return new ContractFunctionSimulator({
-      contractStore: proxyContractStore,
+      contractStore: this.contractStore,
+      contractClassService: this.contractClassService,
+      overrides: overrides?.contracts,
       noteStore: this.noteStore,
       keyStore: this.keyStore,
       addressStore: this.addressStore,
@@ -367,14 +414,39 @@ export class PXE {
       l2TipsStore: this.l2TipsStore,
       senderTaggingStore: this.senderTaggingStore,
       recipientTaggingStore: this.recipientTaggingStore,
-      senderAddressBookStore: this.senderAddressBookStore,
+      taggingSecretSourcesStore: this.taggingSecretSourcesStore,
       capsuleStore: this.capsuleStore,
+      factStore: this.factStore,
       privateEventStore: this.privateEventStore,
       simulator: this.simulator,
       contractSyncService: this.contractSyncService,
-      messageContextService: this.messageContextService,
+      txResolver: this.txResolver,
       hooks: this.hooks,
     });
+  }
+
+  /** Best-effort debug function name for the class `address` runs at `anchorBlockHeader`. Used for log display only. */
+  async #getDebugFunctionName(
+    address: AztecAddress,
+    selector: FunctionSelector,
+    anchorBlockHeader: BlockHeader,
+  ): Promise<string> {
+    try {
+      const classId = await this.contractClassService.getCurrentClassId(address, anchorBlockHeader);
+      return classId ? await this.contractStore.getDebugFunctionName(classId, selector) : `${address}:${selector}`;
+    } catch {
+      return `${address}:${selector}`;
+    }
+  }
+
+  /** Best-effort debug contract name for the class `address` runs at `anchorBlockHeader`. Used for log display only. */
+  async #getDebugContractName(address: AztecAddress, anchorBlockHeader: BlockHeader): Promise<string | undefined> {
+    try {
+      const classId = await this.contractClassService.getCurrentClassId(address, anchorBlockHeader);
+      return classId ? await this.contractStore.getDebugContractName(classId) : undefined;
+    } catch {
+      return undefined;
+    }
   }
 
   #contextualizeError(err: Error, ...context: string[]): Error {
@@ -440,7 +512,14 @@ export class PXE {
 
   async #registerPreloadedContracts() {
     const contracts = await this.preloadedContractsProvider.getPreloadedContracts();
-    await Promise.all(contracts.map(({ instance, artifact }) => this.registerContract({ instance, artifact })));
+    await Promise.all(
+      contracts.map(async ({ instance, artifact }) => {
+        if (artifact) {
+          await this.registerContractClass(artifact);
+        }
+        await this.registerContract(instance);
+      }),
+    );
     this.log.verbose(`Registered preloaded contracts in pxe`, {
       contracts: contracts.map(({ instance }) => instance.address.toString()),
     });
@@ -477,8 +556,6 @@ export class PXE {
       );
 
       const result = await contractFunctionSimulator.run(txRequest, {
-        contractAddress,
-        selector: functionSelector,
         anchorBlockHeader,
         scopes,
         jobId,
@@ -488,7 +565,7 @@ export class PXE {
       return result;
     } catch (err) {
       if (err instanceof SimulationError) {
-        await enrichSimulationError(err, this.contractStore, this.log);
+        await enrichSimulationError(err, this.contractStore, this.contractClassService, anchorBlockHeader, this.log);
       }
       throw err;
     }
@@ -523,7 +600,8 @@ export class PXE {
       return { result, offchainEffects };
     } catch (err) {
       if (err instanceof SimulationError) {
-        await enrichSimulationError(err, this.contractStore, this.log);
+        const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
+        await enrichSimulationError(err, this.contractStore, this.contractClassService, anchorBlockHeader, this.log);
       }
       throw err;
     }
@@ -547,7 +625,14 @@ export class PXE {
     } catch (err) {
       if (err instanceof SimulationError) {
         try {
-          await enrichPublicSimulationError(err, this.contractStore, this.log);
+          const anchorBlockHeader = await this.anchorBlockStore.getBlockHeader();
+          await enrichPublicSimulationError(
+            err,
+            this.contractStore,
+            this.contractClassService,
+            anchorBlockHeader,
+            this.log,
+          );
         } catch (enrichErr) {
           this.log.error(`Failed to enrich public simulation error: ${enrichErr}`);
         }
@@ -574,7 +659,13 @@ export class PXE {
     anchorBlockHeader: BlockHeader,
     config: PrivateKernelExecutionProverConfig,
   ): Promise<PrivateKernelExecutionProofOutput<PrivateKernelTailCircuitPublicInputs>> {
-    const kernelOracle = new PrivateKernelOracle(this.contractStore, this.keyStore, this.node, anchorBlockHeader);
+    const kernelOracle = new PrivateKernelOracle(
+      this.contractStore,
+      this.contractClassService,
+      this.keyStore,
+      this.node,
+      anchorBlockHeader,
+    );
     const kernelTraceProver = new PrivateKernelExecutionProver(
       kernelOracle,
       proofCreator,
@@ -618,11 +709,11 @@ export class PXE {
   }
 
   /**
-   * Returns the contract instance for a given address, if it's registered in the PXE.
+   * Returns the address preimage of the contract instance at a given address, if it's registered in the PXE.
    * @param address - The contract address.
-   * @returns The contract instance if found, undefined otherwise.
+   * @returns The contract instance address preimage if found, undefined otherwise.
    */
-  public getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
+  public getContractInstance(address: AztecAddress): Promise<ContractInstancePreimageWithAddress | undefined> {
     return this.contractStore.getContractInstance(address);
   }
 
@@ -636,18 +727,22 @@ export class PXE {
   }
 
   /**
-   * Registers a user account in PXE given its master encryption private key.
-   * Once a new account is registered, the PXE will trial-decrypt all published notes on
-   * the chain and store those that correspond to the registered account. Will do nothing if the
-   * account is already registered.
+   * Registers a user account in PXE.
    *
-   * @param secretKey - Secret key of the corresponding user master public key.
+   * PXE holds the account's four privacy secret keys but only the *public* message-signing and fallback keys: their
+   * secret keys are withheld, since PXE is not trusted to hold them.
+   *
+   * Does nothing if the account is already registered.
+   *
+   * The four privacy secret keys can be retrieved later with {@link getAccountSecretKeys}.
+   *
+   * @param keys - The account's privacy keys: four secret keys plus the message-signing and fallback public keys.
    * @param partialAddress - The partial address of the account contract corresponding to the account being registered.
    * @returns The complete address of the account.
    */
-  public async registerAccount(secretKey: Fr, partialAddress: PartialAddress): Promise<CompleteAddress> {
+  public async registerAccount(keys: AccountPrivacyKeys, partialAddress: PartialAddress): Promise<CompleteAddress> {
     const accounts = await this.keyStore.getAccounts();
-    const accountCompleteAddress = await this.keyStore.addAccount(secretKey, partialAddress);
+    const accountCompleteAddress = await this.keyStore.addAccount(keys, partialAddress);
     if (accounts.some(a => a.equals(accountCompleteAddress.address))) {
       this.log.info(`Account:\n "${accountCompleteAddress.address.toString()}"\n already registered.`);
       return accountCompleteAddress;
@@ -661,62 +756,186 @@ export class PXE {
   }
 
   /**
-   * Registers a sender in this PXE.
+   * Retrieves the four privacy secret keys PXE holds for a registered account (nullifier-hiding, incoming-viewing,
+   * outgoing-viewing, tagging).
    *
-   * After registering a new sender, the PXE will sync private logs that are tagged with this sender's address.
-   * Will do nothing if the address is already registered.
+   * These do NOT grant control over an account's assets, e.g. they are insufficient to impersonate the account or to
+   * spend notes, but they _do_ guard the account's privacy. Parties that have knowledge of these keys can decrypt all
+   * messages sent to the account, discover all of their on-chain activity, including notes, events, etc.
    *
-   * @param sender - Address of the sender to register.
-   * @returns The address of the sender.
-   * TODO: It's strange that we return the address here and I (benesjan) think we should drop the return value.
+   * Security is paramount when handling these keys, which should itself be a very rare occurrence. Other than exporting
+   * and then importing an account into a separate PXE/wallet, there is typically no need for a wallet to ever access
+   * these keys. Applications should NEVER be given access to them.
+   *
+   * @throws If the account is not registered.
    */
-  public async registerSender(sender: AztecAddress): Promise<AztecAddress> {
-    if (!(await sender.isValid())) {
+  public getAccountSecretKeys(account: AztecAddress): Promise<AccountPrivacySecretKeys> {
+    return this.keyStore.getAccountSecretKeys(account);
+  }
+
+  /**
+   * Registers a source from which this PXE derives the tagging secrets it scans for to discover incoming private logs.
+   * See {@link TaggingSecretSource} for the meaning of each variant. Does nothing if the source is already registered.
+   *
+   * After a new source is added we clear the cache tracking which contracts have finished syncing, so every contract
+   * re-syncs against the new source's logs (whose notes/events could belong to any contract). Already-discovered
+   * notes/events are not discarded.
+   */
+  public async registerTaggingSecretSource(source: TaggingSecretSource): Promise<void> {
+    let wasAdded: boolean;
+
+    switch (source.kind) {
+      case 'address-derived':
+        wasAdded = await this.#registerSender(source.sender);
+        break;
+      case 'arbitrary-secret':
+        wasAdded = await this.#registerSharedSecret(source.recipient, 'arbitrary-secret', source.secret);
+        break;
+      case 'handshake':
+        wasAdded = await this.#registerSharedSecret(
+          source.recipient,
+          'handshake',
+          await this.#deriveHandshakeSecret(source.recipient, source.ephPk),
+        );
+        break;
+      default: {
+        const _: never = source;
+        throw new Error('Unhandled tagging secret source kind');
+      }
+    }
+
+    if (wasAdded) {
+      // Queued to avoid wiping while a job is in flight.
+      await this.#putInJobQueue(() => Promise.resolve(this.contractSyncService.wipe()));
+    }
+  }
+
+  /**
+   * Removes a previously registered tagging secret source, identified by its registered form (see
+   * {@link getTaggingSecretSources}). Does nothing if it was not registered.
+   */
+  public async removeTaggingSecretSource(source: RegisteredTaggingSecretSource): Promise<void> {
+    switch (source.kind) {
+      case 'address-derived': {
+        const { sender } = source;
+        const wasRemoved = await this.taggingSecretSourcesStore.removeSender(sender);
+        this.log.info(
+          wasRemoved
+            ? `Removed sender:\n ${sender.toString()}`
+            : `Sender:\n "${sender.toString()}"\n not registered in PXE.`,
+        );
+        break;
+      }
+      case 'arbitrary-secret':
+      case 'handshake': {
+        const { kind, recipient, secret } = source;
+        const wasRemoved = await this.taggingSecretSourcesStore.removeSharedSecret(recipient, kind, secret);
+        this.log.info(
+          wasRemoved
+            ? `Removed ${kind} shared secret for recipient:\n ${recipient.toString()}`
+            : `No ${kind} shared secret registered for recipient:\n ${recipient.toString()}`,
+        );
+        break;
+      }
+      default: {
+        const _: never = source;
+        throw new Error('Unhandled tagging secret source kind');
+      }
+    }
+  }
+
+  /**
+   * Retrieves the tagging secret sources registered in this PXE, in their registered form. Without a filter it
+   * returns every source; pass `{ kind }` to narrow to a single variant. See {@link RegisteredTaggingSecretSource}.
+   */
+  public getTaggingSecretSources<K extends RegisteredTaggingSecretSource['kind']>(filter: {
+    kind: K;
+  }): Promise<Extract<RegisteredTaggingSecretSource, { kind: K }>[]>;
+  public getTaggingSecretSources(): Promise<RegisteredTaggingSecretSource[]>;
+  public async getTaggingSecretSources(filter?: {
+    kind?: RegisteredTaggingSecretSource['kind'];
+  }): Promise<RegisteredTaggingSecretSource[]> {
+    const [senders, secrets] = await Promise.all([
+      this.taggingSecretSourcesStore.getSenders(),
+      this.taggingSecretSourcesStore.getAllSharedSecrets(),
+    ]);
+
+    const sources: RegisteredTaggingSecretSource[] = [
+      ...senders.map((sender): RegisteredTaggingSecretSource => ({ kind: 'address-derived', sender })),
+      ...secrets.map(({ recipient, kind, secret }): RegisteredTaggingSecretSource => ({ kind, recipient, secret })),
+    ];
+
+    return filter?.kind ? sources.filter(source => source.kind === filter.kind) : sources;
+  }
+
+  /** Registers a sender, skipping addresses that belong to a local account. Returns whether it was newly added. */
+  async #registerSender(address: AztecAddress): Promise<boolean> {
+    if (!(await address.isValid())) {
       throw new Error(
-        `Address ${sender} is not valid: it does not correspond to a point on the Grumpkin curve. Cannot register it as a sender.`,
+        `Address ${address} is not valid: it does not correspond to a point on the Grumpkin curve. Cannot register it as a sender.`,
       );
     }
 
     const accounts = await this.keyStore.getAccounts();
-    if (accounts.some(a => a.equals(sender))) {
-      this.log.info(`Sender:\n "${sender.toString()}"\n already registered.`);
-      return sender;
+    if (accounts.some(a => a.equals(address))) {
+      this.log.info(`Sender:\n "${address.toString()}"\n already registered.`);
+      return false;
     }
 
-    const wasAdded = await this.senderAddressBookStore.addSender(sender);
-
-    if (wasAdded) {
-      this.log.info(`Added sender:\n ${sender.toString()}`);
-      // Wipe the entire sync cache: the new sender's tagged logs could contain notes/events for any contract, so
-      // all contracts must re-sync to discover them. Queued to avoid wiping while a job is in flight.
-      await this.#putInJobQueue(() => Promise.resolve(this.contractSyncService.wipe()));
-    } else {
-      this.log.info(`Sender:\n "${sender.toString()}"\n already registered.`);
-    }
-
-    return sender;
+    const wasAdded = await this.taggingSecretSourcesStore.addSender(address);
+    this.log.info(
+      wasAdded ? `Added sender:\n ${address.toString()}` : `Sender:\n "${address.toString()}"\n already registered.`,
+    );
+    return wasAdded;
   }
 
   /**
-   * Retrieves senders registered in this PXE.
-   * @returns Senders registered in this PXE.
+   * Derives the shared secret of a handshake from its ephemeral public key: `S = addressSecret(recipient) * ephPk`,
+   * the same derivation the recipient-side scan uses for handshakes discovered onchain. The ephemeral key is
+   * reconstructed from its x-coordinate with a positive y, matching how the protocol generates it.
+   *
+   * @throws If `ephPk` is not the x-coordinate of a Grumpkin curve point, or if `recipient` is not an account of
+   * this PXE, since the derivation needs its keys.
    */
-  public getSenders(): Promise<AztecAddress[]> {
-    return this.senderAddressBookStore.getSenders();
+  async #deriveHandshakeSecret(recipient: AztecAddress, ephPk: Fr): Promise<Point> {
+    let ephPkPoint: Point;
+    try {
+      ephPkPoint = await Point.fromXAndSign(ephPk, true);
+    } catch {
+      throw new Error(`Ephemeral public key x-coordinate ${ephPk} does not correspond to a Grumpkin curve point.`);
+    }
+
+    const completeAddress = await this.addressStore.getCompleteAddress(recipient);
+    if (!completeAddress || !(await this.keyStore.hasAccount(recipient))) {
+      throw new Error(
+        `Recipient ${recipient} is not an account of this PXE. A handshake's shared secret can only be derived for an account whose keys are held.`,
+      );
+    }
+
+    const ivskM = await this.keyStore.getMasterIncomingViewingSecretKey(recipient);
+    const addressSecret = await computeAddressSecret(await completeAddress.getPreaddress(), ivskM);
+    return deriveEcdhSharedSecretPoint(addressSecret, ephPkPoint);
   }
 
-  /**
-   * Removes a sender registered in this PXE.
-   * @param sender - The address of the sender to remove.
-   */
-  public async removeSender(sender: AztecAddress): Promise<void> {
-    const wasRemoved = await this.senderAddressBookStore.removeSender(sender);
-
-    if (wasRemoved) {
-      this.log.info(`Removed sender:\n ${sender.toString()}`);
-    } else {
-      this.log.info(`Sender:\n "${sender.toString()}"\n not registered in PXE.`);
+  /** Registers a resolved shared secret scoped to a recipient. Returns whether it was newly added. */
+  async #registerSharedSecret(recipient: AztecAddress, kind: SharedSecretKind, secret: Point): Promise<boolean> {
+    if (!(await recipient.isValid())) {
+      throw new Error(
+        `Recipient ${recipient} is not valid: it does not correspond to a point on the Grumpkin curve. Cannot register a shared secret for it.`,
+      );
     }
+
+    if (secret.isZero() || !secret.isOnCurve()) {
+      throw new Error(`Shared secret ${secret} is not a valid non-zero point on the Grumpkin curve.`);
+    }
+
+    const wasAdded = await this.taggingSecretSourcesStore.addSharedSecret(recipient, kind, secret);
+    this.log.info(
+      wasAdded
+        ? `Added ${kind} shared secret for recipient:\n ${recipient.toString()}`
+        : `${kind} shared secret already registered for recipient:\n ${recipient.toString()}`,
+    );
+    return wasAdded;
   }
 
   /**
@@ -740,98 +959,33 @@ export class PXE {
    */
   public async registerContractClass(artifact: ContractArtifact): Promise<void> {
     const contractClassId = await this.contractStore.addContractArtifact(artifact);
+    // Publishing the artifact's public function signatures to the node is part of "registering a class", so that
+    // node-side debugging works regardless of which entrypoint (registerContractClass or registerContract) was used.
+    const publicFunctionSignatures = artifact.functions
+      .filter(fn => fn.functionType === FunctionType.PUBLIC)
+      .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
+    if (publicFunctionSignatures.length > 0) {
+      await this.nodeDebug?.registerContractFunctionSignatures(publicFunctionSignatures);
+    }
     this.log.info(`Added contract class ${artifact.name} with id ${contractClassId}`);
   }
 
   /**
-   * Adds deployed contracts to the PXE. Deployed contract information is used to access the
-   * contract code when simulating local transactions. This is automatically called by aztec.js when
-   * deploying a contract. Dapps that wish to interact with contracts already deployed should register
-   * these contracts in their users' PXE through this method.
+   * Registers a deployed contract instance so its private state can be synced and its functions simulated. The
+   * artifact for the class the instance runs must be registered separately via {@link registerContractClass}, before
+   * or after this call; registration performs no validation, so a missing or mismatched artifact only surfaces when
+   * the contract is later simulated. This is automatically called by aztec.js when deploying a contract.
    *
-   * @param contract - A contract instance to register, with an optional artifact which can be omitted if the contract class has already been registered.
+   * @param instance - The address preimage of the contract instance to register. The address is derived from it.
+   * @returns The address of the registered instance.
    */
-  public async registerContract(contract: { instance: ContractInstanceWithAddress; artifact?: ContractArtifact }) {
-    const { instance } = contract;
-    let { artifact } = contract;
-
-    if (artifact) {
-      // If the user provides an artifact, validate it against the expected class id and register it
-      const contractClass = await getContractClassFromArtifact(artifact);
-      if (!contractClass.id.equals(instance.currentContractClassId)) {
-        throw new Error(
-          `Artifact does not match expected class id (computed ${contractClass.id} but instance refers to ${instance.currentContractClassId})`,
-        );
-      }
-      const computedAddress = await computeContractAddressFromInstance(instance);
-      if (!computedAddress.equals(instance.address)) {
-        throw new Error('Added a contract in which the address does not match the contract instance.');
-      }
-
-      await this.contractStore.addContractArtifact(artifact, contractClass);
-
-      const publicFunctionSignatures = artifact.functions
-        .filter(fn => fn.functionType === FunctionType.PUBLIC)
-        .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
-      if (publicFunctionSignatures.length > 0) {
-        await this.nodeDebug?.registerContractFunctionSignatures(publicFunctionSignatures);
-      }
-    } else {
-      // Otherwise, make sure there is an artifact already registered for that class id
-      artifact = await this.contractStore.getContractArtifact(instance.currentContractClassId);
-      if (!artifact) {
-        throw new Error(
-          `Artifact not found when registering an instance. Contract class: ${instance.currentContractClassId}.`,
-        );
-      }
-    }
-
-    await this.contractStore.addContractInstance(instance);
-    this.log.info(
-      `Added contract ${artifact.name} at ${instance.address.toString()} with class ${instance.currentContractClassId}`,
-    );
-  }
-
-  /**
-   * Updates a deployed contract in the PXE. This is used to update the contract artifact when
-   * an update has happened, so the new code can be used in the simulation of local transactions.
-   * This is called by aztec.js when instantiating a contract in a given address with a mismatching artifact.
-   * @param contractAddress - The address of the contract to update.
-   * @param artifact - The updated artifact for the contract.
-   * @throws If the artifact's contract class is not found in the PXE or if the contract class is different from
-   * the current one (current one from the point of view of the node to which the PXE is connected).
-   */
-  public updateContract(contractAddress: AztecAddress, artifact: ContractArtifact): Promise<void> {
-    // We disable concurrently updating contracts to avoid concurrently syncing with the node, or changing a contract's
-    // class while we're simulating it.
+  public registerContract(instance: ContractInstancePreimage): Promise<AztecAddress> {
+    // Run inside the job queue so we can't race a concurrent simulation while writing the instance to the store.
     return this.#putInJobQueue(async () => {
-      const currentInstance = await this.contractStore.getContractInstance(contractAddress);
-      if (!currentInstance) {
-        throw new Error(`Instance not found when updating a contract. Contract address: ${contractAddress}.`);
-      }
-      const contractClass = await getContractClassFromArtifact(artifact);
-      await this.#maybeSync();
-
-      const header = await this.anchorBlockStore.getBlockHeader();
-
-      const currentClassId = await readCurrentClassId(contractAddress, currentInstance, this.node, header);
-      if (!contractClass.id.equals(currentClassId)) {
-        throw new Error('Could not update contract to a class different from the current one.');
-      }
-
-      const publicFunctionSignatures = artifact.functions
-        .filter(fn => fn.functionType === FunctionType.PUBLIC)
-        .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
-      if (publicFunctionSignatures.length > 0) {
-        await this.nodeDebug?.registerContractFunctionSignatures(publicFunctionSignatures);
-      }
-
-      currentInstance.currentContractClassId = contractClass.id;
-      await Promise.all([
-        this.contractStore.addContractArtifact(artifact, contractClass),
-        this.contractStore.addContractInstance(currentInstance),
-      ]);
-      this.log.info(`Updated contract ${artifact.name} at ${contractAddress.toString()} to class ${contractClass.id}`);
+      const address = await computeContractAddressFromInstance(instance);
+      await this.contractStore.addContractInstance({ ...instance, address });
+      this.log.info(`Added contract at ${address}`, { address });
+      return address;
     });
   }
 
@@ -1093,7 +1247,7 @@ export class PXE {
         if (skipKernels) {
           ({ publicInputs, executionSteps } = await generateSimulatedProvingResult(
             privateExecutionResult,
-            (addr, sel) => this.contractStore.getDebugFunctionName(addr, sel),
+            (addr, sel) => this.#getDebugFunctionName(addr, sel, anchorBlockHeader),
             this.node,
           ));
         } else {
@@ -1120,7 +1274,7 @@ export class PXE {
           publicOutput = await this.#simulatePublicCalls(simulatedTx, skipFeeEnforcement, overrides);
           publicSimulationTime = publicSimulationTimer.ms();
           if (publicOutput?.debugLogs?.length) {
-            await displayDebugLogs(publicOutput.debugLogs, addr => this.contractStore.getDebugContractName(addr));
+            await displayDebugLogs(publicOutput.debugLogs, addr => this.#getDebugContractName(addr, anchorBlockHeader));
           }
         }
 

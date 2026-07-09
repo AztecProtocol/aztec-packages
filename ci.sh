@@ -43,6 +43,7 @@ function print_usage {
   echo_cmd "shell-container"       "Shell into a running build container. Optional filter tokens (e.g. 'pr-123 bench') select the instance; defaults to the current branch."
   echo_cmd "shell-host"            "Shell into a running build host. Same instance selection as shell-container."
   echo_cmd "log"                   "Display the log of the given log ID."
+  echo_cmd "test-timings"          "Download per-test timing JSONL for a job: test-timings <ci_log_id> <folder>."
   echo_cmd "kill"                  "Terminate running build instances matching the filter tokens (default: current branch)."
   echo_cmd "draft"                 "Mark the current PR as draft (no automatic CI runs when pushing)."
   echo_cmd "ready"                 "Mark the current PR as ready (enable automatic CI runs when pushing)."
@@ -376,6 +377,21 @@ case "$cmd" in
     [ "${SKIP_NETWORK_DEPLOY:-0}" = "1" ] && skip_network_deploy=1
     bootstrap_ec2 "SKIP_NETWORK_DEPLOY=$skip_network_deploy ./bootstrap.sh ci-network-bench-10tps $*"
     ;;
+  network-inclusion-sweep)
+    # Args: <env_file> <namespace> [docker_image]
+    # Runs one inclusion-sweep point at TARGET_TPS against an existing
+    # network, tagged with BENCH_SWEEP_ID. The workflow deploys/tears down each
+    # point's namespace separately, so this is normally called with
+    # SKIP_NETWORK_DEPLOY=1. TARGET_TPS / BENCH_SWEEP_ID / BENCH_SWEEP_LABEL come
+    # from the caller's env and are threaded into the remote command.
+    export CI_DASHBOARD="network"
+    export JOB_ID="x-${2:?namespace is required}-network-inclusion-sweep" CPUS=16
+    export AWS_SHUTDOWN_TIME=${AWS_SHUTDOWN_TIME:-180}
+    export INSTANCE_POSTFIX="n-incl-sweep"
+    skip_network_deploy=0
+    [ "${SKIP_NETWORK_DEPLOY:-0}" = "1" ] && skip_network_deploy=1
+    bootstrap_ec2 "TARGET_TPS=${TARGET_TPS:-10} BENCH_SWEEP_ID=${BENCH_SWEEP_ID:-} BENCH_SWEEP_LABEL=${BENCH_SWEEP_LABEL:-inclusion-sweep} SKIP_NETWORK_DEPLOY=$skip_network_deploy ./bootstrap.sh ci-network-inclusion-sweep $*"
+    ;;
   network-teardown)
     # Args: <scenario> <namespace>
     export CI_DASHBOARD="network"
@@ -516,6 +532,29 @@ case "$cmd" in
         exit 1
       fi
     fi
+    ;;
+
+  test-timings)
+    # Download all per-test timing files for a CI job and gunzip them into a folder.
+    # ci_log_id is the job's top-level log id (the decimal id in its ci.aztec-labs.com URL).
+    # Each downloaded file is named after the test's individual log id (ci.aztec-labs.com/<log_id>).
+    # Usage: ./ci.sh test-timings <ci_log_id> <folder>
+    ci_log_id="${1:-}"
+    folder="${2:-}"
+    if [ -z "$ci_log_id" ] || [ -z "$folder" ]; then
+      echo "usage: $(basename $0) test-timings <ci_log_id> <folder>"
+      exit 1
+    fi
+    mkdir -p "$folder"
+    aws ${S3_BUILD_CACHE_AWS_PARAMS:-} s3 cp --recursive \
+      "s3://aztec-ci-artifacts/logs/test-timings/${ci_log_id}/" "$folder/"
+    for f in "$folder"/*.log.gz; do
+      [ -e "$f" ] || continue
+      out="${f%.log.gz}.jsonl"
+      gunzip -c "$f" > "$out"
+      rm -f "$f"
+    done
+    echo "Downloaded test timings for job $ci_log_id into $folder/"
     ;;
 
   #################

@@ -1,7 +1,9 @@
 import { IndexWithinCheckpoint, SlotNumber } from '@aztec/foundation/branded-types';
 import { Secp256k1Signer } from '@aztec/foundation/crypto/secp256k1-signer';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import type { BlockProposal, CheckpointAttestation, CheckpointProposalCore } from '@aztec/stdlib/p2p';
+import { Signature } from '@aztec/foundation/eth-signature';
+import type { BlockProposal, CheckpointProposalCore } from '@aztec/stdlib/p2p';
+import { CheckpointAttestation } from '@aztec/stdlib/p2p';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
 import {
   makeBlockHeader,
@@ -62,7 +64,44 @@ export function describeAttestationPool(getAttestationPool: () => AttestationPoo
     expect(a1Buffer).toEqual(expect.arrayContaining(a2Buffer));
   };
 
+  /**
+   * Rewrites the attester signature into yParity form (27 -> 0, 28 -> 1), keeping (r, s). The recovery
+   * bit is unchanged so it still recovers to the same signer, mimicking a peer that gossips (or mutates
+   * in flight) a signature with a non-canonical recovery byte.
+   */
+  const toYParityForm = (attestation: CheckpointAttestation): CheckpointAttestation => {
+    const sig = attestation.signature;
+    const yParityV = sig.v === 27 ? 0 : sig.v === 28 ? 1 : sig.v;
+    return new CheckpointAttestation(
+      attestation.payload,
+      new Signature(sig.r, sig.s, yParityV),
+      attestation.proposerSignature,
+    );
+  };
+
   describe('CheckpointAttestation', () => {
+    it('normalizes yParity (v=0/v=1) attester signatures on ingress from both gossip and own keys', async () => {
+      const slotNumber = 421;
+      const canonical = createCheckpointAttestationsForSlot(slotNumber);
+      const payloadHash = canonical[0].getPayloadHash();
+      const expectedSenders = new Set([canonical[0].getSender()!.toString(), canonical[1].getSender()!.toString()]);
+
+      const gossiped = toYParityForm(canonical[0]);
+      expect([0, 1]).toContain(gossiped.signature.v);
+      await ap.tryAddCheckpointAttestation(gossiped);
+
+      const own = toYParityForm(canonical[1]);
+      expect([0, 1]).toContain(own.signature.v);
+      await ap.addOwnCheckpointAttestations([own]);
+
+      const retrieved = await ap.getCheckpointAttestationsForSlotAndProposal(SlotNumber(slotNumber), payloadHash);
+      expect(retrieved.length).toBe(2);
+      for (const attestation of retrieved) {
+        expect([27, 28]).toContain(attestation.signature.v);
+        expect(expectedSenders.has(attestation.getSender()!.toString())).toBe(true);
+      }
+    });
+
     it('should add attestations to pool', async () => {
       const slotNumber = 420;
       const archive = Fr.random();

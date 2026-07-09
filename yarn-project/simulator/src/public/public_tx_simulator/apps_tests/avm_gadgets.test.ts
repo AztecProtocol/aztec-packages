@@ -9,7 +9,7 @@ import { PublicTxSimulationTester, defaultGlobals } from '../../fixtures/public_
 
 describe('Public TX simulator apps tests: gadgets', () => {
   describe('Public TX simulator apps tests: gadgets (via Cpp Simulator)', () => {
-    const deployer = AztecAddress.fromNumber(42);
+    const deployer = AztecAddress.fromNumberUnsafe(42);
 
     let worldStateService: NativeWorldStateService;
     let tester: PublicTxSimulationTester;

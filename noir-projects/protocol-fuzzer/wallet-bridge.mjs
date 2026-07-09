@@ -85,7 +85,7 @@ const handlers = {
     const w = await ensureWallet();
     const { result: address, stdout } = await capturing(log =>
       deploy(
-        w, node, AztecAddress.fromString(from), artifact,
+        w, node, AztecAddress.fromStringUnsafe(from), artifact,
         false,                                  /* json */
         undefined,                              /* publicKeys */
         Array.isArray(args) ? args : [],        /* args */
@@ -106,8 +106,8 @@ const handlers = {
 
   '/execute': async ({ verb, method, contract, from, args, artifact }) => {
     const w = await ensureWallet();
-    const sender = AztecAddress.fromString(from);
-    const target = AztecAddress.fromString(contract);
+    const sender = AztecAddress.fromStringUnsafe(from);
+    const target = AztecAddress.fromStringUnsafe(contract);
     const callArgs = args || [];
     const { stdout } = await capturing(log =>
       verb === 'send'

@@ -191,7 +191,7 @@ export function extractOffchainOutput(effects: OffchainEffect[], anchorBlockTime
   for (const effect of effects) {
     if (effect.data.length >= 2 && effect.data[0].equals(OFFCHAIN_MESSAGE_IDENTIFIER)) {
       offchainMessages.push({
-        recipient: AztecAddress.fromField(effect.data[1]),
+        recipient: AztecAddress.fromFieldUnsafe(effect.data[1]),
         payload: effect.data.slice(2),
         contractAddress: effect.contractAddress,
         anchorBlockTimestamp,

@@ -118,6 +118,7 @@ type L1ProcessArgs = {
 export const Actions = [
   'invalidate-by-invalid-attestation',
   'invalidate-by-insufficient-attestations',
+  'prune',
   'propose',
   'governance-signal',
   'vote-offenses',
@@ -541,7 +542,9 @@ export class SequencerPublisher {
 
       if (bundleResult.kind === 'aborted') {
         this.logDroppedInSim(bundleResult.droppedRequests);
-        void this.backupDroppedInSim(bundleResult.droppedRequests, currentL2Slot);
+        void this.backupDroppedInSim(bundleResult.droppedRequests, currentL2Slot).catch(err =>
+          this.log.error(`Failed to backup requests dropped in simulation`, err),
+        );
         return undefined;
       }
 
@@ -1125,7 +1128,11 @@ export class SequencerPublisher {
     const logData = { ...checkpoint, reason };
     this.log.debug(`Building invalidate checkpoint ${checkpoint.checkpointNumber} request`, logData);
 
-    const attestationsAndSigners = CommitteeAttestationsAndSigners.packAttestations(validationResult.attestations);
+    // Use the exact packed tuple posted to L1 verbatim. A repack via `packAttestations` is not a
+    // byte-faithful inverse of `fromPacked` (a canonicalized yParity byte or an all-zero signature slot
+    // round-trips differently), so it would diverge from the stored `attestationsHash` and revert the
+    // invalidation.
+    const attestationsAndSigners = validationResult.verbatimAttestations;
 
     if (reason === 'invalid-attestation') {
       return this.rollupContract.buildInvalidateBadAttestationRequest(
@@ -1271,6 +1278,47 @@ export class SequencerPublisher {
       this.govProposerContract,
       signerAddress,
       signer,
+    );
+  }
+
+  /**
+   * Enqueues a `prune()` transaction if the rollup is prunable at the given slot's L1 timestamp.
+   * `prune()` is permissionless and idempotent — if the chain is no longer prunable by send time the
+   * bundle simulation usually drops the entry; on a node without `eth_simulateV1` the bundle is sent
+   * as-is and the prune reverts `Rollup__NothingToPrune` inside `aggregate3(allowFailure: true)`
+   * (a failed action, never a whole-tx revert). Used by the failed-sync fallback so a stuck pending
+   * chain (e.g. bad data blocking sync) can be wound back to recover.
+   * @returns true if a prune request was enqueued, false otherwise.
+   */
+  public async enqueuePruneIfPrunable(slotNumber: SlotNumber): Promise<boolean> {
+    if (this.lastActions['prune'] === slotNumber) {
+      this.log.debug(`Skipping duplicate prune for slot ${slotNumber}`, { slotNumber });
+      return false;
+    }
+    // Use the SAME timestamp the bundle simulator overrides block.timestamp with at send time
+    // (sequencer-bundle-simulator.ts) so this upfront check and the send-time sim agree. Slot-start
+    // and last-L1-slot both fall within the same L2 slot (and epoch, which is what `canPruneAtTime`
+    // derives), so they agree today; matching the simulator keeps it robust if the contract ever uses
+    // the timestamp more granularly.
+    const ts = getLastL1SlotTimestampForL2Slot(slotNumber, this.epochCache.getL1Constants());
+    const canPrune = await this.rollupContract.canPruneAtTime(ts).catch(err => {
+      this.log.error(`Failed to check canPruneAtTime for slot ${slotNumber}`, err, { slotNumber });
+      return false;
+    });
+    if (!canPrune) {
+      this.log.debug(`Rollup not prunable at slot ${slotNumber}`, { slotNumber });
+      return false;
+    }
+    const request: L1TxRequest = {
+      to: this.rollupContract.address,
+      data: encodeFunctionData({ abi: RollupAbi, functionName: 'prune', args: [] }),
+    };
+    this.log.info(`Enqueuing rollup prune for slot ${slotNumber}`, { slotNumber });
+    return this.enqueueRequest(
+      'prune',
+      request,
+      { address: this.rollupContract.address, abi: RollupAbi, eventName: 'PrunedPending' },
+      slotNumber,
     );
   }
 

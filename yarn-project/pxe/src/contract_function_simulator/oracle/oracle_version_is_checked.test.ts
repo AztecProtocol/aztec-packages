@@ -9,23 +9,27 @@ import type { L2TipsProvider } from '@aztec/stdlib/block';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/server';
-import { BlockHeader, HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
+import { BlockHeader, CallContext, HashedValues, TxContext, TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
-import type { ContractSyncService } from '../../contract_sync/contract_sync_service.js';
-import type { MessageContextService } from '../../messages/message_context_service.js';
+import type { ContractClassService } from '../../contract/contract_class_service.js';
+import type { ContractSyncService } from '../../contract/contract_sync_service.js';
+import type { TxResolverService } from '../../messages/tx_resolver_service.js';
 import { ORACLE_VERSION_MAJOR, ORACLE_VERSION_MINOR } from '../../oracle_version.js';
 import type { AddressStore } from '../../storage/address_store/address_store.js';
 import { CapsuleService } from '../../storage/capsule_store/capsule_service.js';
 import type { CapsuleStore } from '../../storage/capsule_store/capsule_store.js';
 import type { ContractStore } from '../../storage/contract_store/contract_store.js';
+import { FactService } from '../../storage/fact_store/index.js';
+import type { FactStore } from '../../storage/fact_store/index.js';
 import type { NoteStore } from '../../storage/note_store/note_store.js';
 import type { PrivateEventStore } from '../../storage/private_event_store/private_event_store.js';
 import type { RecipientTaggingStore } from '../../storage/tagging_store/recipient_tagging_store.js';
-import type { SenderAddressBookStore } from '../../storage/tagging_store/sender_address_book_store.js';
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
+import type { TaggingSecretSourcesStore } from '../../storage/tagging_store/tagging_secret_sources_store.js';
+import { AnchoredContractData } from '../anchored_contract_data.js';
 import { ContractFunctionSimulator } from '../contract_function_simulator.js';
 import { TransientArrayService } from '../transient_array_service.js';
 import { buildACIRCallback } from './acir_callback.js';
@@ -35,17 +39,19 @@ describe('Oracle Version Check test suite', () => {
   const simulator = new WASMSimulator();
 
   let contractStore: ReturnType<typeof mock<ContractStore>>;
+  let contractClassService: ReturnType<typeof mock<ContractClassService>>;
   let noteStore: ReturnType<typeof mock<NoteStore>>;
   let keyStore: ReturnType<typeof mock<KeyStore>>;
   let addressStore: ReturnType<typeof mock<AddressStore>>;
   let aztecNode: ReturnType<typeof mock<AztecNode>>;
   let senderTaggingStore: ReturnType<typeof mock<SenderTaggingStore>>;
   let recipientTaggingStore: ReturnType<typeof mock<RecipientTaggingStore>>;
-  let senderAddressBookStore: ReturnType<typeof mock<SenderAddressBookStore>>;
+  let taggingSecretSourcesStore: ReturnType<typeof mock<TaggingSecretSourcesStore>>;
   let capsuleStore: ReturnType<typeof mock<CapsuleStore>>;
+  let factStore: ReturnType<typeof mock<FactStore>>;
   let privateEventStore: ReturnType<typeof mock<PrivateEventStore>>;
   let contractSyncService: ReturnType<typeof mock<ContractSyncService>>;
-  let messageContextService: ReturnType<typeof mock<MessageContextService>>;
+  let txResolver: ReturnType<typeof mock<TxResolverService>>;
   let l2TipsStore: ReturnType<typeof mock<L2TipsProvider>>;
   let acirSimulator: ContractFunctionSimulator;
   let contractAddress: AztecAddress;
@@ -62,11 +68,12 @@ describe('Oracle Version Check test suite', () => {
     aztecNode = mock<AztecNode>();
     senderTaggingStore = mock<SenderTaggingStore>();
     recipientTaggingStore = mock<RecipientTaggingStore>();
-    senderAddressBookStore = mock<SenderAddressBookStore>();
+    taggingSecretSourcesStore = mock<TaggingSecretSourcesStore>();
     capsuleStore = mock<CapsuleStore>();
+    factStore = mock<FactStore>();
     privateEventStore = mock<PrivateEventStore>();
     contractSyncService = mock<ContractSyncService>();
-    messageContextService = mock<MessageContextService>();
+    txResolver = mock<TxResolverService>();
     l2TipsStore = mock<L2TipsProvider>();
     assertCompatibleOracleVersionSpy = jest.spyOn(UtilityExecutionOracle.prototype, 'assertCompatibleOracleVersion');
     assertCompatibleOracleVersionSpy.mockClear();
@@ -90,16 +97,20 @@ describe('Oracle Version Check test suite', () => {
       originalContractClassId: new Fr(42),
       address: contractAddress,
     } as ContractInstanceWithAddress);
-    contractStore.getFunctionArtifactWithDebugMetadata.mockImplementation(async (address, selector) => {
-      const artifact = await contractStore.getFunctionArtifact(address, selector);
+    contractStore.getFunctionArtifactWithDebugMetadata.mockImplementation(async (classId, selector) => {
+      const artifact = await contractStore.getFunctionArtifact(classId, selector);
       if (!artifact) {
-        throw new Error(`Function not found: ${selector.toString()} in contract ${address}`);
+        throw new Error(`Function not found: ${selector.toString()} in contract class ${classId}`);
       }
       return { ...artifact, debug: undefined };
     });
 
+    contractClassService = mock<ContractClassService>();
+    contractClassService.getCurrentClassId.mockResolvedValue(new Fr(42));
+
     acirSimulator = new ContractFunctionSimulator({
       contractStore,
+      contractClassService,
       noteStore,
       keyStore,
       addressStore,
@@ -107,12 +118,13 @@ describe('Oracle Version Check test suite', () => {
       l2TipsStore: mock(),
       senderTaggingStore,
       recipientTaggingStore,
-      senderAddressBookStore,
+      taggingSecretSourcesStore,
       capsuleStore,
+      factStore,
       privateEventStore,
       simulator,
       contractSyncService,
-      messageContextService,
+      txResolver,
     });
   });
 
@@ -153,8 +165,6 @@ describe('Oracle Version Check test suite', () => {
       const msgSender = await AztecAddress.random();
       const senderForTags = await AztecAddress.random();
       await acirSimulator.run(txRequest, {
-        contractAddress,
-        selector,
         msgSender,
         anchorBlockHeader,
         senderForTags,
@@ -200,20 +210,21 @@ describe('Oracle Version Check test suite', () => {
 
     beforeEach(() => {
       oracle = new UtilityExecutionOracle({
-        contractAddress,
+        callContext: new CallContext(AztecAddress.NULL_MSG_SENDER, contractAddress, FunctionSelector.empty(), true),
         authWitnesses: [],
         capsules: [],
         anchorBlockHeader,
-        contractStore,
+        anchoredContractData: new AnchoredContractData(contractStore, contractClassService, anchorBlockHeader),
         noteStore,
         keyStore,
         addressStore,
         aztecNode,
         recipientTaggingStore,
-        senderAddressBookStore,
+        taggingSecretSourcesStore,
         capsuleService: new CapsuleService(capsuleStore, []),
+        factService: new FactService(factStore, []),
         privateEventStore,
-        messageContextService,
+        txResolver,
         contractSyncService,
         jobId: 'test',
         scopes: [],

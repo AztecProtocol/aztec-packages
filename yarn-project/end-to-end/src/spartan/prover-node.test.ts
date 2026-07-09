@@ -56,6 +56,9 @@ const enqueuedRootRollupJobs = {
   annotations: {},
 };
 
+// Tests prover-node crash recovery against a live k8s deployment. Kills the prover broker and prover
+// pods via kubectl, then watches Prometheus alert rules to confirm the node comes back online and resumes
+// work from the cached proving-job state (BLOCK_ROOT_ROLLUP and ROOT_ROLLUP alerts fire as expected).
 describe('prover node recovery', () => {
   const endpoints: ServiceEndpoint[] = [];
   let runAlertCheck: ReturnType<typeof createResilientPrometheusConnection>['runAlertCheck'];

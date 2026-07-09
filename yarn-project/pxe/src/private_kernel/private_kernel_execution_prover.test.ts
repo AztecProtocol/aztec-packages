@@ -39,7 +39,7 @@ describe('Private Kernel Sequencer', () => {
   let prover: PrivateKernelExecutionProver;
   let dependencies: { [name: string]: string[] } = {};
 
-  const contractAddress = AztecAddress.fromBigInt(987654n);
+  const contractAddress = AztecAddress.fromBigIntUnsafe(987654n);
   const blockTimestamp = 12345n;
   const expirationTimestamp = blockTimestamp + BigInt(MAX_TX_LIFETIME);
 
@@ -430,7 +430,7 @@ describe('Private Kernel Sequencer', () => {
   });
 
   it('fetches updated class id hints once per unique contract address', async () => {
-    const contractAddressB = AztecAddress.fromBigInt(111111n);
+    const contractAddressB = AztecAddress.fromBigIntUnsafe(111111n);
 
     // a { b {} c {} }
     // a and c use contractAddress, b uses contractAddressB → 2 unique contracts, 3 executions.

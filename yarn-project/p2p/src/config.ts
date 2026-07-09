@@ -3,6 +3,7 @@ import {
   SecretValue,
   bigintConfigHelper,
   booleanConfigHelper,
+  floatConfigHelper,
   getConfigFromMappings,
   getDefaultConfig,
   numberConfigHelper,
@@ -243,6 +244,12 @@ export interface P2PConfig
   /** Minimum percentage fee increase required to replace an existing tx via RPC (0 = no bump). */
   priceBumpPercentage: bigint;
 
+  /**
+   * Number of slots behind the finalized tip to keep finalized txs for before deleting them. 0 deletes
+   * at the finalized tip (default).
+   */
+  keepFinalizedTxsForSlots: number;
+
   /** Drop incoming block and checkpoint proposals at the libp2p dispatch layer (for testing only) */
   skipIncomingProposals?: boolean;
 
@@ -435,17 +442,17 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   gossipsubTxTopicWeight: {
     env: 'P2P_GOSSIPSUB_TX_TOPIC_WEIGHT',
     description: 'The weight of the tx topic for the gossipsub protocol.',
-    ...numberConfigHelper(1),
+    ...floatConfigHelper(1),
   },
   gossipsubTxInvalidMessageDeliveriesWeight: {
     env: 'P2P_GOSSIPSUB_TX_INVALID_MESSAGE_DELIVERIES_WEIGHT',
     description: 'The weight of the tx invalid message deliveries for the gossipsub protocol.',
-    ...numberConfigHelper(-20),
+    ...floatConfigHelper(-20),
   },
   gossipsubTxInvalidMessageDeliveriesDecay: {
     env: 'P2P_GOSSIPSUB_TX_INVALID_MESSAGE_DELIVERIES_DECAY',
     description: 'Determines how quickly the penalty for invalid message deliveries decays over time. Between 0 and 1.',
-    ...numberConfigHelper(0.5),
+    ...floatConfigHelper(0.5),
   },
   peerPenaltyValues: {
     env: 'P2P_PEER_PENALTY_VALUES',
@@ -608,6 +615,12 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
       'Minimum percentage fee increase required to replace an existing tx via RPC. Even at 0%, replacement still requires paying at least 1 unit more.',
     ...bigintConfigHelper(10n),
   },
+  keepFinalizedTxsForSlots: {
+    env: 'P2P_KEEP_FINALIZED_TXS_FOR_SLOTS',
+    description:
+      'Number of slots behind the finalized tip to keep finalized txs for before deleting them. 0 deletes at the finalized tip.',
+    ...numberConfigHelper(0),
+  },
   ...pickConfigMappings(sharedSequencerConfigMappings, [
     'expectedBlockProposalsPerSlot',
     'maxTxsPerBlock',
@@ -740,7 +753,7 @@ export function parseAllowList(value: string): AllowedElement[] {
 
     if (typeString === 'I') {
       entries.push({
-        address: AztecAddress.fromString(identifierString),
+        address: AztecAddress.fromStringUnsafe(identifierString),
         selector,
         ...flags,
       });

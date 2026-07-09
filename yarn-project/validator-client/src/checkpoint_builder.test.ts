@@ -60,7 +60,7 @@ describe('CheckpointBuilder', () => {
     slotNumber,
     timestamp: BigInt(Date.now()),
     coinbase: EthAddress.random(),
-    feeRecipient: AztecAddress.fromField(Fr.random()),
+    feeRecipient: AztecAddress.fromFieldUnsafe(Fr.random()),
     gasFees: GasFees.empty(),
   };
 

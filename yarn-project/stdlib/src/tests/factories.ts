@@ -666,7 +666,7 @@ export function makeGlobalVariables(seed = 1, overrides: Partial<FieldsOf<Global
     slotNumber: SlotNumber(seed + 3),
     timestamp: BigInt(seed + 4),
     coinbase: EthAddress.fromField(new Fr(seed + 5)),
-    feeRecipient: AztecAddress.fromField(new Fr(seed + 6)),
+    feeRecipient: AztecAddress.fromFieldUnsafe(new Fr(seed + 6)),
     gasFees: new GasFees(seed + 7, seed + 8),
     ...compact(overrides),
   });
@@ -716,7 +716,7 @@ export function makeBytes(size = 32, fill = 1): Buffer {
  * @returns An aztec address.
  */
 export function makeAztecAddress(seed = 1): AztecAddress {
-  return AztecAddress.fromField(fr(seed));
+  return AztecAddress.fromFieldUnsafe(fr(seed));
 }
 
 function makeBlockConstantData(seed = 1, globalVariables?: GlobalVariables) {

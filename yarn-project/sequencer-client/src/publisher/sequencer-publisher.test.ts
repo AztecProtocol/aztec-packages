@@ -8,6 +8,7 @@ import {
   MulticallForwarderRevertedError,
   type RollupContract,
   type SlashingProposerContract,
+  type ViemCommitteeAttestations,
 } from '@aztec/ethereum/contracts';
 import {
   type L1TxState,
@@ -17,14 +18,21 @@ import {
   MAX_L1_TX_LIMIT,
   defaultL1TxUtilsConfig,
 } from '@aztec/ethereum/l1-tx-utils';
-import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { BlockNumber, CheckpointNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { Fr } from '@aztec/foundation/curves/bn254';
 import { TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonParseWithSchema } from '@aztec/foundation/json-rpc';
 import { sleep } from '@aztec/foundation/sleep';
+import { bufferToHex } from '@aztec/foundation/string';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { EmpireBaseAbi, RollupAbi } from '@aztec/l1-artifacts';
-import { CommitteeAttestationsAndSigners, L2Block, Signature } from '@aztec/stdlib/block';
+import {
+  CommitteeAttestationsAndSigners,
+  L2Block,
+  Signature,
+  type ValidateCheckpointResult,
+} from '@aztec/stdlib/block';
 import { Checkpoint } from '@aztec/stdlib/checkpoint';
 import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import { CheckpointHeader } from '@aztec/stdlib/rollup';
@@ -73,6 +81,13 @@ describe('compareActions sorting', () => {
     const sorted = [...actions].sort(compareActions);
 
     expect(sorted.indexOf('propose')).toBeLessThan(sorted.indexOf('vote-offenses'));
+  });
+
+  it('places prune before propose', () => {
+    const actions: Action[] = ['propose', 'prune'];
+    const sorted = [...actions].sort(compareActions);
+
+    expect(sorted.indexOf('prune')).toBeLessThan(sorted.indexOf('propose'));
   });
 });
 
@@ -1162,5 +1177,96 @@ describe('SequencerPublisher', () => {
       expect(record.gasInfo?.gasLimit).toBe(21_000n);
       expect(record.gasInfo?.nonce).toBe(5);
     }, 20_000);
+
+    describe('enqueuePruneIfPrunable', () => {
+      const pruneData = encodeFunctionData({ abi: RollupAbi, functionName: 'prune', args: [] });
+
+      it('enqueues a prune and bundles it to L1 when the rollup is prunable', async () => {
+        rollup.canPruneAtTime.mockResolvedValue(true);
+
+        expect(await publisher.enqueuePruneIfPrunable(SlotNumber(2))).toEqual(true);
+
+        forwardSpy.mockResolvedValue({
+          receipt: proposeTxReceipt,
+          stats: undefined,
+          multicallData: '0x',
+          state: {} as L1TxState,
+        });
+        await publisher.sendRequests();
+
+        expect(forwardSpy).toHaveBeenCalledTimes(1);
+        expect(forwardSpy.mock.calls[0][0]).toEqual([{ to: mockRollupAddress, data: pruneData }]);
+      });
+
+      it('does not enqueue a prune when the rollup is not prunable', async () => {
+        rollup.canPruneAtTime.mockResolvedValue(false);
+
+        expect(await publisher.enqueuePruneIfPrunable(SlotNumber(2))).toEqual(false);
+
+        await publisher.sendRequests();
+        expect(forwardSpy).not.toHaveBeenCalled();
+      });
+
+      it('does not enqueue a duplicate prune for the same slot', async () => {
+        rollup.canPruneAtTime.mockResolvedValue(true);
+
+        expect(await publisher.enqueuePruneIfPrunable(SlotNumber(2))).toEqual(true);
+        expect(await publisher.enqueuePruneIfPrunable(SlotNumber(2))).toEqual(false);
+      });
+
+      it('fails closed (skips prune) when canPruneAtTime rejects', async () => {
+        rollup.canPruneAtTime.mockRejectedValue(new Error('rpc error'));
+
+        expect(await publisher.enqueuePruneIfPrunable(SlotNumber(2))).toEqual(false);
+
+        await publisher.sendRequests();
+        expect(forwardSpy).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('buildInvalidateCheckpointRequest', () => {
+      const checkpointNumber = CheckpointNumber(5);
+      const committee = [EthAddress.random(), EthAddress.random()];
+      const checkpoint = {
+        archive: Fr.random(),
+        lastArchive: Fr.random(),
+        slotNumber: SlotNumber(1),
+        checkpointNumber,
+        timestamp: 0n,
+      };
+
+      const makeInvalidResult = (verbatimAttestations: ViemCommitteeAttestations): ValidateCheckpointResult => ({
+        valid: false,
+        reason: 'invalid-attestation',
+        checkpoint,
+        committee,
+        epoch: EpochNumber(1),
+        seed: 0n,
+        attestors: [],
+        invalidIndex: 1,
+        attestations: [],
+        verbatimAttestations,
+      });
+
+      beforeEach(() => {
+        rollup.getCheckpointNumber.mockResolvedValue(checkpointNumber);
+        rollup.buildInvalidateBadAttestationRequest.mockReturnValue({
+          to: mockRollupAddress,
+          data: '0x',
+          abi: [],
+        } as any);
+      });
+
+      it('passes the raw packed attestations tuple verbatim to invalidateBadAttestation', async () => {
+        const packed = { signatureIndices: '0x80', signaturesOrAddresses: bufferToHex(Buffer.alloc(65, 7)) } as const;
+        await publisher.simulateInvalidateCheckpoint(makeInvalidResult(packed));
+        expect(rollup.buildInvalidateBadAttestationRequest).toHaveBeenCalledWith(
+          checkpointNumber,
+          packed,
+          committee,
+          1,
+        );
+      });
+    });
   });
 });

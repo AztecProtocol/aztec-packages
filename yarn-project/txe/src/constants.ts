@@ -1,7 +1,7 @@
 import { PRIVATE_LOG_CIPHERTEXT_LEN } from '@aztec/constants';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-export const DEFAULT_ADDRESS = AztecAddress.fromNumber(42);
+export const DEFAULT_ADDRESS = AztecAddress.fromNumberUnsafe(42);
 
 // This is MAX_MESSAGE_CONTENT_LEN - PRIVATE_EVENT_MSG_PLAINTEXT_RESERVED_FIELDS_LEN
 export const MAX_PRIVATE_EVENT_LEN = 10;

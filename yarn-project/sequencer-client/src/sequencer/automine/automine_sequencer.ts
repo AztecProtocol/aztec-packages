@@ -274,14 +274,22 @@ export class AutomineSequencer {
   /**
    * Warps L1 timestamp to `targetTimestampSec`. Rounded up to the next aztec-slot
    * boundary so the next build lands on a fresh slot. Atomic with respect to builds —
-   * the queue ensures no build is in flight while the warp executes.
+   * the queue ensures no build is in flight while the warp executes. A no-op when the
+   * target is already at or behind the current L1 time (see {@link runWarp}).
    */
   public warpTo(targetTimestampSec: number): Promise<void> {
     return this.queue.put(() => this.runWarp(targetTimestampSec));
   }
 
-  /** Warps L1 timestamp forward by `deltaSec` seconds from the current L1 time. */
+  /**
+   * Warps L1 timestamp forward by `deltaSec` seconds from the current L1 time, rounded up to the next
+   * aztec-slot boundary. Throws if `deltaSec` is not positive (warping "by" a non-positive amount is a
+   * caller bug — unlike {@link warpTo}, which no-ops on a past target).
+   */
   public warpBy(deltaSec: number): Promise<void> {
+    if (deltaSec <= 0) {
+      throw new Error(`warpL2TimeAtLeastBy: duration must be positive, got ${deltaSec} seconds.`);
+    }
     return this.queue.put(async () => {
       const current = await this.deps.ethCheatCodes.lastBlockTimestamp();
       await this.runWarp(current + deltaSec);
@@ -354,8 +362,7 @@ export class AutomineSequencer {
       return;
     }
     try {
-      const pending = await this.deps.p2pClient.getPendingTxCount();
-      if (pending > 0) {
+      if (await this.deps.p2pClient.hasEligiblePendingTxs(1)) {
         // Fire-and-forget; the build result is delivered via `buildIfPending()` callers,
         // not via the poller.
         void this.buildIfPending().catch(err => {
@@ -381,13 +388,13 @@ export class AutomineSequencer {
     }
     await this.reconcileDateProvider();
 
-    const txCount = await this.deps.p2pClient.getPendingTxCount();
-    // For mempool-driven builds, wait for at least `minTxsPerBlock` pending txs (or 1 if not set)
+    // For mempool-driven builds, wait for at least `minTxsPerBlock` age-eligible txs (or 1 if not set)
     // before building. This mirrors the production sequencer's `waitForMinTxs` behavior, and is
     // required for tests that bundle multiple txs into one block via `setConfig({ minTxsPerBlock })`.
-    // Explicit empty-block / warp paths pass `allowEmpty: true` and bypass this gate.
+    // Explicit empty-block / warp paths pass `allowEmpty: true`, giving minRequired 0, which
+    // hasEligiblePendingTxs treats as always satisfied so the gate is bypassed.
     const minRequired = allowEmpty ? 0 : Math.max(this.deps.config.minTxsPerBlock ?? 1, 1);
-    if (txCount < minRequired) {
+    if (!(await this.deps.p2pClient.hasEligiblePendingTxs(minRequired))) {
       return undefined;
     }
 
@@ -431,7 +438,6 @@ export class AutomineSequencer {
       blockNumber: nextBlockNumber,
       slot: targetSlot,
       slotTimestamp: slotBoundaryTs,
-      txCount,
       allowEmpty,
     });
 
@@ -709,9 +715,12 @@ export class AutomineSequencer {
     await rollupCheatCodes.markAsProven(target);
     // Settlement is a direct L1 storage write that mines no block, unlike a real epoch proof landing
     // on L1. The archiver's L1 sync short-circuits while the L1 block hash is unchanged, so it would
-    // never re-read the proven tip until the next build/warp mines a block. Mine one empty L1 block so
-    // the block hash advances, then force an immediate sync that observes the new proven checkpoint.
-    await this.deps.ethCheatCodes.mineEmptyBlock();
+    // never re-read the proven tip until the next build/warp mines a block. Mine one L1 block so the
+    // block hash advances, then force an immediate sync that observes the new proven checkpoint. Use
+    // evmMine (not mineEmptyBlock): mineEmptyBlock drops+re-adds the mempool non-atomically, which can
+    // silently lose a test's concurrently-submitted direct L1 tx. evm_mine just includes whatever is
+    // pending, which is fine here — we only need the block hash to advance.
+    await this.deps.ethCheatCodes.evmMine();
     await this.deps.archiver.syncImmediate();
 
     this.log.verbose(`Proved up to checkpoint ${target}`, { target, proven, startEpoch, endEpoch });

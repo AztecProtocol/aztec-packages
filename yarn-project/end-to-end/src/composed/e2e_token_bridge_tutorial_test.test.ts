@@ -25,13 +25,19 @@ import { AuthRegistryArtifact, getStandardAuthRegistry } from '@aztec/standard-c
 import { registerInitialLocalNetworkAccountsInWallet } from '@aztec/wallets/testing';
 
 import { getContract } from 'viem';
+import { mnemonicToAccount } from 'viem/accounts';
 
 import { TestWallet } from '../test-wallet/test_wallet.js';
 
 const MNEMONIC = 'test test test test test test test test test test test junk';
 const { ETHEREUM_HOSTS = 'http://localhost:8545' } = process.env;
 
-const l1Client = createExtendedL1Client(ETHEREUM_HOSTS.split(','), MNEMONIC);
+// The local-network sequencer publishes its checkpoint txs to L1 from the default mnemonic's account
+// 0 (the account viem hands out by default). Sharing that account here would interleave this test's
+// L1 txs with the sequencer's on a single nonce sequence, so a deploy/bridge tx can be stranded in
+// anvil's pool and never confirm (surfacing as a WaitForTransactionReceiptTimeoutError). Derive this
+// client from a different index to give the test an independent L1 nonce space.
+const l1Client = createExtendedL1Client(ETHEREUM_HOSTS.split(','), mnemonicToAccount(MNEMONIC, { addressIndex: 1 }));
 const ownerEthAddress = l1Client.account.address;
 
 const MINT_AMOUNT = BigInt(1e15);
@@ -86,6 +92,9 @@ async function addMinter(l1TokenContract: EthAddress, l1TokenHandler: EthAddress
 //
 // 3. Run the tests:
 //    yarn test:e2e e2e_token_bridge_tutorial_test.test.ts
+// Token bridge tutorial test. Runs against a pre-started local network (AZTEC_NODE_URL + ETHEREUM_HOSTS)
+// using only published npm packages. Deploys an L1 ERC20/portal and L2 token bridge, then exercises the
+// full L1↔L2 bridging flow. Intentional constraint: no in-proc setup().
 describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
   it('Deploys tokens & bridges to L1 & L2, mints & publicly bridges tokens', async () => {
     const logger = createLogger('aztec:token-bridge-tutorial');
