@@ -572,6 +572,16 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
+  aztec_utl_areBlockHashesInArchive(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_areBlockHashesInArchive',
+      inputs,
+      handler: ([anchorBlockHash, blockHashes]) =>
+        this.handlerAsUtility().areBlockHashesInArchive(anchorBlockHash, blockHashes),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
   aztec_utl_getLowNullifierMembershipWitness(...inputs: ForeignCallArgs) {
     return callTxeHandler({
       oracle: 'aztec_utl_getLowNullifierMembershipWitness',

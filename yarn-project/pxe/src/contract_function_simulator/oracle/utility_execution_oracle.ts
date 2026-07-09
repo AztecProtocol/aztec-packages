@@ -270,6 +270,22 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     return witness ? Option.some(witness) : Option.none();
   }
 
+  /** Returns whether each block hash is present in the archive tree at the referenced block. */
+  public async areBlockHashesInArchive(
+    referenceBlockHash: BlockHash,
+    blockHashes: EphemeralArray<BlockHash>,
+  ): Promise<EphemeralArray<boolean>> {
+    const hashes = blockHashes.readAll(this.ephemeralArrayService);
+    const memberships = await this.#queryWithBlockHashNotAfterAnchor(referenceBlockHash, () =>
+      Promise.all(
+        hashes.map(blockHash =>
+          this.aztecNodeReadCache.getBlockHashMembershipWitness(referenceBlockHash, blockHash).then(Boolean),
+        ),
+      ),
+    );
+    return EphemeralArray.fromValues(this.ephemeralArrayService, memberships);
+  }
+
   /**
    * Returns a nullifier membership witness for a given nullifier at a given block.
    * @param blockHash - The block hash at which to get the index.
