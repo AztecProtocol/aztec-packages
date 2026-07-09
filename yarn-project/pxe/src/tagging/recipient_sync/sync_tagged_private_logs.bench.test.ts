@@ -66,6 +66,9 @@ const ANCHOR_BLOCK_HEADER = BlockHeader.random({ blockNumber: ANCHOR_BLOCK_NUMBE
 const AGED_TIMESTAMP = CURRENT_TIMESTAMP - BigInt(MAX_TX_LIFETIME) - 1000n;
 const JOB_ID = 'bench-job';
 
+// Every scenario starts warm: index 0 is already persisted, so the scan resumes at index 1 rather than cold-starting.
+const PRIOR_FINALIZED_INDEX = 0;
+
 // Models per-call node RPC latency so round-trip blocking time is meaningful against an otherwise-instant mock node.
 // The round-trip *count* is independent of this value; only `rpc-blocking-time` scales with it.
 const MODELED_NODE_RPC_LATENCY_MS = 5;
@@ -80,8 +83,6 @@ type Scenario = {
   kind: AppTaggingSecretKind;
   /** Number of secrets the recipient holds for this directional app. */
   secretCount: number;
-  /** Highest finalized index already persisted before the sync (recipient has `priorFinalizedIndex + 1` prior messages). */
-  priorFinalizedIndex: number;
   /** New contiguous finalized logs available per secret since the last sync (0 = steady state). */
   newLogs: number;
   /**
@@ -110,7 +111,6 @@ const SCENARIOS: Scenario[] = [
     label: `constrained/steady-state/secrets=${secretCount}`,
     kind: AppTaggingSecretKind.CONSTRAINED,
     secretCount,
-    priorFinalizedIndex: 0,
     newLogs: 0,
   })),
   // Light catch-up (K new logs per secret) at 100 and 1000 secrets. Round-trips depend only on K and P, not on N, so
@@ -120,7 +120,6 @@ const SCENARIOS: Scenario[] = [
       label: `constrained/catch-up-${newLogs}/secrets=${secretCount}`,
       kind: AppTaggingSecretKind.CONSTRAINED,
       secretCount,
-      priorFinalizedIndex: 0,
       newLogs,
     })),
   ),
@@ -133,7 +132,6 @@ const SCENARIOS: Scenario[] = [
       label: `constrained/catch-up-${newLogs}/secrets=${secretCount}`,
       kind: AppTaggingSecretKind.CONSTRAINED,
       secretCount,
-      priorFinalizedIndex: 0,
       newLogs,
     })),
   ),
@@ -144,7 +142,6 @@ const SCENARIOS: Scenario[] = [
     label: `constrained/mixed/secrets=1000`,
     kind: AppTaggingSecretKind.CONSTRAINED,
     secretCount: 1000,
-    priorFinalizedIndex: 0,
     newLogs: 0,
     deepCohort: { count: 1, newLogs: 100 },
   },
@@ -153,7 +150,6 @@ const SCENARIOS: Scenario[] = [
     label: `unconstrained/steady-state/secrets=100`,
     kind: AppTaggingSecretKind.UNCONSTRAINED,
     secretCount: 100,
-    priorFinalizedIndex: 0,
     newLogs: 0,
   },
 ];
@@ -178,7 +174,7 @@ describeBench('syncTaggedPrivateLogs constrained-sync bench', () => {
   }
 
   async function runScenario(scenario: Scenario) {
-    const { kind, secretCount, priorFinalizedIndex } = scenario;
+    const { kind, secretCount } = scenario;
     const perSecretNewLogs = newLogsPerSecret(scenario);
 
     aztecNode.getPrivateLogsByTags.mockReset();
@@ -187,18 +183,18 @@ describeBench('syncTaggedPrivateLogs constrained-sync bench', () => {
 
     // Seed the persisted finalized indexes to simulate a recipient that already synced prior finalized messages.
     for (const secret of secrets) {
-      await taggingStore.updateHighestFinalizedIndex(secret, priorFinalizedIndex, JOB_ID);
+      await taggingStore.updateHighestFinalizedIndex(secret, PRIOR_FINALIZED_INDEX, JOB_ID);
       if (kind === AppTaggingSecretKind.UNCONSTRAINED) {
-        await taggingStore.updateHighestAgedIndex(secret, priorFinalizedIndex, JOB_ID);
+        await taggingStore.updateHighestAgedIndex(secret, PRIOR_FINALIZED_INDEX, JOB_ID);
       }
     }
 
     // Tags that should resolve to a finalized log: per secret, the contiguous run
-    // (priorFinalizedIndex, priorFinalizedIndex + K].
+    // (PRIOR_FINALIZED_INDEX, PRIOR_FINALIZED_INDEX + K].
     const hitTags = new Set<string>();
     for (let s = 0; s < secrets.length; s++) {
       for (let k = 1; k <= perSecretNewLogs[s]; k++) {
-        hitTags.add((await computeSiloedTagForIndex(secrets[s], priorFinalizedIndex + k)).toString());
+        hitTags.add((await computeSiloedTagForIndex(secrets[s], PRIOR_FINALIZED_INDEX + k)).toString());
       }
     }
 
