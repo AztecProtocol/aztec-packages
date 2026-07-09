@@ -36,6 +36,7 @@ export class BrowserEmbeddedWallet extends EmbeddedWallet {
 
     const pxeConfig: PXEConfig = Object.assign(getPXEConfig(), {
       proverEnabled: mergedConfigOverrides.proverEnabled,
+      // Unused in the browser: sqlite-opfs keys stores by name, not directory.
       dataDirectory: 'pxe_data',
       autoSync: false,
       ...mergedConfigOverrides,
@@ -71,6 +72,8 @@ export class BrowserEmbeddedWallet extends EmbeddedWallet {
         : await createStore(
             'wallet_data',
             {
+              // Unused in the browser: sqlite-opfs keys stores by name, not directory. Present only to
+              // satisfy the DataStoreConfig type.
               dataDirectory: 'wallet_data',
               dataStoreMapSizeKb: pxeConfig.dataStoreMapSizeKb,
               rollupAddress: l1ContractAddresses.rollupAddress,

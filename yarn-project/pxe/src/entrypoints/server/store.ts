@@ -8,6 +8,7 @@ import { join } from 'path';
 /** Location and identity inputs for opening an identity-partitioned PXE-side store. */
 export type IdentityStoreConfig = {
   dataDirectory?: string;
+  /** Maximum LMDB map size in KB. When omitted, the kv-store default map size applies. */
   dataStoreMapSizeKb?: number;
   l1ChainId?: number;
   rollupAddress?: EthAddress;
@@ -38,8 +39,10 @@ export async function openStoreForIdentity(
     storeIdentitySlug({ l1ChainId: config.l1ChainId, rollupAddress: config.rollupAddress, schemaVersion }),
   );
   await mkdir(subDir, { recursive: true });
-  createLogger(`pxe:data:${name}`, bindings).info(
-    `Opening ${name} data store at directory ${subDir} with map size ${config.dataStoreMapSizeKb} KB (LMDB v2)`,
-  );
+  createLogger(`pxe:data:${name}`, bindings).info(`Opening ${name} data store (LMDB v2)`, {
+    storeName: name,
+    subDir,
+    dataStoreMapSizeKb: config.dataStoreMapSizeKb,
+  });
   return openStoreAt(subDir, config.dataStoreMapSizeKb, undefined, bindings);
 }

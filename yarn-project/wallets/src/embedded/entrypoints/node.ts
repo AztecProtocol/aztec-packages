@@ -13,6 +13,8 @@ import type { AccountContractsProvider } from '../account-contract-providers/typ
 import { EmbeddedWallet, type EmbeddedWalletOptions, splitPxeOptions } from '../embedded_wallet.js';
 import { WalletDB } from '../wallet_db.js';
 
+const DEFAULT_WALLET_DATA_DIRECTORY = 'aztec-wallet-data';
+
 export class NodeEmbeddedWallet extends EmbeddedWallet {
   static async create<T extends NodeEmbeddedWallet = NodeEmbeddedWallet>(
     this: new (
@@ -37,7 +39,7 @@ export class NodeEmbeddedWallet extends EmbeddedWallet {
 
     const pxeConfig: PXEConfig = Object.assign(getPXEConfig(), {
       proverEnabled: mergedConfigOverrides.proverEnabled,
-      dataDirectory: 'aztec-wallet-data',
+      dataDirectory: DEFAULT_WALLET_DATA_DIRECTORY,
       autoSync: false,
       ...mergedConfigOverrides,
     });
@@ -79,7 +81,7 @@ export class NodeEmbeddedWallet extends EmbeddedWallet {
             'wallet_data',
             1,
             {
-              dataDirectory: pxeConfig.dataDirectory ?? 'aztec-wallet-data',
+              dataDirectory: pxeConfig.dataDirectory ?? DEFAULT_WALLET_DATA_DIRECTORY,
               dataStoreMapSizeKb: pxeConfig.dataStoreMapSizeKb,
               rollupAddress: l1ContractAddresses.rollupAddress,
               l1ChainId,
