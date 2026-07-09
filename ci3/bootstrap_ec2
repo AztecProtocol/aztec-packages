@@ -268,6 +268,13 @@ if [ "${GPU:-0}" = 1 ]; then
     sudo apt-get update -qq
     sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ubuntu-drivers-common
     sudo ubuntu-drivers install --gpgpu
+    # --gpgpu installs the headless driver + kernel modules but not nvidia-utils
+    # (nvidia-smi); install the utils package matching the driver version it picked.
+    nv_ver=\$(dpkg -l 'nvidia-headless-*' 2>/dev/null | awk '/^ii/{print \$2}' | grep -o '[0-9]\+' | head -1)
+    if [ -n "\$nv_ver" ]; then
+      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "nvidia-utils-\$nv_ver-server" || \
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "nvidia-utils-\$nv_ver"
+    fi
     sudo modprobe nvidia || true
   fi
   if ! command -v nvidia-ctk &>/dev/null; then
