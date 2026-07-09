@@ -288,7 +288,7 @@ describe('single-node/proving/prover_restart', () => {
       await createSharedBroker();
     });
 
-    it('revives non-parity transaction proofs after a clean prover-node restart', async () => {
+    it('preserves and revives in-flight checkpoint prover jobs across a clean prover-node restart', async () => {
       // Starve agents before the prover node exists: it will enqueue jobs at the broker but prove none.
       broker.agentsPaused = true;
 
