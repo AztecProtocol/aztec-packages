@@ -9,6 +9,19 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [PXE] Stores are now selected by `(l1ChainId, rollupAddress, schemaVersion)` instead of being wiped on mismatch
+
+Previously, connecting a PXE or embedded wallet to a different or redeployed rollup, or bumping the store schema version, wiped the existing on-disk store in place. That meant master account keys could be destroyed simply by pointing a wallet at a different network. A store now exists per `(l1ChainId, rollupAddress, schemaVersion)` identity, and switching networks (or upgrading) selects the matching store instead of overwriting the previous one.
+
+**Impact**: The first start after upgrading to this version begins with a fresh, empty store; data from the previous store is not deleted and remains on disk under its old identity. Browser apps using `@aztec/kv-store/sqlite-opfs` can enumerate and clean up stores for networks no longer in use with the new `listStores()` / `deleteStore()` utilities:
+
+```typescript
+import { deleteStore, listStores } from '@aztec/kv-store/sqlite-opfs';
+
+const names = await listStores();
+await deleteStore(names[0]); // the store must be closed first
+```
+
 ### [Aztec.nr] `TestEnvironmentOptions::with_tagging_secret_strategy` replaced
 
 `TestEnvironmentOptions::with_tagging_secret_strategy` is now `with_default_tag_secret_strategy_all_modes` for tests
