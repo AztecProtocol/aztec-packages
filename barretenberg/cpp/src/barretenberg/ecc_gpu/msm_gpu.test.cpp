@@ -183,23 +183,53 @@ TEST_F(MsmGpuTest, DiagSizeSweep)
                                 std::cout << "DIAG pair (" << culprits[a] << "," << culprits[b] << ") rep" << rep << " "
                                           << (gpu_r == cpu_r ? "ok" : "MISMATCH") << std::endl;
                                 if (gpu_r != cpu_r && rep == 0) {
-                                    // Error forensics: if one window digit was mangled,
-                                    // delta = +-m * 2^(10w) * P for small m.
+                                    // Structural forensics: what did the GPU actually
+                                    // compute? Test pairing/drop/sign hypotheses, then
+                                    // per-window digit drops/duplications.
+                                    const Fr& fa = pair_s[0];
+                                    const Fr& fb = pair_s[1];
+                                    Element pa(pair_p[0]);
+                                    Element pb(pair_p[1]);
+                                    struct Hyp {
+                                        const char* name;
+                                        Element value;
+                                    };
+                                    const Hyp hyps[] = {
+                                        { "swapped: a*Pb + b*Pa", pa * fb + pb * fa },
+                                        { "both on Pa", pa * (fa + fb) },
+                                        { "both on Pb", pb * (fa + fb) },
+                                        { "a*Pa only", pa * fa },
+                                        { "b*Pb only", pb * fb },
+                                        { "a*Pa - b*Pb", pa * fa - pb * fb },
+                                        { "b*Pb - a*Pa", pb * fb - pa * fa },
+                                        { "-(a*Pa + b*Pb)", -(pa * fa + pb * fb) },
+                                    };
+                                    for (const auto& h : hyps) {
+                                        if (gpu_r == h.value) {
+                                            std::cout << "DIAG structure: gpu == " << h.name << std::endl;
+                                        }
+                                    }
                                     Element delta = gpu_r - cpu_r;
-                                    for (size_t p = 0; p < 2; p++) {
-                                        Element base = Element(pair_p[p]);
-                                        for (size_t w = 0; w < 26; w++) {
-                                            Fr shift(bb::numeric::uint256_t(1) << (10 * w));
-                                            Element step = base * shift;
-                                            Element acc;
-                                            acc.self_set_infinity();
-                                            for (size_t m = 1; m <= 2048; m++) {
-                                                acc = acc + step;
-                                                if (acc == delta || acc == -delta) {
-                                                    std::cout << "DIAG delta = " << (acc == delta ? "+" : "-") << m
-                                                              << " * 2^" << (10 * w) << " * P_"
-                                                              << (p == 0 ? culprits[a] : culprits[b]) << std::endl;
-                                                }
+                                    for (size_t w = 0; w < 26; w++) {
+                                        Fr shift(bb::numeric::uint256_t(1) << (10 * w));
+                                        for (size_t p = 0; p < 2; p++) {
+                                            const Fr& s = p == 0 ? fa : fb;
+                                            Element base = p == 0 ? pa : pb;
+                                            bb::numeric::uint256_t s_int(s.from_montgomery_form_reduced().data[0],
+                                                                         s.from_montgomery_form_reduced().data[1],
+                                                                         s.from_montgomery_form_reduced().data[2],
+                                                                         s.from_montgomery_form_reduced().data[3]);
+                                            uint64_t win = ((s_int >> (10 * w)) & 0x3ff).data[0];
+                                            // digit dropped: delta == -win*2^(10w)*P;
+                                            // digit doubled: delta == +win*2^(10w)*P.
+                                            Element contrib = base * (Fr(win) * shift);
+                                            if (delta == -contrib && win != 0) {
+                                                std::cout << "DIAG window " << w << " of " << (p == 0 ? "a" : "b")
+                                                          << " dropped (raw win=" << win << ")" << std::endl;
+                                            }
+                                            if (delta == contrib && win != 0) {
+                                                std::cout << "DIAG window " << w << " of " << (p == 0 ? "a" : "b")
+                                                          << " doubled (raw win=" << win << ")" << std::endl;
                                             }
                                         }
                                     }
