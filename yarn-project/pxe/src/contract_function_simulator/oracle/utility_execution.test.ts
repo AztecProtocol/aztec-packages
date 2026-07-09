@@ -678,7 +678,7 @@ describe('Utility Execution test suite', () => {
           0n,
           BlockHash.random(),
           BlockNumber(syncedBlockNumber),
-          SlotNumber(syncedBlockNumber),
+          SlotNumber(1),
           0,
           EpochNumber(1),
           txEffect,

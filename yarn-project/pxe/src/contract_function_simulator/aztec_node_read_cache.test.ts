@@ -91,7 +91,9 @@ describe('AztecNodeReadCache', () => {
     const blockHash = BlockHash.random();
     const contractAddress = await AztecAddress.random();
     const startStorageSlot = new Fr(100);
-    aztecNode.getPublicStorageAt.mockImplementation(async (_block, _contract, slot) => new Fr(slot.value + 1n));
+    aztecNode.getPublicStorageAt.mockImplementation((_block, _contract, slot) =>
+      Promise.resolve(new Fr(slot.value + 1n)),
+    );
 
     await expect(cache.getPublicStorageRange(blockHash, contractAddress, startStorageSlot, 2)).resolves.toEqual([
       new Fr(101),
