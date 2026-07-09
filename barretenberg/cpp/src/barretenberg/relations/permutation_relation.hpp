@@ -54,11 +54,17 @@ template <typename FF_> class UltraPermutationRelationImpl {
     {
         // If z_perm == z_perm_shift, this implies that none of the wire values for the present input are involved in
         // non-trivial copy constraints.
-        return (in.z_perm - in.z_perm_shift).is_zero();
+        return (in[AllEntities::EntityId::z_perm] - in[AllEntities::EntityId::z_perm_shift]).is_zero();
     }
 
-    inline static auto& get_grand_product_polynomial(auto& in) { return in.z_perm; }
-    inline static auto& get_shifted_grand_product_polynomial(auto& in) { return in.z_perm_shift; }
+    template <typename AllEntities> inline static auto& get_grand_product_polynomial(AllEntities& in)
+    {
+        return in[AllEntities::EntityId::z_perm];
+    }
+    template <typename AllEntities> inline static auto& get_shifted_grand_product_polynomial(AllEntities& in)
+    {
+        return in[AllEntities::EntityId::z_perm_shift];
+    }
 
     template <typename Accumulator, typename AllEntities, typename Parameters>
     inline static Accumulator compute_grand_product_numerator(const AllEntities& in, const Parameters& params)
@@ -66,14 +72,14 @@ template <typename FF_> class UltraPermutationRelationImpl {
         using View = typename Accumulator::View;
         using ParameterView = Parameters::DataType;
 
-        auto w_1 = View(in.w_l);
-        auto w_2 = View(in.w_r);
-        auto w_3 = View(in.w_o);
-        auto w_4 = View(in.w_4);
-        auto id_1 = View(in.id_1);
-        auto id_2 = View(in.id_2);
-        auto id_3 = View(in.id_3);
-        auto id_4 = View(in.id_4);
+        auto w_1 = View(in[AllEntities::EntityId::w_l]);
+        auto w_2 = View(in[AllEntities::EntityId::w_r]);
+        auto w_3 = View(in[AllEntities::EntityId::w_o]);
+        auto w_4 = View(in[AllEntities::EntityId::w_4]);
+        auto id_1 = View(in[AllEntities::EntityId::id_1]);
+        auto id_2 = View(in[AllEntities::EntityId::id_2]);
+        auto id_3 = View(in[AllEntities::EntityId::id_3]);
+        auto id_4 = View(in[AllEntities::EntityId::id_4]);
 
         const auto& beta = ParameterView(params.beta);
         const auto& gamma = ParameterView(params.gamma);
@@ -89,15 +95,15 @@ template <typename FF_> class UltraPermutationRelationImpl {
         using View = typename Accumulator::View;
         using ParameterView = Parameters::DataType;
 
-        auto w_1 = View(in.w_l);
-        auto w_2 = View(in.w_r);
-        auto w_3 = View(in.w_o);
-        auto w_4 = View(in.w_4);
+        auto w_1 = View(in[AllEntities::EntityId::w_l]);
+        auto w_2 = View(in[AllEntities::EntityId::w_r]);
+        auto w_3 = View(in[AllEntities::EntityId::w_o]);
+        auto w_4 = View(in[AllEntities::EntityId::w_4]);
 
-        auto sigma_1 = View(in.sigma_1);
-        auto sigma_2 = View(in.sigma_2);
-        auto sigma_3 = View(in.sigma_3);
-        auto sigma_4 = View(in.sigma_4);
+        auto sigma_1 = View(in[AllEntities::EntityId::sigma_1]);
+        auto sigma_2 = View(in[AllEntities::EntityId::sigma_2]);
+        auto sigma_3 = View(in[AllEntities::EntityId::sigma_3]);
+        auto sigma_4 = View(in[AllEntities::EntityId::sigma_4]);
 
         const auto& beta = ParameterView(params.beta);
         const auto& gamma = ParameterView(params.gamma);
@@ -135,18 +141,18 @@ template <typename FF_> class UltraPermutationRelationImpl {
         using ParameterView = Parameters::DataType;
         using ParameterCoefficientAccumulator = typename ParameterView::CoefficientAccumulator;
 
-        const CoefficientAccumulator w_1_m(in.w_l);
-        const CoefficientAccumulator w_2_m(in.w_r);
-        const CoefficientAccumulator w_3_m(in.w_o);
-        const CoefficientAccumulator w_4_m(in.w_4);
-        const CoefficientAccumulator id_1_m(in.id_1);
-        const CoefficientAccumulator id_2_m(in.id_2);
-        const CoefficientAccumulator id_3_m(in.id_3);
-        const CoefficientAccumulator id_4_m(in.id_4);
-        const CoefficientAccumulator sigma_1_m(in.sigma_1);
-        const CoefficientAccumulator sigma_2_m(in.sigma_2);
-        const CoefficientAccumulator sigma_3_m(in.sigma_3);
-        const CoefficientAccumulator sigma_4_m(in.sigma_4);
+        const CoefficientAccumulator w_1_m(in[AllEntities::EntityId::w_l]);
+        const CoefficientAccumulator w_2_m(in[AllEntities::EntityId::w_r]);
+        const CoefficientAccumulator w_3_m(in[AllEntities::EntityId::w_o]);
+        const CoefficientAccumulator w_4_m(in[AllEntities::EntityId::w_4]);
+        const CoefficientAccumulator id_1_m(in[AllEntities::EntityId::id_1]);
+        const CoefficientAccumulator id_2_m(in[AllEntities::EntityId::id_2]);
+        const CoefficientAccumulator id_3_m(in[AllEntities::EntityId::id_3]);
+        const CoefficientAccumulator id_4_m(in[AllEntities::EntityId::id_4]);
+        const CoefficientAccumulator sigma_1_m(in[AllEntities::EntityId::sigma_1]);
+        const CoefficientAccumulator sigma_2_m(in[AllEntities::EntityId::sigma_2]);
+        const CoefficientAccumulator sigma_3_m(in[AllEntities::EntityId::sigma_3]);
+        const CoefficientAccumulator sigma_4_m(in[AllEntities::EntityId::sigma_4]);
 
         const ParameterCoefficientAccumulator gamma_m(params.gamma);
         const ParameterCoefficientAccumulator beta_m(params.beta);
@@ -187,10 +193,10 @@ template <typename FF_> class UltraPermutationRelationImpl {
         denominator *= Accumulator(t8);
 
         const ParameterCoefficientAccumulator public_input_delta_m(params.public_input_delta);
-        const auto z_perm_m = CoefficientAccumulator(in.z_perm);
-        const auto z_perm_shift_m = CoefficientAccumulator(in.z_perm_shift);
-        const auto lagrange_first_m = CoefficientAccumulator(in.lagrange_first);
-        const auto lagrange_last_m = CoefficientAccumulator(in.lagrange_last);
+        const auto z_perm_m = CoefficientAccumulator(in[AllEntities::EntityId::z_perm]);
+        const auto z_perm_shift_m = CoefficientAccumulator(in[AllEntities::EntityId::z_perm_shift]);
+        const auto lagrange_first_m = CoefficientAccumulator(in[AllEntities::EntityId::lagrange_first]);
+        const auto lagrange_last_m = CoefficientAccumulator(in[AllEntities::EntityId::lagrange_last]);
 
         auto public_input_term_m = lagrange_last_m * public_input_delta_m;
         public_input_term_m += z_perm_shift_m;

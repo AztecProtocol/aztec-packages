@@ -17,17 +17,6 @@ concept IsUltraHonk = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor, UltraKeccakZKFl
 template <typename T>
 concept IsUltraOrMegaHonk = IsUltraHonk<T> || IsAnyOf<T, MegaFlavor, MegaZKFlavor, MegaAvmFlavor>;
 
-template <typename T>
-concept IsMegaFlavor = IsAnyOf<T, MegaFlavor, MegaZKFlavor, MegaAvmFlavor,
-                                    MegaRecursiveFlavor_<UltraCircuitBuilder>,
-                                    MegaRecursiveFlavor_<MegaCircuitBuilder>,
-                                    MegaAvmRecursiveFlavor_<UltraCircuitBuilder>,
-                                    MegaZKRecursiveFlavor_<MegaCircuitBuilder>,
-                                    MegaZKRecursiveFlavor_<UltraCircuitBuilder>>;
-
-template <typename T>
-concept HasDataBus = IsMegaFlavor<T>;
-
 // Whether the Flavor has randomness at the end of its trace to randomise commitments and evaluations of its polynomials
 // hence requiring an adjustment to the round univariates via the RowDisablingPolynomial.
 // This is not the case for Translator, where randomness resides in different parts of the trace and the locations will

@@ -1,5 +1,5 @@
 import {
-  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
+  AVM_V2_PROOF_LENGTH_IN_FIELDS,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   PAIRING_POINTS_SIZE,
@@ -177,9 +177,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   @trackSpan('BBNativeRollupProver.getAvmProof', inputs => ({
     [Attributes.APP_CIRCUIT_NAME]: inputs.hints.tx.hash,
   }))
-  public async getAvmProof(
-    inputs: AvmCircuitInputs,
-  ): Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
+  public async getAvmProof(inputs: AvmCircuitInputs): Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS>> {
     const proof = await this.createAvmProof(inputs);
     await this.verifyAvmProof(proof.binaryProof, inputs.publicInputs);
     return proof;
@@ -508,9 +506,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     };
   }
 
-  private async createAvmProof(
-    input: AvmCircuitInputs,
-  ): Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
+  private async createAvmProof(input: AvmCircuitInputs): Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS>> {
     logger.info(`Proving avm-circuit for TX ${input.hints.tx.hash}...`);
 
     const inputsBuffer = input.serializeWithMessagePack();
@@ -520,20 +516,14 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     // Convert Uint8Array[] (32-byte field elements) to Fr[]
     const proofFields = proofFieldArrays.map(f => Fr.fromBuffer(Buffer.from(f)));
 
-    // Pad to fixed size (during development the proof length may vary)
-    if (proofFields.length > AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED) {
-      throw new Error(
-        `Proof has ${proofFields.length} fields, expected no more than ${AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED}.`,
-      );
+    if (proofFields.length !== AVM_V2_PROOF_LENGTH_IN_FIELDS) {
+      throw new Error(`Proof has ${proofFields.length} fields, expected exactly ${AVM_V2_PROOF_LENGTH_IN_FIELDS}.`);
     }
-    const proofFieldsPadded = proofFields.concat(
-      Array(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED - proofFields.length).fill(new Fr(0)),
-    );
 
     // Build the binary proof from the raw field data
     const rawProofBuffer = Buffer.concat(proofFieldArrays.map(f => Buffer.from(f)));
     const binaryProof = new Proof(rawProofBuffer, /*numPublicInputs=*/ 0);
-    const avmProof = new RecursiveProof(proofFieldsPadded, binaryProof, true, AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED);
+    const avmProof = new RecursiveProof(proofFields, binaryProof, true, AVM_V2_PROOF_LENGTH_IN_FIELDS);
 
     const circuitType = 'avm-circuit' as const;
     const appCircuitName = 'unknown' as const;

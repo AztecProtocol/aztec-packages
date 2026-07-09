@@ -136,7 +136,7 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
             auto inner_proof = prover.construct_proof();
 
             if (tamper_vk) {
-                honk_vk->q_l = g1::one;
+                honk_vk->q_l() = g1::one;
                 auto honk_vk_and_hash = std::make_shared<UltraFlavor::VKAndHash>(honk_vk);
                 UltraVerifier_<UltraFlavor, DefaultIO> verifier(honk_vk_and_hash);
                 EXPECT_FALSE(verifier.verify_proof(inner_proof).result);
@@ -226,8 +226,16 @@ class HypernovaRecursionConstraintTest : public ::testing::Test {
         AcirProgram mock_kernel_program = construct_mock_kernel_program(ivc->verification_queue);
         auto kernel = acir_format::create_circuit<Builder>(mock_kernel_program, metadata);
         const bool is_hiding_kernel = ivc->num_circuits_accumulated == ivc->get_num_circuits() - 1;
-        auto kernel_vk = get_kernel_vk_from_circuit(kernel, is_hiding_kernel);
-        ivc->accumulate(kernel, kernel_vk);
+        // Hiding kernel uses MegaZKFlavor's smaller VK shape and its dedicated entry point.
+        if (is_hiding_kernel) {
+            auto hiding_vk = std::make_shared<Chonk::MegaZKVerificationKey>(
+                Chonk::HidingKernelProverInstance(kernel).get_precomputed());
+            ivc->accumulate_hiding_kernel(kernel, hiding_vk);
+        } else {
+            auto kernel_vk =
+                std::make_shared<Chonk::MegaVerificationKey>(Chonk::ProverInstance(kernel).get_precomputed());
+            ivc->accumulate(kernel, kernel_vk);
+        }
     }
 
     static void construct_and_accumulate_mock_app(std::shared_ptr<Chonk> ivc)
@@ -512,44 +520,30 @@ TEST_F(HypernovaRecursionConstraintTest, GenerateInnerKernelVKFromConstraints)
 TEST_F(HypernovaRecursionConstraintTest, GenerateMegaVerificationKeyFromConstraints)
 {
     BB_DISABLE_ASSERTS();
-    // First, construct the kernel VK by running the full IVC
-    std::shared_ptr<MegaFlavor::VerificationKey> expected_hiding_kernel_vk;
+    // First, construct the hiding kernel VK by running the full IVC. The hiding kernel uses
+    // MegaZKFlavor's reduced VK shape and lives on `ivc->hiding_vk` (it does not push into
+    // `verification_queue`).
+    std::shared_ptr<Chonk::MegaZKVerificationKey> expected_hiding_kernel_vk;
     {
         auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
-        const ProgramMetadata metadata{ ivc };
-
-        {
-            // Construct and accumulate mock app_circuit
-            construct_and_accumulate_mock_app(ivc);
-        }
-
-        {
-            // Construct and accumulate a mock INIT kernel (oink recursion for app accumulation)
-            construct_and_accumulate_mock_kernel(ivc);
-        }
-
+        construct_and_accumulate_mock_app(ivc);
+        construct_and_accumulate_mock_kernel(ivc);
         construct_and_accumulate_trailing_kernels(ivc);
-
-        // The single entry in the verification queue corresponds to the hiding kernel
-        expected_hiding_kernel_vk = ivc->verification_queue[0].honk_vk;
+        expected_hiding_kernel_vk = ivc->hiding_vk;
     }
 
-    // Now, construct the kernel VK by mocking the IVC state prior to kernel construction
-    std::shared_ptr<MegaFlavor::VerificationKey> kernel_vk;
+    // Now, construct the kernel VK by mocking the IVC state prior to hiding-kernel construction.
+    std::shared_ptr<Chonk::MegaZKVerificationKey> kernel_vk;
     {
-        // mock IVC accumulation increases the num_circuits_accumualted, hence we need to assume the tail kernel has
-        // been accumulated
         auto ivc = std::make_shared<Chonk>(/*num_circuits=*/5);
-        // construct a mock tail kernel
-        acir_format::mock_chonk_accumulation(ivc,
-                                             Chonk::QUEUE_TYPE::HN_FINAL,
-                                             /*is_kernel=*/true);
+        acir_format::mock_chonk_accumulation(ivc, Chonk::QUEUE_TYPE::HN_FINAL, /*is_kernel=*/true);
         AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
         program.witness = {}; // remove the witness to mimick VK construction context
-        kernel_vk = construct_kernel_vk_from_acir_program(program, /*is_hiding_kernel=*/true);
+        auto kernel = acir_format::create_circuit<Builder>(program);
+        kernel_vk =
+            std::make_shared<Chonk::MegaZKVerificationKey>(Chonk::HidingKernelProverInstance(kernel).get_precomputed());
     }
 
-    // Compare the VK constructed via running the IVc with the one constructed via mocking
     EXPECT_EQ(*kernel_vk.get(), *expected_hiding_kernel_vk.get());
 }
 
@@ -732,7 +726,7 @@ TEST_F(HypernovaRecursionConstraintTest, HidingKernelGateCount)
 
     // Assert ultra ops count
     size_t actual_ultra_ops = kernel.op_queue->get_current_subtable_size();
-    EXPECT_EQ(actual_ultra_ops, HIDING_KERNEL_ULTRA_OPS);
+    EXPECT_EQ(actual_ultra_ops, acir_format::HIDING_KERNEL_ULTRA_OPS);
 }
 
 // =====================================================================================

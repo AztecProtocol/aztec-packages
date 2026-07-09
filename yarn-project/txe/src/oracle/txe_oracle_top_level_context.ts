@@ -487,6 +487,8 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     const privateExecutionOracle = new PrivateExecutionOracle({
       argsHash,
       txContext,
+      // The TXE does not run the init kernel's salt binding, so no tx-request salt is in scope.
+      txRequestSalt: Fr.ZERO,
       callContext,
       anchorBlockHeader: blockHeader,
       utilityExecutor,
@@ -552,7 +554,6 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         }),
       );
 
-      noteCache.finish();
       const nonceGenerator = noteCache.getNonceGenerator();
       result = new PrivateExecutionResult(executionResult, nonceGenerator, publicFunctionsCalldata);
     } catch (err) {
@@ -917,7 +918,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     try {
       const simulator = new WASMSimulator();
       const utilityExecutor = async (syncCall: FunctionCall, execScopes: AztecAddress[]) => {
-        await this.executeUtilityCall(syncCall, { scopes: execScopes, jobId });
+        await this.executeUtilityCall(syncCall, { scopes: execScopes, jobId, authorizedUtilityCallTargets });
       };
       const oracle = new UtilityExecutionOracle({
         callContext: CallContext.from({
@@ -945,10 +946,10 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         jobId,
         scopes,
         simulator,
+        utilityExecutor,
         hooks: composeHooks({
           authorizeUtilityCall: this.buildAuthorizeUtilityCallHook('utility', authorizedUtilityCallTargets),
         }),
-        utilityExecutor,
         // Execution-tree root (top-level utility run or contract sync): own store; nested frames inherit it.
         transientArrayService: new TransientArrayService(),
       });

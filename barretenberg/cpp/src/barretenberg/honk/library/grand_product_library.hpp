@@ -80,7 +80,8 @@ namespace bb {
 template <typename Flavor, typename GrandProdRelation>
 void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
                            bb::RelationParameters<typename Flavor::FF>& relation_parameters,
-                           size_t size_override = 0)
+                           size_t size_override = 0,
+                           uint32_t* duplicate_count_out = nullptr)
 {
     BB_BENCH_NAME("compute_grand_product");
 
@@ -106,6 +107,13 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
     Polynomial numerator{ active_size };
     Polynomial denominator{ active_size };
 
+    // Optionally count rows whose per-row ratio is 1 (numerator == denominator): there z_perm is
+    // unchanged across the row, i.e. z_perm[i] == z_perm[i-1]. These are exactly the adjacent
+    // duplicate coefficients the MSM dedup pre-pass strips. Counting them here (the per-row values
+    // are already in hand) avoids a second full pass over z_perm in the caller.
+    const bool count_duplicates = duplicate_count_out != nullptr;
+    std::vector<uint32_t> thread_duplicate_counts(count_duplicates ? thread_data.num_threads : 0, 0);
+
     // Step (1)
     // Populate `numerator` and `denominator` with the algebra described by Relation
     parallel_for(thread_data.num_threads, [&](size_t thread_idx) {
@@ -113,6 +121,7 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
         const size_t start = thread_data.start[thread_idx];
         const size_t end = thread_data.end[thread_idx];
         typename Flavor::AllValues row;
+        uint32_t local_duplicates = 0;
         for (size_t i = start; i < end; ++i) {
             const size_t poly_idx = i + gp_start;
             // TODO: consider avoiding get_row if possible.
@@ -125,8 +134,22 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
                 GrandProdRelation::template compute_grand_product_numerator<Accumulator>(row, relation_parameters);
             denominator.at(i) =
                 GrandProdRelation::template compute_grand_product_denominator<Accumulator>(row, relation_parameters);
+            if (count_duplicates && numerator[i] == denominator[i]) {
+                ++local_duplicates;
+            }
+        }
+        if (count_duplicates) {
+            thread_duplicate_counts[thread_idx] = local_duplicates;
         }
     });
+
+    if (count_duplicates) {
+        uint32_t total_duplicates = 0;
+        for (const uint32_t c : thread_duplicate_counts) {
+            total_duplicates += c;
+        }
+        *duplicate_count_out = total_duplicates;
+    }
 
     DEBUG_LOG_ALL(numerator.coeffs());
     DEBUG_LOG_ALL(denominator.coeffs());

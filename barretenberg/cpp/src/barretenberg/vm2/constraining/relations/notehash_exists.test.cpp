@@ -83,7 +83,9 @@ TEST(NoteHashExistsConstrainingTest, OutOfRange)
 
     // Negative test: exists must be false
     trace.set(C::execution_register_2_, 0, 1);
-    EXPECT_THROW_WITH_MESSAGE(check_relation<notehash_exists>(trace), "NOTE_HASH_EXISTS_OUT_OF_RANGE_FALSE");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<notehash_exists>(trace),
+        notehash_exists::get_subrelation_label(notehash_exists::SR_NOTE_HASH_EXISTS_OUT_OF_RANGE_FALSE));
 }
 
 TEST(NoteHashExistsConstrainingTest, NegativeInvalidOutputTag)
@@ -97,8 +99,9 @@ TEST(NoteHashExistsConstrainingTest, NegativeInvalidOutputTag)
         { C::execution_mem_tag_reg_1_, static_cast<uint8_t>(MemoryTag::U64) },
         { C::execution_mem_tag_reg_2_, static_cast<uint8_t>(MemoryTag::U8) },
     } });
-    EXPECT_THROW_WITH_MESSAGE(check_relation<notehash_exists>(trace, notehash_exists::SR_NOTEHASH_EXISTS_U1_OUTPUT_TAG),
-                              "NOTEHASH_EXISTS_U1_OUTPUT_TAG");
+    EXPECT_THROW_WITH_MESSAGE(
+        check_relation<notehash_exists>(trace, notehash_exists::SR_NOTEHASH_EXISTS_U1_OUTPUT_TAG),
+        notehash_exists::get_subrelation_label(notehash_exists::SR_NOTEHASH_EXISTS_U1_OUTPUT_TAG));
 }
 
 TEST(NoteHashExistsConstrainingTest, NegativeNoteHashExistsSuccess)
@@ -109,7 +112,7 @@ TEST(NoteHashExistsConstrainingTest, NegativeNoteHashExistsSuccess)
     } });
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<execution>(trace, execution::SR_INFALLIBLE_OPCODES_SUCCESS),
-                              "INFALLIBLE_OPCODES_SUCCESS");
+                              execution::get_subrelation_label(execution::SR_INFALLIBLE_OPCODES_SUCCESS));
 }
 
 TEST(NoteHashExistsConstrainingTest, Interactions)

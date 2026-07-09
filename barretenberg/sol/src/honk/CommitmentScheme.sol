@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {ONE, Fr, FrLib} from "./Fr.sol";
+import {ONE, Fr, FrLib, NUM_SMALL_IPA_OPENING_CLAIMS} from "./Fr.sol";
 import {CONST_PROOF_SIZE_LOG_N} from "./HonkTypes.sol";
 
 library CommitmentSchemeLib {
@@ -20,8 +20,8 @@ library CommitmentSchemeLib {
         Fr batchingChallenge;
         // Linear combination of multilinear (sumcheck) evaluations and powers of rho
         Fr batchedEvaluation;
-        Fr[4] denominators;
-        Fr[4] batchingScalars;
+        Fr[NUM_SMALL_IPA_OPENING_CLAIMS] denominators;
+        Fr[NUM_SMALL_IPA_OPENING_CLAIMS] batchingScalars;
         // 1/(z - r^{2^i}) for i = 0, ..., logSize, dynamically updated
         Fr posInvertedDenominator;
         // 1/(z + r^{2^i}) for i = 0, ..., logSize, dynamically updated
