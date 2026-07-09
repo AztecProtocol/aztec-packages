@@ -33,8 +33,9 @@ describe('single-node/fees/account_init', () => {
 
   beforeAll(async () => {
     await t.setup({ ...PIPELINING_SETUP_OPTS });
-    await t.applyFundAliceWithBananas();
-    await t.applyFPCSetup();
+    // Alice's banana mints and the BananaFPC deploy each depend only on the BananaCoin deployed
+    // during setup, so they run concurrently and share slots.
+    await Promise.all([t.applyFundAliceWithBananas(), t.applyFPCSetup()]);
     ({ aliceAddress, wallet, bananaCoin, bananaFPC, logger, aztecNode } = t);
   });
 
