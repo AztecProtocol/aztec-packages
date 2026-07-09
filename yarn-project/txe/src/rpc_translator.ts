@@ -221,11 +221,12 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_txe_setTaggingSecretStrategy(...inputs: ForeignCallArgs) {
+  aztec_txe_setTaggingSecretStrategies(...inputs: ForeignCallArgs) {
     return callTxeHandler({
-      oracle: 'aztec_txe_setTaggingSecretStrategy',
+      oracle: 'aztec_txe_setTaggingSecretStrategies',
       inputs,
-      handler: ([strategy]) => this.handlerAsTxe().setTaggingSecretStrategy(strategy),
+      handler: ([unconstrainedStrategy, constrainedStrategy]) =>
+        this.handlerAsTxe().setTaggingSecretStrategies(unconstrainedStrategy, constrainedStrategy),
     });
   }
 
@@ -488,12 +489,12 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_getL1ToL2MembershipWitness(...inputs: ForeignCallArgs) {
+  aztec_utl_getL1ToL2MembershipWitnessV2(...inputs: ForeignCallArgs) {
     return callTxeHandler({
-      oracle: 'aztec_utl_getL1ToL2MembershipWitness',
+      oracle: 'aztec_utl_getL1ToL2MembershipWitnessV2',
       inputs,
-      handler: ([contractAddress, messageHash, secret]) =>
-        this.handlerAsUtility().getL1ToL2MembershipWitness(contractAddress, messageHash, secret),
+      handler: ([messageHash, nullifier]) =>
+        this.handlerAsUtility().getL1ToL2MembershipWitnessV2(messageHash, nullifier),
     });
   }
 

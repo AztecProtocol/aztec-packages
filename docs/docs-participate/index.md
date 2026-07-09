@@ -12,6 +12,14 @@ Welcome to the Participate section. Here you'll find educational content about h
 Aztec is currently in its **Alpha** phase, a live mainnet where bugs, including critical ones, are expected. Before using the network, read the [Alpha Network](/participate/alpha) page to understand current limitations, security expectations, and what to expect from rollup upgrades.
 :::
 
+import YouTubeEmbed from '@site/src/components/YouTubeEmbed';
+
+## What is Aztec?
+
+This explainer covers what Aztec is in under 90 seconds (find more on the [video lessons](/developers/docs/resources/video_lessons) page):
+
+<YouTubeEmbed videoId="urcBvo2QJp0" title="What is Aztec: Explained in Under 90 Seconds" />
+
 ## Basics of Aztec
 
 New to Aztec? Start here to understand the fundamentals:

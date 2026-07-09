@@ -1,8 +1,10 @@
 /* eslint-disable camelcase */
 import { MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_CIPHERTEXT_LEN, PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
+import { computeFeeJuiceMessageNullifier } from '@aztec/stdlib/messaging';
 
 import type { EphemeralArray } from '../noir-structs/ephemeral_array.js';
 import type { LogRetrievalResponse } from '../noir-structs/log_retrieval_response.js';
+import { Option } from '../noir-structs/option.js';
 import type { PendingTaggedLog } from '../noir-structs/pending_tagged_log.js';
 import type { ResolvedTx } from '../noir-structs/resolved_tx.js';
 import {
@@ -13,6 +15,7 @@ import {
   type RegistryParam,
 } from './oracle_registry.js';
 import {
+  AZTEC_ADDRESS,
   EPHEMERAL_ARRAY,
   FIELD,
   FIXED_BOUNDED_VEC,
@@ -50,6 +53,25 @@ const LEGACY_PENDING_TAGGED_LOG: TypeMapping<LegacyPendingTaggedLog> = STRUCT<Le
  * older contracts can no longer run against this environment.
  */
 export const LEGACY_ORACLE_REGISTRY: Record<string, LegacyOracleEntry> = {
+  aztec_utl_getL1ToL2MembershipWitness: legacyOracle({
+    modernOracle: 'aztec_utl_getL1ToL2MembershipWitnessV2',
+    // The old wire passed the contract address and secret, the modern oracle takes the unsiloed nullifier (plus the
+    // address to silo it with) instead. We derive it here so already-deployed contracts that still emit the old call
+    // keep working.
+    //
+    // This is the fee juice message nullifier derivation: only contracts using that scheme call this retired oracle.
+    params: {
+      legacyType: [
+        { name: 'contractAddress', type: AZTEC_ADDRESS },
+        { name: 'messageHash', type: FIELD },
+        { name: 'secret', type: FIELD },
+      ],
+      mapping: async ([contractAddress, messageHash, secret]) => [
+        messageHash,
+        Option.some({ contractAddress, nullifier: await computeFeeJuiceMessageNullifier(messageHash, secret) }),
+      ],
+    },
+  }),
   aztec_utl_getLogsByTag: legacyOracle({
     modernOracle: 'aztec_utl_getLogsByTagV2',
     returnType: {
@@ -98,9 +120,12 @@ export interface LegacyOracleEntry {
   modernOracle: keyof Registry;
   /**
    * Old param wire. `legacyType` deserializes the old wire; `mapping` bridges the deserialized legacy args to the
-   * modern handler's args. Omit when the param wire is unchanged.
+   * modern handler's args. The mapping may be async. Omit when the param wire is unchanged.
    */
-  params?: { legacyType: readonly RegistryParam[]; mapping: (legacyArgs: any) => readonly unknown[] };
+  params?: {
+    legacyType: readonly RegistryParam[];
+    mapping: (legacyArgs: any) => readonly unknown[] | Promise<readonly unknown[]>;
+  };
   /**
    * Old return wire. `legacyType` serializes the subset the old contract reads; `mapping` bridges the handler's
    * current result to that subset's value type. Omit when the return wire is unchanged.
@@ -112,7 +137,9 @@ function legacyOracle<K extends keyof Registry, W = never, const TLegacyParams e
   modernOracle: K;
   params?: {
     legacyType: [...TLegacyParams];
-    mapping: (legacyArgs: ParamTypes<InferDeserializedParams<TLegacyParams>>) => HandlerArgsOf<K>;
+    mapping: (
+      legacyArgs: ParamTypes<InferDeserializedParams<TLegacyParams>>,
+    ) => HandlerArgsOf<K> | Promise<HandlerArgsOf<K>>;
   };
   returnType?: { legacyType: TypeMapping<W>; mapping: (result: ReturnValueOf<K>) => W };
 }): LegacyOracleEntry {
