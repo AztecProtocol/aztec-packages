@@ -154,6 +154,37 @@ TEST_F(MsmGpuTest, DiagSizeSweep)
                 num_fail++;
                 if (first_fail == 0) {
                     first_fail = n;
+                    // Bisect the culprit: mask each scalar to zero in turn; the ones
+                    // whose removal makes the MSM match are implicated.
+                    for (size_t i = 0; i < n; i++) {
+                        std::vector<Fr> masked(cls.scalars->begin(),
+                                               cls.scalars->begin() + static_cast<std::ptrdiff_t>(n));
+                        masked[i] = Fr::zero();
+                        bb::PolynomialSpan<const Fr> masked_span{ 0, masked };
+                        if (gpu::pippenger_bn254_oneshot(masked_span, points) == cpu_msm(masked_span, points)) {
+                            const Fr& s = (*cls.scalars)[i];
+                            std::cout << "DIAG culprit class=" << cls.name << " idx=" << i << " scalar=0x" << std::hex
+                                      << s.data[3] << " " << s.data[2] << " " << s.data[1] << " " << s.data[0]
+                                      << std::dec << " (raw mont limbs)" << std::endl;
+                            std::vector<Fr> alone{ s };
+                            bb::PolynomialSpan<const Fr> alone_span{ 0, alone };
+                            std::cout << "DIAG culprit alone(with points[0]) "
+                                      << (gpu::pippenger_bn254_oneshot(alone_span, points) ==
+                                                  cpu_msm(alone_span, points)
+                                              ? "ok"
+                                              : "MISMATCH")
+                                      << std::endl;
+                            std::vector<Fr> alone_i{ s };
+                            std::vector<AffineElement> pt_i{ points[i] };
+                            bb::PolynomialSpan<const Fr> alone_i_span{ 0, alone_i };
+                            std::cout << "DIAG culprit alone(with points[" << i << "]) "
+                                      << (gpu::pippenger_bn254_oneshot(alone_i_span, pt_i) ==
+                                                  cpu_msm(alone_i_span, pt_i)
+                                              ? "ok"
+                                              : "MISMATCH")
+                                      << std::endl;
+                        }
+                    }
                 }
             }
         }
