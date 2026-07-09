@@ -16,9 +16,13 @@
 
 typedef jacobian_t<fp_t> point_t;
 typedef xyzz_t<fp_t> bucket_t;
-// Plain Affine_t {X, Y}: 64 bytes, layout-compatible with bb's g1::affine_element.
-// NOT affine_inf_t, whose extra `bool inf` member changes the host-side stride.
-typedef bucket_t::affine_t affine_t;
+// affine_inf_t {X, Y, bool inf} — the instantiation every upstream sppark consumer
+// (arkworks FFI, poc tests) uses. The plain Affine_t instantiation produced wrong MSM
+// results on sm_89 while affine_inf_t matches upstream's tested path. Host points are
+// staged into 72-byte records with an explicit zero inf flag (mirroring the arkworks
+// layout); sppark's strided HtoD leaves the device-side inf words uninitialized for
+// any narrower stride.
+typedef bucket_t::affine_inf_t affine_t;
 typedef fr_t scalar_t;
 
 #define SPPARK_DONT_INSTANTIATE_TEMPLATES
@@ -30,9 +34,34 @@ typedef fr_t scalar_t;
 
 namespace bb::scalar_multiplication::gpu {
 
-static_assert(sizeof(AffinePointRaw) == sizeof(affine_t), "affine layout mismatch vs sppark");
 static_assert(sizeof(JacobianPointRaw) == sizeof(point_t), "jacobian layout mismatch vs sppark");
 static_assert(sizeof(scalar_t) == 4 * sizeof(uint64_t), "scalar layout mismatch vs sppark");
+
+namespace {
+// 72-byte host record for affine_inf_t: 64 bytes of coordinates + explicit zero inf
+// word (bb points are never infinity; the SRS has none).
+struct StagedAffine {
+    uint64_t x[4];
+    uint64_t y[4];
+    uint32_t inf;
+    uint32_t pad;
+};
+// The stride is passed as ffi_affine_sz; the device copies min(sizeof(mem_t), stride)
+// bytes per record, so only the first 68 bytes (X, Y, inf word) need to line up.
+static_assert(sizeof(StagedAffine) == 72, "staged affine record must be coordinate data + inf word");
+
+std::vector<StagedAffine> stage_points(const AffinePointRaw* points, size_t n)
+{
+    std::vector<StagedAffine> staged(n);
+    for (size_t i = 0; i < n; i++) {
+        std::memcpy(staged[i].x, points[i].x, sizeof(points[i].x));
+        std::memcpy(staged[i].y, points[i].y, sizeof(points[i].y));
+        staged[i].inf = 0;
+        staged[i].pad = 0;
+    }
+    return staged;
+}
+} // namespace
 
 bool available() noexcept
 {
@@ -62,13 +91,14 @@ int msm_oneshot_bn254(JacobianPointRaw& out,
     if (!available()) {
         return -1;
     }
+    std::vector<StagedAffine> staged = stage_points(points, npoints);
     point_t result;
     RustError err = mult_pippenger<bucket_t>(&result,
-                                             reinterpret_cast<const affine_t*>(points),
+                                             reinterpret_cast<const affine_t*>(staged.data()),
                                              npoints,
                                              reinterpret_cast<const scalar_t*>(scalars),
                                              /*mont=*/false,
-                                             sizeof(affine_t));
+                                             sizeof(StagedAffine));
     std::memcpy(&out, &result, sizeof(out));
     return consume_error(std::move(err));
 }
@@ -81,7 +111,10 @@ MsmContextBn254::MsmContextBn254(const AffinePointRaw* points, size_t np)
         return;
     }
     try {
-        impl = new msm_impl_t(reinterpret_cast<const affine_t*>(points), np, sizeof(affine_t));
+        std::vector<StagedAffine> staged = stage_points(points, np);
+        impl = new msm_impl_t(reinterpret_cast<const affine_t*>(staged.data()), np, sizeof(StagedAffine));
+        // The constructor's point upload is async; the staged buffer must outlive it.
+        cudaDeviceSynchronize();
         npoints = np;
     } catch (...) {
         impl = nullptr;
@@ -112,7 +145,7 @@ int MsmContextBn254::msm(JacobianPointRaw& out, const uint64_t* scalars, size_t 
                                                            n,
                                                            reinterpret_cast<const scalar_t*>(scalars),
                                                            /*mont=*/false,
-                                                           sizeof(affine_t));
+                                                           sizeof(StagedAffine));
     std::memcpy(&out, &result, sizeof(out));
     return consume_error(std::move(err));
 }
