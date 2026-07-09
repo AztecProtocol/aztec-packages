@@ -268,14 +268,19 @@ if [ "${GPU:-0}" = 1 ]; then
     sudo apt-get update -qq
     sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ubuntu-drivers-common
     sudo ubuntu-drivers install --gpgpu
-    # --gpgpu installs the headless driver + kernel modules but not nvidia-utils
-    # (nvidia-smi); install the utils package matching the driver version it picked.
+    # --gpgpu installs the headless driver but not nvidia-utils (nvidia-smi), and its
+    # kernel modules target the newest archive kernel, not necessarily the running one.
+    # Install the utils + the modules for the running kernel explicitly, falling back to
+    # a DKMS build if no prebuilt package matches.
     nv_ver=\$(dpkg -l 'nvidia-headless-*' 2>/dev/null | awk '/^ii/{print \$2}' | grep -o '[0-9]\+' | head -1)
     if [ -n "\$nv_ver" ]; then
       sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "nvidia-utils-\$nv_ver-server" || \
         sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "nvidia-utils-\$nv_ver"
+      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "linux-modules-nvidia-\$nv_ver-server-\$(uname -r)" || \
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "linux-modules-nvidia-\$nv_ver-\$(uname -r)" || \
+        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "linux-headers-\$(uname -r)" "nvidia-dkms-\$nv_ver-server"
     fi
-    sudo modprobe nvidia || true
+    sudo modprobe nvidia
   fi
   if ! command -v nvidia-ctk &>/dev/null; then
     echo "HOST: installing NVIDIA container toolkit..."
