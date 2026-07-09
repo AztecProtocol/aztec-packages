@@ -59,6 +59,22 @@ class MsmGpuTest : public ::testing::Test {
 
 } // namespace
 
+// Temporary spike diagnostic: the deterministic n=13 full-scalar failure from
+// DiagSizeSweep, run as the FIRST GPU work in the process (use --gtest_filter to run
+// alone). DiagSizeSweep reaches this MSM only after ~280 prior GPU MSMs; if it passes
+// here in isolation, failures depend on device allocation history, implicating reads of
+// stale (assumed-zero) device memory in reused allocations.
+TEST_F(MsmGpuTest, DiagN13FreshProcess)
+{
+    const size_t n = 13;
+    auto points = random_points(n);
+    auto scalars = random_scalars(n);
+    bb::PolynomialSpan<const Fr> span{ 0, scalars };
+    for (int rep = 0; rep < 5; rep++) {
+        EXPECT_EQ(gpu::pippenger_bn254_oneshot(span, points), cpu_msm(span, points)) << "rep " << rep;
+    }
+}
+
 // Temporary spike diagnostic: single-scalar MSMs with adversarial values. Any failure
 // here is a deterministic minimal reproducer (n=1: result = s * P).
 TEST_F(MsmGpuTest, DiagAdversarialScalars)
