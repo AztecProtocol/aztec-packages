@@ -6,18 +6,31 @@ import { SortedTxStatuses, TxStatus } from '@aztec/stdlib/tx';
 
 import { DefaultWaitOpts, type WaitOpts } from '../contract/wait_opts.js';
 
-export const waitForNode = async (node: AztecNode, logger?: Logger) => {
-  await retryUntil(async () => {
-    try {
-      logger?.verbose('Attempting to contact Aztec node...');
-      await node.getNodeInfo();
-      logger?.verbose('Contacted Aztec node');
-      return true;
-    } catch {
-      logger?.verbose('Failed to contact Aztec Node');
-    }
-    return undefined;
-  }, 'RPC Get Node Info');
+/**
+ * Waits for an Aztec node to become reachable, polling {@link AztecNode.getNodeInfo} until it succeeds.
+ * @param node - The Aztec node to contact.
+ * @param logger - Optional logger for polling progress.
+ * @param opts - Optional timeout and interval (in seconds). `timeout` defaults to {@link DefaultWaitOpts.timeout};
+ * pass `timeout: 0` to wait indefinitely.
+ * @throws TimeoutError if the node stays unreachable past the timeout.
+ */
+export const waitForNode = async (node: AztecNode, logger?: Logger, opts?: Pick<WaitOpts, 'timeout' | 'interval'>) => {
+  await retryUntil(
+    async () => {
+      try {
+        logger?.verbose('Attempting to contact Aztec node...');
+        await node.getNodeInfo();
+        logger?.verbose('Contacted Aztec node');
+        return true;
+      } catch {
+        logger?.verbose('Failed to contact Aztec Node');
+      }
+      return undefined;
+    },
+    'RPC Get Node Info',
+    opts?.timeout ?? DefaultWaitOpts.timeout,
+    opts?.interval ?? DefaultWaitOpts.interval,
+  );
 };
 
 /** Returns true if the receipt status is at least the desired status level. */
