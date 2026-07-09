@@ -243,6 +243,7 @@ module "rpc_gateway" {
   ROUTE_RESOURCE_SUFFIX   = "l1"
   UPSTREAM_POLICY_ENABLED = false
   CONSUMERS               = local.consumers
+  ENABLE_CORS             = false
 
   EXTERNAL_SECRET_STORE_NAME       = var.EXTERNAL_SECRET_STORE_NAME
   EXTERNAL_SECRET_STORE_KIND       = var.EXTERNAL_SECRET_STORE_KIND
