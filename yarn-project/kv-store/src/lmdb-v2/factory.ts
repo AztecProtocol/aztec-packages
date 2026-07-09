@@ -24,7 +24,9 @@ export type CreateStoreOptions = {
   /**
    * When true, the store directory is keyed by (l1ChainId, rollupAddress, schemaVersion): a different identity
    * selects a different directory instead of resetting this one, so no identity change is ever destructive.
-   * The version file becomes a pure invariant check (any mismatch throws).
+   * Per-identity stores live under a sibling `<name>-stores` directory (not nested inside the legacy `<name>`
+   * env dir), so an old binary's reset of the legacy dir cannot wipe them. The version file becomes a pure
+   * invariant check (any mismatch throws).
    */
   partitionByIdentity?: boolean;
 };
@@ -44,7 +46,11 @@ export async function createStore(
     // Get rollup address from contracts config, or use zero address
     const rollupAddress = rollupFromConfig ?? EthAddress.ZERO;
     const subDir = options.partitionByIdentity
-      ? join(dataDirectory, name, storeIdentitySlug({ l1ChainId: config.l1ChainId, rollupAddress, schemaVersion }))
+      ? join(
+          dataDirectory,
+          `${name}-stores`,
+          storeIdentitySlug({ l1ChainId: config.l1ChainId, rollupAddress, schemaVersion }),
+        )
       : join(dataDirectory, name);
     await mkdir(subDir, { recursive: true });
 
@@ -57,6 +63,7 @@ export async function createStore(
         AztecLMDBStoreV2.new(dbDirectory, config.dataStoreMapSizeKb, MAX_READERS, () => Promise.resolve(), bindings),
       onUpgrade: options.onUpgrade,
       schemaVersionMismatchPolicy: options.partitionByIdentity ? 'throw' : options.schemaVersionMismatchPolicy,
+      rollupAddressMismatchPolicy: options.partitionByIdentity ? 'throw' : undefined,
       versionFileReadFailurePolicy: options.partitionByIdentity ? 'throw' : options.versionFileReadFailurePolicy,
     });
 

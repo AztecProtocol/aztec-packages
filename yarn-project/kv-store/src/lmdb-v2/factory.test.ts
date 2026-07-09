@@ -1,7 +1,7 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 
-import { mkdtemp, rm } from 'fs/promises';
+import { mkdtemp, rm, stat } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -58,6 +58,29 @@ describe('lmdb-v2 createStore', () => {
     const v1Again = await createStore('test_store', 1, configFor(addr), undefined, options);
     expect(await v1Again.openSingleton<string>('k').getAsync()).toEqual('v1-data');
     await v1Again.close();
+  });
+
+  it('with partitionByIdentity, opens and persists on first boot with a zero identity (no rollup, no chain id)', async () => {
+    const config: DataStoreConfig = { dataDirectory, dataStoreMapSizeKb: 10 * 1024 };
+    const options = { partitionByIdentity: true };
+
+    const store = await createStore('test_store', 1, config, undefined, options);
+    await store.openSingleton<string>('payload').set('zero-identity-data');
+    await store.close();
+
+    const reopened = await createStore('test_store', 1, config, undefined, options);
+    expect(await reopened.openSingleton<string>('payload').getAsync()).toEqual('zero-identity-data');
+    await reopened.close();
+  });
+
+  it('with partitionByIdentity, places stores under a sibling <name>-stores directory, not nested in <name>', async () => {
+    const store = await createStore('test_store', 1, configFor(EthAddress.random()), undefined, {
+      partitionByIdentity: true,
+    });
+    await store.close();
+
+    await expect(stat(join(dataDirectory, 'test_store-stores'))).resolves.toBeDefined();
+    await expect(stat(join(dataDirectory, 'test_store'))).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
   it('without the flag, keeps the historical reset-on-rollup-change behavior', async () => {
