@@ -215,6 +215,13 @@ template <typename Codec_, typename HashFunction_> class BaseTranscript {
     // Return the size of proof_data
     size_t get_proof_size() { return proof_data.size(); }
 
+    /**
+     * @brief Verifier-specific method. True iff every field element loaded via load_proof has been consumed by
+     * receive_from_prover. A verifier that owns its transcript end-to-end should fold this into its result once
+     * verification is complete, so that proofs with trailing never-read data are rejected rather than accepted.
+     */
+    bool is_proof_fully_consumed() const { return num_frs_read == proof_data.size(); }
+
     // Enables the manifest
     void enable_manifest() { use_manifest = true; }
 
