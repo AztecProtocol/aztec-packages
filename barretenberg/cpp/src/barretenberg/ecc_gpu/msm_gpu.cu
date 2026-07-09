@@ -50,12 +50,33 @@ struct StagedAffine {
 // bytes per record, so only the first 68 bytes (X, Y, inf word) need to line up.
 static_assert(sizeof(StagedAffine) == 72, "staged affine record must be coordinate data + inf word");
 
+// Canonicalize a coarse bb field element: barretenberg keeps Montgomery values lazily
+// reduced in [0, 2p); sppark/blst require canonical [0, p) inputs (e.g. the signed-digit
+// cneg computes p - y). This was the root cause of the MSM correctness failures.
+inline void copy_canonical_fq(uint64_t dst[4], const uint64_t src[4])
+{
+    static constexpr uint64_t P[4] = {
+        0x3c208c16d87cfd47UL, 0x97816a916871ca8dUL, 0xb85045b68181585dUL, 0x30644e72e131a029UL
+    };
+    unsigned __int128 borrow = 0;
+    uint64_t sub[4];
+    for (int i = 0; i < 4; i++) {
+        borrow = (unsigned __int128)src[i] - P[i] - (uint64_t)borrow;
+        sub[i] = (uint64_t)borrow;
+        borrow = (borrow >> 64) & 1;
+    }
+    const bool ge_p = borrow == 0;
+    for (int i = 0; i < 4; i++) {
+        dst[i] = ge_p ? sub[i] : src[i];
+    }
+}
+
 std::vector<StagedAffine> stage_points(const AffinePointRaw* points, size_t n)
 {
     std::vector<StagedAffine> staged(n);
     for (size_t i = 0; i < n; i++) {
-        std::memcpy(staged[i].x, points[i].x, sizeof(points[i].x));
-        std::memcpy(staged[i].y, points[i].y, sizeof(points[i].y));
+        copy_canonical_fq(staged[i].x, points[i].x);
+        copy_canonical_fq(staged[i].y, points[i].y);
         staged[i].inf = 0;
         staged[i].pad = 0;
     }
