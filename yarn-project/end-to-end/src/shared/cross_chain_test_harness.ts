@@ -76,19 +76,17 @@ export async function deployAndInitializeTokenAndBridgeContracts(
     client: l1Client,
   });
 
-  // deploy l2 token
-  const { contract: token } = await testSpan('deploy:token', () =>
-    TokenContract.deploy(wallet, owner, 'TokenName', 'TokenSymbol', 18).send({
-      from: owner,
-    }),
-  );
-
-  // deploy l2 token bridge and attach to the portal
-  const { contract: bridge } = await testSpan('deploy:bridge', () =>
-    TokenBridgeContract.deploy(wallet, token.address, tokenPortalAddress).send({
-      from: owner,
-    }),
-  );
+  // Deploy the L2 token and its bridge concurrently so they share a slot: the bridge takes the token
+  // address as a constructor arg, but that address is known deterministically before the token deploy
+  // mines, and the bridge's constructor only stores it without calling into the token.
+  const tokenDeploy = TokenContract.deploy(wallet, owner, 'TokenName', 'TokenSymbol', 18, { deployer: owner });
+  const tokenAddress = await tokenDeploy.getAddress();
+  const [{ contract: token }, { contract: bridge }] = await Promise.all([
+    testSpan('deploy:token', () => tokenDeploy.send({ from: owner })),
+    testSpan('deploy:bridge', () =>
+      TokenBridgeContract.deploy(wallet, tokenAddress, tokenPortalAddress).send({ from: owner }),
+    ),
+  ]);
 
   if ((await token.methods.get_admin().simulate({ from: owner })).result !== owner.toBigInt()) {
     throw new Error(`Token admin is not ${owner}`);

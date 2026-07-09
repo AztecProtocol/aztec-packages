@@ -45,6 +45,11 @@ const FEE_JUICE_TOP_UP_THRESHOLD = 100n * 10n ** 18n;
 export class BotFactory {
   private log = createLogger('bot');
 
+  /** Number of in-flight withNoMinTxsPerBlock calls; see that method for why they are counted. */
+  private noMinTxsPerBlockDepth = 0;
+  /** Set by the first withNoMinTxsPerBlock entrant; resolves to the minTxsPerBlock value to restore. */
+  private savedMinTxsPerBlock?: Promise<{ minTxsPerBlock?: number }>;
+
   constructor(
     private readonly config: BotConfig,
     private readonly wallet: EmbeddedWallet,
@@ -88,23 +93,35 @@ export class BotFactory {
   }> {
     const defaultAccountAddress = await this.setupAccount();
     await this.ensureFeeJuiceBalance(defaultAccountAddress);
-    const token0 = await this.setupTokenContract(defaultAccountAddress, this.config.tokenSalt, 'BotToken0', 'BOT0');
-    const token1 = await this.setupTokenContract(defaultAccountAddress, this.config.tokenSalt, 'BotToken1', 'BOT1');
-    const liquidityToken = await this.setupTokenContract(
-      defaultAccountAddress,
-      this.config.tokenSalt,
-      'BotLPToken',
-      'BOTLP',
-    );
-    const amm = await this.setupAmmContract(
-      defaultAccountAddress,
-      this.config.tokenSalt,
-      token0,
-      token1,
-      liquidityToken,
-    );
 
-    await this.fundAmm(defaultAccountAddress, defaultAccountAddress, amm, token0, token1, liquidityToken);
+    const salt = this.config.tokenSalt;
+
+    // token0, token1 and the LP token are independent contracts with no shared state, so deploy them
+    // concurrently rather than one slot at a time.
+    const [token0, token1, liquidityToken] = await Promise.all([
+      this.setupTokenContract(defaultAccountAddress, salt, 'BotToken0', 'BOT0'),
+      this.setupTokenContract(defaultAccountAddress, salt, 'BotToken1', 'BOT1'),
+      this.setupTokenContract(defaultAccountAddress, salt, 'BotLPToken', 'BOTLP'),
+    ]);
+
+    const ammDeploy = AMMContract.deploy(this.wallet, token0.address, token1.address, liquidityToken.address, {
+      salt,
+      universalDeploy: true,
+    });
+    const ammAddress = (await ammDeploy.getInstance()).address;
+
+    // The AMM constructor only stores the (already-derived) token addresses, and set_minter only records
+    // the AMM address on the LP token: neither reads the other's on-chain state, so the AMM deploy, the
+    // LP-minter grant, and the token0/token1 mints are mutually independent and run concurrently.
+    const [amm] = await Promise.all([
+      this.deployAmmContract(defaultAccountAddress, ammDeploy),
+      this.grantLpTokenMinter(defaultAccountAddress, liquidityToken, ammAddress),
+      this.mintAmmLiquidity(defaultAccountAddress, token0, token1),
+    ]);
+
+    // add_liquidity spends the minted token0/token1 balances and mints LP tokens, so it must follow both
+    // the mints and the minter grant, and target the deployed AMM.
+    await this.addAmmLiquidity(defaultAccountAddress, defaultAccountAddress, amm, token0, token1, liquidityToken);
     this.log.info(`AMM initialized and funded`);
 
     return { wallet: this.wallet, defaultAccountAddress, amm, token0, token1, node: this.aztecNode };
@@ -142,25 +159,32 @@ export class BotFactory {
     const rollupContract = new RollupContract(l1Client, l1ContractAddresses.rollupAddress.toString());
     const rollupVersion = await rollupContract.getVersion();
 
-    // Deploy TestContract (pays from the standing balance funded above).
-    const contract = await this.setupTestContract(defaultAccountAddress);
+    // Derive the TestContract address up front (deterministic from the salt). Seeding L1→L2 messages only
+    // needs the L2 recipient address — the messages are queued on L1 and don't require the L2 contract to
+    // exist yet (they're consumed later, after setup completes) — so the deploy (an L2 tx paying from the
+    // standing balance funded above) and the L1 seeding run concurrently.
+    const testContractDeploy = TestContract.deploy(this.wallet, {
+      salt: this.config.tokenSalt,
+      universalDeploy: true,
+    });
+    const contractAddress = (await testContractDeploy.getInstance()).address;
 
     // Recover any pending messages from store (clean up stale ones first)
     await this.store.cleanupOldPendingMessages();
     const pendingMessages = await this.store.getUnconsumedL1ToL2Messages();
 
-    // Seed initial L1→L2 messages if pipeline is empty
+    // Seed initial L1→L2 messages if pipeline is empty. The seeds are sent one at a time: they share the
+    // bot's L1 account, so concurrent sends would race on the L1 nonce.
     const seedCount = Math.max(0, this.config.l1ToL2SeedCount - pendingMessages.length);
-    for (let i = 0; i < seedCount; i++) {
-      await seedL1ToL2Message(
-        l1Client,
-        EthAddress.fromString(l1ContractAddresses.inboxAddress.toString()),
-        contract.address,
-        rollupVersion,
-        this.store,
-        this.log,
-      );
-    }
+    const inboxAddress = EthAddress.fromString(l1ContractAddresses.inboxAddress.toString());
+    const [contract] = await Promise.all([
+      this.deployTestContract(defaultAccountAddress, testContractDeploy),
+      (async () => {
+        for (let i = 0; i < seedCount; i++) {
+          await seedL1ToL2Message(l1Client, inboxAddress, contractAddress, rollupVersion, this.store, this.log);
+        }
+      })(),
+    ]);
 
     // Block until at least one message is ready
     const allMessages = await this.store.getUnconsumedL1ToL2Messages();
@@ -184,10 +208,8 @@ export class BotFactory {
     };
   }
 
-  private async setupTestContract(deployer: AztecAddress): Promise<TestContract> {
-    const deployOpts: DeployOptions = { from: deployer };
-    const deploy = TestContract.deploy(this.wallet, { salt: this.config.tokenSalt, universalDeploy: true });
-    const instance = await this.registerOrDeployContract('TestContract', deploy, deployOpts);
+  private async deployTestContract(deployer: AztecAddress, deploy: DeployMethod<TestContract>): Promise<TestContract> {
+    const instance = await this.registerOrDeployContract('TestContract', deploy, { from: deployer });
     return TestContract.at(instance.address, this.wallet);
   }
 
@@ -292,34 +314,37 @@ export class BotFactory {
     return TokenContract.at(instance.address, this.wallet);
   }
 
-  private async setupAmmContract(
-    deployer: AztecAddress,
-    salt: Fr,
-    token0: TokenContract,
-    token1: TokenContract,
-    lpToken: TokenContract,
-  ): Promise<AMMContract> {
-    const deployOpts: DeployOptions = { from: deployer };
-    const deploy = AMMContract.deploy(this.wallet, token0.address, token1.address, lpToken.address, {
-      salt,
-      universalDeploy: true,
-    });
-    const instance = await this.registerOrDeployContract('AMM', deploy, deployOpts);
+  private async deployAmmContract(deployer: AztecAddress, deploy: DeployMethod<AMMContract>): Promise<AMMContract> {
+    const instance = await this.registerOrDeployContract('AMM', deploy, { from: deployer });
     const amm = AMMContract.at(instance.address, this.wallet);
-
     this.log.info(`AMM deployed at ${amm.address}`);
-    const setMinterInteraction = lpToken.methods.set_minter(amm.address, true);
-    const { receipt: minterReceipt } = await setMinterInteraction.send({
-      from: deployer,
-      wait: { timeout: this.config.txMinedWaitSeconds },
-    });
-    this.log.info(`Set LP token minter to AMM txHash=${minterReceipt.txHash.toString()}`);
-    this.log.info(`Liquidity token initialized`);
-
     return amm;
   }
 
-  private async fundAmm(
+  /** Grants the AMM minting rights over the LP token. set_minter only records the address, so it does not
+   * require the AMM contract to be deployed first. */
+  private async grantLpTokenMinter(deployer: AztecAddress, lpToken: TokenContract, amm: AztecAddress): Promise<void> {
+    const { receipt } = await lpToken.methods.set_minter(amm, true).send({
+      from: deployer,
+      wait: { timeout: this.config.txMinedWaitSeconds },
+    });
+    this.log.info(`Set LP token minter to AMM txHash=${receipt.txHash.toString()}`);
+  }
+
+  private async mintAmmLiquidity(minter: AztecAddress, token0: TokenContract, token1: TokenContract): Promise<void> {
+    this.log.info(`Minting ${MINT_BALANCE} tokens of each BotToken0 and BotToken1 for ${minter}`);
+    const mintBatch = new BatchCall(this.wallet, [
+      token0.methods.mint_to_private(minter, MINT_BALANCE),
+      token1.methods.mint_to_private(minter, MINT_BALANCE),
+    ]);
+    const { receipt } = await mintBatch.send({
+      from: minter,
+      wait: { timeout: this.config.txMinedWaitSeconds },
+    });
+    this.log.info(`Sent mint tx: ${receipt.txHash.toString()}`);
+  }
+
+  private async addAmmLiquidity(
     defaultAccountAddress: AztecAddress,
     liquidityProvider: AztecAddress,
     amm: AMMContract,
@@ -327,22 +352,6 @@ export class BotFactory {
     token1: TokenContract,
     lpToken: TokenContract,
   ): Promise<void> {
-    const getPrivateBalances = () =>
-      Promise.all([
-        token0.methods
-          .balance_of_private(liquidityProvider)
-          .simulate({ from: liquidityProvider })
-          .then(r => r.result),
-        token1.methods
-          .balance_of_private(liquidityProvider)
-          .simulate({ from: liquidityProvider })
-          .then(r => r.result),
-        lpToken.methods
-          .balance_of_private(liquidityProvider)
-          .simulate({ from: liquidityProvider })
-          .then(r => r.result),
-      ]);
-
     const authwitNonce = Fr.random();
 
     // keep some tokens for swapping
@@ -350,12 +359,6 @@ export class BotFactory {
     const amount0Min = MINT_BALANCE / 4;
     const amount1Max = MINT_BALANCE / 2;
     const amount1Min = MINT_BALANCE / 4;
-
-    const [t0Bal, t1Bal, lpBal] = await getPrivateBalances();
-
-    this.log.info(
-      `Minting ${MINT_BALANCE} tokens of each BotToken0 and BotToken1. Current private balances of ${liquidityProvider}: token0=${t0Bal}, token1=${t1Bal}, lp=${lpBal}`,
-    );
 
     // Add authwitnesses for the transfers in AMM::add_liquidity function
     const token0Authwit = await this.wallet.createAuthWit(defaultAccountAddress, {
@@ -381,36 +384,33 @@ export class BotFactory {
         .getFunctionCall(),
     });
 
-    const mintBatch = new BatchCall(this.wallet, [
-      token0.methods.mint_to_private(liquidityProvider, MINT_BALANCE),
-      token1.methods.mint_to_private(liquidityProvider, MINT_BALANCE),
-    ]);
-    const { receipt: mintReceipt } = await mintBatch.send({
-      from: liquidityProvider,
-      wait: { timeout: this.config.txMinedWaitSeconds },
-    });
+    const { receipt } = await amm.methods
+      .add_liquidity(amount0Max, amount1Max, amount0Min, amount1Min, authwitNonce)
+      .send({
+        from: liquidityProvider,
+        authWitnesses: [token0Authwit, token1Authwit],
+        wait: { timeout: this.config.txMinedWaitSeconds },
+      });
 
-    this.log.info(`Sent mint tx: ${mintReceipt.txHash.toString()}`);
-
-    const addLiquidityInteraction = amm.methods.add_liquidity(
-      amount0Max,
-      amount1Max,
-      amount0Min,
-      amount1Min,
-      authwitNonce,
-    );
-    const { receipt: addLiquidityReceipt } = await addLiquidityInteraction.send({
-      from: liquidityProvider,
-      authWitnesses: [token0Authwit, token1Authwit],
-      wait: { timeout: this.config.txMinedWaitSeconds },
-    });
-
-    this.log.info(`Sent tx to add liquidity to the AMM: ${addLiquidityReceipt.txHash.toString()}`);
+    this.log.info(`Sent tx to add liquidity to the AMM: ${receipt.txHash.toString()}`);
     this.log.info(`Liquidity added`);
 
-    const [newT0Bal, newT1Bal, newLPBal] = await getPrivateBalances();
+    const [t0Bal, t1Bal, lpBal] = await Promise.all([
+      token0.methods
+        .balance_of_private(liquidityProvider)
+        .simulate({ from: liquidityProvider })
+        .then(r => r.result),
+      token1.methods
+        .balance_of_private(liquidityProvider)
+        .simulate({ from: liquidityProvider })
+        .then(r => r.result),
+      lpToken.methods
+        .balance_of_private(liquidityProvider)
+        .simulate({ from: liquidityProvider })
+        .then(r => r.result),
+    ]);
     this.log.info(
-      `Updated private balances of ${defaultAccountAddress} after minting and funding AMM: token0=${newT0Bal}, token1=${newT1Bal}, lp=${newLPBal}`,
+      `Updated private balances of ${defaultAccountAddress} after minting and funding AMM: token0=${t0Bal}, token1=${t1Bal}, lp=${lpBal}`,
     );
   }
 
@@ -593,19 +593,36 @@ export class BotFactory {
     return claim as L2AmountClaim;
   }
 
-  private async withNoMinTxsPerBlock<T>(fn: () => Promise<T>): Promise<T> {
+  protected async withNoMinTxsPerBlock<T>(fn: () => Promise<T>): Promise<T> {
     if (!this.aztecNodeAdmin || !this.config.flushSetupTransactions) {
       this.log.verbose(`No node admin client or flushing not requested (not setting minTxsPerBlock to 0)`);
       return fn();
     }
-    const { minTxsPerBlock } = await this.aztecNodeAdmin.getConfig();
-    this.log.warn(`Setting sequencer minTxsPerBlock to 0 from ${minTxsPerBlock} to flush setup transactions`);
-    await this.aztecNodeAdmin.setConfig({ minTxsPerBlock: 0 });
+    const aztecNodeAdmin = this.aztecNodeAdmin;
+    // Setup steps run concurrently, so this wrapper can be re-entered while another call is in flight.
+    // Reference-count the entrants: the first saves the current value and zeroes it, the last restores it.
+    // A naive save/zero/restore per call could interleave, with a late entrant reading the already-zeroed
+    // value and "restoring" 0 at the end.
+    if (this.noMinTxsPerBlockDepth++ === 0) {
+      this.savedMinTxsPerBlock = (async () => {
+        const { minTxsPerBlock } = await aztecNodeAdmin.getConfig();
+        this.log.warn(`Setting sequencer minTxsPerBlock to 0 from ${minTxsPerBlock} to flush setup transactions`);
+        await aztecNodeAdmin.setConfig({ minTxsPerBlock: 0 });
+        return { minTxsPerBlock };
+      })();
+    }
     try {
+      await this.savedMinTxsPerBlock;
       return await fn();
     } finally {
-      this.log.warn(`Restoring sequencer minTxsPerBlock to ${minTxsPerBlock}`);
-      await this.aztecNodeAdmin.setConfig({ minTxsPerBlock });
+      if (--this.noMinTxsPerBlockDepth === 0) {
+        // If saving/zeroing itself failed there is nothing to restore.
+        const saved = await this.savedMinTxsPerBlock!.catch(() => undefined);
+        if (saved) {
+          this.log.warn(`Restoring sequencer minTxsPerBlock to ${saved.minTxsPerBlock}`);
+          await aztecNodeAdmin.setConfig({ minTxsPerBlock: saved.minTxsPerBlock });
+        }
+      }
     }
   }
 }
