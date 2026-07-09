@@ -156,33 +156,35 @@ TEST_F(MsmGpuTest, DiagSizeSweep)
                     first_fail = n;
                     // Bisect the culprit: mask each scalar to zero in turn; the ones
                     // whose removal makes the MSM match are implicated.
+                    std::vector<size_t> culprits;
                     for (size_t i = 0; i < n; i++) {
                         std::vector<Fr> masked(cls.scalars->begin(),
                                                cls.scalars->begin() + static_cast<std::ptrdiff_t>(n));
                         masked[i] = Fr::zero();
                         bb::PolynomialSpan<const Fr> masked_span{ 0, masked };
                         if (gpu::pippenger_bn254_oneshot(masked_span, points) == cpu_msm(masked_span, points)) {
-                            const Fr& s = (*cls.scalars)[i];
+                            culprits.push_back(i);
+                            const Fr canonical = (*cls.scalars)[i].from_montgomery_form_reduced();
                             std::cout << "DIAG culprit class=" << cls.name << " idx=" << i << " scalar=0x" << std::hex
-                                      << s.data[3] << " " << s.data[2] << " " << s.data[1] << " " << s.data[0]
-                                      << std::dec << " (raw mont limbs)" << std::endl;
-                            std::vector<Fr> alone{ s };
-                            bb::PolynomialSpan<const Fr> alone_span{ 0, alone };
-                            std::cout << "DIAG culprit alone(with points[0]) "
-                                      << (gpu::pippenger_bn254_oneshot(alone_span, points) ==
-                                                  cpu_msm(alone_span, points)
-                                              ? "ok"
-                                              : "MISMATCH")
-                                      << std::endl;
-                            std::vector<Fr> alone_i{ s };
-                            std::vector<AffineElement> pt_i{ points[i] };
-                            bb::PolynomialSpan<const Fr> alone_i_span{ 0, alone_i };
-                            std::cout << "DIAG culprit alone(with points[" << i << "]) "
-                                      << (gpu::pippenger_bn254_oneshot(alone_i_span, pt_i) ==
-                                                  cpu_msm(alone_i_span, pt_i)
-                                              ? "ok"
-                                              : "MISMATCH")
-                                      << std::endl;
+                                      << canonical.data[3] << "_" << canonical.data[2] << "_" << canonical.data[1]
+                                      << "_" << canonical.data[0] << std::dec << " (canonical)" << std::endl;
+                        }
+                    }
+                    // Culprit pairs: test each implicated pair in a 2-element MSM with
+                    // their own points — a minimal reproducer if it still mismatches.
+                    for (size_t a = 0; a + 1 < culprits.size(); a++) {
+                        for (size_t b = a + 1; b < culprits.size(); b++) {
+                            std::vector<Fr> pair_s{ (*cls.scalars)[culprits[a]], (*cls.scalars)[culprits[b]] };
+                            std::vector<AffineElement> pair_p{ points[culprits[a]], points[culprits[b]] };
+                            bb::PolynomialSpan<const Fr> pair_span{ 0, pair_s };
+                            for (int rep = 0; rep < 3; rep++) {
+                                std::cout
+                                    << "DIAG pair (" << culprits[a] << "," << culprits[b] << ") rep" << rep << " "
+                                    << (gpu::pippenger_bn254_oneshot(pair_span, pair_p) == cpu_msm(pair_span, pair_p)
+                                            ? "ok"
+                                            : "MISMATCH")
+                                    << std::endl;
+                            }
                         }
                     }
                 }
