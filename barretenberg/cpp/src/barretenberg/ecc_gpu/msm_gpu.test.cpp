@@ -9,8 +9,10 @@
 #include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 
+#include <array>
 #include <cstring>
 #include <gtest/gtest.h>
+#include <map>
 #include <vector>
 
 namespace {
@@ -97,9 +99,50 @@ TEST_F(MsmGpuTest, DiagCapturedQuadruple)
     std::vector<Fr> scalars{ Fr(0x9e06), Fr(0x49fa) };
     bb::PolynomialSpan<const Fr> span{ 0, scalars };
     for (int rep = 0; rep < 5; rep++) {
-        bool ok = gpu::pippenger_bn254_oneshot(span, points) == cpu_msm(span, points);
+        Element gpu_r = gpu::pippenger_bn254_oneshot(span, points);
+        Element cpu_r = cpu_msm(span, points);
+        bool ok = gpu_r == cpu_r;
         std::cout << "DIAG quadruple rep" << rep << " " << (ok ? "ok" : "MISMATCH") << std::endl;
         EXPECT_TRUE(ok) << "rep " << rep;
+        if (!ok && rep == 0) {
+            // Solve delta = k*P0 + l*P1 over k,l in [-2048, 2048]: identifies exactly
+            // which digit contributions were mangled and for which point.
+            Element delta = gpu_r - cpu_r;
+            constexpr int64_t K = 2048;
+            std::map<std::array<uint64_t, 8>, int64_t> p1_multiples;
+            Element acc;
+            acc.self_set_infinity();
+            auto key_of = [](const Element& e) {
+                AffineElement a(e);
+                return std::array<uint64_t, 8>{ a.x.data[0], a.x.data[1], a.x.data[2], a.x.data[3],
+                                                a.y.data[0], a.y.data[1], a.y.data[2], a.y.data[3] };
+            };
+            for (int64_t l = 0; l <= K; l++) {
+                if (l > 0) {
+                    acc = acc + Element(p1);
+                }
+                if (!acc.is_point_at_infinity()) {
+                    p1_multiples[key_of(acc)] = l;
+                    p1_multiples[key_of(-acc)] = -l;
+                }
+            }
+            for (int64_t k = -K; k <= K; k++) {
+                Element target = delta;
+                if (k > 0) {
+                    target = delta - Element(p0) * Fr(uint64_t(k));
+                } else if (k < 0) {
+                    target = delta + Element(p0) * Fr(uint64_t(-k));
+                }
+                if (target.is_point_at_infinity()) {
+                    std::cout << "DIAG delta = " << k << "*P0 + 0*P1" << std::endl;
+                    continue;
+                }
+                auto it = p1_multiples.find(key_of(target));
+                if (it != p1_multiples.end()) {
+                    std::cout << "DIAG delta = " << k << "*P0 + " << it->second << "*P1" << std::endl;
+                }
+            }
+        }
     }
 }
 
