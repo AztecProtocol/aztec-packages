@@ -4,6 +4,7 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
+    "./deploy": "./dest/deploy/index.js",
     "./testing": "./dest/testing/index.js"
   },
   "bin": "./scripts/aztec.sh",
