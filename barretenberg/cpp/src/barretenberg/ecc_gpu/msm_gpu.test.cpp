@@ -75,6 +75,37 @@ TEST_F(MsmGpuTest, DiagN13FreshProcess)
     }
 }
 
+// Temporary spike diagnostic: dissect the real failing scalar pair (captured from
+// DiagSizeSweep with the debug seed). Tests whether the points matter (fresh random
+// points here vs the sweep's) and truncates windows to find the minimal failing prefix.
+TEST_F(MsmGpuTest, DiagRealPairDissection)
+{
+    using u256 = bb::numeric::uint256_t;
+    const Fr sa(u256(0x25cbdc4336c05166UL, 0x032255120bd53758UL, 0xbcef538cc57341e2UL, 0x116dbce8fd2c6262UL));
+    const Fr sb(u256(0x364d1ee7f0cc9bdaUL, 0xc2aa175779c60931UL, 0x4d42c9c9bbe2593eUL, 0x21fe7d2bcca71bf4UL));
+    auto points = random_points(2);
+
+    auto pair_matches = [&](const Fr& a, const Fr& b) {
+        std::vector<Fr> scalars{ a, b };
+        bb::PolynomialSpan<const Fr> span{ 0, scalars };
+        return gpu::pippenger_bn254_oneshot(span, points) == cpu_msm(span, points);
+    };
+
+    bool full = pair_matches(sa, sb);
+    std::cout << "DIAG realpair fresh_points " << (full ? "ok" : "MISMATCH") << std::endl;
+
+    const u256 sa_int(0x25cbdc4336c05166UL, 0x032255120bd53758UL, 0xbcef538cc57341e2UL, 0x116dbce8fd2c6262UL);
+    const u256 sb_int(0x364d1ee7f0cc9bdaUL, 0xc2aa175779c60931UL, 0x4d42c9c9bbe2593eUL, 0x21fe7d2bcca71bf4UL);
+    for (size_t k = 1; k <= 26; k++) {
+        u256 mask = (k >= 26) ? ~u256(0) : ((u256(1) << (10 * k)) - 1);
+        bool ok = pair_matches(Fr(sa_int & mask), Fr(sb_int & mask));
+        std::cout << "DIAG realpair windows_0_to_" << (k - 1) << " " << (ok ? "ok" : "MISMATCH") << std::endl;
+        if (!ok) {
+            break;
+        }
+    }
+}
+
 // Temporary spike diagnostic: 2-element MSMs whose booth digits collide in the same
 // bucket. The real failing pair collides with OPPOSITE signs at (w=15, bucket 234) and
 // (w=25, bucket 4); these synthetics isolate which collision structure breaks.
