@@ -9,6 +9,7 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+<<<<<<< HEAD
 ## 5.0.1
 
 ### [Aztec.nr] History note nullification helpers renamed and restricted to own-contract notes
@@ -48,6 +49,8 @@ This change also removes `createStore` from `@aztec/kv-store/sqlite-opfs` and `@
 
 ## 5.0.0
 
+=======
+>>>>>>> 736f39189c (feat(pxe)!: Add AppTaggingSecret kinds to keys in tagging stores (#24604))
 ### [PXE] Local PXE database is reset on upgrade
 
 The persisted tagging stores now key every entry by the self-describing `<kind>:<secret>:<app>` form of `AppTaggingSecret`; unconstrained secrets previously used a two-part `<secret>:<app>` key. This bumps the PXE data schema version, and there is no forward migration for the old keys: on first open the PXE clears any database whose stored schema version differs from the current one. The wipe resets the entire PXE store, not just the tagging data, because all of it shares one backing database.
