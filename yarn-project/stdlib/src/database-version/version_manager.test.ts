@@ -140,6 +140,24 @@ describe('VersionManager', () => {
         expect(wasReset).toEqual(true);
         expect(upgradeSpy).not.toHaveBeenCalled();
       });
+
+      it('unless rollup mismatches are configured to throw', async () => {
+        fs.readFile.mockResolvedValueOnce(new DatabaseVersion(currentVersion, EthAddress.random()).toBuffer());
+        versionManager = createManager({ schemaVersionMismatchPolicy: 'throw' });
+        expectVersionFileWritten = false;
+
+        await expect(versionManager.open()).rejects.toThrow(/stored rollup address/);
+        expect(fs.rm).not.toHaveBeenCalled();
+        expect(openSpy).not.toHaveBeenCalled();
+      });
+
+      it("still opens fresh on first boot when policy is 'throw' (no version file, different rollup)", async () => {
+        fs.readFile.mockRejectedValueOnce(Object.assign(new Error('missing'), { code: 'ENOENT' }));
+        versionManager = createManager({ schemaVersionMismatchPolicy: 'throw', onUpgrade: undefined });
+        const [_, wasReset] = await versionManager.open();
+        expect(wasReset).toEqual(true);
+        expect(openSpy).toHaveBeenCalled();
+      });
     });
 
     describe('version file read-failure policy', () => {

@@ -61,7 +61,8 @@ export class DatabaseVersionManager<T> {
    * @param onUpgrade - An optional callback to upgrade the database before opening. If not provided it will reset the
    *   database. Must be idempotent: since the version marker is written only after a successful open, a crash after
    *   onUpgrade but before the marker is written re-runs onUpgrade on the next start.
-   * @param schemaVersionMismatchPolicy - Whether schema mismatches should reset data or throw
+   * @param schemaVersionMismatchPolicy - Whether schema or rollup-address mismatches against an existing version
+   *   file should reset data or throw
    * @param versionFileReadFailurePolicy - Whether an unreadable (non-missing) version file should reset data or throw
    * @param fileSystem - An interface to access the filesystem
    * @param log - Optional custom logger
@@ -138,10 +139,14 @@ export class DatabaseVersionManager<T> {
     let storedVersion: DatabaseVersion;
     // a flag to suppress logs about 'resetting the data dir' when starting from an empty state
     let shouldLogDataReset = true;
+    // Distinguishes "a version file existed and parsed" from first boot / unreadable file: only a parsed
+    // version file can prove a genuine rollup mismatch, which is what the 'throw' policy protects against.
+    let versionFileParsed = false;
 
     try {
       const versionBuf = await this.fileSystem.readFile(this.versionFile);
       storedVersion = DatabaseVersion.fromBuffer(versionBuf);
+      versionFileParsed = true;
     } catch (err) {
       if (err && (err as Error & { code: string }).code === 'ENOENT') {
         storedVersion = DatabaseVersion.empty();
@@ -197,6 +202,12 @@ export class DatabaseVersionManager<T> {
         needsReset = true;
       }
     } else {
+      if (versionFileParsed && this.schemaVersionMismatchPolicy === 'throw') {
+        throw new Error(
+          `Cannot open database at ${this.dataDirectory}: stored rollup address ` +
+            `${storedVersion.rollupAddress} does not match expected ${this.currentVersion.rollupAddress}`,
+        );
+      }
       if (shouldLogDataReset) {
         this.log.warn('Rollup address has changed, resetting data directory', {
           versionFile: this.versionFile,
