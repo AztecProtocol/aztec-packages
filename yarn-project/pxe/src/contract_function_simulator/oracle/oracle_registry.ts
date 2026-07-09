@@ -141,6 +141,14 @@ export const ORACLE_REGISTRY = {
     returnType: OPTION(MEMBERSHIP_WITNESS(ARCHIVE_HEIGHT)),
   }),
 
+  aztec_utl_areBlockHashesInArchive: makeEntry({
+    params: [
+      { name: 'anchorBlockHash', type: BLOCK_HASH },
+      { name: 'blockHashes', type: EPHEMERAL_ARRAY(BLOCK_HASH) },
+    ],
+    returnType: EPHEMERAL_ARRAY(BOOL),
+  }),
+
   aztec_utl_getNullifierMembershipWitness: makeEntry({
     params: [
       { name: 'blockHash', type: BLOCK_HASH },
