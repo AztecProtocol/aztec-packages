@@ -103,10 +103,15 @@ jobs:
         run: |
           # Fetch the environment-specific secrets
           FUNDING_PRIVATE_KEY=$(gcloud secrets versions access latest --secret="sepolia-funding-private-key" --project="$GCP_PROJECT_ID")
+          EXTERNAL_ETHEREUM_HOST=$(gcloud secrets versions access latest --secret="sepolia-external-ethereum-host" --project="$GCP_PROJECT_ID")
           echo "::add-mask::$FUNDING_PRIVATE_KEY"
+          echo "::add-mask::$EXTERNAL_ETHEREUM_HOST"
 
           # Export to environment
-          echo "FUNDING_PRIVATE_KEY=$FUNDING_PRIVATE_KEY" >> $GITHUB_ENV
+          {
+            printf 'FUNDING_PRIVATE_KEY=%s\n' "$FUNDING_PRIVATE_KEY"
+            printf 'EXTERNAL_ETHEREUM_HOST=%s\n' "$EXTERNAL_ETHEREUM_HOST"
+          } >> "$GITHUB_ENV"
 
       - name: Ensure funded environment
         env:
