@@ -18,7 +18,7 @@ import {
   getContractFunctionAbi,
   getFunctionSelector,
 } from '../avm/testing/utils.js';
-import { AvmExecutor } from '../avm_executor.js';
+import { AvmSimulatorPool } from '../avm_simulator_pool.js';
 import { PublicContractsDB } from '../public_db_sources.js';
 import { MeasuredPublicTxSimulator } from '../public_tx_simulator/public_tx_simulator.js';
 import type { MeasuredPublicTxSimulatorInterface } from '../public_tx_simulator/public_tx_simulator_interface.js';
@@ -66,7 +66,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
   protected txCount: number = 0;
   private simulator: MeasuredPublicTxSimulatorInterface | undefined;
   private metricsPrefix?: string;
-  protected avmExecutor?: AvmExecutor;
+  protected avmSimulator?: AvmSimulatorPool;
 
   constructor(
     merkleTree: MerkleTreeWriteOperations,
@@ -97,11 +97,9 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     const contractDataSource = new SimpleContractDataSource();
     const merkleTree = await worldStateService.fork();
 
-    const avmExecutor = await AvmExecutor.spawn({ wsdbIpcPath: worldStateService.getIpcPath() });
-    const forkId = merkleTree.getRevision().forkId;
-    const forkedSimulator = avmExecutor.forFork(forkId, new PublicContractsDB(contractDataSource), globals.timestamp);
-    const simulatorFactory: MeasuredSimulatorFactory = (_mt, _cdb, g, m, c) =>
-      new MeasuredPublicTxSimulator(forkedSimulator, g, m, c, undefined, forkId);
+    const avmSimulator = await AvmSimulatorPool.spawn({ wsdbIpcPath: worldStateService.getIpcPath() });
+    const simulatorFactory: MeasuredSimulatorFactory = (mt, cdb, g, m, c) =>
+      new MeasuredPublicTxSimulator(avmSimulator, g, cdb, m, c, undefined, mt.getRevision().forkId);
 
     const tester = new PublicTxSimulationTester(
       merkleTree,
@@ -111,7 +109,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
       simulatorFactory,
       config,
     );
-    tester.avmExecutor = avmExecutor;
+    tester.avmSimulator = avmSimulator;
     return tester;
   }
 
@@ -246,9 +244,9 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     this.metrics.prettyPrint();
   }
 
-  /** Clean up IPC resources (AVM executor and merkle tree fork) created by create(). */
+  /** Clean up IPC resources (AVM simulator pool and merkle tree fork) created by create(). */
   public async close(): Promise<void> {
-    await this.avmExecutor?.[Symbol.asyncDispose]();
+    await this.avmSimulator?.[Symbol.asyncDispose]();
     // Close the merkle tree fork to release IPC resources before the wsdb process is killed.
     if (this.merkleTrees?.close) {
       await this.merkleTrees.close().catch(() => {});

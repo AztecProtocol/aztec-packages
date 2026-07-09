@@ -539,14 +539,20 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       collectStatistics: false,
       collectCallMetadata: true,
     });
-    // Bind the AVM simulator to this fork's contracts DB for the duration of each simulation.
+    // The AVM simulator reads this fork's contracts DB, scoped by fork id, for each simulation.
     const forkId = forkedWorldTrees.getRevision().forkId;
-    const forkedSimulator = this.stateMachine.synchronizer.avmExecutor.forFork(forkId, contractsDB, globals.timestamp);
     const processor = new PublicProcessor(
       globals,
       guardedMerkleTrees,
       contractsDB,
-      new PublicTxSimulator(forkedSimulator, globals, config, bindings, forkId),
+      new PublicTxSimulator(
+        this.stateMachine.synchronizer.avmSimulator,
+        globals,
+        contractsDB,
+        config,
+        bindings,
+        forkId,
+      ),
       new TestDateProvider(),
       undefined,
       createLogger('simulator:public-processor', bindings),
@@ -656,14 +662,16 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       collectStatistics: false,
       collectCallMetadata: true,
     });
-    // Bind the AVM simulator to this fork's contracts DB for the duration of each simulation.
+    // The AVM simulator reads this fork's contracts DB, scoped by fork id, for each simulation.
     const forkId2 = forkedWorldTrees.getRevision().forkId;
-    const forkedSimulator2 = this.stateMachine.synchronizer.avmExecutor.forFork(
-      forkId2,
+    const simulator = new PublicTxSimulator(
+      this.stateMachine.synchronizer.avmSimulator,
+      globals,
       contractsDB,
-      globals.timestamp,
+      config,
+      bindings2,
+      forkId2,
     );
-    const simulator = new PublicTxSimulator(forkedSimulator2, globals, config, bindings2, forkId2);
     const processor = new PublicProcessor(
       globals,
       guardedMerkleTrees,

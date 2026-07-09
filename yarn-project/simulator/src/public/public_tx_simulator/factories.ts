@@ -4,6 +4,7 @@ import type { GlobalVariables } from '@aztec/stdlib/tx';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import type { AvmSimulator } from '../avm_simulator.js';
+import type { PublicContractsDB } from '../public_db_sources.js';
 import { DumpingPublicTxSimulator } from './dumping_public_tx_simulator.js';
 import { TelemetryPublicTxSimulator } from './public_tx_simulator.js';
 
@@ -15,6 +16,7 @@ import { TelemetryPublicTxSimulator } from './public_tx_simulator.js';
 export function createPublicTxSimulatorForBlockBuilding(
   avmSimulator: AvmSimulator,
   globalVariables: GlobalVariables,
+  contractsDB: PublicContractsDB,
   telemetryClient: TelemetryClient,
   bindings?: LoggerBindings,
   forkId?: number,
@@ -37,7 +39,23 @@ export function createPublicTxSimulatorForBlockBuilding(
       collectHints: true,
       collectPublicInputs: true,
     };
-    return new DumpingPublicTxSimulator(avmSimulator, globalVariables, dumpingConfig, dumpDir, bindings, forkId);
+    return new DumpingPublicTxSimulator(
+      avmSimulator,
+      globalVariables,
+      contractsDB,
+      dumpingConfig,
+      dumpDir,
+      bindings,
+      forkId,
+    );
   }
-  return new TelemetryPublicTxSimulator(avmSimulator, globalVariables, telemetryClient, config, bindings, forkId);
+  return new TelemetryPublicTxSimulator(
+    avmSimulator,
+    globalVariables,
+    contractsDB,
+    telemetryClient,
+    config,
+    bindings,
+    forkId,
+  );
 }

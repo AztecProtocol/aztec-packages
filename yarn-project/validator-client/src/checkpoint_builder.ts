@@ -9,7 +9,7 @@ import { DateProvider, elapsed } from '@aztec/foundation/timer';
 import { createTxValidatorForBlockBuilding, getDefaultAllowedSetupFunctions } from '@aztec/p2p/msg_validators';
 import { LightweightCheckpointBuilder } from '@aztec/prover-client/light';
 import {
-  AvmExecutor,
+  type AvmSimulator,
   GuardedMerkleTreeOperations,
   PublicContractsDB,
   PublicProcessor,
@@ -58,7 +58,7 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     private contractDataSource: ContractDataSource,
     private dateProvider: DateProvider,
     private telemetryClient: TelemetryClient,
-    private avmExecutor: AvmExecutor,
+    private avmSimulator: AvmSimulator,
     bindings?: LoggerBindings,
     private debugLogStore: DebugLogStore = new NullDebugLogStore(),
   ) {
@@ -244,13 +244,13 @@ export class CheckpointBuilder implements ICheckpointBlockBuilder {
     const guardedFork = new GuardedMerkleTreeOperations(fork);
 
     const bindings = this.log.getBindings();
-    // Extract the WSDB fork ID so the C++ AVM can modify the same fork in-place. The forked simulator
-    // registers the contracts DB on the CDB server for the duration of each simulation.
+    // Extract the WSDB fork ID so the C++ AVM can modify the same fork in-place; the simulator reads
+    // contract data from `contractsDB`, scoped to this fork for the duration of each simulation.
     const wsdbForkId = fork.getRevision().forkId;
-    const forkedSimulator = this.avmExecutor.forFork(wsdbForkId, contractsDB, globalVariables.timestamp);
     const publicTxSimulator = createPublicTxSimulatorForBlockBuilding(
-      forkedSimulator,
+      this.avmSimulator,
       globalVariables,
+      contractsDB,
       this.telemetryClient,
       bindings,
       wsdbForkId,
@@ -293,7 +293,7 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
     private worldState: WorldStateSynchronizer,
     private contractDataSource: ContractDataSource,
     private dateProvider: DateProvider,
-    private avmExecutor: AvmExecutor,
+    private avmSimulator: AvmSimulator,
     private telemetryClient: TelemetryClient = getTelemetryClient(),
     private debugLogStore: DebugLogStore = new NullDebugLogStore(),
   ) {
@@ -349,7 +349,7 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
       this.contractDataSource,
       this.dateProvider,
       this.telemetryClient,
-      this.avmExecutor,
+      this.avmSimulator,
       bindings,
       this.debugLogStore,
     );
@@ -411,7 +411,7 @@ export class FullNodeCheckpointsBuilder implements ICheckpointsBuilder {
       this.contractDataSource,
       this.dateProvider,
       this.telemetryClient,
-      this.avmExecutor,
+      this.avmSimulator,
       bindings,
       this.debugLogStore,
     );

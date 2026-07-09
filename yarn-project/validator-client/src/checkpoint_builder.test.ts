@@ -10,7 +10,7 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import type { LightweightCheckpointBuilder } from '@aztec/prover-client/light';
-import type { AvmExecutor, PublicContractsDB, PublicProcessor } from '@aztec/simulator/server';
+import type { AvmSimulator, PublicContractsDB, PublicProcessor } from '@aztec/simulator/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2Block } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
@@ -105,7 +105,7 @@ describe('CheckpointBuilder', () => {
       dateProvider,
       telemetryClient,
       // TestCheckpointBuilder overrides makeBlockBuilderDeps, so this is never exercised.
-      mock<AvmExecutor>(),
+      mock<AvmSimulator>(),
     );
   }
 

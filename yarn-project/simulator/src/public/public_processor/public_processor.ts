@@ -50,7 +50,6 @@ import { ForkCheckpoint } from '@aztec/world-state/native';
 
 import { AssertionError } from 'assert';
 
-import { AvmExecutor } from '../avm_executor.js';
 import type { AvmSimulator } from '../avm_simulator.js';
 import { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
 import {
@@ -68,7 +67,7 @@ export class PublicProcessorFactory {
   private log: Logger;
   constructor(
     private contractDataSource: ContractDataSource,
-    private avmExecutor: AvmExecutor,
+    private avmSimulator: AvmSimulator,
     private dateProvider: DateProvider = new DateProvider(),
     protected telemetryClient: TelemetryClient = getTelemetryClient(),
     bindings?: LoggerBindings,
@@ -77,9 +76,8 @@ export class PublicProcessorFactory {
   }
 
   /**
-   * Creates a new instance of a PublicProcessor. The simulator it drives is bound to the fork's contracts DB
-   * via {@link AvmExecutor.forFork}, so AVM requests carrying this forkId route to the right contracts DB;
-   * that binding is scoped to each simulation, so there is nothing to unregister when the fork is closed.
+   * Creates a new instance of a PublicProcessor. The simulator it drives reads contract data from the fork's
+   * contracts DB, scoped by the fork id so AVM requests route to the right state.
    *
    * @param globalVariables - The global variables for the block being processed.
    * @param contractsDB - Optional pre-populated contracts DB; a fresh one is constructed if omitted.
@@ -92,10 +90,9 @@ export class PublicProcessorFactory {
     contractsDB: PublicContractsDB = new PublicContractsDB(this.contractDataSource, this.log.getBindings()),
   ): PublicProcessor {
     const forkId = merkleTree.getRevision().forkId;
-    const forkedSimulator = this.avmExecutor.forFork(forkId, contractsDB, globalVariables.timestamp);
 
     const guardedFork = new GuardedMerkleTreeOperations(merkleTree);
-    const publicTxSimulator = this.createPublicTxSimulator(forkedSimulator, forkId, globalVariables, config);
+    const publicTxSimulator = this.createPublicTxSimulator(forkId, globalVariables, contractsDB, config);
 
     return new PublicProcessor(
       globalVariables,
@@ -109,14 +106,15 @@ export class PublicProcessorFactory {
   }
 
   protected createPublicTxSimulator(
-    avmSimulator: AvmSimulator,
     forkId: number,
     globalVariables: GlobalVariables,
+    contractsDB: PublicContractsDB,
     config?: Partial<PublicTxSimulatorConfig>,
   ): PublicTxSimulatorInterface {
     return new TelemetryPublicTxSimulator(
-      avmSimulator,
+      this.avmSimulator,
       globalVariables,
+      contractsDB,
       this.telemetryClient,
       config,
       this.log.getBindings(),

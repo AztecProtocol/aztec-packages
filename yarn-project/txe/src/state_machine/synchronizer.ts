@@ -1,7 +1,7 @@
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { AvmExecutor } from '@aztec/simulator/server';
+import { AvmSimulatorPool } from '@aztec/simulator/server';
 import type { BlockHash, L2Block } from '@aztec/stdlib/block';
 import type {
   MerkleTreeReadOperations,
@@ -17,7 +17,7 @@ export class TXESynchronizer implements WorldStateSynchronizer {
   private blockNumber = BlockNumber.ZERO;
 
   /** AVM execution backend (simulator pool + CDB server) shared across all public simulations. */
-  public avmExecutor!: AvmExecutor;
+  public avmSimulator!: AvmSimulatorPool;
 
   constructor(public nativeWorldStateService: NativeWorldStateService) {}
 
@@ -26,7 +26,7 @@ export class TXESynchronizer implements WorldStateSynchronizer {
 
     const synchronizer = new this(nativeWorldStateService);
 
-    synchronizer.avmExecutor = await AvmExecutor.spawn({
+    synchronizer.avmSimulator = await AvmSimulatorPool.spawn({
       wsdbIpcPath: nativeWorldStateService.getIpcPath(),
     });
 
@@ -98,6 +98,6 @@ export class TXESynchronizer implements WorldStateSynchronizer {
 
   /** Clean up IPC resources. */
   public async closeIpc(): Promise<void> {
-    await this.avmExecutor?.[Symbol.asyncDispose]();
+    await this.avmSimulator?.[Symbol.asyncDispose]();
   }
 }

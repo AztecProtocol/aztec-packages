@@ -14,6 +14,7 @@ import { mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 import type { AvmSimulator } from '../avm_simulator.js';
+import type { PublicContractsDB } from '../public_db_sources.js';
 import { PublicTxSimulator } from './public_tx_simulator.js';
 
 /**
@@ -26,12 +27,13 @@ export class DumpingPublicTxSimulator extends PublicTxSimulator {
   constructor(
     avmSimulator: AvmSimulator,
     globalVariables: GlobalVariables,
+    contractsDB: PublicContractsDB,
     config: Partial<PublicSimulatorConfig>,
     outputDir: string,
     bindings?: LoggerBindings,
     forkId?: number,
   ) {
-    super(avmSimulator, globalVariables, config, bindings, forkId);
+    super(avmSimulator, globalVariables, contractsDB, config, bindings, forkId);
     assert(config.collectHints === true, 'collectHints must be enabled to dump AVM circuit inputs');
     assert(config.collectPublicInputs === true, 'collectPublicInputs must be enabled to dump AVM circuit inputs');
     this.outputDir = outputDir;

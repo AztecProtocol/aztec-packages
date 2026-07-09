@@ -4,12 +4,13 @@ import { PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import type { GlobalVariables, ProtocolContracts, Tx } from '@aztec/stdlib/tx';
 
 import type { AvmSimulator } from '../avm_simulator.js';
+import type { PublicContractsDB } from '../public_db_sources.js';
 
 /**
  * Shared base for public tx simulators: holds the common configuration, the {@link AvmSimulator} used
- * to run the transaction's public calls, the fork id that routes the simulation's contract-data
- * lookups, the logger, and the tx-hash helper. Concrete simulators extend this and implement
- * `simulate`.
+ * to run the transaction's public calls, the contracts DB and fork id that scope the simulation's
+ * contract-data lookups, the logger, and the tx-hash helper. Concrete simulators extend this and
+ * implement `simulate`.
  */
 export abstract class PublicTxSimulatorBase {
   protected log: Logger;
@@ -19,6 +20,7 @@ export abstract class PublicTxSimulatorBase {
   constructor(
     protected avmSimulator: AvmSimulator,
     protected globalVariables: GlobalVariables,
+    protected contractsDB: PublicContractsDB,
     config?: Partial<PublicSimulatorConfig>,
     protected protocolContracts: ProtocolContracts = ProtocolContractsList,
     bindings?: LoggerBindings,

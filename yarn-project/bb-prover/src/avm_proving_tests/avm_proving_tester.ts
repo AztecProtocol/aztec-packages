@@ -8,7 +8,7 @@ import {
   type TestExecutorMetrics,
   type TestPrivateInsertions,
 } from '@aztec/simulator/public/fixtures';
-import { AvmExecutor, MeasuredPublicTxSimulator, PublicContractsDB } from '@aztec/simulator/server';
+import { AvmSimulatorPool, MeasuredPublicTxSimulator } from '@aztec/simulator/server';
 import type { PublicTxResult } from '@aztec/simulator/server';
 import { AvmCircuitInputs, AvmCircuitPublicInputs, PublicSimulatorConfig } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -56,15 +56,9 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await worldStateService.fork();
 
-    const forkId = merkleTrees.getRevision().forkId;
-    const avmExecutor = await AvmExecutor.spawn({ wsdbIpcPath: worldStateService.getIpcPath() });
-    const forkedSimulator = avmExecutor.forFork(
-      forkId,
-      new PublicContractsDB(contractDataSource),
-      globals?.timestamp ?? 0n,
-    );
-    const simulatorFactory: MeasuredSimulatorFactory = (_mt, _cdb, g, m, c) =>
-      new MeasuredPublicTxSimulator(forkedSimulator, g, m, c, undefined, forkId);
+    const avmSimulator = await AvmSimulatorPool.spawn({ wsdbIpcPath: worldStateService.getIpcPath() });
+    const simulatorFactory: MeasuredSimulatorFactory = (mt, cdb, g, m, c) =>
+      new MeasuredPublicTxSimulator(avmSimulator, g, cdb, m, c, undefined, mt.getRevision().forkId);
 
     const tester = new AvmProvingTester(
       checkCircuitOnly,
@@ -74,7 +68,7 @@ export class AvmProvingTester extends PublicTxSimulationTester {
       metrics,
       simulatorFactory,
     );
-    tester.avmExecutor = avmExecutor;
+    tester.avmSimulator = avmSimulator;
     return tester;
   }
 

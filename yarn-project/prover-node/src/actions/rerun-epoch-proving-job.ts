@@ -3,7 +3,7 @@ import type { L1ContractsConfig } from '@aztec/ethereum/config';
 import type { Logger } from '@aztec/foundation/log';
 import { type ProverClientConfig, createProverClient } from '@aztec/prover-client';
 import { ProverBrokerConfig, createAndStartProvingBroker } from '@aztec/prover-client/broker';
-import { AvmExecutor, PublicProcessorFactory } from '@aztec/simulator/server';
+import { AvmSimulatorPool, PublicProcessorFactory } from '@aztec/simulator/server';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 import type { GenesisData } from '@aztec/stdlib/world-state';
 import { getTelemetryClient } from '@aztec/telemetry-client';
@@ -36,11 +36,11 @@ export async function rerunEpochProvingJob(
   const archiver = await createArchiverStore(config, initialBlockHash);
   const contractDataSource = createContractDataSource(archiver);
 
-  const avmExecutor = await AvmExecutor.spawn({ wsdbIpcPath: worldState.getIpcPath() });
+  const avmSimulator = await AvmSimulatorPool.spawn({ wsdbIpcPath: worldState.getIpcPath() });
 
   const publicProcessorFactory = new PublicProcessorFactory(
     contractDataSource,
-    avmExecutor,
+    avmSimulator,
     undefined,
     undefined,
     log.getBindings(),
@@ -77,6 +77,6 @@ export async function rerunEpochProvingJob(
   } finally {
     await prover.stop();
     await broker.stop();
-    await avmExecutor[Symbol.asyncDispose]();
+    await avmSimulator[Symbol.asyncDispose]();
   }
 }

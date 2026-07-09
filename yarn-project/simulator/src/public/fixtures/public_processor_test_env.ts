@@ -6,7 +6,7 @@ import { GlobalVariables } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 import { NativeWorldStateService } from '@aztec/world-state';
 
-import { AvmExecutor } from '../avm_executor.js';
+import { AvmSimulatorPool } from '../avm_simulator_pool.js';
 import { PublicContractsDB } from '../public_db_sources.js';
 import { GuardedMerkleTreeOperations } from '../public_processor/guarded_merkle_tree.js';
 import { PublicProcessor } from '../public_processor/public_processor.js';
@@ -49,7 +49,7 @@ export class PublicProcessorTestEnv implements AsyncDisposable {
     public readonly contractsDB: PublicContractsDB,
     public readonly globals: GlobalVariables,
     private readonly worldStateService: NativeWorldStateService,
-    private readonly avmExecutor: AvmExecutor,
+    private readonly avmSimulator: AvmSimulatorPool,
   ) {}
 
   static async create(opts: PublicProcessorTestEnvOptions = {}): Promise<PublicProcessorTestEnv> {
@@ -62,10 +62,9 @@ export class PublicProcessorTestEnv implements AsyncDisposable {
     const contractsDB = new PublicContractsDB(contractDataSource);
 
     const forkId = merkleTrees.getRevision().forkId;
-    const avmExecutor = await AvmExecutor.spawn({ wsdbIpcPath: worldStateService.getIpcPath() });
-    const forkedSimulator = avmExecutor.forFork(forkId, contractsDB, globals.timestamp);
+    const avmSimulator = await AvmSimulatorPool.spawn({ wsdbIpcPath: worldStateService.getIpcPath() });
 
-    const simulator = new PublicTxSimulator(forkedSimulator, globals, config, undefined, forkId);
+    const simulator = new PublicTxSimulator(avmSimulator, globals, contractsDB, config, undefined, forkId);
     const processor = new PublicProcessor(
       globals,
       new GuardedMerkleTreeOperations(merkleTrees),
@@ -78,11 +77,11 @@ export class PublicProcessorTestEnv implements AsyncDisposable {
 
     const tester = new PublicTxSimulationTester(merkleTrees, contractDataSource, globals);
 
-    return new PublicProcessorTestEnv(processor, tester, contractsDB, globals, worldStateService, avmExecutor);
+    return new PublicProcessorTestEnv(processor, tester, contractsDB, globals, worldStateService, avmSimulator);
   }
 
   async [Symbol.asyncDispose](): Promise<void> {
-    await this.avmExecutor[Symbol.asyncDispose]();
+    await this.avmSimulator[Symbol.asyncDispose]();
     await this.tester.close();
     await this.worldStateService.close();
   }

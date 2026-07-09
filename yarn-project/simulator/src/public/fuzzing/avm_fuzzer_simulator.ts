@@ -34,8 +34,7 @@ import {
 import type { NativeWorldStateService } from '@aztec/world-state';
 
 import { BaseAvmSimulationTester } from '../avm/testing/base_avm_simulation_tester.js';
-import { AvmExecutor } from '../avm_executor.js';
-import type { AvmSimulator } from '../avm_simulator.js';
+import { AvmSimulatorPool } from '../avm_simulator_pool.js';
 import { SimpleContractDataSource } from '../fixtures/simple_contract_data_source.js';
 import { PublicContractsDB } from '../public_db_sources.js';
 import { PublicTxSimulator } from '../public_tx_simulator/public_tx_simulator.js';
@@ -201,16 +200,17 @@ export class AvmFuzzerSimulator extends BaseAvmSimulationTester {
     merkleTrees: MerkleTreeWriteOperations,
     contractDataSource: SimpleContractDataSource,
     globals: GlobalVariables,
-    forkedSimulator: AvmSimulator,
-    private avmExecutor: AvmExecutor,
+    private avmSimulator: AvmSimulatorPool,
+    contractsDB: PublicContractsDB,
     forkId: number,
   ) {
     super(contractDataSource, merkleTrees);
     // collectPublicInputs and collectCallMetadata are required so the C++ result carries the end
     // tree snapshots and app-logic return values that the fuzzer bin reports back to the harness.
     this.simulator = new PublicTxSimulator(
-      forkedSimulator,
+      avmSimulator,
       globals,
+      contractsDB,
       {
         skipFeeEnforcement: false,
         collectDebugLogs: false,
@@ -234,14 +234,14 @@ export class AvmFuzzerSimulator extends BaseAvmSimulationTester {
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await worldStateService.fork();
     const forkId = merkleTrees.getRevision().forkId;
-    const avmExecutor = await AvmExecutor.spawn({ wsdbIpcPath: worldStateService.getIpcPath() });
-    const forkedSimulator = avmExecutor.forFork(forkId, new PublicContractsDB(contractDataSource), globals.timestamp);
-    return new AvmFuzzerSimulator(merkleTrees, contractDataSource, globals, forkedSimulator, avmExecutor, forkId);
+    const avmSimulator = await AvmSimulatorPool.spawn({ wsdbIpcPath: worldStateService.getIpcPath() });
+    const contractsDB = new PublicContractsDB(contractDataSource);
+    return new AvmFuzzerSimulator(merkleTrees, contractDataSource, globals, avmSimulator, contractsDB, forkId);
   }
 
-  /** Tear down the AVM executor (AVM process pool and CDB server). */
+  /** Tear down the AVM simulator pool (AVM processes and CDB server). */
   public async close(): Promise<void> {
-    await this.avmExecutor[Symbol.asyncDispose]();
+    await this.avmSimulator[Symbol.asyncDispose]();
   }
 
   /**

@@ -42,7 +42,12 @@ import {
   type SequencerPublisher,
   createAutomineSequencer,
 } from '@aztec/sequencer-client';
-import { AvmExecutor, PublicContractsDB, PublicProcessorFactory } from '@aztec/simulator/server';
+import {
+  type AvmSimulator,
+  AvmSimulatorPool,
+  PublicContractsDB,
+  PublicProcessorFactory,
+} from '@aztec/simulator/server';
 import {
   AttestationsBlockWatcher,
   AttestedInvalidProposalWatcher,
@@ -220,7 +225,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
     private readonly automineSequencer?: AutomineSequencer,
     // AVM execution backend for public simulation. Wired in production (createAndSync); absent in unit/TXE
     // nodes that don't drive public execution, hence optional and asserted at the simulation call site.
-    private avmExecutor?: AvmExecutor,
+    private avmSimulator?: AvmSimulator,
   ) {
     this.metrics = new NodeMetrics(telemetry, 'AztecNodeService');
     this.tracer = telemetry.getTracer('AztecNodeService');
@@ -605,12 +610,12 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
       const initialHeader = nativeWs.getInitialHeader();
       const initialBlockHash = await initialHeader.hash();
 
-      log.info('WSDB ready, creating AVM executor');
-      const avmExecutor = await AvmExecutor.spawn({
+      log.info('WSDB ready, creating AVM simulator pool');
+      const avmSimulator = await AvmSimulatorPool.spawn({
         wsdbIpcPath: nativeWs.getIpcPath(),
         logger: (msg: string) => log.debug(msg),
       });
-      started.push({ stop: () => avmExecutor[Symbol.asyncDispose]() });
+      started.push({ stop: () => avmSimulator[Symbol.asyncDispose]() });
 
       const archiver = await createArchiver(
         config,
@@ -703,7 +708,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         worldStateSynchronizer,
         archiver,
         dateProvider,
-        avmExecutor,
+        avmSimulator,
         telemetry,
         undefined, // debugLogStore
       );
@@ -910,7 +915,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
           worldStateSynchronizer,
           archiver,
           dateProvider,
-          avmExecutor,
+          avmSimulator,
           telemetry,
           debugLogStore,
         );
@@ -994,7 +999,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
           epochCache,
           blobClient,
           keyStoreManager,
-          avmExecutor,
+          avmSimulator,
         });
 
         if (!options.dontStartProverNode) {
@@ -1034,11 +1039,11 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
         keyStoreManager,
         debugLogStore,
         automineSequencer,
-        avmExecutor,
+        avmSimulator,
       );
 
-      // Register the AVM executor for cleanup on stop (it owns the AVM pool + CDB server).
-      node.ipcBackends.push({ destroy: () => avmExecutor[Symbol.asyncDispose]() });
+      // Register the AVM simulator pool for cleanup on stop (it owns the AVM processes + CDB server).
+      node.ipcBackends.push({ destroy: () => avmSimulator[Symbol.asyncDispose]() });
 
       return node;
     } catch (err) {
@@ -1626,7 +1631,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, AztecNodeDeb
 
     const publicProcessorFactory = new PublicProcessorFactory(
       this.contractDataSource,
-      this.avmExecutor!,
+      this.avmSimulator!,
       new DateProvider(),
       this.telemetry,
       this.log.getBindings(),

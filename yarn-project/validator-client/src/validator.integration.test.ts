@@ -19,7 +19,7 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import type { P2P, PeerId } from '@aztec/p2p';
 import { TestTxProvider } from '@aztec/p2p/test-helpers';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
-import type { AvmExecutor } from '@aztec/simulator/server';
+import type { AvmSimulatorPool } from '@aztec/simulator/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CommitteeAttestation, GENESIS_BLOCK_HEADER_HASH, L2Block } from '@aztec/stdlib/block';
 import { CheckpointReexecutionTracker, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
@@ -68,7 +68,7 @@ describe('ValidatorClient Integration', () => {
     checkpointsBuilder: FullNodeCheckpointsBuilder;
     p2pClient: MockProxy<P2P>;
     validator: ValidatorClient;
-    avmExecutor?: AvmExecutor;
+    avmSimulator?: AvmSimulatorPool;
   };
 
   let slotNumber: SlotNumber;
@@ -140,8 +140,8 @@ describe('ValidatorClient Integration', () => {
     const synchronizer = new ServerWorldStateSynchronizer(worldStateDb, archiver, wsConfig);
     await synchronizer.start();
 
-    const { AvmExecutor } = await import('@aztec/simulator/server');
-    const avmExecutor = await AvmExecutor.spawn({ wsdbIpcPath: worldStateDb.getIpcPath() });
+    const { AvmSimulatorPool } = await import('@aztec/simulator/server');
+    const avmSimulator = await AvmSimulatorPool.spawn({ wsdbIpcPath: worldStateDb.getIpcPath() });
 
     // Create real checkpoints builder
     const checkpointsBuilder = new FullNodeCheckpointsBuilder(
@@ -156,7 +156,7 @@ describe('ValidatorClient Integration', () => {
       synchronizer,
       archiver,
       dateProvider,
-      avmExecutor,
+      avmSimulator,
       /*telemetryClient=*/ undefined,
       /*debugLogStore=*/ undefined,
     );
@@ -230,7 +230,7 @@ describe('ValidatorClient Integration', () => {
       checkpointsBuilder,
       p2pClient,
       validator,
-      avmExecutor,
+      avmSimulator,
     };
   };
 
@@ -416,12 +416,12 @@ describe('ValidatorClient Integration', () => {
 
   afterEach(async () => {
     logger.warn(`Stopping validator contexts`);
-    for (const { validator, synchronizer, archiver, worldStateDb, avmExecutor } of [attestor, proposer]) {
+    for (const { validator, synchronizer, archiver, worldStateDb, avmSimulator } of [attestor, proposer]) {
       await tryStop(validator);
       await tryStop(synchronizer);
       await tryStop(archiver);
       await tryStop(worldStateDb);
-      await avmExecutor?.[Symbol.asyncDispose]();
+      await avmSimulator?.[Symbol.asyncDispose]();
     }
   });
 

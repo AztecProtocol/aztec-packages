@@ -12,9 +12,10 @@ import type { GlobalVariables, Tx } from '@aztec/stdlib/tx';
 import { WorldStateRevision } from '@aztec/stdlib/world-state';
 import { type TelemetryClient, type Tracer, getTelemetryClient } from '@aztec/telemetry-client';
 
-import type { AvmSimulator } from '../avm_simulator.js';
+import type { AvmContractsDBContext, AvmSimulator } from '../avm_simulator.js';
 import { ExecutorMetrics } from '../executor_metrics.js';
 import type { ExecutorMetricsInterface } from '../executor_metrics_interface.js';
+import type { PublicContractsDB } from '../public_db_sources.js';
 import { PublicTxSimulatorBase } from './public_tx_simulator_base.js';
 import type {
   MeasuredPublicTxSimulatorInterface,
@@ -35,11 +36,12 @@ export class PublicTxSimulator extends PublicTxSimulatorBase implements PublicTx
   constructor(
     avmSimulator: AvmSimulator,
     globalVariables: GlobalVariables,
+    contractsDB: PublicContractsDB,
     config?: Partial<PublicSimulatorConfig>,
     bindings?: LoggerBindings,
     forkId?: number,
   ) {
-    super(avmSimulator, globalVariables, config, undefined, bindings, forkId);
+    super(avmSimulator, globalVariables, contractsDB, config, undefined, bindings, forkId);
     this.log = createLogger(`simulator:public_tx_simulator`, bindings);
   }
 
@@ -85,9 +87,14 @@ export class PublicTxSimulator extends PublicTxSimulatorBase implements PublicTx
     const inputBuffer = fastSimInputs.serializeWithMessagePack();
 
     this.log.debug(`Running AVM simulation for tx ${txHash}`);
+    const context: AvmContractsDBContext = {
+      contractsDB: this.contractsDB,
+      forkId: this.forkId ?? 0,
+      timestamp: this.globalVariables.timestamp,
+    };
     let resultBuffer: Uint8Array;
     try {
-      resultBuffer = await this.avmSimulator.simulate(inputBuffer, signal);
+      resultBuffer = await this.avmSimulator.simulate(inputBuffer, context, signal);
     } catch (error: any) {
       if (error.message?.includes('cancelled')) {
         throw new SimulationError(`AVM simulation cancelled`, []);
@@ -139,12 +146,13 @@ export class MeasuredPublicTxSimulator extends PublicTxSimulator implements Meas
   constructor(
     avmSimulator: AvmSimulator,
     globalVariables: GlobalVariables,
+    contractsDB: PublicContractsDB,
     protected readonly metrics: ExecutorMetricsInterface,
     config?: Partial<PublicSimulatorConfig>,
     bindings?: LoggerBindings,
     forkId?: number,
   ) {
-    super(avmSimulator, globalVariables, config, bindings, forkId);
+    super(avmSimulator, globalVariables, contractsDB, config, bindings, forkId);
   }
 
   public override async simulate(tx: Tx, txLabel: string = 'unlabeledTx'): Promise<PublicTxResult> {
@@ -169,13 +177,14 @@ export class TelemetryPublicTxSimulator extends MeasuredPublicTxSimulator {
   constructor(
     avmSimulator: AvmSimulator,
     globalVariables: GlobalVariables,
+    contractsDB: PublicContractsDB,
     telemetryClient: TelemetryClient = getTelemetryClient(),
     config?: Partial<PublicSimulatorConfig>,
     bindings?: LoggerBindings,
     forkId?: number,
   ) {
     const metrics = new ExecutorMetrics(telemetryClient, 'PublicTxSimulator');
-    super(avmSimulator, globalVariables, metrics, config, bindings, forkId);
+    super(avmSimulator, globalVariables, contractsDB, metrics, config, bindings, forkId);
     this.tracer = metrics.tracer;
   }
 }
