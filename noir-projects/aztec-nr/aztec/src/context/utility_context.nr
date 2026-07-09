@@ -1,4 +1,4 @@
-use crate::oracle::{execution::get_utility_context, storage::storage_read};
+use crate::oracle::{execution::{get_utility_context, UtilityContextData}, storage::storage_read};
 use crate::protocol::{
     abis::block_header::BlockHeader, address::AztecAddress, constants::NULL_MSG_SENDER_CONTRACT_ADDRESS,
     traits::Packable,
@@ -9,6 +9,12 @@ pub struct UtilityContext {
     block_header: BlockHeader,
     contract_address: AztecAddress,
     msg_sender: AztecAddress,
+}
+
+impl From<UtilityContextData> for UtilityContext {
+    fn from(data: UtilityContextData) -> Self {
+        Self { block_header: data.block_header, contract_address: data.contract_address, msg_sender: data.msg_sender }
+    }
 }
 
 impl UtilityContext {

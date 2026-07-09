@@ -63,8 +63,18 @@ export type CheckpointQuery =
   | { slot: SlotNumber }
   | { tag: 'checkpointed' | 'proven' | 'finalized' };
 
-/** Query a range of confirmed checkpoints by start/limit or by epoch. */
-export type CheckpointsQuery = { from: CheckpointNumber; limit: number } | { epoch: EpochNumber };
+/**
+ * Query a range of confirmed checkpoints by start/limit, by slot anchor, or by epoch.
+ *
+ * The `fromSlot` variant walks the slot index: it returns up to `limit` checkpoints anchored at
+ * `fromSlot`, ordered nearest-first. With `reverse` it takes the checkpoints at or before the slot
+ * (descending); otherwise the checkpoints at or after it (ascending). Use `limit: 1, reverse: true`
+ * to find the latest checkpoint at or before a slot in a single range scan.
+ */
+export type CheckpointsQuery =
+  | { from: CheckpointNumber; limit: number }
+  | { fromSlot: SlotNumber; limit: number; reverse?: boolean }
+  | { epoch: EpochNumber };
 
 /**
  * Lookup a proposed (archiver-internal, not-yet-L1-confirmed) checkpoint.
@@ -81,6 +91,7 @@ export const CheckpointQuerySchema: z.ZodType<CheckpointQuery, unknown> = z.unio
 
 export const CheckpointsQuerySchema: z.ZodType<CheckpointsQuery, unknown> = z.union([
   z.object({ from: CheckpointNumberSchema, limit: z.number().int().min(1) }).strict(),
+  z.object({ fromSlot: SlotNumberSchema, limit: z.number().int().min(1), reverse: z.boolean().optional() }).strict(),
   z.object({ epoch: EpochNumberSchema }).strict(),
 ]);
 

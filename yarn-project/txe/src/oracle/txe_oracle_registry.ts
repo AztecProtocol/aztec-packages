@@ -67,11 +67,12 @@ const GAS_SETTINGS: TypeMapping<GasSettings> = {
 };
 
 // Tagging secret strategy discriminants. Must match the Noir test helper `TaggingSecretStrategy` in
-// aztec-nr `test/helpers/tagging_secret_strategy.nr`. This is a test-only oracle (only `set_tagging_secret_strategy`
+// aztec-nr `test/helpers/tagging_secret_strategy.nr`. This is a test-only oracle (only `set_tagging_secret_strategies`
 // reads it), so the mapping lives here on the TXE side rather than in the production oracle type mappings.
 const STRATEGY_NON_INTERACTIVE_HANDSHAKE = 1;
 const STRATEGY_ARBITRARY_SECRET = 2;
 const STRATEGY_ADDRESS_DERIVED = 3;
+const STRATEGY_INTERACTIVE_HANDSHAKE = 4;
 
 const TAGGING_SECRET_STRATEGY: TypeMapping<TaggingSecretStrategy> = {
   serialization: {
@@ -79,6 +80,8 @@ const TAGGING_SECRET_STRATEGY: TypeMapping<TaggingSecretStrategy> = {
       switch (strategy.type) {
         case 'non-interactive-handshake':
           return [new Fr(STRATEGY_NON_INTERACTIVE_HANDSHAKE), Fr.ZERO, Fr.ZERO];
+        case 'interactive-handshake':
+          return [new Fr(STRATEGY_INTERACTIVE_HANDSHAKE), Fr.ZERO, Fr.ZERO];
         case 'address-derived':
           return [new Fr(STRATEGY_ADDRESS_DERIVED), Fr.ZERO, Fr.ZERO];
         case 'arbitrary-secret':
@@ -93,6 +96,8 @@ const TAGGING_SECRET_STRATEGY: TypeMapping<TaggingSecretStrategy> = {
       switch (kind) {
         case STRATEGY_NON_INTERACTIVE_HANDSHAKE:
           return { type: 'non-interactive-handshake' };
+        case STRATEGY_INTERACTIVE_HANDSHAKE:
+          return { type: 'interactive-handshake' };
         case STRATEGY_ADDRESS_DERIVED:
           return { type: 'address-derived' };
         case STRATEGY_ARBITRARY_SECRET:
@@ -195,7 +200,7 @@ const TXE_CALL_CONTEXT: TypeMapping<{ txHash: Fr; anchorBlockTimestamp: bigint }
   shape: ['scalar', 'scalar', 'scalar'], // discriminant, txHash, anchor block timestamp
 };
 
-export const CONTRACT_INSTANCE_MEMBER: TypeMapping<{ exists: boolean; member: Fr }[]> = FIXED_ARRAY(
+const CONTRACT_INSTANCE_MEMBER: TypeMapping<{ exists: boolean; member: Fr }[]> = FIXED_ARRAY(
   STRUCT([
     { name: 'exists', type: BOOL },
     { name: 'member', type: FIELD },
@@ -315,8 +320,11 @@ export const TXE_ORACLE_REGISTRY = {
     returnType: FIELD,
   }),
 
-  aztec_txe_setTaggingSecretStrategy: makeEntry({
-    params: [{ name: 'strategy', type: OPTION(TAGGING_SECRET_STRATEGY) }],
+  aztec_txe_setTaggingSecretStrategies: makeEntry({
+    params: [
+      { name: 'unconstrainedStrategy', type: OPTION(TAGGING_SECRET_STRATEGY) },
+      { name: 'constrainedStrategy', type: OPTION(TAGGING_SECRET_STRATEGY) },
+    ],
   }),
 
   aztec_txe_getLastBlockTimestamp: makeEntry({

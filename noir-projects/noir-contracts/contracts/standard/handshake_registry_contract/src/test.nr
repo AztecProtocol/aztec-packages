@@ -7,7 +7,7 @@ use aztec::{
         constrained_delivery::VALIDATE_HANDSHAKE_SELECTOR,
         handshake::{
             AppSiloedHandshakeSecrets, GET_APP_SILOED_SECRETS_SELECTOR, GET_NON_INTERACTIVE_HANDSHAKES_SELECTOR,
-            MAX_HANDSHAKES_PER_PAGE, NON_INTERACTIVE_HANDSHAKE_SELECTOR,
+            INTERACTIVE_HANDSHAKE_SELECTOR, MAX_HANDSHAKES_PER_PAGE, NON_INTERACTIVE_HANDSHAKE_SELECTOR,
         },
     },
     oracle::shared_secret::get_shared_secret,
@@ -58,6 +58,7 @@ unconstrained fn selectors_match_the_constrained_delivery_helper() {
 
     assert_eq(registry.get_app_siloed_secrets(sender, recipient).selector, GET_APP_SILOED_SECRETS_SELECTOR);
     assert_eq(registry.non_interactive_handshake(sender, recipient).selector, NON_INTERACTIVE_HANDSHAKE_SELECTOR);
+    assert_eq(registry.interactive_handshake(sender, recipient).selector, INTERACTIVE_HANDSHAKE_SELECTOR);
     assert_eq(registry.validate_handshake(sender, recipient, secrets).selector, VALIDATE_HANDSHAKE_SELECTOR);
     assert_eq(registry.get_non_interactive_handshakes(recipient, 0).selector, GET_NON_INTERACTIVE_HANDSHAKES_SELECTOR);
 }

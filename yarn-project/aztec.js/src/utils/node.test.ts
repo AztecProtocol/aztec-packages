@@ -1,4 +1,5 @@
 import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
+import { TimeoutError } from '@aztec/foundation/error';
 import { BlockHash } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import {
@@ -14,7 +15,7 @@ import {
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { waitForTx } from './node.js';
+import { waitForNode, waitForTx } from './node.js';
 
 describe('waitForTx', () => {
   let node: MockProxy<AztecNode>;
@@ -135,5 +136,26 @@ describe('waitForTx', () => {
       const receipt = await waitForTx(node, txHash, { timeout: 1, interval: 0.1 });
       expect(receipt.status).toBe(TxStatus.CHECKPOINTED);
     });
+  });
+});
+
+describe('waitForNode', () => {
+  let node: MockProxy<AztecNode>;
+
+  beforeEach(() => {
+    node = mock();
+  });
+
+  it('resolves once the node becomes reachable', async () => {
+    node.getNodeInfo.mockRejectedValueOnce(new Error('not up yet')).mockResolvedValueOnce({} as any);
+
+    await expect(waitForNode(node, undefined, { timeout: 5, interval: 0.01 })).resolves.toBeUndefined();
+    expect(node.getNodeInfo).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects with a TimeoutError when the node stays unreachable', async () => {
+    node.getNodeInfo.mockRejectedValue(new Error('unreachable'));
+
+    await expect(waitForNode(node, undefined, { timeout: 0.05, interval: 0.01 })).rejects.toThrow(TimeoutError);
   });
 });

@@ -1,13 +1,13 @@
-//! Thin wrappers around constrained delivery for TXE tests.
+//! Thin wrappers around onchain message delivery for TXE tests.
 use aztec::macros::aztec;
 
 mod test;
 
 #[aztec]
-pub contract ConstrainedDeliveryTest {
+pub contract OnchainDeliveryTest {
     use aztec::{
         macros::{events::event, functions::external, storage::storage},
-        messages::delivery::MessageDelivery,
+        messages::delivery::{MessageDelivery, OnchainDeliveryMode},
         note::note_viewer_options::NoteViewerOptions,
         oracle::notes::get_next_tagging_index,
         protocol::{
@@ -34,10 +34,10 @@ pub contract ConstrainedDeliveryTest {
     }
 
     #[external("private")]
-    fn next_index_for_secret(secret: Field) -> u32 {
+    fn next_index_for_secret(secret: Field, mode: OnchainDeliveryMode) -> u32 {
         // Safety: test-only observation of the index the PXE hands out next for this secret.
         unsafe {
-            get_next_tagging_index(secret, MessageDelivery::onchain_constrained())
+            get_next_tagging_index(secret, mode)
         }
     }
 
@@ -54,6 +54,24 @@ pub contract ConstrainedDeliveryTest {
     #[external("private")]
     fn emit_event(recipient: AztecAddress, value: Field) {
         self.emit(DeliveryEvent { value }).deliver_to(recipient, MessageDelivery::onchain_constrained());
+    }
+
+    #[external("private")]
+    fn emit_event_via_interactive_handshake(recipient: AztecAddress, value: Field) {
+        self.emit(DeliveryEvent { value }).deliver_to(
+            recipient,
+            MessageDelivery::onchain_constrained().via_interactive_handshake(),
+        );
+    }
+
+    #[external("private")]
+    fn emit_note_unconstrained(recipient: AztecAddress, value: Field) {
+        self.storage.notes.at(recipient).insert(FieldNote { value }).deliver(MessageDelivery::onchain_unconstrained());
+    }
+
+    #[external("private")]
+    fn emit_event_unconstrained(recipient: AztecAddress, value: Field) {
+        self.emit(DeliveryEvent { value }).deliver_to(recipient, MessageDelivery::onchain_unconstrained());
     }
 
     #[external("private")]
