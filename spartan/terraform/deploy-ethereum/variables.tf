@@ -3,7 +3,9 @@ variable "API_KEY_SECRET_NAMES" {
   type        = list(string)
   default = [
     "eth-sepolia-rpc-consumer-client1",
-    "eth-sepolia-rpc-consumer-client2"
+    "eth-sepolia-rpc-consumer-client2",
+    "eth-sepolia-rpc-consumer-client3",
+    "eth-sepolia-rpc-consumer-client4",
   ]
 }
 
