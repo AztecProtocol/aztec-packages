@@ -13,9 +13,9 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 Previously, connecting a PXE or embedded wallet to a different or redeployed rollup, or bumping the store schema version, wiped the existing on-disk store in place. That meant master account keys could be destroyed simply by pointing a wallet at a different network. A store now exists per `(l1ChainId, rollupAddress, schemaVersion)` identity, and switching networks (or upgrading) selects the matching store instead of overwriting the previous one.
 
-**Impact**: The first start after upgrading to this version begins with a fresh, empty store; data from the previous store is not deleted and remains on disk under its old identity. Browser apps using `@aztec/kv-store/sqlite-opfs` can enumerate and clean up stores for networks no longer in use with the new `listStores()` / `deleteStore()` utilities:
+**Impact**: The first start after upgrading to this version begins with a fresh, empty store; the pre-upgrade data is not deleted. In the browser (sqlite-opfs) the old store stays in OPFS but is no longer returned by `listStores()`; on node (lmdb-v2) pre-upgrade data stays at `<dataDirectory>/<name>` while new per-identity stores live under `<dataDirectory>/<name>-stores/`. Browser apps can enumerate and clean up stores for networks no longer in use with the new `listStores()` / `deleteStore()` utilities:
 
-```typescript
+```ts
 import { deleteStore, listStores } from '@aztec/kv-store/sqlite-opfs';
 
 const names = await listStores();

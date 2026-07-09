@@ -46,6 +46,9 @@ Scope decisions:
 - **Node infra untouched**: archiver/world-state/p2p keep `DatabaseVersionManager` reset semantics.
   Their data is public and resyncable; keeping per-rollup copies of 100GB+ stores is an operator
   cost decision out of scope here.
+- **Validator HA signer untouched**: `rollupAddressMismatchPolicy` defaults to `'reset'`, so the signer
+  store keeps its historical reset-on-rollup-change behavior. Only stores that opt into a rollup-encoding
+  location (via `partitionByIdentity`) upgrade the rollup mismatch to a fail-closed throw.
 - **KeyStore split deferred**: keys remain inside the per-identity store. They are no longer
   destroyed on rollup change, only stranded per store (accounts appear empty on a new rollup until
   re-imported). Giving key material its own chain-agnostic store is a follow-up; this design keeps
@@ -77,9 +80,12 @@ Gains optional `l1ChainId` (`yarn-project/stdlib/src/kv-store/config.ts`).
 ### lmdb-v2 `createStore`
 
 - Gains an opt-in `CreateStoreOptions.partitionByIdentity`.
-- When set: data dir becomes `join(dataDirectory, name, slug)` and `DatabaseVersionManager` runs
-  with `schemaVersionMismatchPolicy: 'throw'` and `versionFileReadFailurePolicy: 'throw'` — the
-  version file becomes a pure invariant check plus migration metadata.
+- When set: data dir becomes `join(dataDirectory, `${name}-stores`, slug)` — a sibling of the legacy
+  `join(dataDirectory, name)` env dir, not a child of it. An old binary reaching a rollup mismatch
+  `rm -rf`s the legacy dir; nesting the per-identity stores inside it would let that wipe them, so the
+  partitioned stores must live outside. `DatabaseVersionManager` runs with `schemaVersionMismatchPolicy`,
+  `rollupAddressMismatchPolicy`, and `versionFileReadFailurePolicy` all set to `'throw'` — the version
+  file becomes a pure invariant check plus migration metadata.
 - Default off: every node-infra caller is untouched.
 
 ### Callers
