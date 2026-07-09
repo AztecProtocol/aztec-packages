@@ -1,13 +1,13 @@
-import { EthAddress } from '@aztec/foundation/eth-address';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 
 /** The coordinates that determine which physical store a logical store name maps to. */
 export type StoreIdentity = {
   /** Chain ID of the L1 the rollup is deployed to. */
-  l1ChainId?: number;
+  l1ChainId: number;
   /** Address of the rollup contract the store's data pertains to. */
-  rollupAddress?: EthAddress;
+  rollupAddress: EthAddress;
   /** Schema version of the data held in the store. */
-  schemaVersion?: number;
+  schemaVersion: number;
 };
 
 /**
@@ -15,7 +15,7 @@ export type StoreIdentity = {
  * their slugs are equal, so the format must stay stable: `<l1ChainId>-<rollupAddress>-v<schemaVersion>`.
  */
 export function storeIdentitySlug({ l1ChainId, rollupAddress, schemaVersion }: StoreIdentity): string {
-  return `${l1ChainId ?? 0}-${(rollupAddress ?? EthAddress.ZERO).toString()}-v${schemaVersion ?? 0}`;
+  return `${l1ChainId}-${rollupAddress.toString()}-v${schemaVersion}`;
 }
 
 /** Composes the physical store name for a logical store name and identity. */

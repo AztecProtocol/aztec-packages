@@ -10,13 +10,15 @@ describe('storeIdentitySlug', () => {
     );
   });
 
-  it('defaults missing values to chain 0, zero address, schema 0', () => {
-    expect(storeIdentitySlug({})).toEqual(`0-${EthAddress.ZERO.toString()}-v0`);
+  it('composes the exact slug format for the zero identity', () => {
+    expect(storeIdentitySlug({ l1ChainId: 0, rollupAddress: EthAddress.ZERO, schemaVersion: 0 })).toEqual(
+      '0-0x0000000000000000000000000000000000000000-v0',
+    );
   });
 
   it('normalizes the rollup address to lowercase hex', () => {
     const rollupAddress = EthAddress.fromString('0x1234567890ABCDEF1234567890ABCDEF12345678');
-    expect(storeIdentitySlug({ rollupAddress, schemaVersion: 1 })).toEqual(
+    expect(storeIdentitySlug({ l1ChainId: 0, rollupAddress, schemaVersion: 1 })).toEqual(
       `0-0x1234567890abcdef1234567890abcdef12345678-v1`,
     );
   });

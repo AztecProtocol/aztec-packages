@@ -1,4 +1,4 @@
-import { EthAddress } from '@aztec/foundation/eth-address';
+import type { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DatabaseVersion } from '@aztec/stdlib/database-version/version';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
@@ -18,6 +18,9 @@ export type { StoreIdentity } from '../store_identity.js';
  * Opens the persistent store selected by `name` and the identity `(config.l1ChainId, config.rollupAddress,
  * schemaVersion)`. A store exists per identity: reopening with the same identity returns the same data, a
  * different identity selects a different (possibly fresh) store. Nothing is ever cleared.
+ *
+ * @throws If `schemaVersion`, `config.rollupAddress`, or `config.l1ChainId` is missing — an incomplete identity
+ * must never silently default to the zero identity.
  */
 export async function createStore(
   name: string,
@@ -25,11 +28,17 @@ export async function createStore(
   schemaVersion: number | undefined = undefined,
   log: Logger = createLogger('kv-store'),
 ) {
-  const storeName = effectiveStoreName(name, {
-    l1ChainId: config.l1ChainId,
-    rollupAddress: config.rollupAddress,
-    schemaVersion,
-  });
+  const { rollupAddress, l1ChainId } = config;
+  if (schemaVersion === undefined || rollupAddress === undefined || l1ChainId === undefined) {
+    const missing = [
+      l1ChainId === undefined && 'l1ChainId',
+      rollupAddress === undefined && 'rollupAddress',
+      schemaVersion === undefined && 'schemaVersion',
+    ].filter((component): component is string => component !== false);
+    throw new Error(`Cannot open store '${name}' without a complete identity: missing ${missing.join(', ')}`);
+  }
+
+  const storeName = effectiveStoreName(name, { l1ChainId, rollupAddress, schemaVersion });
   log.info(`Creating ${storeName} SQLite-OPFS data store with map size ${config.dataStoreMapSizeKb} KB`);
   const store = await AztecSQLiteOPFSStore.open(
     createLogger('kv-store:sqlite-opfs'),
@@ -38,7 +47,7 @@ export async function createStore(
     storePoolDirectory(storeName),
   );
   try {
-    await assertStoreIdentity(store, storeName, schemaVersion, config.rollupAddress);
+    await assertStoreIdentity(store, storeName, schemaVersion, rollupAddress);
   } catch (err) {
     // The store handle owns a worker and OPFS locks; release them before surfacing the refusal.
     await store.close().catch(() => {});
@@ -54,10 +63,10 @@ export async function createStore(
 async function assertStoreIdentity(
   store: AztecSQLiteOPFSStore,
   storeName: string,
-  schemaVersion: number | undefined,
-  rollupAddress: EthAddress | undefined,
+  schemaVersion: number,
+  rollupAddress: EthAddress,
 ): Promise<void> {
-  const expected = new DatabaseVersion(schemaVersion ?? 0, rollupAddress ?? EthAddress.ZERO);
+  const expected = new DatabaseVersion(schemaVersion, rollupAddress);
   const singleton = store.openSingleton<string>('dbVersion');
   const stored = await singleton.getAsync();
   if (stored === undefined) {

@@ -12,6 +12,25 @@ const configFor = (rollupAddress: EthAddress, l1ChainId = 31337) => ({
 });
 
 describe('sqlite-opfs createStore', () => {
+  it('rejects when a required identity component is missing', async () => {
+    const addr = EthAddress.random();
+    const { l1ChainId: _l1ChainId, ...configWithoutChainId } = configFor(addr);
+
+    await expect(createStore('incomplete_test', configWithoutChainId, 1, mockLogger)).rejects.toThrow(
+      /without a complete identity/,
+    );
+    await expect(createStore('incomplete_test', configFor(addr), undefined, mockLogger)).rejects.toThrow(
+      /without a complete identity/,
+    );
+
+    const storeName = effectiveStoreName('incomplete_test', {
+      l1ChainId: 31337,
+      rollupAddress: addr,
+      schemaVersion: 1,
+    });
+    expect(await listStores()).not.toContain(storeName);
+  });
+
   it('keeps data intact when switching rollup addresses back and forth', async () => {
     const addrA = EthAddress.random();
     const addrB = EthAddress.random();
