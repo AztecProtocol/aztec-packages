@@ -67,7 +67,7 @@ const GAS_SETTINGS: TypeMapping<GasSettings> = {
 };
 
 // Tagging secret strategy discriminants. Must match the Noir test helper `TaggingSecretStrategy` in
-// aztec-nr `test/helpers/tagging_secret_strategy.nr`. This is a test-only oracle (only `set_tagging_secret_strategy`
+// aztec-nr `test/helpers/tagging_secret_strategy.nr`. This is a test-only oracle (only `set_tagging_secret_strategies`
 // reads it), so the mapping lives here on the TXE side rather than in the production oracle type mappings.
 const STRATEGY_NON_INTERACTIVE_HANDSHAKE = 1;
 const STRATEGY_ARBITRARY_SECRET = 2;
@@ -320,8 +320,11 @@ export const TXE_ORACLE_REGISTRY = {
     returnType: FIELD,
   }),
 
-  aztec_txe_setTaggingSecretStrategy: makeEntry({
-    params: [{ name: 'strategy', type: OPTION(TAGGING_SECRET_STRATEGY) }],
+  aztec_txe_setTaggingSecretStrategies: makeEntry({
+    params: [
+      { name: 'unconstrainedStrategy', type: OPTION(TAGGING_SECRET_STRATEGY) },
+      { name: 'constrainedStrategy', type: OPTION(TAGGING_SECRET_STRATEGY) },
+    ],
   }),
 
   aztec_txe_getLastBlockTimestamp: makeEntry({
