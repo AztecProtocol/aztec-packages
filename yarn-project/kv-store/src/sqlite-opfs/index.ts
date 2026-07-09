@@ -7,6 +7,8 @@ import { AztecSQLiteOPFSStore } from './store.js';
 export { AztecSQLiteOPFSStore } from './store.js';
 export { SqliteEncryptionError } from './errors.js';
 export type { SqliteEncryptionErrorCode } from './errors.js';
+export { StoreIdentityMismatchError, effectiveStoreName, storeIdentitySlug } from '../store_identity.js';
+export type { StoreIdentity } from '../store_identity.js';
 
 export async function createStore(
   name: string,
