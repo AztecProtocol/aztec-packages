@@ -27,7 +27,7 @@ export class BrowserEmbeddedWallet extends EmbeddedWallet {
     const rootLogger = options.logger ?? createLogger('embedded-wallet');
 
     const aztecNode = typeof nodeOrUrl === 'string' ? createAztecNodeClient(nodeOrUrl) : nodeOrUrl;
-    const l1Contracts = await aztecNode.getL1ContractAddresses();
+    const { l1ChainId, l1ContractAddresses } = await aztecNode.getNodeInfo();
 
     // Support both the new unified `pxe` option and the deprecated `pxeConfig`/`pxeOptions`.
     const { config: pxeConfigFromPxe, creation: pxeCreationFromPxe } = splitPxeOptions(options.pxe);
@@ -36,7 +36,7 @@ export class BrowserEmbeddedWallet extends EmbeddedWallet {
 
     const pxeConfig: PXEConfig = Object.assign(getPXEConfig(), {
       proverEnabled: mergedConfigOverrides.proverEnabled,
-      dataDirectory: `pxe_data_${l1Contracts.rollupAddress}`,
+      dataDirectory: 'pxe_data',
       autoSync: false,
       ...mergedConfigOverrides,
     });
@@ -71,9 +71,10 @@ export class BrowserEmbeddedWallet extends EmbeddedWallet {
         : await createStore(
             'wallet_data',
             {
-              dataDirectory: `wallet_data_${l1Contracts.rollupAddress}`,
+              dataDirectory: 'wallet_data',
               dataStoreMapSizeKb: pxeConfig.dataStoreMapSizeKb,
-              rollupAddress: l1Contracts.rollupAddress,
+              rollupAddress: l1ContractAddresses.rollupAddress,
+              l1ChainId,
             },
             1,
             rootLogger.createChild('wallet:data'),

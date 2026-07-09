@@ -29,10 +29,12 @@ export async function createPXE(
 ) {
   const actor = options.loggerActorLabel;
 
-  const l1ContractAddresses = await aztecNode.getL1ContractAddresses();
+  const { l1ChainId, l1ContractAddresses, rollupVersion } = await aztecNode.getNodeInfo();
   const configWithContracts = {
     ...config,
     ...l1ContractAddresses,
+    l1ChainId,
+    rollupVersion,
   } as PXEConfig;
 
   const loggers = options.loggers ?? {};
