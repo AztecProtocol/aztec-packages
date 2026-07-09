@@ -27,7 +27,6 @@ export class BrowserEmbeddedWallet extends EmbeddedWallet {
     const rootLogger = options.logger ?? createLogger('embedded-wallet');
 
     const aztecNode = typeof nodeOrUrl === 'string' ? createAztecNodeClient(nodeOrUrl) : nodeOrUrl;
-    const { l1ChainId, l1ContractAddresses } = await aztecNode.getNodeInfo();
 
     // Support both the new unified `pxe` option and the deprecated `pxeConfig`/`pxeOptions`.
     const { config: pxeConfigFromPxe, creation: pxeCreationFromPxe } = splitPxeOptions(options.pxe);
