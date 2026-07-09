@@ -543,7 +543,6 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
         }),
       );
 
-      noteCache.finish();
       const nonceGenerator = noteCache.getNonceGenerator();
       result = new PrivateExecutionResult(executionResult, nonceGenerator, publicFunctionsCalldata);
     } catch (err) {
