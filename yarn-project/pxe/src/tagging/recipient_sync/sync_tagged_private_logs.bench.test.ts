@@ -80,8 +80,8 @@ type Scenario = {
   kind: AppTaggingSecretKind;
   /** Number of secrets the recipient holds for this directional app. */
   secretCount: number;
-  /** Highest finalized index already persisted before the sync (recipient has `priorCursor + 1` prior messages). */
-  priorCursor: number;
+  /** Highest finalized index already persisted before the sync (recipient has `priorFinalizedIndex + 1` prior messages). */
+  priorFinalizedIndex: number;
   /** New contiguous finalized logs available per secret since the last sync (0 = steady state). */
   newLogs: number;
   /**
@@ -110,7 +110,7 @@ const SCENARIOS: Scenario[] = [
     label: `constrained/steady-state/secrets=${secretCount}`,
     kind: AppTaggingSecretKind.CONSTRAINED,
     secretCount,
-    priorCursor: 0,
+    priorFinalizedIndex: 0,
     newLogs: 0,
   })),
   // Light catch-up (K new logs per secret) at 100 and 1000 secrets. Round-trips depend only on K and P, not on N, so
@@ -120,7 +120,7 @@ const SCENARIOS: Scenario[] = [
       label: `constrained/catch-up-${newLogs}/secrets=${secretCount}`,
       kind: AppTaggingSecretKind.CONSTRAINED,
       secretCount,
-      priorCursor: 0,
+      priorFinalizedIndex: 0,
       newLogs,
     })),
   ),
@@ -133,7 +133,7 @@ const SCENARIOS: Scenario[] = [
       label: `constrained/catch-up-${newLogs}/secrets=${secretCount}`,
       kind: AppTaggingSecretKind.CONSTRAINED,
       secretCount,
-      priorCursor: 0,
+      priorFinalizedIndex: 0,
       newLogs,
     })),
   ),
@@ -144,7 +144,7 @@ const SCENARIOS: Scenario[] = [
     label: `constrained/mixed/secrets=1000`,
     kind: AppTaggingSecretKind.CONSTRAINED,
     secretCount: 1000,
-    priorCursor: 0,
+    priorFinalizedIndex: 0,
     newLogs: 0,
     deepCohort: { count: 1, newLogs: 100 },
   },
@@ -153,7 +153,7 @@ const SCENARIOS: Scenario[] = [
     label: `unconstrained/steady-state/secrets=100`,
     kind: AppTaggingSecretKind.UNCONSTRAINED,
     secretCount: 100,
-    priorCursor: 0,
+    priorFinalizedIndex: 0,
     newLogs: 0,
   },
 ];
@@ -178,26 +178,27 @@ describeBench('syncTaggedPrivateLogs constrained-sync bench', () => {
   }
 
   async function runScenario(scenario: Scenario) {
-    const { kind, secretCount, priorCursor } = scenario;
+    const { kind, secretCount, priorFinalizedIndex } = scenario;
     const perSecretNewLogs = newLogsPerSecret(scenario);
 
     aztecNode.getPrivateLogsByTags.mockReset();
     const taggingStore = new RecipientTaggingStore(await openTmpStore('bench'));
     const secrets = await Promise.all(Array.from({ length: secretCount }, () => randomAppTaggingSecret(kind)));
 
-    // Seed the persisted cursor(s) to simulate a recipient that already synced prior finalized messages.
+    // Seed the persisted finalized indexes to simulate a recipient that already synced prior finalized messages.
     for (const secret of secrets) {
-      await taggingStore.updateHighestFinalizedIndex(secret, priorCursor, JOB_ID);
+      await taggingStore.updateHighestFinalizedIndex(secret, priorFinalizedIndex, JOB_ID);
       if (kind === AppTaggingSecretKind.UNCONSTRAINED) {
-        await taggingStore.updateHighestAgedIndex(secret, priorCursor, JOB_ID);
+        await taggingStore.updateHighestAgedIndex(secret, priorFinalizedIndex, JOB_ID);
       }
     }
 
-    // Tags that should resolve to a finalized log: per secret, the contiguous run (priorCursor, priorCursor + K].
+    // Tags that should resolve to a finalized log: per secret, the contiguous run
+    // (priorFinalizedIndex, priorFinalizedIndex + K].
     const hitTags = new Set<string>();
     for (let s = 0; s < secrets.length; s++) {
       for (let k = 1; k <= perSecretNewLogs[s]; k++) {
-        hitTags.add((await computeSiloedTagForIndex(secrets[s], priorCursor + k)).toString());
+        hitTags.add((await computeSiloedTagForIndex(secrets[s], priorFinalizedIndex + k)).toString());
       }
     }
 

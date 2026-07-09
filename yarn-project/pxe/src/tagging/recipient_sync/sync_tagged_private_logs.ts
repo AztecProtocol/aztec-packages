@@ -67,9 +67,10 @@ import { findHighestIndexes } from './utils/find_highest_indexes.js';
  *   (`INITIAL_CONSTRAINED_PROBE_LEN`) and doubling it each round (capped at the window) while every probed index has a
  *   log, stopping at the first miss. A steady-state sync with no new logs costs a single tag instead of the whole
  *   window. A secret K logs behind catches up in ~log2(K) round-trips while the probe is still doubling, then linearly
- *   at ~K/WINDOW_LEN rounds once the probe saturates the cap, still far below one round per log.
+ *   at ~K/WINDOW_LEN rounds once the probe saturates the cap, still far below one round per log. The probe length is
+ *   in-memory state scoped to one sync call, so every sync restarts at the initial probe.
  * - The upper bound is the same as unconstrained: `highestFinalizedIndex + WINDOW_LEN`. Advancing the probe is
- *   decoupled from persisting the finalized cursor, so unfinalized logs at the top of the run are still fetched
+ *   decoupled from persisting the finalized index, so unfinalized logs at the top of the run are still fetched
  *   while only the finalized prefix is persisted.
  *
  * # Batching across secrets
@@ -219,7 +220,7 @@ async function fetchLogsForSecrets(
 }
 
 /**
- * Processes fetched logs for a constrained secret: persists the finalized cursor and advances the probe. See the
+ * Processes fetched logs for a constrained secret: persists the finalized index and advances the probe. See the
  * "# Constrained secrets" section above for why the scan stops at the first missing index. Only `highestFinalizedIndex`
  * is tracked (no aged index).
  */
@@ -246,10 +247,10 @@ async function processConstrainedResults(
     await taggingStore.updateHighestFinalizedIndex(pending.secret, highestFinalizedIndex, jobId);
   }
 
-  // Advancing the probe is decoupled from persisting the cursor: keep scanning as long as the probe was entirely hits
-  // (no gap) and there is room before the protocol bound, even if none of those hits is finalized yet. Gating this on
-  // finalization would drop logs in unfinalized blocks, which sit at the top of the contiguous run. The bound
-  // re-anchors to any finalized index found this round.
+  // Advancing the probe is decoupled from persisting the finalized index: keep scanning as long as the probe was
+  // entirely hits (no gap) and there is room before the protocol bound, even if none of those hits is finalized yet.
+  // Gating this on finalization would drop logs in unfinalized blocks, which sit at the top of the contiguous run.
+  // The bound re-anchors to any finalized index found this round.
   const probeFullyConsumed = firstMissingIndex >= pending.end;
   const boundEnd =
     highestFinalizedIndex !== undefined
