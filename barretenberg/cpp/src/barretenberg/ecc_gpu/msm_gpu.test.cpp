@@ -75,6 +75,41 @@ TEST_F(MsmGpuTest, DiagN13FreshProcess)
     }
 }
 
+// Temporary spike diagnostic: 2-element MSMs whose booth digits collide in the same
+// bucket. The real failing pair collides with OPPOSITE signs at (w=15, bucket 234) and
+// (w=25, bucket 4); these synthetics isolate which collision structure breaks.
+TEST_F(MsmGpuTest, DiagSyntheticCollisions)
+{
+    auto points = random_points(2);
+    using u256 = bb::numeric::uint256_t;
+    const Fr sA1(u256(234) << 150);          // digit +234 at w15 only
+    const Fr sB1 = -sA1;                     // digit -234 at w15 only
+    const Fr sA2 = sA1 + Fr(u256(4) << 250); // +234@w15, +4@w25
+    const Fr sB2 = -sA2;                     // -234@w15, -4@w25
+    const Fr sC2 = sA1 + Fr(u256(7) << 30);  // +234@w15 same sign, +7@w3
+    struct PairCase {
+        const char* name;
+        Fr a;
+        Fr b;
+    };
+    const PairCase cases[] = {
+        { "opposite_1window", sA1, sB1 },
+        { "opposite_2windows", sA2, sB2 },
+        { "same_sign_1window", sA1, sC2 },
+        { "identical", sA1, sA1 },
+    };
+    for (const auto& c : cases) {
+        std::vector<Fr> scalars{ c.a, c.b };
+        bb::PolynomialSpan<const Fr> span{ 0, scalars };
+        bool ok = true;
+        for (int rep = 0; rep < 3 && ok; rep++) {
+            ok = gpu::pippenger_bn254_oneshot(span, points) == cpu_msm(span, points);
+        }
+        std::cout << "DIAG synth " << c.name << " " << (ok ? "ok" : "MISMATCH") << std::endl;
+        EXPECT_TRUE(ok) << c.name;
+    }
+}
+
 // Temporary spike diagnostic: single-scalar MSMs with adversarial values. Any failure
 // here is a deterministic minimal reproducer (n=1: result = s * P).
 TEST_F(MsmGpuTest, DiagAdversarialScalars)
