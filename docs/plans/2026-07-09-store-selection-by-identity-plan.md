@@ -1,5 +1,11 @@
 # PXE Store Selection by Identity — Implementation Plan
 
+> **Historical artifact.** This plan was executed and then amended during final review: the lmdb-v2 layout
+> became a sibling directory (`<name>-stores/<slug>`) and the rollup-address mismatch policy was split into its
+> own `rollupAddressMismatchPolicy` option (default `'reset'`). The design doc
+> (`2026-07-09-store-selection-by-identity-design.md`) reflects the final semantics; code snippets below predate
+> the amendments.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Replace wipe-on-mismatch with store selection keyed on `(l1ChainId, rollupAddress, schemaVersion)` for both PXE storage backends, per the approved design in `docs/plans/2026-07-09-store-selection-by-identity-design.md`.
