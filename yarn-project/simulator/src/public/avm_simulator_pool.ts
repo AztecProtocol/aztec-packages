@@ -153,17 +153,31 @@ export class AvmSimulatorPool implements AvmSimulator {
   }
 
   private async createSlot(reuseIdx?: number): Promise<AvmProcessHandle> {
-    const simulator = await AvmSimulatorProcess.spawn({
-      binaryPath: this.options.avmBinaryPath,
-      wsdbIpcPath: this.options.wsdbIpcPath,
-      cdbIpcPath: this.cdbServer.ipcPath,
-      logger: this.options.logger,
-    });
-    if (reuseIdx !== undefined && reuseIdx < this.slots.length) {
-      this.slots[reuseIdx] = simulator;
+    const reuse = reuseIdx !== undefined && reuseIdx < this.slots.length;
+    // Reserve the slot count synchronously, before the async spawn, so concurrent checkouts can't all
+    // observe `createdCount < maxSize` and overshoot the pool (the count is only bumped once control has
+    // yielded on the await). Roll back the reservation if the spawn itself fails.
+    if (!reuse) {
+      this.createdCount++;
+    }
+    let simulator: AvmProcessHandle;
+    try {
+      simulator = await AvmSimulatorProcess.spawn({
+        binaryPath: this.options.avmBinaryPath,
+        wsdbIpcPath: this.options.wsdbIpcPath,
+        cdbIpcPath: this.cdbServer.ipcPath,
+        logger: this.options.logger,
+      });
+    } catch (err) {
+      if (!reuse) {
+        this.createdCount--;
+      }
+      throw err;
+    }
+    if (reuse) {
+      this.slots[reuseIdx!] = simulator;
     } else {
       this.slots.push(simulator);
-      this.createdCount++;
     }
     this.log.debug(`Created AVM pool slot (${this.createdCount}/${this.maxSize})`);
     return simulator;

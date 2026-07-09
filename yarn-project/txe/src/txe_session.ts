@@ -234,14 +234,22 @@ export class TXESession implements TXESessionStateHandler {
   ) {}
 
   /**
-   * Closes the per-session `txe-session` LMDB and the `NativeWorldStateService` .
-   * Called via IPC when the dispatcher detects the end of a test. Idempotent.
+   * Tears down the per-session AVM simulator (process pool + CDB server), the `NativeWorldStateService`,
+   * and the `txe-session` LMDB. Called via IPC when the dispatcher detects the end of a test. Idempotent.
    */
   async dispose(): Promise<void> {
     if (this.disposed) {
       return;
     }
     this.disposed = true;
+    // Dispose the AVM pool before the world state: it kills the bb-avm-sim processes so they release their
+    // connection to the WSDB server, letting it shut down cleanly. Skipping this leaks a bb-avm-sim process
+    // (and keeps its WSDB alive) per session.
+    try {
+      await this.stateMachine.synchronizer.closeIpc();
+    } catch (err) {
+      this.logger.warn(`Error closing AVM simulator during session dispose`, err);
+    }
     try {
       await this.stateMachine.synchronizer.nativeWorldStateService.close();
     } catch (err) {
