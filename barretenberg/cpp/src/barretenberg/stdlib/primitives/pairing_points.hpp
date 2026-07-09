@@ -76,16 +76,13 @@ template <typename Curve> struct PairingPoints {
      * @details Computes: P_agg = P₀ + r₁·P₁ + r₂·P₂ + ... + rₙ₋₁·Pₙ₋₁ where r₁,...,rₙ₋₁ are 128-bit challenges
      * depending on all input points.
      *
-     * @param pairing_points Vector of pairing points to aggregate (requires size > 1)
-     * @param handle_edge_cases If true, batch_mul handles edge cases where points might be zero or challenges might
-     * cause numerical issues. If false, assumes all points are non-zero and non-colliding (saves circuit gates).
+     * On Ultra, each rᵢ·Pᵢ is a separate short scalar_mul accumulated with complete addition, as in aggregate().
+     * Unlike a multi-point batch_mul, this involves no cross-point incomplete additions, so no edge-case handling
+     * is needed for any inputs.
      *
-     * Safety of handle_edge_cases=false:
-     * - Safe when all points are verifier-computed (deterministic, won't collide)
-     * - Safe even with untrusted public input points, as the random challenges make collisions negligible
-     * - Provides significant circuit gate savings in recursive verification
+     * @param pairing_points Vector of pairing points to aggregate (requires size > 1)
      */
-    static PairingPoints aggregate_multiple(std::vector<PairingPoints>& pairing_points, bool handle_edge_cases = true)
+    static PairingPoints aggregate_multiple(std::vector<PairingPoints>& pairing_points)
     {
         size_t num_points = pairing_points.size();
         BB_ASSERT_GT(num_points, 0UL, "Must provide at least one PairingPoints for aggregation");
@@ -138,15 +135,13 @@ template <typename Curve> struct PairingPoints {
             P0 = Group::batch_mul(first_components, scalars);
             P1 = Group::batch_mul(second_components, scalars);
         } else {
-            // Use first point as base, then batch_mul remaining points
-            std::vector<Group> remaining_first(first_components.begin() + 1, first_components.end());
-            std::vector<Group> remaining_second(second_components.begin() + 1, second_components.end());
-
             P0 = first_components[0];
             P1 = second_components[0];
 
-            P0 += Group::batch_mul(remaining_first, challenges, 128, handle_edge_cases);
-            P1 += Group::batch_mul(remaining_second, challenges, 128, handle_edge_cases);
+            for (size_t i = 0; i < challenges.size(); i++) {
+                P0 += first_components[i + 1].scalar_mul(challenges[i], 128);
+                P1 += second_components[i + 1].scalar_mul(challenges[i], 128);
+            }
         }
 
         PairingPoints aggregated_points(P0, P1);
