@@ -15,8 +15,12 @@ describe('sqlite-opfs createStore', () => {
   it('rejects when a required identity component is missing', async () => {
     const addr = EthAddress.random();
     const { l1ChainId: _l1ChainId, ...configWithoutChainId } = configFor(addr);
+    const { rollupAddress: _rollupAddress, ...configWithoutRollup } = configFor(addr);
 
     await expect(createStore('incomplete_test', configWithoutChainId, 1, mockLogger)).rejects.toThrow(
+      /without a complete identity/,
+    );
+    await expect(createStore('incomplete_test', configWithoutRollup, 1, mockLogger)).rejects.toThrow(
       /without a complete identity/,
     );
     await expect(createStore('incomplete_test', configFor(addr), undefined, mockLogger)).rejects.toThrow(
