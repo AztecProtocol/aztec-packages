@@ -84,7 +84,8 @@ bool UltraVerifier_<Flavor, IO>::verify_ipa(const Proof& ipa_proof, const IPACla
 {
     VerifierCommitmentKey<curve::Grumpkin> ipa_verification_key(1 << CONST_ECCVM_LOG_N);
     ipa_transcript->load_proof(ipa_proof);
-    bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_verification_key, ipa_claim, ipa_transcript);
+    bool ipa_verified = IPA<curve::Grumpkin>::reduce_verify(ipa_verification_key, ipa_claim, ipa_transcript) &&
+                        ipa_transcript->is_proof_fully_consumed();
     vinfo("UltraVerifier: IPA check: ", ipa_verified ? "true" : "false");
 
     if (!ipa_verified) {
@@ -191,6 +192,12 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
         using Point = typename PairingPoints::Point;
         if (result.pairing_points.P0() == Point::infinity() || result.pairing_points.P1() == Point::infinity()) {
             vinfo("Ultra Verifier: PCS reduction produced a pairing point at infinity");
+            result.reduction_succeeded = false;
+        }
+        // A verified result must cover the whole proof: trailing field elements the transcript never read are not
+        // authenticated by Fiat-Shamir, so their presence is a verification failure, not ignorable slack.
+        if (!transcript->is_proof_fully_consumed()) {
+            vinfo("Ultra Verifier: proof contains trailing data not consumed by the transcript");
             result.reduction_succeeded = false;
         }
     }

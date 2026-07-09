@@ -57,6 +57,22 @@ TEST_F(ChonkRecursionTests, NativeVerification)
 }
 
 /**
+ * @brief A proof carrying trailing data the transcript never reads must be rejected.
+ * @details The joint proof is the last segment loaded into the shared transcript, so an appended element is pure
+ * trailing data: no subsequent read shifts and Fiat-Shamir is unaffected. Only the fully-consumed transcript check
+ * rejects it.
+ */
+TEST_F(ChonkRecursionTests, NativeVerificationRejectsTrailingProofData)
+{
+    auto [proof, vk_and_hash] = construct_chonk_prover_output();
+
+    proof.joint_proof.push_back(fr::random_element());
+
+    ChonkNativeVerifier verifier(vk_and_hash);
+    EXPECT_FALSE(verifier.verify(proof));
+}
+
+/**
  * @brief Construct and Check a recursive Chonk verification circuit
  *
  */
