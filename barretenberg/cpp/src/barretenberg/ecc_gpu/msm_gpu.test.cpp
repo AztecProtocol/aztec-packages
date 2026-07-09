@@ -75,6 +75,34 @@ TEST_F(MsmGpuTest, DiagN13FreshProcess)
     }
 }
 
+// Temporary spike diagnostic: full captured repro (scalars AND points) of a failing
+// 2-element MSM from the A10G sweep — small scalars 0x9e06/0x49fa (window-0 digits
+// -506/+506) with their exact points. If this fails in a fresh process it is a fully
+// portable deterministic reproducer.
+TEST_F(MsmGpuTest, DiagCapturedQuadruple)
+{
+    using Fq = Curve::BaseField;
+    // Raw Montgomery limbs as captured (data[0]..data[3]).
+    const AffineElement p0{
+        Fq(0x8e84116c0ba4643cUL, 0x7c5c34ed27b87bf2UL, 0xf75d4f096108887cUL, 0x01575ba8abf0f246UL),
+        Fq(0xf86a3de0dc1a541eUL, 0xddfd22c5734757b4UL, 0x755014582d70ec12UL, 0x26361ea028f5a844UL)
+    };
+    const AffineElement p1{
+        Fq(0x658d9b264a76a942UL, 0x23a3f911916a2356UL, 0x958e51309e28b33aUL, 0x355994a7c1a62cc4UL),
+        Fq(0x1ecb10d82510fe2bUL, 0x7ffe5942e86a3b03UL, 0xa31aa38f9ccd48d9UL, 0x1f6b1202b0975b20UL)
+    };
+    ASSERT_TRUE(p0.on_curve());
+    ASSERT_TRUE(p1.on_curve());
+    std::vector<AffineElement> points{ p0, p1 };
+    std::vector<Fr> scalars{ Fr(0x9e06), Fr(0x49fa) };
+    bb::PolynomialSpan<const Fr> span{ 0, scalars };
+    for (int rep = 0; rep < 5; rep++) {
+        bool ok = gpu::pippenger_bn254_oneshot(span, points) == cpu_msm(span, points);
+        std::cout << "DIAG quadruple rep" << rep << " " << (ok ? "ok" : "MISMATCH") << std::endl;
+        EXPECT_TRUE(ok) << "rep " << rep;
+    }
+}
+
 // Temporary spike diagnostic: pairs of scalars with NEGATIVE booth digits colliding in
 // the same window-0 bucket. Captured culprits 0xa75f/0x775f both have digit -161 at
 // w=0; the earlier same-sign synthetic collision used positive digits and passed.
