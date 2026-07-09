@@ -741,6 +741,27 @@ describe('Utility Execution test suite', () => {
         expect(aztecNode.getBlockHashMembershipWitness).toHaveBeenCalledTimes(1);
       });
 
+      it('returns aligned archive-membership booleans for block hash batches', async () => {
+        const service = new EphemeralArrayService();
+        const oracle = makeOracle({ scopes: [scope] });
+        const referenceBlockHash = await anchorBlockHeader.hash();
+        const presentBlockHash = BlockHash.random();
+        const missingBlockHash = BlockHash.random();
+        const witness = MembershipWitness.empty(ARCHIVE_HEIGHT);
+
+        aztecNode.getBlockHashMembershipWitness.mockImplementation((_referenceBlockHash, blockHash) =>
+          Promise.resolve(blockHash.equals(presentBlockHash) ? witness : undefined),
+        );
+
+        const result = await oracle.areBlockHashesInArchive(
+          referenceBlockHash,
+          EphemeralArray.fromValues(service, [presentBlockHash, missingBlockHash, presentBlockHash]),
+        );
+
+        expect(result.readAll(service)).toEqual([true, false, true]);
+        expect(aztecNode.getBlockHashMembershipWitness).toHaveBeenCalledTimes(2);
+      });
+
       it('reuses public storage reads within a utility execution', async () => {
         const oracle = makeOracle({ scopes: [scope] });
         const blockHash = await anchorBlockHeader.hash();
