@@ -83,6 +83,23 @@ This means a single `bb` binary with the GPU backend statically linked + the
 `BB_MSM_GPU` runtime flag is viable for productionisation; the remaining constraint is
 only the toolchain split (nvcc TU vs zig release link), not runtime portability.
 
+## Benchmark results (g6e.2xlarge: 1x L40S + 8 vCPU, 2026-07-09)
+
+| n | CPU (8 vCPU) | GPU one-shot | GPU resident-SRS | GPU vs 8-vCPU CPU |
+|------|---------:|--------:|--------:|-----:|
+| 2^14 | 97.7 ms | 8.6 ms | 5.4 ms | 18x |
+| 2^16 | 235 ms | 9.0 ms | 7.0 ms | 34x |
+| 2^18 | 628 ms | 29.0 ms | 22.1 ms | 28x |
+| 2^20 | 1969 ms | 113 ms | 58.9 ms | 33x |
+| 2^22 | 5750 ms | 409 ms | 197 ms | 29x |
+| 32 x 2^19 batch | — | — | 683 ms (21.3 ms/MSM) | — |
+
+Context: a (loaded) 192-core m6a-class box does 2^20 in ~271 ms wall, so GPU-resident
+(58.9 ms) is ~4.5x a full large CPU box at ~half the hourly cost — roughly 8-9x
+perf/$ for large MSMs, before any tuning. Resident vs one-shot shows the fixed-SRS
+pattern matters (~2x at large n: point upload dominates one-shot). The batch shape
+amortizes further (21.3 ms vs 30.8 ms for an isolated 2^19).
+
 ## Correctness status (spike finding): upstream race suspected on Ada/sm_89
 
 `ecc_gpu_tests` fails on g6e (L40S, driver 595.71.05, CUDA 12.6): MSMs with >= ~2
