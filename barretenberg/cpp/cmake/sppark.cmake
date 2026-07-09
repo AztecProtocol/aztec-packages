@@ -37,7 +37,10 @@ ExternalProject_Add(
     SOURCE_DIR ${BLST_SRC}
     BUILD_IN_SOURCE YES
     CONFIGURE_COMMAND ""
-    BUILD_COMMAND ${CMAKE_COMMAND} -E env --unset=CFLAGS --unset=CXXFLAGS CC=${CMAKE_C_COMPILER}${CMAKE_C_COMPILER_ARG1} ./build.sh
+    # __ADX__ is forced (rather than build.sh's host auto-detect) so the archive's
+    # exported symbol set (mulx_*/sqrx_*) is deterministic; consumers of blst_t.hpp must
+    # compile with the same define (see ecc_gpu). All target GPU hosts have ADX.
+    BUILD_COMMAND ${CMAKE_COMMAND} -E env --unset=CFLAGS --unset=CXXFLAGS CC=${CMAKE_C_COMPILER}${CMAKE_C_COMPILER_ARG1} ./build.sh -D__ADX__
     INSTALL_COMMAND ""
     UPDATE_COMMAND ""
     BUILD_BYPRODUCTS ${BLST_LIB}

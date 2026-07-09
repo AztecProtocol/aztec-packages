@@ -108,7 +108,7 @@ int MsmContextBn254::msm(JacobianPointRaw& out, const uint64_t* scalars, size_t 
     }
     point_t result;
     RustError err = static_cast<msm_impl_t*>(impl)->invoke(result,
-                                                           /*points=*/nullptr,
+                                                           /*points=*/static_cast<const affine_t*>(nullptr),
                                                            n,
                                                            reinterpret_cast<const scalar_t*>(scalars),
                                                            /*mont=*/true,

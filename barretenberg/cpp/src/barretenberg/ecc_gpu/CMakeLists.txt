@@ -32,6 +32,9 @@ add_dependencies(ecc_gpu sppark_repo blst_repo)
 
 target_link_libraries(ecc_gpu PUBLIC ecc numeric sppark_headers)
 set_target_properties(ecc_gpu PROPERTIES CUDA_STANDARD 17 POSITION_INDEPENDENT_CODE ON)
+# blst_t.hpp maps its mont symbols to the mulx_*/sqrx_* (ADX) variants under __ADX__;
+# must match how sppark.cmake builds libblst.a.
+target_compile_definitions(ecc_gpu PRIVATE __ADX__)
 target_compile_options(ecc_gpu PRIVATE $<$<COMPILE_LANGUAGE:CXX>:${ECC_GPU_CXX_OPTIONS}>)
 
 if(NOT FUZZING)

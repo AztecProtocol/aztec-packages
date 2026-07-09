@@ -74,6 +74,15 @@ clang++ -std=c++20 -o /tmp/hybrid_check <small main calling gpu::msm_oneshot_bn2
 
 (Then repeat with `scripts/zig-c++.sh` as the linker driver.)
 
+## Driver dependency (verified)
+
+`cudart_static` loads `libcuda.so.1` lazily via dlopen — binaries linking `ecc_gpu` have
+NO dynamic NEEDED entry on the driver and start fine on driver-less machines (verified:
+`ecc_gpu_tests` skips all tests cleanly on a GPU-less box, `ldd` shows no cuda deps).
+This means a single `bb` binary with the GPU backend statically linked + the
+`BB_MSM_GPU` runtime flag is viable for productionisation; the remaining constraint is
+only the toolchain split (nvcc TU vs zig release link), not runtime portability.
+
 ## Known limitations (spike scope)
 
 - BN254 G1 only. Grumpkin needs an sppark instantiation over the swapped field pair
