@@ -279,6 +279,18 @@ TEST_F(MsmGpuTest, DiagSizeSweep)
                                 std::cout << "DIAG pair (" << culprits[a] << "," << culprits[b] << ") rep" << rep << " "
                                           << (gpu_r == cpu_r ? "ok" : "MISMATCH") << std::endl;
                                 if (gpu_r != cpu_r && rep == 0) {
+                                    // Dump the exact repro inputs (canonical scalars +
+                                    // raw point coordinates) for a portable test case.
+                                    for (size_t p = 0; p < 2; p++) {
+                                        const Fr sc = pair_s[p].from_montgomery_form_reduced();
+                                        const auto& pt = pair_p[p];
+                                        std::cout << "DIAG repro s" << p << "=0x" << std::hex << sc.data[3] << "_"
+                                                  << sc.data[2] << "_" << sc.data[1] << "_" << sc.data[0] << " Px" << p
+                                                  << "=0x" << pt.x.data[3] << "_" << pt.x.data[2] << "_" << pt.x.data[1]
+                                                  << "_" << pt.x.data[0] << " Py" << p << "=0x" << pt.y.data[3] << "_"
+                                                  << pt.y.data[2] << "_" << pt.y.data[1] << "_" << pt.y.data[0]
+                                                  << std::dec << " (mont coords)" << std::endl;
+                                    }
                                     // Structural forensics: what did the GPU actually
                                     // compute? Test pairing/drop/sign hypotheses, then
                                     // per-window digit drops/duplications.
