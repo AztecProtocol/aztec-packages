@@ -75,6 +75,36 @@ TEST_F(MsmGpuTest, DiagN13FreshProcess)
     }
 }
 
+// Temporary spike diagnostic: pairs of scalars with NEGATIVE booth digits colliding in
+// the same window-0 bucket. Captured culprits 0xa75f/0x775f both have digit -161 at
+// w=0; the earlier same-sign synthetic collision used positive digits and passed.
+TEST_F(MsmGpuTest, DiagNegativeDigitCollision)
+{
+    auto points = random_points(2);
+    struct PairCase {
+        const char* name;
+        uint64_t a;
+        uint64_t b;
+    };
+    const PairCase cases[] = {
+        { "captured_0xa75f_0x775f", 0xa75f, 0x775f }, // both d0 = -161
+        { "synthetic_863_1887", 863, 1887 },          // both d0 = -161 (minimal)
+        { "positive_161_1185", 161, 1185 },           // both d0 = +161 (control)
+        { "identical_863_863", 863, 863 },            // identical negative digit
+        { "neg_pos_863_161", 863, 161 },              // -161 and +161 (control)
+    };
+    for (const auto& c : cases) {
+        std::vector<Fr> scalars{ Fr(c.a), Fr(c.b) };
+        bb::PolynomialSpan<const Fr> span{ 0, scalars };
+        bool ok = true;
+        for (int rep = 0; rep < 3 && ok; rep++) {
+            ok = gpu::pippenger_bn254_oneshot(span, points) == cpu_msm(span, points);
+        }
+        std::cout << "DIAG negdigit " << c.name << " " << (ok ? "ok" : "MISMATCH") << std::endl;
+        EXPECT_TRUE(ok) << c.name;
+    }
+}
+
 // Temporary spike diagnostic: dissect the real failing scalar pair (captured from
 // DiagSizeSweep with the debug seed). Tests whether the points matter (fresh random
 // points here vs the sweep's) and truncates windows to find the minimal failing prefix.
