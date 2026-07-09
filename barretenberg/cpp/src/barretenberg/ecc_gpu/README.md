@@ -83,6 +83,33 @@ This means a single `bb` binary with the GPU backend statically linked + the
 `BB_MSM_GPU` runtime flag is viable for productionisation; the remaining constraint is
 only the toolchain split (nvcc TU vs zig release link), not runtime portability.
 
+## Correctness status (spike finding): upstream race suspected on Ada/sm_89
+
+`ecc_gpu_tests` fails on g6e (L40S, driver 595.71.05, CUDA 12.6): MSMs with >= ~2
+dense (multi-window) scalars intermittently produce wrong results. Extensive bisection
+ruled out our integration as the cause:
+
+- Formats verified: scalar=1 and all sparse/adversarial scalar values pass at every
+  size; single-scalar MSMs always pass; zero handling, infinity mapping, coarse-scalar
+  reduction, buffer constness all pass.
+- Not our flags/types: reproduced identically across mont=true/false, plain
+  `Affine_t` vs `affine_inf_t`, NDEBUG on/off, `-std=c++14/17`, sm_89 SASS vs
+  compute_89 PTX (driver 13.2 JIT — fewer failures but still failing, i.e.
+  codegen/timing-sensitive), CUDA_LAUNCH_BLOCKING, single-threaded host,
+  zero-initialised device allocations.
+- compute-sanitizer: memcheck/synccheck/initcheck clean; **racecheck reports
+  shared-memory write/read races in sppark's `sort` kernel** (which has a 2023 commit
+  "avoid potential race condition" — history of exactly this).
+- Failures are history-sensitive: a captured failing 2-scalar pair fails 3/3 mid-suite
+  and passes in a fresh process; failure onset varies run-to-run with identical inputs.
+- Upstream's own poc test (fixed seed, ONE 2^15 MSM per process) passes 12/12 on the
+  same box — insufficient to catch a probabilistic race.
+
+Conclusion: latent race in sppark's MSM (most likely the radix sort), exposed by
+Ada/newer-toolchain scheduling. Needs an upstream report with the repro
+(`ecc_gpu_tests --gtest_filter=*DiagSizeSweep*`), and validation on A100/sm_80 (the
+architecture sppark is battle-tested on) before any production use.
+
 ## Known limitations (spike scope)
 
 - BN254 G1 only. Grumpkin needs an sppark instantiation over the swapped field pair
