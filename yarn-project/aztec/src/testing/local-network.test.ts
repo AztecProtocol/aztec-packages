@@ -4,10 +4,6 @@ import { EmbeddedWallet } from '@aztec/wallets/embedded';
 
 import { TEST_FEE_PADDING, setupLocalNetwork } from './local-network.js';
 
-// Heavy integration fixture: each case spawns anvil, deploys the L1 contracts via forge, and runs a
-// full in-process node. Requires an aztec-up Foundry toolchain on PATH. Not part of the fast unit
-// gate (the package's CI test_cmds only covers src/cli); run explicitly with
-// `yarn workspace @aztec/aztec test src/testing/local-network.test.ts`.
 describe('setupLocalNetwork', () => {
   it('serves a live node on a random L1 port and tears down cleanly', async () => {
     const net = await setupLocalNetwork();
@@ -46,8 +42,6 @@ describe('setupLocalNetwork', () => {
       await wallet.createSchnorrInitializerlessAccount(alice.secret, alice.salt, alice.signingKey);
       wallet.setMinFeePadding(TEST_FEE_PADDING);
 
-      // Deploying a contract paying from alice's own genesis fee juice proves the funded path
-      // end-to-end: without genesis funding this tx would be rejected for lack of fee juice.
       const { contract } = await TokenContract.deploy(wallet, alice.address, 'TokenName', 'TKN', 18).send({
         from: alice.address,
       });

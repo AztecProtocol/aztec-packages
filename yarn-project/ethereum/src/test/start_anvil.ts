@@ -18,10 +18,9 @@ export interface Anvil {
 // Watchdog wrapper: instead of spawning anvil directly, we spawn a small bash supervisor that runs
 // anvil as a background child and polls its own parent (this node process). If the parent dies for
 // ANY reason — including SIGKILL / crash / OOM, where node's own exit handlers never run — the poll
-// loop ends and the EXIT trap reaps anvil. This is the guarantee the old `anvil_kill_wrapper.sh`
-// gave us; orphan anvils holding ports were a long-standing source of CI flakiness. The script is
-// inlined (rather than shipped as a `.sh`) so it works from the published npm tarball too, and the
-// resolved anvil binary is passed via `$ANVIL_BIN` so it works without `anvil` on PATH.
+// loop ends and the EXIT trap reaps anvil. The script is inlined (rather than shipped as a `.sh`) so
+// it works from the published npm tarball too, and the resolved anvil binary is passed via
+// `$ANVIL_BIN` so it works without `anvil` on PATH.
 //
 // `$@` is the anvil argv; `bash -c <script> bash <...args>` puts the args in `$@` and `$0` = 'bash'.
 //
