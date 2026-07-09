@@ -11,6 +11,7 @@ import { copyFile, mkdir, mkdtemp, rm } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
+import { storeIdentitySlug } from '../store_identity.js';
 import { AztecLMDBStoreV2 } from './store.js';
 
 const MAX_READERS = 16;
@@ -20,6 +21,12 @@ export type CreateStoreOptions = {
   onUpgrade?: (dataDir: string, currentVersion: number, latestVersion: number) => Promise<void>;
   schemaVersionMismatchPolicy?: SchemaVersionMismatchPolicy;
   versionFileReadFailurePolicy?: VersionFileReadFailurePolicy;
+  /**
+   * When true, the store directory is keyed by (l1ChainId, rollupAddress, schemaVersion): a different identity
+   * selects a different directory instead of resetting this one, so no identity change is ever destructive.
+   * The version file becomes a pure invariant check (any mismatch throws).
+   */
+  partitionByIdentity?: boolean;
 };
 
 export async function createStore(
@@ -35,10 +42,11 @@ export async function createStore(
   let store: AztecLMDBStoreV2;
   if (typeof dataDirectory !== 'undefined') {
     // Get rollup address from contracts config, or use zero address
-    const subDir = join(dataDirectory, name);
-    await mkdir(subDir, { recursive: true });
-
     const rollupAddress = rollupFromConfig ?? EthAddress.ZERO;
+    const subDir = options.partitionByIdentity
+      ? join(dataDirectory, name, storeIdentitySlug({ l1ChainId: config.l1ChainId, rollupAddress, schemaVersion }))
+      : join(dataDirectory, name);
+    await mkdir(subDir, { recursive: true });
 
     // Create a version manager
     const versionManager = new DatabaseVersionManager({
@@ -48,8 +56,8 @@ export async function createStore(
       onOpen: dbDirectory =>
         AztecLMDBStoreV2.new(dbDirectory, config.dataStoreMapSizeKb, MAX_READERS, () => Promise.resolve(), bindings),
       onUpgrade: options.onUpgrade,
-      schemaVersionMismatchPolicy: options.schemaVersionMismatchPolicy,
-      versionFileReadFailurePolicy: options.versionFileReadFailurePolicy,
+      schemaVersionMismatchPolicy: options.partitionByIdentity ? 'throw' : options.schemaVersionMismatchPolicy,
+      versionFileReadFailurePolicy: options.partitionByIdentity ? 'throw' : options.versionFileReadFailurePolicy,
     });
 
     log.info(
