@@ -301,3 +301,9 @@ variable "GCP_MANAGED_CERTIFICATE_ENABLED" {
   type        = bool
   default     = true
 }
+
+variable "ENABLE_CORS" {
+  description = "Whether to enable CORS support."
+  type        = bool
+  default     = true
+}
