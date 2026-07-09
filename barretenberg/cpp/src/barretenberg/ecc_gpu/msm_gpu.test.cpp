@@ -58,6 +58,53 @@ class MsmGpuTest : public ::testing::Test {
 
 } // namespace
 
+// Temporary spike diagnostic: locates the exact failure boundary over (size, scalar
+// magnitude). Sizes 1-2 pass and 127+ fail in the initial GPU run; this pins down where
+// and whether scalar bit-length matters.
+TEST_F(MsmGpuTest, DiagSizeSweep)
+{
+    const size_t max_n = 260;
+    auto points = random_points(max_n);
+    auto full_scalars = random_scalars(max_n);
+    std::vector<Fr> one_scalars(max_n, Fr::one());
+    std::vector<Fr> small_scalars(max_n);
+    for (auto& s : small_scalars) {
+        s = Fr(static_cast<uint64_t>(engine.get_random_uint16()));
+    }
+
+    struct ScalarClass {
+        const char* name;
+        const std::vector<Fr>* scalars;
+    };
+    const ScalarClass classes[] = { { "ones", &one_scalars }, { "small", &small_scalars }, { "full", &full_scalars } };
+
+    std::vector<size_t> sizes;
+    for (size_t n = 1; n <= 129; n++) {
+        sizes.push_back(n);
+    }
+    for (size_t n : { 160UL, 191UL, 192UL, 193UL, 224UL, 255UL, 256UL, 257UL }) {
+        sizes.push_back(n);
+    }
+
+    for (const auto& cls : classes) {
+        size_t first_fail = 0;
+        size_t num_fail = 0;
+        for (size_t n : sizes) {
+            bb::PolynomialSpan<const Fr> span{ 0, { cls.scalars->data(), n } };
+            bool match = gpu::pippenger_bn254_oneshot(span, points) == cpu_msm(span, points);
+            if (!match) {
+                num_fail++;
+                if (first_fail == 0) {
+                    first_fail = n;
+                }
+            }
+        }
+        std::cout << "DIAG class=" << cls.name << " first_fail=" << first_fail << " num_fail=" << num_fail << "/"
+                  << sizes.size() << std::endl;
+        EXPECT_EQ(num_fail, 0U) << "scalar class " << cls.name;
+    }
+}
+
 TEST_F(MsmGpuTest, OneshotMatchesCpuAcrossSizes)
 {
     for (size_t n : { 1UL, 2UL, 127UL, 1UL << 10, 1UL << 16 }) {
