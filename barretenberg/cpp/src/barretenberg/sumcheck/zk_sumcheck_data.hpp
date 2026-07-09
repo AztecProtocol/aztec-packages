@@ -11,6 +11,12 @@
 
 namespace bb {
 
+// Transcript labels shared by the ZK Sumcheck (Libra) prover here and every verifier that consumes it
+// (Ultra, ECCVM, Translator, the batched Honk translator), so a label change can't drift between them.
+inline constexpr const char* LIBRA_CONCATENATION_COMMITMENT_LABEL = "Libra:concatenation_commitment";
+inline constexpr const char* LIBRA_SUM_LABEL = "Libra:Sum";
+inline constexpr const char* LIBRA_CHALLENGE_LABEL = "Libra:Challenge";
+
 /**
  * @brief This structure is created to contain various polynomials and constants required by ZK Sumcheck.
  *
@@ -74,16 +80,16 @@ template <typename Flavor> struct ZKSumcheckData {
         // If prover_instance is provided, commit to the concatenated and masked libra polynomial
         if (commitment_key.initialized()) {
             libra_concatenation_commitment = commitment_key.commit(libra_concatenated_monomial_form);
-            transcript->send_to_verifier("Libra:concatenation_commitment", libra_concatenation_commitment);
+            transcript->send_to_verifier(LIBRA_CONCATENATION_COMMITMENT_LABEL, libra_concatenation_commitment);
         }
         // Compute the total sum of the Libra polynomials
         std::tie(libra_total_sum, libra_scaling_factor) = compute_libra_total_sum(libra_univariates, constant_term);
 
         // Send the Libra total sum to the transcript
-        transcript->send_to_verifier("Libra:Sum", libra_total_sum);
+        transcript->send_to_verifier(LIBRA_SUM_LABEL, libra_total_sum);
 
         // Receive the Libra challenge from the transcript
-        libra_challenge = transcript->template get_challenge<FF>("Libra:Challenge");
+        libra_challenge = transcript->template get_challenge<FF>(LIBRA_CHALLENGE_LABEL);
 
         // Initialize the Libra running sum
         libra_running_sum = libra_total_sum * libra_challenge;

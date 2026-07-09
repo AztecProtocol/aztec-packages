@@ -132,7 +132,8 @@ typename UltraVerifier_<Flavor, IO>::ReductionResult UltraVerifier_<Flavor, IO>:
     std::array<Commitment, NUM_SMALL_IPA_COMMITMENTS> libra_commitments = {};
 
     if constexpr (Flavor::HasZK) {
-        libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
+        libra_commitments[0] =
+            transcript->template receive_from_prover<Commitment>(LIBRA_CONCATENATION_COMMITMENT_LABEL);
     }
     // Run the sumcheck verifier
     SumcheckOutput<Flavor> sumcheck_output =

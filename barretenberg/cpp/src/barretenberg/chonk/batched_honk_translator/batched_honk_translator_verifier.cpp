@@ -120,11 +120,12 @@ template <typename Curve> bool BatchedHonkTranslatorVerifier_<Curve>::verify_joi
 
     // Receive Libra masking commitments.
     libra_commitments = {};
-    libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
+    libra_commitments[0] =
+        transcript->template receive_from_prover<Commitment>(LIBRA_CONCATENATION_COMMITMENT_LABEL);
 
     // ZK correction: receive Libra:Sum and Libra:Challenge to set initial target sum.
-    FF libra_total_sum = transcript->template receive_from_prover<FF>("Libra:Sum");
-    libra_challenge = transcript->template get_challenge<FF>("Libra:Challenge");
+    FF libra_total_sum = transcript->template receive_from_prover<FF>(LIBRA_SUM_LABEL);
+    libra_challenge = transcript->template get_challenge<FF>(LIBRA_CHALLENGE_LABEL);
 
     // Use committed sumcheck infrastructure: defers per-round checks to Shplemini.
     static constexpr bool UseCommittedSumcheck = true;

@@ -163,8 +163,8 @@ template <typename Flavor> struct VerifierZKCorrectionHandler<Flavor, true> {
     // multivariate over the hypercube.
     void initialize_target_sum(SumcheckRound& round)
     {
-        libra_total_sum = transcript->template receive_from_prover<FF>("Libra:Sum");
-        libra_challenge = transcript->template get_challenge<FF>("Libra:Challenge");
+        libra_total_sum = transcript->template receive_from_prover<FF>(LIBRA_SUM_LABEL);
+        libra_challenge = transcript->template get_challenge<FF>(LIBRA_CHALLENGE_LABEL);
         round.target_total_sum = libra_total_sum * libra_challenge;
     }
 
