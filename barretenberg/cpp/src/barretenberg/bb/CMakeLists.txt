@@ -22,6 +22,12 @@ if (NOT(FUZZING))
     if(AVM_TRANSPILER_LIB)
         target_link_libraries(bb PRIVATE avm_transpiler)
     endif()
+    if(GPU)
+        # WHOLE_ARCHIVE: the GPU MSM hook is a strong definition overriding a weak
+        # symbol in ecc; without it the archive member is never extracted since bb
+        # doesn't reference ecc_gpu symbols directly.
+        target_link_libraries(bb PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,ecc_gpu>")
+    endif()
     if(NOT WASM AND NOT BB_LITE)
         target_link_libraries(bb PRIVATE ipc)
     endif()
@@ -61,6 +67,9 @@ if (NOT(FUZZING))
         # Link avm_transpiler when library is provided
         if(AVM_TRANSPILER_LIB)
             target_link_libraries(bb-avm PRIVATE avm_transpiler)
+        endif()
+        if(GPU)
+            target_link_libraries(bb-avm PRIVATE "$<LINK_LIBRARY:WHOLE_ARCHIVE,ecc_gpu>")
         endif()
         if(NOT WASM AND NOT BB_LITE)
             target_link_libraries(bb-avm PRIVATE ipc)

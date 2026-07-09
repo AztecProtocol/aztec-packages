@@ -75,10 +75,12 @@ int main()
     };
     const uint64_t scalars[2][4] = { { 0x9e06, 0, 0, 0 }, { 0x49fa, 0, 0, 0 } }; // canonical
 
-    const uint64_t expected_x[4] = { 0x46f783f74e5e38d8UL, 0x2ec420654339d892UL, 0x2b5969f65d7a9b89UL,
-                                     0x222f9d190f114213UL };
-    const uint64_t expected_y[4] = { 0x9ee743ec9992f97aUL, 0x3288a73c40d7bfa7UL, 0xe04351318fa0e6adUL,
-                                     0x2d74ab000f5a4acfUL };
+    const uint64_t expected_x[4] = {
+        0x46f783f74e5e38d8UL, 0x2ec420654339d892UL, 0x2b5969f65d7a9b89UL, 0x222f9d190f114213UL
+    };
+    const uint64_t expected_y[4] = {
+        0x9ee743ec9992f97aUL, 0x3288a73c40d7bfa7UL, 0xe04351318fa0e6adUL, 0x2d74ab000f5a4acfUL
+    };
 
     int fails = 0;
     for (int rep = 0; rep < 5; rep++) {
