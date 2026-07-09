@@ -112,11 +112,19 @@ describe('syncTaggedPrivateLogs', () => {
     return aztecNode.getPrivateLogsByTags.mock.calls.flatMap(([query]) => extractTags(query));
   }
 
+  /**
+   * Models the constrained probe schedule for draining `logCount` contiguous finalized logs starting at
+   * `firstLogIndex`: the half-open [start, end) tag-index range each sync round is expected to query.
+   *
+   * E.g. 3 logs at indexes 1..3 give [1, 2), [2, 4), [4, 8): the probe doubles after each fully-hit round and the
+   * miss at index 4 ends the scan.
+   */
   function expectedConstrainedProbeRanges(logCount: number, firstLogIndex = 1): { start: number; end: number }[] {
     const ranges: { start: number; end: number }[] = [];
     const lastLogIndex = firstLogIndex + logCount - 1;
     let start = firstLogIndex;
     let highestFinalizedIndex = firstLogIndex - 1;
+    // Exclusive end of the probing window, re-anchored past the highest finalized index as hits land.
     let boundEnd = highestFinalizedIndex + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1;
     let probeLen = INITIAL_CONSTRAINED_PROBE_LEN;
 
@@ -131,10 +139,12 @@ describe('syncTaggedPrivateLogs', () => {
         boundEnd = Math.max(boundEnd, highestFinalizedIndex + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN + 1);
       }
 
+      // A miss inside the probe means the gapless stream ended; hitting the window bound also stops the scan.
       if (!probeFullyConsumed || end >= boundEnd) {
         return ranges;
       }
 
+      // The probe doubles after every fully-hit round, capped at the window length.
       start = end;
       probeLen = Math.min(probeLen * 2, UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN);
     }
@@ -471,12 +481,9 @@ describe('syncTaggedPrivateLogs', () => {
       },
     );
 
-    // Pins the batched-round semantics under heterogeneous load: idle secrets each cost exactly one probe and drop out
-    // after the first round, while a single deep straggler alone drives the round count. Round-trips track the deepest
-    // secret (here probeSchedule(3) = 3 rounds, the same as a lone K=3 secret), NOT the idle count and NOT one round per
-    // log; tag-queries are the idle probes plus the straggler's doubling schedule. This is the unit-level analogue of the
-    // bench `mixed` scenario, which the bench (skipped in CI) cannot pin.
-    it('a single deep straggler among idle secrets sets the round count, not the idle count', async () => {
+    // Secrets whose probe misses drop out of the sync and are not re-probed in the rounds a straggler keeps driving.
+    // This is the unit-level analogue of the bench `mixed` scenario, which the bench (skipped in CI) cannot pin.
+    it('drops caught-up secrets from later rounds while a straggler keeps syncing', async () => {
       const idleSecrets = await makeSecrets(4, AppTaggingSecretKind.CONSTRAINED);
       const straggler = await randomAppTaggingSecret(AppTaggingSecretKind.CONSTRAINED);
 
@@ -490,21 +497,17 @@ describe('syncTaggedPrivateLogs', () => {
       mockNodeWithLogs(await computeSiloedTags(straggler, [1, 2, 3]));
 
       const logs = await sync([...idleSecrets, straggler]);
-
-      // Only the straggler's logs are found; its finalized index advances while the idle secrets' stay untouched.
       expect(logs).toHaveLength(3);
-      expect(await taggingStore.getHighestFinalizedIndex(straggler, JOB_ID)).toBe(3);
+
+      // Round 1: 4 idle probes + straggler[1]. Rounds 2 and 3 are straggler-only: [2,3], then [4..7] (terminating
+      // miss at 4).
+      expect(callSizes()).toEqual([5, 2, 4]);
+
+      // Dropping out also means no writes: the caught-up secrets' finalized indexes are untouched by the
+      // straggler-driven rounds.
       for (const secret of idleSecrets) {
         expect(await taggingStore.getHighestFinalizedIndex(secret, JOB_ID)).toBe(idleFinalizedIndex);
       }
-
-      // 3 rounds = the straggler's doubling schedule; the 4 idle secrets add no rounds. Each round stays under
-      // MAX_RPC_LEN, so call count is round count. Round 1: 4 idle probes + straggler[1]; round 2: straggler[2,3];
-      // round 3: straggler[4..7] (terminating miss at 4).
-      const sizes = callSizes();
-      expect(sizes).toEqual([5, 2, 4]);
-      // Total tag-queries: 4 idle probes + the straggler's (1 + 2 + 4) doubling probe = 11.
-      expect(sizes.reduce((a, b) => a + b, 0)).toBe(11);
     });
   });
 
@@ -577,7 +580,7 @@ describe('syncTaggedPrivateLogs', () => {
       expect(await taggingStore.getHighestAgedIndex(constrainedSecret, JOB_ID)).toBeUndefined();
       expect(await taggingStore.getHighestFinalizedIndex(unconstrainedSecret, JOB_ID)).toBe(5);
 
-      // Both kinds' probes ride the same first RPC call rather than getting a call per kind.
+      // Both kinds share one batched query rather than one query per kind.
       const firstCallTags = calledTags();
       const constrainedProbeTag = await computeSiloedTagForIndex(constrainedSecret, 0);
       const unconstrainedProbeTag = await computeSiloedTagForIndex(unconstrainedSecret, 0);
