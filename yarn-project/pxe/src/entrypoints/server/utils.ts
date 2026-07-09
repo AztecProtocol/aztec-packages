@@ -51,6 +51,7 @@ export async function createPXE(
       PXE_DATA_SCHEMA_VERSION,
       configWithContracts,
       storeLogger.getBindings(),
+      { partitionByIdentity: true },
     );
   }
   const proverLogger = loggers.prover ?? createLogger('pxe:bb:native', { actor });

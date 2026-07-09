@@ -28,7 +28,7 @@ export class NodeEmbeddedWallet extends EmbeddedWallet {
     const rootLogger = options.logger ?? createLogger('embedded-wallet');
 
     const aztecNode = typeof nodeOrUrl === 'string' ? createAztecNodeClient(nodeOrUrl) : nodeOrUrl;
-    const l1Contracts = await aztecNode.getL1ContractAddresses();
+    const { l1ChainId, l1ContractAddresses } = await aztecNode.getNodeInfo();
 
     // Support both the new unified `pxe` option and the deprecated `pxeConfig`/`pxeOptions`.
     const { config: pxeConfigFromPxe, creation: pxeCreationFromPxe } = splitPxeOptions(options.pxe);
@@ -37,7 +37,7 @@ export class NodeEmbeddedWallet extends EmbeddedWallet {
 
     const pxeConfig: PXEConfig = Object.assign(getPXEConfig(), {
       proverEnabled: mergedConfigOverrides.proverEnabled,
-      dataDirectory: `pxe_data_${l1Contracts.rollupAddress}`,
+      dataDirectory: 'aztec-wallet-data',
       autoSync: false,
       ...mergedConfigOverrides,
     });
@@ -69,7 +69,7 @@ export class NodeEmbeddedWallet extends EmbeddedWallet {
       options.walletDb?.store ??
       (options.ephemeral
         ? await openTmpStore(
-            `wallet_data_${l1Contracts.rollupAddress}`,
+            'wallet_data',
             true,
             undefined,
             undefined,
@@ -79,11 +79,13 @@ export class NodeEmbeddedWallet extends EmbeddedWallet {
             'wallet_data',
             1,
             {
-              dataDirectory: `wallet_data_${l1Contracts.rollupAddress}`,
+              dataDirectory: pxeConfig.dataDirectory ?? 'aztec-wallet-data',
               dataStoreMapSizeKb: pxeConfig.dataStoreMapSizeKb,
-              rollupAddress: l1Contracts.rollupAddress,
+              rollupAddress: l1ContractAddresses.rollupAddress,
+              l1ChainId,
             },
             rootLogger.createChild('wallet:data').getBindings(),
+            { partitionByIdentity: true },
           ));
     const walletDB = new WalletDB(walletDBStore, rootLogger.createChild('wallet:db').info);
 
