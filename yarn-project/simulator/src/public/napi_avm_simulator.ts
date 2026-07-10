@@ -13,9 +13,16 @@ interface InProcessAvmHandle {
   destroy(): void;
 }
 
+/** Generic host-call reverse channel: the AVM asks the host for `target`'s data. Matches the wasm shape. */
+type OnHostCall = (target: number, req: Buffer) => Promise<Buffer>;
+
 interface InProcessAvmModule {
-  InProcessAvm: new (wsdbPath: string, cdbPath: string) => InProcessAvmHandle;
+  // Second arg: a CDB socket path (Slice A) or an onHostCall router (Slice B, in-process CDB).
+  InProcessAvm: new (wsdbPath: string, cdbPathOrOnHostCall: string | OnHostCall) => InProcessAvmHandle;
 }
+
+/** Host-call target id for the contracts-DB service; must match CDB_TARGET in host_call_contract_db.cpp. */
+const CDB_TARGET = 0;
 
 /**
  * Load the avm_inprocess `.node` addon. Located via `AVM_INPROCESS_NODE` for the
@@ -52,11 +59,11 @@ class NapiBackend implements IpcClientAsync {
 
 /**
  * An {@link AvmSimulator} that runs the AVM IN-PROCESS via the avm_inprocess NAPI addon, instead of a pool of
- * bb-avm-sim subprocesses. Sibling of {@link AvmSimulatorPool}: it owns the same CDB reverse channel (a
- * {@link CdbIpcServer} socket + per-simulate fork registration) and drives the generated `AvmService`; only
- * the transport differs — an in-process worker thread rather than a child process. Slice A keeps world state
- * and contract data out-of-process (reached over sockets); only the AVM itself comes in-process. Downstream
- * holds the {@link AvmSimulator} interface and is unaffected by the choice.
+ * bb-avm-sim subprocesses. Sibling of {@link AvmSimulatorPool}: it owns the same CDB reverse channel (the
+ * {@link CdbIpcServer} dispatch + per-simulate fork registration) and drives the generated `AvmService`.
+ * Slice B: the AVM reaches contract data via a `host_call` straight into this process (no CDB socket) — the
+ * CDB server runs socketless and its dispatch is invoked through the host-call router. World state is still
+ * out-of-process (reached over its socket). Downstream holds the {@link AvmSimulator} interface, unaffected.
  */
 export class NapiAvmSimulator implements AvmSimulator {
   private log: Logger;
@@ -68,14 +75,22 @@ export class NapiAvmSimulator implements AvmSimulator {
     this.log = createLogger('simulator:napi-avm');
   }
 
-  static async spawn(options: { wsdbIpcPath: string }): Promise<NapiAvmSimulator> {
+  // Async factory for API symmetry with AvmSimulatorPool.spawn, though the socketless in-process setup
+  // needs no await (nothing to wait for — the AVM reaches the CDB via host_call, not a socket to bind).
+  static spawn(options: { wsdbIpcPath: string }): Promise<NapiAvmSimulator> {
     const { InProcessAvm } = loadAddon();
-    const cdbServer = new CdbIpcServer();
-    // The addon connects to the CDB socket synchronously at construction, so wait for the server to bind.
-    await cdbServer.ready();
-    const avm = new InProcessAvm(options.wsdbIpcPath, cdbServer.ipcPath);
+    // Socketless CDB: the in-process AVM reaches it via host_call, not a socket.
+    const cdbServer = new CdbIpcServer(/*listenSocket=*/ false);
+    // The generic host-call router: dispatch the AVM's reverse requests to the right host service.
+    const onHostCall: OnHostCall = async (target, req) => {
+      if (target !== CDB_TARGET) {
+        throw new Error(`in-process AVM: unknown host_call target ${target}`);
+      }
+      return Buffer.from(await cdbServer.handle(req));
+    };
+    const avm = new InProcessAvm(options.wsdbIpcPath, onHostCall);
     const service = new AsyncApi(new NapiBackend(avm));
-    return new NapiAvmSimulator(service, cdbServer);
+    return Promise.resolve(new NapiAvmSimulator(service, cdbServer));
   }
 
   async simulate(inputBuffer: Uint8Array, context: AvmContractsDBContext, _signal?: AbortSignal): Promise<Uint8Array> {

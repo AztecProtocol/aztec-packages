@@ -24,7 +24,7 @@ namespace bb::avm {
 
 class HostCallContractDB final : public avm2::simulation::ContractDBInterface {
   public:
-    explicit HostCallContractDB(avm_host_call_fn host_call);
+    HostCallContractDB(avm_host_call_fn host_call, void* ctx);
     ~HostCallContractDB() override;
 
     /** Set the fork ID stamped on CDB requests so the host routes them to the right PublicContractsDB. */
@@ -46,6 +46,7 @@ class HostCallContractDB final : public avm2::simulation::ContractDBInterface {
     template <typename Cmd, typename Resp> Resp send(Cmd&& cmd) const;
 
     avm_host_call_fn host_call_;
+    void* ctx_;
     uint64_t fork_id_ = 0;
 };
 

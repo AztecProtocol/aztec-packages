@@ -58,8 +58,9 @@ template <typename T> std::optional<T> decode_optional_msgpack(const std::option
 
 } // namespace
 
-HostCallContractDB::HostCallContractDB(avm_host_call_fn host_call)
+HostCallContractDB::HostCallContractDB(avm_host_call_fn host_call, void* ctx)
     : host_call_(host_call)
+    , ctx_(ctx)
 {}
 
 HostCallContractDB::~HostCallContractDB() = default;
@@ -77,8 +78,12 @@ template <typename Cmd, typename Resp> Resp HostCallContractDB::send(Cmd&& cmd) 
 
     uint8_t* resp_ptr = nullptr;
     size_t resp_len = 0;
-    host_call_(
-        CDB_TARGET, reinterpret_cast<const uint8_t*>(send_buffer.data()), send_buffer.size(), &resp_ptr, &resp_len);
+    host_call_(ctx_,
+               CDB_TARGET,
+               reinterpret_cast<const uint8_t*>(send_buffer.data()),
+               send_buffer.size(),
+               &resp_ptr,
+               &resp_len);
     if (resp_ptr == nullptr) {
         throw std::runtime_error("host_call returned no response");
     }

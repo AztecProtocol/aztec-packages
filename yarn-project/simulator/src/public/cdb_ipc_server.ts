@@ -86,24 +86,40 @@ function serializeContractClass(contractClass: {
   };
 }
 
-/** Routes AVM CDB IPC requests to registered PublicContractsDB forks. */
+/** Routes AVM CDB requests to registered PublicContractsDB forks. */
 export class CdbIpcServer implements CdbHandler {
   public readonly ipcPath: string;
-  private server: Promise<UdsIpcServer>;
+  /** The UDS server, or undefined for an in-process (host-call) CDB that needs no socket. */
+  private server?: Promise<UdsIpcServer>;
   private log: Logger;
   /** Maps WSDB fork IDs to contracts DB/timestamp pairs for concurrent simulations. */
   private forks = new Map<number, { db: PublicContractsDB; timestamp: bigint }>();
 
-  constructor() {
+  /**
+   * @param listenSocket - When true (default, out-of-process AVM), listen on a UDS socket the C++ AVM
+   *   connects to. When false (in-process AVM), skip the socket: requests arrive via {@link handle}, driven
+   *   by the host-call reverse channel. Either way this object is the CDB dispatch handler.
+   */
+  constructor(listenSocket = true) {
     this.log = createLogger('cdb-ipc-server');
     this.ipcPath = path.join(os.tmpdir(), `cdb-ts-${process.pid}-${threadId}-${instanceCounter++}.sock`);
 
-    // Listen asynchronously; the C++ AVM retries connecting until the socket is up.
-    this.server = UdsIpcServer.listen(this.ipcPath, (_clientId, request) => handleRequest(this, request));
-    this.server.then(
-      () => this.log.debug(`CDB IPC server listening on ${this.ipcPath}`),
-      err => this.log.error(`CDB IPC server failed to listen on ${this.ipcPath}`, { err }),
-    );
+    if (listenSocket) {
+      // Listen asynchronously; the C++ AVM retries connecting until the socket is up.
+      this.server = UdsIpcServer.listen(this.ipcPath, (_clientId, request) => handleRequest(this, request));
+      this.server.then(
+        () => this.log.debug(`CDB IPC server listening on ${this.ipcPath}`),
+        err => this.log.error(`CDB IPC server failed to listen on ${this.ipcPath}`, { err }),
+      );
+    }
+  }
+
+  /**
+   * Dispatch one CDB request frame directly (no socket) and return the response frame. This is the
+   * host-call entry point for an in-process AVM: the same generated dispatch the socket server runs.
+   */
+  handle(request: Uint8Array): Promise<Uint8Array> {
+    return handleRequest(this, request);
   }
 
   /** Register a PublicContractsDB for a given WSDB fork ID. */
@@ -125,9 +141,9 @@ export class CdbIpcServer implements CdbHandler {
     await this.server;
   }
 
-  /** Close the server and all active connections. */
+  /** Close the server and all active connections (no-op for a socketless in-process CDB). */
   async close(): Promise<void> {
-    const server = await this.server.catch(() => undefined);
+    const server = await this.server?.catch(() => undefined);
     await server?.close();
   }
 

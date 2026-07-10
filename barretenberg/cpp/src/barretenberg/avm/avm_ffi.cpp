@@ -75,7 +75,7 @@ avm_instance_t* avm_create_ipc(const char* wsdb_path, const char* cdb_path)
     }
 }
 
-avm_instance_t* avm_create_hostcall(const char* wsdb_path, avm_host_call_fn host_call)
+avm_instance_t* avm_create_hostcall(const char* wsdb_path, avm_host_call_fn host_call, void* ctx)
 {
     if (wsdb_path == nullptr || host_call == nullptr) {
         return nullptr;
@@ -84,7 +84,7 @@ avm_instance_t* avm_create_hostcall(const char* wsdb_path, avm_host_call_fn host
         auto instance = std::make_unique<avm_instance>();
         instance->wsdb =
             connect_with_retry([&] { return std::make_unique<bb::wsdb::WsdbIpcClient>(std::string(wsdb_path)); });
-        auto cdb = std::make_unique<bb::avm::HostCallContractDB>(host_call);
+        auto cdb = std::make_unique<bb::avm::HostCallContractDB>(host_call, ctx);
         auto* cdb_raw = cdb.get();
         instance->cdb = std::move(cdb);
         instance->set_fork_id = [cdb_raw](uint64_t fork_id) { cdb_raw->set_fork_id(fork_id); };
