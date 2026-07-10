@@ -13,7 +13,7 @@ export function storePoolDirectory(effectiveName: string): string {
 /**
  * Lists the names of every persistent sqlite-opfs store in this origin, by enumerating the per-store pool
  * directories. Includes stores other than the current one, so wallets can surface and clean up data for
- * networks no longer in use.
+ * networks/versions no longer in use.
  */
 export async function listStores(): Promise<string[]> {
   const root = await navigator.storage.getDirectory();
