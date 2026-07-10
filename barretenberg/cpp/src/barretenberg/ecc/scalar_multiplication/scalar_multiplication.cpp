@@ -659,15 +659,31 @@ bool use_gpu_msm() noexcept
     return gpu_selected;
 }
 
-// Returns true and sets `out` if the GPU backend is linked, enabled and succeeds;
-// callers fall through to the CPU path otherwise.
+// Below this size the per-MSM fixed cost (scalar staging, PCIe transfer, kernel
+// launches, host reduction) exceeds the GPU's win and the CPU path is faster.
+// Tunable via BB_MSM_GPU_MIN_SIZE for experiments.
+size_t gpu_min_msm_size() noexcept
+{
+    static const size_t min_size = [] {
+        if (const char* env = std::getenv("BB_MSM_GPU_MIN_SIZE")) {
+            return static_cast<size_t>(std::strtoull(env, nullptr, 10));
+        }
+        return size_t{ 1 } << 16;
+    }();
+    return min_size;
+}
+
+// Returns true and sets `out` if the GPU backend is linked, enabled, the MSM is large
+// enough to be worth the round trip, and the GPU succeeds; callers fall through to the
+// CPU path otherwise.
 template <typename Curve>
 bool try_gpu_msm(typename Curve::Element& out,
                  PolynomialSpan<const typename Curve::ScalarField> scalars,
                  std::span<const typename Curve::AffineElement> points) noexcept
 {
     if constexpr (std::is_same_v<Curve, curve::BN254>) {
-        return use_gpu_msm() && gpu::try_pippenger_bn254(out, scalars, points);
+        return use_gpu_msm() && scalars.span.size() >= gpu_min_msm_size() &&
+               gpu::try_pippenger_bn254(out, scalars, points);
     } else {
         static_cast<void>(out);
         static_cast<void>(scalars);
@@ -729,19 +745,42 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
 #ifdef BB_GPU
     if constexpr (std::is_same_v<Curve, curve::BN254>) {
         if (use_gpu_msm()) {
-            // Per-MSM GPU dispatch (the batch shares one resident points upload via the
-            // context cache). Any failure falls back to the CPU path for the whole batch.
+            // Mixed dispatch: MSMs at or above the GPU size threshold go to the GPU
+            // (sharing one resident points upload via the context cache); the small
+            // remainder runs through the CPU batch driver, which amortises well across
+            // many small MSMs. Any GPU failure falls back to CPU for the whole batch.
             std::vector<AffineElement> results(scalars.size());
+            std::vector<PolynomialSpan<ScalarField>> cpu_scalars;
+            std::vector<uint8_t> cpu_hints;
+            std::vector<size_t> cpu_indices;
             bool ok = true;
             for (size_t i = 0; i < scalars.size() && ok; ++i) {
-                typename Curve::Element gpu_result;
-                ok = try_gpu_msm<Curve>(
-                    gpu_result, { scalars[i].start_index, std::span<const ScalarField>(scalars[i].span) }, points);
-                if (ok) {
-                    results[i] = AffineElement(gpu_result);
+                if (scalars[i].span.size() >= gpu_min_msm_size()) {
+                    typename Curve::Element gpu_result;
+                    ok = try_gpu_msm<Curve>(
+                        gpu_result, { scalars[i].start_index, std::span<const ScalarField>(scalars[i].span) }, points);
+                    if (ok) {
+                        results[i] = AffineElement(gpu_result);
+                    }
+                } else {
+                    cpu_indices.push_back(i);
+                    cpu_scalars.push_back(scalars[i]);
+                    if (i < dedup_hints.size()) {
+                        cpu_hints.push_back(dedup_hints[i]);
+                    }
                 }
             }
             if (ok) {
+                if (!cpu_scalars.empty()) {
+                    std::span<const uint8_t> hints_span = cpu_hints.size() == cpu_scalars.size()
+                                                              ? std::span<const uint8_t>(cpu_hints)
+                                                              : std::span<const uint8_t>{};
+                    auto cpu_results = MSM_fast<Curve>::batch_multi_scalar_mul(
+                        points, { cpu_scalars.data(), cpu_scalars.size() }, handle_edge_cases, hints_span);
+                    for (size_t j = 0; j < cpu_indices.size(); ++j) {
+                        results[cpu_indices[j]] = cpu_results[j];
+                    }
+                }
                 return results;
             }
         }
