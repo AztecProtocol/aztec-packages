@@ -14,10 +14,13 @@
   "service": "Msm",
   "aliases": {},
   "types": {
-    "Span": {
+    // Batch span metadata; the scalars for all spans travel as one concatenated blob
+    // (the batch request's trailing bytes field) so the generated zero-copy streamed
+    // variant applies to batches too.
+    "SpanMeta": {
       "startIndex": "u64",
-      "fingerprint": "bytes",
-      "scalars": "bytes"
+      "numScalars": "u64",
+      "fingerprint": "bytes"
     }
   },
   "error": {
@@ -43,7 +46,8 @@
     },
     "Bn254Batch": {
       "request": {
-        "spans": "Span[]"
+        "spans": "SpanMeta[]",
+        "scalars": "bytes"
       },
       "response": {
         "results": "bytes"

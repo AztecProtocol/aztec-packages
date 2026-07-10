@@ -1,6 +1,7 @@
 #include "barretenberg/msm_service/msm_handlers.hpp"
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 
+#include <atomic>
 #include <cstring>
 #include <memory>
 
@@ -37,8 +38,8 @@ bool gpu_linked()
 bool run_span(MsmService& ctx,
               size_t slot,
               uint64_t start_index,
-              const std::vector<uint8_t>& scalars,
-              const std::vector<uint8_t>& fingerprint,
+              std::span<const uint8_t> scalars,
+              std::span<const uint8_t> fingerprint,
               AffineElement& out,
               std::string& error)
 {
@@ -161,22 +162,77 @@ void handle_bn254(MsmService& ctx, wire::MsmBn254&& cmd, Responder<wire::MsmBn25
 
 void handle_bn254_batch(MsmService& ctx, wire::MsmBn254Batch&& cmd, Responder<wire::MsmBn254BatchResponse> respond)
 {
-    auto shared_cmd = std::make_shared<wire::MsmBn254Batch>(std::move(cmd));
-    ctx.enqueue([&ctx, shared_cmd, respond](size_t slot) {
+    // Fan the batch out across the worker pool span-by-span: shared state aggregates
+    // results in order; the worker that completes the final span responds. Any span
+    // failure responds with the first error (exactly-once via the atomic flag).
+    struct BatchState {
+        wire::MsmBn254Batch cmd;
         std::vector<uint8_t> results;
-        results.reserve(shared_cmd->spans.size() * sizeof(AffineElement));
-        for (const auto& span : shared_cmd->spans) {
-            AffineElement result;
-            std::string error;
-            if (!run_span(ctx, slot, span.startIndex, span.scalars, span.fingerprint, result, error)) {
-                respond.error(error);
-                return;
+        std::vector<size_t> scalar_offsets;
+        std::atomic<size_t> remaining{ 0 };
+        std::atomic<bool> failed{ false };
+        std::string error;
+        std::mutex error_mutex;
+        Responder<wire::MsmBn254BatchResponse> respond;
+        BatchState(wire::MsmBn254Batch&& c, Responder<wire::MsmBn254BatchResponse> r)
+            : cmd(std::move(c))
+            , respond(std::move(r))
+        {}
+    };
+    auto state = std::make_shared<BatchState>(std::move(cmd), std::move(respond));
+
+    // Validate the layout up front: per-span scalar byte counts must tile the blob.
+    const size_t num_spans = state->cmd.spans.size();
+    state->scalar_offsets.reserve(num_spans);
+    size_t offset = 0;
+    for (const auto& span : state->cmd.spans) {
+        state->scalar_offsets.push_back(offset);
+        offset += span.numScalars * sizeof(Fr);
+    }
+    if (offset != state->cmd.scalars.size()) {
+        state->respond.error("batch scalars blob length (" + std::to_string(state->cmd.scalars.size()) +
+                             ") does not match sum of span sizes (" + std::to_string(offset) + ")");
+        return;
+    }
+    if (num_spans == 0) {
+        state->respond.ok({ .results = {} });
+        return;
+    }
+    state->results.resize(num_spans * sizeof(AffineElement));
+    state->remaining.store(num_spans);
+
+    for (size_t i = 0; i < num_spans; ++i) {
+        ctx.enqueue([&ctx, state, i](size_t slot) {
+            const auto& span = state->cmd.spans[i];
+            if (!state->failed.load()) {
+                AffineElement result;
+                std::string error;
+                std::span<const uint8_t> scalars(state->cmd.scalars.data() + state->scalar_offsets[i],
+                                                 span.numScalars * sizeof(Fr));
+                if (run_span(ctx,
+                             slot,
+                             span.startIndex,
+                             scalars,
+                             { span.fingerprint.data(), span.fingerprint.size() },
+                             result,
+                             error)) {
+                    std::memcpy(state->results.data() + i * sizeof(AffineElement), &result, sizeof(AffineElement));
+                } else {
+                    std::lock_guard lock(state->error_mutex);
+                    if (!state->failed.exchange(true)) {
+                        state->error = std::move(error);
+                    }
+                }
             }
-            auto bytes = to_bytes(result);
-            results.insert(results.end(), bytes.begin(), bytes.end());
-        }
-        respond.ok({ .results = std::move(results) });
-    });
+            if (state->remaining.fetch_sub(1) == 1) {
+                if (state->failed.load()) {
+                    state->respond.error(state->error);
+                } else {
+                    state->respond.ok({ .results = std::move(state->results) });
+                }
+            }
+        });
+    }
 }
 
 } // namespace bb::msm_service

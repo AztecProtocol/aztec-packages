@@ -853,6 +853,10 @@ namespace msm_ipc {
 __attribute__((weak)) bool try_pippenger_bn254(curve::BN254::Element& out,
                                                PolynomialSpan<const curve::BN254::ScalarField> scalars,
                                                std::span<const curve::BN254::AffineElement> points) noexcept;
+__attribute__((weak)) bool try_pippenger_bn254_batch(
+    std::span<curve::BN254::Element> out,
+    std::span<const PolynomialSpan<const curve::BN254::ScalarField>> scalars_list,
+    std::span<const curve::BN254::AffineElement> points) noexcept;
 } // namespace msm_ipc
 
 bool use_ipc_msm() noexcept
@@ -960,28 +964,37 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
 #if !defined(__wasm__)
     if constexpr (std::is_same_v<Curve, curve::BN254>) {
         // Mixed dispatch mirroring the GPU batch path: MSMs at or above the IPC size
-        // threshold go to the bb-msm daemon; the small remainder runs through the local
-        // CPU batch driver. Any daemon failure falls back to the local path for the
-        // whole batch.
-        if (use_ipc_msm()) {
+        // threshold go to the bb-msm daemon as ONE coalesced batch request (the daemon
+        // fans spans out across its worker pool); the small remainder runs through the
+        // local CPU batch driver. Any daemon failure falls back to the local path for
+        // the whole batch.
+        if (use_ipc_msm() && &msm_ipc::try_pippenger_bn254_batch != nullptr) {
             std::vector<AffineElement> results(scalars.size());
             std::vector<PolynomialSpan<ScalarField>> local_scalars;
             std::vector<uint8_t> local_hints;
             std::vector<size_t> local_indices;
-            bool ok = true;
-            for (size_t i = 0; i < scalars.size() && ok; ++i) {
+            std::vector<PolynomialSpan<const ScalarField>> ipc_scalars;
+            std::vector<size_t> ipc_indices;
+            for (size_t i = 0; i < scalars.size(); ++i) {
                 if (scalars[i].span.size() >= ipc_min_msm_size()) {
-                    typename Curve::Element ipc_result;
-                    ok = try_ipc_msm<Curve>(
-                        ipc_result, { scalars[i].start_index, std::span<const ScalarField>(scalars[i].span) }, points);
-                    if (ok) {
-                        results[i] = AffineElement(ipc_result);
-                    }
+                    ipc_indices.push_back(i);
+                    ipc_scalars.push_back({ scalars[i].start_index, std::span<const ScalarField>(scalars[i].span) });
                 } else {
                     local_indices.push_back(i);
                     local_scalars.push_back(scalars[i]);
                     if (i < dedup_hints.size()) {
                         local_hints.push_back(dedup_hints[i]);
+                    }
+                }
+            }
+            bool ok = true;
+            if (!ipc_scalars.empty()) {
+                std::vector<typename Curve::Element> ipc_results(ipc_scalars.size());
+                ok = msm_ipc::try_pippenger_bn254_batch(
+                    { ipc_results.data(), ipc_results.size() }, { ipc_scalars.data(), ipc_scalars.size() }, points);
+                if (ok) {
+                    for (size_t j = 0; j < ipc_indices.size(); ++j) {
+                        results[ipc_indices[j]] = AffineElement(ipc_results[j]);
                     }
                 }
             }
