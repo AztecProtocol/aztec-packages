@@ -31,6 +31,24 @@ typedef struct avm_instance avm_instance_t;
 avm_instance_t* avm_create_ipc(const char* wsdb_path, const char* cdb_path);
 
 /*
+ * Generic host-call proxy: the in-process AVM invokes this to reach a
+ * host-resident service (e.g. TypeScript's contracts DB). `target` selects which
+ * service; `req`/`resp` are msgpack frames. `*resp_out` must be a malloc'd buffer
+ * the AVM frees. This is the native twin of the wasm `host_call` import — same
+ * (target, bytes) contract — so a wasm build routes through the identical shape.
+ */
+typedef void (*avm_host_call_fn)(
+    uint32_t target, const uint8_t* req, size_t req_len, uint8_t** resp_out, size_t* resp_len_out);
+
+/*
+ * Create an in-process AVM that reaches world state over a socket (`wsdb_path`)
+ * but contract data via the host-call proxy instead of a CDB socket (Slice B:
+ * one fewer socket between the in-process AVM and the host). Returns NULL on
+ * failure.
+ */
+avm_instance_t* avm_create_hostcall(const char* wsdb_path, avm_host_call_fn host_call);
+
+/*
  * Run one simulation: `request` is a msgpack-encoded AvmSimulate request frame,
  * the response frame is returned via *out / *out_len. On success returns 0 and
  * *out is a malloc'd buffer the caller must free(); on failure returns non-zero

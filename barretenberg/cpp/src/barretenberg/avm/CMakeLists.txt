@@ -40,6 +40,7 @@ add_library(
     avm_sim_ffi STATIC
     avm_execute.cpp
     avm_ffi.cpp
+    host_call_contract_db.cpp
 )
 add_dependencies(avm_sim_ffi avm_ipc_generated)
 target_include_directories(

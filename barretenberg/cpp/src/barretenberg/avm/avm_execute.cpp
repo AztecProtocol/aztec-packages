@@ -64,7 +64,7 @@ void handle_simulate(AvmRequest& request, wire::AvmSimulate&& command, Responder
         uint64_t fork_id = sim_inputs.ws_revision.forkId;
         vinfo("Using external WSDB fork ", fork_id, " for AVM simulation");
 
-        request.cdb_client.set_fork_id(fork_id);
+        request.set_fork_id(fork_id);
 
         g_active_cancellation_token.store(cancellation_token.get(), std::memory_order_release);
 
