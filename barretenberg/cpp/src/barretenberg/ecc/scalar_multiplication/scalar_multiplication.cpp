@@ -17,8 +17,13 @@
 #include "barretenberg/numeric/general/general.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 
+#include "barretenberg/common/log.hpp"
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
+
+#include <array>
+#include <atomic>
+#include <chrono>
 
 namespace bb::scalar_multiplication::legacy {
 
@@ -643,6 +648,152 @@ bool use_legacy_msm() noexcept
     return legacy_selected;
 }
 
+namespace {
+
+// MSM workload instrumentation (BB_MSM_STATS env var). Accumulates facade-level MSM
+// counts, size histogram, and wall time per curve, and prints a summary at process exit.
+// Used to measure the MSM share of real proving workloads (see ecc_gpu/README.md).
+bool msm_stats_enabled() noexcept
+{
+    static const bool enabled = std::getenv("BB_MSM_STATS") != nullptr;
+    return enabled;
+}
+
+struct MsmStatsCollector {
+    static constexpr size_t NUM_BUCKETS = 40;
+    const char* label;
+    std::array<std::atomic<uint64_t>, NUM_BUCKETS> single_count{};
+    std::array<std::atomic<uint64_t>, NUM_BUCKETS> single_ns{};
+    std::array<std::atomic<uint64_t>, NUM_BUCKETS> batch_msm_count{};
+    std::atomic<uint64_t> batch_calls{ 0 };
+    std::atomic<uint64_t> batch_ns{ 0 };
+
+    explicit MsmStatsCollector(const char* label_)
+        : label(label_)
+    {}
+
+    // Smallest b such that 2^b >= n (clamped), so a bucket holds MSMs of size (2^(b-1), 2^b].
+    static size_t bucket_of(size_t n) noexcept
+    {
+        size_t bucket = 0;
+        while (bucket + 1 < NUM_BUCKETS && (size_t{ 1 } << bucket) < n) {
+            ++bucket;
+        }
+        return bucket;
+    }
+
+    ~MsmStatsCollector() { print(); }
+
+    void print() const
+    {
+        uint64_t singles = 0;
+        uint64_t singles_ns = 0;
+        uint64_t batch_msms = 0;
+        for (size_t b = 0; b < NUM_BUCKETS; ++b) {
+            singles += single_count[b].load();
+            singles_ns += single_ns[b].load();
+            batch_msms += batch_msm_count[b].load();
+        }
+        if (singles == 0 && batch_calls.load() == 0) {
+            return;
+        }
+        const auto to_ms = [](uint64_t ns) { return static_cast<double>(ns) / 1e6; };
+        info("BB_MSM_STATS [",
+             label,
+             "] singles: calls=",
+             singles,
+             " total_ms=",
+             to_ms(singles_ns),
+             " | batches: calls=",
+             batch_calls.load(),
+             " msms=",
+             batch_msms,
+             " total_ms=",
+             to_ms(batch_ns.load()));
+        for (size_t b = 0; b < NUM_BUCKETS; ++b) {
+            if (single_count[b].load() != 0 || batch_msm_count[b].load() != 0) {
+                info("BB_MSM_STATS [",
+                     label,
+                     "]   2^",
+                     b,
+                     ": single_calls=",
+                     single_count[b].load(),
+                     " single_ms=",
+                     to_ms(single_ns[b].load()),
+                     " batch_msms=",
+                     batch_msm_count[b].load());
+            }
+        }
+    }
+};
+
+template <typename Curve> MsmStatsCollector& msm_stats() noexcept
+{
+    static MsmStatsCollector collector(std::is_same_v<Curve, curve::BN254> ? "BN254" : "Grumpkin");
+    return collector;
+}
+
+// Records elapsed wall time for a single MSM into its size bucket on scope exit.
+struct MsmStatsScope {
+    MsmStatsCollector* stats = nullptr;
+    size_t bucket = 0;
+    std::chrono::steady_clock::time_point start;
+
+    MsmStatsScope(MsmStatsCollector* stats_, size_t msm_size) noexcept
+    {
+        if (stats_ != nullptr) {
+            stats = stats_;
+            bucket = MsmStatsCollector::bucket_of(msm_size);
+            start = std::chrono::steady_clock::now();
+        }
+    }
+    MsmStatsScope(const MsmStatsScope&) = delete;
+    MsmStatsScope& operator=(const MsmStatsScope&) = delete;
+    MsmStatsScope(MsmStatsScope&&) = delete;
+    MsmStatsScope& operator=(MsmStatsScope&&) = delete;
+    ~MsmStatsScope()
+    {
+        if (stats != nullptr) {
+            const auto elapsed = std::chrono::steady_clock::now() - start;
+            stats->single_count[bucket].fetch_add(1);
+            stats->single_ns[bucket].fetch_add(
+                static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed).count()));
+        }
+    }
+};
+
+// Records a whole batch_multi_scalar_mul call: per-MSM size histogram at entry, wall time on exit.
+template <typename ScalarField> struct MsmBatchStatsScope {
+    MsmStatsCollector* stats = nullptr;
+    std::chrono::steady_clock::time_point start;
+
+    MsmBatchStatsScope(MsmStatsCollector* stats_, std::span<PolynomialSpan<ScalarField>> scalars) noexcept
+    {
+        if (stats_ != nullptr) {
+            stats = stats_;
+            for (const auto& s : scalars) {
+                stats->batch_msm_count[MsmStatsCollector::bucket_of(s.span.size())].fetch_add(1);
+            }
+            start = std::chrono::steady_clock::now();
+        }
+    }
+    MsmBatchStatsScope(const MsmBatchStatsScope&) = delete;
+    MsmBatchStatsScope& operator=(const MsmBatchStatsScope&) = delete;
+    MsmBatchStatsScope(MsmBatchStatsScope&&) = delete;
+    MsmBatchStatsScope& operator=(MsmBatchStatsScope&&) = delete;
+    ~MsmBatchStatsScope()
+    {
+        if (stats != nullptr) {
+            const auto elapsed = std::chrono::steady_clock::now() - start;
+            stats->batch_calls.fetch_add(1);
+            stats->batch_ns.fetch_add(
+                static_cast<uint64_t>(std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed).count()));
+        }
+    }
+};
+
+} // namespace
+
 #ifdef BB_GPU
 // GPU dispatch (BB_MSM_GPU env var), compiled only under the `gpu` preset. The hook is a
 // weak declaration so binaries that don't link the ecc_gpu module still link; its
@@ -699,6 +850,7 @@ typename Curve::Element pippenger(PolynomialSpan<const typename Curve::ScalarFie
                                   bool handle_edge_cases,
                                   bool dedup_hint) noexcept
 {
+    MsmStatsScope stats_scope(msm_stats_enabled() ? &msm_stats<Curve>() : nullptr, scalars.span.size());
 #ifdef BB_GPU
     if (typename Curve::Element gpu_result; try_gpu_msm<Curve>(gpu_result, scalars, points)) {
         return gpu_result;
@@ -715,6 +867,7 @@ typename Curve::Element pippenger_unsafe(PolynomialSpan<const typename Curve::Sc
                                          std::span<const typename Curve::AffineElement> points,
                                          bool dedup_hint) noexcept
 {
+    MsmStatsScope stats_scope(msm_stats_enabled() ? &msm_stats<Curve>() : nullptr, scalars.span.size());
 #ifdef BB_GPU
     if (typename Curve::Element gpu_result; try_gpu_msm<Curve>(gpu_result, scalars, points)) {
         return gpu_result;
@@ -742,6 +895,8 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
     bool handle_edge_cases,
     std::span<const uint8_t> dedup_hints) noexcept
 {
+    MsmBatchStatsScope<typename Curve::ScalarField> batch_stats_scope(
+        msm_stats_enabled() ? &msm_stats<Curve>() : nullptr, scalars);
 #ifdef BB_GPU
     if constexpr (std::is_same_v<Curve, curve::BN254>) {
         if (use_gpu_msm()) {

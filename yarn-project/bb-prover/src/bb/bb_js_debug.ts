@@ -40,13 +40,19 @@ function concatFields(fields: Uint8Array[]): Buffer {
 }
 
 /**
+ * Process-wide dump counter. The factory creates a fresh instance (and thus a fresh debug
+ * wrapper) per proving job, so a per-instance counter would make every job of the same
+ * circuit type write to the same directory and clobber earlier dumps. A module-level
+ * counter also preserves the global dispatch order across concurrent jobs.
+ */
+let dumpCounter = 0;
+
+/**
  * Wraps a BBJsApi instance to write debug files and log equivalent CLI commands.
  * Activated when BB_DEBUG_OUTPUT_DIR is set. Each operation writes its inputs
  * and outputs to a numbered subdirectory, enabling offline reproduction.
  */
 export class DebugBBJsInstance implements BBJsApi {
-  private counter = 0;
-
   constructor(
     private inner: BBJsApi,
     private debugDir: string,
@@ -55,9 +61,8 @@ export class DebugBBJsInstance implements BBJsApi {
   ) {}
 
   private nextDir(prefix: string): string {
-    this.counter++;
-    const padded = String(this.counter).padStart(3, '0');
-    return path.join(this.debugDir, `${prefix}-${padded}`);
+    const padded = String(++dumpCounter).padStart(4, '0');
+    return path.join(this.debugDir, `${padded}-${prefix}-pid${process.pid}`);
   }
 
   /** Write a command string to both the logger and a command.sh file in the given directory. */
