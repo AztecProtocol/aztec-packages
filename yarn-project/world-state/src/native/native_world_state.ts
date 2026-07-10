@@ -107,6 +107,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     genesis: GenesisData = EMPTY_GENESIS_DATA,
     instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
     bindings?: LoggerBindings,
+    threads?: number,
   ): Promise<NativeWorldStateService> {
     const log = createLogger('world-state:database', bindings);
     const dataDir = await mkdtemp(join(tmpdir(), 'aztec-world-state-'));
@@ -124,7 +125,14 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     };
     log.debug(`Created temporary world state database at: ${dataDir} with tree map size: ${dbMapSizeKb}`);
 
-    const instance = await IpcWorldState.spawn(dataDir, worldStateTreeMapSizes, genesis, instrumentation, bindings);
+    const instance = await IpcWorldState.spawn(
+      dataDir,
+      worldStateTreeMapSizes,
+      genesis,
+      instrumentation,
+      bindings,
+      threads,
+    );
 
     const cleanup = async () => {
       if (cleanupTmpDir) {
@@ -138,7 +146,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     const recreateInstance = async () => {
       await rm(dataDir, { recursive: true, force: true, maxRetries: 3 });
       await mkdir(dataDir, { recursive: true });
-      return IpcWorldState.spawn(dataDir, worldStateTreeMapSizes, genesis, instrumentation, bindings);
+      return IpcWorldState.spawn(dataDir, worldStateTreeMapSizes, genesis, instrumentation, bindings, threads);
     };
 
     const worldState = new this(instance, instrumentation, log, genesis, cleanup, recreateInstance);
@@ -156,7 +164,11 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
     bindings?: LoggerBindings,
   ): Promise<NativeWorldStateService> {
-    return this.tmp(/*cleanupTmpDir=*/ true, genesis, instrumentation, bindings);
+    // The TXE spins up one tiny, short-lived world state per test, many concurrently. Cap the wsdb thread
+    // usage to the minimum: a single tree-op thread instead of one per core (the C++ IPC dispatcher pool
+    // still floors at 2). This avoids ~32 threads per wsdb multiplied across dozens of concurrent test
+    // world states — the trees are cache-sized (see tmp's map-size note), so extra threads buy nothing.
+    return this.tmp(/*cleanupTmpDir=*/ true, genesis, instrumentation, bindings, /*threads=*/ 1);
   }
 
   static async fromIpc(
