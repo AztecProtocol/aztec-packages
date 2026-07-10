@@ -1,0 +1,9 @@
+{
+  "name": "@aztec/avm-inprocess",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Spike: run the AVM in-process via a tiny NAPI wrapper over barretenberg's avm_sim_ffi C ABI (no bb-avm-sim subprocess). The eventual generalized form is emitted by ipc-codegen given a path to the library.",
+  "scripts": {
+    "build:native": "cmake -B build -G Ninja && cmake --build build"
+  }
+}
