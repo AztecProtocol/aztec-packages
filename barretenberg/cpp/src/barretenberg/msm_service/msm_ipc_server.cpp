@@ -4,6 +4,14 @@
 #include "barretenberg/msm_service/msm_handlers.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 
+namespace bb::scalar_multiplication::gpu {
+__attribute__((weak)) bool try_pippenger_bn254_canonical(curve::BN254::Element& out,
+                                                         size_t start_index,
+                                                         const uint64_t* scalars_canonical,
+                                                         size_t num_scalars,
+                                                         std::span<const curve::BN254::AffineElement> points) noexcept;
+} // namespace bb::scalar_multiplication::gpu
+
 namespace bb::msm_service {
 
 // Like the generated serve(), but with explicit SHM ring sizing: the ring rejects any
@@ -36,12 +44,14 @@ int execute_msm_server(const std::string& input_path,
                        const std::string& crs_path,
                        size_t num_points,
                        size_t request_ring_size,
-                       size_t response_ring_size)
+                       size_t response_ring_size,
+                       bool no_gpu)
 {
     MsmService ctx;
-    // The facade's GPU dispatch activates when ecc_gpu is linked into this binary AND
-    // BB_MSM_GPU is set (the CLI defaults it on for GPU builds). Report the env state.
-    ctx.gpu = std::getenv("BB_MSM_GPU") != nullptr;
+    // GPU mode iff the ecc_gpu backend is linked (weak symbol resolved) and not
+    // explicitly disabled. GPU-mode failures hard-fail requests; there is no silent
+    // CPU fallback inside the daemon.
+    ctx.gpu = !no_gpu && (&scalar_multiplication::gpu::try_pippenger_bn254_canonical != nullptr);
 
     const std::filesystem::path crs = crs_path.empty() ? srs::bb_crs_path() : std::filesystem::path(crs_path);
     info("bb-msm: loading ", num_points, " BN254 SRS points from ", crs.string());

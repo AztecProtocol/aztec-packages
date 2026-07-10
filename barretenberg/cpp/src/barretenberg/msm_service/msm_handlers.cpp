@@ -3,6 +3,16 @@
 
 #include <cstring>
 
+namespace bb::scalar_multiplication::gpu {
+// Provided by ecc_gpu when the daemon is built with -DGPU=ON (linked whole-archive);
+// null otherwise. Weak so CPU-only builds of bb-msm still link.
+__attribute__((weak)) bool try_pippenger_bn254_canonical(curve::BN254::Element& out,
+                                                         size_t start_index,
+                                                         const uint64_t* scalars_canonical,
+                                                         size_t num_scalars,
+                                                         std::span<const curve::BN254::AffineElement> points) noexcept;
+} // namespace bb::scalar_multiplication::gpu
+
 namespace bb::msm_service {
 
 namespace {
@@ -11,9 +21,16 @@ using Curve = curve::BN254;
 using Fr = Curve::ScalarField;
 using AffineElement = Curve::AffineElement;
 
-// Validates one request span against the resident table and runs it through the
-// standard MSM facade (which applies its own GPU/CPU dispatch). Returns false and
-// sets `error` on validation failure.
+bool gpu_linked()
+{
+    return &scalar_multiplication::gpu::try_pippenger_bn254_canonical != nullptr;
+}
+
+// Validates one request span against the resident table and executes it. Wire scalars
+// are canonical standard form (4x uint64 LE limbs, in [0, r)). On a GPU daemon the
+// buffer is consumed in place; GPU errors are a hard failure (no silent CPU fallback —
+// a degraded GPU box must be visible). The CPU path exists for GPU-less test builds
+// only and converts to Montgomery form first.
 bool run_span(MsmService& ctx,
               uint64_t start_index,
               const std::vector<uint8_t>& scalars,
@@ -36,12 +53,33 @@ bool run_span(MsmService& ctx,
         error = "points fingerprint mismatch: caller table is not the resident SRS";
         return false;
     }
-    // Wire scalars are Montgomery-form fr limbs; reinterpret without copy.
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    std::span<const Fr> scalar_span(reinterpret_cast<const Fr*>(scalars.data()), num_scalars);
-    PolynomialSpan<const Fr> poly_span{ start_index, scalar_span };
-    out = AffineElement(scalar_multiplication::pippenger_unsafe<Curve>(
-        poly_span, std::span<const AffineElement>(ctx.points.data(), ctx.points.size())));
+
+    std::span<const AffineElement> points(ctx.points.data(), ctx.points.size());
+    if (ctx.gpu) {
+        if (!gpu_linked()) {
+            error = "daemon started in GPU mode but no GPU backend is linked";
+            return false;
+        }
+        Curve::Element result;
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+        if (!scalar_multiplication::gpu::try_pippenger_bn254_canonical(
+                result, start_index, reinterpret_cast<const uint64_t*>(scalars.data()), num_scalars, points)) {
+            error = "GPU MSM failed (start=" + std::to_string(start_index) + " n=" + std::to_string(num_scalars) +
+                    ") — refusing CPU fallback";
+            return false;
+        }
+        out = AffineElement(result);
+        return true;
+    }
+
+    // CPU (test) mode: canonical wire form -> Montgomery for the CPU pippenger.
+    std::vector<Fr> mont(num_scalars);
+    std::memcpy(mont.data(), scalars.data(), scalars.size());
+    for (auto& s : mont) {
+        s.self_to_montgomery_form();
+    }
+    PolynomialSpan<const Fr> poly_span{ start_index, std::span<const Fr>(mont.data(), mont.size()) };
+    out = AffineElement(scalar_multiplication::pippenger_unsafe<Curve>(poly_span, points));
     return true;
 }
 

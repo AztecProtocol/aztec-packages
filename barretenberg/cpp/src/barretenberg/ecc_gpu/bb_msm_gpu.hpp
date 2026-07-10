@@ -28,4 +28,14 @@ bool try_pippenger_bn254(curve::BN254::Element& out,
                          PolynomialSpan<const curve::BN254::ScalarField> scalars,
                          std::span<const curve::BN254::AffineElement> points) noexcept;
 
+// Variant for scalars ALREADY in canonical standard form (4x uint64 LE limbs each, in
+// [0, r)): no Montgomery conversion or staging copy — the buffer (e.g. an SHM ring) is
+// consumed in place. `scalars_canonical[j]` multiplies `points[start_index + j]`. Large
+// start_index values anchor a resident context at the offset instead of zero-padding.
+bool try_pippenger_bn254_canonical(curve::BN254::Element& out,
+                                   size_t start_index,
+                                   const uint64_t* scalars_canonical,
+                                   size_t num_scalars,
+                                   std::span<const curve::BN254::AffineElement> points) noexcept;
+
 } // namespace bb::scalar_multiplication::gpu

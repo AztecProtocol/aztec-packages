@@ -83,6 +83,70 @@ export class CppCodegen {
     return !!resp && resp.fields.length > 0;
   }
 
+  /** Map a schema type to its C++ type (mirror of the mapping used for struct fields). */
+  private cppFieldType(type: import("./schema_visitor.ts").Type): string {
+    switch (type.kind) {
+      case "primitive":
+        return type.originalName
+          ? toAliasName(type.originalName)
+          : this.primitiveType(type);
+      case "vector":
+        return `std::vector<${this.cppFieldType(type.element!)}>`;
+      case "array":
+        return `std::array<${this.cppFieldType(type.element!)}, ${type.size}>`;
+      case "optional":
+        return `std::optional<${this.cppFieldType(type.element!)}>`;
+      case "struct":
+        return type.struct!.name;
+    }
+    throw new Error(`Unsupported type kind: ${type.kind}`);
+  }
+
+  /**
+   * A command qualifies for a zero-copy streamed variant when its last request field
+   * is a plain `bytes` payload: the generated <method>_streamed() packs the envelope
+   * and leading fields normally, then has the caller write the payload directly into
+   * the transport buffer via IpcClient::send_with (in-ring for SHM).
+   */
+  private streamedPayloadField(
+    command: Command,
+  ): import("./schema_visitor.ts").Field | undefined {
+    if (command.fields.length === 0) {
+      return undefined;
+    }
+    const last = command.fields[command.fields.length - 1];
+    return last.type.kind === "primitive" &&
+      last.type.primitive === "bytes" &&
+      !last.type.originalName
+      ? last
+      : undefined;
+  }
+
+  /** Generate the streamed-variant signature for a command (or undefined). */
+  private generateStreamedSignature(
+    command: Command,
+    className?: string,
+  ): string | undefined {
+    const payload = this.streamedPayloadField(command);
+    if (!payload) {
+      return undefined;
+    }
+    const method = this.methodName(command.name);
+    const retType = this.opts.wireNamespace
+      ? command.responseType
+      : `${command.name}::Response`;
+    const leading = command.fields
+      .slice(0, -1)
+      .map((f) => `${this.cppFieldType(f.type)} ${f.name}`)
+      .concat([
+        `size_t ${payload.name}_len`,
+        `const std::function<void(void*)>& fill_${payload.name}`,
+      ])
+      .join(", ");
+    const prefix = className ? `${className}::` : "";
+    return `${retType} ${prefix}${method}_streamed(${leading}) const`;
+  }
+
   /** Generate the method signature using command struct types directly */
   private generateMethodSignature(
     command: Command,
@@ -116,7 +180,8 @@ export class CppCodegen {
     const methods = schema.commands
       .map((cmd) => {
         const sig = this.generateMethodSignature(cmd, schema);
-        return `    ${sig};`;
+        const streamed = this.generateStreamedSignature(cmd);
+        return streamed ? `    ${sig};\n    ${streamed};` : `    ${sig};`;
       })
       .join("\n");
 
@@ -140,7 +205,9 @@ export class CppCodegen {
 #include "${typesInclude}"
 #include "ipc_runtime/ipc_client.hpp"
 
+#include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 
@@ -174,6 +241,17 @@ ${methods}
     template <typename Cmd, typename Resp>
     Resp send(Cmd&& cmd) const;
 
+    template <typename Resp>
+    Resp send_streamed(const char* cmd_name,
+                       uint32_t num_fields,
+                       const std::function<void(msgpack::packer<msgpack::sbuffer>&)>& pack_leading,
+                       const char* payload_field,
+                       size_t payload_len,
+                       const std::function<void(void*)>& fill) const;
+
+    template <typename Resp>
+    Resp recv_response() const;
+
     mutable std::unique_ptr<::ipc::IpcClient> client_;
     uint64_t call_timeout_ns_;
 };
@@ -206,6 +284,7 @@ ${methods}
 #include "ipc_codegen/msgpack_adaptor.hpp"
 
 #include <cstdint>
+#include <cstring>
 #include <stdexcept>
 #include <string>
 
@@ -246,6 +325,46 @@ Resp ${className}::send(Cmd&& cmd) const
     if (!client_->send(send_buffer.data(), send_buffer.size(), call_timeout_ns_)) {
         throw std::runtime_error("ipc::IpcClient::send failed");
     }
+    return recv_response<Resp>();
+}
+
+template <typename Resp>
+Resp ${className}::send_streamed(const char* cmd_name,
+                                 uint32_t num_fields,
+                                 const std::function<void(msgpack::packer<msgpack::sbuffer>&)>& pack_leading,
+                                 const char* payload_field,
+                                 size_t payload_len,
+                                 const std::function<void(void*)>& fill) const
+{
+    // Pack the envelope, leading fields, and the payload's bin header into a head
+    // buffer; the payload body itself is written by \`fill\` directly into the
+    // transport buffer (in-ring for SHM) via send_with — no intermediate copy.
+    msgpack::sbuffer head;
+    msgpack::packer<msgpack::sbuffer> pk(head);
+    pk.pack_array(1);
+    pk.pack_array(2);
+    pk.pack(std::string(cmd_name));
+    pk.pack_map(num_fields);
+    pack_leading(pk);
+    pk.pack(std::string(payload_field));
+    pk.pack_bin(static_cast<uint32_t>(payload_len));
+    const size_t total = head.size() + payload_len;
+    bool sent = client_->send_with(
+        total,
+        [&](void* buf) {
+            std::memcpy(buf, head.data(), head.size());
+            fill(static_cast<uint8_t*>(buf) + head.size());
+        },
+        call_timeout_ns_);
+    if (!sent) {
+        throw std::runtime_error("ipc::IpcClient::send_with failed");
+    }
+    return recv_response<Resp>();
+}
+
+template <typename Resp>
+Resp ${className}::recv_response() const
+{
     auto response_view = client_->receive(call_timeout_ns_);
     if (response_view.empty()) {
         throw std::runtime_error("ipc::IpcClient::receive failed or timed out");
@@ -315,19 +434,46 @@ ${methods}
     const cmdExpr =
       command.fields.length > 0 ? "std::move(cmd)" : `${command.name}{}`;
 
+    const streamedSig = this.generateStreamedSignature(command, className);
+    let streamedImpl = "";
+    if (streamedSig) {
+      const payload = this.streamedPayloadField(command)!;
+      const packLeading = command.fields
+        .slice(0, -1)
+        .map(
+          (f) =>
+            `        pk.pack(std::string("${f.name}"));\n        pk.pack(${f.name});`,
+        )
+        .join("\n");
+      streamedImpl = `
+${streamedSig}
+{
+    return send_streamed<${respType}>(
+        "${command.name}",
+        ${command.fields.length},
+        [&](msgpack::packer<msgpack::sbuffer>& pk) {
+${packLeading}
+        },
+        "${payload.name}",
+        ${payload.name}_len,
+        fill_${payload.name});
+}
+`;
+    }
+
     if (!hasFields) {
       return `${sig}
 {
     send<${command.name}, ${respType}>(${cmdExpr});
 }
-`;
+${streamedImpl}`;
     }
 
     return `${sig}
 {
     return send<${command.name}, ${respType}>(${cmdExpr});
 }
-`;
+${streamedImpl}`;
   }
 
   /** Get the generated/ directory include prefix.

@@ -44,16 +44,14 @@ int main(int argc, char* argv[])
         return app.exit(e);
     }
 
-    if (!no_gpu) {
-        // Enable the facade's GPU dispatch when ecc_gpu is linked; harmless otherwise.
-        setenv("BB_MSM_GPU", "1", /*overwrite=*/0);
-    } else {
-        unsetenv("BB_MSM_GPU");
-    }
+    // The daemon must never route its own MSMs back over IPC (to itself or another
+    // daemon), and its internal CPU path must stay local.
+    unsetenv("BB_MSM_SOCKET");
+    unsetenv("BB_MSM_GPU");
 
     try {
         return bb::msm_service::execute_msm_server(
-            input_path, crs_path, num_points, request_ring_size, response_ring_size);
+            input_path, crs_path, num_points, request_ring_size, response_ring_size, no_gpu);
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << '\n';
         return 1;

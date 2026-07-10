@@ -16,8 +16,8 @@
   "types": {
     "Span": {
       "startIndex": "u64",
-      "scalars": "bytes",
-      "fingerprint": "bytes"
+      "fingerprint": "bytes",
+      "scalars": "bytes"
     }
   },
   "error": {
@@ -34,8 +34,8 @@
     "Bn254": {
       "request": {
         "startIndex": "u64",
-        "scalars": "bytes",
-        "fingerprint": "bytes"
+        "fingerprint": "bytes",
+        "scalars": "bytes"
       },
       "response": {
         "result": "bytes"

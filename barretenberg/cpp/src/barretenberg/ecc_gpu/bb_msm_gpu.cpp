@@ -124,4 +124,62 @@ bool try_pippenger_bn254(Element& out, PolynomialSpan<const Fr> scalars, std::sp
     return true;
 }
 
+bool try_pippenger_bn254_canonical(Element& out,
+                                   size_t start_index,
+                                   const uint64_t* scalars_canonical,
+                                   size_t num_scalars,
+                                   std::span<const AffineElement> points) noexcept
+{
+    if (!available()) {
+        return false;
+    }
+    BB_ASSERT_LTE(start_index + num_scalars, points.size());
+    if (num_scalars == 0) {
+        out.self_set_infinity();
+        return true;
+    }
+
+    static std::mutex cache_mutex;
+    static std::map<const AffineElement*, MsmContextBn254> contexts;
+
+    // Small offsets are absorbed by zero-padding the scalars against the base context
+    // (cheap). Large offsets — chunked requests over a big SRS — instead anchor a
+    // resident context at the offset point so no padding transfer is needed; distinct
+    // offsets are bounded by the client's chunk granularity and each uploads once.
+    static constexpr size_t SMALL_PAD_LIMIT = 1024;
+    const bool pad_mode = start_index <= SMALL_PAD_LIMIT;
+    const AffineElement* anchor = pad_mode ? points.data() : points.data() + start_index;
+    const size_t anchor_size = pad_mode ? points.size() : points.size() - start_index;
+
+    std::lock_guard<std::mutex> lock(cache_mutex);
+
+    auto it = contexts.find(anchor);
+    if (it == contexts.end() || it->second.size() < anchor_size) {
+        if (it != contexts.end()) {
+            contexts.erase(it);
+        }
+        MsmContextBn254 ctx(reinterpret_cast<const AffinePointRaw*>(anchor), anchor_size);
+        if (!ctx.valid()) {
+            return false;
+        }
+        it = contexts.emplace(anchor, std::move(ctx)).first;
+    }
+
+    JacobianPointRaw raw;
+    int rc = 0;
+    if (pad_mode && start_index != 0) {
+        std::vector<uint64_t> staged(4 * (start_index + num_scalars), 0);
+        std::memcpy(staged.data() + 4 * start_index, scalars_canonical, num_scalars * 4 * sizeof(uint64_t));
+        rc = it->second.msm(raw, staged.data(), start_index + num_scalars);
+    } else {
+        // Zero-copy: the wire buffer (e.g. the SHM ring) is consumed directly.
+        rc = it->second.msm(raw, scalars_canonical, num_scalars);
+    }
+    if (rc != 0) {
+        return false;
+    }
+    out = to_element(raw);
+    return true;
+}
+
 } // namespace bb::scalar_multiplication::gpu

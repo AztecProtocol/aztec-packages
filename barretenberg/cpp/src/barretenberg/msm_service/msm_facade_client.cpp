@@ -58,18 +58,26 @@ bool try_pippenger_bn254(Curve::Element& out,
         }
         // The IPC transport caps frames at 256 MiB; split oversized MSMs into
         // sub-range requests and sum the partial results (MSM is linear).
+        //
+        // Wire scalars are canonical standard form: the Montgomery reduction the GPU
+        // needs anyway is done here, written directly into the transport buffer (the
+        // SHM ring) via the generated streamed variant — one pass, no intermediate
+        // copies on either side.
         static constexpr size_t MAX_CHUNK = size_t{ 1 } << 22;
         Curve::Element sum = Curve::Element::infinity();
         for (size_t offset = 0; offset < scalars.span.size(); offset += MAX_CHUNK) {
             const size_t chunk = std::min(MAX_CHUNK, scalars.span.size() - offset);
-            msm_service::wire::MsmBn254 cmd;
-            cmd.startIndex = start + offset;
-            cmd.scalars.resize(chunk * sizeof(Fr));
-            std::memcpy(cmd.scalars.data(), &scalars.span[offset], cmd.scalars.size());
-            cmd.fingerprint.resize(sizeof(AffineElement));
-            std::memcpy(cmd.fingerprint.data(), &points[start + offset], sizeof(AffineElement));
+            std::vector<uint8_t> fingerprint(sizeof(AffineElement));
+            std::memcpy(fingerprint.data(), &points[start + offset], sizeof(AffineElement));
 
-            auto response = conn.client->bn254(std::move(cmd));
+            auto response =
+                conn.client->bn254_streamed(start + offset, std::move(fingerprint), chunk * sizeof(Fr), [&](void* buf) {
+                    auto* dst = static_cast<uint8_t*>(buf);
+                    for (size_t i = 0; i < chunk; ++i) {
+                        const Fr canonical = scalars.span[offset + i].from_montgomery_form_reduced();
+                        std::memcpy(dst + i * sizeof(Fr), &canonical, sizeof(Fr));
+                    }
+                });
             if (response.result.size() != sizeof(AffineElement)) {
                 return false;
             }
