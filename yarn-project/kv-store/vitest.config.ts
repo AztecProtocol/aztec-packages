@@ -53,7 +53,6 @@ export default defineConfig({
           name: 'node',
           environment: 'node',
           include: [
-            './src/*.test.ts',
             './src/lmdb/**/*.test.ts',
             './src/lmdb-v2/**/*.test.ts',
             './src/stores/**/*.test.ts',
