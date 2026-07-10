@@ -231,6 +231,26 @@ one at a time). Operational notes: `--max-clients` (default 8) sizes SHM client 
 each slot gets its own request ring (default 512 MiB, message must fit half a ring);
 `.shm` names must be bare (shm_open), `.sock` paths ≤ 108 chars.
 
+## Batch coalescing + threshold sweep (2026-07-10)
+
+The facade batch driver now sends all above-threshold MSMs of a proving batch as ONE
+zero-copy `Bn254Batch` request (span metadata + concatenated canonical scalars blob;
+grouped under the frame cap, >2^22 MSMs chunked and re-summed client-side); the daemon
+fans spans across the worker pool and the last-done worker responds. Requests the
+daemon rejects (e.g. non-SRS points tables caught by the fingerprint guard — the AVM
+has four such MSMs) fall back locally per-request; only transport failures disable
+offload for a process.
+
+Threshold sweep on the same fixtures (daemon, 4 workers): single chain 170.5 s at
+thr 2^20 vs 187.2 s at 2^16; 4-chain 302.4 s vs 334.8 s; AVM job 3.50 s (2^20, no
+offload) / 4.60 s (2^16) / 3.45 s (4096, all ~2,948 columns offloaded in one coalesced
+request). Conclusions: 2^20 remains the right default; coalescing brings full AVM
+offload from 2x-worse (per-MSM dispatch) to parity, but tiny columns (mostly 2^0–2^11)
+pay a kernel launch + reduction each, matching but not beating the CPU batch driver.
+Beating it requires a fused many-small-MSM kernel (single launch over many segments),
+which sppark does not provide — the remaining research item for the AVM slice, alongside
+daemon-side reference-mode parsing + cudaHostRegister (removes the last host copy).
+
 ## Known limitations (spike scope)
 
 - BN254 G1 only. Grumpkin needs an sppark instantiation over the swapped field pair
