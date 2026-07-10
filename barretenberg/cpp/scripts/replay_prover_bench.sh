@@ -98,17 +98,28 @@ run_chain() {
     out_dir="$RESULTS_DIR/chain-$chain_id/$name"
     log="$out_dir/replay.log"
     mkdir -p "$out_dir"
-    # command.sh line 2 holds the exact CLI. Swap in our binary and a fresh -o dir.
+    # command.sh line 2 holds the exact CLI. Swap in our binary and a fresh -o dir, and
+    # remap input paths from the capture-time job dir to its current location so a
+    # capture can be copied to another machine.
     cmd=$(sed -n 2p "$dir/command.sh")
     set -- $cmd
     shift # drop the captured binary path
+    local raw=("$@")
+    local orig_dir=""
+    local i
+    for ((i = 0; i < ${#raw[@]}; i++)); do
+      [ "${raw[$i]}" = "-o" ] && orig_dir="${raw[$((i + 1))]}"
+    done
     local args=()
-    while [ $# -gt 0 ]; do
-      if [ "$1" = "-o" ]; then
-        args+=("-o" "$out_dir"); shift 2
-      else
-        args+=("$1"); shift
+    for ((i = 0; i < ${#raw[@]}; i++)); do
+      local a="${raw[$i]}"
+      if [ "$a" = "-o" ]; then
+        args+=("-o" "$out_dir")
+        i=$((i + 1))
+        continue
       fi
+      [ -n "$orig_dir" ] && a="${a/#"$orig_dir"/$dir}"
+      args+=("$a")
     done
     local envs=()
     [ -n "$THREADS" ] && envs+=("HARDWARE_CONCURRENCY=$THREADS")
