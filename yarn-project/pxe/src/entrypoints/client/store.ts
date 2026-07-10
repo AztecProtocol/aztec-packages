@@ -5,12 +5,11 @@ import { AztecSQLiteOPFSStore, storePoolDirectory } from '@aztec/kv-store/sqlite
 import { assertStoreIdentity, effectiveStoreName, requireCompleteIdentity } from '../../storage/store_identity.js';
 
 /**
- * Opens the persistent browser (sqlite-opfs) store selected by `name` and the identity `(config.l1ChainId,
- * config.rollupAddress, schemaVersion)`. A store exists per identity: reopening with the same identity returns the
- * same data, a different identity selects a different (possibly fresh) store. Nothing is ever cleared.
+ * Opens the persistent browser (sqlite-opfs) store selected by `name` and identity `(config.l1ChainId,
+ * config.rollupAddress, schemaVersion)` triple. A store exists per identity: reopening with the same identity returns
+ * the same data, a different identity selects a different (possibly fresh) store.
  *
- * @throws If `config.rollupAddress` or `config.l1ChainId` is missing — an incomplete identity must never silently
- * default to the zero identity.
+ * @throws If `config.rollupAddress` or `config.l1ChainId` are missing.
  */
 export async function openPXEBrowserStore(
   name: string,
