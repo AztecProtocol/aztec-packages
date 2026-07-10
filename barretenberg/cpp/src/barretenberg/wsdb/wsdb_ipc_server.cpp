@@ -231,7 +231,8 @@ int execute_wsdb_server(const std::string& input_path,
     // read/write consistency. Each handler hands its work to this scheduler via
     // schedule_read / schedule_write (which run reads concurrently and serialize
     // writes per fork — see WsdbScheduler), so the context carries it.
-    auto scheduler = std::make_shared<WsdbScheduler>(dispatch_pool, *server);
+    auto scheduler =
+        std::make_shared<WsdbScheduler>(dispatch_pool, [&server]() { return server->has_pending_request(); });
     request.scheduler = scheduler.get();
 
     // Async dispatch: the reactor reads each request and hands it to the

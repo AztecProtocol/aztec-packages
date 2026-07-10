@@ -27,7 +27,6 @@
  */
 
 #include "barretenberg/common/thread_pool.hpp"
-#include "ipc_runtime/ipc_server.hpp"
 
 #include <atomic>
 #include <cstdint>
@@ -42,9 +41,14 @@ namespace bb::wsdb {
 
 class WsdbScheduler : public std::enable_shared_from_this<WsdbScheduler> {
   public:
-    WsdbScheduler(bb::ThreadPool& pool, ipc::IpcServer& server)
+    /**
+     * @param has_pending_request Predicate: is another request already waiting? Used only to gate the
+     *   inline fast path. Transport-agnostic — the socket server passes its `has_pending_request()`; an
+     *   in-process (FFI) host passes a suitable predicate (e.g. always-false for a single in-flight call).
+     */
+    WsdbScheduler(bb::ThreadPool& pool, std::function<bool()> has_pending_request)
         : pool_(pool)
-        , server_(server)
+        , has_pending_request_(std::move(has_pending_request))
     {}
 
     // A read on `fork`. Committed reads (independent snapshots) run concurrently
@@ -95,7 +99,7 @@ class WsdbScheduler : public std::enable_shared_from_this<WsdbScheduler> {
     // nothing in flight this request is alone and ordering is moot.
     bool run_inline_if_idle(std::function<void()>& work)
     {
-        if (inflight_.load(std::memory_order_acquire) == 0 && !server_.has_pending_request()) {
+        if (inflight_.load(std::memory_order_acquire) == 0 && !has_pending_request_()) {
             work();
             return true;
         }
@@ -162,7 +166,7 @@ class WsdbScheduler : public std::enable_shared_from_this<WsdbScheduler> {
     }
 
     bb::ThreadPool& pool_;
-    ipc::IpcServer& server_;
+    std::function<bool()> has_pending_request_;
     std::mutex mtx_;
     std::unordered_map<uint64_t, Lane> lanes_; // per fork; references stable (never erased)
     std::atomic<int> inflight_{ 0 };           // submitted-but-not-completed ops (queued + running)
