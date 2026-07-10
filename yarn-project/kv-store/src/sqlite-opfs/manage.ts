@@ -1,5 +1,9 @@
+import { sleep } from '@aztec/foundation/sleep';
+
 /** Prefix for the per-store OPFS SAH pool directories owned by this package. */
 export const OPFS_POOL_DIR_PREFIX = '.aztec-kv-';
+
+const DELETE_RETRY_DELAYS_MS = [10, 50, 100, 250];
 
 /**
  * OPFS directory holding a store's SAH pool. One directory per store: the SAH-pool VFS allows only one
@@ -32,5 +36,21 @@ export async function listStores(): Promise<string[]> {
  */
 export async function deleteStore(effectiveName: string): Promise<void> {
   const root = await navigator.storage.getDirectory();
-  await root.removeEntry(storePoolDirectory(effectiveName), { recursive: true });
+  const directory = storePoolDirectory(effectiveName);
+  for (const retryDelayMs of DELETE_RETRY_DELAYS_MS) {
+    try {
+      await root.removeEntry(directory, { recursive: true });
+      return;
+    } catch (err) {
+      if (!isTransientRemoveEntryError(err)) {
+        throw err;
+      }
+      await sleep(retryDelayMs);
+    }
+  }
+  await root.removeEntry(directory, { recursive: true });
+}
+
+function isTransientRemoveEntryError(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && 'name' in err && err.name === 'NoModificationAllowedError';
 }
