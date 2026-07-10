@@ -38,4 +38,15 @@ bool try_pippenger_bn254_canonical(curve::BN254::Element& out,
                                    size_t num_scalars,
                                    std::span<const curve::BN254::AffineElement> points) noexcept;
 
+// Slot-indexed variant: each slot owns an independent context cache (its own msm_t
+// instances and resident points copy), so callers that pin one thread per slot submit
+// to the GPU concurrently with no lock contention. Slots wrap modulo a small fixed
+// count; VRAM cost is one resident points copy per distinct slot used.
+bool try_pippenger_bn254_canonical_slot(curve::BN254::Element& out,
+                                        size_t slot,
+                                        size_t start_index,
+                                        const uint64_t* scalars_canonical,
+                                        size_t num_scalars,
+                                        std::span<const curve::BN254::AffineElement> points) noexcept;
+
 } // namespace bb::scalar_multiplication::gpu

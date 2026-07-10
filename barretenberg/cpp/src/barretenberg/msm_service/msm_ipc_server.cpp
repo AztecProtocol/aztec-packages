@@ -48,7 +48,8 @@ int execute_msm_server(const std::string& input_path,
                        size_t request_ring_size,
                        size_t response_ring_size,
                        bool no_gpu,
-                       size_t max_clients)
+                       size_t max_clients,
+                       size_t num_workers)
 {
     MsmService ctx;
     // GPU mode iff the ecc_gpu backend is linked (weak symbol resolved) and not
@@ -61,7 +62,15 @@ int execute_msm_server(const std::string& input_path,
     srs::init_bn254_net_crs_factory(crs);
     auto monomial_points = srs::get_bn254_crs_factory()->get_crs(num_points)->get_monomial_points();
     ctx.points.assign(monomial_points.begin(), monomial_points.end());
-    info("bb-msm: resident points=", ctx.points.size(), " gpu=", ctx.gpu, " serving on ", input_path);
+    ctx.start_workers(num_workers);
+    info("bb-msm: resident points=",
+         ctx.points.size(),
+         " gpu=",
+         ctx.gpu,
+         " workers=",
+         num_workers,
+         " serving on ",
+         input_path);
 
     serve_with_options(input_path, ctx, request_ring_size, response_ring_size, max_clients);
     return 0;

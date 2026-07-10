@@ -124,11 +124,28 @@ bool try_pippenger_bn254(Element& out, PolynomialSpan<const Fr> scalars, std::sp
     return true;
 }
 
-bool try_pippenger_bn254_canonical(Element& out,
-                                   size_t start_index,
-                                   const uint64_t* scalars_canonical,
-                                   size_t num_scalars,
-                                   std::span<const AffineElement> points) noexcept
+namespace {
+// Independent context caches indexed by slot: a caller (the bb-msm worker pool) that
+// pins each worker thread to one slot gets uncontended, concurrent GPU submission —
+// each slot owns its own msm_t instances (and so its own copy of the resident points).
+struct ContextCache {
+    std::mutex mutex;
+    std::map<const AffineElement*, MsmContextBn254> contexts;
+};
+constexpr size_t NUM_CONTEXT_SLOTS = 8;
+ContextCache& cache_for_slot(size_t slot)
+{
+    static std::array<ContextCache, NUM_CONTEXT_SLOTS> caches;
+    return caches[slot % NUM_CONTEXT_SLOTS];
+}
+} // namespace
+
+bool try_pippenger_bn254_canonical_slot(Element& out,
+                                        size_t slot,
+                                        size_t start_index,
+                                        const uint64_t* scalars_canonical,
+                                        size_t num_scalars,
+                                        std::span<const AffineElement> points) noexcept
 {
     if (!available()) {
         return false;
@@ -139,8 +156,7 @@ bool try_pippenger_bn254_canonical(Element& out,
         return true;
     }
 
-    static std::mutex cache_mutex;
-    static std::map<const AffineElement*, MsmContextBn254> contexts;
+    ContextCache& cache = cache_for_slot(slot);
 
     // Small offsets are absorbed by zero-padding the scalars against the base context
     // (cheap). Large offsets — chunked requests over a big SRS — instead anchor a
@@ -151,7 +167,8 @@ bool try_pippenger_bn254_canonical(Element& out,
     const AffineElement* anchor = pad_mode ? points.data() : points.data() + start_index;
     const size_t anchor_size = pad_mode ? points.size() : points.size() - start_index;
 
-    std::lock_guard<std::mutex> lock(cache_mutex);
+    std::lock_guard<std::mutex> lock(cache.mutex);
+    auto& contexts = cache.contexts;
 
     auto it = contexts.find(anchor);
     if (it == contexts.end() || it->second.size() < anchor_size) {
@@ -180,6 +197,15 @@ bool try_pippenger_bn254_canonical(Element& out,
     }
     out = to_element(raw);
     return true;
+}
+
+bool try_pippenger_bn254_canonical(Element& out,
+                                   size_t start_index,
+                                   const uint64_t* scalars_canonical,
+                                   size_t num_scalars,
+                                   std::span<const AffineElement> points) noexcept
+{
+    return try_pippenger_bn254_canonical_slot(out, 0, start_index, scalars_canonical, num_scalars, points);
 }
 
 } // namespace bb::scalar_multiplication::gpu

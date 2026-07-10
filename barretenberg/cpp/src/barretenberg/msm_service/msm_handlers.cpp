@@ -2,15 +2,18 @@
 #include "barretenberg/ecc/scalar_multiplication/scalar_multiplication.hpp"
 
 #include <cstring>
+#include <memory>
 
 namespace bb::scalar_multiplication::gpu {
 // Provided by ecc_gpu when the daemon is built with -DGPU=ON (linked whole-archive);
 // null otherwise. Weak so CPU-only builds of bb-msm still link.
-__attribute__((weak)) bool try_pippenger_bn254_canonical(curve::BN254::Element& out,
-                                                         size_t start_index,
-                                                         const uint64_t* scalars_canonical,
-                                                         size_t num_scalars,
-                                                         std::span<const curve::BN254::AffineElement> points) noexcept;
+__attribute__((weak)) bool try_pippenger_bn254_canonical_slot(
+    curve::BN254::Element& out,
+    size_t slot,
+    size_t start_index,
+    const uint64_t* scalars_canonical,
+    size_t num_scalars,
+    std::span<const curve::BN254::AffineElement> points) noexcept;
 } // namespace bb::scalar_multiplication::gpu
 
 namespace bb::msm_service {
@@ -23,15 +26,16 @@ using AffineElement = Curve::AffineElement;
 
 bool gpu_linked()
 {
-    return &scalar_multiplication::gpu::try_pippenger_bn254_canonical != nullptr;
+    return &scalar_multiplication::gpu::try_pippenger_bn254_canonical_slot != nullptr;
 }
 
-// Validates one request span against the resident table and executes it. Wire scalars
-// are canonical standard form (4x uint64 LE limbs, in [0, r)). On a GPU daemon the
-// buffer is consumed in place; GPU errors are a hard failure (no silent CPU fallback —
-// a degraded GPU box must be visible). The CPU path exists for GPU-less test builds
-// only and converts to Montgomery form first.
+// Validates one request span against the resident table and executes it on the given
+// slot. Wire scalars are canonical standard form (4x uint64 LE limbs, in [0, r)). On a
+// GPU daemon the buffer is consumed in place; GPU errors are a hard failure (no silent
+// CPU fallback — a degraded GPU box must be visible). The CPU path exists for GPU-less
+// test builds only and converts to Montgomery form first.
 bool run_span(MsmService& ctx,
+              size_t slot,
               uint64_t start_index,
               const std::vector<uint8_t>& scalars,
               const std::vector<uint8_t>& fingerprint,
@@ -62,8 +66,8 @@ bool run_span(MsmService& ctx,
         }
         Curve::Element result;
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-        if (!scalar_multiplication::gpu::try_pippenger_bn254_canonical(
-                result, start_index, reinterpret_cast<const uint64_t*>(scalars.data()), num_scalars, points)) {
+        if (!scalar_multiplication::gpu::try_pippenger_bn254_canonical_slot(
+                result, slot, start_index, reinterpret_cast<const uint64_t*>(scalars.data()), num_scalars, points)) {
             error = "GPU MSM failed (start=" + std::to_string(start_index) + " n=" + std::to_string(num_scalars) +
                     ") — refusing CPU fallback";
             return false;
@@ -92,6 +96,48 @@ std::vector<uint8_t> to_bytes(const AffineElement& p)
 
 } // namespace
 
+void MsmService::start_workers(size_t num_workers)
+{
+    for (size_t slot = 0; slot < num_workers; ++slot) {
+        workers.emplace_back([this, slot] {
+            for (;;) {
+                std::function<void(size_t)> task;
+                {
+                    std::unique_lock lock(queue_mutex);
+                    queue_cv.wait(lock, [this] { return stopping || !tasks.empty(); });
+                    if (stopping && tasks.empty()) {
+                        return;
+                    }
+                    task = std::move(tasks.front());
+                    tasks.pop_front();
+                }
+                task(slot);
+            }
+        });
+    }
+}
+
+void MsmService::enqueue(std::function<void(size_t)> task)
+{
+    {
+        std::lock_guard lock(queue_mutex);
+        tasks.push_back(std::move(task));
+    }
+    queue_cv.notify_one();
+}
+
+MsmService::~MsmService()
+{
+    {
+        std::lock_guard lock(queue_mutex);
+        stopping = true;
+    }
+    queue_cv.notify_all();
+    for (auto& worker : workers) {
+        worker.join();
+    }
+}
+
 void handle_get_info(MsmService& ctx, wire::MsmGetInfo&&, Responder<wire::MsmGetInfoResponse> respond)
 {
     respond.ok({ .gpu = ctx.gpu, .residentPoints = ctx.points.size() });
@@ -99,32 +145,38 @@ void handle_get_info(MsmService& ctx, wire::MsmGetInfo&&, Responder<wire::MsmGet
 
 void handle_bn254(MsmService& ctx, wire::MsmBn254&& cmd, Responder<wire::MsmBn254Response> respond)
 {
-    std::lock_guard lock(ctx.mutex);
-    AffineElement result;
-    std::string error;
-    if (!run_span(ctx, cmd.startIndex, cmd.scalars, cmd.fingerprint, result, error)) {
-        respond.error(error);
-        return;
-    }
-    respond.ok({ .result = to_bytes(result) });
+    // Defer to a worker so the reactor thread keeps accepting requests; workers on
+    // distinct slots submit to the GPU concurrently.
+    auto shared_cmd = std::make_shared<wire::MsmBn254>(std::move(cmd));
+    ctx.enqueue([&ctx, shared_cmd, respond](size_t slot) {
+        AffineElement result;
+        std::string error;
+        if (!run_span(ctx, slot, shared_cmd->startIndex, shared_cmd->scalars, shared_cmd->fingerprint, result, error)) {
+            respond.error(error);
+            return;
+        }
+        respond.ok({ .result = to_bytes(result) });
+    });
 }
 
 void handle_bn254_batch(MsmService& ctx, wire::MsmBn254Batch&& cmd, Responder<wire::MsmBn254BatchResponse> respond)
 {
-    std::lock_guard lock(ctx.mutex);
-    std::vector<uint8_t> results;
-    results.reserve(cmd.spans.size() * sizeof(AffineElement));
-    for (const auto& span : cmd.spans) {
-        AffineElement result;
-        std::string error;
-        if (!run_span(ctx, span.startIndex, span.scalars, span.fingerprint, result, error)) {
-            respond.error(error);
-            return;
+    auto shared_cmd = std::make_shared<wire::MsmBn254Batch>(std::move(cmd));
+    ctx.enqueue([&ctx, shared_cmd, respond](size_t slot) {
+        std::vector<uint8_t> results;
+        results.reserve(shared_cmd->spans.size() * sizeof(AffineElement));
+        for (const auto& span : shared_cmd->spans) {
+            AffineElement result;
+            std::string error;
+            if (!run_span(ctx, slot, span.startIndex, span.scalars, span.fingerprint, result, error)) {
+                respond.error(error);
+                return;
+            }
+            auto bytes = to_bytes(result);
+            results.insert(results.end(), bytes.begin(), bytes.end());
         }
-        auto bytes = to_bytes(result);
-        results.insert(results.end(), bytes.begin(), bytes.end());
-    }
-    respond.ok({ .results = std::move(results) });
+        respond.ok({ .results = std::move(results) });
+    });
 }
 
 } // namespace bb::msm_service

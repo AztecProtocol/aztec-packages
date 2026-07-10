@@ -44,6 +44,12 @@ int main(int argc, char* argv[])
     run_command->add_option("--max-clients", max_clients, "Maximum concurrent SHM clients (default: 8)")
         ->check(CLI::PositiveNumber);
 
+    // Each worker pins one GPU context slot (its own resident points copy), so VRAM
+    // usage grows with workers; 4 fits a 2^24 SRS several times over on a 24GB+ card.
+    size_t workers = 4;
+    run_command->add_option("--workers", workers, "Concurrent MSM workers / GPU context slots (default: 4)")
+        ->check(CLI::PositiveNumber);
+
     try {
         app.parse(argc, argv);
     } catch (const CLI::ParseError& e) {
@@ -57,7 +63,7 @@ int main(int argc, char* argv[])
 
     try {
         return bb::msm_service::execute_msm_server(
-            input_path, crs_path, num_points, request_ring_size, response_ring_size, no_gpu, max_clients);
+            input_path, crs_path, num_points, request_ring_size, response_ring_size, no_gpu, max_clients, workers);
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << '\n';
         return 1;
