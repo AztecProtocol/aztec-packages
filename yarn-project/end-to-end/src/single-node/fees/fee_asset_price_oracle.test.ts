@@ -96,35 +96,27 @@ describe('single-node/fees/fee_asset_price_oracle', () => {
     const initialOnChainPrice = await rollup.getEthPerFeeAsset();
     logger.info(`Initial on-chain price: ${initialOnChainPrice}, target oracle price: ${targetOraclePrice}`);
 
-    // REFACTOR: hand-rolled retryUntil polling loop waiting for price convergence; a DSL helper for
-    // "wait until rollup price is within N bps of oracle" would make the intent clearer.
-    await retryUntil(
-      async () => {
-        const currentPrice = await rollup.getEthPerFeeAsset();
-        logger.info(`Current on-chain price: ${currentPrice}, waiting for: ${targetOraclePrice}`);
-        return diffInBps(currentPrice, targetOraclePrice) == 0n;
-      },
-      'price convergence toward oracle',
-      PRICE_CONVERGENCE_TIMEOUT_SECONDS,
-      PRICE_CONVERGENCE_POLL_INTERVAL_SECONDS,
-    );
+    // Polls the rollup's fee-asset price until it converges to within 0 bps of the oracle target.
+    const waitForPriceConvergence = (target: bigint) =>
+      retryUntil(
+        async () => {
+          const currentPrice = await rollup.getEthPerFeeAsset();
+          logger.info(`Current on-chain price: ${currentPrice}, waiting for: ${target}`);
+          return diffInBps(currentPrice, target) == 0n;
+        },
+        'price convergence toward oracle',
+        PRICE_CONVERGENCE_TIMEOUT_SECONDS,
+        PRICE_CONVERGENCE_POLL_INTERVAL_SECONDS,
+      );
+
+    await waitForPriceConvergence(targetOraclePrice);
 
     const priceAfterFirstAlignment = await rollup.getEthPerFeeAsset();
     const targetOraclePrice2 = (BigInt(priceAfterFirstAlignment) * 995n) / 1000n;
     await mockStateView.setEthPerFeeAsset(targetOraclePrice2);
     logger.info(`Set uniswap price to ${targetOraclePrice2}`);
 
-    // REFACTOR: second hand-rolled retryUntil polling loop for price convergence; same as above.
-    await retryUntil(
-      async () => {
-        const currentPrice = await rollup.getEthPerFeeAsset();
-        logger.info(`Current on-chain price: ${currentPrice}, waiting for: ${targetOraclePrice2}`);
-        return diffInBps(currentPrice, targetOraclePrice2) == 0n;
-      },
-      'price convergence toward oracle',
-      PRICE_CONVERGENCE_TIMEOUT_SECONDS,
-      PRICE_CONVERGENCE_POLL_INTERVAL_SECONDS,
-    );
+    await waitForPriceConvergence(targetOraclePrice2);
 
     const finalPrice = await rollup.getEthPerFeeAsset();
     logger.info(`Final on-chain price: ${finalPrice}`);

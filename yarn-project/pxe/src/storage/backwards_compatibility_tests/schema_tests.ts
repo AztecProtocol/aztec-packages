@@ -15,9 +15,10 @@ import { BlockHash, Body, GENESIS_BLOCK_HEADER_HASH, L2Block } from '@aztec/stdl
 import { Checkpoint, L1PublishedData, PublishedCheckpoint } from '@aztec/stdlib/checkpoint';
 import { CompleteAddress, SerializableContractInstance } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
-import { PublicKey, PublicKeys } from '@aztec/stdlib/keys';
+import { PublicKey, PublicKeys, deriveKeys } from '@aztec/stdlib/keys';
 import {
   AppTaggingSecret,
+  AppTaggingSecretKind,
   ContractClassLog,
   ContractClassLogFields,
   PrivateLog,
@@ -255,7 +256,7 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
     name: 'KeyStore',
     writeToStore: async kvStore => {
       const keyStore = new KeyStore(kvStore);
-      await keyStore.addAccount(new Fr(2n), new Fr(3n));
+      await keyStore.addAccount(await deriveKeys(new Fr(2n)), new Fr(3n));
     },
     snapshotStore: async kvStore => ({
       key_store: await snapshotMap(kvStore.openMap<string, Buffer>('key_store')),
@@ -530,10 +531,18 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       const jobId = 'fixture-job';
       const secretA = new AppTaggingSecret(new Fr(2n), AztecAddress.fromBigIntUnsafe(3n));
       const secretB = new AppTaggingSecret(new Fr(5n), AztecAddress.fromBigIntUnsafe(7n));
+      // A constrained secret keys under the `constrained:` prefix, so the snapshot pins both kinds side by side.
+      const secretConstrained = new AppTaggingSecret(
+        new Fr(19n),
+        AztecAddress.fromBigIntUnsafe(23n),
+        AppTaggingSecretKind.CONSTRAINED,
+      );
 
       await recipientTaggingStore.updateHighestFinalizedIndex(secretA, 11, jobId);
       await recipientTaggingStore.updateHighestAgedIndex(secretA, 13, jobId);
       await recipientTaggingStore.updateHighestFinalizedIndex(secretB, 17, jobId);
+      await recipientTaggingStore.updateHighestFinalizedIndex(secretConstrained, 11, jobId);
+      await recipientTaggingStore.updateHighestAgedIndex(secretConstrained, 13, jobId);
       await kvStore.transactionAsync(() => recipientTaggingStore.commit(jobId));
     },
     snapshotStore: async kvStore => ({
@@ -553,20 +562,25 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
 
       await taggingSecretSourcesStore.addSharedSecret(
         AztecAddress.fromBigIntUnsafe(7n),
+        'arbitrary-secret',
         new Point(new Fr(2n), new Fr(3n)),
       );
       await taggingSecretSourcesStore.addSharedSecret(
         AztecAddress.fromBigIntUnsafe(7n),
+        'handshake',
         new Point(new Fr(5n), new Fr(7n)),
       );
       await taggingSecretSourcesStore.addSharedSecret(
         AztecAddress.fromBigIntUnsafe(11n),
+        'arbitrary-secret',
         new Point(new Fr(13n), new Fr(17n)),
       );
     },
     snapshotStore: async kvStore => ({
       senders: await snapshotMap(kvStore.openMap<string, true>('senders')),
-      recipient_shared_secrets: await snapshotMap(kvStore.openMultiMap<string, string>('recipient_shared_secrets')),
+      recipient_shared_secrets: await snapshotMap(
+        kvStore.openMultiMap<string, { kind: string; secret: string }>('recipient_shared_secrets'),
+      ),
     }),
   },
 
@@ -579,10 +593,17 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
       const secretA = new AppTaggingSecret(new Fr(2n), AztecAddress.fromBigIntUnsafe(3n));
       const secretB = new AppTaggingSecret(new Fr(5n), AztecAddress.fromBigIntUnsafe(7n));
       const secretC = new AppTaggingSecret(new Fr(11n), AztecAddress.fromBigIntUnsafe(13n));
+      const secretConstrained = new AppTaggingSecret(
+        new Fr(19n),
+        AztecAddress.fromBigIntUnsafe(23n),
+        AppTaggingSecretKind.CONSTRAINED,
+      );
       const txHashA = TxHash.fromBigInt(17n);
       const txHashB = TxHash.fromBigInt(19n);
       const txHashC = TxHash.fromBigInt(23n);
       const txHashD = TxHash.fromBigInt(29n);
+      const txHashE = TxHash.fromBigInt(31n);
+      const txHashF = TxHash.fromBigInt(37n);
 
       // secretA receives three pending ranges (one per tx); secretB receives one. After finalizing txHashA below,
       // secretA's array shrinks to two elements (the txHashB and txHashC ranges, both with highestIndex > 3) which
@@ -621,7 +642,20 @@ export const SCHEMA_TESTS: readonly SchemaTest[] = [
         jobId,
       );
 
-      await senderTaggingStore.finalizePendingIndexes([txHashA], jobId);
+      // secretConstrained gets a finalized range (txHashE) plus a surviving higher pending range (txHashF), so the
+      // `constrained:` key lands in both pending_indexes and last_finalized_indexes.
+      await senderTaggingStore.storePendingIndexes(
+        [{ extendedSecret: secretConstrained, lowestIndex: 1, highestIndex: 3 }],
+        txHashE,
+        jobId,
+      );
+      await senderTaggingStore.storePendingIndexes(
+        [{ extendedSecret: secretConstrained, lowestIndex: 4, highestIndex: 7 }],
+        txHashF,
+        jobId,
+      );
+
+      await senderTaggingStore.finalizePendingIndexes([txHashA, txHashE], jobId);
 
       await kvStore.transactionAsync(() => senderTaggingStore.commit(jobId));
     },

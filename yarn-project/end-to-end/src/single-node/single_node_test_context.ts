@@ -9,6 +9,7 @@ import { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { MerkleTreeId } from '@aztec/aztec.js/trees';
 import type { Wallet } from '@aztec/aztec.js/wallet';
+import type { CheatCodes } from '@aztec/aztec/testing';
 import { EpochCache } from '@aztec/epoch-cache';
 import { createExtendedL1Client } from '@aztec/ethereum/client';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum/config';
@@ -46,6 +47,7 @@ import {
   SCHNORR_HARDCODED_PRIVATE_KEY,
   SchnorrHardcodedKeyAccountContract,
 } from '../fixtures/schnorr_hardcoded_account_contract.js';
+import { testSpan } from '../fixtures/timing.js';
 import {
   type EndToEndContext,
   type SetupOptions,
@@ -58,7 +60,14 @@ import type { TestWallet } from '../test-wallet/test_wallet.js';
 export const WORLD_STATE_CHECKPOINT_HISTORY = 2;
 export const WORLD_STATE_BLOCK_CHECK_INTERVAL = 50;
 export const ARCHIVER_POLL_INTERVAL = 50;
-export const DEFAULT_L1_BLOCK_TIME = process.env.CI ? 12 : 8;
+/**
+ * Default L1 (ethereum) slot duration in seconds for single-node e2e tests. Kept at 8s, the fast-profile
+ * boundary (`FAST_PROFILE_ETHEREUM_SLOT_DURATION`): at 8s the proposer still uses the production operational
+ * budgets (fast-profile clamping only kicks in strictly below 8s), so the default single-node L2 slot is
+ * `2 x 8 = 16s`. CI previously ran at 12s (24s L2 slots); unifying it with the local value removes a
+ * CI-vs-local cadence asymmetry and cuts every default-cadence single-node suite by a third.
+ */
+export const DEFAULT_L1_BLOCK_TIME = 8;
 
 export type SingleNodeTestOpts = Partial<SetupOptions> & {
   numberOfAccounts?: number;
@@ -85,15 +94,18 @@ export type TrackedSequencerEvent = {
 export type BlockProposedEvent = { blockNumber: BlockNumber; slot: SlotNumber; buildSlot: SlotNumber };
 
 /**
- * The 36s-slot reorg cadence shared by every reorg/prune/HA test, regardless of single-node vs
- * multi-validator topology: a 36s L2 slot, 8s blocks, and a 4-slot epoch. The two concrete reorg
+ * The 24s-slot reorg cadence shared by every reorg/prune/HA test, regardless of single-node vs
+ * multi-validator topology: a 24s L2 slot, 5s blocks, and a 4-slot epoch. The 5s block duration is chosen
+ * so the fast-profile budgets both reorg profiles run under (eth < 8s: p2p 0.5s, prepare 0.5s, init 1s)
+ * still fit ~3 full block sub-slots per checkpoint — `floor((24 - 1 - 5 - 2*0.5 - 0.5) / 5) = 3` — which
+ * the l1-reorgs suites' `assertMultipleBlocksPerSlot(2)` assertions require. The two concrete reorg
  * profiles ({@link FAST_REORG_TIMING}, {@link MULTI_VALIDATOR_REORG_TIMING}) extend this with their topology's L1
  * slot duration and any extra knobs. Kept timing-only — `maxSpeedUpAttempts`, `cancelTxOnTimeout`, and
  * `aztecProofSubmissionEpochs` encode per-test scenario intent and stay explicit at the call site.
  */
 export const REORG_TIMING_BASE = {
-  aztecSlotDuration: 36,
-  blockDurationMs: 8000,
+  aztecSlotDuration: 24,
+  blockDurationMs: 5000,
   aztecEpochDuration: 4,
 } as const;
 
@@ -113,7 +125,7 @@ export const FAST_REORG_TIMING = {
 } as const;
 
 /**
- * Timing-only profile naming the 36s/6s reorg-and-prune cadence copied verbatim across the
+ * Timing-only profile naming the 24s/6s reorg-and-prune cadence copied verbatim across the
  * multi-validator recovery and high-availability tests (`recovery/proposal_failure_recovery`,
  * `recovery/equivocation_recovery`, `high-availability/ha_sync`,
  * `high-availability/ha_checkpoint_handoff`). The multi-validator analogue of
@@ -128,17 +140,20 @@ export const MULTI_VALIDATOR_REORG_TIMING = {
 } as const;
 
 /**
- * Timing-only profile naming the 36s/12s multi-validator block-production cadence copied across
- * `block-production/` (`simple`, `high_tps`, `first_slot`, and `proof_boundary`). Uses
- * `aztecSlotDurationInL1Slots: 3` rather than an explicit `aztecSlotDuration: 36` so the L2 slot stays
- * coupled to `ethereumSlotDuration` if a test overrides eth. Deliberately omits
- * `attestationPropagationTime` (per-scenario: default 2, 0.5, or 1) — set it per test. Spread BEFORE
- * per-test overrides.
+ * Timing-only profile naming the 24s/12s multi-validator block-production cadence copied across
+ * `block-production/` (`simple`, `first_slot`, and `proof_boundary`). Uses `aztecSlotDurationInL1Slots: 2`
+ * rather than an explicit `aztecSlotDuration: 24` so the L2 slot stays coupled to `ethereumSlotDuration`
+ * if a test overrides eth. The 4s block duration keeps enough full block sub-slots per checkpoint under
+ * the production budgets these eth=12 tests run with (init 1s, prepare 1s, min-block 2s, p2p =
+ * attestationPropagationTime): `floor((24 - 1 - 4 - 2P - 1) / 4)` = 4 blocks at P<=1, 3 blocks at P=2
+ * (the default). Deliberately omits `attestationPropagationTime` (per-scenario: default 2, 0.5, or 1) —
+ * set it per test. `high_tps` pins the old 36s/6s cadence at its own call site because its 2-txs-x-2.5s
+ * per-block budget does not fit a 4s block. Spread BEFORE per-test overrides.
  */
 export const MULTI_VALIDATOR_BLOCK_PRODUCTION_TIMING = {
   ethereumSlotDuration: 12,
-  aztecSlotDurationInL1Slots: 3,
-  blockDurationMs: 6000,
+  aztecSlotDurationInL1Slots: 2,
+  blockDurationMs: 4000,
 } as const;
 
 /**
@@ -361,30 +376,34 @@ export class SingleNodeTestContext {
     const proverNodePrivateKey = this.getNextPrivateKey();
     const proverIndex = this.proverNodes.length + 1;
     const { mockGossipSubNetwork } = this.context;
-    const { proverNode } = await withLoggerBindings({ actor: `prover-${proverIndex}` }, () =>
-      createAndSyncProverNode(
-        proverNodePrivateKey,
-        {
-          ...this.context.config,
-          p2pEnabled: this.context.config.p2pEnabled || mockGossipSubNetwork !== undefined,
-          proverId: EthAddress.fromNumber(proverIndex),
-          dontStart: opts.dontStart,
-          ...opts,
-        },
-        {
-          dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
-        },
-        {
-          dateProvider: this.context.dateProvider,
-          p2pClientDeps: {
-            p2pServiceFactory: mockGossipSubNetwork ? getMockPubSubP2PServiceFactory(mockGossipSubNetwork) : undefined,
-            rpcTxProviders: [this.context.aztecNode],
+    const { proverNode } = await testSpan('setup:node', () =>
+      withLoggerBindings({ actor: `prover-${proverIndex}` }, () =>
+        createAndSyncProverNode(
+          proverNodePrivateKey,
+          {
+            ...this.context.config,
+            p2pEnabled: this.context.config.p2pEnabled || mockGossipSubNetwork !== undefined,
+            proverId: EthAddress.fromNumber(proverIndex),
+            dontStart: opts.dontStart,
+            ...opts,
           },
-        },
-        {
-          genesis: this.context.genesis,
-          dontStart: opts.dontStart,
-        },
+          {
+            dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
+          },
+          {
+            dateProvider: this.context.dateProvider,
+            p2pClientDeps: {
+              p2pServiceFactory: mockGossipSubNetwork
+                ? getMockPubSubP2PServiceFactory(mockGossipSubNetwork)
+                : undefined,
+              rpcTxProviders: [this.context.aztecNode],
+            },
+          },
+          {
+            genesis: this.context.genesis,
+            dontStart: opts.dontStart,
+          },
+        ),
       ),
     );
     this.proverNodes.push(proverNode);
@@ -408,27 +427,31 @@ export class SingleNodeTestContext {
     const resolvedConfig = { ...this.context.config, ...opts };
     const p2pEnabled = resolvedConfig.p2pEnabled || mockGossipSubNetwork !== undefined;
     const p2pIp = resolvedConfig.p2pIp ?? (p2pEnabled ? '127.0.0.1' : undefined);
-    const node = await withLoggerBindings({ actor: `${actorPrefix}-${nodeIndex}` }, () =>
-      createAztecNodeService(
-        {
-          ...resolvedConfig,
-          dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
-          validatorPrivateKeys: opts.validatorPrivateKeys ?? new SecretValue([]),
-          nodeId: resolvedConfig.nodeId || `${actorPrefix}-${nodeIndex}`,
-          p2pEnabled,
-          p2pIp,
-        },
-        {
-          dateProvider: this.context.dateProvider,
-          p2pClientDeps: {
-            p2pServiceFactory: mockGossipSubNetwork ? getMockPubSubP2PServiceFactory(mockGossipSubNetwork) : undefined,
+    const node = await testSpan('setup:node', () =>
+      withLoggerBindings({ actor: `${actorPrefix}-${nodeIndex}` }, () =>
+        createAztecNodeService(
+          {
+            ...resolvedConfig,
+            dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
+            validatorPrivateKeys: opts.validatorPrivateKeys ?? new SecretValue([]),
+            nodeId: resolvedConfig.nodeId || `${actorPrefix}-${nodeIndex}`,
+            p2pEnabled,
+            p2pIp,
           },
-          slashingProtectionDb: opts.slashingProtectionDb,
-        },
-        {
-          genesis: this.context.genesis,
-          ...opts,
-        },
+          {
+            dateProvider: this.context.dateProvider,
+            p2pClientDeps: {
+              p2pServiceFactory: mockGossipSubNetwork
+                ? getMockPubSubP2PServiceFactory(mockGossipSubNetwork)
+                : undefined,
+            },
+            slashingProtectionDb: opts.slashingProtectionDb,
+          },
+          {
+            genesis: this.context.genesis,
+            ...opts,
+          },
+        ),
       ),
     );
 
@@ -448,11 +471,13 @@ export class SingleNodeTestContext {
     // Cover at least two full epochs of wall time so callers issuing the wait mid-epoch
     // still have headroom — the prior `30 * epochDuration` mixed units (slots vs seconds)
     // and timed out at 120s for configs whose epoch wall time is 144s+.
-    await waitUntilL1Timestamp(
-      this.l1Client,
-      start - BigInt(this.L1_BLOCK_TIME_IN_S),
-      undefined,
-      2 * this.epochDuration * this.L2_SLOT_DURATION_IN_S,
+    await testSpan('wait:epoch', () =>
+      waitUntilL1Timestamp(
+        this.l1Client,
+        start - BigInt(this.L1_BLOCK_TIME_IN_S),
+        undefined,
+        2 * this.epochDuration * this.L2_SLOT_DURATION_IN_S,
+      ),
     );
     return start;
   }
@@ -482,23 +507,74 @@ export class SingleNodeTestContext {
     return target;
   }
 
+  /**
+   * Warps the L1 clock to within `leadSlots` slots of the start of `epoch`, then waits for that boundary in
+   * wall-clock, skipping the dead stretch where the chain just advances one L1 block per slot until an epoch
+   * ends. Anything the post-warp assertions depend on must already be produced before calling this — warping
+   * the tail away does not change what gets proven, and the shared `TestDateProvider` moves the
+   * prover/node/sequencer clocks together so the epoch finalizes right after the warp. The `leadSlots` tail
+   * (default 2) is left in real time so the sequencer can publish the epoch's final checkpoint before the
+   * boundary, and so any post-warp sampler observes an in-epoch slot rather than the epoch's last slot.
+   * Forward-only, so a no-op when already within `leadSlots` of the boundary.
+   */
+  public async warpToEpochStart(epoch: number, opts: { leadSlots?: number } = {}): Promise<bigint> {
+    const leadSlots = opts.leadSlots ?? 2;
+    const [targetTs] = getTimestampRangeForEpoch(EpochNumber(epoch), this.constants);
+    const safeTs = targetTs - BigInt(leadSlots * this.L2_SLOT_DURATION_IN_S);
+    const currentTs = BigInt(await this.context.cheatCodes.eth.lastBlockTimestamp());
+    if (currentTs < safeTs) {
+      this.logger.info(`Warping L1 from ${currentTs} to ${safeTs} (${leadSlots} slots before epoch ${epoch})`);
+      await this.context.cheatCodes.eth.warp(Number(safeTs), { resetBlockInterval: true });
+    }
+    return this.waitUntilEpochStarts(epoch);
+  }
+
+  /**
+   * Most of a proof-submission window is dead wall-clock time, so warp the L1 clock forward to `leadSlots`
+   * (default 2) L2 slots before the window's last slot. A subsequent
+   * {@link waitUntilLastSlotOfProofSubmissionWindow} then only sleeps out the few remaining real slots,
+   * leaving enough real time for any in-flight proving, pruning, and recovery to happen organically. Only
+   * warps forward, so it is a no-op when the chain is already within `leadSlots`+1 slots of the window end.
+   */
+  public async warpNearSubmissionWindowEnd(epoch: number, opts: { leadSlots?: number } = {}): Promise<void> {
+    const leadSlots = opts.leadSlots ?? 2;
+    const { slotDuration } = this.constants;
+    const deadline = getProofSubmissionDeadlineTimestamp(EpochNumber(epoch), this.constants);
+    // Mirror waitUntilLastSlotOfProofSubmissionWindow's target (one slot before the deadline).
+    const lastSlotTs = deadline - BigInt(slotDuration);
+    const target = lastSlotTs - BigInt(leadSlots * slotDuration);
+    const currentTs = BigInt(await this.context.cheatCodes.eth.lastBlockTimestamp());
+    if (currentTs < target) {
+      this.logger.warn(`Warping L1 to ${leadSlots} slots before end of epoch ${epoch} submission window`, {
+        currentTs,
+        target,
+        epoch,
+      });
+      await this.context.cheatCodes.eth.warp(Number(target), { resetBlockInterval: true });
+    }
+  }
+
   /** Waits until the given checkpoint number is mined. */
   public async waitUntilCheckpointNumber(target: CheckpointNumber, timeout = 120) {
-    await retryUntil(
-      () => Promise.resolve(target <= this.monitor.checkpointNumber),
-      `Wait until checkpoint ${target}`,
-      timeout,
-      0.1,
+    await testSpan('wait:checkpoint', () =>
+      retryUntil(
+        () => Promise.resolve(target <= this.monitor.checkpointNumber),
+        `Wait until checkpoint ${target}`,
+        timeout,
+        0.1,
+      ),
     );
   }
 
   /** Waits until the given checkpoint number is marked as proven. */
   public async waitUntilProvenCheckpointNumber(target: CheckpointNumber, timeout = 120) {
-    await retryUntil(
-      () => Promise.resolve(target <= this.monitor.provenCheckpointNumber),
-      `Wait proven checkpoint ${target}`,
-      timeout,
-      0.1,
+    await testSpan('wait:proven-checkpoint', () =>
+      retryUntil(
+        () => Promise.resolve(target <= this.monitor.provenCheckpointNumber),
+        `Wait proven checkpoint ${target}`,
+        timeout,
+        0.1,
+      ),
     );
     return this.monitor.provenCheckpointNumber;
   }
@@ -514,7 +590,9 @@ export class SingleNodeTestContext {
     // Use a timeout that accounts for the full proof submission window
     const proofSubmissionWindowDuration =
       this.constants.proofSubmissionEpochs * this.epochDuration * this.L2_SLOT_DURATION_IN_S;
-    await waitUntilL1Timestamp(this.l1Client, oneSlotBefore, undefined, proofSubmissionWindowDuration * 2);
+    await testSpan('wait:proof-window', () =>
+      waitUntilL1Timestamp(this.l1Client, oneSlotBefore, undefined, proofSubmissionWindowDuration * 2),
+    );
   }
 
   /**
@@ -552,29 +630,31 @@ export class SingleNodeTestContext {
     const target = this.buildWindowTimestampForSlot(slot, { lead: opts.lead });
     const timeout = opts.timeout ?? this.L2_SLOT_DURATION_IN_S * 3;
     this.logger.info(`Waiting until L1 reaches build window of slot ${slot}`, { slot, target });
-    await waitUntilL1Timestamp(this.l1Client, target, undefined, timeout);
+    await testSpan('wait:slot', () => waitUntilL1Timestamp(this.l1Client, target, undefined, timeout));
     return slot;
   }
 
   /** Waits for the aztec node to sync to the target block number. */
   public async waitForNodeToSync(blockNumber: BlockNumber, type: 'proven' | 'finalized' | 'historic') {
     const waitTime = ARCHIVER_POLL_INTERVAL + WORLD_STATE_BLOCK_CHECK_INTERVAL;
-    let synched = false;
-    while (!synched) {
-      await sleep(waitTime);
-      const [syncState, tips] = await Promise.all([
-        this.context.aztecNode.getWorldStateSyncStatus(),
-        await this.context.aztecNode.getChainTips(),
-      ]);
-      this.logger.info(`Wait for node synch ${blockNumber} ${type}`, { blockNumber, type, syncState, tips });
-      if (type === 'proven') {
-        synched = tips.proven.block.number >= blockNumber && syncState.latestBlockNumber >= blockNumber;
-      } else if (type === 'finalized') {
-        synched = syncState.finalizedBlockNumber >= blockNumber;
-      } else {
-        synched = syncState.oldestHistoricBlockNumber >= blockNumber;
+    await testSpan('wait:node-sync', async () => {
+      let synched = false;
+      while (!synched) {
+        await sleep(waitTime);
+        const [syncState, tips] = await Promise.all([
+          this.context.aztecNode.getWorldStateSyncStatus(),
+          await this.context.aztecNode.getChainTips(),
+        ]);
+        this.logger.info(`Wait for node synch ${blockNumber} ${type}`, { blockNumber, type, syncState, tips });
+        if (type === 'proven') {
+          synched = tips.proven.block.number >= blockNumber && syncState.latestBlockNumber >= blockNumber;
+        } else if (type === 'finalized') {
+          synched = syncState.finalizedBlockNumber >= blockNumber;
+        } else {
+          synched = syncState.oldestHistoricBlockNumber >= blockNumber;
+        }
       }
-    }
+    });
   }
 
   /**
@@ -588,16 +668,18 @@ export class SingleNodeTestContext {
     opts: { timeout?: number } = {},
   ): Promise<void> {
     const proverIds = this.proverNodes.map(node => node.getProverNode()!.getProverId());
-    await retryUntil(
-      async () => {
-        const haveSubmitted = await Promise.all(
-          proverIds.map(proverId => this.rollup.getHasSubmittedProof(epoch, epochLength, proverId)),
-        );
-        this.logger.info(`Proof submissions: ${haveSubmitted.join(', ')}`);
-        return haveSubmitted.every(submitted => submitted);
-      },
-      'Provers have submitted proofs',
-      opts.timeout ?? 120,
+    await testSpan('wait:proof-submitted', () =>
+      retryUntil(
+        async () => {
+          const haveSubmitted = await Promise.all(
+            proverIds.map(proverId => this.rollup.getHasSubmittedProof(epoch, epochLength, proverId)),
+          );
+          this.logger.info(`Proof submissions: ${haveSubmitted.join(', ')}`);
+          return haveSubmitted.every(submitted => submitted);
+        },
+        'Provers have submitted proofs',
+        opts.timeout ?? 120,
+      ),
     );
   }
 
@@ -864,20 +946,24 @@ export class SingleNodeTestContext {
     opts: { timeout?: number } = {},
   ): Promise<Parameters<SequencerEvents[E]>[0]> {
     const timeout = opts.timeout ?? 60_000;
-    return executeTimeout(
-      signal =>
-        new Promise<Parameters<SequencerEvents[E]>[0]>(resolve => {
-          const listener = (args: Parameters<SequencerEvents[E]>[0]) => {
-            if (match(args)) {
-              sequencer.off(event, listener as SequencerEvents[E]);
-              resolve(args);
-            }
-          };
-          signal.addEventListener('abort', () => sequencer.off(event, listener as SequencerEvents[E]), { once: true });
-          sequencer.on(event, listener as SequencerEvents[E]);
-        }),
-      timeout,
-      `wait for sequencer event ${String(event)}`,
+    return testSpan('wait:sequencer-state', () =>
+      executeTimeout(
+        signal =>
+          new Promise<Parameters<SequencerEvents[E]>[0]>(resolve => {
+            const listener = (args: Parameters<SequencerEvents[E]>[0]) => {
+              if (match(args)) {
+                sequencer.off(event, listener as SequencerEvents[E]);
+                resolve(args);
+              }
+            };
+            signal.addEventListener('abort', () => sequencer.off(event, listener as SequencerEvents[E]), {
+              once: true,
+            });
+            sequencer.on(event, listener as SequencerEvents[E]);
+          }),
+        timeout,
+        `wait for sequencer event ${String(event)}`,
+      ),
     );
   }
 
@@ -918,5 +1004,51 @@ export class SingleNodeTestContext {
       this.logger.error(`Failed events from sequencers`, failEvents);
     }
     expect(failEvents).toEqual([]);
+  }
+
+  /**
+   * Warps the L1 clock to `target` with every given node's sequencer paused, then resumes them
+   * (pass `restart: false` to leave them paused, e.g. until some clock-driven effect is confirmed).
+   *
+   * Warping the shared date provider under live sequencers interrupts whatever iteration is mid-build,
+   * producing spurious `block-build-failed` / `checkpoint-error` events and dropped checkpoints. The
+   * sequencers are therefore paused first: the poll loop halts and the in-flight iteration, its pending L1
+   * submission, and any pending fallback vote all finish untouched before the warp, so nothing fires with a
+   * stale slot afterwards. Pausing leaves the validator clients (and their slashing-protection stores) and
+   * publishers running, so a later {@link SequencerClient.start} cleanly resumes; archivers, provers, and
+   * the chain monitor keep running throughout, so clock-driven effects of the warp (e.g. an orphan-block
+   * prune) still fire.
+   *
+   * The warp is performed here (rather than via a caller-supplied callback) so it happens only after the
+   * pause has drained. Draining can take several slots, so a `target` computed before the pause may already
+   * lie in the past by the time the sequencers are down. The warp is therefore skipped when the L1 clock has
+   * already reached or passed `target` — `evm_setNextBlockTimestamp` rejects a non-advancing timestamp, so
+   * warping there would throw "timestamp in the past".
+   */
+  public async warpWithSequencersPaused(
+    nodes: AztecNodeService[],
+    cheatCodes: CheatCodes,
+    target: bigint,
+    opts: { restart?: boolean } = {},
+  ): Promise<void> {
+    const sequencers = this.getSequencers(nodes);
+    await testSpan('warp:sequencers-paused', async () => {
+      this.logger.warn(`Pausing ${sequencers.length} sequencers before warp`);
+      await Promise.all(sequencers.map(sequencer => sequencer.pause()));
+      const currentTs = BigInt(await cheatCodes.eth.lastBlockTimestamp());
+      if (currentTs < target) {
+        this.logger.warn(`Warping L1 to ${target} with all sequencers paused`, { currentTs, target });
+        await cheatCodes.eth.warp(Number(target), { resetBlockInterval: true });
+      } else {
+        this.logger.verbose(`Skipping warp: L1 clock ${currentTs} already at or past target ${target}`, {
+          currentTs,
+          target,
+        });
+      }
+      if (opts.restart ?? true) {
+        this.logger.warn(`Resuming ${sequencers.length} sequencers after warp`);
+        await Promise.all(sequencers.map(sequencer => sequencer.start()));
+      }
+    });
   }
 }

@@ -38,7 +38,7 @@ const { signer, db } = await createHASigner({
   databaseUrl: process.env.DATABASE_URL,
   nodeId: 'validator-node-1',
   pollingIntervalMs: 100,
-  signingTimeoutMs: 3000,
+  peerSigningTimeoutMs: 3000,
 });
 
 // Start background cleanup tasks
@@ -82,7 +82,7 @@ await db.initialize();
 const signer = new ValidatorHASigner(db, {
   nodeId: 'validator-node-1',
   pollingIntervalMs: 100,
-  signingTimeoutMs: 3000,
+  peerSigningTimeoutMs: 3000,
   maxStuckDutiesAgeMs: 144000,
 });
 

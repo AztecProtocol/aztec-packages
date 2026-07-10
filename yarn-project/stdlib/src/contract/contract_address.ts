@@ -6,7 +6,7 @@ import { type FunctionAbi, FunctionSelector, encodeArguments } from '../abi/inde
 import type { AztecAddress } from '../aztec-address/index.js';
 import { computeVarArgsHash } from '../hash/hash.js';
 import { computeAddress } from '../keys/index.js';
-import type { ContractInstance } from './interfaces/contract_instance.js';
+import type { ContractInstance, ContractInstancePreimage } from './interfaces/contract_instance.js';
 import type { PartialAddress } from './partial_address.js';
 
 // TODO(@spalladino): Review all generator indices in this file
@@ -22,7 +22,7 @@ import type { PartialAddress } from './partial_address.js';
  */
 export async function computeContractAddressFromInstance(
   instance:
-    | ContractInstance
+    | ContractInstancePreimage
     | ({ originalContractClassId: Fr; saltedInitializationHash: Fr } & Pick<ContractInstance, 'publicKeys'>),
 ): Promise<AztecAddress> {
   const partialAddress = await computePartialAddress(instance);

@@ -11,8 +11,6 @@ import { CheatCodes } from '@aztec/aztec/testing';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber, EpochNumber } from '@aztec/foundation/branded-types';
 import { times, unique } from '@aztec/foundation/collection';
-import { retryUntil } from '@aztec/foundation/retry';
-import { sleep } from '@aztec/foundation/sleep';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { StatefulTestContract } from '@aztec/noir-test-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
@@ -28,6 +26,13 @@ import { jest } from '@jest/globals';
 import 'jest-extended';
 
 import { DUPLICATE_NULLIFIER_ERROR, PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
+import {
+  waitForBlockNumber,
+  waitForProvenBlock,
+  waitForTxReceipt,
+  waitForTxStatus,
+  waitForTxs,
+} from '../../fixtures/wait_helpers.js';
 import { TestWallet } from '../../test-wallet/test_wallet.js';
 import { proveInteraction } from '../../test-wallet/utils.js';
 import { setupBlockProducer } from '../setup.js';
@@ -147,7 +152,7 @@ describe('single-node/block-building/block_building', () => {
       });
 
       // Await txs to be mined and assert they are mined across multiple different blocks.
-      const receipts = await Promise.all(txHashes.map(txHash => waitForTx(aztecNode, txHash)));
+      const receipts = await waitForTxs(aztecNode, txHashes);
       const blockNumbers = receipts.map(r => r.blockNumber!).sort((a, b) => a - b);
       logger.info(`Txs mined on blocks: ${unique(blockNumbers)}`);
       // Spread must be at least 1 — i.e. txs are split across at least 2 distinct blocks. This fails
@@ -197,7 +202,7 @@ describe('single-node/block-building/block_building', () => {
       }
 
       // Await txs to be mined and assert they are all mined on the same block
-      const receipts = await Promise.all(txHashes.map(txHash => waitForTx(aztecNode, txHash)));
+      const receipts = await waitForTxs(aztecNode, txHashes);
       expect(receipts.map(r => r.blockNumber)).toEqual(times(TX_COUNT, () => receipts[0].blockNumber));
 
       // Assert all contracts got initialized
@@ -232,7 +237,7 @@ describe('single-node/block-building/block_building', () => {
       }
 
       // Await txs to be mined and assert they are all mined on the same block
-      const receipts = await Promise.all(txHashes.map(txHash => waitForTx(aztecNode, txHash)));
+      const receipts = await waitForTxs(aztecNode, txHashes);
       expect(receipts.map(r => r.blockNumber)).toEqual(times(TX_COUNT, () => receipts[0].blockNumber));
     });
 
@@ -331,122 +336,60 @@ describe('single-node/block-building/block_building', () => {
 
     afterAll(() => test.teardown());
 
-    // Regressions for https://github.com/AztecProtocol/aztec-packages/issues/2502
-    // Note that the order in which the TX are processed is not guaranteed.
-    // Both txs race to the same block; exactly one succeeds and the other fails.
-    describe('in the same block, different tx', () => {
-      // Sends two private emit_nullifier txs with the same nullifier simultaneously;
-      // asserts one succeeds and one rejects with DUPLICATE_NULLIFIER_ERROR.
-      it('private <-> private', async () => {
+    // Regressions for https://github.com/AztecProtocol/aztec-packages/issues/2502.
+    // Note that the order in which the TXs are processed is not guaranteed.
+    type NullifierKind = 'private' | 'public';
+    const emitNullifier = (kind: NullifierKind, nullifier: Fr) =>
+      kind === 'private'
+        ? contract.methods.emit_nullifier(nullifier)
+        : contract.methods.emit_nullifier_public(nullifier);
+
+    // Each row double-spends the same nullifier across the two named emission surfaces. Same-block races
+    // (both txs sent simultaneously) admit one tx and reject the loser at block building. Across-block
+    // cases send sequentially: a private second tx is caught at simulation (TX_ERROR_EXISTING_NULLIFIER),
+    // a public second tx is caught by the sequencer (DUPLICATE_NULLIFIER_ERROR).
+    const doubleSpendCases: {
+      firstKind: NullifierKind;
+      secondKind: NullifierKind;
+      sameBlock: boolean;
+      expectedError: string | RegExp;
+    }[] = [
+      { firstKind: 'private', secondKind: 'private', sameBlock: true, expectedError: DUPLICATE_NULLIFIER_ERROR },
+      { firstKind: 'public', secondKind: 'public', sameBlock: true, expectedError: DUPLICATE_NULLIFIER_ERROR },
+      { firstKind: 'private', secondKind: 'public', sameBlock: true, expectedError: DUPLICATE_NULLIFIER_ERROR },
+      { firstKind: 'public', secondKind: 'private', sameBlock: true, expectedError: DUPLICATE_NULLIFIER_ERROR },
+      { firstKind: 'private', secondKind: 'private', sameBlock: false, expectedError: TX_ERROR_EXISTING_NULLIFIER },
+      { firstKind: 'public', secondKind: 'public', sameBlock: false, expectedError: DUPLICATE_NULLIFIER_ERROR },
+      { firstKind: 'private', secondKind: 'public', sameBlock: false, expectedError: DUPLICATE_NULLIFIER_ERROR },
+      { firstKind: 'public', secondKind: 'private', sameBlock: false, expectedError: TX_ERROR_EXISTING_NULLIFIER },
+    ];
+
+    it.each(doubleSpendCases)(
+      'rejects a $firstKind then $secondKind double-spend (sameBlock=$sameBlock)',
+      async ({ firstKind, secondKind, sameBlock, expectedError }) => {
         const nullifier = Fr.random();
-        const txs = await sendAndWait(
-          [contract.methods.emit_nullifier(nullifier), contract.methods.emit_nullifier(nullifier)],
-          ownerAddress,
-        );
+        if (sameBlock) {
+          const txs = await sendAndWait(
+            [emitNullifier(firstKind, nullifier), emitNullifier(secondKind, nullifier)],
+            ownerAddress,
+          );
 
-        // One transaction should succeed, the other should fail, but in any order.
-        expect(txs).toIncludeSameMembers([
-          { status: 'fulfilled', value: expect.anything() },
-          {
-            status: 'rejected',
-            reason: expect.objectContaining({ message: expect.stringMatching(DUPLICATE_NULLIFIER_ERROR) }),
-          },
-        ]);
-      });
-
-      // Same as private<->private but both txs use public nullifier emission.
-      it('public -> public', async () => {
-        const nullifier = Fr.random();
-        const txs = await sendAndWait(
-          [contract.methods.emit_nullifier_public(nullifier), contract.methods.emit_nullifier_public(nullifier)],
-          ownerAddress,
-        );
-
-        // One transaction should succeed, the other should fail, but in any order.
-        expect(txs).toIncludeSameMembers([
-          { status: 'fulfilled', value: expect.anything() },
-          {
-            status: 'rejected',
-            reason: expect.objectContaining({ message: expect.stringMatching(DUPLICATE_NULLIFIER_ERROR) }),
-          },
-        ]);
-      });
-
-      // One private and one public tx emit the same nullifier simultaneously; one must fail.
-      it('private -> public', async () => {
-        const nullifier = Fr.random();
-        const txs = await sendAndWait(
-          [contract.methods.emit_nullifier(nullifier), contract.methods.emit_nullifier_public(nullifier)],
-          ownerAddress,
-        );
-
-        // One transaction should succeed, the other should fail, but in any order.
-        expect(txs).toIncludeSameMembers([
-          { status: 'fulfilled', value: expect.anything() },
-          {
-            status: 'rejected',
-            reason: expect.objectContaining({ message: expect.stringMatching(DUPLICATE_NULLIFIER_ERROR) }),
-          },
-        ]);
-      });
-
-      // One public and one private tx emit the same nullifier simultaneously; one must fail.
-      it('public -> private', async () => {
-        const nullifier = Fr.random();
-        const txs = await sendAndWait(
-          [contract.methods.emit_nullifier_public(nullifier), contract.methods.emit_nullifier(nullifier)],
-          ownerAddress,
-        );
-
-        // One transaction should succeed, the other should fail, but in any order.
-        expect(txs).toIncludeSameMembers([
-          { status: 'fulfilled', value: expect.anything() },
-          {
-            status: 'rejected',
-            reason: expect.objectContaining({ message: expect.stringMatching(DUPLICATE_NULLIFIER_ERROR) }),
-          },
-        ]);
-      });
-    });
-
-    // Double-spend rejection when the second tx arrives in a later block (nullifier already in the tree).
-    describe('across blocks', () => {
-      // Emits a private nullifier, then tries to emit the same in a subsequent tx and expects rejection.
-      it('private -> private', async () => {
-        const nullifier = Fr.random();
-        await contract.methods.emit_nullifier(nullifier).send({ from: ownerAddress });
-        await expect(contract.methods.emit_nullifier(nullifier).send({ from: ownerAddress })).rejects.toThrow(
-          TX_ERROR_EXISTING_NULLIFIER,
-        );
-      });
-
-      // Emits a public nullifier, then tries again in a subsequent tx and expects rejection.
-      it('public -> public', async () => {
-        const nullifier = Fr.random();
-        await contract.methods.emit_nullifier_public(nullifier).send({ from: ownerAddress });
-        await expect(contract.methods.emit_nullifier_public(nullifier).send({ from: ownerAddress })).rejects.toThrow(
-          DUPLICATE_NULLIFIER_ERROR,
-        );
-      });
-
-      // Emits via private then tries public with the same nullifier in a later block; expects rejection.
-      it('private -> public', async () => {
-        const nullifier = Fr.random();
-        await contract.methods.emit_nullifier(nullifier).send({ from: ownerAddress });
-        await expect(contract.methods.emit_nullifier_public(nullifier).send({ from: ownerAddress })).rejects.toThrow(
-          DUPLICATE_NULLIFIER_ERROR,
-        );
-      });
-
-      // Emits via public then tries private with the same nullifier in a later block; expects rejection.
-      it('public -> private', async () => {
-        const nullifier = Fr.random();
-        await contract.methods.emit_nullifier_public(nullifier).send({ from: ownerAddress });
-        await expect(contract.methods.emit_nullifier(nullifier).send({ from: ownerAddress })).rejects.toThrow(
-          TX_ERROR_EXISTING_NULLIFIER,
-        );
-      });
-    });
+          // One transaction should succeed, the other should fail, but in any order.
+          expect(txs).toIncludeSameMembers([
+            { status: 'fulfilled', value: expect.anything() },
+            {
+              status: 'rejected',
+              reason: expect.objectContaining({ message: expect.stringMatching(expectedError) }),
+            },
+          ]);
+        } else {
+          await emitNullifier(firstKind, nullifier).send({ from: ownerAddress });
+          await expect(emitNullifier(secondKind, nullifier).send({ from: ownerAddress })).rejects.toThrow(
+            expectedError,
+          );
+        }
+      },
+    );
   });
 
   // Verifies that private encrypted logs and unencrypted logs emitted from nested calls are ordered
@@ -544,8 +487,7 @@ describe('single-node/block-building/block_building', () => {
 
       // Under pipelining, with `aztecSlotDuration=12s`, each empty checkpoint contains one empty
       // block and lands roughly every 12s. Allow up to 60s for three empty blocks to appear.
-      // REFACTOR: raw retryUntil poll on block number; replace with a waitForBlock(n) DSL helper
-      await retryUntil(async () => (await aztecNode.getBlockNumber()) >= 3, 'wait-block', 60, 1);
+      await waitForBlockNumber(aztecNode, 3);
     });
 
     // Regression for https://github.com/AztecProtocol/aztec-packages/issues/7537
@@ -557,12 +499,15 @@ describe('single-node/block-building/block_building', () => {
         additionallyFundedAccounts: await generateSchnorrAccounts(1, 'schnorr'),
       });
       ({ logger, aztecNode, wallet } = test.context);
-      // REFACTOR: sleep-based wait; replace with a waitForBlock(1) or equivalent readiness helper
-      await sleep(1000);
+      await waitForBlockNumber(aztecNode, 1);
 
       const [accountData] = test.context.additionallyFundedAccounts;
 
-      const accountManager = await (wallet as TestWallet).createSchnorrAccount(accountData.secret, accountData.salt);
+      const accountManager = await (wallet as TestWallet).createSchnorrAccount(
+        accountData.secret,
+        accountData.salt,
+        accountData.signingKey,
+      );
       const deployMethod = await accountManager.getDeployMethod();
       await deployMethod.send({
         from: NO_FROM,
@@ -664,7 +609,7 @@ describe('single-node/block-building/block_building', () => {
 
   // Tests that the sequencer handles L2 reorgs correctly: detects stale proofs, prunes affected txs,
   // and re-includes those that were built against a proven block.
-  // Uses cheatCodes.rollup.advanceToNextEpoch, markAsProven, advanceToEpoch, retryUntil.
+  // Uses cheatCodes.rollup.advanceToNextEpoch, markAsProven, advanceToEpoch, and tx-status wait helpers.
   describe('reorgs', () => {
     let contract: StatefulTestContract;
     let cheatCodes: CheatCodes;
@@ -700,8 +645,7 @@ describe('single-node/block-building/block_building', () => {
       // interval mining, so we drive proven manually here (and again inside each test).
       await cheatCodes.rollup.markAsProven();
       const bn = await aztecNode.getBlockNumber();
-      // REFACTOR: raw retryUntil poll on proven block number; replace with waitForProvenBlock(n) helper
-      await retryUntil(async () => (await aztecNode.getBlockNumber('proven')) >= bn, 'wait-proven', 60, 1);
+      await waitForProvenBlock(aztecNode, bn);
     });
 
     afterEach(() => test.teardown());
@@ -735,26 +679,14 @@ describe('single-node/block-building/block_building', () => {
 
       // Wait until the sequencer kicks out tx1
       logger.info(`Waiting for node to prune tx1`);
-      // REFACTOR: raw retryUntil polling for tx status transition; replace with a waitForTxPruned() helper
-      await retryUntil(
-        async () => (await aztecNode.getTxReceipt(tx1.txHash)).status === TxStatus.PENDING,
-        'wait for pruning',
-        15,
-        0.11,
-      );
+      await waitForTxStatus(aztecNode, tx1.txHash, TxStatus.PENDING, { timeout: 15, interval: 0.11 });
 
       // And wait until it is brought back tx1
       logger.info(`Waiting for node to re-include tx1`);
-      // REFACTOR: raw retryUntil polling for re-inclusion; replace with a waitForTxReincluded() helper
-      await retryUntil(
-        async () => {
-          const receipt = await aztecNode.getTxReceipt(tx1.txHash);
-          return receipt.isMined() && receipt.hasExecutionSucceeded();
-        },
-        'wait for re-inclusion',
-        15,
-        1,
-      );
+      await waitForTxReceipt(aztecNode, tx1.txHash, receipt => receipt.isMined() && receipt.hasExecutionSucceeded(), {
+        timeout: 15,
+        interval: 1,
+      });
 
       // Tx1 should have been mined in a block with the same number but different hash now
       const newTx1Receipt = await aztecNode.getTxReceipt(tx1.txHash);

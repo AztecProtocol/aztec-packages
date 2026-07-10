@@ -1,7 +1,7 @@
 use crate::{
     context::UtilityContext,
     ephemeral::EphemeralArray,
-    messages::{encoding::MESSAGE_CIPHERTEXT_LEN, processing::OffchainMessageWithContext},
+    messages::{encoding::MESSAGE_CIPHERTEXT_LEN, processing::OffchainMessageWithTx},
     oracle::{contract_sync::set_contract_sync_cache_invalid, tx_resolution::get_resolved_txs},
     protocol::{address::AztecAddress, traits::{Deserialize, Serialize}},
 };
@@ -25,10 +25,9 @@ pub global MAX_OFFCHAIN_MESSAGES_PER_RECEIVE_CALL: u32 = 16;
 /// of, etc.
 ///
 /// The only current implementation of an [`OffchainInboxSync`] is [`sync_inbox`], which manages an inbox with
-/// expiration
-/// based eviction and automatic transaction context resolution.
+/// expiration and finality-based eviction and automatic transaction context resolution.
 pub type OffchainInboxSync = unconstrained fn(
-/* contract_address */AztecAddress, /* scope */ AztecAddress) -> EphemeralArray<OffchainMessageWithContext>;
+/* contract_address */AztecAddress, /* scope */ AztecAddress) -> EphemeralArray<OffchainMessageWithTx>;
 
 /// Delivers offchain messages to the given contract's offchain inbox for subsequent processing.
 ///
@@ -40,7 +39,8 @@ pub type OffchainInboxSync = unconstrained fn(
 /// Messages are processed when their originating transaction is found onchain (providing the context needed to
 /// validate resulting notes and events).
 ///
-/// Messages are kept in the inbox until they expire. The expiration is set to `anchor_block_timestamp + MAX_MSG_TTL`
+/// Messages are eventually removed from the inbox: an unprocessed message once its TTL (`anchor_block_timestamp +
+/// MAX_MSG_TTL`) elapses, and a processed message once the block its transaction was found in finalizes.
 ///
 /// Processing order is not guaranteed.
 pub unconstrained fn receive(
@@ -60,7 +60,7 @@ pub unconstrained fn receive(
 pub unconstrained fn sync_inbox(
     contract_address: AztecAddress,
     scope: AztecAddress,
-) -> EphemeralArray<OffchainMessageWithContext> {
+) -> EphemeralArray<OffchainMessageWithTx> {
     let active_receptions = OffchainReception::load_all(contract_address, scope);
 
     // Ask PXE to resolve each message's originating tx. We pass the tx hashes in reception order, so the resolved txs
@@ -69,7 +69,7 @@ pub unconstrained fn sync_inbox(
         reception.read_message().tx_hash.unwrap_or(0)
     }));
 
-    let processable_messages: EphemeralArray<OffchainMessageWithContext> = EphemeralArray::empty();
+    let processable_messages: EphemeralArray<OffchainMessageWithTx> = EphemeralArray::empty();
     let now = UtilityContext::new().timestamp();
 
     active_receptions.for_each(|i, reception| {

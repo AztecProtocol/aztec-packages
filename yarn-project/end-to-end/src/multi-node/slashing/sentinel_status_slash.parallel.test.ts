@@ -17,14 +17,14 @@ import {
   SLASHER_ENABLED_MULTI_VALIDATOR_OPTS,
   buildMockGossipValidators,
 } from '../multi_node_test_context.js';
-import { awaitCommitteeExists, findUpcomingProposerSlot } from './setup.js';
+import { SENTINEL_TIMING, awaitCommitteeExists, findUpcomingProposerSlot } from './setup.js';
 
 /**
  * Exercises the sentinel's six-case proposer-status taxonomy end-to-end by driving each of the
  * status variants via in-tree validator-config flags (no jest stubbing of internals).
  *
  * Setup: MultiNodeTestContext on the in-memory mock-gossip bus (no real libp2p). 6 validators,
- * ethSlot varies by CI (4s local / 8s CI), aztecSlot=2x ethSlot, epoch=2, proofSubEpochs=1024,
+ * ethSlot=4s, aztecSlot=8s, epoch=2, proofSubEpochs=1024,
  * minTxsPerBlock=0, inboxLag=2, sentinelEnabled, fake prover.
  * Each it runs as an isolated CI job (parallel convention).
  *
@@ -49,10 +49,12 @@ jest.setTimeout(TEST_TIMEOUT);
 
 const NUM_VALIDATORS = 6;
 const COMMITTEE_SIZE = NUM_VALIDATORS;
-const ETHEREUM_SLOT_DURATION = process.env.CI ? 8 : 4;
-const AZTEC_SLOT_DURATION = ETHEREUM_SLOT_DURATION * 2;
-const BLOCK_DURATION_MS = ETHEREUM_SLOT_DURATION * 500;
-const AZTEC_EPOCH_DURATION = 2;
+// The body advances through real L2 slots at wall-clock pace, so the slot duration directly sets body
+// time. SENTINEL_TIMING's 8s slot (eth 4s) uses the fast (mocked-p2p) operational budgets, which fit a
+// checkpoint comfortably. proofSubEpochs=1024 disables reorg/proving deadlines and the only assertions
+// are sentinel attestation/status records (no proving-window timing), so the fast profile is safe here;
+// larger durations only add dead wall-clock without exercising new behavior.
+const AZTEC_SLOT_DURATION = SENTINEL_TIMING.aztecSlotDuration;
 const SLASHING_UNIT = BigInt(1e18);
 const SLASHING_AMOUNT = SLASHING_UNIT * 3n;
 const SLASHING_QUORUM = 3;
@@ -66,17 +68,12 @@ describe('multi-node/slashing/sentinel_status_slash', () => {
   beforeEach(async () => {
     test = await MultiNodeTestContext.setup({
       ...SLASHER_ENABLED_MULTI_VALIDATOR_OPTS,
-      anvilSlotsInAnEpoch: 4,
-      listenAddress: '127.0.0.1',
+      ...SENTINEL_TIMING,
       aztecTargetCommitteeSize: COMMITTEE_SIZE,
-      aztecSlotDuration: AZTEC_SLOT_DURATION,
-      ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
-      blockDurationMs: BLOCK_DURATION_MS,
-      aztecEpochDuration: AZTEC_EPOCH_DURATION,
+      blockDurationMs: 2000,
       aztecProofSubmissionEpochs: 1024,
       minTxsPerBlock: 0,
       inboxLag: 2,
-      sentinelEnabled: true,
       // A single proposer-fault slot in an epoch gives missed/total = 1/6 ≈ 0.167; threshold
       // 0.1 lets that single fault trip inactivity.
       slashInactivityTargetPercentage: 0.1,
@@ -121,49 +118,27 @@ describe('multi-node/slashing/sentinel_status_slash', () => {
     await test.teardown();
   });
 
-  // Spawns one malicious node with broadcastInvalidBlockProposal:true; honest observers reject via
-  // re-execution state_mismatch and record `checkpoint-unvalidated` for that proposer slot. The sentinel
-  // then emits an INACTIVITY offense. Asserts all honest observers agree on the fault slot and status.
-  it('slashes the proposer with INACTIVITY when checkpoint validation records unvalidated', async () => {
-    // One malicious node broadcasts invalid block proposals; honest observers reject them via
-    // re-execution state_mismatch and therefore never push to their archivers, so the malicious
-    // node's checkpoint proposals can't find their last block and observers record `unvalidated`.
-    const targetAddress = await spawnMaliciousAndHonestNodes({ broadcastInvalidBlockProposal: true });
-    // Warp near the malicious node's proposer slot to keep wall-clock down. We discover the slot at
-    // which the fault is actually recorded rather than assuming it is the warped block-proposer
-    // slot: the re-execution outcome is keyed by the checkpoint proposal's slot, and a proposer
-    // only emits a checkpoint proposal when its slot closes a checkpoint, which does not always
-    // coincide with the block-proposer slot we warp to.
-    await warpToSlotBeforeTargetProposer(targetAddress);
-    // nodes[0] is the malicious node; honest observers are nodes[1..].
-    const honestObservers = nodes.slice(1);
-    const faultSlot = await findObservedStatusSlot(honestObservers, targetAddress, 'checkpoint-unvalidated');
-    await assertAllObserversSentinelStatus(honestObservers, targetAddress, faultSlot, 'checkpoint-unvalidated');
-    // The malicious node self-records `checkpoint-valid` for that slot using the locally computed
-    // archive (broadcastInvalidBlockProposal only corrupts the broadcast archive, not the
-    // proposer's local state).
-    await assertAllObserversSentinelStatus([nodes[0]], targetAddress, faultSlot, 'checkpoint-valid');
-    await assertInactivityOffenseFor(targetAddress, nodes[1]);
-  });
+  // Cases 1 and 2 share the same body (spawn 1 malicious + 5 honest, warp near the malicious proposer
+  // slot, assert observers agree on the fault status, malicious self-records `checkpoint-valid`, and an
+  // INACTIVITY offense follows). They differ only in the malicious-node config flag and the fault status
+  // observers record. Kept as unrolled its (no it.each) so each stays its own CI job under the parallel
+  // convention. See {@link runProposerFaultScenario}.
 
-  // Spawns one malicious node with broadcastInvalidCheckpointProposalOnly:true; block proposals are
-  // valid (land in archivers) but checkpoint proposals carry a random archive. Observers detect
-  // header_mismatch and record `checkpoint-invalid`. The sentinel emits INACTIVITY. Asserts all
-  // observers agree and the malicious node self-records `checkpoint-valid`.
-  it('slashes the proposer with INACTIVITY when checkpoint validation records invalid', async () => {
-    // One malicious node broadcasts invalid CHECKPOINT proposals while keeping the underlying
-    // block proposals valid; observers accept the blocks (so they land in the archiver) but
-    // reject the checkpoint via header_mismatch, recording `invalid`.
-    const targetAddress = await spawnMaliciousAndHonestNodes({ broadcastInvalidCheckpointProposalOnly: true });
-    await warpToSlotBeforeTargetProposer(targetAddress);
-    const honestObservers = nodes.slice(1);
-    const faultSlot = await findObservedStatusSlot(honestObservers, targetAddress, 'checkpoint-invalid');
-    await assertAllObserversSentinelStatus(honestObservers, targetAddress, faultSlot, 'checkpoint-invalid');
-    // Malicious self-records `checkpoint-valid` for that slot — proposers always consider their
-    // own freshly-built proposal valid from their local-state perspective.
-    await assertAllObserversSentinelStatus([nodes[0]], targetAddress, faultSlot, 'checkpoint-valid');
-    await assertInactivityOffenseFor(targetAddress, nodes[1]);
-  });
+  // broadcastInvalidBlockProposal: observers reject the block via re-execution state_mismatch and never
+  // push it to their archivers, so the checkpoint proposal can't find its last block → `unvalidated`.
+  it('slashes the proposer with INACTIVITY when checkpoint validation records unvalidated', () =>
+    runProposerFaultScenario({
+      maliciousOverride: { broadcastInvalidBlockProposal: true },
+      expectedStatus: 'checkpoint-unvalidated',
+    }));
+
+  // broadcastInvalidCheckpointProposalOnly: block proposals stay valid (land in archivers) but the
+  // checkpoint proposal carries a random archive → observers detect header_mismatch and record `invalid`.
+  it('slashes the proposer with INACTIVITY when checkpoint validation records invalid', () =>
+    runProposerFaultScenario({
+      maliciousOverride: { broadcastInvalidCheckpointProposalOnly: true },
+      expectedStatus: 'checkpoint-invalid',
+    }));
 
   // Starts 6 honest validators, waits for the committee, then stops the last validator. Asserts that
   // all remaining observers record `attestation-missed` for the stopped node and that an INACTIVITY
@@ -187,6 +162,33 @@ describe('multi-node/slashing/sentinel_status_slash', () => {
   });
 
   // -- helpers ------------------------------------------------------------------------------
+
+  /**
+   * Runs a single-malicious-proposer fault scenario: spawns the malicious node (with the given config
+   * override) and 5 honest observers, warps near the malicious proposer's slot, and asserts every honest
+   * observer records `expectedStatus` at the discovered fault slot while the malicious node self-records
+   * `checkpoint-valid`, then that an INACTIVITY offense follows. We discover the fault slot rather than
+   * assuming it is the warped block-proposer slot: the re-execution outcome is keyed by the checkpoint
+   * proposal's slot, which only closes a checkpoint (and so records the fault) on some proposer slots.
+   */
+  async function runProposerFaultScenario({
+    maliciousOverride,
+    expectedStatus,
+  }: {
+    maliciousOverride: Partial<AztecNodeConfig>;
+    expectedStatus: ValidatorStatusInSlot;
+  }): Promise<void> {
+    const targetAddress = await spawnMaliciousAndHonestNodes(maliciousOverride);
+    await warpToSlotBeforeTargetProposer(targetAddress);
+    // nodes[0] is the malicious node; honest observers are nodes[1..].
+    const honestObservers = nodes.slice(1);
+    const faultSlot = await findObservedStatusSlot(honestObservers, targetAddress, expectedStatus);
+    await assertAllObserversSentinelStatus(honestObservers, targetAddress, faultSlot, expectedStatus);
+    // The malicious node self-records `checkpoint-valid` for that slot using its locally computed
+    // archive (the invalid-broadcast flags corrupt only the broadcast, not the proposer's local state).
+    await assertAllObserversSentinelStatus([nodes[0]], targetAddress, faultSlot, 'checkpoint-valid');
+    await assertInactivityOffenseFor(targetAddress, nodes[1]);
+  }
 
   /**
    * Spawns 1 malicious node at index 0 with the given config override, then `NUM_VALIDATORS - 1`

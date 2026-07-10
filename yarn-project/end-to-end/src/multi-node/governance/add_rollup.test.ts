@@ -6,7 +6,7 @@ import { generateClaimSecret } from '@aztec/aztec.js/ethereum';
 import { Fr } from '@aztec/aztec.js/fields';
 import { waitForL1ToL2MessageReady } from '@aztec/aztec.js/messaging';
 import { RollupCheatCodes } from '@aztec/aztec/testing';
-import { FeeAssetHandlerContract, RegistryContract, RollupContract } from '@aztec/ethereum/contracts';
+import { FeeAssetHandlerContract, RegistryContract } from '@aztec/ethereum/contracts';
 import { deployRollupForUpgrade } from '@aztec/ethereum/deploy-aztec-l1-contracts';
 import { deployL1Contract } from '@aztec/ethereum/deploy-l1-contract';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
@@ -17,7 +17,6 @@ import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import {
   GovernanceAbi,
-  GovernanceProposerAbi,
   OutboxAbi,
   RegisterNewRollupVersionPayloadAbi,
   RegisterNewRollupVersionPayloadBytecode,
@@ -35,6 +34,7 @@ import { type Hex, decodeEventLog, encodeFunctionData, getAddress, getContract }
 import { foundry } from 'viem/chains';
 
 import { sendL1ToL2Message } from '../../fixtures/l1_to_l2_messaging.js';
+import { getStandardContractGenesisNullifiers } from '../../fixtures/standard_contracts_genesis.js';
 import { getPrivateKeyFromIndex, getSponsoredFPCAddress } from '../../fixtures/utils.js';
 import { TestWallet } from '../../test-wallet/test_wallet.js';
 import {
@@ -42,7 +42,7 @@ import {
   MultiNodeTestContext,
   buildMockGossipValidators,
 } from '../multi_node_test_context.js';
-import { GOVERNANCE_TIMING, jest } from './setup.js';
+import { GOVERNANCE_TIMING, createGovernanceTestDriver, driveGovernanceRound, jest } from './setup.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_VALIDATORS = 4;
@@ -112,44 +112,16 @@ describe('multi-node/governance/add_rollup', () => {
   it('Should cast votes to add new rollup to registry', async () => {
     const { context, logger } = test;
 
+    const driver = await createGovernanceTestDriver(test, l1TxUtils);
+    const { governance, governanceProposer, rollup } = driver;
+
     const registry = getContract({
       address: getAddress(context.deployL1ContractsValues.l1ContractAddresses.registryAddress.toString()),
       abi: RegistryAbi,
       client: context.deployL1ContractsValues.l1Client,
     });
 
-    const governanceProposer = getContract({
-      address: getAddress(context.deployL1ContractsValues.l1ContractAddresses.governanceProposerAddress.toString()),
-      abi: GovernanceProposerAbi,
-      client: context.deployL1ContractsValues.l1Client,
-    });
-
-    const roundSize = await governanceProposer.read.ROUND_SIZE();
-
-    const governance = getContract({
-      address: getAddress(context.deployL1ContractsValues.l1ContractAddresses.governanceAddress.toString()),
-      abi: GovernanceAbi,
-      client: context.deployL1ContractsValues.l1Client,
-    });
-
-    const rollup = new RollupContract(
-      context.deployL1ContractsValues.l1Client,
-      context.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
-    );
-
-    const emperor = context.deployL1ContractsValues.l1Client.account;
-
-    const waitL1Block = async () => {
-      await l1TxUtils.sendAndMonitorTransaction({
-        to: emperor.address,
-        value: 1n,
-      });
-    };
-
-    const currentSlot = await rollup.getSlotNumber();
-    const nextRoundSlot = SlotNumber.fromBigInt((BigInt(currentSlot) / roundSize) * roundSize + roundSize);
-    const nextRoundTimestamp = await rollup.getTimestampForSlot(nextRoundSlot);
-    await context.cheatCodes.eth.warp(Number(nextRoundTimestamp));
+    await driver.warpToNextRound();
 
     // Build the new rollup's genesis from the same funded-account set the context used (the additionally
     // funded accounts plus the sponsored FPC), so the second bridging step can fund `fundedAccounts[1]`.
@@ -165,7 +137,13 @@ describe('multi-node/governance/add_rollup', () => {
       genesisArchiveRoot,
       fundingNeeded,
       genesis: newGenesis,
-    } = await getGenesisValues(genesisFundedAddresses, undefined, undefined, context.genesis!.genesisTimestamp + 1n);
+    } = await getGenesisValues(
+      genesisFundedAddresses,
+      undefined,
+      undefined,
+      context.genesis!.genesisTimestamp + 1n,
+      await getStandardContractGenesisNullifiers(),
+    );
 
     const { rollup: newRollup } = await deployRollupForUpgrade(
       deployerPrivateKey,
@@ -225,27 +203,7 @@ describe('multi-node/governance/add_rollup', () => {
       [context.deployL1ContractsValues.l1ContractAddresses.registryAddress.toString(), newRollup.address],
     );
 
-    const govInfo = async () => {
-      const bn = await context.cheatCodes.eth.blockNumber();
-      const slot = await rollup.getSlotNumber();
-      const round = await governanceProposer.read.computeRound([BigInt(slot)]);
-
-      const info = await governanceProposer.read.getRoundData([
-        context.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
-        round,
-      ]);
-      const leaderVotes = await governanceProposer.read.signalCount([
-        context.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
-        round,
-        info.payloadWithMostSignals,
-      ]);
-      logger.info(
-        `Governance stats for round ${round} (Slot: ${slot}, BN: ${bn}). Leader: ${info.payloadWithMostSignals} have ${leaderVotes} signals`,
-      );
-      return { bn, slot, round, info, leaderVotes };
-    };
-
-    await waitL1Block();
+    await driver.waitL1Block();
 
     logger.info('Creating nodes');
     nodes = await Promise.all(
@@ -262,7 +220,7 @@ describe('multi-node/governance/add_rollup', () => {
 
     logger.info('Start progressing time to cast votes');
     const quorumSize = await governanceProposer.read.QUORUM_SIZE();
-    logger.info(`Quorum size: ${quorumSize}, round size: ${await governanceProposer.read.ROUND_SIZE()}`);
+    logger.info(`Quorum size: ${quorumSize}, round size: ${driver.roundSize}`);
 
     const bridging = async (
       node: AztecNodeService,
@@ -284,6 +242,7 @@ describe('multi-node/governance/add_rollup', () => {
       const aliceAccountManager = await wallet.createSchnorrInitializerlessAccount(
         aliceAccount.secret,
         aliceAccount.salt,
+        aliceAccount.signingKey,
       );
 
       const aliceAddress = aliceAccountManager.address;
@@ -429,53 +388,9 @@ describe('multi-node/governance/add_rollup', () => {
       context.aztecNodeConfig.l1RpcUrls,
     );
 
-    // REFACTOR: while(true) polling loop with sleep is hand-rolled; replace with retryUntil
-    let govData;
-    while (true) {
-      govData = await govInfo();
-      if (govData.leaderVotes >= quorumSize) {
-        break;
-      }
-      await sleep(context.aztecNodeConfig.ethereumSlotDuration * context.aztecNodeConfig.aztecSlotDuration * 1000);
-    }
-
-    const currentSlot2 = await rollup.getSlotNumber();
-    const nextRoundSlot2 = SlotNumber.fromBigInt((BigInt(currentSlot2) / roundSize) * roundSize + roundSize);
-    const nextRoundTimestamp2 = await rollup.getTimestampForSlot(nextRoundSlot2);
-    logger.info(`Warpping to ${nextRoundTimestamp2}`);
-    await context.cheatCodes.eth.warp(Number(nextRoundTimestamp2));
-
-    await waitL1Block();
-
-    logger.info(`Executing proposal ${govData.round}`);
-
-    await l1TxUtils.sendAndMonitorTransaction({
-      to: governanceProposer.address,
-      data: encodeFunctionData({
-        abi: GovernanceProposerAbi,
-        functionName: 'submitRoundWinner',
-        args: [govData.round],
-      }),
-    });
-    logger.info(`Submitted winner for round ${govData.round}`);
-
-    const proposal = await governance.read.getProposal([0n]);
-
-    const timeToActive = proposal.creation + proposal.config.votingDelay;
-    logger.info(`Warping to ${timeToActive + 1n}`);
-    await context.cheatCodes.eth.warp(Number(timeToActive + 1n));
-    logger.info(`Warped to ${timeToActive + 1n}`);
-    await waitL1Block();
-
-    logger.info(`Voting`);
-    await rollup.vote(l1TxUtils, 0n);
-    logger.info(`Voted`);
-
-    const timeToExecutable = timeToActive + proposal.config.votingDuration + proposal.config.executionDelay + 1n;
-    logger.info(`Warping to ${timeToExecutable}`);
-    await context.cheatCodes.eth.warp(Number(timeToExecutable));
-    logger.info(`Warped to ${timeToExecutable}`);
-    await waitL1Block();
+    // Drive the signaled payload to quorum and vote it through to an executable proposal. The 600s quorum
+    // timeout covers the many slots validators need to accumulate signals while bridging runs concurrently.
+    await driveGovernanceRound(driver, { quorumTimeoutSeconds: 600 });
 
     const canonicalBefore = EthAddress.fromString(await registry.read.getCanonicalRollup());
     expect(canonicalBefore.equals(EthAddress.fromString(rollup.address))).toBe(true);
@@ -531,7 +446,7 @@ describe('multi-node/governance/add_rollup', () => {
     const time = await newRollup.getTimestampForSlot(futureSlot);
     if (time > BigInt(await context.cheatCodes.eth.lastBlockTimestamp())) {
       await context.cheatCodes.eth.warp(Number(time));
-      await waitL1Block();
+      await driver.waitL1Block();
     }
 
     const newVersion = await newRollup.getVersion();

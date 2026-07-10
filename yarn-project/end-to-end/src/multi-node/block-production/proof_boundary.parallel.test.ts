@@ -28,8 +28,8 @@ type PublishedEvent = Parameters<SequencerEvents['checkpoint-published']>[0];
 
 // Suite: 5 parallel scenarios testing the interaction between the proof submission deadline and
 // the pipelining boundary slot. MultiNodeTestContext: 3 validator nodes + 1 prover node,
-// mockGossipSubNetwork, skipInitialSequencer. Timing: ethSlot=12s, aztecSlot=3×12=36s,
-// epoch=default 6, proofSubmissionEpochs=1 (overridden per test via setupTest), blockDurationMs=6s,
+// mockGossipSubNetwork, skipInitialSequencer. Timing: ethSlot=12s, aztecSlot=2×12=24s,
+// epoch=default 6, proofSubmissionEpochs=1 (overridden per test via setupTest), blockDurationMs=4s,
 // inboxLag=2 (v5 always enforces the timetable, so the former enforceTimeTable/disableAnvilTestWatcher
 // overrides are gone). The Delayer is used to steer proof tx timing.
 describe('multi-node/block-production/proof_boundary', () => {
@@ -91,17 +91,7 @@ describe('multi-node/block-production/proof_boundary', () => {
   };
 
   const computeBoundarySlot = async () => {
-    // REFACTOR: hand-rolled retryUntil polling for first checkpoint; replace with
-    // test.waitUntilCheckpointNumber(CheckpointNumber(1)) from MultiNodeTestContext.
-    await retryUntil(
-      async () => {
-        await test.monitor.run(true);
-        return test.monitor.checkpointNumber >= CheckpointNumber(1);
-      },
-      'first checkpoint mined',
-      120,
-      0.5,
-    );
+    await test.waitUntilCheckpointNumber(CheckpointNumber(1));
 
     const firstCheckpoint = await test.rollup.getCheckpoint(CheckpointNumber(1));
     const firstCheckpointEpoch = getEpochAtSlot(firstCheckpoint.slotNumber, test.constants);
@@ -119,6 +109,27 @@ describe('multi-node/block-production/proof_boundary', () => {
   };
 
   const waitPastBoundary = async (boundarySlot: SlotNumber) => {
+    // The slots between the first checkpoint and the boundary are dead time, so warp the L1 clock over
+    // them, stopping a full three L2 slots ahead of the boundary (start of slot N-3). The remaining
+    // real-time tail must cover: the natural proof landing strictly before the start of slot N-1 (the
+    // `proof lands well before deadline` assertion), the sequencer proposing a parent block in slot N-1
+    // (`hadProposedParent`), and the boundary build/publish and prune/recovery (N, N+1, N+2).
+    // `resetBlockInterval` keeps the anvil interval miner ticking from the warped point so those slots
+    // are produced organically. Only warp when there is real headroom, so this is a no-op if the chain
+    // has already advanced near the boundary.
+    const criticalWindowStartTs = getTimestampForSlot(SlotNumber(Number(boundarySlot) - 3), test.constants);
+    const warpTarget = criticalWindowStartTs - BigInt(test.L1_BLOCK_TIME_IN_S);
+    const nowTs = BigInt(test.context.dateProvider.nowInSeconds());
+    if (nowTs + BigInt(2 * test.L2_SLOT_DURATION_IN_S) < warpTarget) {
+      logger.warn(`Warping L1 from ${nowTs} to ${warpTarget} (start of slot ${Number(boundarySlot) - 3})`, {
+        nowTs,
+        warpTarget,
+        boundarySlot,
+      });
+      await test.context.cheatCodes.eth.warp(Number(warpTarget), { resetBlockInterval: true });
+      await test.monitor.run(true);
+    }
+
     await test.monitor.waitUntilL2Slot(SlotNumber(boundarySlot + 2));
     await retryUntil(
       async () => {

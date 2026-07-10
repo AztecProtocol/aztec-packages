@@ -30,9 +30,10 @@ import {
 } from '@aztec/stdlib/tx';
 
 import type { ResolveCustomRequest } from '../../hooks/resolve_custom_request.js';
-import type {
-  ResolveTaggingSecretStrategy,
-  TaggingSecretStrategy,
+import {
+  DEFAULT_TAGGING_SECRET_STRATEGY,
+  type ResolveTaggingSecretStrategy,
+  type TaggingSecretStrategy,
 } from '../../hooks/resolve_tagging_secret_strategy.js';
 import { NoteService } from '../../notes/note_service.js';
 import type { SenderTaggingStore } from '../../storage/tagging_store/sender_tagging_store.js';
@@ -197,8 +198,8 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     if (!hook) {
       throw new Error('Cannot serve a request: no resolveCustomRequest hook is configured');
     }
-    const { currentContractClassId } = await this.getContractInstance(this.contractAddress);
-    return hook({ contractAddress: this.contractAddress, contractClassId: currentContractClassId, kind, payload });
+    const contractClassId = await this.#getCurrentContractClassId(this.contractAddress);
+    return hook({ contractAddress: this.contractAddress, contractClassId, kind, payload });
   }
 
   /**
@@ -233,18 +234,29 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   ): Promise<TaggingSecretStrategy> {
     const hook: ResolveTaggingSecretStrategy | undefined = this.hooks?.resolveTaggingSecretStrategy;
     if (!hook) {
-      // With no hook, both delivery modes default to a non-interactive handshake
-      return { type: 'non-interactive-handshake' };
+      return DEFAULT_TAGGING_SECRET_STRATEGY;
     }
 
-    const { currentContractClassId } = await this.getContractInstance(this.contractAddress);
+    const contractClassId = await this.#getCurrentContractClassId(this.contractAddress);
     return hook({
       contractAddress: this.contractAddress,
-      contractClassId: currentContractClassId,
+      contractClassId,
       sender,
       recipient,
       deliveryMode,
     });
+  }
+
+  /**
+   * Resolves the class id the given contract runs at this simulation's anchor block. The instance no longer carries
+   * its class id (it is chain-derived), so it is resolved via the anchored contract data instead.
+   */
+  async #getCurrentContractClassId(address: AztecAddress): Promise<Fr> {
+    const classId = await this.anchoredContractData.getCurrentClassId(address);
+    if (classId === undefined) {
+      throw new Error(`Cannot resolve the current contract class for ${address}`);
+    }
+    return classId;
   }
 
   /** Whether this is an unconstrained delivery to one of the wallet's own accounts (a self-send). */
@@ -266,6 +278,8 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
     switch (strategy.type) {
       case 'non-interactive-handshake':
         return { type: 'non-interactive-handshake' };
+      case 'interactive-handshake':
+        return { type: 'interactive-handshake' };
       case 'address-derived':
         return this.#addressDerivedSecret(sender, recipient);
       case 'arbitrary-secret': {
@@ -641,10 +655,16 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       this.scopes,
     );
 
-    const targetArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(
+    const targetArtifact = await this.anchoredContractData.getFunctionArtifactWithDebugMetadata(
       targetContractAddress,
       functionSelector,
     );
+    if (!targetArtifact) {
+      throw new Error(
+        `Cannot call ${targetContractAddress}:${functionSelector}: the contract is not registered. ` +
+          `Register it via wallet.registerContract(...).`,
+      );
+    }
 
     const derivedTxContext = this.txContext.clone();
 
@@ -661,7 +681,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
       executionCache: this.executionCache,
       noteCache: this.noteCache,
       taggingIndexCache: this.taggingIndexCache,
-      contractStore: this.contractStore,
+      anchoredContractData: this.anchoredContractData,
       noteStore: this.noteStore,
       keyStore: this.keyStore,
       addressStore: this.addressStore,
@@ -765,7 +785,7 @@ export class PrivateExecutionOracle extends UtilityExecutionOracle implements IP
   }
 
   public getDebugFunctionName() {
-    return this.contractStore.getDebugFunctionName(this.contractAddress, this.callContext.functionSelector);
+    return this.anchoredContractData.getDebugFunctionName(this.contractAddress, this.callContext.functionSelector);
   }
 
   protected override get callerContext() {

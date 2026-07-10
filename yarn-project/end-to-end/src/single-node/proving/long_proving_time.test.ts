@@ -2,7 +2,13 @@ import type { Logger } from '@aztec/aztec.js/log';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { sleep } from '@aztec/foundation/sleep';
 
-import { SingleNodeTestContext, jest, setupWithProver } from './setup.js';
+import {
+  NO_REORG_SUBMISSION_EPOCHS,
+  PROVING_SLOT_TIMING,
+  SingleNodeTestContext,
+  jest,
+  setupWithProver,
+} from './setup.js';
 
 const MAX_JOB_COUNT = 20;
 
@@ -24,14 +30,23 @@ describe('single-node/proving/long_proving_time', () => {
     //  1) base parity, 2) root parity, 3) empty block, and 4) epoch root.
     // So we delay proving of each circuit such that each epoch takes 3 epochs to prove.
     const aztecEpochDuration = 2;
-    const { aztecSlotDuration } = SingleNodeTestContext.getSlotDurations({ aztecEpochDuration });
+    // The body is bounded by the real-wall-clock prover delay (a `sleep`, not the date provider, so warping
+    // cannot shrink it): a single agent serially sleeps `proverTestDelayMs` per circuit. Both the block-build
+    // cadence and the proving delay scale with the slot duration, so the PROVING_SLOT_TIMING floor scales the
+    // whole timeline down while keeping the delay-to-slot ratio — and hence the "proving lags block production
+    // by ~3 epochs" assertion — intact.
+    const { aztecSlotDuration } = SingleNodeTestContext.getSlotDurations({
+      aztecEpochDuration,
+      ...PROVING_SLOT_TIMING,
+    });
     const epochDurationInSeconds = aztecSlotDuration * aztecEpochDuration;
     const proverTestDelayMs = (epochDurationInSeconds * 1000 * 3) / 4;
     // Each epoch takes ~3 epochs to prove, so the broker needs to keep results for
     // at least that many epochs to avoid rejecting jobs as stale.
     test = await setupWithProver({
       aztecEpochDuration,
-      aztecProofSubmissionEpochs: 1000, // Effectively don't re-org
+      ...PROVING_SLOT_TIMING,
+      aztecProofSubmissionEpochs: NO_REORG_SUBMISSION_EPOCHS, // Effectively don't re-org
       proverTestDelayMs,
       proverNodeMaxPendingJobs: MAX_JOB_COUNT, // Prove multiple epochs concurrently
       proverBrokerMaxEpochsToKeepResultsFor: 10,
@@ -45,6 +60,22 @@ describe('single-node/proving/long_proving_time', () => {
     await test.teardown();
   });
 
+  // Waits until the proven checkpoint reaches `target` while sampling the prover job queue on every
+  // tick and returning the peak parallelism observed over the whole proving window (the value the
+  // MAX_JOB_COUNT assertion depends on — a one-shot snapshot could not capture the peak).
+  const sampleMaxJobCountUntilProven = async (target: number) => {
+    let maxJobCount = 0;
+    while (monitor.provenCheckpointNumber === undefined || monitor.provenCheckpointNumber < target) {
+      const jobs = await test.proverNodes[0].getProverNode()!.getJobs();
+      if (jobs.length > maxJobCount) {
+        maxJobCount = jobs.length;
+        logger.info(`Updated max job count to ${maxJobCount}`, jobs);
+      }
+      await sleep((L1_BLOCK_TIME_IN_S * 1000) / 2);
+    }
+    return maxJobCount;
+  };
+
   // Polls the prover node's job queue until provenCheckpointNumber reaches targetProvenEpochs.
   // Asserts that checkpointNumber advanced at least 3× the proven epoch count, confirming proving
   // lagged behind block production. Asserts maxJobCount stays within MAX_JOB_COUNT (20), confirming
@@ -54,19 +85,7 @@ describe('single-node/proving/long_proving_time', () => {
     const targetProvenBlockNumber = targetProvenEpochs * test.epochDuration;
     logger.info(`Waiting for ${targetProvenEpochs} epochs to be proven at ${targetProvenBlockNumber} L2 blocks`);
 
-    // Wait until we hit the target proven block number, and keep an eye on how many proving jobs are run in parallel.
-    let maxJobCount = 0;
-    // REFACTOR: hand-rolled sleep loop polling provenCheckpointNumber; replace with
-    // test.waitUntilProvenCheckpointNumber(targetProvenBlockNumber, timeout) and check job count
-    // separately via a one-time snapshot rather than updating inside the loop.
-    while (monitor.provenCheckpointNumber === undefined || monitor.provenCheckpointNumber < targetProvenBlockNumber) {
-      const jobs = await test.proverNodes[0].getProverNode()!.getJobs();
-      if (jobs.length > maxJobCount) {
-        maxJobCount = jobs.length;
-        logger.info(`Updated max job count to ${maxJobCount}`, jobs);
-      }
-      await sleep((L1_BLOCK_TIME_IN_S * 1000) / 2);
-    }
+    const maxJobCount = await sampleMaxJobCountUntilProven(targetProvenBlockNumber);
 
     // At least 3 epochs should have passed after the proven one (though we add a -1 just in case)
     expect(monitor.checkpointNumber).toBeGreaterThanOrEqual(targetProvenEpochs * test.epochDuration * 3 - 1);

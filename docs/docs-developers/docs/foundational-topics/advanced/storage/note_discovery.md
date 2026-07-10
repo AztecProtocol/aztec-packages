@@ -25,9 +25,9 @@ In Aztec, each emitted log is an array of fields, e.g. `[tag, x, y, z]`. The fir
 
 Every tag is derived the same way: `poseidon2(secret, index)`.
 
-What varies is how the sender and recipient come to share `secret`. This is the [tagging secret strategy](../../../aztec-nr/framework-description/note_delivery.md#tagging-secret-strategy), chosen by the wallet.
+What varies is how the sender and recipient come to share `secret`. This is the [tagging secret strategy](../../../aztec-nr/framework-description/note_delivery.md#tagging-secret-strategy), chosen by the wallet by default, though a contract can [override it at delivery](../../../aztec-nr/framework-description/note_delivery.md#overriding-the-strategy-from-the-contract).
 
-There are three strategies, described below. They differ only in how `secret` is established. Once `secret` exists, the tag is derived from it the same way for all three.
+There are four strategies, described below. They differ only in how `secret` is established. Once `secret` exists, the tag is derived from it the same way for all four.
 
 ##### Arbitrary secret
 
@@ -42,6 +42,12 @@ An address-derived secret is the same, except the shared secret point is compute
 To establish a handshake, the sender publishes an ephemeral public key onchain, encrypted to the recipient, under a log tagged with the recipient's address. During sync the recipient scans for handshakes addressed to them, decrypts the ephemeral key, and derives the shared secret via Diffie-Hellman against their own `ivsk`. Because that secret is already derived against the recipient, it is app-siloed to the contract but left bare, with no directional fold.
 
 This lets the recipient discover messages from a sender they never registered, at the cost of publishing onchain that a handshake was made with them. It is the default for reaching a new external recipient, and unlike an address-derived or arbitrary secret it can back [constrained delivery](../../../aztec-nr/framework-description/note_delivery.md#tagging-secret-strategy).
+
+##### Interactive handshake
+
+An interactive handshake derives the same kind of shared secret from an ephemeral key, but the ephemeral key is never published: instead of announcing it onchain, the recipient must be reachable at send time to sign it. The registry requests that signature through the custom request oracle and verifies it in-circuit, so the send fails if the recipient does not answer. The recipient learns the ephemeral key while signing and registers the resulting secret with their PXE so it can scan for the tags. As with a non-interactive handshake, the secret is app-siloed to the contract but left bare, with no directional fold.
+
+This reveals nothing onchain about the recipient, and like a non-interactive handshake it can back [constrained delivery](../../../aztec-nr/framework-description/note_delivery.md#tagging-secret-strategy). Because it requires the recipient's cooperation at send time, it is never the default: a wallet or contract opts in explicitly.
 
 ##### Deriving the tag from the secret
 
@@ -110,7 +116,7 @@ There are three broad families of solutions to this problem:
 
 **b) Tagging with known sender** - You know who will send you messages and search for those specifically. This is very fast and allows you to remove senders who spam you. However, it cannot be constrained, i.e., it cannot guarantee that the recipient will find the message. It also requires registering each sender's address in advance with `wallet.registerSender(address)`, so you must learn that address first.
 
-**c) Tagging with a handshake** - The sender and recipient execute a handshake to agree on a tagging secret, after which regular tagging works, so the recipient can discover messages without having registered the sender in advance. A handshake can be interactive (the two coordinate offchain) or non-interactive (published onchain, which needs no prior coordination but reveals a sender has done a handshake with the recipient). The wallet is the one that determines the type of handshake to use (see [tagging secret strategy](../../../aztec-nr/framework-description/note_delivery.md#tagging-secret-strategy)).
+**c) Tagging with a handshake** - The sender and recipient establish a handshake to agree on a tagging secret, after which regular tagging works: the recipient can discover messages without having registered the sender in advance. A non-interactive handshake is published onchain, so it needs nothing from the recipient, but it reveals that someone did a handshake with them. An interactive handshake reveals nothing onchain; in exchange, the recipient must sign it at send time. By default the wallet determines the type of handshake to use, though a contract can override the choice at delivery (see [tagging secret strategy](../../../aztec-nr/framework-description/note_delivery.md#tagging-secret-strategy)).
 
 See the [Note Delivery](../../../aztec-nr/framework-description/note_delivery.md) documentation for more details on how the sender is used when delivering notes.
 

@@ -1,0 +1,62 @@
+name: Bench Inclusion Point
+
+# Reusable: runs ONE inclusion-sweep TPS point against an ALREADY-DEPLOYED
+# network (SKIP_NETWORK_DEPLOY=1). The caller (nightly-bench-inclusion-sweep.yml)
+# deploys the network once and calls this for each point (1/5/10 TPS), chaining
+# the calls so the points run sequentially on the same network. Deploy / wait /
+# teardown are done once by the caller, not here.
+
+on:
+  workflow_call:
+    inputs:
+      tps:
+        description: "Target TPS for this point"
+        required: true
+        type: string
+      namespace:
+        description: "k8s namespace of the already-deployed network"
+        required: true
+        type: string
+      network:
+        description: "Network env name (environments/<network>.env)"
+        required: false
+        type: string
+        default: bench-inclusion-sweep
+      docker_image:
+        description: "Full aztec docker image (already deployed)"
+        required: true
+        type: string
+      source_ref:
+        description: "Git ref to checkout for the bench scripts"
+        required: true
+        type: string
+      sweep_id:
+        description: "Shared sweep id so the dashboard groups the points"
+        required: true
+        type: string
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        with:
+          ref: ${{ inputs.source_ref }}
+      - name: Run ${{ inputs.tps }} TPS inclusion point
+        timeout-minutes: 120
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          BUILD_INSTANCE_SSH_KEY: ${{ secrets.BUILD_INSTANCE_SSH_KEY }}
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+          GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          RUN_ID: ${{ github.run_id }}
+          AWS_SHUTDOWN_TIME: 180
+          NO_SPOT: 1
+          SKIP_NETWORK_DEPLOY: "1"
+          TARGET_TPS: ${{ inputs.tps }}
+          BENCH_SWEEP_ID: ${{ inputs.sweep_id }}
+          BENCH_SWEEP_LABEL: inclusion-sweep
+        run: ./.github/ci3.sh network-inclusion-sweep ${{ inputs.network }} ${{ inputs.namespace }} "${{ inputs.docker_image }}"

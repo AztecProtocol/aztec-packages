@@ -1,27 +1,21 @@
-import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import { waitForTx } from '@aztec/aztec.js/node';
 import { TxHash } from '@aztec/aztec.js/tx';
-import { BlockNumber } from '@aztec/foundation/branded-types';
-import { Signature } from '@aztec/foundation/eth-signature';
 import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { ENR, type P2PClient, type P2PService, type PeerId } from '@aztec/p2p';
-import type { SequencerClient } from '@aztec/sequencer-client';
-import { CheckpointAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
 
 import { jest } from '@jest/globals';
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
-import { type AlertConfig, GrafanaClient } from '../quality_of_service/grafana_client.js';
 import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG_NO_PRUNES, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
-import { submitTransactions } from './shared.js';
-
-const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';
+import {
+  getPublishedCheckpointForTx,
+  maybeCheckQosAlerts,
+  submitTransactions,
+  verifyAttestationSigners,
+} from './shared.js';
 
 /**
  * This test builds a network using preferred nodes (supernodes)
@@ -48,19 +42,7 @@ const NUM_TXS_PER_NODE = 2;
 const BOOT_NODE_UDP_PORT = 4500;
 const BLOCK_DURATION_MS = 10_000;
 
-const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'gossip-'));
-
 jest.setTimeout(1000 * 180 * 10);
-
-const qosAlerts: AlertConfig[] = [
-  {
-    alert: 'SequencerTimeToCollectAttestations',
-    expr: 'aztec_sequencer_time_to_collect_attestations > 3500',
-    labels: { severity: 'error' },
-    for: '10m',
-    annotations: {},
-  },
-];
 
 // Tests the preferred-node (supernode) topology: preferred nodes only accept validator connections;
 // a no-discovery validator connects exclusively through preferred nodes; gossip monitors assert that
@@ -165,23 +147,15 @@ describe('e2e_p2p_preferred_network', () => {
   afterEach(async () => {
     await t.stopNodes([t.ctx.aztecNodeService].concat(nodes).concat(validators).concat(preferredNodes));
     await t.teardown();
-    for (let i = 0; i < NUM_NODES + NUM_VALIDATORS + NUM_PREFERRED_NODES; i++) {
-      fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
-    }
   });
 
   afterAll(async () => {
-    if (CHECK_ALERTS) {
-      const checker = new GrafanaClient(t.logger);
-      await checker.runAlertCheck(qosAlerts);
-    }
+    await maybeCheckQosAlerts(t.logger);
   });
 
   // Creates a 7-node topology (2 regular + 2 preferred + 2 validators + 1 no-discovery validator),
   // installs gossip monitors to verify no-discovery validators only receive traffic from preferred nodes,
   // submits txs from regular nodes, and asserts all txs mine with attestations from all validators.
-  // REFACTOR: peer-count polling loop in waitForNodeToAcquirePeers is hand-rolled; consider
-  // using t.waitForP2PMeshConnectivity with a peer-count predicate
   it('should rollup txs from all peers', async () => {
     // create the bootstrap node for the network
     if (!t.bootstrapNodeEnr) {
@@ -212,7 +186,7 @@ describe('e2e_p2p_preferred_network', () => {
       NUM_PREFERRED_NODES,
       BOOT_NODE_UDP_PORT,
       t.genesis,
-      DATA_DIR,
+      t.dataDirFor('node'),
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       shouldCollectMetrics(),
       indexOffset,
@@ -246,7 +220,7 @@ describe('e2e_p2p_preferred_network', () => {
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
       t.genesis,
-      DATA_DIR,
+      t.dataDirFor('node'),
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       shouldCollectMetrics(),
       indexOffset,
@@ -269,7 +243,7 @@ describe('e2e_p2p_preferred_network', () => {
       NUM_VALIDATORS - 1,
       BOOT_NODE_UDP_PORT,
       t.genesis,
-      DATA_DIR,
+      t.dataDirFor('node'),
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       shouldCollectMetrics(),
       indexOffset,
@@ -293,7 +267,7 @@ describe('e2e_p2p_preferred_network', () => {
       1,
       BOOT_NODE_UDP_PORT,
       t.genesis,
-      DATA_DIR,
+      t.dataDirFor('node'),
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       shouldCollectMetrics(),
       indexOffset,
@@ -365,14 +339,16 @@ describe('e2e_p2p_preferred_network', () => {
 
     // Send the required number of transactions to each node
     t.logger.info('Submitting transactions');
-    for (const node of nodes) {
-      const txs = await submitTransactions(t.logger, node, NUM_TXS_PER_NODE, t.fundedAccount);
-      txsSentViaDifferentNodes.push(txs);
-    }
+    // Each submitTransactions call builds its own wallet/PXE, so submissions are independent and can run
+    // concurrently. Promise.all preserves node order, keeping txsSentViaDifferentNodes[i] aligned with nodes[i].
+    const submitted = await Promise.all(
+      nodes.map(node => submitTransactions(t.logger, node, NUM_TXS_PER_NODE, t.fundedAccount)),
+    );
+    txsSentViaDifferentNodes.push(...submitted);
 
     t.logger.info('Waiting for transactions to be mined');
     // now ensure that all txs were successfully mined
-    const receipts = await Promise.all(
+    await Promise.all(
       txsSentViaDifferentNodes.flatMap((txs, i) =>
         txs.map((txHash, j) => {
           t.logger.info(`Waiting for tx ${i}-${j}: ${txHash.toString()} to be mined`);
@@ -382,31 +358,9 @@ describe('e2e_p2p_preferred_network', () => {
     );
     t.logger.info('All transactions mined');
 
-    // Gather signers from attestations downloaded from L1
-    const blockNumber = receipts[0].blockNumber!;
-    const dataStore = (nodes[0] as AztecNodeService).getBlockSource() as Archiver;
-    const blockData = await dataStore.getBlockData({ number: BlockNumber(blockNumber) });
-    const [publishedCheckpoint] = await dataStore.getCheckpoints({ from: blockData!.checkpointNumber, limit: 1 });
-    const signatureContext = {
-      chainId: t.ctx.aztecNodeConfig.l1ChainId,
-      rollupAddress: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
-    };
-    const payload = ConsensusPayload.fromCheckpoint(publishedCheckpoint.checkpoint, signatureContext);
-    const attestations = publishedCheckpoint.attestations
-      .filter(a => !a.signature.isEmpty())
-      .map(a => new CheckpointAttestation(payload, a.signature, Signature.empty()));
-    const signers = await Promise.all(attestations.map(att => att.getSender()!.toString()));
-    t.logger.info(`Attestation signers`, { signers });
-
+    // Gather signers from attestations downloaded from L1 and check they belong to the validator set.
+    const publishedCheckpoint = await getPublishedCheckpointForTx(nodes[0], txsSentViaDifferentNodes[0][0]);
+    const signers = await verifyAttestationSigners(t, validators, publishedCheckpoint);
     expect(signers.length).toEqual(validators.length);
-
-    // Check that the signers found are part of the proposer nodes to ensure the archiver fetched them right
-    const validatorAddresses = validators.flatMap(node =>
-      ((node as AztecNodeService).getSequencer() as SequencerClient).validatorAddresses?.map(a => a.toString()),
-    );
-    t.logger.info(`Validator addresses`, { addresses: validatorAddresses });
-    for (const signer of signers) {
-      expect(validatorAddresses).toContain(signer);
-    }
   });
 });

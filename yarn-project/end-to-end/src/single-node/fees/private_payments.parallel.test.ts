@@ -1,24 +1,29 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
 import { BatchCall, waitForProven } from '@aztec/aztec.js/contracts';
-import { PrivateFeePaymentMethod } from '@aztec/aztec.js/fee';
+import { PrivateFeePaymentMethod, PublicFeePaymentMethod } from '@aztec/aztec.js/fee';
+import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee/testing';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
+import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import { GasSettings } from '@aztec/stdlib/gas';
 import { TX_ERROR_INSUFFICIENT_FEE_PAYER_BALANCE } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 
-import { PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
+import { PIPELINING_SETUP_OPTS, getPaddedMaxFeesPerGas } from '../../fixtures/fixtures.js';
 import { expectMapping } from '../../fixtures/utils.js';
 import type { TestWallet } from '../../test-wallet/test_wallet.js';
 import { proveInteraction } from '../../test-wallet/utils.js';
 import { FeesTest } from './fees_test.js';
 
-// Private fee payment via BananaCoin FPC (PrivateFeePaymentMethod). Uses FeesTest (prod sequencer,
-// pipelining preset: ethSlot=4s, aztecSlot=12s, inboxLag=2, minTxsPerBlock=0, aztecEpochDuration=4,
+// Fee payment via BananaCoin FPC over the shared FeesTest fixture (prod sequencer, pipelining preset:
+// ethSlot=4s, aztecSlot=12s, inboxLag=2, minTxsPerBlock=0, aztecEpochDuration=4,
 // aztecProofSubmissionEpochs=640), fake in-proc prover node, and GasBridgingTestHarness for L1↔L2
-// fee-juice bridging. Auto-proving is disabled after setup so tests control epoch advancement.
+// fee-juice bridging. Auto-proving is disabled after setup so tests control epoch advancement. Covers
+// the private-FPC payment path (PrivateFeePaymentMethod) plus single-assertion public-FPC
+// (PublicFeePaymentMethod) and sponsored-FPC (SponsoredFeePaymentMethod) payment checks folded in from
+// the former public_payments/sponsored_payments files onto this same fixture.
 describe('single-node/fees/private_payments', () => {
   // FeesTest.setup + applyFPCSetup + applyFundAliceWithBananas chains many dependent txs which run at the
   // ~24s/tx pipelined cadence, exceeding the default 5 min hook window.
@@ -30,6 +35,7 @@ describe('single-node/fees/private_payments', () => {
   let sequencerAddress: AztecAddress;
   let bananaCoin: BananaCoin;
   let bananaFPC: FPCContract;
+  let sponsoredFPC: SponsoredFPCContract;
   let gasSettings: GasSettings;
   let aztecNode: AztecNode;
 
@@ -40,13 +46,24 @@ describe('single-node/fees/private_payments', () => {
     // cycle: the prover-node submits a proof as soon as the epoch is complete, so ~8x shorter
     // epochs ≈ ~8x faster proof cadence per cycle. Setup itself stays slot-bound.
     await t.setup({ ...PIPELINING_SETUP_OPTS, aztecProofSubmissionEpochs: 640, aztecEpochDuration: 4 });
-    await t.applyFPCSetup();
-    await t.applyFundAliceWithBananas();
-    ({ wallet, aliceAddress, bobAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings, aztecNode } = t);
+    // The BananaFPC deploy, the SponsoredFPC registration (funded at genesis via FeesTest's
+    // fundSponsoredFPC; a PXE registration, not an L2 tx), and Alice's banana mints each depend only
+    // on the BananaCoin deployed during setup, so they run concurrently and share slots.
+    await Promise.all([t.applyFPCSetup(), t.applySponsoredFPCSetup(), t.applyFundAliceWithBananas()]);
+    ({
+      wallet,
+      aliceAddress,
+      bobAddress,
+      sequencerAddress,
+      bananaCoin,
+      bananaFPC,
+      sponsoredFPC,
+      gasSettings,
+      aztecNode,
+    } = t);
 
     // Prove up until the current state by advancing the epoch and waiting for the prover node.
-    await t.cheatCodes.rollup.advanceToNextEpoch();
-    await t.catchUpProvenChain();
+    await t.waitForEpochProven();
   });
 
   afterAll(async () => {
@@ -57,7 +74,6 @@ describe('single-node/fees/private_payments', () => {
   let initialAlicePrivateBananas: bigint;
   let initialAliceGas: bigint;
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   let initialBobPublicBananas: bigint;
   let initialBobPrivateBananas: bigint;
 
@@ -123,7 +139,7 @@ describe('single-node/fees/private_payments', () => {
     const provenCheckpointBefore = await t.rollupContract.getProvenCheckpointNumber();
 
     const receipt = await localTx.send({ timeout: 300, interval: 10 });
-    await t.cheatCodes.rollup.advanceToNextEpoch();
+    await t.advanceToNextEpoch();
 
     await waitForProven(aztecNode, receipt, { provenTimeout: 300 });
 
@@ -354,5 +370,81 @@ describe('single-node/fees/private_payments', () => {
         },
       }),
     ).rejects.toThrow('max fee not enough to cover tx fee');
+  });
+
+  // Folded from the former public_payments.test.ts. Alice sends bananas to Bob paying via the BananaCoin
+  // FPC with PublicFeePaymentMethod: Alice's public banana balance drops by transfer + fee, the FPC gains
+  // the fee in bananas and loses it in gas, and Bob receives the transfer.
+  it('pays fees for tx that makes a public transfer via public FPC', async () => {
+    // Public/sponsored FPC payment reads the padded max fee so the FPC's fixed budget survives fee
+    // evolution across the pipelined build window (the private path above uses the raw min fee).
+    const publicGasSettings = GasSettings.from({
+      ...gasSettings,
+      maxFeesPerGas: await getPaddedMaxFeesPerGas(aztecNode),
+    });
+
+    const bananasToSendToBob = 10n;
+    const { receipt: tx } = await bananaCoin.methods
+      .transfer_in_public(aliceAddress, bobAddress, bananasToSendToBob, 0)
+      .send({
+        from: aliceAddress,
+        fee: {
+          paymentMethod: new PublicFeePaymentMethod(bananaFPC.address, aliceAddress, wallet, publicGasSettings),
+        },
+      });
+
+    const feeAmount = tx.transactionFee!;
+
+    await expectMapping(
+      t.getBananaPublicBalanceFn,
+      [aliceAddress, bananaFPC.address, bobAddress],
+      [
+        initialAlicePublicBananas - (feeAmount + bananasToSendToBob),
+        initialFPCPublicBananas + feeAmount,
+        initialBobPublicBananas + bananasToSendToBob,
+      ],
+    );
+
+    await expectMapping(
+      t.getGasBalanceFn,
+      [aliceAddress, bananaFPC.address, sequencerAddress],
+      [initialAliceGas, initialFPCGas - feeAmount, initialSequencerGas],
+    );
+  });
+
+  // Folded from the former sponsored_payments.test.ts (also a docs snippet). Alice sends bananas to Bob
+  // via SponsoredFeePaymentMethod: the SponsoredFPC covers the fee from its own gas balance, so Alice's
+  // gas balance is untouched and only banana balances change. The bananaFPC-relative `initialFPCGas`
+  // snapshot from beforeEach does not apply here, so the SponsoredFPC gas is snapshotted locally.
+  it('pays fees for tx that makes a public transfer via sponsored FPC', async () => {
+    const [initialSponsoredFPCGas] = await t.getGasBalanceFn(sponsoredFPC.address);
+    gasSettings = GasSettings.from({ ...gasSettings, maxFeesPerGas: await getPaddedMaxFeesPerGas(aztecNode) });
+
+    // docs:start:sponsored_fpc_simple
+    const bananasToSendToBob = 10n;
+    const { receipt: tx } = await bananaCoin.methods
+      .transfer_in_public(aliceAddress, bobAddress, bananasToSendToBob, 0)
+      .send({
+        from: aliceAddress,
+        fee: {
+          gasSettings,
+          paymentMethod: new SponsoredFeePaymentMethod(sponsoredFPC.address),
+        },
+      });
+    // docs:end:sponsored_fpc_simple
+
+    const feeAmount = tx.transactionFee!;
+
+    await expectMapping(
+      t.getBananaPublicBalanceFn,
+      [aliceAddress, bobAddress],
+      [initialAlicePublicBananas - bananasToSendToBob, initialBobPublicBananas + bananasToSendToBob],
+    );
+
+    await expectMapping(
+      t.getGasBalanceFn,
+      [aliceAddress, sponsoredFPC.address, sequencerAddress],
+      [initialAliceGas, initialSponsoredFPCGas - feeAmount, initialSequencerGas],
+    );
   });
 });

@@ -1,8 +1,10 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import type { Fr } from '@aztec/aztec.js/fields';
 import type { Logger } from '@aztec/aztec.js/log';
 import { MerkleTreeId } from '@aztec/aztec.js/trees';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import { CheatCodes } from '@aztec/aztec/testing';
+import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { AztecNode, AztecNodeDebug } from '@aztec/stdlib/interfaces/client';
@@ -73,6 +75,23 @@ describe('automine/effects/pruned_blocks', () => {
     }
   }
 
+  // Polls the historical leaf query until it starts throwing "Unable to find leaf", which is how a
+  // pruned world-state block surfaces to callers once the prune has propagated.
+  const waitForWorldStatePrune = (blockNumber: BlockNumber, note: Fr) =>
+    retryUntil(
+      async () => {
+        try {
+          await aztecNode.findLeavesIndexes(blockNumber, MerkleTreeId.NOTE_HASH_TREE, [note]);
+          return false;
+        } catch (error) {
+          return (error as Error).message.includes('Unable to find leaf');
+        }
+      },
+      'waiting for pruning',
+      60,
+      0.5,
+    );
+
   // Mints half the token amount (tx1), mines enough empty blocks to make that block eligible for pruning,
   // calls markAsProven + extra L1 blocks to finalize the prune, polls until the archive query on tx1's
   // block fails, then mints the other half and transfers the full amount. Asserts final balances.
@@ -114,21 +133,7 @@ describe('automine/effects/pruned_blocks', () => {
     // The same historical query we performed before should now fail since this block is not available anymore. We poll
     // the node for a bit until it processes the blocks we marked as proven, causing the historical query to fail.
     logger.warn(`Awaiting 'unable to find leaf' error from node due to pruned history`);
-    // REFACTOR: hand-rolled poll waiting for world-state prune to propagate; a DSL helper such as
-    // waitForWorldStatePrune(node, blockNumber) should replace this retryUntil loop.
-    await retryUntil(
-      async () => {
-        try {
-          await aztecNode.findLeavesIndexes(firstMintReceipt.blockNumber!, MerkleTreeId.NOTE_HASH_TREE, [mintedNote!]);
-          return false;
-        } catch (error) {
-          return (error as Error).message.includes('Unable to find leaf');
-        }
-      },
-      'waiting for pruning',
-      60,
-      0.5,
-    );
+    await waitForWorldStatePrune(firstMintReceipt.blockNumber!, mintedNote!);
 
     // We've completed the setup we were interested in, and can now simply mint the second half of the amount, transfer
     // the full amount to the recipient (which will require the sender to discover and prove both the old and new notes)

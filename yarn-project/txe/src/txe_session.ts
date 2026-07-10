@@ -7,6 +7,7 @@ import { openEphemeralStore } from '@aztec/kv-store/lmdb-v2';
 import {
   AddressStore,
   AnchorBlockStore,
+  AnchoredContractData,
   CapsuleService,
   CapsuleStore,
   ContractStore,
@@ -19,7 +20,6 @@ import {
   RecipientTaggingStore,
   SenderTaggingStore,
   TaggingSecretSourcesStore,
-  type TaggingSecretStrategy,
   composeHooks,
 } from '@aztec/pxe/server';
 import {
@@ -29,6 +29,7 @@ import {
   type IMiscOracle,
   type IPrivateExecutionOracle,
   type IUtilityExecutionOracle,
+  LEGACY_ORACLE_REGISTRY,
   Option,
   TransientArrayService,
   UtilityExecutionOracle,
@@ -56,7 +57,12 @@ import { z } from 'zod';
 
 import { DEFAULT_ADDRESS, MAX_OFFCHAIN_EFFECTS_PER_TXE_QUERY, MAX_OFFCHAIN_EFFECT_LEN } from './constants.js';
 import type { IAvmExecutionOracle, ITxeExecutionOracle } from './oracle/interfaces.js';
+import {
+  type TXETaggingSecretStrategies,
+  makeResolveTaggingSecretStrategyHook,
+} from './oracle/tagging_secret_strategy.js';
 import { TXEOraclePublicContext } from './oracle/txe_oracle_public_context.js';
+import { callTxeLegacyHandler } from './oracle/txe_oracle_registry.js';
 import { TXEOracleTopLevelContext } from './oracle/txe_oracle_top_level_context.js';
 import { TXE_ORACLE_VERSION_MAJOR, TXE_ORACLE_VERSION_MINOR } from './oracle/txe_oracle_version.js';
 import { TXEPrivateExecutionOracle } from './oracle/txe_private_execution_oracle.js';
@@ -234,7 +240,7 @@ function emptyLastCallState(): LastCallState {
 export class TXESession implements TXESessionStateHandler {
   private state: SessionState = { name: 'TOP_LEVEL' };
   private authwits: Map<string, AuthWitness> = new Map();
-  private taggingSecretStrategy: TaggingSecretStrategy | undefined = undefined;
+  private taggingSecretStrategies: TXETaggingSecretStrategies = new Map();
   private lastCallInfo: LastCallState = emptyLastCallState();
   private txeOracleVersion: { major: number; minor: number } | undefined;
 
@@ -354,7 +360,7 @@ export class TXESession implements TXESessionStateHandler {
       version,
       chainId,
       new Map(),
-      undefined,
+      new Map(),
       artifactResolver,
       rootPath,
       packageName,
@@ -397,6 +403,18 @@ export class TXESession implements TXESessionStateHandler {
    */
   processFunction(functionName: TXEOracleFunctionName, inputs: ForeignCallArgs): Promise<ForeignCallResult> {
     try {
+      // Oracles retired into the PXE legacy registry have no translator method; dispatch them through the same
+      // buildACIRCallback legacy path that contract execution uses, keeping TXE's two oracle paths in sync.
+      // Use an own-property check: `in` would match inherited `Object.prototype` keys (e.g. `constructor`), routing
+      // them into the legacy path instead of letting them fall through to the unknown-oracle error.
+      if (Object.hasOwn(LEGACY_ORACLE_REGISTRY, functionName)) {
+        return callTxeLegacyHandler(
+          functionName,
+          inputs,
+          this.oracleHandler as Parameters<typeof buildACIRCallback>[0],
+        );
+      }
+
       const translator = new RPCTranslator(this, this.oracleHandler) as any;
       // We perform a runtime validation to check that the function name corresponds to a real oracle handler.
       const validatedFunctionName = z
@@ -672,7 +690,7 @@ export class TXESession implements TXESessionStateHandler {
       this.version,
       this.chainId,
       this.authwits,
-      this.taggingSecretStrategy,
+      this.taggingSecretStrategies,
       this.artifactResolver,
       this.rootPath,
       this.packageName,
@@ -717,7 +735,11 @@ export class TXESession implements TXESessionStateHandler {
 
     const utilityExecutor = this.utilityExecutorForContractSync(anchorBlock);
     const transientArrayService = new TransientArrayService();
-    const taggingSecretStrategy = this.taggingSecretStrategy;
+    const anchoredContractData = new AnchoredContractData(
+      this.contractStore,
+      this.stateMachine.contractClassService,
+      anchorBlock!,
+    );
     this.oracleHandler = new TXEPrivateExecutionOracle({
       argsHash: Fr.ZERO,
       txContext: new TxContext(this.chainId, this.version, gasSettings),
@@ -729,7 +751,7 @@ export class TXESession implements TXESessionStateHandler {
       executionCache: new HashedValuesCache(),
       noteCache,
       taggingIndexCache,
-      contractStore: this.contractStore,
+      anchoredContractData,
       noteStore: this.noteStore,
       keyStore: this.keyStore,
       addressStore: this.addressStore,
@@ -747,7 +769,7 @@ export class TXESession implements TXESessionStateHandler {
       txResolver: this.stateMachine.txResolver,
       simulator: new WASMSimulator(),
       hooks: composeHooks({
-        resolveTaggingSecretStrategy: taggingSecretStrategy ? () => Promise.resolve(taggingSecretStrategy) : undefined,
+        resolveTaggingSecretStrategy: makeResolveTaggingSecretStrategyHook(this.taggingSecretStrategies),
       }),
       transientArrayService,
     });
@@ -827,7 +849,11 @@ export class TXESession implements TXESessionStateHandler {
       authWitnesses: [],
       capsules: [],
       anchorBlockHeader,
-      contractStore: this.contractStore,
+      anchoredContractData: new AnchoredContractData(
+        this.contractStore,
+        this.stateMachine.contractClassService,
+        anchorBlockHeader,
+      ),
       noteStore: this.noteStore,
       keyStore: this.keyStore,
       addressStore: this.addressStore,
@@ -866,13 +892,13 @@ export class TXESession implements TXESessionStateHandler {
     // accounts to PXE (via `addAccount`), etc. This is a slight inconsistency in the working model of this class, but
     // is not too bad. The `close` call below therefore only hands back the session-scoped values that a test
     // sets directly at the top level, outside any contract execution (e.g. via `advanceTimestampBy`,
-    // `addAuthWitness`, `setTaggingSecretStrategy`). The oracle handler is discarded on every state transition,
+    // `addAuthWitness`, `setTaggingSecretStrategies`). The oracle handler is discarded on every state transition,
     // so the session must seed these values into the contexts it creates later.
 
     // TODO: persisting authwits this way is quite unfortunate: they create a temporary utility context that would
     // otherwise reset them, so we'd not be able to pass more than one per execution. Ideally authwits would be passed
     // alongside a contract call instead of pre-seeded.
-    [this.nextBlockTimestamp, this.authwits, this.taggingSecretStrategy] = (
+    [this.nextBlockTimestamp, this.authwits, this.taggingSecretStrategies] = (
       this.oracleHandler as TXEOracleTopLevelContext
     ).close();
   }
@@ -923,7 +949,18 @@ export class TXESession implements TXESessionStateHandler {
 
   private utilityExecutorForContractSync(anchorBlock: any) {
     return async (call: FunctionCall, scopes: AztecAddress[]) => {
-      const entryPointArtifact = await this.contractStore.getFunctionArtifactWithDebugMetadata(call.to, call.selector);
+      const anchoredContractData = new AnchoredContractData(
+        this.contractStore,
+        this.stateMachine.contractClassService,
+        anchorBlock!,
+      );
+      const entryPointArtifact = await anchoredContractData.getFunctionArtifactWithDebugMetadata(
+        call.to,
+        call.selector,
+      );
+      if (!entryPointArtifact) {
+        throw new Error(`Cannot run function ${call.selector} on ${call.to}: the contract is not registered.`);
+      }
       if (entryPointArtifact.functionType !== FunctionType.UTILITY) {
         throw new Error(`Cannot run ${entryPointArtifact.functionType} function as utility`);
       }
@@ -940,7 +977,7 @@ export class TXESession implements TXESessionStateHandler {
           authWitnesses: [],
           capsules: [],
           anchorBlockHeader: anchorBlock!,
-          contractStore: this.contractStore,
+          anchoredContractData,
           noteStore: this.noteStore,
           keyStore: this.keyStore,
           addressStore: this.addressStore,

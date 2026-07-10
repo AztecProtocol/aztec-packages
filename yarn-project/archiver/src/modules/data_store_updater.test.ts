@@ -6,6 +6,7 @@ import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { ContractClassPublishedEvent } from '@aztec/protocol-contracts/class-registry';
 import { ContractInstancePublishedEvent } from '@aztec/protocol-contracts/instance-registry';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
+import { getPublishableStandardContracts } from '@aztec/standard-contracts';
 import { bufferAsFields } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GENESIS_BLOCK_HEADER_HASH, L2Block } from '@aztec/stdlib/block';
@@ -19,7 +20,7 @@ import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
-import { registerProtocolContracts } from '../factory.js';
+import { registerProtocolContracts, registerStandardContracts } from '../factory.js';
 import { type ArchiverDataStores, createArchiverDataStores } from '../store/data_stores.js';
 import { L2TipsCache } from '../store/l2_tips_cache.js';
 import { makeCheckpoint, makePublishedCheckpoint } from '../test/mock_structs.js';
@@ -147,6 +148,32 @@ describe('ArchiverDataStoreUpdater', () => {
       // Adding the block must not throw, and the protocol class must remain queryable afterwards.
       await expect(updater.addProposedBlock(block)).resolves.not.toThrow();
       expect(await store.contractClasses.getContractClass(protocolClassId)).toBeDefined();
+    });
+
+    it('preloads standard contract classes and instances via registerStandardContracts', async () => {
+      const standardContracts = await getPublishableStandardContracts();
+      expect(standardContracts.length).toBeGreaterThan(0);
+
+      // Not present before the preload.
+      for (const { contractClass } of standardContracts) {
+        expect(await store.contractClasses.getContractClass(contractClass.id)).toBeUndefined();
+      }
+
+      await registerStandardContracts(store);
+
+      // Both the class and the instance are queryable from the block-0 preload.
+      for (const { contractClass, address } of standardContracts) {
+        const retrievedClass = await store.contractClasses.getContractClass(contractClass.id);
+        expect(retrievedClass?.id.equals(contractClass.id)).toBe(true);
+        const retrievedInstance = await store.contractInstances.getContractInstance(address, 1n);
+        expect(retrievedInstance?.address.equals(address)).toBe(true);
+      }
+
+      // Calling again (e.g. on node restart with a persisted store) is idempotent and must not throw.
+      await expect(registerStandardContracts(store)).resolves.not.toThrow();
+      for (const { contractClass } of standardContracts) {
+        expect(await store.contractClasses.getContractClass(contractClass.id)).toBeDefined();
+      }
     });
 
     it('removes contract class and instance data when blocks are pruned via setCheckpointData', async () => {
@@ -340,6 +367,63 @@ describe('ArchiverDataStoreUpdater', () => {
       // Verify the contract data was removed
       expect(await store.contractClasses.getContractClass(contractClassId)).toBeUndefined();
       expect(await store.contractInstances.getContractInstance(instanceAddress, timestamp)).toBeUndefined();
+    });
+
+    it('accepts a re-included already-stored checkpoint carrying contract data (A-1350)', async () => {
+      const block = await L2Block.random(BlockNumber(1), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+      });
+      block.body.txEffects[0].contractClassLogs = [contractClassLog];
+      block.body.txEffects[0].privateLogs = [PrivateLog.fromBuffer(getSampleContractInstancePublishedEventPayload())];
+
+      const checkpoint = makeCheckpoint([block]);
+      await updater.addCheckpoints([makePublishedCheckpoint(checkpoint, 10)]);
+      expect(await store.contractClasses.getContractClass(contractClassId)).toBeDefined();
+
+      // Simulate an L1 reorg that re-includes the same checkpoint at a later L1 block.
+      await expect(updater.addCheckpoints([makePublishedCheckpoint(checkpoint, 999)])).resolves.toBeDefined();
+
+      // L1 metadata must reflect the re-inclusion and contract data must still be present.
+      const stored = await store.blocks.getCheckpointData(CheckpointNumber(1));
+      expect(stored?.l1.blockNumber).toBe(999n);
+      expect(await store.contractClasses.getContractClass(contractClassId)).toBeDefined();
+      const timestamp = block.header.globalVariables.timestamp + 1n;
+      expect(await store.contractInstances.getContractInstance(instanceAddress, timestamp)).toBeDefined();
+    });
+
+    it('extracts only the newly-inserted suffix when a re-included checkpoint is batched with a new one (A-1350)', async () => {
+      // Checkpoint 1 (block 1) carries the contract class log; checkpoint 2 (block 2) carries the
+      // contract instance log. Ingest checkpoint 1, then re-present it (at a new L1 block) batched with
+      // the brand-new checkpoint 2. Only checkpoint 2's block is new, so its instance must be extracted
+      // while re-extracting checkpoint 1's already-stored class is skipped rather than throwing.
+      const block1 = await L2Block.random(BlockNumber(1), {
+        checkpointNumber: CheckpointNumber(1),
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+      });
+      block1.body.txEffects[0].contractClassLogs = [contractClassLog];
+
+      const checkpoint1 = makeCheckpoint([block1]);
+      await updater.addCheckpoints([makePublishedCheckpoint(checkpoint1, 10)]);
+      expect(await store.contractClasses.getContractClass(contractClassId)).toBeDefined();
+
+      const block2 = await L2Block.random(BlockNumber(2), {
+        checkpointNumber: CheckpointNumber(2),
+        indexWithinCheckpoint: IndexWithinCheckpoint(0),
+        lastArchive: block1.archive,
+      });
+      block2.body.txEffects[0].privateLogs = [PrivateLog.fromBuffer(getSampleContractInstancePublishedEventPayload())];
+      const checkpoint2 = makeCheckpoint([block2], CheckpointNumber(2));
+
+      // Re-present checkpoint 1 at a new L1 block, batched with the new checkpoint 2.
+      await expect(
+        updater.addCheckpoints([makePublishedCheckpoint(checkpoint1, 999), makePublishedCheckpoint(checkpoint2, 20)]),
+      ).resolves.toBeDefined();
+
+      // Checkpoint 1's class stays stored (not re-extracted), and checkpoint 2's instance was extracted.
+      expect(await store.contractClasses.getContractClass(contractClassId)).toBeDefined();
+      const timestamp = block2.header.globalVariables.timestamp + 1n;
+      expect(await store.contractInstances.getContractInstance(instanceAddress, timestamp)).toBeDefined();
     });
   });
 

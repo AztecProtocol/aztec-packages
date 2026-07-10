@@ -49,6 +49,7 @@ import { CheckpointProposalJob } from './checkpoint_proposal_job.js';
 import type { CheckpointProposalJobMetricsRecorder } from './checkpoint_proposal_job_metrics.js';
 import type { SequencerEvents } from './events.js';
 import type { SequencerMetrics } from './metrics.js';
+import { RequestsTracker } from './requests_tracker.js';
 import { SequencerState } from './utils.js';
 
 /**
@@ -154,6 +155,11 @@ class TimingTestCheckpointProposalJob extends CheckpointProposalJob {
   /** Public accessor for testing */
   public getSecondsIntoSlotPublic(): number {
     return this.getSecondsIntoSlotFn();
+  }
+
+  /** Awaits the sequencer's shared tracker so tests observe the backgrounded L1 submission completing. */
+  public async awaitPendingSubmission(): Promise<void> {
+    await this.pendingRequests.awaitRequests();
   }
 
   /** Update config for testing */
@@ -337,6 +343,7 @@ describe('CheckpointProposalJob Timing Tests', () => {
       metrics,
       checkpointMetrics,
       eventEmitter,
+      new RequestsTracker(),
       setStateFn,
       getTelemetryClient().getTracer('timing-test'),
       { actor: 'timing-test' },

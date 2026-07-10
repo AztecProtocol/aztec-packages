@@ -11,7 +11,7 @@ import { SimulationOverrides } from '@aztec/stdlib/tx';
 
 /**
  * Builds `SimulationOverrides` that simulate a deployed instance as if it had already been upgraded to a
- * new contract class. Mirrors a real on-chain upgrade (`pxe.updateContract` followed by waiting out the delay):
+ * new contract class. Mirrors a real on-chain upgrade (scheduling the new class and waiting out the delay):
  *
  * - `publicStorage` rewrites the `ContractInstanceRegistry`'s delayed-public-mutable storage so the AVM's
  *   `UpdateCheck` resolves to the new class id.

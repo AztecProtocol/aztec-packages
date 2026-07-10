@@ -43,7 +43,7 @@ describe('automine/ordering', () => {
     expect(bigintLogs).toStrictEqual(logMessages);
   };
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     ({
       teardown,
       wallet,
@@ -52,15 +52,16 @@ describe('automine/ordering', () => {
     } = (await AutomineTestContext.setup({ numberOfAccounts: 1 })).context);
   }, TIMEOUT);
 
-  afterEach(() => teardown());
+  afterAll(() => teardown());
 
-  // Sub-suite deploying Parent and Child contracts fresh in each test to ensure isolation.
+  // Parent and Child are deployed once and shared across tests: each test asserts only on tx-local data, its
+  // own mined block's logs, or a `'latest'` read taken right after its own write, so no isolation is required.
   describe('with parent and child contract', () => {
     let parent: ParentContract;
     let child: ChildContract;
     let pubSetValueSelector: FunctionSelector;
 
-    beforeEach(async () => {
+    beforeAll(async () => {
       ({ contract: parent } = await ParentContract.deploy(wallet).send({ from: defaultAccountAddress }));
       ({ contract: child } = await ChildContract.deploy(wallet).send({ from: defaultAccountAddress }));
       pubSetValueSelector = await child.methods.pub_set_value.selector();

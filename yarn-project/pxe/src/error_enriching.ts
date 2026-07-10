@@ -3,7 +3,9 @@ import { resolveAssertionMessageFromRevertData, resolveOpcodeLocations } from '@
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { type SimulationError, isNoirCallStackUnresolved } from '@aztec/stdlib/errors';
+import type { BlockHeader } from '@aztec/stdlib/tx';
 
+import type { ContractClassService } from './contract/contract_class_service.js';
 import type { ContractStore } from './storage/contract_store/contract_store.js';
 
 /**
@@ -11,7 +13,13 @@ import type { ContractStore } from './storage/contract_store/contract_store.js';
  * can be found in the PXE database
  * @param err - The error to enrich.
  */
-export async function enrichSimulationError(err: SimulationError, contractStore: ContractStore, logger: Logger) {
+export async function enrichSimulationError(
+  err: SimulationError,
+  contractStore: ContractStore,
+  contractClassService: ContractClassService,
+  anchorHeader: BlockHeader,
+  logger: Logger,
+) {
   // Maps contract addresses to the set of function selectors that were in error.
   // Map and Set do reference equality for their keys instead of value equality, so we store the string
   // representation to get e.g. different contract address objects with the same address value to match.
@@ -30,13 +38,14 @@ export async function enrichSimulationError(err: SimulationError, contractStore:
   await Promise.all(
     [...mentionedFunctions.entries()].map(async ([contractAddress, fnSelectors]) => {
       const parsedContractAddress = AztecAddress.fromStringUnsafe(contractAddress);
-      const contract = await contractStore.getContract(parsedContractAddress);
-      if (contract) {
-        err.enrichWithContractName(parsedContractAddress, contract.name);
+      const classId = await contractClassService.getCurrentClassId(parsedContractAddress, anchorHeader);
+      const artifact = classId && (await contractStore.getContractArtifact(classId));
+      if (artifact) {
+        err.enrichWithContractName(parsedContractAddress, artifact.name);
         // Map from function selector to function name. It uses a stringified key for the same reason as mentionedFunctions.
         const selectorToNameMap: Map<string, string> = new Map();
         await Promise.all(
-          contract.functions.map(async fn => {
+          artifact.functions.map(async fn => {
             const selector = await FunctionSelector.fromNameAndParameters(fn);
             selectorToNameMap.set(selector.toString(), fn.name);
           }),
@@ -51,7 +60,7 @@ export async function enrichSimulationError(err: SimulationError, contractStore:
             );
           } else {
             logger.warn(
-              `Could not find function artifact in contract ${contract.name} for function '${fnSelector}' when enriching error callstack`,
+              `Could not find function artifact in contract ${artifact.name} for function '${fnSelector}' when enriching error callstack`,
             );
           }
         }
@@ -64,7 +73,13 @@ export async function enrichSimulationError(err: SimulationError, contractStore:
   );
 }
 
-export async function enrichPublicSimulationError(err: SimulationError, contractStore: ContractStore, logger: Logger) {
+export async function enrichPublicSimulationError(
+  err: SimulationError,
+  contractStore: ContractStore,
+  contractClassService: ContractClassService,
+  anchorHeader: BlockHeader,
+  logger: Logger,
+) {
   const callStack = err.getCallStack();
   const originalFailingFunction = callStack[callStack.length - 1];
 
@@ -72,7 +87,8 @@ export async function enrichPublicSimulationError(err: SimulationError, contract
     throw new Error(`Original failing function not found when enriching public simulation, missing callstack`);
   }
 
-  const artifact = await contractStore.getPublicFunctionArtifact(originalFailingFunction.contractAddress);
+  const classId = await contractClassService.getCurrentClassId(originalFailingFunction.contractAddress, anchorHeader);
+  const artifact = classId && (await contractStore.getPublicFunctionArtifact(classId));
   if (!artifact) {
     throw new Error(
       `Artifact not found when enriching public simulation error. Contract address: ${originalFailingFunction.contractAddress}.`,
@@ -84,7 +100,7 @@ export async function enrichPublicSimulationError(err: SimulationError, contract
     err.setOriginalMessage(err.getOriginalMessage() + `${assertionMessage}`);
   }
 
-  const debugInfo = await contractStore.getPublicFunctionDebugMetadata(originalFailingFunction.contractAddress);
+  const debugInfo = await contractStore.getPublicFunctionDebugMetadata(classId);
 
   const noirCallStack = err.getNoirCallStack();
   if (debugInfo) {
@@ -102,6 +118,6 @@ export async function enrichPublicSimulationError(err: SimulationError, contract
         );
       }
     }
-    await enrichSimulationError(err, contractStore, logger);
+    await enrichSimulationError(err, contractStore, contractClassService, anchorHeader, logger);
   }
 }

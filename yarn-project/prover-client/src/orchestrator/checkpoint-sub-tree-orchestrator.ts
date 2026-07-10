@@ -323,7 +323,7 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
     if (!txs.length) {
       // Empty block: setBlockCompleted handles this without addTxs being called. Bail to
       // avoid the throw below (we cannot find the blockNumber without any txs).
-      this.logger.warn(`Provided no txs to addTxs.`);
+      this.logger.verbose(`Provided no txs to addTxs.`);
       return;
     }
 

@@ -18,6 +18,12 @@ We say that a smart contract is called when one of its functions is invoked and 
 
 There are multiple types of calls, and some of the naming can make things **very** confusing. This page lists the different call types and execution modes, pointing out key differences between them.
 
+import YouTubeEmbed from '@site/src/components/YouTubeEmbed';
+
+A key property of Aztec calls is that contracts can call each other privately, keeping even the call stack itself private. This two-minute explainer covers the idea before we get into the details (find more on the [video lessons](../resources/video_lessons.mdx) page):
+
+<YouTubeEmbed videoId="idxRuGQnQKs" title="What is Private Composability? An Aztec Explainer" />
+
 ## Ethereum Call Types
 
 Aztec's design is heavily influenced by Ethereum, and many APIs and concepts are similar. This section provides background on Ethereum call types for context. If you're already familiar with Ethereum, you can skip to [Aztec Call Types](#aztec-call-types).
@@ -187,10 +193,12 @@ Public functions can be called either directly in a public context (as shown abo
 
 ### Utility
 
-Contract functions marked with `#[external("utility")]` cannot be called as part of a transaction. They are only invoked by applications that interact with contracts for:
+Contract functions marked with `#[external("utility")]` are never proven as part of a transaction, even when called from a private function. They are invoked by applications that interact with contracts for:
 
 - **State queries**: Reading from both private and public state via an offchain client
 - **Local state management**: Modifying contract-related PXE state (e.g., processing logs in Aztec.nr)
+
+Utility functions can also be called from other utility functions, and from private functions as unconstrained code. Calls that cross a contract boundary require wallet authorization. See [utility calls](../aztec-nr/framework-description/calling_contracts.md#utility-calls) for how to make them.
 
 Since utility execution is unconstrained and relies heavily on oracle calls, no guarantees are made on the correctness of results. However, you can verify that the bytecode being executed is correct, since a contract's address includes a commitment to all of its utility functions.
 

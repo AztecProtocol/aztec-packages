@@ -24,6 +24,7 @@ import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 
 import { type Hex, getContract } from 'viem';
 
+import { testSpan } from '../fixtures/timing.js';
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
 import { waitForL1ToL2MessageSeen } from './wait_for_l1_to_l2_message.js';
 
@@ -43,6 +44,7 @@ export async function deployAndInitializeTokenAndBridgeContracts(
   rollupRegistryAddress: EthAddress,
   owner: AztecAddress,
   underlyingERC20Address: EthAddress,
+  predeployedTokenPortalAddress?: EthAddress,
 ): Promise<{
   /**
    * The L2 token contract instance.
@@ -65,23 +67,26 @@ export async function deployAndInitializeTokenAndBridgeContracts(
    */
   underlyingERC20: any;
 }> {
-  // deploy the token portal
-  const { address: tokenPortalAddress } = await deployL1Contract(l1Client, TokenPortalAbi, TokenPortalBytecode);
+  // Deploy the token portal, unless it was already deployed before the node started (under automine).
+  const tokenPortalAddress =
+    predeployedTokenPortalAddress ?? (await deployL1Contract(l1Client, TokenPortalAbi, TokenPortalBytecode)).address;
   const tokenPortal = getContract({
     address: tokenPortalAddress.toString(),
     abi: TokenPortalAbi,
     client: l1Client,
   });
 
-  // deploy l2 token
-  const { contract: token } = await TokenContract.deploy(wallet, owner, 'TokenName', 'TokenSymbol', 18).send({
-    from: owner,
-  });
-
-  // deploy l2 token bridge and attach to the portal
-  const { contract: bridge } = await TokenBridgeContract.deploy(wallet, token.address, tokenPortalAddress).send({
-    from: owner,
-  });
+  // Deploy the L2 token and its bridge concurrently so they share a slot: the bridge takes the token
+  // address as a constructor arg, but that address is known deterministically before the token deploy
+  // mines, and the bridge's constructor only stores it without calling into the token.
+  const tokenDeploy = TokenContract.deploy(wallet, owner, 'TokenName', 'TokenSymbol', 18, { deployer: owner });
+  const tokenAddress = await tokenDeploy.getAddress();
+  const [{ contract: token }, { contract: bridge }] = await Promise.all([
+    testSpan('deploy:token', () => tokenDeploy.send({ from: owner })),
+    testSpan('deploy:bridge', () =>
+      TokenBridgeContract.deploy(wallet, tokenAddress, tokenPortalAddress).send({ from: owner }),
+    ),
+  ]);
 
   if ((await token.methods.get_admin().simulate({ from: owner })).result !== owner.toBigInt()) {
     throw new Error(`Token admin is not ${owner}`);
@@ -135,6 +140,7 @@ export class CrossChainTestHarness {
     ownerAddress: AztecAddress,
     logger: Logger,
     underlyingERC20Address: EthAddress,
+    predeployedTokenPortalAddress?: EthAddress,
   ): Promise<CrossChainTestHarness> {
     const ethAccount = EthAddress.fromString((await l1Client.getAddresses())[0]);
     const l1ContractAddresses = (await aztecNode.getNodeInfo()).l1ContractAddresses;
@@ -147,6 +153,7 @@ export class CrossChainTestHarness {
       l1ContractAddresses.registryAddress,
       ownerAddress,
       underlyingERC20Address,
+      predeployedTokenPortalAddress,
     );
     logger.info('Deployed and initialized token, portal and its bridge.');
 
@@ -237,11 +244,13 @@ export class CrossChainTestHarness {
 
   async mintTokensPublicOnL2(amount: bigint) {
     this.logger.info('Minting tokens on L2 publicly');
-    await this.l2Token.methods.mint_to_public(this.ownerAddress, amount).send({ from: this.ownerAddress });
+    await testSpan('tx:mint', () =>
+      this.l2Token.methods.mint_to_public(this.ownerAddress, amount).send({ from: this.ownerAddress }),
+    );
   }
 
   async mintTokensPrivateOnL2(amount: bigint) {
-    await mintTokensToPrivate(this.l2Token, this.ownerAddress, this.ownerAddress, amount);
+    await testSpan('tx:mint', () => mintTokensToPrivate(this.l2Token, this.ownerAddress, this.ownerAddress, amount));
   }
 
   async sendL2PublicTransfer(transferAmount: bigint, receiverAddress: AztecAddress) {

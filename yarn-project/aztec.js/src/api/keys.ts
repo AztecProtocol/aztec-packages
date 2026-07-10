@@ -3,6 +3,6 @@ export {
   computeAppNullifierHidingKey,
   deriveKeys,
   deriveMasterIncomingViewingSecretKey,
-  deriveMasterNullifierHidingKey,
+  deriveMasterNullifierHidingSecretKey,
 } from '@aztec/stdlib/keys';
 export { generatePublicKey } from '../utils/pub_key.js';

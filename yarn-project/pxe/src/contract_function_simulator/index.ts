@@ -21,23 +21,27 @@ export {
   ETH_ADDRESS,
   EVENT_VALIDATION_REQUEST,
   FIELD,
+  FIXED_ARRAY,
   FUNCTION_SELECTOR,
   LOG_RETRIEVAL_REQUEST,
   LOG_RETRIEVAL_RESPONSE,
   MEMBERSHIP_WITNESS,
-  MESSAGE_CONTEXT,
   NOTE_SELECTOR,
   NOTE_VALIDATION_REQUEST,
   OPTION,
   PENDING_TAGGED_LOG,
   POINT,
   PROVIDED_SECRET,
+  SLOT_NUMBER,
   STR,
+  STRUCT,
   U32,
+  tryFieldWidth,
   type InputSlot,
   type MaybePromise,
   type OutputSlot,
   type SlotShape,
+  type StructField,
   type TypeMapping,
 } from './oracle/oracle_type_mappings.js';
 export { ExecutionNoteCache } from './execution_note_cache.js';
@@ -53,6 +57,7 @@ export { TxResolverService } from '../messages/tx_resolver_service.js';
 export { UtilityExecutionOracle } from './oracle/utility_execution_oracle.js';
 export { PrivateExecutionOracle } from './oracle/private_execution_oracle.js';
 export { buildACIRCallback, UnavailableOracleError } from './oracle/acir_callback.js';
+export { LEGACY_ORACLE_REGISTRY } from './oracle/legacy_oracle_registry.js';
 export { executePrivateFunction, extractPrivateCircuitPublicInputs } from './oracle/private_execution.js';
 export { generateSimulatedProvingResult } from './contract_function_simulator.js';
 export { packAsHintedNote } from './oracle/note_packing_utils.js';
@@ -66,6 +71,7 @@ export { EventValidationRequest } from './noir-structs/event_validation_request.
 export type { LogRetrievalRequest } from './noir-structs/log_retrieval_request.js';
 export type { LogRetrievalResponse } from './noir-structs/log_retrieval_response.js';
 export { NoteValidationRequest } from './noir-structs/note_validation_request.js';
+export type { PendingTaggedLog } from './noir-structs/pending_tagged_log.js';
 export type { TxEffectData } from './noir-structs/tx_effect_data.js';
 export type { ProvidedSecret } from './noir-structs/provided_secret.js';
 export { ResolvedTx } from './noir-structs/resolved_tx.js';

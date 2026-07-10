@@ -9,12 +9,12 @@ import { asyncPool } from '@aztec/foundation/async-pool';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { times } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/curves/bn254';
+import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
 import { createLogger } from '@aztec/foundation/log';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { BenchmarkingContract } from '@aztec/noir-test-contracts.js/Benchmarking';
 import { GasFees } from '@aztec/stdlib/gas';
-import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { Tx } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
@@ -108,14 +108,10 @@ describe('block capacity benchmark', () => {
       wallets.map(async wallet => {
         const secret = Fr.random();
         const salt = Fr.random();
-        const address = await wallet.registerAccount(secret, salt);
+        const signingKey = GrumpkinScalar.random();
+        const address = await wallet.registerAccount(secret, salt, signingKey);
         await registerSponsoredFPC(wallet);
-        const manager = await AccountManager.create(
-          wallet,
-          secret,
-          new SchnorrAccountContract(deriveSigningKey(secret)),
-          { salt },
-        );
+        const manager = await AccountManager.create(wallet, secret, new SchnorrAccountContract(signingKey), { salt });
         const deployMethod = await manager.getDeployMethod();
         await deployMethod.send({
           from: NO_FROM,
@@ -371,9 +367,12 @@ describe('block capacity benchmark', () => {
       logger.info('BenchmarkingContract deployed', { address: benchmarkContract.address.toString() });
 
       // Register benchmark contract with all other wallets
-      const benchMetadata = await wallets[0].getContractMetadata(benchmarkContract.address);
+      const benchInstance = await wallets[0].getContractMetadata(benchmarkContract.address).then(m => ({
+        ...m.instance!,
+        currentContractClassId: m.instance!.originalContractClassId,
+      }));
       await Promise.all(
-        wallets.slice(1).map(wallet => wallet.registerContract(benchMetadata.instance!, BenchmarkingContract.artifact)),
+        wallets.slice(1).map(wallet => wallet.registerContract(benchInstance, BenchmarkingContract.artifact)),
       );
       logger.info('Benchmark contract registered with all wallets');
     });
@@ -410,10 +409,11 @@ describe('block capacity benchmark', () => {
       logger.info('TokenContract deployed', { address: tokenContract.address.toString() });
 
       // Register token contract with all other wallets
-      const tokenMetadata = await wallets[0].getContractMetadata(tokenContract.address);
-      await Promise.all(
-        wallets.slice(1).map(wallet => wallet.registerContract(tokenMetadata.instance!, TokenContract.artifact)),
-      );
+      const tokenInstance = await wallets[0].getContractMetadata(tokenContract.address).then(m => ({
+        ...m.instance!,
+        currentContractClassId: m.instance!.originalContractClassId,
+      }));
+      await Promise.all(wallets.slice(1).map(wallet => wallet.registerContract(tokenInstance, TokenContract.artifact)));
       logger.info('Token contract registered with all wallets');
 
       // Mint tokens publicly to each account (enough for TX_COUNT transfers).

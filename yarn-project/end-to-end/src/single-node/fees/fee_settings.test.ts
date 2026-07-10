@@ -1,4 +1,5 @@
 import type { AztecAddress } from '@aztec/aztec.js/addresses';
+import type { Logger } from '@aztec/aztec.js/log';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { CheatCodes } from '@aztec/aztec/testing';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
@@ -12,13 +13,50 @@ import { jest } from '@jest/globals';
 import { inspect } from 'util';
 
 import { DEFAULT_MIN_FEE_PADDING } from '../../fixtures/fixtures.js';
+import { waitForBlockNumber, waitForNodeCheckpoint } from '../../fixtures/wait_helpers.js';
 import type { TestWallet } from '../../test-wallet/test_wallet.js';
 import { proveInteraction } from '../../test-wallet/utils.js';
+import { NO_REORG_SUBMISSION_EPOCHS } from '../setup.js';
 import { FeesTest } from './fees_test.js';
+
+/**
+ * Repeatedly bumps the L1 base fee, mines an L1 block, and rotates the gas-fee oracle until the node's
+ * min L2 fee (`feePerL2Gas`) reaches `minRiseTarget`, then returns that fee snapshot. The oracle rotation
+ * deadband (LIFETIME - LAG = 3 L2 slots between successful rotations, see FeeLib.sol) silently no-ops
+ * `updateL1GasFeeOracle` until the window opens, so the throw is swallowed and the loop retries.
+ */
+async function spikeL1BaseFeeUntilMinFee(
+  cheatCodes: CheatCodes,
+  aztecNode: AztecNode,
+  targetL1BaseFee: bigint,
+  minRiseTarget: bigint,
+  opts: { timeout?: number; interval?: number; logger?: Logger } = {},
+): Promise<GasFees> {
+  return await retryUntil(
+    async () => {
+      await cheatCodes.eth.setNextBlockBaseFeePerGas(targetL1BaseFee);
+      await cheatCodes.eth.mine();
+      try {
+        await cheatCodes.rollup.updateL1GasFeeOracle();
+      } catch {
+        // Rotation deadband closed — try again on the next iteration.
+      }
+      const after = await aztecNode.getCurrentMinFees();
+      opts.logger?.info(`L2 min fees are now ${inspect(after)}`, {
+        minFeesAfter: after.toInspect(),
+        minRiseTarget: minRiseTarget.toString(),
+      });
+      return after.feePerL2Gas >= minRiseTarget ? after : undefined;
+    },
+    'L2 min fee organic increase (L1 base fee bump) above reference',
+    opts.timeout ?? 90,
+    opts.interval ?? 1,
+  );
+}
 
 // Fee oracle and wallet fee-padding behaviour under L1 base-fee spikes and governance fee-config bumps.
 // Uses FeesTest with a custom timing preset (ethSlot=4s, aztecSlot=12s, inboxLag=2, minTxsPerBlock=0,
-// aztecProofSubmissionEpochs=640, manaTarget=4M, walletMinFeePadding=30) and fake in-proc prover node.
+// aztecProofSubmissionEpochs=NO_REORG_SUBMISSION_EPOCHS, manaTarget=4M, walletMinFeePadding=30) and fake in-proc prover node.
 // No token bridging involved — all L1 interaction is L1 base-fee cheat codes and Rollup oracle calls.
 // (Category: single-node despite using FeesTest, since no cross-chain token transfer or fee-juice
 // portal bridging occurs in any test body — L1 is active only for oracle updates.)
@@ -42,7 +80,7 @@ describe('single-node/fees/fee_settings', () => {
     minTxsPerBlock: 0,
     aztecSlotDuration: AZTEC_SLOT_DURATION,
     ethereumSlotDuration: 4,
-    aztecProofSubmissionEpochs: 640,
+    aztecProofSubmissionEpochs: NO_REORG_SUBMISSION_EPOCHS,
     walletMinFeePadding: 30,
     manaTarget: 4_000_000n,
   });
@@ -117,49 +155,16 @@ describe('single-node/fees/fee_settings', () => {
       const targetL1BaseFee = referenceDerivedL1BaseFee > 0n ? referenceDerivedL1BaseFee : 1n;
       t.logger.info(`Targeting L1 base fee ${targetL1BaseFee} (current ${currentL1BaseFee})`);
 
-      // REFACTOR: hand-rolled retryUntil loop that mines L1 blocks and rotates the oracle; replace with
-      // a helper on RollupCheatCodes that abstracts the L1-base-fee-spike + oracle-rotation retry.
-      return await retryUntil(
-        async () => {
-          await cheatCodes.eth.setNextBlockBaseFeePerGas(targetL1BaseFee);
-          await cheatCodes.eth.mine();
-          try {
-            await cheatCodes.rollup.updateL1GasFeeOracle();
-          } catch {
-            // Rotation deadband closed — try again on the next iteration.
-          }
-          const after = await aztecNode.getCurrentMinFees();
-          t.logger.info(`L2 min fees are now ${inspect(after)}`, {
-            minFeesBefore: beforeAtCall.toInspect(),
-            minFeesAfter: after.toInspect(),
-            minRiseTarget: minRiseTarget.toString(),
-          });
-          return after.feePerL2Gas >= minRiseTarget ? after : undefined;
-        },
-        'L2 min fee organic increase (L1 base fee bump) above reference',
-        90,
-        1,
-      );
+      return await spikeL1BaseFeeUntilMinFee(cheatCodes, aztecNode, targetL1BaseFee, minRiseTarget, {
+        logger: t.logger,
+      });
     };
 
     // Pick a baseline from the post-checkpoint chain state. The prove step itself is
     // made deterministic by prepareTxsWithMockedMinFees below.
     const getCurrentMinFeesAfterCheckpoint = async (checkpointedBlock: BlockNumber) => {
-      // REFACTOR: hand-rolled retryUntil polling for a checkpointed block number; replace with a
-      // waitUntilCheckpointedBlockNumber(node, blockNumber) helper in the e2e fixture utilities.
-      return await retryUntil(
-        async () => {
-          const currentCheckpointedBlock = await aztecNode.getBlockNumber('checkpointed');
-          if (currentCheckpointedBlock < checkpointedBlock) {
-            return undefined;
-          }
-
-          return await aztecNode.getCurrentMinFees();
-        },
-        `L2 min fees after block ${checkpointedBlock} is checkpointed`,
-        60,
-        1,
-      );
+      await waitForBlockNumber(aztecNode, checkpointedBlock, { tag: 'checkpointed', timeout: 60 });
+      return await aztecNode.getCurrentMinFees();
     };
 
     const proveTx = async (minFeePadding: number | undefined) => {
@@ -291,14 +296,7 @@ describe('single-node/fees/fee_settings', () => {
       // `checkpointed` tip must strictly advance.
       const RECOVERY_TARGET = CheckpointNumber.add(checkpointBefore, 3);
       const RECOVERY_BUDGET_SECONDS = AZTEC_SLOT_DURATION * 6;
-      // REFACTOR: hand-rolled retryUntil polling for checkpoint number; replace with a
-      // waitForCheckpointNumber(node, target) helper from EpochsTestContext or a shared utility.
-      await retryUntil(
-        async () => (await aztecNode.getCheckpointNumber('checkpointed')) >= RECOVERY_TARGET,
-        `chain advances at least ${RECOVERY_TARGET - checkpointBefore} checkpoints past governance bump`,
-        RECOVERY_BUDGET_SECONDS,
-        1,
-      );
+      await waitForNodeCheckpoint(aztecNode, RECOVERY_TARGET, { timeout: RECOVERY_BUDGET_SECONDS, interval: 1 });
 
       // Healthy pipelining produces one checkpoint per L2 slot, so an advance of 3 checkpoints
       // covers exactly 3 slots. If a pipelined header was invalidated and dropped (the A-1057

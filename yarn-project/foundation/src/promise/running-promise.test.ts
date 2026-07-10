@@ -52,6 +52,44 @@ describe('RunningPromise', () => {
     });
   });
 
+  describe('lifecycle', () => {
+    it('a second start does not spawn a second poll loop', async () => {
+      runningPromise.start();
+      expect(counter).toEqual(1);
+
+      // Starting again while already running must be a no-op, not a second concurrent loop.
+      runningPromise.start();
+      expect(counter).toEqual(1);
+
+      await jest.advanceTimersToNextTimerAsync();
+      // Exactly one loop advanced the counter, not two.
+      expect(counter).toEqual(2);
+    });
+
+    it('stop is safe to call when never started and when already stopped', async () => {
+      await expect(runningPromise.stop()).resolves.toBeUndefined();
+
+      runningPromise.start();
+      await runningPromise.stop();
+      expect(runningPromise.isRunning()).toBe(false);
+
+      await expect(runningPromise.stop()).resolves.toBeUndefined();
+    });
+
+    it('can be restarted after a stop', async () => {
+      runningPromise.start();
+      expect(counter).toEqual(1);
+      await runningPromise.stop();
+
+      runningPromise.start();
+      expect(runningPromise.isRunning()).toBe(true);
+      expect(counter).toEqual(2);
+
+      await jest.advanceTimersToNextTimerAsync();
+      expect(counter).toEqual(3);
+    });
+  });
+
   describe('handles errors', () => {
     beforeEach(() => {
       fn.mockImplementation(() => {

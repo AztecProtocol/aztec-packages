@@ -1,31 +1,27 @@
-import type { Archiver } from '@aztec/archiver';
-import type { AztecNodeConfig } from '@aztec/aztec-node';
 import { Fr } from '@aztec/aztec.js/fields';
 import { waitForTx } from '@aztec/aztec.js/node';
-import { asyncMap } from '@aztec/foundation/async-map';
 import { BlockNumber, CheckpointNumber } from '@aztec/foundation/branded-types';
 import { retryUntil } from '@aztec/foundation/retry';
 import { executeTimeout } from '@aztec/foundation/timer';
 
-import type { TestWallet } from '../../test-wallet/test_wallet.js';
 import { proveAndSendTxs } from '../../test-wallet/utils.js';
-import { MultiNodeTestContext, buildMockGossipValidators } from '../multi_node_test_context.js';
 import {
   type BlockProductionWithProverFixture,
-  NODE_COUNT,
-  WIDE_SLOT_TIMING,
   jest,
+  setupBlockProductionWithProver,
   waitForProvenCheckpoint,
 } from './setup.js';
 
-const PIPELINE_TX_COUNT = 34;
+const PIPELINE_MAX_TXS_PER_BLOCK = 2;
 const PIPELINE_EXPECTED_BLOCKS_PER_CHECKPOINT = 8;
+
+// In case the PIPELINE_TX_COUNT txs we send get split across two checkpoints, ensure at least one
+// of them will be filled with the expected number of blocks.
+const PIPELINE_TX_COUNT = PIPELINE_MAX_TXS_PER_BLOCK * PIPELINE_EXPECTED_BLOCKS_PER_CHECKPOINT * 2;
 
 // Blob/checkpoint promotion under stressed multi-block production: a node with promotion disabled
 // fetches blobs while promotion-enabled peers fetch zero (the getBlobSidecar spy), and a
-// high-block-count checkpoint built under adverse gossip latency still proves. The MBPS and pipelining
-// offset assertions live in their behavior-named homes (production tests, pipeline_prune) and are not
-// re-checked here.
+// high-block-count checkpoint built under adverse gossip latency still proves.
 describe('multi-node/block-production/blob_promotion', () => {
   let fixture: BlockProductionWithProverFixture;
 
@@ -33,57 +29,6 @@ describe('multi-node/block-production/blob_promotion', () => {
     jest.restoreAllMocks();
     await fixture?.test?.teardown();
   });
-
-  /**
-   * Sets up the pipelining wide-slot context: same timing profile as {@link setupBlockProductionWithProver} plus 500ms mock
-   * gossip latency, a tighter `maxTxsPerCheckpoint`, and node-0 with checkpoint promotion disabled so
-   * the blob-promotion behavior of the other nodes can be asserted against it.
-   */
-  async function setupBlobPromotion(): Promise<BlockProductionWithProverFixture> {
-    const validators = buildMockGossipValidators(NODE_COUNT);
-
-    const test = await MultiNodeTestContext.setup({
-      ...WIDE_SLOT_TIMING,
-      numberOfAccounts: 0,
-      initialValidators: validators,
-      mockGossipSubNetwork: true,
-      mockGossipSubNetworkLatency: 500, // adverse network conditions
-      startProverNode: true,
-      maxTxsPerCheckpoint: 24,
-      inboxLag: 2,
-      minTxsPerBlock: 1,
-      maxTxsPerBlock: 2,
-      pxeOpts: { syncChainTip: 'checkpointed' },
-      skipInitialSequencer: true,
-    });
-
-    const { context, logger, rollup } = test;
-    const wallet = context.wallet as TestWallet;
-    const from = context.accounts[0]; // auto-created by setup
-
-    logger.warn(`Initial setup complete. Starting ${NODE_COUNT} validator nodes.`);
-    // Clear inherited coinbase so each validator derives coinbase from its own attester key
-    const nodes = await asyncMap(validators, ({ privateKey }, i) =>
-      test.createValidatorNode([privateKey], {
-        dontStartSequencer: true,
-        coinbase: undefined,
-        // Disable checkpoint promotion on the first node so it always fetches blobs,
-        // allowing us to assert that other nodes skip blob fetching via promotion.
-        ...(i === 0 ? { skipPromoteProposedCheckpointDuringL1Sync: true } : {}),
-      } as Partial<AztecNodeConfig>),
-    );
-    logger.warn(`Started ${NODE_COUNT} validator nodes.`, { validators: validators.map(v => v.attester.toString()) });
-
-    wallet.updateNode(nodes[0]);
-    const archiver = nodes[0].getBlockSource() as Archiver;
-
-    const contract = await test.registerTestContract(wallet);
-    logger.warn(`Test setup completed.`, { validators: validators.map(v => v.attester.toString()) });
-
-    const { failEvents } = test.watchNodeSequencerEvents(nodes);
-
-    return { test, context, logger, rollup, archiver, validators, nodes, contract, wallet, from, failEvents };
-  }
 
   /**
    * Waits until the archiver's checkpointed chain tip has reached `targetBlockNumber`, then retrieves all
@@ -119,7 +64,18 @@ describe('multi-node/block-production/blob_promotion', () => {
   // mined, then verifies node-0 (promotion disabled) fetches blobs while nodes 1-3 (promotion enabled)
   // skip blob fetching entirely, and that a high-block-count checkpoint built under load still proves.
   it('promotion-disabled node fetches blobs while peers skip them, and the checkpoint proves', async () => {
-    fixture = await setupBlobPromotion();
+    // Same wide-slot prover-backed cluster as the rest of this directory, plus adverse gossip latency, a
+    // tighter maxTxsPerCheckpoint, and node 0 with checkpoint promotion disabled so its blob-fetching can
+    // be contrasted with the promotion-enabled peers.
+    fixture = await setupBlockProductionWithProver({
+      syncChainTip: 'checkpointed',
+      minTxsPerBlock: 1,
+      maxTxsPerBlock: PIPELINE_MAX_TXS_PER_BLOCK,
+      maxTxsPerCheckpoint: 24,
+      mockGossipSubNetworkLatency: 500,
+      clearInheritedCoinbase: true,
+      disableCheckpointPromotionOnFirstNode: true,
+    });
     const { test, context, logger, nodes, contract, from } = fixture;
 
     // Spy on getBlobSidecar on all validator nodes before sequencers start, so we check that nodes

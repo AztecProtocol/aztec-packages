@@ -6,9 +6,6 @@ import { tryStop } from '@aztec/stdlib/interfaces/server';
 import type { Tx } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { ATTESTER_PRIVATE_KEYS_START_INDEX, createNodes, createProverNode } from '../fixtures/setup_p2p_test.js';
@@ -26,8 +23,6 @@ const NUM_TXS = 2;
 const BOOT_NODE_UDP_PORT = process.env.BOOT_NODE_UDP_PORT ? parseInt(process.env.BOOT_NODE_UDP_PORT) : 4900;
 const AZTEC_SLOT_DURATION = 12;
 const AZTEC_EPOCH_DURATION = 4;
-
-const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'late-prover-'));
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -69,10 +64,6 @@ describe('e2e_p2p_late_prover_tx_collection', () => {
     await tryStop(proverNode);
     await t.stopNodes(nodes);
     await t.teardown();
-    for (let i = 0; i < NUM_VALIDATORS; i++) {
-      fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
-    }
-    fs.rmSync(`${DATA_DIR}-late-prover`, { recursive: true, force: true, maxRetries: 3 });
   });
 
   // Mines a block with 2 txs via 4 validators, then starts a prover node late (after gossip has already
@@ -92,7 +83,7 @@ describe('e2e_p2p_late_prover_tx_collection', () => {
       NUM_VALIDATORS,
       BOOT_NODE_UDP_PORT,
       t.genesis,
-      DATA_DIR,
+      t.dataDirFor('validator'),
       shouldCollectMetrics(),
     );
     await t.waitForP2PMeshConnectivity(nodes, NUM_VALIDATORS);
@@ -116,14 +107,19 @@ describe('e2e_p2p_late_prover_tx_collection', () => {
     // 3. Start the prover LATE: after the block was mined and its proposal/tx gossip already happened.
     //    It learns the mined block via L1/archiver sync, but never received the proposal or the txs.
     t.logger.info('Creating late-joining prover node');
+    // The prover node auto-starts a CheckpointProver whose background gatherTxs waits up to
+    // txGatheringTimeoutMs for the block's txs. The second tx is never reachable via that background path
+    // here, so the gather runs to its full deadline and blocks proverNode.stop() in afterEach. The
+    // assertion only exercises the direct collectFastForBlock call (its own 4*slot deadline), so a short
+    // timeout lets teardown's cancel unblock quickly without affecting what the test verifies.
     ({ proverNode } = await createProverNode(
-      t.ctx.aztecNodeConfig,
+      { ...t.ctx.aztecNodeConfig, txGatheringTimeoutMs: 15_000 },
       BOOT_NODE_UDP_PORT + NUM_VALIDATORS + 1,
       t.bootstrapNodeEnr,
       ATTESTER_PRIVATE_KEYS_START_INDEX + NUM_VALIDATORS + 1,
       { dateProvider: t.ctx.dateProvider },
       t.genesis,
-      `${DATA_DIR}-late-prover`,
+      t.dataDirFor('late-prover'),
       shouldCollectMetrics(),
     ));
 

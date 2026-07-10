@@ -19,13 +19,16 @@ import type { SlashingProtectionDatabase } from '@aztec/validator-ha-signer/type
 import { type GetContractReturnType, getAddress, getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 
+import { testSpan } from '../fixtures/timing.js';
 import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
+import { NO_REORG_SUBMISSION_EPOCHS } from '../single-node/setup.js';
 import {
   SingleNodeTestContext,
   type SingleNodeTestOpts,
   type TrackedSequencerEvent,
 } from '../single-node/single_node_test_context.js';
 
+export { NO_REORG_SUBMISSION_EPOCHS, PROVING_SLOT_TIMING } from '../single-node/setup.js';
 export {
   WORLD_STATE_CHECKPOINT_HISTORY,
   WORLD_STATE_BLOCK_CHECK_INTERVAL,
@@ -72,7 +75,7 @@ export const MOCK_GOSSIP_MULTI_VALIDATOR_OPTS = {
   mockGossipSubNetwork: true,
   skipInitialSequencer: true,
   startProverNode: false,
-  aztecProofSubmissionEpochs: 1024,
+  aztecProofSubmissionEpochs: NO_REORG_SUBMISSION_EPOCHS,
   numberOfAccounts: 0,
 } as const;
 
@@ -302,10 +305,12 @@ export class MultiNodeTestContext extends SingleNodeTestContext {
     target: CheckpointNumber,
     opts: { nodes?: AztecNode[]; timeout?: number; interval?: number } = {},
   ): Promise<void> {
-    return this.waitForAllNodes(tips => tips.proven.checkpoint.number >= target, {
-      ...opts,
-      description: `proven checkpoint >= ${target}`,
-    });
+    return testSpan('wait:proven-checkpoint', () =>
+      this.waitForAllNodes(tips => tips.proven.checkpoint.number >= target, {
+        ...opts,
+        description: `proven checkpoint >= ${target}`,
+      }),
+    );
   }
 
   /** Waits until every node's checkpointed checkpoint tip reaches `target`. */
@@ -313,10 +318,12 @@ export class MultiNodeTestContext extends SingleNodeTestContext {
     target: CheckpointNumber,
     opts: { nodes?: AztecNode[]; timeout?: number; interval?: number } = {},
   ): Promise<void> {
-    return this.waitForAllNodes(tips => tips.checkpointed.checkpoint.number >= target, {
-      ...opts,
-      description: `checkpointed checkpoint >= ${target}`,
-    });
+    return testSpan('wait:checkpoint', () =>
+      this.waitForAllNodes(tips => tips.checkpointed.checkpoint.number >= target, {
+        ...opts,
+        description: `checkpointed checkpoint >= ${target}`,
+      }),
+    );
   }
 
   /**
@@ -329,16 +336,18 @@ export class MultiNodeTestContext extends SingleNodeTestContext {
     match: (block: BlockResponse) => boolean = block => block.header.globalVariables.slotNumber === slot,
     opts: { nodes?: AztecNode[]; timeout?: number; interval?: number } = {},
   ): Promise<void> {
-    return this.waitForAllNodes(
-      async (tips, node) => {
-        const blockNumber = tag === 'proposed' ? tips.proposed.number : tips.checkpointed.block.number;
-        if (blockNumber === 0) {
-          return false;
-        }
-        const block = await node.getBlock(blockNumber);
-        return !!block && match(block);
-      },
-      { ...opts, description: `${tag} block at slot ${slot}` },
+    return testSpan('wait:block', () =>
+      this.waitForAllNodes(
+        async (tips, node) => {
+          const blockNumber = tag === 'proposed' ? tips.proposed.number : tips.checkpointed.block.number;
+          if (blockNumber === 0) {
+            return false;
+          }
+          const block = await node.getBlock(blockNumber);
+          return !!block && match(block);
+        },
+        { ...opts, description: `${tag} block at slot ${slot}` },
+      ),
     );
   }
 
@@ -349,44 +358,48 @@ export class MultiNodeTestContext extends SingleNodeTestContext {
    * Returns the matched slots and their proposer addresses. Encapsulates the slot-search loop
    * duplicated across the multi-validator tests.
    */
-  public async findSlotsWithProposers(
+  public findSlotsWithProposers(
     count: number,
     predicate: (proposers: EthAddress[]) => boolean,
     opts: { fromSlot?: SlotNumber; margin?: number; maxAttempts?: number } = {},
   ): Promise<{ slots: SlotNumber[]; proposers: EthAddress[] }> {
-    const margin = opts.margin ?? 4;
-    const maxAttempts = opts.maxAttempts ?? 200;
-    let candidate = opts.fromSlot ?? SlotNumber(Number(this.epochCache.getEpochAndSlotNow().slot) + margin);
+    return testSpan('warp:find-proposer', async () => {
+      const margin = opts.margin ?? 4;
+      const maxAttempts = opts.maxAttempts ?? 200;
+      let candidate = opts.fromSlot ?? SlotNumber(Number(this.epochCache.getEpochAndSlotNow().slot) + margin);
 
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      try {
-        const slots = Array.from({ length: count }, (_, i) => SlotNumber(candidate + i));
-        const maybeProposers = await Promise.all(
-          slots.map(slot => this.epochCache.getProposerAttesterAddressInSlot(slot)),
-        );
-        if (maybeProposers.every((p): p is EthAddress => p !== undefined) && predicate(maybeProposers)) {
-          return { slots, proposers: maybeProposers };
-        }
-        candidate = SlotNumber(candidate + 1);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (!msg.includes('EpochNotStable')) {
-          throw err;
-        }
-        const block = await this.l1Client.getBlock({ includeTransactions: false });
-        const warpBy = this.epochDuration * this.L2_SLOT_DURATION_IN_S;
-        const newTs = Number(block.timestamp) + warpBy;
-        this.logger.warn(`Hit EpochNotStable at candidate ${candidate}, warping L1 forward by ${warpBy}s to ${newTs}`);
-        await this.context.cheatCodes.eth.warp(newTs, { resetBlockInterval: true });
-        const newCurrentSlot = Number(this.epochCache.getEpochAndSlotNow().slot);
-        if (candidate < newCurrentSlot + margin) {
-          candidate = SlotNumber(newCurrentSlot + margin);
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        try {
+          const slots = Array.from({ length: count }, (_, i) => SlotNumber(candidate + i));
+          const maybeProposers = await Promise.all(
+            slots.map(slot => this.epochCache.getProposerAttesterAddressInSlot(slot)),
+          );
+          if (maybeProposers.every((p): p is EthAddress => p !== undefined) && predicate(maybeProposers)) {
+            return { slots, proposers: maybeProposers };
+          }
+          candidate = SlotNumber(candidate + 1);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          if (!msg.includes('EpochNotStable')) {
+            throw err;
+          }
+          const block = await this.l1Client.getBlock({ includeTransactions: false });
+          const warpBy = this.epochDuration * this.L2_SLOT_DURATION_IN_S;
+          const newTs = Number(block.timestamp) + warpBy;
+          this.logger.warn(
+            `Hit EpochNotStable at candidate ${candidate}, warping L1 forward by ${warpBy}s to ${newTs}`,
+          );
+          await this.context.cheatCodes.eth.warp(newTs, { resetBlockInterval: true });
+          const newCurrentSlot = Number(this.epochCache.getEpochAndSlotNow().slot);
+          if (candidate < newCurrentSlot + margin) {
+            candidate = SlotNumber(newCurrentSlot + margin);
+          }
         }
       }
-    }
-    throw new Error(
-      `Could not find ${count} consecutive slots matching the proposer predicate after ${maxAttempts} attempts`,
-    );
+      throw new Error(
+        `Could not find ${count} consecutive slots matching the proposer predicate after ${maxAttempts} attempts`,
+      );
+    });
   }
 
   /**
@@ -415,16 +428,20 @@ export class MultiNodeTestContext extends SingleNodeTestContext {
     const mode = opts.mode ?? 'all';
     const timeout = opts.timeout ?? this.L2_SLOT_DURATION_IN_S * 4;
     const interval = opts.interval ?? 0.5;
-    return retryUntil(
-      async () => {
-        const perNode = await Promise.all(nodes.map(node => node.getSlashOffenses('all').then(os => os.filter(match))));
-        const converged =
-          mode === 'all' ? perNode.every(matches => matches.length > 0) : perNode.some(m => m.length > 0);
-        return converged ? perNode.flat() : undefined;
-      },
-      `offense on ${mode} node(s)`,
-      timeout,
-      interval,
+    return testSpan('wait:offense', () =>
+      retryUntil(
+        async () => {
+          const perNode = await Promise.all(
+            nodes.map(node => node.getSlashOffenses('all').then(os => os.filter(match))),
+          );
+          const converged =
+            mode === 'all' ? perNode.every(matches => matches.length > 0) : perNode.some(m => m.length > 0);
+          return converged ? perNode.flat() : undefined;
+        },
+        `offense on ${mode} node(s)`,
+        timeout,
+        interval,
+      ),
     );
   }
 }

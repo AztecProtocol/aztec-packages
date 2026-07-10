@@ -19,11 +19,12 @@ import { jest } from '@jest/globals';
 import { PIPELINING_SETUP_OPTS, U128_UNDERFLOW_ERROR } from '../../fixtures/fixtures.js';
 import { ensureAuthRegistryPublished } from '../../fixtures/setup.js';
 import { expectMapping } from '../../fixtures/utils.js';
+import { NO_REORG_SUBMISSION_EPOCHS } from '../setup.js';
 import { FeesTest } from './fees_test.js';
 
 // Fee behaviour when transactions revert. Uses FeesTest (prod sequencer, pipelining preset:
 // ethSlot=4s, aztecSlot=12s, inboxLag=2, minTxsPerBlock=0, aztecEpochDuration=4,
-// aztecProofSubmissionEpochs=640), fake in-proc prover node, and GasBridgingTestHarness for
+// aztecProofSubmissionEpochs=NO_REORG_SUBMISSION_EPOCHS), fake in-proc prover node, and GasBridgingTestHarness for
 // L1↔L2 fee-juice bridging. Auto-proving is disabled after setup so tests control proving themselves.
 describe('single-node/fees/failures', () => {
   // FeesTest.setup + applyFPCSetup chains many dependent txs which run at the
@@ -45,14 +46,18 @@ describe('single-node/fees/failures', () => {
     // Shorter epochs (default 32 → 4) speed the per-test `advanceToNextEpoch + waitForProven`
     // cycle: the prover-node submits a proof as soon as the epoch is complete, so ~8x shorter
     // epochs ≈ ~8x faster proof cadence per cycle. Setup itself stays slot-bound.
-    await t.setup({ ...PIPELINING_SETUP_OPTS, aztecProofSubmissionEpochs: 640, aztecEpochDuration: 4 });
+    await t.setup({
+      ...PIPELINING_SETUP_OPTS,
+      aztecProofSubmissionEpochs: NO_REORG_SUBMISSION_EPOCHS,
+      aztecEpochDuration: 4,
+    });
     await t.applyFPCSetup();
     ({ wallet, aliceAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings } = t);
     await ensureAuthRegistryPublished(wallet, aliceAddress);
     aztecNode = t.aztecNode;
 
     // Prove up until the current state by advancing the epoch and waiting for the prover node.
-    await t.cheatCodes.rollup.advanceToNextEpoch();
+    await t.advanceToNextEpoch();
     await t.catchUpProvenChain();
   });
 
@@ -97,10 +102,7 @@ describe('single-node/fees/failures', () => {
     await expectMapping(t.getGasBalanceFn, [aliceAddress, bananaFPC.address], [initialAliceGas, initialFPCGas]);
 
     // We wait until the proven chain is caught up so all previous fees are paid out.
-    // REFACTOR: manual advanceToNextEpoch + catchUpProvenChain sequence; replace with a single
-    // waitForEpochProven() helper on FeesTest that encapsulates this pattern.
-    await t.cheatCodes.rollup.advanceToNextEpoch();
-    await t.catchUpProvenChain();
+    await t.waitForEpochProven();
 
     const currentSequencerRewards = await t.getCoinbaseSequencerRewards();
     const provenCheckpointBefore = await t.rollupContract.getProvenCheckpointNumber();
@@ -121,7 +123,7 @@ describe('single-node/fees/failures', () => {
 
     // @note There is a potential race condition here if other tests send transactions that get into the same
     // epoch and thereby pays out fees at the same time (when proven).
-    await t.cheatCodes.rollup.advanceToNextEpoch();
+    await t.advanceToNextEpoch();
     const provenTimeout =
       (t.context.config.aztecProofSubmissionEpochs + 1) *
       t.context.config.aztecEpochDuration *
@@ -360,7 +362,7 @@ describe('single-node/fees/failures', () => {
     );
 
     // Prove the block containing the teardown-reverted tx (revert_code = 2).
-    await t.cheatCodes.rollup.advanceToNextEpoch();
+    await t.advanceToNextEpoch();
     const provenTimeout =
       (t.context.config.aztecProofSubmissionEpochs + 1) *
       t.context.config.aztecEpochDuration *
@@ -387,7 +389,7 @@ describe('single-node/fees/failures', () => {
     expect(receipt.executionResult).toBe(TxExecutionResult.REVERTED);
     expect(receipt.transactionFee).toBeGreaterThan(0n);
 
-    await t.cheatCodes.rollup.advanceToNextEpoch();
+    await t.advanceToNextEpoch();
     const provenTimeout =
       (t.context.config.aztecProofSubmissionEpochs + 1) *
       t.context.config.aztecEpochDuration *

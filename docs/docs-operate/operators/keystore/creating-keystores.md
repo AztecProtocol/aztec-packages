@@ -394,6 +394,28 @@ This creates keystores at:
 - **Directory**: `~/.aztec/keystore/`
 - **Filename**: `key1.json`, `key2.json`, etc. (auto-increments)
 
+### Encrypted Keystore Passwords
+
+Use `--password`, `--password-file`, or `AZTEC_KEYSTORE_PASSWORD` to write encrypted ETH JSON V3 and BLS
+EIP-2335 keystore files with a shared password. To use different passwords, provide role-specific sources such as
+`--eth-password` and `--bls-password`.
+
+```bash
+export AZTEC_KEYSTORE_PASSWORD='your-secure-password'
+aztec validator-keys new \
+  --fee-recipient 0x0000000000000000000000000000000000000000000000000000000000000000 \
+  --count 5 \
+  --publishers 0x7988a4a779f058a0 \
+  --encrypted-keystore-dir ~/.aztec/keystore/encrypted
+```
+
+For each key type, role-specific sources take precedence over shared sources: `--eth-password`,
+`--eth-password-file`, and `AZTEC_ETH_KEYSTORE_PASSWORD` for ETH keystores; `--bls-password`,
+`--bls-password-file`, and `AZTEC_BLS_KEYSTORE_PASSWORD` for BLS keystores. Shared sources use `--password`,
+`--password-file`, then `AZTEC_KEYSTORE_PASSWORD`. Passwords cannot be empty. When the command generates a mnemonic
+while writing encrypted keystores, it does not print the mnemonic to stdout; provide `--mnemonic` if you need deterministic
+recovery.
+
 ## Verifying Your Keystore
 
 Verify the keystore is valid JSON:

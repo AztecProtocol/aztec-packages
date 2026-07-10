@@ -18,7 +18,7 @@ import type {
   WalletCapabilities,
 } from '@aztec/aztec.js/wallet';
 import type { ChainInfo } from '@aztec/entrypoints/interfaces';
-import type { Fr } from '@aztec/foundation/curves/bn254';
+import type { Fq, Fr } from '@aztec/foundation/curves/bn254';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
@@ -29,7 +29,7 @@ import type { PXEConfig } from '@aztec/pxe/config';
 import type { ContractArtifact, EventMetadataDefinition, FunctionCall } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import type { ContractInstancePreimage } from '@aztec/stdlib/contract';
 import type { ExecutionPayload, TxProfileResult, UtilityExecutionResult } from '@aztec/stdlib/tx';
 import { Tx } from '@aztec/stdlib/tx';
 
@@ -158,11 +158,7 @@ export class WorkerWallet implements Wallet {
     return this.call('getAccounts');
   }
 
-  registerContract(
-    instance: ContractInstanceWithAddress,
-    artifact?: ContractArtifact,
-    secretKey?: Fr,
-  ): Promise<ContractInstanceWithAddress> {
+  registerContract(instance: ContractInstancePreimage, artifact?: ContractArtifact, secretKey?: Fr): Promise<void> {
     return this.call('registerContract', instance, artifact, secretKey);
   }
 
@@ -194,8 +190,8 @@ export class WorkerWallet implements Wallet {
   }
 
   /** Registers an account inside the worker's TestWallet, populating its accounts map. */
-  registerAccount(secret: Fr, salt: Fr): Promise<AztecAddress> {
-    return this.call('registerAccount', secret, salt);
+  registerAccount(secret: Fr, salt: Fr, signingKey: Fq): Promise<AztecAddress> {
+    return this.call('registerAccount', secret, salt, signingKey);
   }
 
   createAuthWit(from: AztecAddress, messageHashOrIntent: IntentInnerHash | CallIntent): Promise<AuthWitness> {

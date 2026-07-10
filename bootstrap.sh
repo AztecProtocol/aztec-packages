@@ -936,6 +936,36 @@ case "$cmd" in
     bench_merge
     cache_upload spartan-bench-10tps-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
     ;;
+  "ci-network-inclusion-sweep")
+    # Args: <env_file> <namespace> [docker_image]
+    # Runs one inclusion-sweep point (TARGET_TPS) on the given network.
+    # The v4 run JSON (tagged BENCH_SWEEP_ID) is uploaded to GCS inside
+    # bench_inclusion_point; deploy/teardown of each point's namespace is done by
+    # the workflow, so this is normally called with SKIP_NETWORK_DEPLOY=1.
+    export CI=1
+    env_file="${1:?env_file is required}"
+    namespace="${2:?namespace is required}"
+    docker_image="${3:-}"
+    build
+    export NAMESPACE="$namespace"
+    if [ "${SKIP_NETWORK_DEPLOY:-0}" != "1" ]; then
+      # If no docker image provided, build and push to aztecdev
+      if [ -z "$docker_image" ]; then
+        release-image/bootstrap.sh push_pr
+        docker_image="aztecprotocol/aztecdev:$(git rev-parse HEAD)"
+      fi
+      export AZTEC_DOCKER_IMAGE="$docker_image"
+      spartan/bootstrap.sh network_deploy "${env_file}"
+    else
+      echo "SKIP_NETWORK_DEPLOY=1, running inclusion-sweep point (${TARGET_TPS:-10} TPS) against existing network '$namespace'."
+    fi
+    # Run one inclusion-sweep point (TARGET_TPS / BENCH_SWEEP_ID from env).
+    spartan/bootstrap.sh bench_inclusion_point "${env_file}"
+    rm -rf bench-out
+    mkdir -p bench-out
+    bench_merge
+    cache_upload spartan-bench-inclusion-${TARGET_TPS:-10}tps-$(git rev-parse HEAD^{tree}).tar.gz bench-out/bench.json
+    ;;
   "ci-network-teardown")
     # Args: <env_file> <namespace>
     # Tears down a deployed network.

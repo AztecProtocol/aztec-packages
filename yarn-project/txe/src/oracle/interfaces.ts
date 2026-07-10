@@ -39,11 +39,11 @@ export interface IAvmExecutionOracle {
   nullifierExists(siloedNullifier: Fr): Promise<boolean>;
   storageWrite(slot: Fr, value: Fr): Promise<void>;
   storageRead(slot: Fr, contractAddress: AztecAddress): Promise<Fr>;
-  getContractInstanceDeployer(address: AztecAddress): Promise<{ member: Fr; exists: boolean }>;
-  getContractInstanceClassId(address: AztecAddress): Promise<{ member: Fr; exists: boolean }>;
-  getContractInstanceInitializationHash(address: AztecAddress): Promise<{ member: Fr; exists: boolean }>;
-  getContractInstanceImmutablesHash(address: AztecAddress): Promise<{ member: Fr; exists: boolean }>;
-  returndataSize(): Promise<Fr>;
+  getContractInstanceDeployer(address: AztecAddress): Promise<{ member: Fr; exists: boolean }[]>;
+  getContractInstanceClassId(address: AztecAddress): Promise<{ member: Fr; exists: boolean }[]>;
+  getContractInstanceInitializationHash(address: AztecAddress): Promise<{ member: Fr; exists: boolean }[]>;
+  getContractInstanceImmutablesHash(address: AztecAddress): Promise<{ member: Fr; exists: boolean }[]>;
+  returndataSize(): Promise<number>;
   returndataCopy(rdOffset: number, copySize: number): Promise<Fr[]>;
   call(l2Gas: number, daGas: number, address: AztecAddress, argsLength: number, args: Fr[]): Promise<void>;
   staticCall(l2Gas: number, daGas: number, address: AztecAddress, argsLength: number, args: Fr[]): Promise<void>;
@@ -73,7 +73,14 @@ export interface ITxeExecutionOracle {
   addAccount(secret: Fr): Promise<CompleteAddress>;
   addAuthWitness(address: AztecAddress, messageHash: Fr): Promise<void>;
   sendL1ToL2Message(content: Fr, secretHash: Fr, sender: EthAddress, recipient: AztecAddress): Promise<Fr>;
-  setTaggingSecretStrategy(strategy: Option<TaggingSecretStrategy>): void;
+  /**
+   * Configures the tagging secret strategy the test's simulated wallet resolves for each delivery mode. A `none`
+   * clears that mode, so it falls back to the default strategy (or, when both modes end up unset, to no hook at all).
+   */
+  setTaggingSecretStrategies(
+    unconstrainedStrategy: Option<TaggingSecretStrategy>,
+    constrainedStrategy: Option<TaggingSecretStrategy>,
+  ): void;
   getLastBlockTimestamp(): Promise<bigint>;
   getLastTxEffects(): Promise<{
     txHash: TxHash;

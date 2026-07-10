@@ -221,11 +221,12 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_txe_setTaggingSecretStrategy(...inputs: ForeignCallArgs) {
+  aztec_txe_setTaggingSecretStrategies(...inputs: ForeignCallArgs) {
     return callTxeHandler({
-      oracle: 'aztec_txe_setTaggingSecretStrategy',
+      oracle: 'aztec_txe_setTaggingSecretStrategies',
       inputs,
-      handler: ([strategy]) => this.handlerAsTxe().setTaggingSecretStrategy(strategy),
+      handler: ([unconstrainedStrategy, constrainedStrategy]) =>
+        this.handlerAsTxe().setTaggingSecretStrategies(unconstrainedStrategy, constrainedStrategy),
     });
   }
 
@@ -488,12 +489,12 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_getL1ToL2MembershipWitness(...inputs: ForeignCallArgs) {
+  aztec_utl_getL1ToL2MembershipWitnessV2(...inputs: ForeignCallArgs) {
     return callTxeHandler({
-      oracle: 'aztec_utl_getL1ToL2MembershipWitness',
+      oracle: 'aztec_utl_getL1ToL2MembershipWitnessV2',
       inputs,
-      handler: ([contractAddress, messageHash, secret]) =>
-        this.handlerAsUtility().getL1ToL2MembershipWitness(contractAddress, messageHash, secret),
+      handler: ([messageHash, nullifier]) =>
+        this.handlerAsUtility().getL1ToL2MembershipWitnessV2(messageHash, nullifier),
     });
   }
 
@@ -572,6 +573,16 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
+  aztec_utl_areBlockHashesInArchive(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_areBlockHashesInArchive',
+      inputs,
+      handler: ([anchorBlockHash, blockHashes]) =>
+        this.handlerAsUtility().areBlockHashesInArchive(anchorBlockHash, blockHashes),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
   aztec_utl_getLowNullifierMembershipWitness(...inputs: ForeignCallArgs) {
     return callTxeHandler({
       oracle: 'aztec_utl_getLowNullifierMembershipWitness',
@@ -582,11 +593,11 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_getPendingTaggedLogs(...inputs: ForeignCallArgs) {
+  aztec_utl_getPendingTaggedLogsV2(...inputs: ForeignCallArgs) {
     return callTxeHandler({
-      oracle: 'aztec_utl_getPendingTaggedLogs',
+      oracle: 'aztec_utl_getPendingTaggedLogsV2',
       inputs,
-      handler: ([scope, providedSecrets]) => this.handlerAsUtility().getPendingTaggedLogs(scope, providedSecrets),
+      handler: ([scope, providedSecrets]) => this.handlerAsUtility().getPendingTaggedLogsV2(scope, providedSecrets),
     });
   }
 
@@ -605,11 +616,11 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
-  aztec_utl_getLogsByTag(...inputs: ForeignCallArgs) {
+  aztec_utl_getLogsByTagV2(...inputs: ForeignCallArgs) {
     return callTxeHandler({
-      oracle: 'aztec_utl_getLogsByTag',
+      oracle: 'aztec_utl_getLogsByTagV2',
       inputs,
-      handler: ([requestArrayBaseSlot]) => this.handlerAsUtility().getLogsByTag(requestArrayBaseSlot),
+      handler: ([requestArrayBaseSlot]) => this.handlerAsUtility().getLogsByTagV2(requestArrayBaseSlot),
     });
   }
 
@@ -619,6 +630,15 @@ export class RPCTranslator {
       oracle: 'aztec_utl_getResolvedTxs',
       inputs,
       handler: ([requestArrayBaseSlot]) => this.handlerAsUtility().getResolvedTxs(requestArrayBaseSlot),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
+  aztec_utl_getTxEffects(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getTxEffects',
+      inputs,
+      handler: ([txHashes]) => this.handlerAsUtility().getTxEffects(txHashes),
     });
   }
 

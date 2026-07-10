@@ -15,7 +15,6 @@ import { Fr } from '@aztec/foundation/curves/bn254';
 import { TimeoutError } from '@aztec/foundation/error';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Logger } from '@aztec/foundation/log';
-import { retryUntil } from '@aztec/foundation/retry';
 import { sleep } from '@aztec/foundation/sleep';
 import { bufferToHex } from '@aztec/foundation/string';
 import type { TestDateProvider } from '@aztec/foundation/timer';
@@ -30,7 +29,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 
 import { PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
 import { getPrivateKeyFromIndex } from '../../fixtures/utils.js';
-import { setupBlockProducer } from '../setup.js';
+import { NO_REORG_SUBMISSION_EPOCHS, setupBlockProducer } from '../setup.js';
 import type { SingleNodeTestContext } from '../single_node_test_context.js';
 
 const ETHEREUM_SLOT_DURATION = 8;
@@ -46,8 +45,8 @@ jest.setTimeout(1000 * 60 * 5);
 // Tests that a single sequencer node running a 16-validator committee can propose blocks while
 // simultaneously casting governance votes, and can cast votes even when block building is disabled.
 // Setup: setupBlockProducer (no prover node) with { ...PIPELINING_SETUP_OPTS, ethSlot=8s,
-// aztecSlot=16s, committee=16, aztecProofSubmissionEpochs=128 } — the high proof-submission window
-// pins blocks against pruning (v5 always enforces the timetable, so the former enforceTimeTable
+// aztecSlot=16s, committee=16, aztecProofSubmissionEpochs=NO_REORG_SUBMISSION_EPOCHS } — the high
+// proof-submission window pins blocks against pruning (v5 always enforces the timetable, so the former enforceTimeTable
 // override is gone). Uses cheatCodes.eth.warp + retryUntil for timing.
 describe('single-node/sequencer/gov_proposal', () => {
   let logger: Logger;
@@ -84,7 +83,7 @@ describe('single-node/sequencer/gov_proposal', () => {
       governanceProposerQuorum: QUORUM_SIZE,
       ethereumSlotDuration: ETHEREUM_SLOT_DURATION,
       aztecSlotDuration: AZTEC_SLOT_DURATION,
-      aztecProofSubmissionEpochs: 128, // no pruning
+      aztecProofSubmissionEpochs: NO_REORG_SUBMISSION_EPOCHS, // no pruning
       minTxsPerBlock: TXS_PER_BLOCK,
       automineL1Setup: true, // speed up setup
       // Force the L1 sync to fetch blobs rather than promote the locally-proposed checkpoint.
@@ -242,15 +241,9 @@ describe('single-node/sequencer/gov_proposal', () => {
     // Check that the checkpoint number has indeed increased on L1 so sequencers cant pass the sync check.
     // Allow another slot for any in-flight L1 propose to mine, since the work loop above hits its wait timeout the
     // moment the tx misses L2 sync, not the moment the L1 tx lands.
-    // REFACTOR: retryUntil polling ChainMonitor should be replaced with a ChainMonitor.waitForCheckpoint helper
-    const checkpointAfterBlobDisable = await retryUntil(
-      async () => {
-        const snapshot = await monitor.run();
-        return snapshot.checkpointNumber > lastCheckpointOnL1 ? snapshot : undefined;
-      },
-      'L1 checkpoint to advance after disabling blob client',
-      AZTEC_SLOT_DURATION + 5,
-      1,
+    const checkpointAfterBlobDisable = await monitor.waitForCheckpoint(
+      event => event.checkpointNumber > lastCheckpointOnL1,
+      { timeout: (AZTEC_SLOT_DURATION + 5) * 1000, checkCurrentCheckpoint: true },
     );
     expect(checkpointAfterBlobDisable.checkpointNumber).toBeGreaterThan(lastCheckpointOnL1);
     logger.warn(`L1 checkpoint number has increased`, {
@@ -264,12 +257,7 @@ describe('single-node/sequencer/gov_proposal', () => {
     // Wait through the target slot end plus the two-L1-slot sync tolerance before starting the vote-only round.
     const voteOnlySlot = SlotNumber(Number(checkpointAfterBlobDisable.l2SlotNumber) + 2);
     logger.warn(`Waiting until slot ${voteOnlySlot} before starting vote-only round`);
-    await retryUntil(
-      async () => ((await rollup.getSlotNumber()) >= voteOnlySlot ? true : undefined),
-      'stale pipelined checkpoint to expire after disabling blob client',
-      AZTEC_SLOT_DURATION * 4,
-      1,
-    );
+    await cheatCodes.rollup.waitForSlot(voteOnlySlot, { timeout: AZTEC_SLOT_DURATION * 4 });
 
     // Select the voting round.
     const { round, roundDuration, nextRoundBeginsAtSlot } = await setupVotingRound();
@@ -280,8 +268,7 @@ describe('single-node/sequencer/gov_proposal', () => {
     const nextRoundEndsAtSlot = SlotNumber(nextRoundBeginsAtSlot + Number(roundDuration));
     const timeout = AZTEC_SLOT_DURATION * Number(roundDuration + 2n) + 20;
     logger.warn(`Waiting until slot ${nextRoundEndsAtSlot} for round to end (timeout ${timeout}s)`);
-    // REFACTOR: retryUntil on slot polling should be replaced with a rollup slot-wait helper
-    await retryUntil(() => rollup.getSlotNumber().then(s => s > nextRoundEndsAtSlot), 'round end', timeout, 1);
+    await cheatCodes.rollup.waitForSlot(SlotNumber(nextRoundEndsAtSlot + 1), { timeout });
 
     // We should have voted despite being unable to build blocks
     await verifyVotes(round, roundDuration);

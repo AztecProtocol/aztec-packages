@@ -5,11 +5,17 @@ import { CheckpointNumber } from '@aztec/foundation/branded-types';
 
 import type { EndToEndContext } from '../../fixtures/utils.js';
 import { waitForBlockNumber } from '../../fixtures/wait_helpers.js';
-import { SingleNodeTestContext, jest, setupWithProver } from './setup.js';
+import {
+  NO_REORG_SUBMISSION_EPOCHS,
+  PROVING_SLOT_TIMING,
+  SingleNodeTestContext,
+  jest,
+  setupWithProver,
+} from './setup.js';
 
-// Exercises the aztecNodeAdmin.rollbackTo() API. Default SingleNodeTestContext with a very long epoch
-// (aztecEpochDuration=100) so there are no L2 reorgs, no finalized blocks, and the full pending chain
-// is prunable. Actively drives L1 via cheatcodes (reorgTo to remove blocks).
+// Exercises the aztecNodeAdmin.rollbackTo() API. Runs on the PROVING_SLOT_TIMING floor with a never-reorg
+// proof window (NO_REORG_SUBMISSION_EPOCHS) so there are no L2 reorgs, no finalized blocks, and the full
+// pending chain is prunable. Actively drives L1 via cheatcodes (reorgTo to remove blocks).
 describe('single-node/recovery/manual_rollback', () => {
   let context: EndToEndContext;
   let logger: Logger;
@@ -19,7 +25,13 @@ describe('single-node/recovery/manual_rollback', () => {
   let test: SingleNodeTestContext;
 
   beforeEach(async () => {
-    test = await setupWithProver({ aztecEpochDuration: 100 }); // No L2 reorgs, no finalized blocks
+    // A clock warp here races the sequencer's building and times out, so this runs at the real-time
+    // PROVING_SLOT_TIMING floor. NO_REORG_SUBMISSION_EPOCHS keeps the pending chain unproven and prunable.
+    test = await setupWithProver({
+      ...PROVING_SLOT_TIMING,
+      aztecEpochDuration: 32,
+      aztecProofSubmissionEpochs: NO_REORG_SUBMISSION_EPOCHS,
+    });
     ({ context, logger, rollup } = test);
     ({ aztecNode: node } = context);
   });

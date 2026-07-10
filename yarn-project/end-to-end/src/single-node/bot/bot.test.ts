@@ -22,11 +22,13 @@ import { EmbeddedWallet } from '@aztec/wallets/embedded';
 import { jest } from '@jest/globals';
 
 import { PIPELINED_FEE_PADDING, PIPELINING_SETUP_OPTS } from '../../fixtures/fixtures.js';
+import { testSpan } from '../../fixtures/timing.js';
 import { getPrivateKeyFromIndex, setup } from '../../fixtures/utils.js';
+import { NO_REORG_SUBMISSION_EPOCHS } from '../setup.js';
 
 // Tests the transaction bot implementations (transfer bot, AMM bot, cross-chain bot).
-// Uses setup(0, PIPELINING_SETUP_OPTS + aztecProofSubmissionEpochs:640) with one node, production
-// sequencer (ethereumSlotDuration=4s, aztecSlotDuration=12s, proofSubEpochs=640, minTxsPerBlock=0;
+// Uses setup(0, PIPELINING_SETUP_OPTS + aztecProofSubmissionEpochs:NO_REORG_SUBMISSION_EPOCHS) with one node, production
+// sequencer (ethereumSlotDuration=4s, aztecSlotDuration=12s, proofSubEpochs=NO_REORG_SUBMISSION_EPOCHS, minTxsPerBlock=0;
 // aztecEpochDuration is the setup() default). The bridge-resume, setup-via-bridging, and
 // cross-chain-bot subsuites actively drive L1 cross-chain bridging: fee-juice portal deposits,
 // advanceInboxInProgress, and L2→L1 messages via CrossChainBot.
@@ -43,7 +45,7 @@ describe('single-node/bot/bot', () => {
     const [botAccount] = await getInitialTestAccountsData();
     const setupResult = await setup(0, {
       ...PIPELINING_SETUP_OPTS,
-      aztecProofSubmissionEpochs: 640,
+      aztecProofSubmissionEpochs: NO_REORG_SUBMISSION_EPOCHS,
       additionallyFundedAccounts: [botAccount],
     });
     ({
@@ -53,8 +55,10 @@ describe('single-node/bot/bot', () => {
       cheatCodes,
       config: { l1RpcUrls },
     } = setupResult);
-    wallet = await EmbeddedWallet.create(aztecNode, { ephemeral: true });
-    await wallet.createSchnorrInitializerlessAccount(botAccount.secret, botAccount.salt, botAccount.signingKey);
+    wallet = await testSpan('setup:wallet', () => EmbeddedWallet.create(aztecNode, { ephemeral: true }));
+    await testSpan('wallet:create', () =>
+      wallet.createSchnorrInitializerlessAccount(botAccount.secret, botAccount.salt, botAccount.signingKey),
+    );
   });
 
   afterAll(() => teardown());
@@ -72,7 +76,9 @@ describe('single-node/bot/bot', () => {
         botMode: 'transfer',
         minFeePadding: PIPELINED_FEE_PADDING,
       };
-      bot = await Bot.create(config, wallet, aztecNode, undefined, new BotStore(await openTmpStore('bot')));
+      bot = await testSpan('setup:bot', async () =>
+        Bot.create(config, wallet, aztecNode, undefined, new BotStore(await openTmpStore('bot'))),
+      );
     });
 
     // Runs bot.run() once and asserts recipient private and public balances each increase by 1.
@@ -130,7 +136,7 @@ describe('single-node/bot/bot', () => {
     let store: BotStore;
 
     beforeAll(async () => {
-      store = new BotStore(await openTmpStore('bot'));
+      store = await testSpan('setup:bot', async () => new BotStore(await openTmpStore('bot')));
     });
 
     afterAll(async () => {
@@ -237,7 +243,9 @@ describe('single-node/bot/bot', () => {
         followChain: 'CHECKPOINTED',
         botMode: 'amm',
       };
-      bot = await AmmBot.create(config, wallet, aztecNode, undefined, new BotStore(await openTmpStore('bot')));
+      bot = await testSpan('setup:bot', async () =>
+        AmmBot.create(config, wallet, aztecNode, undefined, new BotStore(await openTmpStore('bot'))),
+      );
     });
 
     // Runs the AMM bot once and asserts one of the two private token balances decreased and
@@ -301,12 +309,8 @@ describe('single-node/bot/bot', () => {
         flushSetupTransactions: true,
         l1ToL2SeedCount: 2,
       };
-      bot = await CrossChainBot.create(
-        config,
-        wallet,
-        aztecNode,
-        aztecNodeAdmin,
-        new BotStore(await openTmpStore('bot')),
+      bot = await testSpan('setup:bot', async () =>
+        CrossChainBot.create(config, wallet, aztecNode, aztecNodeAdmin, new BotStore(await openTmpStore('bot'))),
       );
     }, 600_000);
 

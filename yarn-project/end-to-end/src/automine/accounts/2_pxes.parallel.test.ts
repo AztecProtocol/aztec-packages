@@ -44,6 +44,7 @@ describe('automine/accounts/2_pxes', () => {
     const accountManager = await wallet.createSchnorrAccount(
       fundedAccounts[accountIndex].secret,
       fundedAccounts[accountIndex].salt,
+      fundedAccounts[accountIndex].signingKey,
     );
     const deployMethod = await accountManager.getDeployMethod();
     await deployMethod.send({ from: NO_FROM });
@@ -158,10 +159,7 @@ describe('automine/accounts/2_pxes', () => {
 
   // Mints private balances for two accounts, each on their own PXE. Verifies that querying
   // the balance for account A from PXE B returns 0 (key not registered), and vice versa.
-  // TODO(F-741): `expectTokenBalance(walletB, token, accountAAddress, 0n)` throws
-  // "No public key registered". Handshake discovery (get_shared_secrets) needs the scope's
-  // keys, which this PXE lacks for a foreign account.
-  it.skip('private state is zero when PXE does not have the account secret key', async () => {
+  it('private state is zero when PXE does not have the account secret key', async () => {
     const userABalance = 100n;
     const userBBalance = 150n;
 
@@ -217,13 +215,17 @@ describe('automine/accounts/2_pxes', () => {
 
     // setup an account that is shared across PXEs
     const sharedAccount = additionallyFundedAccounts[2];
-    const sharedAccountOnAManager = await walletA.createSchnorrAccount(sharedAccount.secret, sharedAccount.salt);
+    const sharedAccountOnAManager = await walletA.createSchnorrAccount(
+      sharedAccount.secret,
+      sharedAccount.salt,
+      sharedAccount.signingKey,
+    );
     const sharedAccountOnADeployMethod = await sharedAccountOnAManager.getDeployMethod();
     await sharedAccountOnADeployMethod.send({ from: NO_FROM });
     const sharedAccountAddress = sharedAccountOnAManager.address;
 
     // Register the shared account on walletB.
-    await walletB.createSchnorrAccount(sharedAccount.secret, sharedAccount.salt);
+    await walletB.createSchnorrAccount(sharedAccount.secret, sharedAccount.salt, sharedAccount.signingKey);
 
     // deploy the contract on PXE A
     const { contract: token, instance } = await deployToken(walletA, accountAAddress, initialBalance, logger);

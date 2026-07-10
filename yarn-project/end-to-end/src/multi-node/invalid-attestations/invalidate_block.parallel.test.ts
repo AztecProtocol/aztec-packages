@@ -66,7 +66,7 @@ describe('multi-node/invalid-attestations/invalidate_block', () => {
     // Uses multiple-blocks-per-slot timing configuration.
     test = await MultiNodeTestContext.setup({
       ...MOCK_GOSSIP_MULTI_VALIDATOR_OPTS,
-      ethereumSlotDuration: 8,
+      ethereumSlotDuration: 12,
       aztecSlotDuration: 36,
       blockDurationMs: 6000,
       initialValidators: validators,
@@ -565,50 +565,13 @@ describe('multi-node/invalid-attestations/invalidate_block', () => {
         minTxsPerBlock: 0,
       }),
     );
-    // REFACTOR: hand-rolled slot-search with EpochNotStable warp fallback; replace with a shared
-    // helper such as findNextTwoSlotsWithDistinctProposers(test, fromSlot) that encapsulates the
-    // EpochNotStable retry-and-warp loop.
-    let badSlot1: SlotNumber | undefined;
-    let p1Proposer: EthAddress | undefined;
-    let p2Proposer: EthAddress | undefined;
-    let candidate = Number(test.epochCache.getEpochAndSlotNow().slot) + 4;
-    const maxAttempts = 200;
-    for (let attempt = 0; attempt < maxAttempts && badSlot1 === undefined; attempt++) {
-      try {
-        const [p1, p2] = await Promise.all([
-          test.epochCache.getProposerAttesterAddressInSlot(SlotNumber(candidate)),
-          test.epochCache.getProposerAttesterAddressInSlot(SlotNumber(candidate + 1)),
-        ]);
-        if (p1 && p2 && !p1.equals(p2)) {
-          badSlot1 = SlotNumber(candidate);
-          p1Proposer = p1;
-          p2Proposer = p2;
-          break;
-        }
-        candidate++;
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (!msg.includes('EpochNotStable')) {
-          throw err;
-        }
-        const block = await test.l1Client.getBlock({ includeTransactions: false });
-        const warpBy = test.epochDuration * test.L2_SLOT_DURATION_IN_S;
-        const newTs = Number(block.timestamp) + warpBy;
-        logger.warn(`Hit EpochNotStable at candidate ${candidate}, warping L1 forward by ${warpBy}s to ${newTs}`);
-        await test.context.cheatCodes.eth.warp(newTs, { resetBlockInterval: true });
-        const newCurrentSlot = Number(test.epochCache.getEpochAndSlotNow().slot);
-        if (candidate < newCurrentSlot + 4) {
-          candidate = newCurrentSlot + 4;
-        }
-      }
-    }
-    if (badSlot1 === undefined || !p1Proposer || !p2Proposer) {
-      throw new Error(`Could not find two consecutive slots with different proposers after ${maxAttempts} attempts`);
-    }
-    const badSlot2 = SlotNumber.add(badSlot1, 1);
+    const {
+      slots: [badSlot1, badSlot2],
+      proposers: [p1Proposer, p2Proposer],
+    } = await test.findSlotsWithProposers(2, ([p1, p2]) => !p1.equals(p2));
 
-    const p1NodeIndex = nodes.findIndex(n => n.getSequencer()!.validatorAddresses!.some(a => a.equals(p1Proposer!)));
-    const p2NodeIndex = nodes.findIndex(n => n.getSequencer()!.validatorAddresses!.some(a => a.equals(p2Proposer!)));
+    const p1NodeIndex = nodes.findIndex(n => n.getSequencer()!.validatorAddresses!.some(a => a.equals(p1Proposer)));
+    const p2NodeIndex = nodes.findIndex(n => n.getSequencer()!.validatorAddresses!.some(a => a.equals(p2Proposer)));
     if (p1NodeIndex === -1 || p2NodeIndex === -1) {
       throw new Error(`Could not find nodes for proposers P1=${p1Proposer} P2=${p2Proposer}`);
     }
@@ -852,6 +815,19 @@ describe('multi-node/invalid-attestations/invalidate_block', () => {
     await runInvalidationTest({
       attackConfig: { injectUnrecoverableSignatureAttestation: true },
       disableConfig: { injectUnrecoverableSignatureAttestation: false },
+    });
+  });
+
+  // Injects every non-proposer attestation slot in yParity (v ∈ {0, 1}) form in the packed L1 tuple. L1
+  // accepts it at propose() (attestation signatures are not verified there), but the checkpoint can never be
+  // proven (ValidatorSelectionLib.verifyAttestations → ECDSA.recover rejects v ∉ {27, 28}). A repack of the
+  // invalidation evidence would canonicalize the bytes back to 27/28 and diverge from the on-chain
+  // attestationsHash, reverting the invalidation. Verifies an honest proposer detects the bad checkpoint and
+  // invalidates it byte-faithfully from the raw calldata. Regression for A-1401.
+  it('proposer invalidates checkpoint with a yParity attestation slot', async () => {
+    await runInvalidationTest({
+      attackConfig: { injectYParityAttestation: true },
+      disableConfig: { injectYParityAttestation: false },
     });
   });
 

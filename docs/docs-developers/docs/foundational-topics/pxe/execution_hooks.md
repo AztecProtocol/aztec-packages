@@ -82,19 +82,30 @@ For an unconstrained self-send (the recipient is one of the wallet's own account
 
 ### In Noir tests
 
-When testing in Noir, leaving the strategy unset makes `TestEnvironment` fall back to the bare PXE default. Set a strategy when creating the environment to exercise a specific one; it affects message delivery in private executions:
+When testing in Noir, leaving the strategy unset makes `TestEnvironment` fall back to the bare PXE default. Set a strategy
+when creating the environment to exercise a specific one; it affects message delivery in private executions that use the
+default wallet strategy hook. Use `with_default_tag_secret_strategy` to configure the strategy for a specific delivery
+mode:
 
 ```rust
 let env = TestEnvironment::new_opts(
-    TestEnvironmentOptions::new().with_tagging_secret_strategy(TaggingSecretStrategy::non_interactive_handshake()),
+    TestEnvironmentOptions::new().with_default_tag_secret_strategy(
+        MessageDelivery::onchain_unconstrained(),
+        TaggingSecretStrategy::non_interactive_handshake(),
+    ),
 );
 ```
+
+Use `with_default_tag_secret_strategy_all_modes` only when the same strategy should apply to both constrained and
+unconstrained delivery. Contract-fixed delivery derivations bypass this default strategy.
 
 ### In production
 
 Pass a `resolveTaggingSecretStrategy` hook when [creating the PXE](#configuring-hooks). It receives a `TaggingSecretStrategyRequest` with the executing contract's address and the message's sender, recipient, and delivery mode (`'constrained'` or `'unconstrained'`), so a wallet can apply per-application or per-recipient policies, or surface the decision to the user, instead of returning a fixed value.
 
 When the hook is absent, the PXE applies a default: both delivery modes use a [non-interactive handshake](../../aztec-nr/framework-description/note_delivery.md#tagging-secret-strategy) so the recipient can discover the message without prior coordination.
+
+Returning `{ type: 'interactive-handshake' }` makes the handshake registry request the recipient's signed authorization through the [`resolveCustomRequest`](#resolvecustomrequest) hook (see the [example](#example-interactive-handshakes) below), so a wallet should only choose it when that request can be served.
 
 ## `resolveCustomRequest`
 
@@ -105,3 +116,7 @@ A general-purpose hook for *custom*, caller-defined requests. A contract reaches
 Pass a `resolveCustomRequest` hook when [creating the PXE](#configuring-hooks). It receives a `CustomRequest` with the issuing contract's address and class ID, the request `kind`, and the opaque `payload`, and returns the response. Because any contract can issue a request, the hook should check both the `kind` and the issuing contract before answering, dispatching on `kind` to the matching resolver.
 
 When the hook is absent, the request cannot be served and simulation fails.
+
+### Example: interactive handshakes
+
+The `HandshakeRegistry`'s `interactive_handshake` uses this hook to obtain the recipient's signed authorization. The payload carries what the signer needs to decide: who the recipient is, the handshake being authorized, and the chain context, but never the sender. The response carries what the registry needs to verify the recipient's signature in-circuit.

@@ -13,13 +13,14 @@ use crate::{
     event::{event_interface::EventInterface, EventMessage},
     hash::{compute_secret_hash, hash_args},
     messages::{
+        delivery::OnchainDeliveryMode,
         discovery::{
             ComputeNoteHash, ComputeNoteNullifier, CustomMessageHandler, process_message::process_message_plaintext,
         },
         encoding::{MESSAGE_CIPHERTEXT_LEN, MESSAGE_PLAINTEXT_LEN},
         logs::{event::encode_private_event_message, note::encode_private_note_message},
         offchain_messages::OFFCHAIN_MESSAGE_IDENTIFIER,
-        processing::{MessageContext, offchain::OffchainMessage, validate_and_store_enqueued_notes_and_events},
+        processing::{offchain::OffchainMessage, ResolvedTx, validate_and_store_enqueued_notes_and_events},
     },
     note::{note_interface::{NoteHash, NoteType}, NoteMessage},
     oracle::version::assert_compatible_oracle_version,
@@ -88,27 +89,52 @@ pub struct TestEnvironment {
 /// methods setting each value, e.g.:
 /// ```noir
 /// let env = TestEnvironment::new_opts(
-///     TestEnvironmentOptions::new().with_tagging_secret_strategy(TaggingSecretStrategy::non_interactive_handshake()),
+///     TestEnvironmentOptions::new().with_default_tag_secret_strategy(
+///         MessageDelivery::onchain_unconstrained(),
+///         TaggingSecretStrategy::non_interactive_handshake(),
+///     ),
 /// );
 /// ```
 pub struct TestEnvironmentOptions {
-    tagging_secret_strategy: Option<TaggingSecretStrategy>,
+    default_unconstrained_tagging_secret_strategy: Option<TaggingSecretStrategy>,
+    default_constrained_tagging_secret_strategy: Option<TaggingSecretStrategy>,
 }
 
 impl TestEnvironmentOptions {
     /// Creates a new `TestEnvironmentOptions` with default values.
     pub fn new() -> Self {
-        Self { tagging_secret_strategy: Option::none() }
+        Self {
+            default_unconstrained_tagging_secret_strategy: Option::none(),
+            default_constrained_tagging_secret_strategy: Option::none(),
+        }
     }
 
-    /// Sets the [`TaggingSecretStrategy`] the wallet reports through the
+    /// Sets the default [`TaggingSecretStrategy`] the wallet reports for `mode` through the
     /// [`resolve_tagging_strategy`](crate::oracle::resolve_tagging_strategy) oracle, affecting message delivery in
-    /// private executions.
+    /// private executions that do not fix their own delivery derivation.
     ///
-    /// If not set, the wallet hook is left unconfigured and the private execution environment applies its own default.
-    pub fn with_tagging_secret_strategy(&mut self, strategy: TaggingSecretStrategy) -> Self {
-        self.tagging_secret_strategy = Option::some(strategy);
+    /// If no strategy is set for either mode, the wallet hook is left unconfigured and the private execution
+    /// environment applies its own default. A mode left unset while the other is configured falls back to the default
+    /// [`TaggingSecretStrategy::non_interactive_handshake`], the strategy a PXE `resolveTaggingSecretStrategy` hook
+    /// typically hardcodes for modes it does not customize.
+    pub fn with_default_tag_secret_strategy<M>(&mut self, mode: M, strategy: TaggingSecretStrategy) -> Self
+    where
+        M: Into<OnchainDeliveryMode>,
+    {
+        if mode.into() == OnchainDeliveryMode::onchain_unconstrained() {
+            self.default_unconstrained_tagging_secret_strategy = Option::some(strategy);
+        } else {
+            self.default_constrained_tagging_secret_strategy = Option::some(strategy);
+        }
         *self
+    }
+
+    /// Sets `strategy` for both delivery modes: the equivalent of a PXE `resolveTaggingSecretStrategy` hook that
+    /// ignores the request's mode. See
+    /// [`with_default_tag_secret_strategy`](Self::with_default_tag_secret_strategy) to configure a single mode.
+    pub fn with_default_tag_secret_strategy_all_modes(&mut self, strategy: TaggingSecretStrategy) -> Self {
+        let _ = self.with_default_tag_secret_strategy(OnchainDeliveryMode::onchain_unconstrained(), strategy);
+        self.with_default_tag_secret_strategy(OnchainDeliveryMode::onchain_constrained(), strategy)
     }
 }
 
@@ -607,18 +633,19 @@ impl TestEnvironment {
     ///
     /// ### Sample usage
     /// ```noir
+    /// let strategy = TaggingSecretStrategy::non_interactive_handshake();
     /// let env = TestEnvironment::new_opts(
-    ///     TestEnvironmentOptions::new().with_tagging_secret_strategy(
-    ///         TaggingSecretStrategy::non_interactive_handshake(),
-    ///     ),
+    ///     TestEnvironmentOptions::new().with_default_tag_secret_strategy_all_modes(strategy),
     /// );
     /// ```
     pub unconstrained fn new_opts(options: TestEnvironmentOptions) -> Self {
         assert_compatible_oracle_version();
         txe_oracles::assert_compatible_txe_oracle_version();
 
-        // Forward the configured strategy to the wallet.
-        txe_oracles::set_tagging_secret_strategy(options.tagging_secret_strategy);
+        txe_oracles::set_tagging_secret_strategies(
+            options.default_unconstrained_tagging_secret_strategy,
+            options.default_constrained_tagging_secret_strategy,
+        );
 
         Self {
             // Use an offset to avoid secret collision with account secrets. Without this, when
@@ -887,7 +914,7 @@ impl TestEnvironment {
         sender: EthAddress,
         recipient: AztecAddress,
     ) -> Field {
-        self.send_l1_to_l2_message_from_secret_hash(content, compute_secret_hash(secret), sender, recipient)
+        self.send_l1_to_l2_message_from_secret_hash(content, compute_secret_hash([secret]), sender, recipient)
     }
 
     /// Variant of [`send_l1_to_l2_message`](TestEnvironment::send_l1_to_l2_message) that takes the secret hash
@@ -1551,7 +1578,7 @@ impl TestEnvironment {
         // on a message plaintext.
 
         // First we fetch the transaction effects from the latest transaction, which are required to create the
-        // `MessageContext`, and might contain information about data (e.g. notes, events) contained in the message. In
+        // `ResolvedTx`, and might contain information about data (e.g. notes, events) contained in the message. In
         // a real contract this data would have either been supplied by the `process_message` caller, of retrieved
         // along with the message from a tagged log.
         let effects = txe_oracles::get_last_tx_effects();
@@ -1560,10 +1587,13 @@ impl TestEnvironment {
         // as events are properly scoped by recipient, but notes use a global scope instead. We therefore simply set
         // the zero address as the recipient if one is not supplied, which PXE accepts as a scope despite this not
         // being a registered account.
-        let message_context = MessageContext {
+        let resolved_tx = ResolvedTx {
             tx_hash: effects.tx_hash,
             unique_note_hashes_in_tx: effects.note_hashes,
             first_nullifier_in_tx: effects.nullifiers.get(0),
+            // Test fixture: the simulated message has no real delivery block, so anchor it to the zero block.
+            block_number: 0,
+            block_hash: 0,
         };
 
         // The scope controls which PXE account can see discovered notes/events. We use the zero address as the
@@ -1583,7 +1613,7 @@ impl TestEnvironment {
                 compute_note_nullifier,
                 process_custom_message,
                 message_plaintext,
-                message_context,
+                resolved_tx,
                 scope,
             );
 

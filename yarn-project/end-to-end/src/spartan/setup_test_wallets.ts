@@ -1,7 +1,7 @@
 import { generateSchnorrAccounts } from '@aztec/accounts/testing';
 import { NO_FROM } from '@aztec/aztec.js/account';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
-import { NO_WAIT } from '@aztec/aztec.js/contracts';
+import { DefaultWaitOpts, NO_WAIT } from '@aztec/aztec.js/contracts';
 import { L1FeeJuicePortalManager } from '@aztec/aztec.js/ethereum';
 import { FeeJuicePaymentMethodWithClaim } from '@aztec/aztec.js/fee';
 import { type FeePaymentMethod, SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
@@ -56,6 +56,8 @@ export async function setupTestAccountsWithTokens(
 
   const aztecNode = createAztecNodeClient(nodeUrl);
   const wallet = await TestWallet.create(aztecNode);
+  // Remote JSON-RPC node: keep the 1s poll cadence rather than the in-process TestWallet fast default.
+  wallet.setDefaultWaitInterval(DefaultWaitOpts.interval);
 
   const [recipientAccount, ...accounts] = (await registerInitialLocalNetworkAccountsInWallet(wallet)).slice(
     0,
@@ -86,8 +88,10 @@ export async function deploySponsoredTestAccountsWithTokens(
   numberOfFundedWallets = 1,
 ): Promise<TestAccounts> {
   const [recipient, ...funded] = await generateSchnorrAccounts(numberOfFundedWallets + 1);
-  const recipientAccount = await wallet.createSchnorrAccount(recipient.secret, recipient.salt);
-  const fundedAccounts = await Promise.all(funded.map(a => wallet.createSchnorrAccount(a.secret, a.salt)));
+  const recipientAccount = await wallet.createSchnorrAccount(recipient.secret, recipient.salt, recipient.signingKey);
+  const fundedAccounts = await Promise.all(
+    funded.map(a => wallet.createSchnorrAccount(a.secret, a.salt, a.signingKey)),
+  );
 
   await registerSponsoredFPC(wallet);
 
@@ -233,8 +237,10 @@ export async function deploySponsoredTestAccounts(
   opts?: { estimateGas?: boolean },
 ): Promise<TestAccountsWithoutTokens> {
   const [recipient, ...funded] = await generateSchnorrAccounts(numberOfFundedWallets + 1);
-  const recipientAccount = await wallet.createSchnorrAccount(recipient.secret, recipient.salt);
-  const fundedAccounts = await Promise.all(funded.map(a => wallet.createSchnorrAccount(a.secret, a.salt)));
+  const recipientAccount = await wallet.createSchnorrAccount(recipient.secret, recipient.salt, recipient.signingKey);
+  const fundedAccounts = await Promise.all(
+    funded.map(a => wallet.createSchnorrAccount(a.secret, a.salt, a.signingKey)),
+  );
 
   await registerSponsoredFPC(wallet);
 
@@ -276,10 +282,14 @@ export async function deployTestAccountsWithTokens(
 ): Promise<TestAccounts> {
   const aztecNode = createAztecNodeClient(nodeUrl);
   const wallet = await TestWallet.create(aztecNode);
+  // Remote JSON-RPC node: keep the 1s poll cadence rather than the in-process TestWallet fast default.
+  wallet.setDefaultWaitInterval(DefaultWaitOpts.interval);
 
   const [recipient, ...funded] = await generateSchnorrAccounts(numberOfFundedWallets + 1);
-  const recipientAccount = await wallet.createSchnorrAccount(recipient.secret, recipient.salt);
-  const fundedAccounts = await Promise.all(funded.map(a => wallet.createSchnorrAccount(a.secret, a.salt)));
+  const recipientAccount = await wallet.createSchnorrAccount(recipient.secret, recipient.salt, recipient.signingKey);
+  const fundedAccounts = await Promise.all(
+    funded.map(a => wallet.createSchnorrAccount(a.secret, a.salt, a.signingKey)),
+  );
 
   const claims = await Promise.all(
     fundedAccounts.map(a => bridgeL1FeeJuice(l1RpcUrls, mnemonicOrPrivateKey, aztecNode, a.address, undefined, logger)),
@@ -459,6 +469,8 @@ export async function createWalletAndAztecNodeClient(
     proverEnabled,
   };
   const wallet = await TestWallet.create(aztecNode, pxeConfig);
+  // Remote JSON-RPC node: keep the 1s poll cadence rather than the in-process TestWallet fast default.
+  wallet.setDefaultWaitInterval(DefaultWaitOpts.interval);
 
   return {
     wallet,

@@ -22,7 +22,7 @@ pub(crate) unconstrained fn get_pending_tagged_logs(
     get_pending_tagged_logs_oracle(scope, provided_secrets)
 }
 
-#[oracle(aztec_utl_getPendingTaggedLogs)]
+#[oracle(aztec_utl_getPendingTaggedLogsV2)]
 unconstrained fn get_pending_tagged_logs_oracle(
     scope: AztecAddress,
     provided_secrets: EphemeralArray<ProvidedSecret>,
@@ -54,7 +54,7 @@ pub unconstrained fn get_logs_by_tag(
     get_logs_by_tag_oracle(requests)
 }
 
-#[oracle(aztec_utl_getLogsByTag)]
+#[oracle(aztec_utl_getLogsByTagV2)]
 unconstrained fn get_logs_by_tag_oracle(
     requests: EphemeralArray<LogRetrievalRequest>,
 ) -> EphemeralArray<EphemeralArray<LogRetrievalResponse>> {}
@@ -66,3 +66,11 @@ pub unconstrained fn get_tx_effect(tx_hash: Field) -> Option<TxEffect> {
 
 #[oracle(aztec_utl_getTxEffect)]
 unconstrained fn get_tx_effect_oracle(tx_hash: Field) -> Option<TxEffect> {}
+
+/// Fetches all effects of settled transactions by hash, preserving request order.
+pub unconstrained fn get_tx_effects(tx_hashes: EphemeralArray<Field>) -> EphemeralArray<Option<TxEffect>> {
+    get_tx_effects_oracle(tx_hashes)
+}
+
+#[oracle(aztec_utl_getTxEffects)]
+unconstrained fn get_tx_effects_oracle(tx_hashes: EphemeralArray<Field>) -> EphemeralArray<Option<TxEffect>> {}

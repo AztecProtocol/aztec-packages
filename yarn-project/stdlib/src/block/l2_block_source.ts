@@ -63,8 +63,18 @@ export type CheckpointQuery =
   | { slot: SlotNumber }
   | { tag: 'checkpointed' | 'proven' | 'finalized' };
 
-/** Query a range of confirmed checkpoints by start/limit or by epoch. */
-export type CheckpointsQuery = { from: CheckpointNumber; limit: number } | { epoch: EpochNumber };
+/**
+ * Query a range of confirmed checkpoints by start/limit, by slot anchor, or by epoch.
+ *
+ * The `fromSlot` variant walks the slot index: it returns up to `limit` checkpoints anchored at
+ * `fromSlot`, ordered nearest-first. With `reverse` it takes the checkpoints at or before the slot
+ * (descending); otherwise the checkpoints at or after it (ascending). Use `limit: 1, reverse: true`
+ * to find the latest checkpoint at or before a slot in a single range scan.
+ */
+export type CheckpointsQuery =
+  | { from: CheckpointNumber; limit: number }
+  | { fromSlot: SlotNumber; limit: number; reverse?: boolean }
+  | { epoch: EpochNumber };
 
 /**
  * Lookup a proposed (archiver-internal, not-yet-L1-confirmed) checkpoint.
@@ -81,6 +91,7 @@ export const CheckpointQuerySchema: z.ZodType<CheckpointQuery, unknown> = z.unio
 
 export const CheckpointsQuerySchema: z.ZodType<CheckpointsQuery, unknown> = z.union([
   z.object({ from: CheckpointNumberSchema, limit: z.number().int().min(1) }).strict(),
+  z.object({ fromSlot: SlotNumberSchema, limit: z.number().int().min(1), reverse: z.boolean().optional() }).strict(),
   z.object({ epoch: EpochNumberSchema }).strict(),
 ]);
 
@@ -324,6 +335,7 @@ export type ArchiverEmitter = TypedEventEmitter<{
   [L2BlockSourceEvents.DescendentOfInvalidAttestationsCheckpointDetected]: (
     args: DescendentOfInvalidAttestationsCheckpointEvent,
   ) => void;
+  [L2BlockSourceEvents.L2BlockSourceUpdated]: (args: L2BlockSourceUpdatedEvent) => void;
 }>;
 export interface L2BlockSourceEventEmitter extends L2BlockSource {
   events: ArchiverEmitter;
@@ -376,6 +388,28 @@ export function makeL2CheckpointId(number: CheckpointNumber, hash: string): Chec
   return { number, hash };
 }
 
+function l2BlockIdEquals(a: L2BlockId, b: L2BlockId): boolean {
+  return a.number === b.number && a.hash === b.hash;
+}
+
+function l2TipIdEquals(a: L2TipId, b: L2TipId): boolean {
+  return (
+    l2BlockIdEquals(a.block, b.block) &&
+    a.checkpoint.number === b.checkpoint.number &&
+    a.checkpoint.hash === b.checkpoint.hash
+  );
+}
+
+/** Returns whether two {@link L2Tips} snapshots agree on every tier (proposed, checkpointed, proven, finalized). */
+export function l2TipsEqual(a: L2Tips, b: L2Tips): boolean {
+  return (
+    l2BlockIdEquals(a.proposed, b.proposed) &&
+    l2TipIdEquals(a.checkpointed, b.checkpointed) &&
+    l2TipIdEquals(a.proven, b.proven) &&
+    l2TipIdEquals(a.finalized, b.finalized)
+  );
+}
+
 const L2BlockIdSchema = z.object({
   number: BlockNumberSchema,
   hash: z.string(),
@@ -406,7 +440,25 @@ export enum L2BlockSourceEvents {
   InvalidAttestationsCheckpointDetected = 'invalidCheckpointDetected',
   CheckpointEquivocationDetected = 'checkpointEquivocationDetected',
   DescendentOfInvalidAttestationsCheckpointDetected = 'descendentOfInvalidAttestationsCheckpointDetected',
+  L2BlockSourceUpdated = 'l2BlockSourceUpdated',
 }
+
+/**
+ * Aggregate event emitted once per committed archiver sync pass that mutated local state. Carries the chain tips
+ * before and after the pass, and the blocks added during it. Consumers compare `fromTips` and `toTips` to learn what
+ * moved; there is no separate `changed` section.
+ *
+ * This is an optimization signal that lets a block stream reconcile immediately on an archiver update rather than
+ * waiting for its next poll. Polling remains the correctness fallback, so a missed event only affects latency.
+ * `blocksAdded` are hydrated blocks already in hand from the sync pass, so a triggered sync that is caught up to
+ * `fromTips` can reuse them (and `toTips`) instead of re-reading the store.
+ */
+export type L2BlockSourceUpdatedEvent = {
+  type: 'l2BlockSourceUpdated';
+  fromTips: L2Tips;
+  toTips: L2Tips;
+  blocksAdded: readonly L2Block[];
+};
 
 export type L2BlockProvenEvent = {
   type: 'l2BlockProven';

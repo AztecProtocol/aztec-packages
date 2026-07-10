@@ -3,6 +3,9 @@ import type { Point } from '@aztec/foundation/curves/grumpkin';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { AppTaggingSecretKind } from '@aztec/stdlib/logs';
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- only referenced by a {@link} doc tag
+import type { ResolveCustomRequest } from './resolve_custom_request.js';
+
 /**
  * How a message's tagging secret is chosen: the wallet's strategy, returned by the `resolveTaggingSecretStrategy` hook
  * when no onchain handshake has been registered for the sender/recipient pair. This is intent (plus, for an arbitrary
@@ -12,6 +15,14 @@ export type TaggingSecretStrategy =
   | {
       /** Establish a fresh non-interactive handshake via the onchain registry; reveals the recipient onchain. */
       type: 'non-interactive-handshake';
+    }
+  | {
+      /**
+       * Establish a fresh interactive handshake via the onchain registry. Reveals nothing about the recipient
+       * onchain, but requires the recipient to answer the registry's signed-authorization request (served through
+       * the {@link ResolveCustomRequest} hook), so the send fails when it cannot be served.
+       */
+      type: 'interactive-handshake';
     }
   | {
       /** Derive the secret from the sender's and recipient's address keys via ECDH. PXE computes and silos it. */
@@ -27,6 +38,9 @@ export type TaggingSecretStrategy =
       /** The raw (un-siloed) shared secret point to derive the tag from. */
       secret: Point;
     };
+
+/** The strategy PXE applies to both delivery modes when no `resolveTaggingSecretStrategy` hook is configured. */
+export const DEFAULT_TAGGING_SECRET_STRATEGY: TaggingSecretStrategy = { type: 'non-interactive-handshake' };
 
 /** Information about the message delivery requesting a tagging secret strategy. */
 export type TaggingSecretStrategyRequest = {
