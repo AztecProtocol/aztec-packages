@@ -106,6 +106,23 @@ class MpscShmClient : public IpcClient {
         return true;
     }
 
+    bool send_with(size_t len, const std::function<void(void*)>& fill, uint64_t timeout_ns) override
+    {
+        if (!producer_.has_value()) {
+            return false;
+        }
+        size_t total_size = sizeof(uint32_t) + len;
+        void* buf = producer_->claim(total_size, normalize_call_timeout(timeout_ns));
+        if (buf == nullptr) {
+            return false;
+        }
+        auto len_u32 = static_cast<uint32_t>(len);
+        std::memcpy(buf, &len_u32, sizeof(uint32_t));
+        fill(static_cast<uint8_t*>(buf) + sizeof(uint32_t));
+        producer_->publish(total_size);
+        return true;
+    }
+
     std::span<const uint8_t> receive(uint64_t timeout_ns) override
     {
         if (!response_ring_.has_value()) {

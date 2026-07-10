@@ -2,11 +2,13 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
 #include <limits>
 #include <memory>
 #include <span>
 #include <string>
 #include <sys/types.h>
+#include <vector>
 
 namespace ipc {
 
@@ -46,6 +48,25 @@ class IpcClient {
      * @return true if sent successfully, false on error or timeout
      */
     virtual bool send(const void* data, size_t len, uint64_t timeout_ns) = 0;
+
+    /**
+     * @brief Send a message whose payload is produced directly into the transport buffer.
+     *
+     * `fill` is invoked exactly once with a writable buffer of `len` bytes and must fully
+     * populate it. The SHM transport claims ring space and passes a pointer into the ring,
+     * so a producer that must transform data anyway (e.g. normalising field elements)
+     * writes it exactly once with no intermediate copy. The default implementation (used
+     * by the socket transport) fills a temporary buffer and forwards to send().
+     *
+     * @return true if sent successfully, false on error or timeout (fill not called on
+     *         claim failure).
+     */
+    virtual bool send_with(size_t len, const std::function<void(void*)>& fill, uint64_t timeout_ns)
+    {
+        std::vector<uint8_t> buf(len);
+        fill(buf.data());
+        return send(buf.data(), len, timeout_ns);
+    }
 
     /**
      * @brief Receive a message from the server (zero-copy for shared memory)
