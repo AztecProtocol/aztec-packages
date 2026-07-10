@@ -2,22 +2,20 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { AztecSQLiteOPFSStore, storePoolDirectory } from '@aztec/kv-store/sqlite-opfs';
 
-import { assertStoreIdentity, effectiveStoreName, requireCompleteIdentity } from '../../storage/store_identity.js';
+import { assertStoreIdentity, effectiveStoreName } from '../../storage/store_identity.js';
 
 /**
  * Opens the persistent browser (sqlite-opfs) store selected by `name` and identity `(config.l1ChainId,
  * config.rollupAddress, schemaVersion)` triple. A store exists per identity: reopening with the same identity returns
  * the same data, a different identity selects a different (possibly fresh) store.
- *
- * @throws If `config.rollupAddress` or `config.l1ChainId` are missing.
  */
 export async function openPXEBrowserStore(
   name: string,
   schemaVersion: number,
-  config: { l1ChainId?: number; rollupAddress?: EthAddress; dataStoreMapSizeKb?: number },
+  config: { l1ChainId: number; rollupAddress: EthAddress; dataStoreMapSizeKb?: number },
   log: Logger = createLogger('pxe:data'),
 ): Promise<AztecSQLiteOPFSStore> {
-  const identity = requireCompleteIdentity(name, config, schemaVersion);
+  const identity = { l1ChainId: config.l1ChainId, rollupAddress: config.rollupAddress, schemaVersion };
   const storeName = effectiveStoreName(name, identity);
   log.info(`Creating ${storeName} SQLite-OPFS data store`, {
     storeName,

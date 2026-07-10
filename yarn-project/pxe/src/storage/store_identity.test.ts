@@ -5,7 +5,6 @@ import {
   StoreIdentityMismatchError,
   assertStoreIdentity,
   effectiveStoreName,
-  requireCompleteIdentity,
   storeIdentitySlug,
 } from './store_identity.js';
 
@@ -30,33 +29,6 @@ describe('effectiveStoreName', () => {
     const rollupAddress = EthAddress.fromString('0x1234567890abcdef1234567890abcdef12345678');
     expect(effectiveStoreName('pxe_data', { l1ChainId: 1, rollupAddress, schemaVersion: 2 })).toEqual(
       'pxe_data_1-0x1234567890abcdef1234567890abcdef12345678-v2',
-    );
-  });
-});
-
-describe('requireCompleteIdentity', () => {
-  it('returns the identity when all components are present', () => {
-    const rollupAddress = EthAddress.random();
-    expect(requireCompleteIdentity('s', { l1ChainId: 31337, rollupAddress }, 1)).toEqual({
-      l1ChainId: 31337,
-      rollupAddress,
-      schemaVersion: 1,
-    });
-  });
-
-  it('throws naming each missing component', () => {
-    const rollupAddress = EthAddress.random();
-    expect(() => requireCompleteIdentity('s', { rollupAddress }, 1)).toThrow(
-      "Cannot open store 's' without a complete identity: missing l1ChainId",
-    );
-    expect(() => requireCompleteIdentity('s', { l1ChainId: 31337 }, 1)).toThrow(
-      "Cannot open store 's' without a complete identity: missing rollupAddress",
-    );
-    expect(() => requireCompleteIdentity('s', { l1ChainId: 31337, rollupAddress }, undefined)).toThrow(
-      "Cannot open store 's' without a complete identity: missing schemaVersion",
-    );
-    expect(() => requireCompleteIdentity('s', {}, undefined)).toThrow(
-      "Cannot open store 's' without a complete identity: missing l1ChainId, rollupAddress, schemaVersion",
     );
   });
 });

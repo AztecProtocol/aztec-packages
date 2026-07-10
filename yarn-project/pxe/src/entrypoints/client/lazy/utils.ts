@@ -42,7 +42,17 @@ export async function createPXE(
   const storeLogger = loggers.store ?? createLogger('pxe:data', { actor });
 
   const store =
-    options.store ?? (await openPXEBrowserStore('pxe_data', PXE_DATA_SCHEMA_VERSION, configWithContracts, storeLogger));
+    options.store ??
+    (await openPXEBrowserStore(
+      'pxe_data',
+      PXE_DATA_SCHEMA_VERSION,
+      {
+        l1ChainId,
+        rollupAddress: l1ContractAddresses.rollupAddress,
+        dataStoreMapSizeKb: configWithContracts.dataStoreMapSizeKb,
+      },
+      storeLogger,
+    ));
 
   const simulator = options.simulator ?? new WASMSimulator();
   const proverLogger = loggers.prover ?? createLogger('pxe:bb:wasm:bundle', { actor });

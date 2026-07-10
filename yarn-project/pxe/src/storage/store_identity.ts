@@ -2,7 +2,7 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { DatabaseVersion } from '@aztec/stdlib/database-version/version';
 
-/** The coordinates that determine which physical store a logical store name maps to. */
+/** The triple that determine which physical store a logical store name maps to. */
 export type StoreIdentity = {
   /** Chain ID of the L1 the rollup is deployed to. */
   l1ChainId: number;
@@ -24,28 +24,6 @@ export function storeIdentitySlug({ l1ChainId, rollupAddress, schemaVersion }: S
 /** Composes the physical store name for a logical store name and identity. */
 export function effectiveStoreName(name: string, identity: StoreIdentity): string {
   return `${name}_${storeIdentitySlug(identity)}`;
-}
-
-/**
- * Validates that every identity component is present, so an incomplete identity never silently defaults to the
- * zero identity.
- * @throws If `config.l1ChainId`, `config.rollupAddress`, or `schemaVersion` is missing.
- */
-export function requireCompleteIdentity(
-  name: string,
-  config: { l1ChainId?: number; rollupAddress?: EthAddress },
-  schemaVersion?: number,
-): StoreIdentity {
-  const { l1ChainId, rollupAddress } = config;
-  if (l1ChainId === undefined || rollupAddress === undefined || schemaVersion === undefined) {
-    const missing = [
-      l1ChainId === undefined && 'l1ChainId',
-      rollupAddress === undefined && 'rollupAddress',
-      schemaVersion === undefined && 'schemaVersion',
-    ].filter((component): component is string => component !== false);
-    throw new Error(`Cannot open store '${name}' without a complete identity: missing ${missing.join(', ')}`);
-  }
-  return { l1ChainId, rollupAddress, schemaVersion };
 }
 
 /**
