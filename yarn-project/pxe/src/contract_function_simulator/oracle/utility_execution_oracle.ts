@@ -1,4 +1,5 @@
 import { ARCHIVE_HEIGHT, type NOTE_HASH_TREE_HEIGHT } from '@aztec/constants';
+import { asyncPool } from '@aztec/foundation/async-pool';
 import type { BlockNumber } from '@aztec/foundation/branded-types';
 import { uniqueBy } from '@aztec/foundation/collection';
 import { Aes128 } from '@aztec/foundation/crypto/aes128';
@@ -78,6 +79,8 @@ import { pickNotes } from '../pick_notes.js';
 import type { TransientArrayService } from '../transient_array_service.js';
 import { buildACIRCallback } from './acir_callback.js';
 import type { IMiscOracle, IUtilityExecutionOracle } from './interfaces.js';
+
+const TX_EFFECT_READ_CONCURRENCY = 16;
 
 /** Args for UtilityExecutionOracle constructor. */
 export type UtilityExecutionOracleArgs = {
@@ -696,7 +699,9 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
     }
 
     const uniqueTxHashes = uniqueBy(hashes, h => h.toString());
-    const options = await Promise.all(uniqueTxHashes.map(txHash => this.#getTxEffectOption(txHash)));
+    const options = await asyncPool(TX_EFFECT_READ_CONCURRENCY, uniqueTxHashes, txHash =>
+      this.#getTxEffectOption(txHash),
+    );
     const optionsByHash = new Map(uniqueTxHashes.map((txHash, i) => [txHash.toString(), options[i]]));
 
     return EphemeralArray.fromValues(

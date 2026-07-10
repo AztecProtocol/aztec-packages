@@ -3,6 +3,7 @@ import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-
 import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { MembershipWitness } from '@aztec/foundation/trees';
 import type { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
@@ -759,6 +760,43 @@ describe('Utility Execution test suite', () => {
         expect(options[0].value?.txHash).toEqual(presentTxHash);
         expect(options[3].value?.txHash).toEqual(presentTxHash);
         expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(3);
+      });
+
+      it('bounds concurrent batched tx-effect reads', async () => {
+        const service = new EphemeralArrayService();
+        const oracle = makeOracle({ scopes: [scope] });
+        const txHashes = Array.from({ length: 17 }, () => TxHash.random());
+        const reads = txHashes.map(txHash => ({
+          txHash,
+          deferred: promiseWithResolvers<MinedTxReceipt<{ includeTxEffect: true }>>(),
+        }));
+
+        aztecNode.getTxReceipt.mockImplementation(txHash => {
+          const read = reads.find(({ txHash: candidate }) => candidate.equals(txHash));
+          if (!read) {
+            throw new Error(`unexpected tx hash ${txHash}`);
+          }
+          return read.deferred.promise;
+        });
+
+        const resultPromise = oracle.getTxEffects(EphemeralArray.fromValues(service, txHashes));
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(16);
+
+        reads[0].deferred.resolve(makeMinedReceipt(reads[0].txHash));
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(17);
+
+        for (const read of reads.slice(1)) {
+          read.deferred.resolve(makeMinedReceipt(read.txHash));
+        }
+
+        const result = await resultPromise;
+        expect(result.readAll(service).every(option => option.isSome())).toBe(true);
       });
 
       it('does not share batched tx-effect reads across utility executions', async () => {
