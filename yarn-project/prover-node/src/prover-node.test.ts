@@ -128,7 +128,7 @@ describe('ProverNode', () => {
     expect(proverNode.getLastProcessedCheckpoint()).toEqual(CheckpointNumber(100));
   });
 
-  it('dispatches chain-pruned through markPrunedAboveBlock and notifies the session manager only when affected', async () => {
+  it('dispatches chain-pruned through cancelAndRemoveAboveBlock and notifies the session manager only when affected', async () => {
     // No registered checkpoints — nothing to prune.
     await proverNode.handleBlockStreamEvent({
       type: 'chain-pruned',
@@ -139,7 +139,7 @@ describe('ProverNode', () => {
     expect(sessionManager.onPrune).not.toHaveBeenCalled();
 
     // Register a checkpoint (cp 2 at block 2), then prune to block 1. The checkpoint's only block (2) is above the
-    // prune target, so it is marked pruned and its epoch (2) is reported.
+    // prune target, so it is cancelled and removed and its epoch (2) is reported.
     setupNotFullyProven();
     await proverNode.handleBlockStreamEvent(mineCheckpoint(makeCheckpoint(2, 2, 2)));
     // The prune target (block 1) resolves to checkpoint 1, clamping the cursor to checkpoint 0.
@@ -182,8 +182,9 @@ describe('ProverNode', () => {
       proven: makeTipId(2),
     });
 
-    // The orphaned prover for checkpoint 3 is marked pruned, and the cursor was clamped below 3.
-    expect(originalProver.isPruned()).toBe(true);
+    // The orphaned prover for checkpoint 3 is cancelled and removed from the store, and the cursor was clamped below 3.
+    expect(originalProver.isCancelled()).toBe(true);
+    expect(proverNode.getCheckpointStore().getByCheckpoint(original)).toBeUndefined();
     expect(proverNode.getLastProcessedCheckpoint()).toEqual(CheckpointNumber(1));
 
     // The rebuilt checkpoint 3 (distinct archive root) is now served by the source. A fresh chain-checkpointed(3)
@@ -197,7 +198,7 @@ describe('ProverNode', () => {
   });
 
   it('throws on a prune whose target block data is missing, leaving provers and cursor untouched for retry', async () => {
-    // The cursor floor is resolved before any prover is marked, so a missing-data prune throws without side effects
+    // The cursor floor is resolved before any prover is removed, so a missing-data prune throws without side effects
     // and the next pass retries the whole handler (the tips cursor only advances on success).
     setupNotFullyProven();
     await proverNode.handleBlockStreamEvent(mineCheckpoint(makeCheckpoint(3, 3, 3)));
@@ -214,7 +215,8 @@ describe('ProverNode', () => {
       }),
     ).rejects.toThrow(/No block data found for prune target/);
 
-    expect(registeredProver.isPruned()).toBe(false);
+    expect(registeredProver.isCancelled()).toBe(false);
+    expect(proverNode.getCheckpointStore().listAll()).toContain(registeredProver);
     expect(sessionManager.onPrune).not.toHaveBeenCalled();
     expect(proverNode.getLastProcessedCheckpoint()).toEqual(CheckpointNumber(3));
   });

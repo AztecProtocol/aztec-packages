@@ -171,7 +171,6 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
         txGatheringTimeoutMs: this.config.txGatheringTimeoutMs,
         deadline: undefined,
       },
-      { slotWatcherPollIntervalMs: this.config.proverNodePollingIntervalMs },
       this.log.getBindings(),
     );
   }
@@ -374,8 +373,8 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
   private async handlePruneEvent(prunedToBlock: L2BlockId) {
     this.log.warn(`Chain pruned to block ${prunedToBlock.number}`, { prunedToBlock });
 
-    // Resolve the cursor floor BEFORE marking provers: markPrunedAboveBlock returns only newly-marked provers, so a
-    // throw after marking would leave a retry pass with nothing to act on. Resolving first means a throw leaves
+    // Resolve the cursor floor BEFORE removing provers: cancelAndRemoveAboveBlock returns only the provers it removed,
+    // so a throw after removing would leave a retry pass with nothing to act on. Resolving first means a throw leaves
     // everything untouched and the next pass retries the whole handler (the tips cursor only advances on success).
     let cursorFloor: CheckpointNumber;
     if (prunedToBlock.number === 0) {
@@ -393,7 +392,7 @@ export class ProverNode implements L2BlockStreamEventHandler, ProverNodeApi, Tra
       cursorFloor = CheckpointNumber(Math.max(0, Number(targetData.checkpointNumber) - 1));
     }
 
-    const affected = this.checkpointStore.markPrunedAboveBlock(prunedToBlock.number);
+    const affected = this.checkpointStore.cancelAndRemoveAboveBlock(prunedToBlock.number);
 
     if (this.lastProcessedCheckpoint > cursorFloor) {
       this.lastProcessedCheckpoint = cursorFloor;
