@@ -26,6 +26,18 @@ int main(int argc, char* argv[])
     bool no_gpu = false;
     run_command->add_flag("--no-gpu", no_gpu, "Force the CPU MSM path even when GPU support is linked");
 
+    // SHM only: a message must fit in half a ring (minus the 4-byte length prefix), and
+    // MSM request chunks run to 128 MiB, so the request ring defaults to 512 MiB.
+    size_t request_ring_size = size_t{ 512 } << 20;
+    run_command
+        ->add_option("--request-ring-size", request_ring_size, "SHM request ring size in bytes (default: 512 MiB)")
+        ->check(CLI::PositiveNumber);
+
+    size_t response_ring_size = size_t{ 1 } << 20;
+    run_command
+        ->add_option("--response-ring-size", response_ring_size, "SHM response ring size in bytes (default: 1 MiB)")
+        ->check(CLI::PositiveNumber);
+
     try {
         app.parse(argc, argv);
     } catch (const CLI::ParseError& e) {
@@ -40,7 +52,8 @@ int main(int argc, char* argv[])
     }
 
     try {
-        return bb::msm_service::execute_msm_server(input_path, crs_path, num_points);
+        return bb::msm_service::execute_msm_server(
+            input_path, crs_path, num_points, request_ring_size, response_ring_size);
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << '\n';
         return 1;
