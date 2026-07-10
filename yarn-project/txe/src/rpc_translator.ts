@@ -634,6 +634,15 @@ export class RPCTranslator {
   }
 
   // eslint-disable-next-line camelcase
+  aztec_utl_getTxEffects(...inputs: ForeignCallArgs) {
+    return callTxeHandler({
+      oracle: 'aztec_utl_getTxEffects',
+      inputs,
+      handler: ([txHashes]) => this.handlerAsUtility().getTxEffects(txHashes),
+    });
+  }
+
+  // eslint-disable-next-line camelcase
   aztec_utl_setCapsule(...inputs: ForeignCallArgs) {
     return callTxeHandler({
       oracle: 'aztec_utl_setCapsule',
