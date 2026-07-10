@@ -13,7 +13,7 @@ export function storePoolDirectory(effectiveName: string): string {
 /**
  * Lists the effective names (logical name + identity slug) of every persistent sqlite-opfs store in this
  * origin, by enumerating the per-store pool directories. Includes stores created under identities other than
- * the current one — that is the point: wallets can surface and clean up data for networks no longer in use.
+ * the current one, so wallets can surface and clean up data for networks no longer in use.
  */
 export async function listStores(): Promise<string[]> {
   const root = await navigator.storage.getDirectory();
