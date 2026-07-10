@@ -26,4 +26,16 @@ struct AvmRequest {
     wsdb::WsdbIpcClient& wsdb_client;
 };
 
+// Explicit specialization declarations. avm_execute.cpp defines these; declaring
+// them here makes them visible to every translation unit that instantiates
+// make_avm_handler<AvmRequest> (the bb-avm-sim executable's socket server and the
+// avm_ffi library's in-process entry), so both link against the specializations
+// rather than implicitly instantiating the definition-less primary template.
+template <>
+void handle_simulate(AvmRequest& request, wire::AvmSimulate&& command, Responder<wire::AvmSimulateResponse> respond);
+template <>
+void handle_simulate_with_hints(AvmRequest& request,
+                                wire::AvmSimulateWithHints&& command,
+                                Responder<wire::AvmSimulateWithHintsResponse> respond);
+
 } // namespace bb::avm

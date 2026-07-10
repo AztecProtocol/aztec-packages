@@ -30,11 +30,39 @@ add_custom_command(
 )
 add_custom_target(avm_ipc_generated DEPENDS ${AVM_GEN_OUTPUTS})
 
+# The AVM simulator as a transport-agnostic library: the generated dispatch, the
+# command handlers (avm_execute.cpp), and a plain-C FFI entry (avm_ffi.h). Both
+# the out-of-process bb-avm-sim executable and any in-process host (a small NAPI
+# wrapper generated up the stack, pointed at this library) link it and drive the
+# same dispatch — the executable over a socket, the wrapper over a direct call.
+# Barretenberg stays free of any Node/NAPI code.
+add_library(
+    avm_sim_ffi STATIC
+    avm_execute.cpp
+    avm_ffi.cpp
+)
+add_dependencies(avm_sim_ffi avm_ipc_generated)
+target_include_directories(
+    avm_sim_ffi
+    PUBLIC
+    ${AVM_GEN_DIR}
+)
+target_link_libraries(
+    avm_sim_ffi
+    PUBLIC
+    barretenberg
+    vm2_sim
+    wsdb_ipc_merkle_db
+    wsdb_ipc_client
+    cdb_ipc_client
+    ipc_runtime
+    env
+)
+
 add_executable(
     bb-avm-sim
     main.cpp
     cli.cpp
-    avm_execute.cpp
     avm_ipc_server.cpp
 )
 add_dependencies(bb-avm-sim avm_ipc_generated)
@@ -46,13 +74,7 @@ target_include_directories(
 target_link_libraries(
     bb-avm-sim
     PRIVATE
-    barretenberg
-    vm2_sim
-    wsdb_ipc_merkle_db
-    wsdb_ipc_client
-    cdb_ipc_client
-    ipc_runtime
-    env
+    avm_sim_ffi
 )
 if(ENABLE_STACKTRACES)
     target_link_libraries(
