@@ -22,6 +22,8 @@ const names = await listStores();
 await deleteStore(names[0]);
 ```
 
+This change also removes `createStore` from `@aztec/kv-store/sqlite-opfs` and `@aztec/kv-store/deprecated/indexeddb` (superseding the import guidance in the SQLite-OPFS default entry below): stores are opened by name with `AztecSQLiteOPFSStore.open` / `AztecIndexedDBStore.open`, and PXE selects its per-identity stores internally.
+
 ### [Aztec.nr] `TestEnvironmentOptions::with_tagging_secret_strategy` replaced
 
 `TestEnvironmentOptions::with_tagging_secret_strategy` is now `with_default_tag_secret_strategy_all_modes` for tests
