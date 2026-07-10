@@ -45,6 +45,7 @@ target_include_directories(avm_inprocess PRIVATE
 # wrapped in a group so inter-archive references resolve regardless of order.
 set(BB_ARCHIVES
   ${BB_BUILD}/lib/libavm_sim_ffi.a
+  ${BB_BUILD}/lib/libwsdb_ffi.a
   ${BB_BUILD}/lib/libwsdb_ipc_merkle_db.a
   ${BB_BUILD}/lib/libvm2_sim.a
   ${BB_BUILD}/lib/libworld_state.a
