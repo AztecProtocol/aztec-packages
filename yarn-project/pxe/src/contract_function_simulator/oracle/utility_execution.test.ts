@@ -36,11 +36,13 @@ import {
   CallContext,
   Capsule,
   DroppedTxReceipt,
+  type GetTxReceiptOptions,
   GlobalVariables,
   MinedTxReceipt,
   TxEffect,
   TxExecutionResult,
   TxHash,
+  type TxReceipt,
   TxStatus,
 } from '@aztec/stdlib/tx';
 
@@ -771,13 +773,15 @@ describe('Utility Execution test suite', () => {
           deferred: promiseWithResolvers<MinedTxReceipt<{ includeTxEffect: true }>>(),
         }));
 
-        aztecNode.getTxReceipt.mockImplementation(txHash => {
-          const read = reads.find(({ txHash: candidate }) => candidate.equals(txHash));
-          if (!read) {
-            throw new Error(`unexpected tx hash ${txHash}`);
-          }
-          return read.deferred.promise;
-        });
+        aztecNode.getTxReceipt.mockImplementation(
+          <TGetTxReceiptOptions extends GetTxReceiptOptions = {}>(txHash: TxHash) => {
+            const read = reads.find(({ txHash: candidate }) => candidate.equals(txHash));
+            if (!read) {
+              throw new Error(`unexpected tx hash ${txHash}`);
+            }
+            return read.deferred.promise as Promise<TxReceipt<TGetTxReceiptOptions>>;
+          },
+        );
 
         const resultPromise = oracle.getTxEffects(EphemeralArray.fromValues(service, txHashes));
         await Promise.resolve();
