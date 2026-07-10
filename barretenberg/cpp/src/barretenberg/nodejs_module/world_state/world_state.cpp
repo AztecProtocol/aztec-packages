@@ -48,6 +48,7 @@ WorldStateWrapper::WorldStateWrapper(const Napi::CallbackInfo& info)
     std::unordered_map<MerkleTreeId, uint32_t> tree_height;
     std::unordered_map<MerkleTreeId, index_t> tree_prefill;
     std::vector<PublicDataLeafValue> prefilled_public_data;
+    std::vector<bb::fr> prefilled_nullifiers;
     std::vector<MerkleTreeId> tree_ids{
         MerkleTreeId::NULLIFIER_TREE,        MerkleTreeId::NOTE_HASH_TREE, MerkleTreeId::PUBLIC_DATA_TREE,
         MerkleTreeId::L1_TO_L2_MESSAGE_TREE, MerkleTreeId::ARCHIVE,
@@ -112,7 +113,28 @@ WorldStateWrapper::WorldStateWrapper(const Napi::CallbackInfo& info)
         throw Napi::TypeError::New(env, "Prefilled public data must be an array");
     }
 
-    size_t initial_header_generator_point_index = 4;
+    size_t prefilled_nullifiers_index = 4;
+    if (info.Length() > prefilled_nullifiers_index && info[prefilled_nullifiers_index].IsArray()) {
+        Napi::Array arr = info[prefilled_nullifiers_index].As<Napi::Array>();
+        for (uint32_t i = 0; i < arr.Length(); ++i) {
+            if (!arr.Get(i).IsBuffer()) {
+                throw Napi::TypeError::New(env, "Prefilled nullifier value must be a buffer");
+            }
+            Napi::Buffer<uint8_t> nullifier_buf = arr.Get(i).As<Napi::Buffer<uint8_t>>();
+            if (nullifier_buf.Length() != 32) {
+                throw Napi::TypeError::New(env, "Prefilled nullifier value must be a 32-byte buffer");
+            }
+            uint256_t nullifier = 0;
+            for (size_t j = 0; j < 32; ++j) {
+                nullifier = (nullifier << 8) | nullifier_buf[j];
+            }
+            prefilled_nullifiers.emplace_back(nullifier);
+        }
+    } else {
+        throw Napi::TypeError::New(env, "Prefilled nullifiers must be an array");
+    }
+
+    size_t initial_header_generator_point_index = 5;
     if (info.Length() > initial_header_generator_point_index && info[initial_header_generator_point_index].IsNumber()) {
         initial_header_generator_point = info[initial_header_generator_point_index].As<Napi::Number>().Uint32Value();
     } else {
@@ -120,7 +142,7 @@ WorldStateWrapper::WorldStateWrapper(const Napi::CallbackInfo& info)
     }
 
     uint64_t genesis_timestamp = 0;
-    size_t genesis_timestamp_index = 5;
+    size_t genesis_timestamp_index = 6;
     if (info.Length() > genesis_timestamp_index) {
         if (info[genesis_timestamp_index].IsNumber()) {
             genesis_timestamp = static_cast<uint64_t>(info[genesis_timestamp_index].As<Napi::Number>().Int64Value());
@@ -130,7 +152,7 @@ WorldStateWrapper::WorldStateWrapper(const Napi::CallbackInfo& info)
     }
 
     // optional parameters
-    size_t map_size_index = 6;
+    size_t map_size_index = 7;
     if (info.Length() > map_size_index) {
         if (info[map_size_index].IsObject()) {
             Napi::Object obj = info[map_size_index].As<Napi::Object>();
@@ -160,7 +182,7 @@ WorldStateWrapper::WorldStateWrapper(const Napi::CallbackInfo& info)
         }
     }
 
-    size_t thread_pool_size_index = 7;
+    size_t thread_pool_size_index = 8;
     if (info.Length() > thread_pool_size_index) {
         if (!info[thread_pool_size_index].IsNumber()) {
             throw Napi::TypeError::New(env, "Thread pool size must be a number");
@@ -173,7 +195,7 @@ WorldStateWrapper::WorldStateWrapper(const Napi::CallbackInfo& info)
     // commits never block on fsync, files stay sparse, and a crash mid-write yields an
     // unrecoverable env. Intended for throwaway scratch state (TXE test sessions).
     bool ephemeral = false;
-    size_t ephemeral_index = 8;
+    size_t ephemeral_index = 9;
     if (info.Length() > ephemeral_index) {
         if (!info[ephemeral_index].IsBoolean()) {
             throw Napi::TypeError::New(env, "Ephemeral flag must be a boolean");
@@ -187,6 +209,7 @@ WorldStateWrapper::WorldStateWrapper(const Napi::CallbackInfo& info)
                                        tree_height,
                                        tree_prefill,
                                        prefilled_public_data,
+                                       prefilled_nullifiers,
                                        initial_header_generator_point,
                                        genesis_timestamp,
                                        ephemeral);
