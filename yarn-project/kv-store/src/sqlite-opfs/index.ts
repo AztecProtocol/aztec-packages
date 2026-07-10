@@ -3,16 +3,16 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { DatabaseVersion } from '@aztec/stdlib/database-version/version';
 import type { DataStoreConfig } from '@aztec/stdlib/kv-store';
 
-import { StoreIdentityMismatchError, effectiveStoreName } from '../store_identity.js';
 import { storePoolDirectory } from './manage.js';
 import { AztecSQLiteOPFSStore } from './store.js';
+import { StoreIdentityMismatchError, effectiveStoreName } from './store_identity.js';
 
 export { AztecSQLiteOPFSStore } from './store.js';
 export { SqliteEncryptionError } from './errors.js';
 export type { SqliteEncryptionErrorCode } from './errors.js';
 export { OPFS_POOL_DIR_PREFIX, deleteStore, listStores, storePoolDirectory } from './manage.js';
-export { StoreIdentityMismatchError, effectiveStoreName, storeIdentitySlug } from '../store_identity.js';
-export type { StoreIdentity } from '../store_identity.js';
+export { StoreIdentityMismatchError, effectiveStoreName, storeIdentitySlug } from './store_identity.js';
+export type { StoreIdentity } from './store_identity.js';
 
 /**
  * Opens the persistent store selected by `name` and the identity `(config.l1ChainId, config.rollupAddress,

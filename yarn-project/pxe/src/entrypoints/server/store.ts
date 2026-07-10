@@ -1,6 +1,6 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { type LoggerBindings, createLogger } from '@aztec/foundation/log';
-import { type AztecLMDBStoreV2, openStoreAt, openTmpStore, storeIdentitySlug } from '@aztec/kv-store/lmdb-v2';
+import { type AztecLMDBStoreV2, openStoreAt, openTmpStore } from '@aztec/kv-store/lmdb-v2';
 
 import { mkdir } from 'fs/promises';
 import { join } from 'path';
@@ -20,9 +20,10 @@ export type IdentityStoreConfig = {
  * a different (possibly fresh) store. Nothing is ever cleared, and no version marker is kept — the directory name is
  * the identity. Falls back to an ephemeral tmp store when no data directory is configured.
  *
- * Stores live under `<dataDirectory>/<name>-stores/<slug>`, a sibling of the legacy `<dataDirectory>/<name>`
- * directory: older binaries reset the legacy directory on a rollup mismatch, so per-identity stores must not nest
- * inside it.
+ * Stores live under `<dataDirectory>/<name>-stores/<l1ChainId>-<rollupAddress>-v<schemaVersion>`, a sibling of the
+ * legacy `<dataDirectory>/<name>` directory: older binaries reset the legacy directory on a rollup mismatch, so
+ * per-identity stores must not nest inside it. Two identities select the same store iff their directory names are
+ * equal, so the name format must stay stable — changing it orphans every existing store.
  */
 export async function openStoreForIdentity(
   name: string,
@@ -36,7 +37,7 @@ export async function openStoreForIdentity(
   const subDir = join(
     config.dataDirectory,
     `${name}-stores`,
-    storeIdentitySlug({ l1ChainId: config.l1ChainId, rollupAddress: config.rollupAddress, schemaVersion }),
+    `${config.l1ChainId}-${config.rollupAddress.toString()}-v${schemaVersion}`,
   );
   await mkdir(subDir, { recursive: true });
   createLogger(`pxe:data:${name}`, bindings).info(`Opening ${name} data store (LMDB v2)`, {
