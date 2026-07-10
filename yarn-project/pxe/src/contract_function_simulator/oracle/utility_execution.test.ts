@@ -1,7 +1,9 @@
-import { BlockNumber } from '@aztec/foundation/branded-types';
+import { ARCHIVE_HEIGHT } from '@aztec/constants';
+import { BlockNumber, EpochNumber, SlotNumber } from '@aztec/foundation/branded-types';
 import { Grumpkin } from '@aztec/foundation/crypto/grumpkin';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { GrumpkinScalar } from '@aztec/foundation/curves/grumpkin';
+import { MembershipWitness } from '@aztec/foundation/trees';
 import type { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
@@ -28,7 +30,17 @@ import { PublicKeys, deriveKeys, hashPublicKey } from '@aztec/stdlib/keys';
 import { AppTaggingSecret, AppTaggingSecretKind, SiloedTag } from '@aztec/stdlib/logs';
 import { Note, NoteDao } from '@aztec/stdlib/note';
 import { makeL2Tips, randomContractInstanceWithAddress } from '@aztec/stdlib/testing';
-import { BlockHeader, CallContext, Capsule, GlobalVariables, TxHash } from '@aztec/stdlib/tx';
+import {
+  BlockHeader,
+  CallContext,
+  Capsule,
+  GlobalVariables,
+  MinedTxReceipt,
+  TxEffect,
+  TxExecutionResult,
+  TxHash,
+  TxStatus,
+} from '@aztec/stdlib/tx';
 
 import { mock } from 'jest-mock-extended';
 import type { _MockProxy } from 'jest-mock-extended/lib/Mock.js';
@@ -654,6 +666,113 @@ describe('Utility Execution test suite', () => {
             ),
           },
         ]);
+      });
+    });
+
+    describe('node read cache', () => {
+      const makeMinedReceipt = (txHash: TxHash, txEffect = TxEffect.empty()) =>
+        new MinedTxReceipt(
+          txHash,
+          TxStatus.FINALIZED,
+          TxExecutionResult.SUCCESS,
+          0n,
+          BlockHash.random(),
+          BlockNumber(syncedBlockNumber),
+          SlotNumber(1),
+          0,
+          EpochNumber(1),
+          txEffect,
+        );
+
+      it('reuses tx-effect reads within a utility execution', async () => {
+        const oracle = makeOracle({ scopes: [scope] });
+        const txHash = TxHash.random();
+        aztecNode.getTxReceipt.mockResolvedValue(makeMinedReceipt(txHash));
+
+        const first = await oracle.getTxEffect(txHash);
+        const second = await oracle.getTxEffect(txHash);
+
+        expect(first).toEqual(second);
+        expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(1);
+      });
+
+      it('does not share cached reads across utility executions', async () => {
+        const txHash = TxHash.random();
+        aztecNode.getTxReceipt.mockResolvedValue(makeMinedReceipt(txHash));
+
+        const firstOracle = makeOracle({ scopes: [scope] });
+        const secondOracle = makeOracle({ scopes: [scope] });
+
+        // Cache works as usual
+        await firstOracle.getTxEffect(txHash);
+        await firstOracle.getTxEffect(txHash);
+        expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(1);
+
+        // Same call in new oracle, goes to actual node since cache is clean
+        await secondOracle.getTxEffect(txHash);
+        expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(2);
+      });
+
+      it('does not cache failed tx-effect reads', async () => {
+        const oracle = makeOracle({ scopes: [scope] });
+        const txHash = TxHash.random();
+        aztecNode.getTxReceipt.mockRejectedValueOnce(new Error('temporary failure'));
+        aztecNode.getTxReceipt.mockResolvedValueOnce(makeMinedReceipt(txHash));
+
+        await expect(oracle.getTxEffect(txHash)).rejects.toThrow('temporary failure');
+
+        const result = await oracle.getTxEffect(txHash);
+
+        expect(result.isSome()).toBe(true);
+        expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(2);
+      });
+
+      it('reuses archive witness reads within a utility execution', async () => {
+        const oracle = makeOracle({ scopes: [scope] });
+        const referenceBlockHash = await anchorBlockHeader.hash();
+        const blockHash = BlockHash.random();
+        const witness = MembershipWitness.empty(ARCHIVE_HEIGHT);
+        aztecNode.getBlockHashMembershipWitness.mockResolvedValue(witness);
+
+        const first = await oracle.getBlockHashMembershipWitness(referenceBlockHash, blockHash);
+        const second = await oracle.getBlockHashMembershipWitness(referenceBlockHash, blockHash);
+
+        expect(first).toEqual(second);
+        expect(aztecNode.getBlockHashMembershipWitness).toHaveBeenCalledTimes(1);
+      });
+
+      it('returns aligned archive-membership booleans for block hash batches', async () => {
+        const service = new EphemeralArrayService();
+        const oracle = makeOracle({ scopes: [scope] });
+        const referenceBlockHash = await anchorBlockHeader.hash();
+        const presentBlockHash = BlockHash.random();
+        const missingBlockHash = BlockHash.random();
+        const witness = MembershipWitness.empty(ARCHIVE_HEIGHT);
+
+        aztecNode.getBlockHashMembershipWitness.mockImplementation((_referenceBlockHash, blockHash) =>
+          Promise.resolve(blockHash.equals(presentBlockHash) ? witness : undefined),
+        );
+
+        const result = await oracle.areBlockHashesInArchive(
+          referenceBlockHash,
+          EphemeralArray.fromValues(service, [presentBlockHash, missingBlockHash, presentBlockHash]),
+        );
+
+        expect(result.readAll(service)).toEqual([true, false, true]);
+        expect(aztecNode.getBlockHashMembershipWitness).toHaveBeenCalledTimes(2);
+      });
+
+      it('reuses public storage reads within a utility execution', async () => {
+        const oracle = makeOracle({ scopes: [scope] });
+        const blockHash = await anchorBlockHeader.hash();
+        const startStorageSlot = Fr.random();
+        aztecNode.getPublicStorageAt.mockResolvedValue(new Fr(7));
+
+        const first = await oracle.getFromPublicStorage(blockHash, contractAddress, startStorageSlot, 2);
+        const second = await oracle.getFromPublicStorage(blockHash, contractAddress, startStorageSlot, 2);
+
+        expect(first).toEqual(second);
+        expect(aztecNode.getPublicStorageAt).toHaveBeenCalledTimes(2);
       });
     });
 
