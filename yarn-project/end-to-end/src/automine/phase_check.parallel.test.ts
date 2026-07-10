@@ -1,13 +1,12 @@
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { BatchCall } from '@aztec/aztec.js/contracts';
-import { type FeePaymentMethod, SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
+import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/curves/bn254';
 import { SponsoredFPCNoEndSetupContract } from '@aztec/noir-test-contracts.js/SponsoredFPCNoEndSetup';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import { getContractInstanceFromInstantiationParams } from '@aztec/stdlib/contract';
-import type { GasSettings } from '@aztec/stdlib/gas';
 import { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { ExecutionPayload } from '@aztec/stdlib/tx';
 import { defaultInitialAccountFeeJuice } from '@aztec/world-state/testing';
@@ -20,23 +19,9 @@ import { AutomineTestContext } from './automine_test_context.js';
  * SponsoredFeePaymentMethod which prepends the sponsor call (and thus makes the election run before any app call).
  * This lets a test place the electing call anywhere in the app payload, e.g. after the setup phase has ended.
  */
-class DeferredSponsoredFeePaymentMethod implements FeePaymentMethod {
-  constructor(private paymentContract: AztecAddress) {}
-
-  getAsset(): Promise<AztecAddress> {
-    throw new Error('Asset is not required for sponsored fpc.');
-  }
-
-  getFeePayer() {
-    return Promise.resolve(this.paymentContract);
-  }
-
-  getExecutionPayload(): Promise<ExecutionPayload> {
-    return Promise.resolve(new ExecutionPayload([], [], [], [], this.paymentContract));
-  }
-
-  getGasSettings(): GasSettings | undefined {
-    return undefined;
+class DeferredSponsoredFeePaymentMethod extends SponsoredFeePaymentMethod {
+  override async getExecutionPayload(): Promise<ExecutionPayload> {
+    return new ExecutionPayload([], [], [], [], await this.getFeePayer());
   }
 }
 
