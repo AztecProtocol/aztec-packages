@@ -5,6 +5,8 @@ import { type AztecLMDBStoreV2, openStoreAt, openTmpStore } from '@aztec/kv-stor
 import { mkdir } from 'fs/promises';
 import { join } from 'path';
 
+import { storeIdentitySlug } from '../../storage/store_identity.js';
+
 /** Location and identity inputs for opening an identity-partitioned PXE-side store. */
 export type IdentityStoreConfig = {
   dataDirectory?: string;
@@ -37,7 +39,7 @@ export async function openPXEStore(
   const subDir = join(
     config.dataDirectory,
     `${name}-stores`,
-    `${config.l1ChainId}-${config.rollupAddress.toString()}-v${schemaVersion}`,
+    storeIdentitySlug({ l1ChainId: config.l1ChainId, rollupAddress: config.rollupAddress, schemaVersion }),
   );
   await mkdir(subDir, { recursive: true });
   createLogger(`pxe:data:${name}`, bindings).info(`Opening ${name} data store (LMDB v2)`, {

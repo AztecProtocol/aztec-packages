@@ -1,6 +1,5 @@
 import { BBLazyPrivateKernelProver } from '@aztec/bb-prover/client/lazy';
 import { createLogger } from '@aztec/foundation/log';
-import { createStore } from '@aztec/kv-store/sqlite-opfs';
 import { LazyProtocolContractsProvider } from '@aztec/protocol-contracts/providers/lazy';
 import { WASMSimulator } from '@aztec/simulator/client';
 import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry/lazy';
@@ -12,6 +11,7 @@ import type { PXEConfig } from '../../../config/index.js';
 import { PXE } from '../../../pxe.js';
 import { PXE_DATA_SCHEMA_VERSION } from '../../../storage/metadata.js';
 import { type PXECreationOptions, isPrivateKernelProver } from '../../pxe_creation_options.js';
+import { openPXEBrowserStore } from '../store.js';
 
 /**
  * Create and start an PXE instance with the given AztecNode.
@@ -42,7 +42,7 @@ export async function createPXE(
   const storeLogger = loggers.store ?? createLogger('pxe:data', { actor });
 
   const store =
-    options.store ?? (await createStore('pxe_data', configWithContracts, PXE_DATA_SCHEMA_VERSION, storeLogger));
+    options.store ?? (await openPXEBrowserStore('pxe_data', PXE_DATA_SCHEMA_VERSION, configWithContracts, storeLogger));
 
   const simulator = options.simulator ?? new WASMSimulator();
   const proverLogger = loggers.prover ?? createLogger('pxe:bb:wasm:bundle', { actor });
