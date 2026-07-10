@@ -25,7 +25,7 @@ export type IdentityStoreConfig = {
  * per-identity stores must not nest inside it. Two identities select the same store iff their directory names are
  * equal, so the name format must stay stable — changing it orphans every existing store.
  */
-export async function openStoreForIdentity(
+export async function openPXEStore(
   name: string,
   schemaVersion: number,
   config: IdentityStoreConfig,
