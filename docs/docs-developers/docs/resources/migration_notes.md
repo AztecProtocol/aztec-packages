@@ -9,6 +9,12 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+### [PXE] Local PXE database is reset on upgrade
+
+The persisted tagging stores now key every entry by the self-describing `<kind>:<secret>:<app>` form of `AppTaggingSecret`; unconstrained secrets previously used a two-part `<secret>:<app>` key. This bumps the PXE data schema version, and there is no forward migration for the old keys: on first open the PXE clears any database whose stored schema version differs from the current one. The wipe resets the entire PXE store, not just the tagging data, because all of it shares one backing database.
+
+**Impact**: On upgrade your local PXE state is reset. You must re-register accounts and re-sync from genesis. Wallets should surface a "your local state was reset, please re-register accounts and re-sync" path.
+
 ### [Aztec.nr] `TestEnvironmentOptions::with_tagging_secret_strategy` replaced
 
 `TestEnvironmentOptions::with_tagging_secret_strategy` is now `with_default_tag_secret_strategy_all_modes` for tests
