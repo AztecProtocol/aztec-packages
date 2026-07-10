@@ -256,6 +256,11 @@ export const ORACLE_REGISTRY = {
     returnType: OPTION(TX_EFFECT),
   }),
 
+  aztec_utl_getTxEffects: makeEntry({
+    params: [{ name: 'txHashes', type: EPHEMERAL_ARRAY(TX_HASH) }],
+    returnType: EPHEMERAL_ARRAY(OPTION(TX_EFFECT)),
+  }),
+
   aztec_utl_setCapsule: makeEntry({
     params: [
       { name: 'contractAddress', type: AZTEC_ADDRESS },
