@@ -1,6 +1,12 @@
 # GPU sumcheck — scoping document
 
-Status: scoping only (2026-07-10). Follows the GPU MSM spike + bb-msm daemon work; see
+**Status: MEASURED AND PARKED (2026-07-10).** The stage profiling below (done after the
+initial scope draft) falsifies this document's premise: sumcheck is ~10% of chain wall
+on 16 cores, not the dominant slice — bb's row-skipping sumcheck plus disable_zk make
+it cheap on the structured rollup circuits. See "Measured reality check" at the end;
+the design content remains valid if the trigger conditions there are ever met.
+
+Originally: scoping only (2026-07-10). Follows the GPU MSM spike + bb-msm daemon work; see
 README.md in this directory for the measured MSM results this builds on.
 
 ## Why
@@ -111,3 +117,43 @@ yields a real measured round speedup before the big relation-porting spend.
   design required.
 - **Occupancy at deep rounds**: tables shrink below GPU-efficient sizes; hand the last
   few rounds back to host (cheap — microseconds of work) rather than tuning kernels.
+
+## Measured reality check (added same day — do this before building anything)
+
+Per-stage timings at HARDWARE_CONCURRENCY=16 on real captured jobs:
+
+| Job (total) | deser+witness solve | trace+oink | sumcheck | PCS |
+|---|---:|---:|---:|---:|
+| RootRollup 2^24 (~47 s) | ~14 s | ~14 s | 3 s | ~13 s |
+| PublicTxBase (~19 s) | ~6 s | ~6 s | 2 s | ~6 s |
+| CheckpointRoot (~24 s) | ~9 s | ~5 s | 2 s | ~8 s |
+| AVM (2.59 s) | — | 1.40 s | 0.63 s | 0.17 s |
+
+Chain-level sumcheck ≈ 20 s of the 200 s CPU chain (~10%); after MSM offload it is
+~12% of the 160.5 s GPU-daemon chain. A 10-20x GPU sumcheck therefore saves ~18 s:
+single chain ~142 s (-11%), 4-chain ~255 s (-9%). Amdahl verdict: NOT the economics
+flip this document assumed.
+
+Fleet $/throughput (measured 4-chain, on-demand us-east-2 pricing):
+
+| Box | 4-chain wall | chains/hr | chains per $ |
+|---|---:|---:|---:|
+| m6a.4xlarge (16c, $0.69) CPU | 496.8 s | 29.0 | **41.9** |
+| g6e.4xlarge ($3.00) GPU MSM (measured) | 281.9 s | 51.1 | 17.1 |
+| + GPU sumcheck (model) | ~255 s | 56.5 | 18.9 |
+| + everything-GPU bound (serial slice remains) | ~170 s | 84.7 | 28.3 |
+
+Even a FREE, infinitely fast GPU covering all MSM+sumcheck+PCS cannot beat the plain
+CPU box on $ for this workload: the residual serial slice (deserialization + ACIR
+witness solving, ~6-14 s/proof, single-threaded) plus the 4.3x instance premium decide
+it. The cheaper levers are CPU-side: bb process pooling (amortize the per-proof SRS
+load inside the deser slice), witness-solve optimization, and packing more concurrent
+chains per small CPU box.
+
+Revisit GPU sumcheck if any of these become true:
+- AVM proving dominates fleet cost (its sumcheck share is 24%, its structure suits the
+  fused kernel, and its commits are already offloaded);
+- ZK-enabled or non-row-skipping flavors move server-side (sumcheck share balloons);
+- one GPU can serve many CPU boxes (network-attached bb-msm/bb-gpu, TCP transport) so
+  the GPU premium amortizes across more CPU;
+- GPU pricing/perf shifts the 4.3x premium materially.
