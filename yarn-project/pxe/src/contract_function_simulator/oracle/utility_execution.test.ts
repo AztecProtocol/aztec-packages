@@ -793,11 +793,17 @@ describe('Utility Execution test suite', () => {
         await Promise.resolve();
         await Promise.resolve();
 
-        expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(17);
+        expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(16);
 
-        for (const read of reads.slice(1)) {
+        for (const read of reads.slice(1, 16)) {
           read.deferred.resolve(makeMinedReceipt(read.txHash));
         }
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(17);
+
+        reads[16].deferred.resolve(makeMinedReceipt(reads[16].txHash));
 
         const result = await resultPromise;
         expect(result.readAll(service).every(option => option.isSome())).toBe(true);
