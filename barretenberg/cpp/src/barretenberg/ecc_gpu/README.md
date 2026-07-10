@@ -203,6 +203,29 @@ and it is measured with the current unoptimised per-MSM dispatch (fresh process 
 per-span SRS re-uploads). Resident-SRS sharing and stream pipelining raise the ceiling
 from here.
 
+## bb-msm daemon results (2026-07-10, g6e.4xlarge)
+
+`bb-msm` (src/barretenberg/msm_service/) moves GPU MSM out of the prover binaries into a
+box-local daemon: one resident SRS shared by every prover process, canonical-form
+scalars written zero-copy into the SHM ring by the generated `bn254_streamed` client
+(ipc-codegen streamed-bytes variant + `IpcClient::send_with`), consumed in place by
+`try_pippenger_bn254_canonical`. GPU errors hard-fail requests — no silent CPU fallback
+in the daemon. Same tx-to-root replay fixtures as above:
+
+| Config | Single chain | 4 concurrent chains |
+|---|---:|---:|
+| CPU only | 200.1 s | 496.8 s |
+| In-process GPU (thr 2^20) | 185.2 s | 361.0 s |
+| **bb-msm daemon (GPU, SHM)** | **173.0 s** | **332.7 s** |
+
+Zero fallbacks in both runs. The daemon beats in-process GPU by 6.6% (single) / 7.8%
+(4-chain) and CPU by 13.5% / 33% — with requests still executed strictly serially
+behind one mutex and one msm_t. Remaining headroom: a context/stream pool with deferred
+responders and Bn254Batch coalescing (client batch driver currently sends large MSMs
+one at a time). Operational notes: `--max-clients` (default 8) sizes SHM client slots —
+each slot gets its own request ring (default 512 MiB, message must fit half a ring);
+`.shm` names must be bare (shm_open), `.sock` paths ≤ 108 chars.
+
 ## Known limitations (spike scope)
 
 - BN254 G1 only. Grumpkin needs an sppark instantiation over the swapped field pair
