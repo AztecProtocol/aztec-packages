@@ -50,6 +50,29 @@ typedef void (*avm_host_call_fn)(
 avm_instance_t* avm_create_hostcall(const char* wsdb_path, avm_host_call_fn host_call, void* ctx);
 
 /*
+ * Synchronous world-state byte transport the in-process AVM calls for each wsdb
+ * request. `*resp_out` must be a malloc'd buffer the AVM frees. Unlike the CDB
+ * host-call (which reaches TS), world state stays C++↔C++: the host implements
+ * this by driving the wsdb dispatch directly (e.g. bridging to `wsdb_call` on a
+ * co-hosted WorldState), so leaf reads never bounce through JS.
+ */
+typedef void (*avm_wsdb_call_fn)(
+    void* ctx, const uint8_t* req, size_t req_len, uint8_t** resp_out, size_t* resp_len_out);
+
+/*
+ * Create an in-process AVM with NO sockets: world state is reached through the
+ * `wsdb_call` byte transport (a co-hosted WorldState in the same process) and
+ * contract data through the `host_call` proxy. This is the Slice C shape — the
+ * AVM and the host share one WorldState with zero child processes. `wsdb_ctx` /
+ * `host_ctx` are passed back to their respective callbacks. Returns NULL on
+ * failure.
+ */
+avm_instance_t* avm_create_inprocess(avm_wsdb_call_fn wsdb_call,
+                                     void* wsdb_ctx,
+                                     avm_host_call_fn host_call,
+                                     void* host_ctx);
+
+/*
  * Run one simulation: `request` is a msgpack-encoded AvmSimulate request frame,
  * the response frame is returned via *out / *out_len. On success returns 0 and
  * *out is a malloc'd buffer the caller must free(); on failure returns non-zero

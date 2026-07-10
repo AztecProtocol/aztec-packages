@@ -94,6 +94,40 @@ avm_instance_t* avm_create_hostcall(const char* wsdb_path, avm_host_call_fn host
     }
 }
 
+avm_instance_t* avm_create_inprocess(avm_wsdb_call_fn wsdb_call,
+                                     void* wsdb_ctx,
+                                     avm_host_call_fn host_call,
+                                     void* host_ctx)
+{
+    if (wsdb_call == nullptr || host_call == nullptr) {
+        return nullptr;
+    }
+    try {
+        auto instance = std::make_unique<avm_instance>();
+        // World state as a synchronous byte transport: each wsdb request is
+        // handed to the host's wsdb_call and the response frame copied back. The
+        // AVM sees a plain WsdbIpcClient — it doesn't know world state is
+        // in-process rather than over a socket.
+        bb::wsdb::WsdbIpcClient::Transport transport =
+            [wsdb_call, wsdb_ctx](std::span<const uint8_t> req) -> std::vector<uint8_t> {
+            uint8_t* resp = nullptr;
+            size_t resp_len = 0;
+            wsdb_call(wsdb_ctx, req.data(), req.size(), &resp, &resp_len);
+            std::vector<uint8_t> out(resp, resp + resp_len);
+            std::free(resp);
+            return out;
+        };
+        instance->wsdb = std::make_unique<bb::wsdb::WsdbIpcClient>(std::move(transport));
+        auto cdb = std::make_unique<bb::avm::HostCallContractDB>(host_call, host_ctx);
+        auto* cdb_raw = cdb.get();
+        instance->cdb = std::move(cdb);
+        instance->set_fork_id = [cdb_raw](uint64_t fork_id) { cdb_raw->set_fork_id(fork_id); };
+        return instance.release();
+    } catch (...) {
+        return nullptr;
+    }
+}
+
 int avm_call(avm_instance_t* instance, const uint8_t* request, size_t request_len, uint8_t** out, size_t* out_len)
 {
     if (instance == nullptr || out == nullptr || out_len == nullptr) {
