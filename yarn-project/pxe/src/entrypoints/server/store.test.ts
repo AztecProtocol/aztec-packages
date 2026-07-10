@@ -64,17 +64,4 @@ describe('openStore', () => {
     await expect(stat(join(dataDirectory, 'test_store-stores'))).resolves.toBeDefined();
     await expect(stat(join(dataDirectory, 'test_store'))).rejects.toMatchObject({ code: 'ENOENT' });
   });
-
-  it('falls back to an ephemeral tmp store when no data directory is configured', async () => {
-    const store = await openStore('test_store', 1, {
-      dataStoreMapSizeKb: 10 * 1024,
-      l1ChainId: 31337,
-      rollupAddress: EthAddress.random(),
-    });
-    await store.openSingleton<string>('payload').set('tmp-data');
-    expect(await store.openSingleton<string>('payload').getAsync()).toEqual('tmp-data');
-    await store.close();
-
-    await expect(stat(join(dataDirectory, 'test_store-stores'))).rejects.toMatchObject({ code: 'ENOENT' });
-  });
 });

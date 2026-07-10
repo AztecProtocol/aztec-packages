@@ -1,6 +1,7 @@
 import { BBBundlePrivateKernelProver } from '@aztec/bb-prover/client/bundle';
 import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
 import { createLogger } from '@aztec/foundation/log';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { BundledProtocolContractsProvider } from '@aztec/protocol-contracts/providers/bundle';
 import { WASMSimulator } from '@aztec/simulator/client';
 import { MemoryCircuitRecorder, SimulatorRecorderWrapper } from '@aztec/simulator/server';
@@ -46,17 +47,25 @@ export async function createPXE(
 
   if (!options.store) {
     const storeLogger = loggers.store ?? createLogger('pxe:data:lmdb', { actor });
-    options.store = await openStore(
-      'pxe_data',
-      PXE_DATA_SCHEMA_VERSION,
-      {
-        dataDirectory: configWithContracts.dataDirectory,
-        dataStoreMapSizeKb: configWithContracts.dataStoreMapSizeKb,
-        l1ChainId,
-        rollupAddress: l1ContractAddresses.rollupAddress,
-      },
-      storeLogger.getBindings(),
-    );
+    options.store = configWithContracts.dataDirectory
+      ? await openStore(
+          'pxe_data',
+          PXE_DATA_SCHEMA_VERSION,
+          {
+            dataDirectory: configWithContracts.dataDirectory,
+            dataStoreMapSizeKb: configWithContracts.dataStoreMapSizeKb,
+            l1ChainId,
+            rollupAddress: l1ContractAddresses.rollupAddress,
+          },
+          storeLogger.getBindings(),
+        )
+      : await openTmpStore(
+          'pxe_data',
+          true,
+          configWithContracts.dataStoreMapSizeKb,
+          undefined,
+          storeLogger.getBindings(),
+        );
   }
   const proverLogger = loggers.prover ?? createLogger('pxe:bb:native', { actor });
 

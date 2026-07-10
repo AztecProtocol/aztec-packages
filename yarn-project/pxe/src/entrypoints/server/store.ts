@@ -1,6 +1,6 @@
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { type LoggerBindings, createLogger } from '@aztec/foundation/log';
-import { type AztecLMDBStoreV2, openStoreAt, openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { type AztecLMDBStoreV2, openStoreAt } from '@aztec/kv-store/lmdb-v2';
 
 import { mkdir } from 'fs/promises';
 import { join } from 'path';
@@ -9,7 +9,7 @@ import { storeIdentitySlug } from '../../storage/store_identity.js';
 
 /** Location and identity inputs for opening an identity-partitioned PXE-side store. */
 export type IdentityStoreConfig = {
-  dataDirectory?: string;
+  dataDirectory: string;
   /** Maximum LMDB map size in KB. When omitted, the kv-store default map size applies. */
   dataStoreMapSizeKb?: number;
   l1ChainId: number;
@@ -19,7 +19,7 @@ export type IdentityStoreConfig = {
 /**
  * Opens the persistent LMDB store selected by `name` and identity triple `(l1ChainId, rollupAddress, schemaVersion)`.
  * A store exists per identity: reopening with the same identity returns the same data, a different identity selects
- * a different (possibly fresh) store. Falls back to an ephemeral tmp store when no data directory is configured.
+ * a different (possibly fresh) store. Callers wanting an ephemeral store use `openTmpStore` explicitly instead.
  */
 export async function openStore(
   name: string,
@@ -27,10 +27,6 @@ export async function openStore(
   config: IdentityStoreConfig,
   bindings?: LoggerBindings,
 ): Promise<AztecLMDBStoreV2> {
-  if (!config.dataDirectory) {
-    return openTmpStore(name, true, config.dataStoreMapSizeKb, undefined, bindings);
-  }
-
   // Stores live under `<dataDirectory>/<name>-stores/<l1ChainId>-<rollupAddress>-v<schemaVersion>`, a sibling of the
   // legacy `<dataDirectory>/<name>` directory: older binaries reset the legacy directory on a rollup mismatch, so
   // per-identity stores must not nest inside it.
