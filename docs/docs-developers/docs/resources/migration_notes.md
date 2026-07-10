@@ -216,14 +216,20 @@ The browser PXE data store and the embedded wallet (`@aztec/wallets`) now persis
 
 ```diff
 - import { createStore } from '@aztec/kv-store/indexeddb';
-+ import { createStore } from '@aztec/kv-store/sqlite-opfs';
+- const store = await createStore(name);
++ import { AztecSQLiteOPFSStore } from '@aztec/kv-store/sqlite-opfs';
++ const store = await AztecSQLiteOPFSStore.open(logger, name);
 ```
+
+Use `openTmpStore()` from the same entrypoint for an ephemeral store.
 
 If you must stay on IndexedDB for now, import from the deprecated entrypoint instead:
 
 ```diff
 - import { createStore } from '@aztec/kv-store/indexeddb';
-+ import { createStore } from '@aztec/kv-store/deprecated/indexeddb';
+- const store = await createStore(name);
++ import { AztecIndexedDBStore } from '@aztec/kv-store/deprecated/indexeddb';
++ const store = await AztecIndexedDBStore.open(logger, name);
 ```
 
 **Impact**: Existing IndexedDB-backed data is not migrated, so browser PXE and wallet state starts fresh on SQLite-OPFS (the v5 protocol upgrade wipes local state regardless). SQLite-OPFS also holds an exclusive, origin-wide lock on its store directory, so a second browser tab opening the same store will fail. Consequently, we recommend to explicitly manage this case in your app if it uses `EmbeddedWallet`.
