@@ -296,9 +296,10 @@ if [ "${GPU:-0}" = 1 ]; then
   fi
   nvidia-smi
   # bb-msm pins its SHM request rings with cudaHostRegister, which commits every page
-  # eagerly; docker's default 2g /dev/shm SIGBUSes under that. 8 slots x 512MiB rings
-  # plus traffic needs comfortable headroom.
-  docker_args+=' --gpus all --shm-size=16g'
+  # eagerly; a 2g /dev/shm SIGBUSes under that. 8 slots x 512MiB rings plus traffic
+  # needs comfortable headroom.
+  docker_args+=' --gpus all'
+  GPU_SHM_SIZE=16g
 fi
 
 # DNS caching. CI's massively parallel jobs resolve the same handful of hosts (S3,
@@ -444,7 +445,7 @@ start_build() {
     -e DRY_RUN=${DRY_RUN:-} \
     -e GPU=${GPU:-} \
     --pids-limit=65536 \
-    --shm-size=2g \
+    --shm-size=${GPU_SHM_SIZE:-2g} \
     --ulimit nofile=1048576:1048576 \
     aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script")
 }
