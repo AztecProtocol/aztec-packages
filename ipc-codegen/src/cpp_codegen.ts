@@ -141,21 +141,29 @@ export class CppCodegen {
 #include "ipc_runtime/ipc_client.hpp"
 
 #include <cstdint>
+#include <functional>
 #include <memory>
+#include <span>
 #include <string>
+#include <vector>
 
 namespace ${ns} {
 ${wireUsing}${hashConstant}
 /**
  * @brief Auto-generated IPC client.
  *
- * Each method sends a msgpack-serialized command to the server and returns
- * the typed response. Transport (UDS or MPSC-SHM) is selected by the path
- * suffix passed to the constructor: ".sock" → UDS, ".shm" → MPSC-SHM. All
- * methods block until the response arrives.
+ * Each method sends a msgpack-serialized command over a byte transport and
+ * returns the typed response. The default constructor selects a socket transport
+ * (UDS or MPSC-SHM) by path suffix; the Transport constructor takes an arbitrary
+ * byte-level backend, so the same client can run over an in-process (FFI/NAPI)
+ * call — no socket — for a co-hosted server. All methods block until the response
+ * arrives.
  */
 class ${className} {
   public:
+    /** A byte-level request→response transport: the seam the socket and in-process backends share. */
+    using Transport = std::function<std::vector<uint8_t>(std::span<const uint8_t>)>;
+
     /**
      * @param path Transport path (".sock" → UDS, ".shm" → MPSC-SHM).
      * @param call_timeout_ns Per-call send/receive timeout in nanoseconds.
@@ -163,6 +171,10 @@ class ${className} {
      *        can legitimately take minutes.
      */
     explicit ${className}(const std::string& path, uint64_t call_timeout_ns = 0);
+
+    /** Construct over an arbitrary byte transport (e.g. a direct call into a co-hosted server). */
+    explicit ${className}(Transport transport);
+
     ~${className}();
 
     ${className}(const ${className}&) = delete;
@@ -174,8 +186,11 @@ ${methods}
     template <typename Cmd, typename Resp>
     Resp send(Cmd&& cmd) const;
 
+    // Owns the socket client for the path constructor (null for an injected transport); call_ is the
+    // request→response function send() drives, set by whichever constructor ran.
     mutable std::unique_ptr<::ipc::IpcClient> client_;
-    uint64_t call_timeout_ns_;
+    Transport call_;
+    uint64_t call_timeout_ns_ = 0;
 };
 
 } // namespace ${ns}
@@ -227,7 +242,25 @@ ${className}::${className}(const std::string& path, uint64_t call_timeout_ns)
     if (!client_->connect()) {
         throw std::runtime_error("ipc::IpcClient::connect() failed for " + path);
     }
+    // Route send() through the socket client.
+    call_ = [this](std::span<const uint8_t> request) -> std::vector<uint8_t> {
+        if (!client_->send(request.data(), request.size(), call_timeout_ns_)) {
+            throw std::runtime_error("ipc::IpcClient::send failed");
+        }
+        auto view = client_->receive(call_timeout_ns_);
+        if (view.empty()) {
+            throw std::runtime_error("ipc::IpcClient::receive failed or timed out");
+        }
+        std::vector<uint8_t> bytes(view.begin(), view.end());
+        client_->release(view.size());
+        return bytes;
+    };
 }
+
+${className}::${className}(Transport transport)
+    : client_(nullptr)
+    , call_(std::move(transport))
+{}
 
 ${className}::~${className}() = default;
 
@@ -242,18 +275,12 @@ Resp ${className}::send(Cmd&& cmd) const
     pk.pack(std::string(Cmd::MSGPACK_SCHEMA_NAME));
     pk.pack(std::forward<Cmd>(cmd));
 
-    // Send request, receive response.
-    if (!client_->send(send_buffer.data(), send_buffer.size(), call_timeout_ns_)) {
-        throw std::runtime_error("ipc::IpcClient::send failed");
+    // Send request, receive response, over whichever transport this client was built with.
+    std::vector<uint8_t> response_bytes = call_(std::span<const uint8_t>(
+        reinterpret_cast<const uint8_t*>(send_buffer.data()), send_buffer.size()));
+    if (response_bytes.empty()) {
+        throw std::runtime_error("transport returned an empty response");
     }
-    auto response_view = client_->receive(call_timeout_ns_);
-    if (response_view.empty()) {
-        throw std::runtime_error("ipc::IpcClient::receive failed or timed out");
-    }
-    // Copy out before release() — for SHM this gives up zero-copy semantics
-    // but keeps the rest of the code simple. convert() below copies anyway.
-    std::vector<uint8_t> response_bytes(response_view.begin(), response_view.end());
-    client_->release(response_view.size());
 
     // Parse response: [ResponseName, {payload}]
     auto unpacked = msgpack::unpack(
