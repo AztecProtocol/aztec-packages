@@ -96,7 +96,6 @@ describe('CheckpointProver', () => {
       expect(prover.l1ToL2Messages).toEqual([]);
       expect(prover.isCancelled()).toBe(false);
       expect(prover.isCompleted()).toBe(false);
-      expect(prover.isPruned()).toBe(false);
       await cleanup(prover);
     });
 
@@ -104,31 +103,6 @@ describe('CheckpointProver', () => {
       const prover = makeProver();
       // The constructor kicks off gatherTxs which calls getTxsForBlock for every block.
       expect(txProvider.getTxsForBlock).toHaveBeenCalledTimes(checkpoint.blocks.length);
-      await cleanup(prover);
-    });
-  });
-
-  // ---------------- prune/canonical flag ----------------
-
-  describe('markPruned / markCanonical', () => {
-    it('markPruned flips isPruned() and is idempotent', async () => {
-      const prover = makeProver();
-      expect(prover.isPruned()).toBe(false);
-      prover.markPruned();
-      expect(prover.isPruned()).toBe(true);
-      prover.markPruned();
-      expect(prover.isPruned()).toBe(true);
-      await cleanup(prover);
-    });
-
-    it('markCanonical restores isPruned() to false and is idempotent on a non-pruned prover', async () => {
-      const prover = makeProver();
-      prover.markPruned();
-      prover.markCanonical();
-      expect(prover.isPruned()).toBe(false);
-      // No-op when already canonical.
-      prover.markCanonical();
-      expect(prover.isPruned()).toBe(false);
       await cleanup(prover);
     });
   });
@@ -185,6 +159,54 @@ describe('CheckpointProver', () => {
       expect(prover.getAbortSignal().aborted).toBe(true);
       await expect(blockProofs).rejects.toThrow(/cancelled/);
       await prover.whenDone();
+    });
+  });
+
+  // ---------------- cancellation short-circuits execution ----------------
+
+  describe('cancellation short-circuits execution', () => {
+    it('threads its abort signal into public execution so a cancel stops the current block', async () => {
+      // Drive execution into the block loop: gather resolves, the sub-tree and forks are stubbed,
+      // and public processing parks until its signal aborts. The captured signal must be the
+      // prover's own abort signal, so cancelling the prover interrupts the in-flight block rather
+      // than letting it run to completion before the next `signal.aborted` check.
+      txProvider.getTxsForBlock.mockReset();
+      txProvider.getTxsForBlock.mockResolvedValue({ txs: [], missingTxs: [] });
+
+      const subTree = {
+        getSubTreeResult: () => new Promise<never>(() => {}),
+        startNewBlock: () => Promise.resolve(),
+        startChonkVerifierCircuits: () => Promise.resolve(),
+        addTxs: () => Promise.resolve(),
+        setBlockCompleted: () => Promise.resolve(),
+        cancel: () => {},
+        stop: () => Promise.resolve(),
+      };
+      proverFactory.createCheckpointSubTreeOrchestrator.mockResolvedValue(subTree as any);
+      dbProvider.fork.mockResolvedValue({
+        appendLeaves: () => Promise.resolve(),
+        close: () => Promise.resolve(),
+      } as any);
+
+      const processReached = promiseWithResolvers<AbortSignal>();
+      const publicProcessor = {
+        process: (_txs: unknown, limits: { signal?: AbortSignal }) => {
+          processReached.resolve(limits.signal!);
+          // Park until the signal aborts, mirroring PublicProcessor's per-tx abort check.
+          return new Promise(resolve => {
+            limits.signal?.addEventListener('abort', () => resolve([[], [], [], [], []]));
+          });
+        },
+      };
+      publicProcessorFactory.create.mockReturnValue(publicProcessor as any);
+
+      const prover = makeProver();
+      const signal = await processReached.promise;
+      expect(signal.aborted).toBe(false);
+
+      prover.cancel();
+      expect(signal.aborted).toBe(true);
+      await expect(prover.whenDone()).resolves.toBeUndefined();
     });
   });
 
