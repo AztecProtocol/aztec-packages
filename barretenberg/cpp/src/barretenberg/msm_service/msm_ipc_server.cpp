@@ -36,10 +36,12 @@ static void serve_with_options(const std::string& input_path,
     if (!server->listen()) {
         throw std::runtime_error("ipc::IpcServer::listen() failed for " + input_path);
     }
-    auto handler = make_msm_handler(ctx);
-    server->run_reactor([&handler](int /*client_id*/, std::span<const uint8_t> raw, ipc::IpcServer::Respond respond) {
-        handler(raw, std::move(respond));
-    });
+    auto handler = make_msm_handler_zc(ctx);
+    server->run_reactor_zero_copy(
+        [&handler](int /*client_id*/,
+                   std::span<const uint8_t> raw,
+                   ipc::IpcServer::Respond respond,
+                   ipc::IpcServer::Release release) { handler(raw, std::move(respond), std::move(release)); });
 }
 
 int execute_msm_server(const std::string& input_path,

@@ -7,6 +7,7 @@
 #include <deque>
 #include <functional>
 #include <mutex>
+#include <span>
 #include <thread>
 #include <vector>
 
@@ -37,7 +38,19 @@ struct MsmService {
 };
 
 void handle_get_info(MsmService& ctx, wire::MsmGetInfo&& cmd, Responder<wire::MsmGetInfoResponse> respond);
-void handle_bn254(MsmService& ctx, wire::MsmBn254&& cmd, Responder<wire::MsmBn254Response> respond);
-void handle_bn254_batch(MsmService& ctx, wire::MsmBn254Batch&& cmd, Responder<wire::MsmBn254BatchResponse> respond);
+
+// Streamed handlers: `scalars` points into the transport buffer (the SHM ring); the
+// worker that finishes last calls release() (freeing the ring region) and THEN responds
+// — once the client sees the response it may publish its next request.
+void handle_bn254_streamed(MsmService& ctx,
+                           wire::MsmBn254&& cmd,
+                           std::span<const uint8_t> scalars,
+                           Responder<wire::MsmBn254Response> respond,
+                           ReleaseFn release);
+void handle_bn254_batch_streamed(MsmService& ctx,
+                                 wire::MsmBn254Batch&& cmd,
+                                 std::span<const uint8_t> scalars,
+                                 Responder<wire::MsmBn254BatchResponse> respond,
+                                 ReleaseFn release);
 
 } // namespace bb::msm_service

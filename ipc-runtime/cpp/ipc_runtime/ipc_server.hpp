@@ -103,6 +103,20 @@ class IpcServer {
     virtual bool has_pending_request() { return wait_for_data(0) >= 0; }
 
     /**
+     * @brief Opt in to deferred-release dispatch (see run_reactor_zero_copy).
+     *
+     * When supported, receive() marks the message's ring region as held: the
+     * reactor can keep serving other clients while a worker reads the region,
+     * and release() (callable from any thread) frees it. Returns false when the
+     * transport cannot defer (the zero-copy reactor then falls back to copying).
+     */
+    virtual bool set_deferred_release(bool enabled)
+    {
+        (void)enabled;
+        return false;
+    }
+
+    /**
      * @brief Receive next message from a specific client
      *
      * Blocks until a complete message is available. Returns a span pointing to
@@ -200,6 +214,15 @@ class IpcServer {
      * response.
      */
     using Respond = std::function<void(std::vector<uint8_t>)>;
+
+    /**
+     * @brief Frees a request's transport buffer under deferred-release dispatch.
+     *
+     * Invoked exactly once, from any thread, after the handler has finished
+     * reading the request span — and BEFORE respond(): once the client sees the
+     * response it may publish its next request, which needs the ring unmasked.
+     */
+    using Release = std::function<void()>;
     using AsyncHandler = std::function<void(int client_id, std::span<const uint8_t> request, Respond respond)>;
 
     /**
@@ -389,6 +412,111 @@ class IpcServer {
         // Quiesce before returning: in-flight handlers capture this frame's state
         // (mtx, conns, inflight), so we must not unwind until every respond() has
         // fired.
+        while (inflight.load(std::memory_order_acquire) > 0) {
+            drain_and_send();
+            wait_for_data_or_ready(10000000, have_ready);
+        }
+        drain_and_send();
+    }
+
+    /**
+     * @brief Reactor with deferred-release (zero-copy) dispatch.
+     *
+     * Like run_reactor(), but when the transport supports deferred release the
+     * request span passed to the handler points directly at the transport buffer
+     * (the SHM ring) — no copy is made — and the handler receives a Release token
+     * it must invoke exactly once when done reading the span (from any thread,
+     * before respond()). On transports without deferred-release support the
+     * request is copied as in run_reactor() and the token is a no-op, so handlers
+     * are written once against the same contract.
+     */
+    using ZeroCopyHandler = std::function<void(int client_id, std::span<const uint8_t>, Respond, Release)>;
+    void run_reactor_zero_copy(const ZeroCopyHandler& handler)
+    {
+        struct Conn {
+            uint64_t next_send_seq = 0;
+            std::map<uint64_t, std::vector<uint8_t>> stash;
+        };
+
+        const bool deferred = set_deferred_release(true);
+
+        std::mutex mtx;
+        std::unordered_map<int, Conn> conns;
+        std::unordered_map<int, uint64_t> next_seq;
+        std::atomic<int> inflight{ 0 };
+
+        auto have_ready = [&]() -> bool {
+            std::lock_guard<std::mutex> lock(mtx);
+            for (auto& [client, conn] : conns) {
+                if (conn.stash.count(conn.next_send_seq) != 0) {
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        auto drain_and_send = [&]() {
+            std::vector<std::pair<int, std::vector<uint8_t>>> ready;
+            {
+                std::lock_guard<std::mutex> lock(mtx);
+                for (auto& [client, conn] : conns) {
+                    auto it = conn.stash.find(conn.next_send_seq);
+                    while (it != conn.stash.end()) {
+                        ready.emplace_back(client, std::move(it->second));
+                        conn.stash.erase(it);
+                        conn.next_send_seq++;
+                        it = conn.stash.find(conn.next_send_seq);
+                    }
+                }
+            }
+            for (auto& [client, bytes] : ready) {
+                send(client, bytes.data(), bytes.size());
+            }
+        };
+
+        while (!shutdown_requested_.load(std::memory_order_acquire)) {
+            accept();
+
+            int client_id = wait_for_data_or_ready(100000000, have_ready);
+            drain_and_send();
+            if (client_id < 0) {
+                continue;
+            }
+
+            auto request = receive(client_id);
+            if (request.data() == nullptr) {
+                continue;
+            }
+
+            std::span<const uint8_t> view = request;
+            std::shared_ptr<std::vector<uint8_t>> buf; // fallback copy when not deferred
+            Release rel;
+            if (deferred) {
+                const size_t msg_size = request.size();
+                rel = [this, client_id, msg_size] { release(client_id, msg_size); };
+            } else {
+                buf = std::make_shared<std::vector<uint8_t>>(request.begin(), request.end());
+                release(client_id, request.size());
+                view = std::span<const uint8_t>(*buf);
+                rel = [] {};
+            }
+
+            uint64_t seq = next_seq[client_id]++;
+            inflight.fetch_add(1, std::memory_order_relaxed);
+
+            Respond respond = [this, client_id, seq, buf, &mtx, &conns, &inflight](std::vector<uint8_t> response) {
+                {
+                    std::lock_guard<std::mutex> lock(mtx);
+                    conns[client_id].stash.emplace(seq, std::move(response));
+                }
+                inflight.fetch_sub(1, std::memory_order_release);
+                notify();
+            };
+
+            handler(client_id, view, std::move(respond), std::move(rel));
+            drain_and_send();
+        }
+
         while (inflight.load(std::memory_order_acquire) > 0) {
             drain_and_send();
             wait_for_data_or_ready(10000000, have_ready);

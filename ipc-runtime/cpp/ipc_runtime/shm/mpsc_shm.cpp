@@ -25,7 +25,12 @@ MpscConsumer::MpscConsumer(std::vector<SpscShm>&& rings, int doorbell_fd, size_t
     , doorbell_fd_(doorbell_fd)
     , doorbell_len_(doorbell_len)
     , doorbell_(doorbell)
-{}
+{
+    masked_ = std::make_unique<std::atomic<bool>[]>(rings_.size());
+    for (size_t i = 0; i < rings_.size(); i++) {
+        masked_[i].store(false, std::memory_order_relaxed);
+    }
+}
 
 MpscConsumer::MpscConsumer(MpscConsumer&& other) noexcept
     : rings_(std::move(other.rings_))
@@ -34,6 +39,8 @@ MpscConsumer::MpscConsumer(MpscConsumer&& other) noexcept
     , doorbell_(other.doorbell_)
     , last_served_(other.last_served_)
 {
+    masked_ = std::move(other.masked_);
+
     other.doorbell_fd_ = -1;
     other.doorbell_len_ = 0;
     other.doorbell_ = nullptr;
@@ -165,7 +172,7 @@ int MpscConsumer::wait_for_data(uint64_t timeout_ns, const std::function<bool()>
     // Phase 1: Quick poll - check if data already available
     for (size_t i = 0; i < num_rings; i++) {
         size_t idx = (last_served_ + 1 + i) % num_rings;
-        if (rings_[idx].available() > 0) {
+        if (!masked_[idx].load(std::memory_order_acquire) && rings_[idx].available() > 0) {
             last_served_ = idx;
             previous_had_data_ = true; // Found data - enable spinning on next call
             return static_cast<int>(idx);
@@ -206,7 +213,7 @@ int MpscConsumer::wait_for_data(uint64_t timeout_ns, const std::function<bool()>
         do {
             for (size_t i = 0; i < num_rings; i++) {
                 size_t idx = (last_served_ + 1 + i) % num_rings;
-                if (rings_[idx].available() > 0) {
+                if (!masked_[idx].load(std::memory_order_acquire) && rings_[idx].available() > 0) {
                     last_served_ = idx;
                     previous_had_data_ = true; // Found data during spin
                     return static_cast<int>(idx);
@@ -221,7 +228,7 @@ int MpscConsumer::wait_for_data(uint64_t timeout_ns, const std::function<bool()>
         // Check after spin
         for (size_t i = 0; i < num_rings; i++) {
             size_t idx = (last_served_ + 1 + i) % num_rings;
-            if (rings_[idx].available() > 0) {
+            if (!masked_[idx].load(std::memory_order_acquire) && rings_[idx].available() > 0) {
                 last_served_ = idx;
                 previous_had_data_ = true; // Found data after spin
                 return static_cast<int>(idx);
@@ -245,7 +252,7 @@ int MpscConsumer::wait_for_data(uint64_t timeout_ns, const std::function<bool()>
     // Final check before blocking
     for (size_t i = 0; i < num_rings; i++) {
         size_t idx = (last_served_ + 1 + i) % num_rings;
-        if (rings_[idx].available() > 0) {
+        if (!masked_[idx].load(std::memory_order_acquire) && rings_[idx].available() > 0) {
             last_served_ = idx;
             previous_had_data_ = true; // Found data before blocking
             return static_cast<int>(idx);
@@ -266,7 +273,7 @@ int MpscConsumer::wait_for_data(uint64_t timeout_ns, const std::function<bool()>
     // After waking, poll again
     for (size_t i = 0; i < num_rings; i++) {
         size_t idx = (last_served_ + 1 + i) % num_rings;
-        if (rings_[idx].available() > 0) {
+        if (!masked_[idx].load(std::memory_order_acquire) && rings_[idx].available() > 0) {
             last_served_ = idx;
             previous_had_data_ = true; // Found data after waking
             return static_cast<int>(idx);
@@ -305,12 +312,19 @@ void MpscConsumer::wakeup_all()
 
 bool MpscConsumer::has_data() const
 {
-    for (const auto& ring : rings_) {
-        if (ring.available() > 0) {
+    for (size_t i = 0; i < rings_.size(); i++) {
+        if (!masked_[i].load(std::memory_order_acquire) && rings_[i].available() > 0) {
             return true;
         }
     }
     return false;
+}
+
+void MpscConsumer::set_masked(size_t ring_index, bool masked)
+{
+    if (ring_index < rings_.size()) {
+        masked_[ring_index].store(masked, std::memory_order_release);
+    }
 }
 
 void MpscConsumer::notify()

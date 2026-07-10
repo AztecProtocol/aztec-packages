@@ -122,6 +122,17 @@ class MpscConsumer {
     ~MpscConsumer();
 
     /**
+     * @brief Mask/unmask a ring for the data-scan (wait_for_data/has_data).
+     *
+     * A masked ring is skipped even if it holds unconsumed bytes. Used for
+     * deferred-release dispatch: while a request's ring region is held by a
+     * worker (zero-copy view), the reactor must neither re-deliver that message
+     * nor spin on the ring. Set from the reactor thread, cleared from the
+     * releasing thread; atomic per ring.
+     */
+    void set_masked(size_t ring_index, bool masked);
+
+    /**
      * @brief Wait for data on any ring
      * @param timeout_ns Total timeout in nanoseconds (spins 10ms, then futex waits for remainder)
      * @param also_ready Optional predicate; if it returns true the wait returns
@@ -177,6 +188,8 @@ class MpscConsumer {
 
   private:
     MpscConsumer(std::vector<SpscShm>&& rings, int doorbell_fd, size_t doorbell_len, MpscDoorbell* doorbell);
+
+    std::unique_ptr<std::atomic<bool>[]> masked_;
 
     std::vector<SpscShm> rings_;
     int doorbell_fd_ = -1;

@@ -131,6 +131,12 @@ class MpscShmServer : public IpcServer {
         if (msg_ptr == nullptr) {
             return {};
         }
+        if (deferred_release_) {
+            // The caller will hold this view past the handler (zero-copy dispatch);
+            // mask the ring so the reactor neither re-delivers nor spins on it until
+            // release() unmasks.
+            request_consumer_->set_masked(static_cast<size_t>(client_id), true);
+        }
         return std::span<const uint8_t>(static_cast<const uint8_t*>(msg_ptr) + sizeof(uint32_t), msg_len);
     }
 
@@ -140,6 +146,15 @@ class MpscShmServer : public IpcServer {
             return;
         }
         request_consumer_->release(static_cast<size_t>(client_id), sizeof(uint32_t) + message_size);
+        if (deferred_release_) {
+            request_consumer_->set_masked(static_cast<size_t>(client_id), false);
+        }
+    }
+
+    bool set_deferred_release(bool enabled) override
+    {
+        deferred_release_ = enabled;
+        return true;
     }
 
     bool send(int client_id, const void* data, size_t len) override
@@ -190,6 +205,7 @@ class MpscShmServer : public IpcServer {
     size_t response_ring_size_;
     std::optional<MpscConsumer> request_consumer_;
     std::vector<SpscShm> response_rings_;
+    bool deferred_release_ = false;
 };
 
 } // namespace ipc

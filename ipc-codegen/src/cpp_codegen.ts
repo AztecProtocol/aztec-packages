@@ -722,7 +722,15 @@ ${this.opts.wireNamespace ? `} // namespace ${this.opts.wireNamespace}` : ""}
         const method = toSnakeCase(
           c.name.startsWith(prefix) ? c.name.slice(prefix.length) : c.name,
         );
-        return `template<typename Ctx>\nvoid handle_${method}(Ctx& ctx, wire::${c.name}&& cmd, Responder<wire::${c.responseType}> respond);`;
+        const base = `template<typename Ctx>\nvoid handle_${method}(Ctx& ctx, wire::${c.name}&& cmd, Responder<wire::${c.responseType}> respond);`;
+        const payload = this.streamedPayloadField(c);
+        if (!payload) {
+          return base;
+        }
+        // Streamed variant: the payload bytes stay in the transport buffer; the
+        // handler must invoke release() exactly once when done reading them
+        // (before respond). The wire struct's payload field is left empty.
+        return `${base}\n\ntemplate<typename Ctx>\nvoid handle_${method}_streamed(Ctx& ctx, wire::${c.name}&& cmd, std::span<const uint8_t> ${payload.name}, Responder<wire::${c.responseType}> respond, ReleaseFn release);`;
       })
       .join("\n\n");
 
@@ -740,8 +748,47 @@ ${this.opts.wireNamespace ? `} // namespace ${this.opts.wireNamespace}` : ""}
             ? `wire::${cmd.name} wire_cmd; payload.convert(wire_cmd);`
             : `wire::${cmd.name} wire_cmd;`;
 
-        return `            { "${cmd.name}", [](Ctx& ctx, [[maybe_unused]] const msgpack::object& payload, RawRespond raw_respond) {
+        const payloadField = this.streamedPayloadField(cmd);
+        if (payloadField) {
+          // Streamed: convert every field except the trailing bytes payload, which is
+          // handed to the handler as a span into the request buffer (msgpack bin
+          // values reference the input). The handler owns release(); a synchronous
+          // throw releases here instead.
+          const fieldCases = cmd.fields
+            .slice(0, -1)
+            .map(
+              (f) =>
+                `                    } else if (key == "${f.name}") {\n                        kv.val.convert(wire_cmd.${f.name});`,
+            )
+            .join("\n");
+          return `            { "${cmd.name}", [](Ctx& ctx, [[maybe_unused]] const msgpack::object& payload, RawRespond raw_respond, ReleaseFn release) {
+                wire::${cmd.name} wire_cmd;
+                std::span<const uint8_t> payload_span;
+                for (uint32_t i = 0; i < payload.via.map.size; ++i) {
+                    auto& kv = payload.via.map.ptr[i];
+                    std::string_view key(kv.key.via.str.ptr, kv.key.via.str.size);
+                    if (key == "${payloadField.name}") {
+                        payload_span = { reinterpret_cast<const uint8_t*>(kv.val.via.bin.ptr), kv.val.via.bin.size };
+${fieldCases}
+                    }
+                }
+                Responder<wire::${cmd.responseType}> responder(std::move(raw_respond), "${cmd.responseType}");
+#ifdef BB_NO_EXCEPTIONS
+                handle_${method}_streamed(ctx, std::move(wire_cmd), payload_span, responder, std::move(release));
+#else
+                try {
+                    handle_${method}_streamed(ctx, std::move(wire_cmd), payload_span, responder, release);
+                } catch (const std::exception& e) {
+                    release();
+                    responder.error(e.what());
+                }
+#endif
+            } }`;
+        }
+
+        return `            { "${cmd.name}", [](Ctx& ctx, [[maybe_unused]] const msgpack::object& payload, RawRespond raw_respond, ReleaseFn release) {
                 ${deserialize}
+                release(); // request bytes fully copied into wire_cmd
                 Responder<wire::${cmd.responseType}> responder(std::move(raw_respond), "${cmd.responseType}");
 #ifdef BB_NO_EXCEPTIONS
                 handle_${method}(ctx, std::move(wire_cmd), responder);
@@ -772,6 +819,7 @@ ${this.opts.wireNamespace ? `} // namespace ${this.opts.wireNamespace}` : ""}
 #include <iostream>
 #include <span>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
 
@@ -800,6 +848,13 @@ inline std::vector<uint8_t> make_error(const std::string& message)
 // Raw (byte-level) response sink supplied by the server backend. It delivers a
 // finished response frame and may be invoked from any thread.
 using RawRespond = std::function<void(std::vector<uint8_t>)>;
+
+// Frees the request's transport buffer (deferred-release dispatch). Streamed
+// handlers must invoke it exactly once when done reading their payload span,
+// BEFORE responding; for all other commands the dispatch releases internally.
+// May be invoked from any thread. Always callable (no-op under copy-mode
+// reactors).
+using ReleaseFn = std::function<void()>;
 
 // Typed response callback handed to each handler. Exactly one of ok()/error()
 // must be called exactly once — possibly later and from another thread, so a
@@ -837,24 +892,41 @@ class Responder {
 
 ${handlerDecls}
 
-// Dispatcher signature — asynchronous: takes the raw request frame and a sink
+// Dispatcher signatures — asynchronous: take the raw request frame and a sink
 // for the (eventual) response frame. Independent of the IPC server backend.
+// The zero-copy variant additionally threads the transport buffer's release
+// token; use it with IpcServer::run_reactor_zero_copy so streamed handlers can
+// read their payload directly from the transport buffer (the SHM ring).
 using AsyncDispatchHandler = std::function<void(std::span<const uint8_t>, RawRespond)>;
+using AsyncDispatchHandlerZC = std::function<void(std::span<const uint8_t>, RawRespond, ReleaseFn)>;
 
 template<typename Ctx>
-AsyncDispatchHandler make_${toSnakeCase(prefix)}_handler(Ctx& ctx)
+AsyncDispatchHandlerZC make_${toSnakeCase(prefix)}_handler_zc(Ctx& ctx)
 {
-    using HandlerFn = std::function<void(Ctx&, const msgpack::object&, RawRespond)>;
+    using HandlerFn = std::function<void(Ctx&, const msgpack::object&, RawRespond, ReleaseFn)>;
     static const std::unordered_map<std::string, HandlerFn> table = {
 ${handlerEntries},
     };
 
-    return [&ctx](std::span<const uint8_t> raw_request, RawRespond raw_respond) {
-        auto unpacked = msgpack::unpack(
-            reinterpret_cast<const char*>(raw_request.data()), raw_request.size());
+    return [&ctx](std::span<const uint8_t> raw_request, RawRespond raw_respond, ReleaseFn release) {
+        // Reference-mode unpack: bin/str values point into raw_request (the transport
+        // buffer) instead of being copied into the parser zone — required for streamed
+        // handlers, whose payload spans must alias the buffer that the release token
+        // controls. Default unpack COPIES bin into the zone, which dies with the
+        // object_handle.
+        bool referenced = false;
+        std::size_t off = 0;
+        auto unpacked =
+            msgpack::unpack(reinterpret_cast<const char*>(raw_request.data()),
+                            raw_request.size(),
+                            off,
+                            referenced,
+                            [](msgpack::type::object_type, std::size_t, void*) { return true; },
+                            nullptr);
         auto obj = unpacked.get();
 
         if (obj.type != msgpack::type::ARRAY || obj.via.array.size != 1) {
+            release();
             raw_respond(detail::make_error("malformed request: expected outer array of size 1"));
             return;
         }
@@ -862,6 +934,7 @@ ${handlerEntries},
         auto& inner = obj.via.array.ptr[0];
         if (inner.type != msgpack::type::ARRAY || inner.via.array.size != 2 ||
             inner.via.array.ptr[0].type != msgpack::type::STR) {
+            release();
             raw_respond(detail::make_error("malformed request: expected [CommandName, {payload}]"));
             return;
         }
@@ -871,14 +944,28 @@ ${handlerEntries},
 
         auto it = table.find(cmd_name);
         if (it == table.end()) {
+            release();
             raw_respond(detail::make_error("unknown command: " + cmd_name));
             return;
         }
         // The entry decodes the payload synchronously (while the unpacked zone is
-        // alive), then runs or defers the handler. Synchronous handler throws
-        // become error frames inside the entry; a deferred handler owns its errors
-        // via Responder::error.
-        it->second(ctx, cmd_payload, std::move(raw_respond));
+        // alive), then runs or defers the handler. Non-streamed entries release the
+        // transport buffer as soon as the payload is copied out; streamed entries
+        // hand the token to the handler. Synchronous handler throws become error
+        // frames inside the entry; a deferred handler owns its errors via
+        // Responder::error.
+        it->second(ctx, cmd_payload, std::move(raw_respond), std::move(release));
+    };
+}
+
+// Copy-mode compatibility wrapper (IpcServer::run_reactor): the reactor has
+// already copied and released the request, so the release token is a no-op.
+template<typename Ctx>
+AsyncDispatchHandler make_${toSnakeCase(prefix)}_handler(Ctx& ctx)
+{
+    return [zc = make_${toSnakeCase(prefix)}_handler_zc(ctx)](std::span<const uint8_t> raw_request,
+                                                              RawRespond raw_respond) {
+        zc(raw_request, std::move(raw_respond), [] {});
     };
 }
 
@@ -917,10 +1004,11 @@ void serve(const std::string& input_path, Ctx& ctx)
     if (!server->listen()) {
         throw std::runtime_error("ipc::IpcServer::listen() failed for " + input_path);
     }
-    auto handler = make_${toSnakeCase(prefix)}_handler(ctx);
-    server->run_reactor(
-        [&handler](int /*client_id*/, std::span<const uint8_t> raw, ::ipc::IpcServer::Respond respond) {
-            handler(raw, std::move(respond));
+    auto handler = make_${toSnakeCase(prefix)}_handler_zc(ctx);
+    server->run_reactor_zero_copy(
+        [&handler](
+            int /*client_id*/, std::span<const uint8_t> raw, ::ipc::IpcServer::Respond respond, ::ipc::IpcServer::Release release) {
+            handler(raw, std::move(respond), std::move(release));
         });
 }
 

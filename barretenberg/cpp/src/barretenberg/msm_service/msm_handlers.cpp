@@ -144,15 +144,22 @@ void handle_get_info(MsmService& ctx, wire::MsmGetInfo&&, Responder<wire::MsmGet
     respond.ok({ .gpu = ctx.gpu, .residentPoints = ctx.points.size() });
 }
 
-void handle_bn254(MsmService& ctx, wire::MsmBn254&& cmd, Responder<wire::MsmBn254Response> respond)
+void handle_bn254_streamed(MsmService& ctx,
+                           wire::MsmBn254&& cmd,
+                           std::span<const uint8_t> scalars,
+                           Responder<wire::MsmBn254Response> respond,
+                           ReleaseFn release)
 {
     // Defer to a worker so the reactor thread keeps accepting requests; workers on
-    // distinct slots submit to the GPU concurrently.
+    // distinct slots submit to the GPU concurrently. `scalars` stays in the ring
+    // until release().
     auto shared_cmd = std::make_shared<wire::MsmBn254>(std::move(cmd));
-    ctx.enqueue([&ctx, shared_cmd, respond](size_t slot) {
+    ctx.enqueue([&ctx, shared_cmd, scalars, respond, release](size_t slot) {
         AffineElement result;
         std::string error;
-        if (!run_span(ctx, slot, shared_cmd->startIndex, shared_cmd->scalars, shared_cmd->fingerprint, result, error)) {
+        const bool ok = run_span(ctx, slot, shared_cmd->startIndex, scalars, shared_cmd->fingerprint, result, error);
+        release();
+        if (!ok) {
             respond.error(error);
             return;
         }
@@ -160,13 +167,19 @@ void handle_bn254(MsmService& ctx, wire::MsmBn254&& cmd, Responder<wire::MsmBn25
     });
 }
 
-void handle_bn254_batch(MsmService& ctx, wire::MsmBn254Batch&& cmd, Responder<wire::MsmBn254BatchResponse> respond)
+void handle_bn254_batch_streamed(MsmService& ctx,
+                                 wire::MsmBn254Batch&& cmd,
+                                 std::span<const uint8_t> scalars,
+                                 Responder<wire::MsmBn254BatchResponse> respond,
+                                 ReleaseFn release)
 {
     // Fan the batch out across the worker pool span-by-span: shared state aggregates
     // results in order; the worker that completes the final span responds. Any span
     // failure responds with the first error (exactly-once via the atomic flag).
     struct BatchState {
         wire::MsmBn254Batch cmd;
+        std::span<const uint8_t> scalars;
+        ReleaseFn release;
         std::vector<uint8_t> results;
         std::vector<size_t> scalar_offsets;
         std::atomic<size_t> remaining{ 0 };
@@ -174,12 +187,17 @@ void handle_bn254_batch(MsmService& ctx, wire::MsmBn254Batch&& cmd, Responder<wi
         std::string error;
         std::mutex error_mutex;
         Responder<wire::MsmBn254BatchResponse> respond;
-        BatchState(wire::MsmBn254Batch&& c, Responder<wire::MsmBn254BatchResponse> r)
+        BatchState(wire::MsmBn254Batch&& c,
+                   std::span<const uint8_t> s,
+                   ReleaseFn rel,
+                   Responder<wire::MsmBn254BatchResponse> r)
             : cmd(std::move(c))
+            , scalars(s)
+            , release(std::move(rel))
             , respond(std::move(r))
         {}
     };
-    auto state = std::make_shared<BatchState>(std::move(cmd), std::move(respond));
+    auto state = std::make_shared<BatchState>(std::move(cmd), scalars, std::move(release), std::move(respond));
 
     // Validate the layout up front: per-span scalar byte counts must tile the blob.
     const size_t num_spans = state->cmd.spans.size();
@@ -189,12 +207,14 @@ void handle_bn254_batch(MsmService& ctx, wire::MsmBn254Batch&& cmd, Responder<wi
         state->scalar_offsets.push_back(offset);
         offset += span.numScalars * sizeof(Fr);
     }
-    if (offset != state->cmd.scalars.size()) {
-        state->respond.error("batch scalars blob length (" + std::to_string(state->cmd.scalars.size()) +
+    if (offset != state->scalars.size()) {
+        state->release();
+        state->respond.error("batch scalars blob length (" + std::to_string(state->scalars.size()) +
                              ") does not match sum of span sizes (" + std::to_string(offset) + ")");
         return;
     }
     if (num_spans == 0) {
+        state->release();
         state->respond.ok({ .results = {} });
         return;
     }
@@ -207,12 +227,12 @@ void handle_bn254_batch(MsmService& ctx, wire::MsmBn254Batch&& cmd, Responder<wi
             if (!state->failed.load()) {
                 AffineElement result;
                 std::string error;
-                std::span<const uint8_t> scalars(state->cmd.scalars.data() + state->scalar_offsets[i],
-                                                 span.numScalars * sizeof(Fr));
+                std::span<const uint8_t> span_scalars =
+                    state->scalars.subspan(state->scalar_offsets[i], span.numScalars * sizeof(Fr));
                 if (run_span(ctx,
                              slot,
                              span.startIndex,
-                             scalars,
+                             span_scalars,
                              { span.fingerprint.data(), span.fingerprint.size() },
                              result,
                              error)) {
@@ -225,6 +245,9 @@ void handle_bn254_batch(MsmService& ctx, wire::MsmBn254Batch&& cmd, Responder<wi
                 }
             }
             if (state->remaining.fetch_sub(1) == 1) {
+                // Ring region no longer needed; free it before responding so the
+                // client's next request never lands on a masked ring.
+                state->release();
                 if (state->failed.load()) {
                     state->respond.error(state->error);
                 } else {
