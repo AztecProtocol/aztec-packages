@@ -1,7 +1,7 @@
 import { type AztecNode, createAztecNodeClient } from '@aztec/aztec.js/node';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { AztecSQLiteOPFSStore, openTmpStore, storePoolDirectory } from '@aztec/kv-store/sqlite-opfs';
-import { type PXE, type PXECreationOptions, createPXE } from '@aztec/pxe/client/lazy';
+import { openTmpStore } from '@aztec/kv-store/sqlite-opfs';
+import { type PXE, type PXECreationOptions, createPXE, openBrowserStore } from '@aztec/pxe/client/lazy';
 import { type PXEConfig, getPXEConfig } from '@aztec/pxe/config';
 import { getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry/lazy';
 import { getStandardHandshakeRegistry } from '@aztec/standard-contracts/handshake-registry/lazy';
@@ -10,7 +10,7 @@ import { getStandardMultiCallEntrypoint } from '@aztec/standard-contracts/multi-
 import { LazyAccountContractsProvider } from '../account-contract-providers/lazy.js';
 import type { AccountContractsProvider } from '../account-contract-providers/types.js';
 import { EmbeddedWallet, type EmbeddedWalletOptions, splitPxeOptions } from '../embedded_wallet.js';
-import { WALLET_DATA_STORE_NAME, WalletDB } from '../wallet_db.js';
+import { WALLET_DATA_SCHEMA_VERSION, WalletDB } from '../wallet_db.js';
 
 export class BrowserEmbeddedWallet extends EmbeddedWallet {
   static async create<T extends BrowserEmbeddedWallet = BrowserEmbeddedWallet>(
@@ -64,17 +64,20 @@ export class BrowserEmbeddedWallet extends EmbeddedWallet {
 
     const pxe = await createPXE(aztecNode, pxeConfig, pxeOptions);
 
-    const walletDBStore =
-      options.walletDb?.store ??
-      (options.ephemeral
-        ? await openTmpStore(true)
-        : await AztecSQLiteOPFSStore.open(
-            // Chain-agnostic store: keyed by a fixed schema-versioned name, not by network identity.
-            rootLogger.createChild('wallet:data'),
-            WALLET_DATA_STORE_NAME,
-            false,
-            storePoolDirectory(WALLET_DATA_STORE_NAME),
-          ));
+    let walletDBStore = options.walletDb?.store;
+    if (!walletDBStore) {
+      if (options.ephemeral) {
+        walletDBStore = await openTmpStore(true);
+      } else {
+        const { l1ChainId, l1ContractAddresses } = await aztecNode.getNodeInfo();
+        walletDBStore = await openBrowserStore(
+          'wallet_data',
+          WALLET_DATA_SCHEMA_VERSION,
+          { l1ChainId, rollupAddress: l1ContractAddresses.rollupAddress },
+          rootLogger.createChild('wallet:data'),
+        );
+      }
+    }
     const walletDB = new WalletDB(walletDBStore, rootLogger.createChild('wallet:db').info);
 
     const wallet = new this(pxe, aztecNode, walletDB, new LazyAccountContractsProvider(), rootLogger) as T;
