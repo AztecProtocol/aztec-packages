@@ -150,6 +150,59 @@ the critical path, and batched submission from `batch_multi_scalar_mul`. Until t
 GPU path is correct (proofs byte-compatible, all suites green on sm_86 and sm_89) but
 not faster for AVM/rollup-shaped batches.
 
+## Tx-to-root replay benchmark (2026-07-10)
+
+`scripts/replay_prover_bench.sh` replays a captured set of real proving jobs — the full
+chain for a proven epoch (AVM → chonk verifier → base/parity → block-root →
+checkpoint-root → root rollup) — through pure bb, with per-stage timing and MSM share
+(`BB_MSM_STATS=1`). Fixtures are minted by running any real-proof test with
+`BB_DEBUG_OUTPUT_DIR` set (e.g. `e2e_prover/full`: 1 private + 1 public transfer with
+fees = 11 proving jobs). This is the benchmark for "does GPU MSM help real prover
+workloads", answering what the isolated MSM benches above cannot.
+
+Sequential single chain on g6e.4xlarge (16 vCPU + L40S), same binary
+(`build-gpu/bin/bb-avm`), GPU toggled via env:
+
+| Config | Chain total | vs CPU | Notes |
+|---|---:|---:|---|
+| CPU | 200.1 s | — | MSM share 38.4% of job wall |
+| GPU, threshold 2^16 (default) | 196.2 s | -2% | Stage wins and losses cancel |
+| GPU, threshold 2^19 | 196.2 s | -2% | PublicTxBase still regresses |
+| GPU, threshold 2^20 | **185.2 s** | **-7.4%** | All stages ≥ CPU parity |
+
+Per-stage at threshold 2^20: root rollup 47.6 → 35.4 s (**-25%**; its 2^22–2^24 MSMs
+drop from 17.1 s to 4.5 s), checkpoint-root 48.4 → 45.4 s, parity base 13.2 → 11.0 s;
+AVM unchanged (columns below threshold, by design).
+
+What the losses at lower thresholds exposed: the resident-context cache is keyed on the
+points span, so every distinct span (size/offset) triggers a fresh multi-hundred-MB SRS
+upload — and each replayed job is a fresh process, so nothing amortises across jobs.
+One extra 2^19 MSM over a new span cost PublicTxBase +12 s at threshold 2^19. Real
+prover agents keep bb processes alive across proofs, so these GPU numbers are a lower
+bound; a shared resident SRS (one upload per process, MSMs over sub-spans) plus
+multi-MSM stream pipelining converts the one-shot cost structure to the resident one
+(2^22: 409 ms one-shot vs 197 ms resident in the isolated bench) and unlocks the
+sub-threshold slice (the AVM's ~2,950 column commitments).
+
+MSM share of the whole chain on 16 vCPU is 38% (28% on a 186-core box), so perfect MSM
+offload caps the whole-chain win at ~1.6x; the measured 7.4% with per-MSM dispatch and
+per-span uploads leaves most of that on the table.
+
+**Concurrent chains (the prover-fleet shape)** — 4 chains replaying simultaneously,
+4 threads each, same box:
+
+| Config | Wall (44 jobs) | Throughput vs CPU |
+|---|---:|---:|
+| CPU | 496.8 s | — |
+| GPU, threshold 2^20 | **361.0 s** | **1.38x** |
+
+Under CPU contention the GPU win triples versus the uncontended single chain: the
+offloaded MSMs run on an otherwise-idle device while the freed cores work on sumcheck
+for other proofs. This is the realistic shape — prover agents run many jobs per box —
+and it is measured with the current unoptimised per-MSM dispatch (fresh process per job,
+per-span SRS re-uploads). Resident-SRS sharing and stream pipelining raise the ceiling
+from here.
+
 ## Known limitations (spike scope)
 
 - BN254 G1 only. Grumpkin needs an sppark instantiation over the swapped field pair
