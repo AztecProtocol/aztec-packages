@@ -216,9 +216,14 @@ in the daemon. Same tx-to-root replay fixtures as above:
 |---|---:|---:|
 | CPU only | 200.1 s | 496.8 s |
 | In-process GPU (thr 2^20) | 185.2 s | 361.0 s |
-| **bb-msm daemon (GPU, SHM)** | **173.0 s** | **332.7 s** |
+| bb-msm daemon (GPU, SHM, serial) | 173.0 s | 332.7 s |
+| **bb-msm daemon + 4-worker pool** | **170.5 s** | **302.4 s** |
 
-Zero fallbacks in both runs. The daemon beats in-process GPU by 6.6% (single) / 7.8%
+Zero fallbacks in all runs. The worker pool (--workers, default 4) defers requests off
+the reactor thread onto slot-affine workers — each slot owns an independent resident
+context (~1.2 GB VRAM; 19.9 GB total used at 4 workers) — so concurrent clients submit
+to the device in parallel: 4-chain gains another 9% over the serial daemon (39% under
+CPU, 16% under in-process GPU). Single-chain is unchanged within noise, as expected. The daemon beats in-process GPU by 6.6% (single) / 7.8%
 (4-chain) and CPU by 13.5% / 33% — with requests still executed strictly serially
 behind one mutex and one msm_t. Remaining headroom: a context/stream pool with deferred
 responders and Bn254Batch coalescing (client batch driver currently sends large MSMs
