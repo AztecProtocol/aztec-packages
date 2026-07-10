@@ -844,6 +844,60 @@ bool try_gpu_msm(typename Curve::Element& out,
 }
 #endif
 
+#if !defined(__wasm__)
+// IPC offload to a bb-msm daemon (BB_MSM_SOCKET env var). Weak declaration so binaries
+// that don't link msm_ipc_client still link; the strong definition lives in
+// msm_service/msm_facade_client.cpp. BN254 only; requests below the size threshold or
+// with points that are not the daemon's resident SRS fall back to the local path.
+namespace msm_ipc {
+__attribute__((weak)) bool try_pippenger_bn254(curve::BN254::Element& out,
+                                               PolynomialSpan<const curve::BN254::ScalarField> scalars,
+                                               std::span<const curve::BN254::AffineElement> points) noexcept;
+} // namespace msm_ipc
+
+bool use_ipc_msm() noexcept
+{
+    static const bool ipc_selected =
+        std::getenv("BB_MSM_SOCKET") != nullptr && &msm_ipc::try_pippenger_bn254 != nullptr;
+    return ipc_selected;
+}
+
+size_t ipc_min_msm_size() noexcept
+{
+    static const size_t min_size = [] {
+        if (const char* env = std::getenv("BB_MSM_IPC_MIN_SIZE")) {
+            return static_cast<size_t>(std::strtoull(env, nullptr, 10));
+        }
+        return size_t{ 1 } << 20;
+    }();
+    return min_size;
+}
+
+template <typename Curve>
+bool try_ipc_msm(typename Curve::Element& out,
+                 PolynomialSpan<const typename Curve::ScalarField> scalars,
+                 std::span<const typename Curve::AffineElement> points) noexcept
+{
+    if constexpr (std::is_same_v<Curve, curve::BN254>) {
+        return use_ipc_msm() && scalars.span.size() >= ipc_min_msm_size() &&
+               msm_ipc::try_pippenger_bn254(out, scalars, points);
+    } else {
+        static_cast<void>(out);
+        static_cast<void>(scalars);
+        static_cast<void>(points);
+        return false;
+    }
+}
+#else
+template <typename Curve>
+bool try_ipc_msm(typename Curve::Element&,
+                 PolynomialSpan<const typename Curve::ScalarField>,
+                 std::span<const typename Curve::AffineElement>) noexcept
+{
+    return false;
+}
+#endif
+
 template <typename Curve>
 typename Curve::Element pippenger(PolynomialSpan<const typename Curve::ScalarField> scalars,
                                   std::span<const typename Curve::AffineElement> points,
@@ -851,6 +905,9 @@ typename Curve::Element pippenger(PolynomialSpan<const typename Curve::ScalarFie
                                   bool dedup_hint) noexcept
 {
     MsmStatsScope stats_scope(msm_stats_enabled() ? &msm_stats<Curve>() : nullptr, scalars.span.size());
+    if (typename Curve::Element ipc_result; try_ipc_msm<Curve>(ipc_result, scalars, points)) {
+        return ipc_result;
+    }
 #ifdef BB_GPU
     if (typename Curve::Element gpu_result; try_gpu_msm<Curve>(gpu_result, scalars, points)) {
         return gpu_result;
@@ -868,6 +925,9 @@ typename Curve::Element pippenger_unsafe(PolynomialSpan<const typename Curve::Sc
                                          bool dedup_hint) noexcept
 {
     MsmStatsScope stats_scope(msm_stats_enabled() ? &msm_stats<Curve>() : nullptr, scalars.span.size());
+    if (typename Curve::Element ipc_result; try_ipc_msm<Curve>(ipc_result, scalars, points)) {
+        return ipc_result;
+    }
 #ifdef BB_GPU
     if (typename Curve::Element gpu_result; try_gpu_msm<Curve>(gpu_result, scalars, points)) {
         return gpu_result;
@@ -897,6 +957,50 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
 {
     MsmBatchStatsScope<typename Curve::ScalarField> batch_stats_scope(
         msm_stats_enabled() ? &msm_stats<Curve>() : nullptr, scalars);
+#if !defined(__wasm__)
+    if constexpr (std::is_same_v<Curve, curve::BN254>) {
+        // Mixed dispatch mirroring the GPU batch path: MSMs at or above the IPC size
+        // threshold go to the bb-msm daemon; the small remainder runs through the local
+        // CPU batch driver. Any daemon failure falls back to the local path for the
+        // whole batch.
+        if (use_ipc_msm()) {
+            std::vector<AffineElement> results(scalars.size());
+            std::vector<PolynomialSpan<ScalarField>> local_scalars;
+            std::vector<uint8_t> local_hints;
+            std::vector<size_t> local_indices;
+            bool ok = true;
+            for (size_t i = 0; i < scalars.size() && ok; ++i) {
+                if (scalars[i].span.size() >= ipc_min_msm_size()) {
+                    typename Curve::Element ipc_result;
+                    ok = try_ipc_msm<Curve>(
+                        ipc_result, { scalars[i].start_index, std::span<const ScalarField>(scalars[i].span) }, points);
+                    if (ok) {
+                        results[i] = AffineElement(ipc_result);
+                    }
+                } else {
+                    local_indices.push_back(i);
+                    local_scalars.push_back(scalars[i]);
+                    if (i < dedup_hints.size()) {
+                        local_hints.push_back(dedup_hints[i]);
+                    }
+                }
+            }
+            if (ok) {
+                if (!local_scalars.empty()) {
+                    std::span<const uint8_t> hints_span = local_hints.size() == local_scalars.size()
+                                                              ? std::span<const uint8_t>(local_hints)
+                                                              : std::span<const uint8_t>{};
+                    auto local_results = MSM_fast<Curve>::batch_multi_scalar_mul(
+                        points, { local_scalars.data(), local_scalars.size() }, handle_edge_cases, hints_span);
+                    for (size_t j = 0; j < local_indices.size(); ++j) {
+                        results[local_indices[j]] = local_results[j];
+                    }
+                }
+                return results;
+            }
+        }
+    }
+#endif
 #ifdef BB_GPU
     if constexpr (std::is_same_v<Curve, curve::BN254>) {
         if (use_gpu_msm()) {

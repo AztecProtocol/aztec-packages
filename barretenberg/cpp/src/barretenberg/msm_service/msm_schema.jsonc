@@ -1,0 +1,53 @@
+{
+  // bb-msm: box-local MSM offload service. One daemon per machine owns the device
+  // (GPU when built with -DGPU=ON, CPU otherwise) and a single resident prefix of
+  // the canonical BN254 monomial SRS. Clients (bb prover processes) send scalars
+  // only; points never cross the wire.
+  //
+  // Wire formats (internal service, same-architecture assumption):
+  // - scalars: concatenated 32-byte bb::fr values in Montgomery form (raw limbs).
+  // - result:  64-byte bb affine element (raw x,y limbs, bb infinity encoding).
+  // - fingerprint: raw bytes of points[startIndex] from the caller's table; the
+  //   daemon verifies it against its own SRS so a caller whose points are NOT the
+  //   canonical SRS prefix gets an error (and falls back to its CPU path) instead
+  //   of a wrong result.
+  "service": "Msm",
+  "aliases": {},
+  "types": {
+    "Span": {
+      "startIndex": "u64",
+      "scalars": "bytes",
+      "fingerprint": "bytes"
+    }
+  },
+  "error": {
+    "message": "string"
+  },
+  "commands": {
+    "GetInfo": {
+      "request": {},
+      "response": {
+        "gpu": "bool",
+        "residentPoints": "u64"
+      }
+    },
+    "Bn254": {
+      "request": {
+        "startIndex": "u64",
+        "scalars": "bytes",
+        "fingerprint": "bytes"
+      },
+      "response": {
+        "result": "bytes"
+      }
+    },
+    "Bn254Batch": {
+      "request": {
+        "spans": "Span[]"
+      },
+      "response": {
+        "results": "bytes"
+      }
+    }
+  }
+}

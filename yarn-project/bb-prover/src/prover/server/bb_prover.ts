@@ -91,6 +91,7 @@ import { ungzip } from 'pako';
 import * as path from 'path';
 
 import { BBJsFactory, type BBJsProofResult } from '../../bb/bb_js_backend.js';
+import { ensureBbMsmDaemon } from '../../bb/msm_daemon.js';
 import type { ACVMConfig, BBConfig } from '../../config.js';
 import { getUltraHonkFlavorForCircuit } from '../../honk.js';
 import { ProverInstrumentation } from '../../instrumentation.js';
@@ -129,6 +130,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     await fs.mkdir(config.bbWorkingDirectory, { recursive: true });
     logger.info(`Using bb.js API with binary at ${config.bbBinaryPath}`);
     logger.info(`Using native ACVM at ${config.acvmBinaryPath} and working directory ${config.acvmWorkingDirectory}`);
+    await ensureBbMsmDaemon(config.bbBinaryPath, logger);
 
     return new BBNativeRollupProver(config, telemetry);
   }
