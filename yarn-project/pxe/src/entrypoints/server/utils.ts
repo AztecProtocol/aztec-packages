@@ -14,7 +14,7 @@ import type { PXEConfig } from '../../config/index.js';
 import { PXE } from '../../pxe.js';
 import { PXE_DATA_SCHEMA_VERSION } from '../../storage/index.js';
 import { type PXECreationOptions, isPrivateKernelProver } from '../pxe_creation_options.js';
-import { openPXEStore } from './store.js';
+import { openStore } from './store.js';
 
 type PXEConfigWithoutDefaults = Omit<
   PXEConfig,
@@ -46,7 +46,7 @@ export async function createPXE(
 
   if (!options.store) {
     const storeLogger = loggers.store ?? createLogger('pxe:data:lmdb', { actor });
-    options.store = await openPXEStore(
+    options.store = await openStore(
       'pxe_data',
       PXE_DATA_SCHEMA_VERSION,
       {

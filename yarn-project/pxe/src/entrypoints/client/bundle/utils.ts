@@ -11,7 +11,7 @@ import type { PXEConfig } from '../../../config/index.js';
 import { PXE } from '../../../pxe.js';
 import { PXE_DATA_SCHEMA_VERSION } from '../../../storage/metadata.js';
 import { type PXECreationOptions, isPrivateKernelProver } from '../../pxe_creation_options.js';
-import { openPXEBrowserStore } from '../store.js';
+import { openBrowserStore } from '../store.js';
 
 /**
  * Create and start an PXE instance with the given AztecNode.
@@ -43,7 +43,7 @@ export async function createPXE(
 
   const store =
     options.store ??
-    (await openPXEBrowserStore(
+    (await openBrowserStore(
       'pxe_data',
       PXE_DATA_SCHEMA_VERSION,
       {

@@ -9,7 +9,7 @@ import { assertStoreIdentity, effectiveStoreName } from '../../storage/store_ide
  * config.rollupAddress, schemaVersion)` triple. A store exists per identity: reopening with the same identity returns
  * the same data, a different identity selects a different (possibly fresh) store.
  */
-export async function openPXEBrowserStore(
+export async function openBrowserStore(
   name: string,
   schemaVersion: number,
   config: { l1ChainId: number; rollupAddress: EthAddress; dataStoreMapSizeKb?: number },

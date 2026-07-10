@@ -21,7 +21,7 @@ export type IdentityStoreConfig = {
  * A store exists per identity: reopening with the same identity returns the same data, a different identity selects
  * a different (possibly fresh) store. Falls back to an ephemeral tmp store when no data directory is configured.
  */
-export async function openPXEStore(
+export async function openStore(
   name: string,
   schemaVersion: number,
   config: IdentityStoreConfig,
