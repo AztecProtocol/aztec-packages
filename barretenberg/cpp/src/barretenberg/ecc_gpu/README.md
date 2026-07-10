@@ -251,6 +251,26 @@ Beating it requires a fused many-small-MSM kernel (single launch over many segme
 which sppark does not provide — the remaining research item for the AVM slice, alongside
 daemon-side reference-mode parsing + cudaHostRegister (removes the last host copy).
 
+## Zero-copy + pinned-ring DMA results (2026-07-10, g6e.4xlarge)
+
+With the daemon-side zero-copy dispatch (deferred ring release; payloads consumed in
+place from the SHM ring) and the request rings cudaHostRegister'd (direct DMA, all 8
+rings — needs the 16g /dev/shm the GPU devboxes now get):
+
+| Config | Single chain | 4 chains | AVM (full offload, thr 4096) |
+|---|---:|---:|---:|
+| CPU only | 200.1 s | 496.8 s | 3.50 s |
+| In-process GPU (thr 2^20) | 185.2 s | 361.0 s | — |
+| Daemon + pool (copy-mode) | 170.5 s | 302.4 s | 3.45 s |
+| **Daemon zero-copy + DMA** | **160.5 s** | **281.9 s** | **3.27 s** |
+
+Zero fallbacks; proofs verify. The copy elimination is worth a further ~6-7% on both
+chain shapes, and the fully-offloaded AVM job now clearly beats the CPU batch driver
+(3.27 vs 3.50) — small-column fan-out is profitable once no copies sit in front of the
+device. Cumulative: 20% under CPU on single-chain latency, 43% under CPU on 4-chain
+throughput, with the remaining known headroom being a fused many-small-MSM kernel and
+finer-than-request release granularity.
+
 ## Known limitations (spike scope)
 
 - BN254 G1 only. Grumpkin needs an sppark instantiation over the swapped field pair
