@@ -855,7 +855,8 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
    * @param address - The recipient address.
    * @param ephPks - Ephemeral array containing the serialized Points.
    * @param contractAddress - The contract address for app-siloing (validated against execution context).
-   * @returns A new ephemeral array containing the computed shared secrets.
+   * @returns A new ephemeral array containing the computed shared secrets, or an empty array when the PXE does not
+   * hold the keys for `address`.
    * @throws If `address` is not in the execution's allowed scopes.
    */
   public async getSharedSecrets(
@@ -871,7 +872,19 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
 
     assertAllowedScope(address, this.scopes);
 
-    const recipientCompleteAddress = await this.getCompleteAddressOrFail(address);
+    // An address can be in scope without the PXE holding its keys (e.g. syncing a registered but non-owned account),
+    // in which case no secrets can be derived and we return an empty array rather than failing.
+    const recipientCompleteAddress = await this.addressStore.getCompleteAddress(address);
+    if (!recipientCompleteAddress) {
+      this.logger.warn(
+        `Computing shared secrets for address ${address} whose keys are not held - returning no secrets`,
+        {
+          address,
+          contractAddress: this.contractAddress,
+        },
+      );
+      return EphemeralArray.fromValues<Fr>(this.ephemeralArrayService, []);
+    }
     const ivpkMHash = await hashPublicKey(recipientCompleteAddress.publicKeys.ivpkM);
     const ivskM = await this.keyStore.getMasterSecretKey(ivpkMHash);
     const addressSecret = await computeAddressSecret(await recipientCompleteAddress.getPreaddress(), ivskM);
