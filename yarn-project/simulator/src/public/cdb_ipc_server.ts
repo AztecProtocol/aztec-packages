@@ -116,6 +116,15 @@ export class CdbIpcServer implements CdbHandler {
     this.forks.delete(forkId);
   }
 
+  /**
+   * Resolves once the server socket is bound and accepting connections. An
+   * in-process AVM connects synchronously at construction, so it must await this
+   * first — otherwise the connect races the (event-loop-driven) listen.
+   */
+  async ready(): Promise<void> {
+    await this.server;
+  }
+
   /** Close the server and all active connections. */
   async close(): Promise<void> {
     const server = await this.server.catch(() => undefined);

@@ -6,7 +6,9 @@ import { GlobalVariables } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 import { NativeWorldStateService } from '@aztec/world-state';
 
+import type { AvmSimulator } from '../avm_simulator.js';
 import { AvmSimulatorPool } from '../avm_simulator_pool.js';
+import { NapiAvmSimulator } from '../napi_avm_simulator.js';
 import { PublicContractsDB } from '../public_db_sources.js';
 import { GuardedMerkleTreeOperations } from '../public_processor/guarded_merkle_tree.js';
 import { PublicProcessor } from '../public_processor/public_processor.js';
@@ -49,7 +51,7 @@ export class PublicProcessorTestEnv implements AsyncDisposable {
     public readonly contractsDB: PublicContractsDB,
     public readonly globals: GlobalVariables,
     private readonly worldStateService: NativeWorldStateService,
-    private readonly avmSimulator: AvmSimulatorPool,
+    private readonly avmSimulator: AvmSimulator & AsyncDisposable,
   ) {}
 
   static async create(opts: PublicProcessorTestEnvOptions = {}): Promise<PublicProcessorTestEnv> {
@@ -62,7 +64,12 @@ export class PublicProcessorTestEnv implements AsyncDisposable {
     const contractsDB = new PublicContractsDB(contractDataSource);
 
     const forkId = merkleTrees.getRevision().forkId;
-    const avmSimulator = await AvmSimulatorPool.spawn({ wsdbIpcPath: worldStateService.getIpcPath() });
+    // AVM_INPROCESS_NODE runs the AVM in-process (NAPI) instead of a bb-avm-sim subprocess pool; both
+    // satisfy AvmSimulator, so the rest of the env is identical. Used to prove the in-process round-trip.
+    const wsdbIpcPath = worldStateService.getIpcPath();
+    const avmSimulator = process.env.AVM_INPROCESS_NODE
+      ? await NapiAvmSimulator.spawn({ wsdbIpcPath })
+      : await AvmSimulatorPool.spawn({ wsdbIpcPath });
 
     const simulator = new PublicTxSimulator(avmSimulator, globals, contractsDB, config, undefined, forkId);
     const processor = new PublicProcessor(

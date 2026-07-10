@@ -1,7 +1,7 @@
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { AvmSimulatorPool } from '@aztec/simulator/server';
+import { type AvmSimulator, AvmSimulatorPool, NapiAvmSimulator } from '@aztec/simulator/server';
 import type { BlockHash, L2Block } from '@aztec/stdlib/block';
 import type {
   MerkleTreeReadOperations,
@@ -16,8 +16,8 @@ export class TXESynchronizer implements WorldStateSynchronizer {
   // This works when set to 1 as well.
   private blockNumber = BlockNumber.ZERO;
 
-  /** AVM execution backend (simulator pool + CDB server) shared across all public simulations. */
-  public avmSimulator!: AvmSimulatorPool;
+  /** AVM execution backend shared across all public simulations, behind the transport-agnostic interface. */
+  public avmSimulator!: AvmSimulator & AsyncDisposable;
 
   constructor(public nativeWorldStateService: NativeWorldStateService) {}
 
@@ -26,9 +26,13 @@ export class TXESynchronizer implements WorldStateSynchronizer {
 
     const synchronizer = new this(nativeWorldStateService);
 
-    synchronizer.avmSimulator = await AvmSimulatorPool.spawn({
-      wsdbIpcPath: nativeWorldStateService.getIpcPath(),
-    });
+    // TXE_IN_PROCESS runs the AVM in-process (NAPI addon) instead of a pool of bb-avm-sim subprocesses.
+    // Both satisfy the AvmSimulator interface, so nothing downstream changes. Slice A keeps world state and
+    // contract data out-of-process (reached over sockets); only the AVM comes in-process.
+    const wsdbIpcPath = nativeWorldStateService.getIpcPath();
+    synchronizer.avmSimulator = process.env.TXE_IN_PROCESS
+      ? await NapiAvmSimulator.spawn({ wsdbIpcPath })
+      : await AvmSimulatorPool.spawn({ wsdbIpcPath });
 
     return synchronizer;
   }

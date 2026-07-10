@@ -3,15 +3,63 @@
 #include <napi.h>
 
 #include <cstdlib>
+#include <cstring>
 #include <string>
+#include <vector>
 
-// Thin NAPI wrapper over the avm_sim_ffi C ABI (barretenberg). It runs the AVM
+// Thin NAPI wrapper over the avm_sim_ffi C ABI (barretenberg). Runs the AVM
 // in-process — no bb-avm-sim subprocess. Deliberately tiny and generic: the
 // only AVM-specific part is the constructor wiring its deps (wsdb/cdb paths);
 // `call` is byte-in/byte-out and knows nothing about AVM commands. Barretenberg
 // stays free of any Node/NAPI code; this wrapper is the in-process consumer of
-// its C ABI, mirroring how bb-avm-sim is the out-of-process consumer.
+// its C ABI, mirroring bb-avm-sim as the out-of-process consumer.
+//
+// `call` runs the (blocking) C ABI on a worker thread and returns a Promise:
+// the AVM must NOT run on the JS thread, because it reaches contract data over
+// the CDB socket whose server runs on that same event loop — a synchronous call
+// would block the loop and deadlock against its own CDB requests. One instance
+// serves one concurrent call (its clients aren't shared-thread-safe); a pool of
+// instances gives concurrency, mirroring the out-of-process process pool.
 namespace {
+
+// AsyncWorker that runs one avm_call off the JS thread and settles a Promise.
+class CallWorker : public Napi::AsyncWorker {
+public:
+  CallWorker(Napi::Env env, avm_instance_t *instance,
+             std::vector<uint8_t> request, Napi::Promise::Deferred deferred)
+      : Napi::AsyncWorker(env), instance_(instance),
+        request_(std::move(request)), deferred_(deferred) {}
+
+  void Execute() override {
+    uint8_t *out = nullptr;
+    size_t out_len = 0;
+    int rc =
+        avm_call(instance_, request_.data(), request_.size(), &out, &out_len);
+    if (rc != 0) {
+      SetError("avm_call failed");
+      return;
+    }
+    response_.assign(out, out + out_len);
+    std::free(out);
+  }
+
+  void OnOK() override {
+    Napi::HandleScope scope(Env());
+    deferred_.Resolve(
+        Napi::Buffer<uint8_t>::Copy(Env(), response_.data(), response_.size()));
+  }
+
+  void OnError(const Napi::Error &e) override {
+    Napi::HandleScope scope(Env());
+    deferred_.Reject(e.Value());
+  }
+
+private:
+  avm_instance_t *instance_;
+  std::vector<uint8_t> request_;
+  std::vector<uint8_t> response_;
+  Napi::Promise::Deferred deferred_;
+};
 
 class InProcessAvm : public Napi::ObjectWrap<InProcessAvm> {
 public:
@@ -43,50 +91,49 @@ public:
     }
   }
 
-  ~InProcessAvm() override {
-    if (instance_ != nullptr) {
-      avm_destroy(instance_);
-      instance_ = nullptr;
-    }
-  }
+  ~InProcessAvm() override { free_instance(); }
 
-  // call(request: Buffer): Buffer — one msgpack AvmSimulate frame in/out.
+  // call(request: Buffer): Promise<Buffer> — one msgpack AvmSimulate frame
+  // in/out, run on a worker thread.
   Napi::Value call(const Napi::CallbackInfo &info) {
     Napi::Env env = info.Env();
+    auto deferred = Napi::Promise::Deferred::New(env);
     if (instance_ == nullptr) {
-      Napi::Error::New(env, "InProcessAvm already destroyed")
-          .ThrowAsJavaScriptException();
-      return env.Null();
+      deferred.Reject(
+          Napi::Error::New(env, "InProcessAvm already destroyed").Value());
+      return deferred.Promise();
     }
     if (info.Length() < 1 || !info[0].IsBuffer()) {
-      Napi::TypeError::New(env, "call(request: Buffer) expects a Buffer")
-          .ThrowAsJavaScriptException();
-      return env.Null();
+      deferred.Reject(
+          Napi::TypeError::New(env, "call(request: Buffer) expects a Buffer")
+              .Value());
+      return deferred.Promise();
     }
+    // Copy the request out of the JS Buffer: it must stay valid on the worker
+    // thread, independent of GC.
     auto request = info[0].As<Napi::Buffer<uint8_t>>();
-    uint8_t *out = nullptr;
-    size_t out_len = 0;
-    int rc =
-        avm_call(instance_, request.Data(), request.Length(), &out, &out_len);
-    if (rc != 0) {
-      Napi::Error::New(env, "avm_call failed").ThrowAsJavaScriptException();
-      return env.Null();
-    }
-    Napi::Buffer<uint8_t> result =
-        Napi::Buffer<uint8_t>::Copy(env, out, out_len);
-    std::free(out);
-    return result;
+    std::vector<uint8_t> request_copy(request.Data(),
+                                      request.Data() + request.Length());
+
+    auto *worker =
+        new CallWorker(env, instance_, std::move(request_copy), deferred);
+    worker->Queue();
+    return deferred.Promise();
   }
 
   Napi::Value destroy(const Napi::CallbackInfo &info) {
-    if (instance_ != nullptr) {
-      avm_destroy(instance_);
-      instance_ = nullptr;
-    }
+    free_instance();
     return info.Env().Undefined();
   }
 
 private:
+  void free_instance() {
+    if (instance_ != nullptr) {
+      avm_destroy(instance_);
+      instance_ = nullptr;
+    }
+  }
+
   avm_instance_t *instance_ = nullptr;
 };
 
