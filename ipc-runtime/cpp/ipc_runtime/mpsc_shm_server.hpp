@@ -157,6 +157,12 @@ class MpscShmServer : public IpcServer {
         return true;
     }
 
+    std::vector<std::pair<void*, size_t>> request_regions() override
+    {
+        return request_consumer_.has_value() ? request_consumer_->ring_regions()
+                                             : std::vector<std::pair<void*, size_t>>{};
+    }
+
     bool send(int client_id, const void* data, size_t len) override
     {
         if (client_id < 0 || static_cast<size_t>(client_id) >= response_rings_.size()) {

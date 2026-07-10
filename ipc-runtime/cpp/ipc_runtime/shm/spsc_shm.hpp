@@ -103,6 +103,14 @@ class SpscShm {
     uint64_t capacity() const { return ctrl_->capacity; }
 
     /**
+     * @brief The ring's data buffer region (address, length).
+     *
+     * For consumers that hand ring pointers to DMA engines (e.g. cudaHostRegister
+     * so GPU transfers read the ring directly at pinned-memory speed).
+     */
+    std::pair<void*, size_t> data_region() const { return { buf_, ctrl_->capacity }; }
+
+    /**
      * Producer API: claim() and publish() must be used in pairs
      *
      * @brief Claim contiguous space in the ring buffer (blocks until available)

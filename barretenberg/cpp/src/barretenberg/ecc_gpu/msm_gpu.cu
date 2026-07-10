@@ -94,6 +94,14 @@ bool available() noexcept
     return ngpus() > 0;
 }
 
+bool host_register(void* ptr, size_t size) noexcept
+{
+    if (!available() || ptr == nullptr || size == 0) {
+        return false;
+    }
+    return cudaHostRegister(ptr, size, cudaHostRegisterDefault) == cudaSuccess;
+}
+
 namespace {
 int consume_error(RustError&& err) noexcept
 {

@@ -15,6 +15,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace ipc {
@@ -132,6 +133,17 @@ class MpscConsumer {
      * releasing thread; atomic per ring.
      */
     void set_masked(size_t ring_index, bool masked);
+
+    /** Data regions of all request rings (see SpscShm::data_region). */
+    std::vector<std::pair<void*, size_t>> ring_regions() const
+    {
+        std::vector<std::pair<void*, size_t>> regions;
+        regions.reserve(rings_.size());
+        for (const auto& ring : rings_) {
+            regions.push_back(ring.data_region());
+        }
+        return regions;
+    }
 
     /**
      * @brief Wait for data on any ring

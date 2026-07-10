@@ -117,6 +117,14 @@ class IpcServer {
     }
 
     /**
+     * @brief Memory regions that request payloads may point into (deferred-release
+     * dispatch hands out spans into these). Lets a service register them with a DMA
+     * engine (e.g. cudaHostRegister) so device transfers read them directly. Empty
+     * for transports whose receive buffers are not stable mappings.
+     */
+    virtual std::vector<std::pair<void*, size_t>> request_regions() { return {}; }
+
+    /**
      * @brief Receive next message from a specific client
      *
      * Blocks until a complete message is available. Returns a span pointing to

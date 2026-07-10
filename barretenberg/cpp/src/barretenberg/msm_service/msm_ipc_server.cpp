@@ -10,6 +10,7 @@ __attribute__((weak)) bool try_pippenger_bn254_canonical(curve::BN254::Element& 
                                                          const uint64_t* scalars_canonical,
                                                          size_t num_scalars,
                                                          std::span<const curve::BN254::AffineElement> points) noexcept;
+__attribute__((weak)) bool host_register(void* ptr, size_t size) noexcept;
 } // namespace bb::scalar_multiplication::gpu
 
 namespace bb::msm_service {
@@ -35,6 +36,16 @@ static void serve_with_options(const std::string& input_path,
     ipc::install_default_signal_handlers(*server);
     if (!server->listen()) {
         throw std::runtime_error("ipc::IpcServer::listen() failed for " + input_path);
+    }
+    if (ctx.gpu && &scalar_multiplication::gpu::host_register != nullptr) {
+        // Pin the request rings with the CUDA driver: scalar payloads are consumed in
+        // place from these regions, and registration turns those transfers into direct
+        // DMA at full PCIe bandwidth (also making async copies genuinely async).
+        size_t registered = 0;
+        for (auto [ptr, size] : server->request_regions()) {
+            registered += scalar_multiplication::gpu::host_register(ptr, size) ? 1 : 0;
+        }
+        info("bb-msm: cudaHostRegister'd ", registered, " request ring(s)");
     }
     auto handler = make_msm_handler_zc(ctx);
     server->run_reactor_zero_copy(

@@ -25,6 +25,13 @@ struct JacobianPointRaw {
 // True if a usable CUDA device (Volta+) is present.
 bool available() noexcept;
 
+// Page-lock a host memory region and register it with the CUDA driver so device
+// transfers from it are direct DMA (no driver bounce buffer). Used on the bb-msm
+// request rings, which are the source of every scalar transfer. Returns false when no
+// device is available or registration fails; the region then behaves as ordinary
+// pageable memory (correct, slower).
+bool host_register(void* ptr, size_t size) noexcept;
+
 // One-shot BN254 G1 MSM including host->device point transfer:
 // out = sum_i scalars[i] * points[i].
 // Scalars are canonical (< r) standard-form (non-Montgomery) fr limbs, 4 uint64 each.
