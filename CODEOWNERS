@@ -12,17 +12,17 @@
 # Notify the AVM team
 #
 # on changes to PIL code-generator
-/bb-pilcom @MirandaWood @jeanmon @IlyasRidhuan
+/bb-pilcom @MirandaWood @IlyasRidhuan
 # on changes to PIL code (AVM circuit)
-/barretenberg/cpp/pil @MirandaWood @jeanmon @IlyasRidhuan
+/barretenberg/cpp/pil @MirandaWood @IlyasRidhuan
 # on changes to AVM C++ code
-/barretenberg/cpp/src/barretenberg/vm2 @MirandaWood @jeanmon @IlyasRidhuan
+/barretenberg/cpp/src/barretenberg/vm2 @MirandaWood @IlyasRidhuan
 # on changes to public context in aztec-nr
-/noir-projects/aztec-nr/aztec/src/context/public_context.nr @MirandaWood @jeanmon @IlyasRidhuan
+/noir-projects/aztec-nr/aztec/src/context/public_context.nr @MirandaWood @IlyasRidhuan
 # on changes to the AVM simulator and supporting modules
-/yarn-project/simulator/src/public @MirandaWood @jeanmon @IlyasRidhuan
+/yarn-project/simulator/src/public @MirandaWood @IlyasRidhuan
 # on changes to the AVM transpiler
-/avm-transpiler/src @MirandaWood @jeanmon @IlyasRidhuan @sirasistant
+/avm-transpiler/src @MirandaWood @IlyasRidhuan @sirasistant
 #####################################################
 
 # Notify fairies of changes to playground bundler config
