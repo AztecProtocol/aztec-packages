@@ -1,7 +1,13 @@
 import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { BlockNumber } from '@aztec/foundation/branded-types';
 import { Fr } from '@aztec/foundation/curves/bn254';
-import { type AvmSimulator, AvmSimulatorPool, NapiAvmSimulator } from '@aztec/simulator/server';
+import {
+  type AvmSimulator,
+  AvmSimulatorPool,
+  NapiAvmSimulator,
+  NapiWsdbBackend,
+  createInProcessWsdb,
+} from '@aztec/simulator/server';
 import type { BlockHash, L2Block } from '@aztec/stdlib/block';
 import type {
   MerkleTreeReadOperations,
@@ -10,7 +16,12 @@ import type {
   WorldStateSynchronizer,
   WorldStateSynchronizerStatus,
 } from '@aztec/stdlib/interfaces/server';
-import { NativeWorldStateService } from '@aztec/world-state/native';
+import { EMPTY_GENESIS_DATA } from '@aztec/stdlib/world-state';
+import { NativeWorldStateService, buildInProcessWsdbOptions } from '@aztec/world-state/native';
+
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 export class TXESynchronizer implements WorldStateSynchronizer {
   // This works when set to 1 as well.
@@ -22,18 +33,53 @@ export class TXESynchronizer implements WorldStateSynchronizer {
   constructor(public nativeWorldStateService: NativeWorldStateService) {}
 
   static async create() {
+    // TXE_IN_PROCESS runs BOTH the world state and the AVM in-process (NAPI addon), sharing ONE WorldState with
+    // zero child processes. All backends satisfy the same interfaces, so nothing downstream changes.
+    if (process.env.TXE_IN_PROCESS) {
+      return this.createInProcess();
+    }
+
     const nativeWorldStateService = await NativeWorldStateService.ephemeral();
-
     const synchronizer = new this(nativeWorldStateService);
-
-    // TXE_IN_PROCESS runs the AVM in-process (NAPI addon) instead of a pool of bb-avm-sim subprocesses.
-    // Both satisfy the AvmSimulator interface, so nothing downstream changes. Slice A keeps world state and
-    // contract data out-of-process (reached over sockets); only the AVM comes in-process.
     const wsdbIpcPath = nativeWorldStateService.getIpcPath();
-    synchronizer.avmSimulator = process.env.TXE_IN_PROCESS
-      ? await NapiAvmSimulator.spawn({ wsdbIpcPath })
-      : await AvmSimulatorPool.spawn({ wsdbIpcPath });
+    synchronizer.avmSimulator = await AvmSimulatorPool.spawn({ wsdbIpcPath });
+    return synchronizer;
+  }
 
+  /**
+   * Fully in-process TXE: one WorldState hosted in this process (via the avm_inprocess NAPI addon), driven by
+   * both the world-state service and a co-hosted AVM — no aztec-wsdb and no bb-avm-sim subprocesses. Teardown
+   * order (AVM disposed before the world state closes) is handled by the session, and the AVM only borrows the
+   * shared handle.
+   */
+  private static async createInProcess(): Promise<TXESynchronizer> {
+    const dataDir = await mkdtemp(join(tmpdir(), 'aztec-txe-world-state-'));
+    const cleanup = () => rm(dataDir, { recursive: true, force: true, maxRetries: 3 });
+
+    // Small, short-lived tree map sizes (matches NativeWorldStateService.tmp): 256 MB/tree is ample for tests.
+    const dbMapSizeKb = 256 * 1024;
+    const wsTreeMapSizes = {
+      archiveTreeMapSizeKb: dbMapSizeKb,
+      nullifierTreeMapSizeKb: dbMapSizeKb,
+      noteHashTreeMapSizeKb: dbMapSizeKb,
+      messageTreeMapSizeKb: dbMapSizeKb,
+      publicDataTreeMapSizeKb: dbMapSizeKb,
+    };
+    const genesis = EMPTY_GENESIS_DATA;
+
+    const inProcessWsdb = createInProcessWsdb(
+      dataDir,
+      buildInProcessWsdbOptions(wsTreeMapSizes, genesis, /*threads=*/ 1),
+    );
+    const nativeWorldStateService = await NativeWorldStateService.fromWsdbBackend(
+      new NapiWsdbBackend(inProcessWsdb),
+      genesis,
+      undefined,
+      undefined,
+      cleanup,
+    );
+    const synchronizer = new this(nativeWorldStateService);
+    synchronizer.avmSimulator = await NapiAvmSimulator.spawnCoHosted({ inProcessWsdb });
     return synchronizer;
   }
 

@@ -1,14 +1,25 @@
 import { AsyncApi } from '@aztec/bb-avm-sim';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { IpcClientAsync } from '@aztec/ipc-runtime';
+import type { InProcessWsdbOptions } from '@aztec/world-state/native';
 
 import { createRequire } from 'node:module';
 
 import type { AvmContractsDBContext, AvmSimulator } from './avm_simulator.js';
 import { CdbIpcServer } from './cdb_ipc_server.js';
 
-/** Handle exposed by the avm_inprocess NAPI addon. */
+/** Handle exposed by the avm_inprocess NAPI addon's InProcessAvm class. */
 interface InProcessAvmHandle {
+  call(request: Buffer): Promise<Buffer>;
+  destroy(): void;
+}
+
+/**
+ * Handle exposed by the avm_inprocess NAPI addon's InProcessWsdb class — owns a WorldState in-process. The
+ * same object drives the TS world-state service (wrapped in {@link NapiWsdbBackend}) AND is handed to a
+ * co-hosted {@link NapiAvmSimulator} so both share one WorldState.
+ */
+export interface InProcessWsdbHandle {
   call(request: Buffer): Promise<Buffer>;
   destroy(): void;
 }
@@ -17,12 +28,27 @@ interface InProcessAvmHandle {
 type OnHostCall = (target: number, req: Buffer) => Promise<Buffer>;
 
 interface InProcessAvmModule {
-  // Second arg: a CDB socket path (Slice A) or an onHostCall router (Slice B, in-process CDB).
-  InProcessAvm: new (wsdbPath: string, cdbPathOrOnHostCall: string | OnHostCall) => InProcessAvmHandle;
+  // First arg: a wsdb socket path (Slice A/B) or a co-hosted InProcessWsdb (Slice C, shared WorldState).
+  // Second arg: a CDB socket path (Slice A) or an onHostCall router (Slice B/C, in-process CDB).
+  InProcessAvm: new (
+    wsdbPathOrHandle: string | InProcessWsdbHandle,
+    cdbPathOrOnHostCall: string | OnHostCall,
+  ) => InProcessAvmHandle;
+  InProcessWsdb: new (dataDir: string, options: InProcessWsdbOptions) => InProcessWsdbHandle;
 }
 
 /** Host-call target id for the contracts-DB service; must match CDB_TARGET in host_call_contract_db.cpp. */
 const CDB_TARGET = 0;
+
+/** The CDB reverse-channel router: dispatch the AVM's host_call requests to the socketless CDB server. */
+function makeCdbHostCallRouter(cdbServer: CdbIpcServer): OnHostCall {
+  return async (target, req) => {
+    if (target !== CDB_TARGET) {
+      throw new Error(`in-process AVM: unknown host_call target ${target}`);
+    }
+    return Buffer.from(await cdbServer.handle(req));
+  };
+}
 
 /**
  * Load the avm_inprocess `.node` addon. Located via `AVM_INPROCESS_NODE` for the
@@ -58,6 +84,35 @@ class NapiBackend implements IpcClientAsync {
 }
 
 /**
+ * Create an in-process world state (a co-hostable {@link InProcessWsdbHandle}) via the avm_inprocess addon.
+ * Pass the returned handle to `NativeWorldStateService.fromWsdbBackend` (wrapped in {@link NapiWsdbBackend}) for
+ * the TS world-state service, and to {@link NapiAvmSimulator.spawnCoHosted} for the AVM — both then share the
+ * one WorldState. Config (tree heights/prefill/map sizes/genesis) is built by `buildInProcessWsdbOptions`.
+ */
+export function createInProcessWsdb(dataDir: string, options: InProcessWsdbOptions): InProcessWsdbHandle {
+  const { InProcessWsdb } = loadAddon();
+  return new InProcessWsdb(dataDir, options);
+}
+
+/**
+ * {@link IpcClientAsync} backend routing the generated wsdb {@link AsyncApi}'s byte frames to an in-process
+ * {@link InProcessWsdbHandle} (NAPI) instead of a spawned aztec-wsdb process's socket.
+ */
+export class NapiWsdbBackend implements IpcClientAsync {
+  constructor(private wsdb: InProcessWsdbHandle) {}
+
+  async call(input: Uint8Array): Promise<Uint8Array> {
+    const response = await this.wsdb.call(Buffer.from(input));
+    return new Uint8Array(response);
+  }
+
+  destroy(): Promise<void> {
+    this.wsdb.destroy();
+    return Promise.resolve();
+  }
+}
+
+/**
  * An {@link AvmSimulator} that runs the AVM IN-PROCESS via the avm_inprocess NAPI addon, instead of a pool of
  * bb-avm-sim subprocesses. Sibling of {@link AvmSimulatorPool}: it owns the same CDB reverse channel (the
  * {@link CdbIpcServer} dispatch + per-simulate fork registration) and drives the generated `AvmService`.
@@ -81,14 +136,21 @@ export class NapiAvmSimulator implements AvmSimulator {
     const { InProcessAvm } = loadAddon();
     // Socketless CDB: the in-process AVM reaches it via host_call, not a socket.
     const cdbServer = new CdbIpcServer(/*listenSocket=*/ false);
-    // The generic host-call router: dispatch the AVM's reverse requests to the right host service.
-    const onHostCall: OnHostCall = async (target, req) => {
-      if (target !== CDB_TARGET) {
-        throw new Error(`in-process AVM: unknown host_call target ${target}`);
-      }
-      return Buffer.from(await cdbServer.handle(req));
-    };
-    const avm = new InProcessAvm(options.wsdbIpcPath, onHostCall);
+    const avm = new InProcessAvm(options.wsdbIpcPath, makeCdbHostCallRouter(cdbServer));
+    const service = new AsyncApi(new NapiBackend(avm));
+    return Promise.resolve(new NapiAvmSimulator(service, cdbServer));
+  }
+
+  /**
+   * Slice C: co-host the AVM against an already-created in-process {@link InProcessWsdbHandle}, so the AVM and
+   * the TS world-state service share ONE WorldState with no child processes at all. World-state reads go
+   * C++<->C++ into the shared handle; contract data still comes via the host_call CDB. The caller owns the
+   * wsdb handle and must dispose this simulator BEFORE destroying it (the AVM borrows the handle).
+   */
+  static spawnCoHosted(options: { inProcessWsdb: InProcessWsdbHandle }): Promise<NapiAvmSimulator> {
+    const { InProcessAvm } = loadAddon();
+    const cdbServer = new CdbIpcServer(/*listenSocket=*/ false);
+    const avm = new InProcessAvm(options.inProcessWsdb, makeCdbHostCallRouter(cdbServer));
     const service = new AsyncApi(new NapiBackend(avm));
     return Promise.resolve(new NapiAvmSimulator(service, cdbServer));
   }

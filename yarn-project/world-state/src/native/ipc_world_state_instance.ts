@@ -335,9 +335,16 @@ function convertSiblingPathAndIndex(
 // ————— Public API —————
 
 /**
+ * The generated wsdb client this instance drives. A spawned {@link WsdbService} (which also carries an IPC
+ * path) satisfies it, as does a plain {@link AsyncApi} over an in-process (NAPI) backend — in which case there
+ * is no socket, so `getIpcPath` is absent.
+ */
+type WsdbClient = AsyncApi & { getIpcPath?(): string };
+
+/**
  * IPC-backed world state instance.
- * Uses WsdbService (spawns aztec-wsdb binary) and the generated AsyncApi
- * to communicate via the NamedUnion IPC protocol.
+ * Drives a generated {@link AsyncApi} (typically a {@link WsdbService} spawning the aztec-wsdb binary, but any
+ * backend works — e.g. an in-process NAPI backend) via the NamedUnion IPC protocol.
  */
 export class IpcWorldState implements NativeWorldStateInstance {
   private open = true;
@@ -346,7 +353,7 @@ export class IpcWorldState implements NativeWorldStateInstance {
   private checkpointDepths = new Map<number, number>();
 
   constructor(
-    private readonly wsdb: WsdbService,
+    private readonly wsdb: WsdbClient,
     private readonly instrumentation: WorldStateInstrumentation,
     bindings?: LoggerBindings,
     private readonly log: Logger = createLogger('world-state:ipc-database', bindings),
@@ -377,6 +384,9 @@ export class IpcWorldState implements NativeWorldStateInstance {
   }
 
   getIpcPath(): string {
+    if (!this.wsdb.getIpcPath) {
+      throw new Error('in-process world state has no IPC path');
+    }
     return this.wsdb.getIpcPath();
   }
 
@@ -826,5 +836,50 @@ export function getWsdbOptions(
       [MerkleTreeId.ARCHIVE]: wsTreeMapSizes.archiveTreeMapSizeKb,
     },
     initialHeaderGeneratorPoint: DomainSeparator.BLOCK_HEADER_HASH,
+  };
+}
+
+/**
+ * Config for constructing an in-process wsdb (the avm_inprocess `InProcessWsdb` NAPI class). The map/prefill/
+ * height configs are pre-formatted as the same JSON strings the aztec-wsdb CLI parses, so the FFI parses them
+ * identically to the spawned binary. Empty strings mean "use defaults".
+ */
+export interface InProcessWsdbOptions {
+  treeHeightsJson: string;
+  treePrefillJson: string;
+  mapSizesJson: string;
+  threads: number;
+  initialHeaderGeneratorPoint: number;
+  prefilledPublicDataJson: string;
+  genesisTimestamp: number;
+}
+
+/**
+ * Build {@link InProcessWsdbOptions} from standard world state config — the in-process counterpart of
+ * {@link getWsdbExtraArgs} (same values, delivered as an options object instead of a CLI argv).
+ */
+export function buildInProcessWsdbOptions(
+  wsTreeMapSizes: WorldStateTreeMapSizes,
+  genesis: GenesisData,
+  threads: number,
+): InProcessWsdbOptions {
+  const options = getWsdbOptions('', wsTreeMapSizes);
+  const prefilled =
+    genesis.prefilledPublicData.length > 0
+      ? JSON.stringify(
+          genesis.prefilledPublicData.map(data => [
+            data.slot.toBuffer().toString('hex'),
+            data.value.toBuffer().toString('hex'),
+          ]),
+        )
+      : '';
+  return {
+    treeHeightsJson: formatMap(options.treeHeights) ?? '',
+    treePrefillJson: formatMap(options.treePrefill) ?? '',
+    mapSizesJson: formatMap(options.mapSizes) ?? '',
+    threads,
+    initialHeaderGeneratorPoint: options.initialHeaderGeneratorPoint,
+    prefilledPublicDataJson: prefilled,
+    genesisTimestamp: Number(genesis.genesisTimestamp),
   };
 }
