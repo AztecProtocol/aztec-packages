@@ -130,6 +130,26 @@ benign in practice).
 regression, adversarial scalars and synthetic bucket collisions) passes 3/3 repeated
 runs on A10G/sm_86; earlier failures on L40S/sm_89 had the same single root cause.
 
+## Real-workload results (g6e.4xlarge: L40S + 16 vCPU, 2026-07-10)
+
+Full `bb`/`bb-avm` binaries with the GPU backend (`GPU=ON` links ecc_gpu whole-archive;
+runtime toggle `BB_MSM_GPU=1`, size threshold `BB_MSM_GPU_MIN_SIZE`, default 2^16):
+
+| Workload | CPU | GPU | Notes |
+|---|---:|---:|---|
+| AVM bulk proof (standalone avm_prove) | 14.5 s | 28.5 s (thr 2^16) / 14.6 s (thr 2^18+) | All columns in this trace < 2^18; sequential per-MSM round trips lose to the 16-core CPU batch driver |
+| e2e_prover/full (4 tests, real proofs) | 435.4 s | 424.1 s | Both pass — end-to-end correctness with GPU MSM in the live prover stack; e2e wall dominated by non-proving work |
+
+Conclusion: the isolated MSM speedups (previous section) do not transfer to current
+prover workloads through per-MSM dispatch. The binding constraint is serialization —
+one mutex-guarded sppark `msm_t` at a time, per-MSM staging/transfer/reduction — while
+the CPU batch driver amortises thousands of (mostly small) commitments across all
+cores. Realising the GPU win requires **multi-MSM pipelining**: a pool of `msm_t`
+instances over CUDA streams with overlapped scalar staging/upload, host reductions off
+the critical path, and batched submission from `batch_multi_scalar_mul`. Until then the
+GPU path is correct (proofs byte-compatible, all suites green on sm_86 and sm_89) but
+not faster for AVM/rollup-shaped batches.
+
 ## Known limitations (spike scope)
 
 - BN254 G1 only. Grumpkin needs an sppark instantiation over the swapped field pair
