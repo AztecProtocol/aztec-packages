@@ -27,10 +27,8 @@ export function effectiveStoreName(name: string, identity: StoreIdentity): strin
 }
 
 /**
- * Belt-and-braces invariant check for stores whose physical name carries their identity: the recorded version can
- * only disagree with the expected one if there is a store-naming bug. Writes the marker on first open; refuses to
- * proceed on mismatch; never clears. The marker records `(schemaVersion, rollupAddress)` only — the store name
- * carries the full identity.
+ * Invariant check for stores whose physical name carries their identity: the recorded version can
+ * only disagree with the expected one if there is a store-naming bug.
  */
 export async function assertStoreIdentity(
   store: AztecAsyncKVStore,
