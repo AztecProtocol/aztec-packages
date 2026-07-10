@@ -21,9 +21,11 @@ namespace bb::msm_service {
 static void serve_with_options(const std::string& input_path,
                                MsmService& ctx,
                                size_t request_ring_size,
-                               size_t response_ring_size)
+                               size_t response_ring_size,
+                               size_t max_clients)
 {
     ipc::ServerOptions opts;
+    opts.max_shm_clients = max_clients;
     opts.shm_request_ring_size = request_ring_size;
     opts.shm_response_ring_size = response_ring_size;
     auto server = ipc::make_server(input_path, opts);
@@ -45,7 +47,8 @@ int execute_msm_server(const std::string& input_path,
                        size_t num_points,
                        size_t request_ring_size,
                        size_t response_ring_size,
-                       bool no_gpu)
+                       bool no_gpu,
+                       size_t max_clients)
 {
     MsmService ctx;
     // GPU mode iff the ecc_gpu backend is linked (weak symbol resolved) and not
@@ -60,7 +63,7 @@ int execute_msm_server(const std::string& input_path,
     ctx.points.assign(monomial_points.begin(), monomial_points.end());
     info("bb-msm: resident points=", ctx.points.size(), " gpu=", ctx.gpu, " serving on ", input_path);
 
-    serve_with_options(input_path, ctx, request_ring_size, response_ring_size);
+    serve_with_options(input_path, ctx, request_ring_size, response_ring_size, max_clients);
     return 0;
 }
 

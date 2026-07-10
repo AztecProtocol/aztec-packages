@@ -15,6 +15,7 @@ int execute_msm_server(const std::string& input_path,
                        size_t num_points,
                        size_t request_ring_size = size_t{ 512 } << 20,
                        size_t response_ring_size = size_t{ 1 } << 20,
-                       bool no_gpu = false);
+                       bool no_gpu = false,
+                       size_t max_clients = 8);
 
 } // namespace bb::msm_service

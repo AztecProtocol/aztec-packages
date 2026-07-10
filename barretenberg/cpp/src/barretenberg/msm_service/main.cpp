@@ -38,6 +38,12 @@ int main(int argc, char* argv[])
         ->add_option("--response-ring-size", response_ring_size, "SHM response ring size in bytes (default: 1 MiB)")
         ->check(CLI::PositiveNumber);
 
+    // Each SHM client slot gets its own request ring, so /dev/shm usage is
+    // max_clients x request_ring_size.
+    size_t max_clients = 8;
+    run_command->add_option("--max-clients", max_clients, "Maximum concurrent SHM clients (default: 8)")
+        ->check(CLI::PositiveNumber);
+
     try {
         app.parse(argc, argv);
     } catch (const CLI::ParseError& e) {
@@ -51,7 +57,7 @@ int main(int argc, char* argv[])
 
     try {
         return bb::msm_service::execute_msm_server(
-            input_path, crs_path, num_points, request_ring_size, response_ring_size, no_gpu);
+            input_path, crs_path, num_points, request_ring_size, response_ring_size, no_gpu, max_clients);
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << '\n';
         return 1;
