@@ -35,6 +35,7 @@ import {
   type Capsule,
   type IndexedTxEffect,
   type OffchainEffect,
+  type TxEffect,
   type TxHash,
 } from '@aztec/stdlib/tx';
 
@@ -685,21 +686,25 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
       throw new Error('Invalid tx hash passed into aztec_utl_getTxEffect oracle handler');
     }
 
-    const receipt = await this.aztecNodeReadCache.getTxReceiptWithEffect(txHash);
-    if (!receipt.isMined() || !receipt.txEffect || receipt.blockNumber > this.anchorBlockHeader.getBlockNumber()) {
-      return Option.none();
+    return await this.#getTxEffectOption(txHash);
+  }
+
+  /** Fetches transaction effects for all hashes, preserving request order. */
+  public async getTxEffects(txHashes: EphemeralArray<TxHash>): Promise<EphemeralArray<Option<TxEffectData>>> {
+    const hashes = txHashes.readAll(this.ephemeralArrayService);
+    const invalidHash = hashes.find(txHash => txHash.hash.isZero());
+    if (invalidHash) {
+      throw new Error('Invalid tx hash passed into aztec_utl_getTxEffects oracle handler');
     }
 
-    const txEffect = receipt.txEffect;
-    return Option.some({
-      ...txEffect,
-      publicLogs: FlatPublicLogs.fromLogs(txEffect.publicLogs),
-      contractClassLogs: txEffect.contractClassLogs.map(log => ({
-        contractAddress: log.contractAddress,
-        fields: log.fields.toFields(),
-        emittedLength: log.emittedLength,
-      })),
-    });
+    const uniqueTxHashes = uniqueBy(hashes, h => h.toString());
+    const options = await Promise.all(uniqueTxHashes.map(txHash => this.#getTxEffectOption(txHash)));
+    const optionsByHash = new Map(uniqueTxHashes.map((txHash, i) => [txHash.toString(), options[i]]));
+
+    return EphemeralArray.fromValues(
+      this.ephemeralArrayService,
+      hashes.map(txHash => optionsByHash.get(txHash.toString())!),
+    );
   }
 
   public setCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[], scope: AztecAddress): void {
@@ -1125,6 +1130,26 @@ export class UtilityExecutionOracle implements IMiscOracle, IUtilityExecutionOra
         })
         .filter((entry): entry is [string, IndexedTxEffect] => entry[1] !== undefined),
     );
+  }
+
+  async #getTxEffectOption(txHash: TxHash): Promise<Option<TxEffectData>> {
+    const receipt = await this.aztecNodeReadCache.getTxReceiptWithEffect(txHash);
+    if (!receipt.isMined() || !receipt.txEffect || receipt.blockNumber > this.anchorBlockHeader.getBlockNumber()) {
+      return Option.none();
+    }
+    return Option.some(this.#toTxEffectData(receipt.txEffect));
+  }
+
+  #toTxEffectData(txEffect: TxEffect): TxEffectData {
+    return {
+      ...txEffect,
+      publicLogs: FlatPublicLogs.fromLogs(txEffect.publicLogs),
+      contractClassLogs: txEffect.contractClassLogs.map(log => ({
+        contractAddress: log.contractAddress,
+        fields: log.fields.toFields(),
+        emittedLength: log.emittedLength,
+      })),
+    };
   }
 
   /** Runs a query concurrently with a validation that the block hash is not ahead of the anchor block. */
