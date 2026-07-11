@@ -8,6 +8,13 @@ else
   export native_preset=${NATIVE_PRESET:-clang20-no-avm}
 fi
 
+# macOS defaults the per-process fd limit to 256; the zig linker opens every archive of
+# a link simultaneously and ninja runs links in parallel, failing with
+# ProcessFdQuotaExceeded. Raise to the hard cap (no-op where already sufficient).
+if [ "$(uname)" = "Darwin" ]; then
+  ulimit -n "$(ulimit -Hn)" 2>/dev/null || ulimit -n 10240 2>/dev/null || true
+fi
+
 # GPU=1 (spike): ensure nvcc is available for `cmake --preset gpu` builds. The standard
 # presets/targets are unaffected.
 if [ "${GPU:-0}" -eq 1 ]; then
