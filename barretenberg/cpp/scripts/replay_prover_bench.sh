@@ -23,9 +23,27 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+# Portable sub-second timestamp (BSD/macOS date lacks %N).
+now() {
+  if date +%s.%N 2>/dev/null | grep -qv N; then
+    date +%s.%N
+  else
+    python3 -c 'import time; print(f"{time.time():.3f}")'
+  fi
+}
+
+# Portable realpath (missing on stock macOS).
+abspath() {
+  if command -v realpath > /dev/null 2>&1; then
+    realpath "$1"
+  else
+    python3 -c 'import os,sys; print(os.path.abspath(sys.argv[1]))' "$1"
+  fi
+}
+
 CAPTURE_DIR="${1:-}"
 [ -n "$CAPTURE_DIR" ] && shift || { echo "usage: $0 <capture_dir> [options]" >&2; exit 1; }
-CAPTURE_DIR=$(realpath "$CAPTURE_DIR")
+CAPTURE_DIR=$(abspath "$CAPTURE_DIR")
 
 BB_BIN="$PWD/build/bin/bb"
 CHAINS=1
@@ -39,7 +57,7 @@ GPU_MIN_SIZE=""
 
 while getopts "b:j:gm:st:f:Vo:" opt; do
   case "$opt" in
-    b) BB_BIN=$(realpath "$OPTARG") ;;
+    b) BB_BIN=$(abspath "$OPTARG") ;;
     j) CHAINS="$OPTARG" ;;
     g) GPU=1 ;;
     m) GPU_MIN_SIZE="$OPTARG" ;;
@@ -47,7 +65,7 @@ while getopts "b:j:gm:st:f:Vo:" opt; do
     t) THREADS="$OPTARG" ;;
     f) FILTER="$OPTARG" ;;
     V) INCLUDE_VERIFY=1 ;;
-    o) RESULTS_DIR=$(realpath -m "$OPTARG") ;;
+    o) RESULTS_DIR=$(abspath "$OPTARG") ;;
     *) exit 1 ;;
   esac
 done
@@ -127,13 +145,13 @@ run_chain() {
     [ -n "$GPU_MIN_SIZE" ] && envs+=("BB_MSM_GPU_MIN_SIZE=$GPU_MIN_SIZE")
     [ "$MSM_STATS" = 1 ] && envs+=("BB_MSM_STATS=1")
     local t0 t1
-    t0=$(date +%s.%N)
+    t0=$(now)
     if ! env "${envs[@]}" "$BB_BIN" "${args[@]}" > "$log" 2>&1; then
       echo "FAILED: chain $chain_id job $name (log: $log)" >&2
       echo "$order,$name,FAILED,0" >> "$csv"
       continue
     fi
-    t1=$(date +%s.%N)
+    t1=$(now)
     local wall msm suffix
     wall=$(awk -v a="$t0" -v b="$t1" 'BEGIN { printf "%.2f", b - a }')
     msm=0
@@ -147,7 +165,7 @@ run_chain() {
   done
 }
 
-overall_t0=$(date +%s.%N)
+overall_t0=$(now)
 pids=()
 for c in $(seq 1 "$CHAINS"); do
   run_chain "$c" &
@@ -155,7 +173,7 @@ for c in $(seq 1 "$CHAINS"); do
 done
 fail=0
 for pid in "${pids[@]}"; do wait "$pid" || fail=1; done
-overall_t1=$(date +%s.%N)
+overall_t1=$(now)
 overall=$(awk -v a="$overall_t0" -v b="$overall_t1" 'BEGIN { printf "%.2f", b - a }')
 
 echo
