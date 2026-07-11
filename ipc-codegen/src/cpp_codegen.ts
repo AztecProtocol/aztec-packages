@@ -103,23 +103,34 @@ export class CppCodegen {
   }
 
   /**
-   * A command qualifies for a zero-copy streamed variant when its last request field
-   * is a plain `bytes` payload: the generated <method>_streamed() packs the envelope
-   * and leading fields normally, then has the caller write the payload directly into
-   * the transport buffer via IpcClient::send_with (in-ring for SHM).
+   * A command gets a zero-copy streamed variant only when the schema opts in with
+   * "streamed": true AND its last request field is a plain `bytes` payload: the
+   * generated <method>_streamed() packs the envelope and leading fields normally,
+   * then has the caller write the payload directly into the transport buffer via
+   * IpcClient::send_with (in-ring for SHM). Server-side, the dispatch then requires
+   * a handle_<method>_streamed handler. Opt-in keeps services whose commands merely
+   * happen to end in a bytes field on the plain handler path.
    */
   private streamedPayloadField(
     command: Command,
   ): import("./schema_visitor.ts").Field | undefined {
-    if (command.fields.length === 0) {
+    if (!command.streamed) {
       return undefined;
     }
+    if (command.fields.length === 0) {
+      throw new Error(`Command '${command.name}' is marked streamed but has no fields`);
+    }
     const last = command.fields[command.fields.length - 1];
-    return last.type.kind === "primitive" &&
-      last.type.primitive === "bytes" &&
-      !last.type.originalName
-      ? last
-      : undefined;
+    if (
+      last.type.kind !== "primitive" ||
+      last.type.primitive !== "bytes" ||
+      last.type.originalName
+    ) {
+      throw new Error(
+        `Command '${command.name}' is marked streamed but its last request field is not a plain 'bytes' payload`,
+      );
+    }
+    return last;
   }
 
   /** Generate the streamed-variant signature for a command (or undefined). */

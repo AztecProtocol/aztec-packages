@@ -44,6 +44,8 @@ export interface Command {
   name: string;
   fields: Field[];
   responseType: string;
+  /** Command opted in to a zero-copy streamed variant (schema: "streamed": true). */
+  streamed?: boolean;
 }
 
 export interface CompiledSchema {
@@ -590,6 +592,7 @@ export function friendlyToPositional(parsed: any): {
   commands: any;
   responses: any;
   service: string;
+  streamedCommands: Set<string>;
 } {
   const service: string = parsed.service;
   if (!service) {
@@ -656,9 +659,13 @@ export function friendlyToPositional(parsed: any): {
 
   const commands: any = ["named_union", []];
   const responses: any = ["named_union", []];
+  const streamedCommands = new Set<string>();
 
   for (const [key, def] of Object.entries<any>(parsed.commands ?? {})) {
     const cmdName = service + key;
+    if (def.streamed === true) {
+      streamedCommands.add(cmdName);
+    }
     commands[1].push([cmdName, structBody(def.request, cmdName)]);
 
     if (typeof def.response === "string") {
@@ -674,5 +681,5 @@ export function friendlyToPositional(parsed: any): {
   const errorName = `${service}ErrorResponse`;
   responses[1].push([errorName, structBody(parsed.error, errorName)]);
 
-  return { commands, responses, service };
+  return { commands, responses, service, streamedCommands };
 }

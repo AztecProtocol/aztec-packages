@@ -243,11 +243,13 @@ function loadSchema(schemaPath: string): {
   let commandsUnion: any;
   let responsesUnion: any;
   let service: string | undefined;
+  let streamedCommands = new Set<string>();
   if (isFriendlySchema(parsed)) {
     ({
       commands: commandsUnion,
       responses: responsesUnion,
       service,
+      streamedCommands,
     } = friendlyToPositional(parsed));
   } else {
     commandsUnion = parsed.commands;
@@ -255,6 +257,9 @@ function loadSchema(schemaPath: string): {
   }
   const visitor = new SchemaVisitor();
   const compiled = visitor.visit(commandsUnion, responsesUnion);
+  for (const cmd of compiled.commands) {
+    cmd.streamed = streamedCommands.has(cmd.name);
+  }
   const schemaHash = computeSchemaHash(rawJson);
   return { compiled, schemaHash, service };
 }

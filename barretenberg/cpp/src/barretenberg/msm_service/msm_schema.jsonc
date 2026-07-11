@@ -35,6 +35,7 @@
       }
     },
     "Bn254": {
+      "streamed": true,
       "request": {
         "startIndex": "u64",
         "fingerprint": "bytes",
@@ -45,6 +46,7 @@
       }
     },
     "Bn254Batch": {
+      "streamed": true,
       "request": {
         "spans": "SpanMeta[]",
         "scalars": "bytes"
