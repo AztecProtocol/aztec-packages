@@ -30,9 +30,12 @@ if (NOT(FUZZING))
     endif()
     if(NOT WASM AND NOT BB_LITE)
         target_link_libraries(bb PRIVATE ipc)
-        # bb-msm daemon client: the facade-hook TU is compiled directly into the binary
-        # (not archived) so its strong definition of the weak IPC MSM symbol in ecc is
-        # always extracted — the zig release linker has no whole-archive support.
+    endif()
+    if(NOT WASM AND NOT BB_LITE AND NOT APPLE)
+        # bb-msm daemon client (Linux-only): the facade-hook TU is compiled directly
+        # into the binary (not archived) so its strong definition of the weak IPC MSM
+        # symbol in ecc is always extracted — the zig release linker has no
+        # whole-archive support.
         target_sources(bb PRIVATE ../msm_service/msm_facade_client.cpp)
         target_link_libraries(bb PRIVATE msm_ipc_client)
     endif()
@@ -78,6 +81,8 @@ if (NOT(FUZZING))
         endif()
         if(NOT WASM AND NOT BB_LITE)
             target_link_libraries(bb-avm PRIVATE ipc)
+        endif()
+        if(NOT WASM AND NOT BB_LITE AND NOT APPLE)
             target_sources(bb-avm PRIVATE ../msm_service/msm_facade_client.cpp)
             target_link_libraries(bb-avm PRIVATE msm_ipc_client)
         endif()

@@ -133,7 +133,11 @@ if(NOT FUZZING AND NOT WASM AND NOT BB_LITE)
     add_subdirectory(barretenberg/ipc)
     add_subdirectory(barretenberg/wsdb)
     add_subdirectory(barretenberg/vm2_wsdb)
-    add_subdirectory(barretenberg/msm_service)
+    if(NOT APPLE)
+        # bb-msm daemon + client are Linux-only (UDS/SHM transport, ELF weak-symbol
+        # facade hook, GPU prover boxes).
+        add_subdirectory(barretenberg/msm_service)
+    endif()
     add_subdirectory(barretenberg/cdb)
     add_subdirectory(barretenberg/avm)
     add_subdirectory(barretenberg/nodejs_module)
