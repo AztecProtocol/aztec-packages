@@ -47,6 +47,18 @@ describe('sqlite-opfs store management', () => {
     await deleteStore('mech_managed');
   });
 
+  // Regression test: close() must not resolve until the worker has released the SAH pool's OPFS
+  // handles, otherwise deleteStore races Chromium's async reclaim of the terminated worker and
+  // intermittently throws NoModificationAllowedError. Looped to amplify the race window.
+  it('deletes a store immediately after close, repeatedly', async () => {
+    for (let i = 0; i < 20; i++) {
+      const store = await openByName('mech_close_release');
+      await store.openSingleton<string>('k').set(`v${i}`);
+      await store.close();
+      await deleteStore('mech_close_release');
+    }
+  });
+
   it('refuses to delete a store that is currently open', async () => {
     const store = await openByName('mech_locked');
     await expect(deleteStore('mech_locked')).rejects.toThrow();
