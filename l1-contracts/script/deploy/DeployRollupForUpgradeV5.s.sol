@@ -208,10 +208,10 @@ contract DeployRollupForUpgradeV5 is Script, StdAssertions {
         registry: 0xA0BFb1B494FB49041e5c6e8c2C1BE09cD171c6Ba,
         governance: 0xCAf7447721447B22Cd0076aC7C63877c3AFD329F,
         gse: 0xb6A38A51a6C1de9012f9d8EA9745ef957212eAaC,
-        canonicalRollup: 0xf6D0D42aCE06829bECB78C74F49879528fC632c1,
+        canonicalRollup: 0xfE6061806CaC748085904a010d2D9E33B8031741,
         feeAsset: 0x762C132040fdA6183066Fa3B14d985ee55aA3C18,
         stakingAsset: 0x5595cb9ED193cAc2C0Bc5393313bc6115817954B,
-        rewardDistributor: 0x030d2780E70F085c31D490268D3900d4CEa16606,
+        rewardDistributor: 0x83B2A93EF343cAb7Be9D8Bba7317f314975e5CB0,
         oldFlushRewarder: address(0)
       });
     }
@@ -379,7 +379,13 @@ contract DeployRollupForUpgradeV5 is Script, StdAssertions {
     // 1. Deploy the v5 reward distributor. It reads canonical from the same registry, so once
     //    the V5UpgradePayload makes v5 the canonical rollup, this distributor's implicit pool
     //    becomes claimable by v5.
-    _newRewardDistributor = new RewardDistributor(feeAsset, registry);
+    //    Testnet already runs the v5 distributor as canonical (a prior upgrade performed the
+    //    AZIP-2 distributor swap), so reuse the in-service one rather than deploying another.
+    //    The payload then detects OLD == NEW and omits its drain and updateRewardDistributor
+    //    actions.
+    _newRewardDistributor = block.chainid == SEPOLIA_CHAIN_ID
+      ? RewardDistributor(address(registry.getRewardDistributor()))
+      : new RewardDistributor(feeAsset, registry);
 
     // 2. Deploy the v5 rollup, binding it to the new distributor at construction. The rollup
     //    is deployed directly (not via DeployRollupLib) so that governance is the constructor
@@ -475,7 +481,11 @@ contract DeployRollupForUpgradeV5 is Script, StdAssertions {
     assertEq(_p.OLD_REWARD_DISTRIBUTOR(), address(registry.getRewardDistributor()), "old distributor drifted");
     assertNotEq(address(newRollup), oldCanonicalRollup, "new rollup already canonical");
     assertEq(Ownable(address(newRollup)).owner(), governance, "new rollup not owned by governance");
-    assertNotEq(address(_p.NEW_REWARD_DISTRIBUTOR()), _p.OLD_REWARD_DISTRIBUTOR(), "distributor alias");
+    // Testnet reuses the in-service v5 distributor, so NEW aliasing OLD is intentional there;
+    // on every other chain the upgrade deploys a fresh distributor and the swap must be real.
+    if (block.chainid != SEPOLIA_CHAIN_ID) {
+      assertNotEq(address(_p.NEW_REWARD_DISTRIBUTOR()), _p.OLD_REWARD_DISTRIBUTOR(), "distributor alias");
+    }
     assertEq(address(_p.ASSET()), address(IRollup(address(newRollup)).getFeeAsset()), "asset is not the fee asset");
     assertGt(bytes(_p.getURI()).length, 0, "payload uri empty");
 
@@ -513,35 +523,48 @@ contract DeployRollupForUpgradeV5 is Script, StdAssertions {
   function _validatePayloadActions(V5UpgradePayload _p) internal view {
     console.log("[assert] payload actions start");
     IPayload.Action[] memory actions = _p.getActions();
+    bool swapDistributor = _p.OLD_REWARD_DISTRIBUTOR() != address(_p.NEW_REWARD_DISTRIBUTOR());
     bool migratesFlush = address(_p.OLD_FLUSH_REWARDER()) != address(0);
-    assertEq(actions.length, migratesFlush ? 6 : 5, "action count mismatch");
+    uint256 expectedCount = 3 + (swapDistributor ? 2 : 0) + (migratesFlush ? 1 : 0);
+    assertEq(actions.length, expectedCount, "action count mismatch");
 
-    bytes memory expectedDrain = abi.encodeWithSelector(
-      _p.LEGACY_RECOVER_SELECTOR(),
-      address(_p.ASSET()),
-      address(_p.NEW_REWARD_DISTRIBUTOR()),
-      _p.ASSET().balanceOf(_p.OLD_REWARD_DISTRIBUTOR())
-    );
-    assertEq(actions[0].target, _p.OLD_REWARD_DISTRIBUTOR(), "action0 target mismatch");
-    assertEq(keccak256(actions[0].data), keccak256(expectedDrain), "action0 data mismatch");
+    uint256 i = 0;
+
+    if (swapDistributor) {
+      bytes memory expectedDrain = abi.encodeWithSelector(
+        _p.LEGACY_RECOVER_SELECTOR(),
+        address(_p.ASSET()),
+        address(_p.NEW_REWARD_DISTRIBUTOR()),
+        _p.ASSET().balanceOf(_p.OLD_REWARD_DISTRIBUTOR())
+      );
+      assertEq(actions[i].target, _p.OLD_REWARD_DISTRIBUTOR(), "drain target mismatch");
+      assertEq(keccak256(actions[i].data), keccak256(expectedDrain), "drain data mismatch");
+      i++;
+    }
 
     bytes memory expectedAddRollup = abi.encodeWithSelector(IRegistry.addRollup.selector, address(_p.NEW_ROLLUP()));
-    assertEq(actions[1].target, address(_p.REGISTRY()), "action1 target mismatch");
-    assertEq(keccak256(actions[1].data), keccak256(expectedAddRollup), "action1 data mismatch");
+    assertEq(actions[i].target, address(_p.REGISTRY()), "addRollup target mismatch");
+    assertEq(keccak256(actions[i].data), keccak256(expectedAddRollup), "addRollup data mismatch");
+    i++;
 
-    bytes memory expectedUpdateRd =
-      abi.encodeWithSelector(IRegistry.updateRewardDistributor.selector, address(_p.NEW_REWARD_DISTRIBUTOR()));
-    assertEq(actions[2].target, address(_p.REGISTRY()), "action2 target mismatch");
-    assertEq(keccak256(actions[2].data), keccak256(expectedUpdateRd), "action2 data mismatch");
+    if (swapDistributor) {
+      bytes memory expectedUpdateRd =
+        abi.encodeWithSelector(IRegistry.updateRewardDistributor.selector, address(_p.NEW_REWARD_DISTRIBUTOR()));
+      assertEq(actions[i].target, address(_p.REGISTRY()), "updateRd target mismatch");
+      assertEq(keccak256(actions[i].data), keccak256(expectedUpdateRd), "updateRd data mismatch");
+      i++;
+    }
 
     bytes memory expectedAddGse = abi.encodeWithSelector(IGSECore.addRollup.selector, address(_p.NEW_ROLLUP()));
-    assertEq(actions[3].target, address(_p.NEW_ROLLUP().getGSE()), "action3 target mismatch");
-    assertEq(keccak256(actions[3].data), keccak256(expectedAddGse), "action3 data mismatch");
+    assertEq(actions[i].target, address(_p.NEW_ROLLUP().getGSE()), "addGse target mismatch");
+    assertEq(keccak256(actions[i].data), keccak256(expectedAddGse), "addGse data mismatch");
+    i++;
 
     bytes memory expectedSetHatch =
       abi.encodeWithSelector(IValidatorSelectionCore.setEscapeHatch.selector, address(_p.ESCAPE_HATCH()));
-    assertEq(actions[4].target, address(_p.NEW_ROLLUP()), "action4 target mismatch");
-    assertEq(keccak256(actions[4].data), keccak256(expectedSetHatch), "action4 data mismatch");
+    assertEq(actions[i].target, address(_p.NEW_ROLLUP()), "setHatch target mismatch");
+    assertEq(keccak256(actions[i].data), keccak256(expectedSetHatch), "setHatch data mismatch");
+    i++;
 
     if (migratesFlush) {
       bytes memory expectedFlushRecover = abi.encodeWithSelector(
@@ -550,8 +573,9 @@ contract DeployRollupForUpgradeV5 is Script, StdAssertions {
         address(_p.NEW_FLUSH_REWARDER()),
         _p.OLD_FLUSH_REWARDER().rewardsAvailable()
       );
-      assertEq(actions[5].target, address(_p.OLD_FLUSH_REWARDER()), "action5 target mismatch");
-      assertEq(keccak256(actions[5].data), keccak256(expectedFlushRecover), "action5 data mismatch");
+      assertEq(actions[i].target, address(_p.OLD_FLUSH_REWARDER()), "flush target mismatch");
+      assertEq(keccak256(actions[i].data), keccak256(expectedFlushRecover), "flush data mismatch");
+      i++;
     }
     console.log(unicode"[assert] payload actions ✓");
   }
@@ -740,8 +764,19 @@ contract DeployRollupForUpgradeV5 is Script, StdAssertions {
   function _executeThroughGovernance(V5UpgradePayload _p, Governance _governance, IGSE _gse, address _oldCanonical)
     internal
   {
-    GSEPayload gsePayload = new GSEPayload(IPayload(address(_p)), _gse, _p.REGISTRY());
-    _validateGsePayloadWrapper(_p, gsePayload);
+    // Testnet executes this upgrade via `Governance.proposeWithLock` with the raw payload: that
+    // path does not wrap in GSEPayload, so the GSE `amIValid` (>2/3 follow-latest) gate never
+    // runs. Most testnet stake is stranded on an older rollup, so the gate is unreachable and
+    // does not reflect how the upgrade will actually be executed. Simulate the raw-payload path
+    // on Sepolia; other chains go through the GovernanceProposer, which wraps in GSEPayload.
+    IPayload proposalPayload;
+    if (block.chainid == SEPOLIA_CHAIN_ID) {
+      proposalPayload = IPayload(address(_p));
+    } else {
+      GSEPayload gsePayload = new GSEPayload(IPayload(address(_p)), _gse, _p.REGISTRY());
+      _validateGsePayloadWrapper(_p, gsePayload);
+      proposalPayload = IPayload(address(gsePayload));
+    }
 
     // A simulation-only depositor with a majority of governance power guarantees the proposal
     // passes regardless of how power is distributed (on Sepolia the GSE holds ~2% of it; the
@@ -757,7 +792,7 @@ contract DeployRollupForUpgradeV5 is Script, StdAssertions {
     vm.stopPrank();
 
     vm.prank(_governance.governanceProposer());
-    uint256 proposalId = _governance.propose(IPayload(address(gsePayload)));
+    uint256 proposalId = _governance.propose(proposalPayload);
 
     Proposal memory proposal = _governance.getProposal(proposalId);
     Timestamp pendingThrough =
@@ -828,12 +863,20 @@ contract DeployRollupForUpgradeV5 is Script, StdAssertions {
     assertTrue(_gse.isRollupRegistered(address(newRollup)), "new rollup missing from gse");
     assertEq(_gse.getLatestRollup(), address(newRollup), "gse latest mismatch");
 
-    assertEq(_p.ASSET().balanceOf(_p.OLD_REWARD_DISTRIBUTOR()), 0, "old distributor not drained");
-    assertEq(
-      _p.ASSET().balanceOf(address(_p.NEW_REWARD_DISTRIBUTOR())),
-      _before.newRdBalance + _before.oldRdBalance,
-      "new distributor balance mismatch"
-    );
+    if (_p.OLD_REWARD_DISTRIBUTOR() != address(_p.NEW_REWARD_DISTRIBUTOR())) {
+      assertEq(_p.ASSET().balanceOf(_p.OLD_REWARD_DISTRIBUTOR()), 0, "old distributor not drained");
+      assertEq(
+        _p.ASSET().balanceOf(address(_p.NEW_REWARD_DISTRIBUTOR())),
+        _before.newRdBalance + _before.oldRdBalance,
+        "new distributor balance mismatch"
+      );
+    } else {
+      assertEq(
+        _p.ASSET().balanceOf(address(_p.NEW_REWARD_DISTRIBUTOR())),
+        _before.newRdBalance,
+        "reused distributor balance changed"
+      );
+    }
 
     // The hatch checkpoint is keyed to the next epoch: live immediately via the latest-checkpoint
     // getter, but not active for the execution epoch itself.
@@ -862,9 +905,13 @@ contract DeployRollupForUpgradeV5 is Script, StdAssertions {
     }
 
     // The GSEPayload wrapper's amIValid already enforced the follower invariant during
-    // execution; re-derive it here so a regression in the wrapper is also caught.
-    uint256 newEffectiveSupply = _gse.supplyOf(address(newRollup)) + _gse.supplyOf(_gse.getBonusInstanceAddress());
-    assertGt(newEffectiveSupply, _gse.totalSupply() * 2 / 3, "new rollup effective supply <= 2/3");
+    // execution; re-derive it here so a regression in the wrapper is also caught. Testnet
+    // executes via proposeWithLock with the raw payload (no wrapper, no amIValid), and most
+    // testnet stake is stranded on an older rollup, so this invariant does not hold there.
+    if (block.chainid != SEPOLIA_CHAIN_ID) {
+      uint256 newEffectiveSupply = _gse.supplyOf(address(newRollup)) + _gse.supplyOf(_gse.getBonusInstanceAddress());
+      assertGt(newEffectiveSupply, _gse.totalSupply() * 2 / 3, "new rollup effective supply <= 2/3");
+    }
     console.log(unicode"[assert] post execution state ✓");
   }
 

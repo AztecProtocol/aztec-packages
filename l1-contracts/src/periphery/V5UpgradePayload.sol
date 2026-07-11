@@ -130,48 +130,62 @@ contract V5UpgradePayload is IPayload {
   }
 
   /**
-   * @notice The actions executed atomically when governance executes this payload: five on
-   *         chains without a flush rewarder, six with the flush-rewarder migration appended.
-   * @dev The drain moves the v4 distributor's entire asset balance: its `recover` transfers the
+   * @notice The actions executed atomically when governance executes this payload: three base
+   *         actions (addRollup, GSE addRollup, setEscapeHatch), plus the drain and
+   *         updateRewardDistributor pair when the distributor is actually being swapped, plus the
+   *         flush-rewarder migration when one exists.
+   * @dev The drain moves the old distributor's entire asset balance: its `recover` transfers the
    *      requested amount unconditionally. The balance is read at execution time, so the drain
-   *      tracks whatever the v4 distributor holds when governance executes — not whatever it had
+   *      tracks whatever the old distributor holds when governance executes — not whatever it had
    *      at proposal time. The flush-rewarder migration likewise reads `rewardsAvailable()` at
    *      execution time, so rewards already owed to flushers are left claimable.
    */
   function getActions() external view override(IPayload) returns (IPayload.Action[] memory) {
+    // When the registry already points at NEW_REWARD_DISTRIBUTOR — e.g. a chain whose v5
+    // distributor was made canonical by a prior upgrade — there is nothing to drain and no
+    // pointer to move, so the drain and updateRewardDistributor actions are omitted.
+    bool swapDistributor = OLD_REWARD_DISTRIBUTOR != address(NEW_REWARD_DISTRIBUTOR);
     bool migrateFlushRewarder = address(OLD_FLUSH_REWARDER) != address(0);
-    IPayload.Action[] memory res = new IPayload.Action[](migrateFlushRewarder ? 6 : 5);
 
-    uint256 drainAmount = ASSET.balanceOf(OLD_REWARD_DISTRIBUTOR);
+    uint256 count = 3 + (swapDistributor ? 2 : 0) + (migrateFlushRewarder ? 1 : 0);
+    IPayload.Action[] memory res = new IPayload.Action[](count);
+    uint256 i = 0;
 
-    res[0] = Action({
-      target: OLD_REWARD_DISTRIBUTOR,
-      data: abi.encodeWithSelector(
-        LEGACY_RECOVER_SELECTOR, address(ASSET), address(NEW_REWARD_DISTRIBUTOR), drainAmount
-      )
-    });
+    if (swapDistributor) {
+      res[i++] = Action({
+        target: OLD_REWARD_DISTRIBUTOR,
+        data: abi.encodeWithSelector(
+          LEGACY_RECOVER_SELECTOR,
+          address(ASSET),
+          address(NEW_REWARD_DISTRIBUTOR),
+          ASSET.balanceOf(OLD_REWARD_DISTRIBUTOR)
+        )
+      });
+    }
 
-    res[1] = Action({
+    res[i++] = Action({
       target: address(REGISTRY), data: abi.encodeWithSelector(IRegistry.addRollup.selector, address(NEW_ROLLUP))
     });
 
-    res[2] = Action({
-      target: address(REGISTRY),
-      data: abi.encodeWithSelector(IRegistry.updateRewardDistributor.selector, address(NEW_REWARD_DISTRIBUTOR))
-    });
+    if (swapDistributor) {
+      res[i++] = Action({
+        target: address(REGISTRY),
+        data: abi.encodeWithSelector(IRegistry.updateRewardDistributor.selector, address(NEW_REWARD_DISTRIBUTOR))
+      });
+    }
 
-    res[3] = Action({
+    res[i++] = Action({
       target: address(NEW_ROLLUP.getGSE()),
       data: abi.encodeWithSelector(IGSECore.addRollup.selector, address(NEW_ROLLUP))
     });
 
-    res[4] = Action({
+    res[i++] = Action({
       target: address(NEW_ROLLUP),
       data: abi.encodeWithSelector(IValidatorSelectionCore.setEscapeHatch.selector, address(ESCAPE_HATCH))
     });
 
     if (migrateFlushRewarder) {
-      res[5] = Action({
+      res[i++] = Action({
         target: address(OLD_FLUSH_REWARDER),
         data: abi.encodeWithSelector(
           FlushRewarder.recover.selector,
