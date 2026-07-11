@@ -3,6 +3,7 @@ use crate::Token;
 use aztec::test::helpers::authwit::add_private_authwit_from_call;
 use generic_proxy_contract::GenericProxy;
 
+// docs:start:token_transfer_offchain_delivery_test
 #[test]
 unconstrained fn transfer_in_private_with_offchain_delivery_updates_both_balances() {
     let (env, token_contract_address, owner, recipient, mint_amount) =
@@ -39,6 +40,7 @@ unconstrained fn transfer_in_private_with_offchain_delivery_updates_both_balance
     );
     utils::check_private_balance(env, token_contract_address, recipient, transfer_amount);
 }
+// docs:end:token_transfer_offchain_delivery_test
 
 #[test(should_fail_with = "Assertion failed: Invalid authwit nonce. When 'from' and 'msg_sender' are the same, 'authwit_nonce' must be zero")]
 unconstrained fn transfer_in_private_with_offchain_delivery_failure_on_behalf_of_self_non_zero_nonce() {
