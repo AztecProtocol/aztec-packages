@@ -844,11 +844,14 @@ bool try_gpu_msm(typename Curve::Element& out,
 }
 #endif
 
-#if !defined(__wasm__)
+#if defined(__linux__)
 // IPC offload to a bb-msm daemon (BB_MSM_SOCKET env var). Weak declaration so binaries
 // that don't link msm_ipc_client still link; the strong definition lives in
 // msm_service/msm_facade_client.cpp. BN254 only; requests below the size threshold or
 // with points that are not the daemon's resident SRS fall back to the local path.
+// Linux-only: undefined weak references are an ELF feature — Mach-O (macOS) treats
+// them as hard link errors — and the daemon transport (UDS/SHM) targets Linux prover
+// boxes anyway. Other platforms use the no-op stub below.
 namespace msm_ipc {
 __attribute__((weak)) bool try_pippenger_bn254(curve::BN254::Element& out,
                                                PolynomialSpan<const curve::BN254::ScalarField> scalars,
@@ -961,7 +964,7 @@ std::vector<typename Curve::AffineElement> MSM<Curve>::batch_multi_scalar_mul(
 {
     MsmBatchStatsScope<typename Curve::ScalarField> batch_stats_scope(
         msm_stats_enabled() ? &msm_stats<Curve>() : nullptr, scalars);
-#if !defined(__wasm__)
+#if defined(__linux__)
     if constexpr (std::is_same_v<Curve, curve::BN254>) {
         // Mixed dispatch mirroring the GPU batch path: MSMs at or above the IPC size
         // threshold go to the bb-msm daemon as ONE coalesced batch request (the daemon
