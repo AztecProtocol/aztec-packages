@@ -126,6 +126,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     private chainId: Fr,
     private authwits: Map<string, AuthWitness>,
     private taggingSecretStrategies: TXETaggingSecretStrategies,
+    private authorizeAllUtilityCallTargets: boolean,
     private readonly artifactResolver: TXEArtifactResolver,
     private readonly rootPath: string,
     private readonly packageName: string,
@@ -370,6 +371,10 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     };
     apply(AppTaggingSecretKind.UNCONSTRAINED, unconstrainedStrategy);
     apply(AppTaggingSecretKind.CONSTRAINED, constrainedStrategy);
+  }
+
+  setAuthorizeAllUtilityCallTargets(authorizeAll: boolean): void {
+    this.authorizeAllUtilityCallTargets = authorizeAll;
   }
 
   async sendL1ToL2Message(content: Fr, secretHash: Fr, sender: EthAddress, recipient: AztecAddress): Promise<Fr> {
@@ -982,9 +987,19 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     }
   }
 
-  close(): [bigint, Map<string, AuthWitness>, TXETaggingSecretStrategies] {
+  close(): {
+    nextBlockTimestamp: bigint;
+    authwits: Map<string, AuthWitness>;
+    taggingSecretStrategies: TXETaggingSecretStrategies;
+    authorizeAllUtilityCallTargets: boolean;
+  } {
     this.logger.debug('Exiting Top Level Context');
-    return [this.nextBlockTimestamp, this.authwits, this.taggingSecretStrategies];
+    return {
+      nextBlockTimestamp: this.nextBlockTimestamp,
+      authwits: this.authwits,
+      taggingSecretStrategies: this.taggingSecretStrategies,
+      authorizeAllUtilityCallTargets: this.authorizeAllUtilityCallTargets,
+    };
   }
 
   private async getLastBlockNumber(): Promise<BlockNumber> {
@@ -996,6 +1011,9 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     callerContext: 'private' | 'private view' | 'utility',
     authorizedTargets: AztecAddress[],
   ): ExecutionHooks['authorizeUtilityCall'] | undefined {
+    if (this.authorizeAllUtilityCallTargets) {
+      return authorizeAllUtilityCallsHook;
+    }
     if (authorizedTargets.length === 0) {
       return undefined;
     }
@@ -1005,3 +1023,11 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       });
   }
 }
+
+/**
+ * An `authorizeUtilityCall` hook that authorizes every cross-contract utility call.
+ *
+ * Backs the `aztec_txe_setAuthorizeAllUtilityCallTargets` oracle.
+ */
+export const authorizeAllUtilityCallsHook: NonNullable<ExecutionHooks['authorizeUtilityCall']> = () =>
+  Promise.resolve({ authorized: true });
