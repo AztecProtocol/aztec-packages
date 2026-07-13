@@ -112,7 +112,13 @@ and this function panics. Only a nested (cross-contract) utility call has a <cod
 
 <div class="padded-description"><div class="comments">
 <p>Makes a utility contract call from another utility function.</p>
-<p>Note: only same-contract utility calls are currently supported. See TODO(F-29).</p>
+<p>The call runs entirely offchain in PXE and is never proven, so no guarantees are made on the correctness of
+its result.</p>
+<p>The callee observes this contract's address as its <code>msg_sender</code>: see <a href="../../../noir_aztec/contract_self/contract_self_utility/struct.ContractSelfUtility.html#msg_sender"><code>ContractSelfUtility::msg_sender</code></a>.</p>
+<p>To call one of this contract's own utility functions, prefer the type-safe <code>self.call_self</code> stubs.</p>
+<h4>Authorization</h4>
+<p>A call to this contract itself always succeeds. A call to a different contract can expose that contract's
+private state to the caller, so it requires explicit authorization. A call that is not authorized fails.</p>
 <h4>Example</h4>
 <pre><code>self.call(Token::at(address).get_balance_of(owner));</code></pre></div>
 </div></div></main>

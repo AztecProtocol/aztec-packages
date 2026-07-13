@@ -43,6 +43,10 @@
 
 <div class="comments">
 <p>Asserts that all fields in <code>input</code> after the first <code>in_len</code> fields are zero.</p>
+<p><code>in_len</code> must be a valid length, i.e. <code>in_len &lt;= N</code> (<code>in_len == N</code> requires no trailing zeros).
+Passing <code>in_len &gt; N</code> is rejected: otherwise the loop below never reaches the breakpoint and the
+trailing-zero check is silently skipped, letting a caller believe the array holds more meaningful
+elements than it can.</p>
 </div>
 </main>
 </span>

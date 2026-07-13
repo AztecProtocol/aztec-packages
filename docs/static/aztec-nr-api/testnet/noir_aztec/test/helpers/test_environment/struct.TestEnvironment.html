@@ -108,10 +108,9 @@ methods. E.g.:</p>
 <p>Creates a new <code>TestEnvironment</code> with the configuration values in <code>options</code>. This function should only be
 called once per test.</p>
 <h4>Sample usage</h4>
-<pre><code><span class="kw">let</span> env = TestEnvironment::new_opts(
-    TestEnvironmentOptions::new().with_tagging_secret_strategy(
-        TaggingSecretStrategy::non_interactive_handshake(),
-    ),
+<pre><code><span class="kw">let</span> strategy = TaggingSecretStrategy::non_interactive_handshake();
+<span class="kw">let</span> env = TestEnvironment::new_opts(
+    TestEnvironmentOptions::new().with_default_tag_secret_strategy_all_modes(strategy),
 );</code></pre></div>
 </div><code id="public_context" class="code-header">pub unconstrained fn <a href="#public_context"><span class="fn">public_context</span></a>&lt;Env, T&gt;(
     self,

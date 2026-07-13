@@ -1,6 +1,6 @@
 # @aztec/entrypoints
 
-Version: v5.0.0-rc.2
+Version: v5.0.0
 
 ## Quick Import Reference
 

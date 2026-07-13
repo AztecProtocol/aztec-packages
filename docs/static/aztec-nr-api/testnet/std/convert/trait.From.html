@@ -24,6 +24,7 @@
 </ul>
 <h3>Implementors</h3>
 <ul class="sidebar-list">
+<li><a href="#impl-From&lt;TagSecretSource&gt;-for-AppSiloedHandshakeSecrets">AppSiloedHandshakeSecrets</a></li>
 <li><a href="#impl-From&lt;[T; Len]&gt;-for-BoundedVec<T, MaxLen>">BoundedVec<T, MaxLen></a></li>
 <li><a href="#impl-From&lt;bool&gt;-for-Field">Field</a></li>
 <li><a href="#impl-From&lt;u128&gt;-for-Field">Field</a></li>
@@ -37,6 +38,7 @@
 <li><a href="#impl-From&lt;OnchainConstrainedDelivery&gt;-for-OnchainDeliveryMode">OnchainDeliveryMode</a></li>
 <li><a href="#impl-From&lt;OnchainUnconstrainedDelivery&gt;-for-OnchainDeliveryMode">OnchainDeliveryMode</a></li>
 <li><a href="#impl-From&lt;T&gt;-for-T">T</a></li>
+<li><a href="#impl-From&lt;UtilityContextData&gt;-for-UtilityContext">UtilityContext</a></li>
 <li><a href="#impl-From&lt;str&lt;N&gt;&gt;-for-[u8; N]">[u8; N]</a></li>
 <li><a href="#impl-From&lt;bool&gt;-for-i16">i16</a></li>
 <li><a href="#impl-From&lt;i8&gt;-for-i16">i16</a></li>
@@ -87,6 +89,8 @@
 <div class="padded-methods"><code id="from" class="code-header">pub fn <a href="#from"><span class="fn">from</span></a>(input: T) -> Self</code>
 
 </div><h2>Implementors</h2>
+<h3 id="impl-From&lt;TagSecretSource&gt;-for-AppSiloedHandshakeSecrets"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;TagSecretSource&gt; for <a href="../../noir_aztec/messages/delivery/handshake/struct.AppSiloedHandshakeSecrets.html" class="struct">AppSiloedHandshakeSecrets</a></code></h3>
+
 <h3 id="impl-From&lt;[T; Len]&gt;-for-BoundedVec<T, MaxLen>"><code class="code-header">impl&lt;let Len: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, let MaxLen: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;[T; Len]&gt; for <a href="../../std/collections/bounded_vec/struct.BoundedVec.html" class="struct">BoundedVec</a>&lt;T, MaxLen&gt;</code></h3>
 
 <h3 id="impl-From&lt;bool&gt;-for-Field"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.bool.html" class="primitive">bool</a>&gt; for <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></h3>
@@ -112,6 +116,8 @@
 <h3 id="impl-From&lt;OnchainUnconstrainedDelivery&gt;-for-OnchainDeliveryMode"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../noir_aztec/messages/delivery/struct.OnchainUnconstrainedDelivery.html" class="struct">OnchainUnconstrainedDelivery</a>&gt; for <a href="../../noir_aztec/messages/delivery/struct.OnchainDeliveryMode.html" class="struct">OnchainDeliveryMode</a></code></h3>
 
 <h3 id="impl-From&lt;T&gt;-for-T"><code class="code-header">impl&lt;T&gt; <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;T&gt; for T</code></h3>
+
+<h3 id="impl-From&lt;UtilityContextData&gt;-for-UtilityContext"><code class="code-header">impl <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;UtilityContextData&gt; for <a href="../../noir_aztec/context/struct.UtilityContext.html" class="struct">UtilityContext</a></code></h3>
 
 <h3 id="impl-From&lt;str&lt;N&gt;&gt;-for-[u8; N]"><code class="code-header">impl&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../std/convert/trait.From.html" class="trait">From</a>&lt;<a href="../../std/primitive.str.html" class="primitive">str</a>&lt;N&gt;&gt; for [<a href="../../std/primitive.u8.html" class="primitive">u8</a>; N]</code></h3>
 

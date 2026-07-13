@@ -114,7 +114,14 @@ do not have access to the current network state, only the <em>past</em> state at
 historical non-inclusion proofs of the initialization nullifier at past times, but they have no way to guarantee
 that it has not been emitted since then.</p></div>
 <h2>Implementations</h2>
-<h3><code class="code-header">impl&lt;T&gt; <a href="../../noir_aztec/state_vars/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, <a href="../../noir_aztec/context/struct.PublicContext.html" class="struct">PublicContext</a>&gt;</code></h3>
+<h3><code class="code-header">impl&lt;Context, T&gt; <a href="../../noir_aztec/state_vars/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, Context&gt;</code></h3>
+
+<div class="padded-methods"><code id="compute_initialization_inner_nullifier" class="code-header">pub fn <a href="#compute_initialization_inner_nullifier"><span class="fn">compute_initialization_inner_nullifier</span></a>(self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
+
+<div class="padded-description"><div class="comments">
+<p>Returns the inner nullifier emitted during initialization.</p>
+</div>
+</div></div><h3><code class="code-header">impl&lt;T&gt; <a href="../../noir_aztec/state_vars/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, <a href="../../noir_aztec/context/struct.PublicContext.html" class="struct">PublicContext</a>&gt;</code></h3>
 
 <div class="padded-methods"><code id="initialize" class="code-header">pub fn <a href="#initialize"><span class="fn">initialize</span></a>(self, value: T)
 <div class="where-clause">where
@@ -252,13 +259,6 @@ read privately in a single type <code>T</code>:</p>
 
 <div class="padded-description"><div class="comments">
 <p>Returns <code>true</code> if the <code>PublicImmutable</code> has been initialized.</p>
-</div>
-</div></div><h3><code class="code-header">impl&lt;Context, T&gt; <a href="../../noir_aztec/state_vars/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, Context&gt;</code></h3>
-
-<div class="padded-methods"><code id="compute_initialization_inner_nullifier" class="code-header">pub fn <a href="#compute_initialization_inner_nullifier"><span class="fn">compute_initialization_inner_nullifier</span></a>(self) -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code>
-
-<div class="padded-description"><div class="comments">
-<p>Returns the inner nullifier emitted during initialization.</p>
 </div>
 </div></div><h2>Trait implementations</h2>
 <h3 id="impl-StateVariable&lt;M+1, Context&gt;-for-PublicImmutable<T, Context>"><code class="code-header">impl&lt;Context, let M: <a href="../../std/primitive.u32.html" class="primitive">u32</a>, T&gt; <a href="../../noir_aztec/state_vars/trait.StateVariable.html" class="trait">StateVariable</a>&lt;M + 1, Context&gt; for <a href="../../noir_aztec/state_vars/struct.PublicImmutable.html" class="struct">PublicImmutable</a>&lt;T, Context&gt;
