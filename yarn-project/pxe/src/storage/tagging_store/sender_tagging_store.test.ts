@@ -32,14 +32,17 @@ describe('SenderTaggingStore', () => {
   });
 
   describe('storePendingIndexes', () => {
-    it('stores a single pending index range', async () => {
+    it.each([
+      ['', 'storePendingIndexes'],
+      [' when merging', 'mergePendingIndexes'],
+    ] as const)('stores a single pending index range for an untracked tx%s', async (_name, method) => {
       const txHash = TxHash.random();
 
-      await taggingStore.storePendingIndexes([range(secret1, 5)], txHash, 'test');
+      await taggingStore[method]([range(secret1, 5)], txHash, 'test');
 
       const txHashes = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, 10, 'test');
-      expect(txHashes).toHaveLength(1);
-      expect(txHashes[0]).toEqual(txHash);
+      expect(txHashes).toEqual([txHash]);
+      expect(await taggingStore.getLastUsedIndex(secret1, 'test')).toBe(5);
     });
 
     it('stores multiple pending index ranges for different secrets', async () => {
@@ -115,7 +118,7 @@ describe('SenderTaggingStore', () => {
       await taggingStore.storePendingIndexes([range(secret1, 4, 6)], txHash, 'test');
 
       // Discovery of the surviving sub-range of a partially reverted tx must not throw nor shrink the entry.
-      await taggingStore.storePendingIndexes([range(secret1, 4)], txHash, 'test', { mergeExisting: true });
+      await taggingStore.mergePendingIndexes([range(secret1, 4)], txHash, 'test');
 
       expect(await taggingStore.getLastUsedIndex(secret1, 'test')).toBe(6);
     });
@@ -127,21 +130,11 @@ describe('SenderTaggingStore', () => {
       await taggingStore.storePendingIndexes([range(secret1, 4, 6)], txHash, 'test');
 
       // Discovery evidences further onchain indexes for the same tx — the entry must grow to cover them.
-      await taggingStore.storePendingIndexes([range(secret1, 7, 8)], txHash, 'test', { mergeExisting: true });
+      await taggingStore.mergePendingIndexes([range(secret1, 7, 8)], txHash, 'test');
 
       const txHashes = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, 10, 'test');
       expect(txHashes).toEqual([txHash]);
       expect(await taggingStore.getLastUsedIndex(secret1, 'test')).toBe(8);
-    });
-
-    it('stores a range for an untracked tx when merging is requested', async () => {
-      const txHash = TxHash.random();
-
-      await taggingStore.storePendingIndexes([range(secret1, 5)], txHash, 'test', { mergeExisting: true });
-
-      const txHashes = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, 10, 'test');
-      expect(txHashes).toEqual([txHash]);
-      expect(await taggingStore.getLastUsedIndex(secret1, 'test')).toBe(5);
     });
 
     it('throws when storing a pending index range lower than the last finalized index', async () => {

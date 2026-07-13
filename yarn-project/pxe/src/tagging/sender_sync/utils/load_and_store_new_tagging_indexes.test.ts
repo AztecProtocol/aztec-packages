@@ -57,7 +57,7 @@ describe('loadAndStoreNewTaggingIndexes', () => {
 
     await loadAndStoreNewTaggingIndexes(secret, 0, 10, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
 
-    expect(taggingStore.storePendingIndexes).not.toHaveBeenCalled();
+    expect(taggingStore.mergePendingIndexes).not.toHaveBeenCalled();
   });
 
   it('single log found at a specific index', async () => {
@@ -72,12 +72,11 @@ describe('loadAndStoreNewTaggingIndexes', () => {
 
     await loadAndStoreNewTaggingIndexes(secret, 0, 10, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
 
-    expect(taggingStore.storePendingIndexes).toHaveBeenCalledTimes(1);
-    expect(taggingStore.storePendingIndexes).toHaveBeenCalledWith(
+    expect(taggingStore.mergePendingIndexes).toHaveBeenCalledTimes(1);
+    expect(taggingStore.mergePendingIndexes).toHaveBeenCalledWith(
       [{ extendedSecret: secret, lowestIndex: index, highestIndex: index }],
       txHash,
       'test',
-      { mergeExisting: true },
     );
   });
 
@@ -104,12 +103,11 @@ describe('loadAndStoreNewTaggingIndexes', () => {
 
     await loadAndStoreNewTaggingIndexes(secret, 0, 10, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
 
-    expect(taggingStore.storePendingIndexes).toHaveBeenCalledTimes(1);
-    expect(taggingStore.storePendingIndexes).toHaveBeenCalledWith(
+    expect(taggingStore.mergePendingIndexes).toHaveBeenCalledTimes(1);
+    expect(taggingStore.mergePendingIndexes).toHaveBeenCalledWith(
       [{ extendedSecret: secret, lowestIndex: index1, highestIndex: index2 }],
       txHash,
       'test',
-      { mergeExisting: true },
     );
   });
 
@@ -137,18 +135,16 @@ describe('loadAndStoreNewTaggingIndexes', () => {
 
     await loadAndStoreNewTaggingIndexes(secret, 0, 10, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
 
-    expect(taggingStore.storePendingIndexes).toHaveBeenCalledTimes(2);
-    expect(taggingStore.storePendingIndexes).toHaveBeenCalledWith(
+    expect(taggingStore.mergePendingIndexes).toHaveBeenCalledTimes(2);
+    expect(taggingStore.mergePendingIndexes).toHaveBeenCalledWith(
       [{ extendedSecret: secret, lowestIndex: index1, highestIndex: index1 }],
       txHash1,
       'test',
-      { mergeExisting: true },
     );
-    expect(taggingStore.storePendingIndexes).toHaveBeenCalledWith(
+    expect(taggingStore.mergePendingIndexes).toHaveBeenCalledWith(
       [{ extendedSecret: secret, lowestIndex: index2, highestIndex: index2 }],
       txHash2,
       'test',
-      { mergeExisting: true },
     );
   });
 
@@ -168,18 +164,16 @@ describe('loadAndStoreNewTaggingIndexes', () => {
 
     await loadAndStoreNewTaggingIndexes(secret, 0, 10, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
 
-    expect(taggingStore.storePendingIndexes).toHaveBeenCalledTimes(2);
-    expect(taggingStore.storePendingIndexes).toHaveBeenCalledWith(
+    expect(taggingStore.mergePendingIndexes).toHaveBeenCalledTimes(2);
+    expect(taggingStore.mergePendingIndexes).toHaveBeenCalledWith(
       [{ extendedSecret: secret, lowestIndex: index, highestIndex: index }],
       txHash1,
       'test',
-      { mergeExisting: true },
     );
-    expect(taggingStore.storePendingIndexes).toHaveBeenCalledWith(
+    expect(taggingStore.mergePendingIndexes).toHaveBeenCalledWith(
       [{ extendedSecret: secret, lowestIndex: index, highestIndex: index }],
       txHash2,
       'test',
-      { mergeExisting: true },
     );
   });
 
@@ -222,24 +216,21 @@ describe('loadAndStoreNewTaggingIndexes', () => {
 
     await loadAndStoreNewTaggingIndexes(secret, 0, 10, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
 
-    expect(taggingStore.storePendingIndexes).toHaveBeenCalledTimes(3);
-    expect(taggingStore.storePendingIndexes).toHaveBeenCalledWith(
+    expect(taggingStore.mergePendingIndexes).toHaveBeenCalledTimes(3);
+    expect(taggingStore.mergePendingIndexes).toHaveBeenCalledWith(
       [{ extendedSecret: secret, lowestIndex: 1, highestIndex: 8 }],
       txHash1,
       'test',
-      { mergeExisting: true },
     );
-    expect(taggingStore.storePendingIndexes).toHaveBeenCalledWith(
+    expect(taggingStore.mergePendingIndexes).toHaveBeenCalledWith(
       [{ extendedSecret: secret, lowestIndex: 3, highestIndex: 5 }],
       txHash2,
       'test',
-      { mergeExisting: true },
     );
-    expect(taggingStore.storePendingIndexes).toHaveBeenCalledWith(
+    expect(taggingStore.mergePendingIndexes).toHaveBeenCalledWith(
       [{ extendedSecret: secret, lowestIndex: 9, highestIndex: 9 }],
       txHash3,
       'test',
-      { mergeExisting: true },
     );
   });
 
@@ -270,12 +261,11 @@ describe('loadAndStoreNewTaggingIndexes', () => {
     await loadAndStoreNewTaggingIndexes(secret, start, end, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
 
     // Only the log at start should be stored; end is exclusive
-    expect(taggingStore.storePendingIndexes).toHaveBeenCalledTimes(1);
-    expect(taggingStore.storePendingIndexes).toHaveBeenCalledWith(
+    expect(taggingStore.mergePendingIndexes).toHaveBeenCalledTimes(1);
+    expect(taggingStore.mergePendingIndexes).toHaveBeenCalledWith(
       [{ extendedSecret: secret, lowestIndex: start, highestIndex: start }],
       txHashAtStart,
       'test',
-      { mergeExisting: true },
     );
   });
 });

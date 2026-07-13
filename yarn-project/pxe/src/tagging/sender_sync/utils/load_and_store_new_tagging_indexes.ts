@@ -44,7 +44,7 @@ export async function loadAndStoreNewTaggingIndexes(
   for (const [txHashStr, indexes] of txIndexesMap.entries()) {
     const txHash = TxHash.fromString(txHashStr);
     const ranges = [{ extendedSecret, lowestIndex: Math.min(...indexes), highestIndex: Math.max(...indexes) }];
-    await taggingStore.storePendingIndexes(ranges, txHash, jobId, { mergeExisting: true });
+    await taggingStore.mergePendingIndexes(ranges, txHash, jobId);
   }
 }
 
