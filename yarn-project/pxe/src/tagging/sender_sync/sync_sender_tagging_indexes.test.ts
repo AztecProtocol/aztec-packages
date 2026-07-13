@@ -349,7 +349,7 @@ describe('syncSenderTaggingIndexes', () => {
 
     expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBe(newlyDiscoveredIndex);
     expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(newlyDiscoveredIndex);
-    // Window 1 resolves both reconciles; window 2 finds nothing and breaks → 2 logs calls.
+    // Window 1 reconciles both pendings; window 2 finds nothing and breaks → 2 logs calls.
     expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(2);
     // One parallel receipt call for the known pending, one sequential follow-up for the newly discovered.
     expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(2);
