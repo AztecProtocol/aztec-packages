@@ -18,6 +18,11 @@ use types::{
 // If there's only one previous rollup (i.e., one block in the checkpoint), it must be a first block root: the inputs
 // validator asserts the leftmost rollup's `is_first_block`. The message-only block root sets `is_first_block = false`,
 // so it is listed here (for symmetry with the multi-block variant) but can never actually pass as the sole block.
+//
+// That `is_first_block` assertion is the only thing keeping a message-only block from standing as a checkpoint's sole
+// block. If it is ever relaxed (e.g. replaced by a "leftmost block's start_msg_sponge is empty" check), this entry
+// must be dropped in the same change, or a transaction-less single-block checkpoint — one whose blob omits the
+// first-block l1-to-l2 root — would silently become provable.
 global ALLOWED_PREVIOUS_VK_INDICES: [u32; 4] = [
     BLOCK_ROOT_FIRST_ROLLUP_VK_INDEX,
     BLOCK_ROOT_SINGLE_TX_FIRST_ROLLUP_VK_INDEX,
