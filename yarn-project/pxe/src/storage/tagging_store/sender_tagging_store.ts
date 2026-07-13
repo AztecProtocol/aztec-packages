@@ -139,8 +139,8 @@ export class SenderTaggingStore implements StagedStore {
    * @param opts - With `mergeExisting`, an existing entry for the same (secret, txHash) pair is widened to the union
    * of the stored and incoming ranges instead of throwing on a mismatch. Discovery from onchain logs needs this: it
    * may see only the surviving (non-revertible phase) sub-range of a partially reverted tx recorded at prove time
-   * (receipt reconciliation resolves that difference), or indexes beyond a partially discovered entry when a tx
-   * from another PXE straddles a sync window boundary.
+   * (the finalized receipt step of the sync resolves that difference), or indexes beyond a partially discovered
+   * entry when a tx from another PXE straddles a sync window boundary.
    * @throws If the highestIndex is further than window length from the highest finalized index for the same secret.
    * @throws If the lowestIndex is lower than or equal to the last finalized index for the same secret.
    * @throws If a different range already exists for the same (secret, txHash) pair (unless `mergeExisting` is set).
