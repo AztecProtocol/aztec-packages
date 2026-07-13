@@ -108,7 +108,7 @@ describe('SenderTaggingStore', () => {
       );
     });
 
-    it('keeps the existing range when storing a sub-range with mergeExisting', async () => {
+    it('keeps the existing range when merging in a sub-range for the same tx', async () => {
       const txHash = TxHash.random();
 
       // Prove-time entry spanning setup and app-logic phase logs.
@@ -120,7 +120,7 @@ describe('SenderTaggingStore', () => {
       expect(await taggingStore.getLastUsedIndex(secret1, 'test')).toBe(6);
     });
 
-    it('widens the existing range when storing a range beyond it with mergeExisting', async () => {
+    it('widens the existing range to the union when merging in a range beyond it', async () => {
       const txHash = TxHash.random();
 
       // A prior window discovered only part of the tx's range.
@@ -134,7 +134,7 @@ describe('SenderTaggingStore', () => {
       expect(await taggingStore.getLastUsedIndex(secret1, 'test')).toBe(8);
     });
 
-    it('stores a range for an untracked tx when mergeExisting is set', async () => {
+    it('stores a range for an untracked tx when merging is requested', async () => {
       const txHash = TxHash.random();
 
       await taggingStore.storePendingIndexes([range(secret1, 5)], txHash, 'test', { mergeExisting: true });
