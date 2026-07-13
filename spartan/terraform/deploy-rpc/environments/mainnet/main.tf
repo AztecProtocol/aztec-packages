@@ -112,6 +112,16 @@ module "environment" {
       gcp_secret_manager_secret_name = "mainnet-rpc-consumer-client5"
       rate_limit_minute              = 0
     }
+    client6 = {
+      username                       = "mainnet-rpc-consumer-client6"
+      gcp_secret_manager_secret_name = "mainnet-rpc-consumer-client6"
+      rate_limit_minute              = 0
+    }
+    client7 = {
+      username                       = "mainnet-rpc-consumer-client7"
+      gcp_secret_manager_secret_name = "mainnet-rpc-consumer-client7"
+      rate_limit_minute              = 0
+    }
   }
 
   IRM_METRICS_ENABLED = true
