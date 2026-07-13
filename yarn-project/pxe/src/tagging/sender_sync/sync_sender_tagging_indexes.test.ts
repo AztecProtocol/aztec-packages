@@ -461,6 +461,52 @@ describe('syncSenderTaggingIndexes', () => {
     expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(4);
   });
 
+  /**
+   * Cross-device straddle: another PXE sharing this directional secret sent a tx, and an earlier window discovered
+   * only part of its index range, so the store already tracks a narrower entry for the same (secret, txHash).
+   * Discovery must widen the entry to cover every index evidenced onchain — silently keeping the narrower entry
+   * would let this PXE pick a next index whose tag is already public.
+   */
+  it('widens a tracked pending range when discovery evidences further indexes for the same tx', async () => {
+    await setUp();
+
+    const foreignTxHash = TxHash.random();
+
+    // An earlier window discovered only the first index of the foreign tx.
+    await taggingStore.storePendingIndexes(
+      [{ extendedSecret: secret, lowestIndex: 10, highestIndex: 10 }],
+      foreignTxHash,
+      'test',
+    );
+
+    // The chain shows the tx actually used indexes 10 and 11.
+    const tag10 = await computeSiloedTagForIndex(10);
+    const tag11 = await computeSiloedTagForIndex(11);
+
+    aztecNode.getPrivateLogsByTags.mockImplementation(query => {
+      const tags = query.tags as SiloedTag[];
+      return Promise.resolve(
+        tags.map((tag: SiloedTag) => {
+          if (tag.equals(tag10)) {
+            return [makeLog(foreignTxHash, tag10.value)];
+          } else if (tag.equals(tag11)) {
+            return [makeLog(foreignTxHash, tag11.value)];
+          }
+          return [];
+        }),
+      );
+    });
+
+    // The tx is mined but not yet finalized, so no receipt status change resolves the entry during this sync.
+    aztecNode.getTxReceipt.mockResolvedValue(mined(foreignTxHash, TxStatus.PROPOSED, 14));
+
+    await syncSenderTaggingIndexes(secret, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
+
+    // The next index choice must account for the onchain tag at index 11.
+    expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(11);
+    expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBeUndefined();
+  });
+
   it('handles a partially reverted transaction', async () => {
     await setUp();
 

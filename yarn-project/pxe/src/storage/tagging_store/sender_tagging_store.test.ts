@@ -108,22 +108,36 @@ describe('SenderTaggingStore', () => {
       );
     });
 
-    it('keeps the existing range when storing a different range with skipExisting', async () => {
+    it('keeps the existing range when storing a sub-range with mergeExisting', async () => {
       const txHash = TxHash.random();
 
       // Prove-time entry spanning setup and app-logic phase logs.
       await taggingStore.storePendingIndexes([range(secret1, 4, 6)], txHash, 'test');
 
       // Discovery of the surviving sub-range of a partially reverted tx must not throw nor shrink the entry.
-      await taggingStore.storePendingIndexes([range(secret1, 4)], txHash, 'test', { skipExisting: true });
+      await taggingStore.storePendingIndexes([range(secret1, 4)], txHash, 'test', { mergeExisting: true });
 
       expect(await taggingStore.getLastUsedIndex(secret1, 'test')).toBe(6);
     });
 
-    it('stores a range for an untracked tx when skipExisting is set', async () => {
+    it('widens the existing range when storing a range beyond it with mergeExisting', async () => {
       const txHash = TxHash.random();
 
-      await taggingStore.storePendingIndexes([range(secret1, 5)], txHash, 'test', { skipExisting: true });
+      // A prior window discovered only part of the tx's range.
+      await taggingStore.storePendingIndexes([range(secret1, 4, 6)], txHash, 'test');
+
+      // Discovery evidences further onchain indexes for the same tx — the entry must grow to cover them.
+      await taggingStore.storePendingIndexes([range(secret1, 7, 8)], txHash, 'test', { mergeExisting: true });
+
+      const txHashes = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, 10, 'test');
+      expect(txHashes).toEqual([txHash]);
+      expect(await taggingStore.getLastUsedIndex(secret1, 'test')).toBe(8);
+    });
+
+    it('stores a range for an untracked tx when mergeExisting is set', async () => {
+      const txHash = TxHash.random();
+
+      await taggingStore.storePendingIndexes([range(secret1, 5)], txHash, 'test', { mergeExisting: true });
 
       const txHashes = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, 10, 'test');
       expect(txHashes).toEqual([txHash]);
