@@ -312,7 +312,7 @@ describe('syncSenderTaggingIndexes', () => {
 
   /**
    * Mixed window: one pending entry is already in the store, and the logs query surfaces a different pending tx
-   * at another index in the same window. Both must have their status reconciled in one sync call.
+   * at another index in the same window. Both must have their status resolved in one sync call.
    */
   it('fetches receipts for both pre-existing and newly discovered pending in the same window', async () => {
     await setUp();
@@ -349,7 +349,7 @@ describe('syncSenderTaggingIndexes', () => {
 
     expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBe(newlyDiscoveredIndex);
     expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(newlyDiscoveredIndex);
-    // Window 1 reconciles both pendings; window 2 finds nothing and breaks → 2 logs calls.
+    // Window 1 resolves both pendings; window 2 finds nothing and breaks → 2 logs calls.
     expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(2);
     // One parallel receipt call for the known pending, one sequential follow-up for the newly discovered.
     expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(2);
@@ -398,9 +398,9 @@ describe('syncSenderTaggingIndexes', () => {
    * Same-PXE partial revert: the pending range was recorded at prove time and spans both the non-revertible (setup)
    * and revertible (app logic) phases. After the tx mines with reverted app logic, only the setup-phase logs are
    * onchain, so discovery re-derives a narrower range for the same (secret, txHash). That narrower range must not
-   * conflict with the prove-time entry — receipt reconciliation owns resolving the difference.
+   * conflict with the prove-time entry — the finalized receipt step of the sync owns resolving the difference.
    */
-  it('reconciles a partially reverted tx whose pending range was recorded at prove time', async () => {
+  it('handles a partially reverted tx whose pending range was recorded at prove time', async () => {
     await setUp();
 
     const revertedTxHash = TxHash.random();
