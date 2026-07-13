@@ -22,13 +22,14 @@ import { type CheckpointTopTreeData, TopTreeOrchestrator } from '../orchestrator
 //   AZTEC_GENERATE_TEST_DATA=1 yarn workspace @aztec/prover-client test regenerate_rollup_sample_inputs
 // Without that flag the whole suite is skipped, so it is a no-op (no prover setup) in normal CI.
 //
-// The four scenarios are chosen to exercise each block-root variant the orchestrator selects (see
-// BlockProvingState#getBlockRootRollupTypeAndInputs): a first block with 0 txs, with >=2 txs, a
-// three-block checkpoint (first block with 1 tx plus a block-merge), and a three-checkpoint epoch
-// (for the checkpoint-merge). A merge node only exists above the tree root, so both merges need
-// three leaves — two would pair directly at the root. The single-block checkpoint feeds the
-// checkpoint-root-single-block circuit and the three-block checkpoint feeds the (two-input)
-// checkpoint-root circuit. Every scenario also produces the root rollup.
+// The scenarios are chosen to exercise each block-root variant the orchestrator selects (see
+// BlockProvingState#getBlockRootRollupTypeAndInputs): a first block with 0 txs, with >=2 txs, and
+// with 1 tx; non-first blocks with 1 tx (from the three-block checkpoint) and with >=2 txs (from the
+// two-block checkpoint). The three-block checkpoint also produces a block-merge and the three-
+// checkpoint epoch a checkpoint-merge; a merge node only exists above the tree root, so both merges
+// need three leaves — two would pair directly at the root. Single-block checkpoints feed the
+// checkpoint-root-single-block circuit and multi-block checkpoints the (two-input) checkpoint-root
+// circuit. Every scenario also produces the root rollup.
 const describeOrSkip = isGenerateTestDataEnabled() ? describe : describe.skip;
 
 describeOrSkip('prover/regenerate-rollup-sample-inputs', () => {
@@ -66,7 +67,19 @@ describeOrSkip('prover/regenerate-rollup-sample-inputs', () => {
       numBlocksPerCheckpoint: 3,
       numTxsPerBlock: 1,
       numL1ToL2Messages: withMessages,
-      dump: ['rollup-block-root-first-single-tx', 'rollup-block-merge', 'rollup-checkpoint-root'],
+      dump: [
+        'rollup-block-root-first-single-tx',
+        'rollup-block-root-single-tx',
+        'rollup-block-merge',
+        'rollup-checkpoint-root',
+      ],
+    },
+    {
+      numCheckpoints: 1,
+      numBlocksPerCheckpoint: 2,
+      numTxsPerBlock: 2,
+      numL1ToL2Messages: withMessages,
+      dump: ['rollup-block-root'],
     },
     // The checkpoint-merge only appears with three checkpoints. Independently-built checkpoints do
     // not carry the inbox message state forward, so this scenario runs with no L1-to-L2 messages and
@@ -141,7 +154,9 @@ describeOrSkip('prover/regenerate-rollup-sample-inputs', () => {
           }
 
           topTreeData.push({
-            blockProofs: subTree.getSubTreeResult().then(r => r.blockProofOutputs),
+            blockProofs: subTree
+              .getSubTreeResult()
+              .then(r => ({ blockProofOutputs: r.blockProofOutputs, parityRootProof: r.parityRootProof })),
             l2ToL1MsgsPerBlock: blocks.map(b => b.txs.map(tx => tx.txEffect.l2ToL1Msgs)),
             blobFields: checkpoint.toBlobFields(),
             previousBlockHeader,
