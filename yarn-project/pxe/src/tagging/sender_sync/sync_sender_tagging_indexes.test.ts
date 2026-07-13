@@ -445,4 +445,38 @@ describe('syncSenderTaggingIndexes', () => {
     // No pending indexes should remain for this secret
     expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(4);
   });
+
+  /**
+   * The store permits a pending index up to (lastFinalizedIndex ?? 0) + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN, so
+   * with nothing finalized a tx from another PXE can legitimately sit at index WINDOW_LEN itself. The first sync
+   * window must probe that index: the loop only advances past its first window when a finalized index shows up, so a
+   * still-pending tx at the boundary would otherwise stay invisible and the next locally chosen index (last used + 1)
+   * would collide with its onchain tag.
+   */
+  it('discovers a pending tx at the last permitted index for a fresh secret', async () => {
+    await setUp();
+
+    const boundaryIndex = UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN;
+    const pendingTxHash = TxHash.random();
+    const tagBelowBoundary = await computeSiloedTagForIndex(boundaryIndex - 1);
+    const tagAtBoundary = await computeSiloedTagForIndex(boundaryIndex);
+
+    aztecNode.getPrivateLogsByTags.mockImplementation(query => {
+      const tags = query.tags as SiloedTag[];
+      return Promise.resolve(
+        tags.map((tag: SiloedTag) =>
+          tag.equals(tagBelowBoundary) || tag.equals(tagAtBoundary) ? [makeLog(pendingTxHash, tag.value)] : [],
+        ),
+      );
+    });
+
+    // The tx is mined but not finalized, so no finalized index shows up and the sync stops after its first window.
+    aztecNode.getTxReceipt.mockResolvedValue(mined(pendingTxHash, TxStatus.PROPOSED, 14));
+
+    await syncSenderTaggingIndexes(secret, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
+
+    expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBeUndefined();
+    // The next index this PXE would pick is last used + 1, so the boundary index the tx used must be covered.
+    expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(boundaryIndex);
+  });
 });
