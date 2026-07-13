@@ -555,11 +555,32 @@ describe('syncSenderTaggingIndexes', () => {
 
     await syncSenderTaggingIndexes(secret, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
 
-    // The straddled range must have been assembled piecewise — one logs query per window.
+    // The straddled range must have been assembled piecewise: window 1's logs query covers the lower straddle index
+    // but not the upper, and window 2's query the reverse. (Each window fits in a single RPC page, so there is one
+    // logs call per window.)
     expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(2);
+    const queriedTags = aztecNode.getPrivateLogsByTags.mock.calls.map(([query]) => query.tags as SiloedTag[]);
+    expect(queriedTags[0].some(tag => tag.equals(lowerStraddleTag))).toBe(true);
+    expect(queriedTags[0].some(tag => tag.equals(upperStraddleTag))).toBe(false);
+    expect(queriedTags[1].some(tag => tag.equals(upperStraddleTag))).toBe(true);
+    expect(queriedTags[1].some(tag => tag.equals(lowerStraddleTag))).toBe(false);
 
     expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBe(0);
     // The next index choice must account for both straddled onchain tags.
+    expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(upperStraddleIndex);
+
+    // The straddling tx later finalizes. A single widened entry finalizes cleanly at the upper index — a duplicate
+    // entry for the same txHash would instead trip the multiple-pending-entries guard during finalization.
+    aztecNode.getTxReceipt.mockImplementation((hash: TxHash) => {
+      if (hash.equals(straddlingTxHash)) {
+        return Promise.resolve(mined(hash, TxStatus.FINALIZED, 18));
+      }
+      throw new Error(`Unexpected tx hash: ${hash.toString()}`);
+    });
+
+    await syncSenderTaggingIndexes(secret, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
+
+    expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBe(upperStraddleIndex);
     expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(upperStraddleIndex);
   });
 
