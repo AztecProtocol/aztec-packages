@@ -312,7 +312,7 @@ describe('syncSenderTaggingIndexes', () => {
 
   /**
    * Mixed window: one pending entry is already in the store, and the logs query surfaces a different pending tx
-   * at another index in the same window. Both must have their status resolved in one sync call.
+   * at another index in the same window. Both must have their status reconciled in one sync call.
    */
   it('fetches receipts for both pre-existing and newly discovered pending in the same window', async () => {
     await setUp();
@@ -349,7 +349,7 @@ describe('syncSenderTaggingIndexes', () => {
 
     expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBe(newlyDiscoveredIndex);
     expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(newlyDiscoveredIndex);
-    // Window 1 resolves both pendings; window 2 finds nothing and breaks → 2 logs calls.
+    // Window 1 resolves both reconciles; window 2 finds nothing and breaks → 2 logs calls.
     expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(2);
     // One parallel receipt call for the known pending, one sequential follow-up for the newly discovered.
     expect(aztecNode.getTxReceipt).toHaveBeenCalledTimes(2);
@@ -414,6 +414,9 @@ describe('syncSenderTaggingIndexes', () => {
 
     // Only the setup-phase log survived the revert, so the node only knows the tag at index 4.
     const tag4 = await computeSiloedTagForIndex(4);
+    // The app-logic tags at indexes 5 and 6 were squashed by the revert and never reached the chain.
+    const tag5 = await computeSiloedTagForIndex(5);
+    const tag6 = await computeSiloedTagForIndex(6);
 
     aztecNode.getPrivateLogsByTags.mockImplementation(query => {
       const tags = query.tags as SiloedTag[];
@@ -422,6 +425,8 @@ describe('syncSenderTaggingIndexes', () => {
       );
     });
 
+    // The TxEffect where only the tag at index 4 survived (non-revertible phase). The sync reads it off the receipt
+    // via getTxReceipt(txHash, { includeTxEffect: true }).
     const txEffect = new TxEffect(
       RevertCode.REVERTED,
       revertedTxHash,
@@ -453,7 +458,15 @@ describe('syncSenderTaggingIndexes', () => {
     );
     expect(pendingAfterSync).toEqual([]);
 
-    // A repeat sync must be a clean no-op: the bug being pinned here wedged the secret by re-throwing on every
+    // Premise guard: discovery blindly probes every index in the window, so the first sync must have queried the full
+    // prove-time range [4, 6], with only the setup-phase tag getting an onchain answer. If the sync ever stopped
+    // probing these indexes, the discovery merge this test exists to exercise would silently stop happening.
+    const queriedTags = aztecNode.getPrivateLogsByTags.mock.calls.flatMap(([query]) => query.tags as SiloedTag[]);
+    expect(queriedTags.some(tag => tag.equals(tag4))).toBe(true);
+    expect(queriedTags.some(tag => tag.equals(tag5))).toBe(true);
+    expect(queriedTags.some(tag => tag.equals(tag6))).toBe(true);
+
+    // A repeat sync must be a clean no-op: the behavior being pinned here is that the secret will not throw on every
     // subsequent sync.
     await syncSenderTaggingIndexes(secret, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
 

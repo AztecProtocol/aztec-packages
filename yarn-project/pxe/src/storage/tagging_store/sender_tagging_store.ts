@@ -207,15 +207,13 @@ export class SenderTaggingStore implements StagedStore {
           // Widen the entry to the union of both ranges, never shrink it: replacing would drop prove-time
           // indexes the chain doesn't show (partially reverted tx), and skipping would drop onchain indexes
           // discovered in a later sync window (tx straddling the window boundary).
-          updatedPending = pendingData.map(entry =>
-            entry === existingEntry
-              ? {
-                  lowestIndex: Math.min(entry.lowestIndex, range.lowestIndex),
-                  highestIndex: Math.max(entry.highestIndex, range.highestIndex),
-                  txHash: entry.txHash,
-                }
-              : entry,
-          );
+          const lowestIndex = Math.min(existingEntry.lowestIndex, range.lowestIndex);
+          const highestIndex = Math.max(existingEntry.highestIndex, range.highestIndex);
+          if (lowestIndex !== existingEntry.lowestIndex || highestIndex !== existingEntry.highestIndex) {
+            updatedPending = pendingData.map(entry =>
+              entry === existingEntry ? { lowestIndex, highestIndex, txHash: entry.txHash } : entry,
+            );
+          }
         } else if (
           existingEntry.lowestIndex !== range.lowestIndex ||
           existingEntry.highestIndex !== range.highestIndex
@@ -228,8 +226,8 @@ export class SenderTaggingStore implements StagedStore {
               `new [${range.lowestIndex}, ${range.highestIndex}]`,
           );
         }
-        // Remaining case (existing entry with an identical range, no mergeExisting): exact duplicate, nothing to
-        // write.
+        // Remaining cases (a merge whose union equals the stored range, or an identical range without
+        // mergeExisting): duplicate evidence, nothing to write.
 
         if (updatedPending) {
           this.#writePendingIndexes(jobId, secretStr, updatedPending);
