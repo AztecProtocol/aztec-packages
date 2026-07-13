@@ -445,14 +445,6 @@ describe('syncSenderTaggingIndexes', () => {
     // No pending indexes should remain for this secret
     expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(4);
   });
-
-  /**
-   * The store permits a pending index up to (lastFinalizedIndex ?? 0) + UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN, so
-   * with nothing finalized a tx from another PXE can legitimately sit at index WINDOW_LEN itself. The first sync
-   * window must probe that index: the loop only advances past its first window when a finalized index shows up, so a
-   * still-pending tx at the boundary would otherwise stay invisible and the next locally chosen index (last used + 1)
-   * would collide with its onchain tag.
-   */
   it('discovers a pending tx at the last permitted index for a fresh secret', async () => {
     await setUp();
 
