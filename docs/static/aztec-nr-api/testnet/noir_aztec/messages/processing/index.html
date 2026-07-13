@@ -20,6 +20,7 @@
 <h2><a href="#mod">Module processing</a></h2>
 <h3>Module items</h3>
 <ul class="sidebar-list">
+<li><a href="#re-exports">Re-exports</a></li>
 <li><a href="#modules">Modules</a></li>
 <li><a href="#structs">Structs</a></li>
 <li><a href="#functions">Functions</a></li>
@@ -39,17 +40,19 @@
 <main>
 <div><a href="../../../index.html">aztec-nr</a> - <a href="../../index.html">noir_aztec</a>::<a href="../index.html">messages</a>::processing</div>
 <h1>Module <span id="mod" class="module">processing</span></h1>
+<h2 id="re-exports">Re-exports</h2><ul class="item-list">
+<li><div class="item-name"><code>pub use noir_aztec::oracle::tx_resolution::<a href="../../../noir_aztec/oracle/tx_resolution/struct.ResolvedTx.html" class="struct">ResolvedTx</a>;</code></div></li>
+</ul>
 <h2 id="modules">Modules</h2><ul class="item-list">
 <li><div class="item-name"><a href="log_retrieval_request/index.html" class="module">log_retrieval_request</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="log_retrieval_response/index.html" class="module">log_retrieval_response</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="offchain/index.html" class="module">offchain</a></div><div class="item-description"></div></li>
 </ul>
 <h2 id="structs">Structs</h2><ul class="item-list">
-<li><div class="item-name"><a href="struct.MessageContext.html" class="struct">MessageContext</a></div><div class="item-description">Additional information needed to process a message.</div></li>
 <li><div class="item-name"><a href="struct.NoteValidationRequest.html" class="struct">NoteValidationRequest</a></div><div class="item-description">Intermediate struct used to perform batch note validation by PXE. The
 <code>aztec_utl_validateAndStoreEnqueuedNotesAndEvents</code> oracle expects for values of this type to be stored in a
 <code>EphemeralArray</code>.</div></li>
-<li><div class="item-name"><a href="struct.OffchainMessageWithContext.html" class="struct">OffchainMessageWithContext</a></div><div class="item-description">An offchain-delivered message with resolved context, ready for processing during sync.</div></li>
+<li><div class="item-name"><a href="struct.OffchainMessageWithTx.html" class="struct">OffchainMessageWithTx</a></div><div class="item-description">An offchain-delivered message with resolved context, ready for processing during sync.</div></li>
 </ul>
 <h2 id="functions">Functions</h2><ul class="item-list">
 <li><div class="item-name"><a href="fn.enqueue_event_for_validation.html" class="fn">enqueue_event_for_validation</a></div><div class="item-description">Enqueues an event for validation and storage by PXE.</div></li>

@@ -265,8 +265,7 @@ They are used in TS and C++</div></li>
 <li><div class="item-name"><a href="global.AVM_TX_PHASE_VALUE_LAST.html" class="global">AVM_TX_PHASE_VALUE_LAST</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="global.AVM_TX_PHASE_VALUE_SETUP.html" class="global">AVM_TX_PHASE_VALUE_SETUP</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="global.AVM_TX_PHASE_VALUE_START.html" class="global">AVM_TX_PHASE_VALUE_START</a></div><div class="item-description"></div></li>
-<li><div class="item-name"><a href="global.AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED.html" class="global">AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED</a></div><div class="item-description"></div></li>
-<li><div class="item-name"><a href="global.AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED.html" class="global">AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="global.AVM_V2_PROOF_LENGTH_IN_FIELDS.html" class="global">AVM_V2_PROOF_LENGTH_IN_FIELDS</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="global.AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS.html" class="global">AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="global.AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT.html" class="global">AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="global.AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_ROOT.html" class="global">AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_ROOT</a></div><div class="item-description"></div></li>
@@ -359,19 +358,24 @@ They are used in TS and C++</div></li>
 <li><div class="item-name"><a href="global.DOM_SEP__BLOCK_HEADERS_HASH.html" class="global">DOM_SEP__BLOCK_HEADERS_HASH</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="global.DOM_SEP__CONSTRAINED_MSG_LOG_TAG.html" class="global">DOM_SEP__CONSTRAINED_MSG_LOG_TAG</a></div><div class="item-description">Domain separator for constrained message delivery log tags. Used by <a href="../../protocol_types/hash/fn.compute_log_tag.html"><code>crate::hash::compute_log_tag</code></a>.</div></li>
 <li><div class="item-name"><a href="global.DOM_SEP__CONSTRAINED_MSG_NULLIFIER.html" class="global">DOM_SEP__CONSTRAINED_MSG_NULLIFIER</a></div><div class="item-description">Domain separator for nullifiers used during constrained delivery.</div></li>
+<li><div class="item-name"><a href="global.DOM_SEP__CONSTRAINED_MSG_SENDER_SECRET.html" class="global">DOM_SEP__CONSTRAINED_MSG_SENDER_SECRET</a></div><div class="item-description">Domain separator for the sender-only secret folded into constrained-delivery nullifiers.</div></li>
 <li><div class="item-name"><a href="global.DOM_SEP__CONTRACT_ADDRESS_V2.html" class="global">DOM_SEP__CONTRACT_ADDRESS_V2</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="global.DOM_SEP__CONTRACT_CLASS_ID.html" class="global">DOM_SEP__CONTRACT_CLASS_ID</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="global.DOM_SEP__ECDH_FIELD_MASK.html" class="global">DOM_SEP__ECDH_FIELD_MASK</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="global.DOM_SEP__ECDH_SUBKEY.html" class="global">DOM_SEP__ECDH_SUBKEY</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="global.DOM_SEP__EVENT_COMMITMENT.html" class="global">DOM_SEP__EVENT_COMMITMENT</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="global.DOM_SEP__EVENT_LOG_TAG.html" class="global">DOM_SEP__EVENT_LOG_TAG</a></div><div class="item-description">Domain separator for event log tags. Used by <a href="../../protocol_types/hash/fn.compute_log_tag.html"><code>crate::hash::compute_log_tag</code></a>.</div></li>
+<li><div class="item-name"><a href="global.DOM_SEP__FBSK_M.html" class="global">DOM_SEP__FBSK_M</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="global.DOM_SEP__FUNCTION_ARGS.html" class="global">DOM_SEP__FUNCTION_ARGS</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="global.DOM_SEP__INITIALIZATION_NULLIFIER.html" class="global">DOM_SEP__INITIALIZATION_NULLIFIER</a></div><div class="item-description">Domain separator for state variable initialization.</div></li>
 <li><div class="item-name"><a href="global.DOM_SEP__INITIALIZER.html" class="global">DOM_SEP__INITIALIZER</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="global.DOM_SEP__INTERACTIVE_HANDSHAKE_SIGNATURE.html" class="global">DOM_SEP__INTERACTIVE_HANDSHAKE_SIGNATURE</a></div><div class="item-description">Domain separator for the message a recipient signs to authorize an interactive handshake, hashed via
+<a href="../../protocol_types/hash/fn.poseidon2_hash_with_separator.html"><code>crate::hash::poseidon2_hash_with_separator</code></a> and verified in-circuit by the handshake registry contract.</div></li>
 <li><div class="item-name"><a href="global.DOM_SEP__IVSK_M.html" class="global">DOM_SEP__IVSK_M</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="global.DOM_SEP__MERKLE_HASH.html" class="global">DOM_SEP__MERKLE_HASH</a></div><div class="item-description">Domain separator for internal merkle-node hashing in append-only trees.
 Indexed trees use per-tree merkle separators instead (see below).</div></li>
 <li><div class="item-name"><a href="global.DOM_SEP__MESSAGE_NULLIFIER.html" class="global">DOM_SEP__MESSAGE_NULLIFIER</a></div><div class="item-description">Domain separator for L1 to L2 message nullifiers.</div></li>
+<li><div class="item-name"><a href="global.DOM_SEP__MSSK_M.html" class="global">DOM_SEP__MSSK_M</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="global.DOM_SEP__NHK_M.html" class="global">DOM_SEP__NHK_M</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="global.DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG.html" class="global">DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG</a></div><div class="item-description">Domain separator for non-interactive handshake log tags emitted by the handshake registry contract. Used by
 <a href="../../protocol_types/hash/fn.compute_log_tag.html"><code>crate::hash::compute_log_tag</code></a>.</div></li>
@@ -512,6 +516,7 @@ Indexed trees use per-tree merkle separators instead (see below).</div></li>
 <li><div class="item-name"><a href="global.MAX_U32_VALUE.html" class="global">MAX_U32_VALUE</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="global.MAX_U64_VALUE.html" class="global">MAX_U64_VALUE</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="global.MEGA_VK_LENGTH_IN_FIELDS.html" class="global">MEGA_VK_LENGTH_IN_FIELDS</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="global.MEGA_ZK_VK_LENGTH_IN_FIELDS.html" class="global">MEGA_ZK_VK_LENGTH_IN_FIELDS</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="global.MEM_TAG_FF.html" class="global">MEM_TAG_FF</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="global.MEM_TAG_U1.html" class="global">MEM_TAG_U1</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="global.MEM_TAG_U128.html" class="global">MEM_TAG_U128</a></div><div class="item-description"></div></li>
@@ -557,9 +562,10 @@ Indexed trees use per-tree merkle separators instead (see below).</div></li>
 <li><div class="item-name"><a href="global.PRIVATE_KERNEL_INNER_2_VK_INDEX.html" class="global">PRIVATE_KERNEL_INNER_2_VK_INDEX</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="global.PRIVATE_KERNEL_INNER_3_VK_INDEX.html" class="global">PRIVATE_KERNEL_INNER_3_VK_INDEX</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="global.PRIVATE_KERNEL_INNER_VK_INDEX.html" class="global">PRIVATE_KERNEL_INNER_VK_INDEX</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="global.PRIVATE_KERNEL_RESET_BLOCK_END.html" class="global">PRIVATE_KERNEL_RESET_BLOCK_END</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="global.PRIVATE_KERNEL_RESET_TAIL_TO_PUBLIC_VK_INDEX.html" class="global">PRIVATE_KERNEL_RESET_TAIL_TO_PUBLIC_VK_INDEX</a></div><div class="item-description"></div></li>
+<li><div class="item-name"><a href="global.PRIVATE_KERNEL_RESET_TAIL_VK_INDEX.html" class="global">PRIVATE_KERNEL_RESET_TAIL_VK_INDEX</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="global.PRIVATE_KERNEL_RESET_VK_INDEX.html" class="global">PRIVATE_KERNEL_RESET_VK_INDEX</a></div><div class="item-description"></div></li>
-<li><div class="item-name"><a href="global.PRIVATE_KERNEL_TAIL_TO_PUBLIC_VK_INDEX.html" class="global">PRIVATE_KERNEL_TAIL_TO_PUBLIC_VK_INDEX</a></div><div class="item-description"></div></li>
-<li><div class="item-name"><a href="global.PRIVATE_KERNEL_TAIL_VK_INDEX.html" class="global">PRIVATE_KERNEL_TAIL_VK_INDEX</a></div><div class="item-description"></div></li>
 <li><div class="item-name"><a href="global.PRIVATE_LOG_CIPHERTEXT_LEN.html" class="global">PRIVATE_LOG_CIPHERTEXT_LEN</a></div><div class="item-description">A private log's ciphertext is all fields except the first one, which is called 'tag'. We call this 'ciphertext'
 because, unlike public logs, it is expected that private logs are encrypted (though this is not
 mandatory).</div></li>

@@ -18,11 +18,6 @@
 <h2 id="crate-name"><a href="../index.html">noir_aztec</a></h2>
 <div id="crate-version">0.0.0</div>
 <h2><a href="#struct">Struct PublicContext</a></h2>
-<h3>Fields</h3>
-<ul class="sidebar-list">
-<li><a href="#structfield.args_hash">args_hash</a></li>
-<li><a href="#structfield.compute_args_hash">compute_args_hash</a></li>
-</ul>
 <h3>Methods</h3>
 <ul class="sidebar-list">
 <li><a href="#block_number">block_number</a></li>
@@ -78,10 +73,8 @@
 <main>
 <div><a href="../../index.html">aztec-nr</a> - <a href="../index.html">noir_aztec</a>::<a href="index.html">context</a></div>
 <h1>Struct <span id="struct" class="struct">PublicContext</span></h1>
-<pre><code>pub struct PublicContext {
-    pub args_hash: <a href="../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt;,
-    pub compute_args_hash: fn() -> <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
-}
+<pre><code>pub struct PublicContext
+{ <span class="comment">/* private fields */</span> }
 </code></pre>
 <div class="comments">
 <h2>PublicContext</h2>
@@ -135,10 +128,7 @@ included).</p>
 private functions (standalone circuits) compile to. Therefore the approach to optimising a public function is
 fundamentally different from optimising a public function.</p>
 </div>
-<h2>Fields</h2>
-<div id="structfield.args_hash" class="struct-field"><code class="code-header">args_hash: <a href="../../std/option/struct.Option.html" class="struct">Option</a>&lt;<a href="../../std/primitive.Field.html" class="primitive">Field</a>&gt;</code></div>
-<div class="padded-description"></div><div id="structfield.compute_args_hash" class="struct-field"><code class="code-header">compute_args_hash: fn() -> <a href="../../std/primitive.Field.html" class="primitive">Field</a></code></div>
-<div class="padded-description"></div><h2>Implementations</h2>
+<h2>Implementations</h2>
 <h3><code class="code-header">impl <a href="../../noir_aztec/context/struct.PublicContext.html" class="struct">PublicContext</a></code></h3>
 
 <div class="padded-methods"><code id="new" class="code-header">pub fn <a href="#new"><span class="fn">new</span></a>(compute_args_hash: fn() -> <a href="../../std/primitive.Field.html" class="primitive">Field</a>) -> Self</code>
@@ -247,10 +237,10 @@ nullifier that was emitted alongside the enqueuing of a public call <strong>befo
 <h4>Cost</h4>
 <p>This emits the <code>CHECKNULLIFIEREXISTS</code> opcode, which conceptually performs a merkle inclusion proof on the
 nullifier tree (both when the nullifier exists and when it doesn't).</p></div>
-</div><code id="consume_l1_to_l2_message" class="code-header">pub fn <a href="#consume_l1_to_l2_message"><span class="fn">consume_l1_to_l2_message</span></a>(
+</div><code id="consume_l1_to_l2_message" class="code-header">pub fn <a href="#consume_l1_to_l2_message"><span class="fn">consume_l1_to_l2_message</span></a>&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt;(
     self,
     content: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
-    secret: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
+    secret: [<a href="../../std/primitive.Field.html" class="primitive">Field</a>; N],
     sender: <a href="../../protocol_types/address/eth_address/struct.EthAddress.html" class="struct">EthAddress</a>,
     leaf_index: <a href="../../std/primitive.Field.html" class="primitive">Field</a>,
 )</code>
@@ -267,7 +257,7 @@ you will need to wait until the messages are copied before you can consume them.
 <h4>Arguments</h4>
 <ul>
 <li><code>content</code> - The message content that was sent from L1</li>
-<li><code>secret</code> - Secret value used for message privacy (if needed)</li>
+<li><code>secret</code> - Secret fields used for message privacy (if needed)</li>
 <li><code>sender</code> - Ethereum address that sent the message</li>
 <li><code>leaf_index</code> - Index of the message in the L1-to-L2 message tree</li>
 </ul>

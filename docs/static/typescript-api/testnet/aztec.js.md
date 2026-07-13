@@ -1,16 +1,16 @@
 # @aztec/aztec.js
 
-Version: v5.0.0-rc.2
+Version: v5.0.0
 
 ## Quick Import Reference
 
 ```typescript
 import {
   AccountManager,
-  AccountWithSecretKey,
   BaseAccount,
   BatchCall,
   Capsule,
+  Contract,
   // ... and more
 } from '@aztec/aztec.js';
 ```
@@ -26,7 +26,7 @@ Manages a user account. Provides methods for calculating the account's address a
 
 **Methods**
 - `static create(wallet: Wallet, secretKey: Fr, accountContract: AccountContract, opts?: AccountManagerCreateOptions) => Promise<AccountManager>`
-- `getAccount() => Promise<AccountWithSecretKey>` - Returns a Wallet instance associated with this account. Use it to create Contract instances to be interacted with from this account.
+- `getAccount() => Promise<Account>` - Returns the account (the transaction signer) backed by this account contract. Use it to build and authorize transactions from this account.
 - `getAccountContract() => AccountContract` - Returns the account contract that backs this account.
 - `getCompleteAddress() => Promise<CompleteAddress>` - Gets the calculated complete address associated with this account. Does not require the account to have been published for public execution.
 - `getDeployMethod() => Promise<DeployAccountMethod<Contract>>` - Returns a preconfigured deploy method that contains all the necessary function calls to deploy the account contract.
@@ -35,25 +35,6 @@ Manages a user account. Provides methods for calculating the account's address a
 - `getPublicKeysHash() => Promise<Fr>`
 - `getSecretKey() => Fr` - Returns the secret key used to derive the rest of the privacy keys for this contract
 - `hasInitializer() => Promise<boolean>` - Returns whether this account contract has an initializer function.
-
-### AccountWithSecretKey
-
-Extends BaseAccount with the encryption private key. Not required for implementing the wallet interface but useful for testing purposes or exporting an account to another pxe.
-Implements: `Account`
-
-**Constructor**
-```typescript
-new AccountWithSecretKey(account: Account, secretKey: Fr)
-```
-
-**Methods**
-- `createAuthWit(intent: IntentInnerHash | CallIntent, chainInfo: ChainInfo) => Promise<AuthWitness>` - Creates an authentication witness from an inner hash with consumer, or a call intent
-- `createTxExecutionRequest(exec: ExecutionPayload, gasSettings: GasSettings, chainInfo: ChainInfo, options?: any) => Promise<TxExecutionRequest>` - Generates an execution request out of set of function calls.
-- `getAddress() => AztecAddress` - Returns the address for this account.
-- `getCompleteAddress() => CompleteAddress` - Returns the complete address for this account.
-- `getEncryptionSecret() => Promise<Fq>` - Returns the encryption secret, the secret of the encryption point—the point that others use to encrypt messages to this account note - this ensures that the address secret always corresponds to an address point with y being positive dev - this is also referred to as the address secret, which decrypts payloads encrypted to an address point
-- `getSecretKey() => Fr` - Returns the encryption private key associated with this account.
-- `wrapExecutionPayload(exec: ExecutionPayload, chainInfo: ChainInfo, options?: any) => Promise<ExecutionPayload>` - Wraps an execution payload such that it is executed *via* this entrypoint. This returns an ExecutionPayload with the entrypoint as the caller for the wrapped payload. Useful for account self-funding deployments and batching calls beyond the limit of a single entrypoint call.
 
 ### BaseAccount
 
@@ -66,7 +47,7 @@ new BaseAccount(entrypoint: EntrypointInterface, authWitnessProvider: AuthWitnes
 ```
 
 **Methods**
-- `createAuthWit(messageHashOrIntent: IntentInnerHash | CallIntent, chainInfo: ChainInfo) => Promise<AuthWitness>` - Creates an authentication witness from an inner hash with consumer, or a call intent
+- `createAuthWit(messageHashOrIntent: CallIntent | IntentInnerHash, chainInfo: ChainInfo) => Promise<AuthWitness>` - Creates an authentication witness from an inner hash with consumer, or a call intent
 - `createTxExecutionRequest(exec: ExecutionPayload, gasSettings: GasSettings, chainInfo: ChainInfo, options: DefaultAccountEntrypointOptions) => Promise<TxExecutionRequest>` - Generates an execution request out of set of function calls.
 - `getAddress() => AztecAddress` - Returns the address for this account.
 - `getCompleteAddress() => CompleteAddress` - Returns the complete address for this account.
@@ -648,6 +629,7 @@ new L1ToL2TokenPortalManager(portalAddress: EthAddress, tokenAddress: EthAddress
 
 **Properties**
 - `extendedClient: ExtendedViemWalletClient`
+- `readonly l1TxUtils: L1TxUtils`
 - `logger: Logger`
 - `readonly portal: {}`
 - `readonly tokenManager: L1TokenManager`
@@ -689,6 +671,7 @@ new L1TokenPortalManager(portalAddress: EthAddress, tokenAddress: EthAddress, ha
 
 **Properties**
 - `extendedClient: ExtendedViemWalletClient`
+- `readonly l1TxUtils: L1TxUtils`
 - `logger: Logger`
 - `readonly portal: {}`
 - `readonly tokenManager: L1TokenManager`
@@ -1193,7 +1176,7 @@ Creates authorization witnesses.
 Provides authorization for actions via the AuthWitness mechanism.
 
 **Methods**
-- `createAuthWit(intent: IntentInnerHash | CallIntent, chainInfo: ChainInfo) => Promise<AuthWitness>` - Creates an authentication witness from an inner hash with consumer, or a call intent
+- `createAuthWit(intent: CallIntent | IntentInnerHash, chainInfo: ChainInfo) => Promise<AuthWitness>` - Creates an authentication witness from an inner hash with consumer, or a call intent
 
 ### ContractArtifact
 
@@ -1420,7 +1403,7 @@ Creates a BlockNumber from a number.
 
 ### computeAppNullifierHidingKey
 ```typescript
-function computeAppNullifierHidingKey(masterNullifierHidingKey: Fq, app: AztecAddress) => Promise<Fr>
+function computeAppNullifierHidingKey(masterNullifierHidingSecretKey: Fq, app: AztecAddress) => Promise<Fr>
 ```
 
 ### contractArtifactFromBuffer
@@ -1443,7 +1426,7 @@ Decodes values in a flattened Field array using a provided ABI.
 
 ### deriveKeys
 ```typescript
-function deriveKeys(secretKey: Fr) => Promise<{ masterIncomingViewingSecretKey: Fq; masterNullifierHidingKey: Fq; ... }>
+function deriveKeys(secretKey: Fr) => Promise<{ masterFallbackPublicKey: Point; masterFallbackSecretKey: Fq; ... }>
 ```
 Computes secret and public keys and public keys hash from a secret key.
 
@@ -1452,9 +1435,9 @@ Computes secret and public keys and public keys hash from a secret key.
 function deriveMasterIncomingViewingSecretKey(secretKey: Fr) => Fq
 ```
 
-### deriveMasterNullifierHidingKey
+### deriveMasterNullifierHidingSecretKey
 ```typescript
-function deriveMasterNullifierHidingKey(secretKey: Fr) => Fq
+function deriveMasterNullifierHidingSecretKey(secretKey: Fr) => Fq
 ```
 
 ### encodeArguments
@@ -1473,7 +1456,7 @@ Splits an array of offchain effects into decoded offchain messages and remaining
 ```typescript
 function fastForwardContractUpdate(args: { instanceAddress: AztecAddress; newClassId: Fr; node: AztecNode }) => Promise<SimulationOverrides>
 ```
-Builds `SimulationOverrides` that simulate a deployed instance as if it had already been upgraded to a new contract class. Mirrors a real on-chain upgrade (`pxe.updateContract` followed by waiting out the delay): - `publicStorage` rewrites the `ContractInstanceRegistry`'s delayed-public-mutable storage so the AVM's `UpdateCheck` resolves to the new class id. - `contracts` swaps the deployed instance for one whose `currentContractClassId` is bumped to the new class. The new class must already be registered on chain.
+Builds `SimulationOverrides` that simulate a deployed instance as if it had already been upgraded to a new contract class. Mirrors a real on-chain upgrade (scheduling the new class and waiting out the delay): - `publicStorage` rewrites the `ContractInstanceRegistry`'s delayed-public-mutable storage so the AVM's `UpdateCheck` resolves to the new class id. - `contracts` swaps the deployed instance for one whose `currentContractClassId` is bumped to the new class. The new class must already be registered on chain.
 
 ### generateClaimSecret
 ```typescript
@@ -1845,6 +1828,12 @@ type L2Claim = unknown
 ```
 L1 to L2 message info to claim it on L2.
 
+### MasterSecretKeys
+```typescript
+type MasterSecretKeys = unknown
+```
+The six master secret keys that fully define an account's privacy keys.
+
 ### NO_FROM
 ```typescript
 type NO_FROM = "NO_FROM"
@@ -1891,7 +1880,7 @@ Noir `Option<T>` lowered ABI shape, plus ergonomic direct `T | null | undefined`
 ```typescript
 type PartialAddress = Fr
 ```
-A type which along with public key forms a preimage of a contract address. See the link below for more details https://github.com/AztecProtocol/aztec-packages/blob/master/docs/docs/concepts/foundation/accounts/keys.md#addresses-partial-addresses-and-public-keys
+The contract-side preimage of an Aztec address, i.e. the commitment to a specific contract instance. A partial address commits to a contract's code and initialization (`hash(contract_class_id, salted_initialization_hash)`) but not to its keys. Combined with an account's `PublicKeys`, it fully determines the address: `address = (hash(public_keys_hash, partial_address) * G + Ivpk_m).x`. Two accounts therefore share an address only if they share both their public keys and their partial address. See `computePartialAddress` for the derivation.
 
 ### PrivateEvent
 ```typescript
@@ -2115,7 +2104,7 @@ This package references types from other Aztec packages:
 - `AuthWitnessProvider`, `ChainInfo`, `DefaultAccountEntrypointOptions`, `EntrypointInterface`
 
 **@aztec/ethereum**
-- `ExtendedViemWalletClient`, `L1ContractAddresses`
+- `ExtendedViemWalletClient`, `L1ContractAddresses`, `L1TxUtils`
 
 **@aztec/foundation**
 - `BaseBuffer32`, `BaseField`, `BaseFr`, `BlockNumber`, `Branded`, `BufferReader`, `CheckpointNumber`, `DefineIfFlag`, `EpochNumber`, `EthAddress`, `FieldReader`, `FieldsOf`, `Fq`, `Fr`, `Logger`, `Point`, `SiblingPath`, `SlotNumber`
