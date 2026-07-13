@@ -20,7 +20,13 @@ Or from the docs root:
 
 ## Requirements
 
-- `nargo` must be available in PATH or set via `NARGO` environment variable
+- A working `nargo`, resolved in this priority order:
+  1. The `NARGO` environment variable, if set (the script fails if it points to a binary that cannot run)
+  2. The repo-built binary at `noir/noir-repo/target/release/nargo`
+  3. `aztec-nargo` in PATH (installed by `aztec-up`, version-matched to the toolchain)
+  4. `nargo` in PATH
+- Each candidate is test-run before being selected, so a binary built for another platform (for example a Linux build in a macOS checkout) is skipped
+- The script warns when the selected nargo was built from a different noir commit than the `noir/noir-repo` submodule pins, since mismatched compilers can fail in opaque ways
 - The `aztec-nr` workspace must be at `../noir-projects/aztec-nr` relative to the docs folder
 
 ## Output
