@@ -445,6 +445,7 @@ describe('syncSenderTaggingIndexes', () => {
     // No pending indexes should remain for this secret
     expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(4);
   });
+  
   it('discovers a pending tx at the last permitted index for a fresh secret', async () => {
     await setUp();
 
