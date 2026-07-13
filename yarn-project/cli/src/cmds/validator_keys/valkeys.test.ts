@@ -1067,7 +1067,7 @@ describe('validator keys utilities', () => {
           count: 1,
           mnemonic: TEST_MNEMONIC,
           fundingAccount: '0x' + 'cd'.repeat(32),
-          password: '',
+          password: 'funding-test-pw',
           encryptedKeystoreDir: tmp,
           feeRecipient: ('0x' + '15'.repeat(32)) as unknown as AztecAddress,
         },
