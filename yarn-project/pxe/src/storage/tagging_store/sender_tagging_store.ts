@@ -136,11 +136,20 @@ export class SenderTaggingStore implements StagedStore {
    * to be stored in the db.
    * @param txHash - The tx in which the tagging indexes were used in private logs.
    * @param jobId - job context for staged writes to this store. See `JobCoordinator` for more details.
+   * @param opts - With `skipExisting`, an existing entry for the same (secret, txHash) pair is left untouched even
+   * when the ranges differ. Discovery from onchain logs needs this: for a partially reverted tx the chain only shows
+   * the surviving (non-revertible phase) sub-range of the range recorded at prove time, and receipt reconciliation —
+   * not discovery — is responsible for resolving that difference.
    * @throws If the highestIndex is further than window length from the highest finalized index for the same secret.
    * @throws If the lowestIndex is lower than or equal to the last finalized index for the same secret.
-   * @throws If a different range already exists for the same (secret, txHash) pair.
+   * @throws If a different range already exists for the same (secret, txHash) pair (unless `skipExisting` is set).
    */
-  storePendingIndexes(ranges: TaggingIndexRange[], txHash: TxHash, jobId: string): Promise<void> {
+  storePendingIndexes(
+    ranges: TaggingIndexRange[],
+    txHash: TxHash,
+    jobId: string,
+    opts: { skipExisting?: boolean } = {},
+  ): Promise<void> {
     if (ranges.length === 0) {
       return Promise.resolve();
     }
@@ -188,8 +197,12 @@ export class SenderTaggingStore implements StagedStore {
         const existingEntry = pendingData.find(entry => entry.txHash === txHashStr);
 
         if (existingEntry) {
-          // Assert that the ranges are equal — different ranges for the same (secret, txHash) indicates a bug
-          if (existingEntry.lowestIndex !== range.lowestIndex || existingEntry.highestIndex !== range.highestIndex) {
+          // Assert that the ranges are equal — different ranges for the same (secret, txHash) indicates a bug,
+          // except for callers that opt out because they only see the onchain sub-range of a partially reverted tx.
+          if (
+            !opts.skipExisting &&
+            (existingEntry.lowestIndex !== range.lowestIndex || existingEntry.highestIndex !== range.highestIndex)
+          ) {
             throw new Error(
               `Conflicting range for secret ${secretStr} and txHash ${txHashStr}: ` +
                 `existing [${existingEntry.lowestIndex}, ${existingEntry.highestIndex}] vs ` +

@@ -108,6 +108,28 @@ describe('SenderTaggingStore', () => {
       );
     });
 
+    it('keeps the existing range when storing a different range with skipExisting', async () => {
+      const txHash = TxHash.random();
+
+      // Prove-time entry spanning setup and app-logic phase logs.
+      await taggingStore.storePendingIndexes([range(secret1, 4, 6)], txHash, 'test');
+
+      // Discovery of the surviving sub-range of a partially reverted tx must not throw nor shrink the entry.
+      await taggingStore.storePendingIndexes([range(secret1, 4)], txHash, 'test', { skipExisting: true });
+
+      expect(await taggingStore.getLastUsedIndex(secret1, 'test')).toBe(6);
+    });
+
+    it('stores a range for an untracked tx when skipExisting is set', async () => {
+      const txHash = TxHash.random();
+
+      await taggingStore.storePendingIndexes([range(secret1, 5)], txHash, 'test', { skipExisting: true });
+
+      const txHashes = await taggingStore.getTxHashesOfPendingIndexes(secret1, 0, 10, 'test');
+      expect(txHashes).toEqual([txHash]);
+      expect(await taggingStore.getLastUsedIndex(secret1, 'test')).toBe(5);
+    });
+
     it('throws when storing a pending index range lower than the last finalized index', async () => {
       const txHash1 = TxHash.random();
       const txHash2 = TxHash.random();

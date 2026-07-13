@@ -394,6 +394,58 @@ describe('syncSenderTaggingIndexes', () => {
     expect(aztecNode.getTxReceipt).toHaveBeenCalledWith(pendingTxHash);
   });
 
+  /**
+   * Same-PXE partial revert: the pending range was recorded at prove time and spans both the non-revertible (setup)
+   * and revertible (app logic) phases. After the tx mines with reverted app logic, only the setup-phase logs are
+   * onchain, so discovery re-derives a narrower range for the same (secret, txHash). That narrower range must not
+   * conflict with the prove-time entry — receipt reconciliation owns resolving the difference.
+   */
+  it('reconciles a partially reverted tx whose pending range was recorded at prove time', async () => {
+    await setUp();
+
+    const revertedTxHash = TxHash.random();
+
+    // Prove-time persist: logs at indexes 4 (setup phase) through 6 (app logic phase) under the same secret.
+    await taggingStore.storePendingIndexes(
+      [{ extendedSecret: secret, lowestIndex: 4, highestIndex: 6 }],
+      revertedTxHash,
+      'test',
+    );
+
+    // Only the setup-phase log survived the revert, so the node only knows the tag at index 4.
+    const tag4 = await computeSiloedTagForIndex(4);
+
+    aztecNode.getPrivateLogsByTags.mockImplementation(query => {
+      const tags = query.tags as SiloedTag[];
+      return Promise.resolve(
+        tags.map((tag: SiloedTag) => (tag.equals(tag4) ? [makeLog(revertedTxHash, tag4.value)] : [])),
+      );
+    });
+
+    const txEffect = new TxEffect(
+      RevertCode.REVERTED,
+      revertedTxHash,
+      Fr.ZERO,
+      [Fr.random()], // noteHashes
+      [Fr.random()], // nullifiers
+      [], // l2ToL1Msgs
+      [], // publicDataWrites
+      [PrivateLog.random(tag4.value)], // only the tag at index 4 survived
+      [], // publicLogs
+      [], // contractClassLogs
+    );
+
+    aztecNode.getTxReceipt.mockResolvedValue(
+      mined(revertedTxHash, TxStatus.FINALIZED, 14, TxExecutionResult.REVERTED, txEffect),
+    );
+
+    await syncSenderTaggingIndexes(secret, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
+
+    // The surviving index is finalized and the squashed indexes 5-6 are freed for reuse.
+    expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBe(4);
+    expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(4);
+  });
+
   it('handles a partially reverted transaction', async () => {
     await setUp();
 

@@ -77,6 +77,7 @@ describe('loadAndStoreNewTaggingIndexes', () => {
       [{ extendedSecret: secret, lowestIndex: index, highestIndex: index }],
       txHash,
       'test',
+      { skipExisting: true },
     );
   });
 
@@ -108,6 +109,7 @@ describe('loadAndStoreNewTaggingIndexes', () => {
       [{ extendedSecret: secret, lowestIndex: index1, highestIndex: index2 }],
       txHash,
       'test',
+      { skipExisting: true },
     );
   });
 
@@ -140,11 +142,13 @@ describe('loadAndStoreNewTaggingIndexes', () => {
       [{ extendedSecret: secret, lowestIndex: index1, highestIndex: index1 }],
       txHash1,
       'test',
+      { skipExisting: true },
     );
     expect(taggingStore.storePendingIndexes).toHaveBeenCalledWith(
       [{ extendedSecret: secret, lowestIndex: index2, highestIndex: index2 }],
       txHash2,
       'test',
+      { skipExisting: true },
     );
   });
 
@@ -169,11 +173,13 @@ describe('loadAndStoreNewTaggingIndexes', () => {
       [{ extendedSecret: secret, lowestIndex: index, highestIndex: index }],
       txHash1,
       'test',
+      { skipExisting: true },
     );
     expect(taggingStore.storePendingIndexes).toHaveBeenCalledWith(
       [{ extendedSecret: secret, lowestIndex: index, highestIndex: index }],
       txHash2,
       'test',
+      { skipExisting: true },
     );
   });
 
@@ -221,16 +227,19 @@ describe('loadAndStoreNewTaggingIndexes', () => {
       [{ extendedSecret: secret, lowestIndex: 1, highestIndex: 8 }],
       txHash1,
       'test',
+      { skipExisting: true },
     );
     expect(taggingStore.storePendingIndexes).toHaveBeenCalledWith(
       [{ extendedSecret: secret, lowestIndex: 3, highestIndex: 5 }],
       txHash2,
       'test',
+      { skipExisting: true },
     );
     expect(taggingStore.storePendingIndexes).toHaveBeenCalledWith(
       [{ extendedSecret: secret, lowestIndex: 9, highestIndex: 9 }],
       txHash3,
       'test',
+      { skipExisting: true },
     );
   });
 
@@ -266,6 +275,7 @@ describe('loadAndStoreNewTaggingIndexes', () => {
       [{ extendedSecret: secret, lowestIndex: start, highestIndex: start }],
       txHashAtStart,
       'test',
+      { skipExisting: true },
     );
   });
 });
