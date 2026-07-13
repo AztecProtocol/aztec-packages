@@ -29,6 +29,7 @@ export async function setFundingAccount(
   const { remoteSigner, password, encryptedKeystoreDir, json } = options;
 
 <<<<<<< HEAD
+<<<<<<< HEAD
   const keystore: KeyStore = loadKeystoreFile(existing);
 
   const validated = { fundingAccount, remoteSigner };
@@ -37,8 +38,13 @@ export async function setFundingAccount(
   const validated = { fundingAccount, remoteSigner };
   validateFundingAccountOptions(validated);
 
+=======
+>>>>>>> 6dcf923c81 (feat(cli): inherit keystore remote signer for set-funding-account address form)
   const keystore: KeyStore = loadKeystoreFile(existing);
 >>>>>>> dd60c3ced7 (refactor(cli): move funding account setting to set-funding-account subcommand)
+
+  const validated = { fundingAccount, remoteSigner };
+  validateFundingAccountOptions(validated, !!keystore.remoteSigner);
 
   let resolved = resolveFundingAccount(validated.fundingAccount!, remoteSigner);
   if (password !== undefined) {

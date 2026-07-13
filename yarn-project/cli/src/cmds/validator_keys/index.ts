@@ -135,6 +135,9 @@ export function injectCommands(program: Command, log: LogFn) {
     )
     .argument('<existing>', 'Path to existing keystore JSON')
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 6dcf923c81 (feat(cli): inherit keystore remote signer for set-funding-account address form)
     .argument(
       '<privateKey|address>',
       'Funding account: a private key, or an address (needs --remote-signer unless the keystore already defines one)',
@@ -143,10 +146,13 @@ export function injectCommands(program: Command, log: LogFn) {
       '--remote-signer <url>',
       'Remote signer URL for the funding account (required with an address unless the keystore already defines one)',
     )
+<<<<<<< HEAD
 =======
     .argument('<privateKey|address>', 'Funding account: a private key, or an address together with --remote-signer')
     .option('--remote-signer <url>', 'Remote signer URL for the funding account (required with an address)')
 >>>>>>> dd60c3ced7 (refactor(cli): move funding account setting to set-funding-account subcommand)
+=======
+>>>>>>> 6dcf923c81 (feat(cli): inherit keystore remote signer for set-funding-account address form)
     .option(
       '--password <str>',
       'Password for writing the funding key as an encrypted ETH JSON V3 file. Empty string allowed',

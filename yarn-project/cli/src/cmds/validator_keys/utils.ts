@@ -83,6 +83,7 @@ export function validatePublisherOptions(options: { publishers?: string[]; publi
 /**
  * Validates and normalizes the `--funding-account` option in place. The value may be a private key
 <<<<<<< HEAD
+<<<<<<< HEAD
  * (used as a local signer) or an ETH address. An address needs a remote signer to sign funding txs:
  * either `--remote-signer`, or a keystore that already defines one (pass `hasKeystoreRemoteSigner`),
  * which a bare address inherits at runtime.
@@ -97,6 +98,16 @@ export function validateFundingAccountOptions(
  */
 export function validateFundingAccountOptions(options: { fundingAccount?: string; remoteSigner?: string }) {
 >>>>>>> f00bd74268 (feat(cli): support --funding-account in validator-keys new/add)
+=======
+ * (used as a local signer) or an ETH address. An address needs a remote signer to sign funding txs:
+ * either `--remote-signer`, or a keystore that already defines one (pass `hasKeystoreRemoteSigner`),
+ * which a bare address inherits at runtime.
+ */
+export function validateFundingAccountOptions(
+  options: { fundingAccount?: string; remoteSigner?: string },
+  hasKeystoreRemoteSigner = false,
+) {
+>>>>>>> 6dcf923c81 (feat(cli): inherit keystore remote signer for set-funding-account address form)
   if (!options.fundingAccount) {
     return;
   }
@@ -119,6 +130,7 @@ export function validateFundingAccountOptions(options: { fundingAccount?: string
       throw new Error(`Invalid funding account address: ${error instanceof Error ? error.message : String(error)}`);
     }
 <<<<<<< HEAD
+<<<<<<< HEAD
     if (!options.remoteSigner && !hasKeystoreRemoteSigner) {
       throw new Error(
         '--funding-account as an address requires --remote-signer, or a keystore that already defines a remote signer',
@@ -127,6 +139,11 @@ export function validateFundingAccountOptions(options: { fundingAccount?: string
       throw new Error(
         '--funding-account as an address requires --remote-signer (a local funder needs its private key to sign funding txs)',
 >>>>>>> f00bd74268 (feat(cli): support --funding-account in validator-keys new/add)
+=======
+    if (!options.remoteSigner && !hasKeystoreRemoteSigner) {
+      throw new Error(
+        '--funding-account as an address requires --remote-signer, or a keystore that already defines a remote signer',
+>>>>>>> 6dcf923c81 (feat(cli): inherit keystore remote signer for set-funding-account address form)
       );
     }
   } else {
