@@ -668,7 +668,10 @@ template <typename Curve, bool HasZK = false> class ShpleminiVerifier_ {
         // to the evaluations at 0, 1, and the round challenge u_i.
         // Compute the power of `shplonk_batching_challenge` to add sumcheck univariate commitments and evaluations to
         // the batch.
-        size_t power = num_gemini_claims + NUM_SMALL_IPA_EVALUATIONS;
+        size_t power = num_gemini_claims;
+        if constexpr (HasZK) {
+            power += NUM_SMALL_IPA_EVALUATIONS;
+        }
         for (const auto& [eval_array, denominator] : zip_view(sumcheck_round_evaluations, denominators)) {
             // Initialize batched_scalar corresponding to 3 evaluations claims
             Fr batched_scalar = Fr(0);
