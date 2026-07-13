@@ -206,6 +206,10 @@ std::array<typename Curve::ScalarField, NUM_SMALL_IPA_OPENING_CLAIMS> receive_sm
     for (size_t i = 0; i < NUM_SMALL_IPA_OPENING_CLAIMS; ++i) {
         if (SMALL_IPA_CLAIMS[i].transmitted) {
             evaluations[i] = transcript->template receive_from_prover<FF>(labels[i]);
+        } else {
+            // Boundary opening A(1) = 0: the claimed evaluation is fixed, not read from the transcript.
+            // See README.md, "Why the fifth opening is required".
+            evaluations[i] = FF(0);
         }
     }
     if constexpr (Curve::is_stdlib_type) {
