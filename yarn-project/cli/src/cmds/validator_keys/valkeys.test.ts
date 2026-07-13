@@ -1068,10 +1068,14 @@ describe('validator keys utilities', () => {
           mnemonic: TEST_MNEMONIC,
           fundingAccount: '0x' + 'cd'.repeat(32),
 <<<<<<< HEAD
+<<<<<<< HEAD
           password: 'funding-test-pw',
 =======
           password: '',
 >>>>>>> f00bd74268 (feat(cli): support --funding-account in validator-keys new/add)
+=======
+          password: 'funding-test-pw',
+>>>>>>> 7934b6dcb1 (test(cli): use non-empty password in funding encryption test)
           encryptedKeystoreDir: tmp,
           feeRecipient: ('0x' + '15'.repeat(32)) as unknown as AztecAddress,
         },
