@@ -564,8 +564,8 @@ describe('Utility Execution test suite', () => {
         const contractAddressA = await AztecAddress.random();
         const contractAddressB = await AztecAddress.random();
 
-        const oracleA = makeOracle({ contractAddress: contractAddressA });
-        const oracleB = makeOracle({ contractAddress: contractAddressB });
+        const oracleA = makeOracle({ contractAddress: contractAddressA, scopes: [owner] });
+        const oracleB = makeOracle({ contractAddress: contractAddressB, scopes: [owner] });
 
         const ephPksArray = EphemeralArray.fromValues<EmbeddedCurvePoint>(service, [ephPk]);
         const responseA = await oracleA.getSharedSecrets(owner, ephPksArray, contractAddressA);
@@ -593,15 +593,14 @@ describe('Utility Execution test suite', () => {
         );
       });
 
-      it('returns no secrets when the PXE does not hold the keys for the address', async () => {
+      it('rejects a recipient outside the allowed scopes', async () => {
         const ephSk = GrumpkinScalar.random();
         const ephPk = await Grumpkin.mul(Grumpkin.generator, ephSk);
 
-        const foreignAddress = await AztecAddress.random();
         const ephPksArray = EphemeralArray.fromValues<EmbeddedCurvePoint>(service, [ephPk]);
-        const response = await utilityExecutionOracle.getSharedSecrets(foreignAddress, ephPksArray, contractAddress);
-
-        expect(response.readAll(service)).toEqual([]);
+        await expect(utilityExecutionOracle.getSharedSecrets(owner, ephPksArray, contractAddress)).rejects.toThrow(
+          /not in the allowed scopes/,
+        );
       });
     });
 
@@ -643,10 +642,8 @@ describe('Utility Execution test suite', () => {
           );
         });
 
-        const result = await utilityExecutionOracle.getPendingTaggedLogsV2(
-          owner,
-          EphemeralArray.fromValues(service, providedSecrets),
-        );
+        const oracle = makeOracle({ scopes: [owner] });
+        const result = await oracle.getPendingTaggedLogsV2(owner, EphemeralArray.fromValues(service, providedSecrets));
 
         const queried = aztecNode.getPrivateLogsByTags.mock.calls.flatMap(([query]) =>
           query.tags.map(entry => ('tag' in entry ? entry.tag.value.toString() : entry.value.toString())),
@@ -666,6 +663,16 @@ describe('Utility Execution test suite', () => {
             ),
           },
         ]);
+      });
+
+      it('rejects a scope outside the allowed scopes', async () => {
+        const outOfScope = await AztecAddress.random();
+        await expect(
+          utilityExecutionOracle.getPendingTaggedLogsV2(
+            outOfScope,
+            EphemeralArray.fromValues<ProvidedSecret>(service, []),
+          ),
+        ).rejects.toThrow(/not in the allowed scopes/);
       });
     });
 
