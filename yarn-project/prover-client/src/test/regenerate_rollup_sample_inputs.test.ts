@@ -26,7 +26,9 @@ import { type CheckpointTopTreeData, TopTreeOrchestrator } from '../orchestrator
 // BlockProvingState#getBlockRootRollupTypeAndInputs): a first block with 0 txs, with >=2 txs, a
 // three-block checkpoint (first block with 1 tx plus a block-merge), and a three-checkpoint epoch
 // (for the checkpoint-merge). A merge node only exists above the tree root, so both merges need
-// three leaves — two would pair directly at the root. Every scenario also produces the root rollup.
+// three leaves — two would pair directly at the root. The single-block checkpoint feeds the
+// checkpoint-root-single-block circuit and the three-block checkpoint feeds the (two-input)
+// checkpoint-root circuit. Every scenario also produces the root rollup.
 const describeOrSkip = isGenerateTestDataEnabled() ? describe : describe.skip;
 
 describeOrSkip('prover/regenerate-rollup-sample-inputs', () => {
@@ -57,14 +59,14 @@ describeOrSkip('prover/regenerate-rollup-sample-inputs', () => {
       numBlocksPerCheckpoint: 1,
       numTxsPerBlock: 2,
       numL1ToL2Messages: withMessages,
-      dump: ['rollup-block-root-first', 'rollup-root'],
+      dump: ['rollup-block-root-first', 'rollup-checkpoint-root-single-block', 'rollup-root'],
     },
     {
       numCheckpoints: 1,
       numBlocksPerCheckpoint: 3,
       numTxsPerBlock: 1,
       numL1ToL2Messages: withMessages,
-      dump: ['rollup-block-root-first-single-tx', 'rollup-block-merge'],
+      dump: ['rollup-block-root-first-single-tx', 'rollup-block-merge', 'rollup-checkpoint-root'],
     },
     // The checkpoint-merge only appears with three checkpoints. Independently-built checkpoints do
     // not carry the inbox message state forward, so this scenario runs with no L1-to-L2 messages and
