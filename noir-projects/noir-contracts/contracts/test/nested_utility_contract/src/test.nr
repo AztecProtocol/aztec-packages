@@ -97,30 +97,18 @@ unconstrained fn cross_contract_utility_call_from_private_view_succeeds_with_aut
 }
 
 #[test]
-unconstrained fn cross_contract_utility_call_from_utility_succeeds_with_all_targets_authorized() {
-    let (env, _, addr_a, addr_b) = setup_with_opts(TestEnvironmentOptions::new()
-        .with_all_utility_call_targets_authorized());
-
-    let result: Field = env.execute_utility(NestedUtility::at(addr_a).delegate_pow_utility(addr_b, 2, 3));
-    assert_eq(result, 8);
-}
-
-#[test]
-unconstrained fn cross_contract_utility_call_from_private_succeeds_with_all_targets_authorized() {
+unconstrained fn all_call_types_succeed_with_all_utility_call_targets_authorized() {
     let (env, account, addr_a, addr_b) = setup_with_opts(TestEnvironmentOptions::new()
         .with_all_utility_call_targets_authorized());
 
-    let result: Field = env.call_private(account, NestedUtility::at(addr_a).delegate_pow_private(addr_b, 2, 3));
-    assert_eq(result, 8);
-}
+    let utility_result = env.execute_utility(NestedUtility::at(addr_a).delegate_pow_utility(addr_b, 2, 3));
+    assert_eq(utility_result, 8);
 
-#[test]
-unconstrained fn cross_contract_utility_call_from_private_view_succeeds_with_all_targets_authorized() {
-    let (env, account, addr_a, addr_b) = setup_with_opts(TestEnvironmentOptions::new()
-        .with_all_utility_call_targets_authorized());
+    let private_result = env.call_private(account, NestedUtility::at(addr_a).delegate_pow_private(addr_b, 2, 3));
+    assert_eq(private_result, 8);
 
-    let result: Field = env.view_private(account, NestedUtility::at(addr_a).delegate_pow_view(addr_b, 2, 3));
-    assert_eq(result, 8);
+    let view_result = env.view_private(account, NestedUtility::at(addr_a).delegate_pow_view(addr_b, 2, 3));
+    assert_eq(view_result, 8);
 }
 
 #[test]
