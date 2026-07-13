@@ -5,7 +5,8 @@
     "rootDir": "src",
     "tsBuildInfoFile": ".tsbuildinfo",
     "allowJs": true,
-    "checkJs": false
+    "checkJs": false,
+    "lib": ["dom", "dom.asynciterable", "esnext", "es2017.object"]
   },
   "references": [
     {

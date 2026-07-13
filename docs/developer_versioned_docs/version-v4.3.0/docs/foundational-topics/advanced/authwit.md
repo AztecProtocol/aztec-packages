@@ -8,6 +8,12 @@ description: Learn about Aztec's Authentication Witness scheme that enables secu
 
 Authentication Witness is a scheme for authenticating actions on Aztec, allowing users to authorize third-parties (protocols or other users) to execute actions on their behalf.
 
+import YouTubeEmbed from '@site/src/components/YouTubeEmbed';
+
+For a video walkthrough of how authwits work, including both the private and public flows, watch this explainer (find more on the [video lessons](../../resources/video_lessons.mdx) page):
+
+<YouTubeEmbed videoId="VRZVOCdjGZ4" title="How Authorization Works on Aztec" />
+
 ## Summary
 
 - **Authwits authorize specific actions**, not blanket allowances like ERC20 approvals

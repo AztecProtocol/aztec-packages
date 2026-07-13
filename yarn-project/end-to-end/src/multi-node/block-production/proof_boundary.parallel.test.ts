@@ -28,8 +28,8 @@ type PublishedEvent = Parameters<SequencerEvents['checkpoint-published']>[0];
 
 // Suite: 5 parallel scenarios testing the interaction between the proof submission deadline and
 // the pipelining boundary slot. MultiNodeTestContext: 3 validator nodes + 1 prover node,
-// mockGossipSubNetwork, skipInitialSequencer. Timing: ethSlot=12s, aztecSlot=3×12=36s,
-// epoch=default 6, proofSubmissionEpochs=1 (overridden per test via setupTest), blockDurationMs=6s,
+// mockGossipSubNetwork, skipInitialSequencer. Timing: ethSlot=12s, aztecSlot=2×12=24s,
+// epoch=default 6, proofSubmissionEpochs=1 (overridden per test via setupTest), blockDurationMs=4s,
 // inboxLag=2 (v5 always enforces the timetable, so the former enforceTimeTable/disableAnvilTestWatcher
 // overrides are gone). The Delayer is used to steer proof tx timing.
 describe('multi-node/block-production/proof_boundary', () => {

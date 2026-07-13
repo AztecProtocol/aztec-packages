@@ -66,3 +66,11 @@ pub unconstrained fn get_tx_effect(tx_hash: Field) -> Option<TxEffect> {
 
 #[oracle(aztec_utl_getTxEffect)]
 unconstrained fn get_tx_effect_oracle(tx_hash: Field) -> Option<TxEffect> {}
+
+/// Fetches all effects of settled transactions by hash, preserving request order.
+pub unconstrained fn get_tx_effects(tx_hashes: EphemeralArray<Field>) -> EphemeralArray<Option<TxEffect>> {
+    get_tx_effects_oracle(tx_hashes)
+}
+
+#[oracle(aztec_utl_getTxEffects)]
+unconstrained fn get_tx_effects_oracle(tx_hashes: EphemeralArray<Field>) -> EphemeralArray<Option<TxEffect>> {}
