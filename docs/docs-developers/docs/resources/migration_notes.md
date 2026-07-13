@@ -14,8 +14,11 @@ Aztec is in active development. Each version may introduce breaking changes that
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 ## 5.0.1
 
+=======
+>>>>>>> 8b1903c998 (feat!: forbid external note validation checks (#24644))
 ### [Aztec.nr] History note nullification helpers renamed and restricted to own-contract notes
 
 The `history::note` helpers that recompute a note's nullifier have been renamed with a `local_` prefix and now assert that the note belongs to the executing contract:
@@ -30,8 +33,11 @@ These helpers derive the note's nullifier from the executing contract's app-silo
 
 **Impact**: Update call sites to the new names. Own-contract usage (the common case) is unaffected beyond the rename. `assert_note_existed_by` is unchanged and still supports notes of any contract, since note-hash inclusion involves no keys.
 
+<<<<<<< HEAD
 =======
 >>>>>>> da9ac1c883 (feat: assert non revertible phase when setting fee payer (#24479))
+=======
+>>>>>>> 8b1903c998 (feat!: forbid external note validation checks (#24644))
 ### [Aztec.nr] `set_as_fee_payer` now asserts it is called during the setup phase
 
 `PrivateContext::set_as_fee_payer` now asserts that execution is still in the setup (non-revertible) phase, i.e. that `end_setup` has not yet been called by any function in the transaction. Electing a fee payer in the revertible phase was never safe: compensation collected by the fee payer after `end_setup` can be discarded if a public call later reverts, while the protocol still debits the fee payer's fee-juice balance.
