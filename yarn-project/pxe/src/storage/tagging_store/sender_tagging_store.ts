@@ -197,42 +197,42 @@ export class SenderTaggingStore implements StagedStore {
         // Check if an entry with the same txHash already exists
         const existingEntry = pendingData.find(entry => entry.txHash === txHashStr);
 
-        if (existingEntry) {
-          if (opts.mergeExisting) {
-            // Widen the entry to the union of both ranges, never shrink it: replacing would drop prove-time
-            // indexes the chain doesn't show (partially reverted tx), and skipping would drop onchain indexes
-            // discovered in a later sync window (tx straddling the window boundary).
-            this.#writePendingIndexes(
-              jobId,
-              secretStr,
-              pendingData.map(entry =>
-                entry === existingEntry
-                  ? {
-                      lowestIndex: Math.min(entry.lowestIndex, range.lowestIndex),
-                      highestIndex: Math.max(entry.highestIndex, range.highestIndex),
-                      txHash: entry.txHash,
-                    }
-                  : entry,
-              ),
-            );
-          } else if (
-            existingEntry.lowestIndex !== range.lowestIndex ||
-            existingEntry.highestIndex !== range.highestIndex
-          ) {
-            // Different ranges for the same (secret, txHash) indicate a bug in callers that record indexes at prove
-            // time.
-            throw new Error(
-              `Conflicting range for secret ${secretStr} and txHash ${txHashStr}: ` +
-                `existing [${existingEntry.lowestIndex}, ${existingEntry.highestIndex}] vs ` +
-                `new [${range.lowestIndex}, ${range.highestIndex}]`,
-            );
-          }
-          // Exact duplicate: skip.
-        } else {
-          this.#writePendingIndexes(jobId, secretStr, [
+        let updatedPending: PendingIndexesEntry[] | undefined;
+        if (!existingEntry) {
+          updatedPending = [
             ...pendingData,
             { lowestIndex: range.lowestIndex, highestIndex: range.highestIndex, txHash: txHashStr },
-          ]);
+          ];
+        } else if (opts.mergeExisting) {
+          // Widen the entry to the union of both ranges, never shrink it: replacing would drop prove-time
+          // indexes the chain doesn't show (partially reverted tx), and skipping would drop onchain indexes
+          // discovered in a later sync window (tx straddling the window boundary).
+          updatedPending = pendingData.map(entry =>
+            entry === existingEntry
+              ? {
+                  lowestIndex: Math.min(entry.lowestIndex, range.lowestIndex),
+                  highestIndex: Math.max(entry.highestIndex, range.highestIndex),
+                  txHash: entry.txHash,
+                }
+              : entry,
+          );
+        } else if (
+          existingEntry.lowestIndex !== range.lowestIndex ||
+          existingEntry.highestIndex !== range.highestIndex
+        ) {
+          // Different ranges for the same (secret, txHash) indicate a bug in callers that record indexes at prove
+          // time.
+          throw new Error(
+            `Conflicting range for secret ${secretStr} and txHash ${txHashStr}: ` +
+              `existing [${existingEntry.lowestIndex}, ${existingEntry.highestIndex}] vs ` +
+              `new [${range.lowestIndex}, ${range.highestIndex}]`,
+          );
+        }
+        // Remaining case (existing entry with an identical range, no mergeExisting): exact duplicate, nothing to
+        // write.
+
+        if (updatedPending) {
+          this.#writePendingIndexes(jobId, secretStr, updatedPending);
         }
       }
     });
