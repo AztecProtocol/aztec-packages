@@ -1,6 +1,6 @@
 # @aztec/wallet-sdk
 
-Version: v5.0.0-rc.2
+Version: v5.0.0
 
 ## Quick Import Reference
 
@@ -57,6 +57,7 @@ new BaseWallet(pxe: PXE, aztecNode: AztecNode, log: Logger)
 **Properties**
 - `readonly aztecNode: AztecNode`
 - `cancellableTransactions: boolean`
+- `defaultWaitInterval?: number`
 - `log: Logger`
 - `minFeePadding: number`
 - `readonly pxe: PXE`
@@ -74,13 +75,13 @@ new BaseWallet(pxe: PXE, aztecNode: AztecNode, log: Logger)
 - `getAddressBook() => Promise<Aliased<AztecAddress>[]>` - Returns the list of aliased contacts associated with the wallet. This base implementation directly returns PXE's senders, but note that in general contacts are a superset of senders. - Senders: Addresses we check during synching in case they sent us notes, - Contacts: more general concept akin to a phone's contact list.
 - `getChainInfo() => Promise<ChainInfo>`
 - `getContractClassMetadata(id: Fr) => Promise<{ isArtifactRegistered: boolean; isContractClassPubliclyRegistered: boolean }>`
-- `getContractMetadata(address: AztecAddress) => Promise<{ initializationStatus: ContractInitializationStatus; instance: ContractInstanceWithAddress | undefined; ... }>` - Returns metadata about a contract, including whether it has been initialized, published, and updated.
+- `getContractMetadata(address: AztecAddress) => Promise<{ initializationStatus: ContractInitializationStatus; instance: ContractInstancePreimageWithAddress | undefined; ... }>` - Returns metadata about a contract, including whether it has been initialized, published, and updated.
 - `getContractName(address: AztecAddress) => Promise<string | undefined>` - Resolves a contract address to a human-readable name via PXE, if available.
 - `getMaxTxGasLimits() => Promise<Gas>` - Returns the maximum gas limits a single transaction may declare on this wallet's network (the node-advertised `txsLimits.gas`). Internal helper used to fill in default gas limits when sending a transaction without explicit limits, and to validate caller-provided limits before sending. Backed by the cached node info, since a wallet talks to a single network.
 - `getMinFees(estimate: ManaUsageEstimate) => Promise<GasFees>` - Returns the worst-case min fee across predicted future slots. Falls back to getCurrentMinFees if the node doesn't support getPredictedMinFees.
 - `getPrivateEvents<T>(eventDef: EventMetadataDefinition, eventFilter: PrivateEventFilter) => Promise<PrivateEvent<T>[]>`
 - `profileTx(executionPayload: ExecutionPayload, opts: ProfileOptions) => Promise<TxProfileResult>`
-- `registerContract(instance: ContractInstanceWithAddress, artifact?: ContractArtifact, secretKey?: Fr) => Promise<ContractInstanceWithAddress>`
+- `registerContract(instance: ContractInstancePreimage, artifact?: ContractArtifact, secretKeyOrKeys?: Fr | MasterSecretKeys) => Promise<void>`
 - `registerContractClass(artifact: ContractArtifact) => Promise<void>` - Registers a contract class artifact in the local PXE without binding it to any instance. Useful for simulation flows that need the artifact available locally before any on-chain upgrade has taken effect. No chain check.
 - `registerSender(address: AztecAddress, _alias: string) => Promise<AztecAddress>`
 - `requestCapabilities(_manifest: AppCapabilities) => Promise<WalletCapabilities>` - Request capabilities from the wallet. This method is wallet-implementation-dependent and must be provided by classes extending BaseWallet. Embedded wallets typically don't support capability-based authorization (no user authorization flow), while external wallets (browser extensions, hardware wallets) implement this to reduce authorization friction by allowing apps to request permissions upfront. Consider making it abstract so implementing it is a conscious decision. Leaving it as-is while the feature stabilizes.
@@ -767,4 +768,4 @@ This package references types from other Aztec packages:
 - `ContractNameResolver`, `PXE`
 
 **@aztec/stdlib**
-- `AuthWitness`, `AztecAddress`, `AztecNode`, `BlockHeader`, `ContractArtifact`, `ContractInstanceWithAddress`, `EventMetadataDefinition`, `ExecutionPayload`, `FunctionCall`, `Gas`, `GasFees`, `GasSettings`, `GasUsed`, `ManaUsageEstimate`, `SimulationOverrides`, `TxExecutionRequest`, `TxProfileResult`, `TxSimulationResult`, `UtilityExecutionResult`
+- `AuthWitness`, `AztecAddress`, `AztecNode`, `BlockHeader`, `ContractArtifact`, `ContractInstancePreimage`, `ContractInstancePreimageWithAddress`, `EventMetadataDefinition`, `ExecutionPayload`, `FunctionCall`, `Gas`, `GasFees`, `GasSettings`, `GasUsed`, `ManaUsageEstimate`, `MasterSecretKeys`, `SimulationOverrides`, `TxExecutionRequest`, `TxProfileResult`, `TxSimulationResult`, `UtilityExecutionResult`

@@ -34,6 +34,7 @@
 <li><a href="#impl-Deserialize-for-(T1,)">(T1,)</a></li>
 <li><a href="#impl-Deserialize-for-AddressNote">AddressNote</a></li>
 <li><a href="#impl-Deserialize-for-AppPayload">AppPayload</a></li>
+<li><a href="#impl-Deserialize-for-AppSiloedHandshakeSecrets">AppSiloedHandshakeSecrets</a></li>
 <li><a href="#impl-Deserialize-for-AppendOnlyTreeSnapshot">AppendOnlyTreeSnapshot</a></li>
 <li><a href="#impl-Deserialize-for-AuthorizationSelector">AuthorizationSelector</a></li>
 <li><a href="#impl-Deserialize-for-AvmAccumulatedData">AvmAccumulatedData</a></li>
@@ -85,17 +86,17 @@
 <li><a href="#impl-Deserialize-for-LogHash">LogHash</a></li>
 <li><a href="#impl-Deserialize-for-LogRetrievalResponse">LogRetrievalResponse</a></li>
 <li><a href="#impl-Deserialize-for-MembershipWitness<N>">MembershipWitness<N></a></li>
-<li><a href="#impl-Deserialize-for-MessageContext">MessageContext</a></li>
 <li><a href="#impl-Deserialize-for-MockStruct">MockStruct</a></li>
 <li><a href="#impl-Deserialize-for-NoteMetadata">NoteMetadata</a></li>
 <li><a href="#impl-Deserialize-for-NoteValidationRequest">NoteValidationRequest</a></li>
 <li><a href="#impl-Deserialize-for-Nullifier">Nullifier</a></li>
 <li><a href="#impl-Deserialize-for-NullifierLeafPreimage">NullifierLeafPreimage</a></li>
 <li><a href="#impl-Deserialize-for-OffchainMessage">OffchainMessage</a></li>
-<li><a href="#impl-Deserialize-for-OffchainMessageWithContext">OffchainMessageWithContext</a></li>
+<li><a href="#impl-Deserialize-for-OffchainMessageWithTx">OffchainMessageWithTx</a></li>
 <li><a href="#impl-Deserialize-for-OnchainDeliveryMode">OnchainDeliveryMode</a></li>
 <li><a href="#impl-Deserialize-for-Option<T>">Option<T></a></li>
 <li><a href="#impl-Deserialize-for-OriginBlock">OriginBlock</a></li>
+<li><a href="#impl-Deserialize-for-OriginBlockState">OriginBlockState</a></li>
 <li><a href="#impl-Deserialize-for-PartialAddress">PartialAddress</a></li>
 <li><a href="#impl-Deserialize-for-PartialStateReference">PartialStateReference</a></li>
 <li><a href="#impl-Deserialize-for-PartialUintNote">PartialUintNote</a></li>
@@ -120,6 +121,7 @@
 <li><a href="#impl-Deserialize-for-PublicLogs">PublicLogs</a></li>
 <li><a href="#impl-Deserialize-for-ResolvedTaggingStrategy">ResolvedTaggingStrategy</a></li>
 <li><a href="#impl-Deserialize-for-ResolvedTx">ResolvedTx</a></li>
+<li><a href="#impl-Deserialize-for-RetractableFactOrigin">RetractableFactOrigin</a></li>
 <li><a href="#impl-Deserialize-for-Scoped<T>">Scoped<T></a></li>
 <li><a href="#impl-Deserialize-for-Smol">Smol</a></li>
 <li><a href="#impl-Deserialize-for-SpongeBlob">SpongeBlob</a></li>
@@ -246,6 +248,8 @@ deserializing return values from function calls in Noir. Since the same function
 
 <h3 id="impl-Deserialize-for-AppPayload"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/authwit/entrypoint/app/struct.AppPayload.html" class="struct">AppPayload</a></code></h3>
 
+<h3 id="impl-Deserialize-for-AppSiloedHandshakeSecrets"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/messages/delivery/handshake/struct.AppSiloedHandshakeSecrets.html" class="struct">AppSiloedHandshakeSecrets</a></code></h3>
+
 <h3 id="impl-Deserialize-for-AppendOnlyTreeSnapshot"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/abis/append_only_tree_snapshot/struct.AppendOnlyTreeSnapshot.html" class="struct">AppendOnlyTreeSnapshot</a></code></h3>
 
 <h3 id="impl-Deserialize-for-AuthorizationSelector"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/authwit/struct.AuthorizationSelector.html" class="struct">AuthorizationSelector</a></code></h3>
@@ -358,8 +362,6 @@ deserializing return values from function calls in Noir. Since the same function
 
 <h3 id="impl-Deserialize-for-MembershipWitness<N>"><code class="code-header">impl&lt;let N: <a href="../../std/primitive.u32.html" class="primitive">u32</a>&gt; <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/merkle_tree/membership/struct.MembershipWitness.html" class="struct">MembershipWitness</a>&lt;N&gt;</code></h3>
 
-<h3 id="impl-Deserialize-for-MessageContext"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/messages/processing/struct.MessageContext.html" class="struct">MessageContext</a></code></h3>
-
 <h3 id="impl-Deserialize-for-MockStruct"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/test/mocks/struct.MockStruct.html" class="struct">MockStruct</a></code></h3>
 
 <h3 id="impl-Deserialize-for-NoteMetadata"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/note/note_metadata/struct.NoteMetadata.html" class="struct">NoteMetadata</a></code></h3>
@@ -372,7 +374,7 @@ deserializing return values from function calls in Noir. Since the same function
 
 <h3 id="impl-Deserialize-for-OffchainMessage"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/messages/processing/offchain/struct.OffchainMessage.html" class="struct">OffchainMessage</a></code></h3>
 
-<h3 id="impl-Deserialize-for-OffchainMessageWithContext"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/messages/processing/struct.OffchainMessageWithContext.html" class="struct">OffchainMessageWithContext</a></code></h3>
+<h3 id="impl-Deserialize-for-OffchainMessageWithTx"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/messages/processing/struct.OffchainMessageWithTx.html" class="struct">OffchainMessageWithTx</a></code></h3>
 
 <h3 id="impl-Deserialize-for-OnchainDeliveryMode"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/messages/delivery/struct.OnchainDeliveryMode.html" class="struct">OnchainDeliveryMode</a></code></h3>
 
@@ -381,6 +383,8 @@ deserializing return values from function calls in Noir. Since the same function
     T: <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a></div></code></h3>
 
 <h3 id="impl-Deserialize-for-OriginBlock"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/facts/struct.OriginBlock.html" class="struct">OriginBlock</a></code></h3>
+
+<h3 id="impl-Deserialize-for-OriginBlockState"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/facts/struct.OriginBlockState.html" class="struct">OriginBlockState</a></code></h3>
 
 <h3 id="impl-Deserialize-for-PartialAddress"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/address/partial_address/struct.PartialAddress.html" class="struct">PartialAddress</a></code></h3>
 
@@ -429,6 +433,8 @@ deserializing return values from function calls in Noir. Since the same function
 <h3 id="impl-Deserialize-for-ResolvedTaggingStrategy"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/messages/delivery/struct.ResolvedTaggingStrategy.html" class="struct">ResolvedTaggingStrategy</a></code></h3>
 
 <h3 id="impl-Deserialize-for-ResolvedTx"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/oracle/tx_resolution/struct.ResolvedTx.html" class="struct">ResolvedTx</a></code></h3>
+
+<h3 id="impl-Deserialize-for-RetractableFactOrigin"><code class="code-header">impl <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../noir_aztec/facts/struct.RetractableFactOrigin.html" class="struct">RetractableFactOrigin</a></code></h3>
 
 <h3 id="impl-Deserialize-for-Scoped<T>"><code class="code-header">impl&lt;T&gt; <a href="../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../protocol_types/side_effect/scoped/struct.Scoped.html" class="struct">Scoped</a>&lt;T&gt;
 <div class="where-clause">where

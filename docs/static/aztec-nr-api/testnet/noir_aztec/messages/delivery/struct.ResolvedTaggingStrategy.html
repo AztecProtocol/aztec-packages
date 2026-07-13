@@ -20,6 +20,8 @@
 <h2><a href="#struct">Struct ResolvedTaggingStrategy</a></h2>
 <h3>Methods</h3>
 <ul class="sidebar-list">
+<li><a href="#interactive_handshake">interactive_handshake</a></li>
+<li><a href="#is_unconstrained_secret">is_unconstrained_secret</a></li>
 <li><a href="#non_interactive_handshake">non_interactive_handshake</a></li>
 <li><a href="#unconstrained_secret">unconstrained_secret</a></li>
 </ul>
@@ -72,7 +74,14 @@ app-siloed, so the contract uses it directly to derive the message tag and never
 <div class="padded-description"><div class="comments">
 <p>An app-siloed, recipient-directional secret, ready to use. Only sound for unconstrained delivery.</p>
 </div>
-</div></div><h2>Trait implementations</h2>
+</div><code id="interactive_handshake" class="code-header">pub fn <a href="#interactive_handshake"><span class="fn">interactive_handshake</span></a>() -> Self</code>
+
+<div class="padded-description"><div class="comments">
+<p>An interactive handshake: the recipient learns the secret while signing its authorization.</p>
+</div>
+</div><code id="is_unconstrained_secret" class="code-header">pub fn <a href="#is_unconstrained_secret"><span class="fn">is_unconstrained_secret</span></a>(self) -> <a href="../../../std/primitive.bool.html" class="primitive">bool</a></code>
+
+</div><h2>Trait implementations</h2>
 <h3 id="impl-Deserialize-for-ResolvedTaggingStrategy"><code class="code-header">impl <a href="../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../noir_aztec/messages/delivery/struct.ResolvedTaggingStrategy.html" class="struct">ResolvedTaggingStrategy</a></code></h3>
 
 <div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 2]) -> Self</code>

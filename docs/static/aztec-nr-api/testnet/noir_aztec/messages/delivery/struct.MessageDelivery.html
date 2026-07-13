@@ -135,13 +135,17 @@ all private logs are padded to the same length with random data to enhance priva
 <p>However, no circuit gates are introduced when the message is encrypted. Therefore, on-chain unconstrained
 messages do not affect proving time at all.</p>
 <h4>Privacy</h4>
-<p>No information is revealed on-chain about sender, recipient, or the message contents. The message itself
-reveals no information about the sender or recipient, and requires knowledge of the recipient's private address
-keys in order to obtain the plaintext.</p>
+<p>The message itself reveals no information on-chain about sender, recipient, or contents: obtaining the plaintext
+requires the recipient's private address keys, and recognizing that a log was sent between a given sender and
+recipient requires their shared tagging secret, which no third party can compute.</p>
+<p>The exception is the discovery tag. Reaching a recipient the sender has not handshaked with before establishes,
+by default, a non-interactive handshake. This reveals to anyone who knows the recipient's address that a
+handshake was made with them, but not by whom, nor the contents. An interactive handshake
+(<a href="../../../noir_aztec/messages/delivery/struct.OnchainUnconstrainedDelivery.html#via_interactive_handshake"><code>OnchainUnconstrainedDelivery::via_interactive_handshake</code></a>) does not leak this, but it requires the
+recipient's cooperation. Delivering to one of the wallet's own accounts instead uses an address-derived
+secret and reveals nothing.</p>
 <p>Delivering the message does produce on-chain information in the form of private logs, so transactions that
-deliver many messages this way might be identifiable by the large number of logs.</p>
-<p>Identifying that a log corresponds to a message between a given sender and recipient requires, among other
-things, knowledge of both of their addresses <strong>and</strong> either the sender's or recipient's private address key.</p></div>
+deliver many messages this way might be identifiable by the large number of logs.</p></div>
 </div><code id="onchain_constrained" class="code-header">pub fn <a href="#onchain_constrained"><span class="fn">onchain_constrained</span></a>() -> <a href="../../../noir_aztec/messages/delivery/struct.OnchainConstrainedDelivery.html" class="struct">OnchainConstrainedDelivery</a></code>
 
 <div class="padded-description"><div class="comments">
@@ -169,13 +173,16 @@ to the emission of nullifiers.</p>
 <p>Proving time is also increased as circuit gates are introduced to guarantee both the correct encryption of
 the message, and selection of log tag.</p>
 <h4>Privacy</h4>
-<p>No information is revealed on-chain about sender, recipient, or the message contents. The message itself
-reveals no information about the sender or recipient, and requires knowledge of the recipient's private address
-keys in order to obtain the plaintext.</p>
+<p>The message itself reveals no information on-chain about sender, recipient, or contents: obtaining the plaintext
+requires the recipient's private address keys, and recognizing that a log was sent between a given sender and
+recipient requires their shared tagging secret, which no third party can compute.</p>
+<p>The exception is the discovery tag. Constrained delivery is always backed by a handshake, established by
+default as a non-interactive one the first time the sender reaches the recipient. A non-interactive handshake
+reveals, to anyone who knows the recipient's address, that a handshake was made with them, but not by whom,
+nor the contents. An interactive handshake (<a href="../../../noir_aztec/messages/delivery/struct.OnchainConstrainedDelivery.html#via_interactive_handshake"><code>OnchainConstrainedDelivery::via_interactive_handshake</code></a>) does
+not leak this, but it requires the recipient's cooperation.</p>
 <p>Delivering the message does produce on-chain information in the form of private logs and nullifiers, so
-transactions that deliver many messages this way might be identifiable by these markers.</p>
-<p>Identifying that a log corresponds to a message between a given sender and recipient requires, among other
-things, knowledge of both of their addresses <strong>and</strong> either the sender's or recipient's private address key.</p></div>
+transactions that deliver many messages this way might be identifiable by these markers.</p></div>
 </div></div></main>
 </span>
 </body>

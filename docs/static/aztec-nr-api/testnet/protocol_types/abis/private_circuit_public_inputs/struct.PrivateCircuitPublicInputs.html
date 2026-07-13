@@ -43,6 +43,7 @@
 <li><a href="#structfield.returns_hash">returns_hash</a></li>
 <li><a href="#structfield.start_side_effect_counter">start_side_effect_counter</a></li>
 <li><a href="#structfield.tx_context">tx_context</a></li>
+<li><a href="#structfield.tx_request_salt">tx_request_salt</a></li>
 </ul>
 <h3>Trait implementations</h3>
 <ul class="sidebar-list">
@@ -83,6 +84,7 @@
     pub l2_to_l1_msgs: <a href="../../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;<a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../protocol_types/messaging/l2_to_l1_message/struct.L2ToL1Message.html" class="struct">L2ToL1Message</a>&gt;, 8&gt;,
     pub private_logs: <a href="../../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;<a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../protocol_types/abis/private_log/struct.PrivateLogData.html" class="struct">PrivateLogData</a>&gt;, 16&gt;,
     pub contract_class_logs_hashes: <a href="../../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;<a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../protocol_types/abis/log_hash/struct.LogHash.html" class="struct">LogHash</a>&gt;, 1&gt;,
+    pub tx_request_salt: <a href="../../../std/primitive.Field.html" class="primitive">Field</a>,
 }
 </code></pre>
 <h2>Fields</h2>
@@ -109,10 +111,11 @@
 <div class="padded-description"></div><div id="structfield.l2_to_l1_msgs" class="struct-field"><code class="code-header">l2_to_l1_msgs: <a href="../../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;<a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../protocol_types/messaging/l2_to_l1_message/struct.L2ToL1Message.html" class="struct">L2ToL1Message</a>&gt;, 8&gt;</code></div>
 <div class="padded-description"></div><div id="structfield.private_logs" class="struct-field"><code class="code-header">private_logs: <a href="../../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;<a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../protocol_types/abis/private_log/struct.PrivateLogData.html" class="struct">PrivateLogData</a>&gt;, 16&gt;</code></div>
 <div class="padded-description"></div><div id="structfield.contract_class_logs_hashes" class="struct-field"><code class="code-header">contract_class_logs_hashes: <a href="../../../protocol_types/utils/arrays/struct.ClaimedLengthArray.html" class="struct">ClaimedLengthArray</a>&lt;<a href="../../../protocol_types/side_effect/counted/struct.Counted.html" class="struct">Counted</a>&lt;<a href="../../../protocol_types/abis/log_hash/struct.LogHash.html" class="struct">LogHash</a>&gt;, 1&gt;</code></div>
+<div class="padded-description"></div><div id="structfield.tx_request_salt" class="struct-field"><code class="code-header">tx_request_salt: <a href="../../../std/primitive.Field.html" class="primitive">Field</a></code></div>
 <div class="padded-description"></div><h2>Trait implementations</h2>
 <h3 id="impl-Deserialize-for-PrivateCircuitPublicInputs"><code class="code-header">impl <a href="../../../serde/serialization/trait.Deserialize.html" class="trait">Deserialize</a> for <a href="../../../protocol_types/abis/private_circuit_public_inputs/struct.PrivateCircuitPublicInputs.html" class="struct">PrivateCircuitPublicInputs</a></code></h3>
 
-<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 838]) -> Self</code>
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">deserialize</span>(fields: [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 839]) -> Self</code>
 
 <code class="code-header">pub fn <span class="fn">stream_deserialize</span>&lt;let K: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(reader: &mut <a href="../../../serde/reader/struct.Reader.html" class="struct">Reader</a>&lt;K&gt;) -> Self</code>
 
@@ -134,7 +137,7 @@
 
 </div><h3 id="impl-Serialize-for-PrivateCircuitPublicInputs"><code class="code-header">impl <a href="../../../serde/serialization/trait.Serialize.html" class="trait">Serialize</a> for <a href="../../../protocol_types/abis/private_circuit_public_inputs/struct.PrivateCircuitPublicInputs.html" class="struct">PrivateCircuitPublicInputs</a></code></h3>
 
-<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 838]</code>
+<div class="padded-methods"><code class="code-header">pub fn <span class="fn">serialize</span>(self) -> [<a href="../../../std/primitive.Field.html" class="primitive">Field</a>; 839]</code>
 
 <code class="code-header">pub fn <span class="fn">stream_serialize</span>&lt;let K: <a href="../../../std/primitive.u32.html" class="primitive">u32</a>&gt;(self, writer: &mut <a href="../../../serde/writer/struct.Writer.html" class="struct">Writer</a>&lt;K&gt;)</code>
 

@@ -1,6 +1,6 @@
 # @aztec/stdlib
 
-Version: v5.0.0-rc.2
+Version: v5.0.0
 
 ## Quick Import Reference
 
@@ -50,8 +50,9 @@ new AppTaggingSecret(secret: Fr, app: AztecAddress, kind: AppTaggingSecretKind)
 - `readonly secret: Fr`
 
 **Methods**
-- `static compute(taggingSecretPoint: Point, app: AztecAddress, recipient: AztecAddress) => Promise<AppTaggingSecret>` - Derives an app-siloed, recipient-directional tagging secret from a shared tagging secret point. The point is obtained either via computeSharedTaggingSecret (an ECDH key exchange against a sender) or registered directly as a pre-shared secret. Each secret point yields a distinct tagging secret per (app, recipient) pair.
-- `static computeUnconstrained(localAddress: CompleteAddress, localIvsk: Fq, externalAddress: AztecAddress, app: AztecAddress, recipient: AztecAddress) => Promise<AppTaggingSecret | undefined>` - Derives the unconstrained tagging secret for `(externalAddress, recipient, app)` by performing the ECDH key exchange against `externalAddress` and then siloing and directing the result. Returns undefined if `externalAddress` is not a valid address.
+- `static computeAppSiloed(taggingSecretPoint: Point, app: AztecAddress, kind: AppTaggingSecretKind) => Promise<AppTaggingSecret>` - Derives the bare app-siloed tagging secret from a shared secret point via appSiloEcdhSharedSecretPoint, under the given delivery-mode kind.
+- `static computeDirectional(taggingSecretPoint: Point, app: AztecAddress, recipient: AztecAddress) => Promise<AppTaggingSecret>` - Derives an app-siloed, recipient-directional tagging secret from a shared tagging secret point. App-silos the point via appSiloEcdhSharedSecretPoint, then directs the result to `recipient`: `h([s_app, recipient])`. The directional step stops a symmetric shared secret (ECDH against an address, or an arbitrary registered point) from colliding bidirectionally, so two parties never share a tag sequence. The point is obtained either via computeSharedTaggingSecret (an ECDH key exchange against a sender) or registered directly as a pre-shared secret.
+- `static computeViaEcdh(localAddress: CompleteAddress, localIvsk: Fq, externalAddress: AztecAddress, app: AztecAddress, recipient: AztecAddress) => Promise<AppTaggingSecret | undefined>` - Derives the tagging secret for `(externalAddress, recipient, app)` by performing an ECDH key exchange against `externalAddress` to obtain the shared point, then siloing and directing it via computeDirectional. Returns undefined if `externalAddress` is not a valid address.
 - `static fromString(str: string) => AppTaggingSecret`
 - `toString() => string`
 
@@ -597,6 +598,21 @@ new EthAddress(buffer: Buffer)
 - `toJSON() => string`
 - `toString() => string` - Converts the Ethereum address to a hex-encoded string. The resulting string is prefixed with '0x' and has exactly 40 hex characters. This method can be used to represent the EthAddress instance in the widely used hexadecimal format.
 
+### EventDrivenL2BlockStream
+
+Event-driven wrapper around L2BlockStream. Subscribes to the source's aggregate `l2BlockSourceUpdated` event (when the source exposes one) to trigger an immediate reconciliation, while keeping the periodic poll as the correctness fallback. Subsystems keep consuming the same L2BlockStreamEvents; the archiver aggregate event is handled entirely here. The event is passed through to the sync pass via RunningPromise.trigger. If, at the time the pass runs, the stream's local tips match the event's `fromTips` (it is caught up to where the event began), the event's hydrated blocks are served back through a hot-block cache and the event's `toTips` is reported as the source tips — so the triggered sync re-reads neither block bodies nor tips from the archiver. Otherwise the pass delegates entirely to the source, and the periodic poll guarantees eventual catch-up.
+
+**Constructor**
+```typescript
+new EventDrivenL2BlockStream(source: L2BlockSource | L2BlockSourceEventEmitter, localData: L2BlockStreamLocalDataProvider, handler: L2BlockStreamEventHandler, log: Logger, opts: L2BlockStreamOptions)
+```
+
+**Methods**
+- `isRunning() => boolean`
+- `start() => void`
+- `stop() => Promise<void>`
+- `sync() => Promise<void>` - Runs a synchronization pass now, bypassing the poll interval, and resolves once that pass completes. Concurrent callers and periodic ticks coalesce onto a single pass; a caller that coalesces onto an already in-flight pass can resolve against a pass that began just before it, so this guarantees freshness only up to that coalescing window. The periodic poll and per-pass reorg handling make the gap a latency effect, never a correctness one.
+
 ### EventSelector
 
 An event selector is the first 4 bytes of the hash of an event signature.
@@ -987,7 +1003,7 @@ Creates a stream of events for new blocks, chain tips updates, and reorgs, out o
 
 **Constructor**
 ```typescript
-new L2BlockStream(l2BlockSource: L2BlockStreamSource, localData: L2BlockStreamLocalDataProvider, handler: L2BlockStreamEventHandler, log: Logger, opts: { batchSize?: number; ignoreCheckpoints?: boolean; ... })
+new L2BlockStream(l2BlockSource: L2BlockStreamSource, localData: L2BlockStreamLocalDataProvider, handler: L2BlockStreamEventHandler, log: Logger, opts: L2BlockStreamOptions)
 ```
 
 **Methods**
@@ -1087,6 +1103,32 @@ Extends: `CommitteeAttestationsAndSigners`
 **Constructor**
 ```typescript
 new MaliciousCommitteeAttestationsAndSigners(attestations: CommitteeAttestation[], signers: EthAddress[], signatureContext: CoordinationSignatureContext)
+```
+
+**Properties**
+- `attestations: CommitteeAttestation[]`
+- `readonly primaryType: CoordinationSignatureType`
+- `static schema: unknown`
+- `readonly signatureContext: CoordinationSignatureContext`
+
+**Methods**
+- `static empty(signatureContext: CoordinationSignatureContext) => CommitteeAttestationsAndSigners`
+- `getPackedAttestations() => ViemCommitteeAttestations`
+- `getPayloadToSign() => Buffer`
+- `getSignedAttestations() => CommitteeAttestation[]`
+- `getSigners() => EthAddress[]`
+- `static packAttestations(attestations: CommitteeAttestation[]) => ViemCommitteeAttestations` - Packs an array of committee attestations into the format expected by the Solidity contract
+- `toString() => void` - Returns a string representation of an object.
+
+### MaliciousYParityCommitteeAttestationsAndSigners
+
+Malicious extension of CommitteeAttestationsAndSigners that rewrites every non-proposer signature slot's recovery byte to yParity form (v ∈ {0, 1}) in the packed output, after the honest `packAttestations` has already canonicalized it to v ∈ {27, 28}. Models a malicious selected proposer that hand-crafts `propose()` calldata L1 accepts but no honest node can byte-replay: each rewritten signature still recovers to the same member (r, s and the recovery parity are preserved), the bitmap bits stay set, and `getSigners()` stays consistent, so `propose()` does not revert `SignersSizeMismatch` -- yet the checkpoint can never be proven (`ECDSA.recover` rejects v ∉ {27, 28}). The proposer's own slot is left canonical so L1 `verifyProposer` (which recovers that slot) still accepts the checkpoint. For testing only.
+
+Extends: `CommitteeAttestationsAndSigners`
+
+**Constructor**
+```typescript
+new MaliciousYParityCommitteeAttestationsAndSigners(attestations: CommitteeAttestation[], proposerIndex: number, signatureContext: CoordinationSignatureContext)
 ```
 
 **Properties**
@@ -1460,13 +1502,14 @@ Data that is constant/not modified by neither of the kernels.
 
 **Constructor**
 ```typescript
-new PrivateTxConstantData(anchorBlockHeader: BlockHeader, txContext: TxContext, vkTreeRoot: Fr, protocolContracts: ProtocolContracts)
+new PrivateTxConstantData(anchorBlockHeader: BlockHeader, txContext: TxContext, txRequestSalt: Fr, vkTreeRoot: Fr, protocolContracts: ProtocolContracts)
 ```
 
 **Properties**
 - `anchorBlockHeader: BlockHeader` - Header of a block whose state is used during execution (not the block the transaction is included in).
 - `protocolContracts: ProtocolContracts` - List of protocol contracts.
 - `txContext: TxContext` - Context of the transaction. Note: `chainId` and `version` in txContext are not redundant to the values in self.anchor_block_header.global_variables because they can be different in case of a protocol upgrade. In such a situation we could be using header from a block before the upgrade took place but be using the updated protocol to execute and prove the transaction.
+- `txRequestSalt: Fr` - Salt of the transaction request (`TxRequest.salt`). Bound to the user's `tx_request` by the Init circuit and kept constant by every subsequent kernel so that each app circuit's `txRequestSalt` public input can be checked against it. It is intentionally not carried into `TxConstantData`: it is dropped by the Tail circuits rather than being exposed by the final (hiding) kernel.
 - `vkTreeRoot: Fr` - Root of the vk tree for the protocol circuits.
 
 **Methods**
@@ -1719,6 +1762,27 @@ new SerializableContractInstance(instance: ContractInstance)
 - `static random(opts: Partial<FieldsOf<ContractInstance>>) => Promise<SerializableContractInstance>`
 - `toBuffer() => Buffer<ArrayBufferLike>`
 - `withAddress(address: AztecAddress) => ContractInstanceWithAddress` - Returns a copy of this object with its address included.
+
+### SerializableContractInstancePreimage
+
+**Constructor**
+```typescript
+new SerializableContractInstancePreimage(instance: ContractInstancePreimage)
+```
+
+**Properties**
+- `readonly deployer: AztecAddress`
+- `readonly immutablesHash: Fr`
+- `readonly initializationHash: Fr`
+- `readonly originalContractClassId: Fr`
+- `readonly publicKeys: PublicKeys`
+- `readonly salt: Fr`
+- `readonly version: 2`
+
+**Methods**
+- `static fromBuffer(bufferOrReader: Buffer<ArrayBufferLike> | BufferReader) => SerializableContractInstancePreimage`
+- `toBuffer() => Buffer<ArrayBufferLike>`
+- `withAddress(address: AztecAddress) => ContractInstancePreimageWithAddress` - Returns a copy of this object with its address included.
 
 ### SerializableContractInstanceUpdate
 
@@ -2306,10 +2370,25 @@ Extends: `FunctionArtifact`
 
 ### ContractInstance
 
-A contract instance is a concrete deployment of a contract class. It always references a contract class, which dictates what code it executes when called. It has state (both private and public), as well as an address that acts as its identifier. It can be called into. It may have encryption and nullifying public keys.
+The address preimage plus the current contract class id, which is chain-tracked state derived from the ContractInstanceRegistry (it equals the original class id unless the contract has been upgraded).
+
+Extends: `ContractInstancePreimage`
 
 **Properties**
-- `currentContractClassId: Fr` - Identifier of the contract class for this instance.
+- `currentContractClassId: Fr` - Identifier of the contract class this instance currently runs (as of some block).
+- `deployer: AztecAddress` - Optional deployer address or zero if this was a universal deploy.
+- `immutablesHash: Fr` - Hash of Immutables Values the contract is deployed with.
+- `initializationHash: Fr` - Hash of the selector and arguments to the constructor.
+- `originalContractClassId: Fr` - Identifier of the original (at deployment) contract class for this instance
+- `publicKeys: PublicKeys` - Public keys associated with this instance.
+- `salt: Fr` - User-generated pseudorandom value for uniqueness.
+- `version: 2` - Version identifier. Initially one, bumped for any changes to the contract instance struct.
+
+### ContractInstancePreimage
+
+The address preimage of a contract instance: the immutable data that hashes to its address, i.e. everything a contract deployment commits to. Note that `originaContractClassId` is not necessarily the instance's _current_ class id, in case of upgrades: that one is not part of the preimage and is instead derived from chain state.
+
+**Properties**
 - `deployer: AztecAddress` - Optional deployer address or zero if this was a universal deploy.
 - `immutablesHash: Fr` - Hash of Immutables Values the contract is deployed with.
 - `initializationHash: Fr` - Hash of the selector and arguments to the constructor.
@@ -2703,6 +2782,18 @@ function accumulatePrivateReturnValues(executionResult: PrivateExecutionResult) 
 ```
 Recursively accumulate the return values of a call result and its nested executions, so they can be retrieved in order.
 
+### appSiloEcdhSharedSecret
+```typescript
+function appSiloEcdhSharedSecret(secretKey: Fq, publicKey: Point, contractAddress: AztecAddress) => Promise<Fr>
+```
+Derives an app-siloed ECDH shared secret from keys: ECDHs `S = secretKey * publicKey` via deriveEcdhSharedSecretPoint, then app-silos it via appSiloEcdhSharedSecretPoint.
+
+### appSiloEcdhSharedSecretPoint
+```typescript
+function appSiloEcdhSharedSecretPoint(point: Point, app: AztecAddress) => Promise<Fr>
+```
+App-silos a shared secret point: `s_app = h(DOM_SEP__APP_SILOED_ECDH_SHARED_SECRET, S.x, S.y, app)`. Mirrors `compute_app_siloed_shared_secret` in aztec-nr.
+
 ### appTaggingSecretFromString
 ```typescript
 function appTaggingSecretFromString(str: string) => AppTaggingSecret
@@ -2766,7 +2857,7 @@ function computeAddressSecret(preaddress: Fr, ivsk: Fq) => Promise<Fq>
 
 ### computeAppNullifierHidingKey
 ```typescript
-function computeAppNullifierHidingKey(masterNullifierHidingKey: Fq, app: AztecAddress) => Promise<Fr>
+function computeAppNullifierHidingKey(masterNullifierHidingSecretKey: Fq, app: AztecAddress) => Promise<Fr>
 ```
 
 ### computeAppSecretKey
@@ -2814,7 +2905,7 @@ Computes the congestion multiplier from excess mana (1e9 = no congestion).
 
 ### computeContractAddressFromInstance
 ```typescript
-function computeContractAddressFromInstance(instance: ContractInstance | { originalContractClassId: Fr; saltedInitializationHash: Fr } & Pick<ContractInstance, "publicKeys">) => Promise<AztecAddress>
+function computeContractAddressFromInstance(instance: ContractInstancePreimage | { originalContractClassId: Fr; saltedInitializationHash: Fr } & Pick<ContractInstance, "publicKeys">) => Promise<AztecAddress>
 ```
 Returns the deployment address for a given contract instance. ``` salted_initialization_hash = poseidon2(DOM_SEP__SALTED_INITIALIZATION_HASH, [salt, initialization_hash, deployer, immutables_hash]) partial_address = poseidon2(DOM_SEP__PARTIAL_ADDRESS, [contract_class_id, salted_initialization_hash]) address = ((poseidon2(DOM_SEP__CONTRACT_ADDRESS_V2, [public_keys_hash, partial_address]) * G) + ivpk_m).x <- the x-coordinate of the address point ```
 
@@ -2863,11 +2954,6 @@ Computes the initialization hash for an instance given its constructor function 
 function computeInitializationHashFromEncodedArgs(initFn: FunctionSelector, encodedArgs: Fr[]) => Promise<Fr>
 ```
 Computes the initialization hash for an instance given its constructor function selector and encoded arguments.
-
-### computeL1ToL2MessageNullifier
-```typescript
-function computeL1ToL2MessageNullifier(contract: AztecAddress, messageHash: Fr, secret: Fr) => Promise<Fr>
-```
 
 ### computeL2ToL1MessageHash
 ```typescript
@@ -3092,26 +3178,42 @@ function decodeFunctionSignatureWithParameterNames(name: string, parameters: { n
 ```
 Decodes a function signature from the name and parameters including parameter names.
 
-### deriveAppSiloedSharedSecret
+### deriveEcdhSharedSecretPoint
 ```typescript
-function deriveAppSiloedSharedSecret(secretKey: Fq, publicKey: Point, contractAddress: AztecAddress) => Promise<Fr>
+function deriveEcdhSharedSecretPoint(secretKey: Fq, publicKey: Point) => Promise<Point>
 ```
-Derives an app-siloed ECDH shared secret. Computes the raw ECDH shared secret `S = secretKey * publicKey`, then app-silos it: `s_app = h(DOM_SEP__APP_SILOED_ECDH_SHARED_SECRET, S.x, S.y, contractAddress)`
+Derives the raw ECDH shared secret point `S = secretKey * publicKey`.
 
 ### deriveKeys
 ```typescript
-function deriveKeys(secretKey: Fr) => Promise<{ masterIncomingViewingSecretKey: Fq; masterNullifierHidingKey: Fq; ... }>
+function deriveKeys(secretKey: Fr) => Promise<{ masterFallbackPublicKey: Point; masterFallbackSecretKey: Fq; ... }>
 ```
 Computes secret and public keys and public keys hash from a secret key.
+
+### deriveKeysFromMasterSecretKeys
+```typescript
+function deriveKeysFromMasterSecretKeys(secretKeys: MasterSecretKeys) => Promise<{ masterFallbackPublicKey: Point; masterFallbackSecretKey: Fq; ... }>
+```
+Derives the master public keys and the PublicKeys struct from a set of master secret keys.
+
+### deriveMasterFallbackSecretKey
+```typescript
+function deriveMasterFallbackSecretKey(secretKey: Fr) => Fq
+```
 
 ### deriveMasterIncomingViewingSecretKey
 ```typescript
 function deriveMasterIncomingViewingSecretKey(secretKey: Fr) => Fq
 ```
 
-### deriveMasterNullifierHidingKey
+### deriveMasterMessageSigningSecretKey
 ```typescript
-function deriveMasterNullifierHidingKey(secretKey: Fr) => Fq
+function deriveMasterMessageSigningSecretKey(secretKey: Fr) => Fq
+```
+
+### deriveMasterNullifierHidingSecretKey
+```typescript
+function deriveMasterNullifierHidingSecretKey(secretKey: Fr) => Fq
 ```
 
 ### deriveMasterOutgoingViewingSecretKey
@@ -3122,11 +3224,6 @@ function deriveMasterOutgoingViewingSecretKey(secretKey: Fr) => Fq
 ### derivePublicKeyFromSecretKey
 ```typescript
 function derivePublicKeyFromSecretKey(secretKey: Fq) => Promise<Point>
-```
-
-### deriveSigningKey
-```typescript
-function deriveSigningKey(secretKey: Fr) => Fq
 ```
 
 ### deriveStorageSlotInMap
@@ -3375,6 +3472,12 @@ function isWrappedFieldStruct(abiType: AbiType) => boolean
 ```
 Returns whether the ABI type is a struct with a single `inner` field.
 
+### l2TipsEqual
+```typescript
+function l2TipsEqual(a: L2Tips, b: L2Tips) => boolean
+```
+Returns whether two L2Tips snapshots agree on every tier (proposed, checkpointed, proven, finalized).
+
 ### loadContractArtifact
 ```typescript
 function loadContractArtifact(input: NoirCompiledContract) => ContractArtifact
@@ -3392,6 +3495,18 @@ Gets nargo build output and returns a valid contract artifact instance. Differs 
 function loadContractArtifactWithValidation(input: NoirCompiledContract) => ContractArtifact
 ```
 Like loadContractArtifact, but fully validates an already-processed artifact against the contract artifact schema before returning it. Use when loading an artifact from untrusted or external JSON (e.g. a file path passed to the CLI), so a malformed artifact is rejected up-front with a clear schema error instead of surfacing as an opaque failure later during deployment. `loadContractArtifact` only runs the shallow `isContractArtifact` shape check on already-processed artifacts; raw nargo output is validated via `generateContractArtifact` regardless. The returned object is identical to `loadContractArtifact`'s; the schema parse is used purely for validation.
+
+### localBlockIdDiffers
+```typescript
+function localBlockIdDiffers(localBlock: LocalL2BlockId | undefined, sourceBlock: L2BlockId) => boolean
+```
+Returns whether a local block id differs from a source block id. Compares block number and, when the local hash is known, block hash. The hash comparison is skipped when the local hash is undefined: world-state legitimately reports `undefined` hashes for tips ahead of its synced range, and comparing against an undefined hash would treat such a tip as different on every poll. An `undefined` local block (no local tip yet) always counts as differing.
+
+### localTipsMatch
+```typescript
+function localTipsMatch(local: LocalChainTips, source: L2Tips) => boolean
+```
+Returns whether the local chain tips agree with the given source tips on every tier the local provider exposes. Each tier is compared at the block level via localBlockIdDiffers (so an unresolved local hash matches on number alone); checkpoint ids are not compared, mirroring the stream's own tier reconciliation. The optional `checkpointed` tier is only compared when present (it is absent when the stream ignores checkpoints).
 
 ### logResultToHumanReadable
 ```typescript
@@ -3695,9 +3810,9 @@ Lookup a single confirmed checkpoint by checkpoint number, slot, or chain-tip ta
 
 ### CheckpointsQuery
 ```typescript
-type CheckpointsQuery = { from: CheckpointNumber; limit: number } | { epoch: EpochNumber }
+type CheckpointsQuery = { from: CheckpointNumber; limit: number } | { fromSlot: SlotNumber; limit: number; reverse?: boolean } | { epoch: EpochNumber }
 ```
-Query a range of confirmed checkpoints by start/limit or by epoch.
+Query a range of confirmed checkpoints by start/limit, by slot anchor, or by epoch. The `fromSlot` variant walks the slot index: it returns up to `limit` checkpoints anchored at `fromSlot`, ordered nearest-first. With `reverse` it takes the checkpoints at or before the slot (descending); otherwise the checkpoints at or after it (ascending). Use `limit: 1, reverse: true` to find the latest checkpoint at or before a slot in a single range scan.
 
 ### ChonkProofData
 ```typescript
@@ -3738,6 +3853,11 @@ type ContractClassPublicWithCommitment = ContractClassPublic & Pick<ContractClas
 type ContractClassWithId = ContractClass & Pick<ContractClassCommitments, "id">
 ```
 A contract class with its precomputed id.
+
+### ContractInstancePreimageWithAddress
+```typescript
+type ContractInstancePreimageWithAddress = ContractInstancePreimage & { address: AztecAddress }
+```
 
 ### ContractInstanceUpdateWithAddress
 ```typescript
@@ -3926,10 +4046,28 @@ type L2BlockInfo = unknown
 type L2BlockProvenEvent = unknown
 ```
 
+### L2BlockSourceUpdatedEvent
+```typescript
+type L2BlockSourceUpdatedEvent = unknown
+```
+Aggregate event emitted once per committed archiver sync pass that mutated local state. Carries the chain tips before and after the pass, and the blocks added during it. Consumers compare `fromTips` and `toTips` to learn what moved; there is no separate `changed` section. This is an optimization signal that lets a block stream reconcile immediately on an archiver update rather than waiting for its next poll. Polling remains the correctness fallback, so a missed event only affects latency. `blocksAdded` are hydrated blocks already in hand from the sync pass, so a triggered sync that is caught up to `fromTips` can reuse them (and `toTips`) instead of re-reading the store.
+
 ### L2BlockStreamEvent
 ```typescript
 type L2BlockStreamEvent = { blocks: L2Block[]; type: "blocks-added" } | { block: L2BlockId; type: "chain-proposed" } | { block: L2BlockId; checkpoint: CheckpointId; type: "chain-checkpointed" } | { block: L2BlockId; checkpointed: L2TipId; ... } | { block: L2BlockId; checkpoint: CheckpointId; type: "chain-proven" } | { block: L2BlockId; checkpoint: CheckpointId; type: "chain-finalized" }
 ```
+
+### L2BlockStreamOptions
+```typescript
+type L2BlockStreamOptions = unknown
+```
+Options accepted by L2BlockStream and EventDrivenL2BlockStream.
+
+### L2BlockStreamSource
+```typescript
+type L2BlockStreamSource = Pick<L2BlockSource, "getBlocks" | "getBlockData" | "getL2Tips">
+```
+Subset of the block source the stream depends on. Checkpoint payloads are no longer fetched here.
 
 ### L2BlockTag
 ```typescript
@@ -4059,11 +4197,11 @@ type ManaMinFeeParams = unknown
 ```
 Parameters for computing the mana min fee at a given point in time.
 
-### MessageContext
+### MasterSecretKeys
 ```typescript
-type MessageContext = unknown
+type MasterSecretKeys = unknown
 ```
-Additional information needed to process a message. All messages exist in the context of a transaction, and information about that transaction is typically required in order to perform validation, store results, etc. For example, messages containing notes require knowledge of note hashes and the first nullifier in order to find the note's nonce. A TS version of `message_context.nr`.
+The six master secret keys that fully define an account's privacy keys.
 
 ### MinedTxStatus
 ```typescript
@@ -4114,13 +4252,7 @@ type OpcodeToLocationsMap = Record<OpcodeLocation, number>
 ```typescript
 type PartialAddress = Fr
 ```
-A type which along with public key forms a preimage of a contract address. See the link below for more details https://github.com/AztecProtocol/aztec-packages/blob/master/docs/docs/concepts/foundation/accounts/keys.md#addresses-partial-addresses-and-public-keys
-
-### PendingTaggedLog
-```typescript
-type PendingTaggedLog = unknown
-```
-Represents a pending tagged log as it is stored in the pending tagged log array to which the fetchTaggedLogs oracle inserts found private logs. A TS version of `pending_tagged_log.nr`.
+The contract-side preimage of an Aztec address, i.e. the commitment to a specific contract instance. A partial address commits to a contract's code and initialization (`hash(contract_class_id, salted_initialization_hash)`) but not to its keys. Combined with an account's `PublicKeys`, it fully determines the address: `address = (hash(public_keys_hash, partial_address) * G + Ivpk_m).x`. Two accounts therefore share an address only if they share both their public keys and their partial address. See `computePartialAddress` for the derivation.
 
 ### PreTag
 ```typescript
@@ -4425,7 +4557,7 @@ Values: `private`, `public`, `utility`
 
 ### L2BlockSourceEvents
 
-Values: `checkpointEquivocationDetected`, `descendentOfInvalidAttestationsCheckpointDetected`, `invalidCheckpointDetected`, `l2BlockProven`, `l2BlocksCheckpointed`, `l2PruneUncheckpointed`, `l2PruneUnproven`
+Values: `checkpointEquivocationDetected`, `descendentOfInvalidAttestationsCheckpointDetected`, `invalidCheckpointDetected`, `l2BlockProven`, `l2BlocksCheckpointed`, `l2BlockSourceUpdated`, `l2PruneUncheckpointed`, `l2PruneUnproven`
 
 ### ManaUsageEstimate
 Expected mana usage per checkpoint for fee prediction.
