@@ -507,6 +507,62 @@ describe('syncSenderTaggingIndexes', () => {
     expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBeUndefined();
   });
 
+  /**
+   * Single-sync window straddle: a foreign tx's tags span the boundary between two consecutive sync windows, so the
+   * window loop assembles the tx's range piecewise — window 1 stores the lower index, window 2 evidences the higher
+   * one for the same (secret, txHash). The second write must widen the entry from window 1 rather than conflict with
+   * it, and the final index choice must cover the full onchain range.
+   */
+  it('assembles a pending range piecewise when a tx straddles the sync window boundary', async () => {
+    await setUp();
+
+    // A tx finalized at index 0 makes the finalized index advance during window 1, so the loop proceeds to window 2.
+    const finalizedTxHash = TxHash.random();
+    const finalizedTag = await computeSiloedTagForIndex(0);
+
+    // The straddling tx used the last index of window 1 and the first index of window 2.
+    const straddlingTxHash = TxHash.random();
+    const lowerStraddleIndex = UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN - 1;
+    const upperStraddleIndex = UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN;
+    const lowerStraddleTag = await computeSiloedTagForIndex(lowerStraddleIndex);
+    const upperStraddleTag = await computeSiloedTagForIndex(upperStraddleIndex);
+
+    aztecNode.getPrivateLogsByTags.mockImplementation(query => {
+      const tags = query.tags as SiloedTag[];
+      return Promise.resolve(
+        tags.map((tag: SiloedTag) => {
+          if (tag.equals(finalizedTag)) {
+            return [makeLog(finalizedTxHash, finalizedTag.value)];
+          } else if (tag.equals(lowerStraddleTag)) {
+            return [makeLog(straddlingTxHash, lowerStraddleTag.value)];
+          } else if (tag.equals(upperStraddleTag)) {
+            return [makeLog(straddlingTxHash, upperStraddleTag.value)];
+          }
+          return [];
+        }),
+      );
+    });
+
+    aztecNode.getTxReceipt.mockImplementation((hash: TxHash) => {
+      if (hash.equals(finalizedTxHash)) {
+        return Promise.resolve(mined(hash, TxStatus.FINALIZED, 14));
+      } else if (hash.equals(straddlingTxHash)) {
+        // Mined but not finalized, so no receipt status change resolves the straddling entry during this sync.
+        return Promise.resolve(mined(hash, TxStatus.PROPOSED, 16));
+      }
+      throw new Error(`Unexpected tx hash: ${hash.toString()}`);
+    });
+
+    await syncSenderTaggingIndexes(secret, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
+
+    // The straddled range must have been assembled piecewise — one logs query per window.
+    expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(2);
+
+    expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBe(0);
+    // The next index choice must account for both straddled onchain tags.
+    expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(upperStraddleIndex);
+  });
+
   it('handles a partially reverted transaction', async () => {
     await setUp();
 
