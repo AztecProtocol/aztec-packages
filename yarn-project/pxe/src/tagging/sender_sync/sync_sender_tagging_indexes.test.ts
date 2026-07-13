@@ -444,6 +444,21 @@ describe('syncSenderTaggingIndexes', () => {
     // The surviving index is finalized and the squashed indexes 5-6 are freed for reuse.
     expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBe(4);
     expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(4);
+    // Reconciliation must remove the pending entry entirely — a stale entry would keep resurfacing in later syncs.
+    const pendingAfterSync = await taggingStore.getTxHashesOfPendingIndexes(
+      secret,
+      0,
+      UNFINALIZED_TAGGING_INDEXES_WINDOW_LEN,
+      'test',
+    );
+    expect(pendingAfterSync).toEqual([]);
+
+    // A repeat sync must be a clean no-op: the bug being pinned here wedged the secret by re-throwing on every
+    // subsequent sync.
+    await syncSenderTaggingIndexes(secret, aztecNode, taggingStore, MOCK_ANCHOR_BLOCK_HASH, 'test');
+
+    expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBe(4);
+    expect(await taggingStore.getLastUsedIndex(secret, 'test')).toBe(4);
   });
 
   it('handles a partially reverted transaction', async () => {

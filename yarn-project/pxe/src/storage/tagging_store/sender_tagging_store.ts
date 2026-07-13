@@ -138,8 +138,8 @@ export class SenderTaggingStore implements StagedStore {
    * @param jobId - job context for staged writes to this store. See `JobCoordinator` for more details.
    * @param opts - With `skipExisting`, an existing entry for the same (secret, txHash) pair is left untouched even
    * when the ranges differ. Discovery from onchain logs needs this: for a partially reverted tx the chain only shows
-   * the surviving (non-revertible phase) sub-range of the range recorded at prove time, and receipt reconciliation —
-   * not discovery — is responsible for resolving that difference.
+   * the surviving (non-revertible phase) sub-range of the range recorded at prove time, and receipt reconciliation
+   * is responsible for resolving that difference.
    * @throws If the highestIndex is further than window length from the highest finalized index for the same secret.
    * @throws If the lowestIndex is lower than or equal to the last finalized index for the same secret.
    * @throws If a different range already exists for the same (secret, txHash) pair (unless `skipExisting` is set).
