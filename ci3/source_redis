@@ -81,7 +81,14 @@ function redis_cli {
 }
 
 function redis_setexz {
-  gzip | redis_cli -x SETEX $1 $2 &>/dev/null
+  # When redis is unavailable, redis_cli is a noop that never reads stdin, so the
+  # feeding gzip would take a SIGPIPE/broken-pipe and (under pipefail+errexit) abort
+  # the caller. Drain stdin instead so writes to a downed redis are a clean noop.
+  if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+    gzip | redis_cli -x SETEX $1 $2 &>/dev/null
+  else
+    cat >/dev/null
+  fi
 }
 
 function redis_getz {
