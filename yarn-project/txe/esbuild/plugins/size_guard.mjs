@@ -11,8 +11,8 @@
 
 // Bump log:
 // - 2026-05-27: initial limits.
-// - 2026-07-13: 14 -> 14.5 MiB. merge-train growth (aztec_node_read_cache, getTxEffects/archive oracles) plus
-//   handshake forgery-protection bytecode in the HandshakeRegistry artifact.
+// - 2026-07-10: total 14 -> 14.5 MiB. Stopgap: the total was already ~13.9995 MiB (mostly sourcemaps, which this
+//   guard counts), so a tiny per-contract bytecode change tipped it over. Pending a fix to exclude .map from the total.
 export const sizeLimits = [
   // Shared chunks emitted by code-splitting; carry the simulator + PXE + world-state graph.
   // Spikes here usually mean a heavy dep crept into the eager import path.
