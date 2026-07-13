@@ -715,6 +715,8 @@ describe('SessionManager', () => {
     // stop() passes 'prover-node stopping' as the cancel reason — verify every session
     // saw it, so a future caller can grep logs for that string.
     expect(stubs.map(s => s.cancelReasons)).toEqual([['prover-node stopping'], ['prover-node stopping']]);
+    // A clean shutdown must preserve the in-flight broker jobs so a restart reuses them.
+    expect(stubs.map(s => s.cancelAbortJobs)).toEqual([[false], [false]]);
   });
 
   it('stop awaits sessions whose cancel is in flight', async () => {
@@ -822,6 +824,8 @@ type StubSession = {
   cancelled: boolean;
   /** Reasons captured for every cancel(reason) call. Lets assertions verify "why" the cancel fired. */
   cancelReasons: string[];
+  /** abortJobs captured for every cancel() call. Lets assertions verify a clean shutdown preserves jobs. */
+  cancelAbortJobs: boolean[];
   /** Optional gate held by tests that want to drive a cancel mid-flight. */
   cancelBlocker?: Promise<void>;
   /** Resolves the first time cancel() is invoked — tests use it to know when stop's cancel call lands. */
@@ -836,7 +840,7 @@ type StubSession = {
   getEpochNumber(): EpochNumber;
   getCheckpoints(): readonly CheckpointProver[];
   isTerminal(): boolean;
-  cancel(reason?: string): Promise<void>;
+  cancel(reason?: string, opts?: { abortJobs?: boolean }): Promise<void>;
   start(): Promise<EpochProvingJobState>;
   whenDone(): Promise<EpochProvingJobState>;
 };
@@ -852,6 +856,7 @@ function makeStubSession(spec: SessionSpec, provers: readonly CheckpointProver[]
     state: 'awaiting-checkpoints',
     cancelled: false,
     cancelReasons: [],
+    cancelAbortJobs: [],
     cancelStarted: promiseWithResolvers<void>(),
     donePromise: promise,
     resolveDone: resolve,
@@ -885,8 +890,9 @@ function makeStubSession(spec: SessionSpec, provers: readonly CheckpointProver[]
       ];
       return terminal.includes(this.state);
     },
-    async cancel(reason?: string) {
+    async cancel(reason?: string, opts?: { abortJobs?: boolean }) {
       this.cancelReasons.push(reason ?? 'cancelled');
+      this.cancelAbortJobs.push(opts?.abortJobs ?? true);
       this.cancelStarted.resolve();
       if (this.cancelBlocker) {
         await this.cancelBlocker;
