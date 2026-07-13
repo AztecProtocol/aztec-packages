@@ -9,8 +9,11 @@ Aztec is in active development. Each version may introduce breaking changes that
 
 ## TBD
 
+<<<<<<< HEAD
 ## 5.0.1
 
+=======
+>>>>>>> 8b1903c998 (feat!: forbid external note validation checks (#24644))
 ### [Aztec.nr] History note nullification helpers renamed and restricted to own-contract notes
 
 The `history::note` helpers that recompute a note's nullifier have been renamed with a `local_` prefix and now assert that the note belongs to the executing contract:

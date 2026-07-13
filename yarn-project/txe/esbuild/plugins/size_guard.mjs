@@ -11,6 +11,10 @@
 
 // Bump log:
 // - 2026-05-27: initial limits.
+<<<<<<< HEAD
+=======
+// - 2026-07-13: bumped total to 14.5 MiB.
+>>>>>>> 8b1903c998 (feat!: forbid external note validation checks (#24644))
 export const sizeLimits = [
   // Shared chunks emitted by code-splitting; carry the simulator + PXE + world-state graph.
   // Spikes here usually mean a heavy dep crept into the eager import path.
