@@ -11,6 +11,7 @@
 
 // Bump log:
 // - 2026-05-27: initial limits.
+// - 2026-07-13: PXE scope-access checks bundled into TXE pushed the total to 14.00 MiB; raise total to 15 MiB.
 export const sizeLimits = [
   // Shared chunks emitted by code-splitting; carry the simulator + PXE + world-state graph.
   // Spikes here usually mean a heavy dep crept into the eager import path.
@@ -22,7 +23,7 @@ export const sizeLimits = [
   { pattern: /^dest\/bin\/index\.js$/, maxKB: 8, description: 'CLI entrypoint stub' },
 ];
 
-export const totalLimitMiB = 14;
+export const totalLimitMiB = 15;
 
 /**
  * Validates a built esbuild `metafile` against the configured limits. Logs all violations then
