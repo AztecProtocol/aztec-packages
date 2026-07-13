@@ -136,19 +136,20 @@ export class SenderTaggingStore implements StagedStore {
    * to be stored in the db.
    * @param txHash - The tx in which the tagging indexes were used in private logs.
    * @param jobId - job context for staged writes to this store. See `JobCoordinator` for more details.
-   * @param opts - With `skipExisting`, an existing entry for the same (secret, txHash) pair is left untouched even
-   * when the ranges differ. Discovery from onchain logs needs this: for a partially reverted tx the chain only shows
-   * the surviving (non-revertible phase) sub-range of the range recorded at prove time, and the finalized receipt
-   * step of the sync is responsible for resolving that difference.
+   * @param opts - With `mergeExisting`, an existing entry for the same (secret, txHash) pair is widened to the union
+   * of the stored and incoming ranges instead of throwing on a mismatch. Discovery from onchain logs needs this: it
+   * may see only the surviving (non-revertible phase) sub-range of a partially reverted tx recorded at prove time
+   * (the finalized receipt step of the sync resolves that difference), or indexes beyond a partially discovered
+   * entry when a tx from another PXE straddles a sync window boundary.
    * @throws If the highestIndex is further than window length from the highest finalized index for the same secret.
    * @throws If the lowestIndex is lower than or equal to the last finalized index for the same secret.
-   * @throws If a different range already exists for the same (secret, txHash) pair (unless `skipExisting` is set).
+   * @throws If a different range already exists for the same (secret, txHash) pair (unless `mergeExisting` is set).
    */
   storePendingIndexes(
     ranges: TaggingIndexRange[],
     txHash: TxHash,
     jobId: string,
-    opts: { skipExisting?: boolean } = {},
+    opts: { mergeExisting?: boolean } = {},
   ): Promise<void> {
     if (ranges.length === 0) {
       return Promise.resolve();
@@ -197,19 +198,36 @@ export class SenderTaggingStore implements StagedStore {
         const existingEntry = pendingData.find(entry => entry.txHash === txHashStr);
 
         if (existingEntry) {
-          // Assert that the ranges are equal — different ranges for the same (secret, txHash) indicates a bug,
-          // except for callers that opt out because they only see the onchain sub-range of a partially reverted tx.
-          if (
-            !opts.skipExisting &&
-            (existingEntry.lowestIndex !== range.lowestIndex || existingEntry.highestIndex !== range.highestIndex)
+          if (opts.mergeExisting) {
+            // Widen the entry to the union of both ranges, never shrink it: replacing would drop prove-time
+            // indexes the chain doesn't show (partially reverted tx), and skipping would drop onchain indexes
+            // discovered in a later sync window (tx straddling the window boundary).
+            this.#writePendingIndexes(
+              jobId,
+              secretStr,
+              pendingData.map(entry =>
+                entry === existingEntry
+                  ? {
+                      lowestIndex: Math.min(entry.lowestIndex, range.lowestIndex),
+                      highestIndex: Math.max(entry.highestIndex, range.highestIndex),
+                      txHash: entry.txHash,
+                    }
+                  : entry,
+              ),
+            );
+          } else if (
+            existingEntry.lowestIndex !== range.lowestIndex ||
+            existingEntry.highestIndex !== range.highestIndex
           ) {
+            // Different ranges for the same (secret, txHash) indicate a bug in callers that record indexes at prove
+            // time.
             throw new Error(
               `Conflicting range for secret ${secretStr} and txHash ${txHashStr}: ` +
                 `existing [${existingEntry.lowestIndex}, ${existingEntry.highestIndex}] vs ` +
                 `new [${range.lowestIndex}, ${range.highestIndex}]`,
             );
           }
-          // Exact duplicate — skip
+          // Exact duplicate: skip.
         } else {
           this.#writePendingIndexes(jobId, secretStr, [
             ...pendingData,
