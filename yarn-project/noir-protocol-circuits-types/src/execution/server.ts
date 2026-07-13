@@ -460,6 +460,196 @@ export function convertParityRootOutputsFromWitnessMap(outputs: WitnessMap, simu
   return mapParityPublicInputsFromNoir(publicInputs);
 }
 
+/** Decodes the outputs of the base parity circuit from the ordered public input fields of its proof. */
+export function convertParityBaseOutputsFromPublicInputFields(publicInputFields: Uint8Array[]): ParityPublicInputs {
+  const publicInputs = convertOutputsFromPublicInputFields<ParityBaseReturnType>(
+    'ParityBaseArtifact',
+    publicInputFields,
+  );
+  return mapParityPublicInputsFromNoir(publicInputs);
+}
+
+/** Decodes the outputs of the root parity circuit from the ordered public input fields of its proof. */
+export function convertParityRootOutputsFromPublicInputFields(publicInputFields: Uint8Array[]): ParityPublicInputs {
+  const publicInputs = convertOutputsFromPublicInputFields<ParityRootReturnType>(
+    'ParityRootArtifact',
+    publicInputFields,
+  );
+  return mapParityPublicInputsFromNoir(publicInputs);
+}
+
+/** Decodes the outputs of the public chonk verifier circuit from the ordered public input fields of its proof. */
+export function convertPublicChonkVerifierOutputsFromPublicInputFields(
+  publicInputFields: Uint8Array[],
+): PublicChonkVerifierPublicInputs {
+  const publicInputs = convertOutputsFromPublicInputFields<ChonkVerifierPublicReturnType>(
+    'PublicChonkVerifier',
+    publicInputFields,
+  );
+  return mapPublicChonkVerifierPublicInputsFromNoir(publicInputs);
+}
+
+/** Decodes the outputs of the private tx base rollup circuit from the ordered public input fields of its proof. */
+export function convertPrivateTxBaseRollupOutputsFromPublicInputFields(
+  publicInputFields: Uint8Array[],
+): TxRollupPublicInputs {
+  const publicInputs = convertOutputsFromPublicInputFields<RollupTxBasePrivateReturnType>(
+    'PrivateTxBaseRollupArtifact',
+    publicInputFields,
+  );
+  return mapTxRollupPublicInputsFromNoir(publicInputs);
+}
+
+/** Decodes the outputs of the public tx base rollup circuit from the ordered public input fields of its proof. */
+export function convertPublicTxBaseRollupOutputsFromPublicInputFields(
+  publicInputFields: Uint8Array[],
+): TxRollupPublicInputs {
+  const publicInputs = convertOutputsFromPublicInputFields<RollupTxBasePublicReturnType>(
+    'PublicTxBaseRollupArtifact',
+    publicInputFields,
+  );
+  return mapTxRollupPublicInputsFromNoir(publicInputs);
+}
+
+/** Decodes the outputs of the tx merge rollup circuit from the ordered public input fields of its proof. */
+export function convertTxMergeRollupOutputsFromPublicInputFields(
+  publicInputFields: Uint8Array[],
+): TxRollupPublicInputs {
+  const publicInputs = convertOutputsFromPublicInputFields<RollupTxMergeReturnType>(
+    'TxMergeRollupArtifact',
+    publicInputFields,
+  );
+  return mapTxRollupPublicInputsFromNoir(publicInputs);
+}
+
+/** Decodes the outputs of the first block root rollup circuit from the ordered public input fields of its proof. */
+export function convertBlockRootFirstRollupOutputsFromPublicInputFields(
+  publicInputFields: Uint8Array[],
+): BlockRollupPublicInputs {
+  const publicInputs = convertOutputsFromPublicInputFields<RollupBlockRootFirstReturnType>(
+    'BlockRootFirstRollupArtifact',
+    publicInputFields,
+  );
+  return mapBlockRollupPublicInputsFromNoir(publicInputs);
+}
+
+/**
+ * Decodes the outputs of the first single-tx block root rollup circuit from the ordered public input fields of its
+ * proof.
+ */
+export function convertBlockRootSingleTxFirstRollupOutputsFromPublicInputFields(
+  publicInputFields: Uint8Array[],
+): BlockRollupPublicInputs {
+  const publicInputs = convertOutputsFromPublicInputFields<RollupBlockRootFirstSingleTxReturnType>(
+    'BlockRootSingleTxFirstRollupArtifact',
+    publicInputFields,
+  );
+  return mapBlockRollupPublicInputsFromNoir(publicInputs);
+}
+
+/**
+ * Decodes the outputs of the first empty-tx block root rollup circuit from the ordered public input fields of its
+ * proof.
+ */
+export function convertBlockRootEmptyTxFirstRollupOutputsFromPublicInputFields(
+  publicInputFields: Uint8Array[],
+): BlockRollupPublicInputs {
+  const publicInputs = convertOutputsFromPublicInputFields<RollupBlockRootFirstEmptyTxReturnType>(
+    'BlockRootEmptyTxFirstRollupArtifact',
+    publicInputFields,
+  );
+  return mapBlockRollupPublicInputsFromNoir(publicInputs);
+}
+
+/** Decodes the outputs of the block root rollup circuit from the ordered public input fields of its proof. */
+export function convertBlockRootRollupOutputsFromPublicInputFields(
+  publicInputFields: Uint8Array[],
+): BlockRollupPublicInputs {
+  const publicInputs = convertOutputsFromPublicInputFields<RollupBlockRootReturnType>(
+    'BlockRootRollupArtifact',
+    publicInputFields,
+  );
+  return mapBlockRollupPublicInputsFromNoir(publicInputs);
+}
+
+/** Decodes the outputs of the single-tx block root rollup circuit from the ordered public input fields of its proof. */
+export function convertBlockRootSingleTxRollupOutputsFromPublicInputFields(
+  publicInputFields: Uint8Array[],
+): BlockRollupPublicInputs {
+  const publicInputs = convertOutputsFromPublicInputFields<RollupBlockRootSingleTxReturnType>(
+    'BlockRootSingleTxRollupArtifact',
+    publicInputFields,
+  );
+  return mapBlockRollupPublicInputsFromNoir(publicInputs);
+}
+
+/** Decodes the outputs of the block merge rollup circuit from the ordered public input fields of its proof. */
+export function convertBlockMergeRollupOutputsFromPublicInputFields(
+  publicInputFields: Uint8Array[],
+): BlockRollupPublicInputs {
+  const publicInputs = convertOutputsFromPublicInputFields<RollupBlockMergeReturnType>(
+    'BlockMergeRollupArtifact',
+    publicInputFields,
+  );
+  return mapBlockRollupPublicInputsFromNoir(publicInputs);
+}
+
+/** Decodes the outputs of the checkpoint root rollup circuit from the ordered public input fields of its proof. */
+export function convertCheckpointRootRollupOutputsFromPublicInputFields(
+  publicInputFields: Uint8Array[],
+): CheckpointRollupPublicInputs {
+  const publicInputs = convertOutputsFromPublicInputFields<RollupCheckpointRootReturnType>(
+    'CheckpointRootRollupArtifact',
+    publicInputFields,
+  );
+  return mapCheckpointRollupPublicInputsFromNoir(publicInputs);
+}
+
+/**
+ * Decodes the outputs of the single-block checkpoint root rollup circuit from the ordered public input fields of its
+ * proof.
+ */
+export function convertCheckpointRootSingleBlockRollupOutputsFromPublicInputFields(
+  publicInputFields: Uint8Array[],
+): CheckpointRollupPublicInputs {
+  const publicInputs = convertOutputsFromPublicInputFields<RollupCheckpointRootSingleBlockReturnType>(
+    'CheckpointRootSingleBlockRollupArtifact',
+    publicInputFields,
+  );
+  return mapCheckpointRollupPublicInputsFromNoir(publicInputs);
+}
+
+/** Decodes the outputs of the checkpoint padding rollup circuit from the ordered public input fields of its proof. */
+export function convertCheckpointPaddingRollupOutputsFromPublicInputFields(
+  publicInputFields: Uint8Array[],
+): CheckpointRollupPublicInputs {
+  const publicInputs = convertOutputsFromPublicInputFields<RollupCheckpointRootReturnType>(
+    'CheckpointPaddingRollupArtifact',
+    publicInputFields,
+  );
+  return mapCheckpointRollupPublicInputsFromNoir(publicInputs);
+}
+
+/** Decodes the outputs of the checkpoint merge rollup circuit from the ordered public input fields of its proof. */
+export function convertCheckpointMergeRollupOutputsFromPublicInputFields(
+  publicInputFields: Uint8Array[],
+): CheckpointRollupPublicInputs {
+  const publicInputs = convertOutputsFromPublicInputFields<RollupCheckpointMergeReturnType>(
+    'CheckpointMergeRollupArtifact',
+    publicInputFields,
+  );
+  return mapCheckpointRollupPublicInputsFromNoir(publicInputs);
+}
+
+/** Decodes the outputs of the root rollup circuit from the ordered public input fields of its proof. */
+export function convertRootRollupOutputsFromPublicInputFields(publicInputFields: Uint8Array[]): RootRollupPublicInputs {
+  const publicInputs = convertOutputsFromPublicInputFields<RollupRootReturnType>(
+    'RootRollupArtifact',
+    publicInputFields,
+  );
+  return mapRootRollupPublicInputsFromNoir(publicInputs);
+}
+
 function convertPrivateInputsToWitnessMap<InputsType>(
   artifactName: ServerProtocolArtifact,
   inputs: InputsType,
@@ -480,5 +670,21 @@ function convertOutputsFromWitnessMap<ReturnType>(
   // Decode the witness map into two fields, the return values and the inputs.
   const decoded: DecodedInputs = abiDecode(abi, outputs);
   // Cast the return value as the return type.
+  return decoded.return_value;
+}
+
+/**
+ * Decodes circuit outputs from the ordered public input fields of a proof. For server circuits the public inputs are
+ * the circuit's return values, possibly followed by recursion artifacts such as pairing points, which the decode
+ * ignores. Decoding against a parameters-stripped ABI reads the return values from index 0 in ABI declaration order.
+ */
+function convertOutputsFromPublicInputFields<ReturnType>(
+  artifactName: ServerProtocolArtifact,
+  publicInputFields: Uint8Array[],
+): ReturnType {
+  const abi = ServerCircuitArtifacts[artifactName].abi;
+  const witnessMap: WitnessMap = new Map();
+  publicInputFields.forEach((field, i) => witnessMap.set(i, `0x${Buffer.from(field).toString('hex')}`));
+  const decoded: DecodedInputs = abiDecode({ ...abi, parameters: [] }, witnessMap);
   return decoded.return_value;
 }

@@ -11,39 +11,39 @@ import { runInDirectory } from '@aztec/foundation/fs';
 import { createLogger } from '@aztec/foundation/log';
 import {
   type ServerProtocolArtifact,
-  convertBlockMergeRollupOutputsFromWitnessMap,
+  convertBlockMergeRollupOutputsFromPublicInputFields,
   convertBlockMergeRollupPrivateInputsToWitnessMap,
-  convertBlockRootEmptyTxFirstRollupOutputsFromWitnessMap,
+  convertBlockRootEmptyTxFirstRollupOutputsFromPublicInputFields,
   convertBlockRootEmptyTxFirstRollupPrivateInputsToWitnessMap,
-  convertBlockRootFirstRollupOutputsFromWitnessMap,
+  convertBlockRootFirstRollupOutputsFromPublicInputFields,
   convertBlockRootFirstRollupPrivateInputsToWitnessMap,
-  convertBlockRootRollupOutputsFromWitnessMap,
+  convertBlockRootRollupOutputsFromPublicInputFields,
   convertBlockRootRollupPrivateInputsToWitnessMap,
-  convertBlockRootSingleTxFirstRollupOutputsFromWitnessMap,
+  convertBlockRootSingleTxFirstRollupOutputsFromPublicInputFields,
   convertBlockRootSingleTxFirstRollupPrivateInputsToWitnessMap,
-  convertBlockRootSingleTxRollupOutputsFromWitnessMap,
+  convertBlockRootSingleTxRollupOutputsFromPublicInputFields,
   convertBlockRootSingleTxRollupPrivateInputsToWitnessMap,
-  convertCheckpointMergeRollupOutputsFromWitnessMap,
+  convertCheckpointMergeRollupOutputsFromPublicInputFields,
   convertCheckpointMergeRollupPrivateInputsToWitnessMap,
-  convertCheckpointPaddingRollupOutputsFromWitnessMap,
+  convertCheckpointPaddingRollupOutputsFromPublicInputFields,
   convertCheckpointPaddingRollupPrivateInputsToWitnessMap,
-  convertCheckpointRootRollupOutputsFromWitnessMap,
+  convertCheckpointRootRollupOutputsFromPublicInputFields,
   convertCheckpointRootRollupPrivateInputsToWitnessMap,
-  convertCheckpointRootSingleBlockRollupOutputsFromWitnessMap,
+  convertCheckpointRootSingleBlockRollupOutputsFromPublicInputFields,
   convertCheckpointRootSingleBlockRollupPrivateInputsToWitnessMap,
-  convertParityBaseOutputsFromWitnessMap,
+  convertParityBaseOutputsFromPublicInputFields,
   convertParityBasePrivateInputsToWitnessMap,
-  convertParityRootOutputsFromWitnessMap,
+  convertParityRootOutputsFromPublicInputFields,
   convertParityRootPrivateInputsToWitnessMap,
-  convertPrivateTxBaseRollupOutputsFromWitnessMap,
+  convertPrivateTxBaseRollupOutputsFromPublicInputFields,
   convertPrivateTxBaseRollupPrivateInputsToWitnessMap,
-  convertPublicChonkVerifierOutputsFromWitnessMap,
+  convertPublicChonkVerifierOutputsFromPublicInputFields,
   convertPublicChonkVerifierPrivateInputsToWitnessMap,
-  convertPublicTxBaseRollupOutputsFromWitnessMap,
+  convertPublicTxBaseRollupOutputsFromPublicInputFields,
   convertPublicTxBaseRollupPrivateInputsToWitnessMap,
-  convertRootRollupOutputsFromWitnessMap,
+  convertRootRollupOutputsFromPublicInputFields,
   convertRootRollupPrivateInputsToWitnessMap,
-  convertTxMergeRollupOutputsFromWitnessMap,
+  convertTxMergeRollupOutputsFromPublicInputFields,
   convertTxMergeRollupPrivateInputsToWitnessMap,
   getServerCircuitArtifact,
 } from '@aztec/noir-protocol-circuits-types/server';
@@ -87,8 +87,9 @@ import { VerificationKeyData } from '@aztec/stdlib/vks';
 import { Attributes, type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import { promises as fs } from 'fs';
-import { ungzip } from 'pako';
 import * as path from 'path';
+import { promisify } from 'util';
+import { gunzip } from 'zlib';
 
 import { BBJsFactory, type BBJsProofResult } from '../../bb/bb_js_backend.js';
 import type { ACVMConfig, BBConfig } from '../../config.js';
@@ -97,6 +98,20 @@ import { ProverInstrumentation } from '../../instrumentation.js';
 import { constructRecursiveProofFromBuffers } from '../proof_utils.js';
 
 const logger = createLogger('bb-prover');
+
+const gunzipAsync = promisify(gunzip);
+
+/** Cache of decompressed circuit bytecode; the bytecode is static per circuit type. */
+const bytecodeCache = new Map<ServerProtocolArtifact, Promise<Buffer>>();
+
+function getDecompressedBytecode(circuitType: ServerProtocolArtifact, bytecodeBase64: string): Promise<Buffer> {
+  let bytecode = bytecodeCache.get(circuitType);
+  if (!bytecode) {
+    bytecode = gunzipAsync(Buffer.from(bytecodeBase64, 'base64'));
+    bytecodeCache.set(circuitType, bytecode);
+  }
+  return bytecode;
+}
 
 export interface BBProverConfig extends BBConfig, ACVMConfig {
   // list of circuits supported by this prover. defaults to all circuits if empty
@@ -147,7 +162,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       'ParityBaseArtifact',
       RECURSIVE_PROOF_LENGTH,
       convertParityBasePrivateInputsToWitnessMap,
-      convertParityBaseOutputsFromWitnessMap,
+      convertParityBaseOutputsFromPublicInputFields,
     );
   }
 
@@ -165,7 +180,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       'ParityRootArtifact',
       NESTED_RECURSIVE_PROOF_LENGTH,
       convertParityRootPrivateInputsToWitnessMap,
-      convertParityRootOutputsFromWitnessMap,
+      convertParityRootOutputsFromPublicInputFields,
     );
   }
 
@@ -197,7 +212,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       artifactName,
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertPublicChonkVerifierPrivateInputsToWitnessMap,
-      convertPublicChonkVerifierOutputsFromWitnessMap,
+      convertPublicChonkVerifierOutputsFromPublicInputFields,
     );
 
     const verificationKey = this.getVerificationKeyDataForCircuit(artifactName);
@@ -220,7 +235,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       'PrivateTxBaseRollupArtifact',
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertPrivateTxBaseRollupPrivateInputsToWitnessMap,
-      convertPrivateTxBaseRollupOutputsFromWitnessMap,
+      convertPrivateTxBaseRollupOutputsFromPublicInputFields,
     );
   }
 
@@ -237,7 +252,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       'PublicTxBaseRollupArtifact',
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertPublicTxBaseRollupPrivateInputsToWitnessMap,
-      convertPublicTxBaseRollupOutputsFromWitnessMap,
+      convertPublicTxBaseRollupOutputsFromPublicInputFields,
     );
   }
 
@@ -254,7 +269,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       'TxMergeRollupArtifact',
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertTxMergeRollupPrivateInputsToWitnessMap,
-      convertTxMergeRollupOutputsFromWitnessMap,
+      convertTxMergeRollupOutputsFromPublicInputFields,
     );
   }
 
@@ -266,7 +281,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       'BlockRootFirstRollupArtifact',
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertBlockRootFirstRollupPrivateInputsToWitnessMap,
-      convertBlockRootFirstRollupOutputsFromWitnessMap,
+      convertBlockRootFirstRollupOutputsFromPublicInputFields,
     );
   }
 
@@ -278,7 +293,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       'BlockRootSingleTxFirstRollupArtifact',
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertBlockRootSingleTxFirstRollupPrivateInputsToWitnessMap,
-      convertBlockRootSingleTxFirstRollupOutputsFromWitnessMap,
+      convertBlockRootSingleTxFirstRollupOutputsFromPublicInputFields,
     );
   }
 
@@ -290,7 +305,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       'BlockRootEmptyTxFirstRollupArtifact',
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertBlockRootEmptyTxFirstRollupPrivateInputsToWitnessMap,
-      convertBlockRootEmptyTxFirstRollupOutputsFromWitnessMap,
+      convertBlockRootEmptyTxFirstRollupOutputsFromPublicInputFields,
     );
   }
 
@@ -302,7 +317,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       'BlockRootRollupArtifact',
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertBlockRootRollupPrivateInputsToWitnessMap,
-      convertBlockRootRollupOutputsFromWitnessMap,
+      convertBlockRootRollupOutputsFromPublicInputFields,
     );
   }
 
@@ -314,7 +329,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       'BlockRootSingleTxRollupArtifact',
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertBlockRootSingleTxRollupPrivateInputsToWitnessMap,
-      convertBlockRootSingleTxRollupOutputsFromWitnessMap,
+      convertBlockRootSingleTxRollupOutputsFromPublicInputFields,
     );
   }
 
@@ -326,7 +341,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       'BlockMergeRollupArtifact',
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertBlockMergeRollupPrivateInputsToWitnessMap,
-      convertBlockMergeRollupOutputsFromWitnessMap,
+      convertBlockMergeRollupOutputsFromPublicInputFields,
     );
   }
 
@@ -340,7 +355,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       'CheckpointRootRollupArtifact',
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertCheckpointRootRollupPrivateInputsToWitnessMap,
-      convertCheckpointRootRollupOutputsFromWitnessMap,
+      convertCheckpointRootRollupOutputsFromPublicInputFields,
     );
   }
 
@@ -354,7 +369,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       'CheckpointRootSingleBlockRollupArtifact',
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertCheckpointRootSingleBlockRollupPrivateInputsToWitnessMap,
-      convertCheckpointRootSingleBlockRollupOutputsFromWitnessMap,
+      convertCheckpointRootSingleBlockRollupOutputsFromPublicInputFields,
     );
   }
 
@@ -368,7 +383,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       'CheckpointPaddingRollupArtifact',
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertCheckpointPaddingRollupPrivateInputsToWitnessMap,
-      convertCheckpointPaddingRollupOutputsFromWitnessMap,
+      convertCheckpointPaddingRollupOutputsFromPublicInputFields,
     );
   }
 
@@ -382,7 +397,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       'CheckpointMergeRollupArtifact',
       NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
       convertCheckpointMergeRollupPrivateInputsToWitnessMap,
-      convertCheckpointMergeRollupOutputsFromWitnessMap,
+      convertCheckpointMergeRollupOutputsFromPublicInputFields,
     );
   }
 
@@ -399,7 +414,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       'RootRollupArtifact',
       ULTRA_KECCAK_PROOF_LENGTH,
       convertRootRollupPrivateInputsToWitnessMap,
-      convertRootRollupOutputsFromWitnessMap,
+      convertRootRollupOutputsFromPublicInputFields,
     );
 
     const recursiveProof = makeRecursiveProofFromBinary(proof.binaryProof, NESTED_RECURSIVE_PROOF_LENGTH);
@@ -418,7 +433,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     artifactName: ServerProtocolArtifact,
     proofLength: PROOF_LENGTH,
     convertInput: (input: CircuitInputType) => WitnessMap,
-    convertOutput: (outputWitness: WitnessMap) => CircuitOutputType,
+    convertOutput: (publicInputFields: Uint8Array[]) => CircuitOutputType,
   ) {
     const { circuitOutput, proof } = await this.createRecursiveProof(
       input,
@@ -442,7 +457,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     input: Input,
     circuitType: ServerProtocolArtifact,
     convertInput: (input: Input) => WitnessMap,
-    convertOutput: (outputWitness: WitnessMap) => Output,
+    convertOutput: (publicInputFields: Uint8Array[]) => Output,
     workingDirectory: string,
   ): Promise<{ circuitOutput: Output; proofResult: BBJsProofResult }> {
     // Have the ACVM write the partial witness here (still needs a temp directory)
@@ -461,29 +476,16 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     logger.debug(`Generating witness data for ${circuitType}`);
 
     const inputWitness = convertInput(input);
-    const foreignCallHandler = undefined;
-    const witnessResult = await simulator.executeProtocolCircuit(inputWitness, artifact, foreignCallHandler);
-    const output = convertOutput(witnessResult.witness);
+    const witnessResult = await simulator.executeProtocolCircuitToWitnessFile(inputWitness, artifact);
 
-    const circuitName = mapProtocolArtifactNameToCircuitName(circuitType);
-    this.instrumentation.recordDuration('witGenDuration', circuitName, witnessResult.duration);
-    this.instrumentation.recordSize('witGenInputSize', circuitName, input.toBuffer().length);
-    this.instrumentation.recordSize('witGenOutputSize', circuitName, output.toBuffer().length);
-
-    logger.info(`Generated witness`, {
-      circuitName,
-      duration: witnessResult.duration,
-      inputSize: input.toBuffer().length,
-      outputSize: output.toBuffer().length,
-      eventName: 'circuit-witness-generation',
-    } satisfies CircuitWitnessGenerationStats);
-
-    // Read and decompress the witness for bb.js
-    const witnessGz = await fs.readFile(outputWitnessFile);
-    const witness = ungzip(witnessGz);
+    // Read and decompress the witness for bb.js. The gzip magic check keeps this forward-compatible with the ACVM
+    // output witness compression being removed.
+    const witnessFileData = await fs.readFile(outputWitnessFile);
+    const witness =
+      witnessFileData[0] === 0x1f && witnessFileData[1] === 0x8b ? await gunzipAsync(witnessFileData) : witnessFileData;
 
     // Decompress bytecode for bb.js
-    const bytecode = ungzip(Buffer.from(artifact.bytecode, 'base64'));
+    const bytecode = await getDecompressedBytecode(circuitType, artifact.bytecode);
 
     // Prove the circuit via bb.js API
     logger.debug(`Proving ${circuitType} via bb.js...`);
@@ -501,6 +503,23 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     } catch (error) {
       throw new ProvingError(`Failed to generate proof for ${circuitType}: ${error}`);
     }
+
+    // The circuit outputs are the proof's public inputs; decode them from there instead of parsing the full output
+    // witness generated by the ACVM.
+    const output = convertOutput(proofResult.publicInputFields);
+
+    const circuitName = mapProtocolArtifactNameToCircuitName(circuitType);
+    this.instrumentation.recordDuration('witGenDuration', circuitName, witnessResult.duration);
+    this.instrumentation.recordSize('witGenInputSize', circuitName, input.toBuffer().length);
+    this.instrumentation.recordSize('witGenOutputSize', circuitName, output.toBuffer().length);
+
+    logger.info(`Generated witness`, {
+      circuitName,
+      duration: witnessResult.duration,
+      inputSize: input.toBuffer().length,
+      outputSize: output.toBuffer().length,
+      eventName: 'circuit-witness-generation',
+    } satisfies CircuitWitnessGenerationStats);
 
     return {
       circuitOutput: output,
@@ -560,7 +579,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    * @param circuitType - The type of circuit to be executed
    * @param proofLength - The length of the proof to be generated. This is a dummy parameter to aid in type checking
    * @param convertInput - Function for mapping the input object to a witness map.
-   * @param convertOutput - Function for parsing the output witness to it's corresponding object
+   * @param convertOutput - Function for decoding the circuit outputs from the proof's public input fields
    * @returns The circuits output object and it's proof
    */
   private async createRecursiveProof<
@@ -572,7 +591,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     circuitType: ServerProtocolArtifact,
     proofLength: PROOF_LENGTH,
     convertInput: (input: CircuitInputType) => WitnessMap,
-    convertOutput: (outputWitness: WitnessMap) => CircuitOutputType,
+    convertOutput: (publicInputFields: Uint8Array[]) => CircuitOutputType,
   ): Promise<{ circuitOutput: CircuitOutputType; proof: RecursiveProof<PROOF_LENGTH> }> {
     // Still need runInDirectory for ACVM witness generation temp files
     const operation = async (workingDirectory: string) => {

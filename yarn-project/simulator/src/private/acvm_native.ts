@@ -144,6 +144,91 @@ export async function executeNativeCircuit(
   }
 }
 
+/**
+ * Executes a circuit with the native ACVM and leaves the output witness in a file, without parsing it. Unlike
+ * `executeNativeCircuit` this does not pass `--print`, so the (potentially huge) output witness is never buffered on
+ * stdout nor parsed into a map — callers that only need the witness file (e.g. the server prover, which recovers the
+ * circuit outputs from the proof's public inputs) skip that cost entirely.
+ * @param inputWitness - The circuit's input witness
+ * @param bytecode - The circuit bytecode
+ * @param workingDirectory - A directory to use for temporary files by the ACVM
+ * @param pathToAcvm - The path to the ACVM binary
+ * @param outputFilename - The file to store the output witness in, encoded using Bincode
+ */
+export async function executeNativeCircuitToWitnessFile(
+  inputWitness: WitnessMap,
+  bytecode: Buffer,
+  workingDirectory: string,
+  pathToAcvm: string,
+  outputFilename: string,
+  loggerOrBindings?: Logger | LoggerBindings,
+): Promise<Omit<ACVMSuccess, 'witness'> | ACVMFailure> {
+  const logger = resolveLogger('simulator:acvm-native', loggerOrBindings);
+  const bytecodeFilename = 'bytecode';
+  const witnessFilename = 'input_witness.toml';
+
+  // convert the witness map to TOML format
+  const witnessLines: string[] = [];
+  inputWitness.forEach((value: string, key: number) => {
+    witnessLines.push(`${key} = '${value}'`);
+  });
+
+  try {
+    // Check that the directory exists
+    await fs.access(workingDirectory);
+  } catch {
+    return { status: ACVM_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
+  }
+
+  try {
+    // Write the bytecode and input witness to the working directory
+    await fs.writeFile(`${workingDirectory}/${bytecodeFilename}`, bytecode);
+    await fs.writeFile(`${workingDirectory}/${witnessFilename}`, witnessLines.join('\n'));
+
+    // Execute the ACVM using the given args
+    const args = [
+      `execute`,
+      `--working-directory`,
+      `${workingDirectory}`,
+      `--bytecode`,
+      `${bytecodeFilename}`,
+      `--input-witness`,
+      `${witnessFilename}`,
+      '--output-witness',
+      'output-witness',
+    ];
+
+    logger.debug(`Calling ACVM with ${args.join(' ')}`);
+
+    const processPromise = new Promise<void>((resolve, reject) => {
+      const errChunks: Buffer[] = [];
+      let errLen = 0;
+      const acvm = proc.spawn(pathToAcvm, args);
+      acvm.stderr.on('data', (data: Buffer) => {
+        errChunks.push(data);
+        errLen += data.length;
+      });
+      acvm.on('close', code => {
+        if (code === 0) {
+          resolve();
+        } else {
+          const stderr = Buffer.concat(errChunks, errLen).toString('utf-8');
+          logger.error(`From ACVM: ${stderr}`);
+          reject(stderr);
+        }
+      });
+    });
+
+    const timer = new Timer();
+    await processPromise;
+    const duration = timer.ms();
+    await fs.copyFile(`${workingDirectory}/output-witness.gz`, outputFilename);
+    return { status: ACVM_RESULT.SUCCESS, duration };
+  } catch (error) {
+    return { status: ACVM_RESULT.FAILURE, reason: `${error}` };
+  }
+}
+
 export class NativeACVMSimulator implements CircuitSimulator {
   private logger: Logger;
 
@@ -185,6 +270,43 @@ export class NativeACVMSimulator implements CircuitSimulator {
       }
 
       return result;
+    };
+
+    return await runInDirectory(this.workingDirectory, operation, false, this.logger);
+  }
+
+  /**
+   * Executes a protocol circuit natively and writes the output witness to the configured witness file, without
+   * parsing the witness. Callers that only need the witness file (e.g. the server prover, which recovers the circuit
+   * outputs from the proof's public inputs) avoid buffering and parsing the full output witness.
+   */
+  async executeProtocolCircuitToWitnessFile(
+    input: ACVMWitness,
+    artifact: NoirCompiledCircuitWithName,
+  ): Promise<{ duration: number }> {
+    const witnessFilename = this.witnessFilename;
+    if (!witnessFilename) {
+      throw new Error('A witness filename is required to execute a circuit to a witness file');
+    }
+
+    const operation = async (directory: string) => {
+      // Decode the bytecode from base64 since the acvm does not know about base64 encoding
+      const decodedBytecode = Buffer.from(artifact.bytecode, 'base64');
+      // Execute the circuit
+      const result = await executeNativeCircuitToWitnessFile(
+        input,
+        decodedBytecode,
+        directory,
+        this.pathToAcvm,
+        witnessFilename,
+        this.logger,
+      );
+
+      if (result.status == ACVM_RESULT.FAILURE) {
+        throw new Error(`Failed to generate witness: ${result.reason}`);
+      }
+
+      return { duration: result.duration };
     };
 
     return await runInDirectory(this.workingDirectory, operation, false, this.logger);
