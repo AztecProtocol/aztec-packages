@@ -124,8 +124,14 @@ export function injectCommands(program: Command, log: LogFn) {
       'Sets the keystore-level ETH funding account used to top up publisher EOAs, replacing any existing one',
     )
     .argument('<existing>', 'Path to existing keystore JSON')
-    .argument('<privateKey|address>', 'Funding account: a private key, or an address together with --remote-signer')
-    .option('--remote-signer <url>', 'Remote signer URL for the funding account (required with an address)')
+    .argument(
+      '<privateKey|address>',
+      'Funding account: a private key, or an address (needs --remote-signer unless the keystore already defines one)',
+    )
+    .option(
+      '--remote-signer <url>',
+      'Remote signer URL for the funding account (required with an address unless the keystore already defines one)',
+    )
     .option(
       '--password <str>',
       'Password for writing the funding key as an encrypted ETH JSON V3 file. Empty string allowed',

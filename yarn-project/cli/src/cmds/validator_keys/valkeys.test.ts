@@ -1204,6 +1204,20 @@ describe('validator keys utilities', () => {
       expect(funder.address.toString().toLowerCase()).toBe(fundingAddress);
     });
 
+    it('inherits the keystore remote signer for an address when --remote-signer is omitted', async () => {
+      const existing = join(tmp, 'set-funding-inherit-signer.json');
+      writeBaseKeystore(existing, { remoteSigner: 'http://localhost:9000' });
+      const fundingAddress = '0x' + '02'.repeat(20);
+
+      await setFundingAccount(existing, fundingAddress, {}, s => s);
+
+      const updated: KeyStore = loadKeystoreFile(existing);
+      // Stored as a bare address (no inline remoteSignerUrl); resolved via the keystore-level signer at runtime.
+      const funder = updated.fundingAccount as any;
+      expect(funder.remoteSignerUrl).toBeUndefined();
+      expect(funder.toString().toLowerCase()).toBe(fundingAddress);
+    });
+
     it('rejects an address without a remote signer', async () => {
       const existing = join(tmp, 'set-funding-no-signer.json');
       writeBaseKeystore(existing);
