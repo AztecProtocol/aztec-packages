@@ -69,7 +69,9 @@ pub global GET_NON_INTERACTIVE_HANDSHAKES_SELECTOR: FunctionSelector =
 /// way is normal: it is how they derive the handshake's tags when scanning. The attack is minting a second
 /// handshake with the same secret: the ephemeral key is unconstrained, so a malicious recipient can register
 /// its own handshake crafted to land on `S` again, with a different sender-only secret, and emit logs under
-/// the honest handshake's tag, breaking the rule that a tag is used only once.
+/// the honest handshake's constrained-delivery tag. That breaks the invariant that a constrained-delivery log
+/// sequence is tied to a single sender: by colliding on the tag it blocks the honest sender, who can no longer
+/// emit the next note in their sequence.
 ///
 /// The protection multiplies `S` by the scalar `k = hash(eph_pk, recipient_point)`: a forgery must announce a
 /// different `eph_pk`, so the protected secrets diverge. The result is still a point and silos like `S`.
@@ -82,8 +84,7 @@ pub global GET_NON_INTERACTIVE_HANDSHAKES_SELECTOR: FunctionSelector =
 ///   S  = eph_sk * recipient_point
 ///   S' = protect_from_forgery(S, eph_pk, recipient_point) = k * S
 ///
-/// The recipient never holds `S` (its side of the ECDH happens inside PXE) and protects the ephemeral key
-/// instead: see [`forgery_protected_eph_pk`] for how that arrives at the same `S'`.
+/// See [`forgery_protected_eph_pk`] for how that arrives at the same `S'`.
 pub fn protect_from_forgery(
     secret: EmbeddedCurvePoint,
     eph_pk: EmbeddedCurvePoint,
@@ -182,7 +183,7 @@ pub(crate) unconstrained fn get_handshake_secrets(
     // Each ephemeral key gets the forgery protection applied (see [`forgery_protected_eph_pk`]) so the oracle's
     // ECDH yields the protected secret the sender stored.
     let protected_eph_pks: EphemeralArray<EmbeddedCurvePoint> = EphemeralArray::empty_at(HANDSHAKE_EPH_PKS_SLOT);
-    let recipient_point = recipient.to_address_point().expect(f"scope address is not on the curve").inner;
+    let recipient_point = recipient.to_address_point().expect(f"recipient address is not on the curve").inner;
 
     let mut page_offset: u32 = 0;
     let mut has_more = true;

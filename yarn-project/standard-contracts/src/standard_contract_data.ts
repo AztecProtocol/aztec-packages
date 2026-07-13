@@ -20,20 +20,20 @@ export const StandardContractSalt: Record<StandardContractName, Fr> = {
 };
 
 export const StandardContractAddress: Record<StandardContractName, AztecAddress> = {
-  AuthRegistry: AztecAddress.fromStringUnsafe('0x1d08c0a3f762154331745eca76d336986a164c23e34b796a005a41a0b08a5e50'),
+  AuthRegistry: AztecAddress.fromStringUnsafe('0x0c99875a94363eefe8fba73084592c097d3679cd93b23ca6134ac84094bfcafd'),
   MultiCallEntrypoint: AztecAddress.fromStringUnsafe(
-    '0x0863b2b91e0c1ffe6a7a36b815da1055cdf6db7eaa4f9a177f49504f09acbcfd',
+    '0x1a4b0642faa99b30ced1528336f60a18fb93751715bb01cfcb1951d615a701d7',
   ),
-  PublicChecks: AztecAddress.fromStringUnsafe('0x2401f92eeb6639beee3e8950901fb10d9f1c8fc5144972a890e7d7c2fc6c0d6d'),
+  PublicChecks: AztecAddress.fromStringUnsafe('0x00f45df45f4bcfbaf97cef7485b8a85fb3528cced18e1e5df8500462eb82e7fb'),
   HandshakeRegistry: AztecAddress.fromStringUnsafe(
     '0x2d3a56f449481b8599c88aaaf79eab0417fdbba07eee66cbef09c6b834edfd1a',
   ),
 };
 
 export const StandardContractClassId: Record<StandardContractName, Fr> = {
-  AuthRegistry: Fr.fromString('0x280cb5e3d305a399c1e1f7190e2c72520f3f291ab66d2bfb3245c991583c9ff5'),
-  MultiCallEntrypoint: Fr.fromString('0x2000e440493e4a83b7d78f793ef0d576bdc0260190c3aa14041c07733915b968'),
-  PublicChecks: Fr.fromString('0x1df508d5369baab49856cceee0d06612d0bc4959e79fe16a85dfa9f4c3fbd655'),
+  AuthRegistry: Fr.fromString('0x16810f2c62b13300f9f04ad6f3ba93aa7856457983f71b36410b5c8ee5fb2bed'),
+  MultiCallEntrypoint: Fr.fromString('0x236e47ec5268fe659c87f100a30a90e85c8464acc7f7aee3ffd665ad1c88da2c'),
+  PublicChecks: Fr.fromString('0x189137bfa44c871debe28f355c6235de3d9503618d66b9f52bacdbd5cbab1e48'),
   HandshakeRegistry: Fr.fromString('0x2a1cd598dd9a51c3320701d19d880b87c20c5c9c735256b5a7803d305a8f9fcb'),
 };
 
@@ -42,17 +42,17 @@ export const StandardContractClassIdPreimage: Record<
   { artifactHash: Fr; privateFunctionsRoot: Fr; publicBytecodeCommitment: Fr }
 > = {
   AuthRegistry: {
-    artifactHash: Fr.fromString('0x046db90806b708c7aa7db514233c0e176e256355db5b1e9d81d84fbeb10dcd9c'),
+    artifactHash: Fr.fromString('0x24d3536140387999a17fe1d41d5832de431087af6dbdb26fbb1396cc97d50ea1'),
     privateFunctionsRoot: Fr.fromString('0x17b584350f4c3ccafd8f688729afb9feab8976114fb40012e9dee65022c072a4'),
     publicBytecodeCommitment: Fr.fromString('0x2545f39893766508ce37bb5cea5e4dcab04c6f7f79f3089b1c076876e9d268b2'),
   },
   MultiCallEntrypoint: {
-    artifactHash: Fr.fromString('0x009ed11ad9a0342f582b64971b7a1ec67020cd9035cee9523b7a64db013b95da'),
+    artifactHash: Fr.fromString('0x0ecd4c4f16d3b4a0e221863cfeba44fa99db899d48000dbed1727aa15ef9a663'),
     privateFunctionsRoot: Fr.fromString('0x0e68dfbb256e80b08b3aef47aca1f2669e97a9c6259787893c1223ac083ad5d5'),
     publicBytecodeCommitment: Fr.fromString('0x0ce4c618c3ed7f3a20410e618c06bb701e150af7fe28a3e92f68e7733809f33e'),
   },
   PublicChecks: {
-    artifactHash: Fr.fromString('0x139c4d31dd30a67df7551b043abb9c6105d5f420b964ae6969e177adc31e947b'),
+    artifactHash: Fr.fromString('0x0989018df9807f9768e55a268f733bf2bd5a58dd01f79c37058f0991be1c4f33'),
     privateFunctionsRoot: Fr.fromString('0x202860adb1b8975971eeaf571aaaa88a27f4035290d58532ae7d60b0dfaad54c'),
     publicBytecodeCommitment: Fr.fromString('0x013c4f854a5c87c9daf86c5f9bc07a42c2a061f1d924a5b3564ec7edc8e18cb7'),
   },

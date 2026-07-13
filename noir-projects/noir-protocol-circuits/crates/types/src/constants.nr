@@ -740,8 +740,7 @@ pub global DOM_SEP__NON_INTERACTIVE_HANDSHAKE_LOG_TAG: u32 = 4046403018;
 /// Domain separator for the message a recipient signs to authorize an interactive handshake, hashed via
 /// [`crate::hash::poseidon2_hash_with_separator`] and verified in-circuit by the handshake registry contract.
 pub global DOM_SEP__INTERACTIVE_HANDSHAKE_SIGNATURE: u32 = 3098455647;
-/// Domain separator for the scalar that protects a handshake's shared secret from recipient forgery. See
-/// aztec-nr's `protect_from_forgery`.
+/// Domain separator for the scalar that protects a handshake's shared secret from recipient forgery.
 pub global DOM_SEP__HANDSHAKE_FORGERY_PROTECTION: u32 = 2291983127;
 /// Domain separator for private log tags.
 ///

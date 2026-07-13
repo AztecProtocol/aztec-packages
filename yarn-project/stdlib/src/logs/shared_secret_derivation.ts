@@ -55,8 +55,7 @@ export function appSiloEcdhSharedSecretPoint(point: Point, app: AztecAddress): P
 /**
  * Protects a handshake's shared secret from being forged by the recipient: `S' = hash(ephPk, recipientPoint) * S`.
  *
- * Mirrors aztec-nr's `protect_from_forgery` and must stay byte-compatible with it; that function's docs walk the
- * full forgery argument (why the ephemeral key and the recipient point are both part of the scalar).
+ * Mirrors aztec-nr's `protect_from_forgery` and must stay byte-compatible with it.
  *
  * @param secret - The raw shared secret `S` to protect.
  * @param ephPk - The handshake's ephemeral public key.

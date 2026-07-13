@@ -468,8 +468,7 @@ unconstrained fn non_interactive_handshake_is_discovered_by_recipient() {
     assert_eq(discovered.total_count, 1);
 
     // The recipient derives the same app-siloed secret from the discovered eph_pk via ECDH, applying the forgery
-    // protection to the ephemeral key before the shared-secret oracle the same way the discovery path does (see
-    // [`forgery_protected_eph_pk`]).
+    // protection to the ephemeral key before the shared-secret oracle the same way the discovery path does.
     let handshake = discovered.items.get(0);
     let recipient_point = recipient.to_address_point().unwrap().inner;
     let recipient_secret = env.utility_context_at(sender, |_| {

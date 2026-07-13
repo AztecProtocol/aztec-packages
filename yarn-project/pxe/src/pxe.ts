@@ -891,7 +891,7 @@ export class PXE {
 
   /**
    * Derives the shared secret of a handshake from its ephemeral public key: the raw ECDH secret
-   * `S = addressSecret(recipient) * ephPk` with the forgery protection applied (see `protectFromForgery`),
+   * `S = addressSecret(recipient) * ephPk` with the forgery protection applied,
    * matching the protected secret the registry stores and the derivation the recipient-side scan uses for
    * handshakes discovered onchain. The ephemeral key is reconstructed from its x-coordinate with a positive y,
    * matching how the protocol generates it.
