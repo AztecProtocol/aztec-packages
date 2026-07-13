@@ -34,7 +34,7 @@ Follow the Rust stdlib style roughly. See `PublicImmutable` in `state_vars/publi
 - **Show practical patterns in examples.** Don't just show the API call — show it in context (e.g. inside a `#[external("public")]` function with realistic variable names).
 - **Document cost for methods.** When relevant, note which AVM opcodes are invoked and how many times (e.g. "`SLOAD` is invoked a number of times equal to `T`'s packed length").
 
-### Brevity and altitude
+### Brevity and attitude
 
 Write for a caller using the API, not for an implementor or an auditor. State what the item does and any restriction a caller must respect, plus the alternative to reach for — then stop. Leave out the internal mechanism and the security rationale behind a restriction: those belong in code comments messages or design docs, not the rustdoc. A reader who hits a restriction needs to know it exists and where to go next, not the argument for why it holds.
 
