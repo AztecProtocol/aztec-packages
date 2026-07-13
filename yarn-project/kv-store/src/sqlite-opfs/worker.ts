@@ -94,6 +94,20 @@ function handleClose(): void {
   db?.close();
   db = undefined;
   dbPath = undefined;
+  releasePool();
+}
+
+/**
+ * Releases the SAH pool's OPFS sync access handles before the terminal RPC is acked. Worker
+ * termination releases them only asynchronously, so without this a caller that deletes or reopens
+ * the store directory right after close()/delete() resolves races Chromium's cleanup
+ * (NoModificationAllowedError from removeEntry, or a hang installing a new pool on the directory).
+ * pauseVfs releases the handles without touching file contents; the worker is terminated right
+ * after, so the pool is never resumed.
+ */
+function releasePool(): void {
+  pool?.pauseVfs();
+  pool = undefined;
 }
 
 async function handleExport(): Promise<Uint8Array> {
@@ -125,6 +139,10 @@ function handleDeleteDb(dbName: string): void {
     pool.unlink(path);
   } catch {
     // File may not exist; ignore.
+  }
+  // Guarded because pauseVfs refuses (SQLITE_MISUSE) while any file is open through the VFS.
+  if (!db) {
+    releasePool();
   }
 }
 

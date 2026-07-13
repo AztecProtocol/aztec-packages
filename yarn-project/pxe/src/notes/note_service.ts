@@ -26,7 +26,7 @@ export class NoteService {
    *
    * @param owner - The owner of the notes. If undefined, returns notes for all known owners.
    * @param status - The status of notes to fetch.
-   * @param scopes - The accounts whose notes we can access in this call. Currently optional and will default to all.
+   * @param scopes - The accounts whose notes we can access in this call. An empty list matches no notes.
    */
   public async getNotes(
     contractAddress: AztecAddress,
