@@ -59,7 +59,7 @@ where
     ConfirmedNote::new(hinted_note, unique_note_hash)
 }
 
-/// Asserts that one of the executing contract's own notes existed and had not yet been nullified by a given block.
+/// Asserts a note existed and had not yet been nullified by a given block.
 ///
 /// Combines [`assert_note_existed_by`] and [`assert_local_note_was_not_nullified_by`]: it proves both that the note
 /// existed at `block_header` and that it had not been nullified then. A contract typically uses this as a security gate
@@ -77,16 +77,11 @@ pub fn assert_local_note_was_valid_by<Note>(
 where
     Note: NoteHash,
 {
-    assert(
-        hinted_note.contract_address == context.this_address(),
-        "Note nullification history is only supported for the executing contract's own notes",
-    );
-
     let confirmed_note = assert_note_existed_by(block_header, hinted_note);
     assert_local_note_was_not_nullified_by(block_header, confirmed_note, context);
 }
 
-/// Asserts that one of the executing contract's own notes had been nullified by the time a block was mined.
+/// Asserts a note had been nullified by a given block.
 ///
 /// ## Local notes only
 ///
@@ -114,7 +109,7 @@ where
     assert_nullifier_existed_by(block_header, siloed_nullifier);
 }
 
-/// Asserts that one of the executing contract's own notes had **not** been nullified by the time a block was mined.
+/// Asserts a note had **not** been nullified by a given block.
 ///
 /// ## Local notes only
 ///
