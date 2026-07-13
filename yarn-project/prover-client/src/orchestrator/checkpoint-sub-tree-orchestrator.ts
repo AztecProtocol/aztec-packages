@@ -309,6 +309,12 @@ export class CheckpointSubTreeOrchestrator extends ProvingScheduler {
       const blockEndBlobFields = blockProvingState.getBlockEndBlobFields();
       await endSpongeBlob.absorb(blockEndBlobFields);
       blockProvingState.setEndSpongeBlob(endSpongeBlob);
+
+      // A block with no txs has no base or merge proof whose completion would enqueue its block root,
+      // and parity now gates the checkpoint root rather than the first block root, so no other callback
+      // fires it. Enqueue it here. Only a first block may be empty (the block proving state rejects
+      // any other), so this always drives the empty-tx first block root.
+      this.checkAndEnqueueBlockRootRollup(blockProvingState);
     }
   }
 
