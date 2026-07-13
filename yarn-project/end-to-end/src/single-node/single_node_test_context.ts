@@ -27,7 +27,7 @@ import { executeTimeout } from '@aztec/foundation/timer';
 import { SpamContract } from '@aztec/noir-test-contracts.js/Spam';
 import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 import { getMockPubSubP2PServiceFactory } from '@aztec/p2p/test-helpers';
-import type { ProverNodeConfig } from '@aztec/prover-node';
+import type { ProverNodeConfig, ProverNodeDeps } from '@aztec/prover-node';
 import type { PXEConfig } from '@aztec/pxe/config';
 import { type Sequencer, type SequencerClient, type SequencerEvents, SequencerState } from '@aztec/sequencer-client';
 import { type BlockParameter, EthAddress } from '@aztec/stdlib/block';
@@ -371,8 +371,11 @@ export class SingleNodeTestContext {
     return accountManager.address;
   }
 
-  public async createProverNode(opts: { dontStart?: boolean } & Partial<ProverNodeConfig> = {}) {
+  public async createProverNode(
+    opts: { dontStart?: boolean; proverNodeDeps?: Partial<ProverNodeDeps> } & Partial<ProverNodeConfig> = {},
+  ) {
     this.logger.warn('Creating and syncing a simulated prover node...');
+    const { proverNodeDeps, ...configOverrides } = opts;
     const proverNodePrivateKey = this.getNextPrivateKey();
     const proverIndex = this.proverNodes.length + 1;
     const { mockGossipSubNetwork } = this.context;
@@ -385,7 +388,7 @@ export class SingleNodeTestContext {
             p2pEnabled: this.context.config.p2pEnabled || mockGossipSubNetwork !== undefined,
             proverId: EthAddress.fromNumber(proverIndex),
             dontStart: opts.dontStart,
-            ...opts,
+            ...configOverrides,
           },
           {
             dataDirectory: join(this.context.config.dataDirectory!, randomBytes(8).toString('hex')),
@@ -398,6 +401,7 @@ export class SingleNodeTestContext {
                 : undefined,
               rpcTxProviders: [this.context.aztecNode],
             },
+            proverNodeDeps,
           },
           {
             genesis: this.context.genesis,

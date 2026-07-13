@@ -37,7 +37,7 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import type { P2PClientDeps } from '@aztec/p2p';
 import { MockGossipSubNetwork, getMockPubSubP2PServiceFactory } from '@aztec/p2p/test-helpers';
 import { protocolContractsHash } from '@aztec/protocol-contracts';
-import type { ProverNodeConfig } from '@aztec/prover-node';
+import type { ProverNodeConfig, ProverNodeDeps } from '@aztec/prover-node';
 import { type PXEConfig, type PXECreationOptions, getPXEConfig } from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import { AuthRegistryArtifact, getStandardAuthRegistry } from '@aztec/standard-contracts/auth-registry';
@@ -872,6 +872,7 @@ export function createAndSyncProverNode(
     telemetry?: TelemetryClient;
     dateProvider: DateProvider;
     p2pClientDeps?: P2PClientDeps;
+    proverNodeDeps?: Partial<ProverNodeDeps>;
   },
   options: { genesis?: GenesisData; dontStart?: boolean },
 ): Promise<{ proverNode: AztecNodeService }> {
