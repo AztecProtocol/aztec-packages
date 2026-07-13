@@ -6,8 +6,9 @@ use aztec::{
     messages::delivery::{
         constrained_delivery::VALIDATE_HANDSHAKE_SELECTOR,
         handshake::{
-            AppSiloedHandshakeSecrets, GET_APP_SILOED_SECRETS_SELECTOR, GET_NON_INTERACTIVE_HANDSHAKES_SELECTOR,
-            INTERACTIVE_HANDSHAKE_SELECTOR, MAX_HANDSHAKES_PER_PAGE, NON_INTERACTIVE_HANDSHAKE_SELECTOR,
+            AppSiloedHandshakeSecrets, forgery_protected_eph_pk, GET_APP_SILOED_SECRETS_SELECTOR,
+            GET_NON_INTERACTIVE_HANDSHAKES_SELECTOR, INTERACTIVE_HANDSHAKE_SELECTOR, MAX_HANDSHAKES_PER_PAGE,
+            NON_INTERACTIVE_HANDSHAKE_SELECTOR,
         },
     },
     oracle::shared_secret::get_shared_secret,
@@ -466,9 +467,17 @@ unconstrained fn non_interactive_handshake_is_discovered_by_recipient() {
     assert_eq(discovered.items.len(), 1);
     assert_eq(discovered.total_count, 1);
 
-    // The recipient derives the same app-siloed secret from the discovered eph_pk via ECDH.
+    // The recipient derives the same app-siloed secret from the discovered eph_pk via ECDH, applying the forgery
+    // protection to the ephemeral key before the shared-secret oracle the same way the discovery path does.
     let handshake = discovered.items.get(0);
-    let recipient_secret = env.utility_context_at(sender, |_| get_shared_secret(recipient, handshake.eph_pk, sender));
+    let recipient_point = recipient.to_address_point().unwrap().inner;
+    let recipient_secret = env.utility_context_at(sender, |_| {
+        get_shared_secret(
+            recipient,
+            forgery_protected_eph_pk(handshake.eph_pk, recipient_point),
+            sender,
+        )
+    });
     assert_eq(recipient_secret.unwrap(), returned_secrets.shared);
 
     // The custom sync hook falls through to `do_sync_state`, so default note discovery still works.
