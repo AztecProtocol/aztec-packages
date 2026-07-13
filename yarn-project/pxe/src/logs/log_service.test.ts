@@ -321,13 +321,17 @@ describe('LogService', () => {
       contractAddress = await AztecAddress.random();
 
       const l2TipsProvider = mock<L2TipsProvider>();
-      ({ aztecNode, keyStore, taggingSecretSourcesStore, addressStore, logService } =
-        await createTestLogService(l2TipsProvider));
+      const scopes: AztecAddress[] = [];
+      ({ aztecNode, keyStore, taggingSecretSourcesStore, addressStore, logService } = await createTestLogService(
+        l2TipsProvider,
+        scopes,
+      ));
       l2TipsProvider.getL2Tips.mockResolvedValue(makeL2Tips(0));
 
       const completeAddress = await keyStore.addAccount(await deriveKeys(Fr.random()), Fr.random());
       await addressStore.addCompleteAddress(completeAddress);
       recipient = completeAddress.address;
+      scopes.push(recipient);
 
       sharedSecret = await Point.random();
     });
@@ -396,6 +400,13 @@ describe('LogService', () => {
       expect(txHashes).not.toContainEqual(directionalLog.txHash);
     });
 
+    it('rejects a recipient outside the allowed scopes', async () => {
+      const outOfScope = await AztecAddress.random();
+      await expect(logService.fetchTaggedLogs(contractAddress, outOfScope, [])).rejects.toThrow(
+        /not in the allowed scopes/,
+      );
+    });
+
     function handshakeTags(secret: Point, app: AztecAddress): Promise<SiloedTag[]> {
       return Promise.all(
         [AppTaggingSecretKind.UNCONSTRAINED, AppTaggingSecretKind.CONSTRAINED].map(async kind =>
@@ -421,7 +432,8 @@ describe('LogService', () => {
       contractAddress = await AztecAddress.random();
 
       const l2TipsProvider = mock<L2TipsProvider>();
-      const testContext = await createTestLogService(l2TipsProvider);
+      const scopes: AztecAddress[] = [];
+      const testContext = await createTestLogService(l2TipsProvider, scopes);
       ({ aztecNode, keyStore, taggingSecretSourcesStore, addressStore, logService } = testContext);
       l2TipsProvider.getL2Tips.mockResolvedValue(makeL2Tips(testContext.anchorBlockHeader.globalVariables.blockNumber));
 
@@ -429,6 +441,7 @@ describe('LogService', () => {
       recipientCompleteAddress = await keyStore.addAccount(await deriveKeys(new Fr(1)), Fr.random());
       recipient = recipientCompleteAddress.address;
       await addressStore.addCompleteAddress(recipientCompleteAddress);
+      scopes.push(recipient);
 
       sender = await AztecAddress.random();
 
@@ -469,7 +482,10 @@ describe('LogService', () => {
   });
 });
 
-async function createTestLogService(l2TipsProvider: MockProxy<L2TipsProvider> = mock<L2TipsProvider>()) {
+async function createTestLogService(
+  l2TipsProvider: MockProxy<L2TipsProvider> = mock<L2TipsProvider>(),
+  scopes: AztecAddress[] = [],
+) {
   const keyStore = new KeyStore(await openTmpStore('test'));
   const recipientTaggingStore = new RecipientTaggingStore(await openTmpStore('test'));
   const taggingSecretSourcesStore = new TaggingSecretSourcesStore(await openTmpStore('test'));
@@ -486,6 +502,7 @@ async function createTestLogService(l2TipsProvider: MockProxy<L2TipsProvider> = 
     recipientTaggingStore,
     taggingSecretSourcesStore,
     addressStore,
+    scopes,
     'test',
   );
 
