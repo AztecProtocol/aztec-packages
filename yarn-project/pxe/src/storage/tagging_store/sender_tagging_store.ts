@@ -198,14 +198,10 @@ export class SenderTaggingStore implements StagedStore {
         const existingEntry = pendingData.find(entry => entry.txHash === txHashStr);
 
         if (existingEntry) {
-          const rangesEqual =
-            existingEntry.lowestIndex === range.lowestIndex && existingEntry.highestIndex === range.highestIndex;
-          if (rangesEqual) {
-            // Exact duplicate — skip
-          } else if (opts.mergeExisting) {
-            // Widen the entry to the union of both ranges. Never shrink: the stored entry may cover prove-time
-            // indexes the chain doesn't show (partially reverted tx), and the incoming range may evidence onchain
-            // indexes the entry doesn't cover yet — dropping either side risks reusing a tag that is already public.
+          if (opts.mergeExisting) {
+            // Widen the entry to the union of both ranges, never shrink it: replacing would drop prove-time
+            // indexes the chain doesn't show (partially reverted tx), and skipping would drop onchain indexes
+            // discovered in a later sync window (tx straddling the window boundary).
             this.#writePendingIndexes(
               jobId,
               secretStr,
@@ -219,7 +215,10 @@ export class SenderTaggingStore implements StagedStore {
                   : entry,
               ),
             );
-          } else {
+          } else if (
+            existingEntry.lowestIndex !== range.lowestIndex ||
+            existingEntry.highestIndex !== range.highestIndex
+          ) {
             // Different ranges for the same (secret, txHash) indicate a bug in callers that record indexes at prove
             // time.
             throw new Error(
@@ -228,6 +227,7 @@ export class SenderTaggingStore implements StagedStore {
                 `new [${range.lowestIndex}, ${range.highestIndex}]`,
             );
           }
+          // Exact duplicate: skip.
         } else {
           this.#writePendingIndexes(jobId, secretStr, [
             ...pendingData,

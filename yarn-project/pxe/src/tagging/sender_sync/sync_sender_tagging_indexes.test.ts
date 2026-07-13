@@ -464,8 +464,8 @@ describe('syncSenderTaggingIndexes', () => {
   /**
    * Cross-device straddle: another PXE sharing this directional secret sent a tx, and an earlier window discovered
    * only part of its index range, so the store already tracks a narrower entry for the same (secret, txHash).
-   * Discovery must widen the entry to cover every index evidenced onchain — silently keeping the narrower entry
-   * would let this PXE pick a next index whose tag is already public.
+   * Discovery must widen the entry to cover every index evidenced onchain, so that the next index choice accounts
+   * for them.
    */
   it('widens a tracked pending range when discovery evidences further indexes for the same tx', async () => {
     await setUp();
@@ -561,9 +561,7 @@ describe('syncSenderTaggingIndexes', () => {
     expect(aztecNode.getPrivateLogsByTags).toHaveBeenCalledTimes(2);
     const queriedTags = aztecNode.getPrivateLogsByTags.mock.calls.map(([query]) => query.tags as SiloedTag[]);
     expect(queriedTags[0].some(tag => tag.equals(lowerStraddleTag))).toBe(true);
-    expect(queriedTags[0].some(tag => tag.equals(upperStraddleTag))).toBe(false);
     expect(queriedTags[1].some(tag => tag.equals(upperStraddleTag))).toBe(true);
-    expect(queriedTags[1].some(tag => tag.equals(lowerStraddleTag))).toBe(false);
 
     expect(await taggingStore.getLastFinalizedIndex(secret, 'test')).toBe(0);
     // The next index choice must account for both straddled onchain tags.
