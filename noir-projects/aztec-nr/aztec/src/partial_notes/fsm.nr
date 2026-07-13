@@ -66,7 +66,7 @@ use crate::facts::{
     delete_fact_collection, Fact, FactCollection, get_fact_collections_by_type, OriginBlock, record_retractable_fact,
     RetractableFactOrigin,
 };
-use crate::logging::aztecnr_debug_log_format;
+use crate::logging::{aztecnr_debug_log_format, aztecnr_warn_log_format};
 use crate::messages::{
     discovery::{ComputeNoteHash, ComputeNoteNullifier, nonce_discovery::attempt_note_nonce_discovery},
     processing::{enqueue_note_for_validation, log_retrieval_response::{LogRetrievalResponse, MAX_LOG_CONTENT_LEN}},
@@ -213,7 +213,17 @@ impl PartialNoteFsm {
             let completion_logs = maybe_completion_logs.unwrap();
             let num_logs = completion_logs.len();
             if num_logs != 0 {
-                assert(num_logs == 1, f"Expected at most 1 completion log per partial note, got {num_logs}");
+                // The tag is not unique, so a pending partial note can resolve to more than one completion log (e.g.
+                // the same partial note completed twice). We complete with the first and ignore the rest rather than
+                // fail, so one crafted delivery cannot permanently break sync.
+                if num_logs > 1 {
+                    let tag = self.read_pending_partial_note().note_completion_log_tag;
+                    aztecnr_warn_log_format!(
+                        "Found {0} completion logs for partial note with tag {1}, completing with the first",
+                    )(
+                        [num_logs as Field, tag],
+                    );
+                }
                 self.complete_with_log(completion_logs.get(0), compute_note_hash, compute_note_nullifier);
             }
         }
@@ -263,18 +273,21 @@ impl PartialNoteFsm {
             complete_packed_note,
         );
 
-        // TODO(#11627): is there anything reasonable we can do if we get a log but it doesn't result in a note being
-        // found?
+        // A completion log was found, so this reception is complete regardless of how many notes were discovered
+        // (a partial note delivered over an unconstrained channel may carry content matching no real note, yielding
+        // none). We still advance the FSM below rather than fail, so one bad message cannot permanently break sync.
         if discovered_notes.len() == 0 {
-            panic(
-                f"A partial note's completion log did not result in any notes being found - this should never happen",
+            aztecnr_warn_log_format!(
+                "Partial note with tag {0} completed with no matching note discovered, ignoring",
+            )(
+                [pending.note_completion_log_tag],
             );
+        } else {
+            aztecnr_debug_log_format!("Discovered {0} notes for partial note with tag {1}")([
+                discovered_notes.len() as Field,
+                pending.note_completion_log_tag,
+            ]);
         }
-
-        aztecnr_debug_log_format!("Discovered {0} notes for partial note with tag {1}")([
-            discovered_notes.len() as Field,
-            pending.note_completion_log_tag,
-        ]);
 
         discovered_notes.for_each(|discovered_note| {
             enqueue_note_for_validation(
@@ -308,9 +321,12 @@ mod test {
     use crate::ephemeral::EphemeralArray;
     use crate::facts::OriginBlock;
     use crate::messages::logs::note::MAX_NOTE_PACKED_LEN;
-    use crate::messages::processing::log_retrieval_response::LogRetrievalResponse;
+    use crate::messages::processing::{
+        get_enqueued_note_validation_requests, log_retrieval_response::LogRetrievalResponse,
+    };
     use crate::partial_notes::DeliveredPendingPartialNote;
     use crate::protocol::address::AztecAddress;
+    use crate::protocol::hash::{compute_note_hash_nonce, compute_siloed_note_hash, compute_unique_note_hash};
     use crate::test::helpers::test_environment::TestEnvironment;
     use super::PartialNoteFsm;
 
@@ -432,6 +448,56 @@ mod test {
     }
 
     #[test]
+    unconstrained fn complete_with_log_advances_a_pending_reception_whose_log_yields_no_notes() {
+        let (env, scope) = setup();
+        env.private_context(|context| {
+            let address = context.this_address();
+            PartialNoteFsm::init(address, scope, make_pending(scope), finalized_block());
+
+            // A malicious sender can deliver a partial note whose private content does not match the completion log it
+            // points at: the note hash computes but is absent from the log's transaction, so nonce discovery yields no
+            // note.
+            PartialNoteFsm::load_all(address, scope).get(0).complete_with_log(
+                completion_log_with_unrelated_note_hashes(),
+                |_, _, _, _, _, _| Option::some(DISCOVERED_NOTE_HASH),
+                dummy_compute_note_nullifier,
+            );
+
+            let all = PartialNoteFsm::load_all(address, scope);
+            assert_eq(all.len(), 1);
+            assert(all.get(0).is_completed());
+            assert_eq(enqueued_note_count(), 0);
+        });
+    }
+
+    #[test]
+    unconstrained fn step_completes_once_when_multiple_completion_logs_are_found() {
+        let (env, scope) = setup();
+        env.private_context(|context| {
+            let address = context.this_address();
+            PartialNoteFsm::init(address, scope, make_pending(scope), finalized_block());
+
+            // A single pending partial note can resolve to more than one completion log. Both logs here would
+            // independently discover a note, but step must complete only once (enqueuing exactly one note) rather
+            // than panic, or a crafted delivery would break sync.
+            let completion_logs: EphemeralArray<LogRetrievalResponse> = EphemeralArray::empty();
+            completion_logs.push(matching_completion_log(address, COMPLETION_LOG_FIRST_NULLIFIER));
+            completion_logs.push(matching_completion_log(address, SECOND_COMPLETION_LOG_FIRST_NULLIFIER));
+
+            PartialNoteFsm::load_all(address, scope).get(0).step(
+                Option::some(completion_logs),
+                |_, _, _, _, _, _| Option::some(DISCOVERED_NOTE_HASH),
+                |_, _, _, _, _, _, _| Option::some(DISCOVERED_NOTE_NULLIFIER),
+            );
+
+            let all = PartialNoteFsm::load_all(address, scope);
+            assert_eq(all.len(), 1);
+            assert(all.get(0).is_completed());
+            assert_eq(enqueued_note_count(), 1);
+        });
+    }
+
+    #[test]
     unconstrained fn step_terminates_a_completed_reception_once_its_block_is_finalized() {
         let (env, scope) = setup();
         env.private_context(|context| {
@@ -472,6 +538,54 @@ mod test {
             assert_eq(all.len(), 1);
             assert(all.get(0).is_completed(), "unfinalized completed reception should survive step");
         });
+    }
+
+    global COMPLETION_LOG_FIRST_NULLIFIER: Field = 0x47;
+    global SECOND_COMPLETION_LOG_FIRST_NULLIFIER: Field = 0x48;
+    global DISCOVERED_NOTE_HASH: Field = 0x99;
+    global DISCOVERED_NOTE_NULLIFIER: Field = 0x55;
+
+    /// The number of notes `complete_with_log` has enqueued for validation in the current context.
+    unconstrained fn enqueued_note_count() -> u32 {
+        get_enqueued_note_validation_requests().len()
+    }
+
+    /// A completion log whose transaction contains the unique note hash that `DISCOVERED_NOTE_HASH` resolves to for the
+    /// given `first_nullifier_in_tx`, so nonce discovery finds a note in it. Paired with compute functions that return
+    /// `DISCOVERED_NOTE_HASH`.
+    unconstrained fn matching_completion_log(
+        contract_address: AztecAddress,
+        first_nullifier_in_tx: Field,
+    ) -> LogRetrievalResponse {
+        let note_nonce = compute_note_hash_nonce(first_nullifier_in_tx, 0);
+        let unique_note_hash = compute_unique_note_hash(
+            note_nonce,
+            compute_siloed_note_hash(contract_address, DISCOVERED_NOTE_HASH),
+        );
+        LogRetrievalResponse {
+            log_payload: BoundedVec::from_array([0]),
+            tx_hash: 0,
+            unique_note_hashes_in_tx: BoundedVec::from_array([unique_note_hash]),
+            first_nullifier_in_tx,
+            block_number: 1,
+            block_timestamp: 0,
+            block_hash: 0,
+        }
+    }
+
+    /// A well-formed completion log tied to a block TXE reports as finalized, carrying the note hashes of some
+    /// unrelated transaction. A note whose hash is not among them discovers to nothing, standing in for the real log a
+    /// poisoned partial note's tag resolves to.
+    unconstrained fn completion_log_with_unrelated_note_hashes() -> LogRetrievalResponse {
+        LogRetrievalResponse {
+            log_payload: BoundedVec::from_array([0]),
+            tx_hash: 0,
+            unique_note_hashes_in_tx: BoundedVec::from_array([0x1234]),
+            first_nullifier_in_tx: COMPLETION_LOG_FIRST_NULLIFIER,
+            block_number: 1,
+            block_timestamp: 0,
+            block_hash: 0,
+        }
     }
 
     unconstrained fn dummy_compute_note_hash(
