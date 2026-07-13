@@ -358,7 +358,7 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
     txEffect.nullifiers = [getSingleTxBlockRequestHash(blockNumber), ...(options.nullifiers ?? [])];
     txEffect.txHash = new TxHash(new Fr(blockNumber));
 
-    const forkedWorldTrees = await this.stateMachine.synchronizer.nativeWorldStateService.fork();
+    await using forkedWorldTrees = await this.stateMachine.synchronizer.nativeWorldStateService.fork();
     await insertTxEffectIntoWorldTrees(txEffect, forkedWorldTrees);
 
     const globals = makeGlobalVariables(undefined, {
@@ -368,8 +368,6 @@ export class TXEOracleTopLevelContext implements IMiscOracle, ITxeExecutionOracl
       chainId: this.chainId,
     });
     const block = await makeTXEBlock(forkedWorldTrees, globals, [txEffect]);
-
-    await forkedWorldTrees.close();
 
     this.logger.info(`Created block ${blockNumber} with timestamp ${block.header.globalVariables.timestamp}`);
 
