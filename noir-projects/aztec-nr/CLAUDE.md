@@ -34,6 +34,36 @@ Follow the Rust stdlib style roughly. See `PublicImmutable` in `state_vars/publi
 - **Show practical patterns in examples.** Don't just show the API call — show it in context (e.g. inside a `#[external("public")]` function with realistic variable names).
 - **Document cost for methods.** When relevant, note which AVM opcodes are invoked and how many times (e.g. "`SLOAD` is invoked a number of times equal to `T`'s packed length").
 
+### Brevity and attitude
+
+Write for a caller using the API, not for an implementor or an auditor. State what the item does and any restriction a caller must respect, plus the alternative to reach for — then stop. Leave out the internal mechanism and the security rationale behind a restriction: those belong in code comments messages or design docs, not the rustdoc. A reader who hits a restriction needs to know it exists and where to go next, not the argument for why it holds.
+
+- **State the restriction, not the reason it's sound.** Say "this can only be used for X", not the multi-sentence explanation of what goes wrong otherwise.
+- **Don't narrate the mechanism.** Key siloing, tree layouts, hash preimages, and similar internals are implementation detail; mention them only when a caller cannot use the API correctly without knowing (and then put them under `## Implementation Details`).
+- **Point to the alternative instead of enumerating trade-offs.** A single "use `[other_fn]` for the other case" beats a paragraph weighing options.
+
+Example — documenting a helper that only works on the executing contract's own notes:
+
+```rust
+// Too much: explains the key-siloing mechanism and the failure the guard prevents.
+/// The note's nullifier is recomputed using the executing contract's app-siloed nullifier key
+/// and then siloed with `confirmed_note.contract_address`. These only agree for the executing
+/// contract's own notes; otherwise the non-inclusion proof passes unconditionally and wrongly
+/// reports a nullified note as not nullified, so this asserts that
+/// `confirmed_note.contract_address == context.this_address()`.
+
+// Right: states the restriction and the alternative, nothing more.
+/// ## Local notes only
+///
+/// This can only be used for notes of the executing contract. Use [`assert_note_existed_by`] to
+/// prove existence of another contract's notes.
+```
+
+## Testing
+
+- **No messages on assertions inside tests.** Write `assert_eq(actual, expected)` and `assert(cond)`, not `assert_eq(actual, expected, "values should match")`. The test's name and body already make clear what is being checked, so an assertion message is redundant noise. (Library code is the opposite: an `assert`/`panic` there must carry a message, since it explains a runtime failure to a contract developer.)
+- `#[test(should_fail_with = "...")]` is not an assertion message and is encouraged. The string matches a substring of the expected failure, pinning down *which* error the failing case must produce so the test can't pass for the wrong reason.
+
 ## Logging
 
 - **Always use the prefixed logging functions** from `crate::logging` (e.g. `logging::aztecnr_debug_log!`, `logging::aztecnr_debug_log_format!`). These automatically prepend `[aztec-nr] ` to all messages at compile time.
