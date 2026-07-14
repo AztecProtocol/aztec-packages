@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import { dirname, join } from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 
 const NOIR_CONSTANTS_FILE = '../../../../noir-projects/noir-protocol-circuits/crates/types/src/constants.nr';
 const TS_CONSTANTS_FILE = '../constants.gen.ts';
@@ -365,7 +365,7 @@ const SOLIDITY_CONSTANTS = [
 /**
  * Parsed content.
  */
-interface ParsedContent {
+export interface ParsedContent {
   /**
    * Constants of the form "CONSTANT_NAME: number_as_string".
    */
@@ -397,7 +397,7 @@ interface ParsedExpressions {
  * @param constants - An object containing key-value pairs representing constants.
  * @returns A string containing code that exports the constants as TypeScript constants.
  */
-function processConstantsTS(constants: { [key: string]: string }): string {
+export function processConstantsTS(constants: { [key: string]: string }): string {
   const code: string[] = [];
   Object.entries(constants).forEach(([key, value]) => {
     code.push(`export const ${key} = ${+value > Number.MAX_SAFE_INTEGER ? value + 'n' : value};`);
@@ -412,7 +412,7 @@ function processConstantsTS(constants: { [key: string]: string }): string {
  * @param constants - An object containing key-value pairs representing constants.
  * @returns A string containing code that exports the constants as cpp constants.
  */
-function processConstantsCpp(
+export function processConstantsCpp(
   constants: { [key: string]: string },
   generatorIndices: { [key: string]: number },
 ): string {
@@ -443,7 +443,7 @@ function processConstantsCpp(
  * @param constants - An object containing key-value pairs representing constants.
  * @returns A string containing code that exports the constants as cpp constants.
  */
-function processConstantsPil(
+export function processConstantsPil(
   constants: { [key: string]: string },
   generatorIndices: { [key: string]: number },
 ): string {
@@ -468,7 +468,7 @@ function processConstantsPil(
  * @param enumValues - An object containing key-value pairs representing enum values.
  * @returns A string containing code that exports the enum as a TypeScript enum.
  */
-function processEnumTS(enumName: string, enumValues: { [key: string]: number }): string {
+export function processEnumTS(enumName: string, enumValues: { [key: string]: number }): string {
   const code: string[] = [];
 
   code.push(`export enum ${enumName} {`);
@@ -489,7 +489,7 @@ function processEnumTS(enumName: string, enumValues: { [key: string]: number }):
  * @param prefix - A prefix to add to the constant names.
  * @returns A string containing code that exports the constants as Noir constants.
  */
-function processConstantsSolidity(constants: { [key: string]: string }, prefix = ''): string {
+export function processConstantsSolidity(constants: { [key: string]: string }, prefix = ''): string {
   const code: string[] = [];
   Object.entries(constants).forEach(([key, value]) => {
     if (SOLIDITY_CONSTANTS.includes(key)) {
@@ -502,7 +502,7 @@ function processConstantsSolidity(constants: { [key: string]: string }, prefix =
 /**
  * Generate the constants file in Typescript.
  */
-function generateTypescriptConstants({ constants, domainSeparatorEnum }: ParsedContent, targetPath: string) {
+export function generateTypescriptConstants({ constants, domainSeparatorEnum }: ParsedContent, targetPath: string) {
   const result = [
     '// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants',
     processConstantsTS(constants),
@@ -515,7 +515,7 @@ function generateTypescriptConstants({ constants, domainSeparatorEnum }: ParsedC
 /**
  * Generate the constants file in C++.
  */
-function generateCppConstants({ constants, domainSeparatorEnum }: ParsedContent, targetPath: string) {
+export function generateCppConstants({ constants, domainSeparatorEnum }: ParsedContent, targetPath: string) {
   const resultCpp: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in yarn-project/constants
 #pragma once
 
@@ -528,7 +528,7 @@ ${processConstantsCpp(constants, domainSeparatorEnum)}
 /**
  * Generate the constants file in PIL.
  */
-function generatePilConstants({ constants, domainSeparatorEnum }: ParsedContent, targetPath: string) {
+export function generatePilConstants({ constants, domainSeparatorEnum }: ParsedContent, targetPath: string) {
   const resultPil: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in yarn-project/constants
 namespace constants;
 ${processConstantsPil(constants, domainSeparatorEnum)}
@@ -540,7 +540,7 @@ ${processConstantsPil(constants, domainSeparatorEnum)}
 /**
  * Generate the constants file in Solidity.
  */
-function generateSolidityConstants({ constants }: ParsedContent, targetPath: string) {
+export function generateSolidityConstants({ constants }: ParsedContent, targetPath: string) {
   const resultSolidity: string = `// GENERATED FILE - DO NOT EDIT, RUN yarn remake-constants in yarn-project/constants
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2023 Aztec Labs.
@@ -565,7 +565,7 @@ ${processConstantsSolidity(constants)}
 /**
  * Parse the content of the constants file in Noir.
  */
-function parseNoirFile(
+export function parseNoirFile(
   fileContent: string,
   { stripLineComments = false }: { stripLineComments?: boolean } = {},
 ): ParsedExpressions {
@@ -640,7 +640,7 @@ function parseNoirFile(
  *   For example: "CONSTANT_NAME: 2 + 2" or "CONSTANT_NAME: CONSTANT_A * CONSTANT_B".
  * @returns Parsed expressions of the form: "CONSTANT_NAME: number_as_string".
  */
-function evaluateExpressions(expressions: [string, string][]): { [key: string]: string } {
+export function evaluateExpressions(expressions: [string, string][]): { [key: string]: string } {
   const constants: { [key: string]: string } = {};
 
   const knownBigInts = ['AZTEC_EPOCH_DURATION', 'FEE_RECIPIENT_LENGTH'];
@@ -739,4 +739,6 @@ function main(): void {
   generateSolidityConstants(parsedContent, solidityTargetPath);
 }
 
-main();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}
