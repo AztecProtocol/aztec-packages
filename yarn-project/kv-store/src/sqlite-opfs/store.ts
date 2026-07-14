@@ -50,14 +50,14 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
       const { id } = ev.data;
       const handler = this.#pending.get(id);
       if (!handler) {
-        this.#log.warn(`SQLite worker: no pending handler for id ${id}`);
+        this.#log.warn('SQLite worker has no pending handler', { id });
         return;
       }
       this.#pending.delete(id);
       handler.resolve(ev.data);
     };
     this.#worker.onerror = ev => {
-      this.#log.error(`SQLite worker crashed: ${ev.message}`);
+      this.#log.error('SQLite worker crashed', undefined, { message: ev.message });
       this.#rejectPending(`SQLite worker crashed: ${ev.message}`);
     };
     this.#txQueue.start();
@@ -99,9 +99,7 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
       );
     }
     const dbName = name && !ephemeral ? name : `tmp-${globalThis.crypto.getRandomValues(new Uint8Array(8)).join('')}`;
-    log.debug(
-      `Opening SQLite-OPFS ${ephemeral ? 'ephemeral ' : ''}${encryptionKey ? 'encrypted ' : ''}database ${dbName}`,
-    );
+    log.debug('Opening SQLite-OPFS database', { ephemeral, encrypted: encryptionKey !== undefined, dbName });
     const worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
     const store = new AztecSQLiteOPFSStore(worker, dbName, log, ephemeral);
     // Transfer (not clone) the key buffer to the worker so we don't leave a
@@ -161,7 +159,7 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
         return result;
       } catch (err) {
         await this.#sendRequest({ type: 'rollback', id: this.#allocId() }).catch(rollbackErr =>
-          this.#log.warn(`SQLite ROLLBACK failed: ${rollbackErr instanceof Error ? rollbackErr.message : rollbackErr}`),
+          this.#log.warn('SQLite ROLLBACK failed', { err: rollbackErr }),
         );
         throw err;
       } finally {
@@ -181,7 +179,7 @@ export class AztecSQLiteOPFSStore implements AztecAsyncKVStore {
     this.#closed = true;
     await this.#txQueue.end();
     await this.#sendRequest({ type: 'deleteDb', id: this.#allocId(), dbName: this.#name }).catch(err =>
-      this.#log.warn(`SQLite deleteDb failed: ${err instanceof Error ? err.message : err}`),
+      this.#log.warn('SQLite deleteDb failed', { err }),
     );
     this.#worker.terminate();
     this.#rejectPending('SQLite store deleted');

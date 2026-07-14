@@ -74,7 +74,7 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
     const dbPath = path ?? join(tmpdir(), randomBytes(8).toString('hex'));
     mkdirSync(dbPath, { recursive: true });
     const mapSize = 1024 * mapSizeKb;
-    log.debug(`Opening LMDB database at ${path || 'temporary location'} with map size ${mapSize}`);
+    log.debug('Opening LMDB database', { path: path ?? 'temporary location', mapSize });
     const rootDb = open({ path: dbPath, noSync: ephemeral, mapSize });
     return new AztecLmdbStore(rootDb, ephemeral, dbPath);
   }
@@ -183,7 +183,7 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
     await this.close();
     if (this.path) {
       await fs.rm(this.path, { recursive: true, force: true, maxRetries: 3 });
-      this.#log.verbose(`Deleted database files at ${this.path}`);
+      this.#log.verbose('Deleted LMDB database files', { path: this.path });
     }
   }
 

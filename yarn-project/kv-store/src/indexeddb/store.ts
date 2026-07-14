@@ -78,7 +78,7 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
    */
   static async open(log: Logger, name?: string, ephemeral: boolean = false): Promise<AztecIndexedDBStore> {
     name = name && !ephemeral ? name : globalThis.crypto.getRandomValues(new Uint8Array(16)).join('');
-    log.debug(`Opening IndexedDB ${ephemeral ? 'temp ' : ''}database with name ${name}`);
+    log.debug('Opening IndexedDB database', { ephemeral, name });
     const rootDB = await openDB<AztecIDBSchema>(name, 1, {
       upgrade(db) {
         const objectStore = db.createObjectStore('data', { keyPath: 'slot' });

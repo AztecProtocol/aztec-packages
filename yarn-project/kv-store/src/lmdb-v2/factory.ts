@@ -46,9 +46,7 @@ export async function createStore(
       schemaVersionMismatchPolicy: options.schemaVersionMismatchPolicy,
     });
 
-    log.info(
-      `Creating ${name} data store at directory ${subDir} with map size ${config.dataStoreMapSizeKb} KB (LMDB v2)`,
-    );
+    log.info('Creating LMDB v2 data store', { name, dataDir: subDir, dbMapSizeKb: config.dataStoreMapSizeKb });
     [store] = await versionManager.open();
   } else {
     store = await openTmpStore(name, true, config.dataStoreMapSizeKb, MAX_READERS, bindings);
@@ -71,19 +69,19 @@ export async function openTmpStore(
 ): Promise<AztecLMDBStoreV2> {
   const log = createLogger('kv-store:lmdb-v2:' + name, bindings);
   const dataDir = await mkdtemp(join(tmpdir(), name + '-'));
-  log.debug(`Created temporary data store at: ${dataDir} with size: ${dbMapSizeKb} KB (LMDB v2)`);
+  log.debug('Created temporary LMDB v2 data store', { dataDir, dbMapSizeKb });
 
   // pass a cleanup callback because process.on('beforeExit', cleanup) does not work under Jest
   const cleanup = async () => {
     if (cleanupTmpDir) {
       try {
         await rm(dataDir, { recursive: true, force: true, maxRetries: 3 });
-        log.debug(`Deleted temporary data store: ${dataDir}`);
+        log.debug('Deleted temporary LMDB v2 data store', { dataDir });
       } catch (err) {
-        log.warn(`Failed to delete temporary data directory (LMDB v2) ${dataDir}: ${err}`);
+        log.warn('Failed to delete temporary LMDB v2 data directory', { dataDir, err });
       }
     } else {
-      log.debug(`Leaving temporary data store: ${dataDir}`);
+      log.debug('Leaving temporary LMDB v2 data store', { dataDir });
     }
   };
 
@@ -104,14 +102,14 @@ export async function openEphemeralStore(
 ): Promise<AztecLMDBStoreV2> {
   const log = createLogger('kv-store:lmdb-v2:' + name, bindings);
   const dataDir = await mkdtemp(join(tmpdir(), name + '-'));
-  log.debug(`Created ephemeral data store at: ${dataDir} with size: ${dbMapSizeKb} KB (LMDB v2)`);
+  log.debug('Created ephemeral LMDB v2 data store', { dataDir, dbMapSizeKb });
 
   const cleanup = async () => {
     try {
       await rm(dataDir, { recursive: true, force: true, maxRetries: 3 });
-      log.debug(`Deleted ephemeral data store: ${dataDir}`);
+      log.debug('Deleted ephemeral LMDB v2 data store', { dataDir });
     } catch (err) {
-      log.warn(`Failed to delete ephemeral data directory (LMDB v2) ${dataDir}: ${err}`);
+      log.warn('Failed to delete ephemeral LMDB v2 data directory', { dataDir, err });
     }
   };
 
@@ -125,7 +123,7 @@ export async function openStoreAt(
   bindings?: LoggerBindings,
 ): Promise<AztecLMDBStoreV2> {
   const log = createLogger('kv-store:lmdb-v2', bindings);
-  log.debug(`Opening data store at: ${dataDir} with size: ${dbMapSizeKb} KB (LMDB v2)`);
+  log.debug('Opening LMDB v2 data store', { dataDir, dbMapSizeKb });
   return await AztecLMDBStoreV2.new(dataDir, dbMapSizeKb, maxReaders, undefined, bindings);
 }
 
@@ -145,14 +143,14 @@ export async function cloneEphemeralStoreFrom(
   const log = createLogger('kv-store:lmdb-v2:' + name, bindings);
   const dataDir = await mkdtemp(join(tmpdir(), name + '-'));
   await copyFile(srcDataMdbPath, join(dataDir, 'data.mdb'));
-  log.debug(`Cloned ephemeral data store at: ${dataDir} from ${srcDataMdbPath} (LMDB v2)`);
+  log.debug('Cloned ephemeral LMDB v2 data store', { dataDir, srcDataMdbPath });
 
   const cleanup = async () => {
     try {
       await rm(dataDir, { recursive: true, force: true, maxRetries: 3 });
-      log.debug(`Deleted ephemeral data store: ${dataDir}`);
+      log.debug('Deleted ephemeral LMDB v2 data store', { dataDir });
     } catch (err) {
-      log.warn(`Failed to delete ephemeral data directory (LMDB v2) ${dataDir}: ${err}`);
+      log.warn('Failed to delete ephemeral LMDB v2 data directory', { dataDir, err });
     }
   };
 
@@ -168,7 +166,7 @@ export async function openVersionedStoreAt(
   bindings?: LoggerBindings,
 ): Promise<AztecLMDBStoreV2> {
   const log = createLogger('kv-store:lmdb-v2', bindings);
-  log.debug(`Opening data store at: ${dataDirectory} with size: ${dbMapSizeKb} KB (LMDB v2)`);
+  log.debug('Opening versioned LMDB v2 data store', { dataDirectory, dbMapSizeKb });
   const [store] = await new DatabaseVersionManager({
     schemaVersion,
     rollupAddress,

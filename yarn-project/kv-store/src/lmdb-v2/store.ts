@@ -45,7 +45,7 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
     private cleanup?: () => Promise<void>,
     ephemeral: boolean = false,
   ) {
-    this.log.info(`Starting data store with maxReaders ${maxReaders}`);
+    this.log.info('Starting LMDB v2 data store', { maxReaders });
     this.channel = new MsgpackChannel(new NativeLMDBStore(dataDir, mapSize, maxReaders, ephemeral));
     // leave one reader to always be available for regular, atomic, reads
     this.availableCursors = new Semaphore(maxReaders - 1);
@@ -151,7 +151,7 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
         await tx.commit();
         return res;
       } catch (err) {
-        this.log.error(`Failed to commit transaction`, err);
+        this.log.error('Failed to commit transaction', err);
         throw err;
       } finally {
         tx.close();
@@ -166,7 +166,7 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
   async delete(): Promise<void> {
     await this.close();
     await rm(this.dataDir, { recursive: true, force: true, maxRetries: 3 });
-    this.log.verbose(`Deleted database files at ${this.dataDir}`);
+    this.log.verbose('Deleted LMDB v2 database files', { dataDir: this.dataDir });
     await this.cleanup?.();
   }
 
