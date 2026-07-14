@@ -31,17 +31,23 @@ impl Packable for PackedNote {
 }
 
 impl PackedNote {
-    pub fn high_selector() -> PropertySelector {
+    pub fn high_selector() -> PropertySelector<u8> {
         PropertySelector { index: 0, offset: 1, length: 1 }
     }
 
-    pub fn low_selector() -> PropertySelector {
+    pub fn low_selector() -> PropertySelector<u8> {
         PropertySelector { index: 0, offset: 0, length: 1 }
     }
 }
 
 mod test {
     use super::{Packable, PackedNote};
+    use aztec::note::note_interface::NoteProperties;
+
+    #[test(should_fail_with = "PackedNote's auto-generated note properties assume the #[derive(Packable)] layout (2 fields), but its hand-written Packable packs to 1. Derive Packable, or define property selectors manually for the custom layout.")]
+    fn generated_properties_rejected_for_custom_packing() {
+        let _ = PackedNote::properties();
+    }
 
     #[test]
     fn test_pack_unpack() {
