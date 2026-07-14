@@ -65,11 +65,11 @@ The prover-node splits responsibility between four classes:
   translated into a `reconcile(trigger)` call, a single idempotent function that walks
   all `EpochSession`s, cancels any whose canonical content has shifted, re-creates them with
   the new content, and opens fresh full `EpochSession`s for any epoch that has become provable.
-  It retries to converge: a failed attempt settles the `EpochSession` in the non-declaring terminal
-  `stopped`, and while the epoch stays unproven and unexpired the periodic tick reopens it over
-  current canonical content each pass — cheap, because the broker reuses every already-completed
-  sub-proof. Reconcile runs on a `SerialQueue` (from `@aztec/foundation/queue`), so two concurrent
-  triggers can never interleave on an `await` and race on the `EpochSession` maps.
+  A failed attempt settles the `EpochSession` in the non-declaring terminal `stopped` and is not
+  re-attempted on a loop by the tick; recovery from a genuine change comes through the ungated
+  `checkpoint`/`prune` triggers, and a rebuilt session reuses every already-completed sub-proof from
+  the content-addressed broker. Reconcile runs on a `SerialQueue` (from `@aztec/foundation/queue`), so
+  two concurrent triggers can never interleave on an `await` and race on the `EpochSession` maps.
 - **`ProofPublishingService`** — central owner of L1 proof submission. `EpochSession`s hand
   their top-tree proofs to the service as `PublishCandidate`s; the service serialises
   one publish at a time against a freshly-created `ProverNodePublisher`, gates eligibility
@@ -380,17 +380,15 @@ a prune — another prover covers it) uploads nothing.
 `SessionManager.start()` arms a `RunningPromise` that fires
 `reconcile({ kind: 'tick' })` every `tickIntervalMs`. The tick picks up epochs that
 became complete by time alone (no fresh checkpoint event) and advances to the
-next unproven epoch once the previous one lands on L1. Retry-to-converge is keyed off content,
-not epoch: the tick reopens the next unproven epoch, but skips it when its current canonical content
-matches an attempt that already ended in `stopped` (tracked in `failedTickContentKeys`) — re-creating
-a session over identical, already-failed content would re-run proving every tick until the deadline for
-nothing. Recovery instead flows through the ungated `checkpoint`/`prune` triggers: a re-add or reorg is
-a genuine change (even an identical-content re-add means the world-state resettled), so it reopens the
-epoch and the rebuilt session reuses every already-completed sub-proof from the content-addressed broker.
-The gate resets when the epoch is proven, when it expires, or once the proven frontier passes it; a
-transient failure on an already-complete epoch therefore waits for the deadline rather than being
-re-attempted every tick. Transient blockers (max-pending-jobs reached, archiver still indexing) create
-no `stopped` session, so they are not gated — the next tick simply tries again.
+next unproven epoch once the previous one lands on L1. It is gated by a monotonic high-water mark
+(`lastTickEpoch`): once the tick has opened a session for an epoch it does not re-open it, so a failed
+attempt is not re-created — and re-proved — every tick until the deadline. Recovery from a genuine
+change flows through the ungated `checkpoint`/`prune` triggers instead: a re-add or reorg reopens the
+epoch, and the rebuilt session reuses every already-completed sub-proof from the content-addressed
+broker. (A consequence: a transient failure on an already-complete epoch, which produces no further
+events, is not auto-retried by the tick — it waits for the deadline.) The mark advances only once a
+session actually exists, so transient blockers (max-pending-jobs reached, archiver still indexing)
+leave it in place and the next tick tries again.
 
 ## Walkthroughs
 

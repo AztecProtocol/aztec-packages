@@ -238,11 +238,11 @@ describe('SessionManager', () => {
     expect(stubs.length).toBe(1);
   });
 
-  it('onTick does not re-create a stopped epoch over unchanged content, but a checkpoint event does', async () => {
-    // A faulted attempt settles the session in the non-declaring terminal 'stopped'. Re-running proving
-    // over identical, already-failed content every tick would be wasted work, so the tick skips an epoch
-    // whose canonical content matches a prior failed attempt. A checkpoint event (a genuine change — e.g.
-    // a re-add whose world-state has resettled) is ungated and reopens it.
+  it('onTick does not re-attempt a stopped epoch, but a checkpoint event reopens it', async () => {
+    // A faulted attempt settles the session in the non-declaring terminal 'stopped'. The tick is gated
+    // by its high-water mark (lastTickEpoch), so it opens the epoch once and does not re-create (and
+    // re-prove) a session for it every tick. Recovery comes through the ungated checkpoint trigger — a
+    // re-add is a genuine change that may now succeed.
     mockNextUnprovenSlot(2, 6);
     const provers = [proverForCheckpoint(1, 6)];
     l2BlockSource.isEpochComplete.mockResolvedValue(true);
@@ -870,7 +870,6 @@ type StubSession = {
   getId(): string;
   getState(): EpochProvingJobState;
   getEpochNumber(): EpochNumber;
-  getKind(): SessionSpec['kind'];
   getCheckpoints(): readonly CheckpointProver[];
   isTerminal(): boolean;
   cancel(reason?: string, opts?: { abortJobs?: boolean }): Promise<void>;
@@ -908,9 +907,6 @@ function makeStubSession(spec: SessionSpec, provers: readonly CheckpointProver[]
     },
     getEpochNumber() {
       return this.spec.epochNumber;
-    },
-    getKind() {
-      return this.spec.kind;
     },
     getCheckpoints() {
       return this.provers;

@@ -84,14 +84,14 @@ export class SessionManager {
   /** Cached L1 constants, populated on first read. */
   private cachedL1Constants: L1RollupConstants | undefined;
   /**
-   * Per-epoch content key of the last full-session attempt that ended in the non-declaring terminal
-   * `stopped`. The periodic tick consults this so it never re-creates a full session over content it
-   * has already failed to prove — which would otherwise re-run proving every tick until the deadline.
-   * Checkpoint/prune events are ungated and reopen regardless (a re-add or reorg is a genuine change
-   * that may now succeed — including a data-plane fault fixed by an identical re-add), so this only
-   * cuts the idle per-tick re-spin. Reset when the epoch is proven or once the proven frontier passes it.
+   * Highest epoch for which the periodic tick has opened a full session. Monotonic high-water mark:
+   * once the tick has opened a session for an epoch it stops re-opening it, so a failed attempt is not
+   * re-created (and re-proved) every tick until the deadline. Recovery from a genuine change comes
+   * through the ungated `checkpoint`/`prune` triggers, not the tick. The mark only advances once a
+   * session actually exists, so a transient blocker (max pending jobs, archiver still indexing) leaves
+   * it in place and the next tick retries.
    */
-  private readonly failedTickContentKeys = new Map<EpochNumber, string>();
+  private lastTickEpoch: EpochNumber | undefined;
   /** Test-only hooks applied to every session this manager constructs. */
   private sessionHooks: EpochSessionHooks | undefined;
   /** Periodic tick that nudges reconcile to pick up newly-complete epochs. Started by `start()`. */
@@ -241,6 +241,16 @@ export class SessionManager {
     const implicatedEpochs = await this.epochsForTrigger(trigger);
     for (const epoch of implicatedEpochs) {
       await this.openFullSessionIfReady(epoch);
+    }
+
+    // Advance the tick high-water mark only once a session actually exists for the epoch.
+    // `openFullSessionIfReady` can early-return without creating one (atMaxSessionLimit, archiver
+    // still indexing, etc.); in those cases the next tick should try again rather than skip forever.
+    if (trigger.kind === 'tick' && implicatedEpochs.length === 1) {
+      const epoch = implicatedEpochs[0];
+      if (this.fullSessions.has(epoch)) {
+        this.lastTickEpoch = epoch;
+      }
     }
 
     if (trigger.kind === 'start-proof') {
@@ -393,23 +403,6 @@ export class SessionManager {
     // pass, and the terminal 'failed' decision + post-mortem upload happen once, at expiry.
     const state = await session.start();
     this.log.info(`Session ${session.getId()} exited with state ${state}`);
-
-    // Record (or clear) the tick's retry gate for full sessions: a `stopped` attempt marks its content
-    // so the tick won't re-spin over it, while a proof that lands clears the mark. Partial sessions are
-    // never tick-driven, so they don't participate.
-    if (session.getKind() === 'full') {
-      const epoch = session.getEpochNumber();
-      if (state === 'stopped') {
-        this.failedTickContentKeys.set(epoch, this.contentKeyFor(session.getCheckpoints()));
-      } else if (state === 'completed' || state === 'superseded') {
-        this.failedTickContentKeys.delete(epoch);
-      }
-    }
-  }
-
-  /** Content-addressed key for a checkpoint set — the join of each prover's content id. */
-  private contentKeyFor(checkpoints: readonly CheckpointProver[]): string {
-    return checkpoints.map(c => c.id).join('|');
   }
 
   /**
@@ -453,17 +446,12 @@ export class SessionManager {
   /**
    * Maps a reconcile trigger to the epochs whose full session should be (re)opened.
    *
-   * Retry-to-converge, keyed off content rather than epoch: the tick returns the next unproven epoch,
-   * but skips it when its current canonical content matches an attempt that already ended in `stopped`
-   * (see `failedTickContentKeys`) — re-creating a session over identical, already-failed content would
-   * just re-run proving every tick until the deadline. Recovery still happens through the ungated
-   * `checkpoint`/`prune` triggers below: a re-add or reorg is a genuine change (even an identical-content
-   * re-add signals the world-state resettled), so it reopens the epoch and a rebuilt session reuses every
-   * already-completed sub-proof from the content-addressed broker. Retrying also stops for free once the
-   * epoch is proven (`nextUnprovenEpoch` moves on) or expires (`reapExpired` empties the store).
-   *
-   * `checkpoint` and `prune` reopen the epochs whose canonical content just changed; `openFullSessionIfReady`
-   * dedupes against a live session, so a re-add during an in-flight attempt does not spawn a duplicate.
+   * The periodic `tick` is gated by `lastTickEpoch`: it opens the next unproven epoch once, then stops
+   * re-opening it, so a failed attempt is not re-created (and re-proved) every tick until the deadline.
+   * `checkpoint` and `prune` are ungated — they fire only when an epoch's canonical content actually
+   * changes (a checkpoint arrives, or a reorg prunes/replaces one), which is exactly when re-attempting
+   * is correct, and is how a pruned-then-re-added epoch recovers. `openFullSessionIfReady` dedupes
+   * against a live session, so a re-add during an in-flight attempt does not spawn a duplicate.
    */
   private async epochsForTrigger(trigger: ReconcileTrigger): Promise<EpochNumber[]> {
     switch (trigger.kind) {
@@ -473,20 +461,7 @@ export class SessionManager {
         return trigger.affectedEpochs;
       case 'tick': {
         const epoch = await this.nextUnprovenEpoch();
-        if (epoch === undefined) {
-          return [];
-        }
-        // Drop gate entries for epochs the proven frontier has already passed.
-        for (const e of this.failedTickContentKeys.keys()) {
-          if (e < epoch) {
-            this.failedTickContentKeys.delete(e);
-          }
-        }
-        // Don't re-create a full session over content a prior attempt already failed on — that just
-        // burns proving work every tick until the deadline. A checkpoint/prune event (a genuine change)
-        // is ungated and still reopens it, so prune/re-add recovery is unaffected.
-        const failedKey = this.failedTickContentKeys.get(epoch);
-        if (failedKey !== undefined && failedKey === (await this.canonicalContentKey(epoch))) {
+        if (epoch === undefined || (this.lastTickEpoch !== undefined && epoch <= this.lastTickEpoch)) {
           return [];
         }
         return [epoch];
@@ -514,13 +489,6 @@ export class SessionManager {
 
   private checkpointsForSpec(spec: SessionSpec): CheckpointProver[] {
     return this.deps.checkpointStore.listInSlotRange(spec.fromSlot, spec.toSlot);
-  }
-
-  /** Content key of an epoch's current canonical checkpoint set, or undefined when it has none. */
-  private async canonicalContentKey(epoch: EpochNumber): Promise<string | undefined> {
-    const [fromSlot, toSlot] = getSlotRangeForEpoch(epoch, await this.getL1Constants());
-    const canonical = this.deps.checkpointStore.listInSlotRange(fromSlot, toSlot);
-    return canonical.length === 0 ? undefined : this.contentKeyFor(canonical);
   }
 
   private fireAndForgetCancel(session: EpochSession, reason: string): void {
