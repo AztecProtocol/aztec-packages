@@ -92,6 +92,10 @@ const CPP_CONSTANTS = [
   'AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX',
   'AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH',
   'AVM_NUM_PUBLIC_INPUT_COLUMNS',
+  'AVM_PUBLIC_INPUTS_COLUMN_0_LENGTH',
+  'AVM_PUBLIC_INPUTS_COLUMN_1_LENGTH',
+  'AVM_PUBLIC_INPUTS_COLUMN_2_LENGTH',
+  'AVM_PUBLIC_INPUTS_COLUMN_3_LENGTH',
   'AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH',
   'AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_HEIGHT',
   'AVM_WRITTEN_PUBLIC_DATA_SLOTS_TREE_INITIAL_ROOT',
@@ -232,7 +236,6 @@ const PIL_CONSTANTS = [
   'AVM_PUBLIC_INPUTS_REVERTED_ROW_IDX',
   'AVM_PUBLIC_INPUTS_COLUMNS_MAX_LENGTH',
   'AVM_NUM_PUBLIC_INPUT_COLUMNS',
-  'AVM_PUBLIC_INPUTS_COLUMNS_COMBINED_LENGTH',
   'AVM_SUBTRACE_ID_EXECUTION',
   'AVM_SUBTRACE_ID_ALU',
   'AVM_SUBTRACE_ID_CAST',
@@ -349,6 +352,12 @@ export interface ParsedContent {
   /**
    * DomainSeparatorEnum.
    */
+  domainSeparatorEnum: { [key: string]: number };
+}
+
+/** Raw expressions parsed from Noir source before cross-file evaluation. */
+export interface ParsedExpressions {
+  constantsExpressions: [string, string][];
   domainSeparatorEnum: { [key: string]: number };
 }
 
@@ -526,14 +535,17 @@ ${processConstantsSolidity(constants)}
 /**
  * Parse the content of the constants file in Noir.
  */
-export function parseNoirFile(fileContent: string): ParsedContent {
+export function parseNoirFile(
+  fileContent: string,
+  { stripLineComments = false }: { stripLineComments?: boolean } = {},
+): ParsedExpressions {
   const constantsExpressions: [string, string][] = [];
   const domainSeparatorEnum: { [key: string]: number } = {};
 
   const emptyExpression = (): { name: string; content: string[] } => ({ name: '', content: [] });
   let expression = emptyExpression();
   fileContent.split('\n').forEach(l => {
-    const line = l.trim();
+    const line = (stripLineComments ? l.replace(/\/\/.*$/, '') : l).trim();
 
     if (!line) {
       // Empty line.
@@ -585,9 +597,7 @@ export function parseNoirFile(fileContent: string): ParsedContent {
     }
   });
 
-  const constants = evaluateExpressions(constantsExpressions);
-
-  return { constants, domainSeparatorEnum };
+  return { constantsExpressions, domainSeparatorEnum };
 }
 
 /**
